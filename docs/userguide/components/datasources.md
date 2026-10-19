@@ -131,30 +131,44 @@ through `field.data` and coordinates through `field.coords`.
 
 #### Regridding
 
-Pass a regridder to map fields onto another grid. A regridder computes its weights
-once at construction, so build it once and reuse it:
+Pass `target_grid` to receive fields on another grid, typically a model's:
 
 ```python
 from earth2studio.data import GFS, fetch_data
-from earth2studio.grids import BilinearRegridder, infer_grid
+from earth2studio.grids import infer_grid
 
-regridder = BilinearRegridder("latlon-0.25deg", infer_grid(model.input_coords()))
+target = infer_grid(model.input_coords())
+field = fetch_data(GFS(), time, variable, device="cuda", target_grid=target)
+```
+
+Fields already on the target pass through, and exact crops of the source grid are
+selected. Otherwise `fetch_data` logs and regrids by nearest neighbor, and raises
+if the target extends beyond the source. Name a method, such as
+`regridder="bilinear"`, to choose another; `list_regridders(source_grid, target)`
+lists the methods available.
+
+Each of these calls builds a regridder, which computes its weights. To fetch
+repeatedly, build one once and pass it:
+
+```python
+from earth2studio.grids import BilinearRegridder
+
+regridder = BilinearRegridder("latlon-0.25deg", target)
 field = fetch_data(GFS(), time, variable, device="cuda", regridder=regridder)
 ```
 
-`fetch_data` reduces on the source grid, moves the field to `device`, then
-regrids. `RegriddedSource(source, regridder)` packages the pair so it can be used
-wherever a source is accepted. Models use it to recommend sources on another grid.
-`fetch_data` regrids such a pair at the same point; pass `defer=False` to regrid
-each fetched frame before reduction instead. `CompositeSource` joins sources that
-provide different variables on a shared grid.
+`fetch_data` reduces temporal statistics on the source grid, moves the field to
+`device`, then regrids. `RegriddedSource(source, regridder)` packages a source and
+regridder as a single source, which regrids every field it fetches. Models use it to
+recommend sources on another grid. `CompositeSource` joins sources that provide
+different variables on a shared grid.
 
 #### Device
 
-Sources return NumPy-backed fields by default. Some sources accept a `device`
-constructor argument and return CuPy-backed fields directly on that GPU, which
-avoids slow NumPy post-processing of large arrays. `fetch_data` accepts either and
-moves data only when it is not already on the requested `device`.
+Data sources take a `device` keyword, defaulting to `"cpu"`. On a CUDA device they
+return CuPy-backed fields directly on that GPU, which avoids slow NumPy
+post-processing of large arrays. `fetch_data` accepts either and moves data only
+when it is not already on the requested `device`.
 
 ### `earth2studio.data.prep_data_array`
 
@@ -171,8 +185,8 @@ Custom data sources are often essential when working with large or on-prem
 datasets.
 So long as the data source can satisfy the API outlined in the interface above, it can
 integrate seamlessly into Earth2Studio.
-To return data on a GPU, accept a `device` constructor argument defaulting to
-`"cpu"`, store it as a `device` attribute, and return CuPy-backed arrays on it.
+Accept a `device` keyword defaulting to `"cpu"`, store it as a `device` attribute,
+and return CuPy-backed arrays on it when it is a CUDA device.
 We recommend that you review the [extension examples](../../examples/index.md#extend)
 examples, which will step you through the basic process of implementing your own
 data source.

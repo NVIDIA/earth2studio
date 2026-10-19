@@ -29,10 +29,10 @@ from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 class DataSource(Protocol):
     """Data source interface.
 
-    Sources return NumPy-backed fields by default. A source may instead accept a
-    ``device`` constructor argument, defaulting to ``"cpu"``, and return CuPy-backed
-    fields on that CUDA device, exposing it as a ``device`` attribute holding a
-    ``torch.device``. Sources without the attribute are treated as CPU sources.
+    Sources take a ``device`` constructor keyword, defaulting to ``"cpu"``, and
+    expose it as a ``device`` attribute holding a ``torch.device``. They return
+    NumPy-backed fields on CPU and CuPy-backed fields on a CUDA device. The keyword
+    is not part of the protocol; sources without the attribute are CPU sources.
     """
 
     def __call__(
@@ -158,7 +158,11 @@ class ForecastSource(Protocol):
 
 @runtime_checkable
 class DataFrameSource(Protocol):
-    """Data frame source interface. Commonly used for sparse sensor data"""
+    """Data frame source interface. Commonly used for sparse sensor data
+
+    Device placement follows the ``device`` convention of :class:`DataSource`,
+    returning pandas frames on CPU and cuDF frames on a CUDA device.
+    """
 
     SCHEMA: pa.Schema
 
@@ -223,7 +227,10 @@ class DataFrameSource(Protocol):
 
 @runtime_checkable
 class ForecastFrameSource(Protocol):
-    """Forecast data frame source interface. Commonly used for sparse sensor data"""
+    """Forecast data frame source interface. Commonly used for sparse sensor data
+
+    Device placement follows the ``device`` convention of :class:`DataFrameSource`.
+    """
 
     SCHEMA: pa.Schema
 
