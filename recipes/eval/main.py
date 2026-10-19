@@ -29,8 +29,7 @@ from src.online import (
     build_online_scorers,
     build_statistics,
     check_verification_coverage,
-    finalize_scores_store_name,
-    finalize_stats,
+    finalize_online_stats,
     named_store_filename,
     online_enabled,
     open_stats_store,
@@ -212,7 +211,7 @@ def _run_online(
             if dist.distributed:
                 torch.distributed.barrier()
             if dist.rank == 0:
-                finalize_stats(cfg)
+                finalize_online_stats(cfg)
             return
     else:
         remaining_times = list(all_times)
@@ -333,20 +332,11 @@ def _run_online(
         else:
             logger.info(f"Rank {dist.rank}: no ICs assigned, waiting at barrier.")
 
-    # Cheap and idempotent — re-derives scores.zarr from the full store, so
-    # it is correct after a resumed or multi-job campaign too. One
-    # finalize pass per reference, writing to its own scores store (the
-    # same named_store_filename mapping as above, so the unnamed case again
-    # lands on the plain, unprefixed filenames).
+    # Cheap and idempotent — re-derives each reference's scores store from its
+    # full statistics store, so it is correct after a resumed or multi-job
+    # campaign too.
     if dist.rank == 0:
-        for ref_name in verif_sources:
-            finalize_stats(
-                cfg,
-                stats_store=named_store_filename(settings.stats_store, ref_name),
-                scores_store=named_store_filename(
-                    finalize_scores_store_name(cfg), ref_name
-                ),
-            )
+        finalize_online_stats(cfg)
 
 
 if __name__ == "__main__":

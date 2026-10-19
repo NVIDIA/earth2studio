@@ -42,9 +42,11 @@ from src.online import (
     OnlineScorer,
     StepContext,
     available_times,
+    build_online_scorers,
     build_spatial_weights,
     build_statistics,
     check_verification_coverage,
+    finalize_online_stats,
     finalize_stats,
     named_store_filename,
     online_enabled,
@@ -1135,6 +1137,106 @@ class TestMultiReference:
     def test_fan_out_requires_a_child(self):
         with pytest.raises(ValueError, match="at least one"):
             MultiRefScorer({})
+
+    def test_distinct_truths_score_into_their_own_stores(self, tmp_path):
+        from src.data import PredownloadedSource
+
+        cfg = _base_cfg(tmp_path, ensemble_size=1)
+        cfg.scoring.online.verification_sources = {"a": None, "b": None}
+        os.makedirs(cfg.output.path, exist_ok=True)
+        valid_times = np.unique(
+            np.array(
+                [t + lt for t in IC_TIMES for lt in LEAD_TIMES],
+                dtype="datetime64[ns]",
+            )
+        )
+        sources = {
+            "a": PredownloadedSource(
+                _verification_zarr(tmp_path / "a.zarr", valid_times, seed=7)
+            ),
+            "b": PredownloadedSource(
+                _verification_zarr(tmp_path / "b.zarr", valid_times, seed=8)
+            ),
+        }
+        settings = parse_online_settings(cfg)
+        comm = _single_rank_comm(1)
+        spatial = OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
+        with (
+            patch("src.output.DistributedManager", return_value=_fake_dist()),
+            patch("src.distributed.DistributedManager", return_value=_fake_dist()),
+        ):
+            stats_mgrs = {
+                name: open_stats_store(
+                    cfg,
+                    build_statistics(1, has_climatology=False),
+                    VARIABLES,
+                    IC_TIMES,
+                    LEAD_TIMES,
+                    1,
+                    store_name=named_store_filename(settings.stats_store, name),
+                )
+                for name in sources
+            }
+            with stats_mgrs["a"], stats_mgrs["b"]:
+                scorer = build_online_scorers(
+                    cfg,
+                    settings,
+                    comm,
+                    sources,
+                    list(VARIABLES),
+                    LEAD_TIMES,
+                    spatial,
+                    stats_mgrs,
+                    torch.device("cpu"),
+                )
+                for item in build_group_work_items(list(IC_TIMES), comm.group, cfg):
+                    scorer.begin_item(item)
+                    for lt in LEAD_TIMES:
+                        truth_a = sources["a"]([item.time + lt], VARIABLES)
+                        x = torch.from_numpy(
+                            truth_a.transpose("time", "variable", "lat", "lon")
+                            .values[0]
+                            .copy()
+                        )
+                        coords = OrderedDict(
+                            {
+                                "time": np.array([item.time]),
+                                "lead_time": np.array([lt]),
+                                "variable": np.array(VARIABLES),
+                                "lat": SMALL_LAT,
+                                "lon": SMALL_LON,
+                            }
+                        )
+                        scorer.update(x[None, None], coords)
+                    scorer.finish_item(item)
+            finalize_online_stats(cfg)
+
+        scores_a = xr.open_zarr(os.path.join(cfg.output.path, "scores__a.zarr"))
+        scores_b = xr.open_zarr(os.path.join(cfg.output.path, "scores__b.zarr"))
+        assert not os.path.exists(os.path.join(cfg.output.path, "scores.zarr"))
+        metric = mse(reduction_dimensions=["lat", "lon"], weights=_weights_2d())
+        y_coords = OrderedDict(
+            {"variable": np.array(VARIABLES), "lat": SMALL_LAT, "lon": SMALL_LON}
+        )
+        for t in IC_TIMES:
+            for lt in LEAD_TIMES:
+                fields = {
+                    name: torch.from_numpy(
+                        source([t + lt], VARIABLES)
+                        .transpose("time", "variable", "lat", "lon")
+                        .values[0]
+                        .copy()
+                    )
+                    for name, source in sources.items()
+                }
+                expected_b, _ = metric(fields["a"], y_coords, fields["b"], y_coords)
+                for j, var in enumerate(VARIABLES):
+                    point = {"time": t, "lead_time": lt}
+                    got_a = float(scores_a[f"mse__{var}"].sel(point).values)
+                    got_b = float(scores_b[f"mse__{var}"].sel(point).values)
+                    assert got_a == pytest.approx(0.0, abs=1e-10)
+                    assert got_b == pytest.approx(float(expected_b[j]), rel=1e-5)
+                    assert got_b > 0.1
 
 
 class _StubPipeline:

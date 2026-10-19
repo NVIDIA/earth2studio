@@ -3040,6 +3040,36 @@ keep stats.zarr / scores.zarr filenames unprefixed in that case, so an
 existing campaign config produces byte-identical store names."""
 
 
+def verification_source_names(cfg: DictConfig) -> list[str | None]:
+    """Reference names in config order; ``[None]`` when no references are named.
+
+    Raises
+    ------
+    ValueError
+        If ``verification_sources`` is set but empty, or a name is not
+        usable in a store filename.
+    """
+    block = cfg.get("scoring", {}).get("online", {}) or {}
+    named = block.get("verification_sources", None)
+    if named is None:
+        return [None]
+    if not named:
+        raise ValueError(
+            "scoring.online.verification_sources is set but empty; remove it "
+            "to score a single (unnamed) reference, or add at least one "
+            "named entry."
+        )
+    names = [str(name) for name in named]
+    for name in names:
+        if not _REF_NAME_RE.match(name):
+            raise ValueError(
+                f"Invalid verification source name '{name}'. Names are "
+                "interpolated into store filenames, so they must start with "
+                "an alphanumeric and contain only letters, digits, '_' or '-'."
+            )
+    return names
+
+
 def resolve_verification_sources(
     cfg: DictConfig, pipeline: Any
 ) -> dict[str | None, DataSource]:
@@ -3077,26 +3107,13 @@ def resolve_verification_sources(
     ValueError
         If ``verification_sources`` is set but empty.
     """
-    block = cfg.get("scoring", {}).get("online", {}) or {}
-    named = block.get("verification_sources", None)
-    if named is None:
+    names = verification_source_names(cfg)
+    if names == [None]:
         return {None: pipeline.verification_source(cfg)}
-    if not named:
-        raise ValueError(
-            "scoring.online.verification_sources is set but empty; remove it "
-            "to score a single (unnamed) reference, or add at least one "
-            "named entry."
-        )
-
+    named = cfg.scoring.online.verification_sources
     sources: dict[str | None, DataSource] = {}
-    for name, spec in named.items():
-        name = str(name)
-        if not _REF_NAME_RE.match(name):
-            raise ValueError(
-                f"Invalid verification source name '{name}'. Names are "
-                "interpolated into store filenames, so they must start with "
-                "an alphanumeric and contain only letters, digits, '_' or '-'."
-            )
+    for name in names:
+        spec = named[name]
         if spec is None:
             logger.info(f"Verification source '{name}': reusing the pipeline default.")
             sources[name] = pipeline.verification_source(cfg)
@@ -3104,6 +3121,21 @@ def resolve_verification_sources(
             logger.info(f"Verification source '{name}': instantiating BYO source.")
             sources[name] = hydra.utils.instantiate(spec)
     return sources
+
+
+def finalize_online_stats(cfg: DictConfig) -> None:
+    """Finalize every reference's statistics store into its own scores store.
+
+    The single entry point for normal completion, completed resumes and the
+    score stage, so all three read the same named stores.
+    """
+    settings = parse_online_settings(cfg)
+    for name in verification_source_names(cfg):
+        finalize_stats(
+            cfg,
+            stats_store=named_store_filename(settings.stats_store, name),
+            scores_store=named_store_filename(finalize_scores_store_name(cfg), name),
+        )
 
 
 def named_store_filename(base: str, ref_name: str | None) -> str:
