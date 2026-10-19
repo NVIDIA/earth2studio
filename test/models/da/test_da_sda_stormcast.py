@@ -15,7 +15,7 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
@@ -74,15 +74,6 @@ def _build_model(device="cpu"):
     regression = PhooRegressionModel(out_vars=NVAR)
     diffusion = PhooSDADiffusionModel()
 
-    r_condition = Random(
-        OrderedDict(
-            [
-                ("lat", np.linspace(90, -90, num=181, endpoint=True)),
-                ("lon", np.linspace(0, 360, num=360)),
-            ]
-        )
-    )
-
     ny = Y_END - Y_START
     nx = X_END - X_START
     variables = np.array(["u%02d" % i for i in range(NVAR)])
@@ -105,7 +96,6 @@ def _build_model(device="cpu"):
         conditioning_means=conditioning_means,
         conditioning_stds=conditioning_stds,
         conditioning_variables=conditioning_variables,
-        conditioning_data_source=r_condition,
         sampler_args=SAMPLER_ARGS,
     ).to(device)
 
@@ -318,7 +308,6 @@ def test_stormcast_sda_call(time, device):
     original, _ = x.e2s.to_torch()
     original = original.clone()
     c = _build_input_da(model, time, device=device, conditioning=True)
-    model.conditioning_data_source = Mock(side_effect=AssertionError("internal fetch"))
     obs_source = _build_obs_source(model, n_obs=10)
     obs_df = fetch_dataframe(obs_source, time, model.variables[:2])
     ny, nx = model.lat.shape
@@ -338,7 +327,6 @@ def test_stormcast_sda_call(time, device):
     assert out_none.shape == out.shape
     torch.testing.assert_close(x.e2s.to_torch()[0], original)
     assert out.e2s.to_torch()[0].device == model.device
-    model.conditioning_data_source.assert_not_called()
 
 
 # ---------- Test: create_iterator ----------

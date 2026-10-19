@@ -144,9 +144,6 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         Standard deviations to normalize conditioning data, by default None
     conditioning_variables : np.array, optional
         Global variables for conditioning, by default np.array(CONDITIONING_VARIABLES)
-    conditioning_data_source : DataSource | ForecastSource | None, optional
-        Recommended source for global conditioning; never fetched internally,
-        by default None (recommend GFS_FX)
     time_tolerance : TimeTolerance, optional
         Time tolerance for filtering observations. Observations within the tolerance
         window around each requested time will be used for data assimilation,
@@ -180,7 +177,6 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         conditioning_means: torch.Tensor | None = None,
         conditioning_stds: torch.Tensor | None = None,
         conditioning_variables: np.array = np.array(CONDITIONING_VARIABLES),
-        conditioning_data_source: DataSource | ForecastSource | None = None,
         time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         sampler_steps: int = 36,
         sampler_args: dict[str, float | int] | None = None,
@@ -252,7 +248,6 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         self.variables = variables
 
         self.conditioning_variables = conditioning_variables
-        self.conditioning_data_source = conditioning_data_source
 
         if conditioning_means is not None:
             self.register_buffer("conditioning_means", conditioning_means)
@@ -282,13 +277,13 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
 
     def default_sources(
         self,
-    ) -> tuple[DataSource, DataSource | ForecastSource, DataFrameSource]:
+    ) -> tuple[DataSource, ForecastSource, DataFrameSource]:
         """Recommend HRRR state, global conditioning, and GHCNh observations.
 
         Returns
         -------
-        tuple[DataSource, DataSource | ForecastSource, DataFrameSource]
-            ``HRRR`` for the initial state, configured conditioning or ``GFS_FX``,
+        tuple[DataSource, ForecastSource, DataFrameSource]
+            ``HRRR`` for the initial state, ``GFS_FX`` for conditioning,
             then ``GHCNHourly`` for the
             surface station observation slot, restricted to the stations inside this
             model's domain and using the model's observation time tolerance.
@@ -304,10 +299,9 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             float(self.lon.max()) - 360.0,
         )
         stations = GHCNHourly.get_stations_bbox(bbox)
-        source = self.conditioning_data_source
         return (
             HRRR(),
-            source if source is not None else GFS_FX(verbose=False),
+            GFS_FX(verbose=False),
             GHCNHourly(
                 stations=stations, time_tolerance=self._tolerance, verbose=False
             ),
@@ -382,7 +376,6 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
     def load_model(
         cls,
         package: Package,
-        conditioning_data_source: DataSource | ForecastSource = GFS_FX(verbose=False),
         time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         sampler_steps: int = 36,
         sda_std_obs: float = 0.1,
@@ -394,9 +387,6 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         ----------
         package : Package
             Package to load model from
-        conditioning_data_source : DataSource | ForecastSource, optional
-            Recommended global conditioning source, never fetched internally,
-            by default GFS_FX
         time_tolerance : TimeTolerance, optional
             Time tolerance for filtering observations. Observations within the tolerance
             window around each requested time will be used for data assimilation,
@@ -473,7 +463,6 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             variables=variables,
             conditioning_means=conditioning_means,
             conditioning_stds=conditioning_stds,
-            conditioning_data_source=conditioning_data_source,
             conditioning_variables=conditioning_variables,
             time_tolerance=time_tolerance,
             sampler_steps=sampler_steps,
