@@ -95,11 +95,14 @@ def default_sources(self):
 ```
 
 The pair forwards the source's `time_step` and `device`, and declares
-`is_forecast`. A regridder is bound to its source's grid, so a caller replacing the
-source must replace the whole pair (`R2` raises otherwise).
+`is_forecast`. It passes qualified variable labels to the source, which aggregates
+on its native grid, and regrids the reduced field. A regridder is bound to its
+source's grid, so a caller replacing the source must replace the whole pair (`R2`
+raises otherwise).
 
 `CompositeSource(sources, variables)` routes each requested variable to the one
-named component that provides it and joins the parts along `variable`:
+named component that provides it, matching qualified labels by base name, and joins
+the parts along `variable`:
 
 - Components must all be analysis sources or all forecast sources, on one device.
 - They must share every coordinate other than `variable`. A component on another

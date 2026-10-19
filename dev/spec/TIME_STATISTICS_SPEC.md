@@ -1,7 +1,8 @@
 # Earth2Studio Time Statistics
 
-Describe temporal source requirements and reduce Xarray data. Fetch integration
-and metadata accessors are separate work.
+Declare temporal quantities in variable labels, and have data sources produce
+them. Data sources own temporal aggregation; `fetch_data` forwards labels and checks
+the result.
 
 ## Declarations and Ownership
 
@@ -16,9 +17,10 @@ contain `:`. Unqualified labels are instantaneous. Qualified labels are canonica
 for model and output coordinates. Coordinate constructors derive statistics
 metadata from these labels; there is no separate `statistics=` declaration.
 
-`fetch_data` or coordinate-system objects own label splitting,
-duplicate/conflict checks, and grouping. `time_statistics` accepts modifiers only
-and owns normalization, source-window planning, metadata, and reductions.
+Data sources own aggregation: they accept qualified labels for the quantities they
+support and return them reduced (see Source Responsibilities). `time_statistics`
+owns modifier normalization, window planning, metadata, and reductions, and
+provides the shared helper sources use to aggregate.
 
 ## Windows
 
@@ -55,16 +57,39 @@ These means retain one-hour accumulation units; multiply predicted `tp` by 24 fo
 a daily total. Channel order and model-unit conversions are unchanged.
 
 Preserve start-of-day timestamps and one-day lead increments. Substituting
-`mean:24h` would select the preceding day. Fetch at hourly cadence; label already
-prepared daily means directly without reducing them again.
+`mean:24h` would select the preceding day. The source must sample hourly; a source
+storing these daily means returns them under the same labels without reducing again.
+
+## Source Responsibilities
+
+A source that supports a temporal quantity accepts its qualified label in
+`variable`, like any other variable, and:
+
+- returns it under the requested spelling, with its entry recorded in
+  `earth2studio_statistics` (see Metadata and Scope);
+- anchors windows to valid time for analysis sources, and to each lead time within
+  one initialization for forecast sources, never reducing across initializations;
+- reduces on its native grid and backing, before returning, so wrappers and
+  `fetch_data` regrid one reduced field rather than every sample;
+- raises, before fetching, for a modifier it does not support, for duplicate
+  normalized quantities such as `t2m:mean:24h` and `t2m:mean:1day`, and for a
+  window its cadence cannot sample exactly, missing or duplicate samples included;
+- does not reduce a variable that is already aggregated.
+
+How a quantity is produced is the source's choice. It may read a stored aggregate,
+compose native accumulations as `ARCO_ERA5` does for `tp`, or fetch instantaneous
+samples at its cadence and reduce them. Sources with a fixed cadence expose it as
+`time_step`.
 
 ## Planning and Reduction
 
+Sources that reduce instantaneous samples use the shared primitives:
+
 ```python
-delta_t = np.timedelta64(6, "h")
-times = source_times("mean:24h", valid_time, delta_t)
-leads = source_lead_times("mean:24h", lead_time, delta_t)
-result = apply_time_statistic(block, "mean:24h", valid_time, delta_t)
+time_step = np.timedelta64(6, "h")
+times = source_times("mean:24h", valid_time, time_step)
+leads = source_lead_times("mean:24h", lead_time, time_step)
+result = apply_time_statistic(block, "mean:24h", valid_time, time_step)
 ```
 
 Planning accepts scalar or array targets. Forecast sources retain initialization
@@ -75,11 +100,14 @@ values outside the window and rejecting missing or duplicate required coordinate
 It selects `lead_time` when present, otherwise `time`; callers may override the
 dimension. Xarray preserves NumPy, CuPy, or Dask execution without implicit transfers.
 
-The fetch layer groups variables by normalized modifier, fetches base names, and
-reduces once per group. Outputs retain requested qualified labels. Cache parsed
-modifiers, avoid host transfers and repeated concatenation, and assemble results
-once. Fetch-plan caching, contiguous variable ordering, and streaming are future
-optimizations.
+A shared helper in `time_statistics` implements the full request for a source with
+a fixed cadence, given a function that fetches instantaneous samples. It splits each
+label at its first `:`, rejects empty base names and duplicate normalized
+quantities, validates every window before fetching, groups variables by normalized
+modifier, fetches the union of required samples once per group, reduces, and
+assembles the results in request order under the requested labels with their
+metadata. Fetch-plan caching, contiguous variable ordering, and streaming are
+future optimizations.
 
 Custom reductions share the window syntax and must preserve non-time dimensions,
 including `variable`:
@@ -101,5 +129,5 @@ array.attrs["earth2studio_statistics"] = {"t2m:mean:1day": "mean:1day"}
 Labels carry quantity identity through handshakes; attributes support lookup and
 serialization. Record CF-compatible time bounds and `cell_methods` when supported.
 
-This utility excludes fetch implementation, irregular-cadence inference,
-cross-variable diagnostics, and initial streaming/fused GPU kernels.
+Irregular-cadence inference, cross-variable diagnostics, and streaming or fused GPU
+kernels are out of scope.
