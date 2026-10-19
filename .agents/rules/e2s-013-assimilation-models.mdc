@@ -40,15 +40,16 @@ HealDA declares no initial state and two observation schemas; its call is
 `model(conv_obs, sat_obs)`. Preserve optional slots with `None` rather than dropping
 them from a tuple.
 
-## Execution and generators
+## Execution and iterators
 
 - `__call__` accepts initial states followed by forcing and computes one independent
   analysis. Return a singleton DataArray/DataFrame directly, multiple outputs as a tuple.
-- `create_generator` accepts only initial-state arguments. Prime it with `next(gen)`;
-  the first yield is the initial state or `None` and performs no assimilation.
+- `create_iterator` accepts initial-state arguments followed by the first forcing,
+  like `__call__`. The first `next(it)` computes and yields the first analysis;
+  never yield the initial state or a placeholder `None`.
 - Every subsequent `send` supplies forcing for one analysis: one value directly or a
   tuple in `forcing_coords()` order. Do not implicitly fetch or reuse forcing.
-- Document whether the generator advances its state, consumes successive initial
+- Document whether the iterator advances its state, consumes successive initial
   frames, or processes independent observation batches.
 - Document gridded forcing times relative to the current state and observation times
   relative to the analysis. For StormCastSDA, conditioning is at the input valid time
@@ -69,17 +70,16 @@ them from a tuple.
 
 ```python
 # Stateful mixed forcing
-gen = model.create_generator(x0)
-state = next(gen)
-state = gen.send((conditioning0, obs0))
-state = gen.send((conditioning1, None))
-gen.close()
+it = model.create_iterator(x0, conditioning0, obs0)
+state = next(it)  # first forecast time step
+state = it.send((conditioning1, None))
+it.close()
 
 # Stateless observation forcing
-gen = interp.create_generator()
-assert next(gen) is None
-analysis = gen.send(obs)
-gen.close()
+it = interp.create_iterator(obs0)
+analysis = next(it)
+analysis = it.send(obs1)
+it.close()
 ```
 
 ## Model construction and loading
@@ -99,7 +99,7 @@ gen.close()
 
 - Test input/forcing/output declarations and source ordering, including singleton,
   tuple and absent slots as applicable to the model.
-- Test generator priming and successive forcing sends, optional observations,
+- Test first-analysis yields and successive forcing sends, optional observations,
   coordinate mismatches, and CPU/CUDA execution where available.
 - Ensure conditioning is supplied by callers and that execution does not mutate inputs.
 - Add models to [models_da.md](mdc:docs/modules/models_da.md) alphabetically and update

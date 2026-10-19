@@ -470,7 +470,7 @@ The pipelines drive DA models through an `AssimilationRunner` seam
 model independently per analysis time so work items distribute freely
 across ranks.  Stateful/cycling models (e.g. StormCastSDA, which carries
 a background state between cycles) need a cycling runner that steps
-`model.create_generator()` sequentially — wire one in via the optional
+`model.create_iterator()` sequentially — wire one in via the optional
 `model.da.runner` Hydra block; the stateless runner refuses stateful
 models with a clear error.
 

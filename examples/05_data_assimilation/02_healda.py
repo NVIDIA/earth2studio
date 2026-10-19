@@ -174,7 +174,7 @@ plt.savefig("outputs/22_healda_obs_locations.jpg", dpi=150)
 
 # %%
 # DA models can be called directly for stateless inference or via
-# `create_generator` for stateful (iterative)
+# `create_iterator` for stateful (iterative)
 # assimilation workflows.  Here we use the direct call API to invoke the model.
 #
 # HealDA is designed to work with the (-21, 3) hour observation window from the UFS

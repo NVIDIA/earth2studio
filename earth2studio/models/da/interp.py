@@ -188,32 +188,31 @@ class InterpEquirectangular(torch.nn.Module):
         validate_observation_fields(obs, required_fields=list(self.forcing_coords()))
         return self._interpolate_dataframe(obs, output_coords)
 
-    def create_generator(self) -> Generator[
-        xr.DataArray | None,
+    def create_iterator(self, obs: pd.DataFrame) -> Generator[
+        xr.DataArray,
         pd.DataFrame,
         None,
     ]:
-        """Creates a generator which accepts collection of input observations and
-        outputs a collection of assimilated data.
+        """Create an iterator yielding an analysis on every iteration.
+
+        Parameters
+        ----------
+        obs : pd.DataFrame
+            Observations for the first analysis, matching ``forcing_coords()``.
 
         Yields
         ------
-        xr.DataArray | None
-            None on priming, then assimilated data.
+        xr.DataArray
+            Assimilated data, starting with the supplied observations.
 
         Receives
         --------
         pd.DataFrame
-            Observations matching ``forcing_coords()`` sent via generator.send().
+            Observations for the next analysis, matching ``forcing_coords()``.
         """
-        # Validate input configuration
-
-        # Initialize generator - first yield is None to start
-        observations = yield None
         try:
             while True:
-                da = self.__call__(observations)
-                observations = yield da
+                obs = yield self(obs)
         except GeneratorExit:
             logger.debug("InterpEquirectangular clean up complete.")
 

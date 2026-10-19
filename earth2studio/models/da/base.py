@@ -69,40 +69,41 @@ class AssimilationModel(Protocol):
         """
         pass
 
-    def create_generator(self, *x: pd.DataFrame | xr.DataArray) -> Generator[
-        pd.DataFrame | xr.DataArray | tuple[pd.DataFrame | xr.DataArray, ...] | None,
+    def create_iterator(self, *x: pd.DataFrame | xr.DataArray | None) -> Generator[
+        pd.DataFrame | xr.DataArray | tuple[pd.DataFrame | xr.DataArray, ...],
         pd.DataFrame
         | xr.DataArray
         | tuple[pd.DataFrame | xr.DataArray | None, ...]
         | None,
         None,
     ]:
-        """Create a bidirectional generator for successive analyses.
+        """Create an iterator for successive analyses.
 
-        Unlike the prognostic iterator, prime this generator with ``next(gen)``
-        before supplying forcing. The priming yield is the initial state or
-        ``None`` and performs no assimilation. Each subsequent ``send`` supplies
-        forcing for one analysis. The concrete model documents whether it evolves
-        the state, consumes successive initial frames, or processes independent
-        observation batches.
+        Like the prognostic iterator, the first ``next(it)`` computes an analysis
+        using the initial state and forcing supplied at creation. Every yield is
+        an analysis; there is no initial-state or placeholder yield. Each subsequent
+        ``send`` supplies forcing for one analysis. The concrete model documents
+        whether it evolves the state, consumes successive initial frames, or
+        processes independent observation batches.
 
         Parameters
         ----------
-        *x : pd.DataFrame | xr.DataArray
-            Initial state, one argument per ``input_coords()`` slot. Models with
-            no initial state take no arguments.
+        *x : pd.DataFrame | xr.DataArray | None
+            Same arguments as ``__call__``: one per ``input_coords()`` slot,
+            followed by the first forcing in ``forcing_coords()`` order.
 
         Yields
         ------
-        pd.DataFrame | xr.DataArray | tuple[pd.DataFrame | xr.DataArray, ...] | None
-            Initial state or ``None`` on priming, then analyses in output-slot order.
+        pd.DataFrame | xr.DataArray | tuple[pd.DataFrame | xr.DataArray, ...]
+            Successive analyses in output-slot order, starting with the first step.
 
         Receives
         --------
         pd.DataFrame | xr.DataArray | tuple[pd.DataFrame | xr.DataArray | None, ...] | None
             One forcing value directly, or a tuple in ``forcing_coords()`` order.
-            Preserve optional slots with ``None`` entries. ``send(None)`` after
-            priming is valid only when the model requires no forcing for that step.
+            Preserve optional slots with ``None`` entries. Subsequent ``next(it)``
+            calls mean ``send(None)``, valid only when no forcing is required for
+            that step.
             Observation times and request metadata refer to the current analysis;
             gridded forcing must match the current window declared by the model.
         """
@@ -122,7 +123,7 @@ class AssimilationModel(Protocol):
         -------
         FrameSchema | CoordinateSystem | tuple[FrameSchema | CoordinateSystem, ...] | None
             Initial-state signatures in argument order, or ``None`` for models
-            driven solely by observations. Passed to ``create_generator`` and
+            driven solely by observations. Passed to ``create_iterator`` and
             before forcing in ``__call__``.
         """
         pass
@@ -140,8 +141,9 @@ class AssimilationModel(Protocol):
         Gridded signatures use lead times relative to the state being processed.
         Frame schemas describe observation columns and allowed values; each model
         documents its observation window and required DataFrame request metadata.
-        Forcing is supplied on every generator ``send`` and is not implicitly
-        fetched or reused. ``None`` means no forcing slots, not an optional slot.
+        Forcing is supplied at iterator creation and on each ``send`` and is not
+        implicitly fetched or reused. ``None`` means no forcing slots, not an
+        optional slot.
 
         Returns
         -------

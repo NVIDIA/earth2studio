@@ -82,32 +82,33 @@ analysis = model(observations)  # e.g. InterpEquirectangular
 ### Stateful Assimilation
 
 Some assimilation workflows need to process a sequence of observation batches while
-maintaining internal state. For those workflows, use `create_generator`.
+maintaining internal state. For those workflows, use `create_iterator`.
 
 ```python
 # Assume model is an instance of an AssimilationModel
-generator = model.create_generator()
-next(generator)  # Prime without assimilating: yields None or the initial state
+iterator = model.create_iterator(first_observations)
+analysis = next(iterator)  # First analysis, using the supplied observations
 
 for observations in observation_batches:
-    analysis = generator.send(observations)
+    analysis = iterator.send(observations)
 
-generator.close()
+iterator.close()
 ```
 
-Pass initial-state slots to `create_generator`; each `send` supplies only the
+Pass initial-state slots followed by the first forcing to `create_iterator`, just
+as for `__call__`. Like prognostic iterators, every yield is a computed output;
+there is no placeholder or initial-state yield. Each `send` supplies only the
 forcing slots for the next analysis. A single forcing value is sent directly;
 multiple slots are sent as a tuple, preserving optional entries with `None`.
 For example, StormCastSDA uses:
 
 ```python
-generator = model.create_generator(initial_state)
-state = next(generator)
-# conditioning matches state's valid time; observations target state + one hour
-state = generator.send((conditioning, observations))
+# conditioning matches the initial state's time; observations target one hour later
+iterator = model.create_iterator(initial_state, conditioning, observations)
+state = next(iterator)  # First forecast, one hour after the initial state
 # next_conditioning must match the updated state window
-state = generator.send((next_conditioning, None))
-generator.close()
+state = iterator.send((next_conditioning, None))
+iterator.close()
 ```
 
 HealDA receives `(conv_obs, sat_obs)` and needs at least one observation batch.
@@ -119,6 +120,8 @@ analyses where the model requires it. Consult each model's time-window contract.
 Single outputs and output signatures are returned directly; only multiple outputs
 are tuples. When migrating older DA code, replace `init_coords()` with
 `input_coords()` and move observation-schema queries to `forcing_coords()`.
+Replace `create_generator` with `create_iterator`, supply the first forcing at
+creation, and consume the first `next()` result as an analysis rather than priming.
 
 ## Custom Data Assimilation Models
 

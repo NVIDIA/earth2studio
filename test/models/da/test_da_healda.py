@@ -294,19 +294,17 @@ def test_healda_call_empty_obs():
     assert np.all(np.isnan(out.values))
 
 
-def test_healda_generator():
+def test_healda_iterator():
     model = _build_model()
     request_time = np.array([np.datetime64("2024-01-01T12:00:00")])
     conv_df = _build_raw_conv_df(10, request_time)
     sat_df = _build_raw_sat_df(10, request_time)
 
-    gen = model.create_generator()
-    result = gen.send(None)
-    assert result is None
+    gen = model.create_iterator(conv_df, None)
 
     # conv only
     with patch.object(model, "_forward", _mock_forward):
-        da = gen.send((conv_df, None))
+        da = next(gen)
     assert isinstance(da, xr.DataArray)
     assert da.shape == (1, NVAR, NPIX)
 

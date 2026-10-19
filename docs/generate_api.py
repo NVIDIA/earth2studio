@@ -48,7 +48,7 @@ ROLE_TARGET_RE = re.compile(r"(?P<title>.*?)\s*<(?P<target>[^>]+)>$")
 METHODS_BY_TEMPLATE = {
     "dataassim": (
         "__call__",
-        "create_generator",
+        "create_iterator",
         "load_default_package",
         "load_model",
     ),

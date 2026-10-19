@@ -279,19 +279,6 @@ def test_build_obs_tensors_averages_duplicates():
     assert torch.isclose(y_obs[mask == 1], torch.tensor(19.5)).all()
 
 
-def test_stormcast_sda_coords():
-    model = _build_model()
-    state = model.input_coords()
-    conditioning, obs = model.forcing_coords()
-    assert isinstance(state, xr.DataArray)
-    assert conditioning.dims == state.dims
-    np.testing.assert_array_equal(
-        conditioning["variable"], model.conditioning_variables
-    )
-    np.testing.assert_array_equal(obs["variable"], model.variables)
-    assert model.output_coords(state).lead_time.values[0] == np.timedelta64(1, "h")
-
-
 # ---------- Test: __call__ ----------
 
 
@@ -318,6 +305,15 @@ def test_stormcast_sda_coords():
 )
 def test_stormcast_sda_call(time, device):
     model = _build_model(device=device)
+    state = model.input_coords()
+    conditioning, obs = model.forcing_coords()
+    assert isinstance(state, xr.DataArray)
+    assert conditioning.dims == state.dims
+    np.testing.assert_array_equal(
+        conditioning["variable"], model.conditioning_variables
+    )
+    np.testing.assert_array_equal(obs["variable"], model.variables)
+    assert model.output_coords(state).lead_time.values[0] == np.timedelta64(1, "h")
     x = _build_input_da(model, time, device=device)
     original, _ = x.e2s.to_torch()
     original = original.clone()
@@ -345,7 +341,7 @@ def test_stormcast_sda_call(time, device):
     model.conditioning_data_source.assert_not_called()
 
 
-# ---------- Test: create_generator ----------
+# ---------- Test: create_iterator ----------
 
 
 @pytest.mark.parametrize(
@@ -360,7 +356,7 @@ def test_stormcast_sda_call(time, device):
         ),
     ],
 )
-def test_stormcast_sda_generator(device):
+def test_stormcast_sda_iterator(device):
     model = _build_model(device=device)
     time = np.array([np.datetime64("2020-04-05T00:00")])
     x = _build_input_da(model, time, device=device)
@@ -376,14 +372,10 @@ def test_stormcast_sda_generator(device):
         return torch.zeros_like(x)
 
     with patch.object(model, "_forward", forward):
-        gen = model.create_generator(x)
+        gen = model.create_iterator(x, c, obs_df)
 
-        # First yield returns initial state
+        # First yield is the first forecast, not the initial state.
         state = next(gen)
-        assert state.shape == x.shape
-
-        # Send observations, receive next forecast
-        state = gen.send((c, obs_df))
         assert state.shape == (len(time), 1, NVAR, ny, nx)
         assert state.coords["lead_time"].values[0] == np.timedelta64(1, "h")
         torch.testing.assert_close(seen[0], c.e2s.to_torch()[0][0])
@@ -417,8 +409,10 @@ def test_stormcast_sda_exceptions(coord):
     c = c.assign_coords({coord: (c[coord].dims, values)})
     with pytest.raises(ValueError):
         model(x, c)
-    gen = model.create_generator(x)
-    next(gen)
+    valid_c = _build_input_da(model, time, conditioning=True)
+    gen = model.create_iterator(x, valid_c)
+    with patch.object(model, "_forward", _mock_forward):
+        next(gen)
     with pytest.raises(ValueError, match="forcing_coords"):
         gen.send(None)
 

@@ -85,7 +85,7 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
     CorrDiff-COSMO directly models ``p(y | ERA5)``, so observations are mapped into
     its normalized output space without residual mean subtraction or addition. It is
     a single-shot diagnostic downscaler with no propagated state:
-    :meth:`__call__` and :meth:`create_generator` produce an independent analysis
+    :meth:`__call__` and :meth:`create_iterator` produce an independent analysis
     for each requested time, conditioned on the corresponding ERA5 state.
 
     Each observation is mapped to its nearest output-grid cell and normalized as
@@ -683,12 +683,14 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         out = torch.stack(outs, dim=0)  # [n_time, n_sample, C_out, H', W']
         return self._to_output_dataarray(out, times, oc)
 
-    def create_generator(
-        self, x: xr.DataArray
-    ) -> Generator[xr.DataArray | None, pd.DataFrame | None, None]:
-        """Generator of independent COSMO-REA analyses (a diagnostic re-analysis, not
-        a propagated forecast). Primed with a no-compute yield; each ``send(obs)``
-        produces the obs-constrained analysis for the next time in ``x``.
+    def create_iterator(
+        self, x: xr.DataArray, obs: pd.DataFrame | None = None
+    ) -> Generator[xr.DataArray, pd.DataFrame | None, None]:
+        """Iterate independent COSMO-REA analyses, one per driving-state time.
+
+        The first ``next`` produces the analysis for the first time in ``x`` using
+        the supplied observations. Each subsequent ``send(obs)`` advances to the
+        next time; the iterator stops after all driving-state times are consumed.
 
         Parameters
         ----------
@@ -696,32 +698,34 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
             ERA5 driving state (dims include ``time``, ``variable``, ``lat``,
             ``lon``; a size-1 ``lead_time`` is squeezed). One analysis is produced
             per ``time``.
+        obs : pd.DataFrame | None, optional
+            Observations for the first driving-state time, by default None for a
+            free analysis.
 
         Yields
         ------
-        xr.DataArray | None
-            ``None`` on the priming yield (before the first ``send``); thereafter
-            the obs-constrained analysis for the current time, dims
+        xr.DataArray
+            The obs-constrained analysis for the current time, dims
             ``(time, sample, variable, y, x)`` with a single ``time``.
 
         Receives
         --------
         pd.DataFrame | None
-            Sparse observations for the current time (columns ``time``/``lat``/
+            Sparse observations for the next time (columns ``time``/``lat``/
             ``lon``/``variable``/``observation``), or ``None`` for a free analysis.
 
         Raises
         ------
         RuntimeError
-            On priming, if the model is on CUDA but CuPy is not installed (the
-            analysis cannot be returned on-device; install the ``da-cosmo`` extra or
-            run on CPU).
+            Before the first analysis, if the model is on CUDA but CuPy is not
+            installed (the analysis cannot be returned on-device; install the
+            ``da-cosmo`` extra or run on CPU).
 
         Example
         -------
-        >>> gen = model.create_generator(x)
-        >>> next(gen)                  # prime
-        >>> state = gen.send(obs_df)   # analysis for x's first time
+        >>> it = model.create_iterator(x, obs_df)
+        >>> state = next(it)          # analysis for x's first time
+        >>> state = it.send(None)     # free analysis for x's next time
         """
         self._require_cupy_for_cuda()  # fail before sampling, not after
         device = self.device
@@ -731,8 +735,6 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         x_tensor = x_tensor.to(device=device, dtype=torch.float32)
         times = np.atleast_1d(x.coords["time"].values)
 
-        # prime with no compute; unlike StormCast, yields no initial state
-        obs = yield None
         try:
             for i, t in enumerate(times):
                 y, mask, std_y = self._build_obs_tensors(obs, t, device)

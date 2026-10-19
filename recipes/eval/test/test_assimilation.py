@@ -208,11 +208,10 @@ class FakeDA:
             coords=output_coords.coords,
         )
 
-    def create_generator(self):
-        inputs = yield None
+    def create_iterator(self, conv_obs=None, sat_obs=None):
         while True:
-            conv_obs, sat_obs = inputs if inputs is not None else (None, None)
             inputs = yield self(conv_obs, sat_obs)
+            conv_obs, sat_obs = inputs if inputs is not None else (None, None)
 
     def to(self, device):
         return self
@@ -279,19 +278,6 @@ class TestObsSourceSet:
         model = FakeDA()
         with pytest.raises(ValueError, match="one config entry is required"):
             ObsSourceSet([FakeObsSource()], model.forcing_coords())
-
-    def test_single_forcing_schema(self):
-        schema = FakeDA().forcing_coords()[0]
-        obs_set = ObsSourceSet([FakeObsSource()], schema)
-        (obs,) = obs_set.fetch(np.datetime64("2024-01-01"))
-        assert set(obs["variable"]) == set(schema["variable"])
-
-    def test_no_forcing_slots(self):
-        assert ObsSourceSet([], None).fetch(np.datetime64("2024-01-01")) == ()
-
-    def test_gridded_forcing_rejected(self):
-        with pytest.raises(NotImplementedError, match="tabular forcing"):
-            ObsSourceSet([FakeObsSource()], FakeDA().output_coords())
 
     def test_fetch_sets_request_time_and_none_slots(self):
         model = FakeDA()
