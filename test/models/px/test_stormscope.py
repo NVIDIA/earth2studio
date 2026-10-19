@@ -24,7 +24,21 @@ import xarray as xr
 
 import earth2studio.models.px.stormscope as scope_module
 import earth2studio.utils.interp as interp_module
-from earth2studio.data import Random, fetch_data
+from earth2studio.data import (
+    GOES,
+    MRMS,
+    CompositeSource,
+    GOESGLMGrid,
+    Random,
+    RegriddedSource,
+    fetch_data,
+)
+from earth2studio.grids import (
+    LatLonGrid,
+    NearestRegridder,
+    register_grid,
+    same_geometry,
+)
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px.stormscope import (
     StormScopeBase,
@@ -254,10 +268,11 @@ def create_spoof_model(
     w=128,
     device="cpu",
     sliding_window=False,
-    input_interp=True,
-    conditioning_interp=True,
+    input_interp=False,
+    conditioning_interp=False,
     amp=False,
     compile=False,
+    glm_mask=None,
 ):
     """Create a spoof StormScope model for testing"""
     # Create simple lat/lon grids
@@ -322,6 +337,7 @@ def create_spoof_model(
         x_coords=x,
         amp=amp,
         compile=compile,
+        **({} if glm_mask is None else {"glm_mask": glm_mask}),
     ).to(device)
 
     if input_interp:
@@ -452,7 +468,7 @@ def test_stormscope_amp_compile(amp, compile, device):
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_stormscope_interpolation(device):
-    """Test StormScope interpolation methods"""
+    """Deprecated interpolators still map tensors; the model accepts only its grid."""
     nvar = 8
     nvar_cond = 1
     h, w = 64, 128
@@ -478,11 +494,10 @@ def test_stormscope_interpolation(device):
     variable = model.input_coords()["variable"].values
     x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
-    # Test that prep_input can handle the different grid
-    x_prep, x_prep_coords = model.prep_input(x, coords)
-    assert x_prep.shape[-2:] == (h, w)  # Should be interpolated to model grid
-    assert (x_prep_coords["y"] == model.y).all()
-    assert (x_prep_coords["x"] == model.x).all()
+    # Callers apply the interpolator; the model no longer regrids inputs itself.
+    assert model.input_interp(x).shape[-2:] == (h, w)
+    with pytest.raises(ValueError):
+        model.prep_input(x, coords)
 
     # Build conditioning interpolator (with global grid)
     cond_lat = np.linspace(90, -90, num=181)
@@ -618,18 +633,27 @@ def test_stormscope_forced_call(device):
     assert out_coords.dims == coords.dims
     assert out_coords.data.nbytes == 0
 
-    # Explicit conditioning retains its source grid until the configured
-    # interpolator runs, while leading member labels stay aligned with state.
+    # Conditioning must be on the model grid; regridding belongs to the source.
+    off_grid = Random(
+        OrderedDict(lat=np.linspace(90, -90, 181), lon=np.linspace(0, 360, 360))
+    )
+    with pytest.raises((KeyError, ValueError)):
+        model(
+            state,
+            fetch_data(
+                off_grid, time, model.conditioning_variables, lead_time, device=device
+            ).expand_dims(batch=np.arange(batch_size)),
+        )
+
+    # Leading member labels of explicit conditioning stay aligned with state.
     state = (
         from_torch(x, coords).rename(batch="ensemble").assign_coords(ensemble=[7, 9])
     )
-    source = Random(
-        OrderedDict(lat=np.linspace(90, -90, 181), lon=np.linspace(0, 360, 360))
+    condition = (
+        from_torch(conditioning, conditioning_coords)
+        .rename(batch="ensemble")
+        .assign_coords(ensemble=[7, 9])
     )
-    condition = fetch_data(
-        source, time, model.conditioning_variables, lead_time, device=device
-    )
-    condition = condition.expand_dims(ensemble=[7, 9])
     result = model(state, condition)
     assert result.dims == state.dims
     np.testing.assert_array_equal(result.ensemble, [7, 9])
@@ -649,7 +673,7 @@ def test_stormscope_forced_call(device):
     scalar_batch = model(state, condition)
     xr.testing.assert_identical(scalar_batch, baseline.assign_coords(batch=7))
     assert state.batch.item() == condition.batch.item() == 7
-    # A singleton or multiple leading axes use the same interpolation path.
+    # A singleton or multiple leading axes use the same packing path.
     unbatched = model(
         state.isel(ensemble=0, drop=True), condition.isel(ensemble=0, drop=True)
     )
@@ -1135,3 +1159,117 @@ def test_stormscope_mrms_coverage_mask(device):
     assert (
         not model.valid_mask.any()
     ), "Combined mask should be all-False when coverage and interpolator masks are complementary"
+
+
+class _RecordingRegridder:
+    """Regridder stub recording how the default sources request it."""
+
+    def __init__(self, source_grid, target_grid, method, **options):
+        self.source_grid, self.target_grid = source_grid, target_grid
+        self.method, self.options = method, options
+        self.coverage = np.ones(target_grid.shape, dtype=bool)
+
+    def __call__(self, x):
+        return x
+
+    def to(self, device):
+        return self
+
+
+@pytest.fixture
+def recorded_regridders(monkeypatch):
+    built = []
+
+    def resolve(source_grid, target_grid, method, **options):
+        built.append(_RecordingRegridder(source_grid, target_grid, method, **options))
+        return built[-1]
+
+    monkeypatch.setattr(scope_module, "_REGRIDDERS", OrderedDict())
+    monkeypatch.setattr(scope_module, "resolve_regridder", resolve)
+    return built
+
+
+def test_stormscope_default_sources(recorded_regridders):
+    goes_model = create_spoof_model(nvar=8, nvar_cond=0)
+    source = goes_model.default_sources()
+    assert isinstance(source, RegriddedSource)
+    assert isinstance(source.source, GOES) and source.source._scan_mode == "C"
+    regridder = source.regridder
+    assert (regridder.source_grid, regridder.method) == ("goes-east-conus", "nearest")
+    assert regridder.options == {"max_dist_km": goes_model.max_dist_km}
+    assert same_geometry(regridder.target_grid, goes_model._grid())
+    # Regridders are built once per source grid, target grid and options.
+    assert goes_model.default_sources().regridder is regridder
+    assert len(recorded_regridders) == 1
+
+    glm_mask = torch.tensor([False, False, True])
+    mrms_model = create_spoof_model(nvar=3, nvar_cond=8, glm_mask=glm_mask)
+    inputs, conditioning = mrms_model.default_sources()
+    assert isinstance(inputs, CompositeSource)
+    assert inputs.variables == {"radar": ("var00", "var01"), "glm": ("var02",)}
+    radar, glm = inputs.sources["radar"], inputs.sources["glm"]
+    assert isinstance(radar.source, MRMS)
+    assert radar.regridder.source_grid == "mrms-conus-0.01deg"
+    assert isinstance(glm.source, GOESGLMGrid)
+    assert (glm.regridder.source_grid, glm.regridder.method) == (
+        "glm-conus-0.1deg",
+        "bilinear",
+    )
+    assert glm.regridder.options == {"fill_value": 0.0}
+    assert isinstance(conditioning.source, GOES)
+    # The GOES regridder is shared with the GOES model on the same grid.
+    assert conditioning.regridder.source_grid == "goes-east-conus"
+
+    radar_only = create_spoof_model(nvar=2, nvar_cond=8).default_sources()[0]
+    assert isinstance(radar_only, RegriddedSource)
+    assert isinstance(radar_only.source, MRMS)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_stormscope_default_coverage(device):
+    """Masks follow the default regridders' coverage, and regridded inputs run."""
+    h, w = 32, 64
+    # A coarse source covering only the southern part of the model grid.
+    register_grid(
+        "test-stormscope-source",
+        LatLonGrid(np.arange(20.0, 40.5, 0.5), np.arange(230.0, 290.5, 0.5)),
+    )
+    model = create_spoof_model(nvar=8, nvar_cond=1, h=h, w=w, device=device)
+    model.max_dist_km = 60.0
+    model._INPUT_GRID = model._CONDITIONING_GRID = "test-stormscope-source"
+    coverage = torch.ones(h, w, dtype=torch.bool)
+    coverage[:, : w // 2] = False
+    model.register_buffer("mrms_coverage_mask", coverage.to(device))
+    model._set_default_coverage()
+
+    regridder = NearestRegridder(
+        "test-stormscope-source", model._grid(), max_dist_km=60.0
+    )
+    expected = torch.from_numpy(regridder.coverage)
+    assert 0 < expected.sum() < expected.numel()
+    assert torch.equal(model.conditioning_valid_mask.cpu(), expected)
+    assert torch.equal(model.valid_mask.cpu(), expected & coverage)
+
+    # Fetch both slots through the regridded source onto the model grid.
+    source = RegriddedSource(
+        Random(
+            OrderedDict(
+                lat=regridder.source_grid.latitude, lon=regridder.source_grid.longitude
+            )
+        ),
+        regridder,
+    )
+    time = np.array([np.datetime64("2020-04-05T00:00")])
+    lead_time = model.input_coords()["lead_time"].values
+    x = fetch_data(source, time, model.variables, lead_time, device=device).expand_dims(
+        batch=[0]
+    )
+    conditioning = fetch_data(
+        source, time, model.conditioning_variables, lead_time, device=device
+    ).expand_dims(batch=[0])
+    assert bool(np.isnan(x.e2s.as_numpy()).any())
+    out = model(x, conditioning)
+    valid = model.valid_mask.cpu().numpy()
+    values = out.e2s.as_numpy().values
+    assert np.isfinite(values[..., valid]).all()
+    assert np.isnan(values[..., ~valid]).all()

@@ -452,7 +452,11 @@ against the slot.
 
 ```python
 def default_sources(self):
-    return (MRMS(), RegriddedSource(GOES(), BilinearRegridder(...)))
+    grid = infer_grid(self.input_coords())
+    return (
+        RegriddedSource(MRMS(), NearestRegridder("mrms-conus-0.01deg", grid)),
+        RegriddedSource(GOES(scan_mode="C"), NearestRegridder("goes-east-conus", grid)),
+    )
 ```
 
 A regridder is bound to its source's grid, so the two are recommended as one
