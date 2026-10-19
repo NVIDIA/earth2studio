@@ -27,12 +27,14 @@ from earth2studio.models.da.utils import (
     filter_time_range,
     validate_observation_fields,
 )
+from earth2studio.utils import coord_array
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
 from earth2studio.utils.time import normalize_time_tolerance
-from earth2studio.utils.type import CoordSystem, FrameSchema, TimeTolerance
+from earth2studio.utils.type import CoordinateSystem, FrameSchema, TimeTolerance
 
 try:
     import cupy as cp
@@ -104,8 +106,8 @@ class InterpEquirectangular(torch.nn.Module):
         self._tolerance = normalize_time_tolerance(time_tolerance)
         self.register_buffer("device_buffer", torch.empty(0), persistent=False)
 
-    def init_coords(self) -> None:
-        """Initialization coords (not required)"""
+    def input_coords(self) -> None:
+        """Initial state coordinates (not required)."""
         return None
 
     def default_sources(self) -> None:
@@ -121,78 +123,73 @@ class InterpEquirectangular(torch.nn.Module):
         """
         return None
 
-    def input_coords(self) -> tuple[FrameSchema]:
-        """Input coordinate system of the assimilation model.
+    def forcing_coords(self) -> FrameSchema:
+        """Observation forcing schema of the assimilation model.
 
         Returns
         -------
-        tuple[FrameSchema]
-            Single-element tuple with the required observation DataFrame fields.
+        FrameSchema
+            Required observation DataFrame fields.
             The variable field lists acceptable values; time, lat, lon, and
             observation fields have dynamic values.
         """
-        return (
-            FrameSchema(
-                {
-                    "time": np.empty(0, dtype="datetime64[ns]"),
-                    "lat": np.empty(0, dtype=np.float32),
-                    "lon": np.empty(0, dtype=np.float32),
-                    "observation": np.empty(0, dtype=np.float32),
-                    "variable": np.array(self.VARIABLES, dtype=str),
-                }
-            ),
+        return FrameSchema(
+            {
+                "time": np.empty(0, dtype="datetime64[ns]"),
+                "lat": np.empty(0, dtype=np.float32),
+                "lon": np.empty(0, dtype=np.float32),
+                "observation": np.empty(0, dtype=np.float32),
+                "variable": np.array(self.VARIABLES, dtype=str),
+            }
         )
 
     def output_coords(
         self,
-        input_coords: tuple[CoordSystem],
-        request_time: np.ndarray,
+        request_time: np.ndarray | None = None,
+        variable: np.ndarray | None = None,
         **kwargs: Any,
-    ) -> tuple[CoordSystem]:
+    ) -> CoordinateSystem:
         """Output coordinate system of the assimilation model.
 
         Parameters
         ----------
-        input_coords : tuple[CoordSystem]
-            Input coordinate-system tuple supplying the output variables.
-        request_time : np.ndarray
-            Analysis valid times.
+        request_time : np.ndarray | None, optional
+            Analysis valid times, by default None (an unspecified time).
+        variable : np.ndarray | None, optional
+            Output variables, by default None (all supported variables)
         **kwargs : Any
             Additional request metadata; unused by this method.
 
         Returns
         -------
-        tuple[CoordSystem]
-            Single-element tuple with the analysis coordinate-system dictionary,
+        CoordinateSystem
+            Allocation-free analysis signature,
             using time, variable, lat, and lon dimensions.
         """
-        # Extract variables from first input coord system
-        if len(input_coords) > 0 and "variable" in input_coords[0]:
-            variables = input_coords[0]["variable"]
-        else:
-            variables = self.VARIABLES
-
-        return (
-            CoordSystem(
-                {
-                    "time": request_time,
-                    "variable": np.array(variables, dtype=str),
-                    "lat": self._lat,
-                    "lon": self._lon,
-                }
-            ),
+        if request_time is None:
+            request_time = np.array([np.datetime64("NaT")], dtype="datetime64[ns]")
+        return coord_array(
+            ("time", "variable", "lat", "lon"),
+            {
+                "time": request_time,
+                "variable": np.array(
+                    self.VARIABLES if variable is None else variable, dtype=str
+                ),
+                "lat": self._lat,
+                "lon": self._lon,
+            },
         )
 
     def __call__(self, obs: pd.DataFrame) -> xr.DataArray:
         """Stateless forward pass"""
-        input_coords = self.input_coords()
-        (output_coords,) = self.output_coords(input_coords, **obs.attrs)
-        # Validate observation types match input_coords
-        validate_observation_fields(obs, required_fields=list(input_coords[0].keys()))
+        if obs.attrs.get("request_time") is None:
+            raise ValueError("Observation DataFrame must have 'request_time' in attrs")
+        output_coords = self.output_coords(**obs.attrs)
+        validate_observation_fields(obs, required_fields=list(self.forcing_coords()))
         return self._interpolate_dataframe(obs, output_coords)
 
     def create_generator(self) -> Generator[
-        xr.DataArray,
+        xr.DataArray | None,
         pd.DataFrame,
         None,
     ]:
@@ -201,18 +198,18 @@ class InterpEquirectangular(torch.nn.Module):
 
         Yields
         ------
-        xr.DataArray
-            Assimilated data output the generator yields
+        xr.DataArray | None
+            None on priming, then assimilated data.
 
         Receives
         --------
-        *DataFrame
-            Observations sent via generator.send()
+        pd.DataFrame
+            Observations matching ``forcing_coords()`` sent via generator.send().
         """
         # Validate input configuration
 
         # Initialize generator - first yield is None to start
-        observations = yield None  # type: ignore[misc]
+        observations = yield None
         try:
             while True:
                 da = self.__call__(observations)
@@ -221,7 +218,7 @@ class InterpEquirectangular(torch.nn.Module):
             logger.debug("InterpEquirectangular clean up complete.")
 
     def _interpolate_dataframe(
-        self, df: pd.DataFrame, output_coords: CoordSystem
+        self, df: pd.DataFrame, output_coords: CoordinateSystem
     ) -> xr.DataArray:
         """Interpolate DataFrame observations to a regular lat-lon grid.
 
@@ -229,7 +226,7 @@ class InterpEquirectangular(torch.nn.Module):
         ----------
         df : pd.DataFrame
             Input observations DataFrame with columns: time, lat, lon, observation, variable
-        output_coords : CoordSystem
+        output_coords : CoordinateSystem
             Output coordinate system with time, variable, lat, lon dimensions
 
         Returns
@@ -237,10 +234,10 @@ class InterpEquirectangular(torch.nn.Module):
         xr.DataArray
             Interpolated data array on the output grid
         """
-        variables = output_coords["variable"]
-        lat_grid = output_coords["lat"]
-        lon_grid = output_coords["lon"]
-        time_coords = output_coords["time"]
+        variables = output_coords["variable"].values
+        lat_grid = output_coords["lat"].values
+        lon_grid = output_coords["lon"].values
+        time_coords = output_coords["time"].values
 
         # Initialize output array: (time, variable, lat, lon)
         n_time = len(time_coords)
@@ -304,24 +301,7 @@ class InterpEquirectangular(torch.nn.Module):
                 # Assign to this time step
                 interpolated_data[t_idx, var_idx, :, :] = grid_values
 
-        # Create DataArray (convert tensor to numpy or cupy based on device)
-        if device.type == "cuda" and cp is not None:
-            data_array = cp.asarray(interpolated_data)  # Zero-copy
-        else:
-            data_array = interpolated_data.cpu().numpy()
-
-        da = xr.DataArray(
-            data=data_array,
-            dims=["time", "variable", "lat", "lon"],
-            coords={
-                "time": time_coords,
-                "variable": variables,
-                "lat": lat_grid,
-                "lon": lon_grid,
-            },
-        )
-
-        return da
+        return from_torch(interpolated_data, output_coords)
 
     def _interpolate_scattered(
         self,

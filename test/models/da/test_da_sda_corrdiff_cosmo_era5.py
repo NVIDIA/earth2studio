@@ -44,7 +44,6 @@ from physicsnemo.diffusion.noise_schedulers import EDMNoiseScheduler
 from earth2studio.models.auto import Package
 from earth2studio.models.da.sda_corrdiff_cosmo_era5 import CorrDiffCosmoEra5SDA
 from earth2studio.models.dx.corrdiff_cosmo_era5 import CorrDiffCosmoEra5
-from earth2studio.utils.type import CoordSystem
 
 # ── Mock networks ────────────────────────────────────────────────────────────
 
@@ -443,26 +442,20 @@ def test_construct_defaults_inherit_from_model():
 def test_coordinate_contracts():
     sda = _build_sda(number_of_samples=2, assimilate_variables=("u10m", "v10m"))
     model = sda.model
-    # init_coords: the ERA5 driving state (the grid the downscaler conditions on)
-    (ic,) = sda.init_coords()
-    assert list(ic["variable"]) == ERA5_VARIABLES
-    assert "lat" in ic and "lon" in ic
-    # input_coords: the observation DataFrame schema
-    (fs,) = sda.input_coords()
+    # Initial ERA5 driving state and observation forcing schema.
+    ic = sda.input_coords()
+    assert list(ic["variable"].values) == ERA5_VARIABLES
+    assert "lat" in ic.coords and "lon" in ic.coords
+    fs = sda.forcing_coords()
     assert set(fs.keys()) == {"time", "lat", "lon", "observation", "variable"}
     assert list(fs["variable"]) == ["u10m", "v10m"]
     # output_coords: analysis dims, 2D lat/lon, and the model's output vocabulary
-    coords = OrderedDict(
-        time=np.array([np.datetime64("2021-07-14T12:00")]),
-        variable=np.array(ERA5_VARIABLES),
-        lat=model.lat_input_numpy,
-        lon=model.lon_input_numpy,
-    )
-    (oc,) = sda.output_coords((coords,))
-    assert list(oc.keys()) == ["time", "sample", "variable", "y", "x", "lat", "lon"]
+    x = _era5_da(sda, np.array([np.datetime64("2021-07-14T12:00")]))
+    oc = sda.output_coords(x)
+    assert oc.dims == ("time", "sample", "variable", "y", "x")
     assert len(oc["sample"]) == 2
     assert np.asarray(oc["lat"]).ndim == 2 and np.asarray(oc["lon"]).ndim == 2
-    assert list(oc["variable"]) == list(model._output_coord_variables)
+    assert list(oc["variable"].values) == list(model._output_coord_variables)
 
 
 # ── _build_obs_tensors ───────────────────────────────────────────────────────
@@ -660,12 +653,11 @@ def test_call_rejects_multi_lead_time():
 
 def _analysis_output_inputs(
     sda: CorrDiffCosmoEra5SDA,
-) -> tuple[torch.Tensor, np.ndarray, CoordSystem]:
+) -> tuple[torch.Tensor, np.ndarray, xr.DataArray]:
     """A dummy (out, times, oc) triple for exercising ``_to_output_dataarray``."""
     times = np.array([np.datetime64("2021-07-14T12:00")])
     xf = sda._era5_frames(_era5_da(sda, times))
-    x_coords = OrderedDict({dim: xf.coords[dim].values for dim in xf.dims})
-    (oc,) = sda.output_coords((x_coords,))
+    oc = sda.output_coords(xf)
     H, W = sda.model.lat_output_numpy.shape
     n_var = len(sda.model._output_coord_variables)
     return torch.zeros(1, 1, n_var, H, W), times, oc
@@ -820,7 +812,7 @@ def test_da_sda_corrdiff_cosmo_era5_package():
     if not torch.cuda.is_available():
         pytest.skip("NATTEN forward requires CUDA; checkpoint load verified on CPU")
 
-    (ic,) = sda.init_coords()
+    ic = sda.input_coords()
     times = np.array([np.datetime64("2021-07-14T12:00")])
     lat, lon = np.asarray(ic["lat"]), np.asarray(ic["lon"])
     x = xr.DataArray(

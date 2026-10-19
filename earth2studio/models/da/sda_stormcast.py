@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import warnings
-from collections import OrderedDict
 from collections.abc import Generator
 from itertools import product
 
@@ -26,27 +24,24 @@ import xarray as xr
 import zarr
 from loguru import logger
 
-from earth2studio.data import GFS_FX, HRRR, DataSource, ForecastSource, fetch_data
+from earth2studio.data import GFS_FX, HRRR, DataSource, ForecastSource
 from earth2studio.data.base import DataFrameSource
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.da.base import AssimilationModel
 from earth2studio.models.da.utils import filter_time_range
 from earth2studio.utils import (
-    handshake_coords,
-    handshake_dim,
-    handshake_size,
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_nonempty,
 )
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
 from earth2studio.utils.time import normalize_time_tolerance
-from earth2studio.utils.type import CoordSystem, FrameSchema, TimeTolerance
-
-try:
-    import cupy as cp
-except ImportError:
-    cp = None
+from earth2studio.utils.type import CoordinateSystem, FrameSchema, TimeTolerance
 
 try:
     from scipy.spatial import cKDTree
@@ -112,7 +107,8 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
     - Point observations for data assimilation
 
     The high-resolution grid is the HRRR Lambert conformal projection.
-    Coarse-resolution inputs are regridded to the HRRR grid internally.
+    The caller supplies conditioning regridded to the HRRR grid, followed by
+    observations, in ``forcing_coords()`` order.
 
     Note
     ----
@@ -149,7 +145,8 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
     conditioning_variables : np.array, optional
         Global variables for conditioning, by default np.array(CONDITIONING_VARIABLES)
     conditioning_data_source : DataSource | ForecastSource | None, optional
-        Data Source to use for global conditioning. Required for running in iterator mode, by default None
+        Recommended source for global conditioning; never fetched internally,
+        by default None (recommend GFS_FX)
     time_tolerance : TimeTolerance, optional
         Time tolerance for filtering observations. Observations within the tolerance
         window around each requested time will be used for data assimilation,
@@ -256,12 +253,6 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
 
         self.conditioning_variables = conditioning_variables
         self.conditioning_data_source = conditioning_data_source
-        if conditioning_data_source is None:
-            warnings.warn(
-                "No conditioning data source was provided to StormCast, "
-                + "set the conditioning_data_source attribute of the model "
-                + "before running inference."
-            )
 
         if conditioning_means is not None:
             self.register_buffer("conditioning_means", conditioning_means)
@@ -273,30 +264,32 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
     def device(self) -> torch.device:
         return self.device_buffer.device
 
-    def init_coords(self) -> tuple[CoordSystem]:
-        """Initialization coordinate system"""
-        return (
-            OrderedDict(
-                {
-                    "time": np.empty(0),
-                    "lead_time": np.array([np.timedelta64(0, "h")]),
-                    "variable": np.array(self.variables),
-                    "hrrr_y": self.hrrr_y,
-                    "hrrr_x": self.hrrr_x,
-                }
-            ),
+    def input_coords(self) -> CoordinateSystem:
+        """Declare the initial HRRR state as an allocation-free signature."""
+        return coord_array(
+            ("time", "lead_time", "variable", "hrrr_y", "hrrr_x"),
+            {
+                "time": np.empty(0, dtype="datetime64[ns]"),
+                "lead_time": np.array([np.timedelta64(0, "h")]),
+                "variable": np.array(self.variables),
+                "hrrr_y": self.hrrr_y,
+                "hrrr_x": self.hrrr_x,
+                "lat": (("hrrr_y", "hrrr_x"), self.lat),
+                "lon": (("hrrr_y", "hrrr_x"), self.lon),
+            },
+            dynamic=("time",),
         )
 
-    def default_sources(self) -> tuple["DataSource", "DataFrameSource"]:
-        """Recommend HRRR initialization and GHCNh observation data sources.
-
-        The global conditioning source is not a slot; it is configured on the model
-        through ``conditioning_data_source``.
+    def default_sources(
+        self,
+    ) -> tuple[DataSource, DataSource | ForecastSource, DataFrameSource]:
+        """Recommend HRRR state, global conditioning, and GHCNh observations.
 
         Returns
         -------
-        tuple[DataSource, DataFrameSource]
-            ``HRRR`` for the initialization state followed by ``GHCNHourly`` for the
+        tuple[DataSource, DataSource | ForecastSource, DataFrameSource]
+            ``HRRR`` for the initial state, configured conditioning or ``GFS_FX``,
+            then ``GHCNHourly`` for the
             surface station observation slot, restricted to the stations inside this
             model's domain and using the model's observation time tolerance.
         """
@@ -311,20 +304,30 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             float(self.lon.max()) - 360.0,
         )
         stations = GHCNHourly.get_stations_bbox(bbox)
-        return HRRR(), GHCNHourly(
-            stations=stations, time_tolerance=self._tolerance, verbose=False
+        source = self.conditioning_data_source
+        return (
+            HRRR(),
+            source if source is not None else GFS_FX(verbose=False),
+            GHCNHourly(
+                stations=stations, time_tolerance=self._tolerance, verbose=False
+            ),
         )
 
-    def input_coords(self) -> tuple[FrameSchema]:
-        """Input coordinate system of the assimilation model.
+    def forcing_coords(self) -> tuple[CoordinateSystem, FrameSchema]:
+        """Declare global conditioning and sparse observation forcing.
 
         Returns
         -------
-        tuple[FrameSchema]
-            Single-element tuple with the required observation DataFrame fields:
-            time, lat, lon, observation, and variable.
+        tuple[CoordinateSystem, FrameSchema]
+            Conditioning on the HRRR grid at the input valid time, followed by
+            observations at the output valid time (input plus one hour), filtered
+            with the configured tolerance. Pass None for the observation slot
+            to run without assimilation; conditioning is always required.
         """
         return (
+            coord_array_like(
+                self.input_coords(), {"variable": self.conditioning_variables}
+            ),
             FrameSchema(
                 {
                     "time": np.empty(0, dtype="datetime64[ns]"),
@@ -336,46 +339,31 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             ),
         )
 
-    def output_coords(self, input_coords: tuple[CoordSystem]) -> tuple[CoordSystem]:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the assimilation model.
 
         Parameters
         ----------
-        input_coords : tuple[CoordSystem]
+        input_coords : CoordinateSystem
             Coordinates of tensor used to initialize the forecast model.
 
         Returns
         -------
-        tuple[CoordSystem]
-            Single-element tuple with the analysis coordinate-system dictionary
+        CoordinateSystem
+            Allocation-free analysis signature
             on the HRRR grid, one hour after the initialization lead time.
         """
 
-        output_coords = OrderedDict(
-            {
-                "time": np.empty(0),
-                "lead_time": np.array([np.timedelta64(1, "h")]),
-                "variable": np.array(self.variables),
-                "hrrr_y": self.hrrr_y,
-                "hrrr_x": self.hrrr_x,
-            }
+        expected = coord_array_like(
+            self.input_coords(), {"lead_time": input_coords.lead_time.values}
         )
-
-        target_input_coords = self.init_coords()[0]
-
-        handshake_dim(input_coords[0], "hrrr_x", 4)
-        handshake_dim(input_coords[0], "hrrr_y", 3)
-        handshake_dim(input_coords[0], "variable", 2)
-        # Index coords are arbitrary as long its on the HRRR grid, so just check size
-        handshake_size(input_coords[0], "hrrr_y", self.lat.shape[0])
-        handshake_size(input_coords[0], "hrrr_x", self.lat.shape[1])
-        handshake_coords(input_coords[0], target_input_coords, "variable")
-
-        output_coords["time"] = input_coords[0]["time"]
-        output_coords["lead_time"] = (
-            output_coords["lead_time"] + input_coords[0]["lead_time"]
+        handshake_dataarray(input_coords, expected)
+        if input_coords.sizes["lead_time"] != 1:
+            raise ValueError("StormCastSDA requires one input lead time")
+        return coord_array_like(
+            input_coords,
+            {"lead_time": input_coords.lead_time.values + np.timedelta64(1, "h")},
         )
-        return (output_coords,)
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -407,7 +395,8 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         package : Package
             Package to load model from
         conditioning_data_source : DataSource | ForecastSource, optional
-            Data source to use for global conditioning, by default GFS_FX
+            Recommended global conditioning source, never fetched internally,
+            by default GFS_FX
         time_tolerance : TimeTolerance, optional
             Time tolerance for filtering observations. Observations within the tolerance
             window around each requested time will be used for data assimilation,
@@ -694,156 +683,14 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
 
         return y_obs, mask
 
-    def _fetch_and_interp_conditioning(self, x: xr.DataArray) -> xr.DataArray:
-        """Fetch global conditioning data and interpolate to HRRR curvilinear grid.
-
-        Parameters
-        ----------
-        x : xr.DataArray
-            Input state DataArray with time and lead_time coordinates
-
-        Returns
-        -------
-        xr.DataArray
-            Conditioning data interpolated onto the HRRR grid
-        """
-        device = self.device
-
-        if self.conditioning_data_source is None:
-            raise RuntimeError(
-                "StormCast has been called without initializing the model's conditioning_data_source"
-            )
-
-        c: xr.DataArray = fetch_data(
-            self.conditioning_data_source,
-            time=x.coords["time"].data,
-            variable=self.conditioning_variables,
-            lead_time=x.coords["lead_time"].data,
-            device=self.device,
-        )
-
-        # Interpolate conditioning from regular lat/lon grid to HRRR curvilinear grid
-        if cp is not None and isinstance(c.data, cp.ndarray):
-            # GPU path: bilinear interpolation using cupy, data stays on GPU
-            with cp.cuda.Device(device.index or 0):
-                data = c.data
-                src_lat = cp.asarray(c.coords["lat"].values, dtype=cp.float64)
-                src_lon = cp.asarray(c.coords["lon"].values, dtype=cp.float64)
-
-                target_lat_cp = cp.asarray(self.lat, dtype=cp.float64)
-                target_lon_cp = cp.asarray(self.lon, dtype=cp.float64)
-
-                # Ensure ascending order for searchsorted (latitude is
-                # commonly descending in weather data, e.g. 90 -> -90)
-                if src_lat[-1] < src_lat[0]:
-                    src_lat = src_lat[::-1]
-                    data = data[..., ::-1, :]
-                if src_lon[-1] < src_lon[0]:
-                    src_lon = src_lon[::-1]
-                    data = data[..., :, ::-1]
-
-                # Compute fractional indices via searchsorted (handles
-                # non-uniform spacing), src_lat and src_lon needs to be acending
-                lat_idx = cp.searchsorted(src_lat, target_lat_cp.ravel()) - 1
-                lat_idx = cp.clip(lat_idx, 0, len(src_lat) - 2)
-                lat_idx = lat_idx.reshape(target_lat_cp.shape)
-
-                lon_idx = cp.searchsorted(src_lon, target_lon_cp.ravel()) - 1
-                lon_idx = cp.clip(lon_idx, 0, len(src_lon) - 2)
-                lon_idx = lon_idx.reshape(target_lon_cp.shape)
-
-                lat0 = lat_idx
-                lon0 = lon_idx
-                lat1 = lat0 + 1
-                lon1 = lon0 + 1
-
-                # Fractional weights between grid cells
-                wlat = (target_lat_cp - src_lat[lat0]) / (src_lat[lat1] - src_lat[lat0])
-                wlon = (target_lon_cp - src_lon[lon0]) / (src_lon[lon1] - src_lon[lon0])
-                wlat = cp.clip(wlat, 0.0, 1.0)
-                wlon = cp.clip(wlon, 0.0, 1.0)
-
-                interp_data = (
-                    data[..., lat0, lon0] * (1 - wlat) * (1 - wlon)
-                    + data[..., lat0, lon1] * (1 - wlat) * wlon
-                    + data[..., lat1, lon0] * wlat * (1 - wlon)
-                    + data[..., lat1, lon1] * wlat * wlon
-                )
-
-            c = xr.DataArray(
-                data=interp_data,
-                dims=["time", "lead_time", "variable", "hrrr_y", "hrrr_x"],
-                coords={
-                    "time": c.coords["time"],
-                    "lead_time": c.coords["lead_time"],
-                    "variable": c.coords["variable"],
-                    "hrrr_y": self.hrrr_y,
-                    "hrrr_x": self.hrrr_x,
-                    "lat": (["hrrr_y", "hrrr_x"], self.lat),
-                    "lon": (["hrrr_y", "hrrr_x"], self.lon),
-                },
-            )
-        else:
-            # CPU path: use xarray's built-in interpolation
-            target_lat = xr.DataArray(self.lat, dims=["hrrr_y", "hrrr_x"])
-            target_lon = xr.DataArray(self.lon, dims=["hrrr_y", "hrrr_x"])
-            c = c.interp(lat=target_lat, lon=target_lon, method="linear")
-            c = c.assign_coords(
-                hrrr_y=("hrrr_y", self.hrrr_y),
-                hrrr_x=("hrrr_x", self.hrrr_x),
-                lat=(["hrrr_y", "hrrr_x"], self.lat),
-                lon=(["hrrr_y", "hrrr_x"], self.lon),
-            )
-
-        return c
-
-    def _to_output_dataarray(
-        self,
-        x_tensor: torch.Tensor,
-        output_coords: tuple[CoordSystem],
-    ) -> xr.DataArray:
-        """Convert output tensor to xr.DataArray with HRRR grid coordinates.
-
-        Parameters
-        ----------
-        x_tensor : torch.Tensor
-            Output tensor from _forward
-        output_coords : tuple[CoordSystem]
-            Output coordinate system from output_coords()
-
-        Returns
-        -------
-        xr.DataArray
-            Output DataArray with cupy backend on GPU or numpy on CPU
-        """
-        device = self.device
-        (oc,) = output_coords
-        if device.type == "cuda" and cp is not None:
-            with cp.cuda.Device(device.index or 0):
-                out_data = cp.asarray(x_tensor.detach())
-        else:
-            out_data = x_tensor.detach().cpu().numpy()
-
-        return xr.DataArray(
-            data=out_data,
-            dims=list(oc.keys()),
-            coords={
-                k: ((["hrrr_y", "hrrr_x"], v) if k in ("lat", "lon") else v)
-                for k, v in oc.items()
-            }
-            | {
-                "lat": (["hrrr_y", "hrrr_x"], self.lat),
-                "lon": (["hrrr_y", "hrrr_x"], self.lon),
-            },
-        )
-
     # NOTE: @torch.inference_mode() is intentionally omitted here.
     # DPS guidance requires gradient computation through the denoiser for
     # the score correction step; inference_mode would disable those gradients.
     def __call__(
         self,
         x: xr.DataArray,
-        obs: pd.DataFrame | None,
+        conditioning: xr.DataArray,
+        obs: pd.DataFrame | None = None,
     ) -> xr.DataArray:
         """Runs assimilation model 1 step.
 
@@ -851,8 +698,11 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         ----------
         x : xr.DataArray
             Input state on the HRRR curvilinear grid
-        obs : pd.DataFrame | None
-            Sparse observations DataFrame, or None for no assimilation
+        conditioning : xr.DataArray
+            Conditioning on the same grid and valid time as x, matching the first
+            ``forcing_coords()`` slot. Regridding is caller-owned.
+        obs : pd.DataFrame | None, optional
+            Sparse observations at the output valid time, by default None
 
         Returns
         -------
@@ -861,37 +711,35 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
 
         Raises
         ------
-        RuntimeError
-            If conditioning data source is not initialized
+        ValueError
+            If state or conditioning coordinates do not match their declared slots.
         """
-        if self.conditioning_data_source is None:
-            raise RuntimeError(
-                "StormCast has been called without initializing the model's conditioning_data_source"
-            )
-
         device = self.device
-        c = self._fetch_and_interp_conditioning(x)
-
-        x_coords = OrderedDict({dim: x.coords[dim].values for dim in x.dims})
-        output_coords = self.output_coords((x_coords,))
-
-        x_tensor = torch.as_tensor(x.data)
-        c_tensor = torch.as_tensor(c.data)
+        handshake_nonempty(x)
+        output_coords = self.output_coords(x)
+        handshake_nonempty(conditioning)
+        handshake_dataarray(
+            conditioning, coord_array_like(x, {"variable": self.conditioning_variables})
+        )
+        x_tensor, _ = x.e2s.to_torch()
+        x_tensor = x_tensor.to(device).clone()
+        c_tensor, _ = conditioning.e2s.to_torch()
+        c_tensor = c_tensor.to(device)
 
         for j, t in enumerate(x.coords["time"].data):
-            obs_time = t + output_coords[0]["lead_time"][0]
+            obs_time = t + output_coords.lead_time.values[0]
             y_obs, mask = self._build_obs_tensors(obs, obs_time, device)
             x_tensor[j, :] = self._forward(x_tensor[j, :], c_tensor[j, :], y_obs, mask)
 
-        return self._to_output_dataarray(x_tensor, output_coords)
+        return from_torch(x_tensor, output_coords)
 
     def create_generator(
         self, x: xr.DataArray
-    ) -> Generator[xr.DataArray, pd.DataFrame | None, None]:
+    ) -> Generator[xr.DataArray, tuple[xr.DataArray, pd.DataFrame | None], None]:
         """Creates a generator for iterative forecast with data assimilation.
 
-        The generator yields forecast states and receives observation DataFrames
-        via ``send()``. At each step, conditioning data is fetched, observations
+        The generator yields forecast states and receives conditioning and observations
+        via ``send((conditioning, obs))`` in forcing-slot order. Observations
         are mapped to the HRRR grid, and the diffusion model produces the next
         forecast step.
 
@@ -907,50 +755,29 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
 
         Receives
         --------
-        pd.DataFrame | None
-            Observations sent via ``generator.send()``. Pass ``None`` for
-            steps without assimilation.
+        tuple[xr.DataArray, pd.DataFrame | None]
+            Conditioning at the current state valid time, then observations at the
+            next analysis time. Pass ``(conditioning, None)`` without assimilation.
 
         Example
         -------
         >>> gen = model.create_generator(x0)
         >>> state = next(gen)           # yields initial state x0
-        >>> state = gen.send(obs_df)    # step 1 with observations
-        >>> state = gen.send(None)      # step 2 without observations
+        >>> state = gen.send((c0, obs_df))  # step 1 with observations
+        >>> state = gen.send((c1, None))    # step 2 without observations
         """
-        if self.conditioning_data_source is None:
-            raise RuntimeError(
-                "StormCast has been called without initializing the model's "
-                "conditioning_data_source"
-            )
-
+        self.output_coords(x)
         # Yield the initial state so the caller can inspect it
-        obs = yield x
+        forcing = yield x
 
         try:
             while True:
-                # Fetch and interpolate conditioning onto HRRR grid
-                c = self._fetch_and_interp_conditioning(x)
-
-                # Compute output coords (advances lead_time by 1h)
-                x_coords = OrderedDict({dim: x.coords[dim].values for dim in x.dims})
-                output_coords = self.output_coords((x_coords,))
-
-                # Zero-copy conversion to torch tensors
-                x_tensor = torch.as_tensor(x.data)
-                c_tensor = torch.as_tensor(c.data)
-
-                # Run forward with observations
-                for j, t in enumerate(x.coords["time"].data):
-                    obs_time = t + output_coords[0]["lead_time"][0]
-                    y_obs, mask = self._build_obs_tensors(obs, obs_time, self.device)
-                    x_tensor[j] = self._forward(x_tensor[j], c_tensor[j], y_obs, mask)
-
-                # Build output DataArray and use as next input
-                x = self._to_output_dataarray(x_tensor, output_coords)
-
-                # Yield forecast result and wait for next observations
-                obs = yield x
+                if not isinstance(forcing, tuple) or len(forcing) != 2:
+                    raise ValueError(
+                        "Send (conditioning, obs) in forcing_coords() order"
+                    )
+                x = self(x, *forcing)
+                forcing = yield x
 
         except GeneratorExit:
             logger.info("StormCast SDA clean up")

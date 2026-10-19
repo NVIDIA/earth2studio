@@ -15,7 +15,7 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import numpy as np
 import pandas as pd
@@ -110,13 +110,13 @@ def _build_model(device="cpu"):
     ).to(device)
 
 
-def _build_input_da(model, time, device="cpu"):
+def _build_input_da(model, time, device="cpu", conditioning=False):
     dc = OrderedDict([("hrrr_y", model.hrrr_y), ("hrrr_x", model.hrrr_x)])
     r = Random(dc)
     x = fetch_data(
         r,
         time,
-        model.variables,
+        model.conditioning_variables if conditioning else model.variables,
         lead_time=np.array([np.timedelta64(0, "h")]),
         device=device,
     )
@@ -279,84 +279,17 @@ def test_build_obs_tensors_averages_duplicates():
     assert torch.isclose(y_obs[mask == 1], torch.tensor(19.5)).all()
 
 
-# ---------- Unit test: _fetch_and_interp_conditioning ----------
-
-
-def test_fetch_and_interp_conditioning():
-    model = _build_model(device="cpu")
-    time = np.array([np.datetime64("2020-01-01T00:00")])
-    x = _build_input_da(model, time, device="cpu")
-    ny, nx = model.lat.shape
-
-    c = model._fetch_and_interp_conditioning(x)
-
-    assert c.shape == (1, 1, NVAR_COND, ny, nx)
-    assert "hrrr_y" in c.dims
-    assert "hrrr_x" in c.dims
-    assert "variable" in c.dims
-
-
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda missing")
-def test_fetch_and_interp_conditioning_gpu():
-    from scipy.interpolate import RegularGridInterpolator
-
-    from earth2studio.data.utils import prep_data_inputs
-
-    # Descending latitude (typical weather data convention: 90 → -90)
-    src_lat = np.linspace(90, -90, num=181)
-    src_lon = np.linspace(0, 360, num=361)
-    field = np.random.randn(src_lat.shape[0], src_lon.shape[0])
-
-    class _AnalyticSource:
-        def __init__(self):
-            self.domain_coords = OrderedDict([("lat", src_lat), ("lon", src_lon)])
-
-        def __call__(self, time, variable):
-            time, variable = prep_data_inputs(time, variable)
-            data = np.broadcast_to(
-                field, (len(time), len(variable), len(src_lat), len(src_lon))
-            ).copy()
-            return xr.DataArray(
-                data=data,
-                dims=["time", "variable", "lat", "lon"],
-                coords={
-                    "time": time,
-                    "variable": variable,
-                    "lat": src_lat,
-                    "lon": src_lon,
-                },
-            )
-
-    ny = Y_END - Y_START
-    nx = X_END - X_START
-    model = StormCastSDA(
-        PhooRegressionModel(out_vars=NVAR),
-        PhooSDADiffusionModel(),
-        torch.zeros(1, NVAR, 1, 1),
-        torch.ones(1, NVAR, 1, 1),
-        torch.randn(1, 2, ny, nx),
-        hrrr_lat_lim=(Y_START, Y_END),
-        hrrr_lon_lim=(X_START, X_END),
-        variables=np.array(["u%02d" % i for i in range(NVAR)]),
-        conditioning_means=torch.zeros(1, NVAR_COND, 1, 1),
-        conditioning_stds=torch.ones(1, NVAR_COND, 1, 1),
-        conditioning_variables=np.array(["c%02d" % i for i in range(NVAR_COND)]),
-        conditioning_data_source=_AnalyticSource(),
-        sampler_args=SAMPLER_ARGS,
-    ).to("cuda:0")
-
-    time = np.array([np.datetime64("2020-01-01T00:00")])
-    x = _build_input_da(model, time, device="cuda:0")
-    c = model._fetch_and_interp_conditioning(x)
-
-    # Scipy reference bilinear interpolation
-    ref = RegularGridInterpolator((src_lat, src_lon), field, method="linear")
-    target_pts = np.column_stack([model.lat.ravel(), model.lon.ravel()])
-    expected = ref(target_pts).reshape(ny, nx)
-
-    c_np = c.data.get()
-    for v in range(NVAR_COND):
-        np.testing.assert_allclose(c_np[0, 0, v], expected, atol=1e-6, rtol=0)
+def test_stormcast_sda_coords():
+    model = _build_model()
+    state = model.input_coords()
+    conditioning, obs = model.forcing_coords()
+    assert isinstance(state, xr.DataArray)
+    assert conditioning.dims == state.dims
+    np.testing.assert_array_equal(
+        conditioning["variable"], model.conditioning_variables
+    )
+    np.testing.assert_array_equal(obs["variable"], model.variables)
+    assert model.output_coords(state).lead_time.values[0] == np.timedelta64(1, "h")
 
 
 # ---------- Test: __call__ ----------
@@ -386,12 +319,16 @@ def test_fetch_and_interp_conditioning_gpu():
 def test_stormcast_sda_call(time, device):
     model = _build_model(device=device)
     x = _build_input_da(model, time, device=device)
+    original, _ = x.e2s.to_torch()
+    original = original.clone()
+    c = _build_input_da(model, time, device=device, conditioning=True)
+    model.conditioning_data_source = Mock(side_effect=AssertionError("internal fetch"))
     obs_source = _build_obs_source(model, n_obs=10)
     obs_df = fetch_dataframe(obs_source, time, model.variables[:2])
     ny, nx = model.lat.shape
 
     with patch.object(model, "_forward", _mock_forward):
-        out = model(x, obs_df)
+        out = model(x, c, obs_df)
 
     assert out.shape == (len(time), 1, NVAR, ny, nx)
     assert set(out.dims) == {"time", "lead_time", "variable", "hrrr_y", "hrrr_x"}
@@ -400,9 +337,12 @@ def test_stormcast_sda_call(time, device):
 
     # Without observations
     with patch.object(model, "_forward", _mock_forward):
-        out_none = model(x, None)
+        out_none = model(x, c, None)
 
     assert out_none.shape == out.shape
+    torch.testing.assert_close(x.e2s.to_torch()[0], original)
+    assert out.e2s.to_torch()[0].device == model.device
+    model.conditioning_data_source.assert_not_called()
 
 
 # ---------- Test: create_generator ----------
@@ -424,11 +364,18 @@ def test_stormcast_sda_generator(device):
     model = _build_model(device=device)
     time = np.array([np.datetime64("2020-04-05T00:00")])
     x = _build_input_da(model, time, device=device)
+    c = _build_input_da(model, time, device=device, conditioning=True)
     obs_source = _build_obs_source(model, n_obs=10)
     obs_df = fetch_dataframe(obs_source, time, model.variables[:2])
     ny, nx = model.lat.shape
 
-    with patch.object(model, "_forward", _mock_forward):
+    seen = []
+
+    def forward(x, conditioning, y_obs, mask):
+        seen.append(conditioning.clone())
+        return torch.zeros_like(x)
+
+    with patch.object(model, "_forward", forward):
         gen = model.create_generator(x)
 
         # First yield returns initial state
@@ -436,14 +383,17 @@ def test_stormcast_sda_generator(device):
         assert state.shape == x.shape
 
         # Send observations, receive next forecast
-        state = gen.send(obs_df)
+        state = gen.send((c, obs_df))
         assert state.shape == (len(time), 1, NVAR, ny, nx)
         assert state.coords["lead_time"].values[0] == np.timedelta64(1, "h")
+        torch.testing.assert_close(seen[0], c.e2s.to_torch()[0][0])
 
-        # Send None (no observations), receive next forecast
-        state = gen.send(None)
+        # Update conditioning to the current state window; observations are optional.
+        c = (c + 1).assign_coords(lead_time=state.lead_time)
+        state = gen.send((c, None))
         assert state.shape == (len(time), 1, NVAR, ny, nx)
         assert state.coords["lead_time"].values[0] == np.timedelta64(2, "h")
+        torch.testing.assert_close(seen[1], c.e2s.to_torch()[0][0])
 
         gen.close()
 
@@ -451,35 +401,26 @@ def test_stormcast_sda_generator(device):
 # ---------- Test: exceptions ----------
 
 
-def test_stormcast_sda_exceptions():
-    ny = Y_END - Y_START
-    nx = X_END - X_START
-    regression = PhooRegressionModel(out_vars=NVAR)
-    diffusion = PhooSDADiffusionModel()
-    means = torch.zeros(1, NVAR, 1, 1)
-    stds = torch.ones(1, NVAR, 1, 1)
-    invariants = torch.randn(1, 2, ny, nx)
-
-    # No conditioning_data_source
-    model = StormCastSDA(
-        regression,
-        diffusion,
-        means,
-        stds,
-        invariants,
-        hrrr_lat_lim=(Y_START, Y_END),
-        hrrr_lon_lim=(X_START, X_END),
-    )
-
+@pytest.mark.parametrize("coord", ["time", "lead_time", "variable", "lat", "lon"])
+def test_stormcast_sda_exceptions(coord):
+    model = _build_model()
     time = np.array([np.datetime64("2020-01-01T00:00")])
     x = _build_input_da(model, time)
-
-    with pytest.raises(RuntimeError):
-        model(x, None)
-
+    c = _build_input_da(model, time, conditioning=True)
+    values = c[coord].values.copy()
+    if coord == "variable":
+        values[0] = "bad"
+    elif coord in ("time", "lead_time"):
+        values += np.timedelta64(1, "h")
+    else:
+        values += 1
+    c = c.assign_coords({coord: (c[coord].dims, values)})
+    with pytest.raises(ValueError):
+        model(x, c)
     gen = model.create_generator(x)
-    with pytest.raises(RuntimeError):
-        next(gen)
+    next(gen)
+    with pytest.raises(ValueError, match="forcing_coords"):
+        gen.send(None)
 
 
 # ---------- Test: package loading ----------
@@ -499,35 +440,10 @@ def test_stormcast_sda_package(device, sda_model):
 
     model = sda_model.to(device)
 
-    # Set up Random conditioning source to avoid external data fetches
-    r_condition = Random(
-        OrderedDict(
-            [
-                ("lat", np.linspace(90, -90, num=721, endpoint=True)),
-                ("lon", np.linspace(0, 360, num=1440)),
-            ]
-        )
-    )
-    model.conditioning_data_source = r_condition
     model.sampler_args = SAMPLER_ARGS
-
-    # Build input from Random source matching model init_coords
-    ic = model.init_coords()[0]
-    dc = OrderedDict([("hrrr_y", ic["hrrr_y"]), ("hrrr_x", ic["hrrr_x"])])
-    r = Random(dc)
-    x = fetch_data(
-        r,
-        time,
-        ic["variable"],
-        lead_time=np.array([np.timedelta64(0, "h")]),
-        device=device,
-    )
-    x = x.assign_coords(
-        lat=(["hrrr_y", "hrrr_x"], model.lat),
-        lon=(["hrrr_y", "hrrr_x"], model.lon),
-    )
-
-    out = model(x, None)
+    x = _build_input_da(model, time, device=device)
+    c = _build_input_da(model, time, device=device, conditioning=True)
+    out = model(x, c, None)
 
     assert out.shape == (1, 1, 99, 512, 640)
     assert set(out.dims) == {"time", "lead_time", "variable", "hrrr_y", "hrrr_x"}

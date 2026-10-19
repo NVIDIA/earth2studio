@@ -30,12 +30,18 @@ from loguru import logger
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.da.base import AssimilationModel
 from earth2studio.models.da.utils import filter_time_range
+from earth2studio.utils import coord_array
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
 from earth2studio.utils.time import normalize_time_tolerance
-from earth2studio.utils.type import CoordSystem, FrameSchema, TimeArray, TimeTolerance
+from earth2studio.utils.type import (
+    CoordinateSystem,
+    FrameSchema,
+    TimeArray,
+    TimeTolerance,
+)
 
 if TYPE_CHECKING:
     from earth2studio.data.base import DataFrameSource
@@ -236,8 +242,8 @@ class HealDA(torch.nn.Module, AutoModelMixin):
     def device(self) -> torch.device:
         return self.device_buffer.device
 
-    def init_coords(self) -> None:
-        """Initialzation coords (not required)"""
+    def input_coords(self) -> None:
+        """Initial state coordinates (not required)."""
         return None
 
     def default_sources(self) -> tuple["DataFrameSource", "DataFrameSource"]:
@@ -259,8 +265,8 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             UFSObsSat(time_tolerance=tolerance),
         )
 
-    def input_coords(self) -> tuple[FrameSchema, FrameSchema]:
-        """Input coordinate system of the assimilation model.
+    def forcing_coords(self) -> tuple[FrameSchema, FrameSchema]:
+        """Observation forcing schemas of the assimilation model.
 
         Returns two FrameSchemas: one for conventional observations and one for
         satellite observations. When calling the model, either may be ``None``
@@ -304,17 +310,13 @@ class HealDA(torch.nn.Module, AutoModelMixin):
 
     def output_coords(
         self,
-        input_coords: tuple[CoordSystem, CoordSystem],
         request_time: np.ndarray | None = None,
         **kwargs: Any,
-    ) -> tuple[CoordSystem]:
+    ) -> CoordinateSystem:
         """Output coordinate system of the assimilation model.
 
         Parameters
         ----------
-        input_coords : tuple[CoordSystem, CoordSystem]
-            Conventional and satellite input coordinate systems. The output
-            grid and variables are determined by the model configuration.
         request_time : np.ndarray | None, optional
             Analysis valid time(s), by default None
         **kwargs : Any
@@ -322,36 +324,34 @@ class HealDA(torch.nn.Module, AutoModelMixin):
 
         Returns
         -------
-        tuple[CoordSystem]
-            Single-element tuple with the analysis coordinate-system dictionary,
+        CoordinateSystem
+            Allocation-free analysis signature,
             using time, variable, and lat/lon or npix dimensions.
         """
         if request_time is None:
             request_time = np.array([np.datetime64("NaT")], dtype="datetime64[ns]")
 
         if self._lat_lon:
-            return (
-                CoordSystem(
-                    OrderedDict(
-                        {
-                            "time": request_time,
-                            "variable": np.array(E2S_CHANNELS, dtype=str),
-                            "lat": self._output_lat,
-                            "lon": self._output_lon,
-                        }
-                    )
-                ),
-            )
-
-        return (
-            CoordSystem(
+            return coord_array(
+                ("time", "variable", "lat", "lon"),
                 OrderedDict(
                     {
                         "time": request_time,
                         "variable": np.array(E2S_CHANNELS, dtype=str),
-                        "npix": np.arange(self._model.npix),
+                        "lat": self._output_lat,
+                        "lon": self._output_lon,
                     }
-                )
+                ),
+            )
+
+        return coord_array(
+            ("time", "variable", "npix"),
+            OrderedDict(
+                {
+                    "time": request_time,
+                    "variable": np.array(E2S_CHANNELS, dtype=str),
+                    "npix": np.arange(self._model.npix),
+                }
             ),
         )
 
@@ -535,23 +535,19 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         # Check if all (sensor, time) buckets are empty
         if all(df is None for time_list in obs_dict.values() for df in time_list):
             logger.warning("No observations after filtering, returning empty analysis")
-            (output_coords,) = self.output_coords(
-                self.input_coords(), request_time=request_time
-            )
+            output_coords = self.output_coords(request_time=request_time)
             return self._empty_output(output_coords)
 
         inputs = self.build_input(obs_dict, request_time)
         prediction = self._forward(inputs)
 
-        (output_coords,) = self.output_coords(
-            self.input_coords(), request_time=request_time
-        )
+        output_coords = self.output_coords(request_time=request_time)
         return self.build_output(prediction, output_coords)
 
     def create_generator(
         self,
     ) -> Generator[
-        xr.DataArray,
+        xr.DataArray | None,
         tuple[pd.DataFrame | None, pd.DataFrame | None],
         None,
     ]:
@@ -560,16 +556,17 @@ class HealDA(torch.nn.Module, AutoModelMixin):
 
         Yields
         ------
-        xr.DataArray
-            Global analysis on the HEALPix grid
+        xr.DataArray | None
+            None on priming, then global analyses on the configured grid.
 
         Receives
         --------
         tuple[pd.DataFrame | None, pd.DataFrame | None]
-            A ``(conv_obs, sat_obs)`` tuple sent via ``generator.send()``.
+            A ``(conv_obs, sat_obs)`` tuple in ``forcing_coords()`` order sent via
+            ``generator.send()``.
             Either element may be ``None`` but not both.
         """
-        inputs = yield None  # type: ignore[misc]
+        inputs = yield None
         try:
             while True:
                 conv_obs, sat_obs = inputs if inputs is not None else (None, None)
@@ -977,7 +974,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
     def build_output(
         self,
         prediction: torch.Tensor,
-        output_coords: CoordSystem,
+        output_coords: CoordinateSystem,
     ) -> xr.DataArray:
         """Convert model output tensor to xarray DataArray.
 
@@ -985,7 +982,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         ----------
         prediction : torch.Tensor
             Model output [batch, variable, 1, npix]
-        output_coords : CoordSystem
+        output_coords : CoordinateSystem
             Output coordinate system
 
         Returns
@@ -1006,16 +1003,16 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             return xr.DataArray(
                 data=data,
                 dims=["time", "variable", "lat", "lon"],
-                coords=output_coords,
+                coords=output_coords.coords,
             )
 
         return xr.DataArray(
             data=data,
             dims=["time", "variable", "npix"],
-            coords=output_coords,
+            coords=output_coords.coords,
         )
 
-    def _empty_output(self, output_coords: CoordSystem) -> xr.DataArray:
+    def _empty_output(self, output_coords: CoordinateSystem) -> xr.DataArray:
         """Return an empty (NaN-filled) DataArray."""
         n_time = len(output_coords["time"])
         n_var = len(output_coords["variable"])
@@ -1040,7 +1037,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         return xr.DataArray(
             data=data_np,
             dims=dims,
-            coords=output_coords,
+            coords=output_coords.coords,
         )
 
     @staticmethod

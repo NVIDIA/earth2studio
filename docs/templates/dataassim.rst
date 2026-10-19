@@ -8,6 +8,10 @@
    {% block methods %}
     .. automethod:: __call__
     .. automethod:: create_generator
+    .. automethod:: input_coords
+    .. automethod:: forcing_coords
+    .. automethod:: output_coords
+    .. automethod:: default_sources
     .. automethod:: load_default_package
     .. automethod:: load_model
    {% endblock %}

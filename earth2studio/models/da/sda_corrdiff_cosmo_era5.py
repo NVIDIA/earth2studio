@@ -16,7 +16,6 @@
 
 from __future__ import annotations
 
-from collections import OrderedDict
 from collections.abc import Callable, Generator, Mapping
 from contextlib import nullcontext
 from datetime import datetime, timezone
@@ -41,7 +40,7 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.time import normalize_time_tolerance
-from earth2studio.utils.type import CoordSystem, FrameSchema, TimeTolerance
+from earth2studio.utils.type import CoordinateSystem, FrameSchema, TimeTolerance
 
 if TYPE_CHECKING:
     from earth2studio.data.base import DataFrameSource, DataSource
@@ -297,17 +296,26 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
 
     # ── coordinate systems ───────────────────────────────────────────────────
 
-    def init_coords(self) -> tuple[CoordSystem]:
-        """Initialization coordinate system: the ERA5 driving state (the same grid
+    def input_coords(self) -> CoordinateSystem:
+        """Initial-state coordinate system: the ERA5 driving state (the same grid
         the downscaler conditions on).
 
         Returns
         -------
-        tuple[CoordSystem]
-            Single-element tuple with the ERA5 initialization coordinate system.
+        CoordinateSystem
+            Allocation-free ERA5 initial-state signature.
         """
         signature = self.model.input_coords()
-        return (OrderedDict((str(d), signature[d].values) for d in signature.dims),)
+        return coord_array(
+            ("time", "variable", "lat", "lon"),
+            {
+                "time": np.empty(0, dtype="datetime64[ns]"),
+                "variable": signature["variable"].values,
+                "lat": signature.lat.values,
+                "lon": signature.lon.values,
+            },
+            dynamic=("time",),
+        )
 
     def default_sources(self) -> tuple[DataSource, DataFrameSource]:
         """Recommend ARCO ERA5 initialization and GHCNh observation data sources.
@@ -330,28 +338,27 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
             stations=stations, time_tolerance=self._tolerance, verbose=False
         )
 
-    def input_coords(self) -> tuple[FrameSchema]:
-        """Input coordinate system of the assimilation model.
+    def forcing_coords(self) -> FrameSchema:
+        """Observation forcing schema of the assimilation model.
 
         Returns
         -------
-        tuple[FrameSchema]
-            Single-element tuple with the required observation-DataFrame fields
-            (``time``, ``lat``, ``lon``, ``observation``, ``variable``).
+        FrameSchema
+            Required observation fields (``time``, ``lat``, ``lon``, ``observation``,
+            ``variable``). Observations are filtered around each driving-state time
+            with the configured tolerance. Pass None for unconstrained downscaling.
         """
-        return (
-            FrameSchema(
-                {
-                    "time": np.empty(0, dtype="datetime64[ns]"),
-                    "lat": np.empty(0, dtype=np.float32),
-                    "lon": np.empty(0, dtype=np.float32),
-                    "observation": np.empty(0, dtype=np.float32),
-                    "variable": np.array(self.assimilate_variables, dtype=str),
-                }
-            ),
+        return FrameSchema(
+            {
+                "time": np.empty(0, dtype="datetime64[ns]"),
+                "lat": np.empty(0, dtype=np.float32),
+                "lon": np.empty(0, dtype=np.float32),
+                "observation": np.empty(0, dtype=np.float32),
+                "variable": np.array(self.assimilate_variables, dtype=str),
+            }
         )
 
-    def output_coords(self, input_coords: tuple[CoordSystem]) -> tuple[CoordSystem]:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the assimilation model.
 
         Matches the dimensions returned by :meth:`__call__` on the COSMO-REA
@@ -359,42 +366,34 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
 
         Parameters
         ----------
-        input_coords : tuple[CoordSystem]
-            The ERA5 driving-state coordinate system (from :meth:`init_coords`),
+        input_coords : CoordinateSystem
+            The ERA5 driving-state signature (from :meth:`input_coords`),
             validated against the wrapped model's native input grid.
 
         Returns
         -------
-        tuple[CoordSystem]
-            Single-element tuple whose coordinate system has dims
+        CoordinateSystem
+            Allocation-free signature with dims
             ``(time, sample, variable, y, x)`` with 2D ``lat``/``lon`` on the
             analysis grid.
         """
-        target = self.model.input_coords()
-        handshake_dim(input_coords[0], "lat", -2)
-        handshake_dim(input_coords[0], "lon", -1)
-        # The assimilation protocol keeps dictionary coordinates. Adapt only the
-        # nested diagnostic planning boundary, preserving its grid validation.
-        signature = coord_array(
-            tuple(input_coords[0]),
-            {k: v for k, v in input_coords[0].items()},
-            attrs=target.attrs,
-        )
-        oc = self.model.output_coords(signature)
+        handshake_dim(input_coords, "lat", -2)
+        handshake_dim(input_coords, "lon", -1)
+        oc = self.model.output_coords(input_coords)
         lat2d, lon2d = np.asarray(oc["lat"]), np.asarray(oc["lon"])
         h, w = lat2d.shape
-        return (
-            OrderedDict(
-                {
-                    "time": input_coords[0]["time"],
-                    "sample": np.arange(self.number_of_samples),
-                    "variable": np.asarray(oc["variable"]),
-                    "y": np.arange(h),
-                    "x": np.arange(w),
-                    "lat": lat2d,
-                    "lon": lon2d,
-                }
-            ),
+        return coord_array(
+            ("time", "sample", "variable", "y", "x"),
+            {
+                "time": input_coords["time"].values,
+                "sample": np.arange(self.number_of_samples),
+                "variable": np.asarray(oc["variable"]),
+                "y": np.arange(h),
+                "x": np.arange(w),
+                "lat": (("y", "x"), lat2d),
+                "lon": (("y", "x"), lon2d),
+            },
+            dynamic=input_coords.attrs.get("earth2studio_dynamic_dims", ()),
         )
 
     # ── observations ─────────────────────────────────────────────────────────
@@ -595,7 +594,7 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
             )
 
     def _to_output_dataarray(
-        self, out: torch.Tensor, times: np.ndarray, oc: CoordSystem
+        self, out: torch.Tensor, times: np.ndarray, oc: CoordinateSystem
     ) -> xr.DataArray:
         """[n_time, n_sample, C_out, H', W'] -> DataArray with 2D lat/lon coords."""
         # Same-device analysis per the AssimilationModel contract: CuPy on CUDA,
@@ -670,10 +669,10 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         self._require_cupy_for_cuda()  # fail before sampling, not after
         device = self.device
         x = self._era5_frames(x)
-        x_coords = OrderedDict({dim: x.coords[dim].values for dim in x.dims})
-        (oc,) = self.output_coords((x_coords,))
+        oc = self.output_coords(x)
 
-        x_tensor = torch.as_tensor(x.data, device=device).to(torch.float32)
+        x_tensor, _ = x.e2s.to_torch()
+        x_tensor = x_tensor.to(device=device, dtype=torch.float32)
         times = np.atleast_1d(x.coords["time"].values)
         outs = []
         for j, t in enumerate(times):
@@ -727,9 +726,9 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         self._require_cupy_for_cuda()  # fail before sampling, not after
         device = self.device
         x = self._era5_frames(x)
-        x_coords = OrderedDict({dim: x.coords[dim].values for dim in x.dims})
-        (oc,) = self.output_coords((x_coords,))
-        x_tensor = torch.as_tensor(x.data, device=device).to(torch.float32)
+        oc = self.output_coords(x)
+        x_tensor, _ = x.e2s.to_torch()
+        x_tensor = x_tensor.to(device=device, dtype=torch.float32)
         times = np.atleast_1d(x.coords["time"].values)
 
         # prime with no compute; unlike StormCast, yields no initial state

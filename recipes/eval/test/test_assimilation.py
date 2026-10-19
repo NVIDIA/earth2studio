@@ -141,10 +141,10 @@ class FakeDA:
         return cls(**kwargs)
 
     # -- AssimilationModel protocol ------------------------------------
-    def init_coords(self):
+    def input_coords(self):
         return None
 
-    def input_coords(self):
+    def forcing_coords(self):
         conv_schema = OrderedDict(
             {
                 "time": np.empty(0, dtype="datetime64[ns]"),
@@ -165,18 +165,19 @@ class FakeDA:
         )
         return conv_schema, sat_schema
 
-    def output_coords(self, input_coords, request_time=None, **kwargs):
+    def output_coords(self, request_time=None, **kwargs):
         if request_time is None:
             request_time = np.array([np.datetime64("NaT")], dtype="datetime64[ns]")
-        return (
-            OrderedDict(
-                {
-                    "time": request_time,
-                    "variable": np.array(self.variables, dtype=str),
-                    "lat": self.lat,
-                    "lon": self.lon,
-                }
-            ),
+        from earth2studio.utils import coord_array
+
+        return coord_array(
+            ("time", "variable", "lat", "lon"),
+            {
+                "time": request_time,
+                "variable": np.array(self.variables, dtype=str),
+                "lat": self.lat,
+                "lon": self.lon,
+            },
         )
 
     def __call__(self, conv_obs=None, sat_obs=None) -> xr.DataArray:
@@ -193,9 +194,7 @@ class FakeDA:
         request_time = np.asarray(request_time, dtype="datetime64[ns]")
 
         self.call_count += 1
-        (output_coords,) = self.output_coords(
-            self.input_coords(), request_time=request_time
-        )
+        output_coords = self.output_coords(request_time=request_time)
         shape = (
             len(request_time),
             len(self.variables),
@@ -206,7 +205,7 @@ class FakeDA:
         return xr.DataArray(
             rng.standard_normal(shape).astype(np.float32),
             dims=["time", "variable", "lat", "lon"],
-            coords=output_coords,
+            coords=output_coords.coords,
         )
 
     def create_generator(self):
@@ -220,9 +219,9 @@ class FakeDA:
 
 
 class FakeStatefulDA(FakeDA):
-    """A DA fake that requires a background state (init_coords not None)."""
+    """A DA fake that requires a background state (input_coords not None)."""
 
-    def init_coords(self):
+    def input_coords(self):
         return (
             OrderedDict(
                 {
@@ -235,7 +234,7 @@ class FakeStatefulDA(FakeDA):
 
 
 def _make_obs_set(model, conv_source=None, sat_source=None) -> ObsSourceSet:
-    return ObsSourceSet([conv_source, sat_source], model.input_coords())
+    return ObsSourceSet([conv_source, sat_source], model.forcing_coords())
 
 
 # ======================================================================
@@ -259,7 +258,7 @@ class TestObsSourceSet:
                 },
             }
         )
-        obs_set = ObsSourceSet.from_config(obs_cfg, model.input_coords())
+        obs_set = ObsSourceSet.from_config(obs_cfg, model.forcing_coords())
 
         conv, sat = obs_set._sources
         assert isinstance(conv, FakeObsSource)
@@ -274,12 +273,25 @@ class TestObsSourceSet:
         model = FakeDA()
         obs_cfg = OmegaConf.create({"conv": {"value": 1.0}, "sat": {"value": 1.0}})
         with pytest.raises(ValueError, match="_target_"):
-            ObsSourceSet.from_config(obs_cfg, model.input_coords())
+            ObsSourceSet.from_config(obs_cfg, model.forcing_coords())
 
     def test_source_count_mismatch_raises(self):
         model = FakeDA()
         with pytest.raises(ValueError, match="one config entry is required"):
-            ObsSourceSet([FakeObsSource()], model.input_coords())
+            ObsSourceSet([FakeObsSource()], model.forcing_coords())
+
+    def test_single_forcing_schema(self):
+        schema = FakeDA().forcing_coords()[0]
+        obs_set = ObsSourceSet([FakeObsSource()], schema)
+        (obs,) = obs_set.fetch(np.datetime64("2024-01-01"))
+        assert set(obs["variable"]) == set(schema["variable"])
+
+    def test_no_forcing_slots(self):
+        assert ObsSourceSet([], None).fetch(np.datetime64("2024-01-01")) == ()
+
+    def test_gridded_forcing_rejected(self):
+        with pytest.raises(NotImplementedError, match="tabular forcing"):
+            ObsSourceSet([FakeObsSource()], FakeDA().output_coords())
 
     def test_fetch_sets_request_time_and_none_slots(self):
         model = FakeDA()
@@ -692,7 +704,7 @@ class TestObsFrameStoreDeclaration:
     def test_obs_set_declares_enabled_slots_only(self):
         model = FakeDA()
         obs_set = ObsSourceSet(
-            [FakeObsSource(), None], model.input_coords(), names=["conv", "sat"]
+            [FakeObsSource(), None], model.forcing_coords(), names=["conv", "sat"]
         )
         times = [np.datetime64("2024-01-01T00:00:00")]
 
@@ -753,7 +765,7 @@ class TestObsFrameStoreDeclaration:
         )
 
         obs_set = ObsSourceSet.from_config(
-            obs_cfg, model.input_coords(), output_path=str(output_path)
+            obs_cfg, model.forcing_coords(), output_path=str(output_path)
         )
         conv, sat = obs_set._sources
         assert isinstance(conv, PredownloadedFrameSource)
@@ -761,7 +773,7 @@ class TestObsFrameStoreDeclaration:
 
         # Without output_path (the predownload declaration path) the live
         # source is constructed even when a frame store exists on disk.
-        obs_set_live = ObsSourceSet.from_config(obs_cfg, model.input_coords())
+        obs_set_live = ObsSourceSet.from_config(obs_cfg, model.forcing_coords())
         assert isinstance(obs_set_live._sources[0], FakeObsSource)
 
     def test_end_to_end_run_from_predownloaded_obs(self, tmp_path):

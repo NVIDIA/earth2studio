@@ -20,7 +20,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from earth2studio.data import ARCO_ERA5, HRRR, GHCNHourly, UFSObsConv, UFSObsSat
+from earth2studio.data import ARCO_ERA5, GFS_FX, HRRR, GHCNHourly, UFSObsConv, UFSObsSat
 from earth2studio.models.da import (
     CorrDiffCosmoEra5SDA,
     HealDA,
@@ -51,11 +51,15 @@ def test_default_sources_stormcast_sda(fake_stations):
     model.lat = np.array([[30.0, 40.0], [31.0, 41.0]])
     model.lon = np.array([[250.0, 260.0], [251.0, 261.0]])
     model._tolerance = normalize_time_tolerance(timedelta(minutes=15))
-    hrrr, ghcn = model.default_sources()
+    model.conditioning_data_source = None
+    hrrr, conditioning, ghcn = model.default_sources()
     assert isinstance(hrrr, HRRR)
+    assert isinstance(conditioning, GFS_FX)
     assert isinstance(ghcn, GHCNHourly)
     assert ghcn.stations == ["USW00000001"]
     assert fake_stations == [(30.0, -110.0, 41.0, -99.0)]
+    model.conditioning_data_source = ARCO_ERA5()
+    assert model.default_sources()[1] is model.conditioning_data_source
 
 
 def test_default_sources_corrdiff_cosmo_era5_sda(fake_stations):

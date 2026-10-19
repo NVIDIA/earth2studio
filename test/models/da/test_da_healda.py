@@ -328,14 +328,14 @@ def test_healda_generator():
     gen.close()
 
 
-def test_healda_init_coords():
-    model = _build_model()
-    assert model.init_coords() is None
-
-
 def test_healda_input_coords():
     model = _build_model()
-    conv_schema, sat_schema = model.input_coords()
+    assert model.input_coords() is None
+
+
+def test_healda_forcing_coords():
+    model = _build_model()
+    conv_schema, sat_schema = model.forcing_coords()
     assert "time" in conv_schema
     assert "lat" in conv_schema
     assert "observation" in conv_schema
@@ -349,10 +349,10 @@ def test_healda_input_coords():
 def test_healda_output_coords():
     model = _build_model()
     request_time = np.array([np.datetime64("2024-01-01T12:00:00")])
-    (coords,) = model.output_coords(model.input_coords(), request_time=request_time)
-    assert "time" in coords
-    assert "variable" in coords
-    assert "npix" in coords
+    coords = model.output_coords(request_time=request_time)
+    assert "time" in coords.coords
+    assert "variable" in coords.coords
+    assert "npix" in coords.coords
     assert len(coords["variable"]) == NVAR
     assert len(coords["npix"]) == NPIX
 

@@ -102,6 +102,9 @@ def test_interp_init(interp_method, small_grid):
     assert model.interp_method == interp_method
     assert np.array_equal(model._lat, lat)
     assert np.array_equal(model._lon, lon)
+    assert model.input_coords() is None
+    assert isinstance(model.forcing_coords(), dict)
+    assert isinstance(model.output_coords(), xr.DataArray)
 
     with pytest.raises(ValueError, match="interp_method must be one of"):
         InterpEquirectangular(interp_method="invalid")
