@@ -39,19 +39,11 @@ from earth2studio.models.px import PrognosticModel
 from earth2studio.models.px.utils import initial_condition
 from earth2studio.models.utils import recommended_sources
 from earth2studio.run._fields import _lead_times, _map_field
+from earth2studio.run.work import WorkItem, member_seed
 from earth2studio.utils.coords import E2S_DYNAMIC_DIMS, coord_array
 from earth2studio.utils.type import CoordinateSystem
 
 Source: TypeAlias = DataSource | ForecastSource
-
-
-@dataclass(frozen=True)
-class WorkItem:
-    """One forecast reference time, horizon, and optional ensemble member group."""
-
-    time: np.datetime64
-    horizon: np.timedelta64
-    member_ids: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -212,9 +204,6 @@ def _seed_model(
 
     Returns the seed applied, or ``None`` when ``model`` is not stochastic.
     """
-    # Imported here: `run.work` imports `WorkItem` from this module.
-    from earth2studio.run.work import member_seed
-
     set_rng = getattr(model, "set_rng", None)
     if not getattr(model, "stochastic", False) or not callable(set_rng):
         return None

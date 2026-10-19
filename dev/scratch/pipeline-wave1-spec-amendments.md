@@ -91,19 +91,29 @@ encountered (or `None`) instead of raising. `Pipeline` folds that error into the
 `error` it passes to `raise_if_any_failed`, so a close failure is reported on
 every rank via the same failure-flag reduction used for run failures."*
 
-## 7. `AsyncZarrBackend` `chunked_coords` override
+## 7. `AsyncZarrBackend` `chunked_coords` override — FIXED IN BACKEND
 
-**Spec now:** AsyncZarrBackend ownership check only mentions `parallel_coords`.
+**Issue:** `AsyncZarrBackend._compute_chunks` let `chunked_coords` override a
+parallel coordinate's chunk of 1, so `chunked_coords={"time": 4}` re-created
+the same shared-chunk race the ownership row is meant to prevent. This already
+contradicted the documented meaning of `chunked_coords` ("chunk sizes for
+coordinates that are *not* in `parallel_coords`").
 
-**Issue:** `AsyncZarrBackend._compute_chunks` lets `chunked_coords` override a
-parallel coordinate's chunk of 1 (`async_zarr.py:838-845`), so
-`chunked_coords={"time": 4}` re-creates the same shared-chunk race the row is
-meant to prevent.
+**Resolution:** Fixed in the backend rather than worked around in supervision.
+`AsyncZarrBackend.__init__` now raises `ValueError` when `chunked_coords` names
+a parallel coordinate with a size other than 1 (and for any non-positive chunk
+size), and `_compute_chunks` no longer lets such an entry through. The parallel
+chunk of 1 is now an invariant of the backend, not a convention supervision has
+to re-derive. `OutputManager` keeps reading `chunked_coords` only as a cheap
+safeguard; it still catches a distributed dimension that is chunked but absent
+from `parallel_coords`. Covered by
+`test_async_zarr_chunked_coords_validation`; no in-tree caller passes a
+parallel coordinate in `chunked_coords`, including the eval recipe, which
+already excludes its iteration dims.
 
-**Implementation choice:** Read both `parallel_coords` and `chunked_coords`.
-
-**Proposed spec wording:** *"`time` and `ensemble` are in `parallel_coords`, are
-not re-chunked by `chunked_coords`, and no shard spans items."*
+**Spec now reads:** *"`time`/`ensemble` in `parallel_coords`; no shard spans
+items. The backend chunks a parallel coordinate at 1 and rejects a
+`chunked_coords` entry that would widen it."*
 
 ## 8. Default Zarr `time` chunking
 
@@ -113,24 +123,30 @@ becomes one shared chunk. Only the default `chunks={"ensemble": 1, "time": 1,
 "lead_time": 1}` (or equivalent) passes. This matches the intent of `X14`; worth
 being explicit.
 
-## 9. `member_seed` / `WorkItem` location
+## 9. `member_seed` / `WorkItem` location — FIXED
 
-**Issue:** `earth2studio.run.runner` defines `WorkItem` and imports
-`member_seed` from `earth2studio.run.work`. But `run/work.py` imports
-`WorkItem` from `runner.py`, so `runner.py` must lazy-import `member_seed` to avoid
-a circular import. This is fragile.
+**Issue:** `runner.py` defined `WorkItem` while `work.py` imported it, so
+`runner.py` had to lazy-import `member_seed` inside `_seed_model` to break a
+circular import. Fragile, and invisible until someone moved the import.
 
-**Proposed fix (future):** Move `WorkItem`, `DataRequest`, `member_seed`, and
-other leaf helpers into a small `earth2studio/run/types.py` or
-`earth2studio/run/data.py` module that both `work.py` and `runner.py` import;
-neither imports the other.
+**Resolution:** `WorkItem` now lives in `run/work.py`, which imports nothing
+else from `run`. `runner.py` imports `WorkItem` and `member_seed` from it at
+module level and the lazy import is gone. `earth2studio.run.WorkItem` and
+`earth2studio.run.work.WorkItem` are the same object, so no public import path
+changed. The spec's module table was updated to match.
 
-## 10. DLESyM initial-condition publication (out of scope for wave 1)
+`DataRequest` deliberately stayed in `runner.py`: it holds a `Source`
+(`DataSource | ForecastSource`), so moving it would pull `earth2studio.data`
+into the work layer and make distribution and progress depend on the data
+layer. `work.py` needs only numpy.
+
+## 10. DLESyM initial-condition publication (deferred by owner)
 
 **Issue:** The face-grid DLESyM model's `input_coords` variables are not a subset
 of its `output_coords`, so publishing `initial_condition(x)` into the forecast
 stream would write labels not present in the stream. The fused DLESyM test works
-because the lead-0 row simply lacks those variables and is fill-valued, but a
-real eval replacement may need label mapping or an opt-out. This touches
-`earth2studio/models/**` and is intentionally left for the eval integration
-track (wave 3, E1).
+because the lead-0 row simply lacks those variables and is fill-valued.
+
+**Resolution:** Deferred, not a wave-1 concern. Planned data-source support for
+auto-computing requested derived variables is expected to subsume it; revisit
+during the eval integration track (wave 3, E1) if it does not.

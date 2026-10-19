@@ -24,11 +24,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from earth2studio.run.runner import WorkItem
 from earth2studio.run.work import (
     COMPACT_LOG_NAME,
     MANIFEST_NAME,
     ProgressStore,
+    WorkItem,
     barrier,
     distribute_work,
     member_seed,

@@ -16,11 +16,14 @@
 
 """Work construction, distribution, seeding, progress, and rank helpers.
 
-Implements the work layer of ``dev/spec/EXECUTION_CONTRACT_SPEC.md``: building
-:class:`~earth2studio.run.runner.WorkItem` lists, splitting them across ranks,
+Implements the work layer of ``dev/spec/EXECUTION_CONTRACT_SPEC.md``: defining
+the unit of work, building :class:`WorkItem` lists, splitting them across ranks,
 deriving per-member seeds, recording finished items for resume, and the thin
 ``torch.distributed`` helpers everything above uses. The helpers are no-ops
 without a process group; this module never initializes one.
+
+This module is a leaf: it imports nothing from the rest of the run package, so
+runners, output supervision, and pipelines can all depend on it.
 """
 
 from __future__ import annotations
@@ -29,6 +32,7 @@ import json
 import os
 import struct
 from collections.abc import Callable, Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from types import TracebackType
 from typing import IO, Any, TypeVar
@@ -37,8 +41,6 @@ import numpy as np
 import torch
 import torch.distributed as dist
 from loguru import logger
-
-from earth2studio.run.runner import WorkItem
 
 T = TypeVar("T")
 
@@ -53,6 +55,15 @@ _LOG_SUFFIX = ".log"
 
 # A progress unit: (time seconds, horizon seconds, member id or None).
 _Unit = tuple[int, int, int | None]
+
+
+@dataclass(frozen=True)
+class WorkItem:
+    """One forecast reference time, horizon, and optional ensemble member group."""
+
+    time: np.datetime64
+    horizon: np.timedelta64
+    member_ids: tuple[int, ...] = ()
 
 
 def work_items(

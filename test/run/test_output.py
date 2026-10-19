@@ -27,7 +27,7 @@ from earth2studio.io import AsyncZarrBackend, KVBackend, XarrayBackend, ZarrBack
 from earth2studio.io.utils import output_template
 from earth2studio.run import output as output_module
 from earth2studio.run.output import OutputManager
-from earth2studio.run.runner import WorkItem
+from earth2studio.run.work import WorkItem
 from earth2studio.utils.coords import coord_array
 
 GRID = LatLonGrid(np.array([1.0, 0.0]), np.array([0.0, 1.0, 2.0]))

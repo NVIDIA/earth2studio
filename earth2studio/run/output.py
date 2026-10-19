@@ -37,8 +37,7 @@ from earth2studio.io.kv import KVBackend
 from earth2studio.io.utils import output_template
 from earth2studio.io.xarray import XarrayBackend
 from earth2studio.io.zarr import ZarrBackend
-from earth2studio.run.runner import WorkItem
-from earth2studio.run.work import barrier, rank0_first, rank_info
+from earth2studio.run.work import WorkItem, barrier, rank0_first, rank_info
 from earth2studio.utils.type import CoordinateSystem
 
 # Dimensions work is distributed over: an item writes one `time` and its
@@ -360,8 +359,10 @@ def _async_zarr_blocks(
 ) -> dict[str, tuple[int, str]]:
     """Chunk and shard sizes of an async Zarr store's distributed dimensions.
 
-    Parallel coordinates are chunked at 1 unless ``chunked_coords`` overrides
-    them, and ``shard_coords`` groups those chunks into one written shard.
+    The backend chunks a parallel coordinate at 1 and rejects any
+    ``chunked_coords`` entry that would widen it, so ``chunked_coords`` is read
+    only as a safeguard; ``shard_coords`` groups those chunks into one written
+    shard, which is what a rank must not share.
     """
     chunked: Mapping[Hashable, int] = getattr(backend, "chunked_coords", {})
     sharded: Mapping[Hashable, int] = getattr(backend, "shard_coords", {})

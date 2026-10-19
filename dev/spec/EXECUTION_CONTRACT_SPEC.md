@@ -35,13 +35,15 @@ One owner per module, so implementation tracks do not conflict:
 
 | Module | Contents |
 | --- | --- |
-| `run/runner.py` | `WorkItem`, `DataRequest`, `Runner`, `PrognosticRunner`, `DiagnosticRunner` |
-| `run/work.py` | `work_items`, `distribute_work`, `member_seed`, `ProgressStore`, rank helpers |
+| `run/runner.py` | `DataRequest`, `Runner`, `PrognosticRunner`, `DiagnosticRunner` |
+| `run/work.py` | `WorkItem`, `work_items`, `distribute_work`, `member_seed`, `ProgressStore` |
 | `run/output.py` | `OutputManager` (internal) |
 | `run/pipeline.py` | `Pipeline`, `Scorer` |
 
 `run/pipeline.py` adds the public exports to `earth2studio.run`; until then, import
-the other modules by path.
+the other modules by path. `run/work.py` also owns the rank helpers, and is a leaf: it
+imports nothing else from `run`, so `runner.py`, `output.py`, and `pipeline.py` can all
+depend on it.
 
 ## Work items
 
@@ -319,7 +321,9 @@ attributes, with no IO protocol or backend changes:
 | Others, including `NetCDF4Backend` | Unknown: shared storage may be corrupted |
 
 A failed check raises `ValueError`; the last two rows warn once instead. Default Zarr
-chunking passes. Single-process runs skip the check.
+chunking passes. Single-process runs skip the check. `AsyncZarrBackend` chunks a
+parallel coordinate at 1 and rejects a `chunked_coords` entry that would widen it, so
+the shard is the only unit a rank can share.
 
 ## Progress
 

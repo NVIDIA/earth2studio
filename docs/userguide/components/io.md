@@ -292,7 +292,9 @@ size.
 Sharding composes with `zarr_codecs`, which compresses the inner chunks within each
 shard, and with `chunked_coords`, which sets the chunk size of coordinates that are not
 in `parallel_coords`. A shard size must always be a multiple of that coordinate's chunk
-size.
+size. A coordinate in `parallel_coords` is always chunked with a size of 1 so concurrent
+writers never share a chunk; asking `chunked_coords` for a larger chunk on one of those
+coordinates raises a `ValueError`. Group them with `shard_coords` instead.
 
 ### Multiple processes writing one store
 
