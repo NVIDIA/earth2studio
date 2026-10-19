@@ -20,8 +20,9 @@ Align slot declarations with prognostic models:
   Return `None` only when there are no forcing slots.
 - `output_coords()` describes analysis outputs. Accept initial-state signatures as
   separate named arguments, with model-specific request metadata as keywords.
+  Return a CoordinateSystem or tuple of CoordinateSystems for DataArray outputs.
 - Return a single signature/schema directly, or an ordered tuple for multiple slots.
-  Tuples may mix gridded signatures and tabular schemas.
+  Input and forcing tuples may mix gridded signatures and tabular schemas.
 - Use `CoordinateSystem` (an allocation-free `xr.DataArray` built with `coord_array`
   or `coord_array_like`) for gridded slots. Include auxiliary geographic coordinates
   and declare dynamic dimensions explicitly. Do not use legacy coordinate dictionaries.
@@ -43,7 +44,7 @@ them from a tuple.
 ## Execution and iterators
 
 - `__call__` accepts initial states followed by forcing and computes one independent
-  analysis. Return a singleton DataArray/DataFrame directly, multiple outputs as a tuple.
+  analysis. Return a singleton DataArray directly, multiple outputs as a tuple.
 - `create_iterator` accepts initial-state arguments followed by the first forcing,
   like `__call__`. The first `next(it)` computes and yields the first analysis;
   never yield the initial state or a placeholder `None`.

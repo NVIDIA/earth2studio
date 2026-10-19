@@ -550,7 +550,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         sat_obs: pd.DataFrame | None = None,
     ) -> Generator[
         xr.DataArray,
-        tuple[pd.DataFrame | None, pd.DataFrame | None],
+        tuple[pd.DataFrame | None, pd.DataFrame | None] | None,
         None,
     ]:
         """Create an iterator yielding global analyses from observation forcing.
@@ -570,10 +570,11 @@ class HealDA(torch.nn.Module, AutoModelMixin):
 
         Receives
         --------
-        tuple[pd.DataFrame | None, pd.DataFrame | None]
+        tuple[pd.DataFrame | None, pd.DataFrame | None] | None
             A ``(conv_obs, sat_obs)`` tuple in ``forcing_coords()`` order sent via
             ``iterator.send()`` for the next analysis.
-            Either element may be ``None`` but not both.
+            Either element may be ``None`` but not both. Sending ``None`` raises
+            ValueError because at least one observation batch is required.
         """
         try:
             while True:

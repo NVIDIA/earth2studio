@@ -738,7 +738,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         x: xr.DataArray,
         conditioning: xr.DataArray,
         obs: pd.DataFrame | None = None,
-    ) -> Generator[xr.DataArray, tuple[xr.DataArray, pd.DataFrame | None], None]:
+    ) -> Generator[xr.DataArray, tuple[xr.DataArray, pd.DataFrame | None] | None, None]:
         """Create an iterator yielding forecasts with data assimilation.
 
         The iterator yields forecasts and receives conditioning and observations
@@ -762,9 +762,10 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
 
         Receives
         --------
-        tuple[xr.DataArray, pd.DataFrame | None]
+        tuple[xr.DataArray, pd.DataFrame | None] | None
             Conditioning at the current state valid time, then observations at the
             next analysis time. Pass ``(conditioning, None)`` without assimilation.
+            Sending ``None`` raises ValueError because conditioning is required.
 
         Example
         -------

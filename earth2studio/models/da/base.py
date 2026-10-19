@@ -52,7 +52,7 @@ class AssimilationModel(Protocol):
 
     def __call__(
         self, *x: pd.DataFrame | xr.DataArray | None
-    ) -> pd.DataFrame | xr.DataArray | tuple[pd.DataFrame | xr.DataArray, ...]:
+    ) -> xr.DataArray | tuple[xr.DataArray, ...]:
         """Compute an independent analysis without retaining rollout state.
 
         Parameters
@@ -64,16 +64,19 @@ class AssimilationModel(Protocol):
 
         Returns
         -------
-        pd.DataFrame | xr.DataArray | tuple[pd.DataFrame | xr.DataArray, ...]
+        xr.DataArray | tuple[xr.DataArray, ...]
             Analysis matching ``output_coords()``, on the model's device.
         """
         pass
 
-    def create_iterator(self, *x: pd.DataFrame | xr.DataArray | None) -> Generator[
-        pd.DataFrame | xr.DataArray | tuple[pd.DataFrame | xr.DataArray, ...],
-        pd.DataFrame
-        | xr.DataArray
-        | tuple[pd.DataFrame | xr.DataArray | None, ...]
+    def create_iterator(
+        self,
+        *x: xr.DataArray | pd.DataFrame | None,
+    ) -> Generator[
+        xr.DataArray | tuple[xr.DataArray, ...],
+        xr.DataArray
+        | pd.DataFrame
+        | tuple[xr.DataArray | pd.DataFrame | None, ...]
         | None,
         None,
     ]:
@@ -88,18 +91,18 @@ class AssimilationModel(Protocol):
 
         Parameters
         ----------
-        *x : pd.DataFrame | xr.DataArray | None
+        *x : xr.DataArray | pd.DataFrame | None
             Same arguments as ``__call__``: one per ``input_coords()`` slot,
             followed by the first forcing in ``forcing_coords()`` order.
 
         Yields
         ------
-        pd.DataFrame | xr.DataArray | tuple[pd.DataFrame | xr.DataArray, ...]
+        xr.DataArray | tuple[xr.DataArray, ...]
             Successive analyses in output-slot order, starting with the first step.
 
         Receives
         --------
-        pd.DataFrame | xr.DataArray | tuple[pd.DataFrame | xr.DataArray | None, ...] | None
+        xr.DataArray | pd.DataFrame | tuple[xr.DataArray | pd.DataFrame | None, ...] | None
             One forcing value directly, or a tuple in ``forcing_coords()`` order.
             Preserve optional slots with ``None`` entries. Subsequent ``next(it)``
             calls mean ``send(None)``, valid only when no forcing is required for
@@ -155,7 +158,7 @@ class AssimilationModel(Protocol):
 
     def output_coords(
         self, *input_coords: FrameSchema | CoordinateSystem, **kwargs: Any
-    ) -> FrameSchema | CoordinateSystem | tuple[FrameSchema | CoordinateSystem, ...]:
+    ) -> CoordinateSystem | tuple[CoordinateSystem, ...]:
         """Describe the analysis outputs.
 
         Parameters
@@ -169,8 +172,8 @@ class AssimilationModel(Protocol):
 
         Returns
         -------
-        FrameSchema | CoordinateSystem | tuple[FrameSchema | CoordinateSystem, ...]
-            Allocation-free output signatures or schemas in output-slot order.
+        CoordinateSystem | tuple[CoordinateSystem, ...]
+            Allocation-free DataArray output signatures in output-slot order.
 
         Raises
         ------

@@ -188,11 +188,9 @@ class InterpEquirectangular(torch.nn.Module):
         validate_observation_fields(obs, required_fields=list(self.forcing_coords()))
         return self._interpolate_dataframe(obs, output_coords)
 
-    def create_iterator(self, obs: pd.DataFrame) -> Generator[
-        xr.DataArray,
-        pd.DataFrame,
-        None,
-    ]:
+    def create_iterator(
+        self, obs: pd.DataFrame
+    ) -> Generator[xr.DataArray, pd.DataFrame | None, None]:
         """Create an iterator yielding an analysis on every iteration.
 
         Parameters
@@ -207,12 +205,16 @@ class InterpEquirectangular(torch.nn.Module):
 
         Receives
         --------
-        pd.DataFrame
+        pd.DataFrame | None
             Observations for the next analysis, matching ``forcing_coords()``.
+            Sending ``None`` raises ValueError because observations are required.
         """
         try:
             while True:
-                obs = yield self(obs)
+                forcing = yield self(obs)
+                if forcing is None:
+                    raise ValueError("Send observations matching forcing_coords()")
+                obs = forcing
         except GeneratorExit:
             logger.debug("InterpEquirectangular clean up complete.")
 
