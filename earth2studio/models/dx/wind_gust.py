@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
@@ -35,6 +36,9 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.type import CoordinateSystem
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 try:
     from physicsnemo import Module
@@ -116,15 +120,17 @@ class WindgustAFNO(torch.nn.Module, AutoModelMixin):
             (orography),
         )
 
-    def default_sources(self) -> None:
-        """Return no recommended input data source.
+    def default_sources(self) -> "DataSource":
+        """Recommend the ARCO ERA5 data source.
 
         Returns
         -------
-        None
-            Input data sources are chosen by the caller.
+        DataSource
+            ``ARCO_ERA5`` data source for the input slot.
         """
-        return None
+        from earth2studio.data import ARCO_ERA5
+
+        return ARCO_ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.
