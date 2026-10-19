@@ -17,7 +17,7 @@
 name: Request NVSkills CI
 
 on:
-  issue_comment:
+  issue_comment:  # zizmor: ignore[dangerous-triggers] gated on repo, PR, and OWNER/MEMBER association below
     types: [created]
 
 permissions: {}

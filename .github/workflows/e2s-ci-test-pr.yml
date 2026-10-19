@@ -72,7 +72,7 @@ jobs:
 
       - name: Detect changed test suites
         id: filter
-        uses: ./.github/actions/detect-ci-changes
+        uses: $/.github/actions/detect-ci-changes
         with:
           mode: pr
 
@@ -191,7 +191,7 @@ jobs:
           persist-credentials: false
 
       - name: Build docs
-        uses: ./.github/actions/build-light-docs
+        uses: $/.github/actions/build-light-docs
         with:
           gallery-cache-name: main
           save-caches: "false"
@@ -217,7 +217,7 @@ jobs:
           persist-credentials: false
 
       - name: Run test job
-        uses: ./.github/actions/run-ci-test
+        uses: $/.github/actions/run-ci-test
         with:
           tox-env: test
           save-testmon-cache: "false"
@@ -243,7 +243,7 @@ jobs:
           persist-credentials: false
 
       - name: Run test job
-        uses: ./.github/actions/run-ci-test
+        uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-px-models
           save-testmon-cache: "false"
@@ -269,7 +269,7 @@ jobs:
           persist-credentials: false
 
       - name: Run test job
-        uses: ./.github/actions/run-ci-test
+        uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-dx-models
           save-testmon-cache: "false"
@@ -295,7 +295,7 @@ jobs:
           persist-credentials: false
 
       - name: Run test job
-        uses: ./.github/actions/run-ci-test
+        uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-data
           save-testmon-cache: "false"
@@ -321,7 +321,7 @@ jobs:
           persist-credentials: false
 
       - name: Run test job
-        uses: ./.github/actions/run-ci-test
+        uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-perturb
           save-testmon-cache: "false"
@@ -347,7 +347,7 @@ jobs:
           persist-credentials: false
 
       - name: Run test job
-        uses: ./.github/actions/run-ci-test
+        uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-stats
           save-testmon-cache: "false"
@@ -373,7 +373,7 @@ jobs:
           persist-credentials: false
 
       - name: Run test job
-        uses: ./.github/actions/run-ci-test
+        uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-da-models
           save-testmon-cache: "false"
@@ -399,7 +399,7 @@ jobs:
           persist-credentials: false
 
       - name: Run test job
-        uses: ./.github/actions/run-ci-test
+        uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-px-models-conflicts
           save-testmon-cache: "false"
@@ -425,7 +425,7 @@ jobs:
           persist-credentials: false
 
       - name: Run test job
-        uses: ./.github/actions/run-ci-test
+        uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-serve
           save-testmon-cache: "false"
