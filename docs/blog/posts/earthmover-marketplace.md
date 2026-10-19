@@ -2,7 +2,7 @@
 date: 2026-10-05
 readtime: 8
 categories:
-  - Documentation
+  - Data
 tags:
   - Blog
   - Earthmover
