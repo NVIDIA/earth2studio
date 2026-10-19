@@ -3059,14 +3059,15 @@ def verification_source_names(cfg: DictConfig) -> list[str | None]:
             "to score a single (unnamed) reference, or add at least one "
             "named entry."
         )
-    names = [str(name) for name in named]
-    for name in names:
+    names: list[str | None] = []
+    for name in (str(key) for key in named):
         if not _REF_NAME_RE.match(name):
             raise ValueError(
                 f"Invalid verification source name '{name}'. Names are "
                 "interpolated into store filenames, so they must start with "
                 "an alphanumeric and contain only letters, digits, '_' or '-'."
             )
+        names.append(name)
     return names
 
 
