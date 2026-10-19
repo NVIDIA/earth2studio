@@ -21,7 +21,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Sequence
 from functools import partial
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import xarray as xr

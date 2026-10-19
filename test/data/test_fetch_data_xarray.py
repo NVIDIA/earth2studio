@@ -406,6 +406,10 @@ def test_target_grid_with_method_name():
     np.testing.assert_allclose(array[0, 0, 0], [[2.5, 4.5], [1.5, 3.5]])
     with pytest.raises(ValueError, match="needs a target_grid"):
         fetch_data(AnalysisSource(), TIME, np.array(["a"]), regridder="bilinear")
+    with pytest.raises(ValueError, match="Unknown regridding method"):
+        fetch_data(
+            AnalysisSource(), TIME, np.array(["a"]), target_grid=target, regridder="cubic"  # type: ignore[arg-type]
+        )
     with pytest.raises(ValueError, match="No 'bilinear' regridder"):
         fetch_data(
             AnalysisSource(PointGrid(np.array([0.0, 1.0]), np.array([0.0, 1.0]))),

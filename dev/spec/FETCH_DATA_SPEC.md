@@ -13,6 +13,14 @@ Temporal windows follow [TIME_STATISTICS_SPEC.md](TIME_STATISTICS_SPEC.md); spat
 geometry follows [GRID_SPEC.md](GRID_SPEC.md) and regridding follows
 [REGRID_SPEC.md](REGRID_SPEC.md).
 
+## Migration
+
+This spec is ahead of the code for temporal statistics. Until sources implement
+aggregation, `fetch_data` still reduces qualified labels itself, takes `delta_t`,
+and passes base names to sources. Source aggregation, the shared helper in
+[TIME_STATISTICS_SPEC.md](TIME_STATISTICS_SPEC.md), and the metadata check land in
+a follow-up. `CompositeSource` already routes qualified labels by base name.
+
 ## Interface
 
 ```python
@@ -23,7 +31,7 @@ def fetch_data(
     lead_time: LeadTimeArray = np.array([np.timedelta64(0, "h")]),
     device: torch.device | str = "cpu",
     target_grid: GridDefinition | str | None = None,
-    regridder: Regridder | str | None = None,
+    regridder: Regridder | Literal["nearest", "bilinear"] | None = None,
 ) -> xr.DataArray:
     ...
 ```
@@ -36,8 +44,10 @@ def fetch_data(
 - `device` accepts CPU or CUDA destinations. CUDA output requires CuPy.
 - `target_grid` is the grid to return fields on, typically
   `infer_grid(model.input_coords())`. Without it, fields stay on the source grid.
-- `regridder` is a `Regridder` to apply, or a registered method name resolved for
-  the source and target grids (see [REGRID_SPEC.md](REGRID_SPEC.md)).
+- `regridder` is a `Regridder` to apply, or a built-in method name resolved for
+  the source and target grids (see [REGRID_SPEC.md](REGRID_SPEC.md)). Other strings raise
+  `ValueError`. Classes registered under these names take part in resolution;
+  other methods are used by passing a `Regridder`.
 
 There is no separate `metadata` or `statistics` input. Temporal quantities are
 declared in variable labels. `target_grid` replaces the former `interp_to`, and

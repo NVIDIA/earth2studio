@@ -45,11 +45,12 @@ class _Source:
 
     def __init__(self, offsets, grid=GRID, wrap=np.asarray):
         self.offsets, self.grid, self.wrap = offsets, grid, wrap
-        self.requests = []
+        self.requests, self.times = [], []
 
     def _field(self, time, variable, lead_time=None):
         time, variable = np.atleast_1d(time), np.atleast_1d(variable)
         self.requests.append(list(variable))
+        self.times.append(list(time))
         dims, coords = ["time", "variable"], {"time": time, "variable": variable}
         if lead_time is not None:
             dims.insert(1, "lead_time")
@@ -123,10 +124,26 @@ def test_construction_errors():
         CompositeSource(
             {"a": _Source({}), "b": _Source({})}, {"a": ["x"], "b": ["x", "y"]}
         )
-    with pytest.raises(TypeError, match="analysis or all forecast"):
-        CompositeSource(
-            {"a": _Source({}), "b": _ForecastSource({})}, {"a": ["x"], "b": ["y"]}
-        )
+    with pytest.raises(ValueError, match="qualified"):
+        CompositeSource({"a": _Source({})}, {"a": ["x:mean:24h"]})
+
+
+def test_qualified_labels_route_by_base_name():
+    radar = _Source({"refc": 1.0, "refc:max:1h": 3.0})
+    satellite = _Source({"abi01c:mean:24h": 10.0})
+    source = CompositeSource(
+        {"radar": radar, "satellite": satellite},
+        {"radar": ["refc"], "satellite": ["abi01c"]},
+    )
+    variables = ["abi01c:mean:24h", "refc", "refc:max:1h"]
+    array = source(TIME, np.array(variables))
+    np.testing.assert_array_equal(array["variable"], variables)
+    np.testing.assert_allclose(array.isel(time=0, lat=0, lon=0), [10.0, 1.0, 3.0])
+    # Labels reach the providing component unchanged.
+    assert radar.requests == [["refc", "refc:max:1h"]]
+    assert satellite.requests == [["abi01c:mean:24h"]]
+    with pytest.raises(KeyError, match="not provided"):
+        source(TIME, ["t2m:mean:24h"])
 
 
 def test_unknown_variable_raises():
@@ -166,6 +183,26 @@ def test_forecast_components():
     lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
     array = source(TIME, lead_time, np.array(["y", "x"]))
     assert array.dims == ("time", "lead_time", "variable", "lat", "lon")
+    np.testing.assert_allclose(array[0, 1, :, 0, 0], [2.0, 1.0])
+    array = fetch_data(source, TIME, np.array(["x", "y"]), lead_time)
+    np.testing.assert_array_equal(array["lead_time"], lead_time)
+
+
+def test_mixed_components_present_forecast_interface():
+    analysis = _Source({"x": 1.0})
+    forecast = _ForecastSource({"y": 2.0})
+    source = CompositeSource({"a": analysis, "b": forecast}, {"a": ["x"], "b": ["y"]})
+    assert source.is_forecast
+    assert isinstance(source, ForecastSource)
+    lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
+    array = source(TIME, lead_time, np.array(["x", "y"]))
+    assert array.dims == ("time", "lead_time", "variable", "lat", "lon")
+    np.testing.assert_array_equal(array["time"], TIME)
+    np.testing.assert_array_equal(array["lead_time"], lead_time)
+    np.testing.assert_allclose(array[0, :, :, 0, 0], [[1.0, 2.0], [1.0, 2.0]])
+    # The analysis component is fetched at each valid time.
+    assert analysis.times == [list(TIME), list(TIME + lead_time[1])]
+    array = asyncio.run(source.fetch(TIME, lead_time, np.array(["y", "x"])))
     np.testing.assert_allclose(array[0, 1, :, 0, 0], [2.0, 1.0])
     array = fetch_data(source, TIME, np.array(["x", "y"]), lead_time)
     np.testing.assert_array_equal(array["lead_time"], lead_time)

@@ -297,7 +297,7 @@ def _map_to_target(
     array: xr.DataArray,
     source: DataSource | ForecastSource,
     target_grid: GridDefinition | str | None,
-    regridder: Regridder | str | None,
+    regridder: Regridder | Literal["nearest", "bilinear"] | None,
 ) -> xr.DataArray:
     """Bring a fetched field onto ``target_grid``, cautiously when inferring."""
     if regridder is not None and not isinstance(regridder, str):
@@ -355,7 +355,7 @@ def fetch_data(
     lead_time: LeadTimeArray = cast(LeadTimeArray, np.array([np.timedelta64(0, "h")])),
     device: torch.device | str = "cpu",
     target_grid: GridDefinition | str | None = None,
-    regridder: Regridder | str | None = None,
+    regridder: Regridder | Literal["nearest", "bilinear"] | None = None,
     delta_t: np.timedelta64 | None = None,
 ) -> xr.DataArray:
     """Fetch field DataArrays with temporal statistics, optionally regridded.
@@ -380,8 +380,8 @@ def fetch_data(
         through and exact crops are selected. Otherwise fields are regridded by
         ``regridder``, or by nearest neighbor, which raises if the target extends
         beyond the source.
-    regridder : Regridder | str, optional
-        Regridder to apply, or a method name resolved for the source and target
+    regridder : Regridder | Literal["nearest", "bilinear"], optional
+        Regridder to apply, or a built-in method resolved for the source and target
         grids, by default None. A method name needs ``target_grid``; a
         :class:`~earth2studio.grids.Regridder` must produce ``target_grid`` when
         both are given.
@@ -407,6 +407,11 @@ def fetch_data(
     device = torch.device(device)
     if device.type not in {"cpu", "cuda"}:
         raise ValueError("fetch_data supports only CPU and CUDA devices")
+    if isinstance(regridder, str) and regridder not in ("nearest", "bilinear"):
+        raise ValueError(
+            f"Unknown regridding method {regridder!r}; choose from "
+            "'nearest' or 'bilinear' or pass a Regridder"
+        )
     time = cast(TimeArray, np.asarray(time))
     lead_time = cast(LeadTimeArray, np.asarray(lead_time))
     variable = cast(VariableArray, np.asarray(variable))

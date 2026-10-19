@@ -74,7 +74,8 @@ as `cls(source_grid, target_grid, **options)`.
 - `resolve_regridder(source, target, method="nearest", **options)` constructs the
   most recently registered supporting class. This lets grid-specific
   implementations, registered after the built-ins, take precedence. It raises
-  `ValueError` when no class supports the pair.
+  `ValueError` when no class supports the pair. `fetch_data` accepts only the
+  built-in method names, `"nearest"` and `"bilinear"`.
 - The built-ins register as `"nearest"`, for any grid with geographic coordinates,
   and `"bilinear"`, for structured sources.
 
@@ -104,7 +105,10 @@ raises otherwise).
 named component that provides it, matching qualified labels by base name, and joins
 the parts along `variable`:
 
-- Components must all be analysis sources or all forecast sources, on one device.
+- Components must return fields on one device.
+- A composite of analysis sources is an analysis source. With any forecast
+  component it is a forecast source, and fetches analysis components at the valid
+  times `time + lead_time`, labelled by the requested times and leads.
 - They must share every coordinate other than `variable`. A component on another
   grid is wrapped in a `RegriddedSource` onto the shared target.
 

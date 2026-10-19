@@ -28,7 +28,7 @@ import torch
 import xarray as xr
 
 from earth2studio.data.base import DataSource, ForecastSource
-from earth2studio.data.utils import _is_forecast_source
+from earth2studio.data.utils import _is_forecast_source, _offset_times
 from earth2studio.utils.coords import E2S_STATISTICS
 
 
@@ -37,27 +37,31 @@ class CompositeSource:
     variables.
 
     Each requested variable is fetched from the one component that provides it, and
-    the parts are joined along ``variable`` in request order. Components must
+    the parts are joined along ``variable`` in request order. Labels qualified with a
+    temporal statistic, such as ``"t2m:mean:24h"``, route by their base name and are
+    forwarded unchanged to the component providing it. Components must
     return fields on the same coordinates apart from ``variable``; wrap components
     on other grids in :class:`~earth2studio.data.RegriddedSource` with a shared
     target grid.
 
+    A composite of analysis sources is an analysis source. With any forecast
+    component it is a forecast source, and fetches its analysis components at the
+    valid times ``time + lead_time``, labelled by the requested times and leads.
+
     Parameters
     ----------
     sources : Mapping[str, DataSource | ForecastSource]
-        Named component sources, all analysis sources or all forecast sources, on
-        one ``device``.
+        Named analysis or forecast component sources, on one ``device``.
     variables : Mapping[str, Sequence[str]]
-        Variables provided by each named component. A variable may be provided by
-        only one component.
+        Base variable names provided by each named component, without statistic
+        qualifiers. A variable may be provided by only one component.
 
     Raises
     ------
     ValueError
-        If ``variables`` names an unknown component or assigns a variable twice, or
-        components return fields on different devices.
-    TypeError
-        If analysis and forecast components are mixed.
+        If ``variables`` names an unknown component, assigns a variable twice or
+        contains a qualified label, or components return fields on different
+        devices.
 
     Examples
     --------
@@ -80,16 +84,20 @@ class CompositeSource:
         routes: dict[str, str] = {}
         for name, provided in variables.items():
             for variable in map(str, np.atleast_1d(provided)):
+                if ":" in variable:
+                    raise ValueError(
+                        f"Declare base variable names; {variable!r} is qualified"
+                    )
                 if variable in routes:
                     raise ValueError(
                         f"Variable {variable!r} is provided by both "
                         f"{routes[variable]!r} and {name!r}"
                     )
                 routes[variable] = name
-        kinds = {_is_forecast_source(source) for source in sources.values()}
-        if len(kinds) > 1:
-            raise TypeError("Components must all be analysis or all forecast sources")
-        self._forecast = kinds.pop() if kinds else False
+        self._analysis = {
+            name for name, source in sources.items() if not _is_forecast_source(source)
+        }
+        self._forecast = len(self._analysis) < len(sources)
         devices = {
             torch.device(getattr(source, "device", "cpu"))
             for source in sources.values()
@@ -117,7 +125,7 @@ class CompositeSource:
 
     @property
     def is_forecast(self) -> bool:
-        """Whether the components are forecast sources."""
+        """Whether any component is a forecast source."""
         return self._forecast
 
     @property
@@ -156,7 +164,8 @@ class CompositeSource:
 
     def _plan(self, variable: Any) -> tuple[list[str], dict[str, list[str]]]:
         requested = [str(name) for name in np.atleast_1d(variable)]
-        unknown = [name for name in requested if name not in self._routes]
+        # Route qualified labels by base name; the component handles the statistic.
+        unknown = [name for name in requested if _base(name) not in self._routes]
         if unknown:
             raise KeyError(
                 f"Variables {unknown} are not provided by any component "
@@ -164,7 +173,7 @@ class CompositeSource:
             )
         groups: dict[str, list[str]] = {}
         for name in dict.fromkeys(requested):
-            groups.setdefault(self._routes[name], []).append(name)
+            groups.setdefault(self._routes[_base(name)], []).append(name)
         return requested, groups
 
     def __call__(self, *args: Any, **kwargs: Any) -> xr.DataArray:
@@ -173,8 +182,8 @@ class CompositeSource:
         Parameters
         ----------
         *args, **kwargs : Any
-            ``(time, variable)`` for analysis components or
-            ``(time, lead_time, variable)`` for forecast components.
+            ``(time, variable)`` for an analysis composite or
+            ``(time, lead_time, variable)`` for a forecast composite.
 
         Returns
         -------
@@ -183,10 +192,11 @@ class CompositeSource:
         """
         request = self._bind(args, kwargs)
         requested, groups = self._plan(request["variable"])
-        parts = [
-            self._sources[name](*self._call_args(request, names))
-            for name, names in groups.items()
-        ]
+        parts = []
+        for name, names in groups.items():
+            calls = self._calls(name, request, names)
+            fields = [self._sources[name](*call) for call in calls]
+            parts.append(self._assemble(name, request, fields))
         return _join(parts, requested)
 
     async def fetch(self, *args: Any, **kwargs: Any) -> xr.DataArray:
@@ -197,8 +207,8 @@ class CompositeSource:
         Parameters
         ----------
         *args, **kwargs : Any
-            ``(time, variable)`` for analysis components or
-            ``(time, lead_time, variable)`` for forecast components.
+            ``(time, variable)`` for an analysis composite or
+            ``(time, lead_time, variable)`` for a forecast composite.
 
         Returns
         -------
@@ -208,23 +218,55 @@ class CompositeSource:
         request = self._bind(args, kwargs)
         requested, groups = self._plan(request["variable"])
 
-        async def _component(name: str, names: list[str]) -> xr.DataArray:
-            source = self._sources[name]
-            call_args = self._call_args(request, names)
+        async def _call(source: Any, call: tuple[Any, ...]) -> xr.DataArray:
             if hasattr(source, "fetch"):
-                return await source.fetch(*call_args)
-            return await asyncio.to_thread(source, *call_args)
+                return await source.fetch(*call)
+            return await asyncio.to_thread(source, *call)
+
+        async def _component(name: str, names: list[str]) -> xr.DataArray:
+            calls = self._calls(name, request, names)
+            fields = await asyncio.gather(
+                *(_call(self._sources[name], call) for call in calls)
+            )
+            return self._assemble(name, request, list(fields))
 
         parts = await asyncio.gather(
             *(_component(name, names) for name, names in groups.items())
         )
         return _join(list(parts), requested)
 
-    def _call_args(self, request: dict[str, Any], names: list[str]) -> tuple[Any, ...]:
+    def _calls(
+        self, name: str, request: dict[str, Any], names: list[str]
+    ) -> list[tuple[Any, ...]]:
+        """Component call arguments; one call per lead for adapted analyses."""
         variable = np.array(names)
-        if self._forecast:
-            return request["time"], request["lead_time"], variable
-        return request["time"], variable
+        if not self._forecast:
+            return [(request["time"], variable)]
+        if name not in self._analysis:
+            return [(request["time"], request["lead_time"], variable)]
+        time = np.asarray(request["time"])
+        return [
+            (_offset_times(time, lead), variable)
+            for lead in np.atleast_1d(request["lead_time"])
+        ]
+
+    def _assemble(
+        self, name: str, request: dict[str, Any], fields: list[xr.DataArray]
+    ) -> xr.DataArray:
+        """Label adapted analysis fields by requested time and lead time."""
+        if not self._forecast or name not in self._analysis:
+            return fields[0]
+        time = np.asarray(request["time"])
+        leads = []
+        for lead, field in zip(np.atleast_1d(request["lead_time"]), fields):
+            field = field.sel(time=_offset_times(time, lead)).assign_coords(time=time)
+            leads.append(field.expand_dims(lead_time=[lead], axis=1))
+        return xr.concat(leads, "lead_time")
+
+
+def _base(label: str) -> str:
+    """Base variable name of a possibly qualified label."""
+    return label.partition(":")[0]
 
 
 def _join(parts: list[xr.DataArray], requested: list[str]) -> xr.DataArray:
