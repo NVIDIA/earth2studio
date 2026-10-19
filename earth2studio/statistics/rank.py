@@ -14,17 +14,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
+from __future__ import annotations
 
 import numpy as np
 import torch
+import xarray as xr
 
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.statistics.utils import (
+    _align_xy,
+    _output_signature,
+)
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem
 
 try:
     from physicsnemo.metrics.general.histogram import _count_bins, linspace
@@ -41,7 +46,7 @@ class rank_histogram:
 
 
     This statistic reduces over a single dimension, where the presumed ensemble dimension
-    does not appear in the truth/observation tensor.
+    does not appear in the truth/observation array.
 
     Parameters
     ----------
@@ -85,110 +90,86 @@ class rank_histogram:
     def reduction_dimensions(self) -> list[str]:
         return [self.ensemble_dimension] + self._reduction_dimensions
 
-    def _get_number_of_bins(self, input_coords: CoordSystem) -> int:
+    def _get_number_of_bins(self, input_coords: CoordinateSystem) -> int:
         if self.number_of_bins is None:
-            return len(input_coords[self.ensemble_dimension]) + 1
+            return input_coords.sizes[self.ensemble_dimension] + 1
         else:
             return self.number_of_bins
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the computed statistic, corresponding to the given input coordinates
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : CoordinateSystem
             Input coordinate system to transform into output_coords
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Coordinate system of the statistic output with leading `histogram_data`
+            and `bin` dimensions
         """
-        output_coords = input_coords.copy()
         number_of_bins = self._get_number_of_bins(input_coords)
-        for dimension in self.reduction_dimensions:
-            handshake_dim(input_coords, dimension)
-            output_coords.pop(dimension)
-
-        output_coords = (
-            OrderedDict(
-                {
-                    "histogram_data": np.array(["bin_centers", "bin_counts"]),
-                    "bin": np.arange(number_of_bins),
-                }
-            )
-            | output_coords
+        return _output_signature(
+            input_coords,
+            self.reduction_dimensions,
+            add={
+                "histogram_data": np.array(["bin_centers", "bin_counts"]),
+                "bin": np.arange(number_of_bins),
+            },
+            add_first=True,
         )
 
-        return output_coords
-
-    def __call__(
-        self,
-        x: torch.Tensor,
-        x_coords: CoordSystem,
-        y: torch.Tensor,
-        y_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
         """
         Apply metric to data `x` and `y`, checking that their coordinates
         are broadcastable. While reducing over `reduction_dimensions`.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor of ensemble data. The rank of observation input tensor `y`
+        x : xr.DataArray
+            Input array of ensemble data. The rank of observation input array `y`
             is determined with respect to the ensemble dimension of `x`.
-        x_coords : CoordSystem
-            Ordered dict representing coordinate system that describes the `x` tensor.
-            `reduction_dimensions` must be in coords.
-        y : torch.Tensor
-            The observation input tensor.
-        y_coords : CoordSystem
-            Ordered dict representing coordinate system that describes the `y` tensor.
-            `reduction_dimensions` must be in coords.
+            `reduction_dimensions` must be in the dimensions of x.
+        y : xr.DataArray
+            The observation input array. Must not have the ensemble dimension.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Returns rank histogram tensor with appropriate reduced coordinates.
+        xr.DataArray
+            Returns rank histogram array with appropriate reduced coordinates.
         """
-        if not all([rd in x_coords for rd in self.reduction_dimensions]):
-            raise ValueError(
-                "Initialized reduction dimension does not appear in passed coords"
-            )
-
         # Do some coordinate checking
-        # Assume ensemble_dim is in x_coords but not y_coords
-        if self.ensemble_dimension in y_coords:
-            raise ValueError(
-                f"{self.ensemble_dimension} should not be in y_coords but is."
-            )
+        # Assume ensemble_dim is in x but not y
+        if self.ensemble_dimension in y.dims:
+            raise ValueError(f"{self.ensemble_dimension} should not be in y but is.")
         if x.ndim != y.ndim + 1:
             raise ValueError(
                 "x and y must have broadcastable shapes but got"
                 + f"{x.shape} and {y.shape}"
             )
-        # Input coordinate checking
-        coord_count = 0
-        for c in x_coords:
-            if c != self.ensemble_dimension:
-                handshake_dim(y_coords, c, coord_count)
-                handshake_coords(y_coords, x_coords, c)
-                coord_count += 1
+        y = _align_xy(x, y, self.ensemble_dimension)
 
-        number_of_bins = self._get_number_of_bins(x_coords)
+        number_of_bins = self._get_number_of_bins(x)
+        signature = self.output_coords(x)
+        y_dims = list(y.dims)
+
+        # Torch is used for the rank computation and histogram binning
+        x_t, _ = x.e2s.to_torch()
+        y_t, _ = y.e2s.to_torch()
 
         # Get the dimension index of the ensemble dimension
-        dim = list(x_coords).index(self.ensemble_dimension)
+        dim = list(x.dims).index(self.ensemble_dimension)
 
         # Move the ensemble dimension to the first dimension
-        x = torch.movedim(x, dim, 0)
+        x_t = torch.movedim(x_t, dim, 0)
 
         # Compute the ranks over the ensemble dimension
-        _ranks = torch.sum(torch.ge(y, x).to(dtype=torch.int32), dim=0)
+        _ranks = torch.sum(torch.ge(y_t, x_t).to(dtype=torch.int32), dim=0)
 
         if self.randomize_ties:
-            _ranks_gt = torch.sum(torch.gt(y, x).to(dtype=torch.int32), dim=0)
+            _ranks_gt = torch.sum(torch.gt(y_t, x_t).to(dtype=torch.int32), dim=0)
             rank_diff = _ranks - _ranks_gt
             ties = rank_diff > 0
             _ranks[ties] -= (
@@ -197,7 +178,7 @@ class rank_histogram:
             ).to(dtype=torch.int32)
 
         # Reshape ranks using reduction dimensions
-        dims = [list(y_coords).index(rd) for rd in self._reduction_dimensions]
+        dims = [y_dims.index(rd) for rd in self._reduction_dimensions]
         new_dims = list(range(len(dims)))
         _ranks = torch.flatten(
             torch.movedim(_ranks, dims, new_dims),
@@ -206,7 +187,7 @@ class rank_histogram:
         )
 
         # Normalize ranks to [0, 1]
-        _ranks = _ranks / x.shape[0]
+        _ranks = _ranks / x_t.shape[0]
 
         # Compute histogram
         # note: this version of linspace returns self.number_of_bins + 1 bin edges
@@ -215,19 +196,6 @@ class rank_histogram:
         )
         _rank_histogram = _count_bins(_ranks, _bin_edges)
 
-        # Create output tensor and coords
+        # Create output array
         out = torch.stack((0.5 * (_bin_edges[:-1] + _bin_edges[1:]), _rank_histogram))
-        out_coords = y_coords.copy()
-        for rd in self._reduction_dimensions:
-            out_coords.pop(rd)
-
-        out_coords = (
-            OrderedDict(
-                {
-                    "histogram_data": np.array(["bin_centers", "bin_counts"]),
-                    "bin": np.arange(number_of_bins),
-                }
-            )
-            | out_coords
-        )
-        return out, out_coords
+        return from_torch(out, signature)

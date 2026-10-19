@@ -59,6 +59,7 @@ import xarray as xr
 from earth2studio.data import GFS
 from earth2studio.statistics import crps
 from earth2studio.statistics.weights import lat_weight
+from earth2studio.utils.cupy import from_torch
 
 warnings.filterwarnings("ignore", message="Unclosed client session")
 warnings.filterwarnings("ignore", message="Unclosed connector")
@@ -355,9 +356,9 @@ def score_forecast(
             y, y_coords = load_verification_chunk(
                 verif_source, time, lt_chunk, variables, spatial_coords, device
             )
-            score_val, score_coords = metric(x, x_coords, y, y_coords)
+            score = metric(from_torch(x, x_coords), from_torch(y, y_coords))
 
-            chunk_scores = score_val.cpu().numpy()
+            chunk_scores = score.e2s.to_torch()[0].cpu().numpy()
             chunk_len = len(lt_chunk)
             scores[t_idx, lt_offset : lt_offset + chunk_len, :] = chunk_scores
             lt_offset += chunk_len

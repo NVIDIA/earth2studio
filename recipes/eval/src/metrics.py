@@ -39,6 +39,7 @@ import torch
 
 from earth2studio.statistics.moments import mean, variance
 from earth2studio.utils.coords import CoordSystem, handshake_dim
+from earth2studio.utils.cupy import from_torch
 
 
 class mse:
@@ -135,10 +136,11 @@ class mse:
         tuple[torch.Tensor, CoordSystem]
             ``(mse_values, output_coords)``
         """
+        xd = from_torch(x, x_coords)
+        yd = from_torch(y, y_coords)
         if self.ensemble_dimension is not None:
-            x, x_coords = self.ensemble_mean(x, x_coords)
-        mse_val, output_coords = self.mean((x - y) ** 2, x_coords)
-        return mse_val, output_coords
+            xd = self.ensemble_mean(xd)
+        return self.mean((xd - yd) ** 2).e2s.to_torch()
 
 
 class ensemble_variance:
@@ -223,5 +225,5 @@ class ensemble_variance:
         tuple[torch.Tensor, CoordSystem]
             ``(variance_values, output_coords)``
         """
-        var, var_coords = self.ens_var(x, x_coords)
-        return self.spatial_mean(var, var_coords)
+        var = self.ens_var(from_torch(x, x_coords))
+        return self.spatial_mean(var).e2s.to_torch()
