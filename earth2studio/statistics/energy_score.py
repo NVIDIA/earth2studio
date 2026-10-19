@@ -25,9 +25,7 @@ import xarray as xr
 from earth2studio.statistics.moments import mean
 from earth2studio.statistics.utils import (
     _align_xy,
-    _as_host_or_cupy,
     _output_signature,
-    _validate_dims,
 )
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.type import CoordinateSystem
@@ -160,9 +158,6 @@ class energy_score:
         xr.DataArray
             Energy Score array with appropriate reduced coordinates.
         """
-        # Validate reduction dimensions exist in x
-        _validate_dims(x, self.reduction_dimensions)
-
         # Ensemble dimension should be in x but not in y
         if self.ensemble_dimension in y.dims:
             raise ValueError(f"{self.ensemble_dimension} should not be in y but is.")
@@ -181,8 +176,8 @@ class energy_score:
         y = _align_xy(x, y, self.ensemble_dimension)
 
         # Compute the Energy Score (torch is used for the pairwise distances)
-        x_t, _ = _as_host_or_cupy(x).e2s.to_torch()
-        y_t, _ = _as_host_or_cupy(y).e2s.to_torch()
+        x_t, _ = x.e2s.to_torch()
+        y_t, _ = y.e2s.to_torch()
         out_t = _energy_score_compute(
             x_t,
             y_t,

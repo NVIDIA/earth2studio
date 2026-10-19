@@ -23,14 +23,10 @@ import torch
 import xarray as xr
 
 from earth2studio.statistics.utils import (
-    _array_module,
-    _as_host_or_cupy,
-    _axes,
     _broadcast_weights,
     _output_signature,
-    _validate_dims,
-    _wrap,
 )
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.type import CoordinateSystem
 
 
@@ -115,22 +111,22 @@ class mean:
         xr.DataArray
             Mean with the reduction dimensions removed
         """
-        _validate_dims(x, self._reduction_dimensions)
         # Empty reduction dimensions represents an identity operation
         if not self._reduction_dimensions:
             return x
 
+        dims = tuple(x.dims.index(d) for d in self._reduction_dimensions)
         signature = self.output_coords(x)
-        x = _as_host_or_cupy(x)
-        xp = _array_module(x)
-        axes = _axes(x, self._reduction_dimensions)
-        weights = _broadcast_weights(self.weights, self._reduction_dimensions, x, xp)
-        weights_sum = xp.sum(weights)
-        total = xp.sum(weights * x.data, axis=axes)
+        x_t, _ = x.e2s.to_torch()
+        weights = _broadcast_weights(
+            self.weights, self._reduction_dimensions, x, x_t.device
+        )
+        weights_sum = torch.sum(weights)
+        total = torch.sum(weights * x_t, dim=dims)
 
         # If not applying batch updating then return regular mean.
         if not self.batch_update:
-            return _wrap(total / weights_sum, signature)
+            return from_torch(total / weights_sum, signature)
 
         # If batch updating then calculate updated mean
         if self.n == 0:
@@ -138,7 +134,7 @@ class mean:
         else:
             self.sum = self.sum + total
         self.n = self.n + weights_sum
-        return _wrap(self.sum / self.n, signature)
+        return from_torch(self.sum / self.n, signature)
 
 
 class variance:
@@ -225,26 +221,27 @@ class variance:
         xr.DataArray
             Variance with the reduction dimensions removed
         """
-        _validate_dims(x, self._reduction_dimensions)
+        dims = tuple(x.dims.index(d) for d in self._reduction_dimensions)
         signature = self.output_coords(x)
-        x = _as_host_or_cupy(x)
-        xp = _array_module(x)
-        axes = _axes(x, self._reduction_dimensions)
-        weights = _broadcast_weights(self.weights, self._reduction_dimensions, x, xp)
-        weights_sum = xp.sum(weights)
+        x_t, _ = x.e2s.to_torch()
+        weights = _broadcast_weights(
+            self.weights, self._reduction_dimensions, x, x_t.device
+        )
+        weights_sum = torch.sum(weights)
+        x_t = x_t.to(torch.promote_types(x_t.dtype, weights.dtype))
 
         # If not applying batch updating then return regular variance.
         if not self.batch_update:
-            m = xp.sum(weights * x.data, axis=axes, keepdims=True) / weights_sum
-            div = weights_sum - xp.sum(weights**2) / weights_sum
-            out = xp.sum(weights * (x.data - m) ** 2, axis=axes) / div
-            return _wrap(out, signature)
+            m = torch.sum(weights * x_t, dim=dims, keepdim=True) / weights_sum
+            div = weights_sum - torch.sum(weights**2) / weights_sum
+            out = torch.sum(weights * (x_t - m) ** 2, dim=dims) / div
+            return from_torch(out, signature)
 
         # If batch updating then calculate updated variance
         temp_n = weights_sum
-        temp_sum = xp.sum(weights * x.data, axis=axes)
-        temp_mean = xp.sum(weights * x.data, axis=axes, keepdims=True) / temp_n
-        temp_sum2 = xp.sum(weights * (x.data - temp_mean) ** 2, axis=axes)
+        temp_sum = torch.sum(weights * x_t, dim=dims)
+        temp_mean = torch.sum(weights * x_t, dim=dims, keepdim=True) / temp_n
+        temp_sum2 = torch.sum(weights * (x_t - temp_mean) ** 2, dim=dims)
 
         # First batch then no correction
         if self.n == 0:
@@ -260,7 +257,7 @@ class variance:
             )
             self.n = self.n + temp_n
 
-        return _wrap(self.sum2 / xp.maximum(self.n - 1.0, 1.0), signature)
+        return from_torch(self.sum2 / torch.clamp(self.n - 1.0, min=1.0), signature)
 
 
 class std:
@@ -338,5 +335,5 @@ class std:
             Standard deviation with the reduction dimensions removed
         """
         var = self.var(x)
-        xp = _array_module(var)
-        return var.copy(data=xp.sqrt(var.data))
+        var_t, _ = var.e2s.to_torch()
+        return from_torch(torch.sqrt(var_t), var)

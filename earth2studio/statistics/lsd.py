@@ -22,8 +22,6 @@ import xarray as xr
 from earth2studio.statistics.moments import mean
 from earth2studio.statistics.utils import (
     _align_xy,
-    _array_module,
-    _as_host_or_cupy,
     _output_signature,
     _spatial_dims_to_end,
 )
@@ -146,8 +144,8 @@ class log_spectral_distance:
             x = _spatial_dims_to_end(x, self.spatial_dimensions)
             y = _spatial_dims_to_end(y, self.spatial_dimensions)
 
-        x_t, _ = _as_host_or_cupy(x).e2s.to_torch()
-        y_t, _ = _as_host_or_cupy(y).e2s.to_torch()
+        x_t, _ = x.e2s.to_torch()
+        y_t, _ = y.e2s.to_torch()
 
         if self.ensemble_dimension is not None:
             ensemble_dim = list(x.dims).index(self.ensemble_dimension)
@@ -172,5 +170,5 @@ class log_spectral_distance:
         )
 
         lsd = self.mean(spectrum)
-        xp = _array_module(lsd)
-        return lsd.copy(data=10 * xp.sqrt(lsd.data))  # to dB
+        lsd_t, _ = lsd.e2s.to_torch()
+        return from_torch(10 * torch.sqrt(lsd_t), lsd)  # to dB

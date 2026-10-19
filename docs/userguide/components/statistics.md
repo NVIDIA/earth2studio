@@ -19,10 +19,11 @@ to the class of such operations.
 Statistics operate on [xarray](https://docs.xarray.dev) DataArrays, matching the
 diagnostic model API. A statistic takes a single `xr.DataArray` and returns a
 `xr.DataArray` with the reduced dimensions removed. Dimensions are identified by name,
-so the order of dimensions in the input does not matter. Outputs are NumPy or CuPy
-backed, following the backend of the input; use `.e2s.to_torch()` to obtain a tensor
-if needed. The `output_coords` method accepts an allocation-free `CoordinateSystem`
-signature and returns the signature of the output.
+so the order of dimensions in the input does not matter. Computation uses PyTorch,
+with `.e2s.to_torch()` for inputs and `from_torch` for outputs. Outputs follow the
+configured e2s backend policy: `auto` returns NumPy on CPU and CuPy on CUDA, while
+`torch` preserves tensors and autograd history. The `output_coords` method accepts
+an allocation-free `CoordinateSystem` signature and returns the signature of the output.
 
 ```python
 --8<-- "earth2studio/statistics/base.py:statistic-interface"

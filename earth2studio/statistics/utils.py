@@ -24,90 +24,28 @@ import torch
 import xarray as xr
 
 from earth2studio.utils.coords import E2S_DYNAMIC_DIMS, coord_array, handshake_coords
-from earth2studio.utils.cupy import _get_cupy
 from earth2studio.utils.type import CoordinateSystem
 
 
-def _as_host_or_cupy(x: xr.DataArray) -> xr.DataArray:
-    """Ensure a DataArray is backed by NumPy or CuPy (not Torch) data
-
-    Parameters
-    ----------
-    x : xr.DataArray
-        Input DataArray
-
-    Returns
-    -------
-    xr.DataArray
-        Input if already NumPy/CuPy backed, otherwise a converted DataArray
-    """
-    if isinstance(x.variable._data, np.ndarray) or x.e2s.is_cupy:
-        return x
-    return x.e2s.to_backend("auto")
-
-
-def _array_module(x: xr.DataArray) -> Any:
-    """Array module (numpy or cupy) matching the storage backing a DataArray"""
-    return _get_cupy() if x.e2s.is_cupy else np
-
-
-def _to_xp(a: Any, xp: Any, dtype: Any = None) -> Any:
-    """Convert a torch tensor / numpy / cupy array (or array-like) into an array of the
-    requested array module"""
-    if isinstance(a, torch.Tensor):
-        a = a.detach().cpu().numpy()
-    elif hasattr(a, "get") and not isinstance(a, np.ndarray):
-        # cupy array
-        a = a.get()
-    out = xp.asarray(a)
-    if dtype is not None:
-        out = out.astype(dtype, copy=False)
-    return out
-
-
-def _axes(x: xr.DataArray, dims: Sequence[str]) -> tuple[int, ...]:
-    """Axis indices of the named dimensions of x"""
-    return tuple(x.dims.index(d) for d in dims)
-
-
-def _validate_dims(x: xr.DataArray, dims: Sequence[str]) -> None:
-    """Raise if any of the dimension names are not present in x"""
-    if not all(d in x.dims for d in dims):
-        raise ValueError(
-            "Initialized reduction_dimensions do not appear in passed coords."
-        )
-
-
-def _broadcast_weights(weights: Any, rd: list[str], x: xr.DataArray, xp: Any) -> Any:
-    """
-    Broadcast weights to appropriate dimensions. This is meant for internal use.
-
-    Parameters
-    ----------
-    weights : torch.Tensor | np.ndarray | None
-        An array containing weights to broadcast to the shape of x. Can also
-        be None, in which a 1.0 is returned.
-    rd : list[str]
-        A list of dimension names corresponding to the dimensions of weights.
-    x : xr.DataArray
-        Array (or coordinate system) the weights will be broadcasted to.
-    xp : Any
-        Array module (numpy or cupy) to place the weights in
-    """
+def _broadcast_weights(
+    weights: torch.Tensor | np.ndarray | None,
+    rd: list[str],
+    x: xr.DataArray,
+    device: torch.device,
+) -> torch.Tensor:
+    shape = [x.sizes[d] if d in rd else 1 for d in x.dims]
     if weights is None:
-        shape = [x.sizes[d] if d in rd else 1 for d in x.dims]
-        return xp.ones(shape, dtype=x.dtype)
+        return torch.ones(shape, device=device)
     dim_shapes = [x.sizes[d] for d in x.dims if d in rd]
     if list(weights.shape) != dim_shapes:
         raise AssertionError(
             "Error, weights have don't have an appropriate shape.\n"
             + f"weights have shape {weights.shape} but should have shape {dim_shapes}."
         )
-    weights = _to_xp(
-        weights, xp, x.dtype if np.issubdtype(x.dtype, np.floating) else None
-    )
-    shape = [x.sizes[d] if d in rd else 1 for d in x.dims]
-    return weights.reshape(shape)
+    weights_t = torch.as_tensor(weights, device=device)
+    if weights_t.dtype in (torch.float16, torch.bfloat16):
+        weights_t = weights_t.float()
+    return weights_t.reshape(shape)
 
 
 def _output_signature(
@@ -163,18 +101,6 @@ def _output_signature(
         dynamic=dynamic,
         sizes=sizes,
         dtype=template.dtype if dtype is None else dtype,
-    )
-
-
-def _wrap(data: Any, signature: CoordinateSystem) -> xr.DataArray:
-    """Create a DataArray from raw data (numpy / cupy / torch) and an output
-    coordinate signature"""
-    if isinstance(data, torch.Tensor):
-        data = data.detach().cpu().numpy()
-    return xr.DataArray(
-        data,
-        dims=signature.dims,
-        coords={k: v.variable for k, v in signature.coords.items()},
     )
 
 

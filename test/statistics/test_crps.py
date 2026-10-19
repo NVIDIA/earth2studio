@@ -167,16 +167,13 @@ def test_crps_failures(device: str) -> None:
 def test_crps_accuracy(device: str, rtol: float = 1e-2, atol: float = 1e-2) -> None:
     # Uses eq (5) from Gneiting et al. https://doi.org/10.1175/MWR2904.1
     # crps(N(0, 1), 0.0) = 2 / sqrt(2*pi) - 1/sqrt(pi) ~= 0.23...
-    # Raw arrays are numpy (cpu) or cupy (cuda) backed
     x = 3.0 + torch.randn((10_000, 1), device=device, dtype=torch.float32)
     y = 3.0 + torch.zeros((1,), device=device, dtype=torch.float32)
-    x = from_torch(x, OrderedDict(a=np.arange(10_000), b=np.arange(1))).data
-    y = from_torch(y, OrderedDict(b=np.arange(1))).data
 
     # Test pure crps
     c = _crps_from_empirical_cdf(x, y, dim=0)
     true_crps = (np.sqrt(2) - 1.0) / np.sqrt(np.pi)
-    c = c.get() if hasattr(c, "get") else c
+    c = c.cpu().numpy()
     assert np.allclose(
         c,
         true_crps * np.ones([1], dtype=np.float32),
@@ -185,11 +182,10 @@ def test_crps_accuracy(device: str, rtol: float = 1e-2, atol: float = 1e-2) -> N
     )
 
     x = 3.0 + torch.randn((1, 10_000), device=device, dtype=torch.float32)
-    x = from_torch(x, OrderedDict(b=np.arange(1), a=np.arange(10_000))).data
 
     # Test pure crps
     c = _crps_from_empirical_cdf(x, y, dim=1)
-    c = c.get() if hasattr(c, "get") else c
+    c = c.cpu().numpy()
     assert np.allclose(
         c,
         true_crps * np.ones([1], dtype=np.float32),

@@ -23,7 +23,7 @@ import xarray as xr
 
 from earth2studio.statistics import lat_weight, moments
 from earth2studio.utils.coords import handshake_coords
-from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.cupy import backend, from_torch
 
 lat_weights = lat_weight(torch.as_tensor(np.linspace(-90.0, 90.0, 361)))
 
@@ -120,6 +120,50 @@ def test_mean_without_reduction_dimensions() -> None:
     assert list(y.coords) == list(coords)
     for dimension in coords:
         assert np.array_equal(y.coords[dimension].values, coords[dimension])
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize("weighted", [False, True])
+@pytest.mark.parametrize("statistic", [moments.mean, moments.variance, moments.std])
+def test_moments_float16_large_reduction(device, weighted, statistic) -> None:
+    tensor = torch.ones((361, 720), dtype=torch.float16, device=device)
+    tensor[::2] = 3
+    weights = torch.ones_like(tensor) if weighted else None
+    x = from_torch(tensor, {"lat": np.arange(361), "lon": np.arange(720)})
+
+    result, _ = statistic(["lat", "lon"], weights=weights)(x).e2s.to_torch()
+    expected = getattr(
+        torch, {moments.variance: "var"}.get(statistic, statistic.__name__)
+    )(tensor.float())
+    assert result.device == tensor.device
+    assert torch.isfinite(result)
+    torch.testing.assert_close(result, expected)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize("statistic", [moments.mean, moments.variance, moments.std])
+def test_moments_torch_autograd(device, statistic) -> None:
+    tensor = torch.randn((4, 6), dtype=torch.float64, device=device, requires_grad=True)
+    weights = torch.rand(6, dtype=torch.float64, device=device, requires_grad=True)
+    with backend("torch"):
+        x = from_torch(tensor, {"time": np.arange(4), "station": np.arange(6)})
+        result = statistic(["station"], weights=weights)(x)
+        result_t, _ = result.e2s.to_torch()
+        assert result_t.requires_grad
+        assert result_t.device == tensor.device
+
+    expected = (tensor * weights).sum(dim=1) / weights.sum()
+    if statistic is not moments.mean:
+        expected = (weights * (tensor - expected[:, None]).square()).sum(dim=1) / (
+            weights.sum() - weights.square().sum() / weights.sum()
+        )
+        if statistic is moments.std:
+            expected = expected.sqrt()
+    torch.testing.assert_close(result_t, expected)
+    actual_grad = torch.autograd.grad(result_t.sum(), (tensor, weights))
+    expected_grad = torch.autograd.grad(expected.sum(), (tensor, weights))
+    for actual, reference in zip(actual_grad, expected_grad):
+        torch.testing.assert_close(actual, reference)
 
 
 @pytest.mark.parametrize("statistic", [moments.variance, moments.std])

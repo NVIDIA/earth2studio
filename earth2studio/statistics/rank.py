@@ -22,9 +22,7 @@ import xarray as xr
 
 from earth2studio.statistics.utils import (
     _align_xy,
-    _as_host_or_cupy,
     _output_signature,
-    _validate_dims,
 )
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
@@ -142,8 +140,6 @@ class rank_histogram:
         xr.DataArray
             Returns rank histogram array with appropriate reduced coordinates.
         """
-        _validate_dims(x, self.reduction_dimensions)
-
         # Do some coordinate checking
         # Assume ensemble_dim is in x but not y
         if self.ensemble_dimension in y.dims:
@@ -160,8 +156,8 @@ class rank_histogram:
         y_dims = list(y.dims)
 
         # Torch is used for the rank computation and histogram binning
-        x_t, _ = _as_host_or_cupy(x).e2s.to_torch()
-        y_t, _ = _as_host_or_cupy(y).e2s.to_torch()
+        x_t, _ = x.e2s.to_torch()
+        y_t, _ = y.e2s.to_torch()
 
         # Get the dimension index of the ensemble dimension
         dim = list(x.dims).index(self.ensemble_dimension)

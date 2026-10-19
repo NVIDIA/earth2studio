@@ -17,16 +17,16 @@
 from __future__ import annotations
 
 import numpy as np
+import torch
 import xarray as xr
 from numpy.typing import ArrayLike
 
 from earth2studio.statistics.moments import mean
 from earth2studio.statistics.utils import (
     _align_xy,
-    _array_module,
-    _as_host_or_cupy,
     _output_signature,
 )
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.type import CoordinateSystem
 
 
@@ -104,22 +104,13 @@ class brier_score:
         return _align_xy(x, y, self.ensemble_dimension)
 
     def _exceedance_probability(
-        self, x: xr.DataArray, ensemble_dimension: str | None = None
-    ) -> xr.DataArray:
-        xp = _array_module(x)
-        thresholds = xp.asarray(self.thresholds, dtype=x.dtype)
-        data = x.data[..., None] >= thresholds
-        data = data.astype(x.dtype)
-        if ensemble_dimension is not None:
-            data = data.mean(axis=x.dims.index(ensemble_dimension))
-        dims = [d for d in x.dims if d != ensemble_dimension] + ["threshold"]
-        coords = {
-            k: v.variable
-            for k, v in x.coords.items()
-            if set(v.dims) <= set(dims) - {"threshold"}
-        }
-        coords["threshold"] = xr.Variable("threshold", self.thresholds.copy())
-        return xr.DataArray(data, dims=dims, coords=coords)
+        self, x: torch.Tensor, ensemble_dim: int | None = None
+    ) -> torch.Tensor:
+        thresholds = torch.as_tensor(self.thresholds, dtype=x.dtype, device=x.device)
+        data = (x[..., None] >= thresholds).to(x.dtype)
+        if ensemble_dim is not None:
+            data = data.mean(dim=ensemble_dim)
+        return data
 
     def __call__(self, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
         """
@@ -143,10 +134,14 @@ class brier_score:
             a trailing threshold dimension.
         """
         y = self._validate_coords(x, y)
-        x = _as_host_or_cupy(x)
-        y = _as_host_or_cupy(y)
-
-        exc_prob_fc = self._exceedance_probability(x, self.ensemble_dimension)
-        exc_prob_obs = self._exceedance_probability(y)
-
-        return self.mean((exc_prob_fc - exc_prob_obs) ** 2)
+        x_t, _ = x.e2s.to_torch()
+        y_t, _ = y.e2s.to_torch()
+        ensemble_dim = (
+            x.dims.index(self.ensemble_dimension)
+            if self.ensemble_dimension is not None
+            else None
+        )
+        exc_prob_fc = self._exceedance_probability(x_t, ensemble_dim)
+        exc_prob_obs = self._exceedance_probability(y_t)
+        signature = _output_signature(y, add={"threshold": self.thresholds.copy()})
+        return self.mean(from_torch((exc_prob_fc - exc_prob_obs) ** 2, signature))

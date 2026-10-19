@@ -16,8 +16,6 @@
 
 from __future__ import annotations
 
-from collections import OrderedDict
-
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -27,8 +25,6 @@ from numpy.typing import ArrayLike
 from earth2studio.statistics.moments import mean
 from earth2studio.statistics.utils import (
     _align_xy,
-    _array_module,
-    _as_host_or_cupy,
     _output_signature,
     _spatial_dims_to_end,
 )
@@ -202,31 +198,6 @@ class fss:
 
         return neighborhood_prob
 
-    def _neighborhood_probability_array(
-        self, data: torch.Tensor, template: xr.DataArray, window_size: int
-    ) -> xr.DataArray:
-        """Wrap neighborhood probability data into a DataArray with spatial
-        coordinates cropped by the window margin and a trailing threshold dimension.
-        """
-        spatial_dims = list(template.dims)[-2:]
-        margin = _get_margin(window_size)
-        template = template.isel(
-            {
-                dim: slice(margin[0], template.sizes[dim] - margin[1])
-                for dim in spatial_dims
-            }
-        )
-        dims = list(template.dims) + ["threshold"]
-        coords = {k: v.variable for k, v in template.coords.items()}
-        coords["threshold"] = xr.Variable("threshold", self.thresholds.copy())
-        array = _as_host_or_cupy(
-            from_torch(
-                data,
-                OrderedDict((d, np.arange(n)) for d, n in zip(dims, data.shape)),
-            )
-        )
-        return xr.DataArray(array.data, dims=dims, coords=coords)
-
     def __call__(self, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
         """
         Apply metric to data `x` and `y`, checking that their coordinates
@@ -254,8 +225,6 @@ class fss:
             x = _spatial_dims_to_end(x, self.spatial_dimensions)
             y = _spatial_dims_to_end(y, self.spatial_dimensions)
 
-        x = _as_host_or_cupy(x)
-        y = _as_host_or_cupy(y)
         x_t, _ = x.e2s.to_torch()
         y_t, _ = y.e2s.to_torch()
 
@@ -268,28 +237,31 @@ class fss:
             if self.ensemble_dimension is None
             else list(x.dims).index(self.ensemble_dimension)
         )
-        xp = _array_module(x)
-        fss = xp.empty(out_sig.shape, dtype=x.dtype)
+        scores = []
 
-        for i, window_size in enumerate(self.window_sizes):
+        for window_size in self.window_sizes:
             np_fc = self._neighborhood_probability(
                 x_t, thresholds, window_size, ensemble_dim=ensemble_dim
             )
             np_obs = self._neighborhood_probability(y_t, thresholds, window_size)
-            np_fc = self._neighborhood_probability_array(np_fc, y, window_size)
-            np_obs = self._neighborhood_probability_array(np_obs, y, window_size)
-            fss[..., i] = 1 - self.diff_mean[window_size](
-                (np_fc - np_obs) ** 2
-            ).data / (
-                self.fc_mean[window_size](np_fc**2).data
-                + self.obs_mean[window_size](np_obs**2).data
+            margin = _get_margin(window_size)
+            template = y.isel(
+                {dim: slice(margin[0], y.sizes[dim] - margin[1]) for dim in y.dims[-2:]}
             )
+            signature = _output_signature(
+                template, add={"threshold": self.thresholds.copy()}
+            )
+            diff = self.diff_mean[window_size](
+                from_torch((np_fc - np_obs) ** 2, signature)
+            )
+            fc = self.fc_mean[window_size](from_torch(np_fc**2, signature))
+            obs = self.obs_mean[window_size](from_torch(np_obs**2, signature))
+            diff_t, _ = diff.e2s.to_torch()
+            fc_t, _ = fc.e2s.to_torch()
+            obs_t, _ = obs.e2s.to_torch()
+            scores.append(1 - diff_t / (fc_t + obs_t))
 
-        return xr.DataArray(
-            fss,
-            dims=out_sig.dims,
-            coords={k: v.variable for k, v in out_sig.coords.items()},
-        )
+        return from_torch(torch.stack(scores, dim=-1), out_sig)
 
 
 def _get_margin(window_size: int) -> tuple[int, int]:

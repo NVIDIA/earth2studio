@@ -31,9 +31,34 @@ from earth2studio.statistics import (
     spread_skill_ratio,
 )
 from earth2studio.utils.coords import handshake_coords, handshake_dim
-from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.cupy import backend, from_torch
 
 lat_weights = lat_weight(torch.as_tensor(np.linspace(-90.0, 90.0, 361)))
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize("metric", [rmse, mae])
+def test_error_metric_torch_autograd(device, metric) -> None:
+    tensor = torch.randn((3, 4, 6), device=device, requires_grad=True)
+    truth = torch.randn((4, 6), device=device, requires_grad=True)
+    coords = {"time": np.arange(4), "station": np.arange(6)}
+    with backend("torch"):
+        x = from_torch(tensor, {"ensemble": np.arange(3), **coords})
+        y = from_torch(truth, coords)
+        result = metric(["station"], ensemble_dimension="ensemble")(x, y)
+        result_t, _ = result.e2s.to_torch()
+        assert result_t.requires_grad
+        assert result_t.device == tensor.device
+
+    diff = tensor.mean(dim=0) - truth
+    expected = (
+        diff.square().mean(dim=1).sqrt() if metric is rmse else diff.abs().mean(dim=1)
+    )
+    torch.testing.assert_close(result_t, expected)
+    actual_grad = torch.autograd.grad(result_t.sum(), (tensor, truth))
+    expected_grad = torch.autograd.grad(expected.sum(), (tensor, truth))
+    for actual, reference in zip(actual_grad, expected_grad):
+        torch.testing.assert_close(actual, reference)
 
 
 def _check_output(metric: Metric, x: xr.DataArray, z: xr.DataArray) -> None:

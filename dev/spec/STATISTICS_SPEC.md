@@ -49,14 +49,14 @@ shape equal to the sizes of the reduction dimensions in `x` order (`AssertionErr
 
 ## Backends
 
-- Inputs may be NumPy, CuPy, or Torch backed. Torch-backed input is converted with
-  `to_backend('auto')` before NumPy/CuPy computation.
-- NumPy/CuPy are used directly by `mean`, `variance`, `std`, `acc`, `brier_score`,
-  `crps` (unfair), `rmse`, `mae`, `spread_skill_ratio`, `skill_spread`.
-- Torch is used by `crps` (fair, `kcrps`), `rank_histogram`, `energy_score`, `fss`,
-  and `log_spectral_distance`. Inputs are converted with `x.e2s.to_torch()` and the
-  result returned with `from_torch`.
-- Outputs are NumPy/CuPy-backed `DataArray`s on the device of the input.
+- Inputs may be NumPy, CuPy, or Torch backed. All numerical computation uses
+  PyTorch: inputs are converted with `x.e2s.to_torch()` and results are returned
+  with `from_torch`.
+- Outputs follow the configured e2s backend policy. The default `auto` policy
+  returns NumPy on CPU and CuPy on CUDA; the `torch` policy preserves tensors and
+  their autograd history.
+- Weights are placed directly on the input tensor's device. Uniform weights use
+  float32, and float16/bfloat16 weights are promoted to float32 for reductions.
 - `crps`, `rank_histogram`, and `log_spectral_distance` require the `statistics`
   extra (PhysicsNeMo).
 

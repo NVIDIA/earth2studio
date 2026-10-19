@@ -16,8 +16,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import numpy as np
 import torch
 import xarray as xr
@@ -25,10 +23,7 @@ import xarray as xr
 from earth2studio.statistics.moments import mean
 from earth2studio.statistics.utils import (
     _align_xy,
-    _as_host_or_cupy,
     _output_signature,
-    _validate_dims,
-    _wrap,
 )
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
@@ -141,7 +136,6 @@ class crps:
         xr.DataArray
             Returns CRPS array with appropriate reduced coordinates.
         """
-        _validate_dims(x, self.reduction_dimensions)
         # Do some coordinate checking
         # Assume ensemble_dim is in x but not y
         if self.ensemble_dimension in y.dims:
@@ -154,26 +148,22 @@ class crps:
         y = _align_xy(x, y, self.ensemble_dimension)
 
         dim = x.dims.index(self.ensemble_dimension)
+        x_t, _ = x.e2s.to_torch()
+        y_t, _ = y.e2s.to_torch()
         if self.fair:
-            # kcrps requires torch
-            x_t, _ = _as_host_or_cupy(x).e2s.to_torch()
-            y_t, _ = _as_host_or_cupy(y).e2s.to_torch()
             out_t = kcrps(x_t, y_t, dim=dim, biased=False)
-            out = from_torch(out_t, y)
         else:
-            x = _as_host_or_cupy(x)
-            y = _as_host_or_cupy(y)
-            out = _wrap(
-                _crps_from_empirical_cdf(x.data, y.data, dim=dim),
-                _output_signature(y, []),
-            )
+            out_t = _crps_from_empirical_cdf(x_t, y_t, dim=dim)
+        out = from_torch(out_t, _output_signature(x, [self.ensemble_dimension]))
 
         if self._reduction_dimensions is not None:
             out = self.mean(out)
         return out
 
 
-def _crps_from_empirical_cdf(ensemble: Any, truth: Any, dim: int = 0) -> Any:
+def _crps_from_empirical_cdf(
+    ensemble: torch.Tensor, truth: torch.Tensor, dim: int = 0
+) -> torch.Tensor:
     """
 
     Warning
@@ -189,9 +179,9 @@ def _crps_from_empirical_cdf(ensemble: Any, truth: Any, dim: int = 0) -> Any:
 
     Parameters
     ----------
-    ensemble : np.ndarray | cupy.ndarray
+    ensemble : torch.Tensor
         array of ensemble members
-    truth : np.ndarray | cupy.ndarray
+    truth : torch.Tensor
         array of observations
     dim : int
         Dimension to perform CRPS reduction over.
@@ -201,48 +191,37 @@ def _crps_from_empirical_cdf(ensemble: Any, truth: Any, dim: int = 0) -> Any:
         array of CRPS scores
 
     """
-    xp = _array_module_of(ensemble)
     n = ensemble.shape[dim]
-    ensemble = xp.sort(ensemble, axis=dim)
-    ans = xp.zeros_like(truth)
-
-    def _member(i: int) -> Any:
-        return xp.take(ensemble, i, axis=dim)
+    ensemble = torch.sort(ensemble, dim=dim).values
+    ans = torch.zeros_like(truth)
 
     # dx [F(x) - H(x-y)]^2 = dx [0 - 1]^2 = dx
     # val = ensemble[0] - truth
-    val = _member(0) - truth
-    ans += xp.where(val > 0, val, 0.0)
+    val = ensemble.select(dim, 0) - truth
+    ans += torch.where(val > 0, val, 0.0)
 
     for i in range(n - 1):
-        x0 = _member(i)
-        x1 = _member(i + 1)
+        x0 = ensemble.select(dim, i)
+        x1 = ensemble.select(dim, i + 1)
 
         cdf = (i + 1) / n
 
         # a. case y < x0
         val = (x1 - x0) * (cdf - 1) ** 2
         mask = truth < x0
-        ans += xp.where(mask, val, 0.0)
+        ans += torch.where(mask, val, 0.0)
 
         # b. case x0 <= y <= x1
         val = (truth - x0) * cdf**2 + (x1 - truth) * (cdf - 1) ** 2
         mask = (truth >= x0) & (truth <= x1)
-        ans += xp.where(mask, val, 0.0)
+        ans += torch.where(mask, val, 0.0)
 
         # c. case x1 < t
         mask = truth > x1
         val = (x1 - x0) * cdf**2
-        ans += xp.where(mask, val, 0.0)
+        ans += torch.where(mask, val, 0.0)
 
     # dx [F(x) - H(x-y)]^2 = dx [1 - 0]^2 = dx
-    val = truth - _member(n - 1)
-    ans += xp.where(val > 0, val, 0.0)
+    val = truth - ensemble.select(dim, n - 1)
+    ans += torch.where(val > 0, val, 0.0)
     return ans
-
-
-def _array_module_of(a: Any) -> Any:
-    """Array module (numpy or cupy) of a raw array"""
-    from earth2studio.utils.cupy import _get_cupy
-
-    return _get_cupy() if not isinstance(a, np.ndarray) else np

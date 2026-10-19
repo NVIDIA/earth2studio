@@ -24,16 +24,11 @@ from earth2studio.data import DataSource
 from earth2studio.data.utils import fetch_data
 from earth2studio.statistics.utils import (
     _align_xy,
-    _array_module,
-    _as_host_or_cupy,
-    _axes,
     _broadcast_weights,
     _output_signature,
-    _to_xp,
-    _validate_dims,
-    _wrap,
 )
 from earth2studio.utils.coords import handshake_dim
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.type import CoordinateSystem
 
 
@@ -132,22 +127,19 @@ class acc:
         # Input coordinate checking
         handshake_dim(x, "time")
         handshake_dim(x, "variable")
-        _validate_dims(x, self._reduction_dimensions)
+        dims = tuple(x.dims.index(d) for d in self._reduction_dimensions)
         y = _align_xy(x, y)
 
         signature = self.output_coords(x)
         times = x.coords["time"].values
         variables = x.coords["variable"].values
         lead_times = x.coords["lead_time"].values if "lead_time" in x.dims else None
-        device = "cuda" if x.e2s.is_cupy else "cpu"
-
-        x = _as_host_or_cupy(x)
-        y = _as_host_or_cupy(y)
-        xp = _array_module(x)
-        axes = _axes(x, self._reduction_dimensions)
-
-        weights = _broadcast_weights(self.weights, self._reduction_dimensions, x, xp)
-        weights_sum = xp.sum(weights)
+        x_t, _ = x.e2s.to_torch()
+        y_t, _ = y.e2s.to_torch()
+        weights = _broadcast_weights(
+            self.weights, self._reduction_dimensions, x, x_t.device
+        )
+        weights_sum = torch.sum(weights)
 
         # Get climatology information
         if self.climatology is not None:
@@ -157,33 +149,30 @@ class acc:
                     times,
                     variables,
                     lead_time=lead_times,
-                    device=device,
+                    device=x_t.device,
                 )
             else:
                 climatology = self.climatology(times, variables)
-            clim = _to_xp(
-                climatology.transpose(
-                    *(d for d in x.dims if d in climatology.dims)
-                ).data,
-                xp,
-                x.dtype,
-            )
+            clim, _ = climatology.transpose(
+                *(d for d in x.dims if d in climatology.dims)
+            ).e2s.to_torch()
+            clim = clim.to(device=x_t.device, dtype=x_t.dtype)
             clim = clim.reshape(
                 [climatology.sizes[d] if d in climatology.dims else 1 for d in x.dims]
             )
         else:
-            clim = xp.zeros((1,) * x.ndim, dtype=x.dtype)
+            clim = torch.zeros((1,) * x.ndim, dtype=x_t.dtype, device=x_t.device)
 
-        x_hat = x.data - clim
-        x_bar = xp.sum(weights * x_hat, axis=axes, keepdims=True) / weights_sum
+        x_hat = x_t - clim
+        x_bar = torch.sum(weights * x_hat, dim=dims, keepdim=True) / weights_sum
         x_diff = x_hat - x_bar
 
-        y_hat = y.data - clim
-        y_bar = xp.sum(weights * y_hat, axis=axes, keepdims=True) / weights_sum
+        y_hat = y_t - clim
+        y_bar = torch.sum(weights * y_hat, dim=dims, keepdim=True) / weights_sum
         y_diff = y_hat - y_bar
 
-        p1 = xp.sum(weights * x_diff * y_diff, axis=axes)
-        p2 = xp.sum(weights * x_diff * x_diff, axis=axes)
-        p3 = xp.sum(weights * y_diff * y_diff, axis=axes)
+        p1 = torch.sum(weights * x_diff * y_diff, dim=dims)
+        p2 = torch.sum(weights * x_diff * x_diff, dim=dims)
+        p3 = torch.sum(weights * y_diff * y_diff, dim=dims)
 
-        return _wrap(p1 / xp.sqrt(p2 * p3), signature)
+        return from_torch(p1 / torch.sqrt(p2 * p3), signature)

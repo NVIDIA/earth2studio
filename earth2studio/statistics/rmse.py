@@ -23,12 +23,9 @@ import xarray as xr
 from earth2studio.statistics.moments import mean, variance
 from earth2studio.statistics.utils import (
     _align_xy,
-    _array_module,
-    _as_host_or_cupy,
     _output_signature,
-    _validate_dims,
-    _wrap,
 )
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.type import CoordinateSystem
 
 
@@ -106,13 +103,12 @@ class rmse:
 
     def _difference(self, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
         """Ensemble mean (if requested) and difference between x and y"""
-        _validate_dims(x, self._reduction_dimensions)
         if self.ensemble_dimension is not None:
             x = self.ensemble_mean(x)
         y = _align_xy(x, y)
-        x = _as_host_or_cupy(x)
-        y = _as_host_or_cupy(y)
-        return x.copy(data=x.data - y.data)
+        x_t, _ = x.e2s.to_torch()
+        y_t, _ = y.e2s.to_torch()
+        return from_torch(x_t - y_t, x)
 
     def __call__(self, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
         """
@@ -138,8 +134,10 @@ class rmse:
             Returns root mean squared error array with appropriate reduced coordinates.
         """
         diff = self._difference(x, y)
-        mse = self.mean(diff**2)
-        return mse.copy(data=_array_module(mse).sqrt(mse.data))
+        diff_t, _ = diff.e2s.to_torch()
+        mse = self.mean(from_torch(diff_t.square(), diff))
+        mse_t, _ = mse.e2s.to_torch()
+        return from_torch(torch.sqrt(mse_t), mse)
 
 
 class mae(rmse):
@@ -195,7 +193,8 @@ class mae(rmse):
             Returns mean absolute error array with appropriate reduced coordinates.
         """
         diff = self._difference(x, y)
-        return self.mean(diff.copy(data=_array_module(diff).abs(diff.data)))
+        diff_t, _ = diff.e2s.to_torch()
+        return self.mean(from_torch(torch.abs(diff_t), diff))
 
 
 class spread_skill_ratio:
@@ -294,7 +293,6 @@ class spread_skill_ratio:
         self, x: xr.DataArray, y: xr.DataArray
     ) -> tuple[xr.DataArray, xr.DataArray]:
         """Squared skill (mse of ensemble mean) and spread (variance) components"""
-        _validate_dims(x, self.reduction_dimensions)
         em = self.ensemble_mean(x)
         skill = self.reduced_rmse(em, y)
         spread = self.reduced_mean(self.ensemble_var(x))
@@ -323,8 +321,9 @@ class spread_skill_ratio:
             Returns spread/skill ratio array with appropriate reduced coordinates.
         """
         skill, spread = self._components(x, y)
-        xp = _array_module(spread)
-        return spread.copy(data=xp.sqrt(spread.data) / skill.data)
+        skill_t, _ = skill.e2s.to_torch()
+        spread_t, _ = spread.e2s.to_torch()
+        return from_torch(torch.sqrt(spread_t) / skill_t, spread)
 
 
 class skill_spread(spread_skill_ratio):
@@ -384,6 +383,6 @@ class skill_spread(spread_skill_ratio):
             `metric` dimension, with appropriate reduced coordinates.
         """
         skill, var = self._components(x, y)
-        xp = _array_module(var)
-        mse = xp.square(skill.data)
-        return _wrap(xp.stack((mse, var.data)), self.output_coords(x))
+        skill_t, _ = skill.e2s.to_torch()
+        var_t, _ = var.e2s.to_torch()
+        return from_torch(torch.stack((skill_t.square(), var_t)), self.output_coords(x))
