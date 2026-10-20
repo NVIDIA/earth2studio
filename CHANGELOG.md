@@ -25,6 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `NNJAObsSatwnd`, `NNJAObsSat`, `NomadsGDASObsConv`): the cycle of the file each row
   was decoded from, since an observation at a file's window edge can be in two files.
 - Added Google Cloud mirror via `source="google"` to ECMWF open-data sources.
+- Added `NNJAAIv2ObsSat` and `NNJAAIv2ObsConv` data sources reading the NNJA-AI v2
+  pre-decoded Parquet archive (`gs://nnja-ai/data/v2`, one file per UTC day and
+  stream) with no BUFR decoding. `NNJAAIv2ObsSat` covers AMSU-A, MHS and ATMS with
+  the `NNJAObsSat` schema; `NNJAAIv2ObsConv` covers `t`/`q`/`u`/`v`/`pres` from the
+  PrepBUFR message families with the `NNJAObsConv` schema, quality marks, drift and
+  `original_event` semantics
 
 ### Changed
 
