@@ -4,7 +4,7 @@ Thanks for your interest in contributing to Earth2Studio.
 Your contribution will be a valued addition to the code base; we
 ask that you read this page and understand our contribution process.
 
-Refer to the [developer guide](https://nvidia.github.io/earth2studio/userguide/developer/overview.html)
+Refer to the [developer guide](https://nvidia.github.io/earth2studio/main/userguide/developer/)
 for more details.
 
 ## Pull Requests
