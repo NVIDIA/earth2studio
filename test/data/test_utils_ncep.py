@@ -146,7 +146,11 @@ def test_same_local_prepbufr_bytes_are_adapter_exact(tmp_path, monkeypatch):
     def parse(file_data: bytes, *, silence_noise: bool):
         assert file_data == b"same-local-prepbufr-bytes"
         assert silence_noise
-        return table_b, {}, [(message_bytes, 102)]
+        return (
+            table_b,
+            {348102: ("ADPUPA   UPPER-AIR REPORTS", ["301001"])},
+            [(message_bytes, 102)],
+        )
 
     monkeypatch.setattr(utils_ncep, "_parse_prepbufr_messages", parse)
     monkeypatch.setattr(
@@ -761,7 +765,11 @@ def test_finalize_rows_adds_missing_columns():
     assert pd.isna(result["station_elev"].iloc[0])
 
 
-def test_decode_prepbufr_skips_excluded_message_types(tmp_path, monkeypatch):
+# Files before 2007 number SATWND 233 (Table D 3-60-233), later files 105 (3-48-105)
+@pytest.mark.parametrize("data_category, table_a", [(105, 348105), (233, 360233)])
+def test_decode_prepbufr_skips_excluded_message_types(
+    tmp_path, monkeypatch, data_category, table_a
+):
     local_path = tmp_path / "amv.prepbufr.nr"
     local_path.write_bytes(b"amv-prepbufr")
     message_bytes = b"prepbufr-satwnd-message"
@@ -782,10 +790,15 @@ def test_decode_prepbufr_skips_excluded_message_types(tmp_path, monkeypatch):
         ]
     )
     table_b = {utils_ncep.HDR_DHR: ("DHR", "HR", 5, 0, 0)}
+    table_d = {table_a: ("SATWND   SATELLITE-DERIVED WIND REPORTS", ["301001"])}
     monkeypatch.setattr(
         utils_ncep,
         "_parse_prepbufr_messages",
-        lambda data, *, silence_noise: (table_b, {}, [(message_bytes, 105)]),
+        lambda data, *, silence_noise: (
+            table_b,
+            table_d,
+            [(message_bytes, data_category)],
+        ),
     )
     monkeypatch.setattr(
         utils_ncep, "_create_decoder", lambda tb, td: _Decoder(message_bytes, decoded)

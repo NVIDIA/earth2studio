@@ -52,11 +52,13 @@ from earth2studio.data.utils_bufr import (
     OBS_YDR,
     OBS_ZOB,
     OBSERVATION_DESCR_IDS,
-    PREPBUFR_OBS_TYPES,
 )
 from earth2studio.data.utils_bufr import create_decoder as _create_decoder
 from earth2studio.data.utils_bufr import (
     parse_prepbufr_messages as _parse_prepbufr_messages,
+)
+from earth2studio.data.utils_bufr import (
+    prepbufr_message_types as _prepbufr_message_types,
 )
 from earth2studio.data.utils_bufr import silence_bufr_noise as _silence_bufr_noise
 from earth2studio.data.utils_ir import (
@@ -961,11 +963,12 @@ def decode_prepbufr(
     table_b, table_d, messages = _parse_prepbufr_messages(file_data, silence_noise=True)
     dhr_scale = _descriptor_scale(table_b, HDR_DHR, 5)
     hrdr_scale = _descriptor_scale(table_b, OBS_HRDR, 5)
+    message_types = _prepbufr_message_types(table_d)
     work_items = [
-        (message_bytes, PREPBUFR_OBS_TYPES[data_category])
+        (message_bytes, message_types[data_category])
         for message_bytes, data_category in messages
-        if data_category in PREPBUFR_OBS_TYPES
-        and PREPBUFR_OBS_TYPES[data_category] not in exclude_message_types
+        if data_category in message_types
+        and message_types[data_category] not in exclude_message_types
     ]
     if not work_items:
         return empty_dataframe()
