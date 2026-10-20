@@ -72,6 +72,7 @@ def _gpsro_df(request_time, n_levels=3):
     heights = np.arange(0.0, 40_001.0, 500.0)
     common = {
         "time": t,
+        "class": "GPSRO",
         "type": 750,
         "station": "07500027",
         "radius_curvature": ELRC,
