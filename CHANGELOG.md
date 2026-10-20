@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added StormScope Flash variants of `StormScopeGOES` and `StormScopeMRMS` for accelerated
+  StormScope inference over CONUS domain, including crop-based inference.
+
 ### Changed
 
 ### Deprecated

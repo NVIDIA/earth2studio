@@ -845,8 +845,11 @@ The checker implements this contract. Wrappers and consumers migrate separately:
   `default_sources()` then becomes a required `DiagnosticModel` member, as for
   `PrognosticModel`, and drivers drop their `getattr` fallbacks for both attributes.
 - **Domain selection.** Add `DomainAdaptable`, `Region` and checks for `G1`–`G4`.
-  `CorrDiffCosmoEra5`, `StormCastCONUS`/`StormCast` and `cBottleSR` adopt the
-  protocol additively, keeping their constructor limits, `set_domain` and
+  `StormScopeGOES` and `StormScopeMRMS` implement it for box regions: Flash variants
+  crop the HRRR footprint with context, and baseline variants return full-footprint
+  views, which cover any supported region. `CorrDiffCosmoEra5`,
+  `StormCastCONUS`/`StormCast` and `cBottleSR` adopt the protocol additively,
+  keeping their constructor limits, `set_domain` and
   `set_super_resolution_window` as adapters; see
   [flexible_domain.md](../scratch/flexible_domain.md).
 - **Examples and drivers.** `earth2studio.run`, `examples/` and `dev/examples/` call
