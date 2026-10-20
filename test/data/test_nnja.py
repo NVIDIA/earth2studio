@@ -1389,7 +1389,9 @@ def test_nnja_sources_keep_rows_inside_each_requested_interval(
         ),
     ]
     for cls, variables, batches, messages, sequences, kept in cases:
-        source = cls(time_tolerance=tolerance, cache=False, verbose=False, layout=layout)
+        source = cls(
+            time_tolerance=tolerance, cache=False, verbose=False, layout=layout
+        )
         _source_with_files(
             source, fake_bufr, monkeypatch, tmp_path, batches, messages, sequences
         )
