@@ -55,6 +55,7 @@ from earth2studio.data.utils_bufr import (
     numpy_with_mask,
     open_bufr,
     physical_values,
+    prepbufr_message_types,
     timestamps_ns,
     uint_with_nulls,
 )
@@ -1469,15 +1470,18 @@ def decode_prepbufr(
         datetime_ns(dt_min) // 1000,
         datetime_ns(dt_max) // 1000,
     )
-    categories = [
-        category
-        for category, name in PREPBUFR_OBS_TYPES.items()
-        if name not in exclude_message_types
-    ]
+    families = set(PREPBUFR_OBS_TYPES.values()) - set(exclude_message_types)
     with open_bufr(path) as source:
+        message_types = {
+            category: name
+            for category, name in sorted(prepbufr_message_types(source).items())
+            if name in families
+        }
+        if not message_types:
+            return _empty_wide(_NCEP_CONVENTIONAL_WIDE_SCHEMA, variables)
         base_us = _message_base_times(source.info)
         batches = source.iter_batches(
-            data_category_filter=categories,
+            data_category_filter=list(message_types),
             fixed_replication="structural",
             target_decoded_bytes=128 << 20,
             prefetch_batches=2,
@@ -1487,7 +1491,7 @@ def decode_prepbufr(
             category = int(batch.column("_data_category")[0].as_py())
             return _prepbufr_batch(
                 batch,
-                PREPBUFR_OBS_TYPES[category],
+                message_types[category],
                 variables,
                 base_us,
                 window_us,

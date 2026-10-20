@@ -759,8 +759,9 @@ T0 = datetime(2024, 1, 1, 0)
 class _FakeBufr:
     """Stands in for an earth2bufr file: yields the given batches, applying list filters."""
 
-    def __init__(self, batches, messages=()):
+    def __init__(self, batches, messages=(), sequences=None):
         self.batches = batches
+        self.sequences = sequences or {}
         self.info = SimpleNamespace(
             messages=list(messages), data_messages=list(messages)
         )
@@ -771,6 +772,13 @@ class _FakeBufr:
 
     def __exit__(self, *args):
         return False
+
+    def source_structure(self, source_message_index):
+        return {
+            "active_sequences": [
+                {"descriptor": d, "mnemonic": n} for d, n in self.sequences.items()
+            ]
+        }
 
     def iter_batches(self, **options):
         self.options = options
@@ -869,7 +877,12 @@ def _gpsro_batch(stamps: list[datetime]) -> pa.RecordBatch:
     )
 
 
-def _prepbufr_batch() -> tuple[pa.RecordBatch, list]:
+def _prepbufr_file(category: int = 102, families: dict | None = None) -> _FakeBufr:
+    """ADPUPA reports under `category`, plus empty messages of `families`.
+
+    Files before 2007 number the families 230-249 (Table A sequence 3-60-YYY),
+    later files 102-121 (3-48-YYY).
+    """
     scale = {b"bufr.scale": b"3"}
     events = {
         "P": _struct_list([[(850.0, 1.0)], [(1000.0, 2.0)]], ["POB", "PQM"]),
@@ -890,7 +903,7 @@ def _prepbufr_batch() -> tuple[pa.RecordBatch, list]:
             pa.array([100.0, 5.0]),
             pa.array([120.0, 181.0]),
             levels,
-            pa.array([102.0, 102.0]),
+            pa.array([float(category)] * 2),
             pa.array([0, 0], type=pa.uint64()),
         ],
         schema=pa.schema(
@@ -907,17 +920,27 @@ def _prepbufr_batch() -> tuple[pa.RecordBatch, list]:
             ]
         ),
     )
-    message = SimpleNamespace(
-        source_message_index=0,
-        edition=4,
-        year=2024,
-        month=1,
-        day=1,
-        hour=0,
-        minute=0,
-        second=0,
-    )
-    return batch, [message]
+    messages, sequences = [], {}
+    for index, (number, name) in enumerate(
+        {category: "ADPUPA", **(families or {})}.items()
+    ):
+        table_a = f"3-{60 if number >= 230 else 48}-{number:03d}"
+        sequences[table_a] = name
+        messages.append(
+            SimpleNamespace(
+                source_message_index=index,
+                data_category=number,
+                descriptors=("0-63-000", table_a),
+                edition=4,
+                year=2024,
+                month=1,
+                day=1,
+                hour=0,
+                minute=0,
+                second=0,
+            )
+        )
+    return _FakeBufr([batch], messages, sequences)
 
 
 def _satwnd_batch(stamps: list[datetime]) -> pa.RecordBatch:
@@ -1015,14 +1038,14 @@ def test_gpsro_long_wide_and_closed_window(fake_bufr):
     assert long["station"].to_pylist()[0] == "00440007"
 
 
+@pytest.mark.parametrize("category", [102, 230])
 @pytest.mark.parametrize(
     "original_event, temperature", [(False, 283.15), (True, 284.15)]
 )
 def test_prepbufr_units_events_and_pressure_subset(
-    fake_bufr, original_event, temperature
+    fake_bufr, category, original_event, temperature
 ):
-    batch, messages = _prepbufr_batch()
-    fake_bufr["prep"] = _FakeBufr([batch], messages)
+    fake_bufr["prep"] = _prepbufr_file(category)
     variables = ["t", "u", "pres"]
     wide = decode_prepbufr(
         "prep",
@@ -1048,8 +1071,8 @@ def test_prepbufr_units_events_and_pressure_subset(
 
 
 def test_prepbufr_excluded_families_are_not_decoded(fake_bufr):
-    batch, messages = _prepbufr_batch()
-    fake_bufr["prep"] = _FakeBufr([batch], messages)
+    fake_bufr["prep"] = _prepbufr_file(families={105: "SATWND", 109: "ADPSFC"})
+    fake_bufr["prep"].batches = []
     decode_prepbufr(
         "prep",
         ["t"],

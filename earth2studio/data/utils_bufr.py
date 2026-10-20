@@ -69,6 +69,28 @@ PREPBUFR_OBS_TYPES: dict[int, str] = {
     121: "ASCATW",  # ASCAT scatterometer winds
 }
 
+
+def prepbufr_message_types(source: Any) -> dict[int, str]:
+    """Data category -> Table A mnemonic of each message family in a PrepBUFR file.
+
+    The mnemonic is read from the file's own DX tables, so files that number the
+    families differently (230-249 before 2007, 102-121 after) map to the same
+    names as ``PREPBUFR_OBS_TYPES``.
+    """
+    first_message: dict[int, Any] = {}
+    for message in source.info.data_messages:
+        first_message.setdefault(message.data_category, message)
+    types: dict[int, str] = {}
+    for category, message in first_message.items():
+        structure = source.source_structure(message.source_message_index)
+        sequences = {
+            s["descriptor"]: s["mnemonic"] for s in structure["active_sequences"]
+        }
+        table_a = next(d for d in message.descriptors if d.startswith("3-"))
+        types[category] = sequences[table_a]
+    return types
+
+
 _T = TypeVar("_T")
 _R = TypeVar("_R")
 
