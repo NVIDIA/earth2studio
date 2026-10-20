@@ -79,8 +79,9 @@ latitude, and longitude.
 
 Data sources return Xarray objects. `earth2studio.data.fetch_data` prepares a field
 DataArray for model execution, including requested grids and temporal statistics.
-Tensor-based components such as IO and statistics use explicit boundary conversion
-with `.e2s.to_torch()`; `from_torch(tensor, signature)` restores labelled fields.
+Statistics and perturbations take and return DataArrays directly. Tensor-based
+components such as IO use explicit boundary conversion with `.e2s.to_torch()`;
+`from_torch(tensor, signature)` restores labelled fields.
 
 ## Coordinate Systems { #coordinates_userguide }
 
