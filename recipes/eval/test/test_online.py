@@ -1979,7 +1979,7 @@ class TestEndToEndRegional:
         from src.data import PredownloadedSource
 
         cfg = _base_cfg(tmp_path, ensemble_size=1)
-        cfg.scoring.regions = OmegaConf.create({k: v for k, v in REGIONS.items()})
+        cfg.scoring.regions = OmegaConf.create({**REGIONS})
         cfg.scoring.online.mae = True
         os.makedirs(cfg.output.path, exist_ok=True)
 
