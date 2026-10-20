@@ -20,6 +20,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pyarrow as pa
+import pyarrow.dataset as pads
 import pyarrow.parquet as pq
 import pytest
 
@@ -155,7 +156,7 @@ def _write_adpupa(root: Path) -> None:
                 [
                     pa.array([[None, 11.5], [None, None]], pa.list_(pa.float64())),
                     pa.array([[None, 46.0], [None, None]], pa.list_(pa.float64())),
-                    pa.array([[None, 0.1], [None, None]], pa.list_(pa.float64())),
+                    pa.array([[None, 0.5], [None, None]], pa.list_(pa.float64())),
                 ],
                 names=["XDR", "YDR", "HRDR"],
             ),
@@ -267,15 +268,49 @@ def test_nnja_ai_v2_layout_helpers():
         (T0 - timedelta(minutes=40), T0 + timedelta(minutes=100)),
         (T0 + timedelta(days=2, minutes=-40), T0 + timedelta(days=2, minutes=40)),
     ]
-    assert module._partition_days(windows, timedelta()) == [DAY, date(2025, 7, 12)]
+    assert module._partition_days(windows) == [DAY, date(2025, 7, 12)]
     assert module._partition_days(
-        [(datetime(2025, 7, 10, 1), datetime(2025, 7, 10, 2))], timedelta(hours=3)
-    ) == [date(2025, 7, 9), DAY]
+        [(datetime(2025, 7, 9, 23), datetime(2025, 7, 11, 1))]
+    ) == [date(2025, 7, 9), DAY, date(2025, 7, 11)]
 
     product = module._SAT_PRODUCTS["amsua"]
     assert product.partition_key(DAY) == (
         "amsua/1bamua/NC021023/OBS_DATE=2025-07-10/1bamua.NC021023.parquet"
     )
+
+
+def test_nnja_ai_v2_column_helpers():
+    column = module._uint_column(np.array([1.0, np.nan, -1.0, 70000.0]), pa.uint16())
+    assert column.to_pylist() == [1, None, None, None]
+
+    struct_of_arrays = pa.schema(
+        [pa.field("PRSLEVEL", pa.struct([pa.field("CAT", pa.list_(pa.int32()))]))]
+    )
+    assert module._has_path(struct_of_arrays, ("PRSLEVEL", "CAT"))
+    assert not module._has_path(struct_of_arrays, ("PRSLEVEL", "TQM"))
+    list_of_structs = pa.schema(
+        [pa.field("PRSLEVEL", pa.list_(pa.struct([pa.field("CAT", pa.int32())])))]
+    )
+    with pytest.raises(ValueError, match="struct of arrays"):
+        module._has_path(list_of_structs, ("PRSLEVEL", "CAT"))
+
+    # The time filter adopts the column's own type, tz-aware or naive.
+    for data_type in (pa.timestamp("ms", tz="UTC"), pa.timestamp("ms")):
+        table = pa.table(
+            {
+                "OBS_TIME": pa.array(
+                    [_utc(2025, 7, 10, 1), _utc(2025, 7, 10, 5)],
+                    pa.timestamp("ms", tz="UTC"),
+                ).cast(data_type),
+                "v": [1, 2],
+            }
+        )
+        kept = pads.dataset(table).to_table(
+            filter=module._window_filter(
+                [(datetime(2025, 7, 10, 4), datetime(2025, 7, 10, 6))], data_type
+            )
+        )
+        assert kept["v"].to_pylist() == [2]
 
 
 def test_nnja_ai_v2_event_edge():
@@ -381,8 +416,9 @@ def test_nnja_ai_v2_obs_conv_fetch(archive: str):
     assert upper.loc[("t", 85000.0), "level_cat"] == 1
     assert upper.loc[("t", 85000.0), "station_elev"] == pytest.approx(761.0)
     assert upper.loc[("t", 85000.0), "station"] == "10954"
-    # Drift: the 850 hPa level is 0.1 h after the cycle and displaced.
-    assert upper.loc[("t", 85000.0), "time"] == pd.Timestamp("2025-07-10 06:06")
+    # Drift: the 850 hPa level is 0.5 h after the cycle (outside the +-10 min
+    # window) and displaced, yet kept because the report header is in window.
+    assert upper.loc[("t", 85000.0), "time"] == pd.Timestamp("2025-07-10 06:30")
     assert upper.loc[("t", 85000.0), "report_time"] == pd.Timestamp("2025-07-10 06:00")
     assert upper.loc[("t", 85000.0), "lat"] == pytest.approx(46.0)
     assert upper.loc[("t", 85000.0), "report_lat"] == pytest.approx(45.0)

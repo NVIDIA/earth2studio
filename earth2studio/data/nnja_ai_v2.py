@@ -28,6 +28,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import os
 import shutil
@@ -133,9 +134,6 @@ _CONV_VARIABLE_FIELDS: dict[str, tuple[str, tuple[str, ...]]] = {
     "pres": ("POB", ("P___INFO", "P__EVENT", "PQM")),
 }
 _CONV_UNSUPPORTED_VARIABLES = frozenset(["gps"])
-# Multi-level families carry balloon/aircraft drift per level; their
-# per-level time can differ from the report header time by up to a few hours.
-_CONV_DRIFT_PAD = timedelta(hours=3)
 
 
 def _split_root(root: str) -> tuple[str, str]:
@@ -164,28 +162,32 @@ def _merge_windows(
     return merged
 
 
-def _partition_days(windows: Sequence[Window], pad: timedelta) -> list[date]:
+def _partition_days(windows: Sequence[Window]) -> list[date]:
     """UTC days whose partition files can hold rows inside ``windows``."""
     days: set[date] = set()
     for start, end in windows:
-        day = (start - pad).date()
-        last = (end + pad).date()
-        while day <= last:
+        day = start.date()
+        while day <= end.date():
             days.add(day)
             day += timedelta(days=1)
     return sorted(days)
 
 
-def _utc_scalar(value: datetime) -> pa.Scalar:
-    return pa.scalar(value.replace(tzinfo=timezone.utc))
+def _time_scalar(value: datetime, data_type: pa.DataType) -> pa.Scalar:
+    """UTC bound as a scalar of the ``OBS_TIME`` column's own type."""
+    if getattr(data_type, "tz", None) is None:
+        return pa.scalar(value).cast(data_type)
+    return pa.scalar(value.replace(tzinfo=timezone.utc)).cast(data_type)
 
 
-def _window_filter(windows: Sequence[Window], pad: timedelta) -> pads.Expression:
-    """Arrow filter selecting ``OBS_TIME`` inside any padded window."""
+def _window_filter(
+    windows: Sequence[Window], data_type: pa.DataType
+) -> pads.Expression:
+    """Arrow filter selecting ``OBS_TIME`` (of type ``data_type``) in any window."""
     expression: pads.Expression | None = None
     for start, end in windows:
-        term = (pc.field("OBS_TIME") >= _utc_scalar(start - pad)) & (
-            pc.field("OBS_TIME") <= _utc_scalar(end + pad)
+        term = (pc.field("OBS_TIME") >= _time_scalar(start, data_type)) & (
+            pc.field("OBS_TIME") <= _time_scalar(end, data_type)
         )
         expression = term if expression is None else expression | term
     if expression is None:
@@ -203,12 +205,30 @@ def _in_windows(times: np.ndarray, windows: Sequence[Window]) -> np.ndarray:
     return mask
 
 
+def _is_list(data_type: pa.DataType) -> bool:
+    return (
+        pa.types.is_list(data_type)
+        or pa.types.is_large_list(data_type)
+        or pa.types.is_fixed_size_list(data_type)
+    )
+
+
 def _has_path(schema: pa.Schema, path: Sequence[str]) -> bool:
-    """Whether a (possibly nested) column path exists in ``schema``."""
+    """Whether a (possibly nested) column path exists in ``schema``.
+
+    The archive stores BUFR sequences as structs of arrays (struct columns
+    whose children are lists); a list-of-structs layout is not an NNJA-AI v2
+    layout and raises rather than being reported absent.
+    """
     if path[0] not in schema.names:
         return False
     data_type = schema.field(path[0]).type
     for name in path[1:]:
+        if _is_list(data_type):
+            raise ValueError(
+                f"Column {'.'.join(path)}: expected a struct of arrays, found "
+                f"{data_type}"
+            )
         if not pa.types.is_struct(data_type) or data_type.get_field_index(name) < 0:
             return False
         data_type = data_type.field(name).type
@@ -274,10 +294,12 @@ def _float_column(values: np.ndarray, data_type: pa.DataType) -> pa.Array:
 
 
 def _uint_column(values: np.ndarray, data_type: pa.DataType) -> pa.Array:
+    """Unsigned integer column; NaN and out-of-range values become null."""
     values = np.asarray(values, dtype=np.float64)
-    valid = np.isfinite(values)
+    limit = np.iinfo(data_type.to_pandas_dtype()).max
+    valid = np.isfinite(values) & (values >= 0.0) & (values <= limit)
     integers = np.where(valid, np.rint(values), 0).astype(np.int64)
-    return pa.array(integers, mask=~valid).cast(data_type, safe=False)
+    return pa.array(integers, mask=~valid).cast(data_type)
 
 
 def _microwave_frame(table: pa.Table) -> pd.DataFrame:
@@ -365,7 +387,8 @@ def decode_nnja_ai_v2_microwave(
         columns[f"obs::{variable}"] = pc.field(sequence, channel_field)
 
     table = dataset.to_table(
-        columns=columns, filter=_window_filter(windows, timedelta())
+        columns=columns,
+        filter=_window_filter(windows, schema.field("OBS_TIME").type),
     )
     if table.num_rows == 0:
         return _microwave_frame(schema_out.empty_table())
@@ -538,9 +561,12 @@ def decode_nnja_ai_v2_prepbufr(
         (name for name in ("PRSLEVEL", "PRSLEVLA") if name in schema.names), None
     )
     prefix: tuple[str, ...] = (level_sequence,) if level_sequence else ()
-    multi_level = pa.types.is_list(schema.field(f"POB{suffix}").type)
-    has_drift = _has_path(schema, (*prefix, "DRFTINFO", "HRDR"))
-    pad = _CONV_DRIFT_PAD if has_drift else timedelta()
+    if level_sequence and not pa.types.is_struct(schema.field(level_sequence).type):
+        raise ValueError(
+            f"{path}: {level_sequence} is {schema.field(level_sequence).type}, "
+            "expected a struct of arrays"
+        )
+    multi_level = _is_list(schema.field(f"POB{suffix}").type)
 
     columns: dict[str, pads.Expression] = {
         "time": pc.field("OBS_TIME"),
@@ -577,7 +603,12 @@ def decode_nnja_ai_v2_prepbufr(
     if not variables:
         return empty_dataframe(schema_out)
 
-    table = dataset.to_table(columns=columns, filter=_window_filter(windows, pad))
+    # Reports are kept or dropped whole by their header time, like NNJAObsConv,
+    # so a drifting sounding stays a complete profile.
+    table = dataset.to_table(
+        columns=columns,
+        filter=_window_filter(windows, schema.field("OBS_TIME").type),
+    )
     if table.num_rows == 0:
         return empty_dataframe(schema_out)
 
@@ -630,7 +661,7 @@ def decode_nnja_ai_v2_prepbufr(
     lon = lon % 360.0
 
     keep_level = (
-        _in_windows(time_ns, windows)
+        _in_windows(report_time, windows)
         & np.isfinite(lat)
         & (lat >= -90.0)
         & (lat <= 90.0)
@@ -812,7 +843,8 @@ class _NNJAAIv2Source:
         )
         tasks = self._create_tasks(windows, variable_list)
         await self._fetch_files(tasks)
-        return self._compile(tasks, schema)
+        # Partition reads are CPU bound; keep them off the shared IO loop.
+        return await asyncio.to_thread(self._compile, tasks, schema)
 
     def _compile(
         self, tasks: Sequence[_NNJAAIv2Task], schema: pa.Schema
@@ -902,6 +934,8 @@ class _NNJAAIv2Source:
                 task.key,
                 self.cache,
                 cache_key=hashlib.sha256(task.uri.encode()).hexdigest(),
+                chunked=True,
+                atomic=True,
             )
         except FileNotFoundError:
             self._handle_missing_file(task)
@@ -1084,7 +1118,7 @@ class NNJAAIv2ObsSat(_NNJAAIv2Source):
         tasks: list[_NNJAAIv2Task] = []
         for sensor, plan in plans.items():
             product = _SAT_PRODUCTS[sensor]
-            for day in _partition_days(windows, timedelta()):
+            for day in _partition_days(windows):
                 if day.year < product.first_year:
                     raise ValueError(
                         f"NNJA-AI v2 {sensor} archive starts in "
@@ -1108,9 +1142,11 @@ class NNJAAIv2ObsConv(_NNJAAIv2Source):
     (``ADPUPA``, ``ADPSFC``, ``AIRCAR``, ...). The output schema and unit
     conventions match :py:class:`earth2studio.data.NNJAObsConv`: PrepBUFR
     report type, level category and quality marks are carried through,
-    ``pres`` is in Pa, ``t`` in K and ``q`` in kg kg-1. Balloon and aircraft
-    drift (``DRFTINFO``) is applied to per-level time and position where the
-    family reports it.
+    ``pres`` is in Pa, ``t`` in K and ``q`` in kg kg-1. Reports are kept or
+    dropped whole by their header time (``report_time``), so soundings stay
+    complete profiles; balloon and aircraft drift (``DRFTINFO``) is then
+    applied to per-level ``time``, ``lat`` and ``lon`` where the family
+    reports it.
 
     GPS radio occultation (``gps``) is not provided by this source; use
     :py:class:`earth2studio.data.NNJAObsConv` for it.
@@ -1213,7 +1249,7 @@ class NNJAAIv2ObsConv(_NNJAAIv2Source):
                 f"Supported: {sorted(self.VALID_VARIABLES)}"
             )
         plan = {name: self.LEXICON[name][1] for name in variable}
-        days = _partition_days(windows, _CONV_DRIFT_PAD)
+        days = _partition_days(windows)
         return [
             self._make_task(
                 _NNJAAIv2Product("conv", "prepbufr", family, _CONV_FIRST_YEAR),
