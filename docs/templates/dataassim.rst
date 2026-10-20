@@ -7,7 +7,7 @@
 
    {% block methods %}
     .. automethod:: __call__
-    .. automethod:: create_iterator
+    .. automethod:: create_generator
     .. automethod:: input_coords
     .. automethod:: forcing_coords
     .. automethod:: output_coords

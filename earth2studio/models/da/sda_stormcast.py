@@ -722,15 +722,13 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
 
         return from_torch(x_tensor, output_coords)
 
-    def create_iterator(
+    def create_generator(
         self,
         x: xr.DataArray,
-        conditioning: xr.DataArray,
-        obs: pd.DataFrame | None = None,
     ) -> Generator[xr.DataArray, tuple[xr.DataArray, pd.DataFrame | None] | None, None]:
-        """Create an iterator yielding forecasts with data assimilation.
+        """Create a generator yielding forecasts with data assimilation.
 
-        The iterator yields forecasts and receives conditioning and observations
+        The generator yields states and receives conditioning and observations
         via ``send((conditioning, obs))`` in forcing-slot order. Observations
         are mapped to the HRRR grid, and the diffusion model produces the next
         forecast step.
@@ -739,15 +737,11 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         ----------
         x : xr.DataArray
             Initial state on the HRRR curvilinear grid
-        conditioning : xr.DataArray
-            First-step conditioning on the initial state's grid and valid time.
-        obs : pd.DataFrame | None, optional
-            Observations for the first forecast valid time, by default None.
 
         Yields
         ------
         xr.DataArray
-            Forecast state at each time step, starting one hour after the input.
+            Initial state on priming, then forecast states at each time step.
 
         Receives
         --------
@@ -758,19 +752,21 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
 
         Example
         -------
-        >>> it = model.create_iterator(x0, c0, obs_df)
-        >>> state = next(it)             # step 1 with observations
-        >>> state = it.send((c1, None))   # step 2 without observations
+        >>> gen = model.create_generator(x0)
+        >>> state = next(gen)               # initial state, no assimilation
+        >>> state = gen.send((c0, obs_df))   # step 1 with observations
+        >>> state = gen.send((c1, None))     # step 2 without observations
         """
+        self.output_coords(x)
         try:
+            forcing = yield x
             while True:
-                x = self(x, conditioning, obs)
-                forcing = yield x
                 if not isinstance(forcing, tuple) or len(forcing) != 2:
                     raise ValueError(
                         "Send (conditioning, obs) in forcing_coords() order"
                     )
-                conditioning, obs = forcing
+                x = self(x, *forcing)
+                forcing = yield x
 
         except GeneratorExit:
             logger.info("StormCast SDA clean up")

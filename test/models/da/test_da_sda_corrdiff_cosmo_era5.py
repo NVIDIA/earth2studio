@@ -19,7 +19,7 @@
 Construction-based (no real package / no GPU forward). They exercise the SDA
 eligibility seam (``_identity_output_indices``), the dx ``_denoise`` score-predictor
 seam, the sparse-obs -> normalized-space tensors, and the public DA contract
-(coords, ``__call__``, ``create_iterator``, ``load_model``).
+(coords, ``__call__``, ``create_generator``, ``load_model``).
 """
 
 import os
@@ -606,7 +606,7 @@ def test_build_obs_tensors_missing_column_raises():
         sda._build_obs_tensors(obs, t, sda.device)
 
 
-# ── __call__ / create_iterator ──────────────────────────────────────────────
+# ── __call__ / create_generator ──────────────────────────────────────────────
 
 
 def _identity_sda() -> CorrDiffCosmoEra5SDA:
@@ -698,7 +698,7 @@ def test_forward_trims_halo():
     assert trimmed.shape[-1] == untrimmed.shape[-1] - 2
 
 
-def test_create_iterator():
+def test_create_generator():
     sda = _identity_sda()
     t0 = np.datetime64("2021-07-14T12:00")
     t1 = np.datetime64("2021-07-14T13:00")
@@ -706,8 +706,9 @@ def test_create_iterator():
     x = _era5_da(sda, times)
 
     obs0 = _obs_df(sda, [(4, 4)], ["u10m"], [1.0], t0)
-    gen = sda.create_iterator(x, obs0)
-    a0 = next(gen)
+    gen = sda.create_generator(x)
+    assert next(gen) is None
+    a0 = gen.send(obs0)
     assert set(a0.dims) == {"time", "sample", "variable", "y", "x"}
     assert a0.sizes["time"] == 1
     assert a0.coords["time"].values[0] == t0

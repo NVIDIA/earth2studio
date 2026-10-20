@@ -329,7 +329,7 @@ def test_stormcast_sda_call(time, device):
     assert out.e2s.to_torch()[0].device == model.device
 
 
-# ---------- Test: create_iterator ----------
+# ---------- Test: create_generator ----------
 
 
 @pytest.mark.parametrize(
@@ -344,7 +344,7 @@ def test_stormcast_sda_call(time, device):
         ),
     ],
 )
-def test_stormcast_sda_iterator(device):
+def test_stormcast_sda_generator(device):
     model = _build_model(device=device)
     time = np.array([np.datetime64("2020-04-05T00:00")])
     x = _build_input_da(model, time, device=device)
@@ -360,10 +360,13 @@ def test_stormcast_sda_iterator(device):
         return torch.zeros_like(x)
 
     with patch.object(model, "_forward", forward):
-        gen = model.create_iterator(x, c, obs_df)
+        gen = model.create_generator(x)
 
-        # First yield is the first forecast, not the initial state.
+        # Prime without advancing the model or applying forcing.
         state = next(gen)
+        assert state is x
+        assert not seen
+        state = gen.send((c, obs_df))
         assert state.shape == (len(time), 1, NVAR, ny, nx)
         assert state.coords["lead_time"].values[0] == np.timedelta64(1, "h")
         torch.testing.assert_close(seen[0], c.e2s.to_torch()[0][0])
@@ -397,10 +400,8 @@ def test_stormcast_sda_exceptions(coord):
     c = c.assign_coords({coord: (c[coord].dims, values)})
     with pytest.raises(ValueError):
         model(x, c)
-    valid_c = _build_input_da(model, time, conditioning=True)
-    gen = model.create_iterator(x, valid_c)
-    with patch.object(model, "_forward", _mock_forward):
-        next(gen)
+    gen = model.create_generator(x)
+    next(gen)
     with pytest.raises(ValueError, match="forcing_coords"):
         gen.send(None)
 

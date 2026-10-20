@@ -69,45 +69,44 @@ class AssimilationModel(Protocol):
         """
         pass
 
-    def create_iterator(
+    def create_generator(
         self,
-        *x: xr.DataArray | pd.DataFrame | None,
+        *x: xr.DataArray | pd.DataFrame,
     ) -> Generator[
-        xr.DataArray | tuple[xr.DataArray, ...],
+        xr.DataArray | tuple[xr.DataArray, ...] | None,
         xr.DataArray
         | pd.DataFrame
         | tuple[xr.DataArray | pd.DataFrame | None, ...]
         | None,
         None,
     ]:
-        """Create an iterator for successive analyses.
+        """Create a bidirectional generator for successive analyses.
 
-        Like the prognostic iterator, the first ``next(it)`` computes an analysis
-        using the initial state and forcing supplied at creation. Every yield is
-        an analysis; there is no initial-state or placeholder yield. Each subsequent
+        Prime the generator with ``next(gen)`` before supplying forcing. This yields
+        the initial state or ``None`` without performing assimilation. Each subsequent
         ``send`` supplies forcing for one analysis. The concrete model documents
         whether it evolves the state, consumes successive initial frames, or
         processes independent observation batches.
 
         Parameters
         ----------
-        *x : xr.DataArray | pd.DataFrame | None
-            Same arguments as ``__call__``: one per ``input_coords()`` slot,
-            followed by the first forcing in ``forcing_coords()`` order.
+        *x : xr.DataArray | pd.DataFrame
+            Initial state, one argument per ``input_coords()`` slot. Models with
+            no initial state take no arguments.
 
         Yields
         ------
-        xr.DataArray | tuple[xr.DataArray, ...]
-            Successive analyses in output-slot order, starting with the first step.
+        xr.DataArray | tuple[xr.DataArray, ...] | None
+            Initial state or ``None`` on priming, then analyses in output-slot order.
 
         Receives
         --------
         xr.DataArray | pd.DataFrame | tuple[xr.DataArray | pd.DataFrame | None, ...] | None
             One forcing value directly, or a tuple in ``forcing_coords()`` order.
-            Preserve optional slots with ``None`` entries. Subsequent ``next(it)``
-            calls mean ``send(None)``, valid only when no forcing is required for
-            that step.
-            Observation times and request metadata refer to the current analysis;
+            Preserve optional slots with ``None`` entries. ``send(None)`` permits
+            progress without observations when the model supports it; required
+            gridded forcing must still be supplied.
+            Observation times and model-specific metadata refer to the current analysis;
             gridded forcing must match the current window declared by the model.
         """
         pass
@@ -126,7 +125,7 @@ class AssimilationModel(Protocol):
         -------
         FrameSchema | CoordinateSystem | tuple[FrameSchema | CoordinateSystem, ...] | None
             Initial-state signatures in argument order, or ``None`` for models
-            driven solely by observations. Passed to ``create_iterator`` and
+            driven solely by observations. Passed to ``create_generator`` and
             before forcing in ``__call__``.
         """
         pass
@@ -143,8 +142,8 @@ class AssimilationModel(Protocol):
 
         Gridded signatures use lead times relative to the state being processed.
         Frame schemas describe observation columns and allowed values; each model
-        documents its observation window and required DataFrame request metadata.
-        Forcing is supplied at iterator creation and on each ``send`` and is not
+        documents its observation window and any required DataFrame metadata.
+        Forcing is supplied on each generator ``send`` and is not
         implicitly fetched or reused. ``None`` means no forcing slots, not an
         optional slot.
 
@@ -167,8 +166,8 @@ class AssimilationModel(Protocol):
             One signature or DataArray per initial-state slot as separate arguments.
             Concrete models declare fixed named parameters matching their slots.
         **kwargs : Any
-            Model-specific request metadata, such as ``request_time`` from an
-            observation DataFrame. Observation-only models need no positional inputs.
+            Model-specific keyword arguments. Observation-only models need no
+            positional inputs.
 
         Returns
         -------
@@ -178,7 +177,7 @@ class AssimilationModel(Protocol):
         Raises
         ------
         ValueError
-            If input coordinates or request metadata are invalid.
+            If input coordinates or model-specific arguments are invalid.
         """
         pass
 

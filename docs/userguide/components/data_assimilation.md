@@ -41,8 +41,7 @@ As with prognostic models, `input_coords()` describes the initial state and
 `forcing_coords()` describes caller-supplied conditioning, including observations.
 Each returns a single signature or schema, an ordered tuple for multiple slots, or
 `None` for no slots. A tuple can mix gridded signatures and DataFrame schemas.
-`output_coords()` accepts initial-state signatures as separate positional arguments;
-observation-only models instead use request metadata such as `request_time`.
+`output_coords()` accepts initial-state signatures as separate positional arguments.
 
 | Model | Initial state | Forcing, in order |
 | --- | --- | --- |
@@ -52,8 +51,8 @@ observation-only models instead use request metadata such as `request_time`.
 | `StormCastSDA` | HRRR DataArray | Conditioning DataArray, observation schema |
 
 `default_sources()` recommends providers in **input-then-forcing** order. Models
-do not fetch these themselves. Callers fetch and align each gridded slot, including
-regridding StormCast conditioning to the declared HRRR grid.
+do not fetch these themselves. Callers fetch and align each gridded slot to the
+declared signature.
 
 ### Loading a Pre-trained Data Assimilation Model
 
@@ -79,49 +78,48 @@ or more observation or state inputs and returns one or more assimilated outputs.
 analysis = model(observations)  # e.g. InterpEquirectangular
 ```
 
-### Stateful Assimilation
+### Sequential Assimilation
 
-Some assimilation workflows need to process a sequence of observation batches while
-maintaining internal state. For those workflows, use `create_iterator`.
+Use `create_generator` to supply a sequence of observation batches. Depending on the
+model, this can update a persistent state or produce independent analyses. For a
+single independent analysis, use `__call__` directly.
 
 ```python
-# Assume model is an instance of an AssimilationModel
-iterator = model.create_iterator(first_observations)
-analysis = next(iterator)  # First analysis, using the supplied observations
+# Observation-only model, e.g. InterpEquirectangular
+generator = model.create_generator()
+next(generator)  # Prime: yields None without assimilation
 
 for observations in observation_batches:
-    analysis = iterator.send(observations)
+    analysis = generator.send(observations)
 
-iterator.close()
+generator.close()
 ```
 
-Pass initial-state slots followed by the first forcing to `create_iterator`, just
-as for `__call__`. Like prognostic iterators, every yield is a computed output;
-there is no placeholder or initial-state yield. Each `send` supplies only the
-forcing slots for the next analysis. A single forcing value is sent directly;
+Pass only initial-state slots to `create_generator`. The first `next` primes the
+generator, yielding its initial state or `None` without assimilation. Each subsequent
+`send` supplies forcing for one analysis. A single forcing value is sent directly;
 multiple slots are sent as a tuple, preserving optional entries with `None`.
-For example, StormCastSDA uses:
+For a stateful model with conditioning and observation forcing:
 
 ```python
-# conditioning matches the initial state's time; observations target one hour later
-iterator = model.create_iterator(initial_state, conditioning, observations)
-state = next(iterator)  # First forecast, one hour after the initial state
-# next_conditioning must match the updated state window
-state = iterator.send((next_conditioning, None))
-iterator.close()
+generator = model.create_generator(initial_state)
+state = next(generator)  # Initial state, no assimilation
+state = generator.send((conditioning, observations))
+state = generator.send((next_conditioning, None))  # Progress without observations
+generator.close()
 ```
 
+`send(None)` can progress without observations when the model supports it. Any
+required gridded conditioning must still be supplied, as in the tuple above.
 HealDA receives `(conv_obs, sat_obs)` and needs at least one observation batch.
 CorrDiff receives one observation DataFrame (or `None`) per time in its initial
 ERA5 input and stops after those times are consumed. Interpolation receives one
-DataFrame per analysis. DataFrame `request_time` metadata identifies requested
-analyses where the model requires it. Consult each model's time-window contract.
+DataFrame per analysis. Consult each model's documentation for its time-window and
+metadata requirements.
 
 Single outputs and output signatures are returned directly; only multiple outputs
 are tuples. When migrating older DA code, replace `init_coords()` with
 `input_coords()` and move observation-schema queries to `forcing_coords()`.
-Replace `create_generator` with `create_iterator`, supply the first forcing at
-creation, and consume the first `next()` result as an analysis rather than priming.
 
 ## Custom Data Assimilation Models
 

@@ -5,8 +5,8 @@ description: Earth2Studio data assimilation model implementation guidelines foll
 
 # Earth2Studio Data Assimilation Models
 
-DA models ingest sparse observations (DataFrames) and/or gridded state arrays
-(DataArrays) and produce analyses. Follow the `AssimilationModel` protocol in
+Data assimilation models can work with tensor data, tabular observation data, or
+both. Follow the `AssimilationModel` protocol in
 [base.py](mdc:earth2studio/models/da/base.py) and the usage examples in
 [data_assimilation.md](mdc:docs/userguide/components/data_assimilation.md).
 
@@ -19,7 +19,7 @@ Align slot declarations with prognostic models:
 - `forcing_coords()` describes caller-supplied conditioning, including observations.
   Return `None` only when there are no forcing slots.
 - `output_coords()` describes analysis outputs. Accept initial-state signatures as
-  separate named arguments, with model-specific request metadata as keywords.
+  separate named arguments; any additional keywords are model-specific.
   Return a CoordinateSystem or tuple of CoordinateSystems for DataArray outputs.
 - Return a single signature/schema directly, or an ordered tuple for multiple slots.
   Input and forcing tuples may mix gridded signatures and tabular schemas.
@@ -41,22 +41,22 @@ HealDA declares no initial state and two observation schemas; its call is
 `model(conv_obs, sat_obs)`. Preserve optional slots with `None` rather than dropping
 them from a tuple.
 
-## Execution and iterators
+## Execution and generators
 
 - `__call__` accepts initial states followed by forcing and computes one independent
   analysis. Return a singleton DataArray directly, multiple outputs as a tuple.
-- `create_iterator` accepts initial-state arguments followed by the first forcing,
-  like `__call__`. The first `next(it)` computes and yields the first analysis;
-  never yield the initial state or a placeholder `None`.
+- `create_generator` accepts only initial-state arguments. Prime it with `next(gen)`
+  to yield the initial state or `None` without assimilation.
 - Every subsequent `send` supplies forcing for one analysis: one value directly or a
   tuple in `forcing_coords()` order. Do not implicitly fetch or reuse forcing.
-- Document whether the iterator advances its state, consumes successive initial
+- Allow `None` for optional observations. Required conditioning must still be supplied;
+  a model that requires observations may reject `None` after priming.
+- Document whether the generator advances its state, consumes successive initial
   frames, or processes independent observation batches.
 - Document gridded forcing times relative to the current state and observation times
   relative to the analysis. For StormCastSDA, conditioning is at the input valid time
   and observations are at the output valid time, one hour later.
-- Observation-only models validate `obs.attrs['request_time']` when required;
-  `fetch_dataframe` supplies this metadata. Validate required columns early using
+- Validate required columns early using
   `validate_observation_fields` and filter windows with `filter_time_range`.
 - Validate gridded data with `handshake_dataarray` against the declared signature.
   Use `handshake_nonempty` where execution requires nonempty dynamic dimensions.
@@ -71,16 +71,18 @@ them from a tuple.
 
 ```python
 # Stateful mixed forcing
-it = model.create_iterator(x0, conditioning0, obs0)
-state = next(it)  # first forecast time step
-state = it.send((conditioning1, None))
-it.close()
+gen = model.create_generator(x0)
+state = next(gen)  # initial state, no assimilation
+state = gen.send((conditioning0, obs0))
+state = gen.send((conditioning1, None))
+gen.close()
 
 # Stateless observation forcing
-it = interp.create_iterator(obs0)
-analysis = next(it)
-analysis = it.send(obs1)
-it.close()
+gen = interp.create_generator()
+next(gen)  # None, no assimilation
+analysis = gen.send(obs0)
+analysis = gen.send(obs1)
+gen.close()
 ```
 
 ## Model construction and loading
@@ -100,7 +102,7 @@ it.close()
 
 - Test input/forcing/output declarations and source ordering, including singleton,
   tuple and absent slots as applicable to the model.
-- Test first-analysis yields and successive forcing sends, optional observations,
+- Test priming yields and successive forcing sends, optional observations,
   coordinate mismatches, and CPU/CUDA execution where available.
 - Ensure conditioning is supplied by callers and that execution does not mutate inputs.
 - Add models to [models_da.md](mdc:docs/modules/models_da.md) alphabetically and update

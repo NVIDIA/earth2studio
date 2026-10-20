@@ -208,10 +208,11 @@ class FakeDA:
             coords=output_coords.coords,
         )
 
-    def create_iterator(self, conv_obs=None, sat_obs=None):
+    def create_generator(self):
+        inputs = yield None
         while True:
-            inputs = yield self(conv_obs, sat_obs)
             conv_obs, sat_obs = inputs if inputs is not None else (None, None)
+            inputs = yield self(conv_obs, sat_obs)
 
     def to(self, device):
         return self

@@ -544,45 +544,36 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         output_coords = self.output_coords(request_time=request_time)
         return self.build_output(prediction, output_coords)
 
-    def create_iterator(
+    def create_generator(
         self,
-        conv_obs: pd.DataFrame | None = None,
-        sat_obs: pd.DataFrame | None = None,
     ) -> Generator[
-        xr.DataArray,
+        xr.DataArray | None,
         tuple[pd.DataFrame | None, pd.DataFrame | None] | None,
         None,
     ]:
-        """Create an iterator yielding global analyses from observation forcing.
-
-        Parameters
-        ----------
-        conv_obs : pd.DataFrame | None, optional
-            Conventional observations for the first analysis, by default None.
-        sat_obs : pd.DataFrame | None, optional
-            Satellite observations for the first analysis, by default None.
-            At least one observation slot must be supplied.
+        """Create a generator receiving observations for global analyses.
 
         Yields
         ------
-        xr.DataArray
-            Global analyses, starting with the supplied observations.
+        xr.DataArray | None
+            None on priming, then global analyses on the configured grid.
 
         Receives
         --------
         tuple[pd.DataFrame | None, pd.DataFrame | None] | None
             A ``(conv_obs, sat_obs)`` tuple in ``forcing_coords()`` order sent via
-            ``iterator.send()`` for the next analysis.
+            ``generator.send()`` for the next analysis.
             Either element may be ``None`` but not both. Sending ``None`` raises
             ValueError because at least one observation batch is required.
         """
         try:
+            inputs = yield None
             while True:
+                conv_obs, sat_obs = inputs if inputs is not None else (None, None)
                 da = self.__call__(conv_obs, sat_obs)
                 inputs = yield da
-                conv_obs, sat_obs = inputs if inputs is not None else (None, None)
         except GeneratorExit:
-            logger.debug("HealDA iterator clean up complete.")
+            logger.debug("HealDA generator clean up complete.")
 
     def _build_channel_stats(self) -> pd.DataFrame:
         """Build per-(sensor, local_channel) normalization stats table."""

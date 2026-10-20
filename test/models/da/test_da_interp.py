@@ -334,7 +334,7 @@ def test_interp_tolerance(sample_observations_pandas, small_grid, device):
         ),
     ],
 )
-def test_interp_iterator(sample_observations_pandas, small_grid, device):
+def test_interp_generator(sample_observations_pandas, small_grid, device):
     lat, lon = small_grid
     model = InterpEquirectangular(lat=lat, lon=lon).to(device)
 
@@ -344,8 +344,9 @@ def test_interp_iterator(sample_observations_pandas, small_grid, device):
         "request_lead_time": np.array([np.timedelta64(0, "h")]),
     }
 
-    generator = model.create_iterator(sample_observations_pandas)
-    da = next(generator)
+    generator = model.create_generator()
+    assert next(generator) is None
+    da = generator.send(sample_observations_pandas)
     assert isinstance(da, xr.DataArray)
     assert da.shape == (1, 4, len(lat), len(lon))
 

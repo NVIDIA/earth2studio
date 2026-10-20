@@ -324,7 +324,7 @@ class AssimilationRunner(ABC):
       whose ``input_coords()`` is ``None``. Work items can be freely
       distributed across ranks.
     * A future cycling runner for stateful models (e.g. StormCastSDA)
-      would hold ``model.create_iterator(background, *forcing)`` open and step it
+      would hold ``model.create_generator(background)`` open and step it
       sequentially between requested times.  Such a runner constrains work
       distribution (analysis times must be processed in order on one
       rank), which is why the runner — not the pipeline — owns the
@@ -372,7 +372,7 @@ class StatelessAssimilationRunner(AssimilationRunner):
                 f"{type(model).__name__} requires initialization state "
                 "(input_coords() is not None) — it is a stateful/cycling DA "
                 "model, which the stateless runner cannot drive.  A cycling "
-                "AssimilationRunner that steps model.create_iterator() "
+                "AssimilationRunner that steps model.create_generator() "
                 "sequentially is required."
             )
         self._model = model
