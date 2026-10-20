@@ -829,6 +829,24 @@ def test_decode_prepbufr_skips_excluded_message_types(
         NNJAObsConv(cache=False, verbose=False, exclude_message_types=("AMV",))
 
 
+def test_decode_prepbufr_raises_without_message_families(tmp_path, monkeypatch):
+    local_path = tmp_path / "nodx.prepbufr.nr"
+    local_path.write_bytes(b"nodx-prepbufr")
+    monkeypatch.setattr(
+        utils_ncep,
+        "_parse_prepbufr_messages",
+        lambda data, *, silence_noise: ({}, {}, [(b"prepbufr-message", 105)]),
+    )
+    bounds = (datetime(2024, 1, 1), datetime(2024, 1, 1, 1))
+    with pytest.raises(ValueError, match="no PrepBUFR message family"):
+        utils_ncep.decode_prepbufr(
+            str(local_path),
+            _prepbufr_plan(NNJAObsConvLexicon, "t"),
+            *bounds,
+            decode_workers=1,
+        )
+
+
 def _sounding_level() -> tuple[list[SimpleNamespace], list[object]]:
     """One radiosonde level whose temperature carries two events, latest first."""
     from earth2studio.data.utils_bufr import (

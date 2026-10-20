@@ -259,7 +259,7 @@ def _message_base_time(message: Any) -> datetime | None:
         year = int(message.year.value)
         if edition == 3:
             # Edition 3 stores the year of century; expand to 4-digit, pivoting
-            # at 70 (>=70 -> 19xx, <70 -> 20xx). NCEP writes 2000 as 100.
+            # at 70 (>=70 -> 19xx, <70 -> 20xx). BUFR codes 2000 as 100.
             if year <= 100:
                 year += 2000 if year < 70 else 1900
             second = 0
@@ -928,15 +928,15 @@ def _prepbufr_message_types(table_d: dict[int, tuple[Any, ...]]) -> dict[int, st
     """Map data category to message family using a file's DX Table D.
 
     Each family's Table A sequence is defined in Table D as 3-XX-<category>, its
-    entry starting with the 8-character Table A mnemonic. Files before 2007
-    number the families 230-249, later files 102-121, so the category alone does
-    not identify a family.
+    entry starting with the Table A mnemonic. Files before 2007 number the
+    families 230-249, later files 102-121, so the category alone does not
+    identify a family.
     """
     families = set(PREPBUFR_OBS_TYPES.values())
     return {
-        descriptor_id % 1000: entry[0][:8].strip()
+        descriptor_id % 1000: name
         for descriptor_id, entry in table_d.items()
-        if entry[0][:8].strip() in families
+        if (name := entry[0].split(None, 1)[0]) in families
     }
 
 
@@ -978,6 +978,10 @@ def decode_prepbufr(
     dhr_scale = _descriptor_scale(table_b, HDR_DHR, 5)
     hrdr_scale = _descriptor_scale(table_b, OBS_HRDR, 5)
     message_types = _prepbufr_message_types(table_d)
+    if messages and not message_types:
+        raise ValueError(
+            f"{path}: no PrepBUFR message family found in the file's DX tables"
+        )
     work_items = [
         (message_bytes, message_types[data_category])
         for message_bytes, data_category in messages
