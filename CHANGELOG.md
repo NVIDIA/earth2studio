@@ -28,9 +28,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- NCEP cycle-file sources no longer read the neighbouring cycle for a window that
-  starts or ends on its boundary: rows only that file holds at exactly `T ± 3h` are
-  not returned.
 - `NNJAObsSat` returns a row for every decoded channel: a missing or unconvertible value
   is a NaN observation instead of a dropped row, so every footprint appears.
 - ECMWF open-data sources accept a `client_kwargs` dictionary for
@@ -47,14 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fewer rows.
 - `NNJAObsSat` skips sensors outside their archive years in a multi-sensor request
   instead of failing the whole request.
-- NCEP cycle-file sources (`NNJAObsConv`, `NNJAObsSatwnd`, `NNJAObsSat`,
-  `NomadsGDASObsConv`, `UFSObsConv`, `UFSObsSat`) select files with one rule: the file
-  at `T` spans report times `[T - 3h, T + 3h]` and is read when the request overlaps
-  the interior of that span. NNJA and GDAS requests no longer miss the current cycle
-  for windows inside `(T, T + 3h]`, and UFS requests no longer miss the following
-  cycle (#967).
-- Requests for several times that share a cycle file return only rows inside their own
-  windows, not the span between them (#967).
+- NNJA, GDAS and UFS observation sources read the cycle files whose ±3h span a request
+  overlaps, and keep only rows inside each requested window; requests no longer miss
+  cycles (#967).
 - `CorrDiffCosmoEra5`: updated the Hugging Face checkpoint revision to pick up the
   corrected `rea2/stats.json` (ERA5 training-domain statistics instead of global
   statistics).
