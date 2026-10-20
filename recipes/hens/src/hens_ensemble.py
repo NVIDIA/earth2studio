@@ -409,9 +409,7 @@ class EnsembleBase:
 
                         # Online concat for coords: only 'lead_time' is concatenated, others are kept from first step
                         if cd_output_dict[cd_name]["coords"] is None:
-                            cd_output_dict[cd_name]["coords"] = {
-                                k: v for k, v in codib.items()
-                            }
+                            cd_output_dict[cd_name]["coords"] = {**codib}
                         else:
                             # Only concatenate 'lead_time'
                             cd_output_dict[cd_name]["coords"]["lead_time"] = (

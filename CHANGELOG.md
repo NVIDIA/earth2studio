@@ -48,6 +48,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   corrected `rea2/stats.json` (ERA5 training-domain statistics instead of global
   statistics).
 - Honor custom ensemble dimension names in Brier score coordinate validation.
+- Correct the Energy Score ensemble reduction axis when multivariate
+  dimensions precede the ensemble dimension.
+- Fixed running variance and standard deviation when reducing non-leading or
+  multiple dimensions.
+- `Aurora1p5` and `Aurora1p5Ensemble`: `tp1h` and `sf1h` are no longer log-untransformed
+  a second time, which made hourly precipitation and snowfall about 1000 times too
+  small.
+- Fixed `ZarrBackend` and `IceChunkBackend` reopening stores containing
+  root-level subgroups.
 
 ### Security
 
