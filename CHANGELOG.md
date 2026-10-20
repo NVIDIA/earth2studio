@@ -50,6 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Aurora1p5` and `Aurora1p5Ensemble`: `tp1h` and `sf1h` are no longer log-untransformed
   a second time, which made hourly precipitation and snowfall about 1000 times too
   small.
+- Fixed `ZarrBackend` and `IceChunkBackend` reopening stores containing
+  root-level subgroups.
 
 ### Security
 
