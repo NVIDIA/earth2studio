@@ -424,6 +424,17 @@ def resolve_output_schema(
 # ──────────────────────────────────────────────────────────────────────────
 
 _C_CM_S = 2.99792458e10
+# ATMS channel centre frequencies as encoded (SCCF, 0-02-153, in units of 10⁵ Hz) in the
+# NNJA atms aggregates; the same for every platform
+# fmt: off
+_ATMS_SCCF_CODE = np.array(
+    [238000, 314000, 503000, 517600, 528000, 536000, 544000, 549400, 555000, 572900,
+     575100, 576600, 576300, 576200, 576100, 882000, 1655000, 1903100, 1878000,
+     1863000, 1851100, 1843100],
+    dtype=np.float64,
+)
+# fmt: on
+_ATMS_WAVENUMBER_CM = _ATMS_SCCF_CODE / (1.0 * 10**-5) / _C_CM_S
 
 _NCEP_SATELLITE_NAME_BY_SAID: dict[int, str] = {
     3: "metop-b",
@@ -649,10 +660,7 @@ SAT_VARIABLE_SENSOR: dict[str, str] = {
 }
 SAT_SENSORS = tuple(dict.fromkeys(SAT_VARIABLE_SENSOR.values()))
 # Per-channel columns of a satellite footprint row, one set per sensor
-SAT_CHANNEL_COLUMNS = ("sensor_index", "wavenumber", "quality")
-# Sensors whose BUFR encodes each channel's wavenumber (ATMS SCCF, AIRS LOGRCW); IASI and
-# CrIS wavenumbers follow from the channel number, the other sensors have none
-_SAT_ENCODED_WAVENUMBER = frozenset({"atms", "airs"})
+SAT_CHANNEL_COLUMNS = ("sensor_index", "quality")
 
 # Default of the ``layout`` parameter of the NNJA and GDAS sources
 _DEFAULT_LAYOUT: Literal["long", "wide"] = "long"
@@ -724,14 +732,13 @@ _NCEP_SATWND_WIDE_SCHEMA = pa.schema(
 
 _SAT_CHANNEL_TYPES = {
     "sensor_index": pa.uint16(),
-    "wavenumber": pa.float64(),
     "quality": pa.uint32(),
 }
 _NCEP_MICROWAVE_WIDE_SCHEMA = pa.schema(
     [
         *_fields(
             NCEP_MICROWAVE_OUTPUT_SCHEMA,
-            (*SAT_CHANNEL_COLUMNS, "observation", "variable"),
+            (*SAT_CHANNEL_COLUMNS, "wavenumber", "observation", "variable"),
         ),
         *[
             pa.field(
@@ -748,7 +755,6 @@ _NCEP_MICROWAVE_WIDE_SCHEMA = pa.schema(
             )
             for sensor in SAT_SENSORS
             for name, arrow_type in _SAT_CHANNEL_TYPES.items()
-            if name != "wavenumber" or sensor in _SAT_ENCODED_WAVENUMBER
         ],
         *[_observation_field(v, pa.list_(pa.float32())) for v in SAT_VARIABLE_SENSOR],
     ]
@@ -849,6 +855,18 @@ def _list_parent(lists: pa.Array) -> np.ndarray:
     return np.repeat(np.arange(len(lists), dtype=np.int64), lengths)
 
 
+def _channel_wavenumber(sensor: str, channels: np.ndarray) -> np.ndarray | None:
+    if sensor == "atms":
+        if len(channels) and (
+            channels.min() < 1 or channels.max() > len(_ATMS_WAVENUMBER_CM)
+        ):
+            raise ValueError(f"atms channels outside 1-{len(_ATMS_WAVENUMBER_CM)}")
+        return _ATMS_WAVENUMBER_CM[channels - 1]
+    if sensor in _IR_SENSORS:
+        return wavenumber_cm_inverse(sensor, channels)
+    return None
+
+
 def _explode_channels(table: pa.Table, variables: Sequence[str]) -> list[pa.Table]:
     by_sensor: dict[str, list[str]] = {}
     for variable in variables:
@@ -885,11 +903,11 @@ def _explode_channels(table: pa.Table, variables: Sequence[str]) -> list[pa.Tabl
                         np.repeat(np.arange(len(values), dtype=np.int64), n_var)
                     )
                 columns[name] = values
-        if sensor in ("iasi", "cris") and "sensor_index" in columns:
+        if "sensor_index" in columns:
             channels = columns["sensor_index"].to_numpy(zero_copy_only=False)
-            columns["wavenumber"] = pa.array(
-                wavenumber_cm_inverse(sensor, channels.astype(np.int64))
-            )
+            wavenumber = _channel_wavenumber(sensor, channels.astype(np.int64))
+            if wavenumber is not None:
+                columns["wavenumber"] = pa.array(wavenumber)
         flat = [pc.list_flatten(obs) for obs in observations]
         if n_var > 1:
             stacked = np.stack(
@@ -2034,9 +2052,7 @@ def _sat_decode_options(
 ) -> dict[str, Any]:
     """earth2bufr options: only the requested fields and channels are decoded."""
     if sensor == "atms":
-        channel_fields = [
-            f"DRF16BIT.{f}" for f in ("CHNM", "SCCF", "ATMSCHQ", *sorted(fields))
-        ]
+        channel_fields = [f"DRF16BIT.{f}" for f in ("CHNM", "ATMSCHQ", *sorted(fields))]
         return {
             "projection": _ATMS_SCALARS + channel_fields,
             "raw_code_paths": channel_fields,
@@ -2049,7 +2065,6 @@ def _sat_decode_options(
     if sensor == "airs":
         projection = _IR_SCALARS + [
             "DRF16BIT.CHNM",
-            "DRF16BIT.LOGRCW",
             "DRF16BIT.ACQF",
             observation,
         ]
@@ -2318,9 +2333,6 @@ def _sat_batch(
 
     observations: dict[str, np.ndarray] = {}
     if sensor == "airs":
-        log10_wavenumber = physical_values(values, "LOGRCW", rows.index)
-        with np.errstate(over="ignore", invalid="ignore"):
-            wavenumber = 10.0**log10_wavenumber / 100.0
         quality = physical_values(values, "ACQF", rows.index)
         for variable, field in plan.items():
             observations[variable] = physical_values(
@@ -2346,11 +2358,6 @@ def _sat_batch(
         for variable in plan:
             observations[variable] = bt
     else:
-        wavenumber = (
-            physical_values(values, "SCCF", rows.index) / _C_CM_S
-            if "SCCF" in child_names
-            else np.full(len(channels), np.nan)
-        )
         quality = (
             physical_values(values, "ATMSCHQ", rows.index)
             if "ATMSCHQ" in child_names
@@ -2402,10 +2409,6 @@ def _sat_batch(
         ),
         f"quality_{sensor}": rows.lists(uint_with_nulls(quality, pa.uint32())),
     }
-    if sensor in _SAT_ENCODED_WAVENUMBER:
-        columns[f"wavenumber_{sensor}"] = rows.lists(
-            float_with_nulls(np.asarray(wavenumber, dtype=np.float64), pa.float64())
-        )
     for variable, values_ in observations.items():
         columns[f"observation_{variable}"] = rows.lists(
             float_with_nulls(values_.astype(np.float32, copy=False), pa.float32())
@@ -2426,10 +2429,9 @@ def decode_satellite(
     """Decode an NCEP aggregate satellite file into a wide table, one row per footprint.
 
     Per-channel values are lists in channel order: ``sensor_index_<sensor>``,
-    ``quality_<sensor>``, ``wavenumber_<sensor>`` for ATMS and AIRS and one
-    ``observation_<variable>`` per requested variable, fixed-size when every
-    footprint of a batch carries the same channels. IASI and CrIS radiances are
-    returned as brightness temperature.
+    ``quality_<sensor>`` and one ``observation_<variable>`` per requested variable,
+    fixed-size when every footprint of a batch carries the same channels. IASI and
+    CrIS radiances are returned as brightness temperature.
 
     Parameters
     ----------

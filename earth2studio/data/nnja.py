@@ -717,8 +717,9 @@ class NNJAObsSat:
     (``TMBR``) directly, while IASI (scaled integer radiance, ``SCRA``) and
     CrIS (float radiance, ``SRAD``) are converted via Planck inversion. The
     ``wavenumber`` column carries the channel centre wavenumber in cm⁻¹,
-    computed from the instrument grids for IASI/CrIS and read from the
-    per-channel ``LOGRCW`` field of the aggregate for AIRS.
+    computed from the instrument grids for IASI/CrIS and looked up per channel
+    for ATMS (``SCCF``) and AIRS (``LOGRCW``) from the values the aggregates
+    encode; it is null for MHS, AMSU-A and AMSU-B.
     The aggregates carry the NCEP channel subsets (281 AIRS, 616 IASI, 431
     CrIS) numbered on the instrument grids; ``cris`` routes to the
     full-spectral-resolution ``crisf4`` product whose channel numbers live
@@ -807,11 +808,10 @@ class NNJAObsSat:
         ``SCHEMA``. ``"wide"`` returns one row per footprint with the footprint
         columns of ``SCHEMA`` and the per-channel values as lists in channel
         order: per sensor ``sensor_index_<sensor>`` and ``quality_<sensor>``
-        (and ``wavenumber_<sensor>`` for ATMS and AIRS, which encode it; the
-        IASI and CrIS wavenumbers follow from the channel number), and per
-        variable ``observation_<variable>``, null on footprints of other
-        sensors. The lists are fixed-size when every footprint of the request
-        is from one sensor and carries the same channels. By default "long".
+        (the wavenumber follows from the channel number), and per variable
+        ``observation_<variable>``, null on footprints of other sensors. The
+        lists are fixed-size when every footprint of the request is from one
+        sensor and carries the same channels. By default "long".
 
     Warning
     -------

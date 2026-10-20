@@ -64,11 +64,16 @@ def test_iasi_grid_agrees_with_metop_iasi():
     assert IASI_CHANNELS == _NUM_CHANNELS
 
 
-def test_sensors_without_formulaic_grid_rejected():
-    # AIRS wavenumbers come from the per-channel LOGRCW field in the BUFR,
-    # not from a formulaic grid
+def test_airs_wavenumber_table():
+    np.testing.assert_allclose(
+        wavenumber_cm_inverse("airs", [1, 2377]), [649.62, 2664.138], atol=0.001
+    )
+    # channel 2 is on the instrument grid but not in the NCEP subset
     with pytest.raises(ValueError):
-        wavenumber_cm_inverse("airs", [1])
+        wavenumber_cm_inverse("airs", [2])
+
+
+def test_unknown_sensor_rejected():
     with pytest.raises(ValueError):
         wavenumber_cm_inverse("modis", [1])
 

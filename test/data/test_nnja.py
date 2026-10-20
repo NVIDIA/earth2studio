@@ -1127,6 +1127,12 @@ def test_microwave_wide_is_fixed_size_and_long_matches(fake_bufr):
     assert long["sensor_index"].to_pylist() == [1, 2, 3, 1, 2, 3]
     assert long["scan_angle"].to_pylist()[0] == pytest.approx(-52.725 + 4 * 1.11)
     assert long["satellite"].cast(pa.string()).to_pylist() == ["npp"] * 6
+    # ATMS wavenumbers come from the per-channel SCCF table: 23.8, 31.4, 50.3 GHz
+    assert "wavenumber_atms" not in wide.column_names
+    np.testing.assert_allclose(
+        long["wavenumber"].to_numpy(),
+        np.tile([23.8e9, 31.4e9, 50.3e9], 2) / 2.99792458e10,
+    )
 
 
 def test_ir_channel_filter_and_brightness_temperature(fake_bufr):
