@@ -40,10 +40,19 @@
       "classifiers": [],
       "signature": "",
       "source": "blog/categories.md",
-      "summary": "Updates about the Earth2Studio documentation system, site structure, and developer-facing content.",
+      "summary": "Posts about Earth2Studio data sources, remote data providers and getting data in and out of inference workflows.",
       "symbol": "",
       "title": "Overview",
       "url": "blog/categories/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
+      "source": "blog/categories/data.md",
+      "summary": "",
+      "symbol": "",
+      "title": "Data",
+      "url": "blog/categories/data/"
     },
     {
       "classifiers": [],
@@ -62,6 +71,15 @@
       "symbol": "",
       "title": "A Digital Twin for Soil Health Prediction, Powered by Subseasonal Climate AI",
       "url": "blog/2026/08/11/earth2-soil-health-prediction/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
+      "source": "blog/posts/earthmover-marketplace.md",
+      "summary": "<!-- more -->",
+      "symbol": "",
+      "title": "Access Earthmover Marketplace Data with Earth2Studio",
+      "url": "blog/2026/10/05/earthmover-marketplace-data/"
     },
     {
       "classifiers": [],
@@ -4088,6 +4106,15 @@
       "symbol": "",
       "title": "Earth-2",
       "url": "blog/category/earth-2/"
+    },
+    {
+      "classifiers": [],
+      "signature": "",
+      "source": "blog/category/data.md",
+      "summary": "",
+      "symbol": "",
+      "title": "Data",
+      "url": "blog/category/data/"
     },
     {
       "classifiers": [],
