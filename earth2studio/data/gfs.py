@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import hashlib
 import os
 import pathlib
@@ -22,6 +23,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 import numpy as np
 import obstore as obs
@@ -31,19 +33,31 @@ from obstore.store import ObjectStore
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
+    StatisticGroup,
+    StatisticJob,
     _sync_async,
+    analysis_jobs,
+    as_datetime,
+    as_timedelta,
     async_retry,
     cancellable_to_thread,
     datasource_cache_root,
     decode_grib_message,
+    forecast_jobs,
     gather_with_concurrency,
+    log_statistics,
     obstore_fetch_to_cache,
     obstore_store_from_url,
     prep_data_inputs,
     prep_forecast_inputs,
     resolve_async_workers,
+    run_statistic_jobs,
+    sample_coords,
+    split_statistic_variables,
+    statistic_attrs,
 )
 from earth2studio.lexicon import GFSLexicon
+from earth2studio.utils.coords import E2S_STATISTICS
 from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 
 logger.remove()
@@ -112,6 +126,10 @@ class GFS:
 
     GFS_LAT = np.linspace(90, -90, 721)
     GFS_LON = np.linspace(0, 359.75, 1440)
+    # Analysis cadence and temporal statistics computed natively, e.g.
+    # "t2m:mean:24h" is the mean of the 6-hourly analyses over the previous day
+    time_step: np.timedelta64 = np.timedelta64(6, "h")
+    time_statistics: tuple[str, ...] = ("mean", "sum", "min", "max")
 
     def __init__(
         self,
@@ -236,6 +254,7 @@ class GFS:
 
         # Make sure input time is valid
         self._validate_time(time)
+        plain, stat_groups = split_statistic_variables(variable)
 
         # Note, this could be more memory efficient and avoid pre-allocation of the array
         # but this is much much cleaner to deal with, compared to something seen in the
@@ -255,7 +274,17 @@ class GFS:
             },
         )
 
-        async_tasks = await self._create_tasks(time, [timedelta(hours=0)], variable)
+        plain_names = [name for _, name in plain]
+        async_tasks = (
+            await self._create_tasks(time, [timedelta(hours=0)], plain_names)
+            if plain_names
+            else []
+        )
+        # _create_tasks indexes into plain_names, map back to request positions
+        slots = [slot for slot, _ in plain]
+        for task in async_tasks:
+            i, j, k = task.data_array_indices
+            task.data_array_indices = (i, j, slots[k])
         coros = [self.fetch_wrapper(task, xr_array=xr_array) for task in async_tasks]
 
         await gather_with_concurrency(
@@ -265,6 +294,15 @@ class GFS:
             desc="Fetching GFS data",
             verbose=(not self._verbose),
         )
+
+        if stat_groups:
+            # Analysis windows reduce the f000 fields of earlier analysis times
+            jobs = analysis_jobs(
+                stat_groups, time, self.time_step, xr_array.values[:, 0]
+            )
+            self._validate_time([as_datetime(t) for t in sample_coords(jobs)])
+            await self._fetch_statistics(stat_groups, jobs, time, forecast=False)
+            xr_array.attrs[E2S_STATISTICS] = statistic_attrs(stat_groups)
 
         return xr_array.isel(lead_time=0)
 
@@ -301,41 +339,10 @@ class GFS:
                 # Get index file dictionary
                 index_file = results.pop(0)
                 for k, v in enumerate(variable):
-                    # --8<-- [start:gfs-lexicon-lookup]
-                    try:
-                        gfs_name, modifier = GFSLexicon[v]
-                    except KeyError:
-                        logger.warning(
-                            f"variable id {v} not found in GFS lexicon, good luck"
-                        )
-                        gfs_name = v
-
-                        def modifier(x: np.array) -> np.array:
-                            """Modify data (if necessary)."""
-                            return x
-
-                    lead_hour = int(lt.total_seconds() // 3600)
-                    if v == "tp" and lead_hour > 0:
-                        # GFS restarts precipitation accumulation every six hours. For
-                        # leads 1-6, duplicate descriptions resolve to the first (recent
-                        # accumulation window) record in the index.
-                        start_hour = 6 * ((lead_hour - 1) // 6)
-                        gfs_name = f"{gfs_name}::{start_hour}-{lead_hour} hour acc fcst"
-
-                    byte_offset = None
-                    byte_length = None
-                    for key, value in index_file.items():
-                        if gfs_name in key:
-                            byte_offset = value[0]
-                            byte_length = value[1]
-                            break
-
-                    if byte_length is None or byte_offset is None:
-                        logger.warning(
-                            f"Variable {v} not found in index file for time {t} at {lt}, values will be unset"
-                        )
+                    found = self._lookup_record(index_file, v, t, lt)
+                    if found is None:
                         continue
-                    # --8<-- [end:gfs-lexicon-lookup]
+                    byte_offset, byte_length, modifier = found
                     tasks.append(
                         GFSAsyncTask(
                             data_array_indices=(i, j, k),
@@ -346,6 +353,131 @@ class GFS:
                         )
                     )
         return tasks
+
+    def _lookup_record(
+        self,
+        index_file: dict[str, tuple[int, int]],
+        v: str,
+        t: datetime,
+        lt: timedelta,
+    ) -> tuple[int, int, Callable] | None:
+        """Find the grib byte range and modifier of a variable in an index file
+
+        Parameters
+        ----------
+        index_file : dict[str, tuple[int, int]]
+            Parsed grib index of one (time, lead time) file
+        v : str
+            Earth2Studio variable name
+        t : datetime
+            Forecast initialization time
+        lt : timedelta
+            Forecast lead time
+
+        Returns
+        -------
+        tuple[int, int, Callable] | None
+            Byte offset, byte length and modifier, None if the record is missing
+        """
+        # --8<-- [start:gfs-lexicon-lookup]
+        try:
+            gfs_name, modifier = GFSLexicon[v]
+        except KeyError:
+            logger.warning(f"variable id {v} not found in GFS lexicon, good luck")
+            gfs_name = v
+
+            def modifier(x: np.array) -> np.array:
+                """Modify data (if necessary)."""
+                return x
+
+        lead_hour = int(lt.total_seconds() // 3600)
+        if v == "tp" and lead_hour > 0:
+            # GFS restarts precipitation accumulation every six hours. For
+            # leads 1-6, duplicate descriptions resolve to the first (recent
+            # accumulation window) record in the index.
+            start_hour = 6 * ((lead_hour - 1) // 6)
+            gfs_name = f"{gfs_name}::{start_hour}-{lead_hour} hour acc fcst"
+
+        byte_offset = None
+        byte_length = None
+        for key, value in index_file.items():
+            if gfs_name in key:
+                byte_offset = value[0]
+                byte_length = value[1]
+                break
+
+        if byte_length is None or byte_offset is None:
+            logger.warning(
+                f"Variable {v} not found in index file for time {t} at {lt}, values will be unset"
+            )
+            return None
+        # --8<-- [end:gfs-lexicon-lookup]
+        return byte_offset, byte_length, modifier
+
+    async def _fetch_statistics(
+        self,
+        groups: list[StatisticGroup],
+        jobs: list[StatisticJob],
+        out_time: list[datetime],
+        forecast: bool,
+    ) -> None:
+        """Run statistic jobs, reducing each grib field as soon as it is decoded.
+
+        Parameters
+        ----------
+        groups : list[StatisticGroup]
+            Statistic groups being computed
+        jobs : list[StatisticJob]
+            Planned jobs writing into the output array
+        out_time : list[datetime]
+            Initialization (or valid, for analysis) times of the request
+        forecast : bool
+            Whether the sample coordinates are lead times (True) or valid times
+        """
+        log_statistics("GFS_FX" if forecast else "GFS", groups, jobs, self._verbose)
+        if any(job.base == "tp" for job in jobs):
+            logger.warning(
+                "GFS tp is accumulated over a 6 hour bucket that restarts, "
+                "statistics of tp combine these bucket values"
+            )
+        # One grib index per (init time, lead time) file shared by all variables
+        indices: dict[str, asyncio.Future] = {}
+
+        async def get_index(t: datetime, lt: timedelta) -> dict[str, tuple[int, int]]:
+            uri = self._grib_index_uri(t, lt)
+            if uri not in indices:
+                indices[uri] = asyncio.ensure_future(self._fetch_index(uri))
+            return await indices[uri]
+
+        async def fetch_sample(job: StatisticJob, coord: Any) -> np.ndarray:
+            if forecast:
+                t, lt = job.context, as_timedelta(coord)
+            else:
+                t, lt = as_datetime(coord), timedelta(hours=0)
+            found = self._lookup_record(await get_index(t, lt), job.base, t, lt)
+            if found is None:
+                return np.full((len(self.GFS_LAT), len(self.GFS_LON)), np.nan)
+            offset, length, modifier = found
+            return await async_retry(
+                self.fetch_array,
+                self._grib_uri(t, lt),
+                offset,
+                length,
+                modifier,
+                retries=self._retries,
+                backoff=1.0,
+                task_timeout=60.0,
+                exceptions=(OSError, IOError, TimeoutError, ConnectionError),
+            )
+
+        await run_statistic_jobs(
+            jobs,
+            fetch_sample,
+            desc="Fetching GFS statistic samples",
+            verbose=self._verbose,
+            async_workers=self._async_workers,
+            task_timeout=120.0,
+        )
 
     async def fetch_wrapper(
         self,
@@ -596,6 +728,9 @@ class GFS_FX(GFS):
     region:global dataclass:simulation dataset:gfs product:wind product:precip product:temp product:atmos provider:noaa
     """
 
+    # Forecast cadence: lead times are hourly
+    time_step: np.timedelta64 = np.timedelta64(1, "h")
+
     def __call__(  # type: ignore[override]
         self,
         time: datetime | list[datetime] | TimeArray,
@@ -664,6 +799,7 @@ class GFS_FX(GFS):
         # Make sure input time is valid
         self._validate_time(time)
         self._validate_leadtime(lead_time)
+        plain, stat_groups = split_statistic_variables(variable)
 
         # Note, this could be more memory efficient and avoid pre-allocation of the array
         # but this is much much cleaner to deal with, compared to something seen in the
@@ -689,7 +825,16 @@ class GFS_FX(GFS):
             },
         )
 
-        async_tasks = await self._create_tasks(time, lead_time, variable)
+        plain_names = [name for _, name in plain]
+        async_tasks = (
+            await self._create_tasks(time, lead_time, plain_names)
+            if plain_names
+            else []
+        )
+        slots = [slot for slot, _ in plain]
+        for task in async_tasks:
+            i, j, k = task.data_array_indices
+            task.data_array_indices = (i, j, slots[k])
         coros = [self.fetch_wrapper(task, xr_array=xr_array) for task in async_tasks]
 
         await gather_with_concurrency(
@@ -699,6 +844,15 @@ class GFS_FX(GFS):
             desc="Fetching GFS data",
             verbose=(not self._verbose),
         )
+
+        if stat_groups:
+            # Forecast windows reduce hourly fields at earlier/later lead times
+            jobs = forecast_jobs(
+                stat_groups, time, lead_time, self.time_step, xr_array.values
+            )
+            self._validate_leadtime([as_timedelta(lt) for lt in sample_coords(jobs)])
+            await self._fetch_statistics(stat_groups, jobs, time, forecast=True)
+            xr_array.attrs[E2S_STATISTICS] = statistic_attrs(stat_groups)
 
         return xr_array
 

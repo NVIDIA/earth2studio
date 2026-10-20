@@ -21,7 +21,7 @@ import pathlib
 import shutil
 import uuid
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 import xarray as xr
@@ -31,11 +31,19 @@ from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
     _sync_async,
+    analysis_jobs,
+    as_datetime,
     datasource_cache_root,
+    log_statistics,
     obstore_zarr_store,
     prep_data_inputs,
+    run_statistic_jobs,
+    sample_coords,
+    split_statistic_variables,
+    statistic_attrs,
 )
 from earth2studio.lexicon import WB2ClimatetologyLexicon, WB2Lexicon
+from earth2studio.utils.coords import E2S_STATISTICS
 from earth2studio.utils.type import TimeArray, VariableArray
 
 
@@ -44,6 +52,9 @@ class _WB2Base:
 
     WB2_ERA5_LAT = np.empty(0)
     WB2_ERA5_LON = np.empty(0)
+    time_step: np.timedelta64 = np.timedelta64(6, "h")
+    # Temporal statistics computed natively, e.g. "t2m:mean:24h" or "u10m:max:24h"
+    time_statistics: tuple[str, ...] = ("mean", "sum", "min", "max")
 
     def __init__(
         self,
@@ -124,7 +135,9 @@ class _WB2Base:
             Timestamps to return data for (UTC).
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
-            return. Must be in the WB2 lexicon.
+            return. Must be in the WB2 lexicon. A variable may be qualified with a
+            temporal statistic, such as ``"t2m:mean:24h"``; the 6-hourly fields in
+            the window are then fetched and reduced as they arrive.
 
         Returns
         -------
@@ -140,6 +153,7 @@ class _WB2Base:
 
         # Make sure input time is valid
         self._validate_time(time)
+        plain, stat_groups = split_statistic_variables(variable)
 
         xr_array = xr.DataArray(
             data=np.empty(
@@ -159,16 +173,44 @@ class _WB2Base:
             },
         )
 
-        args = [
-            (t, i, v, j) for j, v in enumerate(variable) for i, t in enumerate(time)
-        ]
+        args = [(t, i, v, j) for j, v in plain for i, t in enumerate(time)]
         func_map = map(functools.partial(self.fetch_wrapper, xr_array=xr_array), args)
 
         # Launch all fetch requests
         await tqdm.gather(
             *func_map, desc="Fetching WB2 data", disable=(not self._verbose)
         )
+
+        if stat_groups:
+            await self._fetch_statistics(xr_array, time, stat_groups)
         return xr_array
+
+    async def _fetch_statistics(
+        self,
+        xr_array: xr.DataArray,
+        time: list[datetime],
+        stat_groups: list,
+    ) -> None:
+        """Fill statistic variables by streaming the fields of each window.
+
+        Every field in a window is reduced into the output as soon as it is read,
+        so memory use does not grow with the window length.
+        """
+        jobs = analysis_jobs(stat_groups, time, self.time_step, xr_array.values)
+        # Validate the extra times before reading anything
+        self._validate_time([as_datetime(t) for t in sample_coords(jobs)])
+        log_statistics("WB2", stat_groups, jobs, self._verbose)
+
+        async def fetch_sample(job: Any, coord: Any) -> np.ndarray:
+            return await self.fetch_array(as_datetime(coord), job.base)
+
+        await run_statistic_jobs(
+            jobs,
+            fetch_sample,
+            desc="Fetching WB2 statistic samples",
+            verbose=self._verbose,
+        )
+        xr_array.attrs[E2S_STATISTICS] = statistic_attrs(stat_groups)
 
     async def fetch_wrapper(
         self,

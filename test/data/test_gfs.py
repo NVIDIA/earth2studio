@@ -17,6 +17,7 @@
 import asyncio
 import pathlib
 import shutil
+from contextlib import ExitStack
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
@@ -398,3 +399,83 @@ def test_gfs_missing_variable_mock(tmp_path, monkeypatch):
 
     np.testing.assert_allclose(data.sel(variable="t2m").values[0], fake_grid)
     assert np.isnan(data.sel(variable="z500").values).all()
+
+
+def _gfs_mock_value(uri: str) -> float:
+    """Hours since 2024-01-01T00 of the valid time encoded in a GFS grib URI."""
+    day, cycle = uri.split("gfs.")[1].split("/")[:2]
+    lead = int(uri.rsplit(".f", 1)[1])
+    base = datetime.strptime(day, "%Y%m%d") - datetime(2024, 1, 1)
+    return base.total_seconds() / 3600 + int(cycle) + lead
+
+
+def _gfs_stats_mocks(ds, tmp_path, index_calls):
+    """Patch a GFS source so each grib file decodes to its valid time in hours."""
+
+    async def _fake_fetch_index(uri):
+        index_calls.append(uri)
+        return {"1::TMP::2 m above ground": (0, 65300)}
+
+    async def _fake_fetch_remote_file(uri, *args, **kwargs):
+        return uri
+
+    def _decode(uri):
+        return np.full((721, 1440), _gfs_mock_value(uri), dtype=np.float32)
+
+    ds.store = object()
+    stack = ExitStack()
+    stack.enter_context(
+        patch.object(ds, "_async_init", new=AsyncMock(return_value=None))
+    )
+    stack.enter_context(patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index))
+    stack.enter_context(
+        patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file)
+    )
+    stack.enter_context(
+        patch("earth2studio.data.gfs.decode_grib_message", side_effect=_decode)
+    )
+    return stack
+
+
+@pytest.mark.timeout(30)
+def test_gfs_time_statistics_mock(tmp_path, monkeypatch):
+    """GFS reduces extra analysis times natively (mean/sum/max/min)."""
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+    index_calls: list[str] = []
+    ds = GFS(source="aws", cache=True, verbose=True)
+    variables = ["t2m", "t2m:mean:12h", "t2m:sum:12h", "t2m:max:12h", "t2m:min:12h"]
+    with _gfs_stats_mocks(ds, tmp_path, index_calls):
+        data = ds(datetime(2024, 1, 2), variables)
+    # Window [-12h, 0h) holds the 6-hourly analyses at 12z (12h) and 18z (18h)
+    assert data.shape == (1, 5, 721, 1440)
+    values = [float(data.sel(variable=v).values[0, 0, 0]) for v in variables]
+    assert values == [24.0, 15.0, 30.0, 18.0, 12.0]
+    assert set(data.attrs["earth2studio_statistics"]) == set(variables[1:])
+    # Instantaneous plus the two extra analysis files, nothing else
+    assert len(set(index_calls)) == 3
+
+
+@pytest.mark.timeout(30)
+def test_gfs_fx_time_statistics_mock(tmp_path, monkeypatch):
+    """GFS_FX reduces extra hourly lead times natively, windows may look ahead."""
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+    index_calls: list[str] = []
+    fx = GFS_FX(source="aws", cache=True, verbose=True)
+    variables = ["t2m", "t2m:mean:3h", "t2m:sum:+0h:+3h", "t2m:max:-2h:+0h"]
+    with _gfs_stats_mocks(fx, tmp_path, index_calls):
+        data = fx(
+            datetime(2024, 1, 1),
+            [timedelta(hours=6), timedelta(hours=7)],
+            variables,
+        )
+        # Window reaching before lead time 0 is rejected before any fetch
+        with pytest.raises(ValueError, match="lead time"):
+            fx(datetime(2024, 1, 1), [timedelta(hours=0)], ["t2m:mean:3h"])
+    assert data.shape == (1, 2, 4, 721, 1440)
+    # lead 6: mean(3,4,5)=4, sum(6,7,8)=21, max(4,5)=5; lead 7 is shifted by 1h
+    np.testing.assert_allclose(
+        data.values[0, :, :, 0, 0], [[6, 4, 21, 5], [7, 5, 24, 6]]
+    )
+    assert set(data.attrs["earth2studio_statistics"]) == set(variables[1:])
+    # Leads 3..9 are each fetched once despite overlapping windows
+    assert len(set(index_calls)) == 7

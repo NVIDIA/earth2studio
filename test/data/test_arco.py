@@ -127,3 +127,50 @@ def test_arco_deprecation_warning():
     assert isinstance(data_source, ARCO_ERA5)
     assert isinstance(data_source, ARCO)
     assert ARCO.available(datetime.datetime(1939, 2, 25)) is False
+
+
+@pytest.mark.timeout(30)
+def test_arco_time_statistics_mock(tmp_path, monkeypatch):
+    """ARCO_ERA5 streams hourly fields of each window into mean/sum/max/min."""
+    from unittest.mock import AsyncMock, patch
+
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+    reads: list[int] = []
+
+    class FakeArray:
+        shape = (10**6, 721, 1440)
+
+        async def getitem(self, index):
+            reads.append(int(index))
+            return np.full((721, 1440), float(index), dtype=np.float32)
+
+    class FakeGroup:
+        async def get(self, name):
+            return FakeArray()
+
+    ds = ARCO_ERA5(cache=True, verbose=True)
+    ds.zarr_group = FakeGroup()
+    ds.ml_zarr_group = FakeGroup()
+    time = datetime.datetime(2024, 1, 2)
+    index = ds._get_time_index(time)
+    variables = ["t2m", "t2m:mean:6h", "t2m:sum:6h", "t2m:max:6h", "t2m:min:+1h:+4h"]
+    with patch.object(ds, "_async_init", new=AsyncMock(return_value=None)):
+        data = ds(time, variables)
+
+    assert data.shape == (1, 5, 721, 1440)
+    values = [float(data.sel(variable=v).values[0, 0, 0]) for v in variables]
+    # Window [-6h, 0h) covers hourly fields index-6 .. index-1
+    assert values == [
+        index,
+        index - 3.5,
+        6 * index - 21,
+        index - 1,
+        index + 1,
+    ]
+    assert set(data.attrs["earth2studio_statistics"]) == set(variables[1:])
+    # Each distinct hourly field is read exactly once: -6h..+3h plus the instant
+    assert sorted(reads) == list(range(index - 6, index + 4))
+
+    # Statistics of already-aggregated variables or bad windows are rejected
+    with pytest.raises(ValueError):
+        ds(time, ["t2m:mean:90m"])

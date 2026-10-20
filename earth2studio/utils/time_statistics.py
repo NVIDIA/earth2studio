@@ -211,6 +211,24 @@ def source_lead_times(
     return target[..., None] + _parse(modifier).offsets(delta_t)
 
 
+def statistic_offsets(modifier: str, delta_t: np.timedelta64) -> NDArray[Any]:
+    """Return the offsets, relative to the target, sampled by one statistic.
+
+    Parameters
+    ----------
+    modifier : str
+        Statistic method and window, such as ``"mean:24h"``.
+    delta_t : np.timedelta64
+        Source cadence used to enumerate the required coordinates.
+
+    Returns
+    -------
+    np.ndarray
+        ``timedelta64`` offsets of the window, left-closed and right-open
+    """
+    return _parse(modifier).offsets(delta_t)
+
+
 def _select_time_window(
     array: xr.DataArray,
     window: _Window,

@@ -127,3 +127,42 @@ def test_wb2era5_available(time, variable, Datasource):
     with pytest.raises(ValueError):
         ds = Datasource(cache=False)
         ds(time, variable)
+
+
+@pytest.mark.timeout(30)
+def test_wb2era5_time_statistics_mock(tmp_path, monkeypatch):
+    """WB2ERA5 streams the 6-hourly fields of each window into its statistics."""
+    from unittest.mock import AsyncMock, patch
+
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+    reads: list[int] = []
+
+    class FakeArray:
+        shape = (10**5, 721, 1440)
+
+        async def getitem(self, index):
+            reads.append(int(index))
+            return np.full((721, 1440), float(index), dtype=np.float32)
+
+    class FakeGroup:
+        async def get(self, name):
+            return FakeArray()
+
+    ds = WB2ERA5(cache=True, verbose=True)
+    ds.zarr_group = FakeGroup()
+    time = datetime.datetime(2020, 1, 2, 12)
+    index = ds._get_time_index(time)
+    variables = ["t2m", "t2m:mean:24h", "t2m:sum:24h", "t2m:max:12h", "t2m:min:12h"]
+    with patch.object(ds, "_async_init", new=AsyncMock(return_value=None)):
+        data = ds(time, variables)
+
+    assert data.shape == (1, 5, 721, 1440)
+    values = [float(data.sel(variable=v).values[0, 0, 0]) for v in variables]
+    # Window [-24h, 0h) is the four 6-hourly fields index-4 .. index-1
+    assert values == [index, index - 2.5, 4 * index - 10, index - 1, index - 2]
+    assert set(data.attrs["earth2studio_statistics"]) == set(variables[1:])
+    # Each distinct 6-hourly field is read once, including the instantaneous one
+    assert sorted(reads) == list(range(index - 4, index + 1))
+    # A window that is not a multiple of the 6 hour cadence is rejected
+    with pytest.raises(ValueError, match="divisible"):
+        ds(time, ["t2m:mean:9h"])

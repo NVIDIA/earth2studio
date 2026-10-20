@@ -24,6 +24,7 @@ import warnings
 from collections import defaultdict
 from collections.abc import Callable
 from datetime import datetime
+from typing import Any
 
 import numpy as np
 import xarray as xr
@@ -34,12 +35,20 @@ from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
     _sync_async,
+    analysis_jobs,
+    as_datetime,
     datasource_cache_root,
+    log_statistics,
     obstore_zarr_store,
     prep_data_inputs,
+    run_statistic_jobs,
+    sample_coords,
+    split_statistic_variables,
+    statistic_attrs,
 )
 from earth2studio.lexicon import ARCO_ERA5Lexicon
 from earth2studio.lexicon.arco import ACCUMULATION_HOURS
+from earth2studio.utils.coords import E2S_STATISTICS
 from earth2studio.utils.type import TimeArray, VariableArray
 
 
@@ -82,6 +91,8 @@ class ARCO_ERA5:
     ARCO_ML_PATH = "/gcp-public-data-arco-era5/ar/model-level-1h-0p25deg.zarr-v1"
     ARCO_TIME_STOP = datetime(year=2025, month=12, day=31)
     time_step: np.timedelta64 = np.timedelta64(1, "h")
+    # Temporal statistics computed natively, e.g. "t2m:mean:24h" or "tp:max:6h"
+    time_statistics: tuple[str, ...] = ("mean", "sum", "min", "max")
 
     def __init__(
         self,
@@ -189,7 +200,9 @@ class ARCO_ERA5:
             Timestamps to return data for (UTC).
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
-            return. Must be in the ARCO_ERA5Lexicon.
+            return. Must be in the ARCO_ERA5Lexicon. A variable may be qualified with
+            a temporal statistic, such as ``"t2m:mean:24h"``; the hourly fields in
+            the window are then fetched and reduced as they arrive.
 
         Returns
         -------
@@ -205,6 +218,7 @@ class ARCO_ERA5:
 
         # Make sure input time is valid
         self._validate_time(time)
+        plain, stat_groups = split_statistic_variables(variable)
 
         xr_array = xr.DataArray(
             data=np.empty(
@@ -222,7 +236,7 @@ class ARCO_ERA5:
         groups: dict[tuple[str, bool], list[tuple[str, int, str, Callable]]] = (
             defaultdict(list)
         )
-        for j, v in enumerate(variable):
+        for j, v in plain:
             try:
                 arco_name, modifier = ARCO_ERA5Lexicon[v]  # type: ignore[misc]
             except KeyError:
@@ -247,7 +261,37 @@ class ARCO_ERA5:
         await tqdm.gather(
             *func_map, desc="Fetching ARCO_ERA5 data", disable=(not self._verbose)
         )
+
+        if stat_groups:
+            await self._fetch_statistics(xr_array, time, stat_groups)
         return xr_array
+
+    async def _fetch_statistics(
+        self,
+        xr_array: xr.DataArray,
+        time: list[datetime],
+        stat_groups: list,
+    ) -> None:
+        """Fill statistic variables by streaming the hourly fields of each window.
+
+        Every hourly field in a window is reduced into the output as soon as it is
+        read, so memory use does not grow with the window length.
+        """
+        jobs = analysis_jobs(stat_groups, time, self.time_step, xr_array.values)
+        # Validate the extra times before reading anything
+        self._validate_time([as_datetime(t) for t in sample_coords(jobs)])
+        log_statistics("ARCO_ERA5", stat_groups, jobs, self._verbose)
+
+        async def fetch_sample(job: Any, coord: Any) -> np.ndarray:
+            return await self.fetch_array(as_datetime(coord), job.base)
+
+        await run_statistic_jobs(
+            jobs,
+            fetch_sample,
+            desc="Fetching ARCO_ERA5 statistic samples",
+            verbose=self._verbose,
+        )
+        xr_array.attrs[E2S_STATISTICS] = statistic_attrs(stat_groups)
 
     async def fetch_chunk_group(
         self,
