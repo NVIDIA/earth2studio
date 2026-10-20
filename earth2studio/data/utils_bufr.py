@@ -45,7 +45,8 @@ except ImportError:
     OptionalDependencyFailure("data", BUFR_DEPENDENCY_KEY)
     earth2bufr = None  # type: ignore[assignment]
 
-# PrepBUFR Section 1 data category -> message family
+# PrepBUFR Section 1 data category -> message family. Keys are the post-2007
+# category numbers, for reference; selection is by family name.
 PREPBUFR_OBS_TYPES: dict[int, str] = {
     102: "ADPUPA",  # Upper-air: RAOB, PIBAL, RECCO, dropsonde
     103: "AIRCAR",  # Aircraft: MDCRS ACARS

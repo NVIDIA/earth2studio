@@ -62,6 +62,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `NNJAObsConv` and `NomadsGDASObsConv` decode PrepBUFR files from before 2007, which
+  number their message types 230-249 instead of 102-121, and raise on a PrepBUFR file
+  with no known message family instead of returning no rows.
 - `NNJAObsConv`, `NNJAObsSatwnd` and `NNJAObsSat` raise when a file, any of its
   messages, or any DX-table message fails to decode, instead of silently returning
   fewer rows.

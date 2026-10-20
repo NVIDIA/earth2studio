@@ -1450,8 +1450,10 @@ def _prepbufr_message_types(source: Any) -> dict[int, str]:
 
     The mnemonic is read from the file's own DX tables, so files that number the
     families differently (230-249 before 2007, 102-121 after) map to the same
-    names as ``PREPBUFR_OBS_TYPES``.
+    names as ``PREPBUFR_OBS_TYPES``. Categories whose Table A sequence is not one
+    of those families are left out.
     """
+    families = set(PREPBUFR_OBS_TYPES.values())
     first_message: dict[int, Any] = {}
     for message in source.info.data_messages:
         first_message.setdefault(message.data_category, message)
@@ -1461,8 +1463,10 @@ def _prepbufr_message_types(source: Any) -> dict[int, str]:
         sequences = {
             s["descriptor"]: s["mnemonic"] for s in structure["active_sequences"]
         }
-        table_a = next(d for d in message.descriptors if d.startswith("3-"))
-        types[category] = sequences[table_a]
+        table_a = next((d for d in message.descriptors if d.startswith("3-")), None)
+        name = sequences.get(table_a)
+        if name in families:
+            types[category] = name
     return types
 
 
@@ -1503,17 +1507,26 @@ def decode_prepbufr(
     -------
     pa.Table
         Wide table
+
+    Raises
+    ------
+    ValueError
+        If the file has data messages but none of a known PrepBUFR message family
     """
     window_us = (
         datetime_ns(dt_min) // 1000,
         datetime_ns(dt_max) // 1000,
     )
-    families = set(PREPBUFR_OBS_TYPES.values()) - set(exclude_message_types)
     with open_bufr(path) as source:
+        file_types = _prepbufr_message_types(source)
+        if source.info.data_messages and not file_types:
+            raise ValueError(
+                f"{path}: no PrepBUFR message family found in the file's DX tables"
+            )
         message_types = {
             category: name
-            for category, name in sorted(_prepbufr_message_types(source).items())
-            if name in families
+            for category, name in sorted(file_types.items())
+            if name not in exclude_message_types
         }
         if not message_types:
             return _empty_wide(_NCEP_CONVENTIONAL_WIDE_SCHEMA, variables)

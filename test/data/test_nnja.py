@@ -1070,8 +1070,11 @@ def test_prepbufr_units_events_and_pressure_subset(
     assert long["pres"].to_pylist() == [85000.0, 100000.0, 85000.0, 100000.0]
 
 
-def test_prepbufr_excluded_families_are_not_decoded(fake_bufr):
-    fake_bufr["prep"] = _prepbufr_file(families={105: "SATWND", 109: "ADPSFC"})
+@pytest.mark.parametrize("adpupa, satwnd, adpsfc", [(102, 105, 109), (230, 233, 237)])
+def test_prepbufr_excluded_families_are_not_decoded(fake_bufr, adpupa, satwnd, adpsfc):
+    fake_bufr["prep"] = _prepbufr_file(
+        adpupa, families={satwnd: "SATWND", adpsfc: "ADPSFC"}
+    )
     fake_bufr["prep"].batches = []
     decode_prepbufr(
         "prep",
@@ -1081,8 +1084,20 @@ def test_prepbufr_excluded_families_are_not_decoded(fake_bufr):
         decode_workers=1,
         exclude_message_types=("SATWND", "ADPUPA"),
     )
-    categories = fake_bufr["prep"].options["data_category_filter"]
-    assert 105 not in categories and 102 not in categories and 109 in categories
+    assert fake_bufr["prep"].options["data_category_filter"] == [adpsfc]
+
+
+def test_prepbufr_without_message_families_raises(fake_bufr):
+    fake_bufr["no_dx"] = _prepbufr_file()
+    fake_bufr["no_dx"].sequences = {}
+    with pytest.raises(ValueError, match="no PrepBUFR message family"):
+        decode_prepbufr("no_dx", ["t"], T0, T0, decode_workers=1)
+    # A file whose families are all excluded is empty, not an error
+    fake_bufr["excluded"] = _prepbufr_file()
+    wide = decode_prepbufr(
+        "excluded", ["t"], T0, T0, decode_workers=1, exclude_message_types=("ADPUPA",)
+    )
+    assert wide.num_rows == 0
 
 
 def test_satwnd_wide_long_and_quality_pairs(fake_bufr):
