@@ -260,9 +260,9 @@ def _message_base_time(message: Any) -> datetime | None:
         edition = int(message.edition.value)
         year = int(message.year.value)
         if edition == 3:
-            # Edition 3 stores a 2-digit year (year of century); expand to
-            # 4-digit, pivoting at 70 (>=70 -> 19xx, <70 -> 20xx).
-            if year < 100:
+            # Edition 3 stores the year of century; expand to 4-digit, pivoting
+            # at 70 (>=70 -> 19xx, <70 -> 20xx). NCEP writes 2000 as 100.
+            if year <= 100:
                 year += 2000 if year < 70 else 1900
             second = 0
         else:

@@ -52,6 +52,14 @@ class _Decoder:
         return self.message
 
 
+@pytest.mark.parametrize("year, expected", [(99, 1999), (100, 2000), (6, 2006)])
+def test_edition3_year_of_century(year, expected):
+    message = _message([])
+    message.edition.value = 3
+    message.year.value = year
+    assert utils_ncep._message_base_time(message) == datetime(expected, 1, 1)
+
+
 def _prepbufr_plan(lexicon: type, variable: str) -> dict:
     source_key, modifier = lexicon.get_item(variable)
     _, separator, key = source_key.partition("::")
