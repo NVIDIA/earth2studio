@@ -67,49 +67,125 @@ def _modifiers(lexicon: type, *variables: str) -> dict:
     return {variable: lexicon.get_item(variable)[1] for variable in variables}
 
 
-def test_observation_cycle_times_select_covering_files():
+def test_observation_cycle_times_read_overlapped_cycles():
+    t = datetime(2024, 1, 3, 0)
+    hours = timedelta(hours=1)
+    # File T spans [T - 3h, T + 3h]; a request reads the files whose span it
+    # overlaps in the interior
     cases = [
-        (
-            datetime(2024, 1, 1, 0),
-            timedelta(0),
-            timedelta(hours=4),
-            timedelta(hours=6),
-            [datetime(2024, 1, 1, 0), datetime(2024, 1, 1, 6)],
-        ),
-        (
-            datetime(2024, 1, 1, 0),
-            timedelta(0),
-            timedelta(0),
-            timedelta(hours=6),
-            [datetime(2024, 1, 1, 0)],
-        ),
-        (
-            datetime(2024, 1, 1, 3),
-            timedelta(0),
-            timedelta(0),
-            timedelta(hours=6),
-            [datetime(2024, 1, 1, 6)],
-        ),
-        (
-            datetime(2024, 1, 1, 5),
-            timedelta(0),
-            timedelta(hours=3),
-            timedelta(hours=6),
-            [datetime(2024, 1, 1, 6), datetime(2024, 1, 1, 12)],
-        ),
-        (
-            datetime(2024, 1, 1, 1),
-            timedelta(0),
-            timedelta(0),
-            timedelta(hours=3),
-            [datetime(2024, 1, 1, 3)],
-        ),
+        (-3 * hours, 3 * hours, [t]),
+        (-4 * hours, 3 * hours, [t - 6 * hours, t]),
+        (-9 * hours, 3 * hours, [t - 6 * hours, t]),
+        (-45 * hours, 3 * hours, [t + k * 6 * hours for k in range(-7, 1)]),
+        (hours, 4 * hours, [t, t + 6 * hours]),
+        (3 * hours + timedelta(minutes=1), 9 * hours, [t + 6 * hours]),
+        (-21 * hours, 3 * hours, [t + k * 6 * hours for k in range(-3, 1)]),
+        (hours, hours, [t]),
+        (3 * hours, 3 * hours, []),
     ]
+    for k in range(1, 7):
+        cases.append((-45 * hours, (k - 3) * hours, cases[3][2]))
+    for lower, upper, expected in cases:
+        assert utils_ncep.observation_cycle_times(t, lower, upper) == expected
+    assert utils_ncep.observation_cycle_times(
+        t + hours, timedelta(0), timedelta(0), timedelta(hours=3)
+    ) == [t]
+    with pytest.raises(ValueError, match="cadence"):
+        utils_ncep.observation_cycle_times(t, timedelta(0), timedelta(0), timedelta(0))
 
-    for time, lower, upper, cadence, expected in cases:
-        assert (
-            utils_ncep.observation_cycle_times(time, lower, upper, cadence) == expected
+
+def test_requests_sharing_a_file_keep_their_own_intervals(tmp_path):
+    t = datetime(2024, 1, 3, 0)
+    minutes = timedelta(minutes=1)
+    windows = utils_ncep.cycle_windows(
+        [t - 60 * minutes, t + 120 * minutes], -30 * minutes, 30 * minutes
+    )
+    assert windows == {
+        t: (
+            (t - 90 * minutes, t - 30 * minutes),
+            (t + 90 * minutes, t + 150 * minutes),
         )
+    }
+    # 00Z ±1h and 06Z ±1h read separate files
+    assert utils_ncep.cycle_windows(
+        [t, t + 360 * minutes], -60 * minutes, 60 * minutes
+    ) == {
+        t: ((t - 60 * minutes, t + 60 * minutes),),
+        t + 360 * minutes: ((t + 300 * minutes, t + 420 * minutes),),
+    }
+
+    path = tmp_path / "cycle.bufr"
+    path.write_bytes(b"cycle")
+    (task,) = utils_ncep.plan_conv_tasks(
+        windows, ["t"], NNJAObsConvLexicon, lambda _route, _cycle: "s3://cycle"
+    )
+    stamps = [t - 75 * minutes, t, t + 120 * minutes]
+    result = utils_ncep.compile_dataframe(
+        [task],
+        pa.schema([pa.field("time", pa.timestamp("ns"))]),
+        "test",
+        lambda _uri: str(path),
+        lambda _path, _task: pd.DataFrame({"time": pd.to_datetime(stamps)}),
+    )
+    assert result["time"].tolist() == [pd.Timestamp(stamps[0]), pd.Timestamp(stamps[2])]
+
+
+def test_prepbufr_drift_levels_follow_their_report_time(tmp_path, monkeypatch):
+    # A 00Z sonde reported at 02:54 whose level drifted to 03:06
+    local_path = tmp_path / "drift.prepbufr.nr"
+    local_path.write_bytes(b"drift-prepbufr-bytes")
+    message_bytes = b"prepbufr-data-message"
+    decoded = _message(
+        [
+            (utils_ncep.HDR_SID, b"72469   "),
+            (utils_ncep.HDR_XOB, -105.25),
+            (utils_ncep.HDR_YOB, 39.75),
+            (utils_ncep.HDR_DHR, 2.9),
+            (utils_ncep.HDR_ELV, 1_655.0),
+            (utils_ncep.HDR_TYP, 120),
+            (utils_ncep.OBS_CAT, 1),
+            (utils_ncep.OBS_HRDR, 3.1),
+            (utils_ncep.OBS_XDR, -104.5),
+            (utils_ncep.OBS_YDR, 40.25),
+            (utils_ncep.OBS_POB, 50.0),
+            (utils_ncep.OBS_PQM, 2),
+            (utils_ncep.OBS_ZOB, 20_000.0),
+            (OBS_TOB, -55.0),
+            (OBS_TQM, 2),
+        ]
+    )
+    table_b = {
+        utils_ncep.HDR_DHR: ("DHR", "HR", 5, 0, 0),
+        utils_ncep.OBS_HRDR: ("HRDR", "HR", 5, 0, 0),
+    }
+    monkeypatch.setattr(
+        utils_ncep,
+        "_parse_prepbufr_messages",
+        lambda _data, *, silence_noise: (table_b, {}, [(message_bytes, 102)]),
+    )
+    monkeypatch.setattr(
+        utils_ncep,
+        "_create_decoder",
+        lambda _table_b, _table_d: _Decoder(message_bytes, decoded),
+    )
+    plan = _prepbufr_plan(NNJAObsConvLexicon, "t")
+    cycle = datetime(2024, 1, 1)
+
+    # 03:01-09:00 neither reads the 00Z file nor takes the 03:06 level from it
+    later = (cycle + timedelta(hours=3, minutes=1), cycle + timedelta(hours=9))
+    assert cycle not in utils_ncep.observation_cycle_times(
+        later[0], timedelta(0), later[1] - later[0]
+    )
+    df = utils_ncep.decode_prepbufr(str(local_path), plan, *later, decode_workers=1)
+    assert len(df) == 0
+
+    # 00:00-03:00 returns the level with its report, at its own time
+    df = utils_ncep.decode_prepbufr(
+        str(local_path), plan, cycle, cycle + timedelta(hours=3), decode_workers=1
+    )
+    assert len(df) == 1
+    assert df.loc[0, "time"] == pd.Timestamp("2024-01-01 03:06:00")
+    assert df.loc[0, "report_time"] == pd.Timestamp("2024-01-01 02:54:00")
 
 
 def test_same_local_prepbufr_bytes_are_adapter_exact(tmp_path, monkeypatch):
@@ -931,8 +1007,12 @@ def test_compile_dataframe_raises_a_decode_error_unless_handled(tmp_path):
     good.write_bytes(b"")
     bad.write_bytes(b"")
     tasks = [
-        SimpleNamespace(uri=str(good), datetime_file=datetime(2024, 1, 1)),
-        SimpleNamespace(uri=str(bad), datetime_file=datetime(2024, 1, 1, 6)),
+        SimpleNamespace(
+            uri=str(good), datetime_file=datetime(2024, 1, 1), intervals=()
+        ),
+        SimpleNamespace(
+            uri=str(bad), datetime_file=datetime(2024, 1, 1, 6), intervals=()
+        ),
     ]
     schema = pa.schema([("value", pa.float64())])
 
