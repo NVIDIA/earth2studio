@@ -89,7 +89,7 @@ jobs:
           persist-credentials: true
 
       - name: Build light Zensical site
-        uses: ./.github/actions/build-light-docs
+        uses: $/.github/actions/build-light-docs
         with:
           artifact-name: docs-light-html
           artifact-retention-days: "1"
