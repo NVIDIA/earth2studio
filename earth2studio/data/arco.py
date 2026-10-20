@@ -90,7 +90,6 @@ class ARCO_ERA5:
     ARCO_PATH = "/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3"
     ARCO_ML_PATH = "/gcp-public-data-arco-era5/ar/model-level-1h-0p25deg.zarr-v1"
     ARCO_TIME_STOP = datetime(year=2025, month=12, day=31)
-    time_step: np.timedelta64 = np.timedelta64(1, "h")
     # Temporal statistics computed natively, e.g. "t2m:mean:24h" or "tp:max:6h"
     time_statistics: tuple[str, ...] = ("mean", "sum", "min", "max")
 
@@ -277,7 +276,7 @@ class ARCO_ERA5:
         Every hourly field in a window is reduced into the output as soon as it is
         read, so memory use does not grow with the window length.
         """
-        jobs = analysis_jobs(stat_groups, time, self.time_step, xr_array.values)
+        jobs = analysis_jobs(stat_groups, time, np.timedelta64(1, "h"), xr_array.values)
         # Validate the extra times before reading anything
         self._validate_time([as_datetime(t) for t in sample_coords(jobs)])
         log_statistics("ARCO_ERA5", stat_groups, jobs, self._verbose)
