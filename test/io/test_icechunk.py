@@ -130,11 +130,14 @@ def test_icechunk_reopen_with_scalar_array() -> None:
     io.root.create_array(
         "crs", shape=(), dtype="int32", fill_value=0, dimension_names=()
     )
+    io.root.create_group("diagnostics")
     io.commit("add scalar")
 
     io = IceChunkBackend(storage=storage)
     assert list(io.coords) == ["lat"]
     assert "crs" in io
+    assert "diagnostics" in io.root
+    assert "diagnostics" not in io.coords
 
     # Write and commit through the reopened backend, then reopen and read back
     x = torch.randn(8)
