@@ -268,9 +268,9 @@ class NomadsGDASObsConv:
             self.async_timeout,
         )
 
-        # Decode and compile
-        pieces = compile_tables(
-            tasks, self.SOURCE_ID, self.local_path, self._decode_file
+        # Decoding is CPU-bound; it runs off the event loop
+        pieces = await asyncio.to_thread(
+            compile_tables, tasks, self.SOURCE_ID, self.local_path, self._decode_file
         )
         if self._layout == "wide":
             schema = resolve_output_schema(
@@ -280,8 +280,14 @@ class NomadsGDASObsConv:
             schema = self.SCHEMA
         else:
             schema = pa.schema([self.SCHEMA.field(name) for name in output_fields])
-        return assemble_frame(
-            pieces, self._layout, variable_list, self.SCHEMA, schema, self.SOURCE_ID
+        return await asyncio.to_thread(
+            assemble_frame,
+            pieces,
+            self._layout,
+            variable_list,
+            self.SCHEMA,
+            schema,
+            self.SOURCE_ID,
         )
 
     def _create_tasks(
