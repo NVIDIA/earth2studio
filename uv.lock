@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.11, <3.15"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -1981,6 +1981,7 @@ dependencies = [
 [[package]]
 name = "earth2studio"
 source = { editable = "." }
+default-groups = ["build", "dev"]
 dependencies = [
     { name = "cftime" },
     { name = "fsspec" },
@@ -2254,6 +2255,10 @@ graphcast = [
     { name = "flax" },
     { name = "jax", extra = ["cuda13"] },
     { name = "weathernext", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2ens' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-atlas' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-perturbation' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-samudrace' and extra == 'extra-12-earth2studio-sfno')" },
+]
+interp-crps-dit = [
+    { name = "natten", marker = "python_full_version < '3.14' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2ens' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-atlas' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-perturbation' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-samudrace' and extra == 'extra-12-earth2studio-sfno')" },
+    { name = "nvidia-physicsnemo" },
 ]
 interp-modafno = [
     { name = "nvidia-physicsnemo" },
@@ -2541,6 +2546,7 @@ requires-dist = [
     { name = "natten", marker = "python_full_version < '3.14' and extra == 'corrdiff-era5-hrrr'" },
     { name = "natten", marker = "python_full_version < '3.14' and extra == 'cosmo'" },
     { name = "natten", marker = "python_full_version < '3.14' and extra == 'da-cosmo'" },
+    { name = "natten", marker = "python_full_version < '3.14' and extra == 'interp-crps-dit'" },
     { name = "natten", marker = "python_full_version < '3.14' and extra == 'stormcast-conus'" },
     { name = "natten", marker = "python_full_version < '3.14' and extra == 'stormscope'" },
     { name = "netcdf4", specifier = ">=1.6.4,<1.7.3" },
@@ -2561,6 +2567,7 @@ requires-dist = [
     { name = "nvidia-physicsnemo", marker = "extra == 'dlesym'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=426f7552da4b4fa675e404e8a4f437e27681b668" },
     { name = "nvidia-physicsnemo", marker = "extra == 'dlwp'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'fcn'", specifier = ">=1.0.1" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'interp-crps-dit'", specifier = ">=2.2.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'interp-modafno'", specifier = ">=2.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'precip-afno'", specifier = ">=1.0.1" },
     { name = "nvidia-physicsnemo", marker = "extra == 'precip-afno-v2'", specifier = ">=1.0.1" },
@@ -2686,7 +2693,7 @@ requires-dist = [
     { name = "xarray", extras = ["parallel"], specifier = ">=2023.1.0" },
     { name = "zarr", specifier = ">=3.1.3" },
 ]
-provides-extras = ["ace2", "aifs", "aifs2", "aifs2ens", "aifsens", "all", "atlas", "aurora", "camulator", "cbottle", "climatenet", "corrdiff", "corrdiff-era5-hrrr", "cosmo", "cyclone", "da-cosmo", "da-healda", "da-healda-v2", "da-interp", "da-stormcast", "data", "derived", "dlesym", "dlwp", "fcn", "fcn3", "fengwu", "fuxi", "gencast", "graphcast", "interp-modafno", "orbit", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "samudrace", "serve", "sfno", "solarradiation-afno", "statistics", "stormcast", "stormcast-conus", "stormscope", "ucast", "utils", "weathernext", "windgust-afno"]
+provides-extras = ["ace2", "aifs", "aifs2", "aifs2ens", "aifsens", "all", "atlas", "aurora", "camulator", "cbottle", "climatenet", "corrdiff", "corrdiff-era5-hrrr", "cosmo", "cyclone", "da-cosmo", "da-healda", "da-healda-v2", "da-interp", "da-stormcast", "data", "derived", "dlesym", "dlwp", "fcn", "fcn3", "fengwu", "fuxi", "gencast", "graphcast", "interp-crps-dit", "interp-modafno", "orbit", "pangu", "perturbation", "precip-afno", "precip-afno-v2", "samudrace", "serve", "sfno", "solarradiation-afno", "statistics", "stormcast", "stormcast-conus", "stormscope", "ucast", "utils", "weathernext", "windgust-afno"]
 
 [package.metadata.requires-dev]
 build = [

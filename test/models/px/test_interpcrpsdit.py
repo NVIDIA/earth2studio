@@ -174,7 +174,12 @@ def _build(
         static_inv=torch.zeros(12, H, W),
         lat2d=torch.as_tensor(lat2d, dtype=torch.float32),
         lon2d=torch.as_tensor(lon2d, dtype=torch.float32),
-        px_model=DataReplay(src, VARIABLES, OrderedDict(lat=LAT, lon=LON), step=gap_h),
+        px_model=DataReplay(
+            src,
+            VARIABLES,
+            OrderedDict(lat=LAT, lon=LON),
+            step=np.timedelta64(gap_h, "h"),
+        ),
         num_interp_steps=num_interp_steps,
         lon_pad=lon_pad,
         seed=seed,
@@ -332,7 +337,10 @@ def _build_sub(halo=0, min_cells=4, gap_h=6, num_interp_steps=6):
     runlat, runlon = rc["lat"], rc["lon"]
     src = GridSource(runlat, runlon, LAT, LON)
     sub.px_model = DataReplay(
-        src, VARIABLES, OrderedDict(lat=runlat, lon=runlon), step=gap_h
+        src,
+        VARIABLES,
+        OrderedDict(lat=runlat, lon=runlon),
+        step=np.timedelta64(gap_h, "h"),
     )
     t0 = Y0 + np.timedelta64(120, "h")
     x0 = torch.from_numpy(src(np.array([t0]), VARIABLES).values.astype("float32"))[
@@ -393,7 +401,7 @@ def test_interpcrpsdit_crops_superset_base_grid():
     )  # H+1 rows; LAT is the contiguous top slice
     src = GridSource(lat_big, LON, lat_big, LON)
     model.px_model = DataReplay(
-        src, VARIABLES, OrderedDict(lat=lat_big, lon=LON), step=6
+        src, VARIABLES, OrderedDict(lat=lat_big, lon=LON), step=np.timedelta64(6, "h")
     )
     x0 = torch.from_numpy(
         src(np.array([Y0 + np.timedelta64(120, "h")]), VARIABLES).values.astype(
@@ -437,7 +445,7 @@ def test_interpcrpsdit_input_coords_reports_px_grid():
         GridSource(lat_big, LON, lat_big, LON),
         VARIABLES,
         OrderedDict(lat=lat_big, lon=LON),
-        step=6,
+        step=np.timedelta64(6, "h"),
     )
     # input_coords reports the full px grid (H+1 rows), value-for-value
     np.testing.assert_array_equal(model.input_coords()["lat"], lat_big)
@@ -474,7 +482,9 @@ def test_interpcrpsdit_set_domain_global_base():
         lat_min=10, lat_max=70, lon_min=50, lon_max=200, halo=2, min_cells=4
     )
     src = GridSource(LAT, LON, LAT, LON)  # full global grid, not the sub run grid
-    sub.px_model = DataReplay(src, VARIABLES, OrderedDict(lat=LAT, lon=LON), step=6)
+    sub.px_model = DataReplay(
+        src, VARIABLES, OrderedDict(lat=LAT, lon=LON), step=np.timedelta64(6, "h")
+    )
     t0 = Y0 + np.timedelta64(120, "h")
     x0 = torch.from_numpy(src(np.array([t0]), VARIABLES).values.astype("float32"))[
         None, :, None
@@ -617,7 +627,10 @@ def test_interpcrpsdit_multi_time_independent_noise():
 
     model, _, _, _ = _build(num_interp_steps=6, seed=0, dit=NoiseDiT())
     model.px_model = DataReplay(
-        ConstSource(), VARIABLES, OrderedDict(lat=LAT, lon=LON), step=6
+        ConstSource(),
+        VARIABLES,
+        OrderedDict(lat=LAT, lon=LON),
+        step=np.timedelta64(6, "h"),
     )
     t0 = Y0 + np.timedelta64(120, "h")
     x = torch.full(
@@ -759,7 +772,10 @@ def test_interpcrpsdit_package():
             )
 
     sub.px_model = DataReplay(
-        _MeanSrc(), VARIABLES, OrderedDict(lat=rlat, lon=rlon), step=6
+        _MeanSrc(),
+        VARIABLES,
+        OrderedDict(lat=rlat, lon=rlon),
+        step=np.timedelta64(6, "h"),
     )
     x0 = torch.from_numpy(
         np.broadcast_to(mean, (1, 1, 1, len(VARIABLES), hs, ws)).astype("float32")
@@ -890,7 +906,9 @@ def test_interpcrpsdit_regrid_warns_off_grid_base():
         static_inv=torch.zeros(12, H, W),
         lat2d=torch.as_tensor(lat2d, dtype=torch.float32),
         lon2d=torch.as_tensor(lon2d, dtype=torch.float32),
-        px_model=DataReplay(src, VARIABLES, OrderedDict(lat=lat2, lon=LON), step=6),
+        px_model=DataReplay(
+            src, VARIABLES, OrderedDict(lat=lat2, lon=LON), step=np.timedelta64(6, "h")
+        ),
         num_interp_steps=6,
     )
     t0 = Y0 + np.timedelta64(120, "h")
@@ -1003,7 +1021,9 @@ def test_interpcrpsdit_missing_optional_base():
         static_inv=torch.zeros(12, H, W),
         lat2d=torch.as_tensor(lat2d, dtype=torch.float32),
         lon2d=torch.as_tensor(lon2d, dtype=torch.float32),
-        px_model=DataReplay(src, present, OrderedDict(lat=LAT, lon=LON), step=6),
+        px_model=DataReplay(
+            src, present, OrderedDict(lat=LAT, lon=LON), step=np.timedelta64(6, "h")
+        ),
         num_interp_steps=6,
         lon_pad=0,  # small synthetic grid
         drop_variables=OPTIONAL_VARIABLES,
@@ -1206,7 +1226,7 @@ def test_interpcrpsdit_missing_optional_base_reorders_variables():
         lat2d=torch.as_tensor(lat2d, dtype=torch.float32),
         lon2d=torch.as_tensor(lon2d, dtype=torch.float32),
         px_model=DataReplay(
-            src, list(PANGU), OrderedDict(lat=LAT, lon=LON), step=6
+            src, list(PANGU), OrderedDict(lat=LAT, lon=LON), step=np.timedelta64(6, "h")
         ),  # base in Pangu order
         num_interp_steps=6,
         lon_pad=0,

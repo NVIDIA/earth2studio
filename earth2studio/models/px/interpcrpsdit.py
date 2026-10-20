@@ -497,7 +497,7 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         The wrapped ``px_model`` is carried over. Its coarse trajectory is reconciled onto the run grid
         (the bounding box expanded by ``halo``, aligned to the patch size) with ``map_coords``, so it may supply that grid
-        directly (e.g. a regional :class:`~earth2studio.models.px.datareplay.DataReplay`, available as
+        directly (e.g. a regional :class:`~earth2studio.models.px.DataReplay`, available as
         :meth:`run_coords`) or a larger grid that contains it (e.g. a global base is cropped to the bounding box).
 
         ``halo`` (px, default 0 = off): run on a block expanded by ``halo`` real cells per side and trim
