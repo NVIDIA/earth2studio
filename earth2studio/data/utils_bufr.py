@@ -229,32 +229,6 @@ def fxy_to_id(f: Any, x: Any, y: Any) -> int:
     return safe_int(f) * 100000 + safe_int(x) * 1000 + safe_int(y)
 
 
-def prepbufr_message_types(table_d: dict[int, tuple[Any, ...]]) -> dict[int, str]:
-    """Map data category to message family using a file's DX Table D.
-
-    Each family's Table A sequence is defined in Table D as 3-XX-<category>, its
-    entry starting with the 8-character Table A mnemonic. Files before 2007
-    number the families 230-249, later files 102-121, so the category alone does
-    not identify a family.
-
-    Parameters
-    ----------
-    table_d : dict
-        NCEP Table D entries from :func:`parse_prepbufr_messages`.
-
-    Returns
-    -------
-    dict[int, str]
-        Data category -> family name in ``PREPBUFR_OBS_TYPES``.
-    """
-    families = set(PREPBUFR_OBS_TYPES.values())
-    return {
-        descriptor_id % 1000: entry[0][:8].strip()
-        for descriptor_id, entry in table_d.items()
-        if entry[0][:8].strip() in families
-    }
-
-
 # ─────────────────────────────────────────────────────────────────────
 # DX table extraction
 # ─────────────────────────────────────────────────────────────────────

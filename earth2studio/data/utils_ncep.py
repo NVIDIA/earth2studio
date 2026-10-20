@@ -52,13 +52,11 @@ from earth2studio.data.utils_bufr import (
     OBS_YDR,
     OBS_ZOB,
     OBSERVATION_DESCR_IDS,
+    PREPBUFR_OBS_TYPES,
 )
 from earth2studio.data.utils_bufr import create_decoder as _create_decoder
 from earth2studio.data.utils_bufr import (
     parse_prepbufr_messages as _parse_prepbufr_messages,
-)
-from earth2studio.data.utils_bufr import (
-    prepbufr_message_types as _prepbufr_message_types,
 )
 from earth2studio.data.utils_bufr import silence_bufr_noise as _silence_bufr_noise
 from earth2studio.data.utils_ir import (
@@ -924,6 +922,22 @@ def _gpsro_worker(
         return _decode_gpsro_message(
             _worker_decoder, message_bytes, wanted_descrs, dt_min, dt_max
         )
+
+
+def _prepbufr_message_types(table_d: dict[int, tuple[Any, ...]]) -> dict[int, str]:
+    """Map data category to message family using a file's DX Table D.
+
+    Each family's Table A sequence is defined in Table D as 3-XX-<category>, its
+    entry starting with the 8-character Table A mnemonic. Files before 2007
+    number the families 230-249, later files 102-121, so the category alone does
+    not identify a family.
+    """
+    families = set(PREPBUFR_OBS_TYPES.values())
+    return {
+        descriptor_id % 1000: entry[0][:8].strip()
+        for descriptor_id, entry in table_d.items()
+        if entry[0][:8].strip() in families
+    }
 
 
 def decode_prepbufr(
