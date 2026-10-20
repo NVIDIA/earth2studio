@@ -26,6 +26,8 @@ earth2studio.data.MetOpAMSUA
 earth2studio.data.MetOpAVHRR
 earth2studio.data.MetOpIASI
 earth2studio.data.MetOpMHS
+earth2studio.data.NNJAAIv2ObsConv
+earth2studio.data.NNJAAIv2ObsSat
 earth2studio.data.NNJAObsConv
 earth2studio.data.NNJAObsSat
 earth2studio.data.NNJAObsSatwnd
