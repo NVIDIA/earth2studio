@@ -965,20 +965,19 @@ async def test_obstore_read_chunked_small():
 
 
 @pytest.mark.asyncio
-async def test_obstore_read_chunked_size_adaptive_defaults():
+async def test_obstore_read_chunked_default_chunk_size():
+    mib = 1024 * 1024
     rng = np.random.default_rng(2)
-    small = rng.integers(0, 256, 3 * 1024 * 1024, dtype=np.uint8).tobytes()
+    small = rng.integers(0, 256, 3 * mib, dtype=np.uint8).tobytes()
     store = _FakeByteRangeStore(small)
     assert await obstore_read_chunked(store, "small") == small
-    assert {end - start for start, end in store.requested_ranges} == {1024 * 1024}
+    assert store.requested_ranges == [(0, len(small))]
 
-    large = rng.integers(0, 256, 20 * 1024 * 1024 + 7, dtype=np.uint8).tobytes()
+    large = rng.integers(0, 256, 20 * mib + 7, dtype=np.uint8).tobytes()
     store = _FakeByteRangeStore(large)
     assert await obstore_read_chunked(store, "large") == large
-    assert sorted(end - start for start, end in store.requested_ranges)[-1] == (
-        8 * 1024 * 1024
-    )
     assert len(store.requested_ranges) == 3
+    assert all(end - start <= 8 * mib for start, end in store.requested_ranges)
 
 
 @pytest.mark.asyncio

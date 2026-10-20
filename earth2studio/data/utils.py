@@ -1097,16 +1097,12 @@ def atomic_write_bytes(path: str | os.PathLike, data: bytes) -> None:
         raise
 
 
-# Defaults for chunked whole-object reads. Objects up to 8 MiB are read as
-# 1 MiB ranges with 8 in flight; larger objects as 8 MiB ranges with up to 64 in
-# flight, since 1 MiB ranges leave a single large object latency bound. All
-# chunked reads on one event loop share a cap on in-flight ranges, and a range
-# still outstanding after a delay gets one duplicate request; the first reply wins.
-_READ_CHUNK_SIZE_BYTES: int = 1024 * 1024
-_READ_CHUNK_CONCURRENCY: int = 8
-_LARGE_OBJECT_BYTES: int = 8 * 1024 * 1024
-_LARGE_CHUNK_SIZE_BYTES: int = 8 * 1024 * 1024
-_LARGE_CHUNK_CONCURRENCY: int = 64
+# Defaults for chunked whole-object reads: 8 MiB ranges, up to 64 in flight per
+# object. All chunked reads on one event loop share a cap on in-flight ranges,
+# and a range still outstanding after a delay gets one duplicate request; the
+# first reply wins.
+_READ_CHUNK_SIZE_BYTES: int = 8 * 1024 * 1024
+_READ_CHUNK_CONCURRENCY: int = 64
 _READ_INFLIGHT_LIMIT: int = 256
 _READ_HEDGE_AFTER_SECONDS: float = 1.5
 _read_inflight: weakref.WeakKeyDictionary[
@@ -1161,11 +1157,9 @@ async def obstore_read_chunked(
     key : str
         Object key (bucket-relative path)
     chunk_size : int | None, optional
-        Byte-range size per GET. By default 1 MiB for objects up to 8 MiB and
-        8 MiB for larger objects
+        Byte-range size per GET, by default 8 MiB
     max_concurrent : int | None, optional
-        Maximum concurrent range GETs for one object. By default 8, or 64 for
-        objects larger than 8 MiB when ``chunk_size`` is not given
+        Maximum concurrent range GETs for one object, by default 64
 
     Returns
     -------
@@ -1179,16 +1173,13 @@ async def obstore_read_chunked(
         plain ``Exception``, so it is translated here (mirroring
         ``obstore_read_range``) to keep callers' retry semantics sane.
     """
+    if chunk_size is None:
+        chunk_size = _READ_CHUNK_SIZE_BYTES
+    if max_concurrent is None:
+        max_concurrent = _READ_CHUNK_CONCURRENCY
     try:
         meta = await store.head_async(key)
         size = int(meta["size"])
-        large = size > _LARGE_OBJECT_BYTES
-        if chunk_size is None:
-            chunk_size = _LARGE_CHUNK_SIZE_BYTES if large else _READ_CHUNK_SIZE_BYTES
-            if max_concurrent is None and large:
-                max_concurrent = _LARGE_CHUNK_CONCURRENCY
-        if max_concurrent is None:
-            max_concurrent = _READ_CHUNK_CONCURRENCY
         inflight = _inflight_semaphore()
 
         if size <= chunk_size:
