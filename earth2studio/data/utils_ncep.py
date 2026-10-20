@@ -902,13 +902,20 @@ def _list_parent(lists: pa.Array) -> np.ndarray:
     return np.repeat(np.arange(len(lists), dtype=np.int64), lengths)
 
 
-def _channel_wavenumber(sensor: str, channels: np.ndarray) -> np.ndarray | None:
+def _channel_wavenumber(
+    sensor: str, channels: np.ndarray, table: pa.Table
+) -> np.ndarray | None:
     if sensor == "atms":
         if len(channels) and (
             channels.min() < 1 or channels.max() > len(_ATMS_WAVENUMBER_CM)
         ):
             raise ValueError(f"atms channels outside 1-{len(_ATMS_WAVENUMBER_CM)}")
         return _ATMS_WAVENUMBER_CM[channels - 1]
+    if sensor == "airs":
+        metadata = table.schema.metadata or {}
+        if _WAVENUMBER_BY_CHANNEL not in metadata:
+            raise ValueError("AIRS table carries no wavenumber_by_channel metadata")
+        return np.frombuffer(metadata[_WAVENUMBER_BY_CHANNEL])[channels]
     if sensor in _IR_SENSORS:
         return wavenumber_cm_inverse(sensor, channels)
     return None
@@ -952,7 +959,7 @@ def _explode_channels(table: pa.Table, variables: Sequence[str]) -> list[pa.Tabl
                 columns[name] = values
         if "sensor_index" in columns:
             channels = columns["sensor_index"].to_numpy(zero_copy_only=False)
-            wavenumber = _channel_wavenumber(sensor, channels.astype(np.int64))
+            wavenumber = _channel_wavenumber(sensor, channels.astype(np.int64), table)
             if wavenumber is not None:
                 columns["wavenumber"] = pa.array(wavenumber)
         flat = [pc.list_flatten(obs) for obs in observations]
@@ -2132,6 +2139,37 @@ _CRIS_BAND_GROUP = "fixed_1_07_003__occ_0"
 _CRIS_CHANNEL_BAND = np.full(CRIS_BANDS[-1][2] + 1, -1, dtype=np.int64)
 for _band, (_, _first, _last) in enumerate(CRIS_BANDS):
     _CRIS_CHANNEL_BAND[_first : _last + 1] = _band
+# Schema metadata of a wide AIRS table: the file's centre wavenumber in cm⁻¹ as
+# float64 bytes indexed by channel number, NaN for channels the file lacks
+_WAVENUMBER_BY_CHANNEL = b"wavenumber_by_channel"
+
+
+def _airs_wavenumber(source: Any) -> np.ndarray:
+    """Centre wavenumber (cm⁻¹) by channel number from the first footprint whose
+    channels all carry LOGRCW; LOGRCW is constant per channel within a file."""
+    by_channel = np.full(_IR_CHANNEL_LIMIT["airs"] + 1, np.nan)
+    batches = source.iter_batches(
+        messages_per_batch=1,
+        data_category_filter=[21],
+        projection=["DRF16BIT.CHNM", "DRF16BIT.LOGRCW"],
+    )
+    for batch in batches:
+        offsets, values = _list_layout(_channel_group(batch))
+        channels = physical_values(values, "CHNM")
+        log10_m = physical_values(values, "LOGRCW")
+        for start, end in zip(offsets[:-1], offsets[1:]):
+            footprint = slice(start, end)
+            if (
+                end > start
+                and np.isfinite(channels[footprint]).all()
+                and np.isfinite(log10_m[footprint]).all()
+            ):
+                # LOGRCW is log10 of the centre wavenumber in m⁻¹
+                by_channel[channels[footprint].astype(np.int64)] = (
+                    10.0 ** log10_m[footprint] / 100.0
+                )
+                return by_channel
+    return by_channel
 
 
 def _sat_decode_options(
@@ -2545,6 +2583,7 @@ def decode_satellite(
     window_ns = (datetime_ns(dt_min), datetime_ns(dt_max))
     satellite_filter = None if satellites is None else frozenset(satellites)
     with open_bufr(path) as source:
+        wavenumber = _airs_wavenumber(source) if sensor == "airs" else None
         batches = source.iter_batches(
             data_category_filter=[21],
             target_decoded_bytes=32 << 20,
@@ -2562,7 +2601,12 @@ def decode_satellite(
         ]
     if not tables:
         return _empty_wide(_NCEP_MICROWAVE_WIDE_SCHEMA, list(plan))
-    return concat_tables(tables)
+    table = concat_tables(tables)
+    if wavenumber is not None:
+        table = table.replace_schema_metadata(
+            {_WAVENUMBER_BY_CHANNEL: wavenumber.tobytes()}
+        )
+    return table
 
 
 def assemble_frame(

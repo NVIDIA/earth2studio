@@ -972,21 +972,22 @@ def _sat_batch(
     names = {
         "atms": ["CHNM", "SCCF", "ATMSCHQ", "TMBR"],
         "iasi": ["CHNM", "SCRA"],
+        "airs": ["CHNM", "LOGRCW", "ACQF", "TMBR"],
     }[sensor]
     rows = [[(c, *entries(c)) for c in channels]] * n
-    extra = (
-        {"ATMSGQ": [0.0] * n, "ATMSSQ": [0.0] * n}
-        if sensor == "atms"
-        else {
+    extra = {
+        "atms": {"ATMSGQ": [0.0] * n, "ATMSSQ": [0.0] * n},
+        "iasi": {
             "QGFQ": [0.0] * n,
             "STCH": [1.0] * n,
             "ENCH": [8461.0] * n,
             "CHSF": [7.0] * n,
-        }
-    )
+        },
+        "airs": {},
+    }[sensor]
     return _batch(
         {
-            "SAID": [224.0 if sensor == "atms" else 4.0] * n,
+            "SAID": [{"atms": 224.0, "iasi": 4.0, "airs": 784.0}[sensor]] * n,
             **_time_parts(stamps),
             "SLNM": [1.0] * n,
             "FOVN": [5.0] * n,
@@ -1242,6 +1243,22 @@ def test_ir_channel_filter_and_brightness_temperature(fake_bufr):
         radiance_to_bt(radiance, wavenumber).astype(np.float32),
     )
     np.testing.assert_array_equal(long["wavenumber"].to_numpy(), wavenumber)
+
+
+def test_airs_wavenumber_read_from_file(fake_bufr):
+    # LOGRCW (log10 of the centre wavenumber in m⁻¹) of AIRS channels 1 and 2377
+    log10_m = {1.0: 4.81265938, 2377.0: 5.42555671}
+    batch = _sat_batch(
+        "airs", [T0, T0], list(log10_m), lambda c: (log10_m[c], 0.0, 250.0)
+    )
+    fake_bufr["airs"] = _FakeBufr([batch])
+    wide = decode_satellite("airs", "airs", {"airs": "TMBR"}, T0, T0, decode_workers=1)
+    assert "wavenumber_airs" not in wide.column_names
+    long = _to_long(wide, ["airs"], NCEP_MICROWAVE_OUTPUT_SCHEMA)
+    assert long["sensor_index"].to_pylist() == [1, 2377, 1, 2377]
+    np.testing.assert_allclose(
+        long["wavenumber"].to_numpy(), [649.62, 2664.138] * 2, atol=0.001
+    )
 
 
 def test_satellite_filter_and_window(fake_bufr):
