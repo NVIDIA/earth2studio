@@ -38,7 +38,6 @@ try:
     from aurora import AuroraV1p5Ensemble as Aurora1p5Ensemble_model
     from aurora import Batch, Metadata
     from aurora.insolation import insolation as aurora_insolation
-    from aurora.normalisation import log_untransform as aurora_log_untransform
 except ImportError:
     OptionalDependencyFailure("aurora")
     Aurora1p5_model = None
@@ -46,7 +45,6 @@ except ImportError:
     Batch = None
     Metadata = None
     aurora_insolation = None
-    aurora_log_untransform = None
 
 ATMOS_LEVELS = [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50]
 
@@ -118,15 +116,16 @@ _SURF_VAR_MAP = {
 _SURF_VARS_E2S = list(_SURF_VAR_MAP.keys())
 
 # Output-only surface variables: produced by the decoder but not fed back as AR
-# inputs. Mapping is (E2S name, Aurora name, needs_log_untransform).
+# inputs. Mapping is (E2S name, Aurora name). Aurora's post-unnorm hook already
+# inverts the log transform of scaled_tp_1h / scaled_sf_1h.
 _OUTPUT_ONLY_SURF_VARS = [
-    ("i10fg", "i10fg", False),
-    ("blh", "blh", False),
-    ("uvb1h", "uvb_1h", False),
-    ("ssrd1h", "ssrd_1h", False),
-    ("ttr1h", "ttr_1h", False),
-    ("tp1h", "scaled_tp_1h", True),
-    ("sf1h", "scaled_sf_1h", True),
+    ("i10fg", "i10fg"),
+    ("blh", "blh"),
+    ("uvb1h", "uvb_1h"),
+    ("ssrd1h", "ssrd_1h"),
+    ("ttr1h", "ttr_1h"),
+    ("tp1h", "scaled_tp_1h"),
+    ("sf1h", "scaled_sf_1h"),
 ]
 
 _N_ATMOS_LEVELS = len(ATMOS_LEVELS)
@@ -404,15 +403,11 @@ class _Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             dim=2,
         )  # (B, 1, 18, H, W)
 
-        # Output-only diagnostic vars. scaled_tp_1h / scaled_sf_1h are stored
-        # in log-space by Aurora's post-norm hook; invert to physical units.
-        diag_tensors = []
-        for _, aurora_name, log_scaled in _OUTPUT_ONLY_SURF_VARS:
-            v = output.surf_vars[aurora_name]
-            if log_scaled:
-                v = aurora_log_untransform(v)
-            diag_tensors.append(v.unsqueeze(2))
-        diag = torch.cat(diag_tensors, dim=2)  # (B, 1, 7, H, W)
+        # Output-only diagnostic vars, already in physical units.
+        diag = torch.cat(
+            [output.surf_vars[a].unsqueeze(2) for _, a in _OUTPUT_ONLY_SURF_VARS],
+            dim=2,
+        )  # (B, 1, 7, H, W)
 
         x = torch.cat([atmos, surf, diag], dim=2)  # (B, 1, 90, H, W)
         return x.view(-1, 1, *x.shape[1:])  # (B, 1, 1, 90, H, W)
