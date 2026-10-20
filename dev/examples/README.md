@@ -19,6 +19,8 @@ Runnable tutorials for proposed APIs and workflows.
   gradient-preserving Torch handoffs with optional CUDA/CuPy examples.
 - `07_io_backends.py`: IO templates planned from model signatures, label-based
   DataArray writes, and metadata round trips with the in-memory XarrayBackend.
+- `08_regridding.py`: `fetch_data` onto a target grid, explicit regridders,
+  `RegriddedSource`, coverage, and `CompositeSource` on a shared grid.
 
 ## Execution contracts
 

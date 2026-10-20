@@ -23,9 +23,11 @@ import torch
 import xarray as xr
 
 import earth2studio.models.px.stormcast as stormcast_module
-from earth2studio.data import HRRR, Random, fetch_data
+from earth2studio.data import GFS_FX, HRRR, Random, RegriddedSource, fetch_data
+from earth2studio.grids import resolve_grid
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import StormCast
+from earth2studio.run import _map_field
 from earth2studio.utils.coords import coord_array_like
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import OptionalDependencyFailure
@@ -166,14 +168,6 @@ def test_stormcast_call(time, device):
     lat, lon = np.meshgrid(dc["hrrr_y"], dc["hrrr_x"], indexing="ij")
 
     r = Random(dc)
-    r_condition = Random(
-        OrderedDict(
-            [
-                ("lat", np.linspace(90, -90, num=181, endpoint=True)),
-                ("lon", np.linspace(0, 360, num=360)),
-            ]
-        )
-    )
 
     # Spoof variable names
     variables = np.array(["u%02d" % i for i in range(nvar)])
@@ -195,7 +189,6 @@ def test_stormcast_call(time, device):
         conditioning_means=conditioning_means,
         conditioning_stds=conditioning_stds,
         conditioning_variables=conditioning_variables,
-        conditioning_data_source=r_condition,
         sampler_steps=2,
     ).to(device)
 
@@ -250,14 +243,6 @@ def test_stormcast_iter(ensemble, device):
     lat, lon = np.meshgrid(dc["hrrr_y"], dc["hrrr_x"], indexing="ij")
 
     r = Random(dc)
-    r_condition = Random(
-        OrderedDict(
-            [
-                ("lat", np.linspace(90, -90, num=181, endpoint=True)),
-                ("lon", np.linspace(0, 360, num=360)),
-            ]
-        )
-    )
 
     # Init model with explicit conditioning data in constructor
     variables = np.array(["u%02d" % i for i in range(nvar)])
@@ -279,7 +264,6 @@ def test_stormcast_iter(ensemble, device):
         conditioning_means=conditioning_means,
         conditioning_stds=conditioning_stds,
         conditioning_variables=conditioning_variables,
-        conditioning_data_source=r_condition,
         sampler_steps=2,
     ).to(device)
 
@@ -414,15 +398,6 @@ def test_stormcast_conformance():
     )
     lat, lon = np.meshgrid(dc["hrrr_y"], dc["hrrr_x"], indexing="ij")
 
-    r_condition = Random(
-        OrderedDict(
-            [
-                ("lat", np.linspace(90, -90, num=181, endpoint=True)),
-                ("lon", np.linspace(0, 360, num=360)),
-            ]
-        )
-    )
-
     variables = np.array(["u%02d" % i for i in range(nvar)])
     means = torch.zeros(1, nvar, 1, 1)
     stds = torch.ones(1, nvar, 1, 1)
@@ -442,7 +417,6 @@ def test_stormcast_conformance():
         conditioning_means=conditioning_means,
         conditioning_stds=conditioning_stds,
         conditioning_variables=conditioning_variables,
-        conditioning_data_source=r_condition,
         sampler_steps=2,
     )
 
@@ -484,18 +458,6 @@ def test_stormcast_package(cond_dims, device, model):
             x = super().__call__(time, variable)
             return x.transpose(*cond_dims)
 
-    r_condition = _RandomWithSpecifiedOrder(
-        OrderedDict(
-            [
-                ("lat", np.linspace(90, -90, num=721, endpoint=True)),
-                ("lon", np.linspace(0, 360, num=1440)),
-            ]
-        )
-    )
-
-    # Manually set the condition data source (necessary as NGC package doesn't specify)
-    p.conditioning_data_source = r_condition
-
     # Decrease the number of edm sampling steps to speed up the test
     p.sampler_steps = 2
 
@@ -516,3 +478,42 @@ def test_stormcast_package(cond_dims, device, model):
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert np.all(out_coords["time"] == time)
     assert out.dims == ("time", "lead_time", "variable", "y", "x")
+
+
+def test_stormcast_default_conditioning_is_regridded():
+    nvar, nvar_cond = 3, 5
+    p = StormCast(
+        PhooStormCastRegressionModel(),
+        PhooStormCastDiffusionModel(),
+        torch.zeros(1, nvar, 1, 1),
+        torch.ones(1, nvar, 1, 1),
+        torch.randn(1, 2, 96, 32),
+        hrrr_lat_lim=(32, 128),
+        hrrr_lon_lim=(32, 64),
+        variables=np.array(["u%02d" % i for i in range(nvar)]),
+        conditioning_means=torch.randn(1, nvar_cond, 1, 1),
+        conditioning_stds=torch.randn(1, nvar_cond, 1, 1),
+        conditioning_variables=np.array(["u%02d" % i for i in range(nvar_cond)]),
+    )
+    _, conditioning = p.default_sources()
+    assert isinstance(conditioning, RegriddedSource)
+    assert isinstance(conditioning.source, GFS_FX)
+    assert conditioning.is_forecast
+    assert conditioning.regridder.source_grid is resolve_grid("latlon-0.25deg")
+    assert conditioning.regridder.target_grid is p.grid
+
+    # Regridded global fields land exactly on the declared forcing slot.
+    grid = resolve_grid("latlon-0.25deg")
+    source = RegriddedSource(
+        Random(OrderedDict(lat=grid.latitude, lon=grid.longitude)),
+        conditioning.regridder,
+    )
+    signature = p.forcing_coords()
+    x = fetch_data(
+        source,
+        np.array([np.datetime64("2024-01-01")]),
+        signature["variable"].values,
+        signature["lead_time"].values,
+    )
+    _map_field(x, signature)
+    assert not np.isnan(x.values).any()

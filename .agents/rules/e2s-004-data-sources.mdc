@@ -29,12 +29,27 @@ def __init__(
     cache: bool = True,
     verbose: bool = True,
     async_timeout: int = 600,
+    device: torch.device | str = "cpu",
 ):
     self._cache = cache
     self._verbose = verbose
     self.async_timeout = async_timeout
+    self.device = torch.device(device)
     # ... initialization logic
 ```
+
+### `device` Keyword
+
+Every data source accepts a `device` keyword, defaulting to `"cpu"`:
+
+- Store it as a `device` attribute holding a `torch.device`.
+- On CPU, return NumPy-backed DataArrays. On a CUDA device, return CuPy-backed
+  DataArrays on that device, from both `__call__` and `fetch`, and do array-heavy
+  post-processing (normalization, unit conversion, decoding) there.
+
+Do not add `device` to `__call__` or `fetch`; the source protocol is unchanged.
+`fetch_data` accepts either backing and only moves fields that are not already
+on its requested device.
 
 ## Required Components
 
