@@ -17,6 +17,7 @@
 import asyncio
 import pathlib
 import shutil
+from contextlib import ExitStack
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
@@ -445,3 +446,89 @@ def test_hrrr_missing_variable_mock(tmp_path, monkeypatch):
 
     np.testing.assert_allclose(data.sel(variable="t2m").values[0], fake_grid)
     assert np.isnan(data.sel(variable="z500").values).all()
+
+
+def _hrrr_mock_lead(uri: str) -> int:
+    return int(uri.split("f")[-1].split(".")[0])
+
+
+def _hrrr_mock_value(uri: str) -> float:
+    """Hours since 2024-01-01T00 of the valid time encoded in a HRRR grib URI."""
+    day = uri.split("hrrr.")[1].split("/")[0]
+    cycle = int(uri.split(".t")[1][:2])
+    base = datetime.strptime(day, "%Y%m%d") - datetime(2024, 1, 1)
+    return base.total_seconds() / 3600 + cycle + _hrrr_mock_lead(uri)
+
+
+def _hrrr_stats_mocks(ds, index_calls):
+    """Patch a HRRR source so each grib file decodes to its valid time in hours."""
+
+    async def _fake_fetch_index(uri):
+        index_calls.append(uri)
+        lead = _hrrr_mock_lead(uri)
+        step = "anl" if lead == 0 else f"{lead} hour fcst"
+        return {f"1::TMP::2 m above ground::{step}": (0, 65300)}
+
+    async def _fake_fetch_remote_file(uri, *args, **kwargs):
+        return uri
+
+    def _decode(uri):
+        return np.full((1059, 1799), _hrrr_mock_value(uri), dtype=np.float32)
+
+    ds.store = object()
+    stack = ExitStack()
+    stack.enter_context(
+        patch.object(ds, "_async_init", new=AsyncMock(return_value=None))
+    )
+    stack.enter_context(patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index))
+    stack.enter_context(
+        patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file)
+    )
+    stack.enter_context(
+        patch("earth2studio.data.hrrr.decode_grib_message", side_effect=_decode)
+    )
+    return stack
+
+
+@pytest.mark.timeout(30)
+def test_hrrr_time_statistics_mock(tmp_path, monkeypatch):
+    """HRRR reduces extra hourly analysis times natively (mean/sum/max/min)."""
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+    index_calls: list[str] = []
+    ds = HRRR(source="aws", cache=True, verbose=True)
+    variables = ["t2m", "t2m:mean:3h", "t2m:sum:3h", "t2m:max:3h", "t2m:min:3h"]
+    with _hrrr_stats_mocks(ds, index_calls):
+        data = ds(datetime(2024, 1, 2), variables)
+    # Window [-3h, 0h) holds the hourly analyses at 21z, 22z and 23z (21..23 h)
+    assert data.shape == (1, 5, 1059, 1799)
+    values = [float(data.sel(variable=v).values[0, 0, 0]) for v in variables]
+    assert values == [24.0, 22.0, 66.0, 23.0, 21.0]
+    assert set(data.attrs["earth2studio_statistics"]) == set(variables[1:])
+    # Instantaneous plus the three extra analysis times, each indexed once
+    assert len({u for u in index_calls if "wrfsfc" in u}) == 4
+
+
+@pytest.mark.timeout(30)
+def test_hrrr_fx_time_statistics_mock(tmp_path, monkeypatch):
+    """HRRR_FX reduces extra hourly lead times natively, windows may look ahead."""
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+    index_calls: list[str] = []
+    fx = HRRR_FX(source="aws", cache=True, verbose=True)
+    variables = ["t2m", "t2m:mean:3h", "t2m:sum:+0h:+3h", "t2m:max:-2h:+0h"]
+    with _hrrr_stats_mocks(fx, index_calls):
+        data = fx(
+            datetime(2024, 1, 1),
+            [timedelta(hours=6), timedelta(hours=7)],
+            variables,
+        )
+        # Window reaching before lead time 0 is rejected before any fetch
+        with pytest.raises(ValueError, match="lead time"):
+            fx(datetime(2024, 1, 1), [timedelta(hours=0)], ["t2m:mean:3h"])
+    assert data.shape == (1, 2, 4, 1059, 1799)
+    # lead 6: mean(3,4,5)=4, sum(6,7,8)=21, max(4,5)=5; lead 7 is shifted by 1h
+    np.testing.assert_allclose(
+        data.values[0, :, :, 0, 0], [[6, 4, 21, 5], [7, 5, 24, 6]]
+    )
+    assert set(data.attrs["earth2studio_statistics"]) == set(variables[1:])
+    # Leads 3..9 are each indexed once despite overlapping windows
+    assert len({u for u in index_calls if "wrfsfc" in u}) == 7

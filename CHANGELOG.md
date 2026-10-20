@@ -11,13 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added native temporal statistics (`mean`, `sum`, `min`, `max`) to the `ARCO_ERA5`,
-  `WB2ERA5` (all resolutions), `GFS` and `GFS_FX` data sources. Qualified variables
-  such as `t2m:mean:24h` fetch the extra analysis times (analysis sources) or lead
-  times (forecast sources) of the window and reduce them as they arrive, keeping
-  memory use independent of the window length. Shared helpers live in
-  `earth2studio.data.utils`, building on `earth2studio.utils.time_statistics`.
-
 ### Changed
 
 ### Deprecated

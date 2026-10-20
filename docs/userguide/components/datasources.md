@@ -122,17 +122,6 @@ Already aggregated source variables cannot be reduced again.
 `ARCO_ERA5.time_step` is `np.timedelta64(1, "h")`, so ARCO statistics requests
 use hourly samples automatically without an explicit `delta_t`.
 
-Sources that compute statistics themselves (`ARCO_ERA5`, `WB2ERA5`, `GFS` and
-`GFS_FX`) declare the methods they support in a `time_statistics` attribute, next to
-`time_step`, and receive qualified labels such as `"t2m:mean:24h"` unchanged. They
-plan the extra coordinates the window needs: analysis sources fetch additional
-analysis times, forecast sources additional lead times of the same forecast. Each
-sample is folded into a running sum, minimum or maximum as soon as it arrives, so
-memory is a single field per statistic rather than the whole window. With
-`verbose=True` the source logs which fields are averaged or accumulated, and over
-which samples. Their cadence is 1 h for `ARCO_ERA5` and `GFS_FX` (lead time), and
-6 h for `WB2ERA5` and `GFS`, so window lengths must be multiples of it.
-
 Analysis sources fetch absolute valid timestamps, while forecast sources reduce
 lead times separately for each initialization. Missing or duplicate reduction
 samples raise an error.

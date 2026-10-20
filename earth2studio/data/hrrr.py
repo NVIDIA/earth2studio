@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import hashlib
 import os
 import pathlib
@@ -21,6 +22,7 @@ import shutil
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 import numpy as np
 import obstore as obs
@@ -30,19 +32,31 @@ from obstore.store import ObjectStore
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
+    StatisticGroup,
+    StatisticJob,
     _sync_async,
+    analysis_jobs,
+    as_datetime,
+    as_timedelta,
     async_retry,
     cancellable_to_thread,
     datasource_cache_root,
     decode_grib_message,
+    forecast_jobs,
     gather_with_concurrency,
+    log_statistics,
     obstore_fetch_to_cache,
     obstore_store_from_url,
     prep_data_inputs,
     prep_forecast_inputs,
     resolve_async_workers,
+    run_statistic_jobs,
+    sample_coords,
+    split_statistic_variables,
+    statistic_attrs,
 )
 from earth2studio.lexicon import HRRRFXLexicon, HRRRLexicon
+from earth2studio.utils.coords import E2S_STATISTICS
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -139,6 +153,10 @@ class HRRR:
     # https://mesowest.utah.edu/html/hrrr/zarr_documentation/html/python_data_loading.html
     HRRR_X = np.linspace(-2697520.1425219304, 2696479.8574780696, 1799, endpoint=True)
     HRRR_Y = np.linspace(-1587306.1525566636, 1586693.8474433364, 1059, endpoint=True)
+    # Cadence in analysis time and temporal statistics computed natively, e.g.
+    # "t2m:mean:6h" is the mean of the hourly analyses over the previous 6 hours
+    time_step: np.timedelta64 = np.timedelta64(1, "h")
+    time_statistics: tuple[str, ...] = ("mean", "sum", "min", "max")
 
     def __init__(
         self,
@@ -292,6 +310,7 @@ class HRRR:
 
         # Make sure input time is valid
         self._validate_time(time)
+        plain, stat_groups = split_statistic_variables(variable)
 
         # Generate HRRR lat-lon grid to append onto data array
         lat, lon = self.grid()
@@ -322,7 +341,17 @@ class HRRR:
         xr_array["hrrr_y"].attrs = {"standard_name": "latitude", "axis": "Y"}
         xr_array["hrrr_x"].attrs = {"standard_name": "longitude", "axis": "X"}
 
-        async_tasks = await self._create_tasks(time, [timedelta(hours=0)], variable)
+        plain_names = [name for _, name in plain]
+        async_tasks = (
+            await self._create_tasks(time, [timedelta(hours=0)], plain_names)
+            if plain_names
+            else []
+        )
+        # _create_tasks indexes into plain_names, map back to request positions
+        slots = [slot for slot, _ in plain]
+        for task in async_tasks:
+            i, j, k = task.data_array_indices
+            task.data_array_indices = (i, j, slots[k])
         coros = [self.fetch_wrapper(task, xr_array=xr_array) for task in async_tasks]
 
         await gather_with_concurrency(
@@ -332,6 +361,15 @@ class HRRR:
             desc="Fetching HRRR data",
             verbose=(not self._verbose),
         )
+
+        if stat_groups:
+            # Analysis windows reduce the analysis fields of earlier valid times
+            jobs = analysis_jobs(
+                stat_groups, time, self.time_step, xr_array.values[:, 0]
+            )
+            self._validate_time([as_datetime(t) for t in sample_coords(jobs)])
+            await self._fetch_statistics(stat_groups, jobs, forecast=False)
+            xr_array.attrs[E2S_STATISTICS] = statistic_attrs(stat_groups)
 
         xr_array = xr_array.isel(lead_time=0)
         del xr_array.coords["lead_time"]
@@ -379,58 +417,10 @@ class HRRR:
                 # Get index file dictionaries for each possible product
                 index_files = {p: results.pop(0) for p in products}
                 for k, v in enumerate(variable):
-                    try:
-                        hrrr_name_str, modifier = self.lexicon[v]  # type: ignore
-                        hrrr_name = hrrr_name_str.split("::") + ["", ""]
-                        product = hrrr_name[0]
-                        variable_name = hrrr_name[1]
-                        level = hrrr_name[2]
-                        forecastvld = hrrr_name[3]
-                        index = hrrr_name[4]
-
-                        # Create index key to find byte range
-                        hrrr_key = f"{variable_name}::{level}"
-                        if forecastvld:
-                            hrrr_key = f"{hrrr_key}::{forecastvld}"
-                        else:
-                            if lt.total_seconds() == 0:
-                                hrrr_key = f"{hrrr_key}::anl"
-                            else:
-                                hrrr_key = f"{hrrr_key}::{int(lt.total_seconds() // 3600):d} hour fcst"
-                        if index and index.isnumeric():
-                            hrrr_key = index
-
-                        # Special cases
-                        # could do this better with templates, but this is single instance
-                        if variable_name == "APCP":
-                            hours = int(lt.total_seconds() // 3600)
-                            if hours == 0:
-                                accumulation = "0-0 day acc fcst"
-                            else:
-                                accumulation = f"{hours-1:d}-{hours:d} hour acc fcst"
-                            hrrr_key = f"{variable_name}::{level}::{accumulation}"
-
-                    except KeyError as e:
-                        logger.error(
-                            f"variable id {variable} not found in HRRR lexicon"
-                        )
-                        raise e
-
-                    # Get byte range from index
-                    byte_offset = None
-                    byte_length = None
-                    for key, value in index_files[product].items():
-                        if hrrr_key in key:
-                            byte_offset = value[0]
-                            byte_length = value[1]
-                            break
-
-                    if byte_length is None or byte_offset is None:
-                        logger.warning(
-                            f"Variable {v} not found in index file for time {t} at {lt}, values will be unset"
-                        )
+                    found = self._lookup_record(index_files, v, t, lt)
+                    if found is None:
                         continue
-
+                    product, byte_offset, byte_length, modifier = found
                     tasks.append(
                         HRRRAsyncTask(
                             data_array_indices=(i, j, k),
@@ -441,6 +431,155 @@ class HRRR:
                         )
                     )
         return tasks
+
+    def _lookup_record(
+        self,
+        index_files: dict[str, dict[str, tuple[int, int]]],
+        v: str,
+        t: datetime,
+        lt: timedelta,
+    ) -> tuple[str, int, int, Callable] | None:
+        """Find the grib product, byte range and modifier of a variable
+
+        Parameters
+        ----------
+        index_files : dict[str, dict[str, tuple[int, int]]]
+            Parsed grib index of each product for one (time, lead time)
+        v : str
+            Earth2Studio variable name
+        t : datetime
+            Forecast initialization time
+        lt : timedelta
+            Forecast lead time
+
+        Returns
+        -------
+        tuple[str, int, int, Callable] | None
+            Product, byte offset, byte length and modifier, None if the record is
+            missing from the index
+        """
+        try:
+            hrrr_name_str, modifier = self.lexicon[v]  # type: ignore
+            hrrr_name = hrrr_name_str.split("::") + ["", ""]
+            product = hrrr_name[0]
+            variable_name = hrrr_name[1]
+            level = hrrr_name[2]
+            forecastvld = hrrr_name[3]
+            index = hrrr_name[4]
+
+            # Create index key to find byte range
+            hrrr_key = f"{variable_name}::{level}"
+            if forecastvld:
+                hrrr_key = f"{hrrr_key}::{forecastvld}"
+            else:
+                if lt.total_seconds() == 0:
+                    hrrr_key = f"{hrrr_key}::anl"
+                else:
+                    hrrr_key = (
+                        f"{hrrr_key}::{int(lt.total_seconds() // 3600):d} hour fcst"
+                    )
+            if index and index.isnumeric():
+                hrrr_key = index
+
+            # Special cases
+            # could do this better with templates, but this is single instance
+            if variable_name == "APCP":
+                hours = int(lt.total_seconds() // 3600)
+                if hours == 0:
+                    accumulation = "0-0 day acc fcst"
+                else:
+                    accumulation = f"{hours-1:d}-{hours:d} hour acc fcst"
+                hrrr_key = f"{variable_name}::{level}::{accumulation}"
+
+        except KeyError as e:
+            logger.error(f"variable id {v} not found in HRRR lexicon")
+            raise e
+
+        # Get byte range from index
+        byte_offset = None
+        byte_length = None
+        for key, value in index_files[product].items():
+            if hrrr_key in key:
+                byte_offset = value[0]
+                byte_length = value[1]
+                break
+
+        if byte_length is None or byte_offset is None:
+            logger.warning(
+                f"Variable {v} not found in index file for time {t} at {lt}, values will be unset"
+            )
+            return None
+        return product, byte_offset, byte_length, modifier
+
+    async def _fetch_statistics(
+        self,
+        groups: list[StatisticGroup],
+        jobs: list[StatisticJob],
+        forecast: bool,
+    ) -> None:
+        """Run statistic jobs, reducing each grib field as soon as it is decoded.
+
+        Parameters
+        ----------
+        groups : list[StatisticGroup]
+            Statistic groups being computed
+        jobs : list[StatisticJob]
+            Planned jobs writing into the output array
+        forecast : bool
+            Whether the sample coordinates are lead times of one forecast (True)
+            or analysis valid times
+        """
+        log_statistics("HRRR_FX" if forecast else "HRRR", groups, jobs, self._verbose)
+        # One set of grib indices per (init time, lead time) shared by all variables
+        indices: dict[tuple[datetime, timedelta], asyncio.Future] = {}
+
+        async def get_indices(
+            t: datetime, lt: timedelta
+        ) -> dict[str, dict[str, tuple[int, int]]]:
+            if (t, lt) not in indices:
+                products = ["wrfsfc", "wrfprs", "wrfnat"]
+
+                async def _all() -> dict[str, dict[str, tuple[int, int]]]:
+                    found = await asyncio.gather(
+                        *[
+                            self._fetch_index(self._grib_index_uri(t, lt, p))
+                            for p in products
+                        ]
+                    )
+                    return dict(zip(products, found))
+
+                indices[(t, lt)] = asyncio.ensure_future(_all())
+            return await indices[(t, lt)]
+
+        async def fetch_sample(job: StatisticJob, coord: Any) -> np.ndarray:
+            if forecast:
+                t, lt = job.context, as_timedelta(coord)
+            else:
+                t, lt = as_datetime(coord), timedelta(hours=0)
+            found = self._lookup_record(await get_indices(t, lt), job.base, t, lt)
+            if found is None:
+                return np.full((len(self.HRRR_Y), len(self.HRRR_X)), np.nan)
+            product, offset, length, modifier = found
+            return await async_retry(
+                self.fetch_array,
+                self._grib_uri(t, lt, product),
+                offset,
+                length,
+                modifier,
+                retries=self._retries,
+                backoff=1.0,
+                task_timeout=60.0,
+                exceptions=(OSError, IOError, TimeoutError, ConnectionError),
+            )
+
+        await run_statistic_jobs(
+            jobs,
+            fetch_sample,
+            desc="Fetching HRRR statistic samples",
+            verbose=self._verbose,
+            async_workers=self._async_workers,
+            task_timeout=120.0,
+        )
 
     async def fetch_wrapper(
         self,
@@ -837,6 +976,7 @@ class HRRR_FX(HRRR):
         # Make sure input time is valid
         self._validate_time(time)
         self._validate_leadtime(time, lead_time)
+        plain, stat_groups = split_statistic_variables(variable)
 
         # Generate HRRR lat-lon grid to append onto data array
         lat, lon = self.grid()
@@ -868,7 +1008,16 @@ class HRRR_FX(HRRR):
         xr_array["hrrr_y"].attrs = {"standard_name": "latitude", "axis": "Y"}
         xr_array["hrrr_x"].attrs = {"standard_name": "longitude", "axis": "X"}
 
-        async_tasks = await self._create_tasks(time, lead_time, variable)
+        plain_names = [name for _, name in plain]
+        async_tasks = (
+            await self._create_tasks(time, lead_time, plain_names)
+            if plain_names
+            else []
+        )
+        slots = [slot for slot, _ in plain]
+        for task in async_tasks:
+            i, j, k = task.data_array_indices
+            task.data_array_indices = (i, j, slots[k])
         coros = [self.fetch_wrapper(task, xr_array=xr_array) for task in async_tasks]
 
         await gather_with_concurrency(
@@ -878,6 +1027,17 @@ class HRRR_FX(HRRR):
             desc="Fetching HRRR data",
             verbose=(not self._verbose),
         )
+
+        if stat_groups:
+            # Forecast windows reduce hourly fields at earlier/later lead times
+            jobs = forecast_jobs(
+                stat_groups, time, lead_time, self.time_step, xr_array.values
+            )
+            lead_samples = [as_timedelta(lt) for lt in sample_coords(jobs)]
+            for t in time:
+                self._validate_leadtime([t], lead_samples)
+            await self._fetch_statistics(stat_groups, jobs, forecast=True)
+            xr_array.attrs[E2S_STATISTICS] = statistic_attrs(stat_groups)
 
         return xr_array
 
