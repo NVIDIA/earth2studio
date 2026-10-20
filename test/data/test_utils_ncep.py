@@ -81,7 +81,7 @@ def test_observation_cycle_times_read_overlapped_cycles():
         (3 * hours + timedelta(minutes=1), 9 * hours, [t + 6 * hours]),
         (-21 * hours, 3 * hours, [t + k * 6 * hours for k in range(-3, 1)]),
         (hours, hours, [t]),
-        (3 * hours, 3 * hours, []),
+        (3 * hours, 3 * hours, [t, t + 6 * hours]),
     ]
     for k in range(1, 7):
         cases.append((-45 * hours, (k - 3) * hours, cases[3][2]))

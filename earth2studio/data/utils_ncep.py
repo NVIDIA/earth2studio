@@ -1183,7 +1183,9 @@ def observation_cycle_times(
     A request returns the contents of the cycles it overlaps, cut to its window.
     An observation exactly on a ``T ± cadence / 2`` boundary is returned from the
     files the request reads; rows only a neighbouring cycle holds at that instant
-    are not returned. Each row carries its file's ``cycle_time``. Drifting-sonde
+    are not returned. A zero-length request reads every file whose closed span
+    holds its instant, so an instant on a boundary reads both files. Each row
+    carries its file's ``cycle_time``. Drifting-sonde
     levels can carry times past their file's span; they follow their report time.
 
     Parameters
@@ -1213,12 +1215,16 @@ def observation_cycle_times(
 
     first = time + tolerance_lower - cadence / 2
     last = time + tolerance_upper + cadence / 2
+    # A zero-length request reads every file whose closed span holds the instant
+    instant = tolerance_lower == tolerance_upper
     day_start = first.replace(hour=0, minute=0, second=0, microsecond=0)
-    # First cadence-aligned cycle after ``first`` (floor division plus one step)
-    cycle = day_start + ((first - day_start) // cadence + 1) * cadence
+    steps = (first - day_start) // cadence
+    if not (instant and day_start + steps * cadence == first):
+        steps += 1
+    cycle = day_start + steps * cadence
 
     cycles: list[datetime] = []
-    while cycle < last:
+    while cycle < last or (instant and cycle == last):
         cycles.append(cycle)
         cycle += cadence
     return cycles
