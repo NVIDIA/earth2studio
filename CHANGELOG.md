@@ -70,6 +70,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fewer rows.
 - `NNJAObsSat` skips sensors outside their archive years in a multi-sensor request
   instead of failing the whole request.
+- NNJA, GDAS and UFS observation sources read the cycle files whose ±3h span a request
+  overlaps, and keep only rows inside each requested window; requests no longer miss
+  cycles (#967).
 - `CorrDiffCosmoEra5`: updated the Hugging Face checkpoint revision to pick up the
   corrected `rea2/stats.json` (ERA5 training-domain statistics instead of global
   statistics).

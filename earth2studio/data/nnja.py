@@ -57,6 +57,7 @@ from earth2studio.data.utils_ncep import (
     NCEP_MICROWAVE_OUTPUT_SCHEMA,
     NCEP_MICROWAVE_SATELLITES,
     NCEP_SATWND_PUBLIC_SCHEMA,
+    Intervals,
     NCEPObsTask,
     _validate_layout,
     assemble_frame,
@@ -175,6 +176,7 @@ class _NNJASatTask:
     datetime_max: datetime
     sensor: str
     var_plan: dict[str, str] = field(default_factory=dict)
+    intervals: Intervals = ()
 
 
 @check_optional_dependencies(BUFR_DEPENDENCY_KEY)
@@ -1098,7 +1100,7 @@ class NNJAObsSat:
                     f"no {sensor} rows will be returned"
                 )
                 continue
-            for cycle, (datetime_min, datetime_max) in sorted(windows.items()):
+            for cycle, intervals in sorted(windows.items()):
                 if cycle.year < product.first_year or (
                     product.last_year is not None and cycle.year > product.last_year
                 ):
@@ -1108,10 +1110,11 @@ class NNJAObsSat:
                     _NNJASatTask(
                         uri=self._build_satellite_uri(cycle, sensor),
                         datetime_file=cycle,
-                        datetime_min=datetime_min,
-                        datetime_max=datetime_max,
+                        datetime_min=intervals[0][0],
+                        datetime_max=intervals[-1][1],
                         sensor=sensor,
                         var_plan=var_plan,
+                        intervals=intervals,
                     )
                 )
         # A sensor outside its archive years has no rows there, like a sensor with no

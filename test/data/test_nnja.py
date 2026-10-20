@@ -431,10 +431,10 @@ def test_nnja_obs_conv_create_tasks():
     )
     assert len(tasks_times) == 2  # Two different cycles
 
-    # Non-cycle request times select the next cycle file containing past obs
+    # A file holds reports within 3h of its cycle, so 01Z is in the 00Z file
     tasks_offset = ds._create_tasks([datetime(2024, 1, 1, 1)], ["t"])
     assert len(tasks_offset) == 1
-    assert tasks_offset[0].datetime_file == datetime(2024, 1, 1, 6)
+    assert tasks_offset[0].datetime_file == datetime(2024, 1, 1, 0)
 
     ds_window = NNJAObsConv(
         time_tolerance=(timedelta(0), timedelta(hours=4)),
@@ -556,10 +556,7 @@ def test_nnja_obs_sat_cycle_windows_follow_nnja_cycle_selection():
     source = NNJAObsSat(cache=False, verbose=False, decode_workers=1)
     requested = datetime(2024, 1, 1)
     tasks = source._create_tasks([requested, requested], ["atms"])
-    assert [task.datetime_file for task in tasks] == [
-        requested,
-        requested + timedelta(hours=6),
-    ]
+    assert [task.datetime_file for task in tasks] == [requested]
 
     source = NNJAObsSat(
         time_tolerance=(timedelta(hours=-21), timedelta(hours=3)),
@@ -573,7 +570,6 @@ def test_nnja_obs_sat_cycle_windows_follow_nnja_cycle_selection():
         datetime(2023, 12, 31, 12),
         datetime(2023, 12, 31, 18),
         requested,
-        datetime(2024, 1, 1, 6),
     ]
 
 
@@ -1006,17 +1002,50 @@ def _sat_batch(
     )
 
 
-def test_observation_cycle_times_cover_closed_window():
-    # A file at T holds (T - 6h, T]; a closed [T - 3h, T + 3h] request needs T and T + 6h
-    assert observation_cycle_times(T0, timedelta(hours=-3), timedelta(hours=3)) == [
-        T0,
-        T0 + timedelta(hours=6),
+def test_observation_cycle_times_read_overlapped_cycles():
+    t = datetime(2024, 1, 3, 0)
+    hours = timedelta(hours=1)
+    # File T spans [T - 3h, T + 3h]; a request reads the files whose span it
+    # overlaps in the interior
+    cases = [
+        (-3 * hours, 3 * hours, [t]),
+        (-4 * hours, 3 * hours, [t - 6 * hours, t]),
+        (-9 * hours, 3 * hours, [t - 6 * hours, t]),
+        (-45 * hours, 3 * hours, [t + k * 6 * hours for k in range(-7, 1)]),
+        (hours, 4 * hours, [t, t + 6 * hours]),
+        (3 * hours + timedelta(minutes=1), 9 * hours, [t + 6 * hours]),
+        (-21 * hours, 3 * hours, [t + k * 6 * hours for k in range(-3, 1)]),
+        (hours, hours, [t]),
+        (3 * hours, 3 * hours, [t, t + 6 * hours]),
     ]
-    windows = cycle_windows([T0], timedelta(hours=-3), timedelta(hours=3))
-    assert all(
-        w == (T0 - timedelta(hours=3), T0 + timedelta(hours=3))
-        for w in windows.values()
+    for k in range(1, 7):
+        cases.append((-45 * hours, (k - 3) * hours, cases[3][2]))
+    for lower, upper, expected in cases:
+        assert observation_cycle_times(t, lower, upper) == expected
+    assert observation_cycle_times(
+        t + hours, timedelta(0), timedelta(0), timedelta(hours=3)
+    ) == [t]
+    with pytest.raises(ValueError, match="cadence"):
+        observation_cycle_times(t, timedelta(0), timedelta(0), timedelta(0))
+
+
+def test_requests_sharing_a_file_keep_their_own_intervals():
+    t = datetime(2024, 1, 3, 0)
+    minutes = timedelta(minutes=1)
+    windows = cycle_windows(
+        [t - 60 * minutes, t + 120 * minutes], -30 * minutes, 30 * minutes
     )
+    assert windows == {
+        t: (
+            (t - 90 * minutes, t - 30 * minutes),
+            (t + 90 * minutes, t + 150 * minutes),
+        )
+    }
+    # 00Z ±1h and 06Z ±1h read separate files
+    assert cycle_windows([t, t + 360 * minutes], -60 * minutes, 60 * minutes) == {
+        t: ((t - 60 * minutes, t + 60 * minutes),),
+        t + 360 * minutes: ((t + 300 * minutes, t + 420 * minutes),),
+    }
 
 
 def test_gpsro_long_wide_and_closed_window(fake_bufr):
@@ -1098,6 +1127,45 @@ def test_prepbufr_without_message_families_raises(fake_bufr):
         "excluded", ["t"], T0, T0, decode_workers=1, exclude_message_types=("ADPUPA",)
     )
     assert wide.num_rows == 0
+
+
+def test_prepbufr_drift_levels_follow_their_report_time(fake_bufr):
+    # A 00Z sonde reported at 02:54 whose first level drifted to 03:06
+    prepbufr = _prepbufr_file()
+    batch = prepbufr.batches[0]
+    levels = batch.column("DRF8BIT")
+    hrdr = pa.field("HRDR", pa.float64(), metadata={b"bufr.scale": b"5"})
+    values = pa.StructArray.from_arrays(
+        [*levels.values.flatten(), pa.array([3.1, None])],
+        fields=[*levels.type.value_type, hrdr],
+    )
+    batch = batch.set_column(
+        batch.schema.get_field_index("DRF8BIT"),
+        "DRF8BIT",
+        pa.ListArray.from_arrays(levels.offsets, values),
+    )
+    batch = batch.set_column(
+        batch.schema.get_field_index("DHR"),
+        batch.schema.field("DHR"),
+        pa.array([2.9, 2.9]),
+    )
+    prepbufr.batches = [batch]
+    fake_bufr["prep"] = prepbufr
+    cycle = T0
+
+    # 03:01-09:00 neither reads the 00Z file nor takes the 03:06 level from it
+    later = (cycle + timedelta(hours=3, minutes=1), cycle + timedelta(hours=9))
+    assert cycle not in observation_cycle_times(
+        later[0], timedelta(0), later[1] - later[0]
+    )
+    assert decode_prepbufr("prep", ["t"], *later, decode_workers=1).num_rows == 0
+
+    # 00:00-03:00 returns the level with its report, at its own time
+    wide = decode_prepbufr(
+        "prep", ["t"], cycle, cycle + timedelta(hours=3), decode_workers=1
+    )
+    assert wide["time"].to_pylist()[0] == datetime(2024, 1, 1, 3, 6)
+    assert wide["report_time"].to_pylist()[0] == datetime(2024, 1, 1, 2, 54)
 
 
 def test_satwnd_wide_long_and_quality_pairs(fake_bufr):
@@ -1189,14 +1257,16 @@ def test_satellite_filter_and_window(fake_bufr):
     assert none.num_rows == 0
 
 
-def _source_with_files(source, fake_bufr, monkeypatch, tmp_path, batches, messages=()):
+def _source_with_files(
+    source, fake_bufr, monkeypatch, tmp_path, batches, messages=(), sequences=None
+):
     async def fetch_files(uris):
         return None
 
     def local_path(uri):
         path = tmp_path / uri.rsplit("/", 1)[-1]
         path.write_bytes(b"fake")
-        fake_bufr[str(path)] = _FakeBufr(batches, messages)
+        fake_bufr[str(path)] = _FakeBufr(batches, messages, sequences)
         return str(path)
 
     monkeypatch.setattr(source, "fetch_files", fetch_files)
@@ -1239,8 +1309,8 @@ def test_nnja_sources_long_and_wide(fake_bufr, monkeypatch, tmp_path, layout):
         frame = source(T0, variables)
         assert all(isinstance(dtype, pd.ArrowDtype) for dtype in frame.dtypes)
         assert frame.attrs["source"] == source.SOURCE_ID
-        # Two files cover [T0 - 3h, T0 + 3h]; each holds both observations, the one
-        # at exactly T0 + 3h included
+        # The T0 file covers [T0 - 3h, T0 + 3h]; the observation at exactly T0 + 3h
+        # is included
         assert frame["time"].max() == pd.Timestamp(end)
         table = pa.Table.from_pandas(frame, preserve_index=False)
         if layout == "long":
@@ -1273,6 +1343,59 @@ def test_nnja_sources_long_and_wide(fake_bufr, monkeypatch, tmp_path, layout):
             assert long.num_rows == expected.num_rows
             for name in ("time", "observation", "variable"):
                 assert long[name].cast(expected[name].type).equals(expected[name])
+
+
+@pytest.mark.parametrize("layout", ["long", "wide"])
+def test_nnja_sources_keep_rows_inside_each_requested_interval(
+    fake_bufr, monkeypatch, tmp_path, layout
+):
+    # 23Z ±30 min and 02Z ±30 min both read the 00Z file, which returns no rows
+    # between 23:30 and 01:30
+    minutes = timedelta(minutes=1)
+    tolerance = (-30 * minutes, 30 * minutes)
+    stamps = [T0 - 75 * minutes, T0, T0 + 120 * minutes]
+    prepbufr = _prepbufr_file()
+    batch = prepbufr.batches[0]
+    prepbufr_batch = batch.set_column(
+        batch.schema.get_field_index("DHR"),
+        batch.schema.field("DHR"),
+        pa.array([-1.25, 0.0]),
+    )
+    cases = [
+        (NNJAObsConv, ["gps"], [_gpsro_batch(stamps)], (), None, [0, 2]),
+        (
+            NNJAObsConv,
+            ["t"],
+            [prepbufr_batch],
+            prepbufr.info.data_messages,
+            prepbufr.sequences,
+            [0],
+        ),
+        (
+            NNJAObsSatwnd,
+            ["u", "v"],
+            [_satwnd_batch(stamps)],
+            [SimpleNamespace(source_message_index=0, local_sub_category=30)],
+            None,
+            [0, 2],
+        ),
+        (
+            NNJAObsSat,
+            ["atms"],
+            [_sat_batch("atms", stamps, [1.0, 2.0], lambda c: (1.0, 0.0, 250.0))],
+            (),
+            None,
+            [0, 2],
+        ),
+    ]
+    for cls, variables, batches, messages, sequences, kept in cases:
+        source = cls(time_tolerance=tolerance, cache=False, verbose=False, layout=layout)
+        _source_with_files(
+            source, fake_bufr, monkeypatch, tmp_path, batches, messages, sequences
+        )
+        frame = source([T0 - 60 * minutes, T0 + 120 * minutes], variables)
+        assert sorted(set(frame["time"])) == [pd.Timestamp(stamps[i]) for i in kept]
+        assert set(frame["cycle_time"]) == {pd.Timestamp(T0)}
 
 
 def test_nnja_layout_validation_and_wide_fields():
