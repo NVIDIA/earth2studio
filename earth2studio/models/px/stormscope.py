@@ -20,7 +20,7 @@ from collections.abc import Callable, Generator, Mapping
 from copy import copy, deepcopy
 from dataclasses import replace
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Literal, Self, cast
+from typing import TYPE_CHECKING, Any, Literal, Self, TypeVar, cast
 
 import numpy as np
 import torch
@@ -32,11 +32,11 @@ from numpy.typing import ArrayLike
 from earth2studio.data import HRRR
 from earth2studio.data.base import DataSource
 from earth2studio.grids import (
+    BilinearRegridder,
     CurvilinearGrid,
     GridDefinition,
+    NearestRegridder,
     Region,
-    Regridder,
-    resolve_regridder,
 )
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
@@ -77,16 +77,25 @@ except ImportError:
 # Default regridders, shared by coupled models and by the masks computed at load.
 # Tables for the observation grids take seconds to build and hold one entry per
 # model gridpoint, so only the most recent few are kept.
-_REGRIDDERS: OrderedDict[tuple[str, str, str, str], Regridder] = OrderedDict()
+_REGRIDDERS: OrderedDict[tuple[str, str, str, str], Any] = OrderedDict()
 _REGRIDDER_CACHE_SIZE = 8
+
+_BuiltinRegridder = TypeVar("_BuiltinRegridder", NearestRegridder, BilinearRegridder)
 
 
 def _default_regridder(
-    method: str, source_grid: str, target_grid: GridDefinition, **options: Any
-) -> Regridder:
-    """Build, or reuse, the regridder of a default source onto a model grid."""
+    cls: type[_BuiltinRegridder],
+    source_grid: str,
+    target_grid: GridDefinition,
+    **options: Any,
+) -> _BuiltinRegridder:
+    """Build, or reuse, the regridder of a default source onto a model grid.
+
+    The defaults are the built-in classes the models were trained with, rather
+    than registry resolutions, so their ``coverage`` defines the valid masks.
+    """
     key = (
-        method,
+        cls.__name__,
         source_grid,
         target_grid.fingerprint(),
         repr(sorted(options.items())),
@@ -94,7 +103,7 @@ def _default_regridder(
     if key in _REGRIDDERS:
         _REGRIDDERS.move_to_end(key)
         return _REGRIDDERS[key]
-    regridder = resolve_regridder(source_grid, target_grid, method, **options)
+    regridder = cls(source_grid, target_grid, **options)
     _REGRIDDERS[key] = regridder
     if len(_REGRIDDERS) > _REGRIDDER_CACHE_SIZE:
         _REGRIDDERS.popitem(last=False)
@@ -684,7 +693,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             if source_grid is None:
                 continue
             regridder = _default_regridder(
-                "nearest", source_grid, grid, max_dist_km=self.max_dist_km
+                NearestRegridder, source_grid, grid, max_dist_km=self.max_dist_km
             )
             coverage = torch.from_numpy(np.array(regridder.coverage))
             self.register_buffer(name, coverage.to(self.latitudes.device))
@@ -1990,7 +1999,10 @@ class StormScopeGOES(StormScopeBase):
         return RegriddedSource(
             GOES(scan_mode="C"),
             _default_regridder(
-                "nearest", self._INPUT_GRID, self._grid(), max_dist_km=self.max_dist_km
+                NearestRegridder,
+                self._INPUT_GRID,
+                self._grid(),
+                max_dist_km=self.max_dist_km,
             ),
         )
 
@@ -2462,13 +2474,15 @@ class StormScopeMRMS(StormScopeBase):
         source: DataSource = RegriddedSource(
             MRMS(),
             _default_regridder(
-                "nearest", self._INPUT_GRID, grid, max_dist_km=self.max_dist_km
+                NearestRegridder, self._INPUT_GRID, grid, max_dist_km=self.max_dist_km
             ),
         )
         if len(self.glm_variables):
             glm = RegriddedSource(
                 GOESGLMGrid(),
-                _default_regridder("bilinear", self._GLM_GRID, grid, fill_value=0.0),
+                _default_regridder(
+                    BilinearRegridder, self._GLM_GRID, grid, fill_value=0.0
+                ),
             )
             radar = [v for v in self.variables if v not in set(self.glm_variables)]
             source = CompositeSource(
@@ -2478,7 +2492,10 @@ class StormScopeMRMS(StormScopeBase):
         goes = RegriddedSource(
             GOES(scan_mode="C"),
             _default_regridder(
-                "nearest", self._CONDITIONING_GRID, grid, max_dist_km=self.max_dist_km
+                NearestRegridder,
+                self._CONDITIONING_GRID,
+                grid,
+                max_dist_km=self.max_dist_km,
             ),
         )
         return source, goes

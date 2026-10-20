@@ -1180,12 +1180,18 @@ class _RecordingRegridder:
 def recorded_regridders(monkeypatch):
     built = []
 
-    def resolve(source_grid, target_grid, method, **options):
-        built.append(_RecordingRegridder(source_grid, target_grid, method, **options))
-        return built[-1]
+    def recorder(method):
+        class Recorder(_RecordingRegridder):
+            def __init__(self, source_grid, target_grid, **options):
+                super().__init__(source_grid, target_grid, method, **options)
+                built.append(self)
+
+        Recorder.__name__ = method
+        return Recorder
 
     monkeypatch.setattr(scope_module, "_REGRIDDERS", OrderedDict())
-    monkeypatch.setattr(scope_module, "resolve_regridder", resolve)
+    monkeypatch.setattr(scope_module, "NearestRegridder", recorder("nearest"))
+    monkeypatch.setattr(scope_module, "BilinearRegridder", recorder("bilinear"))
     return built
 
 
