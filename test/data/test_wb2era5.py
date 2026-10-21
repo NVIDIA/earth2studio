@@ -130,33 +130,18 @@ def test_wb2era5_available(time, variable, Datasource):
 
 
 @pytest.mark.timeout(30)
-def test_wb2era5_time_statistics_mock(tmp_path, monkeypatch):
-    """WB2ERA5 streams the 6-hourly fields of each window into its statistics."""
-    from unittest.mock import AsyncMock, patch
-
-    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
-    reads: list[int] = []
-
-    class FakeArray:
-        shape = (10**5, 721, 1440)
-
-        async def getitem(self, index):
-            reads.append(int(index))
-            return np.full((721, 1440), float(index), dtype=np.float32)
-
-    class FakeGroup:
-        async def get(self, name):
-            return FakeArray()
+def test_wb2era5_time_statistics_mock(mock_statistic_zarr, monkeypatch):
+    from earth2studio.data import WB2Climatology
+    from earth2studio.data.utils import fetch_data
 
     ds = WB2ERA5(cache=True, verbose=True)
-    ds.zarr_group = FakeGroup()
+    reads = mock_statistic_zarr(ds)
     time = datetime.datetime(2020, 1, 2, 12)
     index = ds._get_time_index(time)
     variables = ["t2m", "t2m:mean:24h", "t2m:sum:24h", "t2m:max:12h", "t2m:min:12h"]
-    with patch.object(ds, "_async_init", new=AsyncMock(return_value=None)):
-        data = ds(time, variables)
+    data = ds(time, variables)
 
-    assert data.shape == (1, 5, 721, 1440)
+    assert data.shape == (1, 5, 2, 2)
     values = [float(data.sel(variable=v).values[0, 0, 0]) for v in variables]
     # Window [-24h, 0h) is the four 6-hourly fields index-4 .. index-1
     assert values == [index, index - 2.5, 4 * index - 10, index - 1, index - 2]
@@ -166,3 +151,26 @@ def test_wb2era5_time_statistics_mock(tmp_path, monkeypatch):
     # A window that is not a multiple of the 6 hour cadence is rejected
     with pytest.raises(ValueError, match="divisible"):
         ds(time, ["t2m:mean:9h"])
+
+    reads.clear()
+    data = fetch_data(
+        ds,
+        np.array([time], dtype="datetime64[ns]"),
+        np.array(["t2m:mean:24h"]),
+        delta_t=np.timedelta64(12, "h"),
+    )
+    assert data.values[0, 0, 0, 0, 0] == index - 3
+    assert sorted(reads) == [index - 4, index - 2]
+
+    climate = WB2Climatology()
+    assert climate.time_statistics == ()
+
+    async def fetch(time, variable):
+        assert variable == ["t2m"]
+        return await ds.fetch(time, variable)
+
+    monkeypatch.setattr(climate, "fetch", fetch)
+    data = fetch_data(
+        climate, np.array([time], dtype="datetime64[ns]"), np.array(["t2m:mean:24h"])
+    )
+    assert data.values[0, 0, 0, 0, 0] == index - 2.5

@@ -21,7 +21,6 @@ import pathlib
 import shutil
 import uuid
 from collections.abc import Callable
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -44,13 +43,11 @@ from earth2studio.data.utils import (
     datasource_cache_root,
     decode_grib_message,
     forecast_jobs,
-    gather_with_concurrency,
     log_statistics,
     obstore_fetch_to_cache,
     obstore_store_from_url,
     prep_data_inputs,
     prep_forecast_inputs,
-    resolve_async_workers,
     run_statistic_jobs,
     sample_coords,
     split_statistic_variables,
@@ -62,17 +59,6 @@ from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
-
-
-@dataclass
-class GFSAsyncTask:
-    """Small helper struct for Async tasks"""
-
-    data_array_indices: tuple[int, int, int]
-    gfs_file_uri: str
-    gfs_byte_offset: int
-    gfs_byte_length: int
-    gfs_modifier: Callable
 
 
 class GFS:
@@ -274,85 +260,15 @@ class GFS:
             },
         )
 
-        plain_names = [name for _, name in plain]
-        async_tasks = (
-            await self._create_tasks(time, [timedelta(hours=0)], plain_names)
-            if plain_names
-            else []
+        jobs = analysis_jobs(
+            stat_groups, time, self.time_step, xr_array.values[:, 0], plain
         )
-        # _create_tasks indexes into plain_names, map back to request positions
-        slots = [slot for slot, _ in plain]
-        for task in async_tasks:
-            i, j, k = task.data_array_indices
-            task.data_array_indices = (i, j, slots[k])
-        coros = [self.fetch_wrapper(task, xr_array=xr_array) for task in async_tasks]
-
-        await gather_with_concurrency(
-            coros,
-            max_workers=resolve_async_workers(self._async_workers, len(coros)),
-            task_timeout=120.0,
-            desc="Fetching GFS data",
-            verbose=(not self._verbose),
-        )
-
+        self._validate_time([as_datetime(t) for t in sample_coords(jobs)])
+        await self._fetch_jobs(stat_groups, jobs, forecast=False)
         if stat_groups:
-            # Analysis windows reduce the f000 fields of earlier analysis times
-            jobs = analysis_jobs(
-                stat_groups, time, self.time_step, xr_array.values[:, 0]
-            )
-            self._validate_time([as_datetime(t) for t in sample_coords(jobs)])
-            await self._fetch_statistics(stat_groups, jobs, time, forecast=False)
             xr_array.attrs[E2S_STATISTICS] = statistic_attrs(stat_groups)
 
         return xr_array.isel(lead_time=0)
-
-    async def _create_tasks(
-        self, time: list[datetime], lead_time: list[timedelta], variable: list[str]
-    ) -> list[GFSAsyncTask]:
-        """Create download tasks, each corresponding to one grib byte range on S3
-
-        Parameters
-        ----------
-        times : list[datetime]
-            Timestamps to be downloaded (UTC).
-        variables : list[str]
-            List of variables to be downloaded.
-
-        Returns
-        -------
-        list[dict]
-            List of download tasks
-        """
-        tasks: list[GFSAsyncTask] = []  # group pressure-level variables
-
-        # Start with fetching all index files for each time / lead time
-        args = [self._grib_index_uri(t, lt) for t in time for lt in lead_time]
-        results = await gather_with_concurrency(
-            [self._fetch_index(uri) for uri in args],
-            max_workers=resolve_async_workers(self._async_workers, len(args)),
-            task_timeout=60.0,
-            desc="Fetching GFS index files",
-            verbose=True,
-        )
-        for i, t in enumerate(time):
-            for j, lt in enumerate(lead_time):
-                # Get index file dictionary
-                index_file = results.pop(0)
-                for k, v in enumerate(variable):
-                    found = self._lookup_record(index_file, v, t, lt)
-                    if found is None:
-                        continue
-                    byte_offset, byte_length, modifier = found
-                    tasks.append(
-                        GFSAsyncTask(
-                            data_array_indices=(i, j, k),
-                            gfs_file_uri=self._grib_uri(t, lt),
-                            gfs_byte_offset=byte_offset,
-                            gfs_byte_length=byte_length,
-                            gfs_modifier=modifier,
-                        )
-                    )
-        return tasks
 
     def _lookup_record(
         self,
@@ -414,14 +330,13 @@ class GFS:
         # --8<-- [end:gfs-lexicon-lookup]
         return byte_offset, byte_length, modifier
 
-    async def _fetch_statistics(
+    async def _fetch_jobs(
         self,
         groups: list[StatisticGroup],
         jobs: list[StatisticJob],
-        out_time: list[datetime],
         forecast: bool,
     ) -> None:
-        """Run statistic jobs, reducing each grib field as soon as it is decoded.
+        """Fetch shared samples, copying plain fields and reducing statistics in place.
 
         Parameters
         ----------
@@ -429,13 +344,13 @@ class GFS:
             Statistic groups being computed
         jobs : list[StatisticJob]
             Planned jobs writing into the output array
-        out_time : list[datetime]
-            Initialization (or valid, for analysis) times of the request
         forecast : bool
             Whether the sample coordinates are lead times (True) or valid times
         """
         log_statistics("GFS_FX" if forecast else "GFS", groups, jobs, self._verbose)
-        if any(job.base == "tp" for job in jobs):
+        if self._verbose and any(
+            job.base == "tp" and job.aggregator.method for job in jobs
+        ):
             logger.warning(
                 "GFS tp is accumulated over a 6 hour bucket that restarts, "
                 "statistics of tp combine these bucket values"
@@ -473,31 +388,11 @@ class GFS:
         await run_statistic_jobs(
             jobs,
             fetch_sample,
-            desc="Fetching GFS statistic samples",
+            desc="Fetching GFS data",
             verbose=self._verbose,
             async_workers=self._async_workers,
             task_timeout=120.0,
         )
-
-    async def fetch_wrapper(
-        self,
-        task: GFSAsyncTask,
-        xr_array: xr.DataArray,
-    ) -> xr.DataArray:
-        """Small wrapper to pack arrays into the DataArray"""
-        out = await async_retry(
-            self.fetch_array,
-            task.gfs_file_uri,
-            task.gfs_byte_offset,
-            task.gfs_byte_length,
-            task.gfs_modifier,
-            retries=self._retries,
-            backoff=1.0,
-            task_timeout=60.0,
-            exceptions=(OSError, IOError, TimeoutError, ConnectionError),
-        )
-        i, j, k = task.data_array_indices
-        xr_array[i, j, k] = out
 
     async def fetch_array(
         self,
@@ -825,33 +720,12 @@ class GFS_FX(GFS):
             },
         )
 
-        plain_names = [name for _, name in plain]
-        async_tasks = (
-            await self._create_tasks(time, lead_time, plain_names)
-            if plain_names
-            else []
+        jobs = forecast_jobs(
+            stat_groups, time, lead_time, self.time_step, xr_array.values, plain
         )
-        slots = [slot for slot, _ in plain]
-        for task in async_tasks:
-            i, j, k = task.data_array_indices
-            task.data_array_indices = (i, j, slots[k])
-        coros = [self.fetch_wrapper(task, xr_array=xr_array) for task in async_tasks]
-
-        await gather_with_concurrency(
-            coros,
-            max_workers=resolve_async_workers(self._async_workers, len(coros)),
-            task_timeout=120.0,
-            desc="Fetching GFS data",
-            verbose=(not self._verbose),
-        )
-
+        self._validate_leadtime([as_timedelta(lt) for lt in sample_coords(jobs)])
+        await self._fetch_jobs(stat_groups, jobs, forecast=True)
         if stat_groups:
-            # Forecast windows reduce hourly fields at earlier/later lead times
-            jobs = forecast_jobs(
-                stat_groups, time, lead_time, self.time_step, xr_array.values
-            )
-            self._validate_leadtime([as_timedelta(lt) for lt in sample_coords(jobs)])
-            await self._fetch_statistics(stat_groups, jobs, time, forecast=True)
             xr_array.attrs[E2S_STATISTICS] = statistic_attrs(stat_groups)
 
         return xr_array

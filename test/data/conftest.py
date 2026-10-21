@@ -37,10 +37,90 @@ IO loop during individual test teardown because:
 from __future__ import annotations
 
 import logging
+import re
 import threading
+from datetime import datetime
 
+import numpy as np
 import pytest
 from loguru import logger
+
+
+@pytest.fixture
+def mock_statistic_grib(monkeypatch, tmp_path):
+    """Tiny GRIB fields whose values encode valid time; retain real record lookup."""
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+
+    def install(ds, missing=()):
+        calls = []
+        name = type(ds).__module__.rsplit(".", 1)[-1]
+        for axis in (("GFS_LAT", "GFS_LON") if name == "gfs" else ("HRRR_Y", "HRRR_X")):
+            monkeypatch.setattr(ds, axis, np.arange(2))
+        if name == "hrrr":
+            monkeypatch.setattr(
+                ds, "grid", lambda: (np.zeros((2, 2)), np.zeros((2, 2)))
+            )
+        ds.store = object()
+
+        def hours(uri):
+            day = re.search(r"(?:gfs|hrrr)\.(\d{8})", uri)[1]
+            cycle = int(re.search(r"\.t(\d{2})z", uri)[1])
+            lead = int(re.search(r"f(\d+)(?:\.|$)", uri)[1])
+            return (
+                datetime.strptime(day, "%Y%m%d") - datetime(2024, 1, 1)
+            ).total_seconds() / 3600 + cycle + lead, lead
+
+        async def index(uri):
+            calls.append(uri)
+            value, lead = hours(uri)
+            step = "anl" if lead == 0 else f"{lead} hour fcst"
+            return (
+                {}
+                if value in missing
+                else {f"1::TMP::2 m above ground::{step}": (0, 1)}
+            )
+
+        async def remote(uri, **kwargs):
+            return uri
+
+        def decode(uri):
+            value, _ = hours(uri)
+            return np.array([[value, np.nan if value % 2 else value], [np.nan, value]])
+
+        monkeypatch.setattr(ds, "_fetch_index", index)
+        monkeypatch.setattr(ds, "_fetch_remote_file", remote)
+        monkeypatch.setattr(f"earth2studio.data.{name}.decode_grib_message", decode)
+        return calls
+
+    return install
+
+
+@pytest.fixture
+def mock_statistic_zarr(monkeypatch, tmp_path):
+    """Small surface Zarr fields, shared by ERA5 statistics tests."""
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+
+    def install(ds):
+        reads = []
+
+        class Array:
+            shape = (10**6, 2, 2)
+
+            async def getitem(self, index):
+                reads.append(int(index))
+                return np.full((2, 2), float(index))
+
+        class Group:
+            async def get(self, name):
+                return Array()
+
+        prefix = "ARCO" if type(ds).__name__ == "ARCO_ERA5" else "WB2_ERA5"
+        for axis in ("LAT", "LON"):
+            monkeypatch.setattr(ds, f"{prefix}_{axis}", np.arange(2))
+        ds.zarr_group = ds.ml_zarr_group = Group()
+        return reads
+
+    return install
 
 
 @pytest.fixture

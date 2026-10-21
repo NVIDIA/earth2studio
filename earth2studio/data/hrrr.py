@@ -20,7 +20,6 @@ import os
 import pathlib
 import shutil
 from collections.abc import Callable
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -43,13 +42,11 @@ from earth2studio.data.utils import (
     datasource_cache_root,
     decode_grib_message,
     forecast_jobs,
-    gather_with_concurrency,
     log_statistics,
     obstore_fetch_to_cache,
     obstore_store_from_url,
     prep_data_inputs,
     prep_forecast_inputs,
-    resolve_async_workers,
     run_statistic_jobs,
     sample_coords,
     split_statistic_variables,
@@ -71,17 +68,6 @@ except ImportError:
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
-
-
-@dataclass
-class HRRRAsyncTask:
-    """Small helper struct for Async tasks"""
-
-    data_array_indices: tuple[int, int, int]
-    hrrr_file_uri: str
-    hrrr_byte_offset: int
-    hrrr_byte_length: int
-    hrrr_modifier: Callable
 
 
 @check_optional_dependencies()
@@ -341,96 +327,17 @@ class HRRR:
         xr_array["hrrr_y"].attrs = {"standard_name": "latitude", "axis": "Y"}
         xr_array["hrrr_x"].attrs = {"standard_name": "longitude", "axis": "X"}
 
-        plain_names = [name for _, name in plain]
-        async_tasks = (
-            await self._create_tasks(time, [timedelta(hours=0)], plain_names)
-            if plain_names
-            else []
+        jobs = analysis_jobs(
+            stat_groups, time, self.time_step, xr_array.values[:, 0], plain
         )
-        # _create_tasks indexes into plain_names, map back to request positions
-        slots = [slot for slot, _ in plain]
-        for task in async_tasks:
-            i, j, k = task.data_array_indices
-            task.data_array_indices = (i, j, slots[k])
-        coros = [self.fetch_wrapper(task, xr_array=xr_array) for task in async_tasks]
-
-        await gather_with_concurrency(
-            coros,
-            max_workers=resolve_async_workers(self._async_workers, len(coros)),
-            task_timeout=120.0,
-            desc="Fetching HRRR data",
-            verbose=(not self._verbose),
-        )
-
+        self._validate_time([as_datetime(t) for t in sample_coords(jobs)])
+        await self._fetch_jobs(stat_groups, jobs, forecast=False)
         if stat_groups:
-            # Analysis windows reduce the analysis fields of earlier valid times
-            jobs = analysis_jobs(
-                stat_groups, time, self.time_step, xr_array.values[:, 0]
-            )
-            self._validate_time([as_datetime(t) for t in sample_coords(jobs)])
-            await self._fetch_statistics(stat_groups, jobs, forecast=False)
             xr_array.attrs[E2S_STATISTICS] = statistic_attrs(stat_groups)
 
         xr_array = xr_array.isel(lead_time=0)
         del xr_array.coords["lead_time"]
         return xr_array
-
-    async def _create_tasks(
-        self, time: list[datetime], lead_time: list[timedelta], variable: list[str]
-    ) -> list[HRRRAsyncTask]:
-        """Create download tasks, each corresponding to one grib byte range
-
-        Parameters
-        ----------
-        times : list[datetime]
-            Timestamps to be downloaded (UTC).
-        variables : list[str]
-            List of variables to be downloaded.
-
-        Returns
-        -------
-        list[dict]
-            List of download tasks
-        """
-        tasks: list[HRRRAsyncTask] = []  # group pressure-level variables
-
-        # Start with fetching all index files for each time / lead time
-        # TODO: Update so only needed products (can tell from parsing variables), for
-        # now fetch all index files because its cheap and easier
-        products = ["wrfsfc", "wrfprs", "wrfnat"]
-        args = [
-            self._grib_index_uri(t, lt, p)
-            for t in time
-            for lt in lead_time
-            for p in products
-        ]
-        index_coros = [self._fetch_index(uri) for uri in args]
-        results = await gather_with_concurrency(
-            index_coros,
-            max_workers=resolve_async_workers(self._async_workers, len(index_coros)),
-            task_timeout=60.0,
-            desc="Fetching HRRR index files",
-            verbose=True,
-        )
-        for i, t in enumerate(time):
-            for j, lt in enumerate(lead_time):
-                # Get index file dictionaries for each possible product
-                index_files = {p: results.pop(0) for p in products}
-                for k, v in enumerate(variable):
-                    found = self._lookup_record(index_files, v, t, lt)
-                    if found is None:
-                        continue
-                    product, byte_offset, byte_length, modifier = found
-                    tasks.append(
-                        HRRRAsyncTask(
-                            data_array_indices=(i, j, k),
-                            hrrr_file_uri=self._grib_uri(t, lt, product),
-                            hrrr_byte_offset=byte_offset,
-                            hrrr_byte_length=byte_length,
-                            hrrr_modifier=modifier,
-                        )
-                    )
-        return tasks
 
     def _lookup_record(
         self,
@@ -511,13 +418,13 @@ class HRRR:
             return None
         return product, byte_offset, byte_length, modifier
 
-    async def _fetch_statistics(
+    async def _fetch_jobs(
         self,
         groups: list[StatisticGroup],
         jobs: list[StatisticJob],
         forecast: bool,
     ) -> None:
-        """Run statistic jobs, reducing each grib field as soon as it is decoded.
+        """Fetch shared samples, copying plain fields and reducing statistics in place.
 
         Parameters
         ----------
@@ -575,31 +482,11 @@ class HRRR:
         await run_statistic_jobs(
             jobs,
             fetch_sample,
-            desc="Fetching HRRR statistic samples",
+            desc="Fetching HRRR data",
             verbose=self._verbose,
             async_workers=self._async_workers,
             task_timeout=120.0,
         )
-
-    async def fetch_wrapper(
-        self,
-        task: HRRRAsyncTask,
-        xr_array: xr.DataArray,
-    ) -> xr.DataArray:
-        """Small wrapper to pack arrays into the DataArray"""
-        out = await async_retry(
-            self.fetch_array,
-            task.hrrr_file_uri,
-            task.hrrr_byte_offset,
-            task.hrrr_byte_length,
-            task.hrrr_modifier,
-            retries=self._retries,
-            backoff=1.0,
-            task_timeout=60.0,
-            exceptions=(OSError, IOError, TimeoutError, ConnectionError),
-        )
-        i, j, k = task.data_array_indices
-        xr_array[i, j, k] = out
 
     async def fetch_array(
         self,
@@ -1008,35 +895,12 @@ class HRRR_FX(HRRR):
         xr_array["hrrr_y"].attrs = {"standard_name": "latitude", "axis": "Y"}
         xr_array["hrrr_x"].attrs = {"standard_name": "longitude", "axis": "X"}
 
-        plain_names = [name for _, name in plain]
-        async_tasks = (
-            await self._create_tasks(time, lead_time, plain_names)
-            if plain_names
-            else []
+        jobs = forecast_jobs(
+            stat_groups, time, lead_time, self.time_step, xr_array.values, plain
         )
-        slots = [slot for slot, _ in plain]
-        for task in async_tasks:
-            i, j, k = task.data_array_indices
-            task.data_array_indices = (i, j, slots[k])
-        coros = [self.fetch_wrapper(task, xr_array=xr_array) for task in async_tasks]
-
-        await gather_with_concurrency(
-            coros,
-            max_workers=resolve_async_workers(self._async_workers, len(coros)),
-            task_timeout=120.0,
-            desc="Fetching HRRR data",
-            verbose=(not self._verbose),
-        )
-
+        self._validate_leadtime(time, [as_timedelta(lt) for lt in sample_coords(jobs)])
+        await self._fetch_jobs(stat_groups, jobs, forecast=True)
         if stat_groups:
-            # Forecast windows reduce hourly fields at earlier/later lead times
-            jobs = forecast_jobs(
-                stat_groups, time, lead_time, self.time_step, xr_array.values
-            )
-            lead_samples = [as_timedelta(lt) for lt in sample_coords(jobs)]
-            for t in time:
-                self._validate_leadtime([t], lead_samples)
-            await self._fetch_statistics(stat_groups, jobs, forecast=True)
             xr_array.attrs[E2S_STATISTICS] = statistic_attrs(stat_groups)
 
         return xr_array

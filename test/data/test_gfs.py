@@ -17,7 +17,6 @@
 import asyncio
 import pathlib
 import shutil
-from contextlib import ExitStack
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
@@ -25,7 +24,6 @@ import numpy as np
 import pytest
 
 from earth2studio.data import GFS, GFS_FX
-from earth2studio.lexicon import GFSLexicon
 
 
 @pytest.mark.slow
@@ -362,19 +360,16 @@ def test_gfs_fx_call_mock(tmp_path, monkeypatch):
 def test_gfs_fx_tp_uses_accumulation_window(record_number):
     fake_index = {f"{record_number}::APCP::surface::6-7 hour acc fcst": (100, 10)}
     ds = GFS_FX(cache=False, verbose=False)
-    with patch.object(ds, "_fetch_index", AsyncMock(return_value=fake_index)):
-        [task] = asyncio.run(
-            ds._create_tasks([datetime(2021, 1, 1)], [timedelta(hours=7)], ["tp"])
-        )
-    _, modifier = GFSLexicon["tp"]
-    assert (task.gfs_byte_offset, task.gfs_byte_length) == (100, 10)
+    offset, length, modifier = ds._lookup_record(
+        fake_index, "tp", datetime(2021, 1, 1), timedelta(hours=7)
+    )
+    assert (offset, length) == (100, 10)
     assert modifier(np.array(1000.0)) == 1.0
 
 
 @pytest.mark.timeout(15)
 def test_gfs_missing_variable_mock(tmp_path, monkeypatch):
-    # If the requested variable is absent from the .idx, _create_tasks warns
-    # and skips it, so the output slot must remain detectably missing.
+    # An absent variable leaves the output slot detectably missing.
     monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
 
     # Index only has t2m; z500 is missing on purpose.
@@ -401,81 +396,58 @@ def test_gfs_missing_variable_mock(tmp_path, monkeypatch):
     assert np.isnan(data.sel(variable="z500").values).all()
 
 
-def _gfs_mock_value(uri: str) -> float:
-    """Hours since 2024-01-01T00 of the valid time encoded in a GFS grib URI."""
-    day, cycle = uri.split("gfs.")[1].split("/")[:2]
-    lead = int(uri.rsplit(".f", 1)[1])
-    base = datetime.strptime(day, "%Y%m%d") - datetime(2024, 1, 1)
-    return base.total_seconds() / 3600 + int(cycle) + lead
-
-
-def _gfs_stats_mocks(ds, tmp_path, index_calls):
-    """Patch a GFS source so each grib file decodes to its valid time in hours."""
-
-    async def _fake_fetch_index(uri):
-        index_calls.append(uri)
-        return {"1::TMP::2 m above ground": (0, 65300)}
-
-    async def _fake_fetch_remote_file(uri, *args, **kwargs):
-        return uri
-
-    def _decode(uri):
-        return np.full((721, 1440), _gfs_mock_value(uri), dtype=np.float32)
-
-    ds.store = object()
-    stack = ExitStack()
-    stack.enter_context(
-        patch.object(ds, "_async_init", new=AsyncMock(return_value=None))
-    )
-    stack.enter_context(patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index))
-    stack.enter_context(
-        patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file)
-    )
-    stack.enter_context(
-        patch("earth2studio.data.gfs.decode_grib_message", side_effect=_decode)
-    )
-    return stack
-
-
 @pytest.mark.timeout(30)
-def test_gfs_time_statistics_mock(tmp_path, monkeypatch):
-    """GFS reduces extra analysis times natively (mean/sum/max/min)."""
-    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
-    index_calls: list[str] = []
+def test_gfs_time_statistics_mock(mock_statistic_grib):
     ds = GFS(source="aws", cache=True, verbose=True)
     variables = ["t2m", "t2m:mean:12h", "t2m:sum:12h", "t2m:max:12h", "t2m:min:12h"]
-    with _gfs_stats_mocks(ds, tmp_path, index_calls):
-        data = ds(datetime(2024, 1, 2), variables)
+    index_calls = mock_statistic_grib(ds)
+    data = ds(datetime(2024, 1, 2), variables)
     # Window [-12h, 0h) holds the 6-hourly analyses at 12z (12h) and 18z (18h)
-    assert data.shape == (1, 5, 721, 1440)
+    assert data.shape == (1, 5, 2, 2)
     values = [float(data.sel(variable=v).values[0, 0, 0]) for v in variables]
     assert values == [24.0, 15.0, 30.0, 18.0, 12.0]
     assert set(data.attrs["earth2studio_statistics"]) == set(variables[1:])
     # Instantaneous plus the two extra analysis files, nothing else
     assert len(set(index_calls)) == 3
+    assert len(index_calls) == 3
+    from earth2studio.data.utils import fetch_data
+
+    data = fetch_data(
+        ds,
+        np.array(["2024-01-02"], dtype="datetime64[ns]"),
+        np.array(["TMP::2 m above ground"]),
+    )
+    assert data.values[0, 0, 0, 0, 0] == 24
+    mock_statistic_grib(ds, missing=(12,))
+    data = ds(datetime(2024, 1, 2), variables)
+    np.testing.assert_allclose(data.values[0, :, 0, 0], [24, 18, 18, 18, 18])
+    np.testing.assert_allclose(
+        data.values[0, :, 1, 0], [np.nan, np.nan, 0, np.nan, np.nan], equal_nan=True
+    )
 
 
 @pytest.mark.timeout(30)
-def test_gfs_fx_time_statistics_mock(tmp_path, monkeypatch):
-    """GFS_FX reduces extra hourly lead times natively, windows may look ahead."""
-    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
-    index_calls: list[str] = []
+def test_gfs_fx_time_statistics_mock(mock_statistic_grib):
     fx = GFS_FX(source="aws", cache=True, verbose=True)
-    variables = ["t2m", "t2m:mean:3h", "t2m:sum:+0h:+3h", "t2m:max:-2h:+0h"]
-    with _gfs_stats_mocks(fx, tmp_path, index_calls):
-        data = fx(
-            datetime(2024, 1, 1),
-            [timedelta(hours=6), timedelta(hours=7)],
-            variables,
-        )
-        # Window reaching before lead time 0 is rejected before any fetch
-        with pytest.raises(ValueError, match="lead time"):
-            fx(datetime(2024, 1, 1), [timedelta(hours=0)], ["t2m:mean:3h"])
-    assert data.shape == (1, 2, 4, 721, 1440)
+    variables = [
+        "t2m",
+        "t2m:mean:3h",
+        "t2m:sum:+0h:+3h",
+        "t2m:max:-2h:+0h",
+        "t2m:min:3h",
+    ]
+    index_calls = mock_statistic_grib(fx)
+    data = fx(datetime(2024, 1, 1), [timedelta(hours=6), timedelta(hours=7)], variables)
+    with pytest.raises(ValueError, match="lead time"):
+        fx(datetime(2024, 1, 1), [timedelta(hours=0)], ["t2m:mean:3h"])
+    assert data.shape == (1, 2, 5, 2, 2)
     # lead 6: mean(3,4,5)=4, sum(6,7,8)=21, max(4,5)=5; lead 7 is shifted by 1h
     np.testing.assert_allclose(
-        data.values[0, :, :, 0, 0], [[6, 4, 21, 5], [7, 5, 24, 6]]
+        data.values[0, :, :, 0, 0], [[6, 4, 21, 5, 3], [7, 5, 24, 6, 4]]
     )
     assert set(data.attrs["earth2studio_statistics"]) == set(variables[1:])
     # Leads 3..9 are each fetched once despite overlapping windows
     assert len(set(index_calls)) == 7
+    assert len(index_calls) == 7
+    np.testing.assert_allclose(data.values[0, :, 1, 0, 1], [4, 5])
+    np.testing.assert_allclose(data.values[0, :, 2, 0, 1], [14, 8])

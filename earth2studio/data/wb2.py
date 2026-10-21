@@ -547,6 +547,8 @@ class WB2Climatology(_WB2Base):
     region:global dataclass:reanalysis dataset:era5 product:wind product:precip product:temp product:atmos provider:google
     """
 
+    time_statistics: tuple[str, ...] = ()
+
     def __init__(
         self,
         climatology_zarr_store: ClimatologyZarrStore = "1990-2017_6h_1440x721.zarr",

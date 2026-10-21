@@ -130,34 +130,15 @@ def test_arco_deprecation_warning():
 
 
 @pytest.mark.timeout(30)
-def test_arco_time_statistics_mock(tmp_path, monkeypatch):
-    """ARCO_ERA5 streams hourly fields of each window into mean/sum/max/min."""
-    from unittest.mock import AsyncMock, patch
-
-    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
-    reads: list[int] = []
-
-    class FakeArray:
-        shape = (10**6, 721, 1440)
-
-        async def getitem(self, index):
-            reads.append(int(index))
-            return np.full((721, 1440), float(index), dtype=np.float32)
-
-    class FakeGroup:
-        async def get(self, name):
-            return FakeArray()
-
+def test_arco_time_statistics_mock(mock_statistic_zarr):
     ds = ARCO_ERA5(cache=True, verbose=True)
-    ds.zarr_group = FakeGroup()
-    ds.ml_zarr_group = FakeGroup()
+    reads = mock_statistic_zarr(ds)
     time = datetime.datetime(2024, 1, 2)
     index = ds._get_time_index(time)
     variables = ["t2m", "t2m:mean:6h", "t2m:sum:6h", "t2m:max:6h", "t2m:min:+1h:+4h"]
-    with patch.object(ds, "_async_init", new=AsyncMock(return_value=None)):
-        data = ds(time, variables)
+    data = ds(time, variables)
 
-    assert data.shape == (1, 5, 721, 1440)
+    assert data.shape == (1, 5, 2, 2)
     values = [float(data.sel(variable=v).values[0, 0, 0]) for v in variables]
     # Window [-6h, 0h) covers hourly fields index-6 .. index-1
     assert values == [

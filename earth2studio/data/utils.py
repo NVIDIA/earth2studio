@@ -80,7 +80,6 @@ from earth2studio.utils.time_statistics import (
     apply_time_statistic,
     source_lead_times,
     source_times,
-    statistic_offsets,
     time_statistic_metadata,
 )
 from earth2studio.utils.type import (
@@ -231,8 +230,12 @@ def _fetch_dataarray(
     # Group source variables by reduction, retaining their requested output labels.
     groups: dict[str | None, dict[str, str]] = {}
     native = tuple(getattr(source, "time_statistics", ()) or ())
+    if delta_t is not None and delta_t != getattr(source, "time_step", None):
+        native = ()
     for label in map(str, variable):
         source_variable, separator, parsed_modifier = label.partition(":")
+        if "::" in label:  # Raw GRIB identifiers are not statistic labels.
+            source_variable, separator = label, ""
         if not source_variable:
             raise ValueError("Variable name must not be empty")
         modifier = (
@@ -521,16 +524,12 @@ class RegriddedSource:
             raise TypeError("regridder must implement the Regridder protocol")
         self.source = source
         self.regridder = regridder
+        self.time_statistics = tuple(getattr(source, "time_statistics", ()) or ())
 
     @property
     def time_step(self) -> np.timedelta64 | None:
         """Cadence of the wrapped source, used for temporal statistics."""
         return getattr(self.source, "time_step", None)
-
-    @property
-    def time_statistics(self) -> tuple[str, ...]:
-        """Statistic methods the wrapped source computes natively."""
-        return tuple(getattr(self.source, "time_statistics", ()) or ())
 
     @property
     def is_forecast(self) -> bool:
@@ -1890,7 +1889,7 @@ def table_to_dataframe(
 # variable through its lexicon as usual and uses the helpers below to split the
 # request, plan the extra analysis times / lead times (via
 # earth2studio.utils.time_statistics), fold every sample into the output as it
-# arrives (streaming sum / mean / min / max, one field of memory per statistic) and
+# arrives (streaming sum / mean / min / max, plus valid counts for means) and
 # log what is averaged or accumulated in verbose mode.
 # --------------------------------------------------------------------------- #
 
@@ -1957,7 +1956,7 @@ def split_statistic_variables(
         base, separator, qualifier = str(label).partition(":")
         if not base:
             raise ValueError("Variable name must not be empty")
-        if not separator:
+        if not separator or "::" in label:
             plain.append((slot, str(label)))
             continue
         metadata = time_statistic_metadata(qualifier)
@@ -2000,14 +1999,14 @@ def statistic_attrs(groups: Sequence[StatisticGroup]) -> dict[str, Any]:
 class StatisticAggregator:
     """Streaming reduction of the samples in each target's window.
 
-    The reduction is written in place into ``out``, one slice per target, as samples
-    are added. Nothing but ``out`` is kept, so a window of ``n`` samples costs no
-    more memory than a single field regardless of ``n``.
+    Reductions write directly into ``out``; means also keep per-cell valid counts.
+    Memory usage is independent of the number of samples in a window. A ``None``
+    modifier copies instantaneous samples without reducing them.
 
     Parameters
     ----------
-    modifier : str
-        Statistic modifier, such as ``"mean:24h"``
+    modifier : str | None
+        Statistic modifier, such as ``"mean:24h"``, or None for plain samples
     targets : np.ndarray
         ``datetime64`` valid times (analysis source) or ``timedelta64`` lead times
         (forecast source) the statistic is evaluated at
@@ -2024,31 +2023,32 @@ class StatisticAggregator:
 
     def __init__(
         self,
-        modifier: str,
+        modifier: str | None,
         targets: np.ndarray,
         delta_t: np.timedelta64,
         out: np.ndarray,
     ) -> None:
-        metadata = time_statistic_metadata(modifier)
-        self.method = str(metadata["method"])
-        if self.method not in STREAMING_STATISTICS:
+        metadata = time_statistic_metadata(modifier) if modifier else {}
+        self.method = metadata.get("method")
+        if self.method is not None and self.method not in STREAMING_STATISTICS:
             raise ValueError(
                 f"Time statistic '{self.method}' cannot be streamed, "
                 f"supported: {STREAMING_STATISTICS}"
             )
-        self.modifier = str(metadata["modifier"])
+        self.modifier = metadata.get("modifier")
         targets = np.asarray(targets)
         if out.shape[:1] != targets.shape:
             raise ValueError("out must have one leading entry per target")
         self.targets = targets
         self.out = out
-        self.offsets = statistic_offsets(self.modifier, delta_t)
-
-        if np.issubdtype(targets.dtype, np.datetime64):
-            required = source_times(self.modifier, targets, delta_t)
+        if modifier is None:
+            required = targets[:, None]
+        elif np.issubdtype(targets.dtype, np.datetime64):
+            required = source_times(modifier, targets, delta_t)
         else:
-            required = source_lead_times(self.modifier, targets, delta_t)
+            required = source_lead_times(modifier, targets, delta_t)
         self.dtype = required.dtype
+        self.offsets = required[0] - targets[0]
         #: Unique coordinates (times or lead times) to fetch, ascending
         self.coords = np.unique(required)
 
@@ -2057,6 +2057,9 @@ class StatisticAggregator:
             for key in np.unique(row):
                 self._consumers.setdefault(int(key), []).append(index)
         self._seen: np.ndarray = np.zeros(len(targets), dtype=np.int64)
+        self._valid = (
+            np.zeros(out.shape, dtype=np.int64) if self.method == "mean" else None
+        )
 
     @property
     def n_samples(self) -> int:
@@ -2083,14 +2086,21 @@ class StatisticAggregator:
             key = int(np.asarray(coord, dtype=self.dtype).astype("int64"))
         for index in self._consumers[key]:
             target = self.out[index]
-            if self._seen[index] == 0:
+            if self.method is None:
                 target[...] = sample
             elif self.method in ("sum", "mean"):
-                target += sample
+                if self._seen[index] == 0:
+                    target.fill(0)
+                valid = ~np.isnan(sample)
+                np.add(target, sample, out=target, where=valid)
+                if self._valid is not None:
+                    self._valid[index] += valid
+            elif self._seen[index] == 0:
+                target[...] = sample
             elif self.method == "min":
-                np.minimum(target, sample, out=target)
+                np.fmin(target, sample, out=target)
             else:
-                np.maximum(target, sample, out=target)
+                np.fmax(target, sample, out=target)
             self._seen[index] += 1
 
     def finalize(self) -> None:
@@ -2106,8 +2116,9 @@ class StatisticAggregator:
                 f"Incomplete '{self.modifier}' windows: expected {self.n_samples} "
                 f"samples per target, received {self._seen.tolist()}"
             )
-        if self.method == "mean":
-            self.out /= self.n_samples
+        if self._valid is not None:
+            with np.errstate(invalid="ignore", divide="ignore"):
+                self.out /= self._valid
 
 
 @dataclass
@@ -2134,6 +2145,7 @@ def analysis_jobs(
     time: Sequence[Any],
     delta_t: np.timedelta64,
     values: np.ndarray,
+    plain: Sequence[tuple[int, str]] = (),
 ) -> list[StatisticJob]:
     """Plan statistic jobs of an analysis source with output ``(time, variable, ...)``.
 
@@ -2147,6 +2159,8 @@ def analysis_jobs(
         Cadence of the source
     values : np.ndarray
         Output array, written in place
+    plain : Sequence[tuple[int, str]], optional
+        Slots and names of instantaneous variables to copy into the output
 
     Returns
     -------
@@ -2156,10 +2170,14 @@ def analysis_jobs(
     targets = np.asarray(time, dtype="datetime64[ns]")
     return [
         StatisticJob(
-            base, StatisticAggregator(group.modifier, targets, delta_t, values[:, slot])
+            base, StatisticAggregator(modifier, targets, delta_t, values[:, slot])
         )
-        for group in groups
-        for slot, _, base in group.variables
+        for modifier, slot, base in [
+            (group.modifier, slot, base)
+            for group in groups
+            for slot, _, base in group.variables
+        ]
+        + [(None, slot, name) for slot, name in plain]
     ]
 
 
@@ -2169,6 +2187,7 @@ def forecast_jobs(
     lead_time: Sequence[Any],
     delta_t: np.timedelta64,
     values: np.ndarray,
+    plain: Sequence[tuple[int, str]] = (),
 ) -> list[StatisticJob]:
     """Plan statistic jobs of a forecast source, output ``(time, lead, variable, ...)``.
 
@@ -2184,6 +2203,8 @@ def forecast_jobs(
         Cadence of the source in lead time
     values : np.ndarray
         Output array, written in place
+    plain : Sequence[tuple[int, str]], optional
+        Slots and names of instantaneous variables to copy into the output
 
     Returns
     -------
@@ -2195,11 +2216,15 @@ def forecast_jobs(
     return [
         StatisticJob(
             base,
-            StatisticAggregator(group.modifier, targets, delta_t, values[i, :, slot]),
+            StatisticAggregator(modifier, targets, delta_t, values[i, :, slot]),
             context=t,
         )
-        for group in groups
-        for slot, _, base in group.variables
+        for modifier, slot, base in [
+            (group.modifier, slot, base)
+            for group in groups
+            for slot, _, base in group.variables
+        ]
+        + [(None, slot, name) for slot, name in plain]
         for i, t in enumerate(time)
     ]
 
@@ -2212,14 +2237,6 @@ def as_datetime(coord: Any) -> datetime:
 def as_timedelta(coord: Any) -> timedelta:
     """Convert a ``timedelta64`` sample coordinate to a ``timedelta``."""
     return pd.Timedelta(coord).to_pytimedelta()
-
-
-def _hashable(value: Any) -> Any:
-    return value if value is None else str(value)
-
-
-def _coord_key(coord: Any) -> int:
-    return int(np.asarray(coord).astype("int64"))
 
 
 def sample_coords(jobs: Sequence[StatisticJob]) -> np.ndarray:
@@ -2298,7 +2315,7 @@ async def run_statistic_jobs(
     consumers: dict[tuple[Any, Any, int], list[StatisticJob]] = {}
     for job in jobs:
         for coord in job.aggregator.coords:
-            key = (job.base, _hashable(job.context), _coord_key(coord))
+            key = (job.base, job.context, int(coord.astype("int64")))
             consumers.setdefault(key, []).append(job)
 
     async def _one(key: tuple[Any, Any, int]) -> None:
