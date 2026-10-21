@@ -1545,6 +1545,33 @@ def test_iasi_scale_groups_by_bounds(fake_bufr):
         iasi(groups, {16.0: 1000.0, 38.0: 1000.0})
 
 
+def test_satellite_footprint_time_and_location_are_checked(fake_bufr):
+    def decode(**fields):
+        batch = _sat_batch(
+            "atms", [T0], [1.0], lambda c: (1.0, 0.0, 250.0), fields=fields
+        )
+        fake_bufr["atms"] = _FakeBufr([batch])
+        day = timedelta(days=1)
+        return decode_satellite(
+            "atms", "atms", {"atms": "TMBR"}, T0 - day, T0 + day, channels=[1]
+        )
+
+    # 24:00:00 is midnight of the next day
+    previous = {
+        name: [value[0]]
+        for name, value in _time_parts([T0 - timedelta(days=1)]).items()
+    }
+    wide = decode(**{**previous, "HOUR": [24.0]})
+    assert wide["time"].to_pylist() == [pd.Timestamp(T0)]
+    missing = pa.array([None], type=pa.float64())
+    for fields in ({"HOUR": [24.0], "MINU": [1.0]}, {"MINU": missing}):
+        with pytest.raises(ValueError, match="time"):
+            decode(**fields)
+    for fields in ({"SAID": missing}, {"CLATH": [91.0]}, {"CLONH": missing}):
+        with pytest.raises(ValueError, match="SAID|latitude"):
+            decode(**fields)
+
+
 def test_airs_wavenumber_read_from_file(fake_bufr):
     # LOGRCW (log10 of the centre wavenumber in m⁻¹) of AIRS channels 1 and 2377
     log10_m = {1.0: 4.81265938, 2377.0: 5.42555671}

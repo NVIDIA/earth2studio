@@ -2682,6 +2682,29 @@ def _iasi_scale_factor(
     return np.power(10.0, -exponent)
 
 
+def _footprint_time_ns(parts: list[np.ndarray]) -> np.ndarray:
+    """Footprint times from YEAR..SECO; 24:00:00 is midnight of the next day.
+
+    Raises
+    ------
+    ValueError
+        If a part is missing, a calendar part is not an integer, or the time is out
+        of range
+    """
+    if not all(np.isfinite(part).all() for part in parts):
+        raise ValueError("satellite footprint time has missing parts")
+    if not all(np.array_equal(part, np.rint(part)) for part in parts[:5]):
+        raise ValueError("satellite footprint time has non-integer parts")
+    year, month, day, hour, minute, second = parts
+    midnight = (hour == 24) & (minute == 0) & (second == 0)
+    time_ns, ok = civil_time_ns(
+        year, month, day, np.where(midnight, 0.0, hour), minute, second
+    )
+    if not (ok & (second >= 0.0) & (second < 61.0)).all():
+        raise ValueError("satellite footprint time is out of range")
+    return time_ns + np.where(midnight, 86_400 * 10**9, 0)
+
+
 def _sat_batch(
     batch: pa.RecordBatch,
     sensor: str,
@@ -2695,26 +2718,16 @@ def _sat_batch(
 
     ``plan`` maps each requested variable to its BUFR field.
     """
-    parts = [_required_column(batch, name) for name in _SAT_TIME]
-    time_ns, time_ok = civil_time_ns(*parts)
-    for part in parts:
-        time_ok &= np.isfinite(part)
-    time_ok &= (parts[5] >= 0.0) & (parts[5] < 61.0)
+    time_ns = _footprint_time_ns([_required_column(batch, name) for name in _SAT_TIME])
     lat, lon = _footprint_latlon(batch)
     said = _required_column(batch, "SAID")
+    if not np.isfinite(said).all():
+        raise ValueError("satellite footprint has no SAID")
+    if not (np.isfinite(lon).all() and (np.abs(lat) <= 90.0).all()):
+        raise ValueError("satellite footprint latitude or longitude is missing or out of range")
     is_cris = sensor == "cris"
     position = _required_column(batch, "FORN" if is_cris else "FOVN")
-    keep = (
-        time_ok
-        & np.isfinite(said)
-        & (time_ns >= window_ns[0])
-        & (time_ns <= window_ns[1])
-        & np.isfinite(lat)
-        & np.isfinite(lon)
-        & (lat >= -90.0)
-        & (lat <= 90.0)
-        & np.isfinite(position)
-    )
+    keep = (time_ns >= window_ns[0]) & (time_ns <= window_ns[1]) & np.isfinite(position)
     said_codes, said_index = np.unique(
         np.where(np.isfinite(said), said, -1).astype(np.int64), return_inverse=True
     )
