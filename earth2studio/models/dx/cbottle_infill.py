@@ -394,6 +394,11 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             output_coords["lon"].shape[0],
         )
 
+        # Sea ice concentration is a fraction, diffusion sampling + regridding can
+        # overshoot so clamp to the physical range
+        sic_idx = int(np.where(output_coords["variable"] == "sic")[0][0])
+        output[..., sic_idx, :, :] = output[..., sic_idx, :, :].clamp(0.0, 1.0)
+
         return output, output_coords
 
     def get_cbottle_input(

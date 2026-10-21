@@ -327,7 +327,7 @@ def test_cbottle_package(device):
 
     # Check physical ranges
     vidx = np.where(out_coords["variable"] == "sic")[0]
-    assert (out[:, :, :, vidx] >= -0.1).all() and (out[:, :, :, vidx] <= 1.2).all()
+    assert (out[:, :, :, vidx] >= -0.1).all() and (out[:, :, :, vidx] <= 1.1).all()
     vidx = np.where(out_coords["variable"] == "u10m")[0]
     assert (out[:, :, :, vidx] >= -40).all() and (out[:, :, :, vidx] <= 40).all()
     vidx = np.where(out_coords["variable"] == "t2m")[0]
