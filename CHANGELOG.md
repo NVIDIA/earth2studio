@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added subseasonal-to-seasonal evaluation capability in the eval recipe. Added
   **`WindowMeanForecastPipeline`** in `src/pipelines/seasonal.py` and
   **`WindowMeanSource`** in `src/data.py`.
+- Added StormScope Flash variants of `StormScopeGOES` and `StormScopeMRMS` for accelerated
+  StormScope inference over CONUS domain, including crop-based inference.
 - Added HealDA v2 (`HealDAv2`), a global machine-learning data-assimilation model that
   maps a 48-hour sequence of satellite and conventional observations to a 104-channel,
   0.25° atmospheric analysis on a regular latitude-longitude grid (`da-healda-v2` extra).
@@ -26,6 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `NNJAObsSatwnd`, `NNJAObsSat`, `NomadsGDASObsConv`): the cycle of the file each row
   was decoded from, since an observation at a file's window edge can be in two files.
 - Added Google Cloud mirror via `source="google"` to ECMWF open-data sources.
+- Eval recipe: `scoring.online.verification_sources` scores one online rollout
+  against several named truth sources in a single pass, writing
+  `stats__<name>.zarr` and `scores__<name>.zarr` per reference.
 
 ### Changed
 
@@ -45,6 +50,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fewer rows.
 - `NNJAObsSat` skips sensors outside their archive years in a multi-sensor request
   instead of failing the whole request.
+- `CorrDiffCosmoEra5`: updated the Hugging Face checkpoint revision to pick up the
+  corrected `rea2/stats.json` (ERA5 training-domain statistics instead of global
+  statistics).
+- Honor custom ensemble dimension names in Brier score coordinate validation.
+- Correct the Energy Score ensemble reduction axis when multivariate
+  dimensions precede the ensemble dimension.
+- Fixed running variance and standard deviation when reducing non-leading or
+  multiple dimensions.
+- `Aurora1p5` and `Aurora1p5Ensemble`: `tp1h` and `sf1h` are no longer log-untransformed
+  a second time, which made hourly precipitation and snowfall about 1000 times too
+  small.
+- Fixed `ZarrBackend` and `IceChunkBackend` reopening stores containing
+  root-level subgroups.
 
 ### Security
 

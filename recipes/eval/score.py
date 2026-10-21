@@ -60,7 +60,7 @@ from loguru import logger
 from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
 from src.distributed import configure_logging, run_on_rank0_first
-from src.online import finalize_stats, online_enabled
+from src.online import finalize_online_stats, online_enabled
 from src.output import OutputManager
 from src.regions import events_to_attrs, parse_events
 from src.scoring import (
@@ -100,7 +100,7 @@ def main(cfg: DictConfig) -> None:
     # up newly-derived metrics without re-running inference.
     if online_enabled(cfg):
         if dist.rank == 0:
-            finalize_stats(cfg)
+            finalize_online_stats(cfg)
         if dist.distributed:
             torch.distributed.barrier()
         logger.success("Scoring finished (online mode: finalized stats.zarr).")

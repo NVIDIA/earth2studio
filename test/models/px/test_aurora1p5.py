@@ -49,8 +49,8 @@ class PhooAurora1p5Model(torch.nn.Module):
         surf = {k: v[:, -1:, ...] for k, v in batch.surf_vars.items()}
         # Add output-only vars that the real model produces but don't exist in input
         ref = next(iter(surf.values()))
-        for _e2s, aurora_name, _log in _OUTPUT_ONLY_SURF_VARS:
-            surf[aurora_name] = torch.zeros_like(ref)
+        for _e2s, aurora_name in _OUTPUT_ONLY_SURF_VARS:
+            surf[aurora_name] = torch.ones_like(ref)
         return Batch(
             surf_vars=surf,
             static_vars=batch.static_vars,
@@ -132,6 +132,7 @@ def test_aurora1p5_call(time, device):
     handshake_dim(out_coords, "variable", 2)
     handshake_dim(out_coords, "lead_time", 1)
     handshake_dim(out_coords, "time", 0)
+    assert (out[:, :, -len(_OUTPUT_ONLY_SURF_VARS) :] == 1).all()
 
 
 @pytest.mark.parametrize("ensemble", [1, 2])

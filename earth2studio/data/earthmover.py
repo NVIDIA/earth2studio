@@ -597,6 +597,10 @@ class EarthMoverERA5(_EarthMoverBase):
     groups from the ERA5 Marketplace repository. Arraylake-backed Earthmover
     sources require Python 3.12 or newer.
 
+    For a walkthrough of subscribing to a Marketplace listing, authenticating,
+    fetching data and writing output back to Arraylake, see the blog post
+    [Access Earthmover Marketplace Data with Earth2Studio](https://nvidia.github.io/earth2studio/blog/2026/10/05/earthmover-marketplace-data/).
+
     Additional information on the data repository can be referenced here:
 
     - https://app.earthmover.io/marketplace/6a19bcfe9aa6e97720a2fad2
@@ -751,6 +755,10 @@ class EarthMoverBrightBandIFS(_EarthMoverBase):
 
     Arraylake-backed Earthmover sources require Python 3.12 or newer.
 
+    For a walkthrough of subscribing to a Marketplace listing, authenticating,
+    fetching data and writing output back to Arraylake, see the blog post
+    [Access Earthmover Marketplace Data with Earth2Studio](https://nvidia.github.io/earth2studio/blog/2026/10/05/earthmover-marketplace-data/).
+
     Additional information on the data repository can be referenced here:
 
     - https://app.earthmover.io/marketplace/697162921880507a6587c31b
@@ -895,6 +903,10 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
       ``<EARTHMOVER_ORGANIZATION>/ecmwf-ifs-15-day-forecast-open-subscription``.
 
     Arraylake-backed Earthmover sources require Python 3.12 or newer.
+
+    For a walkthrough of subscribing to a Marketplace listing, authenticating,
+    fetching data and writing output back to Arraylake, see the blog post
+    [Access Earthmover Marketplace Data with Earth2Studio](https://nvidia.github.io/earth2studio/blog/2026/10/05/earthmover-marketplace-data/).
 
     Additional information on the data repository can be referenced here:
 
