@@ -290,7 +290,8 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         ----------
         conv_obs : pd.DataFrame | None, optional
             PrepBUFR and GPS-RO observations from
-            ``NNJAObsConv(original_event=True, layout="wide")``, by default None
+            ``NNJAObsConv(original_event=True, exclude_message_types=("SATWND",),
+            layout="wide")``, by default None
         satwnd_obs : pd.DataFrame | None, optional
             Satellite winds from ``NNJAObsSatwnd(layout="wide")``, by default None
         sat_obs : pd.DataFrame | None, optional

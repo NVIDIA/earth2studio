@@ -142,8 +142,8 @@ _NNJA_SAT_PRODUCTS: dict[str, _NNJASatProduct] = {
     "cris": _NNJASatProduct("cris/crisf4", "crisf4", 2018),
 }
 
-# Hyperspectral IR sounders share the aggregate cycle-file layout above but
-# decode through decode_ir_sounder rather than decode_microwave
+# Hyperspectral IR sounders share the aggregate cycle-file layout above; only
+# they take ``sensor_indices`` (a channel subset)
 _NNJA_IR_SENSORS = frozenset({"airs", "iasi", "cris"})
 
 # Valid platforms per IR sensor; every entry is also a member of
