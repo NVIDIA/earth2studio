@@ -383,10 +383,13 @@ def test_zarr_reopen_with_scalar_array(tmp_path: str) -> None:
         "crs", shape=(), dtype="int32", fill_value=0, dimension_names=()
     )
     assert z.root["crs"].metadata.dimension_names is None
+    z.root.create_group("diagnostics")
 
     z = ZarrBackend(file_name)
     assert set(z.coords) == {"lat", "lon"}
     assert "crs" in z
+    assert "diagnostics" in z.root
+    assert "diagnostics" not in z.coords
     assert z.chunks["lat"] == 4
     assert z.chunks["lon"] == 6
 
