@@ -198,7 +198,9 @@ it and `x` lacks it, then writes.
   `ProgressStore` are rank-local and are passed the rank where they need it. Idle
   ranks join every collective. A failing rank stops, closes its output and joins
   the final failure-flag reduction; it re-raises its error and the others raise
-  `RuntimeError`. A close failure counts as that rank's failure.
+  `RuntimeError`. A close failure counts as that rank's failure. Setup steps that
+  run on some ranks only, such as progress setup and store creation on rank 0,
+  reduce a failure flag the same way, so no rank waits on one that failed.
 
 ### Scorer
 
@@ -296,8 +298,8 @@ class ProgressStore:
 - **Listed once.** Only rank 0 calls `remaining`; `Pipeline` broadcasts it.
 
 `Pipeline` builds the manifest as JSON: `version` (`1`), `streams` (per stream:
-dims, non-spatial labels, grid ID and dtype), `seed` (`runner.seed` or `null`),
-and `tags`. The store merges its `tags` in, so a tag change is a mismatch. Model
+dims, non-spatial labels, grid ID and dtype, and whether it is written), `seed`
+(`runner.seed` or `null`), and `tags`. The store merges its `tags` in, so a tag change is a mismatch. Model
 identity is not detectable, so callers record it in `tags`.
 
 Progress and stores are cleared independently: overwriting a store but not its
@@ -375,8 +377,8 @@ optional runner capability built on `(y, state)` (open decision 3).
 ## Phasing
 
 1. **Done.** `Runner`, `WorkItem`, `DataRequest` and the built-in runners.
-2. **Pipeline.** Done: `run/work.py`, the runner follow-up and `run/output.py`.
-   Next: `run/pipeline.py`, then replace the eval `forecast`, `diagnostic` and
+2. **Pipeline.** Done: `run/work.py`, the runner follow-up, `run/output.py` and
+   `run/pipeline.py`. Next: replace the eval `forecast`, `diagnostic` and
    `dlesym` pipelines with built-in runners.
 3. **Coupled runner.** StormScope GOES and MRMS as Driver components, replacing
    the eval `stormscope` pipeline.
@@ -408,9 +410,11 @@ optional runner capability built on `(y, state)` (open decision 3).
 2. A hand-written runner stops early and returns `None` data requests —
    `dev/examples/06_runner.py`.
 3. `Pipeline` drives `PrognosticRunner` and `DiagnosticRunner` identically,
-   writing one store per stream; later, a coupled runner too.
+   writing one store per stream — `test/run/test_pipeline.py`; later, a coupled
+   runner too.
 4. A forced model (StormCast-shaped mock) and fused DLESyM run through
    `PrognosticRunner` unchanged.
 5. Split DLESyM through the coupled runner reproduces the fused model.
-6. Resume survives a world-size change — `torchrun`, two CPU ranks, gloo.
+6. Resume survives a world-size change — `torchrun`, two CPU ranks, gloo,
+   `test/run/test_pipeline.py`.
 7. The StormScope coupled runner matches the eval `stormscope` pipeline.
