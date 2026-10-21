@@ -741,7 +741,7 @@ def test_interpcrpsdit_iter(ensemble):
 
 @pytest.mark.package
 def test_interpcrpsdit_package():
-    # Real-weights smoke test (needs --package + a hosted default package + the interp-crps-dit extra;
+    # Real-weights smoke test (needs --package + the interp-crps-dit extra;
     # skipped otherwise). Loads the default package, builds a regional model, runs one real DiT forward.
     device = "cuda" if torch.cuda.is_available() else "cpu"
     package = InterpCRPSDiT.load_default_package()
