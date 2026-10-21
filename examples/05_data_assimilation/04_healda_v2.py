@@ -180,7 +180,9 @@ for col, var in enumerate(plot_vars):
     )
     for row, (title, values, style) in enumerate(panels):
         ax = axes[row, col]
-        im = ax.pcolormesh(lon, lat, values, transform=ccrs.PlateCarree(), **style)
+        im = ax.imshow(
+            values, extent=(0, 360, -90, 90), transform=ccrs.PlateCarree(), **style
+        )
         ax.coastlines(linewidth=0.5)
         ax.set_title(title)
         fig.colorbar(im, ax=ax, shrink=0.6)
