@@ -247,7 +247,8 @@ async def fetch(
 
 All other patterns from [e2s-004-data-sources.mdc](mdc:.cursor/rules/e2s-004-data-sources.mdc) still apply:
 
-- ✅ Common constructor parameters (`cache`, `verbose`, `async_timeout`)
+- ✅ Common constructor parameters (`cache`, `verbose`, `async_timeout`, `device`)
+- ✅ `device` keyword returning CuPy-backed DataArrays on CUDA devices
 - ✅ Cache property implementation
 - ✅ Available classmethod (if possible)
 - ✅ Async initialization pattern with `_async_init`

@@ -24,8 +24,8 @@ import torch
 import xarray as xr
 import zarr
 
-from earth2studio.data import GFS_FX, DataSource, ForecastSource
-from earth2studio.grids import ProjectedGrid, resolve_grid
+from earth2studio.data import DataSource, ForecastSource
+from earth2studio.grids import BilinearRegridder, ProjectedGrid, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
@@ -43,7 +43,6 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.interp import LatLonInterpolation
 from earth2studio.utils.type import CoordinateSystem
 
 try:
@@ -98,8 +97,9 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     - High-resolution land-sea mask and orography invariants
     - Coarse resolution (25km) global state (26 vars)
 
-    The high-resolution grid is the HRRR Lambert conformal projection
-    Coarse-resolution inputs are regridded to the HRRR grid internally.
+    The high-resolution grid is the HRRR Lambert conformal projection.
+    Coarse-resolution conditioning must arrive on that grid; the source recommended
+    by ``default_sources()`` regrids it there.
 
     Note
     ----
@@ -134,9 +134,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Standard deviations to normalize conditioning data, by default None
     conditioning_variables : np.array, optional
         Global variables for conditioning, by default np.array(CONDITIONING_VARIABLES)
-    conditioning_data_source : DataSource | ForecastSource | None, optional
-        Recommended data source for global conditioning, returned by ``default_sources``
-        (GFS when None). Not fetched by the model, by default None
     sampler_steps : int, optional
         Number of diffusion sampler steps, by default 36
     sampler_args : dict[str, float  |  int], optional
@@ -162,7 +159,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         conditioning_means: torch.Tensor | None = None,
         conditioning_stds: torch.Tensor | None = None,
         conditioning_variables: np.array = np.array(CONDITIONING_VARIABLES),
-        conditioning_data_source: DataSource | ForecastSource | None = None,
         sampler_steps: int = 18,
         sampler_args: dict[str, float | int] | None = None,
     ):
@@ -192,13 +188,10 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.lat = np.asarray(self.grid.coords()["lat"])
         self.lon = np.asarray(self.grid.coords()["lon"])
         self.hrrr_x, self.hrrr_y = self.grid.x, self.grid.y
-        self._conditioning_grid: tuple[np.ndarray, np.ndarray] | None = None
-        self._conditioning_interp: LatLonInterpolation | None = None
 
         self.variables = variables
 
         self.conditioning_variables = conditioning_variables
-        self.conditioning_data_source = conditioning_data_source
 
         if conditioning_means is not None:
             self.register_buffer("conditioning_means", conditioning_means)
@@ -265,7 +258,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_model(
         cls,
         package: Package,
-        conditioning_data_source: DataSource | ForecastSource = GFS_FX(),
         sampler_steps: int = 18,
     ) -> PrognosticModel:
         """Load prognostic from package
@@ -274,8 +266,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         package : Package
             Package to load model from
-        conditioning_data_source : DataSource | ForecastSource, optional
-            Data source to use for global conditioning, by default GFS_FX
         sampler_steps : int, optional
             Number of diffusion sampler steps, by default 18
 
@@ -344,7 +334,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             variables=variables,
             conditioning_means=conditioning_means,
             conditioning_stds=conditioning_stds,
-            conditioning_data_source=conditioning_data_source,
             conditioning_variables=conditioning_variables,
             sampler_steps=sampler_steps,
             sampler_args=sampler_args,
@@ -433,25 +422,29 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         -------
         CoordinateSystem
             Allocation-free conditioning signature at relative lead time zero.
-            The caller supplies regridded conditioning at each step's valid time.
+            The caller supplies conditioning on the model grid at each step's
+            valid time.
         """
         return coord_array_like(
             self.input_coords(), {"variable": self.conditioning_variables}
         )
 
     def default_sources(self) -> tuple[DataSource, DataSource | ForecastSource]:
-        """Recommend HRRR inputs and configured conditioning, defaulting to GFS.
+        """Recommend HRRR inputs and GFS conditioning on the model grid.
 
         Returns
         -------
         tuple[DataSource, DataSource | ForecastSource]
-            HRRR input source followed by the configured conditioning source,
-            or GFS when none was configured. Regridding remains caller-owned.
+            HRRR input source followed by GFS forecasts bilinearly regridded from
+            the global 0.25 degree grid onto the model grid. To condition on
+            another source, such as a global model's forecast, supply it to the
+            runner on the model grid, for example as a
+            :class:`~earth2studio.data.RegriddedSource`.
         """
-        from earth2studio.data import GFS, HRRR
+        from earth2studio.data import GFS_FX, HRRR, RegriddedSource
 
-        source = self.conditioning_data_source
-        return HRRR(), source if source is not None else GFS()
+        regridder = BilinearRegridder("latlon-0.25deg", self.grid)
+        return HRRR(), RegriddedSource(GFS_FX(), regridder)
 
     @torch.inference_mode()
     def _predict(

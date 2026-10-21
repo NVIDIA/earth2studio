@@ -158,21 +158,12 @@ def deterministic(
 
         # --8<-- [start:fetch-data]
         # Fetch data from data source and load onto device
-        if hasattr(prognostic, "interp_method"):
-            interp_to = prognostic_ic
-            interp_method = prognostic.interp_method
-        else:
-            interp_to = None
-            interp_method = "nearest"
-
         x = fetch_data(
             source=data,
             time=time,
             variable=prognostic_ic.coords["variable"].values,
             lead_time=prognostic_ic.coords["lead_time"].values,
             device=device,
-            target_grid=interp_to,
-            regridder=interp_method,
         )
 
         logger.success(f"Fetched data from {data.__class__.__name__}")
@@ -301,21 +292,12 @@ def diagnostic(
                     logger.success("\nInference complete")
                     return io
 
-        if hasattr(prognostic, "interp_method"):
-            interp_to = prognostic_ic
-            interp_method = prognostic.interp_method
-        else:
-            interp_to = None
-            interp_method = "nearest"
-
         x = fetch_data(
             source=data,
             time=time,
             variable=prognostic_ic.coords["variable"].values,
             lead_time=prognostic_ic.coords["lead_time"].values,
             device=device,
-            target_grid=interp_to,
-            regridder=interp_method,
         )
         logger.success(f"Fetched data from {data.__class__.__name__}")
 
@@ -417,21 +399,12 @@ def ensemble(
 
     prognostic_ic = cast(xr.DataArray, prognostic.input_coords())
     time = to_time_array(time)
-    if hasattr(prognostic, "interp_method"):
-        interp_to = prognostic_ic
-        interp_method = prognostic.interp_method
-    else:
-        interp_to = None
-        interp_method = "nearest"
-
     x0 = fetch_data(
         source=data,
         time=time,
         variable=prognostic_ic.coords["variable"].values,
         lead_time=prognostic_ic.coords["lead_time"].values,
         device=device,
-        target_grid=interp_to,
-        regridder=interp_method,
     )
     logger.success(f"Fetched data from {data.__class__.__name__}")
 
