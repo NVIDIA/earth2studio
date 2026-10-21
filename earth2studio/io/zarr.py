@@ -145,6 +145,24 @@ class ZarrBackend:
         return self.root.__iter__()
 
     # --8<-- [end:zarr-backend-read]
+
+    @property
+    def write_blocks(self) -> dict[str, int]:
+        """Largest chunk or shard extent per dimension over the stored data arrays.
+
+        A block is the smallest unit two writers can update independently, so
+        distributed writers must not share one.
+        """
+        blocks: dict[str, int] = {}
+        for name in self.root.array_keys():
+            if name in self._coordinate_names:
+                continue
+            array = self.root[name]
+            extents = array.shards or array.chunks
+            for dim, extent in zip(self._dims(array), extents):
+                blocks[str(dim)] = max(blocks.get(str(dim), 0), int(extent))
+        return blocks
+
     def add_array(self, template: xr.DataArray) -> None:
         """Create the arrays a template describes in the zarr group.
 
@@ -157,6 +175,8 @@ class ZarrBackend:
         template : xr.DataArray
             Concrete coordinate signature; field values are never read.
         """
+        # Another process may have added arrays since this backend opened the store
+        self._read_store_state(self.chunks)
         plan = plan_arrays(template, self._coordinate_variables())
         arrays, _ = self._layout()
         clashes = set(map(str, plan.coords)).intersection(arrays)
