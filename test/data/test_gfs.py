@@ -357,7 +357,7 @@ def test_gfs_call_mock(mock_statistic_grib):
 
 
 @pytest.mark.timeout(30)
-def test_gfs_fx_call_mock(mock_statistic_grib):
+def test_gfs_fx_call_mock(mock_statistic_grib, monkeypatch, tmp_path):
     fx = GFS_FX(source="aws", cache=True, verbose=True)
     variables = [
         "t2m",
@@ -418,3 +418,33 @@ def test_gfs_fx_call_mock(mock_statistic_grib):
     data = fx(datetime(2024, 1, 1), timedelta(hours=7), ["tp", "tp06", "msl"])
     assert data.sel(variable="tp").values[0, 0, 0, 0] == 0.007
     assert np.isnan(data.sel(variable=["tp06", "msl"]).values).all()
+    _check_shared_download(monkeypatch, tmp_path)
+
+
+def _check_shared_download(monkeypatch, tmp_path):
+    """Concurrent requests for one byte range share a single atomic download."""
+    import earth2studio.data.gfs as gfs_module
+
+    calls = []
+
+    async def fake_fetch(store, key, cache_dir, **kwargs):
+        calls.append((key, kwargs["byte_offset"], kwargs["atomic"]))
+        await asyncio.sleep(0.01)
+        return str(tmp_path / kwargs["cache_key"])
+
+    monkeypatch.setattr(gfs_module, "obstore_fetch_to_cache", fake_fetch)
+    ds = GFS_FX(source="aws", cache=False, verbose=False)
+    ds.store = object()
+
+    async def run():
+        args = ("noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f006", 4)
+        same = await asyncio.gather(
+            *[ds._fetch_remote_file(args[0], byte_offset=args[1]) for _ in range(4)]
+        )
+        other = await ds._fetch_remote_file(args[0], byte_offset=8)
+        return same, other
+
+    same, other = asyncio.run(run())
+    assert len(set(same)) == 1 and other not in same
+    assert [c[1:] for c in calls] == [(4, True), (8, True)]
+    assert not ds._inflight_downloads

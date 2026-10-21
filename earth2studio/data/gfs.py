@@ -131,6 +131,7 @@ class GFS:
         self._async_workers = async_workers
         self._retries = retries
         self._tmp_cache_hash: str | None = None
+        self._inflight_downloads: dict[str, asyncio.Future] = {}
 
         self.store: ObjectStore | None = None
         if source == "aws":
@@ -544,14 +545,28 @@ class GFS:
 
         # aws paths are bucket-prefixed; ncep paths are already store-relative
         key = path.removeprefix(self.GFS_BUCKET_NAME + "/")
-        return await obstore_fetch_to_cache(
-            self.store,
-            key,
-            self.cache,
-            byte_offset=byte_offset,
-            byte_length=byte_length,
-            cache_key=filename,
-        )
+
+        # Concurrent samples (e.g. tp06 at neighbouring leads) can request the same
+        # byte range. Share one in-flight download per cache file; the cache file
+        # itself is published atomically so readers never see a partial file.
+        inflight = self._inflight_downloads
+        task = inflight.get(filename)
+        if task is None:
+            task = asyncio.ensure_future(
+                obstore_fetch_to_cache(
+                    self.store,
+                    key,
+                    self.cache,
+                    byte_offset=byte_offset,
+                    byte_length=byte_length,
+                    cache_key=filename,
+                    atomic=True,
+                )
+            )
+            inflight[filename] = task
+            task.add_done_callback(lambda _t: inflight.pop(filename, None))
+        # shield so one cancelled/timed-out sample does not abort the shared download
+        return await asyncio.shield(task)
 
     def _grib_uri(self, time: datetime, lead_time: timedelta) -> str:
         """Generates the URI for GFS grib files"""
