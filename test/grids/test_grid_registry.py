@@ -114,6 +114,34 @@ def test_goes_grid_builtins(position, satellites):
     )
 
 
+def test_fci_grid_builtins():
+    from earth2studio.data import MeteosatFCI
+
+    grids = {res: resolve_grid(f"mtg-fci-fulldisk-{res}") for res in ("2km", "1km")}
+    for res, grid in grids.items():
+        # Labels are the source's scan angles, so source fields regrid unchanged.
+        np.testing.assert_array_equal(grid.y, MeteosatFCI.FCI_Y[res])
+        np.testing.assert_array_equal(grid.x, MeteosatFCI.FCI_X[res])
+    # Each 2 km pixel is the centre of a 2x2 block of 1 km pixels.
+    for axis in ("y", "x"):
+        fine, coarse = getattr(grids["1km"], axis), getattr(grids["2km"], axis)
+        np.testing.assert_allclose(fine.reshape(-1, 2).mean(1), coarse, atol=1e-9)
+
+    # Pixel (row, column): latitude and longitude of the StormScope package, which
+    # navigates FCI with sweep=y and a west-positive x scan angle.
+    grid = grids["2km"]
+    for (row, column), expected in {
+        (4880, 3072): (44.274174, 7.622921),
+        (5320, 2156): (62.918877, -28.507347),
+        (4420, 4156): (33.118618, 32.779476),
+    }.items():
+        coords = grid.coords({"y": grid.y[[row]], "x": grid.x[[column]]})
+        longitude = (coords["lon"].values.item() + 180) % 360 - 180
+        np.testing.assert_allclose(
+            (coords["lat"].values.item(), longitude), expected, atol=1e-5
+        )
+
+
 def test_observation_latlon_grid_builtins():
     from earth2studio.data import GOESGLMGrid
 

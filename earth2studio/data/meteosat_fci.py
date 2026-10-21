@@ -334,6 +334,11 @@ class MeteosatFCI:
     - https://data.eumetsat.int/product/EO:EUM:DAT:0662
     - https://user.eumetsat.int/resources/user-guides/mtg-fci-level-1c-data-guide
 
+    The full-disk grids are registered as ``mtg-fci-fulldisk-2km``,
+    ``mtg-fci-fulldisk-1km`` and ``mtg-fci-fulldisk-500m``, labelled by the scan
+    angles this source returns (see :func:`earth2studio.grids.resolve_grid`).
+    Their geographic coordinates follow FCI's ``sweep=y`` navigation.
+
     Badges
     ------
     region:eu region:af dataclass:observation product:sat provider:eumetsat
