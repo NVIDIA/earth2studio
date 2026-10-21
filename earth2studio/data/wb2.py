@@ -30,6 +30,7 @@ from loguru import logger
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
+    StatisticJob,
     _sync_async,
     analysis_jobs,
     as_datetime,
@@ -173,44 +174,23 @@ class _WB2Base:
             },
         )
 
-        args = [(t, i, v, j) for j, v in plain for i, t in enumerate(time)]
-        func_map = map(functools.partial(self.fetch_wrapper, xr_array=xr_array), args)
-
-        # Launch all fetch requests
-        await tqdm.gather(
-            *func_map, desc="Fetching WB2 data", disable=(not self._verbose)
-        )
-
-        if stat_groups:
-            await self._fetch_statistics(xr_array, time, stat_groups)
-        return xr_array
-
-    async def _fetch_statistics(
-        self,
-        xr_array: xr.DataArray,
-        time: list[datetime],
-        stat_groups: list,
-    ) -> None:
-        """Fill statistic variables by streaming the fields of each window.
-
-        Every field in a window is reduced into the output as soon as it is read,
-        so memory use does not grow with the window length.
-        """
-        jobs = analysis_jobs(stat_groups, time, self.time_step, xr_array.values)
+        jobs = analysis_jobs(stat_groups, time, self.time_step, xr_array.values, plain)
         # Validate the extra times before reading anything
         self._validate_time([as_datetime(t) for t in sample_coords(jobs)])
         log_statistics("WB2", stat_groups, jobs, self._verbose)
 
-        async def fetch_sample(job: Any, coord: Any) -> np.ndarray:
+        async def fetch_sample(job: StatisticJob, coord: Any) -> np.ndarray:
             return await self.fetch_array(as_datetime(coord), job.base)
 
         await run_statistic_jobs(
             jobs,
             fetch_sample,
-            desc="Fetching WB2 statistic samples",
+            desc="Fetching WB2 data",
             verbose=self._verbose,
         )
-        xr_array.attrs[E2S_STATISTICS] = statistic_attrs(stat_groups)
+        if stat_groups:
+            xr_array.attrs[E2S_STATISTICS] = statistic_attrs(stat_groups)
+        return xr_array
 
     async def fetch_wrapper(
         self,

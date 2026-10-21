@@ -60,7 +60,6 @@ def mock_statistic_grib(monkeypatch, tmp_path):
             monkeypatch.setattr(
                 ds, "grid", lambda: (np.zeros((2, 2)), np.zeros((2, 2)))
             )
-        ds.store = object()
 
         def hours(uri):
             day = re.search(r"(?:gfs|hrrr)\.(\d{8})", uri)[1]
@@ -74,17 +73,27 @@ def mock_statistic_grib(monkeypatch, tmp_path):
             calls.append(uri)
             value, lead = hours(uri)
             step = "anl" if lead == 0 else f"{lead} hour fcst"
-            return (
-                {}
-                if value in missing
-                else {f"1::TMP::2 m above ground::{step}": (0, 1)}
-            )
+            if value in missing:
+                return {}
+            records = {
+                f"1::TMP::2 m above ground::{step}": (0, 1),
+                f"2::HGT::500 mb::{step}": (1, 1),
+            }
+            if name == "gfs" and lead:
+                start = 6 * ((lead - 1) // 6)
+                records[f"3::APCP::surface::{start}-{lead} hour acc fcst"] = (2, 1)
+            return records
 
         async def remote(uri, **kwargs):
-            return uri
+            return uri, kwargs["byte_offset"]
 
-        def decode(uri):
-            value, _ = hours(uri)
+        def decode(record):
+            uri, offset = record
+            value, lead = hours(uri)
+            if offset == 2:
+                start = 6 * ((lead - 1) // 6)
+                # Hourly rainfall increases with lead, in kg/m2; buckets reset at 6h.
+                return np.full((2, 2), (lead * (lead + 1) - start * (start + 1)) / 2)
             return np.array([[value, np.nan if value % 2 else value], [np.nan, value]])
 
         monkeypatch.setattr(ds, "_fetch_index", index)

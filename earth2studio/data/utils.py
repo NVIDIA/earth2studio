@@ -25,7 +25,7 @@ import uuid
 from collections import OrderedDict
 from collections.abc import Awaitable, Callable, Collection, Sequence
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from inspect import signature
@@ -2131,13 +2131,13 @@ class StatisticJob:
         Lexicon variable whose instantaneous samples are reduced
     aggregator : StatisticAggregator
         Reducer writing into the output array
-    context : Any
-        Opaque value for the source, such as the forecast initialization time
+    init_time : datetime | None, optional
+        Forecast initialization time, or None for analysis jobs
     """
 
     base: str
     aggregator: StatisticAggregator
-    context: Any = field(default=None)
+    init_time: datetime | None = None
 
 
 def analysis_jobs(
@@ -2165,7 +2165,7 @@ def analysis_jobs(
     Returns
     -------
     list[StatisticJob]
-        One job per statistic variable, ``context`` unused
+        One job per statistic variable, with no initialization time
     """
     targets = np.asarray(time, dtype="datetime64[ns]")
     return [
@@ -2209,15 +2209,14 @@ def forecast_jobs(
     Returns
     -------
     list[StatisticJob]
-        One job per (initialization time, statistic variable), ``context`` being the
-        initialization time
+        One job per (initialization time, statistic variable)
     """
     targets = np.asarray(lead_time, dtype="timedelta64[ns]")
     return [
         StatisticJob(
             base,
             StatisticAggregator(modifier, targets, delta_t, values[i, :, slot]),
-            context=t,
+            init_time=as_datetime(t),
         )
         for modifier, slot, base in [
             (group.modifier, slot, base)
@@ -2310,12 +2309,12 @@ async def run_statistic_jobs(
         Timeout in seconds of each fetch
     """
 
-    # Jobs of one lexicon variable and context (e.g. the mean and max of t2m) share
+    # Jobs of one lexicon variable and initialization time share
     # samples: fetch each distinct field once and fold it into every consumer.
     consumers: dict[tuple[Any, Any, int], list[StatisticJob]] = {}
     for job in jobs:
         for coord in job.aggregator.coords:
-            key = (job.base, job.context, int(coord.astype("int64")))
+            key = (job.base, job.init_time, int(coord.astype("int64")))
             consumers.setdefault(key, []).append(job)
 
     async def _one(key: tuple[Any, Any, int]) -> None:

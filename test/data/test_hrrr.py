@@ -308,84 +308,6 @@ def test_hrrr_index_parser_max_byte_size(tmp_path):
 # ----------------------------------------------------------------------
 
 
-@pytest.mark.timeout(15)
-@pytest.mark.parametrize("source", ["aws", "google"])
-def test_hrrr_call_mock(source, tmp_path, monkeypatch):
-    """Exercise the full __call__ path using mocked index + grib decode.
-
-    The real (offline) store construction runs for both the aws (S3) and
-    google (GCS) sources; only the remote reads are mocked out.
-    """
-    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
-
-    fake_index = {
-        "1::TMP::2 m above ground::anl": (0, 65300),
-        "2::HGT::500 mb::anl": (65300, 31215),
-    }
-    fake_grid = np.random.rand(1059, 1799).astype(np.float32)
-
-    async def _fake_fetch_index(uri):
-        return fake_index
-
-    async def _fake_fetch_remote_file(*args, **kwargs):
-        return str(tmp_path / "ignored.grib2")
-
-    ds = HRRR(source=source, cache=True, verbose=False)
-
-    with (
-        patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
-        patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
-        patch("earth2studio.data.hrrr.decode_grib_message", return_value=fake_grid),
-    ):
-        data = ds(datetime(2024, 1, 1), ["t2m", "z500"])
-
-    # Store was built lazily for the requested source
-    assert isinstance(ds.store, S3Store if source == "aws" else GCSStore)
-    assert data.shape == (1, 2, 1059, 1799)
-    # t2m is identity, z500 multiplies HGT by 9.81 — both records used the
-    # same mock grid, so t2m matches the grid and z500 = grid * 9.81.
-    np.testing.assert_allclose(data.sel(variable="t2m").values[0], fake_grid)
-    np.testing.assert_allclose(
-        data.sel(variable="z500").values[0], fake_grid * 9.81, rtol=1e-6
-    )
-
-
-@pytest.mark.timeout(15)
-def test_hrrr_fx_call_mock(tmp_path, monkeypatch):
-    """Exercise the HRRR_FX __call__ path with multiple lead times."""
-    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
-
-    fake_index = {
-        "1::TMP::2 m above ground::anl": (0, 65300),
-        "2::TMP::2 m above ground::6 hour fcst": (65300, 65300),
-    }
-    fake_grid = np.random.rand(1059, 1799).astype(np.float32)
-
-    async def _fake_fetch_index(uri):
-        return fake_index
-
-    async def _fake_fetch_remote_file(*args, **kwargs):
-        return str(tmp_path / "ignored.grib2")
-
-    ds = HRRR_FX(source="aws", cache=True, verbose=False)
-
-    with (
-        patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
-        patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
-        patch("earth2studio.data.hrrr.decode_grib_message", return_value=fake_grid),
-    ):
-        data = ds(
-            datetime(2024, 1, 1),
-            [timedelta(hours=0), timedelta(hours=6)],
-            ["t2m", "z500"],
-        )
-
-    assert data.shape == (1, 2, 2, 1059, 1799)
-    for j in range(2):
-        np.testing.assert_allclose(data.sel(variable="t2m").values[0, j], fake_grid)
-    assert np.isnan(data.sel(variable="z500").values).all()
-
-
 @pytest.mark.timeout(10)
 def test_hrrr_special_variable_lookups():
     fake_index = {
@@ -437,11 +359,13 @@ def test_hrrr_missing_variable_mock(tmp_path, monkeypatch):
 
 
 @pytest.mark.timeout(30)
-def test_hrrr_time_statistics_mock(mock_statistic_grib):
-    ds = HRRR(source="aws", cache=True, verbose=True)
+@pytest.mark.parametrize("source", ["aws", "google"])
+def test_hrrr_call_mock(source, mock_statistic_grib):
+    ds = HRRR(source=source, cache=True, verbose=True)
     variables = ["t2m", "t2m:mean:3h", "t2m:sum:3h", "t2m:max:3h", "t2m:min:3h"]
     index_calls = mock_statistic_grib(ds)
     data = ds(datetime(2024, 1, 2), variables)
+    assert isinstance(ds.store, S3Store if source == "aws" else GCSStore)
     # Window [-3h, 0h) holds the hourly analyses at 21z, 22z and 23z (21..23 h)
     assert data.shape == (1, 5, 2, 2)
     values = [float(data.sel(variable=v).values[0, 0, 0]) for v in variables]
@@ -454,10 +378,12 @@ def test_hrrr_time_statistics_mock(mock_statistic_grib):
     np.testing.assert_allclose(
         data.values[0, :, 1, 0], [np.nan, np.nan, 0, np.nan, np.nan], equal_nan=True
     )
+    data = ds(datetime(2024, 1, 2), ["t2m", "z500"])
+    np.testing.assert_allclose(data.values[0, :, 0, 0], [24, 24 * 9.81])
 
 
 @pytest.mark.timeout(30)
-def test_hrrr_fx_time_statistics_mock(mock_statistic_grib):
+def test_hrrr_fx_call_mock(mock_statistic_grib):
     fx = HRRR_FX(source="aws", cache=True, verbose=True)
     variables = [
         "t2m",
@@ -480,3 +406,6 @@ def test_hrrr_fx_time_statistics_mock(mock_statistic_grib):
     assert len({u for u in index_calls if "wrfsfc" in u}) == 7
     assert len(index_calls) == 21
     np.testing.assert_allclose(data.values[0, :, 1, 0, 1], [4, 5])
+    data = fx(datetime(2024, 1, 1), [timedelta(0), timedelta(hours=6)], ["t2m", "msl"])
+    np.testing.assert_allclose(data.sel(variable="t2m").values[0, :, 0, 0], [0, 6])
+    assert np.isnan(data.sel(variable="msl").values).all()

@@ -153,6 +153,11 @@ def test_wb2era5_time_statistics_mock(mock_statistic_zarr, monkeypatch):
         ds(time, ["t2m:mean:9h"])
 
     reads.clear()
+    data = ds(time, ["t2m", "t2m:mean:+0h:+12h"])
+    np.testing.assert_allclose(data.values[0, :, 0, 0], [index, index + 0.5])
+    assert sorted(reads) == [index, index + 1]
+
+    reads.clear()
     data = fetch_data(
         ds,
         np.array([time], dtype="datetime64[ns]"),

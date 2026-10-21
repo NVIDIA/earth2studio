@@ -460,7 +460,9 @@ class HRRR:
 
         async def fetch_sample(job: StatisticJob, coord: Any) -> np.ndarray:
             if forecast:
-                t, lt = job.context, as_timedelta(coord)
+                if job.init_time is None:
+                    raise ValueError("Forecast jobs require an initialization time")
+                t, lt = job.init_time, as_timedelta(coord)
             else:
                 t, lt = as_datetime(coord), timedelta(hours=0)
             found = self._lookup_record(await get_indices(t, lt), job.base, t, lt)

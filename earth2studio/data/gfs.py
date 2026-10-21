@@ -91,9 +91,9 @@ class GFS:
 
     Note
     ----
-    This data source only fetches the initial state of GFS and does not fetch an
-    predicted time steps. See [`GFS_FX`][earth2studio.data.GFS_FX] for fetching predicted
-    data from this forecast system.
+    This data source fetches the initial state of GFS. The derived ``tp06`` variable
+    uses the preceding cycle's six-hour forecast accumulation ending at the requested
+    time, in metres. See [`GFS_FX`][earth2studio.data.GFS_FX] for forecast lead times.
 
     Note
     ----
@@ -307,7 +307,10 @@ class GFS:
                 return x
 
         lead_hour = int(lt.total_seconds() // 3600)
-        if v == "tp" and lead_hour > 0:
+        if v == "tp06":
+            # Only a matching six-hour record can satisfy this label directly.
+            gfs_name = f"{gfs_name}::{lead_hour - 6}-{lead_hour} hour acc fcst"
+        elif v == "tp" and lead_hour > 0:
             # GFS restarts precipitation accumulation every six hours. For
             # leads 1-6, duplicate descriptions resolve to the first (recent
             # accumulation window) record in the index.
@@ -347,7 +350,23 @@ class GFS:
         forecast : bool
             Whether the sample coordinates are lead times (True) or valid times
         """
+        for job in jobs:
+            if job.base != "tp06":
+                continue
+            if forecast:
+                if np.any(job.aggregator.coords < np.timedelta64(6, "h")):
+                    raise ValueError(
+                        "GFS tp06 requires forecast lead times of at least 6 hours"
+                    )
+            else:
+                self._validate_time(
+                    [as_datetime(t) - timedelta(hours=6) for t in job.aggregator.coords]
+                )
         log_statistics("GFS_FX" if forecast else "GFS", groups, jobs, self._verbose)
+        if self._verbose and any(job.base == "tp06" for job in jobs):
+            logger.info(
+                "GFS tp06: six-hour precipitation ending at each valid time, in metres"
+            )
         if self._verbose and any(
             job.base == "tp" and job.aggregator.method for job in jobs
         ):
@@ -364,12 +383,8 @@ class GFS:
                 indices[uri] = asyncio.ensure_future(self._fetch_index(uri))
             return await indices[uri]
 
-        async def fetch_sample(job: StatisticJob, coord: Any) -> np.ndarray:
-            if forecast:
-                t, lt = job.context, as_timedelta(coord)
-            else:
-                t, lt = as_datetime(coord), timedelta(hours=0)
-            found = self._lookup_record(await get_index(t, lt), job.base, t, lt)
+        async def fetch_field(t: datetime, lt: timedelta, base: str) -> np.ndarray:
+            found = self._lookup_record(await get_index(t, lt), base, t, lt)
             if found is None:
                 return np.full((len(self.GFS_LAT), len(self.GFS_LON)), np.nan)
             offset, length, modifier = found
@@ -384,6 +399,29 @@ class GFS:
                 task_timeout=60.0,
                 exceptions=(OSError, IOError, TimeoutError, ConnectionError),
             )
+
+        async def fetch_sample(job: StatisticJob, coord: Any) -> np.ndarray:
+            if forecast:
+                if job.init_time is None:
+                    raise ValueError("Forecast jobs require an initialization time")
+                t, lt = job.init_time, as_timedelta(coord)
+            else:
+                t, lt = as_datetime(coord), timedelta(hours=0)
+            if job.base != "tp06":
+                return await fetch_field(t, lt, job.base)
+            if not forecast:
+                # Analyses have no precipitation history: use the preceding cycle's
+                # complete six-hour forecast bucket ending at the requested time.
+                t, lt = t - timedelta(hours=6), timedelta(hours=6)
+            total = await fetch_field(t, lt, "tp")
+            hours = int(lt.total_seconds() // 3600)
+            boundary = 6 * ((hours - 1) // 6)
+            if hours % 6:
+                # E.g. at lead 7: P(6,7) + P(0,6) - P(0,1). Never sum
+                # overlapping buckets or replace a six-hour total with P(6,7).
+                total += await fetch_field(t, timedelta(hours=boundary), "tp")
+                total -= await fetch_field(t, lt - timedelta(hours=6), "tp")
+            return total
 
         await run_statistic_jobs(
             jobs,
@@ -596,6 +634,12 @@ class GFS_FX(GFS):
     grid. GFS is a weather forecast model developed by NOAA. This data source is on a
     0.25 degree lat lon grid at 6-hour intervals spanning from Feb 26th 2021 to present
     date. Each forecast provides hourly predictions up to 16 days (384 hours).
+
+    ``tp06`` is the trailing six-hour precipitation total in metres, reconstructed
+    across accumulation-bucket resets within the same forecast initialization.
+    All requested ``tp06`` sample lead times must be at least six hours. Temporal
+    statistics of ``tp06`` reduce these six-hour totals; overlapping totals in a
+    sum count overlapping precipitation more than once.
 
     Parameters
     ----------

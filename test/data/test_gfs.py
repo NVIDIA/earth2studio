@@ -282,79 +282,6 @@ def test_gfs_index_parser_max_byte_size(tmp_path):
 # ----------------------------------------------------------------------
 
 
-@pytest.mark.timeout(15)
-def test_gfs_call_mock(tmp_path, monkeypatch):
-    """Exercise the full __call__ path using mocked index + grib decode."""
-    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
-
-    fake_index = {
-        "1::TMP::2 m above ground": (0, 65300),
-        "2::HGT::500 mb": (65300, 31215),
-    }
-    fake_grid = np.random.rand(721, 1440).astype(np.float32)
-
-    async def _fake_fetch_index(uri):
-        return fake_index
-
-    async def _fake_fetch_remote_file(*args, **kwargs):
-        return str(tmp_path / "ignored.pgrb2")
-
-    ds = GFS(source="aws", cache=True, verbose=False)
-
-    with (
-        patch.object(ds, "_async_init", new=AsyncMock(return_value=None)),
-        patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
-        patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
-        patch("earth2studio.data.gfs.decode_grib_message", return_value=fake_grid),
-    ):
-        # Bypass real store by stubbing it to a truthy sentinel.
-        ds.store = object()  # type: ignore[assignment]
-        data = ds(datetime(2024, 1, 1), ["t2m", "z500"])
-
-    assert data.shape == (1, 2, 721, 1440)
-    # t2m is identity, z500 multiplies HGT by 9.81 — both records used the
-    # same mock grid, so t2m matches the grid and z500 = grid * 9.81.
-    np.testing.assert_allclose(data.sel(variable="t2m").values[0], fake_grid)
-    np.testing.assert_allclose(
-        data.sel(variable="z500").values[0], fake_grid * 9.81, rtol=1e-6
-    )
-
-
-@pytest.mark.timeout(15)
-def test_gfs_fx_call_mock(tmp_path, monkeypatch):
-    """Exercise the GFS_FX __call__ path with multiple lead times."""
-    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
-
-    fake_index = {"1::TMP::2 m above ground": (0, 65300)}
-    fake_grid = np.random.rand(721, 1440).astype(np.float32)
-
-    async def _fake_fetch_index(uri):
-        return fake_index
-
-    async def _fake_fetch_remote_file(*args, **kwargs):
-        return str(tmp_path / "ignored.pgrb2")
-
-    ds = GFS_FX(source="aws", cache=True, verbose=False)
-
-    with (
-        patch.object(ds, "_async_init", new=AsyncMock(return_value=None)),
-        patch.object(ds, "_fetch_index", side_effect=_fake_fetch_index),
-        patch.object(ds, "_fetch_remote_file", side_effect=_fake_fetch_remote_file),
-        patch("earth2studio.data.gfs.decode_grib_message", return_value=fake_grid),
-    ):
-        ds.store = object()  # type: ignore[assignment]
-        data = ds(
-            datetime(2024, 1, 1),
-            [timedelta(hours=0), timedelta(hours=6)],
-            ["t2m", "z500"],
-        )
-
-    assert data.shape == (1, 2, 2, 721, 1440)
-    for j in range(2):
-        np.testing.assert_allclose(data.sel(variable="t2m").values[0, j], fake_grid)
-    assert np.isnan(data.sel(variable="z500").values).all()
-
-
 @pytest.mark.timeout(10)
 @pytest.mark.parametrize("record_number", [450, 596])
 def test_gfs_fx_tp_uses_accumulation_window(record_number):
@@ -397,7 +324,7 @@ def test_gfs_missing_variable_mock(tmp_path, monkeypatch):
 
 
 @pytest.mark.timeout(30)
-def test_gfs_time_statistics_mock(mock_statistic_grib):
+def test_gfs_call_mock(mock_statistic_grib):
     ds = GFS(source="aws", cache=True, verbose=True)
     variables = ["t2m", "t2m:mean:12h", "t2m:sum:12h", "t2m:max:12h", "t2m:min:12h"]
     index_calls = mock_statistic_grib(ds)
@@ -418,6 +345,9 @@ def test_gfs_time_statistics_mock(mock_statistic_grib):
         np.array(["TMP::2 m above ground"]),
     )
     assert data.values[0, 0, 0, 0, 0] == 24
+    data = ds(datetime(2024, 1, 2), ["t2m", "z500", "tp06"])
+    np.testing.assert_allclose(data.values[0, :, 0, 0], [24, 24 * 9.81, 0.021])
+    assert list(data.coords["variable"].values) == ["t2m", "z500", "tp06"]
     mock_statistic_grib(ds, missing=(12,))
     data = ds(datetime(2024, 1, 2), variables)
     np.testing.assert_allclose(data.values[0, :, 0, 0], [24, 18, 18, 18, 18])
@@ -427,7 +357,7 @@ def test_gfs_time_statistics_mock(mock_statistic_grib):
 
 
 @pytest.mark.timeout(30)
-def test_gfs_fx_time_statistics_mock(mock_statistic_grib):
+def test_gfs_fx_call_mock(mock_statistic_grib):
     fx = GFS_FX(source="aws", cache=True, verbose=True)
     variables = [
         "t2m",
@@ -451,3 +381,40 @@ def test_gfs_fx_time_statistics_mock(mock_statistic_grib):
     assert len(index_calls) == 7
     np.testing.assert_allclose(data.values[0, :, 1, 0, 1], [4, 5])
     np.testing.assert_allclose(data.values[0, :, 2, 0, 1], [14, 8])
+
+    # True trailing totals at a complete bucket and across the reset at hour 6.
+    data = fx(
+        [datetime(2024, 1, 1), datetime(2024, 1, 1, 6)],
+        [timedelta(hours=h) for h in (6, 7, 11, 12, 13)],
+        ["tp", "tp06", "tp06:sum:+0h:+2h", "t2m"],
+    )
+    assert list(data.coords["variable"].values) == [
+        "tp",
+        "tp06",
+        "tp06:sum:+0h:+2h",
+        "t2m",
+    ]
+    np.testing.assert_allclose(
+        data.sel(variable="t2m").values[:, :, 0, 0],
+        [[6, 7, 11, 12, 13], [12, 13, 17, 18, 19]],
+    )
+    np.testing.assert_allclose(
+        data.sel(variable="tp").values[:, :, 0, 0],
+        [[0.021, 0.007, 0.045, 0.057, 0.013]] * 2,
+    )
+    np.testing.assert_allclose(
+        data.sel(variable="tp06").values[:, :, 0, 0],
+        [[0.021, 0.027, 0.051, 0.057, 0.063]] * 2,
+    )
+    np.testing.assert_allclose(
+        data.sel(variable="tp06:sum:+0h:+2h").values[:, :, 0, 0],
+        [[0.048, 0.060, 0.108, 0.120, 0.132]] * 2,
+    )
+    with pytest.raises(ValueError, match="at least 6 hours"):
+        fx(datetime(2024, 1, 1), timedelta(hours=5), "tp06")
+    with pytest.raises(ValueError, match="at least 6 hours"):
+        fx(datetime(2024, 1, 1), timedelta(hours=6), "tp06:mean:3h")
+    mock_statistic_grib(fx, missing=(6,))
+    data = fx(datetime(2024, 1, 1), timedelta(hours=7), ["tp", "tp06", "msl"])
+    assert data.sel(variable="tp").values[0, 0, 0, 0] == 0.007
+    assert np.isnan(data.sel(variable=["tp06", "msl"]).values).all()
