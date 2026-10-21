@@ -24,6 +24,8 @@ parts, and assemble Arrow columns without per-value Python work.
 
 from __future__ import annotations
 
+import functools
+import os
 from collections import deque
 from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor
@@ -73,6 +75,21 @@ PREPBUFR_OBS_TYPES: dict[int, str] = {
 
 _T = TypeVar("_T")
 _R = TypeVar("_R")
+
+# Fastest decode-pool size for the NNJA/GDAS pipeline on 16-112 cores
+_DEFAULT_DECODE_THREADS = 8
+
+
+@functools.cache
+def default_decode_threads() -> None:
+    """Size earth2bufr's decode pool once, unless ``EARTH2BUFR_NUM_THREADS`` is set."""
+    if "EARTH2BUFR_NUM_THREADS" in os.environ:
+        return
+    try:
+        cpus = len(os.sched_getaffinity(0))  # type: ignore[attr-defined]
+    except AttributeError:  # pragma: no cover - platform dependent
+        cpus = os.cpu_count() or 1
+    earth2bufr.set_num_threads(min(_DEFAULT_DECODE_THREADS, cpus))
 
 
 def open_bufr(path: str) -> Any:

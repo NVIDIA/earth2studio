@@ -114,6 +114,16 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
     denial windows, and footprints flagged by the provider quality columns of
     ``sat_obs``.
 
+    Recommended environment, set before Python starts:
+
+    - ``MALLOC_ARENA_MAX=16`` keeps host memory level over repeated analyses in one
+      process.
+    - ``PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`` avoids GPU out-of-memory
+      from fragmentation over repeated analyses.
+    - ``OMP_NUM_THREADS=1``.
+    - ``EARTH2STUDIO_CACHE`` on node-local storage reads faster than a network file
+      system.
+
     Parameters
     ----------
     model : healda.inference.DAModel

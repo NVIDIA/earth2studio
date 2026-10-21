@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import asyncio
+import os
 import shutil
 import time
 from datetime import datetime, timedelta
@@ -28,7 +29,13 @@ import pyarrow.compute as pc
 import pytest
 
 import earth2studio.data.nnja as nnja
-from earth2studio.data import NNJAObsConv, NNJAObsSat, NNJAObsSatwnd, utils_ncep
+from earth2studio.data import (
+    NNJAObsConv,
+    NNJAObsSat,
+    NNJAObsSatwnd,
+    utils_bufr,
+    utils_ncep,
+)
 from earth2studio.data.utils import radiance_to_bt
 from earth2studio.data.utils_ir import wavenumber_cm_inverse
 from earth2studio.data.utils_ncep import (
@@ -1427,3 +1434,21 @@ def test_nnja_layout_validation_and_wide_fields():
     ]
     with pytest.raises(KeyError):
         wide._output_fields(["observation"])
+
+
+def test_default_decode_threads_respects_env(monkeypatch):
+    calls = []
+    monkeypatch.setattr(utils_bufr.earth2bufr, "set_num_threads", calls.append)
+    expected = min(8, len(os.sched_getaffinity(0)))
+
+    monkeypatch.delenv("EARTH2BUFR_NUM_THREADS", raising=False)
+    utils_bufr.default_decode_threads.cache_clear()
+    utils_bufr.default_decode_threads()
+    utils_bufr.default_decode_threads()
+    assert calls == [expected]
+
+    monkeypatch.setenv("EARTH2BUFR_NUM_THREADS", "3")
+    utils_bufr.default_decode_threads.cache_clear()
+    utils_bufr.default_decode_threads()
+    assert calls == [expected]
+    utils_bufr.default_decode_threads.cache_clear()

@@ -239,9 +239,10 @@ class NNJAObsConv:
     async_workers : int, optional
         Maximum number of concurrent async fetch tasks, by default 24.
     decode_workers : int, optional
-        Number of threads transforming decoded BUFR batches. The BUFR decode
-        itself runs on earth2bufr's thread pool (``EARTH2BUFR_NUM_THREADS``),
-        by default 8.
+        Number of threads transforming decoded BUFR batches, by default 8.
+        Decoding runs on earth2bufr's process-wide thread pool. Unless
+        ``EARTH2BUFR_NUM_THREADS`` is set, the first fetch sets it to 8 threads,
+        the fastest setting measured on 16-112 cores.
     retries : int, optional
         Number of retry attempts per failed fetch task with exponential
         backoff, by default 3.
@@ -619,9 +620,10 @@ class NNJAObsSatwnd(NNJAObsConv):
     async_workers : int, optional
         Maximum number of concurrent async fetch tasks, by default 24.
     decode_workers : int, optional
-        Number of threads transforming decoded BUFR batches. The BUFR decode
-        itself runs on earth2bufr's thread pool (``EARTH2BUFR_NUM_THREADS``),
-        by default 8.
+        Number of threads transforming decoded BUFR batches, by default 8.
+        Decoding runs on earth2bufr's process-wide thread pool. Unless
+        ``EARTH2BUFR_NUM_THREADS`` is set, the first fetch sets it to 8 threads,
+        the fastest setting measured on 16-112 cores.
     retries : int, optional
         Number of retry attempts per failed fetch task with exponential
         backoff, by default 3.
@@ -788,9 +790,10 @@ class NNJAObsSat:
     async_workers : int, optional
         Maximum number of concurrent async fetch tasks, by default 8.
     decode_workers : int, optional
-        Number of threads transforming decoded BUFR batches. The BUFR decode
-        itself runs on earth2bufr's thread pool (``EARTH2BUFR_NUM_THREADS``),
-        by default 8.
+        Number of threads transforming decoded BUFR batches, by default 8.
+        Decoding runs on earth2bufr's process-wide thread pool. Unless
+        ``EARTH2BUFR_NUM_THREADS`` is set, the first fetch sets it to 8 threads,
+        the fastest setting measured on 16-112 cores.
     retries : int, optional
         Number of retry attempts per failed fetch task with exponential
         backoff, by default 3.

@@ -45,6 +45,7 @@ from earth2studio.data.utils_bufr import (
     constant_dictionary,
     constant_timestamp,
     datetime_ns,
+    default_decode_threads,
     dictionary_column,
     float_values,
     float_with_nulls,
@@ -1099,6 +1100,7 @@ def compile_tables(
     list[tuple[task, pa.Table]]
         Non-empty decoded tables in task order
     """
+    default_decode_threads()
     pieces: list[tuple[Any, pa.Table]] = []
     n_tasks = len(tasks)
     compile_t0 = time.perf_counter()
