@@ -251,9 +251,9 @@ class CorrDiffEra5HrrrDistilled(_ModuleBase):  # type: ignore[misc,valid-type]
 class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
     """Generative downscaling from 0.25-degree ERA5 to 3 km HRRR over CONUS.
 
-    A distilled 2-step generator of the same model (:class:`CorrDiffEra5HrrrDistilled`,
-    about 45x cheaper per member) ships in the same package; select it with
-    ``load_model(..., distilled_model=True)``.
+    By default :meth:`load_model` loads the distilled 2-step generator of the model
+    (:class:`CorrDiffEra5HrrrDistilled`); pass
+    ``load_model(..., distilled_model=False)`` for the 50-step teacher.
 
     Note
     ----
@@ -771,7 +771,7 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         seed: int | None = None,
         amp: bool | None = None,
         variant: Literal["x_pred"] = "x_pred",
-        distilled_model: bool = False,
+        distilled_model: bool = True,
     ) -> DiagnosticModel:
         """Load the model from a package.
 
@@ -798,8 +798,8 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             Whether to use the distilled model. If True, the wrapper loads the
             distilled few-step generator (``corrdiff-era5-hrrr-distil.mdlus`` in the
             same package), which generates members in 1 or 2 sampler steps
-            (``number_of_steps`` defaults to 2) at about 1/45 of the teacher's cost,
-            by default False
+            (``number_of_steps`` defaults to 2) at a fraction of the teacher's cost.
+            If False, it loads the teacher sampled with 50 Heun steps, by default True
 
         Returns
         -------
