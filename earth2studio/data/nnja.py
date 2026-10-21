@@ -51,7 +51,6 @@ from earth2studio.data.utils_bufr import BUFR_DEPENDENCY_KEY, PREPBUFR_OBS_TYPES
 from earth2studio.data.utils_ncep import (
     _DEFAULT_LAYOUT,
     _NCEP_CONVENTIONAL_WIDE_SCHEMA,
-    _NCEP_MICROWAVE_WIDE_SCHEMA,
     _NCEP_SATWND_WIDE_SCHEMA,
     NCEP_CONVENTIONAL_PUBLIC_SCHEMA,
     NCEP_MICROWAVE_OUTPUT_SCHEMA,
@@ -800,15 +799,17 @@ class NNJAObsSat:
         archived channel. By default None (all channels).
     layout : {"long", "wide"}, optional
         ``"long"`` returns one row per (footprint, channel) with the columns of
-        ``SCHEMA``. ``"wide"`` returns one row per footprint with the footprint
-        columns of ``SCHEMA`` and the per-channel values as fixed-size lists
-        over each sensor's channel axis (``sensor_indices[sensor]`` ascending,
-        else every archived channel): per sensor ``quality_<sensor>`` and per
-        variable ``observation_<variable>``, null on footprints of other
-        sensors and in a slot whose channel the footprint lacks.
+        ``SCHEMA``. ``"wide"`` returns one sensor per call, one row per
+        footprint: the footprint columns of ``SCHEMA`` that sensor fills and
+        its per-channel values as fixed-size lists over its channel axis
+        (``sensor_indices[sensor]`` ascending, else every archived channel),
+        ``quality`` and one ``observation_<variable>`` per variable, null in a
+        slot whose channel the footprint lacks.
         :func:`~earth2studio.data.utils_ncep.channel_axis` returns a frame's
-        axis; the wavenumber follows from the channel number. By default
-        "long".
+        axis; the wavenumber follows from the channel number. Request several
+        sensors concurrently, one call each, e.g.
+        ``asyncio.gather(*(source.fetch(time, [s]) for s in sensors))``; the
+        calls share the source's decode slots. By default "long".
 
     Warning
     -------
@@ -847,7 +848,6 @@ class NNJAObsSat:
 
     SOURCE_ID = "earth2studio.data.NNJAObsSat"
     SCHEMA = NCEP_MICROWAVE_OUTPUT_SCHEMA
-    _WIDE_SCHEMA = _NCEP_MICROWAVE_WIDE_SCHEMA
     LEXICON = NNJAObsSatLexicon
     MIN_DATE = datetime(1998, 1, 1)
     VALID_SATELLITES = NCEP_MICROWAVE_SATELLITES
@@ -911,9 +911,6 @@ class NNJAObsSat:
                 if len(normalized) != len(requested):
                     raise ValueError(f"sensor_indices[{sensor!r}] must be unique")
                 self._sensor_indices[sensor] = normalized
-        self._WIDE_SCHEMA = _sat_wide_schema(
-            {s: sorted(c) for s, c in self._sensor_indices.items()}
-        )
 
         self._verbose = verbose
         self._cache = cache
@@ -958,7 +955,7 @@ class NNJAObsSat:
         """Async function to get data."""
         time_list, variable_list = prep_data_inputs(time, variable)
         self._validate_time(time_list)
-        schema = self._output_fields(fields)
+        schema = self._output_fields(fields, variable_list)
 
         tasks = self._create_tasks(time_list, variable_list)
         uris = list(dict.fromkeys(task.uri for task in tasks))
@@ -1196,9 +1193,19 @@ class NNJAObsSat:
         """Resolve ``fields`` into a validated PyArrow schema subset."""
         return resolve_output_schema(cls.SCHEMA, fields, class_name=cls.__name__)
 
-    def _output_fields(self, fields: str | list[str] | pa.Schema | None) -> pa.Schema:
+    def _output_fields(
+        self, fields: str | list[str] | pa.Schema | None, variables: Sequence[str]
+    ) -> pa.Schema:
         if self._layout == "wide":
-            return resolve_output_schema(
-                self._WIDE_SCHEMA, fields, class_name=type(self).__name__
+            sensors = sorted(
+                {self.LEXICON.get_item(v)[0].split("::")[0] for v in variables}
             )
+            if len(sensors) != 1:
+                raise ValueError(
+                    'layout="wide" returns one sensor per call; request the variables '
+                    f"of one sensor, got sensors {sensors}. Fetch several sensors "
+                    "concurrently, e.g. asyncio.gather over fetch, one call each"
+                )
+            schema = _sat_wide_schema(sensors[0], self._sensor_indices.get(sensors[0]))
+            return resolve_output_schema(schema, fields, class_name=type(self).__name__)
         return self.resolve_fields(fields)

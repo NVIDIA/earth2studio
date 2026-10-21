@@ -707,8 +707,6 @@ SAT_VARIABLE_SENSOR: dict[str, str] = {
     variable: key.split("::")[0] for variable, key in NNJAObsSatLexicon.VOCAB.items()
 }
 SAT_SENSORS = tuple(dict.fromkeys(SAT_VARIABLE_SENSOR.values()))
-# Per-channel columns of a satellite footprint row besides the observations
-SAT_CHANNEL_COLUMNS = ("quality",)
 # Channel numbers each NNJA aggregate carries, ascending: the channel axis of a wide
 # satellite frame when no channels are requested. These are the channel sets of the
 # HealDA NNJA satellite archive, one per sensor over the whole record.
@@ -891,7 +889,6 @@ _NCEP_SATWND_WIDE_SCHEMA = pa.schema(
     ]
 )
 
-_SAT_CHANNEL_TYPES = {"quality": pa.uint32()}
 _CHANNELS_KEY = b"channels"
 _SENSOR_KEY = b"sensor"
 
@@ -923,49 +920,65 @@ def _field_channels(field: pa.Field) -> np.ndarray:
     )
 
 
-def _sat_wide_schema(channels: Mapping[str, Sequence[int]]) -> pa.Schema:
-    """Wide satellite schema over each sensor's channel axis: ``channels[sensor]``,
-    else ``SAT_CHANNELS[sensor]``."""
-    axes = {s: tuple(channels.get(s, SAT_CHANNELS[s])) for s in SAT_SENSORS}
+# Footprint columns only some sensors' templates fill: surface height (HOLS) for the
+# ATOVS sensors and CrIS, the nominal scan angle for the microwave sensors, the CrIS
+# detector, and each sensor's provider footprint flags
+_SAT_SENSOR_FOOTPRINT = {
+    "atms": ("scan_angle", "scan_quality", "granule_quality"),
+    "mhs": ("elev", "scan_angle"),
+    "amsua": ("elev", "scan_angle"),
+    "amsub": ("elev", "scan_angle"),
+    "airs": (),
+    "iasi": ("footprint_quality",),
+    "cris": ("elev", "detector", "scan_quality"),
+}
+
+
+def _sat_wide_schema(sensor: str, channels: Collection[int] | None = None) -> pa.Schema:
+    """Wide schema of one sensor: the shared footprint columns, the sensor's own
+    footprint columns, and ``quality`` and ``observation_<variable>`` over the channel
+    axis ``channels`` (ascending), else ``SAT_CHANNELS[sensor]``."""
+    axis = sorted(SAT_CHANNELS[sensor] if channels is None else channels)
+    others = {
+        name
+        for s, names in _SAT_SENSOR_FOOTPRINT.items()
+        if s != sensor
+        for name in names
+    } - set(_SAT_SENSOR_FOOTPRINT[sensor])
+    footprint = _fields(
+        NCEP_MICROWAVE_OUTPUT_SCHEMA,
+        ("sensor_index", "quality", "wavenumber", "observation", "variable", *others),
+    )
     return pa.schema(
         [
-            *_fields(
-                NCEP_MICROWAVE_OUTPUT_SCHEMA,
-                ("sensor_index", "quality", "wavenumber", "observation", "variable"),
+            *footprint,
+            _channel_field(
+                "quality",
+                pa.uint32(),
+                sensor,
+                axis,
+                f"{sensor} per-channel quality, one slot per channel",
             ),
-            *[
-                _channel_field(
-                    f"{name}_{sensor}",
-                    arrow_type,
-                    sensor,
-                    axes[sensor],
-                    f"{sensor} per-channel {name}, one slot per channel",
-                )
-                for sensor in SAT_SENSORS
-                for name, arrow_type in _SAT_CHANNEL_TYPES.items()
-            ],
             *[
                 _channel_field(
                     f"observation_{variable}",
                     pa.float32(),
                     sensor,
-                    axes[sensor],
+                    axis,
                     f"Observation of variable {variable!r}, one slot per channel",
                 )
-                for variable, sensor in SAT_VARIABLE_SENSOR.items()
+                for variable, variable_sensor in SAT_VARIABLE_SENSOR.items()
+                if variable_sensor == sensor
             ],
         ]
     )
 
 
-_NCEP_MICROWAVE_WIDE_SCHEMA = _sat_wide_schema({})
-
-
 def channel_axis(frame: pd.DataFrame, sensor: str) -> np.ndarray:
     """Channel numbers of the slots of a wide satellite frame's ``sensor`` columns.
 
-    In a ``layout="wide"`` :class:`~earth2studio.data.NNJAObsSat` frame,
-    ``observation_<variable>`` and ``quality_<sensor>`` hold one value per slot;
+    In a ``layout="wide"`` :class:`~earth2studio.data.NNJAObsSat` frame of
+    ``sensor``, ``observation_<variable>`` and ``quality`` hold one value per slot;
     slot ``i`` is channel ``channel_axis(frame, sensor)[i]``.
 
     Parameters
@@ -1092,66 +1105,45 @@ def _channel_wavenumber(
 
 
 def _explode_channels(table: pa.Table, variables: Sequence[str]) -> list[pa.Table]:
-    by_sensor: dict[str, list[str]] = {}
-    for variable in variables:
-        by_sensor.setdefault(SAT_VARIABLE_SENSOR[variable], []).append(variable)
-    channel_names = {
-        f"{name}_{sensor}" for sensor in SAT_SENSORS for name in SAT_CHANNEL_COLUMNS
-    }
+    sensors = {SAT_VARIABLE_SENSOR[v] for v in variables}
+    if len(sensors) != 1:
+        raise ValueError(f"a wide satellite table holds one sensor, got {sensors}")
+    (sensor,) = sensors
     footprint = [
-        name
-        for name in _drop_wide(table, SAT_VARIABLE_SENSOR)
-        if name not in channel_names
+        name for name in _drop_wide(table, SAT_VARIABLE_SENSOR) if name != "quality"
     ]
-    parts = []
-    for sensor, sensor_variables in by_sensor.items():
-        rows = table
-        first = table.column(f"observation_{sensor_variables[0]}")
-        if first.null_count:
-            rows = table.filter(pc.is_valid(first))
-        if rows.num_rows == 0:
-            continue
-        channels = _field_channels(
-            table.schema.field(f"observation_{sensor_variables[0]}")
-        )
-        observations = [
-            _single_chunk(rows.column(f"observation_{v}")) for v in sensor_variables
-        ]
-        n_var = len(sensor_variables)
-        per_entry = np.repeat(np.arange(len(channels)), n_var)
-        n_slots = rows.num_rows * len(channels)
-        index = np.repeat(np.arange(rows.num_rows), len(channels) * n_var)
-        columns = {name: rows.column(name).take(index) for name in footprint}
-        columns["sensor_index"] = pa.array(
-            np.tile(channels[per_entry], rows.num_rows), type=pa.uint16()
-        )
-        wavenumber = _channel_wavenumber(sensor, channels, table)
-        if wavenumber is not None:
-            columns["wavenumber"] = pa.array(
-                np.tile(wavenumber[per_entry], rows.num_rows)
-            )
-        for name in SAT_CHANNEL_COLUMNS:
-            column_name = f"{name}_{sensor}"
-            if column_name in rows.column_names:
-                values = pc.list_flatten(_single_chunk(rows.column(column_name)))
-                if n_var > 1:
-                    values = values.take(
-                        np.repeat(np.arange(len(values), dtype=np.int64), n_var)
-                    )
-                columns[name] = values
-        flat = [pc.list_flatten(obs) for obs in observations]
-        if n_var > 1:
-            stacked = np.stack(
-                [v.to_numpy(zero_copy_only=False) for v in flat], axis=1
-            ).ravel()
-            columns["observation"] = float_with_nulls(stacked, pa.float32())
-            codes = np.tile(np.arange(n_var, dtype=np.int8), n_slots)
-            columns["variable"] = dictionary_column(codes, list(sensor_variables))
-        else:
-            columns["observation"] = flat[0]
-            columns["variable"] = constant_dictionary(sensor_variables[0], n_slots)
-        parts.append(pa.table(columns))
-    return parts
+    channels = _field_channels(table.schema.field(f"observation_{variables[0]}"))
+    n_var = len(variables)
+    n_rows = table.num_rows
+    per_entry = np.repeat(np.arange(len(channels)), n_var)
+    n_slots = n_rows * len(channels)
+    index = np.repeat(np.arange(n_rows), len(channels) * n_var)
+    columns = {name: table.column(name).take(index) for name in footprint}
+    columns["sensor_index"] = pa.array(
+        np.tile(channels[per_entry], n_rows), type=pa.uint16()
+    )
+    wavenumber = _channel_wavenumber(sensor, channels, table)
+    if wavenumber is not None:
+        columns["wavenumber"] = pa.array(np.tile(wavenumber[per_entry], n_rows))
+    quality = pc.list_flatten(_single_chunk(table.column("quality")))
+    if n_var > 1:
+        quality = quality.take(np.repeat(np.arange(len(quality)), n_var))
+    columns["quality"] = quality
+    flat = [
+        pc.list_flatten(_single_chunk(table.column(f"observation_{v}")))
+        for v in variables
+    ]
+    if n_var > 1:
+        stacked = np.stack(
+            [v.to_numpy(zero_copy_only=False) for v in flat], axis=1
+        ).ravel()
+        columns["observation"] = float_with_nulls(stacked, pa.float32())
+        codes = np.tile(np.arange(n_var, dtype=np.int8), n_slots)
+        columns["variable"] = dictionary_column(codes, list(variables))
+    else:
+        columns["observation"] = flat[0]
+        columns["variable"] = constant_dictionary(variables[0], n_slots)
+    return [pa.table(columns)]
 
 
 def _conform(parts: list[pa.Table], schema: pa.Schema) -> pa.Table:
@@ -1225,9 +1217,18 @@ def map_aircraft_profile_types(table: pa.Table) -> pa.Table:
     )
 
 
-# Files decoded at once by compile_tables; each also runs earth2bufr's threads and
-# decode_workers batch threads
+# Files decoded at once per source, shared by all its instances and calls; each also
+# runs earth2bufr's threads and decode_workers batch threads
 _FILES_IN_FLIGHT = 2
+_DECODE_SLOTS: dict[str, threading.BoundedSemaphore] = {}
+_DECODE_SLOTS_LOCK = threading.Lock()
+
+
+def _decode_slots(source_id: str) -> threading.BoundedSemaphore:
+    with _DECODE_SLOTS_LOCK:
+        return _DECODE_SLOTS.setdefault(
+            source_id, threading.BoundedSemaphore(_FILES_IN_FLIGHT)
+        )
 
 
 def compile_tables(
@@ -1267,6 +1268,7 @@ def compile_tables(
         Non-empty decoded tables in task order
     """
     default_decode_threads()
+    slots = _decode_slots(source_id)
     pieces: list[tuple[Any, pa.Table]] = []
     n_tasks = len(tasks)
     compile_t0 = time.perf_counter()
@@ -1278,12 +1280,14 @@ def compile_tables(
                 pass
         if not pathlib.Path(path).is_file():
             return None, 0.0
-        t0 = time.perf_counter()
         try:
-            table = decode_task(path, task)
+            with slots:
+                t0 = time.perf_counter()
+                table = decode_task(path, task)
+                seconds = time.perf_counter() - t0
             if len(task.intervals) > 1:
                 table = filter_to_intervals(table, task.intervals)
-            return table, time.perf_counter() - t0
+            return table, seconds
         except Exception as exc:
             return exc, 0.0
 
@@ -2688,7 +2692,7 @@ def _sat_batch(
             _column(batch, "QGFQ") if sensor == "iasi" else None, pa.uint8()
         ),
         "satellite": dictionary_column(said_index[kept].astype(np.int8), names),
-        f"quality_{sensor}": rows.lists(uint_with_nulls(quality, pa.uint32())),
+        "quality": rows.lists(uint_with_nulls(quality, pa.uint32())),
     }
     for variable, values_ in observations.items():
         columns[f"observation_{variable}"] = rows.lists(
@@ -2710,10 +2714,10 @@ def decode_satellite(
     """Decode an NCEP aggregate satellite file into a wide table, one row per footprint.
 
     Per-channel values are fixed-size lists over the channel axis, ``channels`` in
-    ascending order or else ``SAT_CHANNELS[sensor]``: ``quality_<sensor>`` and one
+    ascending order or else ``SAT_CHANNELS[sensor]``: ``quality`` and one
     ``observation_<variable>`` per requested variable, null in a slot whose channel
     the footprint lacks. The axis is recorded in the field metadata of these
-    columns. IASI and CrIS radiances are returned as brightness temperature.
+    columns. Footprint columns are those of the sensor's wide schema. IASI and CrIS radiances are returned as brightness temperature.
 
     Parameters
     ----------
@@ -2740,7 +2744,7 @@ def decode_satellite(
     window_ns = (datetime_ns(dt_min), datetime_ns(dt_max))
     satellite_filter = None if satellites is None else frozenset(satellites)
     axis = sorted(SAT_CHANNELS[sensor] if channels is None else set(channels))
-    schema = _sat_wide_schema({sensor: axis})
+    schema = _sat_wide_schema(sensor, axis)
     axis_values = np.array(axis, dtype=np.float64)
     with open_bufr(path) as source:
         wavenumber = _airs_wavenumber(source) if sensor == "airs" else None
@@ -2764,12 +2768,13 @@ def decode_satellite(
     if not tables:
         return _empty_wide(schema, list(plan))
     table = concat_tables(tables)
-    # The per-channel fields carry the channel axis in their metadata
+    # Only the sensor's columns; the per-channel fields carry the axis in their metadata
+    names = [name for name in table.column_names if name in schema.names]
     fields = [
-        schema.field(name) if name.startswith(("observation_", "quality_")) else field
-        for name, field in zip(table.column_names, table.schema)
+        schema.field(name) if name.startswith(("observation_", "quality")) else field
+        for name, field in zip(names, table.select(names).schema)
     ]
-    table = pa.Table.from_arrays(table.columns, schema=pa.schema(fields))
+    table = pa.Table.from_arrays(table.select(names).columns, schema=pa.schema(fields))
     if wavenumber is not None:
         table = table.replace_schema_metadata(
             {_WAVENUMBER_BY_CHANNEL: wavenumber.tobytes()}

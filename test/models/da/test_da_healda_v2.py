@@ -241,10 +241,17 @@ def test_healda_v2_generator():
 def test_healda_v2_coords():
     model = _build_model()
     assert model.init_coords() is None
-    conv_schema, satwnd_schema, sat_schema = model.input_coords()
+    conv_schema, satwnd_schema, sat_schemas = model.input_coords()
     assert "gps_refractivity" in list(conv_schema["variable"])
     assert list(satwnd_schema["variable"]) == ["u", "v"]
-    assert list(sat_schema["variable"]) == ["atms_antenna_temperature", "amsua", "cris"]
+    assert {s: list(schema["variable"]) for s, schema in sat_schemas.items()} == {
+        "atms": ["atms_antenna_temperature"],
+        "amsua": ["amsua"],
+        "cris": ["cris"],
+    }
+    # One sensor's columns, on its channel axis
+    assert "detector" in sat_schemas["cris"] and "detector" not in sat_schemas["atms"]
+    assert "quality" in sat_schemas["cris"]
     (coords,) = model.output_coords(
         model.input_coords(), request_time=np.array([CYCLE])
     )

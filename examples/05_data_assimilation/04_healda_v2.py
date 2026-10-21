@@ -98,8 +98,9 @@ model = HealDAv2.load_model(package).to("cuda:0")
 # configured as in training, in the wide layout the model reads (one row per report
 # level, wind or footprint): each PrepBUFR observation's original event, satellite
 # winds from `NNJAObsSatwnd` only, and only the IR sounder channels the model reads.
-# `fetch_dataframe` attaches the ``request_time`` metadata the model requires. The three
-# sources are fetched on a thread pool so their downloads and decodes overlap.
+# `fetch_dataframe` attaches the ``request_time`` metadata the model requires. A wide
+# satellite request returns one sensor, so each sensor is its own request; all requests
+# run on a thread pool so their downloads and decodes overlap.
 
 # %%
 analysis_time = np.array([np.datetime64("2024-01-05T00:00")])
@@ -116,11 +117,11 @@ sat_source = NNJAObsSat(
     time_tolerance=tolerance, sensor_indices=model.sensor_indices, layout="wide"
 )
 
-conv_schema, satwnd_schema, sat_schema = model.input_coords()
+conv_schema, satwnd_schema, sat_schemas = model.input_coords()
 requests = {
     "conv_obs": (conv_source, conv_schema),
     "satwnd_obs": (satwnd_source, satwnd_schema),
-    "sat_obs": (sat_source, sat_schema),
+    **{sensor: (sat_source, schema) for sensor, schema in sat_schemas.items()},
 }
 
 
@@ -139,6 +140,7 @@ with ThreadPoolExecutor(len(requests)) as pool:
     frames = dict(zip(requests, pool.map(fetch, requests)))
 for name, frame in frames.items():
     logger.info(f"Fetched {len(frame)} {name} rows")
+conv_obs, satwnd_obs = frames.pop("conv_obs"), frames.pop("satwnd_obs")
 
 # %%
 # Run the Model
@@ -146,7 +148,7 @@ for name, frame in frames.items():
 # The direct call returns the analysis as an `xr.DataArray` on the model's device.
 
 # %%
-analysis = model(**frames)
+analysis = model(conv_obs, satwnd_obs, sat_obs=frames)
 logger.info(f"Analysis shape: {analysis.shape}")
 
 # %%

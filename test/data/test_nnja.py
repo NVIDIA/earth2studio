@@ -17,6 +17,7 @@
 import asyncio
 import os
 import shutil
+import threading
 import time
 from datetime import datetime, timedelta
 from types import SimpleNamespace
@@ -44,6 +45,7 @@ from earth2studio.data.utils_ncep import (
     NCEP_SATWND_PUBLIC_SCHEMA,
     _to_long,
     channel_axis,
+    compile_tables,
     cycle_windows,
     decode_gpsro,
     decode_prepbufr,
@@ -1259,8 +1261,45 @@ def test_nnja_obs_sat_wide_frame_carries_channel_axis(fake_bufr, monkeypatch, tm
     _source_with_files(source, fake_bufr, monkeypatch, tmp_path, [batch])
     frame = source(T0, ["iasi"])
     assert channel_axis(frame, "iasi").tolist() == [16, 38]
-    assert channel_axis(frame, "atms").tolist() == list(range(1, 23))
     assert frame["observation_iasi"].dtype == pd.ArrowDtype(pa.list_(pa.float32(), 2))
+    assert frame["quality"].dtype == pd.ArrowDtype(pa.list_(pa.uint32(), 2))
+    # Only IASI's own footprint columns
+    assert "footprint_quality" in frame.columns
+    assert not {"detector", "granule_quality", "scan_angle"} & set(frame.columns)
+
+
+def test_nnja_obs_sat_wide_takes_one_sensor_per_call():
+    source = NNJAObsSat(layout="wide", cache=False, verbose=False)
+    with pytest.raises(ValueError, match="one sensor per call"):
+        source(T0, ["atms", "cris"])
+
+
+def test_concurrent_calls_share_the_decode_slots(tmp_path):
+    path = tmp_path / "file"
+    path.write_bytes(b"x")
+    tasks = [SimpleNamespace(uri=str(path), datetime_file=T0, intervals=[(T0, T0)])] * 4
+    active, peak = [0], [0]
+    lock = threading.Lock()
+
+    def decode(path, task):
+        with lock:
+            active[0] += 1
+            peak[0] = max(peak[0], active[0])
+        time.sleep(0.05)
+        with lock:
+            active[0] -= 1
+        return pa.table({"x": [1]})
+
+    async def run():
+        await asyncio.gather(
+            *(
+                asyncio.to_thread(compile_tables, tasks, "shared", str, decode)
+                for _ in range(3)
+            )
+        )
+
+    asyncio.run(run())
+    assert peak[0] == utils_ncep._FILES_IN_FLIGHT
 
 
 def test_ir_channel_filter_and_brightness_temperature(fake_bufr):
@@ -1311,7 +1350,7 @@ def test_cris_band_quality_is_read_by_slot(fake_bufr):
         channels=[1, 714, 1579],
         decode_workers=1,
     )
-    assert wide["quality_cris"].to_pylist() == [[1 | 2 << 19, None, 4 | 3 << 19]]
+    assert wide["quality"].to_pylist() == [[1 | 2 << 19, None, 4 | 3 << 19]]
 
 
 def test_airs_wavenumber_read_from_file(fake_bufr):
@@ -1400,9 +1439,12 @@ def test_nnja_sources_long_and_wide(fake_bufr, monkeypatch, tmp_path, layout):
         # The T0 file covers [T0 - 3h, T0 + 3h]; the observation at exactly T0 + 3h
         # is included
         assert frame["time"].max() == pd.Timestamp(end)
-        table = pa.Table.from_pandas(
-            frame, schema=source._output_fields(None), preserve_index=False
+        schema = (
+            source._output_fields(None, variables)
+            if isinstance(source, NNJAObsSat)
+            else source._output_fields(None)
         )
+        table = pa.Table.from_pandas(frame, schema=schema, preserve_index=False)
         if layout == "long":
             assert list(frame.columns) == source.SCHEMA.names
             assert set(frame["variable"]) == set(variables)
