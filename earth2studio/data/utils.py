@@ -2245,6 +2245,17 @@ def sample_coords(jobs: Sequence[StatisticJob]) -> np.ndarray:
     return np.unique(np.concatenate([job.aggregator.coords for job in jobs]))
 
 
+def _compact_offset(value: np.timedelta64) -> str:
+    """Format a time offset compactly, e.g. ``-24h`` or ``+90m``."""
+    seconds = pd.Timedelta(value).total_seconds()
+    sign = "-" if seconds < 0 else "+"
+    seconds = int(abs(seconds))
+    for suffix, scale in (("h", 3600), ("m", 60), ("s", 1)):
+        if seconds and seconds % scale == 0:
+            return f"{sign}{seconds // scale}{suffix}"
+    return "0h"
+
+
 def log_statistics(
     source: str,
     groups: Sequence[StatisticGroup],
@@ -2274,7 +2285,8 @@ def log_statistics(
         logger.info(
             f"{source}: {labels} {_DESCRIPTIONS[group.method]} over "
             f"{aggregator.n_samples} samples per target "
-            f"(offsets {aggregator.offsets[0]} to {aggregator.offsets[-1]}), "
+            f"(offsets {_compact_offset(aggregator.offsets[0])} to "
+            f"{_compact_offset(aggregator.offsets[-1])}), "
             f"fetching {len(aggregator.coords)} unique {what}"
         )
 
