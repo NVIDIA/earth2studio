@@ -973,13 +973,14 @@ def _satwnd_batch(stamps: list[datetime]) -> pa.RecordBatch:
 
 
 def _sat_batch(
-    sensor: str, stamps: list[datetime], channels, entries
+    sensor: str, stamps: list[datetime], channels, entries, fields=None
 ) -> pa.RecordBatch:
     n = len(stamps)
     names = {
         "atms": ["CHNM", "SCCF", "ATMSCHQ", "TMBR"],
         "iasi": ["CHNM", "SCRA"],
         "airs": ["CHNM", "LOGRCW", "ACQF", "TMBR"],
+        "cris": ["CHNM", "SRAD"],
     }[sensor]
     rows = [[(c, *entries(c)) for c in channels]] * n
     extra = {
@@ -991,10 +992,12 @@ def _sat_batch(
             "CHSF": [7.0] * n,
         },
         "airs": {},
+        "cris": {"FORN": [1.0] * n, "HOLS": [0.0] * n, "NSQF": [0.0] * n},
     }[sensor]
     return _batch(
         {
-            "SAID": [{"atms": 224.0, "iasi": 4.0, "airs": 784.0}[sensor]] * n,
+            "SAID": [{"atms": 224.0, "iasi": 4.0, "airs": 784.0, "cris": 225.0}[sensor]]
+            * n,
             **_time_parts(stamps),
             "SLNM": [1.0] * n,
             "FOVN": [5.0] * n,
@@ -1005,6 +1008,7 @@ def _sat_batch(
             "BEARAZ": [100.0] * n,
             "SOLAZI": [200.0] * n,
             **extra,
+            **(fields or {}),
             "DRF16BIT": _struct_list(rows, names),
         }
     )
@@ -1250,6 +1254,31 @@ def test_ir_channel_filter_and_brightness_temperature(fake_bufr):
         radiance_to_bt(radiance, wavenumber).astype(np.float32),
     )
     np.testing.assert_array_equal(long["wavenumber"].to_numpy(), wavenumber)
+
+
+def test_cris_band_quality_is_read_by_slot(fake_bufr):
+    # NFQF/NCQF slots are LW, MW, SW; the MW slot is missing
+    flags = {
+        "NFQF": [1.0],
+        "NFQF#2": pa.array([None], type=pa.float64()),
+        "NFQF#3": [4.0],
+        "NCQF": [2.0],
+        "NCQF#2": pa.array([None], type=pa.float64()),
+        "NCQF#3": [3.0],
+    }
+    # One channel per band: 1 (LW), 714 (MW), 1579 (SW)
+    batch = _sat_batch("cris", [T0], [1.0, 714.0, 1579.0], lambda c: (1e-4,), flags)
+    fake_bufr["cris"] = _FakeBufr([batch])
+    wide = decode_satellite(
+        "cris",
+        "cris",
+        {"cris": "SRAD"},
+        T0,
+        T0,
+        channels=[1, 714, 1579],
+        decode_workers=1,
+    )
+    assert wide["quality_cris"].to_pylist() == [[1 | 2 << 19, None, 4 | 3 << 19]]
 
 
 def test_airs_wavenumber_read_from_file(fake_bufr):

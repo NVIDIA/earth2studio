@@ -2329,19 +2329,8 @@ class _ChannelRows:
         return pa.ListArray.from_arrays(pa.array(offsets), flat)
 
 
-def _compacted_band(flags: np.ndarray, band: int) -> tuple[np.ndarray, np.ndarray]:
-    """Value of the band-th non-missing entry per row."""
-    valid = np.isfinite(flags)
-    rank = np.cumsum(valid, axis=1) - 1
-    hit = valid & (rank == band)
-    return np.where(hit, flags, 0.0).sum(axis=1), hit.any(axis=1)
-
-
 def _cris_band_quality(batch: pa.RecordBatch) -> tuple[np.ndarray, np.ndarray]:
-    """Per footprint and band (LW, MW, SW): NFQF | NCQF << 19 and whether NFQF is set.
-
-    Bands are the non-missing NFQF/NCQF entries in order.
-    """
+    """Per footprint and band slot i (LW, MW, SW): NFQF | NCQF << 19, valid where NFQF is set."""
     if _CRIS_BAND_GROUP in batch.schema.names:
         group = batch.column(_CRIS_BAND_GROUP).values
         nfqf = float_values(group.field("NFQF")).reshape(-1, 3)
@@ -2349,15 +2338,10 @@ def _cris_band_quality(batch: pa.RecordBatch) -> tuple[np.ndarray, np.ndarray]:
     else:
         nfqf = np.stack(_columns_at(batch, "NFQF"), axis=1)
         ncqf = np.stack(_columns_at(batch, "NCQF"), axis=1)
-    packed = np.zeros(nfqf.shape, dtype=np.uint32)
-    valid = np.zeros(nfqf.shape, dtype=bool)
-    for band in range(3):
-        nf, nf_ok = _compacted_band(nfqf, band)
-        nc, nc_ok = _compacted_band(ncqf, band)
-        packed[:, band] = nf.astype(np.uint32) | (
-            np.where(nc_ok, nc, 0.0).astype(np.uint32) << 19
-        )
-        valid[:, band] = nf_ok
+    valid = np.isfinite(nfqf)
+    packed = np.where(valid, nfqf, 0.0).astype(np.uint32) | (
+        np.where(np.isfinite(ncqf), ncqf, 0.0).astype(np.uint32) << 19
+    )
     return packed, valid
 
 
