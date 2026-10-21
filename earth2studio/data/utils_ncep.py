@@ -1359,9 +1359,11 @@ def _prepbufr_batch(
 
     dhr, dhr_valid = header("DHR")
     dhr_scale = _field_scale(batch.schema, paths["DHR"])
-    header_us = message_base + _offset_microseconds(
-        np.where(dhr_valid, dhr, 0.0), dhr_scale
-    )
+    if not dhr_valid.all():
+        raise ValueError(
+            f"{int((~dhr_valid).sum())} {obs_class} reports with null DHR"
+        )
+    header_us = message_base + _offset_microseconds(dhr, dhr_scale)
     keep = (header_us >= window_us[0]) & (header_us <= window_us[1])
 
     cat_path = paths["CAT"]
@@ -1571,7 +1573,8 @@ def decode_prepbufr(
     Raises
     ------
     ValueError
-        If the file has data messages but none of a known PrepBUFR message family
+        If the file has data messages but none of a known PrepBUFR message family,
+        or a report has no DHR (observation time offset)
     """
     window_us = (
         datetime_ns(dt_min) // 1000,

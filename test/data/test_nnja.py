@@ -1129,6 +1129,18 @@ def test_prepbufr_excluded_families_are_not_decoded(fake_bufr, adpupa, satwnd, a
     assert fake_bufr["prep"].options["data_category_filter"] == [adpsfc]
 
 
+def test_prepbufr_null_dhr_raises(fake_bufr):
+    source = _prepbufr_file()
+    batch = source.batches[0]
+    index = batch.schema.get_field_index("DHR")
+    source.batches = [
+        batch.set_column(index, batch.schema.field(index), pa.array([None, 3.0]))
+    ]
+    fake_bufr["prepbufr"] = source
+    with pytest.raises(ValueError, match="1 ADPUPA reports with null DHR"):
+        decode_prepbufr("prepbufr", ["t"], T0, T0, decode_workers=1)
+
+
 def test_prepbufr_without_message_families_raises(fake_bufr):
     fake_bufr["no_dx"] = _prepbufr_file()
     fake_bufr["no_dx"].sequences = {}
