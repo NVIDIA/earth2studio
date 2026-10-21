@@ -57,8 +57,10 @@ from earth2studio.data.utils_ncep import (
     NCEP_MICROWAVE_OUTPUT_SCHEMA,
     NCEP_MICROWAVE_SATELLITES,
     NCEP_SATWND_PUBLIC_SCHEMA,
+    SAT_CHANNELS,
     Intervals,
     NCEPObsTask,
+    _sat_wide_schema,
     _validate_layout,
     assemble_frame,
     compile_tables,
@@ -152,17 +154,6 @@ _NNJA_IR_SATELLITES: dict[str, frozenset[str]] = {
     "airs": frozenset({"aqua"}),
     "iasi": frozenset({"metop-a", "metop-b", "metop-c"}),
     "cris": frozenset({"npp", "n20", "n21"}),
-}
-
-# Instrument-grid channel-number bounds per IR sensor, for validating
-# sensor_indices at construction. The archives carry NCEP subsets (281 AIRS,
-# 616 IASI, 431 CrIS channels) whose membership varies by product era, so
-# only the instrument grid can be checked statically; a valid-but-unarchived
-# channel simply matches no rows at decode time.
-_NNJA_IR_CHANNEL_MAX: dict[str, int] = {
-    "airs": 2378,  # AIRS instrument grid
-    "iasi": 8461,  # IASI L1C grid, 645-2760 cm⁻¹
-    "cris": 2211,  # CrIS FSR sensor_chan grid
 }
 
 
@@ -727,9 +718,10 @@ class NNJAObsSat:
     The aggregates carry the NCEP channel subsets (281 AIRS, 616 IASI, 431
     CrIS) numbered on the instrument grids; ``cris`` routes to the
     full-spectral-resolution ``crisf4`` product whose channel numbers live
-    on the 2211-channel FSR grid. Archive coverage: AIRS 2002–2023
-    (NASA/Aqua route), IASI 2008–present, CrIS (FSR) 2018–present. All
-    archived channels are returned by default; pass ``sensor_indices`` to
+    on the 2211-channel FSR grid; ``SAT_CHANNELS`` in
+    ``earth2studio.data.utils_ncep`` lists them. Archive coverage: AIRS
+    2002–2023 (NASA/Aqua route), IASI 2008–present, CrIS (FSR) 2018–present.
+    All archived channels are returned by default; pass ``sensor_indices`` to
     narrow at decode time or subset downstream via the ``sensor_index``
     column.
 
@@ -803,20 +795,20 @@ class NNJAObsSat:
         ``sensor_indices`` selection of the JPSS/METOP sources and applied
         at decode time like theirs, but keyed per sensor since this source
         spans several instruments. Selections must be non-empty, unique
-        integers on the instrument grid (AIRS 1-2378, IASI 1-8461, CrIS FSR
-        1-2211); a channel on the grid but absent from the archived NCEP
-        subset matches no rows. Sensors absent from the dict (and all
-        microwave sensors) return every archived channel. By default None
-        (all channels).
+        channel numbers the sensor's archive carries (``SAT_CHANNELS``).
+        Sensors absent from the dict (and all microwave sensors) return every
+        archived channel. By default None (all channels).
     layout : {"long", "wide"}, optional
         ``"long"`` returns one row per (footprint, channel) with the columns of
         ``SCHEMA``. ``"wide"`` returns one row per footprint with the footprint
-        columns of ``SCHEMA`` and the per-channel values as lists in channel
-        order: per sensor ``sensor_index_<sensor>`` and ``quality_<sensor>``
-        (the wavenumber follows from the channel number), and per variable
-        ``observation_<variable>``, null on footprints of other sensors. The
-        lists are fixed-size when every footprint of the request is from one
-        sensor and carries the same channels. By default "long".
+        columns of ``SCHEMA`` and the per-channel values as fixed-size lists
+        over each sensor's channel axis (``sensor_indices[sensor]`` ascending,
+        else every archived channel): per sensor ``quality_<sensor>`` and per
+        variable ``observation_<variable>``, null on footprints of other
+        sensors and in a slot whose channel the footprint lacks.
+        :func:`~earth2studio.data.utils_ncep.channel_axis` returns a frame's
+        axis; the wavenumber follows from the channel number. By default
+        "long".
 
     Warning
     -------
@@ -903,22 +895,25 @@ class NNJAObsSat:
                         f"one channel number; omit the sensor to read all "
                         f"archived channels"
                     )
-                channel_max = _NNJA_IR_CHANNEL_MAX[sensor]
+                archived = SAT_CHANNELS[sensor]
                 if any(
                     isinstance(c, bool)
                     or not isinstance(c, (int, np.integer))
-                    or c < 1
-                    or c > channel_max
+                    or c not in archived
                     for c in requested
                 ):
                     raise ValueError(
                         f"sensor_indices[{sensor!r}] must be integer channel "
-                        f"numbers from 1 to {channel_max}"
+                        f"numbers the {sensor} archive carries, "
+                        f"SAT_CHANNELS[{sensor!r}]"
                     )
                 normalized = frozenset(int(c) for c in requested)
                 if len(normalized) != len(requested):
                     raise ValueError(f"sensor_indices[{sensor!r}] must be unique")
                 self._sensor_indices[sensor] = normalized
+        self._WIDE_SCHEMA = _sat_wide_schema(
+            {s: sorted(c) for s, c in self._sensor_indices.items()}
+        )
 
         self._verbose = verbose
         self._cache = cache

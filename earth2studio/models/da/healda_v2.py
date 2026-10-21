@@ -28,10 +28,10 @@ from loguru import logger
 
 from earth2studio.data.utils_ncep import (
     _NCEP_CONVENTIONAL_WIDE_SCHEMA,
-    _NCEP_MICROWAVE_WIDE_SCHEMA,
     _NCEP_SATWND_WIDE_SCHEMA,
     SAT_CHANNEL_COLUMNS,
     SAT_VARIABLE_SENSOR,
+    _sat_wide_schema,
 )
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.da.base import AssimilationModel
@@ -190,7 +190,9 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         return (
             _frame_schema(_NCEP_CONVENTIONAL_WIDE_SCHEMA, CONV_VARIABLES),
             _frame_schema(_NCEP_SATWND_WIDE_SCHEMA, ["u", "v"]),
-            _frame_schema(_NCEP_MICROWAVE_WIDE_SCHEMA, sat_variables, sensors),
+            _frame_schema(
+                _sat_wide_schema(self.sensor_indices), sat_variables, sensors
+            ),
         )
 
     def output_coords(

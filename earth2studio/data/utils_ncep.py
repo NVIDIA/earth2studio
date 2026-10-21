@@ -707,8 +707,121 @@ SAT_VARIABLE_SENSOR: dict[str, str] = {
     variable: key.split("::")[0] for variable, key in NNJAObsSatLexicon.VOCAB.items()
 }
 SAT_SENSORS = tuple(dict.fromkeys(SAT_VARIABLE_SENSOR.values()))
-# Per-channel columns of a satellite footprint row, one set per sensor
-SAT_CHANNEL_COLUMNS = ("sensor_index", "quality")
+# Per-channel columns of a satellite footprint row besides the observations
+SAT_CHANNEL_COLUMNS = ("quality",)
+# Channel numbers each NNJA aggregate carries, ascending: the channel axis of a wide
+# satellite frame when no channels are requested. These are the channel sets of the
+# HealDA NNJA satellite archive, one per sensor over the whole record.
+SAT_CHANNELS: dict[str, tuple[int, ...]] = {
+    "atms": tuple(range(1, 23)),
+    "mhs": tuple(range(1, 6)),
+    "amsua": tuple(range(1, 16)),
+    "amsub": tuple(range(1, 6)),
+    # fmt: off
+    "airs": (
+           1,    6,    7,   10,   11,   15,   16,   17,   20,   21,   22,   24,   27,   28,
+          30,   36,   39,   40,   42,   51,   52,   54,   55,   56,   59,   62,   63,   68,
+          69,   71,   72,   73,   74,   75,   76,   77,   78,   79,   80,   82,   83,   84,
+          86,   92,   93,   98,   99,  101,  104,  105,  108,  110,  111,  113,  116,  117,
+         123,  124,  128,  129,  138,  139,  144,  145,  150,  151,  156,  157,  159,  162,
+         165,  168,  169,  170,  172,  173,  174,  175,  177,  179,  180,  182,  185,  186,
+         190,  192,  198,  201,  204,  207,  210,  215,  216,  221,  226,  227,  232,  252,
+         253,  256,  257,  261,  262,  267,  272,  295,  299,  300,  305,  310,  321,  325,
+         333,  338,  355,  362,  375,  453,  475,  484,  497,  528,  587,  672,  787,  791,
+         843,  870,  914,  950, 1003, 1012, 1019, 1024, 1030, 1038, 1048, 1069, 1079, 1082,
+        1083, 1088, 1090, 1092, 1095, 1104, 1111, 1115, 1116, 1119, 1120, 1123, 1130, 1138,
+        1142, 1178, 1199, 1206, 1221, 1237, 1252, 1260, 1263, 1266, 1285, 1301, 1304, 1329,
+        1371, 1382, 1415, 1424, 1449, 1455, 1466, 1477, 1500, 1519, 1538, 1545, 1565, 1574,
+        1583, 1593, 1614, 1627, 1636, 1644, 1652, 1669, 1674, 1681, 1694, 1708, 1717, 1723,
+        1740, 1748, 1751, 1756, 1763, 1766, 1771, 1777, 1780, 1783, 1794, 1800, 1803, 1806,
+        1812, 1826, 1843, 1852, 1865, 1866, 1868, 1869, 1872, 1873, 1876, 1881, 1882, 1883,
+        1911, 1917, 1918, 1924, 1928, 1937, 1941, 2099, 2100, 2101, 2103, 2104, 2106, 2107,
+        2108, 2109, 2110, 2111, 2112, 2113, 2114, 2115, 2116, 2117, 2118, 2119, 2120, 2121,
+        2122, 2123, 2128, 2134, 2141, 2145, 2149, 2153, 2164, 2189, 2197, 2209, 2226, 2234,
+        2280, 2318, 2321, 2325, 2328, 2333, 2339, 2348, 2353, 2355, 2357, 2363, 2370, 2371,
+        2377,
+    ),
+    "iasi": (
+          16,   29,   32,   35,   38,   41,   44,   47,   49,   50,   51,   53,   55,   56,
+          57,   59,   61,   62,   63,   66,   68,   70,   72,   74,   76,   78,   79,   81,
+          82,   83,   84,   85,   86,   87,   89,   92,   93,   95,   97,   99,  101,  103,
+         104,  106,  109,  110,  111,  113,  116,  119,  122,  125,  128,  131,  133,  135,
+         138,  141,  144,  146,  148,  150,  151,  154,  157,  159,  160,  161,  163,  167,
+         170,  173,  176,  179,  180,  185,  187,  191,  193,  197,  199,  200,  202,  203,
+         205,  207,  210,  212,  213,  214,  217,  218,  219,  222,  224,  225,  226,  228,
+         230,  231,  232,  236,  237,  239,  243,  246,  249,  252,  254,  259,  260,  262,
+         265,  267,  269,  275,  279,  282,  285,  294,  296,  299,  300,  303,  306,  309,
+         313,  320,  323,  326,  327,  329,  332,  335,  345,  347,  350,  354,  356,  360,
+         363,  366,  371,  372,  373,  375,  377,  379,  381,  383,  386,  389,  398,  401,
+         404,  405,  407,  408,  410,  411,  414,  416,  418,  423,  426,  428,  432,  433,
+         434,  439,  442,  445,  450,  457,  459,  472,  477,  483,  509,  515,  546,  552,
+         559,  566,  571,  573,  578,  584,  594,  625,  646,  662,  668,  705,  739,  756,
+         797,  867,  906,  921, 1027, 1046, 1090, 1098, 1121, 1133, 1173, 1191, 1194, 1222,
+        1271, 1283, 1338, 1409, 1414, 1420, 1424, 1427, 1430, 1434, 1440, 1442, 1445, 1450,
+        1454, 1460, 1463, 1469, 1474, 1479, 1483, 1487, 1494, 1496, 1502, 1505, 1509, 1510,
+        1513, 1518, 1521, 1526, 1529, 1532, 1536, 1537, 1541, 1545, 1548, 1553, 1560, 1568,
+        1574, 1579, 1583, 1585, 1587, 1606, 1626, 1639, 1643, 1652, 1658, 1659, 1666, 1671,
+        1675, 1681, 1694, 1697, 1710, 1786, 1791, 1805, 1839, 1884, 1913, 1946, 1947, 1991,
+        2019, 2094, 2119, 2213, 2239, 2271, 2289, 2321, 2333, 2346, 2349, 2352, 2359, 2367,
+        2374, 2398, 2426, 2562, 2701, 2741, 2745, 2760, 2819, 2889, 2907, 2910, 2919, 2921,
+        2939, 2944, 2945, 2948, 2951, 2958, 2971, 2977, 2985, 2988, 2990, 2991, 2993, 3002,
+        3008, 3014, 3027, 3029, 3030, 3036, 3047, 3049, 3052, 3053, 3055, 3058, 3064, 3069,
+        3087, 3093, 3098, 3105, 3107, 3110, 3116, 3127, 3129, 3136, 3146, 3151, 3160, 3165,
+        3168, 3175, 3178, 3189, 3207, 3228, 3244, 3248, 3252, 3256, 3263, 3281, 3295, 3303,
+        3309, 3312, 3322, 3326, 3354, 3366, 3375, 3378, 3411, 3416, 3432, 3438, 3440, 3442,
+        3444, 3446, 3448, 3450, 3452, 3454, 3458, 3467, 3476, 3484, 3491, 3497, 3499, 3504,
+        3506, 3509, 3518, 3527, 3555, 3575, 3577, 3580, 3582, 3586, 3589, 3599, 3610, 3626,
+        3638, 3646, 3653, 3658, 3661, 3673, 3689, 3700, 3710, 3726, 3763, 3814, 3841, 3888,
+        4032, 4059, 4068, 4082, 4095, 4160, 4234, 4257, 4411, 4498, 4520, 4552, 4567, 4608,
+        4646, 4698, 4808, 4849, 4920, 4939, 4947, 4967, 4991, 4996, 5015, 5028, 5056, 5128,
+        5130, 5144, 5170, 5178, 5183, 5188, 5191, 5368, 5371, 5379, 5381, 5383, 5397, 5399,
+        5401, 5403, 5405, 5446, 5455, 5472, 5480, 5483, 5485, 5492, 5497, 5502, 5507, 5509,
+        5517, 5528, 5558, 5697, 5714, 5749, 5766, 5785, 5798, 5799, 5801, 5817, 5833, 5834,
+        5836, 5849, 5851, 5852, 5865, 5869, 5881, 5884, 5897, 5900, 5916, 5932, 5948, 5963,
+        5968, 5978, 5988, 5992, 5994, 5997, 6003, 6008, 6023, 6026, 6039, 6053, 6056, 6067,
+        6071, 6082, 6085, 6098, 6112, 6126, 6135, 6140, 6149, 6154, 6158, 6161, 6168, 6174,
+        6182, 6187, 6205, 6209, 6213, 6317, 6339, 6342, 6366, 6381, 6391, 6489, 6962, 6966,
+        6970, 6975, 6977, 6982, 6985, 6987, 6989, 6991, 6993, 6995, 6997, 6999, 7000, 7004,
+        7008, 7013, 7016, 7021, 7024, 7027, 7029, 7032, 7038, 7043, 7046, 7049, 7069, 7072,
+        7076, 7081, 7084, 7089, 7099, 7209, 7222, 7231, 7235, 7247, 7267, 7269, 7284, 7389,
+        7419, 7423, 7424, 7426, 7428, 7431, 7436, 7444, 7475, 7549, 7584, 7665, 7666, 7831,
+        7836, 7853, 7865, 7885, 7888, 7912, 7950, 7972, 7980, 7995, 8007, 8015, 8055, 8078,
+    ),
+    "cris": (
+          19,   24,   26,   27,   28,   31,   32,   33,   37,   39,   42,   44,   47,   49,
+          50,   51,   52,   53,   54,   55,   56,   57,   58,   59,   60,   61,   62,   63,
+          64,   65,   66,   67,   68,   69,   70,   71,   72,   73,   74,   75,   76,   77,
+          78,   79,   80,   81,   82,   83,   84,   85,   86,   87,   88,   89,   90,   91,
+          92,   93,   94,   95,   96,   97,   98,   99,  100,  101,  102,  103,  104,  105,
+         106,  107,  108,  109,  110,  111,  112,  113,  114,  115,  116,  117,  118,  119,
+         120,  121,  122,  123,  124,  125,  126,  127,  128,  129,  130,  131,  132,  133,
+         134,  135,  136,  137,  138,  139,  140,  141,  142,  143,  144,  145,  146,  147,
+         148,  149,  150,  151,  152,  153,  154,  155,  156,  157,  158,  159,  160,  161,
+         162,  163,  164,  165,  166,  167,  168,  169,  170,  171,  172,  173,  174,  175,
+         176,  177,  178,  179,  180,  181,  182,  183,  184,  185,  186,  187,  188,  189,
+         190,  191,  192,  193,  194,  195,  196,  197,  198,  199,  200,  208,  211,  216,
+         224,  234,  236,  238,  239,  242,  246,  248,  255,  264,  266,  268,  275,  279,
+         283,  285,  291,  295,  301,  305,  311,  332,  342,  389,  400,  402,  404,  406,
+         410,  427,  439,  440,  441,  445,  449,  455,  458,  461,  464,  467,  470,  473,
+         475,  482,  486,  487,  490,  493,  496,  499,  501,  503,  505,  511,  513,  514,
+         518,  519,  520,  522,  529,  534,  563,  568,  575,  592,  594,  596,  598,  600,
+         602,  604,  611,  614,  616,  618,  620,  622,  626,  631,  638,  646,  648,  652,
+         659,  673,  675,  678,  684,  688,  694,  700,  707,  710,  713,  714,  718,  720,
+         722,  725,  728,  735,  742,  748,  753,  762,  780,  784,  798,  849,  860,  862,
+         866,  874,  882,  890,  898,  906,  907,  908,  914,  937,  972,  973,  978,  980,
+         981,  988,  995,  998, 1000, 1003, 1008, 1009, 1010, 1014, 1017, 1018, 1020, 1022,
+        1024, 1026, 1029, 1030, 1032, 1034, 1037, 1038, 1041, 1042, 1044, 1046, 1049, 1050,
+        1053, 1054, 1058, 1060, 1062, 1064, 1066, 1069, 1076, 1077, 1080, 1086, 1091, 1095,
+        1101, 1109, 1112, 1121, 1128, 1133, 1163, 1172, 1187, 1189, 1205, 1211, 1219, 1231,
+        1245, 1271, 1289, 1300, 1313, 1316, 1325, 1329, 1346, 1347, 1473, 1474, 1491, 1499,
+        1553, 1570, 1596, 1602, 1619, 1624, 1635, 1939, 1940, 1941, 1942, 1943, 1944, 1945,
+        1946, 1947, 1948, 1949, 1950, 1951, 1952, 1953, 1954, 1955, 1956, 1957, 1958, 1959,
+        1960, 1961, 1962, 1963, 1964, 1965, 1966, 1967, 1968, 1969, 1970, 1971, 1972, 1973,
+        1974, 1975, 1976, 1977, 1978, 1979, 1980, 1981, 1982, 1983, 1984, 1985, 1986, 1987,
+        2119, 2140, 2143, 2147, 2153, 2158, 2161, 2168, 2171, 2175, 2182,
+    ),
+    # fmt: on
+}
 
 # Default of the ``layout`` parameter of the NNJA and GDAS sources
 _DEFAULT_LAYOUT: Literal["long", "wide"] = "long"
@@ -778,35 +891,96 @@ _NCEP_SATWND_WIDE_SCHEMA = pa.schema(
     ]
 )
 
-_SAT_CHANNEL_TYPES = {
-    "sensor_index": pa.uint16(),
-    "quality": pa.uint32(),
-}
-_NCEP_MICROWAVE_WIDE_SCHEMA = pa.schema(
-    [
-        *_fields(
-            NCEP_MICROWAVE_OUTPUT_SCHEMA,
-            (*SAT_CHANNEL_COLUMNS, "wavenumber", "observation", "variable"),
-        ),
-        *[
-            pa.field(
-                f"{name}_{sensor}",
-                pa.list_(arrow_type),
-                nullable=True,
-                metadata={
-                    "description": (
-                        f"{sensor} per-channel {name}, one entry per channel; a "
-                        "fixed-size list when every footprint carries the same "
-                        "channels"
-                    )
-                },
-            )
-            for sensor in SAT_SENSORS
-            for name, arrow_type in _SAT_CHANNEL_TYPES.items()
-        ],
-        *[_observation_field(v, pa.list_(pa.float32())) for v in SAT_VARIABLE_SENSOR],
-    ]
-)
+_SAT_CHANNEL_TYPES = {"quality": pa.uint32()}
+_CHANNELS_KEY = b"channels"
+_SENSOR_KEY = b"sensor"
+
+
+def _channel_field(
+    name: str,
+    value_type: pa.DataType,
+    sensor: str,
+    channels: Sequence[int],
+    description: str,
+) -> pa.Field:
+    """A per-channel column with one slot per channel of ``channels``; the sensor and
+    the channels are recorded in the field metadata."""
+    return pa.field(
+        name,
+        pa.list_(value_type, len(channels)),
+        nullable=True,
+        metadata={
+            "description": description,
+            _SENSOR_KEY: sensor,
+            _CHANNELS_KEY: ",".join(str(c) for c in channels),
+        },
+    )
+
+
+def _field_channels(field: pa.Field) -> np.ndarray:
+    return np.array(
+        [int(c) for c in field.metadata[_CHANNELS_KEY].split(b",")], dtype=np.int64
+    )
+
+
+def _sat_wide_schema(channels: Mapping[str, Sequence[int]]) -> pa.Schema:
+    """Wide satellite schema over each sensor's channel axis: ``channels[sensor]``,
+    else ``SAT_CHANNELS[sensor]``."""
+    axes = {s: tuple(channels.get(s, SAT_CHANNELS[s])) for s in SAT_SENSORS}
+    return pa.schema(
+        [
+            *_fields(
+                NCEP_MICROWAVE_OUTPUT_SCHEMA,
+                ("sensor_index", "quality", "wavenumber", "observation", "variable"),
+            ),
+            *[
+                _channel_field(
+                    f"{name}_{sensor}",
+                    arrow_type,
+                    sensor,
+                    axes[sensor],
+                    f"{sensor} per-channel {name}, one slot per channel",
+                )
+                for sensor in SAT_SENSORS
+                for name, arrow_type in _SAT_CHANNEL_TYPES.items()
+            ],
+            *[
+                _channel_field(
+                    f"observation_{variable}",
+                    pa.float32(),
+                    sensor,
+                    axes[sensor],
+                    f"Observation of variable {variable!r}, one slot per channel",
+                )
+                for variable, sensor in SAT_VARIABLE_SENSOR.items()
+            ],
+        ]
+    )
+
+
+_NCEP_MICROWAVE_WIDE_SCHEMA = _sat_wide_schema({})
+
+
+def channel_axis(frame: pd.DataFrame, sensor: str) -> np.ndarray:
+    """Channel numbers of the slots of a wide satellite frame's ``sensor`` columns.
+
+    In a ``layout="wide"`` :class:`~earth2studio.data.NNJAObsSat` frame,
+    ``observation_<variable>`` and ``quality_<sensor>`` hold one value per slot;
+    slot ``i`` is channel ``channel_axis(frame, sensor)[i]``.
+
+    Parameters
+    ----------
+    frame : pd.DataFrame
+        Wide satellite frame
+    sensor : str
+        Sensor name, e.g. ``"cris"``
+
+    Returns
+    -------
+    np.ndarray
+        Channel numbers, ascending
+    """
+    return np.array(frame.attrs["channels"][sensor], dtype=np.int64)
 
 
 def _is_list(arrow_type: pa.DataType) -> bool:
@@ -830,11 +1004,11 @@ def _to_long(
 
     Scalar ``observation_<variable>`` columns give one row per valid value,
     variable by variable in ``variables`` order, with ``quality`` from
-    ``quality_<variable>`` when the table has it. List-valued
+    ``quality_<variable>`` when the table has it. Fixed-size list
     ``observation_<variable>`` columns (satellite footprints) give one row per
-    channel entry of the footprint, footprint by footprint, with the variables of
-    one sensor interleaved per channel and the per-channel columns
-    ``<name>_<sensor>`` as ``sensor_index``, ``wavenumber`` and ``quality``.
+    slot of the sensor's channel axis, footprint by footprint, with the variables
+    of one sensor interleaved per channel, ``sensor_index`` and ``wavenumber``
+    from the axis and ``quality`` from ``quality_<sensor>``.
 
     Parameters
     ----------
@@ -854,7 +1028,7 @@ def _to_long(
     if not present or table.num_rows == 0:
         return _conform([], schema)
     first_type = table.schema.field(f"observation_{present[0]}").type
-    if _is_list(first_type):
+    if pa.types.is_fixed_size_list(first_type):
         parts = _explode_channels(table, present)
     else:
         parts = _stack_variables(table, present)
@@ -898,11 +1072,6 @@ def _stack_variables(table: pa.Table, variables: Sequence[str]) -> list[pa.Table
     return parts
 
 
-def _list_parent(lists: pa.Array) -> np.ndarray:
-    lengths = pc.fill_null(pc.list_value_length(lists), 0).to_numpy()
-    return np.repeat(np.arange(len(lists), dtype=np.int64), lengths)
-
-
 def _channel_wavenumber(
     sensor: str, channels: np.ndarray, table: pa.Table
 ) -> np.ndarray | None:
@@ -942,13 +1111,25 @@ def _explode_channels(table: pa.Table, variables: Sequence[str]) -> list[pa.Tabl
             rows = table.filter(pc.is_valid(first))
         if rows.num_rows == 0:
             continue
+        channels = _field_channels(
+            table.schema.field(f"observation_{sensor_variables[0]}")
+        )
         observations = [
             _single_chunk(rows.column(f"observation_{v}")) for v in sensor_variables
         ]
-        parent = _list_parent(observations[0])
         n_var = len(sensor_variables)
-        index = np.repeat(parent, n_var) if n_var > 1 else parent
+        per_entry = np.repeat(np.arange(len(channels)), n_var)
+        n_slots = rows.num_rows * len(channels)
+        index = np.repeat(np.arange(rows.num_rows), len(channels) * n_var)
         columns = {name: rows.column(name).take(index) for name in footprint}
+        columns["sensor_index"] = pa.array(
+            np.tile(channels[per_entry], rows.num_rows), type=pa.uint16()
+        )
+        wavenumber = _channel_wavenumber(sensor, channels, table)
+        if wavenumber is not None:
+            columns["wavenumber"] = pa.array(
+                np.tile(wavenumber[per_entry], rows.num_rows)
+            )
         for name in SAT_CHANNEL_COLUMNS:
             column_name = f"{name}_{sensor}"
             if column_name in rows.column_names:
@@ -958,22 +1139,17 @@ def _explode_channels(table: pa.Table, variables: Sequence[str]) -> list[pa.Tabl
                         np.repeat(np.arange(len(values), dtype=np.int64), n_var)
                     )
                 columns[name] = values
-        if "sensor_index" in columns:
-            channels = columns["sensor_index"].to_numpy(zero_copy_only=False)
-            wavenumber = _channel_wavenumber(sensor, channels.astype(np.int64), table)
-            if wavenumber is not None:
-                columns["wavenumber"] = pa.array(wavenumber)
         flat = [pc.list_flatten(obs) for obs in observations]
         if n_var > 1:
             stacked = np.stack(
                 [v.to_numpy(zero_copy_only=False) for v in flat], axis=1
             ).ravel()
             columns["observation"] = float_with_nulls(stacked, pa.float32())
-            codes = np.tile(np.arange(n_var, dtype=np.int8), len(parent))
+            codes = np.tile(np.arange(n_var, dtype=np.int8), n_slots)
             columns["variable"] = dictionary_column(codes, list(sensor_variables))
         else:
             columns["observation"] = flat[0]
-            columns["variable"] = constant_dictionary(sensor_variables[0], len(parent))
+            columns["variable"] = constant_dictionary(sensor_variables[0], n_slots)
         parts.append(pa.table(columns))
     return parts
 
@@ -999,10 +1175,9 @@ def _conform(parts: list[pa.Table], schema: pa.Schema) -> pa.Table:
 
 
 def concat_tables(tables: Sequence[pa.Table]) -> pa.Table:
-    """Concatenate tables, unifying list column types and filling missing columns.
+    """Concatenate tables; a column absent from some tables is null there.
 
-    Fixed-size lists of different sizes become variable-size lists; a column
-    absent from some tables is null there.
+    A column must have one type across the tables.
     """
     tables = [t for t in tables if t is not None]
     if len(tables) == 1:
@@ -1011,28 +1186,19 @@ def concat_tables(tables: Sequence[pa.Table]) -> pa.Table:
     target: dict[str, pa.DataType] = {}
     for name in names:
         types = {t.schema.field(name).type for t in tables if name in t.column_names}
-        if len(types) == 1:
-            target[name] = types.pop()
-            # A fixed-size list padded with nulls would store child values per row
-            if pa.types.is_fixed_size_list(target[name]) and any(
-                name not in t.column_names for t in tables
-            ):
-                target[name] = pa.list_(target[name].value_type)
-        elif all(_is_list(t) for t in types):
-            target[name] = pa.list_(next(iter(types)).value_type)
-        else:
+        if len(types) != 1:
             raise TypeError(f"column {name!r} has incompatible types {types}")
+        target[name] = types.pop()
     aligned = []
     for t in tables:
-        columns = []
-        for name in names:
-            arrow_type = target[name]
-            if name not in t.column_names:
-                columns.append(pa.chunked_array([pa.nulls(t.num_rows, arrow_type)]))
-            elif t.schema.field(name).type != arrow_type:
-                columns.append(t.column(name).cast(arrow_type))
-            else:
-                columns.append(t.column(name))
+        columns = [
+            (
+                t.column(name)
+                if name in t.column_names
+                else pa.chunked_array([pa.nulls(t.num_rows, target[name])])
+            )
+            for name in names
+        ]
         aligned.append(pa.Table.from_arrays(columns, names=names))
     return pa.concat_tables(aligned)
 
@@ -1152,7 +1318,11 @@ def compile_tables(
 
 
 def to_dataframe(table: pa.Table, schema: pa.Schema, source_id: str) -> pd.DataFrame:
-    """The columns of ``schema`` as a DataFrame of ``pd.ArrowDtype`` columns (zero-copy)."""
+    """The columns of ``schema`` as a DataFrame of ``pd.ArrowDtype`` columns (zero-copy).
+
+    ``attrs["channels"]`` maps each sensor with per-channel columns in ``schema`` to
+    its channel axis (see :func:`channel_axis`).
+    """
     columns = []
     for field in schema:
         if field.name in table.column_names:
@@ -1163,6 +1333,13 @@ def to_dataframe(table: pa.Table, schema: pa.Schema, source_id: str) -> pd.DataF
         types_mapper=pd.ArrowDtype
     )
     frame.attrs["source"] = source_id
+    channels = {
+        field.metadata[_SENSOR_KEY].decode(): _field_channels(field).tolist()
+        for field in schema
+        if field.metadata and _CHANNELS_KEY in field.metadata
+    }
+    if channels:
+        frame.attrs["channels"] = channels
     return frame
 
 
@@ -2267,66 +2444,62 @@ def _list_layout(lists: pa.Array) -> tuple[np.ndarray, pa.StructArray]:
     return offsets, lists.values
 
 
-class _ChannelRows:
-    """Channel entries of the kept footprints of one batch, footprint-major.
+class _ChannelMatrix:
+    """Channel entries of one batch's kept footprints on a fixed channel axis.
 
-    Uniform (``width`` set): every kept footprint carries the channel sequence
-    ``channels``, so entries reshape to (footprints, width). Otherwise each kept
-    footprint has ``counts`` entries at ``index`` in the list values.
+    ``index`` is, per kept footprint and slot, the entry in the list values, -1 where
+    the footprint lacks the slot's channel. A batch whose kept footprints each carry
+    exactly the axis in order is a reshape of its entries; otherwise entries are
+    placed by channel number. Footprints with no channel of the axis are not kept;
+    ``off_axis`` counts the entries whose channel is not on the axis.
     """
 
-    def __init__(self, lists: pa.Array, keep: np.ndarray) -> None:
+    def __init__(self, lists: pa.Array, keep: np.ndarray, axis: np.ndarray) -> None:
         offsets, self.values = _list_layout(lists)
         lengths = np.diff(offsets)
-        self.kept = np.flatnonzero(keep & (lengths > 0))
-        self.width = 0
-        self.channels = np.empty(0)
         chnm = physical_values(self.values, "CHNM")
-        if len(self.kept) and np.all(lengths[self.kept] == lengths[self.kept[0]]):
-            width = int(lengths[self.kept[0]])
-            starts = offsets[self.kept]
-            index = (starts[:, None] + np.arange(width)).ravel()
-            row = chnm[index[:width]]
-            entries = chnm[index].reshape(-1, width)
-            if (
-                not np.isnan(row).any()
-                and len(np.unique(row)) == width
-                and np.all(entries == row)
-            ):
-                self.width = width
-                self.channels = row
-                self.index = index
-                self.counts = np.full(len(self.kept), width, dtype=np.int64)
+        self.axis = axis
+        self.off_axis = 0
+        width = len(axis)
+        kept = np.flatnonzero(keep & (lengths > 0))
+        if np.all(lengths[kept] == width):
+            index = offsets[kept][:, None] + np.arange(width)
+            if np.array_equal(chnm[index], np.broadcast_to(axis, index.shape)):
+                self.kept, self.index, self.complete = kept, index, True
                 return
         parent = np.repeat(np.arange(len(lengths), dtype=np.int64), lengths)
-        entry_ok = keep[parent] & np.isfinite(chnm)
-        self.index = np.flatnonzero(entry_ok)
-        self.counts = np.bincount(parent[self.index], minlength=len(lengths))[self.kept]
+        slot = np.minimum(np.searchsorted(axis, chnm), width - 1)
+        on_axis = keep[parent] & (axis[slot] == chnm)
+        self.off_axis = int((keep[parent] & np.isfinite(chnm) & ~on_axis).sum())
+        entries = np.flatnonzero(on_axis)
+        has_channel = np.zeros(len(lengths), dtype=bool)
+        has_channel[parent[entries]] = True
+        self.kept = np.flatnonzero(has_channel)
+        row = np.cumsum(has_channel) - 1
+        self.index = np.full((len(self.kept), width), -1, dtype=np.int64)
+        self.index[row[parent[entries]], slot[entries]] = entries
+        self.complete = False
 
-    @property
-    def n_entries(self) -> int:
-        return len(self.index)
+    def take(self, name: str, dtype: type = np.float64) -> np.ndarray:
+        """Physical values of child ``name`` per slot, footprint-major; NaN where missing."""
+        index = self.index.ravel()
+        if self.complete:
+            return physical_values(self.values, name, index, dtype)
+        missing = index < 0
+        values = physical_values(self.values, name, np.where(missing, 0, index), dtype)
+        values[missing] = np.nan
+        return values
 
-    # np.tile and np.repeat hold the GIL; broadcast copies of uniform rows do not
+    # np.tile and np.repeat hold the GIL; broadcast copies do not
     def channel_numbers(self) -> np.ndarray:
-        if self.width:
-            return np.broadcast_to(self.channels, (len(self.kept), self.width)).ravel()
-        return physical_values(self.values, "CHNM", self.index)
+        return np.broadcast_to(self.axis, self.index.shape).ravel()
 
     def footprints(self) -> np.ndarray:
-        """Batch row of each entry."""
-        if self.width:
-            return np.broadcast_to(
-                self.kept[:, None], (len(self.kept), self.width)
-            ).ravel()
-        return np.repeat(self.kept, self.counts)
+        """Batch row of each slot."""
+        return np.broadcast_to(self.kept[:, None], self.index.shape).ravel()
 
     def lists(self, flat: pa.Array) -> pa.Array:
-        if self.width:
-            return pa.FixedSizeListArray.from_arrays(flat, self.width)
-        offsets = np.zeros(len(self.kept) + 1, dtype=np.int32)
-        np.cumsum(self.counts, out=offsets[1:])
-        return pa.ListArray.from_arrays(pa.array(offsets), flat)
+        return pa.FixedSizeListArray.from_arrays(flat, len(self.axis))
 
 
 def _cris_band_quality(batch: pa.RecordBatch) -> tuple[np.ndarray, np.ndarray]:
@@ -2346,7 +2519,7 @@ def _cris_band_quality(batch: pa.RecordBatch) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _iasi_scale_factor(
-    batch: pa.RecordBatch, rows: _ChannelRows, channels: np.ndarray
+    batch: pa.RecordBatch, rows: _ChannelMatrix, channels: np.ndarray
 ) -> np.ndarray:
     """10**-CHSF of each entry's scale group: the first STCH..ENCH group holding the
     channel, NaN outside every group. Groups are resolved once per distinct layout."""
@@ -2390,8 +2563,9 @@ def _sat_batch(
     plan: Mapping[str, str],
     window_ns: tuple[int, int],
     satellites: frozenset[str] | None,
+    axis: np.ndarray,
 ) -> pa.Table | None:
-    """Wide rows (one per kept footprint) of one batch.
+    """Wide rows (one per kept footprint) of one batch over the channel ``axis``.
 
     ``plan`` maps each requested variable to its BUFR field.
     """
@@ -2424,7 +2598,11 @@ def _sat_batch(
     ]
     if satellites is not None:
         keep &= np.array([name in satellites for name in names], dtype=bool)[said_index]
-    rows = _ChannelRows(_channel_group(batch), keep)
+    rows = _ChannelMatrix(_channel_group(batch), keep, axis)
+    if rows.off_axis:
+        logger.warning(
+            f"{sensor}: dropped {rows.off_axis} channel entries off the channel axis"
+        )
     if not len(rows.kept):
         return None
     values = rows.values
@@ -2432,9 +2610,6 @@ def _sat_batch(
     channels = rows.channel_numbers()
 
     if sensor in _IR_SENSORS:
-        limit = _IR_CHANNEL_LIMIT[sensor]
-        if len(channels) and (np.nanmin(channels) < 1 or np.nanmax(channels) > limit):
-            raise ValueError(f"{sensor} channels outside 1-{limit}")
         scan_angle: np.ndarray | None = None
         elev = _column(batch, "HOLS") if is_cris else None
     else:
@@ -2444,14 +2619,12 @@ def _sat_batch(
 
     observations: dict[str, np.ndarray] = {}
     if sensor == "airs":
-        quality = physical_values(values, "ACQF", rows.index)
+        quality = rows.take("ACQF")
         for variable, field in plan.items():
-            observations[variable] = physical_values(
-                values, field, rows.index, np.float32
-            )
+            observations[variable] = rows.take(field, np.float32)
     elif sensor in ("iasi", "cris"):
         wavenumber = wavenumber_cm_inverse(sensor, channels.astype(np.int64))
-        coded = physical_values(values, _IR_OBSERVATION[sensor], rows.index)
+        coded = rows.take(_IR_OBSERVATION[sensor])
         if is_cris:
             # SRAD W m-2 sr-1 (cm-1)-1 -> mW
             radiance = coded * 1000.0
@@ -2459,7 +2632,9 @@ def _sat_batch(
             footprint = rows.footprints()
             band = _CRIS_CHANNEL_BAND[channels.astype(np.int64)]
             quality = np.where(
-                packed_ok[footprint, band], packed[footprint, band], np.nan
+                packed_ok[footprint, band] & (rows.index.ravel() >= 0),
+                packed[footprint, band],
+                np.nan,
             )
         else:
             # SCRA x 10^-CHSF W m-2 sr-1 (m-1)-1 -> mW m-2 sr-1 (cm-1)-1
@@ -2470,14 +2645,12 @@ def _sat_batch(
             observations[variable] = bt
     else:
         quality = (
-            physical_values(values, "ATMSCHQ", rows.index)
+            rows.take("ATMSCHQ")
             if "ATMSCHQ" in child_names
             else np.full(len(channels), np.nan)
         )
         for variable, field in plan.items():
-            observations[variable] = physical_values(
-                values, field, rows.index, np.float32
-            )
+            observations[variable] = rows.take(field, np.float32)
 
     kept = rows.kept
 
@@ -2515,9 +2688,6 @@ def _sat_batch(
             _column(batch, "QGFQ") if sensor == "iasi" else None, pa.uint8()
         ),
         "satellite": dictionary_column(said_index[kept].astype(np.int8), names),
-        f"sensor_index_{sensor}": rows.lists(
-            pa.array(channels.astype(np.uint16), type=pa.uint16())
-        ),
         f"quality_{sensor}": rows.lists(uint_with_nulls(quality, pa.uint32())),
     }
     for variable, values_ in observations.items():
@@ -2539,10 +2709,11 @@ def decode_satellite(
 ) -> pa.Table:
     """Decode an NCEP aggregate satellite file into a wide table, one row per footprint.
 
-    Per-channel values are lists in channel order: ``sensor_index_<sensor>``,
-    ``quality_<sensor>`` and one ``observation_<variable>`` per requested variable,
-    fixed-size when every footprint of a batch carries the same channels. IASI and
-    CrIS radiances are returned as brightness temperature.
+    Per-channel values are fixed-size lists over the channel axis, ``channels`` in
+    ascending order or else ``SAT_CHANNELS[sensor]``: ``quality_<sensor>`` and one
+    ``observation_<variable>`` per requested variable, null in a slot whose channel
+    the footprint lacks. The axis is recorded in the field metadata of these
+    columns. IASI and CrIS radiances are returned as brightness temperature.
 
     Parameters
     ----------
@@ -2557,7 +2728,7 @@ def decode_satellite(
     satellites : Collection[str] | None, optional
         Platforms to keep, by default all
     channels : Collection[int] | None, optional
-        Channel numbers decoded for an IR sounder, by default all
+        Channel numbers decoded for an IR sounder, by default ``SAT_CHANNELS[sensor]``
     decode_workers : int, optional
         Threads transforming decoded batches, by default 8
 
@@ -2568,6 +2739,9 @@ def decode_satellite(
     """
     window_ns = (datetime_ns(dt_min), datetime_ns(dt_max))
     satellite_filter = None if satellites is None else frozenset(satellites)
+    axis = sorted(SAT_CHANNELS[sensor] if channels is None else set(channels))
+    schema = _sat_wide_schema({sensor: axis})
+    axis_values = np.array(axis, dtype=np.float64)
     with open_bufr(path) as source:
         wavenumber = _airs_wavenumber(source) if sensor == "airs" else None
         batches = source.iter_batches(
@@ -2579,15 +2753,23 @@ def decode_satellite(
         tables = [
             t
             for t in map_ordered(
-                lambda b: _sat_batch(b, sensor, plan, window_ns, satellite_filter),
+                lambda b: _sat_batch(
+                    b, sensor, plan, window_ns, satellite_filter, axis_values
+                ),
                 batches,
                 decode_workers,
             )
             if t is not None
         ]
     if not tables:
-        return _empty_wide(_NCEP_MICROWAVE_WIDE_SCHEMA, list(plan))
+        return _empty_wide(schema, list(plan))
     table = concat_tables(tables)
+    # The per-channel fields carry the channel axis in their metadata
+    fields = [
+        schema.field(name) if name.startswith(("observation_", "quality_")) else field
+        for name, field in zip(table.column_names, table.schema)
+    ]
+    table = pa.Table.from_arrays(table.columns, schema=pa.schema(fields))
     if wavenumber is not None:
         table = table.replace_schema_metadata(
             {_WAVENUMBER_BY_CHANNEL: wavenumber.tobytes()}

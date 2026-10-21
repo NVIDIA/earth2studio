@@ -43,6 +43,7 @@ from earth2studio.data.utils_ncep import (
     NCEP_MICROWAVE_OUTPUT_SCHEMA,
     NCEP_SATWND_PUBLIC_SCHEMA,
     _to_long,
+    channel_axis,
     cycle_windows,
     decode_gpsro,
     decode_prepbufr,
@@ -678,15 +679,11 @@ def test_nnja_obs_sat_sensor_indices_validation():
     # raise at construction instead, matching the JPSS/METOP sources
     with pytest.raises(ValueError, match="at least one"):
         NNJAObsSat(sensor_indices={"cris": []}, cache=False, verbose=False)
-    # Out of instrument-grid range
-    with pytest.raises(ValueError, match="1 to 2211"):
-        NNJAObsSat(sensor_indices={"cris": [0]}, cache=False, verbose=False)
-    with pytest.raises(ValueError, match="1 to 2211"):
-        NNJAObsSat(sensor_indices={"cris": [2212]}, cache=False, verbose=False)
-    with pytest.raises(ValueError, match="1 to 8461"):
-        NNJAObsSat(sensor_indices={"iasi": [8462]}, cache=False, verbose=False)
-    with pytest.raises(ValueError, match="1 to 2378"):
-        NNJAObsSat(sensor_indices={"airs": [2379]}, cache=False, verbose=False)
+    # Channels the archive does not carry: off the instrument grid, or on it but
+    # outside the NCEP subset
+    for sensor, channel in [("cris", 0), ("cris", 2212), ("cris", 1), ("iasi", 1)]:
+        with pytest.raises(ValueError, match="archive carries"):
+            NNJAObsSat(sensor_indices={sensor: [channel]}, cache=False, verbose=False)
     # Non-integer and bool entries
     with pytest.raises(ValueError, match="integer"):
         NNJAObsSat(sensor_indices={"cris": [1.5]}, cache=False, verbose=False)
@@ -695,13 +692,12 @@ def test_nnja_obs_sat_sensor_indices_validation():
     # Duplicates
     with pytest.raises(ValueError, match="unique"):
         NNJAObsSat(sensor_indices={"cris": [19, 19]}, cache=False, verbose=False)
-    # Valid boundary selections construct fine
     source = NNJAObsSat(
-        sensor_indices={"cris": [1, 2211], "iasi": [1, 8461], "airs": [1, 2378]},
+        sensor_indices={"cris": [19, 2182], "iasi": [16, 8078], "airs": [1, 2377]},
         cache=False,
         verbose=False,
     )
-    assert source._sensor_indices["cris"] == frozenset({1, 2211})
+    assert source._sensor_indices["cris"] == frozenset({19, 2182})
 
 
 def test_nnja_obs_sat_ir_tasks_skipped_when_satellites_exclude_sensor():
@@ -1211,7 +1207,9 @@ def test_microwave_wide_is_fixed_size_and_long_matches(fake_bufr):
         "atms", [T0, T0], channels, lambda c: (23.8e9 * c, 0.0, 200.0 + c)
     )
     fake_bufr["atms"] = _FakeBufr([batch])
-    wide = decode_satellite("atms", "atms", {"atms": "TMBR"}, T0, T0, decode_workers=1)
+    wide = decode_satellite(
+        "atms", "atms", {"atms": "TMBR"}, T0, T0, channels=[1, 2, 3], decode_workers=1
+    )
     assert pa.types.is_fixed_size_list(wide.schema.field("observation_atms").type)
     np.testing.assert_allclose(
         wide["observation_atms"].combine_chunks().values.to_numpy().reshape(2, 3),
@@ -1228,6 +1226,41 @@ def test_microwave_wide_is_fixed_size_and_long_matches(fake_bufr):
         long["wavenumber"].to_numpy(),
         np.tile([23.8e9, 31.4e9, 50.3e9], 2) / 2.99792458e10,
     )
+
+
+def test_satellite_wide_is_one_matrix_over_the_channel_axis(fake_bufr):
+    def entries(c):
+        return (23.8e9, 0.0, 200.0 + c)
+
+    full = _sat_batch("atms", [T0], [1.0, 2.0, 3.0], entries)
+    # The second batch's footprint lacks channel 2
+    partial = _sat_batch("atms", [T0], [3.0, 1.0], entries)
+    fake_bufr["atms"] = _FakeBufr([full, partial])
+    wide = decode_satellite(
+        "atms", "atms", {"atms": "TMBR"}, T0, T0, channels=[1, 2, 3], decode_workers=1
+    )
+    matrix = pa.list_(pa.float32(), 3)
+    assert [chunk.type for chunk in wide["observation_atms"].chunks] == [matrix] * 2
+    assert wide["observation_atms"].to_pylist() == [
+        [201.0, 202.0, 203.0],
+        [201.0, None, 203.0],
+    ]
+
+
+def test_nnja_obs_sat_wide_frame_carries_channel_axis(fake_bufr, monkeypatch, tmp_path):
+    source = NNJAObsSat(
+        time_tolerance=(timedelta(hours=-3), timedelta(hours=3)),
+        sensor_indices={"iasi": [38, 16]},
+        layout="wide",
+        cache=False,
+        verbose=False,
+    )
+    batch = _sat_batch("iasi", [T0], [16.0, 38.0, 49.0], lambda c: (1000.0 + c,))
+    _source_with_files(source, fake_bufr, monkeypatch, tmp_path, [batch])
+    frame = source(T0, ["iasi"])
+    assert channel_axis(frame, "iasi").tolist() == [16, 38]
+    assert channel_axis(frame, "atms").tolist() == list(range(1, 23))
+    assert frame["observation_iasi"].dtype == pd.ArrowDtype(pa.list_(pa.float32(), 2))
 
 
 def test_ir_channel_filter_and_brightness_temperature(fake_bufr):
@@ -1288,7 +1321,9 @@ def test_airs_wavenumber_read_from_file(fake_bufr):
         "airs", [T0, T0], list(log10_m), lambda c: (log10_m[c], 0.0, 250.0)
     )
     fake_bufr["airs"] = _FakeBufr([batch])
-    wide = decode_satellite("airs", "airs", {"airs": "TMBR"}, T0, T0, decode_workers=1)
+    wide = decode_satellite(
+        "airs", "airs", {"airs": "TMBR"}, T0, T0, channels=[1, 2377], decode_workers=1
+    )
     assert "wavenumber_airs" not in wide.column_names
     long = _to_long(wide, ["airs"], NCEP_MICROWAVE_OUTPUT_SCHEMA)
     assert long["sensor_index"].to_pylist() == [1, 2377, 1, 2377]
@@ -1365,7 +1400,9 @@ def test_nnja_sources_long_and_wide(fake_bufr, monkeypatch, tmp_path, layout):
         # The T0 file covers [T0 - 3h, T0 + 3h]; the observation at exactly T0 + 3h
         # is included
         assert frame["time"].max() == pd.Timestamp(end)
-        table = pa.Table.from_pandas(frame, preserve_index=False)
+        table = pa.Table.from_pandas(
+            frame, schema=source._output_fields(None), preserve_index=False
+        )
         if layout == "long":
             assert list(frame.columns) == source.SCHEMA.names
             assert set(frame["variable"]) == set(variables)
