@@ -686,7 +686,9 @@ NCEP_SATWND_PUBLIC_SCHEMA = pa.schema(
                 f"qi_{mnemonic.lower()}_{code}",
                 pa.float32(),
                 nullable=True,
-                metadata={"description": f"Percent confidence (PCCF) of {description} {code}"},
+                metadata={
+                    "description": f"Percent confidence (PCCF) of {description} {code}"
+                },
             )
             for mnemonic, (description, codes) in _SATWND_QUALITY_CODES.items()
             for code in codes
@@ -1361,9 +1363,7 @@ def _prepbufr_batch(
     dhr, dhr_valid = header("DHR")
     dhr_scale = _field_scale(batch.schema, paths["DHR"])
     if not dhr_valid.all():
-        raise ValueError(
-            f"{int((~dhr_valid).sum())} {obs_class} reports with null DHR"
-        )
+        raise ValueError(f"{int((~dhr_valid).sum())} {obs_class} reports with null DHR")
     header_us = message_base + _offset_microseconds(dhr, dhr_scale)
     keep = (header_us >= window_us[0]) & (header_us <= window_us[1])
 

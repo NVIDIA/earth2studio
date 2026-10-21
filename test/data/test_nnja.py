@@ -1252,9 +1252,7 @@ def test_satwnd_non_positive_pressure_is_null(fake_bufr):
 def test_missing_hour_drops_the_wind_and_the_occultation(fake_bufr):
     messages = [_satwnd_message("3-63-130")]
     hour = pa.array([None, 0.0])
-    fake_bufr["satwnd"] = _FakeBufr(
-        [_satwnd_batch([T0, T0], {"HOUR": hour})], messages
-    )
+    fake_bufr["satwnd"] = _FakeBufr([_satwnd_batch([T0, T0], {"HOUR": hour})], messages)
     assert decode_satwnd("satwnd", ["u"], T0, T0, 1).num_rows == 1
     gpsro = _gpsro_batch([T0, T0])
     index = gpsro.schema.get_field_index("HOUR")
@@ -1278,7 +1276,11 @@ def test_gpsro_one_bending_angle_per_level(fake_bufr):
     levels = _struct_list([[(10.5, 20.5), (11.5, 21.5)]], ["CLATH", "CLONH"])
     frequencies = _struct_list(
         [
-            [(0.0, 6.4e6, 0.01, 0.0), (1.5e9, 6.4e6, 0.02, 0.0), (0.0, 6.4e6, 0.03, 0.0)],
+            [
+                (0.0, 6.4e6, 0.01, 0.0),
+                (1.5e9, 6.4e6, 0.02, 0.0),
+                (0.0, 6.4e6, 0.03, 0.0),
+            ],
             [(1.5e9, 6.5e6, 0.04, 0.0), (1.2e9, 6.5e6, 0.05, 0.0)],
         ],
         ["MEFR", "IMPP", "BNDA", "BNDA"],
@@ -1302,7 +1304,9 @@ def test_truncated_messages_are_skipped_and_counted(fake_bufr):
 
     truncated = [SimpleNamespace(source_message_index=4, reason="past Section 4")]
     messages = [_satwnd_message("3-63-130")]
-    fake_bufr["satwnd"] = _FakeBufr([_satwnd_batch([T0])], messages, truncated=truncated)
+    fake_bufr["satwnd"] = _FakeBufr(
+        [_satwnd_batch([T0])], messages, truncated=truncated
+    )
     warnings = []
     sink = logger.add(lambda message: warnings.append(str(message)), level="WARNING")
     try:
