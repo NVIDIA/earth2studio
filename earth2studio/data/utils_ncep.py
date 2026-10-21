@@ -1676,58 +1676,24 @@ def _first_field(struct: pa.StructArray, name: str) -> tuple[np.ndarray, np.ndar
     return numpy_with_mask(struct.field(struct.type.get_all_field_indices(name)[0]))
 
 
-def _list_entries(lists: pa.ListArray) -> tuple[pa.StructArray, np.ndarray, np.ndarray]:
+def _list_entries(lists: pa.ListArray) -> tuple[pa.StructArray, np.ndarray]:
     offsets = lists.offsets.to_numpy()
     if lists.offset or offsets[0] != 0 or offsets[-1] != len(lists.values):
         raise ValueError("list does not span its values")
     lengths = np.diff(offsets)
     parent = np.repeat(np.arange(len(lists)), lengths)
-    position = np.arange(offsets[-1]) - offsets[parent]
-    return lists.values, parent, position
-
-
-def _reference_coordinate(
-    top: np.ndarray,
-    top_valid: np.ndarray,
-    levels: tuple[pa.StructArray, np.ndarray, np.ndarray],
-    name: str,
-    first_impp_position: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-    """The occultation's CLATH/CLONH, else the first level value ahead of the first IMPP."""
-    if top_valid.all():
-        return top, top_valid
-    struct, parent, position = levels
-    values, valid = numpy_with_mask(struct.field(name))
-    candidate = np.flatnonzero(valid & (position <= first_impp_position[parent]))
-    first = np.full(len(top), len(values), dtype=np.int64)
-    np.minimum.at(first, parent[candidate], candidate)
-    found = first < len(values)
-    fallback = values[np.where(found, first, 0)] if len(values) else np.zeros(len(top))
-    return np.where(top_valid, top, fallback), top_valid | found
+    return lists.values, parent
 
 
 def _gpsro_batch(
     batch: pa.RecordBatch, variables: Sequence[str], window_ns: tuple[int, int]
 ) -> pa.Table | None:
     """Wide rows of one batch: bending-angle levels, then refractivity levels."""
-    n = batch.num_rows
     scalar = {name: numpy_with_mask(batch.column(name)) for name in _GPSRO_SCALARS}
-    levels = _list_entries(batch.column("DRF16BIT"))
-    level_struct, level_parent, level_position = levels
-    frequencies, frequency_level, _ = _list_entries(level_struct.field("DRF8BIT"))
-    has_frequency = np.zeros(len(level_struct), dtype=bool)
-    has_frequency[frequency_level] = True
-    first_impp_position = np.full(n, np.iinfo(np.int64).max, dtype=np.int64)
-    with_impp = np.flatnonzero(has_frequency)
-    np.minimum.at(
-        first_impp_position, level_parent[with_impp], level_position[with_impp]
-    )
-    lat_ref, lat_ref_valid = _reference_coordinate(
-        *scalar["CLATH"], levels, "CLATH", first_impp_position
-    )
-    lon_ref, lon_ref_valid = _reference_coordinate(
-        *scalar["CLONH"], levels, "CLONH", first_impp_position
-    )
+    level_struct, level_parent = _list_entries(batch.column("DRF16BIT"))
+    frequencies, frequency_level = _list_entries(level_struct.field("DRF8BIT"))
+    lat_ref, lat_ref_valid = scalar["CLATH"]
+    lon_ref, lon_ref_valid = scalar["CLONH"]
 
     def part(name: str) -> np.ndarray:
         values, valid = scalar[name]
@@ -1796,7 +1762,7 @@ def _gpsro_batch(
             elev = (impp[rows] - elrc[subset]).astype(np.float32)
             value = value[rows]
         else:
-            refractivity, refractivity_subset, _ = _list_entries(
+            refractivity, refractivity_subset = _list_entries(
                 batch.column("DRF16BIT_2")
             )
             heit, heit_valid = _first_field(refractivity, "HEIT")

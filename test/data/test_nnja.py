@@ -1237,6 +1237,16 @@ def test_missing_hour_drops_the_wind_and_the_occultation(fake_bufr):
     assert wide["station"].to_pylist() == ["00440007"]
 
 
+def test_gpsro_reference_point_is_the_occultation_clath(fake_bufr):
+    # The level CLATH/CLONH of the first occultation do not stand in for its own
+    gpsro = _gpsro_batch([T0, T0])
+    index = gpsro.schema.get_field_index("CLATH")
+    gpsro = gpsro.set_column(index, "CLATH", pa.array([None, 10.0]))
+    fake_bufr["gpsro"] = _FakeBufr([gpsro])
+    wide = decode_gpsro("gpsro", ["gps_refractivity"], T0, T0, 1)
+    assert wide["lat"].to_pylist() == [10.0, 10.0]
+
+
 def test_satwnd_unknown_quality_application_raises(fake_bufr):
     messages = [SimpleNamespace(source_message_index=0, local_sub_category=30)]
     batch = _satwnd_batch([T0], {"GNAP#2": [9.0]})
