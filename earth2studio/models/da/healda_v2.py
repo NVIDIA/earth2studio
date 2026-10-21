@@ -121,8 +121,6 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
     - ``PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`` avoids GPU out-of-memory
       from fragmentation over repeated analyses.
     - ``OMP_NUM_THREADS=1``.
-    - ``EARTH2STUDIO_CACHE`` on node-local storage reads faster than a network file
-      system.
 
     Parameters
     ----------
