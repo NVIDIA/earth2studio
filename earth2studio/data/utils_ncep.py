@@ -1740,15 +1740,22 @@ def _gpsro_batch(
             impp, impp_valid = _first_field(frequencies, "IMPP")
             value, value_valid = _first_field(frequencies, "BNDA")
             subset = level_parent[frequency_level]
-            # Ionosphere-corrected bending angle: mean frequency 0
-            rows = np.flatnonzero(
-                mefr_valid
-                & (np.abs(mefr) <= 0.5)
-                & impp_valid
-                & value_valid
-                & elrc_valid[subset]
-                & subset_ok[subset]
-            )
+            # One entry per level: its last ionosphere-corrected entry (mean
+            # frequency 0), else its last entry
+            entry = np.arange(len(frequencies))
+            last = np.full(len(level_struct), -1, dtype=np.int64)
+            np.maximum.at(last, frequency_level, entry)
+            corrected = np.full(len(level_struct), -1, dtype=np.int64)
+            is_corrected = mefr_valid & (mefr == 0)
+            np.maximum.at(corrected, frequency_level[is_corrected], entry[is_corrected])
+            primary = np.where(corrected >= 0, corrected, last)
+            rows = primary[primary >= 0]
+            rows = rows[
+                impp_valid[rows]
+                & value_valid[rows]
+                & elrc_valid[subset[rows]]
+                & subset_ok[subset[rows]]
+            ]
             subset = subset[rows]
             level_index = frequency_level[rows]
             level_lat, level_lat_valid = numpy_with_mask(level_struct.field("CLATH"))
@@ -1831,8 +1838,9 @@ def decode_gpsro(
 ) -> pa.Table:
     """Decode an NCEP GPSRO BUFR file into a wide table.
 
-    One row per bending-angle level (``observation_gps``, the ionosphere-corrected
-    bending angle) or refractivity level (``observation_gps_refractivity``).
+    One row per bending-angle level (``observation_gps``, the level's last
+    ionosphere-corrected entry, else its last entry) or refractivity level
+    (``observation_gps_refractivity``).
 
     Parameters
     ----------

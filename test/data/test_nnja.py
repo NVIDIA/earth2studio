@@ -1247,6 +1247,30 @@ def test_gpsro_reference_point_is_the_occultation_clath(fake_bufr):
     assert wide["lat"].to_pylist() == [10.0, 10.0]
 
 
+def test_gpsro_one_bending_angle_per_level(fake_bufr):
+    # Level 1: two corrected entries, the last wins. Level 2: none, its last entry wins
+    levels = _struct_list([[(10.5, 20.5), (11.5, 21.5)]], ["CLATH", "CLONH"])
+    frequencies = _struct_list(
+        [
+            [(0.0, 6.4e6, 0.01, 0.0), (1.5e9, 6.4e6, 0.02, 0.0), (0.0, 6.4e6, 0.03, 0.0)],
+            [(1.5e9, 6.5e6, 0.04, 0.0), (1.2e9, 6.5e6, 0.05, 0.0)],
+        ],
+        ["MEFR", "IMPP", "BNDA", "BNDA"],
+    )
+    level_values = pa.StructArray.from_arrays(
+        [levels.values.field(0), levels.values.field(1), frequencies],
+        names=["CLATH", "CLONH", "DRF8BIT"],
+    )
+    gpsro = _gpsro_batch([T0])
+    index = gpsro.schema.get_field_index("DRF16BIT")
+    gpsro = gpsro.set_column(
+        index, "DRF16BIT", pa.ListArray.from_arrays(levels.offsets, level_values)
+    )
+    fake_bufr["gpsro"] = _FakeBufr([gpsro])
+    wide = decode_gpsro("gpsro", ["gps"], T0, T0, 1)
+    np.testing.assert_allclose(wide["observation_gps"].to_numpy(), [0.03, 0.05])
+
+
 def test_satwnd_unknown_quality_application_raises(fake_bufr):
     messages = [SimpleNamespace(source_message_index=0, local_sub_category=30)]
     batch = _satwnd_batch([T0], {"GNAP#2": [9.0]})
