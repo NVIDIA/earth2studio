@@ -2435,8 +2435,15 @@ _WAVENUMBER_BY_CHANNEL = b"wavenumber_by_channel"
 
 def _airs_wavenumber(source: Any, path: str) -> np.ndarray:
     """Centre wavenumber (cm⁻¹) by channel number from the first footprint whose
-    channels all carry LOGRCW; LOGRCW is constant per channel within a file."""
+    channels all carry LOGRCW; LOGRCW is constant per channel within a file.
+
+    Raises
+    ------
+    ValueError
+        If the file has footprints but none carries LOGRCW for all its channels
+    """
     by_channel = np.full(_IR_CHANNEL_LIMIT["airs"] + 1, np.nan)
+    footprints = 0
     batches = iter_batches(
         source,
         path,
@@ -2446,6 +2453,7 @@ def _airs_wavenumber(source: Any, path: str) -> np.ndarray:
     )
     for batch in batches:
         offsets, values = _list_layout(_channel_group(batch))
+        footprints += len(offsets) - 1
         channels = physical_values(values, "CHNM")
         log10_m = physical_values(values, "LOGRCW")
         for start, end in zip(offsets[:-1], offsets[1:]):
@@ -2460,6 +2468,8 @@ def _airs_wavenumber(source: Any, path: str) -> np.ndarray:
                     10.0 ** log10_m[footprint] / 100.0
                 )
                 return by_channel
+    if footprints:
+        raise ValueError(f"{path}: no AIRS footprint carries LOGRCW for all channels")
     return by_channel
 
 

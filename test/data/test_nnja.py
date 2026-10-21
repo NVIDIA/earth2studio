@@ -1588,6 +1588,11 @@ def test_airs_wavenumber_read_from_file(fake_bufr):
     np.testing.assert_allclose(
         long["wavenumber"].to_numpy(), [649.62, 2664.138] * 2, atol=0.001
     )
+    # No footprint with LOGRCW for every channel
+    batch = _sat_batch("airs", [T0], [1.0], lambda c: (np.nan, 0.0, 250.0))
+    fake_bufr["airs"] = _FakeBufr([batch])
+    with pytest.raises(ValueError, match="LOGRCW"):
+        decode_satellite("airs", "airs", {"airs": "TMBR"}, T0, T0, channels=[1])
 
 
 def test_satellite_filter_and_window(fake_bufr):
