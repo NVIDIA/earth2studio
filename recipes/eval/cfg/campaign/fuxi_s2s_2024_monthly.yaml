@@ -20,8 +20,8 @@
 # scoring elsewhere.  The model steps one day at a time on a 1.5 degree
 # grid, so the 1 degree target keeps the model grid; a 0.25 degree model
 # would be interpolated.  It consumes UTC calendar-day means, which the
-# arco_era5_daily source serves for the two initial frames.  The published
-# horizon is 42 days; `nsteps: 30` stays within it with one mean per run.
+# arco_era5_daily source serves for the two initial frames.  This 60-day
+# run produces two means and extends beyond the published 42-day horizon.
 defaults:
     - override /model: fuxi_s2s
     - override /data_source: arco_era5_daily

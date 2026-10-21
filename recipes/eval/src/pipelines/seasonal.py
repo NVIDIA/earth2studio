@@ -206,3 +206,8 @@ class WindowMeanForecastPipeline(ForecastPipeline):
                 f"{label}: the rollout ended {self._steps_per_window - count} "
                 "steps short of a window end."
             )
+        if done != len(self._leads):
+            raise RuntimeError(
+                f"{label}: the rollout ended after {done} of "
+                f"{len(self._leads)} windows."
+            )

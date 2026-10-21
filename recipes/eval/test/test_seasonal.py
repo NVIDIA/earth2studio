@@ -378,6 +378,18 @@ class _StoppingModel(_CountingModel):
             yield x_step, c
 
 
+class _BoundaryStoppingModel(_CountingModel):
+    """Stops after four steps, exactly at the end of the first 24-hour window."""
+
+    def create_iterator(
+        self, x: torch.Tensor, coords: CoordSystem
+    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        for step, (x_step, c) in enumerate(super().create_iterator(x, coords)):
+            if step > 4:
+                return
+            yield x_step, c
+
+
 class _PairModel(_CountingModel):
     """Yields two 6-hour leads per step, like a multi-lead model."""
 
@@ -533,6 +545,14 @@ class TestWindowMeanForecastPipeline:
         pipeline.setup(cfg, torch.device("cpu"))
         item = WorkItem(time=EPOCH, ensemble_id=0, seed=0)
         with pytest.raises(RuntimeError, match="2 steps short"):
+            list(pipeline.run_item(item, _HourSource(), torch.device("cpu")))
+
+    def test_rollout_that_stops_at_a_window_end_raises(self, tmp_path):
+        cfg = _cfg(tmp_path, model="_BoundaryStoppingModel")
+        pipeline = build_pipeline(cfg)
+        pipeline.setup(cfg, torch.device("cpu"))
+        item = WorkItem(time=EPOCH, ensemble_id=0, seed=0)
+        with pytest.raises(RuntimeError, match="after 1 of 2 windows"):
             list(pipeline.run_item(item, _HourSource(), torch.device("cpu")))
 
     def test_rollout_with_several_leads_per_step(self, tmp_path):
