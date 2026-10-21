@@ -60,6 +60,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   small.
 - Fixed `ZarrBackend` and `IceChunkBackend` reopening stores containing
   root-level subgroups.
+- `datasource_to_file` offsets the requested times by each lead time on its own instead
+  of compounding the leads, which fetched times far past the largest lead.
 
 ### Security
 
