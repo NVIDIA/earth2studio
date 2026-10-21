@@ -950,6 +950,10 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
 
         self.output_coords(x)
+        # Views share experts; follow them if another view moved them.
+        expert = next(self.experts.parameters(), None)
+        if expert is not None and expert.device != self.means.device:
+            self.to(expert.device)
         name = x.name
         encoding = deepcopy(x.encoding)
         x, restore = batch_func()._compress_array(self, x)
@@ -959,7 +963,11 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # x: (batch, time, n_input_times, C, H, W)
         B, T, L, C, H, W = x.shape
-        x = self.normalize(x) if native is None else native.clone()
+        x = (
+            self.normalize(x)
+            if native is None
+            else native.to(self.means.device, copy=True)
+        )
 
         for j, time in enumerate(coords["time"]):
             # all_times: N input times + 1 output time (N+1 entries for solar angles)

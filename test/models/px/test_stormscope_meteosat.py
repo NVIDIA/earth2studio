@@ -560,6 +560,32 @@ def test_stormscope_meteosat_with_region():
             model.with_region(region)
 
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="needs CUDA")
+def test_stormscope_meteosat_views_follow_shared_experts():
+    """Moving a view moves the shared experts; the parent must follow them."""
+    model = create_spoof_model(h_pkg=40, w_pkg=60)
+    # Give the shared expert a parameter so its device is observable.
+    model.experts[0].register_parameter("weight", torch.nn.Parameter(torch.zeros(1)))
+    latitude, longitude = model.latitudes.numpy(), model.longitudes.numpy()
+    south, north = np.quantile(latitude, [0.3, 0.6])
+    west, east = np.quantile(longitude, [0.3, 0.6])
+    view = model.with_region(Region.box(west, south, east, north)).to("cuda:0")
+    assert model.experts[0].weight.device.type == "cuda"
+    assert model.means.device.type == "cpu"
+
+    signature = coord_array_like(
+        model.input_coords(),
+        {"batch": [0], "time": np.array([np.datetime64("2024-06-01T00:00")])},
+    )
+    x = from_torch(torch.ones(signature.shape), signature)
+    model.set_rng(0)
+    y, state = model.initialize(x)
+    model.step(y, state)
+    assert model.means.device.type == "cuda"
+    view.set_rng(0)
+    view(x)
+
+
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_stormscope_meteosat_raw_conversions(device):
     """raw_to_physical / physical_to_raw and raw_to_normalized / normalized_to_raw round trip."""

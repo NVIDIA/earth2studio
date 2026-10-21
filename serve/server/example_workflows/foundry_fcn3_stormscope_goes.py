@@ -94,7 +94,8 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
 
         # GOES-16 and GOES-19 share the GOES-East CONUS grid, so both reuse the
         # regridder of StormScope's default GOES source onto the model grid.
-        goes_regridder = self.stormscope.default_sources().regridder
+        goes_source, gfs_source = self.stormscope.default_sources()
+        goes_regridder = goes_source.regridder
         self.data_stormscope = {
             satellite: RegriddedSource(
                 PlanetaryComputerGOES(
@@ -105,12 +106,13 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
             for satellite in ["goes16", "goes19"]
         }
 
-        # FCN3 conditioning is regridded onto the model grid the same way.
+        # FCN3 conditioning is regridded onto the model grid like the default GFS
+        # conditioning, whose distance limit covers the grid from 0.25 degrees.
         coords_out = self.fcn3_interp.output_coords(self.fcn3_interp.input_coords())
         self.conditioning_regridder = NearestRegridder(
             infer_grid(coords_out),
             infer_grid(self.stormscope.input_coords()),
-            max_dist_km=self.stormscope.max_dist_km,
+            max_dist_km=gfs_source.regridder.max_dist_km,
         )
 
     @classmethod
