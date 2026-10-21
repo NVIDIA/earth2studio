@@ -29,7 +29,7 @@ import xarray as xr
 from loguru import logger
 
 from earth2studio.data import HRRR
-from earth2studio.data.base import DataSource
+from earth2studio.data.base import DataSource, ForecastSource
 from earth2studio.grids import (
     BilinearRegridder,
     CurvilinearGrid,
@@ -234,6 +234,8 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     # coverage of the model grid defines the valid masks.
     _INPUT_GRID: str | None = None
     _CONDITIONING_GRID: str | None = None
+    # Nearest-neighbor distance for the conditioning source, if not max_dist_km.
+    _CONDITIONING_MAX_DIST_KM: float | None = None
 
     # Constants used to normalize lat/lon input features
     _CENTRAL_LAT_CONSTANT = 38.5
@@ -717,17 +719,27 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _set_default_coverage(self) -> None:
         """Set the valid masks to the model gridpoints the default sources cover."""
         grid = self._grid()
-        for name, source_grid in (
-            ("valid_mask", self._INPUT_GRID),
-            ("conditioning_valid_mask", self._CONDITIONING_GRID),
+        for name, source_grid, max_dist_km in (
+            ("valid_mask", self._INPUT_GRID, self.max_dist_km),
+            (
+                "conditioning_valid_mask",
+                self._CONDITIONING_GRID,
+                self._conditioning_max_dist_km(),
+            ),
         ):
             if source_grid is None:
                 continue
             regridder = _default_regridder(
-                NearestRegridder, source_grid, grid, max_dist_km=self.max_dist_km
+                NearestRegridder, source_grid, grid, max_dist_km=max_dist_km
             )
             coverage = torch.from_numpy(np.array(regridder.coverage))
             self.register_buffer(name, coverage.to(self.latitudes.device))
+
+    def _conditioning_max_dist_km(self) -> float:
+        """Nearest-neighbor distance of the default conditioning regridder."""
+        if self._CONDITIONING_MAX_DIST_KM is None:
+            return self.max_dist_km
+        return self._CONDITIONING_MAX_DIST_KM
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.
@@ -1083,13 +1095,14 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 x_norm, coords, conditioning_norm, conditioning_coords
             )
 
-        # Combined conditioning to diffusion model: state, conditioning variables, extras (lat/lon, cos zenith angle)
+        # Combined conditioning to diffusion model: state, conditioning variables, extras (lat/lon, cos zenith angle).
+        # Cast to the network dtype: autocast leaves float64 inputs (e.g. GOES) alone.
         condition = self.build_condition(
             x=x_norm,
             coords=coords,
             conditioning=conditioning_norm,
             conditioning_coords=conditioning_coords,
-        )
+        ).to(self._MODEL_DTYPE)
 
         latents = self._randn_like(x[:, :, -1].reshape(b * t, *x.shape[3:]))
 
@@ -1738,7 +1751,8 @@ class StormScopeGOES(StormScopeBase):
 
       - ``3km_10min``  : 3km resolution, 10 minute timestep (CONUS nowcasting)
       - ``3km_10min_flash``: accelerated 3km / 10 minute CONUS nowcasting
-      - ``6km_1hr``    : 6km resolution, 60 minute timestep (legacy nearcasting)
+      - ``6km_1hr``    : 6km resolution, 60 minute timestep (legacy nearcasting),
+        conditioned on NWP fields; loads as :py:class:`StormScopeGOESConditioned`
 
     Use :py:meth:`list_available_models` to inspect the variants in a given package
     (including any added after this release). Legacy training-style names are still
@@ -1775,7 +1789,8 @@ class StormScopeGOES(StormScopeBase):
         GOES input variables. Default is
         ["abi01c", "abi02c", "abi03c", "abi07c", "abi08c", "abi09c", "abi10c", "abi13c"].
     conditioning_variables : np.ndarray | None, optional
-        Must be empty or None. GOES forecasting is unforced, by default None.
+        Must be empty or None; conditioned variants use
+        :py:class:`StormScopeGOESConditioned`. By default None.
     conditioning_means : torch.Tensor | None, optional
         Means to normalize any external conditioning data. Default is None.
     conditioning_stds : torch.Tensor | None, optional
@@ -1813,6 +1828,7 @@ class StormScopeGOES(StormScopeBase):
 
     _REGISTRY_KEY = "goes"
     _INPUT_GRID = "goes-east-conus"
+    _CONDITIONED = False
 
     def __init__(
         self,
@@ -1850,10 +1866,16 @@ class StormScopeGOES(StormScopeBase):
         compile: bool = False,
     ):
 
-        if conditioning_variables is not None and len(conditioning_variables):
+        conditioned = conditioning_variables is not None and bool(
+            len(conditioning_variables)
+        )
+        if conditioned and not self._CONDITIONED:
             raise ValueError(
-                "StormScopeGOES is unforced; use an unconditioned GOES checkpoint"
+                "StormScopeGOES is unforced; use StormScopeGOESConditioned for "
+                "conditioned checkpoints"
             )
+        if self._CONDITIONED and not conditioned:
+            raise ValueError(f"{type(self).__name__} requires conditioning variables")
         super().__init__(
             model_spec=model_spec,
             means=means,
@@ -1985,7 +2007,8 @@ class StormScopeGOES(StormScopeBase):
 
             - ``"3km_10min"``: 3km resolution, 10 minute timestep (CONUS nowcasting)
             - ``"3km_10min_flash"``: distilled three-kilometer, ten-minute variant
-            - ``"6km_1hr": 6km resolution, 60 minute timestep (legacy nearcasting)
+            - ``"6km_1hr": 6km resolution, 60 minute timestep (legacy nearcasting),
+              conditioned on NWP fields
 
             Legacy training-style names are accepted as aliases.
         amp : bool, optional
@@ -1998,7 +2021,8 @@ class StormScopeGOES(StormScopeBase):
         Returns
         -------
         PrognosticModel
-            Instantiated StormScopeGOES model
+            Instantiated model: :py:class:`StormScopeGOESConditioned` for variants
+            with conditioning variables, otherwise StormScopeGOES.
         """
         try:
             package.resolve("config.json")  # HF tracking download statistics
@@ -2058,7 +2082,10 @@ class StormScopeGOES(StormScopeBase):
             else None
         )
 
-        model = cls(
+        model_cls = cls
+        if cls is StormScopeGOES and len(conditioning_variables):
+            model_cls = StormScopeGOESConditioned
+        model = model_cls(
             model_spec=model_spec,
             means=means.to(dtype=torch.float32),
             stds=stds.to(dtype=torch.float32),
@@ -2083,6 +2110,171 @@ class StormScopeGOES(StormScopeBase):
         model._configure_variant(pkg, compile)
         model._set_default_coverage()
         return model
+
+
+class StormScopeGOESConditioned(StormScopeGOES):
+    """StormScope GOES forecasts conditioned on numerical weather prediction fields.
+
+    Used by the legacy ``6km_1hr`` nearcasting variant, which conditions each step
+    on 500 hPa geopotential (``z500``) at the input times.
+    :py:meth:`StormScopeGOES.load_model` returns this class for variants with
+    conditioning variables. Conditioning follows the same protocol as
+    :py:class:`StormScopeMRMS`: pass the initial conditioning history, then the
+    new frames at the lead times of each forecast.
+
+    Parameters are as for :py:class:`StormScopeGOES`, except that
+    ``conditioning_variables``, ``conditioning_means`` and ``conditioning_stds``
+    are required.
+
+    Badges
+    ------
+    region:na class:nowcasting product:sat year:2026 gpu:80gb
+    provider:nvidia backend:pytorch
+    """
+
+    _CONDITIONED = True
+    _CONDITIONING_GRID = "latlon-0.25deg"
+    # Nearest-neighbor distance used for NWP conditioning before 1.0; the 0.25
+    # degree grid needs more than the GOES distance to cover every gridpoint.
+    _CONDITIONING_MAX_DIST_KM = 26.0
+
+    def default_sources(  # type: ignore[override]
+        self,
+    ) -> tuple[DataSource, ForecastSource]:
+        """Recommend GOES-East CONUS imagery and GFS conditioning on the model grid.
+
+        Returns
+        -------
+        tuple[DataSource, ForecastSource]
+            GOES input source, followed by GFS forecasts of the conditioning
+            variables. Both are regridded to the model grid by nearest neighbor;
+            uncovered gridpoints are NaN.
+        """
+        from earth2studio.data import GFS_FX, RegriddedSource
+
+        gfs = RegriddedSource(
+            GFS_FX(),
+            _default_regridder(
+                NearestRegridder,
+                self._CONDITIONING_GRID,
+                self._grid(),
+                max_dist_km=self._conditioning_max_dist_km(),
+            ),
+        )
+        return super().default_sources(), gfs
+
+    def __call__(  # type: ignore[override]
+        self, x: xr.DataArray, conditioning: xr.DataArray
+    ) -> xr.DataArray:
+        """Compute the first GOES forecast using caller-supplied conditioning.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial GOES history matching ``input_coords()``.
+        conditioning : xr.DataArray
+            Initial conditioning history matching ``forcing_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            First forecast chunk, without hooks.
+        """
+        return self.initialize(x, conditioning)[0]
+
+    def initialize(  # type: ignore[override]
+        self, x: xr.DataArray, conditioning: xr.DataArray
+    ) -> tuple[xr.DataArray, dict[str, Any]]:
+        """Initialize GOES forecasts from GOES and conditioning histories.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Complete initial GOES history.
+        conditioning : xr.DataArray
+            Complete conditioning history matching ``forcing_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict[str, Any]]
+            First forecast and missing GOES/conditioning history plus RNG state.
+            No hooks are applied and no data is fetched.
+        """
+        return self._initialize(x, conditioning)
+
+    def step(  # type: ignore[override]
+        self, y: xr.DataArray, conditioning: xr.DataArray, state: dict[str, Any]
+    ) -> tuple[xr.DataArray, dict[str, Any]]:
+        """Advance GOES using the previous forecast and new conditioning.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous GOES forecast, including caller edits.
+        conditioning : xr.DataArray
+            New conditioning frames at the lead times of ``y``. Earlier context is
+            in state.
+        state : dict[str, Any]
+            Missing history and RNG state returned by the previous advance.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict[str, Any]]
+            Next forecast and updated state, without hooks or data fetching.
+        """
+        return self._forward(y, conditioning, state)
+
+    def create_iterator(  # type: ignore[override]
+        self, x: xr.DataArray, conditioning: xr.DataArray
+    ) -> Generator[xr.DataArray, xr.DataArray | tuple[xr.DataArray, ...] | None, None]:
+        """Create an iterator for conditioned GOES time-integration.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial GOES history.
+        conditioning : xr.DataArray
+            Initial conditioning history. Send the new conditioning frames at the
+            lead times of the latest yielded forecast to advance.
+
+        Yields
+        ------
+        xr.DataArray
+            Forecast fields, beginning with the first prediction.
+        """
+        yield from self._default_create_iterator(x, conditioning)
+
+    @classmethod
+    def load_model(  # type: ignore[override]
+        cls,
+        package: Package,
+        model_name: Literal["6km_1hr"] = "6km_1hr",
+        amp: bool = True,
+        compile: bool = False,
+    ) -> PrognosticModel:
+        """Load a conditioned GOES variant from a package.
+
+        Parameters
+        ----------
+        package : Package
+            Package to load model from.
+        model_name : Literal["6km_1hr"], optional
+            Conditioned variant to load, by default ``"6km_1hr"``.
+        amp : bool, optional
+            Enable automatic mixed precision (autocast) for the sampler's network
+            forward passes. Default is True.
+        compile : bool, optional
+            Compile each staged expert with ``torch.compile`` ("reduce-overhead").
+            Default is False.
+
+        Returns
+        -------
+        PrognosticModel
+            Instantiated StormScopeGOESConditioned model.
+        """
+        return super().load_model(
+            package, model_name=model_name, amp=amp, compile=compile
+        )
 
 
 class StormScopeMRMS(StormScopeBase):

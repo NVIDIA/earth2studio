@@ -917,9 +917,11 @@ class MeteosatFCI:
             the ``pixel_bbox`` sub-region, in degrees with longitude in
             ``[-180, 180)``.  Off-Earth pixels are NaN.
         """
-        from earth2studio.grids import resolve_grid
+        from earth2studio.grids import ProjectedGrid, resolve_grid
 
         grid = resolve_grid(f"mtg-fci-fulldisk-{resolution}")
+        if not isinstance(grid, ProjectedGrid):
+            raise TypeError(f"mtg-fci-fulldisk-{resolution} is not a projected grid")
         if pixel_bbox is None:
             coords = grid.coords()
         else:

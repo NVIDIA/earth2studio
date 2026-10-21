@@ -25,6 +25,7 @@ import xarray as xr
 import earth2studio.models.px.stormscope as scope_module
 import earth2studio.utils.interp as interp_module
 from earth2studio.data import (
+    GFS_FX,
     GOES,
     MRMS,
     CompositeSource,
@@ -43,6 +44,7 @@ from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px.stormscope import (
     StormScopeBase,
     StormScopeGOES,
+    StormScopeGOESConditioned,
     StormScopeMRMS,
 )
 from earth2studio.utils.coords import coord_array, coord_array_like
@@ -243,6 +245,122 @@ def test_stormscope_iter(device, batch):
         assert skipped == [
             "P21: checkpoint serialization requires component-specific tests",
         ]
+
+
+def create_conditioned_goes(device="cpu", h=8, w=8):
+    """Spoof 6km-style GOES model conditioned on z500 at its input times."""
+    return StormScopeGOESConditioned(
+        model_spec=[
+            {
+                "model": PhooStormScopeDiffusionModel(2),
+                "sigma_min": 0.001,
+                "sigma_max": 88.0,
+            }
+        ],
+        means=torch.zeros(1, 2, 1, 1),
+        stds=torch.ones(1, 2, 1, 1),
+        latitudes=torch.linspace(25, 50, h).unsqueeze(1).repeat(1, w),
+        longitudes=torch.linspace(-120, -80, w).unsqueeze(0).repeat(h, 1),
+        variables=np.array(["abi07c", "abi13c"]),
+        conditioning_variables=np.array(["z500"]),
+        conditioning_means=torch.zeros(1, 1, 1, 1),
+        conditioning_stds=torch.ones(1, 1, 1, 1),
+        y_coords=np.arange(h),
+        x_coords=np.arange(w),
+        sampler_args={"num_steps": 2},
+    ).to(device)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_stormscope_goes_conditioned(device):
+    model = create_conditioned_goes(device)
+    forcing = model.forcing_coords()
+    assert forcing is not None
+    np.testing.assert_array_equal(forcing["variable"], ["z500"])
+    np.testing.assert_array_equal(forcing.lead_time, model.input_times)
+
+    signature = coord_array_like(
+        model.input_coords(),
+        {
+            "batch": np.arange(1),
+            "time": np.array(["2024-01-01"], dtype="datetime64[ns]"),
+        },
+    )
+    x = from_torch(torch.ones(signature.shape, device=device), signature)
+    z500 = conditioning_input(model, x)
+
+    model.set_rng(3)
+    y, state = model.initialize(x, z500)
+    assert y.lead_time.values[-1] == model.output_times[-1]
+    y_next, _ = model.step(y, conditioning_input(model, y), state)
+    replay, _ = model.step(y, conditioning_input(model, y), state)
+    xr.testing.assert_identical(y_next, replay)
+    # The iterator reproduces the explicit advances through send.
+    model.set_rng(3)
+    iterator = model.create_iterator(x, z500)
+    xr.testing.assert_identical(next(iterator), y)
+    xr.testing.assert_identical(iterator.send(conditioning_input(model, y)), y_next)
+    iterator.close()
+    with pytest.raises(TypeError):
+        model.initialize(x)
+
+    skipped = check_prognostic_contract(model, device=device)
+    assert skipped == [
+        "P21: checkpoint serialization requires component-specific tests",
+    ]
+
+
+def test_stormscope_float64_inputs_reach_networks_as_model_dtype(monkeypatch):
+    """float64 sources (e.g. GOES) must not reach the networks uncast."""
+    model = create_spoof_model(nvar=2, nvar_cond=0, h=8, w=8)
+    net = model.stage_models[0]
+    forward = net.forward
+    seen = []
+
+    def recording(x, noise, class_labels=None, condition=None):
+        seen.append((x.dtype, condition.dtype))
+        return forward(x, noise, class_labels=class_labels, condition=condition)
+
+    monkeypatch.setattr(net, "forward", recording)
+    signature = coord_array_like(
+        model.input_coords(),
+        {
+            "batch": np.arange(1),
+            "time": np.array(["2024-01-01"], dtype="datetime64[ns]"),
+        },
+    )
+    x = from_torch(torch.ones(signature.shape, dtype=torch.float64), signature)
+    model.set_rng(0)
+    model(x)
+    assert seen and all(
+        dtypes == (model._MODEL_DTYPE, model._MODEL_DTYPE) for dtypes in seen
+    )
+
+
+def test_stormscope_goes_conditioning_class_checks():
+    kwargs = dict(
+        model_spec=[
+            {
+                "model": PhooStormScopeDiffusionModel(2),
+                "sigma_min": 0.001,
+                "sigma_max": 88.0,
+            }
+        ],
+        means=torch.zeros(1, 2, 1, 1),
+        stds=torch.ones(1, 2, 1, 1),
+        latitudes=torch.zeros(4, 4),
+        longitudes=torch.zeros(4, 4),
+        variables=np.array(["abi07c", "abi13c"]),
+    )
+    with pytest.raises(ValueError, match="StormScopeGOESConditioned"):
+        StormScopeGOES(
+            **kwargs,
+            conditioning_variables=np.array(["z500"]),
+            conditioning_means=torch.zeros(1, 1, 1, 1),
+            conditioning_stds=torch.ones(1, 1, 1, 1),
+        )
+    with pytest.raises(ValueError, match="requires conditioning variables"):
+        StormScopeGOESConditioned(**kwargs)
 
 
 # Spoof diffusion model with same call signature as EDMPrecond-wrapped models
@@ -908,6 +1026,16 @@ def test_stormscope_staged_denoising(device):
 
 
 @pytest.mark.package
+def test_stormscope_goes_conditioned_package_loading():
+    package = StormScopeGOES.load_default_package()
+    model = StormScopeGOES.load_model(package, model_name="6km_1hr")
+    assert isinstance(model, StormScopeGOESConditioned)
+    np.testing.assert_array_equal(model.conditioning_variables, ["z500"])
+    assert model.forcing_coords() is not None
+    assert model.conditioning_valid_mask.all()
+
+
+@pytest.mark.package
 def test_stormscope_package_loading():
     """Test StormScope GOES package loading and a minimal inference step."""
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -1181,6 +1309,16 @@ def test_stormscope_default_sources(recorded_regridders):
     radar_only = create_spoof_model(nvar=2, nvar_cond=8).default_sources()[0]
     assert isinstance(radar_only, RegriddedSource)
     assert isinstance(radar_only.source, MRMS)
+
+    goes_source, gfs = create_conditioned_goes().default_sources()
+    assert isinstance(goes_source.source, GOES)
+    assert goes_source.regridder.source_grid == "goes-east-conus"
+    assert isinstance(gfs, RegriddedSource) and isinstance(gfs.source, GFS_FX)
+    assert (gfs.regridder.source_grid, gfs.regridder.method) == (
+        "latlon-0.25deg",
+        "nearest",
+    )
+    assert gfs.regridder.options == {"max_dist_km": 26.0}
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
