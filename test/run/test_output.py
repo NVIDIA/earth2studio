@@ -25,7 +25,6 @@ from loguru import logger
 from earth2studio.grids import CurvilinearGrid, LatLonGrid
 from earth2studio.io import AsyncZarrBackend, KVBackend, XarrayBackend, ZarrBackend
 from earth2studio.io.utils import output_template
-from earth2studio.run import output as output_module
 from earth2studio.run.output import OutputManager
 from earth2studio.run.work import WorkItem
 from earth2studio.utils.coords import coord_array
@@ -92,39 +91,19 @@ def warnings_log() -> Iterator[list[str]]:
         logger.remove(handler)
 
 
-@pytest.fixture
-def distributed(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Pretend a two-rank process group without initializing one.
-
-    `run.work`'s rank helpers are replaced in place, so ordering and the
-    shard-ownership checks are testable single-process.
-    """
-    monkeypatch.setattr(output_module, "rank_info", lambda: (0, 2))
-
-
-class RecordingBackend:
-    """Minimal `IOBackend` that records its lifecycle calls."""
-
-    def __init__(self, fail_close: bool = False) -> None:
-        self.templates: list[xr.DataArray] = []
-        self.writes: list[xr.DataArray] = []
-        self.flushes = 0
-        self.closes = 0
-        self.fail_close = fail_close
-
-    def add_array(self, template: xr.DataArray) -> None:
-        self.templates.append(template)
-
-    def write(self, x: xr.DataArray) -> None:
-        self.writes.append(x)
-
-    def flush(self) -> None:
-        self.flushes += 1
+class FailingCloseBackend(KVBackend):
+    """A backend whose commit fails on close, as a transactional store's can."""
 
     def close(self) -> None:
-        self.closes += 1
-        if self.fail_close:
-            raise RuntimeError("commit failed")
+        super().close()
+        raise RuntimeError("commit failed")
+
+
+def prepared(backend: Any, items: list[WorkItem] | None = None) -> OutputManager:
+    """An output manager whose one `forecast` store is prepared for `items`."""
+    manager = OutputManager({"forecast": backend})
+    manager.prepare({"forecast": signature()}, items or deterministic_items())
+    return manager
 
 
 # ---------------------------------------------------------------------------
@@ -134,8 +113,7 @@ class RecordingBackend:
 
 def test_prepare_builds_template_from_all_items(tmp_path: Any) -> None:
     backend = ZarrBackend(file_name=str(tmp_path / "forecast.zarr"))
-    manager = OutputManager({"forecast": backend})
-    manager.prepare({"forecast": signature()}, deterministic_items())
+    prepared(backend)
 
     stored = backend.to_xarray()
     assert stored["t2m"].dims == ("time", "lead_time", "lat", "lon")
@@ -153,7 +131,7 @@ def test_prepare_times_are_sorted_and_unique(tmp_path: Any) -> None:
         WorkItem(TIME_A, HORIZON, (0,)),
         WorkItem(TIME_B, HORIZON, (1,)),
     ]
-    OutputManager({"forecast": backend}).prepare({"forecast": signature()}, items)
+    prepared(backend, items)
     np.testing.assert_array_equal(
         backend.to_xarray()["time"].values,
         np.array([TIME_A, TIME_B], dtype="datetime64[ns]"),
@@ -163,9 +141,7 @@ def test_prepare_times_are_sorted_and_unique(tmp_path: Any) -> None:
 def test_prepare_ensemble_uses_union_of_member_ids(tmp_path: Any) -> None:
     backend = ZarrBackend(file_name=str(tmp_path / "forecast.zarr"))
     # Only one rank's items would hold (0, 1); the store spans every member.
-    OutputManager({"forecast": backend}).prepare(
-        {"forecast": signature()}, ensemble_items()
-    )
+    prepared(backend, ensemble_items())
     stored = backend.to_xarray()
     assert stored["t2m"].dims == ("ensemble", "time", "lead_time", "lat", "lon")
     np.testing.assert_array_equal(stored["ensemble"].values, [0, 1, 2, 3])
@@ -185,49 +161,51 @@ def test_prepare_carries_grid_metadata_and_auxiliary_coords(tmp_path: Any) -> No
     assert stored["t2m"].attrs["topology"] == "curvilinear"
 
 
-def test_prepare_is_rank0_first(monkeypatch: pytest.MonkeyPatch) -> None:
-    order: list[str] = []
-    backend = RecordingBackend()
-
-    def rank0_first(fn: Any) -> Any:
-        order.append("rank0")
-        result = fn()
-        order.append("others")
-        return result
-
-    monkeypatch.setattr(output_module, "rank0_first", rank0_first)
-    manager = OutputManager({"forecast": backend})
-    manager.prepare({"forecast": signature()}, deterministic_items())
-    assert order == ["rank0", "others"]
-    assert len(backend.templates) == 1
-
-
 def test_prepare_reopening_a_store_is_a_no_op(tmp_path: Any) -> None:
     path = str(tmp_path / "forecast.zarr")
-    first = ZarrBackend(file_name=path)
-    manager = OutputManager({"forecast": first})
-    manager.prepare({"forecast": signature()}, deterministic_items())
+    manager = prepared(ZarrBackend(file_name=path))
     manager.write("forecast", field(TIME_A))
     manager.close()
 
     second = ZarrBackend(file_name=path)
-    OutputManager({"forecast": second}).prepare(
-        {"forecast": signature()}, deterministic_items()
-    )
-    stored = second.to_xarray()
-    assert not np.isnan(stored["t2m"].sel(time=TIME_A)).any()
+    prepared(second)
+    assert not np.isnan(second.to_xarray()["t2m"].sel(time=TIME_A)).any()
+
+
+@pytest.mark.parametrize("backend_type", ["zarr", "async_zarr"])
+def test_prepare_on_two_backends_of_one_store(tmp_path: Any, backend_type: str) -> None:
+    # Each rank builds its backend before rank 0 creates the arrays.
+    path = str(tmp_path / "forecast.zarr")
+    times = np.array([TIME_A, TIME_B], dtype="datetime64[ns]")
+
+    def build() -> Any:
+        if backend_type == "zarr":
+            return ZarrBackend(file_name=path)
+        return AsyncZarrBackend(path, parallel_coords={"time": times}, blocking=True)
+
+    rank0, rank1 = build(), build()
+    prepared(rank0)
+    prepared(rank1).write("forecast", field(TIME_B))
+    rank1.close()
+    stored = xr.open_zarr(path, consolidated=False)
+    np.testing.assert_allclose(stored["t2m"].sel(time=TIME_B).values, 1.0)
 
 
 def test_prepare_rejects_a_backend_without_a_schema() -> None:
-    manager = OutputManager({"forcast": RecordingBackend()})
+    manager = OutputManager({"forcast": KVBackend()})
     with pytest.raises(ValueError, match="unknown streams"):
         manager.prepare({"forecast": signature()}, deterministic_items())
 
 
 def test_prepare_rejects_empty_items() -> None:
-    manager = OutputManager({"forecast": RecordingBackend()})
     with pytest.raises(ValueError, match="without work items"):
-        manager.prepare({"forecast": signature()}, [])
+        OutputManager({"forecast": KVBackend()}).prepare({"forecast": signature()}, [])
+
+
+def test_prepare_rejects_items_sharing_a_time_and_member() -> None:
+    items = [WorkItem(TIME_A, HORIZON), WorkItem(TIME_A, 2 * HORIZON)]
+    with pytest.raises(ValueError, match="Repeated"):
+        prepared(KVBackend(), items)
 
 
 def test_prepare_without_backends_does_nothing() -> None:
@@ -241,8 +219,7 @@ def test_prepare_without_backends_does_nothing() -> None:
 
 def test_write_forwards_and_skips_unwritten_streams(tmp_path: Any) -> None:
     backend = ZarrBackend(file_name=str(tmp_path / "forecast.zarr"))
-    manager = OutputManager({"forecast": backend})
-    manager.prepare({"forecast": signature()}, deterministic_items())
+    manager = prepared(backend)
 
     manager.write("forecast", field(TIME_A))
     manager.write("scores", field(TIME_B))  # no backend: silently skipped
@@ -253,278 +230,115 @@ def test_write_forwards_and_skips_unwritten_streams(tmp_path: Any) -> None:
     assert np.isnan(stored["t2m"].sel(time=TIME_B).values).all()
 
 
-def test_flush_flushes_every_backend() -> None:
-    backends = {"a": RecordingBackend(), "b": RecordingBackend()}
-    manager = OutputManager(backends)
-    manager.flush()
-    assert [backend.flushes for backend in backends.values()] == [1, 1]
-
-
-def test_close_closes_every_backend_once_and_barriers(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    barriers: list[int] = []
-    monkeypatch.setattr(output_module, "barrier", lambda: barriers.append(1))
-    backends = {"a": RecordingBackend(), "b": RecordingBackend()}
-    manager = OutputManager(backends)
-
+def test_close_keeps_stores_readable(tmp_path: Any) -> None:
+    backend = ZarrBackend(file_name=str(tmp_path / "forecast.zarr"))
+    manager = prepared(backend)
+    manager.write("forecast", field(TIME_A))
     assert manager.close() is None
     assert manager.close() is None
-
-    assert [backend.closes for backend in backends.values()] == [1, 1]
-    assert barriers == [1]
+    np.testing.assert_allclose(backend.to_xarray()["t2m"].sel(time=TIME_A).values, 1.0)
 
 
-def test_close_closes_the_rest_after_a_failure(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    barriers: list[int] = []
-    monkeypatch.setattr(output_module, "barrier", lambda: barriers.append(1))
-    failing = RecordingBackend(fail_close=True)
-    healthy = RecordingBackend()
-    manager = OutputManager({"a": failing, "b": healthy})
+def test_close_returns_the_first_failure_after_closing_the_rest() -> None:
+    healthy = KVBackend()
+    manager = OutputManager({"a": FailingCloseBackend(), "b": healthy})
 
     error = manager.close()
 
     assert isinstance(error, RuntimeError)
     assert "commit failed" in str(error)
-    assert healthy.closes == 1
-    assert barriers == [1]
+    with pytest.raises(RuntimeError):  # closed, so writes raise (I11)
+        healthy.write(field(TIME_A))
     assert manager.close() is None
 
 
-def test_close_keeps_stores_readable(tmp_path: Any) -> None:
-    backend = ZarrBackend(file_name=str(tmp_path / "forecast.zarr"))
-    manager = OutputManager({"forecast": backend})
-    manager.prepare({"forecast": signature()}, deterministic_items())
-    manager.write("forecast", field(TIME_A))
-    manager.close()
-    np.testing.assert_allclose(backend.to_xarray()["t2m"].sel(time=TIME_A).values, 1.0)
-
-
 # ---------------------------------------------------------------------------
-# Shard ownership (X14, X15)
+# Distributed writes (X14, X15)
 # ---------------------------------------------------------------------------
 
 
-def test_single_process_skips_the_ownership_check(tmp_path: Any) -> None:
-    backend = ZarrBackend(file_name=str(tmp_path / "forecast.zarr"), chunks={"time": 2})
-    OutputManager({"forecast": backend}).prepare(
-        {"forecast": signature()}, deterministic_items()
-    )
-
-
-def test_default_zarr_chunking_passes(
-    tmp_path: Any, distributed: None, warnings_log: list[str]
-) -> None:
-    deterministic = ZarrBackend(file_name=str(tmp_path / "a.zarr"))
-    OutputManager({"forecast": deterministic}).prepare(
-        {"forecast": signature()}, deterministic_items()
-    )
-    ensemble = ZarrBackend(file_name=str(tmp_path / "b.zarr"))
-    OutputManager({"forecast": ensemble}).prepare(
-        {"forecast": signature()}, ensemble_items()
-    )
+def test_default_layouts_pass(tmp_path: Any, warnings_log: list[str]) -> None:
+    times = np.array([TIME_A, TIME_B], dtype="datetime64[ns]")
+    backends = [
+        ZarrBackend(file_name=str(tmp_path / "a.zarr")),
+        AsyncZarrBackend(
+            str(tmp_path / "b.zarr"),
+            parallel_coords={"time": times, "ensemble": np.arange(4)},
+            shard_coords={"lead_time": 2},
+            blocking=True,
+        ),
+    ]
+    for backend in backends:
+        prepared(backend, ensemble_items()).check_distributed()
     assert warnings_log == []
 
 
-def test_zarr_rejects_shared_time_chunks(tmp_path: Any, distributed: None) -> None:
-    backend = ZarrBackend(file_name=str(tmp_path / "forecast.zarr"), chunks={"time": 2})
-    with pytest.raises(ValueError, match="'time'"):
-        OutputManager({"forecast": backend}).prepare(
-            {"forecast": signature()}, deterministic_items()
-        )
-
-
-def test_zarr_rejects_unchunked_time(tmp_path: Any, distributed: None) -> None:
-    # No `time` entry stores the dimension in a single chunk.
-    backend = ZarrBackend(file_name=str(tmp_path / "forecast.zarr"), chunks={})
-    with pytest.raises(ValueError, match="'time'"):
-        OutputManager({"forecast": backend}).prepare(
-            {"forecast": signature()}, deterministic_items()
-        )
-
-
-def test_zarr_rejects_ensemble_chunks_spanning_member_groups(
-    tmp_path: Any, distributed: None
+@pytest.mark.parametrize(
+    "chunks, items",
+    [
+        ({"time": 2}, deterministic_items()),
+        ({}, deterministic_items()),  # no entry: one chunk along the dimension
+        ({"time": 1, "ensemble": 2}, ensemble_items()),
+    ],
+)
+def test_zarr_rejects_blocks_wider_than_one(
+    tmp_path: Any, chunks: dict[str, int], items: list[WorkItem]
 ) -> None:
-    backend = ZarrBackend(
-        file_name=str(tmp_path / "forecast.zarr"), chunks={"time": 1, "ensemble": 4}
-    )
-    with pytest.raises(ValueError, match="'ensemble'"):
-        OutputManager({"forecast": backend}).prepare(
-            {"forecast": signature()}, ensemble_items()
-        )
+    backend = ZarrBackend(file_name=str(tmp_path / "forecast.zarr"), chunks=chunks)
+    with pytest.raises(ValueError, match="blocks"):
+        prepared(backend, items).check_distributed()
 
 
-def test_zarr_accepts_ensemble_chunks_inside_member_groups(
-    tmp_path: Any, distributed: None
+@pytest.mark.parametrize(
+    "parallel, shards",
+    [
+        (("lead_time",), {}),  # time not parallel: one chunk along it
+        (("time",), {"time": 2}),
+        (("time", "ensemble"), {"ensemble": 4}),
+    ],
+)
+def test_async_zarr_rejects_blocks_wider_than_one(
+    tmp_path: Any, parallel: tuple[str, ...], shards: dict[str, int]
 ) -> None:
-    # Groups are (0, 1) and (2, 3), so a chunk of two stays within one group.
-    backend = ZarrBackend(
-        file_name=str(tmp_path / "forecast.zarr"), chunks={"time": 1, "ensemble": 2}
-    )
-    OutputManager({"forecast": backend}).prepare(
-        {"forecast": signature()}, ensemble_items()
-    )
-
-
-def test_zarr_accepts_a_reopened_safe_store(tmp_path: Any, distributed: None) -> None:
-    # Coordinate arrays are stored whole; only the data arrays' chunks count.
-    path = str(tmp_path / "forecast.zarr")
-    items = deterministic_items()
-    OutputManager({"forecast": ZarrBackend(file_name=path)}).prepare(
-        {"forecast": signature()}, items
-    )
-    reopened = ZarrBackend(file_name=path)
-    OutputManager({"forecast": reopened}).prepare({"forecast": signature()}, items)
-
-
-def test_async_zarr_accepts_a_reopened_safe_store(
-    tmp_path: Any, distributed: None
-) -> None:
-    path = str(tmp_path / "forecast.zarr")
-    times = np.array([TIME_A, TIME_B], dtype="datetime64[ns]")
-    created = AsyncZarrBackend(path, parallel_coords={"time": times}, blocking=True)
-    OutputManager({"forecast": created}).prepare(
-        {"forecast": signature()}, deterministic_items()
-    )
-    created.close()
-    reopened = AsyncZarrBackend(path, parallel_coords={"time": times}, blocking=True)
-    OutputManager({"forecast": reopened}).prepare(
-        {"forecast": signature()}, deterministic_items()
-    )
-
-
-def test_zarr_rejects_a_reopened_store_with_wide_chunks(
-    tmp_path: Any, distributed: None
-) -> None:
-    path = str(tmp_path / "forecast.zarr")
-    created = ZarrBackend(file_name=path, chunks={"time": 2})
-    created.add_array(
-        output_template(
-            signature(),
-            {"time": np.array([TIME_A, TIME_B], dtype="datetime64[ns]")},
-        )
-    )
-    created.close()
-    # The store carries the chunking it was created with, whatever is requested.
-    reopened = ZarrBackend(file_name=path, chunks={"time": 1})
-    with pytest.raises(ValueError, match="'time'"):
-        OutputManager({"forecast": reopened}).prepare(
-            {"forecast": signature()}, deterministic_items()
-        )
-
-
-def test_async_zarr_requires_parallel_coords(tmp_path: Any, distributed: None) -> None:
+    labels = {
+        "time": np.array([TIME_A, TIME_B], dtype="datetime64[ns]"),
+        "ensemble": np.arange(4),
+        "lead_time": LEADS,
+    }
     backend = AsyncZarrBackend(
         str(tmp_path / "forecast.zarr"),
-        parallel_coords={"lead_time": LEADS},
+        parallel_coords={dim: labels[dim] for dim in parallel},
+        shard_coords=shards,
         blocking=True,
     )
-    with pytest.raises(ValueError, match="parallel_coords"):
-        OutputManager({"forecast": backend}).prepare(
-            {"forecast": signature()}, deterministic_items()
-        )
+    with pytest.raises(ValueError, match="blocks"):
+        prepared(backend, ensemble_items()).check_distributed()
 
 
-def test_async_zarr_rejects_shards_spanning_items(
-    tmp_path: Any, distributed: None
-) -> None:
+def test_reopened_stores_are_checked_by_their_stored_layout(tmp_path: Any) -> None:
     times = np.array([TIME_A, TIME_B], dtype="datetime64[ns]")
-    backend = AsyncZarrBackend(
-        str(tmp_path / "forecast.zarr"),
-        parallel_coords={"time": times},
-        shard_coords={"time": 2},
-        blocking=True,
-    )
-    with pytest.raises(ValueError, match="'time'"):
-        OutputManager({"forecast": backend}).prepare(
-            {"forecast": signature()}, deterministic_items()
-        )
-
-
-def test_async_zarr_rejects_a_reopened_store_with_wide_shards(
-    tmp_path: Any, distributed: None
-) -> None:
-    path = str(tmp_path / "forecast.zarr")
-    times = np.array([TIME_A, TIME_B], dtype="datetime64[ns]")
+    template = output_template(signature(), {"time": times})
+    zarr_path, async_path = str(tmp_path / "a.zarr"), str(tmp_path / "b.zarr")
+    ZarrBackend(file_name=zarr_path, chunks={"time": 2}).add_array(template)
     created = AsyncZarrBackend(
-        path, parallel_coords={"time": times}, shard_coords={"time": 2}, blocking=True
+        async_path, parallel_coords={"time": times}, shard_coords={"time": 2}
     )
-    created.add_array(
-        output_template(signature(), {"time": times}),
-    )
+    created.add_array(template)
     created.close()
 
-    # Reopened without shard_coords, the store still writes its two-time shards.
-    reopened = AsyncZarrBackend(path, parallel_coords={"time": times}, blocking=True)
-    with pytest.raises(ValueError, match="shards of 2 on 'time'"):
-        OutputManager({"forecast": reopened}).prepare(
-            {"forecast": signature()}, deterministic_items()
-        )
+    # Reopened with safe settings, each store still writes its stored blocks.
+    for backend in (
+        ZarrBackend(file_name=zarr_path, chunks={"time": 1}),
+        AsyncZarrBackend(async_path, parallel_coords={"time": times}, blocking=True),
+    ):
+        with pytest.raises(ValueError, match="blocks"):
+            prepared(backend).check_distributed()
 
 
-def test_prepare_rejects_items_sharing_a_time_and_member() -> None:
-    items = [WorkItem(TIME_A, HORIZON), WorkItem(TIME_A, 2 * HORIZON)]
-    with pytest.raises(ValueError, match="Repeated"):
-        OutputManager({"forecast": RecordingBackend()}).prepare(
-            {"forecast": signature()}, items
-        )
-
-
-def test_async_zarr_accepts_lead_time_shards(
-    tmp_path: Any, distributed: None, warnings_log: list[str]
-) -> None:
-    times = np.array([TIME_A, TIME_B], dtype="datetime64[ns]")
-    backend = AsyncZarrBackend(
-        str(tmp_path / "forecast.zarr"),
-        parallel_coords={"time": times, "lead_time": LEADS},
-        shard_coords={"lead_time": 2},
-        blocking=True,
-    )
-    OutputManager({"forecast": backend}).prepare(
-        {"forecast": signature()}, deterministic_items()
-    )
-    assert warnings_log == []
-
-
-def test_async_zarr_rejects_ensemble_shards_spanning_groups(
-    tmp_path: Any, distributed: None
-) -> None:
-    times = np.array([TIME_A, TIME_B], dtype="datetime64[ns]")
-    backend = AsyncZarrBackend(
-        str(tmp_path / "forecast.zarr"),
-        parallel_coords={"time": times, "ensemble": np.arange(4)},
-        shard_coords={"ensemble": 4},
-        blocking=True,
-    )
-    with pytest.raises(ValueError, match="'ensemble'"):
-        OutputManager({"forecast": backend}).prepare(
-            {"forecast": signature()}, ensemble_items()
-        )
-
-
-@pytest.mark.parametrize("backend_type", [XarrayBackend, KVBackend])
-def test_process_local_backends_warn_once(
-    backend_type: Any, distributed: None, warnings_log: list[str]
-) -> None:
-    manager = OutputManager({"a": backend_type(), "b": backend_type()})
-    manager.prepare({"a": signature(), "b": signature()}, deterministic_items())
-    assert len(warnings_log) == 1
-    assert "process-local" in warnings_log[0]
-
-
-def test_unknown_backends_warn_once(distributed: None, warnings_log: list[str]) -> None:
-    manager = OutputManager({"a": RecordingBackend(), "b": RecordingBackend()})
-    manager.prepare({"a": signature(), "b": signature()}, deterministic_items())
-    assert len(warnings_log) == 1
-    assert "cannot be checked" in warnings_log[0]
-
-
-def test_warnings_are_one_per_backend_type(
-    distributed: None, warnings_log: list[str]
-) -> None:
-    manager = OutputManager({"a": XarrayBackend(), "b": RecordingBackend()})
-    manager.prepare({"a": signature(), "b": signature()}, deterministic_items())
+def test_unchecked_backends_warn_once_per_type(warnings_log: list[str]) -> None:
+    backends = {"a": KVBackend(), "b": KVBackend(), "c": XarrayBackend()}
+    manager = OutputManager(backends)
+    manager.prepare(dict.fromkeys(backends, signature()), deterministic_items())
+    manager.check_distributed()
     assert len(warnings_log) == 2
+    assert all("cannot be checked" in message for message in warnings_log)

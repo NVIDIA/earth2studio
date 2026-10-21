@@ -127,7 +127,6 @@ class Pipeline:
     def __init__(
         self,
         runner: Runner,
-        *,
         output: Mapping[str, IOBackend] | None = None,
         scorer: Scorer | None = None,
         output_variables: Mapping[str, Sequence[str]] | None = None,
@@ -138,8 +137,7 @@ class Pipeline:
 
     @classmethod
     def from_model(
-        cls, prognostic, source=None, *, forcing=None, diagnostics=None, seed=0,
-        **kwargs,
+        cls, prognostic, source=None, forcing=None, diagnostics=None, seed=0, **kwargs
     ) -> Pipeline: ...  # wraps a PrognosticRunner
 
     def run(self, items: Sequence[WorkItem]) -> None: ...
@@ -164,9 +162,13 @@ def run(self, items):
     horizon = max(item.horizon for item in items)
     schemas = self._stored_schemas(self.runner.output_coords(horizon))
     if self.progress is not None:
-        self.progress.open(self._manifest(schemas))
+        manifest = self._manifest(schemas)
+        attempt = broadcast(self.progress.setup(manifest) if rank == 0 else None)
+        self.progress.open(manifest, rank, attempt)
     outputs = OutputManager(self.output or {})
-    outputs.prepare(schemas, items)               # stores span all items
+    rank0_first(lambda: outputs.prepare(schemas, items))  # stores span all items
+    if world_size > 1:
+        outputs.check_distributed()
     remaining = self._remaining(items)            # rank 0 lists, then broadcasts
     error = None
     try:
@@ -180,7 +182,7 @@ def run(self, items):
             self.progress and self.progress.mark_done(item)
     except Exception as e:
         error = e
-    close_error = outputs.close()                 # collective; returns, never raises
+    close_error = outputs.close()                 # returns, never raises
     raise_if_any_failed(error or close_error)     # collective
 ```
 
@@ -192,10 +194,11 @@ it and `x` lacks it, then writes.
 - **Durability.** An item is marked done only after its outputs flush and its
   scorer finishes. An interrupted item reruns in full; label-addressed writes make
   that idempotent.
-- **Collectives.** Idle ranks still join `open`, `prepare` and `close`. A failing
-  rank stops, closes its output and joins the final failure-flag reduction; it
-  re-raises its error and the others raise `RuntimeError`. A close failure counts
-  as that rank's failure.
+- **Collectives.** Only `Pipeline` runs collectives; `OutputManager` and
+  `ProgressStore` are rank-local and are passed the rank where they need it. Idle
+  ranks join every collective. A failing rank stops, closes its output and joins
+  the final failure-flag reduction; it re-raises its error and the others raise
+  `RuntimeError`. A close failure counts as that rank's failure.
 
 ### Scorer
 
@@ -220,18 +223,19 @@ class OutputManager:
     def prepare(
         self, schemas: Mapping[str, CoordinateSystem], items: Sequence[WorkItem]
     ) -> None: ...
+    def check_distributed(self) -> None: ...
     def write(self, stream: str, x: xr.DataArray) -> None: ...
     def flush(self) -> None: ...
     def close(self) -> Exception | None: ...
 ```
 
 - `prepare` builds templates from the sorted unique item times and the sorted
-  union of `member_ids`. Rank 0 calls `add_array` first; the other ranks follow
-  after a barrier, which only validates (`I4`).
+  union of `member_ids` and adds them to every backend. `Pipeline` runs it on
+  rank 0 first; on the other ranks it only validates (`I4`).
 - `write` skips streams without a backend; `flush` flushes all (`I9`).
-- `close` is collective and idempotent: every rank closes every backend (`I11`),
-  then barriers, and returns the first error instead of raising, so no rank skips
-  the failure-flag reduction. Closed backends stay readable.
+- `close` is idempotent: it closes every backend (`I11`) and returns the first
+  error instead of raising, so no rank skips the failure-flag reduction. Closed
+  backends stay readable.
 
 Callers build backends on every rank, creating storage on rank 0 only:
 
@@ -245,22 +249,14 @@ output = rank0_first(
 `AsyncZarrBackend` needs its parallel labels at construction, so its caller
 supplies the item times.
 
-### Shard ownership
+### Distributed writes
 
-An item writes one `time` and its `member_ids` along `ensemble`, so ranks race
-only when a chunk or shard along those dimensions holds positions of two items.
-With `world_size > 1`, `prepare` checks known backends through their attributes
-and the layout of data arrays already stored, with no IO changes:
-
-| Backend | Check |
-| --- | --- |
-| `ZarrBackend`, `IceChunkBackend` | `time` chunks of 1; `ensemble` chunks within member groups |
-| `AsyncZarrBackend` | `time`/`ensemble` in `parallel_coords`; no shard spans items |
-| `XarrayBackend`, `KVBackend` | Process-local: each rank holds only its own items |
-| Others, including `NetCDF4Backend` | Unknown: shared storage may be corrupted |
-
-A failed check raises `ValueError`; the last two rows warn once. Default Zarr
-chunking passes; `chunks={}` does not.
+Ranks write different `time` and `ensemble` positions, so with `world_size > 1`
+every store must use blocks of 1 along both. After `prepare`,
+`check_distributed` reads each backend's optional `write_blocks` (see
+[IO_SPEC.md](IO_SPEC.md)) and raises `ValueError` for a wider block. Backends
+without `write_blocks`, process-local or unknown, warn once per type. Both Zarr
+backends report it; default `ZarrBackend` chunking passes, `chunks={}` does not.
 
 ## Progress
 
@@ -271,11 +267,13 @@ class ProgressStore:
     def __init__(
         self,
         path: str | os.PathLike,
-        *,
         tags: Mapping[str, Any] | None = None,
         overwrite: bool = False,
     ) -> None: ...
-    def open(self, manifest: Mapping[str, Any]) -> None: ...
+    def setup(self, manifest: Mapping[str, Any]) -> int: ...  # one rank; returns attempt
+    def open(
+        self, manifest: Mapping[str, Any], rank: int = 0, attempt: int | None = None
+    ) -> None: ...
     def remaining(self, items: Sequence[WorkItem]) -> list[WorkItem]: ...
     def is_done(self, item: WorkItem) -> bool: ...
     def mark_done(self, item: WorkItem) -> None: ...
@@ -286,15 +284,16 @@ class ProgressStore:
   units; an item is done when all its units are. Keys ignore order, rank, world
   size and grouping, so a resume may change any of them; a partly done group
   reruns in full.
-- **Logs.** Each rank appends to its own log, named by a run attempt that rank 0
-  picks in `open` and broadcasts. `mark_done` appends a line and fsyncs; torn or
-  unparseable lines are skipped. `path` must be shared by all ranks.
-- **Compaction.** In `open`, rank 0 merges existing logs into one, so the
-  directory holds the manifest, one compacted log and one log per rank.
+- **Setup.** Rank 0 calls `setup`, which clears the store if `overwrite`, merges
+  existing logs into one and writes the manifest if none exists. It returns the
+  run attempt, which `Pipeline` broadcasts.
+- **Open.** Every rank then calls `open` with its rank and the attempt. It raises
+  `ValueError` naming the differing keys if the stored manifest differs, and
+  loads the recorded progress.
+- **Logs.** Each rank appends to its own log, named by attempt and rank.
+  `mark_done` appends a line and fsyncs; torn or unparseable lines are skipped.
+  `path` must be shared by all ranks.
 - **Listed once.** Only rank 0 calls `remaining`; `Pipeline` broadcasts it.
-- **Manifest.** `open` is collective. Rank 0 writes the manifest if none exists;
-  then every rank compares it with its own and raises `ValueError` naming the
-  differing keys. `overwrite=True` clears logs and manifest first.
 
 `Pipeline` builds the manifest as JSON: `version` (`1`), `streams` (per stream:
 dims, non-spatial labels, grid ID and dtype), `seed` (`runner.seed` or `null`),
@@ -355,9 +354,9 @@ tensors, and starts with `supports_member_batching = False`.
 | `X10` | Per-stream mappings raise `ValueError` for unknown stream names |
 | `X11` | A regridder's `source_grid` must match its stream, or `run` raises first |
 | `X12` | Streams absent from `output` are not written; `run` logs them once |
-| `X13` | Rank 0 creates stores before other ranks open them; reopening is a no-op (`I4`) |
-| `X14` | Distributed Zarr stores share no chunk or shard between items |
-| `X15` | Distributed runs warn once per backend they cannot check |
+| `X13` | Rank 0 creates stores before other ranks prepare them; re-adding is a no-op (`I4`) |
+| `X14` | Distributed stores write blocks of 1 along `time` and `ensemble` |
+| `X15` | Distributed runs warn once per backend type without `write_blocks` |
 | `X16` | Progress keys `(time, horizon, member_id)` in per-rank logs; bad lines skipped |
 | `X17` | Items are marked done only after outputs flush and the scorer finishes |
 | `X18` | Rank 0 lists remaining items and broadcasts them |
@@ -390,7 +389,9 @@ optional runner capability built on `(y, state)` (open decision 3).
 - Core has only the `Scorer` hook; metrics and rank communication stay in recipes.
 - Member grouping lives in `work_items`, since groups are part of item identity.
 - Plain mappings for per-stream settings and backends.
-- Shard safety is checked through existing backend attributes, without IO changes.
+- Only `Pipeline` runs collectives; output and progress stores are rank-local.
+- Distributed stores need blocks of 1 along `time` and `ensemble`, which backends
+  report through an optional `write_blocks`.
 
 ## Open decisions
 

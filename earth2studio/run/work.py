@@ -283,6 +283,13 @@ class ProgressStore:
     Each rank appends to its own log under ``path``, named by run attempt and
     rank, so no file ever has two writers. ``path`` must be shared by all ranks.
 
+    The store is rank-local and runs no collectives. One rank calls
+    :meth:`setup`; every rank then calls :meth:`open` with the attempt it
+    returned::
+
+        attempt = broadcast(store.setup(manifest) if rank == 0 else None)
+        store.open(manifest, rank, attempt)
+
     Parameters
     ----------
     path : str | os.PathLike
@@ -292,13 +299,12 @@ class ProgressStore:
         Caller metadata recorded in the manifest, such as model name and
         checkpoint version, by default None
     overwrite : bool, optional
-        Clear existing logs and the manifest in :meth:`open`, by default False
+        Clear existing logs and the manifest in :meth:`setup`, by default False
     """
 
     def __init__(
         self,
         path: str | os.PathLike,
-        *,
         tags: Mapping[str, Any] | None = None,
         overwrite: bool = False,
     ) -> None:
@@ -307,23 +313,59 @@ class ProgressStore:
         self.overwrite = overwrite
         self._done: set[_Unit] | None = None
         self._attempt: int | None = None
+        self._rank = 0
         self._handle: IO[str] | None = None
 
     # -- public API --------------------------------------------------------
 
-    def open(self, manifest: Mapping[str, Any]) -> None:
-        """Open the store, compact logs, and check the manifest. Collective.
+    def setup(self, manifest: Mapping[str, Any]) -> int:
+        """Prepare the directory for a run, on one rank only, before :meth:`open`.
 
-        Rank 0 clears the store when ``overwrite`` is set, compacts existing
-        logs into one ``done`` log so the file count stays bounded, and writes
-        the manifest if none exists. Every rank then compares the stored
-        manifest with its own and loads the recorded progress.
+        Clears the store when ``overwrite`` is set, compacts existing logs into
+        one ``done`` log so the file count stays bounded, and writes the
+        manifest if none exists.
 
         Parameters
         ----------
         manifest : Mapping[str, Any]
-            JSON-serializable run description, identical on every rank. The
-            store's ``tags`` are merged in under ``"tags"``.
+            JSON-serializable run description. The store's ``tags`` are merged
+            in under ``"tags"``.
+
+        Returns
+        -------
+        int
+            The run attempt every rank passes to :meth:`open`.
+        """
+        # Compaction may delete the log behind a handle from an earlier run.
+        self._close_log()
+        if self.overwrite:
+            self.clear()
+        self.path.mkdir(parents=True, exist_ok=True)
+        self._compact()
+        manifest_path = self.path / MANIFEST_NAME
+        if not manifest_path.exists():
+            payload = self._manifest_payload(manifest)
+            self._write_atomic(
+                manifest_path, json.dumps(payload, sort_keys=True, indent=2) + "\n"
+            )
+        return self._next_attempt()
+
+    def open(
+        self, manifest: Mapping[str, Any], rank: int = 0, attempt: int | None = None
+    ) -> None:
+        """Check the manifest and load the recorded progress, after :meth:`setup`.
+
+        Parameters
+        ----------
+        manifest : Mapping[str, Any]
+            The run description given to :meth:`setup`, identical on every
+            rank.
+        rank : int, optional
+            This process's rank, which names its log, by default 0
+        attempt : int | None, optional
+            The run attempt :meth:`setup` returned, which names this run's
+            logs. ``None`` derives it from the logs present, which is only
+            safe in a single process, by default None
 
         Raises
         ------
@@ -331,33 +373,16 @@ class ProgressStore:
             If the stored manifest differs from ``manifest``; the message
             names the differing keys.
         """
-        rank, _ = rank_info()
-        payload = self._manifest_payload(manifest)
-        # Compaction may delete the log behind a handle from an earlier open,
-        # and the attempt changes below, so later records go to a fresh log.
+        # Later records go to this attempt's log, never an earlier handle.
         self._close_log()
-        barrier()
-
-        if rank == 0:
-            if self.overwrite:
-                self.clear()
-            self.path.mkdir(parents=True, exist_ok=True)
-            self._compact()
-            manifest_path = self.path / MANIFEST_NAME
-            if not manifest_path.exists():
-                self._write_atomic(
-                    manifest_path, json.dumps(payload, sort_keys=True, indent=2) + "\n"
-                )
-        barrier()
-
-        self._check_manifest(payload)
-        self._attempt = broadcast(self._next_attempt() if rank == 0 else None)
+        self._check_manifest(self._manifest_payload(manifest))
+        self._rank = rank
+        self._attempt = self._next_attempt() if attempt is None else attempt
         self._done = self._read_logs()
         logger.debug(
             f"Progress store '{self.path}' opened with {len(self._done)} "
-            f"recorded units (attempt {self._attempt})"
+            f"recorded units (attempt {self._attempt}, rank {rank})"
         )
-        barrier()
 
     def remaining(self, items: Sequence[WorkItem]) -> list[WorkItem]:
         """Return the items that are not yet done.
@@ -496,11 +521,11 @@ class ProgressStore:
         return max(attempts, default=-1) + 1
 
     def _log_path(self) -> Path:
-        rank, _ = rank_info()
         if self._attempt is None:
             self.path.mkdir(parents=True, exist_ok=True)
             self._attempt = self._next_attempt()
-        return self.path / f"{_LOG_PREFIX}{self._attempt:04d}-{rank:04d}{_LOG_SUFFIX}"
+        name = f"{_LOG_PREFIX}{self._attempt:04d}-{self._rank:04d}{_LOG_SUFFIX}"
+        return self.path / name
 
     def _open_log(self) -> IO[str]:
         if self._handle is None:

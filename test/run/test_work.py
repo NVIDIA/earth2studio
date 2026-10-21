@@ -210,6 +210,11 @@ def progress_dir(tmp_path: Path) -> Path:
     return tmp_path / "progress"
 
 
+def _start(store: ProgressStore, manifest: dict, rank: int = 0) -> None:
+    """Single-process stand-in for Pipeline's setup-then-open choreography."""
+    store.open(manifest, rank, store.setup(manifest))
+
+
 def _items_deterministic() -> list[WorkItem]:
     return [
         WorkItem(time=T0, horizon=np.timedelta64(6, "h")),
@@ -224,7 +229,7 @@ def _items_ensemble() -> list[WorkItem]:
 
 def test_progress_store_writes_and_is_done(progress_dir: Path):
     store = ProgressStore(progress_dir)
-    store.open({"version": 1})
+    _start(store, {"version": 1})
     items = _items_deterministic()
     assert not store.is_done(items[0])
     store.mark_done(items[0])
@@ -235,7 +240,7 @@ def test_progress_store_writes_and_is_done(progress_dir: Path):
 
 def test_progress_store_remaining(progress_dir: Path):
     store = ProgressStore(progress_dir)
-    store.open({"version": 1})
+    _start(store, {"version": 1})
     items = _items_deterministic()
     store.mark_done(items[0])
     store.mark_done(items[2])
@@ -244,7 +249,7 @@ def test_progress_store_remaining(progress_dir: Path):
 
 def test_progress_store_partly_done_group_reruns(progress_dir: Path):
     store = ProgressStore(progress_dir)
-    store.open({"version": 1})
+    _start(store, {"version": 1})
     items = _items_ensemble()
     store.mark_done(items[0])  # (T0, members 0,1)
     assert store.remaining(items) == items[1:]
@@ -252,12 +257,12 @@ def test_progress_store_partly_done_group_reruns(progress_dir: Path):
 
 def test_progress_store_overwrite_clears_manifest_and_logs(progress_dir: Path):
     store1 = ProgressStore(progress_dir, tags={"model": "a"})
-    store1.open({"version": 1})
+    _start(store1, {"version": 1})
     store1.mark_done(_items_deterministic()[0])
     store1.close()
 
     store2 = ProgressStore(progress_dir, overwrite=True)
-    store2.open({"version": 1})
+    _start(store2, {"version": 1})
     assert store2.remaining(_items_deterministic()) == _items_deterministic()
     assert not (progress_dir / MANIFEST_NAME).exists() or (
         json.loads((progress_dir / MANIFEST_NAME).read_text())
@@ -269,42 +274,48 @@ def test_progress_store_overwrite_clears_manifest_and_logs(progress_dir: Path):
 
 def test_progress_store_manifest_mismatch(progress_dir: Path):
     store = ProgressStore(progress_dir)
-    store.open({"version": 1})
+    _start(store, {"version": 1})
     store.close()
     store2 = ProgressStore(progress_dir)
     with pytest.raises(ValueError, match="differing keys: seed"):
-        store2.open({"version": 1, "seed": 7})
+        _start(store2, {"version": 1, "seed": 7})
 
 
 def test_progress_store_resume_with_changed_grouping(progress_dir: Path):
     store = ProgressStore(progress_dir)
-    store.open({"version": 1})
+    _start(store, {"version": 1})
     for item in work_items([T0], np.timedelta64(6, "h"), members=4, member_batch=2):
         store.mark_done(item)
     store.close()
 
     store2 = ProgressStore(progress_dir)
-    store2.open({"version": 1})
+    _start(store2, {"version": 1})
     regrouped = work_items([T0], np.timedelta64(6, "h"), members=4, member_batch=1)
     assert store2.remaining(regrouped) == []
 
 
 def test_progress_store_resume_with_changed_world_size(progress_dir: Path):
-    store = ProgressStore(progress_dir)
-    store.open({"version": 1})
+    # Two ranks share one attempt and each writes its own log.
+    manifest = {"version": 1}
+    attempt = ProgressStore(progress_dir).setup(manifest)
+    ranks = [ProgressStore(progress_dir) for _ in range(2)]
+    for rank, store in enumerate(ranks):
+        store.open(manifest, rank, attempt)
     items = _items_deterministic()
-    for item in items[::2]:
-        store.mark_done(item)
-    store.close()
+    ranks[0].mark_done(items[0])
+    ranks[1].mark_done(items[2])
+    for store in ranks:
+        store.close()
+    assert len(list(progress_dir.glob("done-*.log"))) == 2
 
     store2 = ProgressStore(progress_dir)
-    store2.open({"version": 1})
+    _start(store2, {"version": 1})
     assert store2.remaining(items) == items[1::2]
 
 
 def test_progress_store_torn_last_line_ignored(progress_dir: Path):
     store = ProgressStore(progress_dir)
-    store.open({"version": 1})
+    _start(store, {"version": 1})
     store.mark_done(_items_deterministic()[1])
     store.close()
     log = sorted(progress_dir.glob("done-*.log"))[0]
@@ -324,7 +335,7 @@ def test_progress_store_torn_last_line_ignored(progress_dir: Path):
     log.write_text(_record(T0) + "\n" + _record(T2)[:10])
 
     store2 = ProgressStore(progress_dir)
-    store2.open({"version": 1})
+    _start(store2, {"version": 1})
     items = _items_deterministic()
     assert store2.is_done(items[0])
     assert not store2.is_done(items[2])
@@ -334,7 +345,7 @@ def test_progress_store_compaction_bounds_file_count(progress_dir: Path):
     items = _items_deterministic()
     for attempt in range(3):
         store = ProgressStore(progress_dir)
-        store.open({"version": 1})
+        _start(store, {"version": 1})
         store.mark_done(items[attempt])
         store.close()
         # At most the manifest, the compacted log and this attempt's log
@@ -344,31 +355,31 @@ def test_progress_store_compaction_bounds_file_count(progress_dir: Path):
     assert len(sorted(progress_dir.glob("done-*.log"))) == 1
 
     final = ProgressStore(progress_dir)
-    final.open({"version": 1})
+    _start(final, {"version": 1})
     assert final.remaining(items) == []
 
 
 def test_progress_store_reopen_keeps_records_after_compaction(progress_dir: Path):
     items = _items_deterministic()
     store = ProgressStore(progress_dir)
-    store.open({"version": 1})
+    _start(store, {"version": 1})
     store.mark_done(items[0])
     # Another rank's log, so the next open compacts and deletes this rank's log.
     record = {"time": str(np.datetime64(T1, "s")), "horizon": 21600, "members": []}
     (progress_dir / "done-0000-0001.log").write_text(json.dumps(record) + "\n")
 
-    store.open({"version": 1})
+    _start(store, {"version": 1})
     store.mark_done(items[2])
     store.close()
 
     resumed = ProgressStore(progress_dir)
-    resumed.open({"version": 1})
+    _start(resumed, {"version": 1})
     assert resumed.remaining(items) == []
 
 
 def test_progress_store_manifest_includes_tags(progress_dir: Path):
     store = ProgressStore(progress_dir, tags={"model": "sfno", "step": 1})
-    store.open({"version": 1})
+    _start(store, {"version": 1})
     stored = json.loads((progress_dir / MANIFEST_NAME).read_text())
     assert stored["tags"]["model"] == "sfno"
     assert stored["tags"]["step"] == 1

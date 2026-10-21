@@ -1379,6 +1379,22 @@ class AsyncZarrBackend:
         return self.root.store
 
     @property
+    def write_blocks(self) -> dict[str, int]:
+        """Largest chunk or shard extent per dimension over the stored data arrays
+
+        A shard is written as a whole, so it is the smallest unit two writers can
+        update independently, and distributed writers must not share one.
+        """
+        root = self._sync_root()
+        blocks: dict[str, int] = {}
+        for name, dims in self._arrays.items():
+            array = root[name]
+            extents = array.shards or array.chunks
+            for dim, extent in zip(dims, extents):
+                blocks[str(dim)] = max(blocks.get(str(dim), 0), int(extent))
+        return blocks
+
+    @property
     def coords(self) -> CoordSystem:
         """Coordinate arrays of the store, read back from it.
 

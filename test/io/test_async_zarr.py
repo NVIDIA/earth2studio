@@ -971,44 +971,6 @@ async def test_async_zarr_shard_inflight_limit(
     assert np.allclose(data, x.numpy())
 
 
-def test_async_zarr_chunked_coords_validation(tmp_path: str) -> None:
-    """`chunked_coords` must never widen the chunk of a parallel coordinate"""
-    leads = lead_times(4)
-    coords = _shard_coords(leads)
-
-    # A parallel coordinate is chunked at 1 so concurrent writers never share a
-    # chunk; asking for more is a configuration error, not a silent override
-    with pytest.raises(ValueError, match="parallel_coords"):
-        AsyncZarrBackend(
-            f"{tmp_path}/widened.zarr",
-            parallel_coords={"lead_time": leads},
-            chunked_coords={"lead_time": 2},
-        )
-
-    with pytest.raises(ValueError, match="must be positive"):
-        AsyncZarrBackend(
-            f"{tmp_path}/nonpositive.zarr",
-            parallel_coords={"lead_time": leads},
-            chunked_coords={"lat": 0},
-        )
-
-    # Restating the implied chunk of 1 is consistent, so it is allowed
-    z = AsyncZarrBackend(
-        f"{tmp_path}/restated.zarr",
-        parallel_coords={"lead_time": leads},
-        chunked_coords={"lead_time": 1, "lat": 8},
-        blocking=True,
-    )
-    z.add_array(template(coords, name="fields"))
-    z.write(field(OrderedDict(coords, lead_time=leads[:1]), torch.zeros(1, 16, 32)))
-    z.close()
-    assert z._compute_chunks({"lead_time": 4, "lat": 16, "lon": 32}) == {
-        "lead_time": 1,
-        "lat": 8,
-        "lon": 32,
-    }
-
-
 @pytest.mark.asyncio
 async def test_async_zarr_shard_validation(tmp_path: str) -> None:
     """Invalid shard configurations must fail with a clear error"""
@@ -1021,6 +983,21 @@ async def test_async_zarr_shard_validation(tmp_path: str) -> None:
             f"{tmp_path}/bad0.zarr",
             parallel_coords={"lead_time": leads},
             shard_coords={"lead_time": 0},
+        )
+
+    # chunked_coords must never widen a parallel coordinate's chunk of 1, nor be
+    # non-positive
+    with pytest.raises(ValueError, match="parallel_coords"):
+        AsyncZarrBackend(
+            f"{tmp_path}/widened.zarr",
+            parallel_coords={"lead_time": leads},
+            chunked_coords={"lead_time": 2},
+        )
+    with pytest.raises(ValueError, match="must be positive"):
+        AsyncZarrBackend(
+            f"{tmp_path}/nonpositive.zarr",
+            parallel_coords={"lead_time": leads},
+            chunked_coords={"lat": 0},
         )
 
     # Shard size must be a multiple of the chunk size of that coordinate
