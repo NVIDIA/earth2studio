@@ -105,6 +105,44 @@ def _default_regridder(
     return regridder
 
 
+def crop_to_region(
+    y: xr.DataArray, info: "RegionInfo", mask: bool = True
+) -> xr.DataArray:
+    """Crop a field on a regional view's grid to its requested region.
+
+    Parameters
+    ----------
+    y : xr.DataArray
+        Field on the view's grid, with ``y`` and ``x`` trailing.
+    info : RegionInfo
+        Region resolved by the view.
+    mask : bool, optional
+        Set gridpoints outside the requested region to NaN, by default True.
+
+    Returns
+    -------
+    xr.DataArray
+        Field on the smallest rectangle of gridpoints containing the region.
+    """
+    if y.dims[-2:] != ("y", "x") or y.shape[-2:] != info.input_shape:
+        raise ValueError("Forecast spatial dimensions do not match this region")
+    ys, xs = info.output_slices
+    out = y.isel(y=ys, x=xs)
+    if mask:
+        data = out.data
+        try:
+            import cupy
+
+            xp = cupy.get_array_module(data)
+        except ImportError:
+            xp = np
+        requested = xp.asarray(info.requested_mask)
+        out = out.copy(data=xp.where(requested, data, xp.nan))
+    if "shape" in out.attrs:
+        out.attrs["shape"] = list(out.shape[-2:])
+    return out
+
+
 @check_optional_dependencies()
 class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """StormScope diffusion prognostic base model with staged denoising.
@@ -1383,26 +1421,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         if self.region_info is None:
             return y
-        if y.dims[-2:] != ("y", "x") or y.shape[-2:] != self.region_info.input_shape:
-            raise ValueError("Forecast spatial dimensions do not match this region")
-        ys, xs = self.region_info.output_slices
-        out = y.isel(y=ys, x=xs)
-        if mask:
-            data = out.data
-            try:
-                import cupy
-
-                xp = cupy.get_array_module(data)
-            except ImportError:
-                xp = np
-            requested = xp.asarray(self.region_info.requested_mask)
-            out = out.copy(data=xp.where(requested, data, xp.nan))
-        out.attrs.update(
-            CurvilinearGrid(
-                out["lat"].values, out["lon"].values, out["y"].values, out["x"].values
-            ).attrs
-        )
-        return out
+        return crop_to_region(y, self.region_info, mask)
 
     def _apply(
         self, fn: Callable[[torch.Tensor], torch.Tensor], recurse: bool = True

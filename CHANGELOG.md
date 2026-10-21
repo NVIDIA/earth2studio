@@ -16,9 +16,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `StormScopeMeteosatEU` runs on a crop of the registered `mtg-fci-fulldisk-2km` grid,
+  and its `default_sources()` returns every channel on that grid, block-averaging the
+  1 km channels. Regions are selected with `with_region` and `crop_output`. The
+  constructor takes `latitudes`, `longitudes`, `y_coords` and `x_coords`, `use_amp` is
+  now `amp`, `compile_model` is now `compile_experts`, and the step count moved to
+  `sampler_args["num_steps"]`.
+
 ### Deprecated
 
 ### Removed
+
+- Removed `StormScopeMeteosatEU.combine_1km_2km_inputs`, `create_generator`,
+  `Model_FCI_BBox` and the `mtg_ylim`/`mtg_xlim` domain arguments.
 
 ### Fixed
 
