@@ -126,60 +126,8 @@ _OPERATIONAL_START = datetime(2024, 1, 16, tzinfo=timezone.utc)
 
 
 # ---------------------------------------------------------------------------
-# Helper: geostationary scan angle → lat/lon
+# Helpers
 # ---------------------------------------------------------------------------
-def _mtg_fci_scan_to_latlon(
-    x: np.ndarray, y: np.ndarray
-) -> tuple[np.ndarray, np.ndarray]:
-    """Convert MTG FCI scan angles to latitude/longitude arrays.
-
-    Parameters
-    ----------
-    x : np.ndarray
-        1-D x (column) scan-angle coordinates in radians, west-to-east
-        (FCI convention: FCI_X[0] is the western-most column).
-    y : np.ndarray
-        1-D y (row) scan-angle coordinates in radians, south-to-north
-        (FCI convention: FCI_Y[0] is the southern-most row).
-
-    Returns
-    -------
-    tuple[np.ndarray, np.ndarray]
-        ``(lat, lon)`` arrays of shape ``(len(y), len(x))`` in degrees,
-        NaN where off-Earth.
-    """
-    x = x[None, :]
-    y = y[:, None]
-    cos_x = np.cos(x)
-    cos_y = np.cos(y)
-    sin_x = np.sin(-x)  # minus to account for FCI east-west convention
-    sin_y = np.sin(y)
-
-    r_eq = SEMI_MAJOR_AXIS
-    r_pol = SEMI_MINOR_AXIS
-    H = PERSPECTIVE_POINT_HEIGHT + r_eq
-
-    with np.errstate(invalid="ignore"):
-        a = sin_x**2 + cos_x**2 * (cos_y**2 + (r_eq / r_pol) ** 2 * sin_y**2)
-        b = -2.0 * H * cos_x * cos_y
-        c = H**2 - r_eq**2
-
-        discriminant = b**2 - 4.0 * c * a
-        r_s = (b + np.sqrt(discriminant)) / (-2.0 * a)
-
-        d = r_s * cos_x
-        s_x = d * cos_y
-        s_y = -r_s * sin_x
-        s_z = d * sin_y
-        H_s_x = H - s_x
-
-        lat = np.degrees(np.arctan((r_eq / r_pol) ** 2 * s_z / np.hypot(H_s_x, s_y)))
-        lon_origin_rad = np.radians(SUB_SATELLITE_LON)
-        lon = np.degrees(lon_origin_rad - np.arctan(s_y / H_s_x))
-
-    return lat, lon
-
-
 def _normalize_lon(lon_deg: float) -> float:
     """Normalise a longitude value into the ``[-180, 180)`` range.
 
@@ -474,26 +422,16 @@ class MeteosatFCI:
 
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
 
-        # Ensure grid is computed
-        lat, lon = self._ensure_grid()
-
-        # Compute pixel ROI if bounding box is set
-        if self._lat_lon_bbox is not None and self._pixel_roi is None:
-            self._pixel_roi = _compute_pixel_roi(self._lat_lon_bbox, lat, lon)
+        # Ensure grid (and the pixel ROI of a lat/lon bounding box) is computed
+        lat_out, lon_out = self._ensure_grid()
 
         # Determine output shape (cropped if bbox is set)
         nrows, ncols = _GRID_SIZE[self._resolution]
         if self._pixel_roi is not None:
             (i0, i1), (j0, j1) = self._pixel_roi
-            ny = i1 - i0
-            nx = j1 - j0
-            lat_out = lat[i0:i1, j0:j1]
-            lon_out = lon[i0:i1, j0:j1]
         else:
             (i0, i1), (j0, j1) = ((0, nrows), (0, ncols))
-            ny, nx = nrows, ncols
-            lat_out = lat
-            lon_out = lon
+        ny, nx = i1 - i0, j1 - j0
 
         # Pre-allocate output
         y_coords = MeteosatFCI.FCI_Y[self._resolution][i0:i1]
@@ -857,19 +795,25 @@ class MeteosatFCI:
                 )
 
     def _ensure_grid(self) -> tuple[np.ndarray, np.ndarray]:
-        """Return the full-disk lat/lon grid for the configured resolution.
+        """Return the lat/lon grid of the fetched region.
 
-        The result is computed on the first call and cached for subsequent
-        calls.
+        The full disk is navigated only when ``lat_lon_bbox`` must be resolved
+        to pixels. The result is computed on the first call and cached for
+        subsequent calls.
 
         Returns
         -------
         tuple[np.ndarray, np.ndarray]
-            ``(lat, lon)`` arrays of shape ``(_GRID_SIZE[resolution])``,
-            in degrees.  Off-Earth pixels are NaN.
+            ``(lat, lon)`` arrays of the fetched region's shape, in degrees.
+            Off-Earth pixels are NaN.
         """
         if self._grid is None:
-            self._grid = MeteosatFCI.grid(resolution=self._resolution)
+            if self._pixel_roi is None and self._lat_lon_bbox is not None:
+                lat, lon = MeteosatFCI.grid(resolution=self._resolution)
+                self._pixel_roi = _compute_pixel_roi(self._lat_lon_bbox, lat, lon)
+            self._grid = MeteosatFCI.grid(
+                resolution=self._resolution, pixel_bbox=self._pixel_roi
+            )
         return self._grid
 
     @classmethod
@@ -948,24 +892,44 @@ class MeteosatFCI:
     @staticmethod
     def grid(
         resolution: Literal["2km", "1km", "500m"] = "2km",
+        pixel_bbox: tuple[tuple[int, int], tuple[int, int]] | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Return (lat, lon) in degrees for the native MTG FCI grid.
+
+        Coordinates come from the registered ``mtg-fci-fulldisk-{resolution}``
+        grid, which navigates FCI scan angles with ``sweep=y``.
 
         Parameters
         ----------
         resolution : Literal["2km", "1km", "500m"], optional
             Grid resolution — ``'2km'``, ``'1km'``, or ``'500m'``, by default
             ``'2km'``
+        pixel_bbox : tuple[tuple[int, int], tuple[int, int]] | None, optional
+            Bounding box ``((row_start, row_end), (col_start, col_end))`` in
+            pixel coordinates, matching the ``pixel_bbox`` argument accepted
+            by the :class:`MeteosatFCI` constructor. When provided, only this
+            sub-region is returned. By default None (full disk).
 
         Returns
         -------
         tuple[np.ndarray, np.ndarray]
-            ``(lat, lon)`` arrays of shape ``(_GRID_SIZE[resolution])`` in
-            degrees.  Off-Earth pixels are NaN.
+            ``(lat, lon)`` arrays of shape ``(_GRID_SIZE[resolution])``, or of
+            the ``pixel_bbox`` sub-region, in degrees with longitude in
+            ``[-180, 180)``.  Off-Earth pixels are NaN.
         """
-        return _mtg_fci_scan_to_latlon(
-            MeteosatFCI.FCI_X[resolution], MeteosatFCI.FCI_Y[resolution]
-        )
+        from earth2studio.grids import resolve_grid
+
+        grid = resolve_grid(f"mtg-fci-fulldisk-{resolution}")
+        if pixel_bbox is None:
+            coords = grid.coords()
+        else:
+            (i0, i1), (j0, j1) = pixel_bbox
+            coords = grid.coords({"y": grid.y[i0:i1], "x": grid.x[j0:j1]})
+        lat, lon = coords["lat"].values, coords["lon"].values
+        off_earth = ~np.isfinite(lat)
+        lat = np.where(off_earth, np.nan, lat)
+        lon = np.where(off_earth, np.nan, (lon + 180.0) % 360.0 - 180.0)
+        return lat, lon
 
     @staticmethod
     def projection_extent(

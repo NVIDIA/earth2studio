@@ -32,6 +32,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `MeteosatFCI.grid()`, the `_lat`/`_lon` coordinates of fetched data and
+  `lat_lon_bbox` cropping navigated FCI with the GOES (`sweep=x`) geometry, off by up
+  to ~0.35° over Europe. They now use the registered `mtg-fci-fulldisk-*` grids
+  (`sweep=y`), and `grid()` accepts a `pixel_bbox`.
+
 ### Security
 
 ### Dependencies
