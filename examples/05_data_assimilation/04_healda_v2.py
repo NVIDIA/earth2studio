@@ -118,13 +118,13 @@ sources = {
     "prepbufr": conv_source,
     "gpsro": conv_source,
     "satwnd": NNJAObsSatwnd(time_tolerance=tolerance, layout="wide"),
-    **dict.fromkeys(
-        ("atms", "amsua", "amsub", "mhs", "airs", "iasi", "cris"), sat_source
-    ),
 }
 
 schemas = model.input_coords()
-obs = fetch_dataframes({k: (sources[k], schemas[k]) for k in schemas}, analysis_time)
+# Every other stream is a satellite sensor
+obs = fetch_dataframes(
+    {k: (sources.get(k, sat_source), schemas[k]) for k in schemas}, analysis_time
+)
 for name, frame in obs.items():
     logger.info(f"Fetched {len(frame)} {name} rows")
 
