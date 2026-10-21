@@ -2433,11 +2433,13 @@ for _band, (_, _first, _last) in enumerate(CRIS_BANDS):
 _WAVENUMBER_BY_CHANNEL = b"wavenumber_by_channel"
 
 
-def _airs_wavenumber(source: Any) -> np.ndarray:
+def _airs_wavenumber(source: Any, path: str) -> np.ndarray:
     """Centre wavenumber (cm⁻¹) by channel number from the first footprint whose
     channels all carry LOGRCW; LOGRCW is constant per channel within a file."""
     by_channel = np.full(_IR_CHANNEL_LIMIT["airs"] + 1, np.nan)
-    batches = source.iter_batches(
+    batches = iter_batches(
+        source,
+        path,
         messages_per_batch=1,
         data_category_filter=[21],
         projection=["DRF16BIT.CHNM", "DRF16BIT.LOGRCW"],
@@ -2853,8 +2855,10 @@ def decode_satellite(
     schema = _sat_wide_schema(sensor, axis)
     axis_values = np.array(axis, dtype=np.float64)
     with open_bufr(path) as source:
-        wavenumber = _airs_wavenumber(source) if sensor == "airs" else None
-        batches = source.iter_batches(
+        wavenumber = _airs_wavenumber(source, path) if sensor == "airs" else None
+        batches = iter_batches(
+            source,
+            path,
             data_category_filter=[21],
             target_decoded_bytes=32 << 20,
             prefetch_batches=2,

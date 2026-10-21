@@ -1308,12 +1308,19 @@ def test_truncated_messages_are_skipped_and_counted(fake_bufr):
     )
     warnings = []
     sink = logger.add(lambda message: warnings.append(str(message)), level="WARNING")
+    fake_bufr["atms"] = _FakeBufr(
+        [_sat_batch("atms", [T0], [1.0], lambda c: (1.0, 0.0, 250.0))],
+        truncated=truncated,
+    )
     try:
         wide = decode_satwnd("satwnd", ["u"], T0, T0, 1)
+        sat = decode_satellite(
+            "atms", "atms", {"atms": "TMBR"}, T0, T0, channels=[1], decode_workers=1
+        )
     finally:
         logger.remove(sink)
-    assert wide.num_rows == 1
-    assert any("skipped 1 truncated BUFR messages" in w for w in warnings)
+    assert wide.num_rows == 1 and sat.num_rows == 1
+    assert sum("skipped 1 truncated BUFR messages" in w for w in warnings) == 2
 
 
 def test_satwnd_subset_is_read_from_the_dx_table(fake_bufr):
