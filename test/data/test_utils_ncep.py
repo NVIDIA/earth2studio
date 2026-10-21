@@ -52,6 +52,14 @@ class _Decoder:
         return self.message
 
 
+@pytest.mark.parametrize("year, expected", [(99, 1999), (100, 2000), (6, 2006)])
+def test_edition3_year_of_century(year, expected):
+    message = _message([])
+    message.edition.value = 3
+    message.year.value = year
+    assert utils_ncep._message_base_time(message) == datetime(expected, 1, 1)
+
+
 def _prepbufr_plan(lexicon: type, variable: str) -> dict:
     source_key, modifier = lexicon.get_item(variable)
     _, separator, key = source_key.partition("::")
@@ -222,7 +230,11 @@ def test_same_local_prepbufr_bytes_are_adapter_exact(tmp_path, monkeypatch):
     def parse(file_data: bytes, *, silence_noise: bool):
         assert file_data == b"same-local-prepbufr-bytes"
         assert silence_noise
-        return table_b, {}, [(message_bytes, 102)]
+        return (
+            table_b,
+            {348102: ("ADPUPA   UPPER-AIR REPORTS", ["301001"])},
+            [(message_bytes, 102)],
+        )
 
     monkeypatch.setattr(utils_ncep, "_parse_prepbufr_messages", parse)
     monkeypatch.setattr(
@@ -837,7 +849,11 @@ def test_finalize_rows_adds_missing_columns():
     assert pd.isna(result["station_elev"].iloc[0])
 
 
-def test_decode_prepbufr_skips_excluded_message_types(tmp_path, monkeypatch):
+# Files before 2007 number SATWND 233 (Table D 3-60-233), later files 105 (3-48-105)
+@pytest.mark.parametrize("data_category, table_a", [(105, 348105), (233, 360233)])
+def test_decode_prepbufr_skips_excluded_message_types(
+    tmp_path, monkeypatch, data_category, table_a
+):
     local_path = tmp_path / "amv.prepbufr.nr"
     local_path.write_bytes(b"amv-prepbufr")
     message_bytes = b"prepbufr-satwnd-message"
@@ -858,10 +874,15 @@ def test_decode_prepbufr_skips_excluded_message_types(tmp_path, monkeypatch):
         ]
     )
     table_b = {utils_ncep.HDR_DHR: ("DHR", "HR", 5, 0, 0)}
+    table_d = {table_a: ("SATWND   SATELLITE-DERIVED WIND REPORTS", ["301001"])}
     monkeypatch.setattr(
         utils_ncep,
         "_parse_prepbufr_messages",
-        lambda data, *, silence_noise: (table_b, {}, [(message_bytes, 105)]),
+        lambda data, *, silence_noise: (
+            table_b,
+            table_d,
+            [(message_bytes, data_category)],
+        ),
     )
     monkeypatch.setattr(
         utils_ncep, "_create_decoder", lambda tb, td: _Decoder(message_bytes, decoded)
@@ -882,6 +903,24 @@ def test_decode_prepbufr_skips_excluded_message_types(tmp_path, monkeypatch):
     NNJAObsConv(cache=False, verbose=False, exclude_message_types=("SATWND",))
     with pytest.raises(ValueError, match="Unknown PrepBUFR message types"):
         NNJAObsConv(cache=False, verbose=False, exclude_message_types=("AMV",))
+
+
+def test_decode_prepbufr_raises_without_message_families(tmp_path, monkeypatch):
+    local_path = tmp_path / "nodx.prepbufr.nr"
+    local_path.write_bytes(b"nodx-prepbufr")
+    monkeypatch.setattr(
+        utils_ncep,
+        "_parse_prepbufr_messages",
+        lambda data, *, silence_noise: ({}, {}, [(b"prepbufr-message", 105)]),
+    )
+    bounds = (datetime(2024, 1, 1), datetime(2024, 1, 1, 1))
+    with pytest.raises(ValueError, match="no PrepBUFR message family"):
+        utils_ncep.decode_prepbufr(
+            str(local_path),
+            _prepbufr_plan(NNJAObsConvLexicon, "t"),
+            *bounds,
+            decode_workers=1,
+        )
 
 
 def _sounding_level() -> tuple[list[SimpleNamespace], list[object]]:
