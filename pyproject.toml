@@ -25,7 +25,7 @@ dependencies = [
     "pygrib",
     "python-dotenv",
     "pandas",
-    "pyarrow>=14.0.0",
+    "pyarrow>=24.0.0",
     "rich",
     "s3fs>=2023.5.0",
     "torch>=2.5.0",

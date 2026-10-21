@@ -758,16 +758,25 @@ def test_nnja_obs_conv_async_timeout_bounds_the_download_not_the_decode(
 T0 = datetime(2024, 1, 1, 0)
 
 
+# Table D mnemonics of satwnd root descriptors in the fake files' DX tables
+_SATWND_SEQUENCES = {"3-63-130": "NC005030", "3-63-185": "NC005024"}
+
+
+def _satwnd_message(root: str) -> SimpleNamespace:
+    return SimpleNamespace(source_message_index=0, descriptors=(root,), table_epoch=0)
+
+
 class _FakeBufr:
     """Stands in for an earth2bufr file: yields the given batches, applying list filters."""
 
-    def __init__(self, batches, messages=(), sequences=None):
+    def __init__(self, batches, messages=(), sequences=None, truncated=()):
         self.batches = batches
-        self.sequences = sequences or {}
+        self.sequences = _SATWND_SEQUENCES if sequences is None else sequences
         self.info = SimpleNamespace(
             messages=list(messages), data_messages=list(messages)
         )
         self.options = {}
+        self.truncated = truncated
 
     def __enter__(self):
         return self
@@ -784,10 +793,27 @@ class _FakeBufr:
 
     def iter_batches(self, **options):
         self.options = options
+        batches = []
         for batch in self.batches:
             for flt in options.get("list_filters", []):
                 batch = _filter_list(batch, flt.field, flt.key, set(flt.values))
-            yield batch
+            batches.append(batch)
+        skipped = self.truncated if options.get("skip_truncated_messages") else ()
+        return _FakeBatches(batches, skipped)
+
+
+class _FakeBatches:
+    """earth2bufr's BatchIterator: batches, then the truncated messages it skipped."""
+
+    def __init__(self, batches, decode_failures):
+        self._batches = iter(batches)
+        self.decode_failures = tuple(decode_failures)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return next(self._batches)
 
 
 def _filter_list(batch, field, key, values):
@@ -945,7 +971,7 @@ def _prepbufr_file(category: int = 102, families: dict | None = None) -> _FakeBu
     return _FakeBufr([batch], messages, sequences)
 
 
-def _satwnd_batch(stamps: list[datetime]) -> pa.RecordBatch:
+def _satwnd_batch(stamps: list[datetime], fields: dict | None = None) -> pa.RecordBatch:
     n = len(stamps)
     return _batch(
         {
@@ -966,6 +992,7 @@ def _satwnd_batch(stamps: list[datetime]) -> pa.RecordBatch:
             "PCCF#2": [80.0] * n,
             "GNAP#3": [1.0] * n,
             "PCCF#3": [70.0] * n,
+            **(fields or {}),
             "_source_message_index": pa.array([0] * n, type=pa.uint64()),
         }
     )
@@ -1127,6 +1154,18 @@ def test_prepbufr_excluded_families_are_not_decoded(fake_bufr, adpupa, satwnd, a
     assert fake_bufr["prep"].options["data_category_filter"] == [adpsfc]
 
 
+def test_prepbufr_null_dhr_raises(fake_bufr):
+    source = _prepbufr_file()
+    batch = source.batches[0]
+    index = batch.schema.get_field_index("DHR")
+    source.batches = [
+        batch.set_column(index, batch.schema.field(index), pa.array([None, 3.0]))
+    ]
+    fake_bufr["prepbufr"] = source
+    with pytest.raises(ValueError, match="1 ADPUPA reports with null DHR"):
+        decode_prepbufr("prepbufr", ["t"], T0, T0, decode_workers=1)
+
+
 def test_prepbufr_without_message_families_raises(fake_bufr):
     fake_bufr["no_dx"] = _prepbufr_file()
     fake_bufr["no_dx"].sequences = {}
@@ -1181,7 +1220,7 @@ def test_prepbufr_drift_levels_follow_their_report_time(fake_bufr):
 
 def test_satwnd_wide_long_and_quality_pairs(fake_bufr):
     stamps = [T0, T0 + timedelta(hours=3)]
-    messages = [SimpleNamespace(source_message_index=0, local_sub_category=30)]
+    messages = [_satwnd_message("3-63-130")]
     fake_bufr["satwnd"] = _FakeBufr([_satwnd_batch(stamps)], messages)
     wide = decode_satwnd("satwnd", ["u", "v"], T0, T0 + timedelta(hours=3), 1)
     assert wide.num_rows == 2
@@ -1190,17 +1229,129 @@ def test_satwnd_wide_long_and_quality_pairs(fake_bufr):
     np.testing.assert_allclose(wide["observation_v"].to_numpy(), 0.0, atol=1e-5)
     # First top-level PRLC is the wind's pressure; a repeated application keeps its first
     assert wide["pres"].to_pylist() == [50000.0, 50000.0]
-    assert wide["quality_indicators"].to_pylist()[0] == [
-        {"application": 1, "confidence": 90.0},
-        {"application": 2, "confidence": 80.0},
-    ]
+    assert wide["qi_gnap_1"].to_pylist() == [90.0, 90.0]
+    assert wide["qi_gnap_2"].to_pylist() == [80.0, 80.0]
+    assert wide["qi_gnap_102"].to_pylist() == [None, None]
+    assert wide["qi_gnaps_5"].to_pylist() == [None, None]
     assert wide["subset"].cast(pa.string()).to_pylist() == ["NC005030"] * 2
     long = _to_long(wide, ["u", "v"], NCEP_SATWND_PUBLIC_SCHEMA)
     assert long.num_rows == 4
     assert long["variable"].to_pylist() == ["u", "u", "v", "v"]
-    assert (
-        long["quality_indicators"].to_pylist()[2]
-        == wide["quality_indicators"].to_pylist()[0]
+    assert long["qi_gnap_2"].to_pylist() == [80.0] * 4
+
+
+def test_satwnd_non_positive_pressure_is_null(fake_bufr):
+    messages = [_satwnd_message("3-63-130")]
+    batch = _satwnd_batch([T0] * 3, {"PRLC": [0.0, -100.0, 50000.0]})
+    fake_bufr["satwnd"] = _FakeBufr([batch], messages)
+    wide = decode_satwnd("satwnd", ["u"], T0, T0, 1)
+    assert wide["pres"].to_pylist() == [None, None, 50000.0]
+
+
+def test_missing_hour_drops_the_wind_and_the_occultation(fake_bufr):
+    messages = [_satwnd_message("3-63-130")]
+    hour = pa.array([None, 0.0])
+    fake_bufr["satwnd"] = _FakeBufr([_satwnd_batch([T0, T0], {"HOUR": hour})], messages)
+    assert decode_satwnd("satwnd", ["u"], T0, T0, 1).num_rows == 1
+    gpsro = _gpsro_batch([T0, T0])
+    index = gpsro.schema.get_field_index("HOUR")
+    fake_bufr["gpsro"] = _FakeBufr([gpsro.set_column(index, "HOUR", hour)])
+    wide = decode_gpsro("gpsro", ["gps"], T0, T0, 1)
+    assert wide["station"].to_pylist() == ["00440007"]
+
+
+def test_gpsro_reference_point_is_the_occultation_clath(fake_bufr):
+    # The level CLATH/CLONH of the first occultation do not stand in for its own
+    gpsro = _gpsro_batch([T0, T0])
+    index = gpsro.schema.get_field_index("CLATH")
+    gpsro = gpsro.set_column(index, "CLATH", pa.array([None, 10.0]))
+    fake_bufr["gpsro"] = _FakeBufr([gpsro])
+    wide = decode_gpsro("gpsro", ["gps_refractivity"], T0, T0, 1)
+    assert wide["lat"].to_pylist() == [10.0, 10.0]
+
+
+def test_gpsro_one_bending_angle_per_level(fake_bufr):
+    # Level 1: two corrected entries, the last wins. Level 2: none, its last entry wins
+    levels = _struct_list([[(10.5, 20.5), (11.5, 21.5)]], ["CLATH", "CLONH"])
+    frequencies = _struct_list(
+        [
+            [
+                (0.0, 6.4e6, 0.01, 0.0),
+                (1.5e9, 6.4e6, 0.02, 0.0),
+                (0.0, 6.4e6, 0.03, 0.0),
+            ],
+            [(1.5e9, 6.5e6, 0.04, 0.0), (1.2e9, 6.5e6, 0.05, 0.0)],
+        ],
+        ["MEFR", "IMPP", "BNDA", "BNDA"],
+    )
+    level_values = pa.StructArray.from_arrays(
+        [levels.values.field(0), levels.values.field(1), frequencies],
+        names=["CLATH", "CLONH", "DRF8BIT"],
+    )
+    gpsro = _gpsro_batch([T0])
+    index = gpsro.schema.get_field_index("DRF16BIT")
+    gpsro = gpsro.set_column(
+        index, "DRF16BIT", pa.ListArray.from_arrays(levels.offsets, level_values)
+    )
+    fake_bufr["gpsro"] = _FakeBufr([gpsro])
+    wide = decode_gpsro("gpsro", ["gps"], T0, T0, 1)
+    np.testing.assert_allclose(wide["observation_gps"].to_numpy(), [0.03, 0.05])
+
+
+def test_truncated_messages_are_skipped_and_counted(fake_bufr):
+    from loguru import logger
+
+    truncated = [SimpleNamespace(source_message_index=4, reason="past Section 4")]
+    messages = [_satwnd_message("3-63-130")]
+    fake_bufr["satwnd"] = _FakeBufr(
+        [_satwnd_batch([T0])], messages, truncated=truncated
+    )
+    warnings = []
+    sink = logger.add(lambda message: warnings.append(str(message)), level="WARNING")
+    try:
+        wide = decode_satwnd("satwnd", ["u"], T0, T0, 1)
+    finally:
+        logger.remove(sink)
+    assert wide.num_rows == 1
+    assert any("skipped 1 truncated BUFR messages" in w for w in warnings)
+
+
+def test_satwnd_subset_is_read_from_the_dx_table(fake_bufr):
+    fake_bufr["satwnd"] = _FakeBufr(
+        [_satwnd_batch([T0])], [_satwnd_message("3-63-130")], {"3-63-130": "NC005099"}
+    )
+    wide = decode_satwnd("satwnd", ["u"], T0, T0, 1)
+    assert wide["subset"].cast(pa.string()).to_pylist() == ["NC005099"]
+
+
+def test_satwnd_unknown_quality_application_raises(fake_bufr):
+    messages = [_satwnd_message("3-63-130")]
+    batch = _satwnd_batch([T0], {"GNAP#2": [9.0]})
+    fake_bufr["satwnd"] = _FakeBufr([batch], messages)
+    with pytest.raises(ValueError, match="Unknown GNAP application code 9"):
+        decode_satwnd("satwnd", ["u"], T0, T0, 1)
+
+
+def test_satwnd_scalars_read_the_first_occurrence_populated_in_the_file(fake_bufr):
+    stamps = [T0] * 3
+    empty_first = {"HAMD": pa.nulls(3, pa.float64()), "HAMD#2": [7.0, None, 9.0]}
+    sparse_first = {"HAMD": [None, 2.0, None], "HAMD#2": [7.0, 8.0, 9.0]}
+    messages = [_satwnd_message("3-63-185")]
+    first = _satwnd_batch(stamps, empty_first)
+    second = _satwnd_batch(stamps, sparse_first)
+    # The second batch populates the first HAMD, so the file reads it for every wind
+    fake_bufr["two"] = _FakeBufr([first, second], messages)
+    wide = decode_satwnd("two", ["u"], T0, T0, 1)
+    assert wide["height_method"].to_pylist() == [None, None, None, None, 2, None]
+    # Without that batch the second HAMD is the first populated one
+    fake_bufr["one"] = _FakeBufr([first], messages)
+    wide = decode_satwnd("one", ["u"], T0, T0, 1)
+    assert wide["height_method"].to_pylist() == [7, None, 9]
+    # The same winds in one batch decode the same
+    whole = pa.Table.from_batches([first, second]).combine_chunks().to_batches()[0]
+    fake_bufr["whole"] = _FakeBufr([whole], messages)
+    assert decode_satwnd("whole", ["u"], T0, T0, 1).equals(
+        decode_satwnd("two", ["u"], T0, T0, 1)
     )
 
 
@@ -1425,7 +1576,7 @@ def test_nnja_sources_long_and_wide(fake_bufr, monkeypatch, tmp_path, layout):
             ),
             ["u", "v"],
             [_satwnd_batch([T0, end])],
-            [SimpleNamespace(source_message_index=0, local_sub_category=30)],
+            [_satwnd_message("3-63-130")],
         ),
         (
             NNJAObsSat(
@@ -1512,7 +1663,7 @@ def test_nnja_sources_keep_rows_inside_each_requested_interval(
             NNJAObsSatwnd,
             ["u", "v"],
             [_satwnd_batch(stamps)],
-            [SimpleNamespace(source_message_index=0, local_sub_category=30)],
+            [_satwnd_message("3-63-130")],
             None,
             [0, 2],
         ),

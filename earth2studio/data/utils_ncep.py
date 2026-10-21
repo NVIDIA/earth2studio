@@ -49,6 +49,7 @@ from earth2studio.data.utils_bufr import (
     dictionary_column,
     float_values,
     float_with_nulls,
+    iter_batches,
     list_value_filter,
     map_ordered,
     masked,
@@ -613,9 +614,18 @@ NCEP_MICROWAVE_OUTPUT_SCHEMA = pa.schema(
 # Satellite wind schema
 # ──────────────────────────────────────────────────────────────────────────
 
-_QUALITY_LIST = pa.list_(
-    pa.struct([("application", pa.uint16()), ("confidence", pa.float32())])
-)
+# Application codes seen in NNJA satwnd 2000-2026, per mnemonic; GNAP code meanings
+# are producer specific
+_SATWND_QUALITY_CODES = {
+    "GNAP": (
+        "generating application (GNAP, 0-01-032)",
+        (1, 2, 3, 4, 5, 101, 102, 103),
+    ),
+    "GNAPS": (
+        "AMV quality-indicator application (GNAPS, 0-01-044)",
+        (2, 4, 5, 6, 7),
+    ),
+}
 
 NCEP_SATWND_PUBLIC_SCHEMA = pa.schema(
     [
@@ -671,28 +681,18 @@ NCEP_SATWND_PUBLIC_SCHEMA = pa.schema(
                 )
             },
         ),
-        pa.field(
-            "quality_indicators",
-            _QUALITY_LIST,
-            nullable=True,
-            metadata={
-                "description": (
-                    "Percent confidence (PCCF) per generating application (GNAP, "
-                    "0-01-032); code meanings are producer specific"
-                )
-            },
-        ),
-        pa.field(
-            "amv_quality_indicators",
-            _QUALITY_LIST,
-            nullable=True,
-            metadata={
-                "description": (
-                    "Percent confidence (PCCF) per AMV quality-indicator application "
-                    "(GNAPS, 0-01-044)"
-                )
-            },
-        ),
+        *[
+            pa.field(
+                f"qi_{mnemonic.lower()}_{code}",
+                pa.float32(),
+                nullable=True,
+                metadata={
+                    "description": f"Percent confidence (PCCF) of {description} {code}"
+                },
+            )
+            for mnemonic, (description, codes) in _SATWND_QUALITY_CODES.items()
+            for code in codes
+        ],
     ]
 )
 
@@ -1543,9 +1543,9 @@ def _prepbufr_batch(
 
     dhr, dhr_valid = header("DHR")
     dhr_scale = _field_scale(batch.schema, paths["DHR"])
-    header_us = message_base + _offset_microseconds(
-        np.where(dhr_valid, dhr, 0.0), dhr_scale
-    )
+    if not dhr_valid.all():
+        raise ValueError(f"{int((~dhr_valid).sum())} {obs_class} reports with null DHR")
+    header_us = message_base + _offset_microseconds(dhr, dhr_scale)
     keep = (header_us >= window_us[0]) & (header_us <= window_us[1])
 
     cat_path = paths["CAT"]
@@ -1755,7 +1755,8 @@ def decode_prepbufr(
     Raises
     ------
     ValueError
-        If the file has data messages but none of a known PrepBUFR message family
+        If the file has data messages but none of a known PrepBUFR message family,
+        or a report has no DHR (observation time offset)
     """
     window_us = (
         datetime_ns(dt_min) // 1000,
@@ -1775,7 +1776,9 @@ def decode_prepbufr(
         if not message_types:
             return _empty_wide(_NCEP_CONVENTIONAL_WIDE_SCHEMA, variables)
         base_us = _message_base_times(source.info)
-        batches = source.iter_batches(
+        batches = iter_batches(
+            source,
+            path,
             data_category_filter=list(message_types),
             fixed_replication="structural",
             target_decoded_bytes=128 << 20,
@@ -1857,58 +1860,24 @@ def _first_field(struct: pa.StructArray, name: str) -> tuple[np.ndarray, np.ndar
     return numpy_with_mask(struct.field(struct.type.get_all_field_indices(name)[0]))
 
 
-def _list_entries(lists: pa.ListArray) -> tuple[pa.StructArray, np.ndarray, np.ndarray]:
+def _list_entries(lists: pa.ListArray) -> tuple[pa.StructArray, np.ndarray]:
     offsets = lists.offsets.to_numpy()
     if lists.offset or offsets[0] != 0 or offsets[-1] != len(lists.values):
         raise ValueError("list does not span its values")
     lengths = np.diff(offsets)
     parent = np.repeat(np.arange(len(lists)), lengths)
-    position = np.arange(offsets[-1]) - offsets[parent]
-    return lists.values, parent, position
-
-
-def _reference_coordinate(
-    top: np.ndarray,
-    top_valid: np.ndarray,
-    levels: tuple[pa.StructArray, np.ndarray, np.ndarray],
-    name: str,
-    first_impp_position: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-    """The occultation's CLATH/CLONH, else the first level value ahead of the first IMPP."""
-    if top_valid.all():
-        return top, top_valid
-    struct, parent, position = levels
-    values, valid = numpy_with_mask(struct.field(name))
-    candidate = np.flatnonzero(valid & (position <= first_impp_position[parent]))
-    first = np.full(len(top), len(values), dtype=np.int64)
-    np.minimum.at(first, parent[candidate], candidate)
-    found = first < len(values)
-    fallback = values[np.where(found, first, 0)] if len(values) else np.zeros(len(top))
-    return np.where(top_valid, top, fallback), top_valid | found
+    return lists.values, parent
 
 
 def _gpsro_batch(
     batch: pa.RecordBatch, variables: Sequence[str], window_ns: tuple[int, int]
 ) -> pa.Table | None:
     """Wide rows of one batch: bending-angle levels, then refractivity levels."""
-    n = batch.num_rows
     scalar = {name: numpy_with_mask(batch.column(name)) for name in _GPSRO_SCALARS}
-    levels = _list_entries(batch.column("DRF16BIT"))
-    level_struct, level_parent, level_position = levels
-    frequencies, frequency_level, _ = _list_entries(level_struct.field("DRF8BIT"))
-    has_frequency = np.zeros(len(level_struct), dtype=bool)
-    has_frequency[frequency_level] = True
-    first_impp_position = np.full(n, np.iinfo(np.int64).max, dtype=np.int64)
-    with_impp = np.flatnonzero(has_frequency)
-    np.minimum.at(
-        first_impp_position, level_parent[with_impp], level_position[with_impp]
-    )
-    lat_ref, lat_ref_valid = _reference_coordinate(
-        *scalar["CLATH"], levels, "CLATH", first_impp_position
-    )
-    lon_ref, lon_ref_valid = _reference_coordinate(
-        *scalar["CLONH"], levels, "CLONH", first_impp_position
-    )
+    level_struct, level_parent = _list_entries(batch.column("DRF16BIT"))
+    frequencies, frequency_level = _list_entries(level_struct.field("DRF8BIT"))
+    lat_ref, lat_ref_valid = scalar["CLATH"]
+    lon_ref, lon_ref_valid = scalar["CLONH"]
 
     def part(name: str) -> np.ndarray:
         values, valid = scalar[name]
@@ -1955,15 +1924,22 @@ def _gpsro_batch(
             impp, impp_valid = _first_field(frequencies, "IMPP")
             value, value_valid = _first_field(frequencies, "BNDA")
             subset = level_parent[frequency_level]
-            # Ionosphere-corrected bending angle: mean frequency 0
-            rows = np.flatnonzero(
-                mefr_valid
-                & (np.abs(mefr) <= 0.5)
-                & impp_valid
-                & value_valid
-                & elrc_valid[subset]
-                & subset_ok[subset]
-            )
+            # One entry per level: its last ionosphere-corrected entry (mean
+            # frequency 0), else its last entry
+            entry = np.arange(len(frequencies))
+            last = np.full(len(level_struct), -1, dtype=np.int64)
+            np.maximum.at(last, frequency_level, entry)
+            corrected = np.full(len(level_struct), -1, dtype=np.int64)
+            is_corrected = mefr_valid & (mefr == 0)
+            np.maximum.at(corrected, frequency_level[is_corrected], entry[is_corrected])
+            primary = np.where(corrected >= 0, corrected, last)
+            rows = primary[primary >= 0]
+            rows = rows[
+                impp_valid[rows]
+                & value_valid[rows]
+                & elrc_valid[subset[rows]]
+                & subset_ok[subset[rows]]
+            ]
             subset = subset[rows]
             level_index = frequency_level[rows]
             level_lat, level_lat_valid = numpy_with_mask(level_struct.field("CLATH"))
@@ -1977,7 +1953,7 @@ def _gpsro_batch(
             elev = (impp[rows] - elrc[subset]).astype(np.float32)
             value = value[rows]
         else:
-            refractivity, refractivity_subset, _ = _list_entries(
+            refractivity, refractivity_subset = _list_entries(
                 batch.column("DRF16BIT_2")
             )
             heit, heit_valid = _first_field(refractivity, "HEIT")
@@ -2046,8 +2022,9 @@ def decode_gpsro(
 ) -> pa.Table:
     """Decode an NCEP GPSRO BUFR file into a wide table.
 
-    One row per bending-angle level (``observation_gps``, the ionosphere-corrected
-    bending angle) or refractivity level (``observation_gps_refractivity``).
+    One row per bending-angle level (``observation_gps``, the level's last
+    ionosphere-corrected entry, else its last entry) or refractivity level
+    (``observation_gps_refractivity``).
 
     Parameters
     ----------
@@ -2067,7 +2044,9 @@ def decode_gpsro(
     """
     window_ns = (datetime_ns(dt_min), datetime_ns(dt_max))
     with open_bufr(path) as source:
-        batches = source.iter_batches(
+        batches = iter_batches(
+            source,
+            path,
             projection=_GPSRO_PROJECTION,
             fixed_replication="structural",
             target_decoded_bytes=32 << 20,
@@ -2088,7 +2067,8 @@ def decode_gpsro(
 # ──────────────────────────────────────────────────────────────────────────
 # Satellite winds
 # ──────────────────────────────────────────────────────────────────────────
-# Each mnemonic is read from its first top-level occurrence in the template.
+# Each mnemonic is read from its first top-level occurrence that is populated in
+# some wind of the same template in the file, for every wind of that template.
 # Later occurrences hold other quantities: alternate height assignments, model
 # wind levels, the pressure uncertainty (PRLC), the contributing satellite
 # (SAID, SAZA) or intermediate image-pair vectors (WDIR, WSPD).
@@ -2109,10 +2089,6 @@ _SATWND_SCALARS = (
     "CLONH",
     "CLON",
 )
-_SATWND_QUALITY_CODES = {
-    "GNAP": "quality_indicators",
-    "GNAPS": "amv_quality_indicators",
-}
 _SATWND_PROJECTION = [*_SATWND_TIME, *_SATWND_SCALARS, "GNAP", "GNAPS", "PCCF"]
 _SATWND_INTS = {
     "satellite_id": ("SAID", pa.uint16()),
@@ -2122,26 +2098,23 @@ _SATWND_INTS = {
     "height_method": ("HAMD", pa.uint8()),
 }
 _SATWND_FLOATS = {"pres": "PRLC", "satellite_za": "SAZA"}
-_SATWND_SUBSETS = pa.array([f"NC005{c:03d}" for c in range(256)])
 
 
 @dataclass(frozen=True)
 class _SatwndPlan:
-    column: dict[str, int]
+    columns: dict[str, list[int]]
     pairs: dict[str, list[tuple[int, int]]]
 
 
 def _satwnd_plan(schema: pa.Schema) -> _SatwndPlan:
-    """Column index of each mnemonic's first top-level occurrence and the
+    """Column indices of each mnemonic's top-level occurrences and the
     GNAP/GNAPS -> PCCF pairs of a template."""
-    column: dict[str, int] = {}
+    columns: dict[str, list[int]] = {}
     for index, field in enumerate(schema):
-        if (
-            field.name in (*_SATWND_SCALARS, *_SATWND_TIME)
-            and field.name not in column
-            and not pa.types.is_nested(field.type)
+        if field.name in (*_SATWND_SCALARS, *_SATWND_TIME) and not pa.types.is_nested(
+            field.type
         ):
-            column[field.name] = index
+            columns.setdefault(field.name, []).append(index)
     events = [
         (f.name, i) for i, f in enumerate(schema) if f.name in ("GNAP", "GNAPS", "PCCF")
     ]
@@ -2153,60 +2126,163 @@ def _satwnd_plan(schema: pa.Schema) -> _SatwndPlan:
         ]
         for code in _SATWND_QUALITY_CODES
     }
-    return _SatwndPlan(column, pairs)
+    return _SatwndPlan(columns, pairs)
+
+
+@dataclass(frozen=True)
+class _SatwndSlots:
+    """Per mnemonic, the first populated occurrence (None: none is); per GNAP/GNAPS
+    -> PCCF pair, the application code of its slot (None: empty)."""
+
+    scalars: dict[str, int | None]
+    codes: dict[str, tuple[int | None, ...]]
+
+    def settled(self) -> bool:
+        """True when no other batch of the template can change these choices: every
+        mnemonic is empty or populated at its first occurrence, and no empty quality
+        slot comes before the first slot of a code."""
+        if any(k not in (None, 0) for k in self.scalars.values()):
+            return False
+        for slot_codes in self.codes.values():
+            empty_before = False
+            seen: set[int] = set()
+            for code in slot_codes:
+                if code is None:
+                    empty_before = True
+                elif code not in seen:
+                    if empty_before:
+                        return False
+                    seen.add(code)
+        return True
+
+
+def _satwnd_slots(batch: pa.RecordBatch, plan: _SatwndPlan) -> _SatwndSlots:
+    n = batch.num_rows
+    scalars = {
+        name: next(
+            (k for k, i in enumerate(indices) if batch.column(i).null_count < n), None
+        )
+        for name, indices in plan.columns.items()
+    }
+    codes = {}
+    for mnemonic, pairs in plan.pairs.items():
+        allowed = _SATWND_QUALITY_CODES[mnemonic][1]
+        slot_codes: list[int | None] = []
+        for code_column, _ in pairs:
+            values = pc.unique(batch.column(code_column).drop_null()).to_pylist()
+            if len(values) > 1:
+                raise ValueError(
+                    f"{mnemonic} slot holds codes {values} in one template"
+                )
+            if values and int(values[0]) not in allowed:
+                raise ValueError(f"Unknown {mnemonic} application code {values[0]:g}")
+            slot_codes.append(int(values[0]) if values else None)
+        codes[mnemonic] = tuple(slot_codes)
+    return _SatwndSlots(scalars, codes)
+
+
+def _merge_slots(a: _SatwndSlots, b: _SatwndSlots) -> _SatwndSlots:
+    """Choices over the winds of both batches of one template."""
+    scalars = {
+        name: min(
+            (k for k in (a.scalars[name], b.scalars[name]) if k is not None),
+            default=None,
+        )
+        for name in a.scalars
+    }
+    codes = {}
+    for mnemonic, slot_codes in a.codes.items():
+        merged = []
+        for x, y in zip(slot_codes, b.codes[mnemonic]):
+            if x is not None and y is not None and x != y:
+                raise ValueError(
+                    f"{mnemonic} slot holds codes {[x, y]} in one template"
+                )
+            merged.append(y if x is None else x)
+        codes[mnemonic] = tuple(merged)
+    return _SatwndSlots(scalars, codes)
 
 
 def _satwnd_quality(
-    batch: pa.RecordBatch, pairs: list[tuple[int, int]], keep: np.ndarray
-) -> pa.Array:
-    """Per wind, the (application, confidence) pairs; a repeated application keeps its first."""
+    batch: pa.RecordBatch,
+    mnemonic: str,
+    pairs: list[tuple[int, int]],
+    slot_codes: tuple[int | None, ...],
+    keep: np.ndarray,
+) -> dict[str, pa.Array]:
+    """PCCF per application code of ``mnemonic``, one column per code. The first
+    slot of a code supplies its column; null where the wind lacks the code or its
+    PCCF."""
+    slot_of: dict[int, tuple[int, int]] = {}
+    for pair, code in zip(pairs, slot_codes):
+        if code is not None:
+            slot_of.setdefault(code, pair)
     n = int(keep.sum())
-    if not pairs:
-        return pa.nulls(n, _QUALITY_LIST)
-    codes = np.empty((n, len(pairs)), dtype=np.int64)
-    confidence = np.empty((n, len(pairs)), dtype=np.float32)
-    valid = np.empty((n, len(pairs)), dtype=bool)
-    for k, (code_column, pccf_column) in enumerate(pairs):
-        code, code_valid = numpy_with_mask(batch.column(code_column))
+    columns = {}
+    for code in _SATWND_QUALITY_CODES[mnemonic][1]:
+        name = f"qi_{mnemonic.lower()}_{code}"
+        if code not in slot_of:
+            columns[name] = null_array(pa.float32(), n)
+            continue
+        code_column, pccf_column = slot_of[code]
+        _, code_valid = numpy_with_mask(batch.column(code_column))
         pccf, pccf_valid = numpy_with_mask(batch.column(pccf_column))
-        codes[:, k] = code[keep]
-        confidence[:, k] = pccf[keep]
-        valid[:, k] = (code_valid & pccf_valid)[keep]
-    for k in range(1, len(pairs)):
-        valid[:, k] &= ~(valid[:, :k] & (codes[:, :k] == codes[:, k : k + 1])).any(
-            axis=1
+        columns[name] = masked(
+            pccf[keep].astype(np.float32), (code_valid & pccf_valid)[keep], pa.float32()
         )
-    counts = valid.sum(axis=1)
-    offsets = np.zeros(n + 1, dtype=np.int32)
-    np.cumsum(counts, out=offsets[1:])
-    entries = pa.StructArray.from_arrays(
-        [pa.array(codes[valid].astype(np.uint16)), pa.array(confidence[valid])],
-        fields=list(_QUALITY_LIST.value_type),
-    )
-    return pa.ListArray.from_arrays(
-        pa.array(offsets), entries, type=_QUALITY_LIST, mask=pa.array(counts == 0)
-    )
+    return columns
+
+
+def _satwnd_templates(source: Any) -> tuple[np.ndarray, np.ndarray, pa.Array]:
+    """Per message, its template index and its dump subset code, and the subset
+    names. A template is a (descriptors, table epoch); its subset is the Table D
+    mnemonic of its root descriptor, from the file's DX tables."""
+    template = np.zeros(len(source.info.messages), dtype=np.int64)
+    subset = np.zeros(len(source.info.messages), dtype=np.int16)
+    names: dict[str, int] = {}
+    templates: dict[tuple, tuple[int, int]] = {}
+    for message in source.info.data_messages:
+        descriptors = tuple(message.descriptors)
+        key = (descriptors, message.table_epoch)
+        if key not in templates:
+            root = descriptors[1] if len(descriptors) > 1 else descriptors[0]
+            structure = source.source_structure(message.source_message_index)
+            sequences = {
+                s["descriptor"]: s["mnemonic"] for s in structure["active_sequences"]
+            }
+            if root not in sequences:
+                raise ValueError(f"Root descriptor {root} is not in the DX tables")
+            templates[key] = (
+                len(templates),
+                names.setdefault(sequences[root], len(names)),
+            )
+        template[message.source_message_index], subset[message.source_message_index] = (
+            templates[key]
+        )
+    return template, subset, pa.array(list(names), type=pa.string())
 
 
 def _satwnd_batch(
     batch: pa.RecordBatch,
-    subcategory: np.ndarray,
+    plan: _SatwndPlan,
+    slots: _SatwndSlots,
+    subset_code: np.ndarray,
+    subset_names: pa.Array,
     variables: Sequence[str],
     window_ns: tuple[int, int],
 ) -> pa.Table | None:
-    plan = _satwnd_plan(batch.schema)
     n = batch.num_rows
-
-    def get(name: str) -> pa.Array | None:
-        index = plan.column.get(name)
-        return None if index is None else batch.column(index)
+    column = {
+        name: batch.column(indices[slots.scalars[name] or 0])
+        for name, indices in plan.columns.items()
+    }
 
     def floats(name: str) -> np.ndarray:
-        array = get(name)
+        array = column.get(name)
         return np.full(n, np.nan) if array is None else float_values(array)
 
-    lat = floats("CLATH" if "CLATH" in plan.column else "CLAT")
-    lon = floats("CLONH" if "CLONH" in plan.column else "CLON")
+    lat = floats("CLATH" if "CLATH" in column else "CLAT")
+    lon = floats("CLONH" if "CLONH" in column else "CLON")
     wdir, wspd = floats("WDIR"), floats("WSPD")
     parts = [floats(name) for name in _SATWND_TIME]
     stamp, ok = civil_time_ns(*parts)
@@ -2226,14 +2302,18 @@ def _satwnd_batch(
         "class": constant_dictionary("SATWND", k),
     }
     for out, name in _SATWND_FLOATS.items():
-        array = get(name)
+        array = column.get(name)
         columns[out] = (
             null_array(pa.float32(), k)
             if array is None
             else pc.cast(array, pa.float32()).filter(arrow_keep)
         )
+    # A non-positive assigned pressure is missing
+    columns["pres"] = pc.if_else(
+        pc.greater(columns["pres"], 0), columns["pres"], pa.scalar(None, pa.float32())
+    )
     for out, (name, arrow_type) in _SATWND_INTS.items():
-        array = get(name)
+        array = column.get(name)
         columns[out] = (
             null_array(arrow_type, k)
             if array is None
@@ -2241,10 +2321,12 @@ def _satwnd_batch(
         )
     message = batch.column("_source_message_index").to_numpy()[keep]
     columns["subset"] = pa.DictionaryArray.from_arrays(
-        pa.array(subcategory[message].astype(np.int16)), _SATWND_SUBSETS
+        pa.array(subset_code[message]), subset_names
     )
-    for code, out in _SATWND_QUALITY_CODES.items():
-        columns[out] = _satwnd_quality(batch, plan.pairs[code], keep)
+    for mnemonic, pairs in plan.pairs.items():
+        columns.update(
+            _satwnd_quality(batch, mnemonic, pairs, slots.codes[mnemonic], keep)
+        )
     # Meteorological convention: the direction the wind blows from
     components = {
         "u": (speed * np.sin(radians)).astype(np.float32),
@@ -2281,26 +2363,50 @@ def decode_satwnd(
         Wide table
     """
     window_ns = (datetime_ns(dt_min), datetime_ns(dt_max))
+
+    def transform(batch: pa.RecordBatch) -> tuple:
+        plan = _satwnd_plan(batch.schema)
+        slots = _satwnd_slots(batch, plan)
+        table = _satwnd_batch(
+            batch, plan, slots, subset_code, subset_names, variables, window_ns
+        )
+        index = int(batch.column("_source_message_index")[0].as_py())
+        # A batch whose choices other batches may change is kept for a second pass
+        kept = None if slots.settled() else (batch, plan)
+        return int(template[index]), slots, table, kept
+
     with open_bufr(path) as source:
-        subcategory = np.zeros(len(source.info.messages), dtype=np.int64)
-        for message in source.info.messages:
-            subcategory[message.source_message_index] = message.local_sub_category
+        template, subset_code, subset_names = _satwnd_templates(source)
         # Fields differ by template; a template's missing fields are left out
-        batches = source.iter_batches(
+        batches = iter_batches(
+            source,
+            path,
             projection=_SATWND_PROJECTION,
             projection_missing="skip",
             target_decoded_bytes=256 << 20,
             prefetch_batches=2,
         )
-        tables = [
-            t
-            for t in map_ordered(
-                lambda b: _satwnd_batch(b, subcategory, variables, window_ns),
-                batches,
-                decode_workers,
+        results = list(map_ordered(transform, batches, decode_workers))
+    file_slots: dict[int, _SatwndSlots] = {}
+    for key, slots, _, _ in results:
+        file_slots[key] = (
+            _merge_slots(file_slots[key], slots) if key in file_slots else slots
+        )
+    tables = []
+    for key, slots, table, kept in results:
+        if kept is not None and file_slots[key] != slots:
+            batch, plan = kept
+            table = _satwnd_batch(
+                batch,
+                plan,
+                file_slots[key],
+                subset_code,
+                subset_names,
+                variables,
+                window_ns,
             )
-            if t is not None
-        ]
+        if table is not None:
+            tables.append(table)
     if not tables:
         return _empty_wide(_NCEP_SATWND_WIDE_SCHEMA, variables)
     return pa.concat_tables(tables, promote_options="permissive")
