@@ -1886,10 +1886,10 @@ def decode_gpsro(
 # ──────────────────────────────────────────────────────────────────────────
 # Satellite winds
 # ──────────────────────────────────────────────────────────────────────────
-# A batch is one template. Each mnemonic is read, for every wind of the batch,
-# from its first top-level occurrence that is populated in some wind of the
-# batch. Later occurrences hold other quantities: alternate height assignments,
-# model wind levels, the pressure uncertainty (PRLC), the contributing satellite
+# Each mnemonic is read from its first top-level occurrence that is populated in
+# some wind of the same template in the file, for every wind of that template.
+# Later occurrences hold other quantities: alternate height assignments, model
+# wind levels, the pressure uncertainty (PRLC), the contributing satellite
 # (SAID, SAZA) or intermediate image-pair vectors (WDIR, WSPD).
 
 _SATWND_TIME = ("YEAR", "MNTH", "DAYS", "HOUR", "MINU", "SECO")
@@ -1948,29 +1948,97 @@ def _satwnd_plan(schema: pa.Schema) -> _SatwndPlan:
     return _SatwndPlan(columns, pairs)
 
 
-def _satwnd_quality(
-    batch: pa.RecordBatch, mnemonic: str, pairs: list[tuple[int, int]], keep: np.ndarray
-) -> dict[str, pa.Array]:
-    """PCCF per application code of ``mnemonic``, one column per code.
+@dataclass(frozen=True)
+class _SatwndSlots:
+    """Per mnemonic, the first populated occurrence (None: none is); per GNAP/GNAPS
+    -> PCCF pair, the application code of its slot (None: empty)."""
 
-    A batch is one template, whose slots each carry one code. The first slot of a
-    code supplies its column; null where the wind lacks the code or its PCCF.
-    """
-    _, codes = _SATWND_QUALITY_CODES[mnemonic]
+    scalars: dict[str, int | None]
+    codes: dict[str, tuple[int | None, ...]]
+
+    def settled(self) -> bool:
+        """True when no other batch of the template can change these choices: every
+        mnemonic is empty or populated at its first occurrence, and no empty quality
+        slot comes before the first slot of a code."""
+        if any(k not in (None, 0) for k in self.scalars.values()):
+            return False
+        for slot_codes in self.codes.values():
+            empty_before = False
+            seen: set[int] = set()
+            for code in slot_codes:
+                if code is None:
+                    empty_before = True
+                elif code not in seen:
+                    if empty_before:
+                        return False
+                    seen.add(code)
+        return True
+
+
+def _satwnd_slots(batch: pa.RecordBatch, plan: _SatwndPlan) -> _SatwndSlots:
+    n = batch.num_rows
+    scalars = {
+        name: next(
+            (k for k, i in enumerate(indices) if batch.column(i).null_count < n), None
+        )
+        for name, indices in plan.columns.items()
+    }
+    codes = {}
+    for mnemonic, pairs in plan.pairs.items():
+        allowed = _SATWND_QUALITY_CODES[mnemonic][1]
+        slot_codes: list[int | None] = []
+        for code_column, _ in pairs:
+            values = pc.unique(batch.column(code_column).drop_null()).to_pylist()
+            if len(values) > 1:
+                raise ValueError(
+                    f"{mnemonic} slot holds codes {values} in one template"
+                )
+            if values and int(values[0]) not in allowed:
+                raise ValueError(f"Unknown {mnemonic} application code {values[0]:g}")
+            slot_codes.append(int(values[0]) if values else None)
+        codes[mnemonic] = tuple(slot_codes)
+    return _SatwndSlots(scalars, codes)
+
+
+def _merge_slots(a: _SatwndSlots, b: _SatwndSlots) -> _SatwndSlots:
+    """Choices over the winds of both batches of one template."""
+    scalars = {
+        name: min(
+            (k for k in (a.scalars[name], b.scalars[name]) if k is not None),
+            default=None,
+        )
+        for name in a.scalars
+    }
+    codes = {}
+    for mnemonic, slot_codes in a.codes.items():
+        merged = []
+        for x, y in zip(slot_codes, b.codes[mnemonic]):
+            if x is not None and y is not None and x != y:
+                raise ValueError(
+                    f"{mnemonic} slot holds codes {[x, y]} in one template"
+                )
+            merged.append(y if x is None else x)
+        codes[mnemonic] = tuple(merged)
+    return _SatwndSlots(scalars, codes)
+
+
+def _satwnd_quality(
+    batch: pa.RecordBatch,
+    mnemonic: str,
+    pairs: list[tuple[int, int]],
+    slot_codes: tuple[int | None, ...],
+    keep: np.ndarray,
+) -> dict[str, pa.Array]:
+    """PCCF per application code of ``mnemonic``, one column per code. The first
+    slot of a code supplies its column; null where the wind lacks the code or its
+    PCCF."""
     slot_of: dict[int, tuple[int, int]] = {}
-    for code_column, pccf_column in pairs:
-        slot_codes = pc.unique(batch.column(code_column).drop_null()).to_pylist()
-        if len(slot_codes) > 1:
-            raise ValueError(f"{mnemonic} slot holds codes {slot_codes} in one batch")
-        if not slot_codes:
-            continue
-        code = int(slot_codes[0])
-        if code not in codes:
-            raise ValueError(f"Unknown {mnemonic} application code {code}")
-        slot_of.setdefault(code, (code_column, pccf_column))
+    for pair, code in zip(pairs, slot_codes):
+        if code is not None:
+            slot_of.setdefault(code, pair)
     n = int(keep.sum())
     columns = {}
-    for code in codes:
+    for code in _SATWND_QUALITY_CODES[mnemonic][1]:
         name = f"qi_{mnemonic.lower()}_{code}"
         if code not in slot_of:
             columns[name] = null_array(pa.float32(), n)
@@ -1984,16 +2052,18 @@ def _satwnd_quality(
     return columns
 
 
-def _satwnd_subsets(source: Any) -> tuple[np.ndarray, pa.Array]:
-    """Code of each message's dump subset and the subset names: the Table D
-    mnemonic of the message's root descriptor, from the file's DX tables."""
-    code = np.zeros(len(source.info.messages), dtype=np.int16)
+def _satwnd_templates(source: Any) -> tuple[np.ndarray, np.ndarray, pa.Array]:
+    """Per message, its template index and its dump subset code, and the subset
+    names. A template is a (descriptors, table epoch); its subset is the Table D
+    mnemonic of its root descriptor, from the file's DX tables."""
+    template = np.zeros(len(source.info.messages), dtype=np.int64)
+    subset = np.zeros(len(source.info.messages), dtype=np.int16)
     names: dict[str, int] = {}
-    by_template: dict[tuple, int] = {}
+    templates: dict[tuple, tuple[int, int]] = {}
     for message in source.info.data_messages:
         descriptors = tuple(message.descriptors)
-        template = (descriptors, message.table_epoch)
-        if template not in by_template:
+        key = (descriptors, message.table_epoch)
+        if key not in templates:
             root = descriptors[1] if len(descriptors) > 1 else descriptors[0]
             structure = source.source_structure(message.source_message_index)
             sequences = {
@@ -2001,25 +2071,28 @@ def _satwnd_subsets(source: Any) -> tuple[np.ndarray, pa.Array]:
             }
             if root not in sequences:
                 raise ValueError(f"Root descriptor {root} is not in the DX tables")
-            by_template[template] = names.setdefault(sequences[root], len(names))
-        code[message.source_message_index] = by_template[template]
-    return code, pa.array(list(names), type=pa.string())
+            templates[key] = (
+                len(templates),
+                names.setdefault(sequences[root], len(names)),
+            )
+        template[message.source_message_index], subset[message.source_message_index] = (
+            templates[key]
+        )
+    return template, subset, pa.array(list(names), type=pa.string())
 
 
 def _satwnd_batch(
     batch: pa.RecordBatch,
+    plan: _SatwndPlan,
+    slots: _SatwndSlots,
     subset_code: np.ndarray,
     subset_names: pa.Array,
     variables: Sequence[str],
     window_ns: tuple[int, int],
 ) -> pa.Table | None:
-    plan = _satwnd_plan(batch.schema)
     n = batch.num_rows
     column = {
-        name: next(
-            (batch.column(i) for i in indices if batch.column(i).null_count < n),
-            batch.column(indices[0]),
-        )
+        name: batch.column(indices[slots.scalars[name] or 0])
         for name, indices in plan.columns.items()
     }
 
@@ -2069,8 +2142,10 @@ def _satwnd_batch(
     columns["subset"] = pa.DictionaryArray.from_arrays(
         pa.array(subset_code[message]), subset_names
     )
-    for mnemonic in _SATWND_QUALITY_CODES:
-        columns.update(_satwnd_quality(batch, mnemonic, plan.pairs[mnemonic], keep))
+    for mnemonic, pairs in plan.pairs.items():
+        columns.update(
+            _satwnd_quality(batch, mnemonic, pairs, slots.codes[mnemonic], keep)
+        )
     # Meteorological convention: the direction the wind blows from
     components = {
         "u": (speed * np.sin(radians)).astype(np.float32),
@@ -2107,8 +2182,20 @@ def decode_satwnd(
         Wide table
     """
     window_ns = (datetime_ns(dt_min), datetime_ns(dt_max))
+
+    def transform(batch: pa.RecordBatch) -> tuple:
+        plan = _satwnd_plan(batch.schema)
+        slots = _satwnd_slots(batch, plan)
+        table = _satwnd_batch(
+            batch, plan, slots, subset_code, subset_names, variables, window_ns
+        )
+        index = int(batch.column("_source_message_index")[0].as_py())
+        # A batch whose choices other batches may change is kept for a second pass
+        kept = None if slots.settled() else (batch, plan)
+        return int(template[index]), slots, table, kept
+
     with open_bufr(path) as source:
-        subset_code, subset_names = _satwnd_subsets(source)
+        template, subset_code, subset_names = _satwnd_templates(source)
         # Fields differ by template; a template's missing fields are left out
         batches = iter_batches(
             source,
@@ -2118,17 +2205,27 @@ def decode_satwnd(
             target_decoded_bytes=256 << 20,
             prefetch_batches=2,
         )
-        tables = [
-            t
-            for t in map_ordered(
-                lambda b: _satwnd_batch(
-                    b, subset_code, subset_names, variables, window_ns
-                ),
-                batches,
-                decode_workers,
+        results = list(map_ordered(transform, batches, decode_workers))
+    file_slots: dict[int, _SatwndSlots] = {}
+    for key, slots, _, _ in results:
+        file_slots[key] = (
+            _merge_slots(file_slots[key], slots) if key in file_slots else slots
+        )
+    tables = []
+    for key, slots, table, kept in results:
+        if kept is not None and file_slots[key] != slots:
+            batch, plan = kept
+            table = _satwnd_batch(
+                batch,
+                plan,
+                file_slots[key],
+                subset_code,
+                subset_names,
+                variables,
+                window_ns,
             )
-            if t is not None
-        ]
+        if table is not None:
+            tables.append(table)
     if not tables:
         return _empty_wide(_NCEP_SATWND_WIDE_SCHEMA, variables)
     return pa.concat_tables(tables, promote_options="permissive")

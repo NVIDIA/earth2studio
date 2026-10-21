@@ -1333,17 +1333,27 @@ def test_satwnd_unknown_quality_application_raises(fake_bufr):
         decode_satwnd("satwnd", ["u"], T0, T0, 1)
 
 
-def test_satwnd_scalars_read_the_first_occurrence_populated_in_the_batch(fake_bufr):
+def test_satwnd_scalars_read_the_first_occurrence_populated_in_the_file(fake_bufr):
     stamps = [T0] * 3
     empty_first = {"HAMD": pa.nulls(3, pa.float64()), "HAMD#2": [7.0, None, 9.0]}
     sparse_first = {"HAMD": [None, 2.0, None], "HAMD#2": [7.0, 8.0, 9.0]}
     messages = [_satwnd_message("3-63-185")]
-    fake_bufr["satwnd"] = _FakeBufr(
-        [_satwnd_batch(stamps, empty_first), _satwnd_batch(stamps, sparse_first)],
-        messages,
+    first = _satwnd_batch(stamps, empty_first)
+    second = _satwnd_batch(stamps, sparse_first)
+    # The second batch populates the first HAMD, so the file reads it for every wind
+    fake_bufr["two"] = _FakeBufr([first, second], messages)
+    wide = decode_satwnd("two", ["u"], T0, T0, 1)
+    assert wide["height_method"].to_pylist() == [None, None, None, None, 2, None]
+    # Without that batch the second HAMD is the first populated one
+    fake_bufr["one"] = _FakeBufr([first], messages)
+    wide = decode_satwnd("one", ["u"], T0, T0, 1)
+    assert wide["height_method"].to_pylist() == [7, None, 9]
+    # The same winds in one batch decode the same
+    whole = pa.Table.from_batches([first, second]).combine_chunks().to_batches()[0]
+    fake_bufr["whole"] = _FakeBufr([whole], messages)
+    assert decode_satwnd("whole", ["u"], T0, T0, 1).equals(
+        decode_satwnd("two", ["u"], T0, T0, 1)
     )
-    wide = decode_satwnd("satwnd", ["u"], T0, T0, 1)
-    assert wide["height_method"].to_pylist() == [7, None, 9, None, 2, None]
 
 
 def test_microwave_wide_is_fixed_size_and_long_matches(fake_bufr):
