@@ -146,23 +146,35 @@ import cupy
 import matplotlib.pyplot as plt
 
 plot_vars = ["t2m", "z500"]
+diff_limit = {"t2m": 5, "z500": 300}
 era5 = NCAR_ERA5()(analysis_time, plot_vars)
-
 
 lat = analysis.coords["lat"].values
 lon = analysis.coords["lon"].values
 fig, axes = plt.subplots(
-    2, len(plot_vars), subplot_kw={"projection": ccrs.Robinson()}, figsize=(14, 6)
+    3, len(plot_vars), subplot_kw={"projection": ccrs.Robinson()}, figsize=(14, 9)
 )
 for col, var in enumerate(plot_vars):
     field = cupy.asnumpy(analysis.sel(variable=var).data[0])
     truth = era5.sel(variable=var).values[0]
-    logger.info(f"{var} MAE vs ERA5: {float(np.abs(field - truth).mean()):.4f}")
-    for row, (title, values) in enumerate((("HealDA v2", field), ("ERA5", truth))):
+    diff = field - truth
+    rmse = float(np.sqrt(np.mean(diff**2)))
+    logger.info(f"{var} RMSE vs ERA5: {rmse:.4f}")
+    scale = {"vmin": truth.min(), "vmax": truth.max()}
+    panels = (
+        (f"HealDA v2 {var}", field, scale),
+        (f"ERA5 {var}", truth, scale),
+        (
+            f"HealDA v2 - ERA5 {var} (RMSE {rmse:.3g})",
+            diff,
+            {"cmap": "RdBu_r", "vmin": -diff_limit[var], "vmax": diff_limit[var]},
+        ),
+    )
+    for row, (title, values, style) in enumerate(panels):
         ax = axes[row, col]
-        im = ax.pcolormesh(lon, lat, values, transform=ccrs.PlateCarree())
+        im = ax.pcolormesh(lon, lat, values, transform=ccrs.PlateCarree(), **style)
         ax.coastlines(linewidth=0.5)
-        ax.set_title(f"{title} {var}")
+        ax.set_title(title)
         fig.colorbar(im, ax=ax, shrink=0.6)
 fig.suptitle(f"HealDA v2 analysis {str(analysis_time[0])[:16]} UTC", fontsize=16)
 plt.tight_layout()
