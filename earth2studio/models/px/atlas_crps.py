@@ -17,6 +17,7 @@
 import json
 import os
 from collections.abc import Generator, Iterator
+from dataclasses import dataclass
 
 import numpy as np
 import torch
@@ -29,6 +30,7 @@ from earth2studio.models.px.atlas import VARIABLES, npdt64_to_naive_utc
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils.checkpoint import bind_checkpoint_state
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -40,6 +42,16 @@ try:
 except ImportError:
     OptionalDependencyFailure("atlas")
     Module = None
+
+
+@dataclass
+class _AtlasCRPSCheckpointState:
+    x: torch.Tensor | None = None
+    coord_keys: tuple[str, ...] = ()
+    coord_values: tuple[np.ndarray, ...] = ()
+    latents: list[list[tuple[torch.Tensor, torch.Tensor] | None]] | None = None
+    cpu_rng: torch.Tensor | None = None
+    cuda_rng: torch.Tensor | None = None
 
 
 @check_optional_dependencies()
@@ -84,6 +96,10 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ----
     Ensemble noise is drawn from the global PyTorch generator, use
     :func:`torch.manual_seed` for reproducible members.
+    Level-2 checkpoints preserve physical and latent states and the CPU and active
+    CUDA RNG states. Construct the model inside the checkpoint context to resume
+    from the next forecast step. For reproducible ensemble restarts, use
+    :class:`earth2studio.perturbation.Zero`; the model supplies its own ensemble noise.
 
     Note
     ----
@@ -111,6 +127,8 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.model_processor = model_processor
         self.autoencoder = autoencoder
         self.autoencoder_processor = autoencoder_processor
+        self._checkpoint = bind_checkpoint_state(_AtlasCRPSCheckpointState())
+        self._checkpoint_rng: torch.Tensor | None = None
 
     def input_coords(self) -> CoordSystem:
         """Input coordinate system expected by AtlasCRPS.
@@ -401,11 +419,78 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         yield from self._default_generator(x, coords)
 
+    def _save_checkpoint_state(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+        latents: list[list[tuple[torch.Tensor, torch.Tensor] | None]] | None,
+    ) -> None:
+        state = self._checkpoint
+        if not state.checkpoint_enabled or state.checkpoint_level < 2:
+            return
+        state.x = x.detach().to(state.device, copy=True)
+        state.coord_keys = tuple(coords)
+        state.coord_values = tuple(value.copy() for value in coords.values())
+        state.latents = (
+            [
+                [
+                    (
+                        tuple(t.detach().to(state.device, copy=True) for t in pair)
+                        if pair is not None
+                        else None
+                    )
+                    for pair in batch
+                ]
+                for batch in latents
+            ]
+            if latents is not None
+            else None
+        )
+        state.cpu_rng = torch.get_rng_state().to(state.device)
+        state.cuda_rng = (
+            torch.cuda.get_rng_state(x.device).to(state.device) if x.is_cuda else None
+        )
+        # A newly hydrated RNG tensor identifies a restart, even when reusing a model.
+        self._checkpoint_rng = state.cpu_rng
+
     @batch_func()
     def _default_generator(
         self, x: torch.Tensor, coords: CoordSystem
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
         coords = coords.copy()
+        latent_cache: list[list[tuple[torch.Tensor, torch.Tensor] | None]] | None = None
+        state = self._checkpoint
+        restored = False
+        if (
+            state.checkpoint_level == 2
+            and state.checkpoint_state_loaded
+            and state.cpu_rng is not None
+            and state.cpu_rng is not self._checkpoint_rng
+        ):
+            torch.set_rng_state(state.cpu_rng.cpu())
+            if x.is_cuda and state.cuda_rng is not None:
+                torch.cuda.set_rng_state(state.cuda_rng.cpu(), x.device)
+            self._checkpoint_rng = state.cpu_rng
+            # Ensemble workflows reset the write count before starting a fresh batch.
+            if state.checkpoint_write_count > 0 and state.x is not None:
+                x = state.x.to(x.device)
+                coords = CoordSystem(zip(state.coord_keys, state.coord_values))
+                latent_cache = (
+                    [
+                        [
+                            (
+                                tuple(t.to(x.device) for t in pair)
+                                if pair is not None
+                                else None
+                            )
+                            for pair in batch
+                        ]
+                        for batch in state.latents
+                    ]
+                    if state.latents is not None
+                    else None
+                )
+                restored = True
 
         # Validate coords
         _ = self.output_coords(coords)
@@ -416,11 +501,12 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x = torch.nan_to_num(x, nan=0.0)
 
         # Yield initial condition
-        ic_coords = coords.copy()
-        ic_coords["lead_time"] = ic_coords["lead_time"][-1:]
-        yield x[:, :, -1:, :, :, :], ic_coords
+        if not restored:
+            ic_coords = coords.copy()
+            ic_coords["lead_time"] = ic_coords["lead_time"][-1:]
+            self._save_checkpoint_state(x, coords, latent_cache)
+            yield x[:, :, -1:, :, :, :], ic_coords
 
-        latent_cache: list[list[tuple[torch.Tensor, torch.Tensor] | None]] | None = None
         while True:
             # Front hook
             x, coords = self.front_hook(x, coords)
@@ -430,10 +516,10 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             )
             # Rear hook
             x_pred, coords_pred = self.rear_hook(x_pred, coords_pred)
-            yield x_pred, coords_pred.copy()
-
             # Prepare next input
             x, coords = self.prep_next_input(x_pred, coords_pred, x, coords)
+            self._save_checkpoint_state(x, coords, latent_cache)
+            yield x_pred, coords_pred.copy()
 
     @classmethod
     def load_default_package(cls) -> Package:
