@@ -1192,18 +1192,23 @@ def test_satwnd_wide_long_and_quality_pairs(fake_bufr):
     np.testing.assert_allclose(wide["observation_v"].to_numpy(), 0.0, atol=1e-5)
     # First top-level PRLC is the wind's pressure; a repeated application keeps its first
     assert wide["pres"].to_pylist() == [50000.0, 50000.0]
-    assert wide["quality_indicators"].to_pylist()[0] == [
-        {"application": 1, "confidence": 90.0},
-        {"application": 2, "confidence": 80.0},
-    ]
+    assert wide["qi_gnap_1"].to_pylist() == [90.0, 90.0]
+    assert wide["qi_gnap_2"].to_pylist() == [80.0, 80.0]
+    assert wide["qi_gnap_102"].to_pylist() == [None, None]
+    assert wide["qi_gnaps_5"].to_pylist() == [None, None]
     assert wide["subset"].cast(pa.string()).to_pylist() == ["NC005030"] * 2
     long = _to_long(wide, ["u", "v"], NCEP_SATWND_PUBLIC_SCHEMA)
     assert long.num_rows == 4
     assert long["variable"].to_pylist() == ["u", "u", "v", "v"]
-    assert (
-        long["quality_indicators"].to_pylist()[2]
-        == wide["quality_indicators"].to_pylist()[0]
-    )
+    assert long["qi_gnap_2"].to_pylist() == [80.0] * 4
+
+
+def test_satwnd_unknown_quality_application_raises(fake_bufr):
+    messages = [SimpleNamespace(source_message_index=0, local_sub_category=30)]
+    batch = _satwnd_batch([T0], {"GNAP#2": [9.0]})
+    fake_bufr["satwnd"] = _FakeBufr([batch], messages)
+    with pytest.raises(ValueError, match="Unknown GNAP application code 9"):
+        decode_satwnd("satwnd", ["u"], T0, T0, 1)
 
 
 def test_satwnd_scalars_read_the_first_occurrence_populated_in_the_batch(fake_bufr):
