@@ -102,7 +102,7 @@ model = HealDAv2.load_model(package).to("cuda:0")
 # requires. A sensor outside its archive period comes back empty with a warning.
 
 # %%
-analysis_time = np.array([np.datetime64("2025-01-03T00:00")])
+analysis_time = np.array([np.datetime64("2026-01-15T00:00")])
 tolerance = (timedelta(hours=-45), timedelta(hours=3))
 
 conv_source = NNJAObsConv(
@@ -141,9 +141,14 @@ logger.info(f"Analysis shape: {analysis.shape}")
 # from the NCAR archive can be queried and compared without regridding.
 
 # %%
+from collections import OrderedDict
+
 import cartopy.crs as ccrs
 import cupy
 import matplotlib.pyplot as plt
+import torch
+
+from earth2studio.statistics import lat_weight, rmse
 
 plot_vars = ["t2m", "z500"]
 diff_limit = {"t2m": 5, "z500": 300}
@@ -151,6 +156,9 @@ era5 = NCAR_ERA5()(analysis_time, plot_vars)
 
 lat = analysis.coords["lat"].values
 lon = analysis.coords["lon"].values
+grid = OrderedDict(lat=lat, lon=lon)
+weights = lat_weight(torch.as_tensor(lat))[:, None].repeat(1, lon.size)
+score = rmse(["lat", "lon"], weights=weights)
 fig, axes = plt.subplots(
     3, len(plot_vars), subplot_kw={"projection": ccrs.Robinson()}, figsize=(14, 9)
 )
@@ -158,14 +166,14 @@ for col, var in enumerate(plot_vars):
     field = cupy.asnumpy(analysis.sel(variable=var).data[0])
     truth = era5.sel(variable=var).values[0]
     diff = field - truth
-    rmse = float(np.sqrt(np.mean(diff**2)))
-    logger.info(f"{var} RMSE vs ERA5: {rmse:.4f}")
+    error = float(score(torch.as_tensor(field), grid, torch.as_tensor(truth), grid)[0])
+    logger.info(f"{var} RMSE vs ERA5: {error:.4f}")
     scale = {"vmin": truth.min(), "vmax": truth.max()}
     panels = (
         (f"HealDA v2 {var}", field, scale),
         (f"ERA5 {var}", truth, scale),
         (
-            f"HealDA v2 - ERA5 {var} (RMSE {rmse:.3g})",
+            f"HealDA v2 - ERA5 {var} (RMSE {error:.3g})",
             diff,
             {"cmap": "RdBu_r", "vmin": -diff_limit[var], "vmax": diff_limit[var]},
         ),
