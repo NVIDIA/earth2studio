@@ -111,14 +111,11 @@ conv_source = NNJAObsConv(
     exclude_message_types=("SATWND",),
     layout="wide",
 )
+satwnd_source = NNJAObsSatwnd(time_tolerance=tolerance, layout="wide")
 sat_source = NNJAObsSat(
     time_tolerance=tolerance, sensor_indices=model.sensor_indices, layout="wide"
 )
-sources = {
-    "prepbufr": conv_source,
-    "gpsro": conv_source,
-    "satwnd": NNJAObsSatwnd(time_tolerance=tolerance, layout="wide"),
-}
+sources = {"prepbufr": conv_source, "gpsro": conv_source, "satwnd": satwnd_source}
 
 schemas = model.input_coords()
 # Every other stream is a satellite sensor
