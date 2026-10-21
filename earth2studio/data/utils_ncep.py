@@ -2711,7 +2711,11 @@ def _iasi_scale_factor(
     if not (np.isfinite(start).all() and np.isfinite(stop).all()):
         raise ValueError("IASI scale-group bounds contain nulls")
     bounds = np.concatenate([start, stop], axis=1)
-    layouts, layout_of = np.unique(bounds, axis=0, return_inverse=True)
+    # Footprints share few bounds layouts, usually one
+    if (bounds == bounds[0]).all():
+        layouts, layout_of = bounds[:1], np.zeros(len(bounds), dtype=np.int64)
+    else:
+        layouts, layout_of = np.unique(bounds, axis=0, return_inverse=True)
     group_of = np.empty((len(layouts), len(rows.axis)), dtype=np.int64)
     for i, layout in enumerate(layouts):
         key = layout.tobytes()
@@ -2724,7 +2728,12 @@ def _iasi_scale_factor(
                 raise ValueError("IASI scale groups do not hold each channel once")
             groups[key] = member.argmax(axis=0)
         group_of[i] = groups[key]
-    exponent = np.take_along_axis(scale, group_of[layout_of.ravel()], axis=1).ravel()
+    if len(layouts) == 1:
+        exponent = scale[:, group_of[0]].ravel()
+    else:
+        exponent = np.take_along_axis(
+            scale, group_of[layout_of.ravel()], axis=1
+        ).ravel()
     unscaled = ~np.isfinite(exponent) & np.isfinite(coded) & (coded != 0.0)
     if unscaled.any():
         raise ValueError("IASI scale factor CHSF is null for a nonzero SCRA")
