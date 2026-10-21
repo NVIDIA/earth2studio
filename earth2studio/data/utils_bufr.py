@@ -34,6 +34,7 @@ from typing import Any, TypeVar
 
 import numpy as np
 import pyarrow as pa
+from loguru import logger
 
 from earth2studio.utils.imports import OptionalDependencyFailure
 
@@ -95,6 +96,20 @@ def default_decode_threads() -> None:
 def open_bufr(path: str) -> Any:
     """Open a BUFR file with earth2bufr."""
     return earth2bufr.open_bufr(path)
+
+
+def iter_batches(source: Any, path: str, **options: Any) -> Iterator[pa.RecordBatch]:
+    """``source.iter_batches(**options)``, skipping messages truncated before their
+    template ends and logging a warning with how many were skipped."""
+    batches = source.iter_batches(skip_truncated_messages=True, **options)
+    yield from batches
+    failures = batches.decode_failures
+    if failures:
+        logger.warning(
+            f"{path}: skipped {len(failures)} truncated BUFR messages "
+            f"(first: message {failures[0].source_message_index}, "
+            f"{failures[0].reason})"
+        )
 
 
 def list_value_filter(field: str, key: str, values: Iterable[int]) -> Any:

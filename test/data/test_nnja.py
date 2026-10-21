@@ -762,13 +762,14 @@ T0 = datetime(2024, 1, 1, 0)
 class _FakeBufr:
     """Stands in for an earth2bufr file: yields the given batches, applying list filters."""
 
-    def __init__(self, batches, messages=(), sequences=None):
+    def __init__(self, batches, messages=(), sequences=None, truncated=()):
         self.batches = batches
         self.sequences = sequences or {}
         self.info = SimpleNamespace(
             messages=list(messages), data_messages=list(messages)
         )
         self.options = {}
+        self.truncated = truncated
 
     def __enter__(self):
         return self
@@ -785,10 +786,27 @@ class _FakeBufr:
 
     def iter_batches(self, **options):
         self.options = options
+        batches = []
         for batch in self.batches:
             for flt in options.get("list_filters", []):
                 batch = _filter_list(batch, flt.field, flt.key, set(flt.values))
-            yield batch
+            batches.append(batch)
+        skipped = self.truncated if options.get("skip_truncated_messages") else ()
+        return _FakeBatches(batches, skipped)
+
+
+class _FakeBatches:
+    """earth2bufr's BatchIterator: batches, then the truncated messages it skipped."""
+
+    def __init__(self, batches, decode_failures):
+        self._batches = iter(batches)
+        self.decode_failures = tuple(decode_failures)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return next(self._batches)
 
 
 def _filter_list(batch, field, key, values):
@@ -1269,6 +1287,22 @@ def test_gpsro_one_bending_angle_per_level(fake_bufr):
     fake_bufr["gpsro"] = _FakeBufr([gpsro])
     wide = decode_gpsro("gpsro", ["gps"], T0, T0, 1)
     np.testing.assert_allclose(wide["observation_gps"].to_numpy(), [0.03, 0.05])
+
+
+def test_truncated_messages_are_skipped_and_counted(fake_bufr):
+    from loguru import logger
+
+    truncated = [SimpleNamespace(source_message_index=4, reason="past Section 4")]
+    messages = [SimpleNamespace(source_message_index=0, local_sub_category=30)]
+    fake_bufr["satwnd"] = _FakeBufr([_satwnd_batch([T0])], messages, truncated=truncated)
+    warnings = []
+    sink = logger.add(lambda message: warnings.append(str(message)), level="WARNING")
+    try:
+        wide = decode_satwnd("satwnd", ["u"], T0, T0, 1)
+    finally:
+        logger.remove(sink)
+    assert wide.num_rows == 1
+    assert any("skipped 1 truncated BUFR messages" in w for w in warnings)
 
 
 def test_satwnd_unknown_quality_application_raises(fake_bufr):

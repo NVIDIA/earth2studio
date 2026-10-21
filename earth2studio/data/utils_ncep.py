@@ -49,6 +49,7 @@ from earth2studio.data.utils_bufr import (
     dictionary_column,
     float_values,
     float_with_nulls,
+    iter_batches,
     list_value_filter,
     map_ordered,
     masked,
@@ -1594,7 +1595,9 @@ def decode_prepbufr(
         if not message_types:
             return _empty_wide(_NCEP_CONVENTIONAL_WIDE_SCHEMA, variables)
         base_us = _message_base_times(source.info)
-        batches = source.iter_batches(
+        batches = iter_batches(
+            source,
+            path,
             data_category_filter=list(message_types),
             fixed_replication="structural",
             target_decoded_bytes=128 << 20,
@@ -1860,7 +1863,9 @@ def decode_gpsro(
     """
     window_ns = (datetime_ns(dt_min), datetime_ns(dt_max))
     with open_bufr(path) as source:
-        batches = source.iter_batches(
+        batches = iter_batches(
+            source,
+            path,
             projection=_GPSRO_PROJECTION,
             fixed_replication="structural",
             target_decoded_bytes=32 << 20,
@@ -2085,7 +2090,9 @@ def decode_satwnd(
         for message in source.info.messages:
             subcategory[message.source_message_index] = message.local_sub_category
         # Fields differ by template; a template's missing fields are left out
-        batches = source.iter_batches(
+        batches = iter_batches(
+            source,
+            path,
             projection=_SATWND_PROJECTION,
             projection_missing="skip",
             target_decoded_bytes=256 << 20,
