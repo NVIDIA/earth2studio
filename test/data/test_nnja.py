@@ -1223,6 +1223,20 @@ def test_satwnd_non_positive_pressure_is_null(fake_bufr):
     assert wide["pres"].to_pylist() == [None, None, 50000.0]
 
 
+def test_missing_hour_drops_the_wind_and_the_occultation(fake_bufr):
+    messages = [SimpleNamespace(source_message_index=0, local_sub_category=30)]
+    hour = pa.array([None, 0.0])
+    fake_bufr["satwnd"] = _FakeBufr(
+        [_satwnd_batch([T0, T0], {"HOUR": hour})], messages
+    )
+    assert decode_satwnd("satwnd", ["u"], T0, T0, 1).num_rows == 1
+    gpsro = _gpsro_batch([T0, T0])
+    index = gpsro.schema.get_field_index("HOUR")
+    fake_bufr["gpsro"] = _FakeBufr([gpsro.set_column(index, "HOUR", hour)])
+    wide = decode_gpsro("gpsro", ["gps"], T0, T0, 1)
+    assert wide["station"].to_pylist() == ["00440007"]
+
+
 def test_satwnd_unknown_quality_application_raises(fake_bufr):
     messages = [SimpleNamespace(source_message_index=0, local_sub_category=30)]
     batch = _satwnd_batch([T0], {"GNAP#2": [9.0]})

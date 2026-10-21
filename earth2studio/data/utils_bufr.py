@@ -233,8 +233,9 @@ def civil_time_ns(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Nanoseconds since the epoch from BUFR time parts given as floats (NaN = missing).
 
-    A missing hour, minute or second counts as zero. The result is valid where the
-    year, month and day form a calendar date and the hour and minute are in range.
+    A missing minute or second counts as zero. The result is valid where the year,
+    month and day form a calendar date, the hour is present and in range, and the
+    minute is in range.
     """
     finite = np.isfinite(year) & np.isfinite(month) & np.isfinite(day)
     y = np.where(finite, year, 1970).astype(np.int64)
@@ -247,6 +248,7 @@ def civil_time_ns(
     days_in_month = _DAYS_IN_MONTH[np.where(month_ok, m, 1)] + ((m == 2) & leap)
     valid = (
         finite
+        & np.isfinite(hour)
         & month_ok
         & (y >= 1)
         & (y <= 9999)
