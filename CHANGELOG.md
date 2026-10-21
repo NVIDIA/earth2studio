@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `NNJAObsSatwnd`, `NNJAObsSat`, `NomadsGDASObsConv`): the cycle of the file each row
   was decoded from, since an observation at a file's window edge can be in two files.
 - Added Google Cloud mirror via `source="google"` to ECMWF open-data sources.
+- Eval recipe: `scoring.online.verification_sources` scores one online rollout
+  against several named truth sources in a single pass, writing
+  `stats__<name>.zarr` and `scores__<name>.zarr` per reference.
 
 ### Changed
 
@@ -47,8 +50,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `CorrDiffCosmoEra5`: updated the Hugging Face checkpoint revision to pick up the
   corrected `rea2/stats.json` (ERA5 training-domain statistics instead of global
   statistics).
-- Corrected the deterministic workflow example to describe the `DLWP` model it runs
-  instead of `FCN`.
+- Honor custom ensemble dimension names in Brier score coordinate validation.
+- Correct the Energy Score ensemble reduction axis when multivariate
+  dimensions precede the ensemble dimension.
+- Fixed running variance and standard deviation when reducing non-leading or
+  multiple dimensions.
+- `Aurora1p5` and `Aurora1p5Ensemble`: `tp1h` and `sf1h` are no longer log-untransformed
+  a second time, which made hourly precipitation and snowfall about 1000 times too
+  small.
+- Fixed `ZarrBackend` and `IceChunkBackend` reopening stores containing
+  root-level subgroups.
 
 ### Security
 
