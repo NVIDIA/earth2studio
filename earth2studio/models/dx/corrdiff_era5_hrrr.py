@@ -830,16 +830,16 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
 
         kind = network_meta["kind"]
         if distilled_model:
+            if kind != "rectified_flow":
+                raise ValueError(
+                    "the distilled generator requires a rectified-flow package"
+                )
             # the distilled few-step generator ships as one physicsnemo checkpoint next to the teacher
             fname = metadata.get("distilled_checkpoint", DISTILLED_CHECKPOINT)
             network: torch.nn.Module = CorrDiffEra5HrrrDistilled.from_checkpoint(
                 package.resolve(prefix + fname)
             )
             network = network.eval().requires_grad_(False)
-            if kind != "rectified_flow":
-                raise ValueError(
-                    "the distilled generator requires a rectified-flow package"
-                )
         else:
             dit = DiT.from_checkpoint(package.resolve(prefix + metadata["checkpoint"]))
             dit = dit.eval().requires_grad_(False)
