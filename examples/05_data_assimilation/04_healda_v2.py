@@ -103,7 +103,7 @@ model = HealDAv2.load_model(package).to("cuda:0")
 # run on a thread pool so their downloads and decodes overlap.
 
 # %%
-analysis_time = np.array([np.datetime64("2024-01-05T00:00")])
+analysis_time = np.array([np.datetime64("2025-01-03T00:00")])
 tolerance = (timedelta(hours=-45), timedelta(hours=3))
 
 conv_source = NNJAObsConv(
