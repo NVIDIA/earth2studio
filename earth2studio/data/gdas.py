@@ -40,9 +40,9 @@ from earth2studio.data.utils import (
 from earth2studio.data.utils_bufr import BUFR_DEPENDENCY_KEY
 from earth2studio.data.utils_ncep import (
     _DEFAULT_LAYOUT,
-    _NCEP_CONVENTIONAL_WIDE_SCHEMA,
     NCEP_CONVENTIONAL_PUBLIC_SCHEMA,
     NCEPObsTask,
+    _conv_stream_schema,
     _validate_layout,
     assemble_frame,
     compile_tables,
@@ -242,6 +242,9 @@ class NomadsGDASObsConv:
         """
         time_list, variable_list = prep_data_inputs(time, variable)
         output_fields = self.resolve_fields(fields) if self._layout == "long" else None
+        if self._layout == "wide":
+            # A wide call returns one stream; raise before downloading
+            _conv_stream_schema(variable_list, type(self).__name__)
 
         self._validate_time(time_list)
 
@@ -275,7 +278,9 @@ class NomadsGDASObsConv:
         )
         if self._layout == "wide":
             schema = resolve_output_schema(
-                _NCEP_CONVENTIONAL_WIDE_SCHEMA, fields, class_name=type(self).__name__
+                _conv_stream_schema(variable_list, type(self).__name__),
+                fields,
+                class_name=type(self).__name__,
             )
         elif output_fields is None:
             schema = self.SCHEMA

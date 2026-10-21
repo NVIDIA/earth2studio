@@ -147,7 +147,7 @@ def test_healda_v2_call(request_time):
     gpsro = _gpsro_df(request_time)
     satwnd = _satwnd_df(request_time)
 
-    out = model(conv_obs=gpsro, satwnd_obs=satwnd)
+    out = model({"gpsro": gpsro, "satwnd": satwnd})
 
     assert isinstance(out, xr.DataArray)
     assert out.dims == ("time", "variable", "lat", "lon")
@@ -162,13 +162,13 @@ def test_healda_v2_call(request_time):
     # The adapters keyed the rows by NCEP cycle for the healda loaders.
     assert pd.Timestamp(CYCLE) in call["gpsro_tables"]
     assert pd.Timestamp(CYCLE) in call["satwnd_tables"]
-    assert call["prepbufr_tables"] == {}
+    assert "prepbufr_tables" not in call
 
 
 def test_healda_v2_omitted_streams_are_not_passed():
     model = _build_model()
     request_time = np.array([CYCLE])
-    out = model(satwnd_obs=_satwnd_df(request_time))
+    out = model({"satwnd": _satwnd_df(request_time)})
     assert out.shape == (1, len(CHANNELS), NLAT, NLON)
     (call,) = model._model.calls
     assert set(call) == {"times", "satwnd_tables"}
@@ -177,10 +177,10 @@ def test_healda_v2_omitted_streams_are_not_passed():
 def test_healda_v2_empty_sensor_frame_is_omitted():
     model = _build_model()
     request_time = np.array([CYCLE])
-    schema = _sat_wide_schema("airs")
-    airs = to_dataframe(schema.empty_table(), schema, "test")
-    airs.attrs["request_time"] = request_time
-    model(satwnd_obs=_satwnd_df(request_time), sat_obs={"airs": airs})
+    schema = _sat_wide_schema("amsua")
+    amsua = to_dataframe(schema.empty_table(), schema, "test")
+    amsua.attrs["request_time"] = request_time
+    model({"satwnd": _satwnd_df(request_time), "amsua": amsua})
     (call,) = model._model.calls
     assert set(call) == {"times", "satwnd_tables"}
 
@@ -191,7 +191,7 @@ def test_healda_v2_accepts_cudf():
     request_time = np.array([CYCLE])
     frame = cudf.from_pandas(_satwnd_df(request_time))
     frame.attrs = {"request_time": request_time}
-    out = model(satwnd_obs=frame)
+    out = model({"satwnd": frame})
     assert out.shape[0] == 1
 
 
@@ -200,14 +200,14 @@ def test_healda_v2_call_missing_request_time():
     df = _satwnd_df(np.array([CYCLE]))
     df.attrs = {}
     with pytest.raises(ValueError, match="request_time"):
-        model(satwnd_obs=df)
+        model({"satwnd": df})
 
 
 def test_healda_v2_call_mismatched_request_times():
     model = _build_model()
     later = np.array([CYCLE + np.timedelta64(6, "h")])
     with pytest.raises(ValueError, match="different 'request_time'"):
-        model(conv_obs=_gpsro_df(np.array([CYCLE])), satwnd_obs=_satwnd_df(later))
+        model({"gpsro": _gpsro_df(np.array([CYCLE])), "satwnd": _satwnd_df(later)})
 
 
 def test_healda_v2_rejects_long_frames():
@@ -216,7 +216,7 @@ def test_healda_v2_rejects_long_frames():
         columns={"observation_u": "observation"}
     )
     with pytest.raises(ValueError, match='layout="wide"'):
-        model(satwnd_obs=long)
+        model({"satwnd": long})
 
 
 def test_healda_v2_call_no_inputs():
@@ -230,7 +230,7 @@ def test_healda_v2_call_empty_frames_returns_nan():
     request_time = np.array([CYCLE])
     empty = _satwnd_df(request_time).iloc[:0].copy()
     empty.attrs = {"request_time": request_time}
-    out = model(satwnd_obs=empty)
+    out = model({"satwnd": empty})
     assert out.shape == (1, len(CHANNELS), NLAT, NLON)
     assert np.all(np.isnan(out.values))
     assert model._model.calls == []
@@ -241,29 +241,35 @@ def test_healda_v2_generator():
     request_time = np.array([CYCLE])
     gen = model.create_generator()
     assert gen.send(None) is None
-    da = gen.send((_gpsro_df(request_time), None, None))
+    da = gen.send({"gpsro": _gpsro_df(request_time)})
     assert isinstance(da, xr.DataArray)
-    da = gen.send((None, _satwnd_df(request_time), None))
+    da = gen.send({"satwnd": _satwnd_df(request_time)})
     assert da.shape == (1, len(CHANNELS), NLAT, NLON)
     with pytest.raises(ValueError, match="At least one"):
-        gen.send((None, None, None))
+        gen.send({})
     gen.close()
 
 
 def test_healda_v2_coords():
     model = _build_model()
     assert model.init_coords() is None
-    conv_schema, satwnd_schema, sat_schemas = model.input_coords()
-    assert "gps_refractivity" in list(conv_schema["variable"])
-    assert list(satwnd_schema["variable"]) == ["u", "v"]
-    assert {s: list(schema["variable"]) for s, schema in sat_schemas.items()} == {
+    schemas = model.input_coords()
+    assert {s: list(schema["variable"]) for s, schema in schemas.items()} == {
+        "prepbufr": ["u", "v", "q", "t", "pres"],
+        "gpsro": ["gps", "gps_refractivity"],
+        "satwnd": ["u", "v"],
         "atms": ["atms_antenna_temperature"],
         "amsua": ["amsua"],
         "cris": ["cris"],
     }
-    # One sensor's columns, on its channel axis
-    assert "detector" in sat_schemas["cris"] and "detector" not in sat_schemas["atms"]
-    assert "quality" in sat_schemas["cris"]
+    # Each stream has its own columns
+    assert "detector" in schemas["cris"] and "detector" not in schemas["atms"]
+    assert "radius_curvature" in schemas["gpsro"]
+    assert (
+        "report_time" in schemas["prepbufr"] and "report_time" not in schemas["gpsro"]
+    )
+    with pytest.raises(ValueError, match="Unknown observation streams"):
+        model({"conv": _gpsro_df(np.array([CYCLE]))})
     (coords,) = model.output_coords(
         model.input_coords(), request_time=np.array([CYCLE])
     )
@@ -282,7 +288,7 @@ def test_healda_v2_package():
     model = HealDAv2.load_model(package).to("cuda:0")
     request_time = np.array([CYCLE])
 
-    out = model(conv_obs=_gpsro_df(request_time), satwnd_obs=_satwnd_df(request_time))
+    out = model({"gpsro": _gpsro_df(request_time), "satwnd": _satwnd_df(request_time)})
 
     assert isinstance(out, xr.DataArray)
     assert out.dims == ("time", "variable", "lat", "lon")

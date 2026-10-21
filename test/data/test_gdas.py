@@ -350,7 +350,7 @@ def test_nomads_gdas_create_tasks():
 def test_nomads_gdas_empty_result(tmp_path):
     dummy_file = tmp_path / "mock.bin"
     dummy_file.write_bytes(b"dummy")
-    empty = utils_ncep._NCEP_CONVENTIONAL_WIDE_SCHEMA.empty_table()
+    empty = utils_ncep._NCEP_PREPBUFR_WIDE_SCHEMA.empty_table()
 
     async def mock_fetch(uri):
         return str(dummy_file)

@@ -27,8 +27,11 @@ import xarray as xr
 from loguru import logger
 
 from earth2studio.data.utils_ncep import (
-    _NCEP_CONVENTIONAL_WIDE_SCHEMA,
+    _NCEP_GPSRO_WIDE_SCHEMA,
+    _NCEP_PREPBUFR_WIDE_SCHEMA,
     _NCEP_SATWND_WIDE_SCHEMA,
+    GPSRO_VARIABLES,
+    PREPBUFR_VARIABLES,
     SAT_VARIABLE_SENSOR,
     _sat_wide_schema,
 )
@@ -95,23 +98,24 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
     ``[t - 45h, t + 3h]``, and returns the analysis of the last frame on the 721 x 1440
     equiangular grid.
 
-    The model takes the NNJA observing system it was trained on as DataFrames:
-    ``conv_obs`` (PrepBUFR ``u``, ``v``, ``q``, ``t``, ``pres`` and GPS-RO ``gps``,
-    ``gps_refractivity``), ``satwnd_obs`` (``u``, ``v``) and ``sat_obs``, a mapping
-    from sensor (``atms``, ``amsua``, ``amsub``, ``mhs``, ``airs``, ``iasi``,
-    ``cris``) to that sensor's radiances. Any source producing these schemas works.
-    The frames are wide (one row per report level, wind or footprint), as the NNJA
-    sources return them with ``layout="wide"``. To reproduce training from NNJA, use
+    The model takes the NNJA observing system it was trained on as one wide
+    DataFrame per stream, ``model(obs)`` with ``obs`` a mapping from stream to frame:
+    ``prepbufr`` (``u``, ``v``, ``q``, ``t``, ``pres``), ``gpsro`` (``gps``,
+    ``gps_refractivity``), ``satwnd`` (``u``, ``v``) and one per satellite sensor
+    (``atms``, ``amsua``, ``amsub``, ``mhs``, ``airs``, ``iasi``, ``cris``).
+    ``input_coords()`` gives each stream's schema. Any source producing these
+    schemas works; the NNJA sources return them with ``layout="wide"``, one stream
+    per call. To reproduce training from NNJA, use
     ``NNJAObsConv(original_event=True, exclude_message_types=("SATWND",),
-    layout="wide")``, ``NNJAObsSatwnd(layout="wide")`` and
-    ``NNJAObsSat(sensor_indices=model.sensor_indices, layout="wide")``, called once
-    per sensor.
+    layout="wide")`` for ``prepbufr`` and ``gpsro``, ``NNJAObsSatwnd(layout="wide")``
+    and ``NNJAObsSat(sensor_indices=model.sensor_indices, layout="wide")`` for each
+    sensor; ``earth2studio.data.fetch_dataframes`` fetches them concurrently.
 
-    Any stream may be omitted; the analysis then uses the others alone. Beyond the
-    trained recipe, HealDA removes observations by its inference policy
+    Any stream may be omitted or empty; the analysis then uses the others alone.
+    Beyond the trained recipe, HealDA removes observations by its inference policy
     (``healda.observations.system.inference_filters``): channels inside dated
-    denial windows, and footprints flagged by the provider quality columns of
-    ``sat_obs``.
+    denial windows, and footprints flagged by the satellite streams' provider
+    quality columns.
 
     Recommended environment, set before Python starts:
 
@@ -170,35 +174,32 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         """Initialization coords (not required)"""
         return None
 
-    def input_coords(
-        self,
-    ) -> tuple[FrameSchema, FrameSchema, dict[str, FrameSchema]]:
+    def input_coords(self) -> dict[str, FrameSchema]:  # type: ignore[override]
         """Input coordinate system specifying required DataFrame fields.
 
         Returns
         -------
-        tuple[FrameSchema, FrameSchema, dict[str, FrameSchema]]
-            (conv_schema, satwnd_schema, sat_schemas): the schemas of the wide
-            conventional and satellite-wind frames, and one per satellite sensor,
-            keyed by sensor. Any frame may be omitted when calling the model, but
-            not all. The ``variable`` entry lists the variables to request; the
-            other keys are the frame's columns
+        dict[str, FrameSchema]
+            The wide schema of each observation stream, keyed by stream:
+            ``prepbufr``, ``gpsro``, ``satwnd`` and the model's satellite sensors.
+            The ``variable`` entry lists the variables to request; the other keys
+            are the frame's columns
         """
-        sat_schemas = {}
+        schemas = {
+            "prepbufr": _frame_schema(_NCEP_PREPBUFR_WIDE_SCHEMA, PREPBUFR_VARIABLES),
+            "gpsro": _frame_schema(_NCEP_GPSRO_WIDE_SCHEMA, GPSRO_VARIABLES),
+            "satwnd": _frame_schema(_NCEP_SATWND_WIDE_SCHEMA, ["u", "v"]),
+        }
         for sensor in self._model.satellite_sensors:
             variable = e2s_nnja.SAT_VARIABLE.get(sensor, sensor)
             name = SAT_VARIABLE_SENSOR[variable]
             schema = _sat_wide_schema(name, self.sensor_indices.get(name))
-            sat_schemas[name] = _frame_schema(schema, [variable])
-        return (
-            _frame_schema(_NCEP_CONVENTIONAL_WIDE_SCHEMA, CONV_VARIABLES),
-            _frame_schema(_NCEP_SATWND_WIDE_SCHEMA, ["u", "v"]),
-            sat_schemas,
-        )
+            schemas[name] = _frame_schema(schema, [variable])
+        return schemas
 
     def output_coords(
         self,
-        input_coords: tuple[FrameSchema, FrameSchema, dict[str, FrameSchema]],
+        input_coords: dict[str, FrameSchema],
         request_time: np.ndarray | None = None,
         **kwargs: Any,
     ) -> tuple[CoordSystem]:
@@ -206,7 +207,7 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
 
         Parameters
         ----------
-        input_coords : tuple[FrameSchema, FrameSchema, dict[str, FrameSchema]]
+        input_coords : dict[str, FrameSchema]
             Input coordinate system
         request_time : np.ndarray | None, optional
             Analysis valid time(s), by default None
@@ -277,29 +278,21 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         model = healda_inference.load_da_model(path, "cpu")
         return cls(model)
 
-    def __call__(
-        self,
-        conv_obs: pd.DataFrame | None = None,
-        satwnd_obs: pd.DataFrame | None = None,
-        sat_obs: Mapping[str, pd.DataFrame] | None = None,
+    def __call__(  # type: ignore[override]
+        self, obs: Mapping[str, pd.DataFrame | None] | None = None
     ) -> xr.DataArray:
         """Run HealDA v2 from NNJA observations.
 
-        At least one DataFrame must be provided. Each must carry a ``request_time``
-        entry in its ``.attrs`` (``earth2studio.data.fetch_dataframe`` sets it) and
-        should cover ``[t - 45h, t + 3h]`` around each analysis time.
+        Each frame must carry a ``request_time`` entry in its ``.attrs``
+        (``earth2studio.data.fetch_dataframe`` sets it) and should cover
+        ``[t - 45h, t + 3h]`` around each analysis time.
 
         Parameters
         ----------
-        conv_obs : pd.DataFrame | None, optional
-            PrepBUFR and GPS-RO observations from
-            ``NNJAObsConv(original_event=True, exclude_message_types=("SATWND",),
-            layout="wide")``, by default None
-        satwnd_obs : pd.DataFrame | None, optional
-            Satellite winds from ``NNJAObsSatwnd(layout="wide")``, by default None
-        sat_obs : Mapping[str, pd.DataFrame] | None, optional
-            Satellite radiances by sensor, each from ``NNJAObsSat(layout="wide")``
-            called with that sensor's variable, by default None
+        obs : Mapping[str, pd.DataFrame | None] | None, optional
+            Wide observation frames keyed by stream (the keys of
+            ``input_coords()``); a stream may be omitted, ``None`` or empty, but
+            not all, by default None
 
         Returns
         -------
@@ -310,38 +303,44 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         Raises
         ------
         ValueError
-            If every DataFrame is ``None``, none carries ``request_time``, or a
-            DataFrame is in the long layout
+            If no frame is given, a stream is unknown, no frame carries
+            ``request_time``, or a frame is in the long layout
         """
-        sat = {sensor: _to_pandas(df) for sensor, df in (sat_obs or {}).items()}
-        if conv_obs is None and satwnd_obs is None and not sat:
-            raise ValueError(
-                "At least one of conv_obs, satwnd_obs or sat_obs must be provided."
-            )
-        request_time = self._request_time(conv_obs, satwnd_obs, *sat.values())
         frames = {
-            "conv_obs": _to_pandas(conv_obs),
-            "satwnd_obs": _to_pandas(satwnd_obs),
-            **{f"sat_obs[{sensor!r}]": df for sensor, df in sat.items()},
+            stream: _to_pandas(df)
+            for stream, df in (obs or {}).items()
+            if df is not None
         }
-        for name, df in frames.items():
-            if df is not None and "observation" in df.columns:
+        if not frames:
+            raise ValueError("At least one observation stream must be provided.")
+        unknown = set(frames) - set(self.input_coords())
+        if unknown:
+            raise ValueError(
+                f"Unknown observation streams {sorted(unknown)}; HealDAv2 reads "
+                f"{list(self.input_coords())}"
+            )
+        request_time = self._request_time(*frames.values())
+        for stream, df in frames.items():
+            if "observation" in df.columns:
                 raise ValueError(
-                    f"{name} is a long frame; HealDAv2 takes wide NNJA frames, "
+                    f"{stream} is a long frame; HealDAv2 takes wide NNJA frames, "
                     'build the source with layout="wide"'
                 )
         (output_coords,) = self.output_coords(
             self.input_coords(), request_time=request_time
         )
-        if all(df is None or df.empty for df in frames.values()):
+        # An empty frame (e.g. a sensor outside its archive period) is an omitted one
+        frames = {stream: df for stream, df in frames.items() if not df.empty}
+        if not frames:
             logger.warning("No observations provided, returning empty analysis")
             return self._empty_output(output_coords)
 
+        sat = {s: df for s, df in frames.items() if s in SAT_VARIABLE_SENSOR.values()}
         tables = e2s_nnja.analysis_tables(
-            frames["conv_obs"],
-            frames["satwnd_obs"],
-            # An empty sensor frame (e.g. outside its archive period) is an omitted one
-            {sensor: df for sensor, df in sat.items() if not df.empty} or None,
+            prepbufr=frames.get("prepbufr"),
+            gpsro=frames.get("gpsro"),
+            satwnd=frames.get("satwnd"),
+            sat=sat or None,
             sensors=self._model.satellite_sensors,
             ir_channels=self._model.ir_channels,
             layout="wide",
@@ -349,17 +348,9 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         analysis = self._model.run_analysis(pd.DatetimeIndex(request_time), **tables)
         return self.build_output(analysis, output_coords)
 
-    def create_generator(
+    def create_generator(  # type: ignore[override]
         self,
-    ) -> Generator[
-        xr.DataArray,
-        tuple[
-            pd.DataFrame | None,
-            pd.DataFrame | None,
-            Mapping[str, pd.DataFrame] | None,
-        ],
-        None,
-    ]:
+    ) -> Generator[xr.DataArray, Mapping[str, pd.DataFrame | None], None]:
         """Creates a generator which accepts observations and yields the analysis.
 
         Yields
@@ -369,15 +360,15 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
 
         Receives
         --------
-        tuple[pd.DataFrame | None, pd.DataFrame | None, Mapping[str, pd.DataFrame] | None]
-            A ``(conv_obs, satwnd_obs, sat_obs)`` tuple sent via ``generator.send()``.
-            Any element may be ``None`` but not all.
+        Mapping[str, pd.DataFrame | None]
+            Observation frames keyed by stream, as for ``__call__``, sent via
+            ``generator.send()``
         """
-        inputs = yield None  # type: ignore[misc]
+        obs = yield None  # type: ignore[misc]
         try:
             while True:
-                da = self.__call__(*(inputs or (None, None, None)))
-                inputs = yield da
+                da = self.__call__(obs)
+                obs = yield da
         except GeneratorExit:
             logger.debug("HealDA v2 generator clean up complete.")
 
@@ -419,10 +410,7 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         return self.build_output(data, output_coords)
 
 
-CONV_VARIABLES = ["u", "v", "q", "t", "pres", "gps", "gps_refractivity"]
-
-
-def _frame_schema(schema: pa.Schema, variables: list[str]) -> FrameSchema:
+def _frame_schema(schema: pa.Schema, variables: Sequence[str]) -> FrameSchema:
     """Wide columns read for ``variables``."""
     selected = {f"observation_{v}" for v in variables} | {
         f"quality_{v}" for v in variables
@@ -438,7 +426,7 @@ def _frame_schema(schema: pa.Schema, variables: list[str]) -> FrameSchema:
     return FrameSchema(columns)
 
 
-def _to_pandas(df: Any) -> pd.DataFrame | None:
+def _to_pandas(df: Any) -> pd.DataFrame:
     # The adapters are pandas-only; cudf frames move to the host.
     if cudf is not None and isinstance(df, cudf.DataFrame):
         return df.to_pandas()

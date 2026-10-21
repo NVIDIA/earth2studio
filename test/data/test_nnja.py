@@ -1711,11 +1711,7 @@ def test_nnja_sources_long_and_wide(fake_bufr, monkeypatch, tmp_path, layout):
         # The T0 file covers [T0 - 3h, T0 + 3h]; the observation at exactly T0 + 3h
         # is included
         assert frame["time"].max() == pd.Timestamp(end)
-        schema = (
-            source._output_fields(None, variables)
-            if isinstance(source, NNJAObsSat)
-            else source._output_fields(None)
-        )
+        schema = source._output_fields(None, variables)
         table = pa.Table.from_pandas(frame, schema=schema, preserve_index=False)
         if layout == "long":
             assert list(frame.columns) == source.SCHEMA.names
@@ -1808,12 +1804,19 @@ def test_nnja_layout_validation_and_wide_fields():
     with pytest.raises(ValueError, match="layout"):
         NNJAObsConv(layout="tall", cache=False, verbose=False)
     wide = NNJAObsSatwnd(layout="wide", cache=False, verbose=False)
-    assert wide._output_fields(["observation_u", "pres"]).names == [
+    assert wide._output_fields(["observation_u", "pres"], ["u"]).names == [
         "observation_u",
         "pres",
     ]
     with pytest.raises(KeyError):
-        wide._output_fields(["observation"])
+        wide._output_fields(["observation"], ["u"])
+    # A wide conventional call returns one stream: PrepBUFR or GPS-RO
+    conv = NNJAObsConv(layout="wide", cache=False, verbose=False)
+    assert "radius_curvature" in conv._output_fields(None, ["gps"]).names
+    assert "report_time" not in conv._output_fields(None, ["gps"]).names
+    assert "radius_curvature" not in conv._output_fields(None, ["t", "u"]).names
+    with pytest.raises(ValueError, match="one stream per call"):
+        conv(T0, ["t", "gps"])
 
 
 def test_default_decode_threads_respects_env(monkeypatch):

@@ -50,7 +50,6 @@ from earth2studio.data.utils import (
 from earth2studio.data.utils_bufr import BUFR_DEPENDENCY_KEY, PREPBUFR_OBS_TYPES
 from earth2studio.data.utils_ncep import (
     _DEFAULT_LAYOUT,
-    _NCEP_CONVENTIONAL_WIDE_SCHEMA,
     _NCEP_SATWND_WIDE_SCHEMA,
     NCEP_CONVENTIONAL_PUBLIC_SCHEMA,
     NCEP_MICROWAVE_OUTPUT_SCHEMA,
@@ -59,6 +58,7 @@ from earth2studio.data.utils_ncep import (
     SAT_CHANNELS,
     Intervals,
     NCEPObsTask,
+    _conv_stream_schema,
     _sat_wide_schema,
     _validate_layout,
     assemble_frame,
@@ -98,7 +98,6 @@ class _NNJASatProduct:
     naming: str = "gdas"
 
 
-
 def _in_period(product: _NNJASatProduct, cycle: datetime) -> bool:
     return product.first <= cycle and (product.last is None or cycle <= product.last)
 
@@ -106,6 +105,7 @@ def _in_period(product: _NNJASatProduct, cycle: datetime) -> bool:
 def _period(product: _NNJASatProduct) -> str:
     last = "present" if product.last is None else product.last.isoformat()
     return f"{product.first.isoformat()} to {last}"
+
 
 class _NNJAObsSatIncompleteError(RuntimeError):
     def __init__(self, reason: str, **context: object) -> None:
@@ -290,7 +290,6 @@ class NNJAObsConv:
 
     SOURCE_ID = "earth2studio.data.NNJAObsConv"
     SCHEMA = NCEP_CONVENTIONAL_PUBLIC_SCHEMA
-    _WIDE_SCHEMA = _NCEP_CONVENTIONAL_WIDE_SCHEMA
     LEXICON = NNJAObsConvLexicon
     MIN_DATE = datetime(1979, 1, 1)
 
@@ -379,7 +378,7 @@ class NNJAObsConv:
         """Async function to get data."""
         time_list, variable_list = prep_data_inputs(time, variable)
         self._validate_time(time_list)
-        schema = self._output_fields(fields)
+        schema = self._output_fields(fields, variable_list)
 
         tasks = self._create_tasks(time_list, variable_list)
         uris = list(dict.fromkeys(task.uri for task in tasks))
@@ -580,10 +579,15 @@ class NNJAObsConv:
         """Resolve ``fields`` into a validated PyArrow schema subset."""
         return resolve_output_schema(cls.SCHEMA, fields, class_name=cls.__name__)
 
-    def _output_fields(self, fields: str | list[str] | pa.Schema | None) -> pa.Schema:
+    def _wide_schema(self, variables: Sequence[str]) -> pa.Schema:
+        return _conv_stream_schema(variables, type(self).__name__)
+
+    def _output_fields(
+        self, fields: str | list[str] | pa.Schema | None, variables: Sequence[str]
+    ) -> pa.Schema:
         if self._layout == "wide":
             return resolve_output_schema(
-                self._WIDE_SCHEMA, fields, class_name=type(self).__name__
+                self._wide_schema(variables), fields, class_name=type(self).__name__
             )
         return self.resolve_fields(fields)
 
@@ -658,7 +662,10 @@ class NNJAObsSatwnd(NNJAObsConv):
 
     SOURCE_ID = "earth2studio.data.NNJAObsSatwnd"
     SCHEMA = NCEP_SATWND_PUBLIC_SCHEMA
-    _WIDE_SCHEMA = _NCEP_SATWND_WIDE_SCHEMA
+
+    def _wide_schema(self, variables: Sequence[str]) -> pa.Schema:
+        return _NCEP_SATWND_WIDE_SCHEMA
+
     LEXICON = NNJAObsSatwndLexicon  # type: ignore[assignment]
     MIN_DATE = datetime(1979, 1, 1)
     # Last year of the reprocessed amv/merged product; the operational dump follows.

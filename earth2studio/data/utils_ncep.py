@@ -702,7 +702,9 @@ NCEP_SATWND_PUBLIC_SCHEMA = pa.schema(
 # Wide schemas and the long conversion
 # ──────────────────────────────────────────────────────────────────────────
 
-CONV_VARIABLES = ("u", "v", "q", "t", "pres", "gps", "gps_refractivity")
+PREPBUFR_VARIABLES = ("u", "v", "q", "t", "pres")
+GPSRO_VARIABLES = ("gps", "gps_refractivity")
+CONV_VARIABLES = (*PREPBUFR_VARIABLES, *GPSRO_VARIABLES)
 SATWND_VARIABLES = ("u", "v")
 SAT_VARIABLE_SENSOR: dict[str, str] = {
     variable: key.split("::")[0] for variable, key in NNJAObsSatLexicon.VOCAB.items()
@@ -845,28 +847,71 @@ def _observation_field(variable: str, arrow_type: pa.DataType) -> pa.Field:
     )
 
 
-_NCEP_CONVENTIONAL_WIDE_SCHEMA = pa.schema(
-    [
-        *_fields(
-            NCEP_CONVENTIONAL_PUBLIC_SCHEMA, ("quality", "observation", "variable")
-        ),
-        *[
-            field
-            for variable in CONV_VARIABLES
-            for field in (
-                _observation_field(variable, pa.float32()),
-                pa.field(
-                    f"quality_{variable}",
-                    pa.uint16(),
-                    nullable=True,
-                    metadata={
-                        "description": f"Quality mark of the {variable!r} observation"
-                    },
-                ),
-            )
-        ],
-    ]
+def _conv_wide_schema(variables: Sequence[str], unfilled: Sequence[str]) -> pa.Schema:
+    return pa.schema(
+        [
+            *_fields(
+                NCEP_CONVENTIONAL_PUBLIC_SCHEMA,
+                ("quality", "observation", "variable", *unfilled),
+            ),
+            *[
+                field
+                for variable in variables
+                for field in (
+                    _observation_field(variable, pa.float32()),
+                    pa.field(
+                        f"quality_{variable}",
+                        pa.uint16(),
+                        nullable=True,
+                        metadata={
+                            "description": (
+                                f"Quality mark of the {variable!r} observation"
+                            )
+                        },
+                    ),
+                )
+            ],
+        ]
+    )
+
+
+# One wide stream per decoder, each with the columns its decoder fills
+_NCEP_PREPBUFR_WIDE_SCHEMA = _conv_wide_schema(
+    PREPBUFR_VARIABLES, ("radius_curvature", "geoid_undulation")
 )
+_NCEP_GPSRO_WIDE_SCHEMA = _conv_wide_schema(
+    GPSRO_VARIABLES,
+    (
+        "report_time",
+        "pres",
+        "level_cat",
+        "report_lat",
+        "report_lon",
+        "station_elev",
+        "pressure_quality",
+    ),
+)
+
+
+def _conv_stream_schema(variables: Collection[str], class_name: str) -> pa.Schema:
+    """The wide schema of the conventional stream (PrepBUFR or GPS-RO) holding
+    ``variables``; a wide call returns one stream.
+
+    Raises
+    ------
+    ValueError
+        If ``variables`` span both streams
+    """
+    if set(variables) <= set(GPSRO_VARIABLES):
+        return _NCEP_GPSRO_WIDE_SCHEMA
+    if set(variables) <= set(PREPBUFR_VARIABLES):
+        return _NCEP_PREPBUFR_WIDE_SCHEMA
+    raise ValueError(
+        f'{class_name}(layout="wide") returns one stream per call: request the '
+        f"PrepBUFR variables {list(PREPBUFR_VARIABLES)} or the GPS-RO variables "
+        f"{list(GPSRO_VARIABLES)}, not both"
+    )
+
 
 _SATWND_UNFILLED = (
     "report_time",
@@ -1673,8 +1718,6 @@ def _prepbufr_batch(
         "station": station.take(pa.array(p)),
         "station_elev": masked(elv[p].astype(np.float32), elv_valid[p], pa.float32()),
         "pressure_quality": uint16(pqm[idx], pqm_valid[idx]),
-        "radius_curvature": null_array(pa.float64(), k),
-        "geoid_undulation": null_array(pa.float64(), k),
     }
     for variable, (rows, value, quality, quality_valid) in picks.items():
         observation = value[idx].astype(np.float32)
@@ -1775,7 +1818,7 @@ def decode_prepbufr(
             if name not in exclude_message_types
         }
         if not message_types:
-            return _empty_wide(_NCEP_CONVENTIONAL_WIDE_SCHEMA, variables)
+            return _empty_wide(_NCEP_PREPBUFR_WIDE_SCHEMA, variables)
         base_us = _message_base_times(source.info)
         batches = iter_batches(
             source,
@@ -1801,7 +1844,7 @@ def decode_prepbufr(
             t for t in map_ordered(transform, batches, decode_workers) if t is not None
         ]
     if not tables:
-        return _empty_wide(_NCEP_CONVENTIONAL_WIDE_SCHEMA, variables)
+        return _empty_wide(_NCEP_PREPBUFR_WIDE_SCHEMA, variables)
     return pa.concat_tables(tables, promote_options="permissive")
 
 
@@ -1972,23 +2015,16 @@ def _gpsro_batch(
             continue
         columns: dict[str, pa.Array] = {
             "time": timestamps_ns(time_ns[subset]),
-            "report_time": null_array(pa.timestamp("ns"), k),
-            "pres": null_array(pa.float32(), k),
             "elev": pa.array(elev, type=pa.float32()),
             "type": masked(
                 np.where(said_valid, said, 0).astype(np.uint16)[subset],
                 said_valid[subset],
                 pa.uint16(),
             ),
-            "level_cat": null_array(pa.uint16(), k),
             "class": constant_dictionary("GPSRO", k),
             "lat": pa.array(lat.astype(np.float32), type=pa.float32()),
             "lon": pa.array(np.mod(lon, 360.0).astype(np.float32), type=pa.float32()),
-            "report_lat": null_array(pa.float32(), k),
-            "report_lon": null_array(pa.float32(), k),
             "station": station.take(pa.array(subset)),
-            "station_elev": null_array(pa.float32(), k),
-            "pressure_quality": null_array(pa.uint16(), k),
             "radius_curvature": masked(elrc[subset], elrc_valid[subset], pa.float64()),
             "geoid_undulation": masked(
                 geodu[subset], geodu_valid[subset], pa.float64()
@@ -2061,7 +2097,7 @@ def decode_gpsro(
             if t is not None
         ]
     if not tables:
-        return _empty_wide(_NCEP_CONVENTIONAL_WIDE_SCHEMA, variables)
+        return _empty_wide(_NCEP_GPSRO_WIDE_SCHEMA, variables)
     return pa.concat_tables(tables, promote_options="permissive")
 
 
