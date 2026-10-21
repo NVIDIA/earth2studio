@@ -211,7 +211,6 @@ weathernext = [
     "dm-tree>=0.1.9",
 ]
 interp-crps-dit = [
-    # 2.2.0 is the first release with natten2d_rope + proj_reshape_2d_conv (PR #1731).
     "natten ; python_version < '3.14'",
     "nvidia-physicsnemo>=2.2.0",
 ]
