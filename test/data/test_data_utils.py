@@ -34,6 +34,7 @@ from earth2studio.data import (
     datasource_to_file,
     fetch_data,
     fetch_dataframe,
+    fetch_dataframes,
     prep_data_array,
 )
 from earth2studio.data.utils import (
@@ -346,6 +347,21 @@ def test_fetch_dataframe(time, lead_time, device):
     # Check that we have data
     assert len(df) > 0
     assert not df.isnull().any().any()
+
+
+def test_fetch_dataframes():
+    time = np.array([np.datetime64("2001-06-04T00:00")])
+    requests = {
+        "a": (RandomDataFrame(n_obs=5), {"variable": ["t2m"], "lat": None}),
+        "b": (RandomDataFrame(n_obs=3), {"variable": ["u10m"], "lon": None}),
+    }
+    frames = fetch_dataframes(requests, time)
+    assert list(frames) == ["a", "b"]
+    # The schema's "variable" entry is the request; its other keys are the fields
+    assert list(frames["a"].columns) == ["lat"]
+    assert list(frames["b"].columns) == ["lon"]
+    for frame in frames.values():
+        np.testing.assert_array_equal(frame.attrs["request_time"], time)
 
 
 @pytest.mark.parametrize(

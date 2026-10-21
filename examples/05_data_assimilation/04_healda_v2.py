@@ -65,11 +65,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 
 import numpy as np
-import pandas as pd
 from loguru import logger
 from tqdm import tqdm
 
@@ -81,7 +79,7 @@ from earth2studio.data import (
     NNJAObsConv,
     NNJAObsSat,
     NNJAObsSatwnd,
-    fetch_dataframe,
+    fetch_dataframes,
 )
 from earth2studio.models.da import HealDAv2
 
@@ -98,9 +96,10 @@ model = HealDAv2.load_model(package).to("cuda:0")
 # configured as in training, in the wide layout the model reads (one row per report
 # level, wind or footprint): each PrepBUFR observation's original event, satellite
 # winds from `NNJAObsSatwnd` only, and only the IR sounder channels the model reads.
-# `fetch_dataframe` attaches the ``request_time`` metadata the model requires. A wide
-# satellite request returns one sensor, so each sensor is its own request; all requests
-# run on a thread pool so their downloads and decodes overlap.
+# A wide request returns one stream (PrepBUFR, GPS-RO, satellite winds or one satellite
+# sensor), and `input_coords` gives each stream's schema. `fetch_dataframes` fetches
+# every stream concurrently and attaches the ``request_time`` metadata the model
+# requires. A sensor outside its archive period comes back empty with a warning.
 
 # %%
 analysis_time = np.array([np.datetime64("2025-01-03T00:00")])
@@ -112,35 +111,22 @@ conv_source = NNJAObsConv(
     exclude_message_types=("SATWND",),
     layout="wide",
 )
-satwnd_source = NNJAObsSatwnd(time_tolerance=tolerance, layout="wide")
 sat_source = NNJAObsSat(
     time_tolerance=tolerance, sensor_indices=model.sensor_indices, layout="wide"
 )
-
-conv_schema, satwnd_schema, sat_schemas = model.input_coords()
-requests = {
-    "conv_obs": (conv_source, conv_schema),
-    "satwnd_obs": (satwnd_source, satwnd_schema),
-    **{sensor: (sat_source, schema) for sensor, schema in sat_schemas.items()},
+sources = {
+    "prepbufr": conv_source,
+    "gpsro": conv_source,
+    "satwnd": NNJAObsSatwnd(time_tolerance=tolerance, layout="wide"),
+    **dict.fromkeys(
+        ("atms", "amsua", "amsub", "mhs", "airs", "iasi", "cris"), sat_source
+    ),
 }
 
-
-def fetch(name: str) -> pd.DataFrame:
-    source, schema = requests[name]
-    return fetch_dataframe(
-        source,
-        time=analysis_time,
-        variable=np.array(schema["variable"]),
-        # The "variable" entry lists the variables; the other keys are columns
-        fields=[column for column in schema if column != "variable"],
-    )
-
-
-with ThreadPoolExecutor(len(requests)) as pool:
-    frames = dict(zip(requests, pool.map(fetch, requests)))
-for name, frame in frames.items():
+schemas = model.input_coords()
+obs = fetch_dataframes({k: (sources[k], schemas[k]) for k in schemas}, analysis_time)
+for name, frame in obs.items():
     logger.info(f"Fetched {len(frame)} {name} rows")
-conv_obs, satwnd_obs = frames.pop("conv_obs"), frames.pop("satwnd_obs")
 
 # %%
 # Run the Model
@@ -148,7 +134,7 @@ conv_obs, satwnd_obs = frames.pop("conv_obs"), frames.pop("satwnd_obs")
 # The direct call returns the analysis as an `xr.DataArray` on the model's device.
 
 # %%
-analysis = model(conv_obs, satwnd_obs, sat_obs=frames)
+analysis = model(obs)
 logger.info(f"Analysis shape: {analysis.shape}")
 
 # %%

@@ -24,7 +24,8 @@ import tempfile
 import uuid
 import weakref
 from collections import OrderedDict
-from collections.abc import Callable, Collection
+from collections.abc import Callable, Collection, Mapping
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
@@ -245,6 +246,53 @@ def fetch_dataframe(
         return result
     else:
         return df
+
+
+def fetch_dataframes(
+    requests: Mapping[
+        str, tuple[DataFrameSource | ForecastFrameSource, Mapping[str, Any]]
+    ],
+    time: TimeArray,
+    lead_time: LeadTimeArray = np.array([np.timedelta64(0, "h")]),
+    device: torch.device = "cpu",
+) -> dict[str, pd.DataFrame | cudf.DataFrame]:
+    """Fetch several DataFrame requests concurrently with :func:`fetch_dataframe`
+
+    Each request is a source and a schema such as a model's ``input_coords`` entry:
+    ``schema["variable"]`` lists the variables to request and the schema's other
+    keys are the fields to return.
+
+    Parameters
+    ----------
+    requests : Mapping[str, tuple[DataFrameSource | ForecastFrameSource, Mapping[str, Any]]]
+        Request name -> (source, schema)
+    time : TimeArray
+        Timestamps to return data for (UTC).
+    lead_time : LeadTimeArray, optional
+        Lead times to fetch for each provided time, by default
+        np.array(np.timedelta64(0, "h"))
+    device : torch.device, optional
+        Torch device to load data to, by default "cpu"
+
+    Returns
+    -------
+    dict[str, pd.DataFrame | cudf.DataFrame]
+        Request name -> DataFrame, each with ``request_time`` in its ``attrs``
+    """
+
+    def fetch(name: str) -> pd.DataFrame | cudf.DataFrame:
+        source, schema = requests[name]
+        return fetch_dataframe(
+            source,
+            time,
+            np.array(schema["variable"]),
+            fields=[column for column in schema if column != "variable"],
+            lead_time=lead_time,
+            device=device,
+        )
+
+    with ThreadPoolExecutor(max(1, len(requests))) as pool:
+        return dict(zip(requests, pool.map(fetch, requests)))
 
 
 def prep_data_array(
