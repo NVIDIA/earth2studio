@@ -415,10 +415,12 @@ def _frame_schema(schema: pa.Schema, variables: Sequence[str]) -> FrameSchema:
     selected = {f"observation_{v}" for v in variables} | {
         f"quality_{v}" for v in variables
     }
+    # The adapter derives the look angle from scan_position, so scan_angle is not read
     names = [
         name
         for name in schema.names
-        if name in selected or not name.startswith(("observation_", "quality_"))
+        if name != "scan_angle"
+        and (name in selected or not name.startswith(("observation_", "quality_")))
     ]
     empty = schema.empty_table().to_pandas()
     columns = {name: empty[name].to_numpy() for name in names}
