@@ -1516,6 +1516,35 @@ def test_cris_band_quality_is_read_by_slot(fake_bufr):
     assert wide["quality"].to_pylist() == [[1 | 2 << 19, None, 4 | 3 << 19]]
 
 
+def test_iasi_scale_groups_by_bounds(fake_bufr):
+    def iasi(groups, scra):
+        # Groups (STCH, ENCH, CHSF); a null CHSF is None
+        fields = {}
+        for k, (first, last, chsf) in enumerate(groups):
+            suffix = f"#{k + 1}" if k else ""
+            fields[f"STCH{suffix}"] = [first]
+            fields[f"ENCH{suffix}"] = [last]
+            fields[f"CHSF{suffix}"] = pa.array([chsf], type=pa.float64())
+        batch = _sat_batch("iasi", [T0], [16.0, 38.0], lambda c: (scra[c],), fields)
+        fake_bufr["iasi"] = _FakeBufr([batch])
+        wide = decode_satellite(
+            "iasi", "iasi", {"iasi": "SCRA"}, T0, T0, channels=[16, 38], decode_workers=1
+        )
+        return wide["observation_iasi"].to_pylist()[0]
+
+    # Channel 38 lies in no group, then in two
+    with pytest.raises(ValueError, match="each channel once"):
+        iasi([(1, 20, 7.0)], {16.0: 1000.0, 38.0: 1000.0})
+    with pytest.raises(ValueError, match="each channel once"):
+        iasi([(1, 40, 7.0), (30, 50, 6.0)], {16.0: 1000.0, 38.0: 1000.0})
+    # A null CHSF is accepted for a zero SCRA (no radiance) and raises on a nonzero one
+    groups = [(1, 20, 7.0), (21, 50, None)]
+    first, second = iasi(groups, {16.0: 1000.0, 38.0: 0.0})
+    assert first is not None and second is None
+    with pytest.raises(ValueError, match="CHSF is null"):
+        iasi(groups, {16.0: 1000.0, 38.0: 1000.0})
+
+
 def test_airs_wavenumber_read_from_file(fake_bufr):
     # LOGRCW (log10 of the centre wavenumber in m⁻¹) of AIRS channels 1 and 2377
     log10_m = {1.0: 4.81265938, 2377.0: 5.42555671}

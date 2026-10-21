@@ -2631,10 +2631,21 @@ def _cris_band_quality(batch: pa.RecordBatch) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _iasi_scale_factor(
-    batch: pa.RecordBatch, rows: _ChannelMatrix, channels: np.ndarray
+    batch: pa.RecordBatch,
+    rows: _ChannelMatrix,
+    coded: np.ndarray,
+    groups: dict[bytes, np.ndarray],
 ) -> np.ndarray:
-    """10**-CHSF of each entry's scale group: the first STCH..ENCH group holding the
-    channel, NaN outside every group. Groups are resolved once per distinct layout."""
+    """10**-CHSF per slot from the one STCH..ENCH group holding the slot's channel; NaN
+    where that group's CHSF is null. ``groups`` caches each bounds layout's group per
+    slot across a file's batches.
+
+    Raises
+    ------
+    ValueError
+        If a bound is null, a channel of the axis is not in exactly one group, or
+        CHSF is null for a nonzero SCRA
+    """
     # Scale groups precede the channel list; the AVHRR cluster CHSF fields follow it
     end = batch.schema.get_field_index("DRF16BIT")
     start, stop, scale = (
@@ -2645,28 +2656,30 @@ def _iasi_scale_factor(
                 if i < end
             ],
             axis=1,
-        )
+        )[rows.kept]
         for name in ("STCH", "ENCH", "CHSF")
     )
-    usable = np.isfinite(start) & np.isfinite(stop) & np.isfinite(scale)
-    groups = np.where(
-        usable[:, :, None], np.stack([start, stop, scale], axis=2), -1.0
-    ).reshape(len(start), -1)
-    layout_of = np.full(len(groups), -1, dtype=np.int64)
-    layouts: list[np.ndarray] = []
-    while (todo := np.flatnonzero(layout_of < 0)).size:
-        match = (groups[todo] == groups[todo[0]]).all(axis=1)
-        layout_of[todo[match]] = len(layouts)
-        layouts.append(groups[todo[0]])
-    lut = np.full((len(layouts), _IR_CHANNEL_LIMIT["iasi"] + 1), np.nan)
+    if not (np.isfinite(start).all() and np.isfinite(stop).all()):
+        raise ValueError("IASI scale-group bounds contain nulls")
+    bounds = np.concatenate([start, stop], axis=1)
+    layouts, layout_of = np.unique(bounds, axis=0, return_inverse=True)
+    group_of = np.empty((len(layouts), len(rows.axis)), dtype=np.int64)
     for i, layout in enumerate(layouts):
-        for first, last, exponent in layout.reshape(-1, 3)[::-1]:
-            if first >= 0:
-                lut[i, int(first) : int(last) + 1] = exponent
-    with np.errstate(invalid="ignore"):
-        factor = np.power(10.0, -lut)
-    footprint = rows.footprints()
-    return factor[layout_of[footprint], channels.astype(np.int64)]
+        key = layout.tobytes()
+        if key not in groups:
+            first, last = np.split(layout, 2)
+            member = (rows.axis[None, :] >= first[:, None]) & (
+                rows.axis[None, :] <= last[:, None]
+            )
+            if not (member.sum(axis=0) == 1).all():
+                raise ValueError("IASI scale groups do not hold each channel once")
+            groups[key] = member.argmax(axis=0)
+        group_of[i] = groups[key]
+    exponent = np.take_along_axis(scale, group_of[layout_of.ravel()], axis=1).ravel()
+    unscaled = ~np.isfinite(exponent) & np.isfinite(coded) & (coded != 0.0)
+    if unscaled.any():
+        raise ValueError("IASI scale factor CHSF is null for a nonzero SCRA")
+    return np.power(10.0, -exponent)
 
 
 def _sat_batch(
@@ -2676,6 +2689,7 @@ def _sat_batch(
     window_ns: tuple[int, int],
     satellites: frozenset[str] | None,
     axis: np.ndarray,
+    iasi_groups: dict[bytes, np.ndarray],
 ) -> pa.Table | None:
     """Wide rows (one per kept footprint) of one batch over the channel ``axis``.
 
@@ -2750,7 +2764,8 @@ def _sat_batch(
             )
         else:
             # SCRA x 10^-CHSF W m-2 sr-1 (m-1)-1 -> mW m-2 sr-1 (cm-1)-1
-            radiance = coded * _iasi_scale_factor(batch, rows, channels) * 1e5
+            factor = _iasi_scale_factor(batch, rows, coded, iasi_groups)
+            radiance = coded * factor * 1e5
             quality = np.full(len(channels), np.nan)
         bt = radiance_to_bt(radiance, wavenumber)
         for variable in plan:
@@ -2854,6 +2869,7 @@ def decode_satellite(
     axis = sorted(SAT_CHANNELS[sensor] if channels is None else set(channels))
     schema = _sat_wide_schema(sensor, axis)
     axis_values = np.array(axis, dtype=np.float64)
+    iasi_groups: dict[bytes, np.ndarray] = {}
     with open_bufr(path) as source:
         wavenumber = _airs_wavenumber(source, path) if sensor == "airs" else None
         batches = iter_batches(
@@ -2868,7 +2884,13 @@ def decode_satellite(
             t
             for t in map_ordered(
                 lambda b: _sat_batch(
-                    b, sensor, plan, window_ns, satellite_filter, axis_values
+                    b,
+                    sensor,
+                    plan,
+                    window_ns,
+                    satellite_filter,
+                    axis_values,
+                    iasi_groups,
                 ),
                 batches,
                 decode_workers,
