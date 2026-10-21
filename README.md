@@ -120,21 +120,14 @@ run(["2025-01-01T00:00:00"], 4, model, data, io)
 
 ## Latest News
 
-> [!NOTE]
-> As of version `0.14.0`, Earth2Studio TOML default installs now target CUDA 13.
-
-- [**SamudrACE**](https://nvidia.github.io/earth2studio/main/modules/generated/models/px/SamudrACE/),
-    coupled atmosphere-ocean prognostic model for extended-range forecasting.
-- [**Atlas CRPS**](https://nvidia.github.io/earth2studio/main/modules/generated/models/px/AtlasCRPS/),
-    ensemble prognostic model with noise-conditioned transformer blocks sharing
-    the Atlas autoencoder.
-- [**StormScope MeteoSat EU**](https://nvidia.github.io/earth2studio/main/modules/generated/models/px/StormScopeMeteoSatEU/),
-    European domain satellite nowcasting model.
-- [**CorrDiff COSMO-ERA5 SDA**](https://nvidia.github.io/earth2studio/main/modules/generated/models/da/CorrDiffCosmoEra5SDA/),
-    score-based data assimilation for the CorrDiff-COSMO downscaler.
-- [**New Documentation**](https://nvidia.github.io/earth2studio/), redesigned home
-    page, model catalog, interactive install guide, and per-model scorecards with
-    skill plots (RMSE, MAE, CRPS, spread, log spectral distance).
+- [**WeatherNext 2 Cyclones**](https://nvidia.github.io/earth2studio/main/modules/generated/models/px/WeatherNext2Cyclones/),
+    operational and Mini prognostic model wrappers.
+- [**CAMulator**](https://nvidia.github.io/earth2studio/main/modules/generated/models/px/CAMulator/),
+    NSF NCAR CAM6 climate emulator with prescribed forcing data and conservation fixers.
+- [**FuXi-S2S**](https://nvidia.github.io/earth2studio/main/modules/generated/models/px/FuXiS2S/),
+    global daily prognostic model for subseasonal-to-seasonal forecasting.
+- [**CorrDiff ERA5-HRRR**](https://nvidia.github.io/earth2studio/main/modules/generated/models/dx/CorrDiffEra5Hrrr/),
+    generative downscaling from ERA5 to HRRR over the contiguous United States.
 
 For a complete list of latest features and improvements see the [changelog](./CHANGELOG.md).
 

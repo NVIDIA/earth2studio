@@ -36,6 +36,7 @@ Pipelines may also declare:
 from __future__ import annotations
 
 import glob
+import inspect
 import os
 from abc import ABC, abstractmethod
 from collections import OrderedDict
@@ -558,7 +559,10 @@ class Pipeline(ABC):
         does.  Each entry from :meth:`explicit_rng_components` is then
         dispatched by the mechanism it exposes:
 
-        * has ``set_rng`` — ``component.set_rng(seed=item.seed, reset=True)``.
+        * has ``set_rng`` — ``component.set_rng(seed=item.seed, reset=True)``,
+          or ``component.set_rng(seed=item.seed)`` when the hook takes no
+          ``reset`` argument (e.g. Aurora 1.5, which always resets its
+          noise cache).
         * has ``number_of_samples`` and ``seed`` — sample-indexed draw;
           ``component.seed = item.seed`` and ``component.number_of_samples``
           is set from :attr:`_members_per_rank`.  Member ``m`` of IC ``t``
@@ -573,7 +577,13 @@ class Pipeline(ABC):
         torch.manual_seed(item.seed)
         for component in self.explicit_rng_components():
             if hasattr(component, "set_rng"):
-                component.set_rng(seed=item.seed, reset=True)
+                # TODO: drop the signature check once earth2studio 1.0.0-rc
+                # standardizes the model ``set_rng`` signature.
+                params = inspect.signature(component.set_rng).parameters
+                if "reset" in params:
+                    component.set_rng(seed=item.seed, reset=True)
+                else:
+                    component.set_rng(seed=item.seed)
             elif hasattr(component, "number_of_samples") and hasattr(component, "seed"):
                 component.seed = item.seed
                 component.number_of_samples = self._members_per_rank
@@ -590,6 +600,17 @@ class Pipeline(ABC):
         model's IC-window yield falls outside the output schema).
         """
         return set()
+
+    def grid_coords(self) -> dict[str, tuple[tuple[str, ...], np.ndarray]]:
+        """Auxiliary coordinate arrays to store beside the output variables.
+
+        A model on a curvilinear grid writes its data on index dimensions
+        (``y``/``x``) and carries the 2-D latitude and longitude of every
+        cell as extra coordinates, ``{"lat": (("y", "x"), lat2d), "lon":
+        (("y", "x"), lon2d)}``.  :class:`src.output.OutputManager` writes
+        them into the store once, at creation.  Default: none.
+        """
+        return {}
 
     def predownload_stores(self, cfg: DictConfig) -> list[PredownloadStore]:
         """Declare zarr stores that ``predownload.py`` should populate.

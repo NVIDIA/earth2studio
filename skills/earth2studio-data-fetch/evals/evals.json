@@ -4,7 +4,7 @@
     "question": "I need global 2m temperature data for January 1, 2024 at 00Z. What data sources can provide this in Earth2Studio? Pick the fastest option and write a fetch script.",
     "expected_skill": "earth2studio-data-fetch",
     "expected_script": "targets/eval_1_target.py",
-    "ground_truth": "Presents multiple candidate analysis data sources (e.g. GFS, ARCO, WB2ERA5) that support t2m globally, explains tradeoffs, selects one, and generates a correct fetch script using the analysis source call signature.",
+    "ground_truth": "Presents multiple candidate analysis data sources (e.g. GFS, ARCO_ERA5, WB2ERA5) that support t2m globally, explains tradeoffs, selects one, and generates a correct fetch script using the analysis source call signature.",
     "expected_behavior": [
       "Presents at least two candidate data sources that support t2m",
       "Explains a tradeoff between the options (speed, coverage, auth, resolution)",

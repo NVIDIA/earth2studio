@@ -7,14 +7,95 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.19.0a0] - xxxx-xx-xx
+## [0.20.0a0] - 2026-10-xx
 
 ### Added
 
+- Added StormScope Flash variants of `StormScopeGOES` and `StormScopeMRMS` for accelerated
+  StormScope inference over CONUS domain, including crop-based inference.
+- Added HealDA v2 (`HealDAv2`), a global machine-learning data-assimilation model that
+  maps a 48-hour sequence of satellite and conventional observations to a 104-channel,
+  0.25° atmospheric analysis on a regular latitude-longitude grid (`da-healda-v2` extra).
+- Added an `original_event` option and report time/latitude/longitude columns to
+  `NNJAObsConv`; report-time filtering preserves complete PrepBUFR profiles.
+- Added a `detector` column to `NNJAObsSat` carrying the CrIS field-of-view index.
+- Added `scan_quality`, `granule_quality` and `footprint_quality` columns to
+  `NNJAObsSat` carrying the ATMS, CrIS and IASI footprint-level provider flags.
+- Added a `cycle_time` column to the NCEP observation sources (`NNJAObsConv`,
+  `NNJAObsSatwnd`, `NNJAObsSat`, `NomadsGDASObsConv`): the cycle of the file each row
+  was decoded from, since an observation at a file's window edge can be in two files.
+- Added Google Cloud mirror via `source="google"` to ECMWF open-data sources.
+- Eval recipe: `scoring.online.verification_sources` scores one online rollout
+  against several named truth sources in a single pass, writing
+  `stats__<name>.zarr` and `scores__<name>.zarr` per reference.
+
+### Changed
+
+- `NNJAObsSat` returns a row for every decoded channel: a missing or unconvertible value
+  is a NaN observation instead of a dropped row, so every footprint appears.
+- ECMWF open-data sources accept a `client_kwargs` dictionary for
+  `opendata.Client`.
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- `NNJAObsConv` and `NomadsGDASObsConv` decode PrepBUFR files from before 2007, which
+  number their message types 230-249 instead of 102-121; these files previously
+  returned no conventional observations.
+- PrepBUFR messages dated 2000 (edition 3, year of century 100) get the year 2000
+  instead of 100, so their observations are no longer dropped by the time window.
+- `NNJAObsConv`, `NNJAObsSatwnd` and `NNJAObsSat` raise when a file, any of its
+  messages, or any DX-table message fails to decode, instead of silently returning
+  fewer rows.
+- `NNJAObsSat` skips sensors outside their archive years in a multi-sensor request
+  instead of failing the whole request.
+- `CorrDiffCosmoEra5`: updated the Hugging Face checkpoint revision to pick up the
+  corrected `rea2/stats.json` (ERA5 training-domain statistics instead of global
+  statistics).
+- Honor custom ensemble dimension names in Brier score coordinate validation.
+- Correct the Energy Score ensemble reduction axis when multivariate
+  dimensions precede the ensemble dimension.
+- Fixed running variance and standard deviation when reducing non-leading or
+  multiple dimensions.
+- `Aurora1p5` and `Aurora1p5Ensemble`: `tp1h` and `sf1h` are no longer log-untransformed
+  a second time, which made hourly precipitation and snowfall about 1000 times too
+  small.
+- Fixed `ZarrBackend` and `IceChunkBackend` reopening stores containing
+  root-level subgroups.
+
+### Security
+
+### Dependencies
+
+## [0.19.0] - 2026-09-30
+
+### Added
+
+- Added event scoring to the evaluation recipe and the scorecards.
+- Added the ERA5 -> HRRR CONUS generative downscaling model (`CorrDiffEra5Hrrr`).
+- Added the NSF NCAR CAMulator CAM6 climate emulator prognostic model
+  (`CAMulator`), with its prescribed SST/sea-ice/insolation/CO2 forcing data
+  source (`CAMulatorForcing`) and the CREDIT conservation fixers and wind
+  artifact filter applied at inference.
+- Added Aurora 1.5 Ensemble, SFNO, Pangu, FengWu, FuXi, DLWP, and FCN to the
+  docs scorecard
+- Added the FuXi-S2S global daily prognostic model (`FuXiS2S`).
+- Added WeatherNext 2 Cyclones operational and Mini prognostic model wrappers
+  (`WeatherNext2Cyclones`, `WeatherNext2CyclonesMini`).
+- Added HRRR land-sea mask and surface geopotential variables.
 - Added EUMETSAT MTG-I Lightning Imager (LI) Level-2 pointed lightning data
   source (`MeteosatLI`), providing per-flash, per-group and per-event
   detections from the LFL, LGR and LEF collections as a data frame
 - Added group- and flash-level variables to the `GOESGLM` data source
+- Added footprint size variables to the optical lightning imager vocabulary:
+  `lightning_group_area` and `lightning_flash_area` for `GOESGLM` (native GLM
+  footprint area in square meters) and `lightning_group_footprint_pixels` for
+  `MeteosatLI`, complementing the existing
+  `lightning_flash_footprint_pixels`. These give group and flash detections a
+  footprint size for extent-density gridding.
 - Added `eager_sessions` option to Pangu6 and Pangu3 to build the extra
   ONNX sessions at construction instead of on first use in a rollout
 - Added regional splits to evaluation recipe scoring, in both the online
@@ -22,9 +103,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   boxes and adds a labeled `region` axis to the score stores.
 - New eval recipe optional per-member online metrics include MAE
   (`scoring.online.mae`) and log spectral distance (`scoring.online.lsd`)
+- Scorecards gain regional, seasonal, monthly, per-init-hour and per-IC
+  views with baseline overlays; GraphCast and Atlas CRPS added
+- Added `NNJAObsSatwnd`, a data source for the raw NCEP atmospheric motion
+  vector dumps in the NNJA archive (1979-present), exposing satellite, subset,
+  computation method, height assignment, zenith angle and quality indicators
+- `NNJAObsConv` gains `exclude_message_types` to skip PrepBUFR message families
+  at decode, e.g. `("SATWND",)` when AMVs come from `NNJAObsSatwnd`
+- Added `gps_refractivity` to `NNJAObsConv` and `NomadsGDASObsConv` exposing
+  the GPS-RO refractivity levels (`ARFR`, N-units) with `elev` set to the level
+  height (`HEIT`), plus `radius_curvature` (`ELRC`) and `geoid_undulation`
+  (`GEODU`) columns on GPS-RO rows
 
 ### Changed
 
+- Renamed the ERA5 data sources `ARCO` and `CDS` to `ARCO_ERA5` and
+  `CDS_ERA5`, respectively. The former names remain as deprecated aliases that
+  emit a warning and will be removed in a future release.
 - Unified the lightning variable vocabulary across optical lightning imagers
   (GOES GLM, MTG LI) onto `lightning_{event,group,flash}_{count,energy,
   radiance}` names, plus `lightning_flash_duration` and
@@ -33,20 +128,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   respectively.
 - Pangu6 and Pangu3 build their extra ONNX sessions lazily and cache them
   on the model, instead of reconstructing them on every rollout call
-
-### Deprecated
-
-### Removed
+- `GOES.fetch_array` now logs a warning when a fetched variable has
+  fill-valued (NaN) pixels on the Earth disk, indicating a real data quality
+  issue at that timestamp; NaNs within 3px of the disk edge, where our
+  geometry and NOAA's retrieval can disagree about visibility, are logged at
+  debug level instead
+- `StormScope` now raises if its normalized state or conditioning contains
+  non-finite values not sanitized by `valid_mask`/`conditioning_valid_mask`,
+  instead of silently passing them to the diffusion sampler
+- Scorecard campaigns score online over 48 initial conditions and the
+  score data moved to the HF Earth2Studio assets dataset
 
 ### Fixed
 
+- Fixed Aurora 1.5 ensemble rollout noise-cache sizing and cleanup.
+- `ZarrBackend` / `IceChunkBackend` can reopen a store containing a scalar
+  array (e.g. a CF `grid_mapping` variable) whose `dimension_names` is `None`
+- `NNJAObsSat` warns and skips a missing aggregate cycle file instead of failing
+  the whole request, matching `NNJAObsConv` and the UFS sources
+- `NNJAObsConv` / `NNJAObsSat` download cycle files as concurrent byte ranges
+  (`chunked=True`) written atomically, so large aggregates no longer exceed the
+  object store's per-request timeout and an interrupted download cannot leave a
+  truncated cache file
+- `NNJAObsConv` / `NomadsGDASObsConv` GPS-RO decode keeps bending-angle levels
+  without their own tangent point, placing them at the occultation's reference
+  point instead of dropping them
+- Eval recipe: per-member seeding now works for models whose `set_rng` has no
+  `reset` argument (for example `Aurora1p5Ensemble`)
+- `CorrDiffCosmoEra5SDA`: retuned the default DPS guidance (`sda_std_obs`
+  `0.5` -> `0.75`, `sda_gamma` `5e-5` -> `7.5e-5`) to keep the observation-guided
+  analysis stable (the old defaults could diverge to non-finite output).
+- Fixed empty reduction dimensions in statistics, skipping for mean and
+  rejecting as undefined for variance/std reductions.
+- `StormCast.__call__` no longer writes its output into the input tensor.
+  The initial condition passed in is left untouched, matching `StormCastCONUS`
 - Evaluation recipe: clearing resume markers no longer races between
   ranks. Concurrent removal of the same progress directory retries until
   the directory no longer exists
-
-### Security
-
-### Dependencies
 
 ## [0.18.0] - 2026-08-31
 

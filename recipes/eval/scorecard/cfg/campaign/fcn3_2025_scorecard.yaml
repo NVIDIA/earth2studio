@@ -15,18 +15,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ---------------------------------------------------------------------------
-# FCN3 14-day scorecard — ERA5 2025, 16-member ensemble, 24 initial conditions.
+# FCN3 — 14-day scorecard, ERA5 2025, 16-member ensemble, scored online.
 #
-#   24 ICs (1st and 15th of each month, 00 UTC) x 16 members = 384 work items
-#   -> 48 items per rank on 8 GPUs
-#   nsteps 56 x 6h = 336h = 14 days, so lead_time spans 0h..336h (57 values)
+# Scores computed for 48 ICs — four per month on the 1st/8th/15th/22nd at
+# 00/06/12/18 UTC respectively with 14-day window, monthly and regional
+# splits.  Scored ONLINE (stats.zarr -> scores.zarr, output.retain: none).
 #
-# Pure recipe path: cloud ARCO + predownload.py. No custom DataSource.
+# Details:
+#   * 72 scored variables
+#   * 16 members — the model's internal spherical noise drives the
+#     ensemble spread (perturbation would double-count).
+#   * 56 steps of 6 h, native 721x1440 [90,-90] grid (no regridding)
 #
-# Run (from this directory):
-#   ./run_scorecard.sh fcn3_2025_scorecard
+# Run (from the scorecard directory):
+#   python run_scorecard.py fcn3_2025_scorecard
 # ---------------------------------------------------------------------------
 defaults:
+    # Regional splits (bands, headline boxes, continents) — one shared choice for every
+    # scorecard campaign, defined in cfg/regions/standard.yaml.
+    - /regions/standard
     - override /model: null   # self-contained: the model is defined below
 
 project: fcn3
@@ -38,40 +45,64 @@ model:
     architecture: earth2studio.models.px.FCN3
     package_path: ngc://models/nvidia/earth-2/fourcastnet3@0.1.0
 
-# Two ICs per month — the 1st and the 15th, 00 UTC.
+# Four ICs per month at 00/06/12/18 UTC (see header).
 start_times:
     - "2025-01-01 00:00:00"
-    - "2025-01-15 00:00:00"
+    - "2025-01-08 06:00:00"
+    - "2025-01-15 12:00:00"
+    - "2025-01-22 18:00:00"
     - "2025-02-01 00:00:00"
-    - "2025-02-15 00:00:00"
+    - "2025-02-08 06:00:00"
+    - "2025-02-15 12:00:00"
+    - "2025-02-22 18:00:00"
     - "2025-03-01 00:00:00"
-    - "2025-03-15 00:00:00"
+    - "2025-03-08 06:00:00"
+    - "2025-03-15 12:00:00"
+    - "2025-03-22 18:00:00"
     - "2025-04-01 00:00:00"
-    - "2025-04-15 00:00:00"
+    - "2025-04-08 06:00:00"
+    - "2025-04-15 12:00:00"
+    - "2025-04-22 18:00:00"
     - "2025-05-01 00:00:00"
-    - "2025-05-15 00:00:00"
+    - "2025-05-08 06:00:00"
+    - "2025-05-15 12:00:00"
+    - "2025-05-22 18:00:00"
     - "2025-06-01 00:00:00"
-    - "2025-06-15 00:00:00"
+    - "2025-06-08 06:00:00"
+    - "2025-06-15 12:00:00"
+    - "2025-06-22 18:00:00"
     - "2025-07-01 00:00:00"
-    - "2025-07-15 00:00:00"
+    - "2025-07-08 06:00:00"
+    - "2025-07-15 12:00:00"
+    - "2025-07-22 18:00:00"
     - "2025-08-01 00:00:00"
-    - "2025-08-15 00:00:00"
+    - "2025-08-08 06:00:00"
+    - "2025-08-15 12:00:00"
+    - "2025-08-22 18:00:00"
     - "2025-09-01 00:00:00"
-    - "2025-09-15 00:00:00"
+    - "2025-09-08 06:00:00"
+    - "2025-09-15 12:00:00"
+    - "2025-09-22 18:00:00"
     - "2025-10-01 00:00:00"
-    - "2025-10-15 00:00:00"
+    - "2025-10-08 06:00:00"
+    - "2025-10-15 12:00:00"
+    - "2025-10-22 18:00:00"
     - "2025-11-01 00:00:00"
-    - "2025-11-15 00:00:00"
+    - "2025-11-08 06:00:00"
+    - "2025-11-15 12:00:00"
+    - "2025-11-22 18:00:00"
     - "2025-12-01 00:00:00"
-    - "2025-12-15 00:00:00"
+    - "2025-12-08 06:00:00"
+    - "2025-12-15 12:00:00"
+    - "2025-12-22 18:00:00"
 
 nsteps: 56           # 56 x 6h = 14 days
 ensemble_size: 16
 random_seed: 42
 
 # Resume is on so an expired allocation can be picked up mid-campaign.
-# Progress markers live in <output.path>/.progress/ — clear them (or bump
-# run_id) if the data source ever changes, or completed items are skipped.
+# Online progress markers live in <output.path>/.online_progress/ — clear
+# them (or bump run_id) if the data source ever changes.
 resume: true
 
 # FCN3 is intrinsically stochastic: the recipe calls set_rng(seed=item.seed)
@@ -80,16 +111,17 @@ resume: true
 perturbation: null
 
 # ---------------------------------------------------------------------------
-# Data — cloud ARCO, cached by predownload.py.
+# Data — ARCO_ERA5, cached by predownload.py.
 #
 # verification.source is set EXPLICITLY so verification goes to its own
-# verification.zarr. Since every one of the model's 72 channels is scored here,
-# that store is the dominant cost: ~1,300 unique valid times x 72 variables
-# fetched from ARCO. Narrowing `scoring.variables` below `output.variables`
-# would cut it proportionally, at the price of a narrower scorecard.
+# verification.zarr. Since every one of the model's 72 channels is scored
+# here, that store is the dominant cost: ~2,700 unique valid times x 72
+# variables fetched from ARCO_ERA5. Narrowing `scoring.variables` below
+# `output.variables` would cut it proportionally, at the price of a
+# narrower scorecard.
 # ---------------------------------------------------------------------------
 data_source:
-    _target_: earth2studio.data.ARCO
+    _target_: earth2studio.data.ARCO_ERA5
     cache: false
     verbose: false
 
@@ -100,25 +132,20 @@ predownload:
     verification:
         enabled: true
         source:
-            _target_: earth2studio.data.ARCO
+            _target_: earth2studio.data.ARCO_ERA5
             cache: false
             verbose: false
 
 output:
     path: ${oc.env:SCORECARD_OUT,/code/earth2studio_eval/recipes/eval/scorecard/models/fcn3/outputs}/${project}_${run_id}
     overwrite: false     # paired with resume: true
+    # Online scoring is the whole point of this campaign: never write the
+    # raw forecast store (it would be ~12 TB); stats.zarr is the artifact.
+    retain: none
     thread_writers: 4
     chunks:
         time: 1
         lead_time: 1
-    # Zarr v3 writes uncompressed by default. At 72 vars x 16 members x 24 ICs
-    # x 57 leads that is 6.2 TB; byte-shuffle + zstd typically brings it to
-    # ~2 TB at negligible write cost, since float32 geophysical fields are
-    # smooth. Handled by src/output.py::_build_codecs.
-    compression:
-        cname: zstd
-        clevel: 3
-        shuffle: shuffle
     variables:
         - u10m
         - v10m
@@ -194,55 +221,35 @@ output:
         - q1000
 
 scoring:
+    mode: online
     variables: ${output.variables}
     lat_weights: true
-    # MUST be small here. The prediction chunk is
-    #   ensemble x chunk x variables x lat x lon x 4 B
-    # = 16 x N x 72 x 721 x 1440 x 4, and CRPS sorts along the ensemble axis,
-    # needing a second copy. The recipe's default of 8 is sized for ~17 vars
-    # and 4 members (~2.3 GB); at 72 vars x 16 members that same 8 is 35.6 GiB
-    # for x alone and OOMs an 80 GB H100. 1 -> 4.5 GiB, comfortable.
-    lead_time_chunk_size: 1
-    # Every metric comes from earth2studio.statistics or the recipe's own
-    # src.metrics — nothing is reimplemented. The keys are load-bearing:
-    # src/report/aggregation.py keys its aggregation off these exact names
-    # (`rmse` -> sqrt(mean(x^2)), `ensemble_mean_mse` -> sqrt(mean(x))).
-    metrics:
-        # `rmse` (earth2studio.statistics.rmse) is inherited from
-        # cfg/default.yaml via Hydra's dict merge — do not redeclare an
-        # equivalent `mse`, or the summary table gets two "RMSE" columns.
-        # Radially averaged 2D log spectral distance vs ERA5, in dB --
-        # 0 means identical power spectra; growth shows blurring/smoothing.
-        lsd:
-            _target_: earth2studio.statistics.log_spectral_distance
-            # Per-member spectra vs ERA5 (the metric requires the ensemble
-            # dim declared when the forecast has one).
-            ensemble_dimension: ensemble
-            reduction_dimensions: []
-        ensemble_mean_mse:
-            _target_: src.metrics.mse
-            ensemble_dimension: ensemble
-            reduction_dimensions: [lat, lon]
-        ensemble_variance:
-            _target_: src.metrics.ensemble_variance
-            ensemble_dimension: ensemble
-            reduction_dimensions: [lat, lon]
-        crps:
-            _target_: earth2studio.statistics.crps
-            ensemble_dimension: ensemble
-            reduction_dimensions: [lat, lon]
+    # The online path derives its metric set from the accumulated
+    # sufficient statistics (mse/rmse, ensemble_mean_mse, ensemble
+    # variance, fair CRPS, rank reliability, bias, corr) plus the opt-ins
+    # below — `scoring.metrics` does not apply here.
+    online:
+        # 16 members on one 8-GPU node: 2 members per rank -> one ensemble
+        # group per node, so the CRPS member exchange stays on NVLink.
+        # Note: the batched rollout draws FCN3's internal noise jointly per
+        # member pair, so individual member trajectories differ from a
+        # one-member-per-rank (K=1, 16-rank) run — the ensemble statistics
+        # are unchanged (members stay i.i.d.).
+        members_per_rank: 2
+        # Per-member MAE and radially averaged log spectral distance (dB)
+        # vs ERA5 — the scorecard's deterministic panel.  The regional
+        # splits come from the defaults entry /regions/standard above;
+        # LSD is spectral, hence global-only (NaN in the boxed regions).
+        mae: true
+        lsd: true
     resume: true
 
 report:
-    title: "FCN3 14-day Scorecard — ERA5 2025 (24 ICs, 16 members)"
+    title: "FCN3 14-day Scorecard — ERA5 2025 (48 ICs, 16 members)"
     projection: robinson
     figure_format: png
 
     sections:
-        - type: header_visualization
-          variable: z500
-          lead_time: "5 days"
-
         - type: summary_table
           lead_times: ["1 days", "3 days", "5 days", "7 days", "10 days", "14 days"]
           variables: [t2m, z500, u10m, t850, msl]
@@ -265,11 +272,6 @@ report:
         - type: ic_heatmap
           metrics: [rmse, crps]
           variables: [z500, t2m, msl]
-          collapsed: true
-
-        - type: visualization
-          variables: [z500, t2m]
-          lead_times: ["1 days", "5 days", "10 days", "14 days"]
           collapsed: true
 
     variable_groups:

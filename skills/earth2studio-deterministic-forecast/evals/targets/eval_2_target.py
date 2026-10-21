@@ -16,7 +16,7 @@
 
 import torch
 
-from earth2studio.data import ARCO
+from earth2studio.data import ARCO_ERA5
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import GraphCastOperational
 from earth2studio.run import deterministic
@@ -24,8 +24,8 @@ from earth2studio.run import deterministic
 # 1. Initialize GraphCast model
 model = GraphCastOperational.load_model(GraphCastOperational.load_default_package())
 
-# 2. Initialize ARCO data source (ERA5, no auth required)
-data = ARCO()
+# 2. Initialize ARCO_ERA5 data source (ERA5, no auth required)
+data = ARCO_ERA5()
 
 # 3. Initialize Zarr IO backend
 io = ZarrBackend("output_eval4.zarr")

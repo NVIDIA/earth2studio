@@ -118,6 +118,12 @@ class mean:
                 if key not in self._reduction_dimensions
             }
         )
+
+        # torch.sum(..., dim=[]) reduces over every dimension. An empty list of
+        # reduction dimensions instead represents an identity operation.
+        if not dims:
+            return x, output_coords
+
         weights = _broadcast_weights(
             self.weights, self._reduction_dimensions, coords
         ).to(x.device)
@@ -167,6 +173,8 @@ class variance:
         weights: torch.Tensor = None,
         batch_update: bool = False,
     ):
+        if not reduction_dimensions:
+            raise ValueError("variance requires at least one reduction dimension.")
         if weights is not None:
             if weights.ndim != len(reduction_dimensions):
                 raise ValueError(
@@ -250,8 +258,11 @@ class variance:
         # If batch updating then calculate updated mean
         else:
             temp_n = weights_sum
-            temp_sum = torch.sum(weights * x, dim=dims)
-            temp_sum2 = torch.sum(weights * (x - temp_sum / temp_n) ** 2, dim=dims)
+            temp_sum_keepdim = torch.sum(weights * x, dim=dims, keepdim=True)
+            temp_sum2 = torch.sum(
+                weights * (x - temp_sum_keepdim / temp_n) ** 2, dim=dims
+            )
+            temp_sum = temp_sum_keepdim.squeeze(tuple(dims))
 
             # First batch then no correction
             if self.n == 0:

@@ -32,8 +32,8 @@ from earth2studio.utils import handshake_dim
 from earth2studio.utils.type import CoordSystem, TimeArray, VariableArray
 
 
-class ARCORxBase:
-    """Base class for ARCO (ERA5) prescriptive fields
+class ARCO_ERA5RxBase:
+    """Base class for ARCO ERA5 prescriptive fields
 
     Parameters
     ----------
@@ -152,7 +152,7 @@ class ARCORxBase:
         return cache_location
 
 
-class LandSeaMask(ARCORxBase):
+class LandSeaMask(ARCO_ERA5RxBase):
     """Land-sea mask on a 0.25 degree equirectangular grid fetched from the ARCO v2
     datasource. This mask's cells are between [0,1] which denotes is the proportion of
     land, as opposed to ocean or inland waters (lakes, reservoirs, rivers and coastal
@@ -202,7 +202,7 @@ class LandSeaMask(ARCORxBase):
         return super().__call__(time, variable)
 
 
-class SurfaceGeoPotential(ARCORxBase):
+class SurfaceGeoPotential(ARCO_ERA5RxBase):
     """Surface geopotential on a 0.25 degree equirectangular grid fetched from the ARCO
     v2 datasource. This field is the gravitational potential energy of a unit mass
     relative to mean sea level. This is often referred to as the orography.

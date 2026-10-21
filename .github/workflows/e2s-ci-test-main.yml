@@ -44,6 +44,8 @@ env:
   TESTMON_CACHE: ${{ github.workspace }}/.cache/testmon
   TESTMON_DATAFILE: ${{ github.workspace }}/.cache/testmon/.testmondata
   TORCH_ALLOW_TF32_CUBLAS_OVERRIDE: "1"
+  XLA_PYTHON_CLIENT_ALLOCATOR: vmm
+  XLA_PYTHON_CLIENT_PREALLOCATE: "false"
 
 jobs:
   setup-env:
@@ -117,7 +119,7 @@ jobs:
           persist-credentials: false
 
       - name: Run test job
-        uses: ./.github/actions/run-ci-test
+        uses: $/.github/actions/run-ci-test
         with:
           tox-env: test
           save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
@@ -140,7 +142,7 @@ jobs:
           persist-credentials: false
 
       - name: Run test job
-        uses: ./.github/actions/run-ci-test
+        uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-px-models
           save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
@@ -163,7 +165,7 @@ jobs:
           persist-credentials: false
 
       - name: Run test job
-        uses: ./.github/actions/run-ci-test
+        uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-dx-models
           save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
@@ -186,7 +188,7 @@ jobs:
           persist-credentials: false
 
       - name: Run test job
-        uses: ./.github/actions/run-ci-test
+        uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-data
           save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
@@ -209,7 +211,7 @@ jobs:
           persist-credentials: false
 
       - name: Run test job
-        uses: ./.github/actions/run-ci-test
+        uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-perturb
           save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
@@ -232,7 +234,7 @@ jobs:
           persist-credentials: false
 
       - name: Run test job
-        uses: ./.github/actions/run-ci-test
+        uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-stats
           save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
@@ -255,7 +257,7 @@ jobs:
           persist-credentials: false
 
       - name: Run test job
-        uses: ./.github/actions/run-ci-test
+        uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-da-models
           save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
@@ -278,7 +280,7 @@ jobs:
           persist-credentials: false
 
       - name: Run test job
-        uses: ./.github/actions/run-ci-test
+        uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-px-models-conflicts
           save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}
@@ -301,7 +303,7 @@ jobs:
           persist-credentials: false
 
       - name: Run test job
-        uses: ./.github/actions/run-ci-test
+        uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-serve
           save-testmon-cache: ${{ github.ref == 'refs/heads/main' }}

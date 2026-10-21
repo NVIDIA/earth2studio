@@ -55,7 +55,7 @@ def _align_to_grid(
     native grid — the common case when the data source is configured
     to match the model.  Otherwise runs an xarray interpolation (linear
     by default) so that models whose native resolution differs from the
-    underlying source (e.g. 1° GraphCast/GenCast on top of a 0.25° ARCO
+    underlying source (e.g. 1° GraphCast/GenCast on top of a 0.25° ARCO_ERA5
     store) can still be driven by the standard pipeline.
     """
     src_lat = coords.get("lat")

@@ -92,8 +92,10 @@ _GLM_FILE_DURATION = timedelta(seconds=20)
 
 # The three tiers of the GLM detection hierarchy stored in every LCFA file,
 # mapped onto the native NetCDF variable / dimension names that carry each
-# record's position, energy and timestamp. Flashes have no single time
-# variable, so the offset of their first constituent event is used.
+# record's position, measurements and timestamp. Flashes have no single time
+# variable, so the offset of their first constituent event is used. Only
+# groups and flashes carry ``area``: an event is a single pixel, so LCFA
+# stores no event-level footprint area.
 _LEVEL_FIELDS: dict[str, dict[str, str]] = {
     "event": {
         "dim": "number_of_events",
@@ -107,6 +109,7 @@ _LEVEL_FIELDS: dict[str, dict[str, str]] = {
         "lat": "group_lat",
         "lon": "group_lon",
         "energy": "group_energy",
+        "area": "group_area",
         "time": "group_time_offset",
     },
     "flash": {
@@ -114,9 +117,22 @@ _LEVEL_FIELDS: dict[str, dict[str, str]] = {
         "lat": "flash_lat",
         "lon": "flash_lon",
         "energy": "flash_energy",
+        "area": "flash_area",
         "time": "flash_time_offset_of_first_event",
     },
 }
+
+# Per-record measurement fields of ``_LEVEL_FIELDS``, as opposed to the
+# position, time and dimension entries. A level only carries the subset it
+# declares, so these are read (and named in the parsed frame) per level.
+_MEASUREMENT_FIELDS = ("energy", "area")
+
+# Declared measurements a file is still allowed to omit. Every LCFA level
+# stores ``energy``, so a nonempty level lacking it is a malformed file
+# rather than one serving a narrower set of variables. Footprint area is
+# not part of the detection itself, so a file without it still serves its
+# energy and counts.
+_OPTIONAL_MEASUREMENT_FIELDS = ("area",)
 
 
 @dataclass(frozen=True)
@@ -152,7 +168,10 @@ class GOESGLM:
 
     Each level offers ``*_energy`` (optical energy, Joules) and
     ``*_count`` (a constant 1.0 per record, suitable for density
-    aggregation).
+    aggregation). Groups and flashes additionally offer ``*_area``, the
+    native footprint area of the detection in m2, for aggregating
+    detections as an extent density rather than as centroid counts.
+    Events are single pixels and have no area field in LCFA.
 
     Files in the public NOAA AWS bucket are NetCDFs produced at roughly
     20 second cadence covering the GOES full-disk field of view. A
@@ -535,6 +554,17 @@ class GOESGLM:
             v: GOESGLMLexicon.VOCAB[canonical[v]].split("::", 1) for v in variable_list
         }
         levels = {level for level, _ in keys.values()}
+        # Native NetCDF field name -> the column ``_parse_glm_file`` stores it
+        # under, per level, so each variable's observation is read from the
+        # column holding the measurement it actually selects.
+        measurement_columns = {
+            level: {
+                _LEVEL_FIELDS[level][name]: name
+                for name in _MEASUREMENT_FIELDS
+                if name in _LEVEL_FIELDS[level]
+            }
+            for level in levels
+        }
 
         # (satellite, {level: records}) per successfully parsed file
         parsed: list[tuple[str, dict[str, pd.DataFrame]]] = []
@@ -563,6 +593,14 @@ class GOESGLM:
                     level_records = records.get(level)
                     if level_records is None:
                         continue
+                    column = (
+                        None if field == "_count" else measurement_columns[level][field]
+                    )
+                    # An optional measurement the file does not carry is
+                    # skipped, the same way a level absent from the file
+                    # is; a missing required one never reaches here
+                    if column is not None and column not in level_records.columns:
+                        continue
                     mask = (level_records["time"] >= tmin) & (
                         level_records["time"] <= tmax
                     )
@@ -571,10 +609,10 @@ class GOESGLM:
                     window = level_records.loc[mask]
                     sub = window[["time", "lat", "lon"]].copy()
                     sub["satellite"] = file_sat
-                    if field == "_count":
+                    if column is None:
                         sub["observation"] = np.float32(1.0)
                     else:
-                        sub["observation"] = window["energy"].astype(np.float32)
+                        sub["observation"] = window[column].astype(np.float32)
                     sub["variable"] = v
                     frames.append(sub)
 
@@ -749,29 +787,65 @@ class GOESGLM:
         Returns
         -------
         dict[str, pd.DataFrame]
-            One frame of ``(time, lat, lon, energy)`` per requested level.
-            Levels with no records, or none inside ``lat_lon_bbox``, are
-            omitted, so the mapping is empty for a file with nothing of
-            interest in it.
+            One frame of ``(time, lat, lon)`` plus the measurement columns
+            the level declares per requested level: ``energy`` for every
+            level and ``area`` for groups and flashes. Levels with no
+            records, or none inside ``lat_lon_bbox``, are omitted, so the
+            mapping is empty for a file with nothing of interest in it.
+            The ``area`` column is dropped for a level whose file lacks
+            the variable.
+
+        Raises
+        ------
+        ValueError
+            If a level with records is missing its ``energy`` variable,
+            which every LCFA level carries.
         """
         out: dict[str, pd.DataFrame] = {}
         with netCDF4.Dataset(path) as ds:
-            epoch = (
-                pd.Timestamp(ds.time_coverage_start)
-                .to_pydatetime()
-                .replace(tzinfo=None)
-            )
+            # A small number of NOAA LCFA objects are valid, zero-record
+            # NetCDF files with no global attributes at all. Their epoch is
+            # immaterial: no timestamp can be constructed from an empty
+            # level. Resolve time_coverage_start lazily so those files are
+            # skipped without weakening the requirement for files that carry
+            # actual detections.
+            epoch: datetime | None = None
             for level in levels:
                 fields = _LEVEL_FIELDS[level]
                 if fields["lat"] not in ds.variables:
                     continue
                 if ds.dimensions[fields["dim"]].size == 0:
                     continue
+                if epoch is None:
+                    epoch = (
+                        pd.Timestamp(ds.time_coverage_start)
+                        .to_pydatetime()
+                        .replace(tzinfo=None)
+                    )
 
                 lat = np.asarray(ds.variables[fields["lat"]][:], dtype=np.float32)
                 lon = np.asarray(ds.variables[fields["lon"]][:], dtype=np.float32)
-                energy = np.asarray(ds.variables[fields["energy"]][:], dtype=np.float32)
                 offset = np.asarray(ds.variables[fields["time"]][:], dtype=np.float64)
+                # A level only carries the measurements it declares. Of
+                # those, only the optional ones may be missing from the
+                # file: dropping a required measurement would silently
+                # serve a subset of what the caller asked for, so a
+                # nonempty level without it is reported as malformed
+                measurements: dict[str, np.ndarray] = {}
+                for name in _MEASUREMENT_FIELDS:
+                    if name not in fields:
+                        continue
+                    variable = fields[name]
+                    if variable not in ds.variables:
+                        if name in _OPTIONAL_MEASUREMENT_FIELDS:
+                            continue
+                        raise ValueError(
+                            f"GLM file {path} has {level} records but no "
+                            f"{variable} variable"
+                        )
+                    measurements[name] = np.asarray(
+                        ds.variables[variable][:], dtype=np.float32
+                    )
 
                 if lat_lon_bbox is not None:
                     lat_min, lon_min, lat_max, lon_max = lat_lon_bbox
@@ -785,8 +859,8 @@ class GOESGLM:
                         continue
                     lat = lat[mask]
                     lon = lon[mask]
-                    energy = energy[mask]
                     offset = offset[mask]
+                    measurements = {k: v[mask] for k, v in measurements.items()}
 
                 times = np.asarray(
                     [
@@ -800,7 +874,7 @@ class GOESGLM:
                         "time": pd.to_datetime(times),
                         "lat": lat,
                         "lon": lon,
-                        "energy": energy,
+                        **measurements,
                     }
                 )
         return out

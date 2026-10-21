@@ -39,6 +39,8 @@ env:
   EARTH2STUDIO_CACHE: ${{ github.workspace }}/.cache/earth2studio
   TORCH_ALLOW_TF32_CUBLAS_OVERRIDE: "1"
   UV_PYTHON: "3.13.13"
+  XLA_PYTHON_CLIENT_ALLOCATOR: vmm
+  XLA_PYTHON_CLIENT_PREALLOCATE: "false"
 
 jobs:
   metadata:
@@ -102,7 +104,7 @@ jobs:
           persist-credentials: true
 
       - name: Build API docs from retained gallery results
-        uses: ./.github/actions/build-light-docs
+        uses: $/.github/actions/build-light-docs
         with:
           artifact-name: docs-api-html
           artifact-retention-days: "10"
@@ -169,7 +171,7 @@ jobs:
           persist-credentials: false
 
       - name: Execute example section
-        uses: ./.github/actions/build-docs-section
+        uses: $/.github/actions/build-docs-section
         with:
           section: ${{ matrix.section }}
           gallery-cache-name: ${{ github.ref_name }}
@@ -213,7 +215,7 @@ jobs:
           persist-credentials: true
 
       - name: Build Zensical site from gallery cache
-        uses: ./.github/actions/build-light-docs
+        uses: $/.github/actions/build-light-docs
         with:
           gallery-cache-name: ${{ github.ref_name }}
           save-caches: "false"

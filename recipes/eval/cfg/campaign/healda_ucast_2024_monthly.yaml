@@ -6,7 +6,7 @@
 #
 # HealDA covers all ERA5 pressure-level and most surface variables; UCast's
 # sst and vertical velocity (w) are filled from a predownloaded data.zarr fill
-# store.  The default ARCO data_source (interpolated to UCast's 1.5-degree grid)
+# store.  The default ARCO_ERA5 data_source (interpolated to UCast's 1.5-degree grid)
 # supplies both the fill variables and verification data.
 #
 # UCast is a history model (inputs at t-12h and t), so each IC assembles TWO

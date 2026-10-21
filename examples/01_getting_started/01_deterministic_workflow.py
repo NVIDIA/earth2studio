@@ -22,7 +22,7 @@ Running Deterministic Inference
 Basic deterministic inference workflow.
 
 This example will demonstrate how to run a simple inference workflow to generate a
-basic determinstic forecast using one of the built in models of Earth-2 Inference
+basic deterministic forecast using one of the built in models of Earth-2 Inference
 Studio.
 
 In this example you will learn:
@@ -48,7 +48,7 @@ In this example you will learn:
 #
 # Thus, we need the following:
 #
-# - Prognostic Model: Use the built in FourCastNet Model [`earth2studio.models.px.FCN`][earth2studio.models.px.FCN].
+# - Prognostic Model: Use the built in Deep Learning Weather Prediction (DLWP) model [`earth2studio.models.px.DLWP`][earth2studio.models.px.DLWP].
 # - Datasource: Pull data from the GFS data api [`earth2studio.data.GFS`][earth2studio.data.GFS].
 # - IO Backend: Let's save the outputs into a Zarr store [`earth2studio.io.ZarrBackend`][earth2studio.io.ZarrBackend].
 

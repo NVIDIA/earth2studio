@@ -189,12 +189,12 @@ class NCAR_ERA5:
             Timestamps to return data for (UTC).
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
-            return. Must be in the ARCO lexicon.
+            return. Must be in the NCAR_ERA5Lexicon.
 
         Returns
         -------
         xr.DataArray
-            ERA5 weather data array from ARCO
+            ERA5 weather data array from NCAR_ERA5
         """
         # Lazily initialize the object store on first use
         if self.store is None:

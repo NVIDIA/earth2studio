@@ -227,7 +227,7 @@ class _PlanetaryComputerData:
             Timestamps to return data for (UTC).
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
-            return. Must be in the ARCO lexicon.
+            return. Must be in the respective data source lexicon.
 
         Returns
         -------

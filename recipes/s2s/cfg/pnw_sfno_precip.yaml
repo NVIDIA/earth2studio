@@ -25,7 +25,7 @@ diagnostic_models:
         architecture: earth2studio.models.dx.PrecipitationAFNO
 
 data_source:
-    _target_: earth2studio.data.ARCO # Using ERA5 data source
+    _target_: earth2studio.data.ARCO_ERA5 # Using ERA5 data source
     verbose: False
 
 file_output:

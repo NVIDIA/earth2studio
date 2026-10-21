@@ -562,17 +562,29 @@ nav:
 - Blog:
   - Overview: blog/index.md
   - Posts:
+    - Access Earthmover Marketplace Data with Earth2Studio: blog/posts/earthmover-marketplace.md
     - MkDocs Material Migration: blog/posts/mkdocs-upgrade.md
     - A Digital Twin for Soil Health Prediction, Powered by Subseasonal Climate AI: blog/posts/earth2_soil_health_prediction.md
   - Archive: blog/archive.md
   - Categories:
     - Overview: blog/categories.md
+    - Data: blog/categories/data.md
     - Documentation: blog/categories/documentation.md
 - Scorecards:
   - scorecard/generated/index.md
   - Prognostic models:
     - FCN3: scorecard/generated/fcn3.md
     - Aurora: scorecard/generated/aurora.md
+    - GraphCast: scorecard/generated/graphcast.md
+    - Atlas CRPS: scorecard/generated/atlas_crps.md
+    - Aurora 1.5 Ensemble: scorecard/generated/aurora1p5ens.md
+    - DLWP: scorecard/generated/dlwp.md
+    - FCN: scorecard/generated/fcn.md
+    - FengWu: scorecard/generated/fengwu.md
+    - FuXi: scorecard/generated/fuxi.md
+    - Pangu: scorecard/generated/pangu.md
+    - SFNO: scorecard/generated/sfno.md
+    - StormCast: scorecard/generated/stormcast.md
 - Changelog: https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md
 not_in_nav: |
   404.md

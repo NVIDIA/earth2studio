@@ -329,6 +329,45 @@ def build_score_coords(
     return total
 
 
+def write_grid_coords(
+    path: str,
+    grid_coords: dict[str, tuple[tuple[str, ...], np.ndarray]],
+    variables: list[str],
+) -> None:
+    """Add auxiliary coordinate arrays to a freshly created zarr store.
+
+    Each entry becomes an array on the named dimensions (for example
+    ``lat[y, x]``), and every data variable gets a CF ``coordinates``
+    attribute naming them, so ``xarray.open_zarr`` exposes them as
+    coordinates rather than data variables.
+
+    Parameters
+    ----------
+    path : str
+        Zarr store path.
+    grid_coords : dict
+        ``name -> (dims, values)``; nothing happens when empty.
+    variables : list[str]
+        Data variables that carry the ``coordinates`` attribute.
+    """
+    if not grid_coords:
+        return
+    group = zarr.open_group(path, mode="r+")
+    for name, (dims, values) in grid_coords.items():
+        values = np.asarray(values)
+        arr = group.create_array(
+            name,
+            shape=values.shape,
+            dtype=values.dtype,
+            dimension_names=tuple(dims),
+            overwrite=True,
+        )
+        arr[...] = values
+    names = " ".join(grid_coords)
+    for v in variables:
+        group[v].attrs["coordinates"] = names
+
+
 class OutputManager:
     """Distributed-safe lifecycle manager for a zarr store.
 
@@ -508,6 +547,7 @@ class OutputManager:
         self,
         total_coords: CoordSystem,
         variables: list[str],
+        grid_coords: dict[str, tuple[tuple[str, ...], np.ndarray]] | None = None,
     ) -> None:
         """Create or validate the zarr store against the given schema.
 
@@ -525,9 +565,13 @@ class OutputManager:
             :func:`build_forecast_coords`).
         variables : list[str]
             Variable names to create in the store.
+        grid_coords : dict, optional
+            Auxiliary coordinate arrays on the store's spatial dims, written
+            once at creation (see :meth:`src.pipelines.base.Pipeline.grid_coords`).
         """
         self._total_coords = total_coords
         self._variables = variables
+        self._grid_coords = dict(grid_coords or {})
         self._io = run_on_rank0_first(self._open_store)
 
     @property
@@ -631,6 +675,7 @@ class OutputManager:
             write_coords = self._total_coords.copy()
             variables = np.array(self._variables)
             io.add_array(write_coords, variables)
+            write_grid_coords(self._path, self._grid_coords, list(self._variables))
             logger.info(f"Created forecast store: {self._path}")
         else:
             for v in self._variables:

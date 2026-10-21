@@ -25,8 +25,8 @@ installed on the system.
 For example:
 
 ```bash
->>> from earth2studio.data import CDS
->>> CDS()
+>>> from earth2studio.data import CDS_ERA5
+>>> CDS_ERA5()
 Traceback (most recent call last):
   File "<stdin>", line 1, in <module>
   File "/earth2studio/earth2studio/data/cds.py", line 90, in __init__
@@ -198,7 +198,7 @@ compiled packages across virtual environments, so you may need to clear the cach
 
 ## RuntimeError: Cannot find the ecCodes library
 
-This can surface when using a data source (including: CDS, GFS, HRRR) that needs to
+This can surface when using a data source (including: CDS_ERA5, GFS, HRRR) that needs to
 read grib files indicating that ECMWF's eccodes library needs to be installed.
 Eccodes has several [install methods](https://github.com/ecmwf/eccodes), provided on
 [conda-forge](https://anaconda.org/channels/conda-forge/packages/eccodes/overview) and

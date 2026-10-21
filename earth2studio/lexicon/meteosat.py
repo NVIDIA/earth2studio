@@ -97,6 +97,13 @@ class MeteosatLILexicon(metaclass=LexiconType):
 
     Radiance is reported in ``mW m-2 sr-1`` in all three products.
 
+    The ``*_footprint_pixels`` fields are the detection's footprint size,
+    which lets a caller grid detections as an extent density rather than as
+    centroid counts. LI reports footprint as a count of contributing
+    detector pixels rather than as an area, so converting to an area needs
+    the viewing-geometry-dependent pixel size and is left to the caller.
+    Events are single pixels, so there is no event-level footprint field.
+
     Note
     ----
     Variable documentation:
@@ -114,6 +121,7 @@ class MeteosatLILexicon(metaclass=LexiconType):
         # Lightning Groups (LGR)
         "lightning_group_radiance": ("LGR::radiance", lambda x: x),
         "lightning_group_count": ("LGR::_count", lambda x: x),
+        "lightning_group_footprint_pixels": ("LGR::number_of_events", lambda x: x),
         # Lightning Events Filtered (LEF)
         "lightning_event_radiance": ("LEF::radiance", lambda x: x),
         "lightning_event_count": ("LEF::_count", lambda x: x),
