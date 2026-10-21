@@ -1203,6 +1203,14 @@ def test_satwnd_wide_long_and_quality_pairs(fake_bufr):
     assert long["qi_gnap_2"].to_pylist() == [80.0] * 4
 
 
+def test_satwnd_non_positive_pressure_is_null(fake_bufr):
+    messages = [SimpleNamespace(source_message_index=0, local_sub_category=30)]
+    batch = _satwnd_batch([T0] * 3, {"PRLC": [0.0, -100.0, 50000.0]})
+    fake_bufr["satwnd"] = _FakeBufr([batch], messages)
+    wide = decode_satwnd("satwnd", ["u"], T0, T0, 1)
+    assert wide["pres"].to_pylist() == [None, None, 50000.0]
+
+
 def test_satwnd_unknown_quality_application_raises(fake_bufr):
     messages = [SimpleNamespace(source_message_index=0, local_sub_category=30)]
     batch = _satwnd_batch([T0], {"GNAP#2": [9.0]})

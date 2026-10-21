@@ -2050,6 +2050,10 @@ def _satwnd_batch(
             if array is None
             else pc.cast(array, pa.float32()).filter(arrow_keep)
         )
+    # A non-positive assigned pressure is missing
+    columns["pres"] = pc.if_else(
+        pc.greater(columns["pres"], 0), columns["pres"], pa.scalar(None, pa.float32())
+    )
     for out, (name, arrow_type) in _SATWND_INTS.items():
         array = column.get(name)
         columns[out] = (
