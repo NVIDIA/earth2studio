@@ -151,7 +151,6 @@ import torch
 from earth2studio.statistics import lat_weight, rmse
 
 plot_vars = ["t2m", "z500"]
-diff_limit = {"t2m": 5, "z500": 300}
 era5 = NCAR_ERA5()(analysis_time, plot_vars)
 
 lat = analysis.coords["lat"].values
@@ -166,6 +165,8 @@ for col, var in enumerate(plot_vars):
     field = cupy.asnumpy(analysis.sel(variable=var).data[0])
     truth = era5.sel(variable=var).values[0]
     diff = field - truth
+    # Symmetric color limit covering the 0.5-99.5 percentile range of the difference
+    limit = float(np.abs(np.percentile(diff, [0.5, 99.5])).max())
     error = float(score(torch.as_tensor(field), grid, torch.as_tensor(truth), grid)[0])
     logger.info(f"{var} RMSE vs ERA5: {error:.4f}")
     scale = {"vmin": truth.min(), "vmax": truth.max()}
@@ -175,7 +176,7 @@ for col, var in enumerate(plot_vars):
         (
             f"HealDA v2 - ERA5 {var} (RMSE {error:.3g})",
             diff,
-            {"cmap": "RdBu_r", "vmin": -diff_limit[var], "vmax": diff_limit[var]},
+            {"cmap": "RdBu_r", "vmin": -limit, "vmax": limit},
         ),
     )
     for row, (title, values, style) in enumerate(panels):
