@@ -1608,6 +1608,20 @@ def test_atms_sccf_must_match_the_frequency_table(fake_bufr, monkeypatch):
         decode_satellite("atms", "atms", {"atms": "TMBR"}, T0, T0, channels=[1])
 
 
+def test_satellite_dictionary_holds_the_kept_platforms(fake_bufr):
+    # The second footprint (n20) is outside the window
+    batch = _sat_batch(
+        "atms",
+        [T0, T0 + timedelta(hours=1)],
+        [1.0],
+        lambda c: (0.0, 250.0),
+        fields={"SAID": [224.0, 225.0]},
+    )
+    fake_bufr["atms"] = _FakeBufr([batch])
+    wide = decode_satellite("atms", "atms", {"atms": "TMBR"}, T0, T0, channels=[1])
+    assert wide["satellite"].combine_chunks().dictionary.to_pylist() == ["npp"]
+
+
 def test_satellite_filter_and_window(fake_bufr):
     batch = _sat_batch(
         "atms", [T0, T0 + timedelta(hours=1)], [1.0], lambda c: (0.0, 250.0)

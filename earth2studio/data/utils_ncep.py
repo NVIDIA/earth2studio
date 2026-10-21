@@ -2695,6 +2695,18 @@ def _iasi_scale_factor(
     return np.power(10.0, -exponent)
 
 
+def _satellite_name(said: int) -> str:
+    return _NCEP_SATELLITE_NAME_BY_SAID.get(int(said), f"satellite-{int(said)}")
+
+
+def _satellite_column(said: np.ndarray) -> pa.Array:
+    """Platform names as a dictionary of the SAIDs present in ``said``."""
+    codes, index = np.unique(said.astype(np.int64), return_inverse=True)
+    return dictionary_column(
+        index.ravel().astype(np.int8), [_satellite_name(s) for s in codes]
+    )
+
+
 def _footprint_time_ns(parts: list[np.ndarray]) -> np.ndarray:
     """Footprint times from YEAR..SECO; 24:00:00 is midnight of the next day.
 
@@ -2741,15 +2753,11 @@ def _sat_batch(
     is_cris = sensor == "cris"
     position = _required_column(batch, "FORN" if is_cris else "FOVN")
     keep = (time_ns >= window_ns[0]) & (time_ns <= window_ns[1]) & np.isfinite(position)
-    said_codes, said_index = np.unique(
-        np.where(np.isfinite(said), said, -1).astype(np.int64), return_inverse=True
-    )
-    names = [
-        _NCEP_SATELLITE_NAME_BY_SAID.get(int(s), f"satellite-{int(s)}")
-        for s in said_codes
-    ]
+    said_codes, said_index = np.unique(said.astype(np.int64), return_inverse=True)
     if satellites is not None:
-        keep &= np.array([name in satellites for name in names], dtype=bool)[said_index]
+        keep &= np.array(
+            [_satellite_name(s) in satellites for s in said_codes], dtype=bool
+        )[said_index.ravel()]
     rows = _ChannelMatrix(_channel_group(batch), keep, axis)
     if rows.off_axis:
         logger.warning(
@@ -2845,7 +2853,7 @@ def _sat_batch(
         "footprint_quality": footprint_uint(
             _column(batch, "QGFQ") if sensor == "iasi" else None, pa.uint8()
         ),
-        "satellite": dictionary_column(said_index[kept].astype(np.int8), names),
+        "satellite": _satellite_column(said[kept]),
         "quality": rows.lists(uint_with_nulls(quality, pa.uint32())),
     }
     for variable, values_ in observations.items():
