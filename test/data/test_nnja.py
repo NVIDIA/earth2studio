@@ -1369,9 +1369,7 @@ def test_satwnd_scalars_read_the_first_occurrence_populated_in_the_file(fake_buf
 
 def test_microwave_wide_is_fixed_size_and_long_matches(fake_bufr):
     channels = [1.0, 2.0, 3.0]
-    batch = _sat_batch(
-        "atms", [T0, T0], channels, lambda c: (0.0, 200.0 + c)
-    )
+    batch = _sat_batch("atms", [T0, T0], channels, lambda c: (0.0, 200.0 + c))
     fake_bufr["atms"] = _FakeBufr([batch])
     wide = decode_satellite(
         "atms", "atms", {"atms": "TMBR"}, T0, T0, channels=[1, 2, 3], decode_workers=1
@@ -1533,7 +1531,13 @@ def test_iasi_scale_groups_by_bounds(fake_bufr):
         batch = _sat_batch("iasi", [T0], [16.0, 38.0], lambda c: (scra[c],), fields)
         fake_bufr["iasi"] = _FakeBufr([batch])
         wide = decode_satellite(
-            "iasi", "iasi", {"iasi": "SCRA"}, T0, T0, channels=[16, 38], decode_workers=1
+            "iasi",
+            "iasi",
+            {"iasi": "SCRA"},
+            T0,
+            T0,
+            channels=[16, 38],
+            decode_workers=1,
         )
         return wide["observation_iasi"].to_pylist()[0]
 
@@ -1552,9 +1556,7 @@ def test_iasi_scale_groups_by_bounds(fake_bufr):
 
 def test_satellite_footprint_time_and_location_are_checked(fake_bufr):
     def decode(**fields):
-        batch = _sat_batch(
-            "atms", [T0], [1.0], lambda c: (0.0, 250.0), fields=fields
-        )
+        batch = _sat_batch("atms", [T0], [1.0], lambda c: (0.0, 250.0), fields=fields)
         fake_bufr["atms"] = _FakeBufr([batch])
         day = timedelta(days=1)
         return decode_satellite(

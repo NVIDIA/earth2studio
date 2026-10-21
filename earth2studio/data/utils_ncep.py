@@ -2749,7 +2749,9 @@ def _sat_batch(
     if not np.isfinite(said).all():
         raise ValueError("satellite footprint has no SAID")
     if not (np.isfinite(lon).all() and (np.abs(lat) <= 90.0).all()):
-        raise ValueError("satellite footprint latitude or longitude is missing or out of range")
+        raise ValueError(
+            "satellite footprint latitude or longitude is missing or out of range"
+        )
     is_cris = sensor == "cris"
     position = _required_column(batch, "FORN" if is_cris else "FOVN")
     keep = (time_ns >= window_ns[0]) & (time_ns <= window_ns[1]) & np.isfinite(position)
