@@ -303,19 +303,24 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
     number_of_samples : int
         Ensemble members per input; settable between calls.
     number_of_steps : int
-        ODE solver steps (each Heun step costs two network evaluations).
+        ODE solver steps (each Heun step costs two network evaluations). For a
+        :class:`CorrDiffEra5HrrrDistilled` network this is the number of blocks of
+        its rollout and must be 1 or 2.
     solver : {"heun", "euler"}
-        ODE solver.
+        ODE solver. Unused for a distilled network, whose rollout is fixed.
     shift : float
         SD3 resolution shift ``a`` applied to the rectified-flow time grid,
         ``t -> a t / (1 + (a - 1) t)``; ``1.0`` disables it. The examples found
         ``a`` of 12-32 optimal for full-domain sampling (the networks train on
-        256 x 256 patches). Ignored for EDM.
+        256 x 256 patches). Ignored for EDM. Unused for a distilled network, which
+        carries its own time grid.
     t_max : float
-        Rectified-flow start time (the noise end); kept below 1.
+        Rectified-flow start time (the noise end); kept slighly below 1 for stability.
+        Unused for a distilled network.
     x0v_clip : float
         Lower clamp of the denominator in the x-prediction to velocity conversion
         ``v = (x_t - x0_hat) / max(t, x0v_clip)`` near the data end (``t -> 0``).
+        Unused for a distilled network, which stores its own value.
     sigma_min, sigma_max, rho : float
         EDM Karras schedule parameters. Ignored for rectified flow.
     seed : int | None
@@ -767,7 +772,6 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         device: str | None = None,
         number_of_samples: int | None = None,
         number_of_steps: int | None = None,
-        shift: float | None = None,
         seed: int | None = None,
         amp: bool | None = None,
         variant: Literal["x_pred"] = "x_pred",
@@ -784,9 +788,8 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         number_of_samples : int | None, optional
             Ensemble members per input; defaults to the package metadata.
         number_of_steps : int | None, optional
-            ODE steps; defaults to the package metadata.
-        shift : float | None, optional
-            Rectified-flow resolution shift; defaults to the package metadata.
+            ODE steps for the teacher, or blocks (1 or 2) for the distilled
+            generator; defaults to the package metadata.
         seed : int | None, optional
             Base RNG seed, by default None (unseeded).
         amp : bool | None, optional
@@ -799,7 +802,8 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             distilled few-step generator (``corrdiff-era5-hrrr-distil.mdlus`` in the
             same package), which generates members in 1 or 2 sampler steps
             (``number_of_steps`` defaults to 2) at a fraction of the teacher's cost.
-            If False, it loads the teacher sampled with 50 Heun steps, by default True
+            Its sampling schedule is fixed by the checkpoint. If False, it loads the
+            teacher sampled with 50 Heun steps, by default True
 
         Returns
         -------
@@ -904,7 +908,7 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
                 else (2 if distilled_model else int(sampler_meta.get("num_steps", 50)))
             ),
             solver=sampler_meta.get("solver", "heun"),
-            shift=shift if shift is not None else float(sampler_meta.get("shift", 1.0)),
+            shift=float(sampler_meta.get("shift", 1.0)),
             t_max=float(sampler_meta.get("t_max", 0.99)),
             x0v_clip=float(sampler_meta.get("x0v_clip", 0.05)),
             sigma_min=float(sampler_meta.get("sigma_min", 0.01)),
