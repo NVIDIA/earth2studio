@@ -473,8 +473,9 @@ def resolve_output_schema(
 # ──────────────────────────────────────────────────────────────────────────
 
 _C_CM_S = 2.99792458e10
-# ATMS channel centre frequencies as encoded (SCCF, 0-02-153, in units of 10⁵ Hz) in the
-# NNJA atms aggregates; the same for every platform
+# ATMS channel centre frequencies by channel as the NNJA atms aggregates encode them:
+# SCCF (0-02-153) raw codes at scale -5, so the frequency in Hz is code x 10**5. The
+# same for every platform; decode_satellite checks them against each file's SCCF.
 # fmt: off
 _ATMS_SCCF_CODE = np.array(
     [238000, 314000, 503000, 517600, 528000, 536000, 544000, 549400, 555000, 572900,
@@ -2478,7 +2479,9 @@ def _sat_decode_options(
 ) -> dict[str, Any]:
     """earth2bufr options: only the requested fields and channels are decoded."""
     if sensor == "atms":
-        channel_fields = [f"DRF16BIT.{f}" for f in ("CHNM", "ATMSCHQ", *sorted(fields))]
+        channel_fields = [
+            f"DRF16BIT.{f}" for f in ("CHNM", "SCCF", "ATMSCHQ", *sorted(fields))
+        ]
         return {
             "projection": _ATMS_SCALARS + channel_fields,
             "raw_code_paths": channel_fields,
@@ -2794,6 +2797,11 @@ def _sat_batch(
         for variable in plan:
             observations[variable] = bt
     else:
+        if sensor == "atms":
+            sccf = rows.take("SCCF")
+            table = _ATMS_SCCF_CODE[channels.astype(np.int64) - 1] / (1.0 * 10**-5)
+            if not np.all((sccf == table) | np.isnan(sccf)):
+                raise ValueError("ATMS SCCF differs from the channel frequency table")
         quality = (
             rows.take("ATMSCHQ")
             if "ATMSCHQ" in child_names

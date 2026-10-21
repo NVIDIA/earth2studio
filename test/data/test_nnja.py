@@ -1008,6 +1008,11 @@ def _sat_batch(
         "airs": ["CHNM", "LOGRCW", "ACQF", "TMBR"],
         "cris": ["CHNM", "SRAD"],
     }[sensor]
+    if sensor == "atms":
+        # SCCF as the files encode it: the frequency table's raw codes x 10**5 Hz
+        def entries(c, entries=entries):
+            return (utils_ncep._ATMS_SCCF_CODE[int(c) - 1] / 1e-5, *entries(c))
+
     rows = [[(c, *entries(c)) for c in channels]] * n
     extra = {
         "atms": {"ATMSGQ": [0.0] * n, "ATMSSQ": [0.0] * n},
@@ -1309,7 +1314,7 @@ def test_truncated_messages_are_skipped_and_counted(fake_bufr):
     warnings = []
     sink = logger.add(lambda message: warnings.append(str(message)), level="WARNING")
     fake_bufr["atms"] = _FakeBufr(
-        [_sat_batch("atms", [T0], [1.0], lambda c: (1.0, 0.0, 250.0))],
+        [_sat_batch("atms", [T0], [1.0], lambda c: (0.0, 250.0))],
         truncated=truncated,
     )
     try:
@@ -1365,7 +1370,7 @@ def test_satwnd_scalars_read_the_first_occurrence_populated_in_the_file(fake_buf
 def test_microwave_wide_is_fixed_size_and_long_matches(fake_bufr):
     channels = [1.0, 2.0, 3.0]
     batch = _sat_batch(
-        "atms", [T0, T0], channels, lambda c: (23.8e9 * c, 0.0, 200.0 + c)
+        "atms", [T0, T0], channels, lambda c: (0.0, 200.0 + c)
     )
     fake_bufr["atms"] = _FakeBufr([batch])
     wide = decode_satellite(
@@ -1391,7 +1396,7 @@ def test_microwave_wide_is_fixed_size_and_long_matches(fake_bufr):
 
 def test_satellite_wide_is_one_matrix_over_the_channel_axis(fake_bufr):
     def entries(c):
-        return (23.8e9, 0.0, 200.0 + c)
+        return (0.0, 200.0 + c)
 
     full = _sat_batch("atms", [T0], [1.0, 2.0, 3.0], entries)
     # The second batch's footprint lacks channel 2
@@ -1548,7 +1553,7 @@ def test_iasi_scale_groups_by_bounds(fake_bufr):
 def test_satellite_footprint_time_and_location_are_checked(fake_bufr):
     def decode(**fields):
         batch = _sat_batch(
-            "atms", [T0], [1.0], lambda c: (1.0, 0.0, 250.0), fields=fields
+            "atms", [T0], [1.0], lambda c: (0.0, 250.0), fields=fields
         )
         fake_bufr["atms"] = _FakeBufr([batch])
         day = timedelta(days=1)
@@ -1595,9 +1600,17 @@ def test_airs_wavenumber_read_from_file(fake_bufr):
         decode_satellite("airs", "airs", {"airs": "TMBR"}, T0, T0, channels=[1])
 
 
+def test_atms_sccf_must_match_the_frequency_table(fake_bufr, monkeypatch):
+    batch = _sat_batch("atms", [T0], [1.0], lambda c: (0.0, 250.0))
+    fake_bufr["atms"] = _FakeBufr([batch])
+    monkeypatch.setattr(utils_ncep, "_ATMS_SCCF_CODE", utils_ncep._ATMS_SCCF_CODE + 1)
+    with pytest.raises(ValueError, match="SCCF"):
+        decode_satellite("atms", "atms", {"atms": "TMBR"}, T0, T0, channels=[1])
+
+
 def test_satellite_filter_and_window(fake_bufr):
     batch = _sat_batch(
-        "atms", [T0, T0 + timedelta(hours=1)], [1.0], lambda c: (1.0, 0.0, 250.0)
+        "atms", [T0, T0 + timedelta(hours=1)], [1.0], lambda c: (0.0, 250.0)
     )
     fake_bufr["atms"] = _FakeBufr([batch])
     kept = decode_satellite("atms", "atms", {"atms": "TMBR"}, T0, T0, decode_workers=1)
@@ -1651,7 +1664,7 @@ def test_nnja_sources_long_and_wide(fake_bufr, monkeypatch, tmp_path, layout):
                 time_tolerance=tolerance, cache=False, verbose=False, layout=layout
             ),
             ["atms"],
-            [_sat_batch("atms", [T0, end], [1.0, 2.0], lambda c: (1.0, 0.0, 250.0))],
+            [_sat_batch("atms", [T0, end], [1.0, 2.0], lambda c: (0.0, 250.0))],
             (),
         ),
     ]
@@ -1738,7 +1751,7 @@ def test_nnja_sources_keep_rows_inside_each_requested_interval(
         (
             NNJAObsSat,
             ["atms"],
-            [_sat_batch("atms", stamps, [1.0, 2.0], lambda c: (1.0, 0.0, 250.0))],
+            [_sat_batch("atms", stamps, [1.0, 2.0], lambda c: (0.0, 250.0))],
             (),
             None,
             [0, 2],
