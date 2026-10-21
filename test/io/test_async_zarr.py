@@ -985,6 +985,21 @@ async def test_async_zarr_shard_validation(tmp_path: str) -> None:
             shard_coords={"lead_time": 0},
         )
 
+    # chunked_coords must never widen a parallel coordinate's chunk of 1, nor be
+    # non-positive
+    with pytest.raises(ValueError, match="parallel_coords"):
+        AsyncZarrBackend(
+            f"{tmp_path}/widened.zarr",
+            parallel_coords={"lead_time": leads},
+            chunked_coords={"lead_time": 2},
+        )
+    with pytest.raises(ValueError, match="must be positive"):
+        AsyncZarrBackend(
+            f"{tmp_path}/nonpositive.zarr",
+            parallel_coords={"lead_time": leads},
+            chunked_coords={"lat": 0},
+        )
+
     # Shard size must be a multiple of the chunk size of that coordinate
     z = AsyncZarrBackend(
         f"{tmp_path}/bad1.zarr",

@@ -45,7 +45,6 @@ from earth2studio.run import (
     WorkItem,
 )
 from earth2studio.utils import coord_array
-from earth2studio.utils.coords import CoordSystem
 
 
 class AddOne(torch.nn.Module):
@@ -93,7 +92,10 @@ np.testing.assert_array_equal(steps[-1]["forecast"].values, 3)
 # lay out stores and predownload without executing anything.
 
 print(
-    {name: list(coords) for name, coords in runner.output_coords(item.horizon).items()}
+    {
+        name: list(coords.dims)
+        for name, coords in runner.output_coords(item.horizon).items()
+    }
 )
 (request,) = runner.data_requests(item)
 print(request.variable, request.lead_time)
@@ -137,7 +139,7 @@ class StopAtThreshold:
         self.inner.to(device)
         return self
 
-    def output_coords(self, horizon: np.timedelta64) -> Mapping[str, CoordSystem]:
+    def output_coords(self, horizon: np.timedelta64) -> Mapping[str, xr.DataArray]:
         """Return the wrapped schema; an upper bound."""
         return self.inner.output_coords(horizon)
 
