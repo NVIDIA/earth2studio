@@ -28,6 +28,7 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.compute as pc
 import pytest
+from loguru import logger
 
 import earth2studio.data.nnja as nnja
 from earth2studio.data import (
@@ -544,7 +545,8 @@ def test_nnja_obs_sat_tasks_group_fields_and_use_verified_archive_routes():
         verbose=False,
         decode_workers=1,
     )
-    cycle = datetime(2024, 1, 1)
+    # AMSU-B ends in 2014
+    cycle = datetime(2013, 1, 1)
     tasks = source._create_tasks(
         [cycle], ["atms", "atms_antenna_temperature", "mhs", "amsua", "amsub"]
     )
@@ -557,10 +559,10 @@ def test_nnja_obs_sat_tasks_group_fields_and_use_verified_archive_routes():
     }
     assert atms.datetime_min == cycle
     assert atms.datetime_max == cycle
-    assert atms.uri.endswith("gdas.20240101.t00z.atms.tm00.bufr_d")
+    assert atms.uri.endswith("gdas.20130101.t00z.atms.tm00.bufr_d")
     amsub = next(task for task in tasks if task.sensor == "amsub")
     assert amsub.var_plan == {"amsub": "TMBR"}
-    assert amsub.uri.endswith("gdas.20240101.t00z.1bamub.tm00.bufr_d")
+    assert amsub.uri.endswith("gdas.20130101.t00z.1bamub.tm00.bufr_d")
 
 
 def test_nnja_obs_sat_cycle_windows_follow_nnja_cycle_selection():
@@ -607,9 +609,7 @@ def test_nnja_obs_sat_fields_time_platform_and_adapter_validation():
     # ATMS starts in 2012, AMSU-A in 1998: plan the one that exists
     tasks = source._create_tasks([datetime(2000, 1, 1)], ["atms", "amsua"])
     assert {task.sensor for task in tasks} == {"amsua"}
-    with pytest.raises(nnja._NNJAObsSatIncompleteError) as unavailable:
-        source._create_tasks([datetime(2000, 1, 1)], ["atms", "cris"])
-    assert unavailable.value.context["reason"] == "archive_unavailable"
+    assert source._create_tasks([datetime(2000, 1, 1)], ["atms", "cris"]) == []
 
 
 def test_nnja_obs_sat_ir_tasks_use_verified_archive_routes():
@@ -638,35 +638,56 @@ def test_nnja_obs_sat_ir_tasks_use_verified_archive_routes():
     assert by_sensor["cris"].var_plan == {"cris": "SRAD"}
 
 
-def test_nnja_obs_sat_ir_archive_unavailable_outside_coverage():
+def test_nnja_obs_sat_cycles_outside_the_archive_period_are_skipped(monkeypatch):
     source = NNJAObsSat(
-        time_tolerance=timedelta(0),
+        time_tolerance=timedelta(0), layout="wide", cache=False, verbose=False
+    )
+    # Periods are exact to the cycle: crisf4 starts 2018-01-16T18, airs/nasa/aqua
+    # ends 2023-01-18T06
+    for sensor, outside, inside in [
+        ("cris", datetime(2018, 1, 16, 12), datetime(2018, 1, 16, 18)),
+        ("airs", datetime(2023, 1, 18, 12), datetime(2023, 1, 18, 6)),
+    ]:
+        assert source._create_tasks([outside], [sensor]) == []
+        assert len(source._create_tasks([inside], [sensor])) == 1
+        assert not NNJAObsSat.available(outside, sensor)
+        assert NNJAObsSat.available(inside, sensor)
+    assert NNJAObsSat.available(datetime(2023, 1, 18, 12))
+
+    # A request with no cycle in the period reads nothing and returns an empty frame
+    async def no_fetch(uris):
+        assert not uris
+
+    monkeypatch.setattr(source, "fetch_files", no_fetch)
+    warnings = []
+    sink = logger.add(lambda message: warnings.append(str(message)), level="WARNING")
+    try:
+        frame = source(datetime(2025, 1, 3), ["airs"])
+    finally:
+        logger.remove(sink)
+    assert frame.empty and channel_axis(frame, "airs").size == 281
+    assert sum("outside the archive period" in w for w in warnings) == 1
+
+
+def test_nnja_obs_sat_missing_files_give_an_empty_frame(monkeypatch):
+    async def missing(*args, **kwargs):
+        raise FileNotFoundError
+
+    monkeypatch.setattr(nnja, "obstore_fetch_to_cache", missing)
+    source = NNJAObsSat(
+        time_tolerance=(timedelta(hours=-4), timedelta(0)),
+        layout="wide",
         cache=False,
         verbose=False,
-        decode_workers=1,
     )
-    # Before the archive start (crisf4 begins 2018, mtiasi 2008)
-    for sensor, cycle in [
-        ("cris", datetime(2017, 1, 1)),
-        ("iasi", datetime(2007, 6, 1)),
-    ]:
-        with pytest.raises(nnja._NNJAObsSatIncompleteError) as err:
-            source._create_tasks([cycle], [sensor])
-        assert err.value.context["reason"] == "archive_unavailable"
-        assert err.value.context["sensor"] == sensor
-
-    # After the archive end (airs/nasa/aqua stops in January 2023)
-    with pytest.raises(nnja._NNJAObsSatIncompleteError) as err:
-        source._create_tasks([datetime(2024, 1, 1)], ["airs"])
-    assert err.value.context["reason"] == "archive_unavailable"
-    assert err.value.context["last_year"] == 2023
-
-    # Inside coverage plans normally
-    assert source._create_tasks([datetime(2019, 1, 1)], ["airs", "cris"])
-
-    # A sensor outside its coverage does not stop the others from being planned
-    tasks = source._create_tasks([datetime(2025, 1, 1)], ["airs", "atms", "cris"])
-    assert {task.sensor for task in tasks} == {"atms", "cris"}
+    warnings = []
+    sink = logger.add(lambda message: warnings.append(str(message)), level="WARNING")
+    try:
+        frame = source(datetime(2025, 1, 3), ["cris"])
+    finally:
+        logger.remove(sink)
+    assert frame.empty
+    assert sum("not found, skipping" in w for w in warnings) == 2
 
 
 def test_nnja_obs_sat_lexicon_ir_routes():
@@ -1304,8 +1325,6 @@ def test_gpsro_one_bending_angle_per_level(fake_bufr):
 
 
 def test_truncated_messages_are_skipped_and_counted(fake_bufr):
-    from loguru import logger
-
     truncated = [SimpleNamespace(source_message_index=4, reason="past Section 4")]
     messages = [_satwnd_message("3-63-130")]
     fake_bufr["satwnd"] = _FakeBufr(

@@ -340,7 +340,8 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         tables = e2s_nnja.analysis_tables(
             frames["conv_obs"],
             frames["satwnd_obs"],
-            sat or None,
+            # An empty sensor frame (e.g. outside its archive period) is an omitted one
+            {sensor: df for sensor, df in sat.items() if not df.empty} or None,
             sensors=self._model.satellite_sensors,
             ir_channels=self._model.ir_channels,
             layout="wide",

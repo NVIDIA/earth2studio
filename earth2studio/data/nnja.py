@@ -30,7 +30,7 @@ import threading
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Literal
 
 import numpy as np
@@ -89,13 +89,23 @@ NNJA_PREFIX = "observations/reanalysis"
 class _NNJASatProduct:
     prefix: str
     filename: str
-    first_year: int
-    last_year: int | None = None
+    # First and last cycle files in the archive; no last for a product still flying
+    first: datetime
+    last: datetime | None = None
     # Cycle-file naming convention within <prefix>/YYYY/MM/bufr/:
     #   "gdas": gdas.YYYYMMDD.tHHz.<filename>.tm00.bufr_d (NCEP dumps)
     #   "nasa": <filename>.YYYYMMDD.tHHz.bufr (NASA GES DISC final products)
     naming: str = "gdas"
 
+
+
+def _in_period(product: _NNJASatProduct, cycle: datetime) -> bool:
+    return product.first <= cycle and (product.last is None or cycle <= product.last)
+
+
+def _period(product: _NNJASatProduct) -> str:
+    last = "present" if product.last is None else product.last.isoformat()
+    return f"{product.first.isoformat()} to {last}"
 
 class _NNJAObsSatIncompleteError(RuntimeError):
     def __init__(self, reason: str, **context: object) -> None:
@@ -122,12 +132,13 @@ def _raise_task_failure(
 
 
 _NNJA_SAT_PRODUCTS: dict[str, _NNJASatProduct] = {
-    "atms": _NNJASatProduct("atms/atms", "atms", 2012),
-    "mhs": _NNJASatProduct("mhs/1bmhs", "1bmhs", 2005),
-    "amsua": _NNJASatProduct("amsua/1bamua", "1bamua", 1998),
-    "amsub": _NNJASatProduct("amsub/1bamub", "1bamub", 1998),
-    # IR sounder archive coverage verified against the live bucket listings;
-    # the archives start later than the instruments' launch years. AIRS routes
+    "atms": _NNJASatProduct("atms/atms", "atms", datetime(2012, 2, 15)),
+    "mhs": _NNJASatProduct("mhs/1bmhs", "1bmhs", datetime(2005, 2, 1, 12)),
+    "amsua": _NNJASatProduct("amsua/1bamua", "1bamua", datetime(1998, 10, 26)),
+    "amsub": _NNJASatProduct(
+        "amsub/1bamub", "1bamub", datetime(1998, 10, 26), datetime(2014, 6, 6)
+    ),
+    # Periods are the archive's first and last cycle files. AIRS routes
     # to airs/nasa/aqua (2002-08-31 → 2023-01-18) rather than airs/airsev
     # (2007-02-21 → 2020-12-07); the two are structurally identical BUFR files
     # and agree on the infrared values, but the NASA route spans five more
@@ -137,10 +148,14 @@ _NNJA_SAT_PRODUCTS: dict[str, _NNJASatProduct] = {
     # older cris/cris archive (2012-2020) is NSR with different channel
     # numbering and is deliberately not routed.
     "airs": _NNJASatProduct(
-        "airs/nasa/aqua", "airs_disc_final", 2002, last_year=2023, naming="nasa"
+        "airs/nasa/aqua",
+        "airs_disc_final",
+        datetime(2002, 8, 31),
+        datetime(2023, 1, 18, 6),
+        naming="nasa",
     ),
-    "iasi": _NNJASatProduct("iasi/mtiasi", "mtiasi", 2008),
-    "cris": _NNJASatProduct("cris/crisf4", "crisf4", 2018),
+    "iasi": _NNJASatProduct("iasi/mtiasi", "mtiasi", datetime(2008, 1, 1)),
+    "cris": _NNJASatProduct("cris/crisf4", "crisf4", datetime(2018, 1, 16, 18)),
 }
 
 # Hyperspectral IR sounders share the aggregate cycle-file layout above; only
@@ -718,8 +733,13 @@ class NNJAObsSat:
     CrIS) numbered on the instrument grids; ``cris`` routes to the
     full-spectral-resolution ``crisf4`` product whose channel numbers live
     on the 2211-channel FSR grid; ``SAT_CHANNELS`` in
-    ``earth2studio.data.utils_ncep`` lists them. Archive coverage: AIRS
-    2002–2023 (NASA/Aqua route), IASI 2008–present, CrIS (FSR) 2018–present.
+    ``earth2studio.data.utils_ncep`` lists them. Archive periods: AMSU-A and
+    AMSU-B from 1998-10-26 (AMSU-B to 2014-06-06), MHS from 2005-02-01T12, ATMS
+    from 2012-02-15, AIRS 2002-08-31 to 2023-01-18T06 (NASA/Aqua route), IASI from
+    2008-01-01, CrIS (FSR) from 2018-01-16T18. A cycle outside its sensor's period
+    is skipped like a missing file, with one warning per sensor; a request with no
+    cycle in the period returns an empty frame. ``available(time, sensor)`` checks
+    the period.
     All archived channels are returned by default; pass ``sensor_indices`` to
     narrow at decode time or subset downstream via the ``sensor_index``
     column.
@@ -1096,9 +1116,7 @@ class NNJAObsSat:
                 )
                 continue
             for cycle, intervals in sorted(windows.items()):
-                if cycle.year < product.first_year or (
-                    product.last_year is not None and cycle.year > product.last_year
-                ):
+                if not _in_period(product, cycle):
                     unavailable.setdefault(sensor, []).append(cycle)
                     continue
                 tasks.append(
@@ -1112,25 +1130,12 @@ class NNJAObsSat:
                         intervals=intervals,
                     )
                 )
-        # A sensor outside its archive years has no rows there, like a sensor with no
-        # platform in flight; only a request with nothing left to read is an error.
-        if unavailable and not tasks:
-            sensor, cycles = next(iter(unavailable.items()))
-            product = _NNJA_SAT_PRODUCTS[sensor]
-            raise _NNJAObsSatIncompleteError(
-                "archive_unavailable",
-                uri=self._build_satellite_uri(cycles[0], sensor),
-                sensor=sensor,
-                cycle=cycles[0].isoformat(),
-                first_year=product.first_year,
-                last_year=product.last_year,
-            )
+        # A cycle outside the archive period is a known gap: no file, no rows
         for sensor, cycles in unavailable.items():
-            product = _NNJA_SAT_PRODUCTS[sensor]
             logger.warning(
-                f"NNJAObsSat: no {sensor} archive for {len(cycles)} cycle(s) outside "
-                f"{product.first_year}-{product.last_year or 'present'}; "
-                f"no {sensor} rows will be returned for them"
+                f"NNJAObsSat: {len(cycles)} {sensor} cycle(s) outside the archive "
+                f"period {_period(_NNJA_SAT_PRODUCTS[sensor])}; no {sensor} rows "
+                "for them"
             )
         return tasks
 
@@ -1167,13 +1172,21 @@ class NNJAObsSat:
                 )
 
     @classmethod
-    def available(cls, time: datetime | np.datetime64) -> bool:
-        """Check if given date time is available.
+    def available(
+        cls, time: datetime | np.datetime64, sensor: str | None = None
+    ) -> bool:
+        """Check if given date time is available, for ``sensor`` if given.
+
+        A time is available for a sensor when its cycle file (the nearest
+        six-hourly cycle) lies in the sensor's archive period. Only the period is
+        checked, not whether that file exists.
 
         Parameters
         ----------
         time : datetime | np.datetime64
             Date time to check
+        sensor : str | None, optional
+            Sensor, e.g. ``"airs"``, by default None (any)
 
         Returns
         -------
@@ -1186,7 +1199,12 @@ class NNJAObsSat:
             cls._validate_time([time])
         except ValueError:
             return False
-        return True
+        if sensor is None:
+            return True
+        cycle = datetime(time.year, time.month, time.day) + timedelta(
+            hours=6 * ((time.hour + time.minute / 60 + 3) // 6)
+        )
+        return _in_period(_NNJA_SAT_PRODUCTS[sensor], cycle)
 
     @classmethod
     def resolve_fields(cls, fields: str | list[str] | pa.Schema | None) -> pa.Schema:

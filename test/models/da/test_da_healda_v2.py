@@ -21,6 +21,7 @@ import pytest
 import torch
 import xarray as xr
 
+from earth2studio.data.utils_ncep import _sat_wide_schema, to_dataframe
 from earth2studio.models.da.healda_v2 import (
     NLAT,
     NLON,
@@ -169,6 +170,17 @@ def test_healda_v2_omitted_streams_are_not_passed():
     request_time = np.array([CYCLE])
     out = model(satwnd_obs=_satwnd_df(request_time))
     assert out.shape == (1, len(CHANNELS), NLAT, NLON)
+    (call,) = model._model.calls
+    assert set(call) == {"times", "satwnd_tables"}
+
+
+def test_healda_v2_empty_sensor_frame_is_omitted():
+    model = _build_model()
+    request_time = np.array([CYCLE])
+    schema = _sat_wide_schema("airs")
+    airs = to_dataframe(schema.empty_table(), schema, "test")
+    airs.attrs["request_time"] = request_time
+    model(satwnd_obs=_satwnd_df(request_time), sat_obs={"airs": airs})
     (call,) = model._model.calls
     assert set(call) == {"times", "satwnd_tables"}
 
