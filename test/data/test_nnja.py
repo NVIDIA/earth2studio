@@ -946,7 +946,7 @@ def _prepbufr_file(category: int = 102, families: dict | None = None) -> _FakeBu
     return _FakeBufr([batch], messages, sequences)
 
 
-def _satwnd_batch(stamps: list[datetime]) -> pa.RecordBatch:
+def _satwnd_batch(stamps: list[datetime], fields: dict | None = None) -> pa.RecordBatch:
     n = len(stamps)
     return _batch(
         {
@@ -967,6 +967,7 @@ def _satwnd_batch(stamps: list[datetime]) -> pa.RecordBatch:
             "PCCF#2": [80.0] * n,
             "GNAP#3": [1.0] * n,
             "PCCF#3": [70.0] * n,
+            **(fields or {}),
             "_source_message_index": pa.array([0] * n, type=pa.uint64()),
         }
     )
@@ -1203,6 +1204,19 @@ def test_satwnd_wide_long_and_quality_pairs(fake_bufr):
         long["quality_indicators"].to_pylist()[2]
         == wide["quality_indicators"].to_pylist()[0]
     )
+
+
+def test_satwnd_scalars_read_the_first_occurrence_populated_in_the_batch(fake_bufr):
+    stamps = [T0] * 3
+    empty_first = {"HAMD": pa.nulls(3, pa.float64()), "HAMD#2": [7.0, None, 9.0]}
+    sparse_first = {"HAMD": [None, 2.0, None], "HAMD#2": [7.0, 8.0, 9.0]}
+    messages = [SimpleNamespace(source_message_index=0, local_sub_category=24)]
+    fake_bufr["satwnd"] = _FakeBufr(
+        [_satwnd_batch(stamps, empty_first), _satwnd_batch(stamps, sparse_first)],
+        messages,
+    )
+    wide = decode_satwnd("satwnd", ["u"], T0, T0, 1)
+    assert wide["height_method"].to_pylist() == [7, None, 9, None, 2, None]
 
 
 def test_microwave_wide_is_fixed_size_and_long_matches(fake_bufr):

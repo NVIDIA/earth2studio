@@ -1907,9 +1907,10 @@ def decode_gpsro(
 # ──────────────────────────────────────────────────────────────────────────
 # Satellite winds
 # ──────────────────────────────────────────────────────────────────────────
-# Each mnemonic is read from its first top-level occurrence in the template.
-# Later occurrences hold other quantities: alternate height assignments, model
-# wind levels, the pressure uncertainty (PRLC), the contributing satellite
+# A batch is one template. Each mnemonic is read, for every wind of the batch,
+# from its first top-level occurrence that is populated in some wind of the
+# batch. Later occurrences hold other quantities: alternate height assignments,
+# model wind levels, the pressure uncertainty (PRLC), the contributing satellite
 # (SAID, SAZA) or intermediate image-pair vectors (WDIR, WSPD).
 
 _SATWND_TIME = ("YEAR", "MNTH", "DAYS", "HOUR", "MINU", "SECO")
@@ -1946,21 +1947,19 @@ _SATWND_SUBSETS = pa.array([f"NC005{c:03d}" for c in range(256)])
 
 @dataclass(frozen=True)
 class _SatwndPlan:
-    column: dict[str, int]
+    columns: dict[str, list[int]]
     pairs: dict[str, list[tuple[int, int]]]
 
 
 def _satwnd_plan(schema: pa.Schema) -> _SatwndPlan:
-    """Column index of each mnemonic's first top-level occurrence and the
+    """Column indices of each mnemonic's top-level occurrences and the
     GNAP/GNAPS -> PCCF pairs of a template."""
-    column: dict[str, int] = {}
+    columns: dict[str, list[int]] = {}
     for index, field in enumerate(schema):
-        if (
-            field.name in (*_SATWND_SCALARS, *_SATWND_TIME)
-            and field.name not in column
-            and not pa.types.is_nested(field.type)
+        if field.name in (*_SATWND_SCALARS, *_SATWND_TIME) and not pa.types.is_nested(
+            field.type
         ):
-            column[field.name] = index
+            columns.setdefault(field.name, []).append(index)
     events = [
         (f.name, i) for i, f in enumerate(schema) if f.name in ("GNAP", "GNAPS", "PCCF")
     ]
@@ -1972,7 +1971,7 @@ def _satwnd_plan(schema: pa.Schema) -> _SatwndPlan:
         ]
         for code in _SATWND_QUALITY_CODES
     }
-    return _SatwndPlan(column, pairs)
+    return _SatwndPlan(columns, pairs)
 
 
 def _satwnd_quality(
@@ -2015,17 +2014,20 @@ def _satwnd_batch(
 ) -> pa.Table | None:
     plan = _satwnd_plan(batch.schema)
     n = batch.num_rows
-
-    def get(name: str) -> pa.Array | None:
-        index = plan.column.get(name)
-        return None if index is None else batch.column(index)
+    column = {
+        name: next(
+            (batch.column(i) for i in indices if batch.column(i).null_count < n),
+            batch.column(indices[0]),
+        )
+        for name, indices in plan.columns.items()
+    }
 
     def floats(name: str) -> np.ndarray:
-        array = get(name)
+        array = column.get(name)
         return np.full(n, np.nan) if array is None else float_values(array)
 
-    lat = floats("CLATH" if "CLATH" in plan.column else "CLAT")
-    lon = floats("CLONH" if "CLONH" in plan.column else "CLON")
+    lat = floats("CLATH" if "CLATH" in column else "CLAT")
+    lon = floats("CLONH" if "CLONH" in column else "CLON")
     wdir, wspd = floats("WDIR"), floats("WSPD")
     parts = [floats(name) for name in _SATWND_TIME]
     stamp, ok = civil_time_ns(*parts)
@@ -2045,14 +2047,14 @@ def _satwnd_batch(
         "class": constant_dictionary("SATWND", k),
     }
     for out, name in _SATWND_FLOATS.items():
-        array = get(name)
+        array = column.get(name)
         columns[out] = (
             null_array(pa.float32(), k)
             if array is None
             else pc.cast(array, pa.float32()).filter(arrow_keep)
         )
     for out, (name, arrow_type) in _SATWND_INTS.items():
-        array = get(name)
+        array = column.get(name)
         columns[out] = (
             null_array(arrow_type, k)
             if array is None
