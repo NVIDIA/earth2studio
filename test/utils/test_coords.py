@@ -1364,3 +1364,15 @@ def test_coordinate_array_like_spatial_replacement_requires_new_grid():
     assert "crs" not in cropped.attrs
     assert infer_grid(cropped).fingerprint() == grid.fingerprint()
     assert "earth2studio_grid_id" in signature.attrs
+
+
+def test_handshake_coords_undefined_geography():
+    """Undefined (NaN) geographic coordinates, as off a satellite disk, match."""
+    lat = np.array([[np.nan, 10.0], [20.0, 30.0]])
+    signature = xr.DataArray(
+        np.zeros((2, 2)), dims=("y", "x"), coords={"lat": (("y", "x"), lat)}
+    )
+    handshake_coords(signature.copy(), signature, "lat")
+    shifted = signature.assign_coords(lat=(("y", "x"), lat + 1))
+    with pytest.raises(ValueError):
+        handshake_coords(shifted, signature, "lat")
