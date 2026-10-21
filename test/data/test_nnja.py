@@ -759,12 +759,20 @@ def test_nnja_obs_conv_async_timeout_bounds_the_download_not_the_decode(
 T0 = datetime(2024, 1, 1, 0)
 
 
+# Table D mnemonics of satwnd root descriptors in the fake files' DX tables
+_SATWND_SEQUENCES = {"3-63-130": "NC005030", "3-63-185": "NC005024"}
+
+
+def _satwnd_message(root: str) -> SimpleNamespace:
+    return SimpleNamespace(source_message_index=0, descriptors=(root,), table_epoch=0)
+
+
 class _FakeBufr:
     """Stands in for an earth2bufr file: yields the given batches, applying list filters."""
 
     def __init__(self, batches, messages=(), sequences=None, truncated=()):
         self.batches = batches
-        self.sequences = sequences or {}
+        self.sequences = _SATWND_SEQUENCES if sequences is None else sequences
         self.info = SimpleNamespace(
             messages=list(messages), data_messages=list(messages)
         )
@@ -1213,7 +1221,7 @@ def test_prepbufr_drift_levels_follow_their_report_time(fake_bufr):
 
 def test_satwnd_wide_long_and_quality_pairs(fake_bufr):
     stamps = [T0, T0 + timedelta(hours=3)]
-    messages = [SimpleNamespace(source_message_index=0, local_sub_category=30)]
+    messages = [_satwnd_message("3-63-130")]
     fake_bufr["satwnd"] = _FakeBufr([_satwnd_batch(stamps)], messages)
     wide = decode_satwnd("satwnd", ["u", "v"], T0, T0 + timedelta(hours=3), 1)
     assert wide.num_rows == 2
@@ -1234,7 +1242,7 @@ def test_satwnd_wide_long_and_quality_pairs(fake_bufr):
 
 
 def test_satwnd_non_positive_pressure_is_null(fake_bufr):
-    messages = [SimpleNamespace(source_message_index=0, local_sub_category=30)]
+    messages = [_satwnd_message("3-63-130")]
     batch = _satwnd_batch([T0] * 3, {"PRLC": [0.0, -100.0, 50000.0]})
     fake_bufr["satwnd"] = _FakeBufr([batch], messages)
     wide = decode_satwnd("satwnd", ["u"], T0, T0, 1)
@@ -1242,7 +1250,7 @@ def test_satwnd_non_positive_pressure_is_null(fake_bufr):
 
 
 def test_missing_hour_drops_the_wind_and_the_occultation(fake_bufr):
-    messages = [SimpleNamespace(source_message_index=0, local_sub_category=30)]
+    messages = [_satwnd_message("3-63-130")]
     hour = pa.array([None, 0.0])
     fake_bufr["satwnd"] = _FakeBufr(
         [_satwnd_batch([T0, T0], {"HOUR": hour})], messages
@@ -1293,7 +1301,7 @@ def test_truncated_messages_are_skipped_and_counted(fake_bufr):
     from loguru import logger
 
     truncated = [SimpleNamespace(source_message_index=4, reason="past Section 4")]
-    messages = [SimpleNamespace(source_message_index=0, local_sub_category=30)]
+    messages = [_satwnd_message("3-63-130")]
     fake_bufr["satwnd"] = _FakeBufr([_satwnd_batch([T0])], messages, truncated=truncated)
     warnings = []
     sink = logger.add(lambda message: warnings.append(str(message)), level="WARNING")
@@ -1305,8 +1313,16 @@ def test_truncated_messages_are_skipped_and_counted(fake_bufr):
     assert any("skipped 1 truncated BUFR messages" in w for w in warnings)
 
 
+def test_satwnd_subset_is_read_from_the_dx_table(fake_bufr):
+    fake_bufr["satwnd"] = _FakeBufr(
+        [_satwnd_batch([T0])], [_satwnd_message("3-63-130")], {"3-63-130": "NC005099"}
+    )
+    wide = decode_satwnd("satwnd", ["u"], T0, T0, 1)
+    assert wide["subset"].cast(pa.string()).to_pylist() == ["NC005099"]
+
+
 def test_satwnd_unknown_quality_application_raises(fake_bufr):
-    messages = [SimpleNamespace(source_message_index=0, local_sub_category=30)]
+    messages = [_satwnd_message("3-63-130")]
     batch = _satwnd_batch([T0], {"GNAP#2": [9.0]})
     fake_bufr["satwnd"] = _FakeBufr([batch], messages)
     with pytest.raises(ValueError, match="Unknown GNAP application code 9"):
@@ -1317,7 +1333,7 @@ def test_satwnd_scalars_read_the_first_occurrence_populated_in_the_batch(fake_bu
     stamps = [T0] * 3
     empty_first = {"HAMD": pa.nulls(3, pa.float64()), "HAMD#2": [7.0, None, 9.0]}
     sparse_first = {"HAMD": [None, 2.0, None], "HAMD#2": [7.0, 8.0, 9.0]}
-    messages = [SimpleNamespace(source_message_index=0, local_sub_category=24)]
+    messages = [_satwnd_message("3-63-185")]
     fake_bufr["satwnd"] = _FakeBufr(
         [_satwnd_batch(stamps, empty_first), _satwnd_batch(stamps, sparse_first)],
         messages,
@@ -1467,7 +1483,7 @@ def test_nnja_sources_long_and_wide(fake_bufr, monkeypatch, tmp_path, layout):
             ),
             ["u", "v"],
             [_satwnd_batch([T0, end])],
-            [SimpleNamespace(source_message_index=0, local_sub_category=30)],
+            [_satwnd_message("3-63-130")],
         ),
         (
             NNJAObsSat(
@@ -1549,7 +1565,7 @@ def test_nnja_sources_keep_rows_inside_each_requested_interval(
             NNJAObsSatwnd,
             ["u", "v"],
             [_satwnd_batch(stamps)],
-            [SimpleNamespace(source_message_index=0, local_sub_category=30)],
+            [_satwnd_message("3-63-130")],
             None,
             [0, 2],
         ),

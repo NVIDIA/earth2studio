@@ -1917,7 +1917,6 @@ _SATWND_INTS = {
     "height_method": ("HAMD", pa.uint8()),
 }
 _SATWND_FLOATS = {"pres": "PRLC", "satellite_za": "SAZA"}
-_SATWND_SUBSETS = pa.array([f"NC005{c:03d}" for c in range(256)])
 
 
 @dataclass(frozen=True)
@@ -1985,9 +1984,32 @@ def _satwnd_quality(
     return columns
 
 
+def _satwnd_subsets(source: Any) -> tuple[np.ndarray, pa.Array]:
+    """Code of each message's dump subset and the subset names: the Table D
+    mnemonic of the message's root descriptor, from the file's DX tables."""
+    code = np.zeros(len(source.info.messages), dtype=np.int16)
+    names: dict[str, int] = {}
+    by_template: dict[tuple, int] = {}
+    for message in source.info.data_messages:
+        descriptors = tuple(message.descriptors)
+        template = (descriptors, message.table_epoch)
+        if template not in by_template:
+            root = descriptors[1] if len(descriptors) > 1 else descriptors[0]
+            structure = source.source_structure(message.source_message_index)
+            sequences = {
+                s["descriptor"]: s["mnemonic"] for s in structure["active_sequences"]
+            }
+            if root not in sequences:
+                raise ValueError(f"Root descriptor {root} is not in the DX tables")
+            by_template[template] = names.setdefault(sequences[root], len(names))
+        code[message.source_message_index] = by_template[template]
+    return code, pa.array(list(names), type=pa.string())
+
+
 def _satwnd_batch(
     batch: pa.RecordBatch,
-    subcategory: np.ndarray,
+    subset_code: np.ndarray,
+    subset_names: pa.Array,
     variables: Sequence[str],
     window_ns: tuple[int, int],
 ) -> pa.Table | None:
@@ -2045,7 +2067,7 @@ def _satwnd_batch(
         )
     message = batch.column("_source_message_index").to_numpy()[keep]
     columns["subset"] = pa.DictionaryArray.from_arrays(
-        pa.array(subcategory[message].astype(np.int16)), _SATWND_SUBSETS
+        pa.array(subset_code[message]), subset_names
     )
     for mnemonic in _SATWND_QUALITY_CODES:
         columns.update(_satwnd_quality(batch, mnemonic, plan.pairs[mnemonic], keep))
@@ -2086,9 +2108,7 @@ def decode_satwnd(
     """
     window_ns = (datetime_ns(dt_min), datetime_ns(dt_max))
     with open_bufr(path) as source:
-        subcategory = np.zeros(len(source.info.messages), dtype=np.int64)
-        for message in source.info.messages:
-            subcategory[message.source_message_index] = message.local_sub_category
+        subset_code, subset_names = _satwnd_subsets(source)
         # Fields differ by template; a template's missing fields are left out
         batches = iter_batches(
             source,
@@ -2101,7 +2121,9 @@ def decode_satwnd(
         tables = [
             t
             for t in map_ordered(
-                lambda b: _satwnd_batch(b, subcategory, variables, window_ns),
+                lambda b: _satwnd_batch(
+                    b, subset_code, subset_names, variables, window_ns
+                ),
                 batches,
                 decode_workers,
             )
