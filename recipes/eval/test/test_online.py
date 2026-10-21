@@ -38,16 +38,21 @@ from src.metrics import ensemble_variance, mse
 from src.online import (
     FieldCache,
     GroupComm,
+    MultiRefScorer,
     OnlineScorer,
     StepContext,
     available_times,
+    build_online_scorers,
     build_spatial_weights,
     build_statistics,
     check_verification_coverage,
+    finalize_online_stats,
     finalize_stats,
+    named_store_filename,
     online_enabled,
     open_stats_store,
     parse_online_settings,
+    resolve_verification_sources,
     retain_raw_output,
     stats_array_groups,
 )
@@ -1060,6 +1065,214 @@ class TestFairCRPS:
 # ---------------------------------------------------------------------------
 # Store schema
 # ---------------------------------------------------------------------------
+
+
+class TestMultiReference:
+    """The multi-reference knob: names -> own sources, own stores, one rollout."""
+
+    def test_unset_sources_keep_the_original_filenames(self, tmp_path):
+        cfg = _base_cfg(tmp_path)
+        sources = resolve_verification_sources(cfg, _StubPipeline("default"))
+        assert list(sources) == [None]
+        # A campaign written before this feature must be byte-identical.
+        assert named_store_filename("stats.zarr", None) == "stats.zarr"
+        assert named_store_filename("scores.zarr", None) == "scores.zarr"
+
+    def test_named_sources_get_their_own_stores(self, tmp_path):
+        cfg = _base_cfg(tmp_path)
+        cfg.scoring.online.verification_sources = {"era5": None, "ifs": None}
+        sources = resolve_verification_sources(cfg, _StubPipeline("default"))
+        assert list(sources) == ["era5", "ifs"]
+        assert named_store_filename("stats.zarr", "era5") == "stats__era5.zarr"
+        assert named_store_filename("scores.zarr", "ifs") == "scores__ifs.zarr"
+
+    def test_empty_sources_is_rejected_not_ignored(self, tmp_path):
+        cfg = _base_cfg(tmp_path)
+        cfg.scoring.online.verification_sources = {}
+        # Empty is a config mistake; silently scoring one reference would hide it.
+        with pytest.raises(ValueError, match="set but empty"):
+            resolve_verification_sources(cfg, _StubPipeline("default"))
+
+    @pytest.mark.parametrize("bad", ["../../escape", "has/slash", "with.dot", "_lead"])
+    def test_names_that_would_escape_the_store_path_are_rejected(self, tmp_path, bad):
+        cfg = _base_cfg(tmp_path)
+        cfg.scoring.online.verification_sources = {bad: None}
+        # Names are interpolated into a filename that is joined onto output.path.
+        with pytest.raises(ValueError, match="Invalid verification source name"):
+            resolve_verification_sources(cfg, _StubPipeline("default"))
+
+    def test_fan_out_hands_every_chunk_to_every_reference(self):
+        a, b = _RecordingScorer(), _RecordingScorer()
+        scorer = MultiRefScorer({"era5": a, "ifs": b})
+        item = object()
+        chunk = torch.zeros(2, 3)
+        coords = OrderedDict({"lead_time": LEAD_TIMES})
+
+        scorer.begin_item(item)
+        scorer.update(chunk, coords)
+        scorer.update(chunk, coords)
+        scorer.finish_item(item)
+
+        for child in (a, b):
+            assert child.begun == [item]
+            assert len(child.updates) == 2
+            assert child.finished == [item]
+        # The chunk is shared, not copied per reference.
+        assert a.updates[0] is b.updates[0] is chunk
+
+    def test_ic_is_marked_once_after_every_reference_wrote(self):
+        log = []
+        a, b = _RecordingScorer(log), _RecordingScorer(log)
+        MultiRefScorer({"era5": a, "ifs": b}).finish_item(object())
+        assert log == [("finish", a, False), ("finish", b, False), ("mark", a)]
+
+    def test_crash_before_the_last_reference_leaves_the_ic_unmarked(self):
+        log = []
+        a, b = _RecordingScorer(log), _RecordingScorer(log, fail_finish=True)
+        with pytest.raises(RuntimeError):
+            MultiRefScorer({"era5": a, "ifs": b}).finish_item(object())
+        # Resume rescoring this IC is what fills the reference that never wrote.
+        assert ("mark", a) not in log
+
+    def test_fan_out_requires_a_child(self):
+        with pytest.raises(ValueError, match="at least one"):
+            MultiRefScorer({})
+
+    def test_distinct_truths_score_into_their_own_stores(self, tmp_path):
+        from src.data import PredownloadedSource
+
+        cfg = _base_cfg(tmp_path, ensemble_size=1)
+        cfg.scoring.online.verification_sources = {"a": None, "b": None}
+        os.makedirs(cfg.output.path, exist_ok=True)
+        valid_times = np.unique(
+            np.array(
+                [t + lt for t in IC_TIMES for lt in LEAD_TIMES],
+                dtype="datetime64[ns]",
+            )
+        )
+        sources = {
+            "a": PredownloadedSource(
+                _verification_zarr(tmp_path / "a.zarr", valid_times, seed=7)
+            ),
+            "b": PredownloadedSource(
+                _verification_zarr(tmp_path / "b.zarr", valid_times, seed=8)
+            ),
+        }
+        settings = parse_online_settings(cfg)
+        comm = _single_rank_comm(1)
+        spatial = OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
+        with (
+            patch("src.output.DistributedManager", return_value=_fake_dist()),
+            patch("src.distributed.DistributedManager", return_value=_fake_dist()),
+        ):
+            stats_mgrs = {
+                name: open_stats_store(
+                    cfg,
+                    build_statistics(1, has_climatology=False),
+                    VARIABLES,
+                    IC_TIMES,
+                    LEAD_TIMES,
+                    1,
+                    store_name=named_store_filename(settings.stats_store, name),
+                )
+                for name in sources
+            }
+            with stats_mgrs["a"], stats_mgrs["b"]:
+                scorer = build_online_scorers(
+                    cfg,
+                    settings,
+                    comm,
+                    sources,
+                    list(VARIABLES),
+                    LEAD_TIMES,
+                    spatial,
+                    stats_mgrs,
+                    torch.device("cpu"),
+                )
+                for item in build_group_work_items(list(IC_TIMES), comm.group, cfg):
+                    scorer.begin_item(item)
+                    for lt in LEAD_TIMES:
+                        truth_a = sources["a"]([item.time + lt], VARIABLES)
+                        x = torch.from_numpy(
+                            truth_a.transpose("time", "variable", "lat", "lon")
+                            .values[0]
+                            .copy()
+                        )
+                        coords = OrderedDict(
+                            {
+                                "time": np.array([item.time]),
+                                "lead_time": np.array([lt]),
+                                "variable": np.array(VARIABLES),
+                                "lat": SMALL_LAT,
+                                "lon": SMALL_LON,
+                            }
+                        )
+                        scorer.update(x[None, None], coords)
+                    scorer.finish_item(item)
+            finalize_online_stats(cfg)
+
+        scores_a = xr.open_zarr(os.path.join(cfg.output.path, "scores__a.zarr"))
+        scores_b = xr.open_zarr(os.path.join(cfg.output.path, "scores__b.zarr"))
+        assert not os.path.exists(os.path.join(cfg.output.path, "scores.zarr"))
+        metric = mse(reduction_dimensions=["lat", "lon"], weights=_weights_2d())
+        y_coords = OrderedDict(
+            {"variable": np.array(VARIABLES), "lat": SMALL_LAT, "lon": SMALL_LON}
+        )
+        for t in IC_TIMES:
+            for lt in LEAD_TIMES:
+                fields = {
+                    name: torch.from_numpy(
+                        source([t + lt], VARIABLES)
+                        .transpose("time", "variable", "lat", "lon")
+                        .values[0]
+                        .copy()
+                    )
+                    for name, source in sources.items()
+                }
+                expected_b, _ = metric(fields["a"], y_coords, fields["b"], y_coords)
+                for j, var in enumerate(VARIABLES):
+                    point = {"time": t, "lead_time": lt}
+                    got_a = float(scores_a[f"mse__{var}"].sel(point).values)
+                    got_b = float(scores_b[f"mse__{var}"].sel(point).values)
+                    assert got_a == pytest.approx(0.0, abs=1e-10)
+                    assert got_b == pytest.approx(float(expected_b[j]), rel=1e-5)
+                    assert got_b > 0.1
+
+
+class _StubPipeline:
+    """Stands in for a Pipeline; only verification_source() is consulted."""
+
+    def __init__(self, tag):
+        self._tag = tag
+
+    def verification_source(self, cfg):
+        return self._tag
+
+
+class _RecordingScorer:
+    """Records the fan-out calls a MultiRefScorer makes to each child."""
+
+    def __init__(self, log=None, fail_finish=False):
+        self.begun = []
+        self.updates = []
+        self.finished = []
+        self.log = [] if log is None else log
+        self.fail_finish = fail_finish
+
+    def begin_item(self, item):
+        self.begun.append(item)
+
+    def update(self, x, coords):
+        self.updates.append(x)
+
+    def finish_item(self, item, mark_done=True):
+        if self.fail_finish:
+            raise RuntimeError("crash while writing this reference")
+        self.finished.append(item)
+        self.log.append(("finish", self, mark_done))
+
+    def mark_done(self, item):
+        self.log.append(("mark", self))
 
 
 class TestStatsSchema:
