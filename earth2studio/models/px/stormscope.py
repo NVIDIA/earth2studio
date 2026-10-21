@@ -27,7 +27,6 @@ import torch
 import torch.nn as nn
 import xarray as xr
 from loguru import logger
-from numpy.typing import ArrayLike
 
 from earth2studio.data import HRRR
 from earth2studio.data.base import DataSource
@@ -56,10 +55,6 @@ from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
-)
-from earth2studio.utils.interp import (
-    LatLonInterpolation,
-    NearestNeighborInterpolator,
 )
 from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
@@ -319,8 +314,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.conditioning_variables = conditioning_variables
         self.sampler_args = sampler_args or {}
         self.variables = variables
-        self.input_interp = None
-        self.conditioning_interp = None
 
         # Mixed-precision toggle for the diffusion sampler. When True the DiT
         # forward passes run under torch.autocast; the sampler's latent/state
@@ -697,120 +690,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             )
             coverage = torch.from_numpy(np.array(regridder.coverage))
             self.register_buffer(name, coverage.to(self.latitudes.device))
-
-    def _deprecated(self, name: str) -> None:
-        logger.warning(
-            f"{type(self).__name__}.{name} is deprecated and will be removed in a "
-            "future release. Fetch inputs through default_sources(), which regrids "
-            "them onto the model grid."
-        )
-
-    def build_input_interpolator(
-        self,
-        input_lats: torch.Tensor | ArrayLike,
-        input_lons: torch.Tensor | ArrayLike,
-        max_dist_km: float | None = None,
-    ) -> nn.Module:
-        """Build a module to handle interpolating data on an arbitrary input lat/lon grid
-        to the internal lat/lon grid, done via nearest neighbor interpolation.
-
-        .. deprecated::
-            Fetch inputs through :meth:`default_sources`, whose regridders map them
-            onto the model grid. The model no longer applies ``input_interp``;
-            callers apply it to tensors themselves.
-
-        Parameters
-        ----------
-        input_lats : torch.Tensor | ArrayLike
-            Input latitudes.
-        input_lons : torch.Tensor | ArrayLike
-            Input longitudes.
-        max_dist_km : float, optional
-            Maximum great-circle distance (km) to accept a nearest neighbor match.
-            Target points farther than this threshold are marked invalid and will
-            receive NaNs in the output. By default ``max_dist_km`` of the model.
-        """
-        self._deprecated("build_input_interpolator")
-        if max_dist_km is None:
-            max_dist_km = self.max_dist_km
-        self.input_interp = NearestNeighborInterpolator(
-            source_lats=input_lats,
-            source_lons=input_lons,
-            target_lats=self.latitudes,
-            target_lons=self.longitudes,
-            max_dist_km=max_dist_km,
-        ).to(self.latitudes.device)
-
-        interp = cast(NearestNeighborInterpolator, self.input_interp)
-        if torch.any(~interp.valid_mask):
-            logger.warning(
-                "Some input gridpoints are invalid after interpolation. "
-                "This may be expected if the input data source is not available at "
-                "all gridpoints, but consider double-checking coordinates and/or the "
-                "max_dist_km parameter. Invalid points will be filled with the model's "
-                f"_INPUT_INVALID_FILL_CONSTANT ({self._INPUT_INVALID_FILL_CONSTANT})."
-            )
-
-        # Store the mask tracking valid gridpoints, shape [H, W]
-        self.register_buffer(
-            "valid_mask", interp.valid_mask.reshape(len(self.y), len(self.x))
-        )
-        self.valid_mask: torch.Tensor = self.valid_mask.to(device=self.latitudes.device)
-
-    def build_conditioning_interpolator(
-        self,
-        conditioning_lats: torch.Tensor | ArrayLike,
-        conditioning_lons: torch.Tensor | ArrayLike,
-        max_dist_km: float | None = None,
-    ) -> nn.Module:
-        """Build a module to handle interpolating data on an arbitrary input lat/lon grid
-        to the internal lat/lon grid, done via nearest neighbor interpolation.
-
-        .. deprecated::
-            Fetch conditioning through :meth:`default_sources`, whose regridders
-            map it onto the model grid. The model no longer applies
-            ``conditioning_interp``; callers apply it to tensors themselves.
-
-        Parameters
-        ----------
-        conditioning_lats : torch.Tensor | ArrayLike
-            Conditioning latitudes.
-        conditioning_lons : torch.Tensor | ArrayLike
-            Conditioning longitudes.
-        max_dist_km : float, optional
-            Maximum great-circle distance (km) to accept a nearest neighbor match.
-            Target points farther than this threshold are marked invalid and will
-            receive NaNs in the output. By default ``max_dist_km`` of the model.
-        """
-        self._deprecated("build_conditioning_interpolator")
-        if max_dist_km is None:
-            max_dist_km = self.max_dist_km
-        self.conditioning_interp = NearestNeighborInterpolator(
-            source_lats=conditioning_lats,
-            source_lons=conditioning_lons,
-            target_lats=self.latitudes,
-            target_lons=self.longitudes,
-            max_dist_km=max_dist_km,
-        ).to(self.latitudes.device)
-
-        cinterp = cast(NearestNeighborInterpolator, self.conditioning_interp)
-        if torch.any(~cinterp.valid_mask):
-            logger.warning(
-                "Some conditioning gridpoints are invalid after interpolation. "
-                "This may be expected if the conditioning data source is not available at "
-                "all gridpoints, but consider double-checking coordinates and/or the "
-                "max_dist_km parameter. Invalid points will be filled with the model's "
-                f"_INPUT_INVALID_FILL_CONSTANT ({self._INPUT_INVALID_FILL_CONSTANT})."
-            )
-
-        # Store the mask tracking valid gridpoints, shape [H, W]
-        self.register_buffer(
-            "conditioning_valid_mask",
-            cinterp.valid_mask.reshape(len(self.y), len(self.x)),
-        )
-        self.conditioning_valid_mask: torch.Tensor = self.conditioning_valid_mask.to(
-            device=self.latitudes.device
-        )
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.
@@ -1467,10 +1346,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             value = getattr(self, name, None)
             if value is not None:
                 setattr(view, name, value.copy())
-        view.input_interp = None
-        view.conditioning_interp = None
-        if hasattr(view, "glm_interp"):
-            view.glm_interp = None
         view._flash_plan = None
         view._flash_plan_sources = ()
         # Each view seeds its own noise stream.
@@ -2384,7 +2259,6 @@ class StormScopeMRMS(StormScopeBase):
         self.n_glm_channels = int(self.glm_mask.sum().item())
         # Names of the GLM (log1p) state channels, in `variables` order.
         self.glm_variables = np.asarray(self.variables)[self.glm_mask.cpu().numpy()]
-        self.glm_interp: nn.Module | None = None
 
     def _set_default_coverage(self) -> None:
         super()._set_default_coverage()
@@ -2394,60 +2268,6 @@ class StormScopeMRMS(StormScopeBase):
                 "valid_mask",
                 self.valid_mask & coverage.to(device=self.valid_mask.device),
             )
-
-    def build_glm_interpolator(
-        self,
-        glm_lats: torch.Tensor | ArrayLike,
-        glm_lons: torch.Tensor | ArrayLike,
-        max_dist_km: float | None = None,
-    ) -> None:
-        """Build a **bilinear** interpolator mapping the GLM source's native
-        0.1-degree grid onto the model grid (training used bilinear regridding for
-        GLM; the nearest-neighbor path used for radar/satellite inputs is not
-        appropriate for the sparse count field).
-
-        .. deprecated::
-            Fetch GLM through :meth:`default_sources`, whose input source regrids
-            it bilinearly onto the model grid.
-
-        Parameters
-        ----------
-        glm_lats, glm_lons : torch.Tensor | ArrayLike
-            Latitudes/longitudes of the GLM source grid. Either 2D meshgrids or
-            1D coordinate vectors (as returned by :py:class:`GOESGLMGrid`).
-        max_dist_km : float | None, optional
-            Unused placeholder for API symmetry with the nearest-neighbor
-            interpolators; bilinear interpolation does not threshold by distance.
-        """
-        self._deprecated("build_glm_interpolator")
-        glm_lats = np.asarray(glm_lats)
-        glm_lons = np.asarray(glm_lons)
-        if glm_lats.ndim == 1 and glm_lons.ndim == 1:
-            glm_lats, glm_lons = np.meshgrid(glm_lats, glm_lons, indexing="ij")
-        self.glm_interp = LatLonInterpolation(
-            lat_in=glm_lats,
-            lon_in=glm_lons,
-            lat_out=self._lat_cpu_copy,
-            lon_out=self._lon_cpu_copy,
-        ).to(self.latitudes.device)
-
-    def interpolate_glm(self, glm: torch.Tensor) -> torch.Tensor:
-        """Bilinearly regrid a GLM field (event counts on the source 0.1-degree
-        grid) onto the model grid. Points outside the GLM grid are filled with 0.
-        Returns physical counts (apply no normalization here; the model applies
-        log1p internally). Requires :meth:`build_glm_interpolator` first.
-
-        .. deprecated::
-            Fetch GLM through :meth:`default_sources`, whose input source regrids
-            it bilinearly onto the model grid.
-        """
-        self._deprecated("interpolate_glm")
-        if self.glm_interp is None:
-            raise ValueError(
-                "GLM interpolator not built; call build_glm_interpolator first."
-            )
-        out = self.glm_interp(glm)
-        return torch.nan_to_num(out, nan=0.0)
 
     def default_sources(self) -> tuple[DataSource, DataSource]:
         """Recommend MRMS radar and GLM inputs and GOES-East CONUS conditioning.
@@ -2578,33 +2398,6 @@ class StormScopeMRMS(StormScopeBase):
         """
         yield from self._default_create_iterator(x, conditioning)
 
-    def build_input_interpolator(
-        self,
-        input_lats: torch.Tensor,
-        input_lons: torch.Tensor,
-        max_dist_km: float | None = None,
-    ) -> None:
-        """Build the nearest-neighbor input interpolator and AND it with the
-        NEXRAD coverage mask (if loaded from the package).
-
-        After the base-class interpolator sets ``valid_mask`` from grid proximity,
-        any pixels outside the NEXRAD circular coverage area are additionally
-        masked so that infilling matches the training-time boundary.
-
-        .. deprecated::
-            Fetch inputs through :meth:`default_sources`; ``load_model`` already
-            sets ``valid_mask`` from the default MRMS coverage and NEXRAD mask.
-        """
-        super().build_input_interpolator(
-            input_lats, input_lons, max_dist_km=max_dist_km
-        )
-        coverage = self._buffers.get("mrms_coverage_mask", None)
-        if coverage is not None:
-            self.register_buffer(
-                "valid_mask",
-                self.valid_mask & coverage.to(device=self.valid_mask.device),
-            )
-
     def prep_input(
         self, x: torch.Tensor, coords: CoordSystem, conditioning: bool = False
     ) -> tuple[torch.Tensor, CoordSystem]:
@@ -2717,7 +2510,7 @@ class StormScopeMRMS(StormScopeBase):
 
         # NEXRAD circular coverage mask: defines which pixels were valid MRMS
         # observations during training (inside NEXRAD radar coverage). Loaded as
-        # bool so that it ANDs cleanly with the interpolator-derived valid_mask.
+        # bool so that it ANDs cleanly with the regridder-derived valid_mask.
         # File convention: True = outside coverage / void pixel. Inverted here
         # so the buffer and constructor use True = valid (data present).
         if pkg.get("mrms_coverage_mask"):

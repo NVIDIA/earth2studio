@@ -268,8 +268,6 @@ def create_spoof_model(
     w=128,
     device="cpu",
     sliding_window=False,
-    input_interp=False,
-    conditioning_interp=False,
     amp=False,
     compile=False,
     glm_mask=None,
@@ -339,13 +337,6 @@ def create_spoof_model(
         compile=compile,
         **({} if glm_mask is None else {"glm_mask": glm_mask}),
     ).to(device)
-
-    if input_interp:
-        model.build_input_interpolator(lat, lon)
-    if conditioning_interp:
-        model.build_conditioning_interpolator(
-            np.linspace(90, -90, num=181), np.linspace(0, 360, num=360)
-        )
 
     return model
 
@@ -467,25 +458,18 @@ def test_stormscope_amp_compile(amp, compile, device):
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_stormscope_interpolation(device):
-    """Deprecated interpolators still map tensors; the model accepts only its grid."""
+def test_stormscope_prep_input_requires_model_grid(device):
+    """The model accepts only its own grid; regridding belongs to the sources."""
     nvar = 8
     nvar_cond = 1
     h, w = 64, 128
 
     model = create_spoof_model(nvar=nvar, nvar_cond=nvar_cond, h=h, w=w, device=device)
+    assert not hasattr(model, "build_input_interpolator")
+    assert not hasattr(model, "build_conditioning_interpolator")
 
-    # Create input data with different grid (coarser)
+    # Create random data on a coarser grid
     h_input, w_input = 32, 64
-    input_lat = torch.linspace(25, 50, h_input).unsqueeze(1).repeat(1, w_input)
-    input_lon = torch.linspace(-120, -80, w_input).unsqueeze(0).repeat(h_input, 1)
-
-    # Build input interpolator
-    model.build_input_interpolator(input_lat, input_lon, max_dist_km=20.0)
-    assert model.input_interp is not None
-    assert model.valid_mask.shape == torch.Size([h, w])
-
-    # Create random data on the input grid
     time = np.array([np.datetime64("2020-04-05T00:00")])
     dc = OrderedDict([("y", np.arange(h_input)), ("x", np.arange(w_input))])
     r = Random(dc)
@@ -494,20 +478,10 @@ def test_stormscope_interpolation(device):
     variable = model.input_coords()["variable"].values
     x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
-    # Callers apply the interpolator; the model no longer regrids inputs itself.
-    assert model.input_interp(x).shape[-2:] == (h, w)
     with pytest.raises(ValueError):
         model.prep_input(x, coords)
-
-    # Build conditioning interpolator (with global grid)
-    cond_lat = np.linspace(90, -90, num=181)
-    cond_lon = np.linspace(0, 360, num=360)
-    cond_lat_grid, cond_lon_grid = np.meshgrid(cond_lat, cond_lon, indexing="ij")
-    model.build_conditioning_interpolator(
-        cond_lat_grid, cond_lon_grid, max_dist_km=30.0
-    )
-    assert model.conditioning_interp is not None
-    assert model.conditioning_valid_mask.shape == torch.Size([h, w])
+    with pytest.raises(ValueError):
+        model.prep_input(x, coords, conditioning=True)
 
 
 @pytest.mark.parametrize("sliding_window", [False, True])
@@ -1101,7 +1075,7 @@ def test_stormscope_mrms_input_invalid_fill(device):
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_stormscope_mrms_coverage_mask(device):
-    """mrms_coverage_mask is used as initial valid_mask and ANDed with the interpolator mask."""
+    """mrms_coverage_mask is used as the initial valid_mask."""
     h, w = 32, 64
     y = np.arange(h)
     x = np.arange(w)
@@ -1133,32 +1107,10 @@ def test_stormscope_mrms_coverage_mask(device):
         x_coords=x,
     ).to(device)
 
-    # Before any interpolator: valid_mask should equal the coverage mask
+    # load_model ANDs this with the default regridder coverage, see
+    # test_stormscope_default_coverage.
     assert model.valid_mask.shape == torch.Size([h, w])
     assert torch.equal(model.valid_mask.cpu(), coverage)
-
-    # After build_input_interpolator with the same grid: interpolator mask is
-    # all-True (every point is within range of itself), so ANDing should yield
-    # exactly the coverage mask.
-    model.build_input_interpolator(lat, lon, max_dist_km=6.0)
-    assert torch.equal(
-        model.valid_mask.cpu(), coverage.to(device=model.valid_mask.device).cpu()
-    )
-
-    # Build an interpolator whose source grid covers only the left half of the
-    # domain. With a tight max_dist_km, every right-half target point (>~45 km
-    # from the nearest left-half source point) is out of range and marked invalid
-    # by the interpolator, while left-half points (distance 0) stay valid --
-    # making the interpolator mask exactly complementary to the coverage mask.
-    lat_left = lat[:, : w // 2]
-    lon_left = lon[:, : w // 2]
-    model.build_input_interpolator(lat_left, lon_left, max_dist_km=20.0)
-    # The combined mask should be False everywhere: the coverage mask marks the
-    # right half valid, but the interpolator marks the right half invalid (no
-    # nearby source points), so the AND is all-False.
-    assert (
-        not model.valid_mask.any()
-    ), "Combined mask should be all-False when coverage and interpolator masks are complementary"
 
 
 class _RecordingRegridder:

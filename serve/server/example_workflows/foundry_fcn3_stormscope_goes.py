@@ -25,11 +25,12 @@ import zarr
 from loguru import logger
 
 from earth2studio.data import (
-    GOES,
     PlanetaryComputerECMWFOpenDataIFS,
     PlanetaryComputerGOES,
+    RegriddedSource,
     fetch_data,
 )
+from earth2studio.grids import NearestRegridder, infer_grid
 from earth2studio.io import IOBackend, XarrayBackend, ZarrBackend
 from earth2studio.models.dx import DerivedSurfacePressure
 from earth2studio.models.px import FCN3, DiagnosticWrapper, InterpModAFNO
@@ -91,20 +92,25 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
 
         self.data_fcn3 = PlanetaryComputerECMWFOpenDataIFS(verbose=False, cache=False)
 
-        scan_mode = "C"
+        # GOES-16 and GOES-19 share the GOES-East CONUS grid, so both reuse the
+        # regridder of StormScope's default GOES source onto the model grid.
+        goes_regridder = self.stormscope.default_sources().regridder
         self.data_stormscope = {
-            satellite: PlanetaryComputerGOES(
-                satellite=satellite, scan_mode=scan_mode, verbose=False, cache=False
+            satellite: RegriddedSource(
+                PlanetaryComputerGOES(
+                    satellite=satellite, scan_mode="C", verbose=False, cache=False
+                ),
+                goes_regridder,
             )
             for satellite in ["goes16", "goes19"]
         }
 
-        # GOES-16 and GOES19 have the same grid
-        goes_lat, goes_lon = GOES.grid(satellite="goes16", scan_mode=scan_mode)
+        # FCN3 conditioning is regridded onto the model grid the same way.
         coords_out = self.fcn3_interp.output_coords(self.fcn3_interp.input_coords())
-        self.stormscope.build_input_interpolator(goes_lat, goes_lon)
-        self.stormscope.build_conditioning_interpolator(
-            coords_out["lat"].values, coords_out["lon"].values
+        self.conditioning_regridder = NearestRegridder(
+            infer_grid(coords_out),
+            infer_grid(self.stormscope.input_coords()),
+            max_dist_km=self.stormscope.max_dist_km,
         )
 
     @classmethod
@@ -412,11 +418,14 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
                 # Skip initial steps leading up to StormScope start time
                 continue
 
-            tensor, coords_x = x.sel(
-                variable=variables,
-                lat=conditioning_grid.lat.values,
-                lon=conditioning_grid.lon.values,
-            ).e2s.to_torch()
+            field = self.conditioning_regridder(
+                x.sel(
+                    variable=variables,
+                    lat=conditioning_grid.lat.values,
+                    lon=conditioning_grid.lon.values,
+                )
+            )
+            tensor, coords_x = field.e2s.to_torch()
             tensor, coords_x = self.stormscope.prep_input(
                 tensor, coords_x, conditioning=True
             )

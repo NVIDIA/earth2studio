@@ -139,12 +139,18 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
     >>> nsrdb_model = StormScopeDxNSRDB.load_model(StormScopeDxNSRDB.load_default_package())
     >>> nsrdb_model = nsrdb_model.to("cuda")
     >>>
-    >>> # Build interpolators from GOES grid to model grid
+    >>> # Build the NSRDB interpolator from the GOES grid to its model grid
     >>> goes_lat, goes_lon = GOES.grid(satellite="goes16", scan_mode="C")
-    >>> goes_model.build_input_interpolator(goes_lat, goes_lon)
     >>> nsrdb_model.build_input_interpolator(goes_lat, goes_lon)
     >>>
-    >>> # Run one GOES forecast step then estimate GHI
+    >>> # Fetch GOES on the StormScope grid, run one forecast step, then estimate GHI
+    >>> coords = goes_model.input_coords()
+    >>> x = fetch_data(
+    ...     goes_model.default_sources(),
+    ...     time=np.array([np.datetime64("2024-01-08T18:00")]),
+    ...     variable=coords["variable"].values,
+    ...     lead_time=coords["lead_time"].values,
+    ... ).expand_dims(batch=[0])
     >>> y_goes = goes_model(x)
     >>> ghi = nsrdb_model(y_goes)
 

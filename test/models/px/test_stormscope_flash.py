@@ -789,10 +789,6 @@ def test_baseline_sampling_is_independent_of_flash_instances(cls, monkeypatch):
 def test_with_region_leaves_parent_and_other_views_independent(cls):
     full = _domain_wrapper(cls)
     assert isinstance(full, DomainAdaptable)
-    full.input_interp = object()
-    full.conditioning_interp = object()
-    if cls is StormScopeMRMS:
-        full.glm_interp = object()
     full._flash_plan = object()
     original_buffers = {name: value.clone() for name, value in full._buffers.items()}
     original_y, original_x = full.y.copy(), full.x.copy()
@@ -806,14 +802,7 @@ def test_with_region_leaves_parent_and_other_views_independent(cls):
     assert (
         next(first.parameters()) is next(full.parameters()) is next(second.parameters())
     )
-    assert first.input_interp is first.conditioning_interp is first._flash_plan is None
-    assert (
-        second.input_interp is second.conditioning_interp is second._flash_plan is None
-    )
-    if cls is StormScopeMRMS:
-        assert first.glm_interp is second.glm_interp is None
-        assert full.glm_interp is not None
-    assert full.input_interp is not None and full.conditioning_interp is not None
+    assert first._flash_plan is second._flash_plan is None
     assert full._flash_plan is not None
     assert full.region_info is None
     assert first.region_info.requested_bounds == tuple(bounds["lat"] + bounds["lon"])
@@ -973,16 +962,16 @@ def test_views_reject_state_from_another_domain(monkeypatch):
 
 
 @pytest.mark.parametrize("is_flash", [False, True])
-def test_glm_interpolation_and_normalization_order_is_baseline(is_flash):
+def test_glm_normalization_follows_regridding(is_flash):
     model = StormScopeMRMS.__new__(StormScopeMRMS)
     torch.nn.Module.__init__(model)
     model._is_flash = is_flash
     model.means = torch.tensor([2.0, 4.0, 6.0]).view(1, 3, 1, 1)
     model.stds = torch.tensor([2.0, 4.0, 8.0]).view(1, 3, 1, 1)
     model.glm_mask = torch.tensor([False, False, True])
-    model.glm_interp = lambda x: x.mean(-1, keepdim=True)
+    # Sources regrid physical counts; the model applies log1p afterwards.
     counts = torch.tensor([[[[0.0, 8.0]]]])
-    regridded = model.interpolate_glm(counts)
+    regridded = counts.mean(-1, keepdim=True)
     state = torch.cat(
         (torch.zeros_like(regridded), torch.zeros_like(regridded), regridded), dim=1
     )

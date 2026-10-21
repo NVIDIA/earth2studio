@@ -277,7 +277,7 @@ plt.colorbar(
     shrink=0.5,
 )
 
-time = goes_field["time"].values
+time = np.datetime_as_string(goes_field["time"].values, unit="m")
 lead_time = goes_field["lead_time"].values
 plt.title(
     f"Predicted GOES {goes_channel} with MRMS overlay from {time} UTC "

@@ -310,6 +310,7 @@ def test_native_mapping_preserves_storage_and_rejects_wrong_geometry():
             px_model=SimpleNamespace(px_model=Mock()),
             create_iterator=lambda x: iter(outputs),
         ),
+        conditioning_regridder=lambda field: field,
         stormscope=SimpleNamespace(
             input_coords=lambda: xr.DataArray(
                 np.zeros((2, 3)), dims=("y", "x"), coords={"y": [0, 1], "x": [0, 1, 2]}
