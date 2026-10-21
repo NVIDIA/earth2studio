@@ -34,6 +34,7 @@ from earth2studio.data import (
     NNJAObsConv,
     NNJAObsSat,
     NNJAObsSatwnd,
+    fetch_dataframe,
     utils_bufr,
     utils_ncep,
 )
@@ -1259,7 +1260,11 @@ def test_nnja_obs_sat_wide_frame_carries_channel_axis(fake_bufr, monkeypatch, tm
     )
     batch = _sat_batch("iasi", [T0], [16.0, 38.0, 49.0], lambda c: (1000.0 + c,))
     _source_with_files(source, fake_bufr, monkeypatch, tmp_path, [batch])
-    frame = source(T0, ["iasi"])
+    frame = fetch_dataframe(
+        source,
+        time=np.array([T0], dtype="datetime64[ns]"),
+        variable=np.array(["iasi"]),
+    )
     assert channel_axis(frame, "iasi").tolist() == [16, 38]
     assert frame["observation_iasi"].dtype == pd.ArrowDtype(pa.list_(pa.float32(), 2))
     assert frame["quality"].dtype == pd.ArrowDtype(pa.list_(pa.uint32(), 2))

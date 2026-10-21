@@ -231,7 +231,7 @@ def fetch_dataframe(
         unique_times = np.unique(all_times)
         df = source(unique_times, variable, fields=fields)  # type: ignore
     # Add request meta-data
-    df.attrs = {"request_time": time, "request_lead_time": lead_time}
+    df.attrs.update(request_time=time, request_lead_time=lead_time)
 
     # Convert to appropriate format based on device
     device = torch.device(device)
