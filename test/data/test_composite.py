@@ -150,6 +150,17 @@ def test_qualified_labels_route_by_base_name():
     with pytest.raises(KeyError, match="not provided"):
         source(TIME, ["t2m:mean:24h"])
 
+    # Only statistics supported natively by every component are advertised, so
+    # fetch_data forwards those labels and reduces anything else itself.
+    assert source.time_statistics == ()
+    radar.time_statistics = ("mean", "max", "sum")
+    assert source.time_statistics == ()
+    satellite.time_statistics = ("mean", "sum")
+    assert source.time_statistics == ("mean", "sum")
+    array = fetch_data(source, TIME, np.array(["abi01c:mean:24h", "refc"]))
+    np.testing.assert_allclose(array[0, 0, :, 0, 0], [10.0, 1.0])
+    assert satellite.requests[-1] == ["abi01c:mean:24h"]
+
 
 def test_unknown_variable_raises():
     source, _, _ = _composite()

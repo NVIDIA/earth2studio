@@ -95,9 +95,26 @@ class _Composite:
         first = steps[0]
         return first if all(step == first for step in steps) else None
 
+    @property
+    def time_statistics(self) -> tuple[str, ...]:
+        """Temporal statistics every component computes natively.
+
+        The composite never interprets statistics itself. Labels are forwarded to the
+        components, and only methods all of them support are advertised so that
+        :func:`~earth2studio.data.fetch_data` hands them over unchanged. Anything
+        else is reduced by ``fetch_data`` over the composite as a whole.
+        """
+        supported = [
+            tuple(getattr(source, "time_statistics", ()) or ())
+            for source in self._sources.values()
+        ]
+        if not supported:
+            return ()
+        return tuple(m for m in supported[0] if all(m in s for s in supported[1:]))
+
     def _plan(self, variable: Any) -> tuple[list[str], dict[str, list[str]]]:
         requested = [str(name) for name in np.atleast_1d(variable)]
-        # Route qualified labels by base name; the component handles the statistic.
+        # Statistics are ignored here: route by base name and forward the label as is.
         unknown = [name for name in requested if _base(name) not in self._routes]
         if unknown:
             raise KeyError(
@@ -114,9 +131,10 @@ class CompositeSource(_Composite):
     """Data source assembled from analysis sources that provide disjoint variables.
 
     Each requested variable is fetched from the one component that provides it, and
-    the parts are joined along ``variable`` in request order. Labels qualified with a
-    temporal statistic, such as ``"t2m:mean:24h"``, route by their base name and are
-    forwarded unchanged to the component providing it. Components must return
+    the parts are joined along ``variable`` in request order. The composite does not
+    interpret temporal statistics: labels qualified with one, such as ``"t2m:mean:24h"``,
+    route by their base name and are forwarded unchanged to the component providing
+    it, which must support them natively (see :attr:`time_statistics`). Components must return
     fields on the same coordinates apart from ``variable``; wrap components on other
     grids in :class:`~earth2studio.data.RegriddedSource` with a shared target grid.
     Use :class:`CompositeForecastSource` to include forecast sources.
