@@ -637,8 +637,9 @@ def model() -> InterpCRPSDiT:
 
 
 @pytest.mark.package
-@pytest.mark.parametrize("device", DEVICES)
-def test_interpcrpsdit_package(device, model):
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="NATTEN DiT requires CUDA")
+def test_interpcrpsdit_package(model):
+    device = "cuda:0"
     torch.cuda.empty_cache()
     model = model.to(device)
 
