@@ -620,18 +620,9 @@ NCEP_MICROWAVE_OUTPUT_SCHEMA = pa.schema(
 # Satellite wind schema
 # ──────────────────────────────────────────────────────────────────────────
 
-# Application codes seen in NNJA satwnd 2000-2026, per mnemonic; GNAP code meanings
-# are producer specific
-_SATWND_QUALITY_CODES = {
-    "GNAP": (
-        "generating application (GNAP, 0-01-032)",
-        (1, 2, 3, 4, 5, 101, 102, 103),
-    ),
-    "GNAPS": (
-        "AMV quality-indicator application (GNAPS, 0-01-044)",
-        (2, 4, 5, 6, 7),
-    ),
-}
+_QUALITY_LIST = pa.list_(
+    pa.struct([("application", pa.uint16()), ("confidence", pa.float32())])
+)
 
 NCEP_SATWND_PUBLIC_SCHEMA = pa.schema(
     [
@@ -687,18 +678,28 @@ NCEP_SATWND_PUBLIC_SCHEMA = pa.schema(
                 )
             },
         ),
-        *[
-            pa.field(
-                f"qi_{mnemonic.lower()}_{code}",
-                pa.float32(),
-                nullable=True,
-                metadata={
-                    "description": f"Percent confidence (PCCF) of {description} {code}"
-                },
-            )
-            for mnemonic, (description, codes) in _SATWND_QUALITY_CODES.items()
-            for code in codes
-        ],
+        pa.field(
+            "quality_indicators",
+            _QUALITY_LIST,
+            nullable=True,
+            metadata={
+                "description": (
+                    "Percent confidence (PCCF) per generating application (GNAP, "
+                    "0-01-032); code meanings are producer specific"
+                )
+            },
+        ),
+        pa.field(
+            "amv_quality_indicators",
+            _QUALITY_LIST,
+            nullable=True,
+            metadata={
+                "description": (
+                    "Percent confidence (PCCF) per AMV quality-indicator application "
+                    "(GNAPS, 0-01-044)"
+                )
+            },
+        ),
     ]
 )
 
@@ -2132,6 +2133,10 @@ _SATWND_SCALARS = (
     "CLONH",
     "CLON",
 )
+_SATWND_QUALITY_CODES = {
+    "GNAP": "quality_indicators",
+    "GNAPS": "amv_quality_indicators",
+}
 _SATWND_PROJECTION = [*_SATWND_TIME, *_SATWND_SCALARS, "GNAP", "GNAPS", "PCCF"]
 _SATWND_INTS = {
     "satellite_id": ("SAID", pa.uint16()),
@@ -2174,106 +2179,72 @@ def _satwnd_plan(schema: pa.Schema) -> _SatwndPlan:
 
 @dataclass(frozen=True)
 class _SatwndSlots:
-    """Per mnemonic, the first populated occurrence (None: none is); per GNAP/GNAPS
-    -> PCCF pair, the application code of its slot (None: empty)."""
+    """Per mnemonic, the first populated occurrence (None: none is)."""
 
     scalars: dict[str, int | None]
-    codes: dict[str, tuple[int | None, ...]]
 
     def settled(self) -> bool:
         """True when no other batch of the template can change these choices: every
-        mnemonic is empty or populated at its first occurrence, and no empty quality
-        slot comes before the first slot of a code."""
-        if any(k not in (None, 0) for k in self.scalars.values()):
-            return False
-        for slot_codes in self.codes.values():
-            empty_before = False
-            seen: set[int] = set()
-            for code in slot_codes:
-                if code is None:
-                    empty_before = True
-                elif code not in seen:
-                    if empty_before:
-                        return False
-                    seen.add(code)
-        return True
+        mnemonic is empty or populated at its first occurrence."""
+        return all(k in (None, 0) for k in self.scalars.values())
 
 
 def _satwnd_slots(batch: pa.RecordBatch, plan: _SatwndPlan) -> _SatwndSlots:
     n = batch.num_rows
-    scalars = {
-        name: next(
-            (k for k, i in enumerate(indices) if batch.column(i).null_count < n), None
-        )
-        for name, indices in plan.columns.items()
-    }
-    codes = {}
-    for mnemonic, pairs in plan.pairs.items():
-        allowed = _SATWND_QUALITY_CODES[mnemonic][1]
-        slot_codes: list[int | None] = []
-        for code_column, _ in pairs:
-            values = pc.unique(batch.column(code_column).drop_null()).to_pylist()
-            if len(values) > 1:
-                raise ValueError(
-                    f"{mnemonic} slot holds codes {values} in one template"
-                )
-            if values and int(values[0]) not in allowed:
-                raise ValueError(f"Unknown {mnemonic} application code {values[0]:g}")
-            slot_codes.append(int(values[0]) if values else None)
-        codes[mnemonic] = tuple(slot_codes)
-    return _SatwndSlots(scalars, codes)
+    return _SatwndSlots(
+        {
+            name: next(
+                (k for k, i in enumerate(indices) if batch.column(i).null_count < n),
+                None,
+            )
+            for name, indices in plan.columns.items()
+        }
+    )
 
 
 def _merge_slots(a: _SatwndSlots, b: _SatwndSlots) -> _SatwndSlots:
     """Choices over the winds of both batches of one template."""
-    scalars = {
-        name: min(
-            (k for k in (a.scalars[name], b.scalars[name]) if k is not None),
-            default=None,
-        )
-        for name in a.scalars
-    }
-    codes = {}
-    for mnemonic, slot_codes in a.codes.items():
-        merged = []
-        for x, y in zip(slot_codes, b.codes[mnemonic]):
-            if x is not None and y is not None and x != y:
-                raise ValueError(
-                    f"{mnemonic} slot holds codes {[x, y]} in one template"
-                )
-            merged.append(y if x is None else x)
-        codes[mnemonic] = tuple(merged)
-    return _SatwndSlots(scalars, codes)
+    return _SatwndSlots(
+        {
+            name: min(
+                (k for k in (a.scalars[name], b.scalars[name]) if k is not None),
+                default=None,
+            )
+            for name in a.scalars
+        }
+    )
 
 
 def _satwnd_quality(
-    batch: pa.RecordBatch,
-    mnemonic: str,
-    pairs: list[tuple[int, int]],
-    slot_codes: tuple[int | None, ...],
-    keep: np.ndarray,
-) -> dict[str, pa.Array]:
-    """PCCF per application code of ``mnemonic``, one column per code. The first
-    slot of a code supplies its column; null where the wind lacks the code or its
-    PCCF."""
-    slot_of: dict[int, tuple[int, int]] = {}
-    for pair, code in zip(pairs, slot_codes):
-        if code is not None:
-            slot_of.setdefault(code, pair)
+    batch: pa.RecordBatch, pairs: list[tuple[int, int]], keep: np.ndarray
+) -> pa.Array:
+    """Per wind, the (application, confidence) pairs; a repeated application keeps its first."""
     n = int(keep.sum())
-    columns = {}
-    for code in _SATWND_QUALITY_CODES[mnemonic][1]:
-        name = f"qi_{mnemonic.lower()}_{code}"
-        if code not in slot_of:
-            columns[name] = null_array(pa.float32(), n)
-            continue
-        code_column, pccf_column = slot_of[code]
-        _, code_valid = numpy_with_mask(batch.column(code_column))
+    if not pairs:
+        return pa.nulls(n, _QUALITY_LIST)
+    codes = np.empty((n, len(pairs)), dtype=np.int64)
+    confidence = np.empty((n, len(pairs)), dtype=np.float32)
+    valid = np.empty((n, len(pairs)), dtype=bool)
+    for k, (code_column, pccf_column) in enumerate(pairs):
+        code, code_valid = numpy_with_mask(batch.column(code_column))
         pccf, pccf_valid = numpy_with_mask(batch.column(pccf_column))
-        columns[name] = masked(
-            pccf[keep].astype(np.float32), (code_valid & pccf_valid)[keep], pa.float32()
+        codes[:, k] = code[keep]
+        confidence[:, k] = pccf[keep]
+        valid[:, k] = (code_valid & pccf_valid)[keep]
+    for k in range(1, len(pairs)):
+        valid[:, k] &= ~(valid[:, :k] & (codes[:, :k] == codes[:, k : k + 1])).any(
+            axis=1
         )
-    return columns
+    counts = valid.sum(axis=1)
+    offsets = np.zeros(n + 1, dtype=np.int32)
+    np.cumsum(counts, out=offsets[1:])
+    entries = pa.StructArray.from_arrays(
+        [pa.array(codes[valid].astype(np.uint16)), pa.array(confidence[valid])],
+        fields=list(_QUALITY_LIST.value_type),
+    )
+    return pa.ListArray.from_arrays(
+        pa.array(offsets), entries, type=_QUALITY_LIST, mask=pa.array(counts == 0)
+    )
 
 
 def _satwnd_templates(source: Any) -> tuple[np.ndarray, np.ndarray, pa.Array]:
@@ -2366,10 +2337,8 @@ def _satwnd_batch(
     columns["subset"] = pa.DictionaryArray.from_arrays(
         pa.array(subset_code[message]), subset_names
     )
-    for mnemonic, pairs in plan.pairs.items():
-        columns.update(
-            _satwnd_quality(batch, mnemonic, pairs, slots.codes[mnemonic], keep)
-        )
+    for code, out in _SATWND_QUALITY_CODES.items():
+        columns[out] = _satwnd_quality(batch, plan.pairs[code], keep)
     # Meteorological convention: the direction the wind blows from
     components = {
         "u": (speed * np.sin(radians)).astype(np.float32),
