@@ -49,9 +49,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   values are unchanged except PrepBUFR station identifiers with non-ASCII bytes,
   which now carry spaces instead of U+FFFD.
 - The NCEP observation frames use `pd.ArrowDtype` columns throughout: missing values
-  are nulls (including missing satellite observations), string columns are
-  dictionary-encoded, and the `NNJAObsSatwnd` quality indicators are
-  `list<struct<application, confidence>>` instead of Python lists.
+  are nulls (including missing satellite observations) and string columns are
+  dictionary-encoded.
+- `NNJAObsSatwnd` replaces the `quality_indicators` and `amv_quality_indicators` list
+  columns with one float32 percent-confidence column per application code,
+  `qi_gnap_{1,2,3,4,5,101,102,103}` and `qi_gnaps_{2,4,5,6,7}`, in both layouts;
+  callers selecting the old columns must use the new ones.
 - `NNJAObsSatwnd` reads each field from its first occurrence in the message template.
 - `NNJAObsSat` decodes only the `sensor_indices` channels of an IR sounder and returns
   IASI and CrIS brightness temperature from a single Planck conversion.
