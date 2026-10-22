@@ -43,6 +43,13 @@ Backend-specific methods (`read`, `__getitem__`, commits, `to_xarray`) remain on
 the implementations and are not part of the protocol. Any store can be opened with
 Xarray (see Round Trip).
 
+A backend whose storage several processes can share may also expose
+`write_blocks: dict[str, int]`: the largest chunk or shard extent per dimension
+over its stored data arrays, the smallest unit two writers can update
+independently. Distributed execution reads it to reject stores that ranks would
+share (see [EXECUTION_CONTRACT_SPEC.md](EXECUTION_CONTRACT_SPEC.md)). `ZarrBackend`,
+`IceChunkBackend` and `AsyncZarrBackend` provide it.
+
 ## Templates
 
 A template is a DataArray whose field values are never read: normally an
@@ -163,7 +170,7 @@ the in-memory dataset) yields, for each array:
 | `I1`  | `add_array` never reads field values from the template                                 |
 | `I2`  | `add_array` rejects dynamic or zero-sized dimensions with `ValueError`                 |
 | `I3`  | Each `variable` label, verbatim, names one array; otherwise the template's `name` does |
-| `I4`  | A backend's arrays share coordinates; re-adding an identical array is a no-op          |
+| `I4`  | Arrays share coordinates; re-adding an identical array is a no-op, from any instance   |
 | `I5`  | `write` locates by label; unknown labels, arrays or dims raise `ValueError` first      |
 | `I6`  | `write` accepts any label subset, including several `lead_time` entries                |
 | `I7`  | `write` never modifies `x`; non-blocking backends copy before returning                |

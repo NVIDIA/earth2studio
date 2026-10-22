@@ -52,8 +52,8 @@ from earth2studio.run.runner import (
     DiagnosticRunner,
     PrognosticRunner,
     Runner,
-    WorkItem,
 )
+from earth2studio.run.work import WorkItem
 from earth2studio.utils.checkpoint import (
     Checkpoint,
     CheckpointSession,
