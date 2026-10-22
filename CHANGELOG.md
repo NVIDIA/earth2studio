@@ -51,6 +51,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the decode runs on earth2bufr's thread pool.
 - The NNJA and GDAS conventional lexicon modifiers are the identity; the decoders
   return Earth2Studio units.
+- `fetch_dataframe` keeps the attributes the data source sets on the returned frame
+  and adds `request_time` and `request_lead_time` to them, instead of replacing them.
 - `HealDAv2` takes wide NNJA frames (`layout="wide"`) and raises on long frames.
 - `obstore_read_chunked` reads objects over 8 MiB as 8 MiB ranges with up to 64 in
   flight, caps in-flight ranges across concurrent reads and re-requests a stalled

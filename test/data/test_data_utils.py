@@ -364,6 +364,21 @@ def test_fetch_dataframes():
         np.testing.assert_array_equal(frame.attrs["request_time"], time)
 
 
+def test_fetch_dataframe_keeps_source_attrs():
+    class _AttrSource(RandomDataFrame):
+        def __call__(self, *args, **kwargs):
+            df = super().__call__(*args, **kwargs)
+            df.attrs["source_attr"] = "kept"
+            return df
+
+    time = np.array([np.datetime64("2001-06-04T00:00")])
+    lead_time = np.array([np.timedelta64(0, "h")])
+    df = fetch_dataframe(_AttrSource(n_obs=5), time, ["t2m"], lead_time=lead_time)
+    assert df.attrs["source_attr"] == "kept"
+    np.testing.assert_array_equal(df.attrs["request_time"], time)
+    np.testing.assert_array_equal(df.attrs["request_lead_time"], lead_time)
+
+
 @pytest.mark.parametrize(
     "time",
     [
