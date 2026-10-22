@@ -72,8 +72,9 @@ class Scorer(Protocol):
 
     Hooks run only on the rank that owns the item, and ranks own different
     numbers of items, so a hook must never run a collective over the pipeline's
-    ranks: unmatched calls hang or fail. Reduce across ranks after
-    :meth:`Pipeline.run` returns, when every rank is done.
+    ranks: unmatched calls hang or fail. Reduce across ranks in a ``sync``
+    hook passed to :class:`Pipeline`, which every rank joins once per round, or
+    after :meth:`Pipeline.run` returns.
     """
 
     def begin_item(self, item: WorkItem) -> None:
@@ -119,6 +120,12 @@ class Pipeline:
     device : torch.device | str | None, optional
         Device the runner runs on, by default ``cuda:{LOCAL_RANK}`` when CUDA is
         available, otherwise CPU
+    sync : Callable[[WorkItem | None], None] | None, optional
+        Per-round hook every rank joins, by default None. When set, ranks run
+        their items in lockstep rounds: each runs one item, then every rank
+        calls ``sync`` with that item, or ``None`` once it has none left. It may
+        run collectives over all ranks, such as reducing a scorer's
+        accumulators. Items are marked done only after their round's ``sync``.
 
     Raises
     ------
@@ -142,6 +149,7 @@ class Pipeline:
         regridder: Mapping[str, Regridder] | None = None,
         progress: ProgressStore | None = None,
         device: torch.device | str | None = None,
+        sync: Callable[[WorkItem | None], None] | None = None,
     ) -> None:
         if output is None and scorer is None:
             raise ValueError("Pipeline needs an output mapping, a scorer, or both")
@@ -157,6 +165,7 @@ class Pipeline:
         self.regridder = dict(regridder or {})
         self.progress = progress
         self.device = torch.device(device) if device is not None else _default_device()
+        self.sync = sync
         # Per-run state, set by run().
         self._outputs: OutputManager | None = None
         self._ensemble = False
@@ -204,8 +213,9 @@ class Pipeline:
 
         Every rank must call ``run`` with identical items. Stores are planned
         from all items, so a resume at any world size reuses them. An item is
-        marked done only after its outputs flush and its scorer finishes; an
-        interrupted item reruns in full. A failure on any rank raises on every
+        marked done only after its outputs flush, its scorer finishes and, with
+        a ``sync`` hook, its round's ``sync`` returns; an interrupted item reruns
+        in full. A failure on any rank raises on every
         rank once all ranks have closed their outputs.
 
         Parameters
@@ -257,12 +267,16 @@ class Pipeline:
         error: Exception | None = None
         try:
             try:
-                for index, item in enumerate(mine):
-                    self._run_item(item)
-                    logger.info(
-                        f"Rank {rank}: finished work item {index + 1}/{len(mine)} "
-                        f"({_describe(item)})"
-                    )
+                if self.sync is None:
+                    for index, item in enumerate(mine):
+                        self._run_item(item)
+                        self._mark_done(item)
+                        _log_finished(rank, index, mine)
+                else:
+                    # Ranks with fewer items idle through the last round.
+                    rounds = -(-len(remaining) // world_size)
+                    for index in range(rounds):
+                        self._run_round(rank, index, mine)
             except Exception as err:
                 logger.error(f"Rank {rank}: work item failed: {err}")
                 error = err
@@ -283,6 +297,31 @@ class Pipeline:
         outputs.flush()
         if self.scorer is not None:
             self.scorer.finish_item(item)
+
+    def _run_round(self, rank: int, index: int, mine: list[WorkItem]) -> None:
+        """Run this rank's item of one round, then join every rank in ``sync``.
+
+        Collective. Each phase reduces a failure flag, so a failure on any rank
+        stops every rank in the same round instead of mismatching collectives.
+        """
+        sync = self.sync
+        assert sync is not None  # noqa: S101 - only called with a sync hook
+        item = mine[index] if index < len(mine) else None
+        if item is not None:
+            _all_agree(lambda: self._run_item(item))
+        else:
+            _all_agree(lambda: None)
+
+        def finish() -> None:
+            sync(item)
+            if item is not None:
+                self._mark_done(item)
+
+        _all_agree(finish)
+        if item is not None:
+            _log_finished(rank, index, mine)
+
+    def _mark_done(self, item: WorkItem) -> None:
         if self.progress is not None:
             self.progress.mark_done(item)
 
@@ -461,6 +500,13 @@ def _items_digest(items: Sequence[WorkItem]) -> str:
         for item in items
     ]
     return hashlib.sha256(json.dumps(payload).encode()).hexdigest()
+
+
+def _log_finished(rank: int, index: int, mine: list[WorkItem]) -> None:
+    logger.info(
+        f"Rank {rank}: finished work item {index + 1}/{len(mine)} "
+        f"({_describe(mine[index])})"
+    )
 
 
 def _describe(item: WorkItem) -> str:

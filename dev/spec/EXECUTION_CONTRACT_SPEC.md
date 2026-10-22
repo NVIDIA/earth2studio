@@ -133,6 +133,7 @@ class Pipeline:
         regridder: Mapping[str, Regridder] | None = None,
         progress: ProgressStore | None = None,
         device: torch.device | str | None = None,
+        sync: Callable[[WorkItem | None], None] | None = None,
     ) -> None: ...
 
     @classmethod
@@ -216,7 +217,17 @@ A minimal online-scoring hook. `update` receives what would be written, before
 `ensemble` is added. Metrics, verification data and cross-rank communication stay
 in the scorer; it persists durable state in `finish_item`. Hooks run only on the
 rank that owns the item, so they never run collectives over the pipeline's
-ranks; cross-rank reductions happen after `run` returns.
+ranks; cross-rank reductions happen in `sync` or after `run` returns.
+
+### Sync
+
+`sync` is a per-round hook every rank joins, for coordination during a run such
+as reducing a scorer's accumulators. When it is set, ranks run their items in
+lockstep rounds: round `r` runs each rank's `r`-th item, then every rank calls
+`sync` with that item, or `None` once it has none left, so `sync` may run
+collectives. Both phases of a round reduce a failure flag, so a failure stops
+every rank in the same round. Items are marked done only after their round's
+`sync` returns. Without `sync`, ranks run their items independently.
 
 ## Output
 
@@ -364,12 +375,13 @@ tensors, and starts with `supports_member_batching = False`.
 | `X14` | Distributed stores write blocks of 1 along `time` and `ensemble` |
 | `X15` | Distributed runs warn once per backend type without `write_blocks` |
 | `X16` | Progress keys `(time, horizon, member_id)` in per-rank logs; bad lines skipped |
-| `X17` | Items are marked done only after outputs flush and the scorer finishes |
+| `X17` | Items are marked done only after outputs flush, the scorer finishes and `sync` returns |
 | `X18` | Rank 0 lists remaining items and broadcasts them |
 | `X19` | A manifest mismatch raises `ValueError` unless the progress store overwrites |
 | `X20` | A run or close failure on any rank raises on every rank at the end of `run` |
+| `X21` | With `sync`, every rank calls it once per round, idle ranks with `None` |
 
-Tests live in `test/run/`. `X7`, `X9`'s collectives, `X13`, `X18` and `X20` run
+Tests live in `test/run/`. `X7`, `X9`'s collectives, `X13`, `X18`, `X20` and `X21` run
 under `torchrun` with two CPU ranks on gloo; the rest run single-process.
 
 ## Out of scope
@@ -392,7 +404,8 @@ optional runner capability built on `(y, state)` (open decision 3).
 ## Resolved decisions
 
 - `torch.distributed` directly; physicsnemo optional.
-- Core has only the `Scorer` hook; metrics and rank communication stay in recipes.
+- Core has only the `Scorer` and `sync` hooks; metrics and rank communication stay
+  in recipes.
 - Member grouping lives in `work_items`, since groups are part of item identity.
 - Plain mappings for per-stream settings and backends.
 - Only `Pipeline` runs collectives; output and progress stores are rank-local.
