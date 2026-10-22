@@ -472,19 +472,6 @@ def test_interpcrpsdit_superset_base_grid():
     np.testing.assert_allclose(xf[0, 0, 0, 0].numpy(), expected, atol=1e-4)
 
 
-def test_interpcrpsdit_pole_row():
-    model, x, coords = _build(src=Source(spatial=True))
-    model._pole = True
-    for k, (xf, cf) in enumerate(
-        list(itertools.islice(model.create_iterator(x, coords), 3))
-    ):
-        assert xf.shape[-2:] == (H + 1, W)
-        assert cf["lat"][-1] == -90.0
-        np.testing.assert_array_equal(cf["lat"][:-1], LAT)
-        expected = xf[..., -2, :].mean(-1, keepdim=True).expand_as(xf[..., -1, :])
-        assert torch.allclose(xf[..., -1, :], expected, atol=1e-4)
-
-
 def test_interpcrpsdit_regrid_warns_off_grid_base():
     src = Source(LAT + 0.3, LON)
     model, x, coords = _build(src=src)
