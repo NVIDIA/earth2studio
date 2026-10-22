@@ -113,20 +113,29 @@ def mock_statistic_zarr(monkeypatch, tmp_path):
         reads = []
 
         class Array:
-            shape = (10**6, 2, 2)
+            def __init__(self, levels):
+                self.levels = levels
+                self.shape = (10**6,) + (37,) * levels + (2, 2)
 
             async def getitem(self, index):
+                if isinstance(index, slice):  # trailing-sum variables read a range
+                    hours = range(index.start, index.stop)
+                    reads.extend(hours)
+                    return np.stack([np.full((2, 2), float(h)) for h in hours])
                 reads.append(int(index))
-                return np.full((2, 2), float(index))
+                # Pressure-level chunks hold every level of an hour; level k is +k
+                field = np.full((2, 2), float(index))
+                return field + np.arange(37)[:, None, None] if self.levels else field
 
         class Group:
             async def get(self, name):
-                return Array()
+                return Array(levels=int(name == "temperature"))
 
         prefix = "ARCO" if type(ds).__name__ == "ARCO_ERA5" else "WB2_ERA5"
         for axis in ("LAT", "LON"):
             monkeypatch.setattr(ds, f"{prefix}_{axis}", np.arange(2))
         ds.zarr_group = ds.ml_zarr_group = Group()
+        ds.level_coords = ds.ml_level_coords = np.r_[500, 850, 851:886]
         return reads
 
     return install

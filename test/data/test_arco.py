@@ -152,6 +152,28 @@ def test_arco_time_statistics_mock(mock_statistic_zarr):
     # Each distinct hourly field is read exactly once: -6h..+3h plus the instant
     assert sorted(reads) == list(range(index - 6, index + 4))
 
+    # Plain variables share the request pool with statistics: the instantaneous
+    # field overlapping a forward window is read once, not once per path
+    reads.clear()
+    data = ds(time, ["t2m", "t2m:mean:+0h:+2h"])
+    np.testing.assert_allclose(data.values[0, :, 0, 0], [index, index + 0.5])
+    assert sorted(reads) == [index, index + 1]
+
+    # Two pressure levels of one hour (and a window over a third) are one chunk
+    reads.clear()
+    data = ds(time, ["t500", "t850", "t500:max:+0h:+2h"])
+    # Level index 0 (500 hPa) is +0 and index 1 (850 hPa) is +1 in the fake chunk
+    assert data.values[0, 0, 0, 0] == index
+    assert data.values[0, 1, 0, 0] == index + 1
+    assert data.values[0, 2, 0, 0] == index + 1
+    assert sorted(reads) == [index, index + 1]
+
+    # A trailing-sum variable (read directly) next to its base field still works
+    reads.clear()
+    data = ds(time, ["tp", "tp06"])
+    assert data.values[0, 0, 0, 0] == index
+    assert data.values[0, 1, 0, 0] == 6 * index - 15
+
     # Statistics of already-aggregated variables or bad windows are rejected
     with pytest.raises(ValueError):
         ds(time, ["t2m:mean:90m"])
