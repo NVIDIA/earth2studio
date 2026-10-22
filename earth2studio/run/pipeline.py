@@ -303,6 +303,8 @@ class Pipeline:
 
         Collective. Each phase reduces a failure flag, so a failure on any rank
         stops every rank in the same round instead of mismatching collectives.
+        Items are marked done only once ``sync`` succeeded on every rank, since
+        one rank's ``sync`` may fail after another's returned.
         """
         sync = self.sync
         assert sync is not None  # noqa: S101 - only called with a sync hook
@@ -312,14 +314,12 @@ class Pipeline:
         else:
             _all_agree(lambda: None)
 
-        def finish() -> None:
-            sync(item)
-            if item is not None:
-                self._mark_done(item)
-
-        _all_agree(finish)
+        _all_agree(lambda: sync(item))
         if item is not None:
+            _all_agree(lambda: self._mark_done(item))
             _log_finished(rank, index, mine)
+        else:
+            _all_agree(lambda: None)
 
     def _mark_done(self, item: WorkItem) -> None:
         if self.progress is not None:

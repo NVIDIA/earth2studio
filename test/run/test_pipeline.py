@@ -515,6 +515,17 @@ def test_sync_rounds_across_ranks(tmp_path: Path) -> None:
     ]
     assert [r["syncs"] for r in failed] == [[], []]
 
+    # Rank 0's sync fails after the collective, once rank 1's sync returned:
+    # rank 1 must not record its item done before the failure is agreed.
+    result = _torchrun(tmp_path, "sync_save")
+    assert result.returncode != 0
+    saved = _rank_results(tmp_path, "sync_save")
+    assert [r["error"] for r in saved] == [
+        "RuntimeError: injected sync failure",
+        "RuntimeError: Another rank failed",
+    ]
+    assert saved[1]["syncs"] == [[_label(T2), 2]]
+
     # The rerun redoes every item; each sync sees how many ranks had an item.
     result = _torchrun(tmp_path, "sync")
     assert result.returncode == 0, result.stderr
@@ -552,7 +563,8 @@ def _torchrun_main() -> int:
     argument injects a failure at that item time; phase ``mismatch`` gives rank
     1 a different item list, and phase ``setup`` fails placing rank 1's runner.
     Phases starting ``sync`` run three items with a ``sync`` hook that counts,
-    across ranks, the ranks that had an item in each round.
+    across ranks, the ranks that had an item in each round; in ``sync_save``,
+    rank 0's sync then fails.
     """
     out, phase = Path(sys.argv[1]), sys.argv[2]
     fail_at = np.datetime64(sys.argv[3]) if len(sys.argv) > 3 else None
@@ -568,6 +580,8 @@ def _torchrun_main() -> int:
         count = torch.tensor([0 if item is None else 1])
         dist.all_reduce(count)
         syncs.append((None if item is None else _label(item.time), int(count)))
+        if phase == "sync_save" and rank == 0:
+            raise RuntimeError("injected sync failure")
 
     runner = _Recording(_runner(), fail_at=fail_at)
     runner.fail_to = phase == "setup" and rank == 1
