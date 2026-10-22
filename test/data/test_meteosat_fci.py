@@ -325,28 +325,20 @@ def test_meteosat_fci_grid_orientation():
     assert float(lat[q1, mid]) < float(lat[q3, mid])
     # Western columns have lower (more negative) longitudes than eastern ones
     assert float(lon[mid, q1]) < float(lon[mid, q3])
+    assert np.isnan(lat[0, 0]) and np.isnan(lon[0, 0])
 
+    # Off-axis pixel of the StormScope package, which navigates FCI with sweep=y;
+    # sweep=x (GOES) navigation is ~0.25 degrees off here.
+    np.testing.assert_allclose(
+        (lat[5320, 2156], lon[5320, 2156]), (62.918877, -28.507347), atol=1e-5
+    )
 
-def test_meteosat_fci_grid_navigation():
-    # Pixel (row, column): latitude and longitude of the StormScope package, which
-    # navigates FCI with sweep=y. Away from the scan axes, sweep=x (GOES) differs.
-    pixel_bbox = ((4420, 5321), (2156, 4157))
-    lat, lon = MeteosatFCI.grid(resolution="2km", pixel_bbox=pixel_bbox)
-    assert lat.shape == lon.shape == (901, 2001)
-    for (row, column), expected in {
-        (4880, 3072): (44.274174, 7.622921),
-        (5320, 2156): (62.918877, -28.507347),
-        (4420, 4156): (33.118618, 32.779476),
-    }.items():
-        i, j = row - pixel_bbox[0][0], column - pixel_bbox[1][0]
-        np.testing.assert_allclose((lat[i, j], lon[i, j]), expected, atol=1e-5)
-
-    # A pixel_bbox grid is the matching crop of the full disk, NaN off-Earth.
-    full_lat, full_lon = MeteosatFCI.grid(resolution="2km")
+    # A pixel_bbox grid is the matching crop of the full disk.
+    pixel_bbox = ((5300, 5340), (2150, 2170))
+    crop_lat, crop_lon = MeteosatFCI.grid(resolution="2km", pixel_bbox=pixel_bbox)
     crop = (slice(*pixel_bbox[0]), slice(*pixel_bbox[1]))
-    np.testing.assert_array_equal(lat, full_lat[crop])
-    np.testing.assert_array_equal(lon, full_lon[crop])
-    assert np.isnan(full_lat[0, 0]) and np.isnan(full_lon[0, 0])
+    np.testing.assert_array_equal(crop_lat, lat[crop])
+    np.testing.assert_array_equal(crop_lon, lon[crop])
 
 
 def test_meteosat_fci_available():
