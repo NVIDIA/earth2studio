@@ -1177,16 +1177,26 @@ async def _get_range_hedged(
 ) -> bytes:
     if hedge_after is None:
         return bytes(await store.get_range_async(key, start=start, end=end))
-    first = asyncio.ensure_future(store.get_range_async(key, start=start, end=end))
-    done, _ = await asyncio.wait({first}, timeout=hedge_after)
-    if not done:
-        second = asyncio.ensure_future(store.get_range_async(key, start=start, end=end))
-        done, pending = await asyncio.wait(
-            {first, second}, return_when=asyncio.FIRST_COMPLETED
-        )
-        for task in pending:
+    tasks = [asyncio.ensure_future(store.get_range_async(key, start=start, end=end))]
+    try:
+        done, _ = await asyncio.wait(tasks, timeout=hedge_after)
+        if not done:
+            tasks.append(
+                asyncio.ensure_future(store.get_range_async(key, start=start, end=end))
+            )
+        pending = set(tasks)
+        while True:
+            done, pending = await asyncio.wait(
+                pending, return_when=asyncio.FIRST_COMPLETED
+            )
+            for task in done:
+                if task.exception() is None:
+                    return bytes(task.result())
+            if not pending:
+                return bytes(done.pop().result())
+    finally:
+        for task in tasks:
             task.cancel()
-    return bytes(done.pop().result())
 
 
 async def obstore_read_chunked(
@@ -1204,8 +1214,9 @@ async def obstore_read_chunked(
     at most ``chunk_size`` bytes are read with a single range GET; larger
     objects are split with at most ``max_concurrent`` ranges in flight, then
     reassembled in order. All chunked reads running on one event loop share a
-    limit of 256 ranges in flight, which the default settings never reach for
-    a single object.
+    limit of 256 ranges in flight, plus their duplicate requests when
+    ``hedge_after`` is set; the default settings never reach it for a single
+    object.
 
     Parameters
     ----------
@@ -1219,7 +1230,8 @@ async def obstore_read_chunked(
         Maximum concurrent range GETs for one object, by default 8
     hedge_after : float | None, optional
         Seconds after which a range still outstanding is requested a second
-        time, the first reply winning, by default None (no duplicate requests)
+        time. The first successful reply wins; a failure is raised only when
+        both requests fail. By default None (no duplicate requests)
 
     Returns
     -------

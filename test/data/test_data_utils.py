@@ -1017,6 +1017,52 @@ async def test_obstore_read_chunked_hedges_a_stalled_range():
 
 
 @pytest.mark.asyncio
+async def test_obstore_read_chunked_hedge_survives_a_failed_original():
+    blob = bytes(range(256)) * 16
+
+    class _FailingStore(_FakeByteRangeStore):
+        async def get_range_async(self, key, *, start, end=None, length=None):
+            fail = not self.requested_ranges
+            data = await super().get_range_async(key, start=start, end=end)
+            if fail:
+                await asyncio.sleep(0.2)
+                raise OSError("connection reset")
+            await asyncio.sleep(0.5)
+            return data
+
+    store = _FailingStore(blob)
+    data = await asyncio.wait_for(
+        obstore_read_chunked(store, "key", hedge_after=0.05), timeout=5
+    )
+    assert data == blob
+
+
+@pytest.mark.asyncio
+async def test_obstore_read_chunked_cancel_cancels_both_requests():
+    blob = bytes(range(256)) * 16
+    cancelled = []
+
+    class _HangingStore(_FakeByteRangeStore):
+        async def get_range_async(self, key, *, start, end=None, length=None):
+            await super().get_range_async(key, start=start, end=end)
+            try:
+                await asyncio.sleep(30)
+            except asyncio.CancelledError:
+                cancelled.append((start, end))
+                raise
+
+    store = _HangingStore(blob)
+    read = asyncio.ensure_future(obstore_read_chunked(store, "key", hedge_after=0.05))
+    await asyncio.sleep(0.2)
+    assert len(store.requested_ranges) == 2
+    read.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await read
+    await asyncio.sleep(0)
+    assert cancelled == [(0, len(blob)), (0, len(blob))]
+
+
+@pytest.mark.asyncio
 async def test_obstore_read_chunked_not_found():
     """Missing objects surface as FileNotFoundError so retry semantics hold."""
 
