@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added HealDA v2 (`HealDAv2`), a global machine-learning data-assimilation model that
   maps a 48-hour sequence of satellite and conventional observations to a 104-channel,
   0.25° atmospheric analysis on a regular latitude-longitude grid (`da-healda-v2` extra).
+  It is called as `model({stream: frame})` with one wide NNJA frame (`layout="wide"`)
+  per stream key of `input_coords()`, and raises on long frames.
 - Added an `original_event` option and report time/latitude/longitude columns to
   `NNJAObsConv`; report-time filtering preserves complete PrepBUFR profiles.
 - Added a `detector` column to `NNJAObsSat` carrying the CrIS field-of-view index.
@@ -29,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `NomadsGDASObsConv`: `"wide"` returns one row per report level, wind or footprint
   with one `observation_<variable>` column per variable (per-channel values as lists
   for satellites); `"long"` (default) is unchanged.
+- Added `fetch_dataframes`, which fetches several DataFrame requests concurrently, each
+  a data source with a schema such as a model's `input_coords()` entry.
 
 ### Changed
 
@@ -53,10 +57,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   return Earth2Studio units.
 - `fetch_dataframe` keeps the attributes the data source sets on the returned frame
   and adds `request_time` and `request_lead_time` to them, instead of replacing them.
-- `HealDAv2` takes wide NNJA frames (`layout="wide"`) and raises on long frames.
-- `obstore_read_chunked` reads objects over 8 MiB as 8 MiB ranges with up to 64 in
-  flight, caps in-flight ranges across concurrent reads and re-requests a stalled
-  range; NNJA cycle files download 3-8x faster.
+- `obstore_read_chunked` and `obstore_fetch_to_cache` take `chunk_size`,
+  `max_concurrent` and `hedge_after` (re-request a range still outstanding after a
+  delay); defaults are unchanged. The NNJA sources download cycle files in larger
+  ranges with more in flight and re-request stalled ranges.
 
 ### Deprecated
 
@@ -95,6 +99,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The `data` extra depends on earth2bufr (the BUFR decoder of the NCEP sources)
   instead of pybufrkit.
+- The `data` extra requires pyarrow>=24; the core requirement stays pyarrow>=14.
 
 ## [0.19.0] - 2026-09-30
 
