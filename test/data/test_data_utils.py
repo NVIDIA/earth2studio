@@ -984,7 +984,7 @@ async def test_obstore_read_chunked_small():
 async def test_obstore_read_chunked_default_chunk_size():
     mib = 1024 * 1024
     rng = np.random.default_rng(2)
-    small = rng.integers(0, 256, 3 * mib, dtype=np.uint8).tobytes()
+    small = rng.integers(0, 256, mib // 2, dtype=np.uint8).tobytes()
     store = _FakeByteRangeStore(small)
     assert await obstore_read_chunked(store, "small") == small
     assert store.requested_ranges == [(0, len(small))]
@@ -992,15 +992,12 @@ async def test_obstore_read_chunked_default_chunk_size():
     large = rng.integers(0, 256, 20 * mib + 7, dtype=np.uint8).tobytes()
     store = _FakeByteRangeStore(large)
     assert await obstore_read_chunked(store, "large") == large
-    assert len(store.requested_ranges) == 3
-    assert all(end - start <= 8 * mib for start, end in store.requested_ranges)
+    assert len(store.requested_ranges) == 21
+    assert all(end - start <= mib for start, end in store.requested_ranges)
 
 
 @pytest.mark.asyncio
-async def test_obstore_read_chunked_hedges_a_stalled_range(monkeypatch):
-    import earth2studio.data.utils as data_utils
-
-    monkeypatch.setattr(data_utils, "_READ_HEDGE_AFTER_SECONDS", 0.05)
+async def test_obstore_read_chunked_hedges_a_stalled_range():
     blob = bytes(range(256)) * 16
 
     class _StallingStore(_FakeByteRangeStore):
@@ -1012,7 +1009,9 @@ async def test_obstore_read_chunked_hedges_a_stalled_range(monkeypatch):
             return data
 
     store = _StallingStore(blob)
-    data = await asyncio.wait_for(obstore_read_chunked(store, "key"), timeout=5)
+    data = await asyncio.wait_for(
+        obstore_read_chunked(store, "key", hedge_after=0.05), timeout=5
+    )
     assert data == blob
     assert store.requested_ranges == [(0, len(blob)), (0, len(blob))]
 

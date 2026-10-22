@@ -1145,14 +1145,15 @@ def atomic_write_bytes(path: str | os.PathLike, data: bytes) -> None:
         raise
 
 
-# Defaults for chunked whole-object reads: 8 MiB ranges, up to 64 in flight per
-# object. All chunked reads on one event loop share a cap on in-flight ranges,
-# and a range still outstanding after a delay gets one duplicate request; the
-# first reply wins.
-_READ_CHUNK_SIZE_BYTES: int = 8 * 1024 * 1024
-_READ_CHUNK_CONCURRENCY: int = 64
+# Defaults for chunked whole-object reads. 1 MiB chunks with 8 in flight
+# measured ~5x faster and far less variable than a single whole-object GET on
+# tens-of-MB S3 objects (2--8 MiB chunks yield too few concurrent streams).
+# Callers that also parallelize across files should keep files x chunks near
+# their store's connection-pool size.
+_READ_CHUNK_SIZE_BYTES: int = 1024 * 1024
+_READ_CHUNK_CONCURRENCY: int = 8
+# All chunked reads on one event loop share this cap on in-flight ranges
 _READ_INFLIGHT_LIMIT: int = 256
-_READ_HEDGE_AFTER_SECONDS: float = 1.5
 _read_inflight: weakref.WeakKeyDictionary[
     asyncio.AbstractEventLoop, asyncio.Semaphore
 ] = weakref.WeakKeyDictionary()
@@ -1168,10 +1169,16 @@ def _inflight_semaphore() -> asyncio.Semaphore:
 
 
 async def _get_range_hedged(
-    store: AsyncReadableStore, key: str, start: int, end: int
+    store: AsyncReadableStore,
+    key: str,
+    start: int,
+    end: int,
+    hedge_after: float | None,
 ) -> bytes:
+    if hedge_after is None:
+        return bytes(await store.get_range_async(key, start=start, end=end))
     first = asyncio.ensure_future(store.get_range_async(key, start=start, end=end))
-    done, _ = await asyncio.wait({first}, timeout=_READ_HEDGE_AFTER_SECONDS)
+    done, _ = await asyncio.wait({first}, timeout=hedge_after)
     if not done:
         second = asyncio.ensure_future(store.get_range_async(key, start=start, end=end))
         done, pending = await asyncio.wait(
@@ -1185,18 +1192,20 @@ async def _get_range_hedged(
 async def obstore_read_chunked(
     store: AsyncReadableStore,
     key: str,
-    chunk_size: int | None = None,
-    max_concurrent: int | None = None,
+    chunk_size: int = _READ_CHUNK_SIZE_BYTES,
+    max_concurrent: int = _READ_CHUNK_CONCURRENCY,
+    hedge_after: float | None = None,
 ) -> bytes:
     """Reads a whole object, fetching large objects as parallel byte ranges.
 
     A single whole-object GET runs at single-stream throughput; splitting
-    large objects into byte ranges fetched concurrently recovers multi-stream
-    throughput. Objects of at most ``chunk_size`` bytes are read with a single
-    range GET; larger objects are split with at most ``max_concurrent`` ranges
-    in flight, then reassembled in order. All chunked reads running on one event
-    loop share a limit of 256 ranges in flight, and a range that has not
-    completed after 1.5 s is requested a second time, the first reply winning.
+    large objects (e.g. tens-of-MB HDF5 granules) into ``chunk_size`` byte
+    ranges fetched concurrently recovers multi-stream throughput. Objects of
+    at most ``chunk_size`` bytes are read with a single range GET; larger
+    objects are split with at most ``max_concurrent`` ranges in flight, then
+    reassembled in order. All chunked reads running on one event loop share a
+    limit of 256 ranges in flight, which the default settings never reach for
+    a single object.
 
     Parameters
     ----------
@@ -1204,10 +1213,13 @@ async def obstore_read_chunked(
         obspec-conforming store to read from (e.g. an obstore store)
     key : str
         Object key (bucket-relative path)
-    chunk_size : int | None, optional
-        Byte-range size per GET, by default 8 MiB
-    max_concurrent : int | None, optional
-        Maximum concurrent range GETs for one object, by default 64
+    chunk_size : int, optional
+        Byte-range size per GET, by default 1 MiB
+    max_concurrent : int, optional
+        Maximum concurrent range GETs for one object, by default 8
+    hedge_after : float | None, optional
+        Seconds after which a range still outstanding is requested a second
+        time, the first reply winning, by default None (no duplicate requests)
 
     Returns
     -------
@@ -1221,10 +1233,6 @@ async def obstore_read_chunked(
         plain ``Exception``, so it is translated here (mirroring
         ``obstore_read_range``) to keep callers' retry semantics sane.
     """
-    if chunk_size is None:
-        chunk_size = _READ_CHUNK_SIZE_BYTES
-    if max_concurrent is None:
-        max_concurrent = _READ_CHUNK_CONCURRENCY
     try:
         meta = await store.head_async(key)
         size = int(meta["size"])
@@ -1232,14 +1240,14 @@ async def obstore_read_chunked(
 
         if size <= chunk_size:
             async with inflight:
-                return await _get_range_hedged(store, key, 0, size)
+                return await _get_range_hedged(store, key, 0, size, hedge_after)
 
         semaphore = asyncio.Semaphore(max_concurrent)
 
         async def _fetch_range(start: int) -> bytes:
             async with semaphore, inflight:
                 return await _get_range_hedged(
-                    store, key, start, min(start + chunk_size, size)
+                    store, key, start, min(start + chunk_size, size), hedge_after
                 )
 
         chunks = await asyncio.gather(
@@ -1259,6 +1267,9 @@ async def obstore_fetch_to_cache(
     cache_key: str | None = None,
     chunked: bool = False,
     atomic: bool = False,
+    chunk_size: int = _READ_CHUNK_SIZE_BYTES,
+    max_concurrent: int = _READ_CHUNK_CONCURRENCY,
+    hedge_after: float | None = None,
 ) -> str:
     """Fetches a byte range of an object into a local cache file.
 
@@ -1292,6 +1303,13 @@ async def obstore_fetch_to_cache(
         object can never leave a partial file behind as a poisoned cache
         entry. Intended for callers whose cache entries are plausibly written
         by several processes at once, by default False
+    chunk_size : int, optional
+        Byte-range size per GET for chunked fetches, by default 1 MiB
+    max_concurrent : int, optional
+        Maximum concurrent range GETs for chunked fetches, by default 8
+    hedge_after : float | None, optional
+        Delay before a slow range of a chunked fetch is requested a second
+        time, by default None (no duplicate requests)
 
     Returns
     -------
@@ -1306,7 +1324,13 @@ async def obstore_fetch_to_cache(
     if Path(cache_path).is_file():
         return cache_path
     if chunked:
-        data = await obstore_read_chunked(store, key)
+        data = await obstore_read_chunked(
+            store,
+            key,
+            chunk_size=chunk_size,
+            max_concurrent=max_concurrent,
+            hedge_after=hedge_after,
+        )
     else:
         data = await obstore_read_range(
             store, key, byte_offset=byte_offset, byte_length=byte_length

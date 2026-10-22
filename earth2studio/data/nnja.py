@@ -84,6 +84,11 @@ from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
 NNJA_BUCKET = "noaa-reanalyses-pds"
 NNJA_PREFIX = "observations/reanalysis"
 
+# Chunked download settings for NNJA cycle files
+_NNJA_READ_CHUNK_SIZE_BYTES = 8 * 1024 * 1024
+_NNJA_READ_CHUNK_CONCURRENCY = 64
+_NNJA_READ_HEDGE_AFTER_SECONDS = 1.5
+
 
 @dataclass(frozen=True)
 class _NNJASatProduct:
@@ -456,6 +461,9 @@ class NNJAObsConv:
                 cache_key=hashlib.sha256(path.encode()).hexdigest(),
                 chunked=True,
                 atomic=True,
+                chunk_size=_NNJA_READ_CHUNK_SIZE_BYTES,
+                max_concurrent=_NNJA_READ_CHUNK_CONCURRENCY,
+                hedge_after=_NNJA_READ_HEDGE_AFTER_SECONDS,
             )
         except FileNotFoundError:
             self._handle_missing_file(path)
@@ -1054,6 +1062,9 @@ class NNJAObsSat:
                 cache_key=hashlib.sha256(path.encode()).hexdigest(),
                 chunked=True,
                 atomic=True,
+                chunk_size=_NNJA_READ_CHUNK_SIZE_BYTES,
+                max_concurrent=_NNJA_READ_CHUNK_CONCURRENCY,
+                hedge_after=_NNJA_READ_HEDGE_AFTER_SECONDS,
             )
         except FileNotFoundError:
             self._handle_missing_file(path)
