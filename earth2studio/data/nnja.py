@@ -40,6 +40,7 @@ from loguru import logger
 from obstore.store import S3Store
 
 from earth2studio.data.utils import (
+    _CleanupAfterLastCall,
     _sync_async,
     async_retry,
     datasource_cache_dir,
@@ -347,6 +348,7 @@ class NNJAObsConv:
         self._retries = retries
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = uuid.uuid4().hex[:8] if not cache else None
+        self._calls = _CleanupAfterLastCall(self)
         # Anonymous obstore S3 store for the public NNJA bucket.
         self._store = S3Store(
             NNJA_BUCKET,
@@ -366,13 +368,9 @@ class NNJAObsConv:
         fields: str | list[str] | pa.Schema | None = None,
     ) -> pd.DataFrame:
         """Fetch observations for a set of timestamps."""
-        try:
+        with self._calls:
             # async_timeout bounds the download inside fetch; decode is not bounded.
-            df = _sync_async(self.fetch, time, variable, fields)
-        finally:
-            self.cleanup()
-
-        return df
+            return _sync_async(self.fetch, time, variable, fields)
 
     async def fetch(
         self,
@@ -954,6 +952,7 @@ class NNJAObsSat:
         self._retries = retries
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = uuid.uuid4().hex[:8] if not cache else None
+        self._calls = _CleanupAfterLastCall(self)
         # Anonymous obstore S3 store for the public NNJA bucket.
         self._store = S3Store(
             NNJA_BUCKET,
@@ -973,13 +972,9 @@ class NNJAObsSat:
         fields: str | list[str] | pa.Schema | None = None,
     ) -> pd.DataFrame:
         """Fetch observations for a set of timestamps."""
-        try:
+        with self._calls:
             # async_timeout bounds the download inside fetch; decode is not bounded.
-            df = _sync_async(self.fetch, time, variable, fields)
-        finally:
-            self.cleanup()
-
-        return df
+            return _sync_async(self.fetch, time, variable, fields)
 
     async def fetch(
         self,

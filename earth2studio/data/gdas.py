@@ -29,6 +29,7 @@ import pandas as pd
 import pyarrow as pa
 
 from earth2studio.data.utils import (
+    _CleanupAfterLastCall,
     _sync_async,
     async_retry,
     datasource_cache_dir,
@@ -175,6 +176,7 @@ class NomadsGDASObsConv:
         self._retries = retries
         self._layout = _validate_layout(layout)
         self._tmp_cache_hash: str | None = uuid.uuid4().hex[:8] if not cache else None
+        self._calls = _CleanupAfterLastCall(self)
         self._store = obstore_store_from_url(
             NOMADS_STORE_URL, anonymous=False, max_pool_connections=async_workers
         )
@@ -209,14 +211,9 @@ class NomadsGDASObsConv:
         ValueError
             If requested time is out of valid range.
         """
-        try:
+        with self._calls:
             # async_timeout bounds the download inside fetch; decode is not bounded.
-            df = _sync_async(self.fetch, time, variable, fields)
-        finally:
-            if not self._cache:
-                shutil.rmtree(self.cache, ignore_errors=True)
-
-        return df
+            return _sync_async(self.fetch, time, variable, fields)
 
     async def fetch(
         self,
@@ -381,6 +378,11 @@ class NomadsGDASObsConv:
     def cache(self) -> str:
         """Get the appropriate cache location."""
         return datasource_cache_dir("gdas_prepbufr", self._cache, self._tmp_cache_hash)
+
+    def cleanup(self) -> None:
+        """Remove temporary files when persistent caching is disabled."""
+        if not self._cache:
+            shutil.rmtree(self.cache, ignore_errors=True)
 
     @classmethod
     def available(cls, time: datetime | np.datetime64) -> bool:

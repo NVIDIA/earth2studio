@@ -19,6 +19,7 @@ import os
 import shutil
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -133,6 +134,33 @@ def test_nnja_obs_conv_cache_mock(cache, tmp_path):
         shutil.rmtree(ds.cache)
     except FileNotFoundError:
         pass
+
+
+def test_nnja_obs_conv_concurrent_calls_share_temp_cache(monkeypatch):
+    ds = NNJAObsConv(cache=False, verbose=False)
+    cache_dir = ds.cache
+    slow_started, fast_done = threading.Event(), threading.Event()
+
+    async def fetch(time, variable, fields):
+        path = os.path.join(ds.cache, f"{variable}.bin")
+        with open(path, "wb") as f:
+            f.write(b"bufr")
+        if variable == "slow":
+            slow_started.set()
+            await asyncio.to_thread(fast_done.wait, 30)
+        with open(path, "rb") as f:
+            assert f.read() == b"bufr"
+        return pd.DataFrame()
+
+    monkeypatch.setattr(ds, "fetch", fetch)
+    with ThreadPoolExecutor(1) as pool:
+        slow = pool.submit(ds, datetime(2024, 1, 1), "slow")
+        assert slow_started.wait(30)
+        ds(datetime(2024, 1, 1), "fast")
+        assert os.path.isdir(cache_dir)
+        fast_done.set()
+        slow.result(timeout=30)
+    assert not os.path.exists(cache_dir)
 
 
 def test_nnja_obs_conv_exceptions():

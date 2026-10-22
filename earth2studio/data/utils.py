@@ -21,6 +21,7 @@ import contextlib
 import os
 import random
 import tempfile
+import threading
 import uuid
 import weakref
 from collections import OrderedDict
@@ -636,6 +637,27 @@ def datasource_cache_dir(subdir: str, persistent: bool, tmp_hash: str | None) ->
         cache_location = os.path.join(cache_location, f"tmp_{subdir}_{tmp_hash}")
     os.makedirs(cache_location, exist_ok=True)
     return cache_location
+
+
+class _CleanupAfterLastCall:
+    """Context manager around a data source call that runs ``source.cleanup()`` when
+    the last of any overlapping calls exits, so concurrent calls on one source instance
+    never delete files another call still reads."""
+
+    def __init__(self, source: Any) -> None:
+        self._source = source
+        self._lock = threading.Lock()
+        self._active = 0
+
+    def __enter__(self) -> None:
+        with self._lock:
+            self._active += 1
+
+    def __exit__(self, *exc_info: object) -> None:
+        with self._lock:
+            self._active -= 1
+            if self._active == 0:
+                self._source.cleanup()
 
 
 # =============================================================================
