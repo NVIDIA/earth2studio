@@ -38,6 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is a NaN observation instead of a dropped row, so every footprint appears.
 - ECMWF open-data sources accept a `client_kwargs` dictionary for
   `opendata.Client`.
+- Updated CBottle Tropical Cyclone and Infill checkpoints to new EMA version
+- Added checkpointing support for AtlasCRPS model
 
 ### Deprecated
 
@@ -45,6 +47,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `NNJAObsConv` and `NomadsGDASObsConv` decode PrepBUFR files from before 2007, which
+  number their message types 230-249 instead of 102-121; these files previously
+  returned no conventional observations.
+- PrepBUFR messages dated 2000 (edition 3, year of century 100) get the year 2000
+  instead of 100, so their observations are no longer dropped by the time window.
 - `NNJAObsConv`, `NNJAObsSatwnd` and `NNJAObsSat` raise when a file, any of its
   messages, or any DX-table message fails to decode, instead of silently returning
   fewer rows.

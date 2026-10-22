@@ -123,6 +123,7 @@ MNEMONIC_TO_DESCR: dict[str, int] = {
 # Ref: NCEP PREPBUFR Table 1.a / prepobs_prep.bufrtable Table A.
 # https://www.emc.ncep.noaa.gov/mmb/data_processing/prepbufr.doc/table_1.htm
 # These are PREPBUFR message families, not inner report TYP values.
+# Keys are the post-2007 category numbers, for reference; selection is by family name.
 PREPBUFR_OBS_TYPES: dict[int, str] = {
     102: "ADPUPA",  # Upper-air: RAOB, PIBAL, RECCO, dropsonde
     103: "AIRCAR",  # Aircraft: MDCRS ACARS
