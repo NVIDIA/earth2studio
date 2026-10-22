@@ -1435,7 +1435,8 @@ def _offset_microseconds(hours: np.ndarray, scale: int) -> np.ndarray:
 def _message_base_times(info: Any) -> np.ndarray:
     """Section 1 reference time in microseconds per source message index; invalid -> int64 min.
 
-    Edition 3 stores a two-digit year (pivot 70) and no seconds.
+    Edition 3 stores the year of century (pivot 70; BUFR codes 2000 as 100) and no
+    seconds.
     """
     header = np.array(
         [
@@ -1456,7 +1457,7 @@ def _message_base_times(info: Any) -> np.ndarray:
     index, edition, year, month, day, hour, minute, second = header.T
     edition3 = edition == 3
     year = np.where(
-        edition3 & (year < 100), year + np.where(year < 70, 2000, 1900), year
+        edition3 & (year <= 100), year + np.where(year < 70, 2000, 1900), year
     )
     second = np.where(edition3, 0, second)
     stamp_ns, valid = civil_time_ns(

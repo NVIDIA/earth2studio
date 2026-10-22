@@ -34,6 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `fetch_dataframes`, which fetches several DataFrame requests concurrently, each
   a data source with a schema such as a model's `input_coords()` entry, given as a list
   (returns a list) or a dict (returns a dict).
+- Eval recipe: `scoring.online.verification_sources` scores one online rollout
+  against several named truth sources in a single pass, writing
+  `stats__<name>.zarr` and `scores__<name>.zarr` per reference.
 
 ### Changed
 
@@ -62,6 +65,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `max_concurrent` and `hedge_after` (re-request a range still outstanding after a
   delay); defaults are unchanged. The NNJA sources download cycle files in larger
   ranges with more in flight and re-request stalled ranges.
+- Updated CBottle Tropical Cyclone and Infill checkpoints to new EMA version
+- Added checkpointing support for AtlasCRPS model
 
 ### Deprecated
 
@@ -72,6 +77,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `NNJAObsConv` and `NomadsGDASObsConv` decode PrepBUFR files from before 2007, which
   number their message types 230-249 instead of 102-121, and raise on a PrepBUFR file
   with no known message family instead of returning no rows.
+- PrepBUFR messages dated 2000 (edition 3, year of century 100) get the year 2000
+  instead of 100, so their observations are no longer dropped by the time window.
 - `NNJAObsConv`, `NNJAObsSatwnd` and `NNJAObsSat` raise when a file, any of its
   messages, or any DX-table message fails to decode, instead of silently returning
   fewer rows.

@@ -40,6 +40,7 @@ from earth2studio.data import (
     utils_ncep,
 )
 from earth2studio.data.utils import radiance_to_bt
+from earth2studio.data.utils_bufr import datetime_ns
 from earth2studio.data.utils_ir import wavenumber_cm_inverse
 from earth2studio.data.utils_ncep import (
     NCEP_CONVENTIONAL_PUBLIC_SCHEMA,
@@ -180,6 +181,23 @@ def test_nnja_obs_conv_original_event():
 
     assert not latest._original_event
     assert original._original_event
+
+
+@pytest.mark.parametrize("year, expected", [(99, 1999), (100, 2000), (6, 2006)])
+def test_edition3_year_of_century(year, expected):
+    message = SimpleNamespace(
+        source_message_index=0,
+        edition=3,
+        year=year,
+        month=1,
+        day=1,
+        hour=0,
+        minute=0,
+        second=0,
+    )
+    info = SimpleNamespace(data_messages=[message], messages=[message])
+    base_us = utils_ncep._message_base_times(info)
+    assert base_us[0] == datetime_ns(datetime(expected, 1, 1)) // 1000
 
 
 def test_nnja_obs_conv_validate_time():
