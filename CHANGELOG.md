@@ -100,7 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The `data` extra depends on earth2bufr (the BUFR decoder of the NCEP sources)
   instead of pybufrkit.
-- The `data` extra requires pyarrow>=24; the core requirement stays pyarrow>=14.
+- pyarrow>=24 (Table.filter corruption on large single chunks in 18-23)
 
 ## [0.19.0] - 2026-09-30
 
