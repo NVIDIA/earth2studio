@@ -670,6 +670,25 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             model._min_domain_cells = max(kernels) * max(dit.patch_size)
         return model
 
+    def to(self, device: str | torch.device | int) -> PrognosticModel:
+        """Move the model and the wrapped ``px_model`` to a device.
+
+        Parameters
+        ----------
+        device : str | torch.device | int
+            Target device
+
+        Returns
+        -------
+        PrognosticModel
+            Model on the target device
+        """
+        super().to(device)
+        # nn.Module.to does not call the child's overridden to() (e.g. ONNX sessions)
+        if self.px_model is not None:
+            self.px_model.to(device)
+        return self
+
     def _cpad(self, x: torch.Tensor) -> torch.Tensor:
         # Circular longitude pad by lon_pad columns, modulo indexing handles pad > width
         p = self.lon_pad
@@ -916,14 +935,15 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x_emit, emit_coords = map_coords(
                 x_run, coords_run, self.output_coords(coords_run)
             )
-            # rear_hook only touches emitted frames so the interpolation anchor stays unhooked
+            # rear_hook only touches emitted frames so the interpolation anchor stays unhooked,
+            # x_emit may be a view of x_run so it is cloned before a possibly in-place hook
             if fc_step == 0:
                 x0, coords0 = x_run, coords_run
-                yield self.rear_hook(x_emit, emit_coords)
+                yield self.rear_hook(x_emit.clone(), emit_coords)
             else:
                 for xo, co in self._interpolate(x0, x_run, coords0):
                     yield self.rear_hook(xo, co)
-                yield self.rear_hook(x_emit, emit_coords)
+                yield self.rear_hook(x_emit.clone(), emit_coords)
                 x0, coords0 = x_run, coords_run
 
     def create_iterator(

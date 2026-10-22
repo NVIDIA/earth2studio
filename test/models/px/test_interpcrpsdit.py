@@ -893,6 +893,33 @@ def test_interpcrpsdit_rear_hook_output_not_reused_as_anchor():
         assert torch.allclose(xf, torch.full_like(xf, e + 100.0), atol=1e-4)
 
 
+def test_interpcrpsdit_inplace_rear_hook_keeps_anchor():
+    # An in-place rear_hook must not change the interpolation anchor (emitted endpoint may be a view of it)
+    model, x0, coords, h0 = _build(gap_h=6, num_interp_steps=3)
+
+    def rear(a, c):
+        # interior frames are inference tensors (no in-place), endpoints are normal tensors
+        if a.is_inference():
+            return a + 100.0, c
+        a += 100.0
+        return a, c
+
+    model.rear_hook = rear
+    frames = [xf for xf, _ in itertools.islice(model.create_iterator(x0, coords), 7)]
+    expected = [h0, h0 + 2, h0 + 4, h0 + 6, h0 + 8, h0 + 10, h0 + 12]
+    for xf, e in zip(frames, expected):
+        assert torch.allclose(xf, torch.full_like(xf, e + 100.0), atol=1e-4)
+
+
+def test_interpcrpsdit_to_moves_px_model():
+    # to() must propagate to the wrapped px_model (nn.Module.to does not call the child's to())
+    model, _, _, _ = _build()
+    calls = []
+    model.px_model.to = lambda d: calls.append(d) or model.px_model
+    assert model.to("cpu") is model
+    assert calls == ["cpu"]
+
+
 def test_interpcrpsdit_regrid_warns_off_grid_base():
     # A base whose grid is not a subset of the model grid triggers the nearest-regrid warning
     # (map_coords falls back to interpolation instead of an exact crop).
