@@ -97,8 +97,9 @@ model = HealDAv2.load_model(package).to("cuda:0")
 # level, wind or footprint): each PrepBUFR observation's original event, satellite
 # winds from `NNJAObsSatwnd` only, and only the IR sounder channels the model reads.
 # A wide request returns one stream (PrepBUFR, GPS-RO, satellite winds or one satellite
-# sensor), and `input_coords` gives each stream's schema. `fetch_dataframes` fetches
-# every stream concurrently and attaches the ``request_time`` metadata the model
+# sensor), and `input_coords` gives one schema per model argument, in the order
+# ``(prepbufr, gpsro, satwnd, *sensors)``. `fetch_dataframes` fetches every stream
+# concurrently, in that order, and attaches the ``request_time`` metadata the model
 # requires. A sensor outside its archive period comes back empty with a warning.
 
 # %%
@@ -115,15 +116,11 @@ satwnd_source = NNJAObsSatwnd(time_tolerance=tolerance, layout="wide")
 sat_source = NNJAObsSat(
     time_tolerance=tolerance, sensor_indices=model.sensor_indices, layout="wide"
 )
-sources = {"prepbufr": conv_source, "gpsro": conv_source, "satwnd": satwnd_source}
 
-schemas = model.input_coords()
-# Every other stream is a satellite sensor
-obs = fetch_dataframes(
-    {k: (sources.get(k, sat_source), schemas[k]) for k in schemas}, analysis_time
-)
-for name, frame in obs.items():
-    logger.info(f"Fetched {len(frame)} {name} rows")
+schemas = model.input_coords()  # (prepbufr, gpsro, satwnd, *sensors)
+sources = [conv_source, conv_source, satwnd_source] + [sat_source] * (len(schemas) - 3)
+obs = fetch_dataframes(list(zip(sources, schemas)), analysis_time)
+logger.info(f"Fetched rows per stream: {[len(frame) for frame in obs]}")
 
 # %%
 # Run the Model
@@ -131,7 +128,7 @@ for name, frame in obs.items():
 # The direct call returns the analysis as an `xr.DataArray` on the model's device.
 
 # %%
-analysis = model(obs)
+analysis = model(*obs)
 logger.info(f"Analysis shape: {analysis.shape}")
 
 # %%

@@ -16,8 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added HealDA v2 (`HealDAv2`), a global machine-learning data-assimilation model that
   maps a 48-hour sequence of satellite and conventional observations to a 104-channel,
   0.25° atmospheric analysis on a regular latitude-longitude grid (`da-healda-v2` extra).
-  It is called as `model({stream: frame})` with one wide NNJA frame (`layout="wide"`)
-  per stream key of `input_coords()`, and raises on long frames.
+  It is called as `model(prepbufr, gpsro, satwnd, *sensors)` with one wide NNJA frame
+  (`layout="wide"`) per stream in `input_coords()` order, and raises on long frames.
 - Added an `original_event` option and report time/latitude/longitude columns to
   `NNJAObsConv`; report-time filtering preserves complete PrepBUFR profiles.
 - Added a `detector` column to `NNJAObsSat` carrying the CrIS field-of-view index.
