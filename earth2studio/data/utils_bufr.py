@@ -238,6 +238,26 @@ def datetime_ns(value: datetime) -> int:
 _DAYS_IN_MONTH = np.array([0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31])
 
 
+def _civil_days(
+    year: np.ndarray, month: np.ndarray, day: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Days since the epoch of a proleptic Gregorian date and where the date is valid."""
+    finite = np.isfinite(year) & np.isfinite(month) & np.isfinite(day)
+    y = np.where(finite, year, 1970).astype(np.int64)
+    m = np.where(finite, month, 1).astype(np.int64)
+    d = np.where(finite, day, 1).astype(np.int64)
+    leap = ((y % 4 == 0) & (y % 100 != 0)) | (y % 400 == 0)
+    month_ok = (m >= 1) & (m <= 12)
+    days_in_month = _DAYS_IN_MONTH[np.where(month_ok, m, 1)] + ((m == 2) & leap)
+    valid = finite & month_ok & (y >= 1) & (y <= 9999) & (d >= 1) & (d <= days_in_month)
+    ya = y - (m <= 2)
+    era = np.floor_divide(ya, 400)
+    yoe = ya - era * 400
+    doy = (153 * ((m + 9) % 12) + 2) // 5 + d - 1
+    days = era * 146097 + yoe * 365 + yoe // 4 - yoe // 100 + doy - 719468
+    return days, valid
+
+
 def civil_time_ns(
     year: np.ndarray,
     month: np.ndarray,
@@ -252,34 +272,21 @@ def civil_time_ns(
     month and day form a calendar date, the hour is present and in range, and the
     minute is in range.
     """
-    finite = np.isfinite(year) & np.isfinite(month) & np.isfinite(day)
-    y = np.where(finite, year, 1970).astype(np.int64)
-    m = np.where(finite, month, 1).astype(np.int64)
-    d = np.where(finite, day, 1).astype(np.int64)
+    if (
+        len(year)
+        and (year == year[0]).all()
+        and (month == month[0]).all()
+        and (day == day[0]).all()
+    ):
+        # Most batches hold one date: the calendar is evaluated once and broadcast
+        days, date_ok = _civil_days(year[:1], month[:1], day[:1])
+    else:
+        days, date_ok = _civil_days(year, month, day)
     hh = np.nan_to_num(hour).astype(np.int64)
     mm = np.nan_to_num(minute).astype(np.int64)
-    leap = ((y % 4 == 0) & (y % 100 != 0)) | (y % 400 == 0)
-    month_ok = (m >= 1) & (m <= 12)
-    days_in_month = _DAYS_IN_MONTH[np.where(month_ok, m, 1)] + ((m == 2) & leap)
     valid = (
-        finite
-        & np.isfinite(hour)
-        & month_ok
-        & (y >= 1)
-        & (y <= 9999)
-        & (d >= 1)
-        & (d <= days_in_month)
-        & (hh >= 0)
-        & (hh <= 23)
-        & (mm >= 0)
-        & (mm <= 59)
+        date_ok & np.isfinite(hour) & (hh >= 0) & (hh <= 23) & (mm >= 0) & (mm <= 59)
     )
-    # Days from the civil date (proleptic Gregorian)
-    ya = y - (m <= 2)
-    era = np.floor_divide(ya, 400)
-    yoe = ya - era * 400
-    doy = (153 * ((m + 9) % 12) + 2) // 5 + d - 1
-    days = era * 146097 + yoe * 365 + yoe // 4 - yoe // 100 + doy - 719468
     minutes = days * 1440 + hh * 60 + mm
     seconds_ns = np.rint(np.nan_to_num(second) * 1e9).astype(np.int64)
     return np.where(valid, minutes * 60_000_000_000 + seconds_ns, 0), valid
