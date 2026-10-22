@@ -43,6 +43,11 @@ _TOPOLOGIES = frozenset(
 # Source points sampled to estimate a grid's resolution for ``max_dist_km="auto"``.
 _SPACING_SAMPLES = 10_000
 
+# Unit-sphere chord (about 6 mm) within which two source points count as equally
+# near a target, and the neighbors examined when resolving such a tie.
+_TIE_CHORD = 1e-9
+_TIE_NEIGHBORS = 8
+
 try:
     from scipy.spatial import KDTree
 except ImportError:
@@ -69,9 +74,11 @@ def _tree_neighbors(
     tree = KDTree(_unit_vectors(source[0][source_valid], source[1][source_valid]))
     chord = np.full(target[0].size, np.inf)
     nearest = np.zeros(target[0].size, dtype=np.int64)
-    chord[target_valid], found = tree.query(
-        _unit_vectors(target[0][target_valid], target[1][target_valid]), k=1
+    chord_valid = np.empty(int(target_valid.sum()))
+    found = _query_nearest(
+        tree, target[0][target_valid], target[1][target_valid], chord_valid
     )
+    chord[target_valid] = chord_valid
     nearest[target_valid] = np.flatnonzero(source_valid)[found]
     distance = _chord_km(chord)
     resolution = None
@@ -80,6 +87,31 @@ def _tree_neighbors(
         neighbor, _ = tree.query(points, k=2)
         resolution = 2 * float(_chord_km(neighbor[:, 1]).max()) if tree.n > 1 else 0.0
     return nearest, distance, target_valid, resolution
+
+
+def _query_nearest(
+    tree: Any, latitude: NDArray[Any], longitude: NDArray[Any], chord_out: NDArray[Any]
+) -> NDArray[np.int64]:
+    """Nearest source index per target, with ties going to the highest index.
+
+    A target equally near several source points, such as one midway between two
+    grid columns, would otherwise get whichever the tree happens to visit first,
+    which depends on how the tree was built. Only tied targets query beyond the
+    first neighbor, so memory stays that of a single query.
+    """
+    points = _unit_vectors(latitude, longitude)
+    chords, found = tree.query(points, k=min(2, tree.n))
+    if chords.ndim == 1:
+        chord_out[:] = chords
+        return np.asarray(found, dtype=np.int64)
+    chord_out[:] = chords[:, 0]
+    found = np.array(found[:, 0], dtype=np.int64)
+    tied = np.flatnonzero(chords[:, 1] - chords[:, 0] <= _TIE_CHORD)
+    if tied.size:
+        near, candidates = tree.query(points[tied], k=min(_TIE_NEIGHBORS, tree.n))
+        candidates = np.where(near - near[:, :1] <= _TIE_CHORD, candidates, -1)
+        found[tied] = candidates.max(axis=1)
+    return found
 
 
 def _chord_km(chord: NDArray[Any]) -> NDArray[Any]:
@@ -91,7 +123,9 @@ class NearestRegridder(_IndexRegridder):
 
     Distances are great-circle, so the regridder is indifferent to the longitude
     convention of either grid. Source points without finite coordinates, such as
-    off-disk satellite pixels, are never selected.
+    off-disk satellite pixels, are never selected. A target equally near several
+    source points, such as one midway between two grid columns, takes the one with
+    the highest flat index, independent of how the search tree was built.
 
     Parameters
     ----------

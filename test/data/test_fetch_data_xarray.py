@@ -265,22 +265,15 @@ def test_duplicate_normalized_quantities_fail_before_fetch():
 
 
 @pytest.mark.parametrize(
-    "regridder, target, expected",
+    "regridder, expected",
     [
-        (
-            BilinearRegridder,
-            LatLonGrid(np.array([1.5, 0.5]), np.array([0.5, 1.5])),
-            [[1.0, 3.0], [0.0, 2.0]],
-        ),
-        # Targets sit off the source midpoints so the nearest neighbor is unambiguous.
-        (
-            NearestRegridder,
-            LatLonGrid(np.array([1.6, 0.4]), np.array([0.4, 1.6])),
-            [[0.5, 4.5], [-1.5, 2.5]],
-        ),
+        (BilinearRegridder, [[1.0, 3.0], [0.0, 2.0]]),
+        # Midpoints round to the upper neighbor along each axis.
+        (NearestRegridder, [[2.5, 4.5], [1.5, 3.5]]),
     ],
 )
-def test_regridding_follows_temporal_reduction(regridder, target, expected):
+def test_regridding_follows_temporal_reduction(regridder, expected):
+    target = LatLonGrid(np.array([1.5, 0.5]), np.array([0.5, 1.5]))
     array = fetch_data(
         AnalysisSource(),
         TIME,
