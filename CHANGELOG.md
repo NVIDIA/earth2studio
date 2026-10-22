@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added the distilled ERA5 -> HRRR model (`CorrDiffEra5HrrrDistilled`), now the
+  default of `CorrDiffEra5Hrrr.load_model`; pass `distilled_model=False` for the
+  50-step teacher.
 - Added StormScope Flash variants of `StormScopeGOES` and `StormScopeMRMS` for accelerated
   StormScope inference over CONUS domain, including crop-based inference.
 - Added HealDA v2 (`HealDAv2`), a global machine-learning data-assimilation model that
@@ -36,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is a NaN observation instead of a dropped row, so every footprint appears.
 - ECMWF open-data sources accept a `client_kwargs` dictionary for
   `opendata.Client`.
+- Updated CBottle Tropical Cyclone and Infill checkpoints to new EMA version
+- Added checkpointing support for AtlasCRPS model
 
 ### Deprecated
 
