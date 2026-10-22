@@ -60,7 +60,12 @@ from earth2studio.data.utils_bufr import (
     timestamps_ns,
     uint_with_nulls,
 )
-from earth2studio.data.utils_ir import CRIS_BANDS, wavenumber_cm_inverse
+from earth2studio.data.utils_ir import (
+    CRIS_BANDS,
+    cris_radiance_mw,
+    iasi_radiance_mw,
+    wavenumber_cm_inverse,
+)
 from earth2studio.lexicon.base import E2STUDIO_SCHEMA, LexiconType
 from earth2studio.lexicon.nnja import NNJAObsSatLexicon
 
@@ -2679,14 +2684,14 @@ def _cris_band_quality(batch: pa.RecordBatch) -> tuple[np.ndarray, np.ndarray]:
     return packed, valid
 
 
-def _iasi_scale_factor(
+def _iasi_scale_exponent(
     batch: pa.RecordBatch,
     rows: _ChannelMatrix,
     coded: np.ndarray,
     groups: dict[bytes, np.ndarray],
 ) -> np.ndarray:
-    """10**-CHSF per slot from the one STCH..ENCH group holding the slot's channel; NaN
-    where that group's CHSF is null. ``groups`` caches each bounds layout's group per
+    """CHSF per slot from the one STCH..ENCH group holding the slot's channel; NaN where
+    that group's CHSF is null. ``groups`` caches each bounds layout's group per
     slot across a file's batches.
 
     Raises
@@ -2737,7 +2742,7 @@ def _iasi_scale_factor(
     unscaled = ~np.isfinite(exponent) & np.isfinite(coded) & (coded != 0.0)
     if unscaled.any():
         raise ValueError("IASI scale factor CHSF is null for a nonzero SCRA")
-    return np.power(10.0, -exponent)
+    return exponent
 
 
 def _satellite_name(said: int) -> str:
@@ -2833,8 +2838,7 @@ def _sat_batch(
         wavenumber = wavenumber_cm_inverse(sensor, channels.astype(np.int64))
         coded = rows.take(_IR_OBSERVATION[sensor])
         if is_cris:
-            # SRAD W m-2 sr-1 (cm-1)-1 -> mW
-            radiance = coded * 1000.0
+            radiance = cris_radiance_mw(coded)
             packed, packed_ok = _cris_band_quality(batch)
             footprint = rows.footprints()
             band = _CRIS_CHANNEL_BAND[channels.astype(np.int64)]
@@ -2844,9 +2848,8 @@ def _sat_batch(
                 np.nan,
             )
         else:
-            # SCRA x 10^-CHSF W m-2 sr-1 (m-1)-1 -> mW m-2 sr-1 (cm-1)-1
-            factor = _iasi_scale_factor(batch, rows, coded, iasi_groups)
-            radiance = coded * factor * 1e5
+            exponent = _iasi_scale_exponent(batch, rows, coded, iasi_groups)
+            radiance = iasi_radiance_mw(coded, exponent)
             quality = np.full(len(channels), np.nan)
         bt = radiance_to_bt(radiance, wavenumber)
         for variable in plan:
