@@ -3439,7 +3439,7 @@
 <p><span class="mkdocs-badge-list"><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="region:na" data-badge-group="region" style="--badge-color:#1565c0;--badge-text-color:#fff" title="North America"><span class="mkdocs-badge__icon"><i class="fa-solid fa-earth-americas"></i></span><span class="mkdocs-badge__label">NA</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="class:downscaling" data-badge-group="class" style="--badge-color:#20c997;--badge-text-color:#000" title="Downscaling"><span class="mkdocs-badge__label">DS</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:wind" data-badge-group="product" style="--badge-color:#4dabf7;--badge-text-color:#fff" title="Surface Winds"><span class="mkdocs-badge__icon"><i class="fa-solid fa-wind"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:temp" data-badge-group="product" style="--badge-color:#fd7e14;--badge-text-color:#fff" title="Surface Temperature"><span class="mkdocs-badge__icon"><i class="fa-solid fa-temperature-half"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:atmos" data-badge-group="product" style="--badge-color:#74c0fc;--badge-text-color:#fff" title="Atmosphere"><span class="mkdocs-badge__icon"><i class="fa-solid fa-cloud"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:radar" data-badge-group="product" style="--badge-color:#7048e8;--badge-text-color:#fff" title="Radar"><span class="mkdocs-badge__icon"><i class="fa-solid fa-satellite-dish"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="year:2026" data-badge-group="year" style="--badge-color:#1A1A1A;--badge-text-color:#fff"><span class="mkdocs-badge__label">2026</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="gpu:80gb" data-badge-group="gpu" style="--badge-color:#5aac44;--badge-text-color:#fff" title="80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)"><span class="mkdocs-badge__label">80 GB</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="provider:nvidia" data-badge-group="provider" style="--badge-color:#3d7a26;--badge-text-color:#fff"><span class="mkdocs-badge__label">NVIDIA</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="backend:pytorch" data-badge-group="backend" style="--badge-color:#ee4c2c;--badge-text-color:#fff"><span class="mkdocs-badge__icon"><i class="fa-solid fa-fire"></i></span><span class="mkdocs-badge__label">PyTorch</span></span></span></p>
 <p><strong>Import path:</strong> <code>earth2studio.models.dx.CorrDiffEra5Hrrr</code></p>
 <p><a href="" id="earth2studio.models.dx.CorrDiffEra5Hrrr"></a></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/dx/corrdiff_era5_hrrr.py#L102-L736" title="earth2studio/models/dx/corrdiff_era5_hrrr.py:102">View source on GitHub</a> <a class="e2s-source-link e2s-install-link" href="../../../../../userguide/about/install/?method=uv&amp;source=github&amp;category=diagnostic&amp;item=corrdiff-era5-hrrr#install-command" title="category=diagnostic item=corrdiff-era5-hrrr">View install commands</a></p>
+<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/dx/corrdiff_era5_hrrr.py#L251-L922" title="earth2studio/models/dx/corrdiff_era5_hrrr.py:251">View source on GitHub</a> <a class="e2s-source-link e2s-install-link" href="../../../../../userguide/about/install/?method=uv&amp;source=github&amp;category=diagnostic&amp;item=corrdiff-era5-hrrr#install-command" title="category=diagnostic item=corrdiff-era5-hrrr">View install commands</a></p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 
 
@@ -3455,6 +3455,9 @@
 
 
         <p>Generative downscaling from 0.25-degree ERA5 to 3 km HRRR over CONUS.</p>
+<p>By default <code>load_model</code> loads the distilled 2-step generator of the model
+(<code>CorrDiffEra5HrrrDistilled</code>); pass
+<code>load_model(..., distilled_model=False)</code> for the 50-step teacher.</p>
 
 
 <details class="note" open>
@@ -3661,7 +3664,9 @@ network's timestep embedder (the examples train with <code>999.0</code>).</p>
 )
           –
           <div class="doc-md-description">
-            <p>ODE solver steps (each Heun step costs two network evaluations).</p>
+            <p>ODE solver steps (each Heun step costs two network evaluations). For a
+<code>CorrDiffEra5HrrrDistilled</code> network this is the number of blocks of
+its rollout and must be 1 or 2.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -3671,7 +3676,7 @@ network's timestep embedder (the examples train with <code>999.0</code>).</p>
 )
           –
           <div class="doc-md-description">
-            <p>ODE solver.</p>
+            <p>ODE solver. Unused for a distilled network, whose rollout is fixed.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -3684,7 +3689,8 @@ network's timestep embedder (the examples train with <code>999.0</code>).</p>
             <p>SD3 resolution shift <code>a</code> applied to the rectified-flow time grid,
 <code>t -&gt; a t / (1 + (a - 1) t)</code>; <code>1.0</code> disables it. The examples found
 <code>a</code> of 12-32 optimal for full-domain sampling (the networks train on
-256 x 256 patches). Ignored for EDM.</p>
+256 x 256 patches). Ignored for EDM. Unused for a distilled network, which
+carries its own time grid.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -3694,7 +3700,8 @@ network's timestep embedder (the examples train with <code>999.0</code>).</p>
 )
           –
           <div class="doc-md-description">
-            <p>Rectified-flow start time (the noise end); kept below 1.</p>
+            <p>Rectified-flow start time (the noise end); kept slighly below 1 for stability.
+Unused for a distilled network.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -3705,7 +3712,8 @@ network's timestep embedder (the examples train with <code>999.0</code>).</p>
           –
           <div class="doc-md-description">
             <p>Lower clamp of the denominator in the x-prediction to velocity conversion
-<code>v = (x_t - x0_hat) / max(t, x0v_clip)</code> near the data end (<code>t -&gt; 0</code>).</p>
+<code>v = (x_t - x0_hat) / max(t, x0v_clip)</code> near the data end (<code>t -&gt; 0</code>).
+Unused for a distilled network, which stores its own value.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -3899,10 +3907,10 @@ flattens leading batch dimensions automatically).</p>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">device</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">number_of_samples</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">number_of_steps</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">shift</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">seed</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">amp</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">variant</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Literal" href="https://docs.python.org/3/library/typing.html#typing.Literal">Literal</a></span><span class="p">[</span><span class="s2">&quot;x_pred&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;x_pred&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">seed</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">amp</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">variant</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Literal" href="https://docs.python.org/3/library/typing.html#typing.Literal">Literal</a></span><span class="p">[</span><span class="s2">&quot;x_pred&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;x_pred&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">distilled_model</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="earth2studio.models.dx.base.DiagnosticModel">DiagnosticModel</span></span>
 </code></pre></div>
 
@@ -3948,17 +3956,8 @@ flattens leading batch dimensions automatically).</p>
 )
           –
           <div class="doc-md-description">
-            <p>ODE steps; defaults to the package metadata.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>shift</code></b>
-              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a> | None</code>, default:
-                  <code>None</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Rectified-flow resolution shift; defaults to the package metadata.</p>
+            <p>ODE steps for the teacher, or blocks (1 or 2) for the distilled
+generator; defaults to the package metadata.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -3990,6 +3989,21 @@ flattens leading batch dimensions automatically).</p>
           <div class="doc-md-description">
             <p>Sub-folder of the package to load, by default <code>"x_pred"</code> (the
 x-prediction rectified-flow model).</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>distilled_model</code></b>
+              (<code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>, default:
+                  <code>True</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Whether to use the distilled model. If True, the wrapper loads the
+distilled few-step generator (<code>corrdiff-era5-hrrr-distil.mdlus</code> in the
+same package), which generates members in 1 or 2 sampler steps
+(<code>number_of_steps</code> defaults to 2) at a fraction of the teacher's cost.
+Its sampling schedule is fixed by the checkpoint. If False, it loads the
+teacher sampled with 50 Heun steps, by default True</p>
           </div>
         </li>
     </ul>
