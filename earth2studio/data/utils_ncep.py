@@ -1226,6 +1226,8 @@ def concat_tables(tables: Sequence[pa.Table]) -> pa.Table:
     tables = [t for t in tables if t is not None]
     if len(tables) == 1:
         return tables[0]
+    if tables and all(t.schema.equals(tables[0].schema) for t in tables[1:]):
+        return pa.concat_tables(tables)
     names = list(dict.fromkeys(name for t in tables for name in t.column_names))
     target: dict[str, pa.DataType] = {}
     for name in names:
@@ -2584,10 +2586,12 @@ class _ChannelMatrix:
     """Channel entries of one batch's kept footprints on a fixed channel axis.
 
     ``index`` is, per kept footprint and slot, the entry in the list values, -1 where
-    the footprint lacks the slot's channel. A batch whose kept footprints each carry
-    exactly the axis in order is a reshape of its entries; otherwise entries are
-    placed by channel number. Footprints with no channel of the axis are not kept;
-    ``off_axis`` counts the entries whose channel is not on the axis.
+    the footprint lacks the slot's channel; it is None when every footprint is kept
+    and carries exactly the axis in order, so the entries are already footprint-major.
+    A batch whose kept footprints each carry exactly the axis in order is a reshape of
+    its entries; otherwise entries are placed by channel number. Footprints with no
+    channel of the axis are not kept; ``off_axis`` counts the entries whose channel is
+    not on the axis.
     """
 
     def __init__(self, lists: pa.Array, keep: np.ndarray, axis: np.ndarray) -> None:
@@ -2598,6 +2602,17 @@ class _ChannelMatrix:
         self.off_axis = 0
         width = len(axis)
         kept = np.flatnonzero(keep & (lengths > 0))
+        self.shape = (len(kept), width)
+        if (
+            len(kept) == len(lengths)
+            and len(chnm) == len(lengths) * width
+            and np.all(lengths == width)
+            and np.array_equal(
+                chnm.reshape(self.shape), np.broadcast_to(axis, self.shape)
+            )
+        ):
+            self.kept, self.index, self.complete = kept, None, True
+            return
         if np.all(lengths[kept] == width):
             index = offsets[kept][:, None] + np.arange(width)
             if np.array_equal(chnm[index], np.broadcast_to(axis, index.shape)):
@@ -2618,6 +2633,8 @@ class _ChannelMatrix:
 
     def take(self, name: str, dtype: type = np.float64) -> np.ndarray:
         """Physical values of child ``name`` per slot, footprint-major; NaN where missing."""
+        if self.index is None:
+            return physical_values(self.values, name, None, dtype)
         index = self.index.ravel()
         if self.complete:
             return physical_values(self.values, name, index, dtype)
@@ -2626,13 +2643,11 @@ class _ChannelMatrix:
         values[missing] = np.nan
         return values
 
-    # np.tile and np.repeat hold the GIL; broadcast copies do not
-    def channel_numbers(self) -> np.ndarray:
-        return np.broadcast_to(self.axis, self.index.shape).ravel()
-
-    def footprints(self) -> np.ndarray:
-        """Batch row of each slot."""
-        return np.broadcast_to(self.kept[:, None], self.index.shape).ravel()
+    def present(self) -> np.ndarray:
+        """Per footprint and slot, whether the footprint carries the slot's channel."""
+        if self.complete:
+            return np.ones(self.shape, dtype=bool)
+        return self.index >= 0
 
     def lists(self, flat: pa.Array) -> pa.Array:
         return pa.FixedSizeListArray.from_arrays(flat, len(self.axis))
@@ -2719,12 +2734,20 @@ def _satellite_name(said: int) -> str:
     return _NCEP_SATELLITE_NAME_BY_SAID.get(int(said), f"satellite-{int(said)}")
 
 
+def _said_codes(said: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Distinct SAIDs in ascending order and each footprint's position among them."""
+    codes = said.astype(np.int64)
+    # A batch usually holds one platform
+    if len(codes) and (codes == codes[0]).all():
+        return codes[:1], np.zeros(len(codes), dtype=np.int64)
+    distinct, index = np.unique(codes, return_inverse=True)
+    return distinct, index.ravel()
+
+
 def _satellite_column(said: np.ndarray) -> pa.Array:
     """Platform names as a dictionary of the SAIDs present in ``said``."""
-    codes, index = np.unique(said.astype(np.int64), return_inverse=True)
-    return dictionary_column(
-        index.ravel().astype(np.int8), [_satellite_name(s) for s in codes]
-    )
+    codes, index = _said_codes(said)
+    return dictionary_column(index.astype(np.int8), [_satellite_name(s) for s in codes])
 
 
 def _footprint_time_ns(parts: list[np.ndarray]) -> np.ndarray:
@@ -2775,11 +2798,11 @@ def _sat_batch(
     is_cris = sensor == "cris"
     position = _required_column(batch, "FORN" if is_cris else "FOVN")
     keep = (time_ns >= window_ns[0]) & (time_ns <= window_ns[1]) & np.isfinite(position)
-    said_codes, said_index = np.unique(said.astype(np.int64), return_inverse=True)
     if satellites is not None:
+        said_codes, said_index = _said_codes(said)
         keep &= np.array(
             [_satellite_name(s) in satellites for s in said_codes], dtype=bool
-        )[said_index.ravel()]
+        )[said_index]
     rows = _ChannelMatrix(_channel_group(batch), keep, axis)
     if rows.off_axis:
         logger.warning(
@@ -2789,7 +2812,9 @@ def _sat_batch(
         return None
     values = rows.values
     child_names = {values.type.field(i).name for i in range(values.type.num_fields)}
-    channels = rows.channel_numbers()
+    # Values are footprint-major (kept footprints x axis); channel constants broadcast
+    channels = rows.axis.astype(np.int64)
+    slots = len(rows.kept) * len(channels)
 
     if sensor in _IR_SENSORS:
         scan_angle: np.ndarray | None = None
@@ -2805,35 +2830,32 @@ def _sat_batch(
         for variable, field in plan.items():
             observations[variable] = rows.take(field, np.float32)
     elif sensor in ("iasi", "cris"):
-        wavenumber = wavenumber_cm_inverse(sensor, channels.astype(np.int64))
+        wavenumber = wavenumber_cm_inverse(sensor, channels)
         coded = rows.take(_IR_OBSERVATION[sensor])
         if is_cris:
             radiance = cris_radiance_mw(coded)
             packed, packed_ok = _cris_band_quality(batch)
-            footprint = rows.footprints()
-            band = _CRIS_CHANNEL_BAND[channels.astype(np.int64)]
+            band = _CRIS_CHANNEL_BAND[channels]
             quality = np.where(
-                packed_ok[footprint, band] & (rows.index.ravel() >= 0),
-                packed[footprint, band],
+                packed_ok[rows.kept][:, band] & rows.present(),
+                packed[rows.kept][:, band],
                 np.nan,
-            )
+            ).ravel()
         else:
             exponent = _iasi_scale_exponent(batch, rows, coded, iasi_groups)
             radiance = iasi_radiance_mw(coded, exponent)
-            quality = np.full(len(channels), np.nan)
-        bt = radiance_to_bt(radiance, wavenumber)
+            quality = np.full(slots, np.nan)
+        bt = radiance_to_bt(radiance.reshape(rows.shape), wavenumber).ravel()
         for variable in plan:
             observations[variable] = bt
     else:
         if sensor == "atms":
-            sccf = rows.take("SCCF")
-            table = _ATMS_SCCF_CODE[channels.astype(np.int64) - 1] / (1.0 * 10**-5)
+            sccf = rows.take("SCCF").reshape(rows.shape)
+            table = _ATMS_SCCF_CODE[channels - 1] / (1.0 * 10**-5)
             if not np.all((sccf == table) | np.isnan(sccf)):
                 raise ValueError("ATMS SCCF differs from the channel frequency table")
         quality = (
-            rows.take("ATMSCHQ")
-            if "ATMSCHQ" in child_names
-            else np.full(len(channels), np.nan)
+            rows.take("ATMSCHQ") if "ATMSCHQ" in child_names else np.full(slots, np.nan)
         )
         for variable, field in plan.items():
             observations[variable] = rows.take(field, np.float32)
