@@ -29,7 +29,7 @@ import shutil
 import threading
 import uuid
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from typing import Literal
 
@@ -52,6 +52,7 @@ from earth2studio.data.utils_bufr import BUFR_DEPENDENCY_KEY, PREPBUFR_OBS_TYPES
 from earth2studio.data.utils_ncep import (
     _DEFAULT_LAYOUT,
     _NCEP_SATWND_WIDE_SCHEMA,
+    _SATWND_QUALITY_CODES,
     NCEP_CONVENTIONAL_PUBLIC_SCHEMA,
     NCEP_MICROWAVE_OUTPUT_SCHEMA,
     NCEP_MICROWAVE_SATELLITES,
@@ -384,6 +385,8 @@ class NNJAObsConv:
         schema = self._output_fields(fields, variable_list)
 
         tasks = self._create_tasks(time_list, variable_list)
+        columns = frozenset(schema.names)
+        tasks = [replace(task, columns=columns) for task in tasks]
         uris = list(dict.fromkeys(task.uri for task in tasks))
         downloaded = threading.Event()
 
@@ -720,6 +723,8 @@ class NNJAObsSatwnd(NNJAObsConv):
             task.datetime_min,
             task.datetime_max,
             decode_workers=self._decode_workers,
+            quality_indicators=task.columns is None
+            or not task.columns.isdisjoint(_SATWND_QUALITY_CODES.values()),
         )
 
 

@@ -840,7 +840,9 @@ class _FakeBufr:
         self.batches = batches
         self.sequences = _SATWND_SEQUENCES if sequences is None else sequences
         self.info = SimpleNamespace(
-            messages=list(messages), data_messages=list(messages)
+            messages=list(messages),
+            data_messages=list(messages),
+            table_epochs=[SimpleNamespace(embedded_table_sha256=None)],
         )
         self.options = {}
         self.truncated = truncated
@@ -1026,6 +1028,7 @@ def _prepbufr_file(category: int = 102, families: dict | None = None) -> _FakeBu
                 source_message_index=index,
                 data_category=number,
                 descriptors=("0-63-000", table_a),
+                table_epoch=0,
                 edition=4,
                 year=2024,
                 month=1,
@@ -1839,6 +1842,28 @@ def test_nnja_sources_keep_rows_inside_each_requested_interval(
         frame = source([T0 - 60 * minutes, T0 + 120 * minutes], variables)
         assert sorted(set(frame["time"])) == [pd.Timestamp(stamps[i]) for i in kept]
         assert set(frame["cycle_time"]) == {pd.Timestamp(T0)}
+
+
+def test_satwnd_decodes_quality_indicators_only_when_requested(
+    fake_bufr, monkeypatch, tmp_path
+):
+    source = NNJAObsSatwnd(layout="wide", cache=False, verbose=False)
+    _source_with_files(
+        source,
+        fake_bufr,
+        monkeypatch,
+        tmp_path,
+        [_satwnd_batch([T0])],
+        [_satwnd_message("3-63-130")],
+    )
+    for fields, decoded in (
+        (["time", "observation_u"], False),
+        (["time", "observation_u", "quality_indicators"], True),
+    ):
+        source(T0, ["u"], fields)
+        (fake,) = fake_bufr.values()
+        assert ("PCCF" in fake.options["projection"]) is decoded
+        fake_bufr.clear()
 
 
 def test_nnja_layout_validation_and_wide_fields():

@@ -420,16 +420,22 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         return self.build_output(data, output_coords)
 
 
+# Columns the adapter does not read: it derives the look angle from scan_position
+# and reads no satwnd quality indicators
+_UNREAD_COLUMNS = frozenset(
+    {"scan_angle", "quality_indicators", "amv_quality_indicators"}
+)
+
+
 def _frame_schema(schema: pa.Schema, variables: Sequence[str]) -> FrameSchema:
     """Wide columns read for ``variables``."""
     selected = {f"observation_{v}" for v in variables} | {
         f"quality_{v}" for v in variables
     }
-    # The adapter derives the look angle from scan_position, so scan_angle is not read
     names = [
         name
         for name in schema.names
-        if name != "scan_angle"
+        if name not in _UNREAD_COLUMNS
         and (name in selected or not name.startswith(("observation_", "quality_")))
     ]
     empty = schema.empty_table().to_pandas()

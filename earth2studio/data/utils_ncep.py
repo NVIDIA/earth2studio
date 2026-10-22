@@ -241,7 +241,10 @@ Intervals = tuple[tuple[datetime, datetime], ...]
 
 @dataclass(frozen=True)
 class NCEPObsTask:
-    """One conventional NCEP observation cycle file to fetch and decode."""
+    """One conventional NCEP observation cycle file to fetch and decode.
+
+    ``columns`` are the output columns requested of the decode; None requests all.
+    """
 
     uri: str
     route: str
@@ -250,6 +253,7 @@ class NCEPObsTask:
     datetime_max: datetime
     var_plan: _NCEPPlan
     intervals: Intervals = ()
+    columns: frozenset[str] | None = None
 
 
 def plan_conv_tasks(
@@ -1742,6 +1746,26 @@ def _prepbufr_batch(
     return pa.table(columns)
 
 
+_SEQUENCE_MNEMONICS: dict[tuple[str, str], str | None] = {}
+
+
+def _sequence_mnemonic(source: Any, message: Any, descriptor: str) -> str | None:
+    """Table D mnemonic of ``descriptor`` in the tables that decode ``message``; None
+    if those tables do not define it. Cached per embedded DX table block."""
+    block = source.info.table_epochs[message.table_epoch].embedded_table_sha256
+    if block is None or (block, descriptor) not in _SEQUENCE_MNEMONICS:
+        structure = source.source_structure(message.source_message_index)
+        sequences = {
+            s["descriptor"]: s["mnemonic"] for s in structure["active_sequences"]
+        }
+        if block is None:
+            return sequences.get(descriptor)
+        for key, mnemonic in sequences.items():
+            _SEQUENCE_MNEMONICS[(block, key)] = mnemonic
+        _SEQUENCE_MNEMONICS.setdefault((block, descriptor), None)
+    return _SEQUENCE_MNEMONICS[(block, descriptor)]
+
+
 def _prepbufr_message_types(source: Any) -> dict[int, str]:
     """Data category -> Table A mnemonic of each message family in a PrepBUFR file.
 
@@ -1756,12 +1780,8 @@ def _prepbufr_message_types(source: Any) -> dict[int, str]:
         first_message.setdefault(message.data_category, message)
     types: dict[int, str] = {}
     for category, message in first_message.items():
-        structure = source.source_structure(message.source_message_index)
-        sequences = {
-            s["descriptor"]: s["mnemonic"] for s in structure["active_sequences"]
-        }
         table_a = next((d for d in message.descriptors if d.startswith("3-")), None)
-        name = sequences.get(table_a)
+        name = None if table_a is None else _sequence_mnemonic(source, message, table_a)
         if name in families:
             types[category] = name
     return types
@@ -2139,7 +2159,8 @@ _SATWND_QUALITY_CODES = {
     "GNAP": "quality_indicators",
     "GNAPS": "amv_quality_indicators",
 }
-_SATWND_PROJECTION = [*_SATWND_TIME, *_SATWND_SCALARS, "GNAP", "GNAPS", "PCCF"]
+_SATWND_QUALITY_FIELDS = ["GNAP", "GNAPS", "PCCF"]
+_SATWND_PROJECTION = [*_SATWND_TIME, *_SATWND_SCALARS]
 _SATWND_INTS = {
     "satellite_id": ("SAID", pa.uint16()),
     "quality": ("SWQM", pa.uint16()),
@@ -2262,16 +2283,10 @@ def _satwnd_templates(source: Any) -> tuple[np.ndarray, np.ndarray, pa.Array]:
         key = (descriptors, message.table_epoch)
         if key not in templates:
             root = descriptors[1] if len(descriptors) > 1 else descriptors[0]
-            structure = source.source_structure(message.source_message_index)
-            sequences = {
-                s["descriptor"]: s["mnemonic"] for s in structure["active_sequences"]
-            }
-            if root not in sequences:
+            mnemonic = _sequence_mnemonic(source, message, root)
+            if mnemonic is None:
                 raise ValueError(f"Root descriptor {root} is not in the DX tables")
-            templates[key] = (
-                len(templates),
-                names.setdefault(sequences[root], len(names)),
-            )
+            templates[key] = (len(templates), names.setdefault(mnemonic, len(names)))
         template[message.source_message_index], subset[message.source_message_index] = (
             templates[key]
         )
@@ -2357,6 +2372,7 @@ def decode_satwnd(
     dt_min: datetime,
     dt_max: datetime,
     decode_workers: int = 8,
+    quality_indicators: bool = True,
 ) -> pa.Table:
     """Decode an NCEP satwnd dump into a wide table, one row per wind.
 
@@ -2370,6 +2386,9 @@ def decode_satwnd(
         Closed observation time window
     decode_workers : int, optional
         Threads transforming decoded batches, by default 8
+    quality_indicators : bool, optional
+        Decode the GNAP/GNAPS quality indicators; when False their columns are
+        null. By default True
 
     Returns
     -------
@@ -2395,7 +2414,8 @@ def decode_satwnd(
         batches = iter_batches(
             source,
             path,
-            projection=_SATWND_PROJECTION,
+            projection=_SATWND_PROJECTION
+            + (_SATWND_QUALITY_FIELDS if quality_indicators else []),
             projection_missing="skip",
             target_decoded_bytes=256 << 20,
             prefetch_batches=2,
@@ -2734,20 +2754,15 @@ def _satellite_name(said: int) -> str:
     return _NCEP_SATELLITE_NAME_BY_SAID.get(int(said), f"satellite-{int(said)}")
 
 
-def _said_codes(said: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Distinct SAIDs in ascending order and each footprint's position among them."""
-    codes = said.astype(np.int64)
-    # A batch usually holds one platform
-    if len(codes) and (codes == codes[0]).all():
-        return codes[:1], np.zeros(len(codes), dtype=np.int64)
-    distinct, index = np.unique(codes, return_inverse=True)
-    return distinct, index.ravel()
-
-
 def _satellite_column(said: np.ndarray) -> pa.Array:
     """Platform names as a dictionary of the SAIDs present in ``said``."""
-    codes, index = _said_codes(said)
-    return dictionary_column(index.astype(np.int8), [_satellite_name(s) for s in codes])
+    # A batch usually holds one platform
+    if len(said) and (said == said[0]).all():
+        return constant_dictionary(_satellite_name(said[0]), len(said))
+    codes, index = np.unique(said.astype(np.int64), return_inverse=True)
+    return dictionary_column(
+        index.ravel().astype(np.int8), [_satellite_name(s) for s in codes]
+    )
 
 
 def _footprint_time_ns(parts: list[np.ndarray]) -> np.ndarray:
@@ -2799,10 +2814,10 @@ def _sat_batch(
     position = _required_column(batch, "FORN" if is_cris else "FOVN")
     keep = (time_ns >= window_ns[0]) & (time_ns <= window_ns[1]) & np.isfinite(position)
     if satellites is not None:
-        said_codes, said_index = _said_codes(said)
+        said_codes, said_index = np.unique(said.astype(np.int64), return_inverse=True)
         keep &= np.array(
             [_satellite_name(s) in satellites for s in said_codes], dtype=bool
-        )[said_index]
+        )[said_index.ravel()]
     rows = _ChannelMatrix(_channel_group(batch), keep, axis)
     if rows.off_axis:
         logger.warning(
