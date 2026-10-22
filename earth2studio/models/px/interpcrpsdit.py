@@ -171,10 +171,15 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     from the base model, only interior frames are modelled. Ensemble spread comes entirely from the
     per-member latent ``z`` (trained with a CRPS objective).
 
-    The coarse gap is taken from ``px_model`` (trained on 3-10 h) and the output resolution is
+    The model wraps a base prognostic model (``px_model``) so the pair acts as a single prognostic
+    with higher temporal resolution, in the same way as :class:`InterpModAFNO`. The coarse gap is
+    taken from ``px_model`` (trained on 3-10 h) and the output resolution is
     ``gap / num_interp_steps``, e.g. a 6 h gap with ``num_interp_steps=36`` gives 10 min.
     ``num_interp_steps`` must divide the gap in minutes. A regional sub-domain is available via
     :meth:`set_domain`.
+
+    Outputs on the global grid are 721x1440: the DiT runs on 720 latitudes (90 to -89.75) and the
+    -90 row is filled with the zonal mean of the -89.75 row.
 
     Note
     ----
@@ -193,15 +198,15 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         physical fields
     lat2d, lon2d : torch.Tensor
         (H, W) latitude/longitude grids in degrees, defines the output grid
-    px_model : PrognosticModel, optional
-        Base model producing the coarse trajectory, must be set before running
+    px_model : PrognosticModel
+        Base model producing the coarse trajectory
     num_interp_steps : int, optional
         Sub-steps per coarse interval, must divide the coarse gap in minutes, by default 6
     lon_pad : int, optional
         Circular longitude pad (columns) to reduce the date-line seam, 0 disables, by default 128
     seed : int | None, optional
         If set, noise is drawn from a per-device generator seeded with this value. Results depend on
-        ``batch_size`` and the number of init times, by default None (global RNG)
+        the number of ensemble members and init times, by default None (global RNG)
     drop_variables : list[OptionalVariable] | None, optional
         Variables the base model does not supply, a subset of ``sp, u100m, v100m, tcwv``. Dropped
         channels are flagged absent to the DiT and omitted from the output, by default None
@@ -222,7 +227,7 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         static_inv: torch.Tensor,
         lat2d: torch.Tensor,
         lon2d: torch.Tensor,
-        px_model: PrognosticModel | None = None,
+        px_model: PrognosticModel,
         num_interp_steps: int = 6,
         lon_pad: int = 128,
         seed: int | None = None,
@@ -271,6 +276,8 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self._halo = (0, 0, 0, 0)
         self._out_lat1d = self._lat1d
         self._out_lon1d = self._lon1d
+        # Append a -90 row to emitted frames (global grids only, set by load_model)
+        self._pole = False
         # Minimum run-grid size per side, derived from the DiT architecture in load_model
         self._min_domain_cells = 64
 
@@ -285,8 +292,6 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         CoordSystem
             Coordinate system dictionary (``batch, time, lead_time, variable, lat, lon``).
         """
-        if self.px_model is None:
-            raise ValueError("Base model, px_model, must be set")
         input_coords = OrderedDict(
             {
                 "batch": np.empty(0),
@@ -304,8 +309,6 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def _gap_minutes(self) -> int:
         # Coarse gap in minutes from the px_model step
-        if self.px_model is None:
-            raise ValueError("px_model must be set before computing the coarse gap")
         ic = self.px_model.input_coords()
         oc = self.px_model.output_coords(ic)
         gap_m = float(
@@ -317,6 +320,24 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 f"px_model coarse step must be a positive whole number of minutes, got {gap_m} min"
             )
         return gap_min
+
+    def _out_lat(self) -> np.ndarray:
+        lat = np.asarray(self._out_lat1d, dtype=np.float64)
+        return np.append(lat, -90.0) if self._pole else lat
+
+    def _add_pole(self, x: torch.Tensor) -> torch.Tensor:
+        # Append the -90 row as the zonal mean of the last row
+        if not self._pole:
+            return x
+        return torch.cat(
+            [
+                x,
+                x[..., -1:, :]
+                .mean(-1, keepdim=True)
+                .expand(*x.shape[:-2], 1, x.shape[-1]),
+            ],
+            dim=-2,
+        )
 
     @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
@@ -363,7 +384,7 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(step_min, "m")]),
                 "variable": np.array(self.present_variables),
-                "lat": np.asarray(self._out_lat1d, dtype=np.float64),
+                "lat": self._out_lat(),
                 "lon": np.asarray(self._out_lon1d, dtype=np.float64),
             }
         )
@@ -377,23 +398,6 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             output_coords["lead_time"] + input_coords["lead_time"][-1]
         )
         return output_coords
-
-    def run_coords(self) -> CoordSystem:
-        """Lat/lon grid a wrapped ``px_model`` must cover: the full model grid or, after
-        :meth:`set_domain`, the sub-domain run grid (bounding box plus halo, aligned to the patch
-        size). A larger grid containing it is accepted and cropped.
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary with the run-grid ``lat``/``lon``.
-        """
-        return OrderedDict(
-            {
-                "lat": np.asarray(self._lat1d, dtype=np.float64),
-                "lon": np.asarray(self._lon1d, dtype=np.float64),
-            }
-        )
 
     @staticmethod
     def _snap_to_patch(lo: int, hi: int, n: int, p: int) -> tuple[int, int]:
@@ -418,9 +422,9 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         Returns a new :class:`InterpCRPSDiT` sharing the loaded ``dit`` with the static maps and
         output grid sliced to the smallest block covering the box. The wrapped ``px_model`` is
-        carried over and its frames are cropped to the run grid with ``map_coords``, so it may supply
-        the run grid directly (see :meth:`run_coords`) or a larger grid containing it. Longitude wrap
-        is disabled (``lon_pad=0``).
+        carried over and its frames are cropped to the run grid (bounding box plus halo, aligned to the
+        patch size) with ``map_coords``, so it should supply a grid containing it, e.g. the global
+        grid. Longitude wrap is disabled (``lon_pad=0``).
 
         Warning
         -------
@@ -443,7 +447,7 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Returns
         -------
         InterpCRPSDiT
-            Sub-domain model with its own ``run_coords`` and ``output_coords`` (bounding box)
+            Sub-domain model whose ``output_coords`` cover the bounding box
 
         Raises
         ------
@@ -551,7 +555,7 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_model(
         cls,
         package: Package,
-        px_model: PrognosticModel | None = None,
+        px_model: PrognosticModel,
         num_interp_steps: int = 6,
         drop_variables: list[OptionalVariable] | None = None,
         amp_dtype: torch.dtype | None = None,
@@ -563,8 +567,8 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         package : Package
             Package holding ``CRPSModel.mdlus``, ``set_phys.nc``, ``global_means.npy``,
             ``global_stds.npy``.
-        px_model : PrognosticModel, optional
-            Base model producing the coarse trajectory (may be set later instead).
+        px_model : PrognosticModel
+            Base model producing the coarse trajectory
         num_interp_steps : int, optional
             Sub-steps per coarse interval, must divide the coarse gap in minutes, by default 6
         drop_variables : list[OptionalVariable] | None, optional
@@ -660,6 +664,7 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             drop_variables=drop_variables,
             amp_dtype=amp_dtype,
         )
+        model._pole = bool(lat2d[0, 0] == 90.0 and len(lat2d) == _TRAIN_LAT)
         # Minimum sub-domain size: largest attention kernel x patch size
         kernels = [
             int(v)
@@ -686,8 +691,7 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         super().to(device)
         # nn.Module.to does not call the child's overridden to() (e.g. ONNX sessions)
-        if self.px_model is not None:
-            self.px_model.to(device)
+        self.px_model.to(device)
         return self
 
     def _cpad(self, x: torch.Tensor) -> torch.Tensor:
@@ -861,7 +865,7 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 [base_lead + np.timedelta64(step_min * interp_step, "m")]
             )
             sub["variable"] = np.array(self.present_variables)
-            sub["lat"] = np.asarray(self._out_lat1d, dtype=np.float64)
+            sub["lat"] = self._out_lat()
             sub["lon"] = np.asarray(self._out_lon1d, dtype=np.float64)
             out = torch.zeros_like(x0n)
             for ti, t in enumerate(sub["time"]):
@@ -874,7 +878,7 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             emitted = self._trim(out * self.scale + self.center)
             if len(self.drop_idx):
                 emitted = emitted[..., self.present_idx, :, :]
-            yield (emitted, sub)
+            yield (self._add_pole(emitted), sub)
 
     @batch_func()
     def __call__(
@@ -900,10 +904,6 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _default_generator(
         self, x: torch.Tensor, coords: CoordSystem
     ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-        if self.px_model is None:
-            raise ValueError(
-                "Base model, px_model, must be set before executing the model."
-            )
         x0 = None
         coords0: CoordSystem | None = None
         # Base frames are mapped onto the run grid with map_coords (e.g. 721 -> 720 lat crop or global
@@ -933,9 +933,11 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             coords_run["variable"] = np.array(self.variables)
             # Crop to the output grid for the emitted endpoint. output_coords also validates the gap,
             # its lead_time is ignored by map_coords.
-            x_emit, emit_coords = map_coords(
-                x_run, coords_run, self.output_coords(coords_run)
-            )
+            emit_target = self.output_coords(coords_run)
+            emit_target["lat"] = np.asarray(self._out_lat1d, dtype=np.float64)
+            x_emit, emit_coords = map_coords(x_run, coords_run, emit_target)
+            x_emit = self._add_pole(x_emit)
+            emit_coords["lat"] = self._out_lat()
             # rear_hook only touches emitted frames so the interpolation anchor stays unhooked.
             # Emitted frames are cloned: x_emit may be a view of x_run and interior frames are
             # inference tensors, neither safe for an in-place hook.

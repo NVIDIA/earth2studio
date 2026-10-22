@@ -127,6 +127,7 @@ def _replay(src, variables=VARIABLES, step=np.timedelta64(6, "h")):
 def _model(px_model=None, center=None, dit=None, **kwargs):
     lon2d, lat2d = np.meshgrid(LON, LAT)
     kwargs.setdefault("lon_pad", 0)
+    px_model = px_model if px_model is not None else _replay(Source())
     return InterpCRPSDiT(
         dit=dit if dit is not None else PhooDiT(),
         center=torch.zeros(1, NVAR, 1, 1) if center is None else center,
@@ -260,14 +261,6 @@ def test_interpcrpsdit_exceptions(dc, device):
     # Invalid input domain
     with pytest.raises((KeyError, ValueError)):
         model(x, coords)
-
-    # Missing base model
-    model = _model()
-    with pytest.raises(ValueError, match="px_model, must be set"):
-        model.input_coords()
-    x, coords = _inputs(Source())
-    with pytest.raises(ValueError, match="px_model, must be set"):
-        next(model.create_iterator(x, coords))
 
 
 @pytest.mark.parametrize(
@@ -422,13 +415,12 @@ def test_interpcrpsdit_drop_variables(base_variables):
     ],
 )
 def test_interpcrpsdit_set_domain(halo, exp_halo, base):
-    sub = _model(px_model=None).set_domain(
+    sub = _model().set_domain(
         lat_min=10, lat_max=70, lon_min=50, lon_max=200, halo=halo, min_cells=4
     )
     assert sub._halo == exp_halo
-    run = sub.run_coords()
     src = (
-        Source(run["lat"], run["lon"], spatial=True)
+        Source(sub.lat2d[:, 0].numpy(), sub.lon2d[0].numpy(), spatial=True)
         if base == "regional"
         else Source(spatial=True)
     )
@@ -445,18 +437,6 @@ def test_interpcrpsdit_set_domain(halo, exp_halo, base):
         np.testing.assert_array_equal(cf["lat"], LAT[2:8])
         np.testing.assert_array_equal(cf["lon"], LON[5:18])
         np.testing.assert_allclose(xf[0, 0, 0, 0].numpy(), H0 + k + block, atol=1e-4)
-
-
-def test_interpcrpsdit_run_coords():
-    model = _model()
-    np.testing.assert_array_equal(model.run_coords()["lat"], LAT)
-    np.testing.assert_array_equal(model.run_coords()["lon"], LON)
-
-    sub = model.set_domain(
-        lat_min=10, lat_max=70, lon_min=50, lon_max=200, halo=2, min_cells=4
-    )
-    np.testing.assert_array_equal(sub.run_coords()["lat"], LAT[0:10])
-    np.testing.assert_array_equal(sub.run_coords()["lon"], LON[2:20])
 
 
 @pytest.mark.parametrize(
@@ -481,7 +461,6 @@ def test_interpcrpsdit_superset_base_grid():
     model, x, coords = _build(src=src)
 
     np.testing.assert_array_equal(model.input_coords()["lat"], lat_big)
-    np.testing.assert_array_equal(model.run_coords()["lat"], LAT)
 
     xf, cf = next(model.create_iterator(x, coords))
     np.testing.assert_array_equal(cf["lat"], LAT)
@@ -491,6 +470,19 @@ def test_interpcrpsdit_superset_base_grid():
         + 0.01 * np.arange(W, dtype="float32")[None, :]
     )
     np.testing.assert_allclose(xf[0, 0, 0, 0].numpy(), expected, atol=1e-4)
+
+
+def test_interpcrpsdit_pole_row():
+    model, x, coords = _build(src=Source(spatial=True))
+    model._pole = True
+    for k, (xf, cf) in enumerate(
+        list(itertools.islice(model.create_iterator(x, coords), 3))
+    ):
+        assert xf.shape[-2:] == (H + 1, W)
+        assert cf["lat"][-1] == -90.0
+        np.testing.assert_array_equal(cf["lat"][:-1], LAT)
+        expected = xf[..., -2, :].mean(-1, keepdim=True).expand_as(xf[..., -1, :])
+        assert torch.allclose(xf[..., -1, :], expected, atol=1e-4)
 
 
 def test_interpcrpsdit_regrid_warns_off_grid_base():
@@ -576,7 +568,8 @@ def test_interpcrpsdit_load_model(
     package = _write_package(
         tmp_path, monkeypatch, nlat=nlat, dit=PhooDiT(attn_kernel=attn_kernel)
     )
-    model = InterpCRPSDiT.load_model(package)
+    model = InterpCRPSDiT.load_model(package, px_model=_replay(Source()))
+    assert model._pole is (nlat == 721)
     assert model.center.shape == (1, NVAR, 1, 1)
     assert model.static_inv.shape == (12, exp_nlat, 8)
     assert torch.isfinite(model.static_inv).all()
@@ -603,13 +596,16 @@ def test_interpcrpsdit_load_model_bad_normalization(tmp_path, monkeypatch, kind,
         stds[5] = np.nan
     package = _write_package(tmp_path, monkeypatch, means=means, stds=stds)
     with pytest.raises(ValueError, match=match):
-        InterpCRPSDiT.load_model(package)
+        InterpCRPSDiT.load_model(package, px_model=_replay(Source()))
 
 
 @pytest.fixture(scope="function")
 def model() -> InterpCRPSDiT:
     package = InterpCRPSDiT.load_default_package()
-    return InterpCRPSDiT.load_model(package)
+    lat = np.linspace(90, -90, 721)
+    lon = np.linspace(0, 360, 1440, endpoint=False)
+    px_model = Persistence(VARIABLES, {"lat": lat, "lon": lon})
+    return InterpCRPSDiT.load_model(package, px_model=px_model)
 
 
 @pytest.mark.package
@@ -622,8 +618,8 @@ def test_interpcrpsdit_package(model):
     sub = model.set_domain(
         lat_min=10.0, lat_max=32.0, lon_min=100.0, lon_max=124.0, halo=0
     )
-    run = sub.run_coords()
-    sub.px_model = Persistence(VARIABLES, {"lat": run["lat"], "lon": run["lon"]})
+    run = {"lat": sub.lat2d[:, 0].cpu().numpy(), "lon": sub.lon2d[0].cpu().numpy()}
+    sub.px_model = Persistence(VARIABLES, run)
     sub.px_model.to(device)
 
     x = model.center.expand(1, 1, 1, NVAR, len(run["lat"]), len(run["lon"])).clone()
