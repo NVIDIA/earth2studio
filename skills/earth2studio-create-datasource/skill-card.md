@@ -22,6 +22,7 @@ Mitigation: Review and scan skill before deployment. <br>
 - [Reference Implementation](references/reference-implementation.py) <br>
 - [Reference Lexicon](references/reference-lexicon.py) <br>
 - [Testing Guide](references/testing-guide.py) <br>
+- [Temporal Statistics (optional)](references/temporal-statistics.py) <br>
 - [Validation Guide](references/validation-guide.md) <br>
 
 
