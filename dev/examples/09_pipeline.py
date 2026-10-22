@@ -91,8 +91,8 @@ print(items[0])
 
 forecast, copy = XarrayBackend(), XarrayBackend()
 Pipeline.from_model(
-    model,  # type: ignore[arg-type]
-    source,
+    model,
+    source,  # type: ignore[arg-type]
     diagnostics={"copy": Identity()},
     output={"forecast": forecast, "copy": copy},
     device="cpu",
@@ -111,8 +111,8 @@ native = LatLonGrid(np.array([10.0, 0.0]), np.arange(0.0, 21, 10))
 finer = LatLonGrid(np.array([10.0, 5.0, 0.0]), np.arange(0.0, 21, 5))
 regridded = XarrayBackend()
 Pipeline.from_model(
-    model,  # type: ignore[arg-type]
-    source,
+    model,
+    source,  # type: ignore[arg-type]
     output={"forecast": regridded},
     output_variables={"forecast": ["v10m"]},
     regridder={"forecast": BilinearRegridder(native, finer)},
