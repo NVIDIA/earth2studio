@@ -172,8 +172,8 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     per-member latent ``z`` (trained with a CRPS objective).
 
     The model wraps a base prognostic model (``px_model``) so the pair acts as a single prognostic
-    with higher temporal resolution, in the same way as :class:`InterpModAFNO`. The coarse gap is
-    taken from ``px_model`` (trained on 3-10 h) and the output resolution is
+    with higher temporal resolution. The coarse gap is taken from ``px_model`` (trained on 3-10 h)
+    and the output resolution is
     ``gap / num_interp_steps``, e.g. a 6 h gap with ``num_interp_steps=36`` gives 10 min.
     ``num_interp_steps`` must divide the gap in minutes. A regional sub-domain is available via
     :meth:`set_domain`.
