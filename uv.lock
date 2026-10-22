@@ -3739,7 +3739,7 @@ wheels = [
 [[package]]
 name = "healda"
 version = "0.1.0"
-source = { git = "https://github.com/NVlabs/HealDA.git?branch=main#426e4374f1be378a41e00558bb3e1f24cd11282c" }
+source = { git = "https://github.com/NVlabs/HealDA.git?branch=main#66bceebd0bba5cd0e9b7f93bdbe884801b7f6459" }
 dependencies = [
     { name = "cartopy" },
     { name = "cftime" },
