@@ -936,14 +936,15 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x_emit, emit_coords = map_coords(
                 x_run, coords_run, self.output_coords(coords_run)
             )
-            # rear_hook only touches emitted frames so the interpolation anchor stays unhooked,
-            # x_emit may be a view of x_run so it is cloned before a possibly in-place hook
+            # rear_hook only touches emitted frames so the interpolation anchor stays unhooked.
+            # Emitted frames are cloned: x_emit may be a view of x_run and interior frames are
+            # inference tensors, neither safe for an in-place hook.
             if fc_step == 0:
                 x0, coords0 = x_run, coords_run
                 yield self.rear_hook(x_emit.clone(), emit_coords)
             else:
                 for xo, co in self._interpolate(x0, x_run, coords0):
-                    yield self.rear_hook(xo, co)
+                    yield self.rear_hook(xo.clone(), co)
                 yield self.rear_hook(x_emit.clone(), emit_coords)
                 x0, coords0 = x_run, coords_run
 

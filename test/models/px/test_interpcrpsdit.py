@@ -535,7 +535,7 @@ def test_interpcrpsdit_front_hook():
 def test_interpcrpsdit_rear_hook(inplace):
     # Hooked output must not feed back into the interpolation anchors
     def rear(a, c):
-        if inplace and not a.is_inference():
+        if inplace:
             a += 100.0
             return a, c
         return a + 100.0, c
