@@ -1165,9 +1165,11 @@ Built-in pipelines (pass the fully qualified class path via `cfg.pipeline`):
   coupled GOES/MRMS nowcasting.
 - **`WindowMeanForecastPipeline`**
   (`src.pipelines.seasonal.WindowMeanForecastPipeline`) — prognostic rollout
-  stored as fixed-length window means (weekly, 30-day) for
+  stored as means over fixed-length windows or calendar months for
   subseasonal-to-seasonal archives, optionally interpolated to a coarser
-  grid; scoring is left to the user.  See `campaign=fuxi_s2s_2024_monthly`.
+  grid, with scoring left to the user.
+  See `campaign=fuxi_s2s_2024` for 30-day windows and
+  `campaign=fuxi_s2s_2024_monthly` for calendar months.
 
 ### Custom pipelines
 

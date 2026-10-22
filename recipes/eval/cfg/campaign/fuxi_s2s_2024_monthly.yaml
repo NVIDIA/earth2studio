@@ -15,30 +15,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Subseasonal archive example: FuXi-S2S rolled out 60 days from two initial
-# conditions and stored as two 30-day means per run (forecast.zarr), for
-# scoring elsewhere.  The model steps one day at a time on a 1.5 degree
-# grid, so the 1 degree target keeps the model grid; a 0.25 degree model
-# would be interpolated.  It consumes UTC calendar-day means, which the
-# arco_era5_daily source serves for the two initial frames.  This 60-day
-# run produces two means and extends beyond the published 42-day horizon.
+# Calendar-month archive example: FuXi-S2S started at 00 UTC on the 1st of
+# January and February 2024 and stored as UTC calendar-month means
+# (forecast.zarr), the unit seasonal hindcast archives such as C3S use for
+# verification.  lead_time holds integer lead months: 0 is the start month,
+# whose first day is the initial-condition analysis, and 1 the month after.
+# A start inside a month stores NaN for lead month 0.  Scoring happens
+# elsewhere, since score.py and online scoring reject integer lead months.
 defaults:
     - override /model: fuxi_s2s
     - override /data_source: arco_era5_daily
 
 pipeline:
     _target_: src.pipelines.seasonal.WindowMeanForecastPipeline
-    window: 30D              # a whole number of model steps
+    window: month
+    months: 2                # lead months 0 and 1
     target_resolution: 1.0   # degrees; null keeps the model grid
 run_id: fuxi_s2s_2024_monthly
 
 start_times:
     - "2024-01-01 00:00:00"
-    - "2024-01-15 00:00:00"
+    - "2024-02-01 00:00:00"
 
-# 60 daily steps = two 30-day windows per run.
-nsteps: 60
+# Both starts need daily means up to day 59: January plus February 2024 and
+# February plus March 2024 are 60 days each.  That runs past the published
+# 42-day horizon.  Setup reports the minimum nsteps when a start needs more.
+nsteps: 59
 
-# Variables kept in forecast.zarr, one field per window.
+# Variables kept in forecast.zarr, one field per lead month.
 output:
     variables: [t2m, t850, z500, msl, tp]

@@ -133,6 +133,14 @@ def main(cfg: DictConfig) -> None:
     spatial_coords = spatial_coords_from_dataset(prediction_ds)
     variables = list(cfg.scoring.variables)
     lead_times = prediction_ds.lead_time.values
+    if not np.issubdtype(lead_times.dtype, np.timedelta64):
+        # numpy would add integer leads to the initial times as nanoseconds.
+        raise ValueError(
+            "score.py pairs each lead_time with a verification time, but this "
+            f"store's lead_time is {lead_times.dtype}.  Calendar-month forecasts "
+            "from WindowMeanForecastPipeline(window='month') hold integer lead "
+            "months, which score.py cannot verify yet."
+        )
 
     input_template = build_input_coords_template(prediction_ds, lead_times, variables)
 

@@ -37,6 +37,7 @@ import torch
 import xarray as xr
 from omegaconf import OmegaConf
 from src.data import WindowMeanSource
+from src.output import OutputManager
 from src.pipelines import WindowMeanForecastPipeline, build_pipeline
 from src.regrid import LinearRegridder, RegriddedSource
 from src.work import WorkItem
@@ -432,6 +433,7 @@ def _cfg(
     target_resolution: float | None = 10.0,
     start_times: tuple[str, ...] = ("2024-01-01 00:00:00",),
     model: str = "_CountingModel",
+    months: int | None = None,
 ):
     return OmegaConf.create(
         {
@@ -445,6 +447,7 @@ def _cfg(
                 "_target_": "src.pipelines.seasonal.WindowMeanForecastPipeline",
                 "window": window,
                 "target_resolution": target_resolution,
+                "months": months,
             },
             "model": {"architecture": f"{__name__}.{model}"},
             "data_source": {"_target_": f"{__name__}._HourSource"},
@@ -610,3 +613,106 @@ class TestWindowMeanForecastPipeline:
         cfg = _cfg(tmp_path)
         cfg.ic_source = {"_target_": f"{__name__}._HourSource"}
         assert build_pipeline(cfg).predownload_stores(cfg) == []
+
+    # -- calendar months ----------------------------------------------------
+    # 6-hour steps from 2024-01-01: January holds steps 0..123, with the
+    # initial state opening it, and February, a leap month, steps 124..239.
+
+    def test_month_windows_follow_the_calendar(self):
+        pipeline = WindowMeanForecastPipeline(window="month", months=3)
+        day = np.timedelta64(1, "D")
+        on_first = pipeline.month_windows(EPOCH)
+        assert [(k, s // day, e // day) for k, s, e in on_first] == [
+            (0, 0, 31),
+            (1, 31, 60),
+            (2, 60, 91),
+        ]
+        mid_month = pipeline.month_windows(EPOCH + 14 * day)
+        assert [(k, s // day, e // day) for k, s, e in mid_month] == [
+            (1, 17, 46),
+            (2, 46, 77),
+        ]
+
+    def test_calendar_months_average_each_month(self, tmp_path):
+        cfg = _cfg(tmp_path, window="month", months=2, nsteps=239)
+        pipeline = build_pipeline(cfg)
+        pipeline.setup(cfg, torch.device("cpu"))
+        item = WorkItem(time=EPOCH, ensemble_id=0, seed=0)
+        steps = list(pipeline.run_item(item, _HourSource(), torch.device("cpu")))
+        assert [c["lead_time"][0] for _, c in steps] == [0, 1]
+        torch.testing.assert_close(steps[0][0], torch.full_like(steps[0][0], 61.5))
+        torch.testing.assert_close(steps[1][0], torch.full_like(steps[1][0], 181.5))
+
+    def test_mid_month_start_stores_nan_for_lead_month_0(self, tmp_path):
+        # From 2024-01-15, hour 336, February holds steps 68..183.
+        cfg = _cfg(tmp_path, window="month", months=2, nsteps=183)
+        pipeline = build_pipeline(cfg)
+        pipeline.setup(cfg, torch.device("cpu"))
+        item = WorkItem(time=EPOCH + _hours(336)[0], ensemble_id=0, seed=0)
+        steps = list(pipeline.run_item(item, _HourSource(), torch.device("cpu")))
+        assert [c["lead_time"][0] for _, c in steps] == [0, 1]
+        assert torch.isnan(steps[0][0]).all()
+        torch.testing.assert_close(steps[1][0], torch.full_like(steps[1][0], 461.5))
+
+    def test_calendar_lead_axis_and_horizon_check(self, tmp_path):
+        cfg = _cfg(tmp_path, window="month", months=2, nsteps=239)
+        pipeline = build_pipeline(cfg)
+        pipeline.setup(cfg, torch.device("cpu"))
+        total = pipeline.build_total_coords(np.array([EPOCH]), 1)
+        np.testing.assert_array_equal(total["lead_time"], [0, 1])
+        assert not pipeline.supports_online_scoring
+        assert WindowMeanForecastPipeline(window="24h").supports_online_scoring
+
+        short = _cfg(tmp_path, window="month", months=2, nsteps=238)
+        pipeline = build_pipeline(short)
+        pipeline.setup(short, torch.device("cpu"))
+        with pytest.raises(ValueError, match="nsteps >= 239"):
+            pipeline.build_total_coords(np.array([EPOCH]), 1)
+
+    def test_calendar_mode_rejects_bad_arguments(self, tmp_path):
+        with pytest.raises(ValueError, match="positive months"):
+            WindowMeanForecastPipeline(window="month")
+        with pytest.raises(ValueError, match="only applies to window='month'"):
+            WindowMeanForecastPipeline(window="30D", months=2)
+        cfg = _cfg(tmp_path, window="month", months=1, nsteps=239)
+        pipeline = build_pipeline(cfg)
+        pipeline.setup(cfg, torch.device("cpu"))
+        with pytest.raises(ValueError, match="stores nothing"):
+            pipeline.build_total_coords(np.array([EPOCH + _hours(336)[0]]), 1)
+
+    def test_calendar_rollout_that_stops_early_raises(self, tmp_path):
+        cfg = _cfg(
+            tmp_path,
+            model="_BoundaryStoppingModel",
+            window="month",
+            months=2,
+            nsteps=239,
+        )
+        pipeline = build_pipeline(cfg)
+        pipeline.setup(cfg, torch.device("cpu"))
+        item = WorkItem(time=EPOCH, ensemble_id=0, seed=0)
+        with pytest.raises(RuntimeError, match="after 0 of 2 calendar months"):
+            list(pipeline.run_item(item, _HourSource(), torch.device("cpu")))
+
+    def test_calendar_months_land_in_the_store(self, tmp_path):
+        cfg = _cfg(
+            tmp_path, window="month", months=2, nsteps=239, target_resolution=None
+        )
+        cfg.output.io_backend = "zarr"
+        pipeline = build_pipeline(cfg)
+        pipeline.setup(cfg, torch.device("cpu"))
+        total = pipeline.build_total_coords(np.array([EPOCH]), 1)
+        with OutputManager(cfg) as output_mgr:
+            output_mgr.validate_output_store(total, list(VARIABLES))
+            pipeline.run(
+                work_items=[WorkItem(time=EPOCH, ensemble_id=0, seed=0)],
+                data_source=_HourSource(),
+                output_mgr=output_mgr,
+                output_variables=list(VARIABLES),
+                device=torch.device("cpu"),
+                cfg=cfg,
+            )
+        ds = xr.open_zarr(tmp_path / "outputs" / "forecast.zarr", consolidated=False)
+        np.testing.assert_array_equal(ds["lead_time"].values, [0, 1])
+        means = ds["t2m"].isel(time=0).mean(dim=("lat", "lon")).values
+        np.testing.assert_allclose(means, [61.5, 181.5])
