@@ -68,11 +68,14 @@ class _Recording:
     ) -> None:
         self.inner = inner
         self.fail_at = fail_at
+        self.fail_to = False
         self.ran: list[np.datetime64] = []
         self.supports_member_batching = inner.supports_member_batching
         self.seed = inner.seed
 
     def to(self, device: torch.device) -> _Recording:
+        if self.fail_to:
+            raise RuntimeError("injected setup failure")
         self.inner.to(device)
         return self
 
@@ -351,6 +354,15 @@ def test_manifest_mismatch_is_rejected_unless_overwritten(tmp_path: Path) -> Non
         reseeded.run(items)
     assert reseeded._outputs is not None and reseeded._outputs._closed
 
+    # Adding output to a scorer-only run changes the manifest, so finished items
+    # are not skipped with their outputs missing.
+    scored = tmp_path / "scored"
+    Pipeline(_runner(), scorer=_Scorer(), progress=ProgressStore(scored)).run(items)
+    with pytest.raises(ValueError, match="differing keys: streams"):
+        Pipeline(
+            _runner(), output={"forecast": KVBackend()}, progress=ProgressStore(scored)
+        ).run(items)
+
     # Writing a new stream also changes the manifest.
     with pytest.raises(ValueError, match="differing keys: streams"):
         Pipeline(
@@ -461,6 +473,18 @@ def test_resume_survives_a_world_size_change(tmp_path: Path) -> None:
     assert [r["ran"] for r in _rank_results(tmp_path, "last")] == [[], []]
 
 
+def test_setup_failure_on_one_rank_raises_on_every_rank(tmp_path: Path) -> None:
+    """Placing the runner fails on rank 1 only; rank 0 must not hang."""
+    result = _torchrun(tmp_path, "setup")
+    assert result.returncode != 0
+    errors = [r["error"] for r in _rank_results(tmp_path, "setup")]
+    assert errors == [
+        "RuntimeError: Another rank failed",
+        "RuntimeError: injected setup failure",
+    ]
+    assert not (tmp_path / "progress").exists()  # failed before progress setup
+
+
 def test_ranks_with_different_items_are_rejected(tmp_path: Path) -> None:
     result = _torchrun(tmp_path, "mismatch")
     assert result.returncode != 0
@@ -476,7 +500,7 @@ def _torchrun_main() -> int:
     Each rank writes ``OUT/PHASE-rank{N}.json`` with the item times it ran and
     the error it raised, then exits non-zero if it raised. An optional third
     argument injects a failure at that item time; phase ``mismatch`` gives rank
-    1 a different item list.
+    1 a different item list, and phase ``setup`` fails placing rank 1's runner.
     """
     out, phase = Path(sys.argv[1]), sys.argv[2]
     fail_at = np.datetime64(sys.argv[3]) if len(sys.argv) > 3 else None
@@ -487,6 +511,7 @@ def _torchrun_main() -> int:
     if phase == "mismatch" and rank == 1:
         times = times[:3]
     runner = _Recording(_runner(), fail_at=fail_at)
+    runner.fail_to = phase == "setup" and rank == 1
     output = rank0_first(lambda: {"forecast": ZarrBackend(str(out / "forecast.zarr"))})
     pipeline = Pipeline(
         runner,

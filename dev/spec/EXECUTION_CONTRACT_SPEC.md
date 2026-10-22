@@ -199,8 +199,9 @@ it and `x` lacks it, then writes.
   ranks join every collective. A failing rank stops, closes its output and joins
   the final failure-flag reduction; it re-raises its error and the others raise
   `RuntimeError`. A close failure counts as that rank's failure. Setup steps that
-  run on some ranks only, such as progress setup and store creation on rank 0,
-  reduce a failure flag the same way, so no rank waits on one that failed.
+  can fail on some ranks only, such as placing the runner on its device, progress
+  setup and store creation on rank 0, reduce a failure flag the same way, so no
+  rank waits on one that failed.
 
 ### Scorer
 
@@ -213,7 +214,9 @@ class Scorer(Protocol):
 
 A minimal online-scoring hook. `update` receives what would be written, before
 `ensemble` is added. Metrics, verification data and cross-rank communication stay
-in the scorer; it persists durable state in `finish_item`.
+in the scorer; it persists durable state in `finish_item`. Hooks run only on the
+rank that owns the item, so they never run collectives over the pipeline's
+ranks; cross-rank reductions happen after `run` returns.
 
 ## Output
 
@@ -299,8 +302,9 @@ class ProgressStore:
 
 `Pipeline` builds the manifest as JSON: `version` (`1`), `streams` (per stream:
 dims, non-spatial labels, grid ID and dtype, and whether it is written), `seed`
-(`runner.seed` or `null`), and `tags`. The store merges its `tags` in, so a tag change is a mismatch. Model
-identity is not detectable, so callers record it in `tags`.
+(`runner.seed` or `null`), and `tags`. The store merges its `tags` in, so a tag
+change is a mismatch. Model identity is not detectable, so callers record it in
+`tags`.
 
 Progress and stores are cleared independently: overwriting a store but not its
 progress skips items whose data is gone.

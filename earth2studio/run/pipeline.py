@@ -69,6 +69,11 @@ class Scorer(Protocol):
     Metrics, verification data and any cross-rank communication stay in the
     scorer. It persists durable state in :meth:`finish_item`, which runs before
     the item is marked done, so a resumed run never skips an unscored item.
+
+    Hooks run only on the rank that owns the item, and ranks own different
+    numbers of items, so a hook must never run a collective over the pipeline's
+    ranks: unmatched calls hang or fail. Reduce across ranks after
+    :meth:`Pipeline.run` returns, when every rank is done.
     """
 
     def begin_item(self, item: WorkItem) -> None:
@@ -222,15 +227,14 @@ class Pipeline:
             On ranks that did not fail themselves, when another rank failed.
         """
         rank, world_size = rank_info()
-        items = self._validate(items, world_size)
+        items = self._check_identical(items, world_size)
         if not items:
             logger.warning("Pipeline.run was given no work items; nothing to do")
             return
-
-        self.runner.to(self.device)
-        self.regridder = {k: r.to(self.device) for k, r in self.regridder.items()}
-        horizon = max(item.horizon for item in items)
-        schemas = self._stored_schemas(self.runner.output_coords(horizon))
+        # Local setup can fail on one rank only, e.g. out of memory moving the
+        # model, so every rank checks in before the next collective.
+        schemas = _all_agree(lambda: self._setup(items))
+        assert schemas is not None  # noqa: S101 - _all_agree raised otherwise
         self._ensemble = bool(items[0].member_ids)
 
         outputs = OutputManager(self.output or {})
@@ -310,8 +314,10 @@ class Pipeline:
 
     # -- validation and planning ------------------------------------------
 
-    def _validate(self, items: Sequence[WorkItem], world_size: int) -> list[WorkItem]:
-        """Check items before any store or progress is touched (``X7``)."""
+    def _check_identical(
+        self, items: Sequence[WorkItem], world_size: int
+    ) -> list[WorkItem]:
+        """Check every rank passed the same items (``X7``). Collective."""
         items = list(items)
         if world_size > 1:
             digest = _items_digest(items)
@@ -325,8 +331,18 @@ class Pipeline:
                     )
 
             _all_agree(check)
-        if not items:
-            return items
+        return items
+
+    def _setup(self, items: list[WorkItem]) -> dict[str, CoordinateSystem]:
+        """Validate items, place the runner and plan stored schemas. Rank-local."""
+        self._validate(items)
+        self.runner.to(self.device)
+        self.regridder = {k: r.to(self.device) for k, r in self.regridder.items()}
+        horizon = max(item.horizon for item in items)
+        return self._stored_schemas(self.runner.output_coords(horizon))
+
+    def _validate(self, items: list[WorkItem]) -> None:
+        """Check items before any store or progress is touched."""
         _validate_items(items)
         if not getattr(self.runner, "supports_member_batching", False):
             batched = [item for item in items if len(item.member_ids) > 1]
@@ -339,7 +355,6 @@ class Pipeline:
         # Every horizon must be reachable, not only the longest.
         for horizon in {item.horizon for item in items}:
             self.runner.output_coords(horizon)
-        return items
 
     def _stored_schemas(
         self, signatures: Mapping[str, CoordinateSystem]
@@ -383,7 +398,7 @@ class Pipeline:
     # -- progress ------------------------------------------------------------
 
     def _manifest(self, schemas: Mapping[str, CoordinateSystem]) -> dict[str, Any]:
-        written = set(self.output or schemas)
+        written = set(self.output or {})
         return {
             "version": MANIFEST_VERSION,
             "streams": {

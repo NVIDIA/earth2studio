@@ -20,8 +20,8 @@
 ``Pipeline`` drives a runner over a list of work items. It plans every store
 from all items, splits items across ranks, filters and regrids each stream,
 writes it, and records finished items so an interrupted run resumes where it
-stopped. This example runs it single-process; under ``torchrun`` the same
-script splits the items across ranks.
+stopped. This example runs single-process; distributed runs also initialize a
+process group, as the last section shows.
 
 Uses FCN's real execution path with an add-one core and a tiny synthetic
 signature, fed by a constant zero source, so step ``k`` holds the value ``k``.
