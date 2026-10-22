@@ -526,7 +526,8 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         sub._out_lat1d = lat1d[i0:i1]  # bounding box without halo
         sub._out_lon1d = lon1d[j0:j1]
         sub._min_domain_cells = self._min_domain_cells
-        return sub.to(self.center.device)
+        sub.to(self.center.device)
+        return sub
 
     @classmethod
     def load_default_package(cls) -> Package:
