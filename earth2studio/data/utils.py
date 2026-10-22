@@ -24,14 +24,14 @@ import tempfile
 import uuid
 import weakref
 from collections import OrderedDict
-from collections.abc import Callable, Collection, Mapping
+from collections.abc import Callable, Collection, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from inspect import signature
 from pathlib import Path
-from typing import Any, ClassVar, Literal, Protocol, TypeVar
+from typing import Any, ClassVar, Literal, Protocol, TypeVar, overload
 
 import fsspec.asyn
 import numpy as np
@@ -248,14 +248,33 @@ def fetch_dataframe(
         return df
 
 
+_FrameRequest = tuple[DataFrameSource | ForecastFrameSource, Mapping[str, Any]]
+
+
+@overload
 def fetch_dataframes(
-    requests: Mapping[
-        str, tuple[DataFrameSource | ForecastFrameSource, Mapping[str, Any]]
-    ],
+    requests: Mapping[str, _FrameRequest],
+    time: TimeArray,
+    lead_time: LeadTimeArray = ...,
+    device: torch.device = ...,
+) -> dict[str, pd.DataFrame | cudf.DataFrame]: ...
+
+
+@overload
+def fetch_dataframes(
+    requests: Sequence[_FrameRequest],
+    time: TimeArray,
+    lead_time: LeadTimeArray = ...,
+    device: torch.device = ...,
+) -> list[pd.DataFrame | cudf.DataFrame]: ...
+
+
+def fetch_dataframes(
+    requests: Mapping[str, _FrameRequest] | Sequence[_FrameRequest],
     time: TimeArray,
     lead_time: LeadTimeArray = np.array([np.timedelta64(0, "h")]),
     device: torch.device = "cpu",
-) -> dict[str, pd.DataFrame | cudf.DataFrame]:
+) -> dict[str, pd.DataFrame | cudf.DataFrame] | list[pd.DataFrame | cudf.DataFrame]:
     """Fetch several DataFrame requests concurrently with :func:`fetch_dataframe`
 
     Each request is a source and a schema such as a model's ``input_coords`` entry:
@@ -264,8 +283,9 @@ def fetch_dataframes(
 
     Parameters
     ----------
-    requests : Mapping[str, tuple[DataFrameSource | ForecastFrameSource, Mapping[str, Any]]]
-        Request name -> (source, schema)
+    requests : Mapping[str, tuple[source, schema]] | Sequence[tuple[source, schema]]
+        Request name -> (source, schema), or a sequence of (source, schema) pairs,
+        e.g. ``list(zip(sources, model.input_coords()))``
     time : TimeArray
         Timestamps to return data for (UTC).
     lead_time : LeadTimeArray, optional
@@ -276,12 +296,14 @@ def fetch_dataframes(
 
     Returns
     -------
-    dict[str, pd.DataFrame | cudf.DataFrame]
-        Request name -> DataFrame, each with ``request_time`` in its ``attrs``
+    dict[str, pd.DataFrame | cudf.DataFrame] | list[pd.DataFrame | cudf.DataFrame]
+        Request name -> DataFrame for a mapping, or the DataFrames in request order
+        for a sequence, each with ``request_time`` in its ``attrs``
     """
+    pairs = list(requests.values() if isinstance(requests, Mapping) else requests)
 
-    def fetch(name: str) -> pd.DataFrame | cudf.DataFrame:
-        source, schema = requests[name]
+    def fetch(request: _FrameRequest) -> pd.DataFrame | cudf.DataFrame:
+        source, schema = request
         return fetch_dataframe(
             source,
             time,
@@ -291,8 +313,11 @@ def fetch_dataframes(
             device=device,
         )
 
-    with ThreadPoolExecutor(max(1, len(requests))) as pool:
-        return dict(zip(requests, pool.map(fetch, requests)))
+    with ThreadPoolExecutor(max(1, len(pairs))) as pool:
+        frames = list(pool.map(fetch, pairs))
+    if isinstance(requests, Mapping):
+        return dict(zip(requests, frames))
+    return frames
 
 
 def prep_data_array(

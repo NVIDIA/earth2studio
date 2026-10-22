@@ -32,7 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with one `observation_<variable>` column per variable (per-channel values as lists
   for satellites); `"long"` (default) is unchanged.
 - Added `fetch_dataframes`, which fetches several DataFrame requests concurrently, each
-  a data source with a schema such as a model's `input_coords()` entry.
+  a data source with a schema such as a model's `input_coords()` entry, given as a list
+  (returns a list) or a dict (returns a dict).
 
 ### Changed
 

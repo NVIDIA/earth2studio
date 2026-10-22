@@ -363,6 +363,11 @@ def test_fetch_dataframes():
     for frame in frames.values():
         np.testing.assert_array_equal(frame.attrs["request_time"], time)
 
+    frames = fetch_dataframes(list(requests.values()), time)
+    assert [list(frame.columns) for frame in frames] == [["lat"], ["lon"]]
+    for frame in frames:
+        np.testing.assert_array_equal(frame.attrs["request_time"], time)
+
 
 def test_fetch_dataframe_keeps_source_attrs():
     class _AttrSource(RandomDataFrame):
