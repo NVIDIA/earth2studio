@@ -15,13 +15,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Calendar-month archive example: FuXi-S2S started at 00 UTC on the 1st of
-# January and February 2024 and stored as UTC calendar-month means
-# (forecast.zarr), the unit seasonal hindcast archives such as C3S use for
-# verification.  lead_time holds integer lead months: 0 is the start month,
-# whose first day is the initial-condition analysis, and 1 the month after.
-# A start inside a month stores NaN for lead month 0.  Scoring happens
-# elsewhere, since score.py and online scoring reject integer lead months.
+# Calendar-month archive example.  FuXi-S2S starts at 00 UTC on July 1 and
+# September 1, 2024 and stores UTC calendar-month means in forecast.zarr.
+# C3S and other seasonal hindcast archives use calendar months too.
+# lead_time holds integer lead months: 0 is the start month, whose first day
+# is the initial-condition analysis, and 1 the month after.  The July start
+# stores July and August, and the September start stores September and
+# October.  A start inside a month stores NaN for lead month 0.  Scoring
+# happens elsewhere, since score.py and online scoring reject integer lead
+# months.
 defaults:
     - override /model: fuxi_s2s
     - override /data_source: arco_era5_daily
@@ -34,13 +36,14 @@ pipeline:
 run_id: fuxi_s2s_2024_monthly
 
 start_times:
-    - "2024-01-01 00:00:00"
-    - "2024-02-01 00:00:00"
+    - "2024-07-01 00:00:00"
+    - "2024-09-01 00:00:00"
 
-# Both starts need daily means up to day 59: January plus February 2024 and
-# February plus March 2024 are 60 days each.  That runs past the published
-# 42-day horizon.  Setup reports the minimum nsteps when a start needs more.
-nsteps: 59
+# July plus August is 62 days, so the July start needs daily means up to
+# day 61.  September plus October is 61 days, so the September start needs
+# day 60 and stops there.  Both run past the published 42-day horizon.
+# Setup reports the minimum nsteps when a start needs more.
+nsteps: 61
 
 # Variables kept in forecast.zarr, one field per lead month.
 output:
