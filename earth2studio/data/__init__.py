@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from . import _gdal  # noqa: F401  (must come before the ECMWF-backed sources)
 from .ace2 import ACE2ERA5Data
 from .arco import ARCO, ARCO_ERA5
 from .base import DataSource, ForecastSource

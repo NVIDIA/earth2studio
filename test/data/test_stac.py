@@ -476,7 +476,8 @@ def test_search_aligns_grids(tmp_path, fake_client) -> None:
         },
         when=datetime(2024, 11, 7, tzinfo=utc),
     )
-    # Same CRS, shifted origin across items, files without a nodata value:
+    # Same CRS, origin shifted by 20 m (not a half pixel, so no reference
+    # pixel centre sits on a source pixel edge), files without a nodata value:
     # resampled onto the first grid
     shifted = _scene(
         tmp_path,
@@ -484,7 +485,7 @@ def test_search_aligns_grids(tmp_path, fake_client) -> None:
         datetime(2024, 12, 9, tzinfo=utc),
         fine * 2,
         fine * 2,
-        origin=(500015, 4200015),
+        origin=(500020, 4200020),
         nodata=None,
     )
     shifted.assets["swir16"] = shifted.assets.pop("nir08")
