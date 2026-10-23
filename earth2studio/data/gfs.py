@@ -366,6 +366,8 @@ class GFS:
         samples: dict[tuple[datetime, timedelta, str], list[Callable]] = {}
         finalizers = []
         attrs: dict = {}
+        # Bind forecast reducers separately per initialization: equal valid times
+        # from different forecast cycles must never contribute to the same window.
         for i in range(len(time) if forecast else 1):
             modifiers, attrs, finalize = statistic_modifiers(
                 variable,

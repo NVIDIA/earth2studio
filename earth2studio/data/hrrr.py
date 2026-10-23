@@ -367,6 +367,8 @@ class HRRR:
         samples: dict[tuple[datetime, timedelta], dict[str, list[Callable]]] = {}
         finalizers = []
         attrs: dict = {}
+        # Forecast targets are leads within one initialization; analysis targets
+        # are valid times. Keep that distinction in source-owned sample routing.
         for i in range(len(time) if forecast else 1):
             modifiers, attrs, finalize = statistic_modifiers(
                 variable,

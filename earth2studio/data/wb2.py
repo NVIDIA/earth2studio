@@ -175,6 +175,8 @@ class _WB2Base:
             verbose=self._verbose,
         )
         args: dict[tuple[datetime, str], list[Callable[[np.ndarray], None]]] = {}
+        # Sampling belongs to this archive; the shared modifiers only reduce
+        # fields. One fetched field can feed several overlapping target windows.
         for base, statistic, add in modifiers:
             times = np.asarray(time, dtype="datetime64[ns]")
             required = (

@@ -2058,6 +2058,8 @@ class _StatisticReducer:
             valid = ~np.isnan(sample)
             np.add(target, sample, out=target, where=valid)
             if self._valid is not None:
+                # Count received values per cell, not planned timestamps: missing
+                # cells and irregular sampling can give different denominators.
                 self._valid[index] += valid
         elif self._seen[index] == 0:
             target[...] = sample
@@ -2163,6 +2165,8 @@ def statistic_modifiers(
             )
 
     def finalize() -> None:
+        # The source must propagate fetch failures before reaching this point;
+        # reducers cannot infer whether a source-selected stream is complete.
         for reducer in reducers:
             reducer.finalize()
 

@@ -244,6 +244,8 @@ class ARCO_ERA5:
         groups: dict[
             tuple[datetime, str, bool], list[tuple[str, Callable, str, Callable]]
         ] = defaultdict(list)
+        # Route overlapping windows to the same chunk read, including consumers
+        # at different pressure levels. Callbacks consume slices immediately.
         for v, statistic, add in modifiers:
             try:
                 arco_name, modifier = ARCO_ERA5Lexicon[v]
