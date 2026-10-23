@@ -539,6 +539,10 @@ class _ECMWFOpenDataSource(ABC):
             part_path = request["target"]
 
             def download() -> None:
+                # An earlier queued download may have populated the cache.
+                if pathlib.Path(cache_path).is_file():
+                    return
+
                 # Cancellation of the awaiting task cannot stop the worker.
                 # Keep cleanup here so it runs after retrieval has stopped.
                 try:
