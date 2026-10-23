@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 class AssimilationModel(Protocol):
     """Data assimilation model interface.
 
-    Like prognostic models, assimilation models declare background inputs with
+    Assimilation models declare background inputs with
     ``input_coords()`` and caller-supplied conditioning with ``forcing_coords()``.
     Forcing includes observations. Gridded slots use allocation-free DataArray
     signatures (``CoordinateSystem``); tabular slots use ``FrameSchema`` and accept
@@ -215,13 +215,13 @@ class AssimilationModel(Protocol):
 class StatefulAssimilationModel(AssimilationModel, Protocol):
     """Assimilation model with explicit, replayable trajectory continuation.
 
-    Extends the independent-call interface with the prognostic lifecycle, allowing
+    Extends the independent-call interface with initialization and stepping, allowing
     DataFrames and optional observation slots alongside gridded fields. Concrete
     methods use fixed named parameters; inheritance is not required. ``__call__``
     returns the analysis from ``initialize`` without retaining continuation state.
     Input/output coordinate hooks describe slots, not iterator callbacks. If a
     model offers front/rear execution hooks, they apply only during iteration,
-    just as for prognostics, and their returned analyses feed the recurrence.
+    and their returned analyses feed the recurrence.
     """
 
     def initialize(
