@@ -454,10 +454,19 @@ def _check_shared_download(monkeypatch, tmp_path):
 
     calls = []
 
-    async def fake_fetch(store, key, cache_dir, **kwargs):
-        calls.append((key, kwargs["byte_offset"], kwargs["atomic"]))
+    async def fake_fetch(
+        store,
+        key,
+        cache_dir,
+        byte_offset=0,
+        byte_length=None,
+        cache_key=None,
+        chunked=False,
+        atomic=False,
+    ):
+        calls.append((key, byte_offset, atomic))
         await asyncio.sleep(0.01)
-        return str(tmp_path / kwargs["cache_key"])
+        return str(tmp_path / cache_key)
 
     monkeypatch.setattr(gfs_module, "obstore_fetch_to_cache", fake_fetch)
     ds = GFS_FX(source="aws", cache=False, verbose=False)

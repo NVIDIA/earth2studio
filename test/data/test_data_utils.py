@@ -41,13 +41,14 @@ from earth2studio.data import (
     prep_data_array,
 )
 from earth2studio.data.utils import (
+    _StatisticReducer,
     async_retry,
     cancellable_to_thread,
-    compile_statistic_requests,
     datasource_cache_root,
     ensure_utc,
     gather_with_concurrency,
     managed_session,
+    map_with_concurrency,
     obstore_fetch_to_cache,
     obstore_list_prefix,
     obstore_read_chunked,
@@ -56,7 +57,7 @@ from earth2studio.data.utils import (
     obstore_zarr_store,
     prep_data_inputs,
     prep_forecast_inputs,
-    run_data_requests,
+    statistic_modifiers,
 )
 from earth2studio.grids import (
     BilinearRegridder,
@@ -67,81 +68,93 @@ from earth2studio.grids import (
 from earth2studio.utils.coords import E2S_STATISTICS, coord_array
 
 
-@pytest.mark.parametrize("forecast", [False, True])
-def test_compile_statistic_requests(forecast):
-    # Compiled callbacks consume reusable buffers in arbitrary arrival order.
-    origin = datetime.datetime(2024, 1, 1)
-    hour = datetime.timedelta(hours=1)
+@pytest.mark.parametrize("irregular", [False, True])
+def test_statistic_modifiers(irregular):
+    # Reducers need neither timestamps nor a planned count. Targets can receive
+    # different stream lengths, and missing cells use their own observed counts.
+    samples = np.array([[2, np.nan, np.nan], [4, 8, np.nan], [9, 10, np.nan]])
+    for method in ("mean", "sum", "min", "max"):
+        output = np.full((2, 3), -999.0)
+        reducer = _StatisticReducer(method, output)
+        with pytest.raises(ValueError, match="No samples"):
+            reducer.finalize()
+        for sample in samples:
+            reducer.add(0, sample)
+        reducer.add(1, samples[1])
+        reducer.finalize()
+        expected = {
+            "mean": [[5, 9, np.nan], [4, 8, np.nan]],
+            "sum": [[15, 18, 0], [4, 8, 0]],
+            "min": [[2, 8, np.nan], [4, 8, np.nan]],
+            "max": [[9, 10, np.nan], [4, 8, np.nan]],
+        }
+        np.testing.assert_allclose(output, expected[method], equal_nan=True)
+
+    # Source-selected samples may be irregular and differ in count per target.
+    # Callbacks consume reusable buffers in arbitrary arrival order.
     variables = [
         "t2m",
         *(f"t2m:{method}:2h" for method in ("mean", "sum", "min", "max")),
     ]
-    times = (
-        [origin, origin + hour] if forecast else [origin + 3 * hour, origin + 4 * hour]
-    )
-    values = np.full((2, 2, 5, 2) if forecast else (2, 5, 2), np.nan)
-    requests, attrs, finalize = compile_statistic_requests(
-        variables,
-        times,
-        np.timedelta64(1, "h"),
-        values,
-        lead_time=[3 * hour, 4 * hour] if forecast else None,
-    )
-    expected_requests = (
-        {(t, h * hour, "t2m") for t in times for h in range(1, 5)}
-        if forecast
-        else {(origin + h * hour, datetime.timedelta(0), "t2m") for h in range(1, 5)}
-    )
-    assert len(requests) == len(expected_requests)
-    assert {(r.time, r.lead_time, r.variable) for r in requests} == expected_requests
-    with pytest.raises(ValueError, match="Incomplete"):
+    values = np.full((2, 5, 2), np.nan)
+    modifiers, attrs, finalize = statistic_modifiers(variables, values)
+    with pytest.raises(ValueError, match="No samples"):
         finalize()
 
     buffer = np.empty(2)
-    for request in reversed(requests):
-        cycle = times.index(request.time) if forecast else 0
-        sample_hour = (request.lead_time if forecast else request.time - origin) / hour
-        buffer[:] = [100 * cycle + sample_hour, np.nan]
-        assert request.modifier(buffer) is None
-        buffer[:] = -999  # Callbacks must consume, not retain, the fetch buffer.
+    from earth2studio.utils.time_statistics import time_statistic_metadata
+
+    coordinates = np.array([0, 1, 1.5, 2.75, 3, 4] if irregular else [0, 1, 2, 3, 4])
+    for base, statistic, add in modifiers:
+        assert base == "t2m"
+        for index, target in enumerate([3, 4]):
+            if statistic is None:
+                selected = [target]
+            else:
+                metadata = time_statistic_metadata(statistic)
+                start = target + metadata["start_offset"] / np.timedelta64(1, "h")
+                end = target + metadata["end_offset"] / np.timedelta64(1, "h")
+                selected = coordinates[(coordinates >= start) & (coordinates < end)]
+            for coord in reversed(selected):
+                buffer[:] = [coord, np.nan]
+                assert add(index, buffer) is None
+                buffer[:] = -999
     finalize()
 
-    expected = np.array([[3, 1.5, 3, 1, 2], [4, 2.5, 5, 2, 3]])
-    outputs = values if forecast else values[None]
-    for cycle, output in enumerate(outputs):
-        np.testing.assert_allclose(
-            output[:, :, 0], expected + cycle * np.array([100, 100, 200, 100, 100])
-        )
-        np.testing.assert_allclose(
-            output[:, :, 1], [[np.nan, np.nan, 0, np.nan, np.nan]] * 2, equal_nan=True
-        )
+    expected = (
+        [[3, 1.75, 5.25, 1, 2.75], [4, 2.875, 5.75, 2.75, 3]]
+        if irregular
+        else [[3, 1.5, 3, 1, 2], [4, 2.5, 5, 2, 3]]
+    )
+    np.testing.assert_allclose(values[:, :, 0], expected)
+    np.testing.assert_allclose(
+        values[:, :, 1], [[np.nan, np.nan, 0, np.nan, np.nan]] * 2, equal_nan=True
+    )
     assert set(attrs[E2S_STATISTICS]) == set(variables[1:])
 
     # Long windows use a fixed task pool and discard decoded fields after each
     # update, including when one fetch fails or the caller cancels the operation.
-    values = np.full((1, 1, 4, 2) if forecast else (1, 4, 2), np.nan)
-    requests, _, finalize = compile_statistic_requests(
+    values = np.full((1, 4, 2), np.nan)
+    modifiers, _, finalize = statistic_modifiers(
         [f"t2m:{method}:240h" for method in ("mean", "sum", "min", "max")],
-        [origin + 240 * hour],
-        np.timedelta64(1, "h"),
         values,
-        lead_time=[240 * hour] if forecast else None,
     )
+    requests = list(range(240))
 
     async def check_pool():
         refs = []
         initial_tasks = len(asyncio.all_tasks())
 
-        async def fetch(request):
+        async def fetch(h):
             assert len(asyncio.all_tasks()) <= initial_tasks + 3
-            h = (request.lead_time if forecast else request.time - origin) / hour
             sample = np.array([h, np.nan])
             refs.append(weakref.ref(sample))
             assert sum(ref() is not None for ref in refs) <= 3
             await asyncio.sleep(0)
-            return sample
+            for _, _, add in modifiers:
+                add(0, sample)
 
-        await run_data_requests(requests, fetch, async_workers=3, verbose=False)
+        await map_with_concurrency(requests, fetch, async_workers=3, verbose=False)
         finalize()
         assert all(ref() is None for ref in refs)
         np.testing.assert_allclose(
@@ -168,7 +181,7 @@ def test_compile_statistic_requests(forecast):
                 active -= 1
 
         with pytest.raises(OSError, match="mock fetch failed"):
-            await run_data_requests(
+            await map_with_concurrency(
                 requests, failing_fetch, async_workers=3, verbose=False
             )
         assert active == 0
@@ -186,7 +199,9 @@ def test_compile_statistic_requests(forecast):
                 active -= 1
 
         operation = asyncio.create_task(
-            run_data_requests(requests, waiting_fetch, async_workers=3, verbose=False)
+            map_with_concurrency(
+                requests, waiting_fetch, async_workers=3, verbose=False
+            )
         )
         await ready.wait()
         operation.cancel()
@@ -195,7 +210,7 @@ def test_compile_statistic_requests(forecast):
         assert active == 0
 
         with pytest.raises(asyncio.TimeoutError):
-            await run_data_requests(
+            await map_with_concurrency(
                 requests,
                 waiting_fetch,
                 async_workers=3,

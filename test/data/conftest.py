@@ -84,8 +84,8 @@ def mock_statistic_grib(monkeypatch, tmp_path):
                 records[f"3::APCP::surface::{start}-{lead} hour acc fcst"] = (2, 1)
             return records
 
-        async def remote(uri, **kwargs):
-            return uri, kwargs["byte_offset"]
+        async def remote(uri, byte_offset=0, byte_length=None):
+            return uri, byte_offset
 
         def decode(record):
             uri, offset = record

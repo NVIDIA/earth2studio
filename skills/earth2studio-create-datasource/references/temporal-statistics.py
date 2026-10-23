@@ -21,15 +21,15 @@ the user wants the source to compute temporal statistics itself.
 
 Temporal statistics are variable labels such as ``"t2m:mean:24h"`` (window
 ``[-24h, 0h)``) or ``"tp:sum:+0h:+6h"`` (explicit offsets). Methods: ``mean``,
-``sum``, ``min``, ``max``. Windows are left-closed/right-open and must be a
-multiple of the source cadence.
+``sum``, ``min``, ``max``. Windows are left-closed/right-open. Regular coordinate
+helpers require cadence-aligned windows; reducers impose no sampling cadence.
 
 NOT every source needs this. A source whose lexicon does not declare native
 statistics keeps working: ``fetch_data`` fetches the extra times and
 reduces them itself with an explicit ``delta_t``. Native support is worth it when
-the source can share fetches (one file per time) or reuse its own cache. Skip it
-for sources with irregular cadence (DataFrame/station/satellite sources) or
-when the user did not ask.
+the source can share fetches (one file per time) or reuse its own cache. Irregular
+sources select available samples using parsed window offsets. Means are sample
+weighted, not duration weighted. Skip native support when the user did not ask.
 
 Contract
 --------
@@ -39,33 +39,36 @@ Contract
        TIME_STATISTICS: tuple[str, ...] = ("mean", "sum", "min", "max")
 
    Expose the lexicon as ``source.lexicon``. Declare a subset if only some methods
-   make sense; omit the metadata for a lexicon without native support. Pass cadence
-   internally to the planner. Neither ``time_step`` nor ``time_statistics`` is a
+    make sense; omit the metadata for a lexicon without native support.
+    Neither ``time_step`` nor ``time_statistics`` is a
    source class attribute.
-2. ``compile_statistic_requests`` parses labels, expands windows and returns
-   ``requests, attrs, finalize``: deduplicated requests paired with processing
-   callbacks, metadata, and a finalization function. It rejects
+2. ``statistic_modifiers`` parses labels and returns ``modifiers, attrs, finalize``.
+   Entries are ``(base, statistic, add)``; callbacks write into output views.
+   It rejects
    malformed/duplicate labels and methods outside ``supported``.
-3. Each request carries ``time``, ``lead_time``, ``variable`` and ``modifier``.
-   Validate those coordinates with the source's validators before downloading.
+3. Select coordinates and build requests in the source's existing fetch machinery.
+   Regular sources may use ``source_times`` / ``source_lead_times``. Irregular
+   sources select available coordinates inside ``time_statistic_metadata`` offsets.
+   Deduplicate and validate coordinates before downloading.
 4. Fetch the base variable and apply its ordinary lexicon modifier, then call
-   ``request.modifier(sample)`` once. This callback copies or aggregates the field
-   into all consuming outputs, without retaining it. ``run_data_requests`` is a
-   bounded async loop that does this; it contains no statistic planning logic.
-5. Call ``finalize()`` once after fetching to check completeness and finish means.
+   ``add(target_index, sample)`` once per consuming target. This callback copies or
+   aggregates the field without retaining it. ``map_with_concurrency`` optionally
+   provides bounded execution of the source's existing fetch wrapper.
+5. Consume every request and propagate fetch failures, then call ``finalize()``
+   once to reject empty targets and finish means using observed per-cell counts.
    Field memory is output views, per-cell mean counts, and concurrent samples;
    coordinate plans still grow with the number of requested samples. Backend
    adapters may fetch additional components for derived variables.
 6. Set ``xr_array.attrs.update(attrs)`` so
    downstream code knows the result is already reduced.
-7. Pass ``verbose=True`` to the compiler to tell the user what is
-   averaged / accumulated / min'd / max'd and how many samples it needs.
+7. Pass ``verbose=True`` to the helper to tell the user what is
+   averaged / accumulated / min'd / max'd and the window.
 
 Helpers live in ``earth2studio/data/utils.py``; parsing and offsets in
 ``earth2studio/utils/time_statistics.py``. Do not write new reducers.
 Contracts: ``dev/spec/TIME_STATISTICS_SPEC.md`` and ``dev/spec/FETCH_DATA_SPEC.md``.
-Call path: compile_statistic_requests -> source validation -> run_data_requests
--> fetch_sample -> request.modifier -> finalize() -> output attrs.
+Call path: statistic_modifiers -> source sample selection and validation
+-> existing fetch wrapper -> add(target, sample) -> finalize() -> output attrs.
 Custom block reductions registered in time_statistics are not automatically
 supported by native streaming sources; use fetch_data with explicit delta_t.
 
@@ -78,17 +81,17 @@ Real examples:
 # ---------------------------------------------------------------------------
 # Imports (add to the existing earth2studio.data.utils import)
 # ---------------------------------------------------------------------------
-from datetime import datetime, timedelta
+from functools import partial
 
 import numpy as np
 import xarray as xr
 
 from earth2studio.data.utils import (
-    DataRequest,
-    compile_statistic_requests,
-    run_data_requests,
+    as_datetime,
+    map_with_concurrency,
+    statistic_modifiers,
 )
-from earth2studio.utils.coords import E2S_STATISTICS
+from earth2studio.utils.time_statistics import source_times
 
 
 class SourceName:
@@ -121,29 +124,41 @@ class SourceName:
             coords={"time": time_list, "variable": variable_list},
         )
 
-        # Compile requests with callbacks writing into output views
-        # FILL: cadence of the stored data; windows must be multiples of it
-        requests, attrs, finalize = compile_statistic_requests(
+        modifiers, attrs, finalize = statistic_modifiers(
             variable_list,
-            time_list,
-            np.timedelta64(6, "h"),
             xr_array.values,
             supported=self.lexicon.TIME_STATISTICS,
             source="SourceName",
             verbose=self._verbose,
         )
 
-        # Validate every extra time before reading anything
-        self._validate_time(list({r.time for r in requests}))
+        # FILL: adapt the source's existing work items, not a common request model.
+        # This example source stores six-hourly fields. Irregular sources instead
+        # select available times inside the parsed offsets.
+        times = np.asarray(time_list, dtype="datetime64[ns]")
+        work = {}
+        for base, statistic, add in modifiers:
+            samples = (
+                source_times(statistic, times, np.timedelta64(6, "h"))
+                if statistic
+                else times[:, None]
+            )
+            for target, row in enumerate(samples):
+                for sample_time in row:
+                    key = (as_datetime(sample_time), base)
+                    work.setdefault(key, []).append(partial(add, target))
+        self._validate_time(list({t for t, _ in work}))
 
-        # Fetch each base field using the source's normal lexicon conversion
-        async def fetch_sample(request: DataRequest) -> np.ndarray:
-            return await self.fetch_array(request.time, request.variable)
+        # In a real source put this addition in its existing fetch wrapper.
+        async def fetch_wrapper(item):  # type: ignore[no-untyped-def]
+            (sample_time, base), callbacks = item
+            sample = await self.fetch_array(sample_time, base)  # lexicon converted
+            for callback in callbacks:
+                callback(sample)
 
-        # Equivalent to: request.modifier(await fetch_sample(request)) per request
-        await run_data_requests(
-            requests,
-            fetch_sample,
+        await map_with_concurrency(
+            list(work.items()),
+            fetch_wrapper,
             desc="Fetching SourceName data",
             verbose=self._verbose,
             async_workers=self._async_workers,
@@ -156,16 +171,15 @@ class SourceName:
     # ----------------------------------------------------------------------
     # ForecastSource: extra samples are other LEAD TIMES of the same init time
     # ----------------------------------------------------------------------
-    # requests, attrs, finalize = compile_statistic_requests(
-    #     variable_list, time_list, np.timedelta64(1, "h"),
-    #     xr_array.values,          # dims (time, lead_time, variable, ...)
-    #     lead_time=lead_list,
+    # modifiers, attrs, finalize = statistic_modifiers(
+    #     variable_list, xr_array.values[init_index],  # (lead_time, variable, ...)
     #     supported=self.lexicon.TIME_STATISTICS,
     #     source="SourceName", verbose=self._verbose,
     # )
-    # self._validate_leadtime(list({r.lead_time for r in requests}))
-    # Forecast fetch_sample uses the already resolved time and lead:
-    #     return await self.fetch_array(request.time, request.lead_time, request.variable)
+    # Select available leads for each statistic, retaining the initialization.
+    # Regular sources can use source_lead_times; validate every selected lead.
+    # Fetch with the existing source-specific request type and apply add(target,
+    # sample) after lexicon conversion. Finalize each initialization's view.
     #
     # A lead time of 0 with a trailing window (e.g. "mean:3h") reaches before
     # the start of the forecast and fails validation: that is intended.
@@ -181,7 +195,8 @@ class SourceName:
 # - NaNs are skipped; only mean keeps per-cell valid counts. All-NaN windows
 #   yield NaN for mean/min/max and zero for sum. Download errors still propagate;
 #   a source may explicitly return NaN fields for missing records. finalize()
-#   rejects incomplete sample counts.
+#   rejects empty targets. The source must consume every selected sample and
+#   propagate failures; reducers do not infer completeness from a cadence.
 
 
 # ===========================================================================

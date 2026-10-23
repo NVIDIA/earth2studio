@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import functools
 import os
 import pathlib
 import re
@@ -31,16 +32,17 @@ import zarr.abc.store
 from loguru import logger
 
 from earth2studio.data.utils import (
-    DataRequest,
     _sync_async,
-    compile_statistic_requests,
+    as_datetime,
     datasource_cache_root,
+    map_with_concurrency,
     obstore_zarr_store,
     prep_data_inputs,
-    run_data_requests,
+    statistic_modifiers,
 )
 from earth2studio.lexicon import ARCO_ERA5Lexicon
 from earth2studio.lexicon.arco import ACCUMULATION_HOURS
+from earth2studio.utils.time_statistics import source_times
 from earth2studio.utils.type import TimeArray, VariableArray
 
 
@@ -232,68 +234,42 @@ class ARCO_ERA5:
             },
         )
 
-        requests, attrs, finalize = compile_statistic_requests(
+        modifiers, attrs, finalize = statistic_modifiers(
             variable,
-            time,
-            np.timedelta64(1, "h"),
             xr_array.values,
             supported=self.lexicon.TIME_STATISTICS,
             source=type(self).__name__,
             verbose=self._verbose,
         )
-        # Validate the extra times before reading anything
-        self._validate_time(list({r.time for r in requests}))
-
-        # Dispatch every consumer of a chunk together. A cache spanning requests
-        # would retain a whole window of pressure-level chunks while waiting for
-        # the next variable's consumers, despite the streaming reducers.
-        chunks: dict[tuple[str, bool, int | None], list[DataRequest]] = defaultdict(
-            list
-        )
-        chunk_requests: list[DataRequest] = []
-        for request in requests:
-            if request.variable in ACCUMULATION_HOURS:
-                chunk_requests.append(request)
-            else:
-                chunks[self._chunk_key(request.time, request.variable)].append(request)
-
-        def chunk_modifier(
-            members: list[DataRequest], is_mdl: bool
-        ) -> Callable[[np.ndarray], None]:
-            def consume(chunk: np.ndarray) -> None:
-                for member in members:
-                    name, modifier = ARCO_ERA5Lexicon[member.variable]
-                    sample = chunk
-                    if chunk.ndim == 3:
-                        levels = self.ml_level_coords if is_mdl else self.level_coords
-                        sample = chunk[
-                            np.searchsorted(levels, int(name.split("::")[1]))
-                        ]
-                    member.modifier(modifier(sample))
-
-            return consume
-
-        for (_, is_mdl, _), members in chunks.items():
-            first = members[0]
-            chunk_requests.append(
-                DataRequest(
-                    first.time,
-                    first.lead_time,
-                    first.variable,
-                    chunk_modifier(members, is_mdl),
-                )
+        groups: dict[
+            tuple[datetime, str, bool], list[tuple[str, Callable, str, Callable]]
+        ] = defaultdict(list)
+        for v, statistic, add in modifiers:
+            try:
+                arco_name, modifier = ARCO_ERA5Lexicon[v]
+            except KeyError:
+                logger.error(f"variable id {v} not found in ARCO_ERA5Lexicon")
+                raise
+            parts = arco_name.split("::")
+            arco_variable = parts[0]
+            level = parts[1] if len(parts) > 1 else ""
+            is_mdl = self._is_mdl_level(v)
+            times = np.asarray(time, dtype="datetime64[ns]")
+            required = (
+                times[:, None]
+                if statistic is None
+                else source_times(statistic, times, np.timedelta64(1, "h"))
             )
-
-        async def fetch_sample(request: DataRequest) -> np.ndarray:
-            if request.variable in ACCUMULATION_HOURS:
-                return await self.fetch_array(request.time, request.variable)
-            return await self._read_chunk(
-                *self._chunk_key(request.time, request.variable)
-            )
-
-        await run_data_requests(
-            chunk_requests,
-            fetch_sample,
+            for i, row in enumerate(required):
+                for t in row:
+                    groups[(as_datetime(t), arco_variable, is_mdl)].append(
+                        (v, functools.partial(add, i), level, modifier)
+                    )
+        self._validate_time(list({t for t, _, _ in groups}))
+        args = [(t, name, mdl, entries) for (t, name, mdl), entries in groups.items()]
+        await map_with_concurrency(
+            args,
+            self.fetch_chunk_group,
             desc="Fetching ARCO_ERA5 data",
             verbose=self._verbose,
             # Each atmospheric chunk contains every pressure/model level.
@@ -303,20 +279,64 @@ class ARCO_ERA5:
         xr_array.attrs.update(attrs)
         return xr_array
 
-    def _chunk_key(self, time: datetime, variable: str) -> tuple[str, bool, int | None]:
-        """Identify the zarr chunk holding a sample: (array, model level, time index)."""
-        name = ARCO_ERA5Lexicon[variable][0].split("::")[0]  # type: ignore[misc]
-        return (name, self._is_mdl_level(variable), self._get_time_index(time))
+    async def fetch_chunk_group(
+        self,
+        e: tuple[datetime, str, bool, list],
+    ) -> None:
+        """Fetch a Zarr chunk once and distribute slices through output modifiers.
 
-    async def _read_chunk(
-        self, name: str, is_mdl: bool, time_index: int | None
-    ) -> np.ndarray:
-        """Read one zarr chunk: a whole hour of an array, or a static array."""
-        group = self.ml_zarr_group if is_mdl else self.zarr_group
-        zarr_array = await group.get(name)  # type: ignore[union-attr]
-        if len(zarr_array.shape) == 2:
-            return await zarr_array.getitem(slice(None))
-        return await zarr_array.getitem(time_index)
+        Entries contain (variable, statistical modifier, level, lexicon modifier).
+        """
+        t, arco_variable, is_mdl, var_entries = e
+
+        if self.zarr_group is None or self.ml_zarr_group is None:
+            raise ValueError("Zarr group is not initialized")
+
+        time_index = self._get_time_index(t)
+
+        if is_mdl:
+            zarr_group = self.ml_zarr_group
+            level_coords = self.ml_level_coords
+        else:
+            zarr_group = self.zarr_group
+            level_coords = self.level_coords
+
+        zarr_array = await zarr_group.get(arco_variable)
+        shape = zarr_array.shape
+
+        if len(shape) == 2:
+            # static variable
+            data = await zarr_array.getitem(slice(None))
+            for var_name, add, level, modifier in var_entries:
+                add(modifier(data))
+        elif len(shape) == 3:
+            # surface variable
+            data = None
+            accumulations: dict[str, list[Callable]] = defaultdict(list)
+            for var_name, add, level, modifier in var_entries:
+                accumulation_hours = ACCUMULATION_HOURS.get(var_name)
+                # Sum hourly ARCO_ERA5 fields to support cumulative variables.
+                if accumulation_hours is not None:
+                    accumulations[var_name].append(add)
+                else:
+                    if data is None:
+                        data = await zarr_array.getitem(time_index)
+                    add(modifier(data))
+            for var_name, callbacks in accumulations.items():
+                sample = await self.fetch_array(t, var_name)
+                for add in callbacks:
+                    add(sample)
+                del sample
+        else:
+            # atmospheric variable : fetch all needed levels at once
+            level_indices = []
+            for var_name, add, level, modifier in var_entries:
+                level_indices.append(np.searchsorted(level_coords, int(level)))
+
+            # Fetch all levels in a single chunk read
+            all_levels_data = await zarr_array.getitem(time_index)
+            for k, (var_name, add, level, modifier) in enumerate(var_entries):
+                add(modifier(all_levels_data[level_indices[k]]))
 
     async def fetch_array(self, time: datetime, variable: str) -> np.ndarray:
         """Fetches requested array from remote store

@@ -18,10 +18,11 @@ import asyncio
 import pathlib
 import shutil
 from datetime import datetime, timedelta
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import numpy as np
 import pytest
+import xarray as xr
 from obstore.store import GCSStore, HTTPStore, S3Store
 
 from earth2studio.data import HRRR, HRRR_FX
@@ -321,13 +322,23 @@ def test_hrrr_special_variable_lookups():
     time = datetime(2026, 7, 20)
     analysis = HRRR(cache=False, verbose=False)
     forecast = HRRR_FX(cache=False, verbose=False)
-    indices = {"wrfsfc": fake_index}
-    assert analysis._lookup_record(indices, "tp", time, timedelta(0))[1] == 100
-    offsets = [
-        forecast._lookup_record(indices, v, time, timedelta(hours=1))[1]
-        for v in ["tp", "tcc", "sd", "sde", "snowc"]
-    ]
-    assert offsets == [110, 210, 310, 410, 510]
+    for ds, lead, variables, expected in [
+        (analysis, timedelta(0), ["tp"], [100]),
+        (
+            forecast,
+            timedelta(hours=1),
+            ["tp", "tcc", "sd", "sde", "snowc"],
+            [110, 210, 310, 410, 510],
+        ),
+    ]:
+        with patch.object(ds, "_fetch_index", new=AsyncMock(return_value=fake_index)):
+            output = xr.DataArray(np.empty((1, 1, len(variables), 1, 1)))
+            tasks, _, _ = asyncio.run(
+                ds._create_tasks(
+                    [time], [lead], variables, output, forecast=ds is forecast
+                )
+            )
+        assert [task.hrrr_byte_offset for task in tasks] == expected
 
 
 @pytest.mark.timeout(15)

@@ -14,12 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
+import functools
 import hashlib
 import os
 import pathlib
 import shutil
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 import numpy as np
@@ -30,24 +31,28 @@ from obstore.store import ObjectStore
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
-    DataRequest,
     _sync_async,
+    as_datetime,
+    as_timedelta,
     async_retry,
     cancellable_to_thread,
-    compile_statistic_requests,
     datasource_cache_root,
     decode_grib_message,
+    gather_with_concurrency,
+    map_with_concurrency,
     obstore_fetch_to_cache,
     obstore_store_from_url,
     prep_data_inputs,
     prep_forecast_inputs,
-    run_data_requests,
+    resolve_async_workers,
+    statistic_modifiers,
 )
 from earth2studio.lexicon import HRRRFXLexicon, HRRRLexicon
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
+from earth2studio.utils.time_statistics import source_lead_times, source_times
 from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 
 try:
@@ -58,6 +63,17 @@ except ImportError:
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
+
+
+@dataclass
+class HRRRAsyncTask:
+    """Small helper struct for Async tasks"""
+
+    output_modifiers: list[Callable]
+    hrrr_file_uri: str
+    hrrr_byte_offset: int | None
+    hrrr_byte_length: int | None
+    hrrr_modifier: Callable
 
 
 @check_optional_dependencies()
@@ -320,17 +336,17 @@ class HRRR:
         xr_array["hrrr_y"].attrs = {"standard_name": "latitude", "axis": "Y"}
         xr_array["hrrr_x"].attrs = {"standard_name": "longitude", "axis": "X"}
 
-        requests, attrs, finalize = compile_statistic_requests(
-            variable,
-            time,
-            np.timedelta64(1, "h"),
-            xr_array.values[:, 0],
-            supported=self.lexicon.TIME_STATISTICS,
-            source=type(self).__name__,
+        async_tasks, attrs, finalize = await self._create_tasks(
+            time, [timedelta(hours=0)], variable, xr_array, forecast=False
+        )
+        await map_with_concurrency(
+            async_tasks,
+            self.fetch_wrapper,
+            async_workers=self._async_workers,
+            task_timeout=120.0,
+            desc="Fetching HRRR data",
             verbose=self._verbose,
         )
-        self._validate_time(list({r.time for r in requests}))
-        await self._fetch_requests(requests)
         finalize()
         xr_array.attrs.update(attrs)
 
@@ -338,145 +354,154 @@ class HRRR:
         del xr_array.coords["lead_time"]
         return xr_array
 
-    def _lookup_record(
+    async def _create_tasks(
         self,
-        index_files: dict[str, dict[str, tuple[int, int]]],
-        v: str,
-        t: datetime,
-        lt: timedelta,
-    ) -> tuple[str, int, int, Callable] | None:
-        """Find the grib product, byte range and modifier of a variable
-
-        Parameters
-        ----------
-        index_files : dict[str, dict[str, tuple[int, int]]]
-            Parsed grib index of each product for one (time, lead time)
-        v : str
-            Earth2Studio variable name
-        t : datetime
-            Forecast initialization time
-        lt : timedelta
-            Forecast lead time
-
-        Returns
-        -------
-        tuple[str, int, int, Callable] | None
-            Product, byte offset, byte length and modifier, None if the record is
-            missing from the index
-        """
-        try:
-            hrrr_name_str, modifier = self.lexicon[v]  # type: ignore
-            hrrr_name = hrrr_name_str.split("::") + ["", ""]
-            product = hrrr_name[0]
-            variable_name = hrrr_name[1]
-            level = hrrr_name[2]
-            forecastvld = hrrr_name[3]
-            index = hrrr_name[4]
-
-            # Create index key to find byte range
-            hrrr_key = f"{variable_name}::{level}"
-            if forecastvld:
-                hrrr_key = f"{hrrr_key}::{forecastvld}"
-            else:
-                if lt.total_seconds() == 0:
-                    hrrr_key = f"{hrrr_key}::anl"
-                else:
-                    hrrr_key = (
-                        f"{hrrr_key}::{int(lt.total_seconds() // 3600):d} hour fcst"
-                    )
-            if index and index.isnumeric():
-                hrrr_key = index
-
-            # Special cases
-            # could do this better with templates, but this is single instance
-            if variable_name == "APCP":
-                hours = int(lt.total_seconds() // 3600)
-                if hours == 0:
-                    accumulation = "0-0 day acc fcst"
-                else:
-                    accumulation = f"{hours-1:d}-{hours:d} hour acc fcst"
-                hrrr_key = f"{variable_name}::{level}::{accumulation}"
-
-        except KeyError as e:
-            logger.error(f"variable id {v} not found in HRRR lexicon")
-            raise e
-
-        # Get byte range from index
-        byte_offset = None
-        byte_length = None
-        for key, value in index_files[product].items():
-            if hrrr_key in key:
-                byte_offset = value[0]
-                byte_length = value[1]
-                break
-
-        if byte_length is None or byte_offset is None:
-            logger.warning(
-                f"Variable {v} not found in index file for time {t} at {lt}, values will be unset"
+        time: list[datetime],
+        lead_time: list[timedelta],
+        variable: list[str],
+        xr_array: xr.DataArray,
+        forecast: bool,
+    ) -> tuple[list[HRRRAsyncTask], dict, Callable]:
+        """Create HRRR byte-range tasks, adding statistical output modifiers."""
+        tasks: list[HRRRAsyncTask] = []
+        samples: dict[tuple[datetime, timedelta], dict[str, list[Callable]]] = {}
+        finalizers = []
+        attrs: dict = {}
+        for i in range(len(time) if forecast else 1):
+            modifiers, attrs, finalize = statistic_modifiers(
+                variable,
+                xr_array.values[i] if forecast else xr_array.values[:, 0],
+                supported=self.lexicon.TIME_STATISTICS,
+                source=type(self).__name__,
+                verbose=self._verbose,
             )
-            return None
-        return product, byte_offset, byte_length, modifier
-
-    async def _fetch_requests(
-        self,
-        requests: list[DataRequest],
-    ) -> None:
-        """Fetch shared samples, copying plain fields and reducing statistics in place.
-
-        Parameters
-        ----------
-        requests : list[DataRequest]
-            Compiled source requests with processing callbacks
-        """
-        # One set of grib indices per (init time, lead time) shared by all variables
-        indices: dict[tuple[datetime, timedelta], asyncio.Future] = {}
-
-        async def get_indices(
-            t: datetime, lt: timedelta
-        ) -> dict[str, dict[str, tuple[int, int]]]:
-            if (t, lt) not in indices:
-                products = ["wrfsfc", "wrfprs", "wrfnat"]
-
-                async def _all() -> dict[str, dict[str, tuple[int, int]]]:
-                    found = await asyncio.gather(
-                        *[
-                            self._fetch_index(self._grib_index_uri(t, lt, p))
-                            for p in products
-                        ]
+            finalizers.append(finalize)
+            for v, statistic, add in modifiers:
+                coords = (
+                    np.asarray(lead_time, dtype="timedelta64[ns]")
+                    if forecast
+                    else np.asarray(time, dtype="datetime64[ns]")
+                )
+                required = (
+                    coords[:, None]
+                    if statistic is None
+                    else (
+                        source_lead_times(statistic, coords, np.timedelta64(1, "h"))
+                        if forecast
+                        else source_times(statistic, coords, np.timedelta64(1, "h"))
                     )
-                    return dict(zip(products, found))
+                )
+                for j, row in enumerate(required):
+                    for coord in row:
+                        t, lt = (
+                            (time[i], as_timedelta(coord))
+                            if forecast
+                            else (as_datetime(coord), timedelta(0))
+                        )
+                        samples.setdefault((t, lt), {}).setdefault(v, []).append(
+                            functools.partial(add, j)
+                        )
+        for t, lt in samples:
+            self._validate_time([t])
+            if isinstance(self, HRRR_FX):
+                self._validate_leadtime([t], [lt])
 
-                indices[(t, lt)] = asyncio.ensure_future(_all())
-            return await indices[(t, lt)]
+        # Fetch all index files once per time / lead time, shared by variables.
+        products = ["wrfsfc", "wrfprs", "wrfnat"]
+        args = [self._grib_index_uri(t, lt, p) for t, lt in samples for p in products]
+        results = await gather_with_concurrency(
+            [self._fetch_index(uri) for uri in args],
+            max_workers=resolve_async_workers(self._async_workers, len(args)),
+            task_timeout=60.0,
+            desc="Fetching HRRR index files",
+            verbose=True,
+        )
+        for t, lt in samples:
+            index_files = {p: results.pop(0) for p in products}
+            for v, output_modifiers in samples[t, lt].items():
+                try:
+                    hrrr_name_str, modifier = self.lexicon[v]  # type: ignore
+                    hrrr_name = hrrr_name_str.split("::") + ["", ""]
+                    product = hrrr_name[0]
+                    variable_name = hrrr_name[1]
+                    level = hrrr_name[2]
+                    forecastvld = hrrr_name[3]
+                    index = hrrr_name[4]
 
-        async def fetch_sample(request: DataRequest) -> np.ndarray:
-            t, lt = request.time, request.lead_time
-            found = self._lookup_record(
-                await get_indices(t, lt), request.variable, t, lt
-            )
-            if found is None:
-                return np.full((len(self.HRRR_Y), len(self.HRRR_X)), np.nan)
-            product, offset, length, modifier = found
-            return await async_retry(
+                    # Create index key to find byte range
+                    hrrr_key = f"{variable_name}::{level}"
+                    if forecastvld:
+                        hrrr_key = f"{hrrr_key}::{forecastvld}"
+                    else:
+                        if lt.total_seconds() == 0:
+                            hrrr_key = f"{hrrr_key}::anl"
+                        else:
+                            hrrr_key = f"{hrrr_key}::{int(lt.total_seconds() // 3600):d} hour fcst"
+                    if index and index.isnumeric():
+                        hrrr_key = index
+
+                    # Special cases
+                    # could do this better with templates, but this is single instance
+                    if variable_name == "APCP":
+                        hours = int(lt.total_seconds() // 3600)
+                        if hours == 0:
+                            accumulation = "0-0 day acc fcst"
+                        else:
+                            accumulation = f"{hours-1:d}-{hours:d} hour acc fcst"
+                        hrrr_key = f"{variable_name}::{level}::{accumulation}"
+
+                except KeyError as e:
+                    logger.error(f"variable id {variable} not found in HRRR lexicon")
+                    raise e
+
+                # Get byte range from index
+                byte_offset = None
+                byte_length = None
+                for key, value in index_files[product].items():
+                    if hrrr_key in key:
+                        byte_offset = value[0]
+                        byte_length = value[1]
+                        break
+
+                if byte_length is None or byte_offset is None:
+                    logger.warning(
+                        f"Variable {v} not found in index file for time {t} at {lt}, values will be unset"
+                    )
+
+                tasks.append(
+                    HRRRAsyncTask(
+                        output_modifiers=output_modifiers,
+                        hrrr_file_uri=self._grib_uri(t, lt, product),
+                        hrrr_byte_offset=byte_offset,
+                        hrrr_byte_length=byte_length,
+                        hrrr_modifier=modifier,
+                    )
+                )
+
+        def finalize_all() -> None:
+            for finalize in finalizers:
+                finalize()
+
+        return tasks, attrs, finalize_all
+
+    async def fetch_wrapper(self, task: HRRRAsyncTask) -> None:
+        """Small wrapper to pack arrays into the DataArray via output modifiers."""
+        if task.hrrr_byte_offset is None or task.hrrr_byte_length is None:
+            out = np.full((len(self.HRRR_Y), len(self.HRRR_X)), np.nan)
+        else:
+            out = await async_retry(
                 self.fetch_array,
-                self._grib_uri(t, lt, product),
-                offset,
-                length,
-                modifier,
+                task.hrrr_file_uri,
+                task.hrrr_byte_offset,
+                task.hrrr_byte_length,
+                task.hrrr_modifier,
                 retries=self._retries,
                 backoff=1.0,
                 task_timeout=60.0,
                 exceptions=(OSError, IOError, TimeoutError, ConnectionError),
             )
-
-        await run_data_requests(
-            requests,
-            fetch_sample,
-            desc="Fetching HRRR data",
-            verbose=self._verbose,
-            async_workers=self._async_workers,
-            task_timeout=120.0,
-        )
+        for modifier in task.output_modifiers:
+            modifier(out)
 
     async def fetch_array(
         self,
@@ -893,18 +918,17 @@ class HRRR_FX(HRRR):
         xr_array["hrrr_y"].attrs = {"standard_name": "latitude", "axis": "Y"}
         xr_array["hrrr_x"].attrs = {"standard_name": "longitude", "axis": "X"}
 
-        requests, attrs, finalize = compile_statistic_requests(
-            variable,
-            time,
-            np.timedelta64(1, "h"),
-            xr_array.values,
-            lead_time=lead_time,
-            supported=self.lexicon.TIME_STATISTICS,
-            source=type(self).__name__,
+        async_tasks, attrs, finalize = await self._create_tasks(
+            time, lead_time, variable, xr_array, forecast=True
+        )
+        await map_with_concurrency(
+            async_tasks,
+            self.fetch_wrapper,
+            async_workers=self._async_workers,
+            task_timeout=120.0,
+            desc="Fetching HRRR data",
             verbose=self._verbose,
         )
-        self._validate_leadtime(time, list({r.lead_time for r in requests}))
-        await self._fetch_requests(requests)
         finalize()
         xr_array.attrs.update(attrs)
 

@@ -142,12 +142,14 @@ using `apply_time_statistic`. Generic reduction rejects base fields already mark
 as aggregated in `earth2studio_statistics`. It materializes the requested samples;
 native streaming sources are preferable for long windows and large grids.
 
-Native adapters use `compile_statistic_requests` to turn labels into concrete
-`(requests, attrs, finalize)`: requests paired with processing callbacks, metadata,
-and a finalization function. After each base field's lexicon
-conversion, `request.modifier(sample)` copies or aggregates it into the output.
-`finalize()` finishes means and checks completeness; `attrs` supplies
-the native metadata. Planning and reduction state stay inside the utility.
+Native adapters use `statistic_modifiers` to parse labels and bind streaming
+reducers to output views. It returns `(modifiers, attrs, finalize)`, with each
+modifier entry containing a base variable, normalized statistic, and
+`add(target_index, sample)` callback. The source selects samples and builds its
+own requests, applying the callback after ordinary lexicon conversion.
+`finalize()` rejects empty targets and finishes means using observed valid counts;
+`attrs` supplies native metadata. Sources must propagate failures and consume all
+selected samples before finalizing. Shared reduction imposes no sampling cadence.
 
 Source results must record native reductions in `earth2studio_statistics` as
 specified by the source contract. `fetch_data` preserves these entries and creates

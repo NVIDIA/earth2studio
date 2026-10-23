@@ -23,11 +23,11 @@ Both methods have the same API:
 ## Native Temporal Statistics (Optional)
 
 Use the data-source statistics contract in
-[TIME_STATISTICS_SPEC.md](mdc:dev/spec/TIME_STATISTICS_SPEC.md). Pass
-`lead_time=lead_list` to `compile_statistic_requests` with output shaped
-`(time, lead_time, variable, ...)`. A window shifts leads within a fixed
+[TIME_STATISTICS_SPEC.md](mdc:dev/spec/TIME_STATISTICS_SPEC.md). Bind
+`statistic_modifiers` to each initialization's `(lead_time, variable, ...)` output
+view and select samples with source-owned lead availability. A window shifts leads within a fixed
 initialization; it must never substitute a different forecast cycle.
-Each request already contains its initialization `time` and `lead_time`.
+Keep initialization `time` and `lead_time` in the source's own request structures.
 Validate all expanded leads against that initialization's availability before
 downloading, including negative leads and changes in forecast cadence/horizon.
 

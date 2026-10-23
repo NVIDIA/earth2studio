@@ -116,56 +116,56 @@ dimension. Xarray preserves NumPy, CuPy, or Dask execution without implicit tran
 
 ### Native source request pipeline
 
-Use these helpers from `earth2studio.data.utils` for regular-cadence sources:
+Use these support functions without replacing the source's request model:
 
-1. Call `compile_statistic_requests(variable, time, delta_t, values, ...)` with
-   `supported=self.lexicon.TIME_STATISTICS`. The compiler parses labels, expands
-   windows, deduplicates fetches, and binds processing callbacks to output views.
-   It rejects malformed labels, unsupported methods, empty base names, and
-   duplicate normalized quantities. `verbose=True` logs operations and samples.
-2. Analysis output is `(time, variable, ...)`; pass `lead_time=leads` for forecast
-   output `(time, lead_time, variable, ...)`. Unpack the returned tuple as
-   `requests, attrs, finalize`. The final item is a function; sources do not manage
-   reducer state or a plan object.
-3. Each `DataRequest` has `time`, `lead_time`, `variable`, and `modifier`.
-   Analysis requests use valid times and zero leads; forecasts retain their
-   initialization and vary leads. Validate these request coordinates with source
-   validators before reading fields, including initialization-time checks.
-4. Fetch each request's base variable and apply the existing lexicon conversion.
-   Then call `request.modifier(sample)` once. Like a lexicon modifier, this is a
-   processing callback; it writes in place instead of returning a field. It copies
-   plain values or updates all consuming windows without retaining the sample.
-   `run_data_requests(requests, fetch_sample, ...)` supplies bounded async
-   execution for this loop; it has no statistic planning logic.
-5. Call `finalize()` once after all requests complete to check sample counts and
-   divide means by per-cell valid counts. Set `array.attrs.update(attrs)`.
+1. Call `statistic_modifiers(variable, values, ...)` with
+   `supported=self.lexicon.TIME_STATISTICS`. It parses labels and binds reduction
+   callbacks to output views, rejecting malformed labels, unsupported methods,
+   empty base names, and duplicate normalized quantities. `verbose=True` logs
+   operations and windows.
+2. `values` has shape `(target, variable, ...)`. For forecasts, bind separately
+   to each initialization's output view. Unpack `modifiers, attrs, finalize`;
+   each modifier entry is `(base_variable, normalized_statistic, add)`.
+3. Select samples and build requests inside the source. Regular sources can use
+   `source_times` / `source_lead_times` with their own cadence. Irregular sources
+   select available coordinates inside the half-open offsets obtained from
+   `time_statistic_metadata`. Shared reducers do not assume uniform time steps.
+   Forecasts vary leads within their initialization. Validate all coordinates
+   before reading fields, and deduplicate samples within the source's fetch flow.
+4. Apply the ordinary lexicon conversion, then call `add(target_index, sample)`
+   for each consuming target. This copies plain values or updates a window in
+   place without retaining the sample. Source-owned requests may bind the target
+   index with `functools.partial`. `map_with_concurrency(items, function, ...)`
+   optionally supplies bounded execution of the source's own fetch wrapper.
+5. Call `finalize()` once after all requests complete to reject empty targets and
+   divide means by observed per-cell valid counts. Set `array.attrs.update(attrs)`.
    Requested spelling, order, target coordinates, and spatial geometry are preserved.
 
-Requests are shared by `(base variable, time, lead_time)` within a compilation.
+Sources share requests by base variable and source-specific coordinates.
 Equal valid times from different forecast initializations remain distinct requests.
 
 The shared call structure is:
 
 ```mermaid
 flowchart TD
-    A["source.fetch"] --> B["compile_statistic_requests"]
+    A["source.fetch"] --> B["statistic_modifiers"]
     B --> C["_split_statistic_variables → time_statistic_metadata"]
-    C --> D["_StatisticReducer → source_times / source_lead_times"]
-    D --> E["deduplicate requests + bind modifier callbacks"]
+    C --> D["source-owned sample selection and target routing"]
+    D --> E["existing request structures + statistical callbacks"]
     E --> F["source._validate_time / _validate_leadtime"]
-    F --> G["run_data_requests → fetch_sample → source I/O + lexicon modifier"]
-    G --> H["request.modifier(sample) → _StatisticReducer.add"]
+    F --> G["source fetch wrapper → source I/O + lexicon modifier"]
+    G --> H["add(target, sample) → _StatisticReducer.add"]
     H --> I["finalize() → _StatisticReducer.finalize"]
     I --> J["array.attrs.update(attrs)"]
 ```
 
-ARCO groups all consumers of each Zarr chunk before `run_data_requests →
-_read_chunk`, applies their modifiers together, and releases the chunk immediately.
+ARCO groups all consumers of each Zarr chunk in `fetch_chunk_group`, applies
+their modifiers together, and releases the chunk immediately.
 At most four chunk reads run concurrently, including for multi-level windows.
 Derived accumulations use `fetch_array` to sum hourly fields incrementally.
-WB2 uses `run_data_requests → fetch_array`; GFS and HRRR
-use `_fetch_requests` to share GRIB indices and resolve backend records using
-the common scheduler. Backend adapters may fetch components for derived variables.
+WB2 retains `fetch_wrapper → fetch_array`; GFS and HRRR retain `_create_tasks`
+and their source-specific async tasks, feeding fetched fields through statistical
+modifiers in `fetch_wrapper`. Backend adapters may fetch components for derived variables.
 
 Field memory is bounded by the output, per-cell mean counts, and concurrent
 samples (or backend chunks/components), not a stack of every field in a window.
@@ -177,7 +177,12 @@ failures, timeouts, and caller cancellation cancel and await outstanding workers
 NaNs are skipped: an all-NaN window yields NaN for mean/min/max and zero for sum.
 This is distinct from an absent coordinate or failed download. The scheduler
 propagates download failures; sources may explicitly represent missing records
-as NaN fields. `finalize` rejects incomplete windows.
+as NaN fields. Reducers operate on received samples without a cadence, window, or
+expected count; the source plans coordinates and routes samples to targets.
+Means are sample-weighted, including for irregular samples, not duration-weighted.
+`finalize` rejects targets that received no samples. Sources must consume every
+selected sample exactly once per consuming target and propagate fetching failures rather than finalize
+a partial stream as a complete window.
 
 ### Implemented source capabilities
 

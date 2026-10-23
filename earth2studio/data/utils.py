@@ -2005,247 +2005,150 @@ class _StatisticReducer:
 
     Reductions write directly into ``out``; means also keep per-cell valid counts.
     Field memory usage is independent of the number of samples in a window;
-    coordinate and consumer metadata scale with the request. A ``None`` modifier
-    copies instantaneous samples without reducing them.
+    request planning and timestamp routing belong to the source. No cadence,
+    window, or expected sample count is required. A ``None`` method copies
+    instantaneous samples without reducing them.
 
     Parameters
     ----------
-    modifier : str | None
-        Statistic modifier, such as ``"mean:24h"``, or None for plain samples
-    targets : np.ndarray
-        ``datetime64`` valid times (analysis source) or ``timedelta64`` lead times
-        (forecast source) the statistic is evaluated at
-    delta_t : np.timedelta64
-        Cadence of the source, step between samples in a window
+    method : str | None
+        Reduction method, such as ``"mean"``, or None for plain samples
     out : np.ndarray
-        Writable array whose first axis matches ``targets``; receives the result
+        Writable array with one leading entry per output target
 
     Raises
     ------
     ValueError
-        If the method cannot be streamed or ``out`` does not match ``targets``
+        If the method cannot be streamed
     """
 
     def __init__(
         self,
-        modifier: str | None,
-        targets: np.ndarray,
-        delta_t: np.timedelta64,
+        method: str | None,
         out: np.ndarray,
     ) -> None:
-        metadata = time_statistic_metadata(modifier) if modifier else {}
-        self.method = metadata.get("method")
+        self.method = method
         if self.method is not None and self.method not in STREAMING_STATISTICS:
             raise ValueError(
                 f"Time statistic '{self.method}' cannot be streamed, "
                 f"supported: {STREAMING_STATISTICS}"
             )
-        self.modifier = metadata.get("modifier")
-        targets = np.asarray(targets)
-        if out.shape[:1] != targets.shape:
-            raise ValueError("out must have one leading entry per target")
-        self.targets = targets
         self.out = out
-        if modifier is None:
-            required = targets[:, None]
-        elif np.issubdtype(targets.dtype, np.datetime64):
-            required = source_times(modifier, targets, delta_t)
-        else:
-            required = source_lead_times(modifier, targets, delta_t)
-        self.dtype = required.dtype
-        self.offsets = required[0] - targets[0]
-        #: Unique coordinates (times or lead times) to fetch, ascending
-        self.coords = np.unique(required)
-
-        self._consumers: dict[int, list[int]] = {}
-        for index, row in enumerate(required.astype("int64")):
-            for key in np.unique(row):
-                self._consumers.setdefault(int(key), []).append(index)
-        self._seen: np.ndarray = np.zeros(len(targets), dtype=np.int64)
+        self._seen = np.zeros(len(out), dtype=np.int64)
         self._valid = (
             np.zeros(out.shape, dtype=np.int64) if self.method == "mean" else None
         )
 
-    @property
-    def n_samples(self) -> int:
-        """Number of samples reduced into each target."""
-        return len(self.offsets)
-
-    def add(self, coord: Any, sample: np.ndarray) -> None:
-        """Fold one fetched sample into every target whose window contains it.
+    def add(self, index: int, sample: np.ndarray) -> None:
+        """Fold one fetched sample into an output target and count its values.
 
         Parameters
         ----------
-        coord : Any
-            Time or lead time of the sample, one of :attr:`coords`
+        index : int
+            Output target selected by the source
         sample : np.ndarray
-            Field at ``coord``; not retained
+            Fetched field; not retained
         """
-        if isinstance(coord, (int, np.integer)):
-            key = int(coord)
+        target = self.out[index]
+        if self.method is None:
+            target[...] = sample
+        elif self.method in ("sum", "mean"):
+            if self._seen[index] == 0:
+                target.fill(0)
+            valid = ~np.isnan(sample)
+            np.add(target, sample, out=target, where=valid)
+            if self._valid is not None:
+                self._valid[index] += valid
+        elif self._seen[index] == 0:
+            target[...] = sample
+        elif self.method == "min":
+            np.fmin(target, sample, out=target)
         else:
-            key = int(np.asarray(coord, dtype=self.dtype).astype("int64"))
-        for index in self._consumers[key]:
-            target = self.out[index]
-            if self.method is None:
-                target[...] = sample
-            elif self.method in ("sum", "mean"):
-                if self._seen[index] == 0:
-                    target.fill(0)
-                valid = ~np.isnan(sample)
-                np.add(target, sample, out=target, where=valid)
-                if self._valid is not None:
-                    self._valid[index] += valid
-            elif self._seen[index] == 0:
-                target[...] = sample
-            elif self.method == "min":
-                np.fmin(target, sample, out=target)
-            else:
-                np.fmax(target, sample, out=target)
-            self._seen[index] += 1
+            np.fmax(target, sample, out=target)
+        self._seen[index] += 1
 
     def finalize(self) -> None:
-        """Complete the reduction once every sample has been added.
+        """Finish using observed counts, skipping NaNs independently per cell.
+
+        Call once when the stream ends. Each target may receive a different
+        number of samples; means use the valid values actually received.
 
         Raises
         ------
         ValueError
-            If any window has not received all of its samples
+            If any target has received no samples
         """
-        if np.any(self._seen != self.n_samples):
+        if np.any(self._seen == 0):
             raise ValueError(
-                f"Incomplete '{self.modifier}' windows: expected {self.n_samples} "
-                f"samples per target, received {self._seen.tolist()}"
+                f"No samples received for '{self.method}' targets "
+                f"{np.flatnonzero(self._seen == 0).tolist()}"
             )
         if self._valid is not None:
             with np.errstate(invalid="ignore", divide="ignore"):
                 self.out /= self._valid
 
 
-@dataclass(frozen=True)
-class DataRequest:
-    """One deduplicated source request paired with its output modifier.
-
-    Parameters
-    ----------
-    time : datetime
-        Valid time for analysis data, initialization time for forecasts
-    lead_time : timedelta
-        Forecast lead, or zero for analysis data
-    variable : str
-        Base variable to resolve through the source lexicon
-    modifier : Callable[[np.ndarray], None]
-        Consume the decoded, lexicon-modified field once. Copies plain values or
-        updates every statistic that needs this sample, without retaining it
-    """
-
-    time: datetime
-    lead_time: timedelta
-    variable: str
-    modifier: Callable[[np.ndarray], None]
-
-
-def compile_statistic_requests(
+def statistic_modifiers(
     variable: Sequence[str],
-    time: Sequence[Any],
-    delta_t: np.timedelta64,
     values: np.ndarray,
-    *,
-    lead_time: Sequence[Any] | None = None,
     supported: Sequence[str] = STREAMING_STATISTICS,
     source: str = "Data source",
     verbose: bool = False,
-) -> tuple[list[DataRequest], dict[str, Any], Callable[[], None]]:
-    """Compile variable statistics into source requests and processing callbacks.
+) -> tuple[
+    list[tuple[str, str | None, Callable[[int, np.ndarray], None]]],
+    dict[str, Any],
+    Callable[[], None],
+]:
+    """Parse variable labels and create in-place statistical modifiers.
 
-    Like a lexicon lookup, this returns requests paired with modifiers. Fetch
-    each request using its base variable, time and lead time, then call
-    ``request.modifier(sample)`` after the source's lexicon conversion. The
-    modifier streams that field into all dependent output windows. Unpack the
-    result as ``requests, attrs, finalize``; after fetching, call ``finalize()``
-    once and attach ``attrs`` to the output.
-
-    Requests are deduplicated by (base variable, initialization/valid time, lead).
-    Forecast windows never cross initialization times. Only means allocate
-    per-cell counts; fetched fields are not retained by the callbacks.
+    This helper knows nothing about source requests, timestamps or sampling
+    cadence. The source chooses samples for each output target and calls
+    ``add(target_index, field)`` after its lexicon conversion. It may use the
+    regular-grid ``source_times`` / ``source_lead_times`` helpers, or select
+    irregular coordinates using the bounds from ``time_statistic_metadata``.
+    Means are sample means, not duration-weighted means.
 
     Parameters
     ----------
     variable : Sequence[str]
         Plain or statistic-qualified labels, in output variable order
-    time : Sequence[Any]
-        Valid times for analyses, initialization times for forecasts
-    delta_t : np.timedelta64
-        Cadence of the source
     values : np.ndarray
-        Output array, written in place: ``(time, variable, ...)`` for analyses,
-        ``(time, lead_time, variable, ...)`` for forecasts
-    lead_time : Sequence[Any] | None, optional
-        Forecast leads. None selects analysis windows along ``time``; supplying
-        even a single zero lead selects forecast windows and does not permit
-        crossing into another initialization
+        Output array, written in place: ``(target, variable, ...)``. The source
+        defines targets, for example analysis times or leads of one initialization
     supported : Sequence[str], optional
         Methods declared by the source lexicon
     source : str, optional
-        Source name used for operation/sample logging
+        Source name used for operation logging
     verbose : bool, optional
-        Log the reduction and sample count for each statistic
+        Log the reduction and window for each statistic
 
     Returns
     -------
-    list[DataRequest]
-        Deduplicated source requests with processing callbacks
+    list[tuple[str, str | None, Callable[[int, np.ndarray], None]]]
+        Base lexicon name, normalized statistic (None for plain variables), and
+        an ``add(target_index, field)`` callback, in requested variable order
     dict[str, Any]
         Attributes to attach to the output after finalization
     Callable[[], None]
-        Function to check completeness and finish means in place after fetching.
-        Reduction state is private to the callbacks; no plan object is needed
+        Function to finish means in place using observed per-cell counts after
+        fetching. Targets with no samples raise ValueError; fetching errors must
+        propagate rather than silently producing partial windows. Reduction state
+        is private to the callbacks. Sources own request construction and routing
     """
     plain, groups = _split_statistic_variables(variable, supported)
-    targets = (
-        np.asarray(time, dtype="datetime64[ns]")
-        if lead_time is None
-        else np.asarray(lead_time, dtype="timedelta64[ns]")
-    )
-    contexts = (
-        [(None, values)]
-        if lead_time is None
-        else [(as_datetime(t), values[i]) for i, t in enumerate(time)]
-    )
     reducers: list[_StatisticReducer] = []
-    consumers: dict[
-        tuple[str, datetime, timedelta], list[tuple[_StatisticReducer, int]]
-    ] = {}
+    modifiers: list[tuple[str, str | None, Callable[[int, np.ndarray], None]]] = []
     entries: list[tuple[str | None, int, str]] = [
         (group.modifier, slot, base)
         for group in groups
         for slot, _, base in group.variables
     ]
     entries.extend((None, slot, name) for slot, name in plain)
-    for modifier, slot, base in entries:
-        for init_time, output in contexts:
-            reducer = _StatisticReducer(modifier, targets, delta_t, output[:, slot])
-            reducers.append(reducer)
-            for coord in reducer.coords:
-                t = as_datetime(coord) if init_time is None else init_time
-                lt = timedelta(0) if init_time is None else as_timedelta(coord)
-                consumers.setdefault((base, t, lt), []).append(
-                    (reducer, int(coord.astype("int64")))
-                )
-
-    def make_modifier(
-        targets: list[tuple[_StatisticReducer, int]],
-    ) -> Callable[[np.ndarray], None]:
-        def modifier(sample: np.ndarray) -> None:
-            for reducer, coord in targets:
-                reducer.add(coord, sample)
-
-        return modifier
-
-    requests = [
-        DataRequest(t, lt, base, make_modifier(targets))
-        for (base, t, lt), targets in consumers.items()
-    ]
+    for modifier, slot, base in sorted(entries, key=lambda entry: entry[1]):
+        method = str(time_statistic_metadata(modifier)["method"]) if modifier else None
+        reducer = _StatisticReducer(method, values[:, slot])
+        reducers.append(reducer)
+        modifiers.append((base, modifier, reducer.add))
     metadata = {
         label: time_statistic_metadata(group.modifier)
         for group in groups
@@ -2253,22 +2156,17 @@ def compile_statistic_requests(
     }
     if verbose:
         for group in groups:
-            reducer = next(r for r in reducers if r.modifier == group.modifier)
             labels = ", ".join(label for _, label, _ in group.variables)
-            what = "lead times" if lead_time is not None else "times"
             logger.info(
-                f"{source}: {labels} {_DESCRIPTIONS[group.method]} over "
-                f"{reducer.n_samples} samples per target "
-                f"(offsets {_compact_offset(reducer.offsets[0])} to "
-                f"{_compact_offset(reducer.offsets[-1])}), "
-                f"fetching {len(reducer.coords)} unique {what}"
+                f"{source}: {labels} {_DESCRIPTIONS[group.method]} "
+                f"over {group.modifier} (left-closed/right-open window)"
             )
 
     def finalize() -> None:
         for reducer in reducers:
             reducer.finalize()
 
-    return requests, {E2S_STATISTICS: metadata} if metadata else {}, finalize
+    return modifiers, {E2S_STATISTICS: metadata} if metadata else {}, finalize
 
 
 def as_datetime(coord: Any) -> datetime:
@@ -2281,39 +2179,27 @@ def as_timedelta(coord: Any) -> timedelta:
     return pd.Timedelta(coord).to_pytimedelta()
 
 
-def _compact_offset(value: np.timedelta64) -> str:
-    """Format a time offset compactly, e.g. ``-24h`` or ``+90m``."""
-    seconds = pd.Timedelta(value).total_seconds()
-    sign = "-" if seconds < 0 else "+"
-    seconds = int(abs(seconds))
-    for suffix, scale in (("h", 3600), ("m", 60), ("s", 1)):
-        if seconds and seconds % scale == 0:
-            return f"{sign}{seconds // scale}{suffix}"
-    return "0h"
-
-
-async def run_data_requests(
-    requests: Sequence[DataRequest],
-    fetch_sample: Callable[[DataRequest], Awaitable[np.ndarray]],
+async def map_with_concurrency(
+    items: Sequence[T],
+    function: Callable[[T], Awaitable[None]],
     desc: str = "Fetching time statistic samples",
     verbose: bool = True,
     async_workers: int | None = None,
     task_timeout: float | None = None,
 ) -> None:
-    """Fetch compiled requests and apply each modifier as its field arrives.
+    """Apply an async function to source-owned items with bounded concurrency.
 
     A fixed worker pool bounds both live fetch tasks and decoded samples, rather
     than allocating one asyncio task per expanded timestamp. Fields are consumed
-    immediately, with only output-sized reduction state retained. Request metadata
-    still scales with the number of unique timestamps. On failure or cancellation,
+    immediately by the function; its return value is not retained. On failure or cancellation,
     all workers are canceled and awaited before returning to the caller.
 
     Parameters
     ----------
-    requests : Sequence[DataRequest]
-        Compiled requests, each consumed exactly once
-    fetch_sample : Callable[[DataRequest], Awaitable[np.ndarray]]
-        Coroutine returning the decoded, lexicon-modified field for a request
+    items : Sequence[T]
+        Source-owned work items, each consumed exactly once
+    function : Callable[[T], Awaitable[None]]
+        Coroutine processing an item, including any output assignment
     desc : str, optional
         Progress bar description
     verbose : bool, optional
@@ -2324,27 +2210,21 @@ async def run_data_requests(
         Timeout in seconds of each fetch
     """
 
-    async def _one(request: DataRequest) -> None:
-        sample = await fetch_sample(request)
-        request.modifier(sample)
-
-    workers = resolve_async_workers(async_workers, len(requests))
+    workers = resolve_async_workers(async_workers, len(items))
     if workers < 1:
         raise ValueError("async_workers must be at least 1")
-    pending = iter(requests)
-    with tqdm(total=len(requests), desc=desc, disable=not verbose) as progress:
+    pending = iter(items)
+    with tqdm(total=len(items), desc=desc, disable=not verbose) as progress:
 
         async def worker() -> None:
-            for request in pending:
+            for item in pending:
                 if task_timeout is None:
-                    await _one(request)
+                    await function(item)
                 else:
-                    await asyncio.wait_for(_one(request), timeout=task_timeout)
+                    await asyncio.wait_for(function(item), timeout=task_timeout)
                 progress.update(1)
 
-        tasks = [
-            asyncio.create_task(worker()) for _ in range(min(workers, len(requests)))
-        ]
+        tasks = [asyncio.create_task(worker()) for _ in range(min(workers, len(items)))]
         try:
             await asyncio.gather(*tasks)
         finally:

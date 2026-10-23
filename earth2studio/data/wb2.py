@@ -20,6 +20,7 @@ import os
 import pathlib
 import shutil
 import uuid
+from collections.abc import Callable
 from datetime import datetime
 from typing import Literal
 
@@ -30,15 +31,16 @@ from loguru import logger
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
-    DataRequest,
     _sync_async,
-    compile_statistic_requests,
+    as_datetime,
     datasource_cache_root,
+    map_with_concurrency,
     obstore_zarr_store,
     prep_data_inputs,
-    run_data_requests,
+    statistic_modifiers,
 )
 from earth2studio.lexicon import WB2ClimatetologyLexicon, WB2Lexicon
+from earth2studio.utils.time_statistics import source_times
 from earth2studio.utils.type import TimeArray, VariableArray
 
 
@@ -165,24 +167,30 @@ class _WB2Base:
             },
         )
 
-        requests, attrs, finalize = compile_statistic_requests(
+        modifiers, attrs, finalize = statistic_modifiers(
             variable,
-            time,
-            np.timedelta64(6, "h"),
             xr_array.values,
             supported=getattr(self.lexicon, "TIME_STATISTICS", ()),
             source=type(self).__name__,
             verbose=self._verbose,
         )
-        # Validate the extra times before reading anything
-        self._validate_time(list({r.time for r in requests}))
-
-        async def fetch_sample(request: DataRequest) -> np.ndarray:
-            return await self.fetch_array(request.time, request.variable)
-
-        await run_data_requests(
-            requests,
-            fetch_sample,
+        args: dict[tuple[datetime, str], list[Callable[[np.ndarray], None]]] = {}
+        for base, statistic, add in modifiers:
+            times = np.asarray(time, dtype="datetime64[ns]")
+            required = (
+                times[:, None]
+                if statistic is None
+                else source_times(statistic, times, np.timedelta64(6, "h"))
+            )
+            for i, row in enumerate(required):
+                for t in row:
+                    args.setdefault((as_datetime(t), base), []).append(
+                        functools.partial(add, i)
+                    )
+        self._validate_time(list({t for t, _ in args}))
+        await map_with_concurrency(
+            list(args.items()),
+            self.fetch_wrapper,
             desc="Fetching WB2 data",
             verbose=self._verbose,
         )
@@ -192,12 +200,18 @@ class _WB2Base:
 
     async def fetch_wrapper(
         self,
-        e: tuple[datetime, int, str, int],
-        xr_array: xr.DataArray,
+        e: tuple,
+        xr_array: xr.DataArray | None = None,
     ) -> None:
         """Small wrapper to pack arrays into the DataArray"""
-        out = await self.fetch_array(e[0], e[2])
-        xr_array[e[1], e[3]] = out
+        if xr_array is not None:
+            out = await self.fetch_array(e[0], e[2])
+            xr_array[e[1], e[3]] = out
+        else:
+            (time, variable), modifiers = e
+            out = await self.fetch_array(time, variable)
+            for modifier in modifiers:
+                modifier(out)
 
     async def fetch_array(self, time: datetime, variable: str) -> np.ndarray:
         """Fetches requested array from remote store

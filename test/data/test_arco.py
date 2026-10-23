@@ -174,28 +174,43 @@ def test_arco_time_statistics_mock(mock_statistic_zarr, monkeypatch):
     assert data.values[0, 0, 0, 0] == index
     assert data.values[0, 1, 0, 0] == 6 * index - 15
 
+    # Multiple statistics consume each derived accumulation only once.
+    reads.clear()
+    data = ds(time, ["tp06:mean:2h", "tp06:sum:2h"])
+    np.testing.assert_allclose(
+        data.values[0, :, 0, 0], [6 * index - 24, 12 * index - 48]
+    )
+    assert len(reads) == 12
+
     # Long multi-level windows must release each shared chunk immediately, not
     # cache all hours until the second level's requests eventually run.
     import asyncio
     import weakref
 
     refs = []
-    read_chunk = ds._read_chunk
+    get_array = ds.zarr_group.get
 
-    async def tracked_chunk(*args):
-        chunk = await read_chunk(*args)
-        refs.append(weakref.ref(chunk))
-        assert sum(ref() is not None for ref in refs) <= 4
-        await asyncio.sleep(0)
-        return chunk
+    async def tracked_array(name):
+        array = await get_array(name)
+        getitem = array.getitem
 
-    monkeypatch.setattr(ds, "_read_chunk", tracked_chunk)
+        async def tracked_chunk(index):
+            chunk = await getitem(index)
+            refs.append(weakref.ref(chunk))
+            assert sum(ref() is not None for ref in refs) <= 4
+            await asyncio.sleep(0)
+            return chunk
+
+        monkeypatch.setattr(array, "getitem", tracked_chunk)
+        return array
+
+    monkeypatch.setattr(ds.zarr_group, "get", tracked_array)
     reads.clear()
     data = ds(time, ["t500:mean:240h", "t850:mean:240h"])
     np.testing.assert_allclose(data.values[0, :, 0, 0], [index - 120.5, index - 119.5])
     assert sorted(reads) == list(range(index - 240, index))
     assert all(ref() is None for ref in refs)
 
-    # Statistics of already-aggregated variables or bad windows are rejected
+    # Regular hourly sampling rejects windows not divisible by its cadence.
     with pytest.raises(ValueError):
         ds(time, ["t2m:mean:90m"])

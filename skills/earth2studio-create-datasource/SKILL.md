@@ -282,27 +282,31 @@ with them when changing the implementation.
    and expose that lexicon as `source.lexicon`. Omit this metadata for lexicons
    without native support (e.g. climatology). Do not add source-level
    `time_statistics` or `time_step` attributes.
-2. **Compile**: `compile_statistic_requests(variable, time, delta_t, values,
-   supported=self.lexicon.TIME_STATISTICS, ...)` returns requests with processing
-   callbacks, result attrs, and a finalization function; unpack as
-   `requests, attrs, finalize`. Omit `lead_time` for analysis;
-   supply `lead_time=lead_list` for forecasts within fixed initializations.
-3. **Validate** each request's `time` / `lead_time` using source validators before
-   downloading. Requests already contain base `variable` names and concrete times.
+2. **Bind modifiers**: `statistic_modifiers(variable, values,
+   supported=self.lexicon.TIME_STATISTICS, ...)` returns `modifiers, attrs,
+   finalize`. Each entry is `(base, statistic, add)` with an
+   `add(target_index, sample)` callback. Bind to `(target, variable, ...)` output
+   views; use a separate view per forecast initialization.
+3. **Select and validate samples** with source-owned requests and availability.
+   Regular sources can use `source_times` / `source_lead_times`; irregular sources
+   select available coordinates using `time_statistic_metadata` offsets.
+   Validate all expanded coordinates before downloading.
 4. **Fetch + process**: fetch the field with its ordinary lexicon conversion, then
-   call `request.modifier(sample)` once. `run_data_requests(requests,
-   fetch_sample, ...)` provides this bounded async loop. The compiler deduplicates
-   shared fields; callbacks copy plain fields or update every consuming window.
+   call `add(target_index, sample)` once for each consuming target. Preserve the
+   source's fetch methods and request structures; deduplicate shared fields there.
+   `map_with_concurrency(items, fetch_wrapper, ...)` offers bounded execution.
    Memory is output views, mean counts, and concurrent fields, not whole windows.
-5. **Finish**: call `finalize()` once to check completeness and finish means;
-   `xr_array.attrs.update(attrs)` declares the statistics.
-6. **Tell the user**: the compiler's `verbose=True` reports what is
-   averaged/accumulated/min'd/max'd and how many samples it needs. Warn about
+5. **Finish**: after consuming every request, call `finalize()` once to reject
+   empty targets and finish means using observed per-cell counts. Propagate fetch
+   errors; `xr_array.attrs.update(attrs)` declares the statistics.
+6. **Tell the user**: the helper's `verbose=True` reports what is
+   averaged/accumulated/min'd/max'd and the window. Warn about
    fields that are already accumulations (e.g. resetting precipitation buckets).
 
 Label grammar: `var:method:window` (trailing, `[-w, 0)`) or
 `var:method:start:end` (e.g. `tp:sum:+0h:+6h`); windows are left-closed,
-right-open and must be a multiple of the sampling cadence. Parsing is in
+right-open. Regular coordinate helpers require cadence-aligned windows; reduction
+itself imposes no cadence and uses sample-weighted means. Parsing is in
 `earth2studio/utils/time_statistics.py`; reuse it, do not re-parse labels.
 
 **Testing:** use exactly one mock test (extend `test_<source>_call_mock` if present,
@@ -451,7 +455,7 @@ Agent: [loads skill, proceeds through Steps 0–14]
 canonical method ordering, obstore helpers, `gather_with_concurrency`, `async_retry`,
 reference URLs in docstrings, `try/finally` cleanup.
 
-**Temporal statistics:** optional; reuse `compile_statistic_requests` from
+**Temporal statistics:** optional; reuse `statistic_modifiers` from
 `earth2studio/data/utils.py`, stream-reduce samples, never buffer a window.
 
 **AVOID:** hand-rolled fsspec stores, `asyncio.to_thread`, bare `tqdm.gather`,
