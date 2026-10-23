@@ -28,6 +28,13 @@ Required standard tests:
 
 Generative diagnostics also need sample-count and deterministic-seed coverage.
 Run tests with `uv run pytest`.
+
+Checkpoint coverage is conditional. Stateless diagnostics should document that
+no checkpoint state is required. Stateful or stochastic diagnostics need a
+round-trip test that writes a checkpoint boundary, constructs a new diagnostic
+inside `with checkpoint.select(-1):`, and verifies that the next sample or
+counter matches an uninterrupted instance. Keep model weights and output
+history outside component checkpoint state.
 """
 
 from collections import OrderedDict
