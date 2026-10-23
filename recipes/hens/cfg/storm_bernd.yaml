@@ -31,7 +31,9 @@ data_source:
 file_output:
     path: '/outputs'       # directory to which outfiles are written
     output_vars: ['t2m','u10m','r500','tp']
-    thread_io: False      # write out in seperate thread (needs further testing)
+    # Background output is supported by XarrayBackend and KVBackend (needs further testing).
+    # This setting is ignored by ZarrBackend and NetCDF4Backend.
+    thread_io: False
     format:               # io backend class
         _target_: earth2studio.io.ZarrBackend
         _partial_: True
