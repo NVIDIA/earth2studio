@@ -46,7 +46,8 @@ class AssimilationModel(Protocol):
 
     Concrete execution methods declare fixed named parameters. The protocol uses
     variadic arguments only to describe models with different numbers of slots.
-    Methods return output objects in declared order, e.g. ``return y1, y2``.
+    Return a single output object directly, or multiple objects in declared order,
+    e.g. ``return y1, y2``.
     Outputs may be gridded fields or tabular analyses. This interface does not
     imply a trajectory: use ``StatefulAssimilationModel`` for explicit continuation.
     Models never fetch data internally; ``default_sources()`` recommends providers.
