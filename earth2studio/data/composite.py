@@ -34,7 +34,7 @@ from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 
 
 class _Composite:
-    """Variable routing, device and cadence checks shared by the composites."""
+    """Variable routing and device checks shared by the composites."""
 
     def __init__(
         self,
@@ -84,34 +84,6 @@ class _Composite:
         """Device shared by every component, CPU for sources without one."""
         return self._device
 
-    @property
-    def time_step(self) -> np.timedelta64 | None:
-        """Cadence shared by every component, or None when they differ."""
-        steps = [
-            getattr(source, "time_step", None) for source in self._sources.values()
-        ]
-        if not steps or any(step is None for step in steps):
-            return None
-        first = steps[0]
-        return first if all(step == first for step in steps) else None
-
-    @property
-    def time_statistics(self) -> tuple[str, ...]:
-        """Temporal statistics every component computes natively.
-
-        The composite never interprets statistics itself. Labels are forwarded to the
-        components, and only methods all of them support are advertised so that
-        :func:`~earth2studio.data.fetch_data` hands them over unchanged. Anything
-        else is reduced by ``fetch_data`` over the composite as a whole.
-        """
-        supported = [
-            tuple(getattr(source, "time_statistics", ()) or ())
-            for source in self._sources.values()
-        ]
-        if not supported:
-            return ()
-        return tuple(m for m in supported[0] if all(m in s for s in supported[1:]))
-
     def _plan(self, variable: Any) -> tuple[list[str], dict[str, list[str]]]:
         requested = [str(name) for name in np.atleast_1d(variable)]
         # Statistics are ignored here: route by base name and forward the label as is.
@@ -134,7 +106,7 @@ class CompositeSource(_Composite):
     the parts are joined along ``variable`` in request order. The composite does not
     interpret temporal statistics: labels qualified with one, such as ``"t2m:mean:24h"``,
     route by their base name and are forwarded unchanged to the component providing
-    it, which must support them natively (see :attr:`time_statistics`). Components must return
+    it, which must support them natively as declared in its lexicon. Components must return
     fields on the same coordinates apart from ``variable``; wrap components on other
     grids in :class:`~earth2studio.data.RegriddedSource` with a shared target grid.
     Use :class:`CompositeForecastSource` to include forecast sources.

@@ -220,6 +220,21 @@ def _require_instantaneous(array: xr.DataArray, variables: VariableArray) -> Non
         )
 
 
+def _source_statistics(source: DataSource | ForecastSource) -> tuple[str, ...]:
+    """Discover native reductions from lexicons, including wrapped sources."""
+    # Import locally: composites themselves use the fetching helpers in this module.
+    from earth2studio.data.composite import _Composite
+
+    if isinstance(source, RegriddedSource):
+        return _source_statistics(source.source)
+    if isinstance(source, _Composite):
+        supported = [_source_statistics(s) for s in source.sources.values()]
+        if not supported:
+            return ()
+        return tuple(m for m in supported[0] if all(m in s for s in supported[1:]))
+    return tuple(getattr(getattr(source, "lexicon", None), "TIME_STATISTICS", ()))
+
+
 def _fetch_dataarray(
     source: DataSource | ForecastSource,
     time: TimeArray,
@@ -229,9 +244,12 @@ def _fetch_dataarray(
 ) -> xr.DataArray:
     # Group source variables by reduction, retaining their requested output labels.
     groups: dict[str | None, dict[str, str]] = {}
-    native = tuple(getattr(source, "time_statistics", ()) or ())
-    if delta_t is not None and delta_t != getattr(source, "time_step", None):
+    native = _source_statistics(source)
+    # An explicit cadence requests the generic reduction path. Otherwise let
+    # native sources choose their sampling internally.
+    if delta_t is not None:
         native = ()
+    quantities: set[tuple[str, str | None]] = set()
     for label in map(str, variable):
         source_variable, separator, parsed_modifier = label.partition(":")
         if "::" in label:  # Raw GRIB identifiers are not statistic labels.
@@ -243,18 +261,18 @@ def _fetch_dataarray(
             if separator
             else None
         )
+        quantity = (source_variable, modifier)
+        if quantity in quantities:
+            raise ValueError("Requested variables contain duplicate quantities")
+        quantities.add(quantity)
         if modifier is not None and modifier.partition(":")[0] in native:
             # The source computes this statistic itself: request the label as is
             # and let it fetch the extra times or lead times it needs.
             groups.setdefault(None, {})[label] = label
             continue
         group = groups.setdefault(modifier, {})
-        if source_variable in group:
-            raise ValueError("Requested variables contain duplicate quantities")
         group[source_variable] = label
 
-    if delta_t is None:
-        delta_t = getattr(source, "time_step", None)
     # Validate every window before any source calls.
     for modifier in groups:
         if modifier is not None:
@@ -386,7 +404,9 @@ def fetch_data(
         Regridder to apply, by default None. It must produce ``target_grid`` when
         both are given.
     delta_t : np.timedelta64, optional
-        Source cadence for temporal statistics; defaults to ``source.time_step``.
+        Sampling cadence for generic temporal reductions. When omitted, statistics
+        are delegated to sources that support them natively; other sources require
+        an explicit cadence. When provided, overrides native statistic handling.
         Windows include their left endpoint and exclude their right endpoint.
 
     Returns
@@ -524,12 +544,6 @@ class RegriddedSource:
             raise TypeError("regridder must implement the Regridder protocol")
         self.source = source
         self.regridder = regridder
-        self.time_statistics = tuple(getattr(source, "time_statistics", ()) or ())
-
-    @property
-    def time_step(self) -> np.timedelta64 | None:
-        """Cadence of the wrapped source, used for temporal statistics."""
-        return getattr(self.source, "time_step", None)
 
     @property
     def is_forecast(self) -> bool:
@@ -1952,11 +1966,17 @@ def split_statistic_variables(
     plain: list[tuple[int, str]] = []
     grouped: dict[str, list[tuple[int, str, str]]] = {}
     methods: dict[str, str] = {}
+    quantities: set[tuple[str, str | None]] = set()
+    quantity: tuple[str, str | None]
     for slot, label in enumerate(variable):
         base, separator, qualifier = str(label).partition(":")
         if not base:
             raise ValueError("Variable name must not be empty")
         if not separator or "::" in label:
+            quantity = (str(label), None)
+            if quantity in quantities:
+                raise ValueError("Requested variables contain duplicate quantities")
+            quantities.add(quantity)
             plain.append((slot, str(label)))
             continue
         metadata = time_statistic_metadata(qualifier)
@@ -1967,6 +1987,10 @@ def split_statistic_variables(
                 f"source, supported: {tuple(supported)}"
             )
         modifier = str(metadata["modifier"])
+        quantity = (base, modifier)
+        if quantity in quantities:
+            raise ValueError("Requested variables contain duplicate quantities")
+        quantities.add(quantity)
         methods[modifier] = method
         grouped.setdefault(modifier, []).append((slot, str(label), base))
     groups = [

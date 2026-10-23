@@ -94,10 +94,6 @@ class _ForecastSequence:
         )
 
 
-class _CadencedAnalysisSequence(_AnalysisSequence):
-    time_step = np.timedelta64(6, "h")
-
-
 @pytest.fixture
 def foo_data_array():
     time0 = datetime.datetime.now()
@@ -271,8 +267,6 @@ class _CoarseningRegridder:
 
 
 class _NativeSource:
-    time_step = np.timedelta64(6, "h")
-
     def _field(self, time, variable, lead_time=None):
         time, variable = np.atleast_1d(time), np.atleast_1d(variable)
         dims, coords = ["time", "variable"], {"time": time, "variable": variable}
@@ -306,7 +300,6 @@ def test_regridded_source():
 
     analysis = RegriddedSource(_NativeSource(), _CoarseningRegridder())
     assert isinstance(analysis, DataSource)
-    assert analysis.time_step == np.timedelta64(6, "h")
     for array in (
         analysis(time, variable),
         asyncio.run(analysis.fetch(time, variable=variable)),
@@ -324,8 +317,10 @@ def test_regridded_source():
         np.testing.assert_array_equal(array["lead_time"], lead_time)
         np.testing.assert_array_equal(array["lon"], _COARSE_GRID.longitude)
 
-    # fetch_data reads the wrapped source's cadence for temporal statistics.
-    array = fetch_data(analysis, time, np.array(["a:mean:12h", "b"]))
+    # Generic temporal statistics use an explicitly supplied sampling cadence.
+    array = fetch_data(
+        analysis, time, np.array(["a:mean:12h", "b"]), delta_t=np.timedelta64(6, "h")
+    )
     assert array.sizes["lon"] == _COARSE_GRID.shape[1]
     np.testing.assert_allclose(array, 1)
 
@@ -367,14 +362,21 @@ def test_regridded_source_and_regridder_argument_order():
     # A regridded source is an ordinary source: each fetched frame is regridded.
     log = []
     composed = fetch_data(
-        RegriddedSource(_NativeSource(), _LoggingCoarsener(log)), time, variable
+        RegriddedSource(_NativeSource(), _LoggingCoarsener(log)),
+        time,
+        variable,
+        delta_t=np.timedelta64(6, "h"),
     )
     assert [sizes["time"] for sizes in log] == [2]
 
     # The regridder argument regrids the reduced field once.
     log.clear()
     argument = fetch_data(
-        _NativeSource(), time, variable, regridder=_LoggingCoarsener(log)
+        _NativeSource(),
+        time,
+        variable,
+        regridder=_LoggingCoarsener(log),
+        delta_t=np.timedelta64(6, "h"),
     )
     assert [sizes["time"] for sizes in log] == [1]
     xr.testing.assert_allclose(composed, argument)
@@ -423,6 +425,7 @@ def test_fetch_data_device_aware_source():
             variable,
             device="cuda:0",
             regridder=None if composed else regridder,
+            delta_t=np.timedelta64(6, "h"),
         )
         assert isinstance(array.data, cp.ndarray)
         assert array.data.device.id == 0
@@ -435,13 +438,12 @@ def test_fetch_data_device_aware_source():
         time,
         variable,
         device="cpu",
+        delta_t=np.timedelta64(6, "h"),
     )
     assert isinstance(array.data, np.ndarray)
 
 
-@pytest.mark.parametrize(
-    "source", [_AnalysisSequence(), _CadencedAnalysisSequence(), _ForecastSequence()]
-)
+@pytest.mark.parametrize("source", [_AnalysisSequence(), _ForecastSequence()])
 def test_fetch_data_time_statistics(source):
     metadata = coord_array(
         ("time", "lead_time", "variable", "x"),
@@ -452,12 +454,17 @@ def test_fetch_data_time_statistics(source):
         },
         dynamic=("time",),
     )
-    delta_t = None if hasattr(source, "time_step") else np.timedelta64(6, "h")
+    with pytest.raises(ValueError, match="delta_t is required"):
+        fetch_data(
+            source,
+            np.array([np.datetime64("2024-01-02")]),
+            metadata.coords["variable"].values,
+        )
     array = fetch_data(
         source,
         np.array([np.datetime64("2024-01-02")]),
         metadata.coords["variable"].values,
-        delta_t=delta_t,
+        delta_t=np.timedelta64(6, "h"),
     )
     np.testing.assert_allclose(array.sel(variable="a:mean:24h"), -15)
     np.testing.assert_allclose(array.sel(variable="a:max:12h"), -6)

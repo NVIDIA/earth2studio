@@ -42,8 +42,6 @@ TIME = np.array([np.datetime64("2024-01-01T12")])
 class _Source:
     """Fills each variable with its offset; records requested variables."""
 
-    time_step = np.timedelta64(6, "h")
-
     def __init__(self, offsets, grid=GRID, wrap=np.asarray):
         self.offsets, self.grid, self.wrap = offsets, grid, wrap
         self.requests, self.times = [], []
@@ -115,7 +113,6 @@ def test_routes_variables_in_request_order():
         "satellite": ("abi01c",),
     }
     assert set(source.sources) == {"radar", "satellite"}
-    assert source.time_step == np.timedelta64(6, "h")
 
 
 def test_construction_errors():
@@ -152,11 +149,18 @@ def test_qualified_labels_route_by_base_name():
 
     # Only statistics supported natively by every component are advertised, so
     # fetch_data forwards those labels and reduces anything else itself.
-    assert source.time_statistics == ()
-    radar.time_statistics = ("mean", "max", "sum")
-    assert source.time_statistics == ()
-    satellite.time_statistics = ("mean", "sum")
-    assert source.time_statistics == ("mean", "sum")
+    from earth2studio.data.utils import _source_statistics
+
+    assert not hasattr(source, "time_statistics")
+    assert _source_statistics(source) == ()
+    radar.lexicon = type(
+        "RadarLexicon", (), {"TIME_STATISTICS": ("mean", "max", "sum")}
+    )
+    assert _source_statistics(source) == ()
+    satellite.lexicon = type(
+        "SatelliteLexicon", (), {"TIME_STATISTICS": ("mean", "sum")}
+    )
+    assert _source_statistics(source) == ("mean", "sum")
     array = fetch_data(source, TIME, np.array(["abi01c:mean:24h", "refc"]))
     np.testing.assert_allclose(array[0, 0, :, 0, 0], [10.0, 1.0])
     assert satellite.requests[-1] == ["abi01c:mean:24h"]
@@ -256,15 +260,6 @@ def test_fetch_runs_sync_components_in_threads():
     assert threading.get_ident() not in threads
 
 
-def test_time_step_requires_agreement():
-    slow = _Source({"y": 1.0})
-    slow.time_step = np.timedelta64(1, "D")
-    source = CompositeSource(
-        {"a": _Source({"x": 1.0}), "b": slow}, {"a": ["x"], "b": ["y"]}
-    )
-    assert source.time_step is None
-
-
 def test_components_share_one_device():
     source, _, _ = _composite()
     assert source.device == torch.device("cpu")
@@ -304,8 +299,6 @@ def test_statistics_metadata_merged_from_every_component():
     satellite.__call__ = _aggregated(satellite, "tp")
 
     class _Wrapped:
-        time_step = np.timedelta64(6, "h")
-
         def __init__(self, inner):
             self.inner = inner
 
@@ -321,7 +314,12 @@ def test_statistics_metadata_merged_from_every_component():
     assert set(source(TIME, ["tp"]).attrs[E2S_STATISTICS]) == {"tp"}
     # Already aggregated variables from any component cannot be reduced again.
     with pytest.raises(ValueError, match="statistic"):
-        fetch_data(source, TIME, np.array(["refc:sum:12h", "tp:sum:12h"]))
+        fetch_data(
+            source,
+            TIME,
+            np.array(["refc:sum:12h", "tp:sum:12h"]),
+            delta_t=np.timedelta64(6, "h"),
+        )
 
 
 def test_temporal_statistics_through_regridded_components():
@@ -333,7 +331,12 @@ def test_temporal_statistics_through_regridded_components():
         },
         {"radar": ["refc"], "satellite": ["abi01c"]},
     )
-    array = fetch_data(source, TIME, np.array(["refc:mean:12h", "abi01c"]))
+    array = fetch_data(
+        source,
+        TIME,
+        np.array(["refc:mean:12h", "abi01c"]),
+        delta_t=np.timedelta64(6, "h"),
+    )
     np.testing.assert_allclose(array[0, 0, :, 0, 0], [1.0, 10.0])
     assert array.sizes["lon"] == GRID.shape[1]
 

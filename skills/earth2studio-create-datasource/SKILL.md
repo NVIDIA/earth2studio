@@ -258,10 +258,10 @@ Present: class name, file path, skeleton code, task dataclass.
 ### Step 7b — Temporal Statistics (OPTIONAL)
 
 **Not every source needs this. Skip unless the user asks for it or the source
-is a regular-cadence gridded source where it is clearly useful.** Sources that
-do not declare `time_statistics` still work: `fetch_data` fetches the extra
-times and reduces them itself. Never add it to DataFrame/station/satellite
-sources with irregular timing, and do not add it silently.
+is a regular-cadence gridded source where it is clearly useful.** Sources whose
+lexicons do not declare native statistics still work: `fetch_data` fetches the extra
+times and reduces them itself with an explicit `delta_t`. Never add it to
+DataFrame/station/satellite sources with irregular timing, and do not add it silently.
 
 Ask once (advisory, do not block):
 
@@ -270,13 +270,18 @@ Ask once (advisory, do not block):
 
 If yes, load `references/temporal-statistics.py` and follow it. In short:
 
-1. **Declare support** next to the class constants:
-   `time_step` (cadence) and `time_statistics = ("mean", "sum", "min", "max")`
-   or a subset, `()` to opt out explicitly.
-2. **Parse**: `split_statistic_variables(variable, self.time_statistics)`.
+1. **Document support** in the source's class docstring using a `Note` headed
+   `Temporal statistics:`. List methods, label syntax, sampling cadence, window
+   closure, and accumulation caveats. Store capability metadata in the source's
+   lexicon as `TIME_STATISTICS = ("mean", "sum", "min", "max")` (or a subset),
+   and expose that lexicon as `source.lexicon`. Omit this metadata for lexicons
+   without native support (e.g. climatology). Do not add source-level
+   `time_statistics` or `time_step` attributes.
+2. **Parse**: `split_statistic_variables(variable, self.lexicon.TIME_STATISTICS)`.
 3. **Plan**: `analysis_jobs(...)` for a DataSource (extra samples are other
    valid times) or `forecast_jobs(...)` for a ForecastSource (extra samples are
-   other lead times of the same init time).
+   other lead times of the same init time). Pass the source's sampling cadence
+   internally to the planner; no public `time_step` property is needed.
 4. **Validate** `sample_coords(jobs)` with `_validate_time` /
    `_validate_leadtime` before downloading.
 5. **Fetch + reduce**: `run_statistic_jobs(jobs, fetch_sample, ...)`. Each
@@ -290,7 +295,7 @@ If yes, load `references/temporal-statistics.py` and follow it. In short:
 
 Label grammar: `var:method:window` (trailing, `[-w, 0)`) or
 `var:method:start:end` (e.g. `tp:sum:+0h:+6h`); windows are left-closed,
-right-open and must be a multiple of `time_step`. Parsing is in
+right-open and must be a multiple of the sampling cadence. Parsing is in
 `earth2studio/utils/time_statistics.py`; reuse it, do not re-parse labels.
 
 **Testing:** add exactly one mock test, `test_<source>_time_statistics_mock`,

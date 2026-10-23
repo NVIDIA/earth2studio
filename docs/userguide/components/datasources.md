@@ -113,14 +113,18 @@ field = fetch_data(
 
 Here `source` is an analysis or forecast source providing instantaneous `t2m`.
 The mean includes the four samples at -24, -18, -12 and -6 hours. Windows are
-left-closed and right-open. The cadence defaults to `source.time_step` when
-available; otherwise provide `delta_t` explicitly. Qualified variable labels
+left-closed and right-open. An explicit `delta_t` selects generic reduction at
+that sampling cadence. Without it, statistics are delegated to sources that
+support them natively; other sources require `delta_t`. Qualified variable labels
 such as `"t2m:mean:24h"` declare reductions; duplicate normalized quantities are rejected.
 Output `earth2studio_statistics` describes the reductions actually performed.
 Already aggregated source variables cannot be reduced again.
 
-`ARCO_ERA5.time_step` is `np.timedelta64(1, "h")`, so ARCO statistics requests
-use hourly samples automatically without an explicit `delta_t`.
+`ARCO_ERA5` handles statistics natively and uses hourly samples automatically
+without an explicit `delta_t`. Sampling cadence is internal to each source.
+Supported methods are documented under **Temporal statistics:** in each source's
+class docstring; capability metadata lives in `source.lexicon.TIME_STATISTICS`.
+Sources do not need `time_step` or `time_statistics` attributes.
 
 Analysis sources fetch absolute valid timestamps, while forecast sources reduce
 lead times separately for each initialization. Missing or duplicate reduction

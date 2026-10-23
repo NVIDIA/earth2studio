@@ -91,6 +91,14 @@ class HRRR:
     )
 
     ```
+    Note
+    ----
+    Temporal statistics: ``mean``, ``sum``, ``min``, and ``max`` accept labels
+    ``variable:method:window`` or ``variable:method:start:end``. Windows are
+    left-closed/right-open, sampled hourly relative to the analysis time.
+    ``t2m:mean:6h`` averages the preceding six analyses, excluding that time.
+    Reductions act on stored values, including any native accumulations.
+
     Parameters
     ----------
     source : str, optional
@@ -139,10 +147,6 @@ class HRRR:
     # https://mesowest.utah.edu/html/hrrr/zarr_documentation/html/python_data_loading.html
     HRRR_X = np.linspace(-2697520.1425219304, 2696479.8574780696, 1799, endpoint=True)
     HRRR_Y = np.linspace(-1587306.1525566636, 1586693.8474433364, 1059, endpoint=True)
-    # Cadence in analysis time and temporal statistics computed natively, e.g.
-    # "t2m:mean:6h" is the mean of the hourly analyses over the previous 6 hours
-    time_step: np.timedelta64 = np.timedelta64(1, "h")
-    time_statistics: tuple[str, ...] = ("mean", "sum", "min", "max")
 
     def __init__(
         self,
@@ -296,7 +300,9 @@ class HRRR:
 
         # Make sure input time is valid
         self._validate_time(time)
-        plain, stat_groups = split_statistic_variables(variable)
+        plain, stat_groups = split_statistic_variables(
+            variable, self.lexicon.TIME_STATISTICS
+        )
 
         # Generate HRRR lat-lon grid to append onto data array
         lat, lon = self.grid()
@@ -328,7 +334,7 @@ class HRRR:
         xr_array["hrrr_x"].attrs = {"standard_name": "longitude", "axis": "X"}
 
         jobs = analysis_jobs(
-            stat_groups, time, self.time_step, xr_array.values[:, 0], plain
+            stat_groups, time, np.timedelta64(1, "h"), xr_array.values[:, 0], plain
         )
         self._validate_time([as_datetime(t) for t in sample_coords(jobs)])
         await self._fetch_jobs(stat_groups, jobs, forecast=False)
@@ -734,6 +740,15 @@ class HRRR_FX(HRRR):
     Lambert conformal 3km grid at 1-hour intervals. The spatial dimensionality of HRRR
     data is [1059, 1799].
 
+    Note
+    ----
+    Temporal statistics: ``mean``, ``sum``, ``min``, and ``max`` accept labels
+    ``variable:method:window`` or ``variable:method:start:end``. Windows are
+    left-closed/right-open, sampled hourly over lead times of one initialization.
+    ``t2m:mean:6h`` at lead six hours averages leads zero through five hours.
+    Negative or unavailable leads are rejected. Reductions act on stored values,
+    including any native accumulations.
+
     Parameters
     ----------
     source : str, optional
@@ -865,7 +880,9 @@ class HRRR_FX(HRRR):
         # Make sure input time is valid
         self._validate_time(time)
         self._validate_leadtime(time, lead_time)
-        plain, stat_groups = split_statistic_variables(variable)
+        plain, stat_groups = split_statistic_variables(
+            variable, self.lexicon.TIME_STATISTICS
+        )
 
         # Generate HRRR lat-lon grid to append onto data array
         lat, lon = self.grid()
@@ -898,7 +915,7 @@ class HRRR_FX(HRRR):
         xr_array["hrrr_x"].attrs = {"standard_name": "longitude", "axis": "X"}
 
         jobs = forecast_jobs(
-            stat_groups, time, lead_time, self.time_step, xr_array.values, plain
+            stat_groups, time, lead_time, np.timedelta64(1, "h"), xr_array.values, plain
         )
         self._validate_leadtime(time, [as_timedelta(lt) for lt in sample_coords(jobs)])
         await self._fetch_jobs(stat_groups, jobs, forecast=True)

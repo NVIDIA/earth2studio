@@ -78,8 +78,17 @@ A source that supports a temporal quantity accepts its qualified label in
 
 How a quantity is produced is the source's choice. It may read a stored aggregate,
 compose native accumulations as `ARCO_ERA5` does for `tp`, or fetch instantaneous
-samples at its cadence and reduce them. Sources with a fixed cadence expose it as
-`time_step`.
+samples at its cadence and reduce them. Sampling cadence is internal to the
+source; no public `time_step` property is required.
+
+Document native support in the source class docstring in a `Note` headed
+`Temporal statistics:`: methods, label syntax, cadence, window closure, and
+accumulation caveats. Capability metadata belongs on the source's lexicon as
+`TIME_STATISTICS`, a tuple of supported method names. Sources expose their lexicon
+through `lexicon`; they do not expose `time_statistics` or `time_step` attributes.
+An absent lexicon declaration means no native support. `fetch_data` discovers
+support through the lexicon (and through wrapped/component sources); an explicit
+`delta_t` instead requests generic reduction at that cadence.
 
 ## Planning and Reduction
 

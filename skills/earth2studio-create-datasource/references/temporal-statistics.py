@@ -24,22 +24,24 @@ Temporal statistics are variable labels such as ``"t2m:mean:24h"`` (window
 ``sum``, ``min``, ``max``. Windows are left-closed/right-open and must be a
 multiple of the source cadence.
 
-NOT every source needs this. A source that does not declare
-``time_statistics`` keeps working: ``fetch_data`` fetches the extra times and
-reduces them itself. Native support is worth it when the source can share
-fetches (one file per time) or reuse its own cache. Skip it for sources with
-irregular cadence (DataFrame/station/satellite sources) or when the user did
-not ask.
+NOT every source needs this. A source whose lexicon does not declare native
+statistics keeps working: ``fetch_data`` fetches the extra times and
+reduces them itself with an explicit ``delta_t``. Native support is worth it when
+the source can share fetches (one file per time) or reuse its own cache. Skip it
+for sources with irregular cadence (DataFrame/station/satellite sources) or
+when the user did not ask.
 
 Contract
 --------
-1. Class attributes next to the other constants::
+1. Document support in the source class docstring using a ``Note`` headed
+   ``Temporal statistics:`` (see below). Store capability metadata on its lexicon::
 
-       time_step: np.timedelta64 = np.timedelta64(6, "h")   # cadence
-       time_statistics: tuple[str, ...] = ("mean", "sum", "min", "max")
-       # Use () to opt out explicitly (e.g. climatology sources)
+       TIME_STATISTICS: tuple[str, ...] = ("mean", "sum", "min", "max")
 
-   Declare a subset if only some methods make sense for the source.
+   Expose the lexicon as ``source.lexicon``. Declare a subset if only some methods
+   make sense; omit the metadata for a lexicon without native support. Pass cadence
+   internally to the planner. Neither ``time_step`` nor ``time_statistics`` is a
+   source class attribute.
 2. ``split_statistic_variables`` separates plain labels from statistic labels.
    It raises ``ValueError`` for malformed labels and methods outside
    ``supported``.
@@ -90,10 +92,19 @@ from earth2studio.utils.coords import E2S_STATISTICS
 
 
 class SourceName:
-    # FILL: cadence of the stored data; windows must be multiples of it
-    time_step: np.timedelta64 = np.timedelta64(6, "h")
-    # FILL: methods the source supports natively, () for none
-    time_statistics: tuple[str, ...] = ("mean", "sum", "min", "max")
+    """FILL: source description and parameters.
+
+    Note
+    ----
+    Temporal statistics: ``mean``, ``sum``, ``min``, and ``max`` accept labels
+    ``variable:method:window`` or ``variable:method:start:end``. Windows are
+    left-closed/right-open, sampled every six hours, and relative to the requested
+    analysis time. For example, ``t2m:mean:24h`` averages the preceding four
+    samples, excluding the requested time. FILL: accumulation caveats.
+    """
+
+    # FILL: import the source lexicon and declare TIME_STATISTICS there
+    lexicon = SourceNameLexicon  # noqa: F821
 
     # ----------------------------------------------------------------------
     # DataSource (analysis): extra samples are other valid TIMES
@@ -106,7 +117,7 @@ class SourceName:
         # 1. Split labels. Plain entries are (slot, name); groups share a modifier
         plain, stat_groups = split_statistic_variables(
             variable_list,
-            supported=self.time_statistics,  # reject unsupported methods
+            supported=self.lexicon.TIME_STATISTICS,  # reject unsupported methods
         )
 
         # 2. Output keeps the labels exactly as requested ("t2m:mean:24h")
@@ -117,8 +128,9 @@ class SourceName:
         )
 
         # 3. Plan: jobs write into xr_array.values[:, slot] in place
+        # FILL: cadence of the stored data; windows must be multiples of it
         jobs = analysis_jobs(
-            stat_groups, time_list, self.time_step, xr_array.values, plain
+            stat_groups, time_list, np.timedelta64(6, "h"), xr_array.values, plain
         )
 
         # 4. Validate every extra time before reading anything
@@ -146,9 +158,11 @@ class SourceName:
     # ----------------------------------------------------------------------
     # ForecastSource: extra samples are other LEAD TIMES of the same init time
     # ----------------------------------------------------------------------
-    # plain, stat_groups = split_statistic_variables(variable_list, self.time_statistics)
+    # plain, stat_groups = split_statistic_variables(
+    #     variable_list, self.lexicon.TIME_STATISTICS
+    # )
     # jobs = forecast_jobs(
-    #     stat_groups, time_list, lead_list, self.time_step,
+    #     stat_groups, time_list, lead_list, np.timedelta64(1, "h"),
     #     xr_array.values,          # dims (time, lead_time, variable, ...)
     #     plain,
     # )

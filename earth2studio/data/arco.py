@@ -79,6 +79,15 @@ class ARCO_ERA5:
 
     - https://cloud.google.com/storage/docs/public-datasets/era5
 
+    Note
+    ----
+    Temporal statistics: ``mean``, ``sum``, ``min``, and ``max`` accept labels
+    ``variable:method:window`` or ``variable:method:start:end``. Windows are
+    left-closed/right-open, sampled hourly relative to the analysis time.
+    ``t2m:mean:24h`` averages the preceding 24 samples, excluding that time.
+    Accumulation timestamps mark interval ends; sums of overlapping multi-hour
+    accumulations can double-count precipitation or radiation.
+
     Badges
     ------
     region:global dataclass:reanalysis dataset:era5 product:wind product:precip product:temp product:atmos provider:google
@@ -89,8 +98,7 @@ class ARCO_ERA5:
     ARCO_PATH = "/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3"
     ARCO_ML_PATH = "/gcp-public-data-arco-era5/ar/model-level-1h-0p25deg.zarr-v1"
     ARCO_TIME_STOP = datetime(year=2025, month=12, day=31)
-    # Temporal statistics computed natively, e.g. "t2m:mean:24h" or "tp:max:6h"
-    time_statistics: tuple[str, ...] = ("mean", "sum", "min", "max")
+    lexicon = ARCO_ERA5Lexicon
 
     def __init__(
         self,
@@ -216,7 +224,9 @@ class ARCO_ERA5:
 
         # Make sure input time is valid
         self._validate_time(time)
-        plain, stat_groups = split_statistic_variables(variable)
+        plain, stat_groups = split_statistic_variables(
+            variable, self.lexicon.TIME_STATISTICS
+        )
 
         xr_array = xr.DataArray(
             data=np.full(

@@ -53,9 +53,7 @@ class _WB2Base:
 
     WB2_ERA5_LAT = np.empty(0)
     WB2_ERA5_LON = np.empty(0)
-    time_step: np.timedelta64 = np.timedelta64(6, "h")
-    # Temporal statistics computed natively, e.g. "t2m:mean:24h" or "u10m:max:24h"
-    time_statistics: tuple[str, ...] = ("mean", "sum", "min", "max")
+    lexicon: type[WB2Lexicon] | type[WB2ClimatetologyLexicon] = WB2Lexicon
 
     def __init__(
         self,
@@ -154,7 +152,9 @@ class _WB2Base:
 
         # Make sure input time is valid
         self._validate_time(time)
-        plain, stat_groups = split_statistic_variables(variable)
+        plain, stat_groups = split_statistic_variables(
+            variable, getattr(self.lexicon, "TIME_STATISTICS", ())
+        )
 
         xr_array = xr.DataArray(
             data=np.empty(
@@ -174,7 +174,9 @@ class _WB2Base:
             },
         )
 
-        jobs = analysis_jobs(stat_groups, time, self.time_step, xr_array.values, plain)
+        jobs = analysis_jobs(
+            stat_groups, time, np.timedelta64(6, "h"), xr_array.values, plain
+        )
         # Validate the extra times before reading anything
         self._validate_time([as_datetime(t) for t in sample_coords(jobs)])
         log_statistics("WB2", stat_groups, jobs, self._verbose)
@@ -321,6 +323,14 @@ class WB2ERA5(_WB2Base):
     from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels. Provided by the
     WeatherBench2 data repository.
 
+    Note
+    ----
+    Temporal statistics: ``mean``, ``sum``, ``min``, and ``max`` accept labels
+    ``variable:method:window`` or ``variable:method:start:end``. Windows are
+    left-closed/right-open, sampled every six hours relative to the analysis time.
+    ``t2m:mean:24h`` averages the preceding four samples, excluding that time.
+    Sums of overlapping ``tp12`` or ``tp24`` accumulations double-count rainfall.
+
     Parameters
     ----------
     cache : bool, optional
@@ -371,6 +381,14 @@ class WB2ERA5_121x240(_WB2Base):
     lat-lon grid from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels.
     Provided by the WeatherBench2 data repository.
 
+    Note
+    ----
+    Temporal statistics: ``mean``, ``sum``, ``min``, and ``max`` accept labels
+    ``variable:method:window`` or ``variable:method:start:end``. Windows are
+    left-closed/right-open, sampled every six hours relative to the analysis time.
+    ``t2m:mean:24h`` averages the preceding four samples, excluding that time.
+    Sums of overlapping ``tp12`` or ``tp24`` accumulations double-count rainfall.
+
     Parameters
     ----------
     cache : bool, optional
@@ -420,6 +438,14 @@ class WB2ERA5_32x64(_WB2Base):
     ERA5 reanalysis data with several derived variables down sampled to a 5.625 degree
     lat-lon grid from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels.
     Provided by the WeatherBench2 data repository.
+
+    Note
+    ----
+    Temporal statistics: ``mean``, ``sum``, ``min``, and ``max`` accept labels
+    ``variable:method:window`` or ``variable:method:start:end``. Windows are
+    left-closed/right-open, sampled every six hours relative to the analysis time.
+    ``t2m:mean:24h`` averages the preceding four samples, excluding that time.
+    Sums of overlapping ``tp12`` or ``tp24`` accumulations double-count rainfall.
 
     Parameters
     ----------
@@ -486,6 +512,11 @@ class WB2Climatology(_WB2Base):
     |    smoothing (see paper and script) for each day of year and sixth hour of day.
     |    We have computed climatologies for 1990-2017 and 1990-2019.
 
+    Note
+    ----
+    Temporal statistics: qualified statistic labels are not supported natively.
+    This source returns precomputed climatological fields.
+
     Parameters
     ----------
     climatology_zarr_store : ClimatologyZarrStore, optional
@@ -527,7 +558,7 @@ class WB2Climatology(_WB2Base):
     region:global dataclass:reanalysis dataset:era5 product:wind product:precip product:temp product:atmos provider:google
     """
 
-    time_statistics: tuple[str, ...] = ()
+    lexicon = WB2ClimatetologyLexicon
 
     def __init__(
         self,

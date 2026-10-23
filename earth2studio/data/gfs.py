@@ -97,6 +97,15 @@ class GFS:
 
     Note
     ----
+    Temporal statistics: ``mean``, ``sum``, ``min``, and ``max`` accept labels
+    ``variable:method:window`` or ``variable:method:start:end``. Windows are
+    left-closed/right-open, sampled every six hours relative to the analysis time.
+    ``t2m:mean:24h`` averages the preceding four analyses, excluding that time.
+    ``tp06`` represents trailing six-hour accumulations; sums are totals only
+    when those intervals do not overlap.
+
+    Note
+    ----
     Additional information on the data repository can be referenced here:
 
     - https://registry.opendata.aws/noaa-gfs-bdp-pds/
@@ -112,10 +121,7 @@ class GFS:
 
     GFS_LAT = np.linspace(90, -90, 721)
     GFS_LON = np.linspace(0, 359.75, 1440)
-    # Analysis cadence and temporal statistics computed natively, e.g.
-    # "t2m:mean:24h" is the mean of the 6-hourly analyses over the previous day
-    time_step: np.timedelta64 = np.timedelta64(6, "h")
-    time_statistics: tuple[str, ...] = ("mean", "sum", "min", "max")
+    lexicon = GFSLexicon
 
     def __init__(
         self,
@@ -241,7 +247,9 @@ class GFS:
 
         # Make sure input time is valid
         self._validate_time(time)
-        plain, stat_groups = split_statistic_variables(variable)
+        plain, stat_groups = split_statistic_variables(
+            variable, self.lexicon.TIME_STATISTICS
+        )
 
         # Note, this could be more memory efficient and avoid pre-allocation of the array
         # but this is much much cleaner to deal with, compared to something seen in the
@@ -262,7 +270,7 @@ class GFS:
         )
 
         jobs = analysis_jobs(
-            stat_groups, time, self.time_step, xr_array.values[:, 0], plain
+            stat_groups, time, np.timedelta64(6, "h"), xr_array.values[:, 0], plain
         )
         self._validate_time([as_datetime(t) for t in sample_coords(jobs)])
         await self._fetch_jobs(stat_groups, jobs, forecast=False)
@@ -656,6 +664,15 @@ class GFS_FX(GFS):
     statistics of ``tp06`` reduce these six-hour totals; overlapping totals in a
     sum count overlapping precipitation more than once.
 
+    Note
+    ----
+    Temporal statistics: ``mean``, ``sum``, ``min``, and ``max`` accept labels
+    ``variable:method:window`` or ``variable:method:start:end``. Windows are
+    left-closed/right-open, sampled hourly over lead times of one initialization.
+    ``t2m:mean:6h`` at lead six hours averages leads zero through five hours.
+    Negative or unavailable leads are rejected. Raw ``tp`` accumulation buckets
+    reset every six hours; summing them is not a precipitation total.
+
     Parameters
     ----------
     source: str, optional
@@ -681,9 +698,6 @@ class GFS_FX(GFS):
     ------
     region:global dataclass:simulation dataset:gfs product:wind product:precip product:temp product:atmos provider:noaa
     """
-
-    # Forecast cadence: lead times are hourly
-    time_step: np.timedelta64 = np.timedelta64(1, "h")
 
     def __call__(  # type: ignore[override]
         self,
@@ -753,7 +767,9 @@ class GFS_FX(GFS):
         # Make sure input time is valid
         self._validate_time(time)
         self._validate_leadtime(lead_time)
-        plain, stat_groups = split_statistic_variables(variable)
+        plain, stat_groups = split_statistic_variables(
+            variable, self.lexicon.TIME_STATISTICS
+        )
 
         # Note, this could be more memory efficient and avoid pre-allocation of the array
         # but this is much much cleaner to deal with, compared to something seen in the
@@ -780,7 +796,7 @@ class GFS_FX(GFS):
         )
 
         jobs = forecast_jobs(
-            stat_groups, time, lead_time, self.time_step, xr_array.values, plain
+            stat_groups, time, lead_time, np.timedelta64(1, "h"), xr_array.values, plain
         )
         self._validate_leadtime([as_timedelta(lt) for lt in sample_coords(jobs)])
         await self._fetch_jobs(stat_groups, jobs, forecast=True)
