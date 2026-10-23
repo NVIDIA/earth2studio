@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added subseasonal-to-seasonal evaluation capability in the eval recipe. Added
+  **`WindowMeanForecastPipeline`** in `src/pipelines/seasonal.py` and
+  **`WindowMeanSource`** in `src/data.py`.
 - Added the distilled ERA5 -> HRRR model (`CorrDiffEra5HrrrDistilled`), now the
   default of `CorrDiffEra5Hrrr.load_model`; pass `distilled_model=False` for the
   50-step teacher.
