@@ -24,7 +24,7 @@ bokeh==3.8.2
     # via dask
 botocore==1.42.30
     # via aiobotocore
-certifi==2026.1.4
+certifi==2026.10.19
     # via
     #   httpcore
     #   httpx
@@ -227,7 +227,7 @@ partd==1.4.2
     # via dask
 pathspec==1.0.3
     # via hatchling
-pillow==12.3.0
+pillow==13.0.0
     # via bokeh
 pluggy==1.6.0
     # via hatchling
