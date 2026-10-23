@@ -121,6 +121,9 @@ analysis = interp(obs1)
 
 ## Tests and documentation
 
+- Follow `skills/earth2studio-create-assimilation/references/testing-guide.md`:
+  native call, coordinates, exceptions, seed, package, and stateful iterator cases.
+  Consolidate existing cases; avoid separate protocol suites and single-use helpers.
 - Test input/forcing/output declarations and source ordering, including singleton,
   tuple and absent slots as applicable to the model.
 - Test independent calls without an iterator. For stateful models, test first-output

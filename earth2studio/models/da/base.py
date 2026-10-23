@@ -113,7 +113,7 @@ class AssimilationModel(Protocol):
         pass
 
     def output_coords(
-        self, *input_coords: FrameSchema | CoordinateSystem, **kwargs: Any
+        self, *input_coords: FrameSchema | CoordinateSystem
     ) -> FrameSchema | CoordinateSystem | tuple[FrameSchema | CoordinateSystem, ...]:
         """Describe the analysis outputs.
 
@@ -122,8 +122,6 @@ class AssimilationModel(Protocol):
         *input_coords : FrameSchema | CoordinateSystem
             One signature or schema per input slot as separate arguments.
             Concrete models declare fixed named parameters matching their slots.
-        **kwargs : Any
-            Model-specific request metadata, such as analysis time.
 
         Returns
         -------

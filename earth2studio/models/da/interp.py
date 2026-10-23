@@ -13,7 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -156,7 +155,6 @@ class InterpEquirectangular(torch.nn.Module):
         *,
         request_time: np.ndarray | None = None,
         variable: np.ndarray | None = None,
-        **kwargs: Any,
     ) -> CoordinateSystem:
         """Output coordinate system of the assimilation model.
 
@@ -168,8 +166,6 @@ class InterpEquirectangular(torch.nn.Module):
             Analysis valid times, by default None (an unspecified time).
         variable : np.ndarray | None, optional
             Output variables, by default None (all supported variables)
-        **kwargs : Any
-            Additional request metadata; unused by this method.
 
         Returns
         -------
@@ -197,7 +193,7 @@ class InterpEquirectangular(torch.nn.Module):
         Parameters
         ----------
         obs : pd.DataFrame
-            Observations matching ``forcing_coords()``, with analysis times in
+            Observations matching ``input_coords()``, with analysis times in
             ``attrs["request_time"]`` and optional output ``attrs["variable"]``.
 
         Returns
@@ -213,7 +209,9 @@ class InterpEquirectangular(torch.nn.Module):
         """
         if obs.attrs.get("request_time") is None:
             raise ValueError("Observation DataFrame must have 'request_time' in attrs")
-        output_coords = self.output_coords(**obs.attrs)
+        output_coords = self.output_coords(
+            request_time=obs.attrs["request_time"], variable=obs.attrs.get("variable")
+        )
         validate_observation_fields(obs, required_fields=list(self.input_coords()))
         return self._interpolate_dataframe(obs, output_coords)
 

@@ -230,7 +230,7 @@ def test_stormcastconus_crop_uses_model_region_coordinates():
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_stormcastconus_sda_continuation(device):
+def test_stormcastconus_sda_iter(device):
     if device == "cuda:0" and not torch.cuda.is_available():
         pytest.skip("CUDA is unavailable")
     if conus_module.TensorDict is None:

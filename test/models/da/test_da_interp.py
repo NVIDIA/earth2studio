@@ -334,7 +334,7 @@ def test_interp_tolerance(sample_observations_pandas, small_grid, device):
     ],
 )
 @pytest.mark.parametrize("interp_method", ["nearest", "smolyak"])
-def test_interp_independent_calls(
+def test_interp_call_observations(
     sample_observations_pandas: pd.DataFrame,
     small_grid: tuple[np.ndarray, np.ndarray],
     device: str,
@@ -385,7 +385,7 @@ def test_interp_independent_calls(
         np.testing.assert_array_equal(obs.attrs[key], original_obs.attrs[key])
 
 
-def test_interp_call_validates_observations(
+def test_interp_exceptions(
     sample_observations_pandas: pd.DataFrame,
     small_grid: tuple[np.ndarray, np.ndarray],
 ) -> None:

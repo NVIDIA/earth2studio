@@ -274,12 +274,14 @@ def test_healda_call(device, request_time, lat_lon):
     assert np.all(out.coords["time"].values == request_time)
 
 
-def test_healda_call_missing_request_time():
+def test_healda_exceptions():
     model = _build_model()
     df = _build_raw_conv_df(5)
     df.attrs = {}  # No request_time → should raise
     with pytest.raises(ValueError, match="request_time"):
         model(df)
+    with pytest.raises(ValueError, match="At least one"):
+        model(None, None)
 
 
 def test_healda_call_empty_obs():
@@ -306,7 +308,7 @@ def test_healda_call_empty_obs():
         ),
     ],
 )
-def test_healda_independent_calls_with_optional_observations(device: str) -> None:
+def test_healda_call_observations(device: str) -> None:
     model = _build_model(device=device)
     request_time = np.array([np.datetime64("2024-01-01T12:00:00")])
     conv_df = _build_raw_conv_df(10, request_time)
@@ -339,8 +341,6 @@ def test_healda_independent_calls_with_optional_observations(device: str) -> Non
             torch.testing.assert_close(values, torch.full_like(values, expected))
             assert forward.call_args.args[0]["obs"].numel() == count
 
-        with pytest.raises(ValueError, match="At least one"):
-            model(None, None)
         torch.testing.assert_close(model(conv_df).e2s.to_torch()[0], first_values)
 
     torch.testing.assert_close(first_values, torch.full_like(first_values, 250.0))
@@ -351,7 +351,7 @@ def test_healda_independent_calls_with_optional_observations(device: str) -> Non
     np.testing.assert_array_equal(sat_df.attrs["request_time"], sat_time)
 
 
-def test_healda_input_coords():
+def test_healda_coords():
     model = _build_model()
     conv_schema, sat_schema = model.input_coords()
     assert "time" in conv_schema
@@ -362,10 +362,6 @@ def test_healda_input_coords():
     assert "lat" in sat_schema
     assert "observation" in sat_schema
     assert "sensor_index" in sat_schema
-
-
-def test_healda_output_coords():
-    model = _build_model()
     request_time = np.array([np.datetime64("2024-01-01T12:00:00")])
     coords = model.output_coords(*model.input_coords(), request_time=request_time)
     assert "time" in coords.coords

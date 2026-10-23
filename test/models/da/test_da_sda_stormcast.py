@@ -380,7 +380,7 @@ def stochastic_model(monkeypatch, device):
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_stormcast_sda_stateful_replay(stochastic_model, device):
+def test_stormcast_sda_iter(stochastic_model, device):
     model = stochastic_model
     time = np.array([np.datetime64("2020-04-05T00:00")])
     x = _build_input_da(model, time, device)
@@ -462,7 +462,7 @@ def test_stormcast_sda_stateful_replay(stochastic_model, device):
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_stormcast_sda_rng_stream(stochastic_model, device):
+def test_stormcast_sda_deterministic_seed(stochastic_model, device):
     model = stochastic_model
     time = np.array([np.datetime64("2020-04-05T00:00")])
     x = _build_input_da(model, time, device)
@@ -481,7 +481,7 @@ def test_stormcast_sda_rng_stream(stochastic_model, device):
     )
 
 
-def test_stormcast_sda_observation_continuation():
+def test_stormcast_sda_iter_observations():
     model = _build_model()
     time = np.array([np.datetime64("2020-04-05T00:00")])
     x = _build_input_da(model, time)
@@ -525,7 +525,7 @@ def test_stormcast_sda_observation_continuation():
 
 
 @pytest.mark.parametrize("forcing", [None, (None,), (None, None)])
-def test_stormcast_sda_invalid_iterator_forcing(forcing):
+def test_stormcast_sda_iter_exceptions(forcing):
     model = _build_model()
     time = np.array([np.datetime64("2020-04-05T00:00")])
     x = _build_input_da(model, time)
@@ -537,7 +537,7 @@ def test_stormcast_sda_invalid_iterator_forcing(forcing):
             iterator.send(forcing)
 
 
-def test_stormcast_sda_missing_conditioning_and_invalid_state():
+def test_stormcast_sda_step_exceptions():
     model = _build_model()
     time = np.array([np.datetime64("2020-04-05T00:00")])
     x = _build_input_da(model, time)

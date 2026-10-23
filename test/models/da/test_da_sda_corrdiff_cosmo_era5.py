@@ -288,11 +288,6 @@ def test_identity_output_indices_deny_by_default():
     assert i not in model._identity_output_indices
 
 
-def test_construct_rejects_non_identity_assimilate_variable():
-    with pytest.raises(ValueError, match="not an assimilable"):
-        _build_sda(assimilate_variables=("tp",))
-
-
 def test_model_level_channels_are_assimilable():
     # The model-level winds u3d_l47/v3d_l47 (distinct from the surface u10m/v10m used
     # elsewhere) must stay identity-eligible and wire to the right indices -- they are
@@ -404,9 +399,10 @@ def test_run_diffusion_guided_changes_analysis_under_no_grad():
         ({"assimilate_variables": ()}, "assimilate_variables must be non-empty"),
         ({"number_of_samples": 0}, "number_of_samples must be >= 1"),
         ({"sampler_steps": 1}, "sampler_steps must be >= 2"),
+        ({"assimilate_variables": ("tp",)}, "not an assimilable"),
     ],
 )
-def test_construct_rejects_invalid_params(kwargs: dict[str, Any], match: str):
+def test_corrdiff_sda_init_exceptions(kwargs: dict[str, Any], match: str):
     with pytest.raises(ValueError, match=match):
         _build_sda(**kwargs)
 
@@ -439,7 +435,7 @@ def test_construct_defaults_inherit_from_model():
 # ── Coordinate contracts ─────────────────────────────────────────────────────
 
 
-def test_coordinate_contracts():
+def test_corrdiff_sda_coords():
     sda = _build_sda(number_of_samples=2, assimilate_variables=("u10m", "v10m"))
     model = sda.model
     # ERA5 background and observation input schema.
@@ -619,7 +615,7 @@ def _identity_sda() -> CorrDiffCosmoEra5SDA:
     )
 
 
-def test_call_returns_analysis():
+def test_corrdiff_sda_call():
     sda = _identity_sda()
     times = np.array([np.datetime64("2021-07-14T12:00")])
     x = _era5_da(sda, times)
@@ -640,7 +636,7 @@ def test_call_returns_analysis():
     assert out_none.shape == out.shape
 
 
-def test_call_rejects_multi_lead_time():
+def test_corrdiff_sda_exceptions():
     sda = _build_sda()
     times = np.array([np.datetime64("2021-07-14T12:00")])
     x = _era5_da(sda, times).expand_dims(
@@ -650,24 +646,14 @@ def test_call_rejects_multi_lead_time():
         sda(x, None)
 
 
-def _analysis_output_inputs(
-    sda: CorrDiffCosmoEra5SDA,
-) -> tuple[torch.Tensor, np.ndarray, xr.DataArray]:
-    """A dummy (out, times, oc) triple for exercising ``_to_output_dataarray``."""
-    times = np.array([np.datetime64("2021-07-14T12:00")])
-    xf = sda._era5_frames(_era5_da(sda, times))
-    oc = sda.output_coords(xf)
-    H, W = sda.model.lat_output_numpy.shape
-    n_var = len(sda.model._output_coord_variables)
-    return torch.zeros(1, 1, n_var, H, W), times, oc
-
-
 def test_to_output_dataarray_requires_cupy_on_cuda(monkeypatch):
     # On CUDA the analysis must be returned on-device (CuPy); with CuPy absent this
     # must raise rather than silently fall back to CPU NumPy (a contract violation).
     # Exercised on CPU by faking a CUDA device and a missing cupy import.
     sda = _identity_sda()
-    out, times, oc = _analysis_output_inputs(sda)
+    times = np.array([np.datetime64("2021-07-14T12:00")])
+    oc = sda.output_coords(_era5_da(sda, times))
+    out = torch.zeros(oc.shape)
     monkeypatch.setattr("earth2studio.models.da.sda_corrdiff_cosmo_era5.cp", None)
     monkeypatch.setattr(
         CorrDiffCosmoEra5SDA, "device", property(lambda self: torch.device("cuda"))
@@ -697,7 +683,7 @@ def test_forward_trims_halo():
     assert trimmed.shape[-1] == untrimmed.shape[-1] - 2
 
 
-def test_independent_calls_match_batched_analysis() -> None:
+def test_corrdiff_sda_deterministic_seed() -> None:
     sda = _identity_sda()
     t0 = np.datetime64("2021-07-14T12:00")
     t1 = np.datetime64("2021-07-14T13:00")
@@ -790,31 +776,21 @@ def test_load_model_domain_crops():
     assert sda._lat_np.shape == sda.model.lat_output_numpy.shape
 
 
-def test_to_moves_wrapped_model():
-    # A real device transition without CUDA: moving the wrapper to the meta device must
-    # move the wrapped downscaler's registered buffers.
-    sda = _build_sda()
-    returned = sda.to("meta")
-    assert returned is sda
-    assert sda.device.type == "meta"
-    assert sda.model.lat_output_grid.device.type == "meta"
-
-
-def test_device_follows_wrapped_model():
-    # device is derived from the wrapped model's grid buffer (single source of truth),
-    # so it tracks the model even when the model is moved directly -- e.g. wrapping a
-    # placed model, or sda.model.to(...) after construction. Uses meta (no GPU needed).
+@pytest.mark.parametrize("move_wrapped", [False, True])
+def test_corrdiff_sda_device(move_wrapped):
     sda = _build_sda()
     assert sda.device.type == "cpu"
-    sda.model.to("meta")
+    target = sda.model if move_wrapped else sda
+    assert target.to("meta") is target
     assert sda.device.type == "meta"
+    assert sda.model.lat_output_grid.device.type == "meta"
 
 
 # ── Package integration test (real weights) ──────────────────────────────────
 
 
 @pytest.mark.package
-def test_da_sda_corrdiff_cosmo_era5_package():
+def test_corrdiff_sda_package():
     pkg_path = os.environ.get("COSMO_REA_PACKAGE")
     if not pkg_path:
         pytest.skip("set COSMO_REA_PACKAGE to a built package dir to run")

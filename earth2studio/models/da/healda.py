@@ -18,7 +18,7 @@ import datetime as dt
 import math
 import warnings
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -321,7 +321,6 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         sat_obs: FrameSchema | None = None,
         *,
         request_time: np.ndarray | None = None,
-        **kwargs: Any,
     ) -> CoordinateSystem:
         """Output coordinate system of the assimilation model.
 
@@ -333,8 +332,6 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             Satellite observation schema; output geometry is fixed.
         request_time : np.ndarray | None, optional
             Analysis valid time(s), by default None
-        **kwargs : Any
-            Additional request metadata; unused by this method.
 
         Returns
         -------
