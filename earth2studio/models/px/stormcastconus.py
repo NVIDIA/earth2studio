@@ -636,7 +636,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         for j, time in enumerate(np.asarray(coords["time"])):
             for k, lead_time in enumerate(np.asarray(coords["lead_time"])):
-                t = time + lead_time
+                t = time + lead_time + np.timedelta64(1, "h")
                 if obs is not None:
                     if isinstance(obs, tuple):
                         y_obs, mask = obs
@@ -763,50 +763,6 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             return prediction, (self._rng_seed, deepcopy(self._rng_states))
         finally:
             self._rng_seed, self._rng_states = previous
-
-    def create_generator(
-        self,
-        x: xr.DataArray,
-        conditioning: xr.DataArray,
-    ) -> Generator[xr.DataArray, tuple[xr.DataArray, pd.DataFrame | None], None]:
-        """Create a generator for autoregressive rollout.
-
-        Parameters
-        ----------
-        x : xr.DataArray
-            Initial field.
-
-        Yields
-        ------
-        xr.DataArray
-            Initial field followed by hourly forecasts.
-
-        Receives
-        --------
-        pd.DataFrame or None
-            Observation dataframe with columns 'variable', 'lat', 'lon',
-            'observation', 'time', or None for no observations
-
-        Raises
-        ------
-        RuntimeError
-            If conditioning data source is not initialized
-        """
-        handshake_nonempty(x)
-        handshake_time(x)
-        self.output_coords(x)
-        x, state = self.initialize(x, conditioning)
-        while True:
-            x = self.rear_hook(x)
-            conditioning, obs = yield x
-            x = self.front_hook(x)
-            previous = self._rng_seed, self._rng_states
-            self._rng_seed, self._rng_states = deepcopy(state)
-            try:
-                x = self._predict(x, conditioning, obs=obs)
-                state = self._rng_seed, deepcopy(self._rng_states)
-            finally:
-                self._rng_seed, self._rng_states = previous
 
     def create_iterator(
         self,

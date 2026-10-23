@@ -19,3 +19,4 @@ from .healda import HealDA
 from .interp import InterpEquirectangular
 from .sda_corrdiff_cosmo_era5 import CorrDiffCosmoEra5SDA
 from .sda_stormcast import StormCastSDA
+from .sda_stormcastconus import StormCastCONUSSDA

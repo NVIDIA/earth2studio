@@ -9,5 +9,5 @@
 - Outputs plus serializable state fully determine continuation. Steps replay exactly without mutating inputs/state; execution hooks are iterator-only.
 - RNG: calls/new trajectories advance a local stream; reset restarts it, `reset=False` initializes only if absent. Seeded execution preserves global RNG; reseeding leaves live trajectories unaffected. Deterministic models use a no-op.
 - Sources follow input-then-forcing order; callers fetch and align data. Models document observation times/windows.
-- Independent: HealDA, interpolation (deterministic), CorrDiff (stochastic). Stateful: StormCast (stochastic).
+- Independent: HealDA, interpolation (deterministic), CorrDiff (stochastic). Stateful: StormCast and StormCast-CONUS (stochastic).
 - Migration: remove `create_generator`; use independent calls or forecast-first `create_iterator`. Replace CorrDiff `.seed` with `set_rng`.

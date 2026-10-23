@@ -23,6 +23,7 @@ from earth2studio.models.da import (
     HealDA,
     InterpEquirectangular,
     StatefulAssimilationModel,
+    StormCastCONUSSDA,
     StormCastSDA,
 )
 
@@ -34,6 +35,7 @@ from earth2studio.models.da import (
         (InterpEquirectangular, False, False),
         (CorrDiffCosmoEra5SDA, False, True),
         (StormCastSDA, True, True),
+        (StormCastCONUSSDA, True, True),
     ],
 )
 def test_assimilation_capabilities(model, stateful, stochastic):

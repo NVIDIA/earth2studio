@@ -308,6 +308,7 @@ categories:
         summary: StormCast-CONUS model dependencies.
         api_refs:
           - earth2studio.models.px.StormCastCONUS
+          - earth2studio.models.da.StormCastCONUSSDA
         # TODO: Removed with psn release 2.2.0
         preinstall:
           pip:
