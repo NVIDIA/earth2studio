@@ -194,7 +194,7 @@ class AssimilationModel(Protocol):
 # --8<-- [start:stateful-assimilation-model-interface]
 @runtime_checkable
 class StatefulAssimilationModel(AssimilationModel, Protocol):
-    """Assimilation model with explicit, replayable trajectory continuation.
+    """Assimilation model with explicit state producing a trajectory of outputs.
 
     Extends the independent-call interface with initialization and stepping, allowing
     DataFrames and optional observation slots alongside gridded fields. Concrete
