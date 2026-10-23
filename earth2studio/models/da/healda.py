@@ -319,7 +319,6 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         self,
         conv_obs: FrameSchema | None = None,
         sat_obs: FrameSchema | None = None,
-        *,
         request_time: np.ndarray | None = None,
     ) -> CoordinateSystem:
         """Output coordinate system of the assimilation model.

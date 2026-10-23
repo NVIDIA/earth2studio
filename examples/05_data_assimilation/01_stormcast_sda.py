@@ -118,15 +118,22 @@ init_time = np.array([np.datetime64("2026-04-17T18:00")])
 x = fetch_data(
     hrrr,
     time=init_time,
-    variable=model.input_coords().variable.values,
+    variable=model.input_coords()["variable"].values,
     lead_time=np.array([np.timedelta64(0, "h")]),
     device="cuda:0",
 )
 # Fetch preserves the source grid. Select native labels explicitly.
 input_signature = model.input_coords()
 x = x.rename(hrrr_y="y", hrrr_x="x")
+x = x.sel(y=input_signature.y, x=input_signature.x)
+# Subsetting a projected grid changes inverse-projection roundoff (~1e-13 degrees).
+for coordinate in ("lat", "lon"):
+    np.testing.assert_allclose(
+        x[coordinate], input_signature[coordinate], atol=1e-10, rtol=0
+    )
+x = x.assign_coords(lat=input_signature.lat, lon=input_signature.lon)
 x = _map_field(
-    x.sel(y=input_signature.y, x=input_signature.x),
+    x,
     input_signature,
 )
 
@@ -178,7 +185,7 @@ def fetch_conditioning(lead_hour: int) -> xr.DataArray:
 nsteps = 6
 plot_var = "u10m"
 plot_vars = ["u10m", "v10m", "t2m"]
-var_idx = list(input_signature.variable.values).index(plot_var)
+var_idx = list(input_signature["variable"].values).index(plot_var)
 
 model.set_rng(42)
 
@@ -423,8 +430,14 @@ truth_x = fetch_data(
 )
 truth_signature = model.input_coords().sel(variable=[plot_var])
 truth_x = truth_x.rename(hrrr_y="y", hrrr_x="x")
+truth_x = truth_x.sel(y=input_signature.y, x=input_signature.x)
+for coordinate in ("lat", "lon"):
+    np.testing.assert_allclose(
+        truth_x[coordinate], input_signature[coordinate], atol=1e-10, rtol=0
+    )
+truth_x = truth_x.assign_coords(lat=input_signature.lat, lon=input_signature.lon)
 truth_x = _map_field(
-    truth_x.sel(y=input_signature.y, x=input_signature.x),
+    truth_x,
     truth_signature,
 )
 # truth_x shape: (time=1, lead_time=nsteps, variable=1, H, W)

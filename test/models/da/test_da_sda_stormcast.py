@@ -25,7 +25,8 @@ import torch
 import xarray as xr
 
 import earth2studio.models.da.sda_stormcast as stormcast_module
-from earth2studio.data import HRRR, Random, RandomDataFrame, fetch_data, fetch_dataframe
+from earth2studio.data import Random, RandomDataFrame, fetch_data, fetch_dataframe
+from earth2studio.grids import resolve_grid
 from earth2studio.models.da.sda_stormcast import StormCastSDA
 
 try:
@@ -72,16 +73,6 @@ SAMPLER_ARGS = {
 # ---------- Helpers ----------
 
 
-@pytest.fixture(autouse=True)
-def mock_hrrr_grid(monkeypatch, request):
-    if request.node.get_closest_marker("package"):
-        return
-    lat, lon = np.meshgrid(
-        np.linspace(30, 40, Y_END), np.linspace(250, 260, X_END), indexing="ij"
-    )
-    monkeypatch.setattr(HRRR, "grid", lambda: (lat, lon))
-
-
 def _build_model(device="cpu"):
     regression = PhooRegressionModel(out_vars=NVAR)
     diffusion = PhooSDADiffusionModel()
@@ -113,7 +104,7 @@ def _build_model(device="cpu"):
 
 
 def _build_input_da(model, time, device="cpu", conditioning=False):
-    dc = OrderedDict([("hrrr_y", model.hrrr_y), ("hrrr_x", model.hrrr_x)])
+    dc = OrderedDict([("y", model.hrrr_y), ("x", model.hrrr_x)])
     r = Random(dc)
     x = fetch_data(
         r,
@@ -123,9 +114,9 @@ def _build_input_da(model, time, device="cpu", conditioning=False):
         device=device,
     )
     return x.assign_coords(
-        lat=(["hrrr_y", "hrrr_x"], model.lat),
-        lon=(["hrrr_y", "hrrr_x"], model.lon),
-    )
+        lat=(["y", "x"], model.lat),
+        lon=(["y", "x"], model.lon),
+    ).assign_attrs(model.input_coords().attrs)
 
 
 def _build_obs_source(model, n_obs=10):
@@ -310,6 +301,11 @@ def test_stormcast_sda_call(time, device):
     state = model.input_coords()
     conditioning, obs = model.forcing_coords()
     assert isinstance(state, xr.DataArray)
+    hrrr_grid = resolve_grid("hrrr")
+    np.testing.assert_array_equal(state.y, hrrr_grid.y[Y_START:Y_END])
+    np.testing.assert_array_equal(state.x, hrrr_grid.x[X_START:X_END])
+    assert state.attrs["crs"] == model.grid.attrs["crs"]
+    assert conditioning.attrs["crs"] == state.attrs["crs"]
     assert conditioning.dims == state.dims
     np.testing.assert_array_equal(
         conditioning["variable"], model.conditioning_variables
@@ -328,7 +324,7 @@ def test_stormcast_sda_call(time, device):
         out = model(x, c, obs_df)
 
     assert out.shape == (len(time), 1, NVAR, ny, nx)
-    assert set(out.dims) == {"time", "lead_time", "variable", "hrrr_y", "hrrr_x"}
+    assert set(out.dims) == {"time", "lead_time", "variable", "y", "x"}
     assert np.all(out.coords["time"].values == time)
     assert out.coords["lead_time"].values[0] == np.timedelta64(1, "h")
 
@@ -604,6 +600,6 @@ def test_stormcast_sda_package(device, sda_model):
     out = model(x, c, None)
 
     assert out.shape == (1, 1, 99, 512, 640)
-    assert set(out.dims) == {"time", "lead_time", "variable", "hrrr_y", "hrrr_x"}
+    assert set(out.dims) == {"time", "lead_time", "variable", "y", "x"}
     assert np.all(out.coords["time"].values == time)
     assert out.coords["lead_time"].values[0] == np.timedelta64(1, "h")

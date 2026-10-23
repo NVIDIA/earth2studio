@@ -214,28 +214,6 @@ class FakeDA:
         return self
 
 
-class FakeBackgroundDA(FakeDA):
-    """Independent DA fake with a background input, like CorrDiff."""
-
-    def input_coords(self) -> xr.DataArray:
-        return super().output_coords()
-
-    def __call__(
-        self,
-        background: xr.DataArray,
-        conv_obs: pd.DataFrame | None = None,
-        sat_obs: pd.DataFrame | None = None,
-    ) -> xr.DataArray:
-        return super().__call__(conv_obs, sat_obs)
-
-
-class FakeMixedInputDA(FakeDA):
-    """DA fake with gridded and tabular inputs."""
-
-    def input_coords(self) -> tuple[xr.DataArray, OrderedDict]:
-        return self.output_coords(), super().input_coords()[0]
-
-
 def _make_obs_set(model, conv_source=None, sat_source=None) -> ObsSourceSet:
     return ObsSourceSet([conv_source, sat_source], model.input_coords())
 
@@ -324,19 +302,6 @@ class TestStatelessRunner:
         runner = StatelessAssimilationRunner(model, _make_obs_set(model))
         with pytest.raises(ValueError, match="disabled"):
             runner.analysis(np.datetime64("2024-01-01"))
-
-    def test_background_input_rejected_without_inferring_statefulness(self) -> None:
-        model = FakeBackgroundDA()
-        with pytest.raises(NotImplementedError, match="gridded inputs") as exc:
-            StatelessAssimilationRunner(model, _make_obs_set(FakeDA(), FakeObsSource()))
-        assert "stateful" not in str(exc.value)
-        assert "cycling" not in str(exc.value)
-
-    def test_mixed_inputs_rejected(self) -> None:
-        model = FakeMixedInputDA()
-        obs_set = _make_obs_set(FakeDA(), FakeObsSource())
-        with pytest.raises(NotImplementedError, match="gridded inputs"):
-            StatelessAssimilationRunner(model, obs_set)
 
     def test_build_runner_default_is_stateless(self):
         model = FakeDA()

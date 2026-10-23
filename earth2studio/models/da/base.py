@@ -94,7 +94,7 @@ class AssimilationModel(Protocol):
         pass
 
     def input_coords(
-        self,
+        self, **kwargs: Any
     ) -> (
         FrameSchema
         | CoordinateSystem
@@ -102,6 +102,11 @@ class AssimilationModel(Protocol):
         | None
     ):
         """Describe the model's input slots.
+
+        Parameters
+        ----------
+        **kwargs : Any
+            Model-specific coordinate planning arguments.
 
         Returns
         -------
@@ -113,7 +118,7 @@ class AssimilationModel(Protocol):
         pass
 
     def output_coords(
-        self, *input_coords: FrameSchema | CoordinateSystem
+        self, *input_coords: FrameSchema | CoordinateSystem, **kwargs: Any
     ) -> FrameSchema | CoordinateSystem | tuple[FrameSchema | CoordinateSystem, ...]:
         """Describe the analysis outputs.
 
@@ -122,6 +127,8 @@ class AssimilationModel(Protocol):
         *input_coords : FrameSchema | CoordinateSystem
             One signature or schema per input slot as separate arguments.
             Concrete models declare fixed named parameters matching their slots.
+        **kwargs : Any
+            Model-specific coordinate planning arguments, such as ``request_time``.
 
         Returns
         -------
@@ -199,7 +206,7 @@ class StatefulAssimilationModel(AssimilationModel, Protocol):
     """
 
     def forcing_coords(
-        self,
+        self, **kwargs: Any
     ) -> (
         FrameSchema
         | CoordinateSystem
@@ -213,6 +220,11 @@ class StatefulAssimilationModel(AssimilationModel, Protocol):
         documents its observation window and any required DataFrame metadata.
         Forcing follows initialization inputs and is supplied again for each step;
         it is never implicitly fetched or reused.
+
+        Parameters
+        ----------
+        **kwargs : Any
+            Model-specific coordinate planning arguments.
 
         Returns
         -------

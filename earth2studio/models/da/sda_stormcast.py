@@ -25,6 +25,7 @@ import zarr
 
 from earth2studio.data import GFS_FX, HRRR, DataSource, ForecastSource
 from earth2studio.data.base import DataFrameSource
+from earth2studio.grids import ProjectedGrid, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.da.base import StatefulAssimilationModel
 from earth2studio.models.da.utils import filter_time_range
@@ -215,16 +216,19 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         self.sda_gamma = sda_gamma
         self._rng: torch.Generator | None = None
 
-        hrrr_lat, hrrr_lon = HRRR.grid()
-        self.lat = hrrr_lat[
-            hrrr_lat_lim[0] : hrrr_lat_lim[1], hrrr_lon_lim[0] : hrrr_lon_lim[1]
-        ]
-        self.lon = hrrr_lon[
-            hrrr_lat_lim[0] : hrrr_lat_lim[1], hrrr_lon_lim[0] : hrrr_lon_lim[1]
-        ]
-
-        self.hrrr_x = HRRR.HRRR_X[hrrr_lon_lim[0] : hrrr_lon_lim[1]]
-        self.hrrr_y = HRRR.HRRR_Y[hrrr_lat_lim[0] : hrrr_lat_lim[1]]
+        hrrr_grid = resolve_grid("hrrr")
+        if not isinstance(hrrr_grid, ProjectedGrid):
+            raise TypeError("The registered HRRR grid must be a ProjectedGrid")
+        self.grid = ProjectedGrid(
+            hrrr_grid.y[slice(*hrrr_lat_lim)],
+            hrrr_grid.x[slice(*hrrr_lon_lim)],
+            hrrr_grid.crs,
+        )
+        grid_coords = self.grid.coords()
+        self.lat = np.asarray(grid_coords["lat"])
+        self.lon = np.asarray(grid_coords["lon"])
+        self.hrrr_x = self.grid.x
+        self.hrrr_y = self.grid.y
 
         # Build ordered boundary polygon from 2D grid perimeter for
         # point-in-grid testing (top row -> right col -> bottom row -> left col)
@@ -287,19 +291,16 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             self._rng = torch.Generator().manual_seed(seed)
 
     def input_coords(self) -> CoordinateSystem:
-        """Declare the initial HRRR state as an allocation-free signature."""
+        """Declare the initial state on the cropped built-in HRRR projected grid."""
         return coord_array(
-            ("time", "lead_time", "variable", "hrrr_y", "hrrr_x"),
+            ("time", "lead_time", "variable", "y", "x"),
             {
                 "time": np.empty(0, dtype="datetime64[ns]"),
                 "lead_time": np.array([np.timedelta64(0, "h")]),
                 "variable": np.array(self.variables),
-                "hrrr_y": self.hrrr_y,
-                "hrrr_x": self.hrrr_x,
-                "lat": (("hrrr_y", "hrrr_x"), self.lat),
-                "lon": (("hrrr_y", "hrrr_x"), self.lon),
             },
             dynamic=("time",),
+            grid=self.grid,
         )
 
     def default_sources(
