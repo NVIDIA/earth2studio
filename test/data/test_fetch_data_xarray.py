@@ -46,8 +46,6 @@ GRID = LatLonGrid(np.array([2.0, 1.0, 0.0]), np.array([0.0, 1.0, 2.0]))
 
 
 class AnalysisSource:
-    time_step = np.timedelta64(1, "h")
-
     def __init__(self, grid=GRID, attrs=None):
         self.grid = grid
         self.attrs = attrs or {}
@@ -157,6 +155,7 @@ def test_signature_statistics_are_computed(source_cls):
         source_cls(attrs=request().attrs),
         TIME,
         np.array(["a:sum:3h", "b"]),
+        delta_t=np.timedelta64(1, "h"),
     )
     np.testing.assert_allclose(
         array.sel(variable="a:sum:3h")[0, 0], [[0, 6, 12], [-3, 3, 9], [-6, 0, 6]]
@@ -171,7 +170,7 @@ def test_signature_statistics_are_computed(source_cls):
 @pytest.mark.parametrize("source_cls", [AnalysisSource, ForecastSource])
 def test_qualified_statistics_preserve_order_and_metadata(source_cls):
     labels = np.array(["a:mean:3h", "a", "a:max:0h:+2h"])
-    array = fetch_data(source_cls(), TIME, labels)
+    array = fetch_data(source_cls(), TIME, labels, delta_t=np.timedelta64(1, "h"))
     np.testing.assert_array_equal(array.coords["variable"], labels)
     np.testing.assert_allclose(
         array.sel(variable=labels[0])[0, 0], [[0, 2, 4], [-1, 1, 3], [-2, 0, 2]]
@@ -198,7 +197,7 @@ def test_grouped_time_windows(source_cls):
         dynamic=("time",),
         grid=target_grid,
     )
-    array = fetch_data(source, times, labels, leads)
+    array = fetch_data(source, times, labels, leads, delta_t=np.timedelta64(1, "h"))
     handshake_dataarray(array, signature)
     np.testing.assert_array_equal(array.time, times)
     np.testing.assert_array_equal(array.lead_time, leads)
@@ -254,7 +253,9 @@ def test_daily_window_rejects_incomplete_or_duplicate_samples(source_cls, duplic
         IncompleteForecast() if source_cls is ForecastSource else IncompleteAnalysis()
     )
     with pytest.raises(ValueError, match="[Mm]issing|[Dd]uplicate"):
-        fetch_data(source, TIME, np.array(["tp:mean:1h:25h"]))
+        fetch_data(
+            source, TIME, np.array(["tp:mean:1h:25h"]), delta_t=np.timedelta64(1, "h")
+        )
 
 
 def test_duplicate_normalized_quantities_fail_before_fetch():
@@ -279,6 +280,7 @@ def test_regridding_follows_temporal_reduction(regridder, expected):
         TIME,
         np.array(["a:mean:2h"]),
         regridder=regridder(GRID, target),
+        delta_t=np.timedelta64(1, "h"),
     )
     np.testing.assert_array_equal(array.lat, target.latitude)
     np.testing.assert_array_equal(array.lon, target.longitude)
@@ -419,7 +421,7 @@ def test_already_aggregated_source_not_reduced_twice():
         attrs={E2S_STATISTICS: {"a": time_statistic_metadata("sum:6h")}}
     )
     with pytest.raises(ValueError, match="statistic"):
-        fetch_data(source, TIME, np.array(["a:sum:3h"]))
+        fetch_data(source, TIME, np.array(["a:sum:3h"]), delta_t=np.timedelta64(1, "h"))
 
 
 @pytest.mark.parametrize(
@@ -438,6 +440,7 @@ def test_cuda_field_array():
         TIME,
         np.array(["a:mean:2h"]),
         device="cuda:0",
+        delta_t=np.timedelta64(1, "h"),
     )
     assert isinstance(array.data, cp.ndarray)
     assert array.data.device.id == 0

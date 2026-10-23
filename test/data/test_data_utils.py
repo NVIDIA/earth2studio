@@ -17,6 +17,7 @@
 import asyncio
 import datetime
 import os
+import weakref
 from collections import OrderedDict
 from pathlib import Path
 
@@ -40,12 +41,14 @@ from earth2studio.data import (
     prep_data_array,
 )
 from earth2studio.data.utils import (
+    _StatisticReducer,
     async_retry,
     cancellable_to_thread,
     datasource_cache_root,
     ensure_utc,
     gather_with_concurrency,
     managed_session,
+    map_with_concurrency,
     obstore_fetch_to_cache,
     obstore_list_prefix,
     obstore_read_chunked,
@@ -54,6 +57,7 @@ from earth2studio.data.utils import (
     obstore_zarr_store,
     prep_data_inputs,
     prep_forecast_inputs,
+    statistic_modifiers,
 )
 from earth2studio.grids import (
     BilinearRegridder,
@@ -61,7 +65,161 @@ from earth2studio.grids import (
     LatLonGrid,
     NearestRegridder,
 )
-from earth2studio.utils.coords import coord_array
+from earth2studio.utils.coords import E2S_STATISTICS, coord_array
+
+
+@pytest.mark.parametrize("irregular", [False, True])
+def test_statistic_modifiers(irregular):
+    # Reducers need neither timestamps nor a planned count. Targets can receive
+    # different stream lengths, and missing cells use their own observed counts.
+    samples = np.array([[2, np.nan, np.nan], [4, 8, np.nan], [9, 10, np.nan]])
+    for method in ("mean", "sum", "min", "max"):
+        output = np.full((2, 3), -999.0)
+        reducer = _StatisticReducer(method, output)
+        with pytest.raises(ValueError, match="No samples"):
+            reducer.finalize()
+        for sample in samples:
+            reducer.add(0, sample)
+        reducer.add(1, samples[1])
+        reducer.finalize()
+        expected = {
+            "mean": [[5, 9, np.nan], [4, 8, np.nan]],
+            "sum": [[15, 18, 0], [4, 8, 0]],
+            "min": [[2, 8, np.nan], [4, 8, np.nan]],
+            "max": [[9, 10, np.nan], [4, 8, np.nan]],
+        }
+        np.testing.assert_allclose(output, expected[method], equal_nan=True)
+
+    # Source-selected samples may be irregular and differ in count per target.
+    # Callbacks consume reusable buffers in arbitrary arrival order.
+    variables = [
+        "t2m",
+        *(f"t2m:{method}:2h" for method in ("mean", "sum", "min", "max")),
+    ]
+    values = np.full((2, 5, 2), np.nan)
+    modifiers, attrs, finalize = statistic_modifiers(variables, values)
+    with pytest.raises(ValueError, match="No samples"):
+        finalize()
+
+    buffer = np.empty(2)
+    from earth2studio.utils.time_statistics import time_statistic_metadata
+
+    coordinates = np.array([0, 1, 1.5, 2.75, 3, 4] if irregular else [0, 1, 2, 3, 4])
+    for base, statistic, add in modifiers:
+        assert base == "t2m"
+        for index, target in enumerate([3, 4]):
+            if statistic is None:
+                selected = [target]
+            else:
+                metadata = time_statistic_metadata(statistic)
+                start = target + metadata["start_offset"] / np.timedelta64(1, "h")
+                end = target + metadata["end_offset"] / np.timedelta64(1, "h")
+                selected = coordinates[(coordinates >= start) & (coordinates < end)]
+            for coord in reversed(selected):
+                buffer[:] = [coord, np.nan]
+                assert add(index, buffer) is None
+                buffer[:] = -999
+    finalize()
+
+    expected = (
+        [[3, 1.75, 5.25, 1, 2.75], [4, 2.875, 5.75, 2.75, 3]]
+        if irregular
+        else [[3, 1.5, 3, 1, 2], [4, 2.5, 5, 2, 3]]
+    )
+    np.testing.assert_allclose(values[:, :, 0], expected)
+    np.testing.assert_allclose(
+        values[:, :, 1], [[np.nan, np.nan, 0, np.nan, np.nan]] * 2, equal_nan=True
+    )
+    assert set(attrs[E2S_STATISTICS]) == set(variables[1:])
+
+    # Long windows use a fixed task pool and discard decoded fields after each
+    # update, including when one fetch fails or the caller cancels the operation.
+    values = np.full((1, 4, 2), np.nan)
+    modifiers, _, finalize = statistic_modifiers(
+        [f"t2m:{method}:240h" for method in ("mean", "sum", "min", "max")],
+        values,
+    )
+    requests = list(range(240))
+
+    async def check_pool():
+        refs = []
+        initial_tasks = len(asyncio.all_tasks())
+
+        async def fetch(h):
+            assert len(asyncio.all_tasks()) <= initial_tasks + 3
+            sample = np.array([h, np.nan])
+            refs.append(weakref.ref(sample))
+            assert sum(ref() is not None for ref in refs) <= 3
+            await asyncio.sleep(0)
+            for _, _, add in modifiers:
+                add(0, sample)
+
+        await map_with_concurrency(requests, fetch, async_workers=3, verbose=False)
+        finalize()
+        assert all(ref() is None for ref in refs)
+        np.testing.assert_allclose(
+            values.reshape(4, 2)[:, 0], [119.5, sum(range(240)), 0, 239]
+        )
+        np.testing.assert_allclose(
+            values.reshape(4, 2)[:, 1], [np.nan, 0, np.nan, np.nan], equal_nan=True
+        )
+
+        active = 0
+        ready = asyncio.Event()
+
+        async def failing_fetch(request):
+            nonlocal active
+            active += 1
+            try:
+                if active == 3:
+                    ready.set()
+                await ready.wait()
+                if request is requests[0]:
+                    raise OSError("mock fetch failed")
+                await asyncio.Event().wait()
+            finally:
+                active -= 1
+
+        with pytest.raises(OSError, match="mock fetch failed"):
+            await map_with_concurrency(
+                requests, failing_fetch, async_workers=3, verbose=False
+            )
+        assert active == 0
+        assert len(asyncio.all_tasks()) == initial_tasks
+
+        ready.clear()
+
+        async def waiting_fetch(request):
+            nonlocal active
+            active += 1
+            ready.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                active -= 1
+
+        operation = asyncio.create_task(
+            map_with_concurrency(
+                requests, waiting_fetch, async_workers=3, verbose=False
+            )
+        )
+        await ready.wait()
+        operation.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await operation
+        assert active == 0
+
+        with pytest.raises(asyncio.TimeoutError):
+            await map_with_concurrency(
+                requests,
+                waiting_fetch,
+                async_workers=3,
+                verbose=False,
+                task_timeout=0.01,
+            )
+        assert active == 0
+
+    asyncio.run(check_pool())
 
 
 class _AnalysisSequence:
@@ -92,10 +250,6 @@ class _ForecastSequence:
                 "x": [0, 1],
             },
         )
-
-
-class _CadencedAnalysisSequence(_AnalysisSequence):
-    time_step = np.timedelta64(6, "h")
 
 
 @pytest.fixture
@@ -271,8 +425,6 @@ class _CoarseningRegridder:
 
 
 class _NativeSource:
-    time_step = np.timedelta64(6, "h")
-
     def _field(self, time, variable, lead_time=None):
         time, variable = np.atleast_1d(time), np.atleast_1d(variable)
         dims, coords = ["time", "variable"], {"time": time, "variable": variable}
@@ -306,7 +458,6 @@ def test_regridded_source():
 
     analysis = RegriddedSource(_NativeSource(), _CoarseningRegridder())
     assert isinstance(analysis, DataSource)
-    assert analysis.time_step == np.timedelta64(6, "h")
     for array in (
         analysis(time, variable),
         asyncio.run(analysis.fetch(time, variable=variable)),
@@ -324,8 +475,10 @@ def test_regridded_source():
         np.testing.assert_array_equal(array["lead_time"], lead_time)
         np.testing.assert_array_equal(array["lon"], _COARSE_GRID.longitude)
 
-    # fetch_data reads the wrapped source's cadence for temporal statistics.
-    array = fetch_data(analysis, time, np.array(["a:mean:12h", "b"]))
+    # Generic temporal statistics use an explicitly supplied sampling cadence.
+    array = fetch_data(
+        analysis, time, np.array(["a:mean:12h", "b"]), delta_t=np.timedelta64(6, "h")
+    )
     assert array.sizes["lon"] == _COARSE_GRID.shape[1]
     np.testing.assert_allclose(array, 1)
 
@@ -367,14 +520,21 @@ def test_regridded_source_and_regridder_argument_order():
     # A regridded source is an ordinary source: each fetched frame is regridded.
     log = []
     composed = fetch_data(
-        RegriddedSource(_NativeSource(), _LoggingCoarsener(log)), time, variable
+        RegriddedSource(_NativeSource(), _LoggingCoarsener(log)),
+        time,
+        variable,
+        delta_t=np.timedelta64(6, "h"),
     )
     assert [sizes["time"] for sizes in log] == [2]
 
     # The regridder argument regrids the reduced field once.
     log.clear()
     argument = fetch_data(
-        _NativeSource(), time, variable, regridder=_LoggingCoarsener(log)
+        _NativeSource(),
+        time,
+        variable,
+        regridder=_LoggingCoarsener(log),
+        delta_t=np.timedelta64(6, "h"),
     )
     assert [sizes["time"] for sizes in log] == [1]
     xr.testing.assert_allclose(composed, argument)
@@ -423,6 +583,7 @@ def test_fetch_data_device_aware_source():
             variable,
             device="cuda:0",
             regridder=None if composed else regridder,
+            delta_t=np.timedelta64(6, "h"),
         )
         assert isinstance(array.data, cp.ndarray)
         assert array.data.device.id == 0
@@ -435,13 +596,12 @@ def test_fetch_data_device_aware_source():
         time,
         variable,
         device="cpu",
+        delta_t=np.timedelta64(6, "h"),
     )
     assert isinstance(array.data, np.ndarray)
 
 
-@pytest.mark.parametrize(
-    "source", [_AnalysisSequence(), _CadencedAnalysisSequence(), _ForecastSequence()]
-)
+@pytest.mark.parametrize("source", [_AnalysisSequence(), _ForecastSequence()])
 def test_fetch_data_time_statistics(source):
     metadata = coord_array(
         ("time", "lead_time", "variable", "x"),
@@ -452,12 +612,17 @@ def test_fetch_data_time_statistics(source):
         },
         dynamic=("time",),
     )
-    delta_t = None if hasattr(source, "time_step") else np.timedelta64(6, "h")
+    with pytest.raises(ValueError, match="delta_t is required"):
+        fetch_data(
+            source,
+            np.array([np.datetime64("2024-01-02")]),
+            metadata.coords["variable"].values,
+        )
     array = fetch_data(
         source,
         np.array([np.datetime64("2024-01-02")]),
         metadata.coords["variable"].values,
-        delta_t=delta_t,
+        delta_t=np.timedelta64(6, "h"),
     )
     np.testing.assert_allclose(array.sel(variable="a:mean:24h"), -15)
     np.testing.assert_allclose(array.sel(variable="a:max:12h"), -6)

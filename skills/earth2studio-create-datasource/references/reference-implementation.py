@@ -29,6 +29,16 @@ Conventions:
 - File lives at earth2studio/data/<source_name>.py
 - Class name: PascalCase (e.g. GFS, ARCO_ERA5, CFS_FX, HimawariAHI)
 - File name: lowercase with underscores (e.g. gfs.py, cfs.py)
+
+Optional native temporal statistics (only when requested): follow
+``temporal-statistics.py`` and ``dev/spec/TIME_STATISTICS_SPEC.md``. Expose the
+lexicon via ``lexicon = SourceNameLexicon`` and declare supported methods on that
+lexicon. Use ``statistic_modifiers`` to bind callbacks to output views; unpack
+``modifiers, attrs, finalize``. Select and validate samples in the source's own
+request machinery, then invoke ``add(target, sample)`` after lexicon conversion.
+``map_with_concurrency`` offers bounded execution of existing fetch wrappers.
+For forecasts bind each initialization's view separately and vary leads within
+that cycle. Finish with ``finalize()`` and attach ``attrs``.
 """
 
 from __future__ import annotations

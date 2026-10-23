@@ -14,13 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
+import functools
 import hashlib
 import os
 import pathlib
 import shutil
 import uuid
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
 import numpy as np
@@ -32,18 +34,23 @@ from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
     _sync_async,
+    as_datetime,
+    as_timedelta,
     async_retry,
     cancellable_to_thread,
     datasource_cache_root,
     decode_grib_message,
     gather_with_concurrency,
+    map_with_concurrency,
     obstore_fetch_to_cache,
     obstore_store_from_url,
     prep_data_inputs,
     prep_forecast_inputs,
     resolve_async_workers,
+    statistic_modifiers,
 )
 from earth2studio.lexicon import GFSLexicon
+from earth2studio.utils.time_statistics import source_lead_times, source_times
 from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 
 logger.remove()
@@ -54,11 +61,13 @@ logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 class GFSAsyncTask:
     """Small helper struct for Async tasks"""
 
-    data_array_indices: tuple[int, int, int]
+    output_modifiers: list[Callable]
     gfs_file_uri: str
-    gfs_byte_offset: int
-    gfs_byte_length: int
+    gfs_byte_offset: int | None
+    gfs_byte_length: int | None
     gfs_modifier: Callable
+    # Extra bucket records used only for reconstructed six-hour precipitation.
+    corrections: list[tuple[int, "GFSAsyncTask"]] = field(default_factory=list)
 
 
 class GFS:
@@ -91,9 +100,18 @@ class GFS:
 
     Note
     ----
-    This data source only fetches the initial state of GFS and does not fetch an
-    predicted time steps. See [`GFS_FX`][earth2studio.data.GFS_FX] for fetching predicted
-    data from this forecast system.
+    This data source fetches the initial state of GFS. The derived ``tp06`` variable
+    uses the preceding cycle's six-hour forecast accumulation ending at the requested
+    time, in metres. See [`GFS_FX`][earth2studio.data.GFS_FX] for forecast lead times.
+
+    Note
+    ----
+    Temporal statistics: ``mean``, ``sum``, ``min``, and ``max`` accept labels
+    ``variable:method:window`` or ``variable:method:start:end``. Windows are
+    left-closed/right-open, sampled every six hours relative to the analysis time.
+    ``t2m:mean:24h`` averages the preceding four analyses, excluding that time.
+    ``tp06`` represents trailing six-hour accumulations; sums are totals only
+    when those intervals do not overlap.
 
     Note
     ----
@@ -112,6 +130,7 @@ class GFS:
 
     GFS_LAT = np.linspace(90, -90, 721)
     GFS_LON = np.linspace(0, 359.75, 1440)
+    lexicon = GFSLexicon
 
     def __init__(
         self,
@@ -127,6 +146,7 @@ class GFS:
         self._async_workers = async_workers
         self._retries = retries
         self._tmp_cache_hash: str | None = None
+        self._inflight_downloads: dict[str, asyncio.Future] = {}
 
         self.store: ObjectStore | None = None
         if source == "aws":
@@ -255,117 +275,228 @@ class GFS:
             },
         )
 
-        async_tasks = await self._create_tasks(time, [timedelta(hours=0)], variable)
-        coros = [self.fetch_wrapper(task, xr_array=xr_array) for task in async_tasks]
-
-        await gather_with_concurrency(
-            coros,
-            max_workers=resolve_async_workers(self._async_workers, len(coros)),
+        async_tasks, attrs, finalize = await self._create_tasks(
+            time, [timedelta(hours=0)], variable, xr_array, forecast=False
+        )
+        await map_with_concurrency(
+            async_tasks,
+            self.fetch_wrapper,
+            async_workers=self._async_workers,
             task_timeout=120.0,
             desc="Fetching GFS data",
-            verbose=(not self._verbose),
+            verbose=self._verbose,
         )
+        finalize()
+        xr_array.attrs.update(attrs)
 
         return xr_array.isel(lead_time=0)
 
-    async def _create_tasks(
-        self, time: list[datetime], lead_time: list[timedelta], variable: list[str]
-    ) -> list[GFSAsyncTask]:
-        """Create download tasks, each corresponding to one grib byte range on S3
+    def _lookup_record(
+        self,
+        index_file: dict[str, tuple[int, int]],
+        v: str,
+        t: datetime,
+        lt: timedelta,
+    ) -> tuple[int, int, Callable] | None:
+        """Find the grib byte range and modifier of a variable in an index file
 
         Parameters
         ----------
-        times : list[datetime]
-            Timestamps to be downloaded (UTC).
-        variables : list[str]
-            List of variables to be downloaded.
+        index_file : dict[str, tuple[int, int]]
+            Parsed grib index of one (time, lead time) file
+        v : str
+            Earth2Studio variable name
+        t : datetime
+            Forecast initialization time
+        lt : timedelta
+            Forecast lead time
 
         Returns
         -------
-        list[dict]
-            List of download tasks
+        tuple[int, int, Callable] | None
+            Byte offset, byte length and modifier, None if the record is missing
         """
-        tasks: list[GFSAsyncTask] = []  # group pressure-level variables
+        # --8<-- [start:gfs-lexicon-lookup]
+        try:
+            gfs_name, modifier = GFSLexicon[v]
+        except KeyError:
+            logger.warning(f"variable id {v} not found in GFS lexicon, good luck")
+            gfs_name = v
 
-        # Start with fetching all index files for each time / lead time
-        args = [self._grib_index_uri(t, lt) for t in time for lt in lead_time]
+            def modifier(x: np.array) -> np.array:
+                """Modify data (if necessary)."""
+                return x
+
+        lead_hour = int(lt.total_seconds() // 3600)
+        if v == "tp06":
+            # Only a matching six-hour record can satisfy this label directly.
+            gfs_name = f"{gfs_name}::{lead_hour - 6}-{lead_hour} hour acc fcst"
+        elif v == "tp" and lead_hour > 0:
+            # GFS restarts precipitation accumulation every six hours. For
+            # leads 1-6, duplicate descriptions resolve to the first (recent
+            # accumulation window) record in the index.
+            start_hour = 6 * ((lead_hour - 1) // 6)
+            gfs_name = f"{gfs_name}::{start_hour}-{lead_hour} hour acc fcst"
+
+        byte_offset = None
+        byte_length = None
+        for key, value in index_file.items():
+            if gfs_name in key:
+                byte_offset = value[0]
+                byte_length = value[1]
+                break
+
+        if byte_length is None or byte_offset is None:
+            logger.warning(
+                f"Variable {v} not found in index file for time {t} at {lt}, values will be unset"
+            )
+            return None
+        # --8<-- [end:gfs-lexicon-lookup]
+        return byte_offset, byte_length, modifier
+
+    async def _create_tasks(
+        self,
+        time: list[datetime],
+        lead_time: list[timedelta],
+        variable: list[str],
+        xr_array: xr.DataArray,
+        forecast: bool,
+    ) -> tuple[list[GFSAsyncTask], dict, Callable]:
+        """Create GFS byte-range tasks, adding statistical output modifiers."""
+        samples: dict[tuple[datetime, timedelta, str], list[Callable]] = {}
+        finalizers = []
+        attrs: dict = {}
+        # Bind forecast reducers separately per initialization: equal valid times
+        # from different forecast cycles must never contribute to the same window.
+        for i in range(len(time) if forecast else 1):
+            modifiers, attrs, finalize = statistic_modifiers(
+                variable,
+                xr_array.values[i] if forecast else xr_array.values[:, 0],
+                supported=self.lexicon.TIME_STATISTICS,
+                source=type(self).__name__,
+                verbose=self._verbose,
+            )
+            finalizers.append(finalize)
+            for v, statistic, add in modifiers:
+                coords = (
+                    np.asarray(lead_time, dtype="timedelta64[ns]")
+                    if forecast
+                    else np.asarray(time, dtype="datetime64[ns]")
+                )
+                required = (
+                    coords[:, None]
+                    if statistic is None
+                    else (
+                        source_lead_times(statistic, coords, np.timedelta64(1, "h"))
+                        if forecast
+                        else source_times(statistic, coords, np.timedelta64(6, "h"))
+                    )
+                )
+                for j, row in enumerate(required):
+                    for coord in row:
+                        t, lt = (
+                            (time[i], as_timedelta(coord))
+                            if forecast
+                            else (as_datetime(coord), timedelta(0))
+                        )
+                        self._validate_time([t])
+                        if isinstance(self, GFS_FX):
+                            self._validate_leadtime([lt])
+                        if v == "tp06":
+                            if forecast and lt < timedelta(hours=6):
+                                raise ValueError(
+                                    "GFS tp06 requires forecast lead times of at least 6 hours"
+                                )
+                            if not forecast:
+                                t, lt = t - timedelta(hours=6), timedelta(hours=6)
+                                self._validate_time([t])
+                        samples.setdefault((t, lt, v), []).append(
+                            functools.partial(add, j)
+                        )
+        if self._verbose and any(v == "tp06" for _, _, v in samples):
+            logger.info(
+                "GFS tp06: six-hour precipitation ending at each valid time, in metres"
+            )
+        if self._verbose and any(v == "tp" for _, _, v in samples):
+            logger.warning(
+                "GFS tp is accumulated over a 6 hour bucket that restarts, "
+                "statistics of tp combine these bucket values"
+            )
+        # One index per file, including the records needed to reconstruct tp06.
+        files = dict.fromkeys((t, lt) for t, lt, _ in samples)
+        for t, lt, v in samples:
+            hours = int(lt.total_seconds() // 3600)
+            if v == "tp06" and hours % 6:
+                files[t, timedelta(hours=6 * ((hours - 1) // 6))] = None
+                files[t, lt - timedelta(hours=6)] = None
         results = await gather_with_concurrency(
-            [self._fetch_index(uri) for uri in args],
-            max_workers=resolve_async_workers(self._async_workers, len(args)),
+            [self._fetch_index(self._grib_index_uri(t, lt)) for t, lt in files],
+            max_workers=resolve_async_workers(self._async_workers, len(files)),
             task_timeout=60.0,
             desc="Fetching GFS index files",
             verbose=True,
         )
-        for i, t in enumerate(time):
-            for j, lt in enumerate(lead_time):
-                # Get index file dictionary
-                index_file = results.pop(0)
-                for k, v in enumerate(variable):
-                    # --8<-- [start:gfs-lexicon-lookup]
-                    try:
-                        gfs_name, modifier = GFSLexicon[v]
-                    except KeyError:
-                        logger.warning(
-                            f"variable id {v} not found in GFS lexicon, good luck"
-                        )
-                        gfs_name = v
+        indices = dict(zip(files, results))
 
-                        def modifier(x: np.array) -> np.array:
-                            """Modify data (if necessary)."""
-                            return x
+        def make_task(
+            t: datetime, lt: timedelta, v: str, outputs: list[Callable]
+        ) -> GFSAsyncTask:
+            found = self._lookup_record(indices[t, lt], v, t, lt)
+            offset, length, modifier = (
+                found if found is not None else (None, None, lambda x: x)
+            )
+            return GFSAsyncTask(
+                outputs, self._grib_uri(t, lt), offset, length, modifier
+            )
 
-                    lead_hour = int(lt.total_seconds() // 3600)
-                    if v == "tp" and lead_hour > 0:
-                        # GFS restarts precipitation accumulation every six hours. For
-                        # leads 1-6, duplicate descriptions resolve to the first (recent
-                        # accumulation window) record in the index.
-                        start_hour = 6 * ((lead_hour - 1) // 6)
-                        gfs_name = f"{gfs_name}::{start_hour}-{lead_hour} hour acc fcst"
+        tasks = []
+        for (t, lt, v), outputs in samples.items():
+            task = make_task(t, lt, "tp" if v == "tp06" else v, outputs)
+            hours = int(lt.total_seconds() // 3600)
+            if v == "tp06" and hours % 6:
+                # P(6,7) + P(0,6) - P(0,1) gives the trailing total at lead 7.
+                task.corrections = [
+                    (
+                        1,
+                        make_task(t, timedelta(hours=6 * ((hours - 1) // 6)), "tp", []),
+                    ),
+                    (-1, make_task(t, lt - timedelta(hours=6), "tp", [])),
+                ]
+            tasks.append(task)
 
-                    byte_offset = None
-                    byte_length = None
-                    for key, value in index_file.items():
-                        if gfs_name in key:
-                            byte_offset = value[0]
-                            byte_length = value[1]
-                            break
+        def finalize_all() -> None:
+            for finalize in finalizers:
+                finalize()
 
-                    if byte_length is None or byte_offset is None:
-                        logger.warning(
-                            f"Variable {v} not found in index file for time {t} at {lt}, values will be unset"
-                        )
-                        continue
-                    # --8<-- [end:gfs-lexicon-lookup]
-                    tasks.append(
-                        GFSAsyncTask(
-                            data_array_indices=(i, j, k),
-                            gfs_file_uri=self._grib_uri(t, lt),
-                            gfs_byte_offset=byte_offset,
-                            gfs_byte_length=byte_length,
-                            gfs_modifier=modifier,
-                        )
-                    )
-        return tasks
+        return tasks, attrs, finalize_all
 
-    async def fetch_wrapper(
-        self,
-        task: GFSAsyncTask,
-        xr_array: xr.DataArray,
-    ) -> xr.DataArray:
-        """Small wrapper to pack arrays into the DataArray"""
-        out = await async_retry(
-            self.fetch_array,
-            task.gfs_file_uri,
-            task.gfs_byte_offset,
-            task.gfs_byte_length,
-            task.gfs_modifier,
-            retries=self._retries,
-            backoff=1.0,
-            task_timeout=60.0,
-            exceptions=(OSError, IOError, TimeoutError, ConnectionError),
-        )
-        i, j, k = task.data_array_indices
-        xr_array[i, j, k] = out
+    async def fetch_wrapper(self, task: GFSAsyncTask) -> None:
+        """Small wrapper to pack arrays into the DataArray via output modifiers."""
+
+        async def fetch(task: GFSAsyncTask) -> np.ndarray:
+            if task.gfs_byte_offset is None or task.gfs_byte_length is None:
+                return np.full((len(self.GFS_LAT), len(self.GFS_LON)), np.nan)
+            return await async_retry(
+                self.fetch_array,
+                task.gfs_file_uri,
+                task.gfs_byte_offset,
+                task.gfs_byte_length,
+                task.gfs_modifier,
+                retries=self._retries,
+                backoff=1.0,
+                task_timeout=60.0,
+                exceptions=(OSError, IOError, TimeoutError, ConnectionError),
+            )
+
+        out = await fetch(task)
+        for sign, correction in task.corrections:
+            sample = await fetch(correction)
+            if sign > 0:
+                out += sample
+            else:
+                out -= sample
+        for modifier in task.output_modifiers:
+            modifier(out)
 
     async def fetch_array(
         self,
@@ -479,14 +610,28 @@ class GFS:
 
         # aws paths are bucket-prefixed; ncep paths are already store-relative
         key = path.removeprefix(self.GFS_BUCKET_NAME + "/")
-        return await obstore_fetch_to_cache(
-            self.store,
-            key,
-            self.cache,
-            byte_offset=byte_offset,
-            byte_length=byte_length,
-            cache_key=filename,
-        )
+
+        # Concurrent samples (e.g. tp06 at neighbouring leads) can request the same
+        # byte range. Share one in-flight download per cache file; the cache file
+        # itself is published atomically so readers never see a partial file.
+        inflight = self._inflight_downloads
+        task = inflight.get(filename)
+        if task is None:
+            task = asyncio.ensure_future(
+                obstore_fetch_to_cache(
+                    self.store,
+                    key,
+                    self.cache,
+                    byte_offset=byte_offset,
+                    byte_length=byte_length,
+                    cache_key=filename,
+                    atomic=True,
+                )
+            )
+            inflight[filename] = task
+            task.add_done_callback(lambda _t: inflight.pop(filename, None))
+        # shield so one cancelled/timed-out sample does not abort the shared download
+        return await asyncio.shield(task)
 
     def _grib_uri(self, time: datetime, lead_time: timedelta) -> str:
         """Generates the URI for GFS grib files"""
@@ -569,6 +714,21 @@ class GFS_FX(GFS):
     grid. GFS is a weather forecast model developed by NOAA. This data source is on a
     0.25 degree lat lon grid at 6-hour intervals spanning from Feb 26th 2021 to present
     date. Each forecast provides hourly predictions up to 16 days (384 hours).
+
+    ``tp06`` is the trailing six-hour precipitation total in metres, reconstructed
+    across accumulation-bucket resets within the same forecast initialization.
+    All requested ``tp06`` sample lead times must be at least six hours. Temporal
+    statistics of ``tp06`` reduce these six-hour totals; overlapping totals in a
+    sum count overlapping precipitation more than once.
+
+    Note
+    ----
+    Temporal statistics: ``mean``, ``sum``, ``min``, and ``max`` accept labels
+    ``variable:method:window`` or ``variable:method:start:end``. Windows are
+    left-closed/right-open, sampled hourly over lead times of one initialization.
+    ``t2m:mean:6h`` at lead six hours averages leads zero through five hours.
+    Negative or unavailable leads are rejected. Raw ``tp`` accumulation buckets
+    reset every six hours; summing them is not a precipitation total.
 
     Parameters
     ----------
@@ -689,16 +849,19 @@ class GFS_FX(GFS):
             },
         )
 
-        async_tasks = await self._create_tasks(time, lead_time, variable)
-        coros = [self.fetch_wrapper(task, xr_array=xr_array) for task in async_tasks]
-
-        await gather_with_concurrency(
-            coros,
-            max_workers=resolve_async_workers(self._async_workers, len(coros)),
+        async_tasks, attrs, finalize = await self._create_tasks(
+            time, lead_time, variable, xr_array, forecast=True
+        )
+        await map_with_concurrency(
+            async_tasks,
+            self.fetch_wrapper,
+            async_workers=self._async_workers,
             task_timeout=120.0,
             desc="Fetching GFS data",
-            verbose=(not self._verbose),
+            verbose=self._verbose,
         )
+        finalize()
+        xr_array.attrs.update(attrs)
 
         return xr_array
 

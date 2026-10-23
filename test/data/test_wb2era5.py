@@ -127,3 +127,78 @@ def test_wb2era5_available(time, variable, Datasource):
     with pytest.raises(ValueError):
         ds = Datasource(cache=False)
         ds(time, variable)
+
+
+@pytest.mark.timeout(30)
+def test_wb2era5_time_statistics_mock(mock_statistic_zarr, monkeypatch):
+    from earth2studio.data import WB2Climatology
+    from earth2studio.data.utils import fetch_data
+
+    ds = WB2ERA5(cache=True, verbose=True)
+    reads = mock_statistic_zarr(ds)
+    time = datetime.datetime(2020, 1, 2, 12)
+    index = ds._get_time_index(time)
+    variables = ["t2m", "t2m:mean:24h", "t2m:sum:24h", "t2m:max:12h", "t2m:min:12h"]
+    data = ds(time, variables)
+
+    assert data.shape == (1, 5, 2, 2)
+    values = [float(data.sel(variable=v).values[0, 0, 0]) for v in variables]
+    # Window [-24h, 0h) is the four 6-hourly fields index-4 .. index-1
+    assert values == [index, index - 2.5, 4 * index - 10, index - 1, index - 2]
+    assert set(data.attrs["earth2studio_statistics"]) == set(variables[1:])
+    # Each distinct 6-hourly field is read once, including the instantaneous one
+    assert sorted(reads) == list(range(index - 4, index + 1))
+    # A window that is not a multiple of the 6 hour cadence is rejected
+    with pytest.raises(ValueError, match="divisible"):
+        ds(time, ["t2m:mean:9h"])
+
+    reads.clear()
+    data = ds(time, ["t2m", "t2m:mean:+0h:+12h"])
+    np.testing.assert_allclose(data.values[0, :, 0, 0], [index, index + 0.5])
+    assert sorted(reads) == [index, index + 1]
+
+    reads.clear()
+    data = fetch_data(
+        ds,
+        np.array([time], dtype="datetime64[ns]"),
+        np.array(["t2m:mean:24h"]),
+        delta_t=np.timedelta64(12, "h"),
+    )
+    assert data.values[0, 0, 0, 0, 0] == index - 3
+    assert sorted(reads) == [index - 4, index - 2]
+
+    # Both native entry points reject equivalent requests before fetching samples.
+    reads.clear()
+    for duplicate in (
+        ["t2m", "t2m"],
+        ["t2m:mean:24h", "t2m:mean:1d"],
+        ["t2m:mean:24h", "t2m:mean:-24h:0h"],
+    ):
+        with pytest.raises(ValueError, match="duplicate quantities"):
+            ds(time, duplicate)
+        for cadence in (None, np.timedelta64(6, "h")):
+            with pytest.raises(ValueError, match="duplicate quantities"):
+                fetch_data(
+                    ds,
+                    np.array([time], dtype="datetime64[ns]"),
+                    np.array(duplicate),
+                    delta_t=cadence,
+                )
+    assert reads == []
+
+    climate = WB2Climatology()
+    assert not hasattr(climate, "time_statistics")
+    assert not hasattr(climate.lexicon, "TIME_STATISTICS")
+
+    async def fetch(time, variable):
+        assert variable == ["t2m"]
+        return await ds.fetch(time, variable)
+
+    monkeypatch.setattr(climate, "fetch", fetch)
+    data = fetch_data(
+        climate,
+        np.array([time], dtype="datetime64[ns]"),
+        np.array(["t2m:mean:24h"]),
+        delta_t=np.timedelta64(6, "h"),
+    )
+    assert data.values[0, 0, 0, 0, 0] == index - 2.5
