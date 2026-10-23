@@ -111,24 +111,29 @@ field = fetch_data(
 )
 ```
 
-Here `source` is an analysis or forecast source providing instantaneous `t2m`.
+Here `source` is an analysis source providing instantaneous `t2m`.
 The mean includes the four samples at -24, -18, -12 and -6 hours. Windows are
 left-closed and right-open. An explicit `delta_t` selects generic reduction at
 that sampling cadence. Without it, statistics are delegated to sources that
 support them natively; other sources require `delta_t`. Qualified variable labels
 such as `"t2m:mean:24h"` declare reductions; duplicate normalized quantities are rejected.
 Output `earth2studio_statistics` describes the reductions actually performed.
-Already aggregated source variables cannot be reduced again.
+Generic reduction rejects source variables already marked as aggregated.
 
-`ARCO_ERA5` handles statistics natively and uses hourly samples automatically
-without an explicit `delta_t`. Sampling cadence is internal to each source.
+`ARCO_ERA5`, `GFS_FX`, `HRRR`, and `HRRR_FX` handle statistics natively with
+hourly sampling; `GFS` and the `WB2ERA5` variants use six-hourly sampling.
+All support `mean`, `sum`, `min`, and `max` without an explicit `delta_t`.
+Sampling cadence is internal to each source. Reductions of accumulated variables
+operate on stored values; overlapping accumulation periods can double-count totals.
 Supported methods are documented under **Temporal statistics:** in each source's
 class docstring; capability metadata lives in `source.lexicon.TIME_STATISTICS`.
 Sources do not need `time_step` or `time_statistics` attributes.
 
 Analysis sources fetch absolute valid timestamps, while forecast sources reduce
-lead times separately for each initialization. Missing or duplicate reduction
-samples raise an error.
+lead times separately for each initialization. For a trailing 24-hour forecast
+mean, request a lead of at least 24 hours so the window stays within that
+initialization. Unavailable sample coordinates and failed downloads raise errors;
+NaN values are skipped by the reducers.
 
 The former tuple return and `legacy` argument have been removed. Access values
 through `field.data` and coordinates through `field.coords`.

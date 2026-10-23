@@ -42,26 +42,32 @@ Contract
    make sense; omit the metadata for a lexicon without native support. Pass cadence
    internally to the planner. Neither ``time_step`` nor ``time_statistics`` is a
    source class attribute.
-2. ``split_statistic_variables`` separates plain labels from statistic labels.
-   It raises ``ValueError`` for malformed labels and methods outside
-   ``supported``.
-3. A planner builds one ``StatisticJob`` per (variable[, init time]). Each job
-   owns a ``StatisticAggregator`` that knows which extra times (analysis) or
-   lead times (forecast) are needed. Plain variables are jobs with a ``None``
-   modifier, so everything goes through one code path.
-4. ``sample_coords(jobs)`` is the union of extra coordinates: validate them
-   with the source's own ``_validate_time`` / ``_validate_leadtime`` BEFORE any
-   download so bad windows fail fast.
-5. ``run_statistic_jobs`` fetches each distinct field once with bounded
-   concurrency and folds it into every window that contains it. Memory is one
-   field per statistic plus the output, independent of the window length.
-6. Set ``xr_array.attrs[E2S_STATISTICS] = statistic_attrs(stat_groups)`` so
+2. ``compile_statistic_requests`` parses labels, expands windows and returns
+   ``requests, attrs, finalize``: deduplicated requests paired with processing
+   callbacks, metadata, and a finalization function. It rejects
+   malformed/duplicate labels and methods outside ``supported``.
+3. Each request carries ``time``, ``lead_time``, ``variable`` and ``modifier``.
+   Validate those coordinates with the source's validators before downloading.
+4. Fetch the base variable and apply its ordinary lexicon modifier, then call
+   ``request.modifier(sample)`` once. This callback copies or aggregates the field
+   into all consuming outputs, without retaining it. ``run_data_requests`` is a
+   bounded async loop that does this; it contains no statistic planning logic.
+5. Call ``finalize()`` once after fetching to check completeness and finish means.
+   Field memory is output views, per-cell mean counts, and concurrent samples;
+   coordinate plans still grow with the number of requested samples. Backend
+   adapters may fetch additional components for derived variables.
+6. Set ``xr_array.attrs.update(attrs)`` so
    downstream code knows the result is already reduced.
-7. With ``verbose=True`` call ``log_statistics`` to tell the user what is
+7. Pass ``verbose=True`` to the compiler to tell the user what is
    averaged / accumulated / min'd / max'd and how many samples it needs.
 
 Helpers live in ``earth2studio/data/utils.py``; parsing and offsets in
 ``earth2studio/utils/time_statistics.py``. Do not write new reducers.
+Contracts: ``dev/spec/TIME_STATISTICS_SPEC.md`` and ``dev/spec/FETCH_DATA_SPEC.md``.
+Call path: compile_statistic_requests -> source validation -> run_data_requests
+-> fetch_sample -> request.modifier -> finalize() -> output attrs.
+Custom block reductions registered in time_statistics are not automatically
+supported by native streaming sources; use fetch_data with explicit delta_t.
 
 Real examples:
 - Analysis, Zarr: earth2studio/data/wb2.py, earth2studio/data/arco.py
@@ -73,20 +79,14 @@ Real examples:
 # Imports (add to the existing earth2studio.data.utils import)
 # ---------------------------------------------------------------------------
 from datetime import datetime, timedelta
-from typing import Any
 
 import numpy as np
 import xarray as xr
 
 from earth2studio.data.utils import (
-    StatisticJob,
-    analysis_jobs,  # FILL: forecast_jobs for a ForecastSource
-    as_datetime,  # FILL: as_timedelta for a ForecastSource
-    log_statistics,
-    run_statistic_jobs,
-    sample_coords,
-    split_statistic_variables,
-    statistic_attrs,
+    DataRequest,
+    compile_statistic_requests,
+    run_data_requests,
 )
 from earth2studio.utils.coords import E2S_STATISTICS
 
@@ -114,61 +114,58 @@ class SourceName:
         time_list, variable_list = prep_data_inputs(time, variable)  # noqa: F821
         self._validate_time(time_list)
 
-        # 1. Split labels. Plain entries are (slot, name); groups share a modifier
-        plain, stat_groups = split_statistic_variables(
-            variable_list,
-            supported=self.lexicon.TIME_STATISTICS,  # reject unsupported methods
-        )
-
-        # 2. Output keeps the labels exactly as requested ("t2m:mean:24h")
+        # Output keeps the labels exactly as requested ("t2m:mean:24h")
         xr_array = xr.DataArray(
             data=np.full((len(time_list), len(variable_list), 181, 360), np.nan),
             dims=["time", "variable", "lat", "lon"],
             coords={"time": time_list, "variable": variable_list},
         )
 
-        # 3. Plan: jobs write into xr_array.values[:, slot] in place
+        # Compile requests with callbacks writing into output views
         # FILL: cadence of the stored data; windows must be multiples of it
-        jobs = analysis_jobs(
-            stat_groups, time_list, np.timedelta64(6, "h"), xr_array.values, plain
+        requests, attrs, finalize = compile_statistic_requests(
+            variable_list,
+            time_list,
+            np.timedelta64(6, "h"),
+            xr_array.values,
+            supported=self.lexicon.TIME_STATISTICS,
+            source="SourceName",
+            verbose=self._verbose,
         )
 
-        # 4. Validate every extra time before reading anything
-        self._validate_time([as_datetime(t) for t in sample_coords(jobs)])
-        log_statistics("SourceName", stat_groups, jobs, self._verbose)
+        # Validate every extra time before reading anything
+        self._validate_time(list({r.time for r in requests}))
 
-        # 5. Fetch each distinct instantaneous field once, reduce on arrival
-        async def fetch_sample(job: StatisticJob, coord: Any) -> np.ndarray:
-            # job.base is the lexicon name WITHOUT the statistic suffix
-            return await self.fetch_array(as_datetime(coord), job.base)
+        # Fetch each base field using the source's normal lexicon conversion
+        async def fetch_sample(request: DataRequest) -> np.ndarray:
+            return await self.fetch_array(request.time, request.variable)
 
-        await run_statistic_jobs(
-            jobs,
+        # Equivalent to: request.modifier(await fetch_sample(request)) per request
+        await run_data_requests(
+            requests,
             fetch_sample,
             desc="Fetching SourceName data",
             verbose=self._verbose,
             async_workers=self._async_workers,
         )
 
-        # 6. Declare the reduction
-        if stat_groups:
-            xr_array.attrs[E2S_STATISTICS] = statistic_attrs(stat_groups)
+        finalize()
+        xr_array.attrs.update(attrs)
         return xr_array
 
     # ----------------------------------------------------------------------
     # ForecastSource: extra samples are other LEAD TIMES of the same init time
     # ----------------------------------------------------------------------
-    # plain, stat_groups = split_statistic_variables(
-    #     variable_list, self.lexicon.TIME_STATISTICS
-    # )
-    # jobs = forecast_jobs(
-    #     stat_groups, time_list, lead_list, np.timedelta64(1, "h"),
+    # requests, attrs, finalize = compile_statistic_requests(
+    #     variable_list, time_list, np.timedelta64(1, "h"),
     #     xr_array.values,          # dims (time, lead_time, variable, ...)
-    #     plain,
+    #     lead_time=lead_list,
+    #     supported=self.lexicon.TIME_STATISTICS,
+    #     source="SourceName", verbose=self._verbose,
     # )
-    # self._validate_leadtime([as_timedelta(lt) for lt in sample_coords(jobs)])
-    # fetch_sample receives job.init_time (a datetime) and a lead-time coord:
-    #     return await self.fetch_array(job.init_time, as_timedelta(coord), job.base)
+    # self._validate_leadtime(list({r.lead_time for r in requests}))
+    # Forecast fetch_sample uses the already resolved time and lead:
+    #     return await self.fetch_array(request.time, request.lead_time, request.variable)
     #
     # A lead time of 0 with a trailing window (e.g. "mean:3h") reaches before
     # the start of the forecast and fails validation: that is intended.
@@ -177,17 +174,21 @@ class SourceName:
 # ---------------------------------------------------------------------------
 # Source-specific caveats to handle (and tell the user about in verbose mode)
 # ---------------------------------------------------------------------------
-# - Fields that are already accumulations (precip buckets that reset every 6h)
-#   do not sum/mean meaningfully; log a warning like GFS does for ``tp``.
+# - Reductions sum/average stored values, not rates integrated over time. Already
+#   accumulated fields may overlap or reset; document their periods and warn like
+#   GFS does for ``tp``. Totals are only rainfall totals for disjoint intervals.
 # - Composite sources must not reduce: forward labels unchanged to components.
-# - Missing samples: reducers skip NaN (sum/mean keep per-cell valid counts),
-#   so a missing file degrades the window instead of crashing it.
+# - NaNs are skipped; only mean keeps per-cell valid counts. All-NaN windows
+#   yield NaN for mean/min/max and zero for sum. Download errors still propagate;
+#   a source may explicitly return NaN fields for missing records. finalize()
+#   rejects incomplete sample counts.
 
 
 # ===========================================================================
 # MOCK TEST SAMPLE (copy into test/data/test_<source>.py)
 # ===========================================================================
-# Exactly ONE statistics test per source: test_<source>_time_statistics_mock.
+# Exactly ONE statistics test per source: extend test_<source>_call_mock when
+# present, otherwise add test_<source>_time_statistics_mock.
 # It must run without network and cover mean, sum, min, max, the attrs, the
 # set of fetched samples (each field once), and an invalid window.
 #
@@ -201,7 +202,7 @@ class SourceName:
 #     def test_source_time_statistics_mock(mock_statistic_zarr):
 #         ds = SourceName(cache=True, verbose=True)
 #         reads = mock_statistic_zarr(ds)       # returns the list of reads
-#         time = datetime.datetime(2020, 1, 2, 12)
+#         time = datetime(2020, 1, 2, 12)
 #         index = ds._get_time_index(time)      # value of the field at `time`
 #         variables = [
 #             "t2m",                 # plain field passes through unchanged
@@ -229,4 +230,6 @@ class SourceName:
 # Forecast sources additionally assert lead-time behavior: pass two lead times
 # whose windows overlap, check shifted results, that each overlapping lead is
 # fetched once (``len(set(calls)) == len(calls)``), and that a lead time
-# reaching before 0 raises ``ValueError``.
+# reaching before 0 raises ``ValueError``. Use multiple initializations to check
+# that equal valid times from distinct forecasts are not merged. Also check NaN
+# handling and that invalid windows cause no backend reads.

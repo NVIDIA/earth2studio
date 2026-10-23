@@ -22,7 +22,6 @@ import shutil
 import uuid
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
-from typing import Any
 
 import numpy as np
 import obstore as obs
@@ -32,29 +31,20 @@ from obstore.store import ObjectStore
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
-    StatisticGroup,
-    StatisticJob,
+    DataRequest,
     _sync_async,
-    analysis_jobs,
-    as_datetime,
-    as_timedelta,
     async_retry,
     cancellable_to_thread,
+    compile_statistic_requests,
     datasource_cache_root,
     decode_grib_message,
-    forecast_jobs,
-    log_statistics,
     obstore_fetch_to_cache,
     obstore_store_from_url,
     prep_data_inputs,
     prep_forecast_inputs,
-    run_statistic_jobs,
-    sample_coords,
-    split_statistic_variables,
-    statistic_attrs,
+    run_data_requests,
 )
 from earth2studio.lexicon import GFSLexicon
-from earth2studio.utils.coords import E2S_STATISTICS
 from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 
 logger.remove()
@@ -247,9 +237,6 @@ class GFS:
 
         # Make sure input time is valid
         self._validate_time(time)
-        plain, stat_groups = split_statistic_variables(
-            variable, self.lexicon.TIME_STATISTICS
-        )
 
         # Note, this could be more memory efficient and avoid pre-allocation of the array
         # but this is much much cleaner to deal with, compared to something seen in the
@@ -269,13 +256,19 @@ class GFS:
             },
         )
 
-        jobs = analysis_jobs(
-            stat_groups, time, np.timedelta64(6, "h"), xr_array.values[:, 0], plain
+        requests, attrs, finalize = compile_statistic_requests(
+            variable,
+            time,
+            np.timedelta64(6, "h"),
+            xr_array.values[:, 0],
+            supported=self.lexicon.TIME_STATISTICS,
+            source=type(self).__name__,
+            verbose=self._verbose,
         )
-        self._validate_time([as_datetime(t) for t in sample_coords(jobs)])
-        await self._fetch_jobs(stat_groups, jobs, forecast=False)
-        if stat_groups:
-            xr_array.attrs[E2S_STATISTICS] = statistic_attrs(stat_groups)
+        self._validate_time(list({r.time for r in requests}))
+        await self._fetch_requests(requests, forecast=False)
+        finalize()
+        xr_array.attrs.update(attrs)
 
         return xr_array.isel(lead_time=0)
 
@@ -342,43 +335,35 @@ class GFS:
         # --8<-- [end:gfs-lexicon-lookup]
         return byte_offset, byte_length, modifier
 
-    async def _fetch_jobs(
+    async def _fetch_requests(
         self,
-        groups: list[StatisticGroup],
-        jobs: list[StatisticJob],
+        requests: list[DataRequest],
         forecast: bool,
     ) -> None:
         """Fetch shared samples, copying plain fields and reducing statistics in place.
 
         Parameters
         ----------
-        groups : list[StatisticGroup]
-            Statistic groups being computed
-        jobs : list[StatisticJob]
-            Planned jobs writing into the output array
+        requests : list[DataRequest]
+            Compiled requests and processing callbacks
         forecast : bool
-            Whether the sample coordinates are lead times (True) or valid times
+            Whether precipitation samples belong to a fixed forecast cycle
         """
-        for job in jobs:
-            if job.base != "tp06":
+        for request in requests:
+            if request.variable != "tp06":
                 continue
             if forecast:
-                if np.any(job.aggregator.coords < np.timedelta64(6, "h")):
+                if request.lead_time < timedelta(hours=6):
                     raise ValueError(
                         "GFS tp06 requires forecast lead times of at least 6 hours"
                     )
             else:
-                self._validate_time(
-                    [as_datetime(t) - timedelta(hours=6) for t in job.aggregator.coords]
-                )
-        log_statistics("GFS_FX" if forecast else "GFS", groups, jobs, self._verbose)
-        if self._verbose and any(job.base == "tp06" for job in jobs):
+                self._validate_time([request.time - timedelta(hours=6)])
+        if self._verbose and any(r.variable == "tp06" for r in requests):
             logger.info(
                 "GFS tp06: six-hour precipitation ending at each valid time, in metres"
             )
-        if self._verbose and any(
-            job.base == "tp" and job.aggregator.method for job in jobs
-        ):
+        if self._verbose and any(r.variable == "tp" for r in requests):
             logger.warning(
                 "GFS tp is accumulated over a 6 hour bucket that restarts, "
                 "statistics of tp combine these bucket values"
@@ -409,15 +394,10 @@ class GFS:
                 exceptions=(OSError, IOError, TimeoutError, ConnectionError),
             )
 
-        async def fetch_sample(job: StatisticJob, coord: Any) -> np.ndarray:
-            if forecast:
-                if job.init_time is None:
-                    raise ValueError("Forecast jobs require an initialization time")
-                t, lt = job.init_time, as_timedelta(coord)
-            else:
-                t, lt = as_datetime(coord), timedelta(hours=0)
-            if job.base != "tp06":
-                return await fetch_field(t, lt, job.base)
+        async def fetch_sample(request: DataRequest) -> np.ndarray:
+            t, lt = request.time, request.lead_time
+            if request.variable != "tp06":
+                return await fetch_field(t, lt, request.variable)
             if not forecast:
                 # Analyses have no precipitation history: use the preceding cycle's
                 # complete six-hour forecast bucket ending at the requested time.
@@ -432,8 +412,8 @@ class GFS:
                 total -= await fetch_field(t, lt - timedelta(hours=6), "tp")
             return total
 
-        await run_statistic_jobs(
-            jobs,
+        await run_data_requests(
+            requests,
             fetch_sample,
             desc="Fetching GFS data",
             verbose=self._verbose,
@@ -767,9 +747,6 @@ class GFS_FX(GFS):
         # Make sure input time is valid
         self._validate_time(time)
         self._validate_leadtime(lead_time)
-        plain, stat_groups = split_statistic_variables(
-            variable, self.lexicon.TIME_STATISTICS
-        )
 
         # Note, this could be more memory efficient and avoid pre-allocation of the array
         # but this is much much cleaner to deal with, compared to something seen in the
@@ -795,13 +772,20 @@ class GFS_FX(GFS):
             },
         )
 
-        jobs = forecast_jobs(
-            stat_groups, time, lead_time, np.timedelta64(1, "h"), xr_array.values, plain
+        requests, attrs, finalize = compile_statistic_requests(
+            variable,
+            time,
+            np.timedelta64(1, "h"),
+            xr_array.values,
+            lead_time=lead_time,
+            supported=self.lexicon.TIME_STATISTICS,
+            source=type(self).__name__,
+            verbose=self._verbose,
         )
-        self._validate_leadtime([as_timedelta(lt) for lt in sample_coords(jobs)])
-        await self._fetch_jobs(stat_groups, jobs, forecast=True)
-        if stat_groups:
-            xr_array.attrs[E2S_STATISTICS] = statistic_attrs(stat_groups)
+        self._validate_leadtime(list({r.lead_time for r in requests}))
+        await self._fetch_requests(requests, forecast=True)
+        finalize()
+        xr_array.attrs.update(attrs)
 
         return xr_array
 

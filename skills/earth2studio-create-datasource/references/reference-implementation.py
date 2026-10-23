@@ -29,6 +29,15 @@ Conventions:
 - File lives at earth2studio/data/<source_name>.py
 - Class name: PascalCase (e.g. GFS, ARCO_ERA5, CFS_FX, HimawariAHI)
 - File name: lowercase with underscores (e.g. gfs.py, cfs.py)
+
+Optional native temporal statistics (only when requested): follow
+``temporal-statistics.py`` and ``dev/spec/TIME_STATISTICS_SPEC.md``. Expose the
+lexicon via ``lexicon = SourceNameLexicon`` and declare supported methods on that
+lexicon. Use ``compile_statistic_requests`` to get requests with modifier callbacks.
+Validate request coordinates, then fetch each base field and invoke its callback;
+``run_data_requests`` supplies that bounded loop. Pass ``lead_time=lead_list`` for
+forecasts. Unpack ``requests, attrs, finalize``, finish with ``finalize()`` and
+attach ``attrs``.
 """
 
 from __future__ import annotations

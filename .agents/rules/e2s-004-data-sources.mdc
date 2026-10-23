@@ -19,6 +19,28 @@ Both methods have the same API:
 - `variable: str | list[str] | VariableArray`
 - Returns: `xr.DataArray` with dimensions `[time, variable, ...]`
 
+## Native Temporal Statistics (Optional)
+
+Follow [TIME_STATISTICS_SPEC.md](mdc:dev/spec/TIME_STATISTICS_SPEC.md) when adding
+native statistics to regular-cadence gridded sources. Declare supported methods
+on `source.lexicon.TIME_STATISTICS`, not source-level `time_step` or
+`time_statistics` attributes. Document cadence, half-open windows, and accumulation
+semantics in the class docstring.
+
+Use `compile_statistic_requests` from `earth2studio.data.utils`, unpack
+`requests, attrs, finalize`, validate the requests, then fetch each field and call
+`request.modifier(sample)`. `run_data_requests` provides this bounded async loop.
+Call `finalize()` once and attach `attrs` after all requests complete.
+Omit `lead_time` when planning analysis windows. Keep requested labels/target times,
+validate expanded valid times before reads, and stream into output views rather
+than retaining whole sample windows. Plain fields share the same request pool.
+Record reductions in `E2S_STATISTICS`; verbose logging explains the samples reduced.
+
+Use one backend-mocked statistics test per source, extending an existing call mock
+where possible. The create-datasource skill's `references/temporal-statistics.py`
+contains the implementation and testing template. Sources without native support
+can use the generic `fetch_data(..., delta_t=...)` path.
+
 ## Common Constructor Parameters
 
 All data sources should follow this constructor pattern:

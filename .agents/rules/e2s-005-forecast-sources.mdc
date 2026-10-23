@@ -20,6 +20,22 @@ Both methods have the same API:
 - `variable: str | list[str] | VariableArray`
 - Returns: `xr.DataArray` with dimensions `[time, lead_time, variable, ...]`
 
+## Native Temporal Statistics (Optional)
+
+Use the data-source statistics contract in
+[TIME_STATISTICS_SPEC.md](mdc:dev/spec/TIME_STATISTICS_SPEC.md). Pass
+`lead_time=lead_list` to `compile_statistic_requests` with output shaped
+`(time, lead_time, variable, ...)`. A window shifts leads within a fixed
+initialization; it must never substitute a different forecast cycle.
+Each request already contains its initialization `time` and `lead_time`.
+Validate all expanded leads against that initialization's availability before
+downloading, including negative leads and changes in forecast cadence/horizon.
+
+Declare methods through `source.lexicon.TIME_STATISTICS`; stream and attach
+`attrs` after `finalize()` as for analysis sources. In the source mock, check
+overlapping leads share fetches while equal valid times from separate
+initializations remain distinct. Document resetting or overlapping accumulations.
+
 ## Key Differences from Data Sources
 
 ### 1. API Signature Includes `lead_time`

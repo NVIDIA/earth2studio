@@ -1919,7 +1919,7 @@ _DESCRIPTIONS = {
 
 
 @dataclass(frozen=True)
-class StatisticGroup:
+class _StatisticGroup:
     """Requested variables that share one statistic modifier.
 
     Parameters
@@ -1938,10 +1938,10 @@ class StatisticGroup:
     variables: tuple[tuple[int, str, str], ...]
 
 
-def split_statistic_variables(
+def _split_statistic_variables(
     variable: Sequence[str],
     supported: Sequence[str] = STREAMING_STATISTICS,
-) -> tuple[list[tuple[int, str]], list[StatisticGroup]]:
+) -> tuple[list[tuple[int, str]], list[_StatisticGroup]]:
     """Separate plain variables from variables qualified with a statistic.
 
     Parameters
@@ -1954,7 +1954,7 @@ def split_statistic_variables(
 
     Returns
     -------
-    tuple[list[tuple[int, str]], list[StatisticGroup]]
+    tuple[list[tuple[int, str]], list[_StatisticGroup]]
         ``(slot, name)`` of each plain variable, and the statistic groups in order
         of first appearance
 
@@ -1994,38 +1994,19 @@ def split_statistic_variables(
         methods[modifier] = method
         grouped.setdefault(modifier, []).append((slot, str(label), base))
     groups = [
-        StatisticGroup(modifier, methods[modifier], tuple(entries))
+        _StatisticGroup(modifier, methods[modifier], tuple(entries))
         for modifier, entries in grouped.items()
     ]
     return plain, groups
 
 
-def statistic_attrs(groups: Sequence[StatisticGroup]) -> dict[str, Any]:
-    """Build the ``E2S_STATISTICS`` attribute declaring computed statistics.
-
-    Parameters
-    ----------
-    groups : Sequence[StatisticGroup]
-        Statistic groups computed by the source
-
-    Returns
-    -------
-    dict[str, Any]
-        Attribute value mapping each full label to its statistic metadata
-    """
-    return {
-        label: time_statistic_metadata(group.modifier)
-        for group in groups
-        for _, label, _ in group.variables
-    }
-
-
-class StatisticAggregator:
+class _StatisticReducer:
     """Streaming reduction of the samples in each target's window.
 
     Reductions write directly into ``out``; means also keep per-cell valid counts.
-    Memory usage is independent of the number of samples in a window. A ``None``
-    modifier copies instantaneous samples without reducing them.
+    Field memory usage is independent of the number of samples in a window;
+    coordinate and consumer metadata scale with the request. A ``None`` modifier
+    copies instantaneous samples without reducing them.
 
     Parameters
     ----------
@@ -2090,10 +2071,6 @@ class StatisticAggregator:
         """Number of samples reduced into each target."""
         return len(self.offsets)
 
-    def from_key(self, key: int) -> np.datetime64 | np.timedelta64:
-        """Convert the integer key of a sample coordinate back to its numpy value."""
-        return np.asarray(key, dtype="int64").astype(self.dtype)[()]
-
     def add(self, coord: Any, sample: np.ndarray) -> None:
         """Fold one fetched sample into every target whose window contains it.
 
@@ -2145,111 +2122,153 @@ class StatisticAggregator:
                 self.out /= self._valid
 
 
-@dataclass
-class StatisticJob:
-    """One statistic of one base variable, reduced into a slice of the output.
+@dataclass(frozen=True)
+class DataRequest:
+    """One deduplicated source request paired with its output modifier.
 
     Parameters
     ----------
-    base : str
-        Lexicon variable whose instantaneous samples are reduced
-    aggregator : StatisticAggregator
-        Reducer writing into the output array
-    init_time : datetime | None, optional
-        Forecast initialization time, or None for analysis jobs
+    time : datetime
+        Valid time for analysis data, initialization time for forecasts
+    lead_time : timedelta
+        Forecast lead, or zero for analysis data
+    variable : str
+        Base variable to resolve through the source lexicon
+    modifier : Callable[[np.ndarray], None]
+        Consume the decoded, lexicon-modified field once. Copies plain values or
+        updates every statistic that needs this sample, without retaining it
     """
 
-    base: str
-    aggregator: StatisticAggregator
-    init_time: datetime | None = None
+    time: datetime
+    lead_time: timedelta
+    variable: str
+    modifier: Callable[[np.ndarray], None]
 
 
-def analysis_jobs(
-    groups: Sequence[StatisticGroup],
+def compile_statistic_requests(
+    variable: Sequence[str],
     time: Sequence[Any],
     delta_t: np.timedelta64,
     values: np.ndarray,
-    plain: Sequence[tuple[int, str]] = (),
-) -> list[StatisticJob]:
-    """Plan statistic jobs of an analysis source with output ``(time, variable, ...)``.
+    *,
+    lead_time: Sequence[Any] | None = None,
+    supported: Sequence[str] = STREAMING_STATISTICS,
+    source: str = "Data source",
+    verbose: bool = False,
+) -> tuple[list[DataRequest], dict[str, Any], Callable[[], None]]:
+    """Compile variable statistics into source requests and processing callbacks.
+
+    Like a lexicon lookup, this returns requests paired with modifiers. Fetch
+    each request using its base variable, time and lead time, then call
+    ``request.modifier(sample)`` after the source's lexicon conversion. The
+    modifier streams that field into all dependent output windows. Unpack the
+    result as ``requests, attrs, finalize``; after fetching, call ``finalize()``
+    once and attach ``attrs`` to the output.
+
+    Requests are deduplicated by (base variable, initialization/valid time, lead).
+    Forecast windows never cross initialization times. Only means allocate
+    per-cell counts; fetched fields are not retained by the callbacks.
 
     Parameters
     ----------
-    groups : Sequence[StatisticGroup]
-        Statistic groups from :func:`split_statistic_variables`
+    variable : Sequence[str]
+        Plain or statistic-qualified labels, in output variable order
     time : Sequence[Any]
-        Valid times of the request
+        Valid times for analyses, initialization times for forecasts
     delta_t : np.timedelta64
         Cadence of the source
     values : np.ndarray
-        Output array, written in place
-    plain : Sequence[tuple[int, str]], optional
-        Slots and names of instantaneous variables to copy into the output
+        Output array, written in place: ``(time, variable, ...)`` for analyses,
+        ``(time, lead_time, variable, ...)`` for forecasts
+    lead_time : Sequence[Any] | None, optional
+        Forecast leads. None selects analysis windows along ``time``; supplying
+        even a single zero lead selects forecast windows and does not permit
+        crossing into another initialization
+    supported : Sequence[str], optional
+        Methods declared by the source lexicon
+    source : str, optional
+        Source name used for operation/sample logging
+    verbose : bool, optional
+        Log the reduction and sample count for each statistic
 
     Returns
     -------
-    list[StatisticJob]
-        One job per statistic variable, with no initialization time
+    list[DataRequest]
+        Deduplicated source requests with processing callbacks
+    dict[str, Any]
+        Attributes to attach to the output after finalization
+    Callable[[], None]
+        Function to check completeness and finish means in place after fetching.
+        Reduction state is private to the callbacks; no plan object is needed
     """
-    targets = np.asarray(time, dtype="datetime64[ns]")
-    return [
-        StatisticJob(
-            base, StatisticAggregator(modifier, targets, delta_t, values[:, slot])
-        )
-        for modifier, slot, base in [
-            (group.modifier, slot, base)
-            for group in groups
-            for slot, _, base in group.variables
-        ]
-        + [(None, slot, name) for slot, name in plain]
+    plain, groups = _split_statistic_variables(variable, supported)
+    targets = (
+        np.asarray(time, dtype="datetime64[ns]")
+        if lead_time is None
+        else np.asarray(lead_time, dtype="timedelta64[ns]")
+    )
+    contexts = (
+        [(None, values)]
+        if lead_time is None
+        else [(as_datetime(t), values[i]) for i, t in enumerate(time)]
+    )
+    reducers: list[_StatisticReducer] = []
+    consumers: dict[
+        tuple[str, datetime, timedelta], list[tuple[_StatisticReducer, int]]
+    ] = {}
+    entries: list[tuple[str | None, int, str]] = [
+        (group.modifier, slot, base)
+        for group in groups
+        for slot, _, base in group.variables
     ]
+    entries.extend((None, slot, name) for slot, name in plain)
+    for modifier, slot, base in entries:
+        for init_time, output in contexts:
+            reducer = _StatisticReducer(modifier, targets, delta_t, output[:, slot])
+            reducers.append(reducer)
+            for coord in reducer.coords:
+                t = as_datetime(coord) if init_time is None else init_time
+                lt = timedelta(0) if init_time is None else as_timedelta(coord)
+                consumers.setdefault((base, t, lt), []).append(
+                    (reducer, int(coord.astype("int64")))
+                )
 
+    def make_modifier(
+        targets: list[tuple[_StatisticReducer, int]],
+    ) -> Callable[[np.ndarray], None]:
+        def modifier(sample: np.ndarray) -> None:
+            for reducer, coord in targets:
+                reducer.add(coord, sample)
 
-def forecast_jobs(
-    groups: Sequence[StatisticGroup],
-    time: Sequence[Any],
-    lead_time: Sequence[Any],
-    delta_t: np.timedelta64,
-    values: np.ndarray,
-    plain: Sequence[tuple[int, str]] = (),
-) -> list[StatisticJob]:
-    """Plan statistic jobs of a forecast source, output ``(time, lead, variable, ...)``.
+        return modifier
 
-    Parameters
-    ----------
-    groups : Sequence[StatisticGroup]
-        Statistic groups from :func:`split_statistic_variables`
-    time : Sequence[Any]
-        Forecast initialization times of the request
-    lead_time : Sequence[Any]
-        Lead times of the request
-    delta_t : np.timedelta64
-        Cadence of the source in lead time
-    values : np.ndarray
-        Output array, written in place
-    plain : Sequence[tuple[int, str]], optional
-        Slots and names of instantaneous variables to copy into the output
-
-    Returns
-    -------
-    list[StatisticJob]
-        One job per (initialization time, statistic variable)
-    """
-    targets = np.asarray(lead_time, dtype="timedelta64[ns]")
-    return [
-        StatisticJob(
-            base,
-            StatisticAggregator(modifier, targets, delta_t, values[i, :, slot]),
-            init_time=as_datetime(t),
-        )
-        for modifier, slot, base in [
-            (group.modifier, slot, base)
-            for group in groups
-            for slot, _, base in group.variables
-        ]
-        + [(None, slot, name) for slot, name in plain]
-        for i, t in enumerate(time)
+    requests = [
+        DataRequest(t, lt, base, make_modifier(targets))
+        for (base, t, lt), targets in consumers.items()
     ]
+    metadata = {
+        label: time_statistic_metadata(group.modifier)
+        for group in groups
+        for _, label, _ in group.variables
+    }
+    if verbose:
+        for group in groups:
+            reducer = next(r for r in reducers if r.modifier == group.modifier)
+            labels = ", ".join(label for _, label, _ in group.variables)
+            what = "lead times" if lead_time is not None else "times"
+            logger.info(
+                f"{source}: {labels} {_DESCRIPTIONS[group.method]} over "
+                f"{reducer.n_samples} samples per target "
+                f"(offsets {_compact_offset(reducer.offsets[0])} to "
+                f"{_compact_offset(reducer.offsets[-1])}), "
+                f"fetching {len(reducer.coords)} unique {what}"
+            )
+
+    def finalize() -> None:
+        for reducer in reducers:
+            reducer.finalize()
+
+    return requests, {E2S_STATISTICS: metadata} if metadata else {}, finalize
 
 
 def as_datetime(coord: Any) -> datetime:
@@ -2260,13 +2279,6 @@ def as_datetime(coord: Any) -> datetime:
 def as_timedelta(coord: Any) -> timedelta:
     """Convert a ``timedelta64`` sample coordinate to a ``timedelta``."""
     return pd.Timedelta(coord).to_pytimedelta()
-
-
-def sample_coords(jobs: Sequence[StatisticJob]) -> np.ndarray:
-    """Union of the coordinates (times or lead times) the jobs need to fetch."""
-    if not jobs:
-        return np.array([])
-    return np.unique(np.concatenate([job.aggregator.coords for job in jobs]))
 
 
 def _compact_offset(value: np.timedelta64) -> str:
@@ -2280,61 +2292,28 @@ def _compact_offset(value: np.timedelta64) -> str:
     return "0h"
 
 
-def log_statistics(
-    source: str,
-    groups: Sequence[StatisticGroup],
-    jobs: Sequence[StatisticJob],
-    verbose: bool,
-) -> None:
-    """Tell the user which statistics are computed and from how many samples.
-
-    Parameters
-    ----------
-    source : str
-        Name of the data source
-    groups : Sequence[StatisticGroup]
-        Statistic groups being computed
-    jobs : Sequence[StatisticJob]
-        Planned jobs, used to count the extra samples fetched
-    verbose : bool
-        Only logs when True
-    """
-    if not verbose:
-        return
-    for group in groups:
-        job = next(j for j in jobs if j.aggregator.modifier == group.modifier)
-        aggregator = job.aggregator
-        labels = ", ".join(label for _, label, _ in group.variables)
-        what = "lead times" if aggregator.dtype.kind == "m" else "times"
-        logger.info(
-            f"{source}: {labels} {_DESCRIPTIONS[group.method]} over "
-            f"{aggregator.n_samples} samples per target "
-            f"(offsets {_compact_offset(aggregator.offsets[0])} to "
-            f"{_compact_offset(aggregator.offsets[-1])}), "
-            f"fetching {len(aggregator.coords)} unique {what}"
-        )
-
-
-async def run_statistic_jobs(
-    jobs: Sequence[StatisticJob],
-    fetch_sample: Callable[[StatisticJob, Any], Awaitable[np.ndarray]],
+async def run_data_requests(
+    requests: Sequence[DataRequest],
+    fetch_sample: Callable[[DataRequest], Awaitable[np.ndarray]],
     desc: str = "Fetching time statistic samples",
     verbose: bool = True,
     async_workers: int | None = None,
     task_timeout: float | None = None,
 ) -> None:
-    """Fetch every sample the jobs need and reduce each as soon as it arrives.
+    """Fetch compiled requests and apply each modifier as its field arrives.
 
-    Concurrency is bounded, so at most ``async_workers`` samples are in memory at
-    once besides the output.
+    A fixed worker pool bounds both live fetch tasks and decoded samples, rather
+    than allocating one asyncio task per expanded timestamp. Fields are consumed
+    immediately, with only output-sized reduction state retained. Request metadata
+    still scales with the number of unique timestamps. On failure or cancellation,
+    all workers are canceled and awaited before returning to the caller.
 
     Parameters
     ----------
-    jobs : Sequence[StatisticJob]
-        Jobs to run
-    fetch_sample : Callable[[StatisticJob, Any], Awaitable[np.ndarray]]
-        Coroutine function returning the instantaneous field of ``job.base`` at a
-        coordinate (time or lead time) of ``job.aggregator.coords``
+    requests : Sequence[DataRequest]
+        Compiled requests, each consumed exactly once
+    fetch_sample : Callable[[DataRequest], Awaitable[np.ndarray]]
+        Coroutine returning the decoded, lexicon-modified field for a request
     desc : str, optional
         Progress bar description
     verbose : bool, optional
@@ -2345,29 +2324,30 @@ async def run_statistic_jobs(
         Timeout in seconds of each fetch
     """
 
-    # Jobs of one lexicon variable and initialization time share
-    # samples: fetch each distinct field once and fold it into every consumer.
-    consumers: dict[tuple[Any, Any, int], list[StatisticJob]] = {}
-    for job in jobs:
-        for coord in job.aggregator.coords:
-            key = (job.base, job.init_time, int(coord.astype("int64")))
-            consumers.setdefault(key, []).append(job)
+    async def _one(request: DataRequest) -> None:
+        sample = await fetch_sample(request)
+        request.modifier(sample)
 
-    async def _one(key: tuple[Any, Any, int]) -> None:
-        group = consumers[key]
-        coord = key[2]
-        sample = await fetch_sample(group[0], group[0].aggregator.from_key(coord))
-        for job in group:
-            job.aggregator.add(coord, sample)
-        del sample
+    workers = resolve_async_workers(async_workers, len(requests))
+    if workers < 1:
+        raise ValueError("async_workers must be at least 1")
+    pending = iter(requests)
+    with tqdm(total=len(requests), desc=desc, disable=not verbose) as progress:
 
-    coros = [_one(key) for key in consumers]
-    await gather_with_concurrency(
-        coros,
-        max_workers=resolve_async_workers(async_workers, len(coros)),
-        task_timeout=task_timeout,
-        desc=desc,
-        verbose=not verbose,
-    )
-    for job in jobs:
-        job.aggregator.finalize()
+        async def worker() -> None:
+            for request in pending:
+                if task_timeout is None:
+                    await _one(request)
+                else:
+                    await asyncio.wait_for(_one(request), timeout=task_timeout)
+                progress.update(1)
+
+        tasks = [
+            asyncio.create_task(worker()) for _ in range(min(workers, len(requests)))
+        ]
+        try:
+            await asyncio.gather(*tasks)
+        finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)

@@ -270,6 +270,11 @@ Ask once (advisory, do not block):
 
 If yes, load `references/temporal-statistics.py` and follow it. In short:
 
+The contracts are `dev/spec/TIME_STATISTICS_SPEC.md` (source responsibilities and
+method-call diagram) and `dev/spec/FETCH_DATA_SPEC.md` (native dispatch and generic
+`delta_t` fallback). Keep the source, lexicon, and reference templates consistent
+with them when changing the implementation.
+
 1. **Document support** in the source's class docstring using a `Note` headed
    `Temporal statistics:`. List methods, label syntax, sampling cadence, window
    closure, and accumulation caveats. Store capability metadata in the source's
@@ -277,19 +282,21 @@ If yes, load `references/temporal-statistics.py` and follow it. In short:
    and expose that lexicon as `source.lexicon`. Omit this metadata for lexicons
    without native support (e.g. climatology). Do not add source-level
    `time_statistics` or `time_step` attributes.
-2. **Parse**: `split_statistic_variables(variable, self.lexicon.TIME_STATISTICS)`.
-3. **Plan**: `analysis_jobs(...)` for a DataSource (extra samples are other
-   valid times) or `forecast_jobs(...)` for a ForecastSource (extra samples are
-   other lead times of the same init time). Pass the source's sampling cadence
-   internally to the planner; no public `time_step` property is needed.
-4. **Validate** `sample_coords(jobs)` with `_validate_time` /
-   `_validate_leadtime` before downloading.
-5. **Fetch + reduce**: `run_statistic_jobs(jobs, fetch_sample, ...)`. Each
-   distinct field is fetched once and folded into the output as it arrives, so
-   memory is one field per statistic regardless of window length. Do not
-   collect samples in a list and reduce afterwards.
-6. **Declare**: `xr_array.attrs[E2S_STATISTICS] = statistic_attrs(stat_groups)`.
-7. **Tell the user** (verbose): `log_statistics(...)` reports what is
+2. **Compile**: `compile_statistic_requests(variable, time, delta_t, values,
+   supported=self.lexicon.TIME_STATISTICS, ...)` returns requests with processing
+   callbacks, result attrs, and a finalization function; unpack as
+   `requests, attrs, finalize`. Omit `lead_time` for analysis;
+   supply `lead_time=lead_list` for forecasts within fixed initializations.
+3. **Validate** each request's `time` / `lead_time` using source validators before
+   downloading. Requests already contain base `variable` names and concrete times.
+4. **Fetch + process**: fetch the field with its ordinary lexicon conversion, then
+   call `request.modifier(sample)` once. `run_data_requests(requests,
+   fetch_sample, ...)` provides this bounded async loop. The compiler deduplicates
+   shared fields; callbacks copy plain fields or update every consuming window.
+   Memory is output views, mean counts, and concurrent fields, not whole windows.
+5. **Finish**: call `finalize()` once to check completeness and finish means;
+   `xr_array.attrs.update(attrs)` declares the statistics.
+6. **Tell the user**: the compiler's `verbose=True` reports what is
    averaged/accumulated/min'd/max'd and how many samples it needs. Warn about
    fields that are already accumulations (e.g. resetting precipitation buckets).
 
@@ -298,9 +305,11 @@ Label grammar: `var:method:window` (trailing, `[-w, 0)`) or
 right-open and must be a multiple of the sampling cadence. Parsing is in
 `earth2studio/utils/time_statistics.py`; reuse it, do not re-parse labels.
 
-**Testing:** add exactly one mock test, `test_<source>_time_statistics_mock`,
+**Testing:** use exactly one mock test (extend `test_<source>_call_mock` if present,
+otherwise add `test_<source>_time_statistics_mock`),
 covering mean/sum/min/max, the attrs, fetch-once behavior, and an invalid
-window (forecast sources also lead-time overlap and lead < 0). The sample is in
+window (forecast sources also lead-time overlap, separate initializations, and
+lead < 0). Mock I/O, not the planner or reducer. The sample is in
 `references/temporal-statistics.py`; fixtures `mock_statistic_zarr` and
 `mock_statistic_grib` are in `test/data/conftest.py`.
 
@@ -442,7 +451,7 @@ Agent: [loads skill, proceeds through Steps 0–14]
 canonical method ordering, obstore helpers, `gather_with_concurrency`, `async_retry`,
 reference URLs in docstrings, `try/finally` cleanup.
 
-**Temporal statistics:** optional; reuse `StatisticAggregator` helpers from
+**Temporal statistics:** optional; reuse `compile_statistic_requests` from
 `earth2studio/data/utils.py`, stream-reduce samples, never buffer a window.
 
 **AVOID:** hand-rolled fsspec stores, `asyncio.to_thread`, bare `tqdm.gather`,

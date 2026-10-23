@@ -21,7 +21,6 @@ import pathlib
 import shutil
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
-from typing import Any
 
 import numpy as np
 import obstore as obs
@@ -31,29 +30,20 @@ from obstore.store import ObjectStore
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
-    StatisticGroup,
-    StatisticJob,
+    DataRequest,
     _sync_async,
-    analysis_jobs,
-    as_datetime,
-    as_timedelta,
     async_retry,
     cancellable_to_thread,
+    compile_statistic_requests,
     datasource_cache_root,
     decode_grib_message,
-    forecast_jobs,
-    log_statistics,
     obstore_fetch_to_cache,
     obstore_store_from_url,
     prep_data_inputs,
     prep_forecast_inputs,
-    run_statistic_jobs,
-    sample_coords,
-    split_statistic_variables,
-    statistic_attrs,
+    run_data_requests,
 )
 from earth2studio.lexicon import HRRRFXLexicon, HRRRLexicon
-from earth2studio.utils.coords import E2S_STATISTICS
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
@@ -300,9 +290,6 @@ class HRRR:
 
         # Make sure input time is valid
         self._validate_time(time)
-        plain, stat_groups = split_statistic_variables(
-            variable, self.lexicon.TIME_STATISTICS
-        )
 
         # Generate HRRR lat-lon grid to append onto data array
         lat, lon = self.grid()
@@ -333,13 +320,19 @@ class HRRR:
         xr_array["hrrr_y"].attrs = {"standard_name": "latitude", "axis": "Y"}
         xr_array["hrrr_x"].attrs = {"standard_name": "longitude", "axis": "X"}
 
-        jobs = analysis_jobs(
-            stat_groups, time, np.timedelta64(1, "h"), xr_array.values[:, 0], plain
+        requests, attrs, finalize = compile_statistic_requests(
+            variable,
+            time,
+            np.timedelta64(1, "h"),
+            xr_array.values[:, 0],
+            supported=self.lexicon.TIME_STATISTICS,
+            source=type(self).__name__,
+            verbose=self._verbose,
         )
-        self._validate_time([as_datetime(t) for t in sample_coords(jobs)])
-        await self._fetch_jobs(stat_groups, jobs, forecast=False)
-        if stat_groups:
-            xr_array.attrs[E2S_STATISTICS] = statistic_attrs(stat_groups)
+        self._validate_time(list({r.time for r in requests}))
+        await self._fetch_requests(requests)
+        finalize()
+        xr_array.attrs.update(attrs)
 
         xr_array = xr_array.isel(lead_time=0)
         del xr_array.coords["lead_time"]
@@ -424,25 +417,17 @@ class HRRR:
             return None
         return product, byte_offset, byte_length, modifier
 
-    async def _fetch_jobs(
+    async def _fetch_requests(
         self,
-        groups: list[StatisticGroup],
-        jobs: list[StatisticJob],
-        forecast: bool,
+        requests: list[DataRequest],
     ) -> None:
         """Fetch shared samples, copying plain fields and reducing statistics in place.
 
         Parameters
         ----------
-        groups : list[StatisticGroup]
-            Statistic groups being computed
-        jobs : list[StatisticJob]
-            Planned jobs writing into the output array
-        forecast : bool
-            Whether the sample coordinates are lead times of one forecast (True)
-            or analysis valid times
+        requests : list[DataRequest]
+            Compiled source requests with processing callbacks
         """
-        log_statistics("HRRR_FX" if forecast else "HRRR", groups, jobs, self._verbose)
         # One set of grib indices per (init time, lead time) shared by all variables
         indices: dict[tuple[datetime, timedelta], asyncio.Future] = {}
 
@@ -464,14 +449,11 @@ class HRRR:
                 indices[(t, lt)] = asyncio.ensure_future(_all())
             return await indices[(t, lt)]
 
-        async def fetch_sample(job: StatisticJob, coord: Any) -> np.ndarray:
-            if forecast:
-                if job.init_time is None:
-                    raise ValueError("Forecast jobs require an initialization time")
-                t, lt = job.init_time, as_timedelta(coord)
-            else:
-                t, lt = as_datetime(coord), timedelta(hours=0)
-            found = self._lookup_record(await get_indices(t, lt), job.base, t, lt)
+        async def fetch_sample(request: DataRequest) -> np.ndarray:
+            t, lt = request.time, request.lead_time
+            found = self._lookup_record(
+                await get_indices(t, lt), request.variable, t, lt
+            )
             if found is None:
                 return np.full((len(self.HRRR_Y), len(self.HRRR_X)), np.nan)
             product, offset, length, modifier = found
@@ -487,8 +469,8 @@ class HRRR:
                 exceptions=(OSError, IOError, TimeoutError, ConnectionError),
             )
 
-        await run_statistic_jobs(
-            jobs,
+        await run_data_requests(
+            requests,
             fetch_sample,
             desc="Fetching HRRR data",
             verbose=self._verbose,
@@ -880,9 +862,6 @@ class HRRR_FX(HRRR):
         # Make sure input time is valid
         self._validate_time(time)
         self._validate_leadtime(time, lead_time)
-        plain, stat_groups = split_statistic_variables(
-            variable, self.lexicon.TIME_STATISTICS
-        )
 
         # Generate HRRR lat-lon grid to append onto data array
         lat, lon = self.grid()
@@ -914,13 +893,20 @@ class HRRR_FX(HRRR):
         xr_array["hrrr_y"].attrs = {"standard_name": "latitude", "axis": "Y"}
         xr_array["hrrr_x"].attrs = {"standard_name": "longitude", "axis": "X"}
 
-        jobs = forecast_jobs(
-            stat_groups, time, lead_time, np.timedelta64(1, "h"), xr_array.values, plain
+        requests, attrs, finalize = compile_statistic_requests(
+            variable,
+            time,
+            np.timedelta64(1, "h"),
+            xr_array.values,
+            lead_time=lead_time,
+            supported=self.lexicon.TIME_STATISTICS,
+            source=type(self).__name__,
+            verbose=self._verbose,
         )
-        self._validate_leadtime(time, [as_timedelta(lt) for lt in sample_coords(jobs)])
-        await self._fetch_jobs(stat_groups, jobs, forecast=True)
-        if stat_groups:
-            xr_array.attrs[E2S_STATISTICS] = statistic_attrs(stat_groups)
+        self._validate_leadtime(time, list({r.lead_time for r in requests}))
+        await self._fetch_requests(requests)
+        finalize()
+        xr_array.attrs.update(attrs)
 
         return xr_array
 

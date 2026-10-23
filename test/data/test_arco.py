@@ -130,7 +130,7 @@ def test_arco_deprecation_warning():
 
 
 @pytest.mark.timeout(30)
-def test_arco_time_statistics_mock(mock_statistic_zarr):
+def test_arco_time_statistics_mock(mock_statistic_zarr, monkeypatch):
     ds = ARCO_ERA5(cache=True, verbose=True)
     reads = mock_statistic_zarr(ds)
     time = datetime.datetime(2024, 1, 2)
@@ -173,6 +173,28 @@ def test_arco_time_statistics_mock(mock_statistic_zarr):
     data = ds(time, ["tp", "tp06"])
     assert data.values[0, 0, 0, 0] == index
     assert data.values[0, 1, 0, 0] == 6 * index - 15
+
+    # Long multi-level windows must release each shared chunk immediately, not
+    # cache all hours until the second level's requests eventually run.
+    import asyncio
+    import weakref
+
+    refs = []
+    read_chunk = ds._read_chunk
+
+    async def tracked_chunk(*args):
+        chunk = await read_chunk(*args)
+        refs.append(weakref.ref(chunk))
+        assert sum(ref() is not None for ref in refs) <= 4
+        await asyncio.sleep(0)
+        return chunk
+
+    monkeypatch.setattr(ds, "_read_chunk", tracked_chunk)
+    reads.clear()
+    data = ds(time, ["t500:mean:240h", "t850:mean:240h"])
+    np.testing.assert_allclose(data.values[0, :, 0, 0], [index - 120.5, index - 119.5])
+    assert sorted(reads) == list(range(index - 240, index))
+    assert all(ref() is None for ref in refs)
 
     # Statistics of already-aggregated variables or bad windows are rejected
     with pytest.raises(ValueError):

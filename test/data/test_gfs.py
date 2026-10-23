@@ -337,6 +337,15 @@ def test_gfs_call_mock(mock_statistic_grib):
     # Instantaneous plus the two extra analysis files, nothing else
     assert len(set(index_calls)) == 3
     assert len(index_calls) == 3
+    # Analysis windows move across cycles, always fetching lead zero.
+    assert all("f000" in uri for uri in index_calls)
+    index_calls.clear()
+    data = ds([datetime(2024, 1, 2, 6), datetime(2024, 1, 2)], variables)
+    np.testing.assert_allclose(
+        data.values[:, :, 0, 0], [[30, 21, 42, 24, 18], [24, 15, 30, 18, 12]]
+    )
+    assert len(index_calls) == len(set(index_calls)) == 4
+    assert all("f000" in uri for uri in index_calls)
     from earth2studio.data.utils import fetch_data
 
     data = fetch_data(
@@ -381,6 +390,24 @@ def test_gfs_fx_call_mock(mock_statistic_grib, monkeypatch, tmp_path):
     assert len(index_calls) == 7
     np.testing.assert_allclose(data.values[0, :, 1, 0, 1], [4, 5])
     np.testing.assert_allclose(data.values[0, :, 2, 0, 1], [14, 8])
+
+    # Equal valid times from different initializations remain distinct requests.
+    index_calls.clear()
+    data = fx(
+        [datetime(2024, 1, 1, 6), datetime(2024, 1, 1)],
+        [timedelta(hours=7), timedelta(hours=6)],
+        variables,
+    )
+    np.testing.assert_allclose(
+        data.values[:, :, :, 0, 0],
+        [
+            [[13, 11, 42, 12, 10], [12, 10, 39, 11, 9]],
+            [[7, 5, 24, 6, 4], [6, 4, 21, 5, 3]],
+        ],
+    )
+    assert len(index_calls) == len(set(index_calls)) == 14
+    assert sum("gfs.t06z" in uri for uri in index_calls) == 7
+    assert sum("gfs.t00z" in uri for uri in index_calls) == 7
 
     # True trailing totals at a complete bucket and across the reset at hour 6.
     data = fx(

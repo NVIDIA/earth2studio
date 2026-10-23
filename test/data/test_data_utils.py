@@ -17,6 +17,7 @@
 import asyncio
 import datetime
 import os
+import weakref
 from collections import OrderedDict
 from pathlib import Path
 
@@ -42,6 +43,7 @@ from earth2studio.data import (
 from earth2studio.data.utils import (
     async_retry,
     cancellable_to_thread,
+    compile_statistic_requests,
     datasource_cache_root,
     ensure_utc,
     gather_with_concurrency,
@@ -54,6 +56,7 @@ from earth2studio.data.utils import (
     obstore_zarr_store,
     prep_data_inputs,
     prep_forecast_inputs,
+    run_data_requests,
 )
 from earth2studio.grids import (
     BilinearRegridder,
@@ -61,7 +64,147 @@ from earth2studio.grids import (
     LatLonGrid,
     NearestRegridder,
 )
-from earth2studio.utils.coords import coord_array
+from earth2studio.utils.coords import E2S_STATISTICS, coord_array
+
+
+@pytest.mark.parametrize("forecast", [False, True])
+def test_compile_statistic_requests(forecast):
+    # Compiled callbacks consume reusable buffers in arbitrary arrival order.
+    origin = datetime.datetime(2024, 1, 1)
+    hour = datetime.timedelta(hours=1)
+    variables = [
+        "t2m",
+        *(f"t2m:{method}:2h" for method in ("mean", "sum", "min", "max")),
+    ]
+    times = (
+        [origin, origin + hour] if forecast else [origin + 3 * hour, origin + 4 * hour]
+    )
+    values = np.full((2, 2, 5, 2) if forecast else (2, 5, 2), np.nan)
+    requests, attrs, finalize = compile_statistic_requests(
+        variables,
+        times,
+        np.timedelta64(1, "h"),
+        values,
+        lead_time=[3 * hour, 4 * hour] if forecast else None,
+    )
+    expected_requests = (
+        {(t, h * hour, "t2m") for t in times for h in range(1, 5)}
+        if forecast
+        else {(origin + h * hour, datetime.timedelta(0), "t2m") for h in range(1, 5)}
+    )
+    assert len(requests) == len(expected_requests)
+    assert {(r.time, r.lead_time, r.variable) for r in requests} == expected_requests
+    with pytest.raises(ValueError, match="Incomplete"):
+        finalize()
+
+    buffer = np.empty(2)
+    for request in reversed(requests):
+        cycle = times.index(request.time) if forecast else 0
+        sample_hour = (request.lead_time if forecast else request.time - origin) / hour
+        buffer[:] = [100 * cycle + sample_hour, np.nan]
+        assert request.modifier(buffer) is None
+        buffer[:] = -999  # Callbacks must consume, not retain, the fetch buffer.
+    finalize()
+
+    expected = np.array([[3, 1.5, 3, 1, 2], [4, 2.5, 5, 2, 3]])
+    outputs = values if forecast else values[None]
+    for cycle, output in enumerate(outputs):
+        np.testing.assert_allclose(
+            output[:, :, 0], expected + cycle * np.array([100, 100, 200, 100, 100])
+        )
+        np.testing.assert_allclose(
+            output[:, :, 1], [[np.nan, np.nan, 0, np.nan, np.nan]] * 2, equal_nan=True
+        )
+    assert set(attrs[E2S_STATISTICS]) == set(variables[1:])
+
+    # Long windows use a fixed task pool and discard decoded fields after each
+    # update, including when one fetch fails or the caller cancels the operation.
+    values = np.full((1, 1, 4, 2) if forecast else (1, 4, 2), np.nan)
+    requests, _, finalize = compile_statistic_requests(
+        [f"t2m:{method}:240h" for method in ("mean", "sum", "min", "max")],
+        [origin + 240 * hour],
+        np.timedelta64(1, "h"),
+        values,
+        lead_time=[240 * hour] if forecast else None,
+    )
+
+    async def check_pool():
+        refs = []
+        initial_tasks = len(asyncio.all_tasks())
+
+        async def fetch(request):
+            assert len(asyncio.all_tasks()) <= initial_tasks + 3
+            h = (request.lead_time if forecast else request.time - origin) / hour
+            sample = np.array([h, np.nan])
+            refs.append(weakref.ref(sample))
+            assert sum(ref() is not None for ref in refs) <= 3
+            await asyncio.sleep(0)
+            return sample
+
+        await run_data_requests(requests, fetch, async_workers=3, verbose=False)
+        finalize()
+        assert all(ref() is None for ref in refs)
+        np.testing.assert_allclose(
+            values.reshape(4, 2)[:, 0], [119.5, sum(range(240)), 0, 239]
+        )
+        np.testing.assert_allclose(
+            values.reshape(4, 2)[:, 1], [np.nan, 0, np.nan, np.nan], equal_nan=True
+        )
+
+        active = 0
+        ready = asyncio.Event()
+
+        async def failing_fetch(request):
+            nonlocal active
+            active += 1
+            try:
+                if active == 3:
+                    ready.set()
+                await ready.wait()
+                if request is requests[0]:
+                    raise OSError("mock fetch failed")
+                await asyncio.Event().wait()
+            finally:
+                active -= 1
+
+        with pytest.raises(OSError, match="mock fetch failed"):
+            await run_data_requests(
+                requests, failing_fetch, async_workers=3, verbose=False
+            )
+        assert active == 0
+        assert len(asyncio.all_tasks()) == initial_tasks
+
+        ready.clear()
+
+        async def waiting_fetch(request):
+            nonlocal active
+            active += 1
+            ready.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                active -= 1
+
+        operation = asyncio.create_task(
+            run_data_requests(requests, waiting_fetch, async_workers=3, verbose=False)
+        )
+        await ready.wait()
+        operation.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await operation
+        assert active == 0
+
+        with pytest.raises(asyncio.TimeoutError):
+            await run_data_requests(
+                requests,
+                waiting_fetch,
+                async_workers=3,
+                verbose=False,
+                task_timeout=0.01,
+            )
+        assert active == 0
+
+    asyncio.run(check_pool())
 
 
 class _AnalysisSequence:

@@ -21,7 +21,7 @@ import pathlib
 import shutil
 import uuid
 from datetime import datetime
-from typing import Any, Literal
+from typing import Literal
 
 import numpy as np
 import xarray as xr
@@ -30,21 +30,15 @@ from loguru import logger
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
-    StatisticJob,
+    DataRequest,
     _sync_async,
-    analysis_jobs,
-    as_datetime,
+    compile_statistic_requests,
     datasource_cache_root,
-    log_statistics,
     obstore_zarr_store,
     prep_data_inputs,
-    run_statistic_jobs,
-    sample_coords,
-    split_statistic_variables,
-    statistic_attrs,
+    run_data_requests,
 )
 from earth2studio.lexicon import WB2ClimatetologyLexicon, WB2Lexicon
-from earth2studio.utils.coords import E2S_STATISTICS
 from earth2studio.utils.type import TimeArray, VariableArray
 
 
@@ -152,9 +146,6 @@ class _WB2Base:
 
         # Make sure input time is valid
         self._validate_time(time)
-        plain, stat_groups = split_statistic_variables(
-            variable, getattr(self.lexicon, "TIME_STATISTICS", ())
-        )
 
         xr_array = xr.DataArray(
             data=np.empty(
@@ -174,24 +165,29 @@ class _WB2Base:
             },
         )
 
-        jobs = analysis_jobs(
-            stat_groups, time, np.timedelta64(6, "h"), xr_array.values, plain
+        requests, attrs, finalize = compile_statistic_requests(
+            variable,
+            time,
+            np.timedelta64(6, "h"),
+            xr_array.values,
+            supported=getattr(self.lexicon, "TIME_STATISTICS", ()),
+            source=type(self).__name__,
+            verbose=self._verbose,
         )
         # Validate the extra times before reading anything
-        self._validate_time([as_datetime(t) for t in sample_coords(jobs)])
-        log_statistics("WB2", stat_groups, jobs, self._verbose)
+        self._validate_time(list({r.time for r in requests}))
 
-        async def fetch_sample(job: StatisticJob, coord: Any) -> np.ndarray:
-            return await self.fetch_array(as_datetime(coord), job.base)
+        async def fetch_sample(request: DataRequest) -> np.ndarray:
+            return await self.fetch_array(request.time, request.variable)
 
-        await run_statistic_jobs(
-            jobs,
+        await run_data_requests(
+            requests,
             fetch_sample,
             desc="Fetching WB2 data",
             verbose=self._verbose,
         )
-        if stat_groups:
-            xr_array.attrs[E2S_STATISTICS] = statistic_attrs(stat_groups)
+        finalize()
+        xr_array.attrs.update(attrs)
         return xr_array
 
     async def fetch_wrapper(
