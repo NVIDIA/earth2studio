@@ -16,13 +16,13 @@
 
 # %%
 """
-StormCast-CONUS Score-Based Data Assimilation
-=============================================
+StormCast Score-Based Data Assimilation
+======================================
 
-Running StormCast-CONUS with guided diffusion posterior sampling to assimilate observations.
+Running StormCast with guided diffusion posterior sampling to assimilate observations.
 
-This example demonstrates how to use the StormCast-CONUS generative model with
-score-based data assimilation (SDA) over the Continental United States. Sparse
+This example demonstrates how to use the StormCastSDA generative model with
+score-based data assimilation (SDA) over the central United States. Sparse
 in-situ surface observations from NOAA Global Historical Climatology Network Hourly
 (GHCNh) are assimilated at each forecast step using diffusion posterior sampling
 (DPS) guidance. Two forecasts from the central United States are run to illustrate the impact of
@@ -30,16 +30,18 @@ data assimilation: one without observations and one with GHCNh surface station d
 
 In this example you will learn:
 
-- How to load StormCast-CONUS and configure SDA parameters
-- Fetching HRRR initial conditions and GHCNh surface observations
+- How to load StormCastSDA and configure SDA parameters
+- Fetching HRRR initial conditions, GFS conditioning, and GHCNh surface observations
 - Running the model iteratively with and without observation assimilation
 - Comparing assimilated and non-assimilated forecasts
 """
 
 # /// script
 # dependencies = [
-#   "earth2studio[data,stormcast-conus] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "earth2studio[data,da-stormcast] @ git+https://github.com/NVIDIA/earth2studio.git",
 #   "cartopy",
+#   "matplotlib",
+#   "scipy",
 # ]
 # ///
 
@@ -48,16 +50,16 @@ In this example you will learn:
 # ------
 # This example requires the following components:
 #
-# - Prognostic Model: StormCast-CONUS [`earth2studio.models.px.StormCastCONUS`][earth2studio.models.px.StormCastCONUS]
+# - Assimilation Model: :py:class:`earth2studio.models.da.StormCastSDA`
 #   configured with SDA parameters.
 # - Datasource (state): HRRR analysis [`earth2studio.data.HRRR`][earth2studio.data.HRRR].
+# - Datasource (conditioning): :py:class:`earth2studio.data.GFS_FX`.
 # - Datasource (obs): NOAA GHCNh surface stations
 #   [`earth2studio.data.GHCNHourly`][earth2studio.data.GHCNHourly].
 #
-# StormCast-CONUS extends the StormCast generative architecture to the full CONUS
-# HRRR domain at 3 km resolution. When an observation DataFrame is passed to each
-# generator step, diffusion posterior sampling (DPS) steers the denoising trajectory
-# toward the observed values.
+# StormCastSDA uses the central-US HRRR domain at 3 km resolution. When an observation
+# DataFrame is passed to each step, diffusion posterior sampling (DPS) steers the
+# denoising trajectory toward the observed values.
 
 # %%
 import os
@@ -71,34 +73,28 @@ from datetime import timedelta
 
 import numpy as np
 import torch
+import xarray as xr
 from loguru import logger
 from tqdm import tqdm
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
-from earth2studio.data import HRRR, GHCNHourly, fetch_data
-from earth2studio.models.px import StormCastCONUS
+from earth2studio.data import GFS_FX, HRRR, GHCNHourly, fetch_data
+from earth2studio.models.da import StormCastSDA
 from earth2studio.run import _map_field
 
 # Load the default model package
-package = StormCastCONUS.load_default_package()
+package = StormCastSDA.load_default_package()
 
 # Configure SDA: sda_std_obs is the assumed normalised observation noise std per
 # variable (lower = trust observations more).
 # sda_gamma is the DPS step-size scaling (lower = stronger guidance from obs).
 #
-# By default the example runs on the central-US subdomain to reduce GPU memory
-# requirements. For the full CONUS domain, comment out hrrr_lat_lim and
-# hrrr_lon_lim below (requires ~200 GB VRAM for SDA).
-hrrr_lat_lim = (273, 785)
-hrrr_lon_lim = (579, 1219)
-model = StormCastCONUS.load_model(
+# The checkpoint uses a fixed central-US subdomain.
+model = StormCastSDA.load_model(
     package,
-    hrrr_lat_lim=hrrr_lat_lim,  # comment out for full CONUS domain
-    hrrr_lon_lim=hrrr_lon_lim,  # comment out for full CONUS domain
-    num_diffusion_steps=18,
-    num_sda_diffusion_steps=96,
+    sampler_steps=36,
     sda_std_obs=0.15,
     sda_gamma=1e-3,
 )
@@ -123,17 +119,51 @@ x = fetch_data(
     lead_time=np.array([np.timedelta64(0, "h")]),
     device="cuda:0",
 )
-# Fetch currently preserves the source grid. Select native labels explicitly;
-# the shared runner mapping verifies geographic auxiliaries/CRS and refreshes
-# cropped grid metadata without retaining the full-domain grid ID.
-x = x.rename(hrrr_y="y", hrrr_x="x")
-x = _map_field(x.sel(y=model.grid.y, x=model.grid.x), model.input_coords())
+# Fetch preserves the source grid. Select native labels explicitly.
+input_signature = model.input_coords()
+x = _map_field(
+    x.sel(hrrr_y=input_signature.hrrr_y, hrrr_x=input_signature.hrrr_x),
+    input_signature,
+)
+
+# %%
+# Caller-Supplied Conditioning
+# ---------------------------
+# StormCastSDA requires conditioning at the current input valid time, including
+# when observations are omitted. Fetch GFS from the same forecast initialization
+# and interpolate its regular lat/lon fields onto the declared HRRR grid.
+# Observations will instead be fetched at the output valid time, one hour later.
+
+# %%
+conditioning_source = GFS_FX(verbose=False)
+conditioning_signature, _ = model.forcing_coords()
+
+
+def fetch_conditioning(lead_hour: int) -> xr.DataArray:
+    """Fetch and align conditioning for one StormCastSDA input valid time."""
+    lead_time = np.array([np.timedelta64(lead_hour, "h")])
+    coarse = fetch_data(
+        conditioning_source,
+        time=init_time,
+        variable=conditioning_signature["variable"].values,
+        lead_time=lead_time,
+        device="cpu",
+    )
+    regional = coarse.interp(
+        lat=conditioning_signature.lat, lon=conditioning_signature.lon
+    ).transpose(*conditioning_signature.dims)
+    coords = dict(conditioning_signature.coords)
+    coords.update(time=init_time, lead_time=lead_time)
+    return xr.DataArray(
+        regional.values, dims=conditioning_signature.dims, coords=coords
+    )
+
 
 # %%
 # Run Without Observations
 # ------------------------
 # Step the model forward 6 hours without any observations. This uses the
-# standard EDM diffusion sampler, equivalent to running StormCast-CONUS as a
+# diffusion sampler without observation guidance, running StormCast as a
 # pure generative forecast model. We store only the 10-m zonal wind (``u10m``)
 # used for comparison.
 
@@ -145,19 +175,22 @@ var_idx = list(model.variables).index(plot_var)
 
 np.random.seed(42)
 torch.manual_seed(42)
+model.set_rng(42)
 if torch.cuda.is_available():
     torch.cuda.manual_seed_all(42)
 
 no_obs_fields = []
-gen = model.create_generator(x.copy(deep=True))
-x_cur = next(gen)  # prime the generator, yields initial state (lead_time = 0 h)
+iterator = model.create_iterator(x.copy(deep=True), fetch_conditioning(0), None)
 
 for step in tqdm(range(nsteps), desc="No-obs forecast"):
     logger.info(f"Running no-obs forecast step {step + 1}/{nsteps}")
-    x_cur = gen.send(None)  # advance one hour without observations
+    if step == 0:
+        x_cur = next(iterator)  # First computed output at +1 h
+    else:
+        x_cur = iterator.send((fetch_conditioning(step), None))
     no_obs_fields.append(x_cur[0, 0, var_idx].e2s.as_numpy().values)
 
-gen.close()
+iterator.close()
 no_obs_fields = np.stack(no_obs_fields)  # (nsteps, H, W)
 
 # %%
@@ -170,7 +203,7 @@ no_obs_fields = np.stack(no_obs_fields)  # (nsteps, H, W)
 
 # %%
 # Model lon is in [0, 360); convert to [-180, 180) for the western-hemisphere
-# CONUS domain. GHCNHourly.get_stations_bbox accepts either convention.
+# model domain. GHCNHourly.get_stations_bbox accepts either convention.
 lat_min = float(model.lat.min())
 lat_max = float(model.lat.max())
 lon_min = float(model.lon.min()) - 360.0
@@ -209,32 +242,30 @@ ax.scatter(
     transform=ccrs.PlateCarree(),
     zorder=3,
 )
-ax.set_title("GHCNh Station Locations - StormCast-CONUS Domain")
+ax.set_title("GHCNh Station Locations - StormCastSDA Domain")
 plt.savefig("outputs/01_ghcn_stations.jpg", dpi=150, bbox_inches="tight")
 
 # %%
 # Run Inference With Streaming Observations
 # -----------------------------------------
-# At each forecast step the next valid time is determined from the current
-# generator state, GHCNh observations are fetched for that time, and the
-# observation DataFrame is sent to the generator. Zero-value wind reports
-# (likely anemometer failure) are filtered out before assimilation.
+# At each forecast step GHCNh observations are fetched for the output valid time.
+# Initialize with the first conditioning/observation pair; send later pairs to
+# continue the trajectory. The first yield is an analysis, not the input state.
+# Zero-value wind reports (likely anemometer failure) are filtered out before
+# assimilation.
 
 # %%
 np.random.seed(42)
 torch.manual_seed(42)
+model.set_rng(42)
 if torch.cuda.is_available():
     torch.cuda.manual_seed_all(42)
 
 obs_fields = []
-gen = model.create_generator(x.copy(deep=True))
-x_cur = next(gen)  # prime the generator, yields initial state
 
 for step in tqdm(range(nsteps), desc="Obs forecast"):
-    # Target valid time is one step ahead of the current generator state
-    valid_time = np.array(
-        [x_cur.time.values[0] + x_cur.lead_time.values[0] + np.timedelta64(1, "h")]
-    )
+    # Observations are one hour ahead of this step's conditioning.
+    valid_time = init_time + np.timedelta64(step + 1, "h")
     obs_df = ghcn(valid_time, plot_vars)
 
     # Drop zero-value wind reports (common anemometer failure mode)
@@ -247,10 +278,15 @@ for step in tqdm(range(nsteps), desc="Obs forecast"):
     logger.info(
         f"Step {step + 1}/{nsteps} — {len(obs_df) if obs is not None else 0} obs"
     )
-    x_cur = gen.send(obs)  # advance one hour with observations
+    conditioning = fetch_conditioning(step)
+    if step == 0:
+        iterator = model.create_iterator(x.copy(deep=True), conditioning, obs)
+        x_cur = next(iterator)  # Computes and yields the +1 h analysis
+    else:
+        x_cur = iterator.send((conditioning, obs))
     obs_fields.append(x_cur[0, 0, var_idx].e2s.as_numpy().values)
 
-gen.close()
+iterator.close()
 obs_fields = np.stack(obs_fields)  # (nsteps, H, W)
 
 # %%
@@ -369,7 +405,7 @@ plt.colorbar(im1, ax=axes[1, -1], shrink=0.6, label=f"{plot_var} (m/s)")
 plt.colorbar(im2, ax=axes[2, -1], shrink=0.6, label=f"{plot_var} (m/s)")
 
 plt.tight_layout()
-plt.savefig("outputs/01_stormcast_conus_sda_comparison.jpg", dpi=150)
+plt.savefig("outputs/01_stormcast_sda_comparison.jpg", dpi=150)
 
 # %%
 # Ground Truth Comparison
@@ -387,8 +423,10 @@ truth_x = fetch_data(
     device="cpu",
 )
 truth_signature = model.input_coords().sel(variable=[plot_var])
-truth_x = truth_x.rename(hrrr_y="y", hrrr_x="x")
-truth_x = _map_field(truth_x.sel(y=model.grid.y, x=model.grid.x), truth_signature)
+truth_x = _map_field(
+    truth_x.sel(hrrr_y=input_signature.hrrr_y, hrrr_x=input_signature.hrrr_x),
+    truth_signature,
+)
 # truth_x shape: (time=1, lead_time=nsteps, variable=1, H, W)
 truth_fields = truth_x[0, :, 0].values  # (nsteps, H, W)
 
@@ -396,7 +434,7 @@ no_obs_err = np.abs(no_obs_fields - truth_fields)
 obs_err = np.abs(obs_fields - truth_fields)
 
 # %%
-# Plot absolute errors between the StormCast-CONUS predictions and HRRR
+# Plot absolute errors between the StormCast predictions and HRRR
 # analysis ground truth. In later time-steps the assimilated forecast typically
 # shows lower errors near the observation stations.
 
@@ -467,4 +505,4 @@ for row_label, ax_row in zip(["|No Obs − Truth|", "|Obs − Truth|"], axes[:, 
 plt.colorbar(im0, ax=axes[0, -1], shrink=0.6, label=f"|Δ{plot_var}| (m/s)")
 plt.colorbar(im1, ax=axes[1, -1], shrink=0.6, label=f"|Δ{plot_var}| (m/s)")
 plt.tight_layout()
-plt.savefig("outputs/01_stormcast_conus_sda_gt_comparison.jpg", dpi=150)
+plt.savefig("outputs/01_stormcast_sda_gt_comparison.jpg", dpi=150)

@@ -350,8 +350,9 @@ python main.py campaign=healda_dlwp_2024_monthly
 
 ### Observation sources
 
-DA models consume observation **DataFrames**, not gridded fields, so
-there is no gridded IC store.  Observations come from the sources
+The default DA runner consumes observation **DataFrames** only; it does not
+supply background fields or gridded forcing, so it has no gridded DA IC store.
+The general DA interface also supports DataArray inputs. Observations here come from the sources
 declared under `model.da.obs_sources`:
 
 ```yaml
@@ -370,7 +371,7 @@ da:
 ```
 
 Entries are matched **positionally, in declaration order** against the
-model's `input_coords()` tuple.  Two convenience keys are handled by the
+model's `forcing_coords()` slots. Two convenience keys are handled by the
 recipe rather than passed to the source constructor: `enabled: false`
 disables a slot (the model receives `None` — e.g. a conv-only ablation),
 and `time_tolerance_hours: [lo, hi]` sets the observation window as
@@ -462,17 +463,24 @@ from the standard IC path (`ic_source` BYO → predownloaded `data.zarr` →
 is logged prominently at setup.  Set `model.fill_missing_variables=false`
 to error on any gap instead (pure-DA ICs only).
 
-### Stateful DA models
+### Runner input limits and stateful DA
 
 The pipelines drive DA models through an `AssimilationRunner` seam
-(`src/assimilation.py`).  Stateless models (where `init_coords()` is
-`None`, e.g. in HealDA) use the default `StatelessAssimilationRunner`, which calls the
-model independently per analysis time so work items distribute freely
-across ranks.  Stateful/cycling models (e.g. StormCastSDA, which carries
-a background state between cycles) need a cycling runner that steps
-`model.create_iterator()` sequentially — wire one in via the optional
-`model.da.runner` Hydra block; the stateless runner refuses stateful
-models with a clear error.
+(`src/assimilation.py`). The default `StatelessAssimilationRunner` calls an
+`AssimilationModel` independently per analysis time so work items distribute
+freely across ranks. It supports only models with no background inputs
+(`input_coords()` is `None`) and tabular observation forcing, such as HealDA.
+It rejects unsupported background inputs or gridded forcing explicitly.
+These restrictions do not determine statefulness: CorrDiff uses independent
+calls but still needs an ERA5 background that this runner cannot supply.
+
+Continuing a trajectory (e.g. StormCastSDA) requires a runner accepting
+`StatefulAssimilationModel`, using `initialize`/`step` or
+`create_iterator(background, conditioning, obs)` sequentially. Initialization
+and the first iterator yield compute an analysis; there is no priming or
+initial-background yield. Later sends supply `(conditioning, obs)`; conditioning
+remains required when observations are `None`. A custom `AssimilationRunner`
+can be wired through `model.da.runner`; a built-in cycling runner is not provided.
 
 ## Multi-GPU Execution
 

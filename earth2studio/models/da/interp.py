@@ -13,14 +13,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from collections.abc import Generator
 from typing import Any
 
 import numpy as np
 import pandas as pd
 import torch
 import xarray as xr
-from loguru import logger
 
 from earth2studio.models.da.utils import (
     dfseries_to_torch,
@@ -181,37 +179,30 @@ class InterpEquirectangular(torch.nn.Module):
         )
 
     def __call__(self, obs: pd.DataFrame) -> xr.DataArray:
-        """Stateless forward pass"""
+        """Interpolate one independent observation batch onto the output grid.
+
+        Parameters
+        ----------
+        obs : pd.DataFrame
+            Observations matching ``forcing_coords()``, with analysis times in
+            ``attrs["request_time"]`` and optional output ``attrs["variable"]``.
+
+        Returns
+        -------
+        xr.DataArray
+            Analysis with dimensions ``(time, variable, lat, lon)``. Grid fields
+            without observations in the time window contain NaNs.
+
+        Raises
+        ------
+        ValueError
+            If request times or required observation columns are missing.
+        """
         if obs.attrs.get("request_time") is None:
             raise ValueError("Observation DataFrame must have 'request_time' in attrs")
         output_coords = self.output_coords(**obs.attrs)
         validate_observation_fields(obs, required_fields=list(self.forcing_coords()))
         return self._interpolate_dataframe(obs, output_coords)
-
-    def create_generator(
-        self,
-    ) -> Generator[xr.DataArray | None, pd.DataFrame | None, None]:
-        """Create a generator receiving observations for independent analyses.
-
-        Yields
-        ------
-        xr.DataArray | None
-            None on priming, then assimilated data.
-
-        Receives
-        --------
-        pd.DataFrame | None
-            Observations for the next analysis, matching ``forcing_coords()``.
-            Sending ``None`` raises ValueError because observations are required.
-        """
-        try:
-            obs = yield None
-            while True:
-                if obs is None:
-                    raise ValueError("Send observations matching forcing_coords()")
-                obs = yield self(obs)
-        except GeneratorExit:
-            logger.debug("InterpEquirectangular clean up complete.")
 
     def _interpolate_dataframe(
         self, df: pd.DataFrame, output_coords: CoordinateSystem

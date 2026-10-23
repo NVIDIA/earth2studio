@@ -16,7 +16,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Generator, Mapping
+from collections.abc import Callable, Mapping
 from contextlib import nullcontext
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
@@ -85,7 +85,7 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
     CorrDiff-COSMO directly models ``p(y | ERA5)``, so observations are mapped into
     its normalized output space without residual mean subtraction or addition. It is
     a single-shot diagnostic downscaler with no propagated state:
-    :meth:`__call__` and :meth:`create_generator` produce an independent analysis
+    :meth:`__call__` produces an independent analysis
     for each requested time, conditioned on the corresponding ERA5 state.
 
     Each observation is mapped to its nearest output-grid cell and normalized as
@@ -420,9 +420,7 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         if obs is None or len(obs) == 0:
             return y, mask, std_y
 
-        validate_observation_fields(
-            obs, required_fields=list(self.input_coords()[0].keys())
-        )
+        validate_observation_fields(obs, required_fields=list(self.forcing_coords()))
 
         tf = filter_time_range(obs, request_time, self._tolerance, time_column="time")
         if len(tf) == 0:
@@ -682,65 +680,6 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
             )
         out = torch.stack(outs, dim=0)  # [n_time, n_sample, C_out, H', W']
         return self._to_output_dataarray(out, times, oc)
-
-    def create_generator(
-        self, x: xr.DataArray
-    ) -> Generator[xr.DataArray | None, pd.DataFrame | None, None]:
-        """Generate independent COSMO-REA analyses, one per driving-state time.
-
-        The first ``next`` yields ``None`` without assimilation. Each subsequent
-        ``send(obs)`` produces the analysis for the next time in ``x``; the
-        generator stops after all driving-state times are consumed.
-
-        Parameters
-        ----------
-        x : xr.DataArray
-            ERA5 driving state (dims include ``time``, ``variable``, ``lat``,
-            ``lon``; a size-1 ``lead_time`` is squeezed). One analysis is produced
-            per ``time``.
-
-        Yields
-        ------
-        xr.DataArray | None
-            None on priming, then the obs-constrained analysis for the current time, dims
-            ``(time, sample, variable, y, x)`` with a single ``time``.
-
-        Receives
-        --------
-        pd.DataFrame | None
-            Sparse observations for the next time (columns ``time``/``lat``/
-            ``lon``/``variable``/``observation``), or ``None`` for a free analysis.
-
-        Raises
-        ------
-        RuntimeError
-            Before the first analysis, if the model is on CUDA but CuPy is not
-            installed (the analysis cannot be returned on-device; install the
-            ``da-cosmo`` extra or run on CPU).
-
-        Example
-        -------
-        >>> gen = model.create_generator(x)
-        >>> next(gen)                 # prime without assimilation
-        >>> state = gen.send(obs_df)  # analysis for x's first time
-        >>> state = gen.send(None)    # free analysis for x's next time
-        """
-        self._require_cupy_for_cuda()  # fail before sampling, not after
-        device = self.device
-        x = self._era5_frames(x)
-        oc = self.output_coords(x)
-        x_tensor, _ = x.e2s.to_torch()
-        x_tensor = x_tensor.to(device=device, dtype=torch.float32)
-        times = np.atleast_1d(x.coords["time"].values)
-
-        try:
-            obs = yield None
-            for i, t in enumerate(times):
-                y, mask, std_y = self._build_obs_tensors(obs, t, device)
-                out = self._forward(x_tensor[i], self._as_datetime(t), y, mask, std_y)
-                obs = yield self._to_output_dataarray(out[None], np.array([t]), oc)
-        except GeneratorExit:
-            return
 
     # ── loading ──────────────────────────────────────────────────────────────
 

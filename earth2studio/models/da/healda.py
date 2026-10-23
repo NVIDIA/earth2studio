@@ -18,7 +18,6 @@ import datetime as dt
 import math
 import warnings
 from collections import OrderedDict
-from collections.abc import Generator
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -479,7 +478,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         conv_obs: pd.DataFrame | None = None,
         sat_obs: pd.DataFrame | None = None,
     ) -> xr.DataArray:
-        """Run HealDA inference from conventional and/or satellite observations.
+        """Compute an independent analysis from conventional and/or satellite observations.
 
         At least one of the two observation DataFrames must be provided. Each
         DataFrame must carry a ``request_time`` entry in its ``.attrs``.
@@ -543,37 +542,6 @@ class HealDA(torch.nn.Module, AutoModelMixin):
 
         output_coords = self.output_coords(request_time=request_time)
         return self.build_output(prediction, output_coords)
-
-    def create_generator(
-        self,
-    ) -> Generator[
-        xr.DataArray | None,
-        tuple[pd.DataFrame | None, pd.DataFrame | None] | None,
-        None,
-    ]:
-        """Create a generator receiving observations for global analyses.
-
-        Yields
-        ------
-        xr.DataArray | None
-            None on priming, then global analyses on the configured grid.
-
-        Receives
-        --------
-        tuple[pd.DataFrame | None, pd.DataFrame | None] | None
-            A ``(conv_obs, sat_obs)`` tuple in ``forcing_coords()`` order sent via
-            ``generator.send()`` for the next analysis.
-            Either element may be ``None`` but not both. Sending ``None`` raises
-            ValueError because at least one observation batch is required.
-        """
-        try:
-            inputs = yield None
-            while True:
-                conv_obs, sat_obs = inputs if inputs is not None else (None, None)
-                da = self.__call__(conv_obs, sat_obs)
-                inputs = yield da
-        except GeneratorExit:
-            logger.debug("HealDA generator clean up complete.")
 
     def _build_channel_stats(self) -> pd.DataFrame:
         """Build per-(sensor, local_channel) normalization stats table."""

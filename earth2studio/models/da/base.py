@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 class AssimilationModel(Protocol):
     """Data assimilation model interface.
 
-    Like prognostic models, assimilation models declare initial state with
+    Like prognostic models, assimilation models declare background inputs with
     ``input_coords()`` and caller-supplied conditioning with ``forcing_coords()``.
     Forcing includes observations. Gridded slots use allocation-free DataArray
     signatures (``CoordinateSystem``); tabular slots use ``FrameSchema`` and accept
@@ -47,12 +47,14 @@ class AssimilationModel(Protocol):
     Concrete execution methods declare fixed named parameters. The protocol uses
     variadic arguments only to describe models with different numbers of slots.
     A single output is returned directly; multiple outputs form an ordered tuple.
+    Outputs may be gridded fields or tabular analyses. This interface does not
+    imply a trajectory: use ``StatefulAssimilationModel`` for explicit continuation.
     Models never fetch data internally; ``default_sources()`` recommends providers.
     """
 
     def __call__(
         self, *x: pd.DataFrame | xr.DataArray | None
-    ) -> xr.DataArray | tuple[xr.DataArray, ...]:
+    ) -> xr.DataArray | pd.DataFrame | tuple[xr.DataArray | pd.DataFrame, ...]:
         """Compute an independent analysis without retaining rollout state.
 
         Parameters
@@ -64,50 +66,8 @@ class AssimilationModel(Protocol):
 
         Returns
         -------
-        xr.DataArray | tuple[xr.DataArray, ...]
+        xr.DataArray | pd.DataFrame | tuple[xr.DataArray | pd.DataFrame, ...]
             Analysis matching ``output_coords()``, on the model's device.
-        """
-        pass
-
-    def create_generator(
-        self,
-        *x: xr.DataArray | pd.DataFrame,
-    ) -> Generator[
-        xr.DataArray | tuple[xr.DataArray, ...] | None,
-        xr.DataArray
-        | pd.DataFrame
-        | tuple[xr.DataArray | pd.DataFrame | None, ...]
-        | None,
-        None,
-    ]:
-        """Create a bidirectional generator for successive analyses.
-
-        Prime the generator with ``next(gen)`` before supplying forcing. This yields
-        the initial state or ``None`` without performing assimilation. Each subsequent
-        ``send`` supplies forcing for one analysis. The concrete model documents
-        whether it evolves the state, consumes successive initial frames, or
-        processes independent observation batches.
-
-        Parameters
-        ----------
-        *x : xr.DataArray | pd.DataFrame
-            Initial state, one argument per ``input_coords()`` slot. Models with
-            no initial state take no arguments.
-
-        Yields
-        ------
-        xr.DataArray | tuple[xr.DataArray, ...] | None
-            Initial state or ``None`` on priming, then analyses in output-slot order.
-
-        Receives
-        --------
-        xr.DataArray | pd.DataFrame | tuple[xr.DataArray | pd.DataFrame | None, ...] | None
-            One forcing value directly, or a tuple in ``forcing_coords()`` order.
-            Preserve optional slots with ``None`` entries. ``send(None)`` permits
-            progress without observations when the model supports it; required
-            gridded forcing must still be supplied.
-            Observation times and model-specific metadata refer to the current analysis;
-            gridded forcing must match the current window declared by the model.
         """
         pass
 
@@ -125,8 +85,8 @@ class AssimilationModel(Protocol):
         -------
         FrameSchema | CoordinateSystem | tuple[FrameSchema | CoordinateSystem, ...] | None
             Initial-state signatures in argument order, or ``None`` for models
-            driven solely by observations. Passed to ``create_generator`` and
-            before forcing in ``__call__``.
+            driven solely by observations. Passed before forcing in ``__call__``.
+            Having a background slot does not imply stateful execution.
         """
         pass
 
@@ -143,7 +103,7 @@ class AssimilationModel(Protocol):
         Gridded signatures use lead times relative to the state being processed.
         Frame schemas describe observation columns and allowed values; each model
         documents its observation window and any required DataFrame metadata.
-        Forcing is supplied on each generator ``send`` and is not
+        Forcing is supplied on each call and is not
         implicitly fetched or reused. ``None`` means no forcing slots, not an
         optional slot.
 
@@ -157,7 +117,7 @@ class AssimilationModel(Protocol):
 
     def output_coords(
         self, *input_coords: FrameSchema | CoordinateSystem, **kwargs: Any
-    ) -> CoordinateSystem | tuple[CoordinateSystem, ...]:
+    ) -> FrameSchema | CoordinateSystem | tuple[FrameSchema | CoordinateSystem, ...]:
         """Describe the analysis outputs.
 
         Parameters
@@ -171,8 +131,9 @@ class AssimilationModel(Protocol):
 
         Returns
         -------
-        CoordinateSystem | tuple[CoordinateSystem, ...]
-            Allocation-free DataArray output signatures in output-slot order.
+        FrameSchema | CoordinateSystem | tuple[FrameSchema | CoordinateSystem, ...]
+            Allocation-free DataArray signatures or tabular schemas in output-slot
+            order. Outputs are actual analyses, never priming ``None`` values.
 
         Raises
         ------
@@ -226,3 +187,130 @@ class AssimilationModel(Protocol):
 
 
 # --8<-- [end:assimilation-model-interface]
+
+
+# --8<-- [start:stateful-assimilation-model-interface]
+@runtime_checkable
+class StatefulAssimilationModel(AssimilationModel, Protocol):
+    """Assimilation model with explicit, replayable trajectory continuation.
+
+    Extends the independent-call interface with the prognostic lifecycle, allowing
+    DataFrames and optional observation slots alongside gridded fields. Concrete
+    methods use fixed named parameters; inheritance is not required. ``__call__``
+    returns the analysis from ``initialize`` without retaining continuation state.
+    Input/output coordinate hooks describe slots, not iterator callbacks. If a
+    model offers front/rear execution hooks, they apply only during iteration,
+    just as for prognostics, and their returned analyses feed the recurrence.
+    """
+
+    def initialize(
+        self, *x: xr.DataArray | pd.DataFrame | None
+    ) -> tuple[
+        xr.DataArray | pd.DataFrame | tuple[xr.DataArray | pd.DataFrame, ...], Any
+    ]:
+        """Compute the first analysis and initialize its continuation state.
+
+        Parameters
+        ----------
+        *x : xr.DataArray | pd.DataFrame | None
+            Same arguments as ``__call__``: input slots followed by forcing slots,
+            including complete initialization windows and static forcing. Optional
+            observations retain their declared slot as ``None``.
+
+        Returns
+        -------
+        tuple[xr.DataArray | pd.DataFrame | tuple[xr.DataArray | pd.DataFrame, ...], Any]
+            First computed analysis and serializable model-defined state (or
+            ``None``). State contains everything else needed to continue: history,
+            static forcing, latents, and RNG position. Applies no execution hooks
+            and does not mutate caller inputs.
+        """
+        pass
+
+    def step(
+        self, *y: xr.DataArray | pd.DataFrame | None, state: Any
+    ) -> tuple[
+        xr.DataArray | pd.DataFrame | tuple[xr.DataArray | pd.DataFrame, ...], Any
+    ]:
+        """Advance the trajectory by one core computation.
+
+        Parameters
+        ----------
+        *y : xr.DataArray | pd.DataFrame | None
+            Previous output slots as separate arguments, followed by new dynamic
+            forcing in declared order. Omit initialization-only static slots;
+            preserve optional observations with ``None``. Gridded forcing supplies
+            the final declared lead shifted by the output being advanced; older
+            frames are retained in state. Each model documents observation windows
+            relative to analysis time and any required DataFrame metadata.
+        state : Any
+            State returned with the previous analysis. Concrete methods declare
+            this as a positional-or-keyword parameter after output and forcing
+            slots; it is keyword-only here because it follows ``*y``.
+
+        Returns
+        -------
+        tuple[xr.DataArray | pd.DataFrame | tuple[xr.DataArray | pd.DataFrame, ...], Any]
+            Next complete analysis and new state. Together, outputs and state are
+            the complete continuation. Identical arguments replay identically,
+            including stochastic draws, without mutating inputs or prior state.
+            One step is one iterator yield; applies no execution hooks.
+
+        Raises
+        ------
+        ValueError
+            If required forcing is missing, slots are invalid, or outputs do not
+            continue the supplied state.
+        """
+        pass
+
+    def create_iterator(self, *x: xr.DataArray | pd.DataFrame | None) -> Generator[
+        xr.DataArray | pd.DataFrame | tuple[xr.DataArray | pd.DataFrame, ...],
+        xr.DataArray
+        | pd.DataFrame
+        | tuple[xr.DataArray | pd.DataFrame | None, ...]
+        | None,
+        None,
+    ]:
+        """Iterate successive computed analyses using explicit continuation.
+
+        Parameters
+        ----------
+        *x : xr.DataArray | pd.DataFrame | None
+            Same input and forcing arguments as ``initialize`` and ``__call__``.
+
+        Yields
+        ------
+        xr.DataArray | pd.DataFrame | tuple[xr.DataArray | pd.DataFrame, ...]
+            Complete analyses, starting with ``initialize``'s output. There is no
+            initial-condition or ``None`` priming yield. Drivers publish initial
+            fields separately; n analyses require n yields.
+
+        Receives
+        --------
+        xr.DataArray | pd.DataFrame | tuple[xr.DataArray | pd.DataFrame | None, ...] | None
+            Dynamic forcing for the next step, a single slot directly or a tuple
+            in declared order, omitting initialization-only static slots. Preserve
+            optional slots with ``None`` entries. ``next(it)`` is ``send(None)``:
+            valid only when no required new forcing is needed. Required gridded
+            conditioning is never implicitly fetched or reused.
+        """
+        pass
+
+    def to(self, device: Any) -> StatefulAssimilationModel:
+        """Move to the inference device and return the stateful model.
+
+        Parameters
+        ----------
+        device : Any
+            Inference device, typically ``torch.device`` or str.
+
+        Returns
+        -------
+        StatefulAssimilationModel
+            Model on the requested device, typically supplied by ``torch.nn.Module``.
+        """
+        pass
+
+
+# --8<-- [end:stateful-assimilation-model-interface]

@@ -23,9 +23,8 @@ stay thin:
 * :func:`load_assimilation` — load a DA model from a config node (mirrors
   :func:`src.models.load_prognostic`, but takes the node directly since DA
   configs nest the model under ``cfg.model.da``).
-* :class:`ObsSourceSet` — resolve and fetch the model's observation inputs.
-  DA models take a *tuple* of observation DataFrames (one per entry in
-  ``model.forcing_coords()``), each from its own ``DataFrameSource``.
+* :class:`ObsSourceSet` — resolve and fetch tabular observation forcing for
+  observation-only workflows, one DataFrame per forcing slot and source.
 * :class:`AssimilationRunner` / :class:`StatelessAssimilationRunner` —
   produce an analysis at a requested time.  The runner seam is what keeps
   stateless models (HealDA: independent per-time calls) and future stateful
@@ -102,8 +101,9 @@ def load_assimilation(da_cfg: DictConfig) -> AssimilationModel:
 class ObsSourceSet:
     """Resolves and fetches a DA model's observation inputs.
 
-    A DA model's ``forcing_coords()`` returns a schema or tuple of schemas, one per
-    observation argument that ``__call__`` accepts.  This class holds one
+    For the supported observation-only models, ``forcing_coords()`` returns a
+    schema or tuple of schemas, one per observation argument that ``__call__``
+    accepts. Gridded forcing is unsupported by this source set. This class holds one
     ``DataFrameSource`` (or ``None`` for a disabled slot) per schema, in
     the same order, and fetches all of them for a given analysis time via
     :func:`earth2studio.data.fetch_dataframe` — which attaches the
@@ -320,12 +320,14 @@ class AssimilationRunner(ABC):
     underlying model:
 
     * :class:`StatelessAssimilationRunner` (the default) calls the model
-      independently per analysis time — correct for models like HealDA
-      whose ``input_coords()`` is ``None``. Work items can be freely
-      distributed across ranks.
+      independently per analysis time, with only tabular observation forcing
+      and no background inputs (e.g. HealDA). Work items can be freely
+      distributed across ranks. This input restriction does not classify a
+      model's stateful capabilities.
     * A future cycling runner for stateful models (e.g. StormCastSDA)
-      would hold ``model.create_generator(background)`` open and step it
-      sequentially between requested times.  Such a runner constrains work
+      would require ``StatefulAssimilationModel`` and use ``initialize``/``step``
+      or ``create_iterator(background, conditioning, obs)`` with new forcing
+      sequentially between requested times. Such a runner constrains work
       distribution (analysis times must be processed in order on one
       rank), which is why the runner — not the pipeline — owns the
       stepping semantics.
@@ -346,13 +348,14 @@ class AssimilationRunner(ABC):
 
 
 class StatelessAssimilationRunner(AssimilationRunner):
-    """Runner for stateless DA models — one independent call per time.
+    """Observation-only runner — one independent DA call per time.
 
     Parameters
     ----------
     model : AssimilationModel
-        Loaded, device-placed DA model.  Must be stateless
-        (``input_coords()`` returns ``None``).
+        Loaded, device-placed DA model. Background inputs are unsupported
+        (``input_coords()`` must return ``None``), as is gridded forcing.
+        These are runner input restrictions, not a test of statefulness.
     obs_set : ObsSourceSet
         Observation sources matched to the model's inputs.
     obs_device : torch.device | str
@@ -369,11 +372,22 @@ class StatelessAssimilationRunner(AssimilationRunner):
     ) -> None:
         if model.input_coords() is not None:
             raise NotImplementedError(
-                f"{type(model).__name__} requires initialization state "
-                "(input_coords() is not None) — it is a stateful/cycling DA "
-                "model, which the stateless runner cannot drive.  A cycling "
-                "AssimilationRunner that steps model.create_generator() "
-                "sequentially is required."
+                f"{type(model).__name__} declares background inputs "
+                "(input_coords() is not None), which this observation-only "
+                "runner cannot supply. Use a caller or runner that supplies "
+                "the declared background and forcing inputs."
+            )
+        forcing = model.forcing_coords()
+        slots = (
+            ()
+            if forcing is None
+            else forcing if isinstance(forcing, tuple) else (forcing,)
+        )
+        if any(isinstance(slot, xr.DataArray) for slot in slots):
+            raise NotImplementedError(
+                f"{type(model).__name__} declares gridded forcing, which this "
+                "observation-only runner cannot supply. Only tabular "
+                "observation forcing is supported."
             )
         self._model = model
         self._obs_set = obs_set

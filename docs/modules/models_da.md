@@ -8,8 +8,17 @@ Data assimilation models are a class of models that integrate observational data
 model states or grids. These models can ingest both sparse observations (via
 DataFrames) and dense fields (via DataArrays) to produce output suitable for
 downstream tasks such as driving a prognostic model or generating a guided forecast.
-Data assimilation models support both stateless and stateful operation, allowing them
-to process observations independently or maintain internal state across time steps.
+`AssimilationModel` describes independent calls and input, forcing, output, source,
+and device declarations. `StatefulAssimilationModel` extends that contract with
+`initialize`, `step`, and `create_iterator`, carrying continuation state explicitly.
+Initialization and the iterator's first yield produce the first computed analysis;
+they do not return the initial background.
+
+HealDA, interpolation, and CorrDiff use independent calls. CorrDiff's background
+input does not make it stateful. StormCastSDA also supports stateful continuation,
+with required gridded conditioning and optional observations at each step. Inputs
+and outputs may be DataArrays or DataFrames as declared by each model. See the
+[DA user guide](../userguide/components/data_assimilation.md) for calling patterns.
 
 !!! warning
     Data Assimilation models are a new addition to Earth2Studio and APIs might be subject

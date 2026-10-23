@@ -7,7 +7,11 @@
 
    {% block methods %}
     .. automethod:: __call__
-    .. automethod:: create_generator
+    {% for method in ["initialize", "step", "create_iterator"] %}
+    {% if method in methods %}
+    .. automethod:: {{ method }}
+    {% endif %}
+    {% endfor %}
     .. automethod:: input_coords
     .. automethod:: forcing_coords
     .. automethod:: output_coords

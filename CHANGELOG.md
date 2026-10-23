@@ -11,7 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `StatefulAssimilationModel` with prognostic-style initialization, explicit
+  stepping, and analysis-first iteration, including DataFrame and optional observations.
+
 ### Changed
+
+- Split independent DA calls from stateful continuation: HealDA, interpolation, and
+  CorrDiff use direct calls; StormCast SDA supports replayable explicit-state rollouts.
 
 ### Deprecated
 

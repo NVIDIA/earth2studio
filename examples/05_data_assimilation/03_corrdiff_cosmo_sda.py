@@ -218,6 +218,8 @@ print(f"Assimilated: {n_assim} stations | Held-out: {len(val_ids)} stations")
 # Run the downscaler twice on the same ERA5 state: once with no observations (the
 # prior, ``obs=None``) and once with the observations selected for assimilation.
 # Both return an ensemble with dims ``(time, sample, variable, y, x)``.
+# These are independent analyses: a background input does not imply stateful
+# continuation. For multiple times, call SDA with each background/observation pair.
 
 
 # %% tags=["e2sg-profile:inference"]

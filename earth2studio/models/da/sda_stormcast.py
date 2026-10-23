@@ -27,8 +27,9 @@ from loguru import logger
 from earth2studio.data import GFS_FX, HRRR, DataSource, ForecastSource
 from earth2studio.data.base import DataFrameSource
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.da.base import AssimilationModel
+from earth2studio.models.da.base import StatefulAssimilationModel
 from earth2studio.models.da.utils import filter_time_range
+from earth2studio.models.utils import fork_rng
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -110,6 +111,11 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
     The caller supplies conditioning regridded to the HRRR grid, followed by
     observations, in ``forcing_coords()`` order.
 
+    ``initialize`` computes the first analysis and returns explicit Torch RNG
+    snapshots for continuation with ``step``. ``create_iterator`` yields analyses
+    only, starting at input plus one hour. Sampling uses scoped global Torch RNG
+    state; run stochastic components serially within a process.
+
     Note
     ----
     For more information see the following references:
@@ -136,13 +142,13 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
     hrrr_lon_lim : tuple[int, int], optional
         HRRR grid longitude limits, defaults to be the StormCastV1 region in central
         United States,, by default (579, 1219)
-    variables : np.array, optional
+    variables : np.ndarray, optional
         High-resolution variables, by default np.array(VARIABLES)
     conditioning_means : torch.Tensor | None, optional
         Means to normalize conditioning data, by default None
     conditioning_stds : torch.Tensor | None, optional
         Standard deviations to normalize conditioning data, by default None
-    conditioning_variables : np.array, optional
+    conditioning_variables : np.ndarray, optional
         Global variables for conditioning, by default np.array(CONDITIONING_VARIABLES)
     time_tolerance : TimeTolerance, optional
         Time tolerance for filtering observations. Observations within the tolerance
@@ -164,6 +170,8 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
     provider:nvidia backend:pytorch
     """
 
+    stochastic = True
+
     def __init__(
         self,
         regression_model: torch.nn.Module,
@@ -173,10 +181,10 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         invariants: torch.Tensor,
         hrrr_lat_lim: tuple[int, int] = (273, 785),
         hrrr_lon_lim: tuple[int, int] = (579, 1219),
-        variables: np.array = np.array(VARIABLES),
+        variables: np.ndarray = np.array(VARIABLES),
         conditioning_means: torch.Tensor | None = None,
         conditioning_stds: torch.Tensor | None = None,
-        conditioning_variables: np.array = np.array(CONDITIONING_VARIABLES),
+        conditioning_variables: np.ndarray = np.array(CONDITIONING_VARIABLES),
         time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         sampler_steps: int = 36,
         sampler_args: dict[str, float | int] | None = None,
@@ -206,6 +214,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         self.sda_std_obs = sda_std_obs
         self.sda_dps_norm = 2
         self.sda_gamma = sda_gamma
+        self._rng: torch.Generator | None = None
 
         hrrr_lat, hrrr_lon = HRRR.grid()
         self.lat = hrrr_lat[
@@ -258,6 +267,25 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
     @property
     def device(self) -> torch.device:
         return self.device_buffer.device
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the stream used to start new trajectories.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for a local CPU generator. Global RNG state is unchanged.
+        reset : bool, optional
+            Restart the initialization stream when True. When False, initialize
+            it only if absent, by default True
+
+        Notes
+        -----
+        Existing trajectories use their explicit state and are unaffected by
+        reseeding. Without seeding, initialization draws from the global CPU RNG.
+        """
+        if reset or self._rng is None:
+            self._rng = torch.Generator().manual_seed(seed)
 
     def input_coords(self) -> CoordinateSystem:
         """Declare the initial HRRR state as an allocation-free signature."""
@@ -380,7 +408,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         sampler_steps: int = 36,
         sda_std_obs: float = 0.1,
         sda_gamma: float = 0.001,
-    ) -> AssimilationModel:
+    ) -> StatefulAssimilationModel:
         """Load assimilation from package
 
         Parameters
@@ -400,8 +428,8 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
 
         Returns
         -------
-        AssimilationModel
-            Assimilation model
+        StatefulAssimilationModel
+            Assimilation model with explicit trajectory continuation
         """
         try:
             package.resolve("config.json")  # HF tracking download statistics
@@ -681,7 +709,7 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         conditioning: xr.DataArray,
         obs: pd.DataFrame | None = None,
     ) -> xr.DataArray:
-        """Runs assimilation model 1 step.
+        """Compute the first analysis, equivalent to ``initialize(...)[0]``.
 
         Parameters
         ----------
@@ -696,16 +724,118 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         Returns
         -------
         xr.DataArray
-            Output state one time-step into the future
+            First analysis one hour into the future, without iterator hooks.
 
         Raises
         ------
         ValueError
             If state or conditioning coordinates do not match their declared slots.
         """
+        return self.initialize(x, conditioning, obs)[0]
+
+    def initialize(
+        self,
+        x: xr.DataArray,
+        conditioning: xr.DataArray,
+        obs: pd.DataFrame | None = None,
+    ) -> tuple[xr.DataArray, dict[str, torch.Tensor]]:
+        """Compute the first analysis and start an independent trajectory.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial HRRR state. Fields are moved to the model device.
+        conditioning : xr.DataArray
+            Required conditioning on the same grid and valid time as x.
+        obs : pd.DataFrame | None, optional
+            Observations at the first analysis time, by default None
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict[str, torch.Tensor]]
+            First analysis at input plus one hour and serializable CPU/device
+            RNG snapshots. Applies no hooks and does not modify inputs. Each
+            initialization advances the model's initialization RNG stream.
+
+        Raises
+        ------
+        ValueError
+            If required conditioning is missing or coordinates are invalid.
+        """
+        seed = int(
+            torch.randint(2**63 - 1, (), generator=self._rng, device="cpu").item()
+        )
+        return self._advance(x, conditioning, obs, {}, seed)
+
+    def step(
+        self,
+        y: xr.DataArray,
+        conditioning: xr.DataArray,
+        obs: pd.DataFrame | None,
+        state: dict[str, torch.Tensor],
+    ) -> tuple[xr.DataArray, dict[str, torch.Tensor]]:
+        """Advance an analysis using its explicit RNG continuation.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous analysis. Fields are moved to the model device.
+        conditioning : xr.DataArray
+            Required conditioning at y's valid time on the same grid.
+        obs : pd.DataFrame | None
+            Observations at the next analysis time; None disables assimilation.
+        state : dict[str, torch.Tensor]
+            RNG snapshots returned by initialization or the previous step on the
+            same device. Pass after the forcing slots, positionally or by keyword.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict[str, torch.Tensor]]
+            Next analysis one hour after y and updated RNG snapshots. Neither y,
+            forcing nor state is modified; replay is independent of model reseeding
+            and other trajectories. Applies no hooks.
+
+        Raises
+        ------
+        ValueError
+            If conditioning is missing, coordinates are invalid, or state lacks
+            RNG snapshots for this device.
+        """
+        required = {"cpu"}
+        if self.device.type == "cuda":
+            required.add(str(self.device))
+        if not isinstance(state, dict) or not required.issubset(state):
+            raise ValueError(
+                "StormCastSDA state requires RNG snapshots for this device"
+            )
+        return self._advance(y, conditioning, obs, state)
+
+    def _advance(
+        self,
+        x: xr.DataArray,
+        conditioning: xr.DataArray,
+        obs: pd.DataFrame | None,
+        state: dict[str, torch.Tensor],
+        seed: int = 0,
+    ) -> tuple[xr.DataArray, dict[str, torch.Tensor]]:
+        # The sampler also draws global Torch noise (e.g. stochastic churn).
+        # Snapshot the whole numerical call, never a suspended iterator yield.
+        next_state = {key: value.clone() for key, value in state.items()}
+        with fork_rng(seed=seed, device=self.device, states=next_state):
+            y = self._analysis(x, conditioning, obs)
+        return y, next_state
+
+    def _analysis(
+        self,
+        x: xr.DataArray,
+        conditioning: xr.DataArray,
+        obs: pd.DataFrame | None,
+    ) -> xr.DataArray:
         device = self.device
         handshake_nonempty(x)
         output_coords = self.output_coords(x)
+        if not isinstance(conditioning, xr.DataArray):
+            raise ValueError("StormCastSDA requires conditioning as a DataArray")
         handshake_nonempty(conditioning)
         handshake_dataarray(
             conditioning, coord_array_like(x, {"variable": self.conditioning_variables})
@@ -722,11 +852,13 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
 
         return from_torch(x_tensor, output_coords)
 
-    def create_generator(
+    def create_iterator(
         self,
         x: xr.DataArray,
+        conditioning: xr.DataArray,
+        obs: pd.DataFrame | None = None,
     ) -> Generator[xr.DataArray, tuple[xr.DataArray, pd.DataFrame | None] | None, None]:
-        """Create a generator yielding forecasts with data assimilation.
+        """Yield hourly analyses, beginning with the initialization analysis.
 
         The generator yields states and receives conditioning and observations
         via ``send((conditioning, obs))`` in forcing-slot order. Observations
@@ -737,11 +869,15 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         ----------
         x : xr.DataArray
             Initial state on the HRRR curvilinear grid
+        conditioning : xr.DataArray
+            Required initial conditioning on x's grid and valid time.
+        obs : pd.DataFrame | None, optional
+            Observations at the first analysis time, by default None
 
         Yields
         ------
         xr.DataArray
-            Initial state on priming, then forecast states at each time step.
+            Complete analyses, starting one hour after x; never the initial state.
 
         Receives
         --------
@@ -752,21 +888,20 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
 
         Example
         -------
-        >>> gen = model.create_generator(x0)
-        >>> state = next(gen)               # initial state, no assimilation
-        >>> state = gen.send((c0, obs_df))   # step 1 with observations
-        >>> state = gen.send((c1, None))     # step 2 without observations
+        >>> gen = model.create_iterator(x0, c0, obs_df)
+        >>> analysis = next(gen)             # first analysis
+        >>> analysis = gen.send((c1, None))   # second analysis, no observations
         """
-        self.output_coords(x)
         try:
-            forcing = yield x
+            y, state = self.initialize(x, conditioning, obs)
+            forcing = yield y
             while True:
                 if not isinstance(forcing, tuple) or len(forcing) != 2:
                     raise ValueError(
                         "Send (conditioning, obs) in forcing_coords() order"
                     )
-                x = self(x, *forcing)
-                forcing = yield x
+                y, state = self.step(y, forcing[0], forcing[1], state)
+                forcing = yield y
 
         except GeneratorExit:
             logger.info("StormCast SDA clean up")

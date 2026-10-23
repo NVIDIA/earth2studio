@@ -5,10 +5,17 @@ description: Earth2Studio data assimilation model implementation guidelines foll
 
 # Earth2Studio Data Assimilation Models
 
-Data assimilation models can work with tensor data, tabular observation data, or
-both. Follow the `AssimilationModel` protocol in
+Data assimilation models can work with DataArrays, DataFrames, or both, for inputs
+and outputs. Follow the `AssimilationModel` protocol in
 [base.py](mdc:earth2studio/models/da/base.py) and the usage examples in
 [data_assimilation.md](mdc:docs/userguide/components/data_assimilation.md).
+
+`AssimilationModel` requires `__call__`, `input_coords`, `forcing_coords`,
+`output_coords`, `default_sources`, and `to`. It has no generator requirement.
+`StatefulAssimilationModel` extends it with `initialize`, `step`, and
+`create_iterator`, matching prognostic explicit-state execution. HealDA,
+interpolation, and CorrDiff implement independent calls; StormCastSDA also supports
+stateful continuation. Background inputs alone do not establish statefulness.
 
 ## Coordinate and forcing contracts
 
@@ -20,7 +27,8 @@ Align slot declarations with prognostic models:
   Return `None` only when there are no forcing slots.
 - `output_coords()` describes analysis outputs. Accept initial-state signatures as
   separate named arguments; any additional keywords are model-specific.
-  Return a CoordinateSystem or tuple of CoordinateSystems for DataArray outputs.
+  Return a `CoordinateSystem` for a DataArray output or `FrameSchema` for a
+  DataFrame output; multiple outputs form an ordered tuple, which may mix both.
 - Return a single signature/schema directly, or an ordered tuple for multiple slots.
   Input and forcing tuples may mix gridded signatures and tabular schemas.
 - Use `CoordinateSystem` (an allocation-free `xr.DataArray` built with `coord_array`
@@ -41,18 +49,28 @@ HealDA declares no initial state and two observation schemas; its call is
 `model(conv_obs, sat_obs)`. Preserve optional slots with `None` rather than dropping
 them from a tuple.
 
-## Execution and generators
+## Independent execution and explicit-state continuation
 
 - `__call__` accepts initial states followed by forcing and computes one independent
-  analysis. Return a singleton DataArray directly, multiple outputs as a tuple.
-- `create_generator` accepts only initial-state arguments. Prime it with `next(gen)`
-  to yield the initial state or `None` without assimilation.
-- Every subsequent `send` supplies forcing for one analysis: one value directly or a
-  tuple in `forcing_coords()` order. Do not implicitly fetch or reuse forcing.
+  analysis. Return a singleton DataArray or DataFrame directly, multiple outputs
+  as a tuple. Repeat direct calls for independent observation/background batches.
+- Stateful `initialize` accepts initial fields followed by initial forcing and
+  returns `(first_analysis, state)` after one core computation.
+- Stateful `step` accepts previous output slots followed by new forcing and the
+  explicit `state`, returning `(next_analysis, next_state)`. Concrete methods use
+  fixed named parameters, with state last; generic callers use `state=state`.
+- `(output, state)` is the complete continuation. Keep trajectory history and RNG
+  position in serializable state. `step` must not mutate either argument, so callers
+  can checkpoint, restore, or branch without another model instance.
+- `create_iterator` accepts the same initial fields and forcing as `initialize`.
+  Its first `next` yields the first computed analysis, not an initial state or a
+  priming sentinel. Every yield represents one core computation.
+- Every subsequent `send` supplies forcing for the next step: one value directly or
+  a tuple in declared order. Do not implicitly fetch or reuse required forcing.
 - Allow `None` for optional observations. Required conditioning must still be supplied;
-  a model that requires observations may reject `None` after priming.
-- Document whether the generator advances its state, consumes successive initial
-  frames, or processes independent observation batches.
+  an observation-only model may require at least one non-None observation batch.
+- Do not add artificial iterators to independent models. CorrDiff's ERA5 backgrounds
+  are independent inputs, not trajectory state; the caller owns any loop over times.
 - Document gridded forcing times relative to the current state and observation times
   relative to the analysis. For StormCastSDA, conditioning is at the input valid time
   and observations are at the output valid time, one hour later.
@@ -70,19 +88,19 @@ them from a tuple.
   `PrognosticMixin` or batching decorators to DA models.
 
 ```python
-# Stateful mixed forcing
-gen = model.create_generator(x0)
-state = next(gen)  # initial state, no assimilation
-state = gen.send((conditioning0, obs0))
-state = gen.send((conditioning1, None))
-gen.close()
+# StormCastSDA: explicit state, with required conditioning and optional obs
+analysis, state = model.initialize(x0, conditioning0, obs0)
+analysis, state = model.step(analysis, conditioning1, None, state=state)
 
-# Stateless observation forcing
-gen = interp.create_generator()
-next(gen)  # None, no assimilation
-analysis = gen.send(obs0)
-analysis = gen.send(obs1)
-gen.close()
+# Equivalent iterator-managed continuation
+iterator = model.create_iterator(x0, conditioning0, obs0)
+analysis = next(iterator)  # first computed analysis
+analysis = iterator.send((conditioning1, None))
+iterator.close()
+
+# Independent observation forcing
+analysis = interp(obs0)
+analysis = interp(obs1)
 ```
 
 ## Model construction and loading
@@ -102,8 +120,11 @@ gen.close()
 
 - Test input/forcing/output declarations and source ordering, including singleton,
   tuple and absent slots as applicable to the model.
-- Test priming yields and successive forcing sends, optional observations,
-  coordinate mismatches, and CPU/CUDA execution where available.
+- Test independent calls without an iterator. For stateful models, test first-output
+  semantics, initialize/step and iterator equivalence, successive forcing sends,
+  and continuation without input/state mutation (including RNG state).
+- Test optional observations versus required conditioning, coordinate mismatches,
+  and CPU/CUDA execution where available.
 - Ensure conditioning is supplied by callers and that execution does not mutate inputs.
 - Add models to [models_da.md](mdc:docs/modules/models_da.md) alphabetically and update
   [install_options.yml](mdc:docs/userguide/about/install_options.yml) for optional extras.

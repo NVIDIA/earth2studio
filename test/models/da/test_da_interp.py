@@ -334,25 +334,69 @@ def test_interp_tolerance(sample_observations_pandas, small_grid, device):
         ),
     ],
 )
-def test_interp_generator(sample_observations_pandas, small_grid, device):
+@pytest.mark.parametrize("interp_method", ["nearest", "smolyak"])
+def test_interp_independent_calls(
+    sample_observations_pandas: pd.DataFrame,
+    small_grid: tuple[np.ndarray, np.ndarray],
+    device: str,
+    interp_method: str,
+) -> None:
     lat, lon = small_grid
-    model = InterpEquirectangular(lat=lat, lon=lon).to(device)
+    model = InterpEquirectangular(lat=lat, lon=lon, interp_method=interp_method).to(
+        device
+    )
 
     request_time = np.array([np.datetime64("2024-01-01T12:00:00")])
-    sample_observations_pandas.attrs = {
+    obs = sample_observations_pandas.iloc[:4].copy()
+    obs["variable"] = "t2m"
+    obs.attrs = {
         "request_time": request_time,
-        "request_lead_time": np.array([np.timedelta64(0, "h")]),
+        "variable": np.array(["t2m"]),
     }
+    original_obs = obs.copy(deep=True)
 
-    generator = model.create_generator()
-    assert next(generator) is None
-    da = generator.send(sample_observations_pandas)
-    assert isinstance(da, xr.DataArray)
-    assert da.shape == (1, 4, len(lat), len(lon))
+    first = model(obs)
+    first_values = first.e2s.to_torch()[0].clone()
+    assert torch.isfinite(first_values).all()
 
-    # Send another set of observations
-    da2 = generator.send(sample_observations_pandas)
-    assert isinstance(da2, xr.DataArray)
-    assert da2.shape == (1, 4, len(lat), len(lon))
+    next_obs = obs.copy(deep=True)
+    next_obs["time"] += np.timedelta64(1, "D")
+    next_obs["observation"] += 50.0
+    next_obs["variable"] = "u10m"
+    next_obs.attrs = {
+        "request_time": request_time + np.timedelta64(1, "D"),
+        "variable": np.array(["u10m"]),
+    }
+    second = model(next_obs)
+    assert second.shape == (1, 1, len(lat), len(lon))
+    np.testing.assert_array_equal(second.time, next_obs.attrs["request_time"])
+    np.testing.assert_array_equal(second.coords["variable"], ["u10m"])
+    torch.testing.assert_close(
+        second.e2s.to_torch()[0], first_values + 50.0, atol=1e-4, rtol=1e-5
+    )
 
-    generator.close()
+    repeated = model(obs)
+    np.testing.assert_array_equal(repeated.time, request_time)
+    np.testing.assert_array_equal(repeated.coords["variable"], ["t2m"])
+    torch.testing.assert_close(repeated.e2s.to_torch()[0], first_values)
+    torch.testing.assert_close(first.e2s.to_torch()[0], first_values)
+    assert repeated.e2s.to_torch()[0].device == torch.device(device)
+    pd.testing.assert_frame_equal(obs, original_obs)
+    for key in original_obs.attrs:
+        np.testing.assert_array_equal(obs.attrs[key], original_obs.attrs[key])
+
+
+def test_interp_call_validates_observations(
+    sample_observations_pandas: pd.DataFrame,
+    small_grid: tuple[np.ndarray, np.ndarray],
+) -> None:
+    lat, lon = small_grid
+    model = InterpEquirectangular(lat=lat, lon=lon, interp_method="nearest")
+    with pytest.raises(ValueError, match="request_time"):
+        model(sample_observations_pandas)
+
+    sample_observations_pandas.attrs["request_time"] = np.array(
+        [np.datetime64("2024-01-01T12:00:00")]
+    )
+    with pytest.raises(ValueError, match="missing required fields"):
+        model(sample_observations_pandas.drop(columns="observation"))

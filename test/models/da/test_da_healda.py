@@ -294,37 +294,61 @@ def test_healda_call_empty_obs():
     assert np.all(np.isnan(out.values))
 
 
-def test_healda_generator():
-    model = _build_model()
+@pytest.mark.parametrize(
+    "device",
+    [
+        "cpu",
+        pytest.param(
+            "cuda:0",
+            marks=pytest.mark.skipif(
+                not torch.cuda.is_available(), reason="cuda missing"
+            ),
+        ),
+    ],
+)
+def test_healda_independent_calls_with_optional_observations(device: str) -> None:
+    model = _build_model(device=device)
     request_time = np.array([np.datetime64("2024-01-01T12:00:00")])
     conv_df = _build_raw_conv_df(10, request_time)
-    sat_df = _build_raw_sat_df(10, request_time)
+    conv_df["observation"] = 250.0
+    sat_time = request_time + np.timedelta64(1, "D")
+    sat_df = _build_raw_sat_df(10, sat_time)
+    sat_df["observation"] = 270.0
+    original_conv = conv_df.copy(deep=True)
+    original_sat = sat_df.copy(deep=True)
+    simultaneous_sat = sat_df.copy(deep=True)
+    simultaneous_sat["time"] = request_time[0]
+    simultaneous_sat.attrs = {"request_time": request_time}
 
-    gen = model.create_generator()
-    assert next(gen) is None
+    def observation_mean(inputs: dict[str, torch.Tensor]) -> torch.Tensor:
+        return inputs["obs"].mean().expand(1, NVAR, 1, NPIX).clone()
 
-    # conv only
-    with patch.object(model, "_forward", _mock_forward):
-        da = gen.send((conv_df, None))
-    assert isinstance(da, xr.DataArray)
-    assert da.shape == (1, NVAR, NPIX)
+    with patch.object(model, "_forward", side_effect=observation_mean) as forward:
+        first = model(conv_df, None)
+        first_values = first.e2s.to_torch()[0].clone()
+        for conv, sat, time, expected, count in [
+            (None, sat_df, sat_time, 270.0, 10),
+            (conv_df, simultaneous_sat, request_time, 260.0, 20),
+            (conv_df, None, request_time, 250.0, 10),
+        ]:
+            out = model(conv, sat)
+            assert out.shape == (1, NVAR, NPIX)
+            np.testing.assert_array_equal(out.time, time)
+            values = out.e2s.to_torch()[0]
+            assert values.device == torch.device(device)
+            torch.testing.assert_close(values, torch.full_like(values, expected))
+            assert forward.call_args.args[0]["obs"].numel() == count
 
-    # sat only
-    with patch.object(model, "_forward", _mock_forward):
-        da = gen.send((None, sat_df))
-    assert isinstance(da, xr.DataArray)
-    assert da.shape == (1, NVAR, NPIX)
+        with pytest.raises(ValueError, match="At least one"):
+            model(None, None)
+        torch.testing.assert_close(model(conv_df).e2s.to_torch()[0], first_values)
 
-    # both
-    with patch.object(model, "_forward", _mock_forward):
-        da = gen.send((conv_df, sat_df))
-    assert isinstance(da, xr.DataArray)
-    assert da.shape == (1, NVAR, NPIX)
-
-    with pytest.raises(ValueError, match="At least one"):
-        gen.send((None, None))
-
-    gen.close()
+    torch.testing.assert_close(first_values, torch.full_like(first_values, 250.0))
+    torch.testing.assert_close(first.e2s.to_torch()[0], first_values)
+    pd.testing.assert_frame_equal(conv_df, original_conv)
+    pd.testing.assert_frame_equal(sat_df, original_sat)
+    np.testing.assert_array_equal(conv_df.attrs["request_time"], request_time)
+    np.testing.assert_array_equal(sat_df.attrs["request_time"], sat_time)
 
 
 def test_healda_input_coords():

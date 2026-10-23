@@ -208,29 +208,33 @@ class FakeDA:
             coords=output_coords.coords,
         )
 
-    def create_generator(self):
-        inputs = yield None
-        while True:
-            conv_obs, sat_obs = inputs if inputs is not None else (None, None)
-            inputs = yield self(conv_obs, sat_obs)
+    def default_sources(self) -> None:
+        return None
 
     def to(self, device):
         return self
 
 
-class FakeStatefulDA(FakeDA):
-    """A DA fake that requires a background state (input_coords not None)."""
+class FakeBackgroundDA(FakeDA):
+    """Independent DA fake with a background input, like CorrDiff."""
 
-    def input_coords(self):
-        return (
-            OrderedDict(
-                {
-                    "variable": np.array(self.variables, dtype=str),
-                    "lat": self.lat,
-                    "lon": self.lon,
-                }
-            ),
-        )
+    def input_coords(self) -> xr.DataArray:
+        return super().output_coords()
+
+    def __call__(
+        self,
+        background: xr.DataArray,
+        conv_obs: pd.DataFrame | None = None,
+        sat_obs: pd.DataFrame | None = None,
+    ) -> xr.DataArray:
+        return super().__call__(conv_obs, sat_obs)
+
+
+class FakeGriddedForcingDA(FakeDA):
+    """DA fake with gridded conditioning and tabular observation forcing."""
+
+    def forcing_coords(self) -> tuple[xr.DataArray, OrderedDict]:
+        return self.output_coords(), super().forcing_coords()[0]
 
 
 def _make_obs_set(model, conv_source=None, sat_source=None) -> ObsSourceSet:
@@ -322,10 +326,18 @@ class TestStatelessRunner:
         with pytest.raises(ValueError, match="disabled"):
             runner.analysis(np.datetime64("2024-01-01"))
 
-    def test_stateful_model_rejected(self):
-        model = FakeStatefulDA()
-        with pytest.raises(NotImplementedError, match="stateful"):
+    def test_background_input_rejected_without_inferring_statefulness(self) -> None:
+        model = FakeBackgroundDA()
+        with pytest.raises(NotImplementedError, match="background inputs") as exc:
             StatelessAssimilationRunner(model, _make_obs_set(model, FakeObsSource()))
+        assert "stateful" not in str(exc.value)
+        assert "cycling" not in str(exc.value)
+
+    def test_gridded_forcing_rejected(self) -> None:
+        model = FakeGriddedForcingDA()
+        obs_set = _make_obs_set(FakeDA(), FakeObsSource())
+        with pytest.raises(NotImplementedError, match="gridded forcing"):
+            StatelessAssimilationRunner(model, obs_set)
 
     def test_build_runner_default_is_stateless(self):
         model = FakeDA()

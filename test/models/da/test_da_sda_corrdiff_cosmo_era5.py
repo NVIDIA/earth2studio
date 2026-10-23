@@ -19,7 +19,7 @@
 Construction-based (no real package / no GPU forward). They exercise the SDA
 eligibility seam (``_identity_output_indices``), the dx ``_denoise`` score-predictor
 seam, the sparse-obs -> normalized-space tensors, and the public DA contract
-(coords, ``__call__``, ``create_generator``, ``load_model``).
+(coords, independent ``__call__`` analyses, ``load_model``).
 """
 
 import os
@@ -606,7 +606,7 @@ def test_build_obs_tensors_missing_column_raises():
         sda._build_obs_tensors(obs, t, sda.device)
 
 
-# ── __call__ / create_generator ──────────────────────────────────────────────
+# ── Independent analyses ────────────────────────────────────────────────────
 
 
 def _identity_sda() -> CorrDiffCosmoEra5SDA:
@@ -698,27 +698,39 @@ def test_forward_trims_halo():
     assert trimmed.shape[-1] == untrimmed.shape[-1] - 2
 
 
-def test_create_generator():
+def test_independent_calls_match_batched_analysis() -> None:
     sda = _identity_sda()
+    sda.seed = 0
     t0 = np.datetime64("2021-07-14T12:00")
     t1 = np.datetime64("2021-07-14T13:00")
     times = np.array([t0, t1])
     x = _era5_da(sda, times)
+    original_x = x.copy(deep=True)
 
     obs0 = _obs_df(sda, [(4, 4)], ["u10m"], [1.0], t0)
-    gen = sda.create_generator(x)
-    assert next(gen) is None
-    a0 = gen.send(obs0)
+    original_obs = obs0.copy(deep=True)
+    x0, x1 = x.isel(time=[0]), x.isel(time=[1])
+    free0 = sda(x0, None)
+    a0 = sda(x0, obs0)
     assert set(a0.dims) == {"time", "sample", "variable", "y", "x"}
     assert a0.sizes["time"] == 1
     assert a0.coords["time"].values[0] == t0
+    assert np.isfinite(a0.values).all()
+    assert not np.allclose(a0.values, free0.values)
 
-    a1 = gen.send(None)
+    a1 = sda(x1, None)
     assert a1.sizes["time"] == 1
     assert a1.coords["time"].values[0] == t1
-    with pytest.raises(StopIteration):
-        next(gen)
-    gen.close()
+    assert np.isfinite(a1.values).all()
+
+    # A fresh observation batch never leaks into a later free analysis, and
+    # earlier times can be requested again without advancing a hidden cursor.
+    xr.testing.assert_allclose(sda(x0, None), free0)
+    xr.testing.assert_allclose(sda(x0, obs0), a0)
+    batched = sda(x, obs0)
+    xr.testing.assert_allclose(batched, xr.concat([a0, a1], dim="time"))
+    xr.testing.assert_identical(x, original_x)
+    pd.testing.assert_frame_equal(obs0, original_obs)
 
 
 # ── load_model (mocked DX loader) ────────────────────────────────────────────
