@@ -93,7 +93,8 @@ class CAMulatorForcing:
 
     Badges
     ------
-    region:global dataclass:simulation product:atmos product:ocean provider:ncar
+    region:global dataclass:simulation product:atmos product:ocean product:solar
+    provider:ncar
     """
 
     def __init__(
