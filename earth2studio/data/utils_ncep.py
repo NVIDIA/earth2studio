@@ -1118,6 +1118,10 @@ _NCEPObsModifier = Callable[[pd.DataFrame], pd.DataFrame]
 _NCEPPlan = Mapping[str, tuple[str, _NCEPObsModifier]]
 
 
+# Disjoint, sorted closed time intervals requested from one cycle file
+Intervals = tuple[tuple[datetime, datetime], ...]
+
+
 @dataclass(frozen=True)
 class NCEPObsTask:
     """One conventional NCEP observation cycle file to fetch and decode."""
@@ -1128,10 +1132,11 @@ class NCEPObsTask:
     datetime_min: datetime
     datetime_max: datetime
     var_plan: _NCEPPlan
+    intervals: Intervals = ()
 
 
 def plan_conv_tasks(
-    windows: Mapping[datetime, tuple[datetime, datetime]],
+    windows: Mapping[datetime, Intervals],
     variable: list[str],
     lexicon: LexiconType,
     build_uri: Callable[[str, datetime], str],
@@ -1140,8 +1145,8 @@ def plan_conv_tasks(
 
     Parameters
     ----------
-    windows : Mapping[datetime, tuple[datetime, datetime]]
-        Cycle datetime -> (min, max) observation-time window, already merged.
+    windows : Mapping[datetime, Intervals]
+        Cycle datetime -> requested observation-time intervals (``cycle_windows``).
     variable : list[str]
         Requested variable ids, routed by their ``"route::key"`` lexicon prefix.
     lexicon : LexiconType
@@ -1165,16 +1170,17 @@ def plan_conv_tasks(
         plans.setdefault(route, {})[v] = (rest, modifier)
 
     tasks: list[NCEPObsTask] = []
-    for cycle, (tmin, tmax) in windows.items():
+    for cycle, intervals in windows.items():
         for route, plan in plans.items():
             tasks.append(
                 NCEPObsTask(
                     uri=build_uri(route, cycle),
                     route=route,
                     datetime_file=cycle,
-                    datetime_min=tmin,
-                    datetime_max=tmax,
+                    datetime_min=intervals[0][0],
+                    datetime_max=intervals[-1][1],
                     var_plan=plan,
+                    intervals=intervals,
                 )
             )
     return tasks
@@ -1186,12 +1192,22 @@ def observation_cycle_times(
     tolerance_upper: timedelta,
     cadence: timedelta = timedelta(hours=6),
 ) -> list[datetime]:
-    """Return cadence file times whose observation windows overlap a request.
+    """Return the cycle file times a request reads.
 
-    Each file timestamp is treated as the end of its observation window, so a
-    file at ``T`` may contain observations from ``(T - cadence, T]``. This means
-    requests often need the next cycle file as well as the cycle at or before
-    the requested time.
+    NCEP cycle files (PrepBUFR, GPS-RO, satellite dumps and the GSI diagnostics
+    built from them) hold the reports whose report time lies within
+    ``cadence / 2`` of their cycle ``T``. A request ``[tmin, tmax]`` reads every
+    file whose span it overlaps in the interior,
+    ``T - cadence / 2 < tmax`` and ``T + cadence / 2 > tmin``, and the decoders
+    cut the rows to the closed window by report time.
+
+    A request returns the contents of the cycles it overlaps, cut to its window.
+    An observation exactly on a ``T ± cadence / 2`` boundary is returned from the
+    files the request reads; rows only a neighbouring cycle holds at that instant
+    are not returned. A zero-length request reads every file whose closed span
+    holds its instant, so an instant on a boundary reads both files. Each row
+    carries its file's ``cycle_time``. Drifting-sonde
+    levels can carry times past their file's span; they follow their report time.
 
     Parameters
     ----------
@@ -1207,8 +1223,8 @@ def observation_cycle_times(
     Returns
     -------
     list[datetime]
-        Cadence-aligned file timestamps whose backward-looking observation
-        windows overlap ``[time + tolerance_lower, time + tolerance_upper]``.
+        Cadence-aligned file timestamps whose spans overlap the interior of
+        ``[time + tolerance_lower, time + tolerance_upper]``.
 
     Raises
     ------
@@ -1218,15 +1234,18 @@ def observation_cycle_times(
     if cadence <= timedelta(0):
         raise ValueError("cadence must be positive")
 
-    tmin = time + tolerance_lower
-    tmax = time + tolerance_upper
-    day_start = tmin.replace(hour=0, minute=0, second=0, microsecond=0)
-    cycle = day_start + ((tmin - day_start) // cadence) * cadence
-    if cycle < tmin:
-        cycle += cadence
+    first = time + tolerance_lower - cadence / 2
+    last = time + tolerance_upper + cadence / 2
+    # A zero-length request reads every file whose closed span holds the instant
+    instant = tolerance_lower == tolerance_upper
+    day_start = first.replace(hour=0, minute=0, second=0, microsecond=0)
+    steps = (first - day_start) // cadence
+    if not (instant and day_start + steps * cadence == first):
+        steps += 1
+    cycle = day_start + steps * cadence
 
     cycles: list[datetime] = []
-    while cycle < tmax + cadence:
+    while cycle < last or (instant and cycle == last):
         cycles.append(cycle)
         cycle += cadence
     return cycles
@@ -1237,8 +1256,12 @@ def cycle_windows(
     tolerance_lower: timedelta,
     tolerance_upper: timedelta,
     cadence: timedelta = timedelta(hours=6),
-) -> dict[datetime, tuple[datetime, datetime]]:
-    """Map cadence file times to merged requested observation windows.
+) -> dict[datetime, Intervals]:
+    """Map cadence file times to the observation-time intervals requested from them.
+
+    Requests sharing a file keep their own intervals; overlapping or touching
+    intervals are merged, so a file read for 23Z ±30 min and 02Z ±30 min returns
+    no rows between 23:30 and 01:30.
 
     Parameters
     ----------
@@ -1253,24 +1276,43 @@ def cycle_windows(
 
     Returns
     -------
-    dict[datetime, tuple[datetime, datetime]]
-        Mapping from each required cadence file timestamp to the merged
-        observation-time window covered by requests for that file.
+    dict[datetime, Intervals]
+        Mapping from each required cadence file timestamp to its sorted, disjoint
+        closed observation-time intervals.
     """
-    windows: dict[datetime, tuple[datetime, datetime]] = {}
+    requested: dict[datetime, list[tuple[datetime, datetime]]] = {}
     for t in time_list:
-        tmin = t + tolerance_lower
-        tmax = t + tolerance_upper
         for cycle in observation_cycle_times(
             t, tolerance_lower, tolerance_upper, cadence
         ):
-            existing = windows.get(cycle)
-            windows[cycle] = (
-                (min(existing[0], tmin), max(existing[1], tmax))
-                if existing is not None
-                else (tmin, tmax)
+            requested.setdefault(cycle, []).append(
+                (t + tolerance_lower, t + tolerance_upper)
             )
+    windows: dict[datetime, Intervals] = {}
+    for cycle, intervals in requested.items():
+        merged: list[tuple[datetime, datetime]] = []
+        for start, end in sorted(intervals):
+            if merged and start <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+            else:
+                merged.append((start, end))
+        windows[cycle] = tuple(merged)
     return windows
+
+
+def filter_to_intervals(df: pd.DataFrame, intervals: Intervals) -> pd.DataFrame:
+    """Keep the rows whose filter time lies in at least one closed interval.
+
+    The filter time is the PrepBUFR report time where the frame has one, else the
+    row time, matching the decoders' window filter.
+    """
+    times = df["time"]
+    if "report_time" in df.columns:
+        times = df["report_time"].fillna(times)
+    keep = np.zeros(len(df), dtype=bool)
+    for start, end in intervals:
+        keep |= ((times >= start) & (times <= end)).to_numpy()
+    return df if keep.all() else df[keep].reset_index(drop=True)
 
 
 def resolve_output_schema(
@@ -1321,7 +1363,7 @@ def compile_dataframe(
     Parameters
     ----------
     tasks : Sequence
-        Task objects; each must expose a ``.uri`` attribute.
+        Task objects exposing ``.uri``, ``.datetime_file`` and ``.intervals``.
     schema : pa.Schema
         Output schema for column selection and empty-frame creation.
     source_id : str
@@ -1349,6 +1391,9 @@ def compile_dataframe(
         t0 = time.perf_counter()
         try:
             df = decode_task(path, task)
+            # The decode window is the hull of the intervals requested from the file
+            if df is not None and len(task.intervals) > 1:
+                df = filter_to_intervals(df, task.intervals)
         except Exception as exc:
             # A skipped file is indistinguishable from missing observations, so files
             # are skipped only when the caller passes on_error.
