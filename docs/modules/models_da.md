@@ -8,9 +8,9 @@ Data assimilation models are a class of models that integrate observational data
 model states or grids. These models can ingest both sparse observations (via
 DataFrames) and dense fields (via DataArrays) to produce output suitable for
 downstream tasks such as driving a prognostic model or generating a guided forecast.
-`AssimilationModel` describes independent calls and input, forcing, output, source,
+`AssimilationModel` describes independent calls and input, output, source,
 and device declarations. `StatefulAssimilationModel` extends that contract with
-`initialize`, `step`, and `create_iterator`, carrying continuation state explicitly.
+`forcing_coords`, `initialize`, `step`, and `create_iterator`, carrying continuation state explicitly.
 Initialization and the iterator's first yield produce the first computed analysis;
 they do not return the initial background.
 

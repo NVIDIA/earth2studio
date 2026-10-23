@@ -142,9 +142,6 @@ class FakeDA:
 
     # -- AssimilationModel protocol ------------------------------------
     def input_coords(self):
-        return None
-
-    def forcing_coords(self):
         conv_schema = OrderedDict(
             {
                 "time": np.empty(0, dtype="datetime64[ns]"),
@@ -165,7 +162,9 @@ class FakeDA:
         )
         return conv_schema, sat_schema
 
-    def output_coords(self, request_time=None, **kwargs):
+    def output_coords(
+        self, conv_obs=None, sat_obs=None, *, request_time=None, **kwargs
+    ):
         if request_time is None:
             request_time = np.array([np.datetime64("NaT")], dtype="datetime64[ns]")
         from earth2studio.utils import coord_array
@@ -230,15 +229,15 @@ class FakeBackgroundDA(FakeDA):
         return super().__call__(conv_obs, sat_obs)
 
 
-class FakeGriddedForcingDA(FakeDA):
-    """DA fake with gridded conditioning and tabular observation forcing."""
+class FakeMixedInputDA(FakeDA):
+    """DA fake with gridded and tabular inputs."""
 
-    def forcing_coords(self) -> tuple[xr.DataArray, OrderedDict]:
-        return self.output_coords(), super().forcing_coords()[0]
+    def input_coords(self) -> tuple[xr.DataArray, OrderedDict]:
+        return self.output_coords(), super().input_coords()[0]
 
 
 def _make_obs_set(model, conv_source=None, sat_source=None) -> ObsSourceSet:
-    return ObsSourceSet([conv_source, sat_source], model.forcing_coords())
+    return ObsSourceSet([conv_source, sat_source], model.input_coords())
 
 
 # ======================================================================
@@ -262,7 +261,7 @@ class TestObsSourceSet:
                 },
             }
         )
-        obs_set = ObsSourceSet.from_config(obs_cfg, model.forcing_coords())
+        obs_set = ObsSourceSet.from_config(obs_cfg, model.input_coords())
 
         conv, sat = obs_set._sources
         assert isinstance(conv, FakeObsSource)
@@ -277,12 +276,12 @@ class TestObsSourceSet:
         model = FakeDA()
         obs_cfg = OmegaConf.create({"conv": {"value": 1.0}, "sat": {"value": 1.0}})
         with pytest.raises(ValueError, match="_target_"):
-            ObsSourceSet.from_config(obs_cfg, model.forcing_coords())
+            ObsSourceSet.from_config(obs_cfg, model.input_coords())
 
     def test_source_count_mismatch_raises(self):
         model = FakeDA()
         with pytest.raises(ValueError, match="one config entry is required"):
-            ObsSourceSet([FakeObsSource()], model.forcing_coords())
+            ObsSourceSet([FakeObsSource()], model.input_coords())
 
     def test_fetch_sets_request_time_and_none_slots(self):
         model = FakeDA()
@@ -328,15 +327,15 @@ class TestStatelessRunner:
 
     def test_background_input_rejected_without_inferring_statefulness(self) -> None:
         model = FakeBackgroundDA()
-        with pytest.raises(NotImplementedError, match="background inputs") as exc:
-            StatelessAssimilationRunner(model, _make_obs_set(model, FakeObsSource()))
+        with pytest.raises(NotImplementedError, match="gridded inputs") as exc:
+            StatelessAssimilationRunner(model, _make_obs_set(FakeDA(), FakeObsSource()))
         assert "stateful" not in str(exc.value)
         assert "cycling" not in str(exc.value)
 
-    def test_gridded_forcing_rejected(self) -> None:
-        model = FakeGriddedForcingDA()
+    def test_mixed_inputs_rejected(self) -> None:
+        model = FakeMixedInputDA()
         obs_set = _make_obs_set(FakeDA(), FakeObsSource())
-        with pytest.raises(NotImplementedError, match="gridded forcing"):
+        with pytest.raises(NotImplementedError, match="gridded inputs"):
             StatelessAssimilationRunner(model, obs_set)
 
     def test_build_runner_default_is_stateless(self):
@@ -703,7 +702,7 @@ class TestObsFrameStoreDeclaration:
     def test_obs_set_declares_enabled_slots_only(self):
         model = FakeDA()
         obs_set = ObsSourceSet(
-            [FakeObsSource(), None], model.forcing_coords(), names=["conv", "sat"]
+            [FakeObsSource(), None], model.input_coords(), names=["conv", "sat"]
         )
         times = [np.datetime64("2024-01-01T00:00:00")]
 
@@ -764,7 +763,7 @@ class TestObsFrameStoreDeclaration:
         )
 
         obs_set = ObsSourceSet.from_config(
-            obs_cfg, model.forcing_coords(), output_path=str(output_path)
+            obs_cfg, model.input_coords(), output_path=str(output_path)
         )
         conv, sat = obs_set._sources
         assert isinstance(conv, PredownloadedFrameSource)
@@ -772,7 +771,7 @@ class TestObsFrameStoreDeclaration:
 
         # Without output_path (the predownload declaration path) the live
         # source is constructed even when a frame store exists on disk.
-        obs_set_live = ObsSourceSet.from_config(obs_cfg, model.forcing_coords())
+        obs_set_live = ObsSourceSet.from_config(obs_cfg, model.input_coords())
         assert isinstance(obs_set_live._sources[0], FakeObsSource)
 
     def test_end_to_end_run_from_predownloaded_obs(self, tmp_path):

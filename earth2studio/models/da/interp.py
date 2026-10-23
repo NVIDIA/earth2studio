@@ -117,10 +117,6 @@ class InterpEquirectangular(torch.nn.Module):
         self._tolerance = normalize_time_tolerance(time_tolerance)
         self.register_buffer("device_buffer", torch.empty(0), persistent=False)
 
-    def input_coords(self) -> None:
-        """Initial state coordinates (not required)."""
-        return None
-
     def default_sources(self) -> None:
         """Return no recommended data sources.
 
@@ -134,8 +130,8 @@ class InterpEquirectangular(torch.nn.Module):
         """
         return None
 
-    def forcing_coords(self) -> FrameSchema:
-        """Observation forcing schema of the assimilation model.
+    def input_coords(self) -> FrameSchema:
+        """Observation input schema of the assimilation model.
 
         Returns
         -------
@@ -156,6 +152,8 @@ class InterpEquirectangular(torch.nn.Module):
 
     def output_coords(
         self,
+        obs: FrameSchema | None = None,
+        *,
         request_time: np.ndarray | None = None,
         variable: np.ndarray | None = None,
         **kwargs: Any,
@@ -164,6 +162,8 @@ class InterpEquirectangular(torch.nn.Module):
 
         Parameters
         ----------
+        obs : FrameSchema | None, optional
+            Observation schema; output geometry is configured at construction.
         request_time : np.ndarray | None, optional
             Analysis valid times, by default None (an unspecified time).
         variable : np.ndarray | None, optional
@@ -214,7 +214,7 @@ class InterpEquirectangular(torch.nn.Module):
         if obs.attrs.get("request_time") is None:
             raise ValueError("Observation DataFrame must have 'request_time' in attrs")
         output_coords = self.output_coords(**obs.attrs)
-        validate_observation_fields(obs, required_fields=list(self.forcing_coords()))
+        validate_observation_fields(obs, required_fields=list(self.input_coords()))
         return self._interpolate_dataframe(obs, output_coords)
 
     def _interpolate_dataframe(

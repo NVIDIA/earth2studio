@@ -10,25 +10,25 @@ and outputs. Follow the `AssimilationModel` protocol in
 [base.py](mdc:earth2studio/models/da/base.py) and the usage examples in
 [data_assimilation.md](mdc:docs/userguide/components/data_assimilation.md).
 
-`AssimilationModel` requires `__call__`, `input_coords`, `forcing_coords`,
+`AssimilationModel` requires `__call__`, `input_coords`,
 `output_coords`, `default_sources`, `to`, `stochastic`, and `set_rng(seed, reset=True)`.
 Deterministic models declare `stochastic=False` and a no-op `set_rng`.
 Stochastic calls advance a local stream; `reset=False` preserves an existing stream.
 Seeded execution leaves global RNG unchanged. It has no generator requirement.
-`StatefulAssimilationModel` extends it with `initialize`, `step`, and
+`StatefulAssimilationModel` extends it with `forcing_coords`, `initialize`, `step`, and
 `create_iterator`, matching prognostic explicit-state execution. HealDA,
 interpolation, and CorrDiff implement independent calls; StormCastSDA also supports
 stateful continuation. Background inputs alone do not establish statefulness.
 
 ## Coordinate and forcing contracts
 
-Align slot declarations with prognostic models:
+Declare slots in execution argument order:
 
-- `input_coords()` describes initial-state/background arguments. Return `None`
-  for models driven solely by observations.
-- `forcing_coords()` describes caller-supplied conditioning, including observations.
+- `input_coords()` describes every independent-model argument, including observations.
+  For stateful models it describes initialization inputs. Return `None` for no inputs.
+- Stateful `forcing_coords()` describes caller-supplied conditioning, including observations.
   Return `None` only when there are no forcing slots.
-- `output_coords()` describes analysis outputs. Accept initial-state signatures as
+- `output_coords()` describes analysis outputs. Accept input signatures/schemas as
   separate named arguments; any additional keywords are model-specific.
   Return a `CoordinateSystem` for a DataArray output or `FrameSchema` for a
   DataFrame output; multiple outputs form an ordered tuple, which may mix both.
@@ -54,7 +54,7 @@ them from a tuple.
 
 ## Independent execution and explicit-state continuation
 
-- `__call__` accepts initial states followed by forcing and computes one independent
+- `__call__` accepts input slots (plus forcing for stateful models) and computes one independent
   analysis. Return a singleton DataArray or DataFrame directly, multiple outputs
   as a tuple. Repeat direct calls for independent observation/background batches.
 - Stateful `initialize` accepts initial fields followed by initial forcing and
@@ -101,7 +101,7 @@ analysis = next(iterator)  # first computed analysis
 analysis = iterator.send((conditioning1, None))
 iterator.close()
 
-# Independent observation forcing
+# Independent observation inputs
 analysis = interp(obs0)
 analysis = interp(obs1)
 ```

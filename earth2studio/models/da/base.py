@@ -37,9 +37,9 @@ if TYPE_CHECKING:
 class AssimilationModel(Protocol):
     """Data assimilation model interface.
 
-    Assimilation models declare background inputs with
-    ``input_coords()`` and caller-supplied conditioning with ``forcing_coords()``.
-    Forcing includes observations. Gridded slots use allocation-free DataArray
+    Assimilation models declare their arguments with ``input_coords()``.
+    Inputs include observations and any background fields.
+    Gridded slots use allocation-free DataArray
     signatures (``CoordinateSystem``); tabular slots use ``FrameSchema`` and accept
     pandas or cuDF DataFrames. One slot may be declared directly, multiple slots
     as an ordered tuple, and no slots as ``None``.
@@ -82,8 +82,8 @@ class AssimilationModel(Protocol):
         Parameters
         ----------
         *x : pd.DataFrame | xr.DataArray | None
-            One argument per ``input_coords()`` slot followed by one per
-            ``forcing_coords()`` slot, in declared order. Optional observation
+            One argument per ``input_coords()`` slot, in declared order.
+            Stateful models append their forcing slots. Optional observation
             slots accept ``None`` only where the concrete model documents it.
 
         Returns
@@ -101,39 +101,14 @@ class AssimilationModel(Protocol):
         | tuple[FrameSchema | CoordinateSystem, ...]
         | None
     ):
-        """Describe the initial state or background slots.
+        """Describe the model's input slots.
 
         Returns
         -------
         FrameSchema | CoordinateSystem | tuple[FrameSchema | CoordinateSystem, ...] | None
-            Initial-state signatures in argument order, or ``None`` for models
-            driven solely by observations. Passed before forcing in ``__call__``.
-            Having a background slot does not imply stateful execution.
-        """
-        pass
-
-    def forcing_coords(
-        self,
-    ) -> (
-        FrameSchema
-        | CoordinateSystem
-        | tuple[FrameSchema | CoordinateSystem, ...]
-        | None
-    ):
-        """Describe observations and other caller-supplied conditioning.
-
-        Gridded signatures use lead times relative to the state being processed.
-        Frame schemas describe observation columns and allowed values; each model
-        documents its observation window and any required DataFrame metadata.
-        Forcing is supplied on each call and is not
-        implicitly fetched or reused. ``None`` means no forcing slots, not an
-        optional slot.
-
-        Returns
-        -------
-        FrameSchema | CoordinateSystem | tuple[FrameSchema | CoordinateSystem, ...] | None
-            One signature or schema, an ordered tuple (which may mix both), or
-            ``None`` for a model without forcing.
+            Field signatures and observation schemas in argument order, or
+            ``None`` for no inputs. Stateful models declare initialization inputs
+            here and additional conditioning in ``forcing_coords()``.
         """
         pass
 
@@ -145,11 +120,10 @@ class AssimilationModel(Protocol):
         Parameters
         ----------
         *input_coords : FrameSchema | CoordinateSystem
-            One signature or DataArray per initial-state slot as separate arguments.
+            One signature or schema per input slot as separate arguments.
             Concrete models declare fixed named parameters matching their slots.
         **kwargs : Any
-            Model-specific keyword arguments. Observation-only models need no
-            positional inputs.
+            Model-specific request metadata, such as analysis time.
 
         Returns
         -------
@@ -177,7 +151,7 @@ class AssimilationModel(Protocol):
         ]
         | None
     ):
-        """Recommend providers in input-then-forcing slot order.
+        """Recommend providers in input slot order.
 
         Models never fetch from these themselves. Drivers read recommendations
         through ``earth2studio.models.utils.recommended_sources``.
@@ -185,7 +159,8 @@ class AssimilationModel(Protocol):
         Returns
         -------
         DataSource | ForecastSource | DataFrameSource | ForecastFrameSource | tuple[DataSource | ForecastSource | DataFrameSource | ForecastFrameSource | None, ...] | None
-            One source directly, or one entry per input slot then per forcing slot.
+            One source directly, or one entry per input slot. Stateful models append
+            providers for their forcing slots.
             A ``None`` tuple entry leaves that slot to the caller; a top-level
             ``None`` means no recommendations. Callers align data to each slot's
             declared grid, variables, and time window before execution.
@@ -224,6 +199,30 @@ class StatefulAssimilationModel(AssimilationModel, Protocol):
     model offers front/rear execution hooks, they apply only during iteration,
     and their returned analyses feed the recurrence.
     """
+
+    def forcing_coords(
+        self,
+    ) -> (
+        FrameSchema
+        | CoordinateSystem
+        | tuple[FrameSchema | CoordinateSystem, ...]
+        | None
+    ):
+        """Describe observations and other caller-supplied step conditioning.
+
+        Gridded signatures use lead times relative to the state being processed.
+        Frame schemas describe observation columns and allowed values; each model
+        documents its observation window and any required DataFrame metadata.
+        Forcing follows initialization inputs and is supplied again for each step;
+        it is never implicitly fetched or reused.
+
+        Returns
+        -------
+        FrameSchema | CoordinateSystem | tuple[FrameSchema | CoordinateSystem, ...] | None
+            One signature or schema, multiple declarations in slot order, or
+            ``None`` for no forcing slots. Optional slots still have a declaration.
+        """
+        pass
 
     def initialize(
         self, *x: xr.DataArray | pd.DataFrame | None

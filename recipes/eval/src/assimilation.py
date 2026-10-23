@@ -101,9 +101,9 @@ def load_assimilation(da_cfg: DictConfig) -> AssimilationModel:
 class ObsSourceSet:
     """Resolves and fetches a DA model's observation inputs.
 
-    For the supported observation-only models, ``forcing_coords()`` returns a
+    For the supported observation-only models, ``input_coords()`` returns a
     schema or tuple of schemas, one per observation argument that ``__call__``
-    accepts. Gridded forcing is unsupported by this source set. This class holds one
+    accepts. Gridded inputs are unsupported by this source set. This class holds one
     ``DataFrameSource`` (or ``None`` for a disabled slot) per schema, in
     the same order, and fetches all of them for a given analysis time via
     :func:`earth2studio.data.fetch_dataframe` — which attaches the
@@ -113,9 +113,9 @@ class ObsSourceSet:
     ----------
     sources : list
         One ``DataFrameSource`` instance (or ``None``) per model input
-        argument, positionally matched to ``model.forcing_coords()``.
+        argument, positionally matched to ``model.input_coords()``.
     schemas : tuple
-        The model's forcing schemas (``model.forcing_coords()``), used to
+        The model's input schemas (``model.input_coords()``), used to
         derive the ``variable`` and ``fields`` arguments of each fetch.
     names : list[str], optional
         One logical name per source (the ``obs_sources`` config keys).
@@ -163,7 +163,7 @@ class ObsSourceSet:
 
         *obs_cfg* is an ordered mapping (e.g. ``cfg.model.da.obs_sources``)
         whose entries are matched **positionally, in declaration order**
-        against the model's ``forcing_coords()`` slots. Each entry is a
+        against the model's ``input_coords()`` slots. Each entry is a
         Hydra ``_target_`` block plus two optional convenience keys handled
         here rather than passed to the constructor:
 
@@ -184,7 +184,7 @@ class ObsSourceSet:
         obs_cfg : DictConfig
             Mapping of name → observation source config.
         schemas : tuple
-            The model's ``forcing_coords()`` schema or tuple.
+            The model's ``input_coords()`` schema or tuple.
         output_path : str, optional
             Run output directory to check for predownloaded frame
             stores.  ``None`` (e.g. during predownload itself) always
@@ -293,7 +293,7 @@ class ObsSourceSet:
         -------
         tuple
             One DataFrame (or ``None`` for disabled slots) per model input,
-            in ``forcing_coords()`` order.
+            in ``input_coords()`` order.
         """
         times = np.array([time], dtype="datetime64[ns]")
         frames: list[Any] = []
@@ -353,9 +353,8 @@ class StatelessAssimilationRunner(AssimilationRunner):
     Parameters
     ----------
     model : AssimilationModel
-        Loaded, device-placed DA model. Background inputs are unsupported
-        (``input_coords()`` must return ``None``), as is gridded forcing.
-        These are runner input restrictions, not a test of statefulness.
+        Loaded, device-placed DA model with only tabular input slots.
+        Gridded inputs are unsupported by this observation-only runner.
     obs_set : ObsSourceSet
         Observation sources matched to the model's inputs.
     obs_device : torch.device | str
@@ -370,31 +369,22 @@ class StatelessAssimilationRunner(AssimilationRunner):
         obs_set: ObsSourceSet,
         obs_device: torch.device | str = "cpu",
     ) -> None:
-        if model.input_coords() is not None:
-            raise NotImplementedError(
-                f"{type(model).__name__} declares background inputs "
-                "(input_coords() is not None), which this observation-only "
-                "runner cannot supply. Use a caller or runner that supplies "
-                "the declared background and forcing inputs."
-            )
-        forcing = model.forcing_coords()
+        inputs = model.input_coords()
         slots = (
-            ()
-            if forcing is None
-            else forcing if isinstance(forcing, tuple) else (forcing,)
+            () if inputs is None else inputs if isinstance(inputs, tuple) else (inputs,)
         )
         if any(isinstance(slot, xr.DataArray) for slot in slots):
             raise NotImplementedError(
-                f"{type(model).__name__} declares gridded forcing, which this "
+                f"{type(model).__name__} declares gridded inputs, which this "
                 "observation-only runner cannot supply. Only tabular "
-                "observation forcing is supported."
+                "observation inputs are supported."
             )
         self._model = model
         self._obs_set = obs_set
         self._obs_device = obs_device
 
     def analysis(self, time: np.datetime64) -> tuple[pd.DataFrame | xr.DataArray, ...]:
-        """Fetch forcing and return the analysis for the requested valid time."""
+        """Fetch observations and return the analysis for the requested valid time."""
         obs = self._obs_set.fetch(time, device=self._obs_device)
         if all(o is None for o in obs):
             raise ValueError(

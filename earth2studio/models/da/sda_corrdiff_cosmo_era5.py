@@ -312,17 +312,18 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
 
     # ── coordinate systems ───────────────────────────────────────────────────
 
-    def input_coords(self) -> CoordinateSystem:
-        """Initial-state coordinate system: the ERA5 driving state (the same grid
-        the downscaler conditions on).
+    def input_coords(self) -> tuple[CoordinateSystem, FrameSchema]:
+        """Declare ERA5 background fields and optional surface observations.
 
         Returns
         -------
-        CoordinateSystem
-            Allocation-free ERA5 initial-state signature.
+        tuple[CoordinateSystem, FrameSchema]
+            ERA5 signature followed by the observation schema. Observations are
+            filtered around each background time with the configured tolerance.
+            Pass None for the observation argument to run unguided downscaling.
         """
         signature = self.model.input_coords()
-        return coord_array(
+        background = coord_array(
             ("time", "variable", "lat", "lon"),
             {
                 "time": np.empty(0, dtype="datetime64[ns]"),
@@ -332,6 +333,16 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
             },
             dynamic=("time",),
         )
+        observations = FrameSchema(
+            {
+                "time": np.empty(0, dtype="datetime64[ns]"),
+                "lat": np.empty(0, dtype=np.float32),
+                "lon": np.empty(0, dtype=np.float32),
+                "observation": np.empty(0, dtype=np.float32),
+                "variable": np.array(self.assimilate_variables, dtype=str),
+            }
+        )
+        return background, observations
 
     def default_sources(self) -> tuple[DataSource, DataFrameSource]:
         """Recommend ARCO ERA5 initialization and GHCNh observation data sources.
@@ -354,27 +365,9 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
             stations=stations, time_tolerance=self._tolerance, verbose=False
         )
 
-    def forcing_coords(self) -> FrameSchema:
-        """Observation forcing schema of the assimilation model.
-
-        Returns
-        -------
-        FrameSchema
-            Required observation fields (``time``, ``lat``, ``lon``, ``observation``,
-            ``variable``). Observations are filtered around each driving-state time
-            with the configured tolerance. Pass None for unconstrained downscaling.
-        """
-        return FrameSchema(
-            {
-                "time": np.empty(0, dtype="datetime64[ns]"),
-                "lat": np.empty(0, dtype=np.float32),
-                "lon": np.empty(0, dtype=np.float32),
-                "observation": np.empty(0, dtype=np.float32),
-                "variable": np.array(self.assimilate_variables, dtype=str),
-            }
-        )
-
-    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+    def output_coords(
+        self, input_coords: CoordinateSystem, obs: FrameSchema | None = None
+    ) -> CoordinateSystem:
         """Output coordinate system of the assimilation model.
 
         Matches the dimensions returned by :meth:`__call__` on the COSMO-REA
@@ -385,6 +378,8 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         input_coords : CoordinateSystem
             The ERA5 driving-state signature (from :meth:`input_coords`),
             validated against the wrapped model's native input grid.
+        obs : FrameSchema | None, optional
+            Observation schema; output geometry follows the background signature.
 
         Returns
         -------
@@ -436,7 +431,7 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         if obs is None or len(obs) == 0:
             return y, mask, std_y
 
-        validate_observation_fields(obs, required_fields=list(self.forcing_coords()))
+        validate_observation_fields(obs, required_fields=list(self.input_coords()[1]))
 
         tf = filter_time_range(obs, request_time, self._tolerance, time_column="time")
         if len(tf) == 0:

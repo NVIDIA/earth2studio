@@ -371,7 +371,7 @@ da:
 ```
 
 Entries are matched **positionally, in declaration order** against the
-model's `forcing_coords()` slots. Two convenience keys are handled by the
+model's `input_coords()` slots. Two convenience keys are handled by the
 recipe rather than passed to the source constructor: `enabled: false`
 disables a slot (the model receives `None` — e.g. a conv-only ablation),
 and `time_tolerance_hours: [lo, hi]` sets the observation window as
@@ -468,9 +468,8 @@ to error on any gap instead (pure-DA ICs only).
 The pipelines drive DA models through an `AssimilationRunner` seam
 (`src/assimilation.py`). The default `StatelessAssimilationRunner` calls an
 `AssimilationModel` independently per analysis time so work items distribute
-freely across ranks. It supports only models with no background inputs
-(`input_coords()` is `None`) and tabular observation forcing, such as HealDA.
-It rejects unsupported background inputs or gridded forcing explicitly.
+freely across ranks. It supports only tabular observation inputs, such as HealDA's
+`input_coords()` schemas. It rejects gridded inputs explicitly.
 These restrictions do not determine statefulness: CorrDiff uses independent
 calls but still needs an ERA5 background that this runner cannot supply.
 

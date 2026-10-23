@@ -87,11 +87,11 @@ def _setup_da_components(
     if "obs_sources" not in da_cfg:
         raise ValueError(
             "DA model config requires an 'obs_sources' block — one entry "
-            "per observation forcing slot of the model, in forcing_coords() order."
+            "per observation input slot of the model, in input_coords() order."
         )
     model = load_assimilation(da_cfg).to(device)
     obs_set = ObsSourceSet.from_config(
-        da_cfg.obs_sources, model.forcing_coords(), output_path=output_path
+        da_cfg.obs_sources, model.input_coords(), output_path=output_path
     )
     runner = build_runner(da_cfg, model, obs_set)
     return model, obs_set, runner
@@ -119,7 +119,7 @@ def _declare_obs_frame_stores(
         logger.info("Observation predownload disabled — obs fetched live.")
         return []
     model = load_assimilation(cfg.model.da)
-    obs_set = ObsSourceSet.from_config(cfg.model.da.obs_sources, model.forcing_coords())
+    obs_set = ObsSourceSet.from_config(cfg.model.da.obs_sources, model.input_coords())
     return obs_set.predownload_frame_stores(times)
 
 

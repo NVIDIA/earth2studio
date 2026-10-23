@@ -254,10 +254,6 @@ class HealDA(torch.nn.Module, AutoModelMixin):
     def device(self) -> torch.device:
         return self.device_buffer.device
 
-    def input_coords(self) -> None:
-        """Initial state coordinates (not required)."""
-        return None
-
     def default_sources(self) -> tuple["DataFrameSource", "DataFrameSource"]:
         """Recommend the UFS observation data sources.
 
@@ -266,8 +262,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         tuple[DataFrameSource, DataFrameSource]
             ``UFSObsConv`` for the conventional observation slot followed by
             ``UFSObsSat`` for the satellite observation slot, both with the
-            ``(-21h, +3h)`` time tolerance window HealDA is designed for. This model
-            has no initialization slot.
+            ``(-21h, +3h)`` time tolerance window HealDA is designed for.
         """
         from earth2studio.data import UFSObsConv, UFSObsSat
 
@@ -277,8 +272,8 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             UFSObsSat(time_tolerance=tolerance),
         )
 
-    def forcing_coords(self) -> tuple[FrameSchema, FrameSchema]:
-        """Observation forcing schemas of the assimilation model.
+    def input_coords(self) -> tuple[FrameSchema, FrameSchema]:
+        """Observation input schemas of the assimilation model.
 
         Returns two FrameSchemas: one for conventional observations and one for
         satellite observations. When calling the model, either may be ``None``
@@ -322,6 +317,9 @@ class HealDA(torch.nn.Module, AutoModelMixin):
 
     def output_coords(
         self,
+        conv_obs: FrameSchema | None = None,
+        sat_obs: FrameSchema | None = None,
+        *,
         request_time: np.ndarray | None = None,
         **kwargs: Any,
     ) -> CoordinateSystem:
@@ -329,6 +327,10 @@ class HealDA(torch.nn.Module, AutoModelMixin):
 
         Parameters
         ----------
+        conv_obs : FrameSchema | None, optional
+            Conventional observation schema; output geometry is fixed.
+        sat_obs : FrameSchema | None, optional
+            Satellite observation schema; output geometry is fixed.
         request_time : np.ndarray | None, optional
             Analysis valid time(s), by default None
         **kwargs : Any

@@ -28,8 +28,8 @@ The full requirements for a standard data assimilation model are defined explici
     the APIs that built-in workflows and utilities expect.
 
 `AssimilationModel` defines independent execution (`__call__`), `input_coords`,
-`forcing_coords`, `output_coords`, `default_sources`, and `to`. It does not require
-an iterator. `StatefulAssimilationModel` extends it with `initialize`, `step`, and
+`output_coords`, `default_sources`, and `to`. It does not require
+an iterator. `StatefulAssimilationModel` extends it with `forcing_coords`, `initialize`, `step`, and
 `create_iterator` for continuing a trajectory with explicit state.
 
 ```python
@@ -47,18 +47,20 @@ in [Data Movement](../about/overview.md#data_userguide).
 
 ### Background and Forcing Slots
 
-As with prognostic models, `input_coords()` describes background/initial fields and
-`forcing_coords()` describes caller-supplied conditioning, including observations.
+`input_coords()` describes all arguments of independent models, including observations.
+For stateful models it describes initialization inputs; `forcing_coords()` declares
+additional caller-supplied step conditioning, including observations.
 Each returns a single signature or schema, an ordered tuple for multiple slots, or
 `None` for no slots. A tuple can mix gridded signatures and DataFrame schemas.
-`output_coords()` accepts initial-state signatures as separate positional arguments.
+`output_coords()` accepts input signatures/schemas as separate positional arguments.
 
-| Model | Background | Forcing, in order | Execution |
+| Model | Inputs, in order | Forcing, in order | Execution |
 | --- | --- | --- | --- |
-| `InterpEquirectangular` | None | Observation schema | Independent calls |
-| `HealDA` | None | Conventional schema, satellite schema | Independent calls |
-| `CorrDiffCosmoEra5SDA` | ERA5 DataArray | Observation schema | Independent calls |
+| `InterpEquirectangular` | Observation schema | — | Independent calls |
+| `HealDA` | Conventional schema, satellite schema | — | Independent calls |
+| `CorrDiffCosmoEra5SDA` | ERA5 DataArray, observation schema | — | Independent calls |
 | `StormCastSDA` | HRRR DataArray | Conditioning, observations | Independent or stateful |
+| `StormCastConusSDA` | HRRR DataArray | Conditioning, observations | Independent or stateful |
 
 A background input does not imply stateful execution: CorrDiff analyzes each
 supplied ERA5 background independently. Stateful continuation is an explicit
@@ -138,16 +140,16 @@ even when optional observations are `None`. Thus subsequent `next(iterator)` or
 `send(None)` cannot replace `send((conditioning, None))`. Conditioning is aligned
 to the input valid time, and observations to the output valid time one hour later.
 
-Single outputs and output signatures are returned directly; only multiple outputs
-are tuples. When migrating older DA code, replace `init_coords()` with
-`input_coords()` and move observation-schema queries to `forcing_coords()`.
+Return one output directly, or multiple objects in declared order (`return y1, y2`).
+Independent models declare observations in `input_coords()`; only stateful models
+declare step conditioning and observations in `forcing_coords()`.
 
 ## Custom Data Assimilation Models
 
 To integrate your own data assimilation model, satisfy the interface above and keep the
-input and output schemas explicit. The model should advertise initialization
-requirements with `input_coords()`, observations and conditioning with
-`forcing_coords()`, and produced outputs with `output_coords()`. Declare fixed named
+input and output schemas explicit. Declare arguments with `input_coords()`,
+additional stateful conditioning with `forcing_coords()`, and produced outputs
+with `output_coords()`. Declare fixed named
 execution parameters in input-then-forcing order. Implement the stateful extension
 only when outputs and explicit state continue a trajectory; independent models need
 no iterator. Output declarations use `CoordinateSystem` for DataArrays and

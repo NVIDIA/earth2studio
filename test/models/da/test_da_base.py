@@ -44,6 +44,7 @@ def test_assimilation_capabilities(model, stateful, stochastic):
     assert isinstance(instance, AssimilationModel)
     assert isinstance(instance, StatefulAssimilationModel) is stateful
     assert instance.stochastic is stochastic
+    assert hasattr(instance, "forcing_coords") is stateful
     assert not hasattr(model, "create_generator")
     if not stochastic:
         rng = torch.get_rng_state()

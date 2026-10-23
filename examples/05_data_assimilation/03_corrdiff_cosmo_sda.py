@@ -156,7 +156,7 @@ def regrid_to_input(x_src, src_coords, dvars, dlat, dlon):
     return out
 
 
-ic = sda.input_coords()
+ic, _ = sda.input_coords()
 dvars = list(ic["variable"].values)
 dlat, dlon = np.asarray(ic["lat"]), np.asarray(ic["lon"])
 

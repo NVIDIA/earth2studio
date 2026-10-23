@@ -90,7 +90,7 @@ model = model.to("cuda:0")
 # ------------------
 # Pull conventional and satellite observation DataFrames for the analysis time.
 # The UFS data sources return pandas DataFrames that match the schemas expected by
-# `HealDA.forcing_coords`.  We use
+# `HealDA.input_coords`.  We use
 # [`earth2studio.data.fetch_dataframe`][earth2studio.data.fetch_dataframe] which attaches ``request_time``
 # metadata required by the model.  The time_tolerance parameter defines a time
 # window around the analysis time so that observations will be retrieved for.
@@ -99,7 +99,7 @@ model = model.to("cuda:0")
 analysis_time = np.array([np.datetime64("2024-01-01T00:00")])
 
 conv_source = UFSObsConv(time_tolerance=(timedelta(hours=-21), timedelta(hours=3)))
-conv_schema, sat_schema = model.forcing_coords()
+conv_schema, sat_schema = model.input_coords()
 conv_df = fetch_dataframe(
     conv_source,
     time=analysis_time,

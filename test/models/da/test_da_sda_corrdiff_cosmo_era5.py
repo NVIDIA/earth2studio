@@ -442,16 +442,15 @@ def test_construct_defaults_inherit_from_model():
 def test_coordinate_contracts():
     sda = _build_sda(number_of_samples=2, assimilate_variables=("u10m", "v10m"))
     model = sda.model
-    # Initial ERA5 driving state and observation forcing schema.
-    ic = sda.input_coords()
+    # ERA5 background and observation input schema.
+    ic, fs = sda.input_coords()
     assert list(ic["variable"].values) == ERA5_VARIABLES
     assert "lat" in ic.coords and "lon" in ic.coords
-    fs = sda.forcing_coords()
     assert set(fs.keys()) == {"time", "lat", "lon", "observation", "variable"}
     assert list(fs["variable"]) == ["u10m", "v10m"]
     # output_coords: analysis dims, 2D lat/lon, and the model's output vocabulary
     x = _era5_da(sda, np.array([np.datetime64("2021-07-14T12:00")]))
-    oc = sda.output_coords(x)
+    oc = sda.output_coords(x, fs)
     assert oc.dims == ("time", "sample", "variable", "y", "x")
     assert len(oc["sample"]) == 2
     assert np.asarray(oc["lat"]).ndim == 2 and np.asarray(oc["lon"]).ndim == 2
@@ -833,7 +832,7 @@ def test_da_sda_corrdiff_cosmo_era5_package():
     if not torch.cuda.is_available():
         pytest.skip("NATTEN forward requires CUDA; checkpoint load verified on CPU")
 
-    ic = sda.input_coords()
+    ic, _ = sda.input_coords()
     times = np.array([np.datetime64("2021-07-14T12:00")])
     lat, lon = np.asarray(ic["lat"]), np.asarray(ic["lon"])
     x = xr.DataArray(
