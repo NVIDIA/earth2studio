@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `earth2studio.data.stac`, shared utilities for lazy, cloud-native access
+  to STAC catalogs that collection-specific data sources can build on:
+  `stac.search()` returns matching assets as one lazy, dask-backed
+  `(time, variable, y, x)` `DataArray` in its native grid, `stac.open_asset()`
+  opens a single item asset and `stac.collections()` lists a catalog. Planetary
+  Computer blobs are read through GDAL's built-in SAS signing, Earth Search
+  `s3://` hrefs anonymously over HTTPS; `raster:bands` scale/offset and nodata
+  are applied per band.
 - Added subseasonal-to-seasonal evaluation capability in the eval recipe. Added
   **`WindowMeanForecastPipeline`** in `src/pipelines/seasonal.py` and
   **`WindowMeanSource`** in `src/data.py`.
