@@ -169,7 +169,11 @@ def test_prepbufr_drift_levels_follow_their_report_time(tmp_path, monkeypatch):
     monkeypatch.setattr(
         utils_ncep,
         "_parse_prepbufr_messages",
-        lambda _data, *, silence_noise: (table_b, {}, [(message_bytes, 102)]),
+        lambda _data, *, silence_noise: (
+            table_b,
+            {348102: ("ADPUPA   UPPER-AIR REPORTS", ["301001"])},
+            [(message_bytes, 102)],
+        ),
     )
     monkeypatch.setattr(
         utils_ncep,
