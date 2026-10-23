@@ -81,6 +81,19 @@ class InterpEquirectangular(torch.nn.Module):
     # Acceptable variables for this model
     VARIABLES = ["t2m", "u10m", "v10m", "sp"]
 
+    stochastic = False
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """No-op: interpolation is deterministic.
+
+        Parameters
+        ----------
+        seed : int
+            Unused seed.
+        reset : bool, optional
+            Unused reset flag, by default True.
+        """
+
     def __init__(
         self,
         lat: np.ndarray | None = None,

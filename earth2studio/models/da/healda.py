@@ -197,6 +197,19 @@ class HealDA(torch.nn.Module, AutoModelMixin):
     provider:nvidia backend:pytorch
     """
 
+    stochastic = False
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """No-op: HealDA inference is deterministic.
+
+        Parameters
+        ----------
+        seed : int
+            Unused seed.
+        reset : bool, optional
+            Unused reset flag, by default True.
+        """
+
     def __init__(
         self,
         model: torch.nn.Module,

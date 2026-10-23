@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import pytest
+import torch
 
 from earth2studio.models.da import (
     AssimilationModel,
@@ -27,18 +28,26 @@ from earth2studio.models.da import (
 
 
 @pytest.mark.parametrize(
-    "model,stateful",
+    "model,stateful,stochastic",
     [
-        (HealDA, False),
-        (InterpEquirectangular, False),
-        (CorrDiffCosmoEra5SDA, False),
-        (StormCastSDA, True),
+        (HealDA, False, False),
+        (InterpEquirectangular, False, False),
+        (CorrDiffCosmoEra5SDA, False, True),
+        (StormCastSDA, True, True),
     ],
 )
-def test_assimilation_capabilities(model, stateful):
-    assert issubclass(model, AssimilationModel)
-    assert issubclass(model, StatefulAssimilationModel) is stateful
+def test_assimilation_capabilities(model, stateful, stochastic):
+    # Check structural declarations without loading weights or optional backends.
+    instance = model.__new__(model)
+    assert isinstance(instance, AssimilationModel)
+    assert isinstance(instance, StatefulAssimilationModel) is stateful
+    assert instance.stochastic is stochastic
     assert not hasattr(model, "create_generator")
+    if not stochastic:
+        rng = torch.get_rng_state()
+        instance.set_rng(42)
+        instance.set_rng(99, reset=False)
+        assert torch.equal(rng, torch.get_rng_state())
 
 
 def test_streaming_alone_does_not_imply_stateful_assimilation():
@@ -47,5 +56,6 @@ def test_streaming_alone_does_not_imply_stateful_assimilation():
             for batch in batches:
                 yield self(batch)
 
-    assert issubclass(StreamingInterpolation, AssimilationModel)
-    assert not issubclass(StreamingInterpolation, StatefulAssimilationModel)
+    model = StreamingInterpolation()
+    assert isinstance(model, AssimilationModel)
+    assert not isinstance(model, StatefulAssimilationModel)

@@ -7,6 +7,7 @@
 
    {% block methods %}
     .. automethod:: __call__
+    .. automethod:: set_rng
     {% for method in ["initialize", "step", "create_iterator"] %}
     {% if method in methods %}
     .. automethod:: {{ method }}

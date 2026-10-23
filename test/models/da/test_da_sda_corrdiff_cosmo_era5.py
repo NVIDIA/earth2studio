@@ -700,7 +700,6 @@ def test_forward_trims_halo():
 
 def test_independent_calls_match_batched_analysis() -> None:
     sda = _identity_sda()
-    sda.seed = 0
     t0 = np.datetime64("2021-07-14T12:00")
     t1 = np.datetime64("2021-07-14T13:00")
     times = np.array([t0, t1])
@@ -710,7 +709,10 @@ def test_independent_calls_match_batched_analysis() -> None:
     obs0 = _obs_df(sda, [(4, 4)], ["u10m"], [1.0], t0)
     original_obs = obs0.copy(deep=True)
     x0, x1 = x.isel(time=[0]), x.isel(time=[1])
+    global_rng = torch.get_rng_state()
+    sda.set_rng(42, reset=False)
     free0 = sda(x0, None)
+    sda.set_rng(42)
     a0 = sda(x0, obs0)
     assert set(a0.dims) == {"time", "sample", "variable", "y", "x"}
     assert a0.sizes["time"] == 1
@@ -718,6 +720,7 @@ def test_independent_calls_match_batched_analysis() -> None:
     assert np.isfinite(a0.values).all()
     assert not np.allclose(a0.values, free0.values)
 
+    sda.set_rng(99, reset=False)  # Preserve the advancing stream.
     a1 = sda(x1, None)
     assert a1.sizes["time"] == 1
     assert a1.coords["time"].values[0] == t1
@@ -725,10 +728,15 @@ def test_independent_calls_match_batched_analysis() -> None:
 
     # A fresh observation batch never leaks into a later free analysis, and
     # earlier times can be requested again without advancing a hidden cursor.
-    xr.testing.assert_allclose(sda(x0, None), free0)
-    xr.testing.assert_allclose(sda(x0, obs0), a0)
+    sda.set_rng(42)
     batched = sda(x, obs0)
     xr.testing.assert_allclose(batched, xr.concat([a0, a1], dim="time"))
+    sda.set_rng(42)
+    xr.testing.assert_allclose(sda(x0, None), free0)
+    assert not np.allclose(sda(x0, None).values, free0.values)
+    sda.set_rng(99)
+    assert not np.allclose(sda(x0, None).values, free0.values)
+    assert torch.equal(global_rng, torch.get_rng_state())
     xr.testing.assert_identical(x, original_x)
     pd.testing.assert_frame_equal(obs0, original_obs)
 

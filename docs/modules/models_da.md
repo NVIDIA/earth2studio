@@ -14,6 +14,10 @@ and device declarations. `StatefulAssimilationModel` extends that contract with
 Initialization and the iterator's first yield produce the first computed analysis;
 they do not return the initial background.
 
+All DA models declare `stochastic` and `set_rng(seed, reset=True)`. Deterministic
+models use a no-op; stochastic calls advance a local stream. `reset=False` preserves
+an existing stream. Reseeding does not change an active trajectory's explicit state.
+
 HealDA, interpolation, and CorrDiff use independent calls. CorrDiff's background
 input does not make it stateful. StormCastSDA also supports stateful continuation,
 with required gridded conditioning and optional observations at each step. Inputs

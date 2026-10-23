@@ -122,7 +122,7 @@ sda = CorrDiffCosmoEra5SDA.load_model(
     sda_gamma=SDA_GAMMA,
     amp=True,
 ).to(DEVICE)
-sda.seed = 0
+sda.set_rng(0)
 
 # %%
 # Fetch Coarse-Resolution State

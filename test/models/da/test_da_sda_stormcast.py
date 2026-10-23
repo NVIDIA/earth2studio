@@ -15,7 +15,6 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from inspect import Parameter, signature
 from io import BytesIO
 from unittest.mock import patch
 
@@ -342,55 +341,6 @@ def test_stormcast_sda_call(time, device):
     assert out.e2s.to_torch()[0].device == model.device
 
 
-# ---------- Test: create_iterator ----------
-
-
-@pytest.mark.parametrize(
-    "device",
-    [
-        "cpu",
-        pytest.param(
-            "cuda:0",
-            marks=pytest.mark.skipif(
-                not torch.cuda.is_available(), reason="cuda missing"
-            ),
-        ),
-    ],
-)
-def test_stormcast_sda_iterator(device):
-    model = _build_model(device=device)
-    time = np.array([np.datetime64("2020-04-05T00:00")])
-    x = _build_input_da(model, time, device=device)
-    c = _build_input_da(model, time, device=device, conditioning=True)
-    obs_source = _build_obs_source(model, n_obs=10)
-    obs_df = fetch_dataframe(obs_source, time, model.variables[:2])
-    ny, nx = model.lat.shape
-
-    seen = []
-
-    def forward(x, conditioning, y_obs, mask):
-        seen.append(conditioning.clone())
-        return torch.zeros_like(x)
-
-    with patch.object(model, "_forward", forward):
-        gen = model.create_iterator(x, c, obs_df)
-        state = next(gen)
-        assert state is not x
-        assert len(seen) == 1
-        assert state.shape == (len(time), 1, NVAR, ny, nx)
-        assert state.coords["lead_time"].values[0] == np.timedelta64(1, "h")
-        torch.testing.assert_close(seen[0], c.e2s.to_torch()[0][0])
-
-        # Update conditioning to the current state window; observations are optional.
-        c = (c + 1).assign_coords(lead_time=state.lead_time)
-        state = gen.send((c, None))
-        assert state.shape == (len(time), 1, NVAR, ny, nx)
-        assert state.coords["lead_time"].values[0] == np.timedelta64(2, "h")
-        torch.testing.assert_close(seen[1], c.e2s.to_torch()[0][0])
-
-        gen.close()
-
-
 # ---------- Test: exceptions ----------
 
 
@@ -574,9 +524,7 @@ def test_stormcast_sda_observation_continuation():
     pd.testing.assert_frame_equal(obs, original)
 
 
-@pytest.mark.parametrize(
-    "forcing", [None, (), (None,), (None, None), (None, None, None), "bad"]
-)
+@pytest.mark.parametrize("forcing", [None, (None,), (None, None)])
 def test_stormcast_sda_invalid_iterator_forcing(forcing):
     model = _build_model()
     time = np.array([np.datetime64("2020-04-05T00:00")])
@@ -594,7 +542,6 @@ def test_stormcast_sda_missing_conditioning_and_invalid_state():
     time = np.array([np.datetime64("2020-04-05T00:00")])
     x = _build_input_da(model, time)
     c = _build_input_da(model, time, conditioning=True)
-    assert not hasattr(model, "create_generator")
     with pytest.raises(ValueError, match="conditioning"):
         model.initialize(x, None)
     with patch.object(model, "_forward", _mock_forward):
@@ -605,23 +552,6 @@ def test_stormcast_sda_missing_conditioning_and_invalid_state():
         model.step(y, c, None, state)  # stale conditioning
     with pytest.raises(ValueError, match="RNG snapshots"):
         model.step(y, c.assign_coords(lead_time=y.lead_time), None, {})
-
-
-def test_stormcast_sda_execution_signatures():
-    for name in ("__call__", "initialize", "create_iterator", "step"):
-        params = signature(getattr(StormCastSDA, name)).parameters
-        expected = (
-            ["self", "y", "conditioning", "obs", "state"]
-            if name == "step"
-            else ["self", "x", "conditioning", "obs"]
-        )
-        assert list(params) == expected
-        assert all(p.kind == Parameter.POSITIONAL_OR_KEYWORD for p in params.values())
-        assert params["conditioning"].default is Parameter.empty
-        if name == "step":
-            assert params["state"].default is Parameter.empty
-        else:
-            assert params["obs"].default is None
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])

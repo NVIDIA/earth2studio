@@ -150,6 +150,23 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
     provider:nvidia backend:pytorch
     """
 
+    stochastic = True
+    _rng: torch.Generator | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the independent posterior sample stream.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for a local CPU generator; global RNG state is unchanged.
+        reset : bool, optional
+            Restart the stream when True; otherwise initialize only if absent.
+            Defaults to True.
+        """
+        if reset or self._rng is None:
+            self._rng = torch.Generator().manual_seed(seed)
+
     def __init__(
         self,
         model: CorrDiffCosmoEra5,
@@ -220,7 +237,6 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         self.sda_dps_norm = 2
         self.sda_gamma = sda_gamma
         self.amp = amp
-        self.seed = 0
 
         # Place observations on the model's current denoise grid -- the grid the
         # denoiser runs on, including any halo/patch-padding cells (a cropped sub-domain
@@ -561,8 +577,8 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
             era5, valid_time, m.lat_output_grid, m.lon_output_grid
         )
         members = []
-        for i in range(self.number_of_samples):
-            seed = None if self.seed is None else self.seed + i
+        for _ in range(self.number_of_samples):
+            seed = int(torch.randint(2**63 - 1, (), generator=self._rng).item())
             normalized = self._run_diffusion(background, y, mask, std_y, seed)
             out = m.postprocess_output(
                 normalized, valid_time, self._lat_np, self._lon_np

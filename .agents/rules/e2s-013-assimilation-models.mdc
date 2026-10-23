@@ -11,7 +11,10 @@ and outputs. Follow the `AssimilationModel` protocol in
 [data_assimilation.md](mdc:docs/userguide/components/data_assimilation.md).
 
 `AssimilationModel` requires `__call__`, `input_coords`, `forcing_coords`,
-`output_coords`, `default_sources`, and `to`. It has no generator requirement.
+`output_coords`, `default_sources`, `to`, `stochastic`, and `set_rng(seed, reset=True)`.
+Deterministic models declare `stochastic=False` and a no-op `set_rng`.
+Stochastic calls advance a local stream; `reset=False` preserves an existing stream.
+Seeded execution leaves global RNG unchanged. It has no generator requirement.
 `StatefulAssimilationModel` extends it with `initialize`, `step`, and
 `create_iterator`, matching prognostic explicit-state execution. HealDA,
 interpolation, and CorrDiff implement independent calls; StormCastSDA also supports

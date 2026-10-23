@@ -52,6 +52,27 @@ class AssimilationModel(Protocol):
     Models never fetch data internally; ``default_sources()`` recommends providers.
     """
 
+    stochastic: bool
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Configure the model-local random stream.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for independent analyses or new trajectories.
+        reset : bool, optional
+            Restart the stream when True; otherwise initialize only if absent.
+            Defaults to True. Deterministic models implement a no-op.
+
+        Notes
+        -----
+        Calls advance the stream. Seeding and seeded execution leave global RNG
+        state unchanged. Stateful continuation uses its explicit RNG state and is
+        unaffected by reseeding the model.
+        """
+        pass
+
     def __call__(
         self, *x: pd.DataFrame | xr.DataArray | None
     ) -> xr.DataArray | pd.DataFrame | tuple[xr.DataArray | pd.DataFrame, ...]:

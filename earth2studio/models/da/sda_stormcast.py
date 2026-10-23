@@ -22,7 +22,6 @@ import pandas as pd
 import torch
 import xarray as xr
 import zarr
-from loguru import logger
 
 from earth2studio.data import GFS_FX, HRRR, DataSource, ForecastSource
 from earth2studio.data.base import DataFrameSource
@@ -818,19 +817,6 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         state: dict[str, torch.Tensor],
         seed: int = 0,
     ) -> tuple[xr.DataArray, dict[str, torch.Tensor]]:
-        # The sampler also draws global Torch noise (e.g. stochastic churn).
-        # Snapshot the whole numerical call, never a suspended iterator yield.
-        next_state = {key: value.clone() for key, value in state.items()}
-        with fork_rng(seed=seed, device=self.device, states=next_state):
-            y = self._analysis(x, conditioning, obs)
-        return y, next_state
-
-    def _analysis(
-        self,
-        x: xr.DataArray,
-        conditioning: xr.DataArray,
-        obs: pd.DataFrame | None,
-    ) -> xr.DataArray:
         device = self.device
         handshake_nonempty(x)
         output_coords = self.output_coords(x)
@@ -845,12 +831,17 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         c_tensor, _ = conditioning.e2s.to_torch()
         c_tensor = c_tensor.to(device)
 
-        for j, t in enumerate(x.coords["time"].data):
-            obs_time = t + output_coords.lead_time.values[0]
-            y_obs, mask = self._build_obs_tensors(obs, obs_time, device)
-            x_tensor[j, :] = self._forward(x_tensor[j, :], c_tensor[j, :], y_obs, mask)
+        # Include sampler-side global draws, but never suspend the RNG fork at yield.
+        next_state = {key: value.clone() for key, value in state.items()}
+        with fork_rng(seed=seed, device=device, states=next_state):
+            for j, t in enumerate(x.coords["time"].data):
+                obs_time = t + output_coords.lead_time.values[0]
+                y_obs, mask = self._build_obs_tensors(obs, obs_time, device)
+                x_tensor[j, :] = self._forward(
+                    x_tensor[j, :], c_tensor[j, :], y_obs, mask
+                )
 
-        return from_torch(x_tensor, output_coords)
+        return from_torch(x_tensor, output_coords), next_state
 
     def create_iterator(
         self,
@@ -892,16 +883,9 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         >>> analysis = next(gen)             # first analysis
         >>> analysis = gen.send((c1, None))   # second analysis, no observations
         """
-        try:
-            y, state = self.initialize(x, conditioning, obs)
+        y, state = self.initialize(x, conditioning, obs)
+        while True:
             forcing = yield y
-            while True:
-                if not isinstance(forcing, tuple) or len(forcing) != 2:
-                    raise ValueError(
-                        "Send (conditioning, obs) in forcing_coords() order"
-                    )
-                y, state = self.step(y, forcing[0], forcing[1], state)
-                forcing = yield y
-
-        except GeneratorExit:
-            logger.info("StormCast SDA clean up")
+            if not isinstance(forcing, tuple) or len(forcing) != 2:
+                raise ValueError("Send (conditioning, obs) in forcing_coords() order")
+            y, state = self.step(y, forcing[0], forcing[1], state)

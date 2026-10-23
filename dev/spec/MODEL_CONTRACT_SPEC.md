@@ -870,8 +870,8 @@ The checker implements this contract. Wrappers and consumers migrate separately:
 
   Remaining generic DA planning questions are analysis-time resolution for
   observation-only models, machine-readable observation windows and optionality
-  (including HealDA's at-least-one constraint), and a shared stochastic seeding
-  convention for independent CorrDiff analyses. Model-specific metadata/window
+  (including HealDA's at-least-one constraint). RNG follows the shared convention
+  in [the DA contract](DA_MODEL_CONTRACT_SPEC.md). Model-specific metadata/window
   contracts remain authoritative until those are standardized.
 - Do drivers accept yields with several `lead_time` entries? IO backends do
   ([IO_SPEC.md](IO_SPEC.md)); chunked steps for DLWP, Aurora1p5, SamudrACE and
