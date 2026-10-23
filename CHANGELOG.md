@@ -49,7 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   statistics).
 - Fixed ECMWF open data sources (IFS, AIFS) blocking the shared fsspec IO loop during
   S3 503 retries, which caused later data calls in the same process to hang. Downloads
-  now run in worker threads with bounded retries and write via temporary files.
+  now run sequentially in a worker thread per source instance with bounded retries
+  and write via temporary files.
 
 ### Security
 

@@ -17,7 +17,10 @@
 import asyncio
 import pathlib
 import shutil
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
+from typing import Any
 from unittest.mock import Mock
 
 import numpy as np
@@ -97,16 +100,16 @@ def test_accumulation_alias_tasks_reject_short_lead_time():
         )
 
 
-def test_blocking_download_does_not_stall_event_loop(tmp_path):
-    """A slow/retrying opendata client must not block the shared IO loop"""
-    import threading
-    from concurrent.futures import ThreadPoolExecutor
-
+def test_blocking_download_does_not_stall_event_loop(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     release = threading.Event()
+    started = threading.Event()
 
     class SlowClient:
-        def retrieve(self, request):
-            release.wait(10)  # stands in for multiurl's 503 retry sleeps
+        def retrieve(self, request: dict[str, Any]) -> None:
+            started.set()
+            assert release.wait(5), "Download blocked the event loop"
             pathlib.Path(request["target"]).write_bytes(b"data")
 
     ds = object.__new__(IFS)
@@ -114,26 +117,77 @@ def test_blocking_download_does_not_stall_event_loop(tmp_path):
     ds._executor = ThreadPoolExecutor(1)
     ds._fc_type, ds._members, ds._cache = "fc", [0], True
     ds._model, ds._tmp_cache_hash = "IFS", None
-    type(ds).cache = property(lambda self: str(tmp_path))
+    monkeypatch.setattr(IFS, "cache", property(lambda self: str(tmp_path)))
 
-    async def run():
+    async def run() -> str:
         task = asyncio.create_task(
             ds._download_ifs_grib_cached(
                 datetime(2026, 7, 1), timedelta(0), "2t", "sfc", "sfc"
             )
         )
-        await asyncio.sleep(0.1)
-        # Loop must stay responsive while the client call is blocked
-        await asyncio.wait_for(asyncio.sleep(0), timeout=1)
+        assert await asyncio.to_thread(started.wait, 5)
+        # Only a responsive event loop can release the worker before its timeout.
         release.set()
         return await task
 
     try:
         path = asyncio.run(run())
     finally:
-        del type(ds).cache
+        release.set()
+        ds._executor.shutdown(wait=True)
     assert pathlib.Path(path).read_bytes() == b"data"
     assert not list(tmp_path.glob("*.part"))
+
+
+@pytest.mark.parametrize("fail_download", [False, True])
+def test_cancelled_download_cleans_up_after_worker_finishes(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, fail_download: bool
+) -> None:
+    started = threading.Event()
+    release = threading.Event()
+    targets: list[pathlib.Path] = []
+
+    class SlowClient:
+        def retrieve(self, request: dict[str, Any]) -> None:
+            target = pathlib.Path(request["target"])
+            targets.append(target)
+            started.set()
+            assert release.wait(5), "Test did not release the download worker"
+            target.write_bytes(b"data")
+            if fail_download:
+                raise RuntimeError("Download failed")
+
+    ds = object.__new__(IFS)
+    ds.client = SlowClient()
+    ds._executor = ThreadPoolExecutor(1)
+    ds._fc_type, ds._members = "fc", [0]
+    monkeypatch.setattr(IFS, "cache", property(lambda self: str(tmp_path)))
+
+    async def run() -> None:
+        task = asyncio.create_task(
+            ds._download_ifs_grib_cached(
+                datetime(2026, 7, 1), timedelta(0), "2t", "sfc", "sfc"
+            )
+        )
+        assert await asyncio.to_thread(started.wait, 5)
+        assert not targets[0].exists()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    try:
+        asyncio.run(run())
+    finally:
+        release.set()
+        ds._executor.shutdown(wait=True)
+
+    assert not list(tmp_path.glob("*.part"))
+    cached_files = list(tmp_path.iterdir())
+    if fail_download:
+        assert not cached_files
+    else:
+        assert len(cached_files) == 1
+        assert cached_files[0].read_bytes() == b"data"
 
 
 def now6h():

@@ -124,7 +124,7 @@ class _ECMWFOpenDataSource(ABC):
 
     _MAX_RETRIES = 5
     _RETRY_AFTER = (5, 60, 2)  # (min, max, growth ratio) in seconds
-    _MAX_CONCURRENT_DOWNLOADS = 4
+    _MAX_CONCURRENT_DOWNLOADS = 1
 
     def __init__(
         self,
@@ -149,8 +149,8 @@ class _ECMWFOpenDataSource(ABC):
             **client_kwargs,
         }
         self.client = opendata.Client(source=source, model=model, **client_kwargs)
-        # Blocking client calls run in these threads so they never stall the
-        # shared fsspec IO loop (which would block all later data source calls)
+        # A single worker keeps retrievals sequential without blocking the shared
+        # fsspec IO loop during downloads or retries.
         self._executor = ThreadPoolExecutor(
             max_workers=self._MAX_CONCURRENT_DOWNLOADS,
             thread_name_prefix="ecmwf-opendata",
@@ -537,13 +537,17 @@ class _ECMWFOpenDataSource(ABC):
             if self._fc_type == "pf":
                 request["number"] = self._members
             part_path = request["target"]
-            try:
-                await asyncio.get_running_loop().run_in_executor(
-                    self._executor, functools.partial(self.client.retrieve, request)
-                )
-                os.replace(part_path, cache_path)
-            finally:
-                pathlib.Path(part_path).unlink(missing_ok=True)
+
+            def download() -> None:
+                # Cancellation of the awaiting task cannot stop the worker.
+                # Keep cleanup here so it runs after retrieval has stopped.
+                try:
+                    self.client.retrieve(request)
+                    os.replace(part_path, cache_path)
+                finally:
+                    pathlib.Path(part_path).unlink(missing_ok=True)
+
+            await asyncio.get_running_loop().run_in_executor(self._executor, download)
 
         return cache_path
 
