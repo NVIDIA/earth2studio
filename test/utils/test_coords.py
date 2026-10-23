@@ -583,15 +583,16 @@ def test_convert_multidim_to_singledim_error():
 
 def test_handshake_coords():
     """Test handshake_coords function"""
+    # Undefined (NaN) geographic coordinates, as off a satellite disk, match.
     coords1 = OrderedDict(
         [
-            ("lat", np.array([1, 2, 3])),
+            ("lat", np.array([np.nan, 2, 3])),
             ("lon", np.array([4, 5, 6])),
         ]
     )
     coords2 = OrderedDict(
         [
-            ("lat", np.array([1, 2, 3])),
+            ("lat", np.array([np.nan, 2, 3])),
             ("lon", np.array([4, 5, 6])),
         ]
     )

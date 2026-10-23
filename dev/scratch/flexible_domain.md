@@ -76,6 +76,11 @@ model protocol.
 
 ## Wrapper migration
 
+- `StormScopeGOES` / `StormScopeMRMS` (implemented): `with_region` accepts boxes.
+  Flash variants crop the full footprint with `region_padding` context, a 200-point
+  minimum and four-point alignment; baseline variants return full-footprint views.
+  Views share experts, crop grids, invariants and valid masks from the full
+  footprint, and rebind the experts' image size on every forward.
 - `CorrDiffCosmoEra5`: add `with_region`; keep a reference to the full footprint in
   views and adapt the current `set_domain` API through `Region.box`. Treat its run grid
   and trimmed output grid separately.

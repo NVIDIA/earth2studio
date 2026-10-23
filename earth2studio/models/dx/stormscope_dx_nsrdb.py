@@ -17,17 +17,15 @@
 import json
 from copy import deepcopy
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
 import torch.nn as nn
 import xarray as xr
-from loguru import logger
-from numpy.typing import ArrayLike
 
 from earth2studio.data import HRRR
-from earth2studio.grids import CurvilinearGrid, GridDefinition, infer_grid, resolve_grid
+from earth2studio.grids import CurvilinearGrid, NearestRegridder
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.utils import (
@@ -41,7 +39,6 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.interp import NearestNeighborInterpolator
 from earth2studio.utils.type import CoordinateSystem
 
 if TYPE_CHECKING:
@@ -116,8 +113,9 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         Native-grid y coordinates, by default None.
     x_coords : np.ndarray | None, optional
         Native-grid x coordinates, by default None.
-    input_interp_max_dist_km : float, optional
-        Maximum input interpolation distance, by default 12.0.
+    max_dist_km : float, optional
+        Maximum distance (km) from a model gridpoint to the nearest GOES pixel
+        regridded onto it by :meth:`default_sources`, by default 12.0.
     number_of_samples : int, optional
         Number of GHI samples per input, by default 1.
     num_steps : int, optional
@@ -127,26 +125,19 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
 
     Example
     -------
-    Using the diagnostic with forecasted GOES imagery from
-    :py:class:`earth2studio.models.px.StormScopeGOES`. A
-    :py:class:`earth2studio.data.GOES` data source can also be used directly
-    in place of the prognostic model output:
+    Estimating GHI from GOES observations, fetched onto the model grid through
+    :meth:`default_sources`. Forecasts of the three-kilometer
+    :py:class:`earth2studio.models.px.StormScopeGOES` variants share this grid and
+    can be passed in place of the observations:
 
-    >>> # Load StormScopeGOES prognostic and NSRDB diagnostic models
-    >>> package = StormScopeBase.load_default_package()
-    >>> goes_model = StormScopeGOES.load_model(package)
-    >>> goes_model = goes_model.to("cuda").eval()
-    >>> nsrdb_model = StormScopeDxNSRDB.load_model(StormScopeDxNSRDB.load_default_package())
-    >>> nsrdb_model = nsrdb_model.to("cuda")
-    >>>
-    >>> # Build interpolators from GOES grid to model grid
-    >>> goes_lat, goes_lon = GOES.grid(satellite="goes16", scan_mode="C")
-    >>> goes_model.build_input_interpolator(goes_lat, goes_lon)
-    >>> nsrdb_model.build_input_interpolator(goes_lat, goes_lon)
-    >>>
-    >>> # Run one GOES forecast step then estimate GHI
-    >>> y_goes = goes_model(x)
-    >>> ghi = nsrdb_model(y_goes)
+    >>> model = StormScopeDxNSRDB.load_model(StormScopeDxNSRDB.load_default_package())
+    >>> model = model.to("cuda")
+    >>> x = fetch_data(
+    ...     model.default_sources(),
+    ...     time=np.array([np.datetime64("2024-07-15T18:00")]),
+    ...     variable=model.input_coords()["variable"].values,
+    ... ).isel(lead_time=0).expand_dims(batch=[0])
+    >>> ghi = model(x)
 
     Badges
     ------
@@ -158,6 +149,7 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
     _MODEL_DTYPE = torch.float32
     _CLEARNESS_INDEX_EPS = 10.0
     _SOLAR_CONSTANT = 1361.0
+    _INPUT_GRID = "goes-east-conus"
 
     stochastic = True
 
@@ -177,7 +169,7 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         valid_mask: torch.Tensor | None = None,
         y_coords: np.ndarray | None = None,
         x_coords: np.ndarray | None = None,
-        input_interp_max_dist_km: float = 12.0,
+        max_dist_km: float = 12.0,
         number_of_samples: int = 1,
         num_steps: int = 12,
         amp: bool = True,
@@ -229,29 +221,44 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         )
         self._lat_cpu_copy = self.latitudes.detach().cpu().numpy()
         self._lon_cpu_copy = self.longitudes.detach().cpu().numpy()
-        self._input_interp_max_dist_km = input_interp_max_dist_km
-        self.input_interp: nn.Module | None = None
+        self.max_dist_km = max_dist_km
         self.number_of_samples = number_of_samples
         self.num_steps = num_steps
         self.amp = amp
-        self._input_grid: GridDefinition = self._native_grid()
 
     def _native_grid(self) -> CurvilinearGrid:
         return CurvilinearGrid(
             self._lat_cpu_copy, self._lon_cpu_copy, y=self.y, x=self.x
         )
 
+    def _input_regridder(self) -> NearestRegridder:
+        """Nearest-neighbor regridder of GOES-East CONUS onto the model grid."""
+        from earth2studio.models.px.stormscope import _default_regridder
+
+        return _default_regridder(
+            NearestRegridder,
+            self._INPUT_GRID,
+            self._native_grid(),
+            max_dist_km=self.max_dist_km,
+        )
+
+    def _set_default_coverage(self) -> None:
+        """Set the input mask to the model gridpoints the default source covers."""
+        coverage = torch.from_numpy(np.array(self._input_regridder().coverage))
+        self.register_buffer("input_valid_mask", coverage.to(self.latitudes.device))
+
     def default_sources(self) -> "DataSource":
-        """Recommend the GOES data source.
+        """Recommend GOES-East CONUS imagery on the model grid.
 
         Returns
         -------
         DataSource
-            ``GOES`` data source for the input slot.
+            GOES input source, regridded to the model grid by nearest neighbor
+            within ``max_dist_km``; uncovered gridpoints are NaN.
         """
-        from earth2studio.data import GOES
+        from earth2studio.data import GOES, RegriddedSource
 
-        return GOES()
+        return RegriddedSource(GOES(scan_mode="C"), self._input_regridder())
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.
@@ -265,7 +272,7 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
             ("batch", "time", "variable", "y", "x"),
             {"variable": self.conditioning_variables.copy()},
             dynamic=("batch", "time"),
-            grid=self._input_grid,
+            grid=self._native_grid(),
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
@@ -275,7 +282,7 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         ----------
         input_coords : CoordinateSystem
             Input coordinate signature or DataArray to validate and transform,
-            on the native GOES grid.
+            on the model grid.
 
         Returns
         -------
@@ -285,15 +292,10 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         handshake_dataarray(input_coords, self.input_coords())
         leading = input_coords.dims[:-3]
         native = self._native_grid()
-        changed_grid = any(
-            not np.array_equal(input_coords.coords[k], v)
-            for k, v in native.coords().items()
-        )
-        removed = {"variable", "y", "x"} if changed_grid else {"variable"}
         coords = {
             k: v.variable.copy(deep=True)
             for k, v in input_coords.coords.items()
-            if not removed.intersection(v.dims)
+            if "variable" not in v.dims
         }
         coords.update(
             variable=self.output_variables.copy(),
@@ -393,7 +395,7 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         ).astype(np.float32)
         valid_mask = cls._load_invariant(package, "nsrdb_mask.npy", package_spec) > 0
 
-        return cls(
+        model = cls(
             diffusion_model=diffusion_model,
             regression_model=regression_model,
             sigma_min=float(checkpoint["sigma_min"]),
@@ -408,83 +410,11 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
             valid_mask=valid_mask,
             y_coords=y,
             x_coords=x,
-            input_interp_max_dist_km=6.0 * spatial_downsample,
+            max_dist_km=6.0 * spatial_downsample,
             number_of_samples=number_of_samples,
         )
-
-    def build_input_interpolator(
-        self,
-        input_lats: torch.Tensor | ArrayLike,
-        input_lons: torch.Tensor | ArrayLike,
-        max_dist_km: float | None = None,
-        input_grid: str | GridDefinition | xr.DataArray | None = None,
-    ) -> nn.Module:
-        """Build an interpolator from an input grid to the model grid.
-
-        Parameters
-        ----------
-        input_lats : torch.Tensor | ArrayLike
-            Input latitudes.
-        input_lons : torch.Tensor | ArrayLike
-            Input longitudes.
-        max_dist_km : float | None, optional
-            Maximum nearest-neighbor distance, by default None.
-        input_grid : str | GridDefinition | xr.DataArray | None, optional
-            Source grid or labelled source signature, preserving its native y/x
-            axes and CRS. Its geographic coordinates must match input_lats and
-            input_lons. Omit only for sources using zero-based index axes.
-
-        Returns
-        -------
-        nn.Module
-            Input interpolation module.
-        """
-        lat = (
-            input_lats.detach().cpu().numpy()
-            if isinstance(input_lats, torch.Tensor)
-            else np.asarray(input_lats)
-        )
-        lon = (
-            input_lons.detach().cpu().numpy()
-            if isinstance(input_lons, torch.Tensor)
-            else np.asarray(input_lons)
-        )
-        grid = (
-            infer_grid(input_grid)
-            if isinstance(input_grid, xr.DataArray)
-            else (
-                resolve_grid(input_grid)
-                if isinstance(input_grid, str)
-                else input_grid if input_grid is not None else CurvilinearGrid(lat, lon)
-            )
-        )
-        geographic = grid.coords()
-        if grid.dims != ("y", "x") or any(
-            k not in geographic or not np.array_equal(geographic[k], values)
-            for k, values in (("lat", lat), ("lon", lon))
-        ):
-            raise ValueError(
-                "input_grid must have y/x axes and match the source latitudes/longitudes"
-            )
-        if max_dist_km is None:
-            max_dist_km = self._input_interp_max_dist_km
-        self.input_interp = NearestNeighborInterpolator(
-            source_lats=input_lats,
-            source_lons=input_lons,
-            target_lats=self.latitudes,
-            target_lons=self.longitudes,
-            max_dist_km=max_dist_km,
-        ).to(self.latitudes.device)
-        interpolator = cast(NearestNeighborInterpolator, self.input_interp)
-        if torch.any(~interpolator.valid_mask):
-            logger.warning(
-                "Some input grid points are invalid after StormScope interpolation"
-            )
-        self.input_valid_mask = interpolator.valid_mask.reshape(
-            len(self.y), len(self.x)
-        ).to(self.latitudes.device)
-        self._input_grid = grid
-        return self.input_interp
+        model._set_default_coverage()
+        return model
 
     @staticmethod
     def _load_registry(package: Package) -> dict[str, Any]:
@@ -723,7 +653,7 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         Parameters
         ----------
         x : xr.DataArray
-            GOES observations matching ``input_coords()`` on the native grid.
+            GOES observations matching ``input_coords()`` on the model grid.
 
         Returns
         -------
@@ -744,8 +674,6 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         )
         times = valid.broadcast_like(template).transpose(*leading).values.reshape(-1)
         tensor = x.e2s.to_torch()[0].to(self.latitudes.device)
-        if self.input_interp is not None:
-            tensor = self.input_interp(tensor)
         tensor = torch.where(self.input_valid_mask, tensor, 0.0)
         # The numerical kernel retains its [batch, time, channel, y, x] layout.
         tensor = tensor.reshape(1, -1, *tensor.shape[-3:])

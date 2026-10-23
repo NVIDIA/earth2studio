@@ -27,6 +27,7 @@ import numpy as np
 import xarray as xr
 from pyproj import CRS
 
+from earth2studio.grids._satellite import fci_grid, goes_grid
 from earth2studio.grids.base import (
     E2S_CRS,
     E2S_GRID_ID,
@@ -236,6 +237,33 @@ _register_builtin(
         ),
     ),
     aliases=("hrrr",),
+)
+
+
+# GOES-East (GOES-16, GOES-19) and GOES-West (GOES-17, GOES-18) share sectors.
+for _position, _satellite in (("east", "goes16"), ("west", "goes18")):
+    _register_builtin(f"goes-{_position}-conus", partial(goes_grid, _satellite, "C"))
+    _register_builtin(f"goes-{_position}-fulldisk", partial(goes_grid, _satellite, "F"))
+
+
+_fci_resolutions: tuple[Literal["2km", "1km", "500m"], ...] = ("2km", "1km", "500m")
+for _fci_resolution in _fci_resolutions:
+    _register_builtin(
+        f"mtg-fci-fulldisk-{_fci_resolution}", partial(fci_grid, _fci_resolution)
+    )
+_register_builtin(
+    "mrms-conus-0.01deg",
+    lambda: LatLonGrid(
+        latitude=54.995 - 0.01 * np.arange(3500),
+        longitude=230.005 + 0.01 * np.arange(7000),
+    ),
+)
+_register_builtin(
+    "glm-conus-0.1deg",
+    lambda: LatLonGrid(
+        latitude=20.05 + 0.1 * np.arange(350),
+        longitude=230.05 + 0.1 * np.arange(700),
+    ),
 )
 _register_builtin(
     "healpix-l6-nested",

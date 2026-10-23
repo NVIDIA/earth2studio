@@ -29,8 +29,8 @@ StormScopeMeteosatEU, a generative diffusion model that predicts the next
 In this example you will learn:
 
 - How to instantiate :py:class:`earth2studio.models.px.StormScopeMeteosatEU`
-- Creating a :py:class:`earth2studio.data.MeteosatFCI` data source
-- Fetching FCI observations as the model input
+- Fetching FCI observations on the model grid through the model's default source
+- Selecting a regional view for presentation
 - Running iterative nowcasting
 - Plotting an RGB composite of FCI channels with cartopy
 """
@@ -49,12 +49,11 @@ In this example you will learn:
 # external NWP conditioning. The only input is a sliding window of ``L``
 # consecutive FCI frames ending at the analysis time.
 #
-# The model operates on a rectangular sub-region of the full MTG disk defined
-# in native FCI pixel coordinates by
-# :py:attr:`StormScopeMeteosatEU.Model_FCI_BBox`.  We configure
-# :py:class:`earth2studio.data.MeteosatFCI` with the matching ``pixel_bbox``
-# so that data fetching returns exactly the pixels the model expects, with
-# no interpolation needed.
+# The model runs on a crop of the 2 km FCI full-disk grid over Europe. Its
+# ``default_sources`` returns a :py:class:`earth2studio.data.MeteosatFCI` source
+# that reads exactly that crop: the infrared channels at 2 km, and the visible
+# and near-infrared channels, which are only available at 1 km, averaged over
+# the 2x2 blocks of 1 km pixels that form each 2 km pixel.
 #
 # EUMETSAT Data Store credentials must be available via the environment
 # variables ``EUMETSAT_CONSUMER_KEY`` and ``EUMETSAT_CONSUMER_SECRET``, or in
@@ -80,63 +79,40 @@ from earth2studio.data.meteosat_fci import (
     PERSPECTIVE_POINT_HEIGHT,
     SEMI_MAJOR_AXIS,
     SEMI_MINOR_AXIS,
-    MeteosatFCI,
 )
+from earth2studio.grids import Region
 from earth2studio.models.px.stormscope_meteosat import StormScopeMeteosatEU
 
 # %%
 # Load Model
 # ----------
-# Load StormScopeMeteosatEU from a package.
+# Load StormScopeMeteosatEU from a package. ``region`` optionally selects a
+# [`earth2studio.grids.Region`][earth2studio.grids.Region] box for
+# presentation. The model always runs on its full European domain, because its
+# networks are trained for that input size; a regional view crops the forecast
+# with ``crop_output``.
 
 # %% tags=["e2sg-profile:setup"]
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+# Region.box(west, south, east, north) in degrees, or None for the full domain.
+region: Region | None = None  # Example: Region.box(-5.0, 42.0, 10.0, 52.0)
+
 package = StormScopeMeteosatEU.load_default_package()
-model = StormScopeMeteosatEU.load_model(package=package)
+model = StormScopeMeteosatEU.load_model(package=package, compile=True)
 model = model.to(device)
 model.eval()
-model.compile_model()
-
-# %%
-# Set Up Data Sources
-# -------------------
-# ``MeteosatFCI`` is configured with ``pixel_bbox`` matching the model's
-# domain (``Model_FCI_BBox``) so that the returned ``y``/``x`` scan-angle
-# coordinates align with what the model expects.
-#
-# Meteosat FCI visible and NIR channels are provided by the EUMETSAT data store
-# at 1 km resolution while IR channels are 2 km. The StormScope MTG model uses
-# the 2 km grid for all channels, so we need to pull data from both 1 km and 2 km
-# sources and do a minimal regrid on the visible and NIR channels.
-#
-# Here we will set up data sources for both grid resolutions.
-# The 1 km grid is exactly 2 times the pixels of the 2 km grid, so we get
-# the 1 km bounding box by doubling the 2 km bounding box.
-
-# %% tags=["e2sg-profile:setup"]
-bbox_2km = StormScopeMeteosatEU.Model_FCI_BBox
-FCI_BBox = {"2km": bbox_2km}
-FCI_BBox["1km"] = (
-    (2 * bbox_2km[0][0], 2 * bbox_2km[0][1]),
-    (2 * bbox_2km[1][0], 2 * bbox_2km[1][1]),
-)
-fci = {
-    res: MeteosatFCI(resolution=res, pixel_bbox=bbox)
-    for (res, bbox) in FCI_BBox.items()
-}
+if region is not None:
+    model = model.with_region(region)
 
 # %%
 # Fetch Initial Condition
 # -----------------------
-# We fetch initial window of 6 consecutive FCI frames ending at
-# the chosen analysis time. ``fetch_data`` calls the data source at
-# ``start_time + lead_time`` for each lead-time offset defined by the model
-# (``[-50 min, -40 min, ..., 0 min]`` for a 6-frame window).
-#
-# StormScope MTG uses the 2 km grid for all channels, so we use
-# ``StormScopeMeteosatEU.combine_1km_2km_inputs`` to resize the channels
-# retrieved from the 1 km data source.
+# We fetch an initial window of 6 consecutive FCI frames ending at the chosen
+# analysis time. ``fetch_data`` calls the data source at ``start_time +
+# lead_time`` for each lead-time offset defined by the model (``[-50 min, -40
+# min, ..., 0 min]`` for a 6-frame window), and the model's default source
+# returns every channel on the model grid.
 
 # %% tags=["e2sg-profile:setup"]
 # Start time; replace with any time for which MTG-I1 FCI data is available.
@@ -144,31 +120,14 @@ fci = {
 # should generally be outside that period.
 start_time = np.datetime64(datetime(2026, 6, 30, 12, 0, 0, tzinfo=timezone.utc))
 in_coords = model.input_coords()
-variables = in_coords.coords["variable"].values
 
-with torch.no_grad():
-    x_res = {}
-    for res in ["2km", "1km"]:
-        available_vars = fci[res].available_variables()
-        if res == "1km":
-            # use 2km version if variable available in both 1km and 2km
-            available_vars -= fci["2km"].available_variables()
-        variables_res = [var for var in variables if var in available_vars]
-        x_res[res] = fetch_data(
-            fci[res],
-            time=np.array([start_time]),
-            variable=variables_res,
-            lead_time=in_coords.coords["lead_time"].values,
-            device=device,
-        )
-
-    # 2x downsample 1km data to common 2km grid
-    x = StormScopeMeteosatEU.combine_1km_2km_inputs(x_res["1km"], x_res["2km"])
-    del x_res
-    # ensure data is on model grid (reorders variables if needed)
-    from earth2studio.run import _map_field
-
-    x = _map_field(x, in_coords)
+x = fetch_data(
+    model.default_sources(),
+    time=np.array([start_time]),
+    variable=in_coords["variable"].values,
+    lead_time=in_coords["lead_time"].values,
+    device=device,
+)
 
 # %%
 # Add Ensemble Dimension
@@ -184,15 +143,15 @@ x = x.expand_dims(ensemble=np.arange(ensemble_size)).copy(deep=True)
 # %%
 # Execute the Nowcast
 # -------------------
-# ``create_iterator`` handles the autoregressive rollout for us: the first
-# yielded value is the (unchanged) initial condition, and each subsequent
-# value advances the prediction by one 10-minute interval.
+# ``create_iterator`` handles the autoregressive rollout for us: each yielded
+# value advances the prediction by one 10-minute interval, starting with the
+# first forecast.
 
 # %% tags=["e2sg-profile:inference"]
 n_steps = 12  # 2 hours of 10-minute forecast steps
 
-for step, x_pred in enumerate(tqdm(model.create_iterator(x), total=n_steps + 1)):
-    if step == n_steps:
+for step, x_pred in enumerate(tqdm(model.create_iterator(x), total=n_steps)):
+    if step == n_steps - 1:
         break
 
 # %%
@@ -200,24 +159,33 @@ for step, x_pred in enumerate(tqdm(model.create_iterator(x), total=n_steps + 1))
 # ---------------
 # Plot the final predicted FCI frame as a true-color RGB composite (VIS 0.6 /
 # 0.5 / 0.4 µm) in geostationary projection. Off-Earth pixels are already set
-# to NaN by ``denormalize``.
+# to NaN by ``denormalize``. For a regional view, ``crop_output`` crops the
+# forecast to the requested region.
 
 # %% tags=["e2sg-profile:plotting"]
 rgb_channels = ["fci06vis", "fci05vis", "fci04vis"]
-ch_idx = [list(model.variables).index(ch) for ch in rgb_channels]
+field = model.crop_output(x_pred).e2s.as_numpy().isel(ensemble=0, time=0, lead_time=0)
 
-# x_pred has shape (batch, time, 1, variable, y, x)
 # here we approximately replicate EUMETSAT's recipe for "true-colour" RGB
-rgb = (x_pred[0, 0, 0, ch_idx] / 24.0).clip(min=0, max=1) * 255
-rgb = rgb.transpose("y", "x", "variable").e2s.as_numpy().values
+rgb = (field.sel(variable=rgb_channels) / 24.0).clip(min=0, max=1) * 255
+rgb = rgb.transpose("y", "x", "variable").values
 rgb = np.interp(rgb, [0, 30, 60, 120, 190, 255], [0, 110, 160, 210, 240, 255]) / 255.0
 
 proj = ccrs.Geostationary(
     central_longitude=0.0,
     satellite_height=PERSPECTIVE_POINT_HEIGHT,
     globe=ccrs.Globe(semimajor_axis=SEMI_MAJOR_AXIS, semiminor_axis=SEMI_MINOR_AXIS),
+    sweep_axis="y",
 )
-extent = MeteosatFCI.projection_extent(resolution="2km", pixel_bbox=bbox_2km)
+# Pixel-edge extent in metres from the scan-angle labels; x increases westward.
+x_angle, y_angle = field["x"].values, field["y"].values
+dx, dy = abs(x_angle[1] - x_angle[0]), abs(y_angle[1] - y_angle[0])
+extent = [
+    -(x_angle.max() + dx / 2) * PERSPECTIVE_POINT_HEIGHT,
+    -(x_angle.min() - dx / 2) * PERSPECTIVE_POINT_HEIGHT,
+    (y_angle.min() - dy / 2) * PERSPECTIVE_POINT_HEIGHT,
+    (y_angle.max() + dy / 2) * PERSPECTIVE_POINT_HEIGHT,
+]
 
 aspect = (extent[1] - extent[0]) / (extent[3] - extent[2])
 fig_height = 8
@@ -228,15 +196,15 @@ ax.set_ylim(extent[2], extent[3])
 
 ax.coastlines(color="white", linewidth=0.8)
 
+# Rows run south to north and columns west to east, matching the extent.
 im = ax.imshow(rgb, transform=proj, extent=extent, origin="lower")
 
-valid_time = x_pred.coords["time"].values[0]
-valid_time = datetime.fromisoformat(str(valid_time)).strftime("%Y-%m-%d %H:%M")
-lead_min = int(x_pred.coords["lead_time"].values[0] / np.timedelta64(1, "m"))
+valid_time = field["time"].values + field["lead_time"].values
+valid_time = np.datetime_as_string(valid_time, unit="m").replace("T", " ")
+lead_min = int(field["lead_time"].values / np.timedelta64(1, "m"))
 ax.set_title(
     f"StormScopeMeteosatEU — RGB\n" f"Valid {valid_time} UTC  (+{lead_min} min)"
 )
 
 fig.tight_layout()
-fig.savefig("outputs/04_stormcast_meteosat_example.png", dpi=150)
-print("Saved outputs/04_stormcast_meteosat_example.png")
+fig.savefig("outputs/04_stormscope_meteosat_example.png", dpi=150)

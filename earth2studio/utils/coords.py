@@ -730,7 +730,12 @@ def handshake_coords(
             and actual.dims != expected.dims
         ):
             raise ValueError(f"Coordinate dimensions for {_required_dim} do not match")
-        if not np.array_equal(actual, expected):
+        # Grids leave geographic coordinates undefined (NaN) off a satellite's disk.
+        equal_nan = all(
+            np.issubdtype(np.asarray(value).dtype, np.floating)
+            for value in (actual, expected)
+        )
+        if not np.array_equal(actual, expected, equal_nan=equal_nan):
             raise ValueError(
                 f"Coordinate systems for required dim {_required_dim} are not the same"
             )
