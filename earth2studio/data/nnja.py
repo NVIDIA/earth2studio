@@ -26,10 +26,12 @@ import asyncio
 import hashlib
 import os
 import shutil
+import threading
 import uuid
 from collections.abc import Sequence
-from dataclasses import dataclass, field
-from datetime import datetime
+from dataclasses import dataclass, field, replace
+from datetime import datetime, timedelta
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -38,6 +40,7 @@ from loguru import logger
 from obstore.store import S3Store
 
 from earth2studio.data.utils import (
+    _CleanupAfterLastCall,
     _sync_async,
     async_retry,
     datasource_cache_dir,
@@ -47,20 +50,25 @@ from earth2studio.data.utils import (
 )
 from earth2studio.data.utils_bufr import BUFR_DEPENDENCY_KEY, PREPBUFR_OBS_TYPES
 from earth2studio.data.utils_ncep import (
+    _DEFAULT_LAYOUT,
+    _NCEP_SATWND_WIDE_SCHEMA,
+    _SATWND_QUALITY_CODES,
     NCEP_CONVENTIONAL_PUBLIC_SCHEMA,
     NCEP_MICROWAVE_OUTPUT_SCHEMA,
     NCEP_MICROWAVE_SATELLITES,
     NCEP_SATWND_PUBLIC_SCHEMA,
+    SAT_CHANNELS,
     Intervals,
     NCEPObsTask,
-    _NCEPIRSounderDecodeError,
-    _NCEPMicrowaveDecodeError,
-    compile_dataframe,
+    _conv_stream_schema,
+    _sat_wide_schema,
+    _validate_layout,
+    assemble_frame,
+    compile_tables,
     cycle_windows,
     decode_gpsro,
-    decode_ir_sounder,
-    decode_microwave,
     decode_prepbufr,
+    decode_satellite,
     decode_satwnd,
     map_aircraft_profile_types,
     plan_conv_tasks,
@@ -78,17 +86,32 @@ from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
 NNJA_BUCKET = "noaa-reanalyses-pds"
 NNJA_PREFIX = "observations/reanalysis"
 
+# Chunked download settings for NNJA cycle files
+_NNJA_READ_CHUNK_SIZE_BYTES = 8 * 1024 * 1024
+_NNJA_READ_CHUNK_CONCURRENCY = 64
+_NNJA_READ_HEDGE_AFTER_SECONDS = 1.5
+
 
 @dataclass(frozen=True)
 class _NNJASatProduct:
     prefix: str
     filename: str
-    first_year: int
-    last_year: int | None = None
+    # First and last cycle files in the archive; no last for a product still flying
+    first: datetime
+    last: datetime | None = None
     # Cycle-file naming convention within <prefix>/YYYY/MM/bufr/:
     #   "gdas": gdas.YYYYMMDD.tHHz.<filename>.tm00.bufr_d (NCEP dumps)
     #   "nasa": <filename>.YYYYMMDD.tHHz.bufr (NASA GES DISC final products)
     naming: str = "gdas"
+
+
+def _in_period(product: _NNJASatProduct, cycle: datetime) -> bool:
+    return product.first <= cycle and (product.last is None or cycle <= product.last)
+
+
+def _period(product: _NNJASatProduct) -> str:
+    last = "present" if product.last is None else product.last.isoformat()
+    return f"{product.first.isoformat()} to {last}"
 
 
 class _NNJAObsSatIncompleteError(RuntimeError):
@@ -112,18 +135,17 @@ def _raise_task_failure(
         "cause_type": type(cause).__name__,
         "cause_message": str(cause),
     }
-    if isinstance(cause, (_NCEPMicrowaveDecodeError, _NCEPIRSounderDecodeError)):
-        context["cause_context"] = cause.context
     raise _NNJAObsSatIncompleteError("task_failure", **context) from cause
 
 
 _NNJA_SAT_PRODUCTS: dict[str, _NNJASatProduct] = {
-    "atms": _NNJASatProduct("atms/atms", "atms", 2012),
-    "mhs": _NNJASatProduct("mhs/1bmhs", "1bmhs", 2005),
-    "amsua": _NNJASatProduct("amsua/1bamua", "1bamua", 1998),
-    "amsub": _NNJASatProduct("amsub/1bamub", "1bamub", 1998),
-    # IR sounder archive coverage verified against the live bucket listings;
-    # the archives start later than the instruments' launch years. AIRS routes
+    "atms": _NNJASatProduct("atms/atms", "atms", datetime(2012, 2, 15)),
+    "mhs": _NNJASatProduct("mhs/1bmhs", "1bmhs", datetime(2005, 2, 1, 12)),
+    "amsua": _NNJASatProduct("amsua/1bamua", "1bamua", datetime(1998, 10, 26)),
+    "amsub": _NNJASatProduct(
+        "amsub/1bamub", "1bamub", datetime(1998, 10, 26), datetime(2014, 6, 6)
+    ),
+    # Periods are the archive's first and last cycle files. AIRS routes
     # to airs/nasa/aqua (2002-08-31 → 2023-01-18) rather than airs/airsev
     # (2007-02-21 → 2020-12-07); the two are structurally identical BUFR files
     # and agree on the infrared values, but the NASA route spans five more
@@ -133,14 +155,18 @@ _NNJA_SAT_PRODUCTS: dict[str, _NNJASatProduct] = {
     # older cris/cris archive (2012-2020) is NSR with different channel
     # numbering and is deliberately not routed.
     "airs": _NNJASatProduct(
-        "airs/nasa/aqua", "airs_disc_final", 2002, last_year=2023, naming="nasa"
+        "airs/nasa/aqua",
+        "airs_disc_final",
+        datetime(2002, 8, 31),
+        datetime(2023, 1, 18, 6),
+        naming="nasa",
     ),
-    "iasi": _NNJASatProduct("iasi/mtiasi", "mtiasi", 2008),
-    "cris": _NNJASatProduct("cris/crisf4", "crisf4", 2018),
+    "iasi": _NNJASatProduct("iasi/mtiasi", "mtiasi", datetime(2008, 1, 1)),
+    "cris": _NNJASatProduct("cris/crisf4", "crisf4", datetime(2018, 1, 16, 18)),
 }
 
-# Hyperspectral IR sounders share the aggregate cycle-file layout above but
-# decode through decode_ir_sounder rather than decode_microwave
+# Hyperspectral IR sounders share the aggregate cycle-file layout above; only
+# they take ``sensor_indices`` (a channel subset)
 _NNJA_IR_SENSORS = frozenset({"airs", "iasi", "cris"})
 
 # Valid platforms per IR sensor; every entry is also a member of
@@ -149,17 +175,6 @@ _NNJA_IR_SATELLITES: dict[str, frozenset[str]] = {
     "airs": frozenset({"aqua"}),
     "iasi": frozenset({"metop-a", "metop-b", "metop-c"}),
     "cris": frozenset({"npp", "n20", "n21"}),
-}
-
-# Instrument-grid channel-number bounds per IR sensor, for validating
-# sensor_indices at construction. The archives carry NCEP subsets (281 AIRS,
-# 616 IASI, 431 CrIS channels) whose membership varies by product era, so
-# only the instrument grid can be checked statically; a valid-but-unarchived
-# channel simply matches no rows at decode time.
-_NNJA_IR_CHANNEL_MAX: dict[str, int] = {
-    "airs": 2378,  # AIRS instrument grid
-    "iasi": 8461,  # IASI L1C grid, 645-2760 cm⁻¹
-    "cris": 2211,  # CrIS FSR sensor_chan grid
 }
 
 
@@ -236,9 +251,10 @@ class NNJAObsConv:
     async_workers : int, optional
         Maximum number of concurrent async fetch tasks, by default 24.
     decode_workers : int, optional
-        Number of parallel processes for BUFR message decoding. Higher values
-        speed up decoding of large PrepBUFR files at the cost of more memory.
-        Set to 1 to disable multiprocessing, by default 8.
+        Number of threads transforming decoded BUFR batches, by default 8.
+        Decoding runs on earth2bufr's process-wide thread pool. Unless
+        ``EARTH2BUFR_NUM_THREADS`` is set, the first fetch sets it to 8 threads,
+        the fastest setting measured on 16-112 cores.
     retries : int, optional
         Number of retry attempts per failed fetch task with exponential
         backoff, by default 3.
@@ -249,6 +265,15 @@ class NNJAObsConv:
     original_event : bool, optional
         Return the report as first ingested (program code 1) instead of the latest
         quality-controlled event, by default False
+    layout : {"long", "wide"}, optional
+        ``"long"`` returns one row per observation with the columns of
+        ``SCHEMA``. ``"wide"`` returns one row per PrepBUFR report level or
+        GPS-RO profile level: the ``SCHEMA`` columns other than
+        ``observation``, ``variable`` and ``quality``, plus one
+        ``observation_<variable>`` and ``quality_<variable>`` column per
+        requested variable, null where the level has no such observation. In
+        wide output ``type`` is the encoded report type for
+        ``"prepbufr.acft_profiles"``. By default "long".
 
     Warning
     -------
@@ -289,7 +314,9 @@ class NNJAObsConv:
         retries: int = 3,
         exclude_message_types: Sequence[str] = (),
         original_event: bool = False,
+        layout: Literal["long", "wide"] = _DEFAULT_LAYOUT,
     ) -> None:
+        self._layout = _validate_layout(layout)
         if source == "convbufr":
             raise NotImplementedError(
                 "NNJAObsConv(source='convbufr') targets raw dump streams grouped "
@@ -322,6 +349,7 @@ class NNJAObsConv:
         self._retries = retries
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = uuid.uuid4().hex[:8] if not cache else None
+        self._calls = _CleanupAfterLastCall(self)
         # Anonymous obstore S3 store for the public NNJA bucket.
         self._store = S3Store(
             NNJA_BUCKET,
@@ -341,13 +369,9 @@ class NNJAObsConv:
         fields: str | list[str] | pa.Schema | None = None,
     ) -> pd.DataFrame:
         """Fetch observations for a set of timestamps."""
-        try:
+        with self._calls:
             # async_timeout bounds the download inside fetch; decode is not bounded.
-            df = _sync_async(self.fetch, time, variable, fields)
-        finally:
-            self.cleanup()
-
-        return df
+            return _sync_async(self.fetch, time, variable, fields)
 
     async def fetch(
         self,
@@ -358,21 +382,54 @@ class NNJAObsConv:
         """Async function to get data."""
         time_list, variable_list = prep_data_inputs(time, variable)
         self._validate_time(time_list)
-        schema = self.resolve_fields(fields)
+        schema = self._output_fields(fields, variable_list)
 
         tasks = self._create_tasks(time_list, variable_list)
-        await asyncio.wait_for(
-            self.fetch_files(list({task.uri for task in tasks})), self.async_timeout
-        )
+        columns = frozenset(schema.names)
+        tasks = [replace(task, columns=columns) for task in tasks]
+        uris = list(dict.fromkeys(task.uri for task in tasks))
+        downloaded = threading.Event()
 
-        return compile_dataframe(
-            tasks,
+        async def download() -> None:
+            """Fetch the files, then release the decodes still waiting for one."""
+            try:
+                await asyncio.wait_for(self.fetch_files(uris), self.async_timeout)
+            finally:
+                downloaded.set()
+
+        # Decoding is CPU-bound; it runs off the event loop, each file as soon as it is
+        # in the cache, so downloads, decodes and gathered sources overlap
+        _, pieces = await asyncio.gather(
+            download(),
+            asyncio.to_thread(
+                compile_tables,
+                tasks,
+                self.SOURCE_ID,
+                self.local_path,
+                self._decode_file,
+                _raise_task_failure,
+                downloaded,
+            ),
+        )
+        return await asyncio.to_thread(
+            assemble_frame,
+            pieces,
+            self._layout,
+            variable_list,
+            self.SCHEMA,
             schema,
             self.SOURCE_ID,
-            self.local_path,
-            self._decode_file,
-            _raise_task_failure,
+            self._long_transform,
         )
+
+    def _long_transform(self, task: NCEPObsTask, table: pa.Table) -> pa.Table:
+        if (
+            task.route == "prepbufr"
+            and self._source == "prepbufr.acft_profiles"
+            and self._map_acft_profile_report_types
+        ):
+            return map_aircraft_profile_types(table)
+        return table
 
     async def fetch_files(self, uris: Sequence[str]) -> None:
         """Download remote files into the NNJA cache."""
@@ -405,6 +462,9 @@ class NNJAObsConv:
                 cache_key=hashlib.sha256(path.encode()).hexdigest(),
                 chunked=True,
                 atomic=True,
+                chunk_size=_NNJA_READ_CHUNK_SIZE_BYTES,
+                max_concurrent=_NNJA_READ_CHUNK_CONCURRENCY,
+                hedge_after=_NNJA_READ_HEDGE_AFTER_SECONDS,
             )
         except FileNotFoundError:
             self._handle_missing_file(path)
@@ -470,32 +530,25 @@ class NNJAObsConv:
     # ------------------------------------------------------------------
     # File decode (dispatch by task route)
     # ------------------------------------------------------------------
-    def _decode_file(self, local_path: str, task: NCEPObsTask) -> pd.DataFrame:
+    def _decode_file(self, local_path: str, task: NCEPObsTask) -> pa.Table:
         if task.route == "gpsro":
-            frame = decode_gpsro(
+            return decode_gpsro(
                 local_path,
-                task.var_plan,
+                list(task.var_plan),
                 task.datetime_min,
                 task.datetime_max,
                 decode_workers=self._decode_workers,
             )
-            return frame[self.SCHEMA.names]
         if task.route == "prepbufr":
-            frame = decode_prepbufr(
+            return decode_prepbufr(
                 local_path,
-                task.var_plan,
+                list(task.var_plan),
                 task.datetime_min,
                 task.datetime_max,
                 decode_workers=self._decode_workers,
                 exclude_message_types=self._exclude_message_types,
                 original_event=self._original_event,
             )
-            if (
-                self._source == "prepbufr.acft_profiles"
-                and self._map_acft_profile_report_types
-            ):
-                frame = map_aircraft_profile_types(frame)
-            return frame[self.SCHEMA.names]
         raise ValueError(f"Unsupported route '{task.route}'")
 
     @classmethod
@@ -535,6 +588,18 @@ class NNJAObsConv:
         """Resolve ``fields`` into a validated PyArrow schema subset."""
         return resolve_output_schema(cls.SCHEMA, fields, class_name=cls.__name__)
 
+    def _wide_schema(self, variables: Sequence[str]) -> pa.Schema:
+        return _conv_stream_schema(variables, type(self).__name__)
+
+    def _output_fields(
+        self, fields: str | list[str] | pa.Schema | None, variables: Sequence[str]
+    ) -> pa.Schema:
+        if self._layout == "wide":
+            return resolve_output_schema(
+                self._wide_schema(variables), fields, class_name=type(self).__name__
+            )
+        return self.resolve_fields(fields)
+
 
 @check_optional_dependencies(BUFR_DEPENDENCY_KEY)
 class NNJAObsSatwnd(NNJAObsConv):
@@ -573,13 +638,19 @@ class NNJAObsSatwnd(NNJAObsConv):
     async_workers : int, optional
         Maximum number of concurrent async fetch tasks, by default 24.
     decode_workers : int, optional
-        Number of parallel processes for BUFR message decoding. Recent cycle
-        files hold 3-5 million winds and decode at roughly 1,500 winds per second
-        per worker, so decoding dominates run time and scales with workers.
-        Set to 1 to disable multiprocessing, by default 8.
+        Number of threads transforming decoded BUFR batches, by default 8.
+        Decoding runs on earth2bufr's process-wide thread pool. Unless
+        ``EARTH2BUFR_NUM_THREADS`` is set, the first fetch sets it to 8 threads,
+        the fastest setting measured on 16-112 cores.
     retries : int, optional
         Number of retry attempts per failed fetch task with exponential
         backoff, by default 3.
+    layout : {"long", "wide"}, optional
+        ``"long"`` returns one row per (wind, component) with the columns of
+        ``SCHEMA``. ``"wide"`` returns one row per wind: the ``SCHEMA`` columns
+        the dump fills other than ``observation`` and ``variable``, with the
+        components in ``observation_u`` and ``observation_v``. By default
+        "long".
 
     Warning
     -------
@@ -600,6 +671,10 @@ class NNJAObsSatwnd(NNJAObsConv):
 
     SOURCE_ID = "earth2studio.data.NNJAObsSatwnd"
     SCHEMA = NCEP_SATWND_PUBLIC_SCHEMA
+
+    def _wide_schema(self, variables: Sequence[str]) -> pa.Schema:
+        return _NCEP_SATWND_WIDE_SCHEMA
+
     LEXICON = NNJAObsSatwndLexicon  # type: ignore[assignment]
     MIN_DATE = datetime(1979, 1, 1)
     # Last year of the reprocessed amv/merged product; the operational dump follows.
@@ -615,6 +690,7 @@ class NNJAObsSatwnd(NNJAObsConv):
         async_workers: int = 24,
         decode_workers: int = 8,
         retries: int = 3,
+        layout: Literal["long", "wide"] = _DEFAULT_LAYOUT,
     ) -> None:
         super().__init__(
             source="satwnd",
@@ -625,6 +701,7 @@ class NNJAObsSatwnd(NNJAObsConv):
             async_workers=async_workers,
             decode_workers=decode_workers,
             retries=retries,
+            layout=layout,
         )
 
     def _build_uri(self, route: str, cycle: datetime) -> str:
@@ -637,17 +714,18 @@ class NNJAObsSatwnd(NNJAObsConv):
             f"gdas.{cycle:%Y%m%d}.t{cycle.hour:02d}z.satwnd.tm00.bufr_d"
         )
 
-    def _decode_file(self, local_path: str, task: NCEPObsTask) -> pd.DataFrame:
+    def _decode_file(self, local_path: str, task: NCEPObsTask) -> pa.Table:
         if task.route != "satwnd":
             raise ValueError(f"Unsupported route '{task.route}'")
-        frame = decode_satwnd(
+        return decode_satwnd(
             local_path,
-            task.var_plan,
+            list(task.var_plan),
             task.datetime_min,
             task.datetime_max,
             decode_workers=self._decode_workers,
+            quality_indicators=task.columns is None
+            or not task.columns.isdisjoint(_SATWND_QUALITY_CODES.values()),
         )
-        return frame[self.SCHEMA.names]
 
 
 @check_optional_dependencies(BUFR_DEPENDENCY_KEY)
@@ -657,22 +735,30 @@ class NNJAObsSat:
     This source reads the NCEP satellite microwave (ATMS, MHS, AMSU-A,
     AMSU-B) and hyperspectral infrared sounder (AIRS, IASI, CrIS) BUFR
     products from the NNJA archive. It returns one long-format row per
-    finite encoded channel value. ``sensor_index`` is the physical ``CHNM``
-    channel number, not a dense index into a selected channel list.
+    decoded channel, a missing value being a null observation.
+    ``sensor_index`` is the physical ``CHNM`` channel number, not a dense index
+    into a selected channel list.
 
     The IR sounders are returned in brightness temperature (K) regardless of
     how the archive stores them: AIRS is encoded as brightness temperature
     (``TMBR``) directly, while IASI (scaled integer radiance, ``SCRA``) and
     CrIS (float radiance, ``SRAD``) are converted via Planck inversion. The
     ``wavenumber`` column carries the channel centre wavenumber in cm⁻¹,
-    computed from the instrument grids for IASI/CrIS and read from the
-    per-channel ``LOGRCW`` field of the aggregate for AIRS.
+    computed from the instrument grids for IASI/CrIS and looked up per channel
+    for ATMS (``SCCF``) and AIRS (``LOGRCW``) from the values the aggregates
+    encode; it is null for MHS, AMSU-A and AMSU-B.
     The aggregates carry the NCEP channel subsets (281 AIRS, 616 IASI, 431
     CrIS) numbered on the instrument grids; ``cris`` routes to the
     full-spectral-resolution ``crisf4`` product whose channel numbers live
-    on the 2211-channel FSR grid. Archive coverage: AIRS 2002–2023
-    (NASA/Aqua route), IASI 2008–present, CrIS (FSR) 2018–present. All
-    archived channels are returned by default; pass ``sensor_indices`` to
+    on the 2211-channel FSR grid; ``SAT_CHANNELS`` in
+    ``earth2studio.data.utils_ncep`` lists them. Archive periods: AMSU-A and
+    AMSU-B from 1998-10-26 (AMSU-B to 2014-06-06), MHS from 2005-02-01T12, ATMS
+    from 2012-02-15, AIRS 2002-08-31 to 2023-01-18T06 (NASA/Aqua route), IASI from
+    2008-01-01, CrIS (FSR) from 2018-01-16T18. A cycle outside its sensor's period
+    is skipped like a missing file, with one warning per sensor; a request with no
+    cycle in the period returns an empty frame. ``available(time, sensor)`` checks
+    the period.
+    All archived channels are returned by default; pass ``sensor_indices`` to
     narrow at decode time or subset downstream via the ``sensor_index``
     column.
 
@@ -697,7 +783,7 @@ class NNJAObsSat:
     the 3x3 field of regard, is the ``detector`` column (null for the other
     sensors). ``scan_angle`` is
     the signed nominal instrument look angle derived from the FOV for the
-    microwave sensors; it is always NaN for the IR sounders, whose scan
+    microwave sensors; it is always null for the IR sounders, whose scan
     geometry is sensor-specific — use ``satellite_za`` (the unsigned
     Earth-view zenith magnitude) for view-angle screening.
 
@@ -733,8 +819,10 @@ class NNJAObsSat:
     async_workers : int, optional
         Maximum number of concurrent async fetch tasks, by default 8.
     decode_workers : int, optional
-        Number of parallel processes for BUFR message decoding. Set to 1 to
-        disable multiprocessing, by default 8.
+        Number of threads transforming decoded BUFR batches, by default 8.
+        Decoding runs on earth2bufr's process-wide thread pool. Unless
+        ``EARTH2BUFR_NUM_THREADS`` is set, the first fetch sets it to 8 threads,
+        the fastest setting measured on 16-112 cores.
     retries : int, optional
         Number of retry attempts per failed fetch task with exponential
         backoff, by default 3.
@@ -744,11 +832,22 @@ class NNJAObsSat:
         ``sensor_indices`` selection of the JPSS/METOP sources and applied
         at decode time like theirs, but keyed per sensor since this source
         spans several instruments. Selections must be non-empty, unique
-        integers on the instrument grid (AIRS 1-2378, IASI 1-8461, CrIS FSR
-        1-2211); a channel on the grid but absent from the archived NCEP
-        subset matches no rows. Sensors absent from the dict (and all
-        microwave sensors) return every archived channel. By default None
-        (all channels).
+        channel numbers the sensor's archive carries (``SAT_CHANNELS``).
+        Sensors absent from the dict (and all microwave sensors) return every
+        archived channel. By default None (all channels).
+    layout : {"long", "wide"}, optional
+        ``"long"`` returns one row per (footprint, channel) with the columns of
+        ``SCHEMA``. ``"wide"`` returns one sensor per call, one row per
+        footprint: the footprint columns of ``SCHEMA`` that sensor fills and
+        its per-channel values as fixed-size lists over its channel axis
+        (``sensor_indices[sensor]`` ascending, else every archived channel),
+        ``quality`` and one ``observation_<variable>`` per variable, null in a
+        slot whose channel the footprint lacks.
+        :func:`~earth2studio.data.utils_ncep.channel_axis` returns a frame's
+        axis; the wavenumber follows from the channel number. Request several
+        sensors concurrently, one call each, e.g.
+        ``asyncio.gather(*(source.fetch(time, [s]) for s in sensors))``; the
+        calls share the source's decode slots. By default "long".
 
     Warning
     -------
@@ -802,7 +901,9 @@ class NNJAObsSat:
         decode_workers: int = 8,
         retries: int = 3,
         sensor_indices: dict[str, Sequence[int]] | None = None,
+        layout: Literal["long", "wide"] = _DEFAULT_LAYOUT,
     ) -> None:
+        self._layout = _validate_layout(layout)
         if satellites is None:
             self._satellites: tuple[str, ...] | None = None
         else:
@@ -832,17 +933,17 @@ class NNJAObsSat:
                         f"one channel number; omit the sensor to read all "
                         f"archived channels"
                     )
-                channel_max = _NNJA_IR_CHANNEL_MAX[sensor]
+                archived = SAT_CHANNELS[sensor]
                 if any(
                     isinstance(c, bool)
                     or not isinstance(c, (int, np.integer))
-                    or c < 1
-                    or c > channel_max
+                    or c not in archived
                     for c in requested
                 ):
                     raise ValueError(
                         f"sensor_indices[{sensor!r}] must be integer channel "
-                        f"numbers from 1 to {channel_max}"
+                        f"numbers the {sensor} archive carries, "
+                        f"SAT_CHANNELS[{sensor!r}]"
                     )
                 normalized = frozenset(int(c) for c in requested)
                 if len(normalized) != len(requested):
@@ -856,6 +957,7 @@ class NNJAObsSat:
         self._retries = retries
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = uuid.uuid4().hex[:8] if not cache else None
+        self._calls = _CleanupAfterLastCall(self)
         # Anonymous obstore S3 store for the public NNJA bucket.
         self._store = S3Store(
             NNJA_BUCKET,
@@ -875,13 +977,9 @@ class NNJAObsSat:
         fields: str | list[str] | pa.Schema | None = None,
     ) -> pd.DataFrame:
         """Fetch observations for a set of timestamps."""
-        try:
+        with self._calls:
             # async_timeout bounds the download inside fetch; decode is not bounded.
-            df = _sync_async(self.fetch, time, variable, fields)
-        finally:
-            self.cleanup()
-
-        return df
+            return _sync_async(self.fetch, time, variable, fields)
 
     async def fetch(
         self,
@@ -892,22 +990,43 @@ class NNJAObsSat:
         """Async function to get data."""
         time_list, variable_list = prep_data_inputs(time, variable)
         self._validate_time(time_list)
-        schema = self.resolve_fields(fields)
+        schema = self._output_fields(fields, variable_list)
 
         tasks = self._create_tasks(time_list, variable_list)
-        uris = list({task.uri for task in tasks})
-        try:
-            await asyncio.wait_for(self.fetch_files(uris), self.async_timeout)
-        except Exception as exc:
-            self._handle_fetch_failure(uris, exc)
+        uris = list(dict.fromkeys(task.uri for task in tasks))
+        downloaded = threading.Event()
 
-        return compile_dataframe(
-            tasks,
+        async def download() -> None:
+            """Fetch the files, then release the decodes still waiting for one."""
+            try:
+                await asyncio.wait_for(self.fetch_files(uris), self.async_timeout)
+            except Exception as exc:
+                self._handle_fetch_failure(uris, exc)
+            finally:
+                downloaded.set()
+
+        # Decoding is CPU-bound; it runs off the event loop, each file as soon as it is
+        # in the cache, so downloads, decodes and gathered sources overlap
+        _, pieces = await asyncio.gather(
+            download(),
+            asyncio.to_thread(
+                compile_tables,
+                tasks,
+                self.SOURCE_ID,
+                self.local_path,
+                self._decode_file,
+                _raise_task_failure,
+                downloaded,
+            ),
+        )
+        return await asyncio.to_thread(
+            assemble_frame,
+            pieces,
+            self._layout,
+            variable_list,
+            self.SCHEMA,
             schema,
             self.SOURCE_ID,
-            self.local_path,
-            self._decode_file,
-            _raise_task_failure,
         )
 
     async def fetch_files(self, uris: Sequence[str]) -> None:
@@ -943,6 +1062,9 @@ class NNJAObsSat:
                 cache_key=hashlib.sha256(path.encode()).hexdigest(),
                 chunked=True,
                 atomic=True,
+                chunk_size=_NNJA_READ_CHUNK_SIZE_BYTES,
+                max_concurrent=_NNJA_READ_CHUNK_CONCURRENCY,
+                hedge_after=_NNJA_READ_HEDGE_AFTER_SECONDS,
             )
         except FileNotFoundError:
             self._handle_missing_file(path)
@@ -1012,9 +1134,7 @@ class NNJAObsSat:
                 )
                 continue
             for cycle, intervals in sorted(windows.items()):
-                if cycle.year < product.first_year or (
-                    product.last_year is not None and cycle.year > product.last_year
-                ):
+                if not _in_period(product, cycle):
                     unavailable.setdefault(sensor, []).append(cycle)
                     continue
                 tasks.append(
@@ -1028,25 +1148,12 @@ class NNJAObsSat:
                         intervals=intervals,
                     )
                 )
-        # A sensor outside its archive years has no rows there, like a sensor with no
-        # platform in flight; only a request with nothing left to read is an error.
-        if unavailable and not tasks:
-            sensor, cycles = next(iter(unavailable.items()))
-            product = _NNJA_SAT_PRODUCTS[sensor]
-            raise _NNJAObsSatIncompleteError(
-                "archive_unavailable",
-                uri=self._build_satellite_uri(cycles[0], sensor),
-                sensor=sensor,
-                cycle=cycles[0].isoformat(),
-                first_year=product.first_year,
-                last_year=product.last_year,
-            )
+        # A cycle outside the archive period is a known gap: no file, no rows
         for sensor, cycles in unavailable.items():
-            product = _NNJA_SAT_PRODUCTS[sensor]
             logger.warning(
-                f"NNJAObsSat: no {sensor} archive for {len(cycles)} cycle(s) outside "
-                f"{product.first_year}-{product.last_year or 'present'}; "
-                f"no {sensor} rows will be returned for them"
+                f"NNJAObsSat: {len(cycles)} {sensor} cycle(s) outside the archive "
+                f"period {_period(_NNJA_SAT_PRODUCTS[sensor])}; no {sensor} rows "
+                "for them"
             )
         return tasks
 
@@ -1059,35 +1166,18 @@ class NNJAObsSat:
             return f"{base}{product.filename}.{cycle:%Y%m%d}.t{cycle:%H}z.bufr"
         return f"{base}gdas.{cycle:%Y%m%d}.t{cycle:%H}z.{product.filename}.tm00.bufr_d"
 
-    def _decode_file(self, local_path: str, task: _NNJASatTask) -> pd.DataFrame:
-        if task.sensor in _NNJA_IR_SENSORS:
-            sensor_sats = _NNJA_IR_SATELLITES[task.sensor]
-            sat_filter = (
-                tuple(s for s in self._satellites if s in sensor_sats)
-                if self._satellites is not None
-                else None
-            )
-            frame = decode_ir_sounder(
-                local_path,
-                task.sensor,
-                # Every archived channel unless narrowed via sensor_indices
-                self._sensor_indices.get(task.sensor),
-                task.datetime_min,
-                task.datetime_max,
-                sat_filter,
-                decode_workers=self._decode_workers,
-            )
-        else:
-            frame = decode_microwave(
-                local_path,
-                task.sensor,
-                task.var_plan,
-                task.datetime_min,
-                task.datetime_max,
-                self._satellites,
-                decode_workers=self._decode_workers,
-            )
-        return frame[self.SCHEMA.names]
+    def _decode_file(self, local_path: str, task: _NNJASatTask) -> pa.Table:
+        return decode_satellite(
+            local_path,
+            task.sensor,
+            task.var_plan,
+            task.datetime_min,
+            task.datetime_max,
+            satellites=self._satellites,
+            # Every archived channel unless narrowed via sensor_indices
+            channels=self._sensor_indices.get(task.sensor),
+            decode_workers=self._decode_workers,
+        )
 
     @classmethod
     def _validate_time(cls, times: list[datetime]) -> None:
@@ -1100,13 +1190,21 @@ class NNJAObsSat:
                 )
 
     @classmethod
-    def available(cls, time: datetime | np.datetime64) -> bool:
-        """Check if given date time is available.
+    def available(
+        cls, time: datetime | np.datetime64, sensor: str | None = None
+    ) -> bool:
+        """Check if given date time is available, for ``sensor`` if given.
+
+        A time is available for a sensor when its cycle file (the nearest
+        six-hourly cycle) lies in the sensor's archive period. Only the period is
+        checked, not whether that file exists.
 
         Parameters
         ----------
         time : datetime | np.datetime64
             Date time to check
+        sensor : str | None, optional
+            Sensor, e.g. ``"airs"``, by default None (any)
 
         Returns
         -------
@@ -1119,9 +1217,31 @@ class NNJAObsSat:
             cls._validate_time([time])
         except ValueError:
             return False
-        return True
+        if sensor is None:
+            return True
+        cycle = datetime(time.year, time.month, time.day) + timedelta(
+            hours=6 * ((time.hour + time.minute / 60 + 3) // 6)
+        )
+        return _in_period(_NNJA_SAT_PRODUCTS[sensor], cycle)
 
     @classmethod
     def resolve_fields(cls, fields: str | list[str] | pa.Schema | None) -> pa.Schema:
         """Resolve ``fields`` into a validated PyArrow schema subset."""
         return resolve_output_schema(cls.SCHEMA, fields, class_name=cls.__name__)
+
+    def _output_fields(
+        self, fields: str | list[str] | pa.Schema | None, variables: Sequence[str]
+    ) -> pa.Schema:
+        if self._layout == "wide":
+            sensors = sorted(
+                {self.LEXICON.get_item(v)[0].split("::")[0] for v in variables}
+            )
+            if len(sensors) != 1:
+                raise ValueError(
+                    'layout="wide" returns one sensor per call; request the variables '
+                    f"of one sensor, got sensors {sensors}. Fetch several sensors "
+                    "concurrently, e.g. asyncio.gather over fetch, one call each"
+                )
+            schema = _sat_wide_schema(sensors[0], self._sensor_indices.get(sensors[0]))
+            return resolve_output_schema(schema, fields, class_name=type(self).__name__)
+        return self.resolve_fields(fields)

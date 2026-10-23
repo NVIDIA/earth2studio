@@ -48,7 +48,7 @@ required dependency groups (from `pyproject.toml`) or individual packages. For e
 _TEST_DEPENDENCIES = {
     "test/models/px/test_aifs.py": ["aifs"],
     "test/statistics/test_crps.py": ["statistics"],
-    "test/data/test_nnja.py": ["pybufrkit"],
+    "test/data/test_nnja.py": ["earth2bufr"],
     # ...
 }
 ```

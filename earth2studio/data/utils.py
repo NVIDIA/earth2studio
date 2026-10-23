@@ -21,15 +21,18 @@ import contextlib
 import os
 import random
 import tempfile
+import threading
 import uuid
+import weakref
 from collections import OrderedDict
-from collections.abc import Callable, Collection
+from collections.abc import Callable, Collection, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from inspect import signature
 from pathlib import Path
-from typing import Any, ClassVar, Literal, Protocol, TypeVar
+from typing import Any, ClassVar, Literal, Protocol, TypeVar, overload
 
 import fsspec.asyn
 import numpy as np
@@ -230,7 +233,7 @@ def fetch_dataframe(
         unique_times = np.unique(all_times)
         df = source(unique_times, variable, fields=fields)  # type: ignore
     # Add request meta-data
-    df.attrs = {"request_time": time, "request_lead_time": lead_time}
+    df.attrs.update(request_time=time, request_lead_time=lead_time)
 
     # Convert to appropriate format based on device
     device = torch.device(device)
@@ -244,6 +247,78 @@ def fetch_dataframe(
         return result
     else:
         return df
+
+
+_FrameRequest = tuple[DataFrameSource | ForecastFrameSource, Mapping[str, Any]]
+
+
+@overload
+def fetch_dataframes(
+    requests: Mapping[str, _FrameRequest],
+    time: TimeArray,
+    lead_time: LeadTimeArray = ...,
+    device: torch.device = ...,
+) -> dict[str, pd.DataFrame | cudf.DataFrame]: ...
+
+
+@overload
+def fetch_dataframes(
+    requests: Sequence[_FrameRequest],
+    time: TimeArray,
+    lead_time: LeadTimeArray = ...,
+    device: torch.device = ...,
+) -> list[pd.DataFrame | cudf.DataFrame]: ...
+
+
+def fetch_dataframes(
+    requests: Mapping[str, _FrameRequest] | Sequence[_FrameRequest],
+    time: TimeArray,
+    lead_time: LeadTimeArray = np.array([np.timedelta64(0, "h")]),
+    device: torch.device = "cpu",
+) -> dict[str, pd.DataFrame | cudf.DataFrame] | list[pd.DataFrame | cudf.DataFrame]:
+    """Fetch several DataFrame requests concurrently with :func:`fetch_dataframe`
+
+    Each request is a source and a schema such as a model's ``input_coords`` entry:
+    ``schema["variable"]`` lists the variables to request and the schema's other
+    keys are the fields to return.
+
+    Parameters
+    ----------
+    requests : Mapping[str, tuple[source, schema]] | Sequence[tuple[source, schema]]
+        Request name -> (source, schema), or a sequence of (source, schema) pairs,
+        e.g. ``list(zip(sources, model.input_coords()))``
+    time : TimeArray
+        Timestamps to return data for (UTC).
+    lead_time : LeadTimeArray, optional
+        Lead times to fetch for each provided time, by default
+        np.array(np.timedelta64(0, "h"))
+    device : torch.device, optional
+        Torch device to load data to, by default "cpu"
+
+    Returns
+    -------
+    dict[str, pd.DataFrame | cudf.DataFrame] | list[pd.DataFrame | cudf.DataFrame]
+        Request name -> DataFrame for a mapping, or the DataFrames in request order
+        for a sequence, each with ``request_time`` in its ``attrs``
+    """
+    pairs = list(requests.values() if isinstance(requests, Mapping) else requests)
+
+    def fetch(request: _FrameRequest) -> pd.DataFrame | cudf.DataFrame:
+        source, schema = request
+        return fetch_dataframe(
+            source,
+            time,
+            np.array(schema["variable"]),
+            fields=[column for column in schema if column != "variable"],
+            lead_time=lead_time,
+            device=device,
+        )
+
+    with ThreadPoolExecutor(max(1, len(pairs))) as pool:
+        frames = list(pool.map(fetch, pairs))
+    if isinstance(requests, Mapping):
+        return dict(zip(requests, frames))
+    return frames
 
 
 def prep_data_array(
@@ -562,6 +637,27 @@ def datasource_cache_dir(subdir: str, persistent: bool, tmp_hash: str | None) ->
         cache_location = os.path.join(cache_location, f"tmp_{subdir}_{tmp_hash}")
     os.makedirs(cache_location, exist_ok=True)
     return cache_location
+
+
+class _CleanupAfterLastCall:
+    """Context manager around a data source call that runs ``source.cleanup()`` when
+    the last of any overlapping calls exits, so concurrent calls on one source instance
+    never delete files another call still reads."""
+
+    def __init__(self, source: Any) -> None:
+        self._source = source
+        self._lock = threading.Lock()
+        self._active = 0
+
+    def __enter__(self) -> None:
+        with self._lock:
+            self._active += 1
+
+    def __exit__(self, *exc_info: object) -> None:
+        with self._lock:
+            self._active -= 1
+            if self._active == 0:
+                self._source.cleanup()
 
 
 # =============================================================================
@@ -1103,6 +1199,51 @@ def atomic_write_bytes(path: str | os.PathLike, data: bytes) -> None:
 # their store's connection-pool size.
 _READ_CHUNK_SIZE_BYTES: int = 1024 * 1024
 _READ_CHUNK_CONCURRENCY: int = 8
+# All chunked reads on one event loop share this cap on in-flight ranges
+_READ_INFLIGHT_LIMIT: int = 256
+_read_inflight: weakref.WeakKeyDictionary[
+    asyncio.AbstractEventLoop, asyncio.Semaphore
+] = weakref.WeakKeyDictionary()
+
+
+def _inflight_semaphore() -> asyncio.Semaphore:
+    loop = asyncio.get_running_loop()
+    semaphore = _read_inflight.get(loop)
+    if semaphore is None:
+        semaphore = asyncio.Semaphore(_READ_INFLIGHT_LIMIT)
+        _read_inflight[loop] = semaphore
+    return semaphore
+
+
+async def _get_range_hedged(
+    store: AsyncReadableStore,
+    key: str,
+    start: int,
+    end: int,
+    hedge_after: float | None,
+) -> bytes:
+    if hedge_after is None:
+        return bytes(await store.get_range_async(key, start=start, end=end))
+    tasks = [asyncio.ensure_future(store.get_range_async(key, start=start, end=end))]
+    try:
+        done, _ = await asyncio.wait(tasks, timeout=hedge_after)
+        if not done:
+            tasks.append(
+                asyncio.ensure_future(store.get_range_async(key, start=start, end=end))
+            )
+        pending = set(tasks)
+        while True:
+            done, pending = await asyncio.wait(
+                pending, return_when=asyncio.FIRST_COMPLETED
+            )
+            for task in done:
+                if task.exception() is None:
+                    return bytes(task.result())
+            if not pending:
+                return bytes(done.pop().result())
+    finally:
+        for task in tasks:
+            task.cancel()
 
 
 async def obstore_read_chunked(
@@ -1110,6 +1251,7 @@ async def obstore_read_chunked(
     key: str,
     chunk_size: int = _READ_CHUNK_SIZE_BYTES,
     max_concurrent: int = _READ_CHUNK_CONCURRENCY,
+    hedge_after: float | None = None,
 ) -> bytes:
     """Reads a whole object, fetching large objects as parallel byte ranges.
 
@@ -1118,7 +1260,10 @@ async def obstore_read_chunked(
     ranges fetched concurrently recovers multi-stream throughput. Objects of
     at most ``chunk_size`` bytes are read with a single range GET; larger
     objects are split with at most ``max_concurrent`` ranges in flight, then
-    reassembled in order.
+    reassembled in order. All chunked reads running on one event loop share a
+    limit of 256 ranges in flight, plus their duplicate requests when
+    ``hedge_after`` is set; the default settings never reach it for a single
+    object.
 
     Parameters
     ----------
@@ -1130,6 +1275,10 @@ async def obstore_read_chunked(
         Byte-range size per GET, by default 1 MiB
     max_concurrent : int, optional
         Maximum concurrent range GETs for one object, by default 8
+    hedge_after : float | None, optional
+        Seconds after which a range still outstanding is requested a second
+        time. The first successful reply wins; a failure is raised only when
+        both requests fail. By default None (no duplicate requests)
 
     Returns
     -------
@@ -1146,18 +1295,18 @@ async def obstore_read_chunked(
     try:
         meta = await store.head_async(key)
         size = int(meta["size"])
+        inflight = _inflight_semaphore()
 
         if size <= chunk_size:
-            return bytes(await store.get_range_async(key, start=0, end=size))
+            async with inflight:
+                return await _get_range_hedged(store, key, 0, size, hedge_after)
 
         semaphore = asyncio.Semaphore(max_concurrent)
 
         async def _fetch_range(start: int) -> bytes:
-            async with semaphore:
-                return bytes(
-                    await store.get_range_async(
-                        key, start=start, end=min(start + chunk_size, size)
-                    )
+            async with semaphore, inflight:
+                return await _get_range_hedged(
+                    store, key, start, min(start + chunk_size, size), hedge_after
                 )
 
         chunks = await asyncio.gather(
@@ -1177,6 +1326,9 @@ async def obstore_fetch_to_cache(
     cache_key: str | None = None,
     chunked: bool = False,
     atomic: bool = False,
+    chunk_size: int = _READ_CHUNK_SIZE_BYTES,
+    max_concurrent: int = _READ_CHUNK_CONCURRENCY,
+    hedge_after: float | None = None,
 ) -> str:
     """Fetches a byte range of an object into a local cache file.
 
@@ -1210,6 +1362,13 @@ async def obstore_fetch_to_cache(
         object can never leave a partial file behind as a poisoned cache
         entry. Intended for callers whose cache entries are plausibly written
         by several processes at once, by default False
+    chunk_size : int, optional
+        Byte-range size per GET for chunked fetches, by default 1 MiB
+    max_concurrent : int, optional
+        Maximum concurrent range GETs for chunked fetches, by default 8
+    hedge_after : float | None, optional
+        Delay before a slow range of a chunked fetch is requested a second
+        time, by default None (no duplicate requests)
 
     Returns
     -------
@@ -1224,7 +1383,13 @@ async def obstore_fetch_to_cache(
     if Path(cache_path).is_file():
         return cache_path
     if chunked:
-        data = await obstore_read_chunked(store, key)
+        data = await obstore_read_chunked(
+            store,
+            key,
+            chunk_size=chunk_size,
+            max_concurrent=max_concurrent,
+            hedge_after=hedge_after,
+        )
     else:
         data = await obstore_read_range(
             store, key, byte_offset=byte_offset, byte_length=byte_length
