@@ -8,6 +8,7 @@ COPY --from=ghcr.io/astral-sh/uv:0.11.7 /uv /uvx /bin/
 ENV FLASH_ATTN_CUDA_ARCHS=90 \
     NATTEN_CUDA_ARCH=8.6;9.0;10.0 \
     NATTEN_N_WORKERS=8 \
+    TORCH_CUDA_ARCH_LIST=8.6;9.0;10.0 \
     UV_CACHE_DIR=/opt/uv-cache \
     UV_PYTHON=${PYTHON_VERSION}
 
