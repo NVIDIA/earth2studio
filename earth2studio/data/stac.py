@@ -82,12 +82,17 @@ from earth2studio.utils.imports import (
 )
 
 try:
+    import rasterio  # type: ignore[import-untyped]
     import rioxarray  # noqa: F401  (registers the .rio accessor)
     from pystac import Item
+    from pystac.utils import str_to_datetime
     from pystac_client import Client
+    from rasterio.warp import transform_bounds  # type: ignore[import-untyped]
+    from rioxarray.exceptions import NoDataInBounds, OneDimensionalRaster
 except ImportError:
     OptionalDependencyFailure("data")
     Client = None
+    rasterio = None
     rioxarray = None
     Item = TypeVar("Item")  # type: ignore
 
@@ -101,8 +106,8 @@ def _vsicurl(url: str, **options: str) -> str:
     GDAL applies options given in the path to this file only, so nothing is
     written to the process environment. ``empty_dir=yes`` skips the remote
     directory listing and side-car probing when the COG is opened and
-    ``max_retry``/``retry_delay`` retry HTTP 429/5xx responses, which the
-    Planetary Computer token service returns when throttling.
+    ``max_retry``/``retry_delay`` retry transient HTTP 429/5xx responses
+    from the blob/object store (not from token services).
     """
     options.setdefault("empty_dir", "yes")
     options.setdefault("max_retry", "3")
@@ -117,12 +122,22 @@ def _sign_generic(href: str, _properties: Mapping[str, Any]) -> str:
     return href
 
 
-def _sign_planetary_computer(href: str, _properties: Mapping[str, Any]) -> str:
+def _sign_planetary_computer(href: str, properties: Mapping[str, Any]) -> str:
     # GDAL (>= 3.5.2) fetches and renews the short-lived SAS token itself, so
-    # there is no token cache here and lazy arrays stay readable past an hour
+    # there is no token cache here and lazy arrays stay readable past an hour.
+    # With the collection id GDAL requests one token per collection instead of
+    # signing every href separately, which the token service rate-limits
     if not urlparse(href).netloc.endswith(".blob.core.windows.net"):
-        return _sign_generic(href, _properties)
-    return _vsicurl(href, pc_url_signing="yes")
+        return _sign_generic(href, properties)
+    if tuple(int(v) for v in rasterio.__gdal_version__.split(".")[:3]) < (3, 5, 2):
+        raise RuntimeError(
+            f"GDAL {rasterio.__gdal_version__} cannot sign Planetary Computer "
+            "URLs; GDAL >= 3.5.2 is required (pip install 'rasterio>=1.3.9')"
+        )
+    options = {"pc_url_signing": "yes"}
+    if properties.get("collection"):
+        options["pc_collection"] = properties["collection"]
+    return _vsicurl(href, **options)
 
 
 def _sign_earth_search(href: str, properties: Mapping[str, Any]) -> str:
@@ -153,9 +168,10 @@ class StacProvider:
     api_url : str
         STAC API root URL.
     sign : Callable[[str, Mapping[str, Any]], str], optional
-        Maps an asset href (plus the merged item/asset properties) to a path
-        GDAL can read: Planetary Computer blobs are read with GDAL's built-in
-        SAS signing, Earth Search ``s3://`` hrefs over public HTTPS. The
+        Maps an asset href (plus the merged item/asset properties and the
+        item's ``collection`` id) to a path GDAL can read: Planetary Computer
+        blobs are read with GDAL's built-in SAS signing (one token per
+        collection), Earth Search ``s3://`` hrefs over public HTTPS. The
         default wraps http(s) hrefs in ``/vsicurl`` and leaves other hrefs
         unchanged.
     """
@@ -254,6 +270,11 @@ def search_items(
 # ---------------------------------------------------------------------------
 # Open
 # ---------------------------------------------------------------------------
+def _float_dtype(dtype: np.dtype) -> str:
+    # float32 holds every 8/16-bit integer exactly; wider inputs need float64
+    return "float32" if dtype.itemsize <= 2 else "float64"
+
+
 def _calibrate(
     da: xr.DataArray,
     band: Mapping[str, Any],
@@ -262,30 +283,73 @@ def _calibrate(
     mask_nodata: bool,
     skip_offset: bool,
 ) -> xr.DataArray:
-    """Apply one ``raster:bands`` entry (nodata, scale, offset) to a band."""
+    """Apply nodata, scale and offset to one band.
+
+    The ``raster:bands`` entry takes precedence over the file's own nodata and
+    scale/offset tags (which rioxarray exposes as ``scale_factor``/``add_offset``
+    attrs).
+    """
     nodata = band.get("nodata", da.rio.nodata)
-    scale = band.get("scale")
-    offset = None if skip_offset else band.get("offset")
+    scale = band.get("scale", da.attrs.get("scale_factor"))
+    offset = None if skip_offset else band.get("offset", da.attrs.get("add_offset"))
     # The raster extension allows string nodata ("nan"); a str compared to a
     # uint16 array would silently mask nothing
     if nodata is not None:
         nodata = float(nodata)
-    if mask_nodata or rescale:
-        da = da.astype("float32")
-    if mask_nodata and nodata is not None:
+    if scale is not None and float(scale) == 1.0:
+        scale = None
+    if offset is not None and float(offset) == 0.0:
+        offset = None
+
+    masking = mask_nodata and nodata is not None
+    scaling = rescale and (scale is not None or offset is not None)
+    if masking or scaling:
+        da = da.astype(_float_dtype(da.dtype))
+    if masking:
         valid = da.notnull() if np.isnan(nodata) else da != nodata
         da = da.where(valid)
-    if rescale and (scale is not None or offset is not None):
-        factor = np.float32(scale if scale is not None else 1.0)
-        shift = np.float32(offset if offset is not None else 0.0)
+    if scaling:
+        factor = float(scale) if scale is not None else 1.0
+        shift = float(offset) if offset is not None else 0.0
         da = da * factor + shift
+        # Scaled values must not be scaled again by CF decoders
+        da.attrs.pop("scale_factor", None)
+        da.attrs.pop("add_offset", None)
         if not mask_nodata and nodata is not None and not np.isnan(nodata):
             # Keep the declared nodata consistent with the rescaled values
-            nodata = float(nodata * factor + shift)
+            nodata = nodata * factor + shift
     # Arithmetic drops attrs, so (re)declare nodata last
     if nodata is not None:
         da.rio.write_nodata(np.nan if mask_nodata else nodata, inplace=True)
     return da
+
+
+def _item_time(item: Item) -> np.datetime64 | None:
+    """Item ``datetime`` (or ``start_datetime`` for ranges) as UTC datetime64."""
+    when = item.datetime
+    if when is None and item.properties.get("start_datetime"):
+        when = str_to_datetime(item.properties["start_datetime"])
+    if when is None:
+        return None
+    if when.tzinfo is None:
+        # STAC datetimes are UTC; never let a naive one pick up the local zone
+        when = when.replace(tzinfo=timezone.utc)
+    return np.datetime64(when.astimezone(timezone.utc).replace(tzinfo=None))
+
+
+def _concat(arrays: Sequence[xr.DataArray], dim: str) -> xr.DataArray:
+    """Concatenate keeping the first array's attrs (incl. ``spatial_ref``).
+
+    A nodata the arrays do not all share is dropped from the result rather
+    than reported from the first array only.
+    """
+    out = xr.concat(arrays, dim=dim, combine_attrs="override")
+    nodatas = {
+        None if a.rio.nodata is None else repr(float(a.rio.nodata)) for a in arrays
+    }
+    if len(nodatas) > 1:
+        out.rio.write_nodata(None, inplace=True)
+    return out
 
 
 @check_optional_dependencies()
@@ -319,8 +383,9 @@ def open_asset(
         COG's internal block size for best throughput. None loads eagerly,
         by default 1024
     rescale : bool, optional
-        Apply the STAC ``raster:bands`` ``scale``/``offset`` so values are in
-        physical units, by default True
+        Apply the STAC ``raster:bands`` ``scale``/``offset`` (or, failing
+        that, the file's own scale/offset tags) so values are in physical
+        units, by default True
     mask_nodata : bool, optional
         Replace ``raster:bands``/file nodata with NaN, by default True
 
@@ -328,15 +393,22 @@ def open_asset(
     -------
     xr.DataArray
         ``(time, y, x)`` for single-band assets, else ``(time, band, y, x)``
-        (no ``time`` when the item has no datetime); float32 when rescaled or
-        masked, otherwise the file dtype.
+        (no ``time`` when the item has neither ``datetime`` nor
+        ``start_datetime``); float32 (float64 for 32/64-bit inputs) when
+        values are rescaled or masked, otherwise the file dtype.
     """
     if asset not in item.assets:
         raise KeyError(
             f"Asset {asset!r} not in item {item.id}; available: {sorted(item.assets)}"
         )
     stac_asset = item.assets[asset]
-    properties: dict[str, Any] = {**item.properties, **stac_asset.extra_fields}
+    # Item properties, asset fields and the item's collection, as a signer
+    # may need any of them (storage:* for S3, the collection for PC tokens)
+    properties: dict[str, Any] = {
+        "collection": item.collection_id,
+        **item.properties,
+        **stac_asset.extra_fields,
+    }
     prov = provider if provider is not None else _infer_provider(stac_asset.href)
     path = prov.sign(stac_asset.href, properties)
 
@@ -358,7 +430,7 @@ def open_asset(
             da.squeeze("band", drop=True), bands[0] if bands else {}, **options
         )
     else:
-        da = xr.concat(
+        da = _concat(
             [
                 _calibrate(
                     da.isel(band=i), bands[i] if i < len(bands) else {}, **options
@@ -374,9 +446,9 @@ def open_asset(
         stac_asset=asset,
         href=stac_asset.href,
     )
-    if item.datetime is not None:
-        utc = item.datetime.astimezone(timezone.utc).replace(tzinfo=None)
-        da = da.expand_dims(time=[np.datetime64(utc)])
+    when = _item_time(item)
+    if when is not None:
+        da = da.expand_dims(time=[when])
     return da
 
 
@@ -388,6 +460,15 @@ def _same_grid(a: xr.DataArray, b: xr.DataArray) -> bool:
     )
 
 
+def _clip(da: xr.DataArray, bbox: Sequence[float], pad: int = 0) -> xr.DataArray:
+    """Clip to a lon/lat ``bbox`` in the asset's CRS, padded by ``pad`` pixels."""
+    minx, miny, maxx, maxy = transform_bounds("EPSG:4326", da.rio.crs, *bbox)
+    rx, ry = (abs(r) for r in da.rio.resolution())
+    return da.rio.clip_box(
+        minx - pad * rx, miny - pad * ry, maxx + pad * rx, maxy + pad * ry
+    )
+
+
 def _match_grid(da: xr.DataArray, reference: xr.DataArray) -> xr.DataArray:
     """Resample a ``(time=1, variable, y, x)`` array onto ``reference``'s grid.
 
@@ -395,10 +476,27 @@ def _match_grid(da: xr.DataArray, reference: xr.DataArray) -> xr.DataArray:
     ``da`` (already clipped to the window) and returns a numpy-backed array
     aligned to ``reference``'s coordinates.
     """
+    if da.rio.nodata is None:
+        # Pixels the source does not cover need a fill value; without a
+        # declared nodata use NaN rather than the integer dtype's maximum
+        da = da.astype(_float_dtype(da.dtype)).rio.write_nodata(np.nan)
     resampled = da.isel(time=0).rio.reproject_match(reference.isel(time=0))
     return resampled.expand_dims(time=da["time"]).assign_coords(
         x=reference["x"], y=reference["y"]
     )
+
+
+def _as_variables(da: xr.DataArray, key: str) -> xr.DataArray:
+    """Turn an opened asset into ``(time, variable, y, x)``."""
+    if "time" not in da.dims:
+        da = da.expand_dims(time=[np.datetime64("NaT", "ns")])
+    if "band" in da.dims:
+        # Multi-band asset (e.g. an RGB "visual" COG): one variable per band
+        labels = [f"{key}_{b}" for b in da["band"].values]
+        da = da.rename(band="variable").assign_coords(variable=labels)
+    else:
+        da = da.expand_dims(variable=[key])
+    return da.transpose("time", "variable", "y", "x")
 
 
 @check_optional_dependencies()
@@ -424,11 +522,13 @@ def search(
 
     Runs :func:`search_items`, opens the requested assets of every matching
     item (see :func:`open_asset`), clips them to ``bbox`` and stacks them into
-    Earth2Studio's ``(time, variable, y, x)`` layout in the first item's
-    grid. Nothing beyond file headers is read until values are computed, with
-    one exception: assets or items on a different grid than the first (other
-    resolution, scene or UTM zone) are resampled onto it while ``search`` runs,
-    which reads their clipped window eagerly.
+    Earth2Studio's ``(time, variable, y, x)`` layout. The grid is that of the
+    first asset of the first item, so list the finest-resolution asset first.
+    Nothing beyond file headers is read until values are computed, with one
+    exception: assets or items on a different grid than the first (other
+    resolution, scene or UTM zone) are resampled onto it (nearest neighbour)
+    while ``search`` runs, which reads their clipped window eagerly. Items
+    whose assets do not intersect ``bbox`` are skipped with a warning.
 
     Parameters
     ----------
@@ -463,7 +563,9 @@ def search(
     rescale : bool, optional
         Apply ``raster:bands`` scale/offset, by default True
     mask_nodata : bool, optional
-        Replace nodata with NaN, by default True
+        Replace nodata with NaN, by default True. When False, a layer that
+        has to be resampled and declares no nodata is still returned as
+        float with NaN where the source does not cover the grid
     lazy : bool, optional
         Return a dask-backed array; False computes before returning, by
         default True
@@ -510,51 +612,65 @@ def search(
             )
 
     per_item: list[xr.DataArray] = []
-    reference: xr.DataArray | None = None
+    kept: list[Item] = []
+    reference: xr.DataArray | None = None  # grid of the first asset of the first item
     for item in items:
         layers: list[xr.DataArray] = []
         for key in assets:
-            da = open_asset(
-                item,
+            da = _as_variables(
+                open_asset(
+                    item,
+                    key,
+                    provider=provider,
+                    chunks=chunks,
+                    rescale=rescale,
+                    mask_nodata=mask_nodata,
+                ),
                 key,
-                provider=provider,
-                chunks=chunks,
-                rescale=rescale,
-                mask_nodata=mask_nodata,
             )
-            if "time" not in da.dims:
-                da = da.expand_dims(time=[np.datetime64("NaT", "ns")])
-            if bbox is not None:
-                da = da.rio.clip_box(*bbox, crs="EPSG:4326")
-            if "band" in da.dims:
-                # Multi-band asset (e.g. an RGB "visual" COG): one variable per band
-                labels = [f"{key}_{b}" for b in da["band"].values]
-                da = da.rename(band="variable").assign_coords(variable=labels)
-            else:
-                da = da.expand_dims(variable=[key])
-            da = da.transpose("time", "variable", "y", "x")
-            if layers and not _same_grid(da, layers[0]):
-                # Assets at different resolutions (Sentinel-2 10 m vs 20 m):
-                # resample onto the first asset's grid instead of letting concat
-                # outer-join the coordinates into a NaN-riddled union grid
-                da = _match_grid(da, layers[0])
-            layers.append(da)
-        # "override" keeps the first layer's attrs (incl. spatial_ref) rather
-        # than dropping the CRS because per-asset attrs differ
-        stacked = xr.concat(layers, dim="variable", combine_attrs="override")
+            target = reference if reference is not None else (layers or [None])[0]
+            try:
+                layer = _clip(da, bbox) if bbox is not None else da
+                if target is not None and not _same_grid(layer, target):
+                    # Another resolution (Sentinel-2 10 m vs 20 m), scene or UTM
+                    # zone: resample onto the target grid instead of letting
+                    # concat outer-join the coordinates into a NaN-riddled union.
+                    # Pad the clip so pixels straddling the window edge survive.
+                    layer = _match_grid(
+                        _clip(da, bbox, pad=2) if bbox is not None else da, target
+                    )
+            except NoDataInBounds:
+                logger.warning(
+                    f"{item.id}/{key} does not intersect bbox; skipping item"
+                )
+                layers = []
+                break
+            except OneDimensionalRaster as e:
+                raise ValueError(
+                    f"bbox covers fewer than two pixels of {item.id}/{key} "
+                    f"(resolution {da.rio.resolution()}); enlarge bbox"
+                ) from e
+            layers.append(layer)
+        if not layers:
+            continue
+        stacked = _concat(layers, "variable")
         if reference is None:
             reference = stacked
-        elif not _same_grid(stacked, reference):
-            stacked = _match_grid(stacked, reference)
         per_item.append(stacked)
+        kept.append(item)
+    if not per_item:
+        raise FileNotFoundError(f"No items in {collection!r} intersect bbox={bbox}")
 
-    out = xr.concat(per_item, dim="time", combine_attrs="override")
+    out = _concat(per_item, "time")
     order = np.argsort(out.time.values, kind="stable")
     out = out.isel(time=order)
     if not lazy:
         out = out.compute()
+    # Per-asset attrs from the first layer do not describe the whole stack
+    for key in ("stac_item", "stac_asset", "href"):
+        out.attrs.pop(key, None)
     out.attrs["stac_collection"] = collection
-    out.attrs["stac_items"] = [items[i].id for i in order]
+    out.attrs["stac_items"] = [kept[i].id for i in order]
     return out
 
 

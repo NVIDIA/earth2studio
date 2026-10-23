@@ -122,7 +122,17 @@ def fake_client(monkeypatch):
     return client
 
 
-def _write_tif(path, values, *, origin=(500000, 4200000), res=30, crs="EPSG:32610"):
+def _write_tif(
+    path,
+    values,
+    *,
+    origin=(500000, 4200000),
+    res=30,
+    crs="EPSG:32610",
+    nodata=0,
+    scale=None,
+    offset=None,
+):
     rasterio = pytest.importorskip("rasterio")
     from rasterio.transform import from_origin
 
@@ -135,11 +145,14 @@ def _write_tif(path, values, *, origin=(500000, 4200000), res=30, crs="EPSG:3261
         height=bands.shape[1],
         count=bands.shape[0],
         dtype=str(values.dtype),
-        nodata=0,
+        nodata=nodata,
         crs=crs,
         transform=from_origin(origin[0], origin[1], res, res),
     ) as dst:
         dst.write(bands)
+        if scale is not None:
+            dst.scales = [scale] * bands.shape[0]
+            dst.offsets = [offset or 0.0] * bands.shape[0]
     return str(path)
 
 
@@ -185,11 +198,14 @@ def test_providers_sign_hrefs(monkeypatch) -> None:
     )
     assert stac._infer_provider("/local/file.tif").name == "generic"
 
-    # Planetary Computer: GDAL signs and renews the SAS token itself
-    assert stac.PLANETARY_COMPUTER.sign(pc_href, {}) == (
-        "/vsicurl?pc_url_signing=yes&empty_dir=yes&max_retry=3&retry_delay=2&url="
+    # Planetary Computer: GDAL signs and renews the SAS token itself, one
+    # token per collection when the collection is known
+    assert stac.PLANETARY_COMPUTER.sign(pc_href, {"collection": "landsat-c2-l2"}) == (
+        "/vsicurl?pc_url_signing=yes&pc_collection=landsat-c2-l2&empty_dir=yes"
+        "&max_retry=3&retry_delay=2&url="
         "https%3A%2F%2Flandsateuwest.blob.core.windows.net%2Flandsat-c2%2Fa%2Fb.tif"
     )
+    assert "pc_collection" not in stac.PLANETARY_COMPUTER.sign(pc_href, {})
     # Earth Search: public s3:// read anonymously over HTTPS in the bucket region
     assert stac.EARTH_SEARCH.sign("s3://sentinel-cogs/a/b.tif", {}) == (
         "/vsicurl?empty_dir=yes&max_retry=3&retry_delay=2&url="
@@ -275,6 +291,28 @@ def test_open_asset_applies_scale_offset_and_nodata(cog) -> None:
     da = stac.open_asset(item, "red").isel(time=0)
     np.testing.assert_allclose(da.values[0, 1], 1000 * 2.75e-05, rtol=1e-5)
 
+    # Without raster:bands the file's own scale/offset tags are applied and
+    # removed from attrs so CF decoders do not apply them again
+    tagged = _write_tif(
+        os.path.join(os.path.dirname(path), "tagged.tif"),
+        np.array([[0, 1000]], dtype=np.uint16),
+        scale=0.01,
+        offset=-1.0,
+    )
+    da = stac.open_asset(_landsat_item(tagged), "red").isel(time=0)
+    np.testing.assert_allclose(da.values[0, 1], 9.0, rtol=1e-6)
+    assert "scale_factor" not in da.attrs and "add_offset" not in da.attrs
+    raw = stac.open_asset(_landsat_item(tagged), "red", rescale=False).isel(time=0)
+    assert raw.values[0, 1] == 1000 and raw.attrs["scale_factor"] == 0.01
+
+    # 32-bit integers are promoted to float64 so masking keeps them exact
+    wide = _write_tif(
+        os.path.join(os.path.dirname(path), "wide.tif"),
+        np.array([[0, 16777217]], dtype=np.int32),
+    )
+    da = stac.open_asset(_landsat_item(wide), "red").isel(time=0)
+    assert da.dtype == np.float64 and da.values[0, 1] == 16777217
+
 
 def test_open_asset_multiband_uses_per_band_metadata(tmp_path) -> None:
     rgb = np.stack([np.full((2, 2), v, dtype=np.uint16) for v in (10, 20, 30)])
@@ -299,6 +337,11 @@ def test_open_asset_multiband_uses_per_band_metadata(tmp_path) -> None:
     assert np.isnan(values[0]).all()  # band 1 is entirely its own nodata
     np.testing.assert_array_equal(values[1], 10.0)
     assert np.isnan(values[2, 0, 0]) and values[2, 0, 1] == 61.0
+    assert np.isnan(da.rio.nodata)
+    # Unmasked, the bands keep different nodata values: none is declared for
+    # the stack rather than band 1's for all
+    da = stac.open_asset(item, "visual", mask_nodata=False, rescale=False)
+    assert da.rio.nodata is None and da.dtype == np.uint16
 
 
 def test_open_asset_reads_over_http(cog) -> None:
@@ -341,6 +384,8 @@ def test_search_stacks_time_and_variable_lazily(tmp_path, fake_client) -> None:
     assert da.time.values[0] == np.datetime64("2024-11-07")
     assert da.attrs["stac_items"] == ["scene-a", "scene-b"]
     assert da.attrs["stac_collection"] == "landsat-c2-l2"
+    # Per-asset attrs of the first layer do not describe the stack
+    assert not {"stac_item", "stac_asset", "href"} & set(da.attrs)
     assert da.rio.crs.to_epsg() == 32610
     assert da.rio.transform().a == 30
     np.testing.assert_array_equal(da.sel(variable="red").isel(time=0).values, a)
@@ -363,33 +408,59 @@ def test_search_clips_to_bbox(tmp_path, fake_client) -> None:
     utc = timezone.utc
     a = np.arange(1, 101, dtype=np.uint16).reshape(10, 10)
     item = _scene(tmp_path, "s", datetime(2024, 12, 9, tzinfo=utc), a, a)
-    fake_client._items["landsat-c2-l2"] = [item]
+    # Same scene a day later on a grid shifted by 25 m: the pixels holding the
+    # window's right/bottom pixel centres lie wholly outside the bbox
+    shifted = _scene(
+        tmp_path,
+        "t",
+        datetime(2024, 12, 10, tzinfo=utc),
+        a,
+        a,
+        origin=(499975, 4200025),
+    )
+    # And one that does not intersect the window at all
+    far = _scene(
+        tmp_path,
+        "far",
+        datetime(2024, 12, 11, tzinfo=utc),
+        a,
+        a,
+        origin=(600000, 4100000),
+    )
+    fake_client._items["landsat-c2-l2"] = [item, shifted, far]
 
-    # A lon/lat box covering the 3x3 pixel block at the scene's top-left
+    # A lon/lat box that cuts through the 3x3 pixel block at the scene's
+    # top-left: pixels are kept when their extent touches the box, so the
+    # window's last column/row have centres outside it
     from rasterio.warp import transform_bounds
 
     bbox = list(
-        transform_bounds(
-            "EPSG:32610",
-            "EPSG:4326",
-            500000,
-            4200000 - 3 * 30,
-            500000 + 3 * 30,
-            4200000,
-        )
+        transform_bounds("EPSG:32610", "EPSG:4326", 500005, 4199938, 500062, 4199995)
     )
     da = stac.search(
         "landsat-c2-l2",
         ["red"],
         bbox=bbox,
         time_range="2024-12-01/2024-12-31",
-        max_items=1,
         rescale=False,
     )
     assert fake_client.search_calls[0]["bbox"] == bbox
     assert fake_client.search_calls[0]["datetime"] == "2024-12-01/2024-12-31"
-    assert da.shape[0] == 1 and da.shape[1] == 1
-    assert da.shape[2] < 10 and da.shape[3] < 10
+    # Non-intersecting item skipped; the window is the 3x3 block
+    assert da.attrs["stac_items"] == ["scene-s", "scene-t"]
+    assert da.shape == (2, 1, 3, 3)
+    np.testing.assert_array_equal(da.isel(time=0, variable=0).values, a[:3, :3])
+    # The shifted scene is resampled onto the window grid without losing the
+    # pixels that straddle the window edge
+    assert not np.isnan(da.isel(time=1).values).any()
+    assert float(da.isel(time=1).max()) <= a[3, 3]
+
+    # A window narrower than one pixel is a user error, not a rioxarray trace
+    tiny = list(
+        transform_bounds("EPSG:32610", "EPSG:4326", 500001, 4199999, 500002, 4199998)
+    )
+    with pytest.raises(ValueError, match="fewer than two pixels"):
+        stac.search("landsat-c2-l2", ["red"], bbox=tiny, rescale=False)
 
 
 def test_search_aligns_grids(tmp_path, fake_client) -> None:
@@ -405,7 +476,8 @@ def test_search_aligns_grids(tmp_path, fake_client) -> None:
         },
         when=datetime(2024, 11, 7, tzinfo=utc),
     )
-    # Same CRS, shifted origin across items: resampled onto the first grid
+    # Same CRS, shifted origin across items, files without a nodata value:
+    # resampled onto the first grid
     shifted = _scene(
         tmp_path,
         "shift",
@@ -413,32 +485,51 @@ def test_search_aligns_grids(tmp_path, fake_client) -> None:
         fine * 2,
         fine * 2,
         origin=(500015, 4200015),
+        nodata=None,
     )
     shifted.assets["swir16"] = shifted.assets.pop("nir08")
     fake_client._items["landsat-c2-l2"] = [ref, shifted]
 
-    da = stac.search("landsat-c2-l2", ["red", "swir16"], rescale=False)
+    da = stac.search(
+        "landsat-c2-l2", ["red", "swir16"], rescale=False, mask_nodata=False
+    )
     # On the first asset's 4x4 grid, no NaN holes from coordinate outer-join
     assert da.shape == (2, 2, 4, 4)
     assert not np.isnan(da.isel(time=0).values).any()
     np.testing.assert_array_equal(da.x.values, stac.open_asset(ref, "red").x.values)
     assert float(da.isel(time=0).sel(variable="swir16").min()) == 9
-    # Shifted scene lands on the reference grid; its uncovered edge is NaN
+    # Shifted scene lands on the reference grid; where it does not cover the
+    # grid the fill is NaN, not the uint16 maximum, and no misleading nodata
+    # is declared for the mixed stack
     assert float(da.isel(time=1).max()) == 14
     assert np.isnan(da.isel(time=1, variable=0).values[0, 0])
+    assert da.rio.nodata is None
 
 
 def test_search_multiband_asset_and_missing_datetime(tmp_path, fake_client) -> None:
     rgb = np.stack([np.full((2, 2), v, dtype=np.uint8) for v in (10, 20, 30)])
-    item = _FakeItem(
-        "tci", {"visual": _FakeAsset(_write_tif(tmp_path / "visual.tif", rgb))}
+    path = _write_tif(tmp_path / "visual.tif", rgb)
+    # datetime: null with a start/end range, as the STAC spec requires
+    ranged = _FakeItem(
+        "tci-range",
+        {"visual": _FakeAsset(path)},
+        properties={"start_datetime": "2025-06-02T00:00:00Z"},
     )
-    fake_client._items["landsat-c2-l2"] = [item]
+    # Naive datetimes are UTC, never local time
+    naive = _FakeItem(
+        "tci-naive", {"visual": _FakeAsset(path)}, when=datetime(2025, 6, 1, 18)
+    )
+    undated = _FakeItem("tci-none", {"visual": _FakeAsset(path)})
+    fake_client._items["landsat-c2-l2"] = [undated, ranged, naive]
     da = stac.search("landsat-c2-l2", rescale=False, mask_nodata=False)
     assert da.dims == ("time", "variable", "y", "x")
     assert list(da.coords["variable"].values) == ["visual_1", "visual_2", "visual_3"]
     assert float(da.sel(variable="visual_3").max()) == 30
-    assert np.isnat(da.time.values[0])
+    # Sorted by time with the undated item (NaT) last
+    assert da.attrs["stac_items"] == ["tci-naive", "tci-range", "tci-none"]
+    assert da.time.values[0] == np.datetime64("2025-06-01T18:00:00")
+    assert da.time.values[1] == np.datetime64("2025-06-02T00:00:00")
+    assert np.isnat(da.time.values[2])
 
 
 def test_search_no_items(fake_client) -> None:
