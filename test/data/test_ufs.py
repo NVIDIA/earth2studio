@@ -176,6 +176,17 @@ def test_ufsobsconv_tolerance_conversion():
     assert ds_asym._tolerance_upper == timedelta(hours=1)
 
 
+@pytest.mark.parametrize("cls,variable", [(UFSObsConv, "t"), (UFSObsSat, "atms")])
+def test_ufsobs_tasks_read_every_centred_cycle(cls, variable):
+    # A diag file holds observations within 3h of its cycle; 00Z-04Z needs 06Z too
+    ds = cls(time_tolerance=(timedelta(0), timedelta(hours=4)), cache=False)
+    tasks = ds._create_tasks([datetime(2020, 1, 1)], [variable])
+    assert sorted({task.datetime_file for task in tasks}) == [
+        datetime(2020, 1, 1, 0),
+        datetime(2020, 1, 1, 6),
+    ]
+
+
 @pytest.mark.parametrize("cls", [UFSObsConv, UFSObsSat])
 def test_ufsobs_missing_file_warns_not_raises(cls, caplog):
     """A missing diag file warns and returns rather than aborting the fetch.
