@@ -31,7 +31,7 @@ from earth2studio.utils import handshake_nonempty
 from earth2studio.utils.type import CoordinateSystem, FrameSchema
 
 
-class StormCastCONUSSDA(torch.nn.Module, AutoModelMixin):
+class StormCastConusSDA(torch.nn.Module, AutoModelMixin):
     """StormCast-CONUS with score-based observation guidance and explicit state.
 
     Wraps the CONUS diffusion model, retaining its cropped projected grid, sampler,
@@ -245,7 +245,7 @@ class StormCastCONUSSDA(torch.nn.Module, AutoModelMixin):
         return StormCastCONUS.load_default_package()
 
     @classmethod
-    def load_model(cls, package: Package, **model_kwargs: Any) -> "StormCastCONUSSDA":
+    def load_model(cls, package: Package, **model_kwargs: Any) -> "StormCastConusSDA":
         """Load CONUS weights and configure observation-guided sampling.
 
         Parameters
@@ -257,7 +257,7 @@ class StormCastCONUSSDA(torch.nn.Module, AutoModelMixin):
 
         Returns
         -------
-        StormCastCONUSSDA
+        StormCastConusSDA
             Configured assimilation model.
         """
         return cls(StormCastCONUS.load_model(package, **model_kwargs))

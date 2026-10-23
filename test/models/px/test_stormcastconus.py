@@ -27,7 +27,7 @@ import xarray as xr
 import earth2studio.models.px.stormcastconus as conus_module
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.conformance import check_prognostic_contract
-from earth2studio.models.da import StatefulAssimilationModel, StormCastCONUSSDA
+from earth2studio.models.da import StatefulAssimilationModel, StormCastConusSDA
 from earth2studio.models.px import StormCastCONUS
 from earth2studio.models.px.stormcastconus import _SplitModelWrapper
 from earth2studio.utils.coords import coord_array, coord_array_like
@@ -238,7 +238,7 @@ def test_stormcastconus_sda_continuation(device):
     core = _build_model(device)
     core.num_sda_diffusion_steps = 2
     core.time_tolerance = np.timedelta64(10, "m")
-    model = StormCastCONUSSDA(core)
+    model = StormCastConusSDA(core)
     assert isinstance(model, StatefulAssimilationModel)
     signature = core.input_coords()
     source = Random(OrderedDict((d, signature[d].values) for d in ("y", "x")))

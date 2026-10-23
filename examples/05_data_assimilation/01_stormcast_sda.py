@@ -21,7 +21,7 @@ StormCast-CONUS Score-Based Data Assimilation
 
 Running StormCast-CONUS with guided diffusion posterior sampling to assimilate observations.
 
-This example demonstrates how to use the StormCastCONUSSDA generative model with
+This example demonstrates how to use the StormCastConusSDA generative model with
 score-based data assimilation (SDA) over a CONUS subdomain. Sparse
 in-situ surface observations from NOAA Global Historical Climatology Network Hourly
 (GHCNh) are assimilated at each forecast step using diffusion posterior sampling
@@ -30,7 +30,7 @@ data assimilation: one without observations and one with GHCNh surface station d
 
 In this example you will learn:
 
-- How to load StormCastCONUSSDA and configure SDA parameters
+- How to load StormCastConusSDA and configure SDA parameters
 - Fetching HRRR initial conditions, GFS conditioning, and GHCNh surface observations
 - Running the model iteratively with and without observation assimilation
 - Comparing assimilated and non-assimilated forecasts
@@ -50,7 +50,7 @@ In this example you will learn:
 # ------
 # This example requires the following components:
 #
-# - Assimilation Model: :py:class:`earth2studio.models.da.StormCastCONUSSDA`
+# - Assimilation Model: :py:class:`earth2studio.models.da.StormCastConusSDA`
 #   configured with SDA parameters.
 # - Datasource (state): HRRR analysis [`earth2studio.data.HRRR`][earth2studio.data.HRRR].
 # - Datasource (conditioning): :py:class:`earth2studio.data.GFS_FX`.
@@ -80,18 +80,18 @@ logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
 from earth2studio.data import GFS_FX, HRRR, GHCNHourly, fetch_data
-from earth2studio.models.da import StormCastCONUSSDA
+from earth2studio.models.da import StormCastConusSDA
 from earth2studio.run import _map_field
 
 # Load the default model package
-package = StormCastCONUSSDA.load_default_package()
+package = StormCastConusSDA.load_default_package()
 
 # Configure SDA: sda_std_obs is the assumed normalised observation noise std per
 # variable (lower = trust observations more).
 # sda_gamma is the DPS step-size scaling (lower = stronger guidance from obs).
 #
 # Crop to the central-US subdomain to reduce memory. Omit the limits to use CONUS.
-model = StormCastCONUSSDA.load_model(
+model = StormCastConusSDA.load_model(
     package,
     hrrr_lat_lim=(273, 785),
     hrrr_lon_lim=(579, 1219),

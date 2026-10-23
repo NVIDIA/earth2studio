@@ -19,12 +19,12 @@ models use a no-op; stochastic calls advance a local stream. `reset=False` prese
 an existing stream. Reseeding does not change an active trajectory's explicit state.
 
 HealDA, interpolation, and CorrDiff use independent calls. CorrDiff's background
-input does not make it stateful. StormCastSDA and StormCastCONUSSDA support stateful continuation,
+input does not make it stateful. StormCastSDA and StormCastConusSDA support stateful continuation,
 with required gridded conditioning and optional observations at each step. Inputs
 and outputs may be DataArrays or DataFrames as declared by each model. See the
 [DA user guide](../userguide/components/data_assimilation.md) for calling patterns.
 
-StormCastCONUSSDA wraps the CONUS checkpoint and supports cropped domains. Its
+StormCastConusSDA wraps the CONUS checkpoint and supports cropped domains. Its
 conditioning and observations both target the output valid time (+1 hour); use the
 `stormcast-conus` installation extra and the StormCast-CONUS SDA gallery example.
 
@@ -42,7 +42,7 @@ output: generated/models/da
 earth2studio.models.da.CorrDiffCosmoEra5SDA
 earth2studio.models.da.HealDA
 earth2studio.models.da.InterpEquirectangular
-earth2studio.models.da.StormCastCONUSSDA
+earth2studio.models.da.StormCastConusSDA
 earth2studio.models.da.StormCastSDA
 {% endautosummary %}
 
