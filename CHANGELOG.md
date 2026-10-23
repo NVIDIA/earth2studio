@@ -70,10 +70,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   small.
 - Fixed `ZarrBackend` and `IceChunkBackend` reopening stores containing
   root-level subgroups.
+- Fixed ECMWF open data sources (IFS, AIFS) blocking the shared fsspec IO loop during
+  S3 503 retries, which caused later data calls in the same process to hang. Downloads
+  now run sequentially in a worker thread per source instance with bounded retries
+  and write via temporary files.
 
 ### Security
 
 ### Dependencies
+
+- Raised minimum `ecmwf-opendata` to 0.3.34 (needed for configurable client retries).
 
 ## [0.19.0] - 2026-09-30
 
