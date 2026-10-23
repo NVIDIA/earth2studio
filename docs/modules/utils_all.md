@@ -142,6 +142,34 @@ earth2studio.data.fetch_data
 earth2studio.data.prep_data_array
 {% endautosummary %}
 
+## STAC Utilities
+
+Shared layer for lazy, cloud-native access to STAC-cataloged rasters that
+collection-specific data sources build on.
+
+<!-- e2s-autosummary
+currentmodule: earth2studio.data.stac
+template: function
+output: generated/data/stac
+-->
+
+{% autosummary %}
+earth2studio.data.stac.search
+earth2studio.data.stac.search_items
+earth2studio.data.stac.open_asset
+earth2studio.data.stac.collections
+{% endautosummary %}
+
+<!-- e2s-autosummary
+currentmodule: earth2studio.data.stac
+template: class
+output: generated/data/stac
+-->
+
+{% autosummary %}
+earth2studio.data.stac.StacProvider
+{% endautosummary %}
+
 ## Model Utilities
 
 <!-- e2s-autosummary
