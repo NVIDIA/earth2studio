@@ -494,7 +494,13 @@ def test_fetch_data_interp(time, lead_time, device):
     "lead_time",
     [
         np.array([np.timedelta64(0, "h")]),
-        np.array([np.timedelta64(-6, "h"), np.timedelta64(0, "h")]),
+        np.array(
+            [
+                np.timedelta64(-12, "h"),
+                np.timedelta64(-6, "h"),
+                np.timedelta64(0, "h"),
+            ]
+        ),
     ],
 )
 @pytest.mark.parametrize(
@@ -522,6 +528,8 @@ def test_datasource_to_file(time, lead_time, backend, tmp_path):
 
     # To check attempt to get input data from saved file
     ds = DataArrayFile(file_name)
+    # Only the requested times offset by each lead are saved
+    assert ds.da.sizes["time"] == len(time) * len(lead_time)
     x, coords = fetch_data(ds, time, variable, lead_time)
 
     assert np.all(coords["time"] == time)
@@ -530,33 +538,6 @@ def test_datasource_to_file(time, lead_time, backend, tmp_path):
     assert np.all(coords["lat"] == domain["lat"])
     assert np.all(coords["lon"] == domain["lon"])
     assert not torch.isnan(x).any()
-
-
-def test_datasource_to_file_lead_times(tmp_path):
-    # Each lead should offset the requested times only, not times already
-    # added for an earlier lead
-    domain = OrderedDict(
-        {"lat": np.linspace(-90, 90, 4), "lon": np.linspace(0, 360, 8)}
-    )
-    random = Random(domain)
-    requested = []
-
-    def source(time, variable):
-        requested.append(time)
-        return random(time, variable)
-
-    time = np.array([np.datetime64("2024-01-01T00:00")])
-    lead_time = np.array([np.timedelta64(h, "h") for h in [0, 6, 12]])
-    datasource_to_file(
-        str(tmp_path / "temp.nc"),
-        source,
-        time=time,
-        variable=np.array(["a"]),
-        lead_time=lead_time,
-    )
-
-    assert len(requested) == 1
-    np.testing.assert_array_equal(requested[0], time + lead_time)
 
 
 def test_datasource_cache(tmp_path, monkeypatch):
