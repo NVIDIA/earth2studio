@@ -128,6 +128,7 @@ _PROGNOSTIC_CONFORMANT: set[str] = {
     "GenCastMini",
     "GraphCastOperational",
     "GraphCastSmall",
+    "InterpCRPSDiT",
     "InterpModAFNO",
     "Pangu3",
     "Pangu6",

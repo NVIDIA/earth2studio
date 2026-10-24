@@ -81,8 +81,8 @@ class _ECMWFOpenDataSource(ABC):
     Parameters
     ----------
     source : str, optional
-        Data source to fetch data from. For possible options refer to ECMWF's open data
-        Python SDK, by default "aws".
+        Open-data mirror to fetch from: "aws", "ecmwf", "azure", or "google".
+        By default "aws".
     model: str, optional
         Model to fetch data for, by default "ifs".
     fc_type: str, optional
@@ -97,6 +97,21 @@ class _ECMWFOpenDataSource(ABC):
     async_timeout: int, optional
         Time in seconds after which the download will be cancelled if not finished
         successfully, by default 600.
+    client_kwargs: dict[str, Any], optional
+        Additional keyword arguments passed to ``ecmwf.opendata.Client``,
+        by default {}.
+
+    Note
+    ----
+    Client download logs remain visible when setting verbose to False. To hide them
+    process-wide, run the following:
+    ```
+    import ecmwf.opendata.client as opendata_client
+    from functools import partial
+    from multiurl.base import NoBar
+
+    opendata_client.download = partial(opendata_client.download, progress_bar=NoBar)
+    ```
     """
 
     LAT = np.linspace(90, -90, 721)
@@ -106,13 +121,14 @@ class _ECMWFOpenDataSource(ABC):
 
     def __init__(
         self,
-        source: Literal["aws", "ecmwf", "azure"] = "aws",
+        source: Literal["aws", "ecmwf", "azure", "google"] = "aws",
         model: Literal["ifs", "aifs-single", "aifs-ens"] = "ifs",
         fc_type: Literal["fc", "cf", "pf"] = "fc",
         members: list[int] = [0],
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
+        client_kwargs: dict[str, Any] = {},
     ):
         # Optional import not installed error
         if opendata is None:
@@ -120,7 +136,7 @@ class _ECMWFOpenDataSource(ABC):
                 "ecmwf-opendata is not installed, install manually or using `pip install earth2studio[data]`"
             )
 
-        self.client = opendata.Client(source=source, model=model)
+        self.client = opendata.Client(source=source, model=model, **client_kwargs)
         self._fc_type = fc_type
         self._members = members
 
@@ -559,14 +575,14 @@ class IFS(_ECMWFOpenDataSource):
     """Integrated forecast system (IFS) HRES initial state (analysis) data source on an
     equirectangular grid at 0.25 degree resolution. IFS is a forecast model developed by
     ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers
-    (source `ecmwf`). Historical data is part of ECMWF's open data project on AWS
-    (source `aws`).
+    (source `ecmwf`). Historical data is available through the AWS and Google
+    Cloud mirrors (sources `aws` and `google`).
 
     Parameters
     ----------
     source : str, optional
-        Data source to fetch data from. For possible options refer to ECMWF's open data
-        Python SDK, by default "aws".
+        Open-data mirror to fetch from: "aws", "ecmwf", "azure", or "google".
+        By default "aws".
     cache : bool, optional
         Cache data source in local memory, by default True.
     verbose : bool, optional
@@ -574,6 +590,9 @@ class IFS(_ECMWFOpenDataSource):
     async_timeout: int, optional
         Time in seconds after which the download will be cancelled if not finished
         successfully, by default 600.
+    client_kwargs: dict[str, Any], optional
+        Additional keyword arguments passed to ``ecmwf.opendata.Client``,
+        by default {}.
 
     Warning
     -------
@@ -602,10 +621,11 @@ class IFS(_ECMWFOpenDataSource):
 
     def __init__(
         self,
-        source: Literal["aws", "ecmwf", "azure"] = "aws",
+        source: Literal["aws", "ecmwf", "azure", "google"] = "aws",
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
+        client_kwargs: dict[str, Any] = {},
     ):
         super().__init__(
             source=source,
@@ -613,6 +633,7 @@ class IFS(_ECMWFOpenDataSource):
             cache=cache,
             verbose=verbose,
             async_timeout=async_timeout,
+            client_kwargs=client_kwargs,
         )
 
     def __call__(  # type: ignore[override]
@@ -676,14 +697,14 @@ class IFS_FX(_ECMWFOpenDataSource):
     """Integrated forecast system (IFS) HRES forecast data source on an equirectangular
     grid at 0.25 degree resolution. IFS is a forecast model developed by
     ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers
-    (source `ecmwf`). Historical data is part of ECMWF's open data project on AWS
-    (source `aws`).
+    (source `ecmwf`). Historical data is available through the AWS and Google
+    Cloud mirrors (sources `aws` and `google`).
 
     Parameters
     ----------
     source : str, optional
-        Data source to fetch data from. For possible options refer to ECMWF's open data
-        Python SDK, by default "aws".
+        Open-data mirror to fetch from: "aws", "ecmwf", "azure", or "google".
+        By default "aws".
     cache : bool, optional
         Cache data source in local memory, by default True.
     verbose : bool, optional
@@ -691,6 +712,9 @@ class IFS_FX(_ECMWFOpenDataSource):
     async_timeout: int, optional
         Time in seconds after which the download will be cancelled if not finished
         successfully, by default 600.
+    client_kwargs: dict[str, Any], optional
+        Additional keyword arguments passed to ``ecmwf.opendata.Client``,
+        by default {}.
 
     Warning
     -------
@@ -716,10 +740,11 @@ class IFS_FX(_ECMWFOpenDataSource):
 
     def __init__(
         self,
-        source: Literal["aws", "ecmwf", "azure"] = "aws",
+        source: Literal["aws", "ecmwf", "azure", "google"] = "aws",
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
+        client_kwargs: dict[str, Any] = {},
     ):
         super().__init__(
             source=source,
@@ -727,6 +752,7 @@ class IFS_FX(_ECMWFOpenDataSource):
             cache=cache,
             verbose=verbose,
             async_timeout=async_timeout,
+            client_kwargs=client_kwargs,
         )
 
     def __call__(
@@ -808,14 +834,14 @@ class IFS_ENS(_ECMWFOpenDataSource):
     """Integrated forecast system (IFS) ensemble (ENS) initial state data source on an
     equirectangular grid at 0.25 degree resolution. IFS is a forecast model developed by
     ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers
-    (source `ecmwf`). Historical data is part of ECMWF's open data project on AWS
-    (source `aws`).
+    (source `ecmwf`). Historical data is available through the AWS and Google
+    Cloud mirrors (sources `aws` and `google`).
 
     Parameters
     ----------
     source : str, optional
-        Data source to fetch data from. For possible options refer to ECMWF's open data
-        Python SDK, by default "aws".
+        Open-data mirror to fetch from: "aws", "ecmwf", "azure", or "google".
+        By default "aws".
     member: int, optional
         Ensemble member id to use. If 0 the control forecast will be requested, if
         greater than 0 perturbed ensemble member will be requested, by default 1.
@@ -826,6 +852,9 @@ class IFS_ENS(_ECMWFOpenDataSource):
     async_timeout: int, optional
         Time in seconds after which the download will be cancelled if not finished
         successfully, by default 600.
+    client_kwargs: dict[str, Any], optional
+        Additional keyword arguments passed to ``ecmwf.opendata.Client``,
+        by default {}.
 
     Warning
     -------
@@ -854,11 +883,12 @@ class IFS_ENS(_ECMWFOpenDataSource):
 
     def __init__(
         self,
-        source: Literal["aws", "ecmwf", "azure"] = "aws",
+        source: Literal["aws", "ecmwf", "azure", "google"] = "aws",
         member: int = 1,
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
+        client_kwargs: dict[str, Any] = {},
     ):
         fc_type: Literal["cf", "pf"]
         if member == 0:
@@ -880,6 +910,7 @@ class IFS_ENS(_ECMWFOpenDataSource):
             cache=cache,
             verbose=verbose,
             async_timeout=async_timeout,
+            client_kwargs=client_kwargs,
         )
 
     def __call__(  # type: ignore[override]
@@ -961,14 +992,14 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
     """Integrated forecast system (IFS) ensemble (ENS) forecast data source on an
     equirectangular grid at 0.25 degree resolution. IFS is a forecast model developed by
     ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers
-    (source `ecmwf`). Historical data is part of ECMWF's open data project on AWS
-    (source `aws`).
+    (source `ecmwf`). Historical data is available through the AWS and Google
+    Cloud mirrors (sources `aws` and `google`).
 
     Parameters
     ----------
     source : str, optional
-        Data source to fetch data from. For possible options refer to ECMWF's open data
-        Python SDK, by default "aws".
+        Open-data mirror to fetch from: "aws", "ecmwf", "azure", or "google".
+        By default "aws".
     member: int, optional
         Ensemble member id to use. If 0 the control forecast will be requested, if
         greater than 0 perturbed ensemble member will be requested, by default 1.
@@ -979,6 +1010,9 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
     async_timeout: int, optional
         Time in seconds after which the download will be cancelled if not finished
         successfully, by default 600.
+    client_kwargs: dict[str, Any], optional
+        Additional keyword arguments passed to ``ecmwf.opendata.Client``,
+        by default {}.
 
     Warning
     -------
@@ -1004,11 +1038,12 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
 
     def __init__(
         self,
-        source: Literal["aws", "ecmwf", "azure"] = "aws",
+        source: Literal["aws", "ecmwf", "azure", "google"] = "aws",
         member: int = 1,
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
+        client_kwargs: dict[str, Any] = {},
     ):
         fc_type: Literal["cf", "pf"]
         if member == 0:
@@ -1030,6 +1065,7 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
             cache=cache,
             verbose=verbose,
             async_timeout=async_timeout,
+            client_kwargs=client_kwargs,
         )
 
     def __call__(
@@ -1118,14 +1154,14 @@ class AIFS_FX(_ECMWFOpenDataSource):
     """Artificial intelligence forecast system (AIFS) SINGLE forecast data on an
     equirectangular grid at 0.25 degree resolution. AIFS is an AI forecast model
     developed by ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's
-    servers (source `ecmwf`). Historical data is part of ECMWF's open data project on
-    AWS (source `aws`).
+    servers (source `ecmwf`). Historical data is available through the AWS and Google
+    Cloud mirrors (sources `aws` and `google`).
 
     Parameters
     ----------
     source : str, optional
-        Data source to fetch data from. For possible options refer to ECMWF's open data
-        Python SDK, by default "aws".
+        Open-data mirror to fetch from: "aws", "ecmwf", "azure", or "google".
+        By default "aws".
     cache : bool, optional
         Cache data source in local memory, by default True.
     verbose : bool, optional
@@ -1133,6 +1169,9 @@ class AIFS_FX(_ECMWFOpenDataSource):
     async_timeout: int, optional
         Time in seconds after which the download will be cancelled if not finished
         successfully, by default 600.
+    client_kwargs: dict[str, Any], optional
+        Additional keyword arguments passed to ``ecmwf.opendata.Client``,
+        by default {}.
 
     Warning
     -------
@@ -1158,10 +1197,11 @@ class AIFS_FX(_ECMWFOpenDataSource):
 
     def __init__(
         self,
-        source: Literal["aws", "ecmwf", "azure"] = "aws",
+        source: Literal["aws", "ecmwf", "azure", "google"] = "aws",
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
+        client_kwargs: dict[str, Any] = {},
     ):
         super().__init__(
             source=source,
@@ -1169,6 +1209,7 @@ class AIFS_FX(_ECMWFOpenDataSource):
             cache=cache,
             verbose=verbose,
             async_timeout=async_timeout,
+            client_kwargs=client_kwargs,
         )
 
     def __call__(
@@ -1236,14 +1277,14 @@ class AIFS_ENS_FX(_ECMWFOpenDataSource):
     """Artificial intelligence forecast system (AIFS) ENS forecast data on an
     equirectangular grid at 0.25 degree resolution. AIFS is an AI forecast model
     developed by ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's
-    servers (source `ecmwf`). Historical data is part of ECMWF's open data project on
-    AWS (source `aws`).
+    servers (source `ecmwf`). Historical data is available through the AWS and Google
+    Cloud mirrors (sources `aws` and `google`).
 
     Parameters
     ----------
     source : str, optional
-        Data source to fetch data from. For possible options refer to ECMWF's open data
-        Python SDK, by default "aws".
+        Open-data mirror to fetch from: "aws", "ecmwf", "azure", or "google".
+        By default "aws".
     member: int, optional
         Ensemble member id to use. If 0 the control forecast will be requested, if
         greater than 0 perturbed ensemble member will be requested, by default 0.
@@ -1254,6 +1295,9 @@ class AIFS_ENS_FX(_ECMWFOpenDataSource):
     async_timeout: int, optional
         Time in seconds after which the download will be cancelled if not finished
         successfully, by default 600.
+    client_kwargs: dict[str, Any], optional
+        Additional keyword arguments passed to ``ecmwf.opendata.Client``,
+        by default {}.
 
     Warning
     -------
@@ -1279,11 +1323,12 @@ class AIFS_ENS_FX(_ECMWFOpenDataSource):
 
     def __init__(
         self,
-        source: Literal["aws", "ecmwf", "azure"] = "aws",
+        source: Literal["aws", "ecmwf", "azure", "google"] = "aws",
         member: int = 0,
         cache: bool = True,
         verbose: bool = True,
         async_timeout: int = 600,
+        client_kwargs: dict[str, Any] = {},
     ):
         fc_type: Literal["cf", "pf"]
         if member == 0:
@@ -1301,6 +1346,7 @@ class AIFS_ENS_FX(_ECMWFOpenDataSource):
             cache=cache,
             verbose=verbose,
             async_timeout=async_timeout,
+            client_kwargs=client_kwargs,
         )
 
     def __call__(

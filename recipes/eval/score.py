@@ -60,7 +60,7 @@ from loguru import logger
 from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
 from src.distributed import configure_logging, run_on_rank0_first
-from src.online import finalize_stats, online_enabled
+from src.online import finalize_online_stats, online_enabled
 from src.output import OutputManager
 from src.regions import events_to_attrs, parse_events
 from src.scoring import (
@@ -100,7 +100,7 @@ def main(cfg: DictConfig) -> None:
     # up newly-derived metrics without re-running inference.
     if online_enabled(cfg):
         if dist.rank == 0:
-            finalize_stats(cfg)
+            finalize_online_stats(cfg)
         if dist.distributed:
             torch.distributed.barrier()
         logger.success("Scoring finished (online mode: finalized stats.zarr).")
@@ -133,6 +133,14 @@ def main(cfg: DictConfig) -> None:
     spatial_coords = spatial_coords_from_dataset(prediction_ds)
     variables = list(cfg.scoring.variables)
     lead_times = prediction_ds.lead_time.values
+    if not np.issubdtype(lead_times.dtype, np.timedelta64):
+        # numpy would add integer leads to the initial times as nanoseconds.
+        raise ValueError(
+            "score.py pairs each lead_time with a verification time, but this "
+            f"store's lead_time is {lead_times.dtype}.  Calendar-month forecasts "
+            "from WindowMeanForecastPipeline(window='month') hold integer lead "
+            "months, which score.py cannot verify yet."
+        )
 
     input_template = build_input_coords_template(prediction_ds, lead_times, variables)
 

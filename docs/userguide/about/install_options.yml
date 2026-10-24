@@ -251,6 +251,12 @@ categories:
             Before importing JAX or Earth2Studio, set
             XLA_PYTHON_CLIENT_PREALLOCATE=false and
             XLA_PYTHON_CLIENT_ALLOCATOR=vmm.
+      - id: interp-crps-dit
+        label: InterpCRPSDiT
+        extra: interp-crps-dit
+        summary: Dependencies for the InterpCRPSDiT CRPS temporal interpolation model. Requires a base prognostic model.
+        api_refs:
+          - earth2studio.models.px.InterpCRPSDiT
       - id: interp-modafno
         label: InterpModAFNO
         extra: interp-modafno
@@ -475,6 +481,15 @@ categories:
         summary: HealDA dependencies.
         api_refs:
           - earth2studio.models.da.HealDA
+      - id: da-healda-v2
+        label: HealDA v2
+        extra: da-healda-v2
+        summary: HealDA v2 dependencies (the healda package).
+        api_refs:
+          - earth2studio.models.da.HealDAv2
+        notes:
+          - Installs the `healda` package from its git repository at a pinned commit;
+            the model needs a CUDA device and Triton at run time.
       - id: da-interp
         label: InterpEquirectangular
         extra: da-interp

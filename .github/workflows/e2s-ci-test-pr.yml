@@ -32,7 +32,7 @@ defaults:
     shell: bash
 
 env:
-  E2S_CI_IMAGE: &e2s_ci_image ghcr.io/nvidia/earth2studio-ci:0.6
+  E2S_CI_IMAGE: &e2s_ci_image ghcr.io/nvidia/earth2studio-ci:0.7
   E2S_CI_LITE_IMAGE: &e2s_ci_lite_image ghcr.io/nvidia/earth2studio-ci-lite:0.3
   CDSAPI_KEY: ${{ secrets.CDSAPI_KEY }}
   CDSAPI_URL: https://cds.climate.copernicus.eu/api
@@ -91,7 +91,7 @@ jobs:
 
       - name: Detect changed test suites
         id: filter
-        uses: ./.github/actions/detect-ci-changes
+        uses: $/.github/actions/detect-ci-changes
         with:
           mode: pr
           base-branch: ${{ steps.base.outputs.branch }}
@@ -211,7 +211,7 @@ jobs:
           persist-credentials: false
 
       - name: Build docs
-        uses: ./.github/actions/build-light-docs
+        uses: $/.github/actions/build-light-docs
         with:
           gallery-cache-name: main
           save-caches: "false"
@@ -238,7 +238,7 @@ jobs:
           persist-credentials: false
 
       - name: Run test job
-        uses: ./.github/actions/run-ci-test
+        uses: $/.github/actions/run-ci-test
         with:
           tox-env: test
           testmon-base-branch: ${{ needs.changes.outputs.base_branch }}
@@ -265,7 +265,7 @@ jobs:
           persist-credentials: false
 
       - name: Run test job
-        uses: ./.github/actions/run-ci-test
+        uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-px-models
           testmon-base-branch: ${{ needs.changes.outputs.base_branch }}
@@ -292,7 +292,7 @@ jobs:
           persist-credentials: false
 
       - name: Run test job
-        uses: ./.github/actions/run-ci-test
+        uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-dx-models
           testmon-base-branch: ${{ needs.changes.outputs.base_branch }}
@@ -319,7 +319,7 @@ jobs:
           persist-credentials: false
 
       - name: Run test job
-        uses: ./.github/actions/run-ci-test
+        uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-data
           testmon-base-branch: ${{ needs.changes.outputs.base_branch }}
@@ -346,7 +346,7 @@ jobs:
           persist-credentials: false
 
       - name: Run test job
-        uses: ./.github/actions/run-ci-test
+        uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-perturb
           testmon-base-branch: ${{ needs.changes.outputs.base_branch }}
@@ -373,7 +373,7 @@ jobs:
           persist-credentials: false
 
       - name: Run test job
-        uses: ./.github/actions/run-ci-test
+        uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-stats
           testmon-base-branch: ${{ needs.changes.outputs.base_branch }}
@@ -400,7 +400,7 @@ jobs:
           persist-credentials: false
 
       - name: Run test job
-        uses: ./.github/actions/run-ci-test
+        uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-da-models
           testmon-base-branch: ${{ needs.changes.outputs.base_branch }}
@@ -427,7 +427,7 @@ jobs:
           persist-credentials: false
 
       - name: Run test job
-        uses: ./.github/actions/run-ci-test
+        uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-px-models-conflicts
           testmon-base-branch: ${{ needs.changes.outputs.base_branch }}
@@ -454,7 +454,7 @@ jobs:
           persist-credentials: false
 
       - name: Run test job
-        uses: ./.github/actions/run-ci-test
+        uses: $/.github/actions/run-ci-test
         with:
           tox-env: test-serve
           testmon-base-branch: ${{ needs.changes.outputs.base_branch }}

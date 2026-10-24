@@ -41,13 +41,13 @@ def _to_np(z: xr.DataArray) -> np.ndarray:
     return z.e2s.to_torch()[0].cpu().numpy()
 
 
-@pytest.mark.parametrize("ensemble_dimension", ["ensemble", None])
+@pytest.mark.parametrize("ensemble_dimension", ["ensemble", "member", None])
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_bs(ensemble_dimension: str, device: str) -> None:
 
     x_coords = OrderedDict(
         {
-            "ensemble": np.arange(10),
+            ensemble_dimension or "ensemble": np.arange(10),
             "time": np.array([np.datetime64("1993-04-05T00:00")]),
             "variable": np.array(["t2m", "tcwv"]),
             "lat": np.linspace(-90.0, 90.0, 361),

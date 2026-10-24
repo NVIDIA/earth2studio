@@ -18,7 +18,8 @@ import json
 import os
 from collections.abc import Generator
 from copy import deepcopy
-from typing import cast
+from dataclasses import dataclass, field
+from typing import Any, cast
 
 import numpy as np
 import torch
@@ -41,6 +42,7 @@ from earth2studio.utils import (
     handshake_size,
     handshake_time,
 )
+from earth2studio.utils.checkpoint import bind_checkpoint_state
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -53,6 +55,54 @@ try:
 except ImportError:
     OptionalDependencyFailure("atlas")
     Module = None
+
+
+@dataclass
+class _AtlasCRPSCheckpointState:
+    y: torch.Tensor | None = None
+    y_metadata: dict[str, Any] = field(default_factory=dict)
+    history: torch.Tensor | None = None
+    history_metadata: dict[str, Any] = field(default_factory=dict)
+    latents: list[list[tuple[torch.Tensor, torch.Tensor] | None]] | None = None
+    seed: int | None = None
+    rng: dict[str, torch.Tensor] | None = None
+
+
+def _pack_array(
+    x: xr.DataArray, device: torch.device
+) -> tuple[torch.Tensor, dict[str, Any]]:
+    tensor, _ = x.e2s.to_torch()
+    metadata = deepcopy(
+        {
+            "dims": tuple(x.dims),
+            "sizes": dict(x.sizes),
+            "name": x.name,
+            "coords": {
+                name: (tuple(value.dims), value.values, dict(value.attrs))
+                for name, value in x.coords.items()
+            },
+            "attrs": dict(x.attrs),
+            "encoding": dict(x.encoding),
+        }
+    )
+    return tensor.detach().clone().to(device), metadata
+
+
+def _unpack_array(
+    tensor: torch.Tensor, metadata: dict[str, Any], device: torch.device
+) -> xr.DataArray:
+    metadata = deepcopy(metadata)
+    signature = coord_array(
+        metadata["dims"],
+        metadata["coords"],
+        sizes=metadata["sizes"],
+        attrs=metadata["attrs"],
+    )
+    result = from_torch(
+        tensor.to(device), signature, name=metadata["name"], attrs=metadata["attrs"]
+    )
+    result.encoding = metadata["encoding"]
+    return result
 
 
 @check_optional_dependencies()
@@ -97,6 +147,10 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ----
     Ensemble noise is drawn from the global PyTorch generator, use
     ``set_rng`` for reproducible members.
+    Level-2 checkpoints preserve the forecast, history, latent states and random
+    stream state. Construct the model inside the checkpoint context to resume from
+    the next forecast step. For reproducible ensemble restarts, use
+    :class:`earth2studio.perturbation.Zero`; the model supplies its own ensemble noise.
 
     Note
     ----
@@ -125,6 +179,7 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.autoencoder = autoencoder
         self.autoencoder_processor = autoencoder_processor
         self.register_buffer("device_buffer", torch.empty(0))
+        self.checkpoint = bind_checkpoint_state(_AtlasCRPSCheckpointState())
 
     def default_sources(self) -> DataSource:
         """Recommend ARCO ERA5 initial conditions.
@@ -437,7 +492,73 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Forecasts after the rear hook. The front hook runs before subsequent
             steps; public-field edits feed recurrence alongside retained latents.
         """
-        return self._default_create_iterator(x)
+        y, state, restored = self._restore_checkpoint_state(x)
+        if not restored:
+            y, state = self.initialize(x)
+            y = self.rear_hook(y)
+            self._save_checkpoint_state(y, state)
+            yield y
+        while True:
+            y = self.front_hook(y)
+            y, state = self.step(y, state)
+            y = self.rear_hook(y)
+            self._save_checkpoint_state(y, state)
+            yield y
+
+    def _restore_checkpoint_state(
+        self, x: xr.DataArray
+    ) -> tuple[xr.DataArray | None, _AtlasState | None, bool]:
+        saved = self.checkpoint
+        if not (
+            saved.checkpoint_level == 2
+            and saved.checkpoint_state_loaded
+            and saved.y is not None
+            and saved.history is not None
+        ):
+            return None, None, False
+        tensor, _ = x.e2s.to_torch()
+        y = _unpack_array(saved.y, saved.y_metadata, tensor.device)
+        # A loaded state belongs to the rollout that saved it; other batches start fresh
+        if not all(
+            dim in y.coords and np.array_equal(y[dim].values, x[dim].values)
+            for dim in x.dims
+            if dim != "lead_time"
+        ):
+            return None, None, False
+        history = _unpack_array(saved.history, saved.history_metadata, tensor.device)
+        latents = [
+            [
+                None if pair is None else tuple(t.to(tensor.device) for t in pair)
+                for pair in batch
+            ]
+            for batch in saved.latents
+        ]
+        rng = {key: value.cpu() for key, value in saved.rng.items()}
+        return y, _AtlasState(history, latents, saved.seed, rng), True
+
+    def _save_checkpoint_state(self, y: xr.DataArray, state: _AtlasState) -> None:
+        saved = self.checkpoint
+        if not saved.checkpoint_enabled or saved.checkpoint_level != 2:
+            return
+        device = saved.device
+        saved.y, saved.y_metadata = _pack_array(y, device)
+        saved.history, saved.history_metadata = _pack_array(state.history, device)
+        saved.latents = [
+            [
+                (
+                    None
+                    if pair is None
+                    else tuple(t.detach().to(device, copy=True) for t in pair)
+                )
+                for pair in batch
+            ]
+            for batch in state.latents
+        ]
+        saved.seed = state.seed
+        saved.rng = {
+            key: value.detach().to(device, copy=True)
+            for key, value in (state.rng or {}).items()
+        }
 
     @classmethod
     def load_default_package(cls) -> Package:

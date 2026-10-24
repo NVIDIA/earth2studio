@@ -11,13 +11,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added subseasonal-to-seasonal evaluation capability in the eval recipe. Added
+  **`WindowMeanForecastPipeline`** in `src/pipelines/seasonal.py` and
+  **`WindowMeanSource`** in `src/data.py`.
+- Added the distilled ERA5 -> HRRR model (`CorrDiffEra5HrrrDistilled`), now the
+  default of `CorrDiffEra5Hrrr.load_model`; pass `distilled_model=False` for the
+  50-step teacher.
+- Added StormScope Flash variants of `StormScopeGOES` and `StormScopeMRMS` for accelerated
+  StormScope inference over CONUS domain, including crop-based inference.
+- Added HealDA v2 (`HealDAv2`), a global machine-learning data-assimilation model that
+  maps a 48-hour sequence of satellite and conventional observations to a 104-channel,
+  0.25° atmospheric analysis on a regular latitude-longitude grid (`da-healda-v2` extra).
+- Added an `original_event` option and report time/latitude/longitude columns to
+  `NNJAObsConv`; report-time filtering preserves complete PrepBUFR profiles.
+- Added a `detector` column to `NNJAObsSat` carrying the CrIS field-of-view index.
+- Added `scan_quality`, `granule_quality` and `footprint_quality` columns to
+  `NNJAObsSat` carrying the ATMS, CrIS and IASI footprint-level provider flags.
+- Added a `cycle_time` column to the NCEP observation sources (`NNJAObsConv`,
+  `NNJAObsSatwnd`, `NNJAObsSat`, `NomadsGDASObsConv`): the cycle of the file each row
+  was decoded from, since an observation at a file's window edge can be in two files.
+- Added Google Cloud mirror via `source="google"` to ECMWF open-data sources.
+- Added `InterpCRPSDiT`, a CRPS DiT temporal interpolation model with sub-hourly output.
+- Eval recipe: `scoring.online.verification_sources` scores one online rollout
+  against several named truth sources in a single pass, writing
+  `stats__<name>.zarr` and `scores__<name>.zarr` per reference.
+
 ### Changed
+
+- `NNJAObsSat` returns a row for every decoded channel: a missing or unconvertible value
+  is a NaN observation instead of a dropped row, so every footprint appears.
+- ECMWF open-data sources accept a `client_kwargs` dictionary for
+  `opendata.Client`.
+- Updated CBottle Tropical Cyclone and Infill checkpoints to new EMA version
+- Added checkpointing support for AtlasCRPS model
 
 ### Deprecated
 
 ### Removed
 
 ### Fixed
+
+- `NNJAObsConv` and `NomadsGDASObsConv` decode PrepBUFR files from before 2007, which
+  number their message types 230-249 instead of 102-121; these files previously
+  returned no conventional observations.
+- PrepBUFR messages dated 2000 (edition 3, year of century 100) get the year 2000
+  instead of 100, so their observations are no longer dropped by the time window.
+- `NNJAObsConv`, `NNJAObsSatwnd` and `NNJAObsSat` raise when a file, any of its
+  messages, or any DX-table message fails to decode, instead of silently returning
+  fewer rows.
+- `NNJAObsSat` skips sensors outside their archive years in a multi-sensor request
+  instead of failing the whole request.
+- NNJA, GDAS and UFS observation sources read the cycle files whose ±3h span a request
+  overlaps, and keep only rows inside each requested window; requests no longer miss
+  cycles (#967).
+- `CorrDiffCosmoEra5`: updated the Hugging Face checkpoint revision to pick up the
+  corrected `rea2/stats.json` (ERA5 training-domain statistics instead of global
+  statistics).
+- Honor custom ensemble dimension names in Brier score coordinate validation.
+- Correct the Energy Score ensemble reduction axis when multivariate
+  dimensions precede the ensemble dimension.
+- Fixed running variance and standard deviation when reducing non-leading or
+  multiple dimensions.
+- `Aurora1p5` and `Aurora1p5Ensemble`: `tp1h` and `sf1h` are no longer log-untransformed
+  a second time, which made hourly precipitation and snowfall about 1000 times too
+  small.
+- Fixed `ZarrBackend` and `IceChunkBackend` reopening stores containing
+  root-level subgroups.
+- `datasource_to_file` offsets the requested times by each lead time on its own instead
+  of compounding the leads, which fetched times far past the largest lead.
 
 ### Security
 
@@ -95,6 +156,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed Aurora 1.5 ensemble rollout noise-cache sizing and cleanup.
+- `ZarrBackend` / `IceChunkBackend` can reopen a store containing a scalar
+  array (e.g. a CF `grid_mapping` variable) whose `dimension_names` is `None`
 - `NNJAObsSat` warns and skips a missing aggregate cycle file instead of failing
   the whole request, matching `NNJAObsConv` and the UFS sources
 - `NNJAObsConv` / `NNJAObsSat` download cycle files as concurrent byte ranges

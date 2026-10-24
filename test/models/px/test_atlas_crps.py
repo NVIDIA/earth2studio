@@ -17,6 +17,7 @@
 import inspect
 from collections import OrderedDict
 from collections.abc import Iterable
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -28,6 +29,7 @@ from earth2studio.grids import LatLonGrid
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import AtlasCRPS
 from earth2studio.utils import coord_array, coord_array_like
+from earth2studio.utils.checkpoint import Checkpoint
 from earth2studio.utils.cupy import from_torch
 
 
@@ -120,6 +122,7 @@ def model_domain(request, monkeypatch):
     if request.node.originalname in (
         "test_atlas_crps_iter",
         "test_atlas_crps_conformance",
+        "test_atlas_crps_checkpoint_state_round_trip",
     ):
         declared = AtlasCRPS.input_coords
 
@@ -144,6 +147,7 @@ def model_domain(request, monkeypatch):
     if request.node.originalname in (
         "test_atlas_crps_conformance",
         "test_atlas_crps_iter",
+        "test_atlas_crps_checkpoint_state_round_trip",
         "test_atlas_crps_input_coords",
         "test_atlas_crps_output_coords",
     ):
@@ -307,6 +311,55 @@ def test_atlas_crps_iter(ensemble, atlas_crps_test_components, device):
     p.model_processor.preprocess_input = preprocess
     p(x)
     xr.testing.assert_identical(x, original)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize("stop", [0, 2])
+def test_atlas_crps_checkpoint_state_round_trip(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    atlas_crps_test_components: dict,
+    device: str,
+    stop: int,
+) -> None:
+    def stochastic_forward(
+        self: PhooAtlasCRPSModel, prev: torch.Tensor, current: torch.Tensor
+    ) -> torch.Tensor:
+        return 0.1 * prev + 0.2 * current + torch.randn_like(current) + torch.rand(())
+
+    def decode(
+        self: PhooAutoencoder, x: torch.Tensor, residual: torch.Tensor
+    ) -> torch.Tensor:
+        return x + 2 * residual  # Physical and latent trajectories must differ.
+
+    monkeypatch.setattr(PhooAtlasCRPSModel, "forward", stochastic_forward)
+    monkeypatch.setattr(PhooAutoencoder, "forward", decode)
+
+    time = np.array([np.datetime64("1993-04-05T00:00")])
+    checkpoint = Checkpoint("atlas_crps", path=tmp_path, level=2)
+    with checkpoint as ckpt:
+        model = AtlasCRPS(**atlas_crps_test_components).to(device)
+        model.set_rng(7)
+        coords = model.input_coords()
+        x = fetch_data(
+            Random({d: coords.coords[d].values for d in ("lat", "lon")}),
+            time,
+            coords["variable"],
+            coords["lead_time"],
+            device=device,
+        )
+        iterator = model.create_iterator(x)
+        for _ in range(stop + 1):
+            ckpt.write(lead_time=next(iterator).lead_time.values[-1])
+        ckpt.flush()
+        expected = [next(iterator).copy(deep=True) for _ in range(2)]
+
+    with checkpoint.select(-1):
+        model = AtlasCRPS(**atlas_crps_test_components).to(device)
+        iterator = model.create_iterator(x * 0 - 5)
+        for want in expected:
+            got = next(iterator)
+            xr.testing.assert_identical(got, want)
 
 
 @pytest.mark.parametrize(
