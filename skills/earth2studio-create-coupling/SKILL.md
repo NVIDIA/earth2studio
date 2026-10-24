@@ -29,7 +29,7 @@ def coupling(outputs: Mapping[str, xr.DataArray], leads: np.ndarray) -> xr.DataA
 - `leads`: the lead times the forcing must be valid at (the slot's `lead_time`
   coordinate shifted to the model's current lead). Return one entry per lead.
 - The result must carry the forcing slot's spatial coordinates. A wrong lead
-  count or grid raises at call time; a field on a different grid is cropped or nearest-regridded automatically (as in `fetch_data`; needs the `utils` extra), otherwise regrid *inside* the function; convert units there too.
+  count or grid raises at call time; regrid *inside* the function, or use `RegriddingCoupledRunner` to crop or nearest-regrid automatically (as in `fetch_data`; needs the `utils` extra); convert units inside the function.
 
 ## Workflow
 
@@ -75,5 +75,5 @@ def coupling(outputs: Mapping[str, xr.DataArray], leads: np.ndarray) -> xr.DataA
 
 `CoupledRunner` runs one member per work item (`member_batch=1`). To perturb
 initial conditions use `EnsembleCoupledRunner(..., perturbations={name: lambda seed: Gaussian(0.05, seed=seed)})`.
-New runner behavior belongs in a subclass that overrides a hook such as `_start`,
+New runner behavior belongs in a separate subclass that overrides a hook (`_start`, `_on_slot_grid`),
 not in new `CoupledRunner` parameters.

@@ -22,6 +22,7 @@ ordinary :class:`~earth2studio.run.Runner` that lives here.
 
 from earth2studio.coupler.couplings import hold, window_mean
 from earth2studio.coupler.ensemble import EnsembleCoupledRunner
+from earth2studio.coupler.regrid import RegriddingCoupledRunner
 from earth2studio.coupler.runner import CoupledRunner, Coupling, Outputs
 
 __all__ = [
@@ -29,6 +30,7 @@ __all__ = [
     "Coupling",
     "EnsembleCoupledRunner",
     "Outputs",
+    "RegriddingCoupledRunner",
     "hold",
     "window_mean",
 ]

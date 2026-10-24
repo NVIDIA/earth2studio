@@ -30,6 +30,7 @@ import xarray as xr
 from earth2studio.coupler import (
     CoupledRunner,
     EnsembleCoupledRunner,
+    RegriddingCoupledRunner,
     hold,
     window_mean,
 )
@@ -502,40 +503,45 @@ class _Coarse(_Mock):
         return coord_array_like(super().input_coords(), {"lon": [0, 20]})
 
 
-def test_coupling_grid_is_mapped_or_rejected() -> None:
+def _grid_runner(cls: type[CoupledRunner], coupling) -> CoupledRunner:  # type: ignore[no-untyped-def]
     goes = _Mock(["abi01"], np.timedelta64(10, "m"))
     coarse = _Coarse(["refc"], np.timedelta64(10, "m"), forcing=["abi01"])
     sources = {"goes": _Fill(abi01=2.0), "c": _Fill()}
-    item = WorkItem(T0, np.timedelta64(10, "m"))
+    return cls({"goes": goes, "c": coarse}, sources, {"c": coupling})
 
-    def run(coupling) -> list:  # type: ignore[no-untyped-def]
-        runner = CoupledRunner({"goes": goes, "c": coarse}, sources, {"c": coupling})
-        return list(runner.run_item(item))
 
-    # An exact crop of the source grid is selected, with no coupling code.
-    steps = run(hold("goes"))
-    assert steps[1]["c"].sizes["lon"] == 2
-    np.testing.assert_array_equal(steps[1]["c"]["lon"].values, [0, 20])
+ITEM = WorkItem(T0, np.timedelta64(10, "m"))
+
+
+def test_base_runner_requires_the_slot_grid() -> None:
+    runner = _grid_runner(CoupledRunner, hold("goes"))  # Not regridded.
+    with pytest.raises(ValueError, match="regrid it inside the coupling"):
+        list(runner.run_item(ITEM))
+    runner = _grid_runner(
+        CoupledRunner, lambda out, leads: hold("goes")(out, leads).sel(lon=[0, 20])
+    )
+    assert list(runner.run_item(ITEM))[1]["c"].sizes["lon"] == 2
+    runner = _grid_runner(
+        CoupledRunner, lambda out, leads: xr.concat([out["goes"]] * 2, "lead_time")
+    )
     with pytest.raises(ValueError, match="expected 1"):
-        run(lambda out, leads: xr.concat([out["goes"]] * 2, "lead_time"))
+        list(runner.run_item(ITEM))
 
 
-def test_coupling_off_the_source_grid_is_refused() -> None:
+def test_regridding_runner_selects_an_exact_crop() -> None:
+    runner = _grid_runner(RegriddingCoupledRunner, hold("goes"))
+    steps = list(runner.run_item(ITEM))
+    np.testing.assert_array_equal(steps[1]["c"]["lon"].values, [0, 20])
+
+
+def test_regridding_runner_refuses_off_the_source_grid() -> None:
     pytest.importorskip("scipy")  # Automatic regridding is the `utils` extra.
-    goes = _Mock(["abi01"], np.timedelta64(10, "m"))
-    coarse = _Coarse(["refc"], np.timedelta64(10, "m"), forcing=["abi01"])
-    runner = CoupledRunner(
-        {"goes": goes, "c": coarse},
-        {"goes": _Fill(abi01=2.0), "c": _Fill()},
-        # Nearest within the source resolution only: never extrapolated.
-        {
-            "c": lambda out, leads: hold("goes")(out, leads).assign_coords(
-                lon=[100, 110, 120]
-            )
-        },
+    runner = _grid_runner(
+        RegriddingCoupledRunner,  # Nearest within the source resolution only.
+        lambda out, leads: hold("goes")(out, leads).assign_coords(lon=[100, 110, 120]),
     )
     with pytest.raises(ValueError, match="regrid inside the coupling"):
-        list(runner.run_item(WorkItem(T0, np.timedelta64(10, "m"))))
+        list(runner.run_item(ITEM))
 
 
 def test_stochastic_models_get_distinct_stable_seeds() -> None:

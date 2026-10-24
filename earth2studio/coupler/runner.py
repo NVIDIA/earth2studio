@@ -26,21 +26,13 @@ function of the outputs so far, supplied by the caller.
 from __future__ import annotations
 
 import zlib
-from collections.abc import Callable, Hashable, Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from typing import Any, cast
 
 import numpy as np
 import torch
 import xarray as xr
-from loguru import logger
 
-from earth2studio.grids import (
-    Regridder,
-    infer_grid,
-    resolve_regridder,
-    same_geometry,
-    select_subset,
-)
 from earth2studio.models.px import PrognosticModel
 from earth2studio.models.px.utils import initial_condition
 from earth2studio.models.utils import recommended_sources
@@ -141,7 +133,6 @@ class CoupledRunner:
         self.models = dict(models)
         self.couplings = dict(couplings or {})
         self.seed = seed
-        self._regridders: dict[str, Regridder] = {}
         self.device = _module_device(next(iter(self.models.values())))
         self.inputs: dict[str, CoordinateSystem] = {}
         self.outputs: dict[str, CoordinateSystem] = {}
@@ -307,55 +298,25 @@ class CoupledRunner:
     def _on_slot_grid(
         self, name: str, x: xr.DataArray, signature: CoordinateSystem
     ) -> xr.DataArray:
-        """Bring a coupled field onto the forcing slot's grid.
+        """Return ``x`` on the forcing slot's grid, or raise.
 
-        Uses the same grid utilities as :func:`~earth2studio.data.fetch_data`: a
-        field already on the grid passes, an exact crop is selected, and anything
-        else is regridded by nearest neighbor within the source resolution (never
-        extrapolating). The regridder is built once per model and reused. To
-        choose another method or a fill, regrid inside the coupling instead.
+        The base runner only accepts a field that already carries the slot's
+        coordinates; :class:`~earth2studio.coupler.RegriddingCoupledRunner`
+        maps other grids.
         """
-        spatial = [d for d in signature.dims if d not in _NON_SPATIAL]
-        try:
-            target = infer_grid(signature)
-            source = infer_grid(x)
-        except ValueError as error:
-            if self._matches(x, signature, spatial):
-                return x
-            raise ValueError(
-                f"{name!r}: cannot determine the grid of the coupling output or "
-                f"the forcing slot ({error}); regrid inside the coupling"
-            ) from error
-        if same_geometry(source, target):
+        if self._matches(x, signature):
             return x
-        subset = select_subset(x, source, target)
-        if subset is not None:
-            return subset
-        if name not in self._regridders:
-            try:
-                self._regridders[name] = resolve_regridder(
-                    source, target, "nearest", max_dist_km="auto", fill_value=None
-                )
-            except ValueError as error:
-                raise ValueError(
-                    f"{name!r}: cannot regrid the coupling output automatically: "
-                    f"{error}; regrid inside the coupling to choose a method"
-                ) from error
-            logger.info(
-                "Regridding {!r} coupling output from a {} grid to a {} grid by "
-                "nearest neighbor",
-                name,
-                source.topology,
-                target.topology,
-            )
-        return self._regridders[name](x)
+        raise ValueError(
+            f"{name!r}: coupling output differs from the forcing grid; "
+            "regrid it inside the coupling"
+        )
 
     @staticmethod
-    def _matches(
-        x: xr.DataArray, signature: CoordinateSystem, dims: list[Hashable]
-    ) -> bool:
-        """Whether ``x`` carries the signature's coordinate values on ``dims``."""
-        for dim in dims:
+    def _matches(x: xr.DataArray, signature: CoordinateSystem) -> bool:
+        """Whether ``x`` carries the signature's coordinate values on its grid."""
+        for dim in signature.dims:
+            if dim in _NON_SPATIAL:
+                continue
             want = signature[dim].values
             if dim not in x.coords or x[dim].shape != want.shape:
                 return False
