@@ -48,6 +48,7 @@ from earth2studio.run.runner import PrognosticRunner, Runner, Source
 from earth2studio.run.work import (
     ProgressStore,
     WorkItem,
+    _unit_keys,
     _validate_items,
     broadcast,
     distribute_work,
@@ -104,10 +105,11 @@ class Pipeline:
     runner : Runner
         Executes one work item at a time, yielding outputs keyed by stream.
     output : Mapping[str, IOBackend] | None, optional
-        Backend per stream. Streams left out are not written, by default None
+        Backend per stream. Streams left out are not written. ``None`` writes
+        nothing, for scorer-only runs, by default None
     scorer : Scorer | None, optional
-        Online scoring hook, by default None. ``output`` or ``scorer`` is
-        required.
+        Online scoring hook, by default None. At least one of ``output`` and
+        ``scorer`` is required; both may be given.
     output_variables : Mapping[str, Sequence[str]] | None, optional
         Variables kept per stream, in this order. Streams left out keep every
         variable, by default None
@@ -258,32 +260,32 @@ class Pipeline:
                 _all_agree(outputs.check_distributed)
             remaining = self._remaining(items, rank)
         except BaseException:
+            # Every rank raises here together; close errors would only mask it.
             outputs.close()
-            if self.progress is not None:
-                self.progress.close()
+            _close_progress(self.progress)
             raise
 
         mine = distribute_work(remaining, rank, world_size)
         error: Exception | None = None
         try:
-            try:
-                if self.sync is None:
-                    for index, item in enumerate(mine):
-                        self._run_item(item)
-                        self._mark_done(item)
-                        _log_finished(rank, index, mine)
-                else:
-                    # Ranks with fewer items idle through the last round.
-                    rounds = -(-len(remaining) // world_size)
-                    for index in range(rounds):
-                        self._run_round(rank, index, mine)
-            except Exception as err:
-                logger.error(f"Rank {rank}: work item failed: {err}")
-                error = err
+            if self.sync is None:
+                for index, item in enumerate(mine):
+                    self._run_item(item)
+                    self._mark_done(item)
+                    _log_finished(rank, index, mine)
+            else:
+                # Ranks with fewer items idle through the last round.
+                rounds = -(-len(remaining) // world_size)
+                for index in range(rounds):
+                    self._run_round(rank, index, mine)
+        except Exception as err:
+            logger.error(f"Rank {rank}: work item failed: {err}")
+            error = err
         finally:
+            # Close failures count as this rank's failure, so they reach the
+            # collective below instead of leaving the other ranks waiting.
             close_error = outputs.close()
-            if self.progress is not None:
-                self.progress.close()
+            close_error = _close_progress(self.progress) or close_error
         raise_if_any_failed(error or close_error)
 
     def _run_item(self, item: WorkItem) -> None:
@@ -489,31 +491,31 @@ def _all_agree(fn: Callable[[], T], run: bool = True) -> T | None:
     return result
 
 
+def _close_progress(progress: ProgressStore | None) -> Exception | None:
+    """Close a progress store, returning its error rather than raising it."""
+    if progress is None:
+        return None
+    try:
+        progress.close()
+    except Exception as error:  # noqa: BLE001 - reported collectively
+        logger.error(f"Closing progress store '{progress.path}' failed: {error}")
+        return error
+    return None
+
+
 def _items_digest(items: Sequence[WorkItem]) -> str:
     """Fingerprint an ordered item list, to check every rank passes the same one."""
-    payload = [
-        (
-            str(item.time.astype("datetime64[s]")),
-            int(item.horizon.astype("timedelta64[s]").astype("int64")),
-            [int(member) for member in item.member_ids],
-        )
-        for item in items
-    ]
+    payload = [_unit_keys(item) for item in items]
     return hashlib.sha256(json.dumps(payload).encode()).hexdigest()
 
 
 def _log_finished(rank: int, index: int, mine: list[WorkItem]) -> None:
+    item = mine[index]
+    members = f", members {list(item.member_ids)}" if item.member_ids else ""
     logger.info(
         f"Rank {rank}: finished work item {index + 1}/{len(mine)} "
-        f"({_describe(mine[index])})"
+        f"(time {item.time}, horizon {item.horizon}{members})"
     )
-
-
-def _describe(item: WorkItem) -> str:
-    text = f"time {item.time}, horizon {item.horizon}"
-    if item.member_ids:
-        text += f", members {list(item.member_ids)}"
-    return text
 
 
 def _select_variables(x: xr.DataArray, variables: Sequence[str]) -> xr.DataArray:

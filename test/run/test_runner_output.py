@@ -19,8 +19,9 @@
 Covers the boundary between the runner's planning signatures and
 ``OutputManager``, which neither side can exercise alone: a run's schemas plan
 every store, each stream lands in its own backend, and a stream without a
-backend is simply not written. The tests drive the loop by hand, without
-``Pipeline``, so a failure points at one of these two layers.
+backend is simply not written. The first test drives these layers through
+``Pipeline``; the others drive the loop by hand, so a failure points at one of
+the two layers.
 """
 
 from __future__ import annotations
@@ -32,8 +33,9 @@ from test_runner import _model, _Zeros
 from earth2studio.io import KVBackend, ZarrBackend
 from earth2studio.models.dx import Identity
 from earth2studio.run.output import OutputManager
+from earth2studio.run.pipeline import Pipeline
 from earth2studio.run.runner import PrognosticRunner
-from earth2studio.run.work import distribute_work, work_items
+from earth2studio.run.work import work_items
 
 T0 = np.datetime64("2026-01-01T00")
 T1 = np.datetime64("2026-01-02T00")
@@ -44,7 +46,10 @@ def _runner() -> PrognosticRunner:
 
 
 def test_signatures_plan_one_store_per_stream(tmp_path) -> None:
-    """Schemas from every item plan both stores; each stream writes its own."""
+    """Schemas from every item plan both stores; each stream writes its own.
+
+    Driven through ``Pipeline``, which plans the stores from these schemas.
+    """
     runner = _runner()
     items = work_items([T0, T1], horizon=np.timedelta64(12, "h"))
     schemas = runner.output_coords(max(item.horizon for item in items))
@@ -52,15 +57,10 @@ def test_signatures_plan_one_store_per_stream(tmp_path) -> None:
     assert schemas["forecast"].nbytes == 0  # allocation-free signature
 
     forecast, copy = KVBackend(), ZarrBackend(str(tmp_path / "copy.zarr"))
-    outputs = OutputManager({"forecast": forecast, "copy": copy})
-    outputs.prepare(schemas, items)
-
-    for item in distribute_work(items, 0, 1):
-        for step in runner.run_item(item):
-            for stream, x in step.items():
-                outputs.write(stream, x)
-        outputs.flush()
-    outputs.close()
+    Pipeline(runner, output={"forecast": forecast, "copy": copy}, device="cpu").run(
+        items
+    )
+    assert copy._closed  # closed by the pipeline, and still readable
 
     # Stores span all items: both times and every lead the horizon allows.
     assert forecast["u10m"].shape == (2, 3, 2, 3)  # time, lead_time, lat, lon

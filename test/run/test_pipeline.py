@@ -122,23 +122,7 @@ def _runner(**kwargs: object) -> PrognosticRunner:
 
 
 # -- integration check 3: one store per stream, any runner ------------------
-
-
-def test_prognostic_runner_writes_one_store_per_stream(tmp_path: Path) -> None:
-    forecast, copy = KVBackend(), ZarrBackend(str(tmp_path / "copy.zarr"))
-    pipeline = Pipeline(
-        _runner(diagnostics={"copy": Identity()}),
-        output={"forecast": forecast, "copy": copy},
-        device="cpu",
-    )
-    pipeline.run(work_items([T0, T1], H12))
-
-    for store in (forecast, copy):
-        assert store["u10m"].shape == (2, 3, 2, 3)  # time, lead_time, lat, lon
-        for t in range(2):
-            np.testing.assert_array_equal(store["u10m"][t, :, 0, 0], np.arange(3))
-    # Outputs are closed and stay readable.
-    assert copy._closed
+# The prognostic case is test_runner_output.test_signatures_plan_one_store_per_stream.
 
 
 def test_diagnostic_runner_is_driven_identically() -> None:
@@ -339,16 +323,41 @@ def test_failed_item_is_not_marked_and_resume_reruns_it(tmp_path: Path) -> None:
     assert again.ran == []
 
 
+class _FailingClose(ProgressStore):
+    def close(self) -> None:
+        super().close()
+        raise OSError("progress close failed")
+
+
+def test_progress_close_failure_is_reported(tmp_path: Path) -> None:
+    """A rank-local close error reaches the final failure check and raises."""
+    store = KVBackend()
+    with pytest.raises(OSError, match="progress close failed"):
+        Pipeline(
+            _runner(),
+            output={"forecast": store},
+            progress=_FailingClose(tmp_path),
+            device="cpu",
+        ).run(work_items([T0], H12))
+    assert store["u10m"].shape == (1, 3, 2, 3)  # the run itself completed
+
+
 def test_manifest_mismatch_is_rejected_unless_overwritten(tmp_path: Path) -> None:
     items = work_items([T0], H12)
     progress = tmp_path / "progress"
     Pipeline(
-        _runner(), output={"forecast": KVBackend()}, progress=ProgressStore(progress)
+        _runner(),
+        output={"forecast": KVBackend()},
+        progress=ProgressStore(progress),
+        device="cpu",
     ).run(items)
 
     backend = KVBackend()
     reseeded = Pipeline(
-        _runner(seed=1), output={"forecast": backend}, progress=ProgressStore(progress)
+        _runner(seed=1),
+        output={"forecast": backend},
+        progress=ProgressStore(progress),
+        device="cpu",
     )
     with pytest.raises(ValueError, match="differing keys: seed"):
         reseeded.run(items)
@@ -357,10 +366,15 @@ def test_manifest_mismatch_is_rejected_unless_overwritten(tmp_path: Path) -> Non
     # Adding output to a scorer-only run changes the manifest, so finished items
     # are not skipped with their outputs missing.
     scored = tmp_path / "scored"
-    Pipeline(_runner(), scorer=_Scorer(), progress=ProgressStore(scored)).run(items)
+    Pipeline(
+        _runner(), scorer=_Scorer(), progress=ProgressStore(scored), device="cpu"
+    ).run(items)
     with pytest.raises(ValueError, match="differing keys: streams"):
         Pipeline(
-            _runner(), output={"forecast": KVBackend()}, progress=ProgressStore(scored)
+            _runner(),
+            output={"forecast": KVBackend()},
+            progress=ProgressStore(scored),
+            device="cpu",
         ).run(items)
 
     # Writing a new stream also changes the manifest.
@@ -369,6 +383,7 @@ def test_manifest_mismatch_is_rejected_unless_overwritten(tmp_path: Path) -> Non
             _runner(diagnostics={"copy": Identity()}),
             output={"forecast": KVBackend(), "copy": KVBackend()},
             progress=ProgressStore(progress),
+            device="cpu",
         ).run(items)
 
     runner = _Recording(_runner(seed=1))
@@ -376,6 +391,7 @@ def test_manifest_mismatch_is_rejected_unless_overwritten(tmp_path: Path) -> Non
         runner,
         output={"forecast": KVBackend()},
         progress=ProgressStore(progress, overwrite=True),
+        device="cpu",
     ).run(items)
     assert runner.ran == [T0]
 
@@ -396,6 +412,7 @@ def test_sync_joins_each_round_and_gates_progress(tmp_path: Path) -> None:
             output={"forecast": KVBackend()},
             progress=ProgressStore(tmp_path),
             sync=sync,
+            device="cpu",
         )
 
     first = _Recording(_runner())
@@ -415,6 +432,7 @@ def test_manifest_records_streams_seed_and_tags(tmp_path: Path) -> None:
         output={"forecast": KVBackend()},
         output_variables={"forecast": ["u10m"]},
         progress=ProgressStore(tmp_path, tags={"model": "tiny"}),
+        device="cpu",
     ).run(work_items([T0], H12))
     manifest = json.loads((tmp_path / "manifest.json").read_text())
     assert manifest["version"] == 1
