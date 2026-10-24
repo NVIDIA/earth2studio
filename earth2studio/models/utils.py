@@ -30,12 +30,17 @@ except ImportError:
 import torch
 
 if TYPE_CHECKING:
-    from earth2studio.data.base import DataSource, ForecastSource
+    from earth2studio.data.base import (
+        DataFrameSource,
+        DataSource,
+        ForecastFrameSource,
+        ForecastSource,
+    )
 
 
 def recommended_sources(
     model: Any,
-) -> "DataSource | ForecastSource | tuple[DataSource | ForecastSource | None, ...] | None":
+) -> "DataSource | ForecastSource | DataFrameSource | ForecastFrameSource | tuple[DataSource | ForecastSource | DataFrameSource | ForecastFrameSource | None, ...] | None":
     """Recommended source for each input and forcing slot of a model.
 
     Prognostic, diagnostic and assimilation models declare ``default_sources()``. Models that
@@ -43,12 +48,12 @@ def recommended_sources(
 
     Parameters
     ----------
-    model : PrognosticModel | DiagnosticModel
+    model : PrognosticModel | DiagnosticModel | AssimilationModel
         Model whose slots need providers.
 
     Returns
     -------
-    DataSource | ForecastSource | tuple[DataSource | ForecastSource | None, ...] | None
+    DataSource | ForecastSource | DataFrameSource | ForecastFrameSource | tuple[DataSource | ForecastSource | DataFrameSource | ForecastFrameSource | None, ...] | None
         A source for a single slot, a tuple in input-then-forcing slot order, or
         ``None`` for no recommendations. A ``None`` tuple entry means no
         recommendation for that slot.

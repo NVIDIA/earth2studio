@@ -23,9 +23,8 @@ stay thin:
 * :func:`load_assimilation` — load a DA model from a config node (mirrors
   :func:`src.models.load_prognostic`, but takes the node directly since DA
   configs nest the model under ``cfg.model.da``).
-* :class:`ObsSourceSet` — resolve and fetch the model's observation inputs.
-  DA models take a *tuple* of observation DataFrames (one per entry in
-  ``model.input_coords()``), each from its own ``DataFrameSource``.
+* :class:`ObsSourceSet` — resolve and fetch tabular observation forcing for
+  observation-only workflows, one DataFrame per forcing slot and source.
 * :class:`AssimilationRunner` / :class:`StatelessAssimilationRunner` —
   produce an analysis at a requested time.  The runner seam is what keeps
   stateless models (HealDA: independent per-time calls) and future stateful
@@ -102,8 +101,9 @@ def load_assimilation(da_cfg: DictConfig) -> AssimilationModel:
 class ObsSourceSet:
     """Resolves and fetches a DA model's observation inputs.
 
-    A DA model's ``input_coords()`` returns a tuple of schemas, one per
-    observation argument that ``__call__`` accepts.  This class holds one
+    For the supported observation-only models, ``input_coords()`` returns a
+    schema or tuple of schemas, one per observation argument that ``__call__``
+    accepts. Gridded inputs are unsupported by this source set. This class holds one
     ``DataFrameSource`` (or ``None`` for a disabled slot) per schema, in
     the same order, and fetches all of them for a given analysis time via
     :func:`earth2studio.data.fetch_dataframe` — which attaches the
@@ -126,9 +126,16 @@ class ObsSourceSet:
     def __init__(
         self,
         sources: list[Any],
-        schemas: tuple[Any, ...],
+        schemas: Any,
         names: list[str] | None = None,
     ) -> None:
+        schemas = (
+            ()
+            if schemas is None
+            else schemas if isinstance(schemas, tuple) else (schemas,)
+        )
+        if any(isinstance(schema, xr.DataArray) for schema in schemas):
+            raise NotImplementedError("ObsSourceSet requires tabular forcing schemas")
         if len(sources) != len(schemas):
             raise ValueError(
                 f"ObsSourceSet: got {len(sources)} sources for a model with "
@@ -149,14 +156,14 @@ class ObsSourceSet:
     def from_config(
         cls,
         obs_cfg: DictConfig,
-        schemas: tuple[Any, ...],
+        schemas: Any,
         output_path: str | None = None,
     ) -> ObsSourceSet:
         """Build the source set from a config mapping.
 
         *obs_cfg* is an ordered mapping (e.g. ``cfg.model.da.obs_sources``)
         whose entries are matched **positionally, in declaration order**
-        against the model's ``input_coords()`` tuple.  Each entry is a
+        against the model's ``input_coords()`` slots. Each entry is a
         Hydra ``_target_`` block plus two optional convenience keys handled
         here rather than passed to the constructor:
 
@@ -177,7 +184,7 @@ class ObsSourceSet:
         obs_cfg : DictConfig
             Mapping of name → observation source config.
         schemas : tuple
-            The model's ``input_coords()`` tuple.
+            The model's ``input_coords()`` schema or tuple.
         output_path : str, optional
             Run output directory to check for predownloaded frame
             stores.  ``None`` (e.g. during predownload itself) always
@@ -313,12 +320,14 @@ class AssimilationRunner(ABC):
     underlying model:
 
     * :class:`StatelessAssimilationRunner` (the default) calls the model
-      independently per analysis time — correct for models like HealDA
-      whose ``init_coords()`` is ``None``.  Work items can be freely
-      distributed across ranks.
+      independently per analysis time, with only tabular observation forcing
+      and no background inputs (e.g. HealDA). Work items can be freely
+      distributed across ranks. This input restriction does not classify a
+      model's stateful capabilities.
     * A future cycling runner for stateful models (e.g. StormCastSDA)
-      would hold ``model.create_generator(background)`` open and step it
-      sequentially between requested times.  Such a runner constrains work
+      would require ``StatefulAssimilationModel`` and use ``initialize``/``step``
+      or ``create_iterator(background, conditioning, obs)`` with new forcing
+      sequentially between requested times. Such a runner constrains work
       distribution (analysis times must be processed in order on one
       rank), which is why the runner — not the pipeline — owns the
       stepping semantics.
@@ -339,13 +348,13 @@ class AssimilationRunner(ABC):
 
 
 class StatelessAssimilationRunner(AssimilationRunner):
-    """Runner for stateless DA models — one independent call per time.
+    """Observation-only runner — one independent DA call per time.
 
     Parameters
     ----------
     model : AssimilationModel
-        Loaded, device-placed DA model.  Must be stateless
-        (``init_coords()`` returns ``None``).
+        Loaded, device-placed DA model with only tabular input slots.
+        Gridded inputs are unsupported by this observation-only runner.
     obs_set : ObsSourceSet
         Observation sources matched to the model's inputs.
     obs_device : torch.device | str
@@ -360,20 +369,22 @@ class StatelessAssimilationRunner(AssimilationRunner):
         obs_set: ObsSourceSet,
         obs_device: torch.device | str = "cpu",
     ) -> None:
-        init_coords = getattr(model, "init_coords", lambda: None)()
-        if init_coords is not None:
+        inputs = model.input_coords()
+        slots = (
+            () if inputs is None else inputs if isinstance(inputs, tuple) else (inputs,)
+        )
+        if any(isinstance(slot, xr.DataArray) for slot in slots):
             raise NotImplementedError(
-                f"{type(model).__name__} requires initialization state "
-                "(init_coords() is not None) — it is a stateful/cycling DA "
-                "model, which the stateless runner cannot drive.  A cycling "
-                "AssimilationRunner that steps model.create_generator() "
-                "sequentially is required."
+                f"{type(model).__name__} declares gridded inputs, which this "
+                "observation-only runner cannot supply. Only tabular "
+                "observation inputs are supported."
             )
         self._model = model
         self._obs_set = obs_set
         self._obs_device = obs_device
 
     def analysis(self, time: np.datetime64) -> tuple[pd.DataFrame | xr.DataArray, ...]:
+        """Fetch observations and return the analysis for the requested valid time."""
         obs = self._obs_set.fetch(time, device=self._obs_device)
         if all(o is None for o in obs):
             raise ValueError(
@@ -416,13 +427,17 @@ def build_runner(
 def analysis_spatial_ref(model: AssimilationModel) -> CoordSystem:
     """Extract the spatial coord system of a DA model's analysis output.
 
-    Takes the first entry of ``model.output_coords(model.input_coords())``
+    Takes the first output of ``model.output_coords()``
     (the gridded analysis) and keeps only its spatial dims — structural
     dims (``time``, ``variable``) are stripped, so this works for both
     lat/lon and native (e.g. ``npix``) output grids.
     """
-    output_coords = model.output_coords(model.input_coords())
-    analysis_coords = output_coords[0]
+    inputs = model.input_coords()
+    slots = () if inputs is None else inputs if isinstance(inputs, tuple) else (inputs,)
+    output_coords = model.output_coords(*slots)
+    analysis_coords = (
+        output_coords[0] if isinstance(output_coords, tuple) else output_coords
+    )
     ref: CoordSystem = OrderedDict()
     for dim in _spatial_dims(analysis_coords):
         ref[dim] = np.asarray(analysis_coords[dim])
@@ -488,5 +503,10 @@ def insert_zero_lead_time(
 
 def analysis_variables(model: AssimilationModel) -> list[str]:
     """Return the variable names of a DA model's gridded analysis output."""
-    output_coords = model.output_coords(model.input_coords())
-    return [str(v) for v in output_coords[0]["variable"]]
+    inputs = model.input_coords()
+    slots = () if inputs is None else inputs if isinstance(inputs, tuple) else (inputs,)
+    output_coords = model.output_coords(*slots)
+    analysis_coords = (
+        output_coords[0] if isinstance(output_coords, tuple) else output_coords
+    )
+    return [str(v) for v in analysis_coords["variable"].values]

@@ -16,8 +16,10 @@
 
 from collections import OrderedDict
 from collections.abc import Iterable
+from copy import deepcopy
 
 import numpy as np
+import pandas as pd
 import pytest
 import torch
 import xarray as xr
@@ -25,6 +27,7 @@ import xarray as xr
 import earth2studio.models.px.stormcastconus as conus_module
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.conformance import check_prognostic_contract
+from earth2studio.models.da import StatefulAssimilationModel, StormCastConusSDA
 from earth2studio.models.px import StormCastCONUS
 from earth2studio.models.px.stormcastconus import _SplitModelWrapper
 from earth2studio.utils.coords import coord_array, coord_array_like
@@ -214,6 +217,83 @@ def test_stormcastconus_crop_uses_model_region_coordinates():
         assert dit.detokenizer.h_patches == 2
         assert dit.detokenizer.w_patches == 2
     check_prognostic_contract(model)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_stormcastconus_sda_iter(device):
+    if device == "cuda:0" and not torch.cuda.is_available():
+        pytest.skip("CUDA is unavailable")
+    if conus_module.TensorDict is None:
+        pytest.skip("PhysicsNeMo guidance is unavailable")
+    core = _build_model(device)
+    core.num_sda_diffusion_steps = 2
+    core.time_tolerance = np.timedelta64(10, "m")
+    model = StormCastConusSDA(core)
+    assert isinstance(model, StatefulAssimilationModel)
+    signature = core.input_coords()
+    source = Random(OrderedDict((d, signature[d].values) for d in ("y", "x")))
+    time = np.array([np.datetime64("2020-04-05T00:00")])
+    x = fetch_data(
+        source,
+        time,
+        core.variables,
+        np.array([np.timedelta64(0, "h")]),
+        target_grid=core.grid,
+    )
+    x = x.assign_coords(core.grid.coords())
+    x.attrs = dict(core.grid.attrs, earth2studio_crs=core.grid.crs)
+    c = conditioning_input(core, x)
+    obs = pd.DataFrame(
+        {
+            "time": [time[0] + np.timedelta64(1, "h")],
+            "variable": [core.variables[0]],
+            "lat": [core.lat[8, 8]],
+            "lon": [core.lon[8, 8]],
+            "observation": [1.0],
+        }
+    )
+    original_x, original_c, original_obs = (
+        x.copy(deep=True),
+        c.copy(deep=True),
+        obs.copy(deep=True),
+    )
+    global_rng = torch.get_rng_state()
+    cuda_rng = torch.cuda.get_rng_state() if device != "cpu" else None
+    model.set_rng(42)
+    free = model(x, c)
+    model.set_rng(42)
+    y, state = model.initialize(x, c, obs)
+    assert np.isfinite(y.e2s.as_numpy()).all()
+    assert not np.allclose(y.e2s.as_numpy(), free.e2s.as_numpy())
+    assert y.lead_time.values[0] == np.timedelta64(1, "h")
+    model.set_rng(42)
+    stale = obs.assign(time=time[0])
+    xr.testing.assert_allclose(model(x, c, stale), free)
+    saved = deepcopy(state)
+    c1 = conditioning_input(core, y)
+    z, _ = model.step(y, c1, None, state)
+    model.set_rng(99)
+    xr.testing.assert_identical(model.step(y, c1, None, state)[0], z)
+    assert saved[0] == state[0]
+    for key in saved[1]:
+        assert torch.equal(saved[1][key], state[1][key])
+    model.set_rng(42)
+    iterator = model.create_iterator(x, c, obs)
+    xr.testing.assert_identical(next(iterator), y)
+    xr.testing.assert_identical(iterator.send((c1, None)), z)
+    iterator.close()
+    assert torch.equal(global_rng, torch.get_rng_state())
+    if cuda_rng is not None:
+        assert torch.equal(cuda_rng, torch.cuda.get_rng_state())
+    xr.testing.assert_identical(x, original_x)
+    xr.testing.assert_identical(c, original_c)
+    pd.testing.assert_frame_equal(obs, original_obs)
+    with pytest.raises(ValueError, match="conditioning"):
+        model.initialize(x, None, obs)
+    with pytest.raises(ValueError, match="missing required fields"):
+        model.initialize(x, c, obs.drop(columns="observation"))
+    with pytest.raises(ValueError):
+        model.initialize(x, c.assign_coords(lead_time=x.lead_time), obs)
 
 
 @pytest.mark.parametrize(
