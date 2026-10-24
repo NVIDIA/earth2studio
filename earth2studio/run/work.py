@@ -53,22 +53,22 @@ COMPACT_LOG_NAME = "done.log"
 _LOG_PREFIX = "done-"
 _LOG_SUFFIX = ".log"
 
-# A progress unit: (time seconds, horizon seconds, member id or None).
+# A progress unit: (time seconds, final lead time seconds, member id or None).
 _Unit = tuple[int, int, int | None]
 
 
 @dataclass(frozen=True)
 class WorkItem:
-    """One forecast reference time, horizon, and optional ensemble member group."""
+    """One reference time, final lead time, and optional ensemble member group."""
 
     time: np.datetime64
-    horizon: np.timedelta64
+    final_lead_time: np.timedelta64
     member_ids: tuple[int, ...] = ()
 
 
 def work_items(
     times: Sequence[np.datetime64],
-    horizon: np.timedelta64,
+    final_lead_time: np.timedelta64,
     members: int | Sequence[int] | None = None,
     member_batch: int = 1,
 ) -> list[WorkItem]:
@@ -76,15 +76,15 @@ def work_items(
 
     Each time's members are split into consecutive groups of ``member_batch``,
     so no group spans two times. ``members=None`` gives deterministic items,
-    one per time, with no member IDs. Times and horizon are normalized to
+    one per time, with no member IDs. Times and ``final_lead_time`` are normalized to
     second resolution, so items compare and hash by instant.
 
     Parameters
     ----------
     times : Sequence[np.datetime64]
         Reference times, one or more. Repeats are rejected, since they would
-        repeat a ``(time, horizon, member)`` unit.
-    horizon : np.timedelta64
+        repeat a ``(time, final_lead_time, member)`` unit.
+    final_lead_time : np.timedelta64
         Last lead time to produce for every item; ``0`` runs one step.
     members : int | Sequence[int] | None, optional
         Ensemble members: a count, giving ``range(members)``, or explicit
@@ -100,16 +100,16 @@ def work_items(
     Raises
     ------
     ValueError
-        If ``member_batch`` is below 1, ``horizon`` is negative, ``members``
+        If ``member_batch`` is below 1, ``final_lead_time`` is negative, ``members``
         is empty, negative, or repeats a member ID, ``times`` repeats a
         time, or the resulting items mix deterministic and ensemble members.
     """
     if member_batch < 1:
         raise ValueError(f"member_batch must be >= 1, got {member_batch}")
 
-    horizon_td = np.timedelta64(horizon, "s")
-    if horizon_td < np.timedelta64(0, "s"):
-        raise ValueError(f"horizon must be non-negative, got {horizon}")
+    final_lead = np.timedelta64(final_lead_time, "s")
+    if final_lead < np.timedelta64(0, "s"):
+        raise ValueError(f"final_lead_time must be non-negative, got {final_lead_time}")
 
     time_list: list[np.datetime64] = [time.astype("datetime64[s]") for time in times]
     seen: set[np.datetime64] = set()
@@ -126,11 +126,13 @@ def work_items(
     items: list[WorkItem] = []
     for time in time_list:
         if member_ids is None:
-            items.append(WorkItem(time=time, horizon=horizon_td))
+            items.append(WorkItem(time=time, final_lead_time=final_lead))
             continue
         for start in range(0, len(member_ids), member_batch):
             group = tuple(member_ids[start : start + member_batch])
-            items.append(WorkItem(time=time, horizon=horizon_td, member_ids=group))
+            items.append(
+                WorkItem(time=time, final_lead_time=final_lead, member_ids=group)
+            )
 
     _validate_items(items)
     logger.debug(
@@ -163,7 +165,7 @@ def _validate_items(items: Sequence[WorkItem]) -> None:
 
     Every item writes lead times from zero at its ``(time, member)`` positions,
     so two items sharing one would write the same outputs even with different
-    horizons.
+    final lead times.
     """
     has_members = {bool(item.member_ids) for item in items}
     if len(has_members) > 1:
@@ -179,7 +181,7 @@ def _validate_items(items: Sequence[WorkItem]) -> None:
                 raise ValueError(
                     f"Repeated (time, member) ({label}, {member}) in the item "
                     "list; items write lead times from zero, so each time and "
-                    "member must appear in one item only, whatever its horizon."
+                    "member must appear in one item only, whatever its final lead time."
                 )
             seen.add((time, member))
 
@@ -266,18 +268,18 @@ def distribute_work(items: Sequence[T], rank: int, world_size: int) -> list[T]:
 
 
 def _unit_keys(item: WorkItem) -> list[_Unit]:
-    """Return the ``(time, horizon, member)`` units an item covers."""
+    """Return the ``(time, final_lead_time, member)`` units an item covers."""
     time = int(item.time.astype("datetime64[s]").astype("int64"))
-    horizon = int(item.horizon.astype("timedelta64[s]").astype("int64"))
+    final_lead_time = int(item.final_lead_time.astype("timedelta64[s]").astype("int64"))
     if not item.member_ids:
-        return [(time, horizon, None)]
-    return [(time, horizon, int(member)) for member in item.member_ids]
+        return [(time, final_lead_time, None)]
+    return [(time, final_lead_time, int(member)) for member in item.member_ids]
 
 
 class ProgressStore:
     """Record finished work items so a run can resume.
 
-    Progress is recorded as ``(time, horizon, member_id)`` units, with no
+    Progress is recorded as ``(time, final_lead_time, member_id)`` units, with no
     member for deterministic items, so resume is free to change item order,
     rank count and member grouping; a partly done member group reruns in full.
     Each rank appends to its own log under ``path``, named by run attempt and
@@ -432,7 +434,9 @@ class ProgressStore:
         """
         record = {
             "time": str(item.time.astype("datetime64[s]")),
-            "horizon": int(item.horizon.astype("timedelta64[s]").astype("int64")),
+            "final_lead_time": int(
+                item.final_lead_time.astype("timedelta64[s]").astype("int64")
+            ),
             "members": [int(member) for member in item.member_ids],
         }
         handle = self._open_log()
@@ -602,15 +606,15 @@ def _units_in(lines: Iterable[str], path: Path) -> set[_Unit]:
             time = int(
                 np.datetime64(record["time"]).astype("datetime64[s]").astype("int64")
             )
-            horizon = int(record["horizon"])
+            final_lead_time = int(record["final_lead_time"])
             members = [int(member) for member in record["members"]]
         except (ValueError, TypeError, KeyError):
             logger.warning(f"Ignoring unreadable progress record in '{path}': {line!r}")
             continue
         if not members:
-            units.add((time, horizon, None))
+            units.add((time, final_lead_time, None))
         else:
-            units.update((time, horizon, member) for member in members)
+            units.update((time, final_lead_time, member) for member in members)
     return units
 
 

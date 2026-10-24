@@ -26,6 +26,8 @@ Runnable tutorials for proposed APIs and workflows.
 
 - `06_runner.py`: the built-in `PrognosticRunner` with a diagnostic stream,
   `DiagnosticRunner` on source data, and a hand-written runner that stops early.
+- `09_pipeline.py`: `Pipeline` writing one store per stream, per-stream variable
+  filtering and regridding, and resume from a `ProgressStore` after a failure.
 
 Run the signature tutorial from the repository root with
 `.venv/bin/python dev/examples/03_coordinate_signatures.py`. It uses CPU-only

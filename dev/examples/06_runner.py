@@ -94,7 +94,7 @@ np.testing.assert_array_equal(steps[-1]["forecast"].values, 3)
 print(
     {
         name: list(coords.dims)
-        for name, coords in runner.output_coords(item.horizon).items()
+        for name, coords in runner.output_coords(item.final_lead_time).items()
     }
 )
 (request,) = runner.data_requests(item)
@@ -139,9 +139,11 @@ class StopAtThreshold:
         self.inner.to(device)
         return self
 
-    def output_coords(self, horizon: np.timedelta64) -> Mapping[str, xr.DataArray]:
+    def output_coords(
+        self, final_lead_time: np.timedelta64
+    ) -> Mapping[str, xr.DataArray]:
         """Return the wrapped schema; an upper bound."""
-        return self.inner.output_coords(horizon)
+        return self.inner.output_coords(final_lead_time)
 
     def data_requests(self, item: WorkItem) -> tuple[DataRequest, ...] | None:
         """Declare requests unknown upfront."""

@@ -19,8 +19,9 @@
 Covers the boundary between the runner's planning signatures and
 ``OutputManager``, which neither side can exercise alone: a run's schemas plan
 every store, each stream lands in its own backend, and a stream without a
-backend is simply not written. The tests drive the loop by hand, without
-``Pipeline``, so a failure points at one of these two layers.
+backend is simply not written. The first test drives these layers through
+``Pipeline``; the others drive the loop by hand, so a failure points at one of
+the two layers.
 """
 
 from __future__ import annotations
@@ -32,8 +33,9 @@ from test_runner import _model, _Zeros
 from earth2studio.io import KVBackend, ZarrBackend
 from earth2studio.models.dx import Identity
 from earth2studio.run.output import OutputManager
+from earth2studio.run.pipeline import Pipeline
 from earth2studio.run.runner import PrognosticRunner
-from earth2studio.run.work import distribute_work, work_items
+from earth2studio.run.work import work_items
 
 T0 = np.datetime64("2026-01-01T00")
 T1 = np.datetime64("2026-01-02T00")
@@ -44,25 +46,23 @@ def _runner() -> PrognosticRunner:
 
 
 def test_signatures_plan_one_store_per_stream(tmp_path) -> None:
-    """Schemas from every item plan both stores; each stream writes its own."""
+    """Schemas from every item plan both stores; each stream writes its own.
+
+    Driven through ``Pipeline``, which plans the stores from these schemas.
+    """
     runner = _runner()
-    items = work_items([T0, T1], horizon=np.timedelta64(12, "h"))
-    schemas = runner.output_coords(max(item.horizon for item in items))
+    items = work_items([T0, T1], final_lead_time=np.timedelta64(12, "h"))
+    schemas = runner.output_coords(max(item.final_lead_time for item in items))
     assert set(schemas) == {"forecast", "copy"}
     assert schemas["forecast"].nbytes == 0  # allocation-free signature
 
     forecast, copy = KVBackend(), ZarrBackend(str(tmp_path / "copy.zarr"))
-    outputs = OutputManager({"forecast": forecast, "copy": copy})
-    outputs.prepare(schemas, items)
+    Pipeline(runner, output={"forecast": forecast, "copy": copy}, device="cpu").run(
+        items
+    )
+    assert copy._closed  # closed by the pipeline, and still readable
 
-    for item in distribute_work(items, 0, 1):
-        for step in runner.run_item(item):
-            for stream, x in step.items():
-                outputs.write(stream, x)
-        outputs.flush()
-    outputs.close()
-
-    # Stores span all items: both times and every lead the horizon allows.
+    # Stores span all items: both times and every lead the final lead time allows.
     assert forecast["u10m"].shape == (2, 3, 2, 3)  # time, lead_time, lat, lon
     assert copy["u10m"].shape == (2, 3, 2, 3)
     # Step k holds the value k, written at the item's own time.
@@ -74,8 +74,8 @@ def test_signatures_plan_one_store_per_stream(tmp_path) -> None:
 def test_stream_without_a_backend_is_not_written(tmp_path) -> None:
     """An unmapped stream is skipped, so Pipeline._emit needs no check."""
     runner = _runner()
-    items = work_items([T0], horizon=np.timedelta64(6, "h"))
-    schemas = runner.output_coords(items[0].horizon)
+    items = work_items([T0], final_lead_time=np.timedelta64(6, "h"))
+    schemas = runner.output_coords(items[0].final_lead_time)
 
     copy = ZarrBackend(str(tmp_path / "copy_only.zarr"))
     outputs = OutputManager({"copy": copy})
@@ -92,8 +92,8 @@ def test_stream_without_a_backend_is_not_written(tmp_path) -> None:
 def test_backend_naming_an_unknown_stream_is_rejected() -> None:
     """A typo in the output mapping fails before any store is created."""
     runner = _runner()
-    items = work_items([T0], horizon=np.timedelta64(6, "h"))
-    schemas = runner.output_coords(items[0].horizon)
+    items = work_items([T0], final_lead_time=np.timedelta64(6, "h"))
+    schemas = runner.output_coords(items[0].final_lead_time)
     outputs = OutputManager({"forcast": KVBackend()})
     with pytest.raises(ValueError, match="unknown streams"):
         outputs.prepare(schemas, items)

@@ -20,7 +20,8 @@ A :class:`~earth2studio.run.runner.Runner` executes one
 :class:`~earth2studio.run.runner.WorkItem`. The built-ins are
 :class:`PrognosticRunner`, which rolls out one prognostic model, and
 :class:`DiagnosticRunner`, which applies diagnostics to source data. Coupled
-runners live with the coupler, never here.
+runners live with the coupler, never here. :class:`Pipeline` drives any runner
+over many items: distribution across ranks, resume, scoring, and IO.
 """
 
 from collections import OrderedDict
@@ -47,13 +48,14 @@ from earth2studio.run._fields import (  # noqa: F401 - re-exported helpers
     _rollout,
     _with_lead_time,
 )
+from earth2studio.run.pipeline import Pipeline, Scorer
 from earth2studio.run.runner import (
     DataRequest,
     DiagnosticRunner,
     PrognosticRunner,
     Runner,
 )
-from earth2studio.run.work import WorkItem
+from earth2studio.run.work import ProgressStore, WorkItem, work_items
 from earth2studio.utils.checkpoint import (
     Checkpoint,
     CheckpointSession,
@@ -68,9 +70,13 @@ logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 __all__ = [
     "DataRequest",
     "DiagnosticRunner",
+    "Pipeline",
     "PrognosticRunner",
+    "ProgressStore",
     "Runner",
+    "Scorer",
     "WorkItem",
+    "work_items",
     "deterministic",
     "diagnostic",
     "ensemble",
