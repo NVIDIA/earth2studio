@@ -156,7 +156,7 @@ class fss:
         y = _align_xy(x, y, self.ensemble_dimension)
 
         spatial_dims = (
-            [d for d in y.dims][-2:]
+            [*y.dims][-2:]
             if self.spatial_dimensions is None
             else self.spatial_dimensions
         )

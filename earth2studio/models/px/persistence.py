@@ -87,7 +87,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
             lat, lon = domain_coords["lat"], domain_coords["lon"]
             grid = LatLonGrid(lat, lon) if lat.ndim == 1 else CurvilinearGrid(lat, lon)
         else:
-            coordinates = {key: value for key, value in domain_coords.items()}
+            coordinates = {**domain_coords}
         definition = resolve_grid(grid) if isinstance(grid, str) else grid
         dims = definition.dims if definition is not None else tuple(coordinates)
         self._input_coords = coord_array(
