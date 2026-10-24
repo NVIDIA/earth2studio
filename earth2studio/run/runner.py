@@ -85,7 +85,9 @@ class Runner(Protocol):
         """Move models to ``device`` and fetch onto it."""
         ...
 
-    def output_coords(self, horizon: np.timedelta64) -> Mapping[str, CoordinateSystem]:
+    def output_coords(
+        self, final_lead_time: np.timedelta64
+    ) -> Mapping[str, CoordinateSystem]:
         """Return each stream's planning signature for one item.
 
         Each signature is an allocation-free DataArray whose fixed dimensions are
@@ -117,12 +119,14 @@ def _module_device(model: object) -> torch.device:
     return torch.device("cpu")
 
 
-def _nsteps(horizon: np.timedelta64, step: np.timedelta64) -> int:
-    if horizon < np.timedelta64(0, "s"):
-        raise ValueError(f"Horizon {horizon} must be non-negative")
-    if horizon % step:
-        raise ValueError(f"Horizon {horizon} is not a multiple of {step}")
-    return int(horizon // step)
+def _nsteps(final_lead_time: np.timedelta64, step: np.timedelta64) -> int:
+    if final_lead_time < np.timedelta64(0, "s"):
+        raise ValueError(f"Final lead time {final_lead_time} must be non-negative")
+    if final_lead_time % step:
+        raise ValueError(
+            f"Final lead time {final_lead_time} is not a multiple of {step}"
+        )
+    return int(final_lead_time // step)
 
 
 def _fetch(
@@ -216,7 +220,7 @@ class PrognosticRunner:
 
     Each step yields the prognostic output as stream ``"forecast"`` and each
     diagnostic's output under its own stream name. Steps run from the initial
-    condition through the item's horizon -- the steps ``run.deterministic``
+    condition through the item's final lead time -- the steps ``run.deterministic``
     writes. Forcing declared by the model is fetched and sent at every step.
 
     Parameters
@@ -281,11 +285,13 @@ class PrognosticRunner:
         self.diagnostics = {k: v.to(self.device) for k, v in self.diagnostics.items()}
         return self
 
-    def nsteps(self, horizon: np.timedelta64) -> int:
-        """Return the number of model steps needed to reach ``horizon``."""
-        return _nsteps(horizon, self.step)
+    def nsteps(self, final_lead_time: np.timedelta64) -> int:
+        """Return the number of model steps needed to reach ``final_lead_time``."""
+        return _nsteps(final_lead_time, self.step)
 
-    def output_coords(self, horizon: np.timedelta64) -> Mapping[str, CoordinateSystem]:
+    def output_coords(
+        self, final_lead_time: np.timedelta64
+    ) -> Mapping[str, CoordinateSystem]:
         """Return each stream's planning signature for one item.
 
         Fixed dimensions are ``lead_time`` followed by the field dimensions;
@@ -293,7 +299,9 @@ class PrognosticRunner:
         supervision concretizes.
         """
         oc = self.prognostic.output_coords(self.input_signature)
-        forecast = _signature_for_stream(oc, _lead_times(oc, self.nsteps(horizon)))
+        forecast = _signature_for_stream(
+            oc, _lead_times(oc, self.nsteps(final_lead_time))
+        )
         coords: dict[str, CoordinateSystem] = {"forecast": forecast}
         for name, diagnostic in self.diagnostics.items():
             coords[name] = _diagnostic_coords(diagnostic, oc, forecast["lead_time"])
@@ -332,7 +340,7 @@ class PrognosticRunner:
 
     def data_requests(self, item: WorkItem) -> tuple[DataRequest, ...]:
         """Describe the initial-condition and forcing fetches for ``item``."""
-        steps = range(max(self.nsteps(item.horizon) - 1, 0))
+        steps = range(max(self.nsteps(item.final_lead_time) - 1, 0))
         return (
             self._initial_request(item),
             *(request for request, _ in self._forcing_requests(item)),
@@ -363,14 +371,14 @@ class PrognosticRunner:
         return outputs
 
     def run_item(self, item: WorkItem) -> Iterator[Mapping[str, xr.DataArray]]:
-        """Publish the initial condition, then every forecast through the horizon."""
+        """Publish the initial condition, then every forecast through the final lead time."""
         if len(item.member_ids) > 1:
             raise ValueError("PrognosticRunner does not batch ensemble members")
         member_id = item.member_ids[0] if item.member_ids else 0
         _seed_model(self.seed, item.time, member_id, self.prognostic)
         for diagnostic in self.diagnostics.values():
             _seed_model(self.seed, item.time, member_id, diagnostic)
-        nsteps = self.nsteps(item.horizon)
+        nsteps = self.nsteps(item.final_lead_time)
         x = _fetch(self._initial_request(item), self.input_signature, self.device)
         yield self._publish(initial_condition(x))
         if nsteps == 0:
@@ -394,7 +402,7 @@ class DiagnosticRunner:
 
     Step ``k`` fetches each diagnostic's inputs at the item's time plus
     ``k * step`` and yields its output under the diagnostic's stream name, from
-    lead time zero through the item's horizon. A
+    lead time zero through the item's final lead time. A
     :class:`~earth2studio.data.ForecastSource` supplies forecast lead times; a
     :class:`~earth2studio.data.DataSource` supplies later valid times.
 
@@ -407,7 +415,7 @@ class DiagnosticRunner:
         Source for every diagnostic, by default each diagnostic's recommendation
     step : np.timedelta64, optional
         Spacing between steps, by default none: each item is one step and its
-        horizon must be zero
+        final lead time must be zero
     seed : int, optional
         Base seed for per-member seeding of stochastic diagnostics, by default 0
     """
@@ -450,21 +458,23 @@ class DiagnosticRunner:
         self.diagnostics = {k: v.to(self.device) for k, v in self.diagnostics.items()}
         return self
 
-    def lead_times(self, horizon: np.timedelta64) -> np.ndarray:
-        """Return the lead time of every step through ``horizon``."""
+    def lead_times(self, final_lead_time: np.timedelta64) -> np.ndarray:
+        """Return the lead time of every step through ``final_lead_time``."""
         if self.step is None:
-            if horizon != np.timedelta64(0, "s"):
-                raise ValueError("A nonzero horizon needs a step")
+            if final_lead_time != np.timedelta64(0, "s"):
+                raise ValueError("A nonzero final lead time needs a step")
             return np.array([np.timedelta64(0, "h")])
-        return np.arange(_nsteps(horizon, self.step) + 1) * self.step
+        return np.arange(_nsteps(final_lead_time, self.step) + 1) * self.step
 
-    def output_coords(self, horizon: np.timedelta64) -> Mapping[str, CoordinateSystem]:
+    def output_coords(
+        self, final_lead_time: np.timedelta64
+    ) -> Mapping[str, CoordinateSystem]:
         """Return each stream's planning signature for one item.
 
         Fixed dimensions are ``lead_time`` followed by the field dimensions;
         ``time`` and ``ensemble`` are part of the dynamic prefix.
         """
-        leads = self.lead_times(horizon)
+        leads = self.lead_times(final_lead_time)
         return {
             name: _diagnostic_coords(diagnostic, self.signatures[name], leads)
             for name, diagnostic in self.diagnostics.items()
@@ -485,7 +495,7 @@ class DiagnosticRunner:
         """Describe every diagnostic's fetch at every step of ``item``."""
         return tuple(
             request
-            for lead in self.lead_times(item.horizon)
+            for lead in self.lead_times(item.final_lead_time)
             for request in self._requests(item, lead).values()
         )
 
@@ -496,7 +506,7 @@ class DiagnosticRunner:
         member_id = item.member_ids[0] if item.member_ids else 0
         for diagnostic in self.diagnostics.values():
             _seed_model(self.seed, item.time, member_id, diagnostic)
-        for lead in self.lead_times(item.horizon):
+        for lead in self.lead_times(item.final_lead_time):
             outputs = {}
             for name, request in self._requests(item, lead).items():
                 diagnostic = self.diagnostics[name]

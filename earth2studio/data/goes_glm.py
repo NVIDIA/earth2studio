@@ -925,8 +925,8 @@ class GOESGLMGrid:
     - ``glm_energy_density`` : summed event energy (J) per cell.
 
     Counts are not mean/std normalized; the StormScope model applies ``log1p``
-    internally. This source emits raw counts/sums on the 0.1-degree grid; the
-    model bilinearly regrids to its own native grid.
+    internally. This source emits raw counts/sums on the 0.1-degree grid, which
+    StormScope's default sources bilinearly regrid onto the model grid.
 
     Parameters
     ----------
@@ -950,6 +950,8 @@ class GOESGLMGrid:
     ``edge + 0.5 * resolution``. Output longitudes are returned in the Earth2Studio
     ``[0, 360)`` convention. The accumulation window is fixed at 5 minutes,
     bin-start labeled (the training cadence); do not substitute a 10-minute window.
+    The grid is registered as ``glm-conus-0.1deg`` (see
+    :func:`earth2studio.grids.resolve_grid`).
 
     Badges
     ------

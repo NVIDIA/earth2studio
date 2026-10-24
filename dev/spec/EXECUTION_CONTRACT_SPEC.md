@@ -17,7 +17,7 @@ happens if it crashes?" belongs to `Pipeline`.
 
 ```python
 model = SFNO.load_model(SFNO.load_default_package())
-items = work_items(times, horizon=np.timedelta64(240, "h"))
+items = work_items(times, final_lead_time=np.timedelta64(240, "h"))
 output = {"forecast": ZarrBackend("out/forecast.zarr")}
 progress = ProgressStore("out/.progress")
 Pipeline.from_model(model, GFS(), output=output, progress=progress).run(items)
@@ -43,25 +43,25 @@ Pipeline(driver.to_runner(ics={...}), output=output).run(items)
 @dataclass(frozen=True)
 class WorkItem:
     time: np.datetime64          # reference time: initialization, or first valid time
-    horizon: np.timedelta64      # last lead time to produce; 0 runs one step
+    final_lead_time: np.timedelta64      # last lead time to produce; 0 runs one step
     member_ids: tuple[int, ...] = ()  # ensemble members; empty when deterministic
 
 def work_items(
     times: Sequence[np.datetime64],
-    horizon: np.timedelta64,
+    final_lead_time: np.timedelta64,
     members: int | Sequence[int] | None = None,
     member_batch: int = 1,
 ) -> list[WorkItem]: ...
 ```
 
 Callers build items, usually with `work_items`; runners only read them. The
-horizon must be a multiple of the runner's step.
+final lead time must be a multiple of the runner's step.
 
 - `work_items` orders items time-major in the caller's `times` order and splits
-  each time's members into groups of `member_batch`. Times and horizons are
+  each time's members into groups of `member_batch`. Times and final lead times are
   normalized to seconds, so items hash by instant.
 - Every item writes lead times from zero, so a valid list repeats no
-  `(time, member)` whatever the horizons, and either every item has members or
+  `(time, member)` whatever the final lead times, and either every item has members or
   none does. `work_items` and `OutputManager.prepare` raise `ValueError` otherwise.
 
 ## Runner
@@ -70,7 +70,7 @@ horizon must be a multiple of the runner's step.
 class Runner(Protocol):
     supports_member_batching: bool
     def to(self, device) -> Runner
-    def output_coords(self, horizon) -> Mapping[str, CoordinateSystem]
+    def output_coords(self, final_lead_time) -> Mapping[str, CoordinateSystem]
     def data_requests(self, item: WorkItem) -> tuple[DataRequest, ...] | None
     def run_item(self, item: WorkItem) -> Iterator[Mapping[str, xr.DataArray]]
 ```
@@ -90,9 +90,9 @@ class Runner(Protocol):
 
 ### Stream schemas and outputs
 
-`output_coords(horizon)` returns one allocation-free `coord_array` signature per
+`output_coords(final_lead_time)` returns one allocation-free `coord_array` signature per
 stream (see [MODEL_CONTRACT_SPEC.md](MODEL_CONTRACT_SPEC.md)). Its fixed
-dimensions are `lead_time`, covering every lead the horizon allows, then
+dimensions are `lead_time`, covering every lead the final lead time allows, then
 `variable` and the grid's. `time` and `ensemble` may appear only in the dynamic
 prefix. The schema carries the yielded fields' grid metadata, auxiliary
 coordinates, dtype and attributes, and is an upper bound: runs may stop early.
@@ -132,7 +132,8 @@ class Pipeline:
         output_variables: Mapping[str, Sequence[str]] | None = None,
         regridder: Mapping[str, Regridder] | None = None,
         progress: ProgressStore | None = None,
-        device: torch.device | str | None = None,
+        device: torch.device | str = "auto",
+        sync: Callable[[WorkItem | None], None] | None = None,
     ) -> None: ...
 
     @classmethod
@@ -143,7 +144,8 @@ class Pipeline:
     def run(self, items: Sequence[WorkItem]) -> None: ...
 ```
 
-`output` or `scorer` is required. `device` defaults to `cuda:{LOCAL_RANK}` when
+At least one of `output` and `scorer` is required; `output=None` writes nothing,
+for scorer-only runs. `device="auto"`, the default, picks `cuda:{LOCAL_RANK}` when
 CUDA is available, otherwise CPU.
 
 `output`, `output_variables` and `regridder` map stream names to settings. A
@@ -159,8 +161,8 @@ def run(self, items):
     rank, world_size = rank_info()
     items = self._validate(items)                  # identical on every rank
     self.runner.to(self.device)
-    horizon = max(item.horizon for item in items)
-    schemas = self._stored_schemas(self.runner.output_coords(horizon))
+    final_lead_time = max(item.final_lead_time for item in items)
+    schemas = self._stored_schemas(self.runner.output_coords(final_lead_time))
     if self.progress is not None:
         manifest = self._manifest(schemas)
         attempt = broadcast(self.progress.setup(manifest) if rank == 0 else None)
@@ -190,7 +192,7 @@ def run(self, items):
 it and `x` lacks it, then writes.
 
 - **Stores span all items**, not the remaining ones, so a resume at any world
-  size reuses them. Shorter horizons leave fill values.
+  size reuses them. Shorter final lead times leave fill values.
 - **Durability.** An item is marked done only after its outputs flush and its
   scorer finishes. An interrupted item reruns in full; label-addressed writes make
   that idempotent.
@@ -198,7 +200,10 @@ it and `x` lacks it, then writes.
   `ProgressStore` are rank-local and are passed the rank where they need it. Idle
   ranks join every collective. A failing rank stops, closes its output and joins
   the final failure-flag reduction; it re-raises its error and the others raise
-  `RuntimeError`. A close failure counts as that rank's failure.
+  `RuntimeError`. A close failure counts as that rank's failure. Setup steps that
+  can fail on some ranks only, such as placing the runner on its device, progress
+  setup and store creation on rank 0, reduce a failure flag the same way, so no
+  rank waits on one that failed.
 
 ### Scorer
 
@@ -211,7 +216,19 @@ class Scorer(Protocol):
 
 A minimal online-scoring hook. `update` receives what would be written, before
 `ensemble` is added. Metrics, verification data and cross-rank communication stay
-in the scorer; it persists durable state in `finish_item`.
+in the scorer; it persists durable state in `finish_item`. Hooks run only on the
+rank that owns the item, so they never run collectives over the pipeline's
+ranks; cross-rank reductions happen in `sync` or after `run` returns.
+
+### Sync
+
+`sync` is a per-round hook every rank joins, for coordination during a run such
+as reducing a scorer's accumulators. When it is set, ranks run their items in
+lockstep rounds: round `r` runs each rank's `r`-th item, then every rank calls
+`sync` with that item, or `None` once it has none left, so `sync` may run
+collectives. Both phases of a round reduce a failure flag, so a failure stops
+every rank in the same round. Items are marked done only after their round's
+`sync` returns. Without `sync`, ranks run their items independently.
 
 ## Output
 
@@ -280,7 +297,7 @@ class ProgressStore:
     def clear(self) -> None: ...
 ```
 
-- **Unit keys.** Every finished item is recorded as `(time, horizon, member_id)`
+- **Unit keys.** Every finished item is recorded as `(time, final_lead_time, member_id)`
   units; an item is done when all its units are. Keys ignore order, rank, world
   size and grouping, so a resume may change any of them; a partly done group
   reruns in full.
@@ -296,9 +313,10 @@ class ProgressStore:
 - **Listed once.** Only rank 0 calls `remaining`; `Pipeline` broadcasts it.
 
 `Pipeline` builds the manifest as JSON: `version` (`1`), `streams` (per stream:
-dims, non-spatial labels, grid ID and dtype), `seed` (`runner.seed` or `null`),
-and `tags`. The store merges its `tags` in, so a tag change is a mismatch. Model
-identity is not detectable, so callers record it in `tags`.
+dims, non-spatial labels, grid ID and dtype, and whether it is written), `seed`
+(`runner.seed` or `null`), and `tags`. The store merges its `tags` in, so a tag
+change is a mismatch. Model identity is not detectable, so callers record it in
+`tags`.
 
 Progress and stores are cleared independently: overwriting a store but not its
 progress skips items whose data is gone.
@@ -357,13 +375,14 @@ tensors, and starts with `supports_member_batching = False`.
 | `X13` | Rank 0 creates stores before other ranks prepare them; re-adding is a no-op (`I4`) |
 | `X14` | Distributed stores write blocks of 1 along `time` and `ensemble` |
 | `X15` | Distributed runs warn once per backend type without `write_blocks` |
-| `X16` | Progress keys `(time, horizon, member_id)` in per-rank logs; bad lines skipped |
-| `X17` | Items are marked done only after outputs flush and the scorer finishes |
+| `X16` | Progress keys `(time, final_lead_time, member_id)` in per-rank logs; bad lines skipped |
+| `X17` | Items are marked done only after outputs flush, the scorer finishes and `sync` returns |
 | `X18` | Rank 0 lists remaining items and broadcasts them |
 | `X19` | A manifest mismatch raises `ValueError` unless the progress store overwrites |
 | `X20` | A run or close failure on any rank raises on every rank at the end of `run` |
+| `X21` | With `sync`, every rank calls it once per round, idle ranks with `None` |
 
-Tests live in `test/run/`. `X7`, `X9`'s collectives, `X13`, `X18` and `X20` run
+Tests live in `test/run/`. `X7`, `X9`'s collectives, `X13`, `X18`, `X20` and `X21` run
 under `torchrun` with two CPU ranks on gloo; the rest run single-process.
 
 ## Out of scope
@@ -375,8 +394,8 @@ optional runner capability built on `(y, state)` (open decision 3).
 ## Phasing
 
 1. **Done.** `Runner`, `WorkItem`, `DataRequest` and the built-in runners.
-2. **Pipeline.** Done: `run/work.py`, the runner follow-up and `run/output.py`.
-   Next: `run/pipeline.py`, then replace the eval `forecast`, `diagnostic` and
+2. **Pipeline.** Done: `run/work.py`, the runner follow-up, `run/output.py` and
+   `run/pipeline.py`. Next: replace the eval `forecast`, `diagnostic` and
    `dlesym` pipelines with built-in runners.
 3. **Coupled runner.** StormScope GOES and MRMS as Driver components, replacing
    the eval `stormscope` pipeline.
@@ -386,7 +405,8 @@ optional runner capability built on `(y, state)` (open decision 3).
 ## Resolved decisions
 
 - `torch.distributed` directly; physicsnemo optional.
-- Core has only the `Scorer` hook; metrics and rank communication stay in recipes.
+- Core has only the `Scorer` and `sync` hooks; metrics and rank communication stay
+  in recipes.
 - Member grouping lives in `work_items`, since groups are part of item identity.
 - Plain mappings for per-stream settings and backends.
 - Only `Pipeline` runs collectives; output and progress stores are rank-local.
@@ -408,9 +428,11 @@ optional runner capability built on `(y, state)` (open decision 3).
 2. A hand-written runner stops early and returns `None` data requests —
    `dev/examples/06_runner.py`.
 3. `Pipeline` drives `PrognosticRunner` and `DiagnosticRunner` identically,
-   writing one store per stream; later, a coupled runner too.
+   writing one store per stream — `test/run/test_pipeline.py`; later, a coupled
+   runner too.
 4. A forced model (StormCast-shaped mock) and fused DLESyM run through
    `PrognosticRunner` unchanged.
 5. Split DLESyM through the coupled runner reproduces the fused model.
-6. Resume survives a world-size change — `torchrun`, two CPU ranks, gloo.
+6. Resume survives a world-size change — `torchrun`, two CPU ranks, gloo,
+   `test/run/test_pipeline.py`.
 7. The StormScope coupled runner matches the eval `stormscope` pipeline.

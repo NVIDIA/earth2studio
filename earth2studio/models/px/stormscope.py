@@ -15,21 +15,28 @@
 # limitations under the License.
 
 import json
-from collections.abc import Callable, Generator
-from copy import deepcopy
+from collections import OrderedDict
+from collections.abc import Callable, Generator, Mapping
+from copy import copy, deepcopy
+from dataclasses import replace
 from datetime import datetime, timezone
-from typing import Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, Self, TypeVar, cast
 
 import numpy as np
 import torch
 import torch.nn as nn
 import xarray as xr
 from loguru import logger
-from numpy.typing import ArrayLike
 
 from earth2studio.data import HRRR
 from earth2studio.data.base import DataSource, ForecastSource
-from earth2studio.grids import CurvilinearGrid
+from earth2studio.grids import (
+    BilinearRegridder,
+    CurvilinearGrid,
+    GridDefinition,
+    NearestRegridder,
+    Region,
+)
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
@@ -49,11 +56,10 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.interp import (
-    LatLonInterpolation,
-    NearestNeighborInterpolator,
-)
 from earth2studio.utils.type import CoordinateSystem, CoordSystem
+
+if TYPE_CHECKING:
+    from earth2studio.models.nn.stormscope_flash import RegionInfo, _FlashStep
 
 try:
     from physicsnemo import Module
@@ -62,6 +68,79 @@ except ImportError:
     OptionalDependencyFailure("stormscope")
     Module = None  # type: ignore[assignment]
     cos_zenith_angle = None  # type: ignore[assignment]
+
+# Default regridders, shared by coupled models and by the masks computed at load.
+# Tables for the observation grids take seconds to build and hold one entry per
+# model gridpoint, so only the most recent few are kept.
+_REGRIDDERS: OrderedDict[tuple[str, str, str, str], Any] = OrderedDict()
+_REGRIDDER_CACHE_SIZE = 8
+
+_BuiltinRegridder = TypeVar("_BuiltinRegridder", NearestRegridder, BilinearRegridder)
+
+
+def _default_regridder(
+    cls: type[_BuiltinRegridder],
+    source_grid: str,
+    target_grid: GridDefinition,
+    **options: Any,
+) -> _BuiltinRegridder:
+    """Build, or reuse, the regridder of a default source onto a model grid.
+
+    The defaults are the built-in classes the models were trained with, rather
+    than registry resolutions, so their ``coverage`` defines the valid masks.
+    """
+    key = (
+        cls.__name__,
+        source_grid,
+        target_grid.fingerprint(),
+        repr(sorted(options.items())),
+    )
+    if key in _REGRIDDERS:
+        _REGRIDDERS.move_to_end(key)
+        return _REGRIDDERS[key]
+    regridder = cls(source_grid, target_grid, **options)
+    _REGRIDDERS[key] = regridder
+    if len(_REGRIDDERS) > _REGRIDDER_CACHE_SIZE:
+        _REGRIDDERS.popitem(last=False)
+    return regridder
+
+
+def crop_to_region(
+    y: xr.DataArray, info: "RegionInfo", mask: bool = True
+) -> xr.DataArray:
+    """Crop a field on a regional view's grid to its requested region.
+
+    Parameters
+    ----------
+    y : xr.DataArray
+        Field on the view's grid, with ``y`` and ``x`` trailing.
+    info : RegionInfo
+        Region resolved by the view.
+    mask : bool, optional
+        Set gridpoints outside the requested region to NaN, by default True.
+
+    Returns
+    -------
+    xr.DataArray
+        Field on the smallest rectangle of gridpoints containing the region.
+    """
+    if y.dims[-2:] != ("y", "x") or y.shape[-2:] != info.input_shape:
+        raise ValueError("Forecast spatial dimensions do not match this region")
+    ys, xs = info.output_slices
+    out = y.isel(y=ys, x=xs)
+    if mask:
+        data = out.data
+        try:
+            import cupy
+
+            xp = cupy.get_array_module(data)
+        except ImportError:
+            xp = np
+        requested = xp.asarray(info.requested_mask)
+        out = out.copy(data=xp.where(requested, data, xp.nan))
+    if "shape" in out.attrs:
+        out.attrs["shape"] = list(out.shape[-2:])
+    return out
 
 
 @check_optional_dependencies()
@@ -125,12 +204,10 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Boolean mask of shape [C_cond] over the conditioning channels, True where a
         channel is log1p-normalized. Default is None (all conditioning channels use
         mean/std).
-    input_interp_max_dist_km : float, optional
-        Maximum distance in kilometers for nearest neighbor interpolation of input data.
-        Points beyond this distance are masked as invalid. Default is 12.0.
-    conditioning_interp_max_dist_km : float, optional
-        Maximum distance in kilometers for nearest neighbor interpolation of conditioning data.
-        Points beyond this distance are masked as invalid. Default is 26.0.
+    max_dist_km : float, optional
+        Distance in kilometers beyond which the default nearest-neighbor
+        regridders leave a model gridpoint without data. ``load_model`` uses six
+        kilometers times the variant's spatial downsampling. Default is 6.0.
     amp : bool, optional
         Enable automatic mixed precision (autocast) for the diffusion sampler's
         network forward passes. The sampler's latent/state math is kept in
@@ -141,7 +218,24 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Compile each staged denoising expert with ``torch.compile`` (using the
         ``"reduce-overhead"`` mode) for faster repeated sampling. Can also be
         invoked after construction via :meth:`compile_experts`. Default is False.
+
+    Note
+    ----
+    Inputs and conditioning are declared on the model grid. Each subclass's
+    ``default_sources`` regrids its observations onto that grid, and
+    ``load_model`` sets ``valid_mask`` and ``conditioning_valid_mask`` to the
+    gridpoints those regridders cover. Uncovered gridpoints are filled before
+    sampling and are NaN in the forecast. Building those regridders takes several
+    seconds at load; ``default_sources`` and coupled models on the same grid
+    reuse them.
     """
+
+    # Registered grids of the default input and conditioning sources, whose
+    # coverage of the model grid defines the valid masks.
+    _INPUT_GRID: str | None = None
+    _CONDITIONING_GRID: str | None = None
+    # Nearest-neighbor distance for the conditioning source, if not max_dist_km.
+    _CONDITIONING_MAX_DIST_KM: float | None = None
 
     # Constants used to normalize lat/lon input features
     _CENTRAL_LAT_CONSTANT = 38.5
@@ -182,8 +276,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         output_times: np.ndarray = np.array([np.timedelta64(1, "h")]),
         y_coords: np.ndarray | None = None,
         x_coords: np.ndarray | None = None,
-        input_interp_max_dist_km: float = 12.0,
-        conditioning_interp_max_dist_km: float = 26.0,
+        max_dist_km: float = 6.0,
         amp: bool = True,
         compile: bool = False,
     ):
@@ -204,8 +297,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer(
             "conditioning_valid_mask", torch.ones_like(latitudes, dtype=torch.bool)
         )
-        self._input_interp_max_dist_km = input_interp_max_dist_km
-        self._conditioning_interp_max_dist_km = conditioning_interp_max_dist_km
+        self.max_dist_km = max_dist_km
 
         if y_coords is not None and x_coords is not None:
             self.y = y_coords
@@ -262,14 +354,21 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.conditioning_variables = conditioning_variables
         self.sampler_args = sampler_args or {}
         self.variables = variables
-        self.input_interp = None
-        self.conditioning_interp = None
 
         # Mixed-precision toggle for the diffusion sampler. When True the DiT
         # forward passes run under torch.autocast; the sampler's latent/state
         # math stays in _SAMPLER_DTYPE (fp64). Mutable so it can be toggled
         # after construction.
         self.amp = amp
+        self._flash_plan: list[_FlashStep] | None = None
+        self._flash_plan_sources: tuple[torch.Tensor, ...] = ()
+
+        # Regional views (see with_region): context gridpoints kept around a Flash
+        # region, the full-footprint geometry shared with views, and the region
+        # this model covers, which is None for the full footprint.
+        self.region_padding = 25
+        self._footprint: dict[str, Any] | None = None
+        self.region_info: RegionInfo | None = None
 
         # Optionally torch.compile each staged expert ("reduce-overhead" mode).
         self._experts_compiled = False
@@ -280,13 +379,17 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     # subclasses (e.g. "goes", "mrms") so a single shared registry can describe
     # every StormScope model without name collisions.
     _REGISTRY_KEY: str | None = None
+    _is_flash: bool = False
 
     @classmethod
     def load_default_package(cls) -> Package:
         """Load the default StormScope package from Hugging Face."""
         return Package(
-            "hf://nvidia/stormscope-goes-mrms@62f0fd2fa52c3cff67c931daac18cdc0d9f58d2a",
-            cache_options={"cache_storage": Package.default_cache("stormscope")},
+            "hf://nvidia/stormscope-goes-mrms@dcbe14a506e849b1afec9962dbf774f07d7aece8",
+            cache_options={
+                "cache_storage": Package.default_cache("stormscope"),
+                "same_names": False,  # Distinguish matching filenames across directories.
+            },
         )
 
     @staticmethod
@@ -577,9 +680,14 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ) -> list[dict[str, Any]]:
         """Load the staged-denoising experts for a variant from its registry entry.
 
-        Each ``.mdlus`` is a complete ``EDMPreconditioner(ConcatConditionWrapper(DiT))``
-        and is loaded directly with ``physicsnemo.Module.from_checkpoint``.
+        Baseline files contain ``EDMPreconditioner(ConcatConditionWrapper(DiT))``;
+        Flash files contain ``FlashModel`` with packed interval heads. Both use
+        PhysicsNeMo checkpoint loading; Flash additionally validates its metadata.
         """
+        if pkg.get("flash", False):
+            from earth2studio.models.nn.stormscope_flash import load_flash_experts
+
+            return load_flash_experts(package, pkg, cast(str, cls._REGISTRY_KEY))
         model_spec = []
         for m in pkg["checkpoints"]:
             model = Module.from_checkpoint(package.resolve(m["path"]))
@@ -604,100 +712,34 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             "StormScopeBase.load_model must be implemented by a subclass."
         )
 
-    def build_input_interpolator(
-        self,
-        input_lats: torch.Tensor | ArrayLike,
-        input_lons: torch.Tensor | ArrayLike,
-        max_dist_km: float | None = None,
-    ) -> nn.Module:
-        """Build a module to handle interpolating data on an arbitrary input lat/lon grid
-        to the internal lat/lon grid, done via nearest neighbor interpolation.
+    def _grid(self) -> CurvilinearGrid:
+        """Grid of every input, conditioning and output slot."""
+        return CurvilinearGrid(self._lat_cpu_copy, self._lon_cpu_copy, self.y, self.x)
 
-        Parameters
-        ----------
-        input_lats : torch.Tensor | ArrayLike
-            Input latitudes.
-        input_lons : torch.Tensor | ArrayLike
-            Input longitudes.
-        max_dist_km : float, optional
-            Maximum great-circle distance (km) to accept a nearest neighbor match.
-            Target points farther than this threshold are marked invalid and will
-            receive NaNs in the output. By default 6.0.
-        """
-        if max_dist_km is None:
-            max_dist_km = self._input_interp_max_dist_km
-        self.input_interp = NearestNeighborInterpolator(
-            source_lats=input_lats,
-            source_lons=input_lons,
-            target_lats=self.latitudes,
-            target_lons=self.longitudes,
-            max_dist_km=max_dist_km,
-        ).to(self.latitudes.device)
-
-        interp = cast(NearestNeighborInterpolator, self.input_interp)
-        if torch.any(~interp.valid_mask):
-            logger.warning(
-                "Some input gridpoints are invalid after interpolation. "
-                "This may be expected if the input data source is not available at "
-                "all gridpoints, but consider double-checking coordinates and/or the "
-                "max_dist_km parameter. Invalid points will be filled with the model's "
-                f"_INPUT_INVALID_FILL_CONSTANT ({self._INPUT_INVALID_FILL_CONSTANT})."
+    def _set_default_coverage(self) -> None:
+        """Set the valid masks to the model gridpoints the default sources cover."""
+        grid = self._grid()
+        for name, source_grid, max_dist_km in (
+            ("valid_mask", self._INPUT_GRID, self.max_dist_km),
+            (
+                "conditioning_valid_mask",
+                self._CONDITIONING_GRID,
+                self._conditioning_max_dist_km(),
+            ),
+        ):
+            if source_grid is None:
+                continue
+            regridder = _default_regridder(
+                NearestRegridder, source_grid, grid, max_dist_km=max_dist_km
             )
+            coverage = torch.from_numpy(np.array(regridder.coverage))
+            self.register_buffer(name, coverage.to(self.latitudes.device))
 
-        # Store the mask tracking valid gridpoints, shape [H, W]
-        self.register_buffer(
-            "valid_mask", interp.valid_mask.reshape(len(self.y), len(self.x))
-        )
-        self.valid_mask: torch.Tensor = self.valid_mask.to(device=self.latitudes.device)
-
-    def build_conditioning_interpolator(
-        self,
-        conditioning_lats: torch.Tensor | ArrayLike,
-        conditioning_lons: torch.Tensor | ArrayLike,
-        max_dist_km: float | None = None,
-    ) -> nn.Module:
-        """Build a module to handle interpolating data on an arbitrary input lat/lon grid
-        to the internal lat/lon grid, done via nearest neighbor interpolation.
-
-        Parameters
-        ----------
-        conditioning_lats : torch.Tensor | ArrayLike
-            Conditioning latitudes.
-        conditioning_lons : torch.Tensor | ArrayLike
-            Conditioning longitudes.
-        max_dist_km : float, optional
-            Maximum great-circle distance (km) to accept a nearest neighbor match.
-            Target points farther than this threshold are marked invalid and will
-            receive NaNs in the output. By default 6.0.
-        """
-        if max_dist_km is None:
-            max_dist_km = self._conditioning_interp_max_dist_km
-        self.conditioning_interp = NearestNeighborInterpolator(
-            source_lats=conditioning_lats,
-            source_lons=conditioning_lons,
-            target_lats=self.latitudes,
-            target_lons=self.longitudes,
-            max_dist_km=max_dist_km,
-        ).to(self.latitudes.device)
-
-        cinterp = cast(NearestNeighborInterpolator, self.conditioning_interp)
-        if torch.any(~cinterp.valid_mask):
-            logger.warning(
-                "Some conditioning gridpoints are invalid after interpolation. "
-                "This may be expected if the conditioning data source is not available at "
-                "all gridpoints, but consider double-checking coordinates and/or the "
-                "max_dist_km parameter. Invalid points will be filled with the model's "
-                f"_INPUT_INVALID_FILL_CONSTANT ({self._INPUT_INVALID_FILL_CONSTANT})."
-            )
-
-        # Store the mask tracking valid gridpoints, shape [H, W]
-        self.register_buffer(
-            "conditioning_valid_mask",
-            cinterp.valid_mask.reshape(len(self.y), len(self.x)),
-        )
-        self.conditioning_valid_mask: torch.Tensor = self.conditioning_valid_mask.to(
-            device=self.latitudes.device
-        )
+    def _conditioning_max_dist_km(self) -> float:
+        """Nearest-neighbor distance of the default conditioning regridder."""
+        if self._CONDITIONING_MAX_DIST_KM is None:
+            return self.max_dist_km
+        return self._CONDITIONING_MAX_DIST_KM
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.
@@ -712,9 +754,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ("batch", "time", "lead_time", "variable", "y", "x"),
             {"lead_time": self.input_times, "variable": np.array(self.variables)},
             dynamic=("batch", "time"),
-            grid=CurvilinearGrid(
-                self._lat_cpu_copy, self._lon_cpu_copy, self.y, self.x
-            ),
+            grid=self._grid(),
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
@@ -760,6 +800,8 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         mask = self._buffers.get("conditioning_glm_mask", None)
         if mask is None or not bool(mask.any()):
+            if self._is_flash and self._REGISTRY_KEY == "mrms":
+                return torch.where(torch.isnan(affine), 0.0, affine)
             return affine
         glm_view = mask.view(1, -1, 1, 1)
         return torch.where(glm_view, torch.log1p(conditioning), affine)
@@ -1001,6 +1043,10 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             for index, dim in enumerate(("batch", "time", "lead_time", "variable")):
                 handshake_dim(conditioning_coords, dim, index)
 
+        if self._is_flash:
+            from earth2studio.models.nn.stormscope_flash import bind_flash_domain
+
+            bind_flash_domain(self)
         b, t, lt, _, _, _ = x.shape
 
         # Scale input and fill invalid gridpoints. GLM-style channels use log1p;
@@ -1008,6 +1054,10 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # filled with _INPUT_INVALID_FILL_CONSTANT (0.0 by default); GLM channels
         # use log1p(0)=0.
         x_norm = self._normalize_state(x)
+        if self._is_flash and self._REGISTRY_KEY == "goes":
+            from earth2studio.models.nn.stormscope_flash import prepare_flash_goes_state
+
+            x_norm = prepare_flash_goes_state(self, x, x_norm)
         fill = torch.where(
             self.glm_mask.view(1, -1, 1, 1),
             torch.zeros((), dtype=x_norm.dtype, device=x_norm.device),
@@ -1045,13 +1095,14 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 x_norm, coords, conditioning_norm, conditioning_coords
             )
 
-        # Combined conditioning to diffusion model: state, conditioning variables, extras (lat/lon, cos zenith angle)
+        # Combined conditioning to diffusion model: state, conditioning variables, extras (lat/lon, cos zenith angle).
+        # Cast to the network dtype: autocast leaves float64 inputs (e.g. GOES) alone.
         condition = self.build_condition(
             x=x_norm,
             coords=coords,
             conditioning=conditioning_norm,
             conditioning_coords=conditioning_coords,
-        )
+        ).to(self._MODEL_DTYPE)
 
         latents = self._randn_like(x[:, :, -1].reshape(b * t, *x.shape[3:]))
 
@@ -1149,6 +1200,10 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         S_noise: float = 1,
         progress_bar: Any | None = None,
     ) -> torch.Tensor:
+        if self._is_flash:
+            from earth2studio.models.nn.stormscope_flash import sample_flash
+
+            return sample_flash(self, latents.to(self._SAMPLER_DTYPE), condition)
         # Time step discretization.
         step_indices = torch.arange(
             num_steps, dtype=torch.float64, device=latents.device
@@ -1231,6 +1286,164 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             f"No denoising expert found for time step {t_cur.cpu().item()}, {stage['sigma_min']}"
         )
 
+    def _configure_variant(self, entry: Mapping[str, Any], compile: bool) -> None:
+        self._is_flash = bool(entry.get("flash", False))
+        if self._is_flash:
+            self.sampler_args = {}
+        if compile:
+            self.compile_experts()
+
+    # Gridded state that a view crops from the full footprint.
+    _REGIONAL_BUFFERS = (
+        "latitudes",
+        "longitudes",
+        "valid_mask",
+        "conditioning_valid_mask",
+        "topo",
+        "nexrad_proximity",
+        "mrms_coverage_mask",
+    )
+
+    def with_region(self, region: Region, /) -> Self:
+        """Return a view of this model covering a geographic box.
+
+        The view shares the loaded experts and crops the grid, invariants and
+        valid masks of the full footprint, so neither this model nor other views
+        change, and a view can select any region of the full footprint. Flash
+        variants run on the region plus up to ``region_padding`` gridpoints of
+        context per side (25 by default), expanded to at least 200 gridpoints per
+        axis and aligned to four-gridpoint patches. Other variants run on the full
+        footprint, which covers every supported region. Use :meth:`crop_output` to
+        present forecasts on the requested box.
+
+        Views share expert networks, so run them in sequence, not concurrently.
+        Couple GOES and MRMS views made with the same region and
+        ``region_padding``, so that their grids match.
+
+        Parameters
+        ----------
+        region : Region
+            Box (:meth:`~earth2studio.grids.Region.box`) inside the full footprint.
+
+        Returns
+        -------
+        Self
+            View whose coordinate signatures describe the selected grid.
+
+        Raises
+        ------
+        ValueError
+            If the region is not a box or extends outside the full footprint.
+        """
+        from earth2studio.models.nn.stormscope_flash import resolve_region
+
+        if region.kind != "box":
+            raise ValueError(
+                f"{type(self).__name__} supports only box regions, not {region.kind!r}"
+            )
+        west, south, east, north = region.params
+        footprint = self._full_footprint()
+        latitude = footprint["lat"]
+        info = resolve_region(
+            latitude,
+            footprint["lon"],
+            {"lat": (south, north), "lon": (west, east)},
+            self.region_padding if self._is_flash else 0,
+        )
+        if not self._is_flash:
+            height, width = latitude.shape
+            y0, y1, x0, x1 = info.output_bounds
+            info = replace(
+                info,
+                input_bounds=(0, height, 0, width),
+                padding=(y0, height - y1, x0, width - x1),
+            )
+        return self._view(info)
+
+    def _full_footprint(self) -> dict[str, Any]:
+        """Full-footprint geometry, captured from the loaded model and shared with views."""
+        if self._footprint is None:
+            self._footprint = {
+                "lat": self._lat_cpu_copy,
+                "lon": self._lon_cpu_copy,
+                "y": self.y,
+                "x": self.x,
+                "buffers": {
+                    name: self._buffers[name]
+                    for name in self._REGIONAL_BUFFERS
+                    if self._buffers.get(name) is not None
+                },
+            }
+        return self._footprint
+
+    def _view(self, info: "RegionInfo") -> Self:
+        """Copy of this model on a crop of the full footprint, sharing the experts."""
+        footprint = self._full_footprint()
+        view = copy(self)
+        view._buffers = self._buffers.copy()
+        view._modules = self._modules.copy()
+        view._parameters = self._parameters.copy()
+        view._non_persistent_buffers_set = self._non_persistent_buffers_set.copy()
+        view.stage_models = nn.ModuleList(self.stage_models)
+        view.model_spec = [stage.copy() for stage in self.model_spec]
+        view.sampler_args = self.sampler_args.copy()
+        for name in (
+            "input_times",
+            "output_times",
+            "variables",
+            "conditioning_variables",
+            "glm_variables",
+        ):
+            value = getattr(self, name, None)
+            if value is not None:
+                setattr(view, name, value.copy())
+        view._flash_plan = None
+        view._flash_plan_sources = ()
+        # Each view seeds its own noise stream.
+        view._noise_generator = None
+        view.region_info = info
+
+        y0, y1, x0, x1 = info.input_bounds
+        for name, value in footprint["buffers"].items():
+            view.register_buffer(
+                name, value[y0:y1, x0:x1].clone().to(self.latitudes.device)
+            )
+        view.y = footprint["y"][y0:y1].copy()
+        view.x = footprint["x"][x0:x1].copy()
+        view._lat_cpu_copy = footprint["lat"][y0:y1, x0:x1].copy()
+        view._lon_cpu_copy = footprint["lon"][y0:y1, x0:x1].copy()
+        return view
+
+    def crop_output(self, y: xr.DataArray, mask: bool = True) -> xr.DataArray:
+        """Crop a forecast of a regional view to its requested box, for presentation.
+
+        Keep stepping with the uncropped forecast, whose context feeds the rollout.
+        Models on the full footprint return forecasts unchanged.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Forecast on this model's grid, with ``y`` and ``x`` trailing.
+        mask : bool, optional
+            Set gridpoints outside the requested box to NaN, by default True.
+
+        Returns
+        -------
+        xr.DataArray
+            Forecast on the smallest rectangle of gridpoints containing the box.
+        """
+        if self.region_info is None:
+            return y
+        return crop_to_region(y, self.region_info, mask)
+
+    def _apply(
+        self, fn: Callable[[torch.Tensor], torch.Tensor], recurse: bool = True
+    ) -> Any:
+        if self._is_flash:
+            self._flash_plan = None
+            self._flash_plan_sources = ()
+        return super()._apply(fn, recurse=recurse)  # type: ignore[no-untyped-call]
+
     def compile_experts(self, mode: str = "reduce-overhead") -> None:
         """Compile each staged denoising expert in place with ``torch.compile``.
 
@@ -1246,51 +1459,28 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         if self._experts_compiled:
             return
+        if self._is_flash:
+            self._flash_plan = None
+            self._flash_plan_sources = ()
         for i in range(len(self.stage_models)):
-            self.stage_models[i] = torch.compile(self.stage_models[i], mode=mode)
+            self.stage_models[i] = torch.compile(
+                self.stage_models[i],
+                mode=mode,
+                dynamic=False if self._is_flash else None,
+            )
         self._experts_compiled = True
 
     def prep_input(
         self, x: torch.Tensor, coords: CoordSystem, conditioning: bool = False
     ) -> tuple[torch.Tensor, CoordSystem]:
-        """Prepares the input tensor for the prognostic model."""
-        if not conditioning:
-            type_label = "input"
-            interpolator = self.input_interp
-            valid_mask = self.valid_mask
-        else:
-            type_label = "conditioning"
-            interpolator = self.conditioning_interp
-            valid_mask = self.conditioning_valid_mask
+        """Zero-fill gridpoints outside the valid mask of the input or conditioning.
 
-        # Expect data on the model's native grid by default; only accept other grids if we can interpolate
-        try:
-            handshake_coords(coords, {"y": self.y, "x": self.x}, ["y", "x"])
-        except (KeyError, ValueError):
-            if interpolator is None:
-                raise ValueError(
-                    f"Using {type_label} data on a non-native grid requires interpolation, call build_{type_label}_interpolator first"
-                )
-
-            x = interpolator(x)
-            x_coords = coords.copy()
-
-            # Remove the previous spatial dims from x_coords (last two) and replace
-            for _ in range(2):
-                x_coords.popitem()
-            x_coords["y"] = self.y
-            x_coords["x"] = self.x
-            x_coords.move_to_end("y")
-            x_coords.move_to_end("x")
-        else:
-            x_coords = coords.copy()
-
-        # Handle invalid gridpoints: initially zero-fill any NaNs so they don't cause problems in concat/prep ops
-        # Data will be zero-filled again after normalization in the forward method.
-        # if not (conditioning and torch.any(self.conditioning_valid_mask)):
-        x = torch.where(~valid_mask, 0.0, x)
-
-        return x, x_coords
+        Data must be on the model grid. Filled points are filled again after
+        normalization in :meth:`_forward_tensor`.
+        """
+        handshake_coords(coords, {"y": self.y, "x": self.x}, ["y", "x"])
+        valid_mask = self.conditioning_valid_mask if conditioning else self.valid_mask
+        return torch.where(~valid_mask, 0.0, x), coords.copy()
 
     def next_input(
         self,
@@ -1367,6 +1557,11 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         handshake_nonempty(x)
         if conditioning is not None:
             handshake_nonempty(conditioning)
+        # Views share experts; follow them if another view moved them.
+        experts = self._modules.get("stage_models")
+        expert = None if experts is None else next(experts.parameters(), None)
+        if expert is not None and expert.device != self.latitudes.device:
+            self.to(expert.device)
         if self._noise_generator is None:
             self.set_rng(int(torch.randint(2**31, ())))
         y = self._predict(x, conditioning)
@@ -1493,29 +1688,23 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         handshake_nonempty(conditioning)
         handshake_time(conditioning)
         handshake_time(conditioning, "lead_time")
-        if (
-            conditioning.dims[-2:] == ("y", "x")
-            and np.array_equal(conditioning.y, self.y)
-            and np.array_equal(conditioning.x, self.x)
-        ):
-            handshake_dataarray(
-                conditioning,
-                coord_array_like(
-                    self.input_coords(),
-                    {
-                        "lead_time": np.asarray(x.lead_time),
-                        "variable": self.conditioning_variables,
-                    },
-                ),
-            )
-        handshake_dim(conditioning, (*x.dims[:-2], *conditioning.dims[-2:]))
+        handshake_dataarray(
+            conditioning,
+            coord_array_like(
+                self.input_coords(),
+                {
+                    "lead_time": np.asarray(x.lead_time),
+                    "variable": self.conditioning_variables,
+                },
+            ),
+        )
+        handshake_dim(conditioning, x.dims)
         for dim in x.dims[:-3]:
             handshake_size(conditioning, dim, x.sizes[dim])
             if dim in x.coords or dim in conditioning.coords:
                 handshake_coords(conditioning, x, dim)
         packed, restore = batch_func()._compress_array(self, x)
-        # Conditioning has its own spatial axes until prep_input interpolates it.
-        # Pack only its leading axes, in the same order as the state members.
+        # Pack the conditioning's leading axes in the same order as the state members.
         if "batch" in conditioning.coords and "batch" not in conditioning.dims:
             # The conditioning kernel needs only dimension labels. The state
             # restore callback retains its public scalar batch auxiliary.
@@ -1561,11 +1750,16 @@ class StormScopeGOES(StormScopeBase):
     legacy checkpoints. Variant names are semantic (``<resolution>_<cadence>``):
 
       - ``3km_10min``  : 3km resolution, 10 minute timestep (CONUS nowcasting)
-      - ``6km_1hr``    : 6km resolution, 60 minute timestep (legacy nearcasting)
+      - ``3km_10min_flash``: accelerated 3km / 10 minute CONUS nowcasting
+      - ``6km_1hr``    : 6km resolution, 60 minute timestep (legacy nearcasting),
+        conditioned on NWP fields; loads as :py:class:`StormScopeGOESConditioned`
 
     Use :py:meth:`list_available_models` to inspect the variants in a given package
     (including any added after this release). Legacy training-style names are still
     accepted as aliases.
+
+    Flash uses five backbone calls per step. Select a region within the native
+    CONUS domain with :meth:`~StormScopeBase.with_region`.
 
     Variants whose input cadence is finer than their output cadence use a sliding
     window of input timesteps and predict one output timestep; others use a single
@@ -1576,6 +1770,8 @@ class StormScopeGOES(StormScopeBase):
     For more information see the following references:
 
     - https://huggingface.co/nvidia/stormscope-goes-mrms
+    - MRMS forecasting skill: evaluation procedure, metrics, and score table:
+      https://huggingface.co/nvidia/stormscope-goes-mrms/blob/dcbe14a506e849b1afec9962dbf774f07d7aece8/mrms_forecast_skill.md
 
     Parameters
     ----------
@@ -1593,7 +1789,8 @@ class StormScopeGOES(StormScopeBase):
         GOES input variables. Default is
         ["abi01c", "abi02c", "abi03c", "abi07c", "abi08c", "abi09c", "abi10c", "abi13c"].
     conditioning_variables : np.ndarray | None, optional
-        Must be empty or None. GOES forecasting is unforced, by default None.
+        Must be empty or None; conditioned variants use
+        :py:class:`StormScopeGOESConditioned`. By default None.
     conditioning_means : torch.Tensor | None, optional
         Means to normalize any external conditioning data. Default is None.
     conditioning_stds : torch.Tensor | None, optional
@@ -1613,12 +1810,9 @@ class StormScopeGOES(StormScopeBase):
         X coordinates of the grid, expected shape [H, W]. Default is None, in which
         case the model uses the enumerated indices inferred from the latitude and
         longitude grid shapes.
-    input_interp_max_dist_km : float, optional
-        Maximum distance in kilometers for nearest neighbor interpolation of input data.
-        Points beyond this distance are masked as invalid. Default is 12.0.
-    conditioning_interp_max_dist_km : float, optional
-        Maximum distance in kilometers for nearest neighbor interpolation of conditioning data.
-        Points beyond this distance are masked as invalid. Default is 26.0.
+    max_dist_km : float, optional
+        Distance in kilometers beyond which the default GOES regridder leaves a
+        model gridpoint without data. Default is 6.0.
 
     Note
     ----
@@ -1633,6 +1827,8 @@ class StormScopeGOES(StormScopeBase):
     """
 
     _REGISTRY_KEY = "goes"
+    _INPUT_GRID = "goes-east-conus"
+    _CONDITIONED = False
 
     def __init__(
         self,
@@ -1665,16 +1861,21 @@ class StormScopeGOES(StormScopeBase):
         output_times: np.ndarray = np.array([np.timedelta64(1, "h")]),
         y_coords: np.ndarray | None = None,
         x_coords: np.ndarray | None = None,
-        input_interp_max_dist_km: float = 12.0,
-        conditioning_interp_max_dist_km: float = 26.0,
+        max_dist_km: float = 6.0,
         amp: bool = True,
         compile: bool = False,
     ):
 
-        if conditioning_variables is not None and len(conditioning_variables):
+        conditioned = conditioning_variables is not None and bool(
+            len(conditioning_variables)
+        )
+        if conditioned and not self._CONDITIONED:
             raise ValueError(
-                "StormScopeGOES is unforced; use an unconditioned GOES checkpoint"
+                "StormScopeGOES is unforced; use StormScopeGOESConditioned for "
+                "conditioned checkpoints"
             )
+        if self._CONDITIONED and not conditioned:
+            raise ValueError(f"{type(self).__name__} requires conditioning variables")
         super().__init__(
             model_spec=model_spec,
             means=means,
@@ -1694,23 +1895,32 @@ class StormScopeGOES(StormScopeBase):
             output_times=output_times,
             y_coords=y_coords,
             x_coords=x_coords,
-            input_interp_max_dist_km=input_interp_max_dist_km,
-            conditioning_interp_max_dist_km=conditioning_interp_max_dist_km,
+            max_dist_km=max_dist_km,
             amp=amp,
             compile=compile,
         )
 
     def default_sources(self) -> DataSource:
-        """Recommend GOES imagery.
+        """Recommend GOES-East CONUS imagery on the model grid.
 
         Returns
         -------
         DataSource
-            GOES input source. This model has no forcing slots.
+            GOES input source, regridded to the model grid by nearest neighbor
+            within ``max_dist_km``; uncovered gridpoints are NaN. This model has
+            no forcing slots.
         """
-        from earth2studio.data import GOES
+        from earth2studio.data import GOES, RegriddedSource
 
-        return GOES()
+        return RegriddedSource(
+            GOES(scan_mode="C"),
+            _default_regridder(
+                NearestRegridder,
+                self._INPUT_GRID,
+                self._grid(),
+                max_dist_km=self.max_dist_km,
+            ),
+        )
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Compute the first GOES forecast without hooks.
@@ -1780,7 +1990,7 @@ class StormScopeGOES(StormScopeBase):
     def load_model(
         cls,
         package: Package,
-        model_name: Literal["3km_10min", "6km_1hr"] = "3km_10min",
+        model_name: Literal["3km_10min", "6km_1hr", "3km_10min_flash"] = "3km_10min",
         amp: bool = True,
         compile: bool = False,
     ) -> PrognosticModel:
@@ -1790,13 +2000,15 @@ class StormScopeGOES(StormScopeBase):
         ----------
         package : Package
             Package to load model from
-        model_name : Literal["3km_10min", "6km_1hr"], optional
+        model_name : Literal["3km_10min", "6km_1hr", "3km_10min_flash"], optional
             Variant to load, by default ``"3km_10min"`` (the recommended CONUS
             nowcasting variant). Available variants (see
             :py:meth:`list_available_models`):
 
             - ``"3km_10min"``: 3km resolution, 10 minute timestep (CONUS nowcasting)
-            - ``"6km_1hr"``: 6km resolution, 60 minute timestep (legacy nearcasting)
+            - ``"3km_10min_flash"``: distilled three-kilometer, ten-minute variant
+            - ``"6km_1hr": 6km resolution, 60 minute timestep (legacy nearcasting),
+              conditioned on NWP fields
 
             Legacy training-style names are accepted as aliases.
         amp : bool, optional
@@ -1809,7 +2021,8 @@ class StormScopeGOES(StormScopeBase):
         Returns
         -------
         PrognosticModel
-            Instantiated StormScopeGOES model
+            Instantiated model: :py:class:`StormScopeGOESConditioned` for variants
+            with conditioning variables, otherwise StormScopeGOES.
         """
         try:
             package.resolve("config.json")  # HF tracking download statistics
@@ -1869,7 +2082,10 @@ class StormScopeGOES(StormScopeBase):
             else None
         )
 
-        return cls(
+        model_cls = cls
+        if cls is StormScopeGOES and len(conditioning_variables):
+            model_cls = StormScopeGOESConditioned
+        model = model_cls(
             model_spec=model_spec,
             means=means.to(dtype=torch.float32),
             stds=stds.to(dtype=torch.float32),
@@ -1887,9 +2103,177 @@ class StormScopeGOES(StormScopeBase):
             output_times=output_times,
             y_coords=y,
             x_coords=x,
-            input_interp_max_dist_km=6.0 * spatial_downsample,
+            max_dist_km=6.0 * spatial_downsample,
             amp=amp,
-            compile=compile,
+            compile=False,
+        )
+        model._configure_variant(pkg, compile)
+        model._set_default_coverage()
+        return model
+
+
+class StormScopeGOESConditioned(StormScopeGOES):
+    """StormScope GOES forecasts conditioned on numerical weather prediction fields.
+
+    Used by the legacy ``6km_1hr`` nearcasting variant, which conditions each step
+    on 500 hPa geopotential (``z500``) at the input times.
+    :py:meth:`StormScopeGOES.load_model` returns this class for variants with
+    conditioning variables. Conditioning follows the same protocol as
+    :py:class:`StormScopeMRMS`: pass the initial conditioning history, then the
+    new frames at the lead times of each forecast.
+
+    Parameters are as for :py:class:`StormScopeGOES`, except that
+    ``conditioning_variables``, ``conditioning_means`` and ``conditioning_stds``
+    are required.
+
+    Badges
+    ------
+    region:na class:nowcasting product:sat year:2026 gpu:80gb
+    provider:nvidia backend:pytorch
+    """
+
+    _CONDITIONED = True
+    _CONDITIONING_GRID = "latlon-0.25deg"
+    # Nearest-neighbor distance used for NWP conditioning before 1.0; the 0.25
+    # degree grid needs more than the GOES distance to cover every gridpoint.
+    _CONDITIONING_MAX_DIST_KM = 26.0
+
+    def default_sources(  # type: ignore[override]
+        self,
+    ) -> tuple[DataSource, ForecastSource]:
+        """Recommend GOES-East CONUS imagery and GFS conditioning on the model grid.
+
+        Returns
+        -------
+        tuple[DataSource, ForecastSource]
+            GOES input source, followed by GFS forecasts of the conditioning
+            variables. Both are regridded to the model grid by nearest neighbor;
+            uncovered gridpoints are NaN.
+        """
+        from earth2studio.data import GFS_FX, RegriddedSource
+
+        gfs = RegriddedSource(
+            GFS_FX(),
+            _default_regridder(
+                NearestRegridder,
+                self._CONDITIONING_GRID,
+                self._grid(),
+                max_dist_km=self._conditioning_max_dist_km(),
+            ),
+        )
+        return super().default_sources(), gfs
+
+    def __call__(  # type: ignore[override]
+        self, x: xr.DataArray, conditioning: xr.DataArray
+    ) -> xr.DataArray:
+        """Compute the first GOES forecast using caller-supplied conditioning.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial GOES history matching ``input_coords()``.
+        conditioning : xr.DataArray
+            Initial conditioning history matching ``forcing_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            First forecast chunk, without hooks.
+        """
+        return self.initialize(x, conditioning)[0]
+
+    def initialize(  # type: ignore[override]
+        self, x: xr.DataArray, conditioning: xr.DataArray
+    ) -> tuple[xr.DataArray, dict[str, Any]]:
+        """Initialize GOES forecasts from GOES and conditioning histories.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Complete initial GOES history.
+        conditioning : xr.DataArray
+            Complete conditioning history matching ``forcing_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict[str, Any]]
+            First forecast and missing GOES/conditioning history plus RNG state.
+            No hooks are applied and no data is fetched.
+        """
+        return self._initialize(x, conditioning)
+
+    def step(  # type: ignore[override]
+        self, y: xr.DataArray, conditioning: xr.DataArray, state: dict[str, Any]
+    ) -> tuple[xr.DataArray, dict[str, Any]]:
+        """Advance GOES using the previous forecast and new conditioning.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous GOES forecast, including caller edits.
+        conditioning : xr.DataArray
+            New conditioning frames at the lead times of ``y``. Earlier context is
+            in state.
+        state : dict[str, Any]
+            Missing history and RNG state returned by the previous advance.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict[str, Any]]
+            Next forecast and updated state, without hooks or data fetching.
+        """
+        return self._forward(y, conditioning, state)
+
+    def create_iterator(  # type: ignore[override]
+        self, x: xr.DataArray, conditioning: xr.DataArray
+    ) -> Generator[xr.DataArray, xr.DataArray | tuple[xr.DataArray, ...] | None, None]:
+        """Create an iterator for conditioned GOES time-integration.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial GOES history.
+        conditioning : xr.DataArray
+            Initial conditioning history. Send the new conditioning frames at the
+            lead times of the latest yielded forecast to advance.
+
+        Yields
+        ------
+        xr.DataArray
+            Forecast fields, beginning with the first prediction.
+        """
+        yield from self._default_create_iterator(x, conditioning)
+
+    @classmethod
+    def load_model(  # type: ignore[override]
+        cls,
+        package: Package,
+        model_name: Literal["6km_1hr"] = "6km_1hr",
+        amp: bool = True,
+        compile: bool = False,
+    ) -> PrognosticModel:
+        """Load a conditioned GOES variant from a package.
+
+        Parameters
+        ----------
+        package : Package
+            Package to load model from.
+        model_name : Literal["6km_1hr"], optional
+            Conditioned variant to load, by default ``"6km_1hr"``.
+        amp : bool, optional
+            Enable automatic mixed precision (autocast) for the sampler's network
+            forward passes. Default is True.
+        compile : bool, optional
+            Compile each staged expert with ``torch.compile`` ("reduce-overhead").
+            Default is False.
+
+        Returns
+        -------
+        PrognosticModel
+            Instantiated StormScopeGOESConditioned model.
+        """
+        return super().load_model(
+            package, model_name=model_name, amp=amp, compile=compile
         )
 
 
@@ -1901,10 +2285,15 @@ class StormScopeMRMS(StormScopeBase):
     Variant names are semantic (``<resolution>_<cadence>``):
 
       - ``3km_10min``: 3km resolution, 10 minute timestep, MRMS+GLM nowcasting (default)
+      - ``3km_10min_flash``: accelerated 3km / 10 minute CONUS MRMS+GLM nowcasting
       - ``6km_1hr``: 6km resolution, 60 minute timestep (legacy nearcasting)
 
     Use :py:meth:`list_available_models` to inspect the variants in a given package.
     Legacy training-style names are still accepted as aliases.
+
+    Flash uses seven backbone calls per step. For regional inference within the
+    native CONUS domain, call :meth:`~StormScopeBase.with_region` with the same
+    region and ``region_padding`` as the coupled GOES model.
 
     Variants whose input cadence is finer than their output cadence use a sliding
     window of input timesteps and predict one output timestep; others use a single
@@ -1922,6 +2311,8 @@ class StormScopeMRMS(StormScopeBase):
     For more information see the following references:
 
     - https://huggingface.co/nvidia/stormscope-goes-mrms
+    - MRMS forecasting skill: evaluation procedure, metrics, and score table:
+      https://huggingface.co/nvidia/stormscope-goes-mrms/blob/dcbe14a506e849b1afec9962dbf774f07d7aece8/mrms_forecast_skill.md
 
     Parameters
     ----------
@@ -1959,19 +2350,15 @@ class StormScopeMRMS(StormScopeBase):
         Input timesteps, of type timedelta64. Default is [0 h] (i.e., the current time).
     output_times : np.ndarray, optional
         Output timesteps, of type timedelta64. Default is [1 h] (i.e., 1 hour from the current time).
-    input_interp_max_dist_km : float, optional
-        Maximum distance in kilometers for nearest neighbor interpolation of input data.
-        Points beyond this distance are masked as invalid. Default is 12.0.
-    conditioning_interp_max_dist_km : float, optional
-        Maximum distance in kilometers for nearest neighbor interpolation of conditioning data.
-        Points beyond this distance are masked as invalid. Default is 26.0.
+    max_dist_km : float, optional
+        Distance in kilometers beyond which the default MRMS and GOES regridders
+        leave a model gridpoint without data. Default is 6.0.
     mrms_coverage_mask : torch.Tensor | None, optional
         Boolean NEXRAD-coverage mask of shape ``[H, W]`` on the model grid, True
         where MRMS data is considered valid (inside NEXRAD circular coverage).
         When provided, it is used as the initial ``valid_mask`` and is ANDed with
-        any interpolator-derived mask built by :meth:`build_input_interpolator`.
-        Loaded automatically from the package for non-deprecated variants.
-        Default is None.
+        the coverage of the default MRMS regridder. Loaded automatically from the
+        package for non-deprecated variants. Default is None.
 
     Note
     ----
@@ -1981,18 +2368,18 @@ class StormScopeMRMS(StormScopeBase):
 
     Note
     ----
-    **GLM state channel.**  The ``3km_10min`` variant includes a ``glm_density``
-    channel (gridded GLM lightning counts, normalized with ``log1p``) as part of
-    its *state* — both an input observation and a predicted output (the
+    **GLM state channel.**  The ``3km_10min`` and ``3km_10min_flash`` variants
+    include a ``glm_density`` channel (gridded GLM lightning counts, normalized
+    with ``log1p``) as part of its *state* — both an input observation and a predicted output (the
     ``6km_1hr`` variant has no GLM channel).  Because the GLM source lives on a
-    different native grid from MRMS, ``glm_density`` is handled separately from
-    the radar channels and is the GLM analogue of the GOES ``conditioning``:
+    different native grid from MRMS, the default input source composes MRMS with
+    :py:class:`earth2studio.data.GOESGLMGrid`, regridded bilinearly (as in
+    training) with zero fill outside its grid.
 
-    Populate the GLM channels of ``x`` before ``initialize`` (for example by fetching
-    :py:class:`earth2studio.data.GOESGLMGrid` and regridding it with
-    :meth:`build_glm_interpolator` and :meth:`interpolate_glm`). During ``step``, GLM
-    flows autoregressively from the previous radar forecast. GOES forcing is passed separately by the caller;
-    neither method fetches observations or applies iterator hooks.
+    The GLM channels of ``x`` are observed before ``initialize``. During ``step``,
+    GLM flows autoregressively from the previous radar forecast. GOES forcing is
+    passed separately by the caller; neither method fetches observations or
+    applies iterator hooks.
 
     Badges
     ------
@@ -2001,6 +2388,9 @@ class StormScopeMRMS(StormScopeBase):
     """
 
     _REGISTRY_KEY = "mrms"
+    _INPUT_GRID = "mrms-conus-0.01deg"
+    _CONDITIONING_GRID = "goes-east-conus"
+    _GLM_GRID = "glm-conus-0.1deg"
     _STATE_FIRST = False
     # Legacy 6 km / 1 hr nearcast checkpoints were trained with -10 dBZ infill
     # (physical space) before normalization; that maps to this normalized value.
@@ -2038,9 +2428,7 @@ class StormScopeMRMS(StormScopeBase):
         x_coords: np.ndarray | None = None,
         input_times: np.ndarray = np.array([np.timedelta64(0, "h")]),
         output_times: np.ndarray = np.array([np.timedelta64(1, "h")]),
-        input_interp_max_dist_km: float = 12.0,
-        conditioning_interp_max_dist_km: float = 12.0,
-        glm_interp_max_dist_km: float = 14.0,
+        max_dist_km: float = 6.0,
         amp: bool = True,
         compile: bool = False,
     ):
@@ -2064,83 +2452,84 @@ class StormScopeMRMS(StormScopeBase):
             x_coords=x_coords,
             input_times=input_times,
             output_times=output_times,
-            input_interp_max_dist_km=input_interp_max_dist_km,
-            conditioning_interp_max_dist_km=conditioning_interp_max_dist_km,
+            max_dist_km=max_dist_km,
             amp=amp,
             compile=compile,
         )
         # NEXRAD circular coverage mask. When set, it defines which pixels are
         # valid MRMS observations (matching training-time infilling boundaries).
-        # Used as the initial valid_mask and ANDed into any interpolator mask.
+        # Used as the initial valid_mask and ANDed into the regridder coverage.
         if mrms_coverage_mask is not None:
             self.register_buffer("mrms_coverage_mask", mrms_coverage_mask)
             self.register_buffer("valid_mask", mrms_coverage_mask.clone())
 
-        # GLM is a state channel (`glm_density`) normalized with log1p/expm1; callers
-        # regrid it from its own 0.1-degree gridded source onto the model grid (see
-        # `build_glm_interpolator`). ``n_glm_channels`` counts the log1p (GLM)
-        # channels among `variables`.
+        # GLM is a state channel (`glm_density`) normalized with log1p/expm1, regridded
+        # from its own 0.1-degree gridded source onto the model grid by the default
+        # input source. ``n_glm_channels`` counts the log1p (GLM) channels among
+        # `variables`.
         self.n_glm_channels = int(self.glm_mask.sum().item())
         # Names of the GLM (log1p) state channels, in `variables` order.
         self.glm_variables = np.asarray(self.variables)[self.glm_mask.cpu().numpy()]
-        self.glm_interp: nn.Module | None = None
-        self._glm_interp_max_dist_km = glm_interp_max_dist_km
 
-    def build_glm_interpolator(
-        self,
-        glm_lats: torch.Tensor | ArrayLike,
-        glm_lons: torch.Tensor | ArrayLike,
-        max_dist_km: float | None = None,
-    ) -> None:
-        """Build a **bilinear** interpolator mapping the GLM source's native
-        0.1-degree grid onto the model grid (training used bilinear regridding for
-        GLM; the nearest-neighbor path used for radar/satellite inputs is not
-        appropriate for the sparse count field).
-
-        Parameters
-        ----------
-        glm_lats, glm_lons : torch.Tensor | ArrayLike
-            Latitudes/longitudes of the GLM source grid. Either 2D meshgrids or
-            1D coordinate vectors (as returned by :py:class:`GOESGLMGrid`).
-        max_dist_km : float | None, optional
-            Unused placeholder for API symmetry with the nearest-neighbor
-            interpolators; bilinear interpolation does not threshold by distance.
-        """
-        glm_lats = np.asarray(glm_lats)
-        glm_lons = np.asarray(glm_lons)
-        if glm_lats.ndim == 1 and glm_lons.ndim == 1:
-            glm_lats, glm_lons = np.meshgrid(glm_lats, glm_lons, indexing="ij")
-        self.glm_interp = LatLonInterpolation(
-            lat_in=glm_lats,
-            lon_in=glm_lons,
-            lat_out=self._lat_cpu_copy,
-            lon_out=self._lon_cpu_copy,
-        ).to(self.latitudes.device)
-
-    def interpolate_glm(self, glm: torch.Tensor) -> torch.Tensor:
-        """Bilinearly regrid a GLM field (event counts on the source 0.1-degree
-        grid) onto the model grid. Points outside the GLM grid are filled with 0.
-        Returns physical counts (apply no normalization here; the model applies
-        log1p internally). Requires :meth:`build_glm_interpolator` first.
-        """
-        if self.glm_interp is None:
-            raise ValueError(
-                "GLM interpolator not built; call build_glm_interpolator first."
+    def _set_default_coverage(self) -> None:
+        super()._set_default_coverage()
+        coverage = self._buffers.get("mrms_coverage_mask", None)
+        if coverage is not None:
+            self.register_buffer(
+                "valid_mask",
+                self.valid_mask & coverage.to(device=self.valid_mask.device),
             )
-        out = self.glm_interp(glm)
-        return torch.nan_to_num(out, nan=0.0)
 
-    def default_sources(self) -> tuple[DataSource, DataSource | ForecastSource]:
-        """Recommend MRMS radar inputs and GOES conditioning.
+    def default_sources(self) -> tuple[DataSource, DataSource]:
+        """Recommend MRMS radar and GLM inputs and GOES-East CONUS conditioning.
+
+        Every source is regridded to the model grid. MRMS and GOES use nearest
+        neighbor within ``max_dist_km`` and leave uncovered gridpoints NaN. GLM, for
+        variants with a GLM channel, uses bilinear interpolation with zero fill.
 
         Returns
         -------
-        tuple[DataSource, DataSource | ForecastSource]
-            MRMS input source followed by the GOES conditioning source.
+        tuple[DataSource, DataSource]
+            Input source, composing MRMS with gridded GLM where the variant has a
+            GLM channel, followed by the GOES conditioning source.
         """
-        from earth2studio.data import GOES, MRMS
+        from earth2studio.data import (
+            GOES,
+            MRMS,
+            CompositeSource,
+            GOESGLMGrid,
+            RegriddedSource,
+        )
 
-        return MRMS(), GOES()
+        grid = self._grid()
+        source: DataSource = RegriddedSource(
+            MRMS(),
+            _default_regridder(
+                NearestRegridder, self._INPUT_GRID, grid, max_dist_km=self.max_dist_km
+            ),
+        )
+        if len(self.glm_variables):
+            glm = RegriddedSource(
+                GOESGLMGrid(),
+                _default_regridder(
+                    BilinearRegridder, self._GLM_GRID, grid, fill_value=0.0
+                ),
+            )
+            radar = [v for v in self.variables if v not in set(self.glm_variables)]
+            source = CompositeSource(
+                {"radar": source, "glm": glm},
+                {"radar": radar, "glm": list(self.glm_variables)},
+            )
+        goes = RegriddedSource(
+            GOES(scan_mode="C"),
+            _default_regridder(
+                NearestRegridder,
+                self._CONDITIONING_GRID,
+                grid,
+                max_dist_km=self.max_dist_km,
+            ),
+        )
+        return source, goes
 
     def __call__(self, x: xr.DataArray, conditioning: xr.DataArray) -> xr.DataArray:
         """Compute the first radar forecast using caller-supplied GOES history.
@@ -2220,29 +2609,6 @@ class StormScopeMRMS(StormScopeBase):
         """
         yield from self._default_create_iterator(x, conditioning)
 
-    def build_input_interpolator(
-        self,
-        input_lats: torch.Tensor,
-        input_lons: torch.Tensor,
-        max_dist_km: float | None = None,
-    ) -> None:
-        """Build the nearest-neighbor input interpolator and AND it with the
-        NEXRAD coverage mask (if loaded from the package).
-
-        After the base-class interpolator sets ``valid_mask`` from grid proximity,
-        any pixels outside the NEXRAD circular coverage area are additionally
-        masked so that infilling matches the training-time boundary.
-        """
-        super().build_input_interpolator(
-            input_lats, input_lons, max_dist_km=max_dist_km
-        )
-        coverage = self._buffers.get("mrms_coverage_mask", None)
-        if coverage is not None:
-            self.register_buffer(
-                "valid_mask",
-                self.valid_mask & coverage.to(device=self.valid_mask.device),
-            )
-
     def prep_input(
         self, x: torch.Tensor, coords: CoordSystem, conditioning: bool = False
     ) -> tuple[torch.Tensor, CoordSystem]:
@@ -2263,7 +2629,7 @@ class StormScopeMRMS(StormScopeBase):
     def load_model(
         cls,
         package: Package,
-        model_name: Literal["3km_10min", "6km_1hr"] = "3km_10min",
+        model_name: Literal["3km_10min", "6km_1hr", "3km_10min_flash"] = "3km_10min",
         amp: bool = True,
         compile: bool = False,
     ) -> PrognosticModel:
@@ -2273,12 +2639,13 @@ class StormScopeMRMS(StormScopeBase):
         ----------
         package : Package
             Package to load model from
-        model_name : Literal["3km_10min", "6km_1hr"], optional
+        model_name : Literal["3km_10min", "6km_1hr", "3km_10min_flash"], optional
             Variant to load. Available variants (see
             :py:meth:`list_available_models`):
 
             - ``"3km_10min"``: 3km resolution, 10 minute timestep, MRMS+GLM nowcasting
-            - ``"6km_1hr"``: 6km resolution, 60 minute timestep, MRMS+GLM nearcasting
+            - ``"3km_10min_flash"``: distilled three-kilometer, ten-minute variant
+            - ``"6km_1hr": 6km resolution, 60 minute timestep, MRMS+GLM nearcasting
 
             Legacy training-style names are accepted as aliases.
             Default is ``"3km_10min"``.
@@ -2354,7 +2721,7 @@ class StormScopeMRMS(StormScopeBase):
 
         # NEXRAD circular coverage mask: defines which pixels were valid MRMS
         # observations during training (inside NEXRAD radar coverage). Loaded as
-        # bool so that it ANDs cleanly with the interpolator-derived valid_mask.
+        # bool so that it ANDs cleanly with the regridder-derived valid_mask.
         # File convention: True = outside coverage / void pixel. Inverted here
         # so the buffer and constructor use True = valid (data present).
         if pkg.get("mrms_coverage_mask"):
@@ -2386,11 +2753,12 @@ class StormScopeMRMS(StormScopeBase):
             x_coords=x,
             input_times=input_times,
             output_times=output_times,
-            input_interp_max_dist_km=6.0 * spatial_downsample,
-            conditioning_interp_max_dist_km=6.0 * spatial_downsample,
+            max_dist_km=6.0 * spatial_downsample,
             amp=amp,
-            compile=compile,
+            compile=False,
         )
+        model._configure_variant(pkg, compile)
+        model._set_default_coverage()
         if pkg.get("deprecated", False):
             model._INPUT_INVALID_FILL_CONSTANT = cls._LEGACY_INPUT_INVALID_FILL_CONSTANT
         return model

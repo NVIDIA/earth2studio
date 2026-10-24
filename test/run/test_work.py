@@ -54,8 +54,8 @@ def test_work_items_deterministic_time_major():
     assert all(not item.member_ids for item in items)
     assert items[0].time == T0
     assert items[1].time == T1
-    assert items[0].horizon == np.timedelta64(12, "h")
-    assert items[1].horizon == np.timedelta64(12, "h")
+    assert items[0].final_lead_time == np.timedelta64(12, "h")
+    assert items[1].final_lead_time == np.timedelta64(12, "h")
 
 
 def test_work_items_member_batches_never_span_times():
@@ -66,10 +66,10 @@ def test_work_items_member_batches_never_span_times():
         member_batch=3,
     )
     assert items == [
-        WorkItem(time=T0, horizon=np.timedelta64(6, "h"), member_ids=(0, 1, 2)),
-        WorkItem(time=T0, horizon=np.timedelta64(6, "h"), member_ids=(3,)),
-        WorkItem(time=T1, horizon=np.timedelta64(6, "h"), member_ids=(0, 1, 2)),
-        WorkItem(time=T1, horizon=np.timedelta64(6, "h"), member_ids=(3,)),
+        WorkItem(time=T0, final_lead_time=np.timedelta64(6, "h"), member_ids=(0, 1, 2)),
+        WorkItem(time=T0, final_lead_time=np.timedelta64(6, "h"), member_ids=(3,)),
+        WorkItem(time=T1, final_lead_time=np.timedelta64(6, "h"), member_ids=(0, 1, 2)),
+        WorkItem(time=T1, final_lead_time=np.timedelta64(6, "h"), member_ids=(3,)),
     ]
 
 
@@ -97,7 +97,7 @@ def test_work_items_invalid_member_batch():
         work_items([T0], np.timedelta64(1, "h"), members=4, member_batch=0)
 
 
-def test_work_items_negative_horizon():
+def test_work_items_negative_final_lead_time():
     with pytest.raises(ValueError, match="non-negative"):
         work_items([T0], np.timedelta64(-1, "h"))
 
@@ -217,9 +217,9 @@ def _start(store: ProgressStore, manifest: dict, rank: int = 0) -> None:
 
 def _items_deterministic() -> list[WorkItem]:
     return [
-        WorkItem(time=T0, horizon=np.timedelta64(6, "h")),
-        WorkItem(time=T1, horizon=np.timedelta64(6, "h")),
-        WorkItem(time=T2, horizon=np.timedelta64(6, "h")),
+        WorkItem(time=T0, final_lead_time=np.timedelta64(6, "h")),
+        WorkItem(time=T1, final_lead_time=np.timedelta64(6, "h")),
+        WorkItem(time=T2, final_lead_time=np.timedelta64(6, "h")),
     ]
 
 
@@ -324,7 +324,7 @@ def test_progress_store_torn_last_line_ignored(progress_dir: Path):
         return json.dumps(
             {
                 "time": str(np.datetime64(time, "s")),
-                "horizon": int(
+                "final_lead_time": int(
                     np.timedelta64(6, "h").astype("timedelta64[s]").astype("int64")
                 ),
                 "members": [],
@@ -365,7 +365,11 @@ def test_progress_store_reopen_keeps_records_after_compaction(progress_dir: Path
     _start(store, {"version": 1})
     store.mark_done(items[0])
     # Another rank's log, so the next open compacts and deletes this rank's log.
-    record = {"time": str(np.datetime64(T1, "s")), "horizon": 21600, "members": []}
+    record = {
+        "time": str(np.datetime64(T1, "s")),
+        "final_lead_time": 21600,
+        "members": [],
+    }
     (progress_dir / "done-0000-0001.log").write_text(json.dumps(record) + "\n")
 
     _start(store, {"version": 1})
