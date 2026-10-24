@@ -420,6 +420,12 @@ state is local, iterators closed in `finally`.
 
 ## 7. Recommended follow-ups
 
+**Status:** items 1-5, 7, 8 (diagnostics in the loop) and 9 are implemented;
+item 6 is implemented as `Link(window_start=True)` (no general
+`window_offset`); item 8's dict of initial-condition arrays is deferred.
+Units checks use an optional `attrs["units"]` on the signatures, since the
+lexicon has no units table.
+
 Small and in the spirit of the current design (each is a few lines):
 
 1. Assert delivered lead/valid time before relabelling (`_deliver`).

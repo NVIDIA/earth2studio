@@ -27,6 +27,7 @@ one shared clock as a :class:`~earth2studio.run.Runner`, so it plugs into
 
 from __future__ import annotations
 
+import zlib
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import Any, cast
@@ -37,6 +38,7 @@ import xarray as xr
 from loguru import logger
 
 from earth2studio.grids import Regridder, infer_grid, same_geometry
+from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.models.px.utils import initial_condition
 from earth2studio.models.utils import recommended_sources
@@ -44,6 +46,7 @@ from earth2studio.run._fields import _lead_times, _map_field
 from earth2studio.run.runner import (
     DataRequest,
     Source,
+    _diagnostic_coords,
     _fetch,
     _module_device,
     _nsteps,
@@ -74,6 +77,26 @@ def window_mean(x: xr.DataArray) -> xr.DataArray:
     return x.mean("lead_time", skipna=False, keepdims=True)
 
 
+def window_last(x: xr.DataArray) -> xr.DataArray:
+    """Reduce a window of producer outputs to its last (newest) output."""
+    return x.isel(lead_time=[-1])
+
+
+def window_min(x: xr.DataArray) -> xr.DataArray:
+    """Reduce a window of producer outputs to its minimum over ``lead_time``."""
+    return x.min("lead_time", skipna=False, keepdims=True)
+
+
+def window_max(x: xr.DataArray) -> xr.DataArray:
+    """Reduce a window of producer outputs to its maximum over ``lead_time``."""
+    return x.max("lead_time", skipna=False, keepdims=True)
+
+
+def window_sum(x: xr.DataArray) -> xr.DataArray:
+    """Reduce a window of producer outputs to its sum, for accumulated quantities."""
+    return x.sum("lead_time", skipna=False, keepdims=True)
+
+
 @dataclass(frozen=True)
 class Link:
     """One producer feeding one forcing slot of a consumer.
@@ -99,6 +122,15 @@ class Link:
         :func:`window_mean`: ``src`` is advanced first and the callable reduces
         its outputs in ``(t, t + step]`` stacked along ``lead_time``; ``src``
         must then be at least as fast as ``dst``. By default ``None``
+    window_start : bool, optional
+        Only for ``reduce=None``: hold the output valid at the start of the
+        coupling window for the whole window, rather than the latest output.
+        This is the DLESyM convention, where one SST is held for the full
+        cycle, by default False
+    scale : float, optional
+        Multiplier applied to the delivered data, by default 1.0
+    offset : float, optional
+        Added after ``scale``, e.g. ``-273.15`` for K to degC, by default 0.0
     regridder : Regridder, optional
         Bound to ``src``'s output grid and ``dst``'s slot grid. Required when
         the two differ, by default none
@@ -108,7 +140,29 @@ class Link:
     dst: str
     slot: int | None = None
     reduce: Reduction | None = None
+    window_start: bool = False
+    scale: float = 1.0
+    offset: float = 0.0
     regridder: Regridder | None = None
+
+
+def _check_geometry(x: xr.DataArray, signature: CoordinateSystem, what: str) -> None:
+    """Raise unless ``x`` has the spatial coordinates the ``signature`` declares."""
+    skip = {"batch", "time", "ensemble", "lead_time", "variable"}
+    for dim in signature.dims:
+        if dim in skip:
+            continue
+        want = signature[dim].values
+        if dim not in x.coords or x[dim].shape != want.shape:
+            raise ValueError(f"{what}: output has no matching {dim!r} coordinate")
+        have = x[dim].values
+        same = (
+            np.allclose(have, want, atol=1e-6)
+            if np.issubdtype(want.dtype, np.number)
+            else np.array_equal(have, want)
+        )
+        if not same:
+            raise ValueError(f"{what}: output {dim!r} differs from the slot grid")
 
 
 @dataclass
@@ -121,6 +175,7 @@ class _Probe:
     output_signature: CoordinateSystem
     step: np.timedelta64
     sources: tuple[Source | None, ...]  # Input slot, then forcing slots.
+    given: tuple[bool, ...]  # Whether the caller (not a recommendation) set each.
 
 
 @dataclass
@@ -163,7 +218,16 @@ class CoupledRunner:
         Coupling window, by default the largest model step. It must be a
         multiple of every model step
     seed : int, optional
-        Base seed for per-member seeding of stochastic models, by default 0
+        Base seed for per-member seeding of stochastic models. Each model and
+        diagnostic derives its own seed from it and its name, by default 0
+    diagnostics : Mapping[str, tuple[str, DiagnosticModel]], optional
+        Diagnostics applied to a model's output as it is published, as
+        ``{stream: (model name, diagnostic)}``. The stream name must not be a
+        model name, by default none
+    check_finite : bool, optional
+        Raise if data delivered between models holds NaN or infinity, instead of
+        letting it propagate. This synchronizes the device on each delivery, by
+        default False
 
     Raises
     ------
@@ -181,10 +245,19 @@ class CoupledRunner:
         links: Sequence[Link] = (),
         window: np.timedelta64 | None = None,
         seed: int = 0,
+        diagnostics: Mapping[str, tuple[str, DiagnosticModel]] | None = None,
+        check_finite: bool = False,
     ) -> None:
         if len(models) < 1:
             raise ValueError("Pass at least one model")
         self.seed = seed
+        self.check_finite = check_finite
+        self.diagnostics = dict(diagnostics or {})
+        for stream, (owner, _) in self.diagnostics.items():
+            if stream in models:
+                raise ValueError(f"Diagnostic stream {stream!r} clashes with a model")
+            if owner not in models:
+                raise ValueError(f"Diagnostic {stream!r}: unknown model {owner!r}")
         self.names = tuple(models)
         self.probes = {
             name: self._probe(name, model, (sources or {}).get(name))
@@ -240,6 +313,7 @@ class CoupledRunner:
             if len(given) > len(slots):
                 raise ValueError(f"{name!r}: more sources than input/forcing slots")
             slots[: len(given)] = given
+        explicit = tuple(s is not None for s in slots)
         if any(s is None for s in slots):
             recommended = recommended_sources(model)
             if not isinstance(recommended, tuple):
@@ -255,6 +329,7 @@ class CoupledRunner:
             output_signature,
             step,
             tuple(slots),
+            explicit,
         )
 
     # ------------------------------------------------------------------- wire
@@ -285,8 +360,12 @@ class CoupledRunner:
 
         for name, probe in self.probes.items():
             for slot, signature in enumerate(probe.forcing_signatures):
-                if (name, slot) in wired or "lead_time" not in signature.dims:
-                    continue  # Explicit already, or static: sources only.
+                if (
+                    (name, slot) in wired
+                    or "lead_time" not in signature.dims
+                    or probe.given[1 + slot]
+                ):
+                    continue  # Linked, static, or given a source: leave it alone.
                 suppliers = [
                     other
                     for other in self.names
@@ -342,6 +421,23 @@ class CoupledRunner:
             raise ValueError(
                 f"reducing link {link.src!r} -> {link.dst!r}: the producer step "
                 f"{src.step} must divide the consumer step {dst.step}"
+            )
+        if link.window_start and link.reduce is not None:
+            raise ValueError(
+                f"{link.src!r} -> {link.dst!r}: window_start applies to held links only"
+            )
+        in_units = src.output_signature.attrs.get("units")
+        out_units = signature.attrs.get("units")
+        if (
+            in_units is not None
+            and out_units is not None
+            and in_units != out_units
+            and link.scale == 1.0
+            and link.offset == 0.0
+        ):
+            raise ValueError(
+                f"{link.src!r} -> {link.dst!r}: units {in_units!r} vs {out_units!r}; "
+                "set Link.scale/offset to convert"
             )
         produced_grid, wanted_grid = infer_grid(src.output_signature), infer_grid(
             signature
@@ -405,8 +501,18 @@ class CoupledRunner:
             )
             lines.append(
                 f"link {link.src} -> {dst}[{slot}] {variables}: {mode}"
+                + (" at window start" if link.window_start else "")
+                + (
+                    f" *{link.scale:g}{link.offset:+g}"
+                    if (link.scale, link.offset) != (1.0, 0.0)
+                    else ""
+                )
                 + (" +regridder" if link.regridder else "")
             )
+        lines.extend(
+            f"diagnostic {stream} = {diagnostic.__class__.__name__}({owner})"
+            for stream, (owner, diagnostic) in self.diagnostics.items()
+        )
         lines.extend(
             f"source -> {name}[{slot}]: {probe.sources[1 + slot]}"
             for name, probe in self.probes.items()
@@ -422,6 +528,10 @@ class CoupledRunner:
         self.device = torch.device(device)
         for probe in self.probes.values():
             probe.model = probe.model.to(self.device)
+        self.diagnostics = {
+            stream: (owner, diagnostic.to(self.device))
+            for stream, (owner, diagnostic) in self.diagnostics.items()
+        }
         return self
 
     def nsteps(self, final_lead_time: np.timedelta64) -> int:
@@ -433,7 +543,7 @@ class CoupledRunner:
     ) -> Mapping[str, CoordinateSystem]:
         """Return one stream per model, planned over the whole rollout."""
         self.nsteps(final_lead_time)
-        return {
+        coords = {
             name: _signature_for_stream(
                 probe.output_signature,
                 _lead_times(
@@ -442,6 +552,13 @@ class CoupledRunner:
             )
             for name, probe in self.probes.items()
         }
+        for stream, (owner, diagnostic) in self.diagnostics.items():
+            coords[stream] = _diagnostic_coords(
+                diagnostic,
+                self.probes[owner].output_signature,
+                coords[owner]["lead_time"],
+            )
+        return coords
 
     def data_requests(self, item: WorkItem) -> tuple[DataRequest, ...]:
         """Describe every source fetch of ``item``; exchanged fields are not fetched."""
@@ -506,12 +623,27 @@ class CoupledRunner:
         labels: np.ndarray,
     ) -> xr.DataArray:
         """Producer data for steps of ``dst`` that start at ``at``, labelled ``labels``."""
+        src_step = self.probes[link.src].step
         parts = []
         for start in at:
             if link.reduce is None:
-                window = [f for lead, f in frames if lead <= start][-1:]
+                held = (
+                    start // self.window * self.window if link.window_start else start
+                )
+                window = [f for lead, f in frames if lead <= held][-1:]
+                stale = [held - lead for lead, _ in frames if lead <= held][-1:]
+                if stale and stale[0] >= src_step:
+                    raise ValueError(
+                        f"{link.src!r} -> {link.dst!r}: the newest output is "
+                        f"{stale[0]} old at {start}; schedule is misaligned"
+                    )
             else:
                 window = [f for lead, f in frames if start < lead <= start + step]
+                if window and len(window) != step // src_step:
+                    raise ValueError(
+                        f"{link.src!r} -> {link.dst!r}: expected {step // src_step} "
+                        f"outputs in ({start}, {start + step}], got {len(window)}"
+                    )
             if not window:
                 raise LookupError(f"{link.src!r} has no output for the step at {start}")
             x = (
@@ -525,8 +657,18 @@ class CoupledRunner:
                 raise ValueError("A Link.reduce must return a single lead time")
             parts.append(x)
         x = xr.concat(parts, dim="lead_time").assign_coords(lead_time=labels)
+        if link.scale != 1.0 or link.offset != 0.0:
+            x = x * link.scale + link.offset
         if link.regridder is not None:
             x = link.regridder(x)
+            _check_geometry(x, signature, f"{link.src!r} -> {link.dst!r} regridder")
+        if self.check_finite:
+            data = x.data
+            data = data.get() if hasattr(data, "get") else data
+            if not np.isfinite(data).all():
+                raise ValueError(
+                    f"{link.src!r} -> {link.dst!r}: delivered data is not finite"
+                )
         return _map_field(x, signature)
 
     def _forcing(
@@ -605,13 +747,30 @@ class CoupledRunner:
             raise RuntimeError("Coupled schedule deadlocked")
         return min(ready, key=lambda n: rollouts[n].lead)
 
+    def _salt(self, name: str) -> int:
+        """Base seed of ``name``, so stochastic models draw independent noise."""
+        return self.seed + zlib.crc32(name.encode()) % 2**31
+
+    def _publish(
+        self, streams: Mapping[str, xr.DataArray]
+    ) -> Mapping[str, xr.DataArray]:
+        """Add the diagnostic streams computed from the models' outputs."""
+        out = dict(streams)
+        for stream, (owner, diagnostic) in self.diagnostics.items():
+            out[stream] = diagnostic(
+                _map_field(streams[owner], diagnostic.input_coords())
+            )
+        return out
+
     def run_item(self, item: WorkItem) -> Iterator[Mapping[str, xr.DataArray]]:
         """Publish initial conditions, then one coupling window per step."""
         if len(item.member_ids) > 1:
             raise ValueError("CoupledRunner does not batch ensemble members")
         member_id = item.member_ids[0] if item.member_ids else 0
-        for probe in self.probes.values():
-            _seed_model(self.seed, item.time, member_id, probe.model)
+        for name, probe in self.probes.items():
+            _seed_model(self._salt(name), item.time, member_id, probe.model)
+        for stream, (_, diagnostic) in self.diagnostics.items():
+            _seed_model(self._salt(stream), item.time, member_id, diagnostic)
         initial = {
             name: _fetch(
                 self._request(
@@ -630,33 +789,35 @@ class CoupledRunner:
             ]
             for name in self.producers
         }
-        yield {name: initial_condition(x) for name, x in initial.items()}
+        yield self._publish({name: initial_condition(x) for name, x in initial.items()})
         rollouts = {name: _Rollout() for name in self.names}
         try:
             for window in range(1, self.nsteps(item.final_lead_time) + 1):
                 published: dict[str, list[xr.DataArray]] = {n: [] for n in self.names}
-                while (name := self._next(rollouts, window * self.window)) is not None:
-                    state = rollouts[name]
+                while (turn := self._next(rollouts, window * self.window)) is not None:
+                    state = rollouts[turn]
                     if state.iterator is None:
-                        forcing = self._initial_forcing(name, item, history)
-                        model = self.probes[name].model
-                        state.iterator = model.create_iterator(initial[name], *forcing)
+                        forcing = self._initial_forcing(turn, item, history)
+                        model = self.probes[turn].model
+                        state.iterator = model.create_iterator(initial[turn], *forcing)
                         y = next(state.iterator)
                     else:
-                        forcing = self._step_forcing(name, item, history, state.lead)
+                        forcing = self._step_forcing(turn, item, history, state.lead)
                         y = state.iterator.send(forcing or None)
                     state.lead = y["lead_time"].values[-1]
-                    published[name].append(y)
-                    if name in self.producers:
-                        history[name].append((state.lead, y))
-                yield {
-                    name: (
-                        xr.concat(frames, dim="lead_time")
-                        if len(frames) > 1
-                        else frames[0]
-                    )
-                    for name, frames in published.items()
-                }
+                    published[turn].append(y)
+                    if turn in self.producers:
+                        history[turn].append((state.lead, y))
+                yield self._publish(
+                    {
+                        name: (
+                            xr.concat(frames, dim="lead_time")
+                            if len(frames) > 1
+                            else frames[0]
+                        )
+                        for name, frames in published.items()
+                    }
+                )
                 for frames in history.values():  # Only the newest frame outlives it.
                     del frames[:-1]
         finally:

@@ -20,6 +20,22 @@
 ordinary :class:`~earth2studio.run.Runner` that lives here.
 """
 
-from earth2studio.coupler.runner import CoupledRunner, Link, window_mean
+from earth2studio.coupler.runner import (
+    CoupledRunner,
+    Link,
+    window_last,
+    window_max,
+    window_mean,
+    window_min,
+    window_sum,
+)
 
-__all__ = ["CoupledRunner", "Link", "window_mean"]
+__all__ = [
+    "CoupledRunner",
+    "Link",
+    "window_last",
+    "window_max",
+    "window_mean",
+    "window_min",
+    "window_sum",
+]

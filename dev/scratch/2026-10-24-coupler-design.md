@@ -171,3 +171,22 @@ output model.
    to be split first. `data_requests` lists the source fetches only.
 6. GPU: frames stay on the device the models use; `to(device)` forwards to models.
 7. Real-weights verification of StormScope equivalence to `eval` pipeline.
+
+## Review follow-ups (implemented)
+
+- Delivered frames are checked (held output not stale; a reducing window has
+  exactly `consumer step / producer step` frames) before relabelling.
+- Regridder output is validated against the slot's spatial coordinates.
+- An explicit source for a slot wins over auto-wiring.
+- Each model and diagnostic seeds from `seed + crc32(name)`, so stochastic
+  models draw independent noise.
+- Reducers `window_last/min/max/sum` ship alongside `window_mean`;
+  `check_finite=True` raises on NaN/inf delivered between models.
+- `Link(window_start=True)` holds the producer as of the window start;
+  `Link(scale=, offset=)` converts units; a units mismatch (when both signatures
+  carry `attrs["units"]`) raises unless a scale/offset is given.
+- `CoupledRunner(diagnostics={stream: (model, diagnostic)})` publishes
+  diagnostic streams.
+- Deferred: a dict of initial-condition arrays, ensembles, checkpointing,
+  multi-slot/multi-lead models, interpolation, automatic/conservative regridding,
+  weighted and per-variable reductions.
