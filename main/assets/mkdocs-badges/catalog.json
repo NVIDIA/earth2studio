@@ -166,7 +166,7 @@
       "classifiers": [],
       "signature": "",
       "source": "examples/02_medium_range/04_temporal_interpolation.md",
-      "summary": "This example demonstrates how to use the InterpModAFNO model to interpolate forecasts from a base model to a finer time resolution.",
+      "summary": "This example demonstrates how to use the InterpCRPSDiT model to interpolate forecasts from a base model to a finer time resolution.",
       "symbol": "",
       "title": "Temporal Interpolation",
       "url": "examples/02_medium_range/04_temporal_interpolation/"
@@ -3051,6 +3051,23 @@
     {
       "classifiers": [
         "region:global",
+        "class:mrf",
+        "product:wind",
+        "product:temp",
+        "product:atmos",
+        "year:2026",
+        "gpu:80gb"
+      ],
+      "signature": "InterpCRPSDiT(dit: torch.nn.Module, center: torch.Tensor, scale: torch.Tensor, static_inv: torch.Tensor, lat2d: torch.Tensor, lon2d: torch.Tensor, px_model: PrognosticModel, num_interp_steps: int = 6, lon_pad: int = 128, seed: int | None = None, drop_variables: list[OptionalVariable] | None = None, amp_dtype: torch.dtype | None = None)",
+      "source": "modules/generated/models/px/InterpCRPSDiT.md",
+      "summary": "One-shot, endpoint-pinned CRPS temporal interpolation with a DiT backbone (73 variables at 0.25 degree resolution, 721x1440).",
+      "symbol": "earth2studio.models.px.InterpCRPSDiT",
+      "title": "InterpCRPSDiT",
+      "url": "modules/generated/models/px/InterpCRPSDiT/"
+    },
+    {
+      "classifiers": [
+        "region:global",
         "class:medium-range",
         "product:wind",
         "product:temp",
@@ -4212,6 +4229,17 @@
       "name": "Medium Range",
       "text_color": "#000",
       "tooltip": "Medium Range"
+    },
+    "class:mrf": {
+      "color": "#6c757d",
+      "group": "class",
+      "hidden": false,
+      "hide_in": [],
+      "icon": "",
+      "label": "Mrf",
+      "name": "Mrf",
+      "text_color": "#fff",
+      "tooltip": ""
     },
     "class:nowcasting": {
       "color": "#198754",
