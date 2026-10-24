@@ -437,9 +437,58 @@ def test_multi_lead_output_rejected() -> None:
         CoupledRunner({"b": _Burst(["a"], np.timedelta64(6, "h"))}, {"b": _Fill()})
 
 
+class _Shift:
+    """Initial-condition perturbation adding the member's seed."""
+
+    def __init__(self, seed: int) -> None:
+        self.seed = seed
+
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        return x + float(self.seed % 7)
+
+
+def test_ensemble_one_member_per_item_through_pipeline() -> None:
+    goes, mrms = _storm()
+    runner = CoupledRunner(
+        {"goes": goes, "mrms": mrms},
+        {"goes": _Fill(abi01=5.0, abi02=7.0), "mrms": _Fill()},
+        STORM,
+        perturbations={"goes": _Shift},
+    )
+    out = {"goes": KVBackend(), "mrms": KVBackend()}
+    items = work_items([T0], np.timedelta64(20, "m"), members=2, member_batch=1)
+    Pipeline(runner, output=out, device="cpu").run(items)
+    assert out["goes"]["abi01"].shape == (2, 1, 3, 2, 3)  # (ensemble, time, lead, ...)
+    assert out["mrms"]["refc"].shape == (2, 1, 3, 2, 3)
+    # Members differ through the perturbation, and each is reproducible.
+    first = out["goes"]["abi01"][:, 0, 0, 0, 0]
+    assert first[0] != first[1]
+    again = list(runner.run_item(items[1]))[0]["goes"].sel(variable="abi01").values
+    assert float(again.flat[0]) == first[1]
+
+
+def test_ensemble_without_perturbation_is_identical_per_member() -> None:
+    runner, _, _ = _storm_runner()
+    out = {"goes": KVBackend(), "mrms": KVBackend()}
+    items = work_items([T0], np.timedelta64(10, "m"), members=2)
+    Pipeline(runner, output=out, device="cpu").run(items)
+    np.testing.assert_array_equal(out["mrms"]["refc"][0], out["mrms"]["refc"][1])
+
+
+def test_unknown_perturbation_model_rejected() -> None:
+    goes, mrms = _storm()
+    with pytest.raises(ValueError, match="unknown model"):
+        CoupledRunner(
+            {"goes": goes, "mrms": mrms},
+            {"goes": _Fill(abi01=5.0, abi02=7.0), "mrms": _Fill()},
+            STORM,
+            perturbations={"nope": _Shift},
+        )
+
+
 def test_members_are_rejected() -> None:
     runner, _, _ = _storm_runner()
-    with pytest.raises(ValueError, match="batch"):
+    with pytest.raises(ValueError, match="member_batch=1"):
         list(runner.run_item(WorkItem(T0, np.timedelta64(10, "m"), (0, 1))))
 
 
@@ -448,7 +497,7 @@ class _Coarse(_Mock):
         return coord_array_like(super().input_coords(), {"lon": [0, 20]})
 
 
-def test_coupling_grid_is_validated() -> None:
+def test_coupling_grid_is_mapped_or_rejected() -> None:
     goes = _Mock(["abi01"], np.timedelta64(10, "m"))
     coarse = _Coarse(["refc"], np.timedelta64(10, "m"), forcing=["abi01"])
     sources = {"goes": _Fill(abi01=2.0), "c": _Fill()}
@@ -458,18 +507,30 @@ def test_coupling_grid_is_validated() -> None:
         runner = CoupledRunner({"goes": goes, "c": coarse}, sources, {"c": coupling})
         return list(runner.run_item(item))
 
-    with pytest.raises(ValueError, match="differs from the forcing grid"):
-        run(hold("goes"))  # Not regridded.
-    with pytest.raises(ValueError, match="differs from the forcing grid"):
-        run(  # Right size, wrong places.
-            lambda out, leads: hold("goes")(out, leads)
-            .isel(lon=[0, 1])
-            .assign_coords(lon=[5, 15])
-        )
+    # An exact crop of the source grid is selected, with no coupling code.
+    steps = run(hold("goes"))
+    assert steps[1]["c"].sizes["lon"] == 2
+    np.testing.assert_array_equal(steps[1]["c"]["lon"].values, [0, 20])
     with pytest.raises(ValueError, match="expected 1"):
         run(lambda out, leads: xr.concat([out["goes"]] * 2, "lead_time"))
-    steps = run(lambda out, leads: hold("goes")(out, leads).sel(lon=[0, 20]))
-    assert steps[1]["c"].sizes["lon"] == 2
+
+
+def test_coupling_off_the_source_grid_is_refused() -> None:
+    pytest.importorskip("scipy")  # Automatic regridding is the `utils` extra.
+    goes = _Mock(["abi01"], np.timedelta64(10, "m"))
+    coarse = _Coarse(["refc"], np.timedelta64(10, "m"), forcing=["abi01"])
+    runner = CoupledRunner(
+        {"goes": goes, "c": coarse},
+        {"goes": _Fill(abi01=2.0), "c": _Fill()},
+        # Nearest within the source resolution only: never extrapolated.
+        {
+            "c": lambda out, leads: hold("goes")(out, leads).assign_coords(
+                lon=[100, 110, 120]
+            )
+        },
+    )
+    with pytest.raises(ValueError, match="regrid inside the coupling"):
+        list(runner.run_item(WorkItem(T0, np.timedelta64(10, "m"))))
 
 
 def test_stochastic_models_get_distinct_stable_seeds() -> None:

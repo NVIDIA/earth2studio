@@ -70,7 +70,7 @@ Removed in the final simplification (all superseded by plain functions):
 coupled loop (apply a diagnostic to a stream afterwards, or inside a coupling),
 `check_finite`, cycle/deadlock scheduling, `describe()`.
 
-Not in scope: ensembles/member batching, mid-item resume, multi-slot or
+Not in scope: member batching (`member_batch > 1`), mid-item resume, multi-slot or
 multi-lead prognostics, conservative regridding.
 
 ## Agent skill: where the details live
@@ -147,10 +147,9 @@ sibling skills carry.
 
 ## Open questions
 
-1. Ensembles need member batching in the runner (contract lists it as open).
+1. Ensembles: supported as one member per work item (`member_batch=1`); `Pipeline` adds the `ensemble` dim. Stochastic models are seeded per `(seed, name, time, member)` and `perturbations={name: lambda seed: Perturbation}` perturbs chosen initial conditions. Not supported: several members in one item (raises), perturbing anything but initial conditions. Batching members inside an item waits on the base `Runner` contract.
 2. Fused multi-lead models (DLESyM) must be split model-side.
-3. Automatic/conservative regridding: today the caller applies a bound `Regridder`
-   (`grids.resolve_regridder` needs the `utils` extra).
+3. Regridding: a coupling output on a different grid than the forcing slot is mapped with the same utilities as `fetch_data` (`infer_grid`, `same_geometry`, `select_subset`, else nearest within the source resolution via `resolve_regridder`, never extrapolating; the regridder is built once per model, needs the `utils` extra/scipy). Conservative or other methods: regrid inside the coupling.
 4. Real-weights verification of StormScope equivalence to the `eval` pipeline.
 5. Should the `Coupling` call signature gain the step/time? Add more helpers only
    once real hookups show which patterns repeat.

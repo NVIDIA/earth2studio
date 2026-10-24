@@ -26,16 +26,25 @@ function of the outputs so far, supplied by the caller.
 from __future__ import annotations
 
 import zlib
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Hashable, Iterator, Mapping
 from typing import Any, cast
 
 import numpy as np
 import torch
 import xarray as xr
+from loguru import logger
 
+from earth2studio.grids import (
+    Regridder,
+    infer_grid,
+    resolve_regridder,
+    same_geometry,
+    select_subset,
+)
 from earth2studio.models.px import PrognosticModel
 from earth2studio.models.px.utils import initial_condition
 from earth2studio.models.utils import recommended_sources
+from earth2studio.perturbation import Perturbation
 from earth2studio.run._fields import _lead_times, _map_field
 from earth2studio.run.runner import (
     DataRequest,
@@ -47,11 +56,14 @@ from earth2studio.run.runner import (
     _signature_for_stream,
     _slots,
 )
-from earth2studio.run.work import WorkItem
+from earth2studio.run.work import WorkItem, member_seed
 from earth2studio.utils.type import CoordinateSystem
 
 Outputs = Mapping[str, xr.DataArray]  # Each model's outputs, along ``lead_time``.
 Coupling = Callable[[Outputs, np.ndarray], xr.DataArray]  # (outputs, leads) -> forcing
+
+
+_NON_SPATIAL = {"batch", "time", "ensemble", "lead_time", "variable"}
 
 
 class CoupledRunner:
@@ -83,6 +95,14 @@ class CoupledRunner:
     forcing slots and the initial conditions come from sources exactly as in
     :class:`~earth2studio.run.PrognosticRunner`.
 
+    Ensembles: supported is one member per work item, so build items with
+    ``member_batch=1`` (``work_items(..., members=N)``); :class:`~earth2studio.run.Pipeline`
+    then adds the ``ensemble`` dimension. Each member seeds every stochastic model
+    from ``(seed, model name, time, member)``, and ``perturbations`` perturbs
+    chosen models' initial conditions. Not supported: several members in one item
+    (``member_batch > 1``), which raises, and perturbing anything but initial
+    conditions. Models are coupled member by member, never across members.
+
     Parameters
     ----------
     models : Mapping[str, PrognosticModel]
@@ -101,6 +121,11 @@ class CoupledRunner:
     seed : int, optional
         Base seed for stochastic models; each model derives its own from it and
         its name, by default 0
+    perturbations : Mapping[str, Callable[[int], Perturbation]], optional
+        Model name to a factory building that model's initial-condition
+        perturbation from the member's seed, e.g.
+        ``lambda seed: Gaussian(0.05, seed=seed)``. Models not listed start
+        unperturbed, by default none
 
     Raises
     ------
@@ -119,12 +144,18 @@ class CoupledRunner:
         couplings: Mapping[str, Coupling] | None = None,
         window: np.timedelta64 | None = None,
         seed: int = 0,
+        perturbations: Mapping[str, Callable[[int], Perturbation]] | None = None,
     ) -> None:
         if len(models) < 1:
             raise ValueError("Pass at least one model")
         self.models = dict(models)
         self.couplings = dict(couplings or {})
         self.seed = seed
+        self.perturbations = dict(perturbations or {})
+        for name in self.perturbations:
+            if name not in self.models:
+                raise ValueError(f"Perturbation for unknown model {name!r}")
+        self._regridders: dict[str, Regridder] = {}
         self.device = _module_device(next(iter(self.models.values())))
         self.inputs: dict[str, CoordinateSystem] = {}
         self.outputs: dict[str, CoordinateSystem] = {}
@@ -284,24 +315,72 @@ class CoupledRunner:
                 f"expected {len(leads)}"
             )
         x = x.assign_coords(lead_time=leads)
-        for dim in signature.dims:
-            if dim in {"batch", "time", "ensemble", "lead_time", "variable"}:
-                continue
+        x = self._on_slot_grid(name, x, signature)
+        return _map_field(x, signature)
+
+    def _on_slot_grid(
+        self, name: str, x: xr.DataArray, signature: CoordinateSystem
+    ) -> xr.DataArray:
+        """Bring a coupled field onto the forcing slot's grid.
+
+        Uses the same grid utilities as :func:`~earth2studio.data.fetch_data`: a
+        field already on the grid passes, an exact crop is selected, and anything
+        else is regridded by nearest neighbor within the source resolution (never
+        extrapolating). The regridder is built once per model and reused. To
+        choose another method or a fill, regrid inside the coupling instead.
+        """
+        spatial = [d for d in signature.dims if d not in _NON_SPATIAL]
+        try:
+            target = infer_grid(signature)
+            source = infer_grid(x)
+        except ValueError as error:
+            if self._matches(x, signature, spatial):
+                return x
+            raise ValueError(
+                f"{name!r}: cannot determine the grid of the coupling output or "
+                f"the forcing slot ({error}); regrid inside the coupling"
+            ) from error
+        if same_geometry(source, target):
+            return x
+        subset = select_subset(x, source, target)
+        if subset is not None:
+            return subset
+        if name not in self._regridders:
+            try:
+                self._regridders[name] = resolve_regridder(
+                    source, target, "nearest", max_dist_km="auto", fill_value=None
+                )
+            except ValueError as error:
+                raise ValueError(
+                    f"{name!r}: cannot regrid the coupling output automatically: "
+                    f"{error}; regrid inside the coupling to choose a method"
+                ) from error
+            logger.info(
+                "Regridding {!r} coupling output from a {} grid to a {} grid by "
+                "nearest neighbor",
+                name,
+                source.topology,
+                target.topology,
+            )
+        return self._regridders[name](x)
+
+    @staticmethod
+    def _matches(
+        x: xr.DataArray, signature: CoordinateSystem, dims: list[Hashable]
+    ) -> bool:
+        """Whether ``x`` carries the signature's coordinate values on ``dims``."""
+        for dim in dims:
             want = signature[dim].values
-            if dim not in x.coords:
-                raise ValueError(f"{name!r}: coupling output has no {dim!r}")
+            if dim not in x.coords or x[dim].shape != want.shape:
+                return False
             have = x[dim].values
-            if have.shape == want.shape and (
+            if not (
                 np.allclose(have, want, atol=1e-6)
                 if np.issubdtype(want.dtype, np.number)
                 else np.array_equal(have, want)
             ):
-                continue
-            raise ValueError(
-                f"{name!r}: coupling output {dim!r} differs from the forcing grid; "
-                "regrid it inside the coupling"
-            )
-        return _map_field(x, signature)
+                return False
+        return True
 
     def _forcing(
         self,
@@ -332,14 +411,20 @@ class CoupledRunner:
             forcing.append(x.isel(lead_time=0, drop=True) if static else x)
         return tuple(forcing)
 
+    def _salt(self, name: str) -> int:
+        """Base seed of ``name``, so each model draws independent noise."""
+        return self.seed + zlib.crc32(name.encode()) % 2**31
+
     def run_item(self, item: WorkItem) -> Iterator[Mapping[str, xr.DataArray]]:
         """Publish initial conditions, then one coupling window per step."""
         if len(item.member_ids) > 1:
-            raise ValueError("CoupledRunner does not batch ensemble members")
+            raise ValueError(
+                "CoupledRunner runs one ensemble member per item; "
+                "build items with member_batch=1"
+            )
         member_id = item.member_ids[0] if item.member_ids else 0
         for name, model in self.models.items():
-            salt = self.seed + zlib.crc32(name.encode()) % 2**31
-            _seed_model(salt, item.time, member_id, model)
+            _seed_model(self._salt(name), item.time, member_id, model)
         initial = {
             name: _fetch(
                 self._request(
@@ -353,6 +438,9 @@ class CoupledRunner:
             )
             for name in self.models
         }
+        for name, factory in self.perturbations.items():
+            seed = member_seed(self._salt(name), item.time, member_id)
+            initial[name] = factory(seed)(initial[name])
         outputs = dict(
             initial
         )  # Coupling input; trimmed to the newest frame per window.

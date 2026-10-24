@@ -29,7 +29,7 @@ def coupling(outputs: Mapping[str, xr.DataArray], leads: np.ndarray) -> xr.DataA
 - `leads`: the lead times the forcing must be valid at (the slot's `lead_time`
   coordinate shifted to the model's current lead). Return one entry per lead.
 - The result must carry the forcing slot's spatial coordinates. A wrong lead
-  count or grid raises at call time; regrid or convert units *inside* the function.
+  count or grid raises at call time; a field on a different grid is cropped or nearest-regridded automatically (as in `fetch_data`; needs the `utils` extra), otherwise regrid *inside* the function; convert units there too.
 
 ## Workflow
 
