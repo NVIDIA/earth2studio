@@ -48,10 +48,12 @@ runner.describe()                              # dry-run schedule + data flow
   that produces all its variables. Zero producers means the slot uses a source
   (error if none); two means error, resolved with a `Link`. Static slots always
   use sources.
-- **Link(src, dst, slot=None, reduce="last"|"mean", transform=None)** is the whole
-  declarative surface. `transform` is any `DataArray -> DataArray` (a
-  `grids.Regridder`, a unit shift). Differing grids without a transform is a
-  construction error.
+- **Link(src, dst, slot=None, reduce=None, regridder=None)** is the whole
+  declarative surface. `reduce=None` holds the producer's latest output;
+  otherwise it is an injected `DataArray -> DataArray` over the producer outputs
+  in the consumer's step window (`window_mean` ships). `regridder` is an injected
+  `grids.Regridder`; grids are compared with `infer_grid` + `same_geometry` and
+  a mismatch without a bound regridder is a construction error.
 - **Clock.** The coupling window is the slowest model's step (override with
   `window=`); each model must divide it. One runner step = one window; faster
   models publish several lead times in it (the Runner protocol allows streams
@@ -89,7 +91,7 @@ regridding, unit conversion table.
    `send` ordering (`test/coupler/test_coupler.py`). Needs verification with real
    weights (integration check 7 in the execution contract).
 2. **Atmosphere + ocean at different cadences** (DLESyM-like: 6 h atmosphere, 48 h ocean).
-   `links=[Link("atmos", "ocean", reduce="mean"), Link("ocean", "atmos")]`:
+   `links=[Link("atmos", "ocean", reduce=window_mean), Link("ocean", "atmos")]`:
    atmosphere runs 8 steps per window with SST held from the last ocean output;
    ocean steps once with the 48 h mean atmosphere. Today `DLESyM` in the repo is
    a single fused model; this works once atmosphere and ocean are split into two
@@ -101,8 +103,8 @@ regridding, unit conversion table.
 | --- | --- |
 | `PrognosticComponent` / `CallableComponent` / `DiagnosticComponent` | The model itself |
 | `DataComponent` | A source bound to a slot (existing) |
-| `Connector(time_policy, window, reduce)` | `Link(reduce="last"/"mean")` |
-| `Connector(regridder, fill, vertical)` | `Link(transform=...)`; fill/vertical dropped |
+| `Connector(time_policy, window, reduce)` | `Link(reduce=None/callable)` |
+| `Connector(regridder, fill, vertical)` | `Link(regridder=...)`; fill/vertical dropped |
 | `Mediator` (windowed reductions) | `reduce="mean"` |
 | `FieldDictionary` / standard names | Lexicon variable names |
 | Run sequence / lag vs sequential | `last` vs `mean` + scheduling order |
@@ -161,7 +163,11 @@ output model.
 4. `last` with a faster producer returns only its newest frame; a consumer wanting
    several frames needs a lead window wider than one (supported by the
    probe: labelled by the slot's lead_time) but this is untested with real models.
-5. Regridding between differing grids: relies on user `transform`; auto-selection
-   via `grids.resolve_regridder` could be added.
+5. Regridding between differing grids: the user injects a bound `Regridder`
+   (`grids.resolve_regridder` needs the `utils` extra, so the coupler does not
+   build one itself); auto-selection could be added.
+8. Only single-input/single-output-slot models with one output lead per step are
+   accepted (clear errors otherwise); fused multi-lead models such as DLESyM need
+   to be split first. `data_requests` lists the source fetches only.
 6. GPU: frames stay on the device the models use; `to(device)` forwards to models.
 7. Real-weights verification of StormScope equivalence to `eval` pipeline.
