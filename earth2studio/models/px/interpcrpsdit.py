@@ -162,7 +162,7 @@ def _znorm(a: np.ndarray) -> np.ndarray:
 @check_optional_dependencies()
 class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """One-shot, endpoint-pinned CRPS temporal interpolation with a DiT backbone (73 variables at
-    0.25 degree resolution, 720x1440).
+    0.25 degree resolution, 721x1440).
 
     Upsamples the coarse trajectory of a base prognostic model to ``num_interp_steps`` sub-steps per
     coarse interval. For interior fraction ``tau`` and per-member latent ``z`` each frame is produced
@@ -178,8 +178,8 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ``num_interp_steps`` must divide the gap in minutes. A regional sub-domain is available via
     :meth:`set_domain`.
 
-    Outputs on the global grid are 721x1440: the DiT runs on 720 latitudes (90 to -89.75) and the
-    -90 row is filled with the zonal mean of the -89.75 row.
+    The DiT runs on 720 latitudes (90 to -89.75). The -90 row of the 721x1440 output is filled with
+    the zonal mean of the -89.75 row.
 
     Note
     ----
