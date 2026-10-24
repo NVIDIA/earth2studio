@@ -27,15 +27,7 @@ import pytest
 import torch
 import xarray as xr
 
-from earth2studio.coupler import (
-    CoupledRunner,
-    Link,
-    window_last,
-    window_max,
-    window_mean,
-    window_min,
-    window_sum,
-)
+from earth2studio.coupler import CoupledRunner, latest, reduced, then
 from earth2studio.io import KVBackend
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.run import Pipeline, Runner, WorkItem, work_items
@@ -204,10 +196,8 @@ def test_storm_wiring_and_protocol() -> None:
     protocol: Runner = runner  # Structural conformance, checked by mypy.
     assert protocol.supports_member_batching is False
     assert runner.window == np.timedelta64(10, "m")
-    assert [(k.src, k.dst, k.slot, k.reduce) for k in runner.links.values()] == [
-        ("goes", "mrms", 0, None)
-    ]
-    assert "goes -> mrms[0]" in runner.describe()
+    assert set(runner.providers) == {("mrms", 0)}
+    assert "slot mrms[0] <- latest(goes)" in runner.describe()
 
 
 def test_storm_conditioning_matches_goes_lead() -> None:
@@ -225,9 +215,7 @@ def test_storm_conditioning_matches_goes_lead() -> None:
 
 
 def test_storm_initial_conditions_come_from_goes() -> None:
-    runner, _, mrms = _storm_runner(
-        links=[Link("goes", "mrms")],
-    )
+    runner, _, mrms = _storm_runner()
     list(runner.run_item(WorkItem(T0, np.timedelta64(10, "m"))))
     np.testing.assert_array_equal(
         mrms.created_with[0].sel(variable="abi02").values, 7.0
@@ -270,7 +258,7 @@ def test_atmos_ocean_schedule_and_streams() -> None:
     assert runner.window == np.timedelta64(48, "h")
     schedule = runner.describe()
     assert "model atmos:" in schedule and "8 per window" in schedule
-    assert "link ocean -> atmos[0]" in schedule
+    assert "slot atmos[0] <- latest(ocean)" in schedule
     coords = runner.output_coords(np.timedelta64(96, "h"))
     assert set(coords) == {"atmos", "ocean"}
     assert list(coords["atmos"]["lead_time"].values / np.timedelta64(1, "h")) == [
@@ -283,12 +271,16 @@ def test_atmos_ocean_schedule_and_streams() -> None:
     ]
 
 
-def _mean_link() -> list[Link]:
-    return [Link("atmos", "ocean", reduce=window_mean), Link("ocean", "atmos")]
+def _mean(x: xr.DataArray) -> xr.DataArray:
+    return x.mean("lead_time", skipna=False)
+
+
+def _mean_link() -> dict[tuple[str, int], object]:
+    return {("ocean", 0): reduced("atmos", _mean), ("atmos", 0): latest("ocean")}
 
 
 def test_atmos_ocean_window_mean_and_held_sst() -> None:
-    runner, atmos, ocean = _atmos_ocean_runner(links=_mean_link())
+    runner, atmos, ocean = _atmos_ocean_runner(providers=_mean_link())
     steps = list(runner.run_item(WorkItem(T0, np.timedelta64(96, "h"))))
     assert len(steps) == 3
     assert steps[0]["atmos"].sizes["lead_time"] == 1
@@ -314,14 +306,14 @@ def test_atmos_ocean_window_mean_and_held_sst() -> None:
 
 
 def test_ocean_mean_uses_atmos_outputs_of_its_own_window() -> None:
-    runner, _, ocean = _atmos_ocean_runner(links=_mean_link())
+    runner, _, ocean = _atmos_ocean_runner(providers=_mean_link())
     list(runner.run_item(WorkItem(T0, np.timedelta64(96, "h"))))
     first, second = (m for _, (m,) in ocean.seen)
     assert second > first  # Atmosphere keeps growing, so does its second mean.
 
 
 def test_atmos_ocean_pipeline() -> None:
-    runner, _, _ = _atmos_ocean_runner(links=_mean_link())
+    runner, _, _ = _atmos_ocean_runner(providers=_mean_link())
     out = {"atmos": KVBackend(), "ocean": KVBackend()}
     Pipeline(runner, output=out, device="cpu").run(
         work_items([T0], np.timedelta64(96, "h"))
@@ -333,10 +325,7 @@ def test_atmos_ocean_pipeline() -> None:
 def test_default_wiring_is_last_both_ways() -> None:
     # Without links both directions are inferred as held, lagged exchange.
     runner, atmos, _ = _atmos_ocean_runner()
-    assert {(k.src, k.dst) for k in runner.links.values()} == {
-        ("ocean", "atmos"),
-        ("atmos", "ocean"),
-    }
+    assert set(runner.providers) == {("atmos", 0), ("ocean", 0)}
     list(runner.run_item(WorkItem(T0, np.timedelta64(96, "h"))))
     # Ocean sees the atmosphere's state at its own start (0 -> then 48h state).
     assert atmos.seen[0][1] == [100.0]
@@ -347,47 +336,32 @@ def test_custom_reduction_is_injected() -> None:
     runner = CoupledRunner(
         {"atmos": atmos, "ocean": ocean},
         {"atmos": _Fill(u10m=0.0), "ocean": _Fill(sst=100.0)},
-        links=[
-            Link("atmos", "ocean", reduce=lambda x: x.max("lead_time", keepdims=True)),
-        ],
+        providers={("ocean", 0): reduced("atmos", lambda x: x.max("lead_time"))},
     )
     list(runner.run_item(WorkItem(T0, np.timedelta64(48, "h"))))
     assert ocean.seen[0][1] == [808.0]  # Eight steps of +1 +sst(100): the last.
 
 
-def test_regridder_bridges_differing_grids() -> None:
-    class _Coarse(_Mock):
-        def input_coords(self) -> CoordinateSystem:
-            return coord_array_like(super().input_coords(), {"lon": [0, 20]})
-
-    class _Pick:
-        """Regridder stand-in: picks lon 0 and 20."""
-
-        def __init__(self, source: object, target: object) -> None:
-            self.source_grid, self.target_grid = source, target
-
-        def __call__(self, x: xr.DataArray) -> xr.DataArray:
-            return x.sel(lon=[0, 20])
-
+def test_regridder_composes_around_a_provider() -> None:
     goes = _Mock(["abi01"], np.timedelta64(10, "m"))
     coarse = _Coarse(["refc"], np.timedelta64(10, "m"), forcing=["abi01"])
-    models = {"goes": goes, "c": coarse}
     sources = {"goes": _Fill(abi01=2.0), "c": _Fill()}
-    from earth2studio.grids import infer_grid
-
-    pick = _Pick(
-        infer_grid(goes.output_coords(goes.input_coords())),
-        infer_grid(coarse.forcing_coords()),  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="differs from the slot grid"):
+        runner = CoupledRunner({"goes": goes, "c": coarse}, sources)
+        list(runner.run_item(WorkItem(T0, np.timedelta64(10, "m"))))
+    regrid = CoupledRunner(
+        {"goes": goes, "c": coarse},
+        sources,
+        providers={("c", 0): then(latest("goes"), lambda x: x.sel(lon=[0, 20]))},
     )
-    runner = CoupledRunner(models, sources, links=[Link("goes", "c", regridder=pick)])  # type: ignore[arg-type]
-    steps = list(runner.run_item(WorkItem(T0, np.timedelta64(10, "m"))))
+    steps = list(regrid.run_item(WorkItem(T0, np.timedelta64(10, "m"))))
     assert steps[1]["c"].sizes["lon"] == 2
 
 
-def test_describe_names_the_reduction() -> None:
-    runner, _, _ = _atmos_ocean_runner(links=_mean_link())
-    assert "atmos -> ocean[0] ['u10m']: window_mean" in runner.describe()
-    assert "ocean -> atmos[0] ['sst']: hold" in runner.describe()
+def test_describe_names_the_providers() -> None:
+    runner, _, _ = _atmos_ocean_runner(providers=_mean_link())
+    assert "slot ocean[0] <- reduced(atmos, _mean)" in runner.describe()
+    assert "slot atmos[0] <- latest(ocean)" in runner.describe()
 
 
 def test_data_requests_lists_source_fetches_only() -> None:
@@ -395,7 +369,7 @@ def test_data_requests_lists_source_fetches_only() -> None:
     requests = runner.data_requests(WorkItem(T0, np.timedelta64(30, "m")))
     # Two initial conditions; the conditioning window comes from GOES itself.
     assert len(requests) == 2
-    runner, _, _ = _atmos_ocean_runner(links=_mean_link())
+    runner, _, _ = _atmos_ocean_runner(providers=_mean_link())
     # Atmosphere IC, ocean IC; atmosphere's SST window comes from the ocean's IC.
     assert len(runner.data_requests(WorkItem(T0, np.timedelta64(96, "h")))) == 2
 
@@ -429,7 +403,7 @@ def test_unknown_model_in_link() -> None:
         CoupledRunner(
             {"goes": goes, "mrms": mrms},
             {"goes": _Fill(), "mrms": _Fill()},
-            links=[Link("nope", "mrms")],
+            providers={("nope", 0): latest("goes")},
         )
 
 
@@ -440,13 +414,15 @@ def test_ambiguous_producers_need_a_link() -> None:
     sources = {"a": _Fill(), "b": _Fill(), "c": _Fill()}
     with pytest.raises(ValueError, match="can be fed by"):
         CoupledRunner({"a": a, "b": b, "c": c}, sources)
-    runner = CoupledRunner({"a": a, "b": b, "c": c}, sources, links=[Link("b", "c")])
-    assert [(k.src, k.dst) for k in runner.links.values()] == [("b", "c")]
+    runner = CoupledRunner(
+        {"a": a, "b": b, "c": c}, sources, providers={("c", 0): latest("b")}
+    )
+    assert set(runner.providers) == {("c", 0)}
 
 
 def test_unfed_forcing_without_source_fails() -> None:
     model = _Mock(["a"], np.timedelta64(1, "h"), forcing=["missing"])
-    with pytest.raises(ValueError, match="neither a producing model nor a source"):
+    with pytest.raises(ValueError, match="neither a provider nor a source"):
         CoupledRunner({"m": model}, {"m": _Fill()})
 
 
@@ -454,17 +430,6 @@ def test_missing_initial_source_fails() -> None:
     goes, _ = _storm()
     with pytest.raises(ValueError, match="no source"):
         CoupledRunner({"goes": goes})
-
-
-def test_mismatched_grids_require_regridder() -> None:
-    class _Coarse(_Mock):
-        def input_coords(self) -> CoordinateSystem:
-            return coord_array_like(super().input_coords(), {"lon": [0, 20]})
-
-    goes = _Mock(["abi01"], np.timedelta64(10, "m"))
-    coarse = _Coarse(["refc"], np.timedelta64(10, "m"), forcing=["abi01"])
-    with pytest.raises(ValueError, match="grids differ"):
-        CoupledRunner({"goes": goes, "c": coarse}, {"goes": _Fill(), "c": _Fill()})
 
 
 def test_multi_lead_output_rejected() -> None:
@@ -476,18 +441,16 @@ def test_multi_lead_output_rejected() -> None:
         CoupledRunner({"b": _Burst(["a"], np.timedelta64(6, "h"))}, {"b": _Fill()})
 
 
-def test_cyclic_reducing_links_rejected() -> None:
+def test_mutually_reducing_providers_deadlock() -> None:
     a = _Mock(["x"], np.timedelta64(1, "h"), forcing=["y"])
     b = _Mock(["y"], np.timedelta64(1, "h"), forcing=["x"])
-    with pytest.raises(ValueError, match="Cyclic"):
-        CoupledRunner(
-            {"a": a, "b": b},
-            {"a": _Fill(), "b": _Fill()},
-            links=[
-                Link("a", "b", reduce=window_mean),
-                Link("b", "a", reduce=window_mean),
-            ],
-        )
+    runner = CoupledRunner(
+        {"a": a, "b": b},
+        {"a": _Fill(), "b": _Fill()},
+        providers={("a", 0): reduced("b", _mean), ("b", 0): reduced("a", _mean)},
+    )
+    with pytest.raises(RuntimeError, match="deadlocked"):
+        list(runner.run_item(WorkItem(T0, np.timedelta64(1, "h"))))
 
 
 def test_members_are_rejected() -> None:
@@ -497,20 +460,6 @@ def test_members_are_rejected() -> None:
 
 
 # ------------------------------------------------------------- Review follow-ups
-
-
-def _pick_regridder(coarse: _Mock, goes: _Mock, picker: object) -> object:
-    from earth2studio.grids import infer_grid
-
-    class _Bound:
-        def __init__(self) -> None:
-            self.source_grid = infer_grid(goes.output_coords(goes.input_coords()))
-            self.target_grid = infer_grid(coarse.forcing_coords())  # type: ignore[arg-type]
-
-        def __call__(self, x: xr.DataArray) -> xr.DataArray:
-            return picker(x)  # type: ignore[operator]
-
-    return _Bound()
 
 
 class _Coarse(_Mock):
@@ -528,7 +477,7 @@ def test_regridder_output_is_validated() -> None:
     runner = CoupledRunner(
         {"goes": goes, "c": coarse},
         {"goes": _Fill(abi01=2.0), "c": _Fill()},
-        links=[Link("goes", "c", regridder=_pick_regridder(coarse, goes, wrong))],  # type: ignore[arg-type]
+        providers={("c", 0): then(latest("goes"), wrong)},
     )
     with pytest.raises(ValueError, match="differs from the slot grid"):
         list(runner.run_item(WorkItem(T0, np.timedelta64(10, "m"))))
@@ -543,7 +492,7 @@ def test_explicit_source_wins_over_auto_wiring() -> None:
             "mrms": (_Fill(refc=0.0), _Fill(abi01=99.0, abi02=99.0)),
         },
     )
-    assert runner.links == {}
+    assert runner.providers == {}
     list(runner.run_item(WorkItem(T0, np.timedelta64(20, "m"))))
     assert [m for _, (m,) in mrms.seen] == [99.0, 99.0]
 
@@ -568,29 +517,6 @@ def test_stochastic_models_get_distinct_stable_seeds() -> None:
     assert a.seeds[0] == a.seeds[1] and b.seeds[0] == b.seeds[1]
 
 
-@pytest.mark.parametrize(
-    "reduce", [window_last, window_max, window_min, window_sum, window_mean]
-)
-def test_builtin_reductions(reduce: object) -> None:
-    atmos, ocean = _atmos_ocean()
-    # The atmosphere is forced by 100 and gains 1 + 100 per step.
-    runner = CoupledRunner(
-        {"atmos": atmos, "ocean": ocean},
-        {"atmos": (_Fill(u10m=0.0), _Fill(sst=100.0)), "ocean": _Fill(sst=0.0)},
-        links=[Link("atmos", "ocean", reduce=reduce)],  # type: ignore[arg-type]
-    )
-    list(runner.run_item(WorkItem(T0, np.timedelta64(48, "h"))))
-    got = ocean.seen[0][1][0]
-    if reduce in (window_last, window_max):
-        assert got == pytest.approx(8 * 101.0)
-    elif reduce is window_min:
-        assert got == pytest.approx(101.0)
-    elif reduce is window_sum:
-        assert got == pytest.approx(sum(101.0 * k for k in range(1, 9)))
-    else:
-        assert got == pytest.approx(np.mean([101.0 * k for k in range(1, 9)]))
-
-
 def test_check_finite_catches_nan() -> None:
     goes, mrms = _storm()
     sources = {"goes": _Fill(abi01=float("nan"), abi02=1.0), "mrms": _Fill()}
@@ -601,68 +527,37 @@ def test_check_finite_catches_nan() -> None:
     list(off.run_item(WorkItem(T0, np.timedelta64(10, "m"))))  # Propagates silently.
 
 
-def test_link_scale_and_offset_convert_units() -> None:
+def test_then_converts_units() -> None:
     goes, mrms = _storm()
     runner = CoupledRunner(
         {"goes": goes, "mrms": mrms},
         {"goes": _Fill(abi01=300.0, abi02=300.0), "mrms": _Fill()},
-        links=[Link("goes", "mrms", scale=2.0, offset=-273.0)],
+        providers={("mrms", 0): then(latest("goes"), lambda x: x * 2 - 273)},
     )
     list(runner.run_item(WorkItem(T0, np.timedelta64(10, "m"))))
     assert mrms.seen[0][1] == [327.0]
-    assert "*2-273" in runner.describe()
 
 
-def test_units_mismatch_requires_conversion() -> None:
-    class _Kelvin(_Mock):
-        def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-            out = super().output_coords(input_coords)
-            out.attrs["units"] = "K"
-            return out
-
-    class _Celsius(_Mock):
-        def forcing_coords(self) -> CoordinateSystem:  # type: ignore[override]
-            out = super().forcing_coords()
-            out.attrs["units"] = "degC"  # type: ignore[union-attr]
-            return out  # type: ignore[return-value]
-
-    kelvin = _Kelvin(["t"], np.timedelta64(1, "h"))
-    celsius = _Celsius(["o"], np.timedelta64(1, "h"), forcing=["t"])
-    models, sources = {"k": kelvin, "c": celsius}, {"k": _Fill(), "c": _Fill()}
-    with pytest.raises(ValueError, match="units"):
-        CoupledRunner(models, sources)
-    CoupledRunner(models, sources, links=[Link("k", "c", offset=-273.15)])
-
-
-def test_window_start_holds_the_producer_for_the_window() -> None:
-    def build(window_start: bool) -> _Mock:
+def test_user_written_provider_holds_at_window_start() -> None:
+    def build(provider_for: object) -> _Mock:
         goes, mrms = _storm()
         slow = _Mock(["z"], np.timedelta64(30, "m"))
         runner = CoupledRunner(
             {"goes": goes, "mrms": mrms, "slow": slow},
-            {
-                "goes": _Fill(abi01=5.0, abi02=7.0),
-                "mrms": _Fill(),
-                "slow": _Fill(),
-            },
-            links=[Link("goes", "mrms", window_start=window_start)],
+            {"goes": _Fill(abi01=5.0, abi02=7.0), "mrms": _Fill(), "slow": _Fill()},
+            providers={("mrms", 0): provider_for},  # type: ignore[dict-item]
         )
         list(runner.run_item(WorkItem(T0, np.timedelta64(60, "m"))))
         return mrms
 
-    assert [m for _, (m,) in build(False).seen] == [6.0, 7.0, 8.0, 9.0, 10.0, 11.0]
-    # Each 30 min window sees GOES as it was when the window started.
-    assert [m for _, (m,) in build(True).seen] == [6.0, 6.0, 6.0, 9.0, 9.0, 9.0]
-
-
-def test_window_start_rejected_with_reduction() -> None:
-    atmos, ocean = _atmos_ocean()
-    with pytest.raises(ValueError, match="held links"):
-        CoupledRunner(
-            {"atmos": atmos, "ocean": ocean},
-            {"atmos": _Fill(), "ocean": _Fill()},
-            links=[Link("atmos", "ocean", reduce=window_mean, window_start=True)],
+    def at_window_start(history, start, step):  # type: ignore[no-untyped-def]
+        return latest("goes")(
+            history, start // _h(30, unit="m")[0] * _h(30, unit="m")[0], step
         )
+
+    assert [m for _, (m,) in build(latest("goes")).seen] == [6, 7, 8, 9, 10, 11]
+    # Each 30 min window sees GOES as it was when the window started.
+    assert [m for _, (m,) in build(at_window_start).seen] == [6, 6, 6, 9, 9, 9]
 
 
 def test_diagnostics_publish_their_own_stream() -> None:
@@ -719,7 +614,7 @@ def test_mutual_hold_is_independent_of_model_order() -> None:
     assert seen(("a", "b")) == seen(("b", "a"))
 
 
-def test_held_link_with_multi_frame_forcing_window() -> None:
+def test_held_provider_with_multi_frame_forcing_window() -> None:
     goes = _Mock(["abi01"], np.timedelta64(10, "m"))
     mrms = _Mock(
         ["refc"],
@@ -731,7 +626,9 @@ def test_held_link_with_multi_frame_forcing_window() -> None:
     # The producer's one-frame initial condition cannot cover a two-frame window,
     # so an explicit source supplies it and the link takes over for later steps.
     runner = CoupledRunner(
-        {"goes": goes, "mrms": mrms}, sources, links=[Link("goes", "mrms")]
+        {"goes": goes, "mrms": mrms},
+        sources,
+        providers={("mrms", 0): latest("goes")},
     )
     list(runner.run_item(WorkItem(T0, np.timedelta64(30, "m"))))
     assert [m for _, (m,) in mrms.seen] == [1.0, 6.0, 7.0]

@@ -190,3 +190,24 @@ output model.
 - Deferred: a dict of initial-condition arrays, ensembles, checkpointing,
   multi-slot/multi-lead models, interpolation, automatic/conservative regridding,
   weighted and per-variable reductions.
+
+## Revision: providers instead of links (supersedes the Link API above)
+
+`Link`, the cycle checker, `lookahead`/`producers` and the `window_*` helpers
+were removed: they amounted to a small DAG framework. What feeds a forcing slot
+is now an injected function, `provider(history, start, step) -> DataArray`.
+
+- `CoupledRunner(models, sources, providers={(model, slot): provider}, ...)`.
+- Provider builders are plain functions: `latest(src)` (hold), `reduced(src, fn)`
+  (any xarray reduction over `(start, start+step]`; waits via `NotReady`) and
+  `then(provider, *fns)` (regridder, unit conversion, masking).
+- `match_by_variable(models, skip)` is a pure function returning the auto-wiring as a
+  plain dict of `latest` providers; the runner uses it for slots without a provider
+  or an explicit source, and it can be called and edited by hand.
+- Scheduling is one rule: the furthest-behind model steps next unless its
+  provider raises `NotReady`; if none can step it raises "deadlocked".
+- Delivered fields are checked against the slot grid and (optionally) for
+  finiteness at delivery, replacing construction-time grid/units checks; units,
+  scale/offset and `window_start` are expressed as ordinary functions.
+- Removed from the earlier follow-ups: reducer helpers, `Link.scale/offset/
+  window_start/regridder`, the units attr check.
