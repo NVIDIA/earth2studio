@@ -147,7 +147,7 @@ sibling skills carry.
 
 ## Open questions
 
-1. Ensembles: supported as one member per work item (`member_batch=1`); `Pipeline` adds the `ensemble` dim. Stochastic models are seeded per `(seed, name, time, member)` and `perturbations={name: lambda seed: Perturbation}` perturbs chosen initial conditions. Not supported: several members in one item (raises), perturbing anything but initial conditions. Batching members inside an item waits on the base `Runner` contract.
+1. Ensembles: supported as one member per work item (`member_batch=1`); `Pipeline` adds the `ensemble` dim. Stochastic models are seeded per `(seed, name, time, member)` and `EnsembleCoupledRunner(..., perturbations={name: lambda seed: Perturbation})` (`coupler/ensemble.py`) perturbs chosen initial conditions through the `_start` hook on `CoupledRunner`; extensions are subclasses, so the base signature stays `models, sources, couplings, window, seed`. Not supported: several members in one item (raises), perturbing anything but initial conditions. Batching members inside an item waits on the base `Runner` contract.
 2. Fused multi-lead models (DLESyM) must be split model-side.
 3. Regridding: a coupling output on a different grid than the forcing slot is mapped with the same utilities as `fetch_data` (`infer_grid`, `same_geometry`, `select_subset`, else nearest within the source resolution via `resolve_regridder`, never extrapolating; the regridder is built once per model, needs the `utils` extra/scipy). Conservative or other methods: regrid inside the coupling.
 4. Real-weights verification of StormScope equivalence to the `eval` pipeline.

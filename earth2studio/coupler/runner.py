@@ -44,7 +44,6 @@ from earth2studio.grids import (
 from earth2studio.models.px import PrognosticModel
 from earth2studio.models.px.utils import initial_condition
 from earth2studio.models.utils import recommended_sources
-from earth2studio.perturbation import Perturbation
 from earth2studio.run._fields import _lead_times, _map_field
 from earth2studio.run.runner import (
     DataRequest,
@@ -56,7 +55,7 @@ from earth2studio.run.runner import (
     _signature_for_stream,
     _slots,
 )
-from earth2studio.run.work import WorkItem, member_seed
+from earth2studio.run.work import WorkItem
 from earth2studio.utils.type import CoordinateSystem
 
 Outputs = Mapping[str, xr.DataArray]  # Each model's outputs, along ``lead_time``.
@@ -95,13 +94,10 @@ class CoupledRunner:
     forcing slots and the initial conditions come from sources exactly as in
     :class:`~earth2studio.run.PrognosticRunner`.
 
-    Ensembles: supported is one member per work item, so build items with
-    ``member_batch=1`` (``work_items(..., members=N)``); :class:`~earth2studio.run.Pipeline`
-    then adds the ``ensemble`` dimension. Each member seeds every stochastic model
-    from ``(seed, model name, time, member)``, and ``perturbations`` perturbs
-    chosen models' initial conditions. Not supported: several members in one item
-    (``member_batch > 1``), which raises, and perturbing anything but initial
-    conditions. Models are coupled member by member, never across members.
+    Ensembles: this runner takes one member per work item (``member_batch=1``)
+    and seeds every stochastic model from ``(seed, model name, time, member)``.
+    Perturbed initial conditions come from
+    :class:`~earth2studio.coupler.EnsembleCoupledRunner`.
 
     Parameters
     ----------
@@ -121,11 +117,6 @@ class CoupledRunner:
     seed : int, optional
         Base seed for stochastic models; each model derives its own from it and
         its name, by default 0
-    perturbations : Mapping[str, Callable[[int], Perturbation]], optional
-        Model name to a factory building that model's initial-condition
-        perturbation from the member's seed, e.g.
-        ``lambda seed: Gaussian(0.05, seed=seed)``. Models not listed start
-        unperturbed, by default none
 
     Raises
     ------
@@ -144,17 +135,12 @@ class CoupledRunner:
         couplings: Mapping[str, Coupling] | None = None,
         window: np.timedelta64 | None = None,
         seed: int = 0,
-        perturbations: Mapping[str, Callable[[int], Perturbation]] | None = None,
     ) -> None:
         if len(models) < 1:
             raise ValueError("Pass at least one model")
         self.models = dict(models)
         self.couplings = dict(couplings or {})
         self.seed = seed
-        self.perturbations = dict(perturbations or {})
-        for name in self.perturbations:
-            if name not in self.models:
-                raise ValueError(f"Perturbation for unknown model {name!r}")
         self._regridders: dict[str, Regridder] = {}
         self.device = _module_device(next(iter(self.models.values())))
         self.inputs: dict[str, CoordinateSystem] = {}
@@ -411,6 +397,12 @@ class CoupledRunner:
             forcing.append(x.isel(lead_time=0, drop=True) if static else x)
         return tuple(forcing)
 
+    def _start(
+        self, item: WorkItem, member_id: int, initial: dict[str, xr.DataArray]
+    ) -> dict[str, xr.DataArray]:
+        """Initial conditions each model starts from; the hook for subclasses."""
+        return initial
+
     def _salt(self, name: str) -> int:
         """Base seed of ``name``, so each model draws independent noise."""
         return self.seed + zlib.crc32(name.encode()) % 2**31
@@ -438,9 +430,7 @@ class CoupledRunner:
             )
             for name in self.models
         }
-        for name, factory in self.perturbations.items():
-            seed = member_seed(self._salt(name), item.time, member_id)
-            initial[name] = factory(seed)(initial[name])
+        initial = self._start(item, member_id, initial)
         outputs = dict(
             initial
         )  # Coupling input; trimmed to the newest frame per window.

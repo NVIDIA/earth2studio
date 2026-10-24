@@ -70,3 +70,10 @@ def coupling(outputs: Mapping[str, xr.DataArray], leads: np.ndarray) -> xr.DataA
 - Returning a regridded field without the slot's coordinate values.
 - Mutating `outputs`; return new arrays.
 - Putting pair-specific logic in `runner.py`. It belongs in `couplings.py`.
+
+## Ensembles
+
+`CoupledRunner` runs one member per work item (`member_batch=1`). To perturb
+initial conditions use `EnsembleCoupledRunner(..., perturbations={name: lambda seed: Gaussian(0.05, seed=seed)})`.
+New runner behavior belongs in a subclass that overrides a hook such as `_start`,
+not in new `CoupledRunner` parameters.

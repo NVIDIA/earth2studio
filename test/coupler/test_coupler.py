@@ -27,7 +27,12 @@ import pytest
 import torch
 import xarray as xr
 
-from earth2studio.coupler import CoupledRunner, hold, window_mean
+from earth2studio.coupler import (
+    CoupledRunner,
+    EnsembleCoupledRunner,
+    hold,
+    window_mean,
+)
 from earth2studio.io import KVBackend
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.run import Pipeline, Runner, WorkItem, work_items
@@ -449,7 +454,7 @@ class _Shift:
 
 def test_ensemble_one_member_per_item_through_pipeline() -> None:
     goes, mrms = _storm()
-    runner = CoupledRunner(
+    runner = EnsembleCoupledRunner(
         {"goes": goes, "mrms": mrms},
         {"goes": _Fill(abi01=5.0, abi02=7.0), "mrms": _Fill()},
         STORM,
@@ -478,7 +483,7 @@ def test_ensemble_without_perturbation_is_identical_per_member() -> None:
 def test_unknown_perturbation_model_rejected() -> None:
     goes, mrms = _storm()
     with pytest.raises(ValueError, match="unknown model"):
-        CoupledRunner(
+        EnsembleCoupledRunner(
             {"goes": goes, "mrms": mrms},
             {"goes": _Fill(abi01=5.0, abi02=7.0), "mrms": _Fill()},
             STORM,
