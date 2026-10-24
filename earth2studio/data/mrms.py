@@ -138,6 +138,9 @@ class MRMS:
     - https://registry.opendata.aws/noaa-mrms-pds/
     - https://noaa-mrms-pds.s3.amazonaws.com/index.html
 
+    The CONUS grid is registered as ``mrms-conus-0.01deg`` (see
+    :func:`earth2studio.grids.resolve_grid`).
+
     Badges
     ------
     region:na dataclass:observation product:radar provider:noaa

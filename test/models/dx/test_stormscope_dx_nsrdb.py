@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import json
+from collections import OrderedDict
 from pathlib import Path
 
 import numpy as np
@@ -276,69 +277,54 @@ def test_stormscope_dx_nsrdb_defaults_and_name():
     assert default_model.load_default_package() is not None
 
 
-def test_stormscope_dx_nsrdb_input_interpolation(monkeypatch):
-    import importlib.util
+class _StubRegridder:
+    """Regridder stub covering the left half of the target grid."""
 
-    if importlib.util.find_spec("earth2grid") is None:
-
-        class OfflineNearest(torch.nn.Module):
-            def __init__(
-                self, source_lats, source_lons, target_lats, target_lons, max_dist_km
-            ):
-                super().__init__()
-                self.register_buffer(
-                    "valid_mask", torch.ones_like(target_lats, dtype=torch.bool)
-                )
-
-            def forward(self, x):
-                return x[..., ::2, ::2]
-
-        monkeypatch.setattr(
-            stormscope_module, "NearestNeighborInterpolator", OfflineNearest
+    def __init__(self, source_grid, target_grid, **options):
+        self.source_grid, self.target_grid, self.options = (
+            source_grid,
+            target_grid,
+            options,
         )
+        self.coverage = np.zeros(target_grid.shape, dtype=bool)
+        self.coverage[:, : target_grid.shape[1] // 2] = True
+
+    def __call__(self, x):
+        return x
+
+    def to(self, device):
+        return self
+
+
+@pytest.fixture
+def stub_regridder(monkeypatch):
+    import earth2studio.models.px.stormscope as scope_module
+
+    monkeypatch.setattr(scope_module, "_REGRIDDERS", OrderedDict())
+    monkeypatch.setattr(stormscope_module, "NearestRegridder", _StubRegridder)
+
+
+def test_stormscope_dx_nsrdb_default_sources(stub_regridder):
+    from earth2studio.data import GOES, RegriddedSource
+
     model = create_model()
-    source_lat = model.latitudes.repeat_interleave(2, 0).repeat_interleave(2, 1)
-    source_lon = model.longitudes.repeat_interleave(2, 0).repeat_interleave(2, 1)
-    model.build_input_interpolator(source_lat, source_lon)
-    from earth2studio.grids import CurvilinearGrid
+    assert not hasattr(model, "build_input_interpolator")
+    source = model.default_sources()
+    assert isinstance(source, RegriddedSource)
+    assert isinstance(source.source, GOES) and source.source._scan_mode == "C"
+    regridder = source.regridder
+    assert regridder.source_grid == "goes-east-conus"
+    assert regridder.options == {"max_dist_km": model.max_dist_km}
+    assert regridder.target_grid.shape == model.latitudes.shape
+    # Regridders are built once per source grid, target grid and options.
+    assert model.default_sources().regridder is regridder
 
-    source_grid = CurvilinearGrid(
-        source_lat.numpy(),
-        source_lon.numpy(),
-        y=3000 * np.arange(source_lat.shape[0]) - 1587306,
-        x=3000 * np.arange(source_lat.shape[1]) - 2697520,
+    # Coverage of the default source masks the inputs.
+    assert model.input_valid_mask.all()
+    model._set_default_coverage()
+    torch.testing.assert_close(
+        model.input_valid_mask, torch.from_numpy(regridder.coverage)
     )
-    model.build_input_interpolator(source_lat, source_lon, input_grid=source_grid)
-    np.testing.assert_array_equal(model.input_coords().y, source_grid.y)
-    np.testing.assert_array_equal(model.input_coords().x, source_grid.x)
-    source_signature = model.input_coords()
-    model.build_input_interpolator(source_lat, source_lon, input_grid=source_signature)
-    xr.testing.assert_identical(
-        model.input_coords().coords.to_dataset(), source_signature.coords.to_dataset()
-    )
-    assert model.input_coords().attrs == source_signature.attrs
-    with pytest.raises(ValueError, match="input_grid"):
-        model.build_input_interpolator(
-            source_lat + 1, source_lon, input_grid=source_grid
-        )
-    xr.testing.assert_identical(
-        model.input_coords().coords.to_dataset(), source_signature.coords.to_dataset()
-    )
-    assert model.input_coords().attrs == source_signature.attrs
-    input_tensor = make_input(model)
-    input_tensor.attrs["earth2studio_grid_id"] = "source-only"
-    input_tensor = input_tensor.assign_coords(
-        source_aux=(("y", "x"), np.zeros(source_lat.shape))
-    )
-
-    output = model(input_tensor)
-
-    assert output.shape == (1, 1, 1, 1, 32, 64)
-    assert list(output.dims) == ["batch", "time", "sample", "variable", "y", "x"]
-    assert "source_aux" not in output.coords
-    assert "earth2studio_grid_id" not in output.attrs
-    np.testing.assert_array_equal(output.lat, model.latitudes.cpu())
-    np.testing.assert_array_equal(output.lon, model.longitudes.cpu())
 
 
 def test_stormscope_dx_nsrdb_invalid_tensor_rank():
@@ -349,7 +335,7 @@ def test_stormscope_dx_nsrdb_invalid_tensor_rank():
         model._forward_sample(torch.zeros(1, 8, 32, 64), input_coords)
 
 
-def test_stormscope_dx_nsrdb_local_package(tmp_path, monkeypatch):
+def test_stormscope_dx_nsrdb_local_package(tmp_path, monkeypatch, stub_regridder):
     height, width = 32, 64
     variables = [f"abi{index:02d}c" for index in range(1, 9)]
     registry = {
@@ -407,6 +393,9 @@ def test_stormscope_dx_nsrdb_local_package(tmp_path, monkeypatch):
     torch.testing.assert_close(identity_stds, torch.ones_like(identity_stds))
     assert model.latitudes.shape == (height, width)
     assert model.longitudes.min() >= 0
+    assert model.max_dist_km == 6.0
+    assert model.input_valid_mask[:, : width // 2].all()
+    assert not model.input_valid_mask[:, width // 2 :].any()
 
     with pytest.raises(KeyError, match="missing"):
         model._build_normalization(package, registry, np.array(["missing"]))

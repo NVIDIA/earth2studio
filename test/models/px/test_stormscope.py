@@ -24,11 +24,27 @@ import xarray as xr
 
 import earth2studio.models.px.stormscope as scope_module
 import earth2studio.utils.interp as interp_module
-from earth2studio.data import Random, fetch_data
+from earth2studio.data import (
+    GFS_FX,
+    GOES,
+    MRMS,
+    CompositeSource,
+    GOESGLMGrid,
+    Random,
+    RegriddedSource,
+    fetch_data,
+)
+from earth2studio.grids import (
+    LatLonGrid,
+    NearestRegridder,
+    register_grid,
+    same_geometry,
+)
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px.stormscope import (
     StormScopeBase,
     StormScopeGOES,
+    StormScopeGOESConditioned,
     StormScopeMRMS,
 )
 from earth2studio.utils.coords import coord_array, coord_array_like
@@ -231,6 +247,122 @@ def test_stormscope_iter(device, batch):
         ]
 
 
+def create_conditioned_goes(device="cpu", h=8, w=8):
+    """Spoof 6km-style GOES model conditioned on z500 at its input times."""
+    return StormScopeGOESConditioned(
+        model_spec=[
+            {
+                "model": PhooStormScopeDiffusionModel(2),
+                "sigma_min": 0.001,
+                "sigma_max": 88.0,
+            }
+        ],
+        means=torch.zeros(1, 2, 1, 1),
+        stds=torch.ones(1, 2, 1, 1),
+        latitudes=torch.linspace(25, 50, h).unsqueeze(1).repeat(1, w),
+        longitudes=torch.linspace(-120, -80, w).unsqueeze(0).repeat(h, 1),
+        variables=np.array(["abi07c", "abi13c"]),
+        conditioning_variables=np.array(["z500"]),
+        conditioning_means=torch.zeros(1, 1, 1, 1),
+        conditioning_stds=torch.ones(1, 1, 1, 1),
+        y_coords=np.arange(h),
+        x_coords=np.arange(w),
+        sampler_args={"num_steps": 2},
+    ).to(device)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_stormscope_goes_conditioned(device):
+    model = create_conditioned_goes(device)
+    forcing = model.forcing_coords()
+    assert forcing is not None
+    np.testing.assert_array_equal(forcing["variable"], ["z500"])
+    np.testing.assert_array_equal(forcing.lead_time, model.input_times)
+
+    signature = coord_array_like(
+        model.input_coords(),
+        {
+            "batch": np.arange(1),
+            "time": np.array(["2024-01-01"], dtype="datetime64[ns]"),
+        },
+    )
+    x = from_torch(torch.ones(signature.shape, device=device), signature)
+    z500 = conditioning_input(model, x)
+
+    model.set_rng(3)
+    y, state = model.initialize(x, z500)
+    assert y.lead_time.values[-1] == model.output_times[-1]
+    y_next, _ = model.step(y, conditioning_input(model, y), state)
+    replay, _ = model.step(y, conditioning_input(model, y), state)
+    xr.testing.assert_identical(y_next, replay)
+    # The iterator reproduces the explicit advances through send.
+    model.set_rng(3)
+    iterator = model.create_iterator(x, z500)
+    xr.testing.assert_identical(next(iterator), y)
+    xr.testing.assert_identical(iterator.send(conditioning_input(model, y)), y_next)
+    iterator.close()
+    with pytest.raises(TypeError):
+        model.initialize(x)
+
+    skipped = check_prognostic_contract(model, device=device)
+    assert skipped == [
+        "P21: checkpoint serialization requires component-specific tests",
+    ]
+
+
+def test_stormscope_float64_inputs_reach_networks_as_model_dtype(monkeypatch):
+    """float64 sources (e.g. GOES) must not reach the networks uncast."""
+    model = create_spoof_model(nvar=2, nvar_cond=0, h=8, w=8)
+    net = model.stage_models[0]
+    forward = net.forward
+    seen = []
+
+    def recording(x, noise, class_labels=None, condition=None):
+        seen.append((x.dtype, condition.dtype))
+        return forward(x, noise, class_labels=class_labels, condition=condition)
+
+    monkeypatch.setattr(net, "forward", recording)
+    signature = coord_array_like(
+        model.input_coords(),
+        {
+            "batch": np.arange(1),
+            "time": np.array(["2024-01-01"], dtype="datetime64[ns]"),
+        },
+    )
+    x = from_torch(torch.ones(signature.shape, dtype=torch.float64), signature)
+    model.set_rng(0)
+    model(x)
+    assert seen and all(
+        dtypes == (model._MODEL_DTYPE, model._MODEL_DTYPE) for dtypes in seen
+    )
+
+
+def test_stormscope_goes_conditioning_class_checks():
+    kwargs = dict(
+        model_spec=[
+            {
+                "model": PhooStormScopeDiffusionModel(2),
+                "sigma_min": 0.001,
+                "sigma_max": 88.0,
+            }
+        ],
+        means=torch.zeros(1, 2, 1, 1),
+        stds=torch.ones(1, 2, 1, 1),
+        latitudes=torch.zeros(4, 4),
+        longitudes=torch.zeros(4, 4),
+        variables=np.array(["abi07c", "abi13c"]),
+    )
+    with pytest.raises(ValueError, match="StormScopeGOESConditioned"):
+        StormScopeGOES(
+            **kwargs,
+            conditioning_variables=np.array(["z500"]),
+            conditioning_means=torch.zeros(1, 1, 1, 1),
+            conditioning_stds=torch.ones(1, 1, 1, 1),
+        )
+    with pytest.raises(ValueError, match="requires conditioning variables"):
+        StormScopeGOESConditioned(**kwargs)
+
+
 # Spoof diffusion model with same call signature as EDMPrecond-wrapped models
 class PhooStormScopeDiffusionModel(torch.nn.Module):
     def __init__(self, nvar=8):
@@ -254,10 +386,9 @@ def create_spoof_model(
     w=128,
     device="cpu",
     sliding_window=False,
-    input_interp=True,
-    conditioning_interp=True,
     amp=False,
     compile=False,
+    glm_mask=None,
 ):
     """Create a spoof StormScope model for testing"""
     # Create simple lat/lon grids
@@ -322,14 +453,8 @@ def create_spoof_model(
         x_coords=x,
         amp=amp,
         compile=compile,
+        **({} if glm_mask is None else {"glm_mask": glm_mask}),
     ).to(device)
-
-    if input_interp:
-        model.build_input_interpolator(lat, lon)
-    if conditioning_interp:
-        model.build_conditioning_interpolator(
-            np.linspace(90, -90, num=181), np.linspace(0, 360, num=360)
-        )
 
     return model
 
@@ -451,25 +576,18 @@ def test_stormscope_amp_compile(amp, compile, device):
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_stormscope_interpolation(device):
-    """Test StormScope interpolation methods"""
+def test_stormscope_prep_input_requires_model_grid(device):
+    """The model accepts only its own grid; regridding belongs to the sources."""
     nvar = 8
     nvar_cond = 1
     h, w = 64, 128
 
     model = create_spoof_model(nvar=nvar, nvar_cond=nvar_cond, h=h, w=w, device=device)
+    assert not hasattr(model, "build_input_interpolator")
+    assert not hasattr(model, "build_conditioning_interpolator")
 
-    # Create input data with different grid (coarser)
+    # Create random data on a coarser grid
     h_input, w_input = 32, 64
-    input_lat = torch.linspace(25, 50, h_input).unsqueeze(1).repeat(1, w_input)
-    input_lon = torch.linspace(-120, -80, w_input).unsqueeze(0).repeat(h_input, 1)
-
-    # Build input interpolator
-    model.build_input_interpolator(input_lat, input_lon, max_dist_km=20.0)
-    assert model.input_interp is not None
-    assert model.valid_mask.shape == torch.Size([h, w])
-
-    # Create random data on the input grid
     time = np.array([np.datetime64("2020-04-05T00:00")])
     dc = OrderedDict([("y", np.arange(h_input)), ("x", np.arange(w_input))])
     r = Random(dc)
@@ -478,21 +596,10 @@ def test_stormscope_interpolation(device):
     variable = model.input_coords()["variable"].values
     x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
-    # Test that prep_input can handle the different grid
-    x_prep, x_prep_coords = model.prep_input(x, coords)
-    assert x_prep.shape[-2:] == (h, w)  # Should be interpolated to model grid
-    assert (x_prep_coords["y"] == model.y).all()
-    assert (x_prep_coords["x"] == model.x).all()
-
-    # Build conditioning interpolator (with global grid)
-    cond_lat = np.linspace(90, -90, num=181)
-    cond_lon = np.linspace(0, 360, num=360)
-    cond_lat_grid, cond_lon_grid = np.meshgrid(cond_lat, cond_lon, indexing="ij")
-    model.build_conditioning_interpolator(
-        cond_lat_grid, cond_lon_grid, max_dist_km=30.0
-    )
-    assert model.conditioning_interp is not None
-    assert model.conditioning_valid_mask.shape == torch.Size([h, w])
+    with pytest.raises(ValueError):
+        model.prep_input(x, coords)
+    with pytest.raises(ValueError):
+        model.prep_input(x, coords, conditioning=True)
 
 
 @pytest.mark.parametrize("sliding_window", [False, True])
@@ -618,18 +725,27 @@ def test_stormscope_forced_call(device):
     assert out_coords.dims == coords.dims
     assert out_coords.data.nbytes == 0
 
-    # Explicit conditioning retains its source grid until the configured
-    # interpolator runs, while leading member labels stay aligned with state.
+    # Conditioning must be on the model grid; regridding belongs to the source.
+    off_grid = Random(
+        OrderedDict(lat=np.linspace(90, -90, 181), lon=np.linspace(0, 360, 360))
+    )
+    with pytest.raises((KeyError, ValueError)):
+        model(
+            state,
+            fetch_data(
+                off_grid, time, model.conditioning_variables, lead_time, device=device
+            ).expand_dims(batch=np.arange(batch_size)),
+        )
+
+    # Leading member labels of explicit conditioning stay aligned with state.
     state = (
         from_torch(x, coords).rename(batch="ensemble").assign_coords(ensemble=[7, 9])
     )
-    source = Random(
-        OrderedDict(lat=np.linspace(90, -90, 181), lon=np.linspace(0, 360, 360))
+    condition = (
+        from_torch(conditioning, conditioning_coords)
+        .rename(batch="ensemble")
+        .assign_coords(ensemble=[7, 9])
     )
-    condition = fetch_data(
-        source, time, model.conditioning_variables, lead_time, device=device
-    )
-    condition = condition.expand_dims(ensemble=[7, 9])
     result = model(state, condition)
     assert result.dims == state.dims
     np.testing.assert_array_equal(result.ensemble, [7, 9])
@@ -649,7 +765,7 @@ def test_stormscope_forced_call(device):
     scalar_batch = model(state, condition)
     xr.testing.assert_identical(scalar_batch, baseline.assign_coords(batch=7))
     assert state.batch.item() == condition.batch.item() == 7
-    # A singleton or multiple leading axes use the same interpolation path.
+    # A singleton or multiple leading axes use the same packing path.
     unbatched = model(
         state.isel(ensemble=0, drop=True), condition.isel(ensemble=0, drop=True)
     )
@@ -910,6 +1026,16 @@ def test_stormscope_staged_denoising(device):
 
 
 @pytest.mark.package
+def test_stormscope_goes_conditioned_package_loading():
+    package = StormScopeGOES.load_default_package()
+    model = StormScopeGOES.load_model(package, model_name="6km_1hr")
+    assert isinstance(model, StormScopeGOESConditioned)
+    np.testing.assert_array_equal(model.conditioning_variables, ["z500"])
+    assert model.forcing_coords() is not None
+    assert model.conditioning_valid_mask.all()
+
+
+@pytest.mark.package
 def test_stormscope_package_loading():
     """Test StormScope GOES package loading and a minimal inference step."""
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -1077,7 +1203,7 @@ def test_stormscope_mrms_input_invalid_fill(device):
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_stormscope_mrms_coverage_mask(device):
-    """mrms_coverage_mask is used as initial valid_mask and ANDed with the interpolator mask."""
+    """mrms_coverage_mask is used as the initial valid_mask."""
     h, w = 32, 64
     y = np.arange(h)
     x = np.arange(w)
@@ -1109,29 +1235,137 @@ def test_stormscope_mrms_coverage_mask(device):
         x_coords=x,
     ).to(device)
 
-    # Before any interpolator: valid_mask should equal the coverage mask
+    # load_model ANDs this with the default regridder coverage, see
+    # test_stormscope_default_coverage.
     assert model.valid_mask.shape == torch.Size([h, w])
     assert torch.equal(model.valid_mask.cpu(), coverage)
 
-    # After build_input_interpolator with the same grid: interpolator mask is
-    # all-True (every point is within range of itself), so ANDing should yield
-    # exactly the coverage mask.
-    model.build_input_interpolator(lat, lon, max_dist_km=6.0)
-    assert torch.equal(
-        model.valid_mask.cpu(), coverage.to(device=model.valid_mask.device).cpu()
-    )
 
-    # Build an interpolator whose source grid covers only the left half of the
-    # domain. With a tight max_dist_km, every right-half target point (>~45 km
-    # from the nearest left-half source point) is out of range and marked invalid
-    # by the interpolator, while left-half points (distance 0) stay valid --
-    # making the interpolator mask exactly complementary to the coverage mask.
-    lat_left = lat[:, : w // 2]
-    lon_left = lon[:, : w // 2]
-    model.build_input_interpolator(lat_left, lon_left, max_dist_km=20.0)
-    # The combined mask should be False everywhere: the coverage mask marks the
-    # right half valid, but the interpolator marks the right half invalid (no
-    # nearby source points), so the AND is all-False.
-    assert (
-        not model.valid_mask.any()
-    ), "Combined mask should be all-False when coverage and interpolator masks are complementary"
+class _RecordingRegridder:
+    """Regridder stub recording how the default sources request it."""
+
+    def __init__(self, source_grid, target_grid, method, **options):
+        self.source_grid, self.target_grid = source_grid, target_grid
+        self.method, self.options = method, options
+        self.coverage = np.ones(target_grid.shape, dtype=bool)
+
+    def __call__(self, x):
+        return x
+
+    def to(self, device):
+        return self
+
+
+@pytest.fixture
+def recorded_regridders(monkeypatch):
+    built = []
+
+    def recorder(method):
+        class Recorder(_RecordingRegridder):
+            def __init__(self, source_grid, target_grid, **options):
+                super().__init__(source_grid, target_grid, method, **options)
+                built.append(self)
+
+        Recorder.__name__ = method
+        return Recorder
+
+    monkeypatch.setattr(scope_module, "_REGRIDDERS", OrderedDict())
+    monkeypatch.setattr(scope_module, "NearestRegridder", recorder("nearest"))
+    monkeypatch.setattr(scope_module, "BilinearRegridder", recorder("bilinear"))
+    return built
+
+
+def test_stormscope_default_sources(recorded_regridders):
+    goes_model = create_spoof_model(nvar=8, nvar_cond=0)
+    source = goes_model.default_sources()
+    assert isinstance(source, RegriddedSource)
+    assert isinstance(source.source, GOES) and source.source._scan_mode == "C"
+    regridder = source.regridder
+    assert (regridder.source_grid, regridder.method) == ("goes-east-conus", "nearest")
+    assert regridder.options == {"max_dist_km": goes_model.max_dist_km}
+    assert same_geometry(regridder.target_grid, goes_model._grid())
+    # Regridders are built once per source grid, target grid and options.
+    assert goes_model.default_sources().regridder is regridder
+    assert len(recorded_regridders) == 1
+
+    glm_mask = torch.tensor([False, False, True])
+    mrms_model = create_spoof_model(nvar=3, nvar_cond=8, glm_mask=glm_mask)
+    inputs, conditioning = mrms_model.default_sources()
+    assert isinstance(inputs, CompositeSource)
+    assert inputs.variables == {"radar": ("var00", "var01"), "glm": ("var02",)}
+    radar, glm = inputs.sources["radar"], inputs.sources["glm"]
+    assert isinstance(radar.source, MRMS)
+    assert radar.regridder.source_grid == "mrms-conus-0.01deg"
+    assert isinstance(glm.source, GOESGLMGrid)
+    assert (glm.regridder.source_grid, glm.regridder.method) == (
+        "glm-conus-0.1deg",
+        "bilinear",
+    )
+    assert glm.regridder.options == {"fill_value": 0.0}
+    assert isinstance(conditioning.source, GOES)
+    # The GOES regridder is shared with the GOES model on the same grid.
+    assert conditioning.regridder.source_grid == "goes-east-conus"
+
+    radar_only = create_spoof_model(nvar=2, nvar_cond=8).default_sources()[0]
+    assert isinstance(radar_only, RegriddedSource)
+    assert isinstance(radar_only.source, MRMS)
+
+    goes_source, gfs = create_conditioned_goes().default_sources()
+    assert isinstance(goes_source.source, GOES)
+    assert goes_source.regridder.source_grid == "goes-east-conus"
+    assert isinstance(gfs, RegriddedSource) and isinstance(gfs.source, GFS_FX)
+    assert (gfs.regridder.source_grid, gfs.regridder.method) == (
+        "latlon-0.25deg",
+        "nearest",
+    )
+    assert gfs.regridder.options == {"max_dist_km": 26.0}
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_stormscope_default_coverage(device):
+    """Masks follow the default regridders' coverage, and regridded inputs run."""
+    h, w = 32, 64
+    # A coarse source covering only the southern part of the model grid.
+    register_grid(
+        "test-stormscope-source",
+        LatLonGrid(np.arange(20.0, 40.5, 0.5), np.arange(230.0, 290.5, 0.5)),
+    )
+    model = create_spoof_model(nvar=8, nvar_cond=1, h=h, w=w, device=device)
+    model.max_dist_km = 60.0
+    model._INPUT_GRID = model._CONDITIONING_GRID = "test-stormscope-source"
+    coverage = torch.ones(h, w, dtype=torch.bool)
+    coverage[:, : w // 2] = False
+    model.register_buffer("mrms_coverage_mask", coverage.to(device))
+    model._set_default_coverage()
+
+    regridder = NearestRegridder(
+        "test-stormscope-source", model._grid(), max_dist_km=60.0
+    )
+    expected = torch.from_numpy(regridder.coverage)
+    assert 0 < expected.sum() < expected.numel()
+    assert torch.equal(model.conditioning_valid_mask.cpu(), expected)
+    assert torch.equal(model.valid_mask.cpu(), expected & coverage)
+
+    # Fetch both slots through the regridded source onto the model grid.
+    source = RegriddedSource(
+        Random(
+            OrderedDict(
+                lat=regridder.source_grid.latitude, lon=regridder.source_grid.longitude
+            )
+        ),
+        regridder,
+    )
+    time = np.array([np.datetime64("2020-04-05T00:00")])
+    lead_time = model.input_coords()["lead_time"].values
+    x = fetch_data(source, time, model.variables, lead_time, device=device).expand_dims(
+        batch=[0]
+    )
+    conditioning = fetch_data(
+        source, time, model.conditioning_variables, lead_time, device=device
+    ).expand_dims(batch=[0])
+    assert bool(np.isnan(x.e2s.as_numpy()).any())
+    out = model(x, conditioning)
+    valid = model.valid_mask.cpu().numpy()
+    values = out.e2s.as_numpy().values
+    assert np.isfinite(values[..., valid]).all()
+    assert np.isnan(values[..., ~valid]).all()
