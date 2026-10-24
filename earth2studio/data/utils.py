@@ -491,11 +491,9 @@ def datasource_to_file(
     testfile = tempfile.TemporaryFile(dir=Path(file_name).parent.resolve())
     testfile.close()
 
-    # Compile all times
-    for lead in lead_time:
-        adjust_times = _offset_times(time, lead)
-        time = np.concatenate([time, adjust_times], axis=0)
-    time = np.unique(time)
+    # Compile all times, offsetting only the requested times by each lead
+    adjust_times = [_offset_times(time, lead) for lead in lead_time]
+    time = np.unique(np.concatenate([time, *adjust_times], axis=0))
 
     # Fetch
     da = source(time, variable)
