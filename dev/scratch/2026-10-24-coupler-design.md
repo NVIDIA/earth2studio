@@ -1,6 +1,6 @@
 # Coupler design report (1.0.0-rc)
 
-Status: implemented in `earth2studio/coupler/` (one file, ~390 lines, 22 tests).
+Status: implemented in `earth2studio/coupler/` (`runner.py` ~390 lines, `couplings.py` helpers, 23 tests) plus the `earth2studio-create-coupling` agent skill.
 Reference only the `1.0.0-rc` branch. Related: PR #1229 (nvcoupler, draft).
 
 ## Goal
@@ -26,7 +26,8 @@ The component *is* the `PrognosticModel`; the runner protocol *is* the driver.
 ## Implementation
 
 `earth2studio/coupler/runner.py` exports `CoupledRunner` (plus the `Coupling` and
-`Outputs` type aliases). Nothing else.
+`Outputs` type aliases). `couplings.py` ships two factories, `hold(src)` and
+`window_mean(src, step)`, and is where pair-specific hookups are added.
 
 ```python
 runner = CoupledRunner(
@@ -47,7 +48,7 @@ Pipeline(runner, output={"atmos": zarr_a, "ocean": zarr_b}).run(items)
   `lead_time`; `leads` are the lead times the forcing must be valid at. It
   supplies the model's *first* forcing slot (time-varying). Hold, window means,
   regridding, unit conversion and masking are ordinary xarray / `Regridder` calls
-  inside it; the runner ships no reducers.
+  inside it; `hold`/`window_mean` are the only shipped helpers.
 - **Clock.** Window = slowest model step (override `window=`); each step must
   divide it. One runner step = one window. Within a window models run in dict
   order, so a model sees earlier models' *new* outputs and later models' outputs
@@ -71,6 +72,18 @@ coupled loop (apply a diagnostic to a stream afterwards, or inside a coupling),
 
 Not in scope: ensembles/member batching, mid-item resume, multi-slot or
 multi-lead prognostics, conservative regridding.
+
+## Agent skill: where the details live
+
+Pair-specific hookups are not designed up front. The runner stays a clock and an
+entry point; `skills/earth2studio-create-coupling/` tells an agent how to inspect
+two models' signatures, choose semantics from their cadences, write a coupling
+factory into `earth2studio/coupler/couplings.py` (template in
+`references/coupling-template.py`, checked to run), wire it and test it with mock
+models. Hookups added there are exported next to `hold` and `window_mean`, so
+they are found by reading the module. Not yet done: automatic discovery (e.g. a
+registry keyed by model pair), skill evals/benchmark/card/signature files that the
+sibling skills carry.
 
 ## Lighthouse cases
 
@@ -139,5 +152,5 @@ multi-lead prognostics, conservative regridding.
 3. Automatic/conservative regridding: today the caller applies a bound `Regridder`
    (`grids.resolve_regridder` needs the `utils` extra).
 4. Real-weights verification of StormScope equivalence to the `eval` pipeline.
-5. Should the `Coupling` call signature gain the step/time, or a small helper
-   module (hold, window_mean) once real use shows which patterns repeat?
+5. Should the `Coupling` call signature gain the step/time? Add more helpers only
+   once real hookups show which patterns repeat.

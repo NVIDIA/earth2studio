@@ -51,6 +51,8 @@ activate `earth2studio-data-fetch` first.
   ForecastFrameSource) end-to-end
 - `skills/earth2studio-create-prognostic/` — Create a new prognostic
   (time-stepping forecast) model wrapper end-to-end
+- `skills/earth2studio-create-coupling/` — Write the exchange function
+  that couples two or more prognostic models in a `CoupledRunner`
 
 ### Developer
 

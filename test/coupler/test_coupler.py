@@ -27,7 +27,7 @@ import pytest
 import torch
 import xarray as xr
 
-from earth2studio.coupler import CoupledRunner
+from earth2studio.coupler import CoupledRunner, hold, window_mean
 from earth2studio.io import KVBackend
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.run import Pipeline, Runner, WorkItem, work_items
@@ -160,23 +160,6 @@ def _storm() -> tuple[_Mock, _Mock]:
     goes = _Mock(["abi01", "abi02"], np.timedelta64(10, "m"))
     mrms = _Mock(["refc"], np.timedelta64(10, "m"), forcing=["abi01", "abi02"])
     return goes, mrms
-
-
-def hold(src: str):  # type: ignore[no-untyped-def]
-    """Coupling: ``src``'s newest output at or before each requested lead."""
-    return lambda out, leads: out[src].sel(lead_time=leads, method="pad")
-
-
-def window_mean(src: str, step: np.timedelta64):  # type: ignore[no-untyped-def]
-    """Coupling: mean of ``src`` over the ``step`` after each requested lead."""
-
-    def coupling(out, leads):  # type: ignore[no-untyped-def]
-        window = out[src].sel(lead_time=slice(leads[0] + 1, leads[0] + step))
-        if window["lead_time"][-1] != leads[0] + step:
-            raise AssertionError("window not covered yet")
-        return window.mean("lead_time", skipna=False, keepdims=True)
-
-    return coupling
 
 
 STORM = {"mrms": hold("goes")}
@@ -367,6 +350,17 @@ def test_data_requests_list_source_fetches_only() -> None:
     plain = CoupledRunner({"goes": goes}, {"goes": (_Fill(abi01=1.0), _Fill(glm=3.0))})
     # IC, initial glm window, then one fetch for each later step.
     assert len(plain.data_requests(WorkItem(T0, np.timedelta64(30, "m")))) == 4
+
+
+def test_window_mean_needs_the_producer_to_run_first() -> None:
+    atmos, ocean = _atmos_ocean()
+    runner = CoupledRunner(
+        {"ocean": ocean, "atmos": atmos},  # Wrong order: ocean needs atmos first.
+        {"atmos": _Fill(u10m=0.0), "ocean": _Fill(sst=100.0)},
+        {"atmos": hold("ocean"), "ocean": window_mean("atmos", _h(48)[0])},
+    )
+    with pytest.raises(ValueError, match="list it before"):
+        list(runner.run_item(WorkItem(T0, np.timedelta64(48, "h"))))
 
 
 def test_multi_frame_forcing_window() -> None:
