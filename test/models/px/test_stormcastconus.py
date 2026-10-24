@@ -238,14 +238,13 @@ def test_stormcastconus_sda_iter(device):
         time,
         core.variables,
         np.array([np.timedelta64(0, "h")]),
-        target_grid=core.grid,
     )
     x = x.assign_coords(core.grid.coords())
     x.attrs = dict(core.grid.attrs, earth2studio_crs=core.grid.crs)
     c = conditioning_input(core, x)
     obs = pd.DataFrame(
         {
-            "time": [time[0] + np.timedelta64(1, "h")],
+            "time": [time[0]],
             "variable": [core.variables[0]],
             "lat": [core.lat[8, 8]],
             "lon": [core.lon[8, 8]],
@@ -267,8 +266,8 @@ def test_stormcastconus_sda_iter(device):
     assert not np.allclose(y.e2s.as_numpy(), free.e2s.as_numpy())
     assert y.lead_time.values[0] == np.timedelta64(1, "h")
     model.set_rng(42)
-    stale = obs.assign(time=time[0])
-    xr.testing.assert_allclose(model(x, c, stale), free)
+    outside_window = obs.assign(time=time[0] + np.timedelta64(1, "h"))
+    xr.testing.assert_allclose(model(x, c, outside_window), free)
     saved = deepcopy(state)
     c1 = conditioning_input(core, y)
     z, _ = model.step(y, c1, None, state)
