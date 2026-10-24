@@ -636,7 +636,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         for j, time in enumerate(np.asarray(coords["time"])):
             for k, lead_time in enumerate(np.asarray(coords["lead_time"])):
-                t = time + lead_time + np.timedelta64(1, "h")
+                t = time + lead_time
                 if obs is not None:
                     if isinstance(obs, tuple):
                         y_obs, mask = obs
