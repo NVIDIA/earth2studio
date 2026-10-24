@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import functools
 import hashlib
 import os
@@ -22,6 +23,7 @@ import shutil
 import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Literal
@@ -99,7 +101,8 @@ class _ECMWFOpenDataSource(ABC):
         successfully, by default 600.
     client_kwargs: dict[str, Any], optional
         Additional keyword arguments passed to ``ecmwf.opendata.Client``,
-        by default {}.
+        by default {}. Unless overridden, ``maximum_retries`` is 5 and
+        ``retry_after`` is (5, 60, 2) to avoid very long silent retry loops.
 
     Note
     ----
@@ -119,6 +122,10 @@ class _ECMWFOpenDataSource(ABC):
     LEXICON: type[ECMWFOpenDataLexicon]
     ACCUMULATION_HOURS: dict[str, int] = {}
 
+    _MAX_RETRIES = 5
+    _RETRY_AFTER = (5, 60, 2)  # (min, max, growth ratio) in seconds
+    _MAX_CONCURRENT_DOWNLOADS = 1
+
     def __init__(
         self,
         source: Literal["aws", "ecmwf", "azure", "google"] = "aws",
@@ -136,7 +143,18 @@ class _ECMWFOpenDataSource(ABC):
                 "ecmwf-opendata is not installed, install manually or using `pip install earth2studio[data]`"
             )
 
+        client_kwargs = {
+            "maximum_retries": self._MAX_RETRIES,
+            "retry_after": self._RETRY_AFTER,
+            **client_kwargs,
+        }
         self.client = opendata.Client(source=source, model=model, **client_kwargs)
+        # A single worker keeps retrievals sequential without blocking the shared
+        # fsspec IO loop during downloads or retries.
+        self._executor = ThreadPoolExecutor(
+            max_workers=self._MAX_CONCURRENT_DOWNLOADS,
+            thread_name_prefix="ecmwf-opendata",
+        )
         self._fc_type = fc_type
         self._members = members
 
@@ -508,7 +526,9 @@ class _ECMWFOpenDataSource(ABC):
                 "param": variable,
                 # "levtype": levtype, # NOTE: Commenting this out fixes what seems to be a bug with Opendata API on soil levels
                 "step": int(lead_time.total_seconds() // 3600),
-                "target": cache_path,
+                # Download to a temp file so interrupted downloads are never
+                # mistaken for cache hits
+                "target": f"{cache_path}.{uuid.uuid4().hex}.part",
             }
             if levtype == "pl" or levtype == "sl":  # Pressure levels or soil levels
                 request["levelist"] = level
@@ -516,8 +536,22 @@ class _ECMWFOpenDataSource(ABC):
                 request["stream"] = "wave"
             if self._fc_type == "pf":
                 request["number"] = self._members
-            # Download, no await asyncio.to_thread, just let opendata be the bottle neck
-            self.client.retrieve(request)
+            part_path = request["target"]
+
+            def download() -> None:
+                # An earlier queued download may have populated the cache.
+                if pathlib.Path(cache_path).is_file():
+                    return
+
+                # Cancellation of the awaiting task cannot stop the worker.
+                # Keep cleanup here so it runs after retrieval has stopped.
+                try:
+                    self.client.retrieve(request)
+                    os.replace(part_path, cache_path)
+                finally:
+                    pathlib.Path(part_path).unlink(missing_ok=True)
+
+            await asyncio.get_running_loop().run_in_executor(self._executor, download)
 
         return cache_path
 
