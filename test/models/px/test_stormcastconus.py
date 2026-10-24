@@ -176,15 +176,6 @@ def _build_model(
     conditioning_stds = torch.ones(1, NVAR_COND, 1, 1)
     conditioning_variables = np.array(["c%02d" % i for i in range(NVAR_COND)])
 
-    r_condition = Random(
-        OrderedDict(
-            [
-                ("lat", np.linspace(90, -90, num=181, endpoint=True)),
-                ("lon", np.linspace(0, 360, num=360)),
-            ]
-        )
-    )
-
     return StormCastCONUS(
         diffusion,
         means,
@@ -196,7 +187,6 @@ def _build_model(
         hrrr_lon_lim=hrrr_lon_lim,
         variables=variables,
         conditioning_variables=conditioning_variables,
-        conditioning_data_source=r_condition,
         num_diffusion_steps=2,
         use_amp=use_amp,
         clamp_values=clamp_values,
@@ -352,7 +342,7 @@ def test_stormcastconus_call(time, device, use_amp, clamp_values):
 
     lead_time = p.input_coords()["lead_time"].values
     variable = p.input_coords()["variable"].values
-    x = fetch_data(r, time, variable, lead_time, target_grid=p.grid)
+    x = fetch_data(r, time, variable, lead_time)
     x = x.assign_coords(p.grid.coords())
     x.attrs = dict(p.grid.attrs, earth2studio_crs=p.grid.crs)
     x.attrs["nested"] = {"items": [1]}
@@ -403,10 +393,6 @@ def test_stormcastconus_input_dtype(
         return conv(torch.cat((x, condition["cond_concat"]), dim=1)).float()
 
     monkeypatch.setattr(p.diffusion_model, "forward", denoise)
-    source = p.conditioning_data_source
-    p.conditioning_data_source = lambda time, variable: source(time, variable).astype(
-        conditioning_dtype
-    )
     time = np.array([np.datetime64("2020-04-05T00:00")])
     signature = p.input_coords()
     r = Random(OrderedDict((d, signature[d].values) for d in ("y", "x")))
@@ -416,7 +402,6 @@ def test_stormcastconus_input_dtype(
         signature["variable"].values,
         signature["lead_time"].values,
         device=device,
-        target_grid=p.grid,
     ).astype(state_dtype)
     x = x.assign_coords(p.grid.coords())
     x.attrs = dict(p.grid.attrs, earth2studio_crs=p.grid.crs)
@@ -456,7 +441,7 @@ def test_stormcastconus_iter(ensemble, device, use_amp, clamp_values):
 
     lead_time = p.input_coords()["lead_time"].values
     variable = p.input_coords()["variable"].values
-    x = fetch_data(r, time, variable, lead_time, target_grid=p.grid)
+    x = fetch_data(r, time, variable, lead_time)
     x = x.assign_coords(p.grid.coords())
     x.attrs = dict(p.grid.attrs, earth2studio_crs=p.grid.crs)
     x = x.expand_dims(ensemble=np.arange(ensemble)).copy(deep=True)
@@ -539,7 +524,6 @@ def test_stormcastconus_exceptions(device):
         hrrr_lon_lim=(LON_START, LON_END),
         variables=variables,
         conditioning_variables=conditioning_variables,
-        conditioning_data_source=None,
         num_diffusion_steps=2,
         use_amp=False,
         clamp_values=False,
@@ -560,7 +544,6 @@ def test_stormcastconus_exceptions(device):
         variable,
         lead_time,
         device=device,
-        target_grid=p.grid,
     )
     x = x.assign_coords(p.grid.coords())
     x.attrs = dict(p.grid.attrs, earth2studio_crs=p.grid.crs)
@@ -598,24 +581,11 @@ def test_stormcastconus_package(cond_dims, device, model):
         )
     )
 
-    class _RandomWithSpecifiedOrder(Random):
-        def __call__(self, time, variable):
-            x = super().__call__(time, variable)
-            return x.transpose(*cond_dims)
-
-    p.conditioning_data_source = _RandomWithSpecifiedOrder(
-        OrderedDict(
-            [
-                ("lat", np.linspace(90, -90, num=721, endpoint=True)),
-                ("lon", np.linspace(0, 360, num=1440)),
-            ]
-        )
-    )
     p.num_diffusion_steps = 2
 
     lead_time = p.input_coords()["lead_time"].values
     variable = p.input_coords()["variable"].values
-    x = fetch_data(r, time, variable, lead_time, device=device, target_grid=p.grid)
+    x = fetch_data(r, time, variable, lead_time, device=device)
     x = x.assign_coords(p.grid.coords())
     x.attrs = dict(p.grid.attrs, earth2studio_crs=p.grid.crs)
     out = p(x, conditioning_input(p, x))

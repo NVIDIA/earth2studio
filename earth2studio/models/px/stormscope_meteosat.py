@@ -16,30 +16,31 @@
 
 import types
 from collections.abc import Callable, Generator
-from copy import deepcopy
+from contextlib import AbstractContextManager, nullcontext
+from copy import copy, deepcopy
 from datetime import datetime
-from math import prod
-from typing import Any
+from typing import TYPE_CHECKING, Any, Literal, Self
 
 import numpy as np
 import torch
 import xarray as xr
+from numpy.typing import NDArray
+from pyproj import CRS, Transformer
 
 from earth2studio.data.base import DataSource
-from earth2studio.grids import CurvilinearGrid
+from earth2studio.grids import GridDefinition, ProjectedGrid, Region, resolve_grid
+from earth2studio.grids._regrid import _check_axes, _grid_attrs
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
+from earth2studio.models.px.stormscope import crop_to_region
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.models.utils import fork_rng
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
-    handshake_coords,
     handshake_dataarray,
-    handshake_dim,
     handshake_nonempty,
-    handshake_size,
     handshake_time,
 )
 from earth2studio.utils.cupy import from_torch
@@ -48,6 +49,14 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.type import CoordinateSystem
+
+if TYPE_CHECKING:
+    from earth2studio.models.nn.stormscope_flash import RegionInfo
+
+try:
+    import cupy as cp
+except ImportError:
+    cp = None
 
 try:
     import physicsnemo.nn.module.dit_layers as _dit_layers
@@ -90,6 +99,131 @@ def _same_state(left: xr.DataArray, right: xr.DataArray) -> bool:
     )
 
 
+# FCI grid whose crop the model runs on, and the finer grids its channels come on.
+_MODEL_GRID = "mtg-fci-fulldisk-2km"
+_BLOCK = {"2km": 1, "1km": 2}
+
+
+def _crop_bounds(axis: NDArray[Any], labels: NDArray[Any]) -> tuple[int, int]:
+    """Positions ``[start, stop)`` of ``labels`` as a contiguous run of ``axis``."""
+    start = int(np.abs(axis - labels[0]).argmin())
+    stop = start + labels.size
+    tolerance = 1e-3 * np.abs(np.diff(axis[:2])).item()
+    if stop > axis.size or not np.allclose(
+        axis[start:stop], labels, rtol=0, atol=tolerance
+    ):
+        raise ValueError(f"Model grid is not a crop of the {_MODEL_GRID} grid")
+    return start, stop
+
+
+class _BlockMeanRegridder:
+    """Average blocks of FCI pixels onto a crop of the 2 km FCI grid.
+
+    Each 2 km pixel is centred on a 2x2 block of 1 km pixels, so 1 km channels are
+    block means and 2 km channels a selection (a 1x1 block). Blocks are summed in
+    row-major order in the field's floating dtype and divided by their size, as
+    ``torch.nn.functional.avg_pool2d`` does on CUDA. Calls run on the field's NumPy
+    or CuPy backing.
+
+    Parameters
+    ----------
+    resolution : {"2km", "1km"}
+        FCI resolution of the fields to regrid.
+    target_grid : ProjectedGrid
+        Crop of the ``mtg-fci-fulldisk-2km`` grid to produce.
+    """
+
+    def __init__(
+        self, resolution: Literal["2km", "1km"], target_grid: ProjectedGrid
+    ) -> None:
+        coarse = resolve_grid(_MODEL_GRID)
+        fine = resolve_grid(f"mtg-fci-fulldisk-{resolution}")
+        if not isinstance(coarse, ProjectedGrid) or not isinstance(fine, ProjectedGrid):
+            raise TypeError("FCI grids must be projected grids")
+        self.factor = _BLOCK[resolution]
+        rows = _crop_bounds(coarse.y, target_grid.y)
+        cols = _crop_bounds(coarse.x, target_grid.x)
+        (i0, i1), (j0, j1) = (
+            (self.factor * rows[0], self.factor * rows[1]),
+            (self.factor * cols[0], self.factor * cols[1]),
+        )
+        self.pixel_bbox = ((i0, i1), (j0, j1))
+        self._source_grid = ProjectedGrid(fine.y[i0:i1], fine.x[j0:j1], fine.crs)
+        self._target_grid: GridDefinition = target_grid
+        self._target_coords = target_grid.coords()
+
+    @property
+    def source_grid(self) -> GridDefinition:
+        """FCI crop the regridder accepts, at its native resolution."""
+        return self._source_grid
+
+    @property
+    def target_grid(self) -> GridDefinition:
+        """Crop of the 2 km FCI grid the regridder produces."""
+        return self._target_grid
+
+    def to(self, device: Any) -> "_BlockMeanRegridder":
+        """Return this regridder; it holds no device tables."""
+        return self
+
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Average the spatial blocks of an FCI field onto the target grid.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            NumPy- or CuPy-backed field on ``source_grid``.
+
+        Returns
+        -------
+        xr.DataArray
+            Field on ``target_grid`` with the backing of ``x``, its non-spatial
+            dimensions first.
+        """
+        dims = self._source_grid.dims
+        if tuple(x.sizes.get(dim) for dim in dims) != self._source_grid.shape:
+            raise ValueError(
+                f"Field dimensions {dict(x.sizes)} do not match the source grid "
+                f"{dict(zip(dims, self._source_grid.shape))}"
+            )
+        _check_axes(x, self._source_grid)
+        leading = tuple(dim for dim in x.dims if dim not in dims)
+        x = x.transpose(*leading, *dims)
+        data = x.data
+        context: AbstractContextManager[Any] = nullcontext()
+        if cp is not None and isinstance(data, cp.ndarray):
+            xp, context = cp, cp.cuda.Device(data.device.id)
+        else:
+            xp, data = np, np.asarray(data)
+        dtype = data.dtype if np.issubdtype(data.dtype, np.floating) else np.float32
+        k = self.factor
+        with context:
+            data = data.astype(dtype, copy=False)
+            if k > 1:
+                height, width = self._target_grid.shape
+                blocks = data.reshape(*data.shape[:-2], height, k, width, k)
+                total = xp.zeros(blocks.shape[:-3] + (width,), dtype=dtype)
+                for di in range(k):
+                    for dj in range(k):
+                        total = total + blocks[..., di, :, dj]
+                data = total / dtype.type(k * k)
+        coords = {
+            name: coordinate.variable
+            for name, coordinate in x.coords.items()
+            if not set(coordinate.dims).intersection(dims)
+        }
+        coords.update(
+            {name: value.variable for name, value in self._target_coords.items()}
+        )
+        return xr.DataArray(
+            data,
+            dims=(*leading, *dims),
+            coords=coords,
+            name=x.name,
+            attrs=_grid_attrs(x.attrs, self._source_grid, self._target_grid, None),
+        )
+
+
 @check_optional_dependencies()
 class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Generative diffusion nowcasting model for MTG-I1 FCI satellite imagery.
@@ -100,8 +234,13 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     different set of model weights applicable to a specific sigma range, as defined
     by ``model_spec``.
 
-    The model operates on a rectangular sub-region of the MTG full-disk image specified
-    by ``mtg_ylim`` and ``mtg_xlim`` in native MTG pixel coordinates.
+    The model runs on a crop of the 2 km FCI full-disk grid
+    (``mtg-fci-fulldisk-2km``) over Europe, labelled by FCI scan angles.
+    :meth:`default_sources` fetches every channel on that crop, block-averaging the
+    1 km visible and near-infrared channels. Regional views from
+    :meth:`with_region` run on the full domain, because the networks' positional
+    embeddings fix their input size, and :meth:`crop_output` crops forecasts to the
+    requested region.
 
     Parameters
     ----------
@@ -126,36 +265,29 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Per-channel additive offset for the raw-to-physical radiance conversion,
         shape ``(C, 1, 1)``.
     invariants : torch.Tensor
-        Static invariant fields (e.g. orography, land-sea mask) covering the full
-        package extent, shape ``(1, C_inv, H_pkg, W_pkg)``.
-    lat : torch.Tensor
-        Latitude grid for the full package data extent, shape ``(H_pkg, W_pkg)``.
-    lon : torch.Tensor
-        Longitude grid for the full package data extent, shape ``(H_pkg, W_pkg)``.
+        Static invariant fields (e.g. orography, land-sea mask) on the model grid,
+        shape ``(1, C_inv, H, W)``.
+    latitudes : torch.Tensor
+        Latitudes of the model grid used for solar angles, shape ``(H, W)``.
+    longitudes : torch.Tensor
+        Longitudes of the model grid used for solar angles, shape ``(H, W)``.
     earth_mask : torch.Tensor
         Boolean mask where ``True`` indicates pixels over Earth (land or ocean),
-        shape ``(H_pkg, W_pkg)``.
-    mtg_y : np.ndarray
-        MTG full-disk pixel row indices for the package domain, shape ``(H_pkg,)``.
-    mtg_x : np.ndarray
-        MTG full-disk pixel column indices for the package domain, shape ``(W_pkg,)``.
-    mtg_ylim : tuple[int, int], optional
-        Row pixel range ``(y_start, y_end)`` of the inference sub-region within the
-        full MTG disk, by default ``(4320, 5440)``
-    mtg_xlim : tuple[int, int], optional
-        Column pixel range ``(x_start, x_end)`` of the inference sub-region within
-        the full MTG disk, by default ``(1856, 4288)``
-    inference_mtg_box : tuple[tuple[int, int], tuple[int, int]], optional
-        Row/column bounding box of the loaded package data within the full MTG disk,
-        used to compute array indices into package buffers,
-        by default ``StormScopeMeteosatEU.Model_FCI_BBox``
+        shape ``(H, W)``.
+    y_coords : np.ndarray
+        FCI y scan angles (radians) of the model grid rows, a contiguous run of the
+        2 km full-disk grid, shape ``(H,)``.
+    x_coords : np.ndarray
+        FCI x scan angles (radians) of the model grid columns, a contiguous run of
+        the 2 km full-disk grid, shape ``(W,)``.
     variables : np.ndarray, optional
         Channel names corresponding to the 16 FCI bands,
         by default ``np.array(VARIABLES)``
     sampler_args : dict[str, float | int] | None, optional
         Overrides for the EDM sampler/scheduler. Recognised keys:
-        ``sigma_min``, ``sigma_max``, ``rho`` (scheduler) and
-        ``S_churn``, ``S_min``, ``S_max``, ``S_noise`` (solver).
+        ``sigma_min``, ``sigma_max``, ``rho`` (scheduler), ``num_steps``
+        (sampling steps, 48 by default) and ``S_churn``, ``S_min``, ``S_max``,
+        ``S_noise`` (solver).
         ``sigma_min``/``sigma_max`` must fall within the combined sigma range
         spanned by ``model_spec`` and default to that combined range if not
         given. Other unspecified keys use sensible defaults, by default None
@@ -172,24 +304,20 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ir_38_warm_threshold : float, optional
         Raw digital-count boundary (the 12-bit maximum) above which the warm/HDR
         ir_38 scaling is applied, by default 4095.0
-    num_diffusion_steps : int, optional
-        Number of EDM diffusion sampling steps, by default 48
     batch_size : int, optional
         Maximum number of samples processed per forward pass, by default 1
-    use_amp : bool, optional
+    amp : bool, optional
         Whether to use automatic mixed precision (bfloat16) during the diffusion
         forward pass, by default True
+    compile : bool, optional
+        Compile each denoising expert with ``torch.compile``; see
+        :meth:`compile_experts`. Default is False.
 
     Badges
     ------
     region:eu class:nowcasting product:sat year:2026 gpu:80gb
     provider:nvidia backend:pytorch
     """
-
-    Model_FCI_BBox: tuple[tuple[int, int], tuple[int, int]] = (
-        (4320, 5440),
-        (1856, 4288),
-    )
 
     def __init__(
         self,
@@ -199,23 +327,20 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         scale_factor: torch.Tensor,
         add_offset: torch.Tensor,
         invariants: torch.Tensor,
-        lat: torch.Tensor,
-        lon: torch.Tensor,
+        latitudes: torch.Tensor,
+        longitudes: torch.Tensor,
         earth_mask: torch.Tensor,
-        mtg_y: np.ndarray,
-        mtg_x: np.ndarray,
-        mtg_ylim: tuple[int, int] = Model_FCI_BBox[0],
-        mtg_xlim: tuple[int, int] = Model_FCI_BBox[1],
-        inference_mtg_box: tuple[tuple[int, int], tuple[int, int]] = Model_FCI_BBox,
+        y_coords: np.ndarray,
+        x_coords: np.ndarray,
         variables: np.ndarray = np.array(VARIABLES),
         sampler_args: dict[str, float | int] | None = None,
         input_times: np.ndarray = np.arange(-5, 1) * np.timedelta64(10, "m"),
         output_times: np.ndarray = np.array([np.timedelta64(10, "m")]),
         ir_38_warm_scale_factor: float = 0.024222141,
         ir_38_warm_threshold: float = 4095.0,
-        num_diffusion_steps: int = 48,
         batch_size: int = 1,
-        use_amp: bool = True,
+        amp: bool = True,
+        compile: bool = False,
     ):
         super().__init__()
 
@@ -252,6 +377,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             "S_min": 0.0,
             "S_max": float("inf"),
             "S_noise": 1,
+            "num_steps": 48,
         }
         if sampler_args is not None:
             self.sampler_args.update(sampler_args)
@@ -265,30 +391,19 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 f"model sigma range [{combined_sigma_min}, {combined_sigma_max}]."
             )
 
-        # Slice lat/lon/invariants to the requested sub-region of the package data.
-        # Package data covers inference_mtg_box; compute indices relative to its origin.
-        self.mtg_ylim = mtg_ylim
-        self.mtg_xlim = mtg_xlim
-        self._yi0 = mtg_ylim[0] - inference_mtg_box[0][0]
-        self._yi1 = mtg_ylim[1] - inference_mtg_box[0][0]
-        self._xi0 = mtg_xlim[0] - inference_mtg_box[1][0]
-        self._xi1 = mtg_xlim[1] - inference_mtg_box[1][0]
-
-        self.lat = lat[self._yi0 : self._yi1, self._xi0 : self._xi1]
-        self.lon = lon[self._yi0 : self._yi1, self._xi0 : self._xi1]
-        self.earth_mask = earth_mask[self._yi0 : self._yi1, self._xi0 : self._xi1]
-        self.mtg_y = mtg_y[self._yi0 : self._yi1]
-        self.mtg_x = mtg_x[self._xi0 : self._xi1]
-        self.grid = CurvilinearGrid(
-            self.lat.cpu().numpy(), self.lon.cpu().numpy(), self.mtg_y, self.mtg_x
-        )
+        if latitudes.shape != (len(y_coords), len(x_coords)):
+            raise ValueError("Grid coordinates must match the latitude shape")
+        self.grid = ProjectedGrid(y_coords, x_coords, resolve_grid(_MODEL_GRID).crs)
+        self._signature: xr.DataArray | None = None
+        # Region of a view from with_region; None on the full domain.
+        self.region_info: RegionInfo | None = None
 
         self.variables = variables
 
-        # store some data needed for GPU ops in buffers
-        self.register_buffer("lat_tensor", torch.as_tensor(self.lat))
-        self.register_buffer("lon_tensor", torch.as_tensor(self.lon))
-        self.register_buffer("off_earth_mask_tensor", torch.as_tensor(~self.earth_mask))
+        # Grid fields needed for GPU ops
+        self.register_buffer("latitudes", torch.as_tensor(latitudes))
+        self.register_buffer("longitudes", torch.as_tensor(longitudes))
+        self.register_buffer("off_earth_mask", ~torch.as_tensor(earth_mask))
 
         # precalculate some normalization factors
         self.register_buffer("mean_inv_std", -self.means / self.stds)
@@ -328,24 +443,48 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             **{k: v for k, v in self.sampler_args.items() if k in _scheduler_keys}
         )
 
-        self.num_diffusion_steps = num_diffusion_steps
         self.batch_size = batch_size
-        self.use_amp = use_amp
+        self.amp = amp
 
         self.input_times = input_times
         self.output_times = output_times
 
+        self._experts_compiled = False
+        if compile:
+            self.compile_experts()
+
     def default_sources(self) -> DataSource:
-        """Recommend MTG FCI imagery from Meteosat.
+        """Recommend MTG FCI imagery on the model grid.
+
+        Combines two :py:class:`~earth2studio.data.MeteosatFCI` sources cropped to
+        the model domain: 2 km channels selected onto the model grid, and the
+        remaining channels, available only at 1 km, averaged over the 2x2 blocks
+        of 1 km pixels that form each 2 km pixel.
 
         Returns
         -------
         DataSource
-            Raw Meteosat FCI source for the input imagery slot.
+            FCI source returning every model variable on the model grid.
         """
-        from earth2studio.data import MeteosatFCI
+        from earth2studio.data import CompositeSource, MeteosatFCI, RegriddedSource
 
-        return MeteosatFCI()
+        sources: dict[str, DataSource] = {}
+        variables: dict[str, list[str]] = {}
+        claimed: set[str] = set()
+        resolutions: tuple[Literal["2km", "1km"], ...] = ("2km", "1km")
+        for resolution in resolutions:
+            regridder = _BlockMeanRegridder(resolution, self.grid)
+            source = MeteosatFCI(resolution=resolution, pixel_bbox=regridder.pixel_bbox)
+            available = source.available_variables() - claimed
+            names = [str(v) for v in self.variables if v in available]
+            if names:
+                sources[resolution] = RegriddedSource(source, regridder)
+                variables[resolution] = names
+                claimed.update(names)
+        missing = set(map(str, self.variables)) - claimed
+        if missing:
+            raise ValueError(f"No FCI resolution provides {sorted(missing)}")
+        return CompositeSource(sources, variables)
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.
@@ -353,18 +492,20 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Returns
         -------
         CoordinateSystem
-            Allocation-free DataArray input signature on the checkpoint pixel
-            grid.
+            Allocation-free DataArray input signature on the 2 km FCI grid crop.
         """
-        return coord_array(
-            ("batch", "time", "lead_time", "variable", "y", "x"),
-            {
-                "lead_time": self.input_times,
-                "variable": np.array(self.variables),
-            },
-            dynamic=("batch", "time"),
-            grid=self.grid,
-        )
+        # Projecting the grid's coordinates is slow and the grid is fixed.
+        if self._signature is None:
+            self._signature = coord_array(
+                ("batch", "time", "lead_time", "variable", "y", "x"),
+                {
+                    "lead_time": self.input_times,
+                    "variable": np.array(self.variables),
+                },
+                dynamic=("batch", "time"),
+                grid=self.grid,
+            )
+        return self._signature.copy(deep=False)
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the prognostic model.
@@ -390,10 +531,148 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             input_coords, {"lead_time": self.output_times + lead[-1]}
         )
 
-    def compile_model(self) -> None:
-        """Compile each denoising expert with ``torch.compile``."""
+    def with_region(self, region: Region, /) -> Self:
+        """Return a view of this model covering a geographic box.
+
+        The view runs on the full model domain, because the experts' positional
+        embeddings fix their input size, and shares the loaded experts. It records
+        the requested region so that :meth:`crop_output` can present forecasts on
+        it. Neither this model nor other views change.
+
+        Parameters
+        ----------
+        region : Region
+            Box (:meth:`~earth2studio.grids.Region.box`) inside the model domain
+            and on the Earth's disk.
+
+        Returns
+        -------
+        Self
+            View with the same coordinate signatures as this model.
+
+        Raises
+        ------
+        ValueError
+            If the region is not a box, or extends outside the model domain.
+        """
+        from earth2studio.models.nn.stormscope_flash import RegionInfo
+
+        if region.kind != "box":
+            raise ValueError(
+                f"{type(self).__name__} supports only box regions, not {region.kind!r}"
+            )
+        west, south, east, north = region.params
+        if not west < east or not south < north:
+            raise ValueError("Region box must have positive extent within the domain")
+        self._check_covers(west, south, east, north)
+
+        latitude = self.latitudes.cpu().numpy()
+        longitude = (self.longitudes.cpu().numpy() + 180) % 360 - 180
+        with np.errstate(invalid="ignore"):
+            mask = (
+                ~self.off_earth_mask.cpu().numpy()
+                & (latitude >= south)
+                & (latitude <= north)
+                & (longitude >= west)
+                & (longitude <= east)
+            )
+        rows, cols = np.nonzero(mask)
+        if not rows.size:
+            raise ValueError("Requested region contains no model grid points")
+        y0, y1 = int(rows.min()), int(rows.max()) + 1
+        x0, x1 = int(cols.min()), int(cols.max()) + 1
+        height, width = mask.shape
+        requested = mask[y0:y1, x0:x1].copy()
+        requested.flags.writeable = False
+
+        view = copy(self)
+        view._buffers = self._buffers.copy()
+        view._modules = self._modules.copy()
+        view._parameters = self._parameters.copy()
+        view._non_persistent_buffers_set = self._non_persistent_buffers_set.copy()
+        view.experts = torch.nn.ModuleList(self.experts)
+        view.sampler_args = self.sampler_args.copy()
+        # Each view seeds its own noise stream.
+        view._rng_seed = None
+        view._rng_states = None
+        view.region_info = RegionInfo(
+            requested_bounds=(south, north, west, east),
+            input_bounds=(0, height, 0, width),
+            output_bounds=(y0, y1, x0, x1),
+            requested_mask=requested,
+            padding=(y0, height - y1, x0, width - x1),
+        )
+        return view
+
+    def _check_covers(
+        self, west: float, south: float, east: float, north: float
+    ) -> None:
+        """Raise unless the box boundary lies on the disk inside the model grid."""
+        # Box edges are meridians and parallels, curved in the projection; sample them.
+        t = np.linspace(0.0, 1.0, 65)
+        longitude = np.concatenate(
+            [
+                west + (east - west) * t,
+                np.full_like(t, east),
+                east - (east - west) * t,
+                np.full_like(t, west),
+            ]
+        )
+        latitude = np.concatenate(
+            [
+                np.full_like(t, south),
+                south + (north - south) * t,
+                np.full_like(t, north),
+                north - (north - south) * t,
+            ]
+        )
+        x, y = Transformer.from_crs(
+            CRS.from_epsg(4326), self.grid.crs, always_xy=True
+        ).transform(longitude, latitude)
+        inside = np.isfinite(x) & np.isfinite(y)
+        for values, axis in ((x, self.grid.x), (y, self.grid.y)):
+            half = 0.5 * abs(axis[1] - axis[0])
+            with np.errstate(invalid="ignore"):
+                inside &= (values >= axis.min() - half) & (values <= axis.max() + half)
+        if not inside.all():
+            raise ValueError(
+                "Requested region extends outside the model domain or the Earth's disk"
+            )
+
+    def crop_output(self, y: xr.DataArray, mask: bool = True) -> xr.DataArray:
+        """Crop a forecast of a regional view to its requested box, for presentation.
+
+        Keep stepping with the uncropped forecast. Models without a region return
+        forecasts unchanged.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Forecast on the model grid, with ``y`` and ``x`` trailing.
+        mask : bool, optional
+            Set gridpoints outside the requested box, or off the Earth's disk, to
+            NaN, by default True.
+
+        Returns
+        -------
+        xr.DataArray
+            Forecast on the smallest rectangle of gridpoints containing the box.
+        """
+        if self.region_info is None:
+            return y
+        return crop_to_region(y, self.region_info, mask)
+
+    def compile_experts(self) -> None:
+        """Compile each denoising expert in place with ``torch.compile``.
+
+        Compilation is lazy, so this is safe before or after moving the model to a
+        device. Repeated calls are a no-op.
+        """
+        if self._experts_compiled:
+            return
         for i in range(len(self.experts)):
             self.experts[i] = torch.compile(self.experts[i], dynamic=False)
+        self._experts_compiled = True
 
     def raw_to_physical(self, x: torch.Tensor, in_place: bool = False) -> torch.Tensor:
         """Convert raw MTG data file values to physical values."""
@@ -446,7 +725,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         x = self.physical_to_raw(x, in_place=in_place)
         x = self.raw_to_normalized(x, in_place=True)
-        x.masked_fill_(self.off_earth_mask_tensor, 0)
+        x.masked_fill_(self.off_earth_mask, 0)
         return x
 
     def denormalize(self, x: torch.Tensor, in_place: bool = False) -> torch.Tensor:
@@ -459,7 +738,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         x = self.normalized_to_raw(x, in_place=in_place)
         x = self.raw_to_physical(x, in_place=True)
-        x.masked_fill_(self.off_earth_mask_tensor, torch.nan)
+        x.masked_fill_(self.off_earth_mask, torch.nan)
         return x
 
     def _azimuth_zenith(
@@ -486,20 +765,20 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
 
         if zen_azi is None:
-            H, W = self.lon_tensor.shape
+            H, W = self.longitudes.shape
             T = len(times)
             zen_azi = torch.empty(
-                3, T, H, W, dtype=self.lon_tensor.dtype, device=self.lon_tensor.device
+                3, T, H, W, dtype=self.longitudes.dtype, device=self.longitudes.device
             )
 
         # Compute solar angles for every time step in the list
         for i, t in enumerate(times):
             t_dt = datetime.fromisoformat(str(t))
             _, zen_azi[0, i], zen_azi[1, i], zen_azi[2, i] = zenith_azimuth_angles(
-                t_dt, self.lon_tensor, self.lat_tensor
+                t_dt, self.longitudes, self.latitudes
             )
 
-        zen_azi.masked_fill_(self.off_earth_mask_tensor, 0)
+        zen_azi.masked_fill_(self.off_earth_mask, 0)
 
         return zen_azi
 
@@ -540,9 +819,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         zen_azi = zen_azi.view(1, 3 * (L + 1), H, W).expand(B, -1, -1, -1)
 
-        invariant_tensor = self.invariants[
-            :, :, self._yi0 : self._yi1, self._xi0 : self._xi1
-        ].repeat(B, 1, 1, 1)
+        invariant_tensor = self.invariants.repeat(B, 1, 1, 1)
 
         # Channel order matches training background_channels in mtg.py:
         #   [cos_zen × (N+1), sin_azi × (N+1), cos_azi × (N+1),
@@ -577,7 +854,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             diffusion_model = self.experts[expert_idx]
 
             with torch.autocast(
-                x_noisy.device.type, dtype=torch.bfloat16, enabled=self.use_amp
+                x_noisy.device.type, dtype=torch.bfloat16, enabled=self.amp
             ):
                 x0 = diffusion_model(x_noisy, t, condition=condition)
                 x0 = torch.clamp(x0, min=self.min_values, max=self.max_values, out=x0)
@@ -602,7 +879,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         denoiser :
             Configured denoiser (EDM or SDA) returned by ``scheduler.get_denoiser``.
         num_steps : int, optional
-            Number of diffusion steps; defaults to ``self.num_diffusion_steps``.
+            Number of diffusion steps; defaults to ``sampler_args["num_steps"]``.
 
         Returns
         -------
@@ -610,7 +887,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Normalised diffusion output, same shape as ``state``.
         """
         if num_steps is None:
-            num_steps = self.num_diffusion_steps
+            num_steps = int(self.sampler_args["num_steps"])
         # PhysicsNeMo's stochastic Heun solver has no generator argument.
         with fork_rng(self._rng_seed, device, states=self._rng_states):
             latents = self.sampler_args["sigma_max"] * torch.randn(
@@ -673,6 +950,10 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
 
         self.output_coords(x)
+        # Views share experts; follow them if another view moved them.
+        expert = next(self.experts.parameters(), None)
+        if expert is not None and expert.device != self.means.device:
+            self.to(expert.device)
         name = x.name
         encoding = deepcopy(x.encoding)
         x, restore = batch_func()._compress_array(self, x)
@@ -682,7 +963,11 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # x: (batch, time, n_input_times, C, H, W)
         B, T, L, C, H, W = x.shape
-        x = self.normalize(x) if native is None else native.clone()
+        x = (
+            self.normalize(x)
+            if native is None
+            else native.to(self.means.device, copy=True)
+        )
 
         for j, time in enumerate(coords["time"]):
             # all_times: N input times + 1 output time (N+1 entries for solar angles)
@@ -694,7 +979,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             for i0 in range(0, B, self.batch_size):
                 i1 = i0 + self.batch_size
                 prediction = self._forward(x[i0:i1, j], zen_azi)
-                prediction.masked_fill_(self.off_earth_mask_tensor, 0)
+                prediction.masked_fill_(self.off_earth_mask, 0)
                 x[i0:i1, j] = torch.cat((x[i0:i1, j, 1:], prediction[:, None]), dim=1)
 
         out = from_torch(self.denormalize(x[:, :, -1:]), output_coords, name=name)
@@ -797,30 +1082,6 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         finally:
             self._rng_seed, self._rng_states = previous
 
-    @torch.no_grad()
-    def create_generator(
-        self,
-        x: xr.DataArray,
-    ) -> Generator[xr.DataArray, None, None]:
-        """Create a generator for autoregressive rollout.
-
-        The first ``next()`` call yields the first prediction. Each subsequent
-        call advances the sliding context using explicit normalized state.
-
-        Parameters
-        ----------
-        x : xr.DataArray
-            Input tensor of shape ``(batch, time, lead_time, variable, y, x)``
-            containing raw MTG frames; must conform to ``self.input_coords()``.
-
-        Yields
-        ------
-        xr.DataArray
-            Predicted frame tensor of shape ``(batch, time, 1, variable, y, x)``
-            (denormalised) and its output coordinate system.
-        """
-        yield from self._default_create_iterator(x)
-
     def create_iterator(
         self,
         x: xr.DataArray,
@@ -838,65 +1099,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Forecast DataArray. The rear hook runs before every yield and the
             front hook before each subsequent step.
         """
-        yield from self.create_generator(x)
-
-    @classmethod
-    def combine_1km_2km_inputs(
-        cls,
-        x_1km: xr.DataArray,
-        x_2km: xr.DataArray,
-    ) -> xr.DataArray:
-        """Combine 1 km and 2 km resolution FCI channels onto the model 2 km grid.
-
-        MTG FCI visible and NIR channels are natively provided at 1 km resolution
-        and IR channels at 2 km resolution, while StormScopeMeteosatEU operates
-        entirely on the 2 km grid. This function makes the data compatible with
-        the model by 2x2 average-pooling the 1 km data, then concatenating the 1 km
-        and 2 km data.
-
-        Parameters
-        ----------
-        x_1km : xr.DataArray
-            Input tensor of 1 km resolution channels, shape ``(..., C_1km, 2*H, 2*W)``
-            where ``H`` and ``W`` are the 2 km grid dimensions.
-        x_2km : xr.DataArray
-            Input tensor of 2 km resolution channels, shape ``(..., C_2km, H, W)``.
-
-        Returns
-        -------
-        xr.DataArray
-            Combined tensor and coordinate system on the common 2 km grid, with
-            shape ``(..., C_1km+C_2km, H, W)`` and variables ordered as 1 km
-            variables first followed by 2 km variables.
-        """
-        # 2x downsample 1km data to common 2km grid
-        signature = coord_array_like(
-            x_2km,
-            {
-                "variable": np.concatenate(
-                    [x_1km["variable"].values, x_2km["variable"].values]
-                )
-            },
-        )
-        encoding = deepcopy(x_2km.encoding)
-        handshake_dim(x_2km, (*x_1km.dims[:-3], *x_2km.dims[-3:]))
-        for dim in x_1km.dims[:-3]:
-            handshake_size(x_2km, dim, x_1km.sizes[dim])
-            if dim in x_1km.coords or dim in x_2km.coords:
-                handshake_coords(x_2km, x_1km, dim)
-        fine, _ = x_1km.e2s.to_torch()
-        coarse, _ = x_2km.e2s.to_torch()
-        batch_dims = fine.shape[:-3]
-        fine = torch.nn.functional.avg_pool2d(
-            fine.reshape(prod(batch_dims), *fine.shape[-3:]), 2
-        )
-        fine = fine.reshape(*batch_dims, *fine.shape[-3:])
-
-        # merge downsampled and native 2km data
-        out = from_torch(torch.cat([fine.to(coarse.device), coarse], dim=-3), signature)
-        out.attrs = deepcopy(out.attrs)
-        out.encoding = encoding
-        return out
+        yield from self._default_create_iterator(x)
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -915,8 +1118,8 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_model(
         cls,
         package: Package,
-        mtg_ylim: tuple[int, int] | None = None,
-        mtg_xlim: tuple[int, int] | None = None,
+        amp: bool = True,
+        compile: bool = False,
     ) -> PrognosticModel:
         """Load the prognostic model from a package.
 
@@ -924,12 +1127,10 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         package : Package
             Model package containing checkpoints and metadata.
-        mtg_ylim : tuple[int, int] | None, optional
-            Row pixel range ``(y_start, y_end)`` of the inference sub-region;
-            defaults to the full package extent when ``None``, by default None
-        mtg_xlim : tuple[int, int] | None, optional
-            Column pixel range ``(x_start, x_end)`` of the inference sub-region;
-            defaults to the full package extent when ``None``, by default None
+        amp : bool, optional
+            Use automatic mixed precision (bfloat16) in the experts, by default True
+        compile : bool, optional
+            Compile each expert with ``torch.compile``, by default False
 
         Returns
         -------
@@ -986,23 +1187,15 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             # Load invariants
             invariants = metadata["invariants"].values
             invariants = torch.from_numpy(invariants).repeat(1, 1, 1, 1)
-            lat = torch.from_numpy(metadata["lat"].values)
-            lon = torch.from_numpy(metadata["lon"].values)
+            # The package grid is a crop of the 2 km FCI grid labelled by scan angle
+            latitudes = torch.from_numpy(metadata["lat"].values)
+            longitudes = torch.from_numpy(metadata["lon"].values)
             earth_mask = torch.from_numpy(metadata["earth_mask"].values)
-            mtg_y = metadata["mtg_y"].values
-            mtg_x = metadata["mtg_x"].values
+            y_coords = metadata["mtg_y"].values
+            x_coords = metadata["mtg_x"].values
 
         # EDM sampler arguments
-        sampler_args = config.sampler_args
-        inference_mtg_box = (
-            tuple(config.get("mtg_ylim", cls.Model_FCI_BBox[0])),
-            tuple(config.get("mtg_xlim", cls.Model_FCI_BBox[1])),
-        )
-        # Sub-region defaults to the full package box
-        if mtg_ylim is None:
-            mtg_ylim = inference_mtg_box[0]
-        if mtg_xlim is None:
-            mtg_xlim = inference_mtg_box[1]
+        sampler_args = OmegaConf.to_container(config.sampler_args)
 
         num_input_time_steps = config.get(
             "num_input_time_steps", config.get("num_input_steps", 6)
@@ -1022,16 +1215,15 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             add_offset=add_offset,
             ir_38_warm_scale_factor=ir_38_warm_scale_factor,
             ir_38_warm_threshold=ir_38_warm_threshold,
-            lat=lat,
-            lon=lon,
+            latitudes=latitudes,
+            longitudes=longitudes,
             earth_mask=earth_mask,
             variables=variables,
             sampler_args=sampler_args,
-            inference_mtg_box=inference_mtg_box,
-            mtg_y=mtg_y,
-            mtg_x=mtg_x,
-            mtg_ylim=mtg_ylim,
-            mtg_xlim=mtg_xlim,
+            y_coords=y_coords,
+            x_coords=x_coords,
             input_times=input_times,
             output_times=output_times,
+            amp=amp,
+            compile=compile,
         )

@@ -298,10 +298,11 @@ def test_native_mapping_preserves_storage_and_rejects_wrong_geometry():
         field.isel(lat=slice(2)).assign_coords(lead_time=[np.timedelta64(1, "h")]),
     ]
 
-    def prepare(tensor, coords, conditioning):
-        assert conditioning and tensor.shape[-2:] == (2, 3)
-        np.testing.assert_array_equal(coords["lat"], [1.0, 0.0])
-        return tensor, coords
+    def regrid(field):
+        # Each FCN3 frame is selected onto the conditioning grid before regridding.
+        assert field.shape[-2:] == (2, 3)
+        np.testing.assert_array_equal(field.lat, [1.0, 0.0])
+        return field
 
     workflow = SimpleNamespace(
         fcn3_interp=SimpleNamespace(
@@ -310,12 +311,12 @@ def test_native_mapping_preserves_storage_and_rejects_wrong_geometry():
             px_model=SimpleNamespace(px_model=Mock()),
             create_iterator=lambda x: iter(outputs),
         ),
+        conditioning_regridder=regrid,
         stormscope=SimpleNamespace(
             input_coords=lambda: xr.DataArray(
                 np.zeros((2, 3)), dims=("y", "x"), coords={"y": [0, 1], "x": [0, 1, 2]}
             ),
             conditioning_variables=np.array(["t2m"]),
-            prep_input=prepare,
         ),
         update_progress=Mock(),
     )

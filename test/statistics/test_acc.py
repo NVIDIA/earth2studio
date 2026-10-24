@@ -24,10 +24,25 @@ import torch
 import xarray as xr
 
 from earth2studio.statistics import acc, lat_weight
-from earth2studio.utils.coords import handshake_coords, handshake_dim
+from earth2studio.utils.coords import handshake_coords
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.type import TimeArray, VariableArray
 
 lat_weights = lat_weight(torch.as_tensor(np.linspace(-90.0, 90.0, 361)))
+
+
+def _check_output_coords(stat, x: xr.DataArray, z: xr.DataArray) -> None:
+    """Check that the a priori output signature matches the computed output"""
+    out_test = stat.output_coords(x)
+    assert out_test.dims == z.dims
+    assert out_test.shape == z.shape
+    assert list(out_test.coords) == list(z.coords)
+    for d in z.dims:
+        handshake_coords(out_test, z, d)
+
+
+def _to_np(z: xr.DataArray) -> np.ndarray:
+    return z.e2s.to_torch()[0].cpu().numpy()
 
 
 class PhooClimatology:
@@ -57,7 +72,7 @@ def test_climate_acc_correctness(
 
     weights = lat_weight(lat).unsqueeze(1).repeat(1, domain_shape[1])
 
-    x = torch.cos(2 * torch.pi * LAT / (180)).unsqueeze(0).unsqueeze(0)
+    x_t = torch.cos(2 * torch.pi * LAT / (180)).unsqueeze(0).unsqueeze(0)
     x_coords = OrderedDict(
         {
             "time": np.array([np.datetime64("1993-04-05T00:00")]),
@@ -67,8 +82,9 @@ def test_climate_acc_correctness(
         }
     )
 
-    y = torch.cos(torch.pi * LAT / (180)).unsqueeze(0).unsqueeze(0)
-    y_coords = x_coords
+    y_t = torch.cos(torch.pi * LAT / (180)).unsqueeze(0).unsqueeze(0)
+    x = from_torch(x_t, x_coords)
+    y = from_torch(y_t, x_coords)
 
     # Independent of the time means, the ACC score for cos(2*x) and cos(x) is 1/8 π sqrt(15/(32 - 3 π^2))
     # or about 0.98355. For derivation, note that the lat weight gives an extra factor of cos(x)/2 and
@@ -86,19 +102,11 @@ def test_climate_acc_correctness(
     )
     climatology = PhooClimatology(mean)
     ACC = acc(["lat", "lon"], climatology=climatology, weights=weights)
-    acc_, out_coords = ACC(x, x_coords, y, y_coords)
+    acc_ = ACC(x, y)
 
-    assert torch.allclose(
-        acc_,
-        torch.as_tensor(0.9836, device=device),
-        rtol=rtol,
-        atol=atol,
-    )
+    assert np.allclose(_to_np(acc_), 0.9836, rtol=rtol, atol=atol)
 
-    out_test_coords = ACC.output_coords(x_coords)
-    for i, c in enumerate(out_coords):
-        handshake_dim(out_test_coords, c, i)
-        handshake_coords(out_test_coords, out_coords, c)
+    _check_output_coords(ACC, x, acc_)
 
 
 @pytest.mark.parametrize(
@@ -113,8 +121,6 @@ def test_climate_acc_correctness(
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_acc(reduction_weights: tuple[list[str], np.ndarray], device: str) -> None:
 
-    x = torch.randn((10, 1, 2, 361, 720), device=device)
-
     x_coords = OrderedDict(
         {
             "ensemble": np.arange(10),
@@ -125,11 +131,13 @@ def test_acc(reduction_weights: tuple[list[str], np.ndarray], device: str) -> No
         }
     )
 
+    x = from_torch(torch.randn((10, 1, 2, 361, 720), device=device), x_coords)
+
     y_coords = copy.deepcopy(x_coords)
-    y = torch.randn((10, 1, 2, 361, 720), device=device)
+    y = from_torch(torch.randn((10, 1, 2, 361, 720), device=device), y_coords)
 
     # Create fake Climatology DataSource
-    mean = torch.randn_like(y)
+    mean = torch.randn((10, 1, 2, 361, 720), device=device)
     mean = xr.DataArray(data=mean.cpu().numpy(), dims=list(x_coords), coords=x_coords)
     climatology = PhooClimatology(mean)
 
@@ -139,26 +147,20 @@ def test_acc(reduction_weights: tuple[list[str], np.ndarray], device: str) -> No
 
     ACC = acc(reduction_dimensions, climatology=climatology, weights=weights)
 
-    z, c = ACC(x, x_coords, y, y_coords)
-    assert not any([ri in c for ri in reduction_dimensions])
-    assert list(z.shape) == [len(val) for val in c.values()]
+    z = ACC(x, y)
+    assert not any([ri in z.dims for ri in reduction_dimensions])
+    assert list(z.shape) == [x.sizes[d] for d in z.dims]
 
-    out_test_coords = ACC.output_coords(x_coords)
-    for i, ci in enumerate(c):
-        handshake_dim(out_test_coords, ci, i)
-        handshake_coords(out_test_coords, c, ci)
+    _check_output_coords(ACC, x, z)
 
     # Test with no provided climatology
     ACC = acc(reduction_dimensions, weights=weights)
 
-    z, c = ACC(x, x_coords, y, y_coords)
-    assert not any([ri in c for ri in reduction_dimensions])
-    assert list(z.shape) == [len(val) for val in c.values()]
+    z = ACC(x, y)
+    assert not any([ri in z.dims for ri in reduction_dimensions])
+    assert list(z.shape) == [x.sizes[d] for d in z.dims]
 
-    out_test_coords = ACC.output_coords(x_coords)
-    for i, ci in enumerate(c):
-        handshake_dim(out_test_coords, ci, i)
-        handshake_coords(out_test_coords, c, ci)
+    _check_output_coords(ACC, x, z)
 
 
 @pytest.mark.parametrize(
@@ -175,8 +177,6 @@ def test_acc_leadtime(
     reduction_weights: tuple[list[str], np.ndarray], device: str
 ) -> None:
 
-    x = torch.randn((10, 1, 1, 2, 361, 720), device=device)
-
     x_coords = OrderedDict(
         {
             "ensemble": np.arange(10),
@@ -188,8 +188,10 @@ def test_acc_leadtime(
         }
     )
 
+    x = from_torch(torch.randn((10, 1, 1, 2, 361, 720), device=device), x_coords)
+
     y_coords = copy.deepcopy(x_coords)
-    y = torch.randn((10, 1, 1, 2, 361, 720), device=device)
+    y = from_torch(torch.randn((10, 1, 1, 2, 361, 720), device=device), y_coords)
 
     # Create fake Climatology DataSource
     mean = torch.randn((10, 2, 2, 361, 720), device=device)
@@ -209,26 +211,20 @@ def test_acc_leadtime(
 
     ACC = acc(reduction_dimensions, climatology=climatology, weights=weights)
 
-    z, c = ACC(x, x_coords, y, y_coords)
-    assert not any([ri in c for ri in reduction_dimensions])
-    assert list(z.shape) == [len(val) for val in c.values()]
+    z = ACC(x, y)
+    assert not any([ri in z.dims for ri in reduction_dimensions])
+    assert list(z.shape) == [x.sizes[d] for d in z.dims]
 
-    out_test_coords = ACC.output_coords(x_coords)
-    for i, ci in enumerate(c):
-        handshake_dim(out_test_coords, ci, i)
-        handshake_coords(out_test_coords, c, ci)
+    _check_output_coords(ACC, x, z)
 
     # Test with no provided climatology
     ACC = acc(reduction_dimensions, weights=weights)
 
-    z, c = ACC(x, x_coords, y, y_coords)
-    assert not any([ri in c for ri in reduction_dimensions])
-    assert list(z.shape) == [len(val) for val in c.values()]
+    z = ACC(x, y)
+    assert not any([ri in z.dims for ri in reduction_dimensions])
+    assert list(z.shape) == [x.sizes[d] for d in z.dims]
 
-    out_test_coords = ACC.output_coords(x_coords)
-    for i, ci in enumerate(c):
-        handshake_dim(out_test_coords, ci, i)
-        handshake_coords(out_test_coords, c, ci)
+    _check_output_coords(ACC, x, z)
 
 
 @pytest.mark.parametrize(
@@ -274,21 +270,20 @@ def test_acc_failures(
             )
 
     # Test if x has "lead_time" but "y" does not
-    x = torch.randn((10, 1, 1, 2, 361, 720), device=device)
-    y = torch.randn((10, 1, 2, 361, 720), device=device)
+    x = from_torch(torch.randn((10, 1, 1, 2, 361, 720), device=device), coords)
     y_coords = coords.copy()
     y_coords.pop("lead_time")
-
-    ACC = acc(reduction_dimensions)
-    with pytest.raises(KeyError):
-        ACC(x, coords, y, y_coords)
-
-    # Test if variables do not match
-    x = torch.randn((10, 1, 1, 2, 361, 720), device=device)
-    y = torch.randn((10, 1, 1, 1, 361, 720), device=device)
-    y_coords = coords.copy()
-    y_coords["variable"] = np.array(["t2m"])
+    y = from_torch(torch.randn((10, 1, 2, 361, 720), device=device), y_coords)
 
     ACC = acc(reduction_dimensions)
     with pytest.raises(ValueError):
-        ACC(x, coords, y, y_coords)
+        ACC(x, y)
+
+    # Test if variables do not match
+    y_coords = coords.copy()
+    y_coords["variable"] = np.array(["t2m"])
+    y = from_torch(torch.randn((10, 1, 1, 1, 361, 720), device=device), y_coords)
+
+    ACC = acc(reduction_dimensions)
+    with pytest.raises(ValueError):
+        ACC(x, y)

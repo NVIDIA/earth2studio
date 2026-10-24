@@ -691,7 +691,7 @@ class Earth2StudioAccessor:
         Returns
         -------
         tuple[torch.Tensor, CoordSystem]
-            Tensor sharing memory with the DataArray data and its coordinates.
+            Tensor and coordinates, sharing data memory unless NumPy strides are negative.
 
         Raises
         ------
@@ -704,6 +704,8 @@ class Earth2StudioAccessor:
         if isinstance(data, _TorchArray):
             tensor = data.tensor
         elif isinstance(data, np.ndarray):
+            if any(stride < 0 for stride in data.strides):
+                data = data.copy()
             tensor = torch.from_numpy(data)
         elif self.is_cupy:
             tensor = torch.from_dlpack(data)

@@ -16,7 +16,7 @@
 
 import pytest
 
-from earth2studio.data import ARCO_ERA5, GFS, GOES, NCAR_ERA5, WB2ERA5
+from earth2studio.data import ARCO_ERA5, GFS, NCAR_ERA5, WB2ERA5
 from earth2studio.models.dx import (
     CBottleInfill,
     ClimateNet,
@@ -28,7 +28,6 @@ from earth2studio.models.dx import (
     PrecipitationAFNOv2,
     SolarRadiationAFNO1H,
     SolarRadiationAFNO6H,
-    StormScopeDxNSRDB,
     TCTrackerVitart,
     TCTrackerWuDuan,
     WindgustAFNO,
@@ -48,14 +47,15 @@ from earth2studio.models.dx import (
         (PrecipitationAFNOv2, ARCO_ERA5),
         (SolarRadiationAFNO1H, ARCO_ERA5),
         (SolarRadiationAFNO6H, ARCO_ERA5),
-        (StormScopeDxNSRDB, GOES),
         (TCTrackerVitart, GFS),
         (TCTrackerWuDuan, GFS),
         (WindgustAFNO, ARCO_ERA5),
     ],
 )
 def test_default_sources(model_cls, expected):
-    # default_sources does not touch model state, so skip heavy construction
+    # default_sources does not touch model state, so skip heavy construction.
+    # StormScopeDxNSRDB regrids onto its model grid, so its default source is
+    # tested with a constructed model in test_stormscope_dx_nsrdb.py.
     model = object.__new__(model_cls)
     source = model.default_sources()
     assert isinstance(source, expected)

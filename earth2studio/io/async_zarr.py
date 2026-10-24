@@ -299,7 +299,10 @@ class AsyncZarrBackend:
     chunked_coords : dict[str, int], optional
         Chunk sizes for coordinates that are not in `parallel_coords`. By default any
         such coordinate is stored as a single chunk spanning its full length. Keys not
-        present in a given array are ignored, by default {}
+        present in a given array are ignored. A coordinate in `parallel_coords` is
+        always chunked with a size of 1 and raises a ValueError here unless the
+        requested size is 1; use `shard_coords` to group such coordinates into larger
+        shards, by default {}
     shard_coords : dict[str, int], optional
         Number of elements per shard along the given coordinates, enabling Zarr v3
         sharding. Each value must be a multiple of that coordinate's chunk size, and any
@@ -494,6 +497,22 @@ class AsyncZarrBackend:
             if value <= 0:
                 raise ValueError(
                     f"Shard size for coordinate '{key}' must be positive but got {value}"
+                )
+
+        # A parallel dimension must stay at a chunk size of 1: writes along it come
+        # from independent processes, so a chunk spanning several labels would be
+        # written concurrently by more than one of them
+        for key, value in self.chunked_coords.items():
+            if value <= 0:
+                raise ValueError(
+                    f"Chunk size for coordinate '{key}' must be positive but got {value}"
+                )
+            if key in self.parallel_coords and value != 1:
+                raise ValueError(
+                    f"Chunk size {value} requested for coordinate '{key}', which is in "
+                    "`parallel_coords`. Parallel coordinates are always chunked with a "
+                    "size of 1 so concurrent writers never share a chunk; use "
+                    "`shard_coords` to group them into larger shards instead."
                 )
 
         self._closed = False
@@ -821,9 +840,9 @@ class AsyncZarrBackend:
     def _compute_chunks(self, sizes: Mapping[Hashable, int]) -> dict[Hashable, int]:
         """Chunk size of each dimension of an array
 
-        Dimensions of `parallel_coords` are chunked with a size of one so writes along
-        them never share a chunk; every other dimension is a single chunk unless
-        `chunked_coords` says otherwise.
+        Dimensions of `parallel_coords` are always chunked with a size of one so writes
+        along them never share a chunk, and `chunked_coords` cannot override that;
+        every other dimension is a single chunk unless `chunked_coords` says otherwise.
 
         Parameters
         ----------
@@ -840,7 +859,11 @@ class AsyncZarrBackend:
             for dim, size in sizes.items()
         }
         chunked.update(
-            {dim: size for dim, size in self.chunked_coords.items() if dim in chunked}
+            {
+                dim: size
+                for dim, size in self.chunked_coords.items()
+                if dim in chunked and dim not in self.parallel_coords
+            }
         )
         return chunked
 
@@ -1354,6 +1377,22 @@ class AsyncZarrBackend:
     def store(self) -> Any:
         """Underlying Zarr store, e.g. for `zarr.consolidate_metadata(io.store)`"""
         return self.root.store
+
+    @property
+    def write_blocks(self) -> dict[str, int]:
+        """Largest chunk or shard extent per dimension over the stored data arrays
+
+        A shard is written as a whole, so it is the smallest unit two writers can
+        update independently, and distributed writers must not share one.
+        """
+        root = self._sync_root()
+        blocks: dict[str, int] = {}
+        for name, dims in self._arrays.items():
+            array = root[name]
+            extents = array.shards or array.chunks
+            for dim, extent in zip(dims, extents):
+                blocks[str(dim)] = max(blocks.get(str(dim), 0), int(extent))
+        return blocks
 
     @property
     def coords(self) -> CoordSystem:

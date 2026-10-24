@@ -320,12 +320,10 @@ def test_regional_array_rollout(regional_model):
         model.batch_size = 1
         model._forward = lambda state, *args, **kwargs: state + 1
     else:
-        model.input_interp = None
         model.valid_mask = torch.ones(2, 3, dtype=torch.bool)
         model.conditioning_variables = (
             model.variables if isinstance(model, StormScopeMRMS) else None
         )
-        model.conditioning_interp = None
         model.conditioning_valid_mask = model.valid_mask
         model.sliding_window = True
         model._forward_tensor = lambda state, c, **kwargs: state[:, :, -2:] + 1
@@ -382,8 +380,7 @@ def test_regional_array_rollout(regional_model):
             "lon": [250.0],
         },
     )
-    model.input_interp = lambda state: state.expand(*state.shape[:-2], 2, 3)
-    # Public states require the declared grid; explicit conditioning may regrid.
+    # Public states require the declared grid.
     with pytest.raises(ValueError):
         invalid = from_torch(torch.ones(source.shape), source)
         model(invalid, *forcing(field))
