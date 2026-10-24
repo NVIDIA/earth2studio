@@ -41,7 +41,6 @@ from earth2studio.data import (
     prep_data_array,
 )
 from earth2studio.data.utils import (
-    _StatisticReducer,
     async_retry,
     cancellable_to_thread,
     datasource_cache_root,
@@ -55,9 +54,10 @@ from earth2studio.data.utils import (
     obstore_read_range,
     obstore_store_from_url,
     obstore_zarr_store,
+    plan_statistics,
     prep_data_inputs,
     prep_forecast_inputs,
-    statistic_modifiers,
+    reduce_statistics,
 )
 from earth2studio.grids import (
     BilinearRegridder,
@@ -66,160 +66,174 @@ from earth2studio.grids import (
     NearestRegridder,
 )
 from earth2studio.utils.coords import E2S_STATISTICS, coord_array
+from earth2studio.utils.time_statistics import _TIME_STATISTICS, register_time_statistic
 
 
-@pytest.mark.parametrize("irregular", [False, True])
-def test_statistic_modifiers(irregular):
-    # Reducers need neither timestamps nor a planned count. Targets can receive
-    # different stream lengths, and missing cells use their own observed counts.
-    samples = np.array([[2, np.nan, np.nan], [4, 8, np.nan], [9, 10, np.nan]])
-    for method in ("mean", "sum", "min", "max"):
-        output = np.full((2, 3), -999.0)
-        reducer = _StatisticReducer(method, output)
-        with pytest.raises(ValueError, match="No samples"):
-            reducer.finalize()
-        for sample in samples:
-            reducer.add(0, sample)
-        reducer.add(1, samples[1])
-        reducer.finalize()
-        expected = {
-            "mean": [[5, 9, np.nan], [4, 8, np.nan]],
-            "sum": [[15, 18, 0], [4, 8, 0]],
-            "min": [[2, 8, np.nan], [4, 8, np.nan]],
-            "max": [[9, 10, np.nan], [4, 8, np.nan]],
-        }
-        np.testing.assert_allclose(output, expected[method], equal_nan=True)
-
-    # Source-selected samples may be irregular and differ in count per target.
-    # Callbacks consume reusable buffers in arbitrary arrival order.
-    variables = [
-        "t2m",
-        *(f"t2m:{method}:2h" for method in ("mean", "sum", "min", "max")),
+def test_time_statistics_planning_and_reduction():
+    # Planning splits plain/statistic variables; reduction streams bounded windows
+    times = np.array(["2024-01-02T00", "2024-01-02T06"], dtype="datetime64[ns]")
+    plain, stats, attrs = plan_statistics(
+        ["t2m", "t2m:mean:12h", "u10m:max:6h", "a::b:c"],
+        times,
+        np.timedelta64(6, "h"),
+        ("mean", "max"),
+    )
+    assert plain == [(0, "t2m"), (3, "a::b:c")]
+    assert [(s[0], s[1], s[2]) for s in stats] == [
+        (1, "t2m", "mean:12h"),
+        (2, "u10m", "max:6h"),
     ]
-    values = np.full((2, 5, 2), np.nan)
-    modifiers, attrs, finalize = statistic_modifiers(variables, values)
-    with pytest.raises(ValueError, match="No samples"):
-        finalize()
+    # Left-closed window ending at each target, shape (target, sample)
+    assert stats[0][3].shape == (2, 2)
+    assert stats[0][3][1, -1] == np.datetime64("2024-01-02T00")
+    assert set(attrs[E2S_STATISTICS]) == {"t2m:mean:12h", "u10m:max:6h"}
 
-    buffer = np.empty(2)
-    from earth2studio.utils.time_statistics import time_statistic_metadata
-
-    coordinates = np.array([0, 1, 1.5, 2.75, 3, 4] if irregular else [0, 1, 2, 3, 4])
-    for base, statistic, add in modifiers:
-        assert base == "t2m"
-        for index, target in enumerate([3, 4]):
-            if statistic is None:
-                selected = [target]
-            else:
-                metadata = time_statistic_metadata(statistic)
-                start = target + metadata["start_offset"] / np.timedelta64(1, "h")
-                end = target + metadata["end_offset"] / np.timedelta64(1, "h")
-                selected = coordinates[(coordinates >= start) & (coordinates < end)]
-            for coord in reversed(selected):
-                buffer[:] = [coord, np.nan]
-                assert add(index, buffer) is None
-                buffer[:] = -999
-    finalize()
-
-    expected = (
-        [[3, 1.75, 5.25, 1, 2.75], [4, 2.875, 5.75, 2.75, 3]]
-        if irregular
-        else [[3, 1.5, 3, 1, 2], [4, 2.5, 5, 2, 3]]
+    # Lead time targets are planned relative to the initialization time and every
+    # planned sample is validated once, before anything is fetched
+    validated = []
+    _, stats, _ = plan_statistics(
+        ["t2m:sum:2h"],
+        np.array([2, 3], dtype="timedelta64[h]"),
+        np.timedelta64(1, "h"),
+        ("sum",),
+        validate=validated.extend,
     )
-    np.testing.assert_allclose(values[:, :, 0], expected)
-    np.testing.assert_allclose(
-        values[:, :, 1], [[np.nan, np.nan, 0, np.nan, np.nan]] * 2, equal_nan=True
-    )
-    assert set(attrs[E2S_STATISTICS]) == set(variables[1:])
+    assert np.issubdtype(stats[0][3].dtype, np.timedelta64)
+    assert validated == [datetime.timedelta(hours=h) for h in (0, 1, 2)]
 
-    # Long windows use a fixed task pool and discard decoded fields after each
-    # update, including when one fetch fails or the caller cancels the operation.
-    values = np.full((1, 4, 2), np.nan)
-    modifiers, _, finalize = statistic_modifiers(
-        [f"t2m:{method}:240h" for method in ("mean", "sum", "min", "max")],
-        values,
-    )
-    requests = list(range(240))
+    for variables, message in (
+        ([":mean:6h"], "must not be empty"),
+        (["t2m:mean:6h", "t2m:mean:6h"], "duplicate"),
+        (["t2m:sum:6h"], "not supported"),
+    ):
+        with pytest.raises(ValueError, match=message):
+            plan_statistics(variables, times, np.timedelta64(1, "h"), ("mean",))
 
-    async def check_pool():
+    # Statistics reduce transient sample stacks through the registry, so newly
+    # registered statistics work, and only one window is alive at a time.
+    register_time_statistic("range", lambda a, d: a.max(d) - a.min(d))
+    try:
+        times = np.array([3, 4], dtype="timedelta64[h]")
+        variables = [
+            "t2m",
+            "t2m:range:240h",
+            *(f"t2m:{method}:2h" for method in ("mean", "sum", "min", "max")),
+        ]
+        plain, stats, _ = plan_statistics(
+            variables,
+            times,
+            np.timedelta64(1, "h"),
+            ("mean", "sum", "min", "max", "range"),
+        )
+        assert plain == [(0, "t2m")]
+        out = np.full((2, 6, 2), np.nan)
         refs = []
-        initial_tasks = len(asyncio.all_tasks())
 
-        async def fetch(h):
-            assert len(asyncio.all_tasks()) <= initial_tasks + 3
-            sample = np.array([h, np.nan])
-            refs.append(weakref.ref(sample))
-            assert sum(ref() is not None for ref in refs) <= 3
+        async def fetch(coord, base):
+            assert base == "t2m"
+            field = np.array([coord / np.timedelta64(1, "h"), np.nan])
+            refs.append(weakref.ref(field))
             await asyncio.sleep(0)
-            for _, _, add in modifiers:
-                add(0, sample)
+            return field
 
-        await map_with_concurrency(requests, fetch, async_workers=3, verbose=False)
-        finalize()
+        asyncio.run(
+            reduce_statistics(out, stats, fetch, async_workers=3, verbose=False)
+        )
         assert all(ref() is None for ref in refs)
+        np.testing.assert_allclose(out[:, 0], np.nan, equal_nan=True)
+        np.testing.assert_allclose(out[:, 1, 0], [239, 239])
+        # Window [t-2h, t) of hourly samples
+        np.testing.assert_allclose(out[:, 2, 0], [1.5, 2.5])
+        np.testing.assert_allclose(out[:, 3, 0], [3, 5])
+        np.testing.assert_allclose(out[:, 4, 0], [1, 2])
+        np.testing.assert_allclose(out[:, 5, 0], [2, 3])
+        # Missing cells ignore NaN; sum of nothing is zero
         np.testing.assert_allclose(
-            values.reshape(4, 2)[:, 0], [119.5, sum(range(240)), 0, 239]
+            out[:, 2:, 1], [[np.nan, 0, np.nan, np.nan]] * 2, equal_nan=True
         )
-        np.testing.assert_allclose(
-            values.reshape(4, 2)[:, 1], [np.nan, 0, np.nan, np.nan], equal_nan=True
-        )
+    finally:
+        _TIME_STATISTICS.pop("range")
 
-        active = 0
-        ready = asyncio.Event()
+    # A failing fetch propagates and leaves no running tasks
+    _, stats, _ = plan_statistics(
+        ["t2m:mean:24h"],
+        np.array([24], dtype="timedelta64[h]"),
+        np.timedelta64(1, "h"),
+        ("mean",),
+    )
+    out = np.full((1, 1, 2), np.nan)
 
-        async def failing_fetch(request):
-            nonlocal active
-            active += 1
-            try:
-                if active == 3:
-                    ready.set()
-                await ready.wait()
-                if request is requests[0]:
-                    raise OSError("mock fetch failed")
-                await asyncio.Event().wait()
-            finally:
-                active -= 1
+    async def run():
+        initial = len(asyncio.all_tasks())
+
+        async def fetch(coord, base):
+            if coord == np.timedelta64(5, "h"):
+                raise OSError("mock fetch failed")
+            await asyncio.sleep(0.01)
+            return np.zeros(2)
 
         with pytest.raises(OSError, match="mock fetch failed"):
-            await map_with_concurrency(
-                requests, failing_fetch, async_workers=3, verbose=False
-            )
-        assert active == 0
-        assert len(asyncio.all_tasks()) == initial_tasks
+            await reduce_statistics(out, stats, fetch, async_workers=3, verbose=False)
+        assert len(asyncio.all_tasks()) == initial
 
-        ready.clear()
+    asyncio.run(run())
+    assert np.isnan(out).all()
 
-        async def waiting_fetch(request):
-            nonlocal active
-            active += 1
-            ready.set()
-            try:
-                await asyncio.Event().wait()
-            finally:
-                active -= 1
+    # Bounded worker pool: failure, cancellation and timeout leave nothing running
+    asyncio.run(_check_map_with_concurrency())
 
-        operation = asyncio.create_task(
-            map_with_concurrency(
-                requests, waiting_fetch, async_workers=3, verbose=False
-            )
+
+async def _check_map_with_concurrency():
+    requests = list(range(240))
+    active = 0
+    ready = asyncio.Event()
+    initial_tasks = len(asyncio.all_tasks())
+
+    async def failing_fetch(request):
+        nonlocal active
+        active += 1
+        try:
+            if active == 3:
+                ready.set()
+            await ready.wait()
+            if request is requests[0]:
+                raise OSError("mock fetch failed")
+            await asyncio.Event().wait()
+        finally:
+            active -= 1
+
+    with pytest.raises(OSError, match="mock fetch failed"):
+        await map_with_concurrency(
+            requests, failing_fetch, async_workers=3, verbose=False
         )
-        await ready.wait()
-        operation.cancel()
-        with pytest.raises(asyncio.CancelledError):
-            await operation
-        assert active == 0
+    assert active == 0
+    assert len(asyncio.all_tasks()) == initial_tasks
 
-        with pytest.raises(asyncio.TimeoutError):
-            await map_with_concurrency(
-                requests,
-                waiting_fetch,
-                async_workers=3,
-                verbose=False,
-                task_timeout=0.01,
-            )
-        assert active == 0
+    ready.clear()
 
-    asyncio.run(check_pool())
+    async def waiting_fetch(request):
+        nonlocal active
+        active += 1
+        ready.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            active -= 1
+
+    operation = asyncio.create_task(
+        map_with_concurrency(requests, waiting_fetch, async_workers=3, verbose=False)
+    )
+    await ready.wait()
+    operation.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await operation
+    assert active == 0
+
+    with pytest.raises(asyncio.TimeoutError):
+        await map_with_concurrency(
+            requests, waiting_fetch, async_workers=3, verbose=False, task_timeout=0.01
+        )
+    assert active == 0
 
 
 class _AnalysisSequence:

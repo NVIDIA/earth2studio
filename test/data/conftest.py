@@ -54,7 +54,7 @@ def mock_statistic_grib(monkeypatch, tmp_path):
     def install(ds, missing=()):
         calls = []
         name = type(ds).__module__.rsplit(".", 1)[-1]
-        for axis in (("GFS_LAT", "GFS_LON") if name == "gfs" else ("HRRR_Y", "HRRR_X")):
+        for axis in ("GFS_LAT", "GFS_LON") if name == "gfs" else ("HRRR_Y", "HRRR_X"):
             monkeypatch.setattr(ds, axis, np.arange(2))
         if name == "hrrr":
             monkeypatch.setattr(
@@ -122,6 +122,9 @@ def mock_statistic_zarr(monkeypatch, tmp_path):
                     hours = range(index.start, index.stop)
                     reads.extend(hours)
                     return np.stack([np.full((2, 2), float(h)) for h in hours])
+                if isinstance(index, tuple):  # single (time, level) field
+                    reads.append(int(index[0]))
+                    return np.full((2, 2), float(index[0] + index[1]))
                 reads.append(int(index))
                 # Pressure-level chunks hold every level of an hour; level k is +k
                 field = np.full((2, 2), float(index))

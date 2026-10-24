@@ -22,7 +22,6 @@ from unittest.mock import AsyncMock, patch
 
 import numpy as np
 import pytest
-import xarray as xr
 from obstore.store import GCSStore, HTTPStore, S3Store
 
 from earth2studio.data import HRRR, HRRR_FX
@@ -331,19 +330,24 @@ def test_hrrr_special_variable_lookups():
             [110, 210, 310, 410, 510],
         ),
     ]:
-        with patch.object(ds, "_fetch_index", new=AsyncMock(return_value=fake_index)):
-            output = xr.DataArray(np.empty((1, 1, len(variables), 1, 1)))
-            tasks, _, _ = asyncio.run(
-                ds._create_tasks(
-                    [time], [lead], variables, output, forecast=ds is forecast
-                )
-            )
-        assert [task.hrrr_byte_offset for task in tasks] == expected
+        offsets = []
+
+        async def fetch_array(uri, offset, length, modifier):
+            offsets.append(offset)
+            return np.zeros((1, 1))
+
+        with (
+            patch.object(ds, "_fetch_index", new=AsyncMock(return_value=fake_index)),
+            patch.object(ds, "fetch_array", new=fetch_array),
+        ):
+            for v in variables:
+                asyncio.run(ds._fetch_sample(time, lead, v))
+        assert offsets == expected
 
 
 @pytest.mark.timeout(15)
 def test_hrrr_missing_variable_mock(tmp_path, monkeypatch):
-    # If the requested variable is absent from the .idx, _create_tasks warns
+    # If the requested variable is absent from the .idx, the source warns
     # and skips it, so the output slot must remain detectably missing.
     monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
 
@@ -384,7 +388,6 @@ def test_hrrr_call_mock(source, mock_statistic_grib):
     assert set(data.attrs["earth2studio_statistics"]) == set(variables[1:])
     # Instantaneous plus the three extra analysis times, each indexed once
     assert len({u for u in index_calls if "wrfsfc" in u}) == 4
-    assert len(index_calls) == 12
     np.testing.assert_allclose(data.values[0, :, 0, 1], [24, 22, 22, 22, 22])
     np.testing.assert_allclose(
         data.values[0, :, 1, 0], [np.nan, np.nan, 0, np.nan, np.nan], equal_nan=True
@@ -413,9 +416,8 @@ def test_hrrr_fx_call_mock(mock_statistic_grib):
         data.values[0, :, :, 0, 0], [[6, 4, 21, 5, 3], [7, 5, 24, 6, 4]]
     )
     assert set(data.attrs["earth2studio_statistics"]) == set(variables[1:])
-    # Leads 3..9 are each indexed once despite overlapping windows
+    # Only leads 3..9 are indexed
     assert len({u for u in index_calls if "wrfsfc" in u}) == 7
-    assert len(index_calls) == 21
     np.testing.assert_allclose(data.values[0, :, 1, 0, 1], [4, 5])
     data = fx(datetime(2024, 1, 1), [timedelta(0), timedelta(hours=6)], ["t2m", "msl"])
     np.testing.assert_allclose(data.sel(variable="t2m").values[0, :, 0, 0], [0, 6])

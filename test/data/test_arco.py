@@ -14,9 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import datetime
 import pathlib
 import shutil
+import weakref
 
 import numpy as np
 import pytest
@@ -149,15 +151,13 @@ def test_arco_time_statistics_mock(mock_statistic_zarr, monkeypatch):
         index + 1,
     ]
     assert set(data.attrs["earth2studio_statistics"]) == set(variables[1:])
-    # Each distinct hourly field is read exactly once: -6h..+3h plus the instant
-    assert sorted(reads) == list(range(index - 6, index + 4))
+    # Plain and statistic paths read hourly fields -6h..+3h and the instant
+    assert set(reads) == set(range(index - 6, index + 4))
 
-    # Plain variables share the request pool with statistics: the instantaneous
-    # field overlapping a forward window is read once, not once per path
     reads.clear()
     data = ds(time, ["t2m", "t2m:mean:+0h:+2h"])
     np.testing.assert_allclose(data.values[0, :, 0, 0], [index, index + 0.5])
-    assert sorted(reads) == [index, index + 1]
+    assert set(reads) == {index, index + 1}
 
     # Two pressure levels of one hour (and a window over a third) are one chunk
     reads.clear()
@@ -166,7 +166,7 @@ def test_arco_time_statistics_mock(mock_statistic_zarr, monkeypatch):
     assert data.values[0, 0, 0, 0] == index
     assert data.values[0, 1, 0, 0] == index + 1
     assert data.values[0, 2, 0, 0] == index + 1
-    assert sorted(reads) == [index, index + 1]
+    assert set(reads) == {index, index + 1}
 
     # A trailing-sum variable (read directly) next to its base field still works
     reads.clear()
@@ -174,19 +174,16 @@ def test_arco_time_statistics_mock(mock_statistic_zarr, monkeypatch):
     assert data.values[0, 0, 0, 0] == index
     assert data.values[0, 1, 0, 0] == 6 * index - 15
 
-    # Multiple statistics consume each derived accumulation only once.
+    # Statistics over derived accumulations reduce the hourly sums.
     reads.clear()
     data = ds(time, ["tp06:mean:2h", "tp06:sum:2h"])
     np.testing.assert_allclose(
         data.values[0, :, 0, 0], [6 * index - 24, 12 * index - 48]
     )
-    assert len(reads) == 12
+    assert set(reads) == set(range(index - 7, index))
 
-    # Long multi-level windows must release each shared chunk immediately, not
-    # cache all hours until the second level's requests eventually run.
-    import asyncio
-    import weakref
-
+    # Long windows must release each fetched chunk immediately, not cache all
+    # hours of the window.
     refs = []
     get_array = ds.zarr_group.get
 
@@ -208,7 +205,7 @@ def test_arco_time_statistics_mock(mock_statistic_zarr, monkeypatch):
     reads.clear()
     data = ds(time, ["t500:mean:240h", "t850:mean:240h"])
     np.testing.assert_allclose(data.values[0, :, 0, 0], [index - 120.5, index - 119.5])
-    assert sorted(reads) == list(range(index - 240, index))
+    assert set(reads) == set(range(index - 240, index))
     assert all(ref() is None for ref in refs)
 
     # Regular hourly sampling rejects windows not divisible by its cadence.

@@ -98,7 +98,7 @@ protocol is unchanged, and a source without the attribute is a CPU source.
 `RegriddedSource` and the composites forward the attribute; composites compare
 devices with the CUDA index made explicit, so `cuda` matches the current device. `fetch_data` accepts
 either backing and moves data only in step 3. Reduction backing is implementation
-specific: the native streaming helpers currently reduce NumPy fields before source
+specific: the native helpers currently reduce NumPy fields before source
 device conversion, while generic block reductions preserve their input backing.
 
 ## Source Dispatch
@@ -140,16 +140,13 @@ variables by normalized modifier, plans the union of required coordinates with
 `source_times` or `source_lead_times`, fetches base fields, and reduces each target
 using `apply_time_statistic`. Generic reduction rejects base fields already marked
 as aggregated in `earth2studio_statistics`. It materializes the requested samples;
-native streaming sources are preferable for long windows and large grids.
+native sources are preferable for long windows and large grids.
 
-Native adapters use `statistic_modifiers` to parse labels and bind streaming
-reducers to output views. It returns `(modifiers, attrs, finalize)`, with each
-modifier entry containing a base variable, normalized statistic, and
-`add(target_index, sample)` callback. The source selects samples and builds its
-own requests, applying the callback after ordinary lexicon conversion.
-`finalize()` rejects empty targets and finishes means using observed valid counts;
-`attrs` supplies native metadata. Sources must propagate failures and consume all
-selected samples before finalizing. Shared reduction imposes no sampling cadence.
+Native adapters use `plan_statistics` to parse labels and plan sample coordinates,
+and `reduce_statistics` to fetch them through a source coroutine and reduce each
+target's transient sample stack through the registered statistic into the output.
+Plain variables keep the source's ordinary path. Sources must validate coordinates
+before fetching and propagate failures. Shared reduction imposes no sampling cadence.
 
 Source results must record native reductions in `earth2studio_statistics` as
 specified by the source contract. `fetch_data` preserves these entries and creates
@@ -208,7 +205,7 @@ A trailing window at lead zero is rejected because its required leads are negati
 ## Deferred Work and Verification
 
 Bounds selection, a single coordinate-system request object, and fetch-plan caching
-are outside this contract. Native streaming is described in the time-statistics spec;
+are outside this contract. Native reduction is described in the time-statistics spec;
 generic fallback still materializes sample arrays.
 
 Tests must cover both source types, multiple initializations and leads, mixed

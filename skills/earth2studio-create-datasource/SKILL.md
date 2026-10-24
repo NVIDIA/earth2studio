@@ -282,23 +282,21 @@ with them when changing the implementation.
    and expose that lexicon as `source.lexicon`. Omit this metadata for lexicons
    without native support (e.g. climatology). Do not add source-level
    `time_statistics` or `time_step` attributes.
-2. **Bind modifiers**: `statistic_modifiers(variable, values,
-   supported=self.lexicon.TIME_STATISTICS, ...)` returns `modifiers, attrs,
-   finalize`. Each entry is `(base, statistic, add)` with an
-   `add(target_index, sample)` callback. Bind to `(target, variable, ...)` output
-   views; use a separate view per forecast initialization.
-3. **Select and validate samples** with source-owned requests and availability.
-   Regular sources can use `source_times` / `source_lead_times`; irregular sources
-   select available coordinates using `time_statistic_metadata` offsets.
-   Validate all expanded coordinates before downloading.
-4. **Fetch + process**: fetch the field with its ordinary lexicon conversion, then
-   call `add(target_index, sample)` once for each consuming target. Preserve the
-   source's fetch methods and request structures; deduplicate shared fields there.
-   `map_with_concurrency(items, fetch_wrapper, ...)` offers bounded execution.
-   Memory is output views, mean counts, and concurrent fields, not whole windows.
-5. **Finish**: after consuming every request, call `finalize()` once to reject
-   empty targets and finish means using observed per-cell counts. Propagate fetch
-   errors; `xr_array.attrs.update(attrs)` declares the statistics.
+2. **Plan**: `plain, stats, attrs = plan_statistics(variable, targets, delta_t,
+   supported=self.lexicon.TIME_STATISTICS, validate=self._validate_time, ...)`. `plain` is `[(slot, name)]`
+   fetched with the source's ordinary path; `stats` is
+   `[(slot, base, modifier, samples)]` with `samples` shaped `(target, sample)`.
+   `targets` are valid times, or the lead times of one initialization for forecasts.
+3. **Validate**: `plan_statistics` passes every unique sample coordinate to `validate`
+   before anything is downloaded.
+   Irregular sources build their own sample lists from `time_statistic_metadata`.
+4. **Reduce**: `await reduce_statistics(out, stats, fetch)` where `out` is the
+   `(target, variable, ...)` output view (one per initialization for forecasts) and
+   `fetch(coord, base)` is a source coroutine returning one lexicon-converted field.
+   Each target's samples are stacked in a transient array, reduced through the
+   registered statistic (`reduce_samples`), written to `out`, and released.
+   New registered statistics work without source changes (add to `TIME_STATISTICS`).
+5. **Finish**: propagate fetch errors and set `xr_array.attrs.update(attrs)`.
 6. **Tell the user**: the helper's `verbose=True` reports what is
    averaged/accumulated/min'd/max'd and the window. Warn about
    fields that are already accumulations (e.g. resetting precipitation buckets).
@@ -311,7 +309,7 @@ itself imposes no cadence and uses sample-weighted means. Parsing is in
 
 **Testing:** use exactly one mock test (extend `test_<source>_call_mock` if present,
 otherwise add `test_<source>_time_statistics_mock`),
-covering mean/sum/min/max, the attrs, fetch-once behavior, and an invalid
+covering mean/sum/min/max, the attrs, the planned samples read, and an invalid
 window (forecast sources also lead-time overlap, separate initializations, and
 lead < 0). Mock I/O, not the planner or reducer. The sample is in
 `references/temporal-statistics.py`; fixtures `mock_statistic_zarr` and
@@ -455,8 +453,8 @@ Agent: [loads skill, proceeds through Steps 0–14]
 canonical method ordering, obstore helpers, `gather_with_concurrency`, `async_retry`,
 reference URLs in docstrings, `try/finally` cleanup.
 
-**Temporal statistics:** optional; reuse `statistic_modifiers` from
-`earth2studio/data/utils.py`, stream-reduce samples, never buffer a window.
+**Temporal statistics:** optional; reuse `plan_statistics` / `reduce_statistics` from
+`earth2studio/data/utils.py`; one transient window stack per target, never the whole request.
 
 **AVOID:** hand-rolled fsspec stores, `asyncio.to_thread`, bare `tqdm.gather`,
 xarray for loading, full file downloads.

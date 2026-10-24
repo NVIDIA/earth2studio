@@ -25,7 +25,6 @@ import uuid
 from collections import OrderedDict
 from collections.abc import Awaitable, Callable, Collection, Sequence
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from inspect import signature
@@ -78,6 +77,7 @@ from earth2studio.utils.time import (
 )
 from earth2studio.utils.time_statistics import (
     apply_time_statistic,
+    reduce_samples,
     source_lead_times,
     source_times,
     time_statistic_metadata,
@@ -1899,16 +1899,13 @@ def table_to_dataframe(
 # Native temporal statistics for data sources
 #
 # A requested variable such as "t2m:mean:24h" is a lexicon variable ("t2m") plus a
-# statistic ("mean:24h"). A source that computes statistics itself resolves the base
-# variable through its lexicon as usual and uses the helpers below to split the
-# request, plan the extra analysis times / lead times (via
-# earth2studio.utils.time_statistics), fold every sample into the output as it
-# arrives (streaming sum / mean / min / max, plus valid counts for means) and
-# log what is averaged or accumulated in verbose mode.
+# statistic ("mean:24h"). The source keeps ownership of every request: it fetches
+# plain variables as usual and hands statistic variables to two functions here.
+# ``plan_statistics`` collects which sample times / lead times each target needs,
+# and ``reduce_statistics`` fetches those samples through a source callback into a
+# transient stack, reduces it with the registered statistic (an xarray reduction,
+# see earth2studio.utils.time_statistics) and writes the result into the output.
 # --------------------------------------------------------------------------- #
-
-#: Statistic methods the streaming aggregator can reduce.
-STREAMING_STATISTICS: tuple[str, ...] = ("mean", "sum", "min", "max")
 
 _DESCRIPTIONS = {
     "mean": "averaged",
@@ -1917,260 +1914,152 @@ _DESCRIPTIONS = {
     "max": "reduced to the maximum",
 }
 
-
-@dataclass(frozen=True)
-class _StatisticGroup:
-    """Requested variables that share one statistic modifier.
-
-    Parameters
-    ----------
-    modifier : str
-        Canonical modifier, such as ``"mean:24h"``
-    method : str
-        Reduction method of the modifier, such as ``"mean"``
-    variables : tuple[tuple[int, str, str], ...]
-        ``(slot, label, base)`` for each variable: position in the request, full
-        requested label (``"t2m:mean:24h"``) and base lexicon name (``"t2m"``)
-    """
-
-    modifier: str
-    method: str
-    variables: tuple[tuple[int, str, str], ...]
+#: Statistic-variable plan entry ``(slot, base, modifier, samples)``
+StatisticPlan = tuple[int, str, str, np.ndarray]
 
 
-def _split_statistic_variables(
+def plan_statistics(
     variable: Sequence[str],
-    supported: Sequence[str] = STREAMING_STATISTICS,
-) -> tuple[list[tuple[int, str]], list[_StatisticGroup]]:
-    """Separate plain variables from variables qualified with a statistic.
-
-    Parameters
-    ----------
-    variable : Sequence[str]
-        Requested variable labels
-    supported : Sequence[str], optional
-        Statistic methods the calling source can compute, by default every
-        streaming method
-
-    Returns
-    -------
-    tuple[list[tuple[int, str]], list[_StatisticGroup]]
-        ``(slot, name)`` of each plain variable, and the statistic groups in order
-        of first appearance
-
-    Raises
-    ------
-    ValueError
-        If a label is malformed or uses a method the source does not support
-    """
-    plain: list[tuple[int, str]] = []
-    grouped: dict[str, list[tuple[int, str, str]]] = {}
-    methods: dict[str, str] = {}
-    quantities: set[tuple[str, str | None]] = set()
-    quantity: tuple[str, str | None]
-    for slot, label in enumerate(variable):
-        base, separator, qualifier = str(label).partition(":")
-        if not base:
-            raise ValueError("Variable name must not be empty")
-        if not separator or "::" in label:
-            quantity = (str(label), None)
-            if quantity in quantities:
-                raise ValueError("Requested variables contain duplicate quantities")
-            quantities.add(quantity)
-            plain.append((slot, str(label)))
-            continue
-        metadata = time_statistic_metadata(qualifier)
-        method = str(metadata["method"])
-        if method not in supported:
-            raise ValueError(
-                f"Time statistic '{method}' in '{label}' is not supported by this "
-                f"source, supported: {tuple(supported)}"
-            )
-        modifier = str(metadata["modifier"])
-        quantity = (base, modifier)
-        if quantity in quantities:
-            raise ValueError("Requested variables contain duplicate quantities")
-        quantities.add(quantity)
-        methods[modifier] = method
-        grouped.setdefault(modifier, []).append((slot, str(label), base))
-    groups = [
-        _StatisticGroup(modifier, methods[modifier], tuple(entries))
-        for modifier, entries in grouped.items()
-    ]
-    return plain, groups
-
-
-class _StatisticReducer:
-    """Streaming reduction of the samples in each target's window.
-
-    Reductions write directly into ``out``; means also keep per-cell valid counts.
-    Field memory usage is independent of the number of samples in a window;
-    request planning and timestamp routing belong to the source. No cadence,
-    window, or expected sample count is required. A ``None`` method copies
-    instantaneous samples without reducing them.
-
-    Parameters
-    ----------
-    method : str | None
-        Reduction method, such as ``"mean"``, or None for plain samples
-    out : np.ndarray
-        Writable array with one leading entry per output target
-
-    Raises
-    ------
-    ValueError
-        If the method cannot be streamed
-    """
-
-    def __init__(
-        self,
-        method: str | None,
-        out: np.ndarray,
-    ) -> None:
-        self.method = method
-        if self.method is not None and self.method not in STREAMING_STATISTICS:
-            raise ValueError(
-                f"Time statistic '{self.method}' cannot be streamed, "
-                f"supported: {STREAMING_STATISTICS}"
-            )
-        self.out = out
-        self._seen = np.zeros(len(out), dtype=np.int64)
-        self._valid = (
-            np.zeros(out.shape, dtype=np.int64) if self.method == "mean" else None
-        )
-
-    def add(self, index: int, sample: np.ndarray) -> None:
-        """Fold one fetched sample into an output target and count its values.
-
-        Parameters
-        ----------
-        index : int
-            Output target selected by the source
-        sample : np.ndarray
-            Fetched field; not retained
-        """
-        target = self.out[index]
-        if self.method is None:
-            target[...] = sample
-        elif self.method in ("sum", "mean"):
-            if self._seen[index] == 0:
-                target.fill(0)
-            valid = ~np.isnan(sample)
-            np.add(target, sample, out=target, where=valid)
-            if self._valid is not None:
-                # Count received values per cell, not planned timestamps: missing
-                # cells and irregular sampling can give different denominators.
-                self._valid[index] += valid
-        elif self._seen[index] == 0:
-            target[...] = sample
-        elif self.method == "min":
-            np.fmin(target, sample, out=target)
-        else:
-            np.fmax(target, sample, out=target)
-        self._seen[index] += 1
-
-    def finalize(self) -> None:
-        """Finish using observed counts, skipping NaNs independently per cell.
-
-        Call once when the stream ends. Each target may receive a different
-        number of samples; means use the valid values actually received.
-
-        Raises
-        ------
-        ValueError
-            If any target has received no samples
-        """
-        if np.any(self._seen == 0):
-            raise ValueError(
-                f"No samples received for '{self.method}' targets "
-                f"{np.flatnonzero(self._seen == 0).tolist()}"
-            )
-        if self._valid is not None:
-            with np.errstate(invalid="ignore", divide="ignore"):
-                self.out /= self._valid
-
-
-def statistic_modifiers(
-    variable: Sequence[str],
-    values: np.ndarray,
-    supported: Sequence[str] = STREAMING_STATISTICS,
+    targets: np.ndarray,
+    delta_t: np.timedelta64,
+    supported: Sequence[str],
+    validate: Callable[[list[Any]], None] | None = None,
     source: str = "Data source",
     verbose: bool = False,
-) -> tuple[
-    list[tuple[str, str | None, Callable[[int, np.ndarray], None]]],
-    dict[str, Any],
-    Callable[[], None],
-]:
-    """Parse variable labels and create in-place statistical modifiers.
-
-    This helper knows nothing about source requests, timestamps or sampling
-    cadence. The source chooses samples for each output target and calls
-    ``add(target_index, field)`` after its lexicon conversion. It may use the
-    regular-grid ``source_times`` / ``source_lead_times`` helpers, or select
-    irregular coordinates using the bounds from ``time_statistic_metadata``.
-    Means are sample means, not duration-weighted means.
+) -> tuple[list[tuple[int, str]], list[StatisticPlan], dict[str, Any]]:
+    """Split a request into plain and statistic variables and plan the samples.
 
     Parameters
     ----------
     variable : Sequence[str]
         Plain or statistic-qualified labels, in output variable order
-    values : np.ndarray
-        Output array, written in place: ``(target, variable, ...)``. The source
-        defines targets, for example analysis times or leads of one initialization
-    supported : Sequence[str], optional
-        Methods declared by the source lexicon
+    targets : np.ndarray
+        Output targets: ``datetime64`` valid times or ``timedelta64`` lead times
+        (of one initialization time)
+    delta_t : np.timedelta64
+        Sampling interval of the source
+    supported : Sequence[str]
+        Statistic methods the source declares in its lexicon
+    validate : Callable[[list[Any]], None] | None, optional
+        Source validation of every planned sample, called once with the sorted unique
+        ``datetime`` (or ``timedelta`` for lead time targets) values before anything
+        is fetched; should raise ValueError for samples the source cannot provide
     source : str, optional
         Source name used for operation logging
     verbose : bool, optional
-        Log the reduction and window for each statistic
+        Log the reduction and window of each statistic
 
     Returns
     -------
-    list[tuple[str, str | None, Callable[[int, np.ndarray], None]]]
-        Base lexicon name, normalized statistic (None for plain variables), and
-        an ``add(target_index, field)`` callback, in requested variable order
-    dict[str, Any]
-        Attributes to attach to the output after finalization
-    Callable[[], None]
-        Function to finish means in place using observed per-cell counts after
-        fetching. Targets with no samples raise ValueError; fetching errors must
-        propagate rather than silently producing partial windows. Reduction state
-        is private to the callbacks. Sources own request construction and routing
+    tuple[list[tuple[int, str]], list[StatisticPlan], dict[str, Any]]
+        ``(slot, name)`` of plain variables, ``(slot, base, modifier, samples)`` of
+        statistic variables where ``samples`` has shape ``(target, sample)`` and
+        holds the coordinates to fetch, and attributes for the output
+
+    Raises
+    ------
+    ValueError
+        If a label is empty, duplicated or uses a method the source does not support
     """
-    plain, groups = _split_statistic_variables(variable, supported)
-    reducers: list[_StatisticReducer] = []
-    modifiers: list[tuple[str, str | None, Callable[[int, np.ndarray], None]]] = []
-    entries: list[tuple[str | None, int, str]] = [
-        (group.modifier, slot, base)
-        for group in groups
-        for slot, _, base in group.variables
-    ]
-    entries.extend((None, slot, name) for slot, name in plain)
-    for modifier, slot, base in sorted(entries, key=lambda entry: entry[1]):
-        method = str(time_statistic_metadata(modifier)["method"]) if modifier else None
-        reducer = _StatisticReducer(method, values[:, slot])
-        reducers.append(reducer)
-        modifiers.append((base, modifier, reducer.add))
-    metadata = {
-        label: time_statistic_metadata(group.modifier)
-        for group in groups
-        for _, label, _ in group.variables
-    }
-    if verbose:
-        for group in groups:
-            labels = ", ".join(label for _, label, _ in group.variables)
-            logger.info(
-                f"{source}: {labels} {_DESCRIPTIONS[group.method]} "
-                f"over {group.modifier} (left-closed/right-open window)"
+    plain: list[tuple[int, str]] = []
+    stats: list[StatisticPlan] = []
+    metadata: dict[str, Any] = {}
+    seen: set[tuple[str, str]] = set()
+    is_time = np.issubdtype(targets.dtype, np.datetime64)
+    sample_times = source_times if is_time else source_lead_times
+    for slot, label in enumerate(map(str, variable)):
+        base, separator, qualifier = label.partition(":")
+        if not base:
+            raise ValueError("Variable name must not be empty")
+        info = (
+            time_statistic_metadata(qualifier)
+            if separator and "::" not in label
+            else {}
+        )
+        if info and str(info["method"]) not in supported:
+            raise ValueError(
+                f"Time statistic '{info['method']}' in '{label}' is not supported by "
+                f"this source, supported: {tuple(supported)}"
             )
+        quantity = (base, str(info.get("modifier", ""))) if info else (label, "")
+        if quantity in seen:
+            raise ValueError("Requested variables contain duplicate quantities")
+        seen.add(quantity)
+        if not info:
+            plain.append((slot, label))
+            continue
+        modifier = str(info["modifier"])
+        stats.append((slot, base, modifier, sample_times(modifier, targets, delta_t)))
+        metadata[label] = info
+        if verbose:
+            logger.info(
+                f"{source}: {label} {_DESCRIPTIONS.get(str(info['method']), 'reduced')} "
+                f"over {modifier} (left-closed/right-open window)"
+            )
+    if validate is not None and stats:
+        convert = as_datetime if is_time else as_timedelta
+        validate(sorted({convert(t) for *_, samples in stats for t in samples.ravel()}))
+    return plain, stats, {E2S_STATISTICS: metadata} if metadata else {}
 
-    def finalize() -> None:
-        # The source must propagate fetch failures before reaching this point;
-        # reducers cannot infer whether a source-selected stream is complete.
-        for reducer in reducers:
-            reducer.finalize()
 
-    return modifiers, {E2S_STATISTICS: metadata} if metadata else {}, finalize
+async def reduce_statistics(
+    out: np.ndarray,
+    stats: Sequence[StatisticPlan],
+    fetch: Callable[[Any, str], Awaitable[np.ndarray]],
+    async_workers: int | None = None,
+    desc: str = "Fetching time statistic samples",
+    verbose: bool = True,
+) -> None:
+    """Fetch the planned samples and reduce them into the output array.
+
+    Statistic variables are processed one target at a time. The samples of a window
+    are fetched by a bounded worker pool into a single transient stack, reduced with
+    the registered statistic and written to ``out``. Peak memory is therefore one
+    window of fields (window length times grid size), independent of the request
+    size. Fetch failures propagate; there are no partial windows.
+
+    Parameters
+    ----------
+    out : np.ndarray
+        Output array ``(target, variable, ...)``, written in place
+    stats : Sequence[StatisticPlan]
+        Statistic entries from :py:func:`plan_statistics`
+    fetch : Callable[[Any, str], Awaitable[np.ndarray]]
+        Source function ``fetch(coordinate, base_variable)`` returning one field
+        with the grid shape of ``out`` (lexicon modifiers applied)
+    async_workers : int | None, optional
+        Maximum concurrent sample fetches within a window, by default 4
+    desc : str, optional
+        Progress bar description
+    verbose : bool, optional
+        Show the progress bar, by default True
+    """
+    jobs = [
+        (slot, i, base, modifier, coords)
+        for slot, base, modifier, samples in stats
+        for i, coords in enumerate(samples)
+    ]
+    for job in tqdm(jobs, desc=desc, disable=not verbose):
+        await _reduce_window(out, job, fetch, async_workers or 4)
+
+
+async def _reduce_window(
+    out: np.ndarray,
+    job: tuple[int, int, str, str, np.ndarray],
+    fetch: Callable[[Any, str], Awaitable[np.ndarray]],
+    workers: int,
+) -> None:
+    """Fetch one window of samples into a stack and reduce it into ``out``"""
+    slot, i, base, modifier, coords = job
+    stack = np.empty((len(coords),) + out.shape[2:], dtype=out.dtype)
+
+    async def sample(k: int) -> None:
+        stack[k] = await fetch(coords[k], base)
+
+    await map_with_concurrency(
+        range(len(coords)), sample, async_workers=workers, verbose=False
+    )
+    out[i, slot] = reduce_samples(modifier, stack)
 
 
 def as_datetime(coord: Any) -> datetime:
@@ -2221,6 +2110,7 @@ async def map_with_concurrency(
     with tqdm(total=len(items), desc=desc, disable=not verbose) as progress:
 
         async def worker() -> None:
+            """Consume items until the shared iterator is exhausted"""
             for item in pending:
                 if task_timeout is None:
                     await function(item)

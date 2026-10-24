@@ -22,7 +22,7 @@ metadata from these labels; there is no separate `statistics=` declaration.
 Data sources own aggregation: they accept qualified labels for the quantities they
 support and return them reduced (see Source Responsibilities). `time_statistics`
 owns modifier normalization, window planning, metadata, and block reductions.
-`earth2studio.data.utils` provides shared request planning and streaming aggregation.
+`earth2studio.data.utils` provides shared request planning and window reduction.
 
 ## Windows
 
@@ -116,73 +116,62 @@ dimension. Xarray preserves NumPy, CuPy, or Dask execution without implicit tran
 
 ### Native source request pipeline
 
-Use these support functions without replacing the source's request model:
+Two functions in `earth2studio.data.utils` support the source's own request model;
+there are no new classes or request objects:
 
-1. Call `statistic_modifiers(variable, values, ...)` with
-   `supported=self.lexicon.TIME_STATISTICS`. It parses labels and binds reduction
-   callbacks to output views, rejecting malformed labels, unsupported methods,
-   empty base names, and duplicate normalized quantities. `verbose=True` logs
-   operations and windows.
-2. `values` has shape `(target, variable, ...)`. For forecasts, bind separately
-   to each initialization's output view. Unpack `modifiers, attrs, finalize`;
-   each modifier entry is `(base_variable, normalized_statistic, add)`.
-3. Select samples and build requests inside the source. Regular sources can use
-   `source_times` / `source_lead_times` with their own cadence. Irregular sources
-   select available coordinates inside the half-open offsets obtained from
-   `time_statistic_metadata`. Shared reducers do not assume uniform time steps.
-   Forecasts vary leads within their initialization. Validate all coordinates
-   before reading fields, and deduplicate samples within the source's fetch flow.
-4. Apply the ordinary lexicon conversion, then call `add(target_index, sample)`
-   for each consuming target. This copies plain values or updates a window in
-   place without retaining the sample. Source-owned requests may bind the target
-   index with `functools.partial`. `map_with_concurrency(items, function, ...)`
-   optionally supplies bounded execution of the source's own fetch wrapper.
-5. Call `finalize()` once after all requests complete to reject empty targets and
-   divide means by observed per-cell valid counts. Set `array.attrs.update(attrs)`.
-   Requested spelling, order, target coordinates, and spatial geometry are preserved.
-
-Sources share requests by base variable and source-specific coordinates.
-Equal valid times from different forecast initializations remain distinct requests.
-
-The shared call structure is:
+1. `plain, stats, attrs = plan_statistics(variable, targets, delta_t, supported,
+   validate=...)` splits the requested labels and plans the samples. `supported` is the lexicon's
+   `TIME_STATISTICS`. `targets` are the output valid times (or the lead times of one
+   initialization for forecast sources) and `delta_t` the source cadence. `plain` is
+   `[(slot, name)]` of unqualified labels (including raw `::` identifiers), which the
+   source fetches with its ordinary path. `stats` is
+   `[(slot, base, modifier, samples)]`, where `samples` is `(target, sample)` of the
+   coordinates to read (`source_times` / `source_lead_times`). Malformed labels,
+   unsupported methods, empty base names and duplicate normalized quantities raise
+   `ValueError`. `attrs` is the output's `earth2studio_statistics` metadata.
+2. `validate` is called once with the sorted unique sample coordinates (`datetime`, or
+   `timedelta` for lead time targets) before anything is read, so the source rejects
+   unavailable samples with its own `_validate_time` / `_validate_leadtime`.
+3. `await reduce_statistics(out, stats, fetch)` with `out` the `(target, variable, ...)`
+   output view (per initialization for forecasts) and `fetch(coord, base)` a source
+   coroutine returning one field with the lexicon conversion applied. For each target
+   and statistic variable, the fields are fetched concurrently into a transient array
+   `(sample, ...)`, reduced through the registered statistic (`reduce_samples`, an
+   xarray reduction over the sample dimension) and written to `out`. The stack is
+   then released. Finally the source sets `array.attrs.update(attrs)`.
 
 ```mermaid
 flowchart TD
-    A["source.fetch"] --> B["statistic_modifiers"]
-    B --> C["_split_statistic_variables → time_statistic_metadata"]
-    C --> D["source-owned sample selection and target routing"]
-    D --> E["existing request structures + statistical callbacks"]
-    E --> F["source._validate_time / _validate_leadtime"]
-    F --> G["source fetch wrapper → source I/O + lexicon modifier"]
-    G --> H["add(target, sample) → _StatisticReducer.add"]
-    H --> I["finalize() → _StatisticReducer.finalize"]
-    I --> J["array.attrs.update(attrs)"]
+    A["source.fetch"] --> B["plan_statistics"]
+    B --> C["plain variables → source's ordinary request path"]
+    B --> D["statistics: samples per target"]
+    D --> E["source._validate_time / _validate_leadtime"]
+    E --> F["reduce_statistics → source fetch(coord, base)"]
+    F --> G["transient stack → reduce_samples (registered statistic)"]
+    G --> H["out[target, slot]"]
+    C --> H
+    H --> I["array.attrs.update(attrs)"]
 ```
 
-ARCO groups all consumers of each Zarr chunk in `fetch_chunk_group`, applies
-their modifiers together, and releases the chunk immediately.
-At most four chunk reads run concurrently, including for multi-level windows.
-Derived accumulations use `fetch_array` to sum hourly fields incrementally.
-WB2 retains `fetch_wrapper → fetch_array`; GFS and HRRR retain `_create_tasks`
-and their source-specific async tasks, feeding fetched fields through statistical
-modifiers in `fetch_wrapper`. Backend adapters may fetch components for derived variables.
+ARCO and WB2 read fields through `fetch_array`; GFS and HRRR through an async
+`_fetch_sample` that resolves the index record (GFS also rebuilds `tp06` from
+accumulation buckets) and calls `fetch_array`. Plain variables keep each source's
+existing request path (for example ARCO's shared chunk reads).
 
-Field memory is bounded by the output, per-cell mean counts, and concurrent
-samples (or backend chunks/components), not a stack of every field in a window.
-Coordinate plans and consumer indices still grow with the number of requested
-samples. Do not retain decoded fields after their consumers have been updated.
-The scheduler uses a fixed worker pool rather than one asyncio task per request;
-failures, timeouts, and caller cancellation cancel and await outstanding workers.
+Memory is bounded by the output plus at most four transient stacks of one window
+each and `async_workers` (default 4) in-flight fields; a stack is released as soon as
+it is reduced. Coordinate plans grow with the number of requested samples. Overlapping
+windows of different targets re-read their common samples; this trades repeated
+reads (usually served by the source's disk cache) for the simplicity of an independent
+reduction per target. The jobs run through a fixed worker pool and a task group:
+a failure, timeout or caller cancellation cancels and awaits outstanding fetches, and
+no partial window is ever written.
 
-NaNs are skipped: an all-NaN window yields NaN for mean/min/max and zero for sum.
-This is distinct from an absent coordinate or failed download. The scheduler
-propagates download failures; sources may explicitly represent missing records
-as NaN fields. Reducers operate on received samples without a cadence, window, or
-expected count; the source plans coordinates and routes samples to targets.
-Means are sample-weighted, including for irregular samples, not duration-weighted.
-`finalize` rejects targets that received no samples. Sources must consume every
-selected sample exactly once per consuming target and propagate fetching failures rather than finalize
-a partial stream as a complete window.
+NaNs are skipped: an all-NaN window yields NaN for mean/min/max and zero for sum
+(xarray's default). This is distinct from an absent coordinate or failed download.
+The reduction does not use a cadence, window or expected count; the source plans the
+coordinates. Means are sample-weighted, not duration-weighted. Sources propagate
+fetching failures rather than reduce a partial window.
 
 ### Implemented source capabilities
 
@@ -217,9 +206,9 @@ dimensions, including `variable`:
 register_time_statistic("range", lambda x, dim: x.max(dim) - x.min(dim))
 ```
 
-Registration does not enable a method in native streaming sources. Those sources
-support only their declared subset of `STREAMING_STATISTICS`. Use explicit
-`delta_t` with `fetch_data` for a registered generic reduction.
+Native sources reduce through the registry, so a registered statistic works once the
+source lists its name in the lexicon's `TIME_STATISTICS`. The generic path
+(`fetch_data` with explicit `delta_t`) accepts any registered statistic.
 
 ## Metadata and Scope
 
@@ -237,7 +226,7 @@ Labels carry quantity identity through handshakes; attributes support lookup and
 serialization. Record CF-compatible time bounds and `cell_methods` when supported.
 
 Irregular-cadence inference, cross-variable diagnostics, and fused GPU kernels are
-out of scope. The current native streaming helpers operate on NumPy fields.
+out of scope. The native helpers operate on NumPy fields.
 
 ## Verification
 

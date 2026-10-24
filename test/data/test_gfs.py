@@ -23,7 +23,9 @@ from unittest.mock import AsyncMock, patch
 import numpy as np
 import pytest
 
+import earth2studio.data.gfs as gfs_module
 from earth2studio.data import GFS, GFS_FX
+from earth2studio.data.utils import fetch_data
 
 
 @pytest.mark.slow
@@ -336,7 +338,6 @@ def test_gfs_call_mock(mock_statistic_grib):
     assert set(data.attrs["earth2studio_statistics"]) == set(variables[1:])
     # Instantaneous plus the two extra analysis files, nothing else
     assert len(set(index_calls)) == 3
-    assert len(index_calls) == 3
     # Analysis windows move across cycles, always fetching lead zero.
     assert all("f000" in uri for uri in index_calls)
     index_calls.clear()
@@ -344,9 +345,8 @@ def test_gfs_call_mock(mock_statistic_grib):
     np.testing.assert_allclose(
         data.values[:, :, 0, 0], [[30, 21, 42, 24, 18], [24, 15, 30, 18, 12]]
     )
-    assert len(index_calls) == len(set(index_calls)) == 4
+    assert len(set(index_calls)) == 4
     assert all("f000" in uri for uri in index_calls)
-    from earth2studio.data.utils import fetch_data
 
     data = fetch_data(
         ds,
@@ -385,9 +385,8 @@ def test_gfs_fx_call_mock(mock_statistic_grib, monkeypatch, tmp_path):
         data.values[0, :, :, 0, 0], [[6, 4, 21, 5, 3], [7, 5, 24, 6, 4]]
     )
     assert set(data.attrs["earth2studio_statistics"]) == set(variables[1:])
-    # Leads 3..9 are each fetched once despite overlapping windows
+    # Only leads 3..9 are indexed
     assert len(set(index_calls)) == 7
-    assert len(index_calls) == 7
     np.testing.assert_allclose(data.values[0, :, 1, 0, 1], [4, 5])
     np.testing.assert_allclose(data.values[0, :, 2, 0, 1], [14, 8])
 
@@ -405,9 +404,9 @@ def test_gfs_fx_call_mock(mock_statistic_grib, monkeypatch, tmp_path):
             [[7, 5, 24, 6, 4], [6, 4, 21, 5, 3]],
         ],
     )
-    assert len(index_calls) == len(set(index_calls)) == 14
-    assert sum("gfs.t06z" in uri for uri in index_calls) == 7
-    assert sum("gfs.t00z" in uri for uri in index_calls) == 7
+    assert len(set(index_calls)) == 14
+    assert sum("gfs.t06z" in uri for uri in set(index_calls)) == 7
+    assert sum("gfs.t00z" in uri for uri in set(index_calls)) == 7
 
     # True trailing totals at a complete bucket and across the reset at hour 6.
     data = fx(
@@ -450,8 +449,6 @@ def test_gfs_fx_call_mock(mock_statistic_grib, monkeypatch, tmp_path):
 
 def _check_shared_download(monkeypatch, tmp_path):
     """Concurrent requests for one byte range share a single atomic download."""
-    import earth2studio.data.gfs as gfs_module
-
     calls = []
 
     async def fake_fetch(

@@ -30,19 +30,19 @@ import xarray as xr
 import zarr
 import zarr.abc.store
 from loguru import logger
+from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
     _sync_async,
     as_datetime,
     datasource_cache_root,
-    map_with_concurrency,
     obstore_zarr_store,
+    plan_statistics,
     prep_data_inputs,
-    statistic_modifiers,
+    reduce_statistics,
 )
 from earth2studio.lexicon import ARCO_ERA5Lexicon
 from earth2studio.lexicon.arco import ACCUMULATION_HOURS
-from earth2studio.utils.time_statistics import source_times
 from earth2studio.utils.type import TimeArray, VariableArray
 
 
@@ -221,9 +221,8 @@ class ARCO_ERA5:
         self._validate_time(time)
 
         xr_array = xr.DataArray(
-            data=np.full(
-                (len(time), len(variable), len(self.ARCO_LAT), len(self.ARCO_LON)),
-                np.nan,
+            data=np.empty(
+                (len(time), len(variable), len(self.ARCO_LAT), len(self.ARCO_LON))
             ),
             dims=["time", "variable", "lat", "lon"],
             coords={
@@ -234,21 +233,23 @@ class ARCO_ERA5:
             },
         )
 
-        modifiers, attrs, finalize = statistic_modifiers(
+        times = np.asarray(time, dtype="datetime64[ns]")
+        plain, stats, attrs = plan_statistics(
             variable,
-            xr_array.values,
-            supported=self.lexicon.TIME_STATISTICS,
+            times,
+            np.timedelta64(1, "h"),
+            self.lexicon.TIME_STATISTICS,
+            validate=self._validate_time,
             source=type(self).__name__,
             verbose=self._verbose,
         )
-        groups: dict[
-            tuple[datetime, str, bool], list[tuple[str, Callable, str, Callable]]
-        ] = defaultdict(list)
-        # Route overlapping windows to the same chunk read, including consumers
-        # at different pressure levels. Callbacks consume slices immediately.
-        for v, statistic, add in modifiers:
+
+        groups: dict[tuple[str, bool], list[tuple[str, int, str, Callable]]] = (
+            defaultdict(list)
+        )
+        for j, v in plain:
             try:
-                arco_name, modifier = ARCO_ERA5Lexicon[v]
+                arco_name, modifier = ARCO_ERA5Lexicon[v]  # type: ignore[misc]
             except KeyError:
                 logger.error(f"variable id {v} not found in ARCO_ERA5Lexicon")
                 raise
@@ -256,40 +257,48 @@ class ARCO_ERA5:
             arco_variable = parts[0]
             level = parts[1] if len(parts) > 1 else ""
             is_mdl = self._is_mdl_level(v)
-            times = np.asarray(time, dtype="datetime64[ns]")
-            required = (
-                times[:, None]
-                if statistic is None
-                else source_times(statistic, times, np.timedelta64(1, "h"))
-            )
-            for i, row in enumerate(required):
-                for t in row:
-                    groups[(as_datetime(t), arco_variable, is_mdl)].append(
-                        (v, functools.partial(add, i), level, modifier)
-                    )
-        self._validate_time(list({t for t, _, _ in groups}))
-        args = [(t, name, mdl, entries) for (t, name, mdl), entries in groups.items()]
-        await map_with_concurrency(
-            args,
-            self.fetch_chunk_group,
-            desc="Fetching ARCO_ERA5 data",
-            verbose=self._verbose,
-            # Each atmospheric chunk contains every pressure/model level.
-            async_workers=4,
+            groups[(arco_variable, is_mdl)].append((v, j, level, modifier))
+
+        # Build one task per unique (time, zarr_array) combination
+        args = [
+            (t, i, arco_variable, is_mdl, var_entries)
+            for (arco_variable, is_mdl), var_entries in groups.items()
+            for i, t in enumerate(time)
+        ]
+        func_map = map(
+            functools.partial(self.fetch_chunk_group, xr_array=xr_array), args
         )
-        finalize()
+
+        await tqdm.gather(
+            *func_map, desc="Fetching ARCO_ERA5 data", disable=(not self._verbose)
+        )
+        await reduce_statistics(
+            xr_array.values,
+            stats,
+            lambda t, v: self.fetch_array(as_datetime(t), v),
+            desc="Fetching ARCO_ERA5 statistics",
+            verbose=self._verbose,
+        )
         xr_array.attrs.update(attrs)
         return xr_array
 
     async def fetch_chunk_group(
         self,
-        e: tuple[datetime, str, bool, list],
+        e: tuple[datetime, int, str, bool, list],
+        xr_array: xr.DataArray,
     ) -> None:
-        """Fetch a Zarr chunk once and distribute slices through output modifiers.
+        """Fetch a Zarr chunk once and distribute slices to all variables
+        that share the same underlying array.
 
-        Entries contain (variable, statistical modifier, level, lexicon modifier).
+        Parameters
+        ----------
+        e : tuple
+            (time, time_index, arco_variable, is_mdl, var_entries) where
+            var_entries is [(var_name, var_idx, level, modifier), ...]
+        xr_array : xr.DataArray
+            Output array to write into
         """
-        t, arco_variable, is_mdl, var_entries = e
+        t, time_idx, arco_variable, is_mdl, var_entries = e
 
         if self.zarr_group is None or self.ml_zarr_group is None:
             raise ValueError("Zarr group is not initialized")
@@ -309,36 +318,40 @@ class ARCO_ERA5:
         if len(shape) == 2:
             # static variable
             data = await zarr_array.getitem(slice(None))
-            for var_name, add, level, modifier in var_entries:
-                add(modifier(data))
+            for var_name, var_idx, level, modifier in var_entries:
+                xr_array[time_idx, var_idx] = modifier(data)
         elif len(shape) == 3:
             # surface variable
             data = None
-            accumulations: dict[str, list[Callable]] = defaultdict(list)
-            for var_name, add, level, modifier in var_entries:
+            for var_name, var_idx, level, modifier in var_entries:
                 accumulation_hours = ACCUMULATION_HOURS.get(var_name)
                 # Sum hourly ARCO_ERA5 fields to support cumulative variables.
                 if accumulation_hours is not None:
-                    accumulations[var_name].append(add)
+                    start_index = time_index - accumulation_hours + 1
+                    if start_index < 0:
+                        raise ValueError(
+                            f"Cannot compute {accumulation_hours}-hour accumulation for {var_name} at {t}"
+                        )
+                    accumulated = await zarr_array.getitem(
+                        slice(start_index, time_index + 1)
+                    )
+                    xr_array[time_idx, var_idx] = modifier(np.sum(accumulated, axis=0))
                 else:
                     if data is None:
                         data = await zarr_array.getitem(time_index)
-                    add(modifier(data))
-            for var_name, callbacks in accumulations.items():
-                sample = await self.fetch_array(t, var_name)
-                for add in callbacks:
-                    add(sample)
-                del sample
+                    xr_array[time_idx, var_idx] = modifier(data)
         else:
             # atmospheric variable : fetch all needed levels at once
             level_indices = []
-            for var_name, add, level, modifier in var_entries:
+            for var_name, var_idx, level, modifier in var_entries:
                 level_indices.append(np.searchsorted(level_coords, int(level)))
 
             # Fetch all levels in a single chunk read
             all_levels_data = await zarr_array.getitem(time_index)
-            for k, (var_name, add, level, modifier) in enumerate(var_entries):
-                add(modifier(all_levels_data[level_indices[k]]))
+            for k, (var_name, var_idx, level, modifier) in enumerate(var_entries):
+                xr_array[time_idx, var_idx] = modifier(
+                    all_levels_data[level_indices[k]]
+                )
 
     async def fetch_array(self, time: datetime, variable: str) -> np.ndarray:
         """Fetches requested array from remote store
@@ -393,12 +406,8 @@ class ARCO_ERA5:
                     raise ValueError(
                         f"Cannot compute {accumulation_hours}-hour accumulation for {variable} at {time}"
                     )
-                data = np.array(await zarr_array.getitem(start_index), copy=True)
-                for index in range(start_index + 1, time_index + 1):
-                    sample = await zarr_array.getitem(index)
-                    np.add(data, sample, out=data)
-                    del sample
-                output = modifier(data)
+                data = await zarr_array.getitem(slice(start_index, time_index + 1))
+                output = modifier(np.sum(data, axis=0))
             else:
                 data = await zarr_array.getitem(time_index)
                 output = modifier(data)

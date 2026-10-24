@@ -20,7 +20,6 @@ import os
 import pathlib
 import shutil
 import uuid
-from collections.abc import Callable
 from datetime import datetime
 from typing import Literal
 
@@ -34,13 +33,12 @@ from earth2studio.data.utils import (
     _sync_async,
     as_datetime,
     datasource_cache_root,
-    map_with_concurrency,
     obstore_zarr_store,
+    plan_statistics,
     prep_data_inputs,
-    statistic_modifiers,
+    reduce_statistics,
 )
 from earth2studio.lexicon import WB2ClimatetologyLexicon, WB2Lexicon
-from earth2studio.utils.time_statistics import source_times
 from earth2studio.utils.type import TimeArray, VariableArray
 
 
@@ -167,53 +165,42 @@ class _WB2Base:
             },
         )
 
-        modifiers, attrs, finalize = statistic_modifiers(
+        times = np.asarray(time, dtype="datetime64[ns]")
+        plain, stats, attrs = plan_statistics(
             variable,
-            xr_array.values,
-            supported=getattr(self.lexicon, "TIME_STATISTICS", ()),
+            times,
+            np.timedelta64(6, "h"),
+            getattr(self.lexicon, "TIME_STATISTICS", ()),
+            validate=self._validate_time,
             source=type(self).__name__,
             verbose=self._verbose,
         )
-        args: dict[tuple[datetime, str], list[Callable[[np.ndarray], None]]] = {}
-        # Sampling belongs to this archive; the shared modifiers only reduce
-        # fields. One fetched field can feed several overlapping target windows.
-        for base, statistic, add in modifiers:
-            times = np.asarray(time, dtype="datetime64[ns]")
-            required = (
-                times[:, None]
-                if statistic is None
-                else source_times(statistic, times, np.timedelta64(6, "h"))
-            )
-            for i, row in enumerate(required):
-                for t in row:
-                    args.setdefault((as_datetime(t), base), []).append(
-                        functools.partial(add, i)
-                    )
-        self._validate_time(list({t for t, _ in args}))
-        await map_with_concurrency(
-            list(args.items()),
-            self.fetch_wrapper,
-            desc="Fetching WB2 data",
+
+        args = [(t, i, v, j) for j, v in plain for i, t in enumerate(time)]
+        func_map = map(functools.partial(self.fetch_wrapper, xr_array=xr_array), args)
+
+        # Launch all fetch requests
+        await tqdm.gather(
+            *func_map, desc="Fetching WB2 data", disable=(not self._verbose)
+        )
+        await reduce_statistics(
+            xr_array.values,
+            stats,
+            lambda t, v: self.fetch_array(as_datetime(t), v),
+            desc="Fetching WB2 statistics",
             verbose=self._verbose,
         )
-        finalize()
         xr_array.attrs.update(attrs)
         return xr_array
 
     async def fetch_wrapper(
         self,
-        e: tuple,
-        xr_array: xr.DataArray | None = None,
+        e: tuple[datetime, int, str, int],
+        xr_array: xr.DataArray,
     ) -> None:
         """Small wrapper to pack arrays into the DataArray"""
-        if xr_array is not None:
-            out = await self.fetch_array(e[0], e[2])
-            xr_array[e[1], e[3]] = out
-        else:
-            (time, variable), modifiers = e
-            out = await self.fetch_array(time, variable)
-            for modifier in modifiers:
-                modifier(out)
+        out = await self.fetch_array(e[0], e[2])
+        xr_array[e[1], e[3]] = out
 
     async def fetch_array(self, time: datetime, variable: str) -> np.ndarray:
         """Fetches requested array from remote store

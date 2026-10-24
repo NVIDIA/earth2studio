@@ -33,12 +33,11 @@ Conventions:
 Optional native temporal statistics (only when requested): follow
 ``temporal-statistics.py`` and ``dev/spec/TIME_STATISTICS_SPEC.md``. Expose the
 lexicon via ``lexicon = SourceNameLexicon`` and declare supported methods on that
-lexicon. Use ``statistic_modifiers`` to bind callbacks to output views; unpack
-``modifiers, attrs, finalize``. Select and validate samples in the source's own
-request machinery, then invoke ``add(target, sample)`` after lexicon conversion.
-``map_with_concurrency`` offers bounded execution of existing fetch wrappers.
-For forecasts bind each initialization's view separately and vary leads within
-that cycle. Finish with ``finalize()`` and attach ``attrs``.
+lexicon. Use ``plan_statistics`` to split plain variables from statistics and plan the
+sample coordinates, validate them, then ``reduce_statistics`` with a source
+``fetch(coord, base)`` coroutine (lexicon converted). Plain variables keep the
+source's ordinary request path. For forecasts reduce each initialization's view
+separately and vary leads within that cycle. Attach ``attrs`` to the output.
 """
 
 from __future__ import annotations
@@ -396,8 +395,7 @@ class SourceName:
         for t in times:
             if (t - datetime(1900, 1, 1)).total_seconds() % INTERVAL_SECONDS != 0:
                 raise ValueError(
-                    f"Requested {t} must align to "
-                    f"{INTERVAL_SECONDS // 3600}h intervals"
+                    f"Requested {t} must align to {INTERVAL_SECONDS // 3600}h intervals"
                 )
             if t < MIN_DATE:
                 raise ValueError(f"Requested {t} is before minimum date {MIN_DATE}")
