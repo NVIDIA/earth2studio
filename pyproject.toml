@@ -182,12 +182,12 @@ fcn3 = [
 fengwu = [
     "onnx",
     "onnxscript",
-    "onnxruntime-gpu>=1.21.0",
+    "onnxruntime-gpu>=1.27.0",
 ]
 fuxi = [
     "onnx",
     "onnxscript",
-    "onnxruntime-gpu>=1.21.0",
+    "onnxruntime-gpu>=1.27.0",
 ]
 gencast = [
     "weathernext; python_version >= '3.12'",
@@ -220,7 +220,7 @@ interp-modafno = [
 pangu = [
     "onnx",
     "onnxscript",
-    "onnxruntime-gpu>=1.21.0",
+    "onnxruntime-gpu>=1.27.0",
 ]
 samudrace = [
     "fme==2026.4.0",
@@ -394,18 +394,12 @@ default-groups = ["dev", "build"]
 no-build-isolation-package = ["earth2grid", "flash-attn", "natten", "torch-harmonics"]
 override-dependencies = []
 
-[[tool.uv.index]]
-name = "ort-cuda-13-nightly"
-url = "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ort-cuda-13-nightly/pypi/simple/"
-explicit = true
-
 [tool.uv.extra-build-dependencies]
 earth2grid = ["setuptools", "torch"]
 flash-attn = ["torch", "packaging", "ninja"]
 natten = ["setuptools", "cmake", "torch"]
 
 [tool.uv.sources]
-onnxruntime-gpu = { index = "ort-cuda-13-nightly" }
 cfgrib = { git = "https://github.com/NickGeneva/cfgrib.git", rev = "6a9af3173d7050b5fa5d221755f97e6ecb8c3433" } # https://github.com/ecmwf/cfgrib/issues/433
 cbottle = { git = "https://github.com/NVlabs/cBottle.git", rev = "f0f519987589cc0b368ab892a1adfb2fb30a5587" }
 earth2grid = { git = "https://github.com/NVlabs/earth2grid.git", rev = "11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" }
