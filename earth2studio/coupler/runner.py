@@ -14,33 +14,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Coupled runner: several prognostic models feeding each other's forcing slots.
+"""Coupled runner: several prognostic models exchanging forcing, as one ``Runner``.
 
-A prognostic model *is* the component: its ``input_coords``, ``output_coords`` and
-``forcing_coords`` say what it produces and consumes, on which grid and at which
-step, and its ``create_iterator`` accepts new forcing between steps.
-:class:`CoupledRunner` probes those and drives the models forward on one shared
-clock as a :class:`~earth2studio.run.Runner`, so it plugs into
-:class:`~earth2studio.run.Pipeline` unchanged.
-
-There is no graph or connector object. What feeds a forcing slot is an injected
-function, a *provider*, ``provider(history, start, step) -> xr.DataArray``. Reduction,
-regridding and unit conversion are ordinary functions composed around it.
+Each model keeps its own cadence and publishes its own output stream. Within one
+coupling window the models run in the order given, so a later model sees the new
+outputs of the earlier ones and an earlier model sees the later ones as they were
+at the end of the previous window. What a model receives as forcing is a plain
+function of the outputs so far, supplied by the caller.
 """
 
 from __future__ import annotations
 
 import zlib
 from collections.abc import Callable, Iterator, Mapping
-from dataclasses import dataclass
 from typing import Any, cast
 
 import numpy as np
 import torch
 import xarray as xr
-from loguru import logger
 
-from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.models.px.utils import initial_condition
 from earth2studio.models.utils import recommended_sources
@@ -48,7 +40,6 @@ from earth2studio.run._fields import _lead_times, _map_field
 from earth2studio.run.runner import (
     DataRequest,
     Source,
-    _diagnostic_coords,
     _fetch,
     _module_device,
     _nsteps,
@@ -59,237 +50,64 @@ from earth2studio.run.runner import (
 from earth2studio.run.work import WorkItem
 from earth2studio.utils.type import CoordinateSystem
 
-Frames = list[tuple[np.timedelta64, xr.DataArray]]  # (lead time, one-lead frame)
-History = Mapping[str, Frames]  # Every model's outputs since the last window.
-Provider = Callable[[History, np.timedelta64, np.timedelta64], xr.DataArray]
-Slot = tuple[str, int]  # (consuming model, forcing slot index)
-
-
-class NotReady(Exception):
-    """Raised by a provider whose producer has not advanced far enough yet."""
-
-
-def latest(src: str) -> Provider:
-    """Provider holding ``src``'s newest output at or before the step's start.
-
-    Parameters
-    ----------
-    src : str
-        Name of the producing model
-
-    Returns
-    -------
-    Provider
-        ``provider(history, start, step)`` returning that one-lead output
-    """
-
-    def provide(history: History, start: np.timedelta64, step: np.timedelta64) -> Any:
-        frames = [frame for lead, frame in history[src] if lead <= start]
-        if not frames:
-            raise LookupError(f"{src!r} has no output at or before {start}")
-        return frames[-1]
-
-    provide.__name__ = f"latest({src})"
-    return provide
-
-
-def reduced(src: str, fn: Callable[[xr.DataArray], xr.DataArray]) -> Provider:
-    """Provider reducing ``src``'s outputs over the step ``(start, start + step]``.
-
-    The consumer waits until ``src`` has covered the whole step, so a fast
-    producer feeds a slow consumer, e.g. 6-hourly atmosphere to a 48-hourly ocean.
-
-    Parameters
-    ----------
-    src : str
-        Name of the producing model
-    fn : Callable[[xr.DataArray], xr.DataArray]
-        Reduces the outputs, stacked along ``lead_time``, to one, e.g.
-        ``lambda x: x.mean("lead_time", skipna=False)``
-
-    Returns
-    -------
-    Provider
-        ``provider(history, start, step)`` returning the reduced output
-    """
-
-    def provide(history: History, start: np.timedelta64, step: np.timedelta64) -> Any:
-        if history[src][-1][0] < start + step:
-            raise NotReady(src)
-        window = [f for lead, f in history[src] if start < lead <= start + step]
-        if not window:
-            raise ValueError(f"{src!r} has no output in ({start}, {start + step}]")
-        return fn(xr.concat(window, dim="lead_time"))
-
-    provide.__name__ = f"reduced({src}, {getattr(fn, '__name__', 'fn')})"
-    return provide
-
-
-def then(provider: Provider, *fns: Callable[[xr.DataArray], xr.DataArray]) -> Provider:
-    """Provider applying ``fns`` in turn to ``provider``'s output.
-
-    Use it for regridding (a bound :class:`~earth2studio.grids.Regridder`),
-    unit conversion or masking, e.g. ``then(latest("ocean"), lambda x: x - 273.15)``.
-    """
-
-    def provide(history: History, start: np.timedelta64, step: np.timedelta64) -> Any:
-        x = provider(history, start, step)
-        for fn in fns:
-            x = fn(x)
-        return x
-
-    provide.__name__ = ".".join(
-        [getattr(provider, "__name__", "provider")]
-        + [getattr(fn, "__name__", "fn") for fn in fns]
-    )
-    return provide
-
-
-def match_by_variable(
-    models: Mapping[str, PrognosticModel], skip: set[Slot] | None = None
-) -> dict[Slot, Provider]:
-    """Feed each time-varying forcing slot from the one model producing its variables.
-
-    Parameters
-    ----------
-    models : Mapping[str, PrognosticModel]
-        Models by name
-    skip : set[tuple[str, int]], optional
-        Slots to leave out, which may then be ambiguous, by default none
-
-    Returns
-    -------
-    dict[tuple[str, int], Provider]
-        :func:`latest` provider per matched slot; edit it freely before passing
-        it as ``providers``
-
-    Raises
-    ------
-    ValueError
-        If more than one other model produces a slot's variables
-    """
-    produced = {
-        name: set(
-            map(
-                str,
-                cast(CoordinateSystem, model.output_coords(model.input_coords()))[
-                    "variable"
-                ].values,
-            )
-        )
-        for name, model in models.items()
-    }
-    matched: dict[Slot, Provider] = {}
-    for name, model in models.items():
-        for slot, signature in enumerate(_slots(model.forcing_coords())):
-            if "lead_time" not in signature.dims or (name, slot) in (skip or ()):
-                continue
-            wanted = set(map(str, signature["variable"].values))
-            suppliers = [o for o in models if o != name and wanted <= produced[o]]
-            if len(suppliers) > 1:
-                raise ValueError(
-                    f"{name!r} slot {slot} can be fed by {suppliers}; "
-                    "pass a provider to choose"
-                )
-            if suppliers:
-                matched[(name, slot)] = latest(suppliers[0])
-    return matched
-
-
-def _check_geometry(x: xr.DataArray, signature: CoordinateSystem, what: str) -> None:
-    """Raise unless ``x`` has the spatial coordinates the ``signature`` declares."""
-    skip = {"batch", "time", "ensemble", "lead_time", "variable"}
-    for dim in signature.dims:
-        if dim in skip:
-            continue
-        want = signature[dim].values
-        if dim not in x.coords or x[dim].shape != want.shape:
-            raise ValueError(
-                f"{what}: delivered {dim!r} differs from the slot grid; "
-                "regrid it with then(provider, regridder)"
-            )
-        have = x[dim].values
-        same = (
-            np.allclose(have, want, atol=1e-6)
-            if np.issubdtype(want.dtype, np.number)
-            else np.array_equal(have, want)
-        )
-        if not same:
-            raise ValueError(
-                f"{what}: delivered {dim!r} differs from the slot grid; "
-                "regrid it with then(provider, regridder)"
-            )
-
-
-@dataclass
-class _Probe:
-    """What one model declares, read once at construction."""
-
-    model: PrognosticModel
-    input_signature: CoordinateSystem
-    forcing_signatures: tuple[CoordinateSystem, ...]
-    output_signature: CoordinateSystem
-    step: np.timedelta64
-    sources: tuple[Source | None, ...]  # Input slot, then forcing slots.
-    given: tuple[bool, ...]  # Whether the caller (not a recommendation) set each.
-
-
-@dataclass
-class _Rollout:
-    """Mutable per-item state of one model."""
-
-    iterator: Any = None
-    lead: np.timedelta64 = np.timedelta64(0, "h")
+Outputs = Mapping[str, xr.DataArray]  # Each model's outputs, along ``lead_time``.
+Coupling = Callable[[Outputs, np.ndarray], xr.DataArray]  # (outputs, leads) -> forcing
 
 
 class CoupledRunner:
-    """Run several prognostic models that exchange fields, as one runner.
+    """Run several prognostic models that feed each other, as one runner.
 
-    Each model is stepped at its own cadence on a shared clock and publishes its
-    own stream, named after it. One runner step covers one coupling window (by
-    default the slowest model's step), so a faster model publishes several lead
-    times per step. The furthest-behind model steps next, and a model whose
-    provider is :class:`NotReady` waits.
+    Models step at their own cadence and publish one stream each, named after the
+    model. A runner step is one coupling window (by default the slowest model's
+    step), so a faster model publishes several lead times per step. Within a
+    window the models run in the given order, and a coupling can read whatever
+    has been produced by then.
 
-    A forcing slot is fed by, in order: its entry in ``providers``; its given
-    source; the single model producing its variables (:func:`match_by_variable`);
-    its recommended source. Initial conditions and unprovided slots come from
-    sources exactly as :class:`~earth2studio.run.PrognosticRunner` resolves them.
-    When a provider cannot cover a slot's initial window (``LookupError``) and the
-    slot has a source, the source supplies that window.
+    A ``couplings`` entry is a function ``coupling(outputs, leads) -> DataArray``
+    that supplies the model's first forcing slot from the other models' outputs.
+    ``outputs[name]`` holds model ``name``'s outputs from the start of the
+    previous window to now, along ``lead_time``, and ``leads`` are the lead times
+    the forcing must be valid at. Return one entry per lead; they are relabeled
+    to ``leads``. Plain xarray covers the usual cases, for example::
+
+        couplings = {
+            # hold the newest GOES frame
+            "mrms": lambda out, leads: out["goes"].sel(lead_time=leads, method="pad"),
+            # mean of the atmosphere over the ocean's whole step (48 h, 6 h steps)
+            "ocean": lambda out, leads: out["atmos"]
+            .sel(lead_time=slice(leads[0] + H6, leads[0] + H48))
+            .mean("lead_time", keepdims=True),
+        }
+
+    Regridding, unit conversion and masking are applied inside the function. Other
+    forcing slots and the initial conditions come from sources exactly as in
+    :class:`~earth2studio.run.PrognosticRunner`.
 
     Parameters
     ----------
     models : Mapping[str, PrognosticModel]
-        Models by name. Each has one input slot and one output slot with a
-        single lead time. The name is the model's stream name
+        Models by name, in the order they run within a window. Each has one input
+        slot and one output slot with a single lead time
     sources : Mapping[str, Source | tuple[Source | None, ...]], optional
         Per model, a source for the initial condition or a tuple of
-        ``(initial, *forcing)`` sources with ``None`` for slots to leave to the
-        model's recommended sources, by default the recommendations
-    providers : Mapping[tuple[str, int], Provider], optional
-        What feeds forcing slot ``(model name, slot)``; see :func:`latest`,
-        :func:`reduced` and :func:`then`, by default none
+        ``(initial, *forcing)`` sources with ``None`` for slots left to the model's
+        recommended sources, by default the recommendations
+    couplings : Mapping[str, Coupling], optional
+        Model name to the function supplying its first forcing slot, which must
+        vary in time, by default none
     window : np.timedelta64, optional
-        Coupling window, by default the largest model step. It must be a
-        multiple of every model step
+        Coupling window, a multiple of every model step, by default the largest
+        model step
     seed : int, optional
-        Base seed for per-member seeding of stochastic models. Each model and
-        diagnostic derives its own seed from it and its name, by default 0
-    diagnostics : Mapping[str, tuple[str, DiagnosticModel]], optional
-        Diagnostics applied to a model's output as it is published, as
-        ``{stream: (model name, diagnostic)}``. The stream name must not be a
-        model name, by default none
-    check_finite : bool, optional
-        Raise if data delivered between models holds NaN or infinity. This
-        synchronizes the device on each delivery, by default False
+        Base seed for stochastic models; each model derives its own from it and
+        its name, by default 0
 
     Raises
     ------
     ValueError
-        If a model, provider or source cannot be resolved, or cadences are not
-        integer multiples of the window; nothing runs until this passes. A
-        delivered field on the wrong grid raises when it is first delivered
+        If a model, coupling or source cannot be resolved, or the window is not
+        a multiple of every model step. A coupling returning the wrong number of
+        leads or the wrong grid raises when it is called
     """
 
     supports_member_batching = False  # Member perturbation is not implemented.
@@ -298,45 +116,41 @@ class CoupledRunner:
         self,
         models: Mapping[str, PrognosticModel],
         sources: Mapping[str, Source | tuple[Source | None, ...]] | None = None,
-        providers: Mapping[Slot, Provider] | None = None,
+        couplings: Mapping[str, Coupling] | None = None,
         window: np.timedelta64 | None = None,
         seed: int = 0,
-        diagnostics: Mapping[str, tuple[str, DiagnosticModel]] | None = None,
-        check_finite: bool = False,
     ) -> None:
         if len(models) < 1:
             raise ValueError("Pass at least one model")
+        self.models = dict(models)
+        self.couplings = dict(couplings or {})
         self.seed = seed
-        self.check_finite = check_finite
-        self.diagnostics = dict(diagnostics or {})
-        for stream, (owner, _) in self.diagnostics.items():
-            if stream in models:
-                raise ValueError(f"Diagnostic stream {stream!r} clashes with a model")
-            if owner not in models:
-                raise ValueError(f"Diagnostic {stream!r}: unknown model {owner!r}")
-        self.names = tuple(models)
-        self.probes = {
-            name: self._probe(name, model, (sources or {}).get(name))
-            for name, model in models.items()
-        }
-        self.device = _module_device(next(iter(models.values())))
-        steps = [p.step for p in self.probes.values()]
+        self.device = _module_device(next(iter(self.models.values())))
+        self.inputs: dict[str, CoordinateSystem] = {}
+        self.outputs: dict[str, CoordinateSystem] = {}
+        self.forcings: dict[str, tuple[CoordinateSystem, ...]] = {}
+        self.steps: dict[str, np.timedelta64] = {}
+        self.sources: dict[str, tuple[Source | None, ...]] = {}
+        for name, model in self.models.items():
+            self._probe(name, model, (sources or {}).get(name))
         self.window: np.timedelta64 = (
-            max(steps) if window is None else np.timedelta64(window)
+            max(self.steps.values()) if window is None else np.timedelta64(window)
         )
-        for name, probe in self.probes.items():
-            if self.window % probe.step:
+        for name, step in self.steps.items():
+            if self.window % step:
                 raise ValueError(
                     f"Coupling window {self.window} is not a multiple of "
-                    f"{name!r}'s step {probe.step}"
+                    f"{name!r}'s step {step}"
                 )
-        self.providers = self._resolve(models, dict(providers or {}))
-        logger.debug("Coupled schedule:\n{}", self.describe())
+        for name in self.couplings:
+            if name not in self.models:
+                raise ValueError(f"Coupling for unknown model {name!r}")
+            slots = self.forcings[name]
+            if not slots or "lead_time" not in slots[0].dims:
+                raise ValueError(f"{name!r}: first forcing slot is absent or static")
 
-    # ------------------------------------------------------------------ probe
-
-    @staticmethod
-    def _probe(name: str, model: PrognosticModel, given: Any) -> _Probe:
+    def _probe(self, name: str, model: PrognosticModel, given: Any) -> None:
+        """Read what ``model`` declares and settle its sources."""
         input_signature = model.input_coords()
         if isinstance(input_signature, tuple):
             raise ValueError(f"{name!r}: only single-input-slot models are supported")
@@ -354,89 +168,37 @@ class CoupledRunner:
         )
         if step <= np.timedelta64(0, "h"):
             raise ValueError(f"{name!r}: model step must be positive, got {step}")
-        forcing_signatures = _slots(model.forcing_coords())
-        slots: list[Source | None] = [None] * (1 + len(forcing_signatures))
+        forcing = _slots(model.forcing_coords())
+        sources: list[Source | None] = [None] * (1 + len(forcing))
         if given is not None:
             given = given if isinstance(given, tuple) else (given,)
-            if len(given) > len(slots):
+            if len(given) > len(sources):
                 raise ValueError(f"{name!r}: more sources than input/forcing slots")
-            slots[: len(given)] = given
-        explicit = tuple(s is not None for s in slots)
-        if any(s is None for s in slots):
+            sources[: len(given)] = given
+        if any(s is None for s in sources):
             recommended = recommended_sources(model)
             if not isinstance(recommended, tuple):
                 recommended = (recommended,)
-            for i, source in enumerate(recommended[: len(slots)]):
-                slots[i] = slots[i] if slots[i] is not None else source
-        if slots[0] is None:
+            for i, source in enumerate(recommended[: len(sources)]):
+                sources[i] = sources[i] if sources[i] is not None else source
+        if sources[0] is None:
             raise ValueError(f"{name!r}: no source for the initial condition")
-        return _Probe(
-            model,
-            input_signature,
-            forcing_signatures,
-            output_signature,
-            step,
-            tuple(slots),
-            explicit,
-        )
-
-    def _resolve(
-        self, models: Mapping[str, PrognosticModel], providers: dict[Slot, Provider]
-    ) -> dict[Slot, Provider]:
-        """Check the given providers and add matched ones; every slot needs a feed."""
-        for name, slot in providers:
-            if name not in self.probes:
-                raise ValueError(f"Provider for unknown model {name!r}")
-            signatures = self.probes[name].forcing_signatures
-            if not 0 <= slot < len(signatures):
-                raise ValueError(f"{name!r} has no forcing slot {slot}")
-            if "lead_time" not in signatures[slot].dims:
-                raise ValueError(f"{name!r} slot {slot} is static; use a source")
-        taken = set(providers) | {
-            (name, slot)
-            for name, probe in self.probes.items()
-            for slot in range(len(probe.forcing_signatures))
-            if probe.given[1 + slot]
-        }
-        providers.update(match_by_variable(models, skip=taken))
-        for name, probe in self.probes.items():
-            for slot in range(len(probe.forcing_signatures)):
-                if (name, slot) not in providers and probe.sources[1 + slot] is None:
-                    raise ValueError(
-                        f"{name!r} forcing slot {slot} has neither a provider "
-                        "nor a source"
-                    )
-        return providers
-
-    def describe(self) -> str:
-        """Return the window, each model's cadence and what feeds every forcing slot."""
-        lines = [f"coupling window: {self.window}"]
-        for name, probe in self.probes.items():
-            lines.append(
-                f"model {name}: step {probe.step}, {self.window // probe.step} per window"
-            )
-        for (name, slot), probe in (
-            ((n, s), p)
-            for n, p in self.probes.items()
-            for s in range(len(p.forcing_signatures))
-        ):
-            feed = self.providers.get((name, slot))
-            feed_name = getattr(feed, "__name__", "provider") if feed else "source"
-            lines.append(f"slot {name}[{slot}] <- {feed_name}")
-        for stream, (owner, diagnostic) in self.diagnostics.items():
-            lines.append(f"diagnostic {stream} = {type(diagnostic).__name__}({owner})")
-        return "\n".join(lines)
+        coupled = 1 if name in self.couplings else 0  # Slot 0 needs no source.
+        if any(s is None for s in sources[1 + coupled :]):
+            raise ValueError(f"{name!r}: a forcing slot has no coupling or source")
+        self.inputs[name] = input_signature
+        self.outputs[name] = output_signature
+        self.forcings[name] = forcing
+        self.steps[name] = step
+        self.sources[name] = tuple(sources)
 
     # ----------------------------------------------------------------- Runner
 
     def to(self, device: torch.device) -> CoupledRunner:
         """Move every model to ``device`` and fetch onto it."""
         self.device = torch.device(device)
-        for probe in self.probes.values():
-            probe.model = probe.model.to(self.device)
-        self.diagnostics = {
-            stream: (owner, diagnostic.to(self.device))
-            for stream, (owner, diagnostic) in self.diagnostics.items()
+        self.models = {
+            name: model.to(self.device) for name, model in self.models.items()
         }
         return self
 
@@ -447,53 +209,44 @@ class CoupledRunner:
     def output_coords(
         self, final_lead_time: np.timedelta64
     ) -> Mapping[str, CoordinateSystem]:
-        """Return one stream per model and diagnostic, planned over the rollout."""
+        """Return one stream per model, planned over the rollout."""
         self.nsteps(final_lead_time)
-        coords = {
+        return {
             name: _signature_for_stream(
-                probe.output_signature,
+                self.outputs[name],
                 _lead_times(
-                    probe.output_signature, _nsteps(final_lead_time, probe.step)
+                    self.outputs[name], _nsteps(final_lead_time, self.steps[name])
                 ),
             )
-            for name, probe in self.probes.items()
+            for name in self.models
         }
-        for stream, (owner, diagnostic) in self.diagnostics.items():
-            coords[stream] = _diagnostic_coords(
-                diagnostic,
-                self.probes[owner].output_signature,
-                coords[owner]["lead_time"],
-            )
-        return coords
 
     def data_requests(self, item: WorkItem) -> tuple[DataRequest, ...]:
-        """Describe the fetches that are certain: initial conditions and unprovided slots.
-
-        A provided slot with a fallback source is not listed, since whether the
-        fallback is used is only known while running.
-        """
+        """Describe the source fetches: initial conditions and uncoupled forcing."""
         requests = [
             self._request(
                 item,
-                probe.sources[0],
-                probe.input_signature,
-                probe.input_signature["lead_time"].values,
+                self.sources[name][0],
+                self.inputs[name],
+                self.inputs[name]["lead_time"].values,
             )
-            for probe in self.probes.values()
+            for name in self.models
         ]
-        for name, probe in self.probes.items():
-            for slot, signature in enumerate(probe.forcing_signatures):
-                source = probe.sources[1 + slot]
-                if (name, slot) in self.providers or source is None:
+        for name in self.models:
+            for slot, signature in enumerate(self.forcings[name]):
+                if slot == 0 and name in self.couplings:
                     continue
+                source = self.sources[name][1 + slot]
                 leads = self._first_leads(signature)
                 requests.append(self._request(item, source, signature, leads))
                 if "lead_time" in signature.dims:
                     requests.extend(
                         self._request(
-                            item, source, signature, leads[-1:] + k * probe.step
+                            item, source, signature, leads[-1:] + k * self.steps[name]
                         )
-                        for k in range(1, _nsteps(item.final_lead_time, probe.step))
+                        for k in range(
+                            1, _nsteps(item.final_lead_time, self.steps[name])
+                        )
                     )
         return tuple(requests)
 
@@ -519,170 +272,117 @@ class CoupledRunner:
             np.asarray(leads),
         )
 
-    def _provide(
-        self,
-        name: str,
-        slot: int,
-        history: History,
-        labels: np.ndarray,
-    ) -> xr.DataArray:
-        """Provider output for steps starting at ``labels - slot's last lead``."""
-        provider = self.providers[(name, slot)]
-        signature = self.probes[name].forcing_signatures[slot]
-        step = self.probes[name].step
-        parts = []
-        for start in labels - signature["lead_time"].values[-1]:
-            x = provider(history, start, step)
-            if "lead_time" not in x.dims:
-                x = x.expand_dims("lead_time")
-            if x.sizes["lead_time"] != 1:
-                raise ValueError(f"{name!r} slot {slot}: a provider returns one lead")
-            parts.append(x)
-        x = xr.concat(parts, dim="lead_time").assign_coords(lead_time=labels)
-        _check_geometry(x, signature, f"{name!r} slot {slot}")
-        if self.check_finite:
-            data = x.data.get() if hasattr(x.data, "get") else x.data
-            if not np.isfinite(data).all():
-                raise ValueError(f"{name!r} slot {slot}: delivered data is not finite")
+    def _couple(self, name: str, outputs: Outputs, leads: np.ndarray) -> xr.DataArray:
+        """Call ``name``'s coupling and check what it returns against the slot."""
+        signature = self.forcings[name][0]
+        x = self.couplings[name](outputs, leads)
+        if "lead_time" not in x.dims:
+            x = x.expand_dims("lead_time")
+        if x.sizes["lead_time"] != len(leads):
+            raise ValueError(
+                f"{name!r}: coupling returned {x.sizes['lead_time']} lead times, "
+                f"expected {len(leads)}"
+            )
+        x = x.assign_coords(lead_time=leads)
+        for dim in signature.dims:
+            if dim in {"batch", "time", "ensemble", "lead_time", "variable"}:
+                continue
+            want = signature[dim].values
+            if dim not in x.coords:
+                raise ValueError(f"{name!r}: coupling output has no {dim!r}")
+            have = x[dim].values
+            if have.shape == want.shape and (
+                np.allclose(have, want, atol=1e-6)
+                if np.issubdtype(want.dtype, np.number)
+                else np.array_equal(have, want)
+            ):
+                continue
+            raise ValueError(
+                f"{name!r}: coupling output {dim!r} differs from the forcing grid; "
+                "regrid it inside the coupling"
+            )
         return _map_field(x, signature)
 
     def _forcing(
         self,
         name: str,
-        slot: int,
         item: WorkItem,
-        history: History,
-        labels: np.ndarray,
+        outputs: Outputs,
+        lead: np.timedelta64,
         first: bool,
-    ) -> xr.DataArray:
-        """Forcing of one slot labelled ``labels``, from its provider or its source."""
-        probe = self.probes[name]
-        signature = probe.forcing_signatures[slot]
-        source = probe.sources[1 + slot]
-        if (name, slot) in self.providers:
-            try:
-                return self._provide(name, slot, history, labels)
-            except LookupError:
-                if not first or source is None:
-                    raise
-        request = self._request(item, source, signature, labels)
-        return _fetch(request, signature, self.device)
-
-    def _inputs(
-        self, name: str, state: _Rollout, item: WorkItem, history: History
     ) -> tuple[xr.DataArray, ...]:
-        """Forcing for ``name``'s next call: its whole window first, then newest frames."""
+        """Forcing for ``name``'s next call: the whole window first, then the newest."""
         forcing = []
-        for slot, signature in enumerate(self.probes[name].forcing_signatures):
+        for slot, signature in enumerate(self.forcings[name]):
             static = "lead_time" not in signature.dims
-            first = state.iterator is None
             if static and not first:
                 continue  # Static slots: initialization only.
-            labels = (
+            leads = (
                 self._first_leads(signature)
                 if first
-                else signature["lead_time"].values[-1:] + state.lead
+                else signature["lead_time"].values[-1:] + lead
             )
-            x = self._forcing(name, slot, item, history, labels, first)
+            if slot == 0 and name in self.couplings:
+                x = self._couple(name, outputs, leads)
+            else:
+                request = self._request(
+                    item, self.sources[name][1 + slot], signature, leads
+                )
+                x = _fetch(request, signature, self.device)
             forcing.append(x.isel(lead_time=0, drop=True) if static else x)
         return tuple(forcing)
-
-    def _turn(
-        self,
-        rollouts: Mapping[str, _Rollout],
-        end: np.timedelta64,
-        item: WorkItem,
-        history: History,
-    ) -> tuple[str, tuple[xr.DataArray, ...]] | None:
-        """The furthest-behind model that can step in the window ending at ``end``."""
-        pending = sorted(
-            (n for n in self.names if rollouts[n].lead < end),
-            key=lambda n: rollouts[n].lead,  # Stable: ties keep model order.
-        )
-        for name in pending:
-            try:
-                return name, self._inputs(name, rollouts[name], item, history)
-            except NotReady:
-                continue
-        if pending:
-            raise RuntimeError(f"Coupled schedule deadlocked; waiting: {pending}")
-        return None
-
-    def _salt(self, name: str) -> int:
-        """Base seed of ``name``, so stochastic models draw independent noise."""
-        return self.seed + zlib.crc32(name.encode()) % 2**31
-
-    def _publish(
-        self, streams: Mapping[str, xr.DataArray]
-    ) -> Mapping[str, xr.DataArray]:
-        """Add the diagnostic streams computed from the models' outputs."""
-        out = dict(streams)
-        for stream, (owner, diagnostic) in self.diagnostics.items():
-            out[stream] = diagnostic(
-                _map_field(streams[owner], diagnostic.input_coords())
-            )
-        return out
 
     def run_item(self, item: WorkItem) -> Iterator[Mapping[str, xr.DataArray]]:
         """Publish initial conditions, then one coupling window per step."""
         if len(item.member_ids) > 1:
             raise ValueError("CoupledRunner does not batch ensemble members")
         member_id = item.member_ids[0] if item.member_ids else 0
-        for name, probe in self.probes.items():
-            _seed_model(self._salt(name), item.time, member_id, probe.model)
-        for stream, (_, diagnostic) in self.diagnostics.items():
-            _seed_model(self._salt(stream), item.time, member_id, diagnostic)
+        for name, model in self.models.items():
+            salt = self.seed + zlib.crc32(name.encode()) % 2**31
+            _seed_model(salt, item.time, member_id, model)
         initial = {
             name: _fetch(
                 self._request(
                     item,
-                    p.sources[0],
-                    p.input_signature,
-                    p.input_signature["lead_time"].values,
+                    self.sources[name][0],
+                    self.inputs[name],
+                    self.inputs[name]["lead_time"].values,
                 ),
-                p.input_signature,
+                self.inputs[name],
                 self.device,
             )
-            for name, p in self.probes.items()
+            for name in self.models
         }
-        history: dict[str, Frames] = {
-            name: [
-                (lead, x.isel(lead_time=[i]))
-                for i, lead in enumerate(x["lead_time"].values)
-            ]
-            for name, x in initial.items()
-        }
-        yield self._publish({name: initial_condition(x) for name, x in initial.items()})
-        rollouts = {name: _Rollout() for name in self.names}
+        outputs = dict(
+            initial
+        )  # Coupling input; trimmed to the newest frame per window.
+        yield {name: initial_condition(x) for name, x in initial.items()}
+        iterators: dict[str, Any] = {}
+        leads = {name: np.timedelta64(0, "h") for name in self.models}
         try:
             for window in range(1, self.nsteps(item.final_lead_time) + 1):
-                published: dict[str, list[xr.DataArray]] = {n: [] for n in self.names}
-                end = window * self.window
-                while (turn := self._turn(rollouts, end, item, history)) is not None:
-                    name, forcing = turn
-                    state = rollouts[name]
-                    if state.iterator is None:
-                        model = self.probes[name].model
-                        state.iterator = model.create_iterator(initial[name], *forcing)
-                        y = next(state.iterator)
-                    else:
-                        y = state.iterator.send(forcing or None)
-                    state.lead = y["lead_time"].values[-1]
-                    published[name].append(y)
-                    history[name].append((state.lead, y))
-                yield self._publish(
-                    {
-                        name: (
-                            xr.concat(frames, dim="lead_time")
-                            if len(frames) > 1
-                            else frames[0]
-                        )
-                        for name, frames in published.items()
-                    }
-                )
-                for frames in history.values():  # Only the newest frame outlives it.
-                    del frames[:-1]
+                published: dict[str, list[xr.DataArray]] = {n: [] for n in self.models}
+                for name, model in self.models.items():
+                    while leads[name] < window * self.window:
+                        first = name not in iterators
+                        forcing = self._forcing(name, item, outputs, leads[name], first)
+                        if first:
+                            iterators[name] = model.create_iterator(
+                                initial[name], *forcing
+                            )
+                            y = next(iterators[name])
+                        else:
+                            y = iterators[name].send(forcing or None)
+                        leads[name] = y["lead_time"].values[-1]
+                        published[name].append(y)
+                        outputs[name] = xr.concat([outputs[name], y], dim="lead_time")
+                yield {
+                    name: xr.concat(frames, dim="lead_time")
+                    for name, frames in published.items()
+                }
+                outputs = {  # Only the newest frame outlives the window.
+                    name: x.isel(lead_time=[-1]) for name, x in outputs.items()
+                }
         finally:
-            for state in rollouts.values():
-                if state.iterator is not None:
-                    state.iterator.close()
+            for iterator in iterators.values():
+                iterator.close()

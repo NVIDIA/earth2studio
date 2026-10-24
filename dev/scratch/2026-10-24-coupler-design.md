@@ -1,6 +1,6 @@
 # Coupler design report (1.0.0-rc)
 
-Status: research + initial lightweight implementation in `earth2studio/coupler/`.
+Status: implemented in `earth2studio/coupler/` (one file, ~390 lines, 22 tests).
 Reference only the `1.0.0-rc` branch. Related: PR #1229 (nvcoupler, draft).
 
 ## Goal
@@ -8,114 +8,93 @@ Reference only the `1.0.0-rc` branch. Related: PR #1229 (nvcoupler, draft).
 Connect prognostic models that feed each other (StormScope GOES -> MRMS, an
 atmosphere and an ocean at different cadences) and produce an ordinary
 `earth2studio.run.Runner`, so `Pipeline(coupled_runner, output=...)` works with
-no changes to `earth2studio.run`. It must be small enough that an agent can use
-it from the model signatures alone.
+no changes to `earth2studio.run`. It must stay small: no DAG, connector or node
+concepts, only a clock and an entry point for the exchange logic.
 
 ## What the 1.0 contracts already give us
 
-The model protocol already carries what a coupler would otherwise invent:
-
 | Coupler need | Existing mechanism |
 | --- | --- |
-| Which fields a model produces / needs | `output_coords()["variable"]`, `forcing_coords()["variable"]` |
 | Native timestep | `output_coords lead_time[-1] - input_coords lead_time[-1]` |
-| Grid compatibility | non-variable dims/coords of the signatures |
+| Grid a forcing slot expects | `forcing_coords()` signature |
 | Feed new data between steps | `create_iterator(...).send(forcing)` |
-| Initial conditions / external forcing | `default_sources()` / `recommended_sources`, `fetch_data` |
+| Initial conditions / external forcing | `recommended_sources`, `fetch_data` |
 | Output streams, resume, IO, distribution | `Runner` protocol + `Pipeline` |
 
-So the design has no component wrapper, no field dictionary and no new data type.
-The component *is* the `PrognosticModel`; the variable name (lexicon) *is* the
-field identity; the runner protocol *is* the driver interface.
+The component *is* the `PrognosticModel`; the runner protocol *is* the driver.
 
 ## Implementation
 
-`earth2studio/coupler/runner.py`: `CoupledRunner` and `Link`.
+`earth2studio/coupler/runner.py` exports `CoupledRunner` (plus the `Coupling` and
+`Outputs` type aliases). Nothing else.
 
 ```python
 runner = CoupledRunner(
-    {"goes": goes, "mrms": mrms},            # name -> PrognosticModel
-    sources={"goes": goes_src, "mrms": mrms_src},   # optional: default_sources()
-    links=[...],                              # optional: overrides
+    {"atmos": atmos, "ocean": ocean},         # name -> model; dict order = run order
+    sources={"atmos": a_src, "ocean": o_src}, # optional: recommended sources
+    couplings={                               # optional: model -> function
+        "atmos": lambda out, leads: out["ocean"].sel(lead_time=leads, method="pad"),
+        "ocean": lambda out, leads: out["atmos"].sel(
+            lead_time=slice(leads[0] + H6, leads[0] + H48)
+        ).mean("lead_time", keepdims=True),
+    },
 )
-Pipeline(runner, output={"goes": zarr_a, "mrms": zarr_b}).run(items)
-runner.describe()                              # dry-run schedule + data flow
+Pipeline(runner, output={"atmos": zarr_a, "ocean": zarr_b}).run(items)
 ```
 
-- **Probe.** At construction every model is probed once: step, variables, grid,
-  forcing slots, sources. Nothing runs and nothing is allocated.
-- **Auto-wire.** A time-varying forcing slot is fed by the single other model
-  that produces all its variables. Zero producers means the slot uses a source
-  (error if none); two means error, resolved with a `Link`. Static slots always
-  use sources.
-- **Link(src, dst, slot=None, reduce=None, regridder=None)** is the whole
-  declarative surface. `reduce=None` holds the producer's latest output;
-  otherwise it is an injected `DataArray -> DataArray` over the producer outputs
-  in the consumer's step window (`window_mean` ships). `regridder` is an injected
-  `grids.Regridder`; grids are compared with `infer_grid` + `same_geometry` and
-  a mismatch without a bound regridder is a construction error.
-- **Clock.** The coupling window is the slowest model's step (override with
-  `window=`); each model must divide it. One runner step = one window; faster
-  models publish several lead times in it (the Runner protocol allows streams
-  to skip steps or vary).
-- **Semantics** (validated against the `PrognosticRunner` iterator protocol):
-  - `last`: the consumer, about to step from `t`, receives the producer's newest
-    output valid at or before `t` (held if the producer is slower). Equal
-    cadences give StormScope's behavior: MRMS at lead `L` gets GOES at `L`
-    (the producer advances first).
-  - `mean`: the consumer receives the mean of the producer's outputs in
-    `(t, t + step]` (producer must be faster, and is scheduled first; cycles of
-    `mean` links are rejected). This is the DLESyM / SamudrACE "time-mean atmosphere
-    forces the ocean" pattern.
-  - Initial windows for a wired slot come from the producer's own initial
-    condition when it covers the window (GOES x -> MRMS conditioning), else
-    from the slot's source.
-- **Streams** are named after the models and declared in `output_coords`;
-  IC is published first, then per window. `supports_member_batching=False`,
-  matching the execution contract's phase 3 note.
-- Fails loud: unknown models, unfed slots, grid mismatch, non-multiple windows,
-  ambiguous producers, missing producer output.
+- **Coupling = a function** `(outputs, leads) -> DataArray`. `outputs[name]` is
+  that model's outputs from the previous window's last frame to now, along
+  `lead_time`; `leads` are the lead times the forcing must be valid at. It
+  supplies the model's *first* forcing slot (time-varying). Hold, window means,
+  regridding, unit conversion and masking are ordinary xarray / `Regridder` calls
+  inside it; the runner ships no reducers.
+- **Clock.** Window = slowest model step (override `window=`); each step must
+  divide it. One runner step = one window. Within a window models run in dict
+  order, so a model sees earlier models' *new* outputs and later models' outputs
+  as of the end of the previous window. Order is the lagged/sequential switch.
+- **Checks.** Probe at construction (single in/out slot, one output lead,
+  positive step, window divisibility, initial source present, uncoupled forcing
+  slots have a source, couplings name real models with a time-varying slot).
+  On every call a coupling's result must have one entry per requested lead and
+  the forcing slot's spatial coordinates, else a clear error says to regrid.
+- **Everything else** (initial conditions, other forcing slots, static fields)
+  comes from sources exactly as in `PrognosticRunner`, via its private helpers.
+  Stochastic models are seeded with `seed + crc32(name)` per member/time.
+- **Streams** are named after the models; IC first, then per window.
+  `supports_member_batching=False`.
 
-Not in scope here (intentionally): ensembles/member batching, mid-item resume,
-multi-slot prognostics, diagnostics inside the coupled loop, conservative
-regridding, unit conversion table.
+Removed in the final simplification (all superseded by plain functions):
+`Link`, auto-wiring, provider builders (`latest`/`reduced`/`then`), `NotReady`,
+`window_*` reducers, scale/offset, units attr check, diagnostics inside the
+coupled loop (apply a diagnostic to a stream afterwards, or inside a coupling),
+`check_finite`, cycle/deadlock scheduling, `describe()`.
+
+Not in scope: ensembles/member batching, mid-item resume, multi-slot or
+multi-lead prognostics, conservative regridding.
 
 ## Lighthouse cases
 
-1. **StormScope GOES + MRMS**. Equal cadence, same HRRR grid, GOES variables
-   produced by `StormScopeGOES.output_coords` are exactly `StormScopeMRMS`'s
-   `forcing_coords` variables, so `CoupledRunner({"goes": goes, "mrms": mrms})`
-   with default sources needs no links. Replaces the hand-written loops in
-   `examples/04_nowcasting/03_stormscope_goes_example.py` and
-   `recipes/eval/src/pipelines/stormscope.py`. Test mocks mimic the exact
-   `send` ordering (`test/coupler/test_coupler.py`). Needs verification with real
-   weights (integration check 7 in the execution contract).
-2. **Atmosphere + ocean at different cadences** (DLESyM-like: 6 h atmosphere, 48 h ocean).
-   `links=[Link("atmos", "ocean", reduce=window_mean), Link("ocean", "atmos")]`:
-   atmosphere runs 8 steps per window with SST held from the last ocean output;
-   ocean steps once with the 48 h mean atmosphere. Today `DLESyM` in the repo is
-   a single fused model; this works once atmosphere and ocean are split into two
-   slots/models (execution contract integration check 5). Mock test covers values.
+1. **StormScope GOES + MRMS** (equal cadence, same grid):
+   `couplings={"mrms": lambda out, leads: out["goes"].sel(lead_time=leads, method="pad")}`.
+   GOES runs first in each window, so MRMS at lead `L` sees GOES at `L`. Replaces
+   the hand-written loops in `examples/04_nowcasting/03_stormscope_goes_example.py`
+   and `recipes/eval/src/pipelines/stormscope.py`. Needs real-weights verification.
+2. **Atmosphere + ocean** (6 h atmosphere, 48 h ocean, DLESyM / SamudrACE-style):
+   the example above. Atmosphere runs 8 steps per window with SST held; the ocean
+   steps once with the 48 h mean atmosphere. Needs the fused DLESyM split into two
+   models first.
 
 ## Mapping to nvcoupler (PR #1229)
 
 | nvcoupler | Here |
 | --- | --- |
-| `PrognosticComponent` / `CallableComponent` / `DiagnosticComponent` | The model itself |
-| `DataComponent` | A source bound to a slot (existing) |
-| `Connector(time_policy, window, reduce)` | `Link(reduce=None/callable)` |
-| `Connector(regridder, fill, vertical)` | `Link(regridder=...)`; fill/vertical dropped |
-| `Mediator` (windowed reductions) | `reduce="mean"` |
-| `FieldDictionary` / standard names | Lexicon variable names |
-| Run sequence / lag vs sequential | `last` vs `mean` + scheduling order |
-| `Driver` + `Clock` | `CoupledRunner` (a `Runner`) + window |
-| `couple()` auto-wiring | Auto-wiring in constructor |
-| YAML DSL, `collect`, in-memory Datasets | Dropped: `Pipeline`/IO handle output |
-
-Kept from nvcoupler: DataArray-native boundaries, ordering-based coupling
-semantics, name-based auto-wiring, up-front validation. Dropped: components,
-mediators synthesis, vertical interpolation, mask fill, dictionary, DSL, its own
-output model.
+| Components | The model itself |
+| `Connector(time_policy, window, reduce, regridder)` | A user function in `couplings` |
+| `Mediator` | The same function (xarray reduction) |
+| `FieldDictionary` | Lexicon variable names (inside the function) |
+| Run sequence lag vs sequential | Model order in the dict |
+| `Driver` + `Clock` | `CoupledRunner` + window |
+| `couple()` auto-wiring, YAML DSL, `collect` | Dropped |
 
 ## Survey of existing coupling frameworks
 
@@ -155,59 +134,10 @@ output model.
 
 ## Open questions
 
-1. Implicit/iterative coupling and checkpoint of mean accumulators: not needed yet.
-2. Ensembles: per-member coupled state needs member batching in the runner; the
-   contract lists it as open. Seeding is in place (`_seed_model` per model).
-3. Which slot of DLESyM-like fused models is split into separate models? Needs
-   a model-side change; the coupler cannot split a fused model.
-4. `last` with a faster producer returns only its newest frame; a consumer wanting
-   several frames needs a lead window wider than one (supported by the
-   probe: labelled by the slot's lead_time) but this is untested with real models.
-5. Regridding between differing grids: the user injects a bound `Regridder`
-   (`grids.resolve_regridder` needs the `utils` extra, so the coupler does not
-   build one itself); auto-selection could be added.
-8. Only single-input/single-output-slot models with one output lead per step are
-   accepted (clear errors otherwise); fused multi-lead models such as DLESyM need
-   to be split first. `data_requests` lists the source fetches only.
-6. GPU: frames stay on the device the models use; `to(device)` forwards to models.
-7. Real-weights verification of StormScope equivalence to `eval` pipeline.
-
-## Review follow-ups (implemented)
-
-- Delivered frames are checked (held output not stale; a reducing window has
-  exactly `consumer step / producer step` frames) before relabelling.
-- Regridder output is validated against the slot's spatial coordinates.
-- An explicit source for a slot wins over auto-wiring.
-- Each model and diagnostic seeds from `seed + crc32(name)`, so stochastic
-  models draw independent noise.
-- Reducers `window_last/min/max/sum` ship alongside `window_mean`;
-  `check_finite=True` raises on NaN/inf delivered between models.
-- `Link(window_start=True)` holds the producer as of the window start;
-  `Link(scale=, offset=)` converts units; a units mismatch (when both signatures
-  carry `attrs["units"]`) raises unless a scale/offset is given.
-- `CoupledRunner(diagnostics={stream: (model, diagnostic)})` publishes
-  diagnostic streams.
-- Deferred: a dict of initial-condition arrays, ensembles, checkpointing,
-  multi-slot/multi-lead models, interpolation, automatic/conservative regridding,
-  weighted and per-variable reductions.
-
-## Revision: providers instead of links (supersedes the Link API above)
-
-`Link`, the cycle checker, `lookahead`/`producers` and the `window_*` helpers
-were removed: they amounted to a small DAG framework. What feeds a forcing slot
-is now an injected function, `provider(history, start, step) -> DataArray`.
-
-- `CoupledRunner(models, sources, providers={(model, slot): provider}, ...)`.
-- Provider builders are plain functions: `latest(src)` (hold), `reduced(src, fn)`
-  (any xarray reduction over `(start, start+step]`; waits via `NotReady`) and
-  `then(provider, *fns)` (regridder, unit conversion, masking).
-- `match_by_variable(models, skip)` is a pure function returning the auto-wiring as a
-  plain dict of `latest` providers; the runner uses it for slots without a provider
-  or an explicit source, and it can be called and edited by hand.
-- Scheduling is one rule: the furthest-behind model steps next unless its
-  provider raises `NotReady`; if none can step it raises "deadlocked".
-- Delivered fields are checked against the slot grid and (optionally) for
-  finiteness at delivery, replacing construction-time grid/units checks; units,
-  scale/offset and `window_start` are expressed as ordinary functions.
-- Removed from the earlier follow-ups: reducer helpers, `Link.scale/offset/
-  window_start/regridder`, the units attr check.
+1. Ensembles need member batching in the runner (contract lists it as open).
+2. Fused multi-lead models (DLESyM) must be split model-side.
+3. Automatic/conservative regridding: today the caller applies a bound `Regridder`
+   (`grids.resolve_regridder` needs the `utils` extra).
+4. Real-weights verification of StormScope equivalence to the `eval` pipeline.
+5. Should the `Coupling` call signature gain the step/time, or a small helper
+   module (hold, window_mean) once real use shows which patterns repeat?

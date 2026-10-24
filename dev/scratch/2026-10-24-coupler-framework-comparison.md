@@ -420,7 +420,7 @@ state is local, iterators closed in `finally`.
 
 ## 7. Recommended follow-ups
 
-**Status (superseded by the providers revision in the design note; `Link` no longer exists):** items 1-5, 7, 8 (diagnostics in the loop) and 9 are implemented;
+**Status (superseded: the coupler is now a single `CoupledRunner` with `couplings` functions, see the design note; `Link`, auto-wiring and providers no longer exist):** items 1-5, 7, 8 (diagnostics in the loop) and 9 are implemented;
 item 6 is implemented as `Link(window_start=True)` (no general
 `window_offset`); item 8's dict of initial-condition arrays is deferred.
 Units checks use an optional `attrs["units"]` on the signatures, since the
