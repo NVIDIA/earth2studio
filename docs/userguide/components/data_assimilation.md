@@ -27,12 +27,48 @@ The full requirements for a standard data assimilation model are defined explici
     Data assimilation models do not need to inherit this protocol. The protocol defines
     the APIs that built-in workflows and utilities expect.
 
-Data assimilation models can work with tensor data, tabular observation data, or both.
+`AssimilationModel` defines independent execution (`__call__`), `input_coords`,
+`output_coords`, `default_sources`, and `to`. It does not require
+an iterator. `StatefulAssimilationModel` extends it with `forcing_coords`, `initialize`, `step`, and
+`create_iterator` for continuing a trajectory with explicit state.
+
+```python
+--8<-- "earth2studio/models/da/base.py:stateful-assimilation-model-interface"
+```
+
+Data assimilation models can work with gridded DataArrays, tabular DataFrames, or both,
+including their outputs.
 For tabular inputs, models commonly use a `FrameSchema` to describe fields and
-constraints. For tensor inputs, models use the same `CoordSystem` convention described
+constraints. For gridded inputs, models use allocation-free `CoordinateSystem`
+DataArray signatures, following the same convention described
 in [Data Movement](../about/overview.md#data_userguide).
 
 ## Data Assimilation Usage
+
+### Background and Forcing Slots
+
+`input_coords()` describes all arguments of independent models, including observations.
+For stateful models it describes initialization inputs; `forcing_coords()` declares
+additional caller-supplied step conditioning, including observations.
+Each returns a single signature or schema, an ordered tuple for multiple slots, or
+`None` for no slots. A tuple can mix gridded signatures and DataFrame schemas.
+`output_coords()` accepts input signatures/schemas as separate positional arguments.
+
+| Model | Inputs, in order | Forcing, in order | Execution |
+| --- | --- | --- | --- |
+| `InterpEquirectangular` | Observation schema | — | Independent calls |
+| `HealDA` | Conventional schema, satellite schema | — | Independent calls |
+| `CorrDiffCosmoEra5SDA` | ERA5 DataArray, observation schema | — | Independent calls |
+| `StormCastSDA` | HRRR DataArray | Conditioning, observations | Independent or stateful |
+| `StormCastConusSDA` | HRRR DataArray | Conditioning, observations | Independent or stateful |
+
+A background input does not imply stateful execution: CorrDiff analyzes each
+supplied ERA5 background independently. Stateful continuation is an explicit
+capability, not something inferred from `input_coords()`.
+
+`default_sources()` recommends providers in **input-then-forcing** order. Models
+do not fetch these themselves. Callers fetch and align each gridded slot to the
+declared signature.
 
 ### Loading a Pre-trained Data Assimilation Model
 
@@ -48,38 +84,77 @@ model_package = HealDA.load_default_package()
 model = HealDA.load_model(model_package)
 ```
 
-### Stateless Assimilation
+### Independent Analyses
 
 The main work of a data assimilation model is the `__call__` function. It accepts one
 or more observation or state inputs and returns one or more assimilated outputs.
 
 ```python
 # Assume model is an instance of an AssimilationModel
-analysis, = model(observations)
+analysis = model(observations)  # e.g. InterpEquirectangular
 ```
+
+```python
+# Observation-only model, e.g. InterpEquirectangular
+for observations in observation_batches:
+    analysis = model(observations)
+
+# CorrDiff: callers supply each independent background and observation batch.
+for background, observations in cases:
+    analysis = corrdiff(background, observations)
+```
+
+HealDA receives `(conv_obs, sat_obs)` and needs at least one observation batch.
+CorrDiff accepts an observation DataFrame or `None` alongside the background.
+Interpolation receives one DataFrame per analysis. Consult each model's documentation
+for its time-window and metadata requirements.
 
 ### Stateful Assimilation
 
-Some assimilation workflows need to process a sequence of observation batches while
-maintaining internal state. For those workflows, use `create_generator`.
+`StatefulAssimilationModel` follows the prognostic explicit-state convention.
+`initialize` accepts initial fields followed by initial forcing and returns the
+**first computed analysis** and model-defined state. `step` accepts the previous
+output, new forcing, and state, returning the next analysis and state. For StormCastSDA:
 
 ```python
-# Assume model is an instance of an AssimilationModel
-generator = model.create_generator()
-generator.send(None)  # Prime the generator
-
-for observations in observation_batches:
-    analysis, = generator.send(observations)
-
-generator.close()
+analysis, state = model.initialize(x0, conditioning0, obs0)
+analysis, state = model.step(analysis, conditioning1, None, state=state)
 ```
+
+The pair `(analysis, state)` is the complete continuation. `step` does not mutate
+either argument; retain both to checkpoint or branch a trajectory.
+
+Alternatively, `create_iterator` manages that pair for the caller:
+
+```python
+iterator = model.create_iterator(x0, conditioning0, obs0)
+analysis = next(iterator)  # First computed analysis, one hour after x0
+analysis = iterator.send((conditioning1, None))  # Next analysis without observations
+iterator.close()
+```
+
+There is no priming yield or initial-state yield: every yield is a computed output.
+Initial forcing belongs in `create_iterator`; later sends supply forcing for the
+next step in `forcing_coords()` order. StormCastSDA always requires conditioning,
+even when optional observations are `None`. Thus subsequent `next(iterator)` or
+`send(None)` cannot replace `send((conditioning, None))`. Conditioning is aligned
+to the input valid time, and observations to the output valid time one hour later.
+
+Return one output directly, or multiple objects in declared order (`return y1, y2`).
+Independent models declare observations in `input_coords()`; only stateful models
+declare step conditioning and observations in `forcing_coords()`.
 
 ## Custom Data Assimilation Models
 
 To integrate your own data assimilation model, satisfy the interface above and keep the
-input and output schemas explicit. The model should advertise initialization
-requirements with `init_coords()`, accepted inputs with `input_coords()`, and produced
-outputs with `output_coords()`.
+input and output schemas explicit. Declare arguments with `input_coords()`,
+additional stateful conditioning with `forcing_coords()`, and produced outputs
+with `output_coords()`. Declare fixed named
+execution parameters in input-then-forcing order. Implement the stateful extension
+only when outputs and explicit state continue a trajectory; independent models need
+no iterator. Output declarations use `CoordinateSystem` for DataArrays and
+`FrameSchema` for DataFrames. Use `.e2s.to_torch()` and
+`from_torch()` at gridded execution boundaries for torch-based computation.
 
 We recommend reviewing the [extension examples](../../examples/index.md#extend), which
 show the style expected for adding custom Earth2Studio components.

@@ -14,7 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .base import AssimilationModel, StatefulAssimilationModel
 from .healda import HealDA
 from .interp import InterpEquirectangular
 from .sda_corrdiff_cosmo_era5 import CorrDiffCosmoEra5SDA
 from .sda_stormcast import StormCastSDA
+from .sda_stormcastconus import StormCastConusSDA

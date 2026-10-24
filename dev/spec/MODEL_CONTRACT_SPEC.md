@@ -14,7 +14,10 @@ gap.
 
 `earth2studio.models.conformance` checks the rules below and reports their
 identifiers. Model tests cover execution, batching, metadata, hooks, ownership and
-checkpoint continuation. `AssimilationModel` is out of scope; see Open Questions.
+checkpoint continuation. DA's companion interfaces are defined in
+`earth2studio/models/da/base.py` and the
+[DA user guide](../../docs/userguide/components/data_assimilation.md); see Open Questions
+for remaining generic DA planning concerns.
 
 ## Coordinate Systems
 
@@ -864,19 +867,19 @@ The checker implements this contract. Wrappers and consumers migrate separately:
   would skip `P13` while keeping `P14`. No current wrapper needs this split.
 - `P14`/`D10` cover only models implementing `set_rng`; widen them if a deterministic
   model that reseeds globally appears.
-- `AssimilationModel` needs decisions on four divergences before a contract:
-  1. Output resolution: `InterpEquirectangular` requires positional `request_time`,
-     `HealDA` accepts it optionally, and `StormCastSDA`/`CorrDiffCosmoEra5SDA` reject
-     it, preventing generic planning.
-  2. Priming: `StormCastSDA` yields initial state; `HealDA`, `InterpEquirectangular`
-     and `CorrDiffCosmoEra5SDA` yield `None`.
-  3. Stochasticity: `CorrDiffCosmoEra5SDA` uses `self.seed + i` without `set_rng`;
-     `P11`–`P14` could transfer unchanged.
-  4. Ownership: mutable DataFrame/DataArray inputs need `P15`/`D6` guarantees.
+- DA now separates independent `AssimilationModel` calls from the extending
+  `StatefulAssimilationModel` lifecycle (`initialize`, `step`, `create_iterator`).
+  Its first yield is the computed analysis; there are no priming yields. Explicit
+  state, replay, and ownership follow the prognostic conventions, extended to
+  DataFrame slots and optional observations. `send(None)` only permits advancement
+  when no new required forcing is needed; StormCast requires conditioning even
+  without observations. Tabular outputs use `FrameSchema`.
 
-  `FrameSchema` (ordered column-to-array mappings) supports probe DataFrames, but
-  mid-stream `send(None)`, single-call/step equivalence and generator closure
-  ownership remain undecided.
+  Remaining generic DA planning questions are analysis-time resolution for
+  observation-only models, machine-readable observation windows and optionality
+  (including HealDA's at-least-one constraint). RNG follows the shared convention
+  in [the DA contract](DA_MODEL_CONTRACT_SPEC.md). Model-specific metadata/window
+  contracts remain authoritative until those are standardized.
 - Do drivers accept yields with several `lead_time` entries? IO backends do
   ([IO_SPEC.md](IO_SPEC.md)); chunked steps for DLWP, Aurora1p5, SamudrACE and
   InterpModAFNO depend on drivers as well.
