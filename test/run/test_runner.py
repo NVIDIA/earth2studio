@@ -191,7 +191,7 @@ def _item(hours: int = 18) -> WorkItem:
     return WorkItem(T0, np.timedelta64(hours, "h"))
 
 
-def test_steps_through_horizon() -> None:
+def test_steps_through_final_lead_time() -> None:
     runner: Runner = PrognosticRunner(_model(), _Zeros())
     steps = list(runner.run_item(_item()))
     assert [set(s) for s in steps] == [{"forecast"}] * 4
@@ -199,12 +199,12 @@ def test_steps_through_horizon() -> None:
         np.testing.assert_array_equal(step["forecast"].values, k)
     leads = [s["forecast"]["lead_time"].values[-1] for s in steps]
     np.testing.assert_array_equal(
-        leads, runner.output_coords(_item().horizon)["forecast"]["lead_time"]
+        leads, runner.output_coords(_item().final_lead_time)["forecast"]["lead_time"]
     )
 
 
 def test_output_coords_are_allocation_free_stream_signatures() -> None:
-    coords = PrognosticRunner(_model(), _Zeros()).output_coords(_item().horizon)
+    coords = PrognosticRunner(_model(), _Zeros()).output_coords(_item().final_lead_time)
     forecast = coords["forecast"]
     # One DataArray signature per stream, with lead_time leading the fixed dims
     # and time and ensemble left to the dynamic prefix.
@@ -235,7 +235,7 @@ def test_stream_signature_fixes_a_dynamic_lead_time() -> None:
 
 def test_output_coords_round_trip_to_io_templates() -> None:
     runner = PrognosticRunner(_model(), _Zeros())
-    signature = runner.output_coords(_item().horizon)["forecast"]
+    signature = runner.output_coords(_item().final_lead_time)["forecast"]
     template = output_template(
         signature,
         leading={"ensemble": np.array([0, 1]), "time": np.array([T0])},
@@ -267,7 +267,7 @@ def test_matches_deterministic_workflow() -> None:
 
 def test_diagnostics_publish_their_own_streams() -> None:
     runner = PrognosticRunner(_model(), _Zeros(), diagnostics={"copy": Identity()})
-    coords = runner.output_coords(_item().horizon)
+    coords = runner.output_coords(_item().final_lead_time)
     assert set(coords) == {"forecast", "copy"}
     np.testing.assert_array_equal(
         coords["copy"]["lead_time"], coords["forecast"]["lead_time"]
@@ -300,7 +300,7 @@ def test_forecast_stream_name_is_reserved() -> None:
         PrognosticRunner(_model(), _Zeros(), diagnostics={"forecast": Identity()})
 
 
-def test_initial_condition_only_for_zero_horizon() -> None:
+def test_initial_condition_only_for_zero_final_lead_time() -> None:
     steps = list(PrognosticRunner(_model(), _Zeros()).run_item(_item(0)))
     assert len(steps) == 1
     np.testing.assert_array_equal(steps[0]["forecast"].values, 0)
@@ -349,7 +349,7 @@ def test_missing_forcing_source_is_rejected() -> None:
         PrognosticRunner(_Forced(), _Zeros())
 
 
-def test_negative_horizon_is_rejected_before_fetching() -> None:
+def test_negative_final_lead_time_is_rejected_before_fetching() -> None:
     with pytest.raises(ValueError):
         PrognosticRunner(_model(), _Zeros()).nsteps(np.timedelta64(-6, "h"))
 
@@ -369,7 +369,7 @@ def test_diagnostic_runner_steps_through_source_times() -> None:
     np.testing.assert_array_equal(steps[-1]["wind"]["variable"], ["ws10m"])
     hours = [int((t - T0) / np.timedelta64(1, "h")) for t in source.times]
     assert hours == [0, 6, 12]
-    coords = runner.output_coords(_item(12).horizon)["wind"]
+    coords = runner.output_coords(_item(12).final_lead_time)["wind"]
     np.testing.assert_array_equal(
         coords["lead_time"], np.array([0, 6, 12], dtype="timedelta64[h]")
     )

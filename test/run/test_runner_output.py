@@ -51,8 +51,8 @@ def test_signatures_plan_one_store_per_stream(tmp_path) -> None:
     Driven through ``Pipeline``, which plans the stores from these schemas.
     """
     runner = _runner()
-    items = work_items([T0, T1], horizon=np.timedelta64(12, "h"))
-    schemas = runner.output_coords(max(item.horizon for item in items))
+    items = work_items([T0, T1], final_lead_time=np.timedelta64(12, "h"))
+    schemas = runner.output_coords(max(item.final_lead_time for item in items))
     assert set(schemas) == {"forecast", "copy"}
     assert schemas["forecast"].nbytes == 0  # allocation-free signature
 
@@ -62,7 +62,7 @@ def test_signatures_plan_one_store_per_stream(tmp_path) -> None:
     )
     assert copy._closed  # closed by the pipeline, and still readable
 
-    # Stores span all items: both times and every lead the horizon allows.
+    # Stores span all items: both times and every lead the final lead time allows.
     assert forecast["u10m"].shape == (2, 3, 2, 3)  # time, lead_time, lat, lon
     assert copy["u10m"].shape == (2, 3, 2, 3)
     # Step k holds the value k, written at the item's own time.
@@ -74,8 +74,8 @@ def test_signatures_plan_one_store_per_stream(tmp_path) -> None:
 def test_stream_without_a_backend_is_not_written(tmp_path) -> None:
     """An unmapped stream is skipped, so Pipeline._emit needs no check."""
     runner = _runner()
-    items = work_items([T0], horizon=np.timedelta64(6, "h"))
-    schemas = runner.output_coords(items[0].horizon)
+    items = work_items([T0], final_lead_time=np.timedelta64(6, "h"))
+    schemas = runner.output_coords(items[0].final_lead_time)
 
     copy = ZarrBackend(str(tmp_path / "copy_only.zarr"))
     outputs = OutputManager({"copy": copy})
@@ -92,8 +92,8 @@ def test_stream_without_a_backend_is_not_written(tmp_path) -> None:
 def test_backend_naming_an_unknown_stream_is_rejected() -> None:
     """A typo in the output mapping fails before any store is created."""
     runner = _runner()
-    items = work_items([T0], horizon=np.timedelta64(6, "h"))
-    schemas = runner.output_coords(items[0].horizon)
+    items = work_items([T0], final_lead_time=np.timedelta64(6, "h"))
+    schemas = runner.output_coords(items[0].final_lead_time)
     outputs = OutputManager({"forcast": KVBackend()})
     with pytest.raises(ValueError, match="unknown streams"):
         outputs.prepare(schemas, items)

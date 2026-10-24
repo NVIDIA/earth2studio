@@ -235,7 +235,7 @@ def _write_stream(
     runner: PrognosticRunner, item: WorkItem, stream: str = "forecast"
 ) -> KVBackend:
     """Plan a store from the runner's schema and write every step into it."""
-    signature = runner.output_coords(item.horizon)[stream]
+    signature = runner.output_coords(item.final_lead_time)[stream]
     io = KVBackend()
     io.add_array(
         output_template(
@@ -258,7 +258,7 @@ def test_forced_model_rolls_out_with_its_conditioning() -> None:
     )
     item = WorkItem(T0, np.timedelta64(3, "h"), member_ids=(2,))
 
-    signature = runner.output_coords(item.horizon)["forecast"]
+    signature = runner.output_coords(item.final_lead_time)["forecast"]
     assert signature.dims == ("batch", "time", "lead_time", "variable", "y", "x")
     assert signature.data.nbytes == 0
     np.testing.assert_array_equal(
@@ -311,8 +311,8 @@ def test_fused_dlesym_publishes_every_lead_time_of_each_step() -> None:
     item = WorkItem(T0, np.timedelta64(24, "h"), member_ids=(4,))
 
     # One model step covers two lead times, so the schema spans nsteps * 2 + 1.
-    assert runner.nsteps(item.horizon) == 2
-    signature = runner.output_coords(item.horizon)["forecast"]
+    assert runner.nsteps(item.final_lead_time) == 2
+    signature = runner.output_coords(item.final_lead_time)["forecast"]
     assert signature.dims == (
         "batch",
         "time",

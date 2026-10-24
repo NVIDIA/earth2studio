@@ -119,9 +119,9 @@ class Pipeline:
         its ``target_grid``, by default None
     progress : ProgressStore | None, optional
         Records finished items, so a later run skips them, by default None
-    device : torch.device | str | None, optional
-        Device the runner runs on, by default ``cuda:{LOCAL_RANK}`` when CUDA is
-        available, otherwise CPU
+    device : torch.device | str, optional
+        Device the runner runs on. ``"auto"`` picks ``cuda:{LOCAL_RANK}`` when
+        CUDA is available, otherwise CPU, by default "auto"
     sync : Callable[[WorkItem | None], None] | None, optional
         Per-round hook every rank joins, by default None. When set, ranks run
         their items in lockstep rounds: each runs one item, then every rank
@@ -137,7 +137,7 @@ class Pipeline:
 
     Examples
     --------
-    >>> items = work_items(times, horizon=np.timedelta64(240, "h"))
+    >>> items = work_items(times, final_lead_time=np.timedelta64(240, "h"))
     >>> output = {"forecast": ZarrBackend("out/forecast.zarr")}
     >>> Pipeline.from_model(model, GFS(), output=output).run(items)
     """
@@ -150,7 +150,7 @@ class Pipeline:
         output_variables: Mapping[str, Sequence[str]] | None = None,
         regridder: Mapping[str, Regridder] | None = None,
         progress: ProgressStore | None = None,
-        device: torch.device | str | None = None,
+        device: torch.device | str = "auto",
         sync: Callable[[WorkItem | None], None] | None = None,
     ) -> None:
         if output is None and scorer is None:
@@ -166,7 +166,7 @@ class Pipeline:
             self.output_variables[stream] = names
         self.regridder = dict(regridder or {})
         self.progress = progress
-        self.device = torch.device(device) if device is not None else _default_device()
+        self.device = _default_device() if device == "auto" else torch.device(device)
         self.sync = sync
         # Per-run state, set by run().
         self._outputs: OutputManager | None = None
@@ -232,7 +232,7 @@ class Pipeline:
             If the items are inconsistent across ranks, repeat a
             ``(time, member)``, mix deterministic and ensemble items, carry
             several members for a runner without member batching, or have a
-            horizon the runner cannot reach; if a per-stream setting names an
+            final lead time the runner cannot reach; if a per-stream setting names an
             unknown stream or variable, or a regridder does not match its stream's
             grid; or if the progress manifest does not match this run.
         RuntimeError
@@ -379,8 +379,8 @@ class Pipeline:
         self._validate(items)
         self.runner.to(self.device)
         self.regridder = {k: r.to(self.device) for k, r in self.regridder.items()}
-        horizon = max(item.horizon for item in items)
-        return self._stored_schemas(self.runner.output_coords(horizon))
+        final_lead_time = max(item.final_lead_time for item in items)
+        return self._stored_schemas(self.runner.output_coords(final_lead_time))
 
     def _validate(self, items: list[WorkItem]) -> None:
         """Check items before any store or progress is touched."""
@@ -393,9 +393,9 @@ class Pipeline:
                     f"but {len(batched)} items carry several; build items with "
                     "member_batch=1"
                 )
-        # Every horizon must be reachable, not only the longest.
-        for horizon in {item.horizon for item in items}:
-            self.runner.output_coords(horizon)
+        # Every final lead time must be reachable, not only the longest.
+        for final_lead_time in {item.final_lead_time for item in items}:
+            self.runner.output_coords(final_lead_time)
 
     def _stored_schemas(
         self, signatures: Mapping[str, CoordinateSystem]
@@ -514,7 +514,7 @@ def _log_finished(rank: int, index: int, mine: list[WorkItem]) -> None:
     members = f", members {list(item.member_ids)}" if item.member_ids else ""
     logger.info(
         f"Rank {rank}: finished work item {index + 1}/{len(mine)} "
-        f"(time {item.time}, horizon {item.horizon}{members})"
+        f"(time {item.time}, final_lead_time {item.final_lead_time}{members})"
     )
 
 

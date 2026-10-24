@@ -79,8 +79,10 @@ class _Recording:
         self.inner.to(device)
         return self
 
-    def output_coords(self, horizon: np.timedelta64) -> Mapping[str, CoordinateSystem]:
-        return self.inner.output_coords(horizon)
+    def output_coords(
+        self, final_lead_time: np.timedelta64
+    ) -> Mapping[str, CoordinateSystem]:
+        return self.inner.output_coords(final_lead_time)
 
     def data_requests(self, item: WorkItem) -> None:
         return None
@@ -260,7 +262,7 @@ def test_member_batches_need_a_batching_runner() -> None:
     assert runner.ran == []
 
 
-def test_unreachable_horizon_fails_before_running() -> None:
+def test_unreachable_final_lead_time_fails_before_running() -> None:
     runner = _Recording(_runner())
     items = [WorkItem(T0, H12), WorkItem(T1, np.timedelta64(9, "h"))]
     pipeline = Pipeline(runner, output={"forecast": KVBackend()}, device="cpu")

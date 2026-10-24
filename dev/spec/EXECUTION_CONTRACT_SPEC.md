@@ -17,7 +17,7 @@ happens if it crashes?" belongs to `Pipeline`.
 
 ```python
 model = SFNO.load_model(SFNO.load_default_package())
-items = work_items(times, horizon=np.timedelta64(240, "h"))
+items = work_items(times, final_lead_time=np.timedelta64(240, "h"))
 output = {"forecast": ZarrBackend("out/forecast.zarr")}
 progress = ProgressStore("out/.progress")
 Pipeline.from_model(model, GFS(), output=output, progress=progress).run(items)
@@ -43,25 +43,25 @@ Pipeline(driver.to_runner(ics={...}), output=output).run(items)
 @dataclass(frozen=True)
 class WorkItem:
     time: np.datetime64          # reference time: initialization, or first valid time
-    horizon: np.timedelta64      # last lead time to produce; 0 runs one step
+    final_lead_time: np.timedelta64      # last lead time to produce; 0 runs one step
     member_ids: tuple[int, ...] = ()  # ensemble members; empty when deterministic
 
 def work_items(
     times: Sequence[np.datetime64],
-    horizon: np.timedelta64,
+    final_lead_time: np.timedelta64,
     members: int | Sequence[int] | None = None,
     member_batch: int = 1,
 ) -> list[WorkItem]: ...
 ```
 
 Callers build items, usually with `work_items`; runners only read them. The
-horizon must be a multiple of the runner's step.
+final lead time must be a multiple of the runner's step.
 
 - `work_items` orders items time-major in the caller's `times` order and splits
-  each time's members into groups of `member_batch`. Times and horizons are
+  each time's members into groups of `member_batch`. Times and final lead times are
   normalized to seconds, so items hash by instant.
 - Every item writes lead times from zero, so a valid list repeats no
-  `(time, member)` whatever the horizons, and either every item has members or
+  `(time, member)` whatever the final lead times, and either every item has members or
   none does. `work_items` and `OutputManager.prepare` raise `ValueError` otherwise.
 
 ## Runner
@@ -70,7 +70,7 @@ horizon must be a multiple of the runner's step.
 class Runner(Protocol):
     supports_member_batching: bool
     def to(self, device) -> Runner
-    def output_coords(self, horizon) -> Mapping[str, CoordinateSystem]
+    def output_coords(self, final_lead_time) -> Mapping[str, CoordinateSystem]
     def data_requests(self, item: WorkItem) -> tuple[DataRequest, ...] | None
     def run_item(self, item: WorkItem) -> Iterator[Mapping[str, xr.DataArray]]
 ```
@@ -90,9 +90,9 @@ class Runner(Protocol):
 
 ### Stream schemas and outputs
 
-`output_coords(horizon)` returns one allocation-free `coord_array` signature per
+`output_coords(final_lead_time)` returns one allocation-free `coord_array` signature per
 stream (see [MODEL_CONTRACT_SPEC.md](MODEL_CONTRACT_SPEC.md)). Its fixed
-dimensions are `lead_time`, covering every lead the horizon allows, then
+dimensions are `lead_time`, covering every lead the final lead time allows, then
 `variable` and the grid's. `time` and `ensemble` may appear only in the dynamic
 prefix. The schema carries the yielded fields' grid metadata, auxiliary
 coordinates, dtype and attributes, and is an upper bound: runs may stop early.
@@ -132,7 +132,7 @@ class Pipeline:
         output_variables: Mapping[str, Sequence[str]] | None = None,
         regridder: Mapping[str, Regridder] | None = None,
         progress: ProgressStore | None = None,
-        device: torch.device | str | None = None,
+        device: torch.device | str = "auto",
         sync: Callable[[WorkItem | None], None] | None = None,
     ) -> None: ...
 
@@ -144,7 +144,8 @@ class Pipeline:
     def run(self, items: Sequence[WorkItem]) -> None: ...
 ```
 
-`output` or `scorer` is required. `device` defaults to `cuda:{LOCAL_RANK}` when
+At least one of `output` and `scorer` is required; `output=None` writes nothing,
+for scorer-only runs. `device="auto"`, the default, picks `cuda:{LOCAL_RANK}` when
 CUDA is available, otherwise CPU.
 
 `output`, `output_variables` and `regridder` map stream names to settings. A
@@ -160,8 +161,8 @@ def run(self, items):
     rank, world_size = rank_info()
     items = self._validate(items)                  # identical on every rank
     self.runner.to(self.device)
-    horizon = max(item.horizon for item in items)
-    schemas = self._stored_schemas(self.runner.output_coords(horizon))
+    final_lead_time = max(item.final_lead_time for item in items)
+    schemas = self._stored_schemas(self.runner.output_coords(final_lead_time))
     if self.progress is not None:
         manifest = self._manifest(schemas)
         attempt = broadcast(self.progress.setup(manifest) if rank == 0 else None)
@@ -191,7 +192,7 @@ def run(self, items):
 it and `x` lacks it, then writes.
 
 - **Stores span all items**, not the remaining ones, so a resume at any world
-  size reuses them. Shorter horizons leave fill values.
+  size reuses them. Shorter final lead times leave fill values.
 - **Durability.** An item is marked done only after its outputs flush and its
   scorer finishes. An interrupted item reruns in full; label-addressed writes make
   that idempotent.
@@ -296,7 +297,7 @@ class ProgressStore:
     def clear(self) -> None: ...
 ```
 
-- **Unit keys.** Every finished item is recorded as `(time, horizon, member_id)`
+- **Unit keys.** Every finished item is recorded as `(time, final_lead_time, member_id)`
   units; an item is done when all its units are. Keys ignore order, rank, world
   size and grouping, so a resume may change any of them; a partly done group
   reruns in full.
@@ -374,7 +375,7 @@ tensors, and starts with `supports_member_batching = False`.
 | `X13` | Rank 0 creates stores before other ranks prepare them; re-adding is a no-op (`I4`) |
 | `X14` | Distributed stores write blocks of 1 along `time` and `ensemble` |
 | `X15` | Distributed runs warn once per backend type without `write_blocks` |
-| `X16` | Progress keys `(time, horizon, member_id)` in per-rank logs; bad lines skipped |
+| `X16` | Progress keys `(time, final_lead_time, member_id)` in per-rank logs; bad lines skipped |
 | `X17` | Items are marked done only after outputs flush, the scorer finishes and `sync` returns |
 | `X18` | Rank 0 lists remaining items and broadcasts them |
 | `X19` | A manifest mismatch raises `ValueError` unless the progress store overwrites |

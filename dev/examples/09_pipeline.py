@@ -80,7 +80,7 @@ class TinyFCN(FCN):
 model = TinyFCN(AddOne(), torch.zeros(2, 1, 1), torch.ones(2, 1, 1))
 source = Constant(OrderedDict(lat=np.array([10.0, 0.0]), lon=np.arange(0.0, 21, 10)), 0)
 times = [np.datetime64("2026-01-01"), np.datetime64("2026-01-02")]
-items = work_items(times, horizon=np.timedelta64(18, "h"))
+items = work_items(times, final_lead_time=np.timedelta64(18, "h"))
 print(items[0])
 
 # %%
