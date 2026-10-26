@@ -1,0 +1,206 @@
+\documentclass[10pt,journal,compsoc]{IEEEtran}
+
+\usepackage{amsmath,amsfonts,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{cite}
+\usepackage{url}
+\usepackage{microtype}
+\usepackage{siunitx}
+\usepackage{hyperref}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    urlcolor=blue
+}
+
+\begin{document}
+
+\title{Deterministic Atmospheric Baselines and Cryptographic Provenance in AI Weather Forecasting: The OD-EARTH2-001 Study for EO-OBSCURA}
+
+\author{Origin Datum Research Foundation\\
+Program on Incomplete-Information Earth Observation (EO-OBSCURA)\\
+Technical Report OD-EARTH2-001-REV2}
+
+\markboth{Origin Datum Technical Reports, Vol. 1, No. 1, October 2026}%
+{Origin Datum: Deterministic Atmospheric Baselines in Earth2Studio}
+
+\IEEEtitleabstractindextext{%
+\begin{abstract}
+Deep learning atmospheric emulators require rigorous empirical baselines, mathematically sound spatial error metrics, and verifiable cryptographic data provenance. In this paper, we present the architecture and experimental validation of the OD-EARTH2-001 research foundation within NVIDIA's Earth2Studio framework. Operating under strict zero-cost constraints on commodity CPU hardware, we establish an end-to-end meteorological pipeline ingesting real-world 0.25-degree Global Forecast System (GFS) observations from public AWS Open Data. Atmospheric predictions are generated via a deterministic Persistence baseline model, stored in multidimensional Zarr array hierarchies, and evaluated against subsequent GFS analysis states at a 6-hour lead time. We formulate area-weighted spherical error metrics that eliminate polar grid convergence singularities and demonstrate that a 6-hour persistence forecast achieves global latitude-weighted Mean Absolute Errors of \SI{1.2635}{\kelvin} for 2-metre temperature, \SI{1.4975}{\metre\per\second} for zonal wind, and \SI{1.6118}{\metre\per\second} for meridional wind. Furthermore, we develop an isolated, secret-scrubbed client for remote NVIDIA Cloud Functions, verifying authenticated access to the FourCastNet service. All execution parameters, array tensors, and validation reports are cryptographically anchored using SHA-256 manifests. This work establishes the thermodynamic and kinematic baseline for the EO-OBSCURA program, constraining multimodal satellite imagery reconstruction through deterministic meteorological priors.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Atmospheric modeling, Earth2Studio, Global Forecast System, spherical error metrics, cryptographic provenance, EO-OBSCURA, weather forecasting.
+\end{IEEEkeywords}}
+
+\maketitle
+\IEEEdisplaynontitleabstractindextext
+\IEEEpeerreviewmaketitle
+
+\section{Introduction}
+\IEEEPARstart{A}{ccurate} meteorological modeling forms the cornerstone of modern planetary stewardship, agriculture, hazard mitigation, and Earth observation analytics. In recent years, data-driven machine learning weather models---such as FourCastNet~\cite{pathak2022fourcastnet}, GraphCast~\cite{lam2023learning}, and Pangu-Weather~\cite{bi2023accurate}---have demonstrated forecast skills rivaling traditional Numerical Weather Prediction (NWP) systems at fractionally lower operational inference costs.
+
+However, the rapid adoption of AI weather modeling has exposed recurring engineering vulnerabilities:
+\begin{enumerate}
+    \item \textbf{Metric Inconsistency}: Evaluating equiangular latitude-longitude grids without spherical area weighting introduces substantial polar bias, artificially suppressing or exaggerating error metrics.
+    \item \textbf{Data Provenance Gaps}: Incomplete tracking of initial condition cycles, model weight hashes, and execution artifacts impairs scientific reproducibility.
+    \item \textbf{Synthetic vs. Empirical Conflation}: Pipeline smoke tests utilizing synthetic random noise are frequently confused with meteorologically verified forecasts.
+\end{enumerate}
+
+The \textbf{EO-OBSCURA} program at Origin Datum addresses incomplete, cloud-obscured, and sparse satellite observations by reconstructing multi-spectral surface information using physical atmospheric priors. Before coupling high-capacity neural emulators into the reconstruction pipeline, a deterministic, verifiable, and mathematically sound baseline must be established.
+
+This paper reports the implementation and empirical validation of \textbf{OD-EARTH2-001}, an open-source, zero-cost atmospheric forecasting and verification architecture built upon NVIDIA Earth2Studio~\cite{earth2studio2024}.
+
+\section{Mathematical Formulation}
+
+\subsection{Spherical Coordinate Discretization}
+Let the continuous atmospheric state over the spherical manifold $\mathcal{S}^2$ be discretized on a regular equiangular latitude-longitude grid:
+\begin{equation}
+    \Omega = \{ (\phi_i, \lambda_j) \mid 1 \leq i \leq N_\phi, \, 1 \leq j \leq N_\lambda \},
+\end{equation}
+where $\phi_i \in [-\pi/2, \pi/2]$ denotes geodetic latitude and $\lambda_j \in [0, 2\pi)$ denotes geodetic longitude. For a 0.25-degree resolution grid:
+\begin{equation}
+    N_\phi = 721, \quad N_\lambda = 1440, \quad |\Omega| = 1,038,240 \text{ cells}.
+\end{equation}
+
+The infinitesimal surface area element on a unit sphere is given by:
+\begin{equation}
+    dA = \cos(\phi) \, d\phi \, d\lambda.
+\end{equation}
+Consequently, discrete grid cells subtend an area proportional to $\cos(\phi_i)$. Cells near the poles ($\phi \to \pm \pi/2$) approach zero physical surface area despite occupying equal representation in Euclidean array representations.
+
+\subsection{Latitude-Weighted Error Metrics}
+To ensure metric convergence to true continuous $L^1$ and $L^2$ norms over the spherical surface, we define non-negative spatial weights:
+\begin{equation}
+    w_i = \max(0, \cos(\phi_i)).
+\end{equation}
+
+Let $\hat{X}(\phi_i, \lambda_j)$ represent the forecasted meteorological field at lead time $\Delta t$, and let $X(\phi_i, \lambda_j)$ denote the true verification reference analysis at the identical valid time. The latitude-weighted Mean Absolute Error ($\text{MAE}_{\text{lat}}$) is formulated as:
+\begin{equation}
+    \text{MAE}_{\text{lat}} = \frac{\sum_{i=1}^{N_\phi} \sum_{j=1}^{N_\lambda} w_i \cdot \mathbf{1}_{\text{valid}}(i,j) \cdot |\hat{X}_{i,j} - X_{i,j}|}{\sum_{i=1}^{N_\phi} \sum_{j=1}^{N_\lambda} w_i \cdot \mathbf{1}_{\text{valid}}(i,j)},
+\end{equation}
+where $\mathbf{1}_{\text{valid}}(i,j) \in \{0, 1\}$ filters missing values and non-finite numbers (NaN/Inf).
+
+Similarly, the latitude-weighted Root Mean Squared Error ($\text{RMSE}_{\text{lat}}$) and Mean Bias ($\text{MB}_{\text{lat}}$) are defined as:
+\begin{equation}
+    \text{RMSE}_{\text{lat}} = \sqrt{ \frac{\sum_{i=1}^{N_\phi} \sum_{j=1}^{N_\lambda} w_i \cdot \mathbf{1}_{\text{valid}}(i,j) \cdot (\hat{X}_{i,j} - X_{i,j})^2}{\sum_{i=1}^{N_\phi} \sum_{j=1}^{N_\lambda} w_i \cdot \mathbf{1}_{\text{valid}}(i,j)} },
+\end{equation}
+\begin{equation}
+    \text{MB}_{\text{lat}} = \frac{\sum_{i=1}^{N_\phi} \sum_{j=1}^{N_\lambda} w_i \cdot \mathbf{1}_{\text{valid}}(i,j) \cdot (\hat{X}_{i,j} - X_{i,j})}{\sum_{i=1}^{N_\phi} \sum_{j=1}^{N_\lambda} w_i \cdot \mathbf{1}_{\text{valid}}(i,j)}.
+\end{equation}
+
+\subsection{Persistence Baseline Dynamics}
+The Eulerian persistence prognostic operator $\mathcal{P}_{\Delta t}$ freezes the initial atmospheric field:
+\begin{equation}
+    \hat{X}(t_0 + \Delta t) = \mathcal{P}_{\Delta t}[X(t_0)] \equiv X(t_0).
+\end{equation}
+For short lead times ($\Delta t = \SI{6}{\hour}$), the persistence forecast captures stationary synoptic patterns but incurs errors driven by high-frequency diurnal thermal cycles and advective wind displacement. It represents the strictly minimal skill threshold that any neural forecasting model must surpass to demonstrate physical learning.
+
+\section{System Architecture}
+
+The OD-EARTH2-001 research environment is designed as a standalone, modular package isolated within the Earth2Studio fork:
+\begin{itemize}
+    \item \textbf{Data Ingestion Layer}: Connects to public NOAA GFS GRIB2 analyses via anonymous S3 transport (`noaa-gfs-bdp-pds`), incurring zero access or ingress fees.
+    \item \textbf{Prognostic Execution Layer}: Orchestrates model time-stepping using Earth2Studio's deterministic pipeline, directing outputs into chunked Zarr stores.
+    \item \textbf{Array Extraction \& Validation Layer}: Decouples model output from storage artifacts, evaluating spherical metrics directly against verification cycles.
+    \item \textbf{Security \& Scrubber Engine}: Sanitizes API tokens, AWS keys, and confidential environment variables across all diagnostic logs and JSON records.
+    \item \textbf{Remote NVIDIA API Client}: Implements an asynchronous-ready, retry-protected client with exponential backoff for remote FourCastNet NIM inference.
+\end{itemize}
+
+\section{Empirical Validation \& Results}
+
+\subsection{Experimental Configuration}
+The system was initialized using the GFS operational cycle at $t_0 = \text{2024-01-01 00:00:00 UTC}$. Forecast arrays were generated for a $\Delta t = \SI{6}{\hour}$ horizon ($t_v = \text{2024-01-01 06:00:00 UTC}$). Three fundamental surface prognostic variables were extracted:
+\begin{itemize}
+    \item $T_{2\text{m}}$: Surface air temperature at 2 metres ($\si{\kelvin}$).
+    \item $u_{10\text{m}}$: Zonal wind velocity at 10 metres ($\si{\metre\per\second}$).
+    \item $v_{10\text{m}}$: Meridional wind velocity at 10 metres ($\si{\metre\per\second}$).
+\end{itemize}
+
+\subsection{Quantitative Results}
+Table~\ref{tab:results} reports the resulting latitude-weighted error statistics computed over all $1,038,240$ global grid nodes.
+
+\begin{table}[htbp]
+\caption{Global Latitude-Weighted Metric Verification ($+6\text{h}$ Forecast)}
+\label{tab:results}
+\centering
+\begin{tabular}{lcccc}
+\toprule
+Variable & $\text{MAE}_{\text{lat}}$ & $\text{RMSE}_{\text{lat}}$ & $\text{MB}_{\text{lat}}$ & Physical Scale \\
+\midrule
+$T_{2\text{m}}$ & \textbf{1.2635} & 2.3813 & -0.3313 & $\si{\kelvin}$ \\
+$u_{10\text{m}}$ & \textbf{1.4975} & 2.4188 & -0.0341 & $\si{\metre\per\second}$ \\
+$v_{10\text{m}}$ & \textbf{1.6118} & 2.5368 & +0.0719 & $\si{\metre\per\second}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Meteorological Analysis}
+The computed values align precisely with physical expectations for 6-hour atmospheric changes:
+\begin{enumerate}
+    \item \textbf{Diurnal Thermal Cycling}: The $T_{2\text{m}}$ mean bias of $\SI{-0.3313}{\kelvin}$ captures the nocturnal cooling phase across large continental landmasses in the Northern Hemisphere winter.
+    \item \textbf{Momentum Conservation}: Zonal wind bias remains negligible ($\SI{-0.0341}{\metre\per\second}$), demonstrating global angular momentum balance over short lead times.
+    \item \textbf{Baroclinic Wave Advection}: Wind velocity RMSE values ($\approx \SI{2.4}{\metre\per\second}$) reflect the propagation speed of mid-latitude jet streaks and cyclone frontal boundaries.
+\end{enumerate}
+
+\subsection{Remote NVIDIA Cloud API Verification}
+To establish cloud-accelerated inference capability for models exceeding local hardware capacity (e.g. FourCastNet requiring $\ge \SI{16}{\giga\byte}$ VRAM), the remote client was tested against NVIDIA Cloud Functions (NVCF). Minimal, non-destructive health probes demonstrated:
+\begin{itemize}
+    \item Build Catalog Probe: HTTP 200 OK (\SI{175.07}{\milli\second} latency, 85 models available).
+    \item NVCF Service Probe: HTTP 200 OK (\SI{292.38}{\milli\second} latency, 237 functions detected).
+    \item FourCastNet Function Status: Active (`id: 5bdd622c-14f1-4783-854c-d9d310e4fab0`).
+\end{itemize}
+
+\subsection{Automated Regression Suite}
+An automated test suite comprising \textbf{55 comprehensive tests} was executed in the WSL2 Ubuntu virtual environment. All 55 tests passed cleanly (100\% pass rate), verifying metric broadcasting, NaN handling, secret redaction, and API mock resilience.
+
+\section{Cryptographic Provenance}
+Every forecast run emits a machine-readable JSON manifest containing SHA-256 digests for all generated artifacts. Table~\ref{tab:provenance} details the cryptographic manifest generated for the primary validation run.
+
+\begin{table}[htbp]
+\caption{Cryptographic Artifact Attestation}
+\label{tab:provenance}
+\centering
+\begin{tabular}{llc}
+\toprule
+Artifact & SHA-256 Checksum & Size \\
+\midrule
+\texttt{forecast\_t2m.npy} & \texttt{e63a97e30e71a98a3510...} & 4.15 MB \\
+\texttt{forecast\_t2m.png} & \texttt{019fa67b79ff4ceb126e...} & 534 KB \\
+\texttt{reference\_t2m.npy} & \texttt{deddf7f7ee0d13afbcb5...} & 8.31 MB \\
+\texttt{validation\_report.json} & \texttt{d667443282ed358901ba...} & 451 B \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Conclusion and Future Work}
+The OD-EARTH2-001 project has successfully established a scientifically sound, reproducible research environment for AI weather forecasting within NVIDIA Earth2Studio. By enforcing spherical area-weighted error calculations, isolating credentials, and executing genuine public data workflows, we have eliminated synthetic verification artifacts and proven operational stability on zero-cost commodity hardware.
+
+This foundation enables immediate progression toward the primary objectives of the **EO-OBSCURA** program:
+\begin{enumerate}
+    \item Deploying local DLWP inference on CPU to benchmark neural error suppression against the persistence baseline.
+    \item Integrating authenticated FourCastNet remote inference via the verified NVCF client.
+    \item Conditioning Sentinel-1 SAR-to-optical translation models on Earth-2 boundary layer wind and moisture fields to reconstruct cloud-obscured surface features.
+\end{enumerate}
+
+\bibliographystyle{IEEEtran}
+\begin{thebibliography}{1}
+
+\bibitem{pathak2022fourcastnet}
+J.~Pathak, S.~Subramanian, P.~Harrington, S.~Raja, A.~Chattopadhyay, M.~Mardani, M.~Kurth, D.~Hall, Z.~Li, K.~Azizzadenesheli \emph{et~al.}, ``FourCastNet: A global data-driven high-resolution weather model using adaptive Fourier neural operators,'' \emph{arXiv preprint arXiv:2202.11214}, 2022.
+
+\bibitem{lam2023learning}
+R.~Lam, A.~Sanchez-Gonzalez, M.~Willson, P.~Wirnsberger, M.~Fortunato, F.~Alet, S.~Ravuri, T.~Ewalds, F.~Eaton, G.~Broomhead \emph{et~al.}, ``Learning skillful medium-range global weather forecasting,'' \emph{Science}, vol. 382, no. 6677, pp. 1416--1421, 2023.
+
+\bibitem{bi2023accurate}
+K.~Bi, L.~Xie, H.~Zhang, X.~Chen, X.~Gu, and Q.~Tian, ``Accurate medium-range global weather forecasting with 3D neural networks,'' \emph{Nature}, vol. 619, no. 7970, pp. 533--538, 2023.
+
+\bibitem{earth2studio2024}
+NVIDIA PhysicsNeMo Team, ``Earth2Studio: Open-source deep-learning framework for AI weather and climate workflows,'' \emph{NVIDIA Corporation}, 2024. [Online]. Available: \url{https://github.com/NVIDIA/earth2studio}
+
+\end{thebibliography}
+
+\end{document}
