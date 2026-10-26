@@ -9,32 +9,66 @@ def compute_metrics(
     reference: np.ndarray,
     lats: Optional[np.ndarray] = None,
 ) -> Dict[str, float]:
-    """Computes MAE, RMSE, and Mean Bias between forecast and reference fields."""
-    if forecast.shape != reference.shape:
-        raise ValueError(f"Shape mismatch: forecast {forecast.shape} vs reference {reference.shape}")
+    """
+    Computes latitude-weighted MAE, RMSE, and Mean Bias between forecast and reference fields.
+    Validates array shapes, handles NaNs gracefully, and normalizes cosine latitude weights correctly.
+    """
+    forecast_arr = np.asarray(forecast, dtype=np.float64)
+    reference_arr = np.asarray(reference, dtype=np.float64)
 
-    diff = forecast - reference
+    if forecast_arr.shape != reference_arr.shape:
+        raise ValueError(
+            f"Shape mismatch: forecast shape {forecast_arr.shape} does not match reference shape {reference_arr.shape}"
+        )
+
+    # Compute difference
+    diff = forecast_arr - reference_arr
+
+    # Mask valid (non-NaN, non-Inf) values
+    valid_mask = np.isfinite(diff)
+    if not np.any(valid_mask):
+        return {"mae": float("nan"), "rmse": float("nan"), "mean_bias": float("nan")}
 
     if lats is not None:
-        # Latitude weighting (cos of latitude in radians)
-        weights = np.cos(np.deg2rad(lats))
-        weights = np.clip(weights, 0, None)
-        # Broadcast weights to match grid
-        while weights.ndim < diff.ndim:
-            weights = np.expand_dims(weights, axis=-1)
-        weights_sum = np.sum(weights)
-        if weights_sum > 0:
-            mae = float(np.sum(np.abs(diff) * weights) / weights_sum)
-            rmse = float(np.sqrt(np.sum((diff**2) * weights) / weights_sum))
-            mean_bias = float(np.sum(diff * weights) / weights_sum)
+        lats_arr = np.asarray(lats, dtype=np.float64)
+        # Cosine of latitude in radians; latitude weighting clipped at 0
+        weights_1d = np.cos(np.deg2rad(lats_arr))
+        weights_1d = np.clip(weights_1d, 0.0, None)
+
+        # Broadcast weights to match diff shape
+        # Assume latitude dimension corresponds to matching dimension length
+        lat_dim_idx = None
+        for idx, dim_len in enumerate(diff.shape):
+            if dim_len == len(lats_arr):
+                lat_dim_idx = idx
+                break
+
+        if lat_dim_idx is not None:
+            shape = [1] * diff.ndim
+            shape[lat_dim_idx] = len(lats_arr)
+            weights = np.reshape(weights_1d, shape)
+            weights = np.broadcast_to(weights, diff.shape)
         else:
-            mae = float(np.mean(np.abs(diff)))
-            rmse = float(np.sqrt(np.mean(diff**2)))
-            mean_bias = float(np.mean(diff))
+            # Fallback to unweighted if dimension does not match
+            weights = np.ones_like(diff)
+
+        # Combine with valid mask
+        weights = np.where(valid_mask, weights, 0.0)
+        total_weight = np.sum(weights)
+
+        if total_weight > 0:
+            mae = float(np.sum(np.abs(diff) * weights) / total_weight)
+            rmse = float(np.sqrt(np.sum((diff**2) * weights) / total_weight))
+            mean_bias = float(np.sum(diff * weights) / total_weight)
+        else:
+            mae = float(np.mean(np.abs(diff[valid_mask])))
+            rmse = float(np.sqrt(np.mean(diff[valid_mask] ** 2)))
+            mean_bias = float(np.mean(diff[valid_mask]))
     else:
-        mae = float(np.mean(np.abs(diff)))
-        rmse = float(np.sqrt(np.mean(diff**2)))
-        mean_bias = float(np.mean(diff))
+        valid_diff = diff[valid_mask]
+        mae = float(np.mean(np.abs(valid_diff)))
+        rmse = float(np.sqrt(np.mean(valid_diff**2)))
+        mean_bias = float(np.mean(valid_diff))
 
     return {
         "mae": round(mae, 4),
@@ -45,24 +79,38 @@ def compute_metrics(
 
 def evaluate_forecast(
     forecast_data: Dict[str, np.ndarray],
-    reference_data: Dict[str, np.ndarray],
+    reference_data: Optional[Dict[str, np.ndarray]] = None,
     lats: Optional[np.ndarray] = None,
     output_dir: Optional[str | Path] = None,
 ) -> Dict[str, Any]:
-    """Validates multi-variable forecast against reference truth observations."""
-    results: Dict[str, Any] = {
-        "metrics": {},
-        "evaluation_metadata": {
-            "lat_weighted": lats is not None,
-            "variables": list(forecast_data.keys()),
-        },
-    }
-
-    for var_name, fcast_arr in forecast_data.items():
-        if var_name not in reference_data:
-            continue
-        ref_arr = reference_data[var_name]
-        results["metrics"][var_name] = compute_metrics(fcast_arr, ref_arr, lats=lats)
+    """
+    Validates forecast against reference truth observations.
+    If reference_data is None or empty, strictly reports NOT_VALIDATED without inventing data.
+    """
+    if not reference_data:
+        results = {
+            "validation_status": "NOT_VALIDATED",
+            "reason": "No reference verification data was provided for the target verification time.",
+            "metrics": {},
+            "evaluation_metadata": {
+                "lat_weighted": lats is not None,
+                "variables": list(forecast_data.keys()),
+            },
+        }
+    else:
+        results = {
+            "validation_status": "VALIDATED",
+            "metrics": {},
+            "evaluation_metadata": {
+                "lat_weighted": lats is not None,
+                "variables": [v for v in forecast_data.keys() if v in reference_data],
+            },
+        }
+        for var_name, fcast_arr in forecast_data.items():
+            if var_name not in reference_data:
+                continue
+            ref_arr = reference_data[var_name]
+            results["metrics"][var_name] = compute_metrics(fcast_arr, ref_arr, lats=lats)
 
     if output_dir:
         out_file = Path(output_dir) / "validation_report.json"
