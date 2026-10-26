@@ -84,17 +84,59 @@ Inspects supported prognostic models, data sources, and variable schemas without
 python -m od_experiments.earth2_001.cli inspect
 ```
 
-### 3. Baseline Forecast Execution
-Executes the reproducible baseline forecast workflow, outputting Zarr stores, a scientifically labeled PNG plot, and a cryptographic `provenance_manifest.json`:
+### 3. Baseline & Live GFS Forecast Execution
+Executes the reproducible baseline forecast workflow. The CLI supports both live historical NOAA GFS analysis runs (via AWS Open Data S3) and rapid synthetic smoke testing:
+
+**Live NOAA GFS Atmospheric Execution:**
 ```bash
-python -m od_experiments.earth2_001.cli run
+# Fetches real GFS analysis at 2024-01-01T00:00:00Z and +6h verification analysis
+python -m od_experiments.earth2_001.cli run --source gfs
 ```
 
-### 4. Scientific Validation
-Evaluates Mean Absolute Error (MAE), Root Mean Squared Error (RMSE), and Mean Bias against reference observations:
+**Synthetic Smoke-Test Execution:**
 ```bash
-python -m od_experiments.earth2_001.cli validate
+# Rapid end-to-end pipeline verification without external network requests
+python -m od_experiments.earth2_001.cli run --source random
 ```
+
+Outputs include:
+- Multi-variable Zarr array stores (`forecast.zarr`)
+- Extracted NumPy arrays (`forecast_t2m.npy`, `forecast_u10m.npy`, `forecast_v10m.npy`)
+- Ground-truth reference arrays (`reference_t2m.npy`, `reference_u10m.npy`, `reference_v10m.npy`)
+- Publication-quality labeled geographic visualizations (`forecast_*.png`)
+- Cryptographic provenance manifest (`provenance_manifest.json` with SHA-256 digests and integrity classifications)
+
+### 4. Scientific Validation & Metric Evaluation
+Evaluates latitude/area-weighted Mean Absolute Error ($\cos(\text{lat})$-weighted MAE), Root Mean Squared Error (RMSE), and Mean Bias against verified reference observations:
+
+```bash
+# Validates output artifacts from the run command against reference analysis arrays
+python -m od_experiments.earth2_001.cli validate --output-dir outputs/earth2_001
+
+# Custom verification against arbitrary forecast and reference tensors with latitude weighting:
+python -m od_experiments.earth2_001.cli validate --forecast path/to/fc.npy --reference path/to/ref.npy --lats path/to/lats.npy
+```
+
+---
+
+## 5. Remote API Client Verification (FourCastNet & Hosted Services)
+
+For models blocked from local execution due to non-CUDA hardware constraints (e.g., FourCastNet, FourCastNet3, CorrDiff), Earth2Studio provides remote inference client bindings via `earth2studio.serve.client.Earth2StudioClient`.
+
+### Client Integration Verification Procedure
+To verify remote API connectivity without requiring local GPU tensor cores:
+```python
+from earth2studio.serve.client import Earth2StudioClient
+
+# Initialize client pointing to an Earth2Studio inference server or NVIDIA API endpoint
+client = Earth2StudioClient(base_url="http://localhost:8000")
+
+# Check server health status
+health = client.health_check()
+print(f"Inference Service Status: {health.status}")
+```
+
+Security note: Any remote API keys (such as `NGC_API_KEY` or `NVIDIA_API_KEY`) are automatically intercepted, isolated, and scrubbed from manifests and logs by `od_experiments.earth2_001.security.sanitize_data`.
 
 ---
 
