@@ -1,0 +1,38 @@
+experiment_id: "OD-EARTH2-001"
+description: "Reproducible baseline weather forecast and scientific verification for EO-OBSCURA."
+
+model:
+  name: "persistence"
+  checkpoint: null
+  device: "cpu"
+
+data_source:
+  name: "gfs"
+  transport: "s3"
+  bucket: "noaa-gfs-bdp-pds"
+  skip_signature: true
+
+simulation:
+  initial_time: "2024-01-01T00:00:00"
+  lead_time_hours: 6
+  n_steps: 1
+  variables:
+    - "t2m"
+    - "u10m"
+    - "v10m"
+
+regions:
+  primary: "Europe"
+  secondary: "Japan"
+
+output:
+  directory: "outputs/earth2_001"
+  format: "zarr"
+  generate_plots: true
+
+validation:
+  metrics:
+    - "mae"
+    - "rmse"
+    - "mean_bias"
+  baseline_model: "persistence"
