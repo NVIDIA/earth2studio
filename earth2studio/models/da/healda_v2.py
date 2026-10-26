@@ -339,11 +339,11 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         (output_coords,) = self.output_coords(
             self.input_coords(), request_time=request_time
         )
-        # An empty frame (e.g. a sensor outside its archive period) is an omitted one
+        # An empty frame (e.g. a sensor outside its archive period) is an omitted one;
+        # with every stream omitted the model runs on no observations
         frames = {stream: df for stream, df in frames.items() if not df.empty}
         if not frames:
-            logger.warning("No observations provided, returning empty analysis")
-            return self._empty_output(output_coords)
+            logger.warning("No observations provided, running the analysis without any")
 
         sat = {s: df for s, df in frames.items() if s in self._sat_variables}
         tables = e2s_nnja.analysis_tables(
@@ -411,11 +411,6 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         return xr.DataArray(
             data=data, dims=["time", "variable", "lat", "lon"], coords=output_coords
         )
-
-    def _empty_output(self, output_coords: CoordSystem) -> xr.DataArray:
-        shape = tuple(len(values) for values in output_coords.values())
-        data = torch.full(shape, float("nan"), dtype=torch.float32, device=self.device)
-        return self.build_output(data, output_coords)
 
 
 # Columns the adapter does not read: it derives the look angle from scan_position

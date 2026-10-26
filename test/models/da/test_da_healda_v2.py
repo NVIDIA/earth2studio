@@ -318,15 +318,15 @@ def test_healda_v2_call_no_inputs():
         model()
 
 
-def test_healda_v2_call_empty_frames_returns_nan():
+def test_healda_v2_call_empty_frames_runs_without_observations():
     model = _build_model()
     request_time = np.array([CYCLE])
     empty = _satwnd_df(request_time).iloc[:0].copy()
     empty.attrs = {"request_time": request_time}
     out = model(None, None, empty)
     assert out.shape == (1, len(CHANNELS), NLAT, NLON)
-    assert np.all(np.isnan(out.values))
-    assert model._model.calls == []
+    assert np.isfinite(out.values).all()
+    assert [set(call) for call in model._model.calls] == [{"times"}]
 
 
 def test_healda_v2_generator():
