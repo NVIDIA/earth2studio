@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""nvcoupler: couple Earth2Studio models on one clock.
+"""coupling: couple Earth2Studio models on one clock.
 
 A :class:`Coupler` advances ordinary prognostic and diagnostic models together,
 serving each model's declared forcing from the others' outputs through
@@ -25,11 +25,11 @@ are matched by variable label, regridded between grids, and reduced over time
 windows when a model declares a qualified label such as ``"z1000:mean:48h"``.
 """
 
-from earth2studio.nvcoupler.connector import Connector
-from earth2studio.nvcoupler.coupler import Coupler
-from earth2studio.nvcoupler.errors import CouplingError
-from earth2studio.nvcoupler.sequence import RunSequence, Slot, derive_sequence
-from earth2studio.nvcoupler.vertical import (
+from earth2studio.coupling.connector import Connector
+from earth2studio.coupling.coupler import Coupler
+from earth2studio.coupling.errors import CouplingError
+from earth2studio.coupling.sequence import RunSequence, Slot, derive_sequence
+from earth2studio.coupling.vertical import (
     HybridLevels,
     PressureLevels,
     to_pressure_levels,

@@ -30,9 +30,9 @@ from typing import Any, Literal
 
 import numpy as np
 
+from earth2studio.coupling._time import DeltaLike, as_timedelta
+from earth2studio.coupling.errors import CouplingError
 from earth2studio.grids import GridDefinition, infer_grid
-from earth2studio.nvcoupler._time import DeltaLike, as_timedelta
-from earth2studio.nvcoupler.errors import CouplingError
 from earth2studio.utils.type import CoordinateSystem
 
 Kind = Literal["prognostic", "diagnostic"]

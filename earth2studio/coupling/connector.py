@@ -32,7 +32,7 @@ Transform = Callable[[xr.DataArray], xr.DataArray]
 class Connector:
     """Declare that a destination model's inputs come from a source model.
 
-    A connector holds no runtime state: the :class:`~earth2studio.nvcoupler.Coupler`
+    A connector holds no runtime state: the :class:`~earth2studio.coupling.Coupler`
     owns every frame buffer and reduction, so one declaration serves every work
     item and two connectors on the same pair of models are distinct.
 

@@ -16,17 +16,17 @@
 
 import numpy as np
 import pytest
-
-from earth2studio.models.px import Persistence
-from earth2studio.nvcoupler import CouplingError
-from earth2studio.nvcoupler._models import inspect_model
-from earth2studio.nvcoupler.testing import (
+from coupling_toys import (
     ToyAtmosphere,
     ToyImpact,
     ToyOcean,
     ToyPrognostic,
     toy_grid,
 )
+
+from earth2studio.coupling import CouplingError
+from earth2studio.coupling._models import inspect_model
+from earth2studio.models.px import Persistence
 
 
 def test_prognostic_declarations_are_read_from_the_contract():

@@ -17,10 +17,7 @@
 import numpy as np
 import pytest
 import xarray as xr
-
-from earth2studio.grids import NearestRegridder
-from earth2studio.nvcoupler import Connector, Coupler
-from earth2studio.nvcoupler.testing import (
+from coupling_toys import (
     ATMOS_SHAPE,
     OCEAN_SHAPE,
     ToyAtmosphere,
@@ -28,6 +25,9 @@ from earth2studio.nvcoupler.testing import (
     toy_grid,
     toy_source,
 )
+
+from earth2studio.coupling import Connector, Coupler
+from earth2studio.grids import NearestRegridder
 from earth2studio.run import WorkItem
 
 T0 = np.datetime64("2026-01-01T00")

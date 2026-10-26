@@ -29,6 +29,15 @@ Runnable tutorials for proposed APIs and workflows.
 - `09_pipeline.py`: `Pipeline` writing one store per stream, per-stream variable
   filtering and regridding, and resume from a `ProgressStore` after a failure.
 
+## Coupling
+
+- `10_coupling.py`: a `Coupler` over toy atmosphere/ocean models with a windowed
+  `z1000:mean:48h` exchange, lagged versus same-step coupling read off the
+  forcing lead, a windowed diagnostic, and hybrid-to-pressure interpolation in a
+  connector transform.
+- `11_coupled_pipeline.py`: the coupler as a `Runner` under `Pipeline`, stream
+  schemas and data requests, and in-memory initial conditions.
+
 Run the signature tutorial from the repository root with
 `.venv/bin/python dev/examples/03_coordinate_signatures.py`. It uses CPU-only
 synthetic coordinates and requires no model weights or downloads.

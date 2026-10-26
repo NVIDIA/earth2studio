@@ -17,17 +17,7 @@
 import numpy as np
 import pytest
 import xarray as xr
-
-from earth2studio.grids import BilinearRegridder, NearestRegridder
-from earth2studio.io import KVBackend
-from earth2studio.nvcoupler import (
-    Connector,
-    Coupler,
-    CouplingError,
-    RunSequence,
-    Slot,
-)
-from earth2studio.nvcoupler.testing import (
+from coupling_toys import (
     ATMOS_SHAPE,
     OCEAN_SHAPE,
     ToyAtmosphere,
@@ -37,6 +27,16 @@ from earth2studio.nvcoupler.testing import (
     toy_grid,
     toy_source,
 )
+
+from earth2studio.coupling import (
+    Connector,
+    Coupler,
+    CouplingError,
+    RunSequence,
+    Slot,
+)
+from earth2studio.grids import BilinearRegridder, NearestRegridder
+from earth2studio.io import KVBackend
 from earth2studio.run import Pipeline, Runner, WorkItem, work_items
 from earth2studio.run.work import member_seed
 

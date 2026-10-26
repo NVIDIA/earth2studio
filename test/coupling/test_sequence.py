@@ -17,7 +17,7 @@
 import numpy as np
 import pytest
 
-from earth2studio.nvcoupler import CouplingError, RunSequence, Slot, derive_sequence
+from earth2studio.coupling import CouplingError, RunSequence, Slot, derive_sequence
 
 CADENCES = {"atmos": "6h", "impact": "6h", "ocean": "48h"}
 

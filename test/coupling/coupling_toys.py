@@ -197,7 +197,7 @@ class ToyPrognostic(PrognosticMixin):
 
 
 def _timedelta(value: str | np.timedelta64) -> np.timedelta64:
-    from earth2studio.nvcoupler._time import as_timedelta
+    from earth2studio.coupling._time import as_timedelta
 
     return as_timedelta(value)
 

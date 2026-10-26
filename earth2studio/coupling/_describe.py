@@ -21,10 +21,10 @@ from __future__ import annotations
 import html
 from typing import TYPE_CHECKING
 
-from earth2studio.nvcoupler._time import fmt_timedelta
+from earth2studio.coupling._time import fmt_timedelta
 
 if TYPE_CHECKING:
-    from earth2studio.nvcoupler.coupler import Coupler
+    from earth2studio.coupling.coupler import Coupler
 
 
 def _table(headers: list[str], rows: list[list[str]]) -> list[str]:

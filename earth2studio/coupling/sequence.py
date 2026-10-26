@@ -37,14 +37,14 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from earth2studio.nvcoupler._time import (
+from earth2studio.coupling._time import (
     DeltaLike,
     as_timedelta,
     fmt_timedelta,
     is_multiple,
     nanoseconds,
 )
-from earth2studio.nvcoupler.errors import CouplingError, _suggest
+from earth2studio.coupling.errors import CouplingError, _suggest
 
 
 @dataclass(frozen=True)
