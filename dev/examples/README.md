@@ -28,6 +28,9 @@ Runnable tutorials for proposed APIs and workflows.
   `DiagnosticRunner` on source data, and a hand-written runner that stops early.
 - `09_pipeline.py`: `Pipeline` writing one store per stream, per-stream variable
   filtering and regridding, and resume from a `ProgressStore` after a failure.
+- `10_coupling.py`: `CoupledRunner` coupling a 6-hourly weather model to a daily
+  soil bucket that assimilates sparse retrievals, run per item and under
+  `Pipeline`, then closed into a feedback loop with a `time="hold"` edge.
 
 Run the signature tutorial from the repository root with
 `.venv/bin/python dev/examples/03_coordinate_signatures.py`. It uses CPU-only
