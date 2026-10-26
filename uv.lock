@@ -1882,10 +1882,17 @@ wheels = [
 
 [[package]]
 name = "earth2bufr"
-version = "0.1.0a0"
-source = { git = "https://github.com/NVIDIA/earth2bufr.git?rev=9299b3a2e3dac72cb6bbfbcf77627c082001d663#9299b3a2e3dac72cb6bbfbcf77627c082001d663" }
+version = "0.1.1"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pyarrow" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c5/9c/9905fdd24862b702ece48ddeb50ef75485817fb07a8f8b2d64d4b5d53071/earth2bufr-0.1.1.tar.gz", hash = "sha256:641428fe03e2314362fac3b29abfd9fe4430edaf90eb0738d42b088d17dd49e7", size = 411201, upload-time = "2026-10-26T20:38:48.331Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/18/06/cceaee843665144f64bfad0b3d8e20ddb19c81052d255964dde9030d14cf/earth2bufr-0.1.1-cp311-abi3-macosx_11_0_arm64.whl", hash = "sha256:848cb6047979d0928348f231a450e98fdf818a8c97869c6d2e31628d9ab0aec8", size = 2400058, upload-time = "2026-10-26T20:37:20.996Z" },
+    { url = "https://files.pythonhosted.org/packages/9f/a6/e157591c42a99a5162869e54c690787f858ff1f4a9287d6f649e0866d716/earth2bufr-0.1.1-cp311-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:196e8859a8a2216c65ef0b8683e9c4be2d0e96853a2db541844a8e7695d068c1", size = 2541598, upload-time = "2026-10-26T20:37:45.276Z" },
+    { url = "https://files.pythonhosted.org/packages/9a/e0/b8a5643dd6c6fc9a5f8294e0cd0a2503a4021a6e868933b47d0357020ce5/earth2bufr-0.1.1-cp311-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:bba9a0f3f27b9cc28648cbdd5d944d88758a47be355508e59a9bea5cbe9a36a5", size = 2768124, upload-time = "2026-10-26T20:38:06.198Z" },
+    { url = "https://files.pythonhosted.org/packages/e6/da/b517356ddec4aab9cb7ed7789cf12a09518baf4aaf6c5f7184dbc7d620ee/earth2bufr-0.1.1-cp311-abi3-win_amd64.whl", hash = "sha256:1c33b74679db4f7368a1eb6c928cb3bb4eb01a5f85c3ff6197cc16647d0ba26e", size = 2913477, upload-time = "2026-10-26T20:38:29.966Z" },
 ]
 
 [[package]]
@@ -2382,8 +2389,8 @@ requires-dist = [
     { name = "dm-tree", marker = "extra == 'gencast'", specifier = ">=0.1.9" },
     { name = "dm-tree", marker = "extra == 'graphcast'", specifier = ">=0.1.9" },
     { name = "dm-tree", marker = "extra == 'weathernext'", specifier = ">=0.1.9" },
-    { name = "earth2bufr", marker = "extra == 'all'", git = "https://github.com/NVIDIA/earth2bufr.git?rev=9299b3a2e3dac72cb6bbfbcf77627c082001d663" },
-    { name = "earth2bufr", marker = "extra == 'data'", git = "https://github.com/NVIDIA/earth2bufr.git?rev=9299b3a2e3dac72cb6bbfbcf77627c082001d663" },
+    { name = "earth2bufr", marker = "extra == 'all'", specifier = ">=0.1.1" },
+    { name = "earth2bufr", marker = "extra == 'data'", specifier = ">=0.1.1" },
     { name = "earth2grid", marker = "extra == 'all'", git = "https://github.com/NVlabs/earth2grid.git?rev=11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" },
     { name = "earth2grid", marker = "extra == 'cbottle'", git = "https://github.com/NVlabs/earth2grid.git?rev=11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" },
     { name = "earth2grid", marker = "extra == 'da-healda'", git = "https://github.com/NVlabs/earth2grid.git?rev=11dcf1b0787a7eb6a8497a3a5a5e1fdcc31232d3" },
@@ -2433,8 +2440,8 @@ requires-dist = [
     { name = "gribberish", marker = "python_full_version >= '3.12' and extra == 'data'", specifier = ">=1.5.0" },
     { name = "h5netcdf", specifier = ">=1.0.0" },
     { name = "h5py", specifier = ">=3.2.0" },
-    { name = "healda", marker = "extra == 'all'", git = "https://github.com/NVlabs/HealDA.git?branch=main" },
-    { name = "healda", marker = "extra == 'da-healda-v2'", git = "https://github.com/NVlabs/HealDA.git?branch=main" },
+    { name = "healda", marker = "extra == 'all'", git = "https://github.com/NVlabs/HealDA.git?rev=dd2b0d556216608eaa8f38dbee01fa09b2e84159" },
+    { name = "healda", marker = "extra == 'da-healda-v2'", git = "https://github.com/NVlabs/HealDA.git?rev=dd2b0d556216608eaa8f38dbee01fa09b2e84159" },
     { name = "hiredis", marker = "extra == 'all'", specifier = ">=2.0.0" },
     { name = "hiredis", marker = "extra == 'serve'", specifier = ">=2.0.0" },
     { name = "httpx", marker = "extra == 'all'", specifier = ">=0.25.0" },
@@ -3746,7 +3753,7 @@ wheels = [
 [[package]]
 name = "healda"
 version = "0.1.0"
-source = { git = "https://github.com/NVlabs/HealDA.git?branch=main#66bceebd0bba5cd0e9b7f93bdbe884801b7f6459" }
+source = { git = "https://github.com/NVlabs/HealDA.git?rev=dd2b0d556216608eaa8f38dbee01fa09b2e84159#dd2b0d556216608eaa8f38dbee01fa09b2e84159" }
 dependencies = [
     { name = "cartopy" },
     { name = "cftime" },
