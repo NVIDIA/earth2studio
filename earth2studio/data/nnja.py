@@ -1228,7 +1228,16 @@ class NNJAObsSat:
         -------
         bool
             If date time is available
+
+        Raises
+        ------
+        ValueError
+            If ``sensor`` is not an NNJA satellite sensor
         """
+        if sensor is not None and sensor not in _NNJA_SAT_PRODUCTS:
+            raise ValueError(
+                f"Invalid sensor: {sensor!r}. Valid options: {sorted(_NNJA_SAT_PRODUCTS)}"
+            )
         if isinstance(time, np.datetime64):
             time = time.astype("datetime64[ns]").astype("datetime64[us]").item()
         try:

@@ -1275,8 +1275,9 @@ async def obstore_read_chunked(
         Maximum concurrent range GETs for one object, by default 8
     hedge_after : float | None, optional
         Seconds after which a range still outstanding is requested a second
-        time. The first successful reply wins; a failure is raised only when
-        both requests fail. By default None (no duplicate requests)
+        time. The first successful reply wins; a failure is raised when the
+        original request fails before the second is sent, or when both fail.
+        By default None (no duplicate requests)
 
     Returns
     -------

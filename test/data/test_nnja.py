@@ -738,6 +738,8 @@ def test_nnja_obs_sat_cycles_outside_the_archive_period_are_skipped(monkeypatch)
         assert not NNJAObsSat.available(outside, sensor)
         assert NNJAObsSat.available(inside, sensor)
     assert NNJAObsSat.available(datetime(2023, 1, 18, 12))
+    with pytest.raises(ValueError, match="Valid options"):
+        NNJAObsSat.available(datetime(2023, 1, 18, 12), "ssmis")
 
     # A request with no cycle in the period reads nothing and returns an empty frame
     async def no_fetch(uris):
