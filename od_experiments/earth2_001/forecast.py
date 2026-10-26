@@ -4,6 +4,7 @@ import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
 import numpy as np
 import torch
 import zarr
@@ -11,16 +12,20 @@ import zarr
 from earth2studio.models.px import Persistence
 from earth2studio.data import GFS, Random
 from earth2studio.io import ZarrBackend
+from earth2studio.models.px import Persistence
 from earth2studio.run import deterministic
 from od_experiments.earth2_001.config import load_config
-from od_experiments.earth2_001.provenance import compute_sha256, create_provenance_manifest
+from od_experiments.earth2_001.provenance import (
+    compute_sha256,
+    create_provenance_manifest,
+)
 from od_experiments.earth2_001.validate import evaluate_forecast
 from od_experiments.earth2_001.visualize import plot_field
 
 
 def run_forecast(
-    config_path: Optional[str | Path] = None,
-    output_dir: Optional[str | Path] = None,
+    config_path: str | Path | None = None,
+    output_dir: str | Path | None = None,
     device: str = "cpu",
     override_source: Optional[str] = None,  # "gfs" or "random"
 ) -> Dict[str, Any]:
@@ -32,7 +37,9 @@ def run_forecast(
     start_time = time.time()
     config = load_config(config_path)
 
-    out_dir = Path(output_dir or config.get("output", {}).get("directory", "outputs/earth2_001"))
+    out_dir = Path(
+        output_dir or config.get("output", {}).get("directory", "outputs/earth2_001")
+    )
     out_dir.mkdir(parents=True, exist_ok=True)
 
     data_source_name = override_source or config.get("data_source", {}).get("name", "gfs").lower()
@@ -167,11 +174,13 @@ def run_forecast(
     )
 
     val_file = out_dir / "validation_report.json"
-    artifacts.append({
-        "path": str(val_file),
-        "sha256": compute_sha256(val_file),
-        "bytes": val_file.stat().st_size,
-    })
+    artifacts.append(
+        {
+            "path": str(val_file),
+            "sha256": compute_sha256(val_file),
+            "bytes": val_file.stat().st_size,
+        }
+    )
 
     exec_time = time.time() - start_time
 

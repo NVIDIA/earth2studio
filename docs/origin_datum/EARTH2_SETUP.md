@@ -1,7 +1,7 @@
 # Origin Datum Earth-2 Research Setup Guide
 
-**Project:** OD-EARTH2-001 / EO-OBSCURA  
-**Target Platform:** Windows 10/11 with WSL2 (Ubuntu 24.04 LTS)  
+**Project:** OD-EARTH2-001 / EO-OBSCURA
+**Target Platform:** Windows 10/11 with WSL2 (Ubuntu 24.04 LTS)
 **Budget Standard:** $0 (Free open-source software, public AWS Open Data NOAA GFS)
 
 ---
