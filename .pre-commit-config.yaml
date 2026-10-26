@@ -57,7 +57,7 @@ repos:
         exclude: ^\.claude/
 
 -   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.17.1
+    rev: v0.17.2
     hooks:
     - id: ruff
       args: [--fix]
@@ -71,7 +71,7 @@ repos:
       args: [--config=pyproject.toml]
 
 -   repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: v0.49.1
+    rev: v0.50.0
     hooks:
     - id: markdownlint
       exclude: ^(\.claude/.*|skills/.*\.md)$
@@ -94,12 +94,12 @@ repos:
         additional_dependencies: ['types-requests']
 
 -   repo: https://github.com/zizmorcore/zizmor-pre-commit
-    rev: c92afdf2c6ca336aaa8f39e2bd8d48f62dbd8e1f  # v1.31.1
+    rev: v1.31.1  # v1.31.1
     hooks:
     -   id: zizmor
 
 -   repo: https://github.com/astral-sh/uv-pre-commit
     # uv version.
-    rev: 0.13.1
+    rev: 0.13.5
     hooks:
     -   id: uv-lock
