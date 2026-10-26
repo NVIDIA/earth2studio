@@ -1783,7 +1783,7 @@ def _prepbufr_message_types(source: Any) -> dict[int, str]:
     for category, message in first_message.items():
         table_a = next((d for d in message.descriptors if d.startswith("3-")), None)
         name = None if table_a is None else _sequence_mnemonic(source, message, table_a)
-        if name in families:
+        if name is not None and name in families:
             types[category] = name
     return types
 
@@ -2212,6 +2212,7 @@ class _SatwndSlots:
     """Per mnemonic, the first populated occurrence (None: none is)."""
 
     scalars: dict[str, int | None]
+
 
 def _satwnd_slots(batch: pa.RecordBatch, plan: _SatwndPlan) -> _SatwndSlots:
     n = batch.num_rows
@@ -2684,7 +2685,7 @@ class _ChannelMatrix:
 
     def present(self) -> np.ndarray:
         """Per footprint and slot, whether the footprint carries the slot's channel."""
-        if self.complete:
+        if self.index is None or self.complete:
             return np.ones(self.shape, dtype=bool)
         return self.index >= 0
 
