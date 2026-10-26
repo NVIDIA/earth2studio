@@ -1469,6 +1469,16 @@ def test_satwnd_scalars_read_the_first_occurrence_populated_in_the_file(fake_buf
     assert decode_satwnd("whole", ["u"], T0, T0, 1).equals(
         decode_satwnd("two", ["u"], T0, T0, 1)
     )
+    # A required field read from an occurrence the first batch leaves empty drops its winds
+    speed_second = {"WSPD": pa.nulls(3, pa.float64()), "WSPD#2": [7.0, 8.0, 9.0]}
+    speed_first = {"WSPD": [5.0, 6.0, 7.0], "WSPD#2": [7.0, 8.0, 9.0]}
+    first, second = (_satwnd_batch(stamps, f) for f in (speed_second, speed_first))
+    fake_bufr["speed"] = _FakeBufr([first, second], messages)
+    split = decode_satwnd("speed", ["u"], T0, T0, 1)
+    assert split.num_rows == 3
+    whole = pa.Table.from_batches([first, second]).combine_chunks().to_batches()[0]
+    fake_bufr["speed_whole"] = _FakeBufr([whole], messages)
+    assert decode_satwnd("speed_whole", ["u"], T0, T0, 1).equals(split)
 
 
 def test_microwave_wide_is_fixed_size_and_long_matches(fake_bufr):

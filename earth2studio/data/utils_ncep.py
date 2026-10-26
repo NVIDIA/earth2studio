@@ -2213,12 +2213,6 @@ class _SatwndSlots:
 
     scalars: dict[str, int | None]
 
-    def settled(self) -> bool:
-        """True when no other batch of the template can change these choices: every
-        mnemonic is empty or populated at its first occurrence."""
-        return all(k in (None, 0) for k in self.scalars.values())
-
-
 def _satwnd_slots(batch: pa.RecordBatch, plan: _SatwndPlan) -> _SatwndSlots:
     n = batch.num_rows
     return _SatwndSlots(
@@ -2243,6 +2237,32 @@ def _merge_slots(a: _SatwndSlots, b: _SatwndSlots) -> _SatwndSlots:
             for name in a.scalars
         }
     )
+
+
+def _satwnd_reslot(
+    table: pa.Table, plan: _SatwndPlan, slots: _SatwndSlots, file_slots: _SatwndSlots
+) -> pa.Table | None:
+    """``_satwnd_batch``'s table of a batch as ``file_slots`` give it. A batch's slot is
+    the first occurrence it populates, so an earlier file slot reads an occurrence the
+    batch leaves empty: the columns read from it are null, and with a required field
+    empty no wind is kept."""
+    moved = {
+        name
+        for name, k in slots.scalars.items()
+        if k is not None and file_slots.scalars[name] != k
+    }
+    lat = "CLATH" if "CLATH" in plan.columns else "CLAT"
+    lon = "CLONH" if "CLONH" in plan.columns else "CLON"
+    if moved & {lat, lon, "WDIR", "WSPD", *_SATWND_TIME}:
+        return None
+    sources = {**_SATWND_FLOATS, **{out: n for out, (n, _) in _SATWND_INTS.items()}}
+    for out, name in sources.items():
+        if name in moved:
+            index = table.schema.get_field_index(out)
+            table = table.set_column(
+                index, out, pa.nulls(table.num_rows, table.schema.field(out).type)
+            )
+    return table
 
 
 def _satwnd_quality(
@@ -2411,9 +2431,7 @@ def decode_satwnd(
             batch, plan, slots, subset_code, subset_names, variables, window_ns
         )
         index = int(batch.column("_source_message_index")[0].as_py())
-        # A batch whose choices other batches may change is kept for a second pass
-        kept = None if slots.settled() else (batch, plan)
-        return int(template[index]), slots, table, kept
+        return int(template[index]), slots, table, plan
 
     with open_bufr(path) as source:
         template, subset_code, subset_names = _satwnd_templates(source)
@@ -2434,18 +2452,9 @@ def decode_satwnd(
             _merge_slots(file_slots[key], slots) if key in file_slots else slots
         )
     tables = []
-    for key, slots, table, kept in results:
-        if kept is not None and file_slots[key] != slots:
-            batch, plan = kept
-            table = _satwnd_batch(
-                batch,
-                plan,
-                file_slots[key],
-                subset_code,
-                subset_names,
-                variables,
-                window_ns,
-            )
+    for key, slots, table, plan in results:
+        if table is not None and file_slots[key] != slots:
+            table = _satwnd_reslot(table, plan, slots, file_slots[key])
         if table is not None:
             tables.append(table)
     if not tables:
