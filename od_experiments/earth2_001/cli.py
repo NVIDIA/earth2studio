@@ -27,6 +27,7 @@ def main() -> None:
     # run
     run_parser = subparsers.add_parser("run", help="Run baseline forecast workflow")
     run_parser.add_argument("--config", type=str, default=None, help="Path to config.yaml")
+    run_parser.add_argument("--source", type=str, choices=["gfs", "random"], default=None, help="Override data source ('gfs' or 'random')")
     run_parser.add_argument("--output-dir", type=str, default=None, help="Custom output directory")
     run_parser.add_argument("--device", type=str, default="cpu", choices=["cpu", "cuda"], help="Compute device")
 
@@ -34,6 +35,7 @@ def main() -> None:
     val_parser = subparsers.add_parser("validate", help="Validate forecast results against reference data")
     val_parser.add_argument("--forecast", type=str, required=False, help="Path to forecast file (.npy)")
     val_parser.add_argument("--reference", type=str, required=False, help="Path to reference file (.npy)")
+    val_parser.add_argument("--lats", type=str, required=False, help="Path to latitude grid (.npy) for weighting")
     val_parser.add_argument("--output-dir", type=str, default="outputs/earth2_001", help="Output directory")
 
     args = parser.parse_args()
@@ -43,26 +45,64 @@ def main() -> None:
     elif args.command == "inspect":
         inspect_components(as_json=args.json)
     elif args.command == "run":
-        res = run_forecast(config_path=args.config, output_dir=args.output_dir, device=args.device)
+        res = run_forecast(
+            config_path=args.config,
+            output_dir=args.output_dir,
+            device=args.device,
+            override_source=args.source,
+        )
         print(f"\n[✓] FORECAST COMPLETED SUCCESSFULLY")
+        print(f"Classification: {res['classification']}")
         print(f"Output Directory: {res['output_directory']}")
         print(f"Artifacts generated: {len(res['manifest']['artifacts'])}")
-        print(f"Validation MAE: {res['validation']['metrics'].get('t2m', {}).get('mae')} K")
+        print(f"Validation Status: {res['validation'].get('validation_status')}")
+        if res["validation"].get("validation_status") == "VALIDATED":
+            for var, metrics in res["validation"]["metrics"].items():
+                print(f"  • {var.upper()}: MAE = {metrics['mae']}, RMSE = {metrics['rmse']}, Mean Bias = {metrics['mean_bias']}")
+        else:
+            print(f"  Reason: {res['validation'].get('reason')}")
     elif args.command == "validate":
         out_dir = Path(args.output_dir)
-        if args.forecast and args.reference:
-            fc = np.load(args.forecast)
-            rf = np.load(args.reference)
-        else:
-            fc_file = out_dir / "forecast_t2m.npy"
-            if not fc_file.exists():
-                print(f"[!] Error: {fc_file} not found. Run 'run' subcommand first.")
+        fc_dict = {}
+        rf_dict = {}
+
+        if args.forecast:
+            fc_path = Path(args.forecast)
+            if not fc_path.exists():
+                print(f"[!] Error: Forecast file {fc_path} not found.")
                 sys.exit(1)
-            fc = np.load(fc_file)
-            rf = fc + 0.5  # Synthetic reference offset
-        val_res = evaluate_forecast({"t2m": fc}, {"t2m": rf}, output_dir=out_dir)
+            fc_dict["var"] = np.load(fc_path)
+        else:
+            fc_files = list(out_dir.glob("forecast_*.npy"))
+            if not fc_files:
+                print(f"[!] Error: No forecast_*.npy files found in {out_dir}. Run 'run' subcommand first.")
+                sys.exit(1)
+            for f in fc_files:
+                var_name = f.stem.replace("forecast_", "")
+                fc_dict[var_name] = np.load(f)
+
+        if args.reference:
+            rf_path = Path(args.reference)
+            if not rf_path.exists():
+                print(f"[!] Error: Reference file {rf_path} not found.")
+                sys.exit(1)
+            rf_dict["var"] = np.load(rf_path)
+        else:
+            rf_files = list(out_dir.glob("reference_*.npy"))
+            for f in rf_files:
+                var_name = f.stem.replace("reference_", "")
+                rf_dict[var_name] = np.load(f)
+
+        lats = np.load(args.lats) if args.lats and Path(args.lats).exists() else np.linspace(90, -90, 721)
+
+        val_res = evaluate_forecast(fc_dict, rf_dict if rf_dict else None, lats=lats, output_dir=out_dir)
         print(f"[✓] VALIDATION COMPLETED:")
-        print(val_res)
+        print(f"Status: {val_res.get('validation_status')}")
+        if val_res.get("validation_status") == "VALIDATED":
+            for var, metrics in val_res.get("metrics", {}).items():
+                print(f"  • {var.upper()}: MAE = {metrics['mae']}, RMSE = {metrics['rmse']}, Mean Bias = {metrics['mean_bias']}")
+        else:
+            print(f"  Note: {val_res.get('reason')}")
     else:
         parser.print_help()
 

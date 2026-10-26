@@ -18,8 +18,6 @@ simulation:
   n_steps: 1
   variables:
     - "t2m"
-    - "u10m"
-    - "v10m"
 
 regions:
   primary: "Europe"

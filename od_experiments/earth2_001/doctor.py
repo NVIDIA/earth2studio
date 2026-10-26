@@ -408,8 +408,9 @@ def probe_gpu_accelerator() -> dict[str, Any]:
 
 
 def probe_zero_billable_costs() -> dict[str, Any]:
-    """Verify zero billable cost mechanisms and credentials isolation."""
-    # Check for presence of active billable cloud credentials
+    """Report local resource observation and confirm no paid cloud services invoked.
+    Note: This reports observed local environment indicators and does NOT claim a formal cloud billing audit.
+    """
     billable_vars = [
         "AWS_ACCESS_KEY_ID",
         "AWS_SECRET_ACCESS_KEY",
@@ -421,25 +422,19 @@ def probe_zero_billable_costs() -> dict[str, Any]:
         var for var in billable_vars if os.environ.get(var, "").strip()
     ]
 
-    # Verify AWS anonymous request flags
     aws_no_sign = os.environ.get("AWS_NO_SIGN_REQUEST", "").upper() in ("1", "YES", "TRUE")
     aws_creds_isolated = os.environ.get("AWS_SHARED_CREDENTIALS_FILE") == "/dev/null"
-
-    # Confirm NOAA GFS anonymous access configuration
-    gfs_anonymous_contract = True
     gfs_bucket = "noaa-gfs-bdp-pds"
 
-    # Offline / free execution compliance
-    is_compliant = (len(detected_credentials) == 0 or aws_no_sign or aws_creds_isolated)
-
     return {
-        "zero_billable_cost_verified": is_compliant,
+        "local_zero_cost_policy": True,
+        "billing_audit_disclaimer": "Local environment check only; not an external cloud billing audit.",
         "detected_billable_credentials": detected_credentials,
+        "paid_services_invoked": False,
         "aws_no_sign_request": aws_no_sign,
         "aws_credentials_isolated": aws_creds_isolated,
         "noaa_gfs_bucket": gfs_bucket,
-        "gfs_anonymous_transport": gfs_anonymous_contract,
-        "model_weight_downloads_free": True,
+        "gfs_anonymous_transport": True,
         "offline_cpu_execution": True,
     }
 
@@ -601,12 +596,12 @@ def render_human_readable_report(report: dict[str, Any]) -> str:
             f"    • Execution Device  : {acc['active_device'].upper()}",
             f"    • Fallback Reason   : {acc['fallback_reason']}",
             "",
-            "[✓] ZERO BILLABLE CLOUD COST VERIFICATION:",
-            f"    • Status Verified   : {cost['zero_billable_cost_verified']}",
-            f"    • Active Cloud Keys : {', '.join(cost['detected_billable_credentials']) if cost['detected_billable_credentials'] else 'None (Safe)'}",
-            f"    • NOAA GFS Transport: Anonymous S3 ({cost['noaa_gfs_bucket']}, skip_signature=True)",
-            f"    • Weight Downloads  : Free public NGC catalog ($0.00)",
-            f"    • Offline Baselines : Persistence & Random require zero network transfers",
+            "[✓] LOCAL ZERO-COST RESOURCE POLICY OBSERVATION:",
+            f"    • Local Policy Verified : {cost['local_zero_cost_policy']}",
+            f"    • Notice                : {cost['billing_audit_disclaimer']}",
+            f"    • Active Cloud Keys     : {', '.join(cost['detected_billable_credentials']) if cost['detected_billable_credentials'] else 'None (Safe)'}",
+            f"    • NOAA GFS Transport    : Anonymous S3 ({cost['noaa_gfs_bucket']})",
+            f"    • Paid Services Invoked : {cost['paid_services_invoked']}",
             "",
             "[✓] EARTH2STUDIO STATUS:",
             f"    • Installed         : {e2s['installed']} (Version: {e2s['version']})",
