@@ -3,13 +3,11 @@
 Coupling (nvcoupler)
 --------------------
 
-Examples for nvcoupler, the NUOPC/ESMF-inspired coupling framework for AI
-Earth-system inference. All examples run on synthetic toy components — no
-model weights, GPU, or network access required — and each prints
-hand-verifiable numbers. They cover the coupled atmos/ocean loop declared as
-a coupling graph (with a windowed-reduction connector), coupling order
-experiments via explicit run sequences, impact chains mixing windowed
-connectors and accumulation mediators, vertical (hybrid to pressure)
-coupling for chemistry, pull-pattern (StormCast-style) conditioning via
-``PullAdapter``, and grid-to-point sampling (``sample=``) for
-station-level applications.
+Examples for ``earth2studio.nvcoupler``, which advances ordinary prognostic and
+diagnostic models on one clock and serves each model's declared forcing from
+the others' outputs. All examples run on toy models from
+``earth2studio.nvcoupler.testing`` (no weights, GPU or network access) and print
+hand-verifiable numbers. They cover the coupled atmosphere/ocean loop with a
+windowed-mean exchange, lagged versus same-step coupling as a matter of what the
+destination declares, an impact chain of diagnostics over time windows, and
+running a coupled system under ``Pipeline``.

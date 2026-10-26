@@ -16,162 +16,117 @@
 
 # %%
 """
-Weather-to-Impact Chains with Windowed Reductions
-=================================================
+Impact Chains with Diagnostics
+==============================
 
-Feeding an impact model with accumulated weather quantities.
+Feed diagnostics from a coupled model, including over time windows.
 
-Impact models (flood, crop, energy, fire) rarely want instantaneous fields —
-they want precipitation *sums*, temperature *maxima*, degree days. Derived
-fields are declared through CF-style cell-method entries in the field
-dictionary, and nvcoupler offers two mechanisms to produce them: a **windowed
-connector** (``window=``, ``reduce=``) when one source feeds one destination,
-and an **AccumulationMediator** for terminal or multi-source reductions. Any
-Python function can be the impact model via CallableComponent (it does not
-need to be ML).
+Diagnostic models join a coupled system as they are: their ``input_coords()``
+are imports, their ``output_coords()`` exports, and they run whenever a step
+delivers their inputs. A diagnostic that declares a qualified label such as
+``z1000:max:24h`` receives the trailing maximum of its source's frames.
 
 In this example you will learn:
 
-- How to register derived fields with a CellMethod (no suffix parsing)
-- How a windowed connector reduces a fast field for a slow consumer
-- When an AccumulationMediator is still the right tool
-- How the run sequence is derived from the coupling graph
+- coupling a :class:`~earth2studio.models.dx.DiagnosticModel` to a prognostic
+- windowed inputs declared by the diagnostic itself
+- unit-like conversions with a connector ``transform``
+- why a windowed diagnostic skips the first steps
 """
 
 # /// script
 # dependencies = [
-#   "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "earth2studio[utils] @ git+https://github.com/NVIDIA/earth2studio.git",
 # ]
 # ///
 
 # %%
-# A Toy Weather Component
-# -----------------------
-# Exports 6 h precipitation (1.0 kg m-2 every step) and 2 m temperature
-# (steps upward 1 K per step from 280 K) on a 6 h cadence.
-
 import numpy as np
 import xarray as xr
 
-import earth2studio.nvcoupler as nvc
-from earth2studio.nvcoupler.testing import grid_coords
-
-GRID = (16, 32)
-
-
-def weather_step(array):
-    tp06 = array.sel(variable="tp06", drop=True)
-    t2m = array.sel(variable="t2m", drop=True)
-    return xr.concat([tp06, t2m + 1.0], xr.IndexVariable("variable", ["tp06", "t2m"]))
-
-
-weather = nvc.CallableComponent(
-    "weather",
-    weather_step,
-    timestep="6h",
-    exports=["total_precipitation_6h", "air_temperature_2m"],
+from earth2studio.nvcoupler import Connector, Coupler
+from earth2studio.nvcoupler.testing import (
+    ToyAtmosphere,
+    ToyImpact,
+    toy_grid,
+    toy_source,
 )
+from earth2studio.run import WorkItem
+from earth2studio.utils import coord_array, coord_array_like
+
+GRID = toy_grid(32, 64)
+
+
+class DailyMax:
+    """Diagnostic over a time window: the trailing 24 h maximum of ``z1000``."""
+
+    stochastic = False
+
+    def input_coords(self) -> xr.DataArray:
+        """Declare the windowed input through its qualified label."""
+        return coord_array(
+            ("batch", "variable", "lat", "lon"),
+            {"variable": np.array(["z1000:max:24h"])},
+            dynamic=("batch",),
+            grid=GRID,
+        )
+
+    def output_coords(self, input_coords: xr.DataArray) -> xr.DataArray:
+        """Rename the single variable."""
+        return coord_array_like(input_coords, {"variable": np.array(["z1000_dmax"])})
+
+    def default_sources(self) -> None:
+        """Recommend no source; the input is coupled."""
+        return None
+
+    def to(self, device: object) -> "DailyMax":
+        """Return the model; it holds no device state."""
+        return self
+
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Pass the delivered maximum through under the output label."""
+        return x.assign_coords(variable=np.array(["z1000_dmax"]))
+
 
 # %%
-# Derived Fields via CellMethod
-# -----------------------------
-# ``total_precipitation_48h_sum`` and ``air_temperature_2m_24h_max`` ship in
-# the default dictionary. Windowed connectors and mediators alike read the
-# base field, reduction, and window off the entry — nothing is inferred from
-# name strings.
-
-from earth2studio.nvcoupler.dictionary import DEFAULT_DICTIONARY
-
-entry = DEFAULT_DICTIONARY.resolve("total_precipitation_48h_sum")
-print(f"{entry.standard_name}: {entry.cell_method}")
-
-# %%
-# A (Non-ML) Impact Model
-# -----------------------
-# A trivial flood index: 0.1 x the 48 h precipitation sum. The index field is
-# registered in a per-component dictionary copy; the imported sum arrives as
-# a state variable (the default VariableOverwriteAdapter pattern).
-
-d = nvc.FieldDictionary(DEFAULT_DICTIONARY)
-d.register(nvc.FieldEntry("flood_risk_index", "", "toy flood index"))
-
-
-def flood_step(array):
-    p48 = array.sel(variable="p48", drop=True)
-    return xr.concat([0.1 * p48, p48], xr.IndexVariable("variable", ["findex", "p48"]))
-
-
-flood = nvc.CallableComponent(
-    "flood",
-    flood_step,
-    timestep="48h",
-    imports=["total_precipitation_48h_sum"],
-    exports=["flood_risk_index"],
-    variable_aliases={
-        "findex": "flood_risk_index",
-        "p48": "total_precipitation_48h_sum",
-    },
-    dictionary=d,
-)
-
-# %%
-# Wire the Chain
-# --------------
-# The precip sum has one source and one destination, so it is a **windowed
-# connector** — no mediator, no extra component. The 24 h t2m max is a
-# *terminal* product (nothing imports it), so it needs an
-# **AccumulationMediator**: mediators are components with export states that
-# land in the collected output. The run sequence is derived from the graph —
-# weather feeds both reductions every 6 h, the max reduces every 24 h, the
-# flood model runs every 48 h on the freshly delivered sum.
-
-t2m_max = nvc.AccumulationMediator("tmax", ["air_temperature_2m_24h_max"])
-
-driver = nvc.Driver(
-    {"weather": weather, "tmax": t2m_max, "flood": flood},
-    clock=nvc.Clock("2024-01-01", "2024-01-05", "6h"),
-    connectors=[
-        nvc.Connector(weather, flood, window="48h", reduce="sum"),
-        ("weather", "tmax"),
-    ],
-)
-print(driver.describe())
-
-# %%
-# Run It
-# ------
-
-ic_weather = xr.DataArray(
-    np.stack([np.full(GRID, 1.0), np.full(GRID, 280.0)]),
-    dims=("variable", "lat", "lon"),
-    coords={"variable": ["tp06", "t2m"], **grid_coords(*GRID)},
-)
-ic_flood = xr.DataArray(
-    np.zeros((2, *GRID)),
-    dims=("variable", "lat", "lon"),
-    coords={"variable": ["findex", "p48"], **grid_coords(*GRID)},
-)
-
-# Note: initialize logs warnings that tmax's and flood's exports have no
-# consumer — correct here, they are the chain's terminal outputs.
-driver.initialize({"weather": ic_weather, "flood": ic_flood})
-ds = driver.run()
-
-# %%
-# Check the Numbers
+# Declare the chain
 # -----------------
-# 8 samples of 1.0 kg m-2 per 48 h window -> sum 8.0 -> flood index 0.8.
-# t2m rises 1 K/step; the max over each 24 h window is the last sample.
+# The atmosphere's SST forcing comes from a data source here (a constant 2 K),
+# so only one prognostic is involved. Two diagnostics hang off it: ``ToyImpact``
+# turns each ``z1000`` frame into ``ws10m``, and ``DailyMax`` takes the trailing
+# 24 h maximum. A ``transform`` on the first connector converts geopotential to
+# geopotential height before delivery.
 
-p48 = driver.probe("weather->flood")["total_precipitation_48h_sum"]
-tmax_series = ds["tmax"]["air_temperature_2m_24h_max"].mean(("lat", "lon")).values
-flood_series = ds["flood"]["flood_risk_index"].mean(("lat", "lon")).values
+# %%
+coupler = Coupler(
+    {"atmos": ToyAtmosphere(), "wind": ToyImpact(), "daily": DailyMax()},
+    connectors=[
+        Connector("atmos", "wind", transform=lambda x: x / 9.81),
+        Connector("atmos", "daily"),
+    ],
+    sources={"atmos": (toy_source(GRID, 0.0), toy_source(GRID, 2.0))},
+)
+print(coupler.describe())
 
-print(f"last 48h precip sum:  {float(p48.data.mean())}")
-print(f"24h t2m maxima:       {tmax_series}")
-print(f"flood risk index:     {flood_series}")
-if not np.isclose(float(p48.data.mean()), 8.0) or not np.allclose(
-    flood_series[1:], 0.8
-):
-    raise ValueError("impact chain did not reproduce the analytic values")
-print("\nimpact chain produced the analytic values ✓")
+# %%
+# Both diagnostics inherit the atmosphere's 6 h cadence and run after it in the
+# same step. Run two days:
+
+# %%
+item = WorkItem(np.datetime64("2026-01-01T00"), np.timedelta64(48, "h"))
+for step in coupler.run_item(item):
+    lead = int(
+        step["atmos"]["lead_time"].values[0].astype("timedelta64[h]").astype(int)
+    )
+    values = {
+        name: float(out.isel(lat=1, lon=1).values.ravel()[0])
+        for name, out in step.items()
+    }
+    print(f"{lead:3d}h", {k: round(v, 4) for k, v in values.items()})
+
+# %%
+# ``wind`` is ``0.01 * z1000 / 9.81`` at every step, initial condition included.
+# ``daily`` first appears at 24 h: its window ``[T - 24h, T)`` needs four frames,
+# so earlier steps are skipped rather than computed from a partial window. From
+# then on it is the maximum of the previous four 6-hourly frames, i.e. the frame
+# at ``T - 6h`` for this monotonically increasing toy.

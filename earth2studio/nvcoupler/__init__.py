@@ -14,107 +14,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""nvcoupler: NUOPC/ESMF-inspired coupling framework for ML inference.
+"""nvcoupler: couple Earth2Studio models on one clock.
 
-Couples independent AI Earth-system components (prognostic models, data
-sources, mediators) through Fields exchanged by standard name, with
-per-component cadences, connector regridding, and a configurable run
-sequence. See earth2studio/nvcoupler/driver.py for the entry point.
+A :class:`Coupler` advances ordinary prognostic and diagnostic models together,
+serving each model's declared forcing from the others' outputs through
+:class:`Connector` declarations. It is a :class:`~earth2studio.run.Runner`, so
+``Pipeline`` drives coupled runs like any other. Design follows NUOPC/ESMF:
+models advance in a run sequence derived from their cadences, and exchanges
+are matched by variable label, regridded between grids, and reduced over time
+windows when a model declares a qualified label such as ``"z1000:mean:48h"``.
 """
 
-from .api import couple, coupled, describe, describe_html
-from .clock import Clock
-from .component import (
-    CallableComponent,
-    Component,
-    ConditioningKwargAdapter,
-    DataComponent,
-    DiagnosticComponent,
-    Exchange,
-    ImportAdapter,
-    PrognosticComponent,
-    VariableOverwriteAdapter,
-)
-from .config import from_yaml, to_yaml
-from .connector import Connector
-from .dictionary import (
-    DEFAULT_DICTIONARY,
-    CellMethod,
-    FieldDictionary,
-    FieldEntry,
-)
-from .driver import Driver
-from .errors import (
-    AmbiguousCouplingError,
-    CadenceError,
-    CouplingError,
-    IncompatibleFieldError,
-    SequenceError,
-    UnitsMismatchError,
-    UnknownFieldError,
-    UnmatchedImportError,
-    VerticalMismatchError,
-)
-from .field import Field, State
-from .mediator import AccumulationMediator, Mediator, TrailingAverageMediator
-from .pull import PullAdapter, StateDataSource
-from .sequence import (
-    ConnectAction,
-    MediateAction,
-    RunAction,
-    RunSequence,
-    Slot,
-    derive_sequence,
-    parse_run_sequence,
-)
-from .vertical import HybridLevels, PressureLevels
+from earth2studio.nvcoupler.connector import Connector
+from earth2studio.nvcoupler.coupler import Coupler
+from earth2studio.nvcoupler.errors import CouplingError
+from earth2studio.nvcoupler.sequence import RunSequence, Slot, derive_sequence
 
 __all__ = [
-    "Clock",
-    "CallableComponent",
-    "DataComponent",
-    "DiagnosticComponent",
-    "couple",
-    "coupled",
-    "describe",
-    "describe_html",
-    "from_yaml",
-    "to_yaml",
-    "Component",
-    "ConditioningKwargAdapter",
     "Connector",
-    "Driver",
-    "Exchange",
-    "HybridLevels",
-    "ImportAdapter",
-    "AccumulationMediator",
-    "Mediator",
-    "PressureLevels",
-    "PrognosticComponent",
-    "PullAdapter",
-    "StateDataSource",
-    "TrailingAverageMediator",
-    "VariableOverwriteAdapter",
-    "ConnectAction",
-    "MediateAction",
-    "RunAction",
+    "Coupler",
+    "CouplingError",
     "RunSequence",
     "Slot",
     "derive_sequence",
-    "parse_run_sequence",
-    "DEFAULT_DICTIONARY",
-    "CellMethod",
-    "FieldDictionary",
-    "FieldEntry",
-    "Field",
-    "State",
-    "AmbiguousCouplingError",
-    "CadenceError",
-    "CouplingError",
-    "IncompatibleFieldError",
-    "SequenceError",
-    "UnitsMismatchError",
-    "UnknownFieldError",
-    "UnmatchedImportError",
-    "VerticalMismatchError",
 ]
