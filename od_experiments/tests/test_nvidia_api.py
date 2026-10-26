@@ -3,20 +3,21 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+import pytest
 import requests
 
 from od_experiments.earth2_001.nvidia_api import (
-    NvidiaCloudClient,
-    NvidiaClientConfig,
     NvidiaAPIError,
-    NvidiaAuthenticationError,
-    NvidiaRateLimitError,
-    NvidiaConnectionError,
-    NvidiaTimeoutError,
     NvidiaAPIKeyMissingError,
+    NvidiaAuthenticationError,
+    NvidiaClientConfig,
+    NvidiaCloudClient,
+    NvidiaConnectionError,
+    NvidiaRateLimitError,
+    NvidiaTimeoutError,
     find_and_load_api_key,
 )
 
@@ -42,7 +43,9 @@ def test_api_key_loading_from_dotenv_file(tmp_path, monkeypatch):
     monkeypatch.delenv("NGC_API_KEY", raising=False)
 
     env_file = tmp_path / ".env.local"
-    env_file.write_text("NVIDIA_API_KEY=nvapi-file-loaded-123456789\nSOME_OTHER_KEY=hello\n")
+    env_file.write_text(
+        "NVIDIA_API_KEY=nvapi-file-loaded-123456789\nSOME_OTHER_KEY=hello\n"
+    )
 
     loaded_key = find_and_load_api_key(env_file=env_file)
     assert loaded_key == "nvapi-file-loaded-123456789"
@@ -75,7 +78,9 @@ def test_invalid_key_authentication_rejection(mock_request):
     mock_resp.text = '{"error": "Invalid API key provided"}'
     mock_request.return_value = mock_resp
 
-    client = NvidiaCloudClient(api_key="nvapi-invalid-key-123456", config=NvidiaClientConfig(mock_mode=False))
+    client = NvidiaCloudClient(
+        api_key="nvapi-invalid-key-123456", config=NvidiaClientConfig(mock_mode=False)
+    )
     with pytest.raises(NvidiaAuthenticationError) as exc_info:
         client.request("GET", "models")
     assert exc_info.value.status_code == 401
@@ -110,14 +115,20 @@ def test_header_construction():
 @patch("requests.Session.request")
 def test_timeout_and_connection_handling(mock_request):
     """Test 4: Timeout handling and connection error mapping."""
-    client = NvidiaCloudClient(api_key="nvapi-fake-key-123456", config=NvidiaClientConfig(mock_mode=False))
+    client = NvidiaCloudClient(
+        api_key="nvapi-fake-key-123456", config=NvidiaClientConfig(mock_mode=False)
+    )
 
-    mock_request.side_effect = requests.exceptions.Timeout("Connection timed out after 30s")
+    mock_request.side_effect = requests.exceptions.Timeout(
+        "Connection timed out after 30s"
+    )
     with pytest.raises(NvidiaTimeoutError) as exc_info:
         client.request("GET", "status")
     assert "timed out" in str(exc_info.value).lower()
 
-    mock_request.side_effect = requests.exceptions.ConnectionError("Failed to resolve host")
+    mock_request.side_effect = requests.exceptions.ConnectionError(
+        "Failed to resolve host"
+    )
     with pytest.raises(NvidiaConnectionError) as exc_info:
         client.request("GET", "status")
     assert "failed to connect" in str(exc_info.value).lower()
@@ -129,10 +140,15 @@ def test_rate_limit_error_and_backoff_handling(mock_request):
     mock_resp = MagicMock()
     mock_resp.status_code = 429
     mock_resp.headers = {"Retry-After": "7.5"}
-    mock_resp.json.return_value = {"error": "Too Many Requests", "message": "Quota limit reached"}
+    mock_resp.json.return_value = {
+        "error": "Too Many Requests",
+        "message": "Quota limit reached",
+    }
     mock_request.return_value = mock_resp
 
-    client = NvidiaCloudClient(api_key="nvapi-fake-key-123456", config=NvidiaClientConfig(mock_mode=False))
+    client = NvidiaCloudClient(
+        api_key="nvapi-fake-key-123456", config=NvidiaClientConfig(mock_mode=False)
+    )
     with pytest.raises(NvidiaRateLimitError) as exc_info:
         client.request("POST", "infer")
     assert exc_info.value.status_code == 429
@@ -152,7 +168,9 @@ def test_response_payload_parsing(mock_request):
     }
     mock_request.return_value = mock_resp
 
-    client = NvidiaCloudClient(api_key="nvapi-fake-key-123456", config=NvidiaClientConfig(mock_mode=False))
+    client = NvidiaCloudClient(
+        api_key="nvapi-fake-key-123456", config=NvidiaClientConfig(mock_mode=False)
+    )
     parsed = client.request("POST", "predict", json_data={"lead_time": 6})
     assert parsed["status"] == "success"
     assert parsed["model"] == "nvidia/fourcastnet"
@@ -218,7 +236,9 @@ def test_offline_fallback_mode():
     def custom_handler(method, endpoint, payload):
         return {"custom_handled": True, "method": method, "endpoint": endpoint}
 
-    client_custom = NvidiaCloudClient(config=NvidiaClientConfig(mock_mode=True), mock_handler=custom_handler)
+    client_custom = NvidiaCloudClient(
+        config=NvidiaClientConfig(mock_mode=True), mock_handler=custom_handler
+    )
     res = client_custom.request("POST", "custom/endpoint")
     assert res["custom_handled"] is True
     assert res["method"] == "POST"
@@ -233,7 +253,9 @@ def test_live_probe_health(mock_request):
     mock_resp.json.return_value = {"data": [{"id": "nvidia/fourcastnet"}]}
     mock_request.return_value = mock_resp
 
-    client = NvidiaCloudClient(api_key="nvapi-live-test-12345678", config=NvidiaClientConfig(mock_mode=False))
+    client = NvidiaCloudClient(
+        api_key="nvapi-live-test-12345678", config=NvidiaClientConfig(mock_mode=False)
+    )
     health = client.probe_health()
     assert health["status"] == "ok"
     assert health["mode"] == "live"

@@ -422,7 +422,11 @@ def probe_zero_billable_costs() -> dict[str, Any]:
         var for var in billable_vars if os.environ.get(var, "").strip()
     ]
 
-    aws_no_sign = os.environ.get("AWS_NO_SIGN_REQUEST", "").upper() in ("1", "YES", "TRUE")
+    aws_no_sign = os.environ.get("AWS_NO_SIGN_REQUEST", "").upper() in (
+        "1",
+        "YES",
+        "TRUE",
+    )
     aws_creds_isolated = os.environ.get("AWS_SHARED_CREDENTIALS_FILE") == "/dev/null"
     gfs_bucket = "noaa-gfs-bdp-pds"
 

@@ -8,8 +8,8 @@ import numpy as np
 def compute_metrics(
     forecast: np.ndarray,
     reference: np.ndarray,
-    lats: Optional[np.ndarray] = None,
-) -> Dict[str, float]:
+    lats: np.ndarray | None = None,
+) -> dict[str, float]:
     """
     Computes latitude-weighted MAE, RMSE, and Mean Bias between forecast and reference fields.
     Validates array shapes, handles NaNs gracefully, and normalizes cosine latitude weights correctly.
@@ -79,11 +79,11 @@ def compute_metrics(
 
 
 def evaluate_forecast(
-    forecast_data: Dict[str, np.ndarray],
-    reference_data: Optional[Dict[str, np.ndarray]] = None,
-    lats: Optional[np.ndarray] = None,
-    output_dir: Optional[str | Path] = None,
-) -> Dict[str, Any]:
+    forecast_data: dict[str, np.ndarray],
+    reference_data: dict[str, np.ndarray] | None = None,
+    lats: np.ndarray | None = None,
+    output_dir: str | Path | None = None,
+) -> dict[str, Any]:
     """
     Validates forecast against reference truth observations.
     If reference_data is None or empty, strictly reports NOT_VALIDATED without inventing data.
@@ -111,7 +111,9 @@ def evaluate_forecast(
             if var_name not in reference_data:
                 continue
             ref_arr = reference_data[var_name]
-            results["metrics"][var_name] = compute_metrics(fcast_arr, ref_arr, lats=lats)
+            results["metrics"][var_name] = compute_metrics(
+                fcast_arr, ref_arr, lats=lats
+            )
 
     if output_dir:
         out_file = Path(output_dir) / "validation_report.json"

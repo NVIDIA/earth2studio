@@ -39,7 +39,10 @@ def test_provenance_manifest_creation(tmp_path):
 
     assert manifest["experiment_id"] == "TEST-EXP"
     assert manifest["scientific_integrity"]["execution_outcome"] == "EXECUTION_SUCCESS"
-    assert manifest["scientific_integrity"]["experiment_classification"] == "SYNTHETIC_SMOKE_TEST"
+    assert (
+        manifest["scientific_integrity"]["experiment_classification"]
+        == "SYNTHETIC_SMOKE_TEST"
+    )
     assert manifest["configuration"]["token"] == "[REDACTED]"
     assert (tmp_path / "provenance_manifest.json").exists()
 

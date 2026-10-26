@@ -59,16 +59,16 @@ def get_git_info(repo_root: str | Path | None = None) -> dict[str, Any]:
 
 def create_provenance_manifest(
     experiment_id: str,
-    configuration: Dict[str, Any],
-    artifacts: List[Dict[str, Any]],
+    configuration: dict[str, Any],
+    artifacts: list[dict[str, Any]],
     execution_outcome: str = "EXECUTION_SUCCESS",
     validation_status: str = "NOT_VALIDATED",
     classification: str = "SYNTHETIC_SMOKE_TEST",  # "SYNTHETIC_SMOKE_TEST" or "GENUINE_ATMOSPHERIC_EXPERIMENT"
-    model_type: str = "BASELINE_PERSISTENCE",       # "BASELINE_PERSISTENCE" or "NEURAL_PROGNOSTIC"
-    data_source_type: str = "SYNTHETIC_RANDOM",     # "SYNTHETIC_RANDOM" or "HISTORICAL_GFS"
-    verification_reference: Optional[str] = None,
-    error_message: Optional[str] = None,
-    execution_time_seconds: Optional[float] = None,
+    model_type: str = "BASELINE_PERSISTENCE",  # "BASELINE_PERSISTENCE" or "NEURAL_PROGNOSTIC"
+    data_source_type: str = "SYNTHETIC_RANDOM",  # "SYNTHETIC_RANDOM" or "HISTORICAL_GFS"
+    verification_reference: str | None = None,
+    error_message: str | None = None,
+    execution_time_seconds: float | None = None,
     device: str = "cpu",
     output_dir: str | Path | None = None,
 ) -> dict[str, Any]:

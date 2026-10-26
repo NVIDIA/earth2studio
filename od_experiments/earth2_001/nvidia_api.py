@@ -31,24 +31,35 @@ from __future__ import annotations
 import os
 import re
 import time
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Mapping, Optional, Union
+from typing import Any, Dict, List, Optional, Union
+
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from od_experiments.earth2_001.security import scrub_string, scrub_dict
+from od_experiments.earth2_001.security import scrub_dict, scrub_string
 
 
 class NvidiaAPIError(Exception):
     """Base exception for NVIDIA API operations."""
 
-    def __init__(self, message: str, status_code: Optional[int] = None, details: Optional[Any] = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        status_code: int | None = None,
+        details: Any | None = None,
+    ) -> None:
         safe_msg = scrub_string(message)
         super().__init__(safe_msg)
         self.status_code = status_code
-        self.details = scrub_dict(details) if isinstance(details, dict) else scrub_string(str(details)) if details else None
+        self.details = (
+            scrub_dict(details)
+            if isinstance(details, dict)
+            else scrub_string(str(details)) if details else None
+        )
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(status_code={self.status_code}, message={str(self)!r})"
@@ -56,37 +67,46 @@ class NvidiaAPIError(Exception):
 
 class NvidiaAuthenticationError(NvidiaAPIError):
     """Raised when authentication fails (e.g. invalid or expired API key, HTTP 401/403)."""
+
     pass
 
 
 class NvidiaRateLimitError(NvidiaAPIError):
     """Raised when rate limits are exceeded (HTTP 429)."""
 
-    def __init__(self, message: str, retry_after: Optional[float] = None, details: Optional[Any] = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        retry_after: float | None = None,
+        details: Any | None = None,
+    ) -> None:
         super().__init__(message=message, status_code=429, details=details)
         self.retry_after = retry_after
 
 
 class NvidiaConnectionError(NvidiaAPIError):
     """Raised when network connectivity or DNS resolution fails."""
+
     pass
 
 
 class NvidiaTimeoutError(NvidiaAPIError):
     """Raised when an API request times out."""
+
     pass
 
 
 class NvidiaAPIKeyMissingError(NvidiaAuthenticationError):
     """Raised when no NVIDIA API key can be found in environment or local .env files."""
+
     pass
 
 
 def find_and_load_api_key(
-    env_file: Optional[Union[str, Path]] = None,
-    env_keys: Optional[List[str]] = None,
+    env_file: str | Path | None = None,
+    env_keys: list[str] | None = None,
     search_env_files: bool = True,
-) -> Optional[str]:
+) -> str | None:
     """Safely search and retrieve the NVIDIA API key without logging or hardcoding it.
 
     Search precedence:
@@ -113,22 +133,24 @@ def find_and_load_api_key(
         return None
 
     # Candidate file locations
-    candidate_paths: List[Path] = []
+    candidate_paths: list[Path] = []
     if env_file:
         candidate_paths.append(Path(env_file))
     elif search_env_files:
         cwd = Path.cwd()
-        candidate_paths.extend([
-            cwd / ".env.local",
-            cwd / ".env",
-            cwd.parent / ".env.local",
-            cwd.parent / ".env",
-        ])
+        candidate_paths.extend(
+            [
+                cwd / ".env.local",
+                cwd / ".env",
+                cwd.parent / ".env.local",
+                cwd.parent / ".env",
+            ]
+        )
 
     for p in candidate_paths:
         if p.exists() and p.is_file():
             try:
-                with open(p, "r", encoding="utf-8") as f:
+                with open(p, encoding="utf-8") as f:
                     for line in f:
                         line = line.strip()
                         if not line or line.startswith("#"):
@@ -150,6 +172,7 @@ def find_and_load_api_key(
 @dataclass
 class NvidiaClientConfig:
     """Configuration settings for NvidiaCloudClient."""
+
     base_url: str = "https://integrate.api.nvidia.com/v1"
     nvcf_url: str = "https://api.nvcf.nvidia.com/v2"
     climate_url: str = "https://climate.api.nvidia.com/v1"
@@ -160,7 +183,7 @@ class NvidiaClientConfig:
     mock_mode: bool = False
     rate_limit_pause: float = 1.0
     search_env_files: bool = True
-    env_file: Optional[Union[str, Path]] = None
+    env_file: str | Path | None = None
 
 
 class NvidiaCloudClient:
@@ -174,16 +197,18 @@ class NvidiaCloudClient:
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
-        config: Optional[NvidiaClientConfig] = None,
-        mock_handler: Optional[Callable[[str, str, Dict[str, Any]], Dict[str, Any]]] = None,
+        api_key: str | None = None,
+        config: NvidiaClientConfig | None = None,
+        mock_handler: None | (
+            Callable[[str, str, dict[str, Any]], dict[str, Any]]
+        ) = None,
     ) -> None:
         self.config = config or NvidiaClientConfig()
         self._mock_handler = mock_handler
 
         # Resolve API key
         if api_key:
-            self._api_key: Optional[str] = api_key.strip()
+            self._api_key: str | None = api_key.strip()
         elif self.config.mock_mode:
             # In mock mode without explicit key, remain in pure mock
             self._api_key = None
@@ -193,7 +218,7 @@ class NvidiaCloudClient:
                 search_env_files=self.config.search_env_files,
             )
 
-        self._session: Optional[requests.Session] = None
+        self._session: requests.Session | None = None
         if not self.config.mock_mode:
             self._init_session()
 
@@ -234,7 +259,9 @@ class NvidiaCloudClient:
             f"key_status={self.get_masked_key()!r})"
         )
 
-    def _get_headers(self, custom_headers: Optional[Mapping[str, str]] = None) -> Dict[str, str]:
+    def _get_headers(
+        self, custom_headers: Mapping[str, str] | None = None
+    ) -> dict[str, str]:
         """Construct secure authorization and request headers."""
         headers = {
             "Accept": "application/json",
@@ -251,12 +278,12 @@ class NvidiaCloudClient:
         self,
         method: str,
         endpoint: str,
-        params: Optional[Dict[str, Any]] = None,
-        json_data: Optional[Dict[str, Any]] = None,
-        headers: Optional[Mapping[str, str]] = None,
-        base_url: Optional[str] = None,
-        timeout: Optional[float] = None,
-    ) -> Dict[str, Any]:
+        params: dict[str, Any] | None = None,
+        json_data: dict[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+        base_url: str | None = None,
+        timeout: float | None = None,
+    ) -> dict[str, Any]:
         """Execute an API request with full error handling and retry mechanics."""
         method_upper = method.upper()
         clean_endpoint = endpoint.lstrip("/")
@@ -264,7 +291,9 @@ class NvidiaCloudClient:
         # Handle Mock Mode
         if self.config.mock_mode:
             if self._mock_handler:
-                return self._mock_handler(method_upper, clean_endpoint, {"params": params, "json": json_data})
+                return self._mock_handler(
+                    method_upper, clean_endpoint, {"params": params, "json": json_data}
+                )
             return self._default_mock_response(method_upper, clean_endpoint, json_data)
 
         # Enforce API Key presence before real external network request
@@ -275,7 +304,11 @@ class NvidiaCloudClient:
             )
 
         target_base = base_url or self.config.base_url
-        url = f"{target_base.rstrip('/')}/{clean_endpoint}" if clean_endpoint else target_base
+        url = (
+            f"{target_base.rstrip('/')}/{clean_endpoint}"
+            if clean_endpoint
+            else target_base
+        )
         req_headers = self._get_headers(headers)
         req_timeout = timeout or self.config.timeout_seconds
 
@@ -290,16 +323,25 @@ class NvidiaCloudClient:
                 timeout=req_timeout,
             )
         except requests.exceptions.Timeout as exc:
-            raise NvidiaTimeoutError(f"Request to NVIDIA API timed out after {req_timeout}s: {exc}") from exc
-        except (requests.exceptions.ConnectionError, requests.exceptions.SSLError) as exc:
-            raise NvidiaConnectionError(f"Failed to connect to NVIDIA Cloud API endpoint: {exc}") from exc
+            raise NvidiaTimeoutError(
+                f"Request to NVIDIA API timed out after {req_timeout}s: {exc}"
+            ) from exc
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.SSLError,
+        ) as exc:
+            raise NvidiaConnectionError(
+                f"Failed to connect to NVIDIA Cloud API endpoint: {exc}"
+            ) from exc
         except requests.exceptions.RequestException as exc:
-            raise NvidiaAPIError(f"Unexpected transport error during NVIDIA API request: {exc}") from exc
+            raise NvidiaAPIError(
+                f"Unexpected transport error during NVIDIA API request: {exc}"
+            ) from exc
 
         # Handle status codes
         return self._handle_response(response)
 
-    def _handle_response(self, response: requests.Response) -> Dict[str, Any]:
+    def _handle_response(self, response: requests.Response) -> dict[str, Any]:
         """Inspect and parse HTTP response status and payloads."""
         status = response.status_code
 
@@ -326,7 +368,7 @@ class NvidiaCloudClient:
         # Rate Limiting
         if status == 429:
             retry_after_header = response.headers.get("Retry-After")
-            retry_after: Optional[float] = None
+            retry_after: float | None = None
             if retry_after_header:
                 try:
                     retry_after = float(retry_after_header)
@@ -345,7 +387,9 @@ class NvidiaCloudClient:
             details=body,
         )
 
-    def _default_mock_response(self, method: str, endpoint: str, json_data: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    def _default_mock_response(
+        self, method: str, endpoint: str, json_data: dict[str, Any] | None
+    ) -> dict[str, Any]:
         """Returns deterministic offline responses for testing without calling remote services."""
         if "health" in endpoint or "status" in endpoint or endpoint == "":
             return {
@@ -357,15 +401,31 @@ class NvidiaCloudClient:
         if "models" in endpoint:
             return {
                 "data": [
-                    {"id": "nvidia/fourcastnet", "status": "active", "type": "weather_forecast"},
-                    {"id": "nvidia/corrdiff", "status": "active", "type": "downscaling"},
-                    {"id": "nvidia/dlwp", "status": "active", "type": "global_medium_range"},
+                    {
+                        "id": "nvidia/fourcastnet",
+                        "status": "active",
+                        "type": "weather_forecast",
+                    },
+                    {
+                        "id": "nvidia/corrdiff",
+                        "status": "active",
+                        "type": "downscaling",
+                    },
+                    {
+                        "id": "nvidia/dlwp",
+                        "status": "active",
+                        "type": "global_medium_range",
+                    },
                 ]
             }
         if "nvcf" in endpoint or "functions" in endpoint:
             return {
                 "functions": [
-                    {"id": "mock-fn-fourcastnet", "name": "fourcastnet", "status": "ACTIVE"},
+                    {
+                        "id": "mock-fn-fourcastnet",
+                        "name": "fourcastnet",
+                        "status": "ACTIVE",
+                    },
                     {"id": "mock-fn-corrdiff", "name": "corrdiff", "status": "ACTIVE"},
                 ]
             }
@@ -375,7 +435,9 @@ class NvidiaCloudClient:
                 "status": "completed",
                 "result": {
                     "lead_time_hours": (json_data or {}).get("lead_time_hours", 6),
-                    "variables": (json_data or {}).get("variables", ["t2m", "u10m", "v10m"]),
+                    "variables": (json_data or {}).get(
+                        "variables", ["t2m", "u10m", "v10m"]
+                    ),
                     "output_shape": [1, 3, 721, 1440],
                     "simulated": True,
                 },
@@ -389,19 +451,29 @@ class NvidiaCloudClient:
             "received_payload": json_data,
         }
 
-    def list_models(self) -> List[Dict[str, Any]]:
+    def list_models(self) -> list[dict[str, Any]]:
         """List available models from the NVIDIA Build Cloud catalog."""
         res = self.request("GET", "models")
         if isinstance(res, dict) and "data" in res and isinstance(res["data"], list):
             return res["data"]
         return []
 
-    def probe_health(self) -> Dict[str, Any]:
+    def probe_health(self) -> dict[str, Any]:
         """Probes API health status or mock capability without executing heavy workloads."""
         if self.config.mock_mode:
-            return {"status": "ok", "mode": "mock", "authenticated": True, "masked_key": self.get_masked_key()}
+            return {
+                "status": "ok",
+                "mode": "mock",
+                "authenticated": True,
+                "masked_key": self.get_masked_key(),
+            }
         if not self._api_key:
-            return {"status": "unauthenticated", "mode": "live", "authenticated": False, "masked_key": self.get_masked_key()}
+            return {
+                "status": "unauthenticated",
+                "mode": "live",
+                "authenticated": False,
+                "masked_key": self.get_masked_key(),
+            }
 
         start = time.perf_counter()
         try:
@@ -413,12 +485,24 @@ class NvidiaCloudClient:
                 "authenticated": True,
                 "latency_ms": round(latency_ms, 2),
                 "masked_key": self.get_masked_key(),
-                "models_count": len(res.get("data", [])) if isinstance(res, dict) else 0,
+                "models_count": (
+                    len(res.get("data", [])) if isinstance(res, dict) else 0
+                ),
             }
         except NvidiaAuthenticationError as e:
-            return {"status": "auth_error", "mode": "live", "authenticated": False, "error": str(e)}
+            return {
+                "status": "auth_error",
+                "mode": "live",
+                "authenticated": False,
+                "error": str(e),
+            }
         except NvidiaAPIError as e:
-            return {"status": "error", "mode": "live", "authenticated": False, "error": str(e)}
+            return {
+                "status": "error",
+                "mode": "live",
+                "authenticated": False,
+                "error": str(e),
+            }
 
     def close(self) -> None:
         """Close active session connections."""

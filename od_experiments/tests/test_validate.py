@@ -8,14 +8,14 @@ def test_latitude_weighted_metrics():
     # Grid: 3 lats (-90, 0, 90), 2 lons
     # At poles (-90, 90), cos(lat) == 0; at equator (0), cos(lat) == 1
     lats = np.array([-90.0, 0.0, 90.0])
-    
+
     # Forecast and reference differing only at the pole vs equator
     # Difference at equator is 10.0, at poles is 100.0
     fc = np.zeros((3, 2))
     ref = np.zeros((3, 2))
-    
+
     ref[0, :] = 100.0  # Pole (-90): weight 0
-    ref[1, :] = 10.0   # Equator (0): weight 1
+    ref[1, :] = 10.0  # Equator (0): weight 1
     ref[2, :] = 100.0  # Pole (90): weight 0
 
     metrics = compute_metrics(fc, ref, lats=lats)
@@ -115,7 +115,9 @@ def test_uniform_offset_invariance():
 
     assert np.isclose(base_metrics["mae"], shifted_metrics["mae"], atol=1e-5)
     assert np.isclose(base_metrics["rmse"], shifted_metrics["rmse"], atol=1e-5)
-    assert np.isclose(base_metrics["mean_bias"], shifted_metrics["mean_bias"], atol=1e-5)
+    assert np.isclose(
+        base_metrics["mean_bias"], shifted_metrics["mean_bias"], atol=1e-5
+    )
 
 
 def test_completely_missing_variable_handling():
@@ -143,4 +145,3 @@ def test_completely_missing_variable_handling():
     assert "u10m" not in report_partial["metrics"]
     assert np.isclose(report_partial["metrics"]["t2m"]["mean_bias"], -2.0)
     assert report_partial["evaluation_metadata"]["variables"] == ["t2m"]
-

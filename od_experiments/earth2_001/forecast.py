@@ -1,7 +1,7 @@
 import os
 import shutil
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -9,7 +9,6 @@ import numpy as np
 import torch
 import zarr
 
-from earth2studio.models.px import Persistence
 from earth2studio.data import GFS, Random
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import Persistence
@@ -27,8 +26,8 @@ def run_forecast(
     config_path: str | Path | None = None,
     output_dir: str | Path | None = None,
     device: str = "cpu",
-    override_source: Optional[str] = None,  # "gfs" or "random"
-) -> Dict[str, Any]:
+    override_source: str | None = None,  # "gfs" or "random"
+) -> dict[str, Any]:
     """
     Executes a genuine weather forecast workflow, reading output arrays directly
     from Earth2Studio's Zarr store, saving verified tensors and plots, and
@@ -42,11 +41,15 @@ def run_forecast(
     )
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    data_source_name = override_source or config.get("data_source", {}).get("name", "gfs").lower()
+    data_source_name = (
+        override_source or config.get("data_source", {}).get("name", "gfs").lower()
+    )
     variables = config.get("simulation", {}).get("variables", ["t2m"])
     n_steps = config.get("simulation", {}).get("n_steps", 1)
     lead_time_hours = config.get("simulation", {}).get("lead_time_hours", 6)
-    init_time_str = config.get("simulation", {}).get("initial_time", "2024-01-01T00:00:00")
+    init_time_str = config.get("simulation", {}).get(
+        "initial_time", "2024-01-01T00:00:00"
+    )
     init_time = datetime.fromisoformat(init_time_str)
 
     # Clean existing Zarr store in target directory to avoid stale array collisions
@@ -70,7 +73,9 @@ def run_forecast(
     if data_source_name == "gfs":
         classification = "GENUINE_ATMOSPHERIC_EXPERIMENT"
         data_source_type = "HISTORICAL_GFS"
-        print(f"[i] Using REAL NOAA GFS Historical Data from {init_time.isoformat()} UTC...")
+        print(
+            f"[i] Using REAL NOAA GFS Historical Data from {init_time.isoformat()} UTC..."
+        )
         data_source = GFS()
         verification_time = init_time + timedelta(hours=lead_time_hours * n_steps)
     else:
@@ -96,10 +101,10 @@ def run_forecast(
 
     # Extract actual predicted array directly from the generated Zarr Store
     z_root = zarr.open(str(zarr_path), mode="r")
-    
+
     # Earth2Studio ZarrBackend stores arrays by variable name or under root
-    artifacts: List[Dict[str, Any]] = []
-    forecast_arrays: Dict[str, np.ndarray] = {}
+    artifacts: list[dict[str, Any]] = []
+    forecast_arrays: dict[str, np.ndarray] = {}
 
     for var in variables:
         if var in z_root:
@@ -118,29 +123,41 @@ def run_forecast(
             # Save extracted numpy array
             npy_file = out_dir / f"forecast_{var}.npy"
             np.save(npy_file, final_step)
-            artifacts.append({
-                "path": str(npy_file),
-                "sha256": compute_sha256(npy_file),
-                "bytes": npy_file.stat().st_size,
-            })
+            artifacts.append(
+                {
+                    "path": str(npy_file),
+                    "sha256": compute_sha256(npy_file),
+                    "bytes": npy_file.stat().st_size,
+                }
+            )
 
             # Generate scientific visualization plot
             plot_file = out_dir / f"forecast_{var}.png"
             title = f"{var.upper()} Forecast (+{lead_time_hours*n_steps}h from {init_time_str} UTC)"
-            plot_field(final_step, title, plot_file, variable_name=var, units="K" if "t" in var else "m/s")
-            artifacts.append({
-                "path": str(plot_file),
-                "sha256": compute_sha256(plot_file),
-                "bytes": plot_file.stat().st_size,
-            })
+            plot_field(
+                final_step,
+                title,
+                plot_file,
+                variable_name=var,
+                units="K" if "t" in var else "m/s",
+            )
+            artifacts.append(
+                {
+                    "path": str(plot_file),
+                    "sha256": compute_sha256(plot_file),
+                    "bytes": plot_file.stat().st_size,
+                }
+            )
 
     # Fetch reference truth for genuine atmospheric verification if using GFS
-    reference_arrays: Optional[Dict[str, np.ndarray]] = None
+    reference_arrays: dict[str, np.ndarray] | None = None
     verification_ref_desc = None
 
     if data_source_name == "gfs" and verification_time:
         try:
-            print(f"[i] Fetching genuine reference analysis from NOAA GFS at {verification_time.isoformat()} UTC...")
+            print(
+                f"[i] Fetching genuine reference analysis from NOAA GFS at {verification_time.isoformat()} UTC..."
+            )
             gfs_ref_source = GFS()
             ref_da = gfs_ref_source(time=verification_time, variable=variables)
             reference_arrays = {}
@@ -153,12 +170,16 @@ def run_forecast(
 
                 ref_npy = out_dir / f"reference_{var}.npy"
                 np.save(ref_npy, ref_arr)
-                artifacts.append({
-                    "path": str(ref_npy),
-                    "sha256": compute_sha256(ref_npy),
-                    "bytes": ref_npy.stat().st_size,
-                })
-            verification_ref_desc = f"NOAA GFS Analysis at {verification_time.isoformat()} UTC"
+                artifacts.append(
+                    {
+                        "path": str(ref_npy),
+                        "sha256": compute_sha256(ref_npy),
+                        "bytes": ref_npy.stat().st_size,
+                    }
+                )
+            verification_ref_desc = (
+                f"NOAA GFS Analysis at {verification_time.isoformat()} UTC"
+            )
         except Exception as e:
             print(f"[!] Warning: Could not retrieve reference analysis from GFS ({e}).")
             reference_arrays = None

@@ -1,14 +1,14 @@
 # OD-EARTH2-001: Genuine AI Weather Forecast & Scientific Verification
 
-**Organization:** ORIGIN DATUM  
-**Program:** EO-OBSCURA  
-**Experiment ID:** OD-EARTH2-001  
-**Execution Date:** 2026-10-26 (Simulated Atmospheric Time: 2024-01-01 00:00 UTC)  
-**Classification:** GENUINE_ATMOSPHERIC_EXPERIMENT  
-**Model Type:** BASELINE_PERSISTENCE  
-**Data Source:** HISTORICAL_GFS (NOAA GFS Analysis via AWS Open Data S3)  
-**Verification Reference:** NOAA GFS Analysis at 2024-01-01T06:00:00 UTC  
-**Validation Status:** VALIDATED  
+**Organization:** ORIGIN DATUM
+**Program:** EO-OBSCURA
+**Experiment ID:** OD-EARTH2-001
+**Execution Date:** 2026-10-26 (Simulated Atmospheric Time: 2024-01-01 00:00 UTC)
+**Classification:** GENUINE_ATMOSPHERIC_EXPERIMENT
+**Model Type:** BASELINE_PERSISTENCE
+**Data Source:** HISTORICAL_GFS (NOAA GFS Analysis via AWS Open Data S3)
+**Verification Reference:** NOAA GFS Analysis at 2024-01-01T06:00:00 UTC
+**Validation Status:** VALIDATED
 
 ---
 
@@ -98,7 +98,7 @@ Because local FourCastNet and FourCastNet3 inference is blocked on non-CUDA AMD 
 2. **API Endpoint Verification:** Connect to an operational Earth2Studio serve instance or hosted microservice:
    ```python
    from earth2studio.serve.client import Earth2StudioClient
-   
+
    client = Earth2StudioClient(base_url="http://localhost:8000")
    health_resp = client.health_check()
    assert health_resp.status == "healthy"
