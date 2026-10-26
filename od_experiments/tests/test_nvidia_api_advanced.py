@@ -1,16 +1,18 @@
 import json
-import pytest
-import numpy as np
-import requests
 from unittest.mock import MagicMock, patch
+
+import numpy as np
+import pytest
+import requests
+
 from od_experiments.earth2_001.nvidia_api import (
+    NvidiaAPIKeyMissingError,
+    NvidiaAuthenticationError,
     NvidiaClientConfig,
     NvidiaCloudClient,
-    NvidiaAuthenticationError,
-    NvidiaRateLimitError,
     NvidiaConnectionError,
+    NvidiaRateLimitError,
     NvidiaTimeoutError,
-    NvidiaAPIKeyMissingError,
 )
 
 
@@ -18,7 +20,9 @@ class TestNvidiaApiAdvancedResilience:
     """Advanced test suite adding 15 tests for edge cases, concurrency, and payload integrity."""
 
     def test_custom_base_url_configuration(self):
-        cfg = NvidiaClientConfig(base_url="https://custom.api.nvidia.com/v1", mock_mode=True)
+        cfg = NvidiaClientConfig(
+            base_url="https://custom.api.nvidia.com/v1", mock_mode=True
+        )
         client = NvidiaCloudClient(api_key="nvapi-test12345678901234567890", config=cfg)
         assert client.config.base_url == "https://custom.api.nvidia.com/v1"
 
@@ -83,14 +87,22 @@ class TestNvidiaApiAdvancedResilience:
     def test_connection_error_mapping(self):
         cfg = NvidiaClientConfig(mock_mode=False, max_retries=1)
         client = NvidiaCloudClient(api_key="nvapi-test12345678901234567890", config=cfg)
-        with patch.object(client._session, "request", side_effect=requests.exceptions.ConnectionError("Connection refused")):
+        with patch.object(
+            client._session,
+            "request",
+            side_effect=requests.exceptions.ConnectionError("Connection refused"),
+        ):
             with pytest.raises(NvidiaConnectionError):
                 client.request("GET", "models")
 
     def test_timeout_error_mapping(self):
         cfg = NvidiaClientConfig(mock_mode=False, max_retries=1)
         client = NvidiaCloudClient(api_key="nvapi-test12345678901234567890", config=cfg)
-        with patch.object(client._session, "request", side_effect=requests.exceptions.Timeout("Request timed out")):
+        with patch.object(
+            client._session,
+            "request",
+            side_effect=requests.exceptions.Timeout("Request timed out"),
+        ):
             with pytest.raises(NvidiaTimeoutError):
                 client.request("GET", "models")
 
@@ -116,7 +128,9 @@ class TestNvidiaApiAdvancedResilience:
 
     def test_masked_key_format_standard_nvapi(self):
         cfg = NvidiaClientConfig(mock_mode=True)
-        client = NvidiaCloudClient(api_key="nvapi-1234567890abcdef1234567890abcdef", config=cfg)
+        client = NvidiaCloudClient(
+            api_key="nvapi-1234567890abcdef1234567890abcdef", config=cfg
+        )
         masked = client.get_masked_key()
         assert masked.startswith("nvap****")
         assert masked.endswith("cdef")
@@ -134,6 +148,8 @@ class TestNvidiaApiAdvancedResilience:
             raise ValueError("Simulated handler crash")
 
         cfg = NvidiaClientConfig(mock_mode=True)
-        client = NvidiaCloudClient(api_key="nvapi-1234567890abcdef", config=cfg, mock_handler=failing_handler)
+        client = NvidiaCloudClient(
+            api_key="nvapi-1234567890abcdef", config=cfg, mock_handler=failing_handler
+        )
         with pytest.raises(ValueError, match="Simulated handler crash"):
             client.request("GET", "/models")

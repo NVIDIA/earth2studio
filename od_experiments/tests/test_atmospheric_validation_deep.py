@@ -1,7 +1,12 @@
-import pytest
 import numpy as np
+import pytest
+
+from od_experiments.earth2_001.provenance import (
+    compute_sha256,
+    create_provenance_manifest,
+    get_git_info,
+)
 from od_experiments.earth2_001.validate import compute_metrics, evaluate_forecast
-from od_experiments.earth2_001.provenance import compute_sha256, create_provenance_manifest, get_git_info
 
 
 class TestAtmosphericValidationAndProvenanceDeep:
@@ -91,7 +96,10 @@ class TestAtmosphericValidationAndProvenanceDeep:
             classification="SYNTHETIC_SMOKE_TEST",
             output_dir=tmp_path,
         )
-        assert manifest["scientific_integrity"]["experiment_classification"] == "SYNTHETIC_SMOKE_TEST"
+        assert (
+            manifest["scientific_integrity"]["experiment_classification"]
+            == "SYNTHETIC_SMOKE_TEST"
+        )
         assert manifest["manifest_version"] == "2.0.0"
 
     def test_provenance_manifest_v2_classification_genuine(self, tmp_path):
@@ -104,7 +112,10 @@ class TestAtmosphericValidationAndProvenanceDeep:
             data_source_type="HISTORICAL_GFS",
             output_dir=tmp_path,
         )
-        assert manifest["scientific_integrity"]["experiment_classification"] == "GENUINE_ATMOSPHERIC_EXPERIMENT"
+        assert (
+            manifest["scientific_integrity"]["experiment_classification"]
+            == "GENUINE_ATMOSPHERIC_EXPERIMENT"
+        )
         assert manifest["scientific_integrity"]["data_source_type"] == "HISTORICAL_GFS"
 
     def test_git_info_fallback_on_invalid_path(self):

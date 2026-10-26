@@ -1,10 +1,10 @@
 # OD-EARTH2-001: COMPREHENSIVE SCIENTIFIC FINDINGS & BENCHMARK REPORT
 
-**Organization:** ORIGIN DATUM RESEARCH FOUNDATION  
-**Program:** EO-OBSCURA (Atmospheric Context & Incomplete Observation Reconstruction)  
-**Study Identifier:** OD-EARTH2-001-REV2  
-**Date of Completion:** October 26, 2026  
-**Status:** FULLY VALIDATED & CRYPTOGRAPHICALLY ATTESTED  
+**Organization:** ORIGIN DATUM RESEARCH FOUNDATION
+**Program:** EO-OBSCURA (Atmospheric Context & Incomplete Observation Reconstruction)
+**Study Identifier:** OD-EARTH2-001-REV2
+**Date of Completion:** October 26, 2026
+**Status:** FULLY VALIDATED & CRYPTOGRAPHICALLY ATTESTED
 
 ---
 
