@@ -79,6 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   root-level subgroups.
 - `datasource_to_file` offsets the requested times by each lead time on its own instead
   of compounding the leads, which fetched times far past the largest lead.
+- `DataArrayPathList` keeps size one dimensions when it loads the files, so files with a
+  single variable or a single time no longer fail with a dimension mismatch.
 
 ### Security
 
