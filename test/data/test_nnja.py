@@ -1941,6 +1941,10 @@ def test_nnja_layout_validation_and_wide_fields():
     assert "radius_curvature" in conv._output_fields(None, ["gps"]).names
     assert "report_time" not in conv._output_fields(None, ["gps"]).names
     assert "radius_curvature" not in conv._output_fields(None, ["t", "u"]).names
+    # One observation and quality column per requested variable
+    names = conv._output_fields(None, ["t", "u"]).names
+    assert {"observation_t", "observation_u", "quality_t", "quality_u"} <= set(names)
+    assert not {"observation_q", "quality_q", "observation_v"} & set(names)
     with pytest.raises(ValueError, match="one stream per call"):
         conv(T0, ["t", "gps"])
 

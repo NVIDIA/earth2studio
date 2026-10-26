@@ -905,7 +905,8 @@ _NCEP_GPSRO_WIDE_SCHEMA = _conv_wide_schema(
 
 def _conv_stream_schema(variables: Collection[str], class_name: str) -> pa.Schema:
     """The wide schema of the conventional stream (PrepBUFR or GPS-RO) holding
-    ``variables``; a wide call returns one stream.
+    ``variables``, with the observation and quality columns of ``variables`` only; a
+    wide call returns one stream.
 
     Raises
     ------
@@ -913,9 +914,9 @@ def _conv_stream_schema(variables: Collection[str], class_name: str) -> pa.Schem
         If ``variables`` span both streams
     """
     if set(variables) <= set(GPSRO_VARIABLES):
-        return _NCEP_GPSRO_WIDE_SCHEMA
+        return _wide_schema(_NCEP_GPSRO_WIDE_SCHEMA, variables)
     if set(variables) <= set(PREPBUFR_VARIABLES):
-        return _NCEP_PREPBUFR_WIDE_SCHEMA
+        return _wide_schema(_NCEP_PREPBUFR_WIDE_SCHEMA, variables)
     raise ValueError(
         f'{class_name}(layout="wide") returns one stream per call: request the '
         f"PrepBUFR variables {list(PREPBUFR_VARIABLES)} or the GPS-RO variables "
@@ -1879,6 +1880,12 @@ def decode_prepbufr(
 
 def _empty_wide(schema: pa.Schema, variables: Sequence[str]) -> pa.Table:
     """Empty wide table: shared columns plus the columns of ``variables``."""
+    return _wide_schema(schema, variables).empty_table()
+
+
+def _wide_schema(schema: pa.Schema, variables: Collection[str]) -> pa.Schema:
+    """``schema``'s shared columns plus the observation and quality columns of
+    ``variables``."""
     keep = []
     for field in schema:
         name = field.name
@@ -1890,7 +1897,7 @@ def _empty_wide(schema: pa.Schema, variables: Sequence[str]) -> pa.Table:
             if suffix not in variables:
                 continue
         keep.append(field)
-    return pa.schema(keep).empty_table()
+    return pa.schema(keep)
 
 
 # ──────────────────────────────────────────────────────────────────────────
