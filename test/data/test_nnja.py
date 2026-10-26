@@ -1702,6 +1702,24 @@ def test_satellite_footprint_time_and_location_are_checked(fake_bufr):
             decode(**fields)
 
 
+def test_satellite_footprints_the_request_skips_are_not_checked(fake_bufr):
+    # Outside the window: no SAID and latitude 91; on an unrequested platform: latitude 91
+    late = T0 + timedelta(days=3)
+    batch = _sat_batch(
+        "atms",
+        [T0, late, T0],
+        [1.0],
+        lambda c: (0.0, 250.0),
+        fields={"SAID": [224.0, None, 225.0], "CLATH": [10.0, 91.0, 91.0]},
+    )
+    fake_bufr["atms"] = _FakeBufr([batch])
+    wide = decode_satellite(
+        "atms", "atms", {"atms": "TMBR"}, T0, T0, satellites={"npp"}, channels=[1]
+    )
+    assert wide.num_rows == 1
+    assert wide["satellite"].cast(pa.string()).to_pylist() == ["npp"]
+
+
 def test_airs_wavenumber_read_from_file(fake_bufr):
     # LOGRCW (log10 of the centre wavenumber in m⁻¹) of AIRS channels 1 and 2377
     log10_m = {1.0: 4.81265938, 2377.0: 5.42555671}

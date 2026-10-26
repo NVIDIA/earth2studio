@@ -2811,23 +2811,27 @@ def _sat_batch(
 
     ``plan`` maps each requested variable to its BUFR field.
     """
+    # Times decide the window, so every footprint's is checked; SAID and position only
+    # where the window, then the satellites, keep the footprint
     time_ns = _footprint_time_ns([_required_column(batch, name) for name in _SAT_TIME])
     lat, lon = _footprint_latlon(batch)
     said = _required_column(batch, "SAID")
-    if not np.isfinite(said).all():
-        raise ValueError("satellite footprint has no SAID")
-    if not (np.isfinite(lon).all() and (np.abs(lat) <= 90.0).all()):
-        raise ValueError(
-            "satellite footprint latitude or longitude is missing or out of range"
-        )
     is_cris = sensor == "cris"
     position = _required_column(batch, "FORN" if is_cris else "FOVN")
     keep = (time_ns >= window_ns[0]) & (time_ns <= window_ns[1]) & np.isfinite(position)
+    if not np.isfinite(said[keep]).all():
+        raise ValueError("satellite footprint has no SAID")
     if satellites is not None:
-        said_codes, said_index = np.unique(said.astype(np.int64), return_inverse=True)
+        said_codes, said_index = np.unique(
+            np.where(keep, said, 0).astype(np.int64), return_inverse=True
+        )
         keep &= np.array(
             [_satellite_name(s) in satellites for s in said_codes], dtype=bool
         )[said_index.ravel()]
+    if not (np.isfinite(lon[keep]).all() and (np.abs(lat[keep]) <= 90.0).all()):
+        raise ValueError(
+            "satellite footprint latitude or longitude is missing or out of range"
+        )
     rows = _ChannelMatrix(_channel_group(batch), keep, axis)
     if rows.off_axis:
         logger.warning(
