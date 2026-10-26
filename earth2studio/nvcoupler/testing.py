@@ -14,115 +14,271 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Synthetic DataArray-native components for tests and demos.
+"""Toy models for coupler tests and examples.
 
-A deterministic two-component atmosphere/ocean system:
+Ordinary :class:`~earth2studio.models.px.PrognosticModel` and
+:class:`~earth2studio.models.dx.DiagnosticModel` implementations with trivial
+arithmetic in place of networks, so every coupled value is hand-computable.
+:class:`ToyPrognostic` is the configurable base; the two named models are the
+atmosphere/ocean pair the examples use:
 
-- fake atmosphere, 6 h step, 32x64 lat/lon grid, state [z1000, sst]:
-      z1000 <- z1000 + 1.0 + gain * 0.1 * sst        (sst = imported SST)
-- fake ocean, 48 h step, 16x32 lat/lon grid, state [sst, z48m]:
-      sst   <- sst + gain * 0.01 * z48m              (z48m = imported 48 h
-                                                       mean of atmos z1000)
+- :class:`ToyAtmosphere`: 6 h steps on a 32 x 64 grid, state ``z1000``, forcing
+  ``sst`` at the step's input time::
 
-With spatially-constant initial conditions every intermediate value is
-hand-computable, which the end-to-end driver tests rely on.
+      z1000 <- z1000 + 1 + gain * 0.1 * sst
+
+- :class:`ToyOcean`: 48 h steps on a 16 x 32 grid, state ``sst``, forcing
+  ``z1000:mean:48h`` over the step being taken::
+
+      sst <- sst + gain * 0.01 * mean(z1000)
+
+- :class:`ToyImpact`: a diagnostic turning ``z1000`` into ``ws10m`` as
+  ``0.01 * z1000``.
+
+No weights, downloads or GPU are needed.
 """
+
+from __future__ import annotations
+
+from collections import OrderedDict
+from collections.abc import Callable, Iterator, Sequence
 
 import numpy as np
 import xarray as xr
 
-from .component import CallableComponent
+from earth2studio.data import Constant
+from earth2studio.grids import LatLonGrid
+from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.utils import coord_array, coord_array_like
+from earth2studio.utils.type import CoordinateSystem
 
-ATMOS_GRID = (32, 64)
-OCEAN_GRID = (16, 32)
+ATMOS_SHAPE = (32, 64)
+OCEAN_SHAPE = (16, 32)
+
+Advance = Callable[[xr.DataArray, xr.DataArray | None], xr.DataArray]
 
 
-def grid_coords(nlat: int, nlon: int) -> dict[str, np.ndarray]:
-    return {
-        "lat": np.linspace(90.0, -90.0, nlat),
-        "lon": np.linspace(0.0, 360.0, nlon, endpoint=False),
-    }
-
-
-def fake_atmos(gain: float = 1.0, timestep: str = "6h") -> CallableComponent:
-    """Fast toy component: imports SST, exports z1000."""
-
-    def step(x: xr.DataArray) -> xr.DataArray:
-        z1000 = x.sel(variable="z1000", drop=True)
-        sst = x.sel(variable="sst", drop=True)
-        z_next = z1000 + 1.0 + gain * 0.1 * sst
-        return xr.concat(
-            [z_next, sst],
-            xr.IndexVariable("variable", ["z1000", "sst"]),
-        ).transpose(*x.dims)
-
-    return CallableComponent(
-        "atmos",
-        step,
-        timestep=timestep,
-        imports=["sea_surface_temperature"],
-        exports=["geopotential_at_1000hpa"],
+def toy_grid(nlat: int, nlon: int) -> LatLonGrid:
+    """Regular global latitude-longitude grid, poles included."""
+    return LatLonGrid(
+        latitude=np.linspace(90.0, -90.0, nlat),
+        longitude=np.linspace(0.0, 360.0, nlon, endpoint=False),
     )
 
 
-def fake_ocean(
-    gain: float = 1.0,
-    timestep: str = "48h",
-    with_mask: bool = False,
-) -> CallableComponent:
-    """Slow toy component: imports the 48 h mean of z1000, exports SST.
+def toy_source(grid: LatLonGrid, value: float) -> Constant:
+    """Constant source on ``grid``, for initial conditions and forcing."""
+    coords = grid.coords(only_index=True)
+    return Constant(
+        OrderedDict(lat=np.asarray(coords["lat"]), lon=np.asarray(coords["lon"])),
+        value,  # type: ignore[arg-type]
+    )
 
-    With ``with_mask=True`` the exported SST carries a land mask covering the
-    northern half of the grid (True = valid ocean point).
+
+def _plus_one(x: xr.DataArray, forcing: xr.DataArray | None) -> xr.DataArray:
+    return x + 1.0
+
+
+class ToyPrognostic(PrognosticMixin):
+    """Configurable toy prognostic model with one input and at most one forcing slot.
+
+    Parameters
+    ----------
+    variables : Sequence[str]
+        State variables.
+    forcing : Sequence[str], optional
+        Forcing variables, by default none (``forcing_coords()`` is ``None``).
+    forcing_lead : str | np.timedelta64, optional
+        Lead time of the forcing frame each step needs, relative to the step's
+        input time, by default ``"0h"``.
+    step : str | np.timedelta64, optional
+        Lead-time advance of one step, by default ``"6h"``.
+    grid : LatLonGrid, optional
+        Model grid, by default a 32 x 64 global grid.
+    advance : Callable[[xr.DataArray, xr.DataArray | None], xr.DataArray], optional
+        ``(x, forcing) -> y`` on field values; the lead time is relabelled
+        afterwards. By default ``x + 1``.
     """
 
-    def step(x: xr.DataArray) -> xr.DataArray:
-        sst = x.sel(variable="sst", drop=True)
-        z48m = x.sel(variable="z48m", drop=True)
-        sst_next = sst + gain * 0.01 * z48m
-        return xr.concat(
-            [sst_next, z48m],
-            xr.IndexVariable("variable", ["sst", "z48m"]),
-        ).transpose(*x.dims)
+    def __init__(
+        self,
+        variables: Sequence[str],
+        forcing: Sequence[str] = (),
+        forcing_lead: str | np.timedelta64 = "0h",
+        step: str | np.timedelta64 = "6h",
+        grid: LatLonGrid | None = None,
+        advance: Advance = _plus_one,
+    ) -> None:
+        self.variables = list(variables)
+        self.forcing_variables = list(forcing)
+        self.forcing_lead = _timedelta(forcing_lead)
+        self.step_size = _timedelta(step)
+        self.grid = grid or toy_grid(*ATMOS_SHAPE)
+        self.advance = advance
+        self.calls: list[tuple[str, list[int]]] = []
 
-    export_masks = None
-    if with_mask:
-        mask: np.ndarray = np.ones(OCEAN_GRID, dtype=bool)
-        mask[: OCEAN_GRID[0] // 2, :] = False
-        export_masks = {"sea_surface_temperature": mask}
+    def input_coords(self) -> CoordinateSystem:
+        """One input slot: the state variables at lead ``0h`` on the model grid."""
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "lat", "lon"),
+            {
+                "lead_time": np.array([0], dtype="timedelta64[h]"),
+                "variable": np.array(self.variables),
+            },
+            dynamic=("batch", "time"),
+            grid=self.grid,
+        )
 
-    return CallableComponent(
-        "ocean",
-        step,
-        timestep=timestep,
-        imports=["geopotential_at_1000hpa_48h_mean"],
-        exports=["sea_surface_temperature"],
-        variable_aliases={"z48m": "geopotential_at_1000hpa_48h_mean"},
-        export_masks=export_masks,
-    )
+    def forcing_coords(self) -> CoordinateSystem | None:
+        """One forcing slot at ``forcing_lead``, or ``None`` without forcing."""
+        if not self.forcing_variables:
+            return None
+        return coord_array_like(
+            self.input_coords(),
+            {
+                "lead_time": np.array([self.forcing_lead]),
+                "variable": np.array(self.forcing_variables),
+            },
+        )
+
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """The input signature advanced by one step."""
+        lead = np.asarray(input_coords["lead_time"].values)
+        return coord_array_like(input_coords, {"lead_time": lead + self.step_size})
+
+    def _advance(self, x: xr.DataArray, forcing: xr.DataArray | None) -> xr.DataArray:
+        if (forcing is None) != (not self.forcing_variables):
+            raise ValueError("Forcing must be passed exactly when declared")
+        if forcing is not None:
+            self.calls.append(
+                (
+                    ",".join(str(v) for v in forcing["variable"].values),
+                    [
+                        int(v)
+                        for v in np.asarray(forcing["lead_time"].values)
+                        .astype("timedelta64[h]")
+                        .astype(int)
+                    ],
+                )
+            )
+        y = self.advance(x, forcing)
+        y = y.assign_coords(lead_time=x["lead_time"] + self.step_size)
+        return y.transpose(*x.dims).assign_attrs(x.attrs)
+
+    def initialize(  # type: ignore[override]
+        self, x: xr.DataArray, forcing: xr.DataArray | None = None
+    ) -> tuple[xr.DataArray, int]:
+        """Return the first forecast and a step counter as the state."""
+        return self._advance(x, forcing), 1
+
+    def step(  # type: ignore[override]
+        self, y: xr.DataArray, forcing: xr.DataArray | None = None, state: int = 0
+    ) -> tuple[xr.DataArray, int]:
+        """Advance one step from the previous forecast."""
+        return self._advance(y, forcing), state + 1
+
+    def __call__(  # type: ignore[override]
+        self, x: xr.DataArray, forcing: xr.DataArray | None = None
+    ) -> xr.DataArray:
+        """Return the first forecast."""
+        args = (x,) if forcing is None else (x, forcing)
+        return self._default_call(*args)  # type: ignore[return-value]
+
+    def create_iterator(  # type: ignore[override]
+        self, x: xr.DataArray, forcing: xr.DataArray | None = None
+    ) -> Iterator[xr.DataArray]:
+        """Iterate forecasts, taking new forcing through ``send``."""
+        args = (x,) if forcing is None else (x, forcing)
+        return self._default_create_iterator(*args)  # type: ignore[return-value]
+
+    def to(self, device: object) -> ToyPrognostic:
+        """Return the model; it holds no device state."""
+        return self
 
 
-def atmos_ic(z0: float = 0.0, sst0: float = 2.0) -> xr.DataArray:
-    return xr.DataArray(
-        np.stack(
-            [
-                np.full(ATMOS_GRID, z0, dtype=np.float32),
-                np.full(ATMOS_GRID, sst0, dtype=np.float32),
-            ]
-        ),
-        dims=("variable", "lat", "lon"),
-        coords={"variable": ["z1000", "sst"], **grid_coords(*ATMOS_GRID)},
-    )
+def _timedelta(value: str | np.timedelta64) -> np.timedelta64:
+    from earth2studio.nvcoupler._time import as_timedelta
+
+    return as_timedelta(value)
 
 
-def ocean_ic(sst0: float = 2.0, z48m0: float = 0.0) -> xr.DataArray:
-    return xr.DataArray(
-        np.stack(
-            [
-                np.full(OCEAN_GRID, sst0, dtype=np.float32),
-                np.full(OCEAN_GRID, z48m0, dtype=np.float32),
-            ]
-        ),
-        dims=("variable", "lat", "lon"),
-        coords={"variable": ["sst", "z48m"], **grid_coords(*OCEAN_GRID)},
-    )
+def _forcing_value(forcing: xr.DataArray | None, label: str) -> xr.DataArray:
+    assert forcing is not None  # noqa: S101 - declared forcing is always passed
+    return forcing.isel(lead_time=-1, drop=True).sel(variable=label, drop=True)
+
+
+class ToyAtmosphere(ToyPrognostic):
+    """Fast toy prognostic: state ``z1000``, forced by ``sst`` at its input time."""
+
+    def __init__(self, gain: float = 1.0, grid: LatLonGrid | None = None) -> None:
+        self.gain = gain
+        super().__init__(
+            ["z1000"],
+            forcing=["sst"],
+            forcing_lead="0h",
+            step="6h",
+            grid=grid or toy_grid(*ATMOS_SHAPE),
+            advance=self._rule,
+        )
+
+    def _rule(self, x: xr.DataArray, forcing: xr.DataArray | None) -> xr.DataArray:
+        return x + 1.0 + self.gain * 0.1 * _forcing_value(forcing, "sst")
+
+
+class ToyOcean(ToyPrognostic):
+    """Slow toy prognostic: state ``sst``, forced by the 48 h mean of ``z1000``.
+
+    The forcing is declared at lead ``+48h``: the step from ``T`` to ``T + 48h``
+    uses the atmosphere's mean over ``[T, T + 48h)``, so the atmosphere advances
+    through that window first.
+    """
+
+    def __init__(self, gain: float = 1.0, grid: LatLonGrid | None = None) -> None:
+        self.gain = gain
+        super().__init__(
+            ["sst"],
+            forcing=["z1000:mean:48h"],
+            forcing_lead="48h",
+            step="48h",
+            grid=grid or toy_grid(*OCEAN_SHAPE),
+            advance=self._rule,
+        )
+
+    def _rule(self, x: xr.DataArray, forcing: xr.DataArray | None) -> xr.DataArray:
+        return x + self.gain * 0.01 * _forcing_value(forcing, "z1000:mean:48h")
+
+
+class ToyImpact:
+    """Toy diagnostic: ``ws10m = 0.01 * z1000`` on the atmosphere grid."""
+
+    stochastic = False
+
+    def __init__(self, grid: LatLonGrid | None = None) -> None:
+        self.grid = grid or toy_grid(*ATMOS_SHAPE)
+        self.calls = 0
+
+    def input_coords(self) -> CoordinateSystem:
+        """One input slot: ``z1000`` on the model grid."""
+        return coord_array(
+            ("batch", "variable", "lat", "lon"),
+            {"variable": np.array(["z1000"])},
+            dynamic=("batch",),
+            grid=self.grid,
+        )
+
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """The input signature with ``ws10m`` in place of ``z1000``."""
+        return coord_array_like(input_coords, {"variable": np.array(["ws10m"])})
+
+    def default_sources(self) -> None:
+        """Recommend no source."""
+        return None
+
+    def to(self, device: object) -> ToyImpact:
+        """Return the model; it holds no device state."""
+        return self
+
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Scale ``z1000`` into ``ws10m``."""
+        self.calls += 1
+        return (0.01 * x).assign_coords(variable=np.array(["ws10m"]))

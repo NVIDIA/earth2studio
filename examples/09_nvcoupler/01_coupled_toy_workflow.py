@@ -16,157 +16,125 @@
 
 # %%
 """
-Running a Coupled Atmosphere-Ocean System
-=========================================
+Coupled Atmosphere and Ocean
+============================
 
-The core nvcoupler workflow on synthetic components.
+Couple two prognostic models with different cadences and grids.
 
-This example builds the smallest complete coupled system: a fast "atmosphere"
-(6 h step, 32x64 grid) and a slow "ocean" (48 h step, 16x32 grid) exchanging
-fields through two connectors — one of them a windowed (trailing 48 h mean)
-reduction — a common atmosphere/ocean cadence structure. The system is declared
-as components plus connections; the run sequence is derived from the coupling
-graph. Every number below is hand-computable.
+A 6-hourly atmosphere on a 32 x 64 grid takes sea-surface temperature from a
+48-hourly ocean on a 16 x 32 grid; the ocean takes the 48 h mean of the
+atmosphere's ``z1000``. Both are ordinary prognostic models: the coupler reads
+what each one needs from its ``forcing_coords()`` and what it provides from its
+``output_coords()``, and nothing is coupler-specific about them.
 
 In this example you will learn:
 
-- How to declare components with imports/exports by standard name
-- How to declare the coupling graph and let the Driver derive the schedule
-- How a windowed connector (window=, reduce=) bridges a cadence gap
-- How to inspect exchanges (probe) and collect results as xarray
+- declaring exchanges with :class:`~earth2studio.nvcoupler.Connector`
+- how the coupler derives cadences, regridders and the run sequence
+- windowed exchange through qualified labels such as ``z1000:mean:48h``
+- stepping a :class:`~earth2studio.nvcoupler.Coupler` and reading its streams
 """
 
 # /// script
 # dependencies = [
-#   "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git",
-#   "matplotlib",
+#   "earth2studio[utils] @ git+https://github.com/NVIDIA/earth2studio.git",
 # ]
 # ///
 
 # %%
-# Set Up
-# ------
-# The toy components live in ``earth2studio.nvcoupler.testing``. The
-# atmosphere steps ``z1000 += 1 + 0.1 * sst`` and imports SST; the ocean
-# steps ``sst += 0.01 * z48m`` and imports the trailing 48 h mean of z1000.
-# Grids differ, so the connectors regrid automatically.
-
-import os
-
-os.makedirs("outputs", exist_ok=True)
-
-import earth2studio.nvcoupler as nvc
-from earth2studio.nvcoupler.testing import atmos_ic, fake_atmos, fake_ocean, ocean_ic
-
-atmos = fake_atmos()  # 6h step,  exports geopotential_at_1000hpa, imports SST
-ocean = fake_ocean()  # 48h step, exports sea_surface_temperature
-
-print(atmos)
-print(ocean)
+# Toy models
+# ----------
+# ``earth2studio.nvcoupler.testing`` ships two toy prognostic models with
+# hand-computable arithmetic in place of networks. The atmosphere declares a
+# forcing slot ``sst`` at lead ``0h``: each step from ``T`` to ``T + 6h`` uses the
+# SST valid at ``T``. The ocean declares ``z1000:mean:48h`` at lead ``+48h``: its
+# step from ``T`` to ``T + 48h`` uses the atmosphere's mean over ``[T, T + 48h)``.
+#
+# .. math::
+#
+#     z_{1000} \leftarrow z_{1000} + 1 + 0.1\,\mathrm{sst}, \qquad
+#     \mathrm{sst} \leftarrow \mathrm{sst} + 0.01\,\overline{z_{1000}}^{48h}
 
 # %%
-# Declare the Coupling Graph
-# --------------------------
-# Two edges. The SST hand-off is a plain connector — a bare ``(src, dst)``
-# tuple builds the default. The z1000 hand-off is a *windowed* connector:
-# ``window="48h", reduce="mean"`` folds the atmosphere's export into a
-# running mean every step and delivers it as the derived field
-# ``geopotential_at_1000hpa_48h_mean`` (declared by a CellMethod entry in the
-# ocean's dictionary) on each 48 h boundary. No mediator needed for a
-# single-source reduction.
-
-connectors = [
-    ("ocean", "atmos"),  # lagged SST forcing
-    nvc.Connector(atmos, ocean, window="48h", reduce="mean"),
-]
-
-# %%
-# Build the Driver — No Run Sequence Required
-# -------------------------------------------
-# With no ``sequence=`` the Driver derives the canonical (lagged) schedule
-# from the coupling graph: one slot per cadence, connects before runs.
-# ``describe()`` shows the whole plan — components, connectors, and the
-# derived sequence — before anything runs. (An explicit run-sequence DSL
-# remains the escape hatch when the *ordering* is the experiment; see
-# example 02.)
-
-driver = nvc.Driver(
-    {"atmos": atmos, "ocean": ocean},
-    clock=nvc.Clock("2024-01-01", "2024-01-05", "6h"),
-    connectors=connectors,
-)
-print(driver.describe())
-
-# %%
-# Execute the Coupled Loop
-# ------------------------
-# The Driver validates everything at initialize (names, cadences, field
-# matching, units) and then runs 96 hours: 16 atmosphere steps, 2 ocean
-# steps, 2 window deliveries. We iterate with ``steps()`` to also capture
-# each 48 h mean as the windowed connector delivers it.
-
-driver.initialize({"atmos": atmos_ic(), "ocean": ocean_ic()})
-
-z48_means, seen = [], set()
-for time, states in driver.steps():
-    f = driver.probe("atmos->ocean").get("geopotential_at_1000hpa_48h_mean")
-    if f is not None and f.valid_time not in seen:
-        seen.add(f.valid_time)
-        z48_means.append(float(f.data.mean()))
-datasets = driver.to_xarray()  # dict[str, xr.Dataset] (in-memory collection)
-
-print(f"atmos ran {atmos.run_count}x, ocean {ocean.run_count}x")
-
-# %%
-# Inspect the Results
-# -------------------
-# Expected values: z grows 1.2/step under SST=2, so z(48h)=9.6; the first
-# 48h mean is 4.2, giving sst=2.042; z then grows 1.2042/step to
-# z(96h)=19.2336, and sst(96h)=2.180147.
-
 import numpy as np
 
-z = datasets["atmos"]["geopotential_at_1000hpa"]
-sst = datasets["ocean"]["sea_surface_temperature"]
+from earth2studio.nvcoupler import Connector, Coupler
+from earth2studio.nvcoupler.testing import (
+    ATMOS_SHAPE,
+    OCEAN_SHAPE,
+    ToyAtmosphere,
+    ToyOcean,
+    toy_grid,
+    toy_source,
+)
+from earth2studio.run import WorkItem
 
-print("\ntime series (area means):")
-print(f"{'time':>20} {'z1000':>10} {'sst':>10}")
-for t in z.time.values:
-    z_t = float(z.sel(time=t).mean())
-    row = f"{str(t)[:16]:>20} {z_t:>10.4f}"
-    if t in sst.time.values:
-        row += f" {float(sst.sel(time=t).mean()):>10.6f}"
-    print(row)
-print(f"\n48h means delivered by the windowed connector: {z48_means}")
-
-if not np.isclose(float(z.values[-1].mean()), 19.2336, atol=1e-4):
-    raise ValueError("z1000(96h) does not match the hand-computed value")
-if not np.isclose(float(sst.values[-1].mean()), 2.180147, atol=1e-6):
-    raise ValueError("sst(96h) does not match the hand-computed value")
-if not np.allclose(z48_means, [4.2, 13.8147], atol=1e-4):
-    raise ValueError("48h means do not match the hand-computed values")
-
-# %%
-# Probe an Exchange
-# -----------------
-# Every connector remembers the last fields it moved — useful when a coupled
-# run misbehaves and you need to see what actually crossed the interface.
-# The windowed connector's probe carries the *derived* standard name.
-
-f = driver.probe("ocean->atmos")["sea_surface_temperature"]
-print(f"last ocean->atmos transfer: {f}")
-print(f"regridded to the atmos grid: {tuple(f.data.shape)}")
-z48 = driver.probe("atmos->ocean")["geopotential_at_1000hpa_48h_mean"]
-print(f"last atmos->ocean transfer: {z48}")
+atmos, ocean = ToyAtmosphere(), ToyOcean()
+print(
+    atmos.forcing_coords()["variable"].values,
+    atmos.forcing_coords()["lead_time"].values,
+)
+print(
+    ocean.forcing_coords()["variable"].values,
+    ocean.forcing_coords()["lead_time"].values,
+)
 
 # %%
-# One-Call Auto-Wiring
-# --------------------
-# ``couple()`` goes one step further: it discovers both edges (including the
-# windowed one, from the ocean's derived import) by matching standard names,
-# so the whole system above is:
+# Declare the coupled system
+# --------------------------
+# A :class:`~earth2studio.nvcoupler.Connector` is a frozen declaration: which
+# destination labels a source serves. With no ``variables`` it serves every
+# destination import the source exports; ``z1000:mean:48h`` is served by reducing
+# the atmosphere's ``z1000`` frames (see ``dev/spec/TIME_STATISTICS_SPEC.md``).
+#
+# Whatever connectors do not serve comes from each model's bound data source, as
+# in :class:`~earth2studio.run.PrognosticRunner`: here only the initial conditions.
 
-driver2 = nvc.couple(fake_atmos(), fake_ocean(), start="2024-01-01", stop="2024-01-05")
-driver2.initialize({"atmos": atmos_ic(), "ocean": ocean_ic()})
-z96 = float(driver2.run()["atmos"]["geopotential_at_1000hpa"].values[-1].mean())
-print(f"couple() reproduces z1000(96h) = {z96:.4f}")
+# %%
+coupler = Coupler(
+    {"atmos": atmos, "ocean": ocean},
+    connectors=[Connector("ocean", "atmos"), Connector("atmos", "ocean")],
+    sources={
+        "atmos": (toy_source(toy_grid(*ATMOS_SHAPE), 0.0), None),
+        "ocean": (toy_source(toy_grid(*OCEAN_SHAPE), 2.0), None),
+    },
+)
+print(coupler.describe())
+
+# %%
+# The plan shows what the coupler derived: a 6 h clock (the GCD of the cadences),
+# bilinear regridders between the two grids, and a run sequence in which the
+# atmosphere advances before the ocean because the ocean needs the atmosphere's
+# frames from the *same* 48 h step, while the atmosphere's SST is lagged.
+
+# %%
+# Run and read the streams
+# ------------------------
+# The coupler is a :class:`~earth2studio.run.Runner`. Each step of
+# :meth:`~earth2studio.nvcoupler.Coupler.run_item` yields the outputs of the
+# models that advanced, keyed by model name, with ``time`` and ``lead_time``
+# dimensions ready for IO. The first step publishes the initial conditions.
+
+# %%
+item = WorkItem(np.datetime64("2026-01-01T00"), np.timedelta64(96, "h"))
+steps = list(coupler.run_item(item))
+print(len(steps), "steps;", "first step holds", sorted(steps[0]))
+
+
+def corner(step: dict, stream: str) -> float:
+    """One grid point of a published field."""
+    return float(step[stream].isel(lat=1, lon=1).values.ravel()[0])
+
+
+print("z1000 at 6h:", corner(steps[1], "atmos"))  # 0 + 1 + 0.1 * 2
+print("sst at 48h:", corner(steps[8], "ocean"))  # 2 + 0.01 * mean(0, 1.2, ..., 8.4)
+print("z1000 at 54h:", corner(steps[9], "atmos"))  # 9.6 + 1 + 0.1 * 2.042
+
+# %%
+# The ocean appears only at 48 h and 96 h; the atmosphere every 6 h. Its SST from
+# 48 h on is ``2.042``, and the atmosphere's increment grows accordingly.
+
+# %%
+np.testing.assert_allclose(corner(steps[8], "ocean"), 2.042)
+np.testing.assert_allclose(corner(steps[9], "atmos"), 10.8042)
+print([sorted(step) for step in steps[7:10]])
