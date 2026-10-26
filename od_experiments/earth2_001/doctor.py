@@ -422,7 +422,11 @@ def probe_zero_billable_costs() -> dict[str, Any]:
     ]
 
     # Verify AWS anonymous request flags
-    aws_no_sign = os.environ.get("AWS_NO_SIGN_REQUEST", "").upper() in ("1", "YES", "TRUE")
+    aws_no_sign = os.environ.get("AWS_NO_SIGN_REQUEST", "").upper() in (
+        "1",
+        "YES",
+        "TRUE",
+    )
     aws_creds_isolated = os.environ.get("AWS_SHARED_CREDENTIALS_FILE") == "/dev/null"
 
     # Confirm NOAA GFS anonymous access configuration
@@ -430,7 +434,7 @@ def probe_zero_billable_costs() -> dict[str, Any]:
     gfs_bucket = "noaa-gfs-bdp-pds"
 
     # Offline / free execution compliance
-    is_compliant = (len(detected_credentials) == 0 or aws_no_sign or aws_creds_isolated)
+    is_compliant = len(detected_credentials) == 0 or aws_no_sign or aws_creds_isolated
 
     return {
         "zero_billable_cost_verified": is_compliant,

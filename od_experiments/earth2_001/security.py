@@ -1,10 +1,12 @@
+import copy
 import os
 import re
-import copy
 from typing import Any, Dict, List, Optional, Tuple
 
 SENSITIVE_PATTERNS = [
-    re.compile(r"(?i)(api[_-]?key|access[_-]?key|secret[_-]?key|auth[_-]?token|password|credential)[\"']?\s*[:=]\s*[\"']?([a-zA-Z0-9_\-\.]{8,})[\"']?"),
+    re.compile(
+        r"(?i)(api[_-]?key|access[_-]?key|secret[_-]?key|auth[_-]?token|password|credential)[\"']?\s*[:=]\s*[\"']?([a-zA-Z0-9_\-\.]{8,})[\"']?"
+    ),
     re.compile(r"nvapi-[A-Za-z0-9_-]{20,}"),
     re.compile(r"AKIA[0-9A-Z]{16}"),
     re.compile(r"(?i)bearer\s+[A-Za-z0-9_\-\.]{20,}"),
@@ -32,18 +34,25 @@ def scrub_string(text: str) -> str:
     return scrubbed
 
 
-def scrub_dict(d: Dict[str, Any]) -> Dict[str, Any]:
+def scrub_dict(d: dict[str, Any]) -> dict[str, Any]:
     """Recursively scrub dictionaries to prevent secret leakage."""
     result = {}
     for k, v in d.items():
-        if any(secret_key.lower() in k.lower() for secret_key in SENSITIVE_ENV_KEYS) or any(
-            term in k.lower() for term in ["key", "secret", "token", "password"]
-        ):
+        if any(
+            secret_key.lower() in k.lower() for secret_key in SENSITIVE_ENV_KEYS
+        ) or any(term in k.lower() for term in ["key", "secret", "token", "password"]):
             result[k] = "[REDACTED]"
         elif isinstance(v, dict):
             result[k] = scrub_dict(v)
         elif isinstance(v, list):
-            result[k] = [scrub_dict(item) if isinstance(item, dict) else (scrub_string(item) if isinstance(item, str) else item) for item in v]
+            result[k] = [
+                (
+                    scrub_dict(item)
+                    if isinstance(item, dict)
+                    else (scrub_string(item) if isinstance(item, str) else item)
+                )
+                for item in v
+            ]
         elif isinstance(v, str):
             result[k] = scrub_string(v)
         else:
@@ -51,7 +60,7 @@ def scrub_dict(d: Dict[str, Any]) -> Dict[str, Any]:
     return result
 
 
-def sanitize_env() -> Dict[str, str]:
+def sanitize_env() -> dict[str, str]:
     """Return an environment dictionary with any active secrets safely scrubbed."""
     env = {}
     for k, v in os.environ.items():

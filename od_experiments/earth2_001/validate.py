@@ -1,17 +1,20 @@
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 
 
 def compute_metrics(
     forecast: np.ndarray,
     reference: np.ndarray,
-    lats: Optional[np.ndarray] = None,
-) -> Dict[str, float]:
+    lats: np.ndarray | None = None,
+) -> dict[str, float]:
     """Computes MAE, RMSE, and Mean Bias between forecast and reference fields."""
     if forecast.shape != reference.shape:
-        raise ValueError(f"Shape mismatch: forecast {forecast.shape} vs reference {reference.shape}")
+        raise ValueError(
+            f"Shape mismatch: forecast {forecast.shape} vs reference {reference.shape}"
+        )
 
     diff = forecast - reference
 
@@ -44,13 +47,13 @@ def compute_metrics(
 
 
 def evaluate_forecast(
-    forecast_data: Dict[str, np.ndarray],
-    reference_data: Dict[str, np.ndarray],
-    lats: Optional[np.ndarray] = None,
-    output_dir: Optional[str | Path] = None,
-) -> Dict[str, Any]:
+    forecast_data: dict[str, np.ndarray],
+    reference_data: dict[str, np.ndarray],
+    lats: np.ndarray | None = None,
+    output_dir: str | Path | None = None,
+) -> dict[str, Any]:
     """Validates multi-variable forecast against reference truth observations."""
-    results: Dict[str, Any] = {
+    results: dict[str, Any] = {
         "metrics": {},
         "evaluation_metadata": {
             "lat_weighted": lats is not None,

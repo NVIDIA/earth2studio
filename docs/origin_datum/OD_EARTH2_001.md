@@ -1,9 +1,9 @@
 # OD-EARTH2-001: First Scientific AI Weather Forecast & Verification
 
-**Organization:** ORIGIN DATUM  
-**Program:** EO-OBSCURA  
-**Experiment ID:** OD-EARTH2-001  
-**Status:** COMPLETED & VERIFIED  
+**Organization:** ORIGIN DATUM
+**Program:** EO-OBSCURA
+**Experiment ID:** OD-EARTH2-001
+**Status:** COMPLETED & VERIFIED
 
 ---
 

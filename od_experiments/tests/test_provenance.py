@@ -1,7 +1,13 @@
 import json
-import pytest
 from pathlib import Path
-from od_experiments.earth2_001.provenance import compute_sha256, create_provenance_manifest, get_git_info
+
+import pytest
+
+from od_experiments.earth2_001.provenance import (
+    compute_sha256,
+    create_provenance_manifest,
+    get_git_info,
+)
 
 
 def test_git_info_structure():
@@ -17,7 +23,9 @@ def test_provenance_manifest_creation(tmp_path):
     dummy_file.write_text("Hello Origin Datum")
     digest = compute_sha256(dummy_file)
 
-    artifacts = [{"path": str(dummy_file), "sha256": digest, "bytes": dummy_file.stat().st_size}]
+    artifacts = [
+        {"path": str(dummy_file), "sha256": digest, "bytes": dummy_file.stat().st_size}
+    ]
 
     manifest = create_provenance_manifest(
         experiment_id="TEST-EXP",

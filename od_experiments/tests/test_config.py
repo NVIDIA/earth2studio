@@ -1,7 +1,9 @@
-import pytest
 from pathlib import Path
+
+import pytest
+
 from od_experiments.earth2_001.config import load_config, validate_config
-from od_experiments.earth2_001.security import scrub_string, scrub_dict, sanitize_env
+from od_experiments.earth2_001.security import sanitize_env, scrub_dict, scrub_string
 
 
 def test_default_config_loading():

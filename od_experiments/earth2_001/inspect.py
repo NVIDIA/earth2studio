@@ -1,16 +1,17 @@
 import json
 import sys
 from typing import Any, Dict, Optional
+
 import earth2studio
-from earth2studio.models.px import DLWP, FCN, Persistence
 from earth2studio.data import GFS, Random
+from earth2studio.models.px import DLWP, FCN, Persistence
 
 
 def inspect_components(
-    model_name: Optional[str] = None,
-    dataset_name: Optional[str] = None,
+    model_name: str | None = None,
+    dataset_name: str | None = None,
     as_json: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Inspects available Earth2Studio models, datasets, and variables."""
     info = {
         "earth2studio_version": getattr(earth2studio, "__version__", "0.20.0a0"),
@@ -35,7 +36,16 @@ def inspect_components(
                 "description": "Adaptive Fourier Neural Operator global model (0.25 deg).",
                 "hardware_requirement": "CUDA GPU (min 16GB VRAM) or Hosted API",
                 "zero_cost": True,
-                "variables": ["t2m", "u10m", "v10m", "msl", "u500", "v500", "z500", "t500"],
+                "variables": [
+                    "t2m",
+                    "u10m",
+                    "v10m",
+                    "msl",
+                    "u500",
+                    "v500",
+                    "z500",
+                    "t500",
+                ],
             },
         },
         "supported_data_sources": {

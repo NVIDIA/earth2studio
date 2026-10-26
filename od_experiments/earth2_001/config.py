@@ -1,10 +1,12 @@
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
 import yaml
+
 from od_experiments.earth2_001.security import scrub_dict
 
-DEFAULT_CONFIG: Dict[str, Any] = {
+DEFAULT_CONFIG: dict[str, Any] = {
     "experiment_id": "OD-EARTH2-001",
     "description": "Reproducible baseline weather forecast and scientific verification for EO-OBSCURA.",
     "model": {
@@ -40,12 +42,12 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 }
 
 
-def load_config(config_path: Optional[str | Path] = None) -> Dict[str, Any]:
+def load_config(config_path: str | Path | None = None) -> dict[str, Any]:
     """Loads configuration from a YAML file, falling back to defaults."""
     if not config_path or not Path(config_path).exists():
         return DEFAULT_CONFIG.copy()
 
-    with open(config_path, "r", encoding="utf-8") as f:
+    with open(config_path, encoding="utf-8") as f:
         user_config = yaml.safe_load(f) or {}
 
     config = DEFAULT_CONFIG.copy()
@@ -58,7 +60,7 @@ def load_config(config_path: Optional[str | Path] = None) -> Dict[str, Any]:
     return config
 
 
-def validate_config(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
+def validate_config(config: dict[str, Any]) -> tuple[bool, list[str]]:
     """Validates configuration parameters."""
     errors = []
     if "experiment_id" not in config:
