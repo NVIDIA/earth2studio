@@ -54,7 +54,12 @@ def create_provenance_manifest(
     experiment_id: str,
     configuration: Dict[str, Any],
     artifacts: List[Dict[str, Any]],
-    outcome: str = "SUCCESS",
+    execution_outcome: str = "EXECUTION_SUCCESS",
+    validation_status: str = "NOT_VALIDATED",
+    classification: str = "SYNTHETIC_SMOKE_TEST",  # "SYNTHETIC_SMOKE_TEST" or "GENUINE_ATMOSPHERIC_EXPERIMENT"
+    model_type: str = "BASELINE_PERSISTENCE",       # "BASELINE_PERSISTENCE" or "NEURAL_PROGNOSTIC"
+    data_source_type: str = "SYNTHETIC_RANDOM",     # "SYNTHETIC_RANDOM" or "HISTORICAL_GFS"
+    verification_reference: Optional[str] = None,
     error_message: Optional[str] = None,
     execution_time_seconds: Optional[float] = None,
     device: str = "cpu",
@@ -65,10 +70,17 @@ def create_provenance_manifest(
     import torch
 
     manifest = {
-        "manifest_version": "1.0.0",
+        "manifest_version": "2.0.0",
         "experiment_id": experiment_id,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-        "outcome": outcome,
+        "scientific_integrity": {
+            "experiment_classification": classification,
+            "model_type": model_type,
+            "data_source_type": data_source_type,
+            "execution_outcome": execution_outcome,
+            "validation_status": validation_status,
+            "verification_reference": verification_reference,
+        },
         "error_message": error_message,
         "execution_time_seconds": execution_time_seconds,
         "git": get_git_info(),
