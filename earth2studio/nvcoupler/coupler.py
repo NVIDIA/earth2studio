@@ -332,13 +332,13 @@ class Coupler:
                 for slot_providers in self._providers[name].values()
                 for provider in slot_providers.values()
             }
-            cadences = [
-                self.specs[src].cadence
+            cadences: list[np.timedelta64] = [
+                cadence
                 for src in feeding
-                if self.specs[src].cadence is not None
+                if (cadence := self.specs[src].cadence) is not None
             ]
             if cadences:
-                spec.cadence = gcd_timedelta(cast(list[np.timedelta64], cadences))
+                spec.cadence = gcd_timedelta(cadences)
 
     def _regridder(self, provider: _Provider) -> Regridder | None:
         src, dst = self.specs[provider.src], self.specs[provider.connector.dst]
@@ -936,10 +936,12 @@ class _Run:
                 f"Connector {provider.connector.name}: transform must return a "
                 f"DataArray with dimensions {field.dims}"
             )
+        # The vertical coordinate may change (interpolation onto the
+        # destination's levels); every other coordinate must survive.
         for dim in field.dims:
-            if dim in field.coords and not np.array_equal(
-                result.coords[dim].values, field.coords[dim].values
-            ):
+            if dim == "level" or dim not in field.coords:
+                continue
+            if not np.array_equal(result.coords[dim].values, field.coords[dim].values):
                 raise CouplingError(
                     f"Connector {provider.connector.name}: transform changed the "
                     f"{dim!r} coordinate"
