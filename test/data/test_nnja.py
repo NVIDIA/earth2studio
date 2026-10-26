@@ -1474,6 +1474,27 @@ def test_satellite_wide_is_one_matrix_over_the_channel_axis(fake_bufr):
     ]
 
 
+def test_satellite_footprint_with_no_channel_on_the_axis_is_dropped(fake_bufr):
+    def entries(c):
+        return (0.0, 200.0 + c)
+
+    full = _sat_batch("atms", [T0], [1.0, 2.0, 3.0], entries)
+    # The second footprint's one channel entry has no channel number
+    bare = _sat_batch("atms", [T0], [1.0], entries)
+    sccf = utils_ncep._ATMS_SCCF_CODE[0] / 1e-5
+    bare = bare.set_column(
+        bare.schema.get_field_index("DRF16BIT"),
+        "DRF16BIT",
+        _struct_list([[(None, sccf, 0.0, 201.0)]], ["CHNM", "SCCF", "ATMSCHQ", "TMBR"]),
+    )
+    batch = pa.Table.from_batches([full, bare]).combine_chunks().to_batches()[0]
+    fake_bufr["atms"] = _FakeBufr([batch])
+    # No channel filter: the axis is every ATMS channel
+    wide = decode_satellite("atms", "atms", {"atms": "TMBR"}, T0, T0, decode_workers=1)
+    assert wide.num_rows == 1
+    assert wide["observation_atms"].to_pylist()[0][:4] == [201.0, 202.0, 203.0, None]
+
+
 def test_nnja_obs_sat_wide_frame_carries_channel_axis(fake_bufr, monkeypatch, tmp_path):
     source = NNJAObsSat(
         time_tolerance=(timedelta(hours=-3), timedelta(hours=3)),

@@ -2622,14 +2622,12 @@ class _ChannelMatrix:
         self.off_axis = 0
         width = len(axis)
         kept = np.flatnonzero(keep & (lengths > 0))
-        self.shape = (len(kept), width)
+        shape = (len(kept), width)
         if (
             len(kept) == len(lengths)
             and len(chnm) == len(lengths) * width
             and np.all(lengths == width)
-            and np.array_equal(
-                chnm.reshape(self.shape), np.broadcast_to(axis, self.shape)
-            )
+            and np.array_equal(chnm.reshape(shape), np.broadcast_to(axis, shape))
         ):
             self.kept, self.index, self.complete = kept, None, True
             return
@@ -2650,6 +2648,11 @@ class _ChannelMatrix:
         self.index = np.full((len(self.kept), width), -1, dtype=np.int64)
         self.index[row[parent[entries]], slot[entries]] = entries
         self.complete = False
+
+    @property
+    def shape(self) -> tuple[int, int]:
+        """(kept footprints, channel axis)"""
+        return len(self.kept), len(self.axis)
 
     def take(self, name: str, dtype: type = np.float64) -> np.ndarray:
         """Physical values of child ``name`` per slot, footprint-major; NaN where missing."""
