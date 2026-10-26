@@ -19,7 +19,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 from loguru import logger
-from od_experiments.earth2_001.api.fourcastnet_hosted import ForecastRequest, ForecastResponse
+
+from od_experiments.earth2_001.api.fourcastnet_hosted import (
+    ForecastRequest,
+    ForecastResponse,
+)
 
 
 @dataclass
@@ -31,7 +35,7 @@ class ProcessedArtifact:
     sha256: str
     size_bytes: int
     artifact_type: str  # 'json_response', 'numpy_array', 'tar_archive'
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
 
 class ArtifactSecurityError(Exception):
@@ -64,9 +68,9 @@ class ForecastArtifactProcessor:
         request: ForecastRequest,
         response: ForecastResponse,
         test_id: str = "T01",
-    ) -> List[ProcessedArtifact]:
+    ) -> list[ProcessedArtifact]:
         """Process response bytes, validate format, and write artifacts safely."""
-        artifacts: List[ProcessedArtifact] = []
+        artifacts: list[ProcessedArtifact] = []
 
         # 1. Always record the verified response payload
         resp_json_name = f"{test_id.lower()}_response.json"
@@ -81,7 +85,9 @@ class ForecastArtifactProcessor:
             "duration_seconds": round(response.duration_seconds, 4),
             "endpoint": response.endpoint,
             "request_parameters": request.to_dict(),
-            "raw_body_preview": response.raw_data.decode("utf-8", errors="replace")[:1000],
+            "raw_body_preview": response.raw_data.decode("utf-8", errors="replace")[
+                :1000
+            ],
             "parsed_json": response.json_payload,
         }
 
@@ -99,23 +105,32 @@ class ForecastArtifactProcessor:
         )
 
         # 2. If the response is a TAR archive, inspect and extract securely
-        if "tar" in response.content_type or (response.raw_data[:2] == b"\x1f\x8b" or b"ustar" in response.raw_data[:512]):
+        if "tar" in response.content_type or (
+            response.raw_data[:2] == b"\x1f\x8b" or b"ustar" in response.raw_data[:512]
+        ):
             try:
                 tar_bytes = io.BytesIO(response.raw_data)
                 with tarfile.open(fileobj=tar_bytes, mode="r:*") as tar:
                     for member in tar.getmembers():
                         # Security check: Prevent path traversal (Zip Slip / Tar Slip)
                         norm_name = os.path.normpath(member.name)
-                        if norm_name.startswith("/") or ".." in norm_name.split(os.path.sep):
-                            raise ArtifactSecurityError(f"Unsafe TAR member path detected: {member.name}")
+                        if norm_name.startswith("/") or ".." in norm_name.split(
+                            os.path.sep
+                        ):
+                            raise ArtifactSecurityError(
+                                f"Unsafe TAR member path detected: {member.name}"
+                            )
 
                         f = tar.extractfile(member)
                         if f is not None:
                             member_bytes = f.read()
-                            target_file = self.output_dir / f"{test_id.lower()}_{os.path.basename(member.name)}"
+                            target_file = (
+                                self.output_dir
+                                / f"{test_id.lower()}_{os.path.basename(member.name)}"
+                            )
                             target_file.write_bytes(member_bytes)
 
-                            meta: Dict[str, Any] = {"tar_member": member.name}
+                            meta: dict[str, Any] = {"tar_member": member.name}
                             if target_file.suffix == ".npy":
                                 try:
                                     arr = np.load(str(target_file))
@@ -131,7 +146,11 @@ class ForecastArtifactProcessor:
                                     filepath=str(target_file),
                                     sha256=calculate_sha256(member_bytes),
                                     size_bytes=len(member_bytes),
-                                    artifact_type="numpy_array" if target_file.suffix == ".npy" else "tar_extracted",
+                                    artifact_type=(
+                                        "numpy_array"
+                                        if target_file.suffix == ".npy"
+                                        else "tar_extracted"
+                                    ),
                                     metadata=meta,
                                 )
                             )

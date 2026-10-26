@@ -1,10 +1,10 @@
 # NVIDIA Hosted FourCastNet API Contract Specification
 
-**Service URL:** `https://climate.api.nvidia.com/v1/nvidia/fourcastnet`  
-**Underlying Architecture:** NVIDIA Cloud Functions (NVCF) Microservice  
-**Hosting Model:** NVIDIA Managed Hosted NIM Cloud Function  
-**Classification:** `HOSTED_NEURAL_SAMPLE_FORECAST`  
-**Verification Date:** October 26, 2026  
+**Service URL:** `https://climate.api.nvidia.com/v1/nvidia/fourcastnet`
+**Underlying Architecture:** NVIDIA Cloud Functions (NVCF) Microservice
+**Hosting Model:** NVIDIA Managed Hosted NIM Cloud Function
+**Classification:** `HOSTED_NEURAL_SAMPLE_FORECAST`
+**Verification Date:** October 26, 2026
 **License & Cost:** NVIDIA Developer Program Free Tier ($0 development quota)
 
 ---

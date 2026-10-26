@@ -1,6 +1,7 @@
 """Unit tests for FourCastNet hosted API client and artifact processor."""
 
 import pytest
+
 from od_experiments.earth2_001.api.artifact_processor import (
     ForecastArtifactProcessor,
     calculate_sha256,
@@ -14,7 +15,13 @@ from od_experiments.earth2_001.api.fourcastnet_hosted import (
 
 
 def test_forecast_request_validation_valid():
-    req = ForecastRequest(input_id=0, variables="t2m", simulation_length=1, ensemble_size=1, noise_amplitude=0.0)
+    req = ForecastRequest(
+        input_id=0,
+        variables="t2m",
+        simulation_length=1,
+        ensemble_size=1,
+        noise_amplitude=0.0,
+    )
     req.validate()
     d = req.to_dict()
     assert d["input_id"] == 0

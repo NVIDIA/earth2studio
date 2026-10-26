@@ -92,9 +92,10 @@ def sanitize_env() -> dict[str, str]:
 
 
 def get_nvidia_api_key(
-    env_keys: Optional[List[str]] = None,
+    env_keys: list[str] | None = None,
     search_files: bool = True,
-) -> Optional[str]:
+) -> str | None:
     """Retrieves the NVIDIA API key from environment or local .env files safely."""
     from od_experiments.earth2_001.nvidia_api import find_and_load_api_key
+
     return find_and_load_api_key(env_keys=env_keys, search_env_files=search_files)

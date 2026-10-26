@@ -78,19 +78,40 @@ def main() -> None:
     )
 
     # api subcommands
-    api_parser = subparsers.add_parser("api", help="Hosted NVIDIA FourCastNet API commands")
+    api_parser = subparsers.add_parser(
+        "api", help="Hosted NVIDIA FourCastNet API commands"
+    )
     api_sub = api_parser.add_subparsers(dest="api_command", help="API operations")
 
-    api_sub.add_parser("doctor", help="Check NVIDIA API authentication and endpoint reachability")
+    api_sub.add_parser(
+        "doctor", help="Check NVIDIA API authentication and endpoint reachability"
+    )
 
-    api_infer = api_sub.add_parser("infer", help="Execute hosted FourCastNet inference request")
-    api_infer.add_argument("--input-id", type=int, default=0, help="Sample scenario index (0..4)")
-    api_infer.add_argument("--variables", type=str, default="t2m", help="Comma-separated variables")
-    api_infer.add_argument("--steps", type=int, default=1, help="Simulation steps (1 step = 6h)")
-    api_infer.add_argument("--ensemble-size", type=int, default=1, help="Ensemble members (1..4)")
-    api_infer.add_argument("--output-dir", type=str, default="outputs/earth2_001/api_live", help="Output directory")
+    api_infer = api_sub.add_parser(
+        "infer", help="Execute hosted FourCastNet inference request"
+    )
+    api_infer.add_argument(
+        "--input-id", type=int, default=0, help="Sample scenario index (0..4)"
+    )
+    api_infer.add_argument(
+        "--variables", type=str, default="t2m", help="Comma-separated variables"
+    )
+    api_infer.add_argument(
+        "--steps", type=int, default=1, help="Simulation steps (1 step = 6h)"
+    )
+    api_infer.add_argument(
+        "--ensemble-size", type=int, default=1, help="Ensemble members (1..4)"
+    )
+    api_infer.add_argument(
+        "--output-dir",
+        type=str,
+        default="outputs/earth2_001/api_live",
+        help="Output directory",
+    )
 
-    api_sub.add_parser("tests", help="Run the official 18-test live API verification suite")
+    api_sub.add_parser(
+        "tests", help="Run the official 18-test live API verification suite"
+    )
 
     args = parser.parse_args()
 
@@ -99,8 +120,13 @@ def main() -> None:
     elif args.command == "inspect":
         inspect_components(as_json=args.json)
     elif args.command == "api":
-        from od_experiments.earth2_001.api.artifact_processor import ForecastArtifactProcessor
-        from od_experiments.earth2_001.api.fourcastnet_hosted import ForecastRequest, FourCastNetHostedClient
+        from od_experiments.earth2_001.api.artifact_processor import (
+            ForecastArtifactProcessor,
+        )
+        from od_experiments.earth2_001.api.fourcastnet_hosted import (
+            ForecastRequest,
+            FourCastNetHostedClient,
+        )
 
         client = FourCastNetHostedClient()
 
@@ -124,19 +150,33 @@ def main() -> None:
                 simulation_length=args.steps,
                 ensemble_size=args.ensemble_size,
             )
-            print(f"[*] Submitting FourCastNet hosted inference (input_id={req.input_id}, vars={req.variables}, steps={req.simulation_length})...")
+            print(
+                f"[*] Submitting FourCastNet hosted inference (input_id={req.input_id}, vars={req.variables}, steps={req.simulation_length})..."
+            )
             resp = client.infer(req)
             out_path = Path(args.output_dir)
             proc = ForecastArtifactProcessor(out_path)
             artifacts = proc.process_response(req, resp, test_id="CLI")
-            print(f"[✓] Inference successful (HTTP {resp.status_code}, NVCF Reqid: {resp.req_id})")
+            print(
+                f"[✓] Inference successful (HTTP {resp.status_code}, NVCF Reqid: {resp.req_id})"
+            )
             print(f"Saved {len(artifacts)} artifact(s) to {out_path}:")
             for a in artifacts:
-                print(f"  • {a.filename} (SHA-256: {a.sha256[:16]}..., size: {a.size_bytes} bytes)")
+                print(
+                    f"  • {a.filename} (SHA-256: {a.sha256[:16]}..., size: {a.size_bytes} bytes)"
+                )
         elif args.api_command == "tests":
             import subprocess
+
             print("[*] Running official 18-test live API verification suite...")
-            cmd = [sys.executable, "-m", "pytest", "od_experiments/tests/test_fourcastnet_live.py", "-v", "-s"]
+            cmd = [
+                sys.executable,
+                "-m",
+                "pytest",
+                "od_experiments/tests/test_fourcastnet_live.py",
+                "-v",
+                "-s",
+            ]
             res = subprocess.run(cmd)
             sys.exit(res.returncode)
         else:

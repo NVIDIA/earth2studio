@@ -1,9 +1,9 @@
 # Origin Datum — Independent Quality and Security Review
 
-**Audit Target:** NVIDIA Hosted FourCastNet API Integration  
-**Program:** EO-OBSCURA / OD-EARTH2-001  
-**Auditor:** Subagent 7 — Independent Quality and Security Reviewer  
-**Date:** October 26, 2026  
+**Audit Target:** NVIDIA Hosted FourCastNet API Integration
+**Program:** EO-OBSCURA / OD-EARTH2-001
+**Auditor:** Subagent 7 — Independent Quality and Security Reviewer
+**Date:** October 26, 2026
 **Status:** **APPROVED FOR RESEARCH PILOT**
 
 ---
