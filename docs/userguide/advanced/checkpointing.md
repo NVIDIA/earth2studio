@@ -91,7 +91,7 @@ checkpoint = Checkpoint("forecast", mode="append", history_size=8)
 with checkpoint as ckpt:
     for lead_time in lead_times:
         x = step_model(...)
-        io.write(*split_coords(*x.e2s.to_torch()))
+        io.write(x)
         ckpt.write(
             lead_time=lead_time,
             last_complete_lead_time=lead_time,

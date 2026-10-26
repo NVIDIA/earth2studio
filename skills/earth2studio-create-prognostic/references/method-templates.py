@@ -21,18 +21,33 @@ weights on CPU and call eval(). Override to() only for non-Torch state such as
 ONNX sessions or JAX device placement. Never implement a tensor-pair public path.
 """
 
-from collections.abc import Iterator
-from copy import deepcopy
+from collections.abc import Generator
+from dataclasses import dataclass
 
 import numpy as np
+import torch
 import xarray as xr
 
-from earth2studio.utils.coords import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.models.batch import batch_func
+from earth2studio.utils.coords import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_nonempty,
+)
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.type import CoordinateSystem
 
 
 def input_coords_with_history_template(self) -> CoordinateSystem:
-    """Declare two frames on the instance's configured grid."""
+    """Declare two frames on the instance's configured grid.
+
+    Returns
+    -------
+    CoordinateSystem
+        Allocation-free input signature with relative lead times -6h and 0h,
+        fixed temperature and grid coordinates, and arbitrary leading dimensions.
+    """
     return coord_array(
         ("batch", "lead_time", "variable", "lat", "lon"),
         {"lead_time": np.array([-6, 0], dtype="timedelta64[h]"), "variable": ["t2m"]},
@@ -42,7 +57,18 @@ def input_coords_with_history_template(self) -> CoordinateSystem:
 
 
 def output_coords_template(self, x: CoordinateSystem) -> CoordinateSystem:
-    """Validate history before planning a single forecast frame."""
+    """Validate history before planning a single forecast frame.
+
+    Parameters
+    ----------
+    x : CoordinateSystem
+        Input coordinate signature or DataArray to validate and transform.
+
+    Returns
+    -------
+    CoordinateSystem
+        Allocation-free output signature six hours after the latest input frame.
+    """
     if "lead_time" not in x.coords:
         raise ValueError("lead_time is required")
     lead = x.lead_time.values
@@ -57,31 +83,131 @@ def output_coords_template(self, x: CoordinateSystem) -> CoordinateSystem:
     return coord_array_like(x, {"lead_time": lead[-1:] + np.timedelta64(6, "h")})
 
 
-def create_iterator_template(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-    """Keep history internal and apply hooks in original leading dimensions."""
+@dataclass(frozen=True)
+class HistoryState:
+    """Serializable older frame, excluding the current public forecast.
+
+    Parameters
+    ----------
+    history : xr.DataArray
+        One older frame in original leading dimensions.
+    """
+
+    history: xr.DataArray
+
+
+def initialize_template(self, x: xr.DataArray) -> tuple[xr.DataArray, HistoryState]:
+    """Compute from the full initial window and retain only its latest input.
+
+    Bind as ``initialize`` with the coordinate methods above and
+    ``advance_history_template`` as ``_advance_history``.
+
+    Parameters
+    ----------
+    x : xr.DataArray
+        Initial two-frame history matching ``input_coords()``.
+
+    Returns
+    -------
+    tuple[xr.DataArray, HistoryState]
+        First forecast and the older frame needed for continuation, excluding
+        the current forecast. No iterator hooks are applied.
+    """
     self.output_coords(x)
-    state = x.copy(deep=True)
-    yield state.isel(lead_time=slice(-1, None)).copy(deep=True)
-    while True:
-        state = self.front_hook(state.copy(deep=True))
-        output = self.rear_hook(self(state))
-        history = state.isel(lead_time=slice(1, None)).drop_vars(
-            [name for name in state.coords if name not in output.coords]
-        )
-        state = xr.concat(
-            [history, output], dim="lead_time", coords="minimal", compat="override"
-        )
-        state = state.assign_coords(
-            {
-                name: coord.variable.copy(deep=True)
-                for name, coord in output.coords.items()
-                if "lead_time" not in coord.dims
-            }
-        )
-        state.name = output.name
-        for name, coord in output.coords.items():
-            if "lead_time" in coord.dims:
-                state.coords[name].attrs = deepcopy(coord.attrs)
-        state.attrs = deepcopy(output.attrs)
-        state.encoding = deepcopy(output.encoding)
-        yield output.copy(deep=True)
+    return self._advance_history(x), HistoryState(
+        x.isel(lead_time=[-1]).copy(deep=True)
+    )
+
+
+def step_template(
+    self, y: xr.DataArray, state: HistoryState
+) -> tuple[xr.DataArray, HistoryState]:
+    """Advance from the forecast and state without modifying either input.
+
+    Select input variables by label. A model adding diagnostic channels must
+    extend the expected output signature too. History and the new frame must
+    continue at six-hour cadence.
+
+    Parameters
+    ----------
+    y : xr.DataArray
+        Previous forecast matching the output signature.
+    state : HistoryState
+        Older input frame returned alongside that forecast.
+
+    Returns
+    -------
+    tuple[xr.DataArray, HistoryState]
+        Next forecast and updated history state, without iterator hooks.
+    """
+    expected = coord_array_like(
+        state.history,
+        {"lead_time": state.history.lead_time.values + np.timedelta64(6, "h")},
+    )
+    handshake_dataarray(y, expected)
+    signature = self.input_coords()
+    latest = y.sel(variable=signature.coords["variable"].values).isel(lead_time=[-1])
+    # Retain history only where coordinates still apply to the current payload.
+    history = state.history.drop_vars(
+        [name for name in state.history.coords if name not in latest.coords]
+    )
+    window = xr.concat(
+        [history, latest],
+        dim="lead_time",
+        coords="minimal",
+        compat="override",
+        join="exact",
+    )
+    window.attrs = latest.attrs.copy()
+    window.name = latest.name
+    window.encoding = latest.encoding.copy()
+    self.output_coords(window)
+    return self._advance_history(window), HistoryState(latest.copy(deep=True))
+
+
+@torch.inference_mode()
+@batch_func()
+def advance_history_template(self, x: xr.DataArray) -> xr.DataArray:
+    """Execute a core mapping two history frames to one forecast frame.
+
+    Bind as ``_advance_history``. The core consumes (batch, history, variable,
+    lat, lon) and returns (batch, variable, lat, lon). Batch only this numerical
+    helper, so state and iterator hooks retain original leading dimensions.
+
+    Parameters
+    ----------
+    x : xr.DataArray
+        Two-frame history matching ``input_coords()``.
+
+    Returns
+    -------
+    xr.DataArray
+        Forecast matching ``output_coords(x)`` on the model device.
+    """
+    handshake_nonempty(x)
+    signature = self.output_coords(x)
+    tensor, _ = x.e2s.to_torch()
+    output = self.model(tensor.to(self.device_buffer.device).clone()).unsqueeze(1)
+    return from_torch(output, signature)
+
+
+def create_iterator_template(self, x: xr.DataArray) -> Generator[
+    xr.DataArray | tuple[xr.DataArray, ...],
+    xr.DataArray | tuple[xr.DataArray, ...] | None,
+    None,
+]:
+    """Yield complete forecasts, beginning with initialization's prediction.
+
+    Parameters
+    ----------
+    x : xr.DataArray
+        Initial two-frame history matching ``input_coords()``.
+
+    Yields
+    ------
+    xr.DataArray
+        Six-hour forecasts. The rear hook runs before every yield and the front
+        hook before each subsequent step; both feed recurrence directly. History
+        lives in explicit state. This unforced example is resumed with ``next``.
+    """
+    yield from self._default_create_iterator(x)

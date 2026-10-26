@@ -48,7 +48,7 @@ In this example you will learn:
 # will be used.
 
 # %%
-# .. literalinclude:: ../../earth2studio/run.py
+# .. literalinclude:: ../../earth2studio/run/__init__.py
 #    :language: python
 #    :start-after: # sphinx - diagnostic start
 #    :end-before: # sphinx - diagnostic end

@@ -60,6 +60,6 @@ def test_diagnostic_identity(coords, device):
 def test_identity_conformance():
     model = Identity()
     assert check_diagnostic_contract(model) == [
-        "D4: model declares fewer than three dimensions",
+        "D4: model declares fewer than two fixed dimensions",
         "D10: model does not declare itself stochastic",
     ]

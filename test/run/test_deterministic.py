@@ -16,6 +16,7 @@
 
 import ast
 from collections import OrderedDict
+from collections.abc import Hashable
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -32,6 +33,7 @@ from earth2studio.io import ZarrBackend
 from earth2studio.models.px import Persistence
 from earth2studio.utils.checkpoint import Checkpoint
 from earth2studio.utils.coords import coord_array
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.time import to_time_array
 
 
@@ -157,8 +159,9 @@ def test_native_projected_grid_and_forecast_source(source_type):
         device="cpu",
         verbose=False,
     )
-    assert len(seen) == 2
+    assert len(seen) == 1
     assert io["t2m"].shape == (1, 3, 3, 4)
+    assert not np.isnan(io["t2m"][:]).any()
     np.testing.assert_array_equal(io["t2m"][0, 0], io["t2m"][0, 2])
 
 
@@ -277,11 +280,12 @@ def test_native_mapping_preserves_storage_and_rejects_wrong_geometry():
             root / "serve/server/example_workflows/foundry_fcn3_stormscope_goes.py"
         ).read_text()
     )
-    method = next(
-        n
-        for n in ast.walk(tree)
-        if isinstance(n, ast.FunctionDef) and n.name == "run_fcn3"
-    )
+    # run_fcn3 builds its write templates with the module's grid helpers.
+    wanted = ("_spatial_dims", "_spatial_coords", "run_fcn3")
+    methods = [
+        n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name in wanted
+    ]
+    methods.sort(key=lambda n: wanted.index(n.name))
     input_model = Persistence(["t2m"], LatLonGrid([1.0, 0.0, -1.0], [0.0, 1.0, 2.0]))
     field = fetch_data(
         Constant(OrderedDict(lat=[1.0, 0.0, -1.0], lon=[0.0, 1.0, 2.0]), 7),
@@ -294,10 +298,11 @@ def test_native_mapping_preserves_storage_and_rejects_wrong_geometry():
         field.isel(lat=slice(2)).assign_coords(lead_time=[np.timedelta64(1, "h")]),
     ]
 
-    def prepare(tensor, coords, conditioning):
-        assert conditioning and tensor.shape[-2:] == (2, 3)
-        np.testing.assert_array_equal(coords["lat"], [1.0, 0.0])
-        return tensor, coords
+    def regrid(field):
+        # Each FCN3 frame is selected onto the conditioning grid before regridding.
+        assert field.shape[-2:] == (2, 3)
+        np.testing.assert_array_equal(field.lat, [1.0, 0.0])
+        return field
 
     workflow = SimpleNamespace(
         fcn3_interp=SimpleNamespace(
@@ -306,12 +311,12 @@ def test_native_mapping_preserves_storage_and_rejects_wrong_geometry():
             px_model=SimpleNamespace(px_model=Mock()),
             create_iterator=lambda x: iter(outputs),
         ),
+        conditioning_regridder=regrid,
         stormscope=SimpleNamespace(
             input_coords=lambda: xr.DataArray(
                 np.zeros((2, 3)), dims=("y", "x"), coords={"y": [0, 1], "x": [0, 1, 2]}
             ),
             conditioning_variables=np.array(["t2m"]),
-            prep_input=prepare,
         ),
         update_progress=Mock(),
     )
@@ -323,12 +328,12 @@ def test_native_mapping_preserves_storage_and_rejects_wrong_geometry():
         to_time_array=to_time_array,
         WorkflowProgress=SimpleNamespace,
         logger=Mock(),
-        split_coords=run.split_coords,
+        coord_array=coord_array,
+        from_torch=from_torch,
+        Hashable=Hashable,
     )
     exec(  # noqa: S102 - execute the local workflow loop without server/weight imports
-        compile(
-            ast.Module(body=[method], type_ignores=[]), "conditioning-loop", "exec"
-        ),
+        compile(ast.Module(body=methods, type_ignores=[]), "conditioning-loop", "exec"),
         namespace,
     )  # noqa: S102
     io = Mock()
@@ -349,9 +354,11 @@ def test_native_checkpoint_resume(tmp_path):
     domain = OrderedDict(lat=np.arange(3), lon=np.arange(4))
     io = ZarrBackend()
     times = np.array([np.datetime64("2024-01-01")])
-    coords = run._output_dimensions(Persistence(["t2m"], domain), times, 3)
-    io.add_array(
-        OrderedDict((d, v) for d, v in coords.items() if d != "variable"), ["t2m"]
+    model = Persistence(["t2m"], domain)
+    # A store's extent is fixed at creation, so the shorter first run declares the
+    # resumed run's full lead-time extent and writes a subset of its labels.
+    output_coords = OrderedDict(
+        lead_time=run._lead_times(model.output_coords(model.input_coords()), 3)
     )
     checkpoint = Checkpoint("native-run", path=tmp_path, level=2, flush_interval=1)
     with checkpoint as session:
@@ -361,6 +368,7 @@ def test_native_checkpoint_resume(tmp_path):
             Persistence(["t2m"], domain),
             Constant(domain, 7),
             io,
+            output_coords,
             device="cpu",
             verbose=False,
             checkpoint=session,
@@ -372,6 +380,7 @@ def test_native_checkpoint_resume(tmp_path):
             Persistence(["t2m"], domain),
             Constant(domain, 99),
             io,
+            output_coords,
             device="cpu",
             verbose=False,
             checkpoint=session,

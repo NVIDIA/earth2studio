@@ -11,6 +11,12 @@ reference skeleton demonstrates a complete single-call diagnostic.
 
 ## Public interface
 
+Wrappers must declare explicit, fixed named input parameters for `__call__`, one
+per input slot in declared order (contract rule `D11`). The protocol's `*x` notation
+represents differing fixed arities across models; do not copy it into a wrapper.
+
+Single-input, single-output signatures include:
+
 - `__call__(x: xr.DataArray) -> xr.DataArray`
 - `input_coords() -> CoordinateSystem`
 - `output_coords(input_coords: CoordinateSystem) -> CoordinateSystem`

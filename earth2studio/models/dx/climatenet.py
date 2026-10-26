@@ -16,6 +16,7 @@
 
 import zipfile
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
@@ -32,6 +33,9 @@ from earth2studio.utils import (
 )
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.type import CoordinateSystem
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 VARIABLES = [
     "tcwv",
@@ -77,6 +81,8 @@ class ClimateNet(torch.nn.Module, AutoModelMixin):
     provider:nvidia backend:pytorch
     """
 
+    stochastic = False
+
     def __init__(
         self,
         core_model: torch.nn.Module,
@@ -87,6 +93,18 @@ class ClimateNet(torch.nn.Module, AutoModelMixin):
         self.core_model = core_model
         self.register_buffer("center", center)
         self.register_buffer("scale", scale)
+
+    def default_sources(self) -> "DataSource":
+        """Recommend the ARCO ERA5 data source.
+
+        Returns
+        -------
+        DataSource
+            ``ARCO_ERA5`` data source for the input slot.
+        """
+        from earth2studio.data import ARCO_ERA5
+
+        return ARCO_ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.
@@ -162,7 +180,19 @@ class ClimateNet(torch.nn.Module, AutoModelMixin):
         self,
         x: xr.DataArray,
     ) -> xr.DataArray:
-        """Forward pass of diagnostic"""
+        """Classify atmospheric rivers, tropical cyclones and background conditions.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Atmospheric fields matching ``input_coords()`` on the ERA5 grid.
+
+        Returns
+        -------
+        xr.DataArray
+            Classification fields matching ``output_coords(x)`` with labelled
+            spatial and leading dimensions.
+        """
 
         output_coords = self.output_coords(x)
         tensor, _ = x.e2s.to_torch()

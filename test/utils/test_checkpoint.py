@@ -17,6 +17,7 @@
 import json
 import sys
 from collections import OrderedDict
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from types import ModuleType
@@ -24,6 +25,7 @@ from types import ModuleType
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
 import earth2studio.run as run
 from earth2studio.data import Random
@@ -41,6 +43,7 @@ from earth2studio.utils.checkpoint import (
     bind_checkpoint_state,
     default_checkpoint_path,
 )
+from earth2studio.utils.coords import coord_array, coord_array_like
 
 
 @dataclass
@@ -152,42 +155,69 @@ class DroppingLeadTimeDiagnostic(torch.nn.Module):
         self.variables = np.asarray(variables)
         self.domain_coords = domain_coords
 
-    def input_coords(self):
-        coords = OrderedDict(
+    def input_coords(self) -> xr.DataArray:
+        return coord_array(
+            ("batch", "lead_time", "variable", *self.domain_coords),
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.empty(0),
+                "lead_time": np.array([np.timedelta64(0, "h")]),
                 "variable": self.variables,
-            }
+                **self.domain_coords,
+            },
+            dynamic=("batch",),
         )
-        coords.update(self.domain_coords)
-        return coords
 
-    def output_coords(self, input_coords):
-        output_coords = input_coords.copy()
-        output_coords.pop("lead_time", None)
-        return output_coords
+    def output_coords(self, input_coords: xr.DataArray) -> xr.DataArray:
+        return coord_array_like(input_coords.isel(lead_time=0, drop=True))
 
-    def __call__(self, x, coords):
-        output_coords = coords.copy()
-        lead_time_index = list(output_coords).index("lead_time")
-        output_coords.pop("lead_time")
-        return x.squeeze(lead_time_index), output_coords
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        return x.isel(lead_time=0, drop=True)
 
 
 class RecordingIO:
     def __init__(self):
-        self.coords = None
-        self.array_names = None
+        self.template = None
         self.writes = []
 
-    def add_array(self, coords, array_name, **kwargs):
-        self.coords = coords
-        self.array_names = array_name
+    def add_array(self, template):
+        self.template = template
 
-    def write(self, x, coords, array_name):
-        self.writes.append((x, coords, array_name))
+    def write(self, x):
+        self.writes.append(x)
+
+    def flush(self):
+        pass
+
+    def close(self):
+        pass
+
+
+class Interrupted(Exception):
+    pass
+
+
+@contextmanager
+def interrupt_after(io, writes: int):
+    """Simulate a crashed run by making ``io.write`` raise ``Interrupted``.
+
+    The first ``writes`` calls pass through to the real ``io.write``; the next one
+    raises. The block must hit that interruption (it fails otherwise), and the
+    original ``write`` is restored on exit so the same backend can be resumed."""
+    write = io.write
+    count = 0
+
+    def interrupted(x):
+        nonlocal count
+        if count == writes:
+            raise Interrupted
+        count += 1
+        write(x)
+
+    io.write = interrupted
+    try:
+        with pytest.raises(Interrupted):
+            yield
+    finally:
+        del io.write
 
 
 def _lead_time(hours: int):
@@ -584,7 +614,7 @@ def test_deterministic_checkpoint_below_level_two_reruns_from_zero(tmp_path):
     )
 
     assert len(io.writes) == 6
-    assert io.writes[2][1]["lead_time"][0] == np.timedelta64(0, "h")
+    assert io.writes[2].coords["lead_time"].values[0] == np.timedelta64(0, "h")
 
 
 def test_ensemble_checkpoint_below_level_two_reruns_batch_from_zero(tmp_path):
@@ -613,7 +643,7 @@ def test_ensemble_checkpoint_below_level_two_reruns_batch_from_zero(tmp_path):
     )
 
     assert len(io.writes) == 2
-    assert io.writes[0][1]["lead_time"][0] == np.timedelta64(0, "h")
+    assert io.writes[0].coords["lead_time"].values[0] == np.timedelta64(0, "h")
 
 
 def test_deterministic_workflow_records_checkpoint(tmp_path):
@@ -647,32 +677,23 @@ def test_deterministic_workflow_resumes_from_checkpoint(tmp_path):
     coords = OrderedDict([("lat", np.arange(2)), ("lon", np.arange(3))])
     variables = ["u10m", "v10m"]
     io = ZarrBackend()
-    io.add_array(
-        OrderedDict(
-            {
-                "time": np.asarray(["2024-01-01T00"], dtype="datetime64[ns]"),
-                "lead_time": np.asarray([np.timedelta64(6 * i, "h") for i in range(4)]),
-                **coords,
-            }
-        ),
-        variables,
-    )
     checkpoint = Checkpoint(
         "deterministic", path=tmp_path, mode="append", flush_interval=1
     )
 
     data = Random(domain_coords=coords)
     model = Persistence(variables, coords)
-    run.deterministic(
-        ["2024-01-01"],
-        1,
-        model,
-        data,
-        io,
-        device=torch.device("cpu"),
-        verbose=False,
-        checkpoint=checkpoint,
-    )
+    with interrupt_after(io, 2):
+        run.deterministic(
+            ["2024-01-01"],
+            3,
+            model,
+            data,
+            io,
+            device=torch.device("cpu"),
+            verbose=False,
+            checkpoint=checkpoint,
+        )
     assert checkpoint.select(-1).lead_time == np.timedelta64(6, "h")
 
     with checkpoint.select(-1):
@@ -702,33 +723,24 @@ def test_deterministic_workflow_uses_model_checkpoint_state_when_io_is_filtered(
     variables = ["u10m", "v10m"]
     output_coords = OrderedDict({"variable": np.asarray(["u10m"])})
     io = ZarrBackend()
-    io.add_array(
-        OrderedDict(
-            {
-                "time": np.asarray(["2024-01-01T00"], dtype="datetime64[ns]"),
-                "lead_time": np.asarray([np.timedelta64(6 * i, "h") for i in range(4)]),
-                **coords,
-            }
-        ),
-        ["u10m"],
-    )
     checkpoint = Checkpoint(
         "deterministic", path=tmp_path, mode="append", flush_interval=1
     )
 
     data = Random(domain_coords=coords)
     model = Persistence(variables, coords)
-    run.deterministic(
-        ["2024-01-01"],
-        1,
-        model,
-        data,
-        io,
-        output_coords=output_coords,
-        device=torch.device("cpu"),
-        verbose=False,
-        checkpoint=checkpoint,
-    )
+    with interrupt_after(io, 2):
+        run.deterministic(
+            ["2024-01-01"],
+            3,
+            model,
+            data,
+            io,
+            output_coords=output_coords,
+            device=torch.device("cpu"),
+            verbose=False,
+            checkpoint=checkpoint,
+        )
 
     with checkpoint.select(-1):
         data = Random(domain_coords=coords)
@@ -756,27 +768,17 @@ def test_diagnostic_workflow_resumes_from_checkpoint(tmp_path):
     coords = OrderedDict([("lat", np.arange(2)), ("lon", np.arange(3))])
     variables = ["u10m", "v10m"]
     io = ZarrBackend()
-    io.add_array(
-        OrderedDict(
-            {
-                "time": np.asarray(["2024-01-01T00"], dtype="datetime64[ns]"),
-                "lead_time": np.asarray([np.timedelta64(6 * i, "h") for i in range(4)]),
-                **coords,
-            }
-        ),
-        variables,
-    )
     checkpoint = Checkpoint(
         "diagnostic", path=tmp_path, mode="append", flush_interval=1
     )
 
-    with checkpoint as ckpt:
+    with checkpoint as ckpt, interrupt_after(io, 2):
         data = Random(domain_coords=coords)
         model = Persistence(variables, coords)
         diagnostic = Identity()
         run.diagnostic(
             ["2024-01-01"],
-            1,
+            3,
             model,
             diagnostic,
             data,
@@ -867,6 +869,6 @@ def test_ensemble_workflow_records_checkpoint(tmp_path):
         checkpoint=checkpoint,
     )
 
-    written_ensembles = [int(coords["ensemble"][0]) for _, coords, _ in io.writes]
+    written_ensembles = [int(x.coords["ensemble"].values[0]) for x in io.writes]
     assert written_ensembles == [0, 0, 1, 1]
     assert checkpoint.select(-1).metadata_value("completed_ensembles") == [0, 1]

@@ -16,6 +16,7 @@
 
 import zipfile
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
@@ -35,6 +36,9 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.type import CoordinateSystem
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 try:
     from earth2studio.models.nn.afno_precip import PrecipNet
@@ -96,6 +100,8 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
     provider:nvidia backend:pytorch
     """
 
+    stochastic = False
+
     def __init__(
         self,
         core_model: torch.nn.Module,
@@ -107,6 +113,18 @@ class PrecipitationAFNO(torch.nn.Module, AutoModelMixin):
         self.register_buffer("center", center)
         self.register_buffer("scale", scale)
         self.eps = 1e-5
+
+    def default_sources(self) -> "DataSource":
+        """Recommend the WeatherBench2 ERA5 data source.
+
+        Returns
+        -------
+        DataSource
+            ``WB2ERA5`` data source for the input slot, including relative humidity.
+        """
+        from earth2studio.data import WB2ERA5
+
+        return WB2ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.

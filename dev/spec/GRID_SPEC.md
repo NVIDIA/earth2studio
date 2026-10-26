@@ -155,7 +155,7 @@ Standard-layout reconstruction exists today. Metadata-driven reconstruction of
 renamed axes, validation of registered geometry against coordinate values, and an
 explicit grid-owned extent interface are required follow-up work. The manual
 renaming guidance above describes the current implementation until that support
-lands. Fetch-side spatial processing remains deferred; see
+lands. Fetch-side regridding onto a target grid is specified in
 [FETCH_DATA_SPEC.md](FETCH_DATA_SPEC.md).
 
 ## HEALPix Representations

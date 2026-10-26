@@ -14,23 +14,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
 from pathlib import Path
 from typing import Literal
 from unittest.mock import MagicMock, Mock, patch
 
+import numpy as np
 import pytest
 import redis  # type: ignore[import-untyped]
-import torch
+import xarray as xr
 
 from earth2studio.io import IOBackend
-from earth2studio.serve.server import Earth2Workflow, WorkflowParameters
+from earth2studio.serve.server import (
+    Earth2Workflow,
+    WorkflowParameters,
+    WorkflowProgress,
+)
 from earth2studio.serve.server.e2workflow import (
     AutoParameters,
     BackendProgress,
     func_to_model,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.coords import coord_array
 
 
 # Test func_to_model function
@@ -277,42 +281,66 @@ class TestBackendProgress:
 
     def test_add_array_initializes_progress_tracking(self) -> None:
         """Test that add_array initializes progress tracking when progress_dim present"""
-        coords = OrderedDict({"lead_time": [0, 1, 2, 3], "lat": [0, 1]})
+        template = coord_array(
+            ("lead_time", "lat"),
+            {"lead_time": np.array([0, 1, 2, 3]), "lat": np.array([0, 1])},
+            name="forecast",
+        )
 
-        self.backend.add_array(coords, "temperature")
+        self.backend.add_array(template)
 
         # Verify progress tracking initialized
         assert self.backend.progress_coords == [0, 1, 2, 3]
-        assert self.backend.progress_array == "temperature"
-        self.mock_workflow.update_execution_data.assert_called_once_with(
-            self.execution_id, updates={"current_step": 0, "total_steps": 4}
+        assert self.backend.progress_array == "forecast"
+        self.mock_io.add_array.assert_called_once_with(template)
+        self.mock_workflow.update_progress.assert_called_once_with(
+            WorkflowProgress(current_step=0, total_steps=4)
         )
 
         # Only tracks first array
-        self.backend.add_array(coords, "pressure")
-        assert self.backend.progress_array == "temperature"
+        self.backend.add_array(template)
+        assert self.backend.progress_array == "forecast"
+        self.mock_workflow.update_progress.assert_called_once()
 
     def test_write_updates_progress(self) -> None:
         """Test that write updates progress for tracked arrays"""
-        # Initialize progress tracking
-        init_coords: CoordSystem = OrderedDict({"lead_time": [0, 1, 2], "lat": [0, 1]})
-        self.backend.add_array(init_coords, "temperature")
-        self.mock_workflow.update_execution_data.reset_mock()
+        template = coord_array(
+            ("lead_time", "lat"),
+            {"lead_time": np.array([0, 1, 2]), "lat": np.array([0, 1])},
+            name="forecast",
+        )
+        self.backend.add_array(template)
+        self.mock_workflow.update_progress.reset_mock()
 
-        # Write data at different time steps
-        data = torch.randn(1, 2)
+        data = np.random.default_rng(0).standard_normal((1, 2)).astype(np.float32)
 
-        write_coords1: CoordSystem = OrderedDict({"lead_time": [0], "lat": [0, 1]})
-        self.backend.write(data, write_coords1, "temperature")
-        self.mock_workflow.update_execution_data.assert_called_with(
-            self.execution_id, updates={"current_step": 1}
+        x1 = xr.DataArray(
+            data,
+            dims=("lead_time", "lat"),
+            coords={"lead_time": np.array([0]), "lat": np.array([0, 1])},
+            name="forecast",
+        )
+        self.backend.write(x1)
+        self.mock_io.write.assert_called_once_with(x1)
+        self.mock_workflow.update_progress.assert_called_with(
+            WorkflowProgress(current_step=1)
         )
 
-        write_coords2: CoordSystem = OrderedDict({"lead_time": [2], "lat": [0, 1]})
-        self.backend.write(data, write_coords2, "temperature")
-        self.mock_workflow.update_execution_data.assert_called_with(
-            self.execution_id, updates={"current_step": 3}
+        x2 = xr.DataArray(
+            data,
+            dims=("lead_time", "lat"),
+            coords={"lead_time": np.array([2]), "lat": np.array([0, 1])},
+            name="forecast",
         )
+        self.backend.write(x2)
+        self.mock_workflow.update_progress.assert_called_with(
+            WorkflowProgress(current_step=3)
+        )
+
+        # Untracked arrays do not move progress
+        self.mock_workflow.update_progress.reset_mock()
+        self.backend.write(x2.rename("other"))
+        self.mock_workflow.update_progress.assert_not_called()
 
     def test_passthrough_to_underlying_io(self) -> None:
         """Test that BackendProgress properly wraps underlying IOBackend"""
@@ -340,19 +368,25 @@ class TestEarth2WorkflowIntegration:
 
         class TestWorkflow(Earth2Workflow):
             def __call__(self, io: IOBackend, num_steps: int = 3) -> None:
-                coords: CoordSystem = OrderedDict(
-                    {
-                        "lead_time": list(range(num_steps)),
-                        "lat": [0, 1],
-                    }
+                template = coord_array(
+                    ("lead_time", "lat"),
+                    {"lead_time": np.arange(num_steps), "lat": np.array([0, 1])},
+                    name="forecast",
                 )
-                io.add_array(coords, "forecast")
+                io.add_array(template)
                 for i in range(num_steps):
-                    data = torch.randn(1, 2)
-                    write_coords: CoordSystem = OrderedDict(
-                        {"lead_time": [i], "lat": [0, 1]}
+                    x = xr.DataArray(
+                        np.random.default_rng(i)
+                        .standard_normal((1, 2))
+                        .astype(np.float32),
+                        dims=("lead_time", "lat"),
+                        coords={
+                            "lead_time": np.array([i]),
+                            "lat": np.array([0, 1]),
+                        },
+                        name="forecast",
                     )
-                    io.write(data, write_coords, "forecast")
+                    io.write(x)
 
         workflow = TestWorkflow()
         workflow.name = "test"

@@ -7,8 +7,8 @@ observation).
 ## Statistics
 
 Statistics are distinct from prognostic and diagnostic models in principle because
-we assume that statistics reduce existing coordinates so that the output tensors
-have a coordinate system that is a subset of the input coordinate system. This
+we assume that statistics reduce existing dimensions so that the output DataArray
+has a coordinate system that is a subset of the input coordinate system. This
 makes statistics less flexible than diagnostic models while having fewer API requirements.
 
 In this section, "statistic" refers to a single reduction operation; "statistics" refers
@@ -16,8 +16,14 @@ to the class of such operations.
 
 ### Statistics Interface
 
-Statistics API only specifies a `__call__` method that matches similar methods
-across the package.
+Statistics operate on [xarray](https://docs.xarray.dev) DataArrays, matching the
+diagnostic model API. A statistic takes a single `xr.DataArray` and returns a
+`xr.DataArray` with the reduced dimensions removed. Dimensions are identified by name,
+so the order of dimensions in the input does not matter. Computation uses PyTorch,
+with `.e2s.to_torch()` for inputs and `from_torch` for outputs. Outputs follow the
+configured e2s backend policy: `auto` returns NumPy on CPU and CuPy on CUDA, while
+`torch` preserves tensors and autograd history. The `output_coords` method accepts
+an allocation-free `CoordinateSystem` signature and returns the signature of the output.
 
 ```python
 --8<-- "earth2studio/statistics/base.py:statistic-interface"
@@ -42,7 +48,9 @@ that you review the custom statistic example in [extension examples](../../examp
 
 Like statistics, metrics are reductions across existing dimensions. Unlike statistics,
 which are usually defined over a single input, we define metrics to take a pair of
-inputs. Otherwise, the API and requirements are similar to the statistics requirements.
+inputs `x` and `y`, both `xr.DataArray`s that must share dimension names and coordinates
+(apart from an optional ensemble dimension that only the forecast `x` carries).
+Otherwise, the API and requirements are similar to the statistics requirements.
 
 ### Metrics Interface
 

@@ -24,6 +24,7 @@ from .cds import CDS, CDS_ERA5
 from .cfs import CFS_FX, CFS_FX_Flux
 from .cfs_reforecast import CFS_Reforecast_FX, CFS_Reforecast_FX_Flux
 from .cmip6 import CMIP6, CMIP6MultiRealm
+from .composite import CompositeForecastSource, CompositeSource
 from .const import Constant, Constant_FX
 from .dynamical import (
     DynamicalAIFS,
@@ -84,7 +85,13 @@ from .rx import CosineSolarZenith, LandSeaMask, SurfaceGeoPotential
 from .samudrace import SamudrACEData, SamudrACEForcingData
 from .time_window import TimeWindow
 from .ufs import UFSObsConv, UFSObsSat
-from .utils import datasource_to_file, fetch_data, fetch_dataframe, prep_data_array
+from .utils import (
+    RegriddedSource,
+    datasource_to_file,
+    fetch_data,
+    fetch_dataframe,
+    prep_data_array,
+)
 from .wb2 import WB2ERA5, WB2Climatology, WB2ERA5_32x64, WB2ERA5_121x240
 from .xr import (
     DataArrayDirectory,

@@ -23,10 +23,23 @@ import torch
 import xarray as xr
 
 import earth2studio.models.px.stormcast as stormcast_module
-from earth2studio.data import HRRR, Random, fetch_data
+from earth2studio.data import GFS_FX, HRRR, Random, RegriddedSource, fetch_data
+from earth2studio.grids import resolve_grid
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import StormCast
+from earth2studio.run import _map_field
+from earth2studio.utils.coords import coord_array_like
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import OptionalDependencyFailure
+
+
+def _conditioning(model, field):
+    signature = coord_array_like(
+        field, {"variable": model.forcing_coords().coords["variable"]}
+    )
+    return from_torch(
+        torch.zeros(signature.shape, device=model.means.device), signature
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -155,14 +168,6 @@ def test_stormcast_call(time, device):
     lat, lon = np.meshgrid(dc["hrrr_y"], dc["hrrr_x"], indexing="ij")
 
     r = Random(dc)
-    r_condition = Random(
-        OrderedDict(
-            [
-                ("lat", np.linspace(90, -90, num=181, endpoint=True)),
-                ("lon", np.linspace(0, 360, num=360)),
-            ]
-        )
-    )
 
     # Spoof variable names
     variables = np.array(["u%02d" % i for i in range(nvar)])
@@ -184,7 +189,6 @@ def test_stormcast_call(time, device):
         conditioning_means=conditioning_means,
         conditioning_stds=conditioning_stds,
         conditioning_variables=conditioning_variables,
-        conditioning_data_source=r_condition,
         sampler_steps=2,
     ).to(device)
 
@@ -196,7 +200,7 @@ def test_stormcast_call(time, device):
     x.attrs = dict(p.grid.attrs, earth2studio_crs=p.grid.crs)
     x.attrs["nested"] = {"items": [1]}
     x.encoding["nested"] = {"items": [2]}
-    out = p(x)
+    out = p(x, _conditioning(p, x))
     out.attrs["nested"].clear()
     out.encoding["nested"].clear()
     assert x.attrs["nested"] == {"items": [1]}
@@ -239,14 +243,6 @@ def test_stormcast_iter(ensemble, device):
     lat, lon = np.meshgrid(dc["hrrr_y"], dc["hrrr_x"], indexing="ij")
 
     r = Random(dc)
-    r_condition = Random(
-        OrderedDict(
-            [
-                ("lat", np.linspace(90, -90, num=181, endpoint=True)),
-                ("lon", np.linspace(0, 360, num=360)),
-            ]
-        )
-    )
 
     # Init model with explicit conditioning data in constructor
     variables = np.array(["u%02d" % i for i in range(nvar)])
@@ -268,7 +264,6 @@ def test_stormcast_iter(ensemble, device):
         conditioning_means=conditioning_means,
         conditioning_stds=conditioning_stds,
         conditioning_variables=conditioning_variables,
-        conditioning_data_source=r_condition,
         sampler_steps=2,
     ).to(device)
 
@@ -298,22 +293,24 @@ def test_stormcast_iter(ensemble, device):
         return field.drop_vars("member", errors="ignore")
 
     p.front_hook, p.rear_hook = front, rear
-    p_iter = p.create_iterator(x)
+    p_iter = p.create_iterator(x, _conditioning(p, x))
 
     if not isinstance(time, Iterable):
         time = [time]
 
     # Get generator
     initial = next(p_iter)
-    assert events == []
+    assert events == ["rear"]
     retained = initial.copy(deep=True)
-    for i, out in enumerate(p_iter):
+    out = initial
+    for i in range(7):
+        out = p_iter.send(_conditioning(p, out))
         out_coords = out
         xr.testing.assert_identical(x, original)
         xr.testing.assert_identical(initial, retained)
         assert out.name == x.name and "removed" not in out.attrs
         assert out.encoding == {} and "member" not in out.coords
-        assert events == ["front", "rear"] * (i + 1)
+        assert events == ["rear"] + ["front", "rear"] * (i + 1)
         assert len(out.shape) == 6
         assert out.shape == torch.Size(
             [ensemble, len(time), 1, nvar, lat.shape[0], lat.shape[1]]
@@ -322,7 +319,7 @@ def test_stormcast_iter(ensemble, device):
             out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
         ).all()
         assert (out_coords["ensemble"] == np.arange(ensemble)).all()
-        assert out_coords["lead_time"][0] == np.timedelta64(i + 1, "h")
+        assert out_coords["lead_time"][0] == np.timedelta64(i + 2, "h")
 
         if i > 5:
             break
@@ -376,16 +373,12 @@ def test_stormcast_exceptions(dc, device):
     x = x.rename(hrrr_y="y", hrrr_x="x").assign_coords(p.grid.coords())
     x.attrs = dict(p.grid.attrs, earth2studio_crs=p.grid.crs)
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(TypeError):
         # Calling with no conditioning info should fail
         p(x)
 
-    # Create iterator and consume first batch (initial condition)
-    p_iter = p.create_iterator(x)
-    next(p_iter)
-    with pytest.raises(ValueError):
-        # Using the generator with no built-in conditioning should fail
-        next(p_iter)
+    with pytest.raises(TypeError):
+        p.create_iterator(x)
 
 
 def test_stormcast_conformance():
@@ -404,15 +397,6 @@ def test_stormcast_conformance():
         ]
     )
     lat, lon = np.meshgrid(dc["hrrr_y"], dc["hrrr_x"], indexing="ij")
-
-    r_condition = Random(
-        OrderedDict(
-            [
-                ("lat", np.linspace(90, -90, num=181, endpoint=True)),
-                ("lon", np.linspace(0, 360, num=360)),
-            ]
-        )
-    )
 
     variables = np.array(["u%02d" % i for i in range(nvar)])
     means = torch.zeros(1, nvar, 1, 1)
@@ -433,7 +417,6 @@ def test_stormcast_conformance():
         conditioning_means=conditioning_means,
         conditioning_stds=conditioning_stds,
         conditioning_variables=conditioning_variables,
-        conditioning_data_source=r_condition,
         sampler_steps=2,
     )
 
@@ -475,18 +458,6 @@ def test_stormcast_package(cond_dims, device, model):
             x = super().__call__(time, variable)
             return x.transpose(*cond_dims)
 
-    r_condition = _RandomWithSpecifiedOrder(
-        OrderedDict(
-            [
-                ("lat", np.linspace(90, -90, num=721, endpoint=True)),
-                ("lon", np.linspace(0, 360, num=1440)),
-            ]
-        )
-    )
-
-    # Manually set the condition data source (necessary as NGC package doesn't specify)
-    p.conditioning_data_source = r_condition
-
     # Decrease the number of edm sampling steps to speed up the test
     p.sampler_steps = 2
 
@@ -507,3 +478,42 @@ def test_stormcast_package(cond_dims, device, model):
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert np.all(out_coords["time"] == time)
     assert out.dims == ("time", "lead_time", "variable", "y", "x")
+
+
+def test_stormcast_default_conditioning_is_regridded():
+    nvar, nvar_cond = 3, 5
+    p = StormCast(
+        PhooStormCastRegressionModel(),
+        PhooStormCastDiffusionModel(),
+        torch.zeros(1, nvar, 1, 1),
+        torch.ones(1, nvar, 1, 1),
+        torch.randn(1, 2, 96, 32),
+        hrrr_lat_lim=(32, 128),
+        hrrr_lon_lim=(32, 64),
+        variables=np.array(["u%02d" % i for i in range(nvar)]),
+        conditioning_means=torch.randn(1, nvar_cond, 1, 1),
+        conditioning_stds=torch.randn(1, nvar_cond, 1, 1),
+        conditioning_variables=np.array(["u%02d" % i for i in range(nvar_cond)]),
+    )
+    _, conditioning = p.default_sources()
+    assert isinstance(conditioning, RegriddedSource)
+    assert isinstance(conditioning.source, GFS_FX)
+    assert conditioning.is_forecast
+    assert conditioning.regridder.source_grid is resolve_grid("latlon-0.25deg")
+    assert conditioning.regridder.target_grid is p.grid
+
+    # Regridded global fields land exactly on the declared forcing slot.
+    grid = resolve_grid("latlon-0.25deg")
+    source = RegriddedSource(
+        Random(OrderedDict(lat=grid.latitude, lon=grid.longitude)),
+        conditioning.regridder,
+    )
+    signature = p.forcing_coords()
+    x = fetch_data(
+        source,
+        np.array([np.datetime64("2024-01-01")]),
+        signature["variable"].values,
+        signature["lead_time"].values,
+    )
+    _map_field(x, signature)
+    assert not np.isnan(x.values).any()

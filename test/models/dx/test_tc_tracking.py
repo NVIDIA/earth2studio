@@ -446,7 +446,13 @@ def test_tc_tracker_wu_duan_conformance(monkeypatch):
     assert output.dims == ("batch", "path_id", "step", "variable")
     assert output.data.nbytes == 0
     assert "earth2studio_grid_id" not in output.attrs
-    check_diagnostic_contract(model, forward=False)
+    # Track counts are data-dependent; exercise fields in _check_track_field.
+    assert check_diagnostic_contract(model, forward=False) == [
+        "D10: model does not declare itself stochastic",
+        "D5: forward check disabled",
+        "D6: forward check disabled",
+        "D9: forward check disabled",
+    ]
     _check_track_field(model, monkeypatch)
 
 
@@ -640,7 +646,13 @@ def test_tc_tracker_vitart_conformance(monkeypatch):
     output = model.output_coords(signature)
     assert output.dims == ("batch", "path_id", "step", "variable")
     assert output.data.nbytes == 0
-    check_diagnostic_contract(model, forward=False)
+    # Track counts are data-dependent; exercise fields in _check_track_field.
+    assert check_diagnostic_contract(model, forward=False) == [
+        "D10: model does not declare itself stochastic",
+        "D5: forward check disabled",
+        "D6: forward check disabled",
+        "D9: forward check disabled",
+    ]
     _check_track_field(model, monkeypatch)
 
 

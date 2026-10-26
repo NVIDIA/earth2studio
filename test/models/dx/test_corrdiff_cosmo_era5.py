@@ -317,7 +317,7 @@ def test_corrdiff_cosmo_era5_conformance():
         channel_transforms={},
         constraints={},
     )
-    check_diagnostic_contract(dx)
+    assert check_diagnostic_contract(dx) == []
 
 
 @pytest.mark.parametrize("number_of_samples", [1, 3])

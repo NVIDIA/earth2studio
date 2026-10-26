@@ -75,10 +75,10 @@ from tqdm import tqdm
 
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.io import IOBackend
+from earth2studio.io.utils import output_template
 from earth2studio.models.dx import CorrDiff
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
-from earth2studio.utils.coords import split_coords
 from earth2studio.utils.time import to_time_array
 
 
@@ -126,8 +126,7 @@ def corrdiff_on_hens_ensemble(
 
     # Fetch initial data for the ensemble
     prognostic_ic = prognostic.input_coords()
-    from earth2studio.run import _dimension_coords, _map_field, _output_dimensions
-    from earth2studio.utils.cupy import from_torch
+    from earth2studio.run import _map_field
 
     time = to_time_array(time)
     x0 = fetch_data(
@@ -136,24 +135,31 @@ def corrdiff_on_hens_ensemble(
         variable=prognostic_ic.coords["variable"].values,
         lead_time=prognostic_ic.coords["lead_time"].values,
         device=device,
-        target_grid=prognostic_ic,
-        regridder=getattr(prognostic, "interp_method", "nearest"),
     )
 
-    # Prepare CorrDiff output coordinates for IO backend
-    total_coords = _dimension_coords(corrdiff.output_coords(corrdiff.input_coords()))
-    if "batch" in total_coords:
-        del total_coords["batch"]
-    total_coords["time"] = time
-    total_coords["lead_time"] = _output_dimensions(prognostic, time, nsteps)[
-        "lead_time"
-    ]
-    total_coords["ensemble"] = np.arange(nensemble)
-    total_coords.move_to_end("lead_time", last=False)
-    total_coords.move_to_end("time", last=False)
-    total_coords.move_to_end("ensemble", last=False)
-    variables_to_save = total_coords.pop("variable")
-    io.add_array(total_coords, variables_to_save)
+    # Prepare the CorrDiff output template for the IO backend. CorrDiff's planning
+    # signature leads with a dynamic `batch` dimension, which `output_template`
+    # replaces with the ensemble, time and lead time dimensions this pipeline
+    # produces. The prognostic model's output signature declares a single forecast
+    # step, so the roll out lead times are stitched end to end behind the initial
+    # condition. The CorrDiff output grid is curvilinear, and its two-dimensional
+    # `lat` and `lon` auxiliary coordinates are carried into the store.
+    leads = prognostic.output_coords(prognostic_ic).coords["lead_time"].values
+    io.add_array(
+        output_template(
+            corrdiff.output_coords(corrdiff.input_coords()),
+            leading={
+                "ensemble": np.arange(nensemble),
+                "time": time,
+                "lead_time": np.concatenate(
+                    [
+                        np.zeros(1, dtype=leads.dtype),
+                        *(leads + leads[-1] * i for i in range(nsteps)),
+                    ]
+                ),
+            },
+        )
+    )
 
     # Determine batch size and number of batches
     batch_size = min(nensemble, batch_size or nensemble)
@@ -174,8 +180,7 @@ def corrdiff_on_hens_ensemble(
             .expand_dims(ensemble=np.arange(batch_id, batch_id + mini_batch_size))
             .copy(deep=True)
         )
-        tensor, coords = perturbation(*x.e2s.to_torch())
-        x = from_torch(tensor, x.assign_coords(coords))
+        x = perturbation(x)
         model = prognostic.create_iterator(x)
 
         with tqdm(
@@ -189,7 +194,7 @@ def corrdiff_on_hens_ensemble(
                 x = _map_field(x, corrdiff.input_coords())
                 # CorrDiff workflow: generate and write CorrDiff outputs
                 x = corrdiff(x)
-                io.write(*split_coords(*x.e2s.to_torch()))
+                io.write(x)
                 pbar.update(1)
                 if step == nsteps:
                     break

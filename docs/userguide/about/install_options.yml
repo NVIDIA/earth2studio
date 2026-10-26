@@ -308,6 +308,7 @@ categories:
         summary: StormCast-CONUS model dependencies.
         api_refs:
           - earth2studio.models.px.StormCastCONUS
+          - earth2studio.models.da.StormCastConusSDA
         # TODO: Removed with psn release 2.2.0
         preinstall:
           pip:
@@ -321,7 +322,7 @@ categories:
       - id: stormscope
         label: StormScope
         extra: stormscope
-        summary: StormScope model dependencies.
+        summary: StormScope model dependencies, including Flash variants.
         api_refs:
           - earth2studio.models.px.StormScopeGOES
           - earth2studio.models.px.StormScopeMRMS

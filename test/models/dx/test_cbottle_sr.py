@@ -335,7 +335,7 @@ class TestCBottleSRMock:
             return out
 
         monkeypatch.setattr(dx, "_forward", finite_forward)
-        check_diagnostic_contract(dx, device=device)
+        assert check_diagnostic_contract(dx, device=device) == []
 
 
 @pytest.mark.package

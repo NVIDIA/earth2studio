@@ -17,6 +17,17 @@ Runnable tutorials for proposed APIs and workflows.
   iterator hooks, and the Torch bridge with a small CPU-only synthetic core.
 - `05_array_backends.py`: environment defaults, scoped backend overrides, and
   gradient-preserving Torch handoffs with optional CUDA/CuPy examples.
+- `07_io_backends.py`: IO templates planned from model signatures, label-based
+  DataArray writes, and metadata round trips with the in-memory XarrayBackend.
+- `08_regridding.py`: `fetch_data` onto a target grid, explicit regridders,
+  `RegriddedSource`, coverage, and `CompositeSource` on a shared grid.
+
+## Execution contracts
+
+- `06_runner.py`: the built-in `PrognosticRunner` with a diagnostic stream,
+  `DiagnosticRunner` on source data, and a hand-written runner that stops early.
+- `09_pipeline.py`: `Pipeline` writing one store per stream, per-stream variable
+  filtering and regridding, and resume from a `ProgressStore` after a failure.
 
 Run the signature tutorial from the repository root with
 `.venv/bin/python dev/examples/03_coordinate_signatures.py`. It uses CPU-only

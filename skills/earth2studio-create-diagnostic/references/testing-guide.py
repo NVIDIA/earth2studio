@@ -29,6 +29,7 @@ import torch
 import xarray as xr
 
 from earth2studio.models.conformance import check_diagnostic_contract
+from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.utils.coords import coord_array_like, handshake_dataarray
 from earth2studio.utils.cupy import from_torch
 
@@ -59,15 +60,19 @@ def test_model_exceptions(model):
 
 
 def test_model_conformance(model):
+    # D1/D7: require the public members; a structural check alone does not test
+    # call signatures or behavior; the checker covers single and multiple slots.
+    assert isinstance(model, DiagnosticModel)
+    assert isinstance(model.stochastic, bool)
     skipped = check_diagnostic_contract(model)
     assert skipped == (
-        []
-        if getattr(model, "stochastic", False)
-        else ["D10: model does not declare itself stochastic"]
+        [] if model.stochastic else ["D10: model does not declare itself stochastic"]
     )
 
 
 def test_model_deterministic_seed(model):
+    if not model.stochastic:
+        pytest.skip("Deterministic diagnostic")
     x = make_input(model)
     model.set_rng(42)
     first = model(x).e2s.as_numpy()

@@ -54,7 +54,14 @@ from earth2studio.data.base import (
     ForecastFrameSource,
     ForecastSource,
 )
-from earth2studio.grids import GridDefinition
+from earth2studio.grids import (
+    GridDefinition,
+    Regridder,
+    infer_grid,
+    resolve_regridder,
+    same_geometry,
+    select_subset,
+)
 from earth2studio.utils.coords import (
     E2S_DYNAMIC_DIMS,
     E2S_KIND,
@@ -75,7 +82,6 @@ from earth2studio.utils.time_statistics import (
     time_statistic_metadata,
 )
 from earth2studio.utils.type import (
-    CoordinateSystem,
     CoordSystem,
     FieldArray,
     LeadTimeArray,
@@ -118,6 +124,28 @@ def _offset_times(time: TimeArray, lead: np.timedelta64) -> TimeArray:
     return cast(TimeArray, normalize_time_precision(np.asarray(time) + lead))
 
 
+def _is_forecast_source(source: DataSource | ForecastSource) -> bool:
+    """Return whether a source takes ``(time, lead_time, variable)`` requests.
+
+    Wrappers that forward requests, such as :class:`RegriddedSource`, declare this
+    through an ``is_forecast`` property; other sources by their call signature.
+
+    Parameters
+    ----------
+    source : DataSource | ForecastSource
+        Source to inspect.
+
+    Returns
+    -------
+    bool
+        True for a forecast source.
+    """
+    declared = getattr(source, "is_forecast", None)
+    if isinstance(declared, bool):
+        return declared
+    return "lead_time" in signature(source.__call__).parameters
+
+
 def _fetch_instantaneous(
     source: DataSource | ForecastSource,
     time: TimeArray,
@@ -125,7 +153,7 @@ def _fetch_instantaneous(
     variable: Sequence[str],
 ) -> xr.DataArray:
     variables = cast(VariableArray, np.asarray(variable))
-    if "lead_time" in signature(source.__call__).parameters:
+    if _is_forecast_source(source):
         return cast(ForecastSource, source)(time, lead_time, variables).sel(
             time=time, lead_time=lead_time, variable=variables
         )
@@ -152,7 +180,7 @@ def _fetch_statistic(
     delta_t: np.timedelta64,
 ) -> xr.DataArray:
     variables = cast(VariableArray, np.asarray(variable))
-    forecast = "lead_time" in signature(source.__call__).parameters
+    forecast = _is_forecast_source(source)
     dimension = "lead_time" if forecast else "time"
     if forecast:
         required = source_lead_times(modifier, lead_time, delta_t)
@@ -261,13 +289,54 @@ def _fetch_dataarray(
     return array
 
 
-def _map_grid(
+def _map_to_target(
     array: xr.DataArray,
-    target: CoordinateSystem | GridDefinition | str | None,
-    method: str,
+    source: DataSource | ForecastSource,
+    target_grid: GridDefinition | None,
+    regridder: Regridder | None,
 ) -> xr.DataArray:
-    # Regridding is deferred; preserve the source geometry and metadata.
-    return array
+    """Bring a fetched field onto ``target_grid``, cautiously when inferring."""
+    if regridder is not None:
+        if target_grid is not None and not same_geometry(
+            regridder.target_grid, target_grid
+        ):
+            raise ValueError("regridder.target_grid does not match target_grid")
+        return regridder(array)
+    if target_grid is None:
+        return array
+
+    try:
+        source_grid = infer_grid(array)
+    except ValueError as error:
+        raise ValueError(
+            f"Cannot determine the grid of fields from {type(source).__name__}; "
+            "pass a Regridder built for its grid"
+        ) from error
+    if same_geometry(source_grid, target_grid):
+        return array
+    subset = select_subset(array, source_grid, target_grid)
+    if subset is not None:
+        return subset
+
+    # Never extrapolate automatically: nearest within the source resolution, and
+    # raise rather than fill targets beyond the source.
+    try:
+        built = resolve_regridder(
+            source_grid, target_grid, "nearest", max_dist_km="auto", fill_value=None
+        )
+    except ValueError as error:
+        raise ValueError(
+            f"Cannot regrid {type(source).__name__} fields automatically: {error}; "
+            "pass a Regridder to choose a method and fill"
+        ) from error
+    logger.info(
+        f"Regridding {type(source).__name__} fields from a {source_grid.topology} "
+        f"grid {dict(zip(source_grid.dims, source_grid.shape))} to a "
+        f"{target_grid.topology} grid "
+        f"{dict(zip(target_grid.dims, target_grid.shape))} by nearest neighbor; "
+        "pass a Regridder to choose the method and reuse its weights"
+    )
+    return built(array)
 
 
 def fetch_data(
@@ -276,11 +345,11 @@ def fetch_data(
     variable: VariableArray,
     lead_time: LeadTimeArray = cast(LeadTimeArray, np.array([np.timedelta64(0, "h")])),
     device: torch.device | str = "cpu",
-    target_grid: CoordinateSystem | GridDefinition | str | None = None,
-    regridder: str = "nearest",
+    target_grid: GridDefinition | None = None,
+    regridder: Regridder | None = None,
     delta_t: np.timedelta64 | None = None,
 ) -> xr.DataArray:
-    """Fetch field DataArrays on the source grid with temporal statistics.
+    """Fetch field DataArrays with temporal statistics, optionally regridded.
 
     Parameters
     ----------
@@ -296,10 +365,15 @@ def fetch_data(
         np.array(np.timedelta64(0, "h"))
     device : torch.device | str, optional
         NumPy CPU or CuPy CUDA destination, by default "cpu"
-    target_grid : CoordinateSystem | GridDefinition | str, optional
-        Reserved target for future regridding. Currently a pass-through.
-    regridder : str, optional
-        Reserved regridding method, by default "nearest". Currently unused.
+    target_grid : GridDefinition, optional
+        Grid to return fields on, such as ``infer_grid(model.input_coords())``, by
+        default None, which keeps the source grid. Without ``regridder``, fields
+        already on it pass through, exact crops are selected, and otherwise fields
+        are regridded by nearest neighbor within the source resolution, raising if
+        the target extends beyond the source.
+    regridder : Regridder, optional
+        Regridder to apply, by default None. It must produce ``target_grid`` when
+        both are given.
     delta_t : np.timedelta64, optional
         Source cadence for temporal statistics; defaults to ``source.time_step``.
         Windows include their left endpoint and exclude their right endpoint.
@@ -308,7 +382,16 @@ def fetch_data(
     -------
     xr.DataArray
         Field values with dimensions [time, lead_time, variable, ...], auxiliary
-        coordinates, actual grid metadata and normalized temporal statistics.
+        coordinates, actual grid metadata and normalized temporal statistics. The
+        field is on the source grid unless regridded.
+
+    Note
+    ----
+    Sources may return NumPy- or CuPy-backed fields. Temporal reductions run on
+    that backing; the result then moves to ``device`` only if it is not already
+    there, and regridding runs last, on ``device``. Regridding automatically
+    constructs a regridder on every call; pass a
+    :class:`~earth2studio.grids.Regridder` to choose the method and reuse it.
     """
     device = torch.device(device)
     if device.type not in {"cpu", "cuda"}:
@@ -330,7 +413,6 @@ def fetch_data(
         raise ValueError("variable must be a nonempty 1D array")
     lead_time = lead_time.astype("timedelta64[ns]")
     da = _fetch_dataarray(source, time, variable, lead_time, delta_t)
-    da = _map_grid(da, target_grid, regridder)
     for key in (E2S_KIND, E2S_SCHEMA_VERSION, E2S_DYNAMIC_DIMS):
         da.attrs.pop(key, None)
     if device.type == "cuda":
@@ -344,7 +426,7 @@ def fetch_data(
         da = da.copy(data=cp.asnumpy(da.data))
     else:
         da = da.copy(data=np.asarray(da.data))
-    return da
+    return _map_to_target(da, source, target_grid, regridder)
 
 
 def fetch_dataframe(
@@ -404,6 +486,92 @@ def fetch_dataframe(
         return result
     else:
         return df
+
+
+class RegriddedSource:
+    """Data or forecast source whose fields are regridded onto a target grid.
+
+    Composes a source with a :class:`~earth2studio.grids.Regridder` so the pair
+    stands in for the source wherever a ``DataSource`` or ``ForecastSource`` is
+    accepted, for example as a model's recommended source for a slot on another
+    grid. Requests pass through unchanged; only the spatial dimensions of the
+    result are mapped.
+
+    Parameters
+    ----------
+    source : DataSource | ForecastSource
+        Source to wrap, whose native grid is the regridder's ``source_grid``.
+    regridder : Regridder
+        Regridder applied to fetched fields, on whatever backing and device the
+        source returns them.
+    """
+
+    def __init__(
+        self, source: DataSource | ForecastSource, regridder: Regridder
+    ) -> None:
+        if not isinstance(regridder, Regridder):
+            raise TypeError("regridder must implement the Regridder protocol")
+        self.source = source
+        self.regridder = regridder
+
+    @property
+    def time_step(self) -> np.timedelta64 | None:
+        """Cadence of the wrapped source, used for temporal statistics."""
+        return getattr(self.source, "time_step", None)
+
+    @property
+    def is_forecast(self) -> bool:
+        """Whether the wrapped source is a forecast source."""
+        return _is_forecast_source(self.source)
+
+    @property
+    def device(self) -> torch.device:
+        """Device the wrapped source returns fields on."""
+        return torch.device(getattr(self.source, "device", "cpu"))
+
+    # Requests are forwarded as given, so one wrapper serves both source protocols:
+    # ``(time, variable)`` for a DataSource, ``(time, lead_time, variable)`` for a
+    # ForecastSource.
+
+    def __call__(self, *args: Any, **kwargs: Any) -> xr.DataArray:
+        """Fetch from the wrapped source and regrid the result.
+
+        Parameters
+        ----------
+        *args, **kwargs : Any
+            Request arguments of the wrapped source.
+
+        Returns
+        -------
+        xr.DataArray
+            Source field on the regridder's ``target_grid``.
+        """
+        return self.regridder(self.source(*args, **kwargs))
+
+    async def fetch(self, *args: Any, **kwargs: Any) -> xr.DataArray:
+        """Asynchronously fetch from the wrapped source and regrid the result.
+
+        Parameters
+        ----------
+        *args, **kwargs : Any
+            Request arguments of the wrapped source.
+
+        Returns
+        -------
+        xr.DataArray
+            Source field on the regridder's ``target_grid``.
+
+        Raises
+        ------
+        AttributeError
+            If the wrapped source does not support async fetch.
+        """
+        if not hasattr(self.source, "fetch"):
+            raise AttributeError(
+                f"Wrapped source {type(self.source).__name__} does not support "
+                "async fetch"
+            )
+        return self.regridder(await self.source.fetch(*args, **kwargs))
 
 
 def prep_data_array(

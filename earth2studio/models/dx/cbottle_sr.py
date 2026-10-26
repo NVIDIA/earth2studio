@@ -15,6 +15,7 @@
 # limitations under the License.
 
 from dataclasses import replace
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
@@ -31,6 +32,9 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 try:
     import earth2grid
@@ -134,6 +138,8 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     year:2025 gpu:80gb
     provider:nvidia backend:pytorch
     """
+
+    stochastic = True
 
     def __init__(
         self,
@@ -292,6 +298,22 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             # For healpix output, the output grid is always the high-res healpix grid
             self.output_grid = self.hpx_high_res_grid
             self.regrid_hpx_high_res_to_output = None
+
+    def default_sources(self) -> "DataSource":
+        """Recommend the CBottle3D data source.
+
+        This recommendation loads the data generator's checkpoint on CPU.
+
+        Returns
+        -------
+        DataSource
+            Loaded CBottle3D generator using this model's grid representation.
+        """
+        from earth2studio.data import CBottle3D
+
+        return CBottle3D.load_model(
+            CBottle3D.load_default_package(), lat_lon=self.input_type == "latlon"
+        )
 
     def input_coords(self) -> xr.DataArray:
         """Input coordinate system of the diagnostic model.
@@ -457,7 +479,6 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         """Reorder channels from the super resolution model"""
         return torch.index_select(x, 0, self._from_sr_index)
 
-    stochastic = True
     _rng_seed: int | None = None
     _rng_states: dict[str, torch.Tensor] | None = None
 
@@ -512,7 +533,19 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         self,
         x: xr.DataArray,
     ) -> xr.DataArray:
-        """Super-resolve a labelled field on the configured output domain."""
+        """Super-resolve a labelled field on the configured output domain.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Coarse conditioning fields matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            Super-resolved fields matching ``output_coords(x)``, including the
+            configured high-resolution spatial coordinates.
+        """
         output_coords = self.output_coords(x)
         x = x.e2s.to_torch()[0].to(self.device).clone()
 

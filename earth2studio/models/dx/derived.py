@@ -30,6 +30,8 @@ from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 
 class _DerivedDiagnostic(torch.nn.Module):
+    stochastic = False
+
     def __init__(self, grid: str | GridDefinition) -> None:
         super().__init__()
         definition = resolve_grid(grid) if isinstance(grid, str) else grid
@@ -37,6 +39,16 @@ class _DerivedDiagnostic(torch.nn.Module):
             raise ValueError("Derived diagnostics require a two-dimensional grid")
         self.grid = grid
         self._spatial_dims = definition.dims
+
+    def default_sources(self) -> None:
+        """Return no recommended input data source.
+
+        Returns
+        -------
+        None
+            Input data sources are chosen by the caller.
+        """
+        return None
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.

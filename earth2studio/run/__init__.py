@@ -14,135 +14,73 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Built-in forecast workflows and work-item runners.
+
+A :class:`~earth2studio.run.runner.Runner` executes one
+:class:`~earth2studio.run.runner.WorkItem`. The built-ins are
+:class:`PrognosticRunner`, which rolls out one prognostic model, and
+:class:`DiagnosticRunner`, which applies diagnostics to source data. Coupled
+runners live with the coupler, never here. :class:`Pipeline` drives any runner
+over many items: distribution across ranks, resume, scoring, and IO.
+"""
+
 from collections import OrderedDict
 from datetime import datetime
 from math import ceil
+from typing import cast
 
 import numpy as np
 import torch
 import xarray as xr
 from loguru import logger
-from tqdm import tqdm
+from tqdm import tqdm  # type: ignore[import-untyped]
 
 from earth2studio.data import DataSource, ForecastSource, fetch_data
-from earth2studio.io import IOBackend
+from earth2studio.io.base import IOBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
+from earth2studio.run._fields import (  # noqa: F401 - re-exported helpers
+    _dimension_coords,
+    _io_template,
+    _lead_times,
+    _map_field,
+    _rollout,
+    _with_lead_time,
+)
+from earth2studio.run.pipeline import Pipeline, Scorer
+from earth2studio.run.runner import (
+    DataRequest,
+    DiagnosticRunner,
+    PrognosticRunner,
+    Runner,
+)
+from earth2studio.run.work import ProgressStore, WorkItem, work_items
 from earth2studio.utils.checkpoint import (
     Checkpoint,
     CheckpointSession,
     NullCheckpoint,
 )
-from earth2studio.utils.coords import CoordSystem, coord_array_like, split_coords
-from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.coords import CoordSystem
 from earth2studio.utils.time import to_time_array
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
-
-def _dimension_coords(x: xr.DataArray) -> CoordSystem:
-    """Read dimension labels without materializing a coordinate signature."""
-    return OrderedDict((dim, x.coords[dim].values) for dim in x.dims)
-
-
-def _map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataArray:
-    """Select model variables/domain, retaining runtime times and auxiliary geometry.
-
-    Exact contiguous selections are views; nearest numeric selections preserve the
-    legacy runner's mapping behavior. Curvilinear auxiliaries are never indexed as
-    dimensions. Model validation checks their geometry at the inference boundary.
-    """
-    coordinates = (
-        _dimension_coords(target) if isinstance(target, xr.DataArray) else target
-    )
-    for dim, values in coordinates.items():
-        if dim in ("batch", "time", "lead_time") or len(values) == 0:
-            continue
-        source = x.coords[dim].values
-        if np.array_equal(source, values):
-            continue
-        if source.ndim != 1 or np.asarray(values).ndim != 1:
-            raise ValueError(f"Cannot map multidimensional coordinate {dim}")
-        index = x.get_index(dim).get_indexer(values)
-        if (index < 0).any():
-            if not np.issubdtype(source.dtype, np.number):
-                raise ValueError(f"Missing labels for coordinate {dim}: {values}")
-            index = np.abs(source[:, None] - values[None, :]).argmin(axis=0)
-        selection = (
-            slice(int(index[0]), int(index[-1]) + 1)
-            if np.all(np.diff(index) == 1)
-            else index
-        )
-        x = x.isel({dim: selection}).assign_coords({dim: values})
-        if dim == "variable":
-            statistics = coord_array_like(x).attrs.get("earth2studio_statistics")
-            x.attrs = dict(x.attrs)
-            x.attrs.pop("earth2studio_statistics", None)
-            if statistics:
-                x.attrs["earth2studio_statistics"] = statistics
-    if isinstance(target, xr.DataArray) and "dims" in target.attrs:
-        spatial_dims = set(target.attrs["dims"])
-        for name, coordinate in target.coords.items():
-            if not spatial_dims.intersection(coordinate.dims):
-                continue
-            if (
-                name not in x.coords
-                or x.coords[name].dims != coordinate.dims
-                or not np.array_equal(x.coords[name], coordinate)
-            ):
-                raise ValueError(
-                    f"Source geometry does not match target coordinate {name}"
-                )
-        actual_crs = x.attrs.get("earth2studio_crs")
-        if actual_crs is not None and actual_crs != target.attrs.get(
-            "earth2studio_crs"
-        ):
-            raise ValueError("Source CRS does not match target CRS")
-        x = x.copy(deep=False)
-        for key in (
-            "type",
-            "dims",
-            "shape",
-            "topology",
-            "crs",
-            "earth2studio_crs",
-            "earth2studio_grid_id",
-            "level",
-            "nside",
-            "ordering",
-            "layout",
-            "origin",
-            "clockwise",
-        ):
-            x.attrs.pop(key, None)
-            if key in target.attrs:
-                x.attrs[key] = target.attrs[key]
-    return x
-
-
-def _output_dimensions(
-    prognostic: PrognosticModel, time: np.ndarray, nsteps: int
-) -> CoordSystem:
-    """Plan the legacy IO dimensions from a native model declaration."""
-    signature = prognostic.output_coords(prognostic.input_coords())
-    coords = OrderedDict(
-        (dim, values)
-        for dim, values in _dimension_coords(signature).items()
-        if signature.sizes[dim]
-    )
-    leads = signature.coords["lead_time"].values
-    coords["time"] = time
-    coords["lead_time"] = np.concatenate(
-        [
-            np.zeros(1, dtype=leads.dtype),
-            *(leads + leads[-1] * i for i in range(nsteps)),
-        ]
-    )
-    coords.move_to_end("lead_time", last=False)
-    coords.move_to_end("time", last=False)
-    return coords
+__all__ = [
+    "DataRequest",
+    "DiagnosticRunner",
+    "Pipeline",
+    "PrognosticRunner",
+    "ProgressStore",
+    "Runner",
+    "Scorer",
+    "WorkItem",
+    "work_items",
+    "deterministic",
+    "diagnostic",
+    "ensemble",
+]
 
 
 def deterministic(
@@ -196,16 +134,17 @@ def deterministic(
     )
     logger.info(f"Inference device: {device}")
     prognostic = prognostic.to(device)
-    prognostic_ic = prognostic.input_coords()
+    prognostic_ic = cast(xr.DataArray, prognostic.input_coords())
     time = to_time_array(time)
 
     # Set up IO backend
-    total_coords = _output_dimensions(prognostic, np.asarray(time), nsteps)
-
-    for key, value in total_coords.items():
-        total_coords[key] = output_coords.get(key, value)
-    var_names = total_coords.pop("variable")
-    io.add_array(total_coords, var_names)
+    template = _io_template(
+        prognostic.output_coords(prognostic_ic),
+        nsteps,
+        leading={"time": np.asarray(time)},
+        output_coords=output_coords,
+    )
+    io.add_array(template)
 
     with checkpoint as ckpt:
         restart_step = None
@@ -225,21 +164,12 @@ def deterministic(
 
         # --8<-- [start:fetch-data]
         # Fetch data from data source and load onto device
-        if hasattr(prognostic, "interp_method"):
-            interp_to = prognostic_ic
-            interp_method = prognostic.interp_method
-        else:
-            interp_to = None
-            interp_method = "nearest"
-
         x = fetch_data(
             source=data,
             time=time,
             variable=prognostic_ic.coords["variable"].values,
             lead_time=prognostic_ic.coords["lead_time"].values,
             device=device,
-            target_grid=interp_to,
-            regridder=interp_method,
         )
 
         logger.success(f"Fetched data from {data.__class__.__name__}")
@@ -248,7 +178,7 @@ def deterministic(
         # Map lat and lon if needed
         x = _map_field(x, prognostic_ic)
         # Create prognostic iterator
-        model = prognostic.create_iterator(x)
+        model = _rollout(prognostic, x, restart_step is None)
 
         logger.info("Inference starting!")
         initial_progress = 0 if restart_step is None else restart_step + 1
@@ -266,10 +196,11 @@ def deterministic(
                     else restart_step + local_step + 1
                 )
 
+                x = cast(xr.DataArray, x)
                 current_lead_time = x.coords["lead_time"].values[-1]
                 # Subselect domain/variables as indicated in output_coords
                 x = _map_field(x, output_coords)
-                io.write(*split_coords(*x.e2s.to_torch()))
+                io.write(x)
                 ckpt.write(lead_time=current_lead_time)
                 pbar.update(1)
                 if step == nsteps:
@@ -336,27 +267,20 @@ def diagnostic(
     prognostic = prognostic.to(device)
     diagnostic = diagnostic.to(device)
 
-    prognostic_ic = prognostic.input_coords()
-    diagnostic_ic = diagnostic.input_coords()
+    prognostic_ic = cast(xr.DataArray, prognostic.input_coords())
+    diagnostic_ic = cast(xr.DataArray, diagnostic.input_coords())
     time = to_time_array(time)
 
-    total_coords = _output_dimensions(prognostic, np.asarray(time), nsteps)
-    diagnostic_oc = diagnostic.output_coords(
-        _map_field(prognostic.output_coords(prognostic_ic), diagnostic_ic)
+    prognostic_oc = prognostic.output_coords(prognostic_ic)
+    diagnostic_oc = diagnostic.output_coords(_map_field(prognostic_oc, diagnostic_ic))
+    template = _io_template(
+        diagnostic_oc,
+        nsteps,
+        leading={"time": np.asarray(time)},
+        output_coords=output_coords,
+        lead_time=_lead_times(prognostic_oc, nsteps),
     )
-    total_coords = OrderedDict(
-        [("time", time), ("lead_time", total_coords["lead_time"])]
-        + [
-            (dim, diagnostic_oc.coords[dim].values)
-            for dim in diagnostic_oc.dims
-            if dim not in ("time", "lead_time") and diagnostic_oc.sizes[dim]
-        ]
-    )
-
-    for key, value in total_coords.items():
-        total_coords[key] = output_coords.get(key, value)
-    var_names = total_coords.pop("variable")
-    io.add_array(total_coords, var_names)
+    io.add_array(template)
 
     with checkpoint as ckpt:
         restart_step = None
@@ -374,26 +298,17 @@ def diagnostic(
                     logger.success("\nInference complete")
                     return io
 
-        if hasattr(prognostic, "interp_method"):
-            interp_to = prognostic_ic
-            interp_method = prognostic.interp_method
-        else:
-            interp_to = None
-            interp_method = "nearest"
-
         x = fetch_data(
             source=data,
             time=time,
             variable=prognostic_ic.coords["variable"].values,
             lead_time=prognostic_ic.coords["lead_time"].values,
             device=device,
-            target_grid=interp_to,
-            regridder=interp_method,
         )
         logger.success(f"Fetched data from {data.__class__.__name__}")
 
         x = _map_field(x, prognostic_ic)
-        model = prognostic.create_iterator(x)
+        model = _rollout(prognostic, x, restart_step is None)
 
         logger.info("Inference starting!")
         initial_progress = 0 if restart_step is None else restart_step + 1
@@ -411,10 +326,12 @@ def diagnostic(
                     else restart_step + local_step + 1
                 )
 
+                x = cast(xr.DataArray, x)
                 current_lead_time = x.coords["lead_time"].values[-1]
                 x = diagnostic(_map_field(x, diagnostic_ic))
+                x = _with_lead_time(x, current_lead_time)
                 x = _map_field(x, output_coords)
-                io.write(*split_coords(*x.e2s.to_torch()))
+                io.write(x)
                 ckpt.write(lead_time=current_lead_time)
                 pbar.update(1)
                 if step == nsteps:
@@ -486,34 +403,30 @@ def ensemble(
     logger.info(f"Inference device: {device}")
     prognostic = prognostic.to(device)
 
-    prognostic_ic = prognostic.input_coords()
+    prognostic_ic = cast(xr.DataArray, prognostic.input_coords())
     time = to_time_array(time)
-    if hasattr(prognostic, "interp_method"):
-        interp_to = prognostic_ic
-        interp_method = prognostic.interp_method
-    else:
-        interp_to = None
-        interp_method = "nearest"
-
     x0 = fetch_data(
         source=data,
         time=time,
         variable=prognostic_ic.coords["variable"].values,
         lead_time=prognostic_ic.coords["lead_time"].values,
         device=device,
-        target_grid=interp_to,
-        regridder=interp_method,
     )
     logger.success(f"Fetched data from {data.__class__.__name__}")
 
     x0 = _map_field(x0, prognostic_ic)
-    total_coords = _output_dimensions(prognostic, np.asarray(time), nsteps)
-    total_coords = {"ensemble": np.arange(nensemble)} | total_coords
-
-    for key, value in total_coords.items():
-        total_coords[key] = output_coords.get(key, value)
-    variables_to_save = total_coords.pop("variable")
-    io.add_array(total_coords, variables_to_save)
+    template = _io_template(
+        prognostic.output_coords(prognostic_ic),
+        nsteps,
+        leading={"ensemble": np.arange(nensemble), "time": np.asarray(time)},
+        output_coords=output_coords,
+    )
+    io.add_array(template)
+    # Member selections pick which members of each batch are written
+    stored_members = template.coords["ensemble"].values
+    field_coords = OrderedDict(
+        (k, v) for k, v in output_coords.items() if k != "ensemble"
+    )
 
     if batch_size is None:
         batch_size = nensemble
@@ -535,7 +448,7 @@ def ensemble(
             ckpt.exists
             and ckpt.write_count > 0
             and start_batch_id < nensemble
-            and ckpt.lead_time != total_coords["lead_time"][-1]
+            and ckpt.lead_time != template.coords["lead_time"].values[-1]
         )
 
         logger.info(f"Starting {nensemble} Member Ensemble Inference with \
@@ -552,6 +465,7 @@ def ensemble(
             mini_batch_size = min(batch_size, nensemble - batch_id)
             ensemble_coords = np.arange(batch_id, batch_id + mini_batch_size)
             ensemble_members = [int(value) for value in ensemble_coords]
+            written_members = np.intersect1d(ensemble_coords, stored_members)
             restart_step = None
             if batch_index == 0 and restart_first_batch:
                 if ckpt.catalog.level < 2:
@@ -570,10 +484,9 @@ def ensemble(
                 ckpt.write_count = 0
 
             x = x0.expand_dims(ensemble=ensemble_coords).copy(deep=True)
-            tensor, coords = perturbation(*x.e2s.to_torch())
-            x = from_torch(tensor, x.assign_coords(coords))
+            x = perturbation(x)
 
-            model = prognostic.create_iterator(x)
+            model = _rollout(prognostic, x, restart_step is None)
             initial_progress = 0 if restart_step is None else restart_step + 1
             with tqdm(
                 total=nsteps + 1,
@@ -590,9 +503,13 @@ def ensemble(
                         else restart_step + local_step + 1
                     )
 
+                    x = cast(xr.DataArray, x)
                     current_lead_time = x.coords["lead_time"].values[-1]
-                    x = _map_field(x, output_coords)
-                    io.write(*split_coords(*x.e2s.to_torch()))
+                    x = _map_field(x, field_coords)
+                    if len(written_members) < mini_batch_size:
+                        x = x.sel(ensemble=written_members)
+                    if len(written_members):
+                        io.write(x)
                     if step == nsteps:
                         completed.update(ensemble_members)
                         completed_ensembles = sorted(completed)

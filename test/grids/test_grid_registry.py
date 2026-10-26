@@ -73,6 +73,89 @@ def test_grid_registry_builtins():
     assert isinstance(resolve_grid("hrrr"), GridDefinition)
 
 
+@pytest.mark.parametrize(
+    "position,satellites",
+    [("east", ("goes16", "goes19")), ("west", ("goes17", "goes18"))],
+)
+def test_goes_grid_builtins(position, satellites):
+    from earth2studio.data import GOES
+
+    grid = resolve_grid(f"goes-{position}-conus")
+    coords = grid.coords()
+    for satellite in satellites:
+        # Labels are the source's scan angles, so source fields regrid unchanged.
+        y, x = GOES.CONTINENTAL_US_YX[satellite]
+        np.testing.assert_array_equal(grid.y, y)
+        np.testing.assert_array_equal(grid.x, x)
+        latitude, longitude = GOES.grid(satellite=satellite, scan_mode="C")
+        # Off-disk points are non-finite in both; regridders skip them.
+        disk = np.isfinite(latitude)
+        np.testing.assert_array_equal(np.isfinite(coords["lat"].values), disk)
+        np.testing.assert_allclose(
+            coords["lat"].values[disk], latitude[disk], rtol=0, atol=1e-7
+        )
+        np.testing.assert_allclose(
+            coords["lon"].values[disk],
+            np.mod(longitude[disk], 360),
+            rtol=0,
+            atol=1e-7,
+        )
+
+    full = resolve_grid(f"goes-{position}-fulldisk")
+    assert full.shape == GOES.SCAN_DIMENSIONS["F"]
+    assert full.crs == grid.crs
+    np.testing.assert_array_equal(full.y, GOES.FULL_DISK_YX[0])
+    center = full.coords({"y": np.array([0.0]), "x": np.array([0.0])})
+    np.testing.assert_allclose(center["lat"], 0.0, atol=1e-9)
+    np.testing.assert_allclose(
+        center["lon"],
+        np.mod(GOES.LONGITUDE_OF_PROJECTION_ORIGIN[satellites[0]], 360),
+        atol=1e-9,
+    )
+
+
+def test_fci_grid_builtins():
+    from earth2studio.data import MeteosatFCI
+
+    grids = {res: resolve_grid(f"mtg-fci-fulldisk-{res}") for res in ("2km", "1km")}
+    for res, grid in grids.items():
+        # Labels are the source's scan angles, so source fields regrid unchanged.
+        np.testing.assert_array_equal(grid.y, MeteosatFCI.FCI_Y[res])
+        np.testing.assert_array_equal(grid.x, MeteosatFCI.FCI_X[res])
+    # Each 2 km pixel is the centre of a 2x2 block of 1 km pixels.
+    for axis in ("y", "x"):
+        fine, coarse = getattr(grids["1km"], axis), getattr(grids["2km"], axis)
+        np.testing.assert_allclose(fine.reshape(-1, 2).mean(1), coarse, atol=1e-9)
+
+    # Pixel (row, column): latitude and longitude of the StormScope package, which
+    # navigates FCI with sweep=y and a west-positive x scan angle.
+    grid = grids["2km"]
+    for (row, column), expected in {
+        (4880, 3072): (44.274174, 7.622921),
+        (5320, 2156): (62.918877, -28.507347),
+        (4420, 4156): (33.118618, 32.779476),
+    }.items():
+        coords = grid.coords({"y": grid.y[[row]], "x": grid.x[[column]]})
+        longitude = (coords["lon"].values.item() + 180) % 360 - 180
+        np.testing.assert_allclose(
+            (coords["lat"].values.item(), longitude), expected, atol=1e-5
+        )
+
+
+def test_observation_latlon_grid_builtins():
+    from earth2studio.data import GOESGLMGrid
+
+    mrms = resolve_grid("mrms-conus-0.01deg").coords()
+    assert mrms["lat"].shape == (3500,) and mrms["lon"].shape == (7000,)
+    np.testing.assert_allclose(mrms["lat"][[0, -1]], [54.995, 20.005], atol=1e-9)
+    np.testing.assert_allclose(mrms["lon"][[0, -1]], [230.005, 299.995], atol=1e-9)
+
+    glm = resolve_grid("glm-conus-0.1deg").coords()
+    source = GOESGLMGrid(cache=False, verbose=False)
+    np.testing.assert_allclose(glm["lat"], source.lat, rtol=0, atol=1e-9)
+    np.testing.assert_allclose(glm["lon"], source.lon, rtol=0, atol=1e-9)
+
+
 def test_grid_registry_registration():
     register_grid("test-registry-grid", GRID, aliases=("test-registry-alias",))
     register_grid("test-registry-grid", GRID, aliases=("test-registry-alias",))

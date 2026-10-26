@@ -17,7 +17,7 @@
 from collections import OrderedDict
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 import pandas as pd
@@ -37,6 +37,9 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.type import LeadTimeArray
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 try:
     from physicsnemo.diffusion.generate.legacy_generate import (
@@ -336,6 +339,30 @@ class CorrDiffCMIP6(CorrDiff):
             if v in self._NONNEGATIVE_VARS
         ]
 
+    def default_sources(self) -> "DataSource":
+        """Recommend the CMIP6 multi-realm data source.
+
+        Returns
+        -------
+        DataSource
+            ``CMIP6MultiRealm`` over the day, Eday and SIday tables of the CanESM5
+            ssp585 run used in the model example.
+        """
+        from earth2studio.data import CMIP6, CMIP6MultiRealm
+
+        tables = [
+            CMIP6(
+                table_id=table_id,
+                experiment_id="ssp585",
+                source_id="CanESM5",
+                variant_label="r1i1p2f1",
+                exact_time_match=True,
+            )
+            for table_id in ("day", "Eday", "SIday")
+        ]
+        # CMIP6MultiRealm is callable as a DataSource but has no async fetch
+        return CMIP6MultiRealm(tables)  # type: ignore[return-value]
+
     def input_coords(self) -> xr.DataArray:
         """Input coordinate system of the diagnostic model.
 
@@ -600,7 +627,19 @@ class CorrDiffCMIP6(CorrDiff):
         )
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Downscale the three-day labelled conditioning history."""
+        """Downscale the three-day labelled conditioning history.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Three-day conditioning history matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            Downscaled fields matching ``output_coords(x)``. Sample dimensions
+            follow time, ahead of lead time and the fixed spatial dimensions.
+        """
         signature = self.output_coords(x)
         x, restore = batch_func()._compress_array(self, x)
         output_coords = self.output_coords(x)

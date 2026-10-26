@@ -21,86 +21,84 @@ from collections import OrderedDict
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 import zarr
+
+from earth2studio.grids import LatLonGrid
+from earth2studio.utils.coords import coord_array
+from earth2studio.utils.cupy import from_torch
 
 icechunk = pytest.importorskip("icechunk", reason="icechunk not installed")
 
 from earth2studio.io import AsyncZarrBackend, IceChunkBackend  # noqa: E402
 
+# Protocol behavior is covered by test_io_contract.py
 
-@pytest.mark.parametrize(
-    "time",
-    [
-        [np.datetime64("1958-01-31")],
-        [np.datetime64("1971-06-01T06:00:00"), np.datetime64("2021-11-23T12:00:00")],
-    ],
-)
-@pytest.mark.parametrize(
-    "variable",
-    [["t2m"], ["t2m", "tcwv"]],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_icechunk_field(
-    time: list[np.datetime64], variable: list[str], device: str
-) -> None:
+TIMES = np.array(["2021-01-01T00", "2021-01-02T00"], dtype="datetime64[h]")
+VARIABLES = ["t2m", "tcwv"]
+GRID = LatLonGrid(np.linspace(90, -90, 8), np.linspace(0, 360, 16, endpoint=False))
 
-    total_coords = OrderedDict(
-        {
-            "time": np.asarray(time),
-            "variable": np.asarray(variable),
-            "lat": np.linspace(-90, 90, 180),
-            "lon": np.linspace(0, 360, 360, endpoint=False),
-        }
+
+def make_template(variables: list[str] = VARIABLES) -> xr.DataArray:
+    return coord_array(
+        ("time", "variable", *GRID.dims),
+        {"time": TIMES, "variable": variables},
+        grid=GRID,
+        attrs={"units": "K"},
     )
 
-    chunks = OrderedDict({"time": 1, "variable": 1, "lat": 180, "lon": 180})
 
-    # Test in-memory repository
-    io = IceChunkBackend(chunks=chunks)
+def make_field(variables: list[str] = VARIABLES, seed: int = 0) -> xr.DataArray:
+    shape = (len(TIMES), len(variables), *GRID.shape)
+    data = np.random.default_rng(seed).standard_normal(shape).astype(np.float32)
+    return xr.DataArray(
+        data,
+        dims=("time", "variable", *GRID.dims),
+        coords={
+            "time": TIMES,
+            "variable": variables,
+            "lat": GRID.latitude,
+            "lon": GRID.longitude,
+        },
+    )
+
+
+def assert_round_trip(io: IceChunkBackend, field: xr.DataArray) -> None:
+    """The store holds `field`, by label and through a fresh readonly session."""
+    read = io.read(field)
+    np.testing.assert_allclose(read.transpose(*field.dims).values, field.values)
+    io.flush()
+    root = zarr.open_group(io.repo.readonly_session(io.branch).store, mode="r")
+    for variable in field.coords["variable"].values:
+        np.testing.assert_allclose(
+            root[str(variable)][:], field.sel(variable=variable, drop=True).values
+        )
+
+
+@pytest.mark.parametrize("variables", [["t2m"], VARIABLES])
+def test_icechunk_memory_repo(variables: list[str]) -> None:
+
+    io = IceChunkBackend()
     assert isinstance(io.repo, icechunk.Repository)
     assert isinstance(io.root, zarr.Group)
 
-    array_name = "fields"
-    io.add_array(total_coords, array_name)
-
-    for dim in total_coords:
+    io.add_array(make_template(variables))
+    for dim in ("time", "lat", "lon"):
         assert dim in io
         assert dim in io.coords
-        assert io[dim].shape == total_coords[dim].shape
+    for variable in variables:
+        assert variable in io
+        assert io[variable].shape == (len(TIMES), *GRID.shape)
+    assert "variable" not in io
 
-    assert array_name in io
-
-    shape = tuple(len(dim) for dim in total_coords.values())
-    assert io[array_name].shape == shape
-
-    x = torch.randn(shape, device=device, dtype=torch.float32)
-    io.write(x, total_coords, array_name)
-    assert np.allclose(io[array_name][:], x.to("cpu").numpy())
-
-    xx, _ = io.read(total_coords, array_name, device=device)
-    assert torch.allclose(x, xx)
-
-    # Commit and confirm the write survives a fresh readonly session
+    field = make_field(variables)
+    io.write(field)
     snapshot_id = io.commit("write fields")
     assert isinstance(snapshot_id, str)
-
-    readonly = io.repo.readonly_session(io.branch)
-    root = zarr.open_group(readonly.store, mode="r")
-    assert np.allclose(root[array_name][:], x.to("cpu").numpy())
+    assert_round_trip(io, field)
 
 
 def test_icechunk_local_filesystem_and_branch() -> None:
-
-    total_coords = OrderedDict(
-        {
-            "time": np.asarray([np.datetime64("2021-01-01")]),
-            "variable": np.asarray(["t2m"]),
-            "lat": np.linspace(-90, 90, 8),
-            "lon": np.linspace(0, 360, 16, endpoint=False),
-        }
-    )
-    array_name = "fields"
-    shape = tuple(len(dim) for dim in total_coords.values())
 
     with tempfile.TemporaryDirectory() as td:
         repo_path = os.path.join(td, "repo")
@@ -109,29 +107,30 @@ def test_icechunk_local_filesystem_and_branch() -> None:
         assert io.branch == "experiment"
         assert "experiment" in io.repo.list_branches()
 
-        io.add_array(total_coords, array_name)
-        x = torch.randn(shape, dtype=torch.float32)
-        io.write(x, total_coords, array_name)
+        io.add_array(make_template())
+        field = make_field()
+        io.write(field)
         io.commit("write fields")
 
         # Reopen the repository on the same branch and confirm data persisted
         io2 = IceChunkBackend(repo_path, branch="experiment")
-        assert array_name in io2
-        xx, _ = io2.read(total_coords, array_name)
-        assert torch.allclose(x, xx)
+        assert "t2m" in io2
+        np.testing.assert_array_equal(io2.coords["time"], TIMES)
+        read = io2.read(field)
+        np.testing.assert_allclose(read.transpose(*field.dims).values, field.values)
+
+        # A resumed run may re-add the same arrays and keep writing
+        io2.add_array(make_template())
+        io2.write(make_field(seed=1))
+        io2.commit("write again")
+        assert_round_trip(io2, make_field(seed=1))
 
 
 def test_icechunk_empty_commit() -> None:
 
     io = IceChunkBackend()
-    total_coords = OrderedDict(
-        {
-            "time": np.asarray([np.datetime64("2021-01-01")]),
-            "lat": np.linspace(-90, 90, 8),
-        }
-    )
-    io.add_array(total_coords, "fields")
-    io.write(torch.randn(1, 8), total_coords, "fields")
+    io.add_array(make_template(["t2m"]))
+    io.write(make_field(["t2m"]))
     io.commit("write fields")
 
     # Committing with no new writes raises unless allow_empty is passed
@@ -141,11 +140,10 @@ def test_icechunk_empty_commit() -> None:
     assert isinstance(snapshot_id, str)
 
     # Backend still usable after commits
-    x = torch.randn(1, 8)
-    io.write(x, total_coords, "fields")
+    field = make_field(["t2m"], seed=2)
+    io.write(field)
     io.commit("write again")
-    xx, _ = io.read(total_coords, "fields")
-    assert torch.allclose(x, xx)
+    assert_round_trip(io, field)
 
 
 def test_icechunk_with_async_zarr_backend() -> None:
@@ -174,11 +172,11 @@ def test_icechunk_with_async_zarr_backend() -> None:
             parallel_coords=OrderedDict({"time": times, "lead_time": lead_times}),
             store=session.store,
         )
+        io.add_array(coord_array(tuple(coords), coords, name="t2m"))
         x = torch.randn(1, 4, 32, 64, dtype=torch.float32)
         for i in range(4):
-            step_coords = OrderedDict(coords)
-            step_coords["lead_time"] = lead_times[i : i + 1]
-            io.write(x[:, i : i + 1], step_coords, "t2m")
+            step_coords = OrderedDict(coords, lead_time=lead_times[i : i + 1])
+            io.write(from_torch(x[:, i : i + 1], step_coords, name="t2m"))
         io.close()
         session.commit("async write")
 
@@ -190,55 +188,43 @@ def test_icechunk_with_async_zarr_backend() -> None:
 def test_icechunk_snapshot_time_travel() -> None:
     """Old snapshots remain readable after the branch moves on."""
 
-    total_coords = OrderedDict(
-        {
-            "time": np.asarray([np.datetime64("2021-01-01")]),
-            "lat": np.linspace(-90, 90, 8),
-        }
-    )
-
     io = IceChunkBackend()
-    io.add_array(total_coords, "fields")
-    x1 = torch.randn(1, 8, dtype=torch.float32)
-    io.write(x1, total_coords, "fields")
+    io.add_array(make_template(["t2m"]))
+    first = make_field(["t2m"], seed=0)
+    io.write(first)
     snap1 = io.commit("first")
 
-    x2 = torch.randn(1, 8, dtype=torch.float32)
-    io.write(x2, total_coords, "fields")
+    second = make_field(["t2m"], seed=1)
+    io.write(second)
     io.commit("second")
 
     # Branch tip has the new data
-    xx, _ = io.read(total_coords, "fields")
-    assert torch.allclose(x2, xx)
+    assert_round_trip(io, second)
 
     # The first snapshot still has the original
     old = io.repo.readonly_session(snapshot_id=snap1)
     root = zarr.open_group(old.store, mode="r")
-    assert np.allclose(root["fields"][:], x1.numpy())
+    np.testing.assert_allclose(
+        root["t2m"][:], first.sel(variable="t2m", drop=True).values
+    )
 
 
 def test_icechunk_commit_conflict() -> None:
     """Concurrent commits to one branch: the second writer raises."""
 
-    total_coords = OrderedDict(
-        {
-            "time": np.asarray([np.datetime64("2021-01-01")]),
-            "lat": np.linspace(-90, 90, 8),
-        }
-    )
-
     with tempfile.TemporaryDirectory() as td:
         repo_path = os.path.join(td, "repo")
         io1 = IceChunkBackend(repo_path)
-        io1.add_array(total_coords, "fields")
-        io1.write(torch.randn(1, 8), total_coords, "fields")
+        io1.add_array(make_template(["t2m"]))
+        io1.write(make_field(["t2m"]))
         io1.commit("init")
 
         io2 = IceChunkBackend(repo_path)
-        io1.write(torch.randn(1, 8), total_coords, "fields")
-        io2.write(torch.randn(1, 8), total_coords, "fields")
+        io1.write(make_field(["t2m"], seed=1))
+        io2.write(make_field(["t2m"], seed=2))
         io1.commit("winner")
         # Note: ConflictError is a sibling of IcechunkError, not a subclass
+        io2.flush()
         with pytest.raises(icechunk.ConflictError):
             io2.session.commit("loser")
 
@@ -246,121 +232,181 @@ def test_icechunk_commit_conflict() -> None:
 def test_icechunk_codecs_and_chunks() -> None:
     """zarr_codecs compression and the chunks layout apply through icechunk."""
 
-    total_coords = OrderedDict(
-        {
-            "time": np.asarray(
-                [np.datetime64("2021-01-01"), np.datetime64("2021-01-02")]
-            ),
-            "lat": np.linspace(-90, 90, 16),
-            "lon": np.linspace(0, 360, 32, endpoint=False),
-        }
-    )
-
     io = IceChunkBackend(
-        chunks={"time": 1, "lat": 8, "lon": 32},
+        chunks={"time": 1, "lat": 4, "lon": 16},
         zarr_codecs=zarr.codecs.BloscCodec(cname="zstd"),
     )
-    io.add_array(total_coords, "fields")
-    assert io["fields"].chunks == (1, 8, 32)
-    assert any("blosc" in str(c).lower() for c in io["fields"].compressors)
+    io.add_array(make_template(["t2m"]))
+    assert io["t2m"].chunks == (1, 4, 16)
+    assert any("blosc" in str(codec).lower() for codec in io["t2m"].compressors)
 
-    x = torch.randn(2, 16, 32, dtype=torch.float32)
-    io.write(x, total_coords, "fields")
+    field = make_field(["t2m"])
+    io.write(field)
     io.commit("compressed")
+    assert_round_trip(io, field)
 
-    readonly = io.repo.readonly_session(io.branch)
-    root = zarr.open_group(readonly.store, mode="r")
-    assert np.allclose(root["fields"][:], x.numpy())
+
+def test_icechunk_to_xarray() -> None:
+    """to_xarray opens the session store, flushing pending writes first."""
+
+    io = IceChunkBackend()
+    io.add_array(make_template())
+    field = make_field()
+    io.write(field)
+
+    stored = io.to_xarray()
+    assert set(stored.data_vars) == set(VARIABLES)
+    np.testing.assert_allclose(
+        stored["t2m"].transpose("time", "lat", "lon").values,
+        field.sel(variable="t2m", drop=True).values,
+    )
+    np.testing.assert_array_equal(stored["time"].values, TIMES)
+    assert stored["t2m"].attrs["units"] == "K"
+    io.commit("write fields")
+
+
+def test_icechunk_close_commits() -> None:
+    """close persists pending writes, then rejects further writes."""
+
+    with tempfile.TemporaryDirectory() as td:
+        repo_path = os.path.join(td, "repo")
+        io = IceChunkBackend(repo_path)
+        io.add_array(make_template(["t2m"]))
+        field = make_field(["t2m"])
+        io.write(field)
+        io.close()
+        assert not io.session.has_uncommitted_changes
+
+        with pytest.raises(RuntimeError):
+            io.write(field)
+        io.close()  # repeated close is a no-op
+
+        root = zarr.open_group(
+            IceChunkBackend(repo_path).repo.readonly_session("main").store, mode="r"
+        )
+        np.testing.assert_allclose(
+            root["t2m"][:], field.sel(variable="t2m", drop=True).values
+        )
+
+
+def test_icechunk_close_conflict() -> None:
+    """A conflicting commit on close raises, leaves the backend closed, and keeps
+    the pending writes recoverable with commit(rebase_with=...)."""
+
+    with tempfile.TemporaryDirectory() as td:
+        repo_path = os.path.join(td, "repo")
+        io1 = IceChunkBackend(repo_path)
+        io1.add_array(make_template(["t2m"]))
+        io1.write(make_field(["t2m"]))
+        io1.commit("init")
+
+        io2 = IceChunkBackend(repo_path)
+        io1.write(make_field(["t2m"], seed=1))
+        field = make_field(["t2m"], seed=2)
+        io2.write(field)
+        io1.commit("winner")
+
+        with pytest.raises(icechunk.ConflictError):
+            io2.close()
+        with pytest.raises(RuntimeError, match="closed"):
+            io2.write(field)
+        io2.close()  # already closed, does not retry the commit
+        assert io2.session.has_uncommitted_changes
+
+        io2.commit(
+            "recovered",
+            rebase_with=icechunk.BasicConflictSolver(
+                on_chunk_conflict=icechunk.VersionSelection.UseOurs
+            ),
+        )
+        root = zarr.open_group(io2.repo.readonly_session("main").store, mode="r")
+        np.testing.assert_allclose(
+            root["t2m"][:], field.sel(variable="t2m", drop=True).values
+        )
 
 
 def test_icechunk_uncommitted_warning() -> None:
     from loguru import logger
-
-    total_coords = OrderedDict(
-        {
-            "time": np.asarray([np.datetime64("2021-01-01")]),
-            "lat": np.linspace(-90, 90, 8),
-        }
-    )
 
     messages: list[str] = []
     sink_id = logger.add(messages.append, level="WARNING")
     try:
         # Dropping a backend with uncommitted writes warns
         io = IceChunkBackend()
-        io.add_array(total_coords, "fields")
-        io.write(torch.randn(1, 8), total_coords, "fields")
+        io.add_array(make_template(["t2m"]))
+        io.write(make_field(["t2m"]))
         io.__del__()
         assert any("uncommitted" in m for m in messages)
 
         # Dropping a committed backend does not
         messages.clear()
         io2 = IceChunkBackend()
-        io2.add_array(total_coords, "fields")
-        io2.write(torch.randn(1, 8), total_coords, "fields")
+        io2.add_array(make_template(["t2m"]))
+        io2.write(make_field(["t2m"]))
         io2.commit("write fields")
         io2.__del__()
         assert not messages
 
-        # Dropping a fresh, never-written backend does not
+        # Nor does dropping a closed backend
         io3 = IceChunkBackend()
+        io3.add_array(make_template(["t2m"]))
+        io3.write(make_field(["t2m"]))
+        io3.close()
         io3.__del__()
+        assert not messages
+
+        # Dropping a fresh, never-written backend does not
+        io4 = IceChunkBackend()
+        io4.__del__()
         assert not messages
     finally:
         logger.remove(sink_id)
 
 
 def test_icechunk_nonblocking_write_by_default() -> None:
-    total_coords = OrderedDict(
-        {
-            "time": np.asarray([np.datetime64("2021-01-01")]),
-            "lat": np.linspace(-90, 90, 8),
-        }
-    )
-    x = torch.randn(1, 8)
+    field = make_field(["t2m"])
 
     # Default: write() submits to a background thread and returns immediately,
     # leaving the write pending until a flush point.
     io = IceChunkBackend()
     assert io._blocking is False
     assert io._executor is not None
-    io.add_array(total_coords, "fields")
-    io.write(x, total_coords, "fields")
+    io.add_array(make_template(["t2m"]))
+    io.write(field)
     assert len(io._pending) == 1
 
     # read()/__getitem__/commit() all flush pending writes first
-    xx, _ = io.read(total_coords, "fields")
-    assert torch.allclose(x, xx)
+    read = io.read(field)
+    np.testing.assert_allclose(read.transpose(*field.dims).values, field.values)
     assert len(io._pending) == 0
 
-    io.write(x, total_coords, "fields")
+    io.write(field)
     assert len(io._pending) == 1
-    assert np.allclose(io["fields"][:], x.numpy())
+    np.testing.assert_allclose(
+        io["t2m"][:], field.sel(variable="t2m", drop=True).values
+    )
     assert len(io._pending) == 0
 
-    io.write(x, total_coords, "fields")
+    io.write(field)
     io.commit("write fields")
     assert len(io._pending) == 0
 
     # blocking=True writes synchronously, same as ZarrBackend
     io_blocking = IceChunkBackend(blocking=True)
     assert io_blocking._executor is None
-    io_blocking.add_array(total_coords, "fields")
-    io_blocking.write(x, total_coords, "fields")
+    io_blocking.add_array(make_template(["t2m"]))
+    io_blocking.write(field)
     assert io_blocking._pending == []
-    assert np.allclose(io_blocking["fields"][:], x.numpy())
+    np.testing.assert_allclose(
+        io_blocking["t2m"][:], field.sel(variable="t2m", drop=True).values
+    )
+    io_blocking.commit("write fields")
 
 
 def test_icechunk_nonblocking_write_error_surfaces_on_flush() -> None:
-    total_coords = OrderedDict(
-        {
-            "time": np.asarray([np.datetime64("2021-01-01")]),
-            "lat": np.linspace(-90, 90, 8),
-        }
-    )
     io = IceChunkBackend()
-    io.add_array(total_coords, "fields")
-    io.write(torch.randn(1, 8), total_coords, "fields")
+    io.add_array(make_template(["t2m"]))
+    io.write(make_field(["t2m"]))
 
     def _boom() -> None:
         raise ZeroDivisionError("simulated background write failure")

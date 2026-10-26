@@ -143,7 +143,7 @@ def _coordinate_sizes(coordinates: Mapping[Hashable, Any]) -> dict[Hashable, int
 
 def coord_array(
     dims: Sequence[Hashable],
-    coords: Mapping[Hashable, Any] | None = None,
+    coords: Mapping[Any, Any] | None = None,
     dynamic: Sequence[Hashable] = (),
     sizes: Mapping[Hashable, int] | None = None,
     grid: str | GridDefinition | None = None,
@@ -300,7 +300,7 @@ def coord_array(
 
 def coord_array_like(
     array: xr.DataArray,
-    coords: Mapping[Hashable, Any] | None = None,
+    coords: Mapping[Any, Any] | None = None,
 ) -> CoordinateSystem:
     """Build a fresh coordinate signature from an array without copying field data.
 
@@ -730,7 +730,12 @@ def handshake_coords(
             and actual.dims != expected.dims
         ):
             raise ValueError(f"Coordinate dimensions for {_required_dim} do not match")
-        if not np.array_equal(actual, expected):
+        # Grids leave geographic coordinates undefined (NaN) off a satellite's disk.
+        equal_nan = all(
+            np.issubdtype(np.asarray(value).dtype, np.floating)
+            for value in (actual, expected)
+        )
+        if not np.array_equal(actual, expected, equal_nan=equal_nan):
             raise ValueError(
                 f"Coordinate systems for required dim {_required_dim} are not the same"
             )

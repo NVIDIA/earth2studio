@@ -266,23 +266,9 @@ class TestCorrDiffCMIP6Utils:
         assert y_gpu.shape == y_cpu.shape
 
     def test_corrdiff_cmip6_conformance(self, cmip6_model_minimal):
-        """Check the mock model against the Earth2Studio model contract.
-
-        Known, reproducible violation (not fixed here per the backfill task —
-        wrapper source is owned by a separate follow-up):
-
-        D6: __call__ modified the input tensor in place; a caller's initial
-        condition must survive the call, and mutating it only moves the
-        defensive copy onto every caller
-
-        `preprocess_input` calls `x.transpose(1, 2)`, which returns a view, and
-        `_apply_sai_cover` then writes into that view in place
-        (`x[:, siconc_channel, i] = ...`), reaching back into the caller's
-        tensor. This is the same class of bug documented in
-        dev/spec/MODEL_CONTRACT_SPEC.md under "Ownership of Tensors"
-        (issue #1133 / PR #1134), just not yet fixed for this wrapper.
-        """
-        check_diagnostic_contract(cmip6_model_minimal)
+        assert check_diagnostic_contract(cmip6_model_minimal) == [
+            "D10: model does not declare itself stochastic"
+        ]
 
     def test_postprocess_output(self, cmip6_model_minimal):
         model = cmip6_model_minimal

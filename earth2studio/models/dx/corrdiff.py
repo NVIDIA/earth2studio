@@ -23,7 +23,7 @@ from copy import deepcopy
 from datetime import datetime
 from functools import partial
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 import torch
@@ -43,6 +43,9 @@ from earth2studio.utils.imports import (
 )
 from earth2studio.utils.time import timearray_to_datetime
 from earth2studio.utils.type import CoordinateSystem
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 
 def _geographic_grid(lat: np.ndarray, lon: np.ndarray) -> GridDefinition:
@@ -226,6 +229,11 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
     year:2023 gpu:80gb
     provider:nvidia backend:pytorch
     """
+
+    @property
+    def stochastic(self) -> bool:
+        """Whether inference includes diffusion sampling."""
+        return self.inference_mode != "regression"
 
     def __init__(
         self,
@@ -600,6 +608,18 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             return partial(stochastic_sampler, **sampler_kwargs)
         else:
             raise ValueError(f"Unknown sampler type: {sampler_type}")
+
+    def default_sources(self) -> "DataSource | None":
+        """Return no recommended input data source.
+
+        Subclasses may override this to recommend a data source.
+
+        Returns
+        -------
+        DataSource | None
+            Input data sources are chosen by the caller.
+        """
+        return None
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.
@@ -1088,11 +1108,6 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         if reset or self._sample_rng is None:
             self._sample_rng = np.random.default_rng(seed)
 
-    @property
-    def stochastic(self) -> bool:
-        """Whether inference includes diffusion sampling."""
-        return self.inference_mode != "regression"
-
     @torch.inference_mode()
     def _forward(
         self, x: torch.Tensor, valid_time: datetime | None = None
@@ -1185,7 +1200,19 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         return image_out
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Downscale a labelled field, retaining optional per-sample validity time."""
+        """Downscale a labelled field, retaining optional per-sample validity time.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Conditioning fields matching ``input_coords()`` on the configured grid.
+
+        Returns
+        -------
+        xr.DataArray
+            Downscaled samples matching ``output_coords(x)`` on the configured
+            output grid, with applicable validity-time coordinates retained.
+        """
         signature = self.output_coords(x)
         time = x.coords.get("time")
         if time is not None:
@@ -1303,6 +1330,8 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
     provider:nvidia backend:pytorch
     """
 
+    stochastic = True
+
     def __init__(
         self,
         residual_model: torch.nn.Module,
@@ -1340,6 +1369,18 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         self.number_of_steps = number_of_steps
         self.solver = solver
         self.output_variables = OUT_VARIABLES  # Default set of output variables
+
+    def default_sources(self) -> "DataSource":
+        """Recommend the GFS data source.
+
+        Returns
+        -------
+        DataSource
+            ``GFS`` data source for the input slot.
+        """
+        from earth2studio.data import GFS
+
+        return GFS()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.
@@ -1525,7 +1566,6 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
             self.out_lon_full,
         )[..., 1:-1, 1:-1]
 
-    stochastic = True
     _sample_rng: np.random.Generator | None = None
 
     def set_rng(self, seed: int, reset: bool = True) -> None:
@@ -1624,7 +1664,19 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         return x_hr
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Downscale a labelled field to the checkpoint's curvilinear grid."""
+        """Downscale a labelled field to the checkpoint's curvilinear grid.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Coarse conditioning fields matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            Downscaled samples matching ``output_coords(x)``, including the
+            curvilinear output-grid coordinates.
+        """
         signature = self.output_coords(x)
         x, restore = batch_func()._compress_array(self, x)
         output_coords = self.output_coords(x)

@@ -14,15 +14,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Backend specific tests for AsyncZarrBackend.
+
+The shared IO protocol rules are covered by test/io/test_io_contract.py; what is
+exercised here is everything that is specific to this backend: the parallel
+coordinate contract, non-blocking writes, sharding, the loop pool and the
+object-store write paths.
+"""
+
 import asyncio
 import concurrent.futures
 import datetime
 import functools
 import os
 import threading
-import time
 from collections import OrderedDict
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 
 import fsspec
 import numpy as np
@@ -35,191 +42,159 @@ from fsspec.implementations.local import LocalFileSystem
 from fsspec.implementations.memory import MemoryFileSystem
 
 from earth2studio.io import AsyncZarrBackend
-from earth2studio.utils.coords import split_coords
+from earth2studio.utils.coords import coord_array
+from earth2studio.utils.cupy import from_torch
+
+TIMES = np.array(
+    [
+        np.datetime64("1971-06-01T06:00:00"),
+        np.datetime64("2021-11-23T18:00:00"),
+        np.datetime64("2021-11-24T00:00:00"),
+    ]
+)
+LAT = np.linspace(-90, 90, 16)
+LON = np.linspace(0, 360, 32, endpoint=False)
+
+
+def template(coords: Mapping[str, np.ndarray], name: str | None = None) -> xr.DataArray:
+    """Allocation-free signature over `coords`, in the order given"""
+    return coord_array(tuple(coords), coords, name=name)
+
+
+def field(
+    coords: Mapping[str, np.ndarray], data: torch.Tensor, name: str = "fields"
+) -> xr.DataArray:
+    """Concrete field holding `data` over `coords`, in the order given.
+
+    `name` selects the stored array, except when the coordinates hold a
+    `variable` dimension, whose labels name the arrays instead.
+    """
+    return from_torch(data, OrderedDict(coords), name=name)
+
+
+def lead_times(nsteps: int) -> np.ndarray:
+    return np.arange(nsteps).astype("timedelta64[h]")
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "time",
-    [
-        [np.datetime64("1958-01-31")],
-        [
-            np.datetime64("1971-06-01T06:00:00"),
-            np.datetime64("2021-11-23T18:00:00"),
-            np.datetime64("2021-11-24T00:00:00"),
-        ],
-    ],
+    "times",
+    [TIMES[:1], TIMES],
 )
-@pytest.mark.parametrize(
-    "variable",
-    [["t2m"], ["t2m", "tcwv"]],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-async def test_async_zarr_write(
-    time: list[np.datetime64],
-    variable: list[str],
-    device: str,
-    tmp_path: str,
-) -> None:
-
-    parallel_coords = {
-        "time": np.asarray(time),
-    }
+async def test_async_zarr_write(times: np.ndarray, tmp_path: str) -> None:
+    """One slice per parallel step, for arrays holding the parallel dimension in
+    different positions"""
     z = AsyncZarrBackend(
         f"{tmp_path}/output.zarr",
-        parallel_coords=parallel_coords,
-        fs_factory=LocalFileSystem,
+        parallel_coords={"time": times},
     )
     zsync = zarr.open(f"{tmp_path}/output.zarr")
 
-    total_coords = OrderedDict(
-        {
-            "time": np.asarray(time),
-            "variable": np.asarray(variable),
-            "lat": np.linspace(-90, 90, 180),
-            "lon": np.linspace(0, 360, 360, endpoint=False),
-        }
-    )
-    shape = [v.shape[0] for v in total_coords.values()]
-    x = torch.randn(shape, device=device, dtype=torch.float32)
-    for i, time0 in enumerate(time):
-        total_coords["time"] = np.array([time0])
-        z.write(x[i : i + 1], total_coords, "fields_1")
-        assert "fields_1" in zsync
+    # Parallel dimension leading
+    coords = OrderedDict({"time": times, "lat": LAT, "lon": LON})
+    z.add_array(template(coords, name="fields_1"))
+    x = torch.randn(len(times), 16, 32)
+    for i, time0 in enumerate(times):
+        step = OrderedDict(coords, time=times[i : i + 1])
+        z.write(field(step, x[i : i + 1], name="fields_1"))
         assert zsync["fields_1"].shape == x.shape
-        assert np.allclose(zsync["fields_1"][i], x[i].to("cpu").numpy())
-    z.close()
-    assert np.allclose(zsync["fields_1"], x.to("cpu").numpy())
+        assert np.allclose(zsync["fields_1"][i], x[i].numpy())
+    assert np.allclose(zsync["fields_1"], x.numpy())
 
-    total_coords = OrderedDict(
-        {
-            "variable": np.asarray(variable),
-            "time": np.asarray(time),
-            "lat": np.linspace(-90, 90, 180),
-            "lon": np.linspace(0, 360, 360, endpoint=False),
-        }
-    )
-    shape = [v.shape[0] for v in total_coords.values()]
-    x = torch.randn(shape, device=device, dtype=torch.float32)
-    for i, time0 in enumerate(time):
-        total_coords["time"] = np.array([time0])
-        z.write(x[:, i : i + 1], total_coords, "fields_2")
-        assert "fields_2" in zsync
-        assert zsync["fields_2"].shape == x.shape
-        assert np.allclose(zsync["fields_2"][:, i], x[:, i].to("cpu").numpy())
+    # Parallel dimension in the middle, the write is located by label either way
+    coords = OrderedDict({"lat": LAT, "time": times, "lon": LON})
+    z.add_array(template(coords, name="fields_2"))
+    y = torch.randn(16, len(times), 32)
+    for i, time0 in enumerate(times):
+        step = OrderedDict(coords, time=times[i : i + 1])
+        z.write(field(step, y[:, i : i + 1], name="fields_2"))
+        assert np.allclose(zsync["fields_2"][:, i], y[:, i].numpy())
     z.close()
-    assert np.allclose(zsync["fields_2"], x.to("cpu").numpy())
+    assert np.allclose(zsync["fields_2"], y.numpy())
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "variable",
-    [["t2m"], ["t2m", "tcwv"]],
-)
-@pytest.mark.parametrize(
-    "fs_factory",
-    [MemoryFileSystem, LocalFileSystem],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize("fs_factory", [MemoryFileSystem, LocalFileSystem])
 async def test_async_zarr_async_write(
-    variable: list[str],
-    fs_factory: Callable[..., fsspec.spec.AbstractFileSystem],
-    device: str,
-    tmp_path: str,
+    fs_factory: Callable[..., fsspec.spec.AbstractFileSystem], tmp_path: str
 ) -> None:
-    time = [
-        np.datetime64("1971-06-01T06:00:00"),
-        np.datetime64("2021-11-23T18:00:00"),
-        np.datetime64("2021-11-24T00:00:00"),
-    ]
-    parallel_coords = {
-        "time": np.asarray(time),
-    }
+    """The coroutine API writes through the backend's own loop"""
     z = AsyncZarrBackend(
         f"{tmp_path}/output.zarr",
-        parallel_coords=parallel_coords,
+        parallel_coords={"time": TIMES},
         fs_factory=fs_factory,
     )
+    coords = OrderedDict({"time": TIMES, "lat": LAT, "lon": LON})
+    z.add_array(template(coords, name="fields_1"))
 
-    total_coords = OrderedDict(
-        {
-            "time": np.asarray(time),
-            "variable": np.asarray(variable),
-            "lat": np.linspace(-90, 90, 180),
-            "lon": np.linspace(0, 360, 360, endpoint=False),
-        }
-    )
-    shape = [v.shape[0] for v in total_coords.values()]
-    x = torch.randn(shape, device=device, dtype=torch.float32)
-    for i, time0 in enumerate(time):
-        total_coords["time"] = np.array([time0])
-        await z.async_write(x[i : i + 1], total_coords, "fields_1")
-        assert "fields_1" in [key async for key in z.root.array_keys()]
+    x = torch.randn(len(TIMES), 16, 32)
+    for i in range(len(TIMES)):
+        step = OrderedDict(coords, time=TIMES[i : i + 1])
+        await z.async_write(field(step, x[i : i + 1], name="fields_1"))
         data = await (await z.root.get("fields_1")).getitem(slice(None))
-        assert data.shape == x.shape
-        assert np.allclose(data[i], x[i].to("cpu").numpy())
+        assert np.allclose(data[i], x[i].numpy())
     z.close()
     data = await (await z.root.get("fields_1")).getitem(slice(None))
-    assert np.allclose(data, x.to("cpu").numpy())
+    assert np.allclose(data, x.numpy())
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-async def test_async_zarr_non_blocking(device: str, tmp_path: str) -> None:
+async def test_async_zarr_non_blocking(tmp_path: str) -> None:
+    """Non-blocking writes return before the data lands, copy their input, and store the same bytes"""
     fs_factory = functools.partial(fsspec.filesystem, "file")
-    times = [
-        np.datetime64("1971-06-01T06:00:00"),
-        np.datetime64("2021-11-23T18:00:00"),
-        np.datetime64("2021-11-24T00:00:00"),
-        np.datetime64("2021-11-25T00:00:00"),
-        np.datetime64("2021-11-26T00:00:00"),
-        np.datetime64("2021-11-27T00:00:00"),
-        np.datetime64("2021-11-28T00:00:00"),
-        np.datetime64("2021-11-29T00:00:00"),
-    ]
-    parallel_coords = {
-        "time": np.asarray(times),
-    }
-
-    total_coords = OrderedDict(
+    times = np.array(
+        [
+            np.datetime64("2021-11-23T18:00:00") + np.timedelta64(i, "D")
+            for i in range(8)
+        ]
+    )
+    coords = OrderedDict(
         {
-            "time": np.asarray(times),
-            "variable": np.asarray(["t2m", "tcwv", "msl", "u10m"]),
+            "time": times,
             "lat": np.linspace(-90, 90, 720),
             "lon": np.linspace(0, 360, 1440, endpoint=False),
         }
     )
-    shape = [v.shape[0] for v in total_coords.values()]
-    x = torch.randn(shape, device=device, dtype=torch.float32)
+    x = torch.randn(8, 720, 1440)
 
-    z_blocking = AsyncZarrBackend(
-        f"{tmp_path}/output_blocking.zarr",
-        parallel_coords=parallel_coords,
-        fs_factory=fs_factory,
-        blocking=True,
-    )
-    start_time = time.perf_counter()
-    for i, time0 in enumerate(times):
-        total_coords["time"] = np.array([time0])
-        z_blocking.write(x[i : i + 1], total_coords, "fields_1")
-    blocking_time = time.perf_counter() - start_time
+    def make(path: str, blocking: bool) -> AsyncZarrBackend:
+        z = AsyncZarrBackend(
+            path,
+            parallel_coords={"time": times},
+            fs_factory=fs_factory,
+            blocking=blocking,
+        )
+        z.add_array(template(coords, name="fields_1"))
+        return z
 
-    z_nonblocking = AsyncZarrBackend(
-        f"{tmp_path}/output_nonblocking.zarr",
-        parallel_coords=parallel_coords,
-        fs_factory=fs_factory,
-        blocking=False,
-    )
-    start_time = time.perf_counter()
-    for i, time0 in enumerate(times):
-        total_coords["time"] = np.array([time0])
-        z_nonblocking.write(x[i : i + 1], total_coords, "fields_1")
-    nonblocking_time = time.perf_counter() - start_time
+    def write_steps(z: AsyncZarrBackend, data: torch.Tensor) -> None:
+        for i in range(len(times)):
+            step = OrderedDict(coords, time=times[i : i + 1])
+            z.write(field(step, data[i : i + 1], name="fields_1"))
+
+    z_blocking = make(f"{tmp_path}/blocking.zarr", True)
+    write_steps(z_blocking, x)
+
+    # Hold every background write at a gate: a non-blocking write must return
+    # while its data has not landed, and must not depend on the caller's buffer
+    z_nonblocking = make(f"{tmp_path}/nonblocking.zarr", False)
+    gate = threading.Event()
+    write_impl = z_nonblocking._write
+
+    async def gated_write(*args, **kwargs):
+        await asyncio.get_running_loop().run_in_executor(None, gate.wait)
+        return await write_impl(*args, **kwargs)
+
+    z_nonblocking._write = gated_write
+    reused = x.clone()
+    try:
+        write_steps(z_nonblocking, reused)
+        assert z_nonblocking.io_futures
+        assert not any(future.done() for future in z_nonblocking.io_futures)
+        reused.zero_()
+    finally:
+        gate.set()
     z_nonblocking.close()
-
-    assert (
-        blocking_time > nonblocking_time
-    ), f"Blocking ({blocking_time:.3f}s) should be slower than non-blocking ({nonblocking_time:.3f}s)"
 
     data1 = await (await z_blocking.root.get("fields_1")).getitem(slice(None))
     data2 = await (await z_nonblocking.root.get("fields_1")).getitem(slice(None))
@@ -228,139 +203,87 @@ async def test_async_zarr_non_blocking(device: str, tmp_path: str) -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "time,lead_time",
-    [
-        (
-            [np.datetime64("1958-01-31")],
-            [np.timedelta64(0, "h"), np.timedelta64(12, "h")],
-        ),
-        (
-            [
-                np.datetime64("1971-06-01T06:00:00"),
-                np.datetime64("2021-11-23T18:00:00"),
-                np.datetime64("2021-11-24T00:00:00"),
-            ],
-            [np.timedelta64(0, "h"), np.timedelta64(12, "h"), np.timedelta64(24, "h")],
-        ),
-    ],
+    "times,leads",
+    [(TIMES[:1], lead_times(2)), (TIMES, lead_times(3))],
 )
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 async def test_async_zarr_2d_index(
-    time: list[np.datetime64],
-    lead_time: list[np.timedelta64],
-    device: str,
-    tmp_path: str,
+    times: np.ndarray, leads: np.ndarray, tmp_path: str
 ) -> None:
-
-    fs_factory = functools.partial(fsspec.filesystem, "file")
-    variable = ["v10m", "tcwv"]
-    parallel_coords = {
-        "time": np.asarray(time),
-        "lead_time": np.asarray(lead_time),
-    }
+    """Two parallel dimensions at once, with a custom chunk size on a third"""
     z = AsyncZarrBackend(
         f"{tmp_path}/output.zarr",
-        parallel_coords=parallel_coords,
-        fs_factory=fs_factory,
+        parallel_coords={"time": times, "lead_time": leads},
+        chunked_coords={"lat": 8},
         blocking=True,
     )
-    z.chunked_coords = {"lat": 60}  # Also check custom chunking
+    coords = OrderedDict({"time": times, "lat": LAT, "lead_time": leads, "lon": LON})
+    z.add_array(template(coords, name="fields_1"))
 
-    total_coords = OrderedDict(
-        {
-            "time": np.asarray(time),
-            "variable": np.asarray(variable),
-            "lead_time": np.asarray(lead_time),
-            "lat": np.linspace(-90, 90, 180),
-            "lon": np.linspace(0, 360, 360, endpoint=False),
-        }
-    )
-    shape = [v.shape[0] for v in total_coords.values()]
-    x = torch.randn(shape, device=device, dtype=torch.float32)
-    for i, time0 in enumerate(time):
-        for j, lead0 in enumerate(lead_time):
-            total_coords["time"] = np.array([time0])
-            total_coords["lead_time"] = np.array([lead0])
-            z.write(x[i : i + 1, :, j : j + 1], total_coords, "fields_1")
-            assert "fields_1" in [key async for key in z.root.array_keys()]
+    x = torch.randn(len(times), 16, len(leads), 32)
+    for i in range(len(times)):
+        for j in range(len(leads)):
+            step = OrderedDict(
+                coords, time=times[i : i + 1], lead_time=leads[j : j + 1]
+            )
+            z.write(field(step, x[i : i + 1, :, j : j + 1], name="fields_1"))
             data = await (await z.root.get("fields_1")).getitem(slice(None))
-            assert data.shape == x.shape
-            assert np.allclose(data[i, :, j], x[i, :, j].to("cpu").numpy())
+            assert np.allclose(data[i, :, j], x[i, :, j].numpy())
     z.close()
+
     array = await z.root.get("fields_1")
-    data = await array.getitem(slice(None))
-    assert np.allclose(data, x.to("cpu").numpy())
-    # Check chunk size is expected
+    assert np.allclose(await array.getitem(slice(None)), x.numpy())
+    # Parallel dimensions are chunked with a size of one, `lat` as requested
     codec = await array.info_complete()
-    assert codec._chunk_shape == (1, 2, 1, 60, 360)
+    assert codec._chunk_shape == (1, 8, 1, 32)
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-async def test_async_zarr_split_variables(
-    device: str,
-    tmp_path: str,
-) -> None:
-
-    fs_factory = functools.partial(fsspec.filesystem, "file")
-    times = [
-        np.datetime64("1971-06-01T06:00:00"),
-        np.datetime64("2021-11-23T18:00:00"),
-        np.datetime64("2021-11-24T00:00:00"),
-        np.datetime64("2021-11-25T00:00:00"),
-        np.datetime64("2021-11-26T00:00:00"),
-        np.datetime64("2021-11-27T00:00:00"),
-        np.datetime64("2021-11-28T00:00:00"),
-        np.datetime64("2021-11-29T00:00:00"),
-    ]
-    parallel_coords = {
-        "time": np.asarray(times),
-    }
-    variable = np.asarray(["t2m", "tcwv"])
-
-    total_coords = OrderedDict(
-        {
-            "time": np.asarray(times),
-            "variable": variable,
-            "lat": np.linspace(-90, 90, 180),
-            "lon": np.linspace(0, 360, 360, endpoint=False),
-        }
-    )
-    shape = [v.shape[0] for v in total_coords.values()]
-    x = torch.randn(shape, device=device, dtype=torch.float32)
-
+async def test_async_zarr_split_variables(tmp_path: str) -> None:
+    """A `variable` dimension becomes one array per label, written together"""
+    variables = ["t2m", "tcwv"]
     z = AsyncZarrBackend(
-        f"{tmp_path}/output_nonblocking.zarr",
-        parallel_coords=parallel_coords,
-        fs_factory=fs_factory,
+        f"{tmp_path}/output.zarr",
+        parallel_coords={"time": TIMES},
         blocking=False,
     )
-    for i, time0 in enumerate(times):
-        total_coords["time"] = np.array([time0])
-        split_x, coords, array_names = split_coords(
-            x[i : i + 1], total_coords, dim="variable"
-        )
-        z.write(split_x, coords, array_names)
+    coords = OrderedDict(
+        {"time": TIMES, "variable": np.asarray(variables), "lat": LAT, "lon": LON}
+    )
+    z.add_array(template(coords))
+
+    x = torch.randn(len(TIMES), 2, 16, 32)
+    for i in range(len(TIMES)):
+        step = OrderedDict(coords, time=TIMES[i : i + 1])
+        z.write(field(step, x[i : i + 1]))
     z.close()
 
-    for i, v in enumerate(variable):
-        data = await (await z.root.get(v)).getitem(slice(None))
-        assert np.allclose(data, x[:, i].to("cpu").numpy())
+    for i, variable in enumerate(variables):
+        data = await (await z.root.get(variable)).getitem(slice(None))
+        assert np.allclose(data, x[:, i].numpy())
+
+    # A subset of variables is a valid write, each one is its own array
+    z2 = AsyncZarrBackend(
+        f"{tmp_path}/output.zarr",
+        parallel_coords={"time": TIMES},
+    )
+    single = OrderedDict(
+        {"time": TIMES[:1], "variable": np.asarray(["t2m"]), "lat": LAT, "lon": LON}
+    )
+    z2.write(field(single, torch.zeros(1, 1, 16, 32)))
+    z2.close()
+    data = await (await z2.root.get("t2m")).getitem(slice(None))
+    assert np.all(data[0] == 0.0)
 
 
 @pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.timeout(120)
 @pytest.mark.parametrize("blocking", [True, False])
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 @pytest.mark.skipif(
     "S3FS_KEY" not in os.environ or "S3FS_SECRET" not in os.environ,
     reason="S3FS credentials not found in environment",
 )
-def test_async_zarr_remote(
-    blocking: bool,
-    device: str,
-) -> None:
+def test_async_zarr_remote(blocking: bool) -> None:
     import uuid
 
     random_uuid = uuid.uuid4()
@@ -374,38 +297,27 @@ def test_async_zarr_remote(
         asynchronous=True,
     )
 
-    times = [
-        np.datetime64("1971-06-01T06:00:00"),
-        np.datetime64("2021-11-23T18:00:00"),
-        np.datetime64("2021-11-24T00:00:00"),
-        np.datetime64("2021-11-25T00:00:00"),
-        np.datetime64("2021-11-26T00:00:00"),
-    ]
-    parallel_coords = {
-        "time": np.asarray(times),
-    }
-    variable = np.asarray(["t2m", "tcwv"])
-
-    total_coords = OrderedDict(
+    variables = ["t2m", "tcwv"]
+    coords = OrderedDict(
         {
-            "time": np.asarray(times),
-            "variable": variable,
+            "time": TIMES,
+            "variable": np.asarray(variables),
             "lat": np.linspace(-90, 90, 8),
             "lon": np.linspace(0, 360, 16, endpoint=False),
         }
     )
-    shape = [v.shape[0] for v in total_coords.values()]
-    x = torch.randn(shape, device=device, dtype=torch.float32)
+    x = torch.randn(len(TIMES), 2, 8, 16)
     z = AsyncZarrBackend(
-        root, parallel_coords=parallel_coords, fs_factory=fs_factory, blocking=blocking
+        root,
+        parallel_coords={"time": TIMES},
+        fs_factory=fs_factory,
+        blocking=blocking,
     )
+    z.add_array(template(coords))
 
-    for i, time0 in enumerate(times):
-        total_coords["time"] = np.array([time0])
-        split_x, coords, array_names = split_coords(
-            x[i : i + 1], total_coords, dim="variable"
-        )
-        z.write(split_x, coords, array_names)
+    for i in range(len(TIMES)):
+        step = OrderedDict(coords, time=TIMES[i : i + 1])
+        z.write(field(step, x[i : i + 1]))
     z.close()
 
     # Open the zarr store with xarray and verify contents
@@ -417,9 +329,9 @@ def test_async_zarr_remote(
             "client_kwargs": {"endpoint_url": os.environ.get("S3FS_ENDPOINT", None)},
         },
     )
-    for i, v in enumerate(variable):
-        assert v in ds
-        assert np.allclose(ds[v].values, x[:, i].to("cpu").numpy())
+    for i, variable in enumerate(variables):
+        assert variable in ds
+        assert np.allclose(ds[variable].values, x[:, i].numpy())
 
     # Delete the zarr store
     fs = s3fs.S3FileSystem(
@@ -433,100 +345,113 @@ def test_async_zarr_remote(
         pass
 
 
-@pytest.mark.asyncio
-async def test_async_zarr_errors(tmp_path: str) -> None:
+def test_async_zarr_construction_errors(tmp_path: str) -> None:
+    """Constructor validation of the filesystem factory and parallel coordinates"""
     # Non-callable fsspec factory
     with pytest.raises(TypeError):
         AsyncZarrBackend(
             f"{tmp_path}/test.zarr", parallel_coords={}, fs_factory="not_callable"
         )
 
-    # Invalid index coords
-    parallel_coords = {
-        "time": np.array([np.datetime64("2021-01-01"), np.datetime64("2021-01-01")])
-    }
+    # Repeated values in a parallel coordinate cannot be located
     with pytest.raises(ValueError):
-        AsyncZarrBackend(f"{tmp_path}/test.zarr", parallel_coords=parallel_coords)
+        AsyncZarrBackend(
+            f"{tmp_path}/test.zarr",
+            parallel_coords={"time": np.array([TIMES[0], TIMES[0]])},
+        )
 
-    # Create a mock filesystem that's not asynchronous
+    # A filesystem that is not asynchronous cannot be written through
     class NonAsyncFileSystem(fsspec.AbstractFileSystem):
-        def __init__(self):
+        def __init__(self) -> None:
             super().__init__()
             self.asynchronous = False
             self.protocol = "s3"
 
-    def fs_factory():
-        return NonAsyncFileSystem()
-
     with pytest.raises(TypeError):
         AsyncZarrBackend(
-            f"{tmp_path}/test.zarr", parallel_coords={}, fs_factory=fs_factory
+            f"{tmp_path}/test.zarr",
+            parallel_coords={},
+            fs_factory=lambda: NonAsyncFileSystem(),
         )
 
-    # Miss match between input data and array names
-    z = AsyncZarrBackend(f"{tmp_path}/test.zarr", parallel_coords={})
-    coords = OrderedDict(
-        {
-            "time": np.array([np.datetime64("2021-01-01")]),
-            "lat": np.linspace(-90, 90, 10),
-            "lon": np.linspace(0, 360, 10, endpoint=False),
-        }
+
+def test_async_zarr_parallel_coord_extent(tmp_path: str) -> None:
+    """A template must hold the full parallel coordinate, in order"""
+    z = AsyncZarrBackend(
+        f"{tmp_path}/extent.zarr",
+        parallel_coords={"time": TIMES},
     )
-    x = torch.randn(1, 10, 10)
-    array_names = ["array1", "array2"]
+    coords = OrderedDict({"time": TIMES, "lat": LAT, "lon": LON})
 
-    with pytest.raises(ValueError):
-        await z.prepare_inputs(x, coords, array_names)
+    # A subset of the parallel values would size the array short
+    with pytest.raises(ValueError, match="parallel_coords"):
+        z.add_array(template(OrderedDict(coords, time=TIMES[:2]), name="short"))
+    # ... as would a reordering, the stored coordinate must match the template
+    with pytest.raises(ValueError, match="parallel_coords"):
+        z.add_array(template(OrderedDict(coords, time=TIMES[::-1]), name="flipped"))
+    # ... or values that were never declared
+    with pytest.raises(ValueError, match="parallel_coords"):
+        other = TIMES + np.timedelta64(1, "D")
+        z.add_array(template(OrderedDict(coords, time=other), name="other"))
 
-    # If input coordinate value belonging to an index coord is not present
-    parallel_coords = {
-        "time": np.array([np.datetime64("2021-01-01"), np.datetime64("2021-01-02")])
-    }
-    z = AsyncZarrBackend(f"{tmp_path}/test.zarr", parallel_coords=parallel_coords)
-    coords = OrderedDict(
-        {
-            "time": np.array([np.datetime64("2021-01-03")]),  # Not in parallel_coords
-            "lat": np.linspace(-90, 90, 10),
-            "lon": np.linspace(0, 360, 10, endpoint=False),
-        }
+    z.add_array(template(coords, name="fields"))
+    z.close()
+    assert z["fields"].shape == (3, 16, 32)
+
+
+def test_async_zarr_write_errors(tmp_path: str) -> None:
+    """Writes are validated against the store before anything is written"""
+    leads = lead_times(4)
+    z = AsyncZarrBackend(
+        f"{tmp_path}/write_errors.zarr",
+        parallel_coords={"lead_time": leads},
     )
-    x = torch.randn(1, 10, 10)
+    coords = OrderedDict({"lead_time": leads, "lat": LAT, "lon": LON})
 
+    # Writes never create arrays
     with pytest.raises(ValueError):
-        await z.prepare_inputs(x, coords, "test_array")
+        z.write(field(coords, torch.zeros(4, 16, 32)))
 
-    # Test shapeless coordiante
-    z = AsyncZarrBackend(f"{tmp_path}/test.zarr", parallel_coords=parallel_coords)
-    coords = OrderedDict(
-        {
-            "time": np.array([np.datetime64("2021-01-01")]),  # Not in parallel_coords
-            "lat": np.array(0),
-            "lon": np.linspace(0, 360, 10, endpoint=False),
-        }
-    )
-    x = torch.randn(1, 10, 10)
+    z.add_array(template(coords, name="fields"))
 
+    # A non-parallel dimension is a single chunk, so it must be written in full
+    partial = OrderedDict(coords, lead_time=leads[:1], lat=LAT[:8])
+    with pytest.raises(ValueError, match="written in full"):
+        z.write(field(partial, torch.zeros(1, 8, 32)))
+
+    # Labels that are not in the store cannot be located
+    unknown = OrderedDict(coords, lead_time=np.array([np.timedelta64(99, "h")]))
     with pytest.raises(ValueError):
-        await z.prepare_inputs(x, coords, "test_array")
+        z.write(field(unknown, torch.zeros(1, 16, 32)))
+
+    # Nothing of the above landed in the store
+    z.flush()
+    assert np.isnan(np.asarray(z["fields"][:])).all()
+
+    z.close()
+    with pytest.raises(RuntimeError):
+        z.write(field(coords, torch.zeros(4, 16, 32)))
+    with pytest.raises(RuntimeError):
+        z.add_array(template(coords, name="after_close"))
 
 
 @pytest.mark.asyncio
 async def test_async_zarr_close(tmp_path: str) -> None:
+    """close() drains the in flight writes of a non-blocking backend"""
+    leads = lead_times(2)
     z = AsyncZarrBackend(
-        f"{tmp_path}/test.zarr", parallel_coords={}, blocking=False, pool_size=2
+        f"{tmp_path}/test.zarr",
+        parallel_coords={"lead_time": leads},
+        blocking=False,
+        pool_size=2,
     )
-    coords = OrderedDict(
-        {
-            "time": np.array([np.datetime64("2021-01-01")]),
-            "lat": np.linspace(-90, 90, 10),
-            "lon": np.linspace(0, 360, 10, endpoint=False),
-        }
-    )
+    coords = OrderedDict({"lead_time": leads, "lat": LAT, "lon": LON})
+    z.add_array(template(coords, name="test_array"))
+    z.add_array(template(coords, name="test_array2"))
 
-    x = torch.randn(1, 10, 10)
-
-    z.write(x, coords, "test_array")
-    z.write(x, coords, "test_array2")
+    x = torch.randn(2, 16, 32)
+    z.write(field(coords, x, name="test_array"))
+    z.write(field(coords, x, name="test_array2"))
     assert len(z.io_futures) > 0
     z.close()
     assert len(z.io_futures) == 0
@@ -543,151 +468,79 @@ async def test_async_zarr_close(tmp_path: str) -> None:
         zarr.codecs.ZstdCodec(level=1),
     ],
 )
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-async def test_async_zarr_codecs(
-    zarr_codecs: dict | None,
-    device: str,
-    tmp_path: str,
-) -> None:
-    time = [np.datetime64("2021-11-23T18:00:00")]
-    parallel_coords = {"time": np.asarray(time)}
-
-    total_coords = OrderedDict(
-        {
-            "time": np.asarray(time),
-            "variable": np.asarray(["t2m", "tcwv"]),
-            "lat": np.linspace(-90, 90, 180),
-            "lon": np.linspace(0, 360, 360, endpoint=False),
-        }
-    )
-
-    shape = [v.shape[0] for v in total_coords.values()]
-    x = torch.randn(shape, device=device, dtype=torch.float32)
-
-    # Create AsyncZarrBackend with specified codecs
+async def test_async_zarr_codecs(zarr_codecs: object, tmp_path: str) -> None:
+    """Data arrays are created with the requested compressor"""
+    times = TIMES[:1]
     z = AsyncZarrBackend(
         f"{tmp_path}/output_codecs.zarr",
-        parallel_coords=parallel_coords,
+        parallel_coords={"time": times},
         zarr_codecs=zarr_codecs,
     )
-    for i, time0 in enumerate(time):
-        total_coords["time"] = np.array([time0])
-        z.write(x[i : i + 1], total_coords, "fields_codecs")
-    z.close()
+    coords = OrderedDict({"time": times, "lat": LAT, "lon": LON})
+    z.add_array(template(coords, name="fields_codecs"))
 
-    assert "fields_codecs" in [key async for key in z.root.array_keys()]
+    x = torch.randn(1, 16, 32)
+    z.write(field(coords, x, name="fields_codecs"))
+    z.close()
 
     array = await z.root.get("fields_codecs")
     data = await array.getitem(slice(None))
-    assert data.shape == x.shape
-    assert np.allclose(data, x.to("cpu").numpy())
+    assert np.allclose(data, x.numpy())
 
-    # Verify compression was applied if codecs were specified
-    if zarr_codecs is not None:
-        assert hasattr(array, "metadata")
-        assert hasattr(array.metadata, "codecs")
-        codec = await array.info_complete()
-        # Not the cleanest but good enough hopefully
-        assert codec._compressors[0].__class__ == zarr_codecs.__class__
+    codec = await array.info_complete()
+    # Not the cleanest but good enough hopefully
+    assert codec._compressors[0].__class__ == zarr_codecs.__class__
 
 
 @pytest.mark.asyncio
 async def test_async_zarr_existing_store(tmp_path: str) -> None:
-    # Create an initial Zarr store with some data
-    initial_time = [np.datetime64("2021-01-01"), np.datetime64("2021-01-02")]
-    initial_parallel_coords = {"time": np.asarray(initial_time)}
-    z_initial = AsyncZarrBackend(
-        f"{tmp_path}/existing_store.zarr",
-        parallel_coords=initial_parallel_coords,
-        fs_factory=LocalFileSystem,
-    )
+    """Reopening a store validates the parallel coordinates against it"""
+    initial_time = np.array([np.datetime64("2021-01-01"), np.datetime64("2021-01-02")])
+    store = f"{tmp_path}/existing_store.zarr"
+    coords = OrderedDict({"time": initial_time, "lat": LAT, "lon": LON})
 
-    # Write some data to create the store
-    coords = OrderedDict(
-        {
-            "time": np.asarray(initial_time),
-            "variable": np.asarray(["t2m"]),
-            "lat": np.linspace(-90, 90, 10),
-            "lon": np.linspace(0, 360, 10, endpoint=False),
-        }
-    )
-    x = torch.randn(2, 1, 10, 10)
-
-    for i, time0 in enumerate(initial_time):
-        coords["time"] = np.array([time0])
-        z_initial.write(x[i : i + 1], coords, "test_array")
-
+    z_initial = AsyncZarrBackend(store, parallel_coords={"time": initial_time})
+    z_initial.add_array(template(coords, name="test_array"))
+    x = torch.randn(2, 16, 32)
+    for i in range(len(initial_time)):
+        step = OrderedDict(coords, time=initial_time[i : i + 1])
+        z_initial.write(field(step, x[i : i + 1], name="test_array"))
     z_initial.close()
 
-    # Try to initialize with invalid parallel_coords that differ from existing store
-    invalid_time = [
-        np.datetime64("2021-01-01"),
-        np.datetime64("2021-01-03"),
-    ]  # Different second time
-    invalid_parallel_coords = {"time": np.asarray(invalid_time)}
+    # Parallel coordinates that disagree with the stored ones are rejected up front
+    for invalid in (
+        np.array([np.datetime64("2021-01-01"), np.datetime64("2021-01-03")]),
+        initial_time[:1],
+    ):
+        with pytest.raises(ValueError):
+            AsyncZarrBackend(
+                store,
+                parallel_coords={"time": invalid},
+            )
 
-    with pytest.raises(ValueError):
-        AsyncZarrBackend(
-            f"{tmp_path}/existing_store.zarr",
-            parallel_coords=invalid_parallel_coords,
-            fs_factory=LocalFileSystem,
-        )
+    # Matching ones reopen the store, which keeps its arrays and coordinates
+    z_valid = AsyncZarrBackend(store, parallel_coords={"time": initial_time})
+    assert "test_array" in z_valid
+    # Re-adding the stored array is a no-op, the data survives
+    z_valid.add_array(template(coords, name="test_array"))
+    assert np.allclose(np.asarray(z_valid["test_array"][:]), x.numpy())
 
-    # Try to initialize with subset of parallel_coords that differ from existing store
-    invalid_time = [initial_time[0]]
-    invalid_parallel_coords = {"time": np.asarray(invalid_time)}
-
-    with pytest.raises(ValueError):
-        AsyncZarrBackend(
-            f"{tmp_path}/existing_store.zarr",
-            parallel_coords=invalid_parallel_coords,
-            fs_factory=LocalFileSystem,
-        )
-
-    # Initialize with valid parallel_coords that match existing store
-    valid_parallel_coords = {"time": np.asarray(initial_time)}
-
-    z_valid = AsyncZarrBackend(
-        f"{tmp_path}/existing_store.zarr",
-        parallel_coords=valid_parallel_coords,
-        fs_factory=LocalFileSystem,
+    # A new array joins the existing coordinates
+    z_valid.add_array(template(coords, name="new_array"))
+    new_x = torch.randn(1, 16, 32)
+    z_valid.write(
+        field(OrderedDict(coords, time=initial_time[:1]), new_x, name="new_array")
     )
-    new_coords = OrderedDict(
-        {
-            "time": np.asarray([initial_time[0]]),  # Use first time
-            "variable": np.asarray(["t2m"]),
-            "lat": np.linspace(-90, 90, 10),
-            "lon": np.linspace(0, 360, 10, endpoint=False),
-        }
-    )
-    new_x = torch.randn(1, 1, 10, 10)
-    z_valid.write(new_x, new_coords, "new_array")
 
-    # Verify the new array was created
-    assert "new_array" in [key async for key in z_valid.root.array_keys()]
-
-    # Verify we can read the data back
     data = await (await z_valid.root.get("new_array")).getitem(slice(None))
-    assert data.shape == (2, 1, 10, 10)  # Should have shape of full array
-    assert np.allclose(
-        data[0], new_x.to("cpu").numpy()
-    )  # First time slice should match
-
+    assert data.shape == (2, 16, 32)
+    assert np.allclose(data[0], new_x[0].numpy())
     z_valid.close()
 
 
-def _shard_test_coords(
-    lead_time: np.ndarray, variable: list[str]
-) -> "OrderedDict[str, np.ndarray]":
+def _shard_coords(leads: np.ndarray) -> "OrderedDict[str, np.ndarray]":
     """Small helper to build a lead time major coordinate system"""
-    return OrderedDict(
-        {
-            "lead_time": lead_time,
-            "variable": np.asarray(variable),
-            "lat": np.linspace(-90, 90, 16),
-            "lon": np.linspace(0, 360, 32, endpoint=False),
-        }
-    )
+    return OrderedDict({"lead_time": leads, "lat": LAT, "lon": LON})
 
 
 def _count_chunk_files(array_path: str) -> int:
@@ -700,35 +553,29 @@ def _count_chunk_files(array_path: str) -> int:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("nsteps,shard_size", [(8, 4), (8, 8), (10, 4), (7, 8)])
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 async def test_async_zarr_shard_write(
-    nsteps: int, shard_size: int, device: str, tmp_path: str
+    nsteps: int, shard_size: int, tmp_path: str
 ) -> None:
     """Sharded writes must round trip exactly and collapse chunks into shard files.
 
     Covers both shard aligned lead times and trailing partial shards, which are only
     flushed on close().
     """
-    lead_time = np.arange(nsteps).astype("timedelta64[h]")
-    variable = ["t2m", "tcwv"]
-    parallel_coords = {"lead_time": lead_time}
-
+    leads = lead_times(nsteps)
     z = AsyncZarrBackend(
         f"{tmp_path}/output.zarr",
-        parallel_coords=parallel_coords,
+        parallel_coords={"lead_time": leads},
         fs_factory=LocalFileSystem,
         blocking=False,
         pool_size=8,
         shard_coords={"lead_time": shard_size},
     )
 
-    total_coords = _shard_test_coords(lead_time, variable)
-    shape = [v.shape[0] for v in total_coords.values()]
-    x = torch.randn(shape, device=device, dtype=torch.float32)
-
+    coords = _shard_coords(leads)
+    z.add_array(template(coords, name="fields"))
+    x = torch.randn(nsteps, 16, 32)
     for i in range(nsteps):
-        total_coords["lead_time"] = lead_time[i : i + 1]
-        z.write(x[i : i + 1], total_coords, "fields")
+        z.write(field(OrderedDict(coords, lead_time=leads[i : i + 1]), x[i : i + 1]))
     z.close()
 
     array = await z.root.get("fields")
@@ -737,7 +584,7 @@ async def test_async_zarr_shard_write(
     assert array.shards[0] == shard_size
 
     data = await array.getitem(slice(None))
-    assert np.allclose(data, x.to("cpu").numpy())
+    assert np.allclose(data, x.numpy())
 
     # The point of the feature, one file per shard rather than one per lead time
     expected_shards = -(-nsteps // shard_size)
@@ -756,13 +603,11 @@ async def test_async_zarr_shard_single_write_per_shard(
     threads into the same shard, so this also exercises the cross thread bookkeeping.
     """
     nsteps, shard_size = 8, 4
-    lead_time = np.arange(nsteps).astype("timedelta64[h]")
-    parallel_coords = {"lead_time": lead_time}
+    leads = lead_times(nsteps)
 
     z = AsyncZarrBackend(
         f"{tmp_path}/output.zarr",
-        parallel_coords=parallel_coords,
-        fs_factory=LocalFileSystem,
+        parallel_coords={"lead_time": leads},
         blocking=False,
         pool_size=8,
         shard_coords={"lead_time": shard_size},
@@ -785,18 +630,16 @@ async def test_async_zarr_shard_single_write_per_shard(
 
     monkeypatch.setattr(AsyncZarrBackend, "_flush_buffer", recording_flush)
 
-    total_coords = _shard_test_coords(lead_time, ["t2m"])
-    shape = [v.shape[0] for v in total_coords.values()]
-    x = torch.randn(shape, dtype=torch.float32)
-
+    coords = _shard_coords(leads)
+    z.add_array(template(coords, name="fields"))
+    x = torch.randn(nsteps, 16, 32)
     for i in range(nsteps):
-        total_coords["lead_time"] = lead_time[i : i + 1]
-        z.write(x[i : i + 1], total_coords, "fields")
+        z.write(field(OrderedDict(coords, lead_time=leads[i : i + 1]), x[i : i + 1]))
     z.close()
 
     keys = [key for key, _ in flushes]
     assert len(keys) == len(set(keys)), f"a shard was flushed twice: {keys}"
-    assert set(keys) == {("fields", (0, 0, 0, 0)), ("fields", (1, 0, 0, 0))}
+    assert set(keys) == {("fields", (0, 0, 0)), ("fields", (1, 0, 0))}
     assert not any(
         preexisting for _, preexisting in flushes
     ), "shards took the read-modify-write merge path on a clean store"
@@ -814,38 +657,32 @@ async def test_async_zarr_shard_restart(tmp_path: str) -> None:
     the store and merge into it rather than overwrite it.
     """
     nsteps, shard_size = 8, 8
-    lead_time = np.arange(nsteps).astype("timedelta64[h]")
-    parallel_coords = {"lead_time": lead_time}
+    leads = lead_times(nsteps)
     store = f"{tmp_path}/restart.zarr"
+    coords = _shard_coords(leads)
+    x = torch.randn(nsteps, 16, 32)
 
-    total_coords = _shard_test_coords(lead_time, ["t2m"])
-    shape = [v.shape[0] for v in total_coords.values()]
-    x = torch.randn(shape, dtype=torch.float32)
+    def backend() -> AsyncZarrBackend:
+        z = AsyncZarrBackend(
+            store,
+            parallel_coords={"lead_time": leads},
+            shard_coords={"lead_time": shard_size},
+        )
+        z.add_array(template(coords, name="fields"))
+        return z
 
-    z1 = AsyncZarrBackend(
-        store,
-        parallel_coords=parallel_coords,
-        fs_factory=LocalFileSystem,
-        shard_coords={"lead_time": shard_size},
-    )
+    z1 = backend()
     for i in range(6):
-        total_coords["lead_time"] = lead_time[i : i + 1]
-        z1.write(x[i : i + 1], total_coords, "fields")
+        z1.write(field(OrderedDict(coords, lead_time=leads[i : i + 1]), x[i : i + 1]))
     z1.close()
 
     # Partial shard is on disk, the remaining lead times read back as fill
     data = await (await z1.root.get("fields")).getitem(slice(None))
     assert np.allclose(data[:6], x[:6].numpy())
 
-    z2 = AsyncZarrBackend(
-        store,
-        parallel_coords=parallel_coords,
-        fs_factory=LocalFileSystem,
-        shard_coords={"lead_time": shard_size},
-    )
+    z2 = backend()
     for i in range(6, nsteps):
-        total_coords["lead_time"] = lead_time[i : i + 1]
-        z2.write(x[i : i + 1], total_coords, "fields")
+        z2.write(field(OrderedDict(coords, lead_time=leads[i : i + 1]), x[i : i + 1]))
     z2.close()
 
     data = await (await z2.root.get("fields")).getitem(slice(None))
@@ -853,40 +690,71 @@ async def test_async_zarr_shard_restart(tmp_path: str) -> None:
 
 
 @pytest.mark.asyncio
+async def test_async_zarr_shard_reopen_without_add_array(tmp_path: str) -> None:
+    """A reopened store stages whole shards even when add_array is not called again.
+
+    Unstaged chunk writes to one shard would race on read-modify-write and lose data.
+    """
+    nsteps = 8
+    leads = lead_times(nsteps)
+    coords = _shard_coords(leads)
+    x = torch.randn(nsteps, 16, 32)
+
+    def backend() -> AsyncZarrBackend:
+        return AsyncZarrBackend(
+            f"{tmp_path}/reopen.zarr",
+            parallel_coords={"lead_time": leads},
+            shard_coords={"lead_time": nsteps},
+            blocking=False,
+            pool_size=8,
+        )
+
+    z1 = backend()
+    z1.add_array(template(coords, name="fields"))
+    for i in range(2):
+        z1.write(field(OrderedDict(coords, lead_time=leads[i : i + 1]), x[i : i + 1]))
+    z1.close()
+
+    z2 = backend()
+    assert z2._shard_specs["fields"] is not None
+    for i in range(2, nsteps):
+        z2.write(field(OrderedDict(coords, lead_time=leads[i : i + 1]), x[i : i + 1]))
+    z2.close()
+
+    data = await (await z2.root.get("fields")).getitem(slice(None))
+    assert np.allclose(data, x.numpy())
+
+
+@pytest.mark.asyncio
 async def test_async_zarr_shard_multi_dim(tmp_path: str) -> None:
     """Sharding across two parallel coordinates at once"""
-    time = np.asarray(
-        [np.datetime64("2021-01-01"), np.datetime64("2021-01-02")],
-    )
-    lead_time = np.arange(4).astype("timedelta64[h]")
-    parallel_coords = {"time": time, "lead_time": lead_time}
+    times = np.asarray([np.datetime64("2021-01-01"), np.datetime64("2021-01-02")])
+    leads = lead_times(4)
 
     z = AsyncZarrBackend(
         f"{tmp_path}/output.zarr",
-        parallel_coords=parallel_coords,
-        fs_factory=LocalFileSystem,
+        parallel_coords={"time": times, "lead_time": leads},
         blocking=False,
         pool_size=4,
         shard_coords={"time": 2, "lead_time": 2},
     )
-
-    total_coords = OrderedDict(
+    coords = OrderedDict(
         {
-            "time": time,
-            "lead_time": lead_time,
-            "variable": np.asarray(["t2m"]),
+            "time": times,
+            "lead_time": leads,
             "lat": np.linspace(-90, 90, 8),
             "lon": np.linspace(0, 360, 16, endpoint=False),
         }
     )
-    shape = [v.shape[0] for v in total_coords.values()]
-    x = torch.randn(shape, dtype=torch.float32)
+    z.add_array(template(coords, name="fields"))
 
-    for i in range(time.shape[0]):
-        for j in range(lead_time.shape[0]):
-            total_coords["time"] = time[i : i + 1]
-            total_coords["lead_time"] = lead_time[j : j + 1]
-            z.write(x[i : i + 1, j : j + 1], total_coords, "fields")
+    x = torch.randn(2, 4, 8, 16)
+    for i in range(len(times)):
+        for j in range(len(leads)):
+            step = OrderedDict(
+                coords, time=times[i : i + 1], lead_time=leads[j : j + 1]
+            )
+            z.write(field(step, x[i : i + 1, j : j + 1]))
     z.close()
 
     array = await z.root.get("fields")
@@ -901,30 +769,25 @@ async def test_async_zarr_shard_multi_dim(tmp_path: str) -> None:
 async def test_async_zarr_shard_with_codecs_and_chunked_coords(tmp_path: str) -> None:
     """Sharding composes with compression and with explicit chunking of other dims"""
     nsteps = 4
-    lead_time = np.arange(nsteps).astype("timedelta64[h]")
-    parallel_coords = {"lead_time": lead_time}
-
+    leads = lead_times(nsteps)
     z = AsyncZarrBackend(
         f"{tmp_path}/output.zarr",
-        parallel_coords=parallel_coords,
-        fs_factory=LocalFileSystem,
+        parallel_coords={"lead_time": leads},
         zarr_codecs=zarr.codecs.BloscCodec(cname="zstd"),
         chunked_coords={"lat": 8},
         shard_coords={"lead_time": 2, "lat": 16},
     )
 
-    total_coords = _shard_test_coords(lead_time, ["t2m"])
-    shape = [v.shape[0] for v in total_coords.values()]
-    x = torch.randn(shape, dtype=torch.float32)
-
+    coords = _shard_coords(leads)
+    z.add_array(template(coords, name="fields"))
+    x = torch.randn(nsteps, 16, 32)
     for i in range(nsteps):
-        total_coords["lead_time"] = lead_time[i : i + 1]
-        z.write(x[i : i + 1], total_coords, "fields")
+        z.write(field(OrderedDict(coords, lead_time=leads[i : i + 1]), x[i : i + 1]))
     z.close()
 
     array = await z.root.get("fields")
-    assert array.chunks == (1, 1, 8, 32)
-    assert array.shards == (2, 1, 16, 32)
+    assert array.chunks == (1, 8, 32)
+    assert array.shards == (2, 16, 32)
     data = await array.getitem(slice(None))
     assert np.allclose(data, x.numpy())
 
@@ -933,23 +796,21 @@ async def test_async_zarr_shard_with_codecs_and_chunked_coords(tmp_path: str) ->
 async def test_async_zarr_shard_async_write(tmp_path: str) -> None:
     """The async API takes the same buffering path, flushed via async_flush"""
     nsteps, shard_size = 6, 4
-    lead_time = np.arange(nsteps).astype("timedelta64[h]")
-    parallel_coords = {"lead_time": lead_time}
-
+    leads = lead_times(nsteps)
     z = AsyncZarrBackend(
         f"{tmp_path}/output.zarr",
-        parallel_coords=parallel_coords,
+        parallel_coords={"lead_time": leads},
         fs_factory=MemoryFileSystem,
         shard_coords={"lead_time": shard_size},
     )
 
-    total_coords = _shard_test_coords(lead_time, ["t2m"])
-    shape = [v.shape[0] for v in total_coords.values()]
-    x = torch.randn(shape, dtype=torch.float32)
-
+    coords = _shard_coords(leads)
+    z.add_array(template(coords, name="fields"))
+    x = torch.randn(nsteps, 16, 32)
     for i in range(nsteps):
-        total_coords["lead_time"] = lead_time[i : i + 1]
-        await z.async_write(x[i : i + 1], total_coords, "fields")
+        await z.async_write(
+            field(OrderedDict(coords, lead_time=leads[i : i + 1]), x[i : i + 1])
+        )
     await z.async_flush()
 
     data = await (await z.root.get("fields")).getitem(slice(None))
@@ -966,8 +827,7 @@ def test_async_zarr_pool_throttle_counts_pending(tmp_path: str) -> None:
     """
     z = AsyncZarrBackend(
         f"{tmp_path}/throttle.zarr",
-        parallel_coords={"lead_time": np.arange(2).astype("timedelta64[h]")},
-        fs_factory=LocalFileSystem,
+        parallel_coords={"lead_time": lead_times(2)},
         blocking=False,
         pool_size=4,
     )
@@ -998,8 +858,7 @@ def test_async_zarr_pool_throttle_no_head_of_line_block(tmp_path: str) -> None:
     """
     z = AsyncZarrBackend(
         f"{tmp_path}/headofline.zarr",
-        parallel_coords={"lead_time": np.arange(2).astype("timedelta64[h]")},
-        fs_factory=LocalFileSystem,
+        parallel_coords={"lead_time": lead_times(2)},
         blocking=False,
         pool_size=4,
     )
@@ -1028,8 +887,7 @@ def test_async_zarr_pool_throttle_surfaces_errors(tmp_path: str) -> None:
     """A write that failed must not have its exception silently discarded"""
     z = AsyncZarrBackend(
         f"{tmp_path}/throttle_err.zarr",
-        parallel_coords={"lead_time": np.arange(2).astype("timedelta64[h]")},
-        fs_factory=LocalFileSystem,
+        parallel_coords={"lead_time": lead_times(2)},
         blocking=False,
         pool_size=4,
     )
@@ -1056,12 +914,11 @@ async def test_async_zarr_shard_inflight_limit(
     the bound that keeps sharding's host memory predictable.
     """
     nsteps, shard_size = 12, 2
-    lead_time = np.arange(nsteps).astype("timedelta64[h]")
+    leads = lead_times(nsteps)
 
     z = AsyncZarrBackend(
         f"{tmp_path}/inflight.zarr",
-        parallel_coords={"lead_time": lead_time},
-        fs_factory=LocalFileSystem,
+        parallel_coords={"lead_time": leads},
         blocking=False,
         pool_size=8,
         shard_coords={"lead_time": shard_size},
@@ -1098,13 +955,11 @@ async def test_async_zarr_shard_inflight_limit(
 
     monkeypatch.setattr(AsyncZarrBackend, "_acquire_flush_slot", counting_acquire)
 
-    total_coords = _shard_test_coords(lead_time, ["t2m"])
-    shape = [v.shape[0] for v in total_coords.values()]
-    x = torch.randn(shape, dtype=torch.float32)
-
+    coords = _shard_coords(leads)
+    z.add_array(template(coords, name="fields"))
+    x = torch.randn(nsteps, 16, 32)
     for i in range(nsteps):
-        total_coords["lead_time"] = lead_time[i : i + 1]
-        z.write(x[i : i + 1], total_coords, "fields")
+        z.write(field(OrderedDict(coords, lead_time=leads[i : i + 1]), x[i : i + 1]))
     z.close()
 
     assert (
@@ -1119,72 +974,72 @@ async def test_async_zarr_shard_inflight_limit(
 @pytest.mark.asyncio
 async def test_async_zarr_shard_validation(tmp_path: str) -> None:
     """Invalid shard configurations must fail with a clear error"""
-    lead_time = np.arange(4).astype("timedelta64[h]")
-    parallel_coords = {"lead_time": lead_time}
-    total_coords = _shard_test_coords(lead_time, ["t2m"])
-    x = torch.randn([v.shape[0] for v in total_coords.values()], dtype=torch.float32)
+    leads = lead_times(4)
+    coords = _shard_coords(leads)
 
     # Non positive shard size is rejected up front
     with pytest.raises(ValueError):
         AsyncZarrBackend(
             f"{tmp_path}/bad0.zarr",
-            parallel_coords=parallel_coords,
-            fs_factory=LocalFileSystem,
+            parallel_coords={"lead_time": leads},
             shard_coords={"lead_time": 0},
+        )
+
+    # chunked_coords must never widen a parallel coordinate's chunk of 1, nor be
+    # non-positive
+    with pytest.raises(ValueError, match="parallel_coords"):
+        AsyncZarrBackend(
+            f"{tmp_path}/widened.zarr",
+            parallel_coords={"lead_time": leads},
+            chunked_coords={"lead_time": 2},
+        )
+    with pytest.raises(ValueError, match="must be positive"):
+        AsyncZarrBackend(
+            f"{tmp_path}/nonpositive.zarr",
+            parallel_coords={"lead_time": leads},
+            chunked_coords={"lat": 0},
         )
 
     # Shard size must be a multiple of the chunk size of that coordinate
     z = AsyncZarrBackend(
         f"{tmp_path}/bad1.zarr",
-        parallel_coords=parallel_coords,
-        fs_factory=LocalFileSystem,
+        parallel_coords={"lead_time": leads},
         chunked_coords={"lat": 8},
         shard_coords={"lat": 12},
     )
-    total_coords["lead_time"] = lead_time[0:1]
     with pytest.raises(ValueError):
-        z.write(x[0:1], total_coords, "fields")
+        z.add_array(template(coords, name="fields"))
 
     # A shard size equal to the chunk size is a no-op, array stays unsharded
     z = AsyncZarrBackend(
         f"{tmp_path}/noop.zarr",
-        parallel_coords=parallel_coords,
-        fs_factory=LocalFileSystem,
+        parallel_coords={"lead_time": leads},
         shard_coords={"lat": 16},
     )
-    z.write(x[0:1], total_coords, "fields")
+    z.add_array(template(coords, name="fields"))
+    z.write(field(OrderedDict(coords, lead_time=leads[:1]), torch.zeros(1, 16, 32)))
     z.close()
     assert (await z.root.get("fields")).shards is None
 
 
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_async_zarr_nonblocking_no_aliasing(tmp_path: str, device: str) -> None:
-    if device.startswith("cuda") and not torch.cuda.is_available():
-        pytest.skip("cuda not available")
-
-    lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
-    total_coords = OrderedDict(
-        {
-            "lead_time": lead_time[0:1],
-            "lat": np.linspace(-90, 90, 8),
-            "lon": np.linspace(0, 360, 16, endpoint=False),
-        }
-    )
-
+def test_async_zarr_nonblocking_no_aliasing(tmp_path: str) -> None:
+    """A non-blocking write must copy, the caller reuses its buffer immediately"""
+    leads = lead_times(2)
+    coords = _shard_coords(leads)
     z = AsyncZarrBackend(
         f"{tmp_path}/aliasing.zarr",
-        parallel_coords=OrderedDict({"lead_time": lead_time}),
-        fs_factory=LocalFileSystem,
+        parallel_coords={"lead_time": leads},
         blocking=False,
         pool_size=4,
     )
+    z.add_array(template(coords, name="fields"))
 
     # One buffer reused across steps, exactly as an in-place model would
-    buffer = torch.ones(1, 8, 16, device=device)
-    for i in range(len(lead_time)):
+    buffer = torch.ones(1, 16, 32)
+    for i in range(len(leads)):
         buffer.fill_(float(i + 1))
-        total_coords["lead_time"] = lead_time[i : i + 1]
-        z.write(buffer, total_coords, "fields")
+        step = OrderedDict(coords, lead_time=leads[i : i + 1])
+        z.write(field(step, buffer))
         # The model would now compute the next step straight into `buffer`
         buffer.fill_(-999.0)
     z.close()
@@ -1195,52 +1050,48 @@ def test_async_zarr_nonblocking_no_aliasing(tmp_path: str, device: str) -> None:
 
 
 def test_async_zarr_datetime_coords_converted(tmp_path: str) -> None:
+    """Python datetimes in a template are stored as datetime64 coordinates"""
+    stamps = np.array([datetime.datetime(2024, 1, 1)], dtype=object)
     z = AsyncZarrBackend(
         f"{tmp_path}/datetime.zarr",
-        parallel_coords={},
-        fs_factory=LocalFileSystem,
+        parallel_coords={"time": stamps},
         blocking=True,
     )
-    total_coords = OrderedDict(
-        {
-            "time": np.array([datetime.datetime(2024, 1, 1)], dtype=object),
-            "lat": np.linspace(-90, 90, 4),
-        }
-    )
-    z.write(torch.ones(1, 4), total_coords, "fields")
+    coords = OrderedDict({"time": stamps, "lat": LAT})
+    z.add_array(template(coords, name="fields"))
+    z.write(field(coords, torch.ones(1, 16)))
     z.close()
 
     assert zarr.open(f"{tmp_path}/datetime.zarr")["time"].dtype.kind == "M"
+    assert np.all(zarr.open(f"{tmp_path}/datetime.zarr")["fields"][:] == 1.0)
 
 
 def test_async_zarr_write_after_consolidate(tmp_path: str) -> None:
-    lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
-    total_coords = OrderedDict(
-        {
-            "lead_time": lead_time[0:1],
-            "lat": np.linspace(-90, 90, 8),
-            "lon": np.linspace(0, 360, 16, endpoint=False),
-        }
-    )
+    """A run after consolidation still sees arrays the snapshot does not know of"""
+    leads = lead_times(2)
+    coords = _shard_coords(leads)
 
     def backend() -> AsyncZarrBackend:
         return AsyncZarrBackend(
             f"{tmp_path}/consolidated.zarr",
-            parallel_coords=OrderedDict({"lead_time": lead_time}),
-            fs_factory=LocalFileSystem,
+            parallel_coords={"lead_time": leads},
             blocking=True,
         )
 
     run1 = backend()
-    run1.write(torch.ones(1, 8, 16), total_coords, "a")
+    run1.add_array(template(coords, name="a"))
+    run1.write(
+        field(OrderedDict(coords, lead_time=leads[:1]), torch.ones(1, 16, 32), name="a")
+    )
     run1.close()
     zarr.consolidate_metadata(run1.root.store)
 
     # Second run creates an array the consolidated snapshot does not know about
     run2 = backend()
-    run2.write(torch.full((1, 8, 16), 2.0), total_coords, "b")
-    total_coords["lead_time"] = lead_time[1:2]
-    run2.write(torch.full((1, 8, 16), 3.0), total_coords, "b")
+    run2.add_array(template(coords, name="b"))
+    for i, value in enumerate((2.0, 3.0)):
+        step = OrderedDict(coords, lead_time=leads[i : i + 1])
+        run2.write(field(step, torch.full((1, 16, 32), value), name="b"))
     run2.close()
     zarr.consolidate_metadata(run2.root.store)
 
@@ -1250,30 +1101,27 @@ def test_async_zarr_write_after_consolidate(tmp_path: str) -> None:
 
 
 def test_async_zarr_shard_with_chunked_spatial_coord(tmp_path: str) -> None:
-    lead_time = np.array([np.timedelta64(6 * i, "h") for i in range(8)])
-    total_coords = OrderedDict(
-        {
-            "lead_time": lead_time[0:1],
-            "lat": np.linspace(-90, 90, 32),
-            "lon": np.linspace(0, 360, 16, endpoint=False),
-        }
+    """Shards spanning several chunks of a spatial coordinate round trip"""
+    leads = np.array([np.timedelta64(6 * i, "h") for i in range(8)])
+    coords = OrderedDict(
+        {"lead_time": leads, "lat": np.linspace(-90, 90, 32), "lon": LON}
     )
 
     z = AsyncZarrBackend(
         f"{tmp_path}/shard_chunk.zarr",
-        parallel_coords=OrderedDict({"lead_time": lead_time}),
+        parallel_coords={"lead_time": leads},
         chunked_coords={"lat": 4},
         shard_coords={"lead_time": 4},
-        fs_factory=LocalFileSystem,
         blocking=True,
     )
-    for i in range(len(lead_time)):
-        total_coords["lead_time"] = lead_time[i : i + 1]
-        z.write(torch.full((1, 32, 16), float(i)), total_coords, "fields")
+    z.add_array(template(coords, name="fields"))
+    for i in range(len(leads)):
+        step = OrderedDict(coords, lead_time=leads[i : i + 1])
+        z.write(field(step, torch.full((1, 32, 32), float(i))))
     z.close()
 
     stored = zarr.open(f"{tmp_path}/shard_chunk.zarr")["fields"][:]
-    for i in range(len(lead_time)):
+    for i in range(len(leads)):
         assert np.all(stored[i] == float(i))
 
 
@@ -1282,35 +1130,24 @@ def test_async_zarr_shard_with_chunked_spatial_coord(tmp_path: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _store_coords(
-    time: np.ndarray, nlat: int = 16, nlon: int = 32
-) -> OrderedDict[str, np.ndarray]:
-    return OrderedDict(
-        {
-            "time": time,
-            "lat": np.linspace(-90, 90, nlat),
-            "lon": np.linspace(0, 360, nlon, endpoint=False),
-        }
-    )
-
-
 def test_async_zarr_object_store_memory_url() -> None:
     """store as memory:// URL: writes bypass fsspec entirely"""
-    time = np.array([np.datetime64("2024-01-01"), np.datetime64("2024-01-02")])
+    times = np.array([np.datetime64("2024-01-01"), np.datetime64("2024-01-02")])
     z = AsyncZarrBackend(
         "ignored.zarr",
-        parallel_coords=OrderedDict({"time": time}),
+        parallel_coords=OrderedDict({"time": times}),
         store="memory:///",
     )
     # No fsspec filesystem is constructed on the object-store path
     assert z.fs is None
     assert all(fs is None for fs in z.fs_pool)
 
-    total_coords = _store_coords(time)
+    coords = OrderedDict({"time": times, "lat": LAT, "lon": LON})
+    z.add_array(template(coords, name="fields"))
     x = torch.randn(2, 16, 32)
-    for i in range(len(time)):
-        total_coords["time"] = time[i : i + 1]
-        z.write(x[i : i + 1], total_coords, "fields")
+    for i in range(len(times)):
+        step = OrderedDict(coords, time=times[i : i + 1])
+        z.write(field(step, x[i : i + 1]))
     z.close()
 
     stored = zarr.open_group(z._object_store, mode="r")["fields"][:]
@@ -1320,45 +1157,43 @@ def test_async_zarr_object_store_memory_url() -> None:
 def test_async_zarr_default_local_is_fsspec_free(tmp_path: str) -> None:
     """Default path (no store, no fs_factory) writes via a zarr LocalStore
     without any fsspec filesystem; fs_factory warns as deprecated"""
-    time = np.array([np.datetime64("2024-01-01")])
+    times = np.array([np.datetime64("2024-01-01")])
+    coords = OrderedDict({"time": times, "lat": LAT, "lon": LON})
+    x = torch.randn(1, 16, 32)
+
     z = AsyncZarrBackend(
-        f"{tmp_path}/default_local.zarr",
-        parallel_coords=OrderedDict({"time": time}),
+        f"{tmp_path}/default_local.zarr", parallel_coords={"time": times}
     )
     assert z.fs is None
     assert all(fs is None for fs in z.fs_pool)
 
-    total_coords = _store_coords(time)
-    x = torch.randn(1, 16, 32)
-    z.write(x, total_coords, "fields")
+    z.add_array(template(coords, name="fields"))
+    z.write(field(coords, x))
     z.close()
-    stored = zarr.open(f"{tmp_path}/default_local.zarr")["fields"][:]
-    assert np.allclose(stored[0], x[0].numpy())
+    assert np.allclose(zarr.open(f"{tmp_path}/default_local.zarr")["fields"][0], x[0])
 
     # Passing fs_factory still works but is deprecated
     with pytest.warns(FutureWarning, match="fs_factory is deprecated"):
         AsyncZarrBackend(
             f"{tmp_path}/legacy.zarr",
-            parallel_coords=OrderedDict({"time": time}),
+            parallel_coords={"time": times},
             fs_factory=LocalFileSystem,
         )
 
     # store also accepts a plain local path (no URL scheme required)
     z3 = AsyncZarrBackend(
-        None,
-        parallel_coords=OrderedDict({"time": time}),
-        store=f"{tmp_path}/plain_path.zarr",
+        None, parallel_coords={"time": times}, store=f"{tmp_path}/plain_path.zarr"
     )
-    z3.write(x, _store_coords(time), "fields")
+    z3.add_array(template(coords, name="fields"))
+    z3.write(field(coords, x))
     z3.close()
-    assert np.allclose(
-        zarr.open(f"{tmp_path}/plain_path.zarr")["fields"][0], x[0].numpy()
-    )
+    assert np.allclose(zarr.open(f"{tmp_path}/plain_path.zarr")["fields"][0], x[0])
+
     # ... but local paths take no store_kwargs
     with pytest.raises(ValueError):
         AsyncZarrBackend(
             None,
-            parallel_coords=OrderedDict({"time": time}),
+            parallel_coords={"time": times},
             store=f"{tmp_path}/plain_kwargs.zarr",
             store_kwargs={"region": "us-east-1"},
         )
@@ -1367,18 +1202,19 @@ def test_async_zarr_default_local_is_fsspec_free(tmp_path: str) -> None:
 def test_async_zarr_object_store_ignores_fs_factory() -> None:
     """fs_factory and file_name are ignored (not validated) when a store is
     provided; the store path wins over a callable fs_factory"""
-    time = np.array([np.datetime64("2024-01-01")])
+    times = np.array([np.datetime64("2024-01-01")])
     z = AsyncZarrBackend(
         None,  # file_name not required on the store path
-        parallel_coords=OrderedDict({"time": time}),
+        parallel_coords=OrderedDict({"time": times}),
         fs_factory=None,  # non-callable placeholder must not raise
         store="memory:///",
     )
     assert z.fs is None
 
-    total_coords = _store_coords(time)
+    coords = OrderedDict({"time": times, "lat": LAT, "lon": LON})
     x = torch.randn(1, 16, 32)
-    z.write(x, total_coords, "fields")
+    z.add_array(template(coords, name="fields"))
+    z.write(field(coords, x))
     z.close()
     stored = zarr.open_group(z._object_store, mode="r")["fields"][:]
     assert np.allclose(stored, x.numpy())
@@ -1386,7 +1222,7 @@ def test_async_zarr_object_store_ignores_fs_factory() -> None:
     # A callable fs_factory alongside a store still takes the store path
     z2 = AsyncZarrBackend(
         None,
-        parallel_coords=OrderedDict({"time": time}),
+        parallel_coords=OrderedDict({"time": times}),
         fs_factory=LocalFileSystem,
         store="memory:///",
     )
@@ -1395,7 +1231,7 @@ def test_async_zarr_object_store_ignores_fs_factory() -> None:
 
     # Without a store, file_name is still required
     with pytest.raises(ValueError):
-        AsyncZarrBackend(None, parallel_coords=OrderedDict({"time": time}))
+        AsyncZarrBackend(None, parallel_coords=OrderedDict({"time": times}))
 
     # store_kwargs only applies to URL stores
     import obstore.store
@@ -1403,7 +1239,7 @@ def test_async_zarr_object_store_ignores_fs_factory() -> None:
     with pytest.raises(ValueError):
         AsyncZarrBackend(
             None,
-            parallel_coords=OrderedDict({"time": time}),
+            parallel_coords=OrderedDict({"time": times}),
             store=obstore.store.MemoryStore(),
             store_kwargs={"region": "us-east-1"},
         )
@@ -1413,51 +1249,50 @@ def test_async_zarr_object_store_local_instance(tmp_path: str) -> None:
     """store as obstore store instance, on-disk layout readable by plain zarr"""
     import obstore.store
 
-    time = np.array([np.datetime64("2024-01-01"), np.datetime64("2024-01-02")])
+    times = np.array([np.datetime64("2024-01-01"), np.datetime64("2024-01-02")])
     root = f"{tmp_path}/obstore_local"
     os.makedirs(root, exist_ok=True)
+    coords = OrderedDict({"time": times, "lat": LAT, "lon": LON})
+    x = torch.randn(2, 16, 32)
 
     z = AsyncZarrBackend(
         "ignored.zarr",
-        parallel_coords=OrderedDict({"time": time}),
+        parallel_coords=OrderedDict({"time": times}),
         store=obstore.store.LocalStore(root),
     )
-    total_coords = _store_coords(time)
-    x = torch.randn(2, 16, 32)
-    total_coords["time"] = time[0:1]
-    z.write(x[0:1], total_coords, "fields")
+    z.add_array(template(coords, name="fields"))
+    z.write(field(OrderedDict(coords, time=times[0:1]), x[0:1]))
     z.close()
 
     # The written store is a standard zarr v3 store on disk
-    stored = zarr.open(root)["fields"]
-    assert np.allclose(stored[0], x[0].numpy())
+    assert np.allclose(zarr.open(root)["fields"][0], x[0].numpy())
 
     # Restart into the same store with a fresh backend and complete the array
     z2 = AsyncZarrBackend(
         "ignored.zarr",
-        parallel_coords=OrderedDict({"time": time}),
+        parallel_coords=OrderedDict({"time": times}),
         store=obstore.store.LocalStore(root),
     )
-    total_coords["time"] = time[1:2]
-    z2.write(x[1:2], total_coords, "fields")
+    z2.write(field(OrderedDict(coords, time=times[1:2]), x[1:2]))
     z2.close()
     assert np.allclose(zarr.open(root)["fields"][:], x.numpy())
 
 
 def test_async_zarr_object_store_file_url(tmp_path: str) -> None:
     """store as file:// URL resolved through obstore.store.from_url"""
-    time = np.array([np.datetime64("2024-01-01")])
+    times = np.array([np.datetime64("2024-01-01")])
     root = f"{tmp_path}/url_store"
     os.makedirs(root, exist_ok=True)
 
     z = AsyncZarrBackend(
         "ignored.zarr",
-        parallel_coords=OrderedDict({"time": time}),
+        parallel_coords=OrderedDict({"time": times}),
         store=f"file://{root}",
     )
-    total_coords = _store_coords(time)
+    coords = OrderedDict({"time": times, "lat": LAT, "lon": LON})
     x = torch.randn(1, 16, 32)
-    z.write(x, total_coords, "fields")
+    z.add_array(template(coords, name="fields"))
+    z.write(field(coords, x))
     z.close()
 
     assert np.allclose(zarr.open(root)["fields"][0], x[0].numpy())
@@ -1467,23 +1302,24 @@ def test_async_zarr_object_store_zarr_instance() -> None:
     """store as an already constructed zarr store; read-only stores rejected"""
     import obstore.store
 
-    time = np.array([np.datetime64("2024-01-01")])
+    times = np.array([np.datetime64("2024-01-01")])
     zstore = zarr.storage.ObjectStore(obstore.store.MemoryStore(), read_only=False)
     z = AsyncZarrBackend(
         "ignored.zarr",
-        parallel_coords=OrderedDict({"time": time}),
+        parallel_coords=OrderedDict({"time": times}),
         store=zstore,
     )
-    total_coords = _store_coords(time)
+    coords = OrderedDict({"time": times, "lat": LAT, "lon": LON})
     x = torch.randn(1, 16, 32)
-    z.write(x, total_coords, "fields")
+    z.add_array(template(coords, name="fields"))
+    z.write(field(coords, x))
     z.close()
     assert np.allclose(zarr.open_group(zstore, mode="r")["fields"][0], x[0].numpy())
 
     with pytest.raises(ValueError):
         AsyncZarrBackend(
             "ignored.zarr",
-            parallel_coords=OrderedDict({"time": time}),
+            parallel_coords=OrderedDict({"time": times}),
             store=zstore.with_read_only(True),
         )
 
@@ -1492,22 +1328,22 @@ def test_async_zarr_object_store_non_blocking(tmp_path: str) -> None:
     """non-blocking pool shares one obstore-backed store across loops"""
     import obstore.store
 
-    time = np.array([np.datetime64(f"2024-01-0{i}") for i in range(1, 5)])
+    times = np.array([np.datetime64(f"2024-01-0{i}") for i in range(1, 5)])
     root = f"{tmp_path}/obstore_nb"
     os.makedirs(root, exist_ok=True)
 
     z = AsyncZarrBackend(
         "ignored.zarr",
-        parallel_coords=OrderedDict({"time": time}),
+        parallel_coords=OrderedDict({"time": times}),
         store=obstore.store.LocalStore(root),
         blocking=False,
         pool_size=2,
     )
-    total_coords = _store_coords(time)
+    coords = OrderedDict({"time": times, "lat": LAT, "lon": LON})
+    z.add_array(template(coords, name="fields"))
     x = torch.randn(4, 16, 32)
-    for i in range(len(time)):
-        total_coords["time"] = time[i : i + 1]
-        z.write(x[i : i + 1], total_coords, "fields")
+    for i in range(len(times)):
+        z.write(field(OrderedDict(coords, time=times[i : i + 1]), x[i : i + 1]))
     z.close()
 
     assert np.allclose(zarr.open(root)["fields"][:], x.numpy())
@@ -1517,46 +1353,42 @@ def test_async_zarr_object_store_sharded(tmp_path: str) -> None:
     """sharded writes flush through the obstore-backed store"""
     import obstore.store
 
-    lead_time = np.array([np.timedelta64(6 * i, "h") for i in range(4)])
+    leads = np.array([np.timedelta64(6 * i, "h") for i in range(4)])
     root = f"{tmp_path}/obstore_shard"
     os.makedirs(root, exist_ok=True)
 
     z = AsyncZarrBackend(
         "ignored.zarr",
-        parallel_coords=OrderedDict({"lead_time": lead_time}),
+        parallel_coords=OrderedDict({"lead_time": leads}),
         shard_coords={"lead_time": 2},
         store=obstore.store.LocalStore(root),
     )
-    total_coords = OrderedDict(
-        {
-            "lead_time": lead_time[0:1],
-            "lat": np.linspace(-90, 90, 16),
-            "lon": np.linspace(0, 360, 32, endpoint=False),
-        }
-    )
-    for i in range(len(lead_time)):
-        total_coords["lead_time"] = lead_time[i : i + 1]
-        z.write(torch.full((1, 16, 32), float(i)), total_coords, "fields")
+    coords = _shard_coords(leads)
+    z.add_array(template(coords, name="fields"))
+    for i in range(len(leads)):
+        step = OrderedDict(coords, lead_time=leads[i : i + 1])
+        z.write(field(step, torch.full((1, 16, 32), float(i))))
     z.close()
 
     stored = zarr.open(root)["fields"]
     assert stored.shards == (2, 16, 32)
-    for i in range(len(lead_time)):
+    for i in range(len(leads)):
         assert np.all(stored[i] == float(i))
 
 
 @pytest.mark.asyncio
 async def test_async_zarr_object_store_async_write() -> None:
     """async_write path with fs=None on the object-store branch"""
-    time = np.array([np.datetime64("2024-01-01")])
+    times = np.array([np.datetime64("2024-01-01")])
     z = AsyncZarrBackend(
         "ignored.zarr",
-        parallel_coords=OrderedDict({"time": time}),
+        parallel_coords=OrderedDict({"time": times}),
         store="memory:///",
     )
-    total_coords = _store_coords(time)
+    coords = OrderedDict({"time": times, "lat": LAT, "lon": LON})
     x = torch.randn(1, 16, 32)
-    await z.async_write(x, total_coords, "fields")
+    z.add_array(template(coords, name="fields"))
+    await z.async_write(field(coords, x))
     stored = zarr.open_group(z._object_store, mode="r")["fields"][:]
     assert np.allclose(stored[0], x[0].numpy())
 
@@ -1565,31 +1397,33 @@ def test_async_zarr_object_store_parity(tmp_path: str) -> None:
     """object-store output matches the fsspec LocalFileSystem output exactly"""
     import obstore.store
 
-    time = np.array([np.datetime64("2024-01-01"), np.datetime64("2024-01-02")])
-    total_coords = _store_coords(time)
+    times = np.array([np.datetime64("2024-01-01"), np.datetime64("2024-01-02")])
+    coords = OrderedDict({"time": times, "lat": LAT, "lon": LON})
     x = torch.randn(2, 16, 32)
 
     fs_root = f"{tmp_path}/parity_fs.zarr"
     zf = AsyncZarrBackend(
         fs_root,
-        parallel_coords=OrderedDict({"time": time}),
+        parallel_coords=OrderedDict({"time": times}),
         fs_factory=LocalFileSystem,
     )
     ob_root = f"{tmp_path}/parity_ob"
     os.makedirs(ob_root, exist_ok=True)
     zo = AsyncZarrBackend(
         "ignored.zarr",
-        parallel_coords=OrderedDict({"time": time}),
+        parallel_coords=OrderedDict({"time": times}),
         store=obstore.store.LocalStore(ob_root),
     )
     for backend in (zf, zo):
-        for i in range(len(time)):
-            total_coords["time"] = time[i : i + 1]
-            backend.write(x[i : i + 1], total_coords, "fields")
+        backend.add_array(template(coords, name="fields"))
+        for i in range(len(times)):
+            backend.write(
+                field(OrderedDict(coords, time=times[i : i + 1]), x[i : i + 1])
+            )
         backend.close()
 
-    a = xr.open_zarr(fs_root)
-    b = xr.open_zarr(ob_root)
+    a = xr.open_zarr(fs_root, consolidated=False)
+    b = xr.open_zarr(ob_root, consolidated=False)
     xr.testing.assert_identical(a, b)
 
 
@@ -1619,40 +1453,27 @@ def test_async_zarr_object_store_remote(blocking: bool) -> None:
     root = f"s3://earth2studio/ci/pytest/{uuid.uuid4()}.zarr"
     store = obstore.store.from_url(root, config=config)
 
-    times = [
-        np.datetime64("1971-06-01T06:00:00"),
-        np.datetime64("2021-11-23T18:00:00"),
-        np.datetime64("2021-11-24T00:00:00"),
-    ]
-    parallel_coords = {
-        "time": np.asarray(times),
-    }
-    variable = np.asarray(["t2m", "tcwv"])
-
-    total_coords = OrderedDict(
+    variables = ["t2m", "tcwv"]
+    coords = OrderedDict(
         {
-            "time": np.asarray(times),
-            "variable": variable,
+            "time": TIMES,
+            "variable": np.asarray(variables),
             "lat": np.linspace(-90, 90, 8),
             "lon": np.linspace(0, 360, 16, endpoint=False),
         }
     )
-    shape = [v.shape[0] for v in total_coords.values()]
-    x = torch.randn(shape, dtype=torch.float32)
+    x = torch.randn(len(TIMES), 2, 8, 16)
     z = AsyncZarrBackend(
         "unused.zarr",
-        parallel_coords=parallel_coords,
+        parallel_coords={"time": TIMES},
         store=store,
         blocking=blocking,
     )
+    z.add_array(template(coords))
 
     try:
-        for i, time0 in enumerate(times):
-            total_coords["time"] = np.array([time0])
-            split_x, coords, array_names = split_coords(
-                x[i : i + 1], total_coords, dim="variable"
-            )
-            z.write(split_x, coords, array_names)
+        for i in range(len(TIMES)):
+            z.write(field(OrderedDict(coords, time=TIMES[i : i + 1]), x[i : i + 1]))
         z.close()
 
         # Verify contents through a fresh read-only store
@@ -1660,9 +1481,9 @@ def test_async_zarr_object_store_remote(blocking: bool) -> None:
             obstore.store.from_url(root, config=config), read_only=True
         )
         ds = xr.open_zarr(read_store, consolidated=False)
-        for i, v in enumerate(variable):
-            assert v in ds
-            assert np.allclose(ds[v].values, x[:, i].numpy())
+        for i, variable in enumerate(variables):
+            assert variable in ds
+            assert np.allclose(ds[variable].values, x[:, i].numpy())
     finally:
         # Delete the zarr store via obstore
         keys = [entry["path"] for chunk in obstore.list(store) for entry in chunk]
@@ -1671,52 +1492,47 @@ def test_async_zarr_object_store_remote(blocking: bool) -> None:
 
 
 def test_async_zarr_add_array_eager_and_idempotent(tmp_path: str) -> None:
-    lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
-    total_coords = OrderedDict(
-        {
-            "lead_time": lead_time,
-            "lat": np.linspace(-90, 90, 8),
-            "lon": np.linspace(0, 360, 16, endpoint=False),
-        }
-    )
+    """Arrays exist before any write, and re-adding one keeps its data"""
+    leads = lead_times(2)
+    coords = _shard_coords(leads)
     z = AsyncZarrBackend(
         f"{tmp_path}/add_array.zarr",
-        parallel_coords=OrderedDict({"lead_time": lead_time}),
-        fs_factory=LocalFileSystem,
+        parallel_coords=OrderedDict({"lead_time": leads}),
         blocking=True,
     )
-    z.add_array(total_coords, ["fields_1", "fields_2"])
+    z.add_array(template(coords, name="fields_1"))
+    z.add_array(template(coords, name="fields_2"))
     assert "fields_1" in z and "fields_2" in z
     assert "never_added" not in z
-    assert z["fields_1"].shape == (2, 8, 16)
+    assert z["fields_1"].shape == (2, 16, 32)
 
     # Re-adding an existing array must not raise or destroy data
-    step = total_coords.copy()
-    step["lead_time"] = lead_time[0:1]
-    z.write(torch.ones(1, 8, 16), step, "fields_1")
-    z.add_array(total_coords, ["fields_1", "fields_2"])
-    assert np.all(z["fields_1"][0] == 1.0)
-
-    # An ndarray of names is accepted, as the eval recipe's scoring passes
-    z.add_array(total_coords, np.array(["fields_3", "fields_4"]))
-    assert "fields_3" in z and "fields_4" in z
+    step = OrderedDict(coords, lead_time=leads[0:1])
+    z.write(field(step, torch.ones(1, 16, 32), name="fields_1"))
+    z.add_array(template(coords, name="fields_1"))
+    assert np.all(np.asarray(z["fields_1"][0]) == 1.0)
     z.close()
 
 
 def test_async_zarr_add_array_heterogeneous_dims(tmp_path: str) -> None:
-    lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
+    """Arrays of the store need not share a dimension set"""
+    leads = lead_times(2)
     z = AsyncZarrBackend(
         f"{tmp_path}/hetero.zarr",
-        parallel_coords=OrderedDict({"lead_time": lead_time}),
-        fs_factory=LocalFileSystem,
+        parallel_coords=OrderedDict({"lead_time": leads}),
         blocking=True,
     )
     z.add_array(
-        OrderedDict({"lead_time": lead_time, "lat": np.linspace(-90, 90, 4)}),
-        "with_lat",
+        template(
+            OrderedDict({"lead_time": leads, "lat": np.linspace(-90, 90, 4)}),
+            name="with_lat",
+        )
     )
     z.add_array(
-        OrderedDict({"lead_time": lead_time, "member": np.arange(3)}), "with_member"
+        template(
+            OrderedDict({"lead_time": leads, "member": np.arange(3)}),
+            name="with_member",
+        )
     )
     z.close()
     assert z["with_lat"].shape == (2, 4)
@@ -1724,70 +1540,52 @@ def test_async_zarr_add_array_heterogeneous_dims(tmp_path: str) -> None:
 
 
 def test_async_zarr_add_array_coord_mismatch_raises(tmp_path: str) -> None:
+    """A coordinate cannot hold two different sets of labels in one store"""
     z = AsyncZarrBackend(
         f"{tmp_path}/mismatch.zarr",
         parallel_coords={},
-        fs_factory=LocalFileSystem,
         blocking=True,
     )
-    z.add_array(OrderedDict({"quantile": np.array([0.1, 0.5, 0.9])}), "a")
-    with pytest.raises(ValueError, match="different values"):
-        z.add_array(OrderedDict({"quantile": np.array([0.25, 0.75])}), "b")
-
-
-def test_async_zarr_matches_zarr_backend_surface(tmp_path: str) -> None:
-    from earth2studio.io import ZarrBackend
-
-    lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
-    total_coords = OrderedDict(
-        {
-            "lead_time": lead_time,
-            "lat": np.linspace(-90, 90, 8),
-            "lon": np.linspace(0, 360, 16, endpoint=False),
-        }
+    z.add_array(
+        template(OrderedDict({"quantile": np.array([0.1, 0.5, 0.9])}), name="a")
     )
-    sync_io = ZarrBackend(f"{tmp_path}/sync.zarr")
-    sync_io.add_array(total_coords, "fields")
-
-    async_io = AsyncZarrBackend(
-        f"{tmp_path}/async.zarr",
-        parallel_coords=OrderedDict({"lead_time": lead_time}),
-        fs_factory=LocalFileSystem,
+    with pytest.raises(ValueError, match="quantile"):
+        z.add_array(
+            template(OrderedDict({"quantile": np.array([0.25, 0.75])}), name="b")
+        )
+    # The same check survives a restart, the store is read back on construction
+    z2 = AsyncZarrBackend(
+        f"{tmp_path}/mismatch.zarr",
+        parallel_coords={},
         blocking=True,
     )
-    async_io.add_array(total_coords, "fields")
-
-    assert ("fields" in sync_io) == ("fields" in async_io) is True
-    assert ("absent" in sync_io) == ("absent" in async_io) is False
-    assert set(sync_io) == set(async_io)
-    assert len(sync_io) == len(async_io)
-    assert sync_io["fields"].shape == async_io["fields"].shape
-
-    # Same coordinate names, values and dimension order
-    assert list(async_io.coords) == list(sync_io.coords)
-    for dim, values in total_coords.items():
-        np.testing.assert_array_equal(np.asarray(async_io.coords[dim]), values)
-
-    zarr.consolidate_metadata(async_io.store)
-    async_io.close()
+    with pytest.raises(ValueError, match="quantile"):
+        z2.add_array(
+            template(OrderedDict({"quantile": np.array([0.25, 0.75])}), name="c")
+        )
 
 
-def test_async_zarr_coords_of_coord_only_store(tmp_path: str) -> None:
-    """A store with no data arrays yet must still report its coordinates.
-
-    The eval recipe's score store looks exactly like this between its creation
-    and its data arrays being added, and every rank validates against it.
-    """
-    lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
-    total_coords = OrderedDict({"lead_time": lead_time, "lat": np.linspace(-90, 90, 4)})
+def test_async_zarr_mapping_surface(tmp_path: str) -> None:
+    """The read-only mapping surface reports what the store holds"""
+    leads = lead_times(2)
+    coords = _shard_coords(leads)
     z = AsyncZarrBackend(
-        f"{tmp_path}/coords_only.zarr",
-        parallel_coords=OrderedDict({"lead_time": lead_time}),
-        fs_factory=LocalFileSystem,
+        f"{tmp_path}/surface.zarr",
+        parallel_coords=OrderedDict({"lead_time": leads}),
         blocking=True,
     )
-    z.add_array(total_coords, [])
-    z.close()
+    z.add_array(template(coords, name="fields"))
 
-    assert set(z.coords) == {"lead_time", "lat"}
-    np.testing.assert_array_equal(np.asarray(z.coords["lat"]), total_coords["lat"])
+    assert "fields" in z
+    assert "absent" not in z
+    assert set(z) == {"fields", "lead_time", "lat", "lon"}
+    assert len(z) == 4
+    assert z["fields"].shape == (2, 16, 32)
+
+    # Coordinates are read back from the store, in dimension order
+    assert list(z.coords) == ["lead_time", "lat", "lon"]
+    for dim, values in coords.items():
+        np.testing.assert_array_equal(np.asarray(z.coords[dim]), values)
+
+    zarr.consolidate_metadata(z.store)
+    z.close()

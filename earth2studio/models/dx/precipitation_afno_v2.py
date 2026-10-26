@@ -16,6 +16,7 @@
 
 import warnings
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
@@ -37,6 +38,9 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.type import CoordinateSystem
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 try:
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
@@ -108,6 +112,8 @@ class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
     provider:nvidia backend:pytorch
     """
 
+    stochastic = False
+
     def __init__(
         self,
         core_model: torch.nn.Module,
@@ -131,6 +137,18 @@ class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
             "topographic_height",
             (orography),
         )
+
+    def default_sources(self) -> "DataSource":
+        """Recommend the ARCO ERA5 data source.
+
+        Returns
+        -------
+        DataSource
+            ``ARCO_ERA5`` data source for the input slot.
+        """
+        from earth2studio.data import ARCO_ERA5
+
+        return ARCO_ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.
@@ -239,7 +257,20 @@ class PrecipitationAFNOv2(torch.nn.Module, AutoModelMixin):
         self,
         x: xr.DataArray,
     ) -> xr.DataArray:
-        """Forward pass of diagnostic"""
+        """Predict precipitation accumulated over the next six hours.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Atmospheric fields matching ``input_coords()``, with datetime time
+            and timedelta lead-time coordinates.
+
+        Returns
+        -------
+        xr.DataArray
+            Precipitation fields matching ``output_coords(x)``, including the
+            six-hour accumulation window and input grid.
+        """
         output_coords = self.output_coords(x)
         coords = x.coords
         encoding = x.encoding.copy()

@@ -75,6 +75,7 @@ def test_model_seeding_only_through_set_rng(model: type) -> None:
         "StormCast",
         "StormCastCONUS",
         "StormScopeGOES",
+        "StormScopeGOESConditioned",
         "StormScopeMRMS",
         "StormScopeMeteosatEU",
         "UCast",
@@ -113,6 +114,7 @@ _PROGNOSTIC_CONFORMANT: set[str] = {
     "Aurora1p5Ensemble",
     "Aurora1p5Ensemble_6h",
     "CBottleVideo",
+    "DataReplay",
     "DiagnosticWrapper",
     "DLESyM",
     "DLESyMLatLon",
@@ -136,6 +138,7 @@ _PROGNOSTIC_CONFORMANT: set[str] = {
     "StormCast",
     "StormCastCONUS",
     "StormScopeGOES",
+    "StormScopeGOESConditioned",
     "StormScopeMRMS",
     "StormScopeMeteosatEU",
     "UCast",
@@ -147,11 +150,6 @@ _PROGNOSTIC_EXEMPT: dict[str, str] = {
     "FuXiS2S": (
         "P13: ONNX graph samples internal perturbations without a seed API; "
         "test/models/px/test_fuxi_s2s.py::test_fuxi_s2s_conformance."
-    ),
-    "DataReplay": (
-        "P13 with an uncached random source: repeated fetches differ; "
-        "test/models/px/test_datareplay.py::test_datareplay_conformance. "
-        "Replay determinism depends on its configured source."
     ),
 }
 
@@ -214,6 +212,20 @@ def test_prognostic_models_are_registered() -> None:
     )
 
 
+@pytest.mark.parametrize("model", _PROGNOSTIC_CLASSES.values())
+def test_prognostic_execution_signatures(model: type) -> None:
+    for name in ("__call__", "initialize", "step", "create_iterator"):
+        parameters = list(
+            inspect.signature(inspect.unwrap(getattr(model, name))).parameters.values()
+        )
+        assert all(
+            p.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD for p in parameters
+        )
+        assert parameters[0].name == "self"
+        if name == "step":
+            assert parameters[-1].name == "state"
+
+
 def test_diagnostic_models_are_registered() -> None:
     _check_registration(
         _DIAGNOSTIC_CLASSES,
@@ -221,6 +233,20 @@ def test_diagnostic_models_are_registered() -> None:
         _DIAGNOSTIC_EXEMPT,
         "test/models/test_model_conformance.py",
     )
+
+
+@pytest.mark.parametrize("model", _DIAGNOSTIC_CLASSES.values())
+def test_diagnostic_protocol_declarations(model: type) -> None:
+    # Check every export even when its optional backend cannot be constructed.
+    parameters = inspect.signature(model.__call__).parameters
+    assert len(parameters) >= 2
+    assert all(
+        parameter.kind is inspect.Parameter.POSITIONAL_OR_KEYWORD
+        for parameter in parameters.values()
+    )
+    assert isinstance(inspect.getattr_static(model, "stochastic"), (bool, property))
+    source_parameters = inspect.signature(model.default_sources).parameters
+    assert list(source_parameters) == ["self"]
 
 
 def test_rng_control_is_owned_by_model_wrappers() -> None:

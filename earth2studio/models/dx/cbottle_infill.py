@@ -15,6 +15,7 @@
 # limitations under the License.
 
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -39,6 +40,9 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.type import VariableArray
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 try:
     import earth2grid
@@ -108,6 +112,8 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
     """
 
     output_variables = VARIABLES
+
+    stochastic = True
 
     def __init__(
         self,
@@ -203,6 +209,18 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             idx = np.where(self.output_variables == var)[0]
             varidx.append(idx[0])
         return np.array(varidx)
+
+    def default_sources(self) -> "DataSource":
+        """Recommend the ARCO ERA5 data source.
+
+        Returns
+        -------
+        DataSource
+            ``ARCO_ERA5`` data source for the input slot.
+        """
+        from earth2studio.data import ARCO_ERA5
+
+        return ARCO_ERA5()
 
     def input_coords(self) -> xr.DataArray:
         """Input coordinate system of the diagnostic model.
@@ -310,7 +328,6 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             sigma_max=sigma_max,
         )
 
-    stochastic = True
     _rng_seed: int | None = None
     _rng_states: dict[str, torch.Tensor] | None = None
 
@@ -334,7 +351,19 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         self,
         x: xr.DataArray,
     ) -> xr.DataArray:
-        """Infill labelled conditioning channels at their validity times."""
+        """Infill labelled conditioning channels at their validity times.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Conditioning fields matching ``input_coords()``, including the
+            initialization times and lead times used to compute validity times.
+
+        Returns
+        -------
+        xr.DataArray
+            Generated fields matching ``output_coords(x)`` on the configured grid.
+        """
         output_coords = self.output_coords(x)
         x = x.e2s.to_torch()[0].to(self.device_buffer.device).clone()
 

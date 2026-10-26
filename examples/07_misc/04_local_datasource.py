@@ -77,24 +77,26 @@ from collections import OrderedDict
 import numpy as np
 
 from earth2studio.io import ZarrBackend
-from earth2studio.utils.coords import split_coords
+from earth2studio.io.utils import output_template
 
 times = np.array(
     [np.datetime64("2022-01-01T00:00:00"), np.datetime64("2022-01-01T06:00:00")]
 )
 variables = model.input_coords().coords["variable"].values
+lead_time = np.array([np.timedelta64(0, "h")])
 zarr_path = "./outputs/19_wb2_dataset.zarr"
 # Create Zarr store to pack data into
 zb = ZarrBackend(file_name=zarr_path, backend_kwargs={"overwrite": True})
-full_coords = OrderedDict(
-    [
-        ("time", np.atleast_1d(times)),
-        ("lead_time", np.array([np.timedelta64(0, "h")])),
-        ("lat", np.linspace(90, -90, 721)),
-        ("lon", np.linspace(0, 359.75, 1440)),
-    ]
+# The arrays to create are described by a template, built here from the model's own
+# input signature: its dynamic leading dimensions are replaced by the time stamps
+# being downloaded, and its two frame history by the single analysis lead time this
+# store holds. The template keeps the model's variables and native grid.
+template = output_template(
+    model.input_coords(),
+    leading={"time": np.atleast_1d(times)},
+    coords={"lead_time": lead_time},
 )
-zb.add_array(full_coords, array_name=list(variables))
+zb.add_array(template)
 
 # Loop over timestamps, fetch data and write slices into the pre-created arrays
 for t in np.atleast_1d(times):
@@ -102,11 +104,12 @@ for t in np.atleast_1d(times):
         wb2,
         time=np.array([t]),
         variable=variables,
-        lead_time=np.array([np.timedelta64(0, "h")]),
+        lead_time=lead_time,
         device="cpu",
     )
-    xs, reduced_coords, var_names = split_coords(*x.e2s.to_torch(), dim="variable")
-    zb.write(xs, reduced_coords, array_name=list(var_names))
+    # The backend locates each field by its coordinate labels, so a single time
+    # stamp lands in the right slice of the pre-created arrays
+    zb.write(x)
 
 # %%
 # Note that the Zarr store we just created can be used for more than just Earth2Studio

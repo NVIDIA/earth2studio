@@ -14,10 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 from collections.abc import Generator
+from typing import cast
 
 import numpy as np
 import torch
+import xarray as xr
 from loguru import logger
 
 from earth2studio.data import DataSource, fetch_data
@@ -26,7 +30,7 @@ from earth2studio.perturbation.base import Perturbation
 from earth2studio.utils import handshake_dim, handshake_size
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.time import to_time_array
-from earth2studio.utils.type import CoordSystem, TimeArray
+from earth2studio.utils.type import TimeArray
 
 
 class HemisphericCentredBredVector:
@@ -76,7 +80,8 @@ class HemisphericCentredBredVector:
             noise_amplitude
             if isinstance(noise_amplitude, torch.Tensor)
             else torch.Tensor(
-                [noise_amplitude] * self.model.input_coords().sizes["variable"]
+                [noise_amplitude]
+                * cast(xr.DataArray, self.model.input_coords()).sizes["variable"]
             )[:, None, None]
         )
         self.integration_steps = integration_steps
@@ -87,19 +92,21 @@ class HemisphericCentredBredVector:
     @torch.inference_mode()
     def create_generator(
         self, time: TimeArray, generator_size: int = 1, device: torch.device = "cpu"
-    ) -> Generator[torch.Tensor, None, None]:
+    ) -> Generator[torch.Tensor]:
         """Creates and initializes the perturbation generator"""
         from earth2studio.run import _map_field
 
         # Initialize your IC or other necessary components
         batch_size = generator_size // 2
-        input_coords = self.model.input_coords()
+        input_coords = cast(xr.DataArray, self.model.input_coords())
 
         time = to_time_array(time)
         warmup_times = (
             time
             + np.arange(-self.integration_steps, 1)
-            * self.model.output_coords(input_coords).coords["lead_time"].values
+            * cast(xr.DataArray, self.model.output_coords(input_coords))
+            .coords["lead_time"]
+            .values
         )
         input_data = fetch_data(
             source=self.data,
@@ -121,17 +128,19 @@ class HemisphericCentredBredVector:
             .expand_dims(batch=np.arange(batch_size))
             .copy(deep=True)
         )
-        xunp, coords = state.e2s.to_torch()
+        xunp, _ = state.e2s.to_torch()
         # Commenting here, not tested for when multiple lead times are needed
         # May work...
 
         # generate perturbed initial state
-        xper, coords = self.seeding_perturbation_method(xunp, coords)
+        xper, _ = self.seeding_perturbation_method(state.copy(deep=True)).e2s.to_torch()
 
         for ii in range(self.integration_steps):
-            xunp = self.model(from_torch(xunp, state)).e2s.to_torch()[0]
-            xper = self.model(
-                from_torch(xper, state.assign_coords(coords))
+            xunp = cast(
+                xr.DataArray, self.model(from_torch(xunp, state))
+            ).e2s.to_torch()[0]
+            xper = cast(
+                xr.DataArray, self.model(from_torch(xper, state))
             ).e2s.to_torch()[0]
             dx = xper - xunp
 
@@ -146,7 +155,7 @@ class HemisphericCentredBredVector:
                 .expand_dims(batch=np.arange(batch_size))
                 .copy(deep=True)
             )
-            xunp, coords = state.e2s.to_torch()
+            xunp, _ = state.e2s.to_torch()
             xper = xunp + dx
             # self.force_non_neg(xper[i : i + 1])
 
@@ -158,7 +167,9 @@ class HemisphericCentredBredVector:
     def set_clip_indices(self) -> None:
         """If humidity and tcwv in variable set, add to list of variables to clip"""
         self.clip_idcs = []
-        for ii, var in enumerate(self.model.input_coords().coords["variable"].values):
+        for ii, var in enumerate(
+            cast(xr.DataArray, self.model.input_coords()).coords["variable"].values
+        ):
             var = str(var).split(":", 1)[0]
             if var[0] == "q" or var == "tcwv" or var[0] == "r" or var[:2] == "tp":
                 self.clip_idcs.append(ii)
@@ -221,49 +232,42 @@ class HemisphericCentredBredVector:
         return x
 
     @torch.inference_mode()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Apply perturbation method
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor intended to apply perturbation on, not used in this
-            perturbation method
-        coords : CoordSystem
-            Ordered dict representing coordinate system that describes the tensor.
-            Must contain coordinates (Any, "time", "lead_time", "variable", "lat",
-            "lon"). Time and lead_time must have size 1.
+        x : xr.DataArray
+            xarray DataArray intended to apply perturbation on, the array values are
+            not used in this perturbation method. Must contain dimensions (Any, "time",
+            "lead_time", "variable", "lat", "lon"). Time and lead_time must have size 1.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]:
-            Output tensor and respective coordinate system dictionary
+        xr.DataArray
+            DataArray of bred vector perturbed states with the coordinates of the input
         """
-        shape = x.shape
         # Check the required dimensions are present
         # We should probably run the perturbation and then check the output noise can
         # match the size of the input tensor
-        handshake_dim(coords, required_dim="time", required_index=-5)
-        handshake_dim(coords, required_dim="lead_time", required_index=-4)
-        handshake_dim(coords, required_dim="variable", required_index=-3)
-        handshake_dim(coords, required_dim="lat", required_index=-2)
-        handshake_dim(coords, required_dim="lon", required_index=-1)
-        handshake_size(coords, required_dim="time", required_size=1)
+        handshake_dim(x, required_dim="time", required_index=-5)
+        handshake_dim(x, required_dim="lead_time", required_index=-4)
+        handshake_dim(x, required_dim="variable", required_index=-3)
+        handshake_dim(x, required_dim="lat", required_index=-2)
+        handshake_dim(x, required_dim="lon", required_index=-1)
+        handshake_size(x, required_dim="time", required_size=1)
 
-        if len(shape) != 5 and len(shape) != 6:
-            raise ValueError("Input tensor and coords need 5 or 6 dimensions")
+        if x.ndim != 5 and x.ndim != 6:
+            raise ValueError("Input DataArray needs 5 or 6 dimensions")
 
-        self.noise_amplitude = self.noise_amplitude.to(x.device)
+        device = x.e2s.to_torch()[0].device
+        self.noise_amplitude = self.noise_amplitude.to(device)
 
         # Not the cleanest but works
-        if len(shape) == 5:
+        if x.ndim == 5:
             batch_size = 1
-        if len(shape) == 6:
-            batch_size = coords[list(coords.keys())[0]].shape[0]
+        if x.ndim == 6:
+            batch_size = x.shape[0]
 
         # This is some pretty annoying logic to deal with storing the centered
         # perturbation for odd batch sizes... could be worse probably can be better
@@ -275,7 +279,7 @@ class HemisphericCentredBredVector:
         else:
             # Create generator if it doesn't exist
             generator = self.create_generator(
-                coords["time"], generator_size=generator_size, device=x.device
+                x.coords["time"].values, generator_size=generator_size, device=device
             )
             # Generate noise, and concat in batch dimension
             noise = self._residual + [next(generator) for _ in range(generator_size)]
@@ -291,8 +295,8 @@ class HemisphericCentredBredVector:
                 "Seems something went wrong in the perturbation, open an issue with your setup"
             )
 
-        x = torch.cat(noise, dim=0)
-        if len(shape) == 5:
-            x = x.squeeze(0)
+        out = torch.cat(noise, dim=0)
+        if x.ndim == 5:
+            out = out.squeeze(0)
 
-        return x, coords
+        return from_torch(out, x)

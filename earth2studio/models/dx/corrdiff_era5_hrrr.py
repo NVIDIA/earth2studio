@@ -19,7 +19,7 @@ import math
 from collections.abc import Sequence
 from contextlib import AbstractContextManager, nullcontext
 from datetime import datetime, timezone
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 import torch
@@ -39,6 +39,9 @@ from earth2studio.utils.imports import (
 )
 from earth2studio.utils.time import timearray_to_datetime
 from earth2studio.utils.type import CoordinateSystem
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 try:
     import natten  # noqa: F401  # the DiT needs NATTEN (neighborhood attention)
@@ -177,6 +180,8 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
     year:2026 gpu:80gb provider:nvidia backend:pytorch
     """
 
+    stochastic = True
+
     def __init__(
         self,
         network: torch.nn.Module,
@@ -303,6 +308,18 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
 
     def __str__(self) -> str:
         return "CorrDiffEra5Hrrr"
+
+    def default_sources(self) -> "DataSource":
+        """Recommend the ARCO ERA5 data source.
+
+        Returns
+        -------
+        DataSource
+            ``ARCO_ERA5`` data source for the input slot.
+        """
+        from earth2studio.data import ARCO_ERA5
+
+        return ARCO_ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system: the native ERA5 CONUS footprint.
@@ -467,7 +484,6 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             t = self.shift * t / (1.0 + (self.shift - 1.0) * t)
         return t
 
-    stochastic = True
     _rng_generator: torch.Generator | None = None
 
     def set_rng(self, seed: int, reset: bool = True) -> None:

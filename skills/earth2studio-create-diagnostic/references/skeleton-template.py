@@ -27,20 +27,40 @@ import xarray as xr
 
 from earth2studio.grids import GridDefinition
 from earth2studio.models.batch import batch_func
-from earth2studio.utils.coords import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils.coords import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_nonempty,
+)
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.type import CoordinateSystem
 
 
 class SimpleDiagnostic(torch.nn.Module):
-    """Compute wind speed on a configured grid without model weights."""
+    """Compute wind speed on the input device without model weights.
+
+    Parameters
+    ----------
+    grid : GridDefinition | str, optional
+        Configured lat/lon grid, by default "latlon-0.25deg".
+    """
+
+    stochastic: bool = False
 
     def __init__(self, grid: GridDefinition | str = "latlon-0.25deg") -> None:
         super().__init__()
         self.grid = grid
 
     def input_coords(self) -> CoordinateSystem:
-        """Declare fixed variables/grid and an explicit dynamic leading prefix."""
+        """Declare the input coordinate system.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free signature for zonal and meridional wind on the
+            configured grid, with arbitrary leading dimensions.
+        """
         return coord_array(
             ("batch", "variable", "lat", "lon"),
             {"variable": ["u10m", "v10m"]},
@@ -49,14 +69,48 @@ class SimpleDiagnostic(torch.nn.Module):
         )
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        """Validate geometry and replace variables without allocating field data."""
+        """Validate geometry and plan the wind-speed output coordinates.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free wind-speed signature preserving leading dimensions
+            and the input grid.
+        """
         handshake_dataarray(input_coords, self.input_coords())
         return coord_array_like(input_coords, {"variable": ["ws10m"]})
+
+    def default_sources(self) -> None:
+        """Recommend no input provider.
+
+        Returns
+        -------
+        None
+            No source recommendation; the caller supplies the input field.
+        """
+        return None
 
     @torch.inference_mode()
     @batch_func()
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Return labelled wind speed on the input device."""
+        """Return labelled wind speed on the input device.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Zonal and meridional wind, with arbitrary leading dimensions.
+
+        Returns
+        -------
+        xr.DataArray
+            Wind speed matching ``output_coords(x)``.
+        """
+        handshake_nonempty(x)
         signature = self.output_coords(x)
         tensor, _ = x.e2s.to_torch()
         output = torch.sqrt(tensor[:, :1] ** 2 + tensor[:, 1:2] ** 2)

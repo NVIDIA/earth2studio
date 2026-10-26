@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 import torch
@@ -32,6 +32,9 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.type import CoordinateSystem
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 try:
     from climate_learn.data.precipmodule import LogTransform
@@ -215,6 +218,8 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     backend:pytorch
     """
 
+    stochastic = False
+
     def __init__(
         self,
         core_model: torch.nn.Module,
@@ -301,6 +306,18 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         self.do_tiling = do_tiling
         self.div = div
         self.overlap = overlap
+
+    def default_sources(self) -> "DataSource":
+        """Recommend the NCAR ERA5 data source.
+
+        Returns
+        -------
+        DataSource
+            ``NCAR_ERA5`` data source for the input slot.
+        """
+        from earth2studio.data import NCAR_ERA5
+
+        return NCAR_ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.
@@ -738,7 +755,19 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         self,
         x: xr.DataArray,
     ) -> xr.DataArray:
-        """Downscale a labelled field to 24-hour precipitation in meters."""
+        """Downscale a labelled field to 24-hour precipitation in meters.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Atmospheric conditioning fields matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            Daily precipitation matching ``output_coords(x)``, with labelled
+            output-grid coordinates and the declared accumulation window.
+        """
 
         output_coords = self.output_coords(x)
 

@@ -808,7 +808,7 @@ class TestCorrDiffForward:
             regression_model=mock_regression_model,
             **sample_model_params,
         )
-        check_diagnostic_contract(model)
+        assert check_diagnostic_contract(model) == []
 
     def test_corrdiff_seed_reproducibility(
         self, mock_residual_model, mock_regression_model, sample_model_params

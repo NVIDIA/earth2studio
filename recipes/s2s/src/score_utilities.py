@@ -293,7 +293,8 @@ def load_forecast_data(
     for dim in io.root[array].metadata.dimension_names:
         read_coords[dim] = io.coords[dim]
     read_coords["time"] = np.array([ic])
-    read_data, read_coords = io.read(
+    # TODO: migrate s2s IO to the DataArray IOBackend protocol
+    read_data, read_coords = io.read(  # type: ignore[call-arg]
         coords=read_coords, array_name=array, device=device
     )
 
@@ -521,7 +522,8 @@ def load_forecast_for_aiwq(
     for dim in io.root[array].metadata.dimension_names:
         read_coords[dim] = io.coords[dim]
     read_coords["time"] = np.array([ic])
-    read_data, read_coords = io.read(
+    # TODO: migrate s2s IO to the DataArray IOBackend protocol
+    read_data, read_coords = io.read(  # type: ignore[call-arg]
         coords=read_coords, array_name=array, device=device
     )
 

@@ -124,6 +124,8 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
     output_variables = VARIABLES
     guidance_scale = 0.005  # 0.03 = strong, 0 = no guidance
 
+    stochastic = True
+
     def __init__(
         self,
         core_model: torch.nn.Module,
@@ -174,6 +176,16 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         )
         # Empty tensor just to make tracking current device easier
         self.register_buffer("device_buffer", torch.empty(0))
+
+    def default_sources(self) -> None:
+        """Return no recommended input data source.
+
+        Returns
+        -------
+        None
+            Input data sources are chosen by the caller.
+        """
+        return None
 
     def input_coords(self) -> xr.DataArray:
         """Input coordinate system of the diagnostic model.
@@ -395,7 +407,6 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         signature = signature.isel(batch=0, drop=True)
         return from_torch(guidance, signature)
 
-    stochastic = True
     _rng_seed: int | None = None
     _rng_states: dict[str, torch.Tensor] | None = None
 
@@ -451,7 +462,20 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         self,
         x: xr.DataArray,
     ) -> xr.DataArray:
-        """Generate labelled fields from cyclone guidance."""
+        """Generate labelled fields from cyclone guidance.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Cyclone conditioning fields matching ``input_coords()``. Each frame
+            conditions the model at its initialization time plus lead time.
+
+        Returns
+        -------
+        xr.DataArray
+            Generated fields matching ``output_coords(x)``, preserving the input
+            lead-time labels.
+        """
         output_coords = self.output_coords(x)
         x = x.e2s.to_torch()[0].to(self.device_buffer.device).clone()
 

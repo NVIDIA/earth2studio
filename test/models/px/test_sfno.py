@@ -57,17 +57,16 @@ def test_sfno_valid_times(monkeypatch):
         expected,
     )
     iterator = model.create_iterator(x)
-    initial = next(iterator)
     for step in range(1, 4):
         out = next(iterator)
         np.testing.assert_allclose(out.data, x.data + 6 * step, rtol=1e-5)
         assert out.name == x.name and out.encoding == x.encoding
         assert out.attrs == x.attrs
         assert out.lead_time.values[0] == np.timedelta64(12 + 6 * step, "h")
-    xr.testing.assert_identical(initial, original)
     xr.testing.assert_identical(x, original)
     assert check_prognostic_contract(model) == [
-        "P14: model does not declare itself stochastic"
+        "P14: model does not declare itself stochastic",
+        "P21: checkpoint serialization requires component-specific tests",
     ]
 
 

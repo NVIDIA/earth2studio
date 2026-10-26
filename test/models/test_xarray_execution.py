@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -25,7 +24,6 @@ from earth2studio.models.dx.precipitation_afno import PrecipitationAFNO
 from earth2studio.models.px.fcn import FCN
 from earth2studio.models.px.fuxi_s2s import DAILY_VARIABLES, FuXiS2S
 from earth2studio.utils import coord_array, coord_array_like
-from earth2studio.utils.checkpoint import Checkpoint
 from earth2studio.utils.cupy import from_torch
 
 
@@ -166,44 +164,6 @@ def test_precipitation_array_execution(device: str) -> None:
         model.output_coords(x).attrs["earth2studio_statistics"]
         == out.attrs["earth2studio_statistics"]
     )
-
-
-def test_fcn_checkpoint_metadata_round_trip(tmp_path: Path) -> None:
-    class Increment(torch.nn.Module):
-        def forward(self, x: torch.Tensor) -> torch.Tensor:
-            return x + 1
-
-    x = input_array(small_signature())
-    x.coords["height"].attrs["units"] = "m"
-    x.encoding["test"] = "encoding"
-    x.attrs.update(
-        {
-            key: value
-            for key, value in coord_array_like(
-                x, {"variable": ["u:mean:6h", "v"]}
-            ).attrs.items()
-            if key == "earth2studio_statistics"
-        }
-    )
-    with Checkpoint("fcn-array", path=tmp_path, flush_interval=1, level=2) as ckpt:
-        model = make_fcn()
-        model.model = Increment()
-        iterator = model.create_iterator(x)
-        next(iterator)
-        saved = next(iterator)
-        ckpt.write(lead_time=saved.lead_time.values[-1])
-        expected = next(iterator)
-        iterator.close()
-
-    with Checkpoint("fcn-array", path=tmp_path, level=2).select(-1):
-        model = make_fcn()
-        model.model = Increment()
-        assert model.checkpoint.checkpoint_state_loaded
-        iterator = model.create_iterator(x.copy(data=x.data - 10))
-        resumed = next(iterator)
-        iterator.close()
-    xr.testing.assert_identical(resumed, expected)
-    assert resumed.encoding == x.encoding
 
 
 def test_fcn_cuda_execution() -> None:

@@ -114,14 +114,17 @@ When user explicitly requests manual implementation (NOT using `earth2studio.run
    `target_grid` currently does not regrid. Explicitly select native spatial labels
    or regrid incompatible geometry, verifying source CRS before assigning target
    grid metadata. Validate the prepared field with `handshake_dataarray`.
-2. **Setup total_coords** - Build coordinate arrays for time and lead_time dimensions
-3. **io.add_array** - Initialize IO backend with total_coords before loop
+2. **Build the IO template** - `output_template(model.output_coords(model.input_coords()),
+   leading={"time": times}, coords={"lead_time": <full rollout extent>, "variable":
+   output_variables})`. The template must be concrete and cover the whole rollout: a
+   store's extent is fixed when its arrays are created.
+3. **io.add_array** - `io.add_array(template)` before the loop
 4. **create_iterator** - `model_iter = model.create_iterator(x)`
 5. **Loop through forecasts** - `for step, field in enumerate(model_iter):`
    Write the initial condition (step 0) and forecasts through step `nsteps`, then break.
 6. **Select output** - `output = field.sel(variable=output_variables)` if filtering.
-7. **IO boundary** - `tensor, coords = output.e2s.to_torch()`
-8. **io.write** - `io.write(*split_coords(tensor, coords))`
+7. **io.write** - `io.write(output)`. Writes are located by coordinate label, so each
+   step writes a subset of the store's labels; no tensor/coordinate splitting is needed.
 
 ### 9. Explain Next Steps
 

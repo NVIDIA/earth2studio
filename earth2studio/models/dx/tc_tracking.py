@@ -15,6 +15,7 @@
 # limitations under the License.
 
 from copy import deepcopy
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
@@ -32,6 +33,9 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.type import CoordinateSystem
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 try:
     import cupy as cp
@@ -78,6 +82,20 @@ OUT_VARIABLES = ["tclat", "tclon", "tcmsl", "tcw10m"]
 class _TCTrackerBase:
 
     PATH_FILL_VALUE = -9999  # Should not be in lat/lon range for safety
+
+    stochastic = False
+
+    def default_sources(self) -> "DataSource":
+        """Recommend the GFS data source.
+
+        Returns
+        -------
+        DataSource
+            ``GFS`` data source for the input slot.
+        """
+        from earth2studio.data import GFS
+
+        return GFS()
 
     def _track_coords(
         self, x: CoordinateSystem, paths: int = 0, steps: int = 0
@@ -608,7 +626,21 @@ class TCTrackerWuDuan(torch.nn.Module, _TCTrackerBase):
 
     @torch.inference_mode()
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Forward pass of diagnostic"""
+        """Identify tropical cyclone tracks using the Wu-Duan criteria.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Atmospheric fields matching ``input_coords()`` with labelled times
+            and lead times for the tracking sequence.
+
+        Returns
+        -------
+        xr.DataArray
+            Labelled accumulated cyclone paths with ``path_id`` and ``step``
+            dimensions. Track counts depend on detections; missing points are
+            represented by NaNs.
+        """
 
         handshake_nonempty(x)
         self.output_coords(x)
@@ -975,7 +1007,21 @@ class TCTrackerVitart(torch.nn.Module, _TCTrackerBase):
 
     @torch.inference_mode()
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        """Forward pass of diagnostic"""
+        """Identify tropical cyclone tracks using the Vitart criteria.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Atmospheric fields matching ``input_coords()`` with labelled times
+            and lead times for the tracking sequence.
+
+        Returns
+        -------
+        xr.DataArray
+            Labelled accumulated cyclone paths with ``path_id`` and ``step``
+            dimensions. Track counts depend on detections; missing points are
+            represented by NaNs.
+        """
 
         handshake_nonempty(x)
         self.output_coords(x)

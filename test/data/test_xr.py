@@ -31,7 +31,7 @@ from earth2studio.data import (
     InferenceOutputSource,
     Random,
 )
-from earth2studio.io import XarrayBackend
+from earth2studio.io import ZarrBackend
 from earth2studio.models.px import Persistence
 from earth2studio.perturbation import Zero
 from earth2studio.run import ensemble
@@ -283,7 +283,7 @@ def test_inference_output_source(
         )
 
         output_file = f"{tmp_path}/output.nc"
-        io = XarrayBackend(coords=domain_coords)
+        io = ZarrBackend()
         io = ensemble(
             time=run_times,
             nsteps=nsteps,
@@ -293,7 +293,7 @@ def test_inference_output_source(
             io=io,
             perturbation=Zero(),
         )
-        io.root.to_netcdf(output_file)
+        xr.open_zarr(io.store, consolidated=False).to_netcdf(output_file)
 
         return output_file
 

@@ -21,16 +21,19 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Sequence
 from functools import partial
+from typing import Any, Literal
 
 import numpy as np
 import xarray as xr
 from pyproj import CRS
 
+from earth2studio.grids._satellite import fci_grid, goes_grid
 from earth2studio.grids.base import (
     E2S_CRS,
     E2S_GRID_ID,
     GridDefinition,
     GridTopology,
+    Regridder,
 )
 from earth2studio.grids.curvilinear import CurvilinearGrid
 from earth2studio.grids.healpix import (
@@ -42,6 +45,7 @@ from earth2studio.grids.healpix import (
 from earth2studio.grids.latlon import LatLonGrid
 from earth2studio.grids.point import PointGrid
 from earth2studio.grids.projected import ProjectedGrid
+from earth2studio.grids.region import Region
 
 _GRID_REGISTRY: dict[str, GridDefinition | None] = {}
 _GRID_ALIASES: dict[str, str] = {}
@@ -234,6 +238,33 @@ _register_builtin(
     ),
     aliases=("hrrr",),
 )
+
+
+# GOES-East (GOES-16, GOES-19) and GOES-West (GOES-17, GOES-18) share sectors.
+for _position, _satellite in (("east", "goes16"), ("west", "goes18")):
+    _register_builtin(f"goes-{_position}-conus", partial(goes_grid, _satellite, "C"))
+    _register_builtin(f"goes-{_position}-fulldisk", partial(goes_grid, _satellite, "F"))
+
+
+_fci_resolutions: tuple[Literal["2km", "1km", "500m"], ...] = ("2km", "1km", "500m")
+for _fci_resolution in _fci_resolutions:
+    _register_builtin(
+        f"mtg-fci-fulldisk-{_fci_resolution}", partial(fci_grid, _fci_resolution)
+    )
+_register_builtin(
+    "mrms-conus-0.01deg",
+    lambda: LatLonGrid(
+        latitude=54.995 - 0.01 * np.arange(3500),
+        longitude=230.005 + 0.01 * np.arange(7000),
+    ),
+)
+_register_builtin(
+    "glm-conus-0.1deg",
+    lambda: LatLonGrid(
+        latitude=20.05 + 0.1 * np.arange(350),
+        longitude=230.05 + 0.1 * np.arange(700),
+    ),
+)
 _register_builtin(
     "healpix-l6-nested",
     partial(HEALPixGrid, level=6, ordering="nested"),
@@ -267,7 +298,114 @@ for _level in (3, 6, 10):
             ),
         )
 
+# Imported last: regridders resolve registered names through this module.
+from earth2studio.grids._regrid import same_geometry, select_subset  # noqa: E402
+from earth2studio.grids.regrid_bilinear import BilinearRegridder  # noqa: E402
+from earth2studio.grids.regrid_nearest import NearestRegridder  # noqa: E402
+
+# Regridder classes by method name, most specific first.
+_REGRIDDERS: dict[str, list[Any]] = {}
+
+
+def register_regridder(method: str, regridder: Any) -> None:
+    """Register a regridder class under a method name.
+
+    The class takes ``(source_grid, target_grid, **options)`` and declares the
+    grid pairs it handles with a ``supports(source_grid, target_grid)`` class
+    method. A later registration under the same method takes precedence, so
+    grid-specific implementations can be preferred over general ones.
+
+    Parameters
+    ----------
+    method : str
+        Method name, such as ``"nearest"`` or ``"bilinear"``.
+    regridder : type
+        Regridder class implementing the ``Regridder`` protocol and ``supports``.
+    """
+    if not callable(getattr(regridder, "supports", None)):
+        raise TypeError("Registered regridders must define supports()")
+    _REGRIDDERS.setdefault(str(method), []).insert(0, regridder)
+
+
+def _definition(grid: str | GridDefinition) -> GridDefinition:
+    return resolve_grid(grid) if isinstance(grid, str) else grid
+
+
+def list_regridders(
+    source_grid: str | GridDefinition, target_grid: str | GridDefinition
+) -> tuple[str, ...]:
+    """List the methods that can regrid between two grids.
+
+    Parameters
+    ----------
+    source_grid : str | GridDefinition
+        Grid of the fields to regrid, or a registered grid name.
+    target_grid : str | GridDefinition
+        Grid to produce, or a registered grid name.
+
+    Returns
+    -------
+    tuple[str, ...]
+        Method names accepted by ``resolve_regridder`` for this pair.
+    """
+    source, target = _definition(source_grid), _definition(target_grid)
+    return tuple(
+        method
+        for method, classes in _REGRIDDERS.items()
+        if any(cls.supports(source, target) for cls in classes)
+    )
+
+
+def resolve_regridder(
+    source_grid: str | GridDefinition,
+    target_grid: str | GridDefinition,
+    method: str = "nearest",
+    **options: Any,
+) -> Regridder:
+    """Construct the preferred regridder of a method for two grids.
+
+    Construction computes the regridder's indices and weights, so reuse the
+    result for every field on the same pair of grids.
+
+    Parameters
+    ----------
+    source_grid : str | GridDefinition
+        Grid of the fields to regrid, or a registered grid name.
+    target_grid : str | GridDefinition
+        Grid to produce, or a registered grid name, recorded in the output's
+        ``earth2studio_grid_id``.
+    method : str, optional
+        Registered method name, by default "nearest"
+    **options : Any
+        Keyword arguments for the regridder, such as ``fill_value``.
+
+    Returns
+    -------
+    Regridder
+        Regridder from the most specific registered class supporting the pair.
+
+    Raises
+    ------
+    ValueError
+        If no class registered under ``method`` supports the pair.
+    """
+    source, target = _definition(source_grid), _definition(target_grid)
+    for cls in _REGRIDDERS.get(method, []):
+        if cls.supports(source, target):
+            return cls(source_grid, target_grid, **options)
+    raise ValueError(
+        f"No {method!r} regridder supports {source.topology} grid "
+        f"{dict(zip(source.dims, source.shape))} to {target.topology} grid "
+        f"{dict(zip(target.dims, target.shape))}; available methods: "
+        f"{list(list_regridders(source, target))}"
+    )
+
+
+register_regridder("nearest", NearestRegridder)
+register_regridder("bilinear", BilinearRegridder)
+
 __all__ = [
+    "BilinearRegridder",
     "E2S_CRS",
     "E2S_GRID_ID",
     "CurvilinearGrid",
@@ -278,10 +416,18 @@ __all__ = [
     "HEALPixOrdering",
     "HEALPixOrigin",
     "LatLonGrid",
+    "NearestRegridder",
     "PointGrid",
     "ProjectedGrid",
+    "Region",
+    "Regridder",
     "infer_grid",
     "list_grids",
+    "list_regridders",
     "register_grid",
+    "register_regridder",
     "resolve_grid",
+    "resolve_regridder",
+    "same_geometry",
+    "select_subset",
 ]
