@@ -29,12 +29,20 @@ from earth2studio.nvcoupler.connector import Connector
 from earth2studio.nvcoupler.coupler import Coupler
 from earth2studio.nvcoupler.errors import CouplingError
 from earth2studio.nvcoupler.sequence import RunSequence, Slot, derive_sequence
+from earth2studio.nvcoupler.vertical import (
+    HybridLevels,
+    PressureLevels,
+    to_pressure_levels,
+)
 
 __all__ = [
     "Connector",
     "Coupler",
     "CouplingError",
+    "HybridLevels",
+    "PressureLevels",
     "RunSequence",
     "Slot",
     "derive_sequence",
+    "to_pressure_levels",
 ]

@@ -32,6 +32,9 @@ Pipeline(coupler, output={"atmos": atmos_store, "ocean": ocean_store}).run(
 - `CouplingError`: the one error type; subclasses `ValueError`.
 - `RunSequence`, `Slot`, `derive_sequence`: semi-public, the order models
   advance, for overrides and inspection.
+- `PressureLevels`, `HybridLevels`, `to_pressure_levels`: for the rare field
+  exchanged with a `level` dimension, a connector `transform` interpolating it
+  linearly in log pressure onto the destination's levels.
 
 There is no component base class. Everything the coupler needs comes from the
 model contract (`dev/spec/MODEL_CONTRACT_SPEC.md`):
@@ -96,6 +99,5 @@ See `examples/09_nvcoupler/` and the toy models in
 ## Scope
 
 In-memory coupled inference. Not included, by design: training rollouts,
-YAML or text configuration, vertical-coordinate interpolation (a general
-utility, when a model needs it), and model-owned data fetching, which the
-model contract forbids. Ensemble member batching is not implemented yet.
+YAML or text configuration, and model-owned data fetching, which the model
+contract forbids. Ensemble member batching is not implemented yet.
