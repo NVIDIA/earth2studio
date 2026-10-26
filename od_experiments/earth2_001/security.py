@@ -1,6 +1,7 @@
 import copy
 import os
 import re
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 SENSITIVE_PATTERNS = [
@@ -15,6 +16,7 @@ SENSITIVE_PATTERNS = [
 SENSITIVE_ENV_KEYS = [
     "NGC_API_KEY",
     "NVIDIA_API_KEY",
+    "NVIDIA_API",
     "AWS_ACCESS_KEY_ID",
     "AWS_SECRET_ACCESS_KEY",
     "AWS_SESSION_TOKEN",
@@ -22,6 +24,24 @@ SENSITIVE_ENV_KEYS = [
     "HF_TOKEN",
     "GITHUB_TOKEN",
 ]
+
+
+class SecretScrubber:
+    """Utility class to scrub credentials from strings and objects."""
+
+    @staticmethod
+    def scrub_text(text: str) -> str:
+        return scrub_string(text)
+
+    @staticmethod
+    def scrub_data(data: Any) -> Any:
+        if isinstance(data, dict):
+            return scrub_dict(data)
+        elif isinstance(data, str):
+            return scrub_string(data)
+        elif isinstance(data, list):
+            return [SecretScrubber.scrub_data(x) for x in data]
+        return data
 
 
 def scrub_string(text: str) -> str:
@@ -69,3 +89,12 @@ def sanitize_env() -> dict[str, str]:
         else:
             env[k] = scrub_string(v)
     return env
+
+
+def get_nvidia_api_key(
+    env_keys: Optional[List[str]] = None,
+    search_files: bool = True,
+) -> Optional[str]:
+    """Retrieves the NVIDIA API key from environment or local .env files safely."""
+    from od_experiments.earth2_001.nvidia_api import find_and_load_api_key
+    return find_and_load_api_key(env_keys=env_keys, search_env_files=search_files)
