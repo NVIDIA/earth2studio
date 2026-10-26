@@ -9,5 +9,6 @@
 - Outputs plus serializable state fully determine continuation. Steps replay exactly without mutating inputs/state; execution hooks are iterator-only.
 - RNG: calls/new trajectories advance a local stream; reset restarts it, `reset=False` initializes only if absent. Seeded execution preserves global RNG; reseeding leaves live trajectories unaffected. Deterministic models use a no-op.
 - Independent models declare all arguments in `input_coords`; stateful models additionally declare forcing. Sources follow slot order; callers fetch and align data. Models document observation times/windows.
+- Stateful gridded outputs carry `lead_time`; the step cadence is the output's last lead time minus the first input slot's. Drivers request DataFrame forcing at the analysis valid time, the end of the output being produced, and pass `None` when the source returns no rows.
 - Independent: HealDA, interpolation (deterministic), CorrDiff (stochastic). Stateful: StormCast and StormCast-CONUS (stochastic).
 - Migration: remove `create_generator`; use independent calls or forecast-first `create_iterator`. Replace CorrDiff `.seed` with `set_rng`.
