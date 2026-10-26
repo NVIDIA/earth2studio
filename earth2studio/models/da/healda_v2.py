@@ -351,9 +351,7 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
             gpsro=frames.get("gpsro"),
             satwnd=frames.get("satwnd"),
             sat=sat or None,
-            sensors=self._model.satellite_sensors,
             ir_channels=self._model.ir_channels,
-            layout="wide",
         )
         analysis = self._model.run_analysis(pd.DatetimeIndex(request_time), **tables)
         return self.build_output(analysis, output_coords)
