@@ -114,3 +114,7 @@ docs/_static/scorecard/eval_scores_*.json
 
 # Skills
 skills/*/evals/results/
+
+.env*
+!.env.example
+
