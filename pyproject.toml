@@ -210,6 +210,10 @@ weathernext = [
     "flax>=0.10.6",
     "dm-tree>=0.1.9",
 ]
+interp-crps-dit = [
+    "natten ; python_version < '3.14'",
+    "nvidia-physicsnemo>=2.2.0",
+]
 interp-modafno = [
     "nvidia-physicsnemo>=2.0",
 ]
@@ -334,7 +338,7 @@ da-stormcast = [
 # [tool.uv.sources] and the conflicts declared in [tool.uv]).
 all = [
     "earth2studio[data,perturbation,statistics,utils,serve]",
-    "earth2studio[atlas,aurora,camulator,dlwp,dlesym,fcn,fcn3,fengwu,fuxi,gencast,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast,ucast,weathernext]",
+    "earth2studio[atlas,aurora,camulator,dlwp,dlesym,fcn,fcn3,fengwu,fuxi,gencast,interp-crps-dit,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast,ucast,weathernext]",
     "earth2studio[cbottle,climatenet,corrdiff,cosmo,corrdiff-era5-hrrr,orbit,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
     "earth2studio[da-interp,da-stormcast,da-healda,da-healda-v2,da-cosmo]",
 ]

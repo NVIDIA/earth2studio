@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `fetch_dataframes`, which fetches several DataFrame requests concurrently, each
   a data source with a schema such as a model's `input_coords()` entry, given as a list
   (returns a list) or a dict (returns a dict).
+- Added `InterpCRPSDiT`, a CRPS DiT temporal interpolation model with sub-hourly output.
 - Eval recipe: `scoring.online.verification_sources` scores one online rollout
   against several named truth sources in a single pass, writing
   `stats__<name>.zarr` and `scores__<name>.zarr` per reference.
@@ -106,6 +107,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   small.
 - Fixed `ZarrBackend` and `IceChunkBackend` reopening stores containing
   root-level subgroups.
+- `datasource_to_file` offsets the requested times by each lead time on its own instead
+  of compounding the leads, which fetched times far past the largest lead.
 
 ### Security
 

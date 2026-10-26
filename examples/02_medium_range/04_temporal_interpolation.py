@@ -19,19 +19,19 @@
 Temporal Interpolation
 ======================
 
-Temporal Interpolation inference using InterpModAFNO model.
+Temporal Interpolation inference using InterpCRPSDiT model.
 
-This example demonstrates how to use the InterpModAFNO model to interpolate
+This example demonstrates how to use the InterpCRPSDiT model to interpolate
 forecasts from a base model to a finer time resolution.
 Many of the existing prognostic models have a step size of 6 hours which may prove
 insufficient for some applications.
-InterpModAFNO provides a AI driven method for getting hourly resolution given 6 hour
+InterpCRPSDiT provides an AI driven method for getting hourly resolution given 6 hour
 predictions.
 
 In this example you will learn:
 
 - How to load a base prognostic model
-- How to load the InterpModAFNO model
+- How to load the InterpCRPSDiT model
 - How to run the interpolation model
 - How to visualize the results
 """
@@ -39,7 +39,7 @@ In this example you will learn:
 # /// script
 # dependencies = [
 #   "torch==2.13.0", # Match torch-harmonics examples
-#   "earth2studio[sfno,interp-modafno] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "earth2studio[sfno,interp-crps-dit] @ git+https://github.com/NVIDIA/earth2studio.git",
 #   "matplotlib",
 # ]
 # ///
@@ -48,13 +48,13 @@ In this example you will learn:
 # Set Up
 # ------
 # First, import the necessary modules and set up our environment and load the models.
-# We will use SFNO as the base prognostic model and the InterpModAFNO model to
+# We will use SFNO as the base prognostic model and the InterpCRPSDiT model to
 # interpolate its output to a finer time resolution.
 # The prognostic model must predict the needed variables in the interpolation model.
 #
 # This example needs the following:
 #
-# - Interpolation Model: [`earth2studio.models.px.InterpModAFNO`][earth2studio.models.px.InterpModAFNO].
+# - Interpolation Model: [`earth2studio.models.px.InterpCRPSDiT`][earth2studio.models.px.InterpCRPSDiT].
 # - Prognostic Base Model: Use SFNO model [`earth2studio.models.px.SFNO`][earth2studio.models.px.SFNO].
 # - Datasource: Pull data from the GFS data api [`earth2studio.data.GFS`][earth2studio.data.GFS].
 
@@ -65,7 +65,7 @@ import matplotlib.pyplot as plt
 
 from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend
-from earth2studio.models.px import SFNO, InterpModAFNO
+from earth2studio.models.px import SFNO, InterpCRPSDiT
 
 # Create output directory
 os.makedirs("outputs", exist_ok=True)
@@ -74,8 +74,8 @@ sfno_package = SFNO.load_default_package()
 px_model = SFNO.load_model(sfno_package)
 
 # Load the interpolation model
-interp_package = InterpModAFNO.load_default_package()
-interp_model = InterpModAFNO.load_model(interp_package, px_model=px_model)
+interp_package = InterpCRPSDiT.load_default_package()
+interp_model = InterpCRPSDiT.load_model(interp_package, px_model=px_model)
 
 # Create the data source
 data = GFS()

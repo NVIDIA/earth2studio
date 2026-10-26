@@ -530,7 +530,13 @@ def test_fetch_data_interp(time, lead_time, device):
     "lead_time",
     [
         np.array([np.timedelta64(0, "h")]),
-        np.array([np.timedelta64(-6, "h"), np.timedelta64(0, "h")]),
+        np.array(
+            [
+                np.timedelta64(-12, "h"),
+                np.timedelta64(-6, "h"),
+                np.timedelta64(0, "h"),
+            ]
+        ),
     ],
 )
 @pytest.mark.parametrize(
@@ -558,6 +564,8 @@ def test_datasource_to_file(time, lead_time, backend, tmp_path):
 
     # To check attempt to get input data from saved file
     ds = DataArrayFile(file_name)
+    # Only the requested times offset by each lead are saved
+    assert ds.da.sizes["time"] == len(time) * len(lead_time)
     x, coords = fetch_data(ds, time, variable, lead_time)
 
     assert np.all(coords["time"] == time)

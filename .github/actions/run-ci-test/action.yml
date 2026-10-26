@@ -69,7 +69,12 @@ runs:
       env:
         TOX_ENV: ${{ inputs.tox-env }}
         EARTH2STUDIO_MODEL_CACHE: ${{ runner.temp }}/earth2studio-models
-      run: make pytest-ci
+      run: |
+        # Reuse the uv binary that populated the container's package/build cache.
+        # tox-uv otherwise selects its bundled uv, which can miss that cache.
+        export TOX_UV_PATH="$(command -v uv)"
+        "$TOX_UV_PATH" --version
+        make pytest-ci
 
     - name: Upload coverage data
       if: always()
