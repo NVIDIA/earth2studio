@@ -35,6 +35,25 @@ import torch
 import xarray as xr
 from loguru import logger
 
+from earth2studio.coupling._models import (
+    SlotKind,
+    _grid,
+    _labels,
+    _lead_times,
+    _ModelSpec,
+    inspect_model,
+)
+from earth2studio.coupling._time import (
+    DeltaLike,
+    as_timedelta,
+    fmt_timedelta,
+    gcd_timedelta,
+    is_multiple,
+    nanoseconds,
+)
+from earth2studio.coupling.connector import Connector
+from earth2studio.coupling.errors import CouplingError, _suggest
+from earth2studio.coupling.sequence import RunSequence, derive_sequence
 from earth2studio.data import DataSource, ForecastSource
 from earth2studio.grids import (
     GridDefinition,
@@ -45,25 +64,6 @@ from earth2studio.grids import (
 )
 from earth2studio.models.px.utils import initial_condition
 from earth2studio.models.utils import recommended_sources
-from earth2studio.nvcoupler._models import (
-    SlotKind,
-    _grid,
-    _labels,
-    _lead_times,
-    _ModelSpec,
-    inspect_model,
-)
-from earth2studio.nvcoupler._time import (
-    DeltaLike,
-    as_timedelta,
-    fmt_timedelta,
-    gcd_timedelta,
-    is_multiple,
-    nanoseconds,
-)
-from earth2studio.nvcoupler.connector import Connector
-from earth2studio.nvcoupler.errors import CouplingError, _suggest
-from earth2studio.nvcoupler.sequence import RunSequence, derive_sequence
 from earth2studio.run._fields import _lead_times as _rollout_leads
 from earth2studio.run._fields import _map_field, _with_lead_time
 from earth2studio.run.runner import (
@@ -167,6 +167,11 @@ class Coupler:
         Clock step, by default the greatest common divisor of the cadences.
     seed : int, optional
         Base seed for per-member seeding of stochastic models, by default 0
+    devices : Mapping[str, torch.device | str], optional
+        Device of models that :meth:`to` does not move, such as CPU-only impact
+        code, by default read from each model's parameters (CPU for models
+        without any). Fields are staged onto the receiving model's device, so
+        CPU and CUDA models can be coupled.
     """
 
     supports_member_batching = False  # Member perturbation is not implemented.
@@ -180,6 +185,7 @@ class Coupler:
         sequence: RunSequence | None = None,
         dt: DeltaLike | None = None,
         seed: int = 0,
+        devices: Mapping[str, torch.device | str] | None = None,
     ) -> None:
         if not models:
             raise CouplingError("Coupler needs at least one model")
@@ -195,6 +201,12 @@ class Coupler:
         self.connectors = tuple(connectors)
         self.seed = seed
         self.device = _module_device(next(iter(models.values())))
+        self._devices = {
+            name: torch.device(device) for name, device in (devices or {}).items()
+        }
+        unknown = sorted(set(self._devices) - set(models))
+        if unknown:
+            raise CouplingError(f"devices names unknown models {unknown}")
 
         # Providers: per destination, per (slot kind, slot index), per label.
         self._providers: dict[str, dict[Slot, dict[str, _Provider]]] = {
@@ -458,9 +470,15 @@ class Coupler:
     # -- Runner protocol ----------------------------------------------------
 
     def to(self, device: torch.device | str) -> Coupler:
-        """Move every model and regridder to ``device`` and fetch onto it."""
+        """Move every model and regridder to ``device`` and fetch onto it.
+
+        Models pinned through ``devices=`` keep their device; fields delivered
+        to them are staged there.
+        """
         self.device = torch.device(device)
         for name, model in self.models.items():
+            if name in self._devices:
+                continue
             moved = model.to(self.device)
             if moved is not None:
                 self.models[name] = moved
@@ -468,6 +486,19 @@ class Coupler:
         for regridder in self._regridders.values():
             regridder.to(self.device)
         return self
+
+    def device_of(self, name: str) -> torch.device:
+        """Return the device of one model: its ``devices=`` entry or its parameters."""
+        if name in self._devices:
+            return self._devices[name]
+        return _module_device(self.models[name])
+
+    @staticmethod
+    def _stage(field: xr.DataArray, device: torch.device) -> xr.DataArray:
+        """Return ``field`` backed on ``device`` (NumPy for CPU, CuPy for CUDA)."""
+        if device.type == "cuda":
+            return field.e2s.as_cupy(device.index)
+        return field.e2s.as_numpy()
 
     def nsteps(self, final_lead_time: np.timedelta64) -> int:
         """Return the number of clock steps needed to reach ``final_lead_time``."""
@@ -617,12 +648,12 @@ class Coupler:
 
     def describe(self) -> str:
         """Return a plain-text plan: models, exchanges and run sequence."""
-        from earth2studio.nvcoupler._describe import describe
+        from earth2studio.coupling._describe import describe
 
         return describe(self)
 
     def _repr_html_(self) -> str:
-        from earth2studio.nvcoupler._describe import describe_html
+        from earth2studio.coupling._describe import describe_html
 
         return describe_html(self)
 
@@ -756,7 +787,9 @@ class _Run:
                 request = self.coupler._request(
                     source, self.item, _labels(signature), signature
                 )
-                fields.append(_fetch(request, signature, self.coupler.device))
+                fields.append(
+                    _fetch(request, signature, self.coupler.device_of(spec.name))
+                )
             x = tuple(fields)
         self.x[spec.name] = x
         published = initial_condition(x)
@@ -772,8 +805,10 @@ class _Run:
                 "model's input_coords()"
             )
         if "time" not in array.dims:
-            array = array.expand_dims(time=[self.t0], axis=0)
-        return array
+            # Keep a leading batch dimension ahead of time, as signatures do.
+            axis = 1 if array.dims[0] == "batch" else 0
+            array = array.expand_dims(time=[self.t0], axis=axis)
+        return self.coupler._stage(array, self.coupler.device_of(spec.name))
 
     def _run_prognostic(
         self, spec: _ModelSpec, lead: np.timedelta64
@@ -978,7 +1013,7 @@ class _Run:
             request = self.coupler._request(
                 source, self.item, from_source, signature, required
             )
-            fetched = _fetch(request, subset, self.coupler.device)
+            fetched = _fetch(request, subset, self.coupler.device_of(spec.name))
             for label in from_source:
                 pieces[label] = fetched.sel(variable=[label])
         try:
@@ -1001,7 +1036,8 @@ class _Run:
             field = field.isel(lead_time=0, drop=True)
         leading = [dim for dim in field.dims if dim not in signature.dims]
         order = [dim for dim in signature.dims if dim in field.dims]
-        return field.transpose(*leading, *order)
+        field = field.transpose(*leading, *order)
+        return self.coupler._stage(field, self.coupler.device_of(spec.name))
 
     def _overwrite_state(
         self, spec: _ModelSpec, arrays: tuple[xr.DataArray, ...], initial: bool
@@ -1046,6 +1082,7 @@ class _Run:
                             "delivered field must match the state grid exactly"
                         )
                 target = target.copy(deep=True)
+                piece = self.coupler._stage(piece, self.coupler.device_of(spec.name))
                 target.loc[{"variable": label, "lead_time": leads}] = piece
                 result[targets[label]] = target
         return tuple(result)

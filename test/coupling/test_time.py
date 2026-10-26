@@ -17,7 +17,7 @@
 import numpy as np
 import pytest
 
-from earth2studio.nvcoupler._time import (
+from earth2studio.coupling._time import (
     as_timedelta,
     fmt_timedelta,
     gcd_timedelta,

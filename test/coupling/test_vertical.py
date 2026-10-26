@@ -17,10 +17,10 @@
 import numpy as np
 import pytest
 import xarray as xr
+from coupling_toys import ToyPrognostic, toy_grid
 
-from earth2studio.nvcoupler import Connector, Coupler, CouplingError
-from earth2studio.nvcoupler.testing import ToyPrognostic, toy_grid
-from earth2studio.nvcoupler.vertical import (
+from earth2studio.coupling import Connector, Coupler, CouplingError
+from earth2studio.coupling.vertical import (
     HybridLevels,
     PressureLevels,
     interp_to_pressure,

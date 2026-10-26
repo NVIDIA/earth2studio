@@ -16,20 +16,20 @@
 
 import numpy as np
 import pytest
-
-from earth2studio.nvcoupler import (
-    Connector,
-    Coupler,
-    CouplingError,
-    RunSequence,
-    Slot,
-)
-from earth2studio.nvcoupler.testing import (
+from coupling_toys import (
     ATMOS_SHAPE,
     ToyAtmosphere,
     ToyImpact,
     toy_grid,
     toy_source,
+)
+
+from earth2studio.coupling import (
+    Connector,
+    Coupler,
+    CouplingError,
+    RunSequence,
+    Slot,
 )
 from earth2studio.run import WorkItem
 from earth2studio.utils import coord_array_like

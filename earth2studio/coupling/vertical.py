@@ -32,8 +32,8 @@ from typing import Any
 import numpy as np
 import xarray as xr
 
-from earth2studio.nvcoupler.connector import Transform
-from earth2studio.nvcoupler.errors import CouplingError
+from earth2studio.coupling.connector import Transform
+from earth2studio.coupling.errors import CouplingError
 
 try:
     import cupy as cp
@@ -226,7 +226,7 @@ def to_pressure_levels(
     Returns
     -------
     Callable[[xr.DataArray], xr.DataArray]
-        ``transform`` for :class:`~earth2studio.nvcoupler.Connector`.
+        ``transform`` for :class:`~earth2studio.coupling.Connector`.
     """
     levels = (
         target if isinstance(target, PressureLevels) else PressureLevels(tuple(target))

@@ -15,10 +15,10 @@
 # limitations under the License.
 
 import pytest
+from coupling_toys import toy_grid
 
+from earth2studio.coupling import Connector
 from earth2studio.grids import NearestRegridder
-from earth2studio.nvcoupler import Connector
-from earth2studio.nvcoupler.testing import toy_grid
 
 
 def test_connector_is_a_frozen_declaration():
