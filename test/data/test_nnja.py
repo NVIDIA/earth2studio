@@ -399,6 +399,45 @@ def test_nnja_obs_conv_fetch_uses_store(tmp_path, monkeypatch):
     assert cleanup_calls["n"] == 2
 
 
+@pytest.mark.parametrize("failing", ["decode", "download"])
+def test_nnja_cleanup_waits_for_download_and_decode(tmp_path, monkeypatch, failing):
+    """When one side fails, cleanup runs only after the other has stopped."""
+    cached_file = tmp_path / "cached.bufr"
+    cached_file.write_bytes(b"fixture")
+    source = NNJAObsConv(cache=True, verbose=False)
+    running = {"download": False, "decode": False}
+    running_at_cleanup = []
+
+    async def fetch_files(uris):
+        running["download"] = True
+        try:
+            if failing == "download":
+                raise RuntimeError("download failed")
+            await asyncio.sleep(5)
+        finally:
+            running["download"] = False
+
+    def decode(path, task):
+        running["decode"] = True
+        try:
+            if failing == "decode":
+                raise RuntimeError("decode failed")
+            time.sleep(0.5)
+        finally:
+            running["decode"] = False
+        return pa.table({"time": pa.array([np.datetime64("2024-01-01", "ns")])})
+
+    monkeypatch.setattr(source, "fetch_files", fetch_files)
+    monkeypatch.setattr(source, "local_path", lambda uri: str(cached_file))
+    monkeypatch.setattr(source, "_decode_file", decode)
+    monkeypatch.setattr(
+        source, "cleanup", lambda: running_at_cleanup.append(dict(running))
+    )
+    with pytest.raises(Exception, match="failed"):
+        source(datetime(2024, 1, 1), ["t"])
+    assert running_at_cleanup == [{"download": False, "decode": False}]
+
+
 @pytest.mark.parametrize(
     "cls, variable", [(NNJAObsConv, "t"), (nnja.NNJAObsSatwnd, "u")]
 )

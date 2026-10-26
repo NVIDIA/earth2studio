@@ -28,10 +28,10 @@ import os
 import shutil
 import threading
 import uuid
-from collections.abc import Sequence
+from collections.abc import Callable, Coroutine, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
-from typing import Literal
+from typing import Any, Literal, TypeVar
 
 import numpy as np
 import pandas as pd
@@ -123,9 +123,9 @@ class _NNJAObsSatIncompleteError(RuntimeError):
 def _raise_task_failure(
     uri: str, task_index: int, task_count: int, cause: Exception
 ) -> None:
-    """``compile_dataframe`` error hook: a file that fails to decode fails the request.
+    """``compile_tables`` error hook: a file that fails to decode fails the request.
 
-    Without it ``compile_dataframe`` logs the failure and drops the file, so the call
+    Without it ``compile_tables`` logs the failure and drops the file, so the call
     returns fewer rows, or none, as if the archive were empty.
     """
     context: dict[str, object] = {
@@ -136,6 +136,26 @@ def _raise_task_failure(
         "cause_message": str(cause),
     }
     raise _NNJAObsSatIncompleteError("task_failure", **context) from cause
+
+
+_T = TypeVar("_T")
+
+
+async def _download_and_decode(
+    download: Coroutine[Any, Any, None], decode: Callable[[], _T]
+) -> _T:
+    """Run ``download`` and ``decode``, in a thread, together. When either fails, the
+    download is cancelled and the decode awaited before the failure is raised, so the
+    cache cleanup that follows never runs while either still uses the cache."""
+    fetching = asyncio.ensure_future(download)
+    decoding = asyncio.ensure_future(asyncio.to_thread(decode))
+    try:
+        await asyncio.gather(fetching, decoding)
+    except BaseException:
+        fetching.cancel()
+        await asyncio.gather(fetching, decoding, return_exceptions=True)
+        raise
+    return decoding.result()
 
 
 _NNJA_SAT_PRODUCTS: dict[str, _NNJASatProduct] = {
@@ -399,10 +419,9 @@ class NNJAObsConv:
 
         # Decoding is CPU-bound; it runs off the event loop, each file as soon as it is
         # in the cache, so downloads, decodes and gathered sources overlap
-        _, pieces = await asyncio.gather(
+        pieces = await _download_and_decode(
             download(),
-            asyncio.to_thread(
-                compile_tables,
+            lambda: compile_tables(
                 tasks,
                 self.SOURCE_ID,
                 self.local_path,
@@ -1007,10 +1026,9 @@ class NNJAObsSat:
 
         # Decoding is CPU-bound; it runs off the event loop, each file as soon as it is
         # in the cache, so downloads, decodes and gathered sources overlap
-        _, pieces = await asyncio.gather(
+        pieces = await _download_and_decode(
             download(),
-            asyncio.to_thread(
-                compile_tables,
+            lambda: compile_tables(
                 tasks,
                 self.SOURCE_ID,
                 self.local_path,
