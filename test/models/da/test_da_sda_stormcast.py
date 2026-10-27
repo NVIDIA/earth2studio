@@ -15,6 +15,7 @@
 # limitations under the License.
 
 from collections import OrderedDict
+from io import BytesIO
 from unittest.mock import patch
 
 import numpy as np
@@ -23,7 +24,9 @@ import pytest
 import torch
 import xarray as xr
 
+import earth2studio.models.da.sda_stormcast as stormcast_module
 from earth2studio.data import Random, RandomDataFrame, fetch_data, fetch_dataframe
+from earth2studio.grids import resolve_grid
 from earth2studio.models.da.sda_stormcast import StormCastSDA
 
 try:
@@ -74,15 +77,6 @@ def _build_model(device="cpu"):
     regression = PhooRegressionModel(out_vars=NVAR)
     diffusion = PhooSDADiffusionModel()
 
-    r_condition = Random(
-        OrderedDict(
-            [
-                ("lat", np.linspace(90, -90, num=181, endpoint=True)),
-                ("lon", np.linspace(0, 360, num=360)),
-            ]
-        )
-    )
-
     ny = Y_END - Y_START
     nx = X_END - X_START
     variables = np.array(["u%02d" % i for i in range(NVAR)])
@@ -105,25 +99,24 @@ def _build_model(device="cpu"):
         conditioning_means=conditioning_means,
         conditioning_stds=conditioning_stds,
         conditioning_variables=conditioning_variables,
-        conditioning_data_source=r_condition,
         sampler_args=SAMPLER_ARGS,
     ).to(device)
 
 
-def _build_input_da(model, time, device="cpu"):
-    dc = OrderedDict([("hrrr_y", model.hrrr_y), ("hrrr_x", model.hrrr_x)])
+def _build_input_da(model, time, device="cpu", conditioning=False):
+    dc = OrderedDict([("y", model.hrrr_y), ("x", model.hrrr_x)])
     r = Random(dc)
     x = fetch_data(
         r,
         time,
-        model.variables,
+        model.conditioning_variables if conditioning else model.variables,
         lead_time=np.array([np.timedelta64(0, "h")]),
         device=device,
     )
     return x.assign_coords(
-        lat=(["hrrr_y", "hrrr_x"], model.lat),
-        lon=(["hrrr_y", "hrrr_x"], model.lon),
-    )
+        lat=(["y", "x"], model.lat),
+        lon=(["y", "x"], model.lon),
+    ).assign_attrs(model.input_coords().attrs)
 
 
 def _build_obs_source(model, n_obs=10):
@@ -279,86 +272,6 @@ def test_build_obs_tensors_averages_duplicates():
     assert torch.isclose(y_obs[mask == 1], torch.tensor(19.5)).all()
 
 
-# ---------- Unit test: _fetch_and_interp_conditioning ----------
-
-
-def test_fetch_and_interp_conditioning():
-    model = _build_model(device="cpu")
-    time = np.array([np.datetime64("2020-01-01T00:00")])
-    x = _build_input_da(model, time, device="cpu")
-    ny, nx = model.lat.shape
-
-    c = model._fetch_and_interp_conditioning(x)
-
-    assert c.shape == (1, 1, NVAR_COND, ny, nx)
-    assert "hrrr_y" in c.dims
-    assert "hrrr_x" in c.dims
-    assert "variable" in c.dims
-
-
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda missing")
-def test_fetch_and_interp_conditioning_gpu():
-    from scipy.interpolate import RegularGridInterpolator
-
-    from earth2studio.data.utils import prep_data_inputs
-
-    # Descending latitude (typical weather data convention: 90 → -90)
-    src_lat = np.linspace(90, -90, num=181)
-    src_lon = np.linspace(0, 360, num=361)
-    field = np.random.randn(src_lat.shape[0], src_lon.shape[0])
-
-    class _AnalyticSource:
-        def __init__(self):
-            self.domain_coords = OrderedDict([("lat", src_lat), ("lon", src_lon)])
-
-        def __call__(self, time, variable):
-            time, variable = prep_data_inputs(time, variable)
-            data = np.broadcast_to(
-                field, (len(time), len(variable), len(src_lat), len(src_lon))
-            ).copy()
-            return xr.DataArray(
-                data=data,
-                dims=["time", "variable", "lat", "lon"],
-                coords={
-                    "time": time,
-                    "variable": variable,
-                    "lat": src_lat,
-                    "lon": src_lon,
-                },
-            )
-
-    ny = Y_END - Y_START
-    nx = X_END - X_START
-    model = StormCastSDA(
-        PhooRegressionModel(out_vars=NVAR),
-        PhooSDADiffusionModel(),
-        torch.zeros(1, NVAR, 1, 1),
-        torch.ones(1, NVAR, 1, 1),
-        torch.randn(1, 2, ny, nx),
-        hrrr_lat_lim=(Y_START, Y_END),
-        hrrr_lon_lim=(X_START, X_END),
-        variables=np.array(["u%02d" % i for i in range(NVAR)]),
-        conditioning_means=torch.zeros(1, NVAR_COND, 1, 1),
-        conditioning_stds=torch.ones(1, NVAR_COND, 1, 1),
-        conditioning_variables=np.array(["c%02d" % i for i in range(NVAR_COND)]),
-        conditioning_data_source=_AnalyticSource(),
-        sampler_args=SAMPLER_ARGS,
-    ).to("cuda:0")
-
-    time = np.array([np.datetime64("2020-01-01T00:00")])
-    x = _build_input_da(model, time, device="cuda:0")
-    c = model._fetch_and_interp_conditioning(x)
-
-    # Scipy reference bilinear interpolation
-    ref = RegularGridInterpolator((src_lat, src_lon), field, method="linear")
-    target_pts = np.column_stack([model.lat.ravel(), model.lon.ravel()])
-    expected = ref(target_pts).reshape(ny, nx)
-
-    c_np = c.data.get()
-    for v in range(NVAR_COND):
-        np.testing.assert_allclose(c_np[0, 0, v], expected, atol=1e-6, rtol=0)
-
-
 # ---------- Test: __call__ ----------
 
 
@@ -385,101 +298,283 @@ def test_fetch_and_interp_conditioning_gpu():
 )
 def test_stormcast_sda_call(time, device):
     model = _build_model(device=device)
+    state = model.input_coords()
+    conditioning, obs = model.forcing_coords()
+    assert isinstance(state, xr.DataArray)
+    hrrr_grid = resolve_grid("hrrr")
+    np.testing.assert_array_equal(state.y, hrrr_grid.y[Y_START:Y_END])
+    np.testing.assert_array_equal(state.x, hrrr_grid.x[X_START:X_END])
+    assert state.attrs["crs"] == model.grid.attrs["crs"]
+    assert conditioning.attrs["crs"] == state.attrs["crs"]
+    assert conditioning.dims == state.dims
+    np.testing.assert_array_equal(
+        conditioning["variable"], model.conditioning_variables
+    )
+    np.testing.assert_array_equal(obs["variable"], model.variables)
+    assert model.output_coords(state).lead_time.values[0] == np.timedelta64(1, "h")
     x = _build_input_da(model, time, device=device)
+    original, _ = x.e2s.to_torch()
+    original = original.clone()
+    c = _build_input_da(model, time, device=device, conditioning=True)
     obs_source = _build_obs_source(model, n_obs=10)
     obs_df = fetch_dataframe(obs_source, time, model.variables[:2])
     ny, nx = model.lat.shape
 
     with patch.object(model, "_forward", _mock_forward):
-        out = model(x, obs_df)
+        out = model(x, c, obs_df)
 
     assert out.shape == (len(time), 1, NVAR, ny, nx)
-    assert set(out.dims) == {"time", "lead_time", "variable", "hrrr_y", "hrrr_x"}
+    assert set(out.dims) == {"time", "lead_time", "variable", "y", "x"}
     assert np.all(out.coords["time"].values == time)
     assert out.coords["lead_time"].values[0] == np.timedelta64(1, "h")
 
     # Without observations
     with patch.object(model, "_forward", _mock_forward):
-        out_none = model(x, None)
+        out_none = model(x, c, None)
 
     assert out_none.shape == out.shape
-
-
-# ---------- Test: create_generator ----------
-
-
-@pytest.mark.parametrize(
-    "device",
-    [
-        "cpu",
-        pytest.param(
-            "cuda:0",
-            marks=pytest.mark.skipif(
-                not torch.cuda.is_available(), reason="cuda missing"
-            ),
-        ),
-    ],
-)
-def test_stormcast_sda_generator(device):
-    model = _build_model(device=device)
-    time = np.array([np.datetime64("2020-04-05T00:00")])
-    x = _build_input_da(model, time, device=device)
-    obs_source = _build_obs_source(model, n_obs=10)
-    obs_df = fetch_dataframe(obs_source, time, model.variables[:2])
-    ny, nx = model.lat.shape
-
-    with patch.object(model, "_forward", _mock_forward):
-        gen = model.create_generator(x)
-
-        # First yield returns initial state
-        state = next(gen)
-        assert state.shape == x.shape
-
-        # Send observations, receive next forecast
-        state = gen.send(obs_df)
-        assert state.shape == (len(time), 1, NVAR, ny, nx)
-        assert state.coords["lead_time"].values[0] == np.timedelta64(1, "h")
-
-        # Send None (no observations), receive next forecast
-        state = gen.send(None)
-        assert state.shape == (len(time), 1, NVAR, ny, nx)
-        assert state.coords["lead_time"].values[0] == np.timedelta64(2, "h")
-
-        gen.close()
+    torch.testing.assert_close(x.e2s.to_torch()[0], original)
+    assert out.e2s.to_torch()[0].device == model.device
 
 
 # ---------- Test: exceptions ----------
 
 
-def test_stormcast_sda_exceptions():
-    ny = Y_END - Y_START
-    nx = X_END - X_START
-    regression = PhooRegressionModel(out_vars=NVAR)
-    diffusion = PhooSDADiffusionModel()
-    means = torch.zeros(1, NVAR, 1, 1)
-    stds = torch.ones(1, NVAR, 1, 1)
-    invariants = torch.randn(1, 2, ny, nx)
-
-    # No conditioning_data_source
-    model = StormCastSDA(
-        regression,
-        diffusion,
-        means,
-        stds,
-        invariants,
-        hrrr_lat_lim=(Y_START, Y_END),
-        hrrr_lon_lim=(X_START, X_END),
-    )
-
+@pytest.mark.parametrize("coord", ["time", "lead_time", "variable", "lat", "lon"])
+def test_stormcast_sda_exceptions(coord):
+    model = _build_model()
     time = np.array([np.datetime64("2020-01-01T00:00")])
     x = _build_input_da(model, time)
+    c = _build_input_da(model, time, conditioning=True)
+    values = c[coord].values.copy()
+    if coord == "variable":
+        values[0] = "bad"
+    elif coord in ("time", "lead_time"):
+        values += np.timedelta64(1, "h")
+    else:
+        values += 1
+    c = c.assign_coords({coord: (c[coord].dims, values)})
+    with pytest.raises(ValueError):
+        model(x, c)
+    with pytest.raises(ValueError):
+        next(model.create_iterator(x, c))
 
-    with pytest.raises(RuntimeError):
-        model(x, None)
 
-    gen = model.create_generator(x)
-    with pytest.raises(RuntimeError):
-        next(gen)
+@pytest.fixture
+def stochastic_model(monkeypatch, device):
+    if device.startswith("cuda") and not torch.cuda.is_available():
+        pytest.skip("CUDA missing")
+    model = _build_model(device)
+
+    def sample(denoiser, latents, **kwargs):
+        # Exercise _forward's real latent draw and a sampler-side global draw,
+        # including CPU noise when the model is on CUDA.
+        return 0.01 * (latents + torch.randn_like(latents) + torch.rand(()).item())
+
+    monkeypatch.setattr(stormcast_module, "sample", sample)
+    return model
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_stormcast_sda_iter(stochastic_model, device):
+    model = stochastic_model
+    time = np.array([np.datetime64("2020-04-05T00:00")])
+    x = _build_input_da(model, time, device)
+    x.name = "background"
+    x.attrs["source"] = "mock"
+    c = _build_input_da(model, time, device, conditioning=True)
+    original = x.copy(deep=True)
+    original_c = c.copy(deep=True)
+    cpu_rng = torch.get_rng_state()
+    cuda_rng = torch.cuda.get_rng_state(device) if device.startswith("cuda") else None
+
+    model.set_rng(42)
+    y1, s1 = model.initialize(x, c)
+    saved_y1 = y1.copy(deep=True)
+    saved_s1 = {key: value.clone() for key, value in s1.items()}
+    c1 = (c + 1).assign_coords(lead_time=y1.lead_time)
+    y2, s2 = model.step(y1, c1, None, s1)
+    c2 = (c + 2).assign_coords(lead_time=y2.lead_time)
+    y3, s3 = model.step(y2, c2, None, state=s2)
+    assert y3.lead_time.values[0] == np.timedelta64(3, "h")
+
+    # A saved pair is a complete continuation, including sampler RNG position.
+    buffer = BytesIO()
+    torch.save((y1, s1), buffer)
+    buffer.seek(0)
+    restored_y, restored_s = torch.load(buffer, weights_only=False)
+    model.set_rng(99)
+    other_y, other_s = model.initialize(x, c)
+    assert not torch.equal(other_y.e2s.to_torch()[0], y1.e2s.to_torch()[0])
+    model.step(other_y, c1, None, other_s)
+    replay_y2, replay_s2 = model.step(restored_y, c1, None, restored_s)
+    replay_y3, replay_s3 = model.step(replay_y2, c2, None, replay_s2)
+    for actual, expected in [(replay_y2, y2), (replay_y3, y3)]:
+        torch.testing.assert_close(
+            actual.e2s.to_torch()[0], expected.e2s.to_torch()[0], rtol=0, atol=0
+        )
+        xr.testing.assert_identical(
+            actual.coords.to_dataset(), expected.coords.to_dataset()
+        )
+    for key in s1:
+        assert torch.equal(s1[key], saved_s1[key])
+        assert torch.equal(s2[key], replay_s2[key])
+        assert torch.equal(s3[key], replay_s3[key])
+        assert s1[key].data_ptr() != s2[key].data_ptr()
+
+    # Call, initialization, and iteration agree under the same seed.
+    model.set_rng(42)
+    called = model(x, c)
+    torch.testing.assert_close(
+        called.e2s.to_torch()[0], y1.e2s.to_torch()[0], rtol=0, atol=0
+    )
+    model.set_rng(42)
+    iterator = model.create_iterator(x, c)
+    first = next(iterator)
+    first_saved = first.copy(deep=True)
+    second = iterator.send((c1, None))
+    third = iterator.send((c2, None))
+    iterator.close()
+    for actual, expected in [
+        (first, y1),
+        (second, y2),
+        (third, y3),
+        (first, first_saved),
+        (y1, saved_y1),
+        (x, original),
+        (c, original_c),
+    ]:
+        torch.testing.assert_close(
+            actual.e2s.to_torch()[0], expected.e2s.to_torch()[0], rtol=0, atol=0
+        )
+        xr.testing.assert_identical(
+            actual.coords.to_dataset(), expected.coords.to_dataset()
+        )
+        assert actual.attrs == expected.attrs
+        assert actual.name == expected.name
+    assert torch.equal(cpu_rng, torch.get_rng_state())
+    if cuda_rng is not None:
+        assert torch.equal(cuda_rng, torch.cuda.get_rng_state(device))
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_stormcast_sda_deterministic_seed(stochastic_model, device):
+    model = stochastic_model
+    time = np.array([np.datetime64("2020-04-05T00:00")])
+    x = _build_input_da(model, time, device)
+    c = _build_input_da(model, time, device, conditioning=True)
+    model.set_rng(42, reset=False)
+    first = model(x, c)
+    model.set_rng(99, reset=False)
+    second = model(x, c)
+    assert not torch.equal(first.e2s.to_torch()[0], second.e2s.to_torch()[0])
+    model.set_rng(42)
+    torch.testing.assert_close(
+        model(x, c).e2s.to_torch()[0], first.e2s.to_torch()[0], rtol=0, atol=0
+    )
+    torch.testing.assert_close(
+        model(x, c).e2s.to_torch()[0], second.e2s.to_torch()[0], rtol=0, atol=0
+    )
+
+
+def test_stormcast_sda_iter_observations():
+    model = _build_model()
+    time = np.array([np.datetime64("2020-04-05T00:00")])
+    x = _build_input_da(model, time)
+    c = _build_input_da(model, time, conditioning=True)
+    obs = pd.DataFrame(
+        {
+            "time": [time[0] + np.timedelta64(i, "h") for i in (1, 2)],
+            "lat": [model.lat[10, 10]] * 2,
+            "lon": [model.lon[10, 10]] * 2,
+            "variable": [model.variables[0]] * 2,
+            "observation": [5.0, 9.0],
+        }
+    )
+    original = obs.copy(deep=True)
+
+    def forward(x, conditioning, y_obs, mask):
+        return x + conditioning[:, :NVAR] + mask * y_obs
+
+    with patch.object(model, "_forward", forward):
+        y1, state = model.initialize(x, c, obs)
+        expected = x.values + c.values[:, :, :NVAR]
+        expected[0, 0, 0, 10, 10] += 5.0
+        np.testing.assert_allclose(y1.values, expected)
+        c1 = c.assign_coords(lead_time=y1.lead_time)
+        y2, _ = model.step(y1, c1, obs, state)
+        expected = y1.values + c.values[:, :, :NVAR]
+        expected[0, 0, 0, 10, 10] += 9.0
+        np.testing.assert_allclose(y2.values, expected)
+        without_obs, _ = model.step(y1, c1, None, state)
+        empty_obs, _ = model.step(y1, c1, obs.iloc[:0], state)
+        np.testing.assert_allclose(
+            without_obs.values, y1.values + c.values[:, :, :NVAR]
+        )
+        xr.testing.assert_identical(empty_obs, without_obs)
+        xr.testing.assert_identical(model(x, c, obs), y1)
+        iterator = model.create_iterator(x, c, obs)
+        xr.testing.assert_identical(next(iterator), y1)
+        xr.testing.assert_identical(iterator.send((c1, obs)), y2)
+        iterator.close()
+    pd.testing.assert_frame_equal(obs, original)
+
+
+@pytest.mark.parametrize("forcing", [None, (None,), (None, None)])
+def test_stormcast_sda_iter_exceptions(forcing):
+    model = _build_model()
+    time = np.array([np.datetime64("2020-04-05T00:00")])
+    x = _build_input_da(model, time)
+    c = _build_input_da(model, time, conditioning=True)
+    with patch.object(model, "_forward", _mock_forward):
+        iterator = model.create_iterator(x, c)
+        next(iterator)
+        with pytest.raises(ValueError, match="forcing_coords|conditioning"):
+            iterator.send(forcing)
+
+
+def test_stormcast_sda_step_exceptions():
+    model = _build_model()
+    time = np.array([np.datetime64("2020-04-05T00:00")])
+    x = _build_input_da(model, time)
+    c = _build_input_da(model, time, conditioning=True)
+    with pytest.raises(ValueError, match="conditioning"):
+        model.initialize(x, None)
+    with patch.object(model, "_forward", _mock_forward):
+        y, state = model.initialize(x, c)
+    with pytest.raises(ValueError, match="conditioning"):
+        model.step(y, None, None, state)
+    with pytest.raises(ValueError):
+        model.step(y, c, None, state)  # stale conditioning
+    with pytest.raises(ValueError, match="RNG snapshots"):
+        model.step(y, c.assign_coords(lead_time=y.lead_time), None, {})
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_stormcast_sda_rng_exception_isolation(stochastic_model, device):
+    model = stochastic_model
+    time = np.array([np.datetime64("2020-04-05T00:00")])
+    x = _build_input_da(model, time, device)
+    c = _build_input_da(model, time, device, conditioning=True)
+    model.set_rng(42)
+    y, state = model.initialize(x, c)
+    saved_state = {key: value.clone() for key, value in state.items()}
+    cpu_rng = torch.get_rng_state()
+    cuda_rng = torch.cuda.get_rng_state(device) if device.startswith("cuda") else None
+
+    def fail(denoiser, latents, **kwargs):
+        torch.randn_like(latents)
+        torch.rand(())
+        raise RuntimeError("sampler failed")
+
+    with patch.object(stormcast_module, "sample", fail):
+        with pytest.raises(RuntimeError, match="sampler failed"):
+            model.step(y, c.assign_coords(lead_time=y.lead_time), None, state)
+    assert torch.equal(cpu_rng, torch.get_rng_state())
+    if cuda_rng is not None:
+        assert torch.equal(cuda_rng, torch.cuda.get_rng_state(device))
+    for key in state:
+        assert torch.equal(state[key], saved_state[key])
 
 
 # ---------- Test: package loading ----------
@@ -499,37 +594,12 @@ def test_stormcast_sda_package(device, sda_model):
 
     model = sda_model.to(device)
 
-    # Set up Random conditioning source to avoid external data fetches
-    r_condition = Random(
-        OrderedDict(
-            [
-                ("lat", np.linspace(90, -90, num=721, endpoint=True)),
-                ("lon", np.linspace(0, 360, num=1440)),
-            ]
-        )
-    )
-    model.conditioning_data_source = r_condition
     model.sampler_args = SAMPLER_ARGS
-
-    # Build input from Random source matching model init_coords
-    ic = model.init_coords()[0]
-    dc = OrderedDict([("hrrr_y", ic["hrrr_y"]), ("hrrr_x", ic["hrrr_x"])])
-    r = Random(dc)
-    x = fetch_data(
-        r,
-        time,
-        ic["variable"],
-        lead_time=np.array([np.timedelta64(0, "h")]),
-        device=device,
-    )
-    x = x.assign_coords(
-        lat=(["hrrr_y", "hrrr_x"], model.lat),
-        lon=(["hrrr_y", "hrrr_x"], model.lon),
-    )
-
-    out = model(x, None)
+    x = _build_input_da(model, time, device=device)
+    c = _build_input_da(model, time, device=device, conditioning=True)
+    out = model(x, c, None)
 
     assert out.shape == (1, 1, 99, 512, 640)
-    assert set(out.dims) == {"time", "lead_time", "variable", "hrrr_y", "hrrr_x"}
+    assert set(out.dims) == {"time", "lead_time", "variable", "y", "x"}
     assert np.all(out.coords["time"].values == time)
     assert out.coords["lead_time"].values[0] == np.timedelta64(1, "h")
