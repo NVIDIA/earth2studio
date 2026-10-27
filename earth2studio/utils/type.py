@@ -17,6 +17,7 @@
 # --8<-- [start:type-aliases]
 from collections import OrderedDict
 from datetime import timedelta
+from typing import Literal
 
 import numpy as np
 import xarray as xr
@@ -38,3 +39,15 @@ TimeTolerance = (
     | tuple[np.timedelta64, np.timedelta64]
 )
 # --8<-- [end:type-aliases]
+
+
+DiffusionSolver = Literal[
+    "euler",
+    "heun",
+    "edm_stochastic_euler",
+    "edm_stochastic_heun",
+    "exponential_euler",
+    "edm_stochastic_exponential_euler",
+    "dpmpp_2m",
+    "dpmpp_2m_unic2",
+]

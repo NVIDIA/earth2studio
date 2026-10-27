@@ -50,7 +50,7 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.time import timearray_to_datetime
-from earth2studio.utils.type import CoordinateSystem
+from earth2studio.utils.type import CoordinateSystem, DiffusionSolver
 
 if TYPE_CHECKING:
     from earth2studio.data.base import DataSource
@@ -67,6 +67,9 @@ try:
     from physicsnemo.models.dit import DiT
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
     from tensordict import TensorDict
+
+    from earth2studio.models.nn.diffusion import SOLVERS, seeded_rng
+    from earth2studio.models.nn.diffusion import solver_options as _solver_options
 except ImportError:
     OptionalDependencyFailure("corrdiff-era5-hrrr")
     EDMNoiseScheduler = None
@@ -410,10 +413,12 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
     number_of_samples : int
         Ensemble members per input; settable between calls.
     number_of_steps : int
-        ODE solver steps (each Heun step costs two network evaluations). For a
-        distilled network this is the number of blocks of its rollout, 1 or 2.
-    solver : {"heun", "euler"}
-        ODE solver. Unused for a distilled network, whose rollout is fixed.
+        ODE solver steps (each Heun step costs two network evaluations).
+        For a distilled network, use 1 or 2 blocks of its fixed rollout.
+    solver : DiffusionSolver | None, optional
+        Numerical method for integrating the sampling ODE in reverse time.
+        None selects Heun for the teacher. Distilled networks use a fixed
+        sampling method and reject solver overrides. By default None
     shift : float
         SD3 resolution shift ``a`` applied to the rectified-flow time grid,
         ``t -> a t / (1 + (a - 1) t)``; ``1.0`` disables it. The examples found
@@ -432,6 +437,15 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
     amp : bool
         Run network forwards under bf16 autocast while the ODE integration stays in
         fp32 (the examples' evaluation setting; roughly halves inference time).
+
+    solver_options : dict[str, Any] | None, optional
+        Options passed to the selected solver to customize its behavior or
+        override defaults. The wrapper supplies the noise-schedule coefficients.
+        Do not pass ``num_steps`` here; set the sampling step count with
+        ``number_of_steps`` instead. By default None
+        See the `PhysicsNeMo solver API
+        <https://docs.nvidia.com/physicsnemo/latest/physicsnemo/api/diffusion/samplers.html#solvers>`_
+        for the options supported by each method.
 
     Badges
     ------
@@ -464,7 +478,7 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         time_scale: float = 999.0,
         number_of_samples: int = 1,
         number_of_steps: int = 50,
-        solver: Literal["heun", "euler"] = "heun",
+        solver: DiffusionSolver | None = None,
         shift: float = 32.0,
         t_max: float = 0.99,
         x0v_clip: float = 0.05,
@@ -472,6 +486,8 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         sigma_max: float = 200.0,
         rho: float = 7.0,
         amp: bool = True,
+        *,
+        solver_options: dict[str, Any] | None = None,
     ):
         super().__init__()
         self.distilled = isinstance(network, _CorrDiffEra5HrrrDistilled)
@@ -479,6 +495,11 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             raise ValueError(
                 "the distilled generator supports number_of_steps 1 or 2 (its trained block layouts)"
             )
+        if self.distilled and (solver is not None or solver_options is not None):
+            raise ValueError(
+                "Distilled CorrDiff uses a fixed sampling method; solver overrides require distilled_model=False."
+            )
+        solver = solver or "heun"
         if network_kind not in ("rectified_flow", "edm"):
             raise ValueError(
                 f"network_kind must be 'rectified_flow' or 'edm', got {network_kind!r}"
@@ -487,8 +508,10 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             raise ValueError(
                 f"prediction_type must be 'x0' or 'flow', got {prediction_type!r}"
             )
-        if solver not in ("heun", "euler"):
-            raise ValueError(f"solver must be 'heun' or 'euler', got {solver!r}")
+        if solver not in SOLVERS:
+            raise ValueError(
+                f"Unknown solver {solver!r}; choose from {tuple(SOLVERS)}."
+            )
         if not isinstance(number_of_samples, int) or number_of_samples < 1:
             raise ValueError("number_of_samples must be a positive integer")
         if number_of_steps < 1:
@@ -527,6 +550,11 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         self.number_of_samples = number_of_samples
         self.number_of_steps = int(number_of_steps)
         self.solver = solver
+        if solver_options is not None and "num_steps" in solver_options:
+            raise ValueError(
+                "Do not pass 'num_steps' in solver_options; use number_of_steps instead."
+            )
+        self.solver_options = dict(solver_options or {})
         self.shift = float(shift)
         self.t_max = float(t_max)
         self.x0v_clip = float(x0v_clip)
@@ -798,6 +826,14 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             device="cpu" if self._rng_generator is not None else device,
             generator=self._rng_generator,
         ).to(device)
+        gen = None
+        if self._rng_generator is not None and self.solver.startswith(
+            "edm_stochastic_"
+        ):
+            seed = int(
+                torch.randint(2**63 - 1, (), generator=self._rng_generator).item()
+            )
+            gen = torch.Generator(device=device).manual_seed(seed)
         ctx = self._inference_context(device)
         if getattr(self, "distilled", False):
             # the generator binds its backbone to the latent shape itself
@@ -809,7 +845,7 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         # The teacher's DiT reads its grid state from the module, so bind it to this
         # field for the sampler call (a no-op on the full crop) and restore it after.
         dit = find_dit(getattr(self, "network", None))
-        with dit_bound_to(dit, H, W) as attn_kwargs:
+        with dit_bound_to(dit, H, W) as attn_kwargs, seeded_rng(gen):
             net_kwargs = {"attn_kwargs": attn_kwargs} if attn_kwargs else {}
 
             def net(x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
@@ -830,6 +866,12 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
                     scheduler,
                     num_steps=self.number_of_steps,
                     solver=self.solver,
+                    solver_options=_solver_options(
+                        scheduler,
+                        self.solver,
+                        num_steps=self.number_of_steps,
+                        options=self.solver_options,
+                    ),
                 ).float()
 
             scheduler = RectifiedFlowNoiseScheduler(t_max=self.t_max)
@@ -853,6 +895,12 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
                 scheduler,
                 num_steps=self.number_of_steps,
                 solver=self.solver,
+                solver_options=_solver_options(
+                    scheduler,
+                    self.solver,
+                    num_steps=self.number_of_steps,
+                    options=self.solver_options,
+                ),
                 time_steps=t_steps,
             ).float()
 
@@ -1099,6 +1147,10 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         amp: bool | None = None,
         variant: Literal["x_pred"] = "x_pred",
         distilled_model: bool = True,
+        *,
+        solver: DiffusionSolver | None = None,
+        solver_options: dict[str, Any] | None = None,
+        shift: float | None = None,
     ) -> DiagnosticModel:
         """Load the model from a package.
 
@@ -1128,6 +1180,21 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             Its sampling schedule is fixed by the checkpoint. If False, it loads the
             teacher sampled with 50 Heun steps, by default True
 
+        solver : DiffusionSolver | None, optional
+            Select the numerical method for integrating the sampling ODE in
+            reverse time. ``None`` preserves the package's default solver, by
+            default None. Requires ``distilled_model=False``.
+        solver_options : dict[str, Any] | None, optional
+            Options passed to the selected solver to customize its behavior or
+            override defaults. Do not pass ``num_steps`` here; set the sampling step
+            count with ``number_of_steps`` instead. By default None
+            See the `PhysicsNeMo solver API
+            <https://docs.nvidia.com/physicsnemo/latest/physicsnemo/api/diffusion/samplers.html#solvers>`_
+            for the options supported by each method.
+        shift : float | None, optional
+            Override the teacher's rectified-flow time shift. None preserves the
+            package setting, by default None
+
         Returns
         -------
         DiagnosticModel
@@ -1135,6 +1202,10 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         """
         # Check the selector up front so a bad value fails with a clear message
         # rather than a missing-file error when resolving "<variant>/...".
+        if distilled_model and (solver is not None or solver_options is not None):
+            raise ValueError(
+                "Solver overrides require distilled_model=False; the distilled generator uses a fixed sampling method."
+            )
         if variant not in SUPPORTED_VARIANTS:
             raise ValueError(f"variant must be one of {list(SUPPORTED_VARIANTS)}")
         try:
@@ -1227,8 +1298,15 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
                 if number_of_steps is not None
                 else (2 if distilled_model else int(sampler_meta.get("num_steps", 50)))
             ),
-            solver=sampler_meta.get("solver", "heun"),
-            shift=float(sampler_meta.get("shift", 1.0)),
+            solver=(
+                None
+                if distilled_model
+                else (
+                    solver if solver is not None else sampler_meta.get("solver", "heun")
+                )
+            ),
+            solver_options=solver_options,
+            shift=shift if shift is not None else float(sampler_meta.get("shift", 1.0)),
             t_max=float(sampler_meta.get("t_max", 0.99)),
             x0v_clip=float(sampler_meta.get("x0v_clip", 0.05)),
             sigma_min=float(sampler_meta.get("sigma_min", 0.01)),

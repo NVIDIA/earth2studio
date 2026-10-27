@@ -53,6 +53,31 @@ class PhooCorrDiff(torch.nn.Module):
         return torch.as_tensor(sigma)
 
 
+class ChannelConditionedCorrDiff(torch.nn.Module):
+    sigma_min = 0.002
+    sigma_max = 80.0
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.projection = torch.nn.Conv2d(20, 4, kernel_size=1)
+
+    @property
+    def device(self) -> torch.device:
+        return self.projection.weight.device
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        img_lr: torch.Tensor,
+        sigma: torch.Tensor | None = None,
+        class_labels: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        return self.projection(torch.cat((x, img_lr), dim=1).float())
+
+    def round_sigma(self, sigma: torch.Tensor) -> torch.Tensor:
+        return sigma
+
+
 @pytest.mark.parametrize(
     "x",
     [
@@ -242,3 +267,61 @@ def test_corrdiff_package(device):
     # Check variables
     assert all(out_coords["variable"] == dx.output_coords(field)["variable"])
     assert out.dims == ("batch", "sample", "variable", "y", "x")
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize("solver", ["euler", "heun"])
+def test_corrdiff_regression_mean_conditioning(device, solver):
+    lat = torch.linspace(19.5, 27, 450)
+    lon = torch.linspace(117, 125, 450)
+    out_lat, out_lon = torch.meshgrid(lat, lon, indexing="ij")
+    model = CorrDiffTaiwan(
+        ChannelConditionedCorrDiff(),
+        ChannelConditionedCorrDiff(),
+        torch.zeros(12, 1, 1),
+        torch.ones(12, 1, 1),
+        torch.zeros(4, 1, 1),
+        torch.ones(4, 1, 1),
+        out_lat,
+        out_lon,
+        number_of_samples=2,
+        number_of_steps=3,
+        solver=solver,
+    ).to(device)
+    x = torch.randn(1, 12, 36, 40, device=device)
+    means = []
+    conditions = []
+
+    def record_mean(module, args, output):
+        means.append(output.clone())
+
+    def record_condition(module, args, output):
+        conditions.append(args[1].clone())
+
+    mean_handle = model.regression_model.register_forward_hook(record_mean)
+    residual_handle = model.residual_model.register_forward_hook(record_condition)
+    model.set_rng(17)
+    actual = model(
+        _input_field(
+            model,
+            x,
+            dict(
+                batch=np.arange(1),
+                variable=model.input_coords().coords["variable"].values,
+                lat=model.input_coords().lat.values,
+                lon=model.input_coords().lon.values,
+            ),
+        )
+    ).e2s.to_torch()[0]
+    mean_handle.remove()
+    residual_handle.remove()
+    assert actual.shape == (1, 2, 4, 448, 448)
+    assert torch.isfinite(actual).all()
+    assert len(means) == 1
+    assert len(conditions) == (3 if solver == "euler" else 6)
+    interpolated = model._interpolate(x[0]).unsqueeze(0)  # (1, 12, H, W)
+    expected_condition = torch.cat((means[0], interpolated), dim=1).expand(
+        2, -1, -1, -1
+    )
+    for condition in conditions:
+        torch.testing.assert_close(condition, expected_condition)
