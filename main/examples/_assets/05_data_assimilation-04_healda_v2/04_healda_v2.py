@@ -79,7 +79,7 @@ from earth2studio.data import (
     NNJAObsConv,
     NNJAObsSat,
     NNJAObsSatwnd,
-    fetch_dataframe,
+    fetch_dataframes,
 )
 from earth2studio.models.da import HealDAv2
 
@@ -93,36 +93,34 @@ model = HealDAv2.load_model(package).to("cuda:0")
 # ------------------
 # One analysis reads observations spanning ``[t - 45h, t + 3h]``. Any source returning
 # DataFrames that match `HealDAv2.input_coords` works; here the NNJA sources are
-# configured as in training: each PrepBUFR observation's original event, satellite
+# configured as in training, in the wide layout the model reads (one row per report
+# level, wind or footprint): each PrepBUFR observation's original event, satellite
 # winds from `NNJAObsSatwnd` only, and only the IR sounder channels the model reads.
-# `fetch_dataframe` attaches the ``request_time`` metadata the model requires.
+# A wide request returns one stream (PrepBUFR, GPS-RO, satellite winds or one satellite
+# sensor), and `input_coords` gives one schema per model argument, in the order
+# ``(prepbufr, gpsro, satwnd, *sensors)``. `fetch_dataframes` fetches every stream
+# concurrently, in that order, and attaches the ``request_time`` metadata the model
+# requires. A sensor outside its archive period comes back empty with a warning.
 
 # %%
-analysis_time = np.array([np.datetime64("2024-01-05T00:00")])
+analysis_time = np.array([np.datetime64("2026-01-15T00:00")])
 tolerance = (timedelta(hours=-45), timedelta(hours=3))
 
 conv_source = NNJAObsConv(
     time_tolerance=tolerance,
     original_event=True,
     exclude_message_types=("SATWND",),
+    layout="wide",
 )
-satwnd_source = NNJAObsSatwnd(time_tolerance=tolerance)
-sat_source = NNJAObsSat(time_tolerance=tolerance, sensor_indices=model.sensor_indices)
+satwnd_source = NNJAObsSatwnd(time_tolerance=tolerance, layout="wide")
+sat_source = NNJAObsSat(
+    time_tolerance=tolerance, sensor_indices=model.sensor_indices, layout="wide"
+)
 
-conv_schema, satwnd_schema, sat_schema = model.input_coords()
-frames = {}
-for name, source, schema in (
-    ("conv_obs", conv_source, conv_schema),
-    ("satwnd_obs", satwnd_source, satwnd_schema),
-    ("sat_obs", sat_source, sat_schema),
-):
-    frames[name] = fetch_dataframe(
-        source,
-        time=analysis_time,
-        variable=np.array(schema["variable"]),
-        fields=np.array(list(schema.keys())),
-    )
-    logger.info(f"Fetched {len(frames[name])} {name} rows")
+schemas = model.input_coords()  # (prepbufr, gpsro, satwnd, *sensors)
+sources = [conv_source, conv_source, satwnd_source] + [sat_source] * (len(schemas) - 3)
+obs = fetch_dataframes(list(zip(sources, schemas)), analysis_time)
+logger.info(f"Fetched rows per stream: {[len(frame) for frame in obs]}")
 
 # %%
 # Run the Model
@@ -130,7 +128,7 @@ for name, source, schema in (
 # The direct call returns the analysis as an `xr.DataArray` on the model's device.
 
 # %%
-analysis = model(**frames)
+analysis = model(*obs)
 logger.info(f"Analysis shape: {analysis.shape}")
 
 # %%
@@ -140,28 +138,51 @@ logger.info(f"Analysis shape: {analysis.shape}")
 # from the NCAR archive can be queried and compared without regridding.
 
 # %%
+from collections import OrderedDict
+
 import cartopy.crs as ccrs
 import cupy
 import matplotlib.pyplot as plt
+import torch
+
+from earth2studio.statistics import lat_weight, rmse
 
 plot_vars = ["t2m", "z500"]
 era5 = NCAR_ERA5()(analysis_time, plot_vars)
 
-
 lat = analysis.coords["lat"].values
 lon = analysis.coords["lon"].values
+grid = OrderedDict(lat=lat, lon=lon)
+weights = lat_weight(torch.as_tensor(lat))[:, None].repeat(1, lon.size)
+score = rmse(["lat", "lon"], weights=weights)
 fig, axes = plt.subplots(
-    2, len(plot_vars), subplot_kw={"projection": ccrs.Robinson()}, figsize=(14, 6)
+    3, len(plot_vars), subplot_kw={"projection": ccrs.Robinson()}, figsize=(14, 9)
 )
 for col, var in enumerate(plot_vars):
     field = cupy.asnumpy(analysis.sel(variable=var).data[0])
     truth = era5.sel(variable=var).values[0]
-    logger.info(f"{var} MAE vs ERA5: {float(np.abs(field - truth).mean()):.4f}")
-    for row, (title, values) in enumerate((("HealDA v2", field), ("ERA5", truth))):
+    diff = field - truth
+    # Symmetric color limit covering the 0.5-99.5 percentile range of the difference
+    limit = float(np.abs(np.percentile(diff, [0.5, 99.5])).max())
+    error = float(score(torch.as_tensor(field), grid, torch.as_tensor(truth), grid)[0])
+    logger.info(f"{var} RMSE vs ERA5: {error:.4f}")
+    scale = {"vmin": truth.min(), "vmax": truth.max()}
+    panels = (
+        (f"HealDA v2 {var}", field, scale),
+        (f"ERA5 {var}", truth, scale),
+        (
+            f"HealDA v2 - ERA5 {var} (RMSE {error:.3g})",
+            diff,
+            {"cmap": "RdBu_r", "vmin": -limit, "vmax": limit},
+        ),
+    )
+    for row, (title, values, style) in enumerate(panels):
         ax = axes[row, col]
-        im = ax.pcolormesh(lon, lat, values, transform=ccrs.PlateCarree())
+        im = ax.imshow(
+            values, extent=(0, 360, -90, 90), transform=ccrs.PlateCarree(), **style
+        )
         ax.coastlines(linewidth=0.5)
-        ax.set_title(f"{title} {var}")
+        ax.set_title(title)
         fig.colorbar(im, ax=ax, shrink=0.6)
 fig.suptitle(f"HealDA v2 analysis {str(analysis_time[0])[:16]} UTC", fontsize=16)
 plt.tight_layout()

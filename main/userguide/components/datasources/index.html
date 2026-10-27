@@ -916,6 +916,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#earth2studiodatafetch_dataframe-and-earth2studiodatafetch_dataframes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        earth2studio.data.fetch_dataframe and earth2studio.data.fetch_dataframes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#earth2studiodataprep_data_array" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3566,6 +3577,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#earth2studiodatafetch_dataframe-and-earth2studiodatafetch_dataframes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        earth2studio.data.fetch_dataframe and earth2studio.data.fetch_dataframes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#earth2studiodataprep_data_array" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3806,6 +3828,19 @@ used to get the initial state for the provided prognostic.</p>
 <a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>        <span class="p">)</span>
 <a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>
 <a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">success</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetched data from </span><span class="si">{</span><span class="n">data</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+<h3 id="earth2studiodatafetch_dataframe-and-earth2studiodatafetch_dataframes"><code>earth2studio.data.fetch_dataframe</code> and <code>earth2studio.data.fetch_dataframes</code><a class="headerlink" href="#earth2studiodatafetch_dataframe-and-earth2studiodatafetch_dataframes" title="Permanent link">&para;</a></h3>
+<p><code>fetch_dataframe</code> is the DataFrame counterpart of <code>fetch_data</code>: it fetches the
+requested variables and fields from a DataFrame source and records the request time
+in the frame's <code>attrs["request_time"]</code>, which data assimilation models read.
+<code>fetch_dataframes</code> runs several such requests concurrently. Each request is a source
+and a schema, for example an entry of a data assimilation model's <code>input_coords()</code>:
+the schema's <code>variable</code> entry lists the variables and its other keys are the fields.
+A list of <code>(source, schema)</code> pairs returns a list of frames in the same order, and a
+dict of named pairs returns a dict.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">schemas</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">input_coords</span><span class="p">()</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">obs</span> <span class="o">=</span> <span class="n">fetch_dataframes</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">sources</span><span class="p">,</span> <span class="n">schemas</span><span class="p">)),</span> <span class="n">time</span><span class="p">)</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">analysis</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="o">*</span><span class="n">obs</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="earth2studiodataprep_data_array"><code>earth2studio.data.prep_data_array</code><a class="headerlink" href="#earth2studiodataprep_data_array" title="Permanent link">&para;</a></h3>
 <p>The <code>prep_data_array</code> function is another useful utility when interacting more directly

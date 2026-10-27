@@ -3652,7 +3652,7 @@ Downloading era5_13_levels_stats.csv: 100%|██████████| 3.36k
 <p>Pull conventional and satellite observation DataFrames for the analysis time.
 The UFS data sources return pandas DataFrames that match the schemas expected by
 <code>HealDA.input_coords</code>.  We use
-<code>earth2studio.data.fetch_dataframe</code> which attaches <code>request_time</code>
+<a href="../../../modules/generated/data/fetch_dataframe/#earth2studio.data.fetch_dataframe"><code>earth2studio.data.fetch_dataframe</code></a> which attaches <code>request_time</code>
 metadata required by the model.  The time_tolerance parameter defines a time
 window around the analysis time so that observations will be retrieved for.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">analysis_time</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">datetime64</span><span class="p">(</span><span class="s2">&quot;2024-01-01T00:00&quot;</span><span class="p">)])</span>

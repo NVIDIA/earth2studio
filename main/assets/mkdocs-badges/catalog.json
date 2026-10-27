@@ -524,6 +524,24 @@
     },
     {
       "classifiers": [],
+      "signature": "fetch_dataframe(source: DataFrameSource | ForecastFrameSource, time: TimeArray, variable: VariableArray, fields: FieldArray | None = None, lead_time: LeadTimeArray = np.array([np.timedelta64(0, 'h')]), device: torch.device = 'cpu') -> pd.DataFrame | cudf.DataFrame",
+      "source": "modules/generated/data/fetch_dataframe.md",
+      "summary": "Utility function to fetch data frames from particular sources",
+      "symbol": "earth2studio.data.fetch_dataframe",
+      "title": "fetch_dataframe",
+      "url": "modules/generated/data/fetch_dataframe/"
+    },
+    {
+      "classifiers": [],
+      "signature": "fetch_dataframes(requests: Mapping[str, _FrameRequest], time: TimeArray, lead_time: LeadTimeArray = ..., device: torch.device = ...) -> dict[str, pd.DataFrame | cudf.DataFrame]",
+      "source": "modules/generated/data/fetch_dataframes.md",
+      "summary": "API reference page.",
+      "symbol": "earth2studio.data.fetch_dataframes",
+      "title": "fetch_dataframes",
+      "url": "modules/generated/data/fetch_dataframes/"
+    },
+    {
+      "classifiers": [],
       "signature": "prep_data_array(da: xr.DataArray, device: torch.device = 'cpu', interp_to: CoordSystem | None = None, interp_method: str = 'nearest') -> tuple[torch.Tensor, CoordSystem]",
       "source": "modules/generated/data/prep_data_array.md",
       "summary": "Prepares a data array from a data source for inference workflows by converting the data array to a torch tensor and the coordinate system to an OrderedDict.",
@@ -1411,7 +1429,7 @@
         "product:atmos",
         "product:insitu"
       ],
-      "signature": "NNJAObsConv(source: str = 'prepbufr', time_tolerance: TimeTolerance = np.timedelta64(0, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, decode_workers: int = 8, retries: int = 3, exclude_message_types: Sequence[str] = (), original_event: bool = False)",
+      "signature": "NNJAObsConv(source: str = 'prepbufr', time_tolerance: TimeTolerance = np.timedelta64(0, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, decode_workers: int = 8, retries: int = 3, exclude_message_types: Sequence[str] = (), original_event: bool = False, layout: Literal['long', 'wide'] = _DEFAULT_LAYOUT)",
       "source": "modules/generated/data/dataframe/NNJAObsConv.md",
       "summary": "NNJA conventional (in-situ + GPS RO) observational data source. NOAA-NASA Joint Archive (NNJA) of Observations for Earth System Reanalysis is an archive ideal for developing observation-driven weather forecasting tools, as it includes a wide cross-section of data from a plethora of sensing platforms (satellites, surface stations, weather balloons, and more) and features data from 1979 to the present.",
       "symbol": "earth2studio.data.NNJAObsConv",
@@ -1425,7 +1443,7 @@
         "product:atmos",
         "product:sat"
       ],
-      "signature": "NNJAObsSat(time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), satellites: list[str] | None = None, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 8, decode_workers: int = 8, retries: int = 3, sensor_indices: dict[str, Sequence[int]] | None = None)",
+      "signature": "NNJAObsSat(time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), satellites: list[str] | None = None, cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 8, decode_workers: int = 8, retries: int = 3, sensor_indices: dict[str, Sequence[int]] | None = None, layout: Literal['long', 'wide'] = _DEFAULT_LAYOUT)",
       "source": "modules/generated/data/dataframe/NNJAObsSat.md",
       "summary": "NNJA historical NCEP aggregate satellite observations.",
       "symbol": "earth2studio.data.NNJAObsSat",
@@ -1439,7 +1457,7 @@
         "product:wind",
         "product:sat"
       ],
-      "signature": "NNJAObsSatwnd(time_tolerance: TimeTolerance = np.timedelta64(0, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, decode_workers: int = 8, retries: int = 3)",
+      "signature": "NNJAObsSatwnd(time_tolerance: TimeTolerance = np.timedelta64(0, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 24, decode_workers: int = 8, retries: int = 3, layout: Literal['long', 'wide'] = _DEFAULT_LAYOUT)",
       "source": "modules/generated/data/dataframe/NNJAObsSatwnd.md",
       "summary": "NNJA satellite-derived atmospheric motion vector (SATWND) data source.",
       "symbol": "earth2studio.data.NNJAObsSatwnd",
@@ -1456,7 +1474,7 @@
         "product:insitu",
         "provider:noaa"
       ],
-      "signature": "NomadsGDASObsConv(time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 4, decode_workers: int = 8, retries: int = 3)",
+      "signature": "NomadsGDASObsConv(time_tolerance: TimeTolerance = np.timedelta64(10, 'm'), cache: bool = True, verbose: bool = True, async_timeout: int = 600, async_workers: int = 4, decode_workers: int = 8, retries: int = 3, layout: Literal['long', 'wide'] = _DEFAULT_LAYOUT)",
       "source": "modules/generated/data/dataframe/NomadsGDASObsConv.md",
       "summary": "Real-time GDAS conventional observations from NOAA NOMADS.",
       "symbol": "earth2studio.data.NomadsGDASObsConv",

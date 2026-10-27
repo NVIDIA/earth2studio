@@ -3450,7 +3450,7 @@
 <p><span class="mkdocs-badge-list"><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="region:global" data-badge-group="region" style="--badge-color:#0d47a1;--badge-text-color:#fff"><span class="mkdocs-badge__icon"><i class="fa-solid fa-globe"></i></span><span class="mkdocs-badge__label">Global</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="class:data-assimilation" data-badge-group="class" style="--badge-color:#d63384;--badge-text-color:#fff" title="Data Assimilation"><span class="mkdocs-badge__label">DA</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:wind" data-badge-group="product" style="--badge-color:#4dabf7;--badge-text-color:#fff" title="Surface Winds"><span class="mkdocs-badge__icon"><i class="fa-solid fa-wind"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:temp" data-badge-group="product" style="--badge-color:#fd7e14;--badge-text-color:#fff" title="Surface Temperature"><span class="mkdocs-badge__icon"><i class="fa-solid fa-temperature-half"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:atmos" data-badge-group="product" style="--badge-color:#74c0fc;--badge-text-color:#fff" title="Atmosphere"><span class="mkdocs-badge__icon"><i class="fa-solid fa-cloud"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:insitu" data-badge-group="product" style="--badge-color:#2f9e44;--badge-text-color:#fff" title="In-Situ Observations"><span class="mkdocs-badge__icon"><i class="fa-solid fa-tower-observation"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="product:sat" data-badge-group="product" style="--badge-color:#1c7ed6;--badge-text-color:#fff" title="Satellite"><span class="mkdocs-badge__icon"><i class="fa-solid fa-satellite"></i></span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="year:2026" data-badge-group="year" style="--badge-color:#1A1A1A;--badge-text-color:#fff"><span class="mkdocs-badge__label">2026</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="gpu:80gb" data-badge-group="gpu" style="--badge-color:#5aac44;--badge-text-color:#fff" title="80 GB VRAM (A100 80GB, H100, GH200, H200, B40, B100, B200)"><span class="mkdocs-badge__label">80 GB</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="provider:nvidia" data-badge-group="provider" style="--badge-color:#3d7a26;--badge-text-color:#fff"><span class="mkdocs-badge__label">NVIDIA</span></span><span class="mkdocs-badge mkdocs-badge--square" data-badge-id="backend:pytorch" data-badge-group="backend" style="--badge-color:#ee4c2c;--badge-text-color:#fff"><span class="mkdocs-badge__icon"><i class="fa-solid fa-fire"></i></span><span class="mkdocs-badge__label">PyTorch</span></span></span></p>
 <p><strong>Import path:</strong> <code>earth2studio.models.da.HealDAv2</code></p>
 <p><a href="" id="earth2studio.models.da.HealDAv2"></a></p>
-<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/da/healda_v2.py#L82-L373" title="earth2studio/models/da/healda_v2.py:82">View source on GitHub</a> <a class="e2s-source-link e2s-install-link" href="../../../../../userguide/about/install/?method=uv&amp;source=github&amp;category=data-assimilation&amp;item=da-healda-v2#install-command" title="category=data-assimilation item=da-healda-v2">View install commands</a></p>
+<p><a class="e2s-source-link" href="https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/models/da/healda_v2.py#L90-L413" title="earth2studio/models/da/healda_v2.py:90">View source on GitHub</a> <a class="e2s-source-link e2s-install-link" href="../../../../../userguide/about/install/?method=uv&amp;source=github&amp;category=data-assimilation&amp;item=da-healda-v2#install-command" title="category=data-assimilation item=da-healda-v2">View install commands</a></p>
 <h2 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h2>
 
 
@@ -3473,18 +3473,34 @@ analysis at time <code>t</code> reads an eight-frame, six-hourly window ending a
 every observation within three hours of each frame, i.e. observations spanning
 <code>[t - 45h, t + 3h]</code>, and returns the analysis of the last frame on the 721 x 1440
 equiangular grid.</p>
-<p>The model takes the NNJA observing system it was trained on as three DataFrames:
-<code>conv_obs</code> (PrepBUFR <code>u</code>, <code>v</code>, <code>q</code>, <code>t</code>, <code>pres</code> and GPS-RO <code>gps</code>,
-<code>gps_refractivity</code>), <code>satwnd_obs</code> (<code>u</code>, <code>v</code>) and <code>sat_obs</code> (radiances of
-<code>atms</code>, <code>amsua</code>, <code>amsub</code>, <code>mhs</code>, <code>airs</code>, <code>iasi</code> and <code>cris</code>). Any
-source producing these schemas works. To reproduce training from NNJA, use
-<code>NNJAObsConv(original_event=True, exclude_message_types=("SATWND",))</code>,
-<code>NNJAObsSatwnd</code> and <code>NNJAObsSat(sensor_indices=model.sensor_indices)</code>.</p>
-<p>Any stream may be omitted; the analysis then uses the others alone. Beyond the
-trained recipe, HealDA removes observations by its inference policy
+<p>The model takes the NNJA observing system it was trained on as one wide
+DataFrame per stream, passed positionally in a fixed order,
+<code>model(prepbufr, gpsro, satwnd, *sensors)</code>: <code>prepbufr</code> (<code>u</code>, <code>v</code>, <code>q</code>,
+<code>t</code>, <code>pres</code>), <code>gpsro</code> (<code>gps</code>, <code>gps_refractivity</code>), <code>satwnd</code> (<code>u</code>,
+<code>v</code>), then one frame per satellite sensor in the model's sensor order (a subset
+of <code>atms</code>, <code>amsua</code>, <code>amsub</code>, <code>mhs</code>, <code>airs</code>, <code>iasi</code>, <code>cris</code>).
+<code>input_coords()</code> returns one schema per argument in the same order; a sensor
+schema's <code>variable</code> entry is its <code>NNJAObsSat</code> variable. Any source producing
+these schemas works; the NNJA sources return them with <code>layout="wide"</code>, one
+stream per call. To reproduce training from NNJA, use
+<code>NNJAObsConv(original_event=True, exclude_message_types=("SATWND",),
+layout="wide")</code> for <code>prepbufr</code> and <code>gpsro</code>, <code>NNJAObsSatwnd(layout="wide")</code>
+and <code>NNJAObsSat(sensor_indices=model.sensor_indices, layout="wide")</code> for each
+sensor; <code>earth2studio.data.fetch_dataframes</code> fetches them concurrently.</p>
+<p>Any stream may be <code>None</code> or empty, and trailing streams may be left out; the
+analysis then uses the others alone.
+Beyond the trained recipe, HealDA removes observations by its inference policy
 (<code>healda.observations.system.inference_filters</code>): channels inside dated
-denial windows, and footprints flagged by the provider quality columns of
-<code>sat_obs</code>.</p>
+denial windows, and footprints flagged by the satellite streams' provider
+quality columns.</p>
+<p>Recommended environment, set before Python starts:</p>
+<ul>
+<li><code>MALLOC_ARENA_MAX=16</code> keeps host memory level over repeated analyses in one
+  process.</li>
+<li><code>PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True</code> avoids GPU out-of-memory
+  from fragmentation over repeated analyses.</li>
+<li><code>OMP_NUM_THREADS=1</code>.</li>
+</ul>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3535,52 +3551,29 @@ denial windows, and footprints flagged by the provider quality columns of
 
 
 <a href="#da.healda_v2.HealDAv2.__call__" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__call__</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">conv_obs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="pandas.DataFrame" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame">DataFrame</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">satwnd_obs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="pandas.DataFrame" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame">DataFrame</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">sat_obs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="pandas.DataFrame" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame">DataFrame</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">__call__</span><span class="p">(</span><span class="o">*</span><span class="n">obs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="pandas.DataFrame" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame">DataFrame</a></span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Run HealDA v2 from NNJA observations.</p>
-<p>At least one DataFrame must be provided. Each must carry a <code>request_time</code>
-entry in its <code>.attrs</code> (<code>earth2studio.data.fetch_dataframe</code> sets it) and
-should cover <code>[t - 45h, t + 3h]</code> around each analysis time.</p>
+<p>Each frame must carry a <code>request_time</code> entry in its <code>.attrs</code>
+(<code>earth2studio.data.fetch_dataframe</code> sets it) and should cover
+<code>[t - 45h, t + 3h]</code> around each analysis time.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-            <b><code>conv_obs</code></b>
+            <b><code>*obs</code></b>
               (<code><a class="autorefs autorefs-external" title="pandas.DataFrame" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame">DataFrame</a> | None</code>, default:
-                  <code>None</code>
+                  <code>()</code>
 )
           –
           <div class="doc-md-description">
-            <p>PrepBUFR and GPS-RO observations from
-<code>NNJAObsConv(original_event=True)</code>, by default None</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>satwnd_obs</code></b>
-              (<code><a class="autorefs autorefs-external" title="pandas.DataFrame" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame">DataFrame</a> | None</code>, default:
-                  <code>None</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Satellite winds from <code>NNJAObsSatwnd</code>, by default None</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-            <b><code>sat_obs</code></b>
-              (<code><a class="autorefs autorefs-external" title="pandas.DataFrame" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame">DataFrame</a> | None</code>, default:
-                  <code>None</code>
-)
-          –
-          <div class="doc-md-description">
-            <p>Satellite radiances from <code>NNJAObsSat</code>, by default None</p>
+            <p>Wide observation frames in <code>input_coords()</code> order; a stream may be
+<code>None</code> or empty and trailing streams may be left out, but at least
+one frame must be given</p>
           </div>
         </li>
     </ul>
@@ -3605,7 +3598,8 @@ same device as the model (cupy array for GPU, numpy for CPU).</p>
               <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError">ValueError</a></code>
             –
           <div class="doc-md-description">
-            <p>If every DataFrame is <code>None</code> or none carries <code>request_time</code></p>
+            <p>If no frame is given, more frames are given than streams, no frame
+carries <code>request_time</code>, or a frame is in the long layout</p>
           </div>
         </li>
     </ul>
@@ -3628,15 +3622,9 @@ same device as the model (cupy array for GPU, numpy for CPU).</p>
 
 
 <a href="#da.healda_v2.HealDAv2.create_generator" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">create_generator</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Generator" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Generator">Generator</a></span><span class="p">[</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n"><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a></span><span class="p">[</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>        <span class="n"><a class="autorefs autorefs-external" title="pandas.DataFrame" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame">DataFrame</a></span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        <span class="n"><a class="autorefs autorefs-external" title="pandas.DataFrame" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame">DataFrame</a></span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="n"><a class="autorefs autorefs-external" title="pandas.DataFrame" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame">DataFrame</a></span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="p">],</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">create_generator</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="p">(</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Generator" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Generator">Generator</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="xarray.DataArray" href="https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html#xarray.DataArray">DataArray</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="pandas.DataFrame" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame">DataFrame</a></span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3659,11 +3647,11 @@ same device as the model (cupy array for GPU, numpy for CPU).</p>
 <p><span class="doc-section-title">Receives:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-              <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" title="pandas.DataFrame" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame">DataFrame</a> | None, <a class="autorefs autorefs-external" title="pandas.DataFrame" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame">DataFrame</a> | None, <a class="autorefs autorefs-external" title="pandas.DataFrame" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame">DataFrame</a> | None]</code>
+              <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" title="pandas.DataFrame" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.html#pandas.DataFrame">DataFrame</a> | None, ...]</code>
           –
           <div class="doc-md-description">
-            <p>A <code>(conv_obs, satwnd_obs, sat_obs)</code> tuple sent via <code>generator.send()</code>.
-Any element may be <code>None</code> but not all.</p>
+            <p>Observation frames in <code>input_coords()</code> order, as for <code>__call__</code>,
+sent via <code>generator.send()</code></p>
           </div>
         </li>
     </ul>
