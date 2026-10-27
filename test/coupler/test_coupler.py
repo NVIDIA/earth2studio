@@ -29,8 +29,6 @@ import xarray as xr
 
 from earth2studio.coupler import (
     CoupledRunner,
-    EnsembleCoupledRunner,
-    RegriddingCoupledRunner,
     hold,
     window_mean,
 )
@@ -455,7 +453,7 @@ class _Shift:
 
 def test_ensemble_one_member_per_item_through_pipeline() -> None:
     goes, mrms = _storm()
-    runner = EnsembleCoupledRunner(
+    runner = CoupledRunner(
         {"goes": goes, "mrms": mrms},
         {"goes": _Fill(abi01=5.0, abi02=7.0), "mrms": _Fill()},
         STORM,
@@ -484,7 +482,7 @@ def test_ensemble_without_perturbation_is_identical_per_member() -> None:
 def test_unknown_perturbation_model_rejected() -> None:
     goes, mrms = _storm()
     with pytest.raises(ValueError, match="unknown model"):
-        EnsembleCoupledRunner(
+        CoupledRunner(
             {"goes": goes, "mrms": mrms},
             {"goes": _Fill(abi01=5.0, abi02=7.0), "mrms": _Fill()},
             STORM,
@@ -503,45 +501,52 @@ class _Coarse(_Mock):
         return coord_array_like(super().input_coords(), {"lon": [0, 20]})
 
 
-def _grid_runner(cls: type[CoupledRunner], coupling) -> CoupledRunner:  # type: ignore[no-untyped-def]
+def _grid_runner(coupling) -> CoupledRunner:  # type: ignore[no-untyped-def]
     goes = _Mock(["abi01"], np.timedelta64(10, "m"))
     coarse = _Coarse(["refc"], np.timedelta64(10, "m"), forcing=["abi01"])
     sources = {"goes": _Fill(abi01=2.0), "c": _Fill()}
-    return cls({"goes": goes, "c": coarse}, sources, {"c": coupling})
+    return CoupledRunner({"goes": goes, "c": coarse}, sources, {"c": coupling})
 
 
 ITEM = WorkItem(T0, np.timedelta64(10, "m"))
 
 
-def test_base_runner_requires_the_slot_grid() -> None:
-    runner = _grid_runner(CoupledRunner, hold("goes"))  # Not regridded.
-    with pytest.raises(ValueError, match="regrid it inside the coupling"):
-        list(runner.run_item(ITEM))
-    runner = _grid_runner(
-        CoupledRunner, lambda out, leads: hold("goes")(out, leads).sel(lon=[0, 20])
-    )
+def test_coupling_on_the_slot_grid() -> None:
+    runner = _grid_runner(lambda out, leads: hold("goes")(out, leads).sel(lon=[0, 20]))
     assert list(runner.run_item(ITEM))[1]["c"].sizes["lon"] == 2
-    runner = _grid_runner(
-        CoupledRunner, lambda out, leads: xr.concat([out["goes"]] * 2, "lead_time")
-    )
+
+
+def test_coupling_rejects_wrong_lead_count() -> None:
+    runner = _grid_runner(lambda out, leads: xr.concat([out["goes"]] * 2, "lead_time"))
     with pytest.raises(ValueError, match="expected 1"):
         list(runner.run_item(ITEM))
 
 
-def test_regridding_runner_selects_an_exact_crop() -> None:
-    runner = _grid_runner(RegriddingCoupledRunner, hold("goes"))
+def test_coupling_selects_an_exact_crop() -> None:
+    runner = _grid_runner(hold("goes"))
     steps = list(runner.run_item(ITEM))
     np.testing.assert_array_equal(steps[1]["c"]["lon"].values, [0, 20])
 
 
-def test_regridding_runner_refuses_off_the_source_grid() -> None:
+def test_coupling_refuses_off_the_source_grid() -> None:
     pytest.importorskip("scipy")  # Automatic regridding is the `utils` extra.
     runner = _grid_runner(
-        RegriddingCoupledRunner,  # Nearest within the source resolution only.
         lambda out, leads: hold("goes")(out, leads).assign_coords(lon=[100, 110, 120]),
     )
-    with pytest.raises(ValueError, match="regrid inside the coupling"):
+    with pytest.raises(ValueError, match="Cannot regrid"):
         list(runner.run_item(ITEM))
+
+
+def test_coupling_regrids_with_perturbations() -> None:
+    pytest.importorskip("scipy")
+    runner = _grid_runner(
+        lambda out, leads: hold("goes")(out, leads).assign_coords(lon=[-1, 10, 21])
+    )
+    runner.perturbations = {"goes": _Shift}
+    steps = list(runner.run_item(ITEM))
+    forcing = runner.models["c"].created_with[0]
+    np.testing.assert_array_equal(forcing.lon, [0, 20])
+    np.testing.assert_allclose(forcing, steps[0]["goes"].isel(lon=[0, 2]))
 
 
 def test_stochastic_models_get_distinct_stable_seeds() -> None:

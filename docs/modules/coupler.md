@@ -9,6 +9,11 @@ single `earth2studio.run` runner. The coupler reads each model's `input_coords`,
 slowest model, and publishes one output stream per model. The exchange between models is
 a plain function, see `hold` and `window_mean`.
 
+`CoupledRunner` delegates grid alignment to `fetch_data`: matching grids pass through,
+exact crops are selected, and other grids are regridded when possible without
+extrapolation. Optional `perturbations={name: factory}` apply seeded perturbations to
+each ensemble member's initial conditions.
+
 !!! warning
     The coupler is an initial, lightweight implementation. It supports prognostic models
     with one input slot and one output slot with a single lead time; ensembles are one
@@ -22,8 +27,6 @@ output: generated/coupler
 
 {% autosummary %}
 earth2studio.coupler.CoupledRunner
-earth2studio.coupler.EnsembleCoupledRunner
-earth2studio.coupler.RegriddingCoupledRunner
 {% endautosummary %}
 
 <!-- e2s-autosummary

@@ -33,9 +33,12 @@ import numpy as np
 import torch
 import xarray as xr
 
+from earth2studio.data import DataSource, fetch_data
+from earth2studio.grids import infer_grid
 from earth2studio.models.px import PrognosticModel
 from earth2studio.models.px.utils import initial_condition
 from earth2studio.models.utils import recommended_sources
+from earth2studio.perturbation import Perturbation
 from earth2studio.run._fields import _lead_times, _map_field
 from earth2studio.run.runner import (
     DataRequest,
@@ -47,14 +50,16 @@ from earth2studio.run.runner import (
     _signature_for_stream,
     _slots,
 )
-from earth2studio.run.work import WorkItem
-from earth2studio.utils.type import CoordinateSystem
+from earth2studio.run.work import WorkItem, member_seed
+from earth2studio.utils.type import (
+    CoordinateSystem,
+    LeadTimeArray,
+    TimeArray,
+    VariableArray,
+)
 
 Outputs = Mapping[str, xr.DataArray]  # Each model's outputs, along ``lead_time``.
 Coupling = Callable[[Outputs, np.ndarray], xr.DataArray]  # (outputs, leads) -> forcing
-
-
-_NON_SPATIAL = {"batch", "time", "ensemble", "lead_time", "variable"}
 
 
 class CoupledRunner:
@@ -82,14 +87,14 @@ class CoupledRunner:
             .mean("lead_time", keepdims=True),
         }
 
-    Regridding, unit conversion and masking are applied inside the function. Other
+    Grid alignment is handled by :func:`~earth2studio.data.fetch_data`; unit
+    conversion and masking are applied inside the coupling function. Other
     forcing slots and the initial conditions come from sources exactly as in
     :class:`~earth2studio.run.PrognosticRunner`.
 
     Ensembles: this runner takes one member per work item (``member_batch=1``)
     and seeds every stochastic model from ``(seed, model name, time, member)``.
-    Perturbed initial conditions come from
-    :class:`~earth2studio.coupler.EnsembleCoupledRunner`.
+    Optional ``perturbations`` perturb chosen models' initial conditions.
 
     Parameters
     ----------
@@ -109,16 +114,20 @@ class CoupledRunner:
     seed : int, optional
         Base seed for stochastic models; each model derives its own from it and
         its name, by default 0
+    perturbations : Mapping[str, Callable[[int], Perturbation]], optional
+        Model name to a factory building its initial-condition perturbation from
+        the member seed, e.g. ``lambda seed: Gaussian(0.05, seed=seed)``.
+        Models not listed start unperturbed
 
     Raises
     ------
     ValueError
         If a model, coupling or source cannot be resolved, or the window is not
         a multiple of every model step. A coupling returning the wrong number of
-        leads or the wrong grid raises when it is called
+        leads or a grid that cannot be aligned raises when it is called
     """
 
-    supports_member_batching = False  # Member perturbation is not implemented.
+    supports_member_batching = False  # One ensemble member per work item.
 
     def __init__(
         self,
@@ -127,12 +136,17 @@ class CoupledRunner:
         couplings: Mapping[str, Coupling] | None = None,
         window: np.timedelta64 | None = None,
         seed: int = 0,
+        perturbations: Mapping[str, Callable[[int], Perturbation]] | None = None,
     ) -> None:
         if len(models) < 1:
             raise ValueError("Pass at least one model")
         self.models = dict(models)
         self.couplings = dict(couplings or {})
         self.seed = seed
+        self.perturbations = dict(perturbations or {})
+        for name in self.perturbations:
+            if name not in self.models:
+                raise ValueError(f"Perturbation for unknown model {name!r}")
         self.device = _module_device(next(iter(self.models.values())))
         self.inputs: dict[str, CoordinateSystem] = {}
         self.outputs: dict[str, CoordinateSystem] = {}
@@ -264,7 +278,7 @@ class CoupledRunner:
     def _first_leads(signature: CoordinateSystem) -> np.ndarray:
         if "lead_time" not in signature.dims:  # Static slots are read once.
             return np.array([np.timedelta64(0, "h")])
-        return cast(np.ndarray, signature["lead_time"].values)
+        return signature["lead_time"].values
 
     @staticmethod
     def _request(
@@ -280,7 +294,9 @@ class CoupledRunner:
             np.asarray(leads),
         )
 
-    def _couple(self, name: str, outputs: Outputs, leads: np.ndarray) -> xr.DataArray:
+    def _couple(
+        self, name: str, item: WorkItem, outputs: Outputs, leads: np.ndarray
+    ) -> xr.DataArray:
         """Call ``name``'s coupling and check what it returns against the slot."""
         signature = self.forcings[name][0]
         x = self.couplings[name](outputs, leads)
@@ -291,43 +307,24 @@ class CoupledRunner:
                 f"{name!r}: coupling returned {x.sizes['lead_time']} lead times, "
                 f"expected {len(leads)}"
             )
-        x = x.assign_coords(lead_time=leads)
-        x = self._on_slot_grid(name, x, signature)
-        return _map_field(x, signature)
+        if "time" in x.dims:
+            x = x.sel(time=item.time, drop=True)
+        x = x.assign_coords(lead_time=item.time + leads).rename(lead_time="time")
 
-    def _on_slot_grid(
-        self, name: str, x: xr.DataArray, signature: CoordinateSystem
-    ) -> xr.DataArray:
-        """Return ``x`` on the forcing slot's grid, or raise.
+        def source(time: np.ndarray, variable: np.ndarray) -> xr.DataArray:
+            return x.sel(time=time, variable=variable)
 
-        The base runner only accepts a field that already carries the slot's
-        coordinates; :class:`~earth2studio.coupler.RegriddingCoupledRunner`
-        maps other grids.
-        """
-        if self._matches(x, signature):
-            return x
-        raise ValueError(
-            f"{name!r}: coupling output differs from the forcing grid; "
-            "regrid it inside the coupling"
+        return _map_field(
+            fetch_data(
+                cast(DataSource, source),  # fetch_data only needs the callable.
+                time=cast(TimeArray, np.array([item.time])),
+                variable=cast(VariableArray, signature["variable"].values),
+                lead_time=cast(LeadTimeArray, leads),
+                device=self.device,
+                target_grid=infer_grid(signature),
+            ),
+            signature,
         )
-
-    @staticmethod
-    def _matches(x: xr.DataArray, signature: CoordinateSystem) -> bool:
-        """Whether ``x`` carries the signature's coordinate values on its grid."""
-        for dim in signature.dims:
-            if dim in _NON_SPATIAL:
-                continue
-            want = signature[dim].values
-            if dim not in x.coords or x[dim].shape != want.shape:
-                return False
-            have = x[dim].values
-            if not (
-                np.allclose(have, want, atol=1e-6)
-                if np.issubdtype(want.dtype, np.number)
-                else np.array_equal(have, want)
-            ):
-                return False
-        return True
 
     def _forcing(
         self,
@@ -349,7 +346,7 @@ class CoupledRunner:
                 else signature["lead_time"].values[-1:] + lead
             )
             if slot == 0 and name in self.couplings:
-                x = self._couple(name, outputs, leads)
+                x = self._couple(name, item, outputs, leads)
             else:
                 request = self._request(
                     item, self.sources[name][1 + slot], signature, leads
@@ -357,12 +354,6 @@ class CoupledRunner:
                 x = _fetch(request, signature, self.device)
             forcing.append(x.isel(lead_time=0, drop=True) if static else x)
         return tuple(forcing)
-
-    def _start(
-        self, item: WorkItem, member_id: int, initial: dict[str, xr.DataArray]
-    ) -> dict[str, xr.DataArray]:
-        """Initial conditions each model starts from; the hook for subclasses."""
-        return initial
 
     def _salt(self, name: str) -> int:
         """Base seed of ``name``, so each model draws independent noise."""
@@ -391,11 +382,16 @@ class CoupledRunner:
             )
             for name in self.models
         }
-        initial = self._start(item, member_id, initial)
+        for name, factory in self.perturbations.items():
+            seed = member_seed(self._salt(name), item.time, member_id)
+            initial[name] = factory(seed)(initial[name])
         outputs = dict(
             initial
         )  # Coupling input; trimmed to the newest frame per window.
-        yield {name: initial_condition(x) for name, x in initial.items()}
+        yield {
+            name: cast(xr.DataArray, initial_condition(x))
+            for name, x in initial.items()
+        }
         iterators: dict[str, Any] = {}
         leads = {name: np.timedelta64(0, "h") for name in self.models}
         try:

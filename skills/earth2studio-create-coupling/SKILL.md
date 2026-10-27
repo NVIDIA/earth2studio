@@ -28,8 +28,10 @@ def coupling(outputs: Mapping[str, xr.DataArray], leads: np.ndarray) -> xr.DataA
   now, along `lead_time`.
 - `leads`: the lead times the forcing must be valid at (the slot's `lead_time`
   coordinate shifted to the model's current lead). Return one entry per lead.
-- The result must carry the forcing slot's spatial coordinates. A wrong lead
-  count or grid raises at call time; regrid *inside* the function, or use `RegriddingCoupledRunner` to crop or nearest-regrid automatically (as in `fetch_data`; needs the `utils` extra); convert units inside the function.
+- The result must carry its actual spatial coordinates. `fetch_data` handles
+  matching grids, exact crops, and nearest regridding (needs the `utils` extra),
+  raising rather than extrapolating. A wrong lead count raises at call time.
+  Convert units inside the function.
 
 ## Workflow
 
@@ -49,7 +51,7 @@ def coupling(outputs: Mapping[str, xr.DataArray], leads: np.ndarray) -> xr.DataA
 3. **Write the function** in `earth2studio/coupler/couplings.py` as a factory
    returning a `Coupling`, with a full docstring (see
    [template](references/coupling-template.py)). Compose `hold`/`window_mean`
-   with a function for regridding (`earth2studio.grids`), unit conversion or
+   with a function for custom regridding (`earth2studio.grids`), unit conversion or
    masking rather than copying them. Select variables by name (`.sel(variable=...)`)
    and reorder to the slot's variable order.
 4. **Wire and run** with `CoupledRunner(models, sources, couplings={name: fn})` and
@@ -58,7 +60,7 @@ def coupling(outputs: Mapping[str, xr.DataArray], leads: np.ndarray) -> xr.DataA
 5. **Test** in `test/coupler/` with mock models (see `test/coupler/test_coupler.py`
    `_Mock`): each step adds a known increment, so assert the exact forcing values
    and lead times each model received at every step, and that a wrong order or
-   grid fails loudly. Real-weight checks are marked `package`.
+   out-of-domain grid fails loudly. Real-weight checks are marked `package`.
 6. **Verify**: `uv run pytest test/coupler -q && make format && make lint`.
    Report what you did not run.
 
@@ -74,6 +76,5 @@ def coupling(outputs: Mapping[str, xr.DataArray], leads: np.ndarray) -> xr.DataA
 ## Ensembles
 
 `CoupledRunner` runs one member per work item (`member_batch=1`). To perturb
-initial conditions use `EnsembleCoupledRunner(..., perturbations={name: lambda seed: Gaussian(0.05, seed=seed)})`.
-New runner behavior belongs in a separate subclass that overrides a hook (`_start`, `_on_slot_grid`),
-not in new `CoupledRunner` parameters.
+initial conditions use `CoupledRunner(..., perturbations={name: lambda seed: Gaussian(0.05, seed=seed)})`.
+Keep pair-specific behavior in coupling functions.

@@ -11,10 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added `earth2studio.coupler` with `CoupledRunner` (plus `EnsembleCoupledRunner`
-  and `RegriddingCoupledRunner`) to couple prognostic models that exchange forcing at
+- Added `earth2studio.coupler` with `CoupledRunner` to couple prognostic models that exchange forcing at
   different time steps as a single pipeline runner, with `hold` and `window_mean`
-  coupling helpers and an `earth2studio-create-coupling` agent skill.
+  coupling helpers, optional initial-condition perturbations, grid alignment through
+  `fetch_data`, and an `earth2studio-create-coupling` agent skill.
 
 ### Changed
 
