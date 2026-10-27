@@ -1,0 +1,4666 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Open-source deep-learning framework for exploring, building and deploying AI weather and climate workflows.">
+      
+      
+      
+        <link rel="canonical" href="https://nvidia.github.io/earth2studio/0.20.0/examples/02_medium_range/04_temporal_interpolation/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../_static/favicon.ico">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Temporal Interpolation - Earth2Studio</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=NVIDIA+Sans:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"NVIDIA Sans";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/nvidia-material.css">
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/earth2studio-gallery.css">
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/mkdocs-badges.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="light-green">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#temporal-interpolation" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+        <aside class="md-banner">
+          <div class="md-banner__inner md-grid md-typeset">
+            
+              <button class="md-banner__button md-icon" aria-label="Don't show this again">
+                
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+              </button>
+            
+            
+  <div class="e2s-announcement" role="status">
+  <span class="e2s-announcement__icon" aria-hidden="true">🚧</span>
+  <span>
+    <strong>Pardon the dust.</strong>
+    We are working to actively improve the Earth2Studio docs page. Apologies for any inconvenience.
+  </span>
+</div>
+
+          </div>
+          
+            <script>var el=document.querySelector("[data-md-component=announce]");if(el){var content=el.querySelector(".md-typeset");__md_hash(content.innerHTML)===__md_get("__announce")&&(el.hidden=!0)}</script>
+          
+        </aside>
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="Earth2Studio" class="md-header__button md-logo" aria-label="Earth2Studio" data-md-component="logo">
+      
+  <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Earth2Studio
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Temporal Interpolation
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="light-green"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="light-green"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/NVIDIA/earth2studio" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    NVIDIA/earth2studio
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../userguide/about/install/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../modules/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Examples
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../blog/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Blog
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../scorecard/generated/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Scorecards
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="Earth2Studio" class="md-nav__button md-logo" aria-label="Earth2Studio" data-md-component="logo">
+      
+  <img src="../../../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" alt="logo">
+
+    </a>
+    Earth2Studio
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/NVIDIA/earth2studio" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    NVIDIA/earth2studio
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/about/install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/about/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/about/catalog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Catalog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/components/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Components
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_4" id="__nav_2_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Core Components
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/prognostic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prognostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/diagnostic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diagnostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/data_assimilation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Assimilation Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/datasources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/perturbation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Perturbations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IO Backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/components/statistics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/advanced/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced Usage
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_5" id="__nav_2_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Advanced Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/checkpointing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Checkpointing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/batch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Batch Dimension
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/auto/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AutoModels
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/advanced/lexicon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lexicon
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_5_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/notes/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Knowledge Base
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_5_6" id="__nav_2_5_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_2_5_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_5_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Knowledge Base
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/notes/surface_pressure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Surface Pressure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/developer/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer Guide
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_6" id="__nav_2_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developer Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/dependency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dependencies
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/style/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Style
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/build/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recipes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/developer/skills/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Skills
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../userguide/support/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Support
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2_7" id="__nav_2_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Support
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/support/troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../userguide/support/faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../modules/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/models_px/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prognostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/models_dx/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diagnostic Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/models_da/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Assimilation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/datasources_analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/datasources_forecast/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Forecast Data Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/datasources_dataframe/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DataFrame Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/io/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    IO Backends
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/perturbation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Perturbations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/statistics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Statistics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/utils_all/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Utilities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../modules/workflows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflows
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recipes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../blog/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Blog
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Blog
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Posts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Posts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/2026/10/05/earthmover-marketplace-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Access Earthmover Marketplace Data with Earth2Studio
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/2026/08/06/mkdocs-material-migration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MkDocs Material Migration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/2026/08/11/earth2-soil-health-prediction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A Digital Twin for Soil Health Prediction, Powered by Subseasonal Climate AI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/archive/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Archive
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_4" id="__nav_5_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Categories
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Categories
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/categories/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/categories/data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/categories/documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_5" id="__nav_5_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Archive
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Archive
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/archive/2026/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_6" id="__nav_5_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Categories
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Categories
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/category/data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/category/documentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../blog/category/earth-2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Earth-2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../../scorecard/generated/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scorecards
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_6" id="__nav_6_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Scorecards
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_6_2" id="__nav_6_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prognostic models
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Prognostic models
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../scorecard/generated/fcn3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FCN3
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../scorecard/generated/aurora/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Aurora
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../scorecard/generated/graphcast/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GraphCast
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../scorecard/generated/atlas_crps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Atlas CRPS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../scorecard/generated/aurora1p5ens/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Aurora 1.5 Ensemble
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../scorecard/generated/dlwp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DLWP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../scorecard/generated/fcn/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FCN
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../scorecard/generated/fengwu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FengWu
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../scorecard/generated/fuxi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FuXi
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../scorecard/generated/pangu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pangu
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../scorecard/generated/sfno/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SFNO
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../scorecard/generated/stormcast/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    StormCast
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#set-up" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set Up
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#run-the-interpolation-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Run the Interpolation Model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#visualize-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Visualize Results
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="temporal-interpolation">Temporal Interpolation<a class="headerlink" href="#temporal-interpolation" title="Permanent link">&para;</a></h1>
+<p>Temporal Interpolation inference using InterpCRPSDiT model.</p>
+<p>This example demonstrates how to use the InterpCRPSDiT model to interpolate
+forecasts from a base model to a finer time resolution.
+Many of the existing prognostic models have a step size of 6 hours which may prove
+insufficient for some applications.
+InterpCRPSDiT provides an AI driven method for getting hourly resolution given 6 hour
+predictions.</p>
+<p>In this example you will learn:</p>
+<ul>
+<li>How to load a base prognostic model</li>
+<li>How to load the InterpCRPSDiT model</li>
+<li>How to run the interpolation model</li>
+<li>How to visualize the results</li>
+</ul>
+<h2 id="set-up">Set Up<a class="headerlink" href="#set-up" title="Permanent link">&para;</a></h2>
+<p>First, import the necessary modules and set up our environment and load the models.
+We will use SFNO as the base prognostic model and the InterpCRPSDiT model to
+interpolate its output to a finer time resolution.
+The prognostic model must predict the needed variables in the interpolation model.</p>
+<p>This example needs the following:</p>
+<ul>
+<li>Interpolation Model: <a href="../../../modules/generated/models/px/InterpCRPSDiT/#earth2studio.models.px.InterpCRPSDiT"><code>earth2studio.models.px.InterpCRPSDiT</code></a>.</li>
+<li>Prognostic Base Model: Use SFNO model <a href="../../../modules/generated/models/px/SFNO/#earth2studio.models.px.SFNO"><code>earth2studio.models.px.SFNO</code></a>.</li>
+<li>Datasource: Pull data from the GFS data api <a href="../../../modules/generated/data/analysis/GFS/#earth2studio.data.GFS"><code>earth2studio.data.GFS</code></a>.</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.data</span><span class="w"> </span><span class="kn">import</span> <span class="n">GFS</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">ZarrBackend</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.models.px</span><span class="w"> </span><span class="kn">import</span> <span class="n">SFNO</span><span class="p">,</span> <span class="n">InterpCRPSDiT</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># Create output directory</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s2">&quot;outputs&quot;</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">sfno_package</span> <span class="o">=</span> <span class="n">SFNO</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">px_model</span> <span class="o">=</span> <span class="n">SFNO</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">sfno_package</span><span class="p">)</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="c1"># Load the interpolation model</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">interp_package</span> <span class="o">=</span> <span class="n">InterpCRPSDiT</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="n">interp_model</span> <span class="o">=</span> <span class="n">InterpCRPSDiT</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">interp_package</span><span class="p">,</span> <span class="n">px_model</span><span class="o">=</span><span class="n">px_model</span><span class="p">)</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="c1"># Create the data source</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="n">data</span> <span class="o">=</span> <span class="n">GFS</span><span class="p">()</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="c1"># Create the IO handler</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="n">io</span> <span class="o">=</span> <span class="n">ZarrBackend</span><span class="p">()</span>
+</code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>653 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+
+Downloading config.json: 0%|          | 0.00/17.5k [00:00&lt;?, ?B/s]
+Downloading config.json: 100%|██████████| 17.5k/17.5k [00:00&lt;00:00, 8.07MB/s]
+
+Downloading global_means.npy: 0%|          | 0.00/728 [00:00&lt;?, ?B/s]
+Downloading global_means.npy: 100%|██████████| 728/728 [00:00&lt;00:00, 255kB/s]
+
+Downloading global_stds.npy: 0%|          | 0.00/728 [00:00&lt;?, ?B/s]
+Downloading global_stds.npy: 100%|██████████| 728/728 [00:00&lt;00:00, 418kB/s]
+
+Downloading orography.nc: 0%|          | 0.00/2.50M [00:00&lt;?, ?B/s]
+Downloading orography.nc: 55%|█████▍    | 1.37M/2.50M [00:00&lt;00:00, 14.1MB/s]
+Downloading orography.nc: 100%|██████████| 2.50M/2.50M [00:00&lt;00:00, 21.0MB/s]
+
+Downloading land_mask.nc: 0%|          | 0.00/748k [00:00&lt;?, ?B/s]
+Downloading land_mask.nc: 100%|██████████| 748k/748k [00:00&lt;00:00, 8.19MB/s]
+
+Downloading best_ckpt_mp0.tar: 0%|          | 0.00/6.40G [00:00&lt;?, ?B/s]
+Downloading best_ckpt_mp0.tar: 0%|          | 1.48M/6.40G [00:00&lt;07:49, 14.6MB/s]
+Downloading best_ckpt_mp0.tar: 0%|          | 16.9M/6.40G [00:00&lt;01:09, 99.0MB/s]
+Downloading best_ckpt_mp0.tar: 0%|          | 26.7M/6.40G [00:00&lt;01:33, 73.1MB/s]
+Downloading best_ckpt_mp0.tar: 1%|          | 43.4M/6.40G [00:00&lt;01:04, 105MB/s] 
+Downloading best_ckpt_mp0.tar: 1%|          | 54.8M/6.40G [00:00&lt;01:06, 102MB/s]
+Downloading best_ckpt_mp0.tar: 1%|          | 73.0M/6.40G [00:00&lt;00:53, 128MB/s]
+Downloading best_ckpt_mp0.tar: 1%|▏         | 86.1M/6.40G [00:00&lt;01:03, 106MB/s]
+Downloading best_ckpt_mp0.tar: 2%|▏         | 99.7M/6.40G [00:01&lt;01:04, 106MB/s]
+Downloading best_ckpt_mp0.tar: 2%|▏         | 111M/6.40G [00:01&lt;01:02, 109MB/s] 
+Downloading best_ckpt_mp0.tar: 2%|▏         | 125M/6.40G [00:01&lt;01:01, 110MB/s]
+Downloading best_ckpt_mp0.tar: 2%|▏         | 141M/6.40G [00:01&lt;00:53, 125MB/s]
+Downloading best_ckpt_mp0.tar: 2%|▏         | 153M/6.40G [00:01&lt;00:59, 113MB/s]
+Downloading best_ckpt_mp0.tar: 3%|▎         | 165M/6.40G [00:01&lt;00:59, 113MB/s]
+Downloading best_ckpt_mp0.tar: 3%|▎         | 176M/6.40G [00:01&lt;01:03, 106MB/s]
+Downloading best_ckpt_mp0.tar: 3%|▎         | 187M/6.40G [00:01&lt;01:02, 107MB/s]
+Downloading best_ckpt_mp0.tar: 3%|▎         | 197M/6.40G [00:01&lt;01:03, 105MB/s]
+Downloading best_ckpt_mp0.tar: 3%|▎         | 208M/6.40G [00:02&lt;01:08, 97.5MB/s]
+Downloading best_ckpt_mp0.tar: 3%|▎         | 220M/6.40G [00:02&lt;01:03, 104MB/s] 
+Downloading best_ckpt_mp0.tar: 4%|▎         | 230M/6.40G [00:02&lt;01:04, 104MB/s]
+Downloading best_ckpt_mp0.tar: 4%|▎         | 240M/6.40G [00:02&lt;01:04, 102MB/s]
+Downloading best_ckpt_mp0.tar: 4%|▍         | 250M/6.40G [00:02&lt;01:08, 96.5MB/s]
+Downloading best_ckpt_mp0.tar: 4%|▍         | 261M/6.40G [00:02&lt;01:04, 103MB/s] 
+Downloading best_ckpt_mp0.tar: 4%|▍         | 272M/6.40G [00:02&lt;01:04, 102MB/s]
+Downloading best_ckpt_mp0.tar: 4%|▍         | 281M/6.40G [00:02&lt;01:04, 102MB/s]
+Downloading best_ckpt_mp0.tar: 4%|▍         | 291M/6.40G [00:02&lt;01:06, 98.2MB/s]
+Downloading best_ckpt_mp0.tar: 5%|▍         | 302M/6.40G [00:03&lt;01:04, 101MB/s] 
+Downloading best_ckpt_mp0.tar: 5%|▍         | 311M/6.40G [00:03&lt;01:04, 101MB/s]
+Downloading best_ckpt_mp0.tar: 5%|▍         | 321M/6.40G [00:03&lt;01:04, 101MB/s]
+Downloading best_ckpt_mp0.tar: 5%|▌         | 331M/6.40G [00:03&lt;01:06, 98.7MB/s]
+Downloading best_ckpt_mp0.tar: 5%|▌         | 341M/6.40G [00:03&lt;01:05, 99.5MB/s]
+Downloading best_ckpt_mp0.tar: 5%|▌         | 350M/6.40G [00:03&lt;01:33, 69.7MB/s]
+Downloading best_ckpt_mp0.tar: 6%|▌         | 374M/6.40G [00:03&lt;00:59, 110MB/s] 
+Downloading best_ckpt_mp0.tar: 6%|▌         | 386M/6.40G [00:03&lt;00:59, 108MB/s]
+Downloading best_ckpt_mp0.tar: 6%|▌         | 398M/6.40G [00:04&lt;01:04, 100MB/s]
+Downloading best_ckpt_mp0.tar: 6%|▋         | 410M/6.40G [00:04&lt;01:00, 106MB/s]
+Downloading best_ckpt_mp0.tar: 6%|▋         | 421M/6.40G [00:04&lt;01:01, 104MB/s]
+Downloading best_ckpt_mp0.tar: 7%|▋         | 432M/6.40G [00:04&lt;01:06, 96.8MB/s]
+Downloading best_ckpt_mp0.tar: 7%|▋         | 444M/6.40G [00:04&lt;01:01, 104MB/s] 
+Downloading best_ckpt_mp0.tar: 7%|▋         | 454M/6.40G [00:04&lt;01:02, 103MB/s]
+Downloading best_ckpt_mp0.tar: 7%|▋         | 464M/6.40G [00:04&lt;01:02, 102MB/s]
+Downloading best_ckpt_mp0.tar: 7%|▋         | 474M/6.40G [00:04&lt;01:05, 97.6MB/s]
+Downloading best_ckpt_mp0.tar: 7%|▋         | 484M/6.40G [00:05&lt;01:14, 85.0MB/s]
+Downloading best_ckpt_mp0.tar: 8%|▊         | 500M/6.40G [00:05&lt;00:59, 107MB/s] 
+Downloading best_ckpt_mp0.tar: 8%|▊         | 511M/6.40G [00:05&lt;01:04, 98.4MB/s]
+Downloading best_ckpt_mp0.tar: 8%|▊         | 522M/6.40G [00:05&lt;01:04, 98.7MB/s]
+Downloading best_ckpt_mp0.tar: 8%|▊         | 532M/6.40G [00:05&lt;01:14, 85.0MB/s]
+Downloading best_ckpt_mp0.tar: 8%|▊         | 547M/6.40G [00:05&lt;01:00, 105MB/s] 
+Downloading best_ckpt_mp0.tar: 9%|▊         | 558M/6.40G [00:05&lt;01:01, 102MB/s]
+Downloading best_ckpt_mp0.tar: 9%|▊         | 571M/6.40G [00:05&lt;00:57, 109MB/s]
+Downloading best_ckpt_mp0.tar: 9%|▉         | 581M/6.40G [00:05&lt;00:58, 106MB/s]
+Downloading best_ckpt_mp0.tar: 9%|▉         | 592M/6.40G [00:06&lt;00:59, 104MB/s]
+Downloading best_ckpt_mp0.tar: 9%|▉         | 602M/6.40G [00:06&lt;01:00, 103MB/s]
+Downloading best_ckpt_mp0.tar: 9%|▉         | 612M/6.40G [00:06&lt;01:00, 103MB/s]
+Downloading best_ckpt_mp0.tar: 9%|▉         | 622M/6.40G [00:06&lt;01:01, 102MB/s]
+Downloading best_ckpt_mp0.tar: 10%|▉         | 632M/6.40G [00:06&lt;01:01, 101MB/s]
+Downloading best_ckpt_mp0.tar: 10%|▉         | 642M/6.40G [00:06&lt;01:01, 101MB/s]
+Downloading best_ckpt_mp0.tar: 10%|▉         | 652M/6.40G [00:06&lt;01:01, 101MB/s]
+Downloading best_ckpt_mp0.tar: 10%|█         | 661M/6.40G [00:06&lt;01:01, 100MB/s]
+Downloading best_ckpt_mp0.tar: 10%|█         | 671M/6.40G [00:06&lt;01:04, 96.2MB/s]
+Downloading best_ckpt_mp0.tar: 10%|█         | 682M/6.40G [00:07&lt;01:00, 101MB/s] 
+Downloading best_ckpt_mp0.tar: 11%|█         | 691M/6.40G [00:07&lt;01:00, 101MB/s]
+Downloading best_ckpt_mp0.tar: 11%|█         | 701M/6.40G [00:07&lt;01:02, 97.4MB/s]
+Downloading best_ckpt_mp0.tar: 11%|█         | 712M/6.40G [00:07&lt;01:00, 101MB/s] 
+Downloading best_ckpt_mp0.tar: 11%|█         | 722M/6.40G [00:07&lt;01:00, 101MB/s]
+Downloading best_ckpt_mp0.tar: 11%|█         | 731M/6.40G [00:07&lt;01:00, 101MB/s]
+Downloading best_ckpt_mp0.tar: 11%|█▏        | 741M/6.40G [00:07&lt;01:00, 100MB/s]
+Downloading best_ckpt_mp0.tar: 11%|█▏        | 751M/6.40G [00:07&lt;01:01, 98.8MB/s]
+Downloading best_ckpt_mp0.tar: 12%|█▏        | 761M/6.40G [00:07&lt;01:00, 100MB/s] 
+Downloading best_ckpt_mp0.tar: 12%|█▏        | 771M/6.40G [00:07&lt;01:00, 101MB/s]
+Downloading best_ckpt_mp0.tar: 12%|█▏        | 780M/6.40G [00:08&lt;01:00, 101MB/s]
+Downloading best_ckpt_mp0.tar: 12%|█▏        | 790M/6.40G [00:08&lt;01:00, 100MB/s]
+Downloading best_ckpt_mp0.tar: 12%|█▏        | 800M/6.40G [00:08&lt;01:05, 91.5MB/s]
+Downloading best_ckpt_mp0.tar: 12%|█▏        | 812M/6.40G [00:08&lt;00:58, 103MB/s] 
+Downloading best_ckpt_mp0.tar: 13%|█▎        | 822M/6.40G [00:08&lt;00:58, 102MB/s]
+Downloading best_ckpt_mp0.tar: 13%|█▎        | 832M/6.40G [00:08&lt;01:01, 98.2MB/s]
+Downloading best_ckpt_mp0.tar: 13%|█▎        | 843M/6.40G [00:08&lt;00:58, 102MB/s] 
+Downloading best_ckpt_mp0.tar: 13%|█▎        | 853M/6.40G [00:08&lt;00:59, 101MB/s]
+Downloading best_ckpt_mp0.tar: 13%|█▎        | 862M/6.40G [00:08&lt;01:00, 98.1MB/s]
+Downloading best_ckpt_mp0.tar: 13%|█▎        | 873M/6.40G [00:09&lt;00:58, 101MB/s] 
+Downloading best_ckpt_mp0.tar: 13%|█▎        | 882M/6.40G [00:09&lt;00:58, 101MB/s]
+Downloading best_ckpt_mp0.tar: 14%|█▎        | 892M/6.40G [00:09&lt;00:58, 101MB/s]
+Downloading best_ckpt_mp0.tar: 14%|█▍        | 902M/6.40G [00:09&lt;00:58, 101MB/s]
+Downloading best_ckpt_mp0.tar: 14%|█▍        | 912M/6.40G [00:09&lt;00:59, 99.0MB/s]
+Downloading best_ckpt_mp0.tar: 14%|█▍        | 922M/6.40G [00:09&lt;00:58, 101MB/s] 
+Downloading best_ckpt_mp0.tar: 14%|█▍        | 931M/6.40G [00:09&lt;00:58, 100MB/s]
+Downloading best_ckpt_mp0.tar: 14%|█▍        | 941M/6.40G [00:09&lt;01:02, 93.8MB/s]
+Downloading best_ckpt_mp0.tar: 15%|█▍        | 953M/6.40G [00:09&lt;00:57, 102MB/s] 
+Downloading best_ckpt_mp0.tar: 15%|█▍        | 963M/6.40G [00:10&lt;01:16, 76.9MB/s]
+Downloading best_ckpt_mp0.tar: 15%|█▍        | 978M/6.40G [00:10&lt;01:16, 76.3MB/s]
+Downloading best_ckpt_mp0.tar: 15%|█▌        | 997M/6.40G [00:10&lt;00:58, 100MB/s] 
+Downloading best_ckpt_mp0.tar: 15%|█▌        | 0.98G/6.40G [00:10&lt;01:07, 86.5MB/s]
+Downloading best_ckpt_mp0.tar: 16%|█▌        | 1.00G/6.40G [00:10&lt;00:53, 109MB/s] 
+Downloading best_ckpt_mp0.tar: 16%|█▌        | 1.01G/6.40G [00:10&lt;00:59, 96.9MB/s]
+Downloading best_ckpt_mp0.tar: 16%|█▌        | 1.03G/6.40G [00:11&lt;00:59, 96.3MB/s]
+Downloading best_ckpt_mp0.tar: 16%|█▋        | 1.04G/6.40G [00:11&lt;00:51, 112MB/s] 
+Downloading best_ckpt_mp0.tar: 17%|█▋        | 1.06G/6.40G [00:11&lt;00:52, 110MB/s]
+Downloading best_ckpt_mp0.tar: 17%|█▋        | 1.07G/6.40G [00:11&lt;00:49, 115MB/s]
+Downloading best_ckpt_mp0.tar: 17%|█▋        | 1.08G/6.40G [00:11&lt;01:13, 77.5MB/s]
+Downloading best_ckpt_mp0.tar: 17%|█▋        | 1.10G/6.40G [00:11&lt;00:49, 114MB/s] 
+Downloading best_ckpt_mp0.tar: 17%|█▋        | 1.12G/6.40G [00:11&lt;00:50, 113MB/s]
+Downloading best_ckpt_mp0.tar: 18%|█▊        | 1.13G/6.40G [00:12&lt;00:54, 105MB/s]
+Downloading best_ckpt_mp0.tar: 18%|█▊        | 1.14G/6.40G [00:12&lt;00:52, 108MB/s]
+Downloading best_ckpt_mp0.tar: 18%|█▊        | 1.15G/6.40G [00:12&lt;00:53, 106MB/s]
+Downloading best_ckpt_mp0.tar: 18%|█▊        | 1.16G/6.40G [00:12&lt;00:53, 105MB/s]
+Downloading best_ckpt_mp0.tar: 18%|█▊        | 1.17G/6.40G [00:12&lt;00:59, 94.8MB/s]
+Downloading best_ckpt_mp0.tar: 19%|█▊        | 1.19G/6.40G [00:12&lt;00:53, 105MB/s] 
+Downloading best_ckpt_mp0.tar: 19%|█▊        | 1.20G/6.40G [00:12&lt;00:53, 103MB/s]
+Downloading best_ckpt_mp0.tar: 19%|█▉        | 1.21G/6.40G [00:12&lt;00:54, 101MB/s]
+Downloading best_ckpt_mp0.tar: 19%|█▉        | 1.22G/6.40G [00:12&lt;00:54, 102MB/s]
+Downloading best_ckpt_mp0.tar: 19%|█▉        | 1.23G/6.40G [00:13&lt;00:56, 98.7MB/s]
+Downloading best_ckpt_mp0.tar: 19%|█▉        | 1.24G/6.40G [00:13&lt;00:54, 101MB/s] 
+Downloading best_ckpt_mp0.tar: 19%|█▉        | 1.25G/6.40G [00:13&lt;00:54, 102MB/s]
+Downloading best_ckpt_mp0.tar: 20%|█▉        | 1.26G/6.40G [00:13&lt;00:54, 101MB/s]
+Downloading best_ckpt_mp0.tar: 20%|█▉        | 1.27G/6.40G [00:13&lt;00:54, 101MB/s]
+Downloading best_ckpt_mp0.tar: 20%|█▉        | 1.28G/6.40G [00:13&lt;00:54, 101MB/s]
+Downloading best_ckpt_mp0.tar: 20%|██        | 1.28G/6.40G [00:13&lt;01:06, 82.4MB/s]
+Downloading best_ckpt_mp0.tar: 20%|██        | 1.29G/6.40G [00:13&lt;01:19, 68.6MB/s]
+Downloading best_ckpt_mp0.tar: 21%|██        | 1.32G/6.40G [00:14&lt;00:47, 115MB/s] 
+Downloading best_ckpt_mp0.tar: 21%|██        | 1.33G/6.40G [00:14&lt;00:48, 111MB/s]
+Downloading best_ckpt_mp0.tar: 21%|██        | 1.34G/6.40G [00:14&lt;00:50, 108MB/s]
+Downloading best_ckpt_mp0.tar: 21%|██        | 1.35G/6.40G [00:14&lt;00:51, 106MB/s]
+Downloading best_ckpt_mp0.tar: 21%|██▏       | 1.36G/6.40G [00:14&lt;00:52, 104MB/s]
+Downloading best_ckpt_mp0.tar: 21%|██▏       | 1.37G/6.40G [00:14&lt;00:52, 103MB/s]
+Downloading best_ckpt_mp0.tar: 22%|██▏       | 1.38G/6.40G [00:14&lt;00:52, 102MB/s]
+Downloading best_ckpt_mp0.tar: 22%|██▏       | 1.39G/6.40G [00:14&lt;01:00, 89.2MB/s]
+Downloading best_ckpt_mp0.tar: 22%|██▏       | 1.40G/6.40G [00:15&lt;01:02, 86.3MB/s]
+Downloading best_ckpt_mp0.tar: 22%|██▏       | 1.42G/6.40G [00:15&lt;00:49, 109MB/s] 
+Downloading best_ckpt_mp0.tar: 22%|██▏       | 1.43G/6.40G [00:15&lt;00:55, 96.9MB/s]
+Downloading best_ckpt_mp0.tar: 23%|██▎       | 1.44G/6.40G [00:15&lt;00:49, 107MB/s] 
+Downloading best_ckpt_mp0.tar: 23%|██▎       | 1.45G/6.40G [00:15&lt;00:54, 98.1MB/s]
+Downloading best_ckpt_mp0.tar: 23%|██▎       | 1.46G/6.40G [00:15&lt;00:50, 105MB/s] 
+Downloading best_ckpt_mp0.tar: 23%|██▎       | 1.48G/6.40G [00:15&lt;00:50, 105MB/s]
+Downloading best_ckpt_mp0.tar: 23%|██▎       | 1.49G/6.40G [00:15&lt;00:54, 96.7MB/s]
+Downloading best_ckpt_mp0.tar: 23%|██▎       | 1.50G/6.40G [00:15&lt;00:50, 104MB/s] 
+Downloading best_ckpt_mp0.tar: 24%|██▎       | 1.51G/6.40G [00:16&lt;00:50, 103MB/s]
+Downloading best_ckpt_mp0.tar: 24%|██▎       | 1.52G/6.40G [00:16&lt;00:51, 102MB/s]
+Downloading best_ckpt_mp0.tar: 24%|██▍       | 1.53G/6.40G [00:16&lt;00:56, 93.1MB/s]
+Downloading best_ckpt_mp0.tar: 24%|██▍       | 1.54G/6.40G [00:16&lt;00:50, 103MB/s] 
+Downloading best_ckpt_mp0.tar: 24%|██▍       | 1.55G/6.40G [00:16&lt;00:53, 96.8MB/s]
+Downloading best_ckpt_mp0.tar: 24%|██▍       | 1.56G/6.40G [00:16&lt;00:50, 103MB/s] 
+Downloading best_ckpt_mp0.tar: 25%|██▍       | 1.57G/6.40G [00:16&lt;00:50, 103MB/s]
+Downloading best_ckpt_mp0.tar: 25%|██▍       | 1.58G/6.40G [00:16&lt;00:50, 102MB/s]
+Downloading best_ckpt_mp0.tar: 25%|██▍       | 1.59G/6.40G [00:16&lt;00:51, 101MB/s]
+Downloading best_ckpt_mp0.tar: 25%|██▍       | 1.60G/6.40G [00:17&lt;00:50, 101MB/s]
+Downloading best_ckpt_mp0.tar: 25%|██▌       | 1.61G/6.40G [00:17&lt;01:11, 71.8MB/s]
+Downloading best_ckpt_mp0.tar: 25%|██▌       | 1.63G/6.40G [00:17&lt;00:50, 101MB/s] 
+Downloading best_ckpt_mp0.tar: 26%|██▌       | 1.64G/6.40G [00:17&lt;00:55, 91.7MB/s]
+Downloading best_ckpt_mp0.tar: 26%|██▌       | 1.66G/6.40G [00:17&lt;00:45, 113MB/s] 
+Downloading best_ckpt_mp0.tar: 26%|██▌       | 1.67G/6.40G [00:17&lt;00:50, 101MB/s]
+Downloading best_ckpt_mp0.tar: 26%|██▌       | 1.68G/6.40G [00:17&lt;00:46, 109MB/s]
+Downloading best_ckpt_mp0.tar: 26%|██▋       | 1.69G/6.40G [00:18&lt;00:47, 106MB/s]
+Downloading best_ckpt_mp0.tar: 27%|██▋       | 1.70G/6.40G [00:18&lt;00:48, 105MB/s]
+Downloading best_ckpt_mp0.tar: 27%|██▋       | 1.71G/6.40G [00:18&lt;00:48, 103MB/s]
+Downloading best_ckpt_mp0.tar: 27%|██▋       | 1.72G/6.40G [00:18&lt;00:49, 102MB/s]
+Downloading best_ckpt_mp0.tar: 27%|██▋       | 1.73G/6.40G [00:18&lt;00:49, 102MB/s]
+Downloading best_ckpt_mp0.tar: 27%|██▋       | 1.74G/6.40G [00:18&lt;00:52, 95.4MB/s]
+Downloading best_ckpt_mp0.tar: 27%|██▋       | 1.75G/6.40G [00:18&lt;00:48, 102MB/s] 
+Downloading best_ckpt_mp0.tar: 28%|██▊       | 1.76G/6.40G [00:18&lt;00:49, 102MB/s]
+Downloading best_ckpt_mp0.tar: 28%|██▊       | 1.77G/6.40G [00:18&lt;00:50, 98.2MB/s]
+Downloading best_ckpt_mp0.tar: 28%|██▊       | 1.78G/6.40G [00:19&lt;00:48, 102MB/s] 
+Downloading best_ckpt_mp0.tar: 28%|██▊       | 1.79G/6.40G [00:19&lt;00:52, 94.5MB/s]
+Downloading best_ckpt_mp0.tar: 28%|██▊       | 1.80G/6.40G [00:19&lt;00:48, 102MB/s] 
+Downloading best_ckpt_mp0.tar: 28%|██▊       | 1.81G/6.40G [00:19&lt;00:48, 102MB/s]
+Downloading best_ckpt_mp0.tar: 28%|██▊       | 1.82G/6.40G [00:19&lt;00:48, 102MB/s]
+Downloading best_ckpt_mp0.tar: 29%|██▊       | 1.83G/6.40G [00:19&lt;00:48, 101MB/s]
+Downloading best_ckpt_mp0.tar: 29%|██▉       | 1.84G/6.40G [00:19&lt;00:48, 101MB/s]
+Downloading best_ckpt_mp0.tar: 29%|██▉       | 1.85G/6.40G [00:19&lt;00:52, 93.3MB/s]
+Downloading best_ckpt_mp0.tar: 29%|██▉       | 1.86G/6.40G [00:19&lt;00:58, 83.5MB/s]
+Downloading best_ckpt_mp0.tar: 29%|██▉       | 1.88G/6.40G [00:20&lt;00:44, 108MB/s] 
+Downloading best_ckpt_mp0.tar: 30%|██▉       | 1.89G/6.40G [00:20&lt;00:53, 91.2MB/s]
+Downloading best_ckpt_mp0.tar: 30%|██▉       | 1.91G/6.40G [00:20&lt;00:44, 108MB/s] 
+Downloading best_ckpt_mp0.tar: 30%|██▉       | 1.92G/6.40G [00:20&lt;00:48, 99.3MB/s]
+Downloading best_ckpt_mp0.tar: 30%|███       | 1.93G/6.40G [00:20&lt;00:45, 106MB/s] 
+Downloading best_ckpt_mp0.tar: 30%|███       | 1.94G/6.40G [00:20&lt;00:45, 104MB/s]
+Downloading best_ckpt_mp0.tar: 30%|███       | 1.95G/6.40G [00:20&lt;00:53, 88.8MB/s]
+Downloading best_ckpt_mp0.tar: 31%|███       | 1.97G/6.40G [00:20&lt;00:44, 106MB/s] 
+Downloading best_ckpt_mp0.tar: 31%|███       | 1.98G/6.40G [00:21&lt;00:48, 97.5MB/s]
+Downloading best_ckpt_mp0.tar: 31%|███       | 1.99G/6.40G [00:21&lt;00:44, 105MB/s] 
+Downloading best_ckpt_mp0.tar: 31%|███       | 2.00G/6.40G [00:21&lt;00:45, 104MB/s]
+Downloading best_ckpt_mp0.tar: 31%|███▏      | 2.01G/6.40G [00:21&lt;00:45, 103MB/s]
+Downloading best_ckpt_mp0.tar: 32%|███▏      | 2.02G/6.40G [00:21&lt;00:47, 98.4MB/s]
+Downloading best_ckpt_mp0.tar: 32%|███▏      | 2.03G/6.40G [00:21&lt;00:45, 103MB/s] 
+Downloading best_ckpt_mp0.tar: 32%|███▏      | 2.04G/6.40G [00:21&lt;00:46, 102MB/s]
+Downloading best_ckpt_mp0.tar: 32%|███▏      | 2.05G/6.40G [00:21&lt;00:49, 94.9MB/s]
+Downloading best_ckpt_mp0.tar: 32%|███▏      | 2.06G/6.40G [00:22&lt;00:45, 103MB/s] 
+Downloading best_ckpt_mp0.tar: 32%|███▏      | 2.07G/6.40G [00:22&lt;00:45, 102MB/s]
+Downloading best_ckpt_mp0.tar: 33%|███▎      | 2.08G/6.40G [00:22&lt;00:48, 95.8MB/s]
+Downloading best_ckpt_mp0.tar: 33%|███▎      | 2.09G/6.40G [00:22&lt;00:45, 102MB/s] 
+Downloading best_ckpt_mp0.tar: 33%|███▎      | 2.10G/6.40G [00:22&lt;00:47, 97.5MB/s]
+Downloading best_ckpt_mp0.tar: 33%|███▎      | 2.11G/6.40G [00:22&lt;00:44, 103MB/s] 
+Downloading best_ckpt_mp0.tar: 33%|███▎      | 2.12G/6.40G [00:22&lt;00:45, 102MB/s]
+Downloading best_ckpt_mp0.tar: 33%|███▎      | 2.13G/6.40G [00:22&lt;00:50, 91.1MB/s]
+Downloading best_ckpt_mp0.tar: 34%|███▎      | 2.14G/6.40G [00:22&lt;00:43, 104MB/s] 
+Downloading best_ckpt_mp0.tar: 34%|███▎      | 2.15G/6.40G [00:23&lt;00:51, 88.0MB/s]
+Downloading best_ckpt_mp0.tar: 34%|███▍      | 2.17G/6.40G [00:23&lt;00:42, 106MB/s] 
+Downloading best_ckpt_mp0.tar: 34%|███▍      | 2.18G/6.40G [00:23&lt;00:43, 105MB/s]
+Downloading best_ckpt_mp0.tar: 34%|███▍      | 2.19G/6.40G [00:23&lt;00:43, 103MB/s]
+Downloading best_ckpt_mp0.tar: 34%|███▍      | 2.20G/6.40G [00:23&lt;00:48, 93.8MB/s]
+Downloading best_ckpt_mp0.tar: 35%|███▍      | 2.21G/6.40G [00:23&lt;00:43, 104MB/s] 
+Downloading best_ckpt_mp0.tar: 35%|███▍      | 2.22G/6.40G [00:23&lt;00:43, 103MB/s]
+Downloading best_ckpt_mp0.tar: 35%|███▍      | 2.23G/6.40G [00:24&lt;01:10, 63.5MB/s]
+Downloading best_ckpt_mp0.tar: 35%|███▌      | 2.26G/6.40G [00:24&lt;00:40, 110MB/s] 
+Downloading best_ckpt_mp0.tar: 36%|███▌      | 2.28G/6.40G [00:24&lt;00:39, 112MB/s]
+Downloading best_ckpt_mp0.tar: 36%|███▌      | 2.29G/6.40G [00:24&lt;00:40, 109MB/s]
+Downloading best_ckpt_mp0.tar: 36%|███▌      | 2.30G/6.40G [00:24&lt;00:41, 105MB/s]
+Downloading best_ckpt_mp0.tar: 36%|███▌      | 2.31G/6.40G [00:24&lt;00:41, 105MB/s]
+Downloading best_ckpt_mp0.tar: 36%|███▋      | 2.32G/6.40G [00:24&lt;00:42, 104MB/s]
+Downloading best_ckpt_mp0.tar: 36%|███▋      | 2.33G/6.40G [00:24&lt;00:48, 89.7MB/s]
+Downloading best_ckpt_mp0.tar: 37%|███▋      | 2.35G/6.40G [00:25&lt;00:41, 105MB/s] 
+Downloading best_ckpt_mp0.tar: 37%|███▋      | 2.36G/6.40G [00:25&lt;00:41, 104MB/s]
+Downloading best_ckpt_mp0.tar: 37%|███▋      | 2.37G/6.40G [00:25&lt;00:42, 103MB/s]
+Downloading best_ckpt_mp0.tar: 37%|███▋      | 2.38G/6.40G [00:25&lt;00:42, 102MB/s]
+Downloading best_ckpt_mp0.tar: 37%|███▋      | 2.39G/6.40G [00:25&lt;00:42, 102MB/s]
+Downloading best_ckpt_mp0.tar: 37%|███▋      | 2.40G/6.40G [00:25&lt;00:42, 101MB/s]
+Downloading best_ckpt_mp0.tar: 38%|███▊      | 2.41G/6.40G [00:25&lt;00:48, 88.6MB/s]
+Downloading best_ckpt_mp0.tar: 38%|███▊      | 2.42G/6.40G [00:25&lt;00:41, 104MB/s] 
+Downloading best_ckpt_mp0.tar: 38%|███▊      | 2.43G/6.40G [00:26&lt;00:41, 103MB/s]
+Downloading best_ckpt_mp0.tar: 38%|███▊      | 2.44G/6.40G [00:26&lt;00:44, 95.2MB/s]
+Downloading best_ckpt_mp0.tar: 38%|███▊      | 2.45G/6.40G [00:26&lt;00:41, 103MB/s] 
+Downloading best_ckpt_mp0.tar: 39%|███▊      | 2.46G/6.40G [00:26&lt;00:43, 98.2MB/s]
+Downloading best_ckpt_mp0.tar: 39%|███▊      | 2.47G/6.40G [00:26&lt;00:40, 103MB/s] 
+Downloading best_ckpt_mp0.tar: 39%|███▉      | 2.48G/6.40G [00:26&lt;00:40, 103MB/s]
+Downloading best_ckpt_mp0.tar: 39%|███▉      | 2.49G/6.40G [00:26&lt;00:41, 102MB/s]
+Downloading best_ckpt_mp0.tar: 39%|███▉      | 2.50G/6.40G [00:26&lt;00:41, 101MB/s]
+Downloading best_ckpt_mp0.tar: 39%|███▉      | 2.51G/6.40G [00:26&lt;00:41, 101MB/s]
+Downloading best_ckpt_mp0.tar: 39%|███▉      | 2.52G/6.40G [00:26&lt;00:41, 101MB/s]
+Downloading best_ckpt_mp0.tar: 40%|███▉      | 2.53G/6.40G [00:27&lt;00:41, 101MB/s]
+Downloading best_ckpt_mp0.tar: 40%|███▉      | 2.54G/6.40G [00:27&lt;00:41, 100MB/s]
+Downloading best_ckpt_mp0.tar: 40%|███▉      | 2.55G/6.40G [00:27&lt;00:41, 100MB/s]
+Downloading best_ckpt_mp0.tar: 40%|████      | 2.56G/6.40G [00:27&lt;00:41, 100MB/s]
+Downloading best_ckpt_mp0.tar: 40%|████      | 2.57G/6.40G [00:27&lt;00:41, 100MB/s]
+Downloading best_ckpt_mp0.tar: 40%|████      | 2.58G/6.40G [00:27&lt;00:40, 100MB/s]
+Downloading best_ckpt_mp0.tar: 40%|████      | 2.59G/6.40G [00:27&lt;00:40, 100MB/s]
+Downloading best_ckpt_mp0.tar: 41%|████      | 2.60G/6.40G [00:27&lt;00:40, 99.6MB/s]
+Downloading best_ckpt_mp0.tar: 41%|████      | 2.61G/6.40G [00:27&lt;00:40, 100MB/s] 
+Downloading best_ckpt_mp0.tar: 41%|████      | 2.62G/6.40G [00:27&lt;00:42, 95.9MB/s]
+Downloading best_ckpt_mp0.tar: 41%|████      | 2.63G/6.40G [00:28&lt;00:39, 101MB/s] 
+Downloading best_ckpt_mp0.tar: 41%|████      | 2.64G/6.40G [00:28&lt;00:40, 101MB/s]
+Downloading best_ckpt_mp0.tar: 41%|████▏     | 2.65G/6.40G [00:28&lt;00:40, 100MB/s]
+Downloading best_ckpt_mp0.tar: 42%|████▏     | 2.66G/6.40G [00:28&lt;00:40, 100MB/s]
+Downloading best_ckpt_mp0.tar: 42%|████▏     | 2.67G/6.40G [00:28&lt;00:39, 100MB/s]
+Downloading best_ckpt_mp0.tar: 42%|████▏     | 2.67G/6.40G [00:28&lt;00:41, 97.4MB/s]
+Downloading best_ckpt_mp0.tar: 42%|████▏     | 2.68G/6.40G [00:28&lt;00:41, 95.8MB/s]
+Downloading best_ckpt_mp0.tar: 42%|████▏     | 2.70G/6.40G [00:28&lt;00:39, 102MB/s] 
+Downloading best_ckpt_mp0.tar: 42%|████▏     | 2.70G/6.40G [00:28&lt;00:41, 94.5MB/s]
+Downloading best_ckpt_mp0.tar: 42%|████▏     | 2.72G/6.40G [00:29&lt;00:38, 103MB/s] 
+Downloading best_ckpt_mp0.tar: 43%|████▎     | 2.73G/6.40G [00:29&lt;00:38, 102MB/s]
+Downloading best_ckpt_mp0.tar: 43%|████▎     | 2.74G/6.40G [00:29&lt;00:38, 102MB/s]
+Downloading best_ckpt_mp0.tar: 43%|████▎     | 2.75G/6.40G [00:29&lt;00:38, 101MB/s]
+Downloading best_ckpt_mp0.tar: 43%|████▎     | 2.76G/6.40G [00:29&lt;00:40, 95.8MB/s]
+Downloading best_ckpt_mp0.tar: 43%|████▎     | 2.77G/6.40G [00:29&lt;00:38, 100MB/s] 
+Downloading best_ckpt_mp0.tar: 43%|████▎     | 2.77G/6.40G [00:29&lt;00:39, 99.3MB/s]
+Downloading best_ckpt_mp0.tar: 44%|████▎     | 2.79G/6.40G [00:29&lt;00:37, 102MB/s] 
+Downloading best_ckpt_mp0.tar: 44%|████▎     | 2.79G/6.40G [00:29&lt;00:48, 79.9MB/s]
+Downloading best_ckpt_mp0.tar: 44%|████▍     | 2.81G/6.40G [00:30&lt;00:36, 106MB/s] 
+Downloading best_ckpt_mp0.tar: 44%|████▍     | 2.82G/6.40G [00:30&lt;00:38, 98.7MB/s]
+Downloading best_ckpt_mp0.tar: 44%|████▍     | 2.84G/6.40G [00:30&lt;00:35, 107MB/s] 
+Downloading best_ckpt_mp0.tar: 44%|████▍     | 2.85G/6.40G [00:30&lt;00:36, 105MB/s]
+Downloading best_ckpt_mp0.tar: 45%|████▍     | 2.86G/6.40G [00:30&lt;00:36, 104MB/s]
+Downloading best_ckpt_mp0.tar: 45%|████▍     | 2.87G/6.40G [00:30&lt;00:37, 102MB/s]
+Downloading best_ckpt_mp0.tar: 45%|████▍     | 2.88G/6.40G [00:30&lt;00:41, 91.5MB/s]
+Downloading best_ckpt_mp0.tar: 45%|████▌     | 2.89G/6.40G [00:30&lt;00:36, 102MB/s] 
+Downloading best_ckpt_mp0.tar: 45%|████▌     | 2.90G/6.40G [00:31&lt;00:36, 104MB/s]
+Downloading best_ckpt_mp0.tar: 45%|████▌     | 2.91G/6.40G [00:31&lt;00:36, 103MB/s]
+Downloading best_ckpt_mp0.tar: 46%|████▌     | 2.92G/6.40G [00:31&lt;00:36, 102MB/s]
+Downloading best_ckpt_mp0.tar: 46%|████▌     | 2.93G/6.40G [00:31&lt;00:36, 101MB/s]
+Downloading best_ckpt_mp0.tar: 46%|████▌     | 2.94G/6.40G [00:31&lt;00:36, 101MB/s]
+Downloading best_ckpt_mp0.tar: 46%|████▌     | 2.95G/6.40G [00:31&lt;00:36, 101MB/s]
+Downloading best_ckpt_mp0.tar: 46%|████▌     | 2.96G/6.40G [00:31&lt;00:49, 75.0MB/s]
+Downloading best_ckpt_mp0.tar: 46%|████▋     | 2.97G/6.40G [00:31&lt;00:38, 96.5MB/s]
+Downloading best_ckpt_mp0.tar: 47%|████▋     | 2.98G/6.40G [00:31&lt;00:37, 97.8MB/s]
+Downloading best_ckpt_mp0.tar: 47%|████▋     | 3.00G/6.40G [00:32&lt;00:32, 111MB/s] 
+Downloading best_ckpt_mp0.tar: 47%|████▋     | 3.01G/6.40G [00:32&lt;00:40, 89.9MB/s]
+Downloading best_ckpt_mp0.tar: 47%|████▋     | 3.02G/6.40G [00:32&lt;00:33, 110MB/s] 
+Downloading best_ckpt_mp0.tar: 47%|████▋     | 3.04G/6.40G [00:32&lt;00:33, 108MB/s]
+Downloading best_ckpt_mp0.tar: 48%|████▊     | 3.05G/6.40G [00:32&lt;00:34, 106MB/s]
+Downloading best_ckpt_mp0.tar: 48%|████▊     | 3.06G/6.40G [00:32&lt;00:35, 102MB/s]
+Downloading best_ckpt_mp0.tar: 48%|████▊     | 3.07G/6.40G [00:32&lt;00:34, 104MB/s]
+Downloading best_ckpt_mp0.tar: 48%|████▊     | 3.08G/6.40G [00:32&lt;00:34, 103MB/s]
+Downloading best_ckpt_mp0.tar: 48%|████▊     | 3.09G/6.40G [00:33&lt;00:34, 102MB/s]
+Downloading best_ckpt_mp0.tar: 48%|████▊     | 3.10G/6.40G [00:33&lt;00:35, 101MB/s]
+Downloading best_ckpt_mp0.tar: 49%|████▊     | 3.11G/6.40G [00:33&lt;00:35, 99.9MB/s]
+Downloading best_ckpt_mp0.tar: 49%|████▊     | 3.12G/6.40G [00:33&lt;00:35, 100MB/s] 
+Downloading best_ckpt_mp0.tar: 49%|████▉     | 3.13G/6.40G [00:33&lt;00:34, 101MB/s]
+Downloading best_ckpt_mp0.tar: 49%|████▉     | 3.14G/6.40G [00:33&lt;00:34, 101MB/s]
+Downloading best_ckpt_mp0.tar: 49%|████▉     | 3.14G/6.40G [00:33&lt;00:34, 100MB/s]
+Downloading best_ckpt_mp0.tar: 49%|████▉     | 3.15G/6.40G [00:33&lt;00:34, 100MB/s]
+Downloading best_ckpt_mp0.tar: 49%|████▉     | 3.16G/6.40G [00:33&lt;00:38, 90.6MB/s]
+Downloading best_ckpt_mp0.tar: 50%|████▉     | 3.18G/6.40G [00:33&lt;00:33, 103MB/s] 
+Downloading best_ckpt_mp0.tar: 50%|████▉     | 3.19G/6.40G [00:34&lt;00:33, 102MB/s]
+Downloading best_ckpt_mp0.tar: 50%|████▉     | 3.20G/6.40G [00:34&lt;00:33, 102MB/s]
+Downloading best_ckpt_mp0.tar: 50%|█████     | 3.21G/6.40G [00:34&lt;00:33, 101MB/s]
+Downloading best_ckpt_mp0.tar: 50%|█████     | 3.21G/6.40G [00:34&lt;00:50, 67.3MB/s]
+Downloading best_ckpt_mp0.tar: 51%|█████     | 3.24G/6.40G [00:34&lt;00:32, 105MB/s] 
+Downloading best_ckpt_mp0.tar: 51%|█████     | 3.25G/6.40G [00:34&lt;00:30, 109MB/s]
+Downloading best_ckpt_mp0.tar: 51%|█████     | 3.26G/6.40G [00:34&lt;00:35, 95.9MB/s]
+Downloading best_ckpt_mp0.tar: 51%|█████     | 3.28G/6.40G [00:35&lt;00:30, 109MB/s] 
+Downloading best_ckpt_mp0.tar: 51%|█████▏    | 3.29G/6.40G [00:35&lt;00:31, 107MB/s]
+Downloading best_ckpt_mp0.tar: 52%|█████▏    | 3.30G/6.40G [00:35&lt;00:31, 105MB/s]
+Downloading best_ckpt_mp0.tar: 52%|█████▏    | 3.31G/6.40G [00:35&lt;00:32, 102MB/s]
+Downloading best_ckpt_mp0.tar: 52%|█████▏    | 3.32G/6.40G [00:35&lt;00:32, 103MB/s]
+Downloading best_ckpt_mp0.tar: 52%|█████▏    | 3.33G/6.40G [00:35&lt;00:32, 103MB/s]
+Downloading best_ckpt_mp0.tar: 52%|█████▏    | 3.34G/6.40G [00:35&lt;00:32, 102MB/s]
+Downloading best_ckpt_mp0.tar: 52%|█████▏    | 3.35G/6.40G [00:35&lt;00:32, 101MB/s]
+Downloading best_ckpt_mp0.tar: 52%|█████▏    | 3.36G/6.40G [00:36&lt;00:39, 81.7MB/s]
+Downloading best_ckpt_mp0.tar: 53%|█████▎    | 3.38G/6.40G [00:36&lt;00:30, 107MB/s] 
+Downloading best_ckpt_mp0.tar: 53%|█████▎    | 3.39G/6.40G [00:36&lt;00:30, 105MB/s]
+Downloading best_ckpt_mp0.tar: 53%|█████▎    | 3.40G/6.40G [00:36&lt;00:31, 103MB/s]
+Downloading best_ckpt_mp0.tar: 53%|█████▎    | 3.41G/6.40G [00:36&lt;00:31, 103MB/s]
+Downloading best_ckpt_mp0.tar: 53%|█████▎    | 3.42G/6.40G [00:36&lt;00:31, 102MB/s]
+Downloading best_ckpt_mp0.tar: 54%|█████▎    | 3.43G/6.40G [00:36&lt;00:31, 101MB/s]
+Downloading best_ckpt_mp0.tar: 54%|█████▎    | 3.44G/6.40G [00:36&lt;00:33, 94.7MB/s]
+Downloading best_ckpt_mp0.tar: 54%|█████▍    | 3.45G/6.40G [00:36&lt;00:31, 102MB/s] 
+Downloading best_ckpt_mp0.tar: 54%|█████▍    | 3.46G/6.40G [00:37&lt;00:30, 102MB/s]
+Downloading best_ckpt_mp0.tar: 54%|█████▍    | 3.47G/6.40G [00:37&lt;00:30, 102MB/s]
+Downloading best_ckpt_mp0.tar: 54%|█████▍    | 3.48G/6.40G [00:37&lt;00:31, 101MB/s]
+Downloading best_ckpt_mp0.tar: 54%|█████▍    | 3.49G/6.40G [00:37&lt;00:33, 92.4MB/s]
+Downloading best_ckpt_mp0.tar: 55%|█████▍    | 3.50G/6.40G [00:37&lt;00:30, 103MB/s] 
+Downloading best_ckpt_mp0.tar: 55%|█████▍    | 3.51G/6.40G [00:37&lt;00:30, 102MB/s]
+Downloading best_ckpt_mp0.tar: 55%|█████▍    | 3.52G/6.40G [00:37&lt;00:30, 102MB/s]
+Downloading best_ckpt_mp0.tar: 55%|█████▌    | 3.53G/6.40G [00:37&lt;00:34, 90.6MB/s]
+Downloading best_ckpt_mp0.tar: 55%|█████▌    | 3.54G/6.40G [00:37&lt;00:29, 104MB/s] 
+Downloading best_ckpt_mp0.tar: 56%|█████▌    | 3.55G/6.40G [00:38&lt;00:29, 103MB/s]
+Downloading best_ckpt_mp0.tar: 56%|█████▌    | 3.56G/6.40G [00:38&lt;00:29, 102MB/s]
+Downloading best_ckpt_mp0.tar: 56%|█████▌    | 3.57G/6.40G [00:38&lt;00:30, 101MB/s]
+Downloading best_ckpt_mp0.tar: 56%|█████▌    | 3.58G/6.40G [00:38&lt;00:30, 101MB/s]
+Downloading best_ckpt_mp0.tar: 56%|█████▌    | 3.59G/6.40G [00:38&lt;00:29, 101MB/s]
+Downloading best_ckpt_mp0.tar: 56%|█████▋    | 3.60G/6.40G [00:38&lt;00:29, 101MB/s]
+Downloading best_ckpt_mp0.tar: 56%|█████▋    | 3.61G/6.40G [00:38&lt;00:29, 100MB/s]
+Downloading best_ckpt_mp0.tar: 57%|█████▋    | 3.62G/6.40G [00:38&lt;00:29, 100MB/s]
+Downloading best_ckpt_mp0.tar: 57%|█████▋    | 3.63G/6.40G [00:38&lt;00:29, 100MB/s]
+Downloading best_ckpt_mp0.tar: 57%|█████▋    | 3.64G/6.40G [00:38&lt;00:29, 99.4MB/s]
+Downloading best_ckpt_mp0.tar: 57%|█████▋    | 3.65G/6.40G [00:39&lt;00:29, 100MB/s] 
+Downloading best_ckpt_mp0.tar: 57%|█████▋    | 3.66G/6.40G [00:39&lt;00:32, 89.3MB/s]
+Downloading best_ckpt_mp0.tar: 57%|█████▋    | 3.67G/6.40G [00:39&lt;00:28, 103MB/s] 
+Downloading best_ckpt_mp0.tar: 58%|█████▊    | 3.68G/6.40G [00:39&lt;00:28, 103MB/s]
+Downloading best_ckpt_mp0.tar: 58%|█████▊    | 3.69G/6.40G [00:39&lt;00:28, 101MB/s]
+Downloading best_ckpt_mp0.tar: 58%|█████▊    | 3.70G/6.40G [00:39&lt;00:29, 97.1MB/s]
+Downloading best_ckpt_mp0.tar: 58%|█████▊    | 3.71G/6.40G [00:39&lt;00:28, 103MB/s] 
+Downloading best_ckpt_mp0.tar: 58%|█████▊    | 3.72G/6.40G [00:39&lt;00:28, 102MB/s]
+Downloading best_ckpt_mp0.tar: 58%|█████▊    | 3.73G/6.40G [00:40&lt;00:36, 78.9MB/s]
+Downloading best_ckpt_mp0.tar: 59%|█████▊    | 3.75G/6.40G [00:40&lt;00:26, 106MB/s] 
+Downloading best_ckpt_mp0.tar: 59%|█████▊    | 3.76G/6.40G [00:40&lt;00:29, 97.2MB/s]
+Downloading best_ckpt_mp0.tar: 59%|█████▉    | 3.77G/6.40G [00:40&lt;00:26, 107MB/s] 
+Downloading best_ckpt_mp0.tar: 59%|█████▉    | 3.78G/6.40G [00:40&lt;00:27, 103MB/s]
+Downloading best_ckpt_mp0.tar: 59%|█████▉    | 3.79G/6.40G [00:40&lt;00:26, 105MB/s]
+Downloading best_ckpt_mp0.tar: 59%|█████▉    | 3.80G/6.40G [00:40&lt;00:27, 102MB/s]
+Downloading best_ckpt_mp0.tar: 60%|█████▉    | 3.81G/6.40G [00:40&lt;00:28, 96.7MB/s]
+Downloading best_ckpt_mp0.tar: 60%|█████▉    | 3.82G/6.40G [00:40&lt;00:26, 104MB/s] 
+Downloading best_ckpt_mp0.tar: 60%|█████▉    | 3.83G/6.40G [00:41&lt;00:28, 97.6MB/s]
+Downloading best_ckpt_mp0.tar: 60%|██████    | 3.85G/6.40G [00:41&lt;00:26, 103MB/s] 
+Downloading best_ckpt_mp0.tar: 60%|██████    | 3.85G/6.40G [00:41&lt;00:26, 102MB/s]
+Downloading best_ckpt_mp0.tar: 60%|██████    | 3.86G/6.40G [00:41&lt;00:26, 101MB/s]
+Downloading best_ckpt_mp0.tar: 61%|██████    | 3.87G/6.40G [00:41&lt;00:26, 102MB/s]
+Downloading best_ckpt_mp0.tar: 61%|██████    | 3.88G/6.40G [00:41&lt;00:27, 99.5MB/s]
+Downloading best_ckpt_mp0.tar: 61%|██████    | 3.89G/6.40G [00:41&lt;00:26, 101MB/s] 
+Downloading best_ckpt_mp0.tar: 61%|██████    | 3.90G/6.40G [00:41&lt;00:27, 98.8MB/s]
+Downloading best_ckpt_mp0.tar: 61%|██████    | 3.91G/6.40G [00:41&lt;00:27, 95.5MB/s]
+Downloading best_ckpt_mp0.tar: 61%|██████▏   | 3.92G/6.40G [00:42&lt;00:25, 103MB/s] 
+Downloading best_ckpt_mp0.tar: 61%|██████▏   | 3.93G/6.40G [00:42&lt;00:25, 102MB/s]
+Downloading best_ckpt_mp0.tar: 62%|██████▏   | 3.94G/6.40G [00:42&lt;00:26, 101MB/s]
+Downloading best_ckpt_mp0.tar: 62%|██████▏   | 3.95G/6.40G [00:42&lt;00:26, 101MB/s]
+Downloading best_ckpt_mp0.tar: 62%|██████▏   | 3.96G/6.40G [00:42&lt;00:26, 97.6MB/s]
+Downloading best_ckpt_mp0.tar: 62%|██████▏   | 3.97G/6.40G [00:42&lt;00:25, 101MB/s] 
+Downloading best_ckpt_mp0.tar: 62%|██████▏   | 3.98G/6.40G [00:42&lt;00:25, 101MB/s]
+Downloading best_ckpt_mp0.tar: 62%|██████▏   | 3.99G/6.40G [00:42&lt;00:27, 94.8MB/s]
+Downloading best_ckpt_mp0.tar: 63%|██████▎   | 4.00G/6.40G [00:42&lt;00:25, 102MB/s] 
+Downloading best_ckpt_mp0.tar: 63%|██████▎   | 4.01G/6.40G [00:42&lt;00:25, 101MB/s]
+Downloading best_ckpt_mp0.tar: 63%|██████▎   | 4.02G/6.40G [00:43&lt;00:25, 101MB/s]
+Downloading best_ckpt_mp0.tar: 63%|██████▎   | 4.03G/6.40G [00:43&lt;00:25, 101MB/s]
+Downloading best_ckpt_mp0.tar: 63%|██████▎   | 4.04G/6.40G [00:43&lt;00:25, 99.3MB/s]
+Downloading best_ckpt_mp0.tar: 63%|██████▎   | 4.05G/6.40G [00:43&lt;00:25, 101MB/s] 
+Downloading best_ckpt_mp0.tar: 63%|██████▎   | 4.06G/6.40G [00:43&lt;00:24, 101MB/s]
+Downloading best_ckpt_mp0.tar: 64%|██████▎   | 4.07G/6.40G [00:43&lt;00:25, 96.9MB/s]
+Downloading best_ckpt_mp0.tar: 64%|██████▍   | 4.08G/6.40G [00:43&lt;00:24, 102MB/s] 
+Downloading best_ckpt_mp0.tar: 64%|██████▍   | 4.09G/6.40G [00:43&lt;00:24, 101MB/s]
+Downloading best_ckpt_mp0.tar: 64%|██████▍   | 4.10G/6.40G [00:43&lt;00:24, 101MB/s]
+Downloading best_ckpt_mp0.tar: 64%|██████▍   | 4.11G/6.40G [00:43&lt;00:24, 100MB/s]
+Downloading best_ckpt_mp0.tar: 64%|██████▍   | 4.12G/6.40G [00:44&lt;00:24, 100MB/s]
+Downloading best_ckpt_mp0.tar: 64%|██████▍   | 4.13G/6.40G [00:44&lt;00:24, 100MB/s]
+Downloading best_ckpt_mp0.tar: 65%|██████▍   | 4.14G/6.40G [00:44&lt;00:24, 100MB/s]
+Downloading best_ckpt_mp0.tar: 65%|██████▍   | 4.15G/6.40G [00:44&lt;00:25, 94.3MB/s]
+Downloading best_ckpt_mp0.tar: 65%|██████▍   | 4.16G/6.40G [00:44&lt;00:23, 102MB/s] 
+Downloading best_ckpt_mp0.tar: 65%|██████▌   | 4.17G/6.40G [00:44&lt;00:23, 102MB/s]
+Downloading best_ckpt_mp0.tar: 65%|██████▌   | 4.18G/6.40G [00:44&lt;00:23, 99.7MB/s]
+Downloading best_ckpt_mp0.tar: 65%|██████▌   | 4.19G/6.40G [00:44&lt;00:23, 101MB/s] 
+Downloading best_ckpt_mp0.tar: 66%|██████▌   | 4.20G/6.40G [00:45&lt;00:29, 80.7MB/s]
+Downloading best_ckpt_mp0.tar: 66%|██████▌   | 4.21G/6.40G [00:45&lt;00:21, 107MB/s] 
+Downloading best_ckpt_mp0.tar: 66%|██████▌   | 4.22G/6.40G [00:45&lt;00:25, 91.6MB/s]
+Downloading best_ckpt_mp0.tar: 66%|██████▌   | 4.24G/6.40G [00:45&lt;00:21, 107MB/s] 
+Downloading best_ckpt_mp0.tar: 66%|██████▋   | 4.25G/6.40G [00:45&lt;00:25, 91.5MB/s]
+Downloading best_ckpt_mp0.tar: 67%|██████▋   | 4.26G/6.40G [00:45&lt;00:21, 108MB/s] 
+Downloading best_ckpt_mp0.tar: 67%|██████▋   | 4.28G/6.40G [00:45&lt;00:22, 99.6MB/s]
+Downloading best_ckpt_mp0.tar: 67%|██████▋   | 4.29G/6.40G [00:45&lt;00:21, 106MB/s] 
+Downloading best_ckpt_mp0.tar: 67%|██████▋   | 4.30G/6.40G [00:46&lt;00:21, 104MB/s]
+Downloading best_ckpt_mp0.tar: 67%|██████▋   | 4.31G/6.40G [00:46&lt;00:21, 103MB/s]
+Downloading best_ckpt_mp0.tar: 67%|██████▋   | 4.32G/6.40G [00:46&lt;00:21, 102MB/s]
+Downloading best_ckpt_mp0.tar: 68%|██████▊   | 4.33G/6.40G [00:46&lt;00:22, 99.4MB/s]
+Downloading best_ckpt_mp0.tar: 68%|██████▊   | 4.34G/6.40G [00:46&lt;00:21, 102MB/s] 
+Downloading best_ckpt_mp0.tar: 68%|██████▊   | 4.35G/6.40G [00:46&lt;00:21, 101MB/s]
+Downloading best_ckpt_mp0.tar: 68%|██████▊   | 4.36G/6.40G [00:46&lt;00:21, 101MB/s]
+Downloading best_ckpt_mp0.tar: 68%|██████▊   | 4.37G/6.40G [00:46&lt;00:21, 101MB/s]
+Downloading best_ckpt_mp0.tar: 68%|██████▊   | 4.38G/6.40G [00:46&lt;00:23, 90.5MB/s]
+Downloading best_ckpt_mp0.tar: 69%|██████▊   | 4.39G/6.40G [00:47&lt;00:21, 103MB/s] 
+Downloading best_ckpt_mp0.tar: 69%|██████▉   | 4.40G/6.40G [00:47&lt;00:20, 103MB/s]
+Downloading best_ckpt_mp0.tar: 69%|██████▉   | 4.41G/6.40G [00:47&lt;00:20, 102MB/s]
+Downloading best_ckpt_mp0.tar: 69%|██████▉   | 4.42G/6.40G [00:47&lt;00:21, 101MB/s]
+Downloading best_ckpt_mp0.tar: 69%|██████▉   | 4.43G/6.40G [00:47&lt;00:20, 101MB/s]
+Downloading best_ckpt_mp0.tar: 69%|██████▉   | 4.44G/6.40G [00:47&lt;00:20, 101MB/s]
+Downloading best_ckpt_mp0.tar: 70%|██████▉   | 4.45G/6.40G [00:47&lt;00:20, 101MB/s]
+Downloading best_ckpt_mp0.tar: 70%|██████▉   | 4.46G/6.40G [00:47&lt;00:21, 98.3MB/s]
+Downloading best_ckpt_mp0.tar: 70%|██████▉   | 4.47G/6.40G [00:47&lt;00:20, 101MB/s] 
+Downloading best_ckpt_mp0.tar: 70%|██████▉   | 4.48G/6.40G [00:47&lt;00:20, 100MB/s]
+Downloading best_ckpt_mp0.tar: 70%|███████   | 4.49G/6.40G [00:48&lt;00:20, 99.8MB/s]
+Downloading best_ckpt_mp0.tar: 70%|███████   | 4.50G/6.40G [00:48&lt;00:20, 101MB/s] 
+Downloading best_ckpt_mp0.tar: 70%|███████   | 4.50G/6.40G [00:48&lt;00:20, 100MB/s]
+Downloading best_ckpt_mp0.tar: 71%|███████   | 4.51G/6.40G [00:48&lt;00:20, 100MB/s]
+Downloading best_ckpt_mp0.tar: 71%|███████   | 4.52G/6.40G [00:48&lt;00:20, 100MB/s]
+Downloading best_ckpt_mp0.tar: 71%|███████   | 4.53G/6.40G [00:48&lt;00:21, 92.2MB/s]
+Downloading best_ckpt_mp0.tar: 71%|███████   | 4.54G/6.40G [00:48&lt;00:19, 102MB/s] 
+Downloading best_ckpt_mp0.tar: 71%|███████   | 4.55G/6.40G [00:48&lt;00:19, 102MB/s]
+Downloading best_ckpt_mp0.tar: 71%|███████▏  | 4.56G/6.40G [00:48&lt;00:19, 101MB/s]
+Downloading best_ckpt_mp0.tar: 71%|███████▏  | 4.57G/6.40G [00:48&lt;00:19, 100MB/s]
+Downloading best_ckpt_mp0.tar: 72%|███████▏  | 4.58G/6.40G [00:49&lt;00:19, 101MB/s]
+Downloading best_ckpt_mp0.tar: 72%|███████▏  | 4.59G/6.40G [00:49&lt;00:19, 100MB/s]
+Downloading best_ckpt_mp0.tar: 72%|███████▏  | 4.60G/6.40G [00:49&lt;00:19, 100MB/s]
+Downloading best_ckpt_mp0.tar: 72%|███████▏  | 4.61G/6.40G [00:49&lt;00:19, 96.4MB/s]
+Downloading best_ckpt_mp0.tar: 72%|███████▏  | 4.62G/6.40G [00:49&lt;00:18, 101MB/s] 
+Downloading best_ckpt_mp0.tar: 72%|███████▏  | 4.63G/6.40G [00:49&lt;00:18, 101MB/s]
+Downloading best_ckpt_mp0.tar: 73%|███████▎  | 4.64G/6.40G [00:49&lt;00:22, 82.1MB/s]
+Downloading best_ckpt_mp0.tar: 73%|███████▎  | 4.66G/6.40G [00:50&lt;00:23, 80.3MB/s]
+Downloading best_ckpt_mp0.tar: 73%|███████▎  | 4.67G/6.40G [00:50&lt;00:18, 99.5MB/s]
+Downloading best_ckpt_mp0.tar: 73%|███████▎  | 4.68G/6.40G [00:50&lt;00:18, 98.6MB/s]
+Downloading best_ckpt_mp0.tar: 73%|███████▎  | 4.70G/6.40G [00:50&lt;00:15, 114MB/s] 
+Downloading best_ckpt_mp0.tar: 74%|███████▎  | 4.71G/6.40G [00:50&lt;00:17, 102MB/s]
+Downloading best_ckpt_mp0.tar: 74%|███████▍  | 4.72G/6.40G [00:50&lt;00:16, 109MB/s]
+Downloading best_ckpt_mp0.tar: 74%|███████▍  | 4.73G/6.40G [00:50&lt;00:16, 107MB/s]
+Downloading best_ckpt_mp0.tar: 74%|███████▍  | 4.74G/6.40G [00:50&lt;00:16, 105MB/s]
+Downloading best_ckpt_mp0.tar: 74%|███████▍  | 4.75G/6.40G [00:50&lt;00:17, 103MB/s]
+Downloading best_ckpt_mp0.tar: 74%|███████▍  | 4.76G/6.40G [00:51&lt;00:17, 103MB/s]
+Downloading best_ckpt_mp0.tar: 75%|███████▍  | 4.77G/6.40G [00:51&lt;00:17, 101MB/s]
+Downloading best_ckpt_mp0.tar: 75%|███████▍  | 4.78G/6.40G [00:51&lt;00:17, 101MB/s]
+Downloading best_ckpt_mp0.tar: 75%|███████▍  | 4.79G/6.40G [00:51&lt;00:18, 94.3MB/s]
+Downloading best_ckpt_mp0.tar: 75%|███████▌  | 4.80G/6.40G [00:51&lt;00:16, 103MB/s] 
+Downloading best_ckpt_mp0.tar: 75%|███████▌  | 4.81G/6.40G [00:51&lt;00:16, 101MB/s]
+Downloading best_ckpt_mp0.tar: 75%|███████▌  | 4.82G/6.40G [00:51&lt;00:18, 92.1MB/s]
+Downloading best_ckpt_mp0.tar: 76%|███████▌  | 4.84G/6.40G [00:51&lt;00:16, 104MB/s] 
+Downloading best_ckpt_mp0.tar: 76%|███████▌  | 4.85G/6.40G [00:51&lt;00:16, 102MB/s]
+Downloading best_ckpt_mp0.tar: 76%|███████▌  | 4.86G/6.40G [00:52&lt;00:27, 60.4MB/s]
+Downloading best_ckpt_mp0.tar: 76%|███████▋  | 4.88G/6.40G [00:52&lt;00:15, 107MB/s] 
+Downloading best_ckpt_mp0.tar: 77%|███████▋  | 4.90G/6.40G [00:52&lt;00:15, 103MB/s]
+Downloading best_ckpt_mp0.tar: 77%|███████▋  | 4.91G/6.40G [00:52&lt;00:14, 114MB/s]
+Downloading best_ckpt_mp0.tar: 77%|███████▋  | 4.93G/6.40G [00:52&lt;00:14, 110MB/s]
+Downloading best_ckpt_mp0.tar: 77%|███████▋  | 4.94G/6.40G [00:52&lt;00:14, 107MB/s]
+Downloading best_ckpt_mp0.tar: 77%|███████▋  | 4.95G/6.40G [00:53&lt;00:16, 96.5MB/s]
+Downloading best_ckpt_mp0.tar: 78%|███████▊  | 4.96G/6.40G [00:53&lt;00:14, 106MB/s] 
+Downloading best_ckpt_mp0.tar: 78%|███████▊  | 4.97G/6.40G [00:53&lt;00:15, 99.9MB/s]
+Downloading best_ckpt_mp0.tar: 78%|███████▊  | 4.98G/6.40G [00:53&lt;00:14, 105MB/s] 
+Downloading best_ckpt_mp0.tar: 78%|███████▊  | 4.99G/6.40G [00:53&lt;00:14, 104MB/s]
+Downloading best_ckpt_mp0.tar: 78%|███████▊  | 5.01G/6.40G [00:53&lt;00:14, 103MB/s]
+Downloading best_ckpt_mp0.tar: 78%|███████▊  | 5.01G/6.40G [00:53&lt;00:14, 102MB/s]
+Downloading best_ckpt_mp0.tar: 79%|███████▊  | 5.02G/6.40G [00:53&lt;00:16, 91.7MB/s]
+Downloading best_ckpt_mp0.tar: 79%|███████▊  | 5.04G/6.40G [00:53&lt;00:14, 104MB/s] 
+Downloading best_ckpt_mp0.tar: 79%|███████▉  | 5.05G/6.40G [00:54&lt;00:14, 103MB/s]
+Downloading best_ckpt_mp0.tar: 79%|███████▉  | 5.06G/6.40G [00:54&lt;00:14, 102MB/s]
+Downloading best_ckpt_mp0.tar: 79%|███████▉  | 5.07G/6.40G [00:54&lt;00:14, 101MB/s]
+Downloading best_ckpt_mp0.tar: 79%|███████▉  | 5.08G/6.40G [00:54&lt;00:15, 93.5MB/s]
+Downloading best_ckpt_mp0.tar: 80%|███████▉  | 5.09G/6.40G [00:54&lt;00:13, 103MB/s] 
+Downloading best_ckpt_mp0.tar: 80%|███████▉  | 5.10G/6.40G [00:54&lt;00:13, 102MB/s]
+Downloading best_ckpt_mp0.tar: 80%|███████▉  | 5.11G/6.40G [00:54&lt;00:15, 91.7MB/s]
+Downloading best_ckpt_mp0.tar: 80%|████████  | 5.12G/6.40G [00:54&lt;00:13, 104MB/s] 
+Downloading best_ckpt_mp0.tar: 80%|████████  | 5.13G/6.40G [00:55&lt;00:14, 91.9MB/s]
+Downloading best_ckpt_mp0.tar: 80%|████████  | 5.14G/6.40G [00:55&lt;00:12, 105MB/s] 
+Downloading best_ckpt_mp0.tar: 81%|████████  | 5.16G/6.40G [00:55&lt;00:14, 90.4MB/s]
+Downloading best_ckpt_mp0.tar: 81%|████████  | 5.17G/6.40G [00:55&lt;00:12, 107MB/s] 
+Downloading best_ckpt_mp0.tar: 81%|████████  | 5.18G/6.40G [00:55&lt;00:13, 95.7MB/s]
+Downloading best_ckpt_mp0.tar: 81%|████████  | 5.19G/6.40G [00:55&lt;00:12, 106MB/s] 
+Downloading best_ckpt_mp0.tar: 81%|████████▏ | 5.20G/6.40G [00:55&lt;00:14, 88.0MB/s]
+Downloading best_ckpt_mp0.tar: 82%|████████▏ | 5.22G/6.40G [00:55&lt;00:11, 108MB/s] 
+Downloading best_ckpt_mp0.tar: 82%|████████▏ | 5.23G/6.40G [00:56&lt;00:12, 102MB/s]
+Downloading best_ckpt_mp0.tar: 82%|████████▏ | 5.24G/6.40G [00:56&lt;00:11, 106MB/s]
+Downloading best_ckpt_mp0.tar: 82%|████████▏ | 5.25G/6.40G [00:56&lt;00:11, 104MB/s]
+Downloading best_ckpt_mp0.tar: 82%|████████▏ | 5.26G/6.40G [00:56&lt;00:11, 103MB/s]
+Downloading best_ckpt_mp0.tar: 82%|████████▏ | 5.27G/6.40G [00:56&lt;00:11, 102MB/s]
+Downloading best_ckpt_mp0.tar: 83%|████████▎ | 5.28G/6.40G [00:56&lt;00:12, 94.3MB/s]
+Downloading best_ckpt_mp0.tar: 83%|████████▎ | 5.30G/6.40G [00:56&lt;00:11, 103MB/s] 
+Downloading best_ckpt_mp0.tar: 83%|████████▎ | 5.30G/6.40G [00:56&lt;00:11, 103MB/s]
+Downloading best_ckpt_mp0.tar: 83%|████████▎ | 5.31G/6.40G [00:56&lt;00:11, 97.3MB/s]
+Downloading best_ckpt_mp0.tar: 83%|████████▎ | 5.33G/6.40G [00:57&lt;00:11, 103MB/s] 
+Downloading best_ckpt_mp0.tar: 83%|████████▎ | 5.34G/6.40G [00:57&lt;00:11, 99.9MB/s]
+Downloading best_ckpt_mp0.tar: 84%|████████▎ | 5.35G/6.40G [00:57&lt;00:11, 102MB/s] 
+Downloading best_ckpt_mp0.tar: 84%|████████▎ | 5.35G/6.40G [00:57&lt;00:11, 101MB/s]
+Downloading best_ckpt_mp0.tar: 84%|████████▍ | 5.36G/6.40G [00:57&lt;00:10, 101MB/s]
+Downloading best_ckpt_mp0.tar: 84%|████████▍ | 5.37G/6.40G [00:57&lt;00:10, 101MB/s]
+Downloading best_ckpt_mp0.tar: 84%|████████▍ | 5.38G/6.40G [00:57&lt;00:10, 101MB/s]
+Downloading best_ckpt_mp0.tar: 84%|████████▍ | 5.39G/6.40G [00:57&lt;00:11, 95.6MB/s]
+Downloading best_ckpt_mp0.tar: 84%|████████▍ | 5.40G/6.40G [00:57&lt;00:10, 102MB/s] 
+Downloading best_ckpt_mp0.tar: 85%|████████▍ | 5.41G/6.40G [00:58&lt;00:11, 90.1MB/s]
+Downloading best_ckpt_mp0.tar: 85%|████████▍ | 5.43G/6.40G [00:58&lt;00:10, 104MB/s] 
+Downloading best_ckpt_mp0.tar: 85%|████████▍ | 5.44G/6.40G [00:58&lt;00:10, 103MB/s]
+Downloading best_ckpt_mp0.tar: 85%|████████▌ | 5.45G/6.40G [00:58&lt;00:10, 102MB/s]
+Downloading best_ckpt_mp0.tar: 85%|████████▌ | 5.46G/6.40G [00:58&lt;00:09, 101MB/s]
+Downloading best_ckpt_mp0.tar: 85%|████████▌ | 5.47G/6.40G [00:58&lt;00:12, 83.2MB/s]
+Downloading best_ckpt_mp0.tar: 86%|████████▌ | 5.48G/6.40G [00:58&lt;00:09, 106MB/s] 
+Downloading best_ckpt_mp0.tar: 86%|████████▌ | 5.49G/6.40G [00:58&lt;00:10, 91.5MB/s]
+Downloading best_ckpt_mp0.tar: 86%|████████▌ | 5.51G/6.40G [00:59&lt;00:08, 107MB/s] 
+Downloading best_ckpt_mp0.tar: 86%|████████▋ | 5.52G/6.40G [00:59&lt;00:08, 105MB/s]
+Downloading best_ckpt_mp0.tar: 86%|████████▋ | 5.53G/6.40G [00:59&lt;00:09, 100MB/s]
+Downloading best_ckpt_mp0.tar: 87%|████████▋ | 5.54G/6.40G [00:59&lt;00:08, 104MB/s]
+Downloading best_ckpt_mp0.tar: 87%|████████▋ | 5.55G/6.40G [00:59&lt;00:08, 103MB/s]
+Downloading best_ckpt_mp0.tar: 87%|████████▋ | 5.56G/6.40G [00:59&lt;00:08, 102MB/s]
+Downloading best_ckpt_mp0.tar: 87%|████████▋ | 5.57G/6.40G [00:59&lt;00:08, 101MB/s]
+Downloading best_ckpt_mp0.tar: 87%|████████▋ | 5.58G/6.40G [00:59&lt;00:08, 101MB/s]
+Downloading best_ckpt_mp0.tar: 87%|████████▋ | 5.59G/6.40G [00:59&lt;00:10, 84.4MB/s]
+Downloading best_ckpt_mp0.tar: 88%|████████▊ | 5.60G/6.40G [01:00&lt;00:08, 105MB/s] 
+Downloading best_ckpt_mp0.tar: 88%|████████▊ | 5.61G/6.40G [01:00&lt;00:08, 104MB/s]
+Downloading best_ckpt_mp0.tar: 88%|████████▊ | 5.63G/6.40G [01:00&lt;00:08, 103MB/s]
+Downloading best_ckpt_mp0.tar: 88%|████████▊ | 5.63G/6.40G [01:00&lt;00:08, 102MB/s]
+Downloading best_ckpt_mp0.tar: 88%|████████▊ | 5.64G/6.40G [01:00&lt;00:10, 79.2MB/s]
+Downloading best_ckpt_mp0.tar: 89%|████████▊ | 5.66G/6.40G [01:00&lt;00:07, 104MB/s] 
+Downloading best_ckpt_mp0.tar: 89%|████████▊ | 5.67G/6.40G [01:00&lt;00:08, 92.1MB/s]
+Downloading best_ckpt_mp0.tar: 89%|████████▉ | 5.69G/6.40G [01:00&lt;00:06, 109MB/s] 
+Downloading best_ckpt_mp0.tar: 89%|████████▉ | 5.70G/6.40G [01:01&lt;00:07, 107MB/s]
+Downloading best_ckpt_mp0.tar: 89%|████████▉ | 5.71G/6.40G [01:01&lt;00:07, 105MB/s]
+Downloading best_ckpt_mp0.tar: 89%|████████▉ | 5.72G/6.40G [01:01&lt;00:07, 104MB/s]
+Downloading best_ckpt_mp0.tar: 90%|████████▉ | 5.73G/6.40G [01:01&lt;00:06, 103MB/s]
+Downloading best_ckpt_mp0.tar: 90%|████████▉ | 5.74G/6.40G [01:01&lt;00:06, 102MB/s]
+Downloading best_ckpt_mp0.tar: 90%|████████▉ | 5.75G/6.40G [01:01&lt;00:06, 100MB/s]
+Downloading best_ckpt_mp0.tar: 90%|█████████ | 5.76G/6.40G [01:01&lt;00:06, 101MB/s]
+Downloading best_ckpt_mp0.tar: 90%|█████████ | 5.77G/6.40G [01:01&lt;00:06, 101MB/s]
+Downloading best_ckpt_mp0.tar: 90%|█████████ | 5.78G/6.40G [01:01&lt;00:06, 101MB/s]
+Downloading best_ckpt_mp0.tar: 90%|█████████ | 5.79G/6.40G [01:02&lt;00:06, 100MB/s]
+Downloading best_ckpt_mp0.tar: 91%|█████████ | 5.80G/6.40G [01:02&lt;00:06, 100MB/s]
+Downloading best_ckpt_mp0.tar: 91%|█████████ | 5.81G/6.40G [01:02&lt;00:06, 100MB/s]
+Downloading best_ckpt_mp0.tar: 91%|█████████ | 5.82G/6.40G [01:02&lt;00:06, 100MB/s]
+Downloading best_ckpt_mp0.tar: 91%|█████████ | 5.83G/6.40G [01:02&lt;00:06, 100MB/s]
+Downloading best_ckpt_mp0.tar: 91%|█████████ | 5.84G/6.40G [01:02&lt;00:06, 100MB/s]
+Downloading best_ckpt_mp0.tar: 91%|█████████▏| 5.85G/6.40G [01:02&lt;00:05, 99.1MB/s]
+Downloading best_ckpt_mp0.tar: 92%|█████████▏| 5.86G/6.40G [01:02&lt;00:06, 95.7MB/s]
+Downloading best_ckpt_mp0.tar: 92%|█████████▏| 5.87G/6.40G [01:02&lt;00:05, 102MB/s] 
+Downloading best_ckpt_mp0.tar: 92%|█████████▏| 5.88G/6.40G [01:02&lt;00:05, 101MB/s]
+Downloading best_ckpt_mp0.tar: 92%|█████████▏| 5.89G/6.40G [01:03&lt;00:05, 101MB/s]
+Downloading best_ckpt_mp0.tar: 92%|█████████▏| 5.89G/6.40G [01:03&lt;00:05, 101MB/s]
+Downloading best_ckpt_mp0.tar: 92%|█████████▏| 5.90G/6.40G [01:03&lt;00:06, 84.3MB/s]
+Downloading best_ckpt_mp0.tar: 93%|█████████▎| 5.92G/6.40G [01:03&lt;00:04, 105MB/s] 
+Downloading best_ckpt_mp0.tar: 93%|█████████▎| 5.93G/6.40G [01:03&lt;00:05, 96.4MB/s]
+Downloading best_ckpt_mp0.tar: 93%|█████████▎| 5.94G/6.40G [01:03&lt;00:04, 105MB/s] 
+Downloading best_ckpt_mp0.tar: 93%|█████████▎| 5.95G/6.40G [01:03&lt;00:04, 103MB/s]
+Downloading best_ckpt_mp0.tar: 93%|█████████▎| 5.96G/6.40G [01:03&lt;00:04, 103MB/s]
+Downloading best_ckpt_mp0.tar: 93%|█████████▎| 5.97G/6.40G [01:04&lt;00:04, 102MB/s]
+Downloading best_ckpt_mp0.tar: 93%|█████████▎| 5.98G/6.40G [01:04&lt;00:04, 101MB/s]
+Downloading best_ckpt_mp0.tar: 94%|█████████▎| 5.99G/6.40G [01:04&lt;00:04, 101MB/s]
+Downloading best_ckpt_mp0.tar: 94%|█████████▍| 6.00G/6.40G [01:04&lt;00:04, 101MB/s]
+Downloading best_ckpt_mp0.tar: 94%|█████████▍| 6.01G/6.40G [01:04&lt;00:04, 100MB/s]
+Downloading best_ckpt_mp0.tar: 94%|█████████▍| 6.02G/6.40G [01:04&lt;00:04, 100MB/s]
+Downloading best_ckpt_mp0.tar: 94%|█████████▍| 6.03G/6.40G [01:04&lt;00:03, 100MB/s]
+Downloading best_ckpt_mp0.tar: 94%|█████████▍| 6.04G/6.40G [01:04&lt;00:03, 100MB/s]
+Downloading best_ckpt_mp0.tar: 95%|█████████▍| 6.05G/6.40G [01:04&lt;00:03, 99.7MB/s]
+Downloading best_ckpt_mp0.tar: 95%|█████████▍| 6.06G/6.40G [01:04&lt;00:04, 83.8MB/s]
+Downloading best_ckpt_mp0.tar: 95%|█████████▍| 6.07G/6.40G [01:05&lt;00:03, 105MB/s] 
+Downloading best_ckpt_mp0.tar: 95%|█████████▌| 6.08G/6.40G [01:05&lt;00:03, 104MB/s]
+Downloading best_ckpt_mp0.tar: 95%|█████████▌| 6.09G/6.40G [01:05&lt;00:03, 103MB/s]
+Downloading best_ckpt_mp0.tar: 95%|█████████▌| 6.10G/6.40G [01:05&lt;00:03, 102MB/s]
+Downloading best_ckpt_mp0.tar: 96%|█████████▌| 6.11G/6.40G [01:05&lt;00:03, 89.7MB/s]
+Downloading best_ckpt_mp0.tar: 96%|█████████▌| 6.13G/6.40G [01:05&lt;00:02, 103MB/s] 
+Downloading best_ckpt_mp0.tar: 96%|█████████▌| 6.14G/6.40G [01:05&lt;00:03, 75.8MB/s]
+Downloading best_ckpt_mp0.tar: 96%|█████████▋| 6.16G/6.40G [01:06&lt;00:02, 97.7MB/s]
+Downloading best_ckpt_mp0.tar: 96%|█████████▋| 6.17G/6.40G [01:06&lt;00:02, 112MB/s] 
+Downloading best_ckpt_mp0.tar: 97%|█████████▋| 6.19G/6.40G [01:06&lt;00:02, 107MB/s]
+Downloading best_ckpt_mp0.tar: 97%|█████████▋| 6.20G/6.40G [01:06&lt;00:02, 107MB/s]
+Downloading best_ckpt_mp0.tar: 97%|█████████▋| 6.21G/6.40G [01:06&lt;00:01, 105MB/s]
+Downloading best_ckpt_mp0.tar: 97%|█████████▋| 6.22G/6.40G [01:06&lt;00:01, 103MB/s]
+Downloading best_ckpt_mp0.tar: 97%|█████████▋| 6.23G/6.40G [01:06&lt;00:01, 102MB/s]
+Downloading best_ckpt_mp0.tar: 97%|█████████▋| 6.24G/6.40G [01:06&lt;00:01, 102MB/s]
+Downloading best_ckpt_mp0.tar: 98%|█████████▊| 6.25G/6.40G [01:06&lt;00:01, 101MB/s]
+Downloading best_ckpt_mp0.tar: 98%|█████████▊| 6.26G/6.40G [01:07&lt;00:01, 101MB/s]
+Downloading best_ckpt_mp0.tar: 98%|█████████▊| 6.26G/6.40G [01:07&lt;00:01, 101MB/s]
+Downloading best_ckpt_mp0.tar: 98%|█████████▊| 6.27G/6.40G [01:07&lt;00:01, 101MB/s]
+Downloading best_ckpt_mp0.tar: 98%|█████████▊| 6.28G/6.40G [01:07&lt;00:01, 100MB/s]
+Downloading best_ckpt_mp0.tar: 98%|█████████▊| 6.29G/6.40G [01:07&lt;00:01, 96.9MB/s]
+Downloading best_ckpt_mp0.tar: 99%|█████████▊| 6.30G/6.40G [01:07&lt;00:01, 101MB/s] 
+Downloading best_ckpt_mp0.tar: 99%|█████████▊| 6.31G/6.40G [01:07&lt;00:00, 93.4MB/s]
+Downloading best_ckpt_mp0.tar: 99%|█████████▉| 6.32G/6.40G [01:07&lt;00:00, 91.8MB/s]
+Downloading best_ckpt_mp0.tar: 99%|█████████▉| 6.34G/6.40G [01:07&lt;00:00, 105MB/s] 
+Downloading best_ckpt_mp0.tar: 99%|█████████▉| 6.35G/6.40G [01:08&lt;00:00, 101MB/s]
+Downloading best_ckpt_mp0.tar: 99%|█████████▉| 6.36G/6.40G [01:08&lt;00:00, 103MB/s]
+Downloading best_ckpt_mp0.tar: 99%|█████████▉| 6.37G/6.40G [01:08&lt;00:00, 103MB/s]
+Downloading best_ckpt_mp0.tar: 100%|█████████▉| 6.37G/6.40G [01:08&lt;00:00, 101MB/s]
+Downloading best_ckpt_mp0.tar: 100%|█████████▉| 6.38G/6.40G [01:08&lt;00:00, 101MB/s]
+Downloading best_ckpt_mp0.tar: 100%|█████████▉| 6.39G/6.40G [01:08&lt;00:00, 101MB/s]
+Downloading best_ckpt_mp0.tar: 100%|██████████| 6.40G/6.40G [01:08&lt;00:00, 100MB/s]
+
+Downloading config.json: 0%|          | 0.00/39.0 [00:00&lt;?, ?B/s]
+Downloading config.json: 100%|██████████| 39.0/39.0 [00:00&lt;00:00, 253B/s]
+Downloading config.json: 100%|██████████| 39.0/39.0 [00:00&lt;00:00, 251B/s]
+
+Downloading CRPSModel.mdlus: 0%|          | 0.00/376M [00:00&lt;?, ?B/s]
+Downloading CRPSModel.mdlus: 3%|▎         | 10.0M/376M [00:01&lt;00:40, 9.48MB/s]
+Downloading CRPSModel.mdlus: 8%|▊         | 30.0M/376M [00:01&lt;00:11, 31.5MB/s]
+Downloading CRPSModel.mdlus: 11%|█         | 40.0M/376M [00:01&lt;00:08, 41.5MB/s]
+Downloading CRPSModel.mdlus: 16%|█▌        | 60.0M/376M [00:01&lt;00:05, 64.3MB/s]
+Downloading CRPSModel.mdlus: 21%|██▏       | 80.0M/376M [00:01&lt;00:03, 85.9MB/s]
+Downloading CRPSModel.mdlus: 27%|██▋       | 100M/376M [00:01&lt;00:02, 101MB/s]  
+Downloading CRPSModel.mdlus: 32%|███▏      | 120M/376M [00:01&lt;00:02, 118MB/s]
+Downloading CRPSModel.mdlus: 37%|███▋      | 140M/376M [00:02&lt;00:01, 124MB/s]
+Downloading CRPSModel.mdlus: 43%|████▎     | 160M/376M [00:02&lt;00:02, 93.9MB/s]
+Downloading CRPSModel.mdlus: 48%|████▊     | 180M/376M [00:02&lt;00:02, 81.3MB/s]
+Downloading CRPSModel.mdlus: 51%|█████     | 190M/376M [00:02&lt;00:02, 76.7MB/s]
+Downloading CRPSModel.mdlus: 53%|█████▎    | 200M/376M [00:03&lt;00:02, 74.9MB/s]
+Downloading CRPSModel.mdlus: 59%|█████▊    | 220M/376M [00:03&lt;00:01, 86.8MB/s]
+Downloading CRPSModel.mdlus: 64%|██████▍   | 240M/376M [00:03&lt;00:01, 99.9MB/s]
+Downloading CRPSModel.mdlus: 69%|██████▉   | 260M/376M [00:03&lt;00:01, 102MB/s] 
+Downloading CRPSModel.mdlus: 75%|███████▍  | 280M/376M [00:03&lt;00:00, 110MB/s]
+Downloading CRPSModel.mdlus: 80%|███████▉  | 300M/376M [00:04&lt;00:00, 85.1MB/s]
+Downloading CRPSModel.mdlus: 82%|████████▏ | 310M/376M [00:04&lt;00:00, 77.2MB/s]
+Downloading CRPSModel.mdlus: 85%|████████▌ | 320M/376M [00:04&lt;00:01, 53.7MB/s]
+Downloading CRPSModel.mdlus: 88%|████████▊ | 330M/376M [00:05&lt;00:01, 45.4MB/s]
+Downloading CRPSModel.mdlus: 90%|█████████ | 340M/376M [00:05&lt;00:00, 51.4MB/s]
+Downloading CRPSModel.mdlus: 96%|█████████▌| 360M/376M [00:05&lt;00:00, 64.9MB/s]
+Downloading CRPSModel.mdlus: 100%|██████████| 376M/376M [00:05&lt;00:00, 77.1MB/s]
+Downloading CRPSModel.mdlus: 100%|██████████| 376M/376M [00:05&lt;00:00, 71.7MB/s]
+
+Downloading global_means.npy: 0%|          | 0.00/420 [00:00&lt;?, ?B/s]
+Downloading global_means.npy: 100%|██████████| 420/420 [00:00&lt;00:00, 929B/s]
+Downloading global_means.npy: 100%|██████████| 420/420 [00:00&lt;00:00, 924B/s]
+
+Downloading global_stds.npy: 0%|          | 0.00/420 [00:00&lt;?, ?B/s]
+Downloading global_stds.npy: 100%|██████████| 420/420 [00:00&lt;00:00, 801B/s]
+Downloading global_stds.npy: 100%|██████████| 420/420 [00:00&lt;00:00, 798B/s]
+
+Downloading set_phys.nc: 0%|          | 0.00/5.55M [00:00&lt;?, ?B/s]
+Downloading set_phys.nc: 100%|██████████| 5.55M/5.55M [00:01&lt;00:00, 3.80MB/s]
+Downloading set_phys.nc: 100%|██████████| 5.55M/5.55M [00:01&lt;00:00, 3.77MB/s]</code></pre></details>
+
+<h2 id="run-the-interpolation-model">Run the Interpolation Model<a class="headerlink" href="#run-the-interpolation-model" title="Permanent link">&para;</a></h2>
+<p>Now run the interpolation model to get forecasts at a finer time resolution.
+The base model (SFNO) produces forecasts at 6-hour intervals, and the
+interpolation model will interpolate to 1-hour intervals.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Define forecast parameters</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">forecast_date</span> <span class="o">=</span> <span class="s2">&quot;2024-01-01&quot;</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">nsteps</span> <span class="o">=</span> <span class="mi">5</span>  <span class="c1"># Number of interpolated forecast steps</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="c1"># Run the model</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">earth2studio.run</span><span class="w"> </span><span class="kn">import</span> <span class="n">deterministic</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">io</span> <span class="o">=</span> <span class="n">deterministic</span><span class="p">([</span><span class="n">forecast_date</span><span class="p">],</span> <span class="n">nsteps</span><span class="p">,</span> <span class="n">interp_model</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">io</span><span class="p">)</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
+</code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>403 lines</small></summary><pre class="no-copy"><code>2026-10-24 20:12:05.437 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
+2026-10-24 20:12:05.438 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.664 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 353619033-939943
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.665 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 275180657-890286
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.666 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 164520517-765194
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.667 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 204118947-720169
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.668 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 347812101-849637
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.668 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 406629528-962408
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.669 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 270785488-1177846
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.670 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 451628742-968328
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.671 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 179198897-973788
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.672 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 386359113-963363
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.673 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 296555652-890544
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.674 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 174896277-746582
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.675 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 225640684-816551
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.676 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 381424372-852801
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.677 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 292088625-1244938
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.678 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 452597070-961302
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.679 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 189450163-577835
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.679 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 149106074-462399
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.680 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 330670600-938837
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.681 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 184782162-755841
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.682 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 246334297-805355
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.683 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 145318799-1019625
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.686 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 326166249-1225442
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.687 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 407591936-940269
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.688 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 199346060-588823
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.689 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 170010298-904882
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.690 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 354558976-950206
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.691 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 194463909-743465
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.692 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 268038708-839499
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.693 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 165935718-1138677
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.694 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 350072351-1232650
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.694 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 210217024-602993
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.695 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 180172685-913532
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.696 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 387322476-948106
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.697 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 204839116-753955
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.698 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 289307267-851916
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.699 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 176434139-1041731
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.700 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 383286081-1212507
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.701 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 231827443-572989
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.702 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 190027998-577814
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.703 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 143527711-755695
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.704 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 226457235-723507
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.705 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 323061199-895080
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.706 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 186591756-1053680
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.707 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 393705863-838502
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.707 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 252556659-958137
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.708 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 199934883-595444
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.709 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 163781343-739174
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.710 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 247139652-717479
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.711 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 346879212-932889
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.711 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 196462617-1008822
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.712 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 0-993995
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.713 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 274285343-895314
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.714 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 210820017-615282
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.714 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 174160271-736006
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.715 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 268878207-724790
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.715 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 391722290-987401
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.716 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 206944850-1065961
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.716 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 414179964-1179422
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.717 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 295659093-896559
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.717 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 232400432-586007
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.718 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 184050412-731750
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.719 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 290159183-752827
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:06.719 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 144283406-743766
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+
+2026-10-24 20:12:07.159 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 228474082-1138597
+
+Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   1%|▏         | 1/73 [00:00&lt;00:35,  2.02it/s]
+
+2026-10-24 20:12:07.204 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 402321768-876246
+
+Fetching GFS data:   1%|▏         | 1/73 [00:00&lt;00:35,  2.02it/s]
+
+2026-10-24 20:12:07.241 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 148613430-492644
+
+Fetching GFS data:   1%|▏         | 1/73 [00:00&lt;00:35,  2.02it/s]
+Fetching GFS data:   4%|▍         | 3/73 [00:00&lt;00:11,  5.93it/s]
+
+2026-10-24 20:12:07.320 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 329739828-930772
+
+Fetching GFS data:   4%|▍         | 3/73 [00:00&lt;00:11,  5.93it/s]
+
+2026-10-24 20:12:07.322 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 253514796-920355
+
+Fetching GFS data:   4%|▍         | 3/73 [00:00&lt;00:11,  5.93it/s]
+
+2026-10-24 20:12:07.386 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 193737151-726758
+
+Fetching GFS data:   4%|▍         | 3/73 [00:00&lt;00:11,  5.93it/s]
+Fetching GFS data:   8%|▊         | 6/73 [00:00&lt;00:06, 10.87it/s]
+
+2026-10-24 20:12:07.470 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 323956279-837771
+
+Fetching GFS data:   8%|▊         | 6/73 [00:00&lt;00:06, 10.87it/s]
+
+2026-10-24 20:12:07.839 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 249098202-1262404
+
+Fetching GFS data:   8%|▊         | 6/73 [00:01&lt;00:06, 10.87it/s]
+
+2026-10-24 20:12:07.840 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 169090127-920171
+
+Fetching GFS data:   8%|▊         | 6/73 [00:01&lt;00:06, 10.87it/s]
+Fetching GFS data:  11%|█         | 8/73 [00:01&lt;00:09,  6.56it/s]
+Fetching GFS data:  15%|█▌        | 11/73 [00:01&lt;00:08,  7.25it/s]
+Fetching GFS data:  29%|██▉       | 21/73 [00:02&lt;00:05, 10.22it/s]
+Fetching GFS data:  56%|█████▌    | 41/73 [00:02&lt;00:01, 26.72it/s]
+Fetching GFS data:  93%|█████████▎| 68/73 [00:02&lt;00:00, 50.35it/s]
+Fetching GFS data: 100%|██████████| 73/73 [00:02&lt;00:00, 27.13it/s]
+2026-10-24 20:12:09.549 | SUCCESS  | earth2studio.run:deterministic:154 - Fetched data from GFS
+2026-10-24 20:12:09.550 | INFO     | earth2studio.run:deterministic:162 - Inference starting!
+
+
+Running inference:   0%|          | 0/6 [00:00&lt;?, ?it/s]
+
+Running inference:  17%|█▋        | 1/6 [00:00&lt;00:01,  2.53it/s]
+
+Running inference:  33%|███▎      | 2/6 [00:06&lt;00:14,  3.61s/it]
+
+Running inference:  50%|█████     | 3/6 [00:08&lt;00:08,  2.82s/it]
+
+Running inference:  67%|██████▋   | 4/6 [00:10&lt;00:05,  2.52s/it]
+
+Running inference:  83%|████████▎ | 5/6 [00:12&lt;00:02,  2.35s/it]
+
+Running inference: 100%|██████████| 6/6 [00:14&lt;00:00,  2.27s/it]
+Running inference: 100%|██████████| 6/6 [00:14&lt;00:00,  2.39s/it]
+2026-10-24 20:12:23.908 | SUCCESS  | earth2studio.run:deterministic:189 - 
+Inference complete
+/
+├── lat (721,) float64
+├── lead_time (6,) timedelta64[m]
+├── lon (1440,) float64
+├── msl (1, 6, 721, 1440) float32
+├── q100 (1, 6, 721, 1440) float32
+├── q1000 (1, 6, 721, 1440) float32
+├── q150 (1, 6, 721, 1440) float32
+├── q200 (1, 6, 721, 1440) float32
+├── q250 (1, 6, 721, 1440) float32
+├── q300 (1, 6, 721, 1440) float32
+├── q400 (1, 6, 721, 1440) float32
+├── q50 (1, 6, 721, 1440) float32
+├── q500 (1, 6, 721, 1440) float32
+├── q600 (1, 6, 721, 1440) float32
+├── q700 (1, 6, 721, 1440) float32
+├── q850 (1, 6, 721, 1440) float32
+├── q925 (1, 6, 721, 1440) float32
+├── sp (1, 6, 721, 1440) float32
+├── t100 (1, 6, 721, 1440) float32
+├── t1000 (1, 6, 721, 1440) float32
+├── t150 (1, 6, 721, 1440) float32
+├── t200 (1, 6, 721, 1440) float32
+├── t250 (1, 6, 721, 1440) float32
+├── t2m (1, 6, 721, 1440) float32
+├── t300 (1, 6, 721, 1440) float32
+├── t400 (1, 6, 721, 1440) float32
+├── t50 (1, 6, 721, 1440) float32
+├── t500 (1, 6, 721, 1440) float32
+├── t600 (1, 6, 721, 1440) float32
+├── t700 (1, 6, 721, 1440) float32
+├── t850 (1, 6, 721, 1440) float32
+├── t925 (1, 6, 721, 1440) float32
+├── tcwv (1, 6, 721, 1440) float32
+├── time (1,) datetime64[ns]
+├── u100 (1, 6, 721, 1440) float32
+├── u1000 (1, 6, 721, 1440) float32
+├── u100m (1, 6, 721, 1440) float32
+├── u10m (1, 6, 721, 1440) float32
+├── u150 (1, 6, 721, 1440) float32
+├── u200 (1, 6, 721, 1440) float32
+├── u250 (1, 6, 721, 1440) float32
+├── u300 (1, 6, 721, 1440) float32
+├── u400 (1, 6, 721, 1440) float32
+├── u50 (1, 6, 721, 1440) float32
+├── u500 (1, 6, 721, 1440) float32
+├── u600 (1, 6, 721, 1440) float32
+├── u700 (1, 6, 721, 1440) float32
+├── u850 (1, 6, 721, 1440) float32
+├── u925 (1, 6, 721, 1440) float32
+├── v100 (1, 6, 721, 1440) float32
+├── v1000 (1, 6, 721, 1440) float32
+├── v100m (1, 6, 721, 1440) float32
+├── v10m (1, 6, 721, 1440) float32
+├── v150 (1, 6, 721, 1440) float32
+├── v200 (1, 6, 721, 1440) float32
+├── v250 (1, 6, 721, 1440) float32
+├── v300 (1, 6, 721, 1440) float32
+├── v400 (1, 6, 721, 1440) float32
+├── v50 (1, 6, 721, 1440) float32
+├── v500 (1, 6, 721, 1440) float32
+├── v600 (1, 6, 721, 1440) float32
+├── v700 (1, 6, 721, 1440) float32
+├── v850 (1, 6, 721, 1440) float32
+├── v925 (1, 6, 721, 1440) float32
+├── z100 (1, 6, 721, 1440) float32
+├── z1000 (1, 6, 721, 1440) float32
+├── z150 (1, 6, 721, 1440) float32
+├── z200 (1, 6, 721, 1440) float32
+├── z250 (1, 6, 721, 1440) float32
+├── z300 (1, 6, 721, 1440) float32
+├── z400 (1, 6, 721, 1440) float32
+├── z50 (1, 6, 721, 1440) float32
+├── z500 (1, 6, 721, 1440) float32
+├── z600 (1, 6, 721, 1440) float32
+├── z700 (1, 6, 721, 1440) float32
+├── z850 (1, 6, 721, 1440) float32
+└── z925 (1, 6, 721, 1440) float32</code></pre></details>
+
+<h2 id="visualize-results">Visualize Results<a class="headerlink" href="#visualize-results" title="Permanent link">&para;</a></h2>
+<p>Let's visualize the total column water vapour (tcwv) at each time step
+and save them as separate files.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Get the number of time steps</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">n_steps</span> <span class="o">=</span> <span class="n">io</span><span class="p">[</span><span class="s2">&quot;tcwv&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Create a single figure with subplots</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">fig</span><span class="p">,</span> <span class="n">axs</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">axs</span> <span class="o">=</span> <span class="n">axs</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="c1"># Create plots for each time step</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">min</span><span class="p">([</span><span class="n">n_steps</span><span class="p">,</span> <span class="mi">6</span><span class="p">])):</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="n">im</span> <span class="o">=</span> <span class="n">axs</span><span class="p">[</span><span class="n">step</span><span class="p">]</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>        <span class="n">io</span><span class="p">[</span><span class="s2">&quot;tcwv&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">,</span> <span class="n">step</span><span class="p">],</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;twilight_shifted&quot;</span><span class="p">,</span> <span class="n">aspect</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="mi">85</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="p">)</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>    <span class="n">axs</span><span class="p">[</span><span class="n">step</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Water Vapour - Step: </span><span class="si">{</span><span class="n">step</span><span class="si">}</span><span class="s2"> hrs&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>    <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">axs</span><span class="p">[</span><span class="n">step</span><span class="p">],</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;kg/m^2&quot;</span><span class="p">)</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="c1"># Save the figure</span>
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/12_tcwv_steps.jpg&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p><img alt="Output from Temporal Interpolation" class="e2sg-output-image" loading="lazy" src="../../_assets/02_medium_range-04_temporal_interpolation/001-cell-6.webp" /></p>
+<hr />
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/02_medium_range-04_temporal_interpolation/04_temporal_interpolation.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/02_medium_range-04_temporal_interpolation/04_temporal_interpolation.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 145.5s</span></div>
+
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>2m 26s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 7313P 16-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 PCIe · 79.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.5 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-142-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.91.07 · CUDA support 13.2</strong></div></div></section>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2024-2026 NVIDIA Corporation & Affiliates
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+    <a href="https://github.com/NVIDIA/earth2studio" target="_blank" rel="noopener" title="Earth2Studio on GitHub" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["announce.dismiss", "navigation.tabs", "navigation.tabs.sticky", "navigation.indexes", "navigation.top", "navigation.footer", "search.highlight", "search.suggest", "toc.follow", "content.code.copy", "content.code.annotate"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../../assets/javascripts/e2s-landing.js"></script>
+      
+        <script src="../../../assets/javascripts/e2s-install-selector.js"></script>
+      
+        <script src="../../../assets/javascripts/e2s-catalog.js"></script>
+      
+        <script src="../../../assets/javascripts/mathjax.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+        <script src="../../../assets/javascripts/mkdocs-badges-data.js"></script>
+      
+        <script src="../../../assets/javascripts/mkdocs-badges.js"></script>
+      
+    
+  </body>
+</html>
