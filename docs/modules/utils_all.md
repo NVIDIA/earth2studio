@@ -93,6 +93,8 @@ output: generated/data
 {% autosummary %}
 earth2studio.data.datasource_to_file
 earth2studio.data.fetch_data
+earth2studio.data.fetch_dataframe
+earth2studio.data.fetch_dataframes
 earth2studio.data.prep_data_array
 {% endautosummary %}
 

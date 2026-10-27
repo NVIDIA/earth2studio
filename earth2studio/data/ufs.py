@@ -38,6 +38,7 @@ from loguru import logger
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
+    _CleanupAfterLastCall,
     _sync_async,
     datasource_cache_root,
     obstore_fetch_to_cache,
@@ -214,6 +215,7 @@ class _UFSObsBase:
         self._max_workers = max_workers
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
+        self._calls = _CleanupAfterLastCall(self)
         self._decode_workers = decode_workers
         self._decode_pool: concurrent.futures.ProcessPoolExecutor | None = None
         # Anonymous obstore S3 store for the public NOAA UFS replay bucket.
@@ -247,15 +249,10 @@ class _UFSObsBase:
         fields : str | list[str] | pa.Schema | None, optional
             Fields to include in output, by default None (all fields).
         """
-        try:
-            df = _sync_async(
+        with self._calls:
+            return _sync_async(
                 self.fetch, time, variable, fields, timeout=self.async_timeout
             )
-        finally:
-            if not self._cache:
-                shutil.rmtree(self.cache, ignore_errors=True)
-
-        return df
 
     async def fetch(
         self,
@@ -648,6 +645,11 @@ class _UFSObsBase:
                 cache_location, f"tmp_gsi_{self._tmp_cache_hash}"
             )
         return cache_location
+
+    def cleanup(self) -> None:
+        """Remove temporary files when persistent caching is disabled."""
+        if not self._cache:
+            shutil.rmtree(self.cache, ignore_errors=True)
 
 
 class UFSObsConv(_UFSObsBase):

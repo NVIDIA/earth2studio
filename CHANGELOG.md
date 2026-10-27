@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added HealDA v2 (`HealDAv2`), a global machine-learning data-assimilation model that
   maps a 48-hour sequence of satellite and conventional observations to a 104-channel,
   0.25° atmospheric analysis on a regular latitude-longitude grid (`da-healda-v2` extra).
+  It is called as `model(prepbufr, gpsro, satwnd, *sensors)` with one wide NNJA frame
+  (`layout="wide"`) per stream in `input_coords()` order, and raises on long frames.
 - Added an `original_event` option and report time/latitude/longitude columns to
   `NNJAObsConv`; report-time filtering preserves complete PrepBUFR profiles.
 - Added a `detector` column to `NNJAObsSat` carrying the CrIS field-of-view index.
@@ -31,6 +33,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `NNJAObsSatwnd`, `NNJAObsSat`, `NomadsGDASObsConv`): the cycle of the file each row
   was decoded from, since an observation at a file's window edge can be in two files.
 - Added Google Cloud mirror via `source="google"` to ECMWF open-data sources.
+- Added a `layout` option to `NNJAObsConv`, `NNJAObsSatwnd`, `NNJAObsSat` and
+  `NomadsGDASObsConv`: `"wide"` returns one row per report level, wind or footprint
+  with one `observation_<variable>` column per variable (per-channel values as lists
+  for satellites); `"long"` (default) is unchanged.
+- Added `fetch_dataframes`, which fetches several DataFrame requests concurrently, each
+  a data source with a schema such as a model's `input_coords()` entry, given as a list
+  (returns a list) or a dict (returns a dict).
 - Added `InterpCRPSDiT`, a CRPS DiT temporal interpolation model with sub-hourly output.
 - Eval recipe: `scoring.online.verification_sources` scores one online rollout
   against several named truth sources in a single pass, writing
@@ -42,6 +51,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is a NaN observation instead of a dropped row, so every footprint appears.
 - ECMWF open-data sources accept a `client_kwargs` dictionary for
   `opendata.Client`.
+- The NCEP observation sources (`NNJAObsConv`, `NNJAObsSatwnd`, `NNJAObsSat`,
+  `NomadsGDASObsConv`) decode BUFR with earth2bufr instead of PyBufrKit. Rows and
+  values are unchanged except PrepBUFR station identifiers with non-ASCII bytes,
+  which now carry spaces instead of U+FFFD.
+- The NCEP observation frames use `pd.ArrowDtype` columns throughout: missing values
+  are nulls (including missing satellite observations), string columns are
+  dictionary-encoded, and the `NNJAObsSatwnd` quality indicators are
+  `list<struct<application, confidence>>` instead of Python lists.
+- `NNJAObsSatwnd` reads each field from its first occurrence in the message template.
+- `NNJAObsSat` decodes only the `sensor_indices` channels of an IR sounder and returns
+  IASI and CrIS brightness temperature from a single Planck conversion.
+- `decode_workers` of the NCEP sources sets the threads transforming decoded batches;
+  the decode runs on earth2bufr's thread pool.
+- The NNJA and GDAS conventional lexicon modifiers are the identity; the decoders
+  return Earth2Studio units.
+- `fetch_dataframe` keeps the attributes the data source sets on the returned frame
+  and adds `request_time` and `request_lead_time` to them, instead of replacing them.
+- `obstore_read_chunked` and `obstore_fetch_to_cache` take `chunk_size`,
+  `max_concurrent` and `hedge_after` (re-request a range still outstanding after a
+  delay); defaults are unchanged. The NNJA sources download cycle files in larger
+  ranges with more in flight and re-request stalled ranges.
 - Updated CBottle Tropical Cyclone and Infill checkpoints to new EMA version
 - Added checkpointing support for AtlasCRPS model
 
@@ -52,8 +82,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `NNJAObsConv` and `NomadsGDASObsConv` decode PrepBUFR files from before 2007, which
-  number their message types 230-249 instead of 102-121; these files previously
-  returned no conventional observations.
+  number their message types 230-249 instead of 102-121, and raise on a PrepBUFR file
+  with no known message family instead of returning no rows.
 - PrepBUFR messages dated 2000 (edition 3, year of century 100) get the year 2000
   instead of 100, so their observations are no longer dropped by the time window.
 - `NNJAObsConv`, `NNJAObsSatwnd` and `NNJAObsSat` raise when a file, any of its
@@ -85,6 +115,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 ### Dependencies
+
+- The `data` extra depends on earth2bufr (the BUFR decoder of the NCEP sources)
+  instead of pybufrkit.
+- pyarrow>=24 (Table.filter corruption on large single chunks in 18-23)
 
 ## [0.19.0] - 2026-09-30
 
