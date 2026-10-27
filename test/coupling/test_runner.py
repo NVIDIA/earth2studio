@@ -498,6 +498,24 @@ def test_unconnected_slots_need_a_source() -> None:
         CoupledRunner({"atmos": atmosphere()}, sources={"atmos": Fill(ATMOS_GRID, {})})
 
 
+def test_recommended_sources_are_built_only_when_a_fetch_needs_one() -> None:
+    calls = []
+
+    def recommend() -> tuple[Fill, Fill]:
+        calls.append(1)
+        return Fill(ATMOS_GRID, {"z1000": 1.0}), Fill(ATMOS_GRID, {"sst": 2.0})
+
+    atmos = atmosphere()
+    atmos.default_sources = recommend  # type: ignore[attr-defined]
+    given = (Fill(ATMOS_GRID, {"z1000": 1.0}), Fill(ATMOS_GRID, {"sst": 2.0}))
+    CoupledRunner({"atmos": atmos}, sources={"atmos": given})
+    assert not calls
+    runner = CoupledRunner({"atmos": atmos}, sources={"atmos": given[0]})
+    assert len(calls) == 1
+    list(runner.run_item(WorkItem(T0, 12 * H)))
+    assert len(calls) == 1
+
+
 def test_components_must_be_models() -> None:
     with pytest.raises(CouplingError, match="neither"):
         CoupledRunner({"x": object()})
