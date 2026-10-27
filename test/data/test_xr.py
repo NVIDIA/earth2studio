@@ -134,10 +134,9 @@ def foo_dat_arr(
         datetime.datetime(year=2018, month=1, day=1),
         datetime.datetime(year=2018, month=2, day=1),
         datetime.datetime(year=2018, month=3, day=1),
-    ]
+    ],
+    variable: list[str] = ["u10m", "v10m", "t2m"],
 ):
-    variable = ["u10m", "v10m", "t2m"]
-
     da = xr.DataArray(
         data=np.random.randn(len(time), len(variable), 8, 16),
         dims=["time", "variable", "lat", "lon"],
@@ -156,11 +155,18 @@ def foo_dat_arr(
         datetime.datetime(year=2019, month=1, day=8),
     ],
 )
-@pytest.mark.parametrize("variable", ["u10m", ["u10m", "v10m"]])
+@pytest.mark.parametrize(
+    "file_variable,variable",
+    [
+        (["u10m", "v10m", "t2m"], "u10m"),
+        (["u10m", "v10m", "t2m"], ["u10m", "v10m"]),
+        (["u10m"], "u10m"),
+    ],
+)
 @pytest.mark.parametrize(
     "data_source_type", ["directory", "path_list_glob", "path_list_explicit"]
 )
-def test_data_array_sources(time, variable, data_source_type):
+def test_data_array_sources(time, file_variable, variable, data_source_type):
     # Create test data structure
     base_dir = "test_data_source"
     os.makedirs(base_dir, exist_ok=True)
@@ -173,7 +179,8 @@ def test_data_array_sources(time, variable, data_source_type):
             [
                 datetime.datetime(year=year, month=1, day=1),
                 datetime.datetime(year=year, month=1, day=8),
-            ]
+            ],
+            file_variable,
         )
         for year in [2018, 2019]
     }
