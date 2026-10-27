@@ -556,6 +556,7 @@ nav:
   - Statistics: modules/statistics.md
   - Utilities: modules/utils_all.md
   - Workflows: modules/workflows.md
+  - Coupler: modules/coupler.md
 - Examples:
   - examples/index.md
   - Recipes: recipes/index.md
