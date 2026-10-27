@@ -55,6 +55,9 @@ try:
     from physicsnemo.models.dit import DiT
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
     from tensordict import TensorDict
+
+    from earth2studio.models._diffusion import SOLVERS, seeded_rng
+    from earth2studio.models._diffusion import solver_options as _solver_options
 except ImportError:
     OptionalDependencyFailure("corrdiff-era5-hrrr")
     EDMNoiseScheduler = None
@@ -156,8 +159,9 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         Ensemble members per input; settable between calls.
     number_of_steps : int
         ODE solver steps (each Heun step costs two network evaluations).
-    solver : {"heun", "euler"}
-        ODE solver.
+    solver : str | None, optional
+        Numerical method for integrating the sampling ODE in reverse time.
+        None selects Heun, by default None
     shift : float
         SD3 resolution shift ``a`` applied to the rectified-flow time grid,
         ``t -> a t / (1 + (a - 1) t)``; ``1.0`` disables it. The examples found
@@ -173,6 +177,12 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
     amp : bool
         Run network forwards under bf16 autocast while the ODE integration stays in
         fp32 (the examples' evaluation setting; roughly halves inference time).
+
+    solver_options : dict[str, Any] | None, optional
+        Options passed to the selected solver to customize its behavior or
+        override defaults. The wrapper supplies the noise-schedule coefficients.
+        Do not pass ``num_steps`` here; set the sampling step count with
+        ``number_of_steps`` instead. By default None
 
     Badges
     ------
@@ -205,7 +215,7 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         time_scale: float = 999.0,
         number_of_samples: int = 1,
         number_of_steps: int = 50,
-        solver: Literal["heun", "euler"] = "heun",
+        solver: str | None = None,
         shift: float = 32.0,
         t_max: float = 0.99,
         x0v_clip: float = 0.05,
@@ -213,8 +223,11 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         sigma_max: float = 200.0,
         rho: float = 7.0,
         amp: bool = True,
+        *,
+        solver_options: dict[str, Any] | None = None,
     ):
         super().__init__()
+        solver = solver or "heun"
         if network_kind not in ("rectified_flow", "edm"):
             raise ValueError(
                 f"network_kind must be 'rectified_flow' or 'edm', got {network_kind!r}"
@@ -223,8 +236,10 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             raise ValueError(
                 f"prediction_type must be 'x0' or 'flow', got {prediction_type!r}"
             )
-        if solver not in ("heun", "euler"):
-            raise ValueError(f"solver must be 'heun' or 'euler', got {solver!r}")
+        if solver not in SOLVERS:
+            raise ValueError(
+                f"Unknown solver {solver!r}; choose from {tuple(SOLVERS)}."
+            )
         if not isinstance(number_of_samples, int) or number_of_samples < 1:
             raise ValueError("number_of_samples must be a positive integer")
         if number_of_steps < 1:
@@ -263,6 +278,11 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         self.number_of_samples = number_of_samples
         self.number_of_steps = int(number_of_steps)
         self.solver = solver
+        if solver_options is not None and "num_steps" in solver_options:
+            raise ValueError(
+                "Do not pass 'num_steps' in solver_options; use number_of_steps instead."
+            )
+        self.solver_options = dict(solver_options or {})
         self.shift = float(shift)
         self.t_max = float(t_max)
         self.x0v_clip = float(x0v_clip)
@@ -510,6 +530,14 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             device="cpu" if self._rng_generator is not None else device,
             generator=self._rng_generator,
         ).to(device)
+        gen = None
+        if self._rng_generator is not None and self.solver.startswith(
+            "edm_stochastic_"
+        ):
+            seed = int(
+                torch.randint(2**63 - 1, (), generator=self._rng_generator).item()
+            )
+            gen = torch.Generator(device=device).manual_seed(seed)
         ctx = self._inference_context(device)
 
         def net(x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
@@ -524,13 +552,20 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             denoiser = scheduler.get_denoiser(
                 x0_predictor=lambda x, s: net(x, s.to(torch.float32).reshape(-1))
             )
-            return sample(
-                denoiser,
-                latents * self.sigma_max,
-                scheduler,
-                num_steps=self.number_of_steps,
-                solver=self.solver,
-            ).float()
+            with seeded_rng(gen):
+                return sample(
+                    denoiser,
+                    latents * self.sigma_max,
+                    scheduler,
+                    num_steps=self.number_of_steps,
+                    solver=self.solver,
+                    solver_options=_solver_options(
+                        scheduler,
+                        self.solver,
+                        num_steps=self.number_of_steps,
+                        options=self.solver_options,
+                    ),
+                ).float()
 
         scheduler = RectifiedFlowNoiseScheduler(t_max=self.t_max)
         t_steps = self._rf_time_steps(device, scheduler)
@@ -547,14 +582,21 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             return (x.float() - out) / tc
 
         denoiser = scheduler.get_denoiser(flow_predictor=flow)
-        return sample(
-            denoiser,
-            xN,
-            scheduler,
-            num_steps=self.number_of_steps,
-            solver=self.solver,
-            time_steps=t_steps,
-        ).float()
+        with seeded_rng(gen):
+            return sample(
+                denoiser,
+                xN,
+                scheduler,
+                num_steps=self.number_of_steps,
+                solver=self.solver,
+                solver_options=_solver_options(
+                    scheduler,
+                    self.solver,
+                    num_steps=self.number_of_steps,
+                    options=self.solver_options,
+                ),
+                time_steps=t_steps,
+            ).float()
 
     @torch.inference_mode()
     def _forward(self, era5: torch.Tensor, valid_time: datetime) -> torch.Tensor:
@@ -648,6 +690,9 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         shift: float | None = None,
         amp: bool | None = None,
         variant: Literal["x_pred"] = "x_pred",
+        *,
+        solver: str | None = None,
+        solver_options: dict[str, Any] | None = None,
     ) -> DiagnosticModel:
         """Load the model from a package.
 
@@ -668,6 +713,15 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         variant : {"x_pred"}, optional
             Sub-folder of the package to load, by default ``"x_pred"`` (the
             x-prediction rectified-flow model).
+
+        solver : str | None, optional
+            Select the numerical method for integrating the sampling ODE in
+            reverse time. ``None`` preserves the package's default solver, by
+            default None
+        solver_options : dict[str, Any] | None, optional
+            Options passed to the selected solver to customize its behavior or
+            override defaults. Do not pass ``num_steps`` here; set the sampling step
+            count with ``number_of_steps`` instead. By default None
 
         Returns
         -------
@@ -759,7 +813,8 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
                 if number_of_steps is not None
                 else int(sampler_meta.get("num_steps", 50))
             ),
-            solver=sampler_meta.get("solver", "heun"),
+            solver=solver if solver is not None else sampler_meta.get("solver", "heun"),
+            solver_options=solver_options,
             shift=shift if shift is not None else float(sampler_meta.get("shift", 1.0)),
             t_max=float(sampler_meta.get("t_max", 0.99)),
             x0v_clip=float(sampler_meta.get("x0v_clip", 0.05)),

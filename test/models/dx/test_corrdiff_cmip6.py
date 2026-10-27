@@ -119,8 +119,8 @@ def mock_regression_model():
     return MockPhysicsNemoModule(img_out_channels=4)
 
 
-@pytest.fixture
-def cmip6_model_minimal(mock_residual_model, mock_regression_model):
+@pytest.fixture(params=[None, "dpmpp_2m"])
+def cmip6_model_minimal(request, mock_residual_model, mock_regression_model):
     """Minimal CorrDiffCMIP6 instance suitable for unit tests."""
     n = 128
     input_variables = ["siconc", "snc", "t2m"]
@@ -154,8 +154,7 @@ def cmip6_model_minimal(mock_residual_model, mock_regression_model):
         time_feature_scale=torch.ones(2),
         number_of_samples=1,
         number_of_steps=2,
-        solver="euler",
-        sampler_type="stochastic",
+        solver=request.param,
         inference_mode="regression",
         hr_mean_conditioning=False,
     )
@@ -207,21 +206,10 @@ class TestCorrDiffCMIP6Utils:
             # Match expected shape (including preprocess padding), on the correct device.
             return torch.zeros(latents_shape, device=img_lr.device, dtype=torch.float32)
 
-        def _fake_diffusion_step(
-            *,
-            net,
-            sampler_fn,
-            img_shape,
-            img_out_channels,
-            rank_batches,
-            img_lr,
-            rank,
-            device,
-            mean_hr=None,
-        ):
+        def _fake_diffusion_step(self, img_lr, seeds, mean_hr=None):
             return torch.zeros(
-                (1, img_out_channels, img_shape[0], img_shape[1]),
-                device=device,
+                (len(seeds), len(self.output_variables), *img_lr.shape[-2:]),
+                device=img_lr.device,
                 dtype=torch.float32,
             )
 
@@ -231,7 +219,7 @@ class TestCorrDiffCMIP6Utils:
             raising=True,
         )
         monkeypatch.setattr(
-            "earth2studio.models.dx.corrdiff.diffusion_step",
+            "earth2studio.models.dx.corrdiff.CorrDiff._sample_residual",
             _fake_diffusion_step,
             raising=True,
         )

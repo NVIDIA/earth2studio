@@ -49,7 +49,7 @@ from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager, nullcontext
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 import torch
@@ -81,6 +81,9 @@ try:
     from physicsnemo.diffusion.samplers import sample
     from physicsnemo.models.dit import DiT
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
+
+    from earth2studio.models._diffusion import SOLVERS, seeded_rng
+    from earth2studio.models._diffusion import solver_options as _solver_options
 except ImportError:
     OptionalDependencyFailure("cosmo")
     cos_zenith_angle = None
@@ -309,9 +312,14 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         Diffusion noise-schedule bounds. Default to 0.002 / 800.0.
     rho : float
         Karras noise-schedule exponent. Defaults to 7.0.
-    solver : {"heun", "euler"}
-        Diffusion ODE solver: ``"heun"`` (2nd-order, default) or ``"euler"``
-        (1st-order).
+    solver : str, optional
+        Select the numerical method for integrating the sampling ODE in reverse
+        time. By default "heun"
+    solver_options : dict[str, Any] | None, optional
+        Options passed to the selected solver to customize its behavior or
+        override defaults. The wrapper supplies the noise-schedule coefficients.
+        Do not pass ``num_steps`` here; set the sampling step count with
+        ``number_of_steps`` instead. By default None
     amp : bool
         Run the network forward passes (regression patches and the diffusion
         denoiser) under ``torch.autocast`` bf16. Roughly halves inference time
@@ -354,6 +362,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     - ERA5, ECMWF: https://www.ecmwf.int/en/forecasts/dataset/ecmwf-reanalysis-v5
     - https://huggingface.co/nvidia/corrdiff-cosmo-era5
 
+
     Badges
     ------
     region:eu class:downscaling product:wind product:precip product:temp product:atmos year:2026 gpu:80gb
@@ -392,11 +401,13 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         sigma_min: float = 0.002,
         sigma_max: float = 800.0,
         rho: float = 7.0,
-        solver: Literal["heun", "euler"] = "heun",
+        solver: str = "heun",
         amp: bool = False,
         hub_heights: Sequence[float] | None = None,
         hub_interp: Literal["linear", "log"] = "linear",
         wind_levels: dict | None = None,
+        *,
+        solver_options: dict[str, Any] | None = None,
     ):
         super().__init__()
 
@@ -426,13 +437,20 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
                 f"{number_of_steps}); the schedule's step/(n-1) ramp divides by "
                 "zero at n=1, silently producing NaN samples."
             )
-        if solver not in ("heun", "euler"):
-            raise ValueError(f"solver must be 'heun' or 'euler', got {solver!r}.")
+        if solver not in SOLVERS:
+            raise ValueError(
+                f"Unknown solver {solver!r}; choose from {tuple(SOLVERS)}."
+            )
         self.number_of_steps = number_of_steps
         self.sigma_min = sigma_min
         self.sigma_max = sigma_max
         self.rho = rho
         self.solver = solver
+        if solver_options is not None and "num_steps" in solver_options:
+            raise ValueError(
+                "Do not pass 'num_steps' in solver_options; use number_of_steps instead."
+            )
+        self.solver_options = dict(solver_options or {})
         self.amp = amp
 
         self.era5_variables = list(era5_variables)
@@ -1276,6 +1294,8 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         *,
         score_predictor_factory: _ScorePredictorFactory | None = None,
         num_steps: int | None = None,
+        solver: str | None = None,
+        solver_options: dict[str, Any] | None = None,
     ) -> torch.Tensor:
         """One diffusion sample: EDM deterministic sampler over the DiT-RoPE
         conditioned on ``background`` -> [1, n_out, H, W] (normalized space;
@@ -1344,13 +1364,23 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         else:
             denoiser = scheduler.get_denoiser(x0_predictor=x0_predictor)
             ctx = self._inference_context()
-        with ctx:
+        solver = self.solver if solver is None else solver
+        options = self.solver_options | (solver_options or {})
+        with ctx, seeded_rng(gen):
             out = sample(
                 denoiser,
                 latents.double() * self.sigma_max,
                 scheduler,
                 num_steps=num_steps if num_steps is not None else self.number_of_steps,
-                solver=self.solver,
+                solver=solver,
+                solver_options=_solver_options(
+                    scheduler,
+                    solver,
+                    num_steps=(
+                        num_steps if num_steps is not None else self.number_of_steps
+                    ),
+                    options=options,
+                ),
             )
         return out.float()
 
@@ -1707,6 +1737,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
             sigma_max=self.sigma_max,
             rho=self.rho,
             solver=self.solver,
+            solver_options=self.solver_options,
             amp=self.amp,
             hub_heights=(self._hub_heights or None),
             hub_interp=self._hub_interp,
@@ -1763,18 +1794,49 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         resolution: Literal["rea6", "rea2"] = "rea6",
         hub_heights: Sequence[float] | None = None,
         hub_interp: Literal["linear", "log"] = "linear",
+        *,
+        solver: str | None = None,
+        solver_options: dict[str, Any] | None = None,
     ) -> DiagnosticModel:
         """Load a COSMO-REA downscaling model from a package.
 
         ``mode`` ({"mean", "diffusion"}) and ``resolution`` ({"rea6", "rea2"})
         select the checkpoint within one package. All other
         configuration (sampler, normalization, transforms) comes from the package
-        metadata.
+        metadata. Override the sampler with ``solver`` and ``solver_options``.
 
         ``hub_heights``/``hub_interp`` opt into derived hub-height wind components
         (``u{H}m``/``v{H}m``; compose ``DerivedWS`` for speed); they require the
         package to carry a ``wind_levels`` metadata block (else requesting
         ``hub_heights`` raises). See the constructor.
+
+        Parameters
+        ----------
+        package : Package
+            Model checkpoint package to load.
+        device : str | None, optional
+            Device for the loaded networks, by default None
+        mode : Literal["mean", "diffusion"], optional
+            Select regression or diffusion generation, by default "mean"
+        resolution : Literal["rea6", "rea2"], optional
+            Select the COSMO-REA resolution, by default "rea6"
+        hub_heights : Sequence[float] | None, optional
+            Above-ground heights for derived wind components, by default None
+        hub_interp : Literal["linear", "log"], optional
+            Interpolation for derived hub-height wind, by default "linear"
+        solver : str | None, optional
+            Select the numerical method for integrating the sampling ODE in
+            reverse time. ``None`` preserves the package's default solver,
+            by default None
+        solver_options : dict[str, Any] | None, optional
+            Options passed to the selected solver to customize its behavior or
+            override defaults. Do not pass ``num_steps`` here; set the loaded model's
+            ``number_of_steps`` instead. By default None
+
+        Returns
+        -------
+        DiagnosticModel
+            Loaded COSMO-REA downscaling model.
         """
 
         # Validate the selectors up front so a bad value fails with a clear message
@@ -2011,7 +2073,8 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
             sigma_min=sampler.get("sigma_min", 0.002),
             sigma_max=sampler.get("sigma_max", 800.0),
             rho=sampler.get("rho", 7.0),
-            solver=sampler.get("solver", "heun"),
+            solver=solver if solver is not None else sampler.get("solver", "heun"),
+            solver_options=solver_options,
             hub_heights=hub_heights,
             hub_interp=hub_interp,
             wind_levels=metadata.get("wind_levels"),
