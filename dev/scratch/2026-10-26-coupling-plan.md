@@ -22,6 +22,8 @@ Deviations from this plan, all reflected in `dev/spec/COUPLING_SPEC.md`:
   long as the slots share lead times. Every model uses the runner's device;
   per-model device staging is deferred.
 - `data_requests` lists only `fetch_data` calls, per the execution contract.
+- There are no per-protocol adapters: `_Node` is one record of a model's parsed
+  declarations, and the scheduler branches on `stateful` where the kinds differ.
 - Package code is about 1,500 lines with docstrings and license headers.
 
 **Goal:** Couple existing model instances at their own cadences, on their own

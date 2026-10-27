@@ -10,8 +10,8 @@ mutates them, so every component also runs alone and under its conformance
 checker.
 
 Status: `earth2studio.coupling` exports `Connector`, `CoupledRunner` and
-`CouplingError`. Tests are in `test/coupling/`; the tutorial is
-`dev/examples/10_coupling.py`.
+`CouplingError`. Tests are in `test/coupling/`; the tutorials are
+`dev/examples/10_coupling.py` and `dev/examples/11_stormscope_coupling.py`.
 
 Lineage: this replaces the `nvcoupler` prototype of PR #1229 and keeps its
 intent (connectors between components, a derived schedule, eager validation and
@@ -55,7 +55,8 @@ class CoupledRunner:  # satisfies earth2studio.run.Runner
 
 `sources` maps a component to one source per input-then-forcing slot, in the
 order of `default_sources()`; a single source covers the first input slot and
-`None` entries fall back to the model's recommendation. `CouplingError` is a
+`None` entries fall back to the model's recommendation, which is built only
+when a fetch needs it. `CouplingError` is a
 `ValueError`.
 
 ## Components

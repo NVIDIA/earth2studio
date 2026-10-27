@@ -34,7 +34,7 @@ import numpy as np
 import xarray as xr
 
 from earth2studio.coupling._buffer import _Buffer
-from earth2studio.coupling._nodes import _Diagnostic, _Node, _Slot, _Stateful
+from earth2studio.coupling._nodes import _Node, _Slot
 from earth2studio.coupling.connector import Connector, _split_label
 from earth2studio.coupling.errors import CouplingError
 from earth2studio.utils.time_statistics import source_lead_times
@@ -109,7 +109,7 @@ class _Event:
 
 
 class _Executor(Protocol):
-    def initial(self, node: _Stateful) -> tuple[Any, ...] | None:
+    def initial(self, node: _Node) -> tuple[Any, ...] | None:
         """Fetch every input slot of ``node``, in slot order; ``None`` when planning."""
         ...
 
@@ -123,7 +123,7 @@ class _Executor(Protocol):
 class _Planner:
     """Executor that runs nothing, for planning and validation."""
 
-    def initial(self, node: _Stateful) -> None:
+    def initial(self, node: _Node) -> None:
         return None
 
     def fire(self, event: _Event, buffers: Mapping[str, _Buffer]) -> None:
@@ -152,7 +152,7 @@ class _Scheduler:
         """Lead times at which some stateful component's chunk is due."""
         ticks: set[int] = set()
         for node in self.nodes.values():
-            if isinstance(node, _Stateful):
+            if node.stateful:
                 k = 0
                 while node.due(k) <= final:
                     ticks.add(node.due(k))
@@ -245,7 +245,7 @@ class _Run:
     def initialize(self) -> Iterator[_Event]:
         """Fetch every stateful component's inputs and publish initial conditions."""
         for node in self.s.nodes.values():
-            if not isinstance(node, _Stateful):
+            if not node.stateful:
                 continue
             arrays = self.executor.initial(node)
             buffer = self.buffers[node.name]
@@ -311,7 +311,7 @@ class _Run:
     ) -> tuple[_SlotPlan, ...] | None:
         plans = []
         for slot in slots:
-            leads = node.required(slot, index)  # type: ignore[attr-defined]
+            leads = node.required(slot, index)
             connector = None
             if not slot.frame and not slot.static:
                 connector = self.s.connectors.get((node.name, slot.index))
@@ -342,7 +342,7 @@ class _Run:
         while progress:
             progress = False
             for name, node in self.s.nodes.items():
-                if isinstance(node, _Stateful):
+                if node.stateful:
                     while node.due(self.next_chunk[name]) <= min(tick, self.final):
                         k = self.next_chunk[name]
                         plans = self._plans(node, node.slots_for(k), k, ordinal)
@@ -362,7 +362,7 @@ class _Run:
                         yield self._fire(event)
                         self.next_chunk[name] = k + 1
                         progress = True
-                elif isinstance(node, _Diagnostic):
+                else:
                     for valid in list(self.pending[name]):
                         plans = self._plans(node, node.inputs, valid, ordinal)
                         if plans is None:
@@ -387,7 +387,7 @@ class _Run:
     def _blocker(self, name: str) -> tuple[str, str, int] | None:
         """First ``(producer, label, lead)`` component ``name`` is waiting for."""
         node = self.s.nodes[name]
-        if isinstance(node, _Stateful):
+        if node.stateful:
             k = self.next_chunk[name]
             slots, index = node.slots_for(k), k
         else:
@@ -398,7 +398,7 @@ class _Run:
             connector = self.s.connectors.get((name, slot.index))
             if connector is None or slot.frame or slot.static:
                 continue
-            for lead in node.required(slot, index):  # type: ignore[attr-defined]
+            for lead in node.required(slot, index):
                 single = np.array([lead], dtype=np.int64)
                 for label in slot.labels:
                     reads = self._resolve(
@@ -413,13 +413,12 @@ class _Run:
         stuck = [
             name
             for name, node in self.s.nodes.items()
-            if isinstance(node, _Stateful) and node.due(self.next_chunk[name]) <= limit
+            if node.stateful and node.due(self.next_chunk[name]) <= limit
         ]
         if not stuck:
             return
         name = stuck[0]
         node = self.s.nodes[name]
-        assert isinstance(node, _Stateful)  # noqa: S101
         due = node.due(self.next_chunk[name])
         path = [name]
         current = name

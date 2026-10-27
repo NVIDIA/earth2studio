@@ -398,8 +398,10 @@ optional runner capability built on `(y, state)` (open decision 3).
    `run/pipeline.py`. Next: replace the eval `forecast`, `diagnostic` and
    `dlesym` pipelines with built-in runners.
 3. **Coupled runner.** `CoupledRunner` is done
-   ([COUPLING_SPEC.md](COUPLING_SPEC.md)). Next: StormScope GOES and MRMS as
-   coupled components, replacing the eval `stormscope` pipeline.
+   ([COUPLING_SPEC.md](COUPLING_SPEC.md)), and `dev/examples/11_stormscope_coupling.py`
+   runs the Flash StormScope GOES and MRMS models as coupled components (GPU
+   check pending). Next: compare against the eval `stormscope` pipeline and
+   replace it.
 4. **Workflows.** `run.deterministic`, `run.diagnostic` and `run.ensemble` become
    thin wrappers over `Pipeline.from_model`.
 

@@ -27,13 +27,7 @@ import torch
 import xarray as xr
 
 from earth2studio.coupling._buffer import _Buffer
-from earth2studio.coupling._nodes import (
-    _Node,
-    _node,
-    _ns,
-    _Slot,
-    _Stateful,
-)
+from earth2studio.coupling._nodes import _Node, _node, _ns, _Slot
 from earth2studio.coupling._schedule import (
     _Event,
     _fmt,
@@ -138,6 +132,7 @@ class CoupledRunner:
             name: _slot_sources(node, sources.get(name))
             for name, node in self.nodes.items()
         }
+        self._recommended: dict[str, tuple[Any, ...]] = {}
         self.seed = seed
         self.spacing = self._spacing()
         self._check_windows()
@@ -218,9 +213,7 @@ class CoupledRunner:
     def _spacing(self) -> dict[str, int]:
         """Lead-time spacing of each component's published frames."""
         spacing = {
-            name: node.spacing
-            for name, node in self.nodes.items()
-            if isinstance(node, _Stateful)
+            name: node.spacing for name, node in self.nodes.items() if node.stateful
         }
         for name, node in self.nodes.items():
             if node.stateful:
@@ -267,7 +260,7 @@ class CoupledRunner:
 
     def _plan_retention(self) -> dict[str, int]:
         """Dry-run a few coupling periods, raising on cycles and missing sources."""
-        stateful = [n for n in self.nodes.values() if isinstance(n, _Stateful)]
+        stateful = [n for n in self.nodes.values() if n.stateful]
         period = math.lcm(*(n.cadence for n in stateful))
         horizon = max(n.due(0) for n in stateful) + 2 * period
         ages: dict[str, int] = {}
@@ -340,13 +333,13 @@ class CoupledRunner:
         width = max(len(name) for name in self.nodes)
         lines = ["Components:"]
         for name, node in self.nodes.items():
-            if isinstance(node, _Stateful):
-                when = f"every {_fmt(node.cadence)[1:]}"
+            if node.stateful:
+                kind, when = "stateful", f"every {_fmt(node.cadence)[1:]}"
             else:
-                when = "when its inputs arrive"
+                kind, when = "diagnostic", "when its inputs arrive"
             if len(node.streams) > 1:
                 when += f"; streams {', '.join(node.streams)}"
-            lines.append(f"  {name:<{width}}  {node.kind:<10}  {when}")
+            lines.append(f"  {name:<{width}}  {kind:<10}  {when}")
         lines.append("Connectors:")
         for connector in self.connectors.values():
             dst = self.nodes[connector.dst]
@@ -398,7 +391,7 @@ class _Requests:
             )
         )
 
-    def initial(self, node: _Stateful) -> None:
+    def initial(self, node: _Node) -> None:
         for slot in node.inputs:
             leads = [0] if slot.frame else slot.leads
             self._add(node, slot, slot.labels, leads)
@@ -448,7 +441,7 @@ class _Execution:
             x = x.isel(lead_time=0, drop=True)
         return x
 
-    def initial(self, node: _Stateful) -> tuple[Any, ...]:
+    def initial(self, node: _Node) -> tuple[Any, ...]:
         values = tuple(
             self._fetch(node, slot, slot.labels, [0] if slot.frame else slot.leads)
             for slot in node.inputs
@@ -461,7 +454,7 @@ class _Execution:
     ) -> tuple[xr.DataArray, ...]:
         node = event.node
         args = tuple(self._value(node, plan, buffers) for plan in event.plans)
-        if isinstance(node, _Stateful):
+        if node.stateful:
             if event.index == 0:
                 y, state = node.model.initialize(*self.inputs.pop(node.name), *args)
             else:
@@ -552,11 +545,8 @@ def _final(final_lead_time: np.timedelta64) -> int:
 def _slot_sources(
     node: _Node, given: Source | tuple[Source | None, ...] | None
 ) -> tuple[Any, ...]:
-    """One source per input-then-forcing slot, falling back to recommendations."""
+    """One given source or ``None`` per input-then-forcing slot."""
     count = len(node.inputs) + len(node.forcing)
-    recommended = recommended_sources(node.model)
-    if not isinstance(recommended, tuple):
-        recommended = (recommended,)
     if given is None:
         given = ()
     elif not isinstance(given, tuple):
@@ -565,15 +555,25 @@ def _slot_sources(
         raise CouplingError(
             f"Component {node.name!r} has {count} slots but {len(given)} sources"
         )
-    given = tuple(given) + (None,) * (count - len(given))
-    recommended = tuple(recommended)[:count]
-    recommended += (None,) * (count - len(recommended))
-    return tuple(g if g is not None else r for g, r in zip(given, recommended))
+    return tuple(given) + (None,) * (count - len(given))
 
 
 def _source(runner: CoupledRunner, node: _Node, slot: _Slot) -> Any:
+    """The slot's given source, else the model's recommendation.
+
+    Recommendations are built only when a fetch needs one, as models may load
+    grids or regridders to build them.
+    """
     position = len(node.inputs) + slot.index if slot.forcing else slot.index
     source = runner.sources[node.name][position]
+    if source is None:
+        if node.name not in runner._recommended:
+            recommended = recommended_sources(node.model)
+            if not isinstance(recommended, tuple):
+                recommended = (recommended,)
+            runner._recommended[node.name] = tuple(recommended)
+        recommended = runner._recommended[node.name]
+        source = recommended[position] if position < len(recommended) else None
     if source is None:
         hint = " or connect the slot" if slot.forcing and not slot.frame else ""
         raise CouplingError(

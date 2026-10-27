@@ -31,6 +31,9 @@ Runnable tutorials for proposed APIs and workflows.
 - `10_coupling.py`: `CoupledRunner` coupling a 6-hourly weather model to a daily
   soil bucket that assimilates sparse retrievals, run per item and under
   `Pipeline`, then closed into a feedback loop with a `time="hold"` edge.
+- `11_stormscope_coupling.py`: the Flash StormScope GOES and MRMS models as two
+  coupled components over a regional view, run with `Pipeline` and plotted like
+  the gallery example. Needs checkpoints, data downloads and a GPU.
 
 Run the signature tutorial from the repository root with
 `.venv/bin/python dev/examples/03_coordinate_signatures.py`. It uses CPU-only
