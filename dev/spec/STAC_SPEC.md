@@ -121,6 +121,10 @@ the layer deliberately does not:
   the `device` convention: compute the dask array and return NumPy on CPU or CuPy on
   CUDA. `RegriddedSource` ([REGRID_SPEC.md](REGRID_SPEC.md)) then maps the source
   onto a model grid without further code here.
+- Coupling: a collection source is bound to a model slot through
+  `Coupler(sources=...)` ([COUPLING_SPEC.md](COUPLING_SPEC.md)); the coupler stages
+  it onto the model device and regrids it like any source, so the layer needs
+  nothing coupler-specific.
 
 ## Deferred Work and Verification
 
