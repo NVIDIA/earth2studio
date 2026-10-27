@@ -17,6 +17,7 @@
 import asyncio
 import pathlib
 import shutil
+import time as time_module
 from datetime import datetime, timedelta
 from unittest.mock import Mock
 
@@ -369,3 +370,33 @@ def test_aifs_time_available(time, lead_time, variable):
     with pytest.raises(ValueError):
         ds = AIFS_ENS_FX(source="ecmwf")
         ds(time, lead_time, variable)
+
+
+def test_download_does_not_block_event_loop(tmp_path, monkeypatch):
+    """The blocking opendata client must not stall the (shared fsspec) IO loop."""
+    ds = object.__new__(AIFS_FX)
+    monkeypatch.setattr(ecmwf_module, "datasource_cache_root", lambda: str(tmp_path))
+    ds._model = "aifs-single"
+    ds._cache = True
+    ds._fc_type = "fc"
+    ds._members = []
+    ds.client = Mock()
+    ds.client.retrieve.side_effect = lambda request: time_module.sleep(0.5)
+
+    async def run():
+        ticks = 0
+
+        async def ticker():
+            nonlocal ticks
+            while True:
+                await asyncio.sleep(0.01)
+                ticks += 1
+
+        task = asyncio.create_task(ticker())
+        await ds._download_ifs_grib_cached(
+            datetime(2025, 12, 31, 0), timedelta(hours=6), "2t", "sfc", "sfc"
+        )
+        task.cancel()
+        return ticks
+
+    assert asyncio.run(run()) > 5

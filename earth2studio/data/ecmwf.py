@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import functools
 import hashlib
 import os
@@ -516,8 +517,9 @@ class _ECMWFOpenDataSource(ABC):
                 request["stream"] = "wave"
             if self._fc_type == "pf":
                 request["number"] = self._members
-            # Download, no await asyncio.to_thread, just let opendata be the bottle neck
-            self.client.retrieve(request)
+            # The opendata client is blocking, run it in a thread so it does not
+            # stall the (shared fsspec) event loop
+            await asyncio.to_thread(self.client.retrieve, request)
 
         return cache_path
 

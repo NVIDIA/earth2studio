@@ -81,6 +81,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- ECMWF open data sources (`IFS`, `IFS_FX`, `IFS_ENS`, `IFS_ENS_FX`, `AIFS_FX`,
+  `AIFS_ENS_FX`) no longer block the shared fsspec event loop with the synchronous
+  opendata client, which could stall unrelated async data sources (and their tests).
 - `NNJAObsConv` and `NomadsGDASObsConv` decode PrepBUFR files from before 2007, which
   number their message types 230-249 instead of 102-121, and raise on a PrepBUFR file
   with no known message family instead of returning no rows.
