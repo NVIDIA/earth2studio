@@ -415,7 +415,8 @@ class ZarrBackend:
                 continue
             array = self.root[name]
             arrays[name] = dict(zip(self._dims(array), array.shape))
-        coords: dict[Hashable, np.ndarray] = {**self.coords}
+        coords: dict[Hashable, np.ndarray] = {}
+        coords.update(self.coords)
         return arrays, coords
 
     def _coordinate_variables(self) -> dict[Hashable, xr.Variable]:

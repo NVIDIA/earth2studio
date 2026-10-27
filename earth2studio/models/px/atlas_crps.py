@@ -492,8 +492,8 @@ class AtlasCRPS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Forecasts after the rear hook. The front hook runs before subsequent
             steps; public-field edits feed recurrence alongside retained latents.
         """
-        y, state, restored = self._restore_checkpoint_state(x)
-        if not restored:
+        y, state, _ = self._restore_checkpoint_state(x)
+        if y is None or state is None:
             y, state = self.initialize(x)
             y = self.rear_hook(y)
             self._save_checkpoint_state(y, state)

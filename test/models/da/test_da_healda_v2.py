@@ -348,9 +348,7 @@ def test_healda_v2_coords():
     assert all("scan_angle" not in schema for schema in model.input_coords())
     with pytest.raises(ValueError, match="at most 6 frames"):
         model(*[None] * 6, _satwnd_df(np.array([CYCLE])))
-    coords = model.output_coords(
-        *model.input_coords(), request_time=np.array([CYCLE])
-    )
+    coords = model.output_coords(*model.input_coords(), request_time=np.array([CYCLE]))
     assert list(coords.dims) == ["time", "variable", "lat", "lon"]
     assert coords.shape == (1, len(CHANNELS), NLAT, NLON)
     assert list(coords.coords["variable"].values) == E2S_VARIABLES
