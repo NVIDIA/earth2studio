@@ -295,6 +295,13 @@ class NNJAObsConv:
         wide output ``type`` is the encoded report type for
         ``"prepbufr.acft_profiles"``. By default "long".
 
+    Attributes
+    ----------
+    task_timeout : float
+        Timeout in seconds for each file download attempt, by default 600.0.
+        Can be adjusted after instantiation with ``source.task_timeout = 900.0``.
+        The overall download remains bounded by ``async_timeout``.
+
     Warning
     -------
     This is a remote data source and can potentially download a large amount of data
@@ -368,6 +375,7 @@ class NNJAObsConv:
         self._decode_workers = max(1, decode_workers)
         self._retries = retries
         self.async_timeout = async_timeout
+        self.task_timeout: float = 600.0
         self._tmp_cache_hash: str | None = uuid.uuid4().hex[:8] if not cache else None
         self._calls = _CleanupAfterLastCall(self)
         # Anonymous obstore S3 store for the public NNJA bucket.
@@ -458,7 +466,7 @@ class NNJAObsConv:
                 uri,
                 retries=self._retries,
                 backoff=1.0,
-                task_timeout=120.0,
+                task_timeout=self.task_timeout,
                 exceptions=(OSError, IOError, TimeoutError, ConnectionError),
             )
             for uri in uris
@@ -671,6 +679,13 @@ class NNJAObsSatwnd(NNJAObsConv):
         components in ``observation_u`` and ``observation_v``. By default
         "long".
 
+    Attributes
+    ----------
+    task_timeout : float
+        Timeout in seconds for each file download attempt, by default 600.0.
+        Can be adjusted after instantiation with ``source.task_timeout = 900.0``.
+        The overall download remains bounded by ``async_timeout``.
+
     Warning
     -------
     This is a remote data source and can potentially download a large amount of data
@@ -868,6 +883,13 @@ class NNJAObsSat:
         ``asyncio.gather(*(source.fetch(time, [s]) for s in sensors))``; the
         calls share the source's decode slots. By default "long".
 
+    Attributes
+    ----------
+    task_timeout : float
+        Timeout in seconds for each file download attempt, by default 600.0.
+        Can be adjusted after instantiation with ``source.task_timeout = 900.0``.
+        The overall download remains bounded by ``async_timeout``.
+
     Warning
     -------
     Aggregate cycle files contain millions of footprints, and hyperspectral
@@ -975,6 +997,7 @@ class NNJAObsSat:
         self._decode_workers = max(1, decode_workers)
         self._retries = retries
         self.async_timeout = async_timeout
+        self.task_timeout: float = 600.0
         self._tmp_cache_hash: str | None = uuid.uuid4().hex[:8] if not cache else None
         self._calls = _CleanupAfterLastCall(self)
         # Anonymous obstore S3 store for the public NNJA bucket.
@@ -1055,9 +1078,7 @@ class NNJAObsSat:
                 uri,
                 retries=self._retries,
                 backoff=1.0,
-                # Hyperspectral IR aggregates (mtiasi, cris) are much larger
-                # than the microwave cycle files; allow 300s per attempt
-                task_timeout=300.0,
+                task_timeout=self.task_timeout,
                 exceptions=(OSError, IOError, TimeoutError, ConnectionError),
             )
             for uri in uris
