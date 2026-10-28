@@ -295,13 +295,6 @@ class NNJAObsConv:
         wide output ``type`` is the encoded report type for
         ``"prepbufr.acft_profiles"``. By default "long".
 
-    Attributes
-    ----------
-    task_timeout : float
-        Timeout in seconds for each file download attempt, by default 600.0.
-        Can be adjusted after instantiation with ``source.task_timeout = 900.0``.
-        The overall download remains bounded by ``async_timeout``.
-
     Warning
     -------
     This is a remote data source and can potentially download a large amount of data
@@ -679,13 +672,6 @@ class NNJAObsSatwnd(NNJAObsConv):
         components in ``observation_u`` and ``observation_v``. By default
         "long".
 
-    Attributes
-    ----------
-    task_timeout : float
-        Timeout in seconds for each file download attempt, by default 600.0.
-        Can be adjusted after instantiation with ``source.task_timeout = 900.0``.
-        The overall download remains bounded by ``async_timeout``.
-
     Warning
     -------
     This is a remote data source and can potentially download a large amount of data
@@ -882,13 +868,6 @@ class NNJAObsSat:
         sensors concurrently, one call each, e.g.
         ``asyncio.gather(*(source.fetch(time, [s]) for s in sensors))``; the
         calls share the source's decode slots. By default "long".
-
-    Attributes
-    ----------
-    task_timeout : float
-        Timeout in seconds for each file download attempt, by default 600.0.
-        Can be adjusted after instantiation with ``source.task_timeout = 900.0``.
-        The overall download remains bounded by ``async_timeout``.
 
     Warning
     -------
