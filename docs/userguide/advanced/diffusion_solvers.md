@@ -77,11 +77,18 @@ corrdiff = CorrDiffEra5Hrrr.load_model(
 )
 ```
 
+For other already loaded models, set their sampling controls:
+
+```python
+stormcast.sampler_steps = 32  # StormCast and StormCastSDA
+stormcast_conus.num_diffusion_steps = 32
+```
+
 Other CorrDiff wrappers expose `number_of_steps`.
 For `CorrDiffCosmoEra5SDA`, set `model.sampler_steps`.
 
-Passing `num_steps` in `solver_options` raises `ValueError`. Use the wrapper's
-sampling control so the step count and sampling time grid stay consistent.
+Do not pass `num_steps` in `solver_options`. Use the wrapper's sampling control
+so the step count and sampling time grid stay consistent.
 
 ## Compare solver choices
 
@@ -98,3 +105,25 @@ The installed PhysicsNeMo version must provide the selected method. Defaults
 vary across models, and some loaders read them from package metadata.
 For `CorrDiffCosmoEra5`, select `mode="diffusion"` to enable sampling.
 `CorrDiffEra5Hrrr` supports EDM and rectified-flow packages.
+
+## Sampling with `StormCast`
+
+`StormCast`, `StormCastCONUS`, `StormCastSDA`, and `StormCastConusSDA` accept
+the same solver loader options.
+For example, compare DPM++(2M) at a specified sampling budget:
+
+```python
+from earth2studio.models.px import StormCast
+
+model = StormCast.load_model(
+    StormCast.load_default_package(),
+    sampler_steps=18,
+    solver="dpmpp_2m",
+)
+```
+
+Use `sampler_steps` to change StormCast's sampling grid. Solver selection keeps
+the wrapper's conditioning and guidance in place. For `StormCastConusSDA`,
+`num_diffusion_steps` controls unguided forecasts and `num_sda_diffusion_steps`
+controls guided analyses. Supply conditioning fields and observations explicitly
+to the model, and call `set_rng(seed)` before starting a reproducible trajectory.

@@ -163,6 +163,8 @@ def _build_model(
     clamp_values: bool = False,
     hrrr_lat_lim: tuple[int, int] = (LAT_START, LAT_END),
     hrrr_lon_lim: tuple[int, int] = (LON_START, LON_END),
+    solver: str = "edm_stochastic_heun",
+    solver_options: dict | None = None,
 ) -> StormCastCONUS:
     """Construct a minimal StormCastCONUS for unit testing."""
     diffusion = PhooStormCastCONUSDiffusionModel(NVAR)
@@ -188,6 +190,8 @@ def _build_model(
         variables=variables,
         conditioning_variables=conditioning_variables,
         num_diffusion_steps=2,
+        solver=solver,
+        solver_options=solver_options,
         use_amp=use_amp,
         clamp_values=clamp_values,
     ).to(device)
@@ -220,14 +224,33 @@ def test_stormcastconus_crop_uses_model_region_coordinates():
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_stormcastconus_sda_iter(device):
+@pytest.mark.parametrize(
+    "solver,options",
+    [
+        ("edm_stochastic_heun", {"S_churn": 0.2}),
+        ("euler", None),
+        ("heun", {"alpha": 1.0}),
+        ("exponential_euler", None),
+        ("dpmpp_2m", None),
+        ("dpmpp_2m_unic2", None),
+    ],
+)
+def test_stormcastconus_sda_iter(device, solver, options, monkeypatch):
     if device == "cuda:0" and not torch.cuda.is_available():
         pytest.skip("CUDA is unavailable")
     if conus_module.TensorDict is None:
         pytest.skip("PhysicsNeMo guidance is unavailable")
-    core = _build_model(device)
+    core = _build_model(device, solver=solver, solver_options=options)
     core.num_sda_diffusion_steps = 2
     core.time_tolerance = np.timedelta64(10, "m")
+    forward_times = []
+    forward = core._forward
+
+    def record_forward(x, conditioning, time, **kwargs):
+        forward_times.append(time)
+        return forward(x, conditioning, time, **kwargs)
+
+    monkeypatch.setattr(core, "_forward", record_forward)
     model = StormCastConusSDA(core)
     assert isinstance(model, StatefulAssimilationModel)
     signature = core.input_coords()
@@ -244,7 +267,7 @@ def test_stormcastconus_sda_iter(device):
     c = conditioning_input(core, x)
     obs = pd.DataFrame(
         {
-            "time": [time[0]],
+            "time": [time[0] + np.timedelta64(1, "h")],
             "variable": [core.variables[0]],
             "lat": [core.lat[8, 8]],
             "lon": [core.lon[8, 8]],
@@ -266,11 +289,17 @@ def test_stormcastconus_sda_iter(device):
     assert not np.allclose(y.e2s.as_numpy(), free.e2s.as_numpy())
     assert y.lead_time.values[0] == np.timedelta64(1, "h")
     model.set_rng(42)
-    outside_window = obs.assign(time=time[0] + np.timedelta64(1, "h"))
+    outside_window = obs.assign(time=time[0])
     xr.testing.assert_allclose(model(x, c, outside_window), free)
+    assert forward_times == [time[0]] * 3
     saved = deepcopy(state)
     c1 = conditioning_input(core, y)
     z, _ = model.step(y, c1, None, state)
+    next_obs = obs.assign(time=time[0] + np.timedelta64(2, "h"))
+    guided_next, _ = model.step(y, c1, next_obs, state)
+    assert not np.allclose(guided_next.e2s.as_numpy(), z.e2s.as_numpy())
+    xr.testing.assert_identical(model.step(y, c1, obs, state)[0], z)
+    assert forward_times[-3:] == [time[0] + np.timedelta64(1, "h")] * 3
     model.set_rng(99)
     xr.testing.assert_identical(model.step(y, c1, None, state)[0], z)
     assert saved[0] == state[0]
@@ -597,3 +626,17 @@ def test_stormcastconus_package(cond_dims, device, model):
     assert np.all(out_coords["time"] == time)
     assert out_coords.dims == ("time", "lead_time", "variable", "y", "x")
     assert out_coords.data.nbytes == 0
+
+
+@pytest.mark.parametrize("argument", ["solver_options", "sampler_args"])
+def test_rejects_duplicate_step_count(argument):
+    with pytest.raises(ValueError, match="num_diffusion_steps"):
+        StormCastCONUS(
+            torch.nn.Identity(),
+            torch.zeros(1),
+            torch.ones(1),
+            torch.zeros(1),
+            torch.zeros(1),
+            torch.ones(1),
+            **{argument: {"num_steps": 4}},
+        )

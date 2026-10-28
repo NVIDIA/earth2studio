@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- [StormCast](earth2studio/models/px/stormcast.py),
+  [StormCast CONUS](earth2studio/models/px/stormcastconus.py),
+  [StormCast SDA](earth2studio/models/da/sda_stormcast.py), and
+  [StormCast CONUS SDA](earth2studio/models/da/sda_stormcastconus.py) accept optional `solver`
+  and `solver_options` arguments when loading. These controls support experiments
+  with numerical integration methods to compare forecast quality and sampling
+  cost. Overrides are opt-in. Existing solver selections remain the defaults.
+  Refer to the [diffusion solver guide](docs/userguide/advanced/diffusion_solvers.md)
+  for examples and configuration details.
 - [CorrDiff wrappers](earth2studio/models/dx/corrdiff.py), including the
   [CMIP6](earth2studio/models/dx/corrdiff_cmip6.py),
   [COSMO/ERA5](earth2studio/models/dx/corrdiff_cosmo_era5.py),

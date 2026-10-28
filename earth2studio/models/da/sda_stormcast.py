@@ -16,6 +16,7 @@
 
 from collections.abc import Generator
 from itertools import product
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -61,6 +62,9 @@ try:
     from physicsnemo.diffusion.preconditioners.legacy import EDMPrecond
     from physicsnemo.diffusion.samplers import sample
     from physicsnemo.models.diffusion_unets import StormCastUNet
+
+    from earth2studio.models._diffusion import SOLVERS
+    from earth2studio.models._diffusion import solver_options as _solver_options
 except ImportError:
     OptionalDependencyFailure("stormcast")
     StormCastUNet = None
@@ -163,6 +167,16 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
     sda_gamma : float, optional
         SDA scaling factor for DPS guidance, by default 0.001
 
+    solver : str, optional
+        Select the numerical method for integrating the sampling ODE in reverse
+        time. Stochastic variants also inject noise along the trajectory, by
+        default "edm_stochastic_heun"
+    solver_options : dict[str, Any] | None, optional
+        Options passed to the selected solver to customize its behavior or
+        override defaults. The wrapper supplies the noise-schedule coefficients.
+        Do not pass ``num_steps`` here; set the sampling step count with
+        ``sampler_steps`` instead. By default None
+
     Badges
     ------
     region:na class:data-assimilation class:nowcasting product:wind product:temp product:atmos product:radar
@@ -190,8 +204,21 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         sampler_args: dict[str, float | int] | None = None,
         sda_std_obs: float = 0.1,
         sda_gamma: float = 0.001,
+        *,
+        solver: str = "edm_stochastic_heun",
+        solver_options: dict[str, Any] | None = None,
     ):
         super().__init__()
+        if solver not in SOLVERS:
+            raise ValueError(
+                f"Unknown solver {solver!r}; choose from {tuple(SOLVERS)}."
+            )
+        self.solver = solver
+        if solver_options is not None and "num_steps" in solver_options:
+            raise ValueError(
+                "Do not pass num_steps in solver_options; use sampler_steps instead."
+            )
+        self.solver_options = dict(solver_options or {})
         self.regression_model = regression_model
         self.diffusion_model = diffusion_model
         self.register_buffer("means", means)
@@ -209,6 +236,10 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             "S_noise": 1,
         }
         if sampler_args is not None:
+            if "num_steps" in sampler_args:
+                raise ValueError(
+                    "Do not pass num_steps in sampler_args; use sampler_steps instead."
+                )
             self.sampler_args.update(sampler_args)
         self._tolerance = normalize_time_tolerance(time_tolerance)
         self.sda_std_obs = sda_std_obs
@@ -408,6 +439,9 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         sampler_steps: int = 36,
         sda_std_obs: float = 0.1,
         sda_gamma: float = 0.001,
+        *,
+        solver: str = "edm_stochastic_heun",
+        solver_options: dict[str, Any] | None = None,
     ) -> StatefulAssimilationModel:
         """Load assimilation from package
 
@@ -425,6 +459,16 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             Observation noise standard deviation for DPS guidance, by default 0.1
         sda_gamma : float, optional
             SDA scaling factor for DPS guidance, by default 0.001
+
+        solver : str, optional
+            Select the numerical method for integrating the sampling ODE in
+            reverse time. Stochastic variants also inject noise along the
+            trajectory, by default "edm_stochastic_heun"
+        solver_options : dict[str, Any] | None, optional
+            Options passed to the selected solver to customize its behavior or
+            override defaults. The wrapper supplies the noise-schedule
+            coefficients. Do not pass ``num_steps`` here; set the sampling step count
+            with ``sampler_steps`` instead. By default None
 
         Returns
         -------
@@ -495,6 +539,8 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             time_tolerance=time_tolerance,
             sampler_steps=sampler_steps,
             sampler_args=sampler_args,
+            solver=solver,
+            solver_options=solver_options,
             sda_std_obs=sda_std_obs,
             sda_gamma=sda_gamma,
         )
@@ -559,13 +605,15 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             latents,
             noise_scheduler=scheduler,
             num_steps=self.sampler_steps,
-            solver="edm_stochastic_heun",
-            solver_options={
-                "S_churn": self.sampler_args["S_churn"],
-                "S_min": self.sampler_args["S_min"],
-                "S_max": self.sampler_args["S_max"],
-                "S_noise": self.sampler_args["S_noise"],
-            },
+            solver=self.solver,
+            solver_options=_solver_options(
+                scheduler,
+                self.solver,
+                prediction_type="x0",
+                num_steps=self.sampler_steps,
+                defaults=self.sampler_args,
+                options=self.solver_options,
+            ),
         )
 
         out += edm_out
