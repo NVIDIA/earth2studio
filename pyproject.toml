@@ -264,20 +264,20 @@ cbottle = [
 climatenet = []
 corrdiff = [
     "einops>=0.8.1",
-    "nvidia-physicsnemo>=2.0",
+    "nvidia-physicsnemo @ git+https://github.com/NVIDIA/physicsnemo.git@06d9e07b260c6668d76a79df972c54dfc65b5906",
     "nvtx>=0.2.11",
     "scipy>=1.15.2",
 ]
 cosmo = [
     "einops>=0.8.1",
     "natten ; python_version < '3.14'",
-    "nvidia-physicsnemo>=2.2.0",
+    "nvidia-physicsnemo @ git+https://github.com/NVIDIA/physicsnemo.git@06d9e07b260c6668d76a79df972c54dfc65b5906",
     "nvtx>=0.2.11",
     "scipy>=1.15.2",
 ]
 corrdiff-era5-hrrr = [
     "natten ; python_version < '3.14'",
-    "nvidia-physicsnemo>=2.2.0a0", # TODO >=2.3 once the flow-matching release (PhysicsNeMo #1931) ships on PyPI
+    "nvidia-physicsnemo @ git+https://github.com/NVIDIA/physicsnemo.git@06d9e07b260c6668d76a79df972c54dfc65b5906",
     "nvtx>=0.2.11",
 ]
 cyclone = [
@@ -414,10 +414,9 @@ torch-harmonics = [
   { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "fcn3"},
   { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74", extra = "sfno"},
 ]
-# TODO: Remove the pin for DLESyM after PNM 2.3.0 release (needs changes more recent than 2.2.0)
+# Match the diffusion extras so combined installs use one PhysicsNeMo revision.
 nvidia-physicsnemo = [
-  { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "426f7552da4b4fa675e404e8a4f437e27681b668", extra = "dlesym"},
-  { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "426f7552da4b4fa675e404e8a4f437e27681b668", extra = "corrdiff-era5-hrrr"},
+  { git = "https://github.com/NVIDIA/physicsnemo.git", rev = "06d9e07b260c6668d76a79df972c54dfc65b5906", extra = "dlesym"},
 ]
 
 climate-learn = { git = "https://github.com/NickGeneva/ORBIT-2", rev = "5b2d80a8ba4dc95029211ef2b8530d3663f65d39" }
@@ -606,3 +605,6 @@ warn_redundant_casts = true
 warn_unused_ignores = false
 follow_imports = 'skip'
 explicit_package_bases = true
+
+[tool.hatch.metadata]
+allow-direct-references = true

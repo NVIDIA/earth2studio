@@ -525,6 +525,7 @@ nav:
     - Checkpointing: userguide/advanced/checkpointing.md
     - Batch Dimension: userguide/advanced/batch.md
     - AutoModels: userguide/advanced/auto.md
+    - Diffusion solvers: userguide/advanced/diffusion_solvers.md
     - Lexicon: userguide/advanced/lexicon.md
     - Knowledge Base:
       - userguide/notes/index.md

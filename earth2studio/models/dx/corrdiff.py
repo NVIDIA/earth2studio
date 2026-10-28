@@ -17,11 +17,10 @@
 import json
 import zipfile
 from collections import Counter, OrderedDict
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from contextlib import nullcontext
 from copy import deepcopy
 from datetime import datetime
-from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -127,24 +126,22 @@ def _replace_grid(
 try:
     from physicsnemo import Module as PhysicsNemoModule
     from physicsnemo.diffusion.generate.legacy_generate import (
-        diffusion_step,
         regression_step,
     )
+    from physicsnemo.diffusion.noise_schedulers import EDMNoiseScheduler
+    from physicsnemo.diffusion.preconditioners import EDMPrecond
     from physicsnemo.diffusion.preconditioners.legacy import EDMPrecondSR
-    from physicsnemo.diffusion.samplers.legacy_deterministic_sampler import (
-        deterministic_sampler,
-    )
-    from physicsnemo.diffusion.samplers.legacy_stochastic_sampler import (
-        stochastic_sampler,
-    )
+    from physicsnemo.diffusion.samplers import sample
     from physicsnemo.diffusion.utils import StackedRandomGenerator
     from physicsnemo.models.diffusion_unets import UNet
+
+    from earth2studio.models._diffusion import SOLVERS
+    from earth2studio.models._diffusion import solver_options as _solver_options
 except ImportError:
     OptionalDependencyFailure("corrdiff")
     PhysicsNemoModule = None
     StackedRandomGenerator = None
-    deterministic_sampler = None
-    stochastic_sampler = None
+    sample = None
     EDMPrecondSR = None
     UNet = None
 
@@ -198,10 +195,21 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         Number of high resolution samples to draw from diffusion model, by default 1
     number_of_steps : int, optional
         Number of langevin diffusion steps during sampling algorithm, by default 18
-    solver : Literal["euler", "heun"], optional
-        Discretization of diffusion process, by default "euler"
-    sampler_type : Literal["deterministic", "stochastic"], optional
-        Type of sampler to use, by default "stochastic"
+    solver : str | None, optional
+        Select the numerical method for integrating the sampling ODE in reverse
+        time. ``None`` uses stochastic Heun unless
+        ``sampler_type="deterministic"`` selects Euler. Set
+        ``sampler_type=None`` when supplying an explicit solver, by default None
+    solver_options : dict[str, Any] | None, optional
+        Options passed to the selected solver to customize its behavior or
+        override defaults. Do not pass ``num_steps`` here; set the sampling step
+        count with ``number_of_steps`` instead. By default None
+    sampler_type : Literal["deterministic", "stochastic"] | None, optional
+        Sampling shortcut used when ``solver=None``. Select ``"deterministic"``
+        for Euler or ``"stochastic"`` for stochastic Heun. ``None`` uses
+        stochastic Heun when you omit the solver. An explicit ``solver``
+        requires ``sampler_type=None``; combining it with either shortcut raises
+        ``ValueError``, by default None
     inference_mode : Literal["regression", "diffusion", "both"], optional
         Which inference mode to use, by default "both"
     hr_mean_conditioning : bool, optional
@@ -254,14 +262,16 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         invariant_scale: torch.Tensor | None = None,
         number_of_samples: int = 1,
         number_of_steps: int = 18,
-        solver: Literal["euler", "heun"] = "euler",
-        sampler_type: Literal["deterministic", "stochastic"] = "stochastic",
+        solver: str | None = None,
+        sampler_type: Literal["deterministic", "stochastic"] | None = None,
         inference_mode: Literal["regression", "diffusion", "both"] = "both",
         hr_mean_conditioning: bool = True,
         grid_spacing_tolerance: float = 1e-5,
         grid_bounds_margin: float = 0.0,
         sigma_min: float | None = None,
         sigma_max: float | None = None,
+        *,
+        solver_options: dict[str, Any] | None = None,
     ):
         super().__init__()
 
@@ -270,13 +280,37 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             raise ValueError("`number_of_samples` must be a positive integer.")
         if not isinstance(number_of_steps, int) or number_of_steps < 1:
             raise ValueError("`number_of_steps` must be a positive integer.")
-        if solver not in ["heun", "euler"]:
-            raise ValueError(f"{solver} is not supported, must be in ['heun', 'euler']")
+        if sampler_type not in (None, "deterministic", "stochastic"):
+            raise ValueError(
+                f"Unknown sampler_type {sampler_type!r}; choose None, "
+                "'deterministic', or 'stochastic'."
+            )
+        if solver is not None and sampler_type is not None:
+            raise ValueError(
+                "solver and sampler_type are mutually exclusive; set sampler_type=None "
+                "when selecting a solver, or omit solver to use the sampler_type shortcut."
+            )
+        if solver is None:
+            sampler_type = sampler_type or "stochastic"
+            solver = "edm_stochastic_heun" if sampler_type == "stochastic" else "euler"
+        if sampler_type == "deterministic" and hr_mean_conditioning:
+            raise NotImplementedError(
+                "High-res mean conditioning is not yet implemented for the deterministic sampler"
+            )
+        if solver not in SOLVERS:
+            raise ValueError(
+                f"{solver!r} is not supported; choose from {tuple(SOLVERS)}."
+            )
 
         # Store model configuration
         self.number_of_samples = number_of_samples
         self.number_of_steps = number_of_steps
         self.solver = solver
+        if solver_options is not None and "num_steps" in solver_options:
+            raise ValueError(
+                "Do not pass 'num_steps' in solver_options; use number_of_steps instead."
+            )
+        self.solver_options = dict(solver_options or {})
         self.sampler_type = sampler_type
         self.inference_mode = inference_mode
         self.hr_mean_conditioning = hr_mean_conditioning
@@ -313,9 +347,6 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             out_scale,
             invariants,
         )
-
-        # Set up sampler
-        self.sampler = self._setup_sampler(sampler_type)
 
     @classmethod
     def _validate_grid_format(
@@ -585,29 +616,97 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             "out_scale", out_scale.view(1, len(self.output_variables), 1, 1)
         )
 
-    def _setup_sampler(
-        self, sampler_type: Literal["deterministic", "stochastic"]
-    ) -> Callable:
-        """Set up the appropriate sampler based on the type."""
-        sampler_kwargs: dict[str, Any] = {"num_steps": self.number_of_steps}
+    def _sample_residual(
+        self,
+        image_lr: torch.Tensor,
+        seeds: Sequence[int],
+        mean_hr: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        """Sample residuals while preserving independent member random streams."""
+        stochastic = (
+            self.sampler_type == "stochastic"
+            if self.sampler_type is not None
+            else self.solver.startswith("edm_stochastic_")
+        )
+        sigma_min = max(self.sigma_min or 0.002, self.residual_model.sigma_min)
+        sigma_max = min(
+            self.sigma_max or (800.0 if stochastic else 80.0),
+            self.residual_model.sigma_max,
+        )
+        scheduler = EDMNoiseScheduler(sigma_min=sigma_min, sigma_max=sigma_max)
+        dtype = torch.float32 if stochastic else torch.float64
+        times = scheduler.timesteps(
+            self.number_of_steps, device=image_lr.device, dtype=dtype
+        )
+        # Model noise quantization must preserve the exact zero endpoint.
+        times = torch.cat((self.residual_model.round_sigma(times[:-1]), times[-1:]))
+        condition = image_lr
+        if mean_hr is not None:
+            condition = torch.cat(
+                (mean_hr.expand(image_lr.shape[0], -1, -1, -1), image_lr), dim=1
+            )
+        outputs = []
+        stochastic_solver = self.solver.startswith("edm_stochastic_")
+        groups = (
+            [(i, i + 1) for i in range(len(seeds))]
+            if stochastic_solver
+            else [(0, len(seeds))]
+        )
+        devices = [image_lr.device] if image_lr.is_cuda else []
+        for start, stop in groups:
+            member_condition = condition[start:stop].to(
+                memory_format=torch.channels_last
+            )
 
-        # Add sigma parameters if specified (common to both samplers)
-        if self.sigma_min is not None:
-            sampler_kwargs["sigma_min"] = self.sigma_min
-        if self.sigma_max is not None:
-            sampler_kwargs["sigma_max"] = self.sigma_max
-
-        if sampler_type == "deterministic":
-            if self.hr_mean_conditioning:
-                raise NotImplementedError(
-                    "High-res mean conditioning is not yet implemented for the deterministic sampler"
+            def predict_x0(
+                x: torch.Tensor,
+                t: torch.Tensor,
+            ) -> torch.Tensor:
+                if isinstance(self.residual_model, EDMPrecond):
+                    return self.residual_model(
+                        x, t, condition=member_condition, class_labels=None
+                    ).to(dtype)
+                # Euler and Heun share this one-dimensional grid across members.
+                # Scalar time preserves the legacy model's embedding arithmetic.
+                model_time = t[0] if self.solver in ("euler", "heun") else t
+                return self.residual_model(x, member_condition, model_time, None).to(
+                    dtype
                 )
-            sampler_kwargs["solver"] = self.solver
-            return partial(deterministic_sampler, **sampler_kwargs)
-        elif sampler_type == "stochastic":
-            return partial(stochastic_sampler, **sampler_kwargs)
-        else:
-            raise ValueError(f"Unknown sampler type: {sampler_type}")
+
+            random = StackedRandomGenerator(image_lr.device, seeds[start:stop])
+            latents = (
+                random.randn(
+                    (stop - start, len(self.output_variables), *image_lr.shape[-2:]),
+                    device=image_lr.device,
+                )
+                .to(memory_format=torch.channels_last)
+                .to(dtype)
+            )
+            # Stochastic solvers consume each member's private stream after its latent draw.
+            with torch.random.fork_rng(devices=devices):
+                if stochastic_solver:
+                    state = random.generators[0].get_state()
+                    if image_lr.is_cuda:
+                        torch.cuda.set_rng_state(state, image_lr.device)
+                    else:
+                        torch.set_rng_state(state)
+                outputs.append(
+                    sample(
+                        scheduler.get_denoiser(x0_predictor=predict_x0),
+                        latents * times[0],
+                        scheduler,
+                        self.number_of_steps,
+                        solver=self.solver,
+                        time_steps=times,
+                        solver_options=_solver_options(
+                            scheduler,
+                            self.solver,
+                            num_steps=self.number_of_steps,
+                            options=self.solver_options,
+                        ),
+                    )
+                )
+        return torch.cat(outputs)
 
     def default_sources(self) -> "DataSource | None":
         """Return no recommended input data source.
@@ -707,6 +806,9 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         device: str | None = None,
         sigma_min: float | None = None,
         sigma_max: float | None = None,
+        *,
+        solver: str | None = None,
+        solver_options: dict[str, Any] | None = None,
     ) -> DiagnosticModel:
         """Load CorrDiff model from package.
 
@@ -723,6 +825,16 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             Maximum noise level for diffusion process. Priority order: (1) this argument,
             (2) metadata.json, (3) sampler internal defaults. By default None.
 
+        solver : str | None, optional
+            Select the numerical method for integrating the sampling ODE in
+            reverse time. ``None`` preserves the package's default solver. An
+            explicit solver requires ``sampler_type=None`` in the constructor,
+            by default None
+        solver_options : dict[str, Any] | None, optional
+            Options passed to the selected solver to customize its behavior or
+            override defaults. Do not pass ``num_steps`` here; set the sampling step
+            count with ``number_of_steps`` instead. By default None
+
         Returns
         -------
         DiagnosticModel
@@ -733,7 +845,7 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         ImportError
             If required dependencies are not installed
         """
-        if StackedRandomGenerator is None or deterministic_sampler is None:
+        if StackedRandomGenerator is None or sample is None:
             raise ImportError(
                 "Additional CorrDiff model dependencies are not installed. See install documentation for details."
             )
@@ -781,8 +893,15 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         # Load model parameters (if not provided, use default values)
         number_of_samples = metadata.get("number_of_samples", 1)
         number_of_steps = metadata.get("number_of_steps", 18)
-        solver = metadata.get("solver", "euler")
-        sampler_type = metadata.get("sampler_type", "stochastic")
+        sampler_type = None
+        if solver is None:
+            sampler_type = metadata.get("sampler_type", "stochastic")
+            if (
+                sampler_type == "deterministic"
+                and metadata.get("solver", "euler") != "euler"
+            ):
+                solver = metadata["solver"]
+                sampler_type = None
         inference_mode = metadata.get("inference_mode", "both")
         hr_mean_conditioning = metadata.get("hr_mean_conditioning", True)
         sigma_min_metadata = metadata.get("sigma_min", None)
@@ -920,6 +1039,7 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             number_of_samples=number_of_samples,
             number_of_steps=number_of_steps,
             solver=solver,
+            solver_options=solver_options,
             sampler_type=sampler_type,
             inference_mode=inference_mode,
             hr_mean_conditioning=hr_mean_conditioning,
@@ -1127,11 +1247,6 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
         torch.Tensor
             Output tensor
         """
-        if self.solver not in ["euler", "heun"]:
-            raise ValueError(
-                f"solver must be either 'euler' or 'heun' but got {self.solver}"
-            )
-
         # Preprocess input (interpolate, add batch dimension, add invariants, normalize)
         # Base class ignores valid_time; subclasses can override preprocess_input to use it
         image_lr = self.preprocess_input(x, valid_time)
@@ -1170,17 +1285,7 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             if self.residual_model and self.inference_mode != "regression":
                 mean_hr = image_reg[:1] if self.hr_mean_conditioning else None
                 with self._inference_context():
-                    image_res = diffusion_step(
-                        net=self.residual_model,
-                        sampler_fn=self.sampler,
-                        img_shape=image_lr.shape[-2:],
-                        img_out_channels=len(self.output_variables),
-                        rank_batches=[[seed + i]],
-                        img_lr=image_lr,
-                        rank=1,
-                        device=image_lr.device,
-                        mean_hr=mean_hr,
-                    )
+                    image_res = self._sample_residual(image_lr, [seed + i], mean_hr)
 
             if self.inference_mode == "regression":
                 return image_reg
@@ -1320,9 +1425,13 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
     number_of_steps: int, optional
         Number of langevin diffusion steps during sampling algorithm.
         Default is 8
-    solver: Literal['euler', 'heun']
-        Discretization of diffusion process. Only 'euler' and 'heun'
-        are supported. Default is 'euler'
+    solver_options : dict[str, Any] | None, optional
+        Options passed to the selected solver to customize its behavior or
+        override defaults. Do not pass ``num_steps`` here; set the sampling step
+        count with ``number_of_steps`` instead. By default None
+    solver : str
+        Select the numerical method for integrating the sampling ODE in reverse
+        time. By default "euler"
 
     Badges
     ------
@@ -1344,7 +1453,9 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         out_lon: torch.Tensor,
         number_of_samples: int = 1,
         number_of_steps: int = 8,
-        solver: Literal["euler", "heun"] = "euler",
+        solver: str = "euler",
+        *,
+        solver_options: dict[str, Any] | None = None,
     ):
         super().__init__()
         self.residual_model = residual_model
@@ -1362,12 +1473,22 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
             raise ValueError("`number_of_samples` must be a positive integer.")
         if not isinstance(number_of_steps, int) and (number_of_steps > 1):
             raise ValueError("`number_of_steps` must be a positive integer.")
-        if solver not in ["heun", "euler"]:
-            raise ValueError(f"{solver} is not supported, must be in ['huen', 'euler']")
+        if solver not in SOLVERS:
+            raise ValueError(
+                f"{solver!r} is not supported; choose from {tuple(SOLVERS)}."
+            )
 
         self.number_of_samples = number_of_samples
         self.number_of_steps = number_of_steps
         self.solver = solver
+        if solver_options is not None and "num_steps" in solver_options:
+            raise ValueError(
+                "Do not pass 'num_steps' in solver_options; use number_of_steps instead."
+            )
+        self.solver_options = dict(solver_options or {})
+        self.sampler_type = "deterministic"
+        self.sigma_min = None
+        self.sigma_max = None
         self.output_variables = OUT_VARIABLES  # Default set of output variables
 
     def default_sources(self) -> "DataSource":
@@ -1437,10 +1558,36 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
 
     @classmethod
     @check_optional_dependencies()
-    def load_model(cls, package: Package, device: str | None = None) -> DiagnosticModel:
-        """Load diagnostic from package"""
+    def load_model(
+        cls,
+        package: Package,
+        device: str | None = None,
+        *,
+        solver: str = "euler",
+        solver_options: dict[str, Any] | None = None,
+    ) -> DiagnosticModel:
+        """Load the Taiwan model with optional PhysicsNeMo solver configuration.
 
-        if StackedRandomGenerator is None or deterministic_sampler is None:
+        Parameters
+        ----------
+        package : Package
+            Model checkpoint package to load.
+        device : str | None, optional
+            Device for the loaded networks, by default None
+        solver : str, optional
+            Select the numerical method for integrating the sampling ODE in reverse
+            time, by default "euler"
+        solver_options : dict[str, Any] | None, optional
+            Options passed to the selected solver to customize its behavior or
+            override defaults. Do not pass ``num_steps`` here; set the loaded model's
+            ``number_of_steps`` instead. By default None
+
+        Returns
+        -------
+        DiagnosticModel
+            Loaded Taiwan downscaling model."""
+
+        if StackedRandomGenerator is None or sample is None:
             raise ImportError(
                 "Additional CorrDiff model dependencies are not installed. See install documentation for details."
             )
@@ -1548,6 +1695,8 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
             out_scale,
             out_lat,
             out_lon,
+            solver=solver,
+            solver_options=solver_options,
         )
 
     def _interpolate(self, x: torch.Tensor) -> torch.Tensor:
@@ -1583,11 +1732,6 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
 
     @torch.inference_mode()
     def _forward(self, x: torch.Tensor) -> torch.Tensor:
-        if self.solver not in ["euler", "heun"]:
-            raise ValueError(
-                f"solver must be either 'euler' or 'heun', " f"but got {self.solver}"
-            )
-
         # Interpolate
         x = self._interpolate(x)
 
@@ -1627,17 +1771,6 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
             .tolist()
         )
 
-        sampler_fn = partial(
-            deterministic_sampler,
-            num_steps=self.number_of_steps,
-            solver=self.solver,
-        )
-
-        # Get high-res image shape
-        coord = self.output_coords(self.input_coords())
-        H_hr = coord["lat"].shape[0]
-        W_hr = coord["lon"].shape[1]
-
         mean_hr = self.unet_regression(
             self.regression_model,
             img_lr=x_reg,
@@ -1645,18 +1778,11 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
             number_of_samples=self.number_of_samples,
         )
 
-        res_hr = diffusion_step(
-            net=self.residual_model,
-            sampler_fn=sampler_fn,
-            img_shape=(H_hr, W_hr),
-            img_out_channels=len(self.output_variables),
-            rank_batches=[sample_seeds],
-            img_lr=x.expand(self.number_of_samples, -1, -1, -1).to(
-                memory_format=torch.channels_last
-            ),
-            rank=1,
-            device=x.device,
-            mean_hr=mean_hr[0:1],  # Diffusion only takes one mean input
+        res_hr = CorrDiff._sample_residual(
+            self,
+            x.expand(self.number_of_samples, -1, -1, -1),
+            sample_seeds,
+            mean_hr=mean_hr[:1],
         )
 
         x_hr = mean_hr + res_hr

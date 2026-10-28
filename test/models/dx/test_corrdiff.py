@@ -407,7 +407,7 @@ class TestCorrDiffForward:
     )
     @pytest.mark.parametrize("device", ["cuda:0"])
     @pytest.mark.parametrize("number_of_samples", [1])  # , 2])
-    @pytest.mark.parametrize("solver", ["euler"])  # , "heun"])
+    @pytest.mark.parametrize("solver", [None])
     @pytest.mark.parametrize("sampler_type", ["deterministic"])  # , "stochastic"])
     @pytest.mark.parametrize(
         "inference_mode", ["regression"]
@@ -547,7 +547,7 @@ class TestCorrDiffForward:
             regression_model=mock_regression_model,
             number_of_samples=1,
             solver="euler",
-            sampler_type="stochastic",
+            sampler_type=None,
             inference_mode="regression",
             hr_mean_conditioning=False,
             **params,
@@ -890,7 +890,7 @@ class TestCorrDiffForward:
             hr_mean_conditioning=False,  # Must be False for deterministic
             **sample_model_params,
         )
-        assert model_det.sampler is not None
+        assert model_det.solver == "euler"
 
         # Test stochastic sampler
         model_stoch = CorrDiff(
@@ -899,10 +899,10 @@ class TestCorrDiffForward:
             sampler_type="stochastic",
             **sample_model_params,
         )
-        assert model_stoch.sampler is not None
+        assert model_stoch.solver == "edm_stochastic_heun"
 
         # Test invalid sampler type
-        with pytest.raises(ValueError, match="Unknown sampler type"):
+        with pytest.raises(ValueError, match="Unknown sampler_type"):
             CorrDiff(
                 residual_model=mock_residual_model,
                 regression_model=mock_regression_model,
@@ -963,7 +963,7 @@ class TestCorrDiffForward:
 class TestCorrDiffLoadModel:
     @patch("earth2studio.models.dx.corrdiff.PhysicsNemoModule", MockPhysicsNemoModule)
     @patch("earth2studio.models.dx.corrdiff.StackedRandomGenerator", MagicMock())
-    @patch("earth2studio.models.dx.corrdiff.deterministic_sampler", MagicMock())
+    @patch("earth2studio.models.dx.corrdiff.sample", MagicMock())
     def test_corrdiff_load_model_basic(self, mock_package, temp_model_files):
         """Test basic load_model functionality."""
 
@@ -988,7 +988,7 @@ class TestCorrDiffLoadModel:
 
     @patch("earth2studio.models.dx.corrdiff.PhysicsNemoModule", MockPhysicsNemoModule)
     @patch("earth2studio.models.dx.corrdiff.StackedRandomGenerator", MagicMock())
-    @patch("earth2studio.models.dx.corrdiff.deterministic_sampler", MagicMock())
+    @patch("earth2studio.models.dx.corrdiff.sample", MagicMock())
     def test_corrdiff_load_model_device_calls_model_to_before_channels_last(
         self, mock_package, temp_model_files
     ):
@@ -1020,7 +1020,7 @@ class TestCorrDiffLoadModel:
     @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
     @patch("earth2studio.models.dx.corrdiff.PhysicsNemoModule", MockPhysicsNemoModule)
     @patch("earth2studio.models.dx.corrdiff.StackedRandomGenerator", MagicMock())
-    @patch("earth2studio.models.dx.corrdiff.deterministic_sampler", MagicMock())
+    @patch("earth2studio.models.dx.corrdiff.sample", MagicMock())
     def test_corrdiff_load_model_device_places_buffers_on_cuda(
         self, mock_package, temp_model_files
     ):
@@ -1044,7 +1044,7 @@ class TestCorrDiffLoadModel:
 
     @patch("earth2studio.models.dx.corrdiff.PhysicsNemoModule", MockPhysicsNemoModule)
     @patch("earth2studio.models.dx.corrdiff.StackedRandomGenerator", MagicMock())
-    @patch("earth2studio.models.dx.corrdiff.deterministic_sampler", MagicMock())
+    @patch("earth2studio.models.dx.corrdiff.sample", MagicMock())
     def test_corrdiff_load_model_with_invariants(
         self, mock_package, temp_model_files_with_invariants
     ):
@@ -1067,7 +1067,7 @@ class TestCorrDiffLoadModel:
 
     @patch("earth2studio.models.dx.corrdiff.PhysicsNemoModule", None)
     @patch("earth2studio.models.dx.corrdiff.StackedRandomGenerator", None)
-    @patch("earth2studio.models.dx.corrdiff.deterministic_sampler", None)
+    @patch("earth2studio.models.dx.corrdiff.sample", None)
     def test_corrdiff_load_model_missing_dependencies(self, mock_package):
         """Test load_model raises ImportError when dependencies are missing."""
         with pytest.raises(
@@ -1078,7 +1078,7 @@ class TestCorrDiffLoadModel:
 
     @patch("earth2studio.models.dx.corrdiff.PhysicsNemoModule", MockPhysicsNemoModule)
     @patch("earth2studio.models.dx.corrdiff.StackedRandomGenerator", MagicMock())
-    @patch("earth2studio.models.dx.corrdiff.deterministic_sampler", MagicMock())
+    @patch("earth2studio.models.dx.corrdiff.sample", MagicMock())
     def test_corrdiff_load_model_missing_files(self, mock_package, temp_model_files):
         """Test load_model handles missing files gracefully."""
         # Configure mock package to return non-existent files
@@ -1089,7 +1089,7 @@ class TestCorrDiffLoadModel:
 
     @patch("earth2studio.models.dx.corrdiff.PhysicsNemoModule", MockPhysicsNemoModule)
     @patch("earth2studio.models.dx.corrdiff.StackedRandomGenerator", MagicMock())
-    @patch("earth2studio.models.dx.corrdiff.deterministic_sampler", MagicMock())
+    @patch("earth2studio.models.dx.corrdiff.sample", MagicMock())
     def test_corrdiff_load_model_invalid_metadata(self, mock_package, temp_model_files):
         """Test load_model with invalid metadata."""
         # Modify metadata to be invalid
@@ -1105,7 +1105,7 @@ class TestCorrDiffLoadModel:
 
     @patch("earth2studio.models.dx.corrdiff.PhysicsNemoModule", MockPhysicsNemoModule)
     @patch("earth2studio.models.dx.corrdiff.StackedRandomGenerator", MagicMock())
-    @patch("earth2studio.models.dx.corrdiff.deterministic_sampler", MagicMock())
+    @patch("earth2studio.models.dx.corrdiff.sample", MagicMock())
     def test_corrdiff_load_model_invalid_stats(self, mock_package, temp_model_files):
         """Test load_model with invalid stats."""
         # Modify stats to be invalid
@@ -1235,3 +1235,37 @@ class TestCorrDiffLoadModel:
         # Check that input normalization includes invariants
         assert model.in_center.shape == (1, 4, 1, 1)  # 2 input + 2 invariant
         assert model.in_scale.shape == (1, 4, 1, 1)  # 2 input + 2 invariant
+
+
+@pytest.mark.parametrize(
+    "solver,sampler_type",
+    [
+        ("euler", "deterministic"),
+        ("heun", "stochastic"),
+        ("dpmpp_2m", "deterministic"),
+        ("edm_stochastic_heun", "stochastic"),
+    ],
+)
+def test_corrdiff_rejects_solver_sampler_type_conflict(
+    solver, sampler_type, sample_model_params
+):
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        CorrDiff(
+            residual_model=torch.nn.Identity(),
+            regression_model=torch.nn.Identity(),
+            solver=solver,
+            sampler_type=sampler_type,
+            **sample_model_params,
+        )
+
+
+@pytest.mark.parametrize("solver", [None, "euler", "dpmpp_2m", "edm_stochastic_heun"])
+def test_corrdiff_rejects_solver_step_count(solver, sample_model_params):
+    with pytest.raises(ValueError, match="number_of_steps"):
+        CorrDiff(
+            residual_model=torch.nn.Identity(),
+            regression_model=torch.nn.Identity(),
+            solver=solver,
+            solver_options={"num_steps": 4},
+            **sample_model_params,
+        )

@@ -19,7 +19,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from contextlib import nullcontext
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
@@ -143,6 +143,14 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         reduce runtime and peak GPU memory; it takes effect on CUDA only (CPU always
         runs full precision).
 
+    solver : str | None, optional
+        Select the numerical method for integrating the sampling ODE in reverse
+        time. ``None`` preserves the wrapped model's solver, by default None
+    solver_options : dict[str, Any] | None, optional
+        Options passed to the selected solver to customize its behavior or
+        override defaults. Do not pass ``num_steps`` here; set the sampling step
+        count with ``sampler_steps`` instead. By default None
+
     Badges
     ------
     region:global class:data-assimilation class:downscaling product:wind product:temp
@@ -177,6 +185,9 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         sda_std_obs: float | Mapping[str, float] = 0.75,
         sda_gamma: float = 7.5e-5,
         amp: bool = False,
+        *,
+        solver: str | None = None,
+        solver_options: dict[str, Any] | None = None,
     ) -> None:
         super().__init__()
         if model.mode != "diffusion":
@@ -191,6 +202,12 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         if not assimilate_variables:
             raise ValueError("assimilate_variables must be non-empty.")
         self.model = model
+        self.solver = solver
+        if solver_options is not None and "num_steps" in solver_options:
+            raise ValueError(
+                "Do not pass 'num_steps' in solver_options; use sampler_steps instead."
+            )
+        self.solver_options = dict(solver_options or {})
         self._tolerance = normalize_time_tolerance(time_tolerance)
         self.number_of_samples = (
             model.number_of_samples if number_of_samples is None else number_of_samples
@@ -552,6 +569,8 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
                 seed,
                 score_predictor_factory=make_score_predictor,
                 num_steps=self.sampler_steps,
+                solver=self.solver,
+                solver_options=self.solver_options,
             )
 
     @torch.no_grad()
@@ -719,6 +738,9 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         sda_std_obs: float | Mapping[str, float] = 0.75,
         sda_gamma: float = 7.5e-5,
         amp: bool = False,
+        *,
+        solver: str | None = None,
+        solver_options: dict[str, Any] | None = None,
     ) -> AssimilationModel:
         """Load the assimilation model from a CorrDiff-COSMO package.
 
@@ -772,6 +794,15 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
             Run the guided sampler under ``torch.autocast`` bf16 (CUDA only), by
             default False. Setting True can reduce runtime and GPU memory.
 
+        solver : str | None, optional
+            Select the numerical method for integrating the sampling ODE in
+            reverse time. ``None`` preserves the wrapped model's solver, by
+            default None
+        solver_options : dict[str, Any] | None, optional
+            Options passed to the selected solver to customize its behavior or
+            override defaults. Do not pass ``num_steps`` here; set the sampling step
+            count with ``sampler_steps`` instead. By default None
+
         Returns
         -------
         AssimilationModel
@@ -788,6 +819,8 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
             assimilate_variables=assimilate_variables,
             number_of_samples=number_of_samples,
             sampler_steps=sampler_steps,
+            solver=solver,
+            solver_options=solver_options,
             sda_std_obs=sda_std_obs,
             sda_gamma=sda_gamma,
             amp=amp,
