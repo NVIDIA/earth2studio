@@ -33,6 +33,12 @@ class SourceNameLexicon(metaclass=LexiconType):
     Variable documentation: FILL: URL
     """
 
+    # OPTIONAL: only enable after implementing native temporal statistics.
+    # See temporal-statistics.py and dev/spec/TIME_STATISTICS_SPEC.md.
+    # TIME_STATISTICS: tuple[str, ...] = ("mean", "sum", "min", "max")
+    # Expose this class as source.lexicon; keep qualified labels out of VOCAB.
+    # The source parses the suffix and resolves only the base variable here.
+
     VOCAB = {
         # FILL: Map Earth2Studio variable names to remote keys.
         # Surface variables: descriptive abbreviation.

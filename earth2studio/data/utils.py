@@ -23,7 +23,7 @@ import random
 import tempfile
 import uuid
 from collections import OrderedDict
-from collections.abc import Callable, Collection, Sequence
+from collections.abc import Awaitable, Callable, Collection, Sequence
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
@@ -77,6 +77,7 @@ from earth2studio.utils.time import (
 )
 from earth2studio.utils.time_statistics import (
     apply_time_statistic,
+    reduce_samples,
     source_lead_times,
     source_times,
     time_statistic_metadata,
@@ -219,6 +220,21 @@ def _require_instantaneous(array: xr.DataArray, variables: VariableArray) -> Non
         )
 
 
+def _source_statistics(source: DataSource | ForecastSource) -> tuple[str, ...]:
+    """Discover native reductions from lexicons, including wrapped sources."""
+    # Import locally: composites themselves use the fetching helpers in this module.
+    from earth2studio.data.composite import _Composite
+
+    if isinstance(source, RegriddedSource):
+        return _source_statistics(source.source)
+    if isinstance(source, _Composite):
+        supported = [_source_statistics(s) for s in source.sources.values()]
+        if not supported:
+            return ()
+        return tuple(m for m in supported[0] if all(m in s for s in supported[1:]))
+    return tuple(getattr(getattr(source, "lexicon", None), "TIME_STATISTICS", ()))
+
+
 def _fetch_dataarray(
     source: DataSource | ForecastSource,
     time: TimeArray,
@@ -228,8 +244,16 @@ def _fetch_dataarray(
 ) -> xr.DataArray:
     # Group source variables by reduction, retaining their requested output labels.
     groups: dict[str | None, dict[str, str]] = {}
+    native = _source_statistics(source)
+    # An explicit cadence requests the generic reduction path. Otherwise let
+    # native sources choose their sampling internally.
+    if delta_t is not None:
+        native = ()
+    quantities: set[tuple[str, str | None]] = set()
     for label in map(str, variable):
         source_variable, separator, parsed_modifier = label.partition(":")
+        if "::" in label:  # Raw GRIB identifiers are not statistic labels.
+            source_variable, separator = label, ""
         if not source_variable:
             raise ValueError("Variable name must not be empty")
         modifier = (
@@ -237,13 +261,18 @@ def _fetch_dataarray(
             if separator
             else None
         )
-        group = groups.setdefault(modifier, {})
-        if source_variable in group:
+        quantity = (source_variable, modifier)
+        if quantity in quantities:
             raise ValueError("Requested variables contain duplicate quantities")
+        quantities.add(quantity)
+        if modifier is not None and modifier.partition(":")[0] in native:
+            # The source computes this statistic itself: request the label as is
+            # and let it fetch the extra times or lead times it needs.
+            groups.setdefault(None, {})[label] = label
+            continue
+        group = groups.setdefault(modifier, {})
         group[source_variable] = label
 
-    if delta_t is None:
-        delta_t = getattr(source, "time_step", None)
     # Validate every window before any source calls.
     for modifier in groups:
         if modifier is not None:
@@ -375,7 +404,9 @@ def fetch_data(
         Regridder to apply, by default None. It must produce ``target_grid`` when
         both are given.
     delta_t : np.timedelta64, optional
-        Source cadence for temporal statistics; defaults to ``source.time_step``.
+        Sampling cadence for generic temporal reductions. When omitted, statistics
+        are delegated to sources that support them natively; other sources require
+        an explicit cadence. When provided, overrides native statistic handling.
         Windows include their left endpoint and exclude their right endpoint.
 
     Returns
@@ -513,11 +544,6 @@ class RegriddedSource:
             raise TypeError("regridder must implement the Regridder protocol")
         self.source = source
         self.regridder = regridder
-
-    @property
-    def time_step(self) -> np.timedelta64 | None:
-        """Cadence of the wrapped source, used for temporal statistics."""
-        return getattr(self.source, "time_step", None)
 
     @property
     def is_forecast(self) -> bool:
@@ -1867,3 +1893,235 @@ def table_to_dataframe(
     if schema is not table.schema:
         table = table.cast(schema)
     return table.to_pandas(types_mapper=pd.ArrowDtype)
+
+
+# --------------------------------------------------------------------------- #
+# Native temporal statistics for data sources
+#
+# A requested variable such as "t2m:mean:24h" is a lexicon variable ("t2m") plus a
+# statistic ("mean:24h"). The source keeps ownership of every request: it fetches
+# plain variables as usual and hands statistic variables to two functions here.
+# ``plan_statistics`` collects which sample times / lead times each target needs,
+# and ``reduce_statistics`` fetches those samples through a source callback into a
+# transient stack, reduces it with the registered statistic (an xarray reduction,
+# see earth2studio.utils.time_statistics) and writes the result into the output.
+# --------------------------------------------------------------------------- #
+
+_DESCRIPTIONS = {
+    "mean": "averaged",
+    "sum": "accumulated (summed)",
+    "min": "reduced to the minimum",
+    "max": "reduced to the maximum",
+}
+
+#: Statistic-variable plan entry ``(slot, base, modifier, samples)``
+StatisticPlan = tuple[int, str, str, np.ndarray]
+
+
+def plan_statistics(
+    variable: Sequence[str],
+    targets: np.ndarray,
+    delta_t: np.timedelta64,
+    supported: Sequence[str],
+    validate: Callable[[list[Any]], None] | None = None,
+    source: str = "Data source",
+    verbose: bool = False,
+) -> tuple[list[tuple[int, str]], list[StatisticPlan], dict[str, Any]]:
+    """Split a request into plain and statistic variables and plan the samples.
+
+    Parameters
+    ----------
+    variable : Sequence[str]
+        Plain or statistic-qualified labels, in output variable order
+    targets : np.ndarray
+        Output targets: ``datetime64`` valid times or ``timedelta64`` lead times
+        (of one initialization time)
+    delta_t : np.timedelta64
+        Sampling interval of the source
+    supported : Sequence[str]
+        Statistic methods the source declares in its lexicon
+    validate : Callable[[list[Any]], None] | None, optional
+        Source validation of every planned sample, called once with the sorted unique
+        ``datetime`` (or ``timedelta`` for lead time targets) values before anything
+        is fetched; should raise ValueError for samples the source cannot provide
+    source : str, optional
+        Source name used for operation logging
+    verbose : bool, optional
+        Log the reduction and window of each statistic
+
+    Returns
+    -------
+    tuple[list[tuple[int, str]], list[StatisticPlan], dict[str, Any]]
+        ``(slot, name)`` of plain variables, ``(slot, base, modifier, samples)`` of
+        statistic variables where ``samples`` has shape ``(target, sample)`` and
+        holds the coordinates to fetch, and attributes for the output
+
+    Raises
+    ------
+    ValueError
+        If a label is empty, duplicated or uses a method the source does not support
+    """
+    plain: list[tuple[int, str]] = []
+    stats: list[StatisticPlan] = []
+    metadata: dict[str, Any] = {}
+    seen: set[tuple[str, str]] = set()
+    is_time = np.issubdtype(targets.dtype, np.datetime64)
+    sample_times = source_times if is_time else source_lead_times
+    for slot, label in enumerate(map(str, variable)):
+        base, separator, qualifier = label.partition(":")
+        if not base:
+            raise ValueError("Variable name must not be empty")
+        info = (
+            time_statistic_metadata(qualifier)
+            if separator and "::" not in label
+            else {}
+        )
+        if info and str(info["method"]) not in supported:
+            raise ValueError(
+                f"Time statistic '{info['method']}' in '{label}' is not supported by "
+                f"this source, supported: {tuple(supported)}"
+            )
+        quantity = (base, str(info.get("modifier", ""))) if info else (label, "")
+        if quantity in seen:
+            raise ValueError("Requested variables contain duplicate quantities")
+        seen.add(quantity)
+        if not info:
+            plain.append((slot, label))
+            continue
+        modifier = str(info["modifier"])
+        stats.append((slot, base, modifier, sample_times(modifier, targets, delta_t)))
+        metadata[label] = info
+        if verbose:
+            logger.info(
+                f"{source}: {label} {_DESCRIPTIONS.get(str(info['method']), 'reduced')} "
+                f"over {modifier} (left-closed/right-open window)"
+            )
+    if validate is not None and stats:
+        convert = as_datetime if is_time else as_timedelta
+        validate(sorted({convert(t) for *_, samples in stats for t in samples.ravel()}))
+    return plain, stats, {E2S_STATISTICS: metadata} if metadata else {}
+
+
+async def reduce_statistics(
+    out: np.ndarray,
+    stats: Sequence[StatisticPlan],
+    fetch: Callable[[Any, str], Awaitable[np.ndarray]],
+    async_workers: int | None = None,
+    desc: str = "Fetching time statistic samples",
+    verbose: bool = True,
+) -> None:
+    """Fetch the planned samples and reduce them into the output array.
+
+    Statistic variables are processed one target at a time. The samples of a window
+    are fetched by a bounded worker pool into a single transient stack, reduced with
+    the registered statistic and written to ``out``. Peak memory is therefore one
+    window of fields (window length times grid size), independent of the request
+    size. Fetch failures propagate; there are no partial windows.
+
+    Parameters
+    ----------
+    out : np.ndarray
+        Output array ``(target, variable, ...)``, written in place
+    stats : Sequence[StatisticPlan]
+        Statistic entries from :py:func:`plan_statistics`
+    fetch : Callable[[Any, str], Awaitable[np.ndarray]]
+        Source function ``fetch(coordinate, base_variable)`` returning one field
+        with the grid shape of ``out`` (lexicon modifiers applied)
+    async_workers : int | None, optional
+        Maximum concurrent sample fetches within a window, by default 4
+    desc : str, optional
+        Progress bar description
+    verbose : bool, optional
+        Show the progress bar, by default True
+    """
+    jobs = [
+        (slot, i, base, modifier, coords)
+        for slot, base, modifier, samples in stats
+        for i, coords in enumerate(samples)
+    ]
+    for job in tqdm(jobs, desc=desc, disable=not verbose):
+        await _reduce_window(out, job, fetch, async_workers or 4)
+
+
+async def _reduce_window(
+    out: np.ndarray,
+    job: tuple[int, int, str, str, np.ndarray],
+    fetch: Callable[[Any, str], Awaitable[np.ndarray]],
+    workers: int,
+) -> None:
+    """Fetch one window of samples into a stack and reduce it into ``out``"""
+    slot, i, base, modifier, coords = job
+    stack = np.empty((len(coords),) + out.shape[2:], dtype=out.dtype)
+
+    async def sample(k: int) -> None:
+        stack[k] = await fetch(coords[k], base)
+
+    await map_with_concurrency(
+        range(len(coords)), sample, async_workers=workers, verbose=False
+    )
+    out[i, slot] = reduce_samples(modifier, stack)
+
+
+def as_datetime(coord: Any) -> datetime:
+    """Convert a ``datetime64`` sample coordinate to a naive UTC ``datetime``."""
+    return pd.Timestamp(coord).to_pydatetime()
+
+
+def as_timedelta(coord: Any) -> timedelta:
+    """Convert a ``timedelta64`` sample coordinate to a ``timedelta``."""
+    return pd.Timedelta(coord).to_pytimedelta()
+
+
+async def map_with_concurrency(
+    items: Sequence[T],
+    function: Callable[[T], Awaitable[None]],
+    desc: str = "Fetching time statistic samples",
+    verbose: bool = True,
+    async_workers: int | None = None,
+    task_timeout: float | None = None,
+) -> None:
+    """Apply an async function to source-owned items with bounded concurrency.
+
+    A fixed worker pool bounds both live fetch tasks and decoded samples, rather
+    than allocating one asyncio task per expanded timestamp. Fields are consumed
+    immediately by the function; its return value is not retained. On failure or cancellation,
+    all workers are canceled and awaited before returning to the caller.
+
+    Parameters
+    ----------
+    items : Sequence[T]
+        Source-owned work items, each consumed exactly once
+    function : Callable[[T], Awaitable[None]]
+        Coroutine processing an item, including any output assignment
+    desc : str, optional
+        Progress bar description
+    verbose : bool, optional
+        Show the progress bar, by default True
+    async_workers : int | None, optional
+        Maximum concurrent fetches, autoscaled when None
+    task_timeout : float | None, optional
+        Timeout in seconds of each fetch
+    """
+
+    workers = resolve_async_workers(async_workers, len(items))
+    if workers < 1:
+        raise ValueError("async_workers must be at least 1")
+    pending = iter(items)
+    with tqdm(total=len(items), desc=desc, disable=not verbose) as progress:
+
+        async def worker() -> None:
+            """Consume items until the shared iterator is exhausted"""
+            for item in pending:
+                if task_timeout is None:
+                    await function(item)
+                else:
+                    await asyncio.wait_for(function(item), timeout=task_timeout)
+                progress.update(1)
+
+        tasks = [asyncio.create_task(worker()) for _ in range(min(workers, len(items)))]
+        try:
+            await asyncio.gather(*tasks)
+        finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)

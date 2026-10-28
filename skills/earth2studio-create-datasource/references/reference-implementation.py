@@ -29,6 +29,15 @@ Conventions:
 - File lives at earth2studio/data/<source_name>.py
 - Class name: PascalCase (e.g. GFS, ARCO_ERA5, CFS_FX, HimawariAHI)
 - File name: lowercase with underscores (e.g. gfs.py, cfs.py)
+
+Optional native temporal statistics (only when requested): follow
+``temporal-statistics.py`` and ``dev/spec/TIME_STATISTICS_SPEC.md``. Expose the
+lexicon via ``lexicon = SourceNameLexicon`` and declare supported methods on that
+lexicon. Use ``plan_statistics`` to split plain variables from statistics and plan the
+sample coordinates, validate them, then ``reduce_statistics`` with a source
+``fetch(coord, base)`` coroutine (lexicon converted). Plain variables keep the
+source's ordinary request path. For forecasts reduce each initialization's view
+separately and vary leads within that cycle. Attach ``attrs`` to the output.
 """
 
 from __future__ import annotations
@@ -386,8 +395,7 @@ class SourceName:
         for t in times:
             if (t - datetime(1900, 1, 1)).total_seconds() % INTERVAL_SECONDS != 0:
                 raise ValueError(
-                    f"Requested {t} must align to "
-                    f"{INTERVAL_SECONDS // 3600}h intervals"
+                    f"Requested {t} must align to {INTERVAL_SECONDS // 3600}h intervals"
                 )
             if t < MIN_DATE:
                 raise ValueError(f"Requested {t} is before minimum date {MIN_DATE}")

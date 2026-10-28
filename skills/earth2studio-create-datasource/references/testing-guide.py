@@ -33,6 +33,14 @@ Rules:
 - Target 90%+ line coverage with --slow
 - Run: pytest test/data/test_<source_name>.py -v
 
+Optional native temporal statistics: extend the one call mock below, or add one
+``test_source_time_statistics_mock`` if there is no call mock. See
+``temporal-statistics.py`` for the sample and shared Zarr/GRIB fixtures. Mock only
+backend I/O; exercise real parsing/planning/reduction for mean/sum/min/max, mixed
+plain labels, metadata, overlapping-window fetch sharing, NaNs, and invalid
+windows rejected before reads. Forecast cases must distinguish initializations
+even when valid times match, and reject unavailable/negative expanded leads.
+
 Automatic Test Skipping:
 ------------------------
 If your data source requires optional dependencies (e.g., special decoders,

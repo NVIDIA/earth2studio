@@ -31,9 +31,12 @@ from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
     _sync_async,
+    as_datetime,
     datasource_cache_root,
     obstore_zarr_store,
+    plan_statistics,
     prep_data_inputs,
+    reduce_statistics,
 )
 from earth2studio.lexicon import WB2ClimatetologyLexicon, WB2Lexicon
 from earth2studio.utils.type import TimeArray, VariableArray
@@ -44,6 +47,7 @@ class _WB2Base:
 
     WB2_ERA5_LAT = np.empty(0)
     WB2_ERA5_LON = np.empty(0)
+    lexicon: type[WB2Lexicon] | type[WB2ClimatetologyLexicon] = WB2Lexicon
 
     def __init__(
         self,
@@ -124,7 +128,9 @@ class _WB2Base:
             Timestamps to return data for (UTC).
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
-            return. Must be in the WB2 lexicon.
+            return. Must be in the WB2 lexicon. A variable may be qualified with a
+            temporal statistic, such as ``"t2m:mean:24h"``; the 6-hourly fields in
+            the window are then fetched and reduced as they arrive.
 
         Returns
         -------
@@ -159,15 +165,32 @@ class _WB2Base:
             },
         )
 
-        args = [
-            (t, i, v, j) for j, v in enumerate(variable) for i, t in enumerate(time)
-        ]
+        times = np.asarray(time, dtype="datetime64[ns]")
+        plain, stats, attrs = plan_statistics(
+            variable,
+            times,
+            np.timedelta64(6, "h"),
+            getattr(self.lexicon, "TIME_STATISTICS", ()),
+            validate=self._validate_time,
+            source=type(self).__name__,
+            verbose=self._verbose,
+        )
+
+        args = [(t, i, v, j) for j, v in plain for i, t in enumerate(time)]
         func_map = map(functools.partial(self.fetch_wrapper, xr_array=xr_array), args)
 
         # Launch all fetch requests
         await tqdm.gather(
             *func_map, desc="Fetching WB2 data", disable=(not self._verbose)
         )
+        await reduce_statistics(
+            xr_array.values,
+            stats,
+            lambda t, v: self.fetch_array(as_datetime(t), v),
+            desc="Fetching WB2 statistics",
+            verbose=self._verbose,
+        )
+        xr_array.attrs.update(attrs)
         return xr_array
 
     async def fetch_wrapper(
@@ -299,6 +322,14 @@ class WB2ERA5(_WB2Base):
     from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels. Provided by the
     WeatherBench2 data repository.
 
+    Note
+    ----
+    Temporal statistics: ``mean``, ``sum``, ``min``, and ``max`` accept labels
+    ``variable:method:window`` or ``variable:method:start:end``. Windows are
+    left-closed/right-open, sampled every six hours relative to the analysis time.
+    ``t2m:mean:24h`` averages the preceding four samples, excluding that time.
+    Sums of overlapping ``tp12`` or ``tp24`` accumulations double-count rainfall.
+
     Parameters
     ----------
     cache : bool, optional
@@ -349,6 +380,14 @@ class WB2ERA5_121x240(_WB2Base):
     lat-lon grid from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels.
     Provided by the WeatherBench2 data repository.
 
+    Note
+    ----
+    Temporal statistics: ``mean``, ``sum``, ``min``, and ``max`` accept labels
+    ``variable:method:window`` or ``variable:method:start:end``. Windows are
+    left-closed/right-open, sampled every six hours relative to the analysis time.
+    ``t2m:mean:24h`` averages the preceding four samples, excluding that time.
+    Sums of overlapping ``tp12`` or ``tp24`` accumulations double-count rainfall.
+
     Parameters
     ----------
     cache : bool, optional
@@ -398,6 +437,14 @@ class WB2ERA5_32x64(_WB2Base):
     ERA5 reanalysis data with several derived variables down sampled to a 5.625 degree
     lat-lon grid from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels.
     Provided by the WeatherBench2 data repository.
+
+    Note
+    ----
+    Temporal statistics: ``mean``, ``sum``, ``min``, and ``max`` accept labels
+    ``variable:method:window`` or ``variable:method:start:end``. Windows are
+    left-closed/right-open, sampled every six hours relative to the analysis time.
+    ``t2m:mean:24h`` averages the preceding four samples, excluding that time.
+    Sums of overlapping ``tp12`` or ``tp24`` accumulations double-count rainfall.
 
     Parameters
     ----------
@@ -464,6 +511,11 @@ class WB2Climatology(_WB2Base):
     |    smoothing (see paper and script) for each day of year and sixth hour of day.
     |    We have computed climatologies for 1990-2017 and 1990-2019.
 
+    Note
+    ----
+    Temporal statistics: qualified statistic labels are not supported natively.
+    This source returns precomputed climatological fields.
+
     Parameters
     ----------
     climatology_zarr_store : ClimatologyZarrStore, optional
@@ -504,6 +556,8 @@ class WB2Climatology(_WB2Base):
     ------
     region:global dataclass:reanalysis dataset:era5 product:wind product:precip product:temp product:atmos provider:google
     """
+
+    lexicon = WB2ClimatetologyLexicon
 
     def __init__(
         self,

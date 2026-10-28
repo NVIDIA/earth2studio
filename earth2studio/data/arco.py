@@ -34,9 +34,12 @@ from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
     _sync_async,
+    as_datetime,
     datasource_cache_root,
     obstore_zarr_store,
+    plan_statistics,
     prep_data_inputs,
+    reduce_statistics,
 )
 from earth2studio.lexicon import ARCO_ERA5Lexicon
 from earth2studio.lexicon.arco import ACCUMULATION_HOURS
@@ -71,6 +74,15 @@ class ARCO_ERA5:
 
     - https://cloud.google.com/storage/docs/public-datasets/era5
 
+    Note
+    ----
+    Temporal statistics: ``mean``, ``sum``, ``min``, and ``max`` accept labels
+    ``variable:method:window`` or ``variable:method:start:end``. Windows are
+    left-closed/right-open, sampled hourly relative to the analysis time.
+    ``t2m:mean:24h`` averages the preceding 24 samples, excluding that time.
+    Accumulation timestamps mark interval ends; sums of overlapping multi-hour
+    accumulations can double-count precipitation or radiation.
+
     Badges
     ------
     region:global dataclass:reanalysis dataset:era5 product:wind product:precip product:temp product:atmos provider:google
@@ -81,7 +93,7 @@ class ARCO_ERA5:
     ARCO_PATH = "/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3"
     ARCO_ML_PATH = "/gcp-public-data-arco-era5/ar/model-level-1h-0p25deg.zarr-v1"
     ARCO_TIME_STOP = datetime(year=2025, month=12, day=31)
-    time_step: np.timedelta64 = np.timedelta64(1, "h")
+    lexicon = ARCO_ERA5Lexicon
 
     def __init__(
         self,
@@ -189,7 +201,9 @@ class ARCO_ERA5:
             Timestamps to return data for (UTC).
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
-            return. Must be in the ARCO_ERA5Lexicon.
+            return. Must be in the ARCO_ERA5Lexicon. A variable may be qualified with
+            a temporal statistic, such as ``"t2m:mean:24h"``; the hourly fields in
+            the window are then fetched and reduced as they arrive.
 
         Returns
         -------
@@ -219,10 +233,21 @@ class ARCO_ERA5:
             },
         )
 
+        times = np.asarray(time, dtype="datetime64[ns]")
+        plain, stats, attrs = plan_statistics(
+            variable,
+            times,
+            np.timedelta64(1, "h"),
+            self.lexicon.TIME_STATISTICS,
+            validate=self._validate_time,
+            source=type(self).__name__,
+            verbose=self._verbose,
+        )
+
         groups: dict[tuple[str, bool], list[tuple[str, int, str, Callable]]] = (
             defaultdict(list)
         )
-        for j, v in enumerate(variable):
+        for j, v in plain:
             try:
                 arco_name, modifier = ARCO_ERA5Lexicon[v]  # type: ignore[misc]
             except KeyError:
@@ -247,6 +272,14 @@ class ARCO_ERA5:
         await tqdm.gather(
             *func_map, desc="Fetching ARCO_ERA5 data", disable=(not self._verbose)
         )
+        await reduce_statistics(
+            xr_array.values,
+            stats,
+            lambda t, v: self.fetch_array(as_datetime(t), v),
+            desc="Fetching ARCO_ERA5 statistics",
+            verbose=self._verbose,
+        )
+        xr_array.attrs.update(attrs)
         return xr_array
 
     async def fetch_chunk_group(
