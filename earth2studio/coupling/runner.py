@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Iterator, Mapping, Sequence
+from itertools import chain
 from typing import Any
 
 import numpy as np
@@ -352,11 +353,17 @@ class CoupledRunner:
         return self
 
     def device_of(self, name: str) -> torch.device:
-        """Return the device component ``name`` runs and receives fields on."""
+        """Return the device component ``name`` runs and receives fields on.
+
+        A component with parameters or buffers runs where they are; one without,
+        such as a derived diagnostic, follows the runner's device.
+        """
         if name in self.devices:
             return self.devices[name]
         model = self.nodes[name].model
-        if isinstance(model, torch.nn.Module):
+        if isinstance(model, torch.nn.Module) and any(
+            True for _ in chain(model.parameters(), model.buffers())
+        ):
             return _module_device(model)
         return self.device
 
