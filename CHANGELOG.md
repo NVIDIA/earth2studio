@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- [Atlas](earth2studio/models/px/atlas.py) accepts optional `"euler"` and
+  `"heun"` solver names or a custom PhysicsNeMo solver factory for experiments
+  with numerical integration methods. Configure custom methods through their
+  factories. Atlas does not accept the general `solver_options` mapping.
+  Overrides are opt-in. The default keeps native stochastic sampling dynamics.
+  ODE alternatives change those dynamics. Refer to the
+  [diffusion solver guide](docs/userguide/advanced/diffusion_solvers.md) for
+  factory examples and guidance on preserving the native diffusion and
+  score-correction terms.
 - C-Bottle [infill](earth2studio/models/dx/cbottle_infill.py),
   [cyclone guidance](earth2studio/models/dx/cbottle_tc.py),
   [video](earth2studio/models/px/cbottle_video.py), and

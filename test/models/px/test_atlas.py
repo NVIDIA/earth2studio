@@ -22,10 +22,12 @@ import numpy as np
 import pytest
 import torch
 import xarray as xr
+from physicsnemo.diffusion.samplers import HeunSolver
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.grids import LatLonGrid
 from earth2studio.models.conformance import check_prognostic_contract
+from earth2studio.models.nn.atlas import StochasticInterpolant
 from earth2studio.models.px import Atlas
 from earth2studio.utils import coord_array, coord_array_like
 from earth2studio.utils.cupy import from_torch
@@ -101,7 +103,9 @@ class PhooSinterpolant(torch.nn.Module):
     def __init__(self):
         super().__init__()
 
-    def sample(self, model, x, steps, cond, verbose, compute_normalization):
+    def sample(
+        self, model, x, steps, cond, verbose, compute_normalization, solver=None
+    ):
         return x * 0.1 + cond["x_2"] * 0.2
 
 
@@ -584,24 +588,45 @@ def test_atlas_output_coords(atlas_test_components):
     assert len(output_coords["lon"]) == len(input_coords["lon"])
 
 
-def test_atlas_conformance(atlas_test_components, monkeypatch):
-    p = Atlas(**atlas_test_components)
-    sample = p.sinterpolant.sample
+class NoisyHeunFactory:
+    stochastic = True
+
+    def __call__(self, denoiser):
+        return HeunSolver(lambda x, t: denoiser(x, t) + 0.01 * torch.randn_like(x))
+
+
+@pytest.mark.parametrize(
+    "solver", [None, "euler", "heun", HeunSolver, NoisyHeunFactory()]
+)
+def test_atlas_conformance(atlas_test_components, monkeypatch, solver):
+    components = dict(atlas_test_components)
+    components["sinterpolant"] = StochasticInterpolant()
+    components["sinterpolant_sample_steps"] = 4
     monkeypatch.setattr(
-        p.sinterpolant,
-        "sample",
-        lambda *args, **kwargs: sample(*args, **kwargs) + torch.rand(()),
+        components["model"],
+        "forward",
+        lambda **kwargs: 0.1 * kwargs["I"] + 0.2 * kwargs["x_2"],
     )
-    check_prognostic_contract(p)
+    model = Atlas(**components, solver=solver)
+    assert model.stochastic is (solver is None or isinstance(solver, NoisyHeunFactory))
+    check_prognostic_contract(model)
+
+
+def test_atlas_rejects_solver_instance(atlas_test_components):
+    solver = HeunSolver(lambda x, t: x)
+    with pytest.raises(TypeError, match="solver factory"):
+        Atlas(**atlas_test_components, solver=solver)
 
 
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])
-def test_atlas_package(device):
+@pytest.mark.parametrize("solver", [None, "euler", HeunSolver])
+def test_atlas_package(device, solver):
     """Test that Atlas loads from package and runs a forward pass."""
     torch.cuda.empty_cache()
 
-    model = Atlas.load_model(Atlas.load_default_package()).to(device)
+    model = Atlas.load_model(Atlas.load_default_package(), solver=solver).to(device)
+    assert model.solver is solver
     model.sinterpolant_sample_steps = 4  # reduce sample steps for testing
 
     batch_size = 1
