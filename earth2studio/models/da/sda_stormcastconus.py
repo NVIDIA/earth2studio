@@ -254,6 +254,10 @@ class StormCastConusSDA(torch.nn.Module, AutoModelMixin):
             StormCast-CONUS checkpoint package.
         **model_kwargs : Any
             Domain, sampler, and SDA settings forwarded to ``StormCastCONUS``.
+            Use ``solver`` to select a numerical integration method and
+            ``solver_options`` to customize its settings. Set forecast steps with
+            ``num_diffusion_steps`` and guided analysis steps with
+            ``num_sda_diffusion_steps``; do not pass ``num_steps`` in solver options.
 
         Returns
         -------

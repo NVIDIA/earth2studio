@@ -381,7 +381,8 @@ def test_stormcast_exceptions(dc, device):
         p.create_iterator(x)
 
 
-def test_stormcast_conformance():
+@pytest.mark.parametrize("solver", ["edm_stochastic_heun", "euler", "dpmpp_2m"])
+def test_stormcast_conformance(solver):
     # Small domain, mirroring test_stormcast_iter, to keep the diffusion
     # sampler rollout cheap.
     regression = PhooStormCastRegressionModel()
@@ -418,6 +419,7 @@ def test_stormcast_conformance():
         conditioning_stds=conditioning_stds,
         conditioning_variables=conditioning_variables,
         sampler_steps=2,
+        solver=solver,
     )
 
     check_prognostic_contract(p)
@@ -517,3 +519,16 @@ def test_stormcast_default_conditioning_is_regridded():
     )
     _map_field(x, signature)
     assert not np.isnan(x.values).any()
+
+
+@pytest.mark.parametrize("argument", ["solver_options", "sampler_args"])
+def test_rejects_duplicate_step_count(argument):
+    with pytest.raises(ValueError, match="sampler_steps"):
+        StormCast(
+            torch.nn.Identity(),
+            torch.nn.Identity(),
+            torch.zeros(1),
+            torch.ones(1),
+            torch.zeros(1),
+            **{argument: {"num_steps": 4}},
+        )

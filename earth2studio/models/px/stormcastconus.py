@@ -59,6 +59,9 @@ try:
     from physicsnemo.diffusion.samplers import sample
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
     from tensordict import TensorDict
+
+    from earth2studio.models._diffusion import SOLVERS
+    from earth2studio.models._diffusion import solver_options as _solver_options
 except ImportError:
     OptionalDependencyFailure("stormcast-conus")
     OmegaConf = None
@@ -173,6 +176,16 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         :class:`_SplitModelWrapper` to enable per-variable physical-minimum clamping,
         by default True.
 
+    solver : str, optional
+        Select the numerical method for integrating the sampling ODE in reverse
+        time. Stochastic variants also inject noise along the trajectory, by
+        default "edm_stochastic_heun"
+    solver_options : dict[str, Any] | None, optional
+        Options passed to the selected solver to customize its behavior or
+        override defaults. The wrapper supplies the noise-schedule coefficients.
+        Do not pass ``num_steps`` here; set the sampling step count with
+        ``num_diffusion_steps`` instead. By default None
+
     Badges
     ------
     region:na class:nowcasting product:wind product:temp product:precip product:radar product:atmos year:2026 gpu:24gb
@@ -203,8 +216,21 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         sda_gamma: float = 0.001,
         use_amp: bool = True,
         clamp_values: bool = True,
+        *,
+        solver: str = "edm_stochastic_heun",
+        solver_options: dict[str, Any] | None = None,
     ):
         super().__init__()
+        if solver not in SOLVERS:
+            raise ValueError(
+                f"Unknown solver {solver!r}; choose from {tuple(SOLVERS)}."
+            )
+        self.solver = solver
+        if solver_options is not None and "num_steps" in solver_options:
+            raise ValueError(
+                "Do not pass 'num_steps' in solver_options; use num_diffusion_steps instead."
+            )
+        self.solver_options = dict(solver_options or {})
         self.diffusion_model = diffusion_model
         self.register_buffer("means", means)
         self.register_buffer("stds", stds)
@@ -220,6 +246,10 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             "S_noise": 1,
         }
         if sampler_args is not None:
+            if "num_steps" in sampler_args:
+                raise ValueError(
+                    "Do not pass 'num_steps' in sampler_args; use num_diffusion_steps instead."
+                )
             self.sampler_args.update(sampler_args)
 
         if (hrrr_lat_lim, hrrr_lon_lim) != FULL_MODEL_HRRR_BBOX:
@@ -420,7 +450,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         conditioning : torch.Tensor
             Low-resolution conditioning, shape ``(batch, C_cond, H, W)``.
         time : np.datetime64
-            Target valid time, used for cosine-zenith angle and annual phase.
+            Input valid time, used for cosine-zenith angle and annual phase.
         y_obs : torch.Tensor, optional
             Gridded observations for SDA guidance, shape ``(1, C, H, W)``.
         mask : torch.Tensor, optional
@@ -523,13 +553,14 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 latents,
                 noise_scheduler=self.scheduler,
                 num_steps=num_steps,
-                solver="edm_stochastic_heun",
-                solver_options={
-                    "S_churn": self.sampler_args["S_churn"],
-                    "S_min": self.sampler_args["S_min"],
-                    "S_max": self.sampler_args["S_max"],
-                    "S_noise": self.sampler_args["S_noise"],
-                },
+                solver=self.solver,
+                solver_options=_solver_options(
+                    self.scheduler,
+                    self.solver,
+                    num_steps=num_steps,
+                    defaults=self.sampler_args,
+                    options=self.solver_options,
+                ),
             )
 
     stochastic = True
@@ -592,10 +623,10 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x : xr.DataArray
             Input field on the declared projected grid.
         obs : pd.DataFrame, tuple[torch.Tensor, torch.Tensor], or None, optional
-            Observations for SDA guidance. Either a dataframe with columns
-            ``variable``, ``lat``, ``lon``, ``observation``, ``time``, or a
-            pre-gridded ``(y_obs, mask)`` tuple. ``None`` runs unconditional
-            diffusion.
+            Observations at the output valid time for SDA guidance. Supply a
+            dataframe with columns ``variable``, ``lat``, ``lon``, ``observation``,
+            and ``time``, or a pre-gridded ``(y_obs, mask)`` tuple. ``None`` runs
+            unconditional diffusion.
 
         Returns
         -------
@@ -632,12 +663,13 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         for j, time in enumerate(np.asarray(coords["time"])):
             for k, lead_time in enumerate(np.asarray(coords["lead_time"])):
                 t = time + lead_time
+                observation_time = time + output_coords.lead_time.values[k]
                 if obs is not None:
                     if isinstance(obs, tuple):
                         y_obs, mask = obs
                     else:
                         y_obs, mask = self.get_obs_mapping(x.device).obs_to_grid(
-                            obs, self.variables, t, self.time_tolerance
+                            obs, self.variables, observation_time, self.time_tolerance
                         )
                 else:
                     y_obs, mask = (None, None)
@@ -810,10 +842,14 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         package : Package
             Package to load model from
         **model_kwargs
-            Additional keyword arguments forwarded to the model constructor
-            (e.g. ``hrrr_lat_lim``, ``num_diffusion_steps``, ``use_amp``,
-            ``clamp_values``). ``clamp_values`` is additionally applied to
-            the internal :class:`_SplitModelWrapper`.
+            Keyword arguments forwarded to the model constructor,
+            including ``hrrr_lat_lim``, ``num_diffusion_steps``, ``use_amp``,
+            and ``clamp_values``. ``clamp_values`` also applies to the internal
+            :class:`_SplitModelWrapper`. Pass ``solver`` to select the numerical
+            method for integrating the sampling ODE in reverse time. Pass
+            ``solver_options`` to customize that solver or override its defaults.
+            Do not pass ``num_steps`` in ``solver_options``; use
+            ``num_diffusion_steps`` to set the sampling step count.
 
         Returns
         -------
@@ -1090,7 +1126,7 @@ class _SplitModelWrapper(torch.nn.Module):
         condition : TensorDict
             Conditioning dictionary passed to each sub-model.
         **model_kwargs
-            Additional keyword arguments forwarded to sub-models.
+            Keyword arguments forwarded to sub-models.
 
         Returns
         -------
