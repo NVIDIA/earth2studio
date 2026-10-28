@@ -25,6 +25,7 @@ import numpy as np
 import xarray as xr
 
 from earth2studio.coupling.errors import CouplingError
+from earth2studio.run._fields import _publishes_initial_condition
 from earth2studio.utils.type import CoordinateSystem, FrameSchema
 
 
@@ -201,13 +202,13 @@ def _stateful(name: str, model: Any) -> _Node:
         raise CouplingError(f"Component {name!r} does not advance in time")
     spacing = int(out_leads[1] - out_leads[0]) if len(out_leads) > 1 else cadence
     # Output slot i publishes an initial condition from input slot i when that
-    # input holds the same variables, as state slots come first.
+    # output declares that input's variables on its grid, as state slots come first.
     ic_slots = tuple(
         i
         for i, slot in enumerate(inputs[: len(outputs)])
         if not slot.frame
         and not slot.static
-        and set(slot.labels) == {str(v) for v in outputs[i]["variable"].values}
+        and _publishes_initial_condition(slot.signature, outputs[i])
     )
     return _Node(
         name,

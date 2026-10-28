@@ -72,8 +72,9 @@ class CoupledRunner:
 
     Each output slot yields its own stream: named after the component when it
     has one output slot, else ``name.0``, ``name.1`` and so on. A stateful
-    component publishes each output slot's initial condition, when the input
-    slot in the same position holds the same variables, and every output chunk;
+    component publishes each output slot's initial condition, when that slot
+    declares the same-position input slot's variables on its grid, and every
+    output chunk;
     a diagnostic publishes every call.
 
     Parameters
