@@ -19,12 +19,17 @@
 from collections.abc import Mapping
 
 import numpy as np
-from conftest import ATMOS_GRID, OCEAN_GRID, T0, Fill, atmosphere, ocean
+import xarray as xr
+from conftest import ATMOS_GRID, OCEAN_GRID, T0, Fill, H, atmosphere, ocean, signature
+from test_state import Mixed
 
 from earth2studio.coupling import Connector, CoupledRunner
 from earth2studio.grids import NearestRegridder
 from earth2studio.io import KVBackend
+from earth2studio.models.dx import DerivedPressureLevels
 from earth2studio.run import Pipeline, work_items
+from earth2studio.utils.type import CoordinateSystem
+from earth2studio.utils.vertical import PressureLevels
 
 
 def test_pipeline_writes_one_store_per_component(
@@ -60,3 +65,34 @@ def test_pipeline_writes_one_store_per_component(
         )
     leads = atmos["lead_time"].values.astype("timedelta64[h]").astype(int)
     np.testing.assert_array_equal(leads, np.arange(0, 97, 6))
+
+
+class _Levels(Mixed):
+    """6 h model on 1000 and 500 hPa adding 1 to both levels each step."""
+
+    def input_coords(self) -> CoordinateSystem:
+        return signature(["z1000", "z500"], ATMOS_GRID)
+
+    def _advance(self, x: xr.DataArray) -> xr.DataArray:
+        self.output_coords(x)
+        y = x.isel(lead_time=[-1]) + 1
+        return y.assign_coords(lead_time=y["lead_time"] + 6 * H)
+
+
+def test_pipeline_runs_a_builtin_diagnostic_component() -> None:
+    # Derived diagnostics declare no lead time; each call takes one valid time.
+    levels = DerivedPressureLevels(
+        ["z"], PressureLevels((1000, 500)), [700], grid=ATMOS_GRID
+    )
+    runner = CoupledRunner(
+        {"model": _Levels(), "levels": levels},
+        [Connector("model", "levels")],
+        sources={"model": Fill(ATMOS_GRID, {"z1000": 1.0, "z500": 5.0})},
+    )
+    model, z700 = KVBackend(), KVBackend()
+    Pipeline(runner, output={"model": model, "levels": z700}, device="cpu").run(
+        work_items([T0], np.timedelta64(12, "h"))
+    )
+    weight = np.log(0.7) / np.log(0.5)
+    expected = [1 + k + weight * 4 for k in range(3)]
+    np.testing.assert_allclose(z700["z700"][0, :, 0, 0].numpy(), expected, atol=1e-5)

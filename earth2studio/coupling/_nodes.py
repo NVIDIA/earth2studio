@@ -46,6 +46,7 @@ class _Slot:
     index: int
     signature: CoordinateSystem | FrameSchema
     forcing: bool
+    per_call: bool = False  # a diagnostic input, read at each call's valid time
 
     @property
     def frame(self) -> bool:
@@ -55,7 +56,11 @@ class _Slot:
     @property
     def static(self) -> bool:
         """Whether the slot is gridded without lead times, supplied only initially."""
-        return not self.frame and "lead_time" not in self.signature.dims
+        return (
+            not self.frame
+            and not self.per_call
+            and "lead_time" not in self.signature.dims
+        )
 
     @property
     def labels(self) -> tuple[str, ...]:
@@ -147,6 +152,13 @@ class _Node:
             return np.zeros(1, dtype=np.int64)
         return slot.leads if index == 0 else slot.leads[-1] + self.chunk(index - 1)
 
+    def state_leads(self, slot: _Slot, k: int) -> np.ndarray:
+        """Lead times of state slot ``slot`` passed to the call producing chunk ``k``.
+
+        ``initialize`` takes the input slot's window; ``step`` the previous chunk.
+        """
+        return slot.leads if k == 0 else self.chunk(k - 1)
+
 
 def _outputs(name: str, model: Any, inputs: tuple[_Slot, ...]) -> tuple:
     outputs = _slots(model.output_coords(*(s.signature for s in inputs)))
@@ -214,8 +226,11 @@ def _stateful(name: str, model: Any) -> _Node:
 
 
 def _diagnostic(name: str, model: Any) -> _Node:
+    # Inputs without lead times, as most diagnostics declare, take the call's
+    # valid time as a leading dimension.
     inputs = tuple(
-        _Slot(i, s, False) for i, s in enumerate(_slots(model.input_coords()))
+        _Slot(i, s, False, per_call=True)
+        for i, s in enumerate(_slots(model.input_coords()))
     )
     for slot in inputs:
         if slot.frame:

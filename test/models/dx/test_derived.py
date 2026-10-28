@@ -25,6 +25,7 @@ import earth2studio.grids as grids
 from earth2studio.grids import CurvilinearGrid, LatLonGrid, resolve_grid
 from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import (
+    DerivedPressureLevels,
     DerivedRH,
     DerivedRHDewpoint,
     DerivedSurfacePressure,
@@ -34,6 +35,7 @@ from earth2studio.models.dx import (
 )
 from earth2studio.utils import coord_array, coord_array_like
 from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.vertical import HybridLevels, PressureLevels
 
 
 def _grid(shape=(2, 3), endpoint=True):
@@ -62,8 +64,13 @@ def _model(kind, grid):
             OrderedDict((dim, np.asarray(grid.coords()[dim])) for dim in grid.dims),
             corr_adjustment=(0.0, 1.0),
         )
+    if kind is DerivedPressureLevels:
+        return kind(["t", "u"], HYBRID, [850, 500], grid=grid)
     return kind(grid=grid)
 
+
+# Full levels at 300, 600 and 1000 hPa under a 1000 hPa surface.
+HYBRID = HybridLevels((10000.0, 10000.0, 0.0), (0.2, 0.5, 1.0))
 
 DERIVED_MODELS = [
     DerivedWS,
@@ -72,6 +79,7 @@ DERIVED_MODELS = [
     DerivedVPD,
     DerivedSurfacePressure,
     DerivedTCWV,
+    DerivedPressureLevels,
 ]
 
 
@@ -169,13 +177,16 @@ def test_derived_builtin_grid(kind, grid_name):
         xr.testing.assert_identical(signature.coords[coord], grid.coords()[coord])
     assert signature.data.nbytes == 0
     assert signature.shape[-2:] == grid.shape
-    if kind is not DerivedSurfacePressure:
+    if kind not in (DerivedSurfacePressure, DerivedPressureLevels):
         named = kind(grid=grid_name).input_coords()
         assert named.attrs["earth2studio_grid_id"] == grid_name
         xr.testing.assert_identical(
             named.coords.to_dataset(), signature.coords.to_dataset()
         )
-    if kind is not DerivedSurfacePressure and grid_name == "latlon-0.25deg":
+    if (
+        kind not in (DerivedSurfacePressure, DerivedPressureLevels)
+        and grid_name == "latlon-0.25deg"
+    ):
         assert kind().input_coords().attrs["earth2studio_grid_id"] == grid_name
 
 
@@ -854,6 +865,66 @@ def test_derivedsurfacepressure_conformance():
     assert check_diagnostic_contract(model) == [
         "D10: model does not declare itself stochastic"
     ]
+
+
+def test_derivedpressurelevels_conformance():
+    model = DerivedPressureLevels(["t"], HYBRID, [500], grid=_grid())
+    assert check_diagnostic_contract(model) == [
+        "D10: model does not declare itself stochastic"
+    ]
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_derived_pressure_levels_hybrid(device):
+    if device.startswith("cuda") and not torch.cuda.is_available():
+        pytest.skip("cuda missing")
+    grid = _grid()
+    model = DerivedPressureLevels(["t", "z"], HYBRID, [600, 450, 950], grid=grid)
+    assert list(model.input_coords()["variable"].values) == [
+        "t0k", "t1k", "t2k", "z0k", "z1k", "z2k", "sp",
+    ]  # fmt: skip
+    assert list(model.output_coords(model.input_coords())["variable"].values) == [
+        "t600", "t450", "t950", "z600", "z450", "z950",
+    ]  # fmt: skip
+    model = model.to(device)
+    signature = coord_array_like(model.input_coords(), {"batch": [0]})
+    tensor = torch.zeros(signature.shape, device=device, dtype=torch.float64)
+    # Surface pressure 1000 hPa gives levels 300, 600 and 1000 hPa; a field
+    # linear in log pressure is reproduced exactly between them.
+    pressure = torch.tensor([30000.0, 60000.0, 100000.0], dtype=torch.float64)
+    tensor[0, :3] = torch.log(pressure)[:, None, None]
+    tensor[0, 3:6] = torch.arange(3.0)[:, None, None]
+    tensor[0, 6] = 100000.0
+    out, _ = model(from_torch(tensor, signature)).e2s.to_torch()
+    expected = torch.log(torch.tensor([60000.0, 45000.0, 95000.0], dtype=torch.float64))
+    torch.testing.assert_close(out[0, :3, 0, 0].cpu(), expected)
+    torch.testing.assert_close(out[0, 3, 0, 0].cpu(), torch.tensor(1.0).double())
+    # Above the top level and below the surface take the end values by default.
+    clamped = DerivedPressureLevels(["t"], HYBRID, [100, 1050], grid=grid).to(device)
+    clamped_signature = coord_array_like(clamped.input_coords(), {"batch": [0]})
+    values = torch.zeros(clamped_signature.shape, device=device, dtype=torch.float64)
+    values[0, :3] = torch.tensor([1.0, 2.0, 3.0])[:, None, None]
+    values[0, 3] = 100000.0
+    out, _ = clamped(from_torch(values, clamped_signature)).e2s.to_torch()
+    assert out[0, :, 0, 0].tolist() == [1.0, 3.0]
+    filled = DerivedPressureLevels(
+        ["t"], HYBRID, [100, 1050], grid=grid, fill_value=float("nan")
+    ).to(device)
+    out, _ = filled(from_torch(values, clamped_signature)).e2s.to_torch()
+    assert torch.isnan(out).all()
+
+
+def test_derived_pressure_levels_from_pressure_levels():
+    grid = _grid()
+    source = PressureLevels((850, 500, 1000))
+    model = DerivedPressureLevels(["z"], source, [925, 700], grid=grid)
+    assert list(model.input_coords()["variable"].values) == ["z850", "z500", "z1000"]
+    signature = coord_array_like(model.input_coords(), {"batch": [0]})
+    tensor = torch.zeros(signature.shape, dtype=torch.float64)
+    tensor[0] = torch.log(torch.tensor([850.0, 500.0, 1000.0]))[:, None, None]
+    out, _ = model(from_torch(tensor, signature)).e2s.to_torch()
+    expected = torch.log(torch.tensor([925.0, 700.0], dtype=torch.float64))
+    torch.testing.assert_close(out[0, :, 0, 0], expected)
 
 
 def test_derivedtcwv_conformance():

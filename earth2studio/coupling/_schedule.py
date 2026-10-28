@@ -100,6 +100,7 @@ class _Event:
     leads: np.ndarray  # lead times published
     slots: tuple[int, ...]  # output slots published
     plans: tuple[_SlotPlan, ...] = ()
+    states: tuple[_SlotPlan, ...] = ()  # state overwrites, one per connector
     frames: tuple[xr.DataArray, ...] | None = field(default=None, repr=False)
 
     @property
@@ -138,10 +139,12 @@ class _Scheduler:
         nodes: Mapping[str, _Node],
         connectors: Mapping[tuple[str, int], Connector],
         spacing: Mapping[str, int],
+        states: Mapping[str, tuple[Connector, ...]] | None = None,
     ) -> None:
         self.nodes = nodes
         self.connectors = connectors
         self.spacing = spacing
+        self.states = dict(states or {})
         self.triggered: dict[str, list[str]] = {name: [] for name in nodes}
         for (dst, _), connector in connectors.items():
             if not nodes[dst].stateful and connector.time == "exact":
@@ -324,9 +327,24 @@ class _Run:
             plans.append(_SlotPlan(slot, leads, connector, reads))
         return tuple(plans)
 
+    def _state_plans(
+        self, node: _Node, k: int, ordinal: int
+    ) -> tuple[_SlotPlan, ...] | None:
+        """Overwrites of ``node``'s state before chunk ``k``; unsupplied values stay."""
+        plans = []
+        for connector in self.s.states.get(node.name, ()):
+            slot = node.inputs[connector.slot]
+            leads = node.state_leads(slot, k)
+            labels = tuple(connector.variables or {})
+            reads = self._resolve(connector, labels, leads, ordinal, True)
+            if reads is None:
+                return None
+            plans.append(_SlotPlan(slot, leads, connector, reads))
+        return tuple(plans)
+
     def _fire(self, event: _Event) -> _Event:
         if self.ages is not None:
-            for plan in event.plans:
+            for plan in event.plans + event.states:
                 for read in plan.reads:
                     if read.frames and plan.connector is not None:
                         src = plan.connector.src
@@ -346,7 +364,8 @@ class _Run:
                     while node.due(self.next_chunk[name]) <= min(tick, self.final):
                         k = self.next_chunk[name]
                         plans = self._plans(node, node.slots_for(k), k, ordinal)
-                        if plans is None:
+                        states = self._state_plans(node, k, ordinal)
+                        if plans is None or states is None:
                             break
                         action = "initialize" if k == 0 else "step"
                         event = _Event(
@@ -358,6 +377,7 @@ class _Run:
                             node.chunk(k),
                             tuple(range(len(node.outputs))),
                             plans,
+                            states,
                         )
                         yield self._fire(event)
                         self.next_chunk[name] = k + 1
@@ -390,6 +410,14 @@ class _Run:
         if node.stateful:
             k = self.next_chunk[name]
             slots, index = node.slots_for(k), k
+            for state in self.s.states.get(name, ()):
+                slot = node.inputs[state.slot]
+                for lead in node.state_leads(slot, k):
+                    single = np.array([lead], dtype=np.int64)
+                    for label in state.variables or {}:
+                        if self._resolve(state, (label,), single, 1 << 62, True):
+                            continue
+                        return state.src, label, int(lead)
         else:
             if not self.pending[name]:
                 return None

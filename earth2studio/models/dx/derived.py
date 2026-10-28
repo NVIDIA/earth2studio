@@ -27,6 +27,11 @@ from earth2studio.utils import (
 )
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.type import CoordinateSystem, CoordSystem
+from earth2studio.utils.vertical import (
+    HybridLevels,
+    PressureLevels,
+    interpolate_pressure,
+)
 
 
 class _DerivedDiagnostic(torch.nn.Module):
@@ -613,3 +618,84 @@ class DerivedTCWV(_DerivedDiagnostic):
         out_tensor = tcwv.unsqueeze(-3) / self.g
 
         return out_tensor
+
+
+class DerivedPressureLevels(_DerivedDiagnostic):
+    """Interpolates fields from model or pressure levels onto pressure levels.
+
+    Interpolation is linear in the logarithm of pressure, column by column. Inputs
+    follow the lexicon's level naming: ``{variable}{k}k`` on hybrid model level
+    ``k`` (0 at the top), with surface pressure ``sp`` in Pa last, or
+    ``{variable}{p}`` on pressure level ``p`` hPa. Outputs are ``{variable}{p}``
+    on each target level. Used between coupled models, it maps one model's levels
+    onto another's.
+
+    Parameters
+    ----------
+    variables : list[str]
+        Variables to interpolate, such as ``["t", "u", "v"]``.
+    source : HybridLevels | PressureLevels
+        Vertical coordinate of the inputs.
+    levels : list[float]
+        Target pressure levels in hPa.
+    grid : str | GridDefinition, optional
+        Spatial grid configured before coordinate planning, by default
+        "latlon-0.25deg"
+    fill_value : float | None, optional
+        Value for target levels outside a column, such as below the surface, by
+        default None, which takes the nearest level's value.
+
+    Badges
+    ------
+    region:global product:atmos
+    provider:nvidia backend:pytorch
+    """
+
+    def __init__(
+        self,
+        variables: list[str],
+        source: HybridLevels | PressureLevels,
+        levels: list[float],
+        grid: str | GridDefinition = "latlon-0.25deg",
+        fill_value: float | None = None,
+    ) -> None:
+        super().__init__(grid)
+        if not variables:
+            raise ValueError("DerivedPressureLevels needs at least one variable")
+        target = PressureLevels(tuple(levels))
+        self.source = source
+        self.variables = list(variables)
+        self.fill_value = fill_value
+        self.hybrid = isinstance(source, HybridLevels)
+        if self.hybrid:
+            names = [f"{k}k" for k in range(len(source))]
+        else:
+            names = [_level_name(level) for level in source.levels]  # type: ignore[union-attr]
+        self.in_variables = [f"{v}{name}" for v in self.variables for name in names]
+        if self.hybrid:
+            self.in_variables.append("sp")
+        self.out_variables = [
+            f"{v}{_level_name(level)}" for v in self.variables for level in levels
+        ]
+        self.register_buffer("target", target.pressure(), persistent=False)
+        if not self.hybrid:
+            self.register_buffer("pressure", source.pressure(), persistent=False)  # type: ignore[call-arg]
+
+    def _compute(self, x: torch.Tensor) -> torch.Tensor:
+        nvar, nlevel = len(self.variables), len(self.source)
+        values = x[..., : nvar * nlevel, :, :]
+        values = values.reshape(*x.shape[:-3], nvar, nlevel, *x.shape[-2:])
+        if self.hybrid:
+            pressure = self.source.pressure(x[..., -1, :, :])  # type: ignore[call-arg]
+            pressure = pressure.movedim(-1, -3).unsqueeze(-4)
+        else:
+            pressure = self.pressure
+        output = interpolate_pressure(
+            values, pressure, self.target, dim=-3, fill_value=self.fill_value
+        )
+        return output.reshape(*x.shape[:-3], -1, *x.shape[-2:])
+
+
+def _level_name(level: float) -> str:
+    """Lexicon suffix of a pressure level: ``850`` for 850 hPa, ``2.5`` for 2.5 hPa."""
+    return f"{level:g}"

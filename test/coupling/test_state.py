@@ -1,0 +1,271 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024-2026 NVIDIA CORPORATION & AFFILIATES.
+# SPDX-FileCopyrightText: All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""State connectors, connector transforms and per-component devices."""
+
+from collections.abc import Iterator, Mapping
+
+import numpy as np
+import pytest
+import torch
+import xarray as xr
+from conftest import (
+    ATMOS_GRID,
+    OCEAN_GRID,
+    Double,
+    Fill,
+    H,
+    _check,
+    _Toy,
+    atmosphere,
+    ocean,
+    signature,
+)
+from test_runner import TO_ATMOS, TO_OCEAN, _run, _series, _toy
+
+from earth2studio.coupling import Connector, CoupledRunner, CouplingError
+from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.utils import coord_array_like
+from earth2studio.utils.type import CoordinateSystem
+
+
+class Mixed(PrognosticMixin):
+    """6 h atmosphere carrying SST in its state: ``z1000 <- z1000 + 1 + 0.1 * sst``."""
+
+    def input_coords(self) -> CoordinateSystem:
+        return signature(["z1000", "sst"], ATMOS_GRID)
+
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        _check(input_coords, self.input_coords())
+        leads = input_coords["lead_time"].values[-1:] + 6 * H
+        return coord_array_like(input_coords, {"lead_time": leads})
+
+    def _advance(self, x: xr.DataArray) -> xr.DataArray:
+        self.output_coords(x)
+        y = x.isel(lead_time=[-1]).copy()
+        sst = float(y.sel(variable="sst").mean())
+        y.loc[{"variable": "z1000"}] = y.sel(variable="z1000") + 1 + 0.1 * sst
+        return y.assign_coords(lead_time=y["lead_time"] + 6 * H)
+
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, None]:  # type: ignore[override]
+        return self._advance(x), None
+
+    def step(  # type: ignore[override]
+        self, y: xr.DataArray, state: None = None
+    ) -> tuple[xr.DataArray, None]:
+        return self._advance(y), None
+
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        return self._default_call(x)  # type: ignore[return-value]
+
+    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
+        return self._default_create_iterator(x)  # type: ignore[return-value]
+
+    def to(self, device: torch.device) -> "Mixed":
+        return self
+
+
+def _state_coupled(**connector: object) -> CoupledRunner:
+    # The atmosphere starts from SST 5; the ocean's SST 2 replaces it.
+    return CoupledRunner(
+        {"atmos": Mixed(), "ocean": ocean()},
+        [
+            Connector(
+                "ocean",
+                "atmos",
+                state=True,
+                variables=["sst"],
+                time="hold",
+                regridder=TO_ATMOS,
+                **connector,  # type: ignore[arg-type]
+            ),
+            Connector("atmos", "ocean", regridder=TO_OCEAN),
+        ],
+        sources={
+            "atmos": Fill(ATMOS_GRID, {"z1000": 0.0, "sst": 5.0}),
+            "ocean": Fill(OCEAN_GRID, {"sst": 2.0}),
+        },
+    )
+
+
+# -- state connectors ----------------------------------------------------------
+
+
+def test_state_overwrite_matches_forcing_coupling(
+    ic_sources: Mapping[str, Fill],
+) -> None:
+    streams = _run(_state_coupled(), 96)
+    z = {
+        lead: float(x.sel(variable="z1000").mean())
+        for lead, x in zip(
+            [int(x["lead_time"].values[0] // H) for x in streams["atmos"]],
+            streams["atmos"],
+        )
+    }
+    expected = _series(_run(_toy(ic_sources), 96)["atmos"])
+    assert list(z) == list(expected)
+    for lead, value in expected.items():
+        np.testing.assert_allclose(z[lead], value, atol=1e-4)
+    # The atmosphere publishes its own state: SST 5 initially, then the ocean's.
+    sst = [float(x.sel(variable="sst").mean()) for x in streams["atmos"]]
+    assert sst[0] == 5.0
+    np.testing.assert_allclose(sst[-1], 2.042, atol=1e-6)
+
+
+def test_state_overwrite_is_described() -> None:
+    plan = _state_coupled().describe(np.timedelta64(12, "h"))
+    assert "ocean -> atmos state input[0] (hold, regridded): sst" in plan
+    assert "state input[0] <- ocean at +6h from +0h" in plan
+
+
+def test_state_overwrite_is_transformed() -> None:
+    streams = _run(_state_coupled(transform=lambda x: x + 1.0), 6)
+    z = float(streams["atmos"][1].sel(variable="z1000").mean())
+    np.testing.assert_allclose(z, 1.3, atol=1e-6)
+
+
+@pytest.mark.parametrize(
+    "connectors, match",
+    [
+        (
+            [Connector("ocean", "atmos", state=True, variables=["sst"], slot=1)],
+            "has no state slot 1",
+        ),
+        (
+            [Connector("ocean", "atmos", state=True, variables=["sic"])],
+            r"holds no state variables \['sic'\]",
+        ),
+        (
+            [
+                Connector(
+                    "ocean", "atmos", state=True, variables=["sst"], regridder=TO_ATMOS
+                ),
+                Connector(
+                    "ocean",
+                    "atmos",
+                    state=True,
+                    variables={"sst": "sst"},
+                    regridder=TO_ATMOS,
+                ),
+            ],
+            r"both overwrite \['sst'\]",
+        ),
+        (
+            [Connector("ocean", "atmos", state=True, variables=["sst"])],
+            "grids differ; pass a regridder",
+        ),
+    ],
+)
+def test_state_connectors_are_validated(
+    connectors: list[Connector], match: str
+) -> None:
+    with pytest.raises(CouplingError, match=match):
+        CoupledRunner({"atmos": Mixed(), "ocean": ocean()}, connectors)
+
+
+def test_state_connectors_name_their_variables() -> None:
+    with pytest.raises(CouplingError, match="must name the state variables"):
+        Connector("ocean", "atmos", state=True)
+    with pytest.raises(CouplingError, match="mapping or a sequence"):
+        Connector("ocean", "atmos", variables="sst")
+
+
+def test_diagnostics_have_no_state() -> None:
+    with pytest.raises(CouplingError, match="has no state slot 0"):
+        CoupledRunner(
+            {"atmos": atmosphere(), "double": Double()},
+            [
+                Connector("atmos", "double"),
+                Connector("atmos", "double", state=True, variables=["z1000"]),
+            ],
+        )
+
+
+# -- transforms ----------------------------------------------------------------
+
+
+def test_transform_applies_to_connected_frames(
+    ic_sources: Mapping[str, Fill],
+) -> None:
+    runner = CoupledRunner(
+        {"atmos": atmosphere(), "ocean": ocean()},
+        [
+            Connector(
+                "ocean",
+                "atmos",
+                time="hold",
+                regridder=TO_ATMOS,
+                transform=lambda x: x - 1.0,
+            ),
+            Connector("atmos", "ocean", regridder=TO_OCEAN),
+        ],
+        sources=dict(ic_sources),
+    )
+    assert "(hold, regridded, transformed)" in runner.describe(np.timedelta64(6, "h"))
+    z = _series(_run(runner, 6)["atmos"])
+    np.testing.assert_allclose(z[6], 1.1, atol=1e-6)  # 0 + 1 + 0.1 * (2 - 1)
+
+
+def test_transform_must_keep_variables_and_lead_times(
+    ic_sources: Mapping[str, Fill],
+) -> None:
+    runner = CoupledRunner(
+        {"atmos": atmosphere(), "ocean": ocean()},
+        [
+            Connector(
+                "ocean",
+                "atmos",
+                time="hold",
+                regridder=TO_ATMOS,
+                transform=lambda x: x.assign_coords(variable=["t2m"]),
+            ),
+            Connector("atmos", "ocean", regridder=TO_OCEAN),
+        ],
+        sources=dict(ic_sources),
+    )
+    with pytest.raises(CouplingError, match="transform changed the 'variable'"):
+        _run(runner, 6)
+    with pytest.raises(CouplingError, match="must be callable"):
+        Connector("ocean", "atmos", transform=1.0)  # type: ignore[arg-type]
+
+
+# -- devices -------------------------------------------------------------------
+
+
+class _Moved(_Toy):
+    def to(self, device: torch.device) -> "_Moved":
+        self.moved = device
+        return self
+
+
+def test_pinned_components_stay_on_their_device(
+    ic_sources: Mapping[str, Fill],
+) -> None:
+    atmos = _Moved("z1000", "sst", ATMOS_GRID, 6, 1.0, 0.1)
+    impact = _Moved("sst", "z1000:mean:48h", ATMOS_GRID, 48, 0.0, 0.01, 48)
+    runner = CoupledRunner(
+        {"atmos": atmos, "ocean": impact},
+        [Connector("ocean", "atmos", time="hold"), Connector("atmos", "ocean")],
+        sources={"atmos": ic_sources["atmos"], "ocean": ic_sources["atmos"]},
+        devices={"ocean": "cpu"},
+    )
+    runner.to("meta")
+    assert atmos.moved == torch.device("meta")
+    assert not hasattr(impact, "moved")
+    assert runner.device_of("ocean") == torch.device("cpu")
+    assert runner.device_of("atmos") == torch.device("meta")
+    with pytest.raises(CouplingError, match="unknown component 'oceans'"):
+        CoupledRunner({"ocean": ocean()}, devices={"oceans": "cpu"})
