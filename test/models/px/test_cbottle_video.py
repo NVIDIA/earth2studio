@@ -42,7 +42,7 @@ from earth2studio.utils.cupy import from_torch
 class _StubCore:
     """Cheap stand-in for the cbottle sampler, repeats the condition plus noise."""
 
-    def sample(self, batch, seed=None):
+    def _sample_with_latents(self, batch, seed=None, sampler=None):
         x = batch["target"]
         noise = torch.rand((), device=x.device)
         return torch.nan_to_num(x).expand(-1, -1, 12, *x.shape[3:]) + noise, None
@@ -62,6 +62,7 @@ def offline_video(monkeypatch):
         self.register_buffer("device_buffer", torch.empty(0))
         self.sigma_min, self.sigma_max, self.sampler_steps = 0.02, 80, 2
         self.time_stepper = "heun"
+        self.solver, self.solver_options = None, {}
         self.condition_regridder = lambda x: x
         self.output_regridder = lambda x: x
 

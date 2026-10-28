@@ -444,8 +444,9 @@ class TestCBottleTCMock:
         with pytest.raises(ValueError):
             dx._validate_sst_time(invalid_times)
 
+    @pytest.mark.parametrize("solver", [None, "euler", "dpmpp_2m"])
     def test_cbottletcguidance_conformance(
-        self, mock_core_model, mock_classifier_model, mock_sst_ds
+        self, mock_core_model, mock_classifier_model, mock_sst_ds, solver
     ):
         """Check the mock CBottleTCGuidance model against the model contract.
 
@@ -460,9 +461,9 @@ class TestCBottleTCMock:
         model against the checker's CPU-default probe tensor depending on test
         execution order.
         """
-        dx = CBottleTCGuidance(mock_core_model, mock_classifier_model, mock_sst_ds).to(
-            "cuda:0"
-        )
+        dx = CBottleTCGuidance(
+            mock_core_model, mock_classifier_model, mock_sst_ds, solver=solver
+        ).to("cuda:0")
         dx.sampler_steps = 2  # Speed up sampler
         assert (
             check_diagnostic_contract(
