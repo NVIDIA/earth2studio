@@ -286,14 +286,19 @@ class CoupledRunner:
                     f"Diagnostic {name!r} needs at least one connector with "
                     "time='exact' to tell it when to run (C2)"
                 )
+        # A diagnostic runs where every exact input has a frame, so its frames
+        # are spaced by the least common multiple of its producers' spacings.
         for _ in self.nodes:  # resolve diagnostic chains
-            for name, node in self.nodes.items():
+            for name in self.nodes:
                 if name in spacing:
                     continue
-                for (dst, _), c in self.connectors.items():
-                    if dst == name and c.time == "exact" and c.src in spacing:
-                        spacing[name] = spacing[c.src]
-                        break
+                sources = [
+                    c.src
+                    for (dst, _), c in self.connectors.items()
+                    if dst == name and c.time == "exact"
+                ]
+                if all(src in spacing for src in sources):
+                    spacing[name] = math.lcm(*(spacing[src] for src in sources))
         return spacing
 
     def _check_windows(self) -> None:

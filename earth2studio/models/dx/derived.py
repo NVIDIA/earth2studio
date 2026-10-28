@@ -677,21 +677,24 @@ class DerivedPressureLevels(_DerivedDiagnostic):
         self.out_variables = [
             f"{v}{_level_name(level)}" for v in self.variables for level in levels
         ]
-        self.register_buffer("target", target.pressure(), persistent=False)
-        if not self.hybrid:
-            self.register_buffer("pressure", source.pressure(), persistent=False)  # type: ignore[call-arg]
+        # Pressures stay out of module buffers so a half-precision cast of the
+        # model cannot overflow them; they are built per call in float32 or wider.
+        self.target = target
 
     def _compute(self, x: torch.Tensor) -> torch.Tensor:
         nvar, nlevel = len(self.variables), len(self.source)
+        work = torch.promote_types(x.dtype, torch.float32)
         values = x[..., : nvar * nlevel, :, :]
         values = values.reshape(*x.shape[:-3], nvar, nlevel, *x.shape[-2:])
         if self.hybrid:
-            pressure = self.source.pressure(x[..., -1, :, :])  # type: ignore[call-arg]
+            surface = x[..., -1, :, :].to(work)
+            pressure = self.source.pressure(surface)  # type: ignore[call-arg]
             pressure = pressure.movedim(-1, -3).unsqueeze(-4)
         else:
-            pressure = self.pressure
+            pressure = self.source.pressure().to(x.device, work)  # type: ignore[call-arg]
+        target = self.target.pressure().to(x.device, work)
         output = interpolate_pressure(
-            values, pressure, self.target, dim=-3, fill_value=self.fill_value
+            values, pressure, target, dim=-3, fill_value=self.fill_value
         )
         return output.reshape(*x.shape[:-3], -1, *x.shape[-2:])
 

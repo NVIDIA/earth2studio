@@ -648,6 +648,83 @@ def test_outputs_on_another_grid_start_at_the_first_chunk() -> None:
     assert [int(v // H) for v in leads.values] == [6, 12]
 
 
+class _Pair:
+    """Diagnostic reading ``z1000`` and ``sst`` on the atmosphere grid."""
+
+    stochastic = False
+
+    def input_coords(self) -> tuple[CoordinateSystem, CoordinateSystem]:
+        return signature(["z1000"], ATMOS_GRID), signature(["sst"], ATMOS_GRID)
+
+    def output_coords(
+        self, z: CoordinateSystem, sst: CoordinateSystem
+    ) -> CoordinateSystem:
+        return coord_array_like(z, {"variable": ["zs"]})
+
+    def to(self, device: torch.device) -> "_Pair":
+        return self
+
+    def __call__(self, z: xr.DataArray, sst: xr.DataArray) -> xr.DataArray:
+        return (z + sst.values).assign_coords(variable=["zs"])
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_diagnostic_spacing_follows_its_slowest_exact_input(
+    ic_sources: Mapping[str, Fill], reverse: bool
+) -> None:
+    feeds = [
+        Connector("atmos", "pair", slot=0),
+        Connector("ocean", "pair", slot=1, regridder=TO_ATMOS),
+    ]
+    runner = CoupledRunner(
+        {"atmos": atmosphere(), "ocean": ocean(), "pair": _Pair()},
+        [
+            Connector("ocean", "atmos", time="hold", regridder=TO_ATMOS),
+            Connector("atmos", "ocean", regridder=TO_OCEAN),
+            *(feeds[::-1] if reverse else feeds),
+        ],
+        sources=dict(ic_sources),
+    )
+    assert runner.spacing["pair"] == runner.spacing["ocean"]
+    assert list(_series(_run(runner, 96)["pair"])) == [0, 48, 96]
+
+
+def test_input_history_on_another_grid_is_not_published() -> None:
+    class _Coarsen(_Toy):
+        """Takes ``z1000`` on the atmosphere grid and outputs its mean on the ocean's."""
+
+        def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+            leads = input_coords["lead_time"].values[-1:] + 6 * H
+            return signature(["z1000"], OCEAN_GRID, [int(leads[0] // H)])
+
+        def _advance(self, x: xr.DataArray, forcing: xr.DataArray) -> xr.DataArray:
+            out = self.output_coords(x)
+            value = float(x.isel(lead_time=-1).mean()) + 1
+            out = coord_array_like(out, {"time": x["time"].values})
+            return xr.DataArray(
+                np.full(out.shape, value, dtype=np.float32),
+                dims=out.dims,
+                coords=out.coords,
+            )
+
+    consumer = _Toy("sst", "z1000", OCEAN_GRID, 6, 0.0, 0.01)
+    runner = CoupledRunner(
+        {"coarse": _Coarsen("z1000", "sst", ATMOS_GRID, 6, 0.0, 0.0), "sea": consumer},
+        [Connector("coarse", "sea")],
+        sources={
+            "coarse": (
+                Fill(ATMOS_GRID, {"z1000": 0.0}),
+                Fill(ATMOS_GRID, {"sst": 0.0}),
+            ),
+            "sea": (Fill(OCEAN_GRID, {"sst": 2.0}), Fill(OCEAN_GRID, {"z1000": 7.0})),
+        },
+    )
+    # The consumer's lead-zero forcing comes from its source, not the producer's
+    # atmosphere-grid input; later forcing comes from the producer.
+    sst = _series(_run(runner, 12)["sea"])
+    np.testing.assert_allclose([sst[6], sst[12]], [2.07, 2.08], atol=1e-6)
+
+
 def test_output_slots_must_share_lead_times() -> None:
     with pytest.raises(CouplingError, match="different lead times.*split"):
         CoupledRunner({"model": _TwoSlots(ocean_step=48)})

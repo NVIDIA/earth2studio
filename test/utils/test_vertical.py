@@ -65,6 +65,17 @@ def test_interpolation_is_linear_in_log_pressure():
     torch.testing.assert_close(out[:, 1, 0], torch.log(target))
 
 
+def test_half_precision_fields_interpolate_in_single_precision():
+    # 850 and 1000 hPa in Pa overflow float16; the result keeps the field dtype.
+    x = torch.tensor([1.0, 2.0], dtype=torch.float16)
+    out = interpolate_pressure(
+        x, torch.tensor([85000.0, 100000.0]), torch.tensor([92500.0])
+    )
+    assert out.dtype == torch.float16
+    assert torch.isfinite(out).all()
+    torch.testing.assert_close(out.float(), torch.tensor([1.5205]), atol=1e-3, rtol=0)
+
+
 def test_targets_outside_the_column_clamp_or_fill():
     pressure = torch.tensor([30000.0, 100000.0])
     x = torch.tensor([1.0, 2.0])
