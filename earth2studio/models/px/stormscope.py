@@ -63,10 +63,16 @@ if TYPE_CHECKING:
 
 try:
     from physicsnemo import Module
+    from physicsnemo.diffusion.noise_schedulers import EDMNoiseScheduler
+    from physicsnemo.diffusion.samplers import Solver, sample
     from physicsnemo.utils.zenith_angle import cos_zenith_angle
+
+    from earth2studio.models._diffusion import SOLVERS, seeded_rng
+    from earth2studio.models._diffusion import solver_options as _solver_options
 except ImportError:
     OptionalDependencyFailure("stormscope")
     Module = None  # type: ignore[assignment]
+    Solver = object
     cos_zenith_angle = None  # type: ignore[assignment]
 
 # Default regridders, shared by coupled models and by the masks computed at load.
@@ -279,8 +285,21 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         max_dist_km: float = 6.0,
         amp: bool = True,
         compile: bool = False,
+        *,
+        solver: str = "edm_stochastic_heun",
+        solver_options: dict[str, Any] | None = None,
     ):
         super().__init__()
+        if solver not in SOLVERS:
+            raise ValueError(
+                f"Unknown solver {solver!r}; choose from {tuple(SOLVERS)}."
+            )
+        self.solver = solver
+        if solver_options is not None and "num_steps" in solver_options:
+            raise ValueError(
+                "Do not pass 'num_steps' in solver_options; use sampler_args['num_steps'] instead."
+            )
+        self.solver_options = dict(solver_options or {})
         # Validate and store staged models
         if not isinstance(model_spec, list) or len(model_spec) == 0:
             raise ValueError("model_spec must be a non-empty list of stage dicts.")
@@ -1111,13 +1130,25 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # _SAMPLER_DTYPE (fp64) since autocast only affects autocast-eligible
         # network ops, not the explicit fp64 pointwise updates. autocast is a
         # no-op when self.amp is False, so the default path is unchanged.
-        with torch.autocast(device_type=x.device.type, enabled=self.amp):
+        generator = None
+        if (
+            self._noise_generator is not None
+            and not self._is_flash
+            and self.solver.startswith("edm_stochastic_")
+        ):
+            seed = int(
+                torch.randint(2**63 - 1, (), generator=self._noise_generator).item()
+            )
+            generator = torch.Generator(device=x.device).manual_seed(seed)
+        with (
+            seeded_rng(generator),
+            torch.autocast(device_type=x.device.type, enabled=self.amp),
+        ):
             out = self._edm_sampler(
                 latents=latents,
                 condition=condition,
                 sigma_min=self.start_sigma,
                 sigma_max=self.end_sigma,
-                randn_like=self._randn_like,
                 **self.sampler_args,
             ).to(output_dtype)
 
@@ -1189,7 +1220,6 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self,
         latents: torch.Tensor,
         condition: torch.Tensor | None = None,
-        randn_like: Callable[[torch.Tensor], torch.Tensor] = torch.randn_like,
         num_steps: int = 18,
         sigma_max: float = 500,
         sigma_min: float = 0.004,
@@ -1204,76 +1234,28 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             from earth2studio.models.nn.stormscope_flash import sample_flash
 
             return sample_flash(self, latents.to(self._SAMPLER_DTYPE), condition)
-        # Time step discretization.
-        step_indices = torch.arange(
-            num_steps, dtype=torch.float64, device=latents.device
+        scheduler = EDMNoiseScheduler(sigma_min=sigma_min, sigma_max=sigma_max, rho=rho)
+        options = _solver_options(
+            scheduler,
+            self.solver,
+            num_steps=num_steps,
+            defaults=dict(S_churn=S_churn, S_min=S_min, S_max=S_max, S_noise=S_noise),
+            options=self.solver_options,
         )
-        t_steps = (
-            sigma_max ** (1 / rho)
-            + step_indices
-            / (num_steps - 1)
-            * (sigma_min ** (1 / rho) - sigma_max ** (1 / rho))
-        ) ** rho
-        t_steps = torch.cat(
-            [torch.as_tensor(t_steps), torch.zeros_like(t_steps[:1])]
-        )  # t_N = 0
-        # Main sampling loop.
-        x_next = latents.to(self._SAMPLER_DTYPE) * t_steps[0]
-
-        for i, (t_cur, t_next) in enumerate(
-            zip(t_steps[:-1], t_steps[1:])
-        ):  # 0, ..., N-1
-            x_cur = x_next
-
-            # select active expert based on t_cur
-            active_net = self._select_expert(t_cur)
-
-            # Increase noise temporarily.
-            gamma = (
-                min(S_churn / num_steps, np.sqrt(2) - 1)
-                if S_min <= t_cur <= S_max
-                else 0
-            )
-            t_hat = torch.as_tensor(t_cur + gamma * t_cur)
-            x_hat = x_cur + (t_hat**2 - t_cur**2).sqrt() * S_noise * randn_like(x_cur)
-
-            # The PhysicsNeMo preconditioner expects the noise level ``t`` to be
-            # a 1-D tensor matching the batch dimension of ``x``; broadcast the
-            # scalar sigma across the batch for the network calls. The sampling
-            # loop runs in float64 for stability, but the preconditioner does
-            # not down-cast its model input, so feed the network float32 and
-            # cast the denoised output back to the sampler dtype.
-            batch_size = x_hat.shape[0]
-            t_hat_b = t_hat.reshape(1).expand(batch_size).to(self._MODEL_DTYPE)
-
-            # Euler step.
-            denoised = active_net(
-                x_hat.to(self._MODEL_DTYPE), t_hat_b, condition=condition
-            ).to(self._SAMPLER_DTYPE)
-            d_cur = (x_hat - denoised) / t_hat
-            x_next = x_hat + (t_next - t_hat) * d_cur
-
-            # Apply 2nd order correction.
-            if i < num_steps - 1:
-                # Select the active network for the next step
-                active_net_prime = self._select_expert(t_next)
-
-                t_next_b = (
-                    torch.as_tensor(t_next)
-                    .reshape(1)
-                    .expand(batch_size)
-                    .to(self._MODEL_DTYPE)
-                )
-                denoised = active_net_prime(
-                    x_next.to(self._MODEL_DTYPE), t_next_b, condition=condition
-                ).to(self._SAMPLER_DTYPE)
-                d_prime = (x_next - denoised) / t_next
-                x_next = x_hat + (t_next - t_hat) * (0.5 * d_cur + 0.5 * d_prime)
-
-            if progress_bar:
-                progress_bar.update()
-
-        return x_next
+        staged_solver = _StagedSolver(
+            self, condition, scheduler, self.solver, options, progress_bar
+        )
+        steps = scheduler.timesteps(
+            num_steps, device=latents.device, dtype=self._SAMPLER_DTYPE
+        )
+        return sample(
+            staged_solver.denoiser,
+            latents.to(self._SAMPLER_DTYPE) * steps[0],
+            scheduler,
+            num_steps,
+            solver=staged_solver,
+            time_steps=steps,
+        )
 
     def _select_expert(self, t_cur: torch.Tensor) -> nn.Module:
         """Select the active denoising expert based on the current time step."""
@@ -1820,6 +1802,15 @@ class StormScopeGOES(StormScopeBase):
     As a result, there are portions of the domain which go beyond the extent of the GOES-East data,
     so these portions are masked as invalid (set to NaN).
 
+    solver : str, optional
+        Select the numerical method for integrating the sampling ODE in reverse
+        time. Stochastic variants also inject noise along the trajectory, by
+        default "edm_stochastic_heun"
+    solver_options : dict[str, Any] | None, optional
+        Options passed to the selected solver to customize its behavior or
+        override defaults. Do not pass ``num_steps`` here; set the sampling step
+        count with ``sampler_args["num_steps"]`` instead. By default None
+
     Badges
     ------
     region:na class:nowcasting product:sat year:2026 gpu:80gb
@@ -1864,6 +1855,9 @@ class StormScopeGOES(StormScopeBase):
         max_dist_km: float = 6.0,
         amp: bool = True,
         compile: bool = False,
+        *,
+        solver: str = "edm_stochastic_heun",
+        solver_options: dict[str, Any] | None = None,
     ):
 
         conditioned = conditioning_variables is not None and bool(
@@ -1878,6 +1872,8 @@ class StormScopeGOES(StormScopeBase):
             raise ValueError(f"{type(self).__name__} requires conditioning variables")
         super().__init__(
             model_spec=model_spec,
+            solver=solver,
+            solver_options=solver_options,
             means=means,
             stds=stds,
             variables=variables,
@@ -1993,6 +1989,9 @@ class StormScopeGOES(StormScopeBase):
         model_name: Literal["3km_10min", "6km_1hr", "3km_10min_flash"] = "3km_10min",
         amp: bool = True,
         compile: bool = False,
+        *,
+        solver: str | None = None,
+        solver_options: dict[str, Any] | None = None,
     ) -> PrognosticModel:
         """Load model from package.
 
@@ -2018,12 +2017,26 @@ class StormScopeGOES(StormScopeBase):
             Compile each staged expert with ``torch.compile`` ("reduce-overhead").
             Default is False.
 
+        solver : str | None, optional
+            Select the numerical method for integrating the sampling ODE in
+            reverse time. Stochastic variants also inject noise along the
+            trajectory. None selects stochastic Heun for the teacher; Flash
+            variants reject solver overrides, by default None
+        solver_options : dict[str, Any] | None, optional
+            Options passed to the selected solver to customize its behavior or
+            override defaults. Do not pass ``num_steps`` here; set the sampling step
+            count with ``sampler_args["num_steps"]`` instead. By default None
+
         Returns
         -------
         PrognosticModel
             Instantiated model: :py:class:`StormScopeGOESConditioned` for variants
             with conditioning variables, otherwise StormScopeGOES.
         """
+        if model_name == "3km_10min_flash" and (solver is not None or solver_options):
+            raise ValueError(
+                "StormScope Flash uses a fixed rollout and does not accept solver overrides."
+            )
         try:
             package.resolve("config.json")  # HF tracking download statistics
         except FileNotFoundError:
@@ -2046,6 +2059,10 @@ class StormScopeGOES(StormScopeBase):
 
         registry = cls._load_registry(package)
         _, pkg = cls._resolve_model_entry(package, model_name)
+        if pkg.get("flash", False) and (solver is not None or solver_options):
+            raise ValueError(
+                "StormScope Flash uses a fixed rollout and does not accept solver overrides."
+            )
         model_spec = cls._load_checkpoints(package, pkg)
         (
             latitudes,
@@ -2087,6 +2104,8 @@ class StormScopeGOES(StormScopeBase):
             model_cls = StormScopeGOESConditioned
         model = model_cls(
             model_spec=model_spec,
+            solver=solver or "edm_stochastic_heun",
+            solver_options=solver_options,
             means=means.to(dtype=torch.float32),
             stds=stds.to(dtype=torch.float32),
             variables=variables,
@@ -2251,6 +2270,9 @@ class StormScopeGOESConditioned(StormScopeGOES):
         model_name: Literal["6km_1hr"] = "6km_1hr",
         amp: bool = True,
         compile: bool = False,
+        *,
+        solver: str | None = None,
+        solver_options: dict[str, Any] | None = None,
     ) -> PrognosticModel:
         """Load a conditioned GOES variant from a package.
 
@@ -2267,13 +2289,26 @@ class StormScopeGOESConditioned(StormScopeGOES):
             Compile each staged expert with ``torch.compile`` ("reduce-overhead").
             Default is False.
 
+        solver : str | None, optional
+            Numerical method for integrating the sampling ODE in reverse time.
+            None preserves stochastic Heun, by default None.
+        solver_options : dict[str, Any] | None, optional
+            Options passed to the selected solver to customize its behavior or
+            override defaults. Set the sampling step count through
+            ``sampler_args["num_steps"]``, by default None.
+
         Returns
         -------
         PrognosticModel
             Instantiated StormScopeGOESConditioned model.
         """
         return super().load_model(
-            package, model_name=model_name, amp=amp, compile=compile
+            package,
+            model_name=model_name,
+            amp=amp,
+            compile=compile,
+            solver=solver,
+            solver_options=solver_options,
         )
 
 
@@ -2381,6 +2416,15 @@ class StormScopeMRMS(StormScopeBase):
     passed separately by the caller; neither method fetches observations or
     applies iterator hooks.
 
+    solver : str, optional
+        Select the numerical method for integrating the sampling ODE in reverse
+        time. Stochastic variants also inject noise along the trajectory, by
+        default "edm_stochastic_heun"
+    solver_options : dict[str, Any] | None, optional
+        Options passed to the selected solver to customize its behavior or
+        override defaults. Do not pass ``num_steps`` here; set the sampling step
+        count with ``sampler_args["num_steps"]`` instead. By default None
+
     Badges
     ------
     region:na class:nowcasting product:radar year:2026 gpu:80gb
@@ -2431,10 +2475,15 @@ class StormScopeMRMS(StormScopeBase):
         max_dist_km: float = 6.0,
         amp: bool = True,
         compile: bool = False,
+        *,
+        solver: str = "edm_stochastic_heun",
+        solver_options: dict[str, Any] | None = None,
     ):
 
         super().__init__(
             model_spec=model_spec,
+            solver=solver,
+            solver_options=solver_options,
             means=means,
             stds=stds,
             variables=variables,
@@ -2632,6 +2681,9 @@ class StormScopeMRMS(StormScopeBase):
         model_name: Literal["3km_10min", "6km_1hr", "3km_10min_flash"] = "3km_10min",
         amp: bool = True,
         compile: bool = False,
+        *,
+        solver: str | None = None,
+        solver_options: dict[str, Any] | None = None,
     ) -> PrognosticModel:
         """Load model from package.
 
@@ -2656,11 +2708,25 @@ class StormScopeMRMS(StormScopeBase):
             Compile each staged expert with ``torch.compile`` ("reduce-overhead").
             Default is False.
 
+        solver : str | None, optional
+            Select the numerical method for integrating the sampling ODE in
+            reverse time. Stochastic variants also inject noise along the
+            trajectory. None selects stochastic Heun for the teacher; Flash
+            variants reject solver overrides, by default None
+        solver_options : dict[str, Any] | None, optional
+            Options passed to the selected solver to customize its behavior or
+            override defaults. Do not pass ``num_steps`` here; set the sampling step
+            count with ``sampler_args["num_steps"]`` instead. By default None
+
         Returns
         -------
         PrognosticModel
             Instantiated StormScopeMRMS model
         """
+        if model_name == "3km_10min_flash" and (solver is not None or solver_options):
+            raise ValueError(
+                "StormScope Flash uses a fixed rollout and does not accept solver overrides."
+            )
         try:
             package.resolve("config.json")  # HF tracking download statistics
         except FileNotFoundError:
@@ -2683,6 +2749,10 @@ class StormScopeMRMS(StormScopeBase):
 
         registry = cls._load_registry(package)
         _, pkg = cls._resolve_model_entry(package, model_name)
+        if pkg.get("flash", False) and (solver is not None or solver_options):
+            raise ValueError(
+                "StormScope Flash uses a fixed rollout and does not accept solver overrides."
+            )
         model_spec = cls._load_checkpoints(package, pkg)
         (
             latitudes,
@@ -2736,6 +2806,8 @@ class StormScopeMRMS(StormScopeBase):
 
         model = cls(
             model_spec=model_spec,
+            solver=solver or "edm_stochastic_heun",
+            solver_options=solver_options,
             means=means.to(dtype=torch.float32),
             stds=stds.to(dtype=torch.float32),
             variables=variables,
@@ -2762,3 +2834,48 @@ class StormScopeMRMS(StormScopeBase):
         if pkg.get("deprecated", False):
             model._INPUT_INVALID_FILL_CONSTANT = cls._LEGACY_INPUT_INVALID_FILL_CONSTANT
         return model
+
+
+class _StagedSolver(Solver):
+    def __init__(
+        self,
+        model: StormScopeBase,
+        condition: torch.Tensor | None,
+        scheduler: "EDMNoiseScheduler",
+        solver: str,
+        options: dict[str, Any],
+        progress_bar: Any | None,
+    ) -> None:
+        self.model = model
+        self.condition = condition
+        self.progress_bar = progress_bar
+        self.current_time = torch.as_tensor(
+            scheduler.sigma_max, device=model.means.device, dtype=model._SAMPLER_DTYPE
+        )
+        self.denoiser = scheduler.get_denoiser(x0_predictor=self._predict_x0)
+        self.solver = SOLVERS[solver](self.denoiser, **options)
+
+    def _predict_x0(
+        self,
+        x: torch.Tensor,
+        t: torch.Tensor,
+    ) -> torch.Tensor:
+        # Churn changes the network input noise but keeps the departure-time expert.
+        expert = self.model._select_expert(torch.minimum(t[0], self.current_time))
+        return expert(
+            x.to(self.model._MODEL_DTYPE),
+            t.to(self.model._MODEL_DTYPE),
+            condition=self.condition,
+        ).to(self.model._SAMPLER_DTYPE)
+
+    def step(
+        self,
+        x: torch.Tensor,
+        t_cur: torch.Tensor,
+        t_next: torch.Tensor,
+    ) -> torch.Tensor:
+        self.current_time = t_cur[0]
+        result = self.solver.step(x, t_cur, t_next)
+        if self.progress_bar is not None:
+            self.progress_bar.update()
+        return result
