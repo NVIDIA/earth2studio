@@ -2082,6 +2082,7 @@ aurora = [
 cbottle = [
     { name = "cbottle", marker = "python_full_version >= '3.12' or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-atlas') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-fcn3') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-perturbation') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-ace2' and extra == 'extra-12-earth2studio-sfno') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifs2ens') or (extra == 'extra-12-earth2studio-aifs2' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-aifs2ens' and extra == 'extra-12-earth2studio-aifsens') or (extra == 'extra-12-earth2studio-atlas' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-fcn3' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-perturbation' and extra == 'extra-12-earth2studio-samudrace') or (extra == 'extra-12-earth2studio-samudrace' and extra == 'extra-12-earth2studio-sfno')" },
     { name = "earth2grid" },
+    { name = "nvidia-physicsnemo" },
 ]
 corrdiff = [
     { name = "einops" },
@@ -2501,6 +2502,7 @@ requires-dist = [
     { name = "nvidia-physicsnemo", marker = "extra == 'all'", specifier = ">=2.2.0" },
     { name = "nvidia-physicsnemo", marker = "extra == 'all'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=06d9e07b260c6668d76a79df972c54dfc65b5906" },
     { name = "nvidia-physicsnemo", marker = "extra == 'atlas'", specifier = ">=1.3.0" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'cbottle'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=06d9e07b260c6668d76a79df972c54dfc65b5906" },
     { name = "nvidia-physicsnemo", marker = "extra == 'corrdiff'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=06d9e07b260c6668d76a79df972c54dfc65b5906" },
     { name = "nvidia-physicsnemo", marker = "extra == 'corrdiff-era5-hrrr'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=06d9e07b260c6668d76a79df972c54dfc65b5906" },
     { name = "nvidia-physicsnemo", marker = "extra == 'cosmo'", git = "https://github.com/NVIDIA/physicsnemo.git?rev=06d9e07b260c6668d76a79df972c54dfc65b5906" },

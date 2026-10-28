@@ -358,7 +358,8 @@ class TestCBottleMock:
         assert torch.allclose(out0, out1)
         assert torch.allclose(out0, out2)
 
-    def test_cbottleinfill_conformance(self, mock_core_model, mock_sst_ds):
+    @pytest.mark.parametrize("solver", [None, "euler", "dpmpp_2m"])
+    def test_cbottleinfill_conformance(self, mock_core_model, mock_sst_ds, solver):
         """Check the mock CBottleInfill model against the model contract.
 
         Probed at a time inside the default AMIP mid-month SST range: with no
@@ -374,7 +375,9 @@ class TestCBottleMock:
 
         """
         input_variables = np.array(["u10m", "v10m"])
-        dx = CBottleInfill(mock_core_model, mock_sst_ds, input_variables).to("cuda:0")
+        dx = CBottleInfill(
+            mock_core_model, mock_sst_ds, input_variables, solver=solver
+        ).to("cuda:0")
         dx.sampler_steps = 2  # Speed up sampler
         assert (
             check_diagnostic_contract(

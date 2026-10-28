@@ -84,6 +84,7 @@ stormcast.sampler_steps = 32  # StormCast and StormCastSDA
 stormcast_conus.num_diffusion_steps = 32
 stormscope.sampler_args = dict(stormscope.sampler_args, num_steps=32)
 meteosat.sampler_args["num_steps"] = 32
+cbottle.sampler_steps = 32  # Non-distilled C-Bottle sampling
 ```
 
 Here, `stormscope` is a loaded `StormScopeGOES` or `StormScopeMRMS`, and
@@ -91,6 +92,7 @@ Here, `stormscope` is a loaded `StormScopeGOES` or `StormScopeMRMS`, and
 `model.num_steps` instead.
 Other CorrDiff wrappers expose `number_of_steps`.
 For `CorrDiffCosmoEra5SDA`, set `model.sampler_steps`.
+Distilled `CBottleSR` keeps its fixed two-step schedule.
 
 Do not pass `num_steps` in `solver_options`. Use the wrapper's sampling control
 so the step count and sampling time grid stay consistent.
@@ -250,3 +252,35 @@ The maps show the first date and paired realization zero at NFE budgets within
 The bottom row shows each realization minus the reference. Fields share one
 color scale, and errors share a separate zero-centered scale. A single map
 illustrates spatial behavior. The ensemble scores summarize all three dates.
+
+## Infill, guidance, and video sampling
+
+`CBottleInfill`, `CBottleTCGuidance`, and `CBottleVideo` accept `solver` and
+`solver_options` when loading. Super-resolution has specific restrictions.
+
+## Super-resolution sampling
+
+Use `CBottleSR.load_model` when selecting a PhysicsNeMo solver for SR. For
+example, this explicitly selects Euler for the distilled checkpoint:
+
+```python
+from earth2studio.models.dx import CBottleSR
+
+package = CBottleSR.load_default_package()
+model = CBottleSR.load_model(
+    package,
+    distilled_model=True,
+    solver="euler",
+)
+```
+
+For distilled SR, `solver=None` keeps the native distilled sampling method.
+An explicit alternative uses the checkpoint's two-step schedule through the
+PhysicsNeMo adapter and can change predictions and randomness. It does not
+turn the distilled checkpoint into a model with an arbitrary sampling grid.
+Distilled `solver_options` require an explicit `solver`.
+
+If constructing `CBottleSR` with a supplied external SR helper, that helper keeps
+its own sampler. The wrapper rejects solver overrides for such helpers.
+The standard SR helper that `load_model` creates supports named PhysicsNeMo
+methods.

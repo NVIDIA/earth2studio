@@ -15,7 +15,7 @@
 # limitations under the License.
 
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
@@ -49,6 +49,9 @@ try:
     from cbottle.checkpointing import Checkpoint
     from cbottle.datasets.dataset_3d import get_mean, get_std
     from cbottle.inference import CBottle3d, MixtureOfExpertsDenoiser
+
+    from earth2studio.models._cbottle import infill_cbottle
+    from earth2studio.models._diffusion import SOLVERS
 except ImportError:
     OptionalDependencyFailure("cbottle")
     earth2grid = None
@@ -104,6 +107,15 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
     sigma_max : float, optional
         Noise amplitude used to generate latent variables, by default 200
 
+    solver : str | None, optional
+        Select the numerical method for integrating the sampling ODE in reverse
+        time. ``None`` preserves the checkpoint's default method. By default
+        None
+    solver_options : dict[str, Any] | None, optional
+        Options passed to the selected solver to customize its behavior or
+        override defaults. Do not pass ``num_steps`` here; set the sampling step
+        count with ``sampler_steps`` instead. By default None
+
     Badges
     ------
     region:global class:climate product:wind product:precip product:temp
@@ -122,8 +134,21 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         input_variables: list[str] | VariableArray,
         sampler_steps: int = 18,
         sigma_max: float = 200,
+        *,
+        solver: str | None = None,
+        solver_options: dict[str, Any] | None = None,
     ):
         super().__init__()
+        if solver is not None and solver not in SOLVERS:
+            raise ValueError(
+                f"Unknown solver {solver!r}; choose from {tuple(SOLVERS)}."
+            )
+        self.solver = solver
+        if solver_options is not None and "num_steps" in solver_options:
+            raise ValueError(
+                "Do not pass 'num_steps' in solver_options; use sampler_steps instead."
+            )
+        self.solver_options = dict(solver_options or {})
 
         self.sst = sst_ds
         self.sigma_max = sigma_max
@@ -278,6 +303,9 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         input_variables: list[str] | VariableArray = ["u10m", "v10m"],
         sampler_steps: int = 18,
         sigma_max: float = 200,
+        *,
+        solver: str | None = None,
+        solver_options: dict[str, Any] | None = None,
     ) -> DiagnosticModel:
         """Load AI datasource from package
 
@@ -292,6 +320,15 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             Number of diffusion steps, by default 18
         sigma_max : float, optional
             Noise amplitude used to generate latent variables, by default 200
+
+        solver : str | None, optional
+            Select the numerical method for integrating the sampling ODE in
+            reverse time. ``None`` preserves the checkpoint's default method. By
+            default None
+        solver_options : dict[str, Any] | None, optional
+            Options passed to the selected solver to customize its behavior or
+            override defaults. Do not pass ``num_steps`` here; set the sampling step
+            count with ``sampler_steps`` instead. By default None
 
         Returns
         -------
@@ -326,6 +363,8 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             input_variables=input_variables,
             sampler_steps=sampler_steps,
             sigma_max=sigma_max,
+            solver=solver,
+            solver_options=solver_options,
         )
 
     _rng_seed: int | None = None
@@ -413,7 +452,12 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             # Use CBottle3d infill method
             # Infill draws Brownian increments and sampler noise internally.
             with fork_rng(self._rng_seed, device, states=self._rng_states):
-                infilled_data, _ = self.core_model.infill(batch_slice)
+                infilled_data, _ = infill_cbottle(
+                    self.core_model,
+                    batch_slice,
+                    solver=self.solver,
+                    options=self.solver_options,
+                )
 
             outputs.append(infilled_data)
 
