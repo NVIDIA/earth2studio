@@ -1051,6 +1051,8 @@ class NNJAObsSat:
 
     async def fetch_files(self, uris: Sequence[str]) -> None:
         """Download remote files into the NNJA cache."""
+        # Hyperspectral IR aggregates (mtiasi, cris) are much larger than the
+        # microwave cycle files; task_timeout defaults to 600s per attempt.
         coros = [
             async_retry(
                 self._fetch_remote_file,
