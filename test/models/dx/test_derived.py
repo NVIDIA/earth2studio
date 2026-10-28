@@ -914,6 +914,18 @@ def test_derived_pressure_levels_hybrid(device):
     assert torch.isnan(out).all()
 
 
+def test_derived_pressure_levels_in_half_precision():
+    model = DerivedPressureLevels(
+        ["z"], PressureLevels((850, 1000)), [925], grid=_grid()
+    ).to(dtype=torch.float16)
+    signature = coord_array_like(model.input_coords(), {"batch": [0]})
+    tensor = torch.zeros(signature.shape, dtype=torch.float16)
+    tensor[0, 0], tensor[0, 1] = 1.0, 2.0
+    out, _ = model(from_torch(tensor, signature)).e2s.to_torch()
+    assert out.dtype == torch.float16
+    assert torch.isfinite(out).all()
+
+
 def test_derived_pressure_levels_from_pressure_levels():
     grid = _grid()
     source = PressureLevels((850, 500, 1000))

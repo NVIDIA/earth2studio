@@ -252,8 +252,10 @@ class _Run:
                 continue
             arrays = self.executor.initial(node)
             buffer = self.buffers[node.name]
+            # Input history is published only where it matches an output slot's
+            # variables and grid, as initial conditions are.
             for i, slot in enumerate(node.inputs):
-                if slot.frame or slot.static:
+                if i not in node.ic_slots:
                     continue
                 for j, lead in enumerate(slot.leads):
                     frame = None if arrays is None else arrays[i].isel(lead_time=[j])

@@ -298,6 +298,9 @@ def test_nearest_source_mask_fills_from_valid_points():
     regridder = NearestRegridder(REGION, target, source_mask=as_array)
     assert regridder.source_mask is not None
     np.testing.assert_array_equal(regridder.source_mask, mask)
+    # The regridder freezes its own copy; the caller's mask stays writable.
+    NearestRegridder(REGION, target, source_mask=mask)
+    mask[0, 0] = True
     assert NearestRegridder(REGION, target).source_mask is None
     with pytest.raises(ValueError, match="does not match the source grid"):
         NearestRegridder(REGION, target, source_mask=mask[:2])
