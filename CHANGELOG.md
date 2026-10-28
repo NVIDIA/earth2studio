@@ -11,6 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- C-Bottle [infill](earth2studio/models/dx/cbottle_infill.py),
+  [cyclone guidance](earth2studio/models/dx/cbottle_tc.py),
+  [video](earth2studio/models/px/cbottle_video.py), and
+  [super-resolution](earth2studio/models/dx/cbottle_sr.py) wrappers accept
+  optional `solver` and `solver_options` arguments when loading. These controls
+  support experiments with numerical integration methods to compare sampling
+  quality and cost. Overrides are opt-in. Existing solver selections remain
+  the defaults. Distilled super-resolution retains its native sampler unless
+  you select a solver. Refer to the
+  [diffusion solver guide](docs/userguide/advanced/diffusion_solvers.md) for
+  configuration examples and super-resolution restrictions.
 - [StormScope GOES, conditioned GOES, and MRMS](earth2studio/models/px/stormscope.py),
   [`StormScopeMeteosatEU`](earth2studio/models/px/stormscope_meteosat.py), and
   [NSRDB](earth2studio/models/dx/stormscope_dx_nsrdb.py) accept optional `solver`

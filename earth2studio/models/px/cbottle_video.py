@@ -18,6 +18,8 @@ from collections.abc import Iterator
 from copy import deepcopy
 from datetime import datetime, timezone
 from enum import IntEnum, StrEnum
+from functools import partial
+from typing import Any
 
 import numpy as np
 import torch
@@ -51,6 +53,9 @@ try:
     from cbottle.checkpointing import Checkpoint
     from cbottle.datasets.dataset_2d import encode_sst
     from cbottle.inference import CBottle3d, MixtureOfExpertsDenoiser
+
+    from earth2studio.models._cbottle import sample_cbottle
+    from earth2studio.models._diffusion import SOLVERS
 except ImportError:
     OptionalDependencyFailure("cbottle")
     earth2grid = None
@@ -126,6 +131,15 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     time_stepper : TimeStepperFunction, optional
         Sampler function used to denoise, by default TimeStepperFunction.HEUN
 
+    solver : str | None, optional
+        Select the numerical method for integrating the sampling ODE in reverse
+        time. ``None`` preserves the checkpoint's default method. By default
+        None
+    solver_options : dict[str, Any] | None, optional
+        Options passed to the selected solver to customize its behavior or
+        override defaults. Do not pass ``num_steps`` here; set the sampling step
+        count with ``sampler_steps`` instead. By default None
+
     Badges
     ------
     region:global class:climate product:wind product:precip product:temp product:atmos
@@ -146,8 +160,21 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         sigma_min: float = 0.02,
         dataset_modality: DatasetModality = DatasetModality.ERA5,
         time_stepper: TimeStepperFunction = TimeStepperFunction.HEUN,
+        *,
+        solver: str | None = None,
+        solver_options: dict[str, Any] | None = None,
     ):
         super().__init__()
+        if solver is not None and solver not in SOLVERS:
+            raise ValueError(
+                f"Unknown solver {solver!r}; choose from {tuple(SOLVERS)}."
+            )
+        self.solver = solver
+        if solver_options is not None and "num_steps" in solver_options:
+            raise ValueError(
+                "Do not pass 'num_steps' in solver_options; use sampler_steps instead."
+            )
+        self.solver_options = dict(solver_options or {})
 
         self.sst = sst_ds
         self.lat_lon = lat_lon
@@ -311,7 +338,13 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
         # cBottle's seed argument covers only initial latents, not sampler noise.
         with fork_rng(self._rng_seed, device, states=self._rng_states):
-            out, _ = self.core_model.sample(input_batch, seed=None)
+            out, _ = self.core_model._sample_with_latents(
+                input_batch,
+                seed=None,
+                sampler=partial(
+                    sample_cbottle, solver=self.solver, options=self.solver_options
+                ),
+            )
         # Regrid if needed
         if self.lat_lon:
             out = self.output_regridder(out.contiguous().double())
@@ -473,6 +506,9 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         lat_lon: bool = True,
         sampler_steps: int = 18,
         sigma_max: float = 1000,
+        *,
+        solver: str | None = None,
+        solver_options: dict[str, Any] | None = None,
     ) -> PrognosticModel:
         """Load prognostic from package
 
@@ -488,6 +524,15 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Number of diffusion steps, by default 18
         sigma_max : float, optional
             Noise amplitude used to generate latent variables, by default 200
+
+        solver : str | None, optional
+            Select the numerical method for integrating the sampling ODE in
+            reverse time. ``None`` preserves the checkpoint's default method. By
+            default None
+        solver_options : dict[str, Any] | None, optional
+            Options passed to the selected solver to customize its behavior or
+            override defaults. Do not pass ``num_steps`` here; set the sampling step
+            count with ``sampler_steps`` instead. By default None
 
         Returns
         -------
@@ -523,6 +568,8 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             lat_lon=lat_lon,
             sampler_steps=sampler_steps,
             sigma_max=sigma_max,
+            solver=solver,
+            solver_options=solver_options,
         )
 
     @batch_func()
