@@ -147,7 +147,7 @@ class NearestRegridder(_IndexRegridder):
         mask = self._source_mask
         if hasattr(mask, "dims"):
             mask = mask.transpose(*self._source_grid.dims).values
-        mask = np.asarray(mask, dtype=bool)
+        mask = np.array(mask, dtype=bool, copy=True)
         if mask.shape != self._source_grid.shape:
             raise ValueError(
                 f"source_mask shape {mask.shape} does not match the source grid "

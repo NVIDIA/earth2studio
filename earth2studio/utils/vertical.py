@@ -162,11 +162,14 @@ def interpolate_pressure(
     Returns
     -------
     torch.Tensor
-        ``x`` with dimension ``dim`` replaced by the target levels.
+        ``x`` with dimension ``dim`` replaced by the target levels, in ``x``'s
+        dtype. Pressures and weights are computed in at least single precision,
+        as pressures in Pa overflow half precision.
     """
     if x.shape[dim] < 2:
         raise ValueError("Interpolation needs at least two source levels")
-    values = x.movedim(dim, -1)
+    dtype = x.dtype
+    values = x.movedim(dim, -1).to(torch.promote_types(dtype, torch.float32))
     log_target = torch.log(target.to(values))
     if pressure.ndim == 1:
         if len(pressure) != values.shape[-1]:
@@ -198,7 +201,7 @@ def interpolate_pressure(
     if fill_value is not None:
         outside = (log_target < top) | (log_target > bottom)
         output = output.masked_fill(outside, fill_value)
-    return output.movedim(-1, dim)
+    return output.movedim(-1, dim).to(dtype)
 
 
 __all__ = ["HybridLevels", "PressureLevels", "interpolate_pressure"]
