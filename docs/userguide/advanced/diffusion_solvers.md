@@ -3,8 +3,9 @@
 Earth2Studio diffusion and flow-matching wrappers use numerical integration to transform
 initial noise into a generated weather field. The numerical method integrates the
 sampling ODE in reverse time for diffusion wrappers. Stochastic methods also inject
-noise during integration. Experimenting with that method can help you compare forecast
-quality and computational cost at the sampling budget you intend to use.
+noise during integration. Atlas samples forward in time with its native SDE or an
+explicitly selected alternative. Experimenting with that method can help you compare
+forecast quality and computational cost at the sampling budget you intend to use.
 
 The wrappers expose [PhysicsNeMo solvers](https://docs.nvidia.com/physicsnemo/latest/physicsnemo/api/diffusion/samplers.html#solvers)
 through optional `solver` and `solver_options` arguments. They continue to handle
@@ -85,6 +86,7 @@ stormcast_conus.num_diffusion_steps = 32
 stormscope.sampler_args = dict(stormscope.sampler_args, num_steps=32)
 meteosat.sampler_args["num_steps"] = 32
 cbottle.sampler_steps = 32  # Non-distilled C-Bottle sampling
+atlas.sinterpolant_sample_steps = 32
 ```
 
 Here, `stormscope` is a loaded `StormScopeGOES` or `StormScopeMRMS`, and
@@ -96,6 +98,8 @@ Distilled `CBottleSR` keeps its fixed two-step schedule.
 
 Do not pass `num_steps` in `solver_options`. Use the wrapper's sampling control
 so the step count and sampling time grid stay consistent.
+Atlas uses solver factories for configuration and does not accept
+`solver_options`.
 
 ## Compare solver choices
 
@@ -284,3 +288,44 @@ If constructing `CBottleSR` with a supplied external SR helper, that helper keep
 its own sampler. The wrapper rejects solver overrides for such helpers.
 The standard SR helper that `load_model` creates supports named PhysicsNeMo
 methods.
+
+## Atlas solver factories
+
+Atlas uses `solver=None` by default. Its native SDE update participates in the
+PhysicsNeMo solver protocol while keeping Atlas's diffusion and score-correction
+terms. Pass a solver factory to `Atlas.load_model` for experiments:
+
+```python
+from functools import partial
+
+from physicsnemo.diffusion.samplers import HeunSolver
+
+from earth2studio.models.px import Atlas
+
+model = Atlas.load_model(
+    Atlas.load_default_package(),
+    solver=partial(HeunSolver, alpha=1.0),
+)
+```
+
+This factory receives the drift callable bound to the current condition and
+creates a fresh solver for each sampling trajectory. Use the same pattern for a
+custom PhysicsNeMo solver factory. Construct any history or caches inside
+the factory. The wrapper rejects direct solver instances because their hidden
+state would prevent replaying an explicit forecast state. Drift-only factories
+are deterministic. Set `factory.stochastic = True` when a custom factory injects
+random noise so the wrapper declares its randomness correctly.
+
+Atlas also accepts `"euler"` and `"heun"` directly. Its lightweight interface does
+not accept the general `solver_options` mapping or other solver names.
+A factory is the extension point for custom configuration.
+Forward additive-noise SDE solvers require matching drift, diffusion, and time
+direction. Use them only through a compatible Atlas factory. The reverse-time
+wrappers above reject them.
+
+The Heun example integrates Atlas's drift as an ODE. It omits the native SDE
+diffusion and score correction, so it changes the generative dynamics.
+A custom solver must supply those terms to preserve them. Set `model.solver =
+None` to restore the native path. For forecasts
+beyond one step, use `initialize` and `step` with their explicit state, or the
+`create_iterator` interface, to carry the latent history forward.
