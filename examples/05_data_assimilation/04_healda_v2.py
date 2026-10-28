@@ -101,9 +101,6 @@ model = HealDAv2.load_model(package).to("cuda:0")
 # ``(prepbufr, gpsro, satwnd, *sensors)``. `fetch_dataframes` fetches every stream
 # concurrently, in that order, and attaches the ``request_time`` metadata the model
 # requires. A sensor outside its archive period comes back empty with a warning.
-# Allow 30 minutes for each request's downloads over this 48-hour window, including
-# retries. Each file download attempt has a separate 600-second timeout, adjustable
-# after instantiation through the source's ``task_timeout`` attribute.
 
 # %%
 analysis_time = np.array([np.datetime64("2026-01-15T00:00")])
