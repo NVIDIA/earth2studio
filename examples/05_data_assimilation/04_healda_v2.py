@@ -111,16 +111,16 @@ conv_source = NNJAObsConv(
     original_event=True,
     exclude_message_types=("SATWND",),
     layout="wide",
-    async_timeout=1800,
+    async_timeout=600,
 )
 satwnd_source = NNJAObsSatwnd(
-    time_tolerance=tolerance, layout="wide", async_timeout=1800
+    time_tolerance=tolerance, layout="wide", async_timeout=600
 )
 sat_source = NNJAObsSat(
     time_tolerance=tolerance,
     sensor_indices=model.sensor_indices,
     layout="wide",
-    async_timeout=1800,
+    async_timeout=600,
 )
 
 schemas = model.input_coords()  # (prepbufr, gpsro, satwnd, *sensors)
