@@ -3468,659 +3468,239 @@ The prognostic model must predict the needed variables in the interpolation mode
 <a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="c1"># Create the IO handler</span>
 <a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="n">io</span> <span class="o">=</span> <span class="n">ZarrBackend</span><span class="p">()</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>653 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+<details class="e2sg-output" open><summary><span>Console output</span><small>233 lines</small></summary><pre class="no-copy"><code>/__w/earth2studio/earth2studio/.venv/lib/python3.13/site-packages/torch/cuda/__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
   import pynvml  # type: ignore[import]
 
 Downloading config.json: 0%|          | 0.00/17.5k [00:00&lt;?, ?B/s]
-Downloading config.json: 100%|██████████| 17.5k/17.5k [00:00&lt;00:00, 8.07MB/s]
+Downloading config.json: 100%|██████████| 17.5k/17.5k [00:00&lt;00:00, 6.72MB/s]
 
 Downloading global_means.npy: 0%|          | 0.00/728 [00:00&lt;?, ?B/s]
-Downloading global_means.npy: 100%|██████████| 728/728 [00:00&lt;00:00, 255kB/s]
+Downloading global_means.npy: 100%|██████████| 728/728 [00:00&lt;00:00, 243kB/s]
 
 Downloading global_stds.npy: 0%|          | 0.00/728 [00:00&lt;?, ?B/s]
-Downloading global_stds.npy: 100%|██████████| 728/728 [00:00&lt;00:00, 418kB/s]
+Downloading global_stds.npy: 100%|██████████| 728/728 [00:00&lt;00:00, 212kB/s]
 
 Downloading orography.nc: 0%|          | 0.00/2.50M [00:00&lt;?, ?B/s]
-Downloading orography.nc: 55%|█████▍    | 1.37M/2.50M [00:00&lt;00:00, 14.1MB/s]
-Downloading orography.nc: 100%|██████████| 2.50M/2.50M [00:00&lt;00:00, 21.0MB/s]
+Downloading orography.nc: 100%|██████████| 2.50M/2.50M [00:00&lt;00:00, 67.2MB/s]
 
 Downloading land_mask.nc: 0%|          | 0.00/748k [00:00&lt;?, ?B/s]
-Downloading land_mask.nc: 100%|██████████| 748k/748k [00:00&lt;00:00, 8.19MB/s]
+Downloading land_mask.nc: 100%|██████████| 748k/748k [00:00&lt;00:00, 38.7MB/s]
 
 Downloading best_ckpt_mp0.tar: 0%|          | 0.00/6.40G [00:00&lt;?, ?B/s]
-Downloading best_ckpt_mp0.tar: 0%|          | 1.48M/6.40G [00:00&lt;07:49, 14.6MB/s]
-Downloading best_ckpt_mp0.tar: 0%|          | 16.9M/6.40G [00:00&lt;01:09, 99.0MB/s]
-Downloading best_ckpt_mp0.tar: 0%|          | 26.7M/6.40G [00:00&lt;01:33, 73.1MB/s]
-Downloading best_ckpt_mp0.tar: 1%|          | 43.4M/6.40G [00:00&lt;01:04, 105MB/s] 
-Downloading best_ckpt_mp0.tar: 1%|          | 54.8M/6.40G [00:00&lt;01:06, 102MB/s]
-Downloading best_ckpt_mp0.tar: 1%|          | 73.0M/6.40G [00:00&lt;00:53, 128MB/s]
-Downloading best_ckpt_mp0.tar: 1%|▏         | 86.1M/6.40G [00:00&lt;01:03, 106MB/s]
-Downloading best_ckpt_mp0.tar: 2%|▏         | 99.7M/6.40G [00:01&lt;01:04, 106MB/s]
-Downloading best_ckpt_mp0.tar: 2%|▏         | 111M/6.40G [00:01&lt;01:02, 109MB/s] 
-Downloading best_ckpt_mp0.tar: 2%|▏         | 125M/6.40G [00:01&lt;01:01, 110MB/s]
-Downloading best_ckpt_mp0.tar: 2%|▏         | 141M/6.40G [00:01&lt;00:53, 125MB/s]
-Downloading best_ckpt_mp0.tar: 2%|▏         | 153M/6.40G [00:01&lt;00:59, 113MB/s]
-Downloading best_ckpt_mp0.tar: 3%|▎         | 165M/6.40G [00:01&lt;00:59, 113MB/s]
-Downloading best_ckpt_mp0.tar: 3%|▎         | 176M/6.40G [00:01&lt;01:03, 106MB/s]
-Downloading best_ckpt_mp0.tar: 3%|▎         | 187M/6.40G [00:01&lt;01:02, 107MB/s]
-Downloading best_ckpt_mp0.tar: 3%|▎         | 197M/6.40G [00:01&lt;01:03, 105MB/s]
-Downloading best_ckpt_mp0.tar: 3%|▎         | 208M/6.40G [00:02&lt;01:08, 97.5MB/s]
-Downloading best_ckpt_mp0.tar: 3%|▎         | 220M/6.40G [00:02&lt;01:03, 104MB/s] 
-Downloading best_ckpt_mp0.tar: 4%|▎         | 230M/6.40G [00:02&lt;01:04, 104MB/s]
-Downloading best_ckpt_mp0.tar: 4%|▎         | 240M/6.40G [00:02&lt;01:04, 102MB/s]
-Downloading best_ckpt_mp0.tar: 4%|▍         | 250M/6.40G [00:02&lt;01:08, 96.5MB/s]
-Downloading best_ckpt_mp0.tar: 4%|▍         | 261M/6.40G [00:02&lt;01:04, 103MB/s] 
-Downloading best_ckpt_mp0.tar: 4%|▍         | 272M/6.40G [00:02&lt;01:04, 102MB/s]
-Downloading best_ckpt_mp0.tar: 4%|▍         | 281M/6.40G [00:02&lt;01:04, 102MB/s]
-Downloading best_ckpt_mp0.tar: 4%|▍         | 291M/6.40G [00:02&lt;01:06, 98.2MB/s]
-Downloading best_ckpt_mp0.tar: 5%|▍         | 302M/6.40G [00:03&lt;01:04, 101MB/s] 
-Downloading best_ckpt_mp0.tar: 5%|▍         | 311M/6.40G [00:03&lt;01:04, 101MB/s]
-Downloading best_ckpt_mp0.tar: 5%|▍         | 321M/6.40G [00:03&lt;01:04, 101MB/s]
-Downloading best_ckpt_mp0.tar: 5%|▌         | 331M/6.40G [00:03&lt;01:06, 98.7MB/s]
-Downloading best_ckpt_mp0.tar: 5%|▌         | 341M/6.40G [00:03&lt;01:05, 99.5MB/s]
-Downloading best_ckpt_mp0.tar: 5%|▌         | 350M/6.40G [00:03&lt;01:33, 69.7MB/s]
-Downloading best_ckpt_mp0.tar: 6%|▌         | 374M/6.40G [00:03&lt;00:59, 110MB/s] 
-Downloading best_ckpt_mp0.tar: 6%|▌         | 386M/6.40G [00:03&lt;00:59, 108MB/s]
-Downloading best_ckpt_mp0.tar: 6%|▌         | 398M/6.40G [00:04&lt;01:04, 100MB/s]
-Downloading best_ckpt_mp0.tar: 6%|▋         | 410M/6.40G [00:04&lt;01:00, 106MB/s]
-Downloading best_ckpt_mp0.tar: 6%|▋         | 421M/6.40G [00:04&lt;01:01, 104MB/s]
-Downloading best_ckpt_mp0.tar: 7%|▋         | 432M/6.40G [00:04&lt;01:06, 96.8MB/s]
-Downloading best_ckpt_mp0.tar: 7%|▋         | 444M/6.40G [00:04&lt;01:01, 104MB/s] 
-Downloading best_ckpt_mp0.tar: 7%|▋         | 454M/6.40G [00:04&lt;01:02, 103MB/s]
-Downloading best_ckpt_mp0.tar: 7%|▋         | 464M/6.40G [00:04&lt;01:02, 102MB/s]
-Downloading best_ckpt_mp0.tar: 7%|▋         | 474M/6.40G [00:04&lt;01:05, 97.6MB/s]
-Downloading best_ckpt_mp0.tar: 7%|▋         | 484M/6.40G [00:05&lt;01:14, 85.0MB/s]
-Downloading best_ckpt_mp0.tar: 8%|▊         | 500M/6.40G [00:05&lt;00:59, 107MB/s] 
-Downloading best_ckpt_mp0.tar: 8%|▊         | 511M/6.40G [00:05&lt;01:04, 98.4MB/s]
-Downloading best_ckpt_mp0.tar: 8%|▊         | 522M/6.40G [00:05&lt;01:04, 98.7MB/s]
-Downloading best_ckpt_mp0.tar: 8%|▊         | 532M/6.40G [00:05&lt;01:14, 85.0MB/s]
-Downloading best_ckpt_mp0.tar: 8%|▊         | 547M/6.40G [00:05&lt;01:00, 105MB/s] 
-Downloading best_ckpt_mp0.tar: 9%|▊         | 558M/6.40G [00:05&lt;01:01, 102MB/s]
-Downloading best_ckpt_mp0.tar: 9%|▊         | 571M/6.40G [00:05&lt;00:57, 109MB/s]
-Downloading best_ckpt_mp0.tar: 9%|▉         | 581M/6.40G [00:05&lt;00:58, 106MB/s]
-Downloading best_ckpt_mp0.tar: 9%|▉         | 592M/6.40G [00:06&lt;00:59, 104MB/s]
-Downloading best_ckpt_mp0.tar: 9%|▉         | 602M/6.40G [00:06&lt;01:00, 103MB/s]
-Downloading best_ckpt_mp0.tar: 9%|▉         | 612M/6.40G [00:06&lt;01:00, 103MB/s]
-Downloading best_ckpt_mp0.tar: 9%|▉         | 622M/6.40G [00:06&lt;01:01, 102MB/s]
-Downloading best_ckpt_mp0.tar: 10%|▉         | 632M/6.40G [00:06&lt;01:01, 101MB/s]
-Downloading best_ckpt_mp0.tar: 10%|▉         | 642M/6.40G [00:06&lt;01:01, 101MB/s]
-Downloading best_ckpt_mp0.tar: 10%|▉         | 652M/6.40G [00:06&lt;01:01, 101MB/s]
-Downloading best_ckpt_mp0.tar: 10%|█         | 661M/6.40G [00:06&lt;01:01, 100MB/s]
-Downloading best_ckpt_mp0.tar: 10%|█         | 671M/6.40G [00:06&lt;01:04, 96.2MB/s]
-Downloading best_ckpt_mp0.tar: 10%|█         | 682M/6.40G [00:07&lt;01:00, 101MB/s] 
-Downloading best_ckpt_mp0.tar: 11%|█         | 691M/6.40G [00:07&lt;01:00, 101MB/s]
-Downloading best_ckpt_mp0.tar: 11%|█         | 701M/6.40G [00:07&lt;01:02, 97.4MB/s]
-Downloading best_ckpt_mp0.tar: 11%|█         | 712M/6.40G [00:07&lt;01:00, 101MB/s] 
-Downloading best_ckpt_mp0.tar: 11%|█         | 722M/6.40G [00:07&lt;01:00, 101MB/s]
-Downloading best_ckpt_mp0.tar: 11%|█         | 731M/6.40G [00:07&lt;01:00, 101MB/s]
-Downloading best_ckpt_mp0.tar: 11%|█▏        | 741M/6.40G [00:07&lt;01:00, 100MB/s]
-Downloading best_ckpt_mp0.tar: 11%|█▏        | 751M/6.40G [00:07&lt;01:01, 98.8MB/s]
-Downloading best_ckpt_mp0.tar: 12%|█▏        | 761M/6.40G [00:07&lt;01:00, 100MB/s] 
-Downloading best_ckpt_mp0.tar: 12%|█▏        | 771M/6.40G [00:07&lt;01:00, 101MB/s]
-Downloading best_ckpt_mp0.tar: 12%|█▏        | 780M/6.40G [00:08&lt;01:00, 101MB/s]
-Downloading best_ckpt_mp0.tar: 12%|█▏        | 790M/6.40G [00:08&lt;01:00, 100MB/s]
-Downloading best_ckpt_mp0.tar: 12%|█▏        | 800M/6.40G [00:08&lt;01:05, 91.5MB/s]
-Downloading best_ckpt_mp0.tar: 12%|█▏        | 812M/6.40G [00:08&lt;00:58, 103MB/s] 
-Downloading best_ckpt_mp0.tar: 13%|█▎        | 822M/6.40G [00:08&lt;00:58, 102MB/s]
-Downloading best_ckpt_mp0.tar: 13%|█▎        | 832M/6.40G [00:08&lt;01:01, 98.2MB/s]
-Downloading best_ckpt_mp0.tar: 13%|█▎        | 843M/6.40G [00:08&lt;00:58, 102MB/s] 
-Downloading best_ckpt_mp0.tar: 13%|█▎        | 853M/6.40G [00:08&lt;00:59, 101MB/s]
-Downloading best_ckpt_mp0.tar: 13%|█▎        | 862M/6.40G [00:08&lt;01:00, 98.1MB/s]
-Downloading best_ckpt_mp0.tar: 13%|█▎        | 873M/6.40G [00:09&lt;00:58, 101MB/s] 
-Downloading best_ckpt_mp0.tar: 13%|█▎        | 882M/6.40G [00:09&lt;00:58, 101MB/s]
-Downloading best_ckpt_mp0.tar: 14%|█▎        | 892M/6.40G [00:09&lt;00:58, 101MB/s]
-Downloading best_ckpt_mp0.tar: 14%|█▍        | 902M/6.40G [00:09&lt;00:58, 101MB/s]
-Downloading best_ckpt_mp0.tar: 14%|█▍        | 912M/6.40G [00:09&lt;00:59, 99.0MB/s]
-Downloading best_ckpt_mp0.tar: 14%|█▍        | 922M/6.40G [00:09&lt;00:58, 101MB/s] 
-Downloading best_ckpt_mp0.tar: 14%|█▍        | 931M/6.40G [00:09&lt;00:58, 100MB/s]
-Downloading best_ckpt_mp0.tar: 14%|█▍        | 941M/6.40G [00:09&lt;01:02, 93.8MB/s]
-Downloading best_ckpt_mp0.tar: 15%|█▍        | 953M/6.40G [00:09&lt;00:57, 102MB/s] 
-Downloading best_ckpt_mp0.tar: 15%|█▍        | 963M/6.40G [00:10&lt;01:16, 76.9MB/s]
-Downloading best_ckpt_mp0.tar: 15%|█▍        | 978M/6.40G [00:10&lt;01:16, 76.3MB/s]
-Downloading best_ckpt_mp0.tar: 15%|█▌        | 997M/6.40G [00:10&lt;00:58, 100MB/s] 
-Downloading best_ckpt_mp0.tar: 15%|█▌        | 0.98G/6.40G [00:10&lt;01:07, 86.5MB/s]
-Downloading best_ckpt_mp0.tar: 16%|█▌        | 1.00G/6.40G [00:10&lt;00:53, 109MB/s] 
-Downloading best_ckpt_mp0.tar: 16%|█▌        | 1.01G/6.40G [00:10&lt;00:59, 96.9MB/s]
-Downloading best_ckpt_mp0.tar: 16%|█▌        | 1.03G/6.40G [00:11&lt;00:59, 96.3MB/s]
-Downloading best_ckpt_mp0.tar: 16%|█▋        | 1.04G/6.40G [00:11&lt;00:51, 112MB/s] 
-Downloading best_ckpt_mp0.tar: 17%|█▋        | 1.06G/6.40G [00:11&lt;00:52, 110MB/s]
-Downloading best_ckpt_mp0.tar: 17%|█▋        | 1.07G/6.40G [00:11&lt;00:49, 115MB/s]
-Downloading best_ckpt_mp0.tar: 17%|█▋        | 1.08G/6.40G [00:11&lt;01:13, 77.5MB/s]
-Downloading best_ckpt_mp0.tar: 17%|█▋        | 1.10G/6.40G [00:11&lt;00:49, 114MB/s] 
-Downloading best_ckpt_mp0.tar: 17%|█▋        | 1.12G/6.40G [00:11&lt;00:50, 113MB/s]
-Downloading best_ckpt_mp0.tar: 18%|█▊        | 1.13G/6.40G [00:12&lt;00:54, 105MB/s]
-Downloading best_ckpt_mp0.tar: 18%|█▊        | 1.14G/6.40G [00:12&lt;00:52, 108MB/s]
-Downloading best_ckpt_mp0.tar: 18%|█▊        | 1.15G/6.40G [00:12&lt;00:53, 106MB/s]
-Downloading best_ckpt_mp0.tar: 18%|█▊        | 1.16G/6.40G [00:12&lt;00:53, 105MB/s]
-Downloading best_ckpt_mp0.tar: 18%|█▊        | 1.17G/6.40G [00:12&lt;00:59, 94.8MB/s]
-Downloading best_ckpt_mp0.tar: 19%|█▊        | 1.19G/6.40G [00:12&lt;00:53, 105MB/s] 
-Downloading best_ckpt_mp0.tar: 19%|█▊        | 1.20G/6.40G [00:12&lt;00:53, 103MB/s]
-Downloading best_ckpt_mp0.tar: 19%|█▉        | 1.21G/6.40G [00:12&lt;00:54, 101MB/s]
-Downloading best_ckpt_mp0.tar: 19%|█▉        | 1.22G/6.40G [00:12&lt;00:54, 102MB/s]
-Downloading best_ckpt_mp0.tar: 19%|█▉        | 1.23G/6.40G [00:13&lt;00:56, 98.7MB/s]
-Downloading best_ckpt_mp0.tar: 19%|█▉        | 1.24G/6.40G [00:13&lt;00:54, 101MB/s] 
-Downloading best_ckpt_mp0.tar: 19%|█▉        | 1.25G/6.40G [00:13&lt;00:54, 102MB/s]
-Downloading best_ckpt_mp0.tar: 20%|█▉        | 1.26G/6.40G [00:13&lt;00:54, 101MB/s]
-Downloading best_ckpt_mp0.tar: 20%|█▉        | 1.27G/6.40G [00:13&lt;00:54, 101MB/s]
-Downloading best_ckpt_mp0.tar: 20%|█▉        | 1.28G/6.40G [00:13&lt;00:54, 101MB/s]
-Downloading best_ckpt_mp0.tar: 20%|██        | 1.28G/6.40G [00:13&lt;01:06, 82.4MB/s]
-Downloading best_ckpt_mp0.tar: 20%|██        | 1.29G/6.40G [00:13&lt;01:19, 68.6MB/s]
-Downloading best_ckpt_mp0.tar: 21%|██        | 1.32G/6.40G [00:14&lt;00:47, 115MB/s] 
-Downloading best_ckpt_mp0.tar: 21%|██        | 1.33G/6.40G [00:14&lt;00:48, 111MB/s]
-Downloading best_ckpt_mp0.tar: 21%|██        | 1.34G/6.40G [00:14&lt;00:50, 108MB/s]
-Downloading best_ckpt_mp0.tar: 21%|██        | 1.35G/6.40G [00:14&lt;00:51, 106MB/s]
-Downloading best_ckpt_mp0.tar: 21%|██▏       | 1.36G/6.40G [00:14&lt;00:52, 104MB/s]
-Downloading best_ckpt_mp0.tar: 21%|██▏       | 1.37G/6.40G [00:14&lt;00:52, 103MB/s]
-Downloading best_ckpt_mp0.tar: 22%|██▏       | 1.38G/6.40G [00:14&lt;00:52, 102MB/s]
-Downloading best_ckpt_mp0.tar: 22%|██▏       | 1.39G/6.40G [00:14&lt;01:00, 89.2MB/s]
-Downloading best_ckpt_mp0.tar: 22%|██▏       | 1.40G/6.40G [00:15&lt;01:02, 86.3MB/s]
-Downloading best_ckpt_mp0.tar: 22%|██▏       | 1.42G/6.40G [00:15&lt;00:49, 109MB/s] 
-Downloading best_ckpt_mp0.tar: 22%|██▏       | 1.43G/6.40G [00:15&lt;00:55, 96.9MB/s]
-Downloading best_ckpt_mp0.tar: 23%|██▎       | 1.44G/6.40G [00:15&lt;00:49, 107MB/s] 
-Downloading best_ckpt_mp0.tar: 23%|██▎       | 1.45G/6.40G [00:15&lt;00:54, 98.1MB/s]
-Downloading best_ckpt_mp0.tar: 23%|██▎       | 1.46G/6.40G [00:15&lt;00:50, 105MB/s] 
-Downloading best_ckpt_mp0.tar: 23%|██▎       | 1.48G/6.40G [00:15&lt;00:50, 105MB/s]
-Downloading best_ckpt_mp0.tar: 23%|██▎       | 1.49G/6.40G [00:15&lt;00:54, 96.7MB/s]
-Downloading best_ckpt_mp0.tar: 23%|██▎       | 1.50G/6.40G [00:15&lt;00:50, 104MB/s] 
-Downloading best_ckpt_mp0.tar: 24%|██▎       | 1.51G/6.40G [00:16&lt;00:50, 103MB/s]
-Downloading best_ckpt_mp0.tar: 24%|██▎       | 1.52G/6.40G [00:16&lt;00:51, 102MB/s]
-Downloading best_ckpt_mp0.tar: 24%|██▍       | 1.53G/6.40G [00:16&lt;00:56, 93.1MB/s]
-Downloading best_ckpt_mp0.tar: 24%|██▍       | 1.54G/6.40G [00:16&lt;00:50, 103MB/s] 
-Downloading best_ckpt_mp0.tar: 24%|██▍       | 1.55G/6.40G [00:16&lt;00:53, 96.8MB/s]
-Downloading best_ckpt_mp0.tar: 24%|██▍       | 1.56G/6.40G [00:16&lt;00:50, 103MB/s] 
-Downloading best_ckpt_mp0.tar: 25%|██▍       | 1.57G/6.40G [00:16&lt;00:50, 103MB/s]
-Downloading best_ckpt_mp0.tar: 25%|██▍       | 1.58G/6.40G [00:16&lt;00:50, 102MB/s]
-Downloading best_ckpt_mp0.tar: 25%|██▍       | 1.59G/6.40G [00:16&lt;00:51, 101MB/s]
-Downloading best_ckpt_mp0.tar: 25%|██▍       | 1.60G/6.40G [00:17&lt;00:50, 101MB/s]
-Downloading best_ckpt_mp0.tar: 25%|██▌       | 1.61G/6.40G [00:17&lt;01:11, 71.8MB/s]
-Downloading best_ckpt_mp0.tar: 25%|██▌       | 1.63G/6.40G [00:17&lt;00:50, 101MB/s] 
-Downloading best_ckpt_mp0.tar: 26%|██▌       | 1.64G/6.40G [00:17&lt;00:55, 91.7MB/s]
-Downloading best_ckpt_mp0.tar: 26%|██▌       | 1.66G/6.40G [00:17&lt;00:45, 113MB/s] 
-Downloading best_ckpt_mp0.tar: 26%|██▌       | 1.67G/6.40G [00:17&lt;00:50, 101MB/s]
-Downloading best_ckpt_mp0.tar: 26%|██▌       | 1.68G/6.40G [00:17&lt;00:46, 109MB/s]
-Downloading best_ckpt_mp0.tar: 26%|██▋       | 1.69G/6.40G [00:18&lt;00:47, 106MB/s]
-Downloading best_ckpt_mp0.tar: 27%|██▋       | 1.70G/6.40G [00:18&lt;00:48, 105MB/s]
-Downloading best_ckpt_mp0.tar: 27%|██▋       | 1.71G/6.40G [00:18&lt;00:48, 103MB/s]
-Downloading best_ckpt_mp0.tar: 27%|██▋       | 1.72G/6.40G [00:18&lt;00:49, 102MB/s]
-Downloading best_ckpt_mp0.tar: 27%|██▋       | 1.73G/6.40G [00:18&lt;00:49, 102MB/s]
-Downloading best_ckpt_mp0.tar: 27%|██▋       | 1.74G/6.40G [00:18&lt;00:52, 95.4MB/s]
-Downloading best_ckpt_mp0.tar: 27%|██▋       | 1.75G/6.40G [00:18&lt;00:48, 102MB/s] 
-Downloading best_ckpt_mp0.tar: 28%|██▊       | 1.76G/6.40G [00:18&lt;00:49, 102MB/s]
-Downloading best_ckpt_mp0.tar: 28%|██▊       | 1.77G/6.40G [00:18&lt;00:50, 98.2MB/s]
-Downloading best_ckpt_mp0.tar: 28%|██▊       | 1.78G/6.40G [00:19&lt;00:48, 102MB/s] 
-Downloading best_ckpt_mp0.tar: 28%|██▊       | 1.79G/6.40G [00:19&lt;00:52, 94.5MB/s]
-Downloading best_ckpt_mp0.tar: 28%|██▊       | 1.80G/6.40G [00:19&lt;00:48, 102MB/s] 
-Downloading best_ckpt_mp0.tar: 28%|██▊       | 1.81G/6.40G [00:19&lt;00:48, 102MB/s]
-Downloading best_ckpt_mp0.tar: 28%|██▊       | 1.82G/6.40G [00:19&lt;00:48, 102MB/s]
-Downloading best_ckpt_mp0.tar: 29%|██▊       | 1.83G/6.40G [00:19&lt;00:48, 101MB/s]
-Downloading best_ckpt_mp0.tar: 29%|██▉       | 1.84G/6.40G [00:19&lt;00:48, 101MB/s]
-Downloading best_ckpt_mp0.tar: 29%|██▉       | 1.85G/6.40G [00:19&lt;00:52, 93.3MB/s]
-Downloading best_ckpt_mp0.tar: 29%|██▉       | 1.86G/6.40G [00:19&lt;00:58, 83.5MB/s]
-Downloading best_ckpt_mp0.tar: 29%|██▉       | 1.88G/6.40G [00:20&lt;00:44, 108MB/s] 
-Downloading best_ckpt_mp0.tar: 30%|██▉       | 1.89G/6.40G [00:20&lt;00:53, 91.2MB/s]
-Downloading best_ckpt_mp0.tar: 30%|██▉       | 1.91G/6.40G [00:20&lt;00:44, 108MB/s] 
-Downloading best_ckpt_mp0.tar: 30%|██▉       | 1.92G/6.40G [00:20&lt;00:48, 99.3MB/s]
-Downloading best_ckpt_mp0.tar: 30%|███       | 1.93G/6.40G [00:20&lt;00:45, 106MB/s] 
-Downloading best_ckpt_mp0.tar: 30%|███       | 1.94G/6.40G [00:20&lt;00:45, 104MB/s]
-Downloading best_ckpt_mp0.tar: 30%|███       | 1.95G/6.40G [00:20&lt;00:53, 88.8MB/s]
-Downloading best_ckpt_mp0.tar: 31%|███       | 1.97G/6.40G [00:20&lt;00:44, 106MB/s] 
-Downloading best_ckpt_mp0.tar: 31%|███       | 1.98G/6.40G [00:21&lt;00:48, 97.5MB/s]
-Downloading best_ckpt_mp0.tar: 31%|███       | 1.99G/6.40G [00:21&lt;00:44, 105MB/s] 
-Downloading best_ckpt_mp0.tar: 31%|███       | 2.00G/6.40G [00:21&lt;00:45, 104MB/s]
-Downloading best_ckpt_mp0.tar: 31%|███▏      | 2.01G/6.40G [00:21&lt;00:45, 103MB/s]
-Downloading best_ckpt_mp0.tar: 32%|███▏      | 2.02G/6.40G [00:21&lt;00:47, 98.4MB/s]
-Downloading best_ckpt_mp0.tar: 32%|███▏      | 2.03G/6.40G [00:21&lt;00:45, 103MB/s] 
-Downloading best_ckpt_mp0.tar: 32%|███▏      | 2.04G/6.40G [00:21&lt;00:46, 102MB/s]
-Downloading best_ckpt_mp0.tar: 32%|███▏      | 2.05G/6.40G [00:21&lt;00:49, 94.9MB/s]
-Downloading best_ckpt_mp0.tar: 32%|███▏      | 2.06G/6.40G [00:22&lt;00:45, 103MB/s] 
-Downloading best_ckpt_mp0.tar: 32%|███▏      | 2.07G/6.40G [00:22&lt;00:45, 102MB/s]
-Downloading best_ckpt_mp0.tar: 33%|███▎      | 2.08G/6.40G [00:22&lt;00:48, 95.8MB/s]
-Downloading best_ckpt_mp0.tar: 33%|███▎      | 2.09G/6.40G [00:22&lt;00:45, 102MB/s] 
-Downloading best_ckpt_mp0.tar: 33%|███▎      | 2.10G/6.40G [00:22&lt;00:47, 97.5MB/s]
-Downloading best_ckpt_mp0.tar: 33%|███▎      | 2.11G/6.40G [00:22&lt;00:44, 103MB/s] 
-Downloading best_ckpt_mp0.tar: 33%|███▎      | 2.12G/6.40G [00:22&lt;00:45, 102MB/s]
-Downloading best_ckpt_mp0.tar: 33%|███▎      | 2.13G/6.40G [00:22&lt;00:50, 91.1MB/s]
-Downloading best_ckpt_mp0.tar: 34%|███▎      | 2.14G/6.40G [00:22&lt;00:43, 104MB/s] 
-Downloading best_ckpt_mp0.tar: 34%|███▎      | 2.15G/6.40G [00:23&lt;00:51, 88.0MB/s]
-Downloading best_ckpt_mp0.tar: 34%|███▍      | 2.17G/6.40G [00:23&lt;00:42, 106MB/s] 
-Downloading best_ckpt_mp0.tar: 34%|███▍      | 2.18G/6.40G [00:23&lt;00:43, 105MB/s]
-Downloading best_ckpt_mp0.tar: 34%|███▍      | 2.19G/6.40G [00:23&lt;00:43, 103MB/s]
-Downloading best_ckpt_mp0.tar: 34%|███▍      | 2.20G/6.40G [00:23&lt;00:48, 93.8MB/s]
-Downloading best_ckpt_mp0.tar: 35%|███▍      | 2.21G/6.40G [00:23&lt;00:43, 104MB/s] 
-Downloading best_ckpt_mp0.tar: 35%|███▍      | 2.22G/6.40G [00:23&lt;00:43, 103MB/s]
-Downloading best_ckpt_mp0.tar: 35%|███▍      | 2.23G/6.40G [00:24&lt;01:10, 63.5MB/s]
-Downloading best_ckpt_mp0.tar: 35%|███▌      | 2.26G/6.40G [00:24&lt;00:40, 110MB/s] 
-Downloading best_ckpt_mp0.tar: 36%|███▌      | 2.28G/6.40G [00:24&lt;00:39, 112MB/s]
-Downloading best_ckpt_mp0.tar: 36%|███▌      | 2.29G/6.40G [00:24&lt;00:40, 109MB/s]
-Downloading best_ckpt_mp0.tar: 36%|███▌      | 2.30G/6.40G [00:24&lt;00:41, 105MB/s]
-Downloading best_ckpt_mp0.tar: 36%|███▌      | 2.31G/6.40G [00:24&lt;00:41, 105MB/s]
-Downloading best_ckpt_mp0.tar: 36%|███▋      | 2.32G/6.40G [00:24&lt;00:42, 104MB/s]
-Downloading best_ckpt_mp0.tar: 36%|███▋      | 2.33G/6.40G [00:24&lt;00:48, 89.7MB/s]
-Downloading best_ckpt_mp0.tar: 37%|███▋      | 2.35G/6.40G [00:25&lt;00:41, 105MB/s] 
-Downloading best_ckpt_mp0.tar: 37%|███▋      | 2.36G/6.40G [00:25&lt;00:41, 104MB/s]
-Downloading best_ckpt_mp0.tar: 37%|███▋      | 2.37G/6.40G [00:25&lt;00:42, 103MB/s]
-Downloading best_ckpt_mp0.tar: 37%|███▋      | 2.38G/6.40G [00:25&lt;00:42, 102MB/s]
-Downloading best_ckpt_mp0.tar: 37%|███▋      | 2.39G/6.40G [00:25&lt;00:42, 102MB/s]
-Downloading best_ckpt_mp0.tar: 37%|███▋      | 2.40G/6.40G [00:25&lt;00:42, 101MB/s]
-Downloading best_ckpt_mp0.tar: 38%|███▊      | 2.41G/6.40G [00:25&lt;00:48, 88.6MB/s]
-Downloading best_ckpt_mp0.tar: 38%|███▊      | 2.42G/6.40G [00:25&lt;00:41, 104MB/s] 
-Downloading best_ckpt_mp0.tar: 38%|███▊      | 2.43G/6.40G [00:26&lt;00:41, 103MB/s]
-Downloading best_ckpt_mp0.tar: 38%|███▊      | 2.44G/6.40G [00:26&lt;00:44, 95.2MB/s]
-Downloading best_ckpt_mp0.tar: 38%|███▊      | 2.45G/6.40G [00:26&lt;00:41, 103MB/s] 
-Downloading best_ckpt_mp0.tar: 39%|███▊      | 2.46G/6.40G [00:26&lt;00:43, 98.2MB/s]
-Downloading best_ckpt_mp0.tar: 39%|███▊      | 2.47G/6.40G [00:26&lt;00:40, 103MB/s] 
-Downloading best_ckpt_mp0.tar: 39%|███▉      | 2.48G/6.40G [00:26&lt;00:40, 103MB/s]
-Downloading best_ckpt_mp0.tar: 39%|███▉      | 2.49G/6.40G [00:26&lt;00:41, 102MB/s]
-Downloading best_ckpt_mp0.tar: 39%|███▉      | 2.50G/6.40G [00:26&lt;00:41, 101MB/s]
-Downloading best_ckpt_mp0.tar: 39%|███▉      | 2.51G/6.40G [00:26&lt;00:41, 101MB/s]
-Downloading best_ckpt_mp0.tar: 39%|███▉      | 2.52G/6.40G [00:26&lt;00:41, 101MB/s]
-Downloading best_ckpt_mp0.tar: 40%|███▉      | 2.53G/6.40G [00:27&lt;00:41, 101MB/s]
-Downloading best_ckpt_mp0.tar: 40%|███▉      | 2.54G/6.40G [00:27&lt;00:41, 100MB/s]
-Downloading best_ckpt_mp0.tar: 40%|███▉      | 2.55G/6.40G [00:27&lt;00:41, 100MB/s]
-Downloading best_ckpt_mp0.tar: 40%|████      | 2.56G/6.40G [00:27&lt;00:41, 100MB/s]
-Downloading best_ckpt_mp0.tar: 40%|████      | 2.57G/6.40G [00:27&lt;00:41, 100MB/s]
-Downloading best_ckpt_mp0.tar: 40%|████      | 2.58G/6.40G [00:27&lt;00:40, 100MB/s]
-Downloading best_ckpt_mp0.tar: 40%|████      | 2.59G/6.40G [00:27&lt;00:40, 100MB/s]
-Downloading best_ckpt_mp0.tar: 41%|████      | 2.60G/6.40G [00:27&lt;00:40, 99.6MB/s]
-Downloading best_ckpt_mp0.tar: 41%|████      | 2.61G/6.40G [00:27&lt;00:40, 100MB/s] 
-Downloading best_ckpt_mp0.tar: 41%|████      | 2.62G/6.40G [00:27&lt;00:42, 95.9MB/s]
-Downloading best_ckpt_mp0.tar: 41%|████      | 2.63G/6.40G [00:28&lt;00:39, 101MB/s] 
-Downloading best_ckpt_mp0.tar: 41%|████      | 2.64G/6.40G [00:28&lt;00:40, 101MB/s]
-Downloading best_ckpt_mp0.tar: 41%|████▏     | 2.65G/6.40G [00:28&lt;00:40, 100MB/s]
-Downloading best_ckpt_mp0.tar: 42%|████▏     | 2.66G/6.40G [00:28&lt;00:40, 100MB/s]
-Downloading best_ckpt_mp0.tar: 42%|████▏     | 2.67G/6.40G [00:28&lt;00:39, 100MB/s]
-Downloading best_ckpt_mp0.tar: 42%|████▏     | 2.67G/6.40G [00:28&lt;00:41, 97.4MB/s]
-Downloading best_ckpt_mp0.tar: 42%|████▏     | 2.68G/6.40G [00:28&lt;00:41, 95.8MB/s]
-Downloading best_ckpt_mp0.tar: 42%|████▏     | 2.70G/6.40G [00:28&lt;00:39, 102MB/s] 
-Downloading best_ckpt_mp0.tar: 42%|████▏     | 2.70G/6.40G [00:28&lt;00:41, 94.5MB/s]
-Downloading best_ckpt_mp0.tar: 42%|████▏     | 2.72G/6.40G [00:29&lt;00:38, 103MB/s] 
-Downloading best_ckpt_mp0.tar: 43%|████▎     | 2.73G/6.40G [00:29&lt;00:38, 102MB/s]
-Downloading best_ckpt_mp0.tar: 43%|████▎     | 2.74G/6.40G [00:29&lt;00:38, 102MB/s]
-Downloading best_ckpt_mp0.tar: 43%|████▎     | 2.75G/6.40G [00:29&lt;00:38, 101MB/s]
-Downloading best_ckpt_mp0.tar: 43%|████▎     | 2.76G/6.40G [00:29&lt;00:40, 95.8MB/s]
-Downloading best_ckpt_mp0.tar: 43%|████▎     | 2.77G/6.40G [00:29&lt;00:38, 100MB/s] 
-Downloading best_ckpt_mp0.tar: 43%|████▎     | 2.77G/6.40G [00:29&lt;00:39, 99.3MB/s]
-Downloading best_ckpt_mp0.tar: 44%|████▎     | 2.79G/6.40G [00:29&lt;00:37, 102MB/s] 
-Downloading best_ckpt_mp0.tar: 44%|████▎     | 2.79G/6.40G [00:29&lt;00:48, 79.9MB/s]
-Downloading best_ckpt_mp0.tar: 44%|████▍     | 2.81G/6.40G [00:30&lt;00:36, 106MB/s] 
-Downloading best_ckpt_mp0.tar: 44%|████▍     | 2.82G/6.40G [00:30&lt;00:38, 98.7MB/s]
-Downloading best_ckpt_mp0.tar: 44%|████▍     | 2.84G/6.40G [00:30&lt;00:35, 107MB/s] 
-Downloading best_ckpt_mp0.tar: 44%|████▍     | 2.85G/6.40G [00:30&lt;00:36, 105MB/s]
-Downloading best_ckpt_mp0.tar: 45%|████▍     | 2.86G/6.40G [00:30&lt;00:36, 104MB/s]
-Downloading best_ckpt_mp0.tar: 45%|████▍     | 2.87G/6.40G [00:30&lt;00:37, 102MB/s]
-Downloading best_ckpt_mp0.tar: 45%|████▍     | 2.88G/6.40G [00:30&lt;00:41, 91.5MB/s]
-Downloading best_ckpt_mp0.tar: 45%|████▌     | 2.89G/6.40G [00:30&lt;00:36, 102MB/s] 
-Downloading best_ckpt_mp0.tar: 45%|████▌     | 2.90G/6.40G [00:31&lt;00:36, 104MB/s]
-Downloading best_ckpt_mp0.tar: 45%|████▌     | 2.91G/6.40G [00:31&lt;00:36, 103MB/s]
-Downloading best_ckpt_mp0.tar: 46%|████▌     | 2.92G/6.40G [00:31&lt;00:36, 102MB/s]
-Downloading best_ckpt_mp0.tar: 46%|████▌     | 2.93G/6.40G [00:31&lt;00:36, 101MB/s]
-Downloading best_ckpt_mp0.tar: 46%|████▌     | 2.94G/6.40G [00:31&lt;00:36, 101MB/s]
-Downloading best_ckpt_mp0.tar: 46%|████▌     | 2.95G/6.40G [00:31&lt;00:36, 101MB/s]
-Downloading best_ckpt_mp0.tar: 46%|████▌     | 2.96G/6.40G [00:31&lt;00:49, 75.0MB/s]
-Downloading best_ckpt_mp0.tar: 46%|████▋     | 2.97G/6.40G [00:31&lt;00:38, 96.5MB/s]
-Downloading best_ckpt_mp0.tar: 47%|████▋     | 2.98G/6.40G [00:31&lt;00:37, 97.8MB/s]
-Downloading best_ckpt_mp0.tar: 47%|████▋     | 3.00G/6.40G [00:32&lt;00:32, 111MB/s] 
-Downloading best_ckpt_mp0.tar: 47%|████▋     | 3.01G/6.40G [00:32&lt;00:40, 89.9MB/s]
-Downloading best_ckpt_mp0.tar: 47%|████▋     | 3.02G/6.40G [00:32&lt;00:33, 110MB/s] 
-Downloading best_ckpt_mp0.tar: 47%|████▋     | 3.04G/6.40G [00:32&lt;00:33, 108MB/s]
-Downloading best_ckpt_mp0.tar: 48%|████▊     | 3.05G/6.40G [00:32&lt;00:34, 106MB/s]
-Downloading best_ckpt_mp0.tar: 48%|████▊     | 3.06G/6.40G [00:32&lt;00:35, 102MB/s]
-Downloading best_ckpt_mp0.tar: 48%|████▊     | 3.07G/6.40G [00:32&lt;00:34, 104MB/s]
-Downloading best_ckpt_mp0.tar: 48%|████▊     | 3.08G/6.40G [00:32&lt;00:34, 103MB/s]
-Downloading best_ckpt_mp0.tar: 48%|████▊     | 3.09G/6.40G [00:33&lt;00:34, 102MB/s]
-Downloading best_ckpt_mp0.tar: 48%|████▊     | 3.10G/6.40G [00:33&lt;00:35, 101MB/s]
-Downloading best_ckpt_mp0.tar: 49%|████▊     | 3.11G/6.40G [00:33&lt;00:35, 99.9MB/s]
-Downloading best_ckpt_mp0.tar: 49%|████▊     | 3.12G/6.40G [00:33&lt;00:35, 100MB/s] 
-Downloading best_ckpt_mp0.tar: 49%|████▉     | 3.13G/6.40G [00:33&lt;00:34, 101MB/s]
-Downloading best_ckpt_mp0.tar: 49%|████▉     | 3.14G/6.40G [00:33&lt;00:34, 101MB/s]
-Downloading best_ckpt_mp0.tar: 49%|████▉     | 3.14G/6.40G [00:33&lt;00:34, 100MB/s]
-Downloading best_ckpt_mp0.tar: 49%|████▉     | 3.15G/6.40G [00:33&lt;00:34, 100MB/s]
-Downloading best_ckpt_mp0.tar: 49%|████▉     | 3.16G/6.40G [00:33&lt;00:38, 90.6MB/s]
-Downloading best_ckpt_mp0.tar: 50%|████▉     | 3.18G/6.40G [00:33&lt;00:33, 103MB/s] 
-Downloading best_ckpt_mp0.tar: 50%|████▉     | 3.19G/6.40G [00:34&lt;00:33, 102MB/s]
-Downloading best_ckpt_mp0.tar: 50%|████▉     | 3.20G/6.40G [00:34&lt;00:33, 102MB/s]
-Downloading best_ckpt_mp0.tar: 50%|█████     | 3.21G/6.40G [00:34&lt;00:33, 101MB/s]
-Downloading best_ckpt_mp0.tar: 50%|█████     | 3.21G/6.40G [00:34&lt;00:50, 67.3MB/s]
-Downloading best_ckpt_mp0.tar: 51%|█████     | 3.24G/6.40G [00:34&lt;00:32, 105MB/s] 
-Downloading best_ckpt_mp0.tar: 51%|█████     | 3.25G/6.40G [00:34&lt;00:30, 109MB/s]
-Downloading best_ckpt_mp0.tar: 51%|█████     | 3.26G/6.40G [00:34&lt;00:35, 95.9MB/s]
-Downloading best_ckpt_mp0.tar: 51%|█████     | 3.28G/6.40G [00:35&lt;00:30, 109MB/s] 
-Downloading best_ckpt_mp0.tar: 51%|█████▏    | 3.29G/6.40G [00:35&lt;00:31, 107MB/s]
-Downloading best_ckpt_mp0.tar: 52%|█████▏    | 3.30G/6.40G [00:35&lt;00:31, 105MB/s]
-Downloading best_ckpt_mp0.tar: 52%|█████▏    | 3.31G/6.40G [00:35&lt;00:32, 102MB/s]
-Downloading best_ckpt_mp0.tar: 52%|█████▏    | 3.32G/6.40G [00:35&lt;00:32, 103MB/s]
-Downloading best_ckpt_mp0.tar: 52%|█████▏    | 3.33G/6.40G [00:35&lt;00:32, 103MB/s]
-Downloading best_ckpt_mp0.tar: 52%|█████▏    | 3.34G/6.40G [00:35&lt;00:32, 102MB/s]
-Downloading best_ckpt_mp0.tar: 52%|█████▏    | 3.35G/6.40G [00:35&lt;00:32, 101MB/s]
-Downloading best_ckpt_mp0.tar: 52%|█████▏    | 3.36G/6.40G [00:36&lt;00:39, 81.7MB/s]
-Downloading best_ckpt_mp0.tar: 53%|█████▎    | 3.38G/6.40G [00:36&lt;00:30, 107MB/s] 
-Downloading best_ckpt_mp0.tar: 53%|█████▎    | 3.39G/6.40G [00:36&lt;00:30, 105MB/s]
-Downloading best_ckpt_mp0.tar: 53%|█████▎    | 3.40G/6.40G [00:36&lt;00:31, 103MB/s]
-Downloading best_ckpt_mp0.tar: 53%|█████▎    | 3.41G/6.40G [00:36&lt;00:31, 103MB/s]
-Downloading best_ckpt_mp0.tar: 53%|█████▎    | 3.42G/6.40G [00:36&lt;00:31, 102MB/s]
-Downloading best_ckpt_mp0.tar: 54%|█████▎    | 3.43G/6.40G [00:36&lt;00:31, 101MB/s]
-Downloading best_ckpt_mp0.tar: 54%|█████▎    | 3.44G/6.40G [00:36&lt;00:33, 94.7MB/s]
-Downloading best_ckpt_mp0.tar: 54%|█████▍    | 3.45G/6.40G [00:36&lt;00:31, 102MB/s] 
-Downloading best_ckpt_mp0.tar: 54%|█████▍    | 3.46G/6.40G [00:37&lt;00:30, 102MB/s]
-Downloading best_ckpt_mp0.tar: 54%|█████▍    | 3.47G/6.40G [00:37&lt;00:30, 102MB/s]
-Downloading best_ckpt_mp0.tar: 54%|█████▍    | 3.48G/6.40G [00:37&lt;00:31, 101MB/s]
-Downloading best_ckpt_mp0.tar: 54%|█████▍    | 3.49G/6.40G [00:37&lt;00:33, 92.4MB/s]
-Downloading best_ckpt_mp0.tar: 55%|█████▍    | 3.50G/6.40G [00:37&lt;00:30, 103MB/s] 
-Downloading best_ckpt_mp0.tar: 55%|█████▍    | 3.51G/6.40G [00:37&lt;00:30, 102MB/s]
-Downloading best_ckpt_mp0.tar: 55%|█████▍    | 3.52G/6.40G [00:37&lt;00:30, 102MB/s]
-Downloading best_ckpt_mp0.tar: 55%|█████▌    | 3.53G/6.40G [00:37&lt;00:34, 90.6MB/s]
-Downloading best_ckpt_mp0.tar: 55%|█████▌    | 3.54G/6.40G [00:37&lt;00:29, 104MB/s] 
-Downloading best_ckpt_mp0.tar: 56%|█████▌    | 3.55G/6.40G [00:38&lt;00:29, 103MB/s]
-Downloading best_ckpt_mp0.tar: 56%|█████▌    | 3.56G/6.40G [00:38&lt;00:29, 102MB/s]
-Downloading best_ckpt_mp0.tar: 56%|█████▌    | 3.57G/6.40G [00:38&lt;00:30, 101MB/s]
-Downloading best_ckpt_mp0.tar: 56%|█████▌    | 3.58G/6.40G [00:38&lt;00:30, 101MB/s]
-Downloading best_ckpt_mp0.tar: 56%|█████▌    | 3.59G/6.40G [00:38&lt;00:29, 101MB/s]
-Downloading best_ckpt_mp0.tar: 56%|█████▋    | 3.60G/6.40G [00:38&lt;00:29, 101MB/s]
-Downloading best_ckpt_mp0.tar: 56%|█████▋    | 3.61G/6.40G [00:38&lt;00:29, 100MB/s]
-Downloading best_ckpt_mp0.tar: 57%|█████▋    | 3.62G/6.40G [00:38&lt;00:29, 100MB/s]
-Downloading best_ckpt_mp0.tar: 57%|█████▋    | 3.63G/6.40G [00:38&lt;00:29, 100MB/s]
-Downloading best_ckpt_mp0.tar: 57%|█████▋    | 3.64G/6.40G [00:38&lt;00:29, 99.4MB/s]
-Downloading best_ckpt_mp0.tar: 57%|█████▋    | 3.65G/6.40G [00:39&lt;00:29, 100MB/s] 
-Downloading best_ckpt_mp0.tar: 57%|█████▋    | 3.66G/6.40G [00:39&lt;00:32, 89.3MB/s]
-Downloading best_ckpt_mp0.tar: 57%|█████▋    | 3.67G/6.40G [00:39&lt;00:28, 103MB/s] 
-Downloading best_ckpt_mp0.tar: 58%|█████▊    | 3.68G/6.40G [00:39&lt;00:28, 103MB/s]
-Downloading best_ckpt_mp0.tar: 58%|█████▊    | 3.69G/6.40G [00:39&lt;00:28, 101MB/s]
-Downloading best_ckpt_mp0.tar: 58%|█████▊    | 3.70G/6.40G [00:39&lt;00:29, 97.1MB/s]
-Downloading best_ckpt_mp0.tar: 58%|█████▊    | 3.71G/6.40G [00:39&lt;00:28, 103MB/s] 
-Downloading best_ckpt_mp0.tar: 58%|█████▊    | 3.72G/6.40G [00:39&lt;00:28, 102MB/s]
-Downloading best_ckpt_mp0.tar: 58%|█████▊    | 3.73G/6.40G [00:40&lt;00:36, 78.9MB/s]
-Downloading best_ckpt_mp0.tar: 59%|█████▊    | 3.75G/6.40G [00:40&lt;00:26, 106MB/s] 
-Downloading best_ckpt_mp0.tar: 59%|█████▊    | 3.76G/6.40G [00:40&lt;00:29, 97.2MB/s]
-Downloading best_ckpt_mp0.tar: 59%|█████▉    | 3.77G/6.40G [00:40&lt;00:26, 107MB/s] 
-Downloading best_ckpt_mp0.tar: 59%|█████▉    | 3.78G/6.40G [00:40&lt;00:27, 103MB/s]
-Downloading best_ckpt_mp0.tar: 59%|█████▉    | 3.79G/6.40G [00:40&lt;00:26, 105MB/s]
-Downloading best_ckpt_mp0.tar: 59%|█████▉    | 3.80G/6.40G [00:40&lt;00:27, 102MB/s]
-Downloading best_ckpt_mp0.tar: 60%|█████▉    | 3.81G/6.40G [00:40&lt;00:28, 96.7MB/s]
-Downloading best_ckpt_mp0.tar: 60%|█████▉    | 3.82G/6.40G [00:40&lt;00:26, 104MB/s] 
-Downloading best_ckpt_mp0.tar: 60%|█████▉    | 3.83G/6.40G [00:41&lt;00:28, 97.6MB/s]
-Downloading best_ckpt_mp0.tar: 60%|██████    | 3.85G/6.40G [00:41&lt;00:26, 103MB/s] 
-Downloading best_ckpt_mp0.tar: 60%|██████    | 3.85G/6.40G [00:41&lt;00:26, 102MB/s]
-Downloading best_ckpt_mp0.tar: 60%|██████    | 3.86G/6.40G [00:41&lt;00:26, 101MB/s]
-Downloading best_ckpt_mp0.tar: 61%|██████    | 3.87G/6.40G [00:41&lt;00:26, 102MB/s]
-Downloading best_ckpt_mp0.tar: 61%|██████    | 3.88G/6.40G [00:41&lt;00:27, 99.5MB/s]
-Downloading best_ckpt_mp0.tar: 61%|██████    | 3.89G/6.40G [00:41&lt;00:26, 101MB/s] 
-Downloading best_ckpt_mp0.tar: 61%|██████    | 3.90G/6.40G [00:41&lt;00:27, 98.8MB/s]
-Downloading best_ckpt_mp0.tar: 61%|██████    | 3.91G/6.40G [00:41&lt;00:27, 95.5MB/s]
-Downloading best_ckpt_mp0.tar: 61%|██████▏   | 3.92G/6.40G [00:42&lt;00:25, 103MB/s] 
-Downloading best_ckpt_mp0.tar: 61%|██████▏   | 3.93G/6.40G [00:42&lt;00:25, 102MB/s]
-Downloading best_ckpt_mp0.tar: 62%|██████▏   | 3.94G/6.40G [00:42&lt;00:26, 101MB/s]
-Downloading best_ckpt_mp0.tar: 62%|██████▏   | 3.95G/6.40G [00:42&lt;00:26, 101MB/s]
-Downloading best_ckpt_mp0.tar: 62%|██████▏   | 3.96G/6.40G [00:42&lt;00:26, 97.6MB/s]
-Downloading best_ckpt_mp0.tar: 62%|██████▏   | 3.97G/6.40G [00:42&lt;00:25, 101MB/s] 
-Downloading best_ckpt_mp0.tar: 62%|██████▏   | 3.98G/6.40G [00:42&lt;00:25, 101MB/s]
-Downloading best_ckpt_mp0.tar: 62%|██████▏   | 3.99G/6.40G [00:42&lt;00:27, 94.8MB/s]
-Downloading best_ckpt_mp0.tar: 63%|██████▎   | 4.00G/6.40G [00:42&lt;00:25, 102MB/s] 
-Downloading best_ckpt_mp0.tar: 63%|██████▎   | 4.01G/6.40G [00:42&lt;00:25, 101MB/s]
-Downloading best_ckpt_mp0.tar: 63%|██████▎   | 4.02G/6.40G [00:43&lt;00:25, 101MB/s]
-Downloading best_ckpt_mp0.tar: 63%|██████▎   | 4.03G/6.40G [00:43&lt;00:25, 101MB/s]
-Downloading best_ckpt_mp0.tar: 63%|██████▎   | 4.04G/6.40G [00:43&lt;00:25, 99.3MB/s]
-Downloading best_ckpt_mp0.tar: 63%|██████▎   | 4.05G/6.40G [00:43&lt;00:25, 101MB/s] 
-Downloading best_ckpt_mp0.tar: 63%|██████▎   | 4.06G/6.40G [00:43&lt;00:24, 101MB/s]
-Downloading best_ckpt_mp0.tar: 64%|██████▎   | 4.07G/6.40G [00:43&lt;00:25, 96.9MB/s]
-Downloading best_ckpt_mp0.tar: 64%|██████▍   | 4.08G/6.40G [00:43&lt;00:24, 102MB/s] 
-Downloading best_ckpt_mp0.tar: 64%|██████▍   | 4.09G/6.40G [00:43&lt;00:24, 101MB/s]
-Downloading best_ckpt_mp0.tar: 64%|██████▍   | 4.10G/6.40G [00:43&lt;00:24, 101MB/s]
-Downloading best_ckpt_mp0.tar: 64%|██████▍   | 4.11G/6.40G [00:43&lt;00:24, 100MB/s]
-Downloading best_ckpt_mp0.tar: 64%|██████▍   | 4.12G/6.40G [00:44&lt;00:24, 100MB/s]
-Downloading best_ckpt_mp0.tar: 64%|██████▍   | 4.13G/6.40G [00:44&lt;00:24, 100MB/s]
-Downloading best_ckpt_mp0.tar: 65%|██████▍   | 4.14G/6.40G [00:44&lt;00:24, 100MB/s]
-Downloading best_ckpt_mp0.tar: 65%|██████▍   | 4.15G/6.40G [00:44&lt;00:25, 94.3MB/s]
-Downloading best_ckpt_mp0.tar: 65%|██████▍   | 4.16G/6.40G [00:44&lt;00:23, 102MB/s] 
-Downloading best_ckpt_mp0.tar: 65%|██████▌   | 4.17G/6.40G [00:44&lt;00:23, 102MB/s]
-Downloading best_ckpt_mp0.tar: 65%|██████▌   | 4.18G/6.40G [00:44&lt;00:23, 99.7MB/s]
-Downloading best_ckpt_mp0.tar: 65%|██████▌   | 4.19G/6.40G [00:44&lt;00:23, 101MB/s] 
-Downloading best_ckpt_mp0.tar: 66%|██████▌   | 4.20G/6.40G [00:45&lt;00:29, 80.7MB/s]
-Downloading best_ckpt_mp0.tar: 66%|██████▌   | 4.21G/6.40G [00:45&lt;00:21, 107MB/s] 
-Downloading best_ckpt_mp0.tar: 66%|██████▌   | 4.22G/6.40G [00:45&lt;00:25, 91.6MB/s]
-Downloading best_ckpt_mp0.tar: 66%|██████▌   | 4.24G/6.40G [00:45&lt;00:21, 107MB/s] 
-Downloading best_ckpt_mp0.tar: 66%|██████▋   | 4.25G/6.40G [00:45&lt;00:25, 91.5MB/s]
-Downloading best_ckpt_mp0.tar: 67%|██████▋   | 4.26G/6.40G [00:45&lt;00:21, 108MB/s] 
-Downloading best_ckpt_mp0.tar: 67%|██████▋   | 4.28G/6.40G [00:45&lt;00:22, 99.6MB/s]
-Downloading best_ckpt_mp0.tar: 67%|██████▋   | 4.29G/6.40G [00:45&lt;00:21, 106MB/s] 
-Downloading best_ckpt_mp0.tar: 67%|██████▋   | 4.30G/6.40G [00:46&lt;00:21, 104MB/s]
-Downloading best_ckpt_mp0.tar: 67%|██████▋   | 4.31G/6.40G [00:46&lt;00:21, 103MB/s]
-Downloading best_ckpt_mp0.tar: 67%|██████▋   | 4.32G/6.40G [00:46&lt;00:21, 102MB/s]
-Downloading best_ckpt_mp0.tar: 68%|██████▊   | 4.33G/6.40G [00:46&lt;00:22, 99.4MB/s]
-Downloading best_ckpt_mp0.tar: 68%|██████▊   | 4.34G/6.40G [00:46&lt;00:21, 102MB/s] 
-Downloading best_ckpt_mp0.tar: 68%|██████▊   | 4.35G/6.40G [00:46&lt;00:21, 101MB/s]
-Downloading best_ckpt_mp0.tar: 68%|██████▊   | 4.36G/6.40G [00:46&lt;00:21, 101MB/s]
-Downloading best_ckpt_mp0.tar: 68%|██████▊   | 4.37G/6.40G [00:46&lt;00:21, 101MB/s]
-Downloading best_ckpt_mp0.tar: 68%|██████▊   | 4.38G/6.40G [00:46&lt;00:23, 90.5MB/s]
-Downloading best_ckpt_mp0.tar: 69%|██████▊   | 4.39G/6.40G [00:47&lt;00:21, 103MB/s] 
-Downloading best_ckpt_mp0.tar: 69%|██████▉   | 4.40G/6.40G [00:47&lt;00:20, 103MB/s]
-Downloading best_ckpt_mp0.tar: 69%|██████▉   | 4.41G/6.40G [00:47&lt;00:20, 102MB/s]
-Downloading best_ckpt_mp0.tar: 69%|██████▉   | 4.42G/6.40G [00:47&lt;00:21, 101MB/s]
-Downloading best_ckpt_mp0.tar: 69%|██████▉   | 4.43G/6.40G [00:47&lt;00:20, 101MB/s]
-Downloading best_ckpt_mp0.tar: 69%|██████▉   | 4.44G/6.40G [00:47&lt;00:20, 101MB/s]
-Downloading best_ckpt_mp0.tar: 70%|██████▉   | 4.45G/6.40G [00:47&lt;00:20, 101MB/s]
-Downloading best_ckpt_mp0.tar: 70%|██████▉   | 4.46G/6.40G [00:47&lt;00:21, 98.3MB/s]
-Downloading best_ckpt_mp0.tar: 70%|██████▉   | 4.47G/6.40G [00:47&lt;00:20, 101MB/s] 
-Downloading best_ckpt_mp0.tar: 70%|██████▉   | 4.48G/6.40G [00:47&lt;00:20, 100MB/s]
-Downloading best_ckpt_mp0.tar: 70%|███████   | 4.49G/6.40G [00:48&lt;00:20, 99.8MB/s]
-Downloading best_ckpt_mp0.tar: 70%|███████   | 4.50G/6.40G [00:48&lt;00:20, 101MB/s] 
-Downloading best_ckpt_mp0.tar: 70%|███████   | 4.50G/6.40G [00:48&lt;00:20, 100MB/s]
-Downloading best_ckpt_mp0.tar: 71%|███████   | 4.51G/6.40G [00:48&lt;00:20, 100MB/s]
-Downloading best_ckpt_mp0.tar: 71%|███████   | 4.52G/6.40G [00:48&lt;00:20, 100MB/s]
-Downloading best_ckpt_mp0.tar: 71%|███████   | 4.53G/6.40G [00:48&lt;00:21, 92.2MB/s]
-Downloading best_ckpt_mp0.tar: 71%|███████   | 4.54G/6.40G [00:48&lt;00:19, 102MB/s] 
-Downloading best_ckpt_mp0.tar: 71%|███████   | 4.55G/6.40G [00:48&lt;00:19, 102MB/s]
-Downloading best_ckpt_mp0.tar: 71%|███████▏  | 4.56G/6.40G [00:48&lt;00:19, 101MB/s]
-Downloading best_ckpt_mp0.tar: 71%|███████▏  | 4.57G/6.40G [00:48&lt;00:19, 100MB/s]
-Downloading best_ckpt_mp0.tar: 72%|███████▏  | 4.58G/6.40G [00:49&lt;00:19, 101MB/s]
-Downloading best_ckpt_mp0.tar: 72%|███████▏  | 4.59G/6.40G [00:49&lt;00:19, 100MB/s]
-Downloading best_ckpt_mp0.tar: 72%|███████▏  | 4.60G/6.40G [00:49&lt;00:19, 100MB/s]
-Downloading best_ckpt_mp0.tar: 72%|███████▏  | 4.61G/6.40G [00:49&lt;00:19, 96.4MB/s]
-Downloading best_ckpt_mp0.tar: 72%|███████▏  | 4.62G/6.40G [00:49&lt;00:18, 101MB/s] 
-Downloading best_ckpt_mp0.tar: 72%|███████▏  | 4.63G/6.40G [00:49&lt;00:18, 101MB/s]
-Downloading best_ckpt_mp0.tar: 73%|███████▎  | 4.64G/6.40G [00:49&lt;00:22, 82.1MB/s]
-Downloading best_ckpt_mp0.tar: 73%|███████▎  | 4.66G/6.40G [00:50&lt;00:23, 80.3MB/s]
-Downloading best_ckpt_mp0.tar: 73%|███████▎  | 4.67G/6.40G [00:50&lt;00:18, 99.5MB/s]
-Downloading best_ckpt_mp0.tar: 73%|███████▎  | 4.68G/6.40G [00:50&lt;00:18, 98.6MB/s]
-Downloading best_ckpt_mp0.tar: 73%|███████▎  | 4.70G/6.40G [00:50&lt;00:15, 114MB/s] 
-Downloading best_ckpt_mp0.tar: 74%|███████▎  | 4.71G/6.40G [00:50&lt;00:17, 102MB/s]
-Downloading best_ckpt_mp0.tar: 74%|███████▍  | 4.72G/6.40G [00:50&lt;00:16, 109MB/s]
-Downloading best_ckpt_mp0.tar: 74%|███████▍  | 4.73G/6.40G [00:50&lt;00:16, 107MB/s]
-Downloading best_ckpt_mp0.tar: 74%|███████▍  | 4.74G/6.40G [00:50&lt;00:16, 105MB/s]
-Downloading best_ckpt_mp0.tar: 74%|███████▍  | 4.75G/6.40G [00:50&lt;00:17, 103MB/s]
-Downloading best_ckpt_mp0.tar: 74%|███████▍  | 4.76G/6.40G [00:51&lt;00:17, 103MB/s]
-Downloading best_ckpt_mp0.tar: 75%|███████▍  | 4.77G/6.40G [00:51&lt;00:17, 101MB/s]
-Downloading best_ckpt_mp0.tar: 75%|███████▍  | 4.78G/6.40G [00:51&lt;00:17, 101MB/s]
-Downloading best_ckpt_mp0.tar: 75%|███████▍  | 4.79G/6.40G [00:51&lt;00:18, 94.3MB/s]
-Downloading best_ckpt_mp0.tar: 75%|███████▌  | 4.80G/6.40G [00:51&lt;00:16, 103MB/s] 
-Downloading best_ckpt_mp0.tar: 75%|███████▌  | 4.81G/6.40G [00:51&lt;00:16, 101MB/s]
-Downloading best_ckpt_mp0.tar: 75%|███████▌  | 4.82G/6.40G [00:51&lt;00:18, 92.1MB/s]
-Downloading best_ckpt_mp0.tar: 76%|███████▌  | 4.84G/6.40G [00:51&lt;00:16, 104MB/s] 
-Downloading best_ckpt_mp0.tar: 76%|███████▌  | 4.85G/6.40G [00:51&lt;00:16, 102MB/s]
-Downloading best_ckpt_mp0.tar: 76%|███████▌  | 4.86G/6.40G [00:52&lt;00:27, 60.4MB/s]
-Downloading best_ckpt_mp0.tar: 76%|███████▋  | 4.88G/6.40G [00:52&lt;00:15, 107MB/s] 
-Downloading best_ckpt_mp0.tar: 77%|███████▋  | 4.90G/6.40G [00:52&lt;00:15, 103MB/s]
-Downloading best_ckpt_mp0.tar: 77%|███████▋  | 4.91G/6.40G [00:52&lt;00:14, 114MB/s]
-Downloading best_ckpt_mp0.tar: 77%|███████▋  | 4.93G/6.40G [00:52&lt;00:14, 110MB/s]
-Downloading best_ckpt_mp0.tar: 77%|███████▋  | 4.94G/6.40G [00:52&lt;00:14, 107MB/s]
-Downloading best_ckpt_mp0.tar: 77%|███████▋  | 4.95G/6.40G [00:53&lt;00:16, 96.5MB/s]
-Downloading best_ckpt_mp0.tar: 78%|███████▊  | 4.96G/6.40G [00:53&lt;00:14, 106MB/s] 
-Downloading best_ckpt_mp0.tar: 78%|███████▊  | 4.97G/6.40G [00:53&lt;00:15, 99.9MB/s]
-Downloading best_ckpt_mp0.tar: 78%|███████▊  | 4.98G/6.40G [00:53&lt;00:14, 105MB/s] 
-Downloading best_ckpt_mp0.tar: 78%|███████▊  | 4.99G/6.40G [00:53&lt;00:14, 104MB/s]
-Downloading best_ckpt_mp0.tar: 78%|███████▊  | 5.01G/6.40G [00:53&lt;00:14, 103MB/s]
-Downloading best_ckpt_mp0.tar: 78%|███████▊  | 5.01G/6.40G [00:53&lt;00:14, 102MB/s]
-Downloading best_ckpt_mp0.tar: 79%|███████▊  | 5.02G/6.40G [00:53&lt;00:16, 91.7MB/s]
-Downloading best_ckpt_mp0.tar: 79%|███████▊  | 5.04G/6.40G [00:53&lt;00:14, 104MB/s] 
-Downloading best_ckpt_mp0.tar: 79%|███████▉  | 5.05G/6.40G [00:54&lt;00:14, 103MB/s]
-Downloading best_ckpt_mp0.tar: 79%|███████▉  | 5.06G/6.40G [00:54&lt;00:14, 102MB/s]
-Downloading best_ckpt_mp0.tar: 79%|███████▉  | 5.07G/6.40G [00:54&lt;00:14, 101MB/s]
-Downloading best_ckpt_mp0.tar: 79%|███████▉  | 5.08G/6.40G [00:54&lt;00:15, 93.5MB/s]
-Downloading best_ckpt_mp0.tar: 80%|███████▉  | 5.09G/6.40G [00:54&lt;00:13, 103MB/s] 
-Downloading best_ckpt_mp0.tar: 80%|███████▉  | 5.10G/6.40G [00:54&lt;00:13, 102MB/s]
-Downloading best_ckpt_mp0.tar: 80%|███████▉  | 5.11G/6.40G [00:54&lt;00:15, 91.7MB/s]
-Downloading best_ckpt_mp0.tar: 80%|████████  | 5.12G/6.40G [00:54&lt;00:13, 104MB/s] 
-Downloading best_ckpt_mp0.tar: 80%|████████  | 5.13G/6.40G [00:55&lt;00:14, 91.9MB/s]
-Downloading best_ckpt_mp0.tar: 80%|████████  | 5.14G/6.40G [00:55&lt;00:12, 105MB/s] 
-Downloading best_ckpt_mp0.tar: 81%|████████  | 5.16G/6.40G [00:55&lt;00:14, 90.4MB/s]
-Downloading best_ckpt_mp0.tar: 81%|████████  | 5.17G/6.40G [00:55&lt;00:12, 107MB/s] 
-Downloading best_ckpt_mp0.tar: 81%|████████  | 5.18G/6.40G [00:55&lt;00:13, 95.7MB/s]
-Downloading best_ckpt_mp0.tar: 81%|████████  | 5.19G/6.40G [00:55&lt;00:12, 106MB/s] 
-Downloading best_ckpt_mp0.tar: 81%|████████▏ | 5.20G/6.40G [00:55&lt;00:14, 88.0MB/s]
-Downloading best_ckpt_mp0.tar: 82%|████████▏ | 5.22G/6.40G [00:55&lt;00:11, 108MB/s] 
-Downloading best_ckpt_mp0.tar: 82%|████████▏ | 5.23G/6.40G [00:56&lt;00:12, 102MB/s]
-Downloading best_ckpt_mp0.tar: 82%|████████▏ | 5.24G/6.40G [00:56&lt;00:11, 106MB/s]
-Downloading best_ckpt_mp0.tar: 82%|████████▏ | 5.25G/6.40G [00:56&lt;00:11, 104MB/s]
-Downloading best_ckpt_mp0.tar: 82%|████████▏ | 5.26G/6.40G [00:56&lt;00:11, 103MB/s]
-Downloading best_ckpt_mp0.tar: 82%|████████▏ | 5.27G/6.40G [00:56&lt;00:11, 102MB/s]
-Downloading best_ckpt_mp0.tar: 83%|████████▎ | 5.28G/6.40G [00:56&lt;00:12, 94.3MB/s]
-Downloading best_ckpt_mp0.tar: 83%|████████▎ | 5.30G/6.40G [00:56&lt;00:11, 103MB/s] 
-Downloading best_ckpt_mp0.tar: 83%|████████▎ | 5.30G/6.40G [00:56&lt;00:11, 103MB/s]
-Downloading best_ckpt_mp0.tar: 83%|████████▎ | 5.31G/6.40G [00:56&lt;00:11, 97.3MB/s]
-Downloading best_ckpt_mp0.tar: 83%|████████▎ | 5.33G/6.40G [00:57&lt;00:11, 103MB/s] 
-Downloading best_ckpt_mp0.tar: 83%|████████▎ | 5.34G/6.40G [00:57&lt;00:11, 99.9MB/s]
-Downloading best_ckpt_mp0.tar: 84%|████████▎ | 5.35G/6.40G [00:57&lt;00:11, 102MB/s] 
-Downloading best_ckpt_mp0.tar: 84%|████████▎ | 5.35G/6.40G [00:57&lt;00:11, 101MB/s]
-Downloading best_ckpt_mp0.tar: 84%|████████▍ | 5.36G/6.40G [00:57&lt;00:10, 101MB/s]
-Downloading best_ckpt_mp0.tar: 84%|████████▍ | 5.37G/6.40G [00:57&lt;00:10, 101MB/s]
-Downloading best_ckpt_mp0.tar: 84%|████████▍ | 5.38G/6.40G [00:57&lt;00:10, 101MB/s]
-Downloading best_ckpt_mp0.tar: 84%|████████▍ | 5.39G/6.40G [00:57&lt;00:11, 95.6MB/s]
-Downloading best_ckpt_mp0.tar: 84%|████████▍ | 5.40G/6.40G [00:57&lt;00:10, 102MB/s] 
-Downloading best_ckpt_mp0.tar: 85%|████████▍ | 5.41G/6.40G [00:58&lt;00:11, 90.1MB/s]
-Downloading best_ckpt_mp0.tar: 85%|████████▍ | 5.43G/6.40G [00:58&lt;00:10, 104MB/s] 
-Downloading best_ckpt_mp0.tar: 85%|████████▍ | 5.44G/6.40G [00:58&lt;00:10, 103MB/s]
-Downloading best_ckpt_mp0.tar: 85%|████████▌ | 5.45G/6.40G [00:58&lt;00:10, 102MB/s]
-Downloading best_ckpt_mp0.tar: 85%|████████▌ | 5.46G/6.40G [00:58&lt;00:09, 101MB/s]
-Downloading best_ckpt_mp0.tar: 85%|████████▌ | 5.47G/6.40G [00:58&lt;00:12, 83.2MB/s]
-Downloading best_ckpt_mp0.tar: 86%|████████▌ | 5.48G/6.40G [00:58&lt;00:09, 106MB/s] 
-Downloading best_ckpt_mp0.tar: 86%|████████▌ | 5.49G/6.40G [00:58&lt;00:10, 91.5MB/s]
-Downloading best_ckpt_mp0.tar: 86%|████████▌ | 5.51G/6.40G [00:59&lt;00:08, 107MB/s] 
-Downloading best_ckpt_mp0.tar: 86%|████████▋ | 5.52G/6.40G [00:59&lt;00:08, 105MB/s]
-Downloading best_ckpt_mp0.tar: 86%|████████▋ | 5.53G/6.40G [00:59&lt;00:09, 100MB/s]
-Downloading best_ckpt_mp0.tar: 87%|████████▋ | 5.54G/6.40G [00:59&lt;00:08, 104MB/s]
-Downloading best_ckpt_mp0.tar: 87%|████████▋ | 5.55G/6.40G [00:59&lt;00:08, 103MB/s]
-Downloading best_ckpt_mp0.tar: 87%|████████▋ | 5.56G/6.40G [00:59&lt;00:08, 102MB/s]
-Downloading best_ckpt_mp0.tar: 87%|████████▋ | 5.57G/6.40G [00:59&lt;00:08, 101MB/s]
-Downloading best_ckpt_mp0.tar: 87%|████████▋ | 5.58G/6.40G [00:59&lt;00:08, 101MB/s]
-Downloading best_ckpt_mp0.tar: 87%|████████▋ | 5.59G/6.40G [00:59&lt;00:10, 84.4MB/s]
-Downloading best_ckpt_mp0.tar: 88%|████████▊ | 5.60G/6.40G [01:00&lt;00:08, 105MB/s] 
-Downloading best_ckpt_mp0.tar: 88%|████████▊ | 5.61G/6.40G [01:00&lt;00:08, 104MB/s]
-Downloading best_ckpt_mp0.tar: 88%|████████▊ | 5.63G/6.40G [01:00&lt;00:08, 103MB/s]
-Downloading best_ckpt_mp0.tar: 88%|████████▊ | 5.63G/6.40G [01:00&lt;00:08, 102MB/s]
-Downloading best_ckpt_mp0.tar: 88%|████████▊ | 5.64G/6.40G [01:00&lt;00:10, 79.2MB/s]
-Downloading best_ckpt_mp0.tar: 89%|████████▊ | 5.66G/6.40G [01:00&lt;00:07, 104MB/s] 
-Downloading best_ckpt_mp0.tar: 89%|████████▊ | 5.67G/6.40G [01:00&lt;00:08, 92.1MB/s]
-Downloading best_ckpt_mp0.tar: 89%|████████▉ | 5.69G/6.40G [01:00&lt;00:06, 109MB/s] 
-Downloading best_ckpt_mp0.tar: 89%|████████▉ | 5.70G/6.40G [01:01&lt;00:07, 107MB/s]
-Downloading best_ckpt_mp0.tar: 89%|████████▉ | 5.71G/6.40G [01:01&lt;00:07, 105MB/s]
-Downloading best_ckpt_mp0.tar: 89%|████████▉ | 5.72G/6.40G [01:01&lt;00:07, 104MB/s]
-Downloading best_ckpt_mp0.tar: 90%|████████▉ | 5.73G/6.40G [01:01&lt;00:06, 103MB/s]
-Downloading best_ckpt_mp0.tar: 90%|████████▉ | 5.74G/6.40G [01:01&lt;00:06, 102MB/s]
-Downloading best_ckpt_mp0.tar: 90%|████████▉ | 5.75G/6.40G [01:01&lt;00:06, 100MB/s]
-Downloading best_ckpt_mp0.tar: 90%|█████████ | 5.76G/6.40G [01:01&lt;00:06, 101MB/s]
-Downloading best_ckpt_mp0.tar: 90%|█████████ | 5.77G/6.40G [01:01&lt;00:06, 101MB/s]
-Downloading best_ckpt_mp0.tar: 90%|█████████ | 5.78G/6.40G [01:01&lt;00:06, 101MB/s]
-Downloading best_ckpt_mp0.tar: 90%|█████████ | 5.79G/6.40G [01:02&lt;00:06, 100MB/s]
-Downloading best_ckpt_mp0.tar: 91%|█████████ | 5.80G/6.40G [01:02&lt;00:06, 100MB/s]
-Downloading best_ckpt_mp0.tar: 91%|█████████ | 5.81G/6.40G [01:02&lt;00:06, 100MB/s]
-Downloading best_ckpt_mp0.tar: 91%|█████████ | 5.82G/6.40G [01:02&lt;00:06, 100MB/s]
-Downloading best_ckpt_mp0.tar: 91%|█████████ | 5.83G/6.40G [01:02&lt;00:06, 100MB/s]
-Downloading best_ckpt_mp0.tar: 91%|█████████ | 5.84G/6.40G [01:02&lt;00:06, 100MB/s]
-Downloading best_ckpt_mp0.tar: 91%|█████████▏| 5.85G/6.40G [01:02&lt;00:05, 99.1MB/s]
-Downloading best_ckpt_mp0.tar: 92%|█████████▏| 5.86G/6.40G [01:02&lt;00:06, 95.7MB/s]
-Downloading best_ckpt_mp0.tar: 92%|█████████▏| 5.87G/6.40G [01:02&lt;00:05, 102MB/s] 
-Downloading best_ckpt_mp0.tar: 92%|█████████▏| 5.88G/6.40G [01:02&lt;00:05, 101MB/s]
-Downloading best_ckpt_mp0.tar: 92%|█████████▏| 5.89G/6.40G [01:03&lt;00:05, 101MB/s]
-Downloading best_ckpt_mp0.tar: 92%|█████████▏| 5.89G/6.40G [01:03&lt;00:05, 101MB/s]
-Downloading best_ckpt_mp0.tar: 92%|█████████▏| 5.90G/6.40G [01:03&lt;00:06, 84.3MB/s]
-Downloading best_ckpt_mp0.tar: 93%|█████████▎| 5.92G/6.40G [01:03&lt;00:04, 105MB/s] 
-Downloading best_ckpt_mp0.tar: 93%|█████████▎| 5.93G/6.40G [01:03&lt;00:05, 96.4MB/s]
-Downloading best_ckpt_mp0.tar: 93%|█████████▎| 5.94G/6.40G [01:03&lt;00:04, 105MB/s] 
-Downloading best_ckpt_mp0.tar: 93%|█████████▎| 5.95G/6.40G [01:03&lt;00:04, 103MB/s]
-Downloading best_ckpt_mp0.tar: 93%|█████████▎| 5.96G/6.40G [01:03&lt;00:04, 103MB/s]
-Downloading best_ckpt_mp0.tar: 93%|█████████▎| 5.97G/6.40G [01:04&lt;00:04, 102MB/s]
-Downloading best_ckpt_mp0.tar: 93%|█████████▎| 5.98G/6.40G [01:04&lt;00:04, 101MB/s]
-Downloading best_ckpt_mp0.tar: 94%|█████████▎| 5.99G/6.40G [01:04&lt;00:04, 101MB/s]
-Downloading best_ckpt_mp0.tar: 94%|█████████▍| 6.00G/6.40G [01:04&lt;00:04, 101MB/s]
-Downloading best_ckpt_mp0.tar: 94%|█████████▍| 6.01G/6.40G [01:04&lt;00:04, 100MB/s]
-Downloading best_ckpt_mp0.tar: 94%|█████████▍| 6.02G/6.40G [01:04&lt;00:04, 100MB/s]
-Downloading best_ckpt_mp0.tar: 94%|█████████▍| 6.03G/6.40G [01:04&lt;00:03, 100MB/s]
-Downloading best_ckpt_mp0.tar: 94%|█████████▍| 6.04G/6.40G [01:04&lt;00:03, 100MB/s]
-Downloading best_ckpt_mp0.tar: 95%|█████████▍| 6.05G/6.40G [01:04&lt;00:03, 99.7MB/s]
-Downloading best_ckpt_mp0.tar: 95%|█████████▍| 6.06G/6.40G [01:04&lt;00:04, 83.8MB/s]
-Downloading best_ckpt_mp0.tar: 95%|█████████▍| 6.07G/6.40G [01:05&lt;00:03, 105MB/s] 
-Downloading best_ckpt_mp0.tar: 95%|█████████▌| 6.08G/6.40G [01:05&lt;00:03, 104MB/s]
-Downloading best_ckpt_mp0.tar: 95%|█████████▌| 6.09G/6.40G [01:05&lt;00:03, 103MB/s]
-Downloading best_ckpt_mp0.tar: 95%|█████████▌| 6.10G/6.40G [01:05&lt;00:03, 102MB/s]
-Downloading best_ckpt_mp0.tar: 96%|█████████▌| 6.11G/6.40G [01:05&lt;00:03, 89.7MB/s]
-Downloading best_ckpt_mp0.tar: 96%|█████████▌| 6.13G/6.40G [01:05&lt;00:02, 103MB/s] 
-Downloading best_ckpt_mp0.tar: 96%|█████████▌| 6.14G/6.40G [01:05&lt;00:03, 75.8MB/s]
-Downloading best_ckpt_mp0.tar: 96%|█████████▋| 6.16G/6.40G [01:06&lt;00:02, 97.7MB/s]
-Downloading best_ckpt_mp0.tar: 96%|█████████▋| 6.17G/6.40G [01:06&lt;00:02, 112MB/s] 
-Downloading best_ckpt_mp0.tar: 97%|█████████▋| 6.19G/6.40G [01:06&lt;00:02, 107MB/s]
-Downloading best_ckpt_mp0.tar: 97%|█████████▋| 6.20G/6.40G [01:06&lt;00:02, 107MB/s]
-Downloading best_ckpt_mp0.tar: 97%|█████████▋| 6.21G/6.40G [01:06&lt;00:01, 105MB/s]
-Downloading best_ckpt_mp0.tar: 97%|█████████▋| 6.22G/6.40G [01:06&lt;00:01, 103MB/s]
-Downloading best_ckpt_mp0.tar: 97%|█████████▋| 6.23G/6.40G [01:06&lt;00:01, 102MB/s]
-Downloading best_ckpt_mp0.tar: 97%|█████████▋| 6.24G/6.40G [01:06&lt;00:01, 102MB/s]
-Downloading best_ckpt_mp0.tar: 98%|█████████▊| 6.25G/6.40G [01:06&lt;00:01, 101MB/s]
-Downloading best_ckpt_mp0.tar: 98%|█████████▊| 6.26G/6.40G [01:07&lt;00:01, 101MB/s]
-Downloading best_ckpt_mp0.tar: 98%|█████████▊| 6.26G/6.40G [01:07&lt;00:01, 101MB/s]
-Downloading best_ckpt_mp0.tar: 98%|█████████▊| 6.27G/6.40G [01:07&lt;00:01, 101MB/s]
-Downloading best_ckpt_mp0.tar: 98%|█████████▊| 6.28G/6.40G [01:07&lt;00:01, 100MB/s]
-Downloading best_ckpt_mp0.tar: 98%|█████████▊| 6.29G/6.40G [01:07&lt;00:01, 96.9MB/s]
-Downloading best_ckpt_mp0.tar: 99%|█████████▊| 6.30G/6.40G [01:07&lt;00:01, 101MB/s] 
-Downloading best_ckpt_mp0.tar: 99%|█████████▊| 6.31G/6.40G [01:07&lt;00:00, 93.4MB/s]
-Downloading best_ckpt_mp0.tar: 99%|█████████▉| 6.32G/6.40G [01:07&lt;00:00, 91.8MB/s]
-Downloading best_ckpt_mp0.tar: 99%|█████████▉| 6.34G/6.40G [01:07&lt;00:00, 105MB/s] 
-Downloading best_ckpt_mp0.tar: 99%|█████████▉| 6.35G/6.40G [01:08&lt;00:00, 101MB/s]
-Downloading best_ckpt_mp0.tar: 99%|█████████▉| 6.36G/6.40G [01:08&lt;00:00, 103MB/s]
-Downloading best_ckpt_mp0.tar: 99%|█████████▉| 6.37G/6.40G [01:08&lt;00:00, 103MB/s]
-Downloading best_ckpt_mp0.tar: 100%|█████████▉| 6.37G/6.40G [01:08&lt;00:00, 101MB/s]
-Downloading best_ckpt_mp0.tar: 100%|█████████▉| 6.38G/6.40G [01:08&lt;00:00, 101MB/s]
-Downloading best_ckpt_mp0.tar: 100%|█████████▉| 6.39G/6.40G [01:08&lt;00:00, 101MB/s]
-Downloading best_ckpt_mp0.tar: 100%|██████████| 6.40G/6.40G [01:08&lt;00:00, 100MB/s]
+Downloading best_ckpt_mp0.tar: 0%|          | 5.00M/6.40G [00:00&lt;02:11, 52.4MB/s]
+Downloading best_ckpt_mp0.tar: 0%|          | 12.1M/6.40G [00:00&lt;01:44, 65.5MB/s]
+Downloading best_ckpt_mp0.tar: 1%|          | 56.3M/6.40G [00:00&lt;00:27, 247MB/s] 
+Downloading best_ckpt_mp0.tar: 2%|▏         | 107M/6.40G [00:00&lt;00:18, 360MB/s] 
+Downloading best_ckpt_mp0.tar: 2%|▏         | 159M/6.40G [00:00&lt;00:15, 427MB/s]
+Downloading best_ckpt_mp0.tar: 3%|▎         | 203M/6.40G [00:00&lt;00:15, 436MB/s]
+Downloading best_ckpt_mp0.tar: 4%|▎         | 244M/6.40G [00:00&lt;00:15, 424MB/s]
+Downloading best_ckpt_mp0.tar: 4%|▍         | 292M/6.40G [00:00&lt;00:14, 446MB/s]
+Downloading best_ckpt_mp0.tar: 5%|▌         | 337M/6.40G [00:00&lt;00:14, 456MB/s]
+Downloading best_ckpt_mp0.tar: 6%|▌         | 381M/6.40G [00:01&lt;00:14, 453MB/s]
+Downloading best_ckpt_mp0.tar: 6%|▋         | 424M/6.40G [00:01&lt;00:15, 411MB/s]
+Downloading best_ckpt_mp0.tar: 7%|▋         | 472M/6.40G [00:01&lt;00:14, 436MB/s]
+Downloading best_ckpt_mp0.tar: 8%|▊         | 523M/6.40G [00:01&lt;00:13, 465MB/s]
+Downloading best_ckpt_mp0.tar: 9%|▊         | 568M/6.40G [00:01&lt;00:13, 459MB/s]
+Downloading best_ckpt_mp0.tar: 9%|▉         | 613M/6.40G [00:01&lt;00:13, 456MB/s]
+Downloading best_ckpt_mp0.tar: 10%|█         | 661M/6.40G [00:01&lt;00:13, 470MB/s]
+Downloading best_ckpt_mp0.tar: 11%|█         | 712M/6.40G [00:01&lt;00:12, 489MB/s]
+Downloading best_ckpt_mp0.tar: 12%|█▏        | 759M/6.40G [00:01&lt;00:12, 491MB/s]
+Downloading best_ckpt_mp0.tar: 12%|█▏        | 810M/6.40G [00:01&lt;00:11, 504MB/s]
+Downloading best_ckpt_mp0.tar: 13%|█▎        | 862M/6.40G [00:02&lt;00:11, 513MB/s]
+Downloading best_ckpt_mp0.tar: 14%|█▍        | 913M/6.40G [00:02&lt;00:11, 520MB/s]
+Downloading best_ckpt_mp0.tar: 15%|█▍        | 963M/6.40G [00:02&lt;00:11, 497MB/s]
+Downloading best_ckpt_mp0.tar: 15%|█▌        | 0.99G/6.40G [00:02&lt;00:12, 476MB/s]
+Downloading best_ckpt_mp0.tar: 16%|█▌        | 1.04G/6.40G [00:02&lt;00:11, 492MB/s]
+Downloading best_ckpt_mp0.tar: 17%|█▋        | 1.09G/6.40G [00:02&lt;00:11, 506MB/s]
+Downloading best_ckpt_mp0.tar: 18%|█▊        | 1.14G/6.40G [00:02&lt;00:10, 517MB/s]
+Downloading best_ckpt_mp0.tar: 19%|█▊        | 1.19G/6.40G [00:02&lt;00:11, 503MB/s]
+Downloading best_ckpt_mp0.tar: 19%|█▉        | 1.23G/6.40G [00:02&lt;00:10, 508MB/s]
+Downloading best_ckpt_mp0.tar: 20%|██        | 1.28G/6.40G [00:03&lt;00:11, 486MB/s]
+Downloading best_ckpt_mp0.tar: 21%|██        | 1.33G/6.40G [00:03&lt;00:13, 416MB/s]
+Downloading best_ckpt_mp0.tar: 21%|██▏       | 1.37G/6.40G [00:03&lt;00:14, 384MB/s]
+Downloading best_ckpt_mp0.tar: 22%|██▏       | 1.41G/6.40G [00:03&lt;00:14, 363MB/s]
+Downloading best_ckpt_mp0.tar: 23%|██▎       | 1.44G/6.40G [00:03&lt;00:14, 356MB/s]
+Downloading best_ckpt_mp0.tar: 23%|██▎       | 1.49G/6.40G [00:03&lt;00:13, 401MB/s]
+Downloading best_ckpt_mp0.tar: 24%|██▍       | 1.54G/6.40G [00:03&lt;00:11, 442MB/s]
+Downloading best_ckpt_mp0.tar: 25%|██▍       | 1.59G/6.40G [00:03&lt;00:10, 472MB/s]
+Downloading best_ckpt_mp0.tar: 26%|██▌       | 1.64G/6.40G [00:03&lt;00:12, 422MB/s]
+Downloading best_ckpt_mp0.tar: 26%|██▌       | 1.68G/6.40G [00:04&lt;00:12, 401MB/s]
+Downloading best_ckpt_mp0.tar: 27%|██▋       | 1.72G/6.40G [00:04&lt;00:12, 417MB/s]
+Downloading best_ckpt_mp0.tar: 28%|██▊       | 1.77G/6.40G [00:04&lt;00:11, 430MB/s]
+Downloading best_ckpt_mp0.tar: 28%|██▊       | 1.81G/6.40G [00:04&lt;00:11, 432MB/s]
+Downloading best_ckpt_mp0.tar: 29%|██▉       | 1.86G/6.40G [00:04&lt;00:10, 458MB/s]
+Downloading best_ckpt_mp0.tar: 30%|██▉       | 1.91G/6.40G [00:04&lt;00:10, 479MB/s]
+Downloading best_ckpt_mp0.tar: 31%|███       | 1.95G/6.40G [00:04&lt;00:09, 484MB/s]
+Downloading best_ckpt_mp0.tar: 31%|███▏      | 2.00G/6.40G [00:04&lt;00:09, 500MB/s]
+Downloading best_ckpt_mp0.tar: 32%|███▏      | 2.05G/6.40G [00:04&lt;00:09, 512MB/s]
+Downloading best_ckpt_mp0.tar: 33%|███▎      | 2.10G/6.40G [00:05&lt;00:09, 508MB/s]
+Downloading best_ckpt_mp0.tar: 34%|███▎      | 2.15G/6.40G [00:05&lt;00:08, 514MB/s]
+Downloading best_ckpt_mp0.tar: 34%|███▍      | 2.20G/6.40G [00:05&lt;00:08, 515MB/s]
+Downloading best_ckpt_mp0.tar: 35%|███▌      | 2.25G/6.40G [00:05&lt;00:09, 463MB/s]
+Downloading best_ckpt_mp0.tar: 36%|███▌      | 2.29G/6.40G [00:05&lt;00:09, 462MB/s]
+Downloading best_ckpt_mp0.tar: 37%|███▋      | 2.34G/6.40G [00:05&lt;00:09, 476MB/s]
+Downloading best_ckpt_mp0.tar: 37%|███▋      | 2.39G/6.40G [00:05&lt;00:08, 487MB/s]
+Downloading best_ckpt_mp0.tar: 38%|███▊      | 2.44G/6.40G [00:05&lt;00:08, 502MB/s]
+Downloading best_ckpt_mp0.tar: 39%|███▉      | 2.49G/6.40G [00:05&lt;00:08, 516MB/s]
+Downloading best_ckpt_mp0.tar: 40%|███▉      | 2.54G/6.40G [00:05&lt;00:07, 525MB/s]
+Downloading best_ckpt_mp0.tar: 40%|████      | 2.59G/6.40G [00:06&lt;00:07, 532MB/s]
+Downloading best_ckpt_mp0.tar: 41%|████▏     | 2.64G/6.40G [00:06&lt;00:07, 532MB/s]
+Downloading best_ckpt_mp0.tar: 42%|████▏     | 2.69G/6.40G [00:06&lt;00:07, 518MB/s]
+Downloading best_ckpt_mp0.tar: 43%|████▎     | 2.74G/6.40G [00:06&lt;00:07, 519MB/s]
+Downloading best_ckpt_mp0.tar: 44%|████▎     | 2.79G/6.40G [00:06&lt;00:07, 523MB/s]
+Downloading best_ckpt_mp0.tar: 44%|████▍     | 2.84G/6.40G [00:06&lt;00:08, 474MB/s]
+Downloading best_ckpt_mp0.tar: 45%|████▌     | 2.88G/6.40G [00:06&lt;00:08, 455MB/s]
+Downloading best_ckpt_mp0.tar: 46%|████▌     | 2.93G/6.40G [00:06&lt;00:08, 416MB/s]
+Downloading best_ckpt_mp0.tar: 46%|████▋     | 2.98G/6.40G [00:06&lt;00:08, 448MB/s]
+Downloading best_ckpt_mp0.tar: 47%|████▋     | 3.02G/6.40G [00:07&lt;00:07, 470MB/s]
+Downloading best_ckpt_mp0.tar: 48%|████▊     | 3.07G/6.40G [00:07&lt;00:07, 473MB/s]
+Downloading best_ckpt_mp0.tar: 49%|████▊     | 3.11G/6.40G [00:07&lt;00:07, 447MB/s]
+Downloading best_ckpt_mp0.tar: 49%|████▉     | 3.16G/6.40G [00:07&lt;00:08, 412MB/s]
+Downloading best_ckpt_mp0.tar: 50%|████▉     | 3.20G/6.40G [00:07&lt;00:08, 422MB/s]
+Downloading best_ckpt_mp0.tar: 51%|█████     | 3.24G/6.40G [00:07&lt;00:08, 400MB/s]
+Downloading best_ckpt_mp0.tar: 51%|█████     | 3.28G/6.40G [00:07&lt;00:08, 373MB/s]
+Downloading best_ckpt_mp0.tar: 52%|█████▏    | 3.32G/6.40G [00:07&lt;00:08, 403MB/s]
+Downloading best_ckpt_mp0.tar: 53%|█████▎    | 3.37G/6.40G [00:07&lt;00:07, 445MB/s]
+Downloading best_ckpt_mp0.tar: 53%|█████▎    | 3.42G/6.40G [00:08&lt;00:07, 446MB/s]
+Downloading best_ckpt_mp0.tar: 54%|█████▍    | 3.46G/6.40G [00:08&lt;00:06, 458MB/s]
+Downloading best_ckpt_mp0.tar: 55%|█████▍    | 3.51G/6.40G [00:08&lt;00:07, 402MB/s]
+Downloading best_ckpt_mp0.tar: 55%|█████▌    | 3.55G/6.40G [00:08&lt;00:07, 416MB/s]
+Downloading best_ckpt_mp0.tar: 56%|█████▌    | 3.59G/6.40G [00:08&lt;00:08, 374MB/s]
+Downloading best_ckpt_mp0.tar: 57%|█████▋    | 3.62G/6.40G [00:08&lt;00:08, 371MB/s]
+Downloading best_ckpt_mp0.tar: 57%|█████▋    | 3.66G/6.40G [00:08&lt;00:07, 372MB/s]
+Downloading best_ckpt_mp0.tar: 58%|█████▊    | 3.70G/6.40G [00:08&lt;00:07, 375MB/s]
+Downloading best_ckpt_mp0.tar: 58%|█████▊    | 3.73G/6.40G [00:08&lt;00:07, 369MB/s]
+Downloading best_ckpt_mp0.tar: 59%|█████▉    | 3.77G/6.40G [00:09&lt;00:09, 302MB/s]
+Downloading best_ckpt_mp0.tar: 59%|█████▉    | 3.80G/6.40G [00:09&lt;00:11, 237MB/s]
+Downloading best_ckpt_mp0.tar: 60%|█████▉    | 3.82G/6.40G [00:09&lt;00:15, 184MB/s]
+Downloading best_ckpt_mp0.tar: 60%|██████    | 3.84G/6.40G [00:09&lt;00:14, 184MB/s]
+Downloading best_ckpt_mp0.tar: 61%|██████    | 3.88G/6.40G [00:09&lt;00:11, 229MB/s]
+Downloading best_ckpt_mp0.tar: 61%|██████    | 3.91G/6.40G [00:09&lt;00:11, 241MB/s]
+Downloading best_ckpt_mp0.tar: 62%|██████▏   | 3.94G/6.40G [00:10&lt;00:10, 261MB/s]
+Downloading best_ckpt_mp0.tar: 62%|██████▏   | 3.97G/6.40G [00:10&lt;00:09, 289MB/s]
+Downloading best_ckpt_mp0.tar: 63%|██████▎   | 4.00G/6.40G [00:10&lt;00:12, 207MB/s]
+Downloading best_ckpt_mp0.tar: 63%|██████▎   | 4.02G/6.40G [00:10&lt;00:12, 203MB/s]
+Downloading best_ckpt_mp0.tar: 63%|██████▎   | 4.06G/6.40G [00:10&lt;00:10, 235MB/s]
+Downloading best_ckpt_mp0.tar: 64%|██████▍   | 4.09G/6.40G [00:10&lt;00:09, 266MB/s]
+Downloading best_ckpt_mp0.tar: 64%|██████▍   | 4.12G/6.40G [00:10&lt;00:08, 289MB/s]
+Downloading best_ckpt_mp0.tar: 65%|██████▍   | 4.15G/6.40G [00:10&lt;00:08, 291MB/s]
+Downloading best_ckpt_mp0.tar: 65%|██████▌   | 4.19G/6.40G [00:11&lt;00:07, 317MB/s]
+Downloading best_ckpt_mp0.tar: 66%|██████▌   | 4.22G/6.40G [00:11&lt;00:12, 186MB/s]
+Downloading best_ckpt_mp0.tar: 66%|██████▋   | 4.25G/6.40G [00:11&lt;00:11, 207MB/s]
+Downloading best_ckpt_mp0.tar: 67%|██████▋   | 4.28G/6.40G [00:11&lt;00:10, 228MB/s]
+Downloading best_ckpt_mp0.tar: 67%|██████▋   | 4.31G/6.40G [00:11&lt;00:08, 250MB/s]
+Downloading best_ckpt_mp0.tar: 68%|██████▊   | 4.33G/6.40G [00:11&lt;00:08, 261MB/s]
+Downloading best_ckpt_mp0.tar: 68%|██████▊   | 4.36G/6.40G [00:11&lt;00:08, 272MB/s]
+Downloading best_ckpt_mp0.tar: 69%|██████▊   | 4.39G/6.40G [00:12&lt;00:07, 282MB/s]
+Downloading best_ckpt_mp0.tar: 69%|██████▉   | 4.42G/6.40G [00:12&lt;00:07, 293MB/s]
+Downloading best_ckpt_mp0.tar: 70%|██████▉   | 4.45G/6.40G [00:12&lt;00:07, 297MB/s]
+Downloading best_ckpt_mp0.tar: 70%|███████   | 4.48G/6.40G [00:12&lt;00:06, 303MB/s]
+Downloading best_ckpt_mp0.tar: 70%|███████   | 4.51G/6.40G [00:12&lt;00:06, 309MB/s]
+Downloading best_ckpt_mp0.tar: 71%|███████   | 4.54G/6.40G [00:12&lt;00:06, 309MB/s]
+Downloading best_ckpt_mp0.tar: 71%|███████▏  | 4.57G/6.40G [00:12&lt;00:06, 305MB/s]
+Downloading best_ckpt_mp0.tar: 72%|███████▏  | 4.60G/6.40G [00:12&lt;00:06, 303MB/s]
+Downloading best_ckpt_mp0.tar: 72%|███████▏  | 4.63G/6.40G [00:12&lt;00:06, 299MB/s]
+Downloading best_ckpt_mp0.tar: 73%|███████▎  | 4.66G/6.40G [00:12&lt;00:06, 309MB/s]
+Downloading best_ckpt_mp0.tar: 73%|███████▎  | 4.69G/6.40G [00:13&lt;00:05, 309MB/s]
+Downloading best_ckpt_mp0.tar: 74%|███████▎  | 4.71G/6.40G [00:13&lt;00:05, 309MB/s]
+Downloading best_ckpt_mp0.tar: 74%|███████▍  | 4.74G/6.40G [00:13&lt;00:05, 307MB/s]
+Downloading best_ckpt_mp0.tar: 75%|███████▍  | 4.77G/6.40G [00:13&lt;00:05, 307MB/s]
+Downloading best_ckpt_mp0.tar: 75%|███████▌  | 4.80G/6.40G [00:13&lt;00:05, 302MB/s]
+Downloading best_ckpt_mp0.tar: 75%|███████▌  | 4.83G/6.40G [00:13&lt;00:05, 301MB/s]
+Downloading best_ckpt_mp0.tar: 76%|███████▌  | 4.86G/6.40G [00:13&lt;00:05, 300MB/s]
+Downloading best_ckpt_mp0.tar: 76%|███████▋  | 4.89G/6.40G [00:13&lt;00:05, 298MB/s]
+Downloading best_ckpt_mp0.tar: 77%|███████▋  | 4.91G/6.40G [00:13&lt;00:05, 299MB/s]
+Downloading best_ckpt_mp0.tar: 77%|███████▋  | 4.94G/6.40G [00:13&lt;00:05, 297MB/s]
+Downloading best_ckpt_mp0.tar: 78%|███████▊  | 4.97G/6.40G [00:14&lt;00:05, 294MB/s]
+Downloading best_ckpt_mp0.tar: 78%|███████▊  | 5.00G/6.40G [00:14&lt;00:05, 294MB/s]
+Downloading best_ckpt_mp0.tar: 79%|███████▊  | 5.03G/6.40G [00:14&lt;00:04, 297MB/s]
+Downloading best_ckpt_mp0.tar: 79%|███████▉  | 5.05G/6.40G [00:14&lt;00:04, 301MB/s]
+Downloading best_ckpt_mp0.tar: 79%|███████▉  | 5.08G/6.40G [00:14&lt;00:04, 298MB/s]
+Downloading best_ckpt_mp0.tar: 80%|███████▉  | 5.11G/6.40G [00:14&lt;00:04, 297MB/s]
+Downloading best_ckpt_mp0.tar: 80%|████████  | 5.14G/6.40G [00:14&lt;00:04, 297MB/s]
+Downloading best_ckpt_mp0.tar: 81%|████████  | 5.17G/6.40G [00:14&lt;00:04, 297MB/s]
+Downloading best_ckpt_mp0.tar: 81%|████████  | 5.20G/6.40G [00:14&lt;00:04, 300MB/s]
+Downloading best_ckpt_mp0.tar: 82%|████████▏ | 5.22G/6.40G [00:14&lt;00:04, 300MB/s]
+Downloading best_ckpt_mp0.tar: 82%|████████▏ | 5.25G/6.40G [00:15&lt;00:04, 299MB/s]
+Downloading best_ckpt_mp0.tar: 83%|████████▎ | 5.28G/6.40G [00:15&lt;00:03, 301MB/s]
+Downloading best_ckpt_mp0.tar: 83%|████████▎ | 5.31G/6.40G [00:15&lt;00:03, 304MB/s]
+Downloading best_ckpt_mp0.tar: 83%|████████▎ | 5.34G/6.40G [00:15&lt;00:03, 297MB/s]
+Downloading best_ckpt_mp0.tar: 84%|████████▍ | 5.37G/6.40G [00:15&lt;00:03, 296MB/s]
+Downloading best_ckpt_mp0.tar: 84%|████████▍ | 5.39G/6.40G [00:15&lt;00:03, 299MB/s]
+Downloading best_ckpt_mp0.tar: 85%|████████▍ | 5.42G/6.40G [00:15&lt;00:03, 302MB/s]
+Downloading best_ckpt_mp0.tar: 85%|████████▌ | 5.45G/6.40G [00:15&lt;00:03, 307MB/s]
+Downloading best_ckpt_mp0.tar: 86%|████████▌ | 5.48G/6.40G [00:15&lt;00:03, 311MB/s]
+Downloading best_ckpt_mp0.tar: 86%|████████▌ | 5.51G/6.40G [00:16&lt;00:03, 314MB/s]
+Downloading best_ckpt_mp0.tar: 87%|████████▋ | 5.54G/6.40G [00:16&lt;00:02, 318MB/s]
+Downloading best_ckpt_mp0.tar: 87%|████████▋ | 5.57G/6.40G [00:16&lt;00:02, 319MB/s]
+Downloading best_ckpt_mp0.tar: 88%|████████▊ | 5.60G/6.40G [00:16&lt;00:02, 318MB/s]
+Downloading best_ckpt_mp0.tar: 88%|████████▊ | 5.63G/6.40G [00:16&lt;00:02, 321MB/s]
+Downloading best_ckpt_mp0.tar: 89%|████████▊ | 5.66G/6.40G [00:16&lt;00:02, 308MB/s]
+Downloading best_ckpt_mp0.tar: 89%|████████▉ | 5.69G/6.40G [00:16&lt;00:02, 306MB/s]
+Downloading best_ckpt_mp0.tar: 89%|████████▉ | 5.72G/6.40G [00:16&lt;00:02, 306MB/s]
+Downloading best_ckpt_mp0.tar: 90%|████████▉ | 5.75G/6.40G [00:16&lt;00:02, 307MB/s]
+Downloading best_ckpt_mp0.tar: 90%|█████████ | 5.78G/6.40G [00:16&lt;00:02, 304MB/s]
+Downloading best_ckpt_mp0.tar: 91%|█████████ | 5.81G/6.40G [00:17&lt;00:02, 309MB/s]
+Downloading best_ckpt_mp0.tar: 91%|█████████▏| 5.84G/6.40G [00:17&lt;00:01, 313MB/s]
+Downloading best_ckpt_mp0.tar: 92%|█████████▏| 5.87G/6.40G [00:17&lt;00:01, 314MB/s]
+Downloading best_ckpt_mp0.tar: 92%|█████████▏| 5.90G/6.40G [00:17&lt;00:01, 318MB/s]
+Downloading best_ckpt_mp0.tar: 93%|█████████▎| 5.93G/6.40G [00:17&lt;00:01, 320MB/s]
+Downloading best_ckpt_mp0.tar: 93%|█████████▎| 5.96G/6.40G [00:17&lt;00:01, 318MB/s]
+Downloading best_ckpt_mp0.tar: 94%|█████████▎| 5.99G/6.40G [00:17&lt;00:01, 314MB/s]
+Downloading best_ckpt_mp0.tar: 94%|█████████▍| 6.02G/6.40G [00:17&lt;00:01, 317MB/s]
+Downloading best_ckpt_mp0.tar: 95%|█████████▍| 6.05G/6.40G [00:17&lt;00:01, 321MB/s]
+Downloading best_ckpt_mp0.tar: 95%|█████████▌| 6.08G/6.40G [00:17&lt;00:01, 323MB/s]
+Downloading best_ckpt_mp0.tar: 96%|█████████▌| 6.11G/6.40G [00:18&lt;00:00, 323MB/s]
+Downloading best_ckpt_mp0.tar: 96%|█████████▌| 6.14G/6.40G [00:18&lt;00:00, 324MB/s]
+Downloading best_ckpt_mp0.tar: 96%|█████████▋| 6.17G/6.40G [00:18&lt;00:00, 324MB/s]
+Downloading best_ckpt_mp0.tar: 97%|█████████▋| 6.20G/6.40G [00:18&lt;00:00, 325MB/s]
+Downloading best_ckpt_mp0.tar: 97%|█████████▋| 6.23G/6.40G [00:18&lt;00:00, 328MB/s]
+Downloading best_ckpt_mp0.tar: 98%|█████████▊| 6.27G/6.40G [00:18&lt;00:00, 324MB/s]
+Downloading best_ckpt_mp0.tar: 98%|█████████▊| 6.30G/6.40G [00:18&lt;00:00, 322MB/s]
+Downloading best_ckpt_mp0.tar: 99%|█████████▉| 6.33G/6.40G [00:18&lt;00:00, 323MB/s]
+Downloading best_ckpt_mp0.tar: 99%|█████████▉| 6.36G/6.40G [00:18&lt;00:00, 323MB/s]
+Downloading best_ckpt_mp0.tar: 100%|█████████▉| 6.39G/6.40G [00:18&lt;00:00, 324MB/s]
+Downloading best_ckpt_mp0.tar: 100%|██████████| 6.40G/6.40G [00:18&lt;00:00, 362MB/s]
 
 Downloading config.json: 0%|          | 0.00/39.0 [00:00&lt;?, ?B/s]
-Downloading config.json: 100%|██████████| 39.0/39.0 [00:00&lt;00:00, 253B/s]
-Downloading config.json: 100%|██████████| 39.0/39.0 [00:00&lt;00:00, 251B/s]
+Downloading config.json: 100%|██████████| 39.0/39.0 [00:00&lt;00:00, 432B/s]
 
 Downloading CRPSModel.mdlus: 0%|          | 0.00/376M [00:00&lt;?, ?B/s]
-Downloading CRPSModel.mdlus: 3%|▎         | 10.0M/376M [00:01&lt;00:40, 9.48MB/s]
-Downloading CRPSModel.mdlus: 8%|▊         | 30.0M/376M [00:01&lt;00:11, 31.5MB/s]
-Downloading CRPSModel.mdlus: 11%|█         | 40.0M/376M [00:01&lt;00:08, 41.5MB/s]
-Downloading CRPSModel.mdlus: 16%|█▌        | 60.0M/376M [00:01&lt;00:05, 64.3MB/s]
-Downloading CRPSModel.mdlus: 21%|██▏       | 80.0M/376M [00:01&lt;00:03, 85.9MB/s]
-Downloading CRPSModel.mdlus: 27%|██▋       | 100M/376M [00:01&lt;00:02, 101MB/s]  
-Downloading CRPSModel.mdlus: 32%|███▏      | 120M/376M [00:01&lt;00:02, 118MB/s]
-Downloading CRPSModel.mdlus: 37%|███▋      | 140M/376M [00:02&lt;00:01, 124MB/s]
-Downloading CRPSModel.mdlus: 43%|████▎     | 160M/376M [00:02&lt;00:02, 93.9MB/s]
-Downloading CRPSModel.mdlus: 48%|████▊     | 180M/376M [00:02&lt;00:02, 81.3MB/s]
-Downloading CRPSModel.mdlus: 51%|█████     | 190M/376M [00:02&lt;00:02, 76.7MB/s]
-Downloading CRPSModel.mdlus: 53%|█████▎    | 200M/376M [00:03&lt;00:02, 74.9MB/s]
-Downloading CRPSModel.mdlus: 59%|█████▊    | 220M/376M [00:03&lt;00:01, 86.8MB/s]
-Downloading CRPSModel.mdlus: 64%|██████▍   | 240M/376M [00:03&lt;00:01, 99.9MB/s]
-Downloading CRPSModel.mdlus: 69%|██████▉   | 260M/376M [00:03&lt;00:01, 102MB/s] 
-Downloading CRPSModel.mdlus: 75%|███████▍  | 280M/376M [00:03&lt;00:00, 110MB/s]
-Downloading CRPSModel.mdlus: 80%|███████▉  | 300M/376M [00:04&lt;00:00, 85.1MB/s]
-Downloading CRPSModel.mdlus: 82%|████████▏ | 310M/376M [00:04&lt;00:00, 77.2MB/s]
-Downloading CRPSModel.mdlus: 85%|████████▌ | 320M/376M [00:04&lt;00:01, 53.7MB/s]
-Downloading CRPSModel.mdlus: 88%|████████▊ | 330M/376M [00:05&lt;00:01, 45.4MB/s]
-Downloading CRPSModel.mdlus: 90%|█████████ | 340M/376M [00:05&lt;00:00, 51.4MB/s]
-Downloading CRPSModel.mdlus: 96%|█████████▌| 360M/376M [00:05&lt;00:00, 64.9MB/s]
-Downloading CRPSModel.mdlus: 100%|██████████| 376M/376M [00:05&lt;00:00, 77.1MB/s]
-Downloading CRPSModel.mdlus: 100%|██████████| 376M/376M [00:05&lt;00:00, 71.7MB/s]
+Downloading CRPSModel.mdlus: 3%|▎         | 10.0M/376M [00:01&lt;00:49, 7.80MB/s]
+Downloading CRPSModel.mdlus: 5%|▌         | 20.0M/376M [00:01&lt;00:23, 15.8MB/s]
+Downloading CRPSModel.mdlus: 8%|▊         | 30.0M/376M [00:01&lt;00:16, 22.5MB/s]
+Downloading CRPSModel.mdlus: 11%|█         | 40.0M/376M [00:02&lt;00:16, 21.8MB/s]
+Downloading CRPSModel.mdlus: 13%|█▎        | 50.0M/376M [00:02&lt;00:14, 23.0MB/s]
+Downloading CRPSModel.mdlus: 16%|█▌        | 60.0M/376M [00:03&lt;00:13, 25.3MB/s]
+Downloading CRPSModel.mdlus: 19%|█▊        | 70.0M/376M [00:03&lt;00:10, 30.6MB/s]
+Downloading CRPSModel.mdlus: 24%|██▍       | 90.0M/376M [00:03&lt;00:06, 48.8MB/s]
+Downloading CRPSModel.mdlus: 29%|██▉       | 110M/376M [00:03&lt;00:04, 64.3MB/s] 
+Downloading CRPSModel.mdlus: 35%|███▍      | 130M/376M [00:03&lt;00:03, 80.0MB/s]
+Downloading CRPSModel.mdlus: 40%|███▉      | 150M/376M [00:03&lt;00:02, 92.4MB/s]
+Downloading CRPSModel.mdlus: 45%|████▌     | 170M/376M [00:04&lt;00:02, 99.9MB/s]
+Downloading CRPSModel.mdlus: 51%|█████     | 190M/376M [00:04&lt;00:01, 105MB/s] 
+Downloading CRPSModel.mdlus: 56%|█████▌    | 210M/376M [00:04&lt;00:01, 111MB/s]
+Downloading CRPSModel.mdlus: 61%|██████    | 230M/376M [00:04&lt;00:01, 117MB/s]
+Downloading CRPSModel.mdlus: 67%|██████▋   | 250M/376M [00:04&lt;00:01, 119MB/s]
+Downloading CRPSModel.mdlus: 72%|███████▏  | 270M/376M [00:04&lt;00:00, 115MB/s]
+Downloading CRPSModel.mdlus: 77%|███████▋  | 290M/376M [00:05&lt;00:00, 116MB/s]
+Downloading CRPSModel.mdlus: 82%|████████▏ | 310M/376M [00:05&lt;00:00, 100MB/s]
+Downloading CRPSModel.mdlus: 88%|████████▊ | 330M/376M [00:05&lt;00:00, 105MB/s]
+Downloading CRPSModel.mdlus: 93%|█████████▎| 350M/376M [00:05&lt;00:00, 111MB/s]
+Downloading CRPSModel.mdlus: 98%|█████████▊| 370M/376M [00:05&lt;00:00, 116MB/s]
+Downloading CRPSModel.mdlus: 100%|██████████| 376M/376M [00:05&lt;00:00, 66.8MB/s]
 
 Downloading global_means.npy: 0%|          | 0.00/420 [00:00&lt;?, ?B/s]
-Downloading global_means.npy: 100%|██████████| 420/420 [00:00&lt;00:00, 929B/s]
-Downloading global_means.npy: 100%|██████████| 420/420 [00:00&lt;00:00, 924B/s]
+Downloading global_means.npy: 100%|██████████| 420/420 [00:00&lt;00:00, 981B/s]
+Downloading global_means.npy: 100%|██████████| 420/420 [00:00&lt;00:00, 974B/s]
 
 Downloading global_stds.npy: 0%|          | 0.00/420 [00:00&lt;?, ?B/s]
-Downloading global_stds.npy: 100%|██████████| 420/420 [00:00&lt;00:00, 801B/s]
-Downloading global_stds.npy: 100%|██████████| 420/420 [00:00&lt;00:00, 798B/s]
+Downloading global_stds.npy: 100%|██████████| 420/420 [00:00&lt;00:00, 1.02kB/s]
+Downloading global_stds.npy: 100%|██████████| 420/420 [00:00&lt;00:00, 1.01kB/s]
 
 Downloading set_phys.nc: 0%|          | 0.00/5.55M [00:00&lt;?, ?B/s]
-Downloading set_phys.nc: 100%|██████████| 5.55M/5.55M [00:01&lt;00:00, 3.80MB/s]
-Downloading set_phys.nc: 100%|██████████| 5.55M/5.55M [00:01&lt;00:00, 3.77MB/s]</code></pre></details>
+Downloading set_phys.nc: 100%|██████████| 5.55M/5.55M [00:00&lt;00:00, 8.80MB/s]
+Downloading set_phys.nc: 100%|██████████| 5.55M/5.55M [00:00&lt;00:00, 8.73MB/s]</code></pre></details>
 
 <h2 id="run-the-interpolation-model">Run the Interpolation Model<a class="headerlink" href="#run-the-interpolation-model" title="Permanent link">&para;</a></h2>
 <p>Now run the interpolation model to get forecasts at a finer time resolution.
@@ -4137,330 +3717,324 @@ interpolation model will interpolate to 1-hour intervals.</p>
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="nb">print</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">root</span><span class="o">.</span><span class="n">tree</span><span class="p">())</span>
 </code></pre></div>
-<details class="e2sg-output" open><summary><span>Console output</span><small>403 lines</small></summary><pre class="no-copy"><code>2026-10-24 20:12:05.437 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
-2026-10-24 20:12:05.438 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda
+<details class="e2sg-output" open><summary><span>Console output</span><small>397 lines</small></summary><pre class="no-copy"><code>2026-10-27 19:03:42.263 | INFO     | earth2studio.run:deterministic:85 - Running simple workflow!
+2026-10-27 19:03:42.263 | INFO     | earth2studio.run:deterministic:92 - Inference device: cuda
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.664 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 353619033-939943
+2026-10-27 19:03:43.172 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 174160271-736006
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.665 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 275180657-890286
+2026-10-27 19:03:43.173 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 391722290-987401
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.666 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 164520517-765194
+2026-10-27 19:03:43.205 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 206944850-1065961
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.667 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 204118947-720169
+2026-10-27 19:03:43.251 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 290159183-752827
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.668 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 347812101-849637
+2026-10-27 19:03:43.350 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 414179964-1179422
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.668 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 406629528-962408
+2026-10-27 19:03:43.352 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 295659093-896559
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.669 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 270785488-1177846
+2026-10-27 19:03:43.353 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 232400432-586007
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.670 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 451628742-968328
+2026-10-27 19:03:43.471 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 184050412-731750
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.671 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 179198897-973788
+2026-10-27 19:03:43.472 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 144283406-743766
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.672 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 386359113-963363
+2026-10-27 19:03:43.472 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 228474082-1138597
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.673 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 296555652-890544
+2026-10-27 19:03:43.473 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 323956279-837771
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.674 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 174896277-746582
+2026-10-27 19:03:43.473 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 407591936-940269
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.675 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 225640684-816551
+2026-10-27 19:03:43.499 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 148613430-492644
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.676 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 381424372-852801
+2026-10-27 19:03:43.552 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 329739828-930772
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.677 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 292088625-1244938
+2026-10-27 19:03:43.571 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 253514796-920355
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.678 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 452597070-961302
+2026-10-27 19:03:43.640 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 193737151-726758
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.679 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 189450163-577835
+2026-10-27 19:03:43.641 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 164520517-765194
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.679 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 149106074-462399
+2026-10-27 19:03:43.641 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 249098202-1262404
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.680 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 330670600-938837
+2026-10-27 19:03:43.815 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 347812101-849637
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.681 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 184782162-755841
+2026-10-27 19:03:43.817 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 451628742-968328
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.682 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 246334297-805355
+2026-10-27 19:03:43.819 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 169090127-920171
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.683 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 145318799-1019625
+2026-10-27 19:03:43.822 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 353619033-939943
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.686 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 326166249-1225442
+2026-10-27 19:03:43.823 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 275180657-890286
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.687 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 407591936-940269
+2026-10-27 19:03:43.825 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 204118947-720169
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.688 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 199346060-588823
+2026-10-27 19:03:43.951 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 174896277-746582
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.689 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 170010298-904882
+2026-10-27 19:03:43.952 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 270785488-1177846
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.690 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 354558976-950206
+2026-10-27 19:03:43.954 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 381424372-852801
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.691 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 194463909-743465
+2026-10-27 19:03:43.978 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 406629528-962408
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.692 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 268038708-839499
+2026-10-27 19:03:44.044 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 179198897-973788
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.693 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 165935718-1138677
+2026-10-27 19:03:44.045 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 386359113-963363
 
 Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
 
-2026-10-24 20:12:06.694 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 350072351-1232650
+2026-10-27 19:03:44.200 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 296555652-890544
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.694 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 210217024-602993
+2026-10-27 19:03:44.202 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 225640684-816551
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.695 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 180172685-913532
+2026-10-27 19:03:44.203 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 184782162-755841
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.696 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 387322476-948106
+2026-10-27 19:03:44.269 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 292088625-1244938
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.697 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 204839116-753955
+2026-10-27 19:03:44.270 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 145318799-1019625
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.698 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 289307267-851916
+2026-10-27 19:03:44.272 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 189450163-577835
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.699 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 176434139-1041731
+2026-10-27 19:03:44.273 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 149106074-462399
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.700 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 383286081-1212507
+2026-10-27 19:03:44.274 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 330670600-938837
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.701 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 231827443-572989
+2026-10-27 19:03:44.356 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 246334297-805355
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.702 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 190027998-577814
+2026-10-27 19:03:44.357 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 194463909-743465
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.703 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 143527711-755695
+2026-10-27 19:03:44.470 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 326166249-1225442
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.704 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 226457235-723507
+2026-10-27 19:03:44.471 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 165935718-1138677
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.705 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 323061199-895080
+2026-10-27 19:03:44.493 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 199346060-588823
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.706 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 186591756-1053680
+2026-10-27 19:03:44.495 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 170010298-904882
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.707 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 393705863-838502
+2026-10-27 19:03:44.497 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 354558976-950206
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.707 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 252556659-958137
+2026-10-27 19:03:44.498 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 268038708-839499
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.708 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 199934883-595444
+2026-10-27 19:03:44.561 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 204839116-753955
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.709 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 163781343-739174
+2026-10-27 19:03:44.562 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 350072351-1232650
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.710 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 247139652-717479
+2026-10-27 19:03:44.703 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 176434139-1041731
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.711 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 346879212-932889
+2026-10-27 19:03:44.745 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 452597070-961302
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.711 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 196462617-1008822
+2026-10-27 19:03:44.746 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 210217024-602993
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.712 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 0-993995
+2026-10-27 19:03:44.747 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 180172685-913532
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.713 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 274285343-895314
+2026-10-27 19:03:44.747 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 387322476-948106
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.714 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 210820017-615282
+2026-10-27 19:03:44.990 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 289307267-851916
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.714 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 174160271-736006
+2026-10-27 19:03:44.992 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 226457235-723507
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.715 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 268878207-724790
+2026-10-27 19:03:45.027 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 383286081-1212507
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.715 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 391722290-987401
+2026-10-27 19:03:45.075 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 186591756-1053680
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.716 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 206944850-1065961
+2026-10-27 19:03:45.076 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 402321768-876246
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:01&lt;?, ?it/s]
 
-2026-10-24 20:12:06.716 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 414179964-1179422
+2026-10-27 19:03:45.211 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 231827443-572989
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:02&lt;?, ?it/s]
 
-2026-10-24 20:12:06.717 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 295659093-896559
+2026-10-27 19:03:45.213 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 190027998-577814
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:02&lt;?, ?it/s]
 
-2026-10-24 20:12:06.717 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 232400432-586007
+2026-10-27 19:03:45.214 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 143527711-755695
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:02&lt;?, ?it/s]
 
-2026-10-24 20:12:06.718 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 184050412-731750
+2026-10-27 19:03:45.216 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 323061199-895080
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:02&lt;?, ?it/s]
 
-2026-10-24 20:12:06.719 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 290159183-752827
+2026-10-27 19:03:45.218 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 247139652-717479
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:02&lt;?, ?it/s]
 
-2026-10-24 20:12:06.719 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 144283406-743766
+2026-10-27 19:03:45.219 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 196462617-1008822
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
+Fetching GFS data:   0%|          | 0/73 [00:02&lt;?, ?it/s]
 
-2026-10-24 20:12:07.159 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 228474082-1138597
+2026-10-27 19:03:45.220 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 393705863-838502
 
-Fetching GFS data:   0%|          | 0/73 [00:00&lt;?, ?it/s]
-Fetching GFS data:   1%|▏         | 1/73 [00:00&lt;00:35,  2.02it/s]
+Fetching GFS data:   0%|          | 0/73 [00:02&lt;?, ?it/s]
 
-2026-10-24 20:12:07.204 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 402321768-876246
+2026-10-27 19:03:45.221 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 252556659-958137
 
-Fetching GFS data:   1%|▏         | 1/73 [00:00&lt;00:35,  2.02it/s]
+Fetching GFS data:   0%|          | 0/73 [00:02&lt;?, ?it/s]
 
-2026-10-24 20:12:07.241 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 148613430-492644
+2026-10-27 19:03:45.222 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 199934883-595444
 
-Fetching GFS data:   1%|▏         | 1/73 [00:00&lt;00:35,  2.02it/s]
-Fetching GFS data:   4%|▍         | 3/73 [00:00&lt;00:11,  5.93it/s]
+Fetching GFS data:   0%|          | 0/73 [00:02&lt;?, ?it/s]
+Fetching GFS data:   1%|▏         | 1/73 [00:02&lt;02:52,  2.39s/it]
 
-2026-10-24 20:12:07.320 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 329739828-930772
+2026-10-27 19:03:45.639 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 163781343-739174
 
-Fetching GFS data:   4%|▍         | 3/73 [00:00&lt;00:11,  5.93it/s]
+Fetching GFS data:   1%|▏         | 1/73 [00:02&lt;02:52,  2.39s/it]
 
-2026-10-24 20:12:07.322 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 253514796-920355
+2026-10-27 19:03:45.639 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 346879212-932889
 
-Fetching GFS data:   4%|▍         | 3/73 [00:00&lt;00:11,  5.93it/s]
+Fetching GFS data:   1%|▏         | 1/73 [00:02&lt;02:52,  2.39s/it]
 
-2026-10-24 20:12:07.386 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 193737151-726758
+2026-10-27 19:03:45.640 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 268878207-724790
 
-Fetching GFS data:   4%|▍         | 3/73 [00:00&lt;00:11,  5.93it/s]
-Fetching GFS data:   8%|▊         | 6/73 [00:00&lt;00:06, 10.87it/s]
+Fetching GFS data:   1%|▏         | 1/73 [00:02&lt;02:52,  2.39s/it]
 
-2026-10-24 20:12:07.470 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 323956279-837771
+2026-10-27 19:03:45.640 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 0-993995
 
-Fetching GFS data:   8%|▊         | 6/73 [00:00&lt;00:06, 10.87it/s]
+Fetching GFS data:   1%|▏         | 1/73 [00:02&lt;02:52,  2.39s/it]
 
-2026-10-24 20:12:07.839 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 249098202-1262404
+2026-10-27 19:03:45.641 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 274285343-895314
 
-Fetching GFS data:   8%|▊         | 6/73 [00:01&lt;00:06, 10.87it/s]
+Fetching GFS data:   1%|▏         | 1/73 [00:02&lt;02:52,  2.39s/it]
 
-2026-10-24 20:12:07.840 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 169090127-920171
+2026-10-27 19:03:45.641 | DEBUG    | earth2studio.data.gfs:fetch_array:395 - Fetching GFS grib file: noaa-gfs-bdp-pds/gfs.20240101/00/atmos/gfs.t00z.pgrb2.0p25.f000 210820017-615282
 
-Fetching GFS data:   8%|▊         | 6/73 [00:01&lt;00:06, 10.87it/s]
-Fetching GFS data:  11%|█         | 8/73 [00:01&lt;00:09,  6.56it/s]
-Fetching GFS data:  15%|█▌        | 11/73 [00:01&lt;00:08,  7.25it/s]
-Fetching GFS data:  29%|██▉       | 21/73 [00:02&lt;00:05, 10.22it/s]
-Fetching GFS data:  56%|█████▌    | 41/73 [00:02&lt;00:01, 26.72it/s]
-Fetching GFS data:  93%|█████████▎| 68/73 [00:02&lt;00:00, 50.35it/s]
-Fetching GFS data: 100%|██████████| 73/73 [00:02&lt;00:00, 27.13it/s]
-2026-10-24 20:12:09.549 | SUCCESS  | earth2studio.run:deterministic:154 - Fetched data from GFS
-2026-10-24 20:12:09.550 | INFO     | earth2studio.run:deterministic:162 - Inference starting!
+Fetching GFS data:   1%|▏         | 1/73 [00:02&lt;02:52,  2.39s/it]
+Fetching GFS data:   5%|▌         | 4/73 [00:02&lt;00:36,  1.89it/s]
+Fetching GFS data: 100%|██████████| 73/73 [00:02&lt;00:00, 27.19it/s]
+2026-10-27 19:03:46.049 | SUCCESS  | earth2studio.run:deterministic:154 - Fetched data from GFS
+2026-10-27 19:03:46.050 | INFO     | earth2studio.run:deterministic:162 - Inference starting!
 
 
 Running inference:   0%|          | 0/6 [00:00&lt;?, ?it/s]
 
-Running inference:  17%|█▋        | 1/6 [00:00&lt;00:01,  2.53it/s]
+Running inference:  17%|█▋        | 1/6 [00:00&lt;00:02,  2.41it/s]
 
-Running inference:  33%|███▎      | 2/6 [00:06&lt;00:14,  3.61s/it]
+Running inference:  33%|███▎      | 2/6 [00:05&lt;00:12,  3.11s/it]
 
-Running inference:  50%|█████     | 3/6 [00:08&lt;00:08,  2.82s/it]
+Running inference:  50%|█████     | 3/6 [00:07&lt;00:07,  2.61s/it]
 
-Running inference:  67%|██████▋   | 4/6 [00:10&lt;00:05,  2.52s/it]
+Running inference:  67%|██████▋   | 4/6 [00:09&lt;00:04,  2.36s/it]
 
-Running inference:  83%|████████▎ | 5/6 [00:12&lt;00:02,  2.35s/it]
+Running inference:  83%|████████▎ | 5/6 [00:11&lt;00:02,  2.22s/it]
 
-Running inference: 100%|██████████| 6/6 [00:14&lt;00:00,  2.27s/it]
-Running inference: 100%|██████████| 6/6 [00:14&lt;00:00,  2.39s/it]
-2026-10-24 20:12:23.908 | SUCCESS  | earth2studio.run:deterministic:189 - 
+Running inference: 100%|██████████| 6/6 [00:13&lt;00:00,  2.17s/it]
+Running inference: 100%|██████████| 6/6 [00:13&lt;00:00,  2.24s/it]
+2026-10-27 19:03:59.504 | SUCCESS  | earth2studio.run:deterministic:189 - 
 Inference complete
 /
 ├── lat (721,) float64
@@ -4565,9 +4139,9 @@ and save them as separate files.</p>
 </code></pre></div>
 <p><img alt="Output from Temporal Interpolation" class="e2sg-output-image" loading="lazy" src="../../_assets/02_medium_range-04_temporal_interpolation/001-cell-6.webp" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/02_medium_range-04_temporal_interpolation/04_temporal_interpolation.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/02_medium_range-04_temporal_interpolation/04_temporal_interpolation.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 145.5s</span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/02_medium_range-04_temporal_interpolation/04_temporal_interpolation.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/02_medium_range-04_temporal_interpolation/04_temporal_interpolation.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 86.4s</span></div>
 
-<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>2m 26s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 7313P 16-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 PCIe · 79.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.5 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-142-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.91.07 · CUDA support 13.2</strong></div></div></section>
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>1m 26s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 7313P 16-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 PCIe · 79.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.5 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-147-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.99.02 · CUDA support 13.2</strong></div></div></section>
 
 
 
