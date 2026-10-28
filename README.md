@@ -1,4 +1,11 @@
 <!-- markdownlint-disable MD002 MD033 MD041 MD053 -->
+
+> [!WARNING]
+> **Upcoming breaking release:** The next release after **0.20.0** will be **1.0.0**,
+> which will not be backward compatible. To keep existing workflows operational,
+> pin Earth2Studio to **0.20.0 or earlier** (`earth2studio<=0.20.0`) until you are ready to migrate.
+> See the [migration guide](https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/MIGRATION.md).
+
 <div align="center">
 
 # NVIDIA Earth2Studio
