@@ -48,7 +48,7 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordinateSystem
+from earth2studio.utils.type import CoordinateSystem, DiffusionSolver
 
 if TYPE_CHECKING:
     from earth2studio.models.nn.stormscope_flash import RegionInfo
@@ -65,6 +65,9 @@ try:
     from physicsnemo.diffusion.preconditioners import EDMPreconditioner
     from physicsnemo.diffusion.samplers import sample
     from physicsnemo.utils.zenith_angle import zenith_azimuth_angles
+
+    from earth2studio.models.nn.diffusion import SOLVERS
+    from earth2studio.models.nn.diffusion import solver_options as _solver_options
 except ImportError:
     OptionalDependencyFailure("stormscope")
     OmegaConf = None
@@ -313,6 +316,19 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Compile each denoising expert with ``torch.compile``; see
         :meth:`compile_experts`. Default is False.
 
+    solver : DiffusionSolver, optional
+        Select the numerical method for integrating the sampling ODE in reverse
+        time. Stochastic variants also inject noise along the trajectory, by
+        default "edm_stochastic_heun"
+    solver_options : dict[str, Any] | None, optional
+        Options passed to the selected solver to customize its behavior or
+        override defaults. The wrapper supplies the noise-schedule coefficients.
+        Do not pass ``num_steps`` here; set the sampling step count with
+        ``sampler_args["num_steps"]`` instead. By default None
+        See the `PhysicsNeMo solver API
+        <https://docs.nvidia.com/physicsnemo/latest/physicsnemo/api/diffusion/samplers.html#solvers>`_
+        for the options supported by each method.
+
     Badges
     ------
     region:eu class:nowcasting product:sat year:2026 gpu:80gb
@@ -341,8 +357,21 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         batch_size: int = 1,
         amp: bool = True,
         compile: bool = False,
+        *,
+        solver: DiffusionSolver = "edm_stochastic_heun",
+        solver_options: dict[str, Any] | None = None,
     ):
         super().__init__()
+        if solver not in SOLVERS:
+            raise ValueError(
+                f"Unknown solver {solver!r}; choose from {tuple(SOLVERS)}."
+            )
+        self.solver = solver
+        if solver_options is not None and "num_steps" in solver_options:
+            raise ValueError(
+                "Do not pass 'num_steps' in solver_options; use sampler_args['num_steps'] instead."
+            )
+        self.solver_options = dict(solver_options or {})
 
         # Sort experts by ascending sigma
         model_spec = sorted(model_spec, key=lambda s: float(s["sigma_min"]))
@@ -898,13 +927,14 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 latents,
                 noise_scheduler=self.scheduler,
                 num_steps=num_steps,
-                solver="edm_stochastic_heun",
-                solver_options={
-                    "S_churn": self.sampler_args["S_churn"],
-                    "S_min": self.sampler_args["S_min"],
-                    "S_max": self.sampler_args["S_max"],
-                    "S_noise": self.sampler_args["S_noise"],
-                },
+                solver=self.solver,
+                solver_options=_solver_options(
+                    self.scheduler,
+                    self.solver,
+                    num_steps=num_steps,
+                    defaults=self.sampler_args,
+                    options=self.solver_options,
+                ),
             )
 
     stochastic = True
@@ -1120,6 +1150,9 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         package: Package,
         amp: bool = True,
         compile: bool = False,
+        *,
+        solver: DiffusionSolver = "edm_stochastic_heun",
+        solver_options: dict[str, Any] | None = None,
     ) -> PrognosticModel:
         """Load the prognostic model from a package.
 
@@ -1131,6 +1164,20 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Use automatic mixed precision (bfloat16) in the experts, by default True
         compile : bool, optional
             Compile each expert with ``torch.compile``, by default False
+
+        solver : DiffusionSolver, optional
+            Select the numerical method for integrating the sampling ODE in
+            reverse time. Stochastic variants also inject noise along the
+            trajectory, by default "edm_stochastic_heun"
+        solver_options : dict[str, Any] | None, optional
+            Options passed to the selected solver to customize its behavior or
+            override defaults. The wrapper supplies the noise-schedule
+            coefficients. Set the sampling step count with
+            ``sampler_args["num_steps"]``, not with ``solver_options``. By
+            default None
+            See the `PhysicsNeMo solver API
+            <https://docs.nvidia.com/physicsnemo/latest/physicsnemo/api/diffusion/samplers.html#solvers>`_
+            for the options supported by each method.
 
         Returns
         -------
@@ -1222,6 +1269,8 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             sampler_args=sampler_args,
             y_coords=y_coords,
             x_coords=x_coords,
+            solver=solver,
+            solver_options=solver_options,
             input_times=input_times,
             output_times=output_times,
             amp=amp,

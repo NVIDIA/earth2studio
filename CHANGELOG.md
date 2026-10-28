@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- [StormScope GOES, conditioned GOES, and MRMS](earth2studio/models/px/stormscope.py),
+  [`StormScopeMeteosatEU`](earth2studio/models/px/stormscope_meteosat.py), and
+  [NSRDB](earth2studio/models/dx/stormscope_dx_nsrdb.py) accept optional `solver`
+  and `solver_options` arguments when loading. Use them to experiment with
+  numerical integration methods, including coupled forecasts, and compare
+  quality and sampling cost. Overrides are opt-in. Existing solver selections
+  remain the defaults. Refer to the
+  [diffusion solver guide](docs/userguide/advanced/diffusion_solvers.md) for
+  configuration examples and a coupled GOES/MRMS comparison.
 - [StormCast](earth2studio/models/px/stormcast.py),
   [StormCast CONUS](earth2studio/models/px/stormcastconus.py),
   [StormCast SDA](earth2studio/models/da/sda_stormcast.py), and
