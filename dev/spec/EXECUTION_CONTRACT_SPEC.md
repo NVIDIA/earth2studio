@@ -341,10 +341,12 @@ physicsnemo's `DistributedManager`, which is optional.
 
 `PrognosticRunner(prognostic, source=None, forcing=None, diagnostics=None, seed=0)`
 drives `create_iterator` and publishes the initial condition as the first step,
-matching `run.deterministic`. Sources default to `default_sources()`. Declared
-forcing is fetched initially and its time-varying slots are sent every step. The
-prognostic stream is `forecast`; each diagnostic adds a stream under the caller's
-name. Member batching is not yet supported.
+matching `run.deterministic`, when the output declares every input variable on
+the input's grid; otherwise the streams start at the first forecast. Sources
+default to `default_sources()`. Declared forcing is fetched initially and its
+time-varying slots are sent every step. The prognostic stream is `forecast`;
+each diagnostic adds a stream under the caller's name. Member batching is not
+yet supported.
 
 `DiagnosticRunner(diagnostics, source=None, step=None, seed=0)` applies
 diagnostics directly to source data. Step `k` fetches inputs at the item's time
