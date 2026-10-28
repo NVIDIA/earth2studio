@@ -368,6 +368,7 @@ class NNJAObsConv:
         self._decode_workers = max(1, decode_workers)
         self._retries = retries
         self.async_timeout = async_timeout
+        self.task_timeout: float = 600.0
         self._tmp_cache_hash: str | None = uuid.uuid4().hex[:8] if not cache else None
         self._calls = _CleanupAfterLastCall(self)
         # Anonymous obstore S3 store for the public NNJA bucket.
@@ -458,7 +459,7 @@ class NNJAObsConv:
                 uri,
                 retries=self._retries,
                 backoff=1.0,
-                task_timeout=120.0,
+                task_timeout=self.task_timeout,
                 exceptions=(OSError, IOError, TimeoutError, ConnectionError),
             )
             for uri in uris
@@ -975,6 +976,7 @@ class NNJAObsSat:
         self._decode_workers = max(1, decode_workers)
         self._retries = retries
         self.async_timeout = async_timeout
+        self.task_timeout: float = 600.0
         self._tmp_cache_hash: str | None = uuid.uuid4().hex[:8] if not cache else None
         self._calls = _CleanupAfterLastCall(self)
         # Anonymous obstore S3 store for the public NNJA bucket.
@@ -1049,15 +1051,15 @@ class NNJAObsSat:
 
     async def fetch_files(self, uris: Sequence[str]) -> None:
         """Download remote files into the NNJA cache."""
+        # Hyperspectral IR aggregates (mtiasi, cris) are much larger than the
+        # microwave cycle files; task_timeout defaults to 600s per attempt.
         coros = [
             async_retry(
                 self._fetch_remote_file,
                 uri,
                 retries=self._retries,
                 backoff=1.0,
-                # Hyperspectral IR aggregates (mtiasi, cris) are much larger
-                # than the microwave cycle files; allow 300s per attempt
-                task_timeout=300.0,
+                task_timeout=self.task_timeout,
                 exceptions=(OSError, IOError, TimeoutError, ConnectionError),
             )
             for uri in uris
