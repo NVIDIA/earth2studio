@@ -19,6 +19,7 @@
 from collections.abc import Mapping
 
 import numpy as np
+import torch
 import xarray as xr
 from conftest import ATMOS_GRID, OCEAN_GRID, T0, Fill, H, atmosphere, ocean, signature
 from test_state import Mixed
@@ -96,3 +97,17 @@ def test_pipeline_runs_a_builtin_diagnostic_component() -> None:
     weight = np.log(0.7) / np.log(0.5)
     expected = [1 + k + weight * 4 for k in range(3)]
     np.testing.assert_allclose(z700["z700"][0, :, 0, 0].numpy(), expected, atol=1e-5)
+
+
+def test_components_without_tensors_follow_the_runner_device() -> None:
+    levels = DerivedPressureLevels(
+        ["z"], PressureLevels((1000, 500)), [700], grid=ATMOS_GRID
+    )
+    assert not any(True for _ in levels.parameters())
+    runner = CoupledRunner(
+        {"model": _Levels(), "levels": levels},
+        [Connector("model", "levels")],
+        sources={"model": Fill(ATMOS_GRID, {"z1000": 1.0, "z500": 5.0})},
+    )
+    runner.to("meta")
+    assert runner.device_of("levels") == torch.device("meta")
