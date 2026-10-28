@@ -82,7 +82,8 @@ class CoupledRunner:
         Models keyed by component name; names key streams and connectors.
         Declaration order breaks ties between components ready at once.
     connectors : Sequence[Connector], optional
-        Edges between components, by default none
+        Edges between components, by default none. State connectors
+        (``state=True``) into one slot must overwrite different variables.
     sources : Mapping[str, Source | tuple[Source | None, ...]], optional
         Sources per component in input-then-forcing slot order, like
         ``default_sources()``; a single source covers the first input slot. Slots
@@ -91,6 +92,11 @@ class CoupledRunner:
         that the producer does not hold.
     seed : int, optional
         Base seed for per-member seeding of stochastic components, by default 0
+    devices : Mapping[str, torch.device | str], optional
+        Devices of components that :meth:`to` leaves in place, such as CPU-only
+        impact models, by default none. Every other component runs where its
+        parameters are, or on the CPU without any. Fetches and connected fields
+        are staged onto the receiving component's device.
 
     Raises
     ------
@@ -106,6 +112,7 @@ class CoupledRunner:
         connectors: Sequence[Connector] = (),
         sources: Mapping[str, Source | tuple[Source | None, ...]] | None = None,
         seed: int = 0,
+        devices: Mapping[str, torch.device | str] | None = None,
     ) -> None:
         if not components:
             raise CouplingError("CoupledRunner needs at least one component")
@@ -119,8 +126,20 @@ class CoupledRunner:
         if not any(node.stateful for node in self.nodes.values()):
             raise CouplingError("CoupledRunner needs at least one stateful component")
         self.connectors: dict[tuple[str, int], Connector] = {}
+        self.states: dict[str, tuple[Connector, ...]] = {}
         for connector in connectors:
-            self._add(connector)
+            if connector.state:
+                self._add_state(connector)
+            else:
+                self._add(connector)
+        devices = dict(devices or {})
+        for name in devices:
+            if name not in self.nodes:
+                raise CouplingError(
+                    f"Device given for unknown component {name!r}"
+                    + _suggest(name, self.nodes)
+                )
+        self.devices = {name: torch.device(d) for name, d in devices.items()}
         sources = dict(sources or {})
         for name in sources:
             if name not in self.nodes:
@@ -136,10 +155,12 @@ class CoupledRunner:
         self.seed = seed
         self.spacing = self._spacing()
         self._check_windows()
-        self._scheduler = _Scheduler(self.nodes, self.connectors, self.spacing)
+        self._scheduler = _Scheduler(
+            self.nodes, self.connectors, self.spacing, self.states
+        )
         self._retention = self._plan_retention()
         self.regridders = {
-            key: c.regridder for key, c in self.connectors.items() if c.regridder
+            c: c.regridder for c in self._all_connectors() if c.regridder is not None
         }
         self.device = next(
             (
@@ -152,13 +173,64 @@ class CoupledRunner:
 
     # -- validation ----------------------------------------------------------
 
-    def _add(self, connector: Connector) -> None:
+    def _check_names(self, connector: Connector) -> None:
         for name in (connector.src, connector.dst):
             if name not in self.nodes:
                 raise CouplingError(
                     f"Connector {connector} names unknown component {name!r}"
                     + _suggest(name, self.nodes)
                 )
+
+    def _producer(self, connector: Connector, label: str, variable: str) -> int:
+        """The ``src`` output slot publishing ``variable`` for ``label`` (``C4``)."""
+        src = self.nodes[connector.src]
+        producers = [i for i in range(len(src.outputs)) if variable in src.exports(i)]
+        if not producers:
+            raise CouplingError(
+                f"Connector {connector}: {connector.src!r} does not publish "
+                f"{variable!r} for {label!r} (C4)" + _suggest(variable, src.variables)
+            )
+        if len(producers) > 1:
+            raise CouplingError(
+                f"Connector {connector}: {connector.src!r} publishes {variable!r} in "
+                f"output slots {producers}; rename one (C4)"
+            )
+        return producers[0]
+
+    def _add_state(self, connector: Connector) -> None:
+        self._check_names(connector)
+        src, dst = self.nodes[connector.src], self.nodes[connector.dst]
+        if not dst.stateful or connector.slot not in dst.ic_slots:
+            raise CouplingError(
+                f"Connector {connector}: {connector.dst!r} has no state slot "
+                f"{connector.slot}, an input slot whose output slot holds the same "
+                "variables (C3)"
+            )
+        slot = dst.inputs[connector.slot]
+        labels = set(connector.variables or {})
+        unknown = sorted(labels - set(slot.labels))
+        if unknown:
+            raise CouplingError(
+                f"Connector {connector}: {connector.dst!r} {slot} holds no state "
+                f"variables {unknown} (C4)" + _suggest(unknown[0], slot.labels)
+            )
+        for other in self.states.get(connector.dst, ()):
+            shared = labels & set(other.variables or {})
+            if other.slot == connector.slot and shared:
+                raise CouplingError(
+                    f"Connectors {other} and {connector} both overwrite "
+                    f"{sorted(shared)} (C3)"
+                )
+        used = {
+            self._producer(connector, label, connector.source_variable(label))
+            for label in labels
+        }
+        for i in sorted(used):
+            _check_geometry(connector, src.outputs[i], slot.signature)
+        self.states[connector.dst] = self.states.get(connector.dst, ()) + (connector,)
+
+    def _add(self, connector: Connector) -> None:
+        self._check_names(connector)
         key = (connector.dst, connector.slot)
         if key in self.connectors:
             raise CouplingError(
@@ -179,22 +251,7 @@ class CoupledRunner:
         for label in slot.labels:
             base, modifier = _split_label(label)
             bases.add(base)
-            variable = connector.source_variable(base)
-            producers = [
-                i for i in range(len(src.outputs)) if variable in src.exports(i)
-            ]
-            if not producers:
-                raise CouplingError(
-                    f"Connector {connector}: {connector.src!r} does not publish "
-                    f"{variable!r} for {label!r} (C4)"
-                    + _suggest(variable, src.variables)
-                )
-            if len(producers) > 1:
-                raise CouplingError(
-                    f"Connector {connector}: {connector.src!r} publishes "
-                    f"{variable!r} in output slots {producers}; rename one (C4)"
-                )
-            used.update(producers)
+            used.add(self._producer(connector, label, connector.source_variable(base)))
             if modifier is not None and connector.time == "hold":
                 raise CouplingError(
                     f"Connector {connector}: time='hold' applies to plain labels, "
@@ -273,15 +330,33 @@ class CoupledRunner:
     # -- Runner protocol -------------------------------------------------------
 
     def to(self, device: torch.device | str) -> CoupledRunner:
-        """Move every model and regridder to ``device`` and fetch onto it."""
+        """Move every component without a ``devices`` entry to ``device``.
+
+        Regridders move to the device of the component they feed.
+        """
         self.device = torch.device(device)
-        for node in self.nodes.values():
+        for name, node in self.nodes.items():
             to = getattr(node.model, "to", None)
-            if callable(to):
+            if name not in self.devices and callable(to):
                 moved = to(self.device)
                 node.model = moved if moved is not None else node.model
-        self.regridders = {k: r.to(self.device) for k, r in self.regridders.items()}
+        self.regridders = {
+            c: r.to(self.device_of(c.dst)) for c, r in self.regridders.items()
+        }
         return self
+
+    def device_of(self, name: str) -> torch.device:
+        """Return the device component ``name`` runs and receives fields on."""
+        if name in self.devices:
+            return self.devices[name]
+        model = self.nodes[name].model
+        if isinstance(model, torch.nn.Module):
+            return _module_device(model)
+        return self.device
+
+    def _all_connectors(self) -> list[Connector]:
+        states = [c for connectors in self.states.values() for c in connectors]
+        return list(self.connectors.values()) + states
 
     def output_coords(
         self, final_lead_time: np.timedelta64
@@ -341,20 +416,31 @@ class CoupledRunner:
                 when += f"; streams {', '.join(node.streams)}"
             lines.append(f"  {name:<{width}}  {kind:<10}  {when}")
         lines.append("Connectors:")
-        for connector in self.connectors.values():
+        for connector in self._all_connectors():
             dst = self.nodes[connector.dst]
-            slot = next(s for s in dst.imports if s.index == connector.slot)
-            regrid = ", regridded" if connector.regridder is not None else ""
+            if connector.state:
+                slot, labels = dst.inputs[connector.slot], list(
+                    connector.variables or {}
+                )
+                target = f"state {slot}"
+            else:
+                slot = next(s for s in dst.imports if s.index == connector.slot)
+                labels, target = list(slot.labels), str(slot)
+            extra = ", regridded" if connector.regridder is not None else ""
+            extra += ", transformed" if connector.transform is not None else ""
             lines.append(
-                f"  {connector.src} -> {connector.dst} {slot} ({connector.time}"
-                f"{regrid}): {', '.join(slot.labels)}"
+                f"  {connector.src} -> {connector.dst} {target} ({connector.time}"
+                f"{extra}): {', '.join(labels)}"
             )
-        if not self.connectors:
+        if not self._all_connectors():
             lines.append("  none")
         lines.append(f"Schedule through {_fmt(_final(final_lead_time))}:")
         for event in self._scheduler.run(_Planner(), _final(final_lead_time)):
             published = ", ".join(_fmt(v) for v in event.leads)
-            reads = "; ".join(_describe_plan(plan) for plan in event.plans)
+            reads = "; ".join(
+                [_describe_plan(plan) for plan in event.plans]
+                + [_describe_plan(plan, state=True) for plan in event.states]
+            )
             line = (
                 f"  {_fmt(event.tick):>7}  {event.node.name:<{width}}  "
                 f"{event.action:<17}  -> {published}"
@@ -423,20 +509,21 @@ class _Execution:
         source = _source(self.runner, node, slot)
         time = np.array([self.item.time])
         lead_time = np.asarray(leads, dtype=np.int64).astype("timedelta64[ns]")
+        device = self.runner.device_of(node.name)
         if slot.frame:
             frame = fetch_dataframe(
                 source,  # type: ignore[arg-type]
                 time,
                 np.array(list(labels)),
                 lead_time=lead_time,
-                device=self.runner.device,
+                device=device,
             )
             return None if len(frame) == 0 else frame
         signature = slot.signature
         if list(labels) != list(slot.labels):
             signature = coord_array_like(signature, {"variable": list(labels)})
         request = DataRequest(source, time, np.array(list(labels)), lead_time)
-        x = _fetch(request, signature, self.runner.device)
+        x = _fetch(request, signature, device)
         if slot.static:
             x = x.isel(lead_time=0, drop=True)
         return x
@@ -456,11 +543,11 @@ class _Execution:
         args = tuple(self._value(node, plan, buffers) for plan in event.plans)
         if node.stateful:
             if event.index == 0:
-                y, state = node.model.initialize(*self.inputs.pop(node.name), *args)
+                x = self._overwrite(event, self.inputs.pop(node.name), buffers)
+                y, state = node.model.initialize(*x, *args)
             else:
-                y, state = node.model.step(
-                    *self.y[node.name], *args, state=self.state[node.name]
-                )
+                y = self._overwrite(event, self.y[node.name], buffers)
+                y, state = node.model.step(*y, *args, state=self.state[node.name])
             ys = y if isinstance(y, tuple) else (y,)
             self.y[node.name], self.state[node.name] = ys, state
             return ys
@@ -469,41 +556,60 @@ class _Execution:
         outputs = outputs if isinstance(outputs, tuple) else (outputs,)
         return tuple(_with_lead_time(x, lead) for x in outputs)
 
+    def _held(
+        self, node: _Node, plan: _SlotPlan, buffers: Mapping[str, _Buffer], lead: int
+    ) -> xr.DataArray | None:
+        """Connected labels the producer supplies at ``lead``, ready for the slot.
+
+        Frames are selected or reduced, staged onto the receiving component's
+        device, regridded and transformed; ``None`` when none are held.
+        """
+        connector = plan.connector
+        assert connector is not None  # noqa: S101 - connected plans only
+        buffer = buffers[connector.src]
+        spacing = np.timedelta64(self.runner.spacing[connector.src], "ns")
+        label = np.timedelta64(lead, "ns")
+        held = []
+        for read in plan.reads:
+            if read.lead != lead or not read.frames:
+                continue
+            if read.modifier is None:
+                x = buffer.get(read.variable, read.frames[0])
+            else:
+                stack = xr.concat(
+                    [buffer.get(read.variable, f) for f in read.frames],
+                    dim="lead_time",
+                    combine_attrs="override",
+                )
+                axis = stack.get_axis_num("lead_time")
+                x = apply_time_statistic(
+                    stack, read.modifier, label, spacing, "lead_time"
+                ).expand_dims(lead_time=[label], axis=axis)
+            held.append(x.assign_coords(variable=[read.label], lead_time=[label]))
+        if not held:
+            return None
+        x = xr.concat(held, dim="variable", combine_attrs="override")
+        x = _stage(x, self.runner.device_of(node.name))
+        regridder = self.runner.regridders.get(connector)
+        if regridder is not None:
+            x = regridder(x)
+        if connector.transform is not None:
+            x = _transformed(connector, x)
+        return x
+
     def _value(
         self, node: _Node, plan: _SlotPlan, buffers: Mapping[str, _Buffer]
     ) -> Any:
         if plan.connector is None:
             return self._fetch(node, plan.slot, plan.slot.labels, plan.leads)
-        connector = plan.connector
-        buffer = buffers[connector.src]
-        spacing = np.timedelta64(self.runner.spacing[connector.src], "ns")
-        regridder = self.runner.regridders.get((connector.dst, connector.slot))
         parts = []
         for lead in plan.leads:
             lead = int(lead)
             reads = [r for r in plan.reads if r.lead == lead]
-            label = np.timedelta64(lead, "ns")
             pieces = []
-            held = []
-            for read in reads:
-                if not read.frames:
-                    continue
-                if read.modifier is None:
-                    x = buffer.get(read.variable, read.frames[0])
-                else:
-                    stack = xr.concat(
-                        [buffer.get(read.variable, f) for f in read.frames],
-                        dim="lead_time",
-                        combine_attrs="override",
-                    )
-                    axis = stack.get_axis_num("lead_time")
-                    x = apply_time_statistic(
-                        stack, read.modifier, label, spacing, "lead_time"
-                    ).expand_dims(lead_time=[label], axis=axis)
-                held.append(x.assign_coords(variable=[read.label], lead_time=[label]))
-            if held:
-                x = xr.concat(held, dim="variable", combine_attrs="override")
-                pieces.append(regridder(x) if regridder is not None else x)
+            held = self._held(node, plan, buffers, lead)
+            if held is not None:
+                pieces.append(held)
             fetched = [r.label for r in reads if not r.frames]
             if fetched:
                 x = self._fetch(node, plan.slot, fetched, [lead])
@@ -530,6 +636,60 @@ class _Execution:
         if statistics:
             x.attrs[E2S_STATISTICS] = statistics
         return x
+
+    def _overwrite(
+        self, event: _Event, arrays: tuple[Any, ...], buffers: Mapping[str, _Buffer]
+    ) -> tuple[Any, ...]:
+        """Replace state variables that state connectors supply, in new arrays."""
+        if not event.states:
+            return arrays
+        result = list(arrays)
+        for plan in event.states:
+            x = result[plan.slot.index]
+            leads = list(_ns(x.coords["lead_time"].values))
+            names = [str(v) for v in x.coords["variable"].values]
+            data = None
+            for lead in plan.leads:
+                piece = self._held(event.node, plan, buffers, int(lead))
+                if piece is None:
+                    continue  # Not supplied at or before the item time: keep.
+                labels = [str(v) for v in piece.coords["variable"].values]
+                signature = coord_array_like(plan.slot.signature, {"variable": labels})
+                try:
+                    piece = _map_field(piece, signature)
+                except ValueError as error:
+                    raise CouplingError(
+                        f"Connector {plan.connector}: delivered state does not match "
+                        f"{event.node.name!r} {plan.slot}: {error}"
+                    ) from error
+                j = leads.index(int(lead))
+                index = [names.index(label) for label in labels]
+                target = x.isel(lead_time=[j], variable=index)
+                extra = [d for d in piece.dims if d not in target.dims]
+                if extra:
+                    raise CouplingError(
+                        f"Connector {plan.connector}: delivered state has dimensions "
+                        f"{extra} that {event.node.name!r} {plan.slot} lacks"
+                    )
+                missing = {
+                    d: target.sizes[d] for d in target.dims if d not in piece.dims
+                }
+                piece = piece.expand_dims(missing).transpose(*target.dims)
+                if piece.shape != target.shape:
+                    raise CouplingError(
+                        f"Connector {plan.connector}: delivered state of shape "
+                        f"{piece.shape} does not fit {event.node.name!r} {plan.slot} "
+                        f"of shape {target.shape}"
+                    )
+                if data is None:
+                    data = x.data.copy()
+                position: list[Any] = [slice(None)] * x.ndim
+                position[x.get_axis_num("lead_time")] = slice(j, j + 1)
+                position[x.get_axis_num("variable")] = index
+                data[tuple(position)] = _stage_like(piece, x).data
+            if data is not None:
+                result[plan.slot.index] = x.copy(data=data)
+        return tuple(result)
 
 
 # -- helpers -------------------------------------------------------------------
@@ -610,7 +770,36 @@ def _check_geometry(
         )
 
 
-def _describe_plan(plan: _SlotPlan) -> str:
+def _stage(x: xr.DataArray, device: torch.device) -> xr.DataArray:
+    """Return ``x`` backed on ``device``: NumPy on the CPU, CuPy on CUDA."""
+    if device.type == "cuda":
+        return x.e2s.as_cupy(device.index)
+    return x.e2s.as_numpy()
+
+
+def _stage_like(x: xr.DataArray, like: xr.DataArray) -> xr.DataArray:
+    """Return ``x`` backed like ``like``."""
+    if type(like.data).__module__.startswith("cupy"):
+        return x.e2s.as_cupy(like.data.device.id)
+    return x.e2s.as_numpy()
+
+
+def _transformed(connector: Connector, x: xr.DataArray) -> xr.DataArray:
+    """Apply ``connector.transform``, checking it keeps variables and lead times."""
+    y = connector.transform(x)  # type: ignore[misc]
+    if not isinstance(y, xr.DataArray):
+        raise CouplingError(f"Connector {connector}: transform must return a DataArray")
+    for dim in ("variable", "lead_time"):
+        if dim not in y.coords or not np.array_equal(
+            y.coords[dim].values, x.coords[dim].values
+        ):
+            raise CouplingError(
+                f"Connector {connector}: transform changed the {dim!r} coordinate"
+            )
+    return y
+
+
+def _describe_plan(plan: _SlotPlan, state: bool = False) -> str:
     if plan.connector is None:
         return f"{plan.slot} <- source"
     leads = ", ".join(_fmt(v) for v in plan.leads)
@@ -623,6 +812,9 @@ def _describe_plan(plan: _SlotPlan) -> str:
             else f"{_fmt(frames[0])}..{_fmt(frames[-1])}"
         )
         used = f" from {span}"
+    if state:
+        extra = " + kept" if plan.fetched else ""
+        return f"state {plan.slot} <- {plan.connector.src} at {leads}{used}{extra}"
     extra = " + source" if plan.fetched else ""
     return f"{plan.slot} <- {plan.connector.src} at {leads}{used}{extra}"
 

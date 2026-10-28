@@ -39,15 +39,18 @@ class Connector:
     src: str
     dst: str
     slot: int = 0
-    variables: Mapping[str, str] | None = None  # dst base label -> src variable
+    variables: Mapping[str, str] | Sequence[str] | None = None  # dst label -> src variable
     regridder: Regridder | None = None
     time: Literal["exact", "hold"] = "exact"
+    transform: Callable[[xr.DataArray], xr.DataArray] | None = None
+    state: bool = False
 
 class CoupledRunner:  # satisfies earth2studio.run.Runner
     supports_member_batching = False
-    def __init__(self, components, connectors=(), sources=None, seed=0): ...
+    def __init__(self, components, connectors=(), sources=None, seed=0, devices=None): ...
     def describe(self, final_lead_time) -> str: ...
     def to(self, device) -> CoupledRunner: ...
+    def device_of(self, name) -> torch.device: ...
     def output_coords(self, final_lead_time) -> Mapping[str, CoordinateSystem]: ...
     def data_requests(self, item) -> tuple[DataRequest, ...]: ...
     def run_item(self, item) -> Iterator[Mapping[str, xr.DataArray]]: ...
@@ -57,7 +60,11 @@ class CoupledRunner:  # satisfies earth2studio.run.Runner
 order of `default_sources()`; a single source covers the first input slot and
 `None` entries fall back to the model's recommendation, which is built only
 when a fetch needs it. `CouplingError` is a
-`ValueError`.
+`ValueError`. A sequence of `variables` keeps each name.
+
+`devices` pins components that `to` leaves in place, such as CPU-only impact
+models; the rest move with `to`. Each component's fetches and connected fields
+are staged onto its device, and a connector's regridder runs there.
 
 ## Components
 
@@ -78,7 +85,19 @@ therefore initializes once that day exists, with no special case.
 Imports are a stateful component's time-varying gridded forcing slots, or a
 diagnostic's input slots. A connector feeds an import; every other slot is
 fetched from its source. Input slots, static forcing and DataFrame slots are
-always fetched.
+always fetched. A diagnostic input slot without `lead_time`, as most
+diagnostics declare, takes the call's valid time as a leading dimension, as
+under `DiagnosticRunner`.
+
+A state slot is a stateful component's input slot whose output slot in the same
+position holds the same variables. A state connector (`state=True`) overwrites
+the variables it names there before each call, for models that carry a coupled
+field such as SST in their own state: in the inputs `initialize` receives, at
+the input slot's lead times, and in the output each `step` advances, at its
+lead times. Several state connectors may share a slot if they overwrite
+different variables. Required times resolve as for imports, except that values
+the producer cannot supply at or before the item time are kept rather than
+fetched. The overwrite is not published; streams carry each model's own output.
 
 ## Connectors and resolution
 
@@ -98,11 +117,17 @@ and slot label:
 3. If the producer cannot supply it and `T` is at or before the item time, a
    stateful consumer fetches it from the slot's source. Otherwise the consumer
    waits.
-4. Regrid producer frames with the connector's regridder, then map onto the
-   slot signature with the slot's temporal-statistics metadata.
+4. Stage producer frames onto the consumer's device, regrid them with the
+   connector's regridder, apply its `transform`, then map onto the slot
+   signature with the slot's temporal-statistics metadata.
 
-Any other transform between models, such as unit conversion or derived
-variables, is a `DiagnosticModel` component placed between them.
+`transform` is an escape hatch for conversions no component expresses, such as
+units or a bias correction. It sees the slot's labels at the required lead
+times and must keep the `variable` and `lead_time` coordinates; fetched frames
+are not transformed. Transforms that combine variables or that are worth
+reusing are a `DiagnosticModel` component placed between the models, such as
+`DerivedPressureLevels`, which interpolates hybrid or pressure levels onto
+pressure levels.
 
 ## Scheduling
 
@@ -160,21 +185,21 @@ when to run, so the runner rejects its DataFrame slots. It fits elsewhere:
 | --- | --- |
 | `C1` | Components are prognostic, stateful assimilation or diagnostic models with gridded output slots; a stateful component's slots carry the same `lead_time` |
 | `C2` | Stateful components step at their declared cadence; diagnostics run when their inputs arrive and need at least one `exact` connector |
-| `C3` | One connector per `(dst, slot)`, targeting a time-varying gridded forcing slot or a diagnostic input slot |
+| `C3` | One connector per `(dst, slot)`, targeting a time-varying gridded forcing slot or a diagnostic input slot; state connectors target state slots and may share one if their variables differ |
 | `C4` | Every slot label's base, after `variables`, is published by exactly one producer output slot; renames name declared bases |
-| `C5` | Without a regridder each producer slot read and the consumer slot have the same geometry; with one, its source grid matches each slot read and its target grid the consumer slot |
+| `C5` | Without a regridder each producer slot read and the consumer slot have the same geometry; with one, its source grid matches each slot read and its target grid the consumer slot; a `transform` keeps variables and lead times |
 | `C6` | Required valid times follow the model contract; DataFrame slots are requested at the chunk's end, static slots only initially |
 | `C7` | `exact` waits for frames at each required time; `hold` takes the latest earlier-published frame and applies to plain labels only |
 | `C8` | Qualified labels reduce producer frames over `[T - w, T)`; the window must divide by the producer's frame spacing |
-| `C9` | Frames at or before the item time that the producer does not hold come from the slot's source, for stateful consumers only |
+| `C9` | Frames at or before the item time that the producer does not hold come from the slot's source, for stateful consumers only; state connectors keep the model's own values instead |
 | `C10` | An empty DataFrame from a source is passed as `None` |
 | `C11` | A stateful chunk due by the final lead time that cannot run raises, naming the cycle or the missing frame; construction checks this first |
 | `C12` | One uniquely named stream per output slot; `describe`, `output_coords` and `data_requests` come from the scheduler that runs the item; `data_requests` lists `fetch_data` calls only, not DataFrame fetches |
 
 ## Out of scope or future work
 
-- Time interpolation, conservative regridding, unit conversion and vertical
-  interpolation.
+- Time interpolation and conservative regridding. Unit conversion is a
+  connector `transform`; vertical interpolation is `DerivedPressureLevels`.
 - A `DataSource` adapter over independent assimilation models, with per-member
   seeding when they are stochastic.
 - Components that run on a fixed cadence from sources alone, such as
@@ -182,7 +207,6 @@ when to run, so the runner rejects its DataFrame slots. It fits elsewhere:
 - DataFrame payloads through connectors, and DataFrame-valued streams.
 - Output slots that advance at different lead times; split them, as for DLESyM.
 - Member batching, mid-item checkpoints and iterator hooks on coupled models.
-- Per-model devices: every model and fetch uses the runner's device.
 
 ## Open decisions
 
