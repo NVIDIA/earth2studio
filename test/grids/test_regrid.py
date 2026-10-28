@@ -282,6 +282,29 @@ def test_nearest_tree_skips_invalid_source_points():
     assert y[0, 0, 0] != 4 and y[0, 0, 1] == 0
 
 
+def test_nearest_source_mask_fills_from_valid_points():
+    pytest.importorskip("scipy")
+    # Mask the centre point; targets on it take the nearest unmasked value.
+    mask = np.ones((3, 3), dtype=bool)
+    mask[1, 1] = False
+    x = field(REGION, lambda lat, lon: np.arange(9.0).reshape(3, 3))
+    target = PointGrid(np.array([REGION.latitude[1]]), np.array([REGION.longitude[1]]))
+    unmasked = NearestRegridder(REGION, target)(x)
+    masked = NearestRegridder(REGION, target, source_mask=mask)(x)
+    assert unmasked[0, 0, 0] == 4 and masked[0, 0, 0] != 4
+    assert not np.isnan(masked).any()
+    # An xarray mask is accepted in any dimension order.
+    as_array = xr.DataArray(mask.T, dims=("lon", "lat"))
+    regridder = NearestRegridder(REGION, target, source_mask=as_array)
+    assert regridder.source_mask is not None
+    np.testing.assert_array_equal(regridder.source_mask, mask)
+    assert NearestRegridder(REGION, target).source_mask is None
+    with pytest.raises(ValueError, match="does not match the source grid"):
+        NearestRegridder(REGION, target, source_mask=mask[:2])
+    with pytest.raises(ValueError, match="no valid source points"):
+        NearestRegridder(REGION, target, source_mask=np.zeros((3, 3), dtype=bool))
+
+
 _RANDOM = np.random.default_rng(0)
 
 

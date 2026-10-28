@@ -19,12 +19,19 @@ Deviations from this plan, all reflected in `dev/spec/COUPLING_SPEC.md`:
   `fetch_dataframe` at the analysis time; an empty frame becomes `None`. Gridded
   optional slots were dropped.
 - Components may have several output slots, one stream each (`name.i`), as
-  long as the slots share lead times. Every model uses the runner's device;
-  per-model device staging is deferred.
+  long as the slots share lead times.
 - `data_requests` lists only `fetch_data` calls, per the execution contract.
 - There are no per-protocol adapters: `_Node` is one record of a model's parsed
   declarations, and the scheduler branches on `stateful` where the kinds differ.
-- Package code is about 1,500 lines with docstrings and license headers.
+- Ported from PR #1290 (2026-10-28): `NearestRegridder(source_mask=)`, state
+  connectors (`state=True`), a connector `transform` escape hatch, and per-model
+  devices (`devices=`, staging onto the receiving model). Vertical
+  interpolation is `earth2studio.utils.vertical` plus the
+  `DerivedPressureLevels` diagnostic rather than coupling helpers. Not ported:
+  `RunSequence`, `dt`, diagnostic `cadence=`, automatic regridders and
+  `run_item(ics=)`.
+- Diagnostic inputs without `lead_time` take each call's valid time, so built-in
+  derived diagnostics couple unchanged.
 
 **Goal:** Couple existing model instances at their own cadences, on their own
 grids, with declared time reductions, and run the result under `Pipeline` like

@@ -164,6 +164,7 @@ _DIAGNOSTIC_CONFORMANT: set[str] = {
     "CorrDiffEra5Hrrr",
     "CorrDiffTaiwan",
     "DLESyMv0_ISCCP_ERA5Precip",
+    "DerivedPressureLevels",
     "DerivedRH",
     "DerivedRHDewpoint",
     "DerivedSurfacePressure",

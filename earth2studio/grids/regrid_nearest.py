@@ -109,6 +109,12 @@ class NearestRegridder(_IndexRegridder):
     fill_value : float | None, optional
         Value for targets outside coverage, by default NaN. None raises
         ``ValueError`` at construction if any target is outside coverage.
+    source_mask : array-like of bool, optional
+        Validity of each source point, shaped like ``source_grid`` (an
+        ``xr.DataArray`` is transposed to the grid's dimensions). Masked points
+        are never selected, so every target takes the value of its nearest
+        *valid* source point: a land-masked SST field fills coastal and inland
+        targets from the nearest ocean point. By default every point is valid.
 
     Note
     ----
@@ -121,9 +127,38 @@ class NearestRegridder(_IndexRegridder):
         target_grid: str | GridDefinition,
         max_dist_km: float | Literal["auto"] | None = None,
         fill_value: float | None = np.nan,
+        source_mask: Any | None = None,
     ) -> None:
         self.max_dist_km = max_dist_km
+        self._source_mask = source_mask
         super().__init__(source_grid, target_grid, fill_value)
+
+    @property
+    def source_mask(self) -> NDArray[np.bool_] | None:
+        """Validity of each source point, shaped like ``source_grid``, or None."""
+        return self._mask
+
+    def _valid_source(self) -> tuple[NDArray[Any], NDArray[Any]]:
+        """Flattened source coordinates with masked points set to NaN."""
+        latitude, longitude = _geographic(self._source_grid)
+        self._mask: NDArray[np.bool_] | None = None
+        if self._source_mask is None:
+            return latitude, longitude
+        mask = self._source_mask
+        if hasattr(mask, "dims"):
+            mask = mask.transpose(*self._source_grid.dims).values
+        mask = np.asarray(mask, dtype=bool)
+        if mask.shape != self._source_grid.shape:
+            raise ValueError(
+                f"source_mask shape {mask.shape} does not match the source grid "
+                f"shape {self._source_grid.shape}"
+            )
+        if not mask.any():
+            raise ValueError("source_mask leaves no valid source points")
+        mask.setflags(write=False)
+        self._mask = mask
+        keep = mask.ravel()
+        return np.where(keep, latitude, np.nan), np.where(keep, longitude, np.nan)
 
     @classmethod
     def supports(cls, source_grid: GridDefinition, target_grid: GridDefinition) -> bool:
@@ -146,7 +181,7 @@ class NearestRegridder(_IndexRegridder):
     def _build(self) -> _Tables:
         limit = self.max_dist_km
         index, distance, valid, spacing = _tree_neighbors(
-            _geographic(self._source_grid),
+            self._valid_source(),
             _geographic(self._target_grid),
             spacing=limit == "auto",
         )
