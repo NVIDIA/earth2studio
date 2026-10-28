@@ -628,6 +628,26 @@ def test_output_only_slots_start_at_the_first_chunk() -> None:
     assert [int(v // H) for v in leads.values] == [6, 12]
 
 
+def test_outputs_on_another_grid_start_at_the_first_chunk() -> None:
+    class _Regridding(_Toy):
+        """Takes ``z1000`` on the atmosphere grid and outputs it on the ocean's."""
+
+        def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+            leads = input_coords["lead_time"].values[-1:] + 6 * H
+            return signature(["z1000"], OCEAN_GRID, [int(leads[0] // H)])
+
+    model = _Regridding("z1000", "sst", ATMOS_GRID, 6, 1.0, 0.1)
+    runner = CoupledRunner(
+        {"model": model},
+        sources={
+            "model": (Fill(ATMOS_GRID, {"z1000": 0.0}), Fill(ATMOS_GRID, {"sst": 0.0}))
+        },
+    )
+    assert runner.nodes["model"].ic_slots == ()
+    leads = runner.output_coords(np.timedelta64(12, "h"))["model"]["lead_time"]
+    assert [int(v // H) for v in leads.values] == [6, 12]
+
+
 def test_output_slots_must_share_lead_times() -> None:
     with pytest.raises(CouplingError, match="different lead times.*split"):
         CoupledRunner({"model": _TwoSlots(ocean_step=48)})

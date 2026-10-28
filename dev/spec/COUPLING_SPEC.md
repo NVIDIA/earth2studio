@@ -90,7 +90,7 @@ diagnostics declare, takes the call's valid time as a leading dimension, as
 under `DiagnosticRunner`.
 
 A state slot is a stateful component's input slot whose output slot in the same
-position holds the same variables. A state connector (`state=True`) overwrites
+position declares its variables on its grid. A state connector (`state=True`) overwrites
 the variables it names there before each call, for models that carry a coupled
 field such as SST in their own state: in the inputs `initialize` receives, at
 the input slot's lead times, and in the output each `step` advances, at its
@@ -134,7 +134,8 @@ pressure levels.
 Ticks are the lead times at which some stateful component's chunk is due.
 Before the first tick, every stateful component fetches its inputs, holds them
 as frames at their lead times, and publishes an initial condition for each
-output slot whose same-position input slot has the same variables. State slots
+output slot that declares its same-position input slot's variables on the same
+grid. State slots
 come first under the model contract, so output-only slots start at the first
 chunk. At each tick, components run in
 declaration order whenever their imports resolve, repeating until nothing more

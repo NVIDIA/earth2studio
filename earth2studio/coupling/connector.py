@@ -44,7 +44,7 @@ class Connector:
     With ``state=True`` the connector instead overwrites variables of a stateful
     ``dst``'s own state: before each call, the variables ``variables`` names are
     replaced in the state slot ``slot``, an input slot whose output slot in the
-    same position holds the same variables. ``initialize`` receives them in its
+    same position declares its variables on its grid. ``initialize`` receives them in its
     inputs and each ``step`` in the output it advances, at those lead times;
     values ``src`` cannot supply at or before the item time are kept.
 
