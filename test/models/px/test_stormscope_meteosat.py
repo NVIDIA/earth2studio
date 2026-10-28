@@ -129,6 +129,7 @@ def create_spoof_model(
     model_spec=None,
     batch_size=1,
     amp=False,
+    **solver_kwargs,
 ):
     """Create a spoof StormScopeMeteosatEU model on a crop of the 2 km FCI grid"""
 
@@ -201,6 +202,7 @@ def create_spoof_model(
         ir_38_warm_threshold=ir_38_warm_threshold,
         batch_size=batch_size,
         amp=amp,
+        **solver_kwargs,
     ).to(device)
 
     return model
@@ -775,8 +777,9 @@ def test_stormscope_meteosat_exceptions():
         model.output_coords(in_coords.isel(y=slice(None, -1)))
 
 
-def test_stormscope_meteosat_conformance():
-    model = create_spoof_model()
+@pytest.mark.parametrize("solver", ["edm_stochastic_heun", "euler", "dpmpp_2m"])
+def test_stormscope_meteosat_conformance(solver):
+    model = create_spoof_model(solver=solver)
 
     check_prognostic_contract(model)
 

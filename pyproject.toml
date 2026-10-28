@@ -250,7 +250,7 @@ stormcast-conus = [
 ]
 stormscope = [
     "natten ; python_version < '3.14'",
-    "nvidia-physicsnemo>=2.2.2",
+    "nvidia-physicsnemo @ git+https://github.com/NVIDIA/physicsnemo.git@06d9e07b260c6668d76a79df972c54dfc65b5906",
     "nvtx>=0.2.11",
     "omegaconf>=2.3.0",
     "earth2studio[utils]",

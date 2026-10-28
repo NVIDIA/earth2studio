@@ -46,9 +46,14 @@ if TYPE_CHECKING:
 
 try:
     from physicsnemo import Module  # type: ignore[import-untyped]
+    from physicsnemo.diffusion.noise_schedulers import EDMNoiseScheduler
+    from physicsnemo.diffusion.samplers import sample
     from physicsnemo.utils.insolation import (  # type: ignore[import-untyped]
         insolation as pnm_insolation,
     )
+
+    from earth2studio.models._diffusion import SOLVERS, seeded_rng
+    from earth2studio.models._diffusion import solver_options as _solver_options
 except ImportError:
     OptionalDependencyFailure("stormscope")
     Module = None  # type: ignore[assignment]
@@ -123,6 +128,14 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
     amp : bool, optional
         Enable automatic mixed precision, by default True.
 
+    solver : str, optional
+        Select the numerical method for integrating the sampling ODE in reverse
+        time. By default "heun"
+    solver_options : dict[str, Any] | None, optional
+        Options passed to the selected solver to customize its behavior or
+        override defaults. Do not pass ``num_steps`` here; set the sampling step
+        count with ``num_steps`` instead. By default None
+
     Example
     -------
     Estimating GHI from GOES observations, fetched onto the model grid through
@@ -173,8 +186,21 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         number_of_samples: int = 1,
         num_steps: int = 12,
         amp: bool = True,
+        *,
+        solver: str = "heun",
+        solver_options: dict[str, Any] | None = None,
     ) -> None:
         super().__init__()
+        if solver not in SOLVERS:
+            raise ValueError(
+                f"Unknown solver {solver!r}; choose from {tuple(SOLVERS)}."
+            )
+        self.solver = solver
+        if solver_options is not None and "num_steps" in solver_options:
+            raise ValueError(
+                "Do not pass 'num_steps' in solver_options; use num_steps instead."
+            )
+        self.solver_options = dict(solver_options or {})
         if number_of_samples < 1:
             raise ValueError("number_of_samples must be positive")
         if num_steps < 2:
@@ -340,6 +366,9 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         cls,
         package: Package,
         number_of_samples: int = 1,
+        *,
+        solver: str = "heun",
+        solver_options: dict[str, Any] | None = None,
     ) -> DiagnosticModel:
         """Load the StormScope NSRDB diagnostic.
 
@@ -349,6 +378,14 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
             Package containing model assets.
         number_of_samples : int, optional
             Number of GHI samples, by default 1.
+
+        solver : str, optional
+            Select the numerical method for integrating the sampling ODE in
+            reverse time. By default "heun"
+        solver_options : dict[str, Any] | None, optional
+            Options passed to the selected solver to customize its behavior or
+            override defaults. Do not pass ``num_steps`` here; set the sampling step
+            count with ``num_steps`` instead. By default None
 
         Returns
         -------
@@ -411,6 +448,8 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
             y_coords=y,
             x_coords=x,
             max_dist_km=6.0 * spatial_downsample,
+            solver=solver,
+            solver_options=solver_options,
             number_of_samples=number_of_samples,
         )
         model._set_default_coverage()
@@ -553,49 +592,37 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         condition: torch.Tensor,
         rho: float = 7,
     ) -> torch.Tensor:
-        step_indices = torch.arange(
-            self.num_steps, dtype=torch.float64, device=latents.device
+        scheduler = EDMNoiseScheduler(
+            sigma_min=self.sigma_min, sigma_max=self.sigma_max, rho=rho
         )
-        steps = (
-            self.sigma_max ** (1 / rho)
-            + step_indices
-            / (self.num_steps - 1)
-            * (self.sigma_min ** (1 / rho) - self.sigma_max ** (1 / rho))
-        ) ** rho
-        steps = torch.cat([steps, torch.zeros_like(steps[:1])])
-        next_state = latents.to(self._SAMPLER_DTYPE) * steps[0]
 
-        for index, (current_step, next_step) in enumerate(zip(steps[:-1], steps[1:])):
-            current_state = next_state
-            current_state_hat = current_state
-            batch_size = current_state_hat.shape[0]
-            current_step_batch = (
-                current_step.reshape(1).expand(batch_size).to(self._MODEL_DTYPE)
-            )
-            denoised = self.diffusion_model(
-                current_state_hat.to(self._MODEL_DTYPE),
-                current_step_batch,
+        def predict_x0(
+            x: torch.Tensor,
+            t: torch.Tensor,
+        ) -> torch.Tensor:
+            return self.diffusion_model(
+                x.to(self._MODEL_DTYPE),
+                t.to(self._MODEL_DTYPE),
                 condition=condition,
             ).to(self._SAMPLER_DTYPE)
-            current_derivative = (current_state_hat - denoised) / current_step
-            next_state = (
-                current_state_hat + (next_step - current_step) * current_derivative
-            )
 
-            if index < self.num_steps - 1:
-                next_step_batch = (
-                    next_step.reshape(1).expand(batch_size).to(self._MODEL_DTYPE)
-                )
-                denoised = self.diffusion_model(
-                    next_state.to(self._MODEL_DTYPE),
-                    next_step_batch,
-                    condition=condition,
-                ).to(self._SAMPLER_DTYPE)
-                next_derivative = (next_state - denoised) / next_step
-                next_state = current_state_hat + (next_step - current_step) * (
-                    0.5 * current_derivative + 0.5 * next_derivative
-                )
-        return next_state
+        steps = scheduler.timesteps(
+            self.num_steps, device=latents.device, dtype=self._SAMPLER_DTYPE
+        )
+        return sample(
+            scheduler.get_denoiser(x0_predictor=predict_x0),
+            latents.to(self._SAMPLER_DTYPE) * steps[0],
+            scheduler,
+            self.num_steps,
+            solver=self.solver,
+            solver_options=_solver_options(
+                scheduler,
+                self.solver,
+                num_steps=self.num_steps,
+                options=self.solver_options,
+            ),
+            time_steps=steps,
+        )
 
     _rng_generator: torch.Generator | None = None
 
@@ -637,7 +664,18 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
             generator=self._rng_generator,
         ).to(device)
         initial_state = regression / self.sigma_max + noise
-        with torch.autocast(device_type=device.type, enabled=self.amp):
+        generator = None
+        if self._rng_generator is not None and self.solver.startswith(
+            "edm_stochastic_"
+        ):
+            seed = int(
+                torch.randint(2**63 - 1, (), generator=self._rng_generator).item()
+            )
+            generator = torch.Generator(device=device).manual_seed(seed)
+        with (
+            seeded_rng(generator),
+            torch.autocast(device_type=device.type, enabled=self.amp),
+        ):
             output = self._edm_sampler(initial_state, condition).to(dtype)
         output = output.reshape(
             batch_size, time_size, len(self.output_variables), height, width

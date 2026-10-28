@@ -471,3 +471,34 @@ def test_stormscope_dx_nsrdb_package():
     assert output.shape[1] == 1
     assert output.coords["variable"].values.tolist() == ["ghi"]
     assert torch.isfinite(output.e2s.to_torch()[0][..., model.valid_mask]).all()
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize(
+    "solver",
+    [
+        "exponential_euler",
+        "edm_stochastic_exponential_euler",
+        "dpmpp_2m",
+        "dpmpp_2m_unic2",
+    ],
+)
+def test_solver_alternatives(device, solver):
+    model = create_model(device=device, number_of_samples=2, partial_mask=True)
+    model.solver = solver
+    model.num_steps = 8
+    model.solver_options = (
+        {"S_churn": 0.1} if solver.startswith("edm_stochastic") else {}
+    )
+    x = make_input(model, device=device)
+    model.set_rng(11)
+    caller_state = torch.random.get_rng_state().clone()
+    cuda_state = torch.cuda.get_rng_state(device).clone() if device != "cpu" else None
+    actual = model(x).e2s.to_torch()[0]
+    assert torch.equal(torch.random.get_rng_state(), caller_state)
+    if cuda_state is not None:
+        assert torch.equal(torch.cuda.get_rng_state(device), cuda_state)
+    model.set_rng(11)
+    repeated = model(x).e2s.to_torch()[0]
+    torch.testing.assert_close(actual, repeated, equal_nan=True, atol=0, rtol=0)
+    assert torch.isfinite(actual[..., 16:, :]).all()
