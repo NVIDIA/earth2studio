@@ -29,8 +29,8 @@ the analysis of the last frame on the 721 x 1440 equiangular grid.
 In this example you will learn:
 
 - How to load the HealDA v2 model with the `healda` package as its backend
-- Fetching NNJA conventional, satellite-wind and radiance DataFrames over the model's
-  48 hour window
+- Fetching NNJA conventional and satellite-wind DataFrames over the model's
+  48 hour window, with optional satellite radiances
 - Running the model and comparing the analysis against ERA5
 """
 
@@ -51,11 +51,15 @@ In this example you will learn:
 #   [`earth2studio.data.NNJAObsConv`][earth2studio.data.NNJAObsConv].
 # - Datasource (winds): NNJA satellite winds
 #   [`earth2studio.data.NNJAObsSatwnd`][earth2studio.data.NNJAObsSatwnd].
-# - Datasource (radiances): NNJA satellite radiances
+# - Optional datasource (radiances): NNJA satellite radiances
 #   [`earth2studio.data.NNJAObsSat`][earth2studio.data.NNJAObsSat].
 #
-# Decoding 48 hours of NNJA BUFR takes a long time on first use; the raw files are
-# cached, so later runs over the same window skip the download.
+# The default PrepBUFR, GPS-RO and satellite-wind inputs download approximately
+# 2.25 GiB for this date. Set ``include_satellite_radiances = True`` below to include
+# all model satellite sensors, increasing the observation download to about 21.3 GiB.
+# These sizes exclude model weights and ERA5 data. Raw files are cached, so later
+# runs over the same window skip the download. Omitting radiances can reduce analysis
+# quality; the default demonstrates assimilation with a smaller observation set.
 
 # %%
 import os
@@ -95,16 +99,19 @@ model = HealDAv2.load_model(package).to("cuda:0")
 # DataFrames that match `HealDAv2.input_coords` works; here the NNJA sources are
 # configured as in training, in the wide layout the model reads (one row per report
 # level, wind or footprint): each PrepBUFR observation's original event, satellite
-# winds from `NNJAObsSatwnd` only, and only the IR sounder channels the model reads.
+# winds from `NNJAObsSatwnd` only, and, when enabled, only the IR sounder channels
+# the model reads. Channel selection reduces decoding, but downloads whole files.
 # A wide request returns one stream (PrepBUFR, GPS-RO, satellite winds or one satellite
 # sensor), and `input_coords` gives one schema per model argument, in the order
 # ``(prepbufr, gpsro, satwnd, *sensors)``. `fetch_dataframes` fetches every stream
 # concurrently, in that order, and attaches the ``request_time`` metadata the model
-# requires. A sensor outside its archive period comes back empty with a warning.
+# requires. HealDA v2 accepts omitted trailing sensor streams. When radiances are
+# enabled, a sensor outside its archive period comes back empty with a warning.
 
 # %%
 analysis_time = np.array([np.datetime64("2026-01-15T00:00")])
 tolerance = (timedelta(hours=-45), timedelta(hours=3))
+include_satellite_radiances = False
 
 conv_source = NNJAObsConv(
     time_tolerance=tolerance,
@@ -116,15 +123,20 @@ conv_source = NNJAObsConv(
 satwnd_source = NNJAObsSatwnd(
     time_tolerance=tolerance, layout="wide", async_timeout=600
 )
-sat_source = NNJAObsSat(
-    time_tolerance=tolerance,
-    sensor_indices=model.sensor_indices,
-    layout="wide",
-    async_timeout=600,
-)
 
 schemas = model.input_coords()  # (prepbufr, gpsro, satwnd, *sensors)
-sources = [conv_source, conv_source, satwnd_source] + [sat_source] * (len(schemas) - 3)
+sources = [conv_source, conv_source, satwnd_source]
+if include_satellite_radiances:
+    sat_source = NNJAObsSat(
+        time_tolerance=tolerance,
+        sensor_indices=model.sensor_indices,
+        layout="wide",
+        async_timeout=600,
+    )
+    sources += [sat_source] * (len(schemas) - 3)
+else:
+    schemas = schemas[:3]
+
 obs = fetch_dataframes(list(zip(sources, schemas)), analysis_time)
 logger.info(f"Fetched rows per stream: {[len(frame) for frame in obs]}")
 
