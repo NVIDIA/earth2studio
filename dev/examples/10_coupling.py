@@ -235,6 +235,14 @@ class Climatology:
             ),
         )
 
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async variant of ``__call__``."""
+        return self(time, variable)
+
 
 class Retrievals:
     """DataFrame source with a soil moisture retrieval of 0.30 every 72 hours."""
@@ -273,6 +281,15 @@ class Retrievals:
         return pd.DataFrame(
             rows, columns=["time", "lat", "lon", "observation", "variable"]
         )
+
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+        fields: str | list[str] | pa.Schema | None = None,
+    ) -> pd.DataFrame:
+        """Async variant of ``__call__``."""
+        return self(time, variable, fields)
 
 
 start = np.datetime64("2026-06-01T00")
@@ -339,7 +356,10 @@ print(dict(stores["soil"].root["swvl1"].sizes))
 
 to_weather = BilinearRegridder(SOIL_GRID, WEATHER_GRID)
 components = {"weather": Weather(feedback=True), "soil": SoilBucket()}
-sources = {"weather": weather_ic, "soil": (soil_ic, None, Retrievals(start))}
+sources: dict[str, Climatology | tuple[Climatology, None, Retrievals]] = {
+    "weather": weather_ic,
+    "soil": (soil_ic, None, Retrievals(start)),
+}
 try:
     CoupledRunner(
         components,
