@@ -105,7 +105,7 @@ model = HealDAv2.load_model(package).to("cuda:0")
 # %%
 analysis_time = np.array([np.datetime64("2026-01-15T00:00")])
 tolerance = (timedelta(hours=-45), timedelta(hours=3))
-include_satellite_radiances = False  # Enable satellite observations
+include_satellite_radiances = False  # Enable satellite observations for best accuracy
 
 conv_source = NNJAObsConv(
     time_tolerance=tolerance,
