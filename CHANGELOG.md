@@ -7,7 +7,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.20.0a0] - 2026-10-xx
+## [0.21.0a0] - 2026-11-xx
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+### Dependencies
+
+## [0.20.0] - 2026-10-29
 
 ### Added
 
@@ -75,10 +91,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated CBottle Tropical Cyclone and Infill checkpoints to new EMA version
 - Added checkpointing support for AtlasCRPS model
 
-### Deprecated
-
-### Removed
-
 ### Fixed
 
 - `NNJAObsConv` and `NomadsGDASObsConv` decode PrepBUFR files from before 2007, which
@@ -111,8 +123,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of compounding the leads, which fetched times far past the largest lead.
 - `DataArrayPathList` keeps size one dimensions when it loads the files, so files with a
   single variable or a single time no longer fail with a dimension mismatch.
-
-### Security
 
 ### Dependencies
 

@@ -120,14 +120,18 @@ run(["2025-01-01T00:00:00"], 4, model, data, io)
 
 ## Latest News
 
-- [**WeatherNext 2 Cyclones**](https://nvidia.github.io/earth2studio/main/modules/generated/models/px/WeatherNext2Cyclones/),
-    operational and Mini prognostic model wrappers.
-- [**CAMulator**](https://nvidia.github.io/earth2studio/main/modules/generated/models/px/CAMulator/),
-    NSF NCAR CAM6 climate emulator with prescribed forcing data and conservation fixers.
-- [**FuXi-S2S**](https://nvidia.github.io/earth2studio/main/modules/generated/models/px/FuXiS2S/),
-    global daily prognostic model for subseasonal-to-seasonal forecasting.
-- [**CorrDiff ERA5-HRRR**](https://nvidia.github.io/earth2studio/main/modules/generated/models/dx/CorrDiffEra5Hrrr/),
-    generative downscaling from ERA5 to HRRR over the contiguous United States.
+> [!NOTE]
+> Highlights from Earth2Studio 0.20.0.
+
+- [**HealDA v2**](https://nvidia.github.io/earth2studio/main/modules/generated/models/da/HealDAv2/),
+    global data assimilation from 48 hours of satellite and conventional observations
+    to a 0.25° atmospheric analysis.
+- [**StormScope Flash**](https://nvidia.github.io/earth2studio/main/modules/generated/models/px/StormScopeGOES/),
+    accelerated GOES and MRMS nowcasting over CONUS, including crop-based inference.
+- [**Distilled CorrDiff ERA5-HRRR**](https://nvidia.github.io/earth2studio/main/modules/generated/models/dx/CorrDiffEra5Hrrr/),
+    distilled generative downscaling from ERA5 to HRRR, now the default model.
+- [**InterpCRPSDiT**](https://nvidia.github.io/earth2studio/main/modules/generated/models/px/InterpCRPSDiT/),
+    CRPS DiT temporal interpolation with sub-hourly forecast output.
 
 For a complete list of latest features and improvements see the [changelog](./CHANGELOG.md).
 
