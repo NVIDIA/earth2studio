@@ -28,7 +28,7 @@ import torch
 import xarray as xr
 
 import earth2studio.run as run
-from earth2studio.data import RegriddedSource
+from earth2studio.data import MemberSource, RegriddedSource
 from earth2studio.grids import BilinearRegridder, LatLonGrid, infer_grid
 from earth2studio.io import KVBackend
 from earth2studio.io.utils import output_template
@@ -505,6 +505,32 @@ def test_diagnostic_runner_needs_a_source() -> None:
 def test_diagnostic_runner_needs_declared_input_variables() -> None:
     with pytest.raises(ValueError):
         DiagnosticRunner({"copy": Identity()}, _Ones())
+
+
+class _Fill(_Zeros):
+    def __init__(self, fill: float) -> None:
+        super().__init__()
+        self.fill = fill
+
+
+def test_member_sources_are_resolved_per_member() -> None:
+    initial = MemberSource(lambda m: _Fill(float(m)))
+    forcing = MemberSource(lambda m: _Fill(100.0 * m))
+    runner = PrognosticRunner(_Forced(), initial, forcing=(forcing,))
+    for member in (0, 2):
+        item = WorkItem(T0, np.timedelta64(12, "h"), member_ids=(member,))
+        requests = runner.data_requests(item)
+        assert requests[0].source is initial.select(member)
+        assert all(r.source is forcing.select(member) for r in requests[1:])
+        last = list(runner.run_item(item))[-1]["forecast"]
+        # Two steps of +1 + forcing, from the member's initial condition
+        np.testing.assert_allclose(last.values, member + 2 * (1 + 100.0 * member))
+    deterministic = list(runner.run_item(_item(0)))
+    np.testing.assert_array_equal(deterministic[0]["forecast"].values, 0)
+
+    diagnostic = DiagnosticRunner({"ws10m": _WindSpeed()}, initial)
+    (step,) = diagnostic.run_item(WorkItem(T0, np.timedelta64(0, "h"), (3,)))
+    np.testing.assert_allclose(step["ws10m"].values, np.hypot(3, 3))
 
 
 def test_every_stochastic_model_is_seeded_per_member() -> None:

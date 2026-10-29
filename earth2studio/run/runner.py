@@ -33,7 +33,8 @@ import numpy as np
 import torch
 import xarray as xr
 
-from earth2studio.data import DataSource, ForecastSource, fetch_data
+from earth2studio.data import DataSource, ForecastSource, MemberSource, fetch_data
+from earth2studio.data.utils import member_source
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.models.px.utils import initial_condition
@@ -47,14 +48,18 @@ from earth2studio.run.work import WorkItem, member_seed
 from earth2studio.utils.coords import E2S_DYNAMIC_DIMS, coord_array
 from earth2studio.utils.type import CoordinateSystem
 
-Source: TypeAlias = DataSource | ForecastSource
+Source: TypeAlias = DataSource | ForecastSource | MemberSource
 
 
 @dataclass(frozen=True)
 class DataRequest:
-    """Arguments for one :func:`~earth2studio.data.fetch_data` call; never fetches."""
+    """Arguments for one :func:`~earth2studio.data.fetch_data` call; never fetches.
 
-    source: Source
+    ``source`` is already resolved for the item's member, never a
+    :class:`~earth2studio.data.MemberSource`.
+    """
+
+    source: DataSource | ForecastSource
     time: np.ndarray
     variable: np.ndarray
     lead_time: np.ndarray = field(
@@ -204,6 +209,11 @@ def _diagnostic_coords(
     return _signature_for_stream(output, leads)
 
 
+def _member_id(item: WorkItem) -> int:
+    """The item's single member id, or 0 for a deterministic item."""
+    return item.member_ids[0] if item.member_ids else 0
+
+
 def _seed_model(
     base: int, time: np.datetime64, member_id: int, model: object
 ) -> int | None:
@@ -236,9 +246,11 @@ class PrognosticRunner:
     ----------
     prognostic : PrognosticModel
         Model to roll out. Its single input slot is supported.
-    source : DataSource | ForecastSource, optional
-        Source of initial conditions, by default the model's recommendation
-    forcing : tuple[DataSource | ForecastSource, ...], optional
+    source : DataSource | ForecastSource | MemberSource, optional
+        Source of initial conditions, by default the model's recommendation. A
+        :class:`~earth2studio.data.MemberSource` gives each ensemble member its
+        own initial conditions.
+    forcing : tuple[DataSource | ForecastSource | MemberSource, ...], optional
         One source per forcing slot, by default the model's recommendations
     diagnostics : Mapping[str, DiagnosticModel], optional
         Diagnostics applied to every step, by default none. Each key names the
@@ -340,14 +352,17 @@ class PrognosticRunner:
                 if output_leads is not None:
                     leads = leads[-1] + output_leads
             request = DataRequest(
-                source, np.array([item.time]), signature["variable"].values, leads
+                member_source(source, _member_id(item)),
+                np.array([item.time]),
+                signature["variable"].values,
+                leads,
             )
             requests.append((request, signature))
         return tuple(requests)
 
     def _initial_request(self, item: WorkItem) -> DataRequest:
         return DataRequest(
-            self.source,
+            member_source(self.source, _member_id(item)),
             np.array([item.time]),
             self.input_signature["variable"].values,
             self.input_signature["lead_time"].values,
@@ -389,7 +404,7 @@ class PrognosticRunner:
         """Publish the initial condition, if any, then every forecast through the final lead time."""
         if len(item.member_ids) > 1:
             raise ValueError("PrognosticRunner does not batch ensemble members")
-        member_id = item.member_ids[0] if item.member_ids else 0
+        member_id = _member_id(item)
         _seed_model(self.seed, item.time, member_id, self.prognostic)
         for diagnostic in self.diagnostics.values():
             _seed_model(self.seed, item.time, member_id, diagnostic)
@@ -427,7 +442,7 @@ class DiagnosticRunner:
     diagnostics : Mapping[str, DiagnosticModel]
         Diagnostics keyed by stream name. Each single-input-slot diagnostic
         fetches its own inputs.
-    source : DataSource | ForecastSource, optional
+    source : DataSource | ForecastSource | MemberSource, optional
         Source for every diagnostic, by default each diagnostic's recommendation
     step : np.timedelta64, optional
         Spacing between steps, by default none: each item is one step and its
@@ -499,7 +514,7 @@ class DiagnosticRunner:
     def _requests(self, item: WorkItem, lead: np.timedelta64) -> dict[str, DataRequest]:
         return {
             name: DataRequest(
-                self.sources[name],
+                member_source(self.sources[name], _member_id(item)),
                 np.array([item.time]),
                 signature["variable"].values,
                 np.array([lead]),
@@ -519,7 +534,7 @@ class DiagnosticRunner:
         """Fetch inputs and apply every diagnostic at each step."""
         if len(item.member_ids) > 1:
             raise ValueError("DiagnosticRunner does not batch ensemble members")
-        member_id = item.member_ids[0] if item.member_ids else 0
+        member_id = _member_id(item)
         for diagnostic in self.diagnostics.values():
             _seed_model(self.seed, item.time, member_id, diagnostic)
         for lead in self.lead_times(item.final_lead_time):

@@ -86,6 +86,7 @@ from .samudrace import SamudrACEData, SamudrACEForcingData
 from .time_window import TimeWindow
 from .ufs import UFSObsConv, UFSObsSat
 from .utils import (
+    MemberSource,
     RegriddedSource,
     datasource_to_file,
     fetch_data,

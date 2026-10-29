@@ -39,6 +39,7 @@ import xarray as xr
 from loguru import logger
 from test_runner import _model, _Ones, _stochastic_model, _WindSpeed, _Zeros
 
+from earth2studio.data import MemberSource
 from earth2studio.grids import BilinearRegridder, LatLonGrid
 from earth2studio.io import KVBackend, ZarrBackend
 from earth2studio.models.dx import Identity
@@ -252,6 +253,29 @@ def test_ensemble_dimension_is_added_per_member() -> None:
     assert store["u10m"].shape == (2, 1, 3, 2, 3)  # ensemble, time, lead, lat, lon
     np.testing.assert_array_equal(store.coords["ensemble"], [3, 5])
     np.testing.assert_array_equal(store["u10m"][1, 0, :, 0, 0], np.arange(3))
+
+
+def test_member_sources_give_each_member_its_own_initial_condition() -> None:
+    class _Fill(_Zeros):
+        def __init__(self, fill: float) -> None:
+            super().__init__()
+            self.fill = fill
+
+    store = KVBackend()
+    built: list[int] = []
+
+    def select(member_id: int) -> _Fill:
+        built.append(member_id)
+        return _Fill(10.0 * (member_id // 2))
+
+    runner = PrognosticRunner(_model(), MemberSource(select))
+    Pipeline(runner, output={"forecast": store}, device="cpu").run(
+        work_items([T0, T1], H12, members=[0, 1, 2, 3])
+    )
+    # Members 0-1 start from 0 and members 2-3 from 10; each step adds one
+    np.testing.assert_array_equal(store["u10m"][:, 0, 0, 0, 0], [0, 0, 10, 10])
+    np.testing.assert_array_equal(store["u10m"][3, 1, :, 0, 0], [10, 11, 12])
+    assert sorted(built) == [0, 1, 2, 3]  # one source per member, reused
 
 
 def test_member_batches_need_a_batching_runner() -> None:

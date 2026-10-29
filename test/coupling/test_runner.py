@@ -41,6 +41,7 @@ from conftest import (
 )
 
 from earth2studio.coupling import Connector, CoupledRunner, CouplingError
+from earth2studio.data import MemberSource
 from earth2studio.grids import NearestRegridder
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.run import PrognosticRunner, Runner, WorkItem
@@ -424,6 +425,27 @@ def test_a_background_before_the_analysis_time_steps_at_its_forecast_cadence() -
         for s in single.run_item(WorkItem(T0, np.timedelta64(9, "h")))
     }
     assert coupled == pytest.approx(direct)
+
+
+def test_member_sources_are_resolved_per_member() -> None:
+    built: list[int] = []
+
+    def initial(member_id: int) -> Fill:
+        built.append(member_id)
+        return Fill(ATMOS_GRID, {"z1000": float(member_id)})
+
+    runner = CoupledRunner(
+        {"atmos": atmosphere()},
+        sources={"atmos": (MemberSource(initial), Fill(ATMOS_GRID, {"sst": 0.0}))},
+    )
+    assert built == []  # construction checks slots without building sources
+    for member in (1, 4):
+        item = WorkItem(T0, np.timedelta64(6, "h"), member_ids=(member,))
+        requests = runner.data_requests(item)
+        assert requests[0].source.values == {"z1000": float(member)}
+        steps = [s["atmos"] for s in runner.run_item(item)]
+        assert _series(steps) == pytest.approx({0: member, 6: member + 1.0})
+    assert built == [1, 4]
 
 
 # -- seeding and devices ---------------------------------------------------------------

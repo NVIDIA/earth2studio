@@ -488,6 +488,70 @@ def fetch_dataframe(
         return df
 
 
+class MemberSource:
+    """Source chosen per ensemble member.
+
+    Ensemble members otherwise differ only through their random seeds; every
+    member fetches the same data. A ``MemberSource`` lets members start from
+    different data, such as different members of an ensemble forecast: runners
+    call :meth:`select` with each work item's member id and fetch from the source
+    it returns. Pass it wherever a runner accepts a source.
+
+    Parameters
+    ----------
+    select : Callable[[int], Any]
+        Returns the source for a member id. Called once per member; the result is
+        reused for that member's later fetches.
+
+    Examples
+    --------
+    Four members per IFS ENS member, with members ``4k`` to ``4k + 3``
+    initialized from forecast member ``k + 1`` and differing in their seeds:
+
+    >>> source = MemberSource(lambda m: IFS_ENS(member=m // 4 + 1))  # doctest: +SKIP
+    """
+
+    def __init__(self, select: Callable[[int], Any]) -> None:
+        self._select = select
+        self._sources: dict[int, Any] = {}
+
+    def select(self, member_id: int) -> Any:
+        """Return the source for ``member_id``.
+
+        Parameters
+        ----------
+        member_id : int
+            Ensemble member id of the work item
+
+        Returns
+        -------
+        Any
+            Source serving that member's fetches
+        """
+        member_id = int(member_id)
+        if member_id not in self._sources:
+            self._sources[member_id] = self._select(member_id)
+        return self._sources[member_id]
+
+
+def member_source(source: Any, member_id: int) -> Any:
+    """Resolve ``source`` for ``member_id`` if it is a :class:`MemberSource`.
+
+    Parameters
+    ----------
+    source : Any
+        Any source, or a :class:`MemberSource`
+    member_id : int
+        Ensemble member id of the work item
+
+    Returns
+    -------
+    Any
+        ``source.select(member_id)`` for a member source, else ``source``
+    """
+    return source.select(member_id) if isinstance(source, MemberSource) else source
+
+
 class RegriddedSource:
     """Data or forecast source whose fields are regridded onto a target grid.
 

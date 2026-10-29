@@ -163,6 +163,7 @@ a diagnostic slot publishes at every call.
 Streams carry the producing model's grid and the item's `time`, as `X1`–`X4`
 require. Per-member seeding follows `X5`, from a base seed offset per component
 by the CRC-32 of its name, so stochastic components draw independent noise.
+Slot sources may be `MemberSource`s, resolved per item as `X22` requires.
 
 ## Independent assimilation models
 

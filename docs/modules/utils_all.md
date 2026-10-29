@@ -73,6 +73,7 @@ output: generated/data
 {% autosummary %}
 earth2studio.data.CompositeForecastSource
 earth2studio.data.CompositeSource
+earth2studio.data.MemberSource
 earth2studio.data.RegriddedSource
 {% endautosummary %}
 

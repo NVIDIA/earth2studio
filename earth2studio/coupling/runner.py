@@ -42,6 +42,7 @@ from earth2studio.coupling.connector import Connector, _split_label
 from earth2studio.coupling.errors import CouplingError, _suggest
 from earth2studio.data import fetch_dataframe
 from earth2studio.data.base import DataFrameSource, ForecastFrameSource
+from earth2studio.data.utils import member_source
 from earth2studio.grids import infer_grid, same_geometry
 from earth2studio.models.utils import recommended_sources
 from earth2studio.run._fields import _map_field, _with_lead_time
@@ -49,6 +50,7 @@ from earth2studio.run.runner import (
     DataRequest,
     Source,
     _fetch,
+    _member_id,
     _module_device,
     _seed_model,
     _signature_for_stream,
@@ -94,7 +96,9 @@ class CoupledRunner:
         ``default_sources()``; a single source covers the first input slot. Slots
         left out use the model's recommendation, by default None. Connected
         slots use their source only for frames valid at or before the item time
-        that the producer does not hold.
+        that the producer does not hold. A
+        :class:`~earth2studio.data.MemberSource` is resolved with each item's
+        member id.
     seed : int, optional
         Base seed for per-member seeding of stochastic components, by default 0.
         Each component offsets it by a hash of its name, so components draw
@@ -404,7 +408,7 @@ class CoupledRunner:
 
     def data_requests(self, item: WorkItem) -> tuple[DataRequest, ...]:
         """Describe every ``fetch_data`` call ``item`` makes, in run order."""
-        requests = _Requests(self, item.time)
+        requests = _Requests(self, item.time, _member_id(item))
         for _ in self._scheduler.run(requests, _final(item.final_lead_time)):
             pass
         return tuple(requests.requests)
@@ -413,7 +417,7 @@ class CoupledRunner:
         """Yield each component's outputs as it publishes them."""
         if len(item.member_ids) > 1:
             raise ValueError("CoupledRunner does not batch ensemble members")
-        member_id = item.member_ids[0] if item.member_ids else 0
+        member_id = _member_id(item)
         for name, node in self.nodes.items():
             _seed_model(
                 _component_seed(self.seed, name), item.time, member_id, node.model
@@ -481,13 +485,19 @@ class _Requests:
     does not describe; they are checked for a source but not recorded.
     """
 
-    def __init__(self, runner: CoupledRunner, time: np.datetime64) -> None:
+    def __init__(
+        self,
+        runner: CoupledRunner,
+        time: np.datetime64,
+        member_id: int | None = None,
+    ) -> None:
         self.runner = runner
         self.time = np.array([time])
+        self.member_id = member_id  # None when only probing for sources
         self.requests: list[DataRequest] = []
 
     def _add(self, node: _Node, slot: _Slot, labels: Sequence[str], leads: Any) -> None:
-        source = _source(self.runner, node, slot)
+        source = _source(self.runner, node, slot, self.member_id)
         if slot.frame:
             return
         self.requests.append(
@@ -528,7 +538,7 @@ class _Execution:
     def _fetch(
         self, node: _Node, slot: _Slot, labels: Sequence[str], leads: Any
     ) -> Any:
-        source = _source(self.runner, node, slot)
+        source = _source(self.runner, node, slot, _member_id(self.item))
         time = np.array([self.item.time])
         lead_time = np.asarray(leads, dtype=np.int64).astype("timedelta64[ns]")
         device = self.runner.device_of(node.name)
@@ -748,11 +758,14 @@ def _slot_sources(
     return tuple(given) + (None,) * (count - len(given))
 
 
-def _source(runner: CoupledRunner, node: _Node, slot: _Slot) -> Any:
+def _source(
+    runner: CoupledRunner, node: _Node, slot: _Slot, member_id: int | None = None
+) -> Any:
     """The slot's given source, else the model's recommendation.
 
     Recommendations are built only when a fetch needs one, as models may load
-    grids or regridders to build them.
+    grids or regridders to build them. A member source is resolved for
+    ``member_id``, or returned as is when it is ``None``.
     """
     position = len(node.inputs) + slot.index if slot.forcing else slot.index
     source = runner.sources[node.name][position]
@@ -769,7 +782,7 @@ def _source(runner: CoupledRunner, node: _Node, slot: _Slot) -> Any:
         raise CouplingError(
             f"Component {node.name!r} {slot} needs a source: pass one in sources" + hint
         )
-    return source
+    return source if member_id is None else member_source(source, member_id)
 
 
 def _check_geometry(

@@ -117,6 +117,23 @@ global RNG state (`P14`, `D10`).
 results reproduce: FNV-1a 64 over `struct.pack(">qqq", base, seconds, member_id)`,
 modulo `2**63`.
 
+### Member-dependent sources
+
+Seeding varies a member's random draws; its inputs come from the runner's
+sources. To start members from different data, such as different members of an
+ensemble forecast, pass `MemberSource(select)` (`earth2studio.data`) wherever a
+runner takes a source. `select(member_id)` returns that member's source; it is
+called once per member and the result reused. Runners resolve member sources
+with the item's member ID, or `0` for deterministic items, before building each
+`DataRequest`, so requests always name a concrete source (`X22`). An ensemble
+that combines forecast members with seeded branches, such as four branches from
+each of 50 IFS ENS members, maps member IDs onto forecast members:
+
+```python
+source = MemberSource(lambda m: IFS_ENS(member=m // 4 + 1))
+Pipeline(PrognosticRunner(model, source), ...).run(work_items(times, lead, members=200))
+```
+
 ## Pipeline
 
 Upstreamed from `recipes/eval/src/pipelines/base.py`, with typed arguments in
@@ -385,6 +402,7 @@ cadences, and yields component-named streams. It starts with
 | `X19` | A manifest mismatch raises `ValueError` unless the progress store overwrites |
 | `X20` | A run or close failure on any rank raises on every rank at the end of `run` |
 | `X21` | With `sync`, every rank calls it once per round, idle ranks with `None` |
+| `X22` | Runners resolve `MemberSource`s with the item's member ID before fetching |
 
 Tests live in `test/run/`. `X7`, `X9`'s collectives, `X13`, `X18`, `X20` and `X21` run
 under `torchrun` with two CPU ranks on gloo; the rest run single-process.
@@ -424,7 +442,9 @@ optional runner capability built on `(y, state)` (open decision 3).
 
 1. **Dependent work items**, such as warm-start cycling: v1 or out of scope?
 2. **Ensembles:** where perturbations are configured, likely a runner argument,
-   and member batching for coupled runs.
+   and member batching for coupled runs. Member batching with member sources
+   needs a source per member within one fetch, or a source returning an
+   `ensemble` dimension the runner slices.
 3. **Mid-item resume:** must `run.*` keep step-level checkpoint resume? If so,
    runners need an optional checkpoint built on `(y, state)`. Blocks phase 4 only.
 4. **Async fetching:** if needed, change runner and `Pipeline` loop together.
