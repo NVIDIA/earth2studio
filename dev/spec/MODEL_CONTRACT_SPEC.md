@@ -573,7 +573,7 @@ These rules apply to native DataArray execution and explicit continuation state.
 | --- | --- |
 | `P1` | Structurally satisfies `PrognosticModel` |
 | `P2` | Allocation-free DataArray declarations with explicit dynamic leading dimensions |
-| `P3` | `input_coords()["lead_time"]` is relative, strictly increasing, and ends at zero |
+| `P3` | `input_coords()["lead_time"]` is relative, strictly increasing, and ends at or before zero |
 | `P4` | `output_coords()` treats its argument as read-only |
 | `P5` | `output_coords()` raises `ValueError` for an invalid coordinate system |
 | `P6` | Shifting input `lead_time` by an offset shifts output `lead_time` by the same offset |
@@ -631,10 +631,20 @@ reproduces A, and the root `state_dict` is unchanged.
 
 ## Lead Time
 
-Declared input `lead_time` is relative to analysis time and ends at zero (e.g.
-`[-6h, 0h]`). Output offsets are added to the *final input* lead time, never a
-constant, allowing nonzero starts and resumed rollouts; shifting every input lead
-time shifts output equally (`P6`). `forcing_coords()` follows the same convention.
+Declared input `lead_time` is relative to analysis time and ends at or before
+zero (e.g. `[-6h, 0h]`). Output offsets are added to the *final input* lead time,
+never a constant, allowing nonzero starts and resumed rollouts; shifting every input
+lead time shifts output equally (`P6`). `forcing_coords()` follows the same convention.
+
+The **step interval** is the declared output's last lead time minus the later of the
+first input slot's last lead time and zero. An input ending at zero, the usual case,
+steps by the output's last lead time. An input ending before zero is a background
+that `initialize` first brings up to the analysis time, for example by assimilating
+observations; `step` then advances by the forecast interval alone. A background at
+`-9h` with an initialization output at `+3h` steps by 3 h, so drivers plan lead
+times `+3h, +6h, ...` and publish no initial condition, since no input frame is
+valid at the analysis time. The rule is a convention: a model whose `step` advances
+by the full gap from its background must declare inputs ending at zero.
 
 ## Iteration
 

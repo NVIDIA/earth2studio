@@ -25,6 +25,7 @@ import numpy as np
 import xarray as xr
 
 from earth2studio.coupling.errors import CouplingError
+from earth2studio.models.utils import step_interval
 from earth2studio.run._fields import _publishes_initial_condition
 from earth2studio.utils.type import CoordinateSystem, FrameSchema
 
@@ -201,8 +202,10 @@ def _stateful(name: str, model: Any) -> _Node:
                 "from slot 0; split models whose outputs advance at different "
                 "cadences into separate components (C1)"
             )
-    ic_lead = int(inputs[0].leads[-1])
-    cadence = int(out_leads[-1]) - ic_lead
+    # A first input ending before zero is a background that initialize brings up
+    # to the analysis time; the cadence counts from zero, not from the background.
+    ic_lead = max(int(inputs[0].leads[-1]), 0)
+    cadence = int(step_interval(inputs[0].leads, out_leads))
     if cadence <= 0:
         raise CouplingError(f"Component {name!r} does not advance in time")
     spacing = int(out_leads[1] - out_leads[0]) if len(out_leads) > 1 else cadence

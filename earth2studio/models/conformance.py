@@ -43,6 +43,7 @@ import xarray as xr
 from earth2studio.data.base import DataSource, ForecastSource
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.models.px.base import PrognosticModel
+from earth2studio.models.utils import step_interval
 from earth2studio.utils import coord_array_like, handshake_metadata
 from earth2studio.utils.coords import E2S_DYNAMIC_DIMS, E2S_KIND, E2S_SCHEMA_VERSION
 from earth2studio.utils.cupy import from_torch
@@ -55,7 +56,7 @@ _PROBE_TIME = np.datetime64("2024-01-01T00:00:00")
 _RULES = {
     "P1": "A prognostic model structurally satisfies the PrognosticModel protocol.",
     "P2": "Declarations are allocation-free DataArray signatures.",
-    "P3": "Input lead_time is relative, strictly increasing, and ends at zero.",
+    "P3": "Input lead_time is relative, strictly increasing, and ends at or before zero.",
     "P4": "output_coords() treats its argument as read-only.",
     "P5": "output_coords() raises ValueError for an invalid coordinate system.",
     "P6": "Shifting input lead_time shifts output lead_time by the same offset.",
@@ -479,9 +480,9 @@ def _evaluate_prognostic(
                 valid_lead
                 and lead_time.size > 0
                 and not np.isnat(lead_time).any()
-                and lead_time[-1] == np.timedelta64(0, "h"),
-                "input_coords()['lead_time'] must be relative and end at zero, so that "
-                f"the final entry is the analysis time, got {lead_time}",
+                and lead_time[-1] <= np.timedelta64(0, "h"),
+                "input_coords()['lead_time'] must be relative and end at or before "
+                f"zero, the analysis time, got {lead_time}",
             )
             report.require(
                 "P3",
@@ -987,12 +988,21 @@ def _hook_free(model: Any) -> Iterator[None]:
 def _next_plan(
     model: Any, inputs: tuple[xr.DataArray, ...], outputs: tuple[xr.DataArray, ...]
 ) -> tuple[xr.DataArray, ...]:
-    end = max(x.lead_time.values[-1] for x in outputs)
+    """Plan the step after ``outputs``, which advances by the model's interval.
+
+    The declared inputs are shifted so their output follows ``outputs`` by one
+    interval; for inputs ending at zero, that is shifting them to end where
+    ``outputs`` end.
+    """
+    first = _slots(model.output_coords(*inputs))
+    interval = step_interval(inputs[0].lead_time.values, first[0].lead_time.values)
+    offset = (
+        max(x.lead_time.values[-1] for x in outputs)
+        + interval
+        - max(x.lead_time.values[-1] for x in first)
+    )
     shifted = tuple(
-        coord_array_like(
-            x, {"lead_time": x.lead_time.values - x.lead_time.values[-1] + end}
-        )
-        for x in inputs
+        coord_array_like(x, {"lead_time": x.lead_time.values + offset}) for x in inputs
     )
     return _slots(model.output_coords(*shifted))
 
@@ -1045,7 +1055,7 @@ def _rollout_values(
             if report is not None:
                 _matches(report, value, expected, "P9")
     if report is not None:
-        origin = max(x.lead_time.values[-1] for x in inputs)
+        origin = max(max(x.lead_time.values[-1] for x in inputs), np.timedelta64(0))
         first_leads = [x.lead_time.values for x in _slots(snapshots[0])]
         report.require(
             "P7",
