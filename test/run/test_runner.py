@@ -357,6 +357,65 @@ def test_outputs_unlike_inputs_start_at_the_first_forecast() -> None:
     assert list(runner.run_item(_item(0))) == []
 
 
+class _FromBackground(PrognosticMixin):
+    """Model initialized from a background 9 h before the analysis time.
+
+    ``initialize`` brings the background up to the analysis time and forecasts
+    3 h; each ``step`` then advances 3 h.
+    """
+
+    def input_coords(self) -> CoordinateSystem:
+        return coord_array_like(
+            _model().input_coords(),
+            {"lead_time": np.array([-9], dtype="timedelta64[h]")},
+        )
+
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        return coord_array_like(
+            input_coords,
+            {
+                "lead_time": input_coords["lead_time"].values[-1:]
+                + np.timedelta64(12, "h")
+            },
+        )
+
+    def _advance(self, x: xr.DataArray, hours: int) -> xr.DataArray:
+        return (x + 1).assign_coords(
+            lead_time=x["lead_time"] + np.timedelta64(hours, "h")
+        )
+
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, None]:  # type: ignore[override]
+        return self._advance(x, 12), None
+
+    def step(  # type: ignore[override]
+        self, y: xr.DataArray, state: None = None
+    ) -> tuple[xr.DataArray, None]:
+        return self._advance(y, 3), None
+
+    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:  # type: ignore[override]
+        return self._default_create_iterator(x)
+
+    def to(self, device: torch.device) -> "_FromBackground":
+        return self
+
+
+def test_background_before_analysis_steps_at_forecast_interval() -> None:
+    source = _Zeros()
+    runner = PrognosticRunner(_FromBackground(), source)
+    assert runner.step == np.timedelta64(3, "h")
+    assert not runner.publishes_initial_condition
+    assert runner.nsteps(np.timedelta64(9, "h")) == 3
+    steps = list(runner.run_item(_item(9)))
+    hours = [
+        int(s["forecast"]["lead_time"].values[0] // np.timedelta64(1, "h"))
+        for s in steps
+    ]
+    assert hours == [3, 6, 9]
+    planned = runner.output_coords(np.timedelta64(9, "h"))["forecast"]["lead_time"]
+    assert (planned.values // np.timedelta64(1, "h")).tolist() == hours
+    assert source.times == [T0 - np.timedelta64(9, "h")]
+
+
 def test_forcing_is_fetched_requested_and_sent_each_step() -> None:
     model = _Forced()
     runner = PrognosticRunner(model, _Zeros(), forcing=(_Zeros(),))

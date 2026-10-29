@@ -218,6 +218,31 @@ class ChunkedToy(ToyPrognostic):
         )
 
 
+class BackgroundToy(ToyPrognostic):
+    """Initialized from a background before the analysis time.
+
+    ``initialize`` brings the background at -9 h up to the analysis time and
+    forecasts 3 h; ``step`` advances 3 h.
+    """
+
+    def input_coords(self) -> CoordinateSystem:
+        return coord_array_like(super().input_coords(), {"lead_time": [-9 * DT / 6]})
+
+    def output_coords(self, x: CoordinateSystem) -> CoordinateSystem:
+        lead = x.lead_time.values
+        if lead.dtype.kind != "m" or lead.size != 1 or np.isnat(lead).any():
+            raise ValueError("expected one finite lead")
+        handshake_dataarray(
+            x.assign_coords(lead_time=lead - lead[-1] - 9 * DT / 6),
+            self.input_coords(),
+        )
+        return coord_array_like(x, {"lead_time": lead + 2 * DT})
+
+    def step(self, y: xr.DataArray, state: None) -> tuple[xr.DataArray, None]:
+        coords = coord_array_like(y, {"lead_time": y.lead_time.values + DT / 2})
+        return from_torch(y.e2s.to_torch()[0] + 1, coords), None
+
+
 class StochasticDiagnostic(MultiDiagnostic):
     stochastic = True
 
@@ -245,7 +270,7 @@ def violations(model, diagnostic=False, **kwargs):
 
 
 @pytest.mark.parametrize(
-    "factory", [ToyPrognostic, ForcedToy, MultiPrognostic, ChunkedToy]
+    "factory", [ToyPrognostic, ForcedToy, MultiPrognostic, ChunkedToy, BackgroundToy]
 )
 def test_forecasts_only_reference(factory):
     model = factory()
@@ -326,6 +351,14 @@ def test_initialization_must_advance_lead():
             return coord_array_like(x)
 
     assert "P7" in violations(Bad())
+
+
+def test_input_must_end_at_or_before_zero():
+    class Ahead(ToyPrognostic):
+        def input_coords(self) -> CoordinateSystem:
+            return coord_array_like(super().input_coords(), {"lead_time": [DT]})
+
+    assert "P3" in violations(Ahead())
 
 
 @pytest.mark.parametrize(
