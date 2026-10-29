@@ -16,6 +16,7 @@
 
 """CoupledRunner scheduling, execution and validation on tiny CPU components."""
 
+import zlib
 from collections.abc import Mapping
 
 import numpy as np
@@ -405,9 +406,20 @@ def test_stochastic_components_are_seeded_per_member() -> None:
     runner = CoupledRunner({"atmos": model}, sources={"atmos": sources}, seed=3)
     item = WorkItem(T0, np.timedelta64(6, "h"), member_ids=(4,))
     list(runner.run_item(item))
-    assert model.seeds == [member_seed(3, item.time, 4)]
+    assert model.seeds == [member_seed(3 + zlib.crc32(b"atmos"), item.time, 4)]
     with pytest.raises(ValueError, match="batch"):
         list(runner.run_item(WorkItem(T0, np.timedelta64(6, "h"), member_ids=(0, 1))))
+
+
+def test_stochastic_components_draw_independent_seeds() -> None:
+    a, b = _Stochastic(), _Stochastic()
+    sources = (Fill(ATMOS_GRID, {"z1000": 0.0}), Fill(ATMOS_GRID, {"sst": 2.0}))
+    runner = CoupledRunner({"a": a, "b": b}, sources={"a": sources, "b": sources})
+    item = WorkItem(T0, np.timedelta64(6, "h"), member_ids=(1,))
+    list(runner.run_item(item))
+    list(runner.run_item(item))
+    assert a.seeds[0] != b.seeds[0]
+    assert a.seeds[0] == a.seeds[1] and b.seeds[0] == b.seeds[1]
 
 
 def test_to_moves_models_and_regridders(ic_sources: Mapping[str, Fill]) -> None:

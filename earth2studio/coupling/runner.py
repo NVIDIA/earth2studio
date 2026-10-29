@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import math
+import zlib
 from collections.abc import Iterator, Mapping, Sequence
 from itertools import chain
 from typing import Any, TypeAlias
@@ -95,7 +96,9 @@ class CoupledRunner:
         slots use their source only for frames valid at or before the item time
         that the producer does not hold.
     seed : int, optional
-        Base seed for per-member seeding of stochastic components, by default 0
+        Base seed for per-member seeding of stochastic components, by default 0.
+        Each component offsets it by a hash of its name, so components draw
+        independent noise
     devices : Mapping[str, torch.device | str], optional
         Devices of components that :meth:`to` leaves in place, such as CPU-only
         impact models, by default none. Every other component runs where its
@@ -411,8 +414,10 @@ class CoupledRunner:
         if len(item.member_ids) > 1:
             raise ValueError("CoupledRunner does not batch ensemble members")
         member_id = item.member_ids[0] if item.member_ids else 0
-        for node in self.nodes.values():
-            _seed_model(self.seed, item.time, member_id, node.model)
+        for name, node in self.nodes.items():
+            _seed_model(
+                _component_seed(self.seed, name), item.time, member_id, node.model
+            )
         execution = _Execution(self, item)
         for event in self._scheduler.run(
             execution, _final(item.final_lead_time), retention=self._retention
@@ -717,6 +722,14 @@ def _final(final_lead_time: np.timedelta64) -> int:
     if final < 0:
         raise ValueError(f"Final lead time {final_lead_time} must be non-negative")
     return final
+
+
+def _component_seed(base: int, name: str) -> int:
+    """Base seed of component ``name``, so stochastic components draw independent noise.
+
+    Offset by a hash of the name, which is stable across processes, unlike ``hash``.
+    """
+    return base + zlib.crc32(name.encode())
 
 
 def _slot_sources(

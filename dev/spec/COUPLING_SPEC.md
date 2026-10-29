@@ -160,7 +160,8 @@ output slot, else `name.0`, `name.1` and so on. Stream names must be unique. A
 stateful slot publishes its initial condition, when it has one, and every chunk;
 a diagnostic slot publishes at every call.
 Streams carry the producing model's grid and the item's `time`, as `X1`–`X4`
-require. Per-member seeding follows `X5`.
+require. Per-member seeding follows `X5`, from a base seed offset per component
+by the CRC-32 of its name, so stochastic components draw independent noise.
 
 ## Independent assimilation models
 
