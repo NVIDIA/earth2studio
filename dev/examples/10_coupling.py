@@ -30,9 +30,11 @@ Everything is CPU-only and synthetic: no weights, downloads, or GPU.
 """
 
 from collections import OrderedDict
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
+import pyarrow as pa
 import torch
 import xarray as xr
 
@@ -42,7 +44,12 @@ from earth2studio.io import XarrayBackend
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.run import Pipeline, WorkItem, work_items
 from earth2studio.utils import coord_array, coord_array_like
-from earth2studio.utils.type import CoordinateSystem, FrameSchema
+from earth2studio.utils.type import (
+    CoordinateSystem,
+    FrameSchema,
+    TimeArray,
+    VariableArray,
+)
 
 HOUR = np.timedelta64(1, "h")
 WEATHER_GRID = LatLonGrid(
@@ -202,7 +209,11 @@ class Climatology:
     def __init__(self, grid: LatLonGrid, values: dict[str, float]) -> None:
         self.grid, self.values = grid, values
 
-    def __call__(self, time: np.ndarray, variable: np.ndarray) -> xr.DataArray:
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
         """Return constant fields for each time and variable."""
         time, variable = np.atleast_1d(time), np.atleast_1d(variable)
         data = np.stack(
@@ -228,11 +239,24 @@ class Climatology:
 class Retrievals:
     """DataFrame source with a soil moisture retrieval of 0.30 every 72 hours."""
 
+    SCHEMA = pa.schema(
+        [
+            ("time", pa.timestamp("ns")),
+            ("lat", pa.float32()),
+            ("lon", pa.float32()),
+            ("observation", pa.float32()),
+            ("variable", pa.string()),
+        ]
+    )
+
     def __init__(self, start: np.datetime64, every: int = 72) -> None:
         self.start, self.every = start, every
 
     def __call__(
-        self, time: np.ndarray, variable: np.ndarray, fields: object = None
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+        fields: str | list[str] | pa.Schema | None = None,
     ) -> pd.DataFrame:
         """Return the retrievals valid at ``time``; empty when there are none."""
         rows = [

@@ -55,12 +55,17 @@ class _Slot:
         return not isinstance(self.signature, xr.DataArray)
 
     @property
+    def field(self) -> xr.DataArray:
+        """The gridded signature of a slot that does not take a DataFrame."""
+        if not isinstance(self.signature, xr.DataArray):
+            raise TypeError(f"{self} takes a DataFrame")
+        return self.signature
+
+    @property
     def static(self) -> bool:
         """Whether the slot is gridded without lead times, supplied only initially."""
         return (
-            not self.frame
-            and not self.per_call
-            and "lead_time" not in self.signature.dims
+            not self.frame and not self.per_call and "lead_time" not in self.field.dims
         )
 
     @property
@@ -239,7 +244,7 @@ def _diagnostic(name: str, model: Any) -> _Node:
                 f"Diagnostic {name!r} {slot} takes a DataFrame; only gridded "
                 "diagnostic inputs can be coupled"
             )
-        if "lead_time" in slot.signature.dims and slot.signature.sizes["lead_time"] > 1:
+        if "lead_time" in slot.field.dims and slot.field.sizes["lead_time"] > 1:
             raise CouplingError(
                 f"Diagnostic {name!r} {slot} declares several lead times; "
                 "coupled diagnostics take one valid time per call"
