@@ -67,49 +67,48 @@ def _modifiers(lexicon: type, *variables: str) -> dict:
     return {variable: lexicon.get_item(variable)[1] for variable in variables}
 
 
-def test_observation_cycle_times_select_covering_files():
-    cases = [
-        (
-            datetime(2024, 1, 1, 0),
-            timedelta(0),
-            timedelta(hours=4),
-            timedelta(hours=6),
-            [datetime(2024, 1, 1, 0), datetime(2024, 1, 1, 6)],
-        ),
-        (
-            datetime(2024, 1, 1, 0),
-            timedelta(0),
-            timedelta(0),
-            timedelta(hours=6),
-            [datetime(2024, 1, 1, 0)],
-        ),
-        (
-            datetime(2024, 1, 1, 3),
-            timedelta(0),
-            timedelta(0),
-            timedelta(hours=6),
-            [datetime(2024, 1, 1, 6)],
-        ),
-        (
-            datetime(2024, 1, 1, 5),
-            timedelta(0),
-            timedelta(hours=3),
-            timedelta(hours=6),
-            [datetime(2024, 1, 1, 6), datetime(2024, 1, 1, 12)],
-        ),
-        (
-            datetime(2024, 1, 1, 1),
-            timedelta(0),
-            timedelta(0),
-            timedelta(hours=3),
-            [datetime(2024, 1, 1, 3)],
-        ),
-    ]
+_D = datetime(2024, 1, 1)
+_H = timedelta(hours=1)
 
-    for time, lower, upper, cadence, expected in cases:
-        assert (
-            utils_ncep.observation_cycle_times(time, lower, upper, cadence) == expected
-        )
+
+@pytest.mark.parametrize(
+    "time,lower,upper,cadence,expected",
+    [
+        # A point inside a window reads only that window's file
+        (_D, 0 * _H, 0 * _H, 6 * _H, [_D]),
+        (_D + 1 * _H, 0 * _H, 0 * _H, 6 * _H, [_D]),
+        (_D + 5 * _H, 0 * _H, 0 * _H, 6 * _H, [_D + 6 * _H]),
+        # Windows are [T - 3 h, T + 3 h): an edge belongs to the later file
+        (_D + 3 * _H, 0 * _H, 0 * _H, 6 * _H, [_D + 6 * _H]),
+        (_D + 3 * _H, -timedelta(seconds=1), 0 * _H, 6 * _H, [_D, _D + 6 * _H]),
+        # A request crossing an edge reads both files, e.g. 01:30-04:30
+        (_D + 3 * _H, -1.5 * _H, 1.5 * _H, 6 * _H, [_D, _D + 6 * _H]),
+        # A request centred on a cycle within its window reads only that file
+        (_D + 6 * _H, -2 * _H, 2 * _H, 6 * _H, [_D + 6 * _H]),
+        # An asymmetric window reads every file it overlaps
+        (_D + 6 * _H, -7.5 * _H, 1.5 * _H, 6 * _H, [_D, _D + 6 * _H]),
+        (_D, 0 * _H, 4 * _H, 6 * _H, [_D, _D + 6 * _H]),
+        # Requests before midnight align to the previous day's cycles
+        (_D, -21 * _H, 3 * _H, 6 * _H, [_D - 18 * _H + 6 * _H * k for k in range(5)]),
+        # Other cadences centre the same way
+        (_D + 1 * _H, 0 * _H, 0 * _H, 3 * _H, [_D]),
+        (_D + 2 * _H, 0 * _H, 0 * _H, 3 * _H, [_D + 3 * _H]),
+    ],
+)
+def test_observation_cycle_times_select_centred_files(
+    time, lower, upper, cadence, expected
+):
+    assert utils_ncep.observation_cycle_times(time, lower, upper, cadence) == expected
+
+
+def test_observation_cycle_times_reject_nonpositive_cadence():
+    with pytest.raises(ValueError):
+        utils_ncep.observation_cycle_times(_D, 0 * _H, 0 * _H, 0 * _H)
+
+
+def test_cycle_windows_merge_requests_per_file():
+    windows = utils_ncep.cycle_windows([_D + 1 * _H, _D + 2 * _H, _D + 5 * _H], -_H, _H)
+    assert windows == {_D: (_D, _D + 3 * _H), _D + 6 * _H: (_D + _H, _D + 6 * _H)}
 
 
 def test_same_local_prepbufr_bytes_are_adapter_exact(tmp_path, monkeypatch):

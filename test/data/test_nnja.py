@@ -600,10 +600,12 @@ def test_nnja_obs_conv_create_tasks():
     )
     assert len(tasks_times) == 2  # Two different cycles
 
-    # Non-cycle request times select the next cycle file containing past obs
+    # Files are centred on their cycle, so 01Z is in the 00Z file and 05Z in 06Z
     tasks_offset = ds._create_tasks([datetime(2024, 1, 1, 1)], ["t"])
     assert len(tasks_offset) == 1
-    assert tasks_offset[0].datetime_file == datetime(2024, 1, 1, 6)
+    assert tasks_offset[0].datetime_file == datetime(2024, 1, 1, 0)
+    tasks_offset = ds._create_tasks([datetime(2024, 1, 1, 5)], ["t"])
+    assert [task.datetime_file for task in tasks_offset] == [datetime(2024, 1, 1, 6)]
 
     ds_window = NNJAObsConv(
         time_tolerance=(timedelta(0), timedelta(hours=4)),
@@ -1187,6 +1189,10 @@ def test_nnja_obs_sat_cycle_windows_follow_nnja_cycle_selection():
     source = NNJAObsSat(cache=False, verbose=False, decode_workers=1)
     requested = datetime(2024, 1, 1)
     tasks = source._create_tasks([requested, requested], ["atms"])
+    assert [task.datetime_file for task in tasks] == [requested]
+
+    # A window crossing 03Z reads both files that cover it
+    tasks = source._create_tasks([requested + timedelta(hours=3)], ["atms"])
     assert [task.datetime_file for task in tasks] == [
         requested,
         requested + timedelta(hours=6),

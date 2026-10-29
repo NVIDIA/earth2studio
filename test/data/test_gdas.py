@@ -329,9 +329,18 @@ def test_nomads_gdas_create_tasks():
     assert all(t.uri.endswith(".prepbufr.nr") for t in tasks)
     assert all("t" in t.var_plan for t in tasks)
 
-    # Task URIs should be for cycle times around midnight
+    # Files are centred on their cycles: 21Z-03Z is in the 00Z file and the
+    # 03Z edge opens the 06Z file
+    assert [task.datetime_file for task in tasks] == [
+        datetime(2026, 4, 4, 0),
+        datetime(2026, 4, 4, 6),
+    ]
     for task in tasks:
         assert "gdas." in task.uri
+    tasks = NomadsGDASObsConv(time_tolerance=timedelta(hours=2))._create_tasks(
+        [datetime(2026, 4, 4, 0)], ["t"]
+    )
+    assert [task.datetime_file for task in tasks] == [datetime(2026, 4, 4, 0)]
 
     mixed_ds = NomadsGDASObsConv(time_tolerance=timedelta(0))
     mixed_tasks = mixed_ds._create_tasks([datetime(2026, 4, 4, 0)], ["t", "gps"])

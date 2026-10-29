@@ -1132,10 +1132,11 @@ def observation_cycle_times(
 ) -> list[datetime]:
     """Return cadence file times whose observation windows overlap a request.
 
-    Each file timestamp is treated as the end of its observation window, so a
-    file at ``T`` may contain observations from ``(T - cadence, T]``. This means
-    requests often need the next cycle file as well as the cycle at or before
-    the requested time.
+    Each file is centred on its timestamp: an NCEP dump at ``T`` holds
+    observations from ``[T - cadence / 2, T + cadence / 2)``, so the 06Z file
+    covers 03Z up to 09Z. A request is served by every file whose window
+    overlaps it, so a request crossing a window edge reads both files and a
+    request inside one window reads only that file.
 
     Parameters
     ----------
@@ -1151,8 +1152,8 @@ def observation_cycle_times(
     Returns
     -------
     list[datetime]
-        Cadence-aligned file timestamps whose backward-looking observation
-        windows overlap ``[time + tolerance_lower, time + tolerance_upper]``.
+        Cadence-aligned file timestamps whose centred observation windows
+        overlap ``[time + tolerance_lower, time + tolerance_upper]``.
 
     Raises
     ------
@@ -1162,15 +1163,18 @@ def observation_cycle_times(
     if cadence <= timedelta(0):
         raise ValueError("cadence must be positive")
 
+    half = cadence / 2
     tmin = time + tolerance_lower
     tmax = time + tolerance_upper
-    day_start = tmin.replace(hour=0, minute=0, second=0, microsecond=0)
-    cycle = day_start + ((tmin - day_start) // cadence) * cadence
-    if cycle < tmin:
+    # First file whose window ends after tmin, aligned to the day's cycles
+    start = tmin - half
+    day_start = start.replace(hour=0, minute=0, second=0, microsecond=0)
+    cycle = day_start + ((start - day_start) // cadence) * cadence
+    if cycle <= start:
         cycle += cadence
 
     cycles: list[datetime] = []
-    while cycle < tmax + cadence:
+    while cycle - half <= tmax:
         cycles.append(cycle)
         cycle += cadence
     return cycles
