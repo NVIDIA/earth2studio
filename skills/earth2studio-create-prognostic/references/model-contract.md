@@ -258,7 +258,7 @@ threads; run those components serially within a process.
 | --- | --- |
 | P1 | Implements prognostic interface |
 | P2 | Allocation-free declarations with explicit dynamic leading axes |
-| P3 | Relative input history strictly increases and ends at zero |
+| P3 | Relative input history strictly increases and ends at or before zero |
 | P4 | Planning does not mutate its argument |
 | P5 | Invalid coordinates raise `ValueError` |
 | P6 | Shifting input leads shifts output leads equally |

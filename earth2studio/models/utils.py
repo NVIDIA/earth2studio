@@ -27,6 +27,7 @@ try:
 except ImportError:
     ort = None
     InferenceSession = TypeVar("InferenceSession")  # type: ignore
+import numpy as np
 import torch
 
 if TYPE_CHECKING:
@@ -62,6 +63,32 @@ def recommended_sources(
     if declared is not None:
         return declared()
     return None
+
+
+def step_interval(input_lead_time: np.ndarray, output_lead_time: np.ndarray) -> Any:
+    """Time a stateful model advances per ``step``, from its declared lead times.
+
+    The interval is the output's last lead time minus the later of the input's
+    last lead time and zero. An input ending at zero, the usual case, gives the
+    output's last lead time. An input ending before zero, such as a background
+    that ``initialize`` first brings up to the analysis time, does not lengthen
+    the interval: a background at -9 h with a first output at +3 h steps by 3 h.
+
+    Parameters
+    ----------
+    input_lead_time : np.ndarray
+        Lead times of the first input slot, relative to the analysis time
+    output_lead_time : np.ndarray
+        Lead times of the output ``initialize`` returns, in the same units
+
+    Returns
+    -------
+    Any
+        Interval in the arrays' type: ``np.timedelta64`` for timedelta arrays,
+        an integer for integer arrays
+    """
+    end = input_lead_time[-1]
+    return output_lead_time[-1] - max(end, end - end)  # end - end: zero, same units
 
 
 def create_ort_session(
