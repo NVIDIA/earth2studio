@@ -54,8 +54,8 @@ In this example you will learn:
 # - Datasource (radiances): NNJA satellite radiances
 #   [`earth2studio.data.NNJAObsSat`][earth2studio.data.NNJAObsSat].
 #
-# Decoding 48 hours of NNJA BUFR takes a long time on first use; the raw files are
-# cached, so later runs over the same window skip the download.
+# Observation downloads are about 2.25 GiB by default or 21.3 GiB with radiances.
+# Raw files are cached for reuse. Omitting radiances can reduce analysis quality.
 
 # %%
 import os
@@ -105,6 +105,7 @@ model = HealDAv2.load_model(package).to("cuda:0")
 # %%
 analysis_time = np.array([np.datetime64("2026-01-15T00:00")])
 tolerance = (timedelta(hours=-45), timedelta(hours=3))
+include_satellite_radiances = False  # Enable satellite observations for best accuracy
 
 conv_source = NNJAObsConv(
     time_tolerance=tolerance,
@@ -116,15 +117,20 @@ conv_source = NNJAObsConv(
 satwnd_source = NNJAObsSatwnd(
     time_tolerance=tolerance, layout="wide", async_timeout=600
 )
-sat_source = NNJAObsSat(
-    time_tolerance=tolerance,
-    sensor_indices=model.sensor_indices,
-    layout="wide",
-    async_timeout=600,
-)
 
 schemas = model.input_coords()  # (prepbufr, gpsro, satwnd, *sensors)
-sources = [conv_source, conv_source, satwnd_source] + [sat_source] * (len(schemas) - 3)
+sources = [conv_source, conv_source, satwnd_source]
+if include_satellite_radiances:
+    sat_source = NNJAObsSat(
+        time_tolerance=tolerance,
+        sensor_indices=model.sensor_indices,
+        layout="wide",
+        async_timeout=600,
+    )
+    sources += [sat_source] * (len(schemas) - 3)
+else:
+    schemas = schemas[:3]
+
 obs = fetch_dataframes(list(zip(sources, schemas)), analysis_time)
 logger.info(f"Fetched rows per stream: {[len(frame) for frame in obs]}")
 
