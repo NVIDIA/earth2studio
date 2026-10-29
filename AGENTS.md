@@ -37,6 +37,9 @@ activate `earth2studio-data-fetch` first.
 - `skills/earth2studio-deterministic-forecast/` — Build deterministic
   (single-member) forecast scripts with model selection, data source,
   IO backend, and nsteps calculation
+- `skills/earth2studio-couple-models/` — Run several models that feed
+  each other with `CoupledRunner` and connectors, check the schedule,
+  and test the coupling
 
 ### Data
 
