@@ -688,7 +688,9 @@ class NNJAObsSat:
         Maximum number of concurrent async fetch tasks, by default 8.
     decode_workers : int, optional
         Number of parallel processes for BUFR message decoding. Set to 1 to
-        disable multiprocessing, by default 8.
+        disable multiprocessing, by default 8. IASI decodes with earth2bufr
+        when it is installed, which uses its own thread pool
+        (``EARTH2BUFR_NUM_THREADS``) and ignores this setting.
     retries : int, optional
         Number of retry attempts per failed fetch task with exponential
         backoff, by default 3.

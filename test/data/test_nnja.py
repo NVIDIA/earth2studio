@@ -1484,6 +1484,162 @@ def test_nnja_ir_decode_iasi_scaled_radiance_planck():
     assert not _decode_ir_pairs(no_band, "iasi")
 
 
+def _iasi_earth2bufr_batch(target_bt: float = 280.0) -> pa.RecordBatch:
+    """Flat-layout earth2bufr batch of three IASI footprints.
+
+    Footprint 0 is valid; footprint 1 has no latitude; footprint 2 is outside
+    the decode window. Channel groups precede DRF16BIT, and a decoy CHSF after
+    it, as in mtiasi's AVHRR cluster, must not be read as a group.
+    """
+    from earth2studio.data.utils import PLANCK_C1 as C1
+    from earth2studio.data.utils import PLANCK_C2 as C2
+
+    def scra(channel: int, chsf: int) -> float:
+        wavenumber = 645.0 + 0.25 * (channel - 1)
+        radiance = C1 * wavenumber**3 / (np.exp(C2 * wavenumber / target_bt) - 1.0)
+        return radiance * 10.0**chsf / 1e5
+
+    footprint = {
+        "SAID": [3.0, 3.0, 5.0],
+        "YEAR": [2023.0] * 3,
+        "MNTH": [1.0] * 3,
+        "DAYS": [1.0] * 3,
+        "HOUR": [3.0, 3.0, 9.0],
+        "MINU": [30.0] * 3,
+        "SECO": [15.5, 0.0, 0.0],
+        "CLATH": [10.0, None, 20.0],
+        "CLONH": [-120.0, 0.0, 0.0],
+        "SAZA": [50.0] * 3,
+        "BEARAZ": [200.0] * 3,
+        "SOZA": [90.0] * 3,
+        "SOLAZI": [100.0] * 3,
+        "FOVN": [7.0] * 3,
+        "SLNM": [8.0, 8.0, None],
+        "SELV": [830300.0] * 3,  # satellite altitude, not land height
+    }
+    columns = [pa.array(values, pa.float64()) for values in footprint.values()]
+    names = list(footprint)
+    for start, end, chsf in ((1, 100, 5), (101, 200, 7)):
+        columns += [pa.array([float(v)] * 3) for v in (start, end, chsf)]
+        names += ["STCH", "ENCH", "CHSF"]
+    channels = [
+        [{"CHNM": 1.0, "SCRA": scra(1, 5)}, {"CHNM": 150.0, "SCRA": scra(150, 7)}]
+        + [{"CHNM": 300.0, "SCRA": 1.0}, {"CHNM": 2.0, "SCRA": None}],
+        [{"CHNM": 1.0, "SCRA": scra(1, 5)}],
+        [{"CHNM": 1.0, "SCRA": scra(1, 5)}],
+    ]
+    columns += [
+        pa.array(
+            channels,
+            pa.list_(pa.struct([("CHNM", pa.float64()), ("SCRA", pa.float64())])),
+        ),
+        pa.array([0.0] * 3),
+    ]
+    names += ["DRF16BIT", "CHSF"]
+    return pa.RecordBatch.from_arrays(columns, names=names)
+
+
+def test_nnja_ir_decode_iasi_earth2bufr_batch():
+    table = ncep_microwave._iasi_batch_table(
+        _iasi_earth2bufr_batch(),
+        None,
+        datetime(2023, 1, 1),
+        datetime(2023, 1, 1, 6),
+        None,
+    )
+    assert table.schema == ncep_microwave.NCEP_MICROWAVE_OUTPUT_SCHEMA
+    rows = table.to_pylist()
+    # Channel 300 has no group and channel 2 no radiance; footprints 1 and 2
+    # have no latitude or fall outside the window
+    assert [row["sensor_index"] for row in rows] == [1, 150]
+    for row in rows:
+        assert row["observation"] == pytest.approx(280.0, abs=1e-4)
+        assert row["satellite"] == "metop-b"
+        assert row["variable"] == "iasi"
+        assert row["class"] == "rad"
+        assert row["lat"] == pytest.approx(10.0)
+        assert row["lon"] == pytest.approx(240.0)
+        assert row["scan_position"] == 7
+        assert row["scan_line"] == 8
+        assert row["quality"] is None
+        assert np.isnan(row["elev"])
+    assert rows[0]["time"] == datetime(2023, 1, 1, 3, 30, 15, 500000)
+    assert [row["wavenumber"] for row in rows] == [645.0, 645.0 + 0.25 * 149]
+
+    # Channel, satellite and window filters
+    only = ncep_microwave._iasi_batch_table(
+        _iasi_earth2bufr_batch(),
+        frozenset({150}),
+        datetime(2023, 1, 1),
+        datetime(2023, 1, 1, 12),
+        frozenset({"metop-c"}),
+    )
+    assert only.num_rows == 0
+    late = ncep_microwave._iasi_batch_table(
+        _iasi_earth2bufr_batch(),
+        frozenset({1}),
+        datetime(2023, 1, 1, 6),
+        datetime(2023, 1, 1, 12),
+        frozenset({"metop-c"}),
+    ).to_pylist()
+    assert [(row["satellite"], row["scan_line"]) for row in late] == [("metop-c", None)]
+
+
+class _FakeBufrSource:
+    def __init__(self, batches: list[Any]) -> None:
+        self.batches = batches
+        self.info = SimpleNamespace(data_messages=[object()] * 4)
+        self.closed = False
+
+    def __enter__(self) -> "_FakeBufrSource":
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.closed = True
+
+    def iter_batches(self, **kwargs: Any) -> Any:
+        assert "DRF16BIT" in kwargs["projection"]
+        for batch in self.batches:
+            if isinstance(batch, Exception):
+                raise batch
+            yield batch
+
+
+def test_nnja_ir_decode_iasi_dispatches_to_earth2bufr(monkeypatch, tmp_path):
+    source = _FakeBufrSource([_iasi_earth2bufr_batch()])
+    monkeypatch.setattr(
+        ncep_microwave,
+        "earth2bufr",
+        SimpleNamespace(open_bufr=lambda path: source),
+    )
+    frame = ncep_microwave.decode_ir_sounder(
+        str(tmp_path / "mtiasi.bufr"),
+        "iasi",
+        None,
+        datetime(2023, 1, 1),
+        datetime(2023, 1, 1, 6),
+    )
+    assert list(frame.columns) == ncep_microwave.NCEP_MICROWAVE_OUTPUT_SCHEMA.names
+    assert sorted(frame["sensor_index"]) == [1, 150]
+    assert source.closed
+
+    failing = _FakeBufrSource([ValueError("Source BUFR message 2: truncated")])
+    monkeypatch.setattr(
+        ncep_microwave,
+        "earth2bufr",
+        SimpleNamespace(open_bufr=lambda path: failing),
+    )
+    with pytest.raises(ncep_microwave._NCEPIRSounderDecodeError) as err:
+        ncep_microwave.decode_ir_sounder(
+            str(tmp_path / "mtiasi.bufr"),
+            "iasi",
+            None,
+            datetime(2023, 1, 1),
+            datetime(2023, 1, 1, 6),
+        )
+    assert err.value.context["total_messages"] == 4
+
+
 def test_nnja_ir_decode_cris_radiance_planck_band_wavenumbers():
     from earth2studio.data.utils import PLANCK_C1 as C1
     from earth2studio.data.utils import PLANCK_C2 as C2

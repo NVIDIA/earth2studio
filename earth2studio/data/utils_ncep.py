@@ -29,6 +29,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import pyarrow as pa
+import pyarrow.compute as pc
 from loguru import logger
 
 from earth2studio.data.utils import radiance_to_bt, table_to_dataframe
@@ -66,6 +67,14 @@ from earth2studio.data.utils_ir import (
     wavenumber_cm_inverse,
 )
 from earth2studio.lexicon.base import E2STUDIO_SCHEMA, LexiconType
+from earth2studio.utils.imports import OptionalDependencyFailure
+
+try:
+    import earth2bufr
+except ImportError:
+    # Optional fast path for IR sounders; the pybufrkit decoder is the fallback
+    OptionalDependencyFailure("data", "earth2bufr")
+    earth2bufr = None
 
 # GPS RO BUFR descriptor IDs (NCEP gpsro encoding). GPSRO is not a PrepBUFR
 # conventional report, so conventional semantics do not apply: there is no TYP
@@ -2163,6 +2172,253 @@ def _decode_ir_message_batch(
     return NCEP_MICROWAVE_OUTPUT_SCHEMA.empty_table(), failures
 
 
+# Footprint fields read by the earth2bufr IASI decoder, by NCEP mnemonic. Each
+# is taken from its first occurrence in the template, as the pybufrkit decoder
+# takes the first occurrence of each scalar descriptor.
+_IASI_SCALAR_MNEMONICS = (
+    "SAID",
+    "YEAR",
+    "MNTH",
+    "DAYS",
+    "HOUR",
+    "MINU",
+    "SECO",
+    "CLATH",
+    "CLONH",
+    "CLAT",
+    "CLON",
+    "SAZA",
+    "BEARAZ",
+    "SOZA",
+    "SOLAZI",
+    "FOVN",
+    "SLNM",
+    # Land-surface height (0-10-001); mtiasi's SELV is the satellite altitude
+    "HOLS",
+)
+# Channel-group scale factors precede the channel block; the AVHRR cluster
+# after it repeats CHSF, which must not be read as a channel group.
+_IASI_BAND_MNEMONICS = ("STCH", "ENCH", "CHSF")
+_IASI_CHANNEL_BLOCK = "DRF16BIT"
+# Decoded Arrow bytes per earth2bufr batch, which bounds decode memory
+_EARTH2BUFR_BATCH_BYTES = 256 * 1024 * 1024
+
+
+def _column(batch: pa.RecordBatch, names: list[str], name: str) -> np.ndarray:
+    """First column called ``name`` as float64, NaN where missing or absent."""
+    if name not in names:
+        return np.full(batch.num_rows, np.nan)
+    column = batch.column(names.index(name))
+    return column.to_numpy(zero_copy_only=False).astype(np.float64)
+
+
+def _iasi_batch_table(
+    batch: pa.RecordBatch,
+    channels: frozenset[int] | None,
+    datetime_min: datetime,
+    datetime_max: datetime,
+    satellites: frozenset[str] | None,
+) -> pa.Table:
+    """Convert one earth2bufr batch of IASI footprints to long-format rows.
+
+    Applies the pybufrkit decoder's footprint and channel rules, vectorized
+    over the batch: footprints need a valid time, satellite, position and
+    field-of-view number; channels need a finite radiance, a channel group and
+    a finite brightness temperature.
+    """
+    names = batch.schema.names
+    value = {name: _column(batch, names, name) for name in _IASI_SCALAR_MNEMONICS}
+
+    second = value["SECO"]
+    with np.errstate(invalid="ignore"):
+        valid = np.isfinite(second) & (second >= 0.0) & (second < 61.0)
+    minute = pd.to_datetime(
+        pd.DataFrame(
+            {
+                "year": value["YEAR"],
+                "month": value["MNTH"],
+                "day": value["DAYS"],
+                "hour": value["HOUR"],
+                "minute": value["MINU"],
+            }
+        ),
+        errors="coerce",
+    ).to_numpy(dtype="datetime64[ns]")
+    observation_time = minute + np.rint(np.where(valid, second, 0.0) * 1e9).astype(
+        "timedelta64[ns]"
+    )
+    valid &= ~np.isnat(minute)
+    with np.errstate(invalid="ignore"):
+        valid &= (observation_time >= np.datetime64(datetime_min, "ns")) & (
+            observation_time <= np.datetime64(datetime_max, "ns")
+        )
+
+    latitude, longitude = value["CLATH"], value["CLONH"]
+    coarse = ~np.isfinite(latitude) | ~np.isfinite(longitude)
+    latitude = np.where(coarse, value["CLAT"], latitude)
+    longitude = np.where(coarse, value["CLON"], longitude)
+    with np.errstate(invalid="ignore"):
+        valid &= np.isfinite(latitude) & (np.abs(latitude) <= 90.0)
+    valid &= np.isfinite(longitude) & np.isfinite(value["SAID"])
+    valid &= np.isfinite(value["FOVN"])
+
+    satellite_ids, satellite_index = np.unique(
+        np.where(np.isfinite(value["SAID"]), value["SAID"], -1).astype(np.int64),
+        return_inverse=True,
+    )
+    satellite_names = [
+        _NCEP_SATELLITE_NAME_BY_SAID.get(int(i), f"satellite-{int(i)}")
+        for i in satellite_ids
+    ]
+    if satellites is not None:
+        allowed = np.array([name in satellites for name in satellite_names])
+        valid &= allowed[satellite_index]
+
+    # Channel groups: the STCH/ENCH/CHSF triples before the channel block
+    block = names.index(_IASI_CHANNEL_BLOCK)
+    group_columns = [
+        i for i, name in enumerate(names[:block]) if name in _IASI_BAND_MNEMONICS
+    ]
+    groups = [
+        tuple(
+            batch.column(i).to_numpy(zero_copy_only=False).astype(np.float64)
+            for i in group_columns[k : k + 3]
+        )
+        for k in range(0, len(group_columns) - 2, 3)
+        if [names[i] for i in group_columns[k : k + 3]] == list(_IASI_BAND_MNEMONICS)
+    ]
+
+    channel_lists = batch.column(block)
+    parent = pc.list_parent_indices(channel_lists).to_numpy()
+    flat = pc.list_flatten(channel_lists)
+    channel = flat.field("CHNM").to_numpy(zero_copy_only=False).astype(np.float64)
+    scra = flat.field("SCRA").to_numpy(zero_copy_only=False).astype(np.float64)
+
+    keep = valid[parent] & np.isfinite(channel) & np.isfinite(scra)
+    if channels is not None:
+        keep &= np.isin(channel, list(channels))
+    parent, channel, scra = parent[keep], channel[keep].astype(np.int64), scra[keep]
+
+    # Each channel takes the first group whose range contains it
+    chsf = np.full(channel.shape, np.nan)
+    for start, end, scale in groups:
+        inside = (
+            np.isnan(chsf)
+            & (channel >= start[parent])
+            & (channel <= end[parent])
+            & np.isfinite(scale[parent])
+        )
+        chsf[inside] = scale[parent][inside]
+    has_group = np.isfinite(chsf)
+    if not has_group.all():
+        logger.debug(
+            f"IASI decode skipped {int((~has_group).sum())} channel(s) outside "
+            "every CHSF band"
+        )
+    parent, channel, scra, chsf = (
+        parent[has_group],
+        channel[has_group],
+        scra[has_group],
+        chsf[has_group],
+    )
+
+    wavenumber = np.asarray(wavenumber_cm_inverse("iasi", channel), dtype=np.float64)
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        bt = radiance_to_bt(iasi_radiance_mw(scra, chsf), wavenumber)
+    finite = np.isfinite(bt)
+    parent, channel, wavenumber, bt = (
+        parent[finite],
+        channel[finite],
+        wavenumber[finite],
+        bt[finite],
+    )
+
+    def footprint(name: str) -> np.ndarray:
+        return value[name][parent]
+
+    scan_line = footprint("SLNM")
+    columns = {
+        "time": observation_time[parent],
+        "class": pa.repeat("rad", parent.size),
+        "lat": latitude[parent],
+        "lon": longitude[parent] % 360.0,
+        "elev": footprint("HOLS"),
+        "scan_angle": np.full(parent.size, np.nan),
+        "scan_position": footprint("FOVN").astype(np.int64),
+        "scan_line": pa.array(
+            np.where(np.isfinite(scan_line), scan_line, 0).astype(np.int64),
+            mask=~np.isfinite(scan_line),
+        ),
+        "sensor_index": channel,
+        "wavenumber": wavenumber,
+        "solza": footprint("SOZA"),
+        "solaza": footprint("SOLAZI"),
+        "satellite_za": footprint("SAZA"),
+        "satellite_aza": footprint("BEARAZ"),
+        "quality": pa.nulls(parent.size),
+        "satellite": pa.DictionaryArray.from_arrays(
+            satellite_index[parent].astype(np.int32), satellite_names
+        ),
+        "observation": bt,
+        "variable": pa.repeat("iasi", parent.size),
+    }
+    return pa.table(
+        [
+            pa.array(columns[field.name]).cast(field.type)
+            for field in NCEP_MICROWAVE_OUTPUT_SCHEMA
+        ],
+        schema=NCEP_MICROWAVE_OUTPUT_SCHEMA,
+    )
+
+
+def _decode_iasi_earth2bufr(
+    path: str,
+    channels: frozenset[int] | None,
+    datetime_min: datetime,
+    datetime_max: datetime,
+    satellites: tuple[str, ...] | None = None,
+) -> Iterator[pa.Table]:
+    """Yield IASI rows per earth2bufr batch, decoding ``path`` incrementally.
+
+    earth2bufr reads NCEP's embedded DX tables and decodes the category-21
+    radiance dump in Rust, in bounded batches, which is several orders of
+    magnitude faster than the pybufrkit decoder. Decode threads follow
+    ``EARTH2BUFR_NUM_THREADS``. Opening the file runs eagerly; a message that
+    fails to decode raises ``_NCEPIRSounderDecodeError`` from the iterator.
+    """
+    source = earth2bufr.open_bufr(path)
+    message_count = len(source.info.data_messages)
+    batches = source.iter_batches(
+        projection=[
+            *_IASI_SCALAR_MNEMONICS,
+            *_IASI_BAND_MNEMONICS,
+            _IASI_CHANNEL_BLOCK,
+        ],
+        projection_missing="skip",
+        target_decoded_bytes=_EARTH2BUFR_BATCH_BYTES,
+    )
+    sat_filter = frozenset(satellites) if satellites is not None else None
+
+    def _tables() -> Iterator[pa.Table]:
+        with source:
+            while True:
+                try:
+                    batch = next(batches)
+                except StopIteration:
+                    return
+                except ValueError as error:
+                    raise _NCEPIRSounderDecodeError(path, 1, message_count) from error
+                if _IASI_CHANNEL_BLOCK not in batch.schema.names:
+                    continue
+                table = _iasi_batch_table(
+                    batch, channels, datetime_min, datetime_max, sat_filter
+                )
+                if table.num_rows:
+                    yield table
+
+    return _tables()
+
+
 def _decode_ir_sounder_chunks(
     path: str,
     sensor: str,
@@ -2179,11 +2435,16 @@ def _decode_ir_sounder_chunks(
     ``yield``, so argument validation and file I/O run eagerly at call time;
     the returned iterator raises ``_NCEPIRSounderDecodeError`` on the first
     batch containing failed messages, so a consumer that stops early cannot
-    silently accept a partial decode.
+    silently accept a partial decode. IASI decodes through earth2bufr when it
+    is installed, ignoring ``decode_workers``.
     """
     if sensor not in _IR_OBS_DESCRIPTOR:
         raise ValueError(
             f"unsupported IR sensor {sensor!r}; valid: {sorted(_IR_OBS_DESCRIPTOR)}"
+        )
+    if sensor == "iasi" and earth2bufr is not None:
+        return _decode_iasi_earth2bufr(
+            path, channels, datetime_min, datetime_max, satellites
         )
 
     decode_workers = max(1, decode_workers)
