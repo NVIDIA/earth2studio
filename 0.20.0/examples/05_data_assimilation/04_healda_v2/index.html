@@ -3485,6 +3485,242 @@ Raw files are cached for reuse. Omitting radiances can reduce analysis quality.<
 <a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="n">package</span> <span class="o">=</span> <span class="n">HealDAv2</span><span class="o">.</span><span class="n">load_default_package</span><span class="p">()</span>
 <a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="n">model</span> <span class="o">=</span> <span class="n">HealDAv2</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="n">package</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="s2">&quot;cuda:0&quot;</span><span class="p">)</span>
 </code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>235 lines</small></summary><pre class="no-copy"><code>Downloading healda_v2.checkpoint: 0%|          | 0.00/3.42G [00:00&lt;?, ?B/s]
+Downloading healda_v2.checkpoint: 0%|          | 10.0M/3.42G [00:01&lt;07:23, 8.25MB/s]
+Downloading healda_v2.checkpoint: 1%|          | 20.0M/3.42G [00:01&lt;03:27, 17.6MB/s]
+Downloading healda_v2.checkpoint: 1%|          | 40.0M/3.42G [00:01&lt;01:36, 37.7MB/s]
+Downloading healda_v2.checkpoint: 2%|▏         | 60.0M/3.42G [00:01&lt;01:12, 49.9MB/s]
+Downloading healda_v2.checkpoint: 2%|▏         | 70.0M/3.42G [00:02&lt;01:13, 49.0MB/s]
+Downloading healda_v2.checkpoint: 2%|▏         | 80.0M/3.42G [00:02&lt;01:03, 56.7MB/s]
+Downloading healda_v2.checkpoint: 3%|▎         | 100M/3.42G [00:02&lt;00:49, 72.0MB/s] 
+Downloading healda_v2.checkpoint: 3%|▎         | 120M/3.42G [00:02&lt;00:42, 84.2MB/s]
+Downloading healda_v2.checkpoint: 4%|▍         | 140M/3.42G [00:02&lt;00:37, 93.7MB/s]
+Downloading healda_v2.checkpoint: 5%|▍         | 160M/3.42G [00:02&lt;00:37, 94.5MB/s]
+Downloading healda_v2.checkpoint: 5%|▌         | 180M/3.42G [00:03&lt;00:33, 105MB/s] 
+Downloading healda_v2.checkpoint: 6%|▌         | 200M/3.42G [00:03&lt;00:31, 110MB/s]
+Downloading healda_v2.checkpoint: 6%|▋         | 220M/3.42G [00:03&lt;00:31, 109MB/s]
+Downloading healda_v2.checkpoint: 7%|▋         | 240M/3.42G [00:03&lt;00:29, 116MB/s]
+Downloading healda_v2.checkpoint: 7%|▋         | 260M/3.42G [00:03&lt;00:28, 120MB/s]
+Downloading healda_v2.checkpoint: 8%|▊         | 280M/3.42G [00:03&lt;00:28, 118MB/s]
+Downloading healda_v2.checkpoint: 9%|▊         | 300M/3.42G [00:04&lt;00:29, 113MB/s]
+Downloading healda_v2.checkpoint: 9%|▉         | 320M/3.42G [00:04&lt;00:29, 115MB/s]
+Downloading healda_v2.checkpoint: 10%|▉         | 340M/3.42G [00:04&lt;00:28, 117MB/s]
+Downloading healda_v2.checkpoint: 10%|█         | 360M/3.42G [00:04&lt;00:27, 122MB/s]
+Downloading healda_v2.checkpoint: 11%|█         | 380M/3.42G [00:04&lt;00:26, 122MB/s]
+Downloading healda_v2.checkpoint: 11%|█▏        | 400M/3.42G [00:05&lt;00:27, 119MB/s]
+Downloading healda_v2.checkpoint: 12%|█▏        | 420M/3.42G [00:05&lt;00:38, 83.4MB/s]
+Downloading healda_v2.checkpoint: 13%|█▎        | 440M/3.42G [00:05&lt;00:39, 80.7MB/s]
+Downloading healda_v2.checkpoint: 13%|█▎        | 450M/3.42G [00:06&lt;00:52, 61.2MB/s]
+Downloading healda_v2.checkpoint: 13%|█▎        | 460M/3.42G [00:06&lt;00:48, 65.5MB/s]
+Downloading healda_v2.checkpoint: 14%|█▎        | 480M/3.42G [00:06&lt;00:40, 78.0MB/s]
+Downloading healda_v2.checkpoint: 14%|█▍        | 500M/3.42G [00:06&lt;00:36, 87.3MB/s]
+Downloading healda_v2.checkpoint: 15%|█▍        | 510M/3.42G [00:06&lt;00:36, 86.6MB/s]
+Downloading healda_v2.checkpoint: 15%|█▍        | 520M/3.42G [00:06&lt;00:36, 85.4MB/s]
+Downloading healda_v2.checkpoint: 15%|█▌        | 540M/3.42G [00:06&lt;00:31, 97.3MB/s]
+Downloading healda_v2.checkpoint: 16%|█▌        | 560M/3.42G [00:07&lt;00:28, 109MB/s] 
+Downloading healda_v2.checkpoint: 17%|█▋        | 580M/3.42G [00:07&lt;00:28, 109MB/s]
+Downloading healda_v2.checkpoint: 17%|█▋        | 600M/3.42G [00:07&lt;00:26, 114MB/s]
+Downloading healda_v2.checkpoint: 18%|█▊        | 620M/3.42G [00:07&lt;00:26, 116MB/s]
+Downloading healda_v2.checkpoint: 18%|█▊        | 640M/3.42G [00:07&lt;00:26, 114MB/s]
+Downloading healda_v2.checkpoint: 19%|█▉        | 660M/3.42G [00:08&lt;00:26, 115MB/s]
+Downloading healda_v2.checkpoint: 19%|█▉        | 680M/3.42G [00:08&lt;00:24, 119MB/s]
+Downloading healda_v2.checkpoint: 20%|██        | 700M/3.42G [00:08&lt;00:25, 117MB/s]
+Downloading healda_v2.checkpoint: 21%|██        | 720M/3.42G [00:08&lt;00:27, 107MB/s]
+Downloading healda_v2.checkpoint: 21%|██        | 740M/3.42G [00:09&lt;00:36, 79.8MB/s]
+Downloading healda_v2.checkpoint: 21%|██▏       | 750M/3.42G [00:09&lt;00:39, 73.8MB/s]
+Downloading healda_v2.checkpoint: 22%|██▏       | 760M/3.42G [00:09&lt;00:36, 77.8MB/s]
+Downloading healda_v2.checkpoint: 22%|██▏       | 770M/3.42G [00:09&lt;00:41, 69.3MB/s]
+Downloading healda_v2.checkpoint: 22%|██▏       | 780M/3.42G [00:09&lt;00:42, 66.6MB/s]
+Downloading healda_v2.checkpoint: 23%|██▎       | 790M/3.42G [00:09&lt;00:48, 58.2MB/s]
+Downloading healda_v2.checkpoint: 23%|██▎       | 800M/3.42G [00:10&lt;00:47, 60.2MB/s]
+Downloading healda_v2.checkpoint: 23%|██▎       | 810M/3.42G [00:10&lt;00:52, 53.5MB/s]
+Downloading healda_v2.checkpoint: 23%|██▎       | 820M/3.42G [00:10&lt;01:00, 46.3MB/s]
+Downloading healda_v2.checkpoint: 24%|██▎       | 830M/3.42G [00:11&lt;01:09, 40.0MB/s]
+Downloading healda_v2.checkpoint: 24%|██▍       | 840M/3.42G [00:11&lt;01:07, 41.2MB/s]
+Downloading healda_v2.checkpoint: 24%|██▍       | 850M/3.42G [00:11&lt;01:09, 39.8MB/s]
+Downloading healda_v2.checkpoint: 25%|██▍       | 860M/3.42G [00:11&lt;01:13, 37.6MB/s]
+Downloading healda_v2.checkpoint: 25%|██▍       | 870M/3.42G [00:12&lt;01:19, 34.9MB/s]
+Downloading healda_v2.checkpoint: 25%|██▌       | 880M/3.42G [00:12&lt;01:06, 41.4MB/s]
+Downloading healda_v2.checkpoint: 25%|██▌       | 890M/3.42G [00:12&lt;00:59, 45.7MB/s]
+Downloading healda_v2.checkpoint: 26%|██▌       | 900M/3.42G [00:12&lt;00:51, 53.0MB/s]
+Downloading healda_v2.checkpoint: 26%|██▌       | 910M/3.42G [00:12&lt;00:47, 57.0MB/s]
+Downloading healda_v2.checkpoint: 26%|██▋       | 920M/3.42G [00:12&lt;00:41, 65.7MB/s]
+Downloading healda_v2.checkpoint: 27%|██▋       | 930M/3.42G [00:13&lt;00:37, 72.2MB/s]
+Downloading healda_v2.checkpoint: 27%|██▋       | 940M/3.42G [00:13&lt;00:35, 76.2MB/s]
+Downloading healda_v2.checkpoint: 27%|██▋       | 960M/3.42G [00:13&lt;00:32, 82.8MB/s]
+Downloading healda_v2.checkpoint: 28%|██▊       | 970M/3.42G [00:13&lt;00:31, 85.5MB/s]
+Downloading healda_v2.checkpoint: 28%|██▊       | 990M/3.42G [00:13&lt;00:27, 94.3MB/s]
+Downloading healda_v2.checkpoint: 29%|██▉       | 0.99G/3.42G [00:13&lt;00:25, 101MB/s]
+Downloading healda_v2.checkpoint: 29%|██▉       | 1.01G/3.42G [00:14&lt;00:23, 109MB/s]
+Downloading healda_v2.checkpoint: 30%|███       | 1.03G/3.42G [00:14&lt;00:22, 115MB/s]
+Downloading healda_v2.checkpoint: 31%|███       | 1.04G/3.42G [00:14&lt;00:22, 114MB/s]
+Downloading healda_v2.checkpoint: 31%|███       | 1.06G/3.42G [00:14&lt;00:23, 109MB/s]
+Downloading healda_v2.checkpoint: 32%|███▏      | 1.08G/3.42G [00:14&lt;00:22, 109MB/s]
+Downloading healda_v2.checkpoint: 32%|███▏      | 1.10G/3.42G [00:15&lt;00:23, 104MB/s]
+Downloading healda_v2.checkpoint: 33%|███▎      | 1.12G/3.42G [00:15&lt;00:22, 112MB/s]
+Downloading healda_v2.checkpoint: 33%|███▎      | 1.14G/3.42G [00:15&lt;00:30, 80.6MB/s]
+Downloading healda_v2.checkpoint: 34%|███▍      | 1.16G/3.42G [00:15&lt;00:26, 89.9MB/s]
+Downloading healda_v2.checkpoint: 34%|███▍      | 1.17G/3.42G [00:15&lt;00:26, 91.8MB/s]
+Downloading healda_v2.checkpoint: 35%|███▍      | 1.19G/3.42G [00:16&lt;00:24, 97.8MB/s]
+Downloading healda_v2.checkpoint: 35%|███▌      | 1.21G/3.42G [00:16&lt;00:24, 97.8MB/s]
+Downloading healda_v2.checkpoint: 36%|███▌      | 1.23G/3.42G [00:16&lt;00:23, 101MB/s] 
+Downloading healda_v2.checkpoint: 37%|███▋      | 1.25G/3.42G [00:16&lt;00:21, 107MB/s]
+Downloading healda_v2.checkpoint: 37%|███▋      | 1.27G/3.42G [00:16&lt;00:21, 108MB/s]
+Downloading healda_v2.checkpoint: 38%|███▊      | 1.29G/3.42G [00:17&lt;00:22, 104MB/s]
+Downloading healda_v2.checkpoint: 38%|███▊      | 1.31G/3.42G [00:17&lt;00:21, 105MB/s]
+Downloading healda_v2.checkpoint: 39%|███▉      | 1.33G/3.42G [00:17&lt;00:25, 86.8MB/s]
+Downloading healda_v2.checkpoint: 39%|███▉      | 1.35G/3.42G [00:17&lt;00:24, 90.3MB/s]
+Downloading healda_v2.checkpoint: 40%|████      | 1.37G/3.42G [00:17&lt;00:23, 94.8MB/s]
+Downloading healda_v2.checkpoint: 41%|████      | 1.39G/3.42G [00:18&lt;00:21, 99.9MB/s]
+Downloading healda_v2.checkpoint: 41%|████      | 1.41G/3.42G [00:18&lt;00:21, 102MB/s] 
+Downloading healda_v2.checkpoint: 42%|████▏     | 1.43G/3.42G [00:18&lt;00:20, 102MB/s]
+Downloading healda_v2.checkpoint: 42%|████▏     | 1.45G/3.42G [00:18&lt;00:20, 103MB/s]
+Downloading healda_v2.checkpoint: 43%|████▎     | 1.46G/3.42G [00:18&lt;00:20, 105MB/s]
+Downloading healda_v2.checkpoint: 43%|████▎     | 1.48G/3.42G [00:19&lt;00:19, 108MB/s]
+Downloading healda_v2.checkpoint: 44%|████▍     | 1.50G/3.42G [00:19&lt;00:19, 105MB/s]
+Downloading healda_v2.checkpoint: 45%|████▍     | 1.52G/3.42G [00:19&lt;00:19, 105MB/s]
+Downloading healda_v2.checkpoint: 45%|████▌     | 1.54G/3.42G [00:19&lt;00:19, 105MB/s]
+Downloading healda_v2.checkpoint: 46%|████▌     | 1.56G/3.42G [00:19&lt;00:18, 109MB/s]
+Downloading healda_v2.checkpoint: 46%|████▋     | 1.58G/3.42G [00:20&lt;00:18, 108MB/s]
+Downloading healda_v2.checkpoint: 47%|████▋     | 1.60G/3.42G [00:20&lt;00:17, 109MB/s]
+Downloading healda_v2.checkpoint: 47%|████▋     | 1.62G/3.42G [00:20&lt;00:18, 106MB/s]
+Downloading healda_v2.checkpoint: 48%|████▊     | 1.64G/3.42G [00:20&lt;00:18, 105MB/s]
+Downloading healda_v2.checkpoint: 49%|████▊     | 1.66G/3.42G [00:20&lt;00:17, 109MB/s]
+Downloading healda_v2.checkpoint: 49%|████▉     | 1.68G/3.42G [00:21&lt;00:16, 114MB/s]
+Downloading healda_v2.checkpoint: 50%|████▉     | 1.70G/3.42G [00:21&lt;00:16, 115MB/s]
+Downloading healda_v2.checkpoint: 50%|█████     | 1.72G/3.42G [00:21&lt;00:17, 104MB/s]
+Downloading healda_v2.checkpoint: 51%|█████     | 1.74G/3.42G [00:21&lt;00:17, 104MB/s]
+Downloading healda_v2.checkpoint: 51%|█████▏    | 1.76G/3.42G [00:21&lt;00:16, 109MB/s]
+Downloading healda_v2.checkpoint: 52%|█████▏    | 1.78G/3.42G [00:22&lt;00:16, 108MB/s]
+Downloading healda_v2.checkpoint: 53%|█████▎    | 1.80G/3.42G [00:22&lt;00:16, 107MB/s]
+Downloading healda_v2.checkpoint: 53%|█████▎    | 1.82G/3.42G [00:22&lt;00:15, 109MB/s]
+Downloading healda_v2.checkpoint: 54%|█████▎    | 1.84G/3.42G [00:22&lt;00:15, 112MB/s]
+Downloading healda_v2.checkpoint: 54%|█████▍    | 1.86G/3.42G [00:22&lt;00:14, 113MB/s]
+Downloading healda_v2.checkpoint: 55%|█████▍    | 1.88G/3.42G [00:22&lt;00:14, 113MB/s]
+Downloading healda_v2.checkpoint: 55%|█████▌    | 1.89G/3.42G [00:23&lt;00:14, 114MB/s]
+Downloading healda_v2.checkpoint: 56%|█████▌    | 1.91G/3.42G [00:23&lt;00:15, 102MB/s]
+Downloading healda_v2.checkpoint: 56%|█████▋    | 1.92G/3.42G [00:23&lt;00:15, 102MB/s]
+Downloading healda_v2.checkpoint: 57%|█████▋    | 1.93G/3.42G [00:23&lt;00:15, 101MB/s]
+Downloading healda_v2.checkpoint: 57%|█████▋    | 1.94G/3.42G [00:23&lt;00:16, 97.2MB/s]
+Downloading healda_v2.checkpoint: 57%|█████▋    | 1.95G/3.42G [00:24&lt;00:25, 62.8MB/s]
+Downloading healda_v2.checkpoint: 57%|█████▋    | 1.96G/3.42G [00:24&lt;00:28, 55.1MB/s]
+Downloading healda_v2.checkpoint: 58%|█████▊    | 1.97G/3.42G [00:24&lt;00:33, 46.6MB/s]
+Downloading healda_v2.checkpoint: 58%|█████▊    | 1.98G/3.42G [00:25&lt;00:37, 40.6MB/s]
+Downloading healda_v2.checkpoint: 58%|█████▊    | 1.99G/3.42G [00:25&lt;00:42, 36.2MB/s]
+Downloading healda_v2.checkpoint: 59%|█████▊    | 2.00G/3.42G [00:25&lt;00:50, 30.3MB/s]
+Downloading healda_v2.checkpoint: 59%|█████▉    | 2.01G/3.42G [00:26&lt;00:47, 31.8MB/s]
+Downloading healda_v2.checkpoint: 59%|█████▉    | 2.02G/3.42G [00:26&lt;00:49, 30.2MB/s]
+Downloading healda_v2.checkpoint: 59%|█████▉    | 2.03G/3.42G [00:26&lt;00:50, 29.2MB/s]
+Downloading healda_v2.checkpoint: 60%|█████▉    | 2.04G/3.42G [00:27&lt;00:50, 29.2MB/s]
+Downloading healda_v2.checkpoint: 60%|██████    | 2.05G/3.42G [00:27&lt;00:51, 28.3MB/s]
+Downloading healda_v2.checkpoint: 60%|██████    | 2.06G/3.42G [00:28&lt;00:49, 29.2MB/s]
+Downloading healda_v2.checkpoint: 61%|██████    | 2.07G/3.42G [00:28&lt;00:48, 29.9MB/s]
+Downloading healda_v2.checkpoint: 61%|██████    | 2.08G/3.42G [00:28&lt;00:42, 33.5MB/s]
+Downloading healda_v2.checkpoint: 61%|██████    | 2.09G/3.42G [00:28&lt;00:42, 33.3MB/s]
+Downloading healda_v2.checkpoint: 61%|██████▏   | 2.10G/3.42G [00:29&lt;00:38, 36.3MB/s]
+Downloading healda_v2.checkpoint: 62%|██████▏   | 2.11G/3.42G [00:29&lt;00:36, 38.6MB/s]
+Downloading healda_v2.checkpoint: 62%|██████▏   | 2.12G/3.42G [00:29&lt;00:38, 36.3MB/s]
+Downloading healda_v2.checkpoint: 62%|██████▏   | 2.13G/3.42G [00:29&lt;00:35, 39.1MB/s]
+Downloading healda_v2.checkpoint: 63%|██████▎   | 2.14G/3.42G [00:30&lt;00:34, 39.8MB/s]
+Downloading healda_v2.checkpoint: 63%|██████▎   | 2.15G/3.42G [00:30&lt;00:35, 38.9MB/s]
+Downloading healda_v2.checkpoint: 63%|██████▎   | 2.16G/3.42G [00:30&lt;00:33, 40.8MB/s]
+Downloading healda_v2.checkpoint: 63%|██████▎   | 2.17G/3.42G [00:30&lt;00:29, 45.8MB/s]
+Downloading healda_v2.checkpoint: 64%|██████▎   | 2.18G/3.42G [00:31&lt;00:28, 46.9MB/s]
+Downloading healda_v2.checkpoint: 64%|██████▍   | 2.19G/3.42G [00:31&lt;00:27, 48.8MB/s]
+Downloading healda_v2.checkpoint: 64%|██████▍   | 2.20G/3.42G [00:31&lt;00:26, 50.2MB/s]
+Downloading healda_v2.checkpoint: 65%|██████▍   | 2.21G/3.42G [00:31&lt;00:22, 58.0MB/s]
+Downloading healda_v2.checkpoint: 65%|██████▍   | 2.22G/3.42G [00:31&lt;00:19, 66.1MB/s]
+Downloading healda_v2.checkpoint: 65%|██████▌   | 2.23G/3.42G [00:31&lt;00:19, 65.0MB/s]
+Downloading healda_v2.checkpoint: 65%|██████▌   | 2.24G/3.42G [00:31&lt;00:17, 71.5MB/s]
+Downloading healda_v2.checkpoint: 66%|██████▌   | 2.25G/3.42G [00:32&lt;00:16, 78.3MB/s]
+Downloading healda_v2.checkpoint: 66%|██████▌   | 2.26G/3.42G [00:32&lt;00:14, 83.7MB/s]
+Downloading healda_v2.checkpoint: 66%|██████▋   | 2.27G/3.42G [00:32&lt;00:14, 88.2MB/s]
+Downloading healda_v2.checkpoint: 67%|██████▋   | 2.28G/3.42G [00:32&lt;00:13, 91.1MB/s]
+Downloading healda_v2.checkpoint: 67%|██████▋   | 2.29G/3.42G [00:32&lt;00:14, 85.2MB/s]
+Downloading healda_v2.checkpoint: 67%|██████▋   | 2.30G/3.42G [00:32&lt;00:13, 85.9MB/s]
+Downloading healda_v2.checkpoint: 68%|██████▊   | 2.31G/3.42G [00:32&lt;00:13, 88.8MB/s]
+Downloading healda_v2.checkpoint: 68%|██████▊   | 2.32G/3.42G [00:32&lt;00:12, 91.3MB/s]
+Downloading healda_v2.checkpoint: 69%|██████▊   | 2.34G/3.42G [00:33&lt;00:11, 103MB/s] 
+Downloading healda_v2.checkpoint: 69%|██████▉   | 2.36G/3.42G [00:33&lt;00:10, 107MB/s]
+Downloading healda_v2.checkpoint: 70%|██████▉   | 2.38G/3.42G [00:33&lt;00:11, 98.7MB/s]
+Downloading healda_v2.checkpoint: 70%|███████   | 2.39G/3.42G [00:33&lt;00:11, 92.5MB/s]
+Downloading healda_v2.checkpoint: 70%|███████   | 2.40G/3.42G [00:33&lt;00:12, 89.8MB/s]
+Downloading healda_v2.checkpoint: 71%|███████   | 2.41G/3.42G [00:33&lt;00:11, 90.2MB/s]
+Downloading healda_v2.checkpoint: 71%|███████   | 2.42G/3.42G [00:34&lt;00:11, 91.8MB/s]
+Downloading healda_v2.checkpoint: 71%|███████   | 2.43G/3.42G [00:34&lt;00:11, 92.4MB/s]
+Downloading healda_v2.checkpoint: 71%|███████▏  | 2.44G/3.42G [00:34&lt;00:11, 93.2MB/s]
+Downloading healda_v2.checkpoint: 72%|███████▏  | 2.45G/3.42G [00:34&lt;00:13, 78.6MB/s]
+Downloading healda_v2.checkpoint: 72%|███████▏  | 2.47G/3.42G [00:34&lt;00:14, 69.2MB/s]
+Downloading healda_v2.checkpoint: 73%|███████▎  | 2.48G/3.42G [00:34&lt;00:14, 69.8MB/s]
+Downloading healda_v2.checkpoint: 73%|███████▎  | 2.49G/3.42G [00:35&lt;00:17, 55.7MB/s]
+Downloading healda_v2.checkpoint: 73%|███████▎  | 2.50G/3.42G [00:35&lt;00:17, 57.8MB/s]
+Downloading healda_v2.checkpoint: 73%|███████▎  | 2.51G/3.42G [00:35&lt;00:15, 63.1MB/s]
+Downloading healda_v2.checkpoint: 74%|███████▎  | 2.52G/3.42G [00:35&lt;00:14, 66.7MB/s]
+Downloading healda_v2.checkpoint: 74%|███████▍  | 2.54G/3.42G [00:35&lt;00:11, 81.7MB/s]
+Downloading healda_v2.checkpoint: 75%|███████▍  | 2.56G/3.42G [00:36&lt;00:09, 92.3MB/s]
+Downloading healda_v2.checkpoint: 75%|███████▌  | 2.58G/3.42G [00:36&lt;00:13, 68.9MB/s]
+Downloading healda_v2.checkpoint: 76%|███████▌  | 2.60G/3.42G [00:36&lt;00:10, 81.3MB/s]
+Downloading healda_v2.checkpoint: 76%|███████▋  | 2.61G/3.42G [00:36&lt;00:10, 82.6MB/s]
+Downloading healda_v2.checkpoint: 77%|███████▋  | 2.63G/3.42G [00:36&lt;00:09, 90.0MB/s]
+Downloading healda_v2.checkpoint: 77%|███████▋  | 2.64G/3.42G [00:37&lt;00:09, 91.0MB/s]
+Downloading healda_v2.checkpoint: 78%|███████▊  | 2.66G/3.42G [00:37&lt;00:08, 101MB/s] 
+Downloading healda_v2.checkpoint: 78%|███████▊  | 2.68G/3.42G [00:37&lt;00:07, 101MB/s]
+Downloading healda_v2.checkpoint: 79%|███████▊  | 2.69G/3.42G [00:37&lt;00:08, 97.4MB/s]
+Downloading healda_v2.checkpoint: 79%|███████▉  | 2.71G/3.42G [00:37&lt;00:07, 97.3MB/s]
+Downloading healda_v2.checkpoint: 80%|███████▉  | 2.72G/3.42G [00:37&lt;00:07, 99.1MB/s]
+Downloading healda_v2.checkpoint: 80%|████████  | 2.74G/3.42G [00:38&lt;00:06, 104MB/s] 
+Downloading healda_v2.checkpoint: 81%|████████  | 2.76G/3.42G [00:38&lt;00:06, 104MB/s]
+Downloading healda_v2.checkpoint: 81%|████████▏ | 2.78G/3.42G [00:38&lt;00:06, 105MB/s]
+Downloading healda_v2.checkpoint: 82%|████████▏ | 2.80G/3.42G [00:38&lt;00:06, 104MB/s]
+Downloading healda_v2.checkpoint: 83%|████████▎ | 2.82G/3.42G [00:38&lt;00:06, 105MB/s]
+Downloading healda_v2.checkpoint: 83%|████████▎ | 2.84G/3.42G [00:39&lt;00:05, 111MB/s]
+Downloading healda_v2.checkpoint: 84%|████████▎ | 2.86G/3.42G [00:39&lt;00:05, 104MB/s]
+Downloading healda_v2.checkpoint: 84%|████████▍ | 2.88G/3.42G [00:39&lt;00:06, 86.0MB/s]
+Downloading healda_v2.checkpoint: 85%|████████▍ | 2.89G/3.42G [00:39&lt;00:06, 81.1MB/s]
+Downloading healda_v2.checkpoint: 85%|████████▍ | 2.90G/3.42G [00:40&lt;00:07, 76.8MB/s]
+Downloading healda_v2.checkpoint: 85%|████████▌ | 2.91G/3.42G [00:40&lt;00:07, 76.5MB/s]
+Downloading healda_v2.checkpoint: 86%|████████▌ | 2.93G/3.42G [00:40&lt;00:06, 86.7MB/s]
+Downloading healda_v2.checkpoint: 86%|████████▌ | 2.94G/3.42G [00:40&lt;00:05, 88.5MB/s]
+Downloading healda_v2.checkpoint: 87%|████████▋ | 2.96G/3.42G [00:40&lt;00:05, 93.7MB/s]
+Downloading healda_v2.checkpoint: 87%|████████▋ | 2.97G/3.42G [00:40&lt;00:05, 90.2MB/s]
+Downloading healda_v2.checkpoint: 87%|████████▋ | 2.99G/3.42G [00:41&lt;00:04, 96.7MB/s]
+Downloading healda_v2.checkpoint: 88%|████████▊ | 3.00G/3.42G [00:41&lt;00:05, 88.4MB/s]
+Downloading healda_v2.checkpoint: 88%|████████▊ | 3.02G/3.42G [00:41&lt;00:04, 95.6MB/s]
+Downloading healda_v2.checkpoint: 89%|████████▊ | 3.03G/3.42G [00:41&lt;00:04, 93.1MB/s]
+Downloading healda_v2.checkpoint: 89%|████████▉ | 3.04G/3.42G [00:41&lt;00:04, 85.5MB/s]
+Downloading healda_v2.checkpoint: 89%|████████▉ | 3.05G/3.42G [00:41&lt;00:04, 86.9MB/s]
+Downloading healda_v2.checkpoint: 90%|████████▉ | 3.07G/3.42G [00:41&lt;00:03, 94.6MB/s]
+Downloading healda_v2.checkpoint: 90%|█████████ | 3.09G/3.42G [00:42&lt;00:03, 106MB/s] 
+Downloading healda_v2.checkpoint: 91%|█████████ | 3.11G/3.42G [00:42&lt;00:03, 99.1MB/s]
+Downloading healda_v2.checkpoint: 91%|█████████ | 3.12G/3.42G [00:42&lt;00:03, 96.1MB/s]
+Downloading healda_v2.checkpoint: 91%|█████████▏| 3.12G/3.42G [00:42&lt;00:03, 80.9MB/s]
+Downloading healda_v2.checkpoint: 92%|█████████▏| 3.13G/3.42G [00:42&lt;00:04, 72.5MB/s]
+Downloading healda_v2.checkpoint: 92%|█████████▏| 3.14G/3.42G [00:43&lt;00:04, 68.7MB/s]
+Downloading healda_v2.checkpoint: 92%|█████████▏| 3.15G/3.42G [00:43&lt;00:03, 73.8MB/s]
+Downloading healda_v2.checkpoint: 93%|█████████▎| 3.16G/3.42G [00:43&lt;00:03, 68.3MB/s]
+Downloading healda_v2.checkpoint: 93%|█████████▎| 3.18G/3.42G [00:43&lt;00:03, 79.8MB/s]
+Downloading healda_v2.checkpoint: 94%|█████████▎| 3.20G/3.42G [00:43&lt;00:02, 87.8MB/s]
+Downloading healda_v2.checkpoint: 94%|█████████▍| 3.21G/3.42G [00:43&lt;00:02, 87.9MB/s]
+Downloading healda_v2.checkpoint: 94%|█████████▍| 3.22G/3.42G [00:44&lt;00:02, 80.3MB/s]
+Downloading healda_v2.checkpoint: 95%|█████████▍| 3.23G/3.42G [00:44&lt;00:02, 78.1MB/s]
+Downloading healda_v2.checkpoint: 95%|█████████▍| 3.24G/3.42G [00:44&lt;00:02, 82.9MB/s]
+Downloading healda_v2.checkpoint: 95%|█████████▌| 3.25G/3.42G [00:44&lt;00:02, 87.0MB/s]
+Downloading healda_v2.checkpoint: 95%|█████████▌| 3.26G/3.42G [00:44&lt;00:02, 78.8MB/s]
+Downloading healda_v2.checkpoint: 96%|█████████▌| 3.28G/3.42G [00:44&lt;00:01, 84.8MB/s]
+Downloading healda_v2.checkpoint: 96%|█████████▋| 3.29G/3.42G [00:44&lt;00:01, 72.7MB/s]
+Downloading healda_v2.checkpoint: 97%|█████████▋| 3.30G/3.42G [00:45&lt;00:01, 67.2MB/s]
+Downloading healda_v2.checkpoint: 97%|█████████▋| 3.31G/3.42G [00:45&lt;00:01, 64.1MB/s]
+Downloading healda_v2.checkpoint: 97%|█████████▋| 3.32G/3.42G [00:45&lt;00:01, 69.7MB/s]
+Downloading healda_v2.checkpoint: 97%|█████████▋| 3.33G/3.42G [00:45&lt;00:01, 70.1MB/s]
+Downloading healda_v2.checkpoint: 98%|█████████▊| 3.35G/3.42G [00:45&lt;00:00, 81.8MB/s]
+Downloading healda_v2.checkpoint: 98%|█████████▊| 3.36G/3.42G [00:45&lt;00:00, 78.4MB/s]
+Downloading healda_v2.checkpoint: 99%|█████████▊| 3.37G/3.42G [00:46&lt;00:00, 80.6MB/s]
+Downloading healda_v2.checkpoint: 99%|█████████▉| 3.39G/3.42G [00:46&lt;00:00, 78.5MB/s]
+Downloading healda_v2.checkpoint: 99%|█████████▉| 3.40G/3.42G [00:46&lt;00:00, 74.2MB/s]
+Downloading healda_v2.checkpoint: 100%|██████████| 3.42G/3.42G [00:46&lt;00:00, 86.2MB/s]
+Downloading healda_v2.checkpoint: 100%|██████████| 3.42G/3.42G [00:46&lt;00:00, 78.6MB/s]
+2026-10-29 17:35:04.312 | INFO     | earth2studio.models.da.healda_v2:load_model:290 - Building HealDA v2 from healda_v2.checkpoint</code></pre></details>
+
 <h2 id="fetch-observations">Fetch Observations<a class="headerlink" href="#fetch-observations" title="Permanent link">&para;</a></h2>
 <p>One analysis reads observations spanning <code>[t - 45h, t + 3h]</code>. Any source returning
 DataFrames that match <code>HealDAv2.input_coords</code> works; here the NNJA sources are
@@ -3527,11 +3763,231 @@ requires. A sensor outside its archive period comes back empty with a warning.</
 <a id="__codelineno-1-29" name="__codelineno-1-29" href="#__codelineno-1-29"></a><span class="n">obs</span> <span class="o">=</span> <span class="n">fetch_dataframes</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">sources</span><span class="p">,</span> <span class="n">schemas</span><span class="p">)),</span> <span class="n">analysis_time</span><span class="p">)</span>
 <a id="__codelineno-1-30" name="__codelineno-1-30" href="#__codelineno-1-30"></a><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetched rows per stream: </span><span class="si">{</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">frame</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">obs</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>217 lines</small></summary><pre class="no-copy"><code>Fetching NNJA files:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+
+Fetching NNJA files:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+
+
+Fetching NNJA files:   0%|          | 0/8 [00:00&lt;?, ?it/s]
+
+
+Fetching NNJA files:  12%|█▎        | 1/8 [00:39&lt;04:39, 39.98s/it]
+
+
+
+
+
+
+2026-10-29 17:36:25.443 | INFO     | earth2studio.data.utils_ncep:compile_tables:1367 - [earth2studio.data.NNJAObsSatwnd] decode 1/8: gdas.20260113.t06z.satwnd.tm00.bufr_d (2,015,385 rows) in 0.4s
+
+Fetching NNJA files:   0%|          | 0/8 [00:40&lt;?, ?it/s]
+
+
+Fetching NNJA files:  12%|█▎        | 1/8 [00:40&lt;04:39, 39.98s/it]
+
+Fetching NNJA files:   0%|          | 0/8 [00:40&lt;?, ?it/s]
+
+Fetching NNJA files:  12%|█▎        | 1/8 [00:41&lt;04:49, 41.39s/it]
+Fetching NNJA files:  12%|█▎        | 1/8 [00:42&lt;04:54, 42.06s/it]
+
+Fetching NNJA files:  38%|███▊      | 3/8 [00:42&lt;00:55, 11.14s/it]
+
+Fetching NNJA files:  50%|█████     | 4/8 [00:42&lt;00:29,  7.37s/it]
+
+
+
+
+
+
+2026-10-29 17:36:27.860 | INFO     | earth2studio.data.utils_ncep:compile_tables:1367 - [earth2studio.data.NNJAObsConv] decode 1/8: gdas.20260113.t06z.gpsro.tm00.bufr_d (2,321,667 rows) in 0.3s
+
+Fetching NNJA files:  12%|█▎        | 1/8 [00:42&lt;04:54, 42.06s/it]
+
+
+Fetching NNJA files:  12%|█▎        | 1/8 [00:42&lt;04:39, 39.98s/it]
+
+Fetching NNJA files:  50%|█████     | 4/8 [00:42&lt;00:29,  7.37s/it]
+
+
+
+
+
+
+2026-10-29 17:36:28.054 | INFO     | earth2studio.data.utils_ncep:compile_tables:1367 - [earth2studio.data.NNJAObsConv] decode 2/8: gdas.20260113.t12z.gpsro.tm00.bufr_d (2,280,586 rows) in 0.3s
+
+Fetching NNJA files:  12%|█▎        | 1/8 [00:43&lt;04:54, 42.06s/it]
+
+
+Fetching NNJA files:  12%|█▎        | 1/8 [00:43&lt;04:39, 39.98s/it]
+
+Fetching NNJA files:  50%|█████     | 4/8 [00:43&lt;00:29,  7.37s/it]
+
+
+Fetching NNJA files:  25%|██▌       | 2/8 [00:43&lt;01:50, 18.39s/it]
+
+Fetching NNJA files:  62%|██████▎   | 5/8 [00:43&lt;00:15,  5.14s/it]
+Fetching NNJA files:  25%|██▌       | 2/8 [00:43&lt;01:49, 18.19s/it]
+Fetching NNJA files:  38%|███▊      | 3/8 [00:43&lt;00:50, 10.05s/it]
+Fetching NNJA files:  50%|█████     | 4/8 [00:44&lt;00:24,  6.21s/it]
+
+Fetching NNJA files:  75%|███████▌  | 6/8 [00:44&lt;00:07,  3.75s/it]
+
+
+
+
+
+
+2026-10-29 17:36:29.338 | INFO     | earth2studio.data.utils_ncep:compile_tables:1367 - [earth2studio.data.NNJAObsSatwnd] decode 2/8: gdas.20260113.t12z.satwnd.tm00.bufr_d (2,324,007 rows) in 1.0s
+
+Fetching NNJA files:  50%|█████     | 4/8 [00:44&lt;00:24,  6.21s/it]
+
+
+Fetching NNJA files:  25%|██▌       | 2/8 [00:44&lt;01:50, 18.39s/it]
+
+Fetching NNJA files:  75%|███████▌  | 6/8 [00:44&lt;00:07,  3.75s/it]
+Fetching NNJA files:  62%|██████▎   | 5/8 [00:44&lt;00:12,  4.08s/it]
+
+Fetching NNJA files:  88%|████████▊ | 7/8 [00:44&lt;00:02,  2.68s/it]
+Fetching NNJA files:  75%|███████▌  | 6/8 [00:45&lt;00:05,  2.89s/it]
+
+
+Fetching NNJA files:  50%|█████     | 4/8 [00:45&lt;00:29,  7.42s/it]
+
+
+Fetching NNJA files:  62%|██████▎   | 5/8 [00:45&lt;00:15,  5.18s/it]
+Fetching NNJA files: 100%|██████████| 8/8 [00:45&lt;00:00,  1.52s/it]
+Fetching NNJA files: 100%|██████████| 8/8 [00:45&lt;00:00,  5.67s/it]
+
+
+
+
+
+
+2026-10-29 17:36:30.558 | INFO     | earth2studio.data.utils_ncep:compile_tables:1367 - [earth2studio.data.NNJAObsConv] decode 3/8: gdas.20260113.t18z.gpsro.tm00.bufr_d (2,251,201 rows) in 0.8s
+
+
+
+Fetching NNJA files:  62%|██████▎   | 5/8 [00:45&lt;00:15,  5.18s/it]
+
+Fetching NNJA files:  88%|████████▊ | 7/8 [00:45&lt;00:02,  2.68s/it]
+
+
+
+
+
+2026-10-29 17:36:30.571 | INFO     | earth2studio.data.utils_ncep:compile_tables:1367 - [earth2studio.data.NNJAObsConv] decode 4/8: gdas.20260114.t00z.gpsro.tm00.bufr_d (2,245,767 rows) in 0.7s
+
+
+
+Fetching NNJA files:  62%|██████▎   | 5/8 [00:45&lt;00:15,  5.18s/it]
+
+Fetching NNJA files:  88%|████████▊ | 7/8 [00:45&lt;00:02,  2.68s/it]
+
+
+
+
+
+2026-10-29 17:36:30.577 | INFO     | earth2studio.data.utils_ncep:compile_tables:1367 - [earth2studio.data.NNJAObsConv] decode 5/8: gdas.20260114.t06z.gpsro.tm00.bufr_d (2,376,549 rows) in 0.5s
+
+
+
+Fetching NNJA files:  62%|██████▎   | 5/8 [00:45&lt;00:15,  5.18s/it]
+
+Fetching NNJA files:  88%|████████▊ | 7/8 [00:45&lt;00:02,  2.68s/it]
+
+
+Fetching NNJA files:  88%|████████▊ | 7/8 [00:45&lt;00:02,  2.88s/it]
+
+
+
+
+
+2026-10-29 17:36:31.070 | INFO     | earth2studio.data.utils_ncep:compile_tables:1367 - [earth2studio.data.NNJAObsSatwnd] decode 3/8: gdas.20260113.t18z.satwnd.tm00.bufr_d (3,479,914 rows) in 1.1s
+
+
+
+Fetching NNJA files:  88%|████████▊ | 7/8 [00:46&lt;00:02,  2.88s/it]
+
+Fetching NNJA files:  88%|████████▊ | 7/8 [00:46&lt;00:02,  2.68s/it]
+
+
+
+
+
+2026-10-29 17:36:31.194 | INFO     | earth2studio.data.utils_ncep:compile_tables:1367 - [earth2studio.data.NNJAObsConv] decode 6/8: gdas.20260114.t12z.gpsro.tm00.bufr_d (2,384,671 rows) in 0.6s
+
+
+
+Fetching NNJA files:  88%|████████▊ | 7/8 [00:46&lt;00:02,  2.88s/it]
+
+Fetching NNJA files:  88%|████████▊ | 7/8 [00:46&lt;00:02,  2.68s/it]
+
+
+
+
+
+2026-10-29 17:36:31.285 | INFO     | earth2studio.data.utils_ncep:compile_tables:1367 - [earth2studio.data.NNJAObsConv] decode 1/8: gdas.20260113.t06z.prepbufr.nr (752,666 rows) in 1.7s
+
+
+
+Fetching NNJA files:  88%|████████▊ | 7/8 [00:46&lt;00:02,  2.88s/it]
+
+Fetching NNJA files:  88%|████████▊ | 7/8 [00:46&lt;00:02,  2.68s/it]
+
+
+
+
+
+2026-10-29 17:36:31.293 | INFO     | earth2studio.data.utils_ncep:compile_tables:1367 - [earth2studio.data.NNJAObsConv] decode 2/8: gdas.20260113.t12z.prepbufr.nr (903,814 rows) in 1.2s
+
+
+
+Fetching NNJA files:  88%|████████▊ | 7/8 [00:46&lt;00:02,  2.88s/it]
+
+Fetching NNJA files:  88%|████████▊ | 7/8 [00:46&lt;00:02,  2.68s/it]
+
+
+Fetching NNJA files: 100%|██████████| 8/8 [00:46&lt;00:00,  2.35s/it]
+Fetching NNJA files: 100%|██████████| 8/8 [00:46&lt;00:00,  5.82s/it]
+
+
+
+2026-10-29 17:36:31.722 | INFO     | earth2studio.data.utils_ncep:compile_tables:1367 - [earth2studio.data.NNJAObsSatwnd] decode 4/8: gdas.20260114.t00z.satwnd.tm00.bufr_d (3,124,438 rows) in 1.4s
+
+
+Fetching NNJA files:  88%|████████▊ | 7/8 [00:46&lt;00:02,  2.68s/it]
+
+
+2026-10-29 17:36:32.128 | INFO     | earth2studio.data.utils_ncep:compile_tables:1367 - [earth2studio.data.NNJAObsSatwnd] decode 5/8: gdas.20260114.t06z.satwnd.tm00.bufr_d (2,045,978 rows) in 1.1s
+
+
+Fetching NNJA files:  88%|████████▊ | 7/8 [00:47&lt;00:02,  2.68s/it]
+
+Fetching NNJA files: 100%|██████████| 8/8 [00:47&lt;00:00,  2.85s/it]
+Fetching NNJA files: 100%|██████████| 8/8 [00:47&lt;00:00,  5.97s/it]
+2026-10-29 17:36:32.874 | INFO     | earth2studio.data.utils_ncep:compile_tables:1367 - [earth2studio.data.NNJAObsSatwnd] decode 6/8: gdas.20260114.t12z.satwnd.tm00.bufr_d (2,412,614 rows) in 1.1s
+2026-10-29 17:36:33.087 | INFO     | earth2studio.data.utils_ncep:compile_tables:1367 - [earth2studio.data.NNJAObsConv] decode 3/8: gdas.20260113.t18z.prepbufr.nr (951,322 rows) in 1.9s
+2026-10-29 17:36:33.235 | INFO     | earth2studio.data.utils_ncep:compile_tables:1367 - [earth2studio.data.NNJAObsSatwnd] decode 7/8: gdas.20260114.t18z.satwnd.tm00.bufr_d (3,638,655 rows) in 1.1s
+2026-10-29 17:36:33.298 | INFO     | earth2studio.data.utils_ncep:compile_tables:1367 - [earth2studio.data.NNJAObsConv] decode 4/8: gdas.20260114.t00z.prepbufr.nr (1,127,861 rows) in 2.0s
+2026-10-29 17:36:33.659 | INFO     | earth2studio.data.utils_ncep:compile_tables:1367 - [earth2studio.data.NNJAObsConv] decode 7/8: gdas.20260114.t18z.gpsro.tm00.bufr_d (2,111,961 rows) in 0.4s
+2026-10-29 17:36:33.663 | INFO     | earth2studio.data.utils_ncep:compile_tables:1367 - [earth2studio.data.NNJAObsConv] decode 8/8: gdas.20260115.t00z.gpsro.tm00.bufr_d (2,198,301 rows) in 0.5s
+2026-10-29 17:36:33.666 | INFO     | earth2studio.data.utils_ncep:compile_tables:1376 - [earth2studio.data.NNJAObsConv] decoded 8 non-empty files in 48.6s
+2026-10-29 17:36:33.772 | INFO     | earth2studio.data.utils_ncep:compile_tables:1367 - [earth2studio.data.NNJAObsSatwnd] decode 8/8: gdas.20260115.t00z.satwnd.tm00.bufr_d (3,235,903 rows) in 0.9s
+2026-10-29 17:36:33.786 | INFO     | earth2studio.data.utils_ncep:compile_tables:1376 - [earth2studio.data.NNJAObsSatwnd] decoded 8 non-empty files in 48.8s
+2026-10-29 17:36:34.515 | INFO     | earth2studio.data.utils_ncep:compile_tables:1367 - [earth2studio.data.NNJAObsConv] decode 5/8: gdas.20260114.t06z.prepbufr.nr (842,614 rows) in 0.9s
+2026-10-29 17:36:34.517 | INFO     | earth2studio.data.utils_ncep:compile_tables:1367 - [earth2studio.data.NNJAObsConv] decode 6/8: gdas.20260114.t12z.prepbufr.nr (1,015,376 rows) in 0.8s
+2026-10-29 17:36:35.443 | INFO     | earth2studio.data.utils_ncep:compile_tables:1367 - [earth2studio.data.NNJAObsConv] decode 7/8: gdas.20260114.t18z.prepbufr.nr (1,060,047 rows) in 1.0s
+2026-10-29 17:36:35.488 | INFO     | earth2studio.data.utils_ncep:compile_tables:1367 - [earth2studio.data.NNJAObsConv] decode 8/8: gdas.20260115.t00z.prepbufr.nr (1,218,645 rows) in 1.0s
+2026-10-29 17:36:35.492 | INFO     | earth2studio.data.utils_ncep:compile_tables:1376 - [earth2studio.data.NNJAObsConv] decoded 8 non-empty files in 50.5s
+2026-10-29 17:36:35.503 | INFO     | __main__:&lt;module&gt;:30 - Fetched rows per stream: [7872345, 18170703, 22276894]</code></pre></details>
+
 <h2 id="run-the-model">Run the Model<a class="headerlink" href="#run-the-model" title="Permanent link">&para;</a></h2>
 <p>The direct call returns the analysis as an <code>xr.DataArray</code> on the model's device.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">analysis</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="o">*</span><span class="n">obs</span><span class="p">)</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Analysis shape: </span><span class="si">{</span><span class="n">analysis</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>1 line</small></summary><pre class="no-copy"><code>2026-10-29 17:37:52.128 | INFO     | __main__:&lt;module&gt;:2 - Analysis shape: (1, 104, 721, 1440)</code></pre></details>
+
 <h2 id="healda-v2-vs-era5">HealDA v2 vs ERA5<a class="headerlink" href="#healda-v2-vs-era5" title="Permanent link">&para;</a></h2>
 <p>The output already uses Earth2Studio variable names on the 0.25 degree grid, so ERA5
 from the NCAR archive can be queried and compared without regridding.</p>
@@ -3585,8 +4041,17 @@ from the NCAR archive can be queried and compared without regridding.</p>
 <a id="__codelineno-3-48" name="__codelineno-3-48" href="#__codelineno-3-48"></a><span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
 <a id="__codelineno-3-49" name="__codelineno-3-49" href="#__codelineno-3-49"></a><span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="s2">&quot;outputs/04_healda_v2_analysis.jpg&quot;</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">)</span>
 </code></pre></div>
+<details class="e2sg-output" open><summary><span>Console output</span><small>5 lines</small></summary><pre class="no-copy"><code>Fetching NCAR ERA5 data:   0%|          | 0/2 [00:00&lt;?, ?it/s]
+Fetching NCAR ERA5 data:  50%|█████     | 1/2 [00:21&lt;00:21, 21.77s/it]
+Fetching NCAR ERA5 data: 100%|██████████| 2/2 [00:21&lt;00:00, 10.91s/it]
+2026-10-29 17:38:14.441 | INFO     | __main__:&lt;module&gt;:28 - t2m RMSE vs ERA5: 0.9594
+2026-10-29 17:38:17.524 | INFO     | __main__:&lt;module&gt;:28 - z500 RMSE vs ERA5: 68.3894</code></pre></details>
+
+<p><img alt="Output from HealDA v2 Global Data Assimilation" class="e2sg-output-image" loading="lazy" src="../../_assets/05_data_assimilation-04_healda_v2/001-cell-8.webp" /></p>
 <hr />
-<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/05_data_assimilation-04_healda_v2/04_healda_v2.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/05_data_assimilation-04_healda_v2/04_healda_v2.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta"></span></div>
+<div class="e2sg-downloads"><a class="e2sg-download" href="../../_assets/05_data_assimilation-04_healda_v2/04_healda_v2.py" download>Download Python source</a><a class="e2sg-download" href="../../_assets/05_data_assimilation-04_healda_v2/04_healda_v2.ipynb" download>Download Jupyter notebook</a><span class="e2sg-download-meta">executed in 290.9s</span></div>
+
+<section class="e2sg-telemetry" aria-labelledby="e2sg-telemetry-title"><div class="e2sg-telemetry-heading"><div><span class="e2sg-eyebrow">Execution profile</span><h2 id="e2sg-telemetry-title">Runtime telemetry</h2></div></div><div class="e2sg-total-runtime"><span>Total runtime</span><strong>4m 51s</strong></div><h3 class="e2sg-telemetry-subtitle">Execution environment</h3><div class="e2sg-hardware-grid"><div class="e2sg-hardware-item"><span>CPU</span><strong>AMD EPYC 7313P 16-Core Processor</strong></div><div class="e2sg-hardware-item"><span>GPU</span><strong>NVIDIA H100 PCIe · 79.6 GiB</strong></div><div class="e2sg-hardware-item"><span>System RAM</span><strong>58.5 GiB</strong></div><div class="e2sg-hardware-item"><span>Platform</span><strong>Linux 6.8.0-147-generic</strong></div><div class="e2sg-hardware-item"><span>Python</span><strong>3.13.13</strong></div><div class="e2sg-hardware-item"><span>GPU driver / CUDA</span><strong>Driver 595.99.02 · CUDA support 13.2</strong></div></div></section>
 
 
 
