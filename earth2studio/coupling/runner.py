@@ -21,7 +21,7 @@ from __future__ import annotations
 import math
 from collections.abc import Iterator, Mapping, Sequence
 from itertools import chain
-from typing import Any
+from typing import Any, TypeAlias
 
 import numpy as np
 import torch
@@ -40,6 +40,7 @@ from earth2studio.coupling._schedule import (
 from earth2studio.coupling.connector import Connector, _split_label
 from earth2studio.coupling.errors import CouplingError, _suggest
 from earth2studio.data import fetch_dataframe
+from earth2studio.data.base import DataFrameSource, ForecastFrameSource
 from earth2studio.grids import infer_grid, same_geometry
 from earth2studio.models.utils import recommended_sources
 from earth2studio.run._fields import _map_field, _with_lead_time
@@ -57,6 +58,7 @@ from earth2studio.utils.time_statistics import apply_time_statistic
 from earth2studio.utils.type import CoordinateSystem
 
 _PROBE_TIME = np.datetime64("2000-01-01T00", "ns")
+_SlotSource: TypeAlias = Source | DataFrameSource | ForecastFrameSource
 
 
 class CoupledRunner:
@@ -97,8 +99,8 @@ class CoupledRunner:
     devices : Mapping[str, torch.device | str], optional
         Devices of components that :meth:`to` leaves in place, such as CPU-only
         impact models, by default none. Every other component runs where its
-        parameters are, or on the CPU without any. Fetches and connected fields
-        are staged onto the receiving component's device.
+        parameters or buffers are, or on the runner's device without any. Fetches
+        and connected fields are staged onto the receiving component's device.
 
     Raises
     ------
@@ -112,7 +114,9 @@ class CoupledRunner:
         self,
         components: Mapping[str, Any],
         connectors: Sequence[Connector] = (),
-        sources: Mapping[str, Source | tuple[Source | None, ...]] | None = None,
+        sources: (
+            Mapping[str, _SlotSource | tuple[_SlotSource | None, ...]] | None
+        ) = None,
         seed: int = 0,
         devices: Mapping[str, torch.device | str] | None = None,
     ) -> None:
@@ -645,7 +649,7 @@ class _Execution:
         x = _map_field(x, plan.slot.signature)
         # Reductions carry the slot's temporal-statistics metadata, as fetch_data's do.
         x.attrs = {k: v for k, v in x.attrs.items() if k != E2S_STATISTICS}
-        statistics = plan.slot.signature.attrs.get(E2S_STATISTICS)
+        statistics = plan.slot.field.attrs.get(E2S_STATISTICS)
         if statistics:
             x.attrs[E2S_STATISTICS] = statistics
         return x
@@ -716,7 +720,7 @@ def _final(final_lead_time: np.timedelta64) -> int:
 
 
 def _slot_sources(
-    node: _Node, given: Source | tuple[Source | None, ...] | None
+    node: _Node, given: _SlotSource | tuple[_SlotSource | None, ...] | None
 ) -> tuple[Any, ...]:
     """One given source or ``None`` per input-then-forcing slot."""
     count = len(node.inputs) + len(node.forcing)
