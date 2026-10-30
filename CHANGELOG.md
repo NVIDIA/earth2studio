@@ -13,8 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `HealDAv2` runs one analysis in about 36 GB of GPU memory, down from about 42 GB,
-  and fits a 40 GB GPU; HealDA featurizes and tokenizes observations in chunks
+- Reduced the GPU memory requirement of `HealDAv2`; it fits on a 40 GB GPU
 
 ### Deprecated
 
