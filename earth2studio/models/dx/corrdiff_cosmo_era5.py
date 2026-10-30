@@ -30,9 +30,9 @@ Domain handling:
   because the solar-zenith conditioning channel depends on the validity time.
 * The package ships the **native** trained grid + static invariants verbatim, plus
   an **extended** grid + invariants covering a margin around it. Full-domain
-  ``__call__`` takes input regridded onto ``input_coords()`` (the native footprint);
-  sub-regions -- including into the extended margin -- are reached via :meth:`set_domain`
-  (next bullet).
+  ``__call__`` takes input on ``input_coords()`` (the native footprint, a crop of
+  the ERA5 grid -- see :meth:`input_coords`); sub-regions -- including into the
+  extended margin -- are reached via :meth:`set_domain` (next bullet).
 * A **sub-region** is obtained with :meth:`set_domain`, which slices the grid +
   exact invariants to a bounding box (no aggregation). The bbox may lie inside the
   native trained footprint, or reach into the extended invariant margin -- the
@@ -251,6 +251,16 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     [`CosmoLexicon`][earth2studio.lexicon.CosmoLexicon] and COSMO-specific fields keep a
     descriptive name. Optionally emits derived hub-height wind components (see
     ``hub_heights``).
+
+    !!! note "Preparing the ERA5 input"
+        For the REA2/REA6 model packages, the coordinates returned by
+        :meth:`input_coords` are an exact regional subset of standard global
+        0.25-degree ERA5. Select the corresponding source values without
+        interpolation. Their longitudes are strictly increasing in ``[-180, 180]``:
+        from a ``[0, 360)`` source, select the columns at
+        ``input_coords()["lon"] % 360`` and then assign the model's own ``lon``
+        values. A source that is not on that grid must be interpolated onto these
+        coordinates first.
 
     Parameters
     ----------
@@ -801,8 +811,30 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     # ── coordinate systems (time is a leading coordinate dimension, not batched) ──
 
     def input_coords(self) -> CoordSystem:
-        """Input coordinate system. ``time`` is a dynamic leading dim; lat/lon
-        are the native ERA5 footprint (regrid the ERA5 input onto this grid)."""
+        """Input coordinate system on the regional ERA5 footprint.
+
+        For the REA2/REA6 model packages and :meth:`set_domain` with its default
+        margin, these coordinates are an exact subset of the standard global
+        0.25-degree ERA5 grid. :func:`~earth2studio.utils.coords.map_coords` can select
+        that subset and reorder descending source latitudes.
+
+        REA2/REA6 package longitudes are strictly increasing in ``[-180, 180]``.
+        When selecting from a ``[0, 360]`` source, express these longitude values
+        modulo 360, then label the selected columns with the native longitude values
+        returned by this method before calling the model.
+
+        Only use this selection path when the target coordinates occur in the source
+        grid; otherwise interpolate the source onto them. The model then internally
+        interpolates this prepared ERA5 input onto the rotated COSMO output grid.
+
+        ``time`` is a dynamic leading dimension rather than a batched one, because the
+        solar-zenith conditioning channel depends on each entry's validity time.
+
+        Returns
+        -------
+        CoordSystem
+            Coordinate system dictionary.
+        """
         return OrderedDict(
             {
                 "batch": np.empty(0),
@@ -817,9 +849,9 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system on the rotated-pole target grid.
 
-        The input must be on the native ERA5 grid (:meth:`input_coords`); for a
+        The input must be on the coordinates returned by :meth:`input_coords`; for a
         sub-region use :meth:`set_domain` (which gives a new instance with its own
-        native grid). Arbitrary/flexible domains are not supported.
+        coordinates). Arbitrary/flexible domains are not supported.
         """
         target = self.input_coords()
         handshake_dim(input_coords, "time", 1)
@@ -831,9 +863,12 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
             np.asarray(input_coords["lat"]), np.asarray(input_coords["lon"])
         ):
             raise ValueError(
-                "CorrDiffCosmoEra5 requires the native input grid from "
-                "input_coords() (regrid your ERA5 onto it). For a sub-region use "
-                "set_domain(); arbitrary/flexible domains are not supported."
+                "CorrDiffCosmoEra5 input coordinates must match input_coords() in "
+                "shape, values and order; the REA2/REA6 package grids use "
+                "south-to-north latitude ordering and [-180, 180] longitudes. See "
+                "input_coords() for preparing standard 0.25-degree ERA5 data. Use "
+                "set_domain() for a sub-region; arbitrary input grids are not "
+                "supported."
             )
         lat_out, lon_out = self.lat_output_numpy, self.lon_output_numpy
         # Halo crop runs on an expanded grid but reports/returns the trimmed bbox.
@@ -1447,7 +1482,10 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         block of the (rotated) grid covering ``[lat_min, lat_max] x [lon_min,
         lon_max]``. The returned instance is a fixed-domain model with its own
         ``input_coords``/``output_coords``, so it composes with the standard run
-        pipelines. The ERA5 input grid is recomputed to cover it (+ ``margin_deg``).
+        pipelines. The ERA5 input grid is recomputed to cover it (+ ``margin_deg``);
+        ``margin_deg`` is measured in degrees. For REA2 and REA6, use a multiple of
+        ``0.25`` (for example, ``0.5`` or ``1.0``) to keep that grid aligned with
+        ERA5 -- see :meth:`input_coords`.
 
         The network is shared by reference and each forward rebinds its latent-grid
         state on it in place, so the parent and its sub-domains are safe to run
