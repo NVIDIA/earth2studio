@@ -18,11 +18,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Literal
-
-import xarray as xr
 
 from earth2studio.coupling.errors import CouplingError
 from earth2studio.grids.base import Regridder
@@ -34,8 +32,9 @@ class Connector:
 
     A connector declares an edge; it holds no runtime state. The runner buffers
     what ``src`` publishes by valid time and, just before ``dst`` runs, selects
-    or reduces the frames the slot needs, regrids and transforms them, and maps
-    them onto the slot signature.
+    or reduces the frames the slot needs, regrids them, and maps them onto the
+    slot signature. Conversions between the two, such as derived variables,
+    units or vertical levels, are a diagnostic component placed between them.
 
     Each slot label names a variable ``src`` exports. A qualified label such as
     ``"tp:sum:24h"`` is reduced from ``src``'s ``tp`` frames over the half-open
@@ -65,13 +64,6 @@ class Connector:
     regridder : Regridder | None, optional
         Maps ``src``'s grid onto the slot's grid, by default None, which
         requires both grids to have the same geometry.
-    transform : Callable[[xr.DataArray], xr.DataArray] | None, optional
-        Applied to the delivered frames after regridding, before they are mapped
-        onto the slot, for conversions no other component expresses, such as
-        units or vertical levels. It receives the slot's labels at the required
-        lead times and must keep the ``variable`` and ``lead_time`` coordinates.
-        Frames fetched from the slot's source are not transformed. By default
-        None.
     time : {"exact", "hold"}, optional
         ``"exact"`` needs frames at each required valid time and waits for them,
         so ``dst`` runs after ``src`` when both are due. ``"hold"`` takes the
@@ -91,9 +83,6 @@ class Connector:
     )
     regridder: Regridder | None = field(default=None, hash=False)
     time: Literal["exact", "hold"] = "exact"
-    transform: Callable[[xr.DataArray], xr.DataArray] | None = field(
-        default=None, hash=False
-    )
     state: bool = False
 
     def __post_init__(self) -> None:
@@ -111,8 +100,6 @@ class Connector:
             )
         if self.regridder is not None and not isinstance(self.regridder, Regridder):
             raise CouplingError("Connector regridder must implement Regridder")
-        if self.transform is not None and not callable(self.transform):
-            raise CouplingError("Connector transform must be callable")
         if isinstance(self.variables, str):
             raise CouplingError(
                 f"Connector variables must be a mapping or a sequence of names, "

@@ -67,26 +67,23 @@ Models built from the same region view (`model.with_region(region)`) share a gri
 and need no regridder. Time interpolation and conservative regridding are not
 supported.
 
-## Units and small corrections
+## Conversions: diagnostics between models
 
-`transform` runs after regridding, on connected frames only. It must keep the
-`variable` and `lead_time` coordinates. It sees the consumer's slot labels,
-including qualified ones.
+Connectors select, reduce and regrid; they never convert. Derived variables
+(`ws10m` from `u10m`/`v10m`), unit changes and vertical levels are a
+`DiagnosticModel` component placed between the producer and the consumer. It
+runs at each valid time its inputs arrive, needs at least one `exact` connector
+(C2), and publishes its own stream.
 
 ```python
-def to_celsius(x: xr.DataArray) -> xr.DataArray:
-    return x.where(x["variable"] != "t2m:mean:24h", x - 273.15)
+from earth2studio.models.dx import DerivedWS
 
-Connector("atmos", "land", regridder=to_land, transform=to_celsius)
+ws = DerivedWS(levels=["10m"], grid=grid)
+runner = CoupledRunner(
+    {"a": a, "ws": ws, "b": b},
+    [Connector("a", "ws"), Connector("ws", "b")],
+)
 ```
-
-If the conversion combines variables, or is worth reusing, use a diagnostic
-component instead (below).
-
-## Diagnostics between models
-
-A `DiagnosticModel` component runs at each valid time its inputs arrive, and it
-needs at least one `exact` connector (C2). It publishes its own stream.
 
 ```python
 from earth2studio.models.dx import DerivedPressureLevels

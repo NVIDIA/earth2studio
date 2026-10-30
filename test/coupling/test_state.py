@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""State connectors, connector transforms and per-component devices."""
+"""State connectors and per-component devices."""
 
 from collections.abc import Iterator, Mapping
 
@@ -78,7 +78,7 @@ class Mixed(PrognosticMixin):
         return self
 
 
-def _state_coupled(**connector: object) -> CoupledRunner:
+def _state_coupled() -> CoupledRunner:
     # The atmosphere starts from SST 5; the ocean's SST 2 replaces it.
     return CoupledRunner(
         {"atmos": Mixed(), "ocean": ocean()},
@@ -90,7 +90,6 @@ def _state_coupled(**connector: object) -> CoupledRunner:
                 variables=["sst"],
                 time="hold",
                 regridder=TO_ATMOS,
-                **connector,  # type: ignore[arg-type]
             ),
             Connector("atmos", "ocean", regridder=TO_OCEAN),
         ],
@@ -129,12 +128,6 @@ def test_state_overwrite_is_described() -> None:
     plan = _state_coupled().describe(np.timedelta64(12, "h"))
     assert "ocean -> atmos state input[0] (hold, regridded): sst" in plan
     assert "state input[0] <- ocean at +6h from +0h" in plan
-
-
-def test_state_overwrite_is_transformed() -> None:
-    streams = _run(_state_coupled(transform=lambda x: x + 1.0), 6)
-    z = float(streams["atmos"][1].sel(variable="z1000").mean())
-    np.testing.assert_allclose(z, 1.3, atol=1e-6)
 
 
 @pytest.mark.parametrize(
@@ -192,54 +185,6 @@ def test_diagnostics_have_no_state() -> None:
                 Connector("atmos", "double", state=True, variables=["z1000"]),
             ],
         )
-
-
-# -- transforms ----------------------------------------------------------------
-
-
-def test_transform_applies_to_connected_frames(
-    ic_sources: Mapping[str, Fill],
-) -> None:
-    runner = CoupledRunner(
-        {"atmos": atmosphere(), "ocean": ocean()},
-        [
-            Connector(
-                "ocean",
-                "atmos",
-                time="hold",
-                regridder=TO_ATMOS,
-                transform=lambda x: x - 1.0,
-            ),
-            Connector("atmos", "ocean", regridder=TO_OCEAN),
-        ],
-        sources=dict(ic_sources),
-    )
-    assert "(hold, regridded, transformed)" in runner.describe(np.timedelta64(6, "h"))
-    z = _series(_run(runner, 6)["atmos"])
-    np.testing.assert_allclose(z[6], 1.1, atol=1e-6)  # 0 + 1 + 0.1 * (2 - 1)
-
-
-def test_transform_must_keep_variables_and_lead_times(
-    ic_sources: Mapping[str, Fill],
-) -> None:
-    runner = CoupledRunner(
-        {"atmos": atmosphere(), "ocean": ocean()},
-        [
-            Connector(
-                "ocean",
-                "atmos",
-                time="hold",
-                regridder=TO_ATMOS,
-                transform=lambda x: x.assign_coords(variable=["t2m"]),
-            ),
-            Connector("atmos", "ocean", regridder=TO_OCEAN),
-        ],
-        sources=dict(ic_sources),
-    )
-    with pytest.raises(CouplingError, match="transform changed the 'variable'"):
-        _run(runner, 6)
-    with pytest.raises(CouplingError, match="must be callable"):
-        Connector("ocean", "atmos", transform=1.0)  # type: ignore[arg-type]
 
 
 # -- devices -------------------------------------------------------------------
