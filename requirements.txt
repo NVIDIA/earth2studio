@@ -205,7 +205,7 @@ numpy==2.3.5
     #   pygrib
     #   xarray
     #   zarr
-oauthlib==3.3.1
+oauthlib==4.0.0
     # via requests-oauthlib
 packaging==26.0
     # via
