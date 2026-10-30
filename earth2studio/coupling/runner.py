@@ -22,7 +22,7 @@ import math
 import zlib
 from collections.abc import Iterator, Mapping, Sequence
 from itertools import chain
-from typing import Any, TypeAlias
+from typing import Any
 
 import numpy as np
 import torch
@@ -41,13 +41,12 @@ from earth2studio.coupling._schedule import (
 from earth2studio.coupling.connector import Connector, _split_label
 from earth2studio.coupling.errors import CouplingError, _suggest
 from earth2studio.data import fetch_dataframe
-from earth2studio.data.base import DataFrameSource, ForecastFrameSource
 from earth2studio.grids import infer_grid, same_geometry
 from earth2studio.models.utils import recommended_sources
 from earth2studio.run._fields import _map_field, _with_lead_time
 from earth2studio.run.runner import (
     DataRequest,
-    Source,
+    SlotSource,
     _fetch,
     _module_device,
     _seed_model,
@@ -59,7 +58,6 @@ from earth2studio.utils.time_statistics import apply_time_statistic
 from earth2studio.utils.type import CoordinateSystem
 
 _PROBE_TIME = np.datetime64("2000-01-01T00", "ns")
-_SlotSource: TypeAlias = Source | DataFrameSource | ForecastFrameSource
 
 
 class CoupledRunner:
@@ -89,7 +87,7 @@ class CoupledRunner:
     connectors : Sequence[Connector], optional
         Edges between components, by default none. State connectors
         (``state=True``) into one slot must overwrite different variables.
-    sources : Mapping[str, Source | tuple[Source | None, ...]], optional
+    sources : Mapping[str, SlotSource | tuple[SlotSource | None, ...]], optional
         Sources per component in input-then-forcing slot order, like
         ``default_sources()``; a single source covers the first input slot. Slots
         left out use the model's recommendation, by default None. Connected
@@ -117,9 +115,7 @@ class CoupledRunner:
         self,
         components: Mapping[str, Any],
         connectors: Sequence[Connector] = (),
-        sources: (
-            Mapping[str, _SlotSource | tuple[_SlotSource | None, ...]] | None
-        ) = None,
+        sources: Mapping[str, SlotSource | tuple[SlotSource | None, ...]] | None = None,
         seed: int = 0,
         devices: Mapping[str, torch.device | str] | None = None,
     ) -> None:
@@ -659,56 +655,79 @@ class _Execution:
     def _overwrite(
         self, event: _Event, arrays: tuple[Any, ...], buffers: Mapping[str, _Buffer]
     ) -> tuple[Any, ...]:
-        """Replace state variables that state connectors supply, in new arrays."""
-        if not event.states:
-            return arrays
+        """Apply ``event``'s state connectors to the arrays its call receives.
+
+        Each state connector replaces the variables it names in one state slot,
+        at each of the slot's lead times the producer supplies. Values it cannot
+        supply yet (at or before the item time) keep the model's own. Writes go
+        to a copy on the array's device, so the model's previous output, which
+        may already be published, is never modified.
+        """
         result = list(arrays)
         for plan in event.states:
             x = result[plan.slot.index]
-            leads = list(_ns(x.coords["lead_time"].values))
-            names = [str(v) for v in x.coords["variable"].values]
             data = None
             for lead in plan.leads:
-                piece = self._held(event.node, plan, buffers, int(lead))
-                if piece is None:
-                    continue  # Not supplied at or before the item time: keep.
-                labels = [str(v) for v in piece.coords["variable"].values]
-                signature = coord_array_like(plan.slot.signature, {"variable": labels})
-                try:
-                    piece = _map_field(piece, signature)
-                except ValueError as error:
-                    raise CouplingError(
-                        f"Connector {plan.connector}: delivered state does not match "
-                        f"{event.node.name!r} {plan.slot}: {error}"
-                    ) from error
-                j = leads.index(int(lead))
-                index = [names.index(label) for label in labels]
-                target = x.isel(lead_time=[j], variable=index)
-                extra = [d for d in piece.dims if d not in target.dims]
-                if extra:
-                    raise CouplingError(
-                        f"Connector {plan.connector}: delivered state has dimensions "
-                        f"{extra} that {event.node.name!r} {plan.slot} lacks"
-                    )
-                missing = {
-                    d: target.sizes[d] for d in target.dims if d not in piece.dims
-                }
-                piece = piece.expand_dims(missing).transpose(*target.dims)
-                if piece.shape != target.shape:
-                    raise CouplingError(
-                        f"Connector {plan.connector}: delivered state of shape "
-                        f"{piece.shape} does not fit {event.node.name!r} {plan.slot} "
-                        f"of shape {target.shape}"
-                    )
+                write = self._state_piece(event, plan, x, buffers, int(lead))
+                if write is None:
+                    continue
+                position, values = write
                 if data is None:
                     data = x.data.copy()
-                position: list[Any] = [slice(None)] * x.ndim
-                position[x.get_axis_num("lead_time")] = slice(j, j + 1)
-                position[x.get_axis_num("variable")] = index
-                data[tuple(position)] = _stage_like(piece, x).data
+                data[position] = values
             if data is not None:
                 result[plan.slot.index] = x.copy(data=data)
         return tuple(result)
+
+    def _state_piece(
+        self,
+        event: _Event,
+        plan: _SlotPlan,
+        x: xr.DataArray,
+        buffers: Mapping[str, _Buffer],
+        lead: int,
+    ) -> tuple[tuple[Any, ...], Any] | None:
+        """Where and what one state connector writes into ``x`` at ``lead``.
+
+        Returns the index into ``x.data`` and the values to write there, already
+        on ``x``'s device and in its dimension order, or ``None`` when the
+        producer supplies nothing at ``lead``. Raises if the delivered fields
+        cannot fit the slot.
+        """
+        piece = self._held(event.node, plan, buffers, lead)
+        if piece is None:
+            return None
+        where = f"{event.node.name!r} {plan.slot}"
+        labels = [str(v) for v in piece.coords["variable"].values]
+        signature = coord_array_like(plan.slot.signature, {"variable": labels})
+        try:
+            piece = _map_field(piece, signature)
+        except ValueError as error:
+            raise CouplingError(
+                f"Connector {plan.connector}: delivered state does not match "
+                f"{where}: {error}"
+            ) from error
+        j = list(_ns(x.coords["lead_time"].values)).index(lead)
+        names = [str(v) for v in x.coords["variable"].values]
+        index = [names.index(label) for label in labels]
+        target = x.isel(lead_time=[j], variable=index)
+        extra = [d for d in piece.dims if d not in target.dims]
+        if extra:
+            raise CouplingError(
+                f"Connector {plan.connector}: delivered state has dimensions "
+                f"{extra} that {where} lacks"
+            )
+        missing = {d: target.sizes[d] for d in target.dims if d not in piece.dims}
+        piece = piece.expand_dims(missing).transpose(*target.dims)
+        if piece.shape != target.shape:
+            raise CouplingError(
+                f"Connector {plan.connector}: delivered state of shape "
+                f"{piece.shape} does not fit {where} of shape {target.shape}"
+            )
+        position: list[Any] = [slice(None)] * x.ndim
+        position[x.get_axis_num("lead_time")] = slice(j, j + 1)
+        position[x.get_axis_num("variable")] = index
+        return tuple(position), _stage_like(piece, x).data
 
 
 # -- helpers -------------------------------------------------------------------
@@ -730,7 +749,7 @@ def _component_seed(base: int, name: str) -> int:
 
 
 def _slot_sources(
-    node: _Node, given: _SlotSource | tuple[_SlotSource | None, ...] | None
+    node: _Node, given: SlotSource | tuple[SlotSource | None, ...] | None
 ) -> tuple[Any, ...]:
     """One given source or ``None`` per input-then-forcing slot."""
     count = len(node.inputs) + len(node.forcing)

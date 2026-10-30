@@ -54,8 +54,11 @@ class Connector:
     dst : str
         Name of the consuming component.
     slot : int, optional
-        Forcing slot of a stateful ``dst``, input slot of a diagnostic ``dst``,
-        or state slot with ``state=True``, by default 0.
+        Position of the fed slot in ``dst``'s slot tuple, by default 0: the entry
+        of ``forcing_coords()`` for a stateful ``dst``, of ``input_coords()`` for
+        a diagnostic ``dst``, or of ``input_coords()`` for the state slot with
+        ``state=True``. Models with a single forcing slot use 0; a model whose
+        ``forcing_coords()`` returns ``(gridded, observations)`` is fed at 0.
     variables : Mapping[str, str] | Sequence[str] | None, optional
         Renames from a ``dst`` base label to the ``src`` variable providing it,
         such as ``{"tp": "tp06"}``; a sequence keeps each name. Required with

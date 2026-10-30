@@ -34,6 +34,7 @@ import torch
 import xarray as xr
 
 from earth2studio.data import DataSource, ForecastSource, fetch_data
+from earth2studio.data.base import DataFrameSource, ForecastFrameSource
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.models.px.utils import initial_condition
@@ -48,6 +49,8 @@ from earth2studio.utils.coords import E2S_DYNAMIC_DIMS, coord_array
 from earth2studio.utils.type import CoordinateSystem
 
 Source: TypeAlias = DataSource | ForecastSource
+# A source for any model slot: gridded fields, or DataFrames for observation slots.
+SlotSource: TypeAlias = Source | DataFrameSource | ForecastFrameSource
 
 
 @dataclass(frozen=True)

@@ -34,7 +34,6 @@ Needs the StormScope checkpoints, GOES, MRMS and GLM downloads, and a GPU. The
 
 # %%
 import os
-from typing import cast
 
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
@@ -66,14 +65,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 region = Region.box(-102.5, 32.0, -95.0, 41.0)
 package = StormScopeBase.load_default_package()
-goes = cast(
-    StormScopeGOES,
-    StormScopeGOES.load_model(package, model_name="3km_10min_flash", amp=True),
-)
-mrms = cast(
-    StormScopeMRMS,
-    StormScopeMRMS.load_model(package, model_name="3km_10min_flash", amp=True),
-)
+goes = StormScopeGOES.load_model(package, model_name="3km_10min_flash", amp=True)
+mrms = StormScopeMRMS.load_model(package, model_name="3km_10min_flash", amp=True)
 goes = goes.to(device).eval().with_region(region)
 mrms = mrms.to(device).eval().with_region(region)
 print(goes.input_coords().sizes)
