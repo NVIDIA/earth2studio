@@ -573,7 +573,7 @@ These rules apply to native DataArray execution and explicit continuation state.
 | --- | --- |
 | `P1` | Structurally satisfies `PrognosticModel` |
 | `P2` | Allocation-free DataArray declarations with explicit dynamic leading dimensions |
-| `P3` | `input_coords()["lead_time"]` is relative, strictly increasing, and ends at or before zero |
+| `P3` | Input `lead_time` is relative, strictly increasing, and ends at or before zero |
 | `P4` | `output_coords()` treats its argument as read-only |
 | `P5` | `output_coords()` raises `ValueError` for an invalid coordinate system |
 | `P6` | Shifting input `lead_time` by an offset shifts output `lead_time` by the same offset |
