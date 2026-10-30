@@ -23,10 +23,12 @@ import numpy as np
 import pytest
 import torch
 import xarray as xr
-from conftest import (
+from test_coupling_toys import (
     ATMOS_GRID,
     OCEAN_GRID,
     T0,
+    TO_ATMOS,
+    TO_OCEAN,
     Bucket,
     Double,
     Fill,
@@ -36,7 +38,10 @@ from conftest import (
     _Toy,
     atmosphere,
     ocean,
+    run,
+    series,
     signature,
+    toy_runner,
 )
 
 from earth2studio.coupling import Connector, CoupledRunner, CouplingError
@@ -46,44 +51,13 @@ from earth2studio.run import PrognosticRunner, Runner, WorkItem
 from earth2studio.utils import coord_array_like
 from earth2studio.utils.type import CoordinateSystem
 
-
-def _toy(ic_sources: Mapping[str, Fill]) -> CoupledRunner:
-    return CoupledRunner(
-        {"atmos": atmosphere(), "ocean": ocean()},
-        [
-            Connector(
-                "ocean",
-                "atmos",
-                time="hold",
-                regridder=NearestRegridder(OCEAN_GRID, ATMOS_GRID),
-            ),
-            Connector(
-                "atmos", "ocean", regridder=NearestRegridder(ATMOS_GRID, OCEAN_GRID)
-            ),
-        ],
-        sources=dict(ic_sources),
-    )
-
-
-def _run(runner: CoupledRunner, hours: int) -> dict[str, list[xr.DataArray]]:
-    streams: dict[str, list[xr.DataArray]] = {}
-    for step in runner.run_item(WorkItem(T0, np.timedelta64(hours, "h"))):
-        for name, x in step.items():
-            streams.setdefault(name, []).append(x)
-    return streams
-
-
-def _series(frames: list[xr.DataArray]) -> dict[int, float]:
-    return {int(x["lead_time"].values[0] // H): float(x.mean()) for x in frames}
-
-
 # -- the #1229 toy -------------------------------------------------------------
 
 
 def test_reproduces_the_hand_computed_toy(ic_sources: Mapping[str, Fill]) -> None:
-    runner: Runner = _toy(ic_sources)
-    streams = _run(runner, 96)  # type: ignore[arg-type]
-    z, sst = _series(streams["atmos"]), _series(streams["ocean"])
+    runner: Runner = toy_runner(ic_sources)
+    streams = run(runner, 96)  # type: ignore[arg-type]
+    z, sst = series(streams["atmos"]), series(streams["ocean"])
     assert list(z) == list(range(0, 97, 6))
     assert list(sst) == [0, 48, 96]
     np.testing.assert_allclose(z[48], 9.6, atol=1e-5)
@@ -95,7 +69,7 @@ def test_reproduces_the_hand_computed_toy(ic_sources: Mapping[str, Fill]) -> Non
 def test_streams_keep_each_component_grid_and_time(
     ic_sources: Mapping[str, Fill],
 ) -> None:
-    streams = _run(_toy(ic_sources), 48)
+    streams = run(toy_runner(ic_sources), 48)
     for name, grid in (("atmos", ATMOS_GRID), ("ocean", OCEAN_GRID)):
         for x in streams[name]:
             assert x["time"].values.tolist() == [T0]
@@ -103,9 +77,9 @@ def test_streams_keep_each_component_grid_and_time(
 
 
 def test_output_coords_match_what_runs(ic_sources: Mapping[str, Fill]) -> None:
-    runner = _toy(ic_sources)
+    runner = toy_runner(ic_sources)
     coords = runner.output_coords(np.timedelta64(96, "h"))
-    streams = _run(runner, 96)
+    streams = run(runner, 96)
     for name, signature_ in coords.items():
         leads = np.concatenate([x["lead_time"].values for x in streams[name]])
         np.testing.assert_array_equal(signature_["lead_time"].values, leads)
@@ -113,15 +87,15 @@ def test_output_coords_match_what_runs(ic_sources: Mapping[str, Fill]) -> None:
 
 
 def test_short_items_skip_slow_components(ic_sources: Mapping[str, Fill]) -> None:
-    runner = _toy(ic_sources)
-    streams = _run(runner, 24)
-    assert list(_series(streams["ocean"])) == [0]
-    assert list(_series(streams["atmos"])) == [0, 6, 12, 18, 24]
+    runner = toy_runner(ic_sources)
+    streams = run(runner, 24)
+    assert list(series(streams["ocean"])) == [0]
+    assert list(series(streams["atmos"])) == [0, 6, 12, 18, 24]
     assert list(runner.output_coords(np.timedelta64(0, "h"))) == ["atmos", "ocean"]
 
 
 def test_lagging_and_ordering_are_derived(ic_sources: Mapping[str, Fill]) -> None:
-    text = _toy(ic_sources).describe(np.timedelta64(96, "h"))
+    text = toy_runner(ic_sources).describe(np.timedelta64(96, "h"))
     lines = text.splitlines()
     # The held edge reads the ocean's last published frame; the exact edge waits
     # for the atmosphere's chunk at +48h and reduces +0h..+42h.
@@ -140,11 +114,11 @@ def test_lagging_and_ordering_are_derived(ic_sources: Mapping[str, Fill]) -> Non
 
 
 def test_data_requests_list_every_fetch(ic_sources: Mapping[str, Fill]) -> None:
-    runner = _toy(ic_sources)
+    runner = toy_runner(ic_sources)
     requests = runner.data_requests(WorkItem(T0, np.timedelta64(96, "h")))
     assert [r.source for r in requests] == [ic_sources["atmos"], ic_sources["ocean"]]
     assert [list(r.variable) for r in requests] == [["z1000"], ["sst"]]
-    _run(runner, 96)
+    run(runner, 96)
     assert len(ic_sources["atmos"].calls) == len(ic_sources["ocean"].calls) == 1
 
 
@@ -167,52 +141,14 @@ def _pair(time: str) -> dict:
     }
 
 
-def test_feedback_loop_names_the_cycle() -> None:
-    with pytest.raises(CouplingError, match=r"cycle left -> right -> left.*hold"):
-        CoupledRunner(**_pair("exact"))
-
-
 def test_hold_breaks_the_cycle() -> None:
-    streams = _run(CoupledRunner(**_pair("hold")), 12)
-    a, b = _series(streams["left"]), _series(streams["right"])
+    streams = run(CoupledRunner(**_pair("hold")), 12)
+    a, b = series(streams["left"]), series(streams["right"])
     # left holds right's frame from the previous step; right reads left's
     # fresh frame at the same valid time: a6 = 0 + 1 + 1, b6 = 1 + 0.5 * a6,
     # a12 = a6 + 1 + b6, b12 = b6 + 0.5 * a12.
     assert a == pytest.approx({0: 0.0, 6: 2.0, 12: 5.0})
     assert b == pytest.approx({0: 1.0, 6: 2.0, 12: 4.5})
-
-
-def test_exact_edge_from_a_slower_producer_is_explained() -> None:
-    slow = _Toy("sst", "x", OCEAN_GRID, 48, 0.0, 0.0)
-    with pytest.raises(CouplingError, match=r"'ocean' publishes no frames for 'sst'"):
-        CoupledRunner(
-            {"atmos": atmosphere(), "ocean": slow},
-            [
-                Connector(
-                    "ocean", "atmos", regridder=NearestRegridder(OCEAN_GRID, ATMOS_GRID)
-                )
-            ],
-            sources={
-                "atmos": Fill(ATMOS_GRID, {"z1000": 0.0}),
-                "ocean": (Fill(OCEAN_GRID, {"sst": 2.0}), Fill(OCEAN_GRID, {"x": 0.0})),
-            },
-        )
-
-
-def test_exact_edges_both_ways_deadlock(ic_sources: Mapping[str, Fill]) -> None:
-    with pytest.raises(CouplingError, match="cycle atmos -> ocean -> atmos"):
-        CoupledRunner(
-            {"atmos": atmosphere(), "ocean": ocean()},
-            [
-                Connector(
-                    "ocean", "atmos", regridder=NearestRegridder(OCEAN_GRID, ATMOS_GRID)
-                ),
-                Connector(
-                    "atmos", "ocean", regridder=NearestRegridder(ATMOS_GRID, OCEAN_GRID)
-                ),
-            ],
-            sources=dict(ic_sources),
-        )
 
 
 # -- diagnostics -------------------------------------------------------------------
@@ -225,8 +161,8 @@ def test_diagnostics_run_when_inputs_arrive(ic_sources: Mapping[str, Fill]) -> N
         [Connector("atmos", "double")],
         sources={"atmos": (ic_sources["atmos"], Fill(ATMOS_GRID, {"sst": 2.0}))},
     )
-    streams = _run(runner, 24)
-    z, z2 = _series(streams["atmos"]), _series(streams["double"])
+    streams = run(runner, 24)
+    z, z2 = series(streams["atmos"]), series(streams["double"])
     assert list(z2) == list(z) == [0, 6, 12, 18, 24]
     assert z2 == pytest.approx({k: 2 * v for k, v in z.items()})
     assert double.calls == 5
@@ -249,16 +185,8 @@ def test_diagnostic_output_feeds_a_consumer(ic_sources: Mapping[str, Fill]) -> N
             "ocean": ic_sources["ocean"],
         },
     )
-    sst = _series(_run(runner, 48)["ocean"])
+    sst = series(run(runner, 48)["ocean"])
     np.testing.assert_allclose(sst[48], 2.0 + 0.01 * 8.4, atol=1e-6)
-
-
-def test_diagnostic_needs_an_exact_connector() -> None:
-    with pytest.raises(CouplingError, match="Diagnostic 'double' needs"):
-        CoupledRunner(
-            {"atmos": atmosphere(), "double": Double()},
-            [Connector("atmos", "double", time="hold")],
-        )
 
 
 # -- stateful assimilation with sparse observations --------------------------------
@@ -274,7 +202,7 @@ def test_observations_nudge_only_when_present() -> None:
             "soil": (Fill(ATMOS_GRID, {"swvl1": 0.1}), None, observations),
         },
     )
-    soil = _series(_run(runner, 96)["soil"])
+    soil = series(run(runner, 96)["soil"])
     assert bucket.observed == [False, False, True, False]
     expected = {0: 0.1, 24: 0.108, 48: 0.116, 72: 0.262, 96: 0.27}
     assert soil == pytest.approx(expected, abs=1e-6)
@@ -321,7 +249,7 @@ def test_frames_before_the_item_time_come_from_the_slot_source() -> None:
             "consumer": (Fill(ATMOS_GRID, {"q": 0.0}), history),
         },
     )
-    q = _series(_run(runner, 6)["consumer"])
+    q = series(run(runner, 6)["consumer"])
     assert q[6] == pytest.approx(5.0)  # mean of history 10 at -6h and atmos 0 at +0h
     assert history.calls == [([T0 - 6 * H], ["z1000"])]
     requests = runner.data_requests(WorkItem(T0, np.timedelta64(6, "h")))
@@ -362,7 +290,7 @@ def test_consumers_wait_for_multi_lead_chunks() -> None:
     lines = runner.describe(np.timedelta64(12, "h")).splitlines()
     # The +6h chunk carries the +3h frame the consumer's second step needs.
     assert next(line for line in lines if "consumer  step" in line).split()[0] == "+6h"
-    q = _series(_run(runner, 12)["consumer"])
+    q = series(run(runner, 12)["consumer"])
     assert q == pytest.approx({0: 0.0, 3: 1.0, 6: 3.0, 9: 7.0, 12: 9.0})
 
 
@@ -371,8 +299,8 @@ def test_consumers_wait_for_multi_lead_chunks() -> None:
 
 def test_a_lone_forced_model_matches_prognostic_runner() -> None:
     sources = (Fill(ATMOS_GRID, {"z1000": 0.0}), Fill(ATMOS_GRID, {"sst": 3.0}))
-    coupled = _series(
-        _run(CoupledRunner({"atmos": atmosphere()}, sources={"atmos": sources}), 18)[
+    coupled = series(
+        run(CoupledRunner({"atmos": atmosphere()}, sources={"atmos": sources}), 18)[
             "atmos"
         ]
     )
@@ -423,7 +351,7 @@ def test_stochastic_components_draw_independent_seeds() -> None:
 
 
 def test_to_moves_models_and_regridders(ic_sources: Mapping[str, Fill]) -> None:
-    runner = _toy(ic_sources)
+    runner = toy_runner(ic_sources)
     assert runner.to(torch.device("cpu")) is runner
     assert runner.device == torch.device("cpu")
     assert len(runner.regridders) == 2
@@ -436,78 +364,6 @@ def _atmos_ocean(*connectors: Connector, **kwargs: object) -> CoupledRunner:
     return CoupledRunner(
         {"atmos": atmosphere(), "ocean": ocean()}, list(connectors), **kwargs  # type: ignore[arg-type]
     )
-
-
-TO_OCEAN = NearestRegridder(ATMOS_GRID, OCEAN_GRID)
-TO_ATMOS = NearestRegridder(OCEAN_GRID, ATMOS_GRID)
-
-
-@pytest.mark.parametrize(
-    "connectors, match",
-    [
-        (
-            [Connector("atmos", "oceans")],
-            "unknown component 'oceans'; did you mean 'ocean'",
-        ),
-        ([Connector("atmos", "ocean", slot=1, regridder=TO_OCEAN)], "no time-varying"),
-        (
-            [
-                Connector("atmos", "ocean", regridder=TO_OCEAN),
-                Connector("atmos", "ocean", regridder=TO_OCEAN),
-            ],
-            "feed the same slot",
-        ),
-        ([Connector("atmos", "ocean")], "grids differ; pass a regridder"),
-        ([Connector("atmos", "ocean", regridder=TO_ATMOS)], r"source grid.*\(C5\)"),
-        (
-            [
-                Connector(
-                    "atmos", "ocean", regridder=NearestRegridder(ATMOS_GRID, ATMOS_GRID)
-                )
-            ],
-            r"target grid.*\(C5\)",
-        ),
-        (
-            [Connector("atmos", "ocean", time="hold", regridder=TO_OCEAN)],
-            "applies to plain labels",
-        ),
-        (
-            [
-                Connector(
-                    "atmos", "ocean", variables={"z1000": "z100"}, regridder=TO_OCEAN
-                )
-            ],
-            "does not publish 'z100'.*did you mean 'z1000'",
-        ),
-        (
-            [
-                Connector(
-                    "atmos", "ocean", variables={"t2m": "z1000"}, regridder=TO_OCEAN
-                )
-            ],
-            "renames 't2m'",
-        ),
-    ],
-)
-def test_declarations_are_validated_eagerly(
-    connectors: list[Connector], match: str
-) -> None:
-    with pytest.raises(CouplingError, match=match):
-        _atmos_ocean(*connectors)
-
-
-def test_windows_must_divide_into_producer_frames() -> None:
-    consumer = _Toy("sst", "z1000:mean:45h", OCEAN_GRID, 48, 0.0, 0.01, forcing_lead=48)
-    with pytest.raises(CouplingError, match="cannot be reduced from frames every 6h"):
-        CoupledRunner(
-            {"atmos": atmosphere(), "ocean": consumer},
-            [Connector("atmos", "ocean", regridder=TO_OCEAN)],
-        )
-
-
-def test_unconnected_slots_need_a_source() -> None:
-    with pytest.raises(CouplingError, match=r"'atmos' forcing\[0\] needs a source"):
-        CoupledRunner({"atmos": atmosphere()}, sources={"atmos": Fill(ATMOS_GRID, {})})
 
 
 def test_recommended_sources_are_built_only_when_a_fetch_needs_one() -> None:
@@ -526,17 +382,6 @@ def test_recommended_sources_are_built_only_when_a_fetch_needs_one() -> None:
     assert len(calls) == 1
     list(runner.run_item(WorkItem(T0, 12 * H)))
     assert len(calls) == 1
-
-
-def test_components_must_be_models() -> None:
-    with pytest.raises(CouplingError, match="neither"):
-        CoupledRunner({"x": object()})
-    with pytest.raises(CouplingError, match="at least one stateful"):
-        CoupledRunner({"double": Double()})
-    with pytest.raises(CouplingError, match="at least one component"):
-        CoupledRunner({})
-    with pytest.raises(CouplingError, match="unknown component 'atmo'"):
-        CoupledRunner({"atmos": atmosphere()}, sources={"atmo": Fill(ATMOS_GRID, {})})
 
 
 # -- components are ordinary models ------------------------------------------------
@@ -617,12 +462,12 @@ def test_each_output_slot_is_its_own_stream() -> None:
         [Connector("model", "reader")],  # sst lives in slot 1, on the ocean grid
         sources={"model": _two_slot_sources(), "reader": Fill(OCEAN_GRID, {"q": 0.0})},
     )
-    streams = _run(runner, 12)
+    streams = run(runner, 12)
     assert set(streams) == {"model.0", "model.1", "reader"}
-    assert _series(streams["model.0"]) == pytest.approx({0: 0.0, 6: 1.0, 12: 2.0})
-    assert _series(streams["model.1"]) == pytest.approx({0: 2.0, 6: 2.5, 12: 3.0})
+    assert series(streams["model.0"]) == pytest.approx({0: 0.0, 6: 1.0, 12: 2.0})
+    assert series(streams["model.1"]) == pytest.approx({0: 2.0, 6: 2.5, 12: 3.0})
     # reader adds the sst valid at its state's time: 2.0, then 2.5.
-    assert _series(streams["reader"]) == pytest.approx({0: 0.0, 6: 2.0, 12: 4.5})
+    assert series(streams["reader"]) == pytest.approx({0: 0.0, 6: 2.0, 12: 4.5})
     coords = runner.output_coords(np.timedelta64(12, "h"))
     np.testing.assert_array_equal(coords["model.1"]["lat"], OCEAN_GRID.latitude)
     assert "streams model.0, model.1" in runner.describe(np.timedelta64(6, "h"))
@@ -633,9 +478,9 @@ def test_output_only_slots_start_at_the_first_chunk() -> None:
         {"model": _TwoSlots(derived=True)},
         sources={"model": Fill(ATMOS_GRID, {"z1000": 0.0})},
     )
-    streams = _run(runner, 12)
-    assert list(_series(streams["model.0"])) == [0, 6, 12]
-    assert _series(streams["model.1"]) == pytest.approx({6: 1.0, 12: 2.0})
+    streams = run(runner, 12)
+    assert list(series(streams["model.0"])) == [0, 6, 12]
+    assert series(streams["model.1"]) == pytest.approx({6: 1.0, 12: 2.0})
     leads = runner.output_coords(np.timedelta64(12, "h"))["model.1"]["lead_time"]
     assert [int(v // H) for v in leads.values] == [6, 12]
 
@@ -698,7 +543,7 @@ def test_diagnostic_spacing_follows_its_slowest_exact_input(
         sources=dict(ic_sources),
     )
     assert runner.spacing["pair"] == runner.spacing["ocean"]
-    assert list(_series(_run(runner, 96)["pair"])) == [0, 48, 96]
+    assert list(series(run(runner, 96)["pair"])) == [0, 48, 96]
 
 
 def test_input_history_on_another_grid_is_not_published() -> None:
@@ -733,31 +578,8 @@ def test_input_history_on_another_grid_is_not_published() -> None:
     )
     # The consumer's lead-zero forcing comes from its source, not the producer's
     # atmosphere-grid input; later forcing comes from the producer.
-    sst = _series(_run(runner, 12)["sea"])
+    sst = series(run(runner, 12)["sea"])
     np.testing.assert_allclose([sst[6], sst[12]], [2.07, 2.08], atol=1e-6)
-
-
-def test_output_slots_must_share_lead_times() -> None:
-    with pytest.raises(CouplingError, match="different lead times.*split"):
-        CoupledRunner({"model": _TwoSlots(ocean_step=48)})
-
-
-def test_a_variable_in_two_output_slots_is_ambiguous() -> None:
-    class _Duplicate(_TwoSlots):
-        def output_coords(self, *inputs: CoordinateSystem) -> tuple:
-            atmos, _ = super().output_coords(*inputs)
-            return atmos, atmos
-
-    with pytest.raises(CouplingError, match=r"'z1000' in output slots \[0, 1\]"):
-        CoupledRunner(
-            {"model": _Duplicate(), "double": Double()},
-            [Connector("model", "double")],
-        )
-
-
-def test_stream_names_must_be_unique() -> None:
-    with pytest.raises(CouplingError, match=r"\['model.0'\] are used twice"):
-        CoupledRunner({"model": _TwoSlots(), "model.0": atmosphere()})
 
 
 class _Both(Double):
@@ -780,6 +602,160 @@ def test_diagnostics_may_have_several_output_slots(
         [Connector("atmos", "both")],
         sources={"atmos": (ic_sources["atmos"], Fill(ATMOS_GRID, {"sst": 2.0}))},
     )
-    streams = _run(runner, 6)
-    assert _series(streams["both.0"]) == pytest.approx({0: 0.0, 6: 2.4})
-    assert _series(streams["both.1"]) == pytest.approx({0: 0.0, 6: 3.6})
+    streams = run(runner, 6)
+    assert series(streams["both.0"]) == pytest.approx({0: 0.0, 6: 2.4})
+    assert series(streams["both.1"]) == pytest.approx({0: 0.0, 6: 3.6})
+
+
+# -- invalid couplings ------------------------------------------------------------
+
+
+class _Duplicate(_TwoSlots):
+    def output_coords(self, *inputs: CoordinateSystem) -> tuple:
+        atmos, _ = super().output_coords(*inputs)
+        return atmos, atmos
+
+
+def _atmos_ocean(*connectors: Connector) -> CoupledRunner:
+    return CoupledRunner({"atmos": atmosphere(), "ocean": ocean()}, list(connectors))
+
+
+IC_SOURCES = {
+    "atmos": Fill(ATMOS_GRID, {"z1000": 0.0, "sst": 2.0}),
+    "ocean": Fill(OCEAN_GRID, {"sst": 2.0, "z1000": 0.0}),
+}
+
+INVALID = [
+    # Components and sources
+    (lambda: CoupledRunner({}), "at least one component"),
+    (lambda: CoupledRunner({"x": object()}), "neither"),
+    (lambda: CoupledRunner({"double": Double()}), "at least one stateful"),
+    (
+        lambda: CoupledRunner(
+            {"atmos": atmosphere()}, sources={"atmo": Fill(ATMOS_GRID, {})}
+        ),
+        "unknown component 'atmo'",
+    ),
+    (
+        lambda: CoupledRunner(
+            {"atmos": atmosphere()}, sources={"atmos": Fill(ATMOS_GRID, {})}
+        ),
+        r"'atmos' forcing\[0\] needs a source",
+    ),
+    (
+        lambda: CoupledRunner({"model": _TwoSlots(ocean_step=48)}),
+        "different lead times.*split",
+    ),
+    (
+        lambda: CoupledRunner({"model": _TwoSlots(), "model.0": atmosphere()}),
+        r"\['model.0'\] are used twice",
+    ),
+    (
+        lambda: CoupledRunner(
+            {"model": _Duplicate(), "double": Double()}, [Connector("model", "double")]
+        ),
+        r"'z1000' in output slots \[0, 1\]",
+    ),
+    # Connectors
+    (
+        lambda: _atmos_ocean(Connector("atmos", "oceans")),
+        "unknown component 'oceans'; did you mean 'ocean'",
+    ),
+    (
+        lambda: _atmos_ocean(Connector("atmos", "ocean", slot=1, regridder=TO_OCEAN)),
+        "no time-varying",
+    ),
+    (
+        lambda: _atmos_ocean(
+            Connector("atmos", "ocean", regridder=TO_OCEAN),
+            Connector("atmos", "ocean", regridder=TO_OCEAN),
+        ),
+        "feed the same slot",
+    ),
+    (
+        lambda: _atmos_ocean(Connector("atmos", "ocean")),
+        "grids differ; pass a regridder",
+    ),
+    (
+        lambda: _atmos_ocean(Connector("atmos", "ocean", regridder=TO_ATMOS)),
+        r"source grid.*\(C5\)",
+    ),
+    (
+        lambda: _atmos_ocean(
+            Connector(
+                "atmos", "ocean", regridder=NearestRegridder(ATMOS_GRID, ATMOS_GRID)
+            )
+        ),
+        r"target grid.*\(C5\)",
+    ),
+    (
+        lambda: _atmos_ocean(
+            Connector("atmos", "ocean", time="hold", regridder=TO_OCEAN)
+        ),
+        "applies to plain labels",
+    ),
+    (
+        lambda: _atmos_ocean(
+            Connector("atmos", "ocean", variables={"z1000": "z100"}, regridder=TO_OCEAN)
+        ),
+        "does not publish 'z100'.*did you mean 'z1000'",
+    ),
+    (
+        lambda: _atmos_ocean(
+            Connector("atmos", "ocean", variables={"t2m": "z1000"}, regridder=TO_OCEAN)
+        ),
+        "renames 't2m'",
+    ),
+    (
+        lambda: CoupledRunner(
+            {
+                "atmos": atmosphere(),
+                "ocean": _Toy(
+                    "sst", "z1000:mean:45h", OCEAN_GRID, 48, 0.0, 0.01, forcing_lead=48
+                ),
+            },
+            [Connector("atmos", "ocean", regridder=TO_OCEAN)],
+        ),
+        "cannot be reduced from frames every 6h",
+    ),
+    (
+        lambda: CoupledRunner(
+            {"atmos": atmosphere(), "double": Double()},
+            [Connector("atmos", "double", time="hold")],
+        ),
+        "Diagnostic 'double' needs",
+    ),
+    # Schedules that cannot run
+    (lambda: CoupledRunner(**_pair("exact")), r"cycle left -> right -> left.*hold"),
+    (
+        lambda: CoupledRunner(
+            {"atmos": atmosphere(), "ocean": ocean()},
+            [
+                Connector("ocean", "atmos", regridder=TO_ATMOS),
+                Connector("atmos", "ocean", regridder=TO_OCEAN),
+            ],
+            sources=IC_SOURCES,
+        ),
+        "cycle atmos -> ocean -> atmos",
+    ),
+    (
+        lambda: CoupledRunner(
+            {
+                "atmos": atmosphere(),
+                "ocean": _Toy("sst", "x", OCEAN_GRID, 48, 0.0, 0.0),
+            },
+            [Connector("ocean", "atmos", regridder=TO_ATMOS)],
+            sources={
+                "atmos": Fill(ATMOS_GRID, {"z1000": 0.0}),
+                "ocean": (Fill(OCEAN_GRID, {"sst": 2.0}), Fill(OCEAN_GRID, {"x": 0.0})),
+            },
+        ),
+        r"'ocean' publishes no frames for 'sst'",
+    ),
+]
+
+
+@pytest.mark.parametrize("build, match", INVALID)
+def test_invalid_couplings_fail_at_construction(build, match: str) -> None:
+    with pytest.raises(CouplingError, match=match):
+        build()

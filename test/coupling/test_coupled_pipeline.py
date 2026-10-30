@@ -21,8 +21,17 @@ from collections.abc import Mapping
 import numpy as np
 import torch
 import xarray as xr
-from conftest import ATMOS_GRID, OCEAN_GRID, T0, Fill, H, atmosphere, ocean, signature
-from test_state import Mixed
+from test_coupling_toys import (
+    ATMOS_GRID,
+    OCEAN_GRID,
+    T0,
+    Fill,
+    H,
+    Mixed,
+    atmosphere,
+    ocean,
+    signature,
+)
 
 from earth2studio.coupling import Connector, CoupledRunner
 from earth2studio.grids import NearestRegridder

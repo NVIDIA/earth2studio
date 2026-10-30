@@ -16,66 +16,29 @@
 
 """State connectors and per-component devices."""
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Mapping
 
 import numpy as np
 import pytest
 import torch
-import xarray as xr
-from conftest import (
+from test_coupling_toys import (
     ATMOS_GRID,
     OCEAN_GRID,
+    TO_ATMOS,
+    TO_OCEAN,
     Double,
     Fill,
     H,
-    _check,
+    Mixed,
     _Toy,
     atmosphere,
     ocean,
-    signature,
+    run,
+    series,
+    toy_runner,
 )
-from test_runner import TO_ATMOS, TO_OCEAN, _run, _series, _toy
 
 from earth2studio.coupling import Connector, CoupledRunner, CouplingError
-from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import coord_array_like
-from earth2studio.utils.type import CoordinateSystem
-
-
-class Mixed(PrognosticMixin):
-    """6 h atmosphere carrying SST in its state: ``z1000 <- z1000 + 1 + 0.1 * sst``."""
-
-    def input_coords(self) -> CoordinateSystem:
-        return signature(["z1000", "sst"], ATMOS_GRID)
-
-    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        _check(input_coords, self.input_coords())
-        leads = input_coords["lead_time"].values[-1:] + 6 * H
-        return coord_array_like(input_coords, {"lead_time": leads})
-
-    def _advance(self, x: xr.DataArray) -> xr.DataArray:
-        self.output_coords(x)
-        y = x.isel(lead_time=[-1]).copy()
-        sst = float(y.sel(variable="sst").mean())
-        y.loc[{"variable": "z1000"}] = y.sel(variable="z1000") + 1 + 0.1 * sst
-        return y.assign_coords(lead_time=y["lead_time"] + 6 * H)
-
-    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, None]:  # type: ignore[override]
-        return self._advance(x), None
-
-    def step(  # type: ignore[override]
-        self, y: xr.DataArray, state: None = None
-    ) -> tuple[xr.DataArray, None]:
-        return self._advance(y), None
-
-    def __call__(self, x: xr.DataArray) -> xr.DataArray:
-        return self._default_call(x)  # type: ignore[return-value]
-
-    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
-        return self._default_create_iterator(x)  # type: ignore[return-value]
-
-    def to(self, device: torch.device) -> "Mixed":
-        return self
 
 
 def _state_coupled() -> CoupledRunner:
@@ -106,7 +69,7 @@ def _state_coupled() -> CoupledRunner:
 def test_state_overwrite_matches_forcing_coupling(
     ic_sources: Mapping[str, Fill],
 ) -> None:
-    streams = _run(_state_coupled(), 96)
+    streams = run(_state_coupled(), 96)
     z = {
         lead: float(x.sel(variable="z1000").mean())
         for lead, x in zip(
@@ -114,7 +77,7 @@ def test_state_overwrite_matches_forcing_coupling(
             streams["atmos"],
         )
     }
-    expected = _series(_run(_toy(ic_sources), 96)["atmos"])
+    expected = series(run(toy_runner(ic_sources), 96)["atmos"])
     assert list(z) == list(expected)
     for lead, value in expected.items():
         np.testing.assert_allclose(z[lead], value, atol=1e-4)
