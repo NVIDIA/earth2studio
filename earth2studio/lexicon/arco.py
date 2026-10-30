@@ -21,18 +21,6 @@ import numpy as np
 
 from .base import LexiconType
 
-# ['10m_u_component_of_wind', '10m_v_component_of_wind', '2m_temperature',
-# 'angle_of_sub_gridscale_orography', 'anisotropy_of_sub_gridscale_orography',
-# 'geopotential', 'geopotential_at_surface', 'high_vegetation_cover',
-# 'lake_cover', 'lake_depth', 'land_sea_mask', 'low_vegetation_cover',
-# 'mean_sea_level_pressure', 'sea_ice_cover', 'sea_surface_temperature',
-# 'slope_of_sub_gridscale_orography', 'soil_type', 'specific_humidity',
-# 'standard_deviation_of_filtered_subgrid_orography', 'standard_deviation_of_orography',
-# 'surface_pressure', 'temperature', 'toa_incident_solar_radiation', 'total_cloud_cover',
-# 'total_column_water_vapour', 'total_precipitation', 'type_of_high_vegetation',
-# 'type_of_low_vegetation', 'u_component_of_wind', 'v_component_of_wind',
-# 'vertical_velocity']
-
 LEVELS = [
     1,
     2,
@@ -91,11 +79,14 @@ ACCUMULATION_HOURS = {
 
 class ARCO_ERA5Lexicon(metaclass=LexiconType):
     """ARCO ERA5 Lexicon
-    ARCO specified <Variable ID>::<Pressure Level>
+    ARCO specified <Variable ID>::<Level>. Model-level identifiers end in ``k``.
 
     Note
     ----
-    Variable named based on ERA5 names, see CDS docs for resources.
+    Covers all single-level, pressure-level, and model-level fields in the Google
+    analysis-ready stores as of October 2026. Identifiers follow Earth2Studio
+    conventions, otherwise ERA5 short names (dots replaced by underscores).
+    Snowfall and runoff amounts use metres of water equivalent.
     """
 
     VOCAB = {
@@ -144,6 +135,234 @@ class ARCO_ERA5Lexicon(metaclass=LexiconType):
         "tp06": "total_precipitation::",
         "ttr03": "top_net_thermal_radiation::",
         "wmb": "model_bathymetry::",
+        # Remaining single-level fields in full_37-1h-0p25deg-chunk-1.zarr-v3.
+        "u10n": "10m_u_component_of_neutral_wind::",
+        "v10n": "10m_v_component_of_neutral_wind::",
+        "fg10m": "10m_wind_gust_since_previous_post_processing::",
+        "p140209": "air_density_over_the_oceans::",
+        "anor": "angle_of_sub_gridscale_orography::",
+        "isor": "anisotropy_of_sub_gridscale_orography::",
+        "bfi": "benjamin_feir_index::",
+        "bld": "boundary_layer_dissipation::",
+        "blh": "boundary_layer_height::",
+        "chnk": "charnock::",
+        "cdir": "clear_sky_direct_solar_radiation_at_surface::",
+        "cbh_agl": "cloud_base_height::",
+        "cape": "convective_available_potential_energy::",
+        "cin": "convective_inhibition::",
+        "cp": "convective_precipitation::",
+        "crr": "convective_rain_rate::",
+        "csf": "convective_snowfall::",
+        "csfr": "convective_snowfall_rate_water_equivalent::",
+        "uvb": "downward_uv_radiation_at_the_surface::",
+        "dctb": "duct_base_height::",
+        "lgws": "eastward_gravity_wave_surface_stress::",
+        "ewss": "eastward_turbulent_surface_stress::",
+        "e": "evaporation::",
+        "fal": "forecast_albedo::",
+        "flsr": "forecast_logarithm_of_surface_roughness_for_heat::",
+        "fsr": "forecast_surface_roughness::",
+        "p140208": "free_convective_velocity_over_the_oceans::",
+        "zust": "friction_velocity::",
+        "gwd": "gravity_wave_dissipation::",
+        "cvh": "high_vegetation_cover::",
+        "istl1": "ice_temperature_layer_1::",
+        "istl2": "ice_temperature_layer_2::",
+        "istl3": "ice_temperature_layer_3::",
+        "istl4": "ice_temperature_layer_4::",
+        "i10fg": "instantaneous_10m_wind_gust::",
+        "iews": "instantaneous_eastward_turbulent_surface_stress::",
+        "ilspf": "instantaneous_large_scale_surface_precipitation_fraction::",
+        "ie": "instantaneous_moisture_flux::",
+        "inss": "instantaneous_northward_turbulent_surface_stress::",
+        "ishf": "instantaneous_surface_sensible_heat_flux::",
+        "kx": "k_index::",
+        "lblt": "lake_bottom_temperature::",
+        "cl": "lake_cover::",
+        "dl": "lake_depth::",
+        "licd": "lake_ice_depth::",
+        "lict": "lake_ice_temperature::",
+        "lmld": "lake_mix_layer_depth::",
+        "lmlt": "lake_mix_layer_temperature::",
+        "lshf": "lake_shape_factor::",
+        "ltlt": "lake_total_layer_temperature::",
+        "lsp": "large_scale_precipitation::",
+        "lspf": "large_scale_precipitation_fraction::",
+        "lsrr": "large_scale_rain_rate::",
+        "lsf": "large_scale_snowfall::",
+        "lssfr": "large_scale_snowfall_rate_water_equivalent::",
+        "lai_hv": "leaf_area_index_high_vegetation::",
+        "lai_lv": "leaf_area_index_low_vegetation::",
+        "cvl": "low_vegetation_cover::",
+        "mx2t": "maximum_2m_temperature_since_previous_post_processing::",
+        "hmax": "maximum_individual_wave_height::",
+        "mxtpr": "maximum_total_precipitation_rate_since_previous_post_processing::",
+        "mbld": "mean_boundary_layer_dissipation::",
+        "mcpr": "mean_convective_precipitation_rate::",
+        "mcsr": "mean_convective_snowfall_rate::",
+        "mdts": "mean_direction_of_total_swell::",
+        "mdww": "mean_direction_of_wind_waves::",
+        "megwss": "mean_eastward_gravity_wave_surface_stress::",
+        "metss": "mean_eastward_turbulent_surface_stress::",
+        "mer": "mean_evaporation_rate::",
+        "mgwd": "mean_gravity_wave_dissipation::",
+        "mlspf": "mean_large_scale_precipitation_fraction::",
+        "mlspr": "mean_large_scale_precipitation_rate::",
+        "mlssr": "mean_large_scale_snowfall_rate::",
+        "mngwss": "mean_northward_gravity_wave_surface_stress::",
+        "mntss": "mean_northward_turbulent_surface_stress::",
+        "mpts": "mean_period_of_total_swell::",
+        "mpww": "mean_period_of_wind_waves::",
+        "mper": "mean_potential_evaporation_rate::",
+        "mror": "mean_runoff_rate::",
+        "mser": "mean_snow_evaporation_rate::",
+        "msr": "mean_snowfall_rate::",
+        "msmr": "mean_snowmelt_rate::",
+        "msqs": "mean_square_slope_of_waves::",
+        "mssror": "mean_sub_surface_runoff_rate::",
+        "msdrswrf": "mean_surface_direct_short_wave_radiation_flux::",
+        "msdrswrfcs": "mean_surface_direct_short_wave_radiation_flux_clear_sky::",
+        "msdwlwrf": "mean_surface_downward_long_wave_radiation_flux::",
+        "msdwlwrfcs": "mean_surface_downward_long_wave_radiation_flux_clear_sky::",
+        "msdwswrf": "mean_surface_downward_short_wave_radiation_flux::",
+        "msdwswrfcs": "mean_surface_downward_short_wave_radiation_flux_clear_sky::",
+        "msdwuvrf": "mean_surface_downward_uv_radiation_flux::",
+        "mslhf": "mean_surface_latent_heat_flux::",
+        "msnlwrf": "mean_surface_net_long_wave_radiation_flux::",
+        "msnlwrfcs": "mean_surface_net_long_wave_radiation_flux_clear_sky::",
+        "msnswrf": "mean_surface_net_short_wave_radiation_flux::",
+        "msnswrfcs": "mean_surface_net_short_wave_radiation_flux_clear_sky::",
+        "msror": "mean_surface_runoff_rate::",
+        "msshf": "mean_surface_sensible_heat_flux::",
+        "mtnlwrf": "mean_top_net_long_wave_radiation_flux::",
+        "mtnlwrfcs": "mean_top_net_long_wave_radiation_flux_clear_sky::",
+        "mtnswrf": "mean_top_net_short_wave_radiation_flux::",
+        "mtnswrfcs": "mean_top_net_short_wave_radiation_flux_clear_sky::",
+        "mtpr": "mean_total_precipitation_rate::",
+        "dndza": "mean_vertical_gradient_of_refractivity_inside_trapping_layer::",
+        "mvimd": "mean_vertically_integrated_moisture_divergence::",
+        "mwd": "mean_wave_direction::",
+        "p140122": "mean_wave_direction_of_first_swell_partition::",
+        "p140125": "mean_wave_direction_of_second_swell_partition::",
+        "p140128": "mean_wave_direction_of_third_swell_partition::",
+        "mp1": "mean_wave_period_based_on_first_moment::",
+        "p1ps": "mean_wave_period_based_on_first_moment_for_swell::",
+        "p1ww": "mean_wave_period_based_on_first_moment_for_wind_waves::",
+        "p2ps": "mean_wave_period_based_on_second_moment_for_swell::",
+        "p2ww": "mean_wave_period_based_on_second_moment_for_wind_waves::",
+        "p140123": "mean_wave_period_of_first_swell_partition::",
+        "p140126": "mean_wave_period_of_second_swell_partition::",
+        "p140129": "mean_wave_period_of_third_swell_partition::",
+        "mp2": "mean_zero_crossing_wave_period::",
+        "mn2t": "minimum_2m_temperature_since_previous_post_processing::",
+        "mntpr": "minimum_total_precipitation_rate_since_previous_post_processing::",
+        "dndzn": "minimum_vertical_gradient_of_refractivity_inside_trapping_layer::",
+        "alnid": "near_ir_albedo_for_diffuse_radiation::",
+        "alnip": "near_ir_albedo_for_direct_radiation::",
+        "phioc": "normalized_energy_flux_into_ocean::",
+        "phiaw": "normalized_energy_flux_into_waves::",
+        "tauoc": "normalized_stress_into_ocean::",
+        "mgws": "northward_gravity_wave_surface_stress::",
+        "nsss": "northward_turbulent_surface_stress::",
+        "dwi": "ocean_surface_stress_equivalent_10m_neutral_wind_direction::",
+        "wind": "ocean_surface_stress_equivalent_10m_neutral_wind_speed::",
+        "pp1d": "peak_wave_period::",
+        "tmax": "period_corresponding_to_maximum_individual_wave_height::",
+        "pev": "potential_evaporation::",
+        "ptype": "precipitation_type::",
+        "shts": "significant_height_of_total_swell::",
+        "shww": "significant_height_of_wind_waves::",
+        "p140121": "significant_wave_height_of_first_swell_partition::",
+        "p140124": "significant_wave_height_of_second_swell_partition::",
+        "p140127": "significant_wave_height_of_third_swell_partition::",
+        "src": "skin_reservoir_content::",
+        "asn": "snow_albedo::",
+        "rsn": "snow_density::",
+        "es": "snow_evaporation::",
+        "smlt": "snowmelt::",
+        "stl3": "soil_temperature_level_3::",
+        "stl4": "soil_temperature_level_4::",
+        "slt": "soil_type::",
+        "sdfor": "standard_deviation_of_filtered_subgrid_orography::",
+        "ssro": "sub_surface_runoff::",
+        "slhf": "surface_latent_heat_flux::",
+        "ssr": "surface_net_solar_radiation::",
+        "ssrc": "surface_net_solar_radiation_clear_sky::",
+        "str": "surface_net_thermal_radiation::",
+        "strc": "surface_net_thermal_radiation_clear_sky::",
+        "sro": "surface_runoff::",
+        "sshf": "surface_sensible_heat_flux::",
+        "ssrdc": "surface_solar_radiation_downward_clear_sky::",
+        "ssrd": "surface_solar_radiation_downwards::",
+        "strdc": "surface_thermal_radiation_downward_clear_sky::",
+        "strd": "surface_thermal_radiation_downwards::",
+        "tsn": "temperature_of_snow_layer::",
+        "tisr": "toa_incident_solar_radiation::",
+        "tsr": "top_net_solar_radiation::",
+        "tsrc": "top_net_solar_radiation_clear_sky::",
+        "ttrc": "top_net_thermal_radiation_clear_sky::",
+        "tciw": "total_column_cloud_ice_water::",
+        "tclw": "total_column_cloud_liquid_water::",
+        "tco3": "total_column_ozone::",
+        "tcrw": "total_column_rain_water::",
+        "tcsw": "total_column_snow_water::",
+        "tcslw": "total_column_supercooled_liquid_water::",
+        "fdir": "total_sky_direct_solar_radiation_at_surface::",
+        "totalx": "total_totals_index::",
+        "tplb": "trapping_layer_base_height::",
+        "tplt": "trapping_layer_top_height::",
+        "tvh": "type_of_high_vegetation::",
+        "tvl": "type_of_low_vegetation::",
+        "ust": "u_component_stokes_drift::",
+        "aluvd": "uv_visible_albedo_for_diffuse_radiation::",
+        "aluvp": "uv_visible_albedo_for_direct_radiation::",
+        "vst": "v_component_stokes_drift::",
+        "p80_162": "vertical_integral_of_divergence_of_cloud_frozen_water_flux::",
+        "p79_162": "vertical_integral_of_divergence_of_cloud_liquid_water_flux::",
+        "p85_162": "vertical_integral_of_divergence_of_geopotential_flux::",
+        "p82_162": "vertical_integral_of_divergence_of_kinetic_energy_flux::",
+        "p81_162": "vertical_integral_of_divergence_of_mass_flux::",
+        "p84_162": "vertical_integral_of_divergence_of_moisture_flux::",
+        "p87_162": "vertical_integral_of_divergence_of_ozone_flux::",
+        "p83_162": "vertical_integral_of_divergence_of_thermal_energy_flux::",
+        "p86_162": "vertical_integral_of_divergence_of_total_energy_flux::",
+        "p90_162": "vertical_integral_of_eastward_cloud_frozen_water_flux::",
+        "p88_162": "vertical_integral_of_eastward_cloud_liquid_water_flux::",
+        "p73_162": "vertical_integral_of_eastward_geopotential_flux::",
+        "p69_162": "vertical_integral_of_eastward_heat_flux::",
+        "p67_162": "vertical_integral_of_eastward_kinetic_energy_flux::",
+        "p65_162": "vertical_integral_of_eastward_mass_flux::",
+        "p77_162": "vertical_integral_of_eastward_ozone_flux::",
+        "p75_162": "vertical_integral_of_eastward_total_energy_flux::",
+        "p71_162": "vertical_integral_of_eastward_water_vapour_flux::",
+        "p64_162": "vertical_integral_of_energy_conversion::",
+        "p59_162": "vertical_integral_of_kinetic_energy::",
+        "p53_162": "vertical_integral_of_mass_of_atmosphere::",
+        "p92_162": "vertical_integral_of_mass_tendency::",
+        "p91_162": "vertical_integral_of_northward_cloud_frozen_water_flux::",
+        "p89_162": "vertical_integral_of_northward_cloud_liquid_water_flux::",
+        "p74_162": "vertical_integral_of_northward_geopotential_flux::",
+        "p70_162": "vertical_integral_of_northward_heat_flux::",
+        "p68_162": "vertical_integral_of_northward_kinetic_energy_flux::",
+        "p66_162": "vertical_integral_of_northward_mass_flux::",
+        "p78_162": "vertical_integral_of_northward_ozone_flux::",
+        "p76_162": "vertical_integral_of_northward_total_energy_flux::",
+        "p72_162": "vertical_integral_of_northward_water_vapour_flux::",
+        "p61_162": "vertical_integral_of_potential_and_internal_energy::",
+        "p62_162": "vertical_integral_of_potential_internal_and_latent_energy::",
+        "p54_162": "vertical_integral_of_temperature::",
+        "p60_162": "vertical_integral_of_thermal_energy::",
+        "p63_162": "vertical_integral_of_total_energy::",
+        "vimd": "vertically_integrated_moisture_divergence::",
+        "swvl3": "volumetric_soil_water_layer_3::",
+        "swvl4": "volumetric_soil_water_layer_4::",
+        "wdw": "wave_spectral_directional_width::",
+        "dwps": "wave_spectral_directional_width_for_swell::",
+        "dwww": "wave_spectral_directional_width_for_wind_waves::",
+        "wsk": "wave_spectral_kurtosis::",
+        "wsp": "wave_spectral_peakedness::",
+        "wss": "wave_spectral_skewness::",
+        "deg0l": "zero_degree_level::",
     }
     VOCAB.update({f"u{level}": f"u_component_of_wind::{level}" for level in LEVELS})
     VOCAB.update({f"v{level}": f"v_component_of_wind::{level}" for level in LEVELS})
@@ -163,6 +382,14 @@ class ARCO_ERA5Lexicon(metaclass=LexiconType):
             for level in LEVELS
         }
     )
+
+    VOCAB.update(
+        {f"cc{level}": f"fraction_of_cloud_cover::{level}" for level in LEVELS}
+    )
+    VOCAB.update(
+        {f"o3{level}": f"ozone_mass_mixing_ratio::{level}" for level in LEVELS}
+    )
+    VOCAB.update({f"pv{level}": f"potential_vorticity::{level}" for level in LEVELS})
 
     # Model levels are stored in a separate Zarr group, but use the same base names
     VOCAB.update(
@@ -197,6 +424,17 @@ class ARCO_ERA5Lexicon(metaclass=LexiconType):
             for level in MDL_LEVELS
         }
     )
+
+    VOCAB.update({f"d{level}k": f"divergence::{level}" for level in MDL_LEVELS})
+    VOCAB.update(
+        {f"cc{level}k": f"fraction_of_cloud_cover::{level}" for level in MDL_LEVELS}
+    )
+    VOCAB.update({f"z{level}k": f"geopotential::{level}" for level in MDL_LEVELS})
+    VOCAB.update(
+        {f"o3{level}k": f"ozone_mass_mixing_ratio::{level}" for level in MDL_LEVELS}
+    )
+    VOCAB.update({f"w{level}k": f"vertical_velocity::{level}" for level in MDL_LEVELS})
+    VOCAB.update({f"vo{level}k": f"vorticity::{level}" for level in MDL_LEVELS})
 
     @classmethod
     def get_item(cls, val: str) -> tuple[str, Callable]:

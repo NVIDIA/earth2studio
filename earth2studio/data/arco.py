@@ -45,10 +45,10 @@ from earth2studio.utils.type import TimeArray, VariableArray
 
 class ARCO_ERA5:
     """Analysis-Ready, Cloud Optimized (ARCO) ERA5 is a reanalysis data source
-    curated by Google. This data is stored in Zarr format and contains 31 surface
-    variables, pressure level variables defined on 37 pressure levels, and model level
-    variables defined on the 137 native ERA5 vertical levels, all on a 0.25 degree lat
-    lon grid. Temporal resolution is 1 hour.
+    curated by Google. This data is stored in Zarr format and contains 262 single-level
+    variables, 11 variables defined on 37 pressure levels, and 14 variables defined on
+    the 137 native ERA5 model levels, all on a 0.25 degree lat lon grid (inventory as
+    of October 2026). Temporal resolution is 1 hour.
 
     Parameters
     ----------

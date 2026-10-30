@@ -168,7 +168,7 @@ _CANONICAL_UNITS_BY_SHORT_NAME: dict[str, str] = {
     "q": "kg kg-1",
     "r": "%",
     "sd": "m",
-    "sf": "kg m-2",
+    "sf": "m",
     "skt": "K",
     "slhf": "J m-2",
     "snowc": "%",

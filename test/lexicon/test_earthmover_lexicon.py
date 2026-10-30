@@ -150,7 +150,7 @@ def test_earthmover_era5_lexicon_specs():
     assert EarthMoverERA5Lexicon.spec("fg10m").param_id == 49
     assert EarthMoverERA5Lexicon.spec("u10m").level_type == "surface"
     assert EarthMoverERA5Lexicon.spec("u10m").param_id == 165
-    assert EarthMoverERA5Lexicon.spec("sf").canonical_units == "kg m-2"
+    assert EarthMoverERA5Lexicon.spec("sf").canonical_units == "m"
     assert EarthMoverERA5Lexicon.spec("q500").level_type == "isobaric"
     assert EarthMoverERA5Lexicon.spec("q500").level == 500
     assert EarthMoverERA5Lexicon.spec("pv500").short_name == "pv"
@@ -232,7 +232,7 @@ def test_earthmover_unit_conversions(variable, src_units, raw, expected):
     "variable,src_units,raw,expected",
     [
         ("t2m", "degree_Celsius", np.array([0.0]), np.array([273.15])),
-        ("sf", "m of water equivalent", np.array([0.002]), np.array([2.0])),
+        ("sf", "m of water equivalent", np.array([0.002]), np.array([0.002])),
     ],
 )
 def test_earthmover_era5_unit_conversions(variable, src_units, raw, expected):
