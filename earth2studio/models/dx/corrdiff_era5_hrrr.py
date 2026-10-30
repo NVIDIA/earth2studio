@@ -16,10 +16,12 @@
 
 import json
 import math
+import zipfile
 from collections.abc import Sequence
 from contextlib import AbstractContextManager, nullcontext
+from copy import copy
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, Self
 
 import numpy as np
 import torch
@@ -27,9 +29,19 @@ import xarray as xr
 from fsspec.implementations.cache_mapper import BasenameCacheMapper
 
 from earth2studio.data import HRRR
+from earth2studio.grids import ProjectedGrid, Region, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
+from earth2studio.models.nn.corrdiff import (
+    dit_bound_to,
+    dit_grid_constraints,
+    dit_latent_grid,
+    dit_rope_tables,
+    find_dit,
+    points_in_grid_footprint,
+    snap_to_patch,
+)
 from earth2studio.utils import handshake_coords, handshake_dim, interp
 from earth2studio.utils.coords import coord_array, handshake_time
 from earth2studio.utils.cupy import from_torch
@@ -45,7 +57,6 @@ if TYPE_CHECKING:
 
 try:
     import natten  # noqa: F401  # the DiT needs NATTEN (neighborhood attention)
-    from physicsnemo import Module
     from physicsnemo.diffusion.noise_schedulers import (
         EDMNoiseScheduler,
         RectifiedFlowNoiseScheduler,
@@ -63,7 +74,6 @@ except ImportError:
     EDMPreconditioner = None
     sample = None
     ConcatConditionWrapper = None
-    Module = None
     DiT = None
     cos_zenith_angle = None
     TensorDict = None
@@ -106,11 +116,46 @@ SUPPORTED_VARIANTS = ("x_pred",)
 DISTILLED_CHECKPOINT = "corrdiff-era5-hrrr-distil.mdlus"
 
 
-# physicsnemo's Module gives the distilled generator its ``.mdlus`` save / load round trip
-_ModuleBase: Any = Module if Module is not None else torch.nn.Module
+def _hrrr_index_limits(values: np.ndarray, axis_name: str) -> tuple[int, int]:
+    """Index limits ``(start, stop)`` of projection coordinates on the registered HRRR grid.
+
+    Parameters
+    ----------
+    values : np.ndarray
+        1-D ``hrrr_y`` or ``hrrr_x`` coordinates (m) of a crop.
+    axis_name : {"y", "x"}
+        Axis of the HRRR grid the values belong to.
+
+    Returns
+    -------
+    tuple[int, int]
+        Half-open index limits on the full HRRR grid, the convention of
+        :class:`~earth2studio.models.px.StormCastCONUS`'s ``hrrr_lat_lim`` /
+        ``hrrr_lon_lim``.
+    """
+    hrrr_grid = resolve_grid("hrrr")
+    if not isinstance(hrrr_grid, ProjectedGrid):
+        raise TypeError("The registered HRRR grid must be a ProjectedGrid")
+    axis = np.asarray(getattr(hrrr_grid, axis_name), dtype=np.float64)
+    start = int(np.argmin(np.abs(axis - float(values[0]))))
+    stop = start + len(values)
+    if stop > axis.size or not np.allclose(axis[start:stop], values, atol=1.0):
+        raise ValueError(
+            f"hrrr_{axis_name} is not a contiguous slice of the HRRR grid {axis_name} axis"
+        )
+    return start, stop
 
 
-class CorrDiffEra5HrrrDistilled(_ModuleBase):  # type: ignore[misc,valid-type]
+def _match_lon_convention(lon: float, grid_lon: np.ndarray) -> float:
+    """Express ``lon`` in the longitude convention of ``grid_lon``: ``[-180, 180)``
+    when the grid holds negative longitudes, ``[0, 360)`` otherwise."""
+    if float(grid_lon.min()) < 0.0:
+        wrapped = ((lon + 180.0) % 360.0) - 180.0
+        return 180.0 if wrapped == -180.0 and lon > 0.0 else float(wrapped)
+    return float(lon % 360.0)
+
+
+class _CorrDiffEra5HrrrDistilled(torch.nn.Module):
     """Few-step distilled generator (Parallel Decoding Distillation) of the ERA5 -> HRRR
     downscaler: the teacher's DiT backbone plus one output head per node of a fixed
     64-node time grid. One backbone evaluation at a block start yields the clean-state
@@ -162,10 +207,21 @@ class CorrDiffEra5HrrrDistilled(_ModuleBase):  # type: ignore[misc,valid-type]
         self.register_buffer("grid", t.float(), persistent=False)
 
     def features(
-        self, x: torch.Tensor, t: torch.Tensor, condition: "TensorDict"
+        self,
+        x: torch.Tensor,
+        t: torch.Tensor,
+        condition: "TensorDict",
+        latent_hw: tuple[int, int] | None = None,
     ) -> torch.Tensor:
-        """Backbone tokens ``[B, L, D]`` after the detokenizer's modulated norm."""
+        """Backbone tokens ``[B, L, D]`` after the detokenizer's modulated norm.
+
+        ``latent_hw`` is the latent grid of ``x`` (derived from its shape when
+        omitted); it is passed to the attention explicitly, with RoPE tables built
+        for it, so the backbone's own state is never modified.
+        """
         dit = self.dit
+        if latent_hw is None:
+            latent_hw = dit_latent_grid(dit, *x.shape[-2:])
         x_in = torch.cat([x, condition["cond_concat"]], dim=1)
         tt = t.float() * self.time_scale
         if dit.force_tokenization_fp32:
@@ -177,39 +233,36 @@ class CorrDiffEra5HrrrDistilled(_ModuleBase):  # type: ignore[misc,valid-type]
             h = dit.tokenizer(x_in)
         c = dit.conditioning_embedder(tt, condition=condition["cond_vec"])
         attn_kwargs = dict(dit.attn_kwargs_forward)
+        if "latent_hw" in attn_kwargs:  # NATTEN neighbourhoods take the grid explicitly
+            attn_kwargs["latent_hw"] = latent_hw
         if dit._is_rope:
-            rope_cos, rope_sin = dit.rope(None)
-            attn_kwargs["rope_cos"] = rope_cos
-            attn_kwargs["rope_sin"] = rope_sin
+            attn_kwargs["rope_cos"], attn_kwargs["rope_sin"] = dit_rope_tables(
+                dit, latent_hw
+            )
         for block in dit.blocks:
             h = block(h, c, p_dropout=None, attn_kwargs=attn_kwargs)
         proj = dit.detokenizer.proj_layer
         shift_, scale_ = proj.adaptive_modulation(c).chunk(2, dim=1)
         return proj.modulation(proj.proj_layer_norm(h), scale_, shift_)
 
-    def _unpatchify(self, y: torch.Tensor) -> torch.Tensor:
-        """Token outputs ``[B, L, p*p*C]`` -> fields ``[B, C, H, W]``."""
+    def _unpatchify(self, y: torch.Tensor, latent_hw: tuple[int, int]) -> torch.Tensor:
+        """Token outputs ``[B, L, p*p*C]`` on the ``latent_hw`` grid -> fields ``[B, C, H, W]``."""
         d = self.dit.detokenizer
+        hp, wp = latent_hw
         y = y.reshape(
-            y.shape[0],
-            d.h_patches,
-            d.w_patches,
-            d.patch_size[0],
-            d.patch_size[1],
-            d.out_channels,
+            y.shape[0], hp, wp, d.patch_size[0], d.patch_size[1], d.out_channels
         )
         y = torch.einsum("nhwpqc->nchpwq", y)
         return y.reshape(
-            y.shape[0],
-            d.out_channels,
-            d.h_patches * d.patch_size[0],
-            d.w_patches * d.patch_size[1],
+            y.shape[0], d.out_channels, hp * d.patch_size[0], wp * d.patch_size[1]
         )
 
-    def head(self, feats: torch.Tensor, k: int) -> torch.Tensor:
+    def head(
+        self, feats: torch.Tensor, k: int, latent_hw: tuple[int, int]
+    ) -> torch.Tensor:
         """Clean-state estimate of grid node ``k`` from the block-start features (fp32 head)."""
         with torch.autocast(device_type=feats.device.type, enabled=False):
-            return self._unpatchify(self.heads[k](feats.float())).float()
+            return self._unpatchify(self.heads[k](feats.float()), latent_hw).float()
 
     @torch.no_grad()
     def sample(
@@ -219,7 +272,9 @@ class CorrDiffEra5HrrrDistilled(_ModuleBase):  # type: ignore[misc,valid-type]
 
         Only the trained block layouts are allowed: ``nfe=1`` (one block) or ``nfe=2``
         (two blocks). Other values would run the heads at block starts they were never
-        trained for, so they are rejected.
+        trained for, so they are rejected. The backbone is crop-size agnostic and is
+        run with the latent grid of ``noise`` passed explicitly, so blocks of the
+        trained grid sample as they are; the shape must be a multiple of the patch size.
         """
         if nfe not in (1, 2):
             raise ValueError(
@@ -228,14 +283,15 @@ class CorrDiffEra5HrrrDistilled(_ModuleBase):  # type: ignore[misc,valid-type]
         N = self.n_grid
         if N % nfe != 0:
             raise ValueError(f"nfe must divide the grid size {N}")
+        latent_hw = dit_latent_grid(self.dit, *noise.shape[-2:])
         L = N // nfe
         grid = self.grid.to(noise.device)
         x = grid[0] * noise
         for n in range(0, N, L):
             t_n = grid[n].expand(x.shape[0])
-            feats = self.features(x, t_n, condition)
+            feats = self.features(x, t_n, condition, latent_hw)
             for j in range(n, n + L):
-                x0_j = self.head(feats, j)
+                x0_j = self.head(feats, j, latent_hw)
                 if (
                     j + 1 == N
                 ):  # the last interval ends at t = 0: the Euler step lands on x0_hat
@@ -252,13 +308,59 @@ class CorrDiffEra5HrrrDistilled(_ModuleBase):  # type: ignore[misc,valid-type]
         return self.sample(noise, condition, nfe=nfe)
 
 
+def _load_distilled(path: str) -> _CorrDiffEra5HrrrDistilled:
+    """Build the distilled generator from a PhysicsNeMo ``.mdlus`` archive.
+
+    The archive is a zip holding the constructor arguments (``args.json``) and the
+    state dict (``model.pt``); reading it directly keeps the generator independent of
+    the class path the archive records.
+
+    Parameters
+    ----------
+    path : str
+        Local path of the ``.mdlus`` file.
+
+    Returns
+    -------
+    _CorrDiffEra5HrrrDistilled
+        Generator in eval mode with gradients disabled.
+    """
+    with zipfile.ZipFile(path) as archive:
+        args = json.loads(archive.read("args.json"))["__args__"]
+        with archive.open("model.pt") as handle:
+            state = torch.load(handle, map_location="cpu", weights_only=True)
+    network = _CorrDiffEra5HrrrDistilled(**args)
+    # PhysicsNeMo modules carry a non-persistent ``device_buffer`` that older
+    # archives saved; nothing else may be missing or unexpected.
+    missing, unexpected = network.load_state_dict(state, strict=False)
+    stray = [k for k in (*missing, *unexpected) if not k.endswith("device_buffer")]
+    if stray:
+        raise ValueError(f"distilled checkpoint does not match the generator: {stray}")
+    return network.eval().requires_grad_(False)
+
+
 @check_optional_dependencies()
 class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
     """Generative downscaling from 0.25-degree ERA5 to 3 km HRRR over CONUS.
 
+    - High-resolution (3 km) HRRR state over the Continental United States (99 vars)
+    - High-resolution terrain and land-sea mask invariants
+    - Coarse-resolution (0.25 degree) ERA5 input state (26 vars)
+
+    The high-resolution grid is the HRRR Lambert conformal projection; the output
+    crop is the HRRR index window ``hrrr_lat_lim`` x ``hrrr_lon_lim`` of
+    :class:`~earth2studio.models.px.StormCastCONUS` (``(17, 1041)`` x ``(3, 1795)``
+    for the hosted model). The coarse input arrives on the native ERA5 footprint of
+    the training data; the source recommended by ``default_sources()`` serves it.
+
     By default :meth:`load_model` loads the distilled 2-step generator of the model
-    (:class:`CorrDiffEra5HrrrDistilled`); pass
+    (Parallel Decoding Distillation of the teacher's DiT); pass
     ``load_model(..., distilled_model=False)`` for the 50-step teacher.
+
+    The model is :class:`~earth2studio.models.base.DomainAdaptable`:
+    :meth:`with_region` returns a view covering the part of the HRRR crop that a
+    geographic box selects. The DiT is crop-size agnostic, so a view runs in one
+    forward over proportionally fewer tokens.
 
     Note
     ----
@@ -309,8 +411,7 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         Ensemble members per input; settable between calls.
     number_of_steps : int
         ODE solver steps (each Heun step costs two network evaluations). For a
-        :class:`CorrDiffEra5HrrrDistilled` network this is the number of blocks of
-        its rollout and must be 1 or 2.
+        distilled network this is the number of blocks of its rollout, 1 or 2.
     solver : {"heun", "euler"}
         ODE solver. Unused for a distilled network, whose rollout is fixed.
     shift : float
@@ -320,8 +421,8 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         256 x 256 patches). Ignored for EDM. Unused for a distilled network, which
         carries its own time grid.
     t_max : float
-        Rectified-flow start time (the noise end); kept slighly below 1 for stability.
-        Unused for a distilled network.
+        Rectified-flow start time (the noise end); kept slightly below 1 for
+        stability. Unused for a distilled network.
     x0v_clip : float
         Lower clamp of the denominator in the x-prediction to velocity conversion
         ``v = (x_t - x0_hat) / max(t, x0v_clip)`` near the data end (``t -> 0``).
@@ -373,7 +474,7 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         amp: bool = True,
     ):
         super().__init__()
-        self.distilled = isinstance(network, CorrDiffEra5HrrrDistilled)
+        self.distilled = isinstance(network, _CorrDiffEra5HrrrDistilled)
         if self.distilled and number_of_steps not in (1, 2):
             raise ValueError(
                 "the distilled generator supports number_of_steps 1 or 2 (its trained block layouts)"
@@ -468,9 +569,33 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         self.lon_input_numpy = lon_in.cpu().numpy().copy()
         self._lat_out_cpu = self.lat_output_grid.cpu().numpy().astype(np.float64)
         self._lon_out_cpu = self.lon_output_grid.cpu().numpy().astype(np.float64)
+        # Regional-view state, set by with_region: the full footprint a view was cut
+        # from, shared by every view so a view can reach all of it. A view's own
+        # window is read off its coordinates through hrrr_lat_lim / hrrr_lon_lim.
+        self._footprint: dict[str, Any] | None = None
+        # DiT grid constraints for with_region: the run grid must be a multiple of
+        # the patch size per axis and at least _min_domain_cells per side (the
+        # NATTEN kernel must fit the latent grid); ((1, 1), 1) without a DiT.
+        self._patch_size, self._min_domain_cells = dit_grid_constraints(
+            find_dit(network)
+        )
 
     def __str__(self) -> str:
         return "CorrDiffEra5Hrrr"
+
+    @property
+    def hrrr_lat_lim(self) -> tuple[int, int]:
+        """HRRR grid latitude (row) index limits of the output crop, in the convention
+        of :class:`~earth2studio.models.px.StormCastCONUS`; ``(17, 1041)`` for the
+        hosted model's full crop."""
+        return _hrrr_index_limits(self.hrrr_y, "y")
+
+    @property
+    def hrrr_lon_lim(self) -> tuple[int, int]:
+        """HRRR grid longitude (column) index limits of the output crop, in the
+        convention of :class:`~earth2studio.models.px.StormCastCONUS`; ``(3, 1795)``
+        for the hosted model's full crop."""
+        return _hrrr_index_limits(self.hrrr_x, "x")
 
     def default_sources(self) -> "DataSource":
         """Recommend the ARCO ERA5 data source.
@@ -674,55 +799,62 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             generator=self._rng_generator,
         ).to(device)
         ctx = self._inference_context(device)
-        if self.distilled:
+        if getattr(self, "distilled", False):
+            # the generator binds its backbone to the latent shape itself
             with ctx:
                 return self.network.sample(
                     latents, condition, nfe=self.number_of_steps
                 ).float()
 
-        def net(x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
-            with ctx:
-                out = self.network(x.float(), t, condition=condition)
-            return out.float()
+        # The teacher's DiT reads its grid state from the module, so bind it to this
+        # field for the sampler call (a no-op on the full crop) and restore it after.
+        dit = find_dit(getattr(self, "network", None))
+        with dit_bound_to(dit, H, W) as attn_kwargs:
+            net_kwargs = {"attn_kwargs": attn_kwargs} if attn_kwargs else {}
 
-        if self.network_kind == "edm":
-            scheduler = EDMNoiseScheduler(
-                sigma_min=self.sigma_min, sigma_max=self.sigma_max, rho=self.rho
-            )
-            denoiser = scheduler.get_denoiser(
-                x0_predictor=lambda x, s: net(x, s.to(torch.float32).reshape(-1))
-            )
+            def net(x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
+                with ctx:
+                    out = self.network(x.float(), t, condition=condition, **net_kwargs)
+                return out.float()
+
+            if self.network_kind == "edm":
+                scheduler = EDMNoiseScheduler(
+                    sigma_min=self.sigma_min, sigma_max=self.sigma_max, rho=self.rho
+                )
+                denoiser = scheduler.get_denoiser(
+                    x0_predictor=lambda x, s: net(x, s.to(torch.float32).reshape(-1))
+                )
+                return sample(
+                    denoiser,
+                    latents * self.sigma_max,
+                    scheduler,
+                    num_steps=self.number_of_steps,
+                    solver=self.solver,
+                ).float()
+
+            scheduler = RectifiedFlowNoiseScheduler(t_max=self.t_max)
+            t_steps = self._rf_time_steps(device, scheduler)
+            xN = scheduler.sigma(t_steps[0]) * latents
+
+            def flow(x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
+                tt = t.to(torch.float32).reshape(-1)
+                out = net(x, tt * self.time_scale)
+                if self.prediction_type == "flow":
+                    return out
+                # x-prediction: v = (x_t - x0_hat) / t with the denominator clamped
+                # near the data end (t -> 0), where x0_hat -> x_t
+                tc = torch.clamp(tt, min=self.x0v_clip).view(-1, 1, 1, 1)
+                return (x.float() - out) / tc
+
+            denoiser = scheduler.get_denoiser(flow_predictor=flow)
             return sample(
                 denoiser,
-                latents * self.sigma_max,
+                xN,
                 scheduler,
                 num_steps=self.number_of_steps,
                 solver=self.solver,
+                time_steps=t_steps,
             ).float()
-
-        scheduler = RectifiedFlowNoiseScheduler(t_max=self.t_max)
-        t_steps = self._rf_time_steps(device, scheduler)
-        xN = scheduler.sigma(t_steps[0]) * latents
-
-        def flow(x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
-            tt = t.to(torch.float32).reshape(-1)
-            out = net(x, tt * self.time_scale)
-            if self.prediction_type == "flow":
-                return out
-            # x-prediction: v = (x_t - x0_hat) / t with the denominator clamped
-            # near the data end (t -> 0), where x0_hat -> x_t
-            tc = torch.clamp(tt, min=self.x0v_clip).view(-1, 1, 1, 1)
-            return (x.float() - out) / tc
-
-        denoiser = scheduler.get_denoiser(flow_predictor=flow)
-        return sample(
-            denoiser,
-            xN,
-            scheduler,
-            num_steps=self.number_of_steps,
-            solver=self.solver,
-            time_steps=t_steps,
-        ).float()
 
     @torch.inference_mode()
     def _forward(self, era5: torch.Tensor, valid_time: datetime) -> torch.Tensor:
@@ -772,6 +904,157 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         result = from_torch(out, output_coords, name=x.name)
         result.encoding = x.encoding.copy()
         return restore(result).transpose(*signature.dims)
+
+    def _full_footprint(self) -> dict[str, Any]:
+        """Full-footprint geometry, captured from the loaded model and shared with views."""
+        if self._footprint is None:
+            self._footprint = {
+                "lat": self._lat_out_cpu,
+                "lon": self._lon_out_cpu,
+                "lat_grid": self.lat_output_grid,
+                "lon_grid": self.lon_output_grid,
+                "invariants": self.invariants,
+                "hrrr_y": self.hrrr_y,
+                "hrrr_x": self.hrrr_x,
+            }
+        return self._footprint
+
+    def with_region(self, region: Region, /) -> Self:
+        """Return a view of this model covering a geographic box.
+
+        The view shares the loaded network and runs on the smallest block of the
+        HRRR crop whose cells contain the box (the cells with centers inside it
+        plus one bracketing row and column per side), based on the DiT patch size
+        and at least ``attn_kernel * patch`` cells per side. It selects from the
+        full HRRR grid, so a view's ``with_region`` reaches all of it; the ERA5
+        input footprint is unchanged. Views are safe to run in sequence, not
+        concurrently, and must live on the parent's device.
+
+        The outer ~16 cells of a block lack the context of a full-domain run
+        (about 10-18% higher CRPS against HRRR analyses); request a larger box
+        and crop if edges matter. The sampler's time shift is inherited: 8-32
+        scored alike on 128^2-512^2 cell boxes and 1-2 were clearly worse.
+
+        Parameters
+        ----------
+        region : Region
+            Box (:meth:`~earth2studio.grids.Region.box`) inside the HRRR crop,
+            not crossing the antimeridian.
+
+        Returns
+        -------
+        Self
+            View whose ``hrrr_lat_lim`` / ``hrrr_lon_lim`` give the block on the
+            full HRRR grid, with a copy of this model's :meth:`set_rng` stream.
+
+        Raises
+        ------
+        ValueError
+            If the region is not a box, has no extent, is not inside the
+            footprint, selects no cell, or is too small for the network.
+        """
+        if region.kind != "box":
+            raise ValueError(
+                f"{type(self).__name__} supports only box regions, not {region.kind!r}"
+            )
+        west, south, east, north = region.params
+        if not west < east or not south < north:
+            raise ValueError(
+                "Region box must have positive extent and not cross the antimeridian"
+            )
+        dit = find_dit(getattr(self, "network", None))
+        if dit is not None and isinstance(
+            getattr(dit.tokenizer, "pos_embed", None), torch.nn.Parameter
+        ):
+            raise ValueError(
+                "the network's tokenizer has a fixed-size positional embedding; "
+                "regional views need a position-free (RoPE) backbone"
+            )
+        footprint = self._full_footprint()
+        lat2d, lon2d = footprint["lat"], footprint["lon"]
+        lon_min = _match_lon_convention(west, lon2d)
+        lon_max = _match_lon_convention(east, lon2d)
+        if not lon_min < lon_max:
+            raise ValueError(
+                "Region box must not wrap around the grid's longitude convention"
+            )
+        # All four corners must lie inside the footprint: a partially covered box
+        # would silently clip to the wrong region.
+        corner_lat = np.array([south, south, north, north])
+        corner_lon = np.array([lon_min, lon_max, lon_min, lon_max])
+        covered = points_in_grid_footprint(corner_lat, corner_lon, lat2d, lon2d)
+        if not covered.all():
+            raise ValueError(
+                f"region lat[{south}, {north}] lon[{west}, {east}] is not fully "
+                f"inside the model's HRRR footprint "
+                f"({int((~covered).sum())}/4 corners outside)"
+            )
+        inside = (
+            (lat2d >= south)
+            & (lat2d <= north)
+            & (lon2d >= lon_min)
+            & (lon2d <= lon_max)
+        )
+        if not inside.any():
+            raise ValueError(
+                "the region selects no grid cell (smaller than one cell?); widen it"
+            )
+        # Bracket the cells whose centers fall inside the box with one more row and
+        # column on each side (where the footprint has them), so the cell areas of
+        # the block contain the box rather than stopping at the last center inside.
+        Hn, Wn = lat2d.shape
+        rows = np.where(inside.any(axis=1))[0]
+        cols = np.where(inside.any(axis=0))[0]
+        i0, i1 = max(int(rows[0]) - 1, 0), min(int(rows[-1]) + 2, Hn)
+        j0, j1 = max(int(cols[0]) - 1, 0), min(int(cols[-1]) + 2, Wn)
+        # Grow the block outward (real neighbouring cells) to the DiT patch size.
+        ph, pw = self._patch_size
+        i0e, i1e = snap_to_patch(i0, i1, Hn, ph)
+        j0e, j1e = snap_to_patch(j0, j1, Wn, pw)
+        if min(i1e - i0e, j1e - j0e) < self._min_domain_cells:
+            raise ValueError(
+                f"region block {i1e - i0e}x{j1e - j0e} is below the network's "
+                f"{self._min_domain_cells}-cell per-side minimum (its attention "
+                "kernel must fit the latent grid); widen the box"
+            )
+        if i1e < i1 or j1e < j1:
+            raise ValueError(
+                f"grid dimension not divisible by the patch size {self._patch_size}: "
+                "snapping shrank the block below the requested box"
+            )
+        return self._view((i0e, i1e, j0e, j1e))
+
+    def _view(self, window: tuple[int, int, int, int]) -> Self:
+        """Copy of this model on the block ``(i0, i1, j0, j1)`` of the full footprint,
+        sharing the network and every other setting."""
+        footprint = self._full_footprint()
+        i0, i1, j0, j1 = window
+        view = copy(self)
+        view._buffers = self._buffers.copy()
+        view._modules = self._modules.copy()
+        view._parameters = self._parameters.copy()
+        view._non_persistent_buffers_set = self._non_persistent_buffers_set.copy()
+        view.register_buffer(
+            "lat_output_grid", footprint["lat_grid"][i0:i1, j0:j1].clone()
+        )
+        view.register_buffer(
+            "lon_output_grid", footprint["lon_grid"][i0:i1, j0:j1].clone()
+        )
+        view.register_buffer(
+            "invariants", footprint["invariants"][:, i0:i1, j0:j1].clone()
+        )
+        view.hrrr_y = footprint["hrrr_y"][i0:i1].copy()
+        view.hrrr_x = footprint["hrrr_x"][j0:j1].copy()
+        view._lat_out_cpu = footprint["lat"][i0:i1, j0:j1].copy()
+        view._lon_out_cpu = footprint["lon"][i0:i1, j0:j1].copy()
+        view._footprint = footprint
+        # an independent copy of the noise stream, or unseeded like the parent
+        view._rng_generator = (
+            torch.Generator().set_state(self._rng_generator.get_state())
+            if self._rng_generator is not None
+            else None
+        )
+        return view
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -829,7 +1112,9 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             Ensemble members per input; defaults to the package metadata.
         number_of_steps : int | None, optional
             ODE steps for the teacher, or blocks (1 or 2) for the distilled
-            generator; defaults to the package metadata.
+            generator; defaults to the package metadata. The rest of the sampling
+            schedule (solver, time shift, ``t_max``, ``x0v_clip``) always comes
+            from the package: it is tied to how the networks were trained.
         amp : bool | None, optional
             bf16 autocast for the network; defaults to the package metadata.
         variant : {"x_pred"}, optional
@@ -874,10 +1159,7 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
                 )
             # the distilled few-step generator ships as one physicsnemo checkpoint next to the teacher
             fname = metadata.get("distilled_checkpoint", DISTILLED_CHECKPOINT)
-            network: torch.nn.Module = CorrDiffEra5HrrrDistilled.from_checkpoint(
-                package.resolve(prefix + fname)
-            )
-            network = network.eval().requires_grad_(False)
+            network: torch.nn.Module = _load_distilled(package.resolve(prefix + fname))
         else:
             dit = DiT.from_checkpoint(package.resolve(prefix + metadata["checkpoint"]))
             dit = dit.eval().requires_grad_(False)
