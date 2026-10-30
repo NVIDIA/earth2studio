@@ -40,10 +40,10 @@ from data sources.
      break a feedback loop;
    - `variables` for renames;
    - a regridder whenever grids differ;
-   - `transform` for units;
    - `state=True` for fields the model carries in its own state;
-   - a diagnostic component for conversions that combine variables, such as
-     `DerivedPressureLevels`.
+   - a diagnostic component between models for any conversion: derived
+     variables (`DerivedWS`), units, or vertical levels
+     (`DerivedPressureLevels`). Connectors never convert.
 
    State the timing you chose for each edge and why.
 3. **Build the runner** from the [template](references/coupling-template.py):
@@ -102,8 +102,8 @@ The messages suggest close names for misspelled components and variables.
   differ from the inputs start at the first forecast.
 - **Regridding the wrong way round.** The source grid is the producer's output
   grid and the target is the consumer's slot grid.
-- **Converting units with a `transform` that renames variables or drops lead
-  times.** It must keep both coordinates.
+- **Converting inside a connector.** Connectors only select, reduce and
+  regrid; put conversions in a diagnostic component.
 - **Coupling a fused multi-cadence model.** Split it into components first.
 
 ## Reference Map

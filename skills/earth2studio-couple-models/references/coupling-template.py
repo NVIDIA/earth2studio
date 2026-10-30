@@ -109,7 +109,7 @@ class Atmosphere(PrognosticMixin):
 
 
 class Land(PrognosticMixin):
-    """24 h bucket: rain fills it; warmth, in degrees Celsius, dries it."""
+    """24 h bucket: rain fills it; warmth dries it."""
 
     def input_coords(self) -> CoordinateSystem:
         """Soil moisture at the initial time, on the coarse land grid."""
@@ -131,7 +131,7 @@ class Land(PrognosticMixin):
     def _advance(self, x: xr.DataArray, weather: xr.DataArray) -> xr.DataArray:
         last = x.isel(lead_time=[-1])
         rain = weather.sel(variable="tp:sum:24h").values
-        celsius = weather.sel(variable="t2m:mean:24h").values
+        celsius = weather.sel(variable="t2m:mean:24h").values - 273.15
         y = (last + 2.0 * rain - 0.0005 * celsius).clip(0.0, 0.5)
         return y.assign_coords(lead_time=last["lead_time"] + 24 * HOUR)
 
@@ -234,21 +234,15 @@ for name, model in models.items():
 # One connector per consumer slot. ``exact`` (default) waits for the producer's
 # frame at each required time, or reduces frames for qualified labels. ``hold``
 # takes the latest frame published earlier, which breaks feedback cycles.
-# A regridder is required whenever grids differ; ``transform`` converts units
-# after regridding and must keep ``variable`` and ``lead_time``.
-
-
-def kelvin_to_celsius(x: xr.DataArray) -> xr.DataArray:
-    """Convert the mean temperature label to degrees Celsius."""
-    return x.where(x["variable"] != "t2m:mean:24h", x - 273.15)
-
+# A regridder is required whenever grids differ. Connectors never convert:
+# derived variables, units and vertical levels are a diagnostic component
+# between the two models (see connector-patterns.md).
 
 connectors = [
     Connector(
         "atmos",
         "land",
         regridder=BilinearRegridder(ATMOS_GRID, LAND_GRID),
-        transform=kelvin_to_celsius,
     ),
     Connector(
         "land",

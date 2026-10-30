@@ -42,7 +42,6 @@ class Connector:
     variables: Mapping[str, str] | Sequence[str] | None = None  # dst label -> src variable
     regridder: Regridder | None = None
     time: Literal["exact", "hold"] = "exact"
-    transform: Callable[[xr.DataArray], xr.DataArray] | None = None
     state: bool = False
 
 class CoupledRunner:  # satisfies earth2studio.run.Runner
@@ -118,16 +117,15 @@ and slot label:
    stateful consumer fetches it from the slot's source. Otherwise the consumer
    waits.
 4. Stage producer frames onto the consumer's device, regrid them with the
-   connector's regridder, apply its `transform`, then map onto the slot
-   signature with the slot's temporal-statistics metadata.
+   connector's regridder, then map onto the slot signature with the slot's
+   temporal-statistics metadata.
 
-`transform` is an escape hatch for conversions no component expresses, such as
-units or a bias correction. It sees the slot's labels at the required lead
-times and must keep the `variable` and `lead_time` coordinates; fetched frames
-are not transformed. Transforms that combine variables or that are worth
-reusing are a `DiagnosticModel` component placed between the models, such as
-`DerivedPressureLevels`, which interpolates hybrid or pressure levels onto
-pressure levels.
+Connectors select, reduce and regrid; they do not convert. Derived variables,
+unit changes and vertical levels are a `DiagnosticModel` component placed
+between the models, such as `DerivedWS` for wind speed or
+`DerivedPressureLevels`, which interpolates pressure or model levels onto
+pressure levels. The component publishes its own stream, so conversions are
+visible in `describe` and in the outputs.
 
 ## Scheduling
 
@@ -189,7 +187,7 @@ when to run, so the runner rejects its DataFrame slots. It fits elsewhere:
 | `C2` | Stateful components step at their declared cadence; diagnostics run when their inputs arrive and need at least one `exact` connector |
 | `C3` | One connector per `(dst, slot)`, targeting a time-varying gridded forcing slot or a diagnostic input slot; state connectors target state slots and may share one if their variables differ |
 | `C4` | Every slot label's base, after `variables`, is published by exactly one producer output slot; renames name declared bases |
-| `C5` | Without a regridder each producer slot read and the consumer slot have the same geometry; with one, its source grid matches each slot read and its target grid the consumer slot; a `transform` keeps variables and lead times |
+| `C5` | Without a regridder each producer slot read and the consumer slot have the same geometry; with one, its source grid matches each slot read and its target grid the consumer slot |
 | `C6` | Required valid times follow the model contract; DataFrame slots are requested at the chunk's end, static slots only initially |
 | `C7` | `exact` waits for frames at each required time; `hold` takes the latest earlier-published frame and applies to plain labels only |
 | `C8` | Qualified labels reduce producer frames over `[T - w, T)`; the window must divide by the producer's frame spacing |
@@ -200,8 +198,9 @@ when to run, so the runner rejects its DataFrame slots. It fits elsewhere:
 
 ## Out of scope or future work
 
-- Time interpolation and conservative regridding. Unit conversion is a
-  connector `transform`; vertical interpolation is `DerivedPressureLevels`.
+- Time interpolation and conservative regridding. Unit conversion and
+  vertical interpolation are diagnostic components, such as
+  `DerivedPressureLevels`.
 - A `DataSource` adapter over independent assimilation models, with per-member
   seeding when they are stochastic.
 - Components that run on a fixed cadence from sources alone, such as

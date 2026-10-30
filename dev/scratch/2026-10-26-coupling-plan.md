@@ -24,12 +24,15 @@ Deviations from this plan, all reflected in `dev/spec/COUPLING_SPEC.md`:
 - There are no per-protocol adapters: `_Node` is one record of a model's parsed
   declarations, and the scheduler branches on `stateful` where the kinds differ.
 - Ported from PR #1290 (2026-10-28): `NearestRegridder(source_mask=)`, state
-  connectors (`state=True`), a connector `transform` escape hatch, and per-model
-  devices (`devices=`, staging onto the receiving model). Vertical
-  interpolation is `hybrid_pressure`/`interpolate_vertical` in
-  `earth2studio.utils.interp` plus the `DerivedPressureLevels` diagnostic rather than coupling helpers. Not ported:
+  connectors (`state=True`), and per-model devices (`devices=`, staging onto the
+  receiving model). Vertical interpolation is `hybrid_pressure` and
+  `interpolate_vertical` in `earth2studio.utils.interp` plus the
+  `DerivedPressureLevels` diagnostic rather than coupling helpers. Not ported:
   `RunSequence`, `dt`, diagnostic `cadence=`, automatic regridders and
   `run_item(ics=)`.
+- A connector `transform` was ported, then removed after review (2026-10-30):
+  it had to keep variables and lead times, so units and levels, which change
+  names, never fit it. Conversions are diagnostic components.
 - Diagnostic inputs without `lead_time` take each call's valid time, so built-in
   derived diagnostics couple unchanged.
 

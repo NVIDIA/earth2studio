@@ -449,7 +449,6 @@ class CoupledRunner:
                 slot = next(s for s in dst.imports if s.index == connector.slot)
                 labels, target = list(slot.labels), str(slot)
             extra = ", regridded" if connector.regridder is not None else ""
-            extra += ", transformed" if connector.transform is not None else ""
             lines.append(
                 f"  {connector.src} -> {connector.dst} {target} ({connector.time}"
                 f"{extra}): {', '.join(labels)}"
@@ -584,7 +583,7 @@ class _Execution:
         """Connected labels the producer supplies at ``lead``, ready for the slot.
 
         Frames are selected or reduced, staged onto the receiving component's
-        device, regridded and transformed; ``None`` when none are held.
+        device and regridded; ``None`` when none are held.
         """
         connector = plan.connector
         assert connector is not None  # noqa: S101 - connected plans only
@@ -615,8 +614,6 @@ class _Execution:
         regridder = self.runner.regridders.get(connector)
         if regridder is not None:
             x = regridder(x)
-        if connector.transform is not None:
-            x = _transformed(connector, x)
         return x
 
     def _value(
@@ -812,21 +809,6 @@ def _stage_like(x: xr.DataArray, like: xr.DataArray) -> xr.DataArray:
     if type(like.data).__module__.startswith("cupy"):
         return x.e2s.as_cupy(like.data.device.id)
     return x.e2s.as_numpy()
-
-
-def _transformed(connector: Connector, x: xr.DataArray) -> xr.DataArray:
-    """Apply ``connector.transform``, checking it keeps variables and lead times."""
-    y = connector.transform(x)  # type: ignore[misc]
-    if not isinstance(y, xr.DataArray):
-        raise CouplingError(f"Connector {connector}: transform must return a DataArray")
-    for dim in ("variable", "lead_time"):
-        if dim not in y.coords or not np.array_equal(
-            y.coords[dim].values, x.coords[dim].values
-        ):
-            raise CouplingError(
-                f"Connector {connector}: transform changed the {dim!r} coordinate"
-            )
-    return y
 
 
 def _describe_plan(plan: _SlotPlan, state: bool = False) -> str:
