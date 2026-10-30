@@ -37,6 +37,7 @@ from earth2studio.data import (
     datasource_to_file,
     fetch_data,
     fetch_dataframe,
+    fetch_dataframes,
     prep_data_array,
 )
 from earth2studio.data.utils import (
@@ -609,6 +610,41 @@ def test_fetch_dataframe(time, lead_time, device):
     assert not df.isnull().any().any()
 
 
+def test_fetch_dataframes():
+    time = np.array([np.datetime64("2001-06-04T00:00")])
+    requests = {
+        "a": (RandomDataFrame(n_obs=5), {"variable": ["t2m"], "lat": None}),
+        "b": (RandomDataFrame(n_obs=3), {"variable": ["u10m"], "lon": None}),
+    }
+    frames = fetch_dataframes(requests, time)
+    assert list(frames) == ["a", "b"]
+    # The schema's "variable" entry is the request; its other keys are the fields
+    assert list(frames["a"].columns) == ["lat"]
+    assert list(frames["b"].columns) == ["lon"]
+    for frame in frames.values():
+        np.testing.assert_array_equal(frame.attrs["request_time"], time)
+
+    frames = fetch_dataframes(list(requests.values()), time)
+    assert [list(frame.columns) for frame in frames] == [["lat"], ["lon"]]
+    for frame in frames:
+        np.testing.assert_array_equal(frame.attrs["request_time"], time)
+
+
+def test_fetch_dataframe_keeps_source_attrs():
+    class _AttrSource(RandomDataFrame):
+        def __call__(self, *args, **kwargs):
+            df = super().__call__(*args, **kwargs)
+            df.attrs["source_attr"] = "kept"
+            return df
+
+    time = np.array([np.datetime64("2001-06-04T00:00")])
+    lead_time = np.array([np.timedelta64(0, "h")])
+    df = fetch_dataframe(_AttrSource(n_obs=5), time, ["t2m"], lead_time=lead_time)
+    assert df.attrs["source_attr"] == "kept"
+    np.testing.assert_array_equal(df.attrs["request_time"], time)
+    np.testing.assert_array_equal(df.attrs["request_lead_time"], lead_time)
+
+
 @pytest.mark.parametrize(
     "time",
     [
@@ -680,7 +716,13 @@ def test_fetch_data_regridding(time, lead_time, device):
     "lead_time",
     [
         np.array([np.timedelta64(0, "h")]),
-        np.array([np.timedelta64(-6, "h"), np.timedelta64(0, "h")]),
+        np.array(
+            [
+                np.timedelta64(-12, "h"),
+                np.timedelta64(-6, "h"),
+                np.timedelta64(0, "h"),
+            ]
+        ),
     ],
 )
 @pytest.mark.parametrize(
@@ -708,6 +750,8 @@ def test_datasource_to_file(time, lead_time, backend, tmp_path):
 
     # To check attempt to get input data from saved file
     ds = DataArrayFile(file_name)
+    # Only the requested times offset by each lead are saved
+    assert ds.da.sizes["time"] == len(time) * len(lead_time)
     x = fetch_data(ds, time, variable, lead_time)
     coords = x.coords
 
@@ -1149,6 +1193,88 @@ async def test_obstore_read_chunked_small():
 
     assert data == blob
     assert store.requested_ranges == [(0, len(blob))]
+
+
+@pytest.mark.asyncio
+async def test_obstore_read_chunked_default_chunk_size():
+    mib = 1024 * 1024
+    rng = np.random.default_rng(2)
+    small = rng.integers(0, 256, mib // 2, dtype=np.uint8).tobytes()
+    store = _FakeByteRangeStore(small)
+    assert await obstore_read_chunked(store, "small") == small
+    assert store.requested_ranges == [(0, len(small))]
+
+    large = rng.integers(0, 256, 20 * mib + 7, dtype=np.uint8).tobytes()
+    store = _FakeByteRangeStore(large)
+    assert await obstore_read_chunked(store, "large") == large
+    assert len(store.requested_ranges) == 21
+    assert all(end - start <= mib for start, end in store.requested_ranges)
+
+
+@pytest.mark.asyncio
+async def test_obstore_read_chunked_hedges_a_stalled_range():
+    blob = bytes(range(256)) * 16
+
+    class _StallingStore(_FakeByteRangeStore):
+        async def get_range_async(self, key, *, start, end=None, length=None):
+            stall = not self.requested_ranges
+            data = await super().get_range_async(key, start=start, end=end)
+            if stall:
+                await asyncio.sleep(30)
+            return data
+
+    store = _StallingStore(blob)
+    data = await asyncio.wait_for(
+        obstore_read_chunked(store, "key", hedge_after=0.05), timeout=5
+    )
+    assert data == blob
+    assert store.requested_ranges == [(0, len(blob)), (0, len(blob))]
+
+
+@pytest.mark.asyncio
+async def test_obstore_read_chunked_hedge_survives_a_failed_original():
+    blob = bytes(range(256)) * 16
+
+    class _FailingStore(_FakeByteRangeStore):
+        async def get_range_async(self, key, *, start, end=None, length=None):
+            fail = not self.requested_ranges
+            data = await super().get_range_async(key, start=start, end=end)
+            if fail:
+                await asyncio.sleep(0.2)
+                raise OSError("connection reset")
+            await asyncio.sleep(0.5)
+            return data
+
+    store = _FailingStore(blob)
+    data = await asyncio.wait_for(
+        obstore_read_chunked(store, "key", hedge_after=0.05), timeout=5
+    )
+    assert data == blob
+
+
+@pytest.mark.asyncio
+async def test_obstore_read_chunked_cancel_cancels_both_requests():
+    blob = bytes(range(256)) * 16
+    cancelled = []
+
+    class _HangingStore(_FakeByteRangeStore):
+        async def get_range_async(self, key, *, start, end=None, length=None):
+            await super().get_range_async(key, start=start, end=end)
+            try:
+                await asyncio.sleep(30)
+            except asyncio.CancelledError:
+                cancelled.append((start, end))
+                raise
+
+    store = _HangingStore(blob)
+    read = asyncio.ensure_future(obstore_read_chunked(store, "key", hedge_after=0.05))
+    await asyncio.sleep(0.2)
+    assert len(store.requested_ranges) == 2
+    read.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await read
+    await asyncio.sleep(0)
+    assert cancelled == [(0, len(blob)), (0, len(blob))]
 
 
 @pytest.mark.asyncio

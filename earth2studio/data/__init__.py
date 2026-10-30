@@ -17,7 +17,7 @@
 from . import _gdal  # noqa: F401  (must come before the ECMWF-backed sources)
 from .ace2 import ACE2ERA5Data
 from .arco import ARCO, ARCO_ERA5
-from .base import DataSource, ForecastSource
+from .base import DataFrameSource, DataSource, ForecastFrameSource, ForecastSource
 from .cams import CAMS_FX
 from .camulator import CAMulatorForcing
 from .cbottle import CBottle3D
@@ -91,6 +91,7 @@ from .utils import (
     datasource_to_file,
     fetch_data,
     fetch_dataframe,
+    fetch_dataframes,
     prep_data_array,
 )
 from .wb2 import WB2ERA5, WB2Climatology, WB2ERA5_32x64, WB2ERA5_121x240

@@ -230,3 +230,21 @@ def test_zarr_reopen_skips_coordinate_arrays_when_loading_chunks(
 
     assert z.chunks["lat"] == 2
     assert z.chunks["lon"] == 3
+
+
+def test_zarr_reopen_with_scalar_array(tmp_path: str) -> None:
+    file_name = tmp_path / "scalar.zarr"
+    z = ZarrBackend(file_name, backend_kwargs={"overwrite": True})
+    z.add_array(make_template())
+    # Scalar array, e.g. a CF grid_mapping variable; zarr stores () as None
+    z.root.create_array(
+        "crs", shape=(), dtype="int32", fill_value=0, dimension_names=()
+    )
+    assert z.root["crs"].metadata.dimension_names is None
+    z.root.create_group("diagnostics")
+
+    z = ZarrBackend(file_name)
+    assert {"time", "lead_time", "lat", "lon"} <= set(z.coords)
+    assert "crs" in z
+    assert "diagnostics" in z.root
+    assert "diagnostics" not in z.coords

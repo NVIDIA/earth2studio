@@ -275,6 +275,17 @@ def test_energy_score_accuracy(
         atol=atol,
     ), f"Expected {expected_es.item()}, got {computed_es.item()}"
 
+    # A trailing ensemble dimension must survive multivariate reduction.
+    transposed_es = _energy_score_compute(
+        x.T,
+        y,
+        ["variable", "ensemble"],
+        ensemble_dimension="ensemble",
+        multivariate_dimensions=["variable"],
+        fair=False,
+    )
+    torch.testing.assert_close(transposed_es, expected_es, rtol=rtol, atol=atol)
+
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_energy_score_nonnegativity(device: str) -> None:

@@ -170,6 +170,23 @@ return CuPy-backed fields directly on that GPU, which avoids slow NumPy
 post-processing of large arrays. `fetch_data` accepts either and moves data only
 when it is not already on the requested `device`.
 
+### `earth2studio.data.fetch_dataframe` and `earth2studio.data.fetch_dataframes`
+
+`fetch_dataframe` is the DataFrame counterpart of `fetch_data`: it fetches the
+requested variables and fields from a DataFrame source and records the request time
+in the frame's `attrs["request_time"]`, which data assimilation models read.
+`fetch_dataframes` runs several such requests concurrently. Each request is a source
+and a schema, for example an entry of a data assimilation model's `input_coords()`:
+the schema's `variable` entry lists the variables and its other keys are the fields.
+A list of `(source, schema)` pairs returns a list of frames in the same order, and a
+dict of named pairs returns a dict.
+
+```python
+schemas = model.input_coords()
+obs = fetch_dataframes(list(zip(sources, schemas)), time)
+analysis = model(*obs)
+```
+
 ### `earth2studio.data.prep_data_array`
 
 The `prep_data_array` function is another useful utility when interacting more directly

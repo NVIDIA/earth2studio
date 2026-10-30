@@ -104,7 +104,7 @@ def prepare_score_io_dict(
     )
 
     # Populate the IO backend with the metrics and variables being scored
-    metrics = [m for m in cfg.scoring.metrics]
+    metrics = [*cfg.scoring.metrics]
     variables = cfg.scoring.variables
     array_list = [m + "_" + v for m in metrics for v in variables]
 

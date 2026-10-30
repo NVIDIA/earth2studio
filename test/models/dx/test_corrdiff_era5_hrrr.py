@@ -58,6 +58,7 @@ def rng_model(monkeypatch):
     p.sigma_min, p.sigma_max, p.rho = 0.01, 1.0, 7.0
     p.t_max, p.shift = 0.99, 1.0
     p.amp = False
+    p.distilled = False
     p.register_buffer("invariants", torch.zeros(1, 2, 3))
     p.register_buffer("out_center", torch.zeros(1, 1, 2, 3))
     p.register_buffer("out_scale", torch.ones(1, 1, 2, 3))
@@ -248,3 +249,72 @@ def test_corrdiff_era5_hrrr_exceptions(model_args):
             CorrDiffEra5Hrrr(**(model_args | {key: value}))
     with pytest.raises(ValueError, match="variant"):
         CorrDiffEra5Hrrr.load_model(None, variant="v_pred")
+
+
+@pytest.fixture
+def tiny_distilled():
+    """A distilled generator around a toy DiT (timm attention, runs on CPU)."""
+    from earth2studio.models.dx.corrdiff_era5_hrrr import CorrDiffEra5HrrrDistilled
+
+    torch.manual_seed(0)
+    dit_args = dict(
+        input_size=(4, 6),
+        in_channels=99 + 30,  # 99 latents + 26 ERA5 + cos zenith + 3 invariants
+        out_channels=99,
+        patch_size=2,
+        hidden_size=16,
+        depth=1,
+        num_heads=2,
+        condition_dim=4,
+        attention_backend="timm",
+    )
+    net = CorrDiffEra5HrrrDistilled(dit_args, n_grid=8)
+    # the DiT initialization zeroes the output projection; give it and the
+    # heads some signal so the tests see non-trivial fields
+    with torch.no_grad():
+        for linear in (net.dit.detokenizer.proj_layer.output_projection, *net.heads):
+            torch.nn.init.normal_(linear.weight, std=0.02)
+            torch.nn.init.normal_(linear.bias, std=0.02)
+    return net.eval().requires_grad_(False)
+
+
+def test_corrdiff_era5_hrrr_distilled(model_args, tiny_distilled, tmp_path):
+    """The distilled generator runs through the wrapper, only in its trained layouts."""
+    from earth2studio.models.dx.corrdiff_era5_hrrr import CorrDiffEra5HrrrDistilled
+
+    args = model_args | {"network": tiny_distilled, "number_of_steps": 2}
+    dx = CorrDiffEra5Hrrr(**args)
+    assert dx.distilled and not CorrDiffEra5Hrrr(**model_args).distilled
+    coords = coord_array_like(
+        dx.input_coords(),
+        {
+            "batch": np.arange(1),
+            "time": np.array(["2025-07-01T18", "2025-07-02T00"], dtype="datetime64[h]"),
+        },
+    )
+    field = from_torch(torch.randn(coords.shape), coords)
+    out, out_coords = dx(field).e2s.to_torch()
+    assert out.shape == (1, 2, 2, 99, 4, 6) and torch.isfinite(out).all()
+    np.testing.assert_array_equal(out_coords["variable"], OUTPUT_VARIABLES)
+    dx.set_rng(0)
+    first = dx(field).e2s.to_torch()[0]
+    dx.set_rng(0)
+    torch.testing.assert_close(first, dx(field).e2s.to_torch()[0])  # seeded
+    assert not torch.allclose(out[:, 0], out[:, 1])  # members differ
+    dx.number_of_steps = 1
+    dx.set_rng(0)
+    out_1 = dx(field).e2s.to_torch()[0]
+    assert out_1.shape == out.shape and not torch.allclose(out_1, first)
+    # unsupported layouts are rejected at construction and at call time
+    with pytest.raises(ValueError, match="1 or 2"):
+        CorrDiffEra5Hrrr(**(args | {"number_of_steps": 3}))
+    dx.number_of_steps = 4
+    with pytest.raises(ValueError, match="1 or 2"):
+        dx(field)
+    # the generator survives the physicsnemo checkpoint round trip
+    path = tmp_path / "distilled.mdlus"
+    tiny_distilled.save(str(path))
+    dx.network = CorrDiffEra5HrrrDistilled.from_checkpoint(str(path)).eval()
+    dx.number_of_steps = 2
+    dx.set_rng(0)
+    torch.testing.assert_close(dx(field).e2s.to_torch()[0], first)

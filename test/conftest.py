@@ -47,8 +47,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     # Data tests
     "test/data/test_cbottle.py": ["cbottle"],
     "test/data/test_goes_glm.py": ["netCDF4"],
-    "test/data/test_ncep_conventional.py": ["pybufrkit"],
-    "test/data/test_nnja.py": ["pybufrkit"],
+    "test/data/test_nnja.py": ["earth2bufr"],
     "test/data/test_ecmwf.py": ["data"],
     "test/data/test_cds.py": ["data"],
     "test/data/test_cams.py": ["data"],
@@ -103,6 +102,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/models/px/test_fuxi_s2s.py": ["fuxi"],
     "test/models/px/test_gencast_mini.py": ["gencast"],
     "test/models/px/test_graphcast.py": ["graphcast"],
+    "test/models/px/test_interpcrpsdit.py": ["interp-crps-dit"],
     "test/models/px/test_interpmodafno.py": ["interp-modafno"],
     "test/models/px/test_pangu.py": ["pangu"],
     "test/models/px/test_sfno.py": ["sfno"],
@@ -119,6 +119,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     ],
     # Model da tests
     "test/models/da/test_da_healda.py": ["da-healda"],
+    "test/models/da/test_da_healda_v2.py": ["da-healda-v2"],
     "test/models/da/test_da_interp.py": ["da-interp"],
     "test/models/da/test_da_sda_stormcast.py": ["da-stormcast"],
     "test/models/da/test_da_sda_corrdiff_cosmo_era5.py": ["da-cosmo"],

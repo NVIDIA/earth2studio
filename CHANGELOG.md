@@ -7,7 +7,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.20.0a0] - 2026-10-xx
+## [0.20.1a0] - 2026-11-xx
 
 ### Added
 
@@ -22,6 +22,113 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 ### Dependencies
+
+## [0.20.0] - 2026-10-29
+
+### Added
+
+- Added subseasonal-to-seasonal evaluation capability in the eval recipe. Added
+  **`WindowMeanForecastPipeline`** in `src/pipelines/seasonal.py` and
+  **`WindowMeanSource`** in `src/data.py`.
+- Added the distilled ERA5 -> HRRR model (`CorrDiffEra5HrrrDistilled`), now the
+  default of `CorrDiffEra5Hrrr.load_model`; pass `distilled_model=False` for the
+  50-step teacher.
+- Added StormScope Flash variants of `StormScopeGOES` and `StormScopeMRMS` for accelerated
+  StormScope inference over CONUS domain, including crop-based inference.
+- Added HealDA v2 (`HealDAv2`), a global machine-learning data-assimilation model that
+  maps a 48-hour sequence of satellite and conventional observations to a 104-channel,
+  0.25° atmospheric analysis on a regular latitude-longitude grid (`da-healda-v2` extra).
+  It is called as `model(prepbufr, gpsro, satwnd, *sensors)` with one wide NNJA frame
+  (`layout="wide"`) per stream in `input_coords()` order, and raises on long frames.
+- Added an `original_event` option and report time/latitude/longitude columns to
+  `NNJAObsConv`; report-time filtering preserves complete PrepBUFR profiles.
+- Added a `detector` column to `NNJAObsSat` carrying the CrIS field-of-view index.
+- Added `scan_quality`, `granule_quality` and `footprint_quality` columns to
+  `NNJAObsSat` carrying the ATMS, CrIS and IASI footprint-level provider flags.
+- Added a `cycle_time` column to the NCEP observation sources (`NNJAObsConv`,
+  `NNJAObsSatwnd`, `NNJAObsSat`, `NomadsGDASObsConv`): the cycle of the file each row
+  was decoded from, since an observation at a file's window edge can be in two files.
+- Added Google Cloud mirror via `source="google"` to ECMWF open-data sources.
+- Added a `layout` option to `NNJAObsConv`, `NNJAObsSatwnd`, `NNJAObsSat` and
+  `NomadsGDASObsConv`: `"wide"` returns one row per report level, wind or footprint
+  with one `observation_<variable>` column per variable (per-channel values as lists
+  for satellites); `"long"` (default) is unchanged.
+- Added `fetch_dataframes`, which fetches several DataFrame requests concurrently, each
+  a data source with a schema such as a model's `input_coords()` entry, given as a list
+  (returns a list) or a dict (returns a dict).
+- Added `InterpCRPSDiT`, a CRPS DiT temporal interpolation model with sub-hourly output.
+- Eval recipe: `scoring.online.verification_sources` scores one online rollout
+  against several named truth sources in a single pass, writing
+  `stats__<name>.zarr` and `scores__<name>.zarr` per reference.
+
+### Changed
+
+- `NNJAObsSat` returns a row for every decoded channel: a missing or unconvertible value
+  is a NaN observation instead of a dropped row, so every footprint appears.
+- ECMWF open-data sources accept a `client_kwargs` dictionary for
+  `opendata.Client`.
+- The NCEP observation sources (`NNJAObsConv`, `NNJAObsSatwnd`, `NNJAObsSat`,
+  `NomadsGDASObsConv`) decode BUFR with earth2bufr instead of PyBufrKit. Rows and
+  values are unchanged except PrepBUFR station identifiers with non-ASCII bytes,
+  which now carry spaces instead of U+FFFD.
+- The NCEP observation frames use `pd.ArrowDtype` columns throughout: missing values
+  are nulls (including missing satellite observations), string columns are
+  dictionary-encoded, and the `NNJAObsSatwnd` quality indicators are
+  `list<struct<application, confidence>>` instead of Python lists.
+- `NNJAObsSatwnd` reads each field from its first occurrence in the message template.
+- `NNJAObsSat` decodes only the `sensor_indices` channels of an IR sounder and returns
+  IASI and CrIS brightness temperature from a single Planck conversion.
+- `decode_workers` of the NCEP sources sets the threads transforming decoded batches;
+  the decode runs on earth2bufr's thread pool.
+- The NNJA and GDAS conventional lexicon modifiers are the identity; the decoders
+  return Earth2Studio units.
+- `fetch_dataframe` keeps the attributes the data source sets on the returned frame
+  and adds `request_time` and `request_lead_time` to them, instead of replacing them.
+- `obstore_read_chunked` and `obstore_fetch_to_cache` take `chunk_size`,
+  `max_concurrent` and `hedge_after` (re-request a range still outstanding after a
+  delay); defaults are unchanged. The NNJA sources download cycle files in larger
+  ranges with more in flight and re-request stalled ranges.
+- Updated CBottle Tropical Cyclone and Infill checkpoints to new EMA version
+- Added checkpointing support for AtlasCRPS model
+
+### Fixed
+
+- `NNJAObsConv` and `NomadsGDASObsConv` decode PrepBUFR files from before 2007, which
+  number their message types 230-249 instead of 102-121, and raise on a PrepBUFR file
+  with no known message family instead of returning no rows.
+- PrepBUFR messages dated 2000 (edition 3, year of century 100) get the year 2000
+  instead of 100, so their observations are no longer dropped by the time window.
+- `NNJAObsConv`, `NNJAObsSatwnd` and `NNJAObsSat` raise when a file, any of its
+  messages, or any DX-table message fails to decode, instead of silently returning
+  fewer rows.
+- `NNJAObsSat` skips sensors outside their archive years in a multi-sensor request
+  instead of failing the whole request.
+- NNJA, GDAS and UFS observation sources read the cycle files whose ±3h span a request
+  overlaps, and keep only rows inside each requested window; requests no longer miss
+  cycles (#967).
+- `CorrDiffCosmoEra5`: updated the Hugging Face checkpoint revision to pick up the
+  corrected `rea2/stats.json` (ERA5 training-domain statistics instead of global
+  statistics).
+- Honor custom ensemble dimension names in Brier score coordinate validation.
+- Correct the Energy Score ensemble reduction axis when multivariate
+  dimensions precede the ensemble dimension.
+- Fixed running variance and standard deviation when reducing non-leading or
+  multiple dimensions.
+- `Aurora1p5` and `Aurora1p5Ensemble`: `tp1h` and `sf1h` are no longer log-untransformed
+  a second time, which made hourly precipitation and snowfall about 1000 times too
+  small.
+- Fixed `ZarrBackend` and `IceChunkBackend` reopening stores containing
+  root-level subgroups.
+- `datasource_to_file` offsets the requested times by each lead time on its own instead
+  of compounding the leads, which fetched times far past the largest lead.
+- `DataArrayPathList` keeps size one dimensions when it loads the files, so files with a
+  single variable or a single time no longer fail with a dimension mismatch.
+
+### Dependencies
+
+- The `data` extra depends on earth2bufr (the BUFR decoder of the NCEP sources)
+  instead of pybufrkit.
+- pyarrow>=24 (Table.filter corruption on large single chunks in 18-23)
 
 ## [0.19.0] - 2026-09-30
 
@@ -95,6 +202,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed Aurora 1.5 ensemble rollout noise-cache sizing and cleanup.
+- `ZarrBackend` / `IceChunkBackend` can reopen a store containing a scalar
+  array (e.g. a CF `grid_mapping` variable) whose `dimension_names` is `None`
 - `NNJAObsSat` warns and skips a missing aggregate cycle file instead of failing
   the whole request, matching `NNJAObsConv` and the UFS sources
 - `NNJAObsConv` / `NNJAObsSat` download cycle files as concurrent byte ranges

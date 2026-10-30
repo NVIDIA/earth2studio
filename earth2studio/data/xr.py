@@ -364,9 +364,10 @@ class DataArrayPathList:
         # Open multiple files as a single dataset
         dataset = xr.open_mfdataset(self.paths, **xr_args)
 
-        # Convert to DataArray with proper dimension ordering and coordinates
+        # Convert to DataArray with proper dimension ordering and coordinates. Only
+        # squeeze the axis added by to_dataarray so size one dims are kept
         self.da = xr.DataArray(
-            dataset.to_dataarray().data.squeeze(),
+            dataset.to_dataarray().data.squeeze(axis=0),
             dims=dataset.dims,
             coords=dataset.coords,
         )

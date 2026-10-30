@@ -314,7 +314,8 @@ def test_weighted_var(device: str) -> None:
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_batch_var_std(device) -> None:
+@pytest.mark.parametrize("ensemble_axis", [0, 1])
+def test_batch_var_std(device, ensemble_axis) -> None:
 
     big_x = torch.randn((100, 10, 10), device=device)
     big_coords = OrderedDict(
@@ -325,6 +326,11 @@ def test_batch_var_std(device) -> None:
         }
     )
 
+    big_x = big_x.movedim(0, ensemble_axis)
+    if ensemble_axis:
+        big_coords = OrderedDict(
+            (name, big_coords[name]) for name in ("lat", "ensemble", "lon")
+        )
     reduced_coords = OrderedDict({"lat": big_coords["lat"], "lon": big_coords["lon"]})
 
     std = moments.std(["ensemble"], batch_update=True)
@@ -334,12 +340,13 @@ def test_batch_var_std(device) -> None:
     assert str(var) == "ensemble_variance"
 
     for inds in range(0, 100, 10):
+        accumulated = big_x.narrow(ensemble_axis, 0, inds + 10)
         coords = big_coords.copy()
         coords["ensemble"] = coords["ensemble"][inds : inds + 10]
-        x = from_torch(big_x[inds : inds + 10], coords)
+        x = from_torch(big_x.narrow(ensemble_axis, inds, 10), coords)
 
         y = std(x)
-        expected = torch.std(big_x[: inds + 10], dim=0).cpu().numpy()
+        expected = torch.std(accumulated, dim=ensemble_axis).cpu().numpy()
         assert np.allclose(_to_np(y), expected, rtol=1e-4, atol=1e-6)
         assert y.dims == tuple(reduced_coords)
         for d, v in reduced_coords.items():
@@ -347,7 +354,7 @@ def test_batch_var_std(device) -> None:
         _check_output_coords(std, x, y)
 
         y = var(x)
-        expected = torch.var(big_x[: inds + 10], dim=0).cpu().numpy()
+        expected = torch.var(accumulated, dim=ensemble_axis).cpu().numpy()
         assert np.allclose(_to_np(y), expected, rtol=1e-4, atol=1e-6)
         assert y.dims == tuple(reduced_coords)
         for d, v in reduced_coords.items():

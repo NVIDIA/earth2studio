@@ -87,7 +87,7 @@ def iasi_radiance_mw(scra: Any, chsf: Any) -> Any:
     Parameters
     ----------
     scra : array-like
-        Raw SCRA integer values from the BUFR (pybufrkit decoded, not yet scaled).
+        Raw SCRA integer values from the BUFR (decoded, not yet scaled).
     chsf : array-like
         CHSF exponent already resolved to each channel, same shape as ``scra``.
     """
