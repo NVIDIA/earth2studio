@@ -118,6 +118,7 @@ Targets: [source protocols](earth2studio/data/base.py), [fetch_data](earth2studi
 - Fetch all declared variables/history. Temporal qualifiers need `delta_t` or source
   `time_step`; windows include the left endpoint, exclude the right. Do not aggregate
   already aggregated source fields again.
+- Planned: declare supported statistics in lexicon `TIME_STATISTICS`; handle them per source.
 
 ## IO objects
 
