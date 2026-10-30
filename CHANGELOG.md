@@ -13,17 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Reduced the GPU memory requirement of `HealDAv2`; it fits on a 40 GB GPU
-
 ### Deprecated
 
 ### Removed
 
 ### Fixed
-
-- `HealDAv2` clips bounded channels (specific humidity, total column water and
-  water vapour, snow depth, soil moisture, sea ice and cloud cover) to their
-  physical range; slightly negative values gave NaN in models that take their log
 
 ### Security
 
