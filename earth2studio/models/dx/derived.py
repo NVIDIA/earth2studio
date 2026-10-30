@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from collections.abc import Sequence
+
 import numpy as np
 import torch
 import xarray as xr
@@ -26,6 +28,7 @@ from earth2studio.utils import (
     handshake_dataarray,
 )
 from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.interp import hybrid_pressure, interpolate_vertical
 from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 
@@ -613,3 +616,165 @@ class DerivedTCWV(_DerivedDiagnostic):
         out_tensor = tcwv.unsqueeze(-3) / self.g
 
         return out_tensor
+
+
+class DerivedPressureLevels(_DerivedDiagnostic):
+    """Interpolates fields from model or pressure levels onto pressure levels.
+
+    Interpolation is linear in the logarithm of pressure, column by column. Levels
+    are read from the lexicon's variable names: ``{variable}{p}`` on pressure
+    level ``p`` hPa, or ``{variable}{k}k`` on model level ``k``. Outputs are
+    ``{variable}{p}`` on each target level. Inputs come in one of three forms:
+
+    - ``input_levels``: pressure levels, such as ``t850``.
+    - ``model_levels`` with ``a`` and ``b``: hybrid sigma-pressure model levels,
+      ``p = a + b * sp``, plus surface pressure ``sp`` in Pa as the last input.
+    - ``model_levels`` with ``pressure``: model levels of any kind whose pressure
+      the model publishes as a field on each level, such as ``pres{k}k`` in Pa.
+
+    Used between coupled models, it maps one model's levels onto another's.
+
+    Parameters
+    ----------
+    variables : list[str]
+        Variables to interpolate, such as ``["t", "u", "v"]``.
+    levels : list[float]
+        Target pressure levels in hPa.
+    input_levels : list[float] | None, optional
+        Pressure levels of the inputs in hPa, by default None
+    model_levels : list[int] | None, optional
+        Model level numbers of the inputs, as named in the lexicon (e.g. 1-137 for
+        ERA5), from the top of the model down, by default None
+    a : Sequence[float] | None, optional
+        Hybrid pressure coefficients in Pa: one per model level, or one per
+        interface (``len(model_levels) + 1``, as ECMWF publishes them), in which
+        case each level takes the mean pressure of its interfaces, by default None
+    b : Sequence[float] | None, optional
+        Hybrid surface-pressure coefficients, shaped like ``a``, by default None
+    pressure : str | None, optional
+        Variable holding each model level's pressure in Pa, by default None
+    grid : str | GridDefinition, optional
+        Spatial grid configured before coordinate planning, by default
+        "latlon-0.25deg"
+    fill_value : float | None, optional
+        Value for target levels outside a column, such as below the surface, by
+        default None, which takes the nearest level's value.
+
+    Badges
+    ------
+    region:global product:atmos
+    provider:nvidia backend:pytorch
+    """
+
+    def __init__(
+        self,
+        variables: list[str],
+        levels: list[float],
+        input_levels: list[float] | None = None,
+        model_levels: list[int] | None = None,
+        a: Sequence[float] | None = None,
+        b: Sequence[float] | None = None,
+        pressure: str | None = None,
+        grid: str | GridDefinition = "latlon-0.25deg",
+        fill_value: float | None = None,
+    ) -> None:
+        super().__init__(grid)
+        if not variables:
+            raise ValueError("DerivedPressureLevels needs at least one variable")
+        if (input_levels is None) == (model_levels is None):
+            raise ValueError("Pass exactly one of input_levels and model_levels")
+        hybrid = a is not None or b is not None
+        if input_levels is not None and (hybrid or pressure is not None):
+            raise ValueError("a, b and pressure apply to model_levels only")
+        if model_levels is not None and hybrid == (pressure is not None):
+            raise ValueError("model_levels need either a and b, or pressure")
+        _check_pressure_levels(levels)
+        self.variables = list(variables)
+        self.levels = [float(level) for level in levels]
+        self.fill_value = fill_value
+        self.pressure = pressure
+        self.a = self.b = None
+        self.interfaces = False
+        if input_levels is not None:
+            _check_pressure_levels(input_levels)
+            self.input_levels: list[float] | None = [float(p) for p in input_levels]
+            names = [_level_name(level) for level in self.input_levels]
+        else:
+            self.input_levels = None
+            model_levels = [int(k) for k in model_levels]  # type: ignore[union-attr]
+            if len(model_levels) < 2 or len(set(model_levels)) != len(model_levels):
+                raise ValueError("model_levels needs at least two distinct levels")
+            names = [f"{k}k" for k in model_levels]
+            if hybrid:
+                self.a, self.b, self.interfaces = _hybrid_coefficients(
+                    a, b, len(model_levels)
+                )
+        self.nlevel = len(names)
+        self.in_variables = [f"{v}{name}" for v in self.variables for name in names]
+        if pressure is not None:
+            self.in_variables += [f"{pressure}{name}" for name in names]
+        if self.a is not None:
+            self.in_variables.append("sp")
+        self.out_variables = [
+            f"{v}{_level_name(level)}" for v in self.variables for level in self.levels
+        ]
+        # Pressures stay out of module buffers so a half-precision cast of the
+        # model cannot overflow them; they are built per call in float32 or wider.
+
+    def _compute(self, x: torch.Tensor) -> torch.Tensor:
+        nvar, nlevel = len(self.variables), self.nlevel
+        work = torch.promote_types(x.dtype, torch.float32)
+        values = x[..., : nvar * nlevel, :, :]
+        values = values.reshape(*x.shape[:-3], nvar, nlevel, *x.shape[-2:])
+        if self.a is not None:
+            surface = x[..., -1, :, :].to(work)
+            pressure = hybrid_pressure(self.a, self.b, surface, self.interfaces)  # type: ignore[arg-type]
+            pressure = pressure.movedim(-1, -3).unsqueeze(-4)
+        elif self.pressure is not None:
+            pressure = x[..., nvar * nlevel : (nvar + 1) * nlevel, :, :].to(work)
+            pressure = pressure.unsqueeze(-4)
+        else:
+            pressure = torch.tensor(self.input_levels, device=x.device, dtype=work)
+            pressure = pressure * 100.0
+        target = torch.tensor(self.levels, device=x.device, dtype=work) * 100.0
+        output = interpolate_vertical(
+            values, pressure, target, dim=-3, log=True, fill_value=self.fill_value
+        )
+        return output.reshape(*x.shape[:-3], -1, *x.shape[-2:])
+
+
+def _check_pressure_levels(levels: Sequence[float]) -> None:
+    levels = [float(level) for level in levels]
+    if not levels or min(levels) <= 0:
+        raise ValueError("Pressure levels must be positive")
+    if len(set(levels)) != len(levels):
+        raise ValueError(f"Pressure levels {levels} repeat a level")
+
+
+def _hybrid_coefficients(
+    a: Sequence[float] | None, b: Sequence[float] | None, nlevel: int
+) -> tuple[tuple[float, ...], tuple[float, ...], bool]:
+    """Validate hybrid coefficients given per level or per interface."""
+    if a is None or b is None or len(a) != len(b):
+        raise ValueError("Hybrid coefficients a and b must have equal length")
+    if len(a) not in (nlevel, nlevel + 1):
+        raise ValueError(
+            f"{len(a)} hybrid coefficients for {nlevel} model levels; pass one per "
+            "level or one per interface"
+        )
+    interfaces = len(a) == nlevel + 1
+    for surface in (50000.0, 110000.0):
+        pressure = hybrid_pressure(
+            a, b, torch.tensor(surface, dtype=torch.float64), interfaces
+        )
+        if (pressure <= 0).any() or (pressure.diff() <= 0).any():
+            raise ValueError(
+                "Hybrid coefficients must give positive pressure increasing "
+                "from the top of the model down"
+            )
+    return tuple(map(float, a)), tuple(map(float, b)), interfaces
+
+
+def _level_name(level: float) -> str:
+    """Lexicon suffix of a pressure level: ``850`` for 850 hPa, ``2.5`` for 2.5 hPa."""
+    return f"{level:g}"

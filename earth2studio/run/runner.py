@@ -34,16 +34,23 @@ import torch
 import xarray as xr
 
 from earth2studio.data import DataSource, ForecastSource, fetch_data
+from earth2studio.data.base import DataFrameSource, ForecastFrameSource
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.models.px.utils import initial_condition
 from earth2studio.models.utils import recommended_sources
-from earth2studio.run._fields import _lead_times, _map_field
+from earth2studio.run._fields import (
+    _lead_times,
+    _map_field,
+    _publishes_initial_condition,
+)
 from earth2studio.run.work import WorkItem, member_seed
 from earth2studio.utils.coords import E2S_DYNAMIC_DIMS, coord_array
 from earth2studio.utils.type import CoordinateSystem
 
 Source: TypeAlias = DataSource | ForecastSource
+# A source for any model slot: gridded fields, or DataFrames for observation slots.
+SlotSource: TypeAlias = Source | DataFrameSource | ForecastFrameSource
 
 
 @dataclass(frozen=True)
@@ -221,7 +228,9 @@ class PrognosticRunner:
     Each step yields the prognostic output as stream ``"forecast"`` and each
     diagnostic's output under its own stream name. Steps run from the initial
     condition through the item's final lead time -- the steps ``run.deterministic``
-    writes. Forcing declared by the model is fetched and sent at every step.
+    writes. The initial condition is published only when the output declares every
+    input variable on the input's grid; otherwise the streams start at the first
+    forecast. Forcing declared by the model is fetched and sent at every step.
 
     Parameters
     ----------
@@ -277,6 +286,9 @@ class PrognosticRunner:
         oc = cast(CoordinateSystem, prognostic.output_coords(self.input_signature))
         self.output_leads = oc["lead_time"].values
         self.step = self.output_leads[-1] - self.input_signature["lead_time"].values[-1]
+        self.publishes_initial_condition = _publishes_initial_condition(
+            self.input_signature, oc
+        )
 
     def to(self, device: torch.device) -> PrognosticRunner:
         """Move every model to ``device`` and fetch onto it."""
@@ -299,9 +311,10 @@ class PrognosticRunner:
         supervision concretizes.
         """
         oc = self.prognostic.output_coords(self.input_signature)
-        forecast = _signature_for_stream(
-            oc, _lead_times(oc, self.nsteps(final_lead_time))
-        )
+        leads = _lead_times(oc, self.nsteps(final_lead_time))
+        if not self.publishes_initial_condition:
+            leads = leads[1:]
+        forecast = _signature_for_stream(oc, leads)
         coords: dict[str, CoordinateSystem] = {"forecast": forecast}
         for name, diagnostic in self.diagnostics.items():
             coords[name] = _diagnostic_coords(diagnostic, oc, forecast["lead_time"])
@@ -371,7 +384,7 @@ class PrognosticRunner:
         return outputs
 
     def run_item(self, item: WorkItem) -> Iterator[Mapping[str, xr.DataArray]]:
-        """Publish the initial condition, then every forecast through the final lead time."""
+        """Publish the initial condition, if any, then every forecast through the final lead time."""
         if len(item.member_ids) > 1:
             raise ValueError("PrognosticRunner does not batch ensemble members")
         member_id = item.member_ids[0] if item.member_ids else 0
@@ -380,7 +393,8 @@ class PrognosticRunner:
             _seed_model(self.seed, item.time, member_id, diagnostic)
         nsteps = self.nsteps(item.final_lead_time)
         x = _fetch(self._initial_request(item), self.input_signature, self.device)
-        yield self._publish(initial_condition(x))
+        if self.publishes_initial_condition:
+            yield self._publish(initial_condition(x))
         if nsteps == 0:
             return
         forcing = self._fetch_forcing(self._forcing_requests(item))
