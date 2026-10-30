@@ -51,10 +51,12 @@ activate `earth2studio-data-fetch` first.
   ForecastFrameSource) end-to-end
 - `skills/earth2studio-create-prognostic/` — Create a new prognostic
   (time-stepping forecast) model wrapper end-to-end
+- `skills/earth2studio-create-assimilation/` — Create or migrate DA wrappers;
+  align independent/stateful tests with the structured DX/PX test form
 
 ### Developer
 
-- `.claude/skills-dev/developer-release-rebase/` — Prepare a new minor
+- `skills/developer-release-rebase/` — Prepare a new minor
   alpha release (rebase, bump version, changelog, PR). Developer only.
 
 ## Python environment

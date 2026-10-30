@@ -14,24 +14,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
 from dataclasses import replace
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
+import xarray as xr
 
+from earth2studio.grids import LatLonGrid, infer_grid, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.utils import (
-    handshake_coords,
-    handshake_dim,
-)
+from earth2studio.models.utils import fork_rng
+from earth2studio.utils.coords import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 try:
     import earth2grid
@@ -128,8 +131,6 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         Number of diffusion steps, by default 18
     sigma_max : int, optional
         Maximum noise level for diffusion process, by default 800
-    seed : int, optional
-        Random generator seed for latent variables, by default None
 
     Badges
     ------
@@ -137,6 +138,8 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     year:2025 gpu:80gb
     provider:nvidia backend:pytorch
     """
+
+    stochastic = True
 
     def __init__(
         self,
@@ -146,15 +149,12 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         super_resolution_window: tuple[int, int, int, int] | None = None,
         sampler_steps: int = 18,
         sigma_max: int = 800,
-        seed: int | None = None,
     ) -> None:
         super().__init__()
 
         self.sr_model = sr_model
-        self.seed = seed
         self.sampler_steps = sampler_steps
         self.sigma_max = sigma_max
-        self._sample_index = 0
 
         self.register_buffer(
             "_device_buffer",
@@ -203,7 +203,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         # Input grids
         if self.input_type == "latlon":
             self.input_grid = earth2grid.latlon.equiangular_lat_lon_grid(
-                721, 1440, includes_south_pole=False
+                721, 1440, includes_south_pole=True
             )
             self.regrid_input_to_hpx_low_res = earth2grid.get_regridder(
                 self.input_grid, self.hpx_low_res_grid
@@ -279,8 +279,12 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
                 self.output_grid = earth2grid.latlon.equiangular_lat_lon_grid(
                     output_resolution[0],
                     output_resolution[1],
-                    includes_south_pole=False,
+                    includes_south_pole=True,
                 )
+
+            # Public axes describe the actual interpolation target.
+            self.output_lat = np.asarray(self.output_grid.lat).ravel()
+            self.output_lon = np.asarray(self.output_grid.lon).ravel()
 
             # Update regridder for high-res HEALPix to output
             self.regrid_hpx_high_res_to_output = earth2grid.get_regridder(
@@ -295,82 +299,97 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             self.output_grid = self.hpx_high_res_grid
             self.regrid_hpx_high_res_to_output = None
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system"""
-        if self.input_type == "latlon":
-            return OrderedDict(
-                {
-                    "batch": np.empty(0),
-                    "variable": np.array(VARIABLES),
-                    "lat": np.linspace(90, -90, 721),
-                    "lon": np.linspace(0, 360, 1440, endpoint=False),
-                }
-            )
-        else:  # healpix
-            # HEALPix level 6: nside = 2^6 = 64, npix = 64^2 * 12 = 49,152 pixels
-            nside = 2**HPX_LEVEL_LR
-            npix = nside**2 * 12
-            return OrderedDict(
-                {
-                    "batch": np.empty(0),
-                    "variable": np.array(VARIABLES),
-                    "hpx": np.arange(npix),
-                }
-            )
+    def default_sources(self) -> "DataSource":
+        """Recommend the CBottle3D data source.
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of diagnostic model
-
-        Parameters
-        ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
+        This recommendation loads the data generator's checkpoint on CPU.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        DataSource
+            Loaded CBottle3D generator using this model's grid representation.
         """
-        # Validate input coordinates against expected input coords
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "variable", 1)
-        handshake_coords(input_coords, target_input_coords, "variable")
+        from earth2studio.data import CBottle3D
 
-        if self.input_type == "latlon":
-            handshake_dim(input_coords, "lon", 3)
-            handshake_dim(input_coords, "lat", 2)
-            handshake_coords(input_coords, target_input_coords, "lon")
-            handshake_coords(input_coords, target_input_coords, "lat")
-        else:  # healpix input
-            handshake_dim(input_coords, "hpx", 2)
-            handshake_coords(input_coords, target_input_coords, "hpx")
+        return CBottle3D.load_model(
+            CBottle3D.load_default_package(), lat_lon=self.input_type == "latlon"
+        )
 
-        # Build output coordinate system based on output type
-        if self.output_type == "latlon":
-            output_coords = OrderedDict(
-                {
-                    "batch": np.empty(0),
-                    "variable": np.array(VARIABLES),
-                    "lat": self.output_lat,
-                    "lon": self.output_lon,
-                }
+    def input_coords(self) -> xr.DataArray:
+        """Input coordinate system of the diagnostic model.
+
+        Returns
+        -------
+        xr.DataArray
+            Allocation-free DataArray input signature.
+        """
+        grid = (
+            LatLonGrid(
+                np.asarray(self.input_grid.lat).ravel(),
+                np.asarray(self.input_grid.lon).ravel(),
             )
-        else:  # healpix output
-            # HEALPix level 10: nside = 2^10 = 1024, npix = 1024^2 * 12 = 12,582,912 pixels
-            nside = 2**HPX_LEVEL_HR
-            npix = nside**2 * 12
-            output_coords = OrderedDict(
-                {
-                    "batch": np.empty(0),
-                    "variable": np.array(VARIABLES),
-                    "hpx": np.arange(npix),
-                }
-            )
+            if self.input_type == "latlon"
+            else "healpix-l6-nested"
+        )
+        return coord_array(
+            (
+                "batch",
+                "variable",
+                *(grid.dims if isinstance(grid, LatLonGrid) else ("hpx",)),
+            ),
+            {"variable": np.array(VARIABLES)},
+            dynamic=("batch",),
+            grid=grid,
+        )
 
-        output_coords["batch"] = input_coords["batch"]
-        return output_coords
+    def output_coords(self, input_coords: xr.DataArray) -> xr.DataArray:
+        """Output coordinate system of the diagnostic model.
+
+        Parameters
+        ----------
+        input_coords : xr.DataArray
+            Input coordinate signature or DataArray to validate and transform.
+
+        Returns
+        -------
+        xr.DataArray
+            Allocation-free DataArray output signature.
+        """
+        signature = self.input_coords()
+        handshake_dataarray(input_coords, signature)
+        grid = (
+            LatLonGrid(
+                np.asarray(self.output_grid.lat).ravel(),
+                np.asarray(self.output_grid.lon).ravel(),
+            )
+            if self.output_type == "latlon"
+            else resolve_grid(f"healpix-l{HPX_LEVEL_HR}-nested")
+        )
+        if grid.fingerprint() == infer_grid(input_coords).fingerprint():
+            return coord_array_like(input_coords)
+        leading = input_coords.dims[: -len(signature.attrs["dims"]) - 1]
+        return coord_array(
+            (*leading, "variable", *grid.dims),
+            {
+                k: v.variable
+                for k, v in input_coords.coords.items()
+                if set(v.dims).issubset((*leading, "variable"))
+            },
+            sizes={d: input_coords.sizes[d] for d in leading},
+            dynamic=input_coords.attrs.get("earth2studio_dynamic_dims", ()),
+            grid=(
+                grid
+                if self.output_type == "latlon"
+                else f"healpix-l{HPX_LEVEL_HR}-nested"
+            ),
+            dtype=input_coords.dtype,
+            name=input_coords.name,
+            attrs={
+                k: v
+                for k, v in input_coords.attrs.items()
+                if k not in signature.attrs and k != "earth2studio_grid_id"
+            },
+        )
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -393,7 +412,6 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         super_resolution_window: tuple[int, int, int, int] | None = None,
         sampler_steps: int = 18,
         sigma_max: int = 800,
-        seed: int | None = None,
         distilled_model: bool = False,
     ) -> DiagnosticModel:
         """Load diagnostic model from package
@@ -414,8 +432,6 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             Number of diffusion steps, by default 18
         sigma_max : float, optional
             Noise amplitude used to generate latent variables, by default 800
-        seed : int, optional
-            Random generator seed for latent variables, by default None
         distilled_model : bool, optional
             Whether to use the distilled model, If True, the distilled helper is used,
             enabling generation with fewer sampler steps, by default False
@@ -453,7 +469,6 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             super_resolution_window=super_resolution_window,
             sampler_steps=sampler_steps,
             sigma_max=sigma_max,
-            seed=seed,
         )
 
     def _reorder_to_sr_channels(self, x: torch.Tensor) -> torch.Tensor:
@@ -463,6 +478,23 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     def _reorder_from_sr_channels(self, x: torch.Tensor) -> torch.Tensor:
         """Reorder channels from the super resolution model"""
         return torch.index_select(x, 0, self._from_sr_index)
+
+    _rng_seed: int | None = None
+    _rng_states: dict[str, torch.Tensor] | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed cBottle super-resolution latent and sampler noise.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for super-resolution sampling.
+        reset : bool, optional
+            Reset existing sampling state, by default True.
+        """
+        if reset or self._rng_seed is None:
+            self._rng_seed = seed
+            self._rng_states = {}
 
     @torch.inference_mode()
     def _forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -480,29 +512,13 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
         x = x.unsqueeze(0).unsqueeze(2)
 
-        if self.seed is not None:
-            rng_devices: list[torch.device] = []
-            if self.device.type == "cuda":
-                rng_devices.append(self.device)
-
-            with torch.random.fork_rng(devices=rng_devices, enabled=True):
-                seed = self.seed + self._sample_index
-                torch.manual_seed(seed)
-                if self.device.type == "cuda":
-                    torch.cuda.manual_seed_all(seed)
-                out, _ = self.sr_model(
-                    x,
-                    coords=replace(self._coords),
-                    extents=self.super_resolution_extents,
-                )
-        else:
+        # The super-resolution backend accepts neither seed nor generator.
+        with fork_rng(self._rng_seed, x.device, states=self._rng_states):
             out, _ = self.sr_model(
                 x,
                 coords=replace(self._coords),
                 extents=self.super_resolution_extents,
             )
-
-        self._sample_index += 1
 
         out = self._reorder_from_sr_channels(out[0, :, 0])
         if self.output_type == "healpix":
@@ -515,18 +531,30 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     @batch_func()
     def __call__(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Forward pass of diagnostic"""
-        output_coords = self.output_coords(coords)
+        x: xr.DataArray,
+    ) -> xr.DataArray:
+        """Super-resolve a labelled field on the configured output domain.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Coarse conditioning fields matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            Super-resolved fields matching ``output_coords(x)``, including the
+            configured high-resolution spatial coordinates.
+        """
+        output_coords = self.output_coords(x)
+        x = x.e2s.to_torch()[0].to(self.device).clone()
 
         out = torch.zeros(
-            [len(v) for v in output_coords.values()],
+            output_coords.shape,
             device=x.device,
             dtype=torch.float32,
         )
 
         for i in range(out.shape[0]):
             out[i] = self._forward(x[i])
-        return out, output_coords
+        return from_torch(out, output_coords)

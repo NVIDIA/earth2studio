@@ -17,10 +17,10 @@
 from __future__ import annotations
 
 import math
-from collections import OrderedDict
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
+from copy import deepcopy
 from pathlib import Path
-from typing import TypedDict
+from typing import Any, TypedDict
 
 import numpy as np
 import torch
@@ -28,12 +28,22 @@ import torch.nn.functional as F
 import xarray as xr
 from loguru import logger
 
+from earth2studio.data.base import DataSource
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import handshake_coords, handshake_dim, handshake_size
-from earth2studio.utils.type import CoordSystem
+from earth2studio.models.utils import fork_rng
+from earth2studio.utils import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_nonempty,
+    handshake_size,
+    handshake_time,
+)
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 LEVELS = [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
 
@@ -59,6 +69,14 @@ UCAST_WB2_DATASET = (
     "1959-2023_01_10-6h-240x121_equiangular_with_poles_conservative.zarr"
 )
 UCAST_STATIC_FIELD_TIME = np.datetime64("2020-01-01T00:00:00")
+
+
+def _same_state(left: xr.DataArray, right: xr.DataArray) -> bool:
+    return left.variable.equals(right.variable) and all(
+        left.coords[d].variable.equals(right.coords[d].variable)
+        for d in left.dims
+        if d in left.coords
+    )
 
 
 class _ConvInitKwargs(TypedDict):
@@ -142,6 +160,7 @@ class Conv2d(torch.nn.Module):
             self.padding = kernel // 2
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Apply the configured convolution and resampling."""
         weight = self.weight
         bias = self.bias
 
@@ -178,6 +197,7 @@ class GroupNorm(torch.nn.Module):
         self.bias = torch.nn.Parameter(torch.zeros(num_channels))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Normalize channel groups using checkpoint parameters."""
         return F.group_norm(
             x,
             num_groups=self.num_groups,
@@ -194,6 +214,7 @@ class AttentionOp(torch.autograd.Function):
     def forward(
         ctx: torch.autograd.function.FunctionCtx, q: torch.Tensor, k: torch.Tensor
     ) -> torch.Tensor:  # type: ignore[override]
+        """Compute scaled dot-product attention weights."""
         del ctx
         return (
             torch.einsum(
@@ -286,6 +307,7 @@ class UNetBlock(torch.nn.Module):
             )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Apply the residual convolution and optional attention block."""
         orig = x
         x = self.conv0(F.silu(self.norm0(x)))
         x = self.conv1(self.dropout(F.silu(self.norm1(x))))
@@ -413,6 +435,7 @@ class DhariwalUNet(torch.nn.Module):
         dynamical_condition: torch.Tensor | None = None,
         static_condition: torch.Tensor | None = None,
     ) -> torch.Tensor:
+        """Predict residuals from state, dynamical and static conditioning."""
         parts = [inputs]
         if dynamical_condition is not None:
             parts.append(dynamical_condition)
@@ -692,60 +715,76 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             VARIABLES if preload_static_fields else VARIABLES + STATIC_VARIABLES
         )
 
-        self._input_coords = OrderedDict(
+        self._input_coords = coord_array(
+            ("batch", "time", "lead_time", "variable", "lat", "lon"),
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
                 "lead_time": np.array([-self.DT, np.timedelta64(0, "h")]),
                 "variable": np.array(input_variables),
-                "lat": np.linspace(90, -90, 121),
-                "lon": np.linspace(0, 360, 240, endpoint=False),
-            }
-        )
-        self._output_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array([self.DT]),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 121),
-                "lon": np.linspace(0, 360, 240, endpoint=False),
-            }
+            },
+            dynamic=("batch", "time"),
+            grid="latlon-1.5deg",
         )
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of the prognostic model."""
+    def default_sources(self) -> DataSource:
+        """Recommend ARCO ERA5 initial conditions.
+
+        Returns
+        -------
+        DataSource
+            Raw ARCO ERA5 source for the input slot.
+        """
+        from earth2studio.data import ARCO_ERA5
+
+        return ARCO_ERA5()
+
+    def input_coords(self) -> CoordinateSystem:
+        """Input coordinate system of the prognostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature.
+        """
         return self._input_coords.copy()
 
-    def _check_input_coords(self, input_coords: CoordSystem) -> None:
+    def _check_input_coords(self, input_coords: CoordinateSystem) -> None:
         """Validate input coordinates against the public U-CAST coordinate system."""
-        test_coords = input_coords.copy()
-        test_coords["lead_time"] = (
-            test_coords["lead_time"] - input_coords["lead_time"][-1]
-        )
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
         target_input_coords = self.input_coords()
-        input_variables = np.asarray(input_coords.get("variable", []))
+        input_variables = np.asarray(input_coords.coords.get("variable", []))
         if not self.preload_static_fields and input_variables.shape[0] == len(
             VARIABLES
         ):
-            target_input_coords["variable"] = np.array(VARIABLES)
-
-        for i, key in enumerate(target_input_coords):
-            handshake_dim(test_coords, key, i)
-            if key not in ["batch", "time"]:
-                handshake_coords(test_coords, target_input_coords, key)
-
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of the prognostic model."""
-        self._check_input_coords(input_coords)
-        output_coords = self._output_coords.copy()
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["time"] = input_coords["time"]
-        output_coords["lead_time"] = (
-            input_coords["lead_time"][-1] + output_coords["lead_time"]
+            target_input_coords = coord_array_like(
+                target_input_coords, {"variable": np.array(VARIABLES)}
+            )
+        lead = input_coords.lead_time.values
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), target_input_coords
         )
-        return output_coords
+
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Output coordinate system of the prognostic model.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray output signature.
+        """
+        self._check_input_coords(input_coords)
+        return coord_array_like(
+            input_coords,
+            {
+                "lead_time": np.asarray(input_coords.lead_time)[-1:] + self.DT,
+                "variable": np.array(VARIABLES),
+            },
+        )
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -854,6 +893,23 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _denormalize(self, x: torch.Tensor) -> torch.Tensor:
         return x * self.scale.to(dtype=x.dtype) + self.center.to(dtype=x.dtype)
 
+    _rng_seed: int | None = None
+    _rng_states: dict[str, torch.Tensor] | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed U-CAST's inference dropout state.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for dropout masks.
+        reset : bool, optional
+            Reset existing dropout state, by default True.
+        """
+        if reset or self._rng_seed is None:
+            self._rng_seed = seed
+            self._rng_states = {}
+
     @torch.inference_mode()
     def _forward(
         self,
@@ -864,7 +920,6 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         sst_mask: torch.Tensor | None = None,
         return_state: bool = False,
     ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        self._check_input_coords(coords)
         self._enable_inference_dropout()
 
         batch_size, time_size, history_size, n_variables, n_lat, n_lon = x.shape
@@ -885,7 +940,8 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             # public Earth2Studio convention north-to-south and flip only internally.
             x_model = x.permute(0, 1, 2, 3, 5, 4).reshape(model_shape)
             x_model = torch.flip(x_model, dims=(-1,))
-            sst_mask = torch.isnan(x_model[:, -1, self.sst_index])
+            if sst_mask is None:
+                sst_mask = torch.isnan(x_model[:, -1, self.sst_index])
             x_norm = self._normalize(x_model)
         else:
             if x_norm.shape != model_shape:
@@ -914,11 +970,13 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         with torch.autocast(
             device_type=x.device.type, dtype=torch.float16, enabled=use_amp
         ):
-            pred_residual = self.model(
-                model_input,
-                dynamical_condition=forcing,
-                static_condition=static,
-            )
+            # Torch dropout accepts no explicit generator.
+            with fork_rng(self._rng_seed, x.device, states=self._rng_states):
+                pred_residual = self.model(
+                    model_input,
+                    dynamical_condition=forcing,
+                    static_condition=static,
+                )
 
         pred_norm = (
             pred_residual
@@ -945,19 +1003,103 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             return out, next_x_norm, sst_mask
         return out
 
-    @batch_func()
     def __call__(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Runs the 12-hour U-CAST prognostic model one step."""
-        out_coords = self.output_coords(coords)
-        batch_size, time_size, history_size, n_variables, n_lat, n_lon = x.shape
-        handshake_size(coords, "lead_time", history_size)
-        handshake_size(coords, "variable", n_variables)
-        handshake_size(coords, "lat", n_lat)
-        handshake_size(coords, "lon", n_lon)
+        x: xr.DataArray,
+    ) -> xr.DataArray:
+        """Predict twelve hours ahead without iterator hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history and any input static fields declared by
+            ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            First forecast matching ``output_coords(x)``. Use ``initialize``
+            to retain native recurrence and the SST mask for continuation.
+        """
+        return self.initialize(x)[0]
+
+    def _reconcile_hook(
+        self,
+        before: xr.DataArray,
+        after: xr.DataArray,
+        x_norm: torch.Tensor | None,
+        sst_mask: torch.Tensor | None,
+    ) -> tuple[torch.Tensor | None, torch.Tensor | None]:
+        if x_norm is None:
+            return x_norm, sst_mask
+        old, _ = batch_func()._compress_array(self, before)
+        new, _ = batch_func()._compress_array(self, after)
+        old_values, _ = old.e2s.to_torch()
+        new_values, _ = new.e2s.to_torch()
+        shape = (
+            new.shape[0] * new.shape[1],
+            *new.shape[2:4],
+            new.shape[5],
+            new.shape[4],
+        )
+        old_values = (
+            old_values.to(self.center.device)
+            .permute(0, 1, 2, 3, 5, 4)
+            .reshape(shape)
+            .flip(-1)
+        )
+        new_values = (
+            new_values.to(self.center.device)
+            .permute(0, 1, 2, 3, 5, 4)
+            .reshape(shape)
+            .flip(-1)
+        )
+        changed = ~(
+            (old_values == new_values)
+            | (torch.isnan(old_values) & torch.isnan(new_values))
+        )
+        # Only edited cells replace the native recurrence. In particular, the
+        # public filled SST is not the hidden normalized SST over land.
+        count = new_values.shape[1]
+        x_norm = torch.cat(
+            [
+                x_norm[:, :-count],
+                torch.where(changed, self._normalize(new_values), x_norm[:, -count:]),
+            ],
+            dim=1,
+        )
+        # Explicit latest-SST edits control validity: finite values unmask that
+        # cell; NaN masks it. Other-channel edits retain the original land mask.
+        sst_mask = torch.where(
+            changed[:, -1, self.sst_index],
+            torch.isnan(new_values[:, -1, self.sst_index]),
+            sst_mask,
+        )
+        return x_norm, sst_mask
+
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, dict[str, Any]]:
+        """Compute the first forecast and retain native normalized recurrence.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history and any required static fields matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict[str, Any]]
+            First twelve-hour forecast and native normalized fields, SST mask,
+            static conditioning, published reference and RNG state. No hooks run.
+        """
+        handshake_nonempty(x)
+        handshake_time(x)
+        self.output_coords(x)
+        if self.stochastic and self._rng_seed is None:
+            self.set_rng(int(torch.randint(2**31, ())))
+        packed, restore = batch_func()._compress_array(self, x)
+        tensor, coords = packed.e2s.to_torch()
+        tensor = tensor.to(self.center.device).clone()
+        batch_size, time_size, _, _, n_lat, n_lon = tensor.shape
 
         if self.preload_static_fields:
             static_condition = (
@@ -967,73 +1109,98 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             )
         else:
             static_condition = _static_condition_from_input(
-                x[:, :, 0, len(VARIABLES) :],
-                batch_size,
-                time_size,
-                n_lon,
-                n_lat,
+                tensor[:, :, 0, len(VARIABLES) :], batch_size, time_size, n_lon, n_lat
             )
-            x = x[:, :, :, : len(VARIABLES)]
-            coords = coords.copy()
-            coords["variable"] = self._output_coords["variable"].copy()
-        return self._forward(x, coords, static_condition), out_coords
+            tensor = tensor[:, :, :, : len(VARIABLES)]
+            coords["variable"] = np.array(VARIABLES)
+            x = x.isel(variable=slice(0, len(VARIABLES)))
 
-    @batch_func()
-    def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem]]:
-        coords = coords.copy()
-        self.output_coords(coords)
-        batch_size, time_size, history_size, n_variables, n_lat, n_lon = x.shape
-        handshake_size(coords, "lead_time", history_size)
-        handshake_size(coords, "variable", n_variables)
-        handshake_size(coords, "lat", n_lat)
-        handshake_size(coords, "lon", n_lon)
+        out, native, mask = self._forward(
+            tensor, coords, static_condition, return_state=True
+        )
+        prediction = restore(from_torch(out, self.output_coords(packed), name=x.name))
+        prediction.attrs = deepcopy(prediction.attrs)
+        prediction.encoding = deepcopy(x.encoding)
+        return prediction, {
+            "native": native,
+            "mask": mask,
+            "static": static_condition,
+            "published": prediction.copy(deep=True),
+            "seed": self._rng_seed,
+            "rng": deepcopy(self._rng_states),
+        }
 
-        if self.preload_static_fields:
-            static_condition = (
-                self.static_condition.permute(0, 2, 1)
-                .unsqueeze(0)
-                .expand(batch_size * time_size, -1, -1, -1)
-            )
-        else:
-            static_condition = _static_condition_from_input(
-                x[:, :, 0, len(VARIABLES) :], batch_size, time_size, n_lon, n_lat
-            )
-            x = x[:, :, :, : len(VARIABLES)]
-            coords["variable"] = self._output_coords["variable"].copy()
+    def step(
+        self, y: xr.DataArray, state: dict[str, Any]
+    ) -> tuple[xr.DataArray, dict[str, Any]]:
+        """Advance native recurrence, reconciling explicit forecast edits.
 
-        out = x[:, :, 1:]
-        out_coords = coords.copy()
-        out_coords["lead_time"] = out_coords["lead_time"][1:]
-        out_coords["variable"] = self._output_coords["variable"].copy()
-        yield out, out_coords
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        state : dict[str, Any]
+            Native fields, mask, conditioning, reference and RNG state returned by
+            ``initialize`` or ``step``.
 
-        x_norm = None
-        sst_mask = None
-
-        while True:
-            x, coords = self.front_hook(x, coords)
-            out, x_norm, sst_mask = self._forward(
-                x,
+        Returns
+        -------
+        tuple[xr.DataArray, dict[str, Any]]
+            Next twelve-hour forecast and updated state, without iterator hooks.
+        """
+        handshake_nonempty(y)
+        state = deepcopy(state)
+        native, mask = self._reconcile_hook(
+            state["published"], y, state["native"], state["mask"]
+        )
+        history = xr.concat(
+            [y.assign_coords(lead_time=y.lead_time.values - self.DT), y],
+            dim="lead_time",
+            coords="minimal",
+            compat="override",
+            join="exact",
+        )
+        packed, restore = batch_func()._compress_array(self, history)
+        tensor, coords = packed.e2s.to_torch()
+        previous = self._rng_seed, self._rng_states
+        self._rng_seed, self._rng_states = state["seed"], state["rng"]
+        try:
+            out, native, mask = self._forward(
+                tensor.to(self.center.device),
                 coords,
-                x_norm=x_norm,
-                sst_mask=sst_mask,
-                static_condition=static_condition,
+                state["static"],
+                native,
+                mask,
                 return_state=True,
             )
-            out_coords = self.output_coords(coords)
-            out, out_coords = self.rear_hook(out, out_coords)
-
-            x = torch.cat([x[:, :, 1:], out], dim=2)
-            coords["lead_time"] = np.array(
-                [coords["lead_time"][-1], out_coords["lead_time"][-1]]
+            state["rng"] = deepcopy(self._rng_states)
+        finally:
+            self._rng_seed, self._rng_states = previous
+        signature = coord_array_like(y, {"lead_time": y.lead_time.values + self.DT})
+        prediction = restore(
+            from_torch(
+                out,
+                coord_array_like(packed, {"lead_time": signature.lead_time.values}),
+                name=y.name,
             )
+        )
+        prediction.attrs = deepcopy(prediction.attrs)
+        prediction.encoding = deepcopy(y.encoding)
+        state.update(native=native, mask=mask, published=prediction.copy(deep=True))
+        return prediction, state
 
-            yield out, out_coords.copy()
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray]:
+        """Yield twelve-hour forecasts beginning with the first prediction.
 
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Creates an iterator for autoregressive U-CAST inference."""
-        yield from self._default_generator(x, coords)
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Forecasts after the rear hook. The front hook runs before subsequent
+            steps; field edits are reconciled with native recurrence.
+        """
+        yield from self._default_create_iterator(x)

@@ -13,12 +13,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# mypy: disable-error-code="call-overload,arg-type"
 
 """Coupled Earth-system DLESyM / DLESyMLatLon forecast pipeline."""
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from typing import cast
 
 import numpy as np
 import torch
@@ -27,6 +29,7 @@ from tqdm import tqdm
 
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.utils.coords import CoordSystem, map_coords
+from earth2studio.utils.cupy import from_torch
 
 from ..distributed import get_rank
 from ..models import load_prognostic
@@ -170,9 +173,10 @@ class DLESyMPipeline(ForecastPipeline):
         self.seed_member(item)
 
         if self.perturbation is not None:
-            x, coords = self.perturbation(x, coords)
+            x, coords = self.perturbation(from_torch(x, coords)).e2s.to_torch()
 
-        model_iter = self.prognostic.create_iterator(x, coords)
+        # This pipeline still uses the legacy tensor/coordinate model API.
+        model_iter = cast(Callable, self.prognostic.create_iterator)(x, coords)
 
         # Skip the IC yield — its lead_times are in the input window
         # ([-48h..0h] for DLESyM), outside the output zarr schema.

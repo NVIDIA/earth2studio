@@ -14,23 +14,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
 from datetime import datetime, timezone
 
 import numpy as np
 import torch
+import xarray as xr
 
+from earth2studio.data.base import DataSource
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils.coords import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_nonempty,
+    handshake_time,
+)
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 try:
     from aurora import Aurora as Aurora_model
@@ -116,6 +124,27 @@ VARIABLES = [
 ATMOS_LEVELS = [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50]
 
 
+def _aurora_history(previous: xr.DataArray, prediction: xr.DataArray) -> xr.DataArray:
+    previous = previous.isel(lead_time=slice(-1, None))
+    signature = coord_array_like(
+        prediction,
+        {
+            "lead_time": np.concatenate(
+                (previous.lead_time.values, prediction.lead_time.values)
+            )
+        },
+    )
+    a, _ = previous.e2s.to_torch()
+    b, _ = prediction.e2s.to_torch()
+    result = from_torch(
+        torch.cat((a.to(b.device), b), dim=previous.get_axis_num("lead_time")),
+        signature,
+        name=prediction.name,
+    )
+    result.encoding = prediction.encoding.copy()
+    return result
+
+
 # Adapted from https://microsoft.github.io/aurora/example_era5.html
 @check_optional_dependencies()
 class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
@@ -169,79 +198,63 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("slt", slt)
         self.register_buffer("lsm", lsm)
 
-        self._input_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array(
-                    [np.timedelta64(-6, "h"), np.timedelta64(0, "h")]
-                ),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 720, endpoint=False),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
-        )
-
-        self._output_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array([np.timedelta64(6, "h")]),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 720, endpoint=False),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
-        )
-        self.device = torch.ones(1).device  # Hack to get default device
         self.preds_idx = 0
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of the prognostic model
+    def default_sources(self) -> DataSource:
+        """Recommend ARCO ERA5 initial conditions.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        DataSource
+            Raw ARCO ERA5 source for the input slot.
         """
-        return self._input_coords.copy()
+        from earth2studio.data import ARCO_ERA5
 
-    @batch_coords()
-    def output_coords(
-        self,
-        input_coords: CoordSystem,
-    ) -> CoordSystem:
-        """Output coordinate system of the prognostic model
+        return ARCO_ERA5()
+
+    def input_coords(self) -> CoordinateSystem:
+        """Input coordinate system of the prognostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature for the two-frame history
+            on Aurora's native grid.
+        """
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "lat", "lon"),
+            {
+                "lead_time": np.array([-6, 0], dtype="timedelta64[h]"),
+                "variable": VARIABLES,
+            },
+            dynamic=("batch", "time"),
+            grid="latlon-0.25deg-south-pole-excluded",
+        )
+
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Output coordinate system of the prognostic model.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free DataArray output signature for the next six-hour
+            forecast.
         """
-        output_coords = self._output_coords.copy()
-
-        test_coords = input_coords.copy()
-        test_coords["lead_time"] = (
-            test_coords["lead_time"] - input_coords["lead_time"][-1]
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
+        lead = input_coords.lead_time.values
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
         )
-        target_input_coords = self.input_coords()
-        for i, key in enumerate(target_input_coords):
-            if key not in ["batch", "time"]:
-                handshake_dim(test_coords, key, i)
-                handshake_coords(test_coords, target_input_coords, key)
-
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["time"] = input_coords["time"]
-
-        output_coords["lead_time"] = (
-            input_coords["lead_time"][-1] + output_coords["lead_time"]
+        return coord_array_like(
+            input_coords,
+            {"lead_time": input_coords.lead_time.values[-1:] + np.timedelta64(6, "h")},
         )
-
-        return output_coords
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -349,7 +362,7 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return x
 
     @torch.inference_mode()
-    def _forward(
+    def _forward_tensor(
         self,
         x: torch.Tensor,
         coords: CoordSystem,
@@ -371,89 +384,89 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return out
 
     @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Runs prognostic model 1 step.
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Predict six hours ahead, without iterator hooks.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system 6 hours in the future
+        xr.DataArray
+            First forecast matching ``output_coords(x)``.
         """
+        signature = self.output_coords(x)
+        handshake_time(x)
+        tensor, coords = x.e2s.to_torch()
+        out = self._forward_tensor(tensor.to(self.z.device).clone(), coords)
+        result = from_torch(out, signature, name=x.name)
+        result.encoding = x.encoding.copy()
+        return result
 
-        output_coords = self.output_coords(coords)
-
-        x = self._forward(x, coords)
-
-        return x, output_coords
-
-    @batch_func()
-    def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-        coords = coords.copy()
-
-        self.output_coords(coords)
-
-        # First yield is the initial condition: drop the t-6h history frame
-        # from the tensor AND the coords, so lead_time matches the data.
-        coords_out = coords.copy()
-        coords_out["lead_time"] = coords["lead_time"][1:]
-        yield x[:, :, 1:], coords_out
-
-        while True:
-            # Front hook
-            x, coords = self.front_hook(x, coords)
-            init_x = x[:, :, 1:].clone()
-
-            # Forward pass
-            x = self._forward(x, coords)
-
-            self.preds_idx = self.preds_idx + 1
-
-            coords["lead_time"] = (
-                coords["lead_time"]
-                + self.output_coords(self.input_coords())["lead_time"]
-            )
-            # Concat the step now and prediction for next step
-            x = torch.cat([init_x, x], dim=2)
-            x = x.clone()
-
-            # Rear hook for first predicted step
-            coords_out = coords.copy()
-            coords_out["lead_time"] = coords["lead_time"][-1:]
-            x[:, :, 1:], coords_out = self.rear_hook(x[:, :, 1:], coords_out)
-
-            yield x[:, :, 1:], coords_out
-
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Creates a iterator which can be used to perform time-integration of the
-        prognostic model. Will return the initial condition first (0th step).
+    def initialize(
+        self, x: xr.DataArray
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, int]]:
+        """Compute the first forecast and retain its missing history and rollout index.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Two-frame initial history matching ``input_coords()``.
 
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[xr.DataArray, int]]
+            First six-hour forecast and continuation state containing the preceding
+            history frame and rollout index. Iterator hooks are not applied.
+        """
+        handshake_nonempty(x)
+        return self._forward(x, 0)
+
+    def _forward(
+        self, x: xr.DataArray, index: int
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, int]]:
+        previous = self.preds_idx
+        self.preds_idx = index
+        try:
+            out = self(x)
+        finally:
+            self.preds_idx = previous
+        return out, (x.isel(lead_time=slice(-1, None)).copy(deep=True), index + 1)
+
+    def step(
+        self, y: xr.DataArray, state: tuple[xr.DataArray, int]
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, int]]:
+        """Advance from a previous forecast and explicit history and rollout index.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        state : tuple[xr.DataArray, int]
+            History frame and rollout index returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[xr.DataArray, int]]
+            Next six-hour forecast and updated state, without iterator hooks.
+        """
+        history, index = state
+        return self._forward(_aurora_history(history, y), index)
+
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
+        """Yield six-hour forecasts starting with the first prediction.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
-            Iterator that generates time-steps of the prognostic model container the
-            output data tensor and coordinate system dictionary.
+        xr.DataArray
+            Forecasts after the rear hook. The front hook runs before subsequent
+            steps; both hooks feed recurrence directly.
         """
-        yield from self._default_generator(x, coords)
+        return self._default_create_iterator(x)

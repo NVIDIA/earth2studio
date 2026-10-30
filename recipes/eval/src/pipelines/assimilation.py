@@ -13,6 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# mypy: disable-error-code="call-overload,arg-type"
 
 """Data-assimilation (DA) pipelines.
 
@@ -86,7 +87,7 @@ def _setup_da_components(
     if "obs_sources" not in da_cfg:
         raise ValueError(
             "DA model config requires an 'obs_sources' block — one entry "
-            "per observation input of the model, in input_coords() order."
+            "per observation input slot of the model, in input_coords() order."
         )
     model = load_assimilation(da_cfg).to(device)
     obs_set = ObsSourceSet.from_config(
@@ -139,6 +140,7 @@ class AssimilationPipeline(Pipeline):
     runner: AssimilationRunner
 
     def setup(self, cfg: DictConfig, device: torch.device) -> None:
+        """Load assimilation components and their output grid."""
         self.model, self.obs_set, self.runner = _setup_da_components(
             cfg.model.da, device, output_path=cfg.output.path
         )
@@ -149,6 +151,7 @@ class AssimilationPipeline(Pipeline):
         times: np.ndarray,
         ensemble_size: int,
     ) -> CoordSystem:
+        """Build the analysis store coordinates for the requested campaign."""
         return build_analysis_coords(
             times,
             ensemble_size,
@@ -194,6 +197,7 @@ class AssimilationPipeline(Pipeline):
         return _declare_obs_frame_stores(cfg, times)
 
     def explicit_rng_components(self) -> list[Any]:
+        """Return assimilation components with explicit random state."""
         return [self.model] if is_explicit_rng_component(self.model) else []
 
     def run_item(
@@ -202,6 +206,7 @@ class AssimilationPipeline(Pipeline):
         data_source: DataSource,
         device: torch.device,
     ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        """Produce one seeded analysis with a zero-lead-time coordinate."""
         self.seed_member(item)
 
         analysis = self.runner.analysis(item.time)
@@ -288,6 +293,7 @@ class AssimilationForecastPipeline(ForecastPipeline):
         return cfg.model.forecast
 
     def setup(self, cfg: DictConfig, device: torch.device) -> None:
+        """Load the forecast and assimilation models and resolve missing fields."""
         super().setup(cfg, device)
         self.da_model, self.obs_set, self.runner = _setup_da_components(
             cfg.model.da, device, output_path=cfg.output.path

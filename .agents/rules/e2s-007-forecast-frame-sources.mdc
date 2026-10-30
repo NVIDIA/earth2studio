@@ -244,7 +244,7 @@ All other patterns from [e2s-006-dataframe-sources.mdc](mdc:.cursor/rules/e2s-00
 - ✅ `resolve_fields` method implementation
 - ✅ Column mapping pattern with metadata
 - ✅ DataFrame compilation pattern
-- ✅ Common constructor parameters (`cache`, `verbose`, `async_timeout`)
+- ✅ Common constructor parameters (`cache`, `verbose`, `async_timeout`, `device`)
 - ✅ Cache property implementation
 - ✅ Async initialization pattern with `_async_init`
 - ✅ Synchronous `__call__` method pattern

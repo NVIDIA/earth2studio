@@ -18,9 +18,34 @@
 import numpy as np
 import pytest
 import torch
+import xarray as xr
+from test_dlesym import optional_backend as grid_backend  # noqa: F401
 
+import earth2studio.models.px.dlesym as dlesym_src
+import earth2studio.models.px.dlesym_v0_isccp_era5 as v0_src
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import DLESyMv0_ISCCP_ERA5, DLESyMv0_ISCCP_ERA5LatLon
-from earth2studio.utils import handshake_coords
+from earth2studio.utils.coords import coord_array_like, handshake_metadata
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.imports import OptionalDependencyFailure
+
+
+@pytest.fixture(autouse=True)
+def optional_backend(monkeypatch, request):
+    request.getfixturevalue("grid_backend")
+    if v0_src.__file__ in OptionalDependencyFailure.failures:
+        for module in (dlesym_src, v0_src):
+            monkeypatch.delitem(
+                OptionalDependencyFailure.failures, module.__file__, raising=False
+            )
+        monkeypatch.setattr(
+            dlesym_src,
+            "insolation",
+            lambda times, lat, lon: np.zeros(
+                (len(times), *lat.shape), dtype=np.float32
+            ),
+        )
+
 
 # Upstream-DLESyM variable layout (model space). The wrapper swaps ``rlut`` ->
 # ``ttr`` in input_coords when use_ttr=True.
@@ -110,12 +135,17 @@ def _build_latlon_model(
     lat/lon regridders target the fixed 721x1440 grid.
     """
     n_vars = len(_ATMOS_VARIABLES) + len(_OCEAN_VARIABLES)
-    hpx_lat = np.random.randn(12, nside, nside)
-    hpx_lon = np.random.randn(12, nside, nside)
+    # A local generator, not the global np.random state: drawing from the global
+    # generator made whether the conformance checker's probes observed a value
+    # change depend on whatever earlier test in the suite last touched np.random,
+    # i.e. test order.
+    rng = np.random.default_rng(0)
+    hpx_lat = rng.standard_normal((12, nside, nside))
+    hpx_lon = rng.standard_normal((12, nside, nside))
     center = np.zeros((1, 1, 1, n_vars, 1, 1, 1))
     scale = np.ones((1, 1, 1, n_vars, 1, 1, 1))
-    atmos_constants = np.random.randn(12, 2, nside, nside)
-    ocean_constants = np.random.randn(12, 2, nside, nside)
+    atmos_constants = rng.standard_normal((12, 2, nside, nside))
+    ocean_constants = rng.standard_normal((12, 2, nside, nside))
 
     clim = _build_climatology(nside, n_doy=8) if use_ttr else {}
 
@@ -145,12 +175,14 @@ def _build_latlon_model(
 def _build_model(device, nside: int = 16, use_ttr: bool = True) -> DLESyMv0_ISCCP_ERA5:
     """Build DLESyMv0_ISCCP_ERA5 with mock components. Uses nside=16 for fast tests."""
     n_vars = len(_ATMOS_VARIABLES) + len(_OCEAN_VARIABLES)
-    hpx_lat = np.random.randn(12, nside, nside)
-    hpx_lon = np.random.randn(12, nside, nside)
+    # A local generator, not the global np.random state: see _build_latlon_model.
+    rng = np.random.default_rng(0)
+    hpx_lat = rng.standard_normal((12, nside, nside))
+    hpx_lon = rng.standard_normal((12, nside, nside))
     center = np.zeros((1, 1, 1, n_vars, 1, 1, 1))
     scale = np.ones((1, 1, 1, n_vars, 1, 1, 1))
-    atmos_constants = np.random.randn(12, 2, nside, nside)
-    ocean_constants = np.random.randn(12, 2, nside, nside)
+    atmos_constants = rng.standard_normal((12, 2, nside, nside))
+    ocean_constants = rng.standard_normal((12, 2, nside, nside))
 
     clim = _build_climatology(nside) if use_ttr else {}
 
@@ -206,10 +238,19 @@ def test_dlesym_v0_isccp_era5_forward(device, use_ttr, batch_size):
         device=device,
     )
 
-    in_coords["batch"] = np.arange(batch_size)
-    in_coords["time"] = time
+    in_coords = coord_array_like(
+        in_coords, {"batch": np.arange(batch_size), "time": time}
+    )
 
-    out, out_coords = model(x, in_coords)
+    field = from_torch(x, in_coords)
+    with pytest.raises(ValueError, match="metadata"):
+        handshake_metadata(
+            field.assign_attrs(origin="south", clockwise=False),
+            in_coords,
+            ("origin", "clockwise"),
+        )
+    out = model(field)
+    out_coords = out.coords
     expected_coords = model.output_coords(in_coords)
 
     # Output should always be in model variable space (rlut), regardless of
@@ -226,7 +267,7 @@ def test_dlesym_v0_isccp_era5_forward(device, use_ttr, batch_size):
         nside,
     )
     for key in out_coords:
-        handshake_coords(out_coords, expected_coords, key)
+        np.testing.assert_array_equal(out_coords[key], expected_coords[key])
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -239,8 +280,10 @@ def test_dlesym_v0_isccp_era5_ttr_transform_changes_values(device):
     model = _build_model(device, nside=nside, use_ttr=True)
 
     in_coords = model.input_coords()
-    in_coords["batch"] = np.array([0])
-    in_coords["time"] = np.array([np.datetime64("2020-07-15T00:00")])
+    in_coords = coord_array_like(
+        in_coords,
+        {"batch": np.array([0]), "time": np.array([np.datetime64("2020-07-15T00:00")])},
+    )
 
     x_input = torch.zeros(
         1,
@@ -252,7 +295,9 @@ def test_dlesym_v0_isccp_era5_ttr_transform_changes_values(device):
         nside,
         device=device,
     )
-    x_transformed = model._apply_ttr_to_olr(x_input, in_coords)
+    x_transformed = model._apply_ttr_to_olr(
+        x_input, {k: v.values for k, v in in_coords.coords.items()}
+    )
 
     # Find the ttr channel and confirm the transform pulled values away from zero.
     ttr_idx = list(in_coords["variable"]).index("ttr")
@@ -268,17 +313,31 @@ def test_dlesym_v0_isccp_era5_ttr_transform_changes_values(device):
         transformed_channel, torch.zeros_like(transformed_channel)
     )
     assert torch.allclose(other_channels, torch.zeros_like(other_channels))
+    # Climate years must retain the same day-of-year lookup without ns overflow.
+    climate_coords = {k: v.values for k, v in in_coords.coords.items()}
+    climate_coords["time"] = np.array(["3020-07-15T00:00:00"], dtype="datetime64[s]")
+    torch.testing.assert_close(
+        model._apply_ttr_to_olr(x_input, climate_coords), x_transformed
+    )
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 @pytest.mark.parametrize("batch_size", [1, 2])
-def test_dlesym_v0_isccp_era5_iterator(device, batch_size):
-    """Iterator runs through several coupled rollout steps without errors."""
+@pytest.mark.parametrize("use_ttr", [True, False])
+def test_dlesym_v0_isccp_era5_iterator(device, batch_size, use_ttr, monkeypatch):
     if device == "cuda:0" and not torch.cuda.is_available():
         pytest.skip("CUDA not available")
 
     nside = 16
-    model = _build_model(device, nside=nside, use_ttr=True)
+    model = _build_model(device, nside=nside, use_ttr=use_ttr)
+    conversions = []
+    transform = model._apply_ttr_to_olr
+
+    def record_conversion(tensor, coords):
+        conversions.append(True)
+        return transform(tensor, coords)
+
+    monkeypatch.setattr(model, "_apply_ttr_to_olr", record_conversion)
     in_coords = model.input_coords()
 
     time = np.array([np.datetime64("2020-01-01T00:00")])
@@ -292,18 +351,18 @@ def test_dlesym_v0_isccp_era5_iterator(device, batch_size):
         nside,
         device=device,
     )
-    in_coords["batch"] = np.arange(batch_size)
-    in_coords["time"] = time
+    in_coords = coord_array_like(
+        in_coords, {"batch": np.arange(batch_size), "time": time}
+    )
 
-    iterator = model.create_iterator(x, in_coords)
+    field = from_torch(x, in_coords)
+    iterator = model.create_iterator(field)
 
     coupler_step = _ATMOS_OUTPUT_TIMES[-1]
-    initial_x, initial_coords = next(iterator)
-    # Initial yield is in model variable space (post-transform).
-    assert "rlut" in list(initial_coords["variable"])
 
     for i in range(2):
-        out, coords = next(iterator)
+        out = next(iterator)
+        coords = out.coords
         assert out.shape == (
             batch_size,
             len(time),
@@ -314,6 +373,10 @@ def test_dlesym_v0_isccp_era5_iterator(device, batch_size):
             nside,
         )
         assert np.all(coords["lead_time"] == _ATMOS_OUTPUT_TIMES + coupler_step * i)
+        assert "rlut" in coords["variable"].values
+        assert "ttr" not in coords["variable"].values
+        assert len(conversions) == int(use_ttr)
+        assert model.use_ttr is use_ttr
 
 
 def test_dlesym_v0_isccp_era5_missing_clim_raises():
@@ -386,12 +449,22 @@ def test_dlesym_v0_isccp_era5_latlon_input_coords(use_ttr):
     """LatLon variant advertises lat/lon dims and base (non-derived) variables."""
     model = _build_latlon_model("cpu", nside=16, use_ttr=use_ttr)
     in_coords = model.input_coords()
+    assert in_coords.data.nbytes == 0
+    assert in_coords.attrs["type"] == "LatLonGrid"
+    assert in_coords.attrs["dims"] == ["lat", "lon"]
+    assert in_coords.attrs["shape"] == [721, 1440]
+    assert in_coords.attrs["topology"] == "rectilinear"
+    assert in_coords.attrs["crs"] == "EPSG:4326"
+    np.testing.assert_array_equal(in_coords.lat, np.linspace(90, -90, 721))
+    np.testing.assert_array_equal(
+        in_coords.lon, np.linspace(0, 360, 1440, endpoint=False)
+    )
 
     # Lat/lon dims present, HEALPix dims absent.
     for dim in ["lat", "lon"]:
-        assert dim in in_coords
+        assert dim in in_coords.dims
     for dim in ["face", "height", "width"]:
-        assert dim not in in_coords
+        assert dim not in in_coords.dims
 
     variables = list(in_coords["variable"])
     # Derived variables are replaced by their base inputs.
@@ -433,11 +506,17 @@ def test_dlesym_v0_isccp_era5_latlon_forward(device, use_ttr, batch_size):
         1440,
         device=device,
     )
-    in_coords["batch"] = np.arange(batch_size)
-    in_coords["time"] = time
+    in_coords = coord_array_like(
+        in_coords, {"batch": np.arange(batch_size), "time": time}
+    )
 
-    out, out_coords = model(x, in_coords)
-    expected_coords = model.output_coords(in_coords)
+    field = from_torch(x, in_coords).assign_coords(
+        terrain=(("lat", "lon"), np.ones((721, 1440)))
+    )
+    out = model(field)
+    xr.testing.assert_identical(out.terrain, field.terrain)
+    out_coords = out.coords
+    expected_coords = model.output_coords(field)
 
     # Output is on the lat/lon grid and in model variable space (rlut).
     assert "rlut" in list(out_coords["variable"])
@@ -451,7 +530,7 @@ def test_dlesym_v0_isccp_era5_latlon_forward(device, use_ttr, batch_size):
         1440,
     )
     for key in out_coords:
-        handshake_coords(out_coords, expected_coords, key)
+        np.testing.assert_array_equal(out_coords[key], expected_coords[key])
 
 
 @pytest.mark.parametrize("device", ["cuda:0"])
@@ -475,16 +554,21 @@ def test_dlesym_v0_isccp_era5_latlon_iterator(device, batch_size):
         1440,
         device=device,
     )
-    in_coords["batch"] = np.arange(batch_size)
-    in_coords["time"] = time
+    in_coords = coord_array_like(
+        in_coords, {"batch": np.arange(batch_size), "time": time}
+    )
 
-    iterator = model.create_iterator(x, in_coords)
+    field = from_torch(x, in_coords).assign_coords(
+        terrain=(("lat", "lon"), np.ones((721, 1440)))
+    )
+    iterator = model.create_iterator(field)
 
     coupler_step = _ATMOS_OUTPUT_TIMES[-1]
-    next(iterator)  # initial condition
 
     for i in range(2):
-        out, coords = next(iterator)
+        out = next(iterator)
+        xr.testing.assert_identical(out.terrain, field.terrain)
+        coords = out.coords
         assert out.shape == (
             batch_size,
             len(time),
@@ -495,6 +579,16 @@ def test_dlesym_v0_isccp_era5_latlon_iterator(device, batch_size):
         )
         assert "rlut" in list(coords["variable"])
         assert np.all(coords["lead_time"] == _ATMOS_OUTPUT_TIMES + coupler_step * i)
+
+
+def test_dlesym_v0_isccp_era5_conformance():
+    model = _build_model("cpu", nside=8, use_ttr=True)
+    check_prognostic_contract(model)
+
+
+def test_dlesym_v0_isccp_era5_latlon_conformance():
+    model = _build_latlon_model("cpu", nside=8, use_ttr=True)
+    check_prognostic_contract(model)
 
 
 @pytest.mark.package
@@ -509,8 +603,9 @@ def test_dlesym_v0_isccp_era5_package(device):
     batch_size = 1
     time = np.array([np.datetime64("2020-01-01T00:00")])
     in_coords = model.input_coords()
-    in_coords["batch"] = np.arange(batch_size)
-    in_coords["time"] = time
+    in_coords = coord_array_like(
+        in_coords, {"batch": np.arange(batch_size), "time": time}
+    )
 
     x = torch.randn(
         batch_size,
@@ -523,7 +618,8 @@ def test_dlesym_v0_isccp_era5_package(device):
         device=device,
     )
 
-    out, out_coords = model(x, in_coords)
+    out = model(from_torch(x, in_coords))
+    out_coords = out.coords
     expected_coords = model.output_coords(in_coords)
 
     n_vars = len(in_coords["variable"])
@@ -539,7 +635,7 @@ def test_dlesym_v0_isccp_era5_package(device):
     assert "rlut" in list(out_coords["variable"])
     assert "ttr" not in list(out_coords["variable"])
     for key in out_coords:
-        handshake_coords(out_coords, expected_coords, key)
+        np.testing.assert_array_equal(out_coords[key], expected_coords[key])
 
 
 @pytest.mark.package
@@ -553,8 +649,9 @@ def test_dlesym_v0_isccp_era5_latlon_package(device):
     batch_size = 1
     time = np.array([np.datetime64("2020-01-01T00:00")])
     in_coords = model.input_coords()
-    in_coords["batch"] = np.arange(batch_size)
-    in_coords["time"] = time
+    in_coords = coord_array_like(
+        in_coords, {"batch": np.arange(batch_size), "time": time}
+    )
 
     nlat = len(in_coords["lat"])
     nlon = len(in_coords["lon"])
@@ -568,7 +665,8 @@ def test_dlesym_v0_isccp_era5_latlon_package(device):
         device=device,
     )
 
-    out, out_coords = model(x, in_coords)
+    out = model(from_torch(x, in_coords))
+    out_coords = out.coords
     expected_coords = model.output_coords(in_coords)
 
     n_out_vars = len(out_coords["variable"])
@@ -583,4 +681,4 @@ def test_dlesym_v0_isccp_era5_latlon_package(device):
     assert "rlut" in list(out_coords["variable"])
     assert "ttr" not in list(out_coords["variable"])
     for key in out_coords:
-        handshake_coords(out_coords, expected_coords, key)
+        np.testing.assert_array_equal(out_coords[key], expected_coords[key])

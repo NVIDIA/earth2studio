@@ -16,7 +16,6 @@
 
 import copy
 import dataclasses
-from collections import OrderedDict
 from collections.abc import Callable, Generator, Iterator
 from typing import Any
 
@@ -25,17 +24,26 @@ import torch
 import xarray as xr
 from loguru import logger
 
+from earth2studio.data.base import DataSource
 from earth2studio.lexicon.wb2 import WB2Lexicon
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
+from earth2studio.models.px.graphcast_operational import (
+    _add_tisr_batched as _add_tisr_batched_shared,
+)
+from earth2studio.models.px.graphcast_operational import (
+    _jax_initialize,
+    _jax_output_coords,
+    _jax_signature,
+    _jax_step,
+)
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils.coords import map_coords
+from earth2studio.utils.coords import handshake_size, handshake_time
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem
 
 try:
     import chex
@@ -99,28 +107,15 @@ def _add_e2s_cyclone_columns(tracks: "pd.DataFrame") -> "pd.DataFrame":
 
 
 def _add_tisr_batched(batch: "xr.Dataset") -> None:
-    """Add TISR, tolerating a batch dimension wider than one.
-
-    Upstream's add_tisr_var squeezes `batch` and raises above size one. TISR is
-    a function of (datetime, lat, lon) only, so it is identical across ensemble
-    members: compute it with upstream's own code on one member, then broadcast.
-    """
-    n = int(batch.sizes.get("batch", 1))
-    if n <= 1:
-        data_utils.add_tisr_var(batch)
-        return
-    tisr_name = getattr(data_utils, "TISR", "toa_incident_solar_radiation")
-    if tisr_name in batch.data_vars:
-        return
-    one = batch.isel(batch=slice(0, 1))
-    data_utils.add_tisr_var(one)
-    batch[tisr_name] = one[tisr_name].isel(batch=0, drop=True).expand_dims(batch=n)
+    """Add WeatherNext TISR with the shared batch-aware forcing helper."""
+    _add_tisr_batched_shared(batch, data_utils)
 
 
 class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Shared implementation for WeatherNext 2 model variants."""
 
     MODEL_NAME: str
+    stochastic = True
     PARAMS_PATH: str
     SAMPLE_PATH: str
 
@@ -129,7 +124,6 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ckpt: "fgn.CheckPoint",
         land_sea_mask: np.ndarray,
         geopotential_at_surface: np.ndarray,
-        seed: int = 0,
         jit_compile: bool = True,
         track_cyclones: bool = False,
     ):
@@ -138,7 +132,7 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.ckpt = ckpt
         self.land_sea_mask = land_sea_mask
         self.geopotential_at_surface = geopotential_at_surface
-        self.set_rng(seed)
+        self.prng_key = None
         self.track_cyclones = track_cyclones
         self._cyclone_tracks = pd.DataFrame()
         self._cyclone_prediction_history: list[xr.Dataset] = []
@@ -153,30 +147,7 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             jit_compile=jit_compile
         )
 
-        n_lat = land_sea_mask.shape[0]
-        n_lon = land_sea_mask.shape[1]
-        self._input_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array(
-                    [np.timedelta64(-6, "h"), np.timedelta64(0, "h")]
-                ),
-                "variable": np.array(INPUT_VARIABLES),
-                "lat": np.linspace(90, -90, n_lat, endpoint=True),
-                "lon": np.linspace(0, 360, n_lon, endpoint=False),
-            }
-        )
-        self._output_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array([np.timedelta64(6, "h")]),
-                "variable": np.array(OUTPUT_VARIABLES),
-                "lat": np.linspace(90, -90, n_lat, endpoint=True),
-                "lon": np.linspace(0, 360, n_lon, endpoint=False),
-            }
-        )
+        self.register_buffer("device_buffer", torch.empty(0))
 
     def set_rng(self, seed: int, reset: bool = True) -> None:
         """Set the JAX random number generator.
@@ -188,9 +159,14 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         reset : bool, optional
             Reset the generator state from ``seed``, by default True.
         """
-        self.seed = seed
-        if reset:
+        if reset or self.prng_key is None:
             self.prng_key = jax.random.PRNGKey(seed)
+
+    def _next_rng(self, time_index: int) -> "chex.PRNGKey":
+        if self.prng_key is None:
+            return jax.random.PRNGKey(np.random.randint(0, 2**31))
+        self.prng_key, rng = jax.random.split(self.prng_key)
+        return rng
 
     @property
     def cyclone_tracks(self) -> "pd.DataFrame":
@@ -221,7 +197,7 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _update_cyclone_tracks(
         self,
         predictions: xr.Dataset,
-        coords: CoordSystem,
+        coords: CoordinateSystem,
         accumulate_predictions: bool,
     ) -> None:
         """Update cyclone tracks from native WeatherNext prediction fields."""
@@ -290,37 +266,44 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 [self._cyclone_tracks, tracks], ignore_index=True
             )
 
-    def input_coords(self) -> CoordSystem:
+    def default_sources(self) -> DataSource:
+        """Recommend ARCO ERA5 initial conditions.
+
+        Returns
+        -------
+        DataSource
+            Raw ARCO ERA5 source for the input slot.
+        """
+        from earth2studio.data import ARCO_ERA5
+
+        return ARCO_ERA5()
+
+    def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary.
+        CoordinateSystem
+            Allocation-free DataArray input signature for the six-hour
+            history on the checkpoint grid.
         """
-        return self._input_coords.copy()
+        return _jax_signature(INPUT_VARIABLES, 6, self.land_sea_mask.shape)
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the prognostic model.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords.
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary.
+        CoordinateSystem
+            Allocation-free DataArray output signature for the next six-hour
+            forecast, including accumulated precipitation.
         """
-        output_coords = self._output_coords.copy()
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["time"] = input_coords["time"]
-        output_coords["lead_time"] = (
-            input_coords["lead_time"][-1] + output_coords["lead_time"]
-        )
-        return output_coords
+        return _jax_output_coords(self, input_coords, OUTPUT_VARIABLES, 6)
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -344,7 +327,6 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_model(
         cls,
         package: Package,
-        seed: int = 0,
         jit_compile: bool = True,
         track_cyclones: bool = False,
     ) -> PrognosticModel:
@@ -354,8 +336,6 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         package : Package
             Package to load model from.
-        seed : int, optional
-            Initial random seed for the stochastic FGN noise generator, by default 0.
         jit_compile : bool, optional
             JIT-compile the model forward pass, by default True.
         track_cyclones : bool, optional
@@ -379,7 +359,6 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             ckpt,
             land_sea_mask,
             geopotential_at_surface,
-            seed=seed,
             jit_compile=jit_compile,
             track_cyclones=track_cyclones,
         )
@@ -459,11 +438,11 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         targets_template: xr.Dataset,
         batch: xr.Dataset,
         forcings: xr.Dataset,
-    ) -> Generator[xr.Dataset, None, None]:
+    ) -> Generator[xr.Dataset, tuple | None, None]:
         """Generate an open-ended WeatherNext 2 rollout one chunk at a time."""
-        inputs = xr.Dataset(inputs)
-        targets_template = xr.Dataset(targets_template)
-        forcings = xr.Dataset(forcings)
+        inputs = inputs.copy()
+        targets_template = targets_template.copy()
+        forcings = forcings.copy()
         targets_chunk_time = targets_template.time.isel(time=slice(0, 1))
         current_inputs = inputs
         forcing_variables = list(self.task_config.forcing_variables)
@@ -484,7 +463,11 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             predictions = predictions.assign_coords(
                 time=targets_template.coords["time"] + index * np.timedelta64(6, "h")
             )
-            yield predictions
+            replacement = yield predictions
+            if replacement is not None:
+                batch, current_inputs, forcings = replacement
+                index += 1
+                continue
 
             batch = batch.assign_coords(
                 datetime=batch.coords["datetime"] + np.timedelta64(6, "h")
@@ -552,8 +535,8 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self, data: xr.DataArray, lead_time: int = 6, hour_steps: int = 6
     ) -> tuple[xr.Dataset, list[str]]:
         """Convert an Earth2Studio DataArray to a WeatherNext 2 Dataset."""
-        if len(data.time.values) > 1:
-            raise TypeError("WeatherNext 2 only supports one init_time per JAX call.")
+        handshake_time(data)
+        handshake_size(data, "time", 1)
         if "lead_time" in data.dims:
             data["lead_time"] = [
                 data.time.values[0] + level for level in data.lead_time.values
@@ -565,7 +548,7 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         target_lead_times = [f"{h}h" for h in lead_times]
         time_deltas = np.concatenate(
             (
-                self._input_coords["lead_time"],
+                self.input_coords().lead_time.values,
                 [np.timedelta64(h, "h") for h in lead_times],
             )
         )
@@ -632,152 +615,70 @@ class _WeatherNext2Base(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             out_data[var] = out_data[var].astype(np.float32)
         return out_data, target_lead_times
 
-    @batch_func()
-    def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Runs prognostic model one step.
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Predict six hours ahead and update cyclone tracks, without hooks.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor.
-        coords : CoordSystem
-            Input coordinate system.
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system 6 hours in the future.
+        xr.DataArray
+            First forecast matching ``output_coords(x)``. Use ``initialize``
+            to retain tracking and random-stream state for continuation.
         """
-        self._reset_cyclone_tracks()
-        device = x.device
-        with jax.default_device(self.get_jax_device_from_tensor(x)):
-            x, coords = map_coords(x, coords, self.input_coords())
-            time_dim = list(coords.keys()).index("time")
-            results = []
-            for t in range(len(coords["time"])):
-                x_t = x.narrow(time_dim, t, 1)
-                coords_t = coords.copy()
-                coords_t["time"] = coords["time"][t : t + 1]
-                data, target_lead_times = self.from_dataarray_to_dataset(
-                    xr.DataArray(x_t.cpu(), coords=coords_t), 6
-                )
-                inputs, targets, forcings = data_utils.extract_inputs_targets_forcings(
-                    data,
-                    target_lead_times=target_lead_times,
-                    **dataclasses.asdict(self.task_config),
-                )
-                self.prng_key, rng = jax.random.split(self.prng_key)
-                predictions = rollout.chunked_prediction(
-                    self.run_forward,
-                    rng=rng,
-                    inputs=inputs,
-                    targets_template=targets * np.nan,
-                    forcings=forcings,
-                )
-                self._update_cyclone_tracks(
-                    predictions,
-                    self.output_coords(coords_t),
-                    accumulate_predictions=False,
-                )
-                results.append(self.iterator_result_to_tensor(predictions))
+        return self.initialize(x)[0]
 
-            out = torch.cat(results, dim=1) if len(results) > 1 else results[0]
-            return out.to(device), self.output_coords(coords)
-
-    def _yield_predictions(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-        iterators: list[Iterator[xr.Dataset]],
-    ) -> Generator[tuple[torch.Tensor, CoordSystem]]:
-        coords = coords.copy()
-        self.output_coords(coords)
-        device = x.device
-        coords_out = coords.copy()
-        coords_out["lead_time"] = coords["lead_time"][1:]
-        coords_out["variable"] = np.array(OUTPUT_VARIABLES)
-        initial = x[:, :, 1:, ...]
-        surface_count = len(SURFACE_INPUT_VARIABLES)
-        tp06 = torch.zeros_like(initial[..., :1, :, :])
-        yield torch.cat(
-            (
-                initial[..., :surface_count, :, :],
-                tp06,
-                initial[..., surface_count:, :, :],
-            ),
-            dim=3,
-        ), coords_out
-
-        while True:
-            coords = self.output_coords(coords)
-            predictions = [next(it) for it in iterators]
-            if len(predictions) == 1:
-                self._update_cyclone_tracks(
-                    predictions[0], coords, accumulate_predictions=True
-                )
-            elif self.track_cyclones:
-                logger.warning(
-                    "Cyclone tracking currently supports one init time per iterator."
-                )
-            results = [self.iterator_result_to_tensor(pred) for pred in predictions]
-            x = torch.cat(results, dim=1) if len(results) > 1 else results[0]
-            x, coords = self.rear_hook(x, coords)
-            yield x.to(device), coords.copy()
-
-    @batch_func()
-    def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem]]:
-        with jax.default_device(self.get_jax_device_from_tensor(x)):
-            time_dim = list(coords.keys()).index("time")
-            iterators: list[Iterator[xr.Dataset]] = []
-            for t in range(len(coords["time"])):
-                x_t = x.narrow(time_dim, t, 1)
-                coords_t = coords.copy()
-                coords_t["time"] = coords["time"][t : t + 1]
-                data, target_lead_times = self.from_dataarray_to_dataset(
-                    xr.DataArray(x_t.cpu(), coords=coords_t), 6
-                )
-                inputs, targets, forcings = data_utils.extract_inputs_targets_forcings(
-                    data,
-                    target_lead_times=target_lead_times,
-                    **dataclasses.asdict(self.task_config),
-                )
-                self.prng_key, rng = jax.random.split(self.prng_key)
-                iterators.append(
-                    self._chunked_prediction_generator(
-                        predictor_fn=self.run_forward,
-                        rng=rng,
-                        inputs=inputs,
-                        targets_template=targets * np.nan,
-                        batch=data,
-                        forcings=forcings,
-                    )
-                )
-            yield from self._yield_predictions(x, coords, iterators)
-
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Create a time-integration iterator for the prognostic model.
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, dict]:
+        """Predict the first forecast and retain history, PRNG keys, and tracks.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor.
-        coords : CoordSystem
-            Input coordinate system.
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict]
+            First six-hour forecast and preceding history, per-time PRNG keys and
+            cyclone tracking state. Iterator hooks are not applied.
+        """
+        return _jax_initialize(self, x, 6, jax, data_utils)
+
+    def step(self, y: xr.DataArray, state: dict) -> tuple[xr.DataArray, dict]:
+        """Advance the forecast from explicit history, PRNG keys, and tracks.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        state : dict
+            History, PRNG keys and cyclone tracks from ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict]
+            Next six-hour forecast and updated state, without iterator hooks.
+        """
+        return _jax_step(self, y, state, 6, jax, data_utils)
+
+    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
+        """Yield six-hour forecasts, starting with initialization's prediction.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
-            Iterator that generates model time steps.
+        xr.DataArray
+            Forecasts after the rear hook. The front hook runs before subsequent
+            steps; both hooks feed recurrence directly.
         """
-        self.output_coords(coords)
-        self._reset_cyclone_tracks()
-        yield from self._default_generator(x, coords)
+        yield from self._default_create_iterator(x)
 
 
 @check_optional_dependencies()
@@ -820,8 +721,6 @@ class WeatherNext2CyclonesMini(_WeatherNext2Base):
         Land-sea mask on the WeatherNext grid.
     geopotential_at_surface : np.ndarray
         Surface geopotential on the WeatherNext grid.
-    seed : int, optional
-        Initial random seed for the stochastic FGN noise generator, by default 0.
     jit_compile : bool, optional
         JIT-compile the model forward pass, by default True.
     track_cyclones : bool, optional
@@ -836,7 +735,7 @@ class WeatherNext2CyclonesMini(_WeatherNext2Base):
     ...     WeatherNext2CyclonesMini.load_default_package(),
     ...     track_cyclones=True,
     ... )
-    >>> x, coords = model(x, coords)
+    >>> x = model(x)
     >>> tracks = model.cyclone_tracks
     >>> tracks[["track_id", "lead_time", "lat", "lon", "tcmsl", "tcw10m"]]
 
@@ -913,8 +812,6 @@ class WeatherNext2Cyclones(_WeatherNext2Base):
         Land-sea mask on the WeatherNext grid.
     geopotential_at_surface : np.ndarray
         Surface geopotential on the WeatherNext grid.
-    seed : int, optional
-        Initial random seed for the stochastic FGN noise generator, by default 0.
     jit_compile : bool, optional
         JIT-compile the model forward pass, by default True.
     track_cyclones : bool, optional
@@ -929,7 +826,7 @@ class WeatherNext2Cyclones(_WeatherNext2Base):
     ...     WeatherNext2Cyclones.load_default_package(),
     ...     track_cyclones=True,
     ... )
-    >>> x, coords = model(x, coords)
+    >>> x = model(x)
     >>> tracks = model.cyclone_tracks
     >>> tracks[["track_id", "lead_time", "lat", "lon", "tcmsl", "tcw10m"]]
 
@@ -965,7 +862,6 @@ class WeatherNext2Cyclones(_WeatherNext2Base):
     def load_model(
         cls,
         package: Package,
-        seed: int = 0,
         jit_compile: bool = True,
         track_cyclones: bool = False,
         checkpoint_member: int = 1,
@@ -976,8 +872,6 @@ class WeatherNext2Cyclones(_WeatherNext2Base):
         ----------
         package : Package
             Package to load model from.
-        seed : int, optional
-            Initial random seed for the stochastic FGN noise generator, by default 0.
         jit_compile : bool, optional
             JIT-compile the model forward pass, by default True.
         track_cyclones : bool, optional
@@ -1000,7 +894,6 @@ class WeatherNext2Cyclones(_WeatherNext2Base):
             ckpt,
             sample_input["land_sea_mask"].values,
             sample_input["geopotential_at_surface"].values,
-            seed=seed,
             jit_compile=jit_compile,
             track_cyclones=track_cyclones,
         )

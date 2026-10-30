@@ -14,28 +14,39 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import math
 import warnings
-from collections import OrderedDict
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
+from copy import deepcopy
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal, cast, get_args
+from typing import Any, Literal, Self, cast, get_args
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 import xarray as xr
 
+from earth2studio.grids import LatLonGrid, Region, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import handshake_dim
-from earth2studio.utils.coords import CoordSystem, map_coords
+from earth2studio.models.utils import fork_rng
+from earth2studio.utils import (
+    coord_array,
+    coord_array_like,
+    handshake_coords,
+    handshake_dim,
+    handshake_nonempty,
+    handshake_time,
+)
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
+from earth2studio.utils.type import CoordinateSystem
 
 try:
     from physicsnemo import Module as PhysicsNemoModule
@@ -159,6 +170,16 @@ def _znorm(a: np.ndarray) -> np.ndarray:
     return ((a - a.mean()) / (a.std() + 1e-6)).astype("float32")
 
 
+@dataclass
+class _InterpState:
+    """Continuation state of :class:`InterpCRPSDiT`."""
+
+    coarse: xr.DataArray
+    nested: Any
+    seed: int
+    rng: dict[str, torch.Tensor]
+
+
 @check_optional_dependencies()
 class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """One-shot, endpoint-pinned CRPS temporal interpolation with a DiT backbone (73 variables at
@@ -169,14 +190,15 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     in a single forward pass as ``out(tau) = (1 - tau) x0 + tau xT + sin(pi tau) f(x0, xT, cond, z)``,
     a linear blend plus a DiT correction ``f`` that vanishes at both endpoints. Endpoints are copied
     from the base model, only interior frames are modelled. Ensemble spread comes entirely from the
-    per-member latent ``z`` (trained with a CRPS objective).
+    per-member latent ``z`` (trained with a CRPS objective), seed it with :meth:`set_rng`.
 
     The model wraps a base prognostic model (``px_model``) so the pair acts as a single prognostic
-    with higher temporal resolution. The coarse gap is taken from ``px_model`` (trained on 3-10 h)
-    and the output resolution is
-    ``gap / num_interp_steps``, e.g. a 6 h gap with ``num_interp_steps=36`` gives 10 min.
-    ``num_interp_steps`` must divide the gap in minutes. A regional sub-domain is available via
-    :meth:`set_domain`.
+    with higher temporal resolution. Each step returns the interior frames and the coarse endpoint
+    of one coarse interval. The coarse gap is taken from ``px_model`` (trained on 3-10 h)
+    and the output resolution is ``gap / num_interp_steps``, e.g. a 6 h gap with
+    ``num_interp_steps=36`` gives 10 min. ``num_interp_steps`` must divide the gap in minutes.
+    The base model must supply a grid containing the DiT grid (e.g. 0.25 degree global), it is
+    selected without regridding. A regional view is available via :meth:`with_region`.
 
     The DiT runs on 720 latitudes (90 to -89.75). The -90 row of the 721x1440 output is filled with
     the zonal mean of the -89.75 row.
@@ -204,9 +226,6 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Sub-steps per coarse interval, must divide the coarse gap in minutes, by default 6
     lon_pad : int, optional
         Circular longitude pad (columns) to reduce the date-line seam, 0 disables, by default 128
-    seed : int | None, optional
-        If set, noise is drawn from a per-device generator seeded with this value. Results depend on
-        the number of ensemble members and init times, by default None (global RNG)
     drop_variables : list[OptionalVariable] | None, optional
         Variables the base model does not supply, a subset of ``sp, u100m, v100m, tcwv``. Dropped
         channels are flagged absent to the DiT and omitted from the output, by default None
@@ -219,6 +238,10 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     region:global class:mrf product:wind product:temp product:atmos year:2026 gpu:80gb
     """
 
+    stochastic = True
+    _rng_seed: int | None = None
+    _rng_states: dict[str, torch.Tensor] | None = None
+
     def __init__(
         self,
         dit: torch.nn.Module,
@@ -230,7 +253,6 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         px_model: PrognosticModel,
         num_interp_steps: int = 6,
         lon_pad: int = 128,
-        seed: int | None = None,
         drop_variables: list[OptionalVariable] | None = None,
         amp_dtype: torch.dtype | None = None,
     ) -> None:
@@ -246,8 +268,6 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.num_interp_steps = num_interp_steps
         self.lon_pad = lon_pad
         self.amp_dtype = amp_dtype
-        self.seed = seed
-        self._gen: torch.Generator | None = None  # lazily created when seed is set
         self.noise_scales = NOISE_SCALES
         self.variables = np.array(VARIABLES)
         drop = drop_variables or []
@@ -267,11 +287,11 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.register_buffer("static_inv", static_inv)
         self.register_buffer("lat2d", lat2d)
         self.register_buffer("lon2d", lon2d)
-        # Cached CPU grids for cos-zenith and output_coords
+        # Cached CPU grids for cos-zenith and the coordinate signatures
         self._lat_np = lat2d.detach().cpu().numpy()
         self._lon_np = lon2d.detach().cpu().numpy()
-        self._lat1d = self._lat_np[:, 0]
-        self._lon1d = self._lon_np[0, :]
+        self._lat1d = self._lat_np[:, 0].astype(np.float64)
+        self._lon1d = self._lon_np[0, :].astype(np.float64)
         # Sub-domain halo (top, bottom, left, right) trimmed from emitted frames, and output grid
         self._halo = (0, 0, 0, 0)
         self._out_lat1d = self._lat1d
@@ -284,40 +304,66 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def __str__(self) -> str:
         return "InterpCRPSDiT"
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system, taken from the wrapped ``px_model``.
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the latent noise drawn by the interpolation, and the base model if stochastic.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for the isolated random stream.
+        reset : bool, optional
+            Reset an existing stream, by default True.
+        """
+        if reset or self._rng_seed is None:
+            self._rng_seed = seed
+            self._rng_states = {}
+        if getattr(self.px_model, "stochastic", False):
+            self.px_model.set_rng(seed, reset=reset)  # type: ignore[attr-defined]  # Stochastic models provide set_rng.
+
+    def input_coords(self) -> CoordinateSystem:
+        """Input coordinate system of the prognostic model, taken from ``px_model``.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary (``batch, time, lead_time, variable, lat, lon``).
+        CoordinateSystem
+            Allocation-free DataArray input signature.
         """
-        input_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.empty(0),
-                "variable": np.empty(0),
-                "lat": np.empty(0),
-                "lon": np.empty(0),
-            }
-        )
-        for key, value in self.px_model.input_coords().items():
-            if key in input_coords:
-                input_coords[key] = value
-        return input_coords
+        signature = cast(CoordinateSystem, self.px_model.input_coords()).copy(deep=True)
+        if "time" not in signature.dims:
+            dims = list(signature.dims)
+            dynamic = list(signature.attrs.get("earth2studio_dynamic_dims", ()))
+            dims.insert(len(dynamic), "time")
+            dynamic.append("time")
+            signature = coord_array(
+                dims,
+                dict(signature.coords),
+                sizes=dict(signature.sizes),
+                dynamic=dynamic,
+                attrs=deepcopy(signature.attrs),
+                dtype=signature.dtype,
+                name=signature.name,
+            )
+        return signature
 
-    def _gap_minutes(self) -> int:
-        # Coarse gap in minutes from the px_model step
-        ic = self.px_model.input_coords()
-        oc = self.px_model.output_coords(ic)
-        gap_m = float(
-            (oc["lead_time"][-1] - ic["lead_time"][-1]) / np.timedelta64(1, "m")
-        )
+    def _gap_minutes(self, delta: np.timedelta64) -> int:
+        # Coarse gap in minutes, validated against the trained range and num_interp_steps
+        gap_m = float(delta / np.timedelta64(1, "m"))
         gap_min = round(gap_m)
         if gap_min <= 0 or abs(gap_m - gap_min) > 1e-6:
             raise ValueError(
                 f"px_model coarse step must be a positive whole number of minutes, got {gap_m} min"
+            )
+        gap_h = gap_min / 60.0
+        if not (_GAP_MIN_H <= gap_h <= _GAP_MAX_H):
+            warnings.warn(
+                f"coarse gap {gap_h:g} h is outside the trained "
+                f"[{_GAP_MIN_H}, {_GAP_MAX_H}] h range; the gap conditioning channel is "
+                "extrapolated, so results are off-distribution and unvalidated.",
+                stacklevel=3,
+            )
+        if gap_min % self.num_interp_steps != 0:
+            raise ValueError(
+                f"num_interp_steps={self.num_interp_steps} must divide the {gap_min}-min coarse gap"
             )
         return gap_min
 
@@ -339,20 +385,18 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             dim=-2,
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system at the sub-step cadence (coarse gap / ``num_interp_steps``),
-        one sub-step past the input lead time.
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Output coordinate system at the sub-step cadence (coarse gap / ``num_interp_steps``).
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform.
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary.
+        CoordinateSystem
+            Allocation-free DataArray output signature.
 
         Raises
         ------
@@ -364,40 +408,92 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         UserWarning
             If the coarse gap is outside the trained 3-10 h range.
         """
-        gap_min = self._gap_minutes()
-        gap_h = gap_min / 60.0
-        if not (_GAP_MIN_H <= gap_h <= _GAP_MAX_H):
-            warnings.warn(
-                f"coarse gap {gap_h:g} h is outside the trained "
-                f"[{_GAP_MIN_H}, {_GAP_MAX_H}] h range; the gap conditioning channel is "
-                "extrapolated, so results are off-distribution and unvalidated.",
-                stacklevel=2,
-            )
-        if gap_min % self.num_interp_steps != 0:
-            raise ValueError(
-                f"num_interp_steps={self.num_interp_steps} must divide the {gap_min}-min coarse gap"
-            )
-        step_min = gap_min // self.num_interp_steps
-        output_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array([np.timedelta64(step_min, "m")]),
-                "variable": np.array(self.present_variables),
-                "lat": self._out_lat(),
-                "lon": np.asarray(self._out_lon1d, dtype=np.float64),
-            }
+        self.input_coords()
+        coarse = cast(CoordinateSystem, self.px_model.output_coords(input_coords))
+        final = input_coords.coords["lead_time"].values[-1:]
+        boundaries = np.concatenate((final, coarse.coords["lead_time"].values))
+        delta = np.diff(boundaries).astype("timedelta64[ns]")
+        for gap in delta:
+            self._gap_minutes(gap)
+        return self._prediction_coords(
+            coarse,
+            (
+                boundaries[:-1, None]
+                + np.arange(1, self.num_interp_steps + 1)[None, :]
+                * (delta[:, None] // self.num_interp_steps)
+            ).reshape(-1),
         )
-        # Grid values and variables are reconciled by map_coords in _default_generator
-        handshake_dim(input_coords, "variable", -3)
-        handshake_dim(input_coords, "lat", -2)
-        handshake_dim(input_coords, "lon", -1)
-        output_coords["batch"] = input_coords.get("batch", np.empty(0))
-        output_coords["time"] = input_coords.get("time", np.empty(0))
-        output_coords["lead_time"] = (
-            output_coords["lead_time"] + input_coords["lead_time"][-1]
+
+    def _run_labels(self) -> dict[str, np.ndarray]:
+        # Labels the base frames are selected to before the DiT
+        return {
+            "variable": self.present_variables,
+            "lat": self._lat1d,
+            "lon": self._lon1d,
+        }
+
+    def _check_grid(self, x: xr.DataArray) -> None:
+        labels = self._run_labels()
+        for dim in labels:
+            handshake_dim(x, dim)
+            handshake_coords(x, labels, dim, subset=True)
+
+    def _out_grid(self) -> str | LatLonGrid:
+        lat, lon = self._out_lat(), np.asarray(self._out_lon1d, dtype=np.float64)
+        ref = resolve_grid("latlon-0.25deg")
+        if np.array_equal(lat, ref.latitude) and np.array_equal(lon, ref.longitude):  # type: ignore[attr-defined]  # Registered grid is a LatLonGrid.
+            return "latlon-0.25deg"
+        return LatLonGrid(lat, lon)
+
+    def _prediction_coords(self, x: xr.DataArray, lead: np.ndarray) -> CoordinateSystem:
+        lead = lead.astype("timedelta64[ns]")
+        self._check_grid(x)
+        attrs = deepcopy(x.attrs)
+        for key in (
+            "earth2studio_grid_id",
+            "earth2studio_crs",
+            "dims",
+            "shape",
+            "topology",
+            "type",
+            "crs",
+        ):
+            attrs.pop(key, None)
+        changed = {"lead_time", "variable", "lat", "lon"}
+        coords = {
+            k: v.variable.copy(deep=True)
+            for k, v in x.coords.items()
+            if not changed.intersection(v.dims)
+        }
+        coords.update(
+            variable=self.present_variables,
+            lead_time=xr.Variable(
+                "lead_time",
+                lead,
+                attrs=deepcopy(x.lead_time.attrs),
+                encoding=deepcopy(x.lead_time.encoding),
+            ),
         )
-        return output_coords
+        if "time" in x.coords:
+            coords["valid_time"] = (
+                x.coords["time"] + xr.DataArray(lead, dims="lead_time")
+            ).variable
+        result = coord_array(
+            x.dims,
+            coords,
+            grid=self._out_grid(),
+            dynamic=x.attrs.get("earth2studio_dynamic_dims", ()),
+            sizes={
+                d: x.sizes[d]
+                for d in x.dims
+                if d not in ("lead_time", "variable", "lat", "lon")
+            },
+            attrs=attrs,
+            name=x.name,
+            dtype=x.dtype,
+        )
+        result.encoding = deepcopy(x.encoding)
+        return result
 
     @staticmethod
     def _snap_to_patch(lo: int, hi: int, n: int, p: int) -> tuple[int, int]:
@@ -408,6 +504,38 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if hi > n:
             hi = (n // p) * p
         return lo, hi
+
+    def with_region(self, region: Region, /) -> Self:
+        """Return a regional view of this model for a geographic box.
+
+        The view shares the loaded DiT and slices the static maps and output grid to the smallest
+        block covering the box, see :meth:`set_domain` for the halo option. The base model must
+        supply a grid containing the block, e.g. the global grid.
+
+        Parameters
+        ----------
+        region : Region
+            Box (:meth:`~earth2studio.grids.Region.box`) inside the model grid. Does not wrap the
+            date line.
+
+        Returns
+        -------
+        Self
+            View whose coordinate signatures describe the selected grid.
+
+        Raises
+        ------
+        ValueError
+            If the region is not a box or does not fit the model grid, see :meth:`set_domain`.
+        """
+        if region.kind != "box":
+            raise ValueError(
+                f"{type(self).__name__} supports only box regions, not {region.kind!r}"
+            )
+        west, south, east, north = region.params
+        if self._lon1d.min() >= 0.0:
+            west, east = west % 360.0, east % 360.0
+        return cast("Self", self.set_domain(south, north, west, east))
 
     def set_domain(
         self,
@@ -422,9 +550,9 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         Returns a new :class:`InterpCRPSDiT` sharing the loaded ``dit`` with the static maps and
         output grid sliced to the smallest block covering the box. The wrapped ``px_model`` is
-        carried over and its frames are cropped to the run grid (bounding box plus halo, aligned to the
-        patch size) with ``map_coords``, so it should supply a grid containing it, e.g. the global
-        grid. Longitude wrap is disabled (``lon_pad=0``).
+        carried over and its frames are selected to the run grid (bounding box plus halo, aligned
+        to the patch size), so it should supply a grid containing it, e.g. the global grid.
+        Longitude wrap is disabled (``lon_pad=0``). :meth:`with_region` wraps this method.
 
         Warning
         -------
@@ -456,7 +584,7 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             negative, ``min_cells`` is below 1, patch snapping shrinks the window below the box, or
             the run window is below ``min_cells``.
         """
-        lat1d, lon1d = np.asarray(self._lat1d), np.asarray(self._lon1d)
+        lat1d, lon1d = self._lat1d, self._lon1d
         if lat_min >= lat_max or lon_min >= lon_max:
             raise ValueError(
                 "require lat_min < lat_max and lon_min < lon_max (no date-line wrap)"
@@ -520,7 +648,6 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             px_model=self.px_model,
             num_interp_steps=self.num_interp_steps,
             lon_pad=0,
-            seed=self.seed,
             drop_variables=cast(
                 "list[OptionalVariable]", [VARIABLES[int(i)] for i in self.drop_idx]
             ),
@@ -530,6 +657,7 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         sub._out_lat1d = lat1d[i0:i1]  # bounding box without halo
         sub._out_lon1d = lon1d[j0:j1]
         sub._min_domain_cells = self._min_domain_cells
+        sub._rng_seed, sub._rng_states = self._rng_seed, deepcopy(self._rng_states)
         sub.to(self.center.device)
         return sub
 
@@ -735,48 +863,6 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 attn_kwargs={"latent_hw": (lh, lw)},
             )
 
-    def _draw_noise(
-        self, b: int, h: int, w: int, device: torch.device, dtype: torch.dtype
-    ) -> torch.Tensor:
-        # Multi-scale latent (b, n_noise, H, W): white noise per scale, oversized by the kernel radius
-        # then valid-blurred so variance is stationary. Draws come from the seeded per-device
-        # generator if set, else the global RNG. Periodic in longitude when lon_pad > 0.
-        periodic = self.lon_pad > 0
-        gen = None
-        if self.seed is not None:
-            if self._gen is None or self._gen.device != torch.device(device):
-                self._gen = torch.Generator(device=device)
-                self._gen.manual_seed(self.seed)
-            gen = self._gen
-        chans = []
-        for scale in self.noise_scales:
-            sigma = scale / 2.0
-            r = _gaussian_radius(sigma)
-            if periodic:
-                noise = torch.randn(
-                    b,
-                    1,
-                    h + 2 * r,
-                    w,
-                    device=device,
-                    dtype=torch.float32,
-                    generator=gen,
-                )
-                idx = torch.arange(-r, w + r, device=device) % w
-                noise = noise[..., idx]
-            else:
-                noise = torch.randn(
-                    b,
-                    1,
-                    h + 2 * r,
-                    w + 2 * r,
-                    device=device,
-                    dtype=torch.float32,
-                    generator=gen,
-                )
-            chans.append(_gaussian_blur_valid(noise, sigma))
-        return torch.cat(chans, dim=1).to(dtype)
-
     def _build_cond(
         self,
         when: datetime,
@@ -841,130 +927,251 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
         return full
 
+    def _draw_noise(
+        self, b: int, h: int, w: int, device: torch.device, dtype: torch.dtype
+    ) -> torch.Tensor:
+        # Multi-scale latent (b, n_noise, H, W): white noise per scale, oversized by the kernel radius
+        # then valid-blurred so variance is stationary. Draws come from the isolated stream seeded by
+        # set_rng. Periodic in longitude when lon_pad > 0.
+        periodic = self.lon_pad > 0
+        chans = []
+        with fork_rng(self._rng_seed, device, states=self._rng_states):
+            for scale in self.noise_scales:
+                sigma = scale / 2.0
+                r = _gaussian_radius(sigma)
+                if periodic:
+                    noise = torch.randn(
+                        b, 1, h + 2 * r, w, device=device, dtype=torch.float32
+                    )
+                    idx = torch.arange(-r, w + r, device=device) % w
+                    noise = noise[..., idx]
+                else:
+                    noise = torch.randn(
+                        b, 1, h + 2 * r, w + 2 * r, device=device, dtype=torch.float32
+                    )
+                chans.append(_gaussian_blur_valid(noise, sigma))
+        return torch.cat(chans, dim=1).to(dtype)
+
     @torch.inference_mode()
     def _interpolate(
-        self, x0: torch.Tensor, x1: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-        # Yield interior sub-steps between coarse states x0 and x1 (physical units)
-        x0n = (x0 - self.center) / self.scale
-        x1n = (x1 - self.center) / self.scale
-        gap_min = self._gap_minutes()
-        gap_val = (gap_min / 60.0 - 6.0) / 3.0
-        step_min = gap_min // self.num_interp_steps
-        base_lead = coords["lead_time"][-1]
-        nt = x0n.shape[1]  # number of init times
-        b, hh, ww = len(coords["batch"]), x0n.shape[-2], x0n.shape[-1]
-        # One latent per (member, init time) reused across sub-steps for temporal coherence
-        z = self._draw_noise(b * nt, hh, ww, x0n.device, x0n.dtype).reshape(
-            b, nt, -1, hh, ww
+        self, x0: xr.DataArray, x1: xr.DataArray
+    ) -> Generator[xr.DataArray, None, None]:
+        # Yield interior sub-steps between single-lead run-grid states x0 and x1 (physical units)
+        device = self.center.device
+        n = self.num_interp_steps
+        t_left = x0.e2s.to_torch()[0].to(device)
+        shape = t_left.shape
+        t_right = x1.e2s.to_torch()[0].to(device)
+        left = self._normalize(t_left.reshape(-1, *shape[-3:]))
+        right = self._normalize(t_right.reshape(-1, *shape[-3:]))
+        leading = x0.dims[:-3]
+        template = xr.DataArray(np.empty(shape[:-3]), dims=leading)
+        handshake_time(x0)
+        t0 = (
+            (x0.time + x0.lead_time)
+            .broadcast_like(template)
+            .transpose(*leading)
+            .values.reshape(-1)
         )
-        for interp_step in range(1, self.num_interp_steps):
-            tau = interp_step / self.num_interp_steps
-            sub = OrderedDict(coords)
-            sub["lead_time"] = np.array(
-                [base_lead + np.timedelta64(step_min * interp_step, "m")]
-            )
-            sub["variable"] = np.array(self.present_variables)
-            sub["lat"] = self._out_lat()
-            sub["lon"] = np.asarray(self._out_lon1d, dtype=np.float64)
-            out = torch.zeros_like(x0n)
-            for ti, t in enumerate(sub["time"]):
-                for lti, lt in enumerate(sub["lead_time"]):
-                    when = datetime.fromisoformat(str(t + lt)[:19])
-                    cond = self._build_cond(when, gap_val, b, x0n.device, x0n.dtype)
-                    out[:, ti, lti] = self._sample_tau(
-                        x0n[:, ti, lti], x1n[:, ti, lti], cond, tau, z[:, ti]
-                    )
+        t1 = (
+            (x1.time + x1.lead_time)
+            .broadcast_like(template)
+            .transpose(*leading)
+            .values.reshape(-1)
+        )
+        gap = (x1.lead_time.values - x0.lead_time.values)[0]
+        gap_val = (self._gap_minutes(gap) / 60.0 - 6.0) / 3.0
+        delta = (x1.lead_time.values - x0.lead_time.values) // n
+        groups: dict[int, list[int]] = {}
+        for index, valid in enumerate(t0.astype("datetime64[ns]").astype(np.int64)):
+            groups.setdefault(int(valid), []).append(index)
+        # One latent per frame reused across the sub-steps for temporal coherence
+        z = self._draw_noise(
+            left.shape[0], left.shape[-2], left.shape[-1], device, left.dtype
+        )
+        for interp_step in range(1, n):
+            tau = interp_step / n
+            out = torch.empty_like(left)
+            for members in groups.values():
+                index = members[0]
+                indices = torch.tensor(members, device=device)
+                when = datetime.fromisoformat(
+                    str(t0[index] + interp_step * (t1[index] - t0[index]) // n)[:19]
+                )
+                cond = self._build_cond(when, gap_val, len(members), device, left.dtype)
+                out[indices] = self._sample_tau(
+                    left[indices], right[indices], cond, tau, z[indices]
+                )
             emitted = self._trim(out * self.scale + self.center)
             if len(self.drop_idx):
-                emitted = emitted[..., self.present_idx, :, :]
-            yield (self._add_pole(emitted), sub)
+                emitted = emitted[:, self.present_idx]
+            emitted = self._add_pole(emitted)
+            signature = self._prediction_coords(
+                x0, x0.lead_time.values + interp_step * delta
+            )
+            result = from_torch(
+                emitted.reshape(*shape[:-3], *emitted.shape[-3:]), signature
+            )
+            result.encoding = deepcopy(x0.encoding)
+            yield result
 
-    @batch_func()
-    def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Run one step, returning the initial condition.
+    def _normalize(self, x: torch.Tensor) -> torch.Tensor:
+        # Present variables to the full normalized channel set, dropped channels at their center
+        return (self._pad_present_to_full(x) - self.center) / self.scale
+
+    def _select_run_grid(self, x: xr.DataArray) -> xr.DataArray:
+        self._check_grid(x)
+        return x.sel(self._run_labels())
+
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Return the complete interpolated forecast chunk without hooks.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor.
-        coords : CoordSystem
-            Input coordinate system.
+        x : xr.DataArray
+            Initial fields matching the base model's signature.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Initial-condition frame and its coordinate system
+        xr.DataArray
+            Interpolated frames and the coarse endpoint of the first coarse interval,
+            matching ``output_coords(x)`` for that interval.
         """
-        return next(self._default_generator(x, coords))
+        return self.initialize(x)[0]
 
-    @batch_func()
-    def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-        x0 = None
-        coords0: CoordSystem | None = None
-        # Base frames are mapped onto the run grid with map_coords (e.g. 721 -> 720 lat crop or global
-        # -> sub-domain box)
-        run_target = OrderedDict(
-            {
-                "variable": np.array(self.present_variables),
-                "lat": np.asarray(self._lat1d, dtype=np.float64),
-                "lon": np.asarray(self._lon1d, dtype=np.float64),
-            }
-        )
-        for fc_step, (x, coords) in enumerate(self.px_model.create_iterator(x, coords)):
-            x, coords = self.front_hook(x, coords)
-            if fc_step == 0 and not (
-                np.all(np.isin(self._lat1d, coords["lat"]))
-                and np.all(np.isin(self._lon1d, coords["lon"]))
-            ):
-                warnings.warn(
-                    "px_model grid does not contain the model run grid; the base is being nearest-regridded "
-                    "onto it (expected an exact 0.25 deg grid). Interpolation proceeds but may be degraded.",
-                    stacklevel=2,
-                )
-            # Map present variables only, then expand to the full set with dropped channels at center
-            x_present, coords_present = map_coords(x, coords, run_target)
-            x_run = self._pad_present_to_full(x_present)
-            coords_run = OrderedDict(coords_present)
-            coords_run["variable"] = np.array(self.variables)
-            # Crop to the output grid for the emitted endpoint. output_coords also validates the gap,
-            # its lead_time is ignored by map_coords.
-            emit_target = self.output_coords(coords_run)
-            emit_target["lat"] = np.asarray(self._out_lat1d, dtype=np.float64)
-            x_emit, emit_coords = map_coords(x_run, coords_run, emit_target)
-            x_emit = self._add_pole(x_emit)
-            emit_coords["lat"] = self._out_lat()
-            # rear_hook only touches emitted frames so the interpolation anchor stays unhooked.
-            # Emitted frames are cloned: x_emit may be a view of x_run and interior frames are
-            # inference tensors, neither safe for an in-place hook.
-            if fc_step == 0:
-                x0, coords0 = x_run, coords_run
-                yield self.rear_hook(x_emit.clone(), emit_coords)
-            else:
-                for xo, co in self._interpolate(x0, x_run, coords0):
-                    yield self.rear_hook(xo.clone(), co)
-                yield self.rear_hook(x_emit.clone(), emit_coords)
-                x0, coords0 = x_run, coords_run
-
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Yield the initial condition, then interpolated sub-steps and coarse endpoints.
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, _InterpState]:
+        """Initialize the base forecast and interpolate its first coarse interval.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor.
-        coords : CoordSystem
-            Input coordinate system.
+        x : xr.DataArray
+            Initial history matching the base model's ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, _InterpState]
+            Interpolated frames followed by the coarse endpoint, and the continuation state
+            holding the base forecast, its state and the random stream. Iterator hooks are not
+            applied.
+        """
+        handshake_nonempty(x)
+        self.output_coords(x)
+        if self._rng_seed is None:
+            self.set_rng(int(torch.randint(2**31, ()).item()))
+        coarse, nested = self.px_model.initialize(x.copy(deep=True))
+        coarse = cast(xr.DataArray, coarse)
+        left = self._select_run_grid(x.isel(lead_time=slice(-1, None)))
+        chunk = self._forward(left, coarse)
+        return chunk, _InterpState(
+            coarse.copy(deep=True),
+            nested,
+            cast(int, self._rng_seed),
+            deepcopy(cast(dict[str, torch.Tensor], self._rng_states)),
+        )
+
+    def step(
+        self, y: xr.DataArray, state: _InterpState
+    ) -> tuple[xr.DataArray, _InterpState]:
+        """Advance the base forecast and interpolate the next coarse interval.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous chunk. Edits at the base forecast's lead times are transferred to the base
+            model's retained fields.
+        state : _InterpState
+            Continuation state returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, _InterpState]
+            Next interpolated chunk and updated state, without hooks.
+        """
+        seed, rng = self._rng_seed, self._rng_states
+        self._rng_seed, self._rng_states = state.seed, deepcopy(state.rng)
+        try:
+            coarse = self._apply_edits(y, state.coarse)
+            left = self._select_run_grid(coarse.isel(lead_time=slice(-1, None)))
+            prediction, nested = self.px_model.step(
+                coarse, state=deepcopy(state.nested)
+            )
+            prediction = cast(xr.DataArray, prediction)
+            chunk = self._forward(left, prediction)
+            return chunk, _InterpState(
+                prediction.copy(deep=True),
+                nested,
+                state.seed,
+                deepcopy(self._rng_states),
+            )
+        finally:
+            self._rng_seed, self._rng_states = seed, rng
+
+    def _apply_edits(self, y: xr.DataArray, coarse: xr.DataArray) -> xr.DataArray:
+        # Copy of the base forecast with the chunk's values at its lead times written back, so edits
+        # made by hooks reach the base model. The appended pole row and halo are not written.
+        coarse = coarse.copy(deep=True)
+        endpoints = y.sel(lead_time=coarse.lead_time.values)
+        labels = {
+            dim: values[np.isin(values, endpoints.coords[dim].values)]
+            for dim, values in self._run_labels().items()
+        }
+        endpoints = endpoints.sel(labels)
+        feedback = from_torch(
+            endpoints.e2s.to_torch()[0].to(coarse.e2s.to_torch()[0].device),
+            coord_array_like(endpoints),
+        )
+        coarse.loc[{"lead_time": endpoints.lead_time.values, **labels}] = feedback.data
+        coarse.attrs.update(
+            deepcopy(
+                {
+                    name: value
+                    for name, value in y.attrs.items()
+                    if not name.startswith("earth2studio_")
+                }
+            )
+        )
+        coarse.encoding = deepcopy(y.encoding)
+        coarse.name = y.name
+        for name in list(coarse.coords):
+            if name not in coarse.dims and name not in y.coords:
+                coarse = coarse.drop_vars(name)
+        return coarse
+
+    def _forward(self, left: xr.DataArray, coarse: xr.DataArray) -> xr.DataArray:
+        outputs = []
+        for index in range(coarse.sizes["lead_time"]):
+            right = self._select_run_grid(
+                coarse.isel(lead_time=slice(index, index + 1))
+            )
+            outputs.extend(self._interpolate(left, right))
+            tensor = right.e2s.to_torch()[0].to(self.center.device).clone()
+            endpoint = from_torch(
+                self._add_pole(self._trim(tensor)),
+                self._prediction_coords(right, right.lead_time.values),
+                name=right.name,
+            )
+            endpoint.encoding = deepcopy(right.encoding)
+            outputs.append(endpoint)
+            left = right
+        output = xr.concat(
+            outputs, dim="lead_time", coords="minimal", compat="override", join="exact"
+        )
+        output.encoding = deepcopy(coarse.encoding)
+        output.attrs = deepcopy(output.attrs)
+        return output
+
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
+        """Yield one chunk per coarse interval, beginning with initialization's.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
 
         Yields
         ------
-        tuple[torch.Tensor, CoordSystem]
-            Each emitted frame and its coordinate system
+        xr.DataArray
+            Interpolated frames and the coarse endpoint after the rear hook. The front hook runs
+            before subsequent steps, edits at the coarse lead times feed the base model.
         """
-        yield from self._default_generator(x, coords)
+        yield from self._default_create_iterator(x)

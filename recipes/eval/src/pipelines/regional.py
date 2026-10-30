@@ -13,6 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# mypy: disable-error-code="misc,union-attr"
 
 """Pipelines for limited-area models on a window of a larger grid.
 
@@ -50,7 +51,7 @@ import tempfile
 from collections import OrderedDict
 from collections.abc import Iterator
 from dataclasses import replace
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import torch
@@ -694,7 +695,7 @@ class RegionalDiagnosticPipeline(DiagnosticPipeline):
                     [("batch", np.array([0]))]
                     + [(k, v) for k, v in c_in.items() if k != "batch"]
                 )
-            y, y_coords = dx(x_in, c_in)
+            y, y_coords = cast(Any, dx)(x_in, c_in)
             y, y_coords = _rename_sample_axis(y, y_coords, member_ids)
             y_coords, _ = _index_dims(y_coords)
             keys = list(y_coords)

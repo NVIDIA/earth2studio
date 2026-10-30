@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from . import _gdal  # noqa: F401  (must come before the ECMWF-backed sources)
 from .ace2 import ACE2ERA5Data
 from .arco import ARCO, ARCO_ERA5
 from .base import DataFrameSource, DataSource, ForecastFrameSource, ForecastSource
@@ -24,6 +25,7 @@ from .cds import CDS, CDS_ERA5
 from .cfs import CFS_FX, CFS_FX_Flux
 from .cfs_reforecast import CFS_Reforecast_FX, CFS_Reforecast_FX_Flux
 from .cmip6 import CMIP6, CMIP6MultiRealm
+from .composite import CompositeForecastSource, CompositeSource
 from .const import Constant, Constant_FX
 from .dynamical import (
     DynamicalAIFS,
@@ -85,6 +87,7 @@ from .samudrace import SamudrACEData, SamudrACEForcingData
 from .time_window import TimeWindow
 from .ufs import UFSObsConv, UFSObsSat
 from .utils import (
+    RegriddedSource,
     datasource_to_file,
     fetch_data,
     fetch_dataframe,

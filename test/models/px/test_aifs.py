@@ -14,17 +14,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import inspect
 from collections import OrderedDict
 from collections.abc import Iterable
 
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
-try:
+from earth2studio.data import Random, fetch_data
+from earth2studio.grids import LatLonGrid
+from earth2studio.models.conformance import check_prognostic_contract
+from earth2studio.models.px import AIFS
+from earth2studio.utils import coord_array, coord_array_like
+from earth2studio.utils.cupy import from_torch
+
+
+@pytest.fixture
+def backend():
     from importlib.metadata import version
 
-    import anemoi.models  # noqa: F401
+    pytest.importorskip("anemoi.models")
 
     anemoi_version = version("anemoi-models")
     # AIFS 1.x requires anemoi-models version specified by pyproject.toml.
@@ -34,14 +45,54 @@ try:
                 f"anemoi-models {anemoi_version} not compatible with AIFS 1.x "
                 "(requires 0.5.1)"
             ),
-            allow_module_level=True,
         )
-except ImportError:
-    pytest.skip("anemoi-models not installed", allow_module_level=True)
 
-from earth2studio.data import Random, fetch_data
-from earth2studio.models.px import AIFS
-from earth2studio.utils import handshake_dim
+
+@pytest.fixture(autouse=True)
+def optional_device(request):
+    if (
+        "device" in request.fixturenames
+        and request.getfixturevalue("device").startswith("cuda")
+        and not torch.cuda.is_available()
+    ):
+        pytest.skip("CUDA unavailable")
+
+
+@pytest.fixture
+def small_model(monkeypatch):
+    model = AIFS.__new__(AIFS)
+    eye = torch.eye(6, dtype=torch.float64)
+    inspect.unwrap(AIFS.__init__)(
+        model,
+        PhooAIFSModel(),
+        torch.tensor([45, 45, 45, -45, -45, -45]).reshape(1, 1, 6, 1).float(),
+        torch.tensor([0, 120, 240] * 2).reshape(1, 1, 6, 1).float(),
+        ((eye + eye.roll(1, dims=1)) / 2).to_sparse_csr(),
+        eye.to_sparse_csr(),
+        torch.zeros(4, 2, 3),
+    )
+    signature = model.input_coords()
+    assert (
+        signature.data.nbytes == 0
+        and signature.attrs["earth2studio_grid_id"] == "latlon-0.25deg"
+    )
+    small = coord_array(
+        signature.dims,
+        {"lead_time": signature.lead_time, "variable": signature.coords["variable"]},
+        dynamic=("batch", "time"),
+        grid=LatLonGrid([45, -45], [0, 120, 240]),
+    )
+    monkeypatch.setattr(model, "input_coords", lambda: small.copy())
+    # A state-dependent backend makes accidental reinterpolation observable.
+    data = model.model.data_indices.data
+    indices = [
+        data.input.full.tolist().index(i) if i in data.input.full else 0
+        for i in data.output.full.tolist()
+    ]
+    monkeypatch.setattr(
+        model.model, "predict_step", lambda x, fcstep: x[:, -1:, :, indices] + 1
+    )
+    return model
 
 
 def make_two_nnz_per_first_row_csr(n_rows, n_cols, device):
@@ -637,7 +688,7 @@ class PhooAIFSModel(torch.nn.Module):
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_aifs_call(time, device):
+def test_aifs_call(time, device, backend):
     # Spoof model
     model = PhooAIFSModel()
 
@@ -677,9 +728,13 @@ def test_aifs_call(time, device):
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    out, out_coords = p(x, coords)
+    x = fetch_data(
+        r, time, variable, lead_time, device=device, delta_t=np.timedelta64(1, "h")
+    )
+    x.attrs.update(earth2studio_grid_id="latlon-0.25deg", earth2studio_crs="EPSG:4326")
+    coords = x
+    out = p(x)
+    out_coords = out.coords
 
     if not isinstance(time, Iterable):
         time = [time]
@@ -689,80 +744,124 @@ def test_aifs_call(time, device):
     )
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
     assert (out_coords["time"] == time).all()
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    assert out.dims == ("time", "lead_time", "variable", "lat", "lon")
 
 
-@pytest.mark.parametrize("ensemble", [1])  # Batch size of 2 is too large
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_aifs_iter(ensemble, device):
-    time = np.array([np.datetime64("1993-04-05T00:00")])
-    # Spoof model
-    model = PhooAIFSModel()
+def test_aifs_state_device(device, small_model):
+    model = small_model.to(device)
+    signature = coord_array_like(
+        model.input_coords(),
+        {
+            "batch": [0],
+            "time": np.array(["2000-01-01"], dtype="datetime64[ns]"),
+        },
+    )
+    x = from_torch(torch.randn(signature.shape), signature)
+    original = x.copy(deep=True)
+    y, state = model.initialize(x)
+    for _ in range(2):
+        assert state["history"].e2s.to_torch()[0].device == torch.device(device)
+        assert state["native"].device == torch.device(device)
+        assert state["published"].e2s.to_torch()[0].device == torch.device(device)
+        history = state["history"].copy(deep=True)
+        previous = y.copy(deep=True)
+        next_y, next_state = model.step(y, state)
+        replay, _ = model.step(y, state)
+        xr.testing.assert_identical(next_y, replay)
+        xr.testing.assert_identical(state["history"], history)
+        xr.testing.assert_identical(y, previous)
+        y, state = next_y, next_state
+    xr.testing.assert_identical(x, original)
 
-    # Create tensors with the correct shapes
-    latitudes = torch.randn(1, 1, 542080, 1, device=device)
-    longitudes = torch.randn(1, 1, 542080, 1, device=device)
 
-    # Create sparse tensors for interpolation matrices
-    interpolation_matrix = make_two_nnz_per_first_row_csr(
-        n_rows=542_080, n_cols=1_038_240, device=device
-    ).to(torch.float64)
-
-    inverse_interpolation_matrix = make_two_nnz_per_first_row_csr(
-        n_rows=1_038_240, n_cols=542_080, device=device
-    ).to(torch.float64)
-
-    invariants = torch.zeros(4, 721, 1440, device=device)
-
-    p = AIFS(
-        model=model,
-        latitudes=latitudes,
-        longitudes=longitudes,
-        interpolation_matrix=interpolation_matrix,
-        inverse_interpolation_matrix=inverse_interpolation_matrix,
-        invariants=invariants,
-    ).to(device)
-
-    # Create "domain coords"
-    dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
-
-    # Initialize Data Source
-    r = Random(dc)
-
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    # Add ensemble to front
-    x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
-    coords.update({"ensemble": np.arange(ensemble)})
-    coords.move_to_end("ensemble", last=False)
-
-    p_iter = p.create_iterator(x, coords)
-
-    if not isinstance(time, Iterable):
-        time = [time]
-
-    # Get generator
-    next(p_iter)  # Skip first which should return the input
-    for i, (out, out_coords) in enumerate(p_iter):
-        assert len(out.shape) == 6
-        assert out.shape == torch.Size(
-            [ensemble, len(time), 1, out_coords["variable"].shape[0], 721, 1440]
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_aifs_iter(device, small_model, monkeypatch):
+    p = small_model.to(device)
+    assert "_fill_input" in type(p).__dict__
+    coords = coord_array_like(
+        p.input_coords(),
+        {
+            "batch": [0, 1],
+            "time": np.array(["2000-01-01"], dtype="datetime64[ns]"),
+            "lead_time": np.array([12, 18], dtype="timedelta64[h]"),
+        },
+    )
+    x = (
+        from_torch(torch.randn(coords.shape), coords, name="weather")
+        .rename(batch="member")
+        .expand_dims(sample=1, axis=1)
+    )
+    x = x.assign_coords(experiment=("member", [7, 8]))
+    x.attrs["source"] = "fixture"
+    x.encoding = {"source": "fixture"}
+    original = x.copy(deep=True)
+    # Compare against the original native-grid recurrence, without the iterator.
+    native_coords = {d: coords.coords[d].values for d in coords.dims}
+    preparation_coords = native_coords.copy()
+    preparation_coords["time"] = native_coords["time"] + native_coords["lead_time"][-1]
+    state = p._prepare_input(
+        x.e2s.to_torch()[0].reshape(coords.shape).to(device), preparation_coords
+    )
+    expected = []
+    for step in range(1, 4):
+        state, output_coords = p._forward(
+            state,
+            coord_array_like(coords, {"lead_time": native_coords["lead_time"]}),
+            step,
         )
-        assert (
-            out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
-        ).all()
-        assert (out_coords["ensemble"] == np.arange(ensemble)).all()
-        assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
+        tensor = p._prepare_output(
+            state, {d: output_coords.coords[d].values for d in output_coords.dims}
+        )
+        expected.append(
+            from_torch(
+                tensor.unsqueeze(1),
+                coord_array_like(
+                    x,
+                    {
+                        "lead_time": output_coords.lead_time,
+                        "variable": output_coords.coords["variable"],
+                    },
+                ),
+            )
+        )
+        native_coords["lead_time"] = native_coords["lead_time"] + np.timedelta64(6, "h")
+        state = p._update_input(state, native_coords)
+    torch.testing.assert_close(p(x).e2s.to_torch()[0], expected[0].e2s.to_torch()[0])
+    preparations = []
+    prepare = p._prepare_input
 
-        if i > 5:
-            break
+    def capture(value, coords):
+        preparations.append(coords["time"].copy())
+        return prepare(value, coords)
+
+    def rear(value):
+        value = value.drop_vars("experiment", errors="ignore").rename(None)
+        value.attrs.pop("source", None)
+        value.encoding.clear()
+        return value
+
+    monkeypatch.setattr(p, "_prepare_input", capture)
+    p.rear_hook = rear
+    iterator = p.create_iterator(x)
+    retained = []
+    for step, reference in enumerate(expected, 1):
+        out = next(iterator)
+        retained.append((out, out.copy(deep=True)))
+        torch.testing.assert_close(out.e2s.to_torch()[0], reference.e2s.to_torch()[0])
+        assert out.e2s.to_torch()[0].device == torch.device(device)
+        assert out.dims == x.dims and "sample" not in out.coords
+        assert out.name is None and "experiment" not in out.coords
+        assert "source" not in out.attrs and out.encoding == {}
+        assert out.lead_time.values[0] == np.timedelta64(18 + step * 6, "h")
+    assert len(preparations) == 1
+    np.testing.assert_array_equal(
+        preparations[0], x.time.values + np.timedelta64(18, "h")
+    )
+    for out, saved in retained:
+        xr.testing.assert_identical(out, saved)
+    xr.testing.assert_identical(x, original)
+    iterator.close()
 
 
 @pytest.mark.parametrize(
@@ -774,7 +873,7 @@ def test_aifs_iter(ensemble, device):
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_aifs_exceptions(dc, device):
+def test_aifs_exceptions(dc, device, backend):
     time = np.array([np.datetime64("1993-04-05T00:00")])
     # Spoof model
     model = PhooAIFSModel()
@@ -809,23 +908,61 @@ def test_aifs_exceptions(dc, device):
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x = fetch_data(
+        r, time, variable, lead_time, device=device, delta_t=np.timedelta64(1, "h")
+    )
 
     with pytest.raises((KeyError, ValueError)):
-        p(x, coords)
+        p(x)
+
+
+def test_aifs_conformance(backend):
+    device = "cpu"
+    model = PhooAIFSModel()
+
+    latitudes = torch.randn(1, 1, 542080, 1, device=device)
+    longitudes = torch.randn(1, 1, 542080, 1, device=device)
+
+    interpolation_matrix = make_two_nnz_per_first_row_csr(
+        n_rows=542_080, n_cols=1_038_240, device=device
+    ).to(torch.float64)
+
+    inverse_interpolation_matrix = make_two_nnz_per_first_row_csr(
+        n_rows=1_038_240, n_cols=542_080, device=device
+    ).to(torch.float64)
+
+    invariants = torch.zeros(4, 721, 1440, device=device)
+
+    p = AIFS(
+        model=model,
+        latitudes=latitudes,
+        longitudes=longitudes,
+        interpolation_matrix=interpolation_matrix,
+        inverse_interpolation_matrix=inverse_interpolation_matrix,
+        invariants=invariants,
+    )
+    # AIFS is deterministic (stochastic=False via PrognosticMixin's default), so
+    # P14 is reported as an informational skip rather than evaluated; that is
+    # expected and not a contract violation.
+    assert check_prognostic_contract(p) == [
+        "P14: model does not declare itself stochastic",
+        "P21: checkpoint serialization requires component-specific tests",
+    ]
 
 
 @pytest.fixture(scope="function")
-def model() -> AIFS:
+def model(backend) -> AIFS:
     """Load real AIFS model from package, mocking IFS fetch if needed."""
     from unittest.mock import patch
 
     # Mock fetch_data to return fake invariants if IFS would be called
     def mock_fetch_data(source, time, variable, *args, **kwargs):
         # Return fake invariants tensor (4 variables: lsm, sdor, slor, z)
-        fake_invariants = torch.zeros(1, 1, 1, len(variable), 721, 1440)
-        fake_coords = {"time": time, "variable": np.array(variable)}
-        return fake_invariants, fake_coords
+        return xr.DataArray(
+            np.zeros((len(variable), 721, 1440), dtype=np.float32),
+            dims=("variable", "lat", "lon"),
+            coords={"variable": variable},
+        )
 
     package = AIFS.load_default_package()
     with patch("earth2studio.models.px.aifs.fetch_data", side_effect=mock_fetch_data):
@@ -850,9 +987,13 @@ def test_aifs_package(device, model):
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
-
-    out, out_coords = p(x, coords)
+    x = fetch_data(
+        r, time, variable, lead_time, device=device, delta_t=np.timedelta64(1, "h")
+    )
+    x.attrs.update(earth2studio_grid_id="latlon-0.25deg", earth2studio_crs="EPSG:4326")
+    coords = x
+    out = p(x)
+    out_coords = out.coords
 
     if not isinstance(time, Iterable):
         time = [time]
@@ -861,8 +1002,4 @@ def test_aifs_package(device, model):
         [len(time), 1, out_coords["variable"].shape[0], 721, 1440]
     )
     assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    assert out.dims == ("time", "lead_time", "variable", "lat", "lon")

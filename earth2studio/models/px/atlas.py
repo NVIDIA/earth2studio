@@ -16,25 +16,39 @@
 
 import json
 import os
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
+from copy import deepcopy
+from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Any, cast
 
 import numpy as np
 import torch
 import torch.nn as nn
+import xarray as xr
 from loguru import logger
 
+from earth2studio.data.base import DataSource
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.nn.atlas import StochasticInterpolant
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.models.utils import fork_rng
+from earth2studio.utils import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_nonempty,
+    handshake_size,
+    handshake_time,
+)
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 try:
     from physicsnemo import Module
@@ -132,6 +146,14 @@ def npdt64_to_naive_utc(t: np.datetime64) -> datetime:
     return _EPOCH + timedelta(microseconds=int(delta_us))
 
 
+@dataclass
+class _AtlasState:
+    history: xr.DataArray
+    latents: Any
+    seed: int
+    rng: dict[str, torch.Tensor] | None
+
+
 @check_optional_dependencies()
 class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """Atlas prognostic model for ERA5 variables on a 0.25° global lat-lon grid.
@@ -160,13 +182,13 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     sinterpolant_sample_steps : int
         Number of steps to sample for the stochastic interpolant.
 
-    Warning
-    ----------
-    This model is expected to use the iterator interface for autoregressive
-    rollouts longer than one step. Iteratively using the ``__call__`` and
-    ``prep_next_input`` methods will not produce correct results, since the model
-    performs autoregressive timestepping using a full-resolution physical state
-    and an internal low-resolution latent state.
+    Note
+    ----
+    The model performs autoregressive timestepping using a full-resolution physical
+    state and an internal low-resolution latent state. For rollouts longer than one
+    step use ``create_iterator`` or ``initialize`` followed by repeated ``step`` calls,
+    which carry the latent and random-stream state forward. Chaining ``__call__``
+    does not carry this state and will not reproduce the model rollout.
 
     Note
     ----
@@ -198,128 +220,121 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.model_processor = model_processor
         self.sinterpolant = sinterpolant
         self.sinterpolant_sample_steps = sinterpolant_sample_steps
+        self.register_buffer("device_buffer", torch.empty(0))
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system expected by Atlas.
-
-        Notes
-        -----
-        - Lead times are fixed to [-6h, 0h].
-        - Variables are defined by the module-level `VARIABLES`.
-        - Spatial grid is 0.25° lat-lon: 721 latitudes, 1440 longitudes.
+    def default_sources(self) -> "DataSource":
+        """Recommend ARCO ERA5 initial conditions.
 
         Returns
         -------
-        CoordSystem
-            Ordered dictionary with keys:
-            - 'lead_time' : np.ndarray[np.timedelta64] of shape (2,)
-            - 'variable' : np.ndarray[str] of shape (n_variables,)
-            - 'lat' : np.ndarray[float] of shape (721,)
-            - 'lon' : np.ndarray[float] of shape (1440,)
+        DataSource
+            Raw ARCO ERA5 source for the input slot.
         """
-        coords = CoordSystem(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array([-self.DT, np.timedelta64(0, "h")]),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(90.0, -90.0, 721, dtype=np.float32),
-                "lon": np.linspace(
-                    0.0,
-                    360.0,
-                    1440,
-                    dtype=np.float32,
-                    endpoint=False,
-                ),
-            }
-        )
-        return coords
+        from earth2studio.data import ARCO_ERA5
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system produced by a single Atlas step (t+6h).
+        return ARCO_ERA5()
+
+    def input_coords(self) -> CoordinateSystem:
+        """Input coordinate system of the prognostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature with lead times
+            ``[-6h, 0h]`` and the module-level ``VARIABLES`` on the 0.25 degree
+            latitude/longitude grid (721 latitudes, 1440 longitudes).
+        """
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "lat", "lon"),
+            {
+                "lead_time": np.array([-self.DT, np.timedelta64(0, "h")]),
+                "variable": VARIABLES,
+            },
+            dynamic=("batch", "time"),
+            grid="latlon-0.25deg",
+        )
+
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Output coordinate system of the prognostic model.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Coordinate system associated with the input to the forward pass.
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
-        CoordSystem
-            Ordered dictionary with keys:
-            - 'time' : np.ndarray[np.datetime64] (copied from input if present)
-            - 'lead_time' : np.timedelta64 set to +6h
-            - 'variable' : np.ndarray[str] matching `VARIABLES`
-            - 'lat' : np.ndarray[float] (copied from input if present, else 721 values)
-            - 'lon' : np.ndarray[float] (copied from input if present, else 1440 values)
+        CoordinateSystem
+            Allocation-free DataArray output signature six hours after the
+            final input lead time, preserving input variables, grid, and
+            leading dimensions.
         """
-        output_coords = CoordSystem(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array([self.DT]),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(90.0, -90.0, 721, dtype=np.float32),
-                "lon": np.linspace(
-                    0.0,
-                    360.0,
-                    1440,
-                    dtype=np.float32,
-                    endpoint=False,
-                ),
-            }
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
+        lead = input_coords.lead_time.values
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
         )
+        return coord_array_like(input_coords, {"lead_time": lead[-1:] + self.DT})
 
-        test_coords = input_coords.copy()
-        test_coords["lead_time"] = (
-            test_coords["lead_time"] - input_coords["lead_time"][-1]
-        )
-        target_input_coords = self.input_coords()
-        for i, key in enumerate(target_input_coords):
-            if key not in ["batch", "time"]:
-                handshake_dim(test_coords, key, i)
-                handshake_coords(test_coords, target_input_coords, key)
-
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["time"] = input_coords["time"]
-
-        output_coords["lead_time"] = (
-            input_coords["lead_time"][-1] + output_coords["lead_time"]
-        )
-
-        return output_coords
-
-    @batch_func()
     def prep_next_input(
         self,
-        x_pred: torch.Tensor,
-        coords_pred: CoordSystem,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Prepare the next input for the Atlas model. Since the input requires two lead times
-        but the model predicts one, we update a sliding window to make autoregressive predictions.
+        x_pred: xr.DataArray,
+        x: xr.DataArray,
+    ) -> xr.DataArray:
+        """Update the two-frame input history with the latest forecast.
+
+        Atlas requires two lead times as input but predicts one, so the history is a
+        sliding window. This is used internally by ``step``; callers should use
+        ``initialize`` and ``step`` (or ``create_iterator``) for rollouts.
 
         Parameters
         ----------
-        x_pred : torch.Tensor
-            Predicted tensor from the previous step.
-        coords_pred : CoordSystem
-            Coordinates describing `x_pred`.
-        x : torch.Tensor
-            Input tensor from the previous step.
-        coords : CoordSystem
-            Coordinates describing `x`.
+        x_pred : xr.DataArray
+            Forecast from the previous step.
+        x : xr.DataArray
+            Previous two-frame history.
+
+        Returns
+        -------
+        xr.DataArray
+            Updated two-frame history, carrying prediction metadata.
         """
-        x_next = x.clone()
-        # Fill latest step with most recent prediction
-        x_next[:, :, 1:, :, :, :] = x_pred[:, :, :1, :, :, :]
-        # Shift the previous latest step to the earlier position
-        x_next[:, :, :1, :, :, :] = x[:, :, 1:, :, :, :]
-        coords_next = coords.copy()
-        coords_next["lead_time"] = coords_next["lead_time"] + self.DT
-        return x_next, coords_next
+        previous = x.isel(lead_time=slice(-1, None))
+        # Use the prediction's metadata, including hook removals, for the new history.
+        signature = coord_array_like(
+            x_pred,
+            {
+                "lead_time": np.concatenate(
+                    (previous.lead_time.values, x_pred.lead_time.values)
+                )
+            },
+        )
+        axis = x.get_axis_num("lead_time")
+        a, _ = previous.e2s.to_torch()
+        b, _ = x_pred.e2s.to_torch()
+        a = a.to(b.device)
+        result = from_torch(torch.cat((a, b), dim=axis), signature, name=x_pred.name)
+        result.encoding = x_pred.encoding.copy()
+        return result
+
+    stochastic = True
+    _rng_seed: int | None = None
+    _rng_states: dict[str, torch.Tensor] | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed Atlas's stochastic interpolant sampling state.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for latent sampling.
+        reset : bool, optional
+            Reset existing sampling state, by default True.
+        """
+        if reset or self._rng_seed is None:
+            self._rng_seed = seed
+            self._rng_states = {}
 
     @torch.inference_mode()
     def _forward(
@@ -352,10 +367,7 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             raise ValueError(
                 f"Internal forward pass expects x of shape (lead_time, variable, lat, lon), got {x.shape}"
             )
-        if len(coords["lead_time"]) != 2:
-            raise ValueError(
-                f"Internal forward pass expects coords['lead_time'] of length 2, got {len(coords['lead_time'])}"
-            )
+        handshake_size(coords, "lead_time", 2)
 
         # Prepare input tensor and date metadata
         x_cur, x_prev = x[-1:, :, :, :], x[:1, :, :, :]
@@ -376,14 +388,16 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         cond = {"x_1": low_res.clone(), "x_2": prev.clone()}
 
         # Stochastic interpolant sampling in latent space
-        prediction_latent = self.sinterpolant.sample(
-            self.model,
-            low_res.clone(),
-            steps=self.sinterpolant_sample_steps,
-            cond=cond,
-            verbose=False,
-            compute_normalization=True,
-        )
+        # The interpolant draws its own latent noise and accepts no generator.
+        with fork_rng(self._rng_seed, x.device, states=self._rng_states):
+            prediction_latent = self.sinterpolant.sample(
+                self.model,
+                low_res.clone(),
+                steps=self.sinterpolant_sample_steps,
+                cond=cond,
+                verbose=False,
+                compute_normalization=True,
+            )
 
         # Decode
         pred = self.autoencoders[0](high_res, prediction_latent)
@@ -404,60 +418,42 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return pred, prediction_latent
 
     @torch.inference_mode()
-    @batch_func()
-    def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Forward pass of the prognostic model, integrating a single 6h step.
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Sample a six-hour forecast from two input frames, without hooks.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor of shape (..., lead_time, variable, lat, lon) corresponding
-            to the coordinate system. Lead times expected: [-6h, 0h].
-        coords : CoordSystem
-            Coordinate dictionary describing `x`.
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor advanced to t+6h and its coordinate system.
+        xr.DataArray
+            First forecast matching ``output_coords(x)``. Use ``initialize``
+            to retain latent state for continuation.
         """
 
-        # Sanitize NaNs in input sst
-        if torch.isnan(x).any():
-            logger.info("Atlas input contains NaNs, replacing with 0.0")
-            x = torch.nan_to_num(x, nan=0.0)
-
-        output_coords = self.output_coords(coords)
-        out = torch.empty_like(x[:, :, :1])
-
-        # Loop over init times
-        for i, _ in enumerate(coords["batch"]):
-            for j, _ in enumerate(coords["time"]):
-                slice_coords = coords.copy()
-                slice_coords["time"] = slice_coords["time"][j : j + 1]
-                pred, _ = self._forward(x[i, j, :], slice_coords)
-                out[i, j, :] = pred
-
-        return out, output_coords
+        out, _ = self.initialize(x)
+        return out
 
     @torch.inference_mode()
     def _call_with_latent(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
+        x: xr.DataArray,
         prev_latents: list[list[torch.Tensor | None]] | None = None,
-    ) -> tuple[torch.Tensor, CoordSystem, list[list[torch.Tensor]]]:
+    ) -> tuple[xr.DataArray, list[list[torch.Tensor]]]:
         """Internal helper that handles cached latents during autoregressive rollout."""
 
-        # Sanitize NaNs in input sst
-        if torch.isnan(x).any():
+        self.output_coords(x)
+        handshake_time(x)
+        packed, restore = batch_func()._compress_array(self, x)
+        signature = self.output_coords(packed)
+        tensor, coords = packed.e2s.to_torch()
+        tensor = tensor.to(self.device_buffer.device).clone()
+        if torch.isnan(tensor).any():
             logger.info("Atlas input contains NaNs, replacing with 0.0")
-            x = torch.nan_to_num(x, nan=0.0)
-
-        output_coords = self.output_coords(coords)
-        out = torch.empty_like(x[:, :, :1])
+            tensor = torch.nan_to_num(tensor, nan=0.0)
+        out = torch.empty_like(tensor[:, :, :1])
         latents_out: list[list[torch.Tensor | None]] = [
             [None for _ in coords["time"]] for _ in coords["batch"]
         ]
@@ -469,64 +465,85 @@ class Atlas(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 prev_latent = None
                 if prev_latents is not None:
                     prev_latent = prev_latents[i][j]
-                pred, pred_latent = self._forward(x[i, j, :], slice_coords, prev_latent)
+                pred, pred_latent = self._forward(
+                    tensor[i, j, :], slice_coords, prev_latent
+                )
                 out[i, j, :] = pred
                 latents_out[i][j] = pred_latent
 
-        return out, output_coords, latents_out
+        result = from_torch(out, signature, name=x.name)
+        result.encoding = x.encoding.copy()
+        return restore(result), latents_out
 
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Create an iterator that yields the initial state then successive 6h steps.
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, "_AtlasState"]:
+        """Predict the first forecast and retain history, latent and sampling state.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Initial data tensor on device representing the initial condition.
-        coords : CoordSystem
-            Coordinate system for the initial data tensor.
+        x : xr.DataArray
+            Two-frame initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, _AtlasState]
+            First six-hour forecast and continuation history, latent fields and
+            random-stream state. Iterator hooks are not applied.
+        """
+        handshake_nonempty(x)
+        if self._rng_seed is None:
+            self.set_rng(int(torch.randint(2**31, ()).item()))
+        y, latents = self._call_with_latent(x)
+        return y, _AtlasState(
+            x.isel(lead_time=slice(-1, None)).copy(deep=True),
+            latents,
+            cast(int, self._rng_seed),
+            deepcopy(self._rng_states),
+        )
+
+    def step(
+        self, y: xr.DataArray, state: "_AtlasState"
+    ) -> tuple[xr.DataArray, "_AtlasState"]:
+        """Advance from explicit history, latent and RNG state without modifying them.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        state : _AtlasState
+            Continuation history, latent fields and random-stream state returned
+            by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, _AtlasState]
+            Next six-hour forecast and updated state, without iterator hooks.
+        """
+        seed, rng = self._rng_seed, self._rng_states
+        self._rng_seed, self._rng_states = state.seed, deepcopy(state.rng)
+        try:
+            x = self.prep_next_input(y, state.history)
+            out, latents = self._call_with_latent(x, deepcopy(state.latents))
+            return out, _AtlasState(
+                y.copy(deep=True), latents, state.seed, deepcopy(self._rng_states)
+            )
+        finally:
+            self._rng_seed, self._rng_states = seed, rng
+
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
+        """Yield six-hour forecasts starting with the first prediction.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
-            Iterator yielding successive model outputs and their coordinates.
+        xr.DataArray
+            Forecasts after the rear hook. The front hook runs before subsequent
+            steps; public-field edits feed recurrence alongside retained latents.
         """
-        yield from self._default_generator(x, coords)
-
-    @batch_func()
-    def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-        coords = coords.copy()
-
-        # Validate coords
-        _ = self.output_coords(coords)
-
-        # Sanitize NaNs in input sst
-        if torch.isnan(x).any():
-            logger.info("Atlas input contains NaNs, replacing with 0.0")
-            x = torch.nan_to_num(x, nan=0.0)
-
-        # Yield initial condition
-        ic_coords = coords.copy()
-        ic_coords["lead_time"] = ic_coords["lead_time"][-1:]
-        yield x[:, :, -1:, :, :, :], ic_coords
-
-        latent_cache: list[list[torch.Tensor | None]] | None = None
-        while True:
-            # Front hook
-            x, coords = self.front_hook(x, coords)
-            # Forward
-            x_pred, coords_pred, latent_cache = self._call_with_latent(
-                x, coords, prev_latents=latent_cache
-            )
-            # Rear hook
-            x_pred, coords_pred = self.rear_hook(x_pred, coords_pred)
-            yield x_pred, coords_pred.copy()
-
-            # Prepare next input
-            x, coords = self.prep_next_input(x_pred, coords_pred, x, coords)
+        return self._default_create_iterator(x)
 
     @classmethod
     def load_default_package(cls) -> Package:

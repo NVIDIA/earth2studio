@@ -18,25 +18,33 @@ import hashlib
 import os
 import shutil
 import tempfile
-from collections import OrderedDict
-from collections.abc import Generator, Iterator
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, TypeVar
 
 import numpy as np
 import torch
+import xarray as xr
 
+from earth2studio.data.base import DataSource
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.models.utils import create_ort_session
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_nonempty,
+    handshake_time,
+)
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem
 
 try:
     from onnxruntime import InferenceSession  # type: ignore[import-untyped]
@@ -81,6 +89,16 @@ VARIABLES = [
 
 _TTR_INDEX = VARIABLES.index("ttr")
 _TP_INDEX = VARIABLES.index("tp")
+
+# Keep ONNX channel names/indices separate from public temporal quantity labels.
+DAILY_VARIABLES = [
+    (
+        f"{variable}:mean:1h:25h"
+        if variable in ("tp", "ttr")
+        else f"{variable}:mean:0h:24h"
+    )
+    for variable in VARIABLES
+]
 
 
 def _atomic_copy(source: Any, destination: Path) -> Path:
@@ -144,96 +162,73 @@ def _resolve_model_assets(package: Package) -> Path:
 class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """FuXi-S2S global daily-mean prognostic model.
 
-        FuXi-S2S consumes daily means from two consecutive UTC calendar days and
-        predicts the following daily mean. A timestamp at 00:00 UTC labels the
-        corresponding calendar-day aggregate; it is not an instantaneous midnight
-        state.
+    FuXi-S2S consumes daily means from two consecutive UTC calendar days and
+    predicts the following daily mean. A timestamp at 00:00 UTC labels the
+    corresponding calendar-day aggregate; it is not an instantaneous midnight
+    state.
 
-        Note
-        ----
-        This model uses the ONNX checkpoint from the original publication repository. For
-        additional information see the following resources:
+    Note
+    ----
+    This model uses the ONNX checkpoint from the original publication repository. For
+    additional information see the following resources:
 
-        - https://www.nature.com/articles/s41467-024-50714-1
-        - https://github.com/tpys/FuXi-S2S
-        - https://zenodo.org/records/15718402
-        - https://huggingface.co/datasets/FudanFuXi/FuXi-S2S
+    - https://www.nature.com/articles/s41467-024-50714-1
+    - https://github.com/tpys/FuXi-S2S
+    - https://zenodo.org/records/15718402
+    - https://huggingface.co/datasets/FudanFuXi/FuXi-S2S
 
-        Parameters
-        ----------
-        onnx_path : str
-            Path to the FuXi-S2S ONNX graph. Its external weight file named
-            ``fuxi_s2s`` must be in the same directory.
+    Parameters
+    ----------
+    onnx_path : str
+        Path to the FuXi-S2S ONNX graph. Its external weight file named
+        ``fuxi_s2s`` must be in the same directory.
 
-        Note
-        ----
-        Initial conditions must contain two consecutive UTC daily means on the
-        model's 1.5-degree grid. Instantaneous fields use calendar-day averages
-        from 00--23 UTC. Accumulated ``tp`` and ``ttr`` fields use the 24
-        interval-ending values from 01 UTC through 00 UTC of the following day.
-        Their daily means retain the units of each one-hour accumulation; for
-        example, multiply predicted ``tp`` by 24 to obtain a daily total.
-        Sea-surface temperature must retain ``NaN`` values over land. The wrapper
-        does not aggregate hourly fields or regrid initial conditions; callers must
-        provide these prepared daily inputs through an Earth2Studio data source.
+    Note
+    ----
+    Initial conditions must contain two consecutive UTC daily means on the
+    model's 1.5-degree grid. Instantaneous fields use calendar-day averages
+    from 00--23 UTC. Accumulated ``tp`` and ``ttr`` fields use the 24
+    interval-ending values from 01 UTC through 00 UTC of the following day.
+    Their daily means retain the units of each one-hour accumulation; for
+    example, multiply predicted ``tp`` by 24 to obtain a daily total.
+    Public variable labels declare these windows explicitly:
+    ``t2m:mean:0h:24h``, ``tp:mean:1h:25h``, and ``ttr:mean:1h:25h``.
+    The compact ``mean:24h`` modifier instead describes the preceding day
+    and must not be substituted at the same start-of-day timestamp.
+    Sea-surface temperature must retain ``NaN`` values over land. The wrapper
+    does not aggregate hourly fields or regrid initial conditions; callers must
+    provide these prepared daily inputs through an Earth2Studio data source.
 
-        The official ONNX graph samples flow-dependent perturbations internally, so
-        each forecast trajectory is one stochastic ensemble member. Member ``00`` in
-        the official inference script is the first stochastic member, not a
-        deterministic control.
+    The official ONNX graph samples flow-dependent perturbations internally, so
+    each forecast trajectory is one stochastic ensemble member. Member ``00`` in
+    the official inference script is the first stochastic member, not a
+    deterministic control.
 
-        Warning
-        -------
-        We encourage users to familiarize themselves with the license restrictions of this
-        model's checkpoints.
+    Warning
+    -------
+    We encourage users to familiarize themselves with the license restrictions of this
+    model's checkpoints.
 
-        Example
-        -------
-        The following shows how to get approximate inputs from standard data
-        sources.  For formal input data consult
-    https://zenodo.org/records/15718402
+    Example
+    -------
+    Prepared daily data must carry the qualified labels returned by
+    ``input_coords()["variable"]``. For formal input data consult
+    https://zenodo.org/records/15718402. A statistics-aware fetch layer can
+    split each label at its first colon, fetch the base variable over the
+    declared window, and reduce it with ``apply_time_statistic``. Use hourly
+    source data to reproduce the daily sampling convention.
 
-        ```python
-        class DailyMeanARCO:
-            def __init__(self) -> None:
-                self.arco = ARCO_ERA5()
+    ```python
+    package = FuXiS2S.load_default_package()
+    model = FuXiS2S.load_model(package).to("cuda:0")
+    requested_variables = model.input_coords()["variable"]
+    # Includes "t2m:mean:0h:24h" and "tp:mean:1h:25h".
+    ```
 
-            def __call__(
-                self,
-                time: datetime | list[datetime] | TimeArray,
-                variable: str | list[str] | VariableArray,
-            ) -> xr.DataArray:
-                time, variable = prep_data_inputs(time, variable)
-                daily_arrays = []
-                for day in time:
-                    # Approximate daily means from 6-hourly ARCO ERA5
-                    sub_daily = [day + timedelta(hours=h) for h in (0, 6, 12, 18)]
-                    da_mean = self.arco(sub_daily, variable).mean("time", skipna=True)
-                    daily_arrays.append(
-                        da_mean.interp(lat=S2S_LAT, lon=S2S_LON, method="linear")
-                    )
-                da_out = xr.concat(daily_arrays, dim="time")
-                da_out = da_out.assign_coords(
-                    time=np.array(time, dtype="datetime64[ns]")
-                )
-                return da_out
-
-
-        # Load the model
-        package = FuXiS2S.load_default_package()
-        model = FuXiS2S.load_model(package).to("cuda:0")
-
-        # Run a single deterministic step
-        import earth2studio.run as run
-        from earth2studio.io import ZarrBackend
-
-        io = run.deterministic(["2024-01-15"], 1, model, DailyMeanARCO(), ZarrBackend())
-        ```
-
-        Badges
-        ------
-        region:global class:subseasonal-seasonal product:wind product:precip product:temp
-        product:atmos product:ocean year:2024 gpu:40gb backend:onnx
+    Badges
+    ------
+    region:global class:subseasonal-seasonal product:wind product:precip product:temp
+    product:atmos product:ocean year:2024 gpu:40gb backend:onnx
     """
 
     def __init__(self, onnx_path: str) -> None:
@@ -244,57 +239,65 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.ort: InferenceSession | None = None
         self._time_step = np.timedelta64(1, "D")
 
-    def input_coords(self) -> CoordSystem:
+    def default_sources(self) -> DataSource:
+        """Recommend hourly ARCO ERA5 for the declared daily-mean windows.
+
+        Returns
+        -------
+        DataSource
+            Raw hourly source. The caller must aggregate the declared daily
+            windows and regrid to the model's input grid.
+        """
+        from earth2studio.data import ARCO_ERA5
+
+        return ARCO_ERA5()
+
+    def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system for two consecutive UTC daily means.
+        CoordinateSystem
+            Allocation-free DataArray input signature for two consecutive UTC
+            daily means.
         """
-        return OrderedDict(
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "lat", "lon"),
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
                 "lead_time": np.array(
                     [np.timedelta64(-1, "D"), np.timedelta64(0, "D")]
                 ),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 121, endpoint=True),
-                "lon": np.linspace(0, 360, 240, endpoint=False),
-            }
+                "variable": np.array(DAILY_VARIABLES),
+            },
+            dynamic=("batch", "time"),
+            grid="latlon-1.5deg",
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Validate input coordinates and return the next daily coordinates.
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Output coordinate system of the prognostic model.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinates with two consecutive daily lead times.
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform,
+            with two consecutive daily lead times.
 
         Returns
         -------
-        CoordSystem
-            Output coordinates for the daily mean one day after the latest
-            input.
+        CoordinateSystem
+            Allocation-free DataArray output signature for the daily mean one
+            day after the latest input.
         """
-        target_input_coords = self.input_coords()
-        test_coords = input_coords.copy()
-        test_coords["lead_time"] = (
-            test_coords["lead_time"] - input_coords["lead_time"][-1]
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
+        lead = input_coords.lead_time.values
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
         )
-
-        for index, key in enumerate(target_input_coords):
-            handshake_dim(test_coords, key, index)
-            if key not in ("batch", "time"):
-                handshake_coords(test_coords, target_input_coords, key)
         self._initial_step(input_coords)
-
-        output_coords = input_coords.copy()
-        output_coords["lead_time"] = input_coords["lead_time"][-1:] + self._time_step
-        return output_coords
+        return coord_array_like(
+            input_coords, {"lead_time": lead[-1:] + self._time_step}
+        )
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -396,12 +399,14 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return output
 
-    def _initial_step(self, coords: CoordSystem) -> int:
-        lead_days = float(coords["lead_time"][-1] / self._time_step)
-        if not np.isfinite(lead_days) or lead_days < 0 or not lead_days.is_integer():
-            raise ValueError(
-                "Latest lead time must be a non-negative whole number of days"
-            )
+    def _initial_step(self, coords: CoordinateSystem) -> int:
+        handshake_time(
+            coords.isel(lead_time=slice(-1, None)),
+            "lead_time",
+            step=self._time_step,
+            minimum=np.timedelta64(0, "D"),
+        )
+        lead_days = float(coords["lead_time"].values[-1] / self._time_step)
         return int(lead_days)
 
     @staticmethod
@@ -416,7 +421,7 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _forward(
         self,
         x: torch.Tensor,
-        coords: CoordSystem,
+        coords: CoordinateSystem,
         step: int,
     ) -> torch.Tensor:
         """Run one FuXi-S2S ONNX step.
@@ -444,7 +449,7 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
         output = torch.empty_like(model_input)
         valid_times = np.tile(
-            coords["time"] + coords["lead_time"][-1],
+            coords["time"].values + coords["lead_time"].values[-1],
             x.shape[0],
         )
         day_of_year = self._day_of_year(valid_times)
@@ -517,81 +522,97 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return torch.cat((x[:, :, -1:], prediction), dim=2)
 
     @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def _step(self, x: xr.DataArray) -> xr.DataArray:
+        handshake_nonempty(x)
+        signature = self.output_coords(x)
+        handshake_time(x)
+        tensor, _ = x.e2s.to_torch()
+        tensor = tensor.to(self.device_buffer.device)
+        rolling = self._forward(tensor, x, self._initial_step(x))
+        output = from_torch(rolling[:, :, -1:], signature, name=x.name)
+        output.encoding = x.encoding.copy()
+        return output
+
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Run FuXi-S2S one daily step.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Two consecutive UTC daily means.
-        coords : CoordSystem
-            Coordinates describing the input tensor.
+        x : xr.DataArray
+            Two consecutive UTC daily means, backed by NumPy or CuPy, with
+            qualified variable labels and temporal-statistics metadata.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Predicted next daily mean and its coordinates.
+        xr.DataArray
+            Predicted next daily mean on the model device.
         """
-        step = self._initial_step(coords)
-        output_coords = self.output_coords(coords)
-        x = x.to(self.device_buffer.device)
-        rolling_output = self._forward(x, coords, step)
-        return rolling_output[:, :, -1:], output_coords
+        return self.initialize(x)[0]
 
-    @batch_func()
-    def _default_generator(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-        """Advance FuXi-S2S while retaining its two-day rolling state."""
-        self.output_coords(coords)
-        coords = coords.copy()
-        x = x.to(self.device_buffer.device)
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, xr.DataArray]:
+        """Predict the next daily mean and retain the missing history frame.
 
-        initial_coords = coords.copy()
-        initial_coords["lead_time"] = coords["lead_time"][-1:]
-        yield x[:, :, -1:], initial_coords
+        Parameters
+        ----------
+        x : xr.DataArray
+            Two prepared daily-mean fields matching ``input_coords()``, including
+            the declared statistics windows and grid.
 
-        while True:
-            x, coords = self.front_hook(x, coords)
-            output_coords = self.output_coords(coords)
-            step = self._initial_step(coords)
-            rolling_output = self._forward(x, coords, step)
-            prediction = rolling_output[:, :, -1:]
-            prediction, output_coords = self.rear_hook(prediction, output_coords)
-            rolling_output = torch.cat(
-                (rolling_output[:, :, :-1], prediction),
-                dim=2,
-            )
-            yield prediction, output_coords.copy()
+        Returns
+        -------
+        tuple[xr.DataArray, xr.DataArray]
+            First daily forecast and its preceding history frame. Iterator hooks
+            are not applied.
+        """
+        return self._step(x), x.isel(lead_time=slice(-1, None)).copy(deep=True)
 
-            x = rolling_output
-            coords["lead_time"] = np.concatenate(
-                (coords["lead_time"][-1:], output_coords["lead_time"])
-            )
+    def step(
+        self, y: xr.DataArray, state: xr.DataArray
+    ) -> tuple[xr.DataArray, xr.DataArray]:
+        """Advance from the latest daily mean and its previous history frame.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous daily forecast, including any caller-applied edits.
+        state : xr.DataArray
+            Preceding daily-mean frame returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, xr.DataArray]
+            Next daily forecast and updated history, without iterator hooks.
+        """
+        previous, _ = state.e2s.to_torch()
+        future, _ = y.e2s.to_torch()
+        signature = coord_array_like(
+            y,
+            {"lead_time": np.concatenate((state.lead_time.values, y.lead_time.values))},
+        )
+        x = from_torch(
+            torch.cat(
+                (previous.to(future.device), future), dim=y.get_axis_num("lead_time")
+            ),
+            signature,
+            name=y.name,
+        )
+        x.encoding = y.encoding.copy()
+        return self.initialize(x)
 
     def create_iterator(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        x: xr.DataArray,
+    ) -> Iterator[xr.DataArray]:
         """Create a daily FuXi-S2S forecast iterator.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Two consecutive UTC daily means.
-        coords : CoordSystem
-            Coordinates describing the input tensor.
+        x : xr.DataArray
+            Two consecutive prepared UTC daily means with coordinates and statistics.
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
-            Initial current day followed by successive daily predictions.
+        xr.DataArray
+            Successive daily predictions, starting with initialization.
         """
-        yield from self._default_generator(x, coords)
+        return self._default_create_iterator(x)

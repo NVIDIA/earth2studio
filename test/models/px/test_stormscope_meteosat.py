@@ -21,10 +21,72 @@ from collections.abc import Iterable
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
-from earth2studio.data import Random, fetch_data
-from earth2studio.models.px.stormscope_meteosat import VARIABLES, StormScopeMeteosatEU
-from earth2studio.utils import handshake_dim
+import earth2studio.models.px.stormscope_meteosat as meteosat_module
+from earth2studio.data import (
+    CompositeSource,
+    MeteosatFCI,
+    Random,
+    RegriddedSource,
+    fetch_data,
+)
+from earth2studio.grids import ProjectedGrid, Region, resolve_grid
+from earth2studio.models.base import DomainAdaptable
+from earth2studio.models.conformance import check_prognostic_contract
+from earth2studio.models.px.stormscope_meteosat import (
+    VARIABLES,
+    StormScopeMeteosatEU,
+    _BlockMeanRegridder,
+)
+from earth2studio.utils import coord_array_like
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.imports import OptionalDependencyFailure
+
+
+@pytest.fixture(autouse=True)
+def optional_backend(monkeypatch, request):
+    if meteosat_module.__file__ not in OptionalDependencyFailure.failures:
+        return
+    if (
+        request.node.get_closest_marker("package")
+        or "azimuth_zenith" in request.node.name
+    ):
+        pytest.skip("PhysicsNeMo is unavailable")
+    monkeypatch.delitem(OptionalDependencyFailure.failures, meteosat_module.__file__)
+
+    class Scheduler:
+        def __init__(self, **kwargs):
+            pass
+
+    monkeypatch.setattr(meteosat_module, "EDMNoiseScheduler", Scheduler, raising=False)
+    monkeypatch.setattr(
+        meteosat_module,
+        "sample",
+        lambda denoiser, latents, **kw: latents,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        StormScopeMeteosatEU,
+        "_forward",
+        lambda self, x, zen_azi: self._sample(None, x[:, -1].shape, x.dtype, x.device),
+    )
+    monkeypatch.setattr(
+        StormScopeMeteosatEU,
+        "_azimuth_zenith",
+        lambda self, times, zen_azi=None: (
+            torch.zeros(3, len(times), *self.latitudes.shape, device=self.means.device)
+            if zen_azi is None
+            else zen_azi.zero_()
+        ),
+    )
+
+
+def _field(model, x, coords):
+    signature = coord_array_like(
+        model.input_coords(), {"batch": coords["batch"], "time": coords["time"]}
+    )
+    return from_torch(x, signature)
 
 
 # Spoof diffusion model with the same call signature as an EDMPreconditioner-wrapped
@@ -50,9 +112,7 @@ def create_spoof_model(
     n_inv=2,
     h_pkg=8,
     w_pkg=10,
-    inference_mtg_box=None,
-    mtg_ylim=None,
-    mtg_xlim=None,
+    origin=(4880, 3072),
     variables=None,
     means=None,
     stds=None,
@@ -64,20 +124,13 @@ def create_spoof_model(
     output_times=None,
     ir_38_warm_scale_factor=0.024222141,
     ir_38_warm_threshold=4095.0,
-    num_diffusion_steps=2,
     sigma_threshold=1.0,
     sampler_args=None,
     model_spec=None,
     batch_size=1,
-    use_amp=False,
+    amp=False,
 ):
-    """Create a spoof StormScopeMeteosatEU model for testing"""
-    if inference_mtg_box is None:
-        inference_mtg_box = ((100, 100 + h_pkg), (200, 200 + w_pkg))
-    if mtg_ylim is None:
-        mtg_ylim = inference_mtg_box[0]
-    if mtg_xlim is None:
-        mtg_xlim = inference_mtg_box[1]
+    """Create a spoof StormScopeMeteosatEU model on a crop of the 2 km FCI grid"""
 
     if variables is None:
         variables = np.array(VARIABLES[:nvar])
@@ -88,12 +141,14 @@ def create_spoof_model(
     if output_times is None:
         output_times = np.array([np.timedelta64(10, "m")])
 
-    lat = torch.linspace(30.0, 55.0, h_pkg).unsqueeze(1).repeat(1, w_pkg)
-    lon = torch.linspace(-10.0, 30.0, w_pkg).unsqueeze(0).repeat(h_pkg, 1)
+    full = resolve_grid("mtg-fci-fulldisk-2km")
+    y_coords = full.y[origin[0] : origin[0] + h_pkg]
+    x_coords = full.x[origin[1] : origin[1] + w_pkg]
+    geography = ProjectedGrid(y_coords, x_coords, full.crs).coords()
+    lat = torch.as_tensor(geography["lat"].values, dtype=torch.float32)
+    lon = torch.as_tensor(geography["lon"].values, dtype=torch.float32)
     if earth_mask is None:
         earth_mask = torch.ones(h_pkg, w_pkg, dtype=torch.bool)
-    mtg_y = np.arange(*inference_mtg_box[0])
-    mtg_x = np.arange(*inference_mtg_box[1])
 
     if means is None:
         means = torch.zeros(nvar, 1, 1)
@@ -104,7 +159,7 @@ def create_spoof_model(
     if add_offset is None:
         add_offset = torch.zeros(nvar, 1, 1)
     if sampler_args is None:
-        sampler_args = {"sigma_min": 0.02, "sigma_max": 10.0}
+        sampler_args = {"sigma_min": 0.02, "sigma_max": 10.0, "num_steps": 2}
     invariants = torch.zeros(1, n_inv, h_pkg, w_pkg)
 
     if model_spec is None:
@@ -133,23 +188,19 @@ def create_spoof_model(
         scale_factor=scale_factor,
         add_offset=add_offset,
         invariants=invariants,
-        lat=lat,
-        lon=lon,
+        latitudes=lat,
+        longitudes=lon,
         earth_mask=earth_mask,
-        mtg_y=mtg_y,
-        mtg_x=mtg_x,
-        mtg_ylim=mtg_ylim,
-        mtg_xlim=mtg_xlim,
-        inference_mtg_box=inference_mtg_box,
+        y_coords=y_coords,
+        x_coords=x_coords,
         variables=variables,
         sampler_args=sampler_args,
         input_times=input_times,
         output_times=output_times,
         ir_38_warm_scale_factor=ir_38_warm_scale_factor,
         ir_38_warm_threshold=ir_38_warm_threshold,
-        num_diffusion_steps=num_diffusion_steps,
         batch_size=batch_size,
-        use_amp=use_amp,
+        amp=amp,
     ).to(device)
 
     return model
@@ -159,7 +210,7 @@ def test_stormscope_meteosat_coords():
     model = create_spoof_model()
     in_coords = model.input_coords()
 
-    assert list(in_coords.keys()) == [
+    assert list(in_coords.dims) == [
         "batch",
         "time",
         "lead_time",
@@ -169,8 +220,15 @@ def test_stormscope_meteosat_coords():
     ]
     assert np.array_equal(in_coords["lead_time"], model.input_times)
     assert (in_coords["variable"] == model.variables).all()
-    assert len(in_coords["y"]) == len(model.mtg_y)
-    assert len(in_coords["x"]) == len(model.mtg_x)
+    np.testing.assert_array_equal(in_coords["y"], model.grid.y)
+    np.testing.assert_array_equal(in_coords["x"], model.grid.x)
+    assert in_coords.data.nbytes == 0
+    np.testing.assert_allclose(in_coords.lat, model.latitudes, atol=1e-4)
+    np.testing.assert_allclose(in_coords.lon, model.longitudes % 360, atol=1e-4)
+    assert in_coords.attrs["topology"] == "projected"
+    # The cached signature is returned as an independent array.
+    in_coords.attrs["edited"] = True
+    assert "edited" not in model.input_coords().attrs
 
 
 @pytest.mark.parametrize(
@@ -199,33 +257,39 @@ def test_stormscope_meteosat_call(time, device, batch, model_batch_size):
     nvar = 4
     model = create_spoof_model(nvar=nvar, batch_size=model_batch_size, device=device)
 
-    dc = OrderedDict([("y", model.mtg_y), ("x", model.mtg_x)])
+    dc = OrderedDict([("y", model.grid.y), ("x", model.grid.x)])
     r = Random(dc)
 
     lead_time = model.input_coords()["lead_time"]
     variable = model.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x, coords = fetch_data(
+        r, time, np.asarray(variable), np.asarray(lead_time), device=device
+    ).e2s.to_torch()
 
     x = x.unsqueeze(0).repeat(batch, 1, 1, 1, 1, 1)
     coords.update({"batch": np.arange(batch)})
     coords.move_to_end("batch", last=False)
 
-    out, out_coords = model(x, coords)
+    x = _field(model, x, coords)
+    x.attrs["nested"] = {"items": [1]}
+    x.encoding["nested"] = {"items": [2]}
+    out = model(x)
+    out.attrs["nested"].clear()
+    out.encoding["nested"].clear()
+    assert x.attrs["nested"] == {"items": [1]}
+    assert x.encoding["nested"] == {"items": [2]}
+    out_coords = out
+    coords = x
 
     if not isinstance(time, Iterable):
         time = [time]
 
-    h, w = len(model.mtg_y), len(model.mtg_x)
+    h, w = model.grid.shape
     assert out.shape == torch.Size([batch, len(time), 1, nvar, h, w])
-    assert torch.isfinite(out).all()
+    assert np.isfinite(out.e2s.as_numpy()).all()
     assert (out_coords["variable"] == model.output_coords(coords)["variable"]).all()
     assert np.all(out_coords["time"] == time)
-    handshake_dim(out_coords, "x", 5)
-    handshake_dim(out_coords, "y", 4)
-    handshake_dim(out_coords, "variable", 3)
-    handshake_dim(out_coords, "lead_time", 2)
-    handshake_dim(out_coords, "time", 1)
-    handshake_dim(out_coords, "batch", 0)
+    assert out.dims == ("batch", "time", "lead_time", "variable", "y", "x")
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -240,7 +304,7 @@ def test_stormscope_meteosat_expert_selection(device):
     )
     model_low, model_high = model.experts[0], model.experts[1]
 
-    h, w = model.lat.shape
+    h, w = model.latitudes.shape
     x_noisy = torch.randn(2, nvar, h, w, device=device)
     condition = torch.zeros(2, 1, h, w, device=device)
     x0_predictor = model._conditioned_x0_predictor(condition)
@@ -261,29 +325,32 @@ def test_stormscope_meteosat_expert_selection(device):
     assert model_high.call_count == 2
 
 
-@pytest.mark.parametrize("use_amp", [False, True])
+@pytest.mark.parametrize("amp", [False, True])
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_stormscope_meteosat_amp(use_amp, device):
+def test_stormscope_meteosat_amp(amp, device):
     """AMP autocast should leave inference behavior intact."""
     nvar = 4
-    model = create_spoof_model(nvar=nvar, use_amp=use_amp, device=device)
+    model = create_spoof_model(nvar=nvar, amp=amp, device=device)
 
     time = np.array([np.datetime64("2024-06-01T00:00")])
-    dc = OrderedDict([("y", model.mtg_y), ("x", model.mtg_x)])
+    dc = OrderedDict([("y", model.grid.y), ("x", model.grid.x)])
     r = Random(dc)
 
     lead_time = model.input_coords()["lead_time"]
     variable = model.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x, coords = fetch_data(
+        r, time, np.asarray(variable), np.asarray(lead_time), device=device
+    ).e2s.to_torch()
     x = x.unsqueeze(0)
     coords.update({"batch": np.arange(1)})
     coords.move_to_end("batch", last=False)
 
-    out, _ = model(x, coords)
+    x = _field(model, x, coords)
+    out = model(x)
 
-    assert model.use_amp == use_amp
+    assert model.amp == amp
     assert out.dtype == x.dtype
-    assert torch.isfinite(out).all()
+    assert np.isfinite(out.e2s.as_numpy()).all()
 
 
 @pytest.mark.parametrize(
@@ -306,126 +373,217 @@ def test_stormscope_meteosat_iter(time, batch, device):
     nvar = 4
     model = create_spoof_model(nvar=nvar, device=device)
 
-    dc = OrderedDict([("y", model.mtg_y), ("x", model.mtg_x)])
+    dc = OrderedDict([("y", model.grid.y), ("x", model.grid.x)])
     r = Random(dc)
 
     lead_time = model.input_coords()["lead_time"]
     variable = model.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x, coords = fetch_data(
+        r, time, np.asarray(variable), np.asarray(lead_time), device=device
+    ).e2s.to_torch()
 
     x = x.unsqueeze(0).repeat(batch, 1, 1, 1, 1, 1)
     coords.update({"batch": np.arange(batch)})
     coords.move_to_end("batch", last=False)
 
-    p_iter = model.create_iterator(x, coords)
+    x = _field(model, x, coords)
+    original = x.copy(deep=True)
+    x = x.e2s.as_numpy()
+    x.name = "satellite"
+    x.attrs["removed"] = True
+    x.encoding = {"removed": True}
+    x = x.assign_coords(member=("batch", np.arange(batch)))
+    original = x.copy(deep=True)
+    events = []
 
-    # First value from the generator is the unchanged initial condition
-    x0, coords0 = next(p_iter)
-    assert torch.equal(x0, x)
-    assert np.array_equal(coords0["lead_time"], lead_time)
+    def front(field):
+        assert field.dims == x.dims
+        events.append("front")
+        return field
 
-    h, w = len(model.mtg_y), len(model.mtg_x)
+    def rear(field):
+        events.append("rear")
+        field.attrs.pop("removed", None)
+        field.encoding.clear()
+        return field.drop_vars("member", errors="ignore")
+
+    model.front_hook, model.rear_hook = front, rear
+    p_iter = model.create_iterator(x)
+
+    x0 = next(p_iter)
+    assert events == ["rear"]
+    assert x0.lead_time.values[0] == model.output_times[0]
+    retained = x0.copy(deep=True)
+
+    h, w = model.grid.shape
     time_step = model.output_times[0]
-    for i, (out, out_coords) in enumerate(p_iter):
+    for i, out in enumerate(p_iter):
+        out_coords = out
+        assert out.name == x.name and "removed" not in out.attrs
+        assert out.encoding == {} and "member" not in out.coords
+        assert events == ["rear"] + ["front", "rear"] * (i + 1)
         assert out.shape == torch.Size([batch, len(time), 1, nvar, h, w])
-        assert torch.isfinite(out).all()
+        assert np.isfinite(out.e2s.as_numpy()).all()
+        xr.testing.assert_identical(x, original)
+        xr.testing.assert_identical(x0, retained)
         assert (out_coords["batch"] == np.arange(batch)).all()
-        assert out_coords["lead_time"][0] == time_step * (i + 1)
+        assert out_coords["lead_time"][0] == time_step * (i + 2)
 
         if i > 1:
             break
 
 
-def test_stormscope_meteosat_default_bbox():
-    """mtg_ylim/mtg_xlim/inference_mtg_box default to Model_FCI_BBox when omitted"""
-    box = StormScopeMeteosatEU.Model_FCI_BBox
-    h_pkg = box[0][1] - box[0][0]
-    w_pkg = box[1][1] - box[1][0]
+@pytest.mark.parametrize("backend", ["numpy", "cupy"])
+def test_stormscope_meteosat_block_mean_regridder(backend):
+    """The block-mean regridder selects 2 km pixels and pools 1 km pixels exactly
+    as CUDA avg_pool2d does, on the field's backing."""
+    xp = np if backend == "numpy" else pytest.importorskip("cupy")
+    if backend == "cupy" and not torch.cuda.is_available():
+        pytest.skip("cuda missing")
+    model = create_spoof_model(h_pkg=6, w_pkg=8)
+    rng = np.random.default_rng(0)
+    for resolution, factor in (("2km", 1), ("1km", 2)):
+        regridder = _BlockMeanRegridder(resolution, model.grid)
+        (i0, i1), (j0, j1) = regridder.pixel_bbox
+        assert (i0, j0) == (4880 * factor, 3072 * factor)
+        assert (i1 - i0, j1 - j0) == (6 * factor, 8 * factor)
+        source = regridder.source_grid
+        np.testing.assert_array_equal(source.y, MeteosatFCI.FCI_Y[resolution][i0:i1])
+        values = rng.uniform(0, 4000, (2, 3, *source.shape)).astype(np.float32)
+        values[0, 0, 0, 0] = np.nan
+        field = xr.DataArray(
+            xp.asarray(values),
+            dims=("time", "variable", "y", "x"),
+            coords={
+                "y": source.y,
+                "x": source.x,
+                "_lat": (("y", "x"), np.zeros(source.shape)),
+            },
+        )
+        out = regridder(field)
+        assert isinstance(out.data, xp.ndarray)
+        assert out.dims == field.dims and out.shape[-2:] == model.grid.shape
+        np.testing.assert_array_equal(out["y"], model.grid.y)
+        assert "_lat" not in out.coords and "lat" in out.coords
+        assert out.attrs["topology"] == "projected"
+        pooled = torch.nn.functional.avg_pool2d(
+            torch.from_numpy(values).double(), factor
+        ).float()
+        result = out.data.get() if backend == "cupy" else out.values
+        if factor == 1:
+            np.testing.assert_array_equal(result, values)
+        else:
+            np.testing.assert_allclose(result, pooled.numpy(), rtol=1e-6)
+            assert np.isnan(result[0, 0, 0, 0])
+            # Row-major float32 sums divided by four, as CUDA avg_pool2d runs.
+            blocks = values.reshape(2, 3, 6, 2, 8, 2)
+            expected = (
+                (blocks[..., 0, :, 0] + blocks[..., 0, :, 1]) + blocks[..., 1, :, 0]
+            ) + blocks[..., 1, :, 1]
+            np.testing.assert_array_equal(result, expected / np.float32(4))
+        with pytest.raises(ValueError):
+            regridder(field.isel(x=slice(1, None)))
+        with pytest.raises(ValueError):
+            regridder(field.assign_coords(y=field.y.values[::-1]))
+    with pytest.raises(ValueError, match="crop"):
+        _BlockMeanRegridder(
+            "1km",
+            ProjectedGrid(model.grid.y + 1e-5, model.grid.x, model.grid.crs),
+        )
 
-    nvar = 2
-    variables = np.array(VARIABLES[:nvar])
-    lat = torch.zeros(h_pkg, w_pkg)
-    lon = torch.zeros(h_pkg, w_pkg)
-    earth_mask = torch.ones(h_pkg, w_pkg, dtype=torch.bool)
-    mtg_y = np.arange(*box[0])
-    mtg_x = np.arange(*box[1])
-    means = torch.zeros(nvar, 1, 1)
-    stds = torch.ones(nvar, 1, 1)
-    scale_factor = torch.ones(nvar, 1, 1)
-    add_offset = torch.zeros(nvar, 1, 1)
-    invariants = torch.zeros(1, 1, h_pkg, w_pkg)
-    model_spec = [
-        {
-            "model": PhooMeteosatDiffusionModel(nvar=nvar),
-            "sigma_min": 0.01,
-            "sigma_max": 88.0,
-        }
-    ]
 
-    # mtg_ylim, mtg_xlim, and inference_mtg_box are all intentionally omitted
-    # here to exercise the Model_FCI_BBox class-level defaults.
-    model = StormScopeMeteosatEU(
-        model_spec=model_spec,
-        means=means,
-        stds=stds,
-        scale_factor=scale_factor,
-        add_offset=add_offset,
-        invariants=invariants,
-        lat=lat,
-        lon=lon,
-        earth_mask=earth_mask,
-        mtg_y=mtg_y,
-        mtg_x=mtg_x,
-        variables=variables,
+def test_stormscope_meteosat_default_sources():
+    pytest.importorskip("eumdac")
+    model = create_spoof_model(nvar=len(VARIABLES))
+    source = model.default_sources()
+    assert isinstance(source, CompositeSource)
+    assert source.variables == {
+        "2km": tuple(VARIABLES[8:]),
+        "1km": tuple(VARIABLES[:8]),
+    }
+    for resolution, component in source.sources.items():
+        assert isinstance(component, RegriddedSource)
+        assert isinstance(component.source, MeteosatFCI)
+        assert component.source._resolution == resolution
+        assert component.source._pixel_roi == component.regridder.pixel_bbox
+
+    # Fetch through the composite with Random stand-ins on each source crop.
+    for component in source.sources.values():
+        grid = component.regridder.source_grid
+        component.source = Random(OrderedDict(y=grid.y, x=grid.x))
+    time = np.array([np.datetime64("2024-06-01T00:00")])
+    lead_time = model.input_coords()["lead_time"].values
+    x = fetch_data(source, time, model.variables, lead_time).expand_dims(batch=[0])
+    out = model(x)
+    assert out.shape[-2:] == model.grid.shape
+    assert np.isfinite(out.e2s.as_numpy()).all()
+
+
+def test_stormscope_meteosat_with_region():
+    model = create_spoof_model(h_pkg=40, w_pkg=60)
+    assert isinstance(model, DomainAdaptable)
+    latitude, longitude = model.latitudes.numpy(), model.longitudes.numpy()
+    south, north = np.quantile(latitude, [0.3, 0.6])
+    west, east = np.quantile(longitude, [0.3, 0.6])
+    view = model.with_region(Region.box(west, south, east, north))
+    other = view.with_region(Region.box(west, south, east, north))
+
+    assert model.region_info is None and view is not model
+    assert view.experts[0] is model.experts[0]
+    np.testing.assert_array_equal(view.grid.y, model.grid.y)
+    assert view.region_info.input_shape == model.grid.shape
+    assert view.region_info.output_bounds == other.region_info.output_bounds
+
+    model.set_rng(3)
+    assert view._rng_seed is None
+
+    signature = coord_array_like(
+        model.input_coords(),
+        {"batch": [0], "time": np.array([np.datetime64("2024-06-01T00:00")])},
     )
+    y = from_torch(torch.ones(signature.shape), signature)
+    cropped = view.crop_output(y)
+    mask = view.region_info.requested_mask
+    assert cropped.shape[-2:] == mask.shape
+    values = cropped.values
+    assert (values[..., mask] == 1).all() and np.isnan(values[..., ~mask]).all()
+    assert cropped.attrs["shape"] == list(mask.shape)
+    assert model.crop_output(y) is y
 
-    assert model.mtg_ylim == box[0]
-    assert model.mtg_xlim == box[1]
-    assert model.lat.shape == (h_pkg, w_pkg)
-    assert np.array_equal(model.mtg_y, mtg_y)
-    assert np.array_equal(model.mtg_x, mtg_x)
+    for region in (
+        Region.box(-60, south, east, north),  # beyond the domain
+        Region.box(west, south, west, north),  # zero width
+        Region.band(south, north),
+        Region.circle(float(south), float(west), 1e4),
+    ):
+        with pytest.raises(ValueError):
+            model.with_region(region)
 
 
-def test_stormscope_meteosat_sub_region():
-    """mtg_ylim/mtg_xlim select a sub-region of the inference_mtg_box package extent"""
-    h_pkg, w_pkg = 20, 30
-    y0, x0 = 500, 1000
-    inference_mtg_box = ((y0, y0 + h_pkg), (x0, x0 + w_pkg))
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="needs CUDA")
+def test_stormscope_meteosat_views_follow_shared_experts():
+    """Moving a view moves the shared experts; the parent must follow them."""
+    model = create_spoof_model(h_pkg=40, w_pkg=60)
+    # Give the shared expert a parameter so its device is observable.
+    model.experts[0].register_parameter("weight", torch.nn.Parameter(torch.zeros(1)))
+    latitude, longitude = model.latitudes.numpy(), model.longitudes.numpy()
+    south, north = np.quantile(latitude, [0.3, 0.6])
+    west, east = np.quantile(longitude, [0.3, 0.6])
+    view = model.with_region(Region.box(west, south, east, north)).to("cuda:0")
+    assert model.experts[0].weight.device.type == "cuda"
+    assert model.means.device.type == "cpu"
 
-    # Full package extent, no cropping
-    model_full = create_spoof_model(
-        h_pkg=h_pkg, w_pkg=w_pkg, inference_mtg_box=inference_mtg_box
+    signature = coord_array_like(
+        model.input_coords(),
+        {"batch": [0], "time": np.array([np.datetime64("2024-06-01T00:00")])},
     )
-    assert model_full.lat.shape == (h_pkg, w_pkg)
-    assert np.array_equal(model_full.mtg_y, np.arange(*inference_mtg_box[0]))
-    assert np.array_equal(model_full.mtg_x, np.arange(*inference_mtg_box[1]))
-
-    # Cropped sub-region, distinct from inference_mtg_box
-    mtg_ylim = (y0 + 5, y0 + 15)
-    mtg_xlim = (x0 + 10, x0 + 25)
-    model_sub = create_spoof_model(
-        h_pkg=h_pkg,
-        w_pkg=w_pkg,
-        inference_mtg_box=inference_mtg_box,
-        mtg_ylim=mtg_ylim,
-        mtg_xlim=mtg_xlim,
-    )
-
-    assert model_sub.mtg_ylim == mtg_ylim
-    assert model_sub.mtg_xlim == mtg_xlim
-    assert np.array_equal(model_sub.mtg_y, np.arange(*mtg_ylim))
-    assert np.array_equal(model_sub.mtg_x, np.arange(*mtg_xlim))
-
-    expected_shape = (mtg_ylim[1] - mtg_ylim[0], mtg_xlim[1] - mtg_xlim[0])
-    assert model_sub.lat.shape == expected_shape
-    assert model_sub.lon.shape == expected_shape
-    assert model_sub.earth_mask.shape == expected_shape
-
-    # Sub-region grid/lat/lon should be an exact slice of the full package arrays
-    yi0, yi1 = mtg_ylim[0] - y0, mtg_ylim[1] - y0
-    xi0, xi1 = mtg_xlim[0] - x0, mtg_xlim[1] - x0
-    assert torch.equal(model_sub.lat, model_full.lat[yi0:yi1, xi0:xi1])
-    assert torch.equal(model_sub.lon, model_full.lon[yi0:yi1, xi0:xi1])
+    x = from_torch(torch.ones(signature.shape), signature)
+    model.set_rng(0)
+    y, state = model.initialize(x)
+    model.step(y, state)
+    assert model.means.device.type == "cuda"
+    view.set_rng(0)
+    view(x)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -446,7 +604,7 @@ def test_stormscope_meteosat_raw_conversions(device):
         device=device,
     )
 
-    h, w = model.lat.shape
+    h, w = model.latitudes.shape
     x_raw = torch.rand(2, 1, 1, nvar, h, w, device=device) * 4000
     x_raw[0, 0, 0, VARIABLES.index("fci38ir")] *= 2  # to trigger HDR scaling
 
@@ -504,7 +662,7 @@ def test_stormscope_meteosat_ir38_warm_scaling():
 
     assert model.ir_38_channel == 1
 
-    h, w = model.lat.shape
+    h, w = model.latitudes.shape
     x = torch.zeros(1, 1, 1, nvar, h, w)
     below_val, above_val = 0.3, 0.8
     x[..., 1, 0, 0] = below_val
@@ -549,11 +707,14 @@ def test_stormscope_meteosat_azimuth_zenith(device):
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 def test_stormscope_meteosat_compile(device):
-    """compile_model wraps the diffusion sub-models with torch.compile"""
+    """compile_experts wraps the diffusion sub-models with torch.compile once"""
     model = create_spoof_model(device=device)
     orig_experts = list(model.experts)
 
-    model.compile_model()
+    model.compile_experts()
+    compiled = list(model.experts)
+    model.compile_experts()
+    assert list(model.experts) == compiled
 
     assert len(model.experts) == len(orig_experts)
     for orig_expert, expert in zip(orig_experts, model.experts):
@@ -603,33 +764,21 @@ def test_stormscope_meteosat_exceptions():
     model = create_spoof_model(nvar=nvar)
 
     in_coords = model.input_coords()
-    time = np.array([np.datetime64("2024-06-01T00:00")])
-
-    bad_variable_order = OrderedDict(
-        {
-            "batch": np.arange(1),
-            "time": time,
-            "lead_time": in_coords["lead_time"],
-            "variable": in_coords["variable"][::-1].copy(),
-            "y": model.mtg_y,
-            "x": model.mtg_x,
-        }
-    )
     with pytest.raises(ValueError):
-        model.output_coords(bad_variable_order)
+        model.output_coords(
+            coord_array_like(
+                in_coords, {"variable": np.asarray(in_coords["variable"])[::-1]}
+            )
+        )
 
-    bad_grid_size = OrderedDict(
-        {
-            "batch": np.arange(1),
-            "time": time,
-            "lead_time": in_coords["lead_time"],
-            "variable": in_coords["variable"],
-            "y": model.mtg_y[:-1],
-            "x": model.mtg_x,
-        }
-    )
     with pytest.raises(ValueError):
-        model.output_coords(bad_grid_size)
+        model.output_coords(in_coords.isel(y=slice(None, -1)))
+
+
+def test_stormscope_meteosat_conformance():
+    model = create_spoof_model()
+
+    check_prognostic_contract(model)
 
 
 @pytest.mark.package
@@ -647,15 +796,17 @@ def test_stormscope_meteosat_package():
     model = model.to(device)
 
     # Reduce diffusion steps to keep the integration test fast
-    model.num_diffusion_steps = 2
+    model.sampler_args["num_steps"] = 2
 
     time = np.array([np.datetime64("2024-06-01T00:00")])
     lead_time = model.input_coords()["lead_time"]
     variable = model.input_coords()["variable"]
 
-    dc = OrderedDict([("y", model.mtg_y), ("x", model.mtg_x)])
+    dc = OrderedDict([("y", model.grid.y), ("x", model.grid.x)])
     r = Random(dc)
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    x, coords = fetch_data(
+        r, time, np.asarray(variable), np.asarray(lead_time), device=device
+    ).e2s.to_torch()
     x = x.unsqueeze(0)
     coords.update({"batch": np.arange(1)})
     coords.move_to_end("batch", last=False)
@@ -665,21 +816,21 @@ def test_stormscope_meteosat_package():
     means = model.means.to(device=x.device, dtype=x.dtype).view(1, 1, 1, -1, 1, 1)
     x = means.expand_as(x).clone()
 
-    out, out_coords = model(x, coords)
+    x = _field(model, x, coords)
+    out = model(x)
+    out_coords = out
+    coords = x
 
-    h, w = len(model.mtg_y), len(model.mtg_x)
+    h, w = model.grid.shape
     assert out.shape == torch.Size([1, len(time), 1, len(variable), h, w])
     # Off-Earth pixels are intentionally masked to NaN in denormalize(); only
     # on-Earth pixels are expected to be finite.
-    assert torch.isfinite(out[..., model.earth_mask]).all()
+    assert np.isfinite(
+        out.e2s.as_numpy().values[..., ~model.off_earth_mask.cpu().numpy()]
+    ).all()
     assert (out_coords["variable"] == model.output_coords(coords)["variable"]).all()
     assert np.all(out_coords["time"] == time)
-    handshake_dim(out_coords, "x", 5)
-    handshake_dim(out_coords, "y", 4)
-    handshake_dim(out_coords, "variable", 3)
-    handshake_dim(out_coords, "lead_time", 2)
-    handshake_dim(out_coords, "time", 1)
-    handshake_dim(out_coords, "batch", 0)
+    assert out.dims == ("batch", "time", "lead_time", "variable", "y", "x")
 
     del model
     gc.collect()

@@ -30,6 +30,52 @@ output: generated/utils/interp
 earth2studio.utils.interp.LatLonInterpolation
 {% endautosummary %}
 
+## Regridders
+
+Implementations of the `earth2studio.grids.Regridder` protocol, which map fields
+between grid definitions.
+
+<!-- e2s-autosummary
+currentmodule: earth2studio.grids
+template: class
+output: generated/grids
+-->
+
+{% autosummary %}
+earth2studio.grids.BilinearRegridder
+earth2studio.grids.NearestRegridder
+{% endautosummary %}
+
+<!-- e2s-autosummary
+currentmodule: earth2studio.grids
+template: function
+output: generated/grids
+-->
+
+{% autosummary %}
+earth2studio.grids.list_regridders
+earth2studio.grids.register_regridder
+earth2studio.grids.resolve_regridder
+earth2studio.grids.same_geometry
+earth2studio.grids.select_subset
+{% endautosummary %}
+
+## Data Source Wrappers
+
+Compositions that stand in for a data or forecast source.
+
+<!-- e2s-autosummary
+currentmodule: earth2studio.data
+template: class
+output: generated/data
+-->
+
+{% autosummary %}
+earth2studio.data.CompositeForecastSource
+earth2studio.data.CompositeSource
+earth2studio.data.RegriddedSource
+{% endautosummary %}
+
 ## Observation Utilities
 
 <!-- e2s-autosummary
@@ -96,6 +142,34 @@ earth2studio.data.fetch_data
 earth2studio.data.fetch_dataframe
 earth2studio.data.fetch_dataframes
 earth2studio.data.prep_data_array
+{% endautosummary %}
+
+## STAC Utilities
+
+Shared layer for lazy, cloud-native access to STAC-cataloged rasters that
+collection-specific data sources build on.
+
+<!-- e2s-autosummary
+currentmodule: earth2studio.data.stac
+template: function
+output: generated/data/stac
+-->
+
+{% autosummary %}
+earth2studio.data.stac.search
+earth2studio.data.stac.search_items
+earth2studio.data.stac.open_asset
+earth2studio.data.stac.collections
+{% endautosummary %}
+
+<!-- e2s-autosummary
+currentmodule: earth2studio.data.stac
+template: class
+output: generated/data/stac
+-->
+
+{% autosummary %}
+earth2studio.data.stac.StacProvider
 {% endautosummary %}
 
 ## Model Utilities

@@ -14,24 +14,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
-from collections.abc import Generator, Iterator
-from dataclasses import dataclass
+from collections.abc import Generator
 
 import numpy as np
 import torch
+import xarray as xr
 
+from earth2studio.data.base import DataSource
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import handshake_coords, handshake_dim
-from earth2studio.utils.checkpoint import bind_checkpoint_state
+from earth2studio.utils import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_nonempty,
+    handshake_time,
+)
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem
 
 try:
     from physicsnemo.models.afno import AFNO
@@ -67,13 +73,6 @@ VARIABLES = [
     "z250",
     "t250",
 ]
-
-
-@dataclass
-class _FCNCheckpointState:
-    x: torch.Tensor | None = None
-    coord_keys: tuple[str, ...] = ()
-    coord_values: tuple[np.ndarray, ...] = ()
 
 
 class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
@@ -114,106 +113,64 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.model = core_model
         self.register_buffer("center", center)
         self.register_buffer("scale", scale)
-        self.checkpoint = bind_checkpoint_state(_FCNCheckpointState())
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of the prognostic model
+    def default_sources(self) -> DataSource:
+        """Recommend NCAR ERA5, including pressure-level relative humidity.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        DataSource
+            Raw NCAR ERA5 source covering all input variables.
         """
-        return OrderedDict(
+        from earth2studio.data import NCAR_ERA5
+
+        return NCAR_ERA5()
+
+    def input_coords(self) -> CoordinateSystem:
+        """Input coordinate system of the prognostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature on the FCN grid.
+        """
+        return coord_array(
+            ("batch", "lead_time", "variable", "lat", "lon"),
             {
-                "batch": np.empty(0),
                 "lead_time": np.array([np.timedelta64(0, "h")]),
                 "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 720, endpoint=False),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+            },
+            dynamic=("batch",),
+            grid="latlon-0.25deg-south-pole-excluded",
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of the prognostic model
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Output coordinate system of the prognostic model.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free DataArray output signature after one forecast step.
         """
-
-        output_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "lead_time": np.array([np.timedelta64(6, "h")]),
-                "variable": np.array(VARIABLES),
-                "lat": np.linspace(90, -90, 720, endpoint=False),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+        handshake_time(input_coords, "lead_time")
+        lead = np.asarray(input_coords["lead_time"])
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
         )
-
-        test_coords = input_coords.copy()
-        test_coords["lead_time"] = (
-            test_coords["lead_time"] - input_coords["lead_time"][-1]
+        return coord_array_like(
+            input_coords, {"lead_time": lead + np.timedelta64(6, "h")}
         )
-        target_input_coords = self.input_coords()
-        for i, key in enumerate(target_input_coords):
-            if key != "batch":
-                handshake_dim(test_coords, key, i)
-                handshake_coords(test_coords, target_input_coords, key)
-
-        output_coords = output_coords.copy()
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["lead_time"] = (
-            output_coords["lead_time"] + input_coords["lead_time"]
-        )
-
-        return output_coords
 
     def __str__(
         self,
     ) -> str:
         return "fcn"
 
-    def _restore_checkpoint_state(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem, bool]:
-        if (
-            self.checkpoint.checkpoint_level == 2
-            and self.checkpoint.checkpoint_state_loaded
-            and self.checkpoint.x is not None
-            and self.checkpoint.coord_keys
-        ):
-            x = self.checkpoint.x.to(x.device)
-            coords = OrderedDict(
-                (key, np.asarray(value).copy())
-                for key, value in zip(
-                    self.checkpoint.coord_keys, self.checkpoint.coord_values
-                )
-            )
-            return x, coords, True
-        return x, coords, False
-
-    def _save_checkpoint_state(self, x: torch.Tensor, coords: CoordSystem) -> None:
-        if self.checkpoint.checkpoint_enabled and self.checkpoint.checkpoint_level == 2:
-            self.checkpoint.x = x.detach().clone().to(self.checkpoint.device)
-            self.checkpoint.coord_keys = tuple(coords.keys())
-            self.checkpoint.coord_values = tuple(
-                np.asarray(value).copy() for value in coords.values()
-            )
-        else:
-            self.checkpoint.x = None
-            self.checkpoint.coord_keys = ()
-            self.checkpoint.coord_values = ()
-
-    # --8<-- [start:fcn-default-package]
     @classmethod
     def load_default_package(cls) -> Package:
         """Load prognostic package"""
@@ -260,78 +217,76 @@ class FCN(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return x
 
     @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Runs prognostic model 1 step.
+    def _step(self, x: xr.DataArray) -> xr.DataArray:
+        signature = self.output_coords(x)
+        tensor, _ = x.e2s.to_torch()
+        output = from_torch(self._forward(tensor), signature, name=x.name)
+        output.encoding = x.encoding.copy()
+        return output
+
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Predict six hours ahead without iterator hooks.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            NumPy- or CuPy-backed input with coordinates and grid metadata.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system 6 hours in the future
+        xr.DataArray
+            Forecast six hours in the future on the same device.
         """
-        x, coords, _ = self._restore_checkpoint_state(x, coords)
-        output_coords = self.output_coords(coords)
+        return self.initialize(x)[0]
 
-        x = self._forward(x)
-        self._save_checkpoint_state(x, output_coords)
-
-        return x, output_coords
-
-    @batch_func()
-    def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-        coords = coords.copy()
-        x, coords, restored = self._restore_checkpoint_state(x, coords)
-
-        self.output_coords(coords)
-
-        if not restored:
-            self._save_checkpoint_state(x, coords)
-            yield x, coords
-
-        while True:
-            # Front hook
-            x, coords = self.front_hook(x, coords)
-
-            # Forward is identity operator
-            coords = self.output_coords(coords)
-            x = self._forward(x)
-
-            # Rear hook
-            x, coords = self.rear_hook(x, coords)
-            self._save_checkpoint_state(x, coords)
-
-            yield x, coords.copy()
-
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Creates a iterator which can be used to perform time-integration of the
-        prognostic model. Will return the initial condition first (0th step).
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, None]:
+        """Compute the first forecast without iterator hooks.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, None]
+            First six-hour forecast and ``None``; no private state is required.
+        """
+        handshake_nonempty(x)
+        return self._step(x), None
+
+    def step(self, y: xr.DataArray, state: None) -> tuple[xr.DataArray, None]:
+        """Advance the previous forecast without modifying it or using hooks.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        state : None
+            Empty continuation state returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, None]
+            Next six-hour forecast and ``None``.
+        """
+        if state is not None:
+            raise ValueError("FCN state must be None")
+        return self.initialize(y)
+
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
+        """Yield six-hour forecasts, starting with initialization's prediction.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial state with coordinates and grid metadata.
 
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
-            Iterator that generates time-steps of the prognostic model container the
-            output data tensor and coordinate system dictionary.
+        xr.DataArray
+            Forecast DataArrays. The rear hook runs before every yield and the
+            front hook before each subsequent step.
         """
-        yield from self._default_generator(x, coords)
+        return self._default_create_iterator(x)

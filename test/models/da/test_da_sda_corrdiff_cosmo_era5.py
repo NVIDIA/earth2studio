@@ -19,7 +19,7 @@
 Construction-based (no real package / no GPU forward). They exercise the SDA
 eligibility seam (``_identity_output_indices``), the dx ``_denoise`` score-predictor
 seam, the sparse-obs -> normalized-space tensors, and the public DA contract
-(coords, ``__call__``, ``create_generator``, ``load_model``).
+(coords, independent ``__call__`` analyses, ``load_model``).
 """
 
 import os
@@ -44,7 +44,6 @@ from physicsnemo.diffusion.noise_schedulers import EDMNoiseScheduler
 from earth2studio.models.auto import Package
 from earth2studio.models.da.sda_corrdiff_cosmo_era5 import CorrDiffCosmoEra5SDA
 from earth2studio.models.dx.corrdiff_cosmo_era5 import CorrDiffCosmoEra5
-from earth2studio.utils.type import CoordSystem
 
 # ── Mock networks ────────────────────────────────────────────────────────────
 
@@ -271,7 +270,7 @@ def test_out_idx_excludes_derived_hub_wind():
         number_of_samples=1,
         sampler_steps=2,
     )
-    coord_vars = list(model.output_coords(model.input_coords())["variable"])
+    coord_vars = model.output_coords(model.input_coords())["variable"].values.tolist()
     derived = coord_vars[len(model.output_variables) :]
     assert derived  # the model really does append derived hub-height winds
     # the obs->channel map wires each trained wind to its ACTUAL index (a permuted
@@ -287,11 +286,6 @@ def test_identity_output_indices_deny_by_default():
     # a FUTURE unknown transform is auto-excluded via membership, not enumeration
     model._channel_transforms["U_10M"] = {"transform": "made_up"}
     assert i not in model._identity_output_indices
-
-
-def test_construct_rejects_non_identity_assimilate_variable():
-    with pytest.raises(ValueError, match="not an assimilable"):
-        _build_sda(assimilate_variables=("tp",))
 
 
 def test_model_level_channels_are_assimilable():
@@ -405,9 +399,10 @@ def test_run_diffusion_guided_changes_analysis_under_no_grad():
         ({"assimilate_variables": ()}, "assimilate_variables must be non-empty"),
         ({"number_of_samples": 0}, "number_of_samples must be >= 1"),
         ({"sampler_steps": 1}, "sampler_steps must be >= 2"),
+        ({"assimilate_variables": ("tp",)}, "not an assimilable"),
     ],
 )
-def test_construct_rejects_invalid_params(kwargs: dict[str, Any], match: str):
+def test_corrdiff_sda_init_exceptions(kwargs: dict[str, Any], match: str):
     with pytest.raises(ValueError, match=match):
         _build_sda(**kwargs)
 
@@ -440,29 +435,22 @@ def test_construct_defaults_inherit_from_model():
 # ── Coordinate contracts ─────────────────────────────────────────────────────
 
 
-def test_coordinate_contracts():
+def test_corrdiff_sda_coords():
     sda = _build_sda(number_of_samples=2, assimilate_variables=("u10m", "v10m"))
     model = sda.model
-    # init_coords: the ERA5 driving state (the grid the downscaler conditions on)
-    (ic,) = sda.init_coords()
-    assert list(ic["variable"]) == ERA5_VARIABLES
-    assert "lat" in ic and "lon" in ic
-    # input_coords: the observation DataFrame schema
-    (fs,) = sda.input_coords()
+    # ERA5 background and observation input schema.
+    ic, fs = sda.input_coords()
+    assert list(ic["variable"].values) == ERA5_VARIABLES
+    assert "lat" in ic.coords and "lon" in ic.coords
     assert set(fs.keys()) == {"time", "lat", "lon", "observation", "variable"}
     assert list(fs["variable"]) == ["u10m", "v10m"]
     # output_coords: analysis dims, 2D lat/lon, and the model's output vocabulary
-    coords = OrderedDict(
-        time=np.array([np.datetime64("2021-07-14T12:00")]),
-        variable=np.array(ERA5_VARIABLES),
-        lat=model.lat_input_numpy,
-        lon=model.lon_input_numpy,
-    )
-    (oc,) = sda.output_coords((coords,))
-    assert list(oc.keys()) == ["time", "sample", "variable", "y", "x", "lat", "lon"]
+    x = _era5_da(sda, np.array([np.datetime64("2021-07-14T12:00")]))
+    oc = sda.output_coords(x, fs)
+    assert oc.dims == ("time", "sample", "variable", "y", "x")
     assert len(oc["sample"]) == 2
     assert np.asarray(oc["lat"]).ndim == 2 and np.asarray(oc["lon"]).ndim == 2
-    assert list(oc["variable"]) == list(model._output_coord_variables)
+    assert list(oc["variable"].values) == list(model._output_coord_variables)
 
 
 # ── _build_obs_tensors ───────────────────────────────────────────────────────
@@ -613,7 +601,7 @@ def test_build_obs_tensors_missing_column_raises():
         sda._build_obs_tensors(obs, t, sda.device)
 
 
-# ── __call__ / create_generator ──────────────────────────────────────────────
+# ── Independent analyses ────────────────────────────────────────────────────
 
 
 def _identity_sda() -> CorrDiffCosmoEra5SDA:
@@ -627,7 +615,7 @@ def _identity_sda() -> CorrDiffCosmoEra5SDA:
     )
 
 
-def test_call_returns_analysis():
+def test_corrdiff_sda_call():
     sda = _identity_sda()
     times = np.array([np.datetime64("2021-07-14T12:00")])
     x = _era5_da(sda, times)
@@ -648,7 +636,7 @@ def test_call_returns_analysis():
     assert out_none.shape == out.shape
 
 
-def test_call_rejects_multi_lead_time():
+def test_corrdiff_sda_exceptions():
     sda = _build_sda()
     times = np.array([np.datetime64("2021-07-14T12:00")])
     x = _era5_da(sda, times).expand_dims(
@@ -658,25 +646,14 @@ def test_call_rejects_multi_lead_time():
         sda(x, None)
 
 
-def _analysis_output_inputs(
-    sda: CorrDiffCosmoEra5SDA,
-) -> tuple[torch.Tensor, np.ndarray, CoordSystem]:
-    """A dummy (out, times, oc) triple for exercising ``_to_output_dataarray``."""
-    times = np.array([np.datetime64("2021-07-14T12:00")])
-    xf = sda._era5_frames(_era5_da(sda, times))
-    x_coords = OrderedDict({dim: xf.coords[dim].values for dim in xf.dims})
-    (oc,) = sda.output_coords((x_coords,))
-    H, W = sda.model.lat_output_numpy.shape
-    n_var = len(sda.model._output_coord_variables)
-    return torch.zeros(1, 1, n_var, H, W), times, oc
-
-
 def test_to_output_dataarray_requires_cupy_on_cuda(monkeypatch):
     # On CUDA the analysis must be returned on-device (CuPy); with CuPy absent this
     # must raise rather than silently fall back to CPU NumPy (a contract violation).
     # Exercised on CPU by faking a CUDA device and a missing cupy import.
     sda = _identity_sda()
-    out, times, oc = _analysis_output_inputs(sda)
+    times = np.array([np.datetime64("2021-07-14T12:00")])
+    oc = sda.output_coords(_era5_da(sda, times))
+    out = torch.zeros(oc.shape)
     monkeypatch.setattr("earth2studio.models.da.sda_corrdiff_cosmo_era5.cp", None)
     monkeypatch.setattr(
         CorrDiffCosmoEra5SDA, "device", property(lambda self: torch.device("cuda"))
@@ -706,26 +683,47 @@ def test_forward_trims_halo():
     assert trimmed.shape[-1] == untrimmed.shape[-1] - 2
 
 
-def test_create_generator():
+def test_corrdiff_sda_deterministic_seed() -> None:
     sda = _identity_sda()
     t0 = np.datetime64("2021-07-14T12:00")
     t1 = np.datetime64("2021-07-14T13:00")
     times = np.array([t0, t1])
     x = _era5_da(sda, times)
-
-    gen = sda.create_generator(x)
-    assert next(gen) is None  # prime with no compute
+    original_x = x.copy(deep=True)
 
     obs0 = _obs_df(sda, [(4, 4)], ["u10m"], [1.0], t0)
-    a0 = gen.send(obs0)
+    original_obs = obs0.copy(deep=True)
+    x0, x1 = x.isel(time=[0]), x.isel(time=[1])
+    global_rng = torch.get_rng_state()
+    sda.set_rng(42, reset=False)
+    free0 = sda(x0, None)
+    sda.set_rng(42)
+    a0 = sda(x0, obs0)
     assert set(a0.dims) == {"time", "sample", "variable", "y", "x"}
     assert a0.sizes["time"] == 1
     assert a0.coords["time"].values[0] == t0
+    assert np.isfinite(a0.values).all()
+    assert not np.allclose(a0.values, free0.values)
 
-    a1 = gen.send(None)
+    sda.set_rng(99, reset=False)  # Preserve the advancing stream.
+    a1 = sda(x1, None)
     assert a1.sizes["time"] == 1
     assert a1.coords["time"].values[0] == t1
-    gen.close()
+    assert np.isfinite(a1.values).all()
+
+    # A fresh observation batch never leaks into a later free analysis, and
+    # earlier times can be requested again without advancing a hidden cursor.
+    sda.set_rng(42)
+    batched = sda(x, obs0)
+    xr.testing.assert_allclose(batched, xr.concat([a0, a1], dim="time"))
+    sda.set_rng(42)
+    xr.testing.assert_allclose(sda(x0, None), free0)
+    assert not np.allclose(sda(x0, None).values, free0.values)
+    sda.set_rng(99)
+    assert not np.allclose(sda(x0, None).values, free0.values)
+    assert torch.equal(global_rng, torch.get_rng_state())
+    xr.testing.assert_identical(x, original_x)
+    pd.testing.assert_frame_equal(obs0, original_obs)
 
 
 # ── load_model (mocked DX loader) ────────────────────────────────────────────
@@ -778,31 +776,21 @@ def test_load_model_domain_crops():
     assert sda._lat_np.shape == sda.model.lat_output_numpy.shape
 
 
-def test_to_moves_wrapped_model():
-    # A real device transition without CUDA: moving the wrapper to the meta device must
-    # move the wrapped downscaler's registered buffers.
-    sda = _build_sda()
-    returned = sda.to("meta")
-    assert returned is sda
-    assert sda.device.type == "meta"
-    assert sda.model.lat_output_grid.device.type == "meta"
-
-
-def test_device_follows_wrapped_model():
-    # device is derived from the wrapped model's grid buffer (single source of truth),
-    # so it tracks the model even when the model is moved directly -- e.g. wrapping a
-    # placed model, or sda.model.to(...) after construction. Uses meta (no GPU needed).
+@pytest.mark.parametrize("move_wrapped", [False, True])
+def test_corrdiff_sda_device(move_wrapped):
     sda = _build_sda()
     assert sda.device.type == "cpu"
-    sda.model.to("meta")
+    target = sda.model if move_wrapped else sda
+    assert target.to("meta") is target
     assert sda.device.type == "meta"
+    assert sda.model.lat_output_grid.device.type == "meta"
 
 
 # ── Package integration test (real weights) ──────────────────────────────────
 
 
 @pytest.mark.package
-def test_da_sda_corrdiff_cosmo_era5_package():
+def test_corrdiff_sda_package():
     pkg_path = os.environ.get("COSMO_REA_PACKAGE")
     if not pkg_path:
         pytest.skip("set COSMO_REA_PACKAGE to a built package dir to run")
@@ -820,7 +808,7 @@ def test_da_sda_corrdiff_cosmo_era5_package():
     if not torch.cuda.is_available():
         pytest.skip("NATTEN forward requires CUDA; checkpoint load verified on CPU")
 
-    (ic,) = sda.init_coords()
+    ic, _ = sda.input_coords()
     times = np.array([np.datetime64("2021-07-14T12:00")])
     lat, lon = np.asarray(ic["lat"]), np.asarray(ic["lon"])
     x = xr.DataArray(

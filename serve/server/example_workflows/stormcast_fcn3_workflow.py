@@ -55,7 +55,9 @@ class StormCastFCN3Workflow(Earth2Workflow):
         orography_fn = fcn3_package.resolve("orography.nc")
         with xr.open_dataset(orography_fn) as ds:
             z_surface = torch.as_tensor(ds["Z"][0].values)
-        z_surf_coords = OrderedDict({d: fcn3.input_coords()[d] for d in ["lat", "lon"]})
+        z_surf_coords = OrderedDict(
+            {d: fcn3.input_coords()[d].values for d in ["lat", "lon"]}
+        )
         sp_model = DerivedSurfacePressure(
             p_levels=[50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000],
             surface_geopotential=z_surface,

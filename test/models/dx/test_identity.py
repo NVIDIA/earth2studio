@@ -19,8 +19,11 @@ from collections import OrderedDict
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
+from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import Identity
+from earth2studio.utils.cupy import from_torch
 
 
 @pytest.mark.parametrize(
@@ -40,7 +43,23 @@ def test_diagnostic_identity(coords, device):
 
     df = Identity().to(device)
 
-    x, out_coords = df(data, coords)
+    field = from_torch(data, coords, name="weather", attrs={"experiment": "identity"})
+    field = field.assign_coords(height=("a", np.arange(field.sizes["a"])))
+    field.encoding["source"] = "identity-fixture"
+    output = df(field)
 
-    assert torch.allclose(data, x)
-    assert out_coords == coords
+    xr.testing.assert_identical(output, field)
+    assert output.encoding == field.encoding
+    assert output.e2s.is_cupy == field.e2s.is_cupy
+    signature = df.output_coords(field)
+    assert signature.data.nbytes == 0
+    assert signature.dims == field.dims
+    assert df.input_coords().data.nbytes == 0
+
+
+def test_identity_conformance():
+    model = Identity()
+    assert check_diagnostic_contract(model) == [
+        "D4: model declares fewer than two fixed dimensions",
+        "D10: model does not declare itself stochastic",
+    ]

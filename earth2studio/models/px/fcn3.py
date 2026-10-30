@@ -14,25 +14,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
-from collections import OrderedDict
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
+from copy import deepcopy
 from datetime import datetime
+from typing import Any
 
 import numpy as np
 import torch
+import xarray as xr
 from loguru import logger
 
+from earth2studio.data.base import DataSource
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.models.utils import fork_rng
+from earth2studio.utils import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_nonempty,
+    handshake_time,
+)
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
 from earth2studio.utils.time import timearray_to_datetime
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 try:
     import torch_harmonics
@@ -138,7 +149,7 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     spectra and realistic dynamics across multiple scales.
 
     FourCastNet 3 is a global probabilistic prognostic model.
-    It operates on a 0.25 degree lat-lon grid (south-pole excluding)
+    It operates on a 0.25 degree lat-lon grid (both poles included)
     equirectangular grid with 72 variables.
 
     Note
@@ -156,8 +167,6 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Core PyTorch model with loaded weights
     variables : np.array, optional
         Variables associated with model, by default 72 variable model.
-    seed : int, optional
-        Seed of the underlying FCN3 model's random generators, by default 333
 
     Badges
     ------
@@ -169,91 +178,87 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self,
         core_model: torch.nn.Module,
         variables: np.array = np.array(VARIABLES),
-        seed: int = 333,
     ):
         super().__init__()
         self.model = core_model
-        self.variables = variables
+        self.variables = np.array(variables, copy=True)
+        self.register_buffer("device_buffer", torch.empty(0))
         if "2d" in self.variables:
             self.variables[self.variables == "2d"] = "d2m"
-
-        self.set_rng(reset=True, seed=seed)
 
     def __str__(self) -> str:
         return "fcn3"
 
-    def set_rng(self, seed: int = 333, reset: bool = True) -> None:
+    stochastic = True
+    _rng: torch.Generator | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
         """Set the underlying FCN3 model's RNG
 
         Parameters
         ----------
-        seed : int, optional
-            Seed for the RNG, by default 333
+        seed : int
+            Seed for the RNG
         reset : bool, optional
             Whether to reset the state of the RNG, by default True
         """
-        self.seed = seed
-        self.model.set_rng(reset=reset, seed=seed)
+        if reset or self._rng is None:
+            self._rng = torch.Generator().manual_seed(seed)
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of the prognostic model
+    def default_sources(self) -> DataSource:
+        """Recommend ARCO ERA5 initial conditions.
+
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        DataSource
+            Raw ARCO ERA5 source for the input slot.
         """
-        return OrderedDict(
+        from earth2studio.data import ARCO_ERA5
+
+        return ARCO_ERA5()
+
+    def input_coords(self) -> CoordinateSystem:
+        """Input coordinate system of the prognostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature for one frame on the
+            registered 0.25 degree grid.
+        """
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "lat", "lon"),
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(0, "h")]),
-                "variable": np.array(self.variables),
-                "lat": np.linspace(90.0, -90.0, 721),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+                "variable": self.variables,
+            },
+            dynamic=("batch", "time"),
+            grid="latlon-0.25deg",
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of the prognostic model
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Output coordinate system of the prognostic model.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
+
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free DataArray output signature for the next six-hour
+            forecast.
         """
-        output_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array([np.timedelta64(6, "h")]),
-                "variable": np.array(self.variables),
-                "lat": np.linspace(90.0, -90.0, 721),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
+        lead = input_coords.lead_time.values
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
         )
-        if input_coords is None:
-            return output_coords
-        test_coords = input_coords.copy()
-        test_coords["lead_time"] = (
-            test_coords["lead_time"] - input_coords["lead_time"][-1]
+        return coord_array_like(
+            input_coords, {"lead_time": lead + np.timedelta64(6, "h")}
         )
-        target_input_coords = self.input_coords()
-        for i, key in enumerate(target_input_coords):
-            if key not in ["batch", "time"]:
-                handshake_dim(test_coords, key, i)
-                handshake_coords(test_coords, target_input_coords, key)
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["time"] = input_coords["time"]
-        output_coords["lead_time"] = (
-            output_coords["lead_time"] + input_coords["lead_time"]
-        )
-        return output_coords
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -357,13 +362,12 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self._internal_noise_states = _internal_noise_states
 
     @torch.inference_mode()
-    def _forward(
+    def _forward_tensor(
         self,
         x: torch.Tensor,
         coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        output_coords = self.output_coords(coords)
-        x = x.squeeze(2)
+    ) -> torch.Tensor:
+        x = x.clone().squeeze(2)
 
         # For normalization, we will use both z-normalization and minmax normalization
         # The center/scale and min/max should be constructed to only apply to the correct variables, respectively.
@@ -392,72 +396,101 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 self._set_internal_state(j, i)
 
         x = x.unsqueeze(2)
-        return x, output_coords
+        return x
 
     @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Runs prognostic model 1 step
+    def _step(self, x: xr.DataArray, reset: bool = False) -> xr.DataArray:
+        signature = self.output_coords(x)
+        handshake_time(x)
+        tensor, coords = x.e2s.to_torch()
+        tensor = tensor.to(self.device_buffer.device)
+        if reset:
+            self._reset_internal_state(x.sizes["batch"], x.sizes["time"])
+        result = from_torch(
+            self._forward_tensor(tensor, coords), signature, name=x.name
+        )
+        result.encoding = x.encoding.copy()
+        return result
+
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Sample a six-hour forecast with freshly initialized core noise states.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
 
         Returns
-        ------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system
+        -------
+        xr.DataArray
+            First forecast matching ``output_coords(x)``, without iterator
+            hooks. Use ``initialize`` to retain noise state for continuation.
         """
-        # Initialize the internal noise states
-        # for each batch index, we will have a list of noise states for each separate time
-        self._reset_internal_state(len(coords["batch"]), len(coords["time"]))
-        output, coords = self._forward(x, coords)
-        return output, coords
+        return self.initialize(x)[0]
 
-    @batch_func()
-    def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-        coords = coords.copy()
-        self.output_coords(coords)
-
-        # Initialize the internal noise states
-        self._reset_internal_state(len(coords["batch"]), len(coords["time"]))
-
-        # Yield the initial condition
-        yield x, coords
-        while True:
-            # Front hook
-            x, coords = self.front_hook(x, coords)
-            # Forward is identity operator
-            x, coords = self._forward(x, coords)
-            # Rear hook
-            x, coords = self.rear_hook(x, coords)
-            yield x, coords.copy()
-
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Creates a iterator which can be used to perform time-integration of the
-        prognostic model. Will return the initial condition first (0th step).
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, dict[str, Any]]:
+        """Compute the first prediction and capture core noise and rollout RNG state.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict[str, Any]]
+            First six-hour forecast and continuation seed and core noise fields.
+            Iterator hooks are not applied.
+        """
+        handshake_nonempty(x)
+        seed = int(torch.randint(2**31, (), generator=self._rng).item())
+        return self._forward(x, {"seed": seed, "noise": None})
+
+    def _forward(
+        self, x: xr.DataArray, state: dict[str, Any]
+    ) -> tuple[xr.DataArray, dict[str, Any]]:
+        seed = state["seed"]
+        with fork_rng(seed, self.device_buffer.device):
+            self.model.set_rng(reset=True, seed=seed)
+            if state["noise"] is not None:
+                self._internal_noise_states = deepcopy(state["noise"])
+            y = self._step(x, reset=state["noise"] is None)
+        return y, {
+            "seed": (seed + 1) % 2**31,
+            "noise": deepcopy(self._internal_noise_states),
+        }
+
+    def step(
+        self, y: xr.DataArray, state: dict[str, Any]
+    ) -> tuple[xr.DataArray, dict[str, Any]]:
+        """Advance from a forecast and explicit noise state, without altering either.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        state : dict[str, Any]
+            Continuation seed and core noise fields from ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, dict[str, Any]]
+            Next six-hour forecast and updated state, without iterator hooks.
+        """
+        return self._forward(y, state)
+
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
+        """Yield six-hour forecasts starting with the first prediction.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
-            Iterator that generates time-steps of the prognostic model container the
-            output data tensor and coordinate system dictionary.
+        xr.DataArray
+            Forecasts after the rear hook. The front hook runs before subsequent
+            steps; both hooks feed recurrence directly.
         """
-        yield from self._default_generator(x, coords)
+        return self._default_create_iterator(x)

@@ -19,11 +19,27 @@ from collections import OrderedDict
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
 from earth2studio.statistics import lat_weight, moments
-from earth2studio.utils.coords import handshake_coords, handshake_dim
+from earth2studio.utils.coords import handshake_coords
+from earth2studio.utils.cupy import backend, from_torch
 
 lat_weights = lat_weight(torch.as_tensor(np.linspace(-90.0, 90.0, 361)))
+
+
+def _check_output_coords(stat, x: xr.DataArray, y: xr.DataArray) -> None:
+    """Check that the a priori output signature matches the computed output"""
+    out_test = stat.output_coords(x)
+    assert out_test.dims == y.dims
+    assert out_test.shape == y.shape
+    assert list(out_test.coords) == list(y.coords)
+    for d in y.dims:
+        handshake_coords(out_test, y, d)
+
+
+def _to_np(y: xr.DataArray) -> np.ndarray:
+    return y.e2s.to_torch()[0].cpu().numpy()
 
 
 @pytest.mark.parametrize(
@@ -48,21 +64,19 @@ def test_mean(reduction_weights: tuple[list[str], np.ndarray], device: str) -> N
         }
     )
 
-    x = torch.randn((10, 1, 2, 361, 720), device=device)
+    x = from_torch(torch.randn((10, 1, 2, 361, 720), device=device), coords)
 
     reduction_dimensions, weights = reduction_weights
     if weights is not None:
         weights = weights.to(device)
     mean = moments.mean(reduction_dimensions, weights=weights)
 
-    y, c = mean(x, coords)
-    assert not any([ri in c for ri in reduction_dimensions])
-    assert list(y.shape) == [len(val) for val in c.values()]
+    y = mean(x)
+    assert not any([ri in y.dims for ri in reduction_dimensions])
+    assert list(y.shape) == [x.sizes[d] for d in y.dims]
+    assert y.dims == tuple(d for d in x.dims if d not in reduction_dimensions)
 
-    out_test_coords = mean.output_coords(coords)
-    for i, ci in enumerate(c):
-        handshake_dim(out_test_coords, ci, i)
-        handshake_coords(out_test_coords, c, ci)
+    _check_output_coords(mean, x, y)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -72,23 +86,22 @@ def test_weighted_mean(device: str) -> None:
         {"ensemble": np.arange(10), "lat": np.linspace(-90.0, 90.0, 361)}
     )
 
-    x = torch.randn((10, 361), device=device)
+    x_t = torch.randn((10, 361), device=device)
+    x = from_torch(x_t, coords)
 
     reduction_dimensions, weights = ["lat"], lat_weights
     mean = moments.mean(reduction_dimensions, weights=weights)
 
     assert str(mean) == "lat_mean"
-    y, c = mean(x, coords)
+    y = mean(x)
 
     # Compute numpy weighted average
-    y_np = np.average(x.cpu().numpy(), axis=1, weights=lat_weights.cpu().numpy())
+    y_np = np.average(x_t.cpu().numpy(), axis=1, weights=lat_weights.cpu().numpy())
 
-    assert torch.allclose(y, torch.as_tensor(y_np, device=device))
+    assert y.dims == ("ensemble",)
+    assert np.allclose(_to_np(y), y_np)
 
-    out_test_coords = mean.output_coords(coords)
-    for i, ci in enumerate(c):
-        handshake_dim(out_test_coords, ci, i)
-        handshake_coords(out_test_coords, c, ci)
+    _check_output_coords(mean, x, y)
 
 
 def test_mean_without_reduction_dimensions() -> None:
@@ -98,14 +111,69 @@ def test_mean_without_reduction_dimensions() -> None:
             "station": np.arange(5),
         }
     )
-    x = torch.randn((2, 5))
+    x = from_torch(torch.randn((2, 5)), coords)
 
-    y, output_coords = moments.mean([])(x, coords)
+    y = moments.mean([])(x)
 
-    assert torch.equal(y, x)
-    assert list(output_coords) == list(coords)
+    assert np.array_equal(_to_np(y), _to_np(x))
+    assert y.dims == x.dims
+    assert list(y.coords) == list(coords)
     for dimension in coords:
-        assert np.array_equal(output_coords[dimension], coords[dimension])
+        assert np.array_equal(y.coords[dimension].values, coords[dimension])
+
+
+def test_mean_reversed_numpy() -> None:
+    x = xr.DataArray(
+        np.arange(12, dtype=np.float32).reshape(3, 4),
+        dims=("lat", "lon"),
+        coords={"lat": np.arange(3), "lon": np.arange(4)},
+    ).isel(lat=slice(None, None, -1))
+    result = moments.mean(["lat"])(x)
+    np.testing.assert_allclose(_to_np(result), x.mean("lat").values)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize("weighted", [False, True])
+@pytest.mark.parametrize("statistic", [moments.mean, moments.variance, moments.std])
+def test_moments_float16_large_reduction(device, weighted, statistic) -> None:
+    tensor = torch.ones((361, 720), dtype=torch.float16, device=device)
+    tensor[::2] = 3
+    weights = torch.ones_like(tensor) if weighted else None
+    x = from_torch(tensor, {"lat": np.arange(361), "lon": np.arange(720)})
+
+    result, _ = statistic(["lat", "lon"], weights=weights)(x).e2s.to_torch()
+    expected = getattr(
+        torch, {moments.variance: "var"}.get(statistic, statistic.__name__)
+    )(tensor.float())
+    assert result.device == tensor.device
+    assert torch.isfinite(result)
+    torch.testing.assert_close(result, expected)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize("statistic", [moments.mean, moments.variance, moments.std])
+def test_moments_torch_autograd(device, statistic) -> None:
+    tensor = torch.randn((4, 6), dtype=torch.float64, device=device, requires_grad=True)
+    weights = torch.rand(6, dtype=torch.float64, device=device, requires_grad=True)
+    with backend("torch"):
+        x = from_torch(tensor, {"time": np.arange(4), "station": np.arange(6)})
+        result = statistic(["station"], weights=weights)(x)
+        result_t, _ = result.e2s.to_torch()
+        assert result_t.requires_grad
+        assert result_t.device == tensor.device
+
+    expected = (tensor * weights).sum(dim=1) / weights.sum()
+    if statistic is not moments.mean:
+        expected = (weights * (tensor - expected[:, None]).square()).sum(dim=1) / (
+            weights.sum() - weights.square().sum() / weights.sum()
+        )
+        if statistic is moments.std:
+            expected = expected.sqrt()
+    torch.testing.assert_close(result_t, expected)
+    actual_grad = torch.autograd.grad(result_t.sum(), (tensor, weights))
+    expected_grad = torch.autograd.grad(expected.sum(), (tensor, weights))
+    for actual, reference in zip(actual_grad, expected_grad):
+        torch.testing.assert_close(actual, reference)
 
 
 @pytest.mark.parametrize("statistic", [moments.variance, moments.std])
@@ -121,26 +189,26 @@ def test_batch_mean(device) -> None:
     big_coords = OrderedDict(
         {
             "ensemble": np.arange(100),
-            "lat": np.linspace(-90.0, 90.0, 1),
-            "lon": np.linspace(0.0, 360.0, 1, endpoint=False),
+            "lat": np.linspace(-90.0, 90.0, 10),
+            "lon": np.linspace(0.0, 360.0, 10, endpoint=False),
         }
     )
 
     reduced_coords = OrderedDict({"lat": big_coords["lat"], "lon": big_coords["lon"]})
     mean = moments.mean(["ensemble"], batch_update=True)
     for inds in range(0, 100, 10):
-        x = big_x[inds : inds + 10]
         coords = big_coords.copy()
         coords["ensemble"] = coords["ensemble"][inds : inds + 10]
+        x = from_torch(big_x[inds : inds + 10], coords)
 
-        y, c = mean(x, coords)
-        assert torch.allclose(y, torch.mean(big_x[: inds + 10], dim=0), atol=1e-3)
-        assert c == reduced_coords
+        y = mean(x)
+        expected = torch.mean(big_x[: inds + 10], dim=0).cpu().numpy()
+        assert np.allclose(_to_np(y), expected, atol=1e-3)
+        assert y.dims == tuple(reduced_coords)
+        for d, v in reduced_coords.items():
+            assert np.array_equal(y.coords[d].values, v)
 
-        out_test_coords = mean.output_coords(coords)
-        for i, ci in enumerate(c):
-            handshake_dim(out_test_coords, ci, i)
-            handshake_coords(out_test_coords, c, ci)
+        _check_output_coords(mean, x, y)
 
 
 @pytest.mark.parametrize(
@@ -165,22 +233,20 @@ def test_var(reduction_weights: tuple[list[str], np.ndarray], device: str) -> No
         }
     )
 
-    x = torch.randn((10, 1, 2, 361, 720), device=device)
+    x = from_torch(torch.randn((10, 1, 2, 361, 720), device=device), coords)
 
     reduction_dimensions, weights = reduction_weights
     if weights is not None:
         weights = weights.to(device)
     var = moments.variance(reduction_dimensions, weights=weights)
 
-    y, c = var(x, coords)
-    assert not any([ri in c for ri in reduction_dimensions])
-    assert list(y.shape) == [len(val) for val in c.values()]
-    assert torch.all(y >= 0.0)
+    y = var(x)
+    assert not any([ri in y.dims for ri in reduction_dimensions])
+    assert list(y.shape) == [x.sizes[d] for d in y.dims]
+    assert y.dims == tuple(d for d in x.dims if d not in reduction_dimensions)
+    assert (_to_np(y) >= 0.0).all()
 
-    out_test_coords = var.output_coords(coords)
-    for i, ci in enumerate(c):
-        handshake_dim(out_test_coords, ci, i)
-        handshake_coords(out_test_coords, c, ci)
+    _check_output_coords(var, x, y)
 
 
 @pytest.mark.parametrize(
@@ -205,22 +271,20 @@ def test_std(reduction_weights: tuple[list[str], np.ndarray], device: str) -> No
         }
     )
 
-    x = torch.randn((10, 1, 2, 361, 720), device=device)
+    x = from_torch(torch.randn((10, 1, 2, 361, 720), device=device), coords)
 
     reduction_dimensions, weights = reduction_weights
     if weights is not None:
         weights = weights.to(device)
     std = moments.std(reduction_dimensions, weights=weights)
 
-    y, c = std(x, coords)
-    assert not any([ri in c for ri in reduction_dimensions])
-    assert list(y.shape) == [len(val) for val in c.values()]
-    assert torch.all(y >= 0.0)
+    y = std(x)
+    assert not any([ri in y.dims for ri in reduction_dimensions])
+    assert list(y.shape) == [x.sizes[d] for d in y.dims]
+    assert y.dims == tuple(d for d in x.dims if d not in reduction_dimensions)
+    assert (_to_np(y) >= 0.0).all()
 
-    out_test_coords = std.output_coords(coords)
-    for i, ci in enumerate(c):
-        handshake_dim(out_test_coords, ci, i)
-        handshake_coords(out_test_coords, c, ci)
+    _check_output_coords(std, x, y)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -230,24 +294,23 @@ def test_weighted_var(device: str) -> None:
         {"ensemble": np.arange(1), "lat": np.linspace(-90.0, 90.0, 361)}
     )
 
-    x = torch.randn((1, 361), device=device)
+    x_t = torch.randn((1, 361), device=device)
+    x = from_torch(x_t, coords)
 
     reduction_dimensions, weights = ["lat"], lat_weights
     var = moments.variance(reduction_dimensions, weights=weights)
 
-    y, c = var(x, coords)
+    y = var(x)
 
     assert str(var) == "lat_variance"
 
     # Compute numpy weighted average
-    y_np = np.cov(x.cpu().numpy(), aweights=lat_weights.cpu().numpy())
+    y_np = np.cov(x_t.cpu().numpy(), aweights=lat_weights.cpu().numpy())
 
-    assert torch.allclose(y, torch.as_tensor(y_np, device=device))
+    assert y.dims == ("ensemble",)
+    assert np.allclose(_to_np(y), y_np)
 
-    out_test_coords = var.output_coords(coords)
-    for i, ci in enumerate(c):
-        handshake_dim(out_test_coords, ci, i)
-        handshake_coords(out_test_coords, c, ci)
+    _check_output_coords(var, x, y)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -277,23 +340,26 @@ def test_batch_var_std(device, ensemble_axis) -> None:
     assert str(var) == "ensemble_variance"
 
     for inds in range(0, 100, 10):
-        x = big_x.narrow(ensemble_axis, inds, 10)
         accumulated = big_x.narrow(ensemble_axis, 0, inds + 10)
         coords = big_coords.copy()
         coords["ensemble"] = coords["ensemble"][inds : inds + 10]
+        x = from_torch(big_x.narrow(ensemble_axis, inds, 10), coords)
 
-        y, c = std(x, coords)
-        assert torch.allclose(y, torch.std(accumulated, dim=ensemble_axis))
-        assert c == reduced_coords
+        y = std(x)
+        expected = torch.std(accumulated, dim=ensemble_axis).cpu().numpy()
+        assert np.allclose(_to_np(y), expected, rtol=1e-4, atol=1e-6)
+        assert y.dims == tuple(reduced_coords)
+        for d, v in reduced_coords.items():
+            assert np.array_equal(y.coords[d].values, v)
+        _check_output_coords(std, x, y)
 
-        y, c = var(x, coords)
-        assert torch.allclose(y, torch.var(accumulated, dim=ensemble_axis))
-        assert c == reduced_coords
-
-        out_test_coords = var.output_coords(coords)
-        for i, ci in enumerate(c):
-            handshake_dim(out_test_coords, ci, i)
-            handshake_coords(out_test_coords, c, ci)
+        y = var(x)
+        expected = torch.var(accumulated, dim=ensemble_axis).cpu().numpy()
+        assert np.allclose(_to_np(y), expected, rtol=1e-4, atol=1e-6)
+        assert y.dims == tuple(reduced_coords)
+        for d, v in reduced_coords.items():
+            assert np.array_equal(y.coords[d].values, v)
+        _check_output_coords(var, x, y)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -311,19 +377,20 @@ def test_moments_failures(device) -> None:
     with pytest.raises(ValueError):
         moments.std(reduction_dimensions, weights=weights)
 
-    x = torch.randn((10,), device=device)
-    coords = OrderedDict({"lat": np.arange(10)})
+    x = from_torch(
+        torch.randn((10,), device=device), OrderedDict({"lat": np.arange(10)})
+    )
     with pytest.raises(ValueError):
         m = moments.mean(reduction_dimensions)
 
-        m(x, coords)
+        m(x)
 
     with pytest.raises(ValueError):
         var = moments.variance(reduction_dimensions)
 
-        var(x, coords)
+        var(x)
 
     with pytest.raises(ValueError):
         std = moments.std(reduction_dimensions)
 
-        std(x, coords)
+        std(x)

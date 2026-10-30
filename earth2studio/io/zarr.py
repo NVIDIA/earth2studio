@@ -15,22 +15,31 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from collections.abc import Iterator
+from collections.abc import Hashable, Iterator, Mapping
 from typing import Any
 
 import numpy as np
+import pandas as pd
 import torch
+import xarray as xr
 import zarr
-from loguru import logger
+from numpy.typing import ArrayLike, DTypeLike
 from zarr.core.array import Array as ZarrArray
 from zarr.core.array import CompressorsLike
 
-from earth2studio.utils.coords import convert_multidim_to_singledim
+from earth2studio.io.utils import Indexer, plan_arrays, plan_read, plan_write
 from earth2studio.utils.type import CoordSystem
+
+# CF attribute listing the auxiliary coordinates of a stored array
+_COORDINATES = "coordinates"
 
 
 class ZarrBackend:
     """A backend that supports the zarr format.
+
+    One array is created per ``variable`` label of an :meth:`add_array` template,
+    with the dimension and auxiliary coordinates stored alongside them so the group
+    opens directly with :func:`xarray.open_zarr` (see :meth:`to_xarray`).
 
     Parameters
     ----------
@@ -39,8 +48,10 @@ class ZarrBackend:
         will create a directory store with this file name. If none, will create a
         in-memory store., by default None
     chunks : dict[str, int], optional
-        An ordered dict of chunks to use with the data passed through data/coords, by
-        default {}
+        An ordered dict of chunk sizes keyed by dimension. Dimensions that are not
+        present in a stored array are ignored and dimensions without an entry are
+        stored in a single chunk, by default {"ensemble": 1, "time": 1,
+        "lead_time": 1}
     backend_kwargs : dict[str, Any], optional
         Key word arguments for zarr.Group root object, by default {"overwrite": False}
     zarr_codecs: CompressorsLike, optional
@@ -50,6 +61,12 @@ class ZarrBackend:
     Note
     ----
     For keyword argument options see: https://zarr.readthedocs.io/en/latest/api/zarr/index.html#zarr.group
+
+    Note
+    ----
+    Variable labels name arrays verbatim, including statistic qualifiers such as
+    ``tp:sum:6h``. A local store creates one directory per array, so such labels
+    require a file system that permits ``:`` in names.
     """
 
     # --8<-- [start:zarr-backend-read]
@@ -60,7 +77,6 @@ class ZarrBackend:
             "ensemble": 1,  # dimensions not present in data are ignored
             "time": 1,
             "lead_time": 1,
-            "variable": 1,
         },
         backend_kwargs: dict[str, Any] = {"overwrite": False},
         zarr_codecs: CompressorsLike = None,
@@ -73,29 +89,30 @@ class ZarrBackend:
 
         self.root = zarr.group(self.store, **backend_kwargs)
         self.zarr_codecs = zarr_codecs
+        self._closed = False
         self._read_store_state(chunks)
 
     def _read_store_state(self, chunks: dict[str, int]) -> None:
-        """Populate root-array coordinates and chunks, leaving subgroups untouched."""
+        """Populate coords, chunks and coordinate names from the store's arrays."""
+        self.chunks = dict(chunks)
         self.coords: CoordSystem = OrderedDict({})
-        self.chunks = chunks.copy()
-        for array in self.root.array_keys():
-            # https://github.com/pydata/xarray/pull/9669
-            # Scalar arrays (e.g. CF grid_mapping) store dimension_names as None
-            dims = self.root[array].metadata.dimension_names or ()
-            for dim in dims:
-                if dim not in self.coords:
-                    self.coords[dim] = self.root[dim][:]
+        self._coordinate_names: set[str] = set()
 
-        for array in self.root.array_keys():
-            # https://github.com/pydata/xarray/pull/9669
-            # Scalar arrays (e.g. CF grid_mapping) store dimension_names as None
-            dims = self.root[array].metadata.dimension_names or ()
-            if array in self.coords:
-                continue
+        arrays = {name: self.root[name] for name in self.root.array_keys()}
+        dimensions: set[str] = set()
+        for array in arrays.values():
+            dimensions.update(self._dims(array))
+            self._coordinate_names.update(self._auxiliary_names(array))
+        self._coordinate_names.update(dimensions.intersection(arrays))
 
-            for c, d in zip(self.root[array].chunks, dims):
-                self.chunks[d] = c
+        for name, array in arrays.items():
+            if name in self._coordinate_names:
+                if self._dims(array) == (name,):
+                    self.coords[name] = array[:]
+            else:
+                # https://github.com/pydata/xarray/pull/9669
+                for dim, size in zip(self._dims(array), array.chunks):
+                    self.chunks[dim] = size
 
     def __contains__(self, item: str) -> bool:
         """Checks if item in Zarr Group.
@@ -128,157 +145,103 @@ class ZarrBackend:
         return self.root.__iter__()
 
     # --8<-- [end:zarr-backend-read]
-    def add_array(
-        self,
-        coords: CoordSystem,
-        array_name: str | list[str],
-        data: torch.Tensor | list[torch.Tensor] = None,
-        **kwargs: Any,
-    ) -> None:
-        """Add an array to the existing zarr group.
 
-        Parameters
-        ----------
-        coords: CoordSystem
-            Ordered dict of coordinate information.
-        array_name : str
-            Name to add to zarr group for the new array.
-        data: torch.Tensor | list[torch.Tensor], optional
-            Optional data to initialize the array with. If None, then
-            the array is NaN initialized (zarr default).
-            Can also pass a list of tensors, which must match in length to the
-            list of array_names passed. If a list of tensors is passed, it is assumed
-            that each tensor share `coords`.
-        kwargs: Any
-            Optional keyword arguments passed to zarr dataset constructor.
+    @property
+    def write_blocks(self) -> dict[str, int]:
+        """Largest chunk or shard extent per dimension over the stored data arrays.
+
+        A block is the smallest unit two writers can update independently, so
+        distributed writers must not share one.
         """
-        if isinstance(array_name, str):
-            array_name = [array_name]
-        if isinstance(data, torch.Tensor):
-            data = [data]
-        elif data is None:
-            data = [None] * len(array_name)
-
-        if not (len(data) == len(array_name)):
-            raise ValueError(
-                f"The number of input tensors and array names must be the same but got {len(data)} and {len(array_name)}."
-            )
-
-        # Set fill value to None if not already given
-        if "fill_value" not in kwargs:
-            kwargs["fill_value"] = None
-
-        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
-
-        for dim, values in adjusted_coords.items():
-            if dim not in self.coords:
-                if "compressors" not in kwargs:
-                    kwargs["compressors"] = self.zarr_codecs
-
-                self.root.create_array(
-                    dim,
-                    shape=values.shape,
-                    chunks=values.shape,
-                    dtype=values.dtype,
-                    dimension_names=[dim],
-                    **kwargs,
-                )
-                self.root[dim][:] = values
-                self.coords[dim] = values
-
-        # Add any multidim coordinates that were expelled above
-        for k in mapping:
-            if k not in self.root:
-                values = coords[k]
-                self.root.create_array(
-                    k,
-                    shape=values.shape,
-                    chunks=values.shape,
-                    dtype=values.dtype,
-                    dimension_names=mapping[k],
-                    **kwargs,
-                )
-                self.root[k][:] = values
-
-        shape = [len(self.coords[dim]) for dim in adjusted_coords]
-        chunks = [
-            self.chunks.get(dim, len(self.coords[dim])) for dim in adjusted_coords
-        ]
-
-        for name, di in zip(array_name, data):
-            if name in self.root and not kwargs.get("overwrite", False):
-                logger.warning("{} is already in Zarr Store. Skipping add_array.", name)
+        blocks: dict[str, int] = {}
+        for name in self.root.array_keys():
+            if name in self._coordinate_names:
                 continue
+            array = self.root[name]
+            extents = array.shards or array.chunks
+            for dim, extent in zip(self._dims(array), extents):
+                blocks[str(dim)] = max(blocks.get(str(dim), 0), int(extent))
+        return blocks
 
-            di = di.cpu().numpy() if di is not None else None
-            dtype = di.dtype if di is not None else "float32"
-            self.root.create_array(
-                name,
-                shape=shape,
-                chunks=chunks,
-                dtype=dtype,
-                dimension_names=list(adjusted_coords),
-                **kwargs,
-            )
+    def add_array(self, template: xr.DataArray) -> None:
+        """Create the arrays a template describes in the zarr group.
 
-            if di is not None:
-                self.root[name][:] = di
-
-    def write(
-        self,
-        x: torch.Tensor | list[torch.Tensor],
-        coords: CoordSystem,
-        array_name: str | list[str],
-    ) -> None:
-        """
-        Write data to the current zarr group using the passed array_name.
+        Coordinates are written once, here, together with their attributes. Each
+        stored array lists its auxiliary coordinates in a CF ``coordinates``
+        attribute and carries the template's attributes.
 
         Parameters
         ----------
-        x : torch.Tensor | list[torch.Tensor]
-            Tensor(s) to be written to zarr store.
-        coords : OrderedDict
-            Coordinates of the passed data.
-        array_name : str | list[str]
-            Name(s) of the array(s) that will be written to.
+        template : xr.DataArray
+            Concrete coordinate signature; field values are never read.
         """
+        # Another process may have added arrays since this backend opened the store
+        self._read_store_state(self.chunks)
+        plan = plan_arrays(template, self._coordinate_variables())
+        arrays, _ = self._layout()
+        clashes = set(map(str, plan.coords)).intersection(arrays)
+        if clashes:
+            raise ValueError(f"Coordinates collide with arrays: {sorted(clashes)}")
+        for name in plan.names:
+            if name not in arrays:
+                continue
+            if tuple(arrays[name]) != plan.dims:
+                raise ValueError(
+                    f"Array '{name}' exists with dimensions {tuple(arrays[name])}"
+                )
+            if tuple(arrays[name].values()) != plan.shape:
+                raise ValueError(
+                    f"Array '{name}' exists with shape {tuple(arrays[name].values())}"
+                )
 
-        # Input checking
-        if isinstance(x, torch.Tensor):
-            x = [x]
-        if isinstance(array_name, str):
-            array_name = [array_name]
-        if not (len(x) == len(array_name)):
-            raise ValueError(
-                f"The number of input tensors and array names must be the same but got {len(x)} and {len(array_name)}."
+        for key, variable in plan.coords.items():
+            self._create(
+                str(key),
+                shape=variable.shape,
+                chunks=variable.shape,
+                dtype=variable.dtype,
+                dims=variable.dims,
+                fill_value=None,
+                attrs=variable.attrs,
+            )[...] = variable.values
+            self._coordinate_names.add(str(key))
+            if variable.dims == (key,):
+                self.coords[str(key)] = np.asarray(variable.values)
+
+        auxiliary = self._auxiliary_coords(template)
+        attrs = dict(plan.attrs)
+        if auxiliary:
+            attrs[_COORDINATES] = " ".join(auxiliary)
+        for name in plan.names:
+            if name in arrays:
+                continue
+            self._create(
+                name,
+                shape=plan.shape,
+                chunks=tuple(
+                    min(self.chunks.get(str(dim), size), size)
+                    for dim, size in zip(plan.dims, plan.shape)
+                ),
+                dtype=plan.dtype,
+                dims=plan.dims,
+                fill_value=plan.fill_value,
+                attrs=attrs,
             )
 
-        # Reduce complex coordinates, if any multidimension coordinates exist
-        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
+    def write(self, x: xr.DataArray) -> None:
+        """Write a field at the positions its coordinate labels identify.
 
-        for dim in adjusted_coords:
-            if dim not in self.root:
-                raise AssertionError(f"Coordinate dimension {dim} not in zarr store.")
-
-        # Check to see if multidimensions are passed in full, otherwise error
-        for key in mapping:
-            if key not in self.root:
-                raise AssertionError(
-                    f"Multidimension coordinate {key} not in zarr store."
-                )
-
-            if coords[key].shape != self.root[key].shape:
-                raise AssertionError(
-                    "Currently writing data with multidimension arrays is only supported when"
-                    + "the multidimension coordinates are passed in full."
-                )
-
-        selection = self._selection(adjusted_coords)
-        for xi, name in zip(x, array_name):
-            if name not in self.root:
-                self.add_array(adjusted_coords, array_name)
-
-            self._write_array(name, selection, xi.to("cpu", non_blocking=False).numpy())
+        Parameters
+        ----------
+        x : xr.DataArray
+            NumPy-, CuPy- or Torch-backed field. It is never modified.
+        """
+        if self._closed:
+            raise RuntimeError(f"Cannot write to a closed {type(self).__name__}")
+        arrays, coords = self._layout()
+        for name, indexers, field in plan_write(x, arrays, coords):
+            selection = tuple(indexers[dim] for dim in arrays[name])
+            self._write_array(name, selection, field.e2s.as_numpy().values)
 
     def _write_array(self, name: str, selection: tuple, data: np.ndarray) -> None:
         """Assign `data` into `self.root[name][selection]`.
@@ -286,60 +249,203 @@ class ZarrBackend:
         Split out from `write` so subclasses can override just the storage step,
         e.g. to run it asynchronously.
         """
-        self.root[name][selection] = data
-
-    def _selection(self, adjusted_coords: CoordSystem) -> tuple:
-        """Build an index selection locating `adjusted_coords` in the store.
-
-        Contiguous coordinate subsets (the common case, e.g. writing one forecast
-        step) are returned as basic slices, which zarr handles roughly an order of
-        magnitude faster than the orthogonal (fancy) indexing path. Scattered
-        subsets fall back to `np.ix_`.
-        """
-        indices = [
-            np.where(np.isin(self.coords[dim], value))[0]
-            for dim, value in adjusted_coords.items()
-        ]
-        if all(ind.size > 0 and np.all(np.diff(ind) == 1) for ind in indices):
-            return tuple(slice(int(ind[0]), int(ind[-1]) + 1) for ind in indices)
-        return np.ix_(*indices)
+        array = self.root[name]
+        if any(not isinstance(index, slice) for index in selection):
+            # Orthogonal indexing: label subsets select each axis independently
+            array.oindex[selection] = data
+        else:
+            # Basic slices, the common case, are roughly an order of magnitude
+            # faster than zarr's orthogonal indexing path
+            array[selection] = data
 
     def read(
-        self, coords: CoordSystem, array_name: str, device: torch.device = "cpu"
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """
-        Read data from the current zarr group using the passed array_name.
+        self,
+        selection: xr.DataArray | Mapping[Hashable, ArrayLike],
+        device: torch.device | str = "cpu",
+        dtype: DTypeLike | None = None,
+    ) -> xr.DataArray:
+        """Read a field by coordinate label, the inverse of :meth:`write`.
 
         Parameters
         ----------
-        coords : OrderedDict
-            Coordinates of the data to be read.
-        array_name : str | list[str]
-            Name(s) of the array(s) to read from.
-        device : torch.device
-            device to place the read data from, by default 'cpu'
+        selection : xr.DataArray | Mapping[Hashable, ArrayLike]
+            Template or field, or an ordered mapping from every dimension to its
+            labels. ``variable`` labels select arrays; without a ``variable``
+            dimension, a DataArray's name does. Labels may be any subset, in any
+            order; field values are never read.
+        device : torch.device | str, optional
+            Destination: NumPy-backed on CPU, CuPy-backed on CUDA, by default "cpu"
+        dtype : DTypeLike, optional
+            Output dtype, by default the stored dtype
+
+        Returns
+        -------
+        xr.DataArray
+            Field with the selection's dimensions and label order, stored
+            coordinates and the attributes shared by the selected arrays.
         """
+        self.flush()
+        selection, names, indexers = plan_read(selection, *self._layout())
+        fields = [self._read_array(name, indexers) for name in names]
+        if "variable" in selection.dims:
+            field = xr.concat(
+                fields,
+                dim=pd.Index(names, name="variable"),
+                coords="minimal",
+                compat="override",
+                combine_attrs="drop_conflicts",
+            ).rename(selection.name)
+        else:
+            field = fields[0].rename(names[0])
+        field = field.transpose(*selection.dims)
+        if dtype is not None:
+            field = field.astype(dtype)
+        if torch.device(device).type == "cuda":
+            return field.e2s.as_cupy(torch.device(device).index)
+        return field
 
-        # Reduce complex coordinates, if any multidimension coordinates exist
-        adjusted_coords, mapping = convert_multidim_to_singledim(coords)
+    def to_xarray(self, **xr_kwargs: Any) -> xr.Dataset:
+        """Open the store as an Xarray dataset, flushing pending writes first.
 
-        for dim in adjusted_coords:
-            if dim not in self.root:
-                raise AssertionError(f"Coordinate dimension {dim} not in zarr store.")
+        Parameters
+        ----------
+        xr_kwargs : Any
+            Optional keyword arguments passed to :func:`xarray.open_zarr`.
 
-        # Check to see if multidimensions are passed in full, otherwise error
-        for key in mapping:
-            if key not in self.root:
-                raise AssertionError(
-                    f"Multidimension coordinate {key} not in zarr store."
-                )
+        Returns
+        -------
+        xr.Dataset
+            Lazily loaded dataset of the stored arrays and their coordinates.
+        """
+        self.flush()
+        return xr.open_zarr(self.store, **{"consolidated": False, **xr_kwargs})
 
-            if coords[key].shape != self.root[key].shape:
-                raise AssertionError(
-                    "Currently reading data with multidimension arrays is only supported when"
-                    + "the multidimension coordinates are passed in full."
-                )
+    def flush(self) -> None:
+        """Writes are synchronous; nothing to flush."""
 
-        x = self.root[array_name][self._selection(adjusted_coords)]
+    def close(self) -> None:
+        """Reject later writes. The store remains readable."""
+        self.flush()
+        self._closed = True
 
-        return torch.as_tensor(x, device=device), coords
+    def _create(
+        self,
+        name: str,
+        shape: tuple[int, ...],
+        chunks: tuple[int, ...],
+        dtype: np.dtype,
+        dims: tuple[Hashable, ...],
+        fill_value: Any,
+        attrs: Mapping[Hashable, Any],
+    ) -> "ZarrArray":
+        """Create one zarr array with its dimension names and attributes."""
+        return self.root.create_array(
+            name,
+            shape=shape,
+            chunks=chunks,
+            dtype=dtype,
+            dimension_names=[str(dim) for dim in dims],
+            fill_value=fill_value,
+            compressors=self.zarr_codecs,
+            attributes={str(key): value for key, value in attrs.items()},
+        )
+
+    def _read_array(self, name: str, indexers: dict[Hashable, Indexer]) -> xr.DataArray:
+        """Read one stored array and its coordinates in the selection's order."""
+        array = self.root[name]
+        dims = self._dims(array)
+        attrs = dict(array.attrs)
+        auxiliary = self._auxiliary_names(array)
+        attrs.pop(_COORDINATES, None)
+
+        # zarr reads ascending positions only, so undo the selection order after
+        ascending, undo = self._ascending(indexers)
+        coords: dict[Hashable, Any] = {
+            dim: xr.Variable(
+                (dim,), self.coords[dim][ascending[dim]], dict(self.root[dim].attrs)
+            )
+            for dim in dims
+            if dim in self.coords
+        }
+        for key in auxiliary:
+            coordinate = self.root[key]
+            coords[key] = xr.Variable(
+                self._dims(coordinate),
+                self._select(coordinate, ascending),
+                dict(coordinate.attrs),
+            )
+        field = xr.DataArray(
+            self._select(array, ascending), dims=dims, coords=coords, attrs=attrs
+        )
+        return field.isel(undo) if undo else field
+
+    @staticmethod
+    def _ascending(
+        indexers: Mapping[Hashable, Indexer],
+    ) -> tuple[dict[Hashable, Indexer], dict[Hashable, np.ndarray]]:
+        """Sort each indexer, with the positions that restore the given order."""
+        ascending: dict[Hashable, Indexer] = {}
+        undo: dict[Hashable, np.ndarray] = {}
+        for dim, index in indexers.items():
+            if isinstance(index, slice):
+                ascending[dim] = index
+                continue
+            order = np.argsort(index, kind="stable")
+            ascending[dim] = index[order]
+            if np.any(order != np.arange(order.size)):
+                undo[dim] = np.argsort(order)
+        return ascending, undo
+
+    def _select(
+        self, array: "ZarrArray", indexers: Mapping[Hashable, Indexer]
+    ) -> np.ndarray:
+        """Read the part of a stored array the indexers of its dimensions select."""
+        selection = tuple(indexers.get(dim, slice(None)) for dim in self._dims(array))
+        if any(not isinstance(index, slice) for index in selection):
+            return array.oindex[selection]
+        return array[selection]
+
+    def _layout(
+        self,
+    ) -> tuple[dict[str, Mapping[Hashable, int]], dict[Hashable, np.ndarray]]:
+        """Stored array dimension sizes and dimension labels."""
+        arrays: dict[str, Mapping[Hashable, int]] = {}
+        for name in self.root.array_keys():
+            if name in self._coordinate_names:
+                continue
+            array = self.root[name]
+            arrays[name] = dict(zip(self._dims(array), array.shape))
+        coords: dict[Hashable, np.ndarray] = {}
+        coords.update(self.coords)
+        return arrays, coords
+
+    def _coordinate_variables(self) -> dict[Hashable, xr.Variable]:
+        """Stored coordinates, with their dimensions and attributes."""
+        variables: dict[Hashable, xr.Variable] = {}
+        for name in self._coordinate_names:
+            array = self.root[name]
+            variables[name] = xr.Variable(
+                self._dims(array), array[...], dict(array.attrs)
+            )
+        return variables
+
+    @staticmethod
+    def _dims(array: "ZarrArray") -> tuple[str, ...]:
+        """Dimension names of a stored array."""
+        return tuple(str(dim) for dim in array.metadata.dimension_names or ())
+
+    @staticmethod
+    def _auxiliary_names(array: "ZarrArray") -> list[str]:
+        """Auxiliary coordinates a stored array lists in its CF attribute."""
+        return str(array.attrs.get(_COORDINATES, "")).split()
+
+    @staticmethod
+    def _auxiliary_coords(template: xr.DataArray) -> list[str]:
+        """Coordinates of a template that are not dimension coordinates."""
+        return [
+            str(key)
+            for key, value in template.coords.items()
+            if key != "variable"
+            and "variable" not in value.dims
+            and value.dims != (key,)
+        ]

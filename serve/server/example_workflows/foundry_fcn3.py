@@ -20,21 +20,23 @@ from typing import Any, Literal
 
 import numpy as np
 import torch
+import xarray as xr
 import zarr
-from cftime import date2num
 from loguru import logger
 
 from earth2studio.data import PlanetaryComputerECMWFOpenDataIFS, fetch_data
-from earth2studio.io import IOBackend, NetCDF4Backend, ZarrBackend
+from earth2studio.grids import LatLonGrid
+from earth2studio.io import IOBackend, ZarrBackend
 from earth2studio.models.px import FCN3
+from earth2studio.run import _map_field
 from earth2studio.serve.server import (
     Earth2Workflow,
     WorkflowParameters,
     WorkflowProgress,
     WorkflowRegistry,
 )
-from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
-from earth2studio.utils.time import timearray_to_datetime, to_time_array
+from earth2studio.utils.coords import coord_array
+from earth2studio.utils.time import to_time_array
 
 _MAX_FORECAST_STEPS = 400
 _MAX_ENSEMBLE_SAMPLES = 32
@@ -131,20 +133,48 @@ class FoundryFCN3Workflow(Earth2Workflow):
         return variables
 
     def setup_io(
-        self, io: IOBackend, output_coords: CoordSystem, seeds: Sequence[int]
+        self,
+        io: IOBackend,
+        output_coords: dict[str, np.ndarray],
+        seeds: Sequence[int],
     ) -> None:
-        """Define Zarr/NetCDF arrays, CRS metadata, and time encoding for ensemble outputs."""
-        io.add_array(
-            {k: v for k, v in output_coords.items() if k != "variable"},
-            output_coords["variable"],
+        """Define Zarr arrays, CRS metadata, and per-ensemble seeds for outputs."""
+        grid = LatLonGrid(
+            np.linspace(90.0, -90.0, 721),
+            np.linspace(-180.0, 180.0, 1440, endpoint=False),
         )
+        template = coord_array(
+            ("ensemble", "time", "variable", "lat", "lon"),
+            {
+                "ensemble": output_coords["ensemble"],
+                "time": output_coords["time"],
+                "variable": output_coords["variable"],
+            },
+            grid=grid,
+            dtype=np.float32,
+        )
+        io.add_array(template)
 
         # Storing seeds separately makes it easier to filter with Titiler
-        e_coords = {"ensemble": output_coords["ensemble"]}
-        io.add_array(e_coords, "seed", data=torch.tensor(seeds))
+        seed_template = coord_array(
+            ("ensemble",),
+            {"ensemble": output_coords["ensemble"]},
+            dtype=np.int64,
+            name="seed",
+        )
+        io.add_array(seed_template)
+        io.write(
+            xr.DataArray(
+                np.asarray(seeds, dtype=np.int64),
+                dims=("ensemble",),
+                coords={"ensemble": output_coords["ensemble"]},
+                name="seed",
+            )
+        )
 
         # Add CRS definition
-        io.add_array({}, "crs")
+        crs_template = coord_array((), {}, name="crs")
+        io.add_array(crs_template)
         io.root["crs"].grid_mapping_name = "latitude_longitude"
         io.root["crs"].longitude_of_prime_meridian = 0.0
         io.root["crs"].semi_major_axis = 6378137.0
@@ -153,51 +183,26 @@ class FoundryFCN3Workflow(Earth2Workflow):
         for var in output_coords["variable"]:
             io.root[var].grid_mapping = "crs"
 
-        # Set attributes for automatic parsing of dimensions
+        # The grid sets lat/lon CF attributes; ensure time/ensemble are also CF friendly.
         io.root["ensemble"].standard_name = "realization"
         io.root["time"].standard_name = "time"
         io.root["time"].axis = "T"
-        io.root["lat"].standard_name = "latitude"
-        io.root["lat"].units = "degrees_north"
-        io.root["lat"].axis = "Y"
-        io.root["lon"].standard_name = "longitude"
-        io.root["lon"].units = "degrees_east"
-        io.root["lon"].axis = "X"
 
-        # Unwrap BackendProgress (serve API)
-        e2io = (
-            io
-            if isinstance(io, (NetCDF4Backend, ZarrBackend))
-            else getattr(io, "io", None)
-        )
-
+        e2io = io if isinstance(io, ZarrBackend) else getattr(io, "io", None)
         if isinstance(e2io, ZarrBackend):
             zarr.consolidate_metadata(e2io.store)
 
-        if isinstance(e2io, NetCDF4Backend):
-            # Planetary Computer does not like the original time format (hours since 0001-01-01).
-            ref_time = np.datetime_as_string(output_coords["time"][0], unit="s")
-            units = f"hours since {ref_time.replace('T', ' ')}"
-            tv = e2io.root["time"]
-            tv.units = units
-            tv[:] = date2num(
-                timearray_to_datetime(output_coords["time"]),
-                units=units,
-                calendar=tv.calendar,
-            )
-            e2io.root.sync()
-
-        return io
-
-    def get_fcn3_input(self, time: datetime) -> tuple[torch.Tensor, CoordSystem]:
-        """Fetch FCN3 input tensors and coordinates from Planetary Computer ECMWF IFS."""
-        x, coords = fetch_data(
+    def get_fcn3_input(self, time: datetime) -> xr.DataArray:
+        """Fetch FCN3 input fields from Planetary Computer ECMWF IFS."""
+        signature = self.fcn3.input_coords()
+        field = fetch_data(
             self.data,
             time=to_time_array([time]),
-            variable=self.fcn3.input_coords()["variable"],
+            variable=signature["variable"].values,
+            lead_time=signature.lead_time.values,
             device=self.device,
         )
-        return x, coords
+        return _map_field(field, signature)
 
     def __call__(
         self,
@@ -217,18 +222,16 @@ class FoundryFCN3Workflow(Earth2Workflow):
         seeds = self.validate_samples(n_samples, seeds)
         variables = self.validate_variables(variables)
 
-        x_ori, coords_ori = self.get_fcn3_input(start_time)
+        x_ori = self.get_fcn3_input(start_time)
 
-        output_coords = CoordSystem(
-            {
-                "ensemble": np.arange(len(seeds)),
-                # Combine 'time' and 'lead_time' into single dimension
-                "time": to_time_array([start_time]) + lead_times,
-                "variable": variables,
-                "lat": np.linspace(90.0, -90.0, 721),
-                "lon": np.linspace(-180, 180, 1440, endpoint=False),
-            }
-        )
+        output_coords = {
+            "ensemble": np.arange(len(seeds)),
+            # Combine 'time' and 'lead_time' into a single dimension
+            "time": to_time_array([start_time]) + lead_times,
+            "variable": variables,
+            "lat": np.linspace(90.0, -90.0, 721),
+            "lon": np.linspace(-180.0, 180.0, 1440, endpoint=False),
+        }
         self.setup_io(io, output_coords, seeds)
 
         logger.info("Starting inference")
@@ -237,8 +240,8 @@ class FoundryFCN3Workflow(Earth2Workflow):
         for sample, seed in enumerate(seeds):
 
             self.fcn3.set_rng(seed=seed)
-            iterator = self.fcn3.create_iterator(x_ori.clone(), coords_ori.copy())
-            for step, (x, coords) in enumerate(iterator):
+            iterator = self.fcn3.create_iterator(x_ori.copy(deep=True))
+            for step, x in enumerate(iterator):
                 # Update progress for step within sample
                 msg = (
                     f"Processing sample {sample + 1}/{total_samples} "
@@ -253,23 +256,20 @@ class FoundryFCN3Workflow(Earth2Workflow):
                 logger.info(msg)
 
                 # Select variables
-                x_out, coords_out = map_coords(
-                    x, coords, CoordSystem({"variable": output_coords["variable"]})
-                )
+                x_out = x.sel(variable=output_coords["variable"])
                 # Roll longitudes (for raster visualization)
-                x_out = torch.roll(x_out, 720, dims=-1)
-                coords_out["lon"] = np.linspace(-180, 180, 1440, endpoint=False)
+                x_out = x_out.roll(lon=720).assign_coords(
+                    lon=np.linspace(-180.0, 180.0, 1440, endpoint=False)
+                )
                 # Add ensemble dimension
-                x_out = x_out.unsqueeze(0)
-                coords_out["ensemble"] = np.array([sample])
-                coords_out.move_to_end("ensemble", last=False)
+                x_out = x_out.expand_dims(ensemble=[sample])
                 # Combine time and lead_time
-                lead_time_dim = list(coords_out).index("lead_time")
-                x_out = x_out.squeeze(lead_time_dim)
-                coords_out["time"] = coords_out["time"] + coords_out["lead_time"]
-                del coords_out["lead_time"]
+                valid_time = x_out.time.values + x_out.lead_time.values[0]
+                x_out = x_out.isel(lead_time=0, drop=True).assign_coords(
+                    time=valid_time
+                )
                 # Write to disk
-                io.write(*split_coords(x_out, coords_out))
+                io.write(x_out)
 
                 if step == (n_steps - 1):
                     break

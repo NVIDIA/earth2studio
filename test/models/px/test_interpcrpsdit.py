@@ -15,10 +15,8 @@
 # limitations under the License.
 
 import gc
-import itertools
 import types
 from collections import OrderedDict
-from collections.abc import Iterable
 
 import numpy as np
 import pytest
@@ -26,10 +24,10 @@ import torch
 import xarray as xr
 
 import earth2studio.models.px.interpcrpsdit as interp_mod
-from earth2studio.data import Random, fetch_data
+from earth2studio.grids import Region
 from earth2studio.models.auto import Package
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import InterpCRPSDiT
-from earth2studio.models.px.datareplay import DataReplay
 from earth2studio.models.px.interpcrpsdit import (
     OPTIONAL_VARIABLES,
     PHYS_EXTRA,
@@ -37,7 +35,9 @@ from earth2studio.models.px.interpcrpsdit import (
 )
 from earth2studio.models.px.pangu import VARIABLES as PANGU_VARIABLES
 from earth2studio.models.px.persistence import Persistence
-from earth2studio.utils import handshake_dim
+from earth2studio.utils import coord_array_like
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.imports import OptionalDependencyFailure
 
 # Small grid keeps the suite fast on CPU without weights or network access
 H, W = 16, 32
@@ -53,13 +53,27 @@ H0 = 120.0  # hours between Y0 and T0
 GAP_CH = 2 * NVAR + 13
 MASK_CH = 2 * NVAR + 14
 
-DEVICES = [
-    "cpu",
-    pytest.param(
-        "cuda:0",
-        marks=pytest.mark.skipif(not torch.cuda.is_available(), reason="No GPU"),
-    ),
-]
+DEVICES = ["cpu", "cuda:0"]
+
+
+@pytest.fixture(autouse=True)
+def optional_backend(request, monkeypatch):
+    if (
+        interp_mod.PhysicsNemoModule is None
+        and request.node.get_closest_marker("package") is None
+    ):
+        monkeypatch.delitem(
+            OptionalDependencyFailure.failures, interp_mod.__file__, raising=False
+        )
+        monkeypatch.setattr(
+            interp_mod, "cos_zenith_angle", lambda t, lon, lat: np.ones_like(lon)
+        )
+    if (
+        "device" in request.fixturenames
+        and request.getfixturevalue("device").startswith("cuda")
+        and not torch.cuda.is_available()
+    ):
+        pytest.skip("CUDA unavailable")
 
 
 class PhooDiT(torch.nn.Module):
@@ -84,50 +98,30 @@ class PhooDiT(torch.nn.Module):
         return out
 
 
-class Source:
-    # Value = hours since Y0, plus row/col if spatial, variable index if per_var
-    def __init__(
-        self, lat=LAT, lon=LON, spatial=False, per_var=False, static=False
-    ) -> None:
-        self.lat, self.lon = np.asarray(lat), np.asarray(lon)
-        self.spatial, self.per_var, self.static = spatial, per_var, static
+class Ramp(Persistence):
+    # Persistence advancing every field by one unit per hour of lead time
+    def _ramp(self, y):
+        y.data = y.data + np.float32(self._dt / np.timedelta64(1, "h"))
+        return y
 
-    def __call__(self, time, variable):
-        times = np.atleast_1d(np.asarray(time, dtype="datetime64[s]"))
-        variable = [variable] if isinstance(variable, str) else list(variable)
-        field = np.zeros((len(self.lat), len(self.lon)), dtype="float32")
-        if self.spatial:
-            rows = np.round((90 - self.lat) / (180 / H))
-            cols = np.round(self.lon / (360 / W))
-            field = (rows[:, None] + 0.01 * cols[None, :]).astype("float32")
-        arr = np.zeros((len(times), len(variable)) + field.shape, dtype="float32")
-        for i, t in enumerate(times):
-            hours = 0.0 if self.static else float((t - Y0) / np.timedelta64(1, "h"))
-            for j, v in enumerate(variable):
-                offset = VARIABLES.index(v) if self.per_var else 0
-                arr[i, j] = hours + offset + field
-        return xr.DataArray(
-            arr,
-            dims=["time", "variable", "lat", "lon"],
-            coords=dict(
-                time=times, variable=np.array(variable), lat=self.lat, lon=self.lon
-            ),
-        )
+    def initialize(self, x):
+        y, state = super().initialize(x)
+        return self._ramp(y), state
+
+    def step(self, y, state):
+        y, state = super().step(y, state)
+        return self._ramp(y), state
 
 
-def _replay(src, variables=VARIABLES, step=np.timedelta64(6, "h")):
-    return DataReplay(
-        src,
-        list(variables),
-        OrderedDict(lat=src.lat, lon=src.lon),
-        step=step,
-    )
-
-
-def _model(px_model=None, center=None, dit=None, **kwargs):
+def _model(
+    gap_h=6, variables=VARIABLES, px_model=None, center=None, dit=None, **kwargs
+):
     lon2d, lat2d = np.meshgrid(LON, LAT)
     kwargs.setdefault("lon_pad", 0)
-    px_model = px_model if px_model is not None else _replay(Source())
+    if px_model is None:
+        px_model = Ramp(
+            list(variables), {"lat": LAT, "lon": LON}, dt=np.timedelta64(gap_h, "h")
+        )
     return InterpCRPSDiT(
         dit=dit if dit is not None else PhooDiT(),
         center=torch.zeros(1, NVAR, 1, 1) if center is None else center,
@@ -140,39 +134,48 @@ def _model(px_model=None, center=None, dit=None, **kwargs):
     )
 
 
-def _inputs(src, variables=VARIABLES, times=(T0,), batch=1):
-    times = np.array(times)
-    x = torch.from_numpy(src(times, list(variables)).values.astype("float32"))
-    x = x[None, :, None].repeat(batch, 1, 1, 1, 1, 1)
-    coords = OrderedDict(
-        batch=np.arange(batch),
-        time=times,
-        lead_time=np.array([np.timedelta64(0, "h")]),
-        variable=np.array(variables),
-        lat=src.lat,
-        lon=src.lon,
+def make_input(model, time, device="cpu"):
+    signature = model.input_coords()
+    signature = coord_array_like(signature, {"batch": [0], "time": time}).isel(
+        batch=0, drop=True
     )
-    return x, coords
+    signature = coord_array_like(signature, {"time": time})
+    return from_torch(torch.randn(signature.shape, device=device), signature)
 
 
-def _build(
-    src=None,
-    variables=VARIABLES,
-    step=np.timedelta64(6, "h"),
-    times=(T0,),
-    batch=1,
-    **kwargs,
-):
-    src = src if src is not None else Source()
-    model = _model(px_model=_replay(src, variables, step), **kwargs)
-    x, coords = _inputs(src, variables, times, batch)
-    return model, x, coords
+def _input(model, times=(T0,), per_var=False, spatial=False):
+    # Value = hours since Y0, plus variable index / grid row and column if requested
+    times = np.array(times)
+    x = make_input(model, times)
+    hours = ((times - Y0) / np.timedelta64(1, "h")).astype("float32")
+    arr = np.broadcast_to(hours[:, None, None, None, None], x.shape).copy()
+    if per_var:
+        index = [VARIABLES.index(v) for v in x.coords["variable"].values]
+        arr += np.array(index, dtype="float32")[None, None, :, None, None]
+    if spatial:
+        rows = np.round((90 - x.lat.values) / (180 / H))
+        cols = np.round(x.lon.values / (360 / W))
+        arr += (rows[:, None] + 0.01 * cols[None, :]).astype("float32")
+    x.data[...] = arr
+    return x
 
 
-def _random_inputs(model, time, device):
-    ic = model.input_coords()
-    r = Random({k: ic[k] for k in ["lat", "lon"]})
-    return fetch_data(r, time, ic["variable"], ic["lead_time"], device=device)
+def _values(out):
+    return out.e2s.to_torch()[0].cpu().numpy()
+
+
+def _close(actual, expected, atol=1e-4):
+    np.testing.assert_allclose(
+        actual, np.broadcast_to(expected, np.shape(actual)), atol=atol
+    )
+
+
+def _lead_h(out):
+    return (_minutes(out) / 60).reshape(-1, 1, 1, 1)
+
+
+def _minutes(out):
+    return (out.lead_time.values / np.timedelta64(1, "m")).astype(int)
 
 
 @pytest.mark.parametrize(
@@ -187,59 +190,72 @@ def _random_inputs(model, time, device):
 @pytest.mark.parametrize("device", DEVICES)
 def test_interpcrpsdit_call(time, device):
     model = _model(px_model=Persistence(VARIABLES, {"lat": LAT, "lon": LON})).to(device)
-    x, coords = _random_inputs(model, time, device)
+    x = make_input(model, time, device)
 
-    out, out_coords = model(x, coords)
+    out = model(x)
 
-    if not isinstance(time, Iterable):
-        time = [time]
-    assert out.shape == torch.Size([len(time), 1, NVAR, H, W])
-    assert torch.allclose(out, x)  # __call__ returns the initial condition
-    assert (out_coords["variable"] == model.output_coords(coords)["variable"]).all()
-    assert (out_coords["time"] == time).all()
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    assert out.shape == (len(time), 6, NVAR, H, W)
+    assert out.dims == ("time", "lead_time", "variable", "lat", "lon")
+    assert (
+        out.coords["variable"].values
+        == model.output_coords(x).coords["variable"].values
+    ).all()
+    assert (out.time.values == time).all()
+    np.testing.assert_array_equal(_minutes(out), np.arange(1, 7) * 60)
+    assert torch.isfinite(out.e2s.to_torch()[0]).all()
+
+    # Zero residual: persistence base gives back the initial condition
+    torch.testing.assert_close(
+        out.e2s.to_torch()[0].cpu(),
+        x.e2s.to_torch()[0].cpu().expand(out.shape),
+    )
+
+    out, state = model.initialize(x)
+    resumed, _ = model.step(out, state)
+    np.testing.assert_array_equal(_minutes(resumed), np.arange(7, 13) * 60)
 
 
 @pytest.mark.parametrize("ensemble", [1, 2])
 @pytest.mark.parametrize("device", DEVICES)
 def test_interpcrpsdit_iter(ensemble, device):
-    time = np.array([np.datetime64("1993-04-05T00:00")])
-    model = _model(
-        px_model=Persistence(VARIABLES, {"lat": LAT, "lon": LON}), num_interp_steps=6
-    ).to(device)
-    x, coords = _random_inputs(model, time, device)
+    model = _model().to(device)
+    x = _input(model).expand_dims(ensemble=np.arange(ensemble)).copy(deep=True)
+    x.name = "forecast"
+    x.attrs["nested"] = {"owner": ["caller"]}
+    before = x.copy(deep=True)
 
-    # Add ensemble dim to front
-    x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
-    coords.update({"ensemble": np.arange(ensemble)})
-    coords.move_to_end("ensemble", last=False)
+    events = []
 
-    model_iter = model.create_iterator(x, coords)
-    assert isinstance(model_iter, Iterable)
+    def front(field):
+        events.append("front")
+        return field
 
-    # First step is the initial condition
-    out, out_coords = next(model_iter)
-    assert torch.allclose(out, x)
-    assert out_coords["lead_time"][0] == np.timedelta64(0, "h")
+    def rear(field):
+        events.append("rear")
+        return field
 
-    for i, (out, out_coords) in enumerate(model_iter):
-        assert out.shape == torch.Size([ensemble, len(time), 1, NVAR, H, W])
-        assert (out_coords["variable"] == np.array(VARIABLES)).all()
-        assert (out_coords["ensemble"] == np.arange(ensemble)).all()
-        assert out_coords["lead_time"][0] == np.timedelta64(i + 1, "h")
-        handshake_dim(out_coords, "lon", 5)
-        handshake_dim(out_coords, "lat", 4)
-        handshake_dim(out_coords, "variable", 3)
-        if i > 8:
-            break
+    model.front_hook = front
+    model.rear_hook = rear
 
-    del model
-    gc.collect()
-    if device != "cpu":
+    iterator = model.create_iterator(x)
+    first = next(iterator)
+    frozen = first.copy(deep=True)
+    for i, out in enumerate([first, next(iterator)]):
+        assert out.dims == ("ensemble", "time", "lead_time", "variable", "lat", "lon")
+        assert out.shape == (ensemble, 1, 6, NVAR, H, W)
+        assert out.name == x.name
+        np.testing.assert_array_equal(_minutes(out), (6 * i + np.arange(1, 7)) * 60)
+        # Ramp base and zero residual give value = hours since Y0 + lead
+        _close(_values(out), H0 + _lead_h(out))
+    assert events == ["rear", "front", "rear"]
+    xr.testing.assert_identical(first, frozen)
+    xr.testing.assert_identical(x, before)
+
+    iterator.close()
+    model.clear_hooks()
+    if not device.startswith("cpu"):
+        del model
+        gc.collect()
         torch.cuda.empty_cache()
 
 
@@ -253,14 +269,30 @@ def test_interpcrpsdit_iter(ensemble, device):
 )
 @pytest.mark.parametrize("device", DEVICES)
 def test_interpcrpsdit_exceptions(dc, device):
-    time = np.array([np.datetime64("1993-04-05T00:00")])
-    model = _model(px_model=Persistence(VARIABLES, {"lat": LAT, "lon": LON})).to(device)
-    ic = model.input_coords()
-    x, coords = fetch_data(Random(dc), time, ic["variable"], ic["lead_time"], device)
-
-    # Invalid input domain
+    model = _model().to(device)
+    signature = model.input_coords()
+    coords = {
+        "time": np.array([T0]),
+        "lead_time": signature.coords["lead_time"].values,
+        "variable": signature.coords["variable"].values,
+        **dc,
+    }
+    x = xr.DataArray(
+        np.zeros(tuple(len(v) for v in coords.values()), dtype=np.float32),
+        dims=tuple(coords),
+        coords=coords,
+    )
     with pytest.raises((KeyError, ValueError)):
-        model(x, coords)
+        model(x)
+
+
+def test_interpcrpsdit_conformance():
+    check_prognostic_contract(
+        _model(
+            px_model=Persistence(VARIABLES, {"lat": LAT, "lon": LON}),
+            dit=PhooDiT(noise=True),
+        )
+    )
 
 
 @pytest.mark.parametrize(
@@ -281,92 +313,92 @@ def test_interpcrpsdit_invalid_args(kwargs, match):
     [(6, 6), (6, 36), (3, 3), (10, 10)],
 )
 def test_interpcrpsdit_gap_and_resolution(gap_h, num_interp_steps):
-    model, x, coords = _build(
-        step=np.timedelta64(gap_h, "h"), num_interp_steps=num_interp_steps
+    model = _model(gap_h=gap_h, num_interp_steps=num_interp_steps)
+    out = model(_input(model))
+
+    step = gap_h * 60 // num_interp_steps
+    np.testing.assert_array_equal(
+        _minutes(out), step * np.arange(1, num_interp_steps + 1)
     )
-    step_min = gap_h * 60 // num_interp_steps
-
-    frames = list(
-        itertools.islice(model.create_iterator(x, coords), num_interp_steps + 2)
-    )
-
-    # Zero residual => linear interpolation
-    for k, (xf, cf) in enumerate(frames):
-        assert xf.shape == (1, 1, 1, NVAR, H, W)
-        assert int(cf["lead_time"][-1] / np.timedelta64(1, "m")) == k * step_min
-        assert (xf - (H0 + k * step_min / 60)).abs().max() < 1e-4
+    _close(_values(out), H0 + _lead_h(out), atol=1e-3)
 
 
-@pytest.mark.parametrize("gap_h, expected", [(3, -1.0), (6, 0.0), (9, 1.0)])
-def test_interpcrpsdit_gap_channel(gap_h, expected):
+@pytest.mark.parametrize("gap_h, value", [(3, -1.0), (6, 0.0), (9, 1.0)])
+def test_interpcrpsdit_gap_channel(gap_h, value):
     dit = PhooDiT()
-    model, x, coords = _build(
-        step=np.timedelta64(gap_h, "h"), num_interp_steps=3, dit=dit
-    )
-    list(itertools.islice(model.create_iterator(x, coords), 2))
-    assert float(dit.inputs[0][:, GAP_CH].mean()) == pytest.approx(expected)
+    model = _model(gap_h=gap_h, dit=dit, num_interp_steps=3)
+    model(_input(model))
+    assert dit.inputs[0][:, GAP_CH].mean().item() == pytest.approx(value)
 
 
 @pytest.mark.parametrize(
-    "step, num_interp_steps, match",
-    [
-        (np.timedelta64(6, "h"), 7, "must divide"),
-        (np.timedelta64(90, "s"), 6, "whole number of minutes"),
-    ],
+    "gap_h, num_interp_steps, match",
+    [(6, 7, "must divide")],
 )
-def test_interpcrpsdit_gap_exceptions(step, num_interp_steps, match):
-    model, x, coords = _build(step=step, num_interp_steps=num_interp_steps)
+def test_interpcrpsdit_gap_exceptions(gap_h, num_interp_steps, match):
+    model = _model(gap_h=gap_h, num_interp_steps=num_interp_steps)
     with pytest.raises(ValueError, match=match):
-        next(model.create_iterator(x, coords))
+        model.output_coords(model.input_coords())
+
+
+def test_interpcrpsdit_fractional_minute_gap():
+    px_model = Persistence(
+        VARIABLES, {"lat": LAT, "lon": LON}, dt=np.timedelta64(90, "s")
+    )
+    model = _model(px_model=px_model, num_interp_steps=1)
+    with pytest.raises(ValueError, match="whole number of minutes"):
+        model.output_coords(model.input_coords())
 
 
 @pytest.mark.parametrize("gap_h", [12, 2])
 def test_interpcrpsdit_out_of_range_gap_warns(gap_h):
-    model, x, coords = _build(step=np.timedelta64(gap_h, "h"))
+    model = _model(gap_h=gap_h, num_interp_steps=2)
     with pytest.warns(UserWarning, match="outside the trained"):
-        frames = list(itertools.islice(model.create_iterator(x, coords), 2))
-    assert all(torch.isfinite(xf).all() for xf, _ in frames)
+        out = model(_input(model))
+    assert torch.isfinite(out.e2s.to_torch()[0]).all()
 
 
 @pytest.mark.parametrize("amp_dtype, autocast", [(None, False), (torch.bfloat16, True)])
 def test_interpcrpsdit_amp_dtype(amp_dtype, autocast):
     dit = PhooDiT()
-    model, x, coords = _build(amp_dtype=amp_dtype, dit=dit)
-    frames = list(itertools.islice(model.create_iterator(x, coords), 2))
+    model = _model(amp_dtype=amp_dtype, dit=dit)
+    out = model(_input(model))
     assert dit.saw_autocast is autocast
-    assert torch.isfinite(frames[-1][0]).all()
+    assert torch.isfinite(out.e2s.to_torch()[0]).all()
 
 
 @pytest.mark.parametrize("lon_pad", [4, 2 * W + 8])
 def test_interpcrpsdit_lon_pad(lon_pad):
-    model, x, coords = _build(lon_pad=lon_pad)
-    frames = list(itertools.islice(model.create_iterator(x, coords), 2))
-    assert frames[1][0].shape[-2:] == (H, W)
-    assert (frames[1][0] - (H0 + 1)).abs().max() < 1e-4
+    model = _model(lon_pad=lon_pad)
+    out = model(_input(model))
+    assert out.shape[-2:] == (H, W)
+    _close(_values(out), H0 + _lead_h(out))
 
 
 def test_interpcrpsdit_noise():
-    def interior(seed):
-        model, x, coords = _build(
-            src=Source(static=True),
-            times=(T0, T0 + np.timedelta64(12, "h")),
-            batch=2,
-            seed=seed,
-            dit=PhooDiT(noise=True),
-        )
-        return list(itertools.islice(model.create_iterator(x, coords), 2))[1][0]
+    times = (T0, T0 + np.timedelta64(12, "h"))
 
-    a, b, c = interior(0), interior(0), interior(1)
-    assert torch.allclose(a, b)  # same seed reproduces
-    assert not torch.allclose(a, c)  # different seed differs
-    assert not torch.allclose(a[0], a[1])  # members differ
-    assert not torch.allclose(a[:, 0], a[:, 1])  # init times differ
+    def run(seed):
+        model = _model(dit=PhooDiT(noise=True))
+        x = _input(model, times).expand_dims(ensemble=2).copy(deep=True)
+        x.data[...] = 0.0
+        model.set_rng(seed)
+        return _values(model(x))[:, :, 0]
+
+    a, b, c = run(0), run(0), run(1)
+    assert np.allclose(a, b)  # same seed reproduces
+    assert not np.allclose(a, c)  # different seed differs
+    assert not np.allclose(a[0], a[1])  # members differ
+    assert not np.allclose(a[:, 0], a[:, 1])  # init times differ
 
 
 def test_interpcrpsdit_bracket_latent():
     dit = PhooDiT()
-    model, x, coords = _build(num_interp_steps=3, seed=0, dit=dit)
-    list(itertools.islice(model.create_iterator(x, coords), 7))
+    model = _model(num_interp_steps=3, dit=dit)
+    model.set_rng(0)
+    iterator = model.create_iterator(_input(model))
+    next(iterator)
+    next(iterator)
     z = [inp[:, -6:] for inp in dit.inputs]
     assert len(z) == 4
     assert z[0].abs().sum() > 0
@@ -386,21 +418,21 @@ def test_interpcrpsdit_drop_variables(base_variables):
     present = [v for v in VARIABLES if v not in OPTIONAL_VARIABLES]
     drop_idx = [VARIABLES.index(v) for v in OPTIONAL_VARIABLES]
     dit = PhooDiT()
-    model, x, coords = _build(
-        src=Source(per_var=True),
-        variables=list(base_variables),
+    model = _model(
+        variables=base_variables,
         center=torch.full((1, NVAR, 1, 1), 5.0),
         drop_variables=OPTIONAL_VARIABLES,
         dit=dit,
     )
     assert list(model.drop_idx) == drop_idx
 
-    frames = list(itertools.islice(model.create_iterator(x, coords), 2))
-    for k, (xf, cf) in enumerate(frames):
-        assert list(cf["variable"]) == present
-        assert xf.shape[-3] == len(present)
-        for j, v in enumerate(present):
-            assert (xf[:, :, :, j] - (H0 + k + VARIABLES.index(v))).abs().max() < 1e-4
+    out = model(_input(model, per_var=True))
+    assert list(out.coords["variable"].values) == present
+    for v in present:
+        expected = H0 + VARIABLES.index(v) + _minutes(out) / 60
+        np.testing.assert_allclose(
+            _values(out.sel(variable=v))[0, :, 0, 0], expected, atol=1e-4
+        )
 
     assert torch.all(dit.inputs[0][:, drop_idx] == 0)
     assert torch.all(dit.inputs[0][:, [MASK_CH + i for i in drop_idx]] == 0)
@@ -419,24 +451,35 @@ def test_interpcrpsdit_set_domain(halo, exp_halo, base):
         lat_min=10, lat_max=70, lon_min=50, lon_max=200, halo=halo, min_cells=4
     )
     assert sub._halo == exp_halo
-    src = (
-        Source(sub.lat2d[:, 0].numpy(), sub.lon2d[0].numpy(), spatial=True)
-        if base == "regional"
-        else Source(spatial=True)
-    )
-    sub.px_model = _replay(src)
-    x, coords = _inputs(src)
+    if base == "regional":
+        sub.px_model = Ramp(
+            VARIABLES,
+            {"lat": sub.lat2d[:, 0].numpy(), "lon": sub.lon2d[0].numpy()},
+        )
 
+    out = sub(_input(sub, spatial=True))
+
+    np.testing.assert_array_equal(out.lat.values, LAT[2:8])
+    np.testing.assert_array_equal(out.lon.values, LON[5:18])
     block = (
         np.arange(2, 8, dtype="float32")[:, None]
         + 0.01 * np.arange(5, 18, dtype="float32")[None, :]
     )
-    for k, (xf, cf) in enumerate(
-        list(itertools.islice(sub.create_iterator(x, coords), 3))
-    ):
-        np.testing.assert_array_equal(cf["lat"], LAT[2:8])
-        np.testing.assert_array_equal(cf["lon"], LON[5:18])
-        np.testing.assert_allclose(xf[0, 0, 0, 0].numpy(), H0 + k + block, atol=1e-4)
+    expected = H0 + (_minutes(out) / 60)[:, None, None] + block
+    np.testing.assert_allclose(_values(out)[0, :, 0], expected, atol=1e-4)
+
+
+def test_interpcrpsdit_with_region():
+    model = _model()
+    model._min_domain_cells = 4
+    sub = model.with_region(Region.box(west=50, south=10, east=200, north=70))
+    out = sub(_input(sub))
+    np.testing.assert_array_equal(out.lat.values, LAT[2:8])
+    np.testing.assert_array_equal(out.lon.values, LON[5:18])
+    assert model.output_coords(model.input_coords()).coords["lat"].size == H
+
+    with pytest.raises(ValueError, match="only box regions"):
+        model.with_region(Region.band(south=10, north=70))
 
 
 @pytest.mark.parametrize(
@@ -457,54 +500,54 @@ def test_interpcrpsdit_set_domain_exceptions(kwargs, match):
 
 def test_interpcrpsdit_superset_base_grid():
     lat_big = np.concatenate([LAT, [LAT[-1] - (LAT[0] - LAT[1])]])
-    src = Source(lat_big, LON, spatial=True)
-    model, x, coords = _build(src=src)
+    model = _model(px_model=Ramp(VARIABLES, {"lat": lat_big, "lon": LON}))
+    np.testing.assert_array_equal(model.input_coords().coords["lat"].values, lat_big)
 
-    np.testing.assert_array_equal(model.input_coords()["lat"], lat_big)
-
-    xf, cf = next(model.create_iterator(x, coords))
-    np.testing.assert_array_equal(cf["lat"], LAT)
-    expected = (
-        H0
-        + np.arange(H, dtype="float32")[:, None]
+    out = model(_input(model, spatial=True))
+    np.testing.assert_array_equal(out.lat.values, LAT)
+    block = (
+        np.arange(H, dtype="float32")[:, None]
         + 0.01 * np.arange(W, dtype="float32")[None, :]
     )
-    np.testing.assert_allclose(xf[0, 0, 0, 0].numpy(), expected, atol=1e-4)
+    expected = H0 + (_minutes(out) / 60)[:, None, None] + block
+    np.testing.assert_allclose(_values(out)[0, :, 0], expected, atol=1e-4)
 
 
-def test_interpcrpsdit_regrid_warns_off_grid_base():
-    src = Source(LAT + 0.3, LON)
-    model, x, coords = _build(src=src)
-    with pytest.warns(UserWarning, match="nearest-regridded"):
-        next(model.create_iterator(x, coords))
+def test_interpcrpsdit_off_grid_base_raises():
+    model = _model(px_model=Ramp(VARIABLES, {"lat": LAT + 0.3, "lon": LON}))
+    with pytest.raises((KeyError, ValueError)):
+        model(_input(model))
 
 
 def test_interpcrpsdit_front_hook():
-    model, x, coords = _build(num_interp_steps=3)
-    model.front_hook = lambda a, c: (a + 5.0, c)
-    frames = list(itertools.islice(model.create_iterator(x, coords), 2))
-    assert (frames[0][0] - (H0 + 5)).abs().max() < 1e-4
-    assert (frames[1][0] - (H0 + 2 + 5)).abs().max() < 1e-4
+    model = _model(num_interp_steps=3)
+    model.front_hook = lambda a: a + 5.0
+    iterator = model.create_iterator(_input(model))
+    first, second = next(iterator), next(iterator)
+    _close(_values(first), H0 + _lead_h(first))
+    # Edits made before a step feed the base forecast and the next bracket
+    _close(_values(second), H0 + 5 + _lead_h(second))
 
 
 @pytest.mark.parametrize("inplace", [False, True])
 def test_interpcrpsdit_rear_hook(inplace):
-    def rear(a, c):
+    def rear(a):
         if inplace:
             a += 100.0
-            return a, c
-        return a + 100.0, c
+            return a
+        return a + 100.0
 
-    model, x, coords = _build(num_interp_steps=3)
+    model = _model(num_interp_steps=3)
     model.rear_hook = rear
-    for k, (xf, _) in enumerate(
-        list(itertools.islice(model.create_iterator(x, coords), 7))
-    ):
-        assert (xf - (H0 + 2 * k + 100)).abs().max() < 1e-4
+    iterator = model.create_iterator(_input(model))
+    for k in range(3):
+        out = next(iterator)
+        # Hooked output is the next recurrence input, so offsets accumulate
+        _close(_values(out), H0 + _lead_h(out) + 100 * (k + 1), atol=1e-3)
 
 
 def test_interpcrpsdit_to_moves_px_model():
-    model, _, _ = _build()
+    model = _model()
     calls = []
     model.px_model.to = lambda d: calls.append(d) or model.px_model
     assert model.to("cpu") is model
@@ -555,7 +598,8 @@ def test_interpcrpsdit_load_model(
     package = _write_package(
         tmp_path, monkeypatch, nlat=nlat, dit=PhooDiT(attn_kernel=attn_kernel)
     )
-    model = InterpCRPSDiT.load_model(package, px_model=_replay(Source()))
+    px_model = Persistence(VARIABLES, {"lat": LAT, "lon": LON})
+    model = InterpCRPSDiT.load_model(package, px_model=px_model)
     assert model._pole is (nlat == 721)
     assert model.center.shape == (1, NVAR, 1, 1)
     assert model.static_inv.shape == (12, exp_nlat, 8)
@@ -582,8 +626,9 @@ def test_interpcrpsdit_load_model_bad_normalization(tmp_path, monkeypatch, kind,
     else:
         stds[5] = np.nan
     package = _write_package(tmp_path, monkeypatch, means=means, stds=stds)
+    px_model = Persistence(VARIABLES, {"lat": LAT, "lon": LON})
     with pytest.raises(ValueError, match=match):
-        InterpCRPSDiT.load_model(package, px_model=_replay(Source()))
+        InterpCRPSDiT.load_model(package, px_model=px_model)
 
 
 @pytest.fixture(scope="function")
@@ -601,30 +646,15 @@ def test_interpcrpsdit_package(model):
     device = "cuda:0"
     torch.cuda.empty_cache()
     model = model.to(device)
+    sub = model.with_region(Region.box(west=100, south=10, east=124, north=32))
 
-    sub = model.set_domain(
-        lat_min=10.0, lat_max=32.0, lon_min=100.0, lon_max=124.0, halo=0
-    )
-    run = {"lat": sub.lat2d[:, 0].cpu().numpy(), "lon": sub.lon2d[0].cpu().numpy()}
-    sub.px_model = Persistence(VARIABLES, run)
-    sub.px_model.to(device)
+    time = np.array([np.datetime64("1993-04-05T00:00")])
+    x = make_input(sub, time, device)
+    center = model.center.expand(1, 1, NVAR, *x.shape[-2:]).clone()
+    x = from_torch(center, x)
 
-    x = model.center.expand(1, 1, 1, NVAR, len(run["lat"]), len(run["lon"])).clone()
-    coords = OrderedDict(
-        batch=np.array([0]),
-        time=np.array([np.datetime64("1993-04-05T00:00")]),
-        lead_time=np.array([np.timedelta64(0, "h")]),
-        variable=np.array(VARIABLES),
-        lat=run["lat"],
-        lon=run["lon"],
-    )
-
-    (_, _), (out, out_coords) = list(
-        itertools.islice(sub.create_iterator(x, coords), 2)
-    )
-    assert out.shape == (1, 1, 1, NVAR, len(out_coords["lat"]), len(out_coords["lon"]))
-    assert out_coords["lead_time"][-1] == np.timedelta64(60, "m")
-    assert torch.isfinite(out).all()
-    handshake_dim(out_coords, "lon", 5)
-    handshake_dim(out_coords, "lat", 4)
-    handshake_dim(out_coords, "variable", 3)
+    out = sub(x)
+    expected = sub.output_coords(x)
+    assert out.shape == (1, 6, NVAR, *expected.shape[-2:])
+    assert out.lead_time.values[-1] == np.timedelta64(6, "h")
+    assert torch.isfinite(out.e2s.to_torch()[0]).all()

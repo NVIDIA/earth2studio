@@ -14,23 +14,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
-from collections.abc import Generator, Iterator
+from collections.abc import Callable, Generator
+from copy import deepcopy
 from datetime import datetime
+from typing import Any, cast
 
 import numpy as np
 import torch
 import xarray as xr
 
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils.coords import CoordSystem, map_coords
+from earth2studio.utils import (
+    coord_array,
+    coord_array_like,
+    handshake_coords,
+    handshake_dim,
+    handshake_nonempty,
+    handshake_time,
+)
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
+from earth2studio.utils.type import CoordinateSystem
 
 try:
     from physicsnemo import Module as PhysicsNemoModule
@@ -154,6 +163,10 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         None.
     num_interp_steps : int, optional
         Number of interpolation steps to perform between forecast steps, by default 6
+    prepare_endpoint : Callable[[xr.DataArray], xr.DataArray], optional
+        Prepare the left interpolation endpoint without advancing time, for example
+        by computing diagnostics absent from the base input. Applied after front
+        hooks, including restored history. The public initial yield is unchanged.
 
     Badges
     ------
@@ -170,16 +183,39 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         lsm: torch.Tensor,
         px_model: PrognosticModel | None = None,
         num_interp_steps: int = 6,
+        prepare_endpoint: Callable[[xr.DataArray], xr.DataArray] | None = None,
     ) -> None:
         super().__init__()
         self.px_model = px_model
         self.interp_model = interp_model
         self.num_interp_steps = num_interp_steps
+        self.prepare_endpoint = prepare_endpoint
+        if num_interp_steps < 1:
+            raise ValueError("num_interp_steps must be positive")
         self.variables = np.array(VARIABLES)
         self.register_buffer("center", center)
         self.register_buffer("scale", scale)
         self.register_buffer("geop", geop)
         self.register_buffer("lsm", lsm)
+
+    @property
+    def stochastic(self) -> bool:  # type: ignore[override]  # Derived from the nested model.
+        """Whether the coarse forecast model samples a random trajectory."""
+        return bool(getattr(self.px_model, "stochastic", False))
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the coarse forecast model's isolated random stream.
+
+        Parameters
+        ----------
+        seed : int
+            Seed forwarded to the stochastic coarse model.
+        reset : bool, optional
+            Reset an existing stream, by default True. Deterministic coarse
+            models require no random stream.
+        """
+        if self.stochastic:
+            self.px_model.set_rng(seed, reset=reset)  # type: ignore[union-attr]  # Stochastic models provide set_rng.
 
     @staticmethod
     def _load_feature_from_file(fn: str, var: str) -> torch.Tensor:
@@ -219,68 +255,131 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def __str__(self) -> str:
         return "InterpModAFNO"
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of the prognostic model
+    def input_coords(self) -> CoordinateSystem:
+        """Input coordinate system of the prognostic model.
+
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free DataArray input signature.
         """
         # Getter / Setters don't work with torch.nn.Module, need to check manually here
         if self.px_model is None:
             raise ValueError("Base forecast model, px_model, must be set")
-        input_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.empty(0),
-                "variable": np.empty(0),
-                "lat": np.empty(0),
-                "lon": np.empty(0),
-            }
-        )
-        for key, value in self.px_model.input_coords().items():
-            if key in input_coords:
-                input_coords[key] = value
-        return input_coords
+        signature = cast(CoordinateSystem, self.px_model.input_coords()).copy(deep=True)
+        if "time" not in signature.dims:
+            dims = list(signature.dims)
+            dynamic = list(signature.attrs.get("earth2studio_dynamic_dims", ()))
+            position = len(dynamic)
+            dims.insert(position, "time")
+            dynamic.append("time")
+            signature = coord_array(
+                dims,
+                dict(signature.coords),
+                sizes=dict(signature.sizes),
+                dynamic=dynamic,
+                attrs=deepcopy(signature.attrs),
+                dtype=signature.dtype,
+                name=signature.name,
+            )
+        return signature
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of the prognostic model
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Output coordinate system of the prognostic model.
+
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
+
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free DataArray output signature.
         """
-        output_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array([np.timedelta64(1, "h")]),
-                "variable": np.array(self.variables),
-                "lat": np.linspace(90.0, -90.0, 720, endpoint=False),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+        self.input_coords()
+        if self.px_model is None:
+            raise ValueError("Base forecast model, px_model, must be set")
+        coarse = cast(CoordinateSystem, self.px_model.output_coords(input_coords))
+        final = input_coords.coords["lead_time"].values[-1:]
+        boundaries = np.concatenate((final, coarse.coords["lead_time"].values))
+        delta = np.diff(boundaries).astype("timedelta64[ns]")
+        handshake_time(
+            {"lead_time": delta},
+            "lead_time",
+            step=np.timedelta64(self.num_interp_steps, "ns"),
+            minimum=np.timedelta64(1, "ns"),
         )
-        if input_coords is None:
-            return output_coords
-        test_coords = input_coords.copy()
-        test_coords["lead_time"] = (
-            test_coords["lead_time"] - input_coords["lead_time"][-1]
+        return self._prediction_coords(
+            coarse,
+            (
+                boundaries[:-1, None]
+                + np.arange(1, self.num_interp_steps + 1)[None, :]
+                * (delta[:, None] // self.num_interp_steps)
+            ).reshape(-1),
         )
-        # Sometime prognostics don't explicitly have a time coord and thats okay
-        # as long as the data does
-        output_coords["batch"] = input_coords.get("batch", np.empty(0))
-        output_coords["time"] = input_coords.get("time", np.empty(0))
-        output_coords["lead_time"] = (
-            output_coords["lead_time"] + input_coords["lead_time"][-1]
+
+    def _prediction_coords(self, x: xr.DataArray, lead: np.ndarray) -> CoordinateSystem:
+        lead = lead.astype("timedelta64[ns]")
+        # The interpolation network uses the north-pole-inclusive 720-row grid.
+        target = coord_array(
+            ("variable", "lat", "lon"),
+            {"variable": self.variables},
+            grid="latlon-0.25deg-south-pole-excluded",
         )
-        return output_coords
+        for dim in ("variable", "lat", "lon"):
+            handshake_dim(x, dim)
+            handshake_coords(x, target, dim, subset=True)
+        changed = {"lead_time", "variable"}
+        if not np.array_equal(x.lat, target.lat) or not np.array_equal(
+            x.lon, target.lon
+        ):
+            changed.update(("lat", "lon"))
+        attrs = deepcopy(x.attrs)
+        for key in (
+            "earth2studio_grid_id",
+            "earth2studio_crs",
+            "dims",
+            "shape",
+            "topology",
+            "type",
+            "crs",
+        ):
+            attrs.pop(key, None)
+        coords = {
+            k: v.variable.copy(deep=True)
+            for k, v in x.coords.items()
+            if not changed.intersection(v.dims)
+        }
+        coords.update(
+            variable=self.variables,
+            lead_time=xr.Variable(
+                "lead_time",
+                lead,
+                attrs=deepcopy(x.lead_time.attrs),
+                encoding=deepcopy(x.lead_time.encoding),
+            ),
+        )
+        if "time" in x.coords:
+            time = x.coords["time"]
+            valid = time + xr.DataArray(lead, dims="lead_time")
+            coords["valid_time"] = valid.variable
+        result = coord_array(
+            x.dims,
+            coords,
+            grid="latlon-0.25deg-south-pole-excluded",
+            dynamic=x.attrs.get("earth2studio_dynamic_dims", ()),
+            sizes={
+                d: x.sizes[d]
+                for d in x.dims
+                if d not in ("lead_time", "variable", "lat", "lon")
+            },
+            attrs=attrs,
+            name=x.name,
+            dtype=x.dtype,
+        )
+        result.encoding = deepcopy(x.encoding)
+        return result
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -367,143 +466,231 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @torch.inference_mode()
     def _interpolate(
         self,
-        x0: torch.Tensor,
-        x1: torch.Tensor,
-        coords: CoordSystem,
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
+        x0: xr.DataArray,
+        x1: xr.DataArray,
+    ) -> Generator[xr.DataArray, None, None]:
         """Interpolate between two forecast steps.
 
         Parameters
         ----------
-        x0 : torch.Tensor
+        x0 : xr.DataArray
             First forecast step
-        x1 : torch.Tensor
+        x1 : xr.DataArray
             Second forecast step
-        coords : CoordSystem
-            Coordinate system for the forecast steps
 
         Yields
         ------
-        Generator[tuple[torch.Tensor, CoordSystem], None, None]
-            Generator yielding interpolated forecast steps and their coordinate systems
+        Generator[xr.DataArray, None, None]
+            Labelled interpolated forecast steps.
         """
-        x0 = (x0 - self.center) / self.scale
-        x1 = (x1 - self.center) / self.scale
-
-        out = torch.zeros_like(x0)
-        batch_size = len(coords["batch"])
-
-        # expand constants
-        sincos_latlon = self.sincos_latlon.expand(batch_size, -1, -1, -1)
-        geop = self.geop.expand(batch_size, -1, -1, -1)
-        lsm = self.lsm.expand(batch_size, -1, -1, -1)
-
-        t0 = coords["time"][:, None] + coords["lead_time"][None, :]
-        coords_end = coords
-        for _ in range(self.num_interp_steps):
-            coords_end = self.output_coords(coords_end)
-        t1 = coords_end["time"][:, None] + coords_end["lead_time"][None, :]
-
+        if not hasattr(self, "sincos_latlon"):
+            self._compute_latlon()
+        left = (x0.e2s.to_torch()[0].to(self.center.device) - self.center) / self.scale
+        right = (x1.e2s.to_torch()[0].to(self.center.device) - self.center) / self.scale
+        shape = left.shape
+        left, right = left.reshape(-1, *shape[-3:]), right.reshape(-1, *shape[-3:])
+        leading = x0.dims[:-3]
+        template = xr.DataArray(np.empty(shape[:-3]), dims=leading)
+        handshake_time(x0)
+        t0 = (
+            (x0.time + x0.lead_time)
+            .broadcast_like(template)
+            .transpose(*leading)
+            .values.reshape(-1)
+        )
+        t1 = (
+            (x1.time + x1.lead_time)
+            .broadcast_like(template)
+            .transpose(*leading)
+            .values.reshape(-1)
+        )
+        delta = (x1.lead_time.values - x0.lead_time.values) // self.num_interp_steps
+        # Preserve ensemble batching even when time is an auxiliary coordinate
+        # or members occupy several leading dimensions. Group both endpoints.
+        groups: dict[tuple[int, int], list[int]] = {}
+        for index, pair in enumerate(
+            zip(
+                t0.astype("datetime64[ns]").astype(np.int64),
+                t1.astype("datetime64[ns]").astype(np.int64),
+            )
+        ):
+            groups.setdefault(pair, []).append(index)
         for interp_step in range(1, self.num_interp_steps):
-            coords = self.output_coords(coords)
+            signature = self._prediction_coords(
+                x0, x0.lead_time.values + interp_step * delta
+            )
+            out = torch.empty_like(left)
+            for members in groups.values():
+                index = members[0]
+                indices = torch.tensor(members, device=left.device)
+                batch_size = len(members)
+                t_ip = (
+                    t0[index]
+                    + interp_step * (t1[index] - t0[index]) // self.num_interp_steps
+                )
+                cos_zen = self._cos_zenith([t0[index], t1[index], t_ip]).to(
+                    self.center.device
+                )
+                features = torch.cat(
+                    [
+                        left[indices],
+                        right[indices],
+                        cos_zen.expand(batch_size, -1, -1, -1),
+                        self.sincos_latlon.expand(batch_size, -1, -1, -1),
+                        self.geop.expand(batch_size, -1, -1, -1),
+                        self.lsm.expand(batch_size, -1, -1, -1),
+                    ],
+                    dim=1,
+                )
+                t_norm = torch.tensor(
+                    [interp_step / self.num_interp_steps], device=self.center.device
+                )
+                out[indices] = self.interp_model(features, t_norm)
+            result = from_torch(
+                out.reshape(shape) * self.scale + self.center, signature
+            )
+            result.encoding = deepcopy(x0.encoding)
+            yield result
 
-            for ti, t in enumerate(coords["time"]):
-                for lti, lt in enumerate(coords["lead_time"]):
-                    t_ip = t + lt
-                    cos_zen = self._cos_zenith([t0[ti, lti], t1[ti, lti], t_ip]).to(
-                        device=x0.device
-                    )
+    def _select_prediction_grid(self, x: xr.DataArray) -> xr.DataArray:
+        signature = self._prediction_coords(x, x.lead_time.values)
+        return x.sel(
+            {dim: signature.coords[dim].values for dim in ("variable", "lat", "lon")}
+        )
 
-                    x = torch.concat(
-                        [
-                            x0[:, ti, lti],
-                            x1[:, ti, lti],
-                            cos_zen.expand(batch_size, -1, -1, -1),
-                            sincos_latlon,
-                            geop,
-                            lsm,
-                        ],
-                        dim=1,
-                    )
+    def _prepare_left_endpoint(self, x: xr.DataArray) -> xr.DataArray:
+        if self.prepare_endpoint is not None:
+            x = self.prepare_endpoint(x.copy(deep=True))
+        return self._select_prediction_grid(x)
 
-                    t_norm = torch.Tensor([interp_step / self.num_interp_steps]).to(
-                        device=x0.device
-                    )
-                    out[:, ti, lti] = self.interp_model(x, t_norm)
-
-            out *= self.scale
-            out += self.center
-            yield (out, coords)
-
-    @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Runs prognostic model 1 step
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Return the complete interpolated forecast chunk without hooks.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Initial fields matching the coarse prognostic model's signature.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system 1 hour in the future
+        xr.DataArray
+            Interpolated forecasts and coarse endpoints on the output grid,
+            matching ``output_coords(x)``.
         """
-        gen = self._default_generator(x, coords)
-        return next(gen)
+        return self.initialize(x)[0]
 
-    @batch_func()
-    def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-
-        if self.px_model is None:
-            raise ValueError(
-                "Base forecast model, px_model, must be set before executing the model."
-            )
-
-        if not hasattr(self, "sincos_latlon"):
-            self._compute_latlon()
-
-        for fc_step, (x, coords) in enumerate(self.px_model.create_iterator(x, coords)):
-            # Make sure prognostic model has all 73 required variables
-            x, coords = map_coords(x, coords, self.output_coords(coords))
-            if fc_step == 0:
-                x0 = x
-                coords0 = coords
-                yield (x, coords)
-            else:
-                x1 = x
-                for x, coords in self._interpolate(x0, x1, coords0):
-                    yield (x, coords)
-                coords = self.output_coords(coords)
-                yield (x1, coords)
-                x0 = x1
-                coords0 = coords
-
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Creates a iterator which can be used to perform time-integration of the
-        prognostic model. Will return the initial condition first (0th step).
+    def initialize(
+        self, x: xr.DataArray
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, Any]]:
+        """Initialize the coarse forecast and interpolate its forecast interval.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Initial history matching the nested model's ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[xr.DataArray, Any]]
+            Complete interpolated forecast chunk and the coarse forecast and
+            nested continuation state. Iterator hooks are not applied.
+        """
+        handshake_nonempty(x)
+        self.output_coords(x)
+        if self.px_model is None:
+            raise ValueError("Base forecast model, px_model, must be set")
+        coarse, state = self.px_model.initialize(x.copy(deep=True))
+        coarse = cast(xr.DataArray, coarse)
+        return self._forward(
+            self._prepare_left_endpoint(x.isel(lead_time=slice(-1, None))), coarse
+        ), (coarse.copy(deep=True), state)
+
+    def step(
+        self, y: xr.DataArray, state: tuple[xr.DataArray, Any]
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, Any]]:
+        """Advance the coarse model using edits to the published coarse endpoints.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous interpolated chunk. Edits at the coarse forecast's lead times
+            are transferred to the nested model's retained fields.
+        state : tuple[xr.DataArray, Any]
+            Coarse forecast and nested state returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[xr.DataArray, Any]]
+            Next complete interpolated chunk and updated state, without hooks.
+        """
+        if self.px_model is None:
+            raise ValueError("Base forecast model, px_model, must be set")
+        coarse, nested = state
+        coarse = coarse.copy(deep=True)
+        endpoints = y.sel(lead_time=coarse.lead_time.values)
+        latest = endpoints.isel(lead_time=slice(-1, None))
+        feedback = from_torch(
+            endpoints.e2s.to_torch()[0].to(coarse.e2s.to_torch()[0].device),
+            coord_array_like(endpoints),
+        )
+        coarse.loc[
+            {
+                dim: endpoints.coords[dim].values
+                for dim in ("lead_time", "variable", "lat", "lon")
+            }
+        ] = feedback.data
+        coarse.attrs.update(
+            deepcopy(
+                {
+                    name: value
+                    for name, value in y.attrs.items()
+                    if not name.startswith("earth2studio_")
+                }
+            )
+        )
+        coarse.encoding = deepcopy(y.encoding)
+        coarse.name = y.name
+        for name in list(coarse.coords):
+            if name not in coarse.dims and name not in y.coords:
+                coarse = coarse.drop_vars(name)
+        prediction, nested = self.px_model.step(coarse, state=deepcopy(nested))
+        prediction = cast(xr.DataArray, prediction)
+        return self._forward(latest, prediction), (prediction.copy(deep=True), nested)
+
+    def _forward(self, left: xr.DataArray, coarse: xr.DataArray) -> xr.DataArray:
+        outputs = []
+        for index in range(coarse.sizes["lead_time"]):
+            right = self._select_prediction_grid(
+                coarse.isel(lead_time=slice(index, index + 1))
+            )
+            outputs.extend(self._interpolate(left, right))
+            endpoint = from_torch(
+                right.e2s.to_torch()[0].to(self.center.device).clone(),
+                self._prediction_coords(right, right.lead_time.values),
+                name=right.name,
+            )
+            endpoint.encoding = deepcopy(right.encoding)
+            outputs.append(endpoint)
+            left = right
+        output = xr.concat(
+            outputs, dim="lead_time", coords="minimal", compat="override", join="exact"
+        )
+        output.encoding = deepcopy(coarse.encoding)
+        output.attrs = deepcopy(output.attrs)
+        return output
+
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
+        """Yield interpolated chunks, beginning with initialization's prediction.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
-            Iterator that generates time-steps of the prognostic model container the
-            output data tensor and coordinate system dictionary.
+        xr.DataArray
+            Interpolated chunks after the rear hook. The front hook runs before
+            subsequent steps; edits at coarse forecast times feed the nested model.
         """
-        yield from self._default_generator(x, coords)
+        yield from self._default_create_iterator(x)

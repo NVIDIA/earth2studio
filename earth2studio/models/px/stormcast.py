@@ -14,32 +14,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import warnings
-from collections import OrderedDict
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
+from copy import deepcopy
 from itertools import product
+from typing import cast
 
 import numpy as np
 import torch
 import xarray as xr
 import zarr
 
-from earth2studio.data import GFS_FX, HRRR, DataSource, ForecastSource, fetch_data
+from earth2studio.data import DataSource, ForecastSource
+from earth2studio.grids import BilinearRegridder, ProjectedGrid, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.utils import fork_rng
 from earth2studio.utils import (
-    handshake_coords,
-    handshake_dim,
-    handshake_size,
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_nonempty,
+    handshake_time,
 )
-from earth2studio.utils.coords import map_coords
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem
 
 try:
     from omegaconf import OmegaConf
@@ -93,8 +97,9 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     - High-resolution land-sea mask and orography invariants
     - Coarse resolution (25km) global state (26 vars)
 
-    The high-resolution grid is the HRRR Lambert conformal projection
-    Coarse-resolution inputs are regridded to the HRRR grid internally.
+    The high-resolution grid is the HRRR Lambert conformal projection.
+    Coarse-resolution conditioning must arrive on that grid; the source recommended
+    by ``default_sources()`` regrids it there.
 
     Note
     ----
@@ -129,8 +134,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Standard deviations to normalize conditioning data, by default None
     conditioning_variables : np.array, optional
         Global variables for conditioning, by default np.array(CONDITIONING_VARIABLES)
-    conditioning_data_source : DataSource | ForecastSource | None, optional
-        Data Source to use for global conditioning. Required for running in iterator mode, by default None
     sampler_steps : int, optional
         Number of diffusion sampler steps, by default 36
     sampler_args : dict[str, float  |  int], optional
@@ -156,7 +159,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         conditioning_means: torch.Tensor | None = None,
         conditioning_stds: torch.Tensor | None = None,
         conditioning_variables: np.array = np.array(CONDITIONING_VARIABLES),
-        conditioning_data_source: DataSource | ForecastSource | None = None,
         sampler_steps: int = 18,
         sampler_args: dict[str, float | int] | None = None,
     ):
@@ -179,27 +181,17 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if sampler_args is not None:
             self.sampler_args.update(sampler_args)
 
-        hrrr_lat, hrrr_lon = HRRR.grid()
-        self.lat = hrrr_lat[
-            hrrr_lat_lim[0] : hrrr_lat_lim[1], hrrr_lon_lim[0] : hrrr_lon_lim[1]
-        ]
-        self.lon = hrrr_lon[
-            hrrr_lat_lim[0] : hrrr_lat_lim[1], hrrr_lon_lim[0] : hrrr_lon_lim[1]
-        ]
-
-        self.hrrr_x = HRRR.HRRR_X[hrrr_lon_lim[0] : hrrr_lon_lim[1]]
-        self.hrrr_y = HRRR.HRRR_Y[hrrr_lat_lim[0] : hrrr_lat_lim[1]]
+        parent = cast(ProjectedGrid, resolve_grid("hrrr"))
+        self.grid = ProjectedGrid(
+            parent.y[slice(*hrrr_lat_lim)], parent.x[slice(*hrrr_lon_lim)], parent.crs
+        )
+        self.lat = np.asarray(self.grid.coords()["lat"])
+        self.lon = np.asarray(self.grid.coords()["lon"])
+        self.hrrr_x, self.hrrr_y = self.grid.x, self.grid.y
 
         self.variables = variables
 
         self.conditioning_variables = conditioning_variables
-        self.conditioning_data_source = conditioning_data_source
-        if conditioning_data_source is None:
-            warnings.warn(
-                "No conditioning data source was provided to StormCast, "
-                + "set the conditioning_data_source attribute of the model "
-                + "before running inference."
-            )
 
         if conditioning_means is not None:
             self.register_buffer("conditioning_means", conditioning_means)
@@ -207,62 +199,47 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if conditioning_stds is not None:
             self.register_buffer("conditioning_stds", conditioning_stds)
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system"""
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array([np.timedelta64(0, "h")]),
-                "variable": np.array(self.variables),
-                "hrrr_y": self.hrrr_y,
-                "hrrr_x": self.hrrr_x,
-            }
-        )
-
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of diagnostic model
-
-        Parameters
-        ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
+    def input_coords(self) -> CoordinateSystem:
+        """Input coordinate system of the prognostic model.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free DataArray input signature.
         """
-
-        output_coords = OrderedDict(
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "y", "x"),
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array([np.timedelta64(1, "h")]),
+                "lead_time": np.array([np.timedelta64(0, "h")]),
                 "variable": np.array(self.variables),
-                "hrrr_y": self.hrrr_y,
-                "hrrr_x": self.hrrr_x,
-            }
+            },
+            dynamic=("batch", "time"),
+            grid=self.grid,
         )
 
-        target_input_coords = self.input_coords()
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Output coordinate system of the prognostic model.
 
-        handshake_dim(input_coords, "hrrr_x", 5)
-        handshake_dim(input_coords, "hrrr_y", 4)
-        handshake_dim(input_coords, "variable", 3)
-        # Index coords are arbitrary as long its on the HRRR grid, so just check size
-        handshake_size(input_coords, "hrrr_y", self.lat.shape[0])
-        handshake_size(input_coords, "hrrr_x", self.lat.shape[1])
-        handshake_coords(input_coords, target_input_coords, "variable")
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
 
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["time"] = input_coords["time"]
-        output_coords["lead_time"] = (
-            output_coords["lead_time"] + input_coords["lead_time"]
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray output signature for the next hourly
+            forecast.
+        """
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
+        lead = np.asarray(input_coords.lead_time)
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
         )
-        return output_coords
+        return coord_array_like(
+            input_coords, {"lead_time": lead + np.timedelta64(1, "h")}
+        )
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -281,7 +258,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_model(
         cls,
         package: Package,
-        conditioning_data_source: DataSource | ForecastSource = GFS_FX(),
         sampler_steps: int = 18,
     ) -> PrognosticModel:
         """Load prognostic from package
@@ -290,8 +266,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         package : Package
             Package to load model from
-        conditioning_data_source : DataSource | ForecastSource, optional
-            Data source to use for global conditioning, by default GFS_FX
         sampler_steps : int, optional
             Number of diffusion sampler steps, by default 18
 
@@ -360,7 +334,6 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             variables=variables,
             conditioning_means=conditioning_means,
             conditioning_stds=conditioning_stds,
-            conditioning_data_source=conditioning_data_source,
             conditioning_variables=conditioning_variables,
             sampler_steps=sampler_steps,
             sampler_args=sampler_args,
@@ -368,6 +341,29 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @torch.inference_mode()
     def _forward(self, x: torch.Tensor, conditioning: torch.Tensor) -> torch.Tensor:
+        # The PhysicsNeMo sampler draws churn noise without a generator argument.
+        with fork_rng(self._rng_seed, x.device, states=self._rng_states):
+            return self._sample(x, conditioning)
+
+    stochastic = True
+    _rng_seed: int | None = None
+    _rng_states: dict[str, torch.Tensor] | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed StormCast's initial latent and stochastic solver noise.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for diffusion sampling.
+        reset : bool, optional
+            Reset existing sampling state, by default True.
+        """
+        if reset or self._rng_seed is None:
+            self._rng_seed = seed
+            self._rng_states = {}
+
+    def _sample(self, x: torch.Tensor, conditioning: torch.Tensor) -> torch.Tensor:
 
         # Scale data
         if "conditioning_means" in self._buffers:
@@ -419,26 +415,54 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return out
 
+    def forcing_coords(self) -> CoordinateSystem:
+        """Declare conditioning on the forecast grid at the input valid time.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free conditioning signature at relative lead time zero.
+            The caller supplies conditioning on the model grid at each step's
+            valid time.
+        """
+        return coord_array_like(
+            self.input_coords(), {"variable": self.conditioning_variables}
+        )
+
+    def default_sources(self) -> tuple[DataSource, DataSource | ForecastSource]:
+        """Recommend HRRR inputs and GFS conditioning on the model grid.
+
+        Returns
+        -------
+        tuple[DataSource, DataSource | ForecastSource]
+            HRRR input source followed by GFS forecasts bilinearly regridded from
+            the global 0.25 degree grid onto the model grid. To condition on
+            another source, such as a global model's forecast, supply it to the
+            runner on the model grid, for example as a
+            :class:`~earth2studio.data.RegriddedSource`.
+        """
+        from earth2studio.data import GFS_FX, HRRR, RegriddedSource
+
+        regridder = BilinearRegridder("latlon-0.25deg", self.grid)
+        return HRRR(), RegriddedSource(GFS_FX(), regridder)
+
     @torch.inference_mode()
-    @batch_func()
-    def __call__(
+    def _predict(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+        x: xr.DataArray,
+        conditioning: xr.DataArray,
+    ) -> xr.DataArray:
         """Runs prognostic model 1 step
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Input field on the declared projected grid.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system
+        xr.DataArray
+            Hourly forecast field.
 
         Raises
         ------
@@ -446,46 +470,20 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             If conditioning data source is not initialized
         """
 
-        if self.conditioning_data_source is None:
-            raise RuntimeError(
-                "StormCast has been called without initializing the model's conditioning_data_source"
-            )
-
-        # TODO: Eventually pull out interpolation into model and remove it from fetch
-        # data potentially
-        conditioning, conditioning_coords = fetch_data(
-            self.conditioning_data_source,
-            time=coords["time"],
-            variable=self.conditioning_variables,
-            lead_time=coords["lead_time"],
-            device=x.device,
-            interp_to=coords | {"_lat": self.lat, "_lon": self.lon},
-            interp_method="linear",
+        self.output_coords(x)
+        handshake_nonempty(conditioning)
+        handshake_dataarray(
+            conditioning, coord_array_like(x, {"variable": self.conditioning_variables})
         )
-        # ensure data dimensions in the expected order
-        conditioning_coords_ordered = OrderedDict(
-            {
-                k: conditioning_coords[k]
-                for k in ["time", "lead_time", "variable", "lat", "lon"]
-            }
-        )
-        conditioning, conditioning_coords = map_coords(
-            conditioning, conditioning_coords, conditioning_coords_ordered
-        )
-
-        # Add a batch dim
-        conditioning = conditioning.repeat(x.shape[0], 1, 1, 1, 1, 1)
-        conditioning_coords.update({"batch": np.empty(0)})
-        conditioning_coords.move_to_end("batch", last=False)
-
-        # Handshake conditioning coords
-        # TODO: ugh the interp... have to deal with this for now, no solution
-        # handshake_coords(conditioning_coords, coords, "hrrr_x")
-        # handshake_coords(conditioning_coords, coords, "hrrr_y")
-        handshake_coords(conditioning_coords, coords, "lead_time")
-        handshake_coords(conditioning_coords, coords, "time")
-
-        output_coords = self.output_coords(coords)
+        name = x.name
+        x, restore = batch_func()._compress_array(self, x)
+        conditioning, _ = batch_func()._compress_array(self, conditioning)
+        output_coords = self.output_coords(x)
+        encoding = deepcopy(x.encoding)
+        x, coords = x.e2s.to_torch()
+        x = x.to(self.means.device)
+        conditioning, _ = conditioning.e2s.to_torch()
+        conditioning = conditioning.to(x.device)
 
         x = x.clone()  # prevent editing of argument
         for i, _ in enumerate(coords["batch"]):
@@ -495,50 +493,102 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                         x[i, j, k : k + 1], conditioning[i, j, k : k + 1]
                     )
 
-        return x, output_coords
+        out = from_torch(x, output_coords, name=name)
+        out.attrs = deepcopy(out.attrs)
+        out.encoding = encoding
+        return restore(out)
 
-    @batch_func()
-    def _default_generator(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-
-        coords = coords.copy()
-        self.output_coords(coords)
-        yield x, coords
-
-        if self.conditioning_data_source is None:
-            raise ValueError(
-                "A conditioning data source must be available for the iterator to function."
-            )
-
-        while True:
-            # Front hook
-            x, coords = self.front_hook(x, coords)
-            # Forward
-            x, coords = self.__call__(x, coords)
-            # Rear hook
-            x, coords = self.rear_hook(x, coords)
-            yield x, coords.copy()
-
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Creates a iterator which can be used to perform time-integration of the
-        prognostic model. Will return the initial condition first (0th step).
+    def __call__(self, x: xr.DataArray, conditioning: xr.DataArray) -> xr.DataArray:
+        """Predict one hour using caller-supplied conditioning, without hooks.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+        conditioning : xr.DataArray
+            Conditioning on the model grid at the input valid time.
+
+        Returns
+        -------
+        xr.DataArray
+            First hourly forecast matching ``output_coords(x)``.
+        """
+        return self.initialize(x, conditioning)[0]
+
+    def initialize(
+        self, x: xr.DataArray, conditioning: xr.DataArray
+    ) -> tuple[xr.DataArray, tuple[int, dict[str, torch.Tensor]]]:
+        """Compute the first forecast and capture its isolated sampling stream.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+        conditioning : xr.DataArray
+            Fields matching ``forcing_coords()`` on the model grid at the input
+            valid time. No conditioning data are fetched internally.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[int, dict[str, torch.Tensor]]]
+            First hourly forecast and continuation seed and RNG state tensors.
+            Iterator hooks are not applied.
+        """
+        handshake_nonempty(x)
+        handshake_time(x)
+        if self._rng_seed is None:
+            self.set_rng(int(torch.randint(2**31, ())))
+        y = self._predict(x, conditioning)
+        if self._rng_seed is None or self._rng_states is None:
+            raise RuntimeError("Sampling stream was not initialized")
+        return y, (self._rng_seed, deepcopy(self._rng_states))
+
+    def step(
+        self,
+        y: xr.DataArray,
+        conditioning: xr.DataArray,
+        state: tuple[int, dict[str, torch.Tensor]],
+    ) -> tuple[xr.DataArray, tuple[int, dict[str, torch.Tensor]]]:
+        """Advance with new conditioning and the supplied random-stream state.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        conditioning : xr.DataArray
+            New conditioning fields at the valid time of ``y`` on the model grid.
+        state : tuple[int, dict[str, torch.Tensor]]
+            Seed and RNG state tensors returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[int, dict[str, torch.Tensor]]]
+            Next hourly forecast and updated sampling state, without hooks.
+        """
+        previous = self._rng_seed, self._rng_states
+        self._rng_seed, self._rng_states = deepcopy(state)
+        try:
+            output = self._predict(y, conditioning)
+            return output, (self._rng_seed, deepcopy(self._rng_states))
+        finally:
+            self._rng_seed, self._rng_states = previous
+
+    def create_iterator(
+        self, x: xr.DataArray, conditioning: xr.DataArray
+    ) -> Generator[xr.DataArray, xr.DataArray | tuple[xr.DataArray, ...] | None, None]:
+        """Yield hourly forecasts, receiving new conditioning through ``send``.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+        conditioning : xr.DataArray
+            Initial conditioning at the input valid time on the model grid.
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
-            Iterator that generates time-steps of the prognostic model container the
-            output data tensor and coordinate system dictionary.
+        xr.DataArray
+            Forecasts beginning with ``initialize``. The rear hook runs before
+            every yield and the front hook before each subsequent step.
         """
-        yield from self._default_generator(x, coords)
+        yield from self._default_create_iterator(x, conditioning)

@@ -17,7 +17,7 @@
 from collections import OrderedDict
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 import pandas as pd
@@ -25,16 +25,21 @@ import torch
 import torch.nn.functional as F
 import xarray as xr
 
+from earth2studio.grids import CurvilinearGrid, LatLonGrid
 from earth2studio.models.auto import Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.models.dx.corrdiff import CorrDiff
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils.coords import coord_array, handshake_dataarray, handshake_time
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem, LeadTimeArray
+from earth2studio.utils.type import LeadTimeArray
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 try:
     from physicsnemo.diffusion.generate.legacy_generate import (
@@ -109,8 +114,6 @@ class CorrDiffCMIP6(CorrDiff):
         is not supported in CorrDiffCMIP6. Default is "both".
     hr_mean_conditioning : bool, optional
         Whether to use high-res mean conditioning, by default True
-    seed : int | None, optional
-        Random seed for reproducibility, by default None
     grid_spacing_tolerance : float, optional
         Relative tolerance for checking regular grid spacing, by default 1e-5
     grid_bounds_margin : float, optional
@@ -138,7 +141,7 @@ class CorrDiffCMIP6(CorrDiff):
     ...     CorrDiffCMIP6.load_default_package(),
     ...     output_lead_times=np.array([np.timedelta64(-12, "h"), np.timedelta64(-6, "h")]),
     ... )
-    >>> model.seed = 1 # Set seed for reprod
+    >>> model.set_rng(1) # Set seed for reproducibility
     >>> model.number_of_samples = 1 # Modify number of samples if needed
     >>> model = model.to(device)
     >>>
@@ -151,17 +154,17 @@ class CorrDiffCMIP6(CorrDiff):
     ... )
     >>> data = CMIP6MultiRealm([CMIP6(table_id=t, **cmip6_kwargs) for t in ("day", "Eday", "SIday")])
     >>>
-    >>> x, coords = fetch_data(
+    >>> x = fetch_data(
     ...     source=data,
     ...     time=np.array([np.datetime64("2037-09-06T12:00")]), # Time must be 12:00 UTC
-    ...     lead_time=model.input_coords()["lead_time"],
-    ...     variable=model.input_coords()["variable"],
+    ...     variable=model.input_coords()["variable"].values,
     ...     device=device,
     ... )
     >>>
     >>> # Run model forward pass
-    >>> out, out_coords = model(x, coords)
-    >>> da = xr.DataArray(data=out.cpu().numpy(), coords=out_coords, dims=list(out_coords.keys()))
+    >>> x = x.sel(lat=model.input_coords().lat.values, lon=model.input_coords().lon.values)
+    >>> out = model(x)
+    >>> da = out.e2s.as_numpy()
 
     Badges
     ------
@@ -252,7 +255,6 @@ class CorrDiffCMIP6(CorrDiff):
         sampler_type: Literal["deterministic", "stochastic"] = "stochastic",
         inference_mode: Literal["regression", "diffusion", "both"] = "both",
         hr_mean_conditioning: bool = True,
-        seed: int | None = None,
         grid_spacing_tolerance: float = 1e-5,
         grid_bounds_margin: float = 0.0,
         sigma_min: float | None = None,
@@ -283,7 +285,6 @@ class CorrDiffCMIP6(CorrDiff):
             sampler_type=sampler_type,
             inference_mode=inference_mode,
             hr_mean_conditioning=hr_mean_conditioning,
-            seed=seed,
             grid_spacing_tolerance=grid_spacing_tolerance,
             grid_bounds_margin=grid_bounds_margin,
             sigma_min=sigma_min,
@@ -338,12 +339,46 @@ class CorrDiffCMIP6(CorrDiff):
             if v in self._NONNEGATIVE_VARS
         ]
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system"""
-        return OrderedDict(
+    def default_sources(self) -> "DataSource":
+        """Recommend the CMIP6 multi-realm data source.
+
+        Returns
+        -------
+        DataSource
+            ``CMIP6MultiRealm`` over the day, Eday and SIday tables of the CanESM5
+            ssp585 run used in the model example.
+        """
+        from earth2studio.data import CMIP6, CMIP6MultiRealm
+
+        tables = [
+            CMIP6(
+                table_id=table_id,
+                experiment_id="ssp585",
+                source_id="CanESM5",
+                variant_label="r1i1p2f1",
+                exact_time_match=True,
+            )
+            for table_id in ("day", "Eday", "SIday")
+        ]
+        # CMIP6MultiRealm is callable as a DataSource but has no async fetch
+        return CMIP6MultiRealm(tables)  # type: ignore[return-value]
+
+    def input_coords(self) -> xr.DataArray:
+        """Input coordinate system of the diagnostic model.
+
+        Returns
+        -------
+        xr.DataArray
+            Allocation-free DataArray input signature.
+        """
+        grid = (
+            LatLonGrid(self.lat_input_numpy, self.lon_input_numpy)
+            if self.lat_input_numpy.ndim == 1
+            else CurvilinearGrid(self.lat_input_numpy, self.lon_input_numpy)
+        )
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", *grid.dims),
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
                 "lead_time": np.array(
                     [
                         np.timedelta64(-24, "h"),
@@ -352,47 +387,55 @@ class CorrDiffCMIP6(CorrDiff):
                     ]
                 ),
                 "variable": np.array(self.input_variables),
-                "lat": self.lat_input_numpy,
-                "lon": self.lon_input_numpy,
-            }
+            },
+            dynamic=("batch", "time"),
+            grid=grid,
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of diagnostic model
+    def output_coords(self, input_coords: xr.DataArray) -> xr.DataArray:
+        """Output coordinate system of the diagnostic model.
+
+        Samples follow time: ``[..., time, sample, lead_time, variable, ...]``.
+        This keeps unresolved batch/time dimensions in a leading dynamic prefix.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
+        input_coords : xr.DataArray
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        xr.DataArray
+            Allocation-free DataArray output signature.
         """
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "time", 1)
-        handshake_dim(input_coords, "lead_time", 2)
-        handshake_dim(input_coords, "variable", 3)
-        handshake_dim(input_coords, "lat", 4)
-        handshake_dim(input_coords, "lon", 5)
-        handshake_coords(input_coords, target_input_coords, "lon")
-        handshake_coords(input_coords, target_input_coords, "lat")
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        output_coords = OrderedDict(
-            {
-                "batch": input_coords["batch"],
-                "sample": np.arange(self.number_of_samples),
-                "time": input_coords["time"],
-                "lead_time": self.output_lead_times,
-                "variable": np.array(self.output_variables),
-                "lat": self.lat_output_numpy,
-                "lon": self.lon_output_numpy,
-            }
+        handshake_dataarray(input_coords, self.input_coords())
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
+        grid = (
+            LatLonGrid(self.lat_output_numpy, self.lon_output_numpy)
+            if self.lat_output_numpy.ndim == 1
+            else CurvilinearGrid(self.lat_output_numpy, self.lon_output_numpy)
         )
-        return output_coords
+        leading = input_coords.dims[: input_coords.dims.index("time") + 1]
+        return coord_array(
+            (*leading, "sample", "lead_time", "variable", *grid.dims),
+            {
+                **{
+                    k: v.variable
+                    for k, v in input_coords.coords.items()
+                    if set(v.dims).issubset(leading)
+                },
+                "sample": np.arange(self.number_of_samples),
+                "lead_time": self.output_lead_times,
+                "variable": self.output_variables,
+            },
+            sizes={d: input_coords.sizes[d] for d in leading},
+            dynamic=input_coords.attrs.get("earth2studio_dynamic_dims", ()),
+            grid=grid,
+            dtype=input_coords.dtype,
+            name=input_coords.name,
+            attrs=input_coords.attrs,
+        )
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -574,7 +617,6 @@ class CorrDiffCMIP6(CorrDiff):
             sampler_type=sampler_type,
             inference_mode=inference_mode,
             hr_mean_conditioning=hr_mean_conditioning,
-            seed=None,
             time_feature_center=time_feature_center,
             time_feature_scale=time_feature_scale,
             grid_spacing_tolerance=grid_spacing_tolerance,
@@ -584,24 +626,42 @@ class CorrDiffCMIP6(CorrDiff):
             output_lead_times=output_lead_times,
         )
 
-    @batch_func()
-    def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Forward pass of diagnostic"""
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Downscale the three-day labelled conditioning history.
 
-        output_coords = self.output_coords(coords)
-        out_shape = tuple(len(v) for v in output_coords.values())
+        Parameters
+        ----------
+        x : xr.DataArray
+            Three-day conditioning history matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            Downscaled fields matching ``output_coords(x)``. Sample dimensions
+            follow time, ahead of lead time and the fixed spatial dimensions.
+        """
+        signature = self.output_coords(x)
+        x, restore = batch_func()._compress_array(self, x)
+        output_coords = self.output_coords(x)
+        # Preserve the numerical kernel's [batch, sample, time, lead, ...] order.
+        output_coords = output_coords.transpose(
+            "batch", "sample", "time", "lead_time", "variable", *output_coords.dims[-2:]
+        )
+        x = x.e2s.to_torch()[0].to(self.in_center.device).clone()
+        out_shape = output_coords.shape
         out = torch.empty(out_shape, device=x.device, dtype=torch.float32)
         # Iterate of different time-stamps and lead time
         for i in range(out.shape[2]):
             for j in range(out.shape[3]):
-                valid_time = output_coords["time"][i] + output_coords["lead_time"][j]
+                valid_time = (
+                    output_coords["time"].values[i]
+                    + output_coords["lead_time"].values[j]
+                )
                 # Input to forward should be [b, l, c, h, w]
                 out[:, :, i, j] = self._forward(
                     x[:, i, :], pd.to_datetime(valid_time).to_pydatetime()
                 )
-        return out, output_coords
+        return restore(from_torch(out, output_coords)).transpose(*signature.dims)
 
     def _get_lonlat_meshgrid(self) -> tuple[np.ndarray, np.ndarray]:
         """Cached lon/lat meshgrid on the output grid (numpy arrays)."""
@@ -796,8 +856,10 @@ class CorrDiffCMIP6(CorrDiff):
             )
 
         # Compute base seed once (sample index added in loop)
-        seed0 = (
-            int(self.seed) if self.seed is not None else int(np.random.randint(2**32))
+        seed0 = int(
+            self._sample_rng.integers(2**32)
+            if self._sample_rng is not None
+            else np.random.randint(2**32)
         )
 
         # Where to accumulate samples (CPU streaming reduces GPU peak memory)

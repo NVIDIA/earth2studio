@@ -18,8 +18,7 @@ import datetime as dt
 import math
 import warnings
 from collections import OrderedDict
-from collections.abc import Generator
-from typing import Any
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -30,12 +29,21 @@ from loguru import logger
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.da.base import AssimilationModel
 from earth2studio.models.da.utils import filter_time_range
+from earth2studio.utils import coord_array
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
 from earth2studio.utils.time import normalize_time_tolerance
-from earth2studio.utils.type import CoordSystem, FrameSchema, TimeArray, TimeTolerance
+from earth2studio.utils.type import (
+    CoordinateSystem,
+    FrameSchema,
+    TimeArray,
+    TimeTolerance,
+)
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataFrameSource
 
 try:
     import cupy as cp
@@ -189,6 +197,19 @@ class HealDA(torch.nn.Module, AutoModelMixin):
     provider:nvidia backend:pytorch
     """
 
+    stochastic = False
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """No-op: HealDA inference is deterministic.
+
+        Parameters
+        ----------
+        seed : int
+            Unused seed.
+        reset : bool, optional
+            Unused reset flag, by default True.
+        """
+
     def __init__(
         self,
         model: torch.nn.Module,
@@ -233,12 +254,26 @@ class HealDA(torch.nn.Module, AutoModelMixin):
     def device(self) -> torch.device:
         return self.device_buffer.device
 
-    def init_coords(self) -> None:
-        """Initialzation coords (not required)"""
-        return None
+    def default_sources(self) -> tuple["DataFrameSource", "DataFrameSource"]:
+        """Recommend the UFS observation data sources.
+
+        Returns
+        -------
+        tuple[DataFrameSource, DataFrameSource]
+            ``UFSObsConv`` for the conventional observation slot followed by
+            ``UFSObsSat`` for the satellite observation slot, both with the
+            ``(-21h, +3h)`` time tolerance window HealDA is designed for.
+        """
+        from earth2studio.data import UFSObsConv, UFSObsSat
+
+        tolerance = (dt.timedelta(hours=-21), dt.timedelta(hours=3))
+        return (
+            UFSObsConv(time_tolerance=tolerance),
+            UFSObsSat(time_tolerance=tolerance),
+        )
 
     def input_coords(self) -> tuple[FrameSchema, FrameSchema]:
-        """Input coordinate system specifying required DataFrame fields.
+        """Observation input schemas of the assimilation model.
 
         Returns two FrameSchemas: one for conventional observations and one for
         satellite observations. When calling the model, either may be ``None``
@@ -247,8 +282,8 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         Returns
         -------
         tuple[FrameSchema, FrameSchema]
-            (conventional_schema, satellite_schema) describing the expected
-            columns for each observation DataFrame
+            Conventional and satellite frame schemas, respectively, describing
+            the required fields of each observation DataFrame.
         """
         conv_schema = FrameSchema(
             {
@@ -282,50 +317,51 @@ class HealDA(torch.nn.Module, AutoModelMixin):
 
     def output_coords(
         self,
-        input_coords: tuple[CoordSystem, CoordSystem],
+        conv_obs: FrameSchema | None = None,
+        sat_obs: FrameSchema | None = None,
         request_time: np.ndarray | None = None,
-        **kwargs: Any,
-    ) -> tuple[CoordSystem]:
-        """Output coordinate system for the HealDA analysis.
+    ) -> CoordinateSystem:
+        """Output coordinate system of the assimilation model.
 
         Parameters
         ----------
-        input_coords : tuple[CoordSystem]
-            Input coordinate system
+        conv_obs : FrameSchema | None, optional
+            Conventional observation schema; output geometry is fixed.
+        sat_obs : FrameSchema | None, optional
+            Satellite observation schema; output geometry is fixed.
         request_time : np.ndarray | None, optional
             Analysis valid time(s), by default None
 
         Returns
         -------
-        tuple[CoordSystem]
-            Coordinate system with time, variable, and lat/lon or npix dimensions
+        CoordinateSystem
+            Allocation-free analysis signature,
+            using time, variable, and lat/lon or npix dimensions.
         """
         if request_time is None:
             request_time = np.array([np.datetime64("NaT")], dtype="datetime64[ns]")
 
         if self._lat_lon:
-            return (
-                CoordSystem(
-                    OrderedDict(
-                        {
-                            "time": request_time,
-                            "variable": np.array(E2S_CHANNELS, dtype=str),
-                            "lat": self._output_lat,
-                            "lon": self._output_lon,
-                        }
-                    )
-                ),
-            )
-
-        return (
-            CoordSystem(
+            return coord_array(
+                ("time", "variable", "lat", "lon"),
                 OrderedDict(
                     {
                         "time": request_time,
                         "variable": np.array(E2S_CHANNELS, dtype=str),
-                        "npix": np.arange(self._model.npix),
+                        "lat": self._output_lat,
+                        "lon": self._output_lon,
                     }
-                )
+                ),
+            )
+
+        return coord_array(
+            ("time", "variable", "npix"),
+            OrderedDict(
+                {
+                    "time": request_time,
+                    "variable": np.array(E2S_CHANNELS, dtype=str),
+                    "npix": np.arange(self._model.npix),
+                }
             ),
         )
 
@@ -453,7 +489,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         conv_obs: pd.DataFrame | None = None,
         sat_obs: pd.DataFrame | None = None,
     ) -> xr.DataArray:
-        """Run HealDA inference from conventional and/or satellite observations.
+        """Compute an independent analysis from conventional and/or satellite observations.
 
         At least one of the two observation DataFrames must be provided. Each
         DataFrame must carry a ``request_time`` entry in its ``.attrs``.
@@ -509,48 +545,14 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         # Check if all (sensor, time) buckets are empty
         if all(df is None for time_list in obs_dict.values() for df in time_list):
             logger.warning("No observations after filtering, returning empty analysis")
-            (output_coords,) = self.output_coords(
-                self.input_coords(), request_time=request_time
-            )
+            output_coords = self.output_coords(request_time=request_time)
             return self._empty_output(output_coords)
 
         inputs = self.build_input(obs_dict, request_time)
         prediction = self._forward(inputs)
 
-        (output_coords,) = self.output_coords(
-            self.input_coords(), request_time=request_time
-        )
+        output_coords = self.output_coords(request_time=request_time)
         return self.build_output(prediction, output_coords)
-
-    def create_generator(
-        self,
-    ) -> Generator[
-        xr.DataArray,
-        tuple[pd.DataFrame | None, pd.DataFrame | None],
-        None,
-    ]:
-        """Creates a generator which accepts collection of input observations and
-        yields the output global assimilated data.
-
-        Yields
-        ------
-        xr.DataArray
-            Global analysis on the HEALPix grid
-
-        Receives
-        --------
-        tuple[pd.DataFrame | None, pd.DataFrame | None]
-            A ``(conv_obs, sat_obs)`` tuple sent via ``generator.send()``.
-            Either element may be ``None`` but not both.
-        """
-        inputs = yield None  # type: ignore[misc]
-        try:
-            while True:
-                conv_obs, sat_obs = inputs if inputs is not None else (None, None)
-                da = self.__call__(conv_obs, sat_obs)
-                inputs = yield da
-        except GeneratorExit:
-            logger.debug("HealDA generator clean up complete.")
 
     def _build_channel_stats(self) -> pd.DataFrame:
         """Build per-(sensor, local_channel) normalization stats table."""
@@ -951,7 +953,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
     def build_output(
         self,
         prediction: torch.Tensor,
-        output_coords: CoordSystem,
+        output_coords: CoordinateSystem,
     ) -> xr.DataArray:
         """Convert model output tensor to xarray DataArray.
 
@@ -959,7 +961,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         ----------
         prediction : torch.Tensor
             Model output [batch, variable, 1, npix]
-        output_coords : CoordSystem
+        output_coords : CoordinateSystem
             Output coordinate system
 
         Returns
@@ -980,16 +982,16 @@ class HealDA(torch.nn.Module, AutoModelMixin):
             return xr.DataArray(
                 data=data,
                 dims=["time", "variable", "lat", "lon"],
-                coords=output_coords,
+                coords=output_coords.coords,
             )
 
         return xr.DataArray(
             data=data,
             dims=["time", "variable", "npix"],
-            coords=output_coords,
+            coords=output_coords.coords,
         )
 
-    def _empty_output(self, output_coords: CoordSystem) -> xr.DataArray:
+    def _empty_output(self, output_coords: CoordinateSystem) -> xr.DataArray:
         """Return an empty (NaN-filled) DataArray."""
         n_time = len(output_coords["time"])
         n_var = len(output_coords["variable"])
@@ -1014,7 +1016,7 @@ class HealDA(torch.nn.Module, AutoModelMixin):
         return xr.DataArray(
             data=data_np,
             dims=dims,
-            coords=output_coords,
+            coords=output_coords.coords,
         )
 
     @staticmethod

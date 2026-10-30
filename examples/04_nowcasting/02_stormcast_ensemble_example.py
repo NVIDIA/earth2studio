@@ -49,7 +49,7 @@ see
 # [`earth2studio.run.ensemble`][earth2studio.run.ensemble].
 
 # %%
-# .. literalinclude:: ../../earth2studio/run.py
+# .. literalinclude:: ../../earth2studio/run/__init__.py
 #    :language: python
 #    :start-after: # sphinx - ensemble start
 #    :end-before: # sphinx - ensemble end
@@ -63,8 +63,9 @@ see
 # - Datasource: Pull data from the HRRR data api [`earth2studio.data.HRRR`][earth2studio.data.HRRR].
 # - IO Backend: Let's save the outputs into a Zarr store [`earth2studio.io.ZarrBackend`][earth2studio.io.ZarrBackend].
 #
-# StormCast-CONUS also requires a global conditioning data source. We use
-# GFS_FX [`earth2studio.data.GFS_FX`][earth2studio.data.GFS_FX] (the default).
+# StormCast-CONUS also requires global conditioning. Its default sources supply
+# GFS_FX [`earth2studio.data.GFS_FX`][earth2studio.data.GFS_FX] forecasts regridded
+# onto the HRRR grid.
 
 # %%
 import numpy as np
@@ -81,15 +82,16 @@ from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
 
-from earth2studio.data import GFS_FX, HRRR
+from earth2studio.data import HRRR
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import StormCastCONUS
 from earth2studio.perturbation import Zero
 
-# Load the default model package which downloads the checkpoint from HuggingFace
-# GFS_FX is used as the global conditioning data source (the default)
+# Load the default model package which downloads the checkpoint from HuggingFace.
+# Global conditioning comes from the model's default sources: GFS forecasts
+# regridded onto the HRRR grid.
 package = StormCastCONUS.load_default_package()
-model = StormCastCONUS.load_model(package, conditioning_data_source=GFS_FX())
+model = StormCastCONUS.load_model(package)
 
 # Instantiate the (Zero) perturbation method
 z = Zero()

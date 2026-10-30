@@ -20,9 +20,13 @@ import numpy as np
 import pytest
 import torch
 
+import earth2studio.models.dx.corrdiff_era5_hrrr as corrdiff_module
+from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import CorrDiffEra5Hrrr
 from earth2studio.models.dx.corrdiff_era5_hrrr import ERA5_VARIABLES, OUTPUT_VARIABLES
 from earth2studio.utils import handshake_dim
+from earth2studio.utils.coords import coord_array_like
+from earth2studio.utils.cupy import from_torch
 
 
 class PhooNet(torch.nn.Module):
@@ -33,6 +37,87 @@ class PhooNet(torch.nn.Module):
     def forward(self, x, t, condition=None):
         self.seen_t.append(t.detach().clone())
         return torch.zeros_like(x)
+
+
+@pytest.fixture
+def rng_model(monkeypatch):
+    p = CorrDiffEra5Hrrr.__new__(CorrDiffEra5Hrrr)
+    torch.nn.Module.__init__(p)
+    p.register_buffer("lat_input_grid", torch.linspace(30, 27, 4))
+    p.lat_input_numpy = p.lat_input_grid.numpy()
+    p.lon_input_numpy = np.arange(8) + 260.0
+    p.register_buffer("lat_output_grid", torch.ones(2, 3) * 28)
+    p._lat_out_cpu = p.lat_output_grid.numpy()
+    p._lon_out_cpu = np.ones((2, 3)) * 262
+    p.hrrr_y, p.hrrr_x = np.arange(2), np.arange(3)
+    p.era5_variables, p.output_variables = np.array(["t2m"]), np.array(["t2m"])
+    p.number_of_samples = 2
+    p.number_of_steps = 2
+    p.solver = "euler"
+    p.network_kind = "edm"
+    p.sigma_min, p.sigma_max, p.rho = 0.01, 1.0, 7.0
+    p.t_max, p.shift = 0.99, 1.0
+    p.amp = False
+    p.distilled = False
+    p.register_buffer("invariants", torch.zeros(1, 2, 3))
+    p.register_buffer("out_center", torch.zeros(1, 1, 2, 3))
+    p.register_buffer("out_scale", torch.ones(1, 1, 2, 3))
+    p.preprocess_input = lambda x, time: None
+
+    class Scheduler:
+        def __init__(self, **kwargs):
+            pass
+
+        def get_denoiser(self, **kwargs):
+            return None
+
+        def sigma(self, t):
+            return t
+
+    monkeypatch.setattr(corrdiff_module, "EDMNoiseScheduler", Scheduler)
+    monkeypatch.setattr(corrdiff_module, "RectifiedFlowNoiseScheduler", Scheduler)
+    monkeypatch.setattr(
+        corrdiff_module, "sample", lambda denoiser, latents, scheduler, **kw: latents
+    )
+    p._rf_time_steps = lambda device, scheduler: torch.tensor([1.0, 0.0], device=device)
+    return p
+
+
+def test_corrdiff_era5_hrrr_conformance(rng_model):
+    assert check_diagnostic_contract(rng_model) == []
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize("kind", ["edm", "rectified_flow"])
+def test_corrdiff_era5_hrrr_rng(rng_model, device, kind):
+    if device.startswith("cuda") and not torch.cuda.is_available():
+        pytest.skip("CUDA missing")
+    p = rng_model.to(device)
+    p.network_kind = kind
+    x = torch.zeros(1, 4, 8, device=device)
+    time = datetime(2025, 7, 1)
+    cpu_state = torch.get_rng_state()
+    cuda_state = torch.cuda.get_rng_state(device) if x.is_cuda else None
+    p.set_rng(42, reset=False)
+    first = p._forward(x, time)
+    p.set_rng(99, reset=False)
+    second = p._forward(x, time)
+    assert not torch.equal(first, second)
+    assert not torch.equal(first[0], first[1])
+    p.set_rng(42)
+    assert torch.equal(first, p._forward(x, time))
+    assert torch.equal(second, p._forward(x, time))
+    p.set_rng(43)
+    assert not torch.equal(first, p._forward(x, time))
+    assert torch.equal(cpu_state, torch.get_rng_state())
+    if x.is_cuda:
+        assert torch.equal(cuda_state, torch.cuda.get_rng_state(device))
+
+
+def test_corrdiff_era5_hrrr_unseeded_rng(rng_model):
+    state = torch.get_rng_state()
+    rng_model._forward(torch.zeros(1, 4, 8), datetime(2025, 7, 1))
+    assert not torch.equal(state, torch.get_rng_state())
 
 
 @pytest.fixture
@@ -56,7 +141,6 @@ def model_args():
         presence_flags=["tcwv", "sp"],
         number_of_samples=2,
         number_of_steps=3,
-        seed=0,
         amp=False,
     )
 
@@ -82,37 +166,45 @@ def test_corrdiff_era5_hrrr(model_args, kind, prediction, batch_size, device):
     dx = CorrDiffEra5Hrrr(
         **model_args, network_kind=kind, prediction_type=prediction
     ).to(device)
+    dx.set_rng(0)
     if kind == "edm":
         from physicsnemo.diffusion.preconditioners import EDMPreconditioner
 
         dx.network = EDMPreconditioner(dx.network, sigma_data=0.5).to(device)
-    coords = dx.input_coords()
-    coords.update(
-        batch=np.arange(batch_size),
-        time=np.array(["2025-07-01T18", "2025-07-02T00"], dtype="datetime64[h]"),
+    coords = coord_array_like(
+        dx.input_coords(),
+        {
+            "batch": np.arange(batch_size),
+            "time": np.array(["2025-07-01T18", "2025-07-02T00"], dtype="datetime64[h]"),
+        },
     )
-    x = torch.randn(*(len(c) for c in coords.values()), device=device)
+    x = torch.randn(coords.shape, device=device)
     cond = dx.preprocess_input(x[0, 0], datetime(2025, 7, 1, 18))
     assert cond["cond_concat"].shape == (1, 30, 4, 6)
     assert cond["cond_vec"].shape == (1, 4)
     assert torch.all(cond["cond_vec"][0, 2:] == 1)
     assert cond["cond_concat"][0, 26].abs().max() <= 1
     assert torch.isfinite(cond["cond_concat"]).all()
-    out, out_coords = dx(x, coords)
+    field = from_torch(x, coords)
+    result = dx(field)
+    out, out_coords = result.e2s.to_torch()
     assert out.shape == (batch_size, 2, 2, 99, 4, 6)
     assert out.device == torch.device(device) and torch.isfinite(out).all()
-    np.testing.assert_array_equal(coords["variable"], ERA5_VARIABLES)
+    np.testing.assert_array_equal(coords.coords["variable"], ERA5_VARIABLES)
     np.testing.assert_array_equal(out_coords["variable"], OUTPUT_VARIABLES)
     expected = dx.output_coords(coords)
     for index, dim in enumerate(
         ["batch", "sample", "time", "variable", "hrrr_y", "hrrr_x"]
     ):
         handshake_dim(out_coords, dim, index)
-        np.testing.assert_array_equal(out_coords[dim], expected[dim])
-    torch.testing.assert_close(out, dx(x, coords)[0])
+        np.testing.assert_array_equal(out_coords[dim], expected.coords[dim])
+    dx.set_rng(0)
+    torch.testing.assert_close(out, dx(field).e2s.to_torch()[0])
     assert not torch.allclose(out[:, 0], out[:, 1])
     dx.number_of_samples = 1
-    torch.testing.assert_close(dx(x, coords)[0], out[:, :1])
+    dx.set_rng(0)
+    single = dx(field).e2s.to_torch()[0]
+    torch.testing.assert_close(single[0, 0, 0], out[0, 0, 0])
     if kind == "rectified_flow":
         from physicsnemo.diffusion.noise_schedulers import RectifiedFlowNoiseScheduler
 
@@ -128,19 +220,22 @@ def test_corrdiff_era5_hrrr(model_args, kind, prediction, batch_size, device):
 def test_corrdiff_era5_hrrr_exceptions(model_args):
     dx = CorrDiffEra5Hrrr(**model_args)
     assert dx.network_kind == "rectified_flow"
-    coords = dx.input_coords()
-    coords.update(
-        batch=np.array([0]), time=np.array(["2025-07-01"], dtype="datetime64[D]")
+    coords = coord_array_like(
+        dx.input_coords(),
+        {"batch": [0], "time": np.array(["2025-07-01"], dtype="datetime64[D]")},
     )
-    x = torch.zeros(*(len(c) for c in coords.values()))
+    x = from_torch(torch.zeros(coords.shape), coords)
     for dim in ["time", "variable", "lat", "lon"]:
-        wrong = coords.copy()
+        wrong = x.copy(deep=True)
         if dim == "time":
-            wrong["wrong"] = wrong.pop(dim)
+            wrong = wrong.rename({dim: "wrong"})
         else:
-            wrong[dim] = coords[dim][::-1] if dim == "variable" else coords[dim] + 1
+            values = coords.coords[dim].values
+            wrong = wrong.assign_coords(
+                {dim: values[::-1] if dim == "variable" else values + 1}
+            )
         with pytest.raises((KeyError, ValueError)):
-            dx(x, wrong)
+            dx(wrong)
     for key, value in dict(
         network_kind="ddpm",
         prediction_type="epsilon",
@@ -190,29 +285,36 @@ def test_corrdiff_era5_hrrr_distilled(model_args, tiny_distilled, tmp_path):
     args = model_args | {"network": tiny_distilled, "number_of_steps": 2}
     dx = CorrDiffEra5Hrrr(**args)
     assert dx.distilled and not CorrDiffEra5Hrrr(**model_args).distilled
-    coords = dx.input_coords()
-    coords.update(
-        batch=np.arange(1),
-        time=np.array(["2025-07-01T18", "2025-07-02T00"], dtype="datetime64[h]"),
+    coords = coord_array_like(
+        dx.input_coords(),
+        {
+            "batch": np.arange(1),
+            "time": np.array(["2025-07-01T18", "2025-07-02T00"], dtype="datetime64[h]"),
+        },
     )
-    x = torch.randn(*(len(c) for c in coords.values()))
-    out, out_coords = dx(x, coords)
+    field = from_torch(torch.randn(coords.shape), coords)
+    out, out_coords = dx(field).e2s.to_torch()
     assert out.shape == (1, 2, 2, 99, 4, 6) and torch.isfinite(out).all()
     np.testing.assert_array_equal(out_coords["variable"], OUTPUT_VARIABLES)
-    torch.testing.assert_close(out, dx(x, coords)[0])  # seeded -> reproducible
+    dx.set_rng(0)
+    first = dx(field).e2s.to_torch()[0]
+    dx.set_rng(0)
+    torch.testing.assert_close(first, dx(field).e2s.to_torch()[0])  # seeded
     assert not torch.allclose(out[:, 0], out[:, 1])  # members differ
     dx.number_of_steps = 1
-    out_1 = dx(x, coords)[0]
-    assert out_1.shape == out.shape and not torch.allclose(out_1, out)
+    dx.set_rng(0)
+    out_1 = dx(field).e2s.to_torch()[0]
+    assert out_1.shape == out.shape and not torch.allclose(out_1, first)
     # unsupported layouts are rejected at construction and at call time
     with pytest.raises(ValueError, match="1 or 2"):
         CorrDiffEra5Hrrr(**(args | {"number_of_steps": 3}))
     dx.number_of_steps = 4
     with pytest.raises(ValueError, match="1 or 2"):
-        dx(x, coords)
+        dx(field)
     # the generator survives the physicsnemo checkpoint round trip
     path = tmp_path / "distilled.mdlus"
     tiny_distilled.save(str(path))
     dx.network = CorrDiffEra5HrrrDistilled.from_checkpoint(str(path)).eval()
     dx.number_of_steps = 2
-    torch.testing.assert_close(dx(x, coords)[0], out)
+    dx.set_rng(0)
+    torch.testing.assert_close(dx(field).e2s.to_torch()[0], first)

@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
+from copy import deepcopy
 from typing import Any
 
 import cftime
@@ -23,24 +23,31 @@ import numpy as np
 import pandas as pd
 import torch
 import xarray as xr
-from loguru import logger
 
 from earth2studio.data import ACE2ERA5Data
 from earth2studio.data.ace2 import ACE_GRID_LAT, ACE_GRID_LON
 from earth2studio.data.base import DataSource
-from earth2studio.data.utils import fetch_data
 from earth2studio.lexicon.ace import ACELexicon
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils.coords import handshake_coords, handshake_dim
+from earth2studio.utils.coords import (
+    coord_array,
+    coord_array_like,
+    handshake_coords,
+    handshake_dataarray,
+    handshake_dim,
+    handshake_nonempty,
+    handshake_size,
+    handshake_time,
+)
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.interp import LatLonInterpolation
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 try:
     # Optional dependency: FME
@@ -113,17 +120,15 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     with 6-hour time steps, 1-degree horizontal resolution, and eight vertical
     layers that exactly conserves global dry air mass and moisture and can be
     stepped stably for arbitrarily many steps. ACE2-ERA5 was trained on the ERA5
-    dataset and requires forcing data during rollout (see `forcing_data_source`
-    parameter). This wrapper makes use of the ``fme`` package to run model forward
-    passes.
+    dataset and requires forcing data during rollout, which the caller supplies
+    explicitly to ``initialize`` and ``step`` (see ``default_sources`` for the
+    recommended source). This wrapper makes use of the ``fme`` package to run model
+    forward passes.
 
     Parameters
     ----------
     stepper : Stepper
         ACE2-ERA5 fme.ace.stepper.single_module.Stepper instance loaded from a checkpoint.
-    forcing_data_source : DataSource, optional
-        Data source providing forcing data during rollout. Must provide all forcing
-        variables described in the ACE2-ERA5 paper, by default ACE2ERA5(mode="forcing").
     dt : numpy.timedelta64, optional
         Model timestep used to advance lead time coordinates, by default 6 hours.
 
@@ -164,13 +169,13 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def __init__(
         self,
         stepper: Stepper,
-        forcing_data_source: DataSource = ACE2ERA5Data(mode="forcing"),
         dt: np.timedelta64 = np.timedelta64(6, "h"),
     ):
         super().__init__()
 
         # Load fme stepper and cache useful metadata
         self.stepper = stepper
+        self.register_buffer("device_buffer", torch.empty(0))
 
         # timestep (lead time increment)
         self._dt = dt
@@ -214,105 +219,58 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self.lexicon.get_e2s_from_fme(v) for v in self._prog_vars_fme
         ]
 
-        # External forcing data source
-        self.forcing_data_source = forcing_data_source
-        self._forcing_cache: dict[
-            tuple[int, tuple[str, ...], str, str, int],
-            tuple[torch.Tensor, CoordSystem],
-        ] = {}
-
         # Grid handling
         self.lat = ACE_GRID_LAT
         self.lon = ACE_GRID_LON
-        if hasattr(forcing_data_source, "lat") and hasattr(forcing_data_source, "lon"):
-            # Attempt to check for grid compatibility / need to regrid
-            if not np.allclose(forcing_data_source.lat, self.lat) or not np.allclose(
-                forcing_data_source.lon, self.lon
-            ):
-                self.needs_regrid = True
-                # Need to regrid forcing data to ACE2 grid
-                lat_in, lon_in = np.meshgrid(
-                    forcing_data_source.lat, forcing_data_source.lon, indexing="ij"
-                )
-                lat_out, lon_out = np.meshgrid(self.lat, self.lon, indexing="ij")
-                self.regridder = LatLonInterpolation(
-                    lat_in=lat_in,
-                    lon_in=lon_in,
-                    lat_out=lat_out,
-                    lon_out=lon_out,
-                )
-            else:
-                self.needs_regrid = False
-        else:
-            self.needs_regrid = False
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of the prognostic model
+    def input_coords(self) -> CoordinateSystem:
+        """Input coordinate system of the prognostic model.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free DataArray input signature.
         """
-        coords = CoordSystem(
+        coords = coord_array(
+            ("batch", "time", "lead_time", "variable", "lat", "lon"),
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
                 "lead_time": np.array(
                     [np.timedelta64(0, "h")], dtype="timedelta64[ns]"
                 ),
                 "variable": np.array(self._prog_vars_e2s, dtype=object),
-                "lat": self.lat,
-                "lon": self.lon,
-            }
+            },
+            dynamic=("batch", "time"),
+            grid="gaussian-f90",
         )
         return coords
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of the prognostic model
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Output coordinate system of the prognostic model.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free DataArray output signature.
         """
-        output_coords = OrderedDict(
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
+        lead = input_coords.lead_time
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead.values - lead.values[-1]),
+            self.input_coords(),
+        )
+        return coord_array_like(
+            input_coords,
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array([self._dt]),
+                "lead_time": lead.values + self._dt,
                 "variable": np.array(self._all_out_variables_e2s),
-                "lat": self.lat,
-                "lon": self.lon,
-            }
+            },
         )
-        if input_coords is None:
-            return output_coords
-
-        test_coords = input_coords.copy()
-        test_coords["lead_time"] = (
-            test_coords["lead_time"] - input_coords["lead_time"][0]
-        )
-        target_input_coords = self.input_coords()
-        for i, key in enumerate(target_input_coords):
-            if key not in ["batch", "time"]:
-                handshake_dim(test_coords, key, i)
-                handshake_coords(test_coords, target_input_coords, key)
-
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["time"] = input_coords["time"]
-
-        output_coords["lead_time"] = (
-            input_coords["lead_time"][0] + output_coords["lead_time"]
-        )
-        return output_coords
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -330,7 +288,6 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_model(
         cls,
         package: Package,
-        forcing_data_source: DataSource = ACE2ERA5Data(mode="forcing", verbose=False),
         dt: np.timedelta64 = np.timedelta64(6, "h"),
     ) -> PrognosticModel:
         """Load ACE2-ERA5 prognostic model from a package.
@@ -339,9 +296,6 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         package : Package
             Package to load the model checkpoint from.
-        forcing_data_source : DataSource, optional
-            External forcing data source. Must provide all forcing variables
-            described in the ACE2-ERA5 paper, by default ACE2ERA5(mode="forcing").
         dt : numpy.timedelta64, optional
             Timestep for advancing lead time coordinates, by default 6 hours.
 
@@ -354,7 +308,6 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         stepper = load_stepper(checkpoint_path)
         return cls(
             stepper=stepper,
-            forcing_data_source=forcing_data_source,
             dt=dt,
         )
 
@@ -385,10 +338,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
 
         # Input validation
-        if x.ndim != 6:
-            raise ValueError(
-                "ACE2ERA5 requires input tensor with shape [batch, time, lead_time, variable, lat, lon]"
-            )
+        handshake_dim(coords, ("batch", "time", "lead_time", "variable", "lat", "lon"))
 
         for c in ["batch", "time", "lat", "lon"]:
             handshake_coords(coords, forcing_coords, c)
@@ -423,12 +373,12 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 state_data[fme_name] = x[:, :, j, ...]
 
         # Pass a time array and hc_dims to initialize BatchData on device
-        times_forcing = np.stack(
-            [coords["time"] + forcing_coords["lead_time"]] * b, axis=0
-        )  # includes both time steps
-        times_state = np.stack(
-            [coords["time"] + coords["lead_time"]] * b, axis=0
-        )  # only includes current (init) time
+        times_forcing = np.tile(
+            coords["time"][:, None] + forcing_coords["lead_time"][None, :], (b, 1)
+        )
+        times_state = np.tile(
+            coords["time"][:, None] + coords["lead_time"][None, :], (b, 1)
+        )
         time_da_forcing = xr.DataArray(
             _npdatetime64_to_cftime(times_forcing), dims=["sample", "time"]
         )
@@ -468,117 +418,13 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         y = y.unsqueeze(2)
         return y
 
-    def _fetch_forcing_year(
-        self, year: int, device: torch.device
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        device = torch.device(device)
-        cache_key = (
-            id(self.forcing_data_source),
-            tuple(self._forcing_vars_e2s),
-            str(device),
-            "year",
-            year,
-        )
-        if cache_key in self._forcing_cache:
-            return self._forcing_cache[cache_key]
-
-        logger.warning(
-            "Loading ACE2 forcing data for year {} onto {}. This replaces any "
-            "previous cached forcing year.",
-            year,
-            device,
-        )
-        start = np.datetime64(f"{year:04d}-01-01T00:00:00", "ns")
-        end = np.datetime64(f"{year + 1:04d}-01-01T00:00:00", "ns")
-        year_times = np.arange(start, end, self._dt, dtype="datetime64[ns]")
-        lead_time = np.array([np.timedelta64(0, "h")], dtype="timedelta64[ns]")
-
-        forcing_x, year_coords = fetch_data(
-            self.forcing_data_source,
-            time=year_times,
-            lead_time=lead_time,
-            variable=self._forcing_vars_e2s,
-            device=device,
-        )
-        self._forcing_cache.clear()
-        self._forcing_cache[cache_key] = (forcing_x, year_coords)
-        return self._forcing_cache[cache_key]
-
-    def _fetch_forcing_at_time(
-        self, valid_time: np.datetime64, device: torch.device
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        valid_time = valid_time.astype("datetime64[ns]")
-        device = torch.device(device)
-        if isinstance(self.forcing_data_source, ACE2ERA5Data):
-            year = pd.Timestamp(valid_time).year
-            forcing_x, forcing_coords = self._fetch_forcing_year(year, device)
-
-            year_start = np.datetime64(f"{year:04d}-01-01T00:00:00", "ns")
-            delta_ns = (
-                (valid_time - year_start).astype("timedelta64[ns]").astype(np.int64)
-            )
-            step_ns = np.asarray(self._dt).astype("timedelta64[ns]").astype(np.int64)
-            if delta_ns % step_ns != 0:
-                raise ValueError(
-                    f"ACE2 forcing time {valid_time} is not on model step {self._dt}."
-                )
-            time_index = int(delta_ns // step_ns)
-
-            out_coords = forcing_coords.copy()
-            out_coords["time"] = np.array([valid_time], dtype="datetime64[ns]")
-            return forcing_x[time_index : time_index + 1], out_coords
-
-        cache_key = (
-            id(self.forcing_data_source),
-            tuple(self._forcing_vars_e2s),
-            str(device),
-            "time",
-            int(valid_time.astype("datetime64[ns]").astype(np.int64)),
-        )
-        if cache_key not in self._forcing_cache:
-            self._forcing_cache[cache_key] = fetch_data(
-                self.forcing_data_source,
-                time=np.array([valid_time], dtype="datetime64[ns]"),
-                lead_time=np.array([np.timedelta64(0, "h")], dtype="timedelta64[ns]"),
-                variable=self._forcing_vars_e2s,
-                device=device,
-            )
-        forcing_x, forcing_coords = self._forcing_cache[cache_key]
-        return forcing_x, forcing_coords.copy()
-
-    def _fetch_forcing(
-        self, x: torch.Tensor, coords: CoordSystem, lead_times: np.ndarray
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        forcing_by_lead = []
-        forcing_coords = None
-        for lead_time in lead_times:
-            forcing_by_time = []
-            for time in coords["time"]:
-                forcing_x, forcing_coords = self._fetch_forcing_at_time(
-                    time + lead_time, x.device
-                )
-                forcing_by_time.append(forcing_x)
-            forcing_by_lead.append(torch.cat(forcing_by_time, dim=0))
-
-        forcing_x = torch.cat(forcing_by_lead, dim=1)
-        if forcing_coords is None:
-            raise ValueError("ACE2ERA5 forcing data requires at least one time value.")
-
-        forcing_coords["time"] = coords["time"]
-        forcing_coords["lead_time"] = lead_times.astype("timedelta64[ns]")
-
-        if self.needs_regrid:
-            forcing_x = self.regridder(forcing_x.to(x.device))
-            forcing_coords["lat"] = coords["lat"]
-            forcing_coords["lon"] = coords["lon"]
-
-        return forcing_x, forcing_coords
-
     @torch.inference_mode()
     def _forward(
         self,
         x: torch.Tensor,
         coords: CoordSystem,
+        forcing_x: torch.Tensor,
+        forcing_coords: CoordSystem,
     ) -> tuple[torch.Tensor, CoordSystem]:
         """Run one prognostic step using fme predict_paired API.
 
@@ -596,23 +442,7 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
 
         # Validate input lead_time
-        if len(coords["lead_time"]) != 1:
-            raise ValueError("ACE2ERA5 forward expects one input lead_time entry [0h].")
-
-        # Pull forcing data (which is required at both input and output lead times)
-        lead_times = np.array(
-            [coords["lead_time"][0], coords["lead_time"][0] + self._dt]
-        )
-        forcing_x, forcing_coords = self._fetch_forcing(
-            x=x, coords=coords, lead_times=lead_times
-        )
-
-        # Stack along batch dimension as required
-        forcing_x = torch.stack([forcing_x] * len(coords["batch"]), dim=0).to(
-            device=x.device, dtype=x.dtype
-        )
-        forcing_coords["batch"] = coords["batch"]
-        forcing_coords.move_to_end("batch", last=False)
+        handshake_size(coords, "lead_time", 1)
 
         # Prepare inputs for fme stepper
         forcing_batch, ic = self._tensor_to_batch_data(
@@ -622,148 +452,213 @@ class ACE2ERA5(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Predict one step forward
         paired, _ = self.stepper.predict_paired(ic, forcing_batch)
         y = self._batch_data_to_tensor(paired.prediction)
-        out_coords = self.output_coords(coords)
+        y = y.reshape(
+            x.shape[0], x.shape[1], 1, len(self._all_out_variables_e2s), *x.shape[-2:]
+        )
+        out_coords = coords.copy()
+        out_coords["lead_time"] = coords["lead_time"] + self._dt
+        out_coords["variable"] = np.array(self._all_out_variables_e2s)
         return y, out_coords
 
-    def _build_initial_output(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Construct an initial-condition output tensor matching model output schema.
-
-        Fills output-only variables with NaN and copies prognostic variables from the
-        provided initial condition tensor so that variable set and tensor shape match
-        subsequent forecast steps in iterator mode.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
-
-        Returns
-        -------
-        tuple[torch.Tensor, CoordSystem]
-            Initial condition output tensor and coordinate system
-        """
-
-        # Prepare coords: keep time and lead_time (0h) from input, but use output variables
-        ic_coords = coords.copy()
-        ic_coords["variable"] = np.array(self._all_out_variables_e2s, dtype=object)
-
-        # Allocate output filled with NaNs [batch, time, lead_time=1, variable_out, lat, lon]
-        b, t, _, _, lat, lon = x.shape
-        v_out = len(self._all_out_variables_e2s)
-        y0 = torch.full(
-            (b, t, 1, v_out, lat, lon),
-            float("nan"),
-            device=x.device,
-            dtype=x.dtype,
-        )
-
-        # Map prognostic variables from input into output variable positions
-        var_to_idx_out = {v: i for i, v in enumerate(self._all_out_variables_e2s)}
-        var_to_idx_in = {v: i for i, v in enumerate(self._prog_vars_e2s)}
-        for v in self._prog_vars_e2s:
-            if v in var_to_idx_out:
-                y0[:, :, 0, var_to_idx_out[v], ...] = x[:, :, 0, var_to_idx_in[v], ...]
-
-        return y0, ic_coords
-
-    @batch_func()
-    def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def _predict(self, x: xr.DataArray, forcing: xr.DataArray) -> xr.DataArray:
         """Runs one prognostic step using fme predict_paired API.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Prognostic state on the declared grid, with arbitrary leading dimensions.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system 6 hours in the future
+        xr.DataArray
+            Prognostic and diagnostic fields one timestep in the future.
         """
-        return self._forward(x, coords)
+        signature = self.output_coords(x)
+        handshake_time(x)
+        self._validate_forcing(x, forcing)
+        if not bool(np.isfinite(forcing.data).all()):
+            raise ValueError("Forcing must be finite")
+        name, encoding = x.name, deepcopy(x.encoding)
+        x, restore = batch_func()._compress_array(self, x)
+        forcing, _ = batch_func()._compress_array(self, forcing)
+        signature = self.output_coords(x)
+        tensor, coords = x.e2s.to_torch()
+        # FME's ACE2 checkpoint expects float32 state and forcing tensors.
+        tensor = tensor.to(device=self.device_buffer.device, dtype=torch.float32)
+        forcing_tensor, forcing_coords = forcing.e2s.to_torch()
+        out, _ = self._forward(
+            tensor.clone(),
+            coords,
+            forcing_tensor.to(device=tensor.device, dtype=tensor.dtype).clone(),
+            forcing_coords,
+        )
+        result = from_torch(out, signature, name=name)
+        result.attrs = deepcopy(result.attrs)
+        result.encoding = encoding
+        return restore(result)
 
-    @batch_func()
-    def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-        """Generator to perform time-integration of ACE2ERA5.
+    def forcing_coords(self) -> CoordinateSystem:
+        """Describe external forcing at the input and forecast times.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free initial forcing signature with both boundary
+            frames. Subsequent steps consume only the new forecast-time frame.
+        """
+        return coord_array_like(
+            self.input_coords(),
+            {"variable": self._forcing_vars_e2s, "lead_time": np.arange(2) * self._dt},
+        )
+
+    def _validate_forcing(
+        self, x: xr.DataArray, forcing: xr.DataArray, continuation: bool = False
+    ) -> None:
+        expected = self.forcing_coords()
+        if continuation:
+            expected = expected.isel(lead_time=slice(-1, None))
+        expected = coord_array_like(
+            expected,
+            {"lead_time": x.lead_time.values[-1:] + expected.lead_time.values},
+        )
+        handshake_dataarray(forcing, expected)
+        if forcing.dims != x.dims:
+            raise ValueError("Forcing dimensions must match the state dimensions")
+        for dimension in x.dims[: x.get_axis_num("lead_time")]:
+            handshake_size(forcing, dimension, x.sizes[dimension])
+            if dimension in x.coords:
+                handshake_coords(forcing, x, dimension)
+
+    def default_sources(self) -> tuple[DataSource, DataSource]:
+        """Recommend ACE2 ERA5 initial conditions and forcing sources.
+
+        Returns
+        -------
+        tuple[DataSource, DataSource]
+            Initial-condition source followed by the forcing source, which provides
+            all forcing variables described in the ACE2-ERA5 paper.
+        """
+        return (
+            ACE2ERA5Data(mode="initial_conditions"),
+            ACE2ERA5Data(mode="forcing"),
+        )
+
+    def __call__(self, x: xr.DataArray, forcing: xr.DataArray) -> xr.DataArray:
+        """Compute the first forecast using caller-provided forcing, without hooks.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+        forcing : xr.DataArray
+            Complete initial window matching ``forcing_coords()``.
 
         Returns
         -------
-        Generator[tuple[torch.Tensor, CoordSystem]]
-            Generator of output tensors and coordinate systems
+        xr.DataArray
+            First forecast matching ``output_coords(x)``.
         """
-        coords = coords.copy()
+        return self.initialize(x, forcing)[0]
 
-        # Yield the initial condition (t=0 step) in output schema
-        # Output-only variables will be NaN-filled for this step
-        ic_tensor, ic_coords = self._build_initial_output(x, coords)
-        yield ic_tensor, ic_coords
+    def initialize(
+        self, x: xr.DataArray, forcing: xr.DataArray
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, xr.DataArray]]:
+        """Predict and retain only missing prognostics and the forcing boundary.
 
-        # Setup rolling state for subsequent steps: x at next init lead_time uses previous out as state
-        while True:
-            # Front hook
-            x, coords = self.front_hook(x, coords)
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial prognostic fields matching ``input_coords()``.
+        forcing : xr.DataArray
+            Full forcing window matching ``forcing_coords()`` at the input and
+            forecast times. The caller supplies these fields on the model grid.
 
-            # Forward one step from current state
-            out, out_coords = self._forward(x, coords)
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[xr.DataArray, xr.DataArray]]
+            First forecast and state containing unpublished input fields and the
+            final forcing frame. Iterator hooks are not applied.
+        """
+        handshake_nonempty(x)
+        y = self._predict(x, forcing)
+        missing = [
+            name
+            for name in self._prog_vars_e2s
+            if name not in self._all_out_variables_e2s
+        ]
+        return y, (
+            x.sel(variable=missing).copy(deep=True),
+            forcing.isel(lead_time=slice(-1, None)).copy(deep=True),
+        )
 
-            # Rear hook
-            out, out_coords = self.rear_hook(out, out_coords)
+    def step(
+        self,
+        y: xr.DataArray,
+        forcing: xr.DataArray,
+        state: tuple[xr.DataArray, xr.DataArray],
+    ) -> tuple[xr.DataArray, tuple[xr.DataArray, xr.DataArray]]:
+        """Advance from the forecast, new forcing, and missing-field state.
 
-            yield out, out_coords.copy()
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        forcing : xr.DataArray
+            New forcing frame at the next forecast time; the preceding frame is
+            retained in ``state``.
+        state : tuple[xr.DataArray, xr.DataArray]
+            Missing prognostic fields and forcing boundary from ``initialize``
+            or ``step``.
 
-            # Build next input by replacing the prognostic slice in x with the previous output
-            # x shape: [batch, time, lead_time=1, variable, lat, lon]
-            x_next = x.clone()
-            var_to_idx_out = {v: i for i, v in enumerate(self._all_out_variables_e2s)}
-            var_to_idx_in = {v: i for i, v in enumerate(self._prog_vars_e2s)}
-            for v in self._prog_vars_e2s:
-                if v in var_to_idx_out:
-                    x_next[:, :, 0, var_to_idx_in[v], ...] = out[
-                        :, :, 0, var_to_idx_out[v], ...
-                    ]
-
-            x = x_next
-
-            # Advance base time for next step; keep lead_time at [0h]
-            coords = coords.copy()
-            coords["lead_time"] = coords["lead_time"] + self._dt
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[xr.DataArray, xr.DataArray]]
+            Next forecast and updated state, without iterator hooks.
+        """
+        missing, previous_forcing = state
+        self._validate_forcing(y, forcing, continuation=True)
+        forcing = xr.concat(
+            [previous_forcing, forcing],
+            dim="lead_time",
+            coords="minimal",
+            compat="override",
+            join="exact",
+        )
+        missing = missing.assign_coords(lead_time=y.lead_time.values)
+        present = y.sel(
+            variable=[
+                name
+                for name in self._prog_vars_e2s
+                if name in self._all_out_variables_e2s
+            ]
+        )
+        x = xr.concat(
+            [present, missing],
+            dim="variable",
+            coords="minimal",
+            compat="override",
+            join="exact",
+        ).sel(variable=self._prog_vars_e2s)
+        x.attrs, x.encoding = deepcopy(y.attrs), deepcopy(y.encoding)
+        return self.initialize(x, forcing)
 
     def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
+        self, x: xr.DataArray, forcing: xr.DataArray
+    ) -> Generator[xr.DataArray, xr.DataArray | tuple[xr.DataArray, ...] | None, None]:
         """Creates an iterator to perform time-integration of ACE2ERA5.
 
-        Yields the first forecast step, then continues autoregressively by feeding
-        previous outputs as the next prognostic state while fetching/using external
-        forcings under the hood via _forward.
+        Yields forecasts only. Send the next forcing frame to advance.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Initial prognostic state.
+        forcing : xr.DataArray
+            Initial forcing window on the declared grid.
 
-        Returns
-        -------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
-            Iterator of output tensors and coordinate systems
+        Yields
+        ------
+        xr.DataArray
+            Forecasts at successive lead times.
         """
-        yield from self._default_generator(x, coords)
+        yield from self._default_create_iterator(x, forcing)

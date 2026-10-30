@@ -16,8 +16,8 @@
 
 import re
 from collections import OrderedDict
-from collections.abc import Generator, Sequence
-from typing import Any
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
@@ -26,6 +26,7 @@ import torch
 import xarray as xr
 from loguru import logger
 
+from earth2studio.data import NNJAObsConv, NNJAObsSat, NNJAObsSatwnd
 from earth2studio.data.utils_ncep import (
     _NCEP_GPSRO_WIDE_SCHEMA,
     _NCEP_PREPBUFR_WIDE_SCHEMA,
@@ -37,11 +38,15 @@ from earth2studio.data.utils_ncep import (
 )
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.da.base import AssimilationModel
+from earth2studio.utils import coord_array
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem, FrameSchema, TimeArray
+from earth2studio.utils.type import CoordinateSystem, FrameSchema, TimeArray
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataFrameSource
 
 try:
     import cupy as cp
@@ -88,37 +93,18 @@ def channel_to_e2s(name: str) -> str:
 
 @check_optional_dependencies()
 class HealDAv2(torch.nn.Module, AutoModelMixin):
-    """HealDA v2, a global machine-learning data-assimilation model that maps a 48-hour
-    sequence of satellite and conventional observations to a 104-channel, 0.25 degree
-    atmospheric analysis on a regular latitude-longitude grid.
+    """HealDA v2 maps 48 hours of observations to a global, 104-channel atmospheric
+    analysis on a 0.25 degree latitude-longitude grid (721 x 1440).
 
-    HealDA v2 is a stateless, deterministic, observation-only assimilation model. One
-    analysis at time ``t`` reads an eight-frame, six-hourly window ending at ``t`` and
-    every observation within three hours of each frame, i.e. observations spanning
-    ``[t - 45h, t + 3h]``, and returns the analysis of the last frame on the 721 x 1440
-    equiangular grid.
+    This stateless, deterministic model uses eight six-hourly frames ending at
+    analysis time ``t``, with observations spanning ``[t - 45h, t + 3h]``.
 
-    The model takes the NNJA observing system it was trained on as one wide
-    DataFrame per stream, passed positionally in a fixed order,
-    ``model(prepbufr, gpsro, satwnd, *sensors)``: ``prepbufr`` (``u``, ``v``, ``q``,
-    ``t``, ``pres``), ``gpsro`` (``gps``, ``gps_refractivity``), ``satwnd`` (``u``,
-    ``v``), then one frame per satellite sensor in the model's sensor order (a subset
-    of ``atms``, ``amsua``, ``amsub``, ``mhs``, ``airs``, ``iasi``, ``cris``).
-    ``input_coords()`` returns one schema per argument in the same order; a sensor
-    schema's ``variable`` entry is its ``NNJAObsSat`` variable. Any source producing
-    these schemas works; the NNJA sources return them with ``layout="wide"``, one
-    stream per call. To reproduce training from NNJA, use
-    ``NNJAObsConv(original_event=True, exclude_message_types=("SATWND",),
-    layout="wide")`` for ``prepbufr`` and ``gpsro``, ``NNJAObsSatwnd(layout="wide")``
-    and ``NNJAObsSat(sensor_indices=model.sensor_indices, layout="wide")`` for each
-    sensor; ``earth2studio.data.fetch_dataframes`` fetches them concurrently.
-
-    Any stream may be ``None`` or empty, and trailing streams may be left out; the
-    analysis then uses the others alone.
-    Beyond the trained recipe, HealDA removes observations by its inference policy
-    (``healda.observations.system.inference_filters``): channels inside dated
-    denial windows, and footprints flagged by the satellite streams' provider
-    quality columns.
+    Pass wide DataFrames as ``model(prepbufr, gpsro, satwnd, *sensors)``, following
+    the schemas and sensor order in ``input_coords()``. ``default_sources()``
+    provides matching NNJA sources for use with ``earth2studio.data.fetch_dataframes``.
+    Streams may be ``None`` or empty, and trailing streams may be omitted.
+    HealDA filters channels in dated denial windows and satellite footprints
+    flagged by provider quality columns.
 
     Recommended environment, set before Python starts:
 
@@ -131,8 +117,7 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
     Parameters
     ----------
     model : healda.inference.DAModel
-        The trained network with its observation pipeline, as returned by
-        ``healda.inference.load_da_model``
+        Trained network and observation pipeline from ``healda.inference.load_da_model``
 
     Note
     ----
@@ -146,6 +131,19 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
     region:global class:data-assimilation product:wind product:temp product:atmos
     product:insitu product:sat year:2026 gpu:40gb provider:nvidia backend:pytorch
     """
+
+    stochastic = False
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """No-op: HealDA v2 inference is deterministic.
+
+        Parameters
+        ----------
+        seed : int
+            Unused seed
+        reset : bool, optional
+            Unused reset flag, by default True
+        """
 
     def __init__(self, model: Any) -> None:
         super().__init__()
@@ -182,20 +180,15 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         self._model.to(device)
         return self
 
-    def init_coords(self) -> None:
-        """Initialization coords (not required)"""
-        return None
-
     def input_coords(self) -> tuple[FrameSchema, ...]:
-        """Input coordinate system specifying required DataFrame fields.
+        """Return the required observation schemas.
 
         Returns
         -------
         tuple[FrameSchema, ...]
-            The wide schema of each observation stream, one per ``__call__``
-            argument: ``(prepbufr, gpsro, satwnd, *sensors)`` with the satellite
-            sensors in the model's sensor order. The ``variable`` entry lists the
-            variables to request; the other keys are the frame's columns
+            Wide schemas in ``(prepbufr, gpsro, satwnd, *sensors)`` order.
+            Sensors follow the model's order. Each schema lists request variables
+            under ``variable`` and DataFrame columns under the remaining keys.
         """
         sat = tuple(
             _frame_schema(
@@ -212,38 +205,61 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
 
     def output_coords(
         self,
-        input_coords: tuple[FrameSchema, ...],
+        *input_coords: FrameSchema,
         request_time: np.ndarray | None = None,
-        **kwargs: Any,
-    ) -> tuple[CoordSystem]:
-        """Output coordinate system for the HealDA v2 analysis.
+    ) -> CoordinateSystem:
+        """Return analysis coordinates on the fixed 0.25 degree grid.
 
         Parameters
         ----------
-        input_coords : tuple[FrameSchema, ...]
-            Input coordinate system
+        *input_coords : FrameSchema
+            Input schemas; unused for the fixed output grid
         request_time : np.ndarray | None, optional
-            Analysis valid time(s), by default None
+            Analysis times, or a NaT placeholder if None, by default None
 
         Returns
         -------
-        tuple[CoordSystem]
-            Coordinate system with time, variable, lat and lon dimensions
+        CoordinateSystem
+            Analysis coordinates with dimensions [time, variable, lat, lon]
         """
         if request_time is None:
             request_time = np.array([np.datetime64("NaT")], dtype="datetime64[ns]")
-        return (
-            CoordSystem(
-                OrderedDict(
-                    {
-                        "time": request_time,
-                        "variable": self._variables,
-                        "lat": self._output_lat,
-                        "lon": self._output_lon,
-                    }
-                )
+        return coord_array(
+            ("time", "variable", "lat", "lon"),
+            OrderedDict(
+                {
+                    "time": request_time,
+                    "variable": self._variables,
+                    "lat": self._output_lat,
+                    "lon": self._output_lon,
+                }
             ),
         )
+
+    def default_sources(self) -> tuple["DataFrameSource", ...]:
+        """Return wide-layout NNJA sources for the 48-hour observation window.
+
+        Returns
+        -------
+        tuple[DataFrameSource, ...]
+            Sources in ``input_coords()`` order: ``NNJAObsConv`` for PrepBUFR and
+            GPS-RO, ``NNJAObsSatwnd`` for winds, and ``NNJAObsSat`` for sensors.
+            All use a ``(-45h, +3h)`` time tolerance around each analysis time.
+        """
+        tolerance = (np.timedelta64(-45, "h"), np.timedelta64(3, "h"))
+        conv = NNJAObsConv(
+            time_tolerance=tolerance,
+            original_event=True,
+            exclude_message_types=("SATWND",),
+            layout="wide",
+        )
+        satwnd = NNJAObsSatwnd(time_tolerance=tolerance, layout="wide")
+        sat = NNJAObsSat(
+            time_tolerance=tolerance,
+            sensor_indices=self.sensor_indices,
+            layout="wide",
+        )
+        return (conv, conv, satwnd, *([sat] * len(self._sat_variables)))
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -266,20 +282,17 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         package: Package,
         checkpoint_name: str = "healda_v2.checkpoint",
     ) -> AssimilationModel:
-        """Load HealDA v2 from package.
+        """Load HealDA v2 from a model package.
 
-        The model is built on the CPU; move it with ``.to("cuda")``, as the network
-        runs on a CUDA device only, as a single unsharded process. The 0.25 degree
-        recipe also fetches ERA5 static fields into the healda cache the first time it
-        is built.
+        Loads on CPU; use ``.to("cuda")`` for single-GPU inference. ERA5 static
+        fields are downloaded to the HealDA cache on first use.
 
         Parameters
         ----------
         package : Package
-            Package containing the ``.checkpoint`` archive written by ``healda-train``
+            Package containing a ``healda-train`` checkpoint
         checkpoint_name : str, optional
-            Name of the checkpoint file inside the package, by default
-            "healda_v2.checkpoint"
+            Checkpoint filename, by default "healda_v2.checkpoint"
 
         Returns
         -------
@@ -294,28 +307,26 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
     def __call__(self, *obs: pd.DataFrame | None) -> xr.DataArray:
         """Run HealDA v2 from NNJA observations.
 
-        Each frame must carry a ``request_time`` entry in its ``.attrs``
-        (``earth2studio.data.fetch_dataframe`` sets it) and should cover
-        ``[t - 45h, t + 3h]`` around each analysis time.
+        Frames should cover ``[t - 45h, t + 3h]`` and share analysis times in
+        ``attrs["request_time"]``, as set by ``earth2studio.data.fetch_dataframe``.
 
         Parameters
         ----------
         *obs : pd.DataFrame | None
-            Wide observation frames in ``input_coords()`` order; a stream may be
-            ``None`` or empty and trailing streams may be left out, but at least
-            one frame must be given
+            Wide frames in ``input_coords()`` order. Streams may be None or empty;
+            trailing streams may be omitted. At least one frame is required.
 
         Returns
         -------
         xr.DataArray
-            Global analysis with dimensions [time, variable, lat, lon]. Data is on the
-            same device as the model (cupy array for GPU, numpy for CPU).
+            Global analysis with dimensions [time, variable, lat, lon], backed by
+            CuPy on GPU or NumPy on CPU
 
         Raises
         ------
         ValueError
-            If no frame is given, more frames are given than streams, no frame
-            carries ``request_time``, or a frame is in the long layout
+            If frames are missing, excessive, or long-layout, or analysis times
+            are missing or inconsistent
         """
         if len(obs) > len(self._streams):
             raise ValueError(
@@ -336,8 +347,8 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
                     f"{stream} is a long frame; HealDAv2 takes wide NNJA frames, "
                     'build the source with layout="wide"'
                 )
-        (output_coords,) = self.output_coords(
-            self.input_coords(), request_time=request_time
+        output_coords = self.output_coords(
+            *self.input_coords(), request_time=request_time
         )
         # An empty frame (e.g. a sensor outside its archive period) is an omitted one;
         # with every stream omitted the model runs on no observations
@@ -355,30 +366,6 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         )
         analysis = self._model.run_analysis(pd.DatetimeIndex(request_time), **tables)
         return self.build_output(analysis, output_coords)
-
-    def create_generator(
-        self,
-    ) -> Generator[xr.DataArray, tuple[pd.DataFrame | None, ...], None]:
-        """Creates a generator which accepts observations and yields the analysis.
-
-        Yields
-        ------
-        xr.DataArray
-            Global analysis on the 0.25 degree grid
-
-        Receives
-        --------
-        tuple[pd.DataFrame | None, ...]
-            Observation frames in ``input_coords()`` order, as for ``__call__``,
-            sent via ``generator.send()``
-        """
-        obs = yield None  # type: ignore[misc]
-        try:
-            while True:
-                da = self.__call__(*(obs or ()))
-                obs = yield da
-        except GeneratorExit:
-            logger.debug("HealDA v2 generator clean up complete.")
 
     @staticmethod
     def _request_time(*frames: pd.DataFrame | None) -> TimeArray:
@@ -400,7 +387,7 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         return stamps[0]
 
     def build_output(
-        self, analysis: torch.Tensor, output_coords: CoordSystem
+        self, analysis: torch.Tensor, output_coords: CoordinateSystem
     ) -> xr.DataArray:
         """Physical-space analyses ``[time, variable, lat, lon]`` -> DataArray."""
         out = analysis.contiguous()
@@ -409,7 +396,9 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
         else:
             data = out.cpu().numpy()
         return xr.DataArray(
-            data=data, dims=["time", "variable", "lat", "lon"], coords=output_coords
+            data=data,
+            dims=["time", "variable", "lat", "lon"],
+            coords=output_coords.coords,
         )
 
 

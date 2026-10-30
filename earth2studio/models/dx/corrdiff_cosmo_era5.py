@@ -47,8 +47,9 @@ import warnings
 from collections import OrderedDict
 from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager, nullcontext
+from copy import deepcopy
 from datetime import datetime, timedelta, timezone
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 import torch
@@ -56,17 +57,22 @@ import xarray as xr
 from fsspec.implementations.cache_mapper import BasenameCacheMapper
 from loguru import logger
 
+from earth2studio.grids import CurvilinearGrid, LatLonGrid
 from earth2studio.lexicon import CosmoLexicon
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.utils import handshake_coords, handshake_dim, interp
+from earth2studio.models.dx.corrdiff import _field
+from earth2studio.utils import interp
+from earth2studio.utils.coords import coord_array, handshake_dataarray, handshake_time
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
 from earth2studio.utils.time import timearray_to_datetime
-from earth2studio.utils.type import CoordSystem
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 try:
     import natten  # noqa: F401  # the DiT needs NATTEN (neighborhood attention)
@@ -306,9 +312,6 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     solver : {"heun", "euler"}
         Diffusion ODE solver: ``"heun"`` (2nd-order, default) or ``"euler"``
         (1st-order).
-    seed : int | None
-        Base RNG seed for diffusion sampling (a per-sample offset is added).
-        ``None`` (default) leaves sampling unseeded.
     amp : bool
         Run the network forward passes (regression patches and the diffusion
         denoiser) under ``torch.autocast`` bf16. Roughly halves inference time
@@ -357,6 +360,11 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     provider:nvidia backend:pytorch
     """
 
+    @property
+    def stochastic(self) -> bool:
+        """Whether diffusion sampling is enabled."""
+        return self.mode == "diffusion"
+
     def __init__(
         self,
         era5_variables: Sequence[str],
@@ -385,7 +393,6 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         sigma_max: float = 800.0,
         rho: float = 7.0,
         solver: Literal["heun", "euler"] = "heun",
-        seed: int | None = None,
         amp: bool = False,
         hub_heights: Sequence[float] | None = None,
         hub_interp: Literal["linear", "log"] = "linear",
@@ -426,7 +433,6 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         self.sigma_max = sigma_max
         self.rho = rho
         self.solver = solver
-        self.seed = seed
         self.amp = amp
 
         self.era5_variables = list(era5_variables)
@@ -800,41 +806,60 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
 
     # ── coordinate systems (time is a leading coordinate dimension, not batched) ──
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system. ``time`` is a dynamic leading dim; lat/lon
-        are the native ERA5 footprint (regrid the ERA5 input onto this grid)."""
-        return OrderedDict(
+    def default_sources(self) -> "DataSource":
+        """Recommend the ARCO ERA5 data source.
+
+        Returns
+        -------
+        DataSource
+            ``ARCO_ERA5`` data source for the input slot.
+        """
+        from earth2studio.data import ARCO_ERA5
+
+        return ARCO_ERA5()
+
+    def input_coords(self) -> xr.DataArray:
+        """Input coordinate system of the diagnostic model.
+
+        Returns
+        -------
+        xr.DataArray
+            Allocation-free DataArray input signature with a dynamic leading
+            time dimension and the native ERA5 footprint. Regrid ERA5 input
+            onto this grid before execution.
+        """
+        return coord_array(
+            ("batch", "time", "variable", "lat", "lon"),
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
                 "variable": np.array(self.era5_variables),
-                "lat": self.lat_input_numpy,
-                "lon": self.lon_input_numpy,
-            }
+            },
+            dynamic=("batch", "time"),
+            grid=LatLonGrid(self.lat_input_numpy, self.lon_input_numpy),
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system on the rotated-pole target grid.
+    def output_coords(self, input_coords: xr.DataArray) -> xr.DataArray:
+        """Output coordinate system of the diagnostic model.
+
+        Samples follow time: ``[..., time, sample, variable, y, x]``. Batch and
+        time remain a leading dynamic prefix when planning from input_coords().
 
         The input must be on the native ERA5 grid (:meth:`input_coords`); for a
         sub-region use :meth:`set_domain` (which gives a new instance with its own
         native grid). Arbitrary/flexible domains are not supported.
+
+        Parameters
+        ----------
+        input_coords : xr.DataArray
+            Input coordinate signature or DataArray to validate and transform.
+
+        Returns
+        -------
+        xr.DataArray
+            Allocation-free DataArray output signature on the rotated-pole
+            target grid.
         """
-        target = self.input_coords()
-        handshake_dim(input_coords, "time", 1)
-        handshake_dim(input_coords, "variable", -3)
-        handshake_dim(input_coords, "lat", -2)
-        handshake_dim(input_coords, "lon", -1)
-        handshake_coords(input_coords, target, "variable")
-        if not self._is_native_input(
-            np.asarray(input_coords["lat"]), np.asarray(input_coords["lon"])
-        ):
-            raise ValueError(
-                "CorrDiffCosmoEra5 requires the native input grid from "
-                "input_coords() (regrid your ERA5 onto it). For a sub-region use "
-                "set_domain(); arbitrary/flexible domains are not supported."
-            )
+        handshake_dataarray(input_coords, self.input_coords())
+        handshake_time(input_coords, allow_dynamic=True)
         lat_out, lon_out = self.lat_output_numpy, self.lon_output_numpy
         # Halo crop runs on an expanded grid but reports/returns the trimmed bbox.
         top, bot, left, right = self._halo
@@ -843,26 +868,27 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
             lat_out = lat_out[top : H - bot, left : W - right]
             lon_out = lon_out[top : H - bot, left : W - right]
 
-        output_coords = OrderedDict(
+        leading = input_coords.dims[:-3]
+        result = coord_array(
+            (*leading, "sample", "variable", "y", "x"),
             {
-                "batch": input_coords["batch"],
+                **{
+                    k: deepcopy(v.variable)
+                    for k, v in input_coords.coords.items()
+                    if set(v.dims).issubset(leading)
+                },
                 "sample": np.arange(self.number_of_samples),
-                "time": input_coords["time"],
                 "variable": self._output_coord_variables,
-                "lat": lat_out,
-                "lon": lon_out,
-            }
+            },
+            sizes={d: input_coords.sizes[d] for d in leading},
+            dynamic=input_coords.attrs.get("earth2studio_dynamic_dims", ()),
+            grid=CurvilinearGrid(lat_out, lon_out),
+            dtype=input_coords.dtype,
+            name=input_coords.name,
+            attrs=deepcopy(input_coords.attrs),
         )
-        return output_coords
-
-    def _is_native_input(self, lat: np.ndarray, lon: np.ndarray) -> bool:
-        """True iff lat/lon match the native ERA5 input grid (within tolerance)."""
-        return (
-            lat.shape == self.lat_input_numpy.shape
-            and lon.shape == self.lon_input_numpy.shape
-            and np.allclose(lat, self.lat_input_numpy)
-            and np.allclose(lon, self.lon_input_numpy)
-        )
+        result.encoding = deepcopy(input_coords.encoding)
+        return result
 
     # ── invariants ──────────────────────────────────────────────────────────
 
@@ -1328,6 +1354,21 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
             )
         return out.float()
 
+    _rng_generator: torch.Generator | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the independent initial-latent draws for COSMO diffusion.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for the diffusion sample stream.
+        reset : bool, optional
+            Reset an existing stream, by default True.
+        """
+        if reset or self._rng_generator is None:
+            self._rng_generator = torch.Generator().manual_seed(seed)
+
     @torch.inference_mode()
     def _forward(
         self,
@@ -1368,7 +1409,16 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
                 [
                     self.postprocess_output(
                         self._denoise(
-                            background, None if self.seed is None else self.seed + i
+                            background,
+                            (
+                                int(
+                                    torch.randint(
+                                        2**32, (), generator=self._rng_generator
+                                    )
+                                )
+                                if self._rng_generator is not None
+                                else None
+                            ),
                         ),
                         valid_time,
                         lat_np,
@@ -1382,13 +1432,29 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
             out = out[..., top : out.shape[-2] - bot, left : out.shape[-1] - right]
         return out
 
-    @batch_func()
-    def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Run the model. ``x`` is [batch, time, variable, lat, lon]; ``coords``
-        carries a ``time`` axis (validity times) driving the solar-zenith channel."""
-        output_coords = self.output_coords(coords)
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Downscale labelled ERA5 frames on the configured domain.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            ERA5 conditioning fields matching ``input_coords()`` on the native
+            footprint; select a supported subdomain with ``set_domain``.
+
+        Returns
+        -------
+        xr.DataArray
+            Downscaled samples matching ``output_coords(x)`` on the rotated-pole
+            target grid. Sample dimensions follow time.
+        """
+        signature = self.output_coords(x)
+        x, restore = batch_func()._compress_array(self, x)
+        output_coords = self.output_coords(x)
+        # Assemble in the numerical kernel's order, then restore public order.
+        output_coords = output_coords.transpose(
+            "batch", "sample", "time", "variable", "y", "x"
+        )
+        x = x.e2s.to_torch()[0].to(self.era5_center.device).clone()
 
         lat2d_np = np.asarray(output_coords["lat"])
         lon2d_np = np.asarray(output_coords["lon"])
@@ -1416,7 +1482,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         for b in range(out.shape[0]):
             for t in range(out.shape[2]):
                 out[b, :, t] = self._forward(x[b, t], valid_times[t], lat2d, lon2d)
-        return out, output_coords
+        return restore(_field(out, output_coords)).transpose(*signature.dims)
 
     def to(self, device: torch.device) -> "CorrDiffCosmoEra5":
         """Move the model to a device (the active regression/diffusion sub-network
@@ -1641,13 +1707,15 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
             sigma_max=self.sigma_max,
             rho=self.rho,
             solver=self.solver,
-            seed=self.seed,
             amp=self.amp,
             hub_heights=(self._hub_heights or None),
             hub_interp=self._hub_interp,
             wind_levels=self._wind_levels,
         )
         sub._halo = halo_trim
+        if self._rng_generator is not None:
+            sub._rng_generator = torch.Generator()
+            sub._rng_generator.set_state(self._rng_generator.get_state())
         sub.check_inputs = self.check_inputs
         sub._patch_size = self._patch_size
         sub._min_domain_cells = self._min_domain_cells

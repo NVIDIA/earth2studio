@@ -37,9 +37,70 @@ import numpy as np
 import pytest
 import torch
 import xarray as xr
+from test_corrdiff import _input_field
 
+import earth2studio.models.dx.corrdiff_cosmo_era5 as cosmo_module
 from earth2studio.models.auto import Package
+from earth2studio.models.conformance import (
+    check_diagnostic_contract,
+)
 from earth2studio.models.dx.corrdiff_cosmo_era5 import CorrDiffCosmoEra5
+from earth2studio.utils.coords import handshake_dataarray
+from earth2studio.utils.imports import OptionalDependencyFailure
+
+
+@pytest.fixture(autouse=True)
+def offline_cosmo(monkeypatch):
+    if cosmo_module.cos_zenith_angle is not None:
+        return
+    monkeypatch.delitem(
+        OptionalDependencyFailure.failures, cosmo_module.__file__, raising=False
+    )
+    monkeypatch.setattr(
+        cosmo_module,
+        "cos_zenith_angle",
+        lambda dt, lon, lat: np.full_like(lat, 1 if dt.hour == 12 else -1),
+    )
+
+    class Scheduler:
+        def __init__(self, sigma_min, sigma_max, rho):
+            self.sigma_min, self.sigma_max, self.rho = sigma_min, sigma_max, rho
+
+        def get_denoiser(self, x0_predictor=None, score_predictor=None):
+            return x0_predictor
+
+    def sample(denoiser, x, scheduler, num_steps, solver):
+        steps = (
+            torch.linspace(
+                scheduler.sigma_max ** (1 / scheduler.rho),
+                scheduler.sigma_min ** (1 / scheduler.rho),
+                num_steps,
+                device=x.device,
+                dtype=x.dtype,
+            )
+            ** scheduler.rho
+        )
+        steps = torch.cat((steps, steps.new_zeros(1)))
+        for t, nxt in zip(steps[:-1], steps[1:]):
+            d = (x - denoiser(x, t)) / t
+            trial = x + (nxt - t) * d
+            if solver == "heun" and nxt > 0:
+                d2 = (trial - denoiser(trial, nxt)) / nxt
+                trial = x + (nxt - t) * (d + d2) / 2
+            x = trial
+        return x
+
+    monkeypatch.setattr(cosmo_module, "EDMNoiseScheduler", Scheduler, raising=False)
+    monkeypatch.setattr(cosmo_module, "sample", sample, raising=False)
+    monkeypatch.setattr(
+        cosmo_module, "DiT", types.SimpleNamespace(from_checkpoint=None), raising=False
+    )
+    monkeypatch.setattr(
+        cosmo_module,
+        "EDMPreconditioner",
+        types.SimpleNamespace(from_checkpoint=None),
+        raising=False,
+    )
 
 
 class PhooNet(torch.nn.Module):
@@ -214,12 +275,21 @@ def test_corrdiff_cosmo_era5_call():
         }
     )
     x = torch.randn(1, 2, len(ERA5_VARIABLES), len(ic["lat"]), len(ic["lon"]))
-    out, out_coords = dx(x, coords)
+    field = dx(_input_field(dx, x, coords))
+    declaration = dx.output_coords(dx.input_coords())
+    assert declaration.data.nbytes == 0
+    assert declaration.attrs["earth2studio_dynamic_dims"] == ("batch", "time")
+    handshake_dataarray(field, declaration)
+    assert field.dims == ("batch", "time", "sample", "variable", "y", "x")
+    out_coords = field.coords
+    out = field.transpose(
+        "batch", "sample", "time", "variable", "y", "x"
+    ).e2s.to_torch()[0]
 
     H, W = dx.lat_output_numpy.shape
     assert out.shape == (1, 2, 2, len(OUTPUT_VARIABLES), H, W)
     assert torch.isfinite(out).all()
-    assert list(out_coords["variable"]) == [
+    assert out_coords["variable"].values.tolist() == [
         "u10m",
         "t2m",
         "tp",
@@ -237,6 +307,19 @@ def test_corrdiff_cosmo_era5_call():
     assert out[0, 0, 1, sw].abs().max() < 1e-3
 
 
+def test_corrdiff_cosmo_era5_conformance():
+    ov = OUTPUT_VARIABLES
+    dx = _build(
+        mode="diffusion",
+        regression_model=None,
+        diffusion_model=PhooDiffusionDiT(len(ov), gain=0.5),
+        number_of_samples=1,
+        channel_transforms={},
+        constraints={},
+    )
+    assert check_diagnostic_contract(dx) == []
+
+
 @pytest.mark.parametrize("number_of_samples", [1, 3])
 def test_corrdiff_cosmo_era5_samples(number_of_samples):
     """Generative sample dim + diffusion __call__ plumbing with a mock EDM net."""
@@ -246,18 +329,20 @@ def test_corrdiff_cosmo_era5_samples(number_of_samples):
         regression_model=None,
         diffusion_model=PhooDiffusionDiT(len(ov), gain=0.5),
         number_of_samples=number_of_samples,
-        seed=0,
         channel_transforms={},
         constraints={},
     )
+    dx.set_rng(0)
     x, coords = _diffusion_coords(dx)
-    out, oc = dx(x, coords)
+    field = dx(_input_field(dx, x, coords))
+    oc = field.coords
+    out = field.e2s.to_torch()[0]
     H, W = dx.lat_output_numpy.shape
     assert "sample" in oc and len(oc["sample"]) == number_of_samples
-    assert out.shape == (1, number_of_samples, 1, len(ov), H, W)
+    assert out.shape == (1, 1, number_of_samples, len(ov), H, W)
     assert torch.isfinite(out).all()
     if number_of_samples > 1:
-        assert not torch.allclose(out[0, 0], out[0, 1])
+        assert not torch.allclose(out[0, 0, 0], out[0, 0, 1])
 
 
 def test_diffusion_euler_differs_from_heun():
@@ -270,7 +355,6 @@ def test_diffusion_euler_differs_from_heun():
             regression_model=None,
             diffusion_model=PhooDiffusionDiT(len(ov), gain=0.5),
             number_of_samples=1,
-            seed=0,
             solver=solver,
             channel_transforms={},
             constraints={},
@@ -278,9 +362,11 @@ def test_diffusion_euler_differs_from_heun():
 
     dx_heun = _build_solver("heun")
     dx_euler = _build_solver("euler")
+    dx_heun.set_rng(0)
+    dx_euler.set_rng(0)
     x, coords = _diffusion_coords(dx_heun)
-    out_heun, _ = dx_heun(x, coords)
-    out_euler, _ = dx_euler(x, coords)
+    out_heun = dx_heun(_input_field(dx_heun, x, coords)).e2s.to_torch()[0]
+    out_euler = dx_euler(_input_field(dx_euler, x, coords)).e2s.to_torch()[0]
     H, W = dx_heun.lat_output_numpy.shape
     assert out_euler.shape == (1, 1, 1, len(ov), H, W)
     assert torch.isfinite(out_euler).all()
@@ -300,10 +386,12 @@ def test_call_end_to_end_with_hub():
         lon=ic["lon"],
     )
     x = torch.randn(1, 1, len(ERA5_VARIABLES), len(ic["lat"]), len(ic["lon"]))
-    out, oc = dx(x, coords)
+    field = dx(_input_field(dx, x, coords))
+    oc = field.coords
+    out = field.e2s.to_torch()[0]
     H, W = dx.lat_output_numpy.shape
-    assert out.shape == (1, dx.number_of_samples, 1, len(ov) + 2, H, W)
-    assert list(oc["variable"])[-2:] == ["u35m", "v35m"]
+    assert out.shape == (1, 1, dx.number_of_samples, len(ov) + 2, H, W)
+    assert oc["variable"].values.tolist()[-2:] == ["u35m", "v35m"]
     assert torch.isfinite(out).all()
 
 
@@ -321,9 +409,11 @@ def test_set_domain_preserves_config():
         number_of_samples=3,
         amp=True,
         physical_clamp=False,
-        seed=42,
     )
+    dx.set_rng(42)
     cr = dx.set_domain(lat_min=48.0, lat_max=52.0, lon_min=8.0, lon_max=13.0)
+    assert cr._rng_generator is not dx._rng_generator
+    assert torch.equal(cr._rng_generator.get_state(), dx._rng_generator.get_state())
 
     assert cr._has_constraints == dx._has_constraints
     assert sorted(cr._bound_lo) == sorted(dx._bound_lo)
@@ -343,7 +433,6 @@ def test_set_domain_preserves_config():
         "number_of_samples",
         "amp",
         "physical_clamp",
-        "seed",
     ):
         assert getattr(cr, attr) == getattr(dx, attr), attr
     assert cr.output_variables == dx.output_variables
@@ -437,7 +526,7 @@ def test_forward_core_halo_trims_border():
         lon=ic["lon"],
     )
     x = torch.randn(1, 1, len(ERA5_VARIABLES), len(ic["lat"]), len(ic["lon"]))
-    out, _ = haloed(x, coords)
+    out = haloed(_input_field(haloed, x, coords)).e2s.to_torch()[0]
     assert out.shape[-2:] == (Hp, Wp)
     assert torch.isfinite(out).all()
 
@@ -632,8 +721,8 @@ def test_corrdiff_cosmo_era5_exceptions():
         lat=ic["lat"],
         lon=ic["lon"],
     )
-    with pytest.raises((KeyError, ValueError), match="required dim variable"):
-        dx(x, bad_var)
+    with pytest.raises((KeyError, ValueError)):
+        dx(_input_field(dx, x, bad_var))
     bad_order = OrderedDict(
         batch=np.array([0]),
         time=t,
@@ -641,8 +730,12 @@ def test_corrdiff_cosmo_era5_exceptions():
         lon=ic["lon"],
         lat=ic["lat"],
     )
-    with pytest.raises((KeyError, ValueError), match="index -2"):
-        dx(x, bad_order)
+    with pytest.raises((KeyError, ValueError)):
+        dx(
+            _input_field(dx, x, bad_order).transpose(
+                "batch", "time", "variable", "lon", "lat"
+            )
+        )
 
 
 # ── load_model assembly tests (synthetic local package) ─────────────────────
@@ -993,12 +1086,14 @@ def test_corrdiff_cosmo_era5_package(mode, resolution):
     x = torch.randn(
         1, 1, len(ic["variable"]), len(ic["lat"]), len(ic["lon"]), device=device
     )
-    out, oc = dx(x, coords)
+    field = dx(_input_field(dx, x, coords))
+    oc = field.coords
+    out = field.e2s.to_torch()[0]
     H, W = dx.lat_output_numpy.shape
     assert out.shape == (
         1,
-        dx.number_of_samples,
         1,
+        dx.number_of_samples,
         len(dx._output_coord_variables),
         H,
         W,
@@ -1010,7 +1105,7 @@ def test_corrdiff_cosmo_era5_package(mode, resolution):
         if ch not in dx.output_variables:
             continue
         i = dx.output_variables.index(ch)
-        sl = out[0, :, 0, i]
+        sl = out[0, 0, :, i]
         if b.get("min") is not None:
             assert sl.min().item() >= b["min"] - 1e-4, f"{ch} below min in {mode}"
         if b.get("max") is not None:

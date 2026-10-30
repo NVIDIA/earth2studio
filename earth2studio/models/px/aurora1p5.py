@@ -15,23 +15,35 @@
 # limitations under the License.
 
 import pickle
-from collections import OrderedDict
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
+from copy import deepcopy
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 import numpy as np
 import torch
+import xarray as xr
 
+from earth2studio.data.base import DataSource
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
+from earth2studio.models.px.aurora import _aurora_history
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.models.utils import fork_rng
+from earth2studio.utils.coords import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_nonempty,
+    handshake_time,
+)
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 try:
     from aurora import AuroraV1p5 as Aurora1p5_model
@@ -174,8 +186,19 @@ def _load_aurora1p5_from_package(
 
 
 # Adapted from https://microsoft.github.io/aurora/example_v1p5.html
+@dataclass
+class _AuroraState:
+    history: xr.DataArray
+    index: int
+    seed: int | None
+    rng: dict[str, torch.Tensor] | None
+    noise: list[torch.Tensor]
+
+
 @check_optional_dependencies()
 class _Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+    """Shared xarray execution for the hourly and six-hour Aurora variants."""
+
     _STEP_HOURS: int = 1
     _ENSEMBLE: bool = False
 
@@ -191,82 +214,73 @@ class _Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         for key, val in static_vars.items():
             self.register_buffer(f"static_var_{key}", val)
 
-        self._input_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array(
-                    [np.timedelta64(-6, "h"), np.timedelta64(0, "h")]
-                ),
-                "variable": np.array(INPUT_VARIABLES),
-                "lat": np.linspace(90, -90, 720, endpoint=False),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
-        )
-
-        self._output_coords = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array([np.timedelta64(self._STEP_HOURS, "h")]),
-                "variable": np.array(OUTPUT_VARIABLES),
-                "lat": np.linspace(90, -90, 720, endpoint=False),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
-        )
-        self.device = torch.ones(1).device  # Hack to get default device
+        self.register_buffer("device_buffer", torch.empty(0))
         self.preds_idx = 0
-        self.seed: int | None = None
 
     def _get_static_vars(self) -> dict[str, torch.Tensor]:
         return {k: getattr(self, f"static_var_{k}") for k in self._static_var_keys}
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of the prognostic model
+    def default_sources(self) -> DataSource:
+        """Recommend ARCO ERA5 initial conditions.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        DataSource
+            Raw ARCO ERA5 source for the input slot.
         """
-        return self._input_coords.copy()
+        from earth2studio.data import ARCO_ERA5
 
-    @batch_coords()
-    def output_coords(
-        self,
-        input_coords: CoordSystem,
-    ) -> CoordSystem:
-        """Output coordinate system of the prognostic model
+        return ARCO_ERA5()
+
+    def input_coords(self) -> CoordinateSystem:
+        """Input coordinate system of the prognostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature for the six-hour
+            autoregressive history on the south-pole-excluded grid.
+        """
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "lat", "lon"),
+            {
+                "lead_time": np.array([-6, 0], dtype="timedelta64[h]"),
+                "variable": INPUT_VARIABLES,
+            },
+            dynamic=("batch", "time"),
+            grid="latlon-0.25deg-south-pole-excluded",
+        )
+
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Output coordinate system of the prognostic model.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free signature for the complete six-hour forecast chunk
+            at the variant's output cadence, including one-hour diagnostics.
         """
-        output_coords = self._output_coords.copy()
-
-        test_coords = input_coords.copy()
-        test_coords["lead_time"] = (
-            test_coords["lead_time"] - input_coords["lead_time"][-1]
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
+        lead = input_coords.lead_time.values
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
         )
-        target_input_coords = self.input_coords()
-        for i, key in enumerate(target_input_coords):
-            if key not in ["batch", "time"]:
-                handshake_dim(test_coords, key, i)
-                handshake_coords(test_coords, target_input_coords, key)
-
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["time"] = input_coords["time"]
-        output_coords["lead_time"] = (
-            input_coords["lead_time"][-1] + output_coords["lead_time"]
+        return coord_array_like(
+            input_coords,
+            {
+                "lead_time": input_coords.lead_time.values[-1:]
+                + np.arange(self._STEP_HOURS, 7, self._STEP_HOURS).astype(
+                    "timedelta64[h]"
+                ),
+                "variable": OUTPUT_VARIABLES,
+            },
         )
-
-        return output_coords
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -447,29 +461,138 @@ class _Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return sub_preds
 
-    @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Runs prognostic model 1 step.
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Predict the complete six-hour forecast chunk without hooks.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Initial two-frame history matching ``input_coords()``.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system one output time-step in the future
+        xr.DataArray
+            Forecasts through six hours at this variant's output cadence,
+            including output-only diagnostic variables.
         """
-        output_coords = self.output_coords(coords)
-        x = self._forward_sub_steps(x, coords, lead_time_hours=[self._STEP_HOURS])[0]
-        return x, output_coords
+        return self.initialize(x)[0]
+
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, _AuroraState]:
+        """Predict the first chunk and retain history and ensemble noise.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Two-frame initial history matching ``input_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, _AuroraState]
+            Complete six-hour forecast chunk at the variant's output cadence and
+            continuation history, rollout index, RNG state and ensemble noise
+            cache. Iterator hooks are not applied.
+        """
+        handshake_nonempty(x)
+        if self.stochastic and self._rng_seed is None:
+            self.set_rng(int(torch.randint(0, 2**31, ()).item()))
+        y, state = self._forward(
+            x, _AuroraState(x, 0, self._rng_seed, deepcopy(self._rng_states), [])
+        )
+        self._rng_states = deepcopy(state.rng)
+        return y, state
+
+    def step(
+        self, y: xr.DataArray, state: _AuroraState
+    ) -> tuple[xr.DataArray, _AuroraState]:
+        """Advance from the last forecast frame and explicit history/noise state.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast chunk. Its final frame supplies the next input;
+            autoregressive channels are clipped to their physical bounds.
+        state : _AuroraState
+            History, rollout index, RNG state and noise cache returned by
+            ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, _AuroraState]
+            Next complete six-hour chunk and updated state, without iterator hooks.
+        """
+        feedback = y.sel(variable=INPUT_VARIABLES).isel(lead_time=slice(-1, None))
+        tensor, _ = feedback.e2s.to_torch()
+        clipped = from_torch(
+            self._clip_ar_input(tensor), coord_array_like(feedback), name=y.name
+        )
+        clipped.encoding = y.encoding.copy()
+        return self._forward(_aurora_history(state.history, clipped), state)
+
+    def _forward(
+        self, x: xr.DataArray, state: _AuroraState
+    ) -> tuple[xr.DataArray, _AuroraState]:
+        previous = self.preds_idx, self._rng_seed, self._rng_states
+        self.preds_idx, self._rng_seed, self._rng_states = (
+            state.index,
+            state.seed,
+            deepcopy(state.rng),
+        )
+        backbone = getattr(self.model, "backbone", None)
+        if self._ENSEMBLE:
+            self.model.set_noise_accumulation(n=6 // self._STEP_HOURS)
+            if backbone is not None:
+                backbone._noise_cache = deepcopy(state.noise)
+        try:
+            predictions = self._sub_steps(
+                x, list(range(self._STEP_HOURS, 7, self._STEP_HOURS))
+            )
+            y = xr.concat(
+                predictions,
+                dim="lead_time",
+                coords="minimal",
+                compat="override",
+                join="exact",
+            )
+            y.encoding = x.encoding.copy()
+            noise = (
+                deepcopy(backbone._noise_cache)
+                if self._ENSEMBLE and backbone is not None
+                else []
+            )
+            return y, _AuroraState(
+                x.isel(lead_time=slice(-1, None)).copy(deep=True),
+                state.index + 1,
+                state.seed,
+                deepcopy(self._rng_states),
+                noise,
+            )
+        finally:
+            self.preds_idx, self._rng_seed, self._rng_states = previous
+            if self._ENSEMBLE:
+                self.model.set_noise_accumulation(n=0)
+
+    def _sub_steps(self, x: xr.DataArray, hours: list[int]) -> list[xr.DataArray]:
+        self.output_coords(x)
+        handshake_time(x)
+        packed, restore = batch_func()._compress_array(self, x)
+        signature = self.output_coords(packed)
+        tensor, coords = packed.e2s.to_torch()
+        with fork_rng(
+            self._rng_seed, self.device_buffer.device, states=self._rng_states
+        ):
+            predictions = self._forward_sub_steps(
+                tensor.to(self.device_buffer.device).clone(), coords, hours
+            )
+        results = []
+        for h, prediction in zip(hours, predictions):
+            out_signature = coord_array_like(
+                signature,
+                {"lead_time": packed.lead_time.values[-1:] + np.timedelta64(h, "h")},
+            )
+            out = from_torch(prediction, out_signature, name=x.name)
+            out.encoding = x.encoding.copy()
+            results.append(restore(out))
+        return results
 
     @staticmethod
     def _clip_ar_input(x: torch.Tensor) -> torch.Tensor:
@@ -479,105 +602,41 @@ class _Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x[..., idx, :, :] = x[..., idx, :, :].clamp(min=lo, max=hi)
         return x
 
-    @batch_func()
-    def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-        self.preds_idx = 0
-        coords = coords.copy()
-
-        self.output_coords(coords)
-
-        ic_coords = coords.copy()
-        ic_coords["lead_time"] = np.array([coords["lead_time"][-1]])
-        ic_coords["variable"] = np.array(OUTPUT_VARIABLES)
-        # Pad IC with NaN for the output-only channels so every yield is
-        # consistent at 90 variables. NaN signals "not available" — the decoder
-        # has not run at t=0, so these slots carry no physical meaning.
-        n_in = _N_ATMOS + _N_SURF
-        ic_tensor = x[:, :, 1:]
-        padding = torch.full(
-            (*ic_tensor.shape[:3], _N_OUTPUT_ONLY, *ic_tensor.shape[4:]),
-            float("nan"),
-            device=ic_tensor.device,
-            dtype=ic_tensor.dtype,
-        )
-        yield torch.cat([ic_tensor, padding], dim=3), ic_coords
-
-        while True:
-            # Front hook runs once per 6h AR cycle
-            x, coords = self.front_hook(x, coords)
-            ar_prev_x = x[:, :, 1:].clone()  # state at current t (83 channels)
-            current_t_lead = coords["lead_time"][-1]
-
-            # Compute t+stride, t+2*stride, ..., t+6h from the same AR input
-            # pair [t-6h, t]. stride=6 evaluates only the AR boundary.
-            stride = self._STEP_HOURS
-            lead_time_hours = list(range(stride, int(_AR_STEP_HOURS) + 1, stride))
-            sub_preds = self._forward_sub_steps(
-                x, coords, lead_time_hours=lead_time_hours
-            )
-
-            for sub_idx, sub_pred in enumerate(sub_preds):
-                h = lead_time_hours[sub_idx]
-                sub_lead = current_t_lead + np.timedelta64(h, "h")
-                coords_out = coords.copy()
-                coords_out["lead_time"] = np.array([sub_lead])
-                coords_out["variable"] = np.array(OUTPUT_VARIABLES)
-
-                if h < int(_AR_STEP_HOURS):
-                    # Intermediate hourly step: yield with rear hook
-                    sub_pred, coords_out = self.rear_hook(sub_pred, coords_out)
-                    yield sub_pred, coords_out
-                else:
-                    # 6h AR boundary: apply rear hook to the full unclipped prediction,
-                    # then clip only the input-var slice for AR feedback.
-                    # Users receive raw (post-hook, pre-clip) predictions.
-                    sub_pred, coords_out = self.rear_hook(sub_pred, coords_out)
-                    ar_next = self._clip_ar_input(sub_pred[:, :, :, :n_in])
-                    x = torch.cat([ar_prev_x, ar_next], dim=2).clone()
-
-                    self.preds_idx = self.preds_idx + 1
-                    coords["lead_time"] = np.array([current_t_lead, sub_lead])
-
-                    yield sub_pred, coords_out
-
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Creates a iterator which can be used to perform time-integration of the
-        prognostic model. Will return the initial condition first (0th step).
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, None, None]:
+        """Yield complete forecast chunks, beginning with initialization's prediction.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Initial history matching ``input_coords()``.
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
-            Iterator that generates time-steps of the prognostic model containing
-            the output data tensor and coordinate system dictionary.
+        xr.DataArray
+            Six-hour chunks at the variant's output cadence. The rear hook runs
+            once per chunk and the front hook before subsequent steps. The final
+            frame supplies autoregressive feedback.
         """
-        if not self._ENSEMBLE:
-            yield from self._default_generator(x, coords)
-            return
+        yield from self._default_create_iterator(x)
 
-        self._set_rng(self.seed)
-        # Set once: the FIFO noise cache rolls across AR cycles, not per-cycle.
-        n_substeps = int(_AR_STEP_HOURS) // self._STEP_HOURS
-        self.model.set_noise_accumulation(n=n_substeps)
-        try:
-            yield from self._default_generator(x, coords)
-        finally:
-            self.model.set_noise_accumulation(n=0)
+    _rng_seed: int | None = None
+    _rng_states: dict[str, torch.Tensor] | None = None
 
-    def _set_rng(self, seed: int | None) -> None:
-        if seed is not None:
-            torch.manual_seed(seed)
-        self.model.reset_noise()
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Set the isolated random stream and reset cached ensemble noise.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for reproducible sampling.
+        reset : bool, optional
+            Reset an existing stream, by default True.
+        """
+        if reset or self._rng_seed is None:
+            self._rng_seed = seed
+            self._rng_states = {}
+            if self._ENSEMBLE:
+                self.model.reset_noise()
 
 
 @check_optional_dependencies()
@@ -606,9 +665,9 @@ class Aurora1p5(_Aurora):
     :class:`earth2studio.data.NCAR_ERA5` or :class:`earth2studio.data.ARCO_ERA5`
     may be used instead. GFS is not supported due to missing surface variables.
 
-    The iterator yields the initial condition first. Its output-only variables
-    (``i10fg``, ``blh``, ``uvb1h``, ``ssrd1h``, ``ttr1h``, ``tp1h``, ``sf1h``)
-    contain ``NaN`` at that step; subsequent steps contain model predictions.
+    The iterator yields six-hour forecast chunks with hourly frames, including
+    output-only diagnostic variables from the first yield. Hourly accumulations use
+    qualified labels such as ``tp:sum:1h`` and retain their physical units.
     Use :class:`Aurora1p5_6h` for six-hourly output.
 
     Warning
@@ -671,10 +730,6 @@ class Aurora1p5Ensemble(_Aurora):
     static_vars : dict[str, torch.Tensor]
         Dictionary of static field tensors (e.g., lsm, z, slt_*, tvh_*, tvl_*, ...).
         Each tensor should have shape (720, 1440).
-    seed : int | None, optional
-        If specified, sets the random seed via :meth:`set_rng` at the start of
-        each :meth:`create_iterator` call for reproducible stochastic noise.
-        By default None (non-reproducible).
 
     Badges
     ------
@@ -689,20 +744,10 @@ class Aurora1p5Ensemble(_Aurora):
         self,
         core_model: torch.nn.Module,
         static_vars: dict[str, torch.Tensor],
-        seed: int | None = None,
     ) -> None:
         super().__init__(core_model, static_vars)
-        self.seed = seed
 
-    def set_rng(self, seed: int | None) -> None:
-        """Seed the global RNG and reset the model's internal noise cache.
-
-        Parameters
-        ----------
-        seed : int | None
-            Seed for :func:`torch.manual_seed`. If None, only resets the noise cache.
-        """
-        self._set_rng(seed)
+    stochastic = True
 
 
 @check_optional_dependencies()
@@ -755,9 +800,6 @@ class Aurora1p5Ensemble_6h(_Aurora):
         Core Aurora1p5Ensemble model (stochastic=True)
     static_vars : dict[str, torch.Tensor]
         Static field tensors, each with shape (720, 1440).
-    seed : int | None, optional
-        Seed applied at the start of each iterator for reproducible stochastic
-        noise, by default None
 
     Badges
     ------
@@ -767,22 +809,11 @@ class Aurora1p5Ensemble_6h(_Aurora):
 
     _STEP_HOURS = 6
     _ENSEMBLE = True
+    stochastic = True
 
     def __init__(
         self,
         core_model: torch.nn.Module,
         static_vars: dict[str, torch.Tensor],
-        seed: int | None = None,
     ) -> None:
         super().__init__(core_model, static_vars)
-        self.seed = seed
-
-    def set_rng(self, seed: int | None) -> None:
-        """Seed the global RNG and reset the model's internal noise cache.
-
-        Parameters
-        ----------
-        seed : int | None
-            Seed for :func:`torch.manual_seed`. If None, only resets the noise cache.
-        """
-        self._set_rng(seed)

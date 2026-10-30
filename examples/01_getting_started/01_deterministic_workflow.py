@@ -44,8 +44,16 @@ In this example you will learn:
 # Set Up
 # ------
 # All workflows inside Earth2Studio require constructed components to be
-# handed to them. In this example, let's take a look at the most basic: [`earth2studio.run.deterministic`](https://nvidia.github.io/earth2studio/main/modules/generated/workflows/deterministic/#earth2studio.run.deterministic).
-#
+# handed to them. In this example, let's take a look at the most basic:
+# [`earth2studio.run.deterministic`][earth2studio.run.deterministic].
+
+# %%
+# .. literalinclude:: ../../earth2studio/run/__init__.py
+#    :language: python
+#    :start-after: # sphinx - deterministic start
+#    :end-before: # sphinx - deterministic end
+
+# %%
 # Thus, we need the following:
 #
 # - Prognostic Model: Use the built in Deep Learning Weather Prediction (DLWP) model [`earth2studio.models.px.DLWP`][earth2studio.models.px.DLWP].
@@ -86,7 +94,7 @@ io = ZarrBackend()
 # %% tags=["e2sg-profile:setup"]
 sample = data(
     to_time_array(["2023-12-31T18:00:00", "2024-01-01"]),
-    model.input_coords()["variable"],
+    model.input_coords().coords["variable"].values,
 )
 print(sample)
 

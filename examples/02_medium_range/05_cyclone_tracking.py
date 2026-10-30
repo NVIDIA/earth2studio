@@ -100,7 +100,8 @@ start_time = datetime(2009, 8, 5)  # Start date for inference
 
 # %%
 
-from earth2studio.data import fetch_data, prep_data_array
+from earth2studio.data import fetch_data
+from earth2studio.run import _map_field
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 tracker = tracker.to(device)
@@ -108,12 +109,16 @@ tracker = tracker.to(device)
 # Land fall occured August 25th 2017
 times = [start_time + timedelta(hours=6 * i) for i in range(nsteps + 1)]
 for step, time in enumerate(times):
-    da = data(time, tracker.input_coords()["variable"])
-    x, coords = prep_data_array(da, device=device)
-    output, output_coords = tracker(x, coords)
+    x = fetch_data(
+        data,
+        to_time_array([time]),
+        tracker.input_coords().coords["variable"].values,
+        device=device,
+    ).squeeze("lead_time", drop=True)
+    output = tracker(_map_field(x, tracker.input_coords()))
     print(f"Step {step}: ARCO ERA5 tracks output shape {output.shape}")
 
-era5_tracks = output.cpu()
+era5_tracks = output.e2s.to_torch()[0].cpu()
 torch.save(era5_tracks, "outputs/13_era5_paths.pt")
 
 # %%
@@ -131,28 +136,25 @@ torch.save(era5_tracks, "outputs/13_era5_paths.pt")
 
 from tqdm import tqdm
 
-from earth2studio.utils.coords import map_coords
-
 prognostic = prognostic.to(device)
 # Reset the internal path buffer of tracker
 tracker.reset_path_buffer()
 
 # Load the initial state
-x, coords = fetch_data(
+x = fetch_data(
     source=data,
     time=to_time_array([start_time]),
-    variable=prognostic.input_coords()["variable"],
-    lead_time=prognostic.input_coords()["lead_time"],
+    variable=prognostic.input_coords().coords["variable"].values,
+    lead_time=prognostic.input_coords().coords["lead_time"].values,
     device=device,
 )
 
 # Create prognostic iterator
-model = prognostic.create_iterator(x, coords)
+model = prognostic.create_iterator(_map_field(x, prognostic.input_coords()))
 with tqdm(total=nsteps + 1, desc="Running inference") as pbar:
-    for step, (x, coords) in enumerate(model):
+    for step, x in enumerate(model):
         # Run tracker
-        x, coords = map_coords(x, coords, tracker.input_coords())
-        output, output_coords = tracker(x, coords)
+        output = tracker(_map_field(x, tracker.input_coords()))
         # lets remove the lead time dim
         output = output[:, 0]
         print(f"Step {step}: SFNO tracks output shape {output.shape}")
@@ -161,7 +163,7 @@ with tqdm(total=nsteps + 1, desc="Running inference") as pbar:
         if step == nsteps:
             break
 
-sfno_tracks = output.cpu()
+sfno_tracks = output.e2s.to_torch()[0].cpu()
 torch.save(sfno_tracks, "outputs/13_sfno_paths.pt")
 
 # %%

@@ -32,7 +32,7 @@ from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from inspect import signature
 from pathlib import Path
-from typing import Any, ClassVar, Literal, Protocol, TypeVar, overload
+from typing import Any, ClassVar, Literal, Protocol, TypeVar, cast, overload
 
 import fsspec.asyn
 import numpy as np
@@ -57,12 +57,32 @@ from earth2studio.data.base import (
     ForecastFrameSource,
     ForecastSource,
 )
+from earth2studio.grids import (
+    GridDefinition,
+    Regridder,
+    infer_grid,
+    resolve_regridder,
+    same_geometry,
+    select_subset,
+)
+from earth2studio.utils.coords import (
+    E2S_DYNAMIC_DIMS,
+    E2S_KIND,
+    E2S_SCHEMA_VERSION,
+    E2S_STATISTICS,
+)
 from earth2studio.utils.interp import LatLonInterpolation
 from earth2studio.utils.time import (
     leadtimearray_to_timedelta,
     normalize_time_precision,
     timearray_to_datetime,
     to_time_array,
+)
+from earth2studio.utils.time_statistics import (
+    apply_time_statistic,
+    source_lead_times,
+    source_times,
+    time_statistic_metadata,
 )
 from earth2studio.utils.type import (
     CoordSystem,
@@ -83,7 +103,7 @@ except ImportError:
     cudf = None
 
 
-def _offset_times(time: TimeArray, lead: np.timedelta64) -> np.ndarray:
+def _offset_times(time: TimeArray, lead: np.timedelta64) -> TimeArray:
     """Offset times by a lead time, keeping nanosecond precision when possible.
 
     Parameters
@@ -98,23 +118,241 @@ def _offset_times(time: TimeArray, lead: np.timedelta64) -> np.ndarray:
     np.ndarray
         Offset timestamps, as ``datetime64[ns]`` when representable.
     """
-    return normalize_time_precision(np.array([t + lead for t in time]))
+    # Avoid promoting climate-calendar dates to overflowing nanoseconds when
+    # the offset can be represented exactly at the timestamps' own precision.
+    unit = np.datetime_data(time.dtype)[0]
+    coarse_lead = lead.astype(f"timedelta64[{unit}]")
+    if coarse_lead == lead:
+        lead = coarse_lead
+    return cast(TimeArray, normalize_time_precision(np.asarray(time) + lead))
+
+
+def _is_forecast_source(source: DataSource | ForecastSource) -> bool:
+    """Return whether a source takes ``(time, lead_time, variable)`` requests.
+
+    Wrappers that forward requests, such as :class:`RegriddedSource`, declare this
+    through an ``is_forecast`` property; other sources by their call signature.
+
+    Parameters
+    ----------
+    source : DataSource | ForecastSource
+        Source to inspect.
+
+    Returns
+    -------
+    bool
+        True for a forecast source.
+    """
+    declared = getattr(source, "is_forecast", None)
+    if isinstance(declared, bool):
+        return declared
+    return "lead_time" in signature(source.__call__).parameters
+
+
+def _fetch_instantaneous(
+    source: DataSource | ForecastSource,
+    time: TimeArray,
+    lead_time: LeadTimeArray,
+    variable: Sequence[str],
+) -> xr.DataArray:
+    variables = cast(VariableArray, np.asarray(variable))
+    if _is_forecast_source(source):
+        return cast(ForecastSource, source)(time, lead_time, variables).sel(
+            time=time, lead_time=lead_time, variable=variables
+        )
+
+    arrays = []
+    for lead in lead_time:
+        valid_time = _offset_times(time, lead)
+        array = cast(DataSource, source)(valid_time, variables).sel(
+            time=valid_time, variable=variables
+        )
+        array = array.expand_dims(
+            lead_time=np.array([lead], dtype="timedelta64[ns]"), axis=1
+        )
+        arrays.append(array.assign_coords(time=time))
+    return xr.concat(arrays, "lead_time")
+
+
+def _fetch_statistic(
+    source: DataSource | ForecastSource,
+    time: TimeArray,
+    lead_time: LeadTimeArray,
+    variable: Sequence[str],
+    modifier: str,
+    delta_t: np.timedelta64,
+) -> xr.DataArray:
+    variables = cast(VariableArray, np.asarray(variable))
+    forecast = _is_forecast_source(source)
+    dimension = "lead_time" if forecast else "time"
+    if forecast:
+        required = source_lead_times(modifier, lead_time, delta_t)
+        source_array = cast(ForecastSource, source)(
+            time, cast(LeadTimeArray, np.unique(required)), variables
+        ).sel(time=time, variable=variables)
+    else:
+        required = source_times(modifier, time[:, None] + lead_time[None, :], delta_t)
+        source_array = cast(DataSource, source)(
+            cast(TimeArray, np.unique(required)), variables
+        ).sel(variable=variables)
+    _require_instantaneous(source_array, variables)
+    by_time = []
+    for target_time in time:
+        samples = (
+            source_array.sel(time=target_time, drop=True) if forecast else source_array
+        )
+        by_lead = []
+        for lead in lead_time:
+            reduced = apply_time_statistic(
+                samples,
+                modifier,
+                lead if forecast else target_time + lead,
+                delta_t,
+                dimension,
+            )
+            by_lead.append(reduced.expand_dims(lead_time=[lead]))
+        by_time.append(xr.concat(by_lead, "lead_time").expand_dims(time=[target_time]))
+    return xr.concat(by_time, "time")
+
+
+def _require_instantaneous(array: xr.DataArray, variables: VariableArray) -> None:
+    if set(array.attrs.get(E2S_STATISTICS, {})).intersection(variables):
+        raise ValueError(
+            "Cannot apply a time statistic to already aggregated source data"
+        )
+
+
+def _fetch_dataarray(
+    source: DataSource | ForecastSource,
+    time: TimeArray,
+    variable: VariableArray,
+    lead_time: LeadTimeArray,
+    delta_t: np.timedelta64 | None,
+) -> xr.DataArray:
+    # Group source variables by reduction, retaining their requested output labels.
+    groups: dict[str | None, dict[str, str]] = {}
+    for label in map(str, variable):
+        source_variable, separator, parsed_modifier = label.partition(":")
+        if not source_variable:
+            raise ValueError("Variable name must not be empty")
+        modifier = (
+            str(time_statistic_metadata(parsed_modifier)["modifier"])
+            if separator
+            else None
+        )
+        group = groups.setdefault(modifier, {})
+        if source_variable in group:
+            raise ValueError("Requested variables contain duplicate quantities")
+        group[source_variable] = label
+
+    if delta_t is None:
+        delta_t = getattr(source, "time_step", None)
+    # Validate every window before any source calls.
+    for modifier in groups:
+        if modifier is not None:
+            if delta_t is None:
+                raise ValueError("delta_t is required for temporal statistics")
+            source_lead_times(modifier, lead_time, delta_t)
+
+    arrays = []
+    output_statistics = {}
+    for modifier, group in groups.items():
+        source_variables, labels = list(group), list(group.values())
+        if modifier is None:
+            array = _fetch_instantaneous(source, time, lead_time, source_variables)
+            output_statistics.update(
+                {
+                    group[name]: details
+                    for name, details in array.attrs.get(E2S_STATISTICS, {}).items()
+                    if name in group
+                }
+            )
+        else:
+            array = _fetch_statistic(
+                source,
+                time,
+                lead_time,
+                source_variables,
+                modifier,
+                cast(np.timedelta64, delta_t),
+            )
+            output_statistics.update(
+                {label: time_statistic_metadata(modifier) for label in labels}
+            )
+        arrays.append(array.assign_coords(variable=labels))
+    array = (
+        arrays[0] if len(arrays) == 1 else xr.concat(arrays, "variable", join="exact")
+    )
+    array = array.sel(variable=variable)
+    array = array.transpose("time", "lead_time", "variable", ...)
+    array.attrs = dict(array.attrs)
+    array.attrs.pop(E2S_STATISTICS, None)
+    if output_statistics:
+        array.attrs[E2S_STATISTICS] = output_statistics
+    return array
+
+
+def _map_to_target(
+    array: xr.DataArray,
+    source: DataSource | ForecastSource,
+    target_grid: GridDefinition | None,
+    regridder: Regridder | None,
+) -> xr.DataArray:
+    """Bring a fetched field onto ``target_grid``, cautiously when inferring."""
+    if regridder is not None:
+        if target_grid is not None and not same_geometry(
+            regridder.target_grid, target_grid
+        ):
+            raise ValueError("regridder.target_grid does not match target_grid")
+        return regridder(array)
+    if target_grid is None:
+        return array
+
+    try:
+        source_grid = infer_grid(array)
+    except ValueError as error:
+        raise ValueError(
+            f"Cannot determine the grid of fields from {type(source).__name__}; "
+            "pass a Regridder built for its grid"
+        ) from error
+    if same_geometry(source_grid, target_grid):
+        return array
+    subset = select_subset(array, source_grid, target_grid)
+    if subset is not None:
+        return subset
+
+    # Never extrapolate automatically: nearest within the source resolution, and
+    # raise rather than fill targets beyond the source.
+    try:
+        built = resolve_regridder(
+            source_grid, target_grid, "nearest", max_dist_km="auto", fill_value=None
+        )
+    except ValueError as error:
+        raise ValueError(
+            f"Cannot regrid {type(source).__name__} fields automatically: {error}; "
+            "pass a Regridder to choose a method and fill"
+        ) from error
+    logger.info(
+        f"Regridding {type(source).__name__} fields from a {source_grid.topology} "
+        f"grid {dict(zip(source_grid.dims, source_grid.shape))} to a "
+        f"{target_grid.topology} grid "
+        f"{dict(zip(target_grid.dims, target_grid.shape))} by nearest neighbor; "
+        "pass a Regridder to choose the method and reuse its weights"
+    )
+    return built(array)
 
 
 def fetch_data(
     source: DataSource | ForecastSource,
     time: TimeArray,
     variable: VariableArray,
-    lead_time: LeadTimeArray = np.array([np.timedelta64(0, "h")]),
-    device: torch.device = "cpu",
-    interp_to: CoordSystem | None = None,
-    interp_method: str = "nearest",
-    legacy: bool = True,
-) -> tuple[torch.Tensor, CoordSystem] | xr.DataArray:
-    """Utility function to fetch data arrays from particular sources and load data on
-    the target device. If desired, xarray interpolation/regridding in the spatial
-    domain can be used by passing a target coordinate system via the optional
-    `interp_to` argument.
+    lead_time: LeadTimeArray = cast(LeadTimeArray, np.array([np.timedelta64(0, "h")])),
+    device: torch.device | str = "cpu",
+    target_grid: GridDefinition | None = None,
+    regridder: Regridder | None = None,
+    delta_t: np.timedelta64 | None = None,
+) -> xr.DataArray:
+    """Fetch field DataArrays with temporal statistics, optionally regridded.
 
     Parameters
     ----------
@@ -123,71 +361,75 @@ def fetch_data(
     time : TimeArray
         Timestamps to return data for (UTC).
     variable : VariableArray
-        Strings or list of strings that refer to variables to return
+        Variable labels, optionally qualified with a temporal statistic, e.g.
+        ``"t2m:mean:24h"``.
     lead_time : LeadTimeArray, optional
         Lead times to fetch for each provided time, by default
         np.array(np.timedelta64(0, "h"))
-    device : torch.device, optional
-        Torch device to load data tensor to, by default "cpu"
-    interp_to : CoordSystem, optional
-        If provided, the fetched data will be interpolated to the coordinates
-        specified by lat/lon arrays in this CoordSystem
-    interp_method : str
-        Interpolation method to use with xarray (by default 'nearest')
-    legacy : bool, optional
-        If True (default), returns tuple of (torch.Tensor, CoordSystem).
-        If False, returns xr.DataArray with numpy arrays for CPU or cupy arrays for CUDA.
+    device : torch.device | str, optional
+        NumPy CPU or CuPy CUDA destination, by default "cpu"
+    target_grid : GridDefinition, optional
+        Grid to return fields on, such as ``infer_grid(model.input_coords())``, by
+        default None, which keeps the source grid. Without ``regridder``, fields
+        already on it pass through, exact crops are selected, and otherwise fields
+        are regridded by nearest neighbor within the source resolution, raising if
+        the target extends beyond the source.
+    regridder : Regridder, optional
+        Regridder to apply, by default None. It must produce ``target_grid`` when
+        both are given.
+    delta_t : np.timedelta64, optional
+        Source cadence for temporal statistics; defaults to ``source.time_step``.
+        Windows include their left endpoint and exclude their right endpoint.
 
     Returns
     -------
-    tuple[torch.Tensor, CoordSystem] | xr.DataArray
-        If legacy=True: Tuple containing output tensor and coordinate OrderedDict.
-        If legacy=False: xr.DataArray with numpy arrays (CPU) or cupy arrays (CUDA).
+    xr.DataArray
+        Field values with dimensions [time, lead_time, variable, ...], auxiliary
+        coordinates, actual grid metadata and normalized temporal statistics. The
+        field is on the source grid unless regridded.
+
+    Note
+    ----
+    Sources may return NumPy- or CuPy-backed fields. Temporal reductions run on
+    that backing; the result then moves to ``device`` only if it is not already
+    there, and regridding runs last, on ``device``. Regridding automatically
+    constructs a regridder on every call; pass a
+    :class:`~earth2studio.grids.Regridder` to choose the method and reuse it.
     """
-    sig = signature(source.__call__)
     device = torch.device(device)
-
-    if "lead_time" in sig.parameters:
-        # Working with a Forecast Data Source
-        da = source(time, lead_time, variable)  # type: ignore
-
-    else:
-        da = []
-        for lead in lead_time:
-            adjust_times = _offset_times(time, lead)
-            da0 = source(adjust_times, variable)  # type: ignore
-            da0 = da0.expand_dims(dim={"lead_time": 1}, axis=1)
-            da0 = da0.assign_coords(lead_time=np.array([lead], dtype="timedelta64[ns]"))
-            da0 = da0.assign_coords(time=time)
-            da.append(da0)
-
-        da = xr.concat(da, "lead_time")
-
-    if legacy:
-        return prep_data_array(
-            da,
-            device=device,
-            interp_to=interp_to,
-            interp_method=interp_method,
-        )
-
-    # Non-legacy path: return xr.DataArray
-    else:
-        if interp_to is not None:
+    if device.type not in {"cpu", "cuda"}:
+        raise ValueError("fetch_data supports only CPU and CUDA devices")
+    time = cast(TimeArray, np.asarray(time))
+    lead_time = cast(LeadTimeArray, np.asarray(lead_time))
+    variable = cast(VariableArray, np.asarray(variable))
+    for name, values, kind in (("time", time, "M"), ("lead_time", lead_time, "m")):
+        if (
+            values.ndim != 1
+            or not values.size
+            or values.dtype.kind != kind
+            or np.isnat(values).any()
+        ):
             raise ValueError(
-                "The interp_to argument is not supported when legacy is False. Set legacy=True to use interpolation."
+                f"{name} must be a nonempty 1D {'datetime' if kind == 'M' else 'timedelta'} array without NaT"
             )
-        # Convert to cupy arrays if CUDA device and cupy is available
-        if device.type == "cuda":
-            if cp is not None:
-                with cp.cuda.Device(device.index or 0):
-                    da = da.copy(data=cp.asarray(da.values))
-            else:
-                raise ImportError(
-                    "cupy is required when using device='cuda' with legacy=False. "
-                    "Install cupy or use legacy=True."
-                )
-        return da
+    if variable.ndim != 1 or not variable.size:
+        raise ValueError("variable must be a nonempty 1D array")
+    lead_time = lead_time.astype("timedelta64[ns]")
+    da = _fetch_dataarray(source, time, variable, lead_time, delta_t)
+    for key in (E2S_KIND, E2S_SCHEMA_VERSION, E2S_DYNAMIC_DIMS):
+        da.attrs.pop(key, None)
+    if device.type == "cuda":
+        if cp is None:
+            raise ImportError("cupy is required for CUDA DataArrays")
+        with cp.cuda.Device(
+            device.index if device.index is not None else cp.cuda.Device().id
+        ):
+            da = da.copy(data=cp.asarray(da.data))
+    elif cp is not None and isinstance(da.data, cp.ndarray):
+        da = da.copy(data=cp.asnumpy(da.data))
+    else:
+        da = da.copy(data=np.asarray(da.data))
+    return _map_to_target(da, source, target_grid, regridder)
 
 
 def fetch_dataframe(
@@ -247,6 +489,92 @@ def fetch_dataframe(
         return result
     else:
         return df
+
+
+class RegriddedSource:
+    """Data or forecast source whose fields are regridded onto a target grid.
+
+    Composes a source with a :class:`~earth2studio.grids.Regridder` so the pair
+    stands in for the source wherever a ``DataSource`` or ``ForecastSource`` is
+    accepted, for example as a model's recommended source for a slot on another
+    grid. Requests pass through unchanged; only the spatial dimensions of the
+    result are mapped.
+
+    Parameters
+    ----------
+    source : DataSource | ForecastSource
+        Source to wrap, whose native grid is the regridder's ``source_grid``.
+    regridder : Regridder
+        Regridder applied to fetched fields, on whatever backing and device the
+        source returns them.
+    """
+
+    def __init__(
+        self, source: DataSource | ForecastSource, regridder: Regridder
+    ) -> None:
+        if not isinstance(regridder, Regridder):
+            raise TypeError("regridder must implement the Regridder protocol")
+        self.source = source
+        self.regridder = regridder
+
+    @property
+    def time_step(self) -> np.timedelta64 | None:
+        """Cadence of the wrapped source, used for temporal statistics."""
+        return getattr(self.source, "time_step", None)
+
+    @property
+    def is_forecast(self) -> bool:
+        """Whether the wrapped source is a forecast source."""
+        return _is_forecast_source(self.source)
+
+    @property
+    def device(self) -> torch.device:
+        """Device the wrapped source returns fields on."""
+        return torch.device(getattr(self.source, "device", "cpu"))
+
+    # Requests are forwarded as given, so one wrapper serves both source protocols:
+    # ``(time, variable)`` for a DataSource, ``(time, lead_time, variable)`` for a
+    # ForecastSource.
+
+    def __call__(self, *args: Any, **kwargs: Any) -> xr.DataArray:
+        """Fetch from the wrapped source and regrid the result.
+
+        Parameters
+        ----------
+        *args, **kwargs : Any
+            Request arguments of the wrapped source.
+
+        Returns
+        -------
+        xr.DataArray
+            Source field on the regridder's ``target_grid``.
+        """
+        return self.regridder(self.source(*args, **kwargs))
+
+    async def fetch(self, *args: Any, **kwargs: Any) -> xr.DataArray:
+        """Asynchronously fetch from the wrapped source and regrid the result.
+
+        Parameters
+        ----------
+        *args, **kwargs : Any
+            Request arguments of the wrapped source.
+
+        Returns
+        -------
+        xr.DataArray
+            Source field on the regridder's ``target_grid``.
+
+        Raises
+        ------
+        AttributeError
+            If the wrapped source does not support async fetch.
+        """
+        if not hasattr(self.source, "fetch"):
+            raise AttributeError(
+                f"Wrapped source {type(self.source).__name__} does not support "
+                "async fetch"
+            )
+        return self.regridder(await self.source.fetch(*args, **kwargs))
 
 
 _FrameRequest = tuple[DataFrameSource | ForecastFrameSource, Mapping[str, Any]]

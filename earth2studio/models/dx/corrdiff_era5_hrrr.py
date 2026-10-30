@@ -16,27 +16,32 @@
 
 import json
 import math
-from collections import OrderedDict
 from collections.abc import Sequence
 from contextlib import AbstractContextManager, nullcontext
 from datetime import datetime, timezone
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 import torch
+import xarray as xr
 from fsspec.implementations.cache_mapper import BasenameCacheMapper
 
 from earth2studio.data import HRRR
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.utils import handshake_coords, handshake_dim, interp
+from earth2studio.utils.coords import coord_array, handshake_time
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
 from earth2studio.utils.time import timearray_to_datetime
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 try:
     import natten  # noqa: F401  # the DiT needs NATTEN (neighborhood attention)
@@ -323,9 +328,6 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         Unused for a distilled network, which stores its own value.
     sigma_min, sigma_max, rho : float
         EDM Karras schedule parameters. Ignored for rectified flow.
-    seed : int | None
-        Base RNG seed for the sampling latents; member ``i`` uses ``seed + i``.
-        ``None`` leaves sampling unseeded.
     amp : bool
         Run network forwards under bf16 autocast while the ODE integration stays in
         fp32 (the examples' evaluation setting; roughly halves inference time).
@@ -335,6 +337,8 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
     region:na class:downscaling product:wind product:temp product:atmos product:radar
     year:2026 gpu:80gb provider:nvidia backend:pytorch
     """
+
+    stochastic = True
 
     def __init__(
         self,
@@ -366,7 +370,6 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         sigma_min: float = 0.01,
         sigma_max: float = 200.0,
         rho: float = 7.0,
-        seed: int | None = None,
         amp: bool = True,
     ):
         super().__init__()
@@ -429,7 +432,6 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         self.sigma_min = float(sigma_min)
         self.sigma_max = float(sigma_max)
         self.rho = float(rho)
-        self.seed = seed
         self.amp = bool(amp)
 
         lat_in = torch.as_tensor(lat_input_grid, dtype=torch.float32).reshape(-1)
@@ -470,42 +472,54 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
     def __str__(self) -> str:
         return "CorrDiffEra5Hrrr"
 
-    def input_coords(self) -> CoordSystem:
+    def default_sources(self) -> "DataSource":
+        """Recommend the ARCO ERA5 data source.
+
+        Returns
+        -------
+        DataSource
+            ``ARCO_ERA5`` data source for the input slot.
+        """
+        from earth2studio.data import ARCO_ERA5
+
+        return ARCO_ERA5()
+
+    def input_coords(self) -> CoordinateSystem:
         """Input coordinate system: the native ERA5 CONUS footprint.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary; regrid ERA5 onto ``lat`` / ``lon``.
+        CoordinateSystem
+            Allocation-free signature; regrid ERA5 onto ``lat`` / ``lon``.
         """
-        return OrderedDict(
+        return coord_array(
+            ("batch", "time", "variable", "lat", "lon"),
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
                 "variable": self.era5_variables.copy(),
                 "lat": self.lat_input_numpy.copy(),
                 "lon": self.lon_input_numpy.copy(),
-            }
+            },
+            dynamic=("batch", "time"),
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system: HRRR crop on the native projection grid.
 
         Parameters
         ----------
-        input_coords : CoordSystem
+        input_coords : CoordinateSystem
             Input coordinate system to transform into output_coords.
 
         Returns
         -------
-        CoordSystem
+        CoordinateSystem
             ``[batch, sample, time, variable, hrrr_y, hrrr_x]``; the 2-D latitude
             and longitude of the crop are available as ``lat_output_grid`` /
             ``lon_output_grid``.
         """
         target = self.input_coords()
-        handshake_dim(input_coords, "time", 1)
+        handshake_dim(input_coords, "time", -4)
+        handshake_time(input_coords, allow_dynamic=True)
         handshake_dim(input_coords, "variable", -3)
         handshake_dim(input_coords, "lat", -2)
         handshake_dim(input_coords, "lon", -1)
@@ -526,15 +540,28 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
                 "CorrDiffEra5Hrrr requires the native ERA5 input grid from "
                 "input_coords() (regrid the ERA5 input onto it first)."
             )
-        return OrderedDict(
+        leading = input_coords.dims[:-4]
+        coords = {
+            key: value.variable
+            for key, value in input_coords.coords.items()
+            if not set(value.dims).intersection(("variable", "lat", "lon"))
+        }
+        coords.update(
             {
-                "batch": input_coords["batch"],
                 "sample": np.arange(self.number_of_samples),
-                "time": input_coords["time"],
                 "variable": self.output_variables.copy(),
                 "hrrr_y": self.hrrr_y.copy(),
                 "hrrr_x": self.hrrr_x.copy(),
+                "lat": (("hrrr_y", "hrrr_x"), self._lat_out_cpu),
+                "lon": (("hrrr_y", "hrrr_x"), self._lon_out_cpu),
             }
+        )
+        return coord_array(
+            (*leading, "sample", "time", "variable", "hrrr_y", "hrrr_x"),
+            coords,
+            sizes={dim: input_coords.sizes[dim] for dim in (*leading, "time")},
+            dynamic=tuple(dim for dim in leading if input_coords.sizes[dim] == 0),
+            name=input_coords.name,
         )
 
     def _interpolate(self, x: torch.Tensor) -> torch.Tensor:
@@ -620,17 +647,32 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             t = self.shift * t / (1.0 + (self.shift - 1.0) * t)
         return t
 
-    def _sample_one(self, condition: "TensorDict", seed: int | None) -> torch.Tensor:
+    _rng_generator: torch.Generator | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Set the model-owned latent noise stream.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for reproducible sampling.
+        reset : bool, optional
+            Reset an existing stream, by default True. If False, initialize only
+            when no stream has been set.
+        """
+        if reset or self._rng_generator is None:
+            self._rng_generator = torch.Generator().manual_seed(seed)
+
+    def _sample_one(self, condition: "TensorDict") -> torch.Tensor:
         """Draw one member: ``[1, n_out, H, W]`` in normalized units."""
         device = self.invariants.device
         H, W = self.lat_output_grid.shape
         n_out = len(self.output_variables)
-        gen = (
-            torch.Generator(device=device).manual_seed(seed)
-            if seed is not None
-            else None
-        )
-        latents = torch.randn((1, n_out, H, W), device=device, generator=gen)
+        latents = torch.randn(
+            (1, n_out, H, W),
+            device="cpu" if self._rng_generator is not None else device,
+            generator=self._rng_generator,
+        ).to(device)
         ctx = self._inference_context(device)
         if self.distilled:
             with ctx:
@@ -686,33 +728,30 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
     def _forward(self, era5: torch.Tensor, valid_time: datetime) -> torch.Tensor:
         """Downscale one ERA5 state -> ``[sample, n_out, H, W]`` in physical units."""
         condition = self.preprocess_input(era5, valid_time)
-        members = []
-        for i in range(self.number_of_samples):
-            seed = None if self.seed is None else self.seed + i
-            members.append(self._sample_one(condition, seed))
+        members = [self._sample_one(condition) for _ in range(self.number_of_samples)]
         out = torch.cat(members, dim=0)
         return out * self.out_scale + self.out_center
 
-    @batch_func()
-    def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Downscale ERA5 states to the HRRR CONUS crop.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor ``[batch, time, variable, lat, lon]`` (the wrapper
+        x : xr.DataArray
+            Input field ``[batch, time, variable, lat, lon]`` (the wrapper
             flattens leading batch dimensions automatically).
-        coords : CoordSystem
-            Input coordinate system.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            ``[batch, sample, time, variable, hrrr_y, hrrr_x]`` and its coordinates.
+        xr.DataArray
+            ``[batch, sample, time, variable, hrrr_y, hrrr_x]`` forecast field.
         """
-        output_coords = self.output_coords(coords)
+        signature = self.output_coords(x)
+        handshake_time(x)
+        x, restore = batch_func()._compress_array(self, x)
+        output_coords = self.output_coords(x)
+        tensor, _ = x.e2s.to_torch()
+        tensor = tensor.to(self.lat_input_grid.device)
         valid_times = timearray_to_datetime(np.asarray(output_coords["time"]))
         H, W = self.lat_output_grid.shape
         out = torch.empty(
@@ -724,13 +763,15 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
                 H,
                 W,
             ),
-            device=x.device,
+            device=tensor.device,
             dtype=torch.float32,
         )
         for b in range(out.shape[0]):
             for t in range(out.shape[2]):
-                out[b, :, t] = self._forward(x[b, t], valid_times[t])
-        return out, output_coords
+                out[b, :, t] = self._forward(tensor[b, t], valid_times[t])
+        result = from_torch(out, output_coords, name=x.name)
+        result.encoding = x.encoding.copy()
+        return restore(result).transpose(*signature.dims)
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -772,7 +813,6 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         device: str | None = None,
         number_of_samples: int | None = None,
         number_of_steps: int | None = None,
-        seed: int | None = None,
         amp: bool | None = None,
         variant: Literal["x_pred"] = "x_pred",
         distilled_model: bool = True,
@@ -790,8 +830,6 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         number_of_steps : int | None, optional
             ODE steps for the teacher, or blocks (1 or 2) for the distilled
             generator; defaults to the package metadata.
-        seed : int | None, optional
-            Base RNG seed, by default None (unseeded).
         amp : bool | None, optional
             bf16 autocast for the network; defaults to the package metadata.
         variant : {"x_pred"}, optional
@@ -914,7 +952,6 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             sigma_min=float(sampler_meta.get("sigma_min", 0.01)),
             sigma_max=float(sampler_meta.get("sigma_max", 200.0)),
             rho=float(sampler_meta.get("rho", 7.0)),
-            seed=seed,
             amp=amp if amp is not None else bool(sampler_meta.get("amp", True)),
         )
         if device is not None:

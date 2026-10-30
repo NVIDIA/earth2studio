@@ -91,16 +91,84 @@ so users should explore and test different ones if possible.
 
 ### `earth2studio.data.fetch_data`
 
-The `fetch_data` function is useful for getting a PyTorch tensor and
-coordinate system for a given model.
-This utility fetches data for an array of times and lead times for the specified
-variables.
-For example, in the deterministic workflow `earth2studio.run.deterministic`, it is
-used to get the initial state for the provided prognostic.
+`fetch_data` returns an Xarray **field DataArray** with dimensions
+`[time, lead_time, variable, ...]`. Values are NumPy-backed on CPU and CuPy-backed
+when `device="cuda:0"` is requested. Dimension labels, spatial auxiliary coordinates,
+the array name, and source attributes travel with the values.
+
+Use qualified variable labels to request temporal statistics.
+Fields stay on the source grid unless a regridder is supplied (see below).
 
 ```python
---8<-- "earth2studio/run.py:fetch-data"
+import numpy as np
+
+from earth2studio.data import fetch_data
+field = fetch_data(
+    source,
+    np.array([np.datetime64("2024-01-02T00")]),
+    np.array(["t2m:mean:24h"]),
+    delta_t=np.timedelta64(6, "h"),
+)
 ```
+
+Here `source` is an analysis or forecast source providing instantaneous `t2m`.
+The mean includes the four samples at -24, -18, -12 and -6 hours. Windows are
+left-closed and right-open. The cadence defaults to `source.time_step` when
+available; otherwise provide `delta_t` explicitly. Qualified variable labels
+such as `"t2m:mean:24h"` declare reductions; duplicate normalized quantities are rejected.
+Output `earth2studio_statistics` describes the reductions actually performed.
+Already aggregated source variables cannot be reduced again.
+
+`ARCO_ERA5.time_step` is `np.timedelta64(1, "h")`, so ARCO statistics requests
+use hourly samples automatically without an explicit `delta_t`.
+
+Analysis sources fetch absolute valid timestamps, while forecast sources reduce
+lead times separately for each initialization. Missing or duplicate reduction
+samples raise an error.
+
+The former tuple return and `legacy` argument have been removed. Access values
+through `field.data` and coordinates through `field.coords`.
+
+#### Regridding
+
+Pass `target_grid` to receive fields on another grid, typically a model's:
+
+```python
+from earth2studio.data import GFS, fetch_data
+from earth2studio.grids import infer_grid
+
+target = infer_grid(model.input_coords())
+field = fetch_data(GFS(), time, variable, device="cuda", target_grid=target)
+```
+
+Fields already on the target pass through, and exact crops of the source grid are
+selected. Otherwise `fetch_data` logs and regrids by nearest neighbor, and raises
+if the target extends beyond the source.
+
+Each of these calls builds a regridder, which computes its weights. To choose
+another method, or to fetch repeatedly, build one once and pass it;
+`list_regridders(source_grid, target)` lists the methods available:
+
+```python
+from earth2studio.grids import BilinearRegridder
+
+regridder = BilinearRegridder("latlon-0.25deg", target)
+field = fetch_data(GFS(), time, variable, device="cuda", regridder=regridder)
+```
+
+`fetch_data` reduces temporal statistics on the source grid, moves the field to
+`device`, then regrids. `RegriddedSource(source, regridder)` packages a source and
+regridder as a single source, which regrids every field it fetches. Models use it to
+recommend sources on another grid. `CompositeSource` joins analysis sources that
+provide different variables on a shared grid; `CompositeForecastSource` also joins
+forecast sources, fetching analysis components at each lead's valid time.
+
+#### Device
+
+Data sources take a `device` keyword, defaulting to `"cpu"`. On a CUDA device they
+return CuPy-backed fields directly on that GPU, which avoids slow NumPy
+post-processing of large arrays. `fetch_data` accepts either and moves data only
+when it is not already on the requested `device`.
 
 ### `earth2studio.data.fetch_dataframe` and `earth2studio.data.fetch_dataframes`
 
@@ -134,6 +202,8 @@ Custom data sources are often essential when working with large or on-prem
 datasets.
 So long as the data source can satisfy the API outlined in the interface above, it can
 integrate seamlessly into Earth2Studio.
+Accept a `device` keyword defaulting to `"cpu"`, store it as a `device` attribute,
+and return CuPy-backed arrays on it when it is a CUDA device.
 We recommend that you review the [extension examples](../../examples/index.md#extend)
 examples, which will step you through the basic process of implementing your own
 data source.
