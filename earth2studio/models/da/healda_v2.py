@@ -144,7 +144,7 @@ class HealDAv2(torch.nn.Module, AutoModelMixin):
     Badges
     ------
     region:global class:data-assimilation product:wind product:temp product:atmos
-    product:insitu product:sat year:2026 gpu:80gb provider:nvidia backend:pytorch
+    product:insitu product:sat year:2026 gpu:40gb provider:nvidia backend:pytorch
     """
 
     def __init__(self, model: Any) -> None:

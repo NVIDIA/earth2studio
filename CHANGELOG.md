@@ -13,15 +13,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `HealDAv2` runs one analysis in about 36 GB of GPU memory, down from about 42 GB,
+  and fits a 40 GB GPU; HealDA featurizes and tokenizes observations in chunks
+
 ### Deprecated
 
 ### Removed
 
 ### Fixed
 
+- `HealDAv2` clips bounded channels (specific humidity, total column water and
+  water vapour, snow depth, soil moisture, sea ice and cloud cover) to their
+  physical range; slightly negative values gave NaN in models that take their log
+
 ### Security
 
 ### Dependencies
+
+- HealDA pinned to NVlabs/HealDA@0443aed
 
 ## [0.20.0] - 2026-10-29
 
