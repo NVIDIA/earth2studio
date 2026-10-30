@@ -20,6 +20,8 @@ Update custom components to the RC protocols linked below. Shared changes:
   metadata. Coordinate signatures and concrete fields are different uses of DataArray.
 - **Slots:** one input per positional argument; one output directly, multiple as a tuple.
   Implement fixed named parameters. `output_coords(...)` takes one signature per input slot.
+  Pack compatible fields together along `variable`, as in model inputs. Separate arguments
+  mainly for different grids; avoid unnecessary slots.
 
 Example: replace a `variable, lat, lon` coordinate dictionary with a grid-backed signature:
 
