@@ -2440,8 +2440,8 @@ requires-dist = [
     { name = "gribberish", marker = "python_full_version >= '3.12' and extra == 'data'", specifier = ">=1.5.0" },
     { name = "h5netcdf", specifier = ">=1.0.0" },
     { name = "h5py", specifier = ">=3.2.0" },
-    { name = "healda", marker = "extra == 'all'", git = "https://github.com/NVlabs/HealDA.git?rev=0443aedca4720869a3861f916826652cc653f85d" },
-    { name = "healda", marker = "extra == 'da-healda-v2'", git = "https://github.com/NVlabs/HealDA.git?rev=0443aedca4720869a3861f916826652cc653f85d" },
+    { name = "healda", marker = "extra == 'all'", git = "https://github.com/NVlabs/HealDA.git?rev=300366c9576ed1f29ef28f7f357e7a0ac27b6b73" },
+    { name = "healda", marker = "extra == 'da-healda-v2'", git = "https://github.com/NVlabs/HealDA.git?rev=300366c9576ed1f29ef28f7f357e7a0ac27b6b73" },
     { name = "hiredis", marker = "extra == 'all'", specifier = ">=2.0.0" },
     { name = "hiredis", marker = "extra == 'serve'", specifier = ">=2.0.0" },
     { name = "httpx", marker = "extra == 'all'", specifier = ">=0.25.0" },
@@ -3753,7 +3753,7 @@ wheels = [
 [[package]]
 name = "healda"
 version = "0.1.0"
-source = { git = "https://github.com/NVlabs/HealDA.git?rev=0443aedca4720869a3861f916826652cc653f85d#0443aedca4720869a3861f916826652cc653f85d" }
+source = { git = "https://github.com/NVlabs/HealDA.git?rev=300366c9576ed1f29ef28f7f357e7a0ac27b6b73#300366c9576ed1f29ef28f7f357e7a0ac27b6b73" }
 dependencies = [
     { name = "cartopy" },
     { name = "cftime" },
