@@ -30,7 +30,6 @@ from earth2studio.io import KVBackend
 from earth2studio.models.dx import DerivedPressureLevels
 from earth2studio.run import Pipeline, work_items
 from earth2studio.utils.type import CoordinateSystem
-from earth2studio.utils.vertical import PressureLevels
 
 
 def test_pipeline_writes_one_store_per_component(
@@ -83,7 +82,7 @@ class _Levels(Mixed):
 def test_pipeline_runs_a_builtin_diagnostic_component() -> None:
     # Derived diagnostics declare no lead time; each call takes one valid time.
     levels = DerivedPressureLevels(
-        ["z"], PressureLevels((1000, 500)), [700], grid=ATMOS_GRID
+        ["z"], [700], input_levels=[1000, 500], grid=ATMOS_GRID
     )
     runner = CoupledRunner(
         {"model": _Levels(), "levels": levels},
@@ -101,7 +100,7 @@ def test_pipeline_runs_a_builtin_diagnostic_component() -> None:
 
 def test_components_without_tensors_follow_the_runner_device() -> None:
     levels = DerivedPressureLevels(
-        ["z"], PressureLevels((1000, 500)), [700], grid=ATMOS_GRID
+        ["z"], [700], input_levels=[1000, 500], grid=ATMOS_GRID
     )
     assert not any(True for _ in levels.parameters())
     runner = CoupledRunner(

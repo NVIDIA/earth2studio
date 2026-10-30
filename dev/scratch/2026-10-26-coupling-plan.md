@@ -26,8 +26,8 @@ Deviations from this plan, all reflected in `dev/spec/COUPLING_SPEC.md`:
 - Ported from PR #1290 (2026-10-28): `NearestRegridder(source_mask=)`, state
   connectors (`state=True`), a connector `transform` escape hatch, and per-model
   devices (`devices=`, staging onto the receiving model). Vertical
-  interpolation is `earth2studio.utils.vertical` plus the
-  `DerivedPressureLevels` diagnostic rather than coupling helpers. Not ported:
+  interpolation is `hybrid_pressure`/`interpolate_vertical` in
+  `earth2studio.utils.interp` plus the `DerivedPressureLevels` diagnostic rather than coupling helpers. Not ported:
   `RunSequence`, `dt`, diagnostic `cadence=`, automatic regridders and
   `run_item(ics=)`.
 - Diagnostic inputs without `lead_time` take each call's valid time, so built-in

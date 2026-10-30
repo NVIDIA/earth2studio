@@ -90,9 +90,11 @@ needs at least one `exact` connector (C2). It publishes its own stream.
 
 ```python
 from earth2studio.models.dx import DerivedPressureLevels
-from earth2studio.utils.vertical import HybridLevels
 
-levels = DerivedPressureLevels(["t", "u", "v"], HybridLevels(a, b), [850, 500], grid=grid)
+# Model levels 50-137 (t50k, ...) plus sp; a, b per level or per interface.
+levels = DerivedPressureLevels(
+    ["t", "u", "v"], [850, 500], model_levels=range(50, 138), a=a, b=b, grid=grid
+)
 runner = CoupledRunner(
     {"atmos": atmos, "levels": levels, "downstream": downstream},
     [Connector("atmos", "levels"), Connector("levels", "downstream")],

@@ -21,6 +21,8 @@ import torch
 from earth2studio.utils.interp import (
     LatLonInterpolation,
     NearestNeighborInterpolator,
+    hybrid_pressure,
+    interpolate_vertical,
     latlon_interpolation_regular,
 )
 
@@ -155,3 +157,63 @@ def test_nearest_neighbor_interpolator_2d_correctness(device):
 
     expected = torch.tensor([[0.0, 1.0], [2.0, 3.0]], device=device)
     assert torch.equal(y, expected)
+
+
+def test_hybrid_pressure_on_levels_and_interfaces():
+    surface = torch.tensor([100000.0, 50000.0], dtype=torch.float64)
+    full = hybrid_pressure([10000.0, 0.0], [0.0, 1.0], surface)
+    torch.testing.assert_close(
+        full, torch.tensor([[10000.0, 100000.0], [10000.0, 50000.0]]).double()
+    )
+    # Interfaces at 0, 20000 Pa and the surface give the means between them.
+    half = hybrid_pressure([0.0, 20000.0, 0.0], [0.0, 0.0, 1.0], surface[:1], True)
+    torch.testing.assert_close(half, torch.tensor([[10000.0, 60000.0]]).double())
+    with pytest.raises(ValueError, match="equal-length"):
+        hybrid_pressure([0.0], [0.0, 1.0], surface)
+
+
+def test_vertical_interpolation_in_log_pressure_or_linear():
+    pressure = torch.tensor([30000.0, 50000.0, 100000.0], dtype=torch.float64)
+    x = torch.log(pressure).reshape(1, 3)
+    target = torch.tensor([40000.0, 85000.0], dtype=torch.float64)
+    expected = torch.log(target).reshape(1, 2)
+    torch.testing.assert_close(
+        interpolate_vertical(x, pressure, target, log=True), expected
+    )
+    # Unordered one-dimensional coordinates are sorted with the values.
+    order = [2, 0, 1]
+    out = interpolate_vertical(x[:, order], pressure[order], target, log=True)
+    torch.testing.assert_close(out, expected)
+    # Per-column coordinates along any dimension, increasing or decreasing.
+    columns = torch.stack([pressure, pressure * 0.9])
+    values = torch.log(columns).T.unsqueeze(-1)  # (level, column, 1)
+    out = interpolate_vertical(values, columns.T.unsqueeze(-1), target, dim=0, log=True)
+    assert out.shape == (2, 2, 1)
+    torch.testing.assert_close(out[:, 1, 0], torch.log(target))
+    flipped = interpolate_vertical(
+        values.flip(0), columns.T.unsqueeze(-1).flip(0), target, dim=0, log=True
+    )
+    torch.testing.assert_close(flipped, out)
+    # Without log, interpolation is linear in the coordinate, e.g. height.
+    height = torch.tensor([0.0, 100.0])
+    out = interpolate_vertical(torch.tensor([1.0, 3.0]), height, torch.tensor([25.0]))
+    assert out.tolist() == [1.5]
+
+
+def test_vertical_interpolation_half_precision_and_bounds():
+    # 850 and 1000 hPa in Pa overflow float16; the result keeps the field dtype.
+    x = torch.tensor([1.0, 2.0], dtype=torch.float16)
+    out = interpolate_vertical(
+        x, torch.tensor([85000.0, 100000.0]), torch.tensor([92500.0]), log=True
+    )
+    assert out.dtype == torch.float16
+    torch.testing.assert_close(out.float(), torch.tensor([1.5205]), atol=1e-3, rtol=0)
+    pressure, x = torch.tensor([30000.0, 100000.0]), torch.tensor([1.0, 2.0])
+    target = torch.tensor([10000.0, 105000.0])
+    assert interpolate_vertical(x, pressure, target, log=True).tolist() == [1.0, 2.0]
+    filled = interpolate_vertical(x, pressure, target, log=True, fill_value=-1.0)
+    assert filled.tolist() == [-1.0, -1.0]
+    with pytest.raises(ValueError, match="at least two"):
+        interpolate_vertical(x[:1], pressure[:1], target)
+    with pytest.raises(ValueError, match="3 coordinates given for 2 levels"):
+        interpolate_vertical(x, torch.ones(3), target)
