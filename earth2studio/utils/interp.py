@@ -401,3 +401,125 @@ class NearestNeighborInterpolator(nn.Module):
         )
 
         return gathered.reshape(*leading_shape, self.target_h, self.target_w)
+
+
+def hybrid_pressure(
+    a: ArrayLike,
+    b: ArrayLike,
+    surface_pressure: Tensor,
+    interfaces: bool = False,
+) -> Tensor:
+    """Pressure on hybrid sigma-pressure levels, ``p = a + b * surface_pressure``.
+
+    Parameters
+    ----------
+    a : ArrayLike
+        Pressure coefficient of each level in Pa.
+    b : ArrayLike
+        Dimensionless surface-pressure coefficient of each level.
+    surface_pressure : Tensor
+        Surface pressure in Pa, any shape.
+    interfaces : bool, optional
+        Whether ``a`` and ``b`` are given at the ``n + 1`` layer interfaces, as
+        ECMWF publishes them, by default False. Each of the ``n`` levels then takes
+        the mean of the pressures at its two interfaces.
+
+    Returns
+    -------
+    Tensor
+        Pressure in Pa with a trailing level dimension,
+        ``(*surface_pressure.shape, level)``, in ``surface_pressure``'s dtype.
+    """
+    options = {"dtype": surface_pressure.dtype, "device": surface_pressure.device}
+    a_ = torch.as_tensor(np.asarray(a, dtype=np.float64), **options)  # type: ignore[arg-type]
+    b_ = torch.as_tensor(np.asarray(b, dtype=np.float64), **options)  # type: ignore[arg-type]
+    if a_.ndim != 1 or a_.shape != b_.shape:
+        raise ValueError("Hybrid coefficients a and b must be equal-length vectors")
+    pressure = a_ + b_ * surface_pressure.unsqueeze(-1)
+    if interfaces:
+        pressure = (pressure[..., 1:] + pressure[..., :-1]) / 2
+    return pressure
+
+
+def interpolate_vertical(
+    x: Tensor,
+    coordinate: Tensor,
+    target: Tensor,
+    dim: int = -1,
+    log: bool = False,
+    fill_value: float | None = None,
+) -> Tensor:
+    """Interpolate ``x`` linearly along a vertical coordinate onto ``target`` levels.
+
+    The coordinate can be anything monotonic within a column: pressure (with
+    ``log=True``, for interpolation linear in log pressure), height or depth.
+
+    Parameters
+    ----------
+    x : Tensor
+        Field with a level dimension ``dim``.
+    coordinate : Tensor
+        Coordinate of each of ``x``'s levels: either one value per level, shape
+        ``(level,)`` in any order, or one column per point, shaped like ``x`` (or
+        broadcastable to it) and monotonic along ``dim`` in the same direction in
+        every column.
+    target : Tensor
+        Coordinate of each output level, shape ``(target,)``, in the same units.
+    dim : int, optional
+        Level dimension of ``x`` and ``coordinate``, by default -1
+    log : bool, optional
+        Interpolate linearly in the logarithm of the coordinate, as for pressure,
+        by default False
+    fill_value : float | None, optional
+        Value for targets outside a column's range, by default None, which takes
+        the nearest level's value instead.
+
+    Returns
+    -------
+    Tensor
+        ``x`` with dimension ``dim`` replaced by the target levels, in ``x``'s
+        dtype. Coordinates and weights are computed in at least single precision,
+        as pressures in Pa overflow half precision.
+    """
+    if x.shape[dim] < 2:
+        raise ValueError("Interpolation needs at least two source levels")
+    dtype = x.dtype
+    values = x.movedim(dim, -1).to(torch.promote_types(dtype, torch.float32))
+
+    def scale(c: Tensor) -> Tensor:
+        c = c.to(values)
+        return torch.log(c) if log else c
+
+    wanted = scale(target)
+    if coordinate.ndim == 1:
+        if len(coordinate) != values.shape[-1]:
+            raise ValueError(
+                f"{len(coordinate)} coordinates given for {values.shape[-1]} levels"
+            )
+        levels, order = torch.sort(scale(coordinate))
+        values = values[..., order]
+        high = torch.searchsorted(levels, wanted).clamp(1, len(levels) - 1)
+        low_level, high_level = levels[high - 1], levels[high]
+        low_value, high_value = values[..., high - 1], values[..., high]
+        lowest, highest = levels[0], levels[-1]
+    else:
+        levels = scale(coordinate.movedim(dim, -1)).expand(values.shape)
+        first = levels.reshape(-1, levels.shape[-1])[0]
+        if first[0] > first[-1]:  # Columns run the same way; flip descending ones.
+            levels, values = levels.flip(-1), values.flip(-1)
+        levels = levels.contiguous()
+        wanted = wanted.expand(*values.shape[:-1], len(target)).contiguous()
+        high = torch.searchsorted(levels, wanted).clamp(1, values.shape[-1] - 1)
+        low_level = torch.gather(levels, -1, high - 1)
+        high_level = torch.gather(levels, -1, high)
+        low_value = torch.gather(values, -1, high - 1)
+        high_value = torch.gather(values, -1, high)
+        lowest, highest = levels[..., :1], levels[..., -1:]
+    weight = (wanted - low_level) / (high_level - low_level)
+    if fill_value is None:
+        weight = weight.clamp(0, 1)
+    output = low_value + weight * (high_value - low_value)
+    if fill_value is not None:
+        outside = (wanted < lowest) | (wanted > highest)
+        output = output.masked_fill(outside, fill_value)
+    return output.movedim(-1, dim).to(dtype)
