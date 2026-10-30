@@ -3,7 +3,7 @@ first, then migrate each affected component to its new protocol. Verify outputs.
 
 # Earth2Studio 1.0 migration checklist
 
-Compared: `main` (`f8af4030`) → `1.0.0-rc` (`fa15ee13`). Trust RC code over old examples.
+Compared: `main` → `1.0.0-rc`. Trust RC code over old examples.
 
 ## New concepts: coordinates first
 
