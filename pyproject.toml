@@ -67,6 +67,7 @@ data = [
     "icechunk>=2.0.0; python_version>='3.12'",
     "intake-esgf>=2026.1.26; python_version>='3.12'",
     "pcodec>=1.0.2; python_version>='3.12'",
+    "bitstring>=4.0,<5",  # pybufrkit breaks with bitstring 5
     "pybufrkit>=0.2.22",
     "pystac-client>=0.9.0",
     # aiohttp + aiohttp-retry are used by obstore's
