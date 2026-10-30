@@ -63,6 +63,10 @@ from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.models.dx.corrdiff import _field
+from earth2studio.models.nn.corrdiff import (
+    points_in_grid_footprint as _points_in_grid_footprint,
+)
+from earth2studio.models.nn.corrdiff import snap_to_patch
 from earth2studio.utils import interp
 from earth2studio.utils.coords import coord_array, handshake_dataarray, handshake_time
 from earth2studio.utils.imports import (
@@ -120,54 +124,6 @@ SHORTWAVE_VARIABLES = ("ASWDIR_S", "ASWDIFD_S")
 # (also used as the package-subfolder key); the actual grid resolution isn't stored
 # here because the native grid ships verbatim in the package.
 SUPPORTED_VARIANTS = ("rea6", "rea2")
-
-
-def _points_in_grid_footprint(
-    plat: np.ndarray, plon: np.ndarray, lat2d: np.ndarray, lon2d: np.ndarray
-) -> np.ndarray:
-    """Whether geographic points fall inside the (curvilinear) grid footprint.
-
-    The rotated grid has curved edges in latitude/longitude, so its rectangular
-    bounds include some points outside the actual grid. This checks whether each
-    point lies inside the polygon formed by the boundary-cell centers. Points within
-    about half a cell of the outer edge may therefore be excluded. Assumes the
-    footprint does not cross the antimeridian (true for the European domains).
-
-    Parameters
-    ----------
-    plat, plon : np.ndarray
-        Query point latitudes / longitudes (any shape, broadcast together).
-    lat2d, lon2d : np.ndarray
-        The target grid's 2D [lat, lon] coordinate arrays.
-
-    Returns
-    -------
-    np.ndarray
-        Boolean mask (shape of ``plat``), True where the point is inside.
-    """
-    ring_lat = np.concatenate(
-        [lat2d[0, :], lat2d[:, -1], lat2d[-1, ::-1], lat2d[::-1, 0]]
-    ).astype(np.float64)
-    ring_lon = np.concatenate(
-        [lon2d[0, :], lon2d[:, -1], lon2d[-1, ::-1], lon2d[::-1, 0]]
-    ).astype(np.float64)
-    plat = np.atleast_1d(plat).astype(np.float64)
-    plon = np.atleast_1d(plon).astype(np.float64)
-    inside = np.zeros(plat.shape, dtype=bool)
-    n = ring_lat.size
-    j = n - 1
-    # Test whether each point is inside the boundary polygon by counting where a
-    # horizontal ray from it crosses the boundary: an odd number means inside, an
-    # even number means outside. Toggling `inside` records this odd/even result. The
-    # small offset avoids division by zero for horizontal edges.
-    for i in range(n):
-        yi, yj = ring_lat[i], ring_lat[j]
-        xi, xj = ring_lon[i], ring_lon[j]
-        straddle = (yi > plat) != (yj > plat)
-        x_int = (xj - xi) * (plat - yi) / (yj - yi + 1e-30) + xi
-        inside ^= straddle & (plon < x_int)
-        j = i
-    return inside
 
 
 # Optional derived output: hub-height wind components ``u{H}m``/``v{H}m``, from
@@ -1177,32 +1133,11 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
 
     def _snap_to_patch(self, lo: int, hi: int, n: int) -> tuple[int, int]:
         """Snap a run-window extent ``[lo, hi)`` (one axis) to a multiple of
-        ``_patch_size``. Called by :meth:`set_domain` per axis: the DiT patch
-        detokenizer requires the run grid's extent to be a multiple of
-        ``patch_size`` (an odd extent would floor to extent-1 and mismatch the
-        output grid).
-
-        Grows ``[lo, hi)`` OUTWARD into the surrounding grid to the next multiple
-        of ``p`` -- real neighbouring cells, bounded by ``[0, n)`` (``n`` = grid
-        dim); ``set_domain`` folds this growth into the halo trim so the reported
-        bbox is unchanged. ``hi`` grows first, then ``lo``. It only shrinks if the
-        grid dim ``n`` itself isn't a multiple of ``p`` and the window already
-        spans it (no room to grow) -- which would yield a window smaller than the
-        requested bbox, so the caller raises on the resulting negative trim
-        (unreachable as shipped: all grid dims are even and ``p == 2``). No-op when
-        ``_patch_size == 1`` (synthetic test instances)."""
-        p = self._patch_size
-        need = (-(hi - lo)) % p
-        if need:
-            add = min(need, n - hi)
-            hi += add
-            need -= add
-            add = min(need, lo)
-            lo -= add
-            need -= add
-            if need:  # grid dim not a multiple of p and no room -> shrink
-                hi -= (hi - lo) % p
-        return lo, hi
+        ``_patch_size``; see :func:`earth2studio.models.nn.corrdiff.snap_to_patch`.
+        ``set_domain`` folds the outward growth into the halo trim so the reported
+        bbox is unchanged, and raises on the negative trim a shrink would produce.
+        No-op when ``_patch_size == 1`` (synthetic test instances)."""
+        return snap_to_patch(lo, hi, n, self._patch_size)
 
     @staticmethod
     def _rebind_latent(dit: torch.nn.Module, H: int, W: int) -> tuple[int, int]:
