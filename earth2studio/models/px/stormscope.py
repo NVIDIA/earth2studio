@@ -39,7 +39,6 @@ from earth2studio.grids import (
 )
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
-from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     coord_array,
@@ -706,7 +705,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         package: Package,
         *args: Any,
         **kwargs: Any,
-    ) -> PrognosticModel:
+    ) -> Self:
         """Load model from package. Must be implemented by subclasses."""
         raise NotImplementedError(
             "StormScopeBase.load_model must be implemented by a subclass."
@@ -1993,7 +1992,7 @@ class StormScopeGOES(StormScopeBase):
         model_name: Literal["3km_10min", "6km_1hr", "3km_10min_flash"] = "3km_10min",
         amp: bool = True,
         compile: bool = False,
-    ) -> PrognosticModel:
+    ) -> Self:
         """Load model from package.
 
         Parameters
@@ -2020,7 +2019,7 @@ class StormScopeGOES(StormScopeBase):
 
         Returns
         -------
-        PrognosticModel
+        Self
             Instantiated model: :py:class:`StormScopeGOESConditioned` for variants
             with conditioning variables, otherwise StormScopeGOES.
         """
@@ -2251,7 +2250,7 @@ class StormScopeGOESConditioned(StormScopeGOES):
         model_name: Literal["6km_1hr"] = "6km_1hr",
         amp: bool = True,
         compile: bool = False,
-    ) -> PrognosticModel:
+    ) -> Self:
         """Load a conditioned GOES variant from a package.
 
         Parameters
@@ -2269,7 +2268,7 @@ class StormScopeGOESConditioned(StormScopeGOES):
 
         Returns
         -------
-        PrognosticModel
+        Self
             Instantiated StormScopeGOESConditioned model.
         """
         return super().load_model(
@@ -2632,7 +2631,7 @@ class StormScopeMRMS(StormScopeBase):
         model_name: Literal["3km_10min", "6km_1hr", "3km_10min_flash"] = "3km_10min",
         amp: bool = True,
         compile: bool = False,
-    ) -> PrognosticModel:
+    ) -> Self:
         """Load model from package.
 
         Parameters
@@ -2658,7 +2657,7 @@ class StormScopeMRMS(StormScopeBase):
 
         Returns
         -------
-        PrognosticModel
+        Self
             Instantiated StormScopeMRMS model
         """
         try:
