@@ -1,0 +1,444 @@
+---
+layout: overview
+title: earth2studio.data.base
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`DataFrameSource`](#earth2studio-data-base-DataFrameSource) | Data frame source interface. Commonly used for sparse sensor data |
+| [`DataSource`](#earth2studio-data-base-DataSource) | Data source interface. |
+| [`ForecastFrameSource`](#earth2studio-data-base-ForecastFrameSource) | Forecast data frame source interface. Commonly used for sparse sensor data |
+| [`ForecastSource`](#earth2studio-data-base-ForecastSource) | Forecast source interface |
+
+### API
+
+<Anchor id="earth2studio-data-base-DataFrameSource">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.base.DataFrameSource()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Protocol</Badge>
+
+Data frame source interface. Commonly used for sparse sensor data
+
+<Anchor id="earth2studio-data-base-DataFrameSource-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.base.DataFrameSource.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Function to get data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Datetime, list of datetimes or array of np.datetime64 to return data for.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return.
+</ParamField>
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None" default="None">
+Fields / columns to return, must be subset of the data sources schema. Will
+return all possible columns if None, by default None
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+A pandas DataFrame like object where the columns are the requested variable
+list and rows filtered for the time requested. Variables/columns in data
+frame sources may refer to geospatial fields/data (e.g. wind speed) or
+relevant metadata (e.g. time of observation).
+
+</Indent>
+<Anchor id="earth2studio-data-base-DataFrameSource-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.base.DataFrameSource.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get data. Async data frame sources support this.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Datetime, list of datetimes or array of np.datetime64 to return data for.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return.
+</ParamField>
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None" default="None">
+Fields / columns to return, must be subset of the data sources schema. Will
+return all possible columns if None, by default None
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+A pandas DataFrame like object where the columns are the requested variable
+list and rows filtered for the time requested. Variables/columns in data
+frame sources may refer to geospatial fields/data (e.g. wind speed) or
+relevant metadata (e.g. time of observation).
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-base-DataSource">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.base.DataSource()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Protocol</Badge>
+
+Data source interface.
+
+<Anchor id="earth2studio-data-base-DataSource-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.base.DataSource.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Function to get data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Datetime, list of datetimes or array of np.datetime64 to return data for.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+An xarray data-array with the dimensions [time, variable, ....]. The coords
+should be provided. Time coordinate should be a datetime array and the
+variable coordinate should be array of strings with Earth2Studio variable
+ids.
+
+</Indent>
+<Anchor id="earth2studio-data-base-DataSource-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.base.DataSource.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get data. Async data sources support this.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Datetime, list of datetimes or array of np.datetime64 to return data for.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+An xarray data-array with the dimensions [time, variable, ....]. The coords
+should be provided. Time coordinate should be a datetime array and the
+variable coordinate should be array of strings with Earth2Studio variable
+ids.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-base-ForecastFrameSource">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.base.ForecastFrameSource()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Protocol</Badge>
+
+Forecast data frame source interface. Commonly used for sparse sensor data
+
+<Anchor id="earth2studio-data-base-ForecastFrameSource-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.base.ForecastFrameSource.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Function to get data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Datetime, list of datetimes or array of np.datetime64 to return data for.
+</ParamField>
+
+<ParamField path="lead_time" type="(timedelta | list[timedelta], LeadTimeArray)">
+`(timedelta | list[timedelta],` [`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) `)` — Timedelta, list of timedeltas or array of np.timedelta that refers to the
+forecast lead time to fetch.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return.
+</ParamField>
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None" default="None">
+Fields / columns to return, must be subset of the data sources schema. Will
+return all possible columns if None, by default None
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+A pandas DataFrame like object where the columns are the requested variable
+list and rows filtered for the time requested. Variables/columns in data
+frame sources may refer to geospatial fields/data (e.g. wind speed) or
+relevant metadata (e.g. time of observation).
+
+</Indent>
+<Anchor id="earth2studio-data-base-ForecastFrameSource-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.base.ForecastFrameSource.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get data. Async data frame sources support this.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Datetime, list of datetimes or array of np.datetime64 to return data for.
+</ParamField>
+
+<ParamField path="lead_time" type="(timedelta | list[timedelta], LeadTimeArray)">
+`(timedelta | list[timedelta],` [`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) `)` — Timedelta, list of timedeltas or array of np.timedelta that refers to the
+forecast lead time to fetch.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return.
+</ParamField>
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None" default="None">
+Fields / columns to return, must be subset of the data sources schema. Will
+return all possible columns if None, by default None
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+A pandas DataFrame like object where the columns are the requested variable
+list and rows filtered for the time requested. Variables/columns in data
+frame sources may refer to geospatial fields/data (e.g. wind speed) or
+relevant metadata (e.g. time of observation).
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-base-ForecastSource">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.base.ForecastSource()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Protocol</Badge>
+
+Forecast source interface
+
+<Anchor id="earth2studio-data-base-ForecastSource-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.base.ForecastSource.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Function to get data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Datetime, list of datetimes or array of np.datetime64 to return data for.
+</ParamField>
+
+<ParamField path="lead_time" type="(timedelta | list[timedelta], LeadTimeArray)">
+`(timedelta | list[timedelta],` [`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) `)` — Timedelta, list of timedeltas or array of np.timedelta that refers to the
+forecast lead time to fetch.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+An xarray data-array with the dimensions [time, variable, lead_time, ...].
+The coords should be provided. Time coordinate should be a TimeArray,
+lead time coordinate a LeadTimeArray and the variable coordinate should be
+an array of strings with Earth2Studio variable ids.
+
+</Indent>
+<Anchor id="earth2studio-data-base-ForecastSource-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.base.ForecastSource.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get data. Async forecast sources support this.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Datetime, list of datetimes or array of np.datetime64 to return data for.
+</ParamField>
+
+<ParamField path="lead_time" type="(timedelta | list[timedelta], LeadTimeArray)">
+`(timedelta | list[timedelta],` [`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) `)` — Timedelta, list of timedeltas or array of np.timedelta that refers to the
+forecast lead time to fetch.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+An xarray data-array with the dimensions [time, variable, lead_time, ...].
+The coords should be provided. Time coordinate should be a TimeArray,
+lead time coordinate a LeadTimeArray and the variable coordinate should be
+an array of strings with Earth2Studio variable ids.
+
+</Indent>
+</Indent>

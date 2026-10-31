@@ -1,0 +1,259 @@
+---
+layout: overview
+title: earth2studio.utils.cupy
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`Earth2StudioAccessor`](#earth2studio-utils-cupy-Earth2StudioAccessor) | Earth2Studio conversions and batching for xarray DataArrays. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`from_torch`](#earth2studio-utils-cupy-from_torch) | Wrap a Torch tensor and coordinate system in an xarray DataArray. |
+
+### API
+
+<Anchor id="earth2studio-utils-cupy-Earth2StudioAccessor">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.utils.cupy.Earth2StudioAccessor(
+    array: xarray.DataArray
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Earth2Studio conversions and batching for xarray DataArrays.
+
+<ParamField path="is_cupy" type="bool">
+Whether the DataArray is backed by a CuPy array.
+</ParamField>
+<Anchor id="earth2studio-utils-cupy-Earth2StudioAccessor-as_cupy">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.cupy.Earth2StudioAccessor.as_cupy(
+    device: int | None = None
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Return a CuPy-backed DataArray.
+
+**Parameters:**
+
+<ParamField path="device" type="int | None" default="None">
+CUDA device index used for conversion, by default None
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+DataArray with GPU-resident CuPy data.
+
+</Indent>
+<Anchor id="earth2studio-utils-cupy-Earth2StudioAccessor-as_numpy">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.cupy.Earth2StudioAccessor.as_numpy() -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Return a NumPy-backed DataArray.
+
+**Returns:** `xr.DataArray`
+
+DataArray with host-resident NumPy data.
+
+</Indent>
+<Anchor id="earth2studio-utils-cupy-Earth2StudioAccessor-batch">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.cupy.Earth2StudioAccessor.batch(
+    dims: collections.abc.Sequence[collections.abc.Hashable],
+    batch_dim: collections.abc.Hashable = 'batch',
+    contiguous: bool = True
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Flatten dimensions into a leading batch dimension.
+
+**Parameters:**
+
+<ParamField path="dims" type="Sequence[Hashable]">
+Dimensions to flatten, ordered within the new batch dimension.
+</ParamField>
+
+<ParamField path="batch_dim" type="Hashable" default="'batch'">
+Name of the flattened dimension, by default "batch"
+</ParamField>
+
+<ParamField path="contiguous" type="bool" default="True">
+Make copied data contiguous when a view is not possible, by default True
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+DataArray with a leading flattened batch dimension.
+
+**Raises:**
+
+- `ValueError`: If dimensions are invalid, the array is already batched, or copying is
+required while ``contiguous`` is False.
+- `NotImplementedError`: If a coordinate spans batched and unbatched dimensions.
+- `TypeError`: If the DataArray is not backed by NumPy or CuPy.
+
+</Indent>
+<Anchor id="earth2studio-utils-cupy-Earth2StudioAccessor-to_torch">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"./type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.cupy.Earth2StudioAccessor.to_torch(
+    requires_grad: bool = False
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Convert to the legacy Torch tensor and coordinate representation.
+
+**Parameters:**
+
+<ParamField path="requires_grad" type="bool" default="False">
+Request autograd-enabled conversion, by default False
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](./type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Tensor sharing memory with the DataArray data and its coordinates.
+
+**Raises:**
+
+- `TypeError`: If the DataArray is not backed by NumPy or CuPy.
+- `NotImplementedError`: If ``requires_grad`` is True.
+
+</Indent>
+<Anchor id="earth2studio-utils-cupy-Earth2StudioAccessor-unbatch">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.cupy.Earth2StudioAccessor.unbatch(
+    contiguous: bool = True
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Restore dimensions flattened by `batch`.
+
+**Parameters:**
+
+<ParamField path="contiguous" type="bool" default="True">
+Make copied data contiguous when a view is not possible, by default True
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+DataArray with its original batch dimensions restored.
+
+**Raises:**
+
+- `ValueError`: If batch metadata is missing or incompatible with the DataArray.
+- `TypeError`: If the DataArray is not backed by NumPy or CuPy.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-utils-cupy-from_torch">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"./type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.cupy.from_torch(
+    tensor: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem,
+    name: collections.abc.Hashable | None = None,
+    attrs: collections.abc.Mapping[typing.Any, typing.Any] | None = None,
+    requires_grad: bool = False
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Wrap a Torch tensor and coordinate system in an xarray DataArray.
+
+CPU tensors share memory with a NumPy-backed DataArray. CUDA tensors share memory
+with a CuPy-backed DataArray through DLPack.
+
+**Parameters:**
+
+<ParamField path="tensor" type="torch.Tensor">
+Tensor containing the data.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](./type.mdx#earth2studio-utils-type-CoordSystem) — Ordered coordinate mapping with one entry per tensor dimension.
+</ParamField>
+
+<ParamField path="name" type="Hashable | None" default="None">
+DataArray name, by default None
+</ParamField>
+
+<ParamField path="attrs" type="Mapping[Any, Any] | None" default="None">
+DataArray attributes, by default None
+</ParamField>
+
+<ParamField path="requires_grad" type="bool" default="False">
+Request autograd-enabled conversion, by default False
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+DataArray sharing memory with the input tensor.
+
+**Raises:**
+
+- `ValueError`: If coordinate dimensions do not match the tensor shape.
+- `TypeError`: If the tensor is not on a CPU or CUDA device.
+- `ImportError`: If a CUDA tensor is provided without CuPy installed.
+- `NotImplementedError`: If ``requires_grad`` is True.
+
+</Indent>

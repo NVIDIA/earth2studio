@@ -1,0 +1,387 @@
+---
+layout: overview
+title: earth2studio.models.dx.dlesym_v0_isccp_era5_precip
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`DLESyMv0_ISCCP_ERA5Precip`](#earth2studio-models-dx-dlesym_v0_isccp_era5_precip-DLESyMv0_ISCCP_ERA5Precip) | Precipitation diagnostic for the DLESyMv0_ISCCP_ERA5 climate model. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`apply_ttr_to_olr`](#earth2studio-models-dx-dlesym_v0_isccp_era5_precip-apply_ttr_to_olr) | Convert ERA5 TTR to ISCCP-distributed OLR via per-doy moment matching. |
+
+### API
+
+<Anchor id="earth2studio-models-dx-dlesym_v0_isccp_era5_precip-DLESyMv0_ISCCP_ERA5Precip">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip(
+    core_model: torch.nn.Module,
+    hpx_lat: numpy.ndarray,
+    hpx_lon: numpy.ndarray,
+    nside: int,
+    center: numpy.ndarray,
+    scale: numpy.ndarray,
+    constants: numpy.ndarray,
+    input_times: numpy.ndarray,
+    variables: list[str],
+    output_variable: str = 'tp06',
+    log_epsilon: float | None = 1e-08,
+    use_ttr: bool = True,
+    ttr_clim_mean: numpy.ndarray | None = None,
+    ttr_clim_std: numpy.ndarray | None = None,
+    olr_clim_mean: numpy.ndarray | None = None,
+    olr_clim_std: numpy.ndarray | None = None,
+    olr_floor: float = 0.0
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+Precipitation diagnostic for the DLESyMv0_ISCCP_ERA5 climate model.
+
+A ``HEALPixUNet`` diagnostic from the AtmosSci-DLESM/DLESyM repository
+that predicts 6-hourly accumulated precipitation (``tp06``) from the full
+coupled atmosphere/ocean state. It is designed to be chained off
+[`DLESyMv0_ISCCP_ERA5`](../px/dlesym_v0_isccp_era5.mdx#earth2studio-models-px-dlesym_v0_isccp_era5-DLESyMv0_ISCCP_ERA5) (or its lat/lon
+variant).
+
+The model takes 2 consecutive history timesteps of 10 variables (the 9
+atmospheric variables plus ``sst``) on a HEALPix ``nside=64`` grid and
+predicts ``tp06`` at the last input timestep (i.e., precipitation
+accumulated over the 6 h prior to ``t=0``).
+
+When ``use_ttr=True`` (default), the wrapper accepts ERA5 ``ttr`` in
+place of ``rlut`` and applies the same per-doy moment-matching TTR -&gt; OLR
+transform as
+[`DLESyMv0_ISCCP_ERA5`](../px/dlesym_v0_isccp_era5.mdx#earth2studio-models-px-dlesym_v0_isccp_era5-DLESyMv0_ISCCP_ERA5)
+before the forward pass. This allows the diagnostic to run standalone
+from an ERA5 initial condition. When ``use_ttr=False``, supply
+pre-transformed ``rlut`` directly -- use this when chaining off
+[`DLESyMv0_ISCCP_ERA5`](../px/dlesym_v0_isccp_era5.mdx#earth2studio-models-px-dlesym_v0_isccp_era5-DLESyMv0_ISCCP_ERA5) output, which is
+already in OLR space.
+
+**Badges:** `region:global` `class:climate` `product:precip` `year:2024` `gpu:40gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="core_model" type="torch.nn.Module">
+The wrapped ``physicsnemo.models.dlwp_healpix.HEALPixUNet``.
+</ParamField>
+
+<ParamField path="hpx_lat" type="np.ndarray">
+HEALPix latitude grid, shape ``(12, nside, nside)``.
+</ParamField>
+
+<ParamField path="hpx_lon" type="np.ndarray">
+HEALPix longitude grid, shape ``(12, nside, nside)``.
+</ParamField>
+
+<ParamField path="nside" type="int">
+HEALPix nside.
+</ParamField>
+
+<ParamField path="center" type="np.ndarray">
+Per-variable input means, shape ``(1, 1, 1, V, 1, 1, 1)`` ordered by
+``variables``.
+</ParamField>
+
+<ParamField path="scale" type="np.ndarray">
+Per-variable input stds, same shape as ``center``.
+</ParamField>
+
+<ParamField path="constants" type="np.ndarray">
+Constant fields (e.g. land-sea mask, topography), shape
+``(12, n_constants, nside, nside)``.
+</ParamField>
+
+<ParamField path="input_times" type="np.ndarray">
+Input lead times, shape ``(input_time_dim,)``. e.g.
+``np.array([-6, 0], dtype='timedelta64[h]')``.
+</ParamField>
+
+<ParamField path="variables" type="list[str]">
+Input variable names in channel order. Must contain ``rlut`` (the
+model variable-space name); ``input_coords`` swaps it to ``ttr``
+when ``use_ttr=True``.
+</ParamField>
+
+<ParamField path="output_variable" type="str" default="'tp06'">
+Output variable name, typically ``"tp06"``.
+</ParamField>
+
+<ParamField path="log_epsilon" type="float | None" default="1e-08">
+If non-None, denormalize as ``exp(out + log(eps)) - eps`` to invert
+the upstream log-transform applied to precipitation during training.
+Set to ``None`` to disable.
+</ParamField>
+
+<ParamField path="use_ttr" type="bool" default="True">
+Accept ERA5 ``ttr`` instead of ``rlut`` and run the TTR -&gt; OLR
+transform internally. Defaults to True.
+</ParamField>
+
+<ParamField path="ttr_clim_mean" type="np.ndarray | None" default="None">
+Per-doy climatology arrays of shape ``(D, F, H, W)``. Required when
+``use_ttr=True``.
+</ParamField>
+
+<ParamField path="ttr_clim_std" type="np.ndarray | None" default="None">
+Per-doy climatology arrays of shape ``(D, F, H, W)``. Required when
+``use_ttr=True``.
+</ParamField>
+
+<ParamField path="olr_clim_mean" type="np.ndarray | None" default="None">
+Per-doy climatology arrays of shape ``(D, F, H, W)``. Required when
+``use_ttr=True``.
+</ParamField>
+
+<ParamField path="olr_clim_std" type="np.ndarray | None" default="None">
+Per-doy climatology arrays of shape ``(D, F, H, W)``. Required when
+``use_ttr=True``.
+</ParamField>
+
+<ParamField path="olr_floor" type="float" default="0.0">
+Lower bound applied to the transformed OLR. Defaults to 0.0.
+</ParamField>
+
+<Note>
+
+For more information see:
+
+- https://github.com/AtmosSci-DLESM/DLESyM
+- https://arxiv.org/abs/2409.16247 (the published paper backing this
+  checkpoint set)
+- https://huggingface.co/nvidia/dlesym-v0-isccp-era5
+
+</Note>
+
+<Anchor id="earth2studio-models-dx-dlesym_v0_isccp_era5_precip-DLESyMv0_ISCCP_ERA5Precip-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Run the precip diagnostic forward.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input of shape ``(B, T, LT, V, F, H, W)`` with ``LT = input_time_dim``
+history timesteps and ``V = len(variables)`` channels on HEALPix.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinates.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Output tensor of shape ``(B, T, 1, 1, F, H, W)`` and the
+corresponding output coords with ``variable = [tp06]``.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-dlesym_v0_isccp_era5_precip-DLESyMv0_ISCCP_ERA5Precip-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of diagnostic model.
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary with 2 history timesteps and the
+full coupled-state variable list on the HEALPix grid. When
+``use_ttr=True``, the radiation channel is advertised as
+``ttr`` (the wrapper converts to ``rlut`` internally).
+
+</Indent>
+<Anchor id="earth2studio-models-dx-dlesym_v0_isccp_era5_precip-DLESyMv0_ISCCP_ERA5Precip-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Default DLESyMv0_ISCCP_ERA5 precip package on HuggingFace.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-dlesym_v0_isccp_era5_precip-DLESyMv0_ISCCP_ERA5Precip-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.dx.base.DiagnosticModel":"./base.mdx#earth2studio-models-dx-base-DiagnosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip.load_model(
+    package: earth2studio.models.auto.Package,
+    use_ttr: bool = True
+) -> earth2studio.models.dx.base.DiagnosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load the DLESyMv0_ISCCP_ERA5 precip diagnostic from a package.
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Model package containing ``config.yaml``, the precip ``.mdlus``
+checkpoint, the HEALPix lat/lon, the constant fields, and (when
+``use_ttr=True``) the TTR/OLR climatology netCDFs
+(``era5_ttr_doy_stats_hpx64.nc`` and ``isccp_olr_doy_stats_hpx64.nc``).
+</ParamField>
+
+<ParamField path="use_ttr" type="bool" default="True">
+See `DLESyMv0_ISCCP_ERA5Precip`. Defaults to True.
+</ParamField>
+
+**Returns:** [`DiagnosticModel`](./base.mdx#earth2studio-models-dx-base-DiagnosticModel)
+
+Loaded ``DLESyMv0_ISCCP_ERA5Precip`` instance.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-dlesym_v0_isccp_era5_precip-DLESyMv0_ISCCP_ERA5Precip-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of diagnostic model.
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Output coords with ``lead_time = [0]`` and ``variable = [tp06]``.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-dx-dlesym_v0_isccp_era5_precip-apply_ttr_to_olr">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.dlesym_v0_isccp_era5_precip.apply_ttr_to_olr(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem,
+    ttr_idx: int,
+    ttr_clim_mean: torch.Tensor,
+    ttr_clim_std: torch.Tensor,
+    olr_clim_mean: torch.Tensor,
+    olr_clim_std: torch.Tensor,
+    olr_floor: float = 0.0
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Convert ERA5 TTR to ISCCP-distributed OLR via per-doy moment matching.
+
+Mirrors the upstream pipeline transform at
+nathanielcresswellclay/dlesym_pipeline @ aimip:
+``processing/utils/transform_ttr1h_olr.py``. The transform is per
+``(face, height, width, day-of-year)`` so it preserves spatial structure
+while matching the per-pixel marginal distribution to ISCCP OLR.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor with the TTR channel at axis ``-4``; shape
+``(B, T, LT, V, F, H, W)``.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Coordinates carrying ``time`` (datetime64) and ``lead_time``
+(timedelta64) used to derive day-of-year per (T, LT) pair.
+</ParamField>
+
+<ParamField path="ttr_idx" type="int">
+Position of the TTR channel along the variable axis.
+</ParamField>
+
+<ParamField path="ttr_clim_mean" type="torch.Tensor">
+ERA5 TTR per-doy climatology, shape ``(D, F, H, W)``.
+</ParamField>
+
+<ParamField path="ttr_clim_std" type="torch.Tensor">
+ERA5 TTR per-doy climatology, shape ``(D, F, H, W)``.
+</ParamField>
+
+<ParamField path="olr_clim_mean" type="torch.Tensor">
+ISCCP OLR per-doy climatology, same shape.
+</ParamField>
+
+<ParamField path="olr_clim_std" type="torch.Tensor">
+ISCCP OLR per-doy climatology, same shape.
+</ParamField>
+
+<ParamField path="olr_floor" type="float" default="0.0">
+Lower bound applied to the transformed OLR (the upstream pipeline
+uses a small positive quantile floor). Defaults to 0.0.
+</ParamField>
+
+**Returns:** `torch.Tensor`
+
+``x`` with the TTR channel replaced by ISCCP-distributed OLR.
+
+</Indent>

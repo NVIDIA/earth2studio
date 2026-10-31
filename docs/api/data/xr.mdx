@@ -1,0 +1,441 @@
+---
+layout: overview
+title: earth2studio.data.xr
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`DataArrayDirectory`](#earth2studio-data-xr-DataArrayDirectory) | A local xarray dataarray directory data source. This file should be compatible with |
+| [`DataArrayFile`](#earth2studio-data-xr-DataArrayFile) | A local xarray dataarray file data source. This file should be compatible with |
+| [`DataArrayPathList`](#earth2studio-data-xr-DataArrayPathList) | A local xarray dataarray directory data source that handles multiple files. |
+| [`DataSetFile`](#earth2studio-data-xr-DataSetFile) | A local xarray dataset file data source. This file should be compatible with |
+| [`InferenceOutputSource`](#earth2studio-data-xr-InferenceOutputSource) | Adapt a inference output into a data source. |
+
+### API
+
+<Anchor id="earth2studio-data-xr-DataArrayDirectory">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.xr.DataArrayDirectory(
+    dir_path: str,
+    xr_args: typing.Any = {}
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+A local xarray dataarray directory data source. This file should be compatible with
+xarray. For example, a netCDF file. the structure of the directory should be like
+path/to/monthly/files
+|___2020
+|   |___2020_01.nc
+|   |___2020_02.nc
+|   |___ ...
+|
+|___2021
+    |___2021_01.nc
+    |___...
+
+**Parameters:**
+
+<ParamField path="file_path" type="str">
+Path to xarray data array compatible file.
+</ParamField>
+
+<ParamField path="xr_args" type="Any" default="&#123;&#125;">
+Keyword arguments to send to the xarray opening method.
+</ParamField>
+
+<ParamField path="das" type="dict[str, dict[str, DataArray]] = &#123;&#125;">
+</ParamField>
+<Anchor id="earth2studio-data-xr-DataArrayDirectory-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.xr.DataArrayDirectory.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Function to get data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Strings or list of strings that refer to variables to return.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Loaded data array
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-xr-DataArrayFile">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.xr.DataArrayFile(
+    file_path: str,
+    xr_args: typing.Any = {}
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+A local xarray dataarray file data source. This file should be compatible with
+xarray. For example, a netCDF file.
+
+**Parameters:**
+
+<ParamField path="file_path" type="str">
+Path to xarray data array compatible file.
+</ParamField>
+
+<ParamField path="da" type="= xr.open_dataarray(self.file_path, **xr_args)">
+</ParamField>
+<Anchor id="earth2studio-data-xr-DataArrayFile-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.xr.DataArrayFile.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Function to get data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Strings or list of strings that refer to variables to return.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Loaded data array
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-xr-DataArrayPathList">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.xr.DataArrayPathList(
+    paths: str | list[str],
+    xr_args: typing.Any = {}
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+A local xarray dataarray directory data source that handles multiple files.
+
+This class provides functionality to work with multiple xarray-compatible files (e.g., netCDF)
+as a single data source. All input files must have consistent dimensions and variables.
+Under the hood, it uses xarray's open_mfdataset which leverages Dask for parallel and
+memory-efficient data processing.
+
+**Parameters:**
+
+<ParamField path="paths" type="str | list[str]">
+Either a string glob pattern (e.g., "path/to/files/*.nc") or an explicit list of files.
+All specified files must exist and be readable.
+</ParamField>
+
+<ParamField path="xr_args" type="Any" default="&#123;&#125;">
+Additional keyword arguments passed to xarray's open_mfdataset method.
+</ParamField>
+
+**Raises:**
+
+- `FileNotFoundError`: If no files match the provided path pattern or if any specified file doesn't exist.
+- `ValueError`: If the files have inconsistent dimensions or variables.
+- `RuntimeError`: If there are issues opening or processing the dataset.
+
+<Note>
+
+- The class uses Dask arrays internally through xarray's open_mfdataset, providing efficient
+  parallel processing and lazy evaluation. Operations are only computed when data is actually
+  requested through the __call__ method.
+- All files must share the same coordinate system and variable structure.
+- Required dimensions are: time, variable, lat, and lon.
+
+</Note>
+
+<Anchor id="earth2studio-data-xr-DataArrayPathList-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.xr.DataArrayPathList.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve data for specified timestamps and variables.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Single timestamp or list of timestamps to retrieve data for.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Single variable name or list of variable names to retrieve.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data array containing the requested time and variable selections.
+
+**Raises:**
+
+- `ValueError`: If requested time or variable values are not present in the dataset.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-xr-DataSetFile">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.xr.DataSetFile(
+    file_path: str,
+    array_name: str,
+    xr_args: typing.Any = {}
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+A local xarray dataset file data source. This file should be compatible with
+xarray. For example, a netCDF file.
+
+**Parameters:**
+
+<ParamField path="file_path" type="str">
+Path to xarray dataset compatible file.
+</ParamField>
+
+<ParamField path="array_name" type="str">
+Data array name in xarray dataset
+</ParamField>
+
+<ParamField path="da">
+</ParamField>
+<Anchor id="earth2studio-data-xr-DataSetFile-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.xr.DataSetFile.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Function to get data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Strings or list of strings that refer to variables to return.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Loaded data array
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-xr-InferenceOutputSource">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.xr.InferenceOutputSource(
+    inference_output: str | xarray.Dataset,
+    filter_dict: dict = {},
+    xr_args: typing.Any = {}
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Adapt a inference output into a data source.
+
+This data source loads an existing xarray Dataset, such as a NetCDF file or Zarr
+store from an Earth2Studio forecast inference pipeline, which can then be filtered
+to provide a data array give a variable and time.
+Time, lead_time and variable are expected dimensions to be present in the DataSet.
+
+**Parameters:**
+
+<ParamField path="inference_output" type="str | xarray.Dataset">
+An Xarray dataset or a path to an xarray-compatible dataset file
+(e.g., NetCDF/Zarr).
+</ParamField>
+
+<ParamField path="filter_dict" type="dict" default="&#123;&#125;">
+Dictionary of selections applied before transformation (e.g.
+``&#123;"ensemble": 0&#125;``). Coordinates not in the required
+dimensions are dropped after selection, by default &#123;&#125;
+</ParamField>
+
+<ParamField path="**xr_args" type="Any" default="&#123;&#125;">
+Additional keyword arguments forwarded to ``xarray.open_dataset``.
+</ParamField>
+
+<Note>
+
+This data source performs automatic transformation of time coordinates based on the
+time and lead_time coordinates:
+
+- **If lead_time has length 1**: The single lead_time value is added to all time
+  coordinates to produce valid forecast times (time + lead_time). The lead_time
+  dimension is then removed.
+- **If time has length 1**: The single time value is broadcast to match the
+  lead_time dimension, then lead_time values are added to produce valid forecast
+  times. The time dimension is removed and lead_time is renamed to time.
+
+Either time or lead_time must have length 1 after applying the filter_dict
+- both cannot have length &gt; 1 simultaneously. The resulting dataset will have a
+single time dimension containing the computed valid forecast timestamps.
+
+</Note>
+
+<Anchor id="earth2studio-data-xr-InferenceOutputSource-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.xr.InferenceOutputSource.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve data for specified valid times and variables.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — One or more valid forecast timestamps (after ``time + lead_time``
+transformation).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — One or more variable names to return.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data array subset for the requested ``time`` and ``variable``.
+
+</Indent>
+<Anchor id="earth2studio-data-xr-InferenceOutputSource-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.xr.InferenceOutputSource.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get data
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the GFS lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Inference output data array
+
+</Indent>
+</Indent>

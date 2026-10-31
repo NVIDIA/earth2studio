@@ -1,0 +1,319 @@
+---
+layout: overview
+title: earth2studio.data.gdas
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`NomadsGDASObsConv`](#earth2studio-data-gdas-NomadsGDASObsConv) | Real-time GDAS conventional observations from NOAA NOMADS. |
+
+### API
+
+<Anchor id="earth2studio-data-gdas-NomadsGDASObsConv">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeTolerance":"../utils/type.mdx#earth2studio-utils-type-TimeTolerance"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.gdas.NomadsGDASObsConv(
+    time_tolerance: earth2studio.utils.type.TimeTolerance = np.timedelta64(10, 'm'),
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    async_workers: int = 4,
+    decode_workers: int = 8,
+    retries: int = 3,
+    layout: typing.Literal['long', 'wide'] = _DEFAULT_LAYOUT
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Real-time GDAS conventional observations from NOAA NOMADS.
+
+Provides near-real-time access to quality-controlled conventional
+(in-situ) observations from the NOAA Global Data Assimilation System
+(GDAS). Data is sourced from merged PrepBUFR and separate GPSRO files on
+NOMADS, updated 4 times daily (00z, 06z, 12z, 18z) with approximately
+6-10 hours latency.
+
+Observation types include radiosondes (ADPUPA), surface stations (ADPSFC),
+aircraft (AIRCAR/AIRCFT), ships and buoys (SFCSHP), wind profilers
+(PROFLR), satellite-derived winds (SATWND), and GPS precipitable water
+(GPSIPW). The ``gps`` variable reads only the combined ionosphere-corrected
+bending-angle observation from the separate GPSRO dump.
+
+GPSRO rows use the shared columns with product-specific meanings:
+``type`` is receiver ``SAID``, ``station`` combines receiver/transmitter
+identifiers, ``quality`` is the QFRO flag table, ``pres`` is null, and
+``elev`` is impact parameter minus Earth radius of curvature for ``gps``
+rows. The ``gps_refractivity`` variable exposes the message's refractivity
+levels (``ARFR``, N-units) with ``elev`` set to the level height (``HEIT``)
+so consumers can derive their own vertical coordinate. Both carry the
+occultation's ``radius_curvature`` (``ELRC``) and ``geoid_undulation``
+(``GEODU``); a level without its own tangent point sits at the
+occultation's reference point.
+
+The output schema matches `UFSObsConv` with additional PrepBUFR
+``quality``, ``pressure_quality``, and ``level_cat`` metadata.
+
+**Badges:** `region:global` `dataclass:observation` `product:wind` `product:temp` `product:atmos` `product:insitu` `provider:noaa`
+
+**Parameters:**
+
+<ParamField path="time_tolerance" type="TimeTolerance" default="np.timedelta64(10, 'm')">
+[`TimeTolerance`](../utils/type.mdx#earth2studio-utils-type-TimeTolerance) — Time tolerance window for filtering observations. Accepts a single value
+(symmetric +/- window) or a tuple (lower, upper) for asymmetric windows,
+by default np.timedelta64(10, "m").
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache downloaded observation files locally, by default True.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True.
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Timeout in seconds for downloading the files, by default 600. Decoding
+them is not bounded.
+</ParamField>
+
+<ParamField path="async_workers" type="int" default="4">
+Maximum concurrent async download tasks, by default 4.
+</ParamField>
+
+<ParamField path="decode_workers" type="int" default="8">
+Number of threads transforming decoded BUFR batches, by default 8.
+Decoding runs on earth2bufr's process-wide thread pool. Unless
+``EARTH2BUFR_NUM_THREADS`` is set, the first fetch sets it to 8 threads,
+the fastest setting measured on 16-112 cores.
+</ParamField>
+
+<ParamField path="retries" type="int" default="3">
+Number of retry attempts per failed download with exponential
+backoff, by default 3.
+</ParamField>
+
+<ParamField path="layout" type="('long', 'wide')" default="'long'">
+``"long"`` returns one row per observation with the columns of
+``SCHEMA``. ``"wide"`` returns one row per PrepBUFR report level or
+GPS-RO profile level, as `earth2studio.data.NNJAObsConv` does.
+By default "long".
+</ParamField>
+
+<Note>
+
+Additional information on the data:
+
+- https://nomads.ncep.noaa.gov/pub/data/nccf/com/obsproc/prod/
+- https://www.emc.ncep.noaa.gov/mmb/data_processing/prepbufr.doc/document.htm
+- https://www.emc.ncep.noaa.gov/emc/pages/numerical_forecast_systems/gfs.php
+
+Data is retained on the NOMADS production server for approximately
+2 days. Older data should be retrieved from the UFS GEFSv13 Replay
+dataset via `UFSObsConv`.
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large
+amount of data to your local machine for large requests. Each 6-hourly
+PrepBUFR file is approximately 60-100 MB.
+
+</Warning>
+
+<ParamField path="cache" type="str">
+Get the appropriate cache location.
+</ParamField>
+<Anchor id="earth2studio-data-gdas-NomadsGDASObsConv-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.gdas.NomadsGDASObsConv.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Fetch conventional observation data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variables to return. Must be in
+`GDASObsConvLexicon`.
+</ParamField>
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None" default="None">
+Schema fields to include in output. None returns all fields.
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+Observation data matching the requested time/variable window.
+
+**Raises:**
+
+- `KeyError`: If a variable is not found in the lexicon.
+- `ValueError`: If requested time is out of valid range.
+
+</Indent>
+<Anchor id="earth2studio-data-gdas-NomadsGDASObsConv-available">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.gdas.NomadsGDASObsConv.available(
+    time: datetime.datetime | numpy.datetime64
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Check if date time is available on NOMADS.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | np.datetime64">
+Date time to check.
+</ParamField>
+
+**Returns:** `bool`
+
+True if the time falls within the NOMADS retention window.
+
+</Indent>
+<Anchor id="earth2studio-data-gdas-NomadsGDASObsConv-cleanup">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.gdas.NomadsGDASObsConv.cleanup() -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Remove temporary files when persistent caching is disabled.
+
+</Indent>
+<Anchor id="earth2studio-data-gdas-NomadsGDASObsConv-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.gdas.NomadsGDASObsConv.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async fetch of conventional observation data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variables to return.
+</ParamField>
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None" default="None">
+Schema fields to include in output.
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+Observation data.
+
+</Indent>
+<Anchor id="earth2studio-data-gdas-NomadsGDASObsConv-local_path">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.gdas.NomadsGDASObsConv.local_path(
+    uri: str
+) -> str
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Return the deterministic cache path for a URI.
+
+</Indent>
+<Anchor id="earth2studio-data-gdas-NomadsGDASObsConv-resolve_fields">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.gdas.NomadsGDASObsConv.resolve_fields(
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> list[str] | None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Resolve and validate the requested output fields.
+
+**Parameters:**
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None" default="None">
+Fields to include in output. None returns all fields.
+</ParamField>
+
+**Returns:** `list[str] | None`
+
+Validated list of field names, or None for all fields.
+
+**Raises:**
+
+- `KeyError`: If a field is not in the schema.
+- `TypeError`: If fields is an unsupported type.
+
+</Indent>
+</Indent>

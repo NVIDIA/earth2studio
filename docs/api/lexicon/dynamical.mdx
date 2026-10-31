@@ -1,0 +1,88 @@
+---
+layout: overview
+title: earth2studio.lexicon.dynamical
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`DynamicalLexicon`](#earth2studio-lexicon-dynamical-DynamicalLexicon) | dynamical.org Lexicon. |
+
+### API
+
+<Anchor id="earth2studio-lexicon-dynamical-DynamicalLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.dynamical.DynamicalLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+dynamical.org Lexicon.
+
+Maps Earth2Studio variable ids to the descriptive variable names used by
+dynamical.org datasets (e.g. ``t2m`` -&gt; ``temperature_2m``,
+``z500`` -&gt; ``geopotential_height_500hpa``). dynamical.org bakes the
+vertical level into the variable name rather than using a level dimension,
+so pressure-level fields map to dedicated ``*_&lt;level&gt;hpa`` names.
+
+Unit conversions follow the same pattern as other Earth2Studio lexicons:
+the modifier returned by `get_item` converts from the source's native
+unit to the Earth2Studio convention (e.g. geopotential height in metres to
+geopotential in m2 s-2, Celsius to Kelvin). Variable names absent from this
+lexicon may still be requested by their native dynamical.org name as a
+pass-through in the data source.
+
+<Note>
+
+Variable inventory varies per collection. See the dynamical.org STAC catalog
+for the authoritative per-dataset variable list:
+
+- https://stac.dynamical.org/catalog.json
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-dynamical-DynamicalLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.dynamical.DynamicalLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return the dynamical.org variable name and a unit-conversion modifier.
+
+Conversions to the Earth2Studio convention:
+
+- all temperature fields: Celsius -&gt; Kelvin
+- ``geopotential_height_*``: metres -&gt; geopotential (m2 s-2)
+- ``total_cloud_cover_atmosphere``: percent -&gt; fraction
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Earth2Studio variable id.
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+The dynamical.org variable name and a unit-conversion modifier.
+
+</Indent>
+</Indent>

@@ -1,0 +1,157 @@
+---
+layout: overview
+title: earth2studio.lexicon.meteosat
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`MeteosatFCILexicon`](#earth2studio-lexicon-meteosat-MeteosatFCILexicon) | Lexicon for MTG-I FCI Level-1C Full Disk data source. |
+| [`MeteosatLILexicon`](#earth2studio-lexicon-meteosat-MeteosatLILexicon) | Lexicon for MTG-I LI Level-2 pointed (per-detection) lightning products. |
+
+### API
+
+<Anchor id="earth2studio-lexicon-meteosat-MeteosatFCILexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.meteosat.MeteosatFCILexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Lexicon for MTG-I FCI Level-1C Full Disk data source.
+
+Maps Earth2Studio variable names to MTG FCI channel identifiers.
+The 16 spectral channels cover visible (VIS), near-infrared (NIR),
+water vapour (WV) and infrared (IR) bands. Variable names follow
+the pattern ``fci&#123;wavelength&#125;&#123;band&#125;``, e.g. ``fci87ir``.
+
+<Note>
+
+Channel documentation:
+
+- https://user.eumetsat.int/resources/user-guides/mtg-fci-level-1c-data-guide
+- https://data.eumetsat.int/product/EO:EUM:DAT:0662
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-meteosat-MeteosatFCILexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.meteosat.MeteosatFCILexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable[[Any], typing.Any]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return the FCI channel name and modifier for a variable.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Variable name (e.g. ``'fci87ir'``)
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+FCI channel key and identity modifier
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-lexicon-meteosat-MeteosatLILexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.meteosat.MeteosatLILexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Lexicon for MTG-I LI Level-2 pointed (per-detection) lightning products.
+
+Maps Earth2Studio variable names to a ``&#123;product&#125;::&#123;field&#125;`` key, where
+``product`` selects the EUMETSAT Data Store collection to read from and
+``field`` is the native NetCDF variable name within it:
+
+- ``LFL`` — Lightning Flashes, one record per detected flash
+- ``LGR`` — Lightning Groups, one record per detected group
+- ``LEF`` — Lightning Events Filtered, one record per detected event
+
+Variable names follow the instrument-agnostic ``lightning_&#123;level&#125;_&#123;quantity&#125;``
+convention shared with `GOESGLMLexicon`, e.g.
+``lightning_flash_radiance`` is the optical radiance of a flash. The
+``count`` fields are synthetic: the data source fills them with 1.0 per
+record so users can sum or histogram them to obtain flash/group/event
+density during downstream regridding.
+
+Radiance is reported in ``mW m-2 sr-1`` in all three products.
+
+The ``*_footprint_pixels`` fields are the detection's footprint size,
+which lets a caller grid detections as an extent density rather than as
+centroid counts. LI reports footprint as a count of contributing
+detector pixels rather than as an area, so converting to an area needs
+the viewing-geometry-dependent pixel size and is left to the caller.
+Events are single pixels, so there is no event-level footprint field.
+
+<Note>
+
+Variable documentation:
+
+- https://user.eumetsat.int/resources/user-guides/mtg-li-level-2-data-guide
+- https://data.eumetsat.int/product/EO:EUM:DAT:0691
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-meteosat-MeteosatLILexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.meteosat.MeteosatLILexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable[[Any], typing.Any]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return the LI product/field key and modifier for a variable.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Variable name (e.g. ``'lightning_flash_radiance'``)
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+``(key, modifier)`` where ``key`` is ``'&#123;product&#125;::&#123;field&#125;'``
+and ``modifier`` is the identity function; values are returned
+in their native physical units.
+
+</Indent>
+</Indent>

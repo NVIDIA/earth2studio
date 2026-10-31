@@ -1,0 +1,628 @@
+---
+layout: overview
+title: earth2studio.models.px.stormscope_meteosat
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`StormScopeMeteosatEU`](#earth2studio-models-px-stormscope_meteosat-StormScopeMeteosatEU) | Generative diffusion nowcasting model for MTG-I1 FCI satellite imagery. |
+
+### API
+
+<Anchor id="earth2studio-models-px-stormscope_meteosat-StormScopeMeteosatEU">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.stormscope_meteosat.StormScopeMeteosatEU(
+    model_spec: list[dict[str, typing.Any]],
+    means: torch.Tensor,
+    stds: torch.Tensor,
+    scale_factor: torch.Tensor,
+    add_offset: torch.Tensor,
+    invariants: torch.Tensor,
+    lat: torch.Tensor,
+    lon: torch.Tensor,
+    earth_mask: torch.Tensor,
+    mtg_y: numpy.ndarray,
+    mtg_x: numpy.ndarray,
+    mtg_ylim: tuple[int, int] = Model_FCI_BBox[0],
+    mtg_xlim: tuple[int, int] = Model_FCI_BBox[1],
+    inference_mtg_box: tuple[tuple[int, int], tuple[int, int]] = Model_FCI_BBox,
+    variables: numpy.ndarray = np.array(VARIABLES),
+    sampler_args: dict[str, float | int] | None = None,
+    input_times: numpy.ndarray = np.arange(-5, 1) * np.timed...,
+    output_times: numpy.ndarray = np.array([np.timedelta64(10...,
+    ir_38_warm_scale_factor: float = 0.024222141,
+    ir_38_warm_threshold: float = 4095.0,
+    num_diffusion_steps: int = 48,
+    batch_size: int = 1,
+    use_amp: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin), [PrognosticMixin](./utils.mdx#earth2studio-models-px-utils-PrognosticMixin)
+
+Generative diffusion nowcasting model for MTG-I1 FCI satellite imagery.
+
+Predicts MTG Full Combined Imager (FCI) frames from ``len(input_times)``
+consecutive input frames at 10-min resolution. Uses an "ensemble of experts"
+denoising strategy: the diffusion sampler is invoked in stages, each using a
+different set of model weights applicable to a specific sigma range, as defined
+by ``model_spec``.
+
+The model operates on a rectangular sub-region of the MTG full-disk image specified
+by ``mtg_ylim`` and ``mtg_xlim`` in native MTG pixel coordinates.
+
+**Badges:** `region:eu` `class:nowcasting` `product:sat` `year:2026` `gpu:80gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="model_spec" type="list[dict[str, Any]]">
+Sequence of stage specifications. Each entry must contain:
+
+- ``model``: torch.nn.Module
+- ``sigma_min``: float
+- ``sigma_max``: float
+
+The sigma interval determines which expert is applied during denoising.
+The ranges must combine to a single continuous interval with no gaps or overlaps.
+</ParamField>
+
+<ParamField path="means" type="torch.Tensor">
+Per-channel mean of raw pixel counts used for normalisation, shape ``(C, 1, 1)``.
+</ParamField>
+
+<ParamField path="stds" type="torch.Tensor">
+Per-channel standard deviation of raw pixel counts used for normalisation,
+shape ``(C, 1, 1)``.
+</ParamField>
+
+<ParamField path="scale_factor" type="torch.Tensor">
+Per-channel multiplicative factor for the raw-to-physical radiance conversion,
+shape ``(C, 1, 1)``.
+</ParamField>
+
+<ParamField path="add_offset" type="torch.Tensor">
+Per-channel additive offset for the raw-to-physical radiance conversion,
+shape ``(C, 1, 1)``.
+</ParamField>
+
+<ParamField path="invariants" type="torch.Tensor">
+Static invariant fields (e.g. orography, land-sea mask) covering the full
+package extent, shape ``(1, C_inv, H_pkg, W_pkg)``.
+</ParamField>
+
+<ParamField path="lat" type="torch.Tensor">
+Latitude grid for the full package data extent, shape ``(H_pkg, W_pkg)``.
+</ParamField>
+
+<ParamField path="lon" type="torch.Tensor">
+Longitude grid for the full package data extent, shape ``(H_pkg, W_pkg)``.
+</ParamField>
+
+<ParamField path="earth_mask" type="torch.Tensor">
+Boolean mask where ``True`` indicates pixels over Earth (land or ocean),
+shape ``(H_pkg, W_pkg)``.
+</ParamField>
+
+<ParamField path="mtg_y" type="np.ndarray">
+MTG full-disk pixel row indices for the package domain, shape ``(H_pkg,)``.
+</ParamField>
+
+<ParamField path="mtg_x" type="np.ndarray">
+MTG full-disk pixel column indices for the package domain, shape ``(W_pkg,)``.
+</ParamField>
+
+<ParamField path="mtg_ylim" type="tuple[int, int]" default="Model_FCI_BBox[0]">
+Row pixel range ``(y_start, y_end)`` of the inference sub-region within the
+full MTG disk, by default ``(4320, 5440)``
+</ParamField>
+
+<ParamField path="mtg_xlim" type="tuple[int, int]" default="Model_FCI_BBox[1]">
+Column pixel range ``(x_start, x_end)`` of the inference sub-region within
+the full MTG disk, by default ``(1856, 4288)``
+</ParamField>
+
+<ParamField path="inference_mtg_box" type="tuple[tuple[int, int], tuple[int, int]]" default="Model_FCI_BBox">
+Row/column bounding box of the loaded package data within the full MTG disk,
+used to compute array indices into package buffers,
+by default ``StormScopeMeteosatEU.Model_FCI_BBox``
+</ParamField>
+
+<ParamField path="variables" type="np.ndarray" default="np.array(VARIABLES)">
+Channel names corresponding to the 16 FCI bands,
+by default ``np.array(VARIABLES)``
+</ParamField>
+
+<ParamField path="sampler_args" type="dict[str, float | int] | None" default="None">
+Overrides for the EDM sampler/scheduler. Recognised keys:
+``sigma_min``, ``sigma_max``, ``rho`` (scheduler) and
+``S_churn``, ``S_min``, ``S_max``, ``S_noise`` (solver).
+``sigma_min``/``sigma_max`` must fall within the combined sigma range
+spanned by ``model_spec`` and default to that combined range if not
+given. Other unspecified keys use sensible defaults, by default None
+</ParamField>
+
+<ParamField path="input_times" type="np.ndarray" default="np.arange(-5, 1) * np.timedelta64(10, 'm')">
+Context-window time offsets relative to the analysis time; each element is a
+``np.timedelta64``. The number of elements ``L`` determines the sliding-window
+length, by default a 6-frame window ``[-50 min, …, 0 min]``
+</ParamField>
+
+<ParamField path="output_times" type="np.ndarray" default="np.array([np.timedelta64(10, 'm')])">
+Output time offsets relative to the analysis time; single-step prediction
+only, by default ``[10 min]``
+</ParamField>
+
+<ParamField path="ir_38_warm_scale_factor" type="float" default="0.024222141">
+Multiplier applied to the above-threshold branch of the ir_38 channel after
+raw-to-physical conversion, by default 0.024222141
+</ParamField>
+
+<ParamField path="ir_38_warm_threshold" type="float" default="4095.0">
+Raw digital-count boundary (the 12-bit maximum) above which the warm/HDR
+ir_38 scaling is applied, by default 4095.0
+</ParamField>
+
+<ParamField path="num_diffusion_steps" type="int" default="48">
+Number of EDM diffusion sampling steps, by default 48
+</ParamField>
+
+<ParamField path="batch_size" type="int" default="1">
+Maximum number of samples processed per forward pass, by default 1
+</ParamField>
+
+<ParamField path="use_amp" type="bool" default="True">
+Whether to use automatic mixed precision (bfloat16) during the diffusion
+forward pass, by default True
+</ParamField>
+
+<ParamField path="Model_FCI_BBox" type="tuple[tuple[int, int], tuple[int, int]] = ((4320, 5440), (1856, 4288))">
+</ParamField>
+
+<ParamField path="_xi0" type="= mtg_xlim[0] - inference_mtg_box`1`">
+</ParamField>
+
+<ParamField path="_xi1" type="= mtg_xlim[1] - inference_mtg_box`1`">
+</ParamField>
+
+<ParamField path="_yi0" type="= mtg_ylim[0] - inference_mtg_box`0`">
+</ParamField>
+
+<ParamField path="_yi1" type="= mtg_ylim[1] - inference_mtg_box`0`">
+</ParamField>
+
+<ParamField path="earth_mask">
+</ParamField>
+
+<ParamField path="experts">
+</ParamField>
+
+<ParamField path="ir_38_channel" type="int | None = None">
+</ParamField>
+
+<ParamField path="lat">
+</ParamField>
+
+<ParamField path="lon">
+</ParamField>
+
+<ParamField path="mtg_x" type="= mtg_x[(self._xi0):(self._xi1)]">
+</ParamField>
+
+<ParamField path="mtg_y" type="= mtg_y[(self._yi0):(self._yi1)]">
+</ParamField>
+
+<ParamField path="sampler_args">
+</ParamField>
+
+<ParamField path="scheduler">
+</ParamField>
+<Anchor id="earth2studio-models-px-stormscope_meteosat-StormScopeMeteosatEU-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope_meteosat.StormScopeMeteosatEU.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Run the prognostic model one step forward.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor of shape ``(batch, time, lead_time, variable, y, x)``
+containing ``L = len(self.input_times)`` consecutive raw MTG frames per
+``(batch, time)`` entry, ordered oldest first along the ``lead_time``
+dimension.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system.  ``coords["lead_time"]`` must equal
+``self.input_times``.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Predicted next frame as a denormalised tensor of shape
+``(batch, time, 1, variable, y, x)`` and the corresponding output
+coordinate system.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope_meteosat-StormScopeMeteosatEU-combine_1km_2km_inputs">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope_meteosat.StormScopeMeteosatEU.combine_1km_2km_inputs(
+    x_1km: torch.Tensor,
+    coords_1km: earth2studio.utils.type.CoordSystem,
+    x_2km: torch.Tensor,
+    coords_2km: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Combine 1 km and 2 km resolution FCI channels onto the model 2 km grid.
+
+MTG FCI visible and NIR channels are natively provided at 1 km resolution
+and IR channels at 2 km resolution, while StormScopeMeteosatEU operates
+entirely on the 2 km grid. This function makes the data compatible with
+the model by 2x2 average-pooling the 1 km data, then concatenating the 1 km
+and 2 km data.
+
+**Parameters:**
+
+<ParamField path="x_1km" type="torch.Tensor">
+Input tensor of 1 km resolution channels, shape ``(..., C_1km, 2*H, 2*W)``
+where ``H`` and ``W`` are the 2 km grid dimensions.
+</ParamField>
+
+<ParamField path="coords_1km" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Coordinate system for ``x_1km``.
+</ParamField>
+
+<ParamField path="x_2km" type="torch.Tensor">
+Input tensor of 2 km resolution channels, shape ``(..., C_2km, H, W)``.
+</ParamField>
+
+<ParamField path="coords_2km" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Coordinate system for ``x_2km``.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Combined tensor and coordinate system on the common 2 km grid, with
+shape ``(..., C_1km+C_2km, H, W)`` and variables ordered as 1 km
+variables first followed by 2 km variables.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope_meteosat-StormScopeMeteosatEU-compile_model">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope_meteosat.StormScopeMeteosatEU.compile_model() -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Compile each denoising expert with ``torch.compile``.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope_meteosat-StormScopeMeteosatEU-create_generator">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope_meteosat.StormScopeMeteosatEU.create_generator(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> collections.abc.Generator[tuple[torch.Tensor, earth2studio.utils.type.CoordSystem], None, None]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Create a generator for autoregressive rollout.
+
+The first ``next()`` call yields the initial condition unchanged.
+Subsequent calls each advance the sliding context window by one step
+and yield the newly predicted frame alongside its output coordinates.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor of shape ``(batch, time, lead_time, variable, y, x)``
+containing raw MTG frames; must conform to ``self.input_coords()``.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system; must conform to ``self.input_coords()``.
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope_meteosat-StormScopeMeteosatEU-create_iterator">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope_meteosat.StormScopeMeteosatEU.create_iterator(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> collections.abc.Generator[tuple[torch.Tensor, earth2studio.utils.type.CoordSystem], None, None]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Create an iterator for autoregressive rollout.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor; must conform to ``self.input_coords()``.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system; must conform to ``self.input_coords()``.
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope_meteosat-StormScopeMeteosatEU-denormalize">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope_meteosat.StormScopeMeteosatEU.denormalize(
+    x: torch.Tensor,
+    in_place: bool = False
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Denormalise model output ``x`` to physical units.
+
+The model is trained on raw uint16 values from FCI normalized to zero mean
+and unit variance. To get from model outputs to physical values, we first
+convert the outputs to the scale of the raw data, then convert the raw values
+to physical radiances.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope_meteosat-StormScopeMeteosatEU-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope_meteosat.StormScopeMeteosatEU.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope_meteosat-StormScopeMeteosatEU-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope_meteosat.StormScopeMeteosatEU.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic package
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope_meteosat-StormScopeMeteosatEU-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.px.base.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope_meteosat.StormScopeMeteosatEU.load_model(
+    package: earth2studio.models.auto.Package,
+    mtg_ylim: tuple[int, int] | None = None,
+    mtg_xlim: tuple[int, int] | None = None
+) -> earth2studio.models.px.base.PrognosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load the prognostic model from a package.
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Model package containing checkpoints and metadata.
+</ParamField>
+
+<ParamField path="mtg_ylim" type="tuple[int, int] | None" default="None">
+Row pixel range ``(y_start, y_end)`` of the inference sub-region;
+defaults to the full package extent when ``None``, by default None
+</ParamField>
+
+<ParamField path="mtg_xlim" type="tuple[int, int] | None" default="None">
+Column pixel range ``(x_start, x_end)`` of the inference sub-region;
+defaults to the full package extent when ``None``, by default None
+</ParamField>
+
+**Returns:** [`PrognosticModel`](./base.mdx#earth2studio-models-px-base-PrognosticModel)
+
+Loaded and initialised `StormScopeMeteosatEU` model.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope_meteosat-StormScopeMeteosatEU-normalize">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope_meteosat.StormScopeMeteosatEU.normalize(
+    x: torch.Tensor,
+    in_place: bool = False
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Normalise physical radiances ``x`` to zero mean, unit variance.
+
+Opposite of ``denormalize``.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope_meteosat-StormScopeMeteosatEU-normalized_to_raw">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope_meteosat.StormScopeMeteosatEU.normalized_to_raw(
+    x: torch.Tensor,
+    in_place: bool = False
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Convert ``x`` from zero mean, unit variance to raw values.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope_meteosat-StormScopeMeteosatEU-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope_meteosat.StormScopeMeteosatEU.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the prognostic model.
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Output coordinate system with ``lead_time`` advanced by one step.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope_meteosat-StormScopeMeteosatEU-physical_to_raw">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope_meteosat.StormScopeMeteosatEU.physical_to_raw(
+    x: torch.Tensor,
+    in_place: bool = False
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Convert physical values to raw MTG data file values.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope_meteosat-StormScopeMeteosatEU-raw_to_normalized">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope_meteosat.StormScopeMeteosatEU.raw_to_normalized(
+    x: torch.Tensor,
+    in_place: bool = False
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Convert ``x`` from raw values to zero mean, unit variance.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormscope_meteosat-StormScopeMeteosatEU-raw_to_physical">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormscope_meteosat.StormScopeMeteosatEU.raw_to_physical(
+    x: torch.Tensor,
+    in_place: bool = False
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Convert raw MTG data file values to physical values.
+
+</Indent>
+</Indent>

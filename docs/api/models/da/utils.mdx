@@ -1,0 +1,95 @@
+---
+layout: overview
+title: earth2studio.models.da.utils
+---
+## Module Contents
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`dfseries_to_torch`](#earth2studio-models-da-utils-dfseries_to_torch) | Convert a DataFrame series to a torch tensor with zero-copy for cudf. |
+| [`validate_observation_fields`](#earth2studio-models-da-utils-validate_observation_fields) | Validate that required fields are present as columns in the DataFrame. |
+
+### API
+
+<Anchor id="earth2studio-models-da-utils-dfseries_to_torch">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.utils.dfseries_to_torch(
+    series: pandas.Series | cudf.Series,
+    dtype: torch.dtype = torch.float32,
+    device: torch.device | str = 'cpu'
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Convert a DataFrame series to a torch tensor with zero-copy for cudf.
+
+If the series is from a cudf DataFrame, uses dlpack for zero-copy transfer.
+If the series is from pandas but target device is GPU, transfers the data
+and warns that cudf is not being used.
+
+**Parameters:**
+
+<ParamField path="series" type="pd.Series | cudf.Series">
+Series to convert to torch tensor. Can be pandas or cudf Series.
+</ParamField>
+
+<ParamField path="dtype" type="torch.dtype" default="torch.float32">
+Desired dtype for the tensor, by default torch.float32
+</ParamField>
+
+<ParamField path="device" type="torch.device | str" default="'cpu'">
+Target device for the tensor, by default "cpu"
+</ParamField>
+
+**Returns:** `torch.Tensor`
+
+Torch tensor with the series data on the specified device
+
+**Raises:**
+
+- `ImportError`: If cudf is required but not available
+
+</Indent>
+
+<Anchor id="earth2studio-models-da-utils-validate_observation_fields">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.utils.validate_observation_fields(
+    observation: pandas.DataFrame | cudf.DataFrame,
+    required_fields: list[str]
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Validate that required fields are present as columns in the DataFrame.
+
+**Parameters:**
+
+<ParamField path="observation" type="pd.DataFrame | cudf.DataFrame">
+DataFrame observation to validate
+</ParamField>
+
+<ParamField path="required_fields" type="list[str]">
+List of required field/column names
+</ParamField>
+
+**Raises:**
+
+- `ValueError`: If any required fields are missing from the DataFrame columns
+
+</Indent>

@@ -1,0 +1,150 @@
+---
+layout: overview
+title: earth2studio.lexicon.cfs
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`CFSFluxLexicon`](#earth2studio-lexicon-cfs-CFSFluxLexicon) | Climate Forecast System v2 (CFSv2) surface flux forecast lexicon. |
+| [`CFSLexicon`](#earth2studio-lexicon-cfs-CFSLexicon) | Climate Forecast System v2 (CFSv2) pressure-level forecast lexicon. |
+
+### API
+
+<Anchor id="earth2studio-lexicon-cfs-CFSFluxLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.cfs.CFSFluxLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Climate Forecast System v2 (CFSv2) surface flux forecast lexicon.
+
+Maps Earth2Studio variable identifiers to grib2 `.idx` records of the
+CFS `flxf` product. The flxf product is published on a T126 Gaussian
+grid (190 x 384). Keys use the `&lt;product&gt;::&lt;param&gt;::&lt;level&gt;`
+convention; `&lt;product&gt;` is always ``flxf`` for entries in this
+lexicon.
+
+<Note>
+
+Additional resources:
+
+- https://www.nco.ncep.noaa.gov/pmb/products/cfs/
+- https://www.nco.ncep.noaa.gov/pmb/docs/grib2/grib2_doc/grib2_table4-2-0-3.shtml
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-cfs-CFSFluxLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.cfs.CFSFluxLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return the CFS index key and modifier function for a flxf variable.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Earth2Studio variable identifier.
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+`(grib_key, modifier)` pair. `modifier` is the identity for
+every entry in this lexicon since all surface flux fields are
+already in physical units.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-lexicon-cfs-CFSLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.cfs.CFSLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Climate Forecast System v2 (CFSv2) pressure-level forecast lexicon.
+
+Maps Earth2Studio variable identifiers to grib2 `.idx` records of the
+1 degree CFS `pgbf` product. Keys use the `&lt;product&gt;::&lt;param&gt;::&lt;level&gt;`
+convention: `&lt;product&gt;` is the file prefix (always ``pgbf`` here),
+`&lt;param&gt;` is the grib short name, and `&lt;level&gt;` is the grib level
+description.
+
+<Note>
+
+CFSv2 pgbf .idx files store the eastward/northward wind components
+``UGRD`` and ``VGRD`` as adjacent records sharing the same byte offset
+(decimal-suffixed record numbers in the `.idx` file, e.g. ``7.1`` and
+``7.2``). The CFS data source resolves this by reading the full vector
+grib message and selecting the requested component by short name; the
+lexicon entries treat ``UGRD`` and ``VGRD`` as independent variables.
+Additional resources:
+
+- https://www.nco.ncep.noaa.gov/pmb/products/cfs/
+- https://www.nco.ncep.noaa.gov/pmb/docs/grib2/grib2_doc/grib2_table4-2-0-3.shtml
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-cfs-CFSLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.cfs.CFSLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return the CFS index key and modifier function for a variable.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Earth2Studio variable identifier.
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+Tuple of `(grib_key, modifier)` where `grib_key` is the
+`&lt;product&gt;::&lt;param&gt;::&lt;level&gt;` substring used to look up the
+record in the grib `.idx` file, and `modifier` is applied to
+the raw grib values before they are returned (e.g. unit
+conversion from geopotential height to geopotential).
+
+</Indent>
+</Indent>

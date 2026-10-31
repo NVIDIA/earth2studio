@@ -1,0 +1,594 @@
+---
+layout: overview
+title: earth2studio.serve.server.main
+---
+Earth2Studio REST API server.
+
+Provides FastAPI endpoints for workflow execution, status, and result retrieval,
+with Redis and RQ for job queuing and Prometheus metrics.
+
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`WorkflowExecutionRequest`](#earth2studio-serve-server-main-WorkflowExecutionRequest) | Request body for workflow execution. |
+| [`WorkflowExecutionResponse`](#earth2studio-serve-server-main-WorkflowExecutionResponse) | Response after submitting a workflow execution. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`check_admission_control`](#earth2studio-serve-server-main-check_admission_control) | Check if the inference request can be admitted based on queue sizes. |
+| [`execute_default_workflow`](#earth2studio-serve-server-main-execute_default_workflow) | Enqueue the single exposed workflow for execution. |
+| [`execute_workflow`](#earth2studio-serve-server-main-execute_workflow) | Enqueue a custom workflow for execution. |
+| [`get_metrics`](#earth2studio-serve-server-main-get_metrics) | Expose Prometheus metrics. |
+| [`get_queue_position`](#earth2studio-serve-server-main-get_queue_position) | Get the position of a job in the queue. |
+| [`get_workflow_result_file`](#earth2studio-serve-server-main-get_workflow_result_file) | Stream a specific file from the workflow execution results. |
+| [`get_workflow_results`](#earth2studio-serve-server-main-get_workflow_results) | Get result metadata (e.g. metadata.json) for a completed workflow execution. |
+| [`get_workflow_schema`](#earth2studio-serve-server-main-get_workflow_schema) | Get the OpenAPI JSON schema for a workflow's parameters. |
+| [`get_workflow_status`](#earth2studio-serve-server-main-get_workflow_status) | Get the status of a workflow execution. |
+| [`health_check`](#earth2studio-serve-server-main-health_check) | Health and readiness check endpoint. |
+| [`lifespan`](#earth2studio-serve-server-main-lifespan) | Lifespan context manager for FastAPI application startup and shutdown. |
+| [`list_workflows`](#earth2studio-serve-server-main-list_workflows) | List all available workflows. |
+| [`liveness`](#earth2studio-serve-server-main-liveness) | Liveness probe for Azure ML. |
+
+### API
+
+<Anchor id="earth2studio-serve-server-main-WorkflowExecutionRequest">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.main.WorkflowExecutionRequest()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `BaseModel`
+
+Request body for workflow execution.
+
+<ParamField path="parameters" type="dict[str, Any]">
+Workflow-specific parameters (validated by the workflow's parameter class).
+</ParamField>
+</Indent>
+
+<Anchor id="earth2studio-serve-server-main-WorkflowExecutionResponse">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.main.WorkflowExecutionResponse()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `BaseModel`
+
+Response after submitting a workflow execution.
+
+<ParamField path="execution_id" type="str">
+Unique execution identifier.
+</ParamField>
+
+<ParamField path="message" type="str">
+Human-readable message.
+</ParamField>
+
+<ParamField path="position" type="int | None = None">
+Queue position (0-indexed); set when status is QUEUED.
+</ParamField>
+
+<ParamField path="status" type="str">
+Current status (e.g. QUEUED).
+</ParamField>
+
+<ParamField path="timestamp" type="str">
+ISO format timestamp.
+</ParamField>
+
+<ParamField path="workflow_name" type="str">
+Name of the workflow.
+</ParamField>
+</Indent>
+
+<Anchor id="earth2studio-serve-server-main-check_admission_control">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.main.check_admission_control(
+    sync_redis: redis.Redis
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Check if the inference request can be admitted based on queue sizes.
+
+Checks all relevant queues (inference, result zip, object storage,
+and finalize metadata) to ensure none are at capacity before allowing
+a new request to be enqueued.
+
+**Parameters:**
+
+<ParamField path="sync_redis" type="redis.Redis">
+Synchronous Redis client.
+</ParamField>
+
+**Raises:**
+
+- `HTTPException`: 429 if any queue is full (service temporarily unavailable; retry later).
+500 if queue status cannot be determined.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-main-execute_default_workflow">
+
+<CodeBlock links={{"earth2studio.serve.server.main.WorkflowExecutionRequest":"#earth2studio-serve-server-main-WorkflowExecutionRequest","earth2studio.serve.server.dependencies.SyncRedis":"./dependencies.mdx#earth2studio-serve-server-dependencies-SyncRedis","earth2studio.serve.server.dependencies.InferenceQueue":"./dependencies.mdx#earth2studio-serve-server-dependencies-InferenceQueue","earth2studio.serve.server.main.WorkflowExecutionResponse":"#earth2studio-serve-server-main-WorkflowExecutionResponse"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.main.execute_default_workflow(
+    request: earth2studio.serve.server.main.WorkflowExecutionRequest,
+    sync_redis: earth2studio.serve.server.dependencies.SyncRedis,
+    queue: earth2studio.serve.server.dependencies.InferenceQueue
+) -> earth2studio.serve.server.main.WorkflowExecutionResponse
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Enqueue the single exposed workflow for execution.
+
+This endpoint is only valid when exactly one workflow is exposed (same notion
+of *exposed* as ``GET /v1/infer/workflows``). If zero or more than one workflow
+is exposed, the request fails.
+
+**Parameters:**
+
+<ParamField path="request" type="WorkflowExecutionRequest">
+[`WorkflowExecutionRequest`](#earth2studio-serve-server-main-WorkflowExecutionRequest) — Request body containing workflow parameters for the selected workflow.
+</ParamField>
+
+<ParamField path="sync_redis" type="SyncRedis">
+[`SyncRedis`](./dependencies.mdx#earth2studio-serve-server-dependencies-SyncRedis) — Synchronous Redis client (injected).
+</ParamField>
+
+<ParamField path="queue" type="InferenceQueue">
+[`InferenceQueue`](./dependencies.mdx#earth2studio-serve-server-dependencies-InferenceQueue) — RQ inference queue (injected).
+</ParamField>
+
+**Returns:** [`WorkflowExecutionResponse`](#earth2studio-serve-server-main-WorkflowExecutionResponse)
+
+Execution ID, status (QUEUED), queue position, and message.
+
+**Raises:**
+
+- `HTTPException`: 503 if no exposed workflows are registered; 409 if more than one exposed
+workflow; otherwise same status codes as ``POST /v1/infer/&#123;workflow_name&#125;``.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-main-execute_workflow">
+
+<CodeBlock links={{"earth2studio.serve.server.main.WorkflowExecutionRequest":"#earth2studio-serve-server-main-WorkflowExecutionRequest","earth2studio.serve.server.dependencies.SyncRedis":"./dependencies.mdx#earth2studio-serve-server-dependencies-SyncRedis","earth2studio.serve.server.dependencies.InferenceQueue":"./dependencies.mdx#earth2studio-serve-server-dependencies-InferenceQueue","earth2studio.serve.server.main.WorkflowExecutionResponse":"#earth2studio-serve-server-main-WorkflowExecutionResponse"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.main.execute_workflow(
+    workflow_name: str,
+    request: earth2studio.serve.server.main.WorkflowExecutionRequest,
+    sync_redis: earth2studio.serve.server.dependencies.SyncRedis,
+    queue: earth2studio.serve.server.dependencies.InferenceQueue
+) -> earth2studio.serve.server.main.WorkflowExecutionResponse
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Enqueue a custom workflow for execution.
+
+Validates parameters, performs admission control, persists execution data
+in Redis, and enqueues the job to the RQ inference queue.
+
+**Parameters:**
+
+<ParamField path="workflow_name" type="str">
+Name of the registered workflow.
+</ParamField>
+
+<ParamField path="request" type="WorkflowExecutionRequest">
+[`WorkflowExecutionRequest`](#earth2studio-serve-server-main-WorkflowExecutionRequest) — Request body containing workflow parameters.
+</ParamField>
+
+<ParamField path="sync_redis" type="SyncRedis">
+[`SyncRedis`](./dependencies.mdx#earth2studio-serve-server-dependencies-SyncRedis) — Synchronous Redis client (injected).
+</ParamField>
+
+<ParamField path="queue" type="InferenceQueue">
+[`InferenceQueue`](./dependencies.mdx#earth2studio-serve-server-dependencies-InferenceQueue) — RQ inference queue (injected).
+</ParamField>
+
+**Returns:** [`WorkflowExecutionResponse`](#earth2studio-serve-server-main-WorkflowExecutionResponse)
+
+Execution ID, status (QUEUED), queue position, and message.
+
+**Raises:**
+
+- `HTTPException`: 404 if workflow not found; 422 if parameters invalid; 429 if queues full;
+503 if Redis/queue not initialized; 500 on enqueue failure.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-main-get_metrics">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.main.get_metrics() -> fastapi.responses.Response
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Expose Prometheus metrics.
+
+**Returns:** `Response`
+
+Response with Prometheus text format and appropriate content type.
+
+**Raises:**
+
+- `HTTPException`: 500 if metrics generation fails.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-main-get_queue_position">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.main.get_queue_position(
+    queue: rq.Queue | None,
+    job_id: str
+) -> int | None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get the position of a job in the queue.
+
+Uses RQ's Queue.job_ids property, which correctly returns job IDs
+including custom job_id values set during enqueue.
+
+**Parameters:**
+
+<ParamField path="queue" type="Queue | None">
+The RQ inference queue, or None if unavailable.
+</ParamField>
+
+<ParamField path="job_id" type="str">
+The ID of the job to find.
+</ParamField>
+
+**Returns:** `int or None`
+
+Position in queue (0-indexed), or None if not found (e.g. picked up by worker).
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-main-get_workflow_result_file">
+
+<CodeBlock links={{"earth2studio.serve.server.dependencies.SyncRedis":"./dependencies.mdx#earth2studio-serve-server-dependencies-SyncRedis","earth2studio.serve.server.dependencies.AsyncRedis":"./dependencies.mdx#earth2studio-serve-server-dependencies-AsyncRedis"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.main.get_workflow_result_file(
+    request: fastapi.Request,
+    workflow_name: str,
+    execution_id: str,
+    filepath: str,
+    sync_redis: earth2studio.serve.server.dependencies.SyncRedis,
+    async_redis: earth2studio.serve.server.dependencies.AsyncRedis
+) -> fastapi.responses.StreamingResponse
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Stream a specific file from the workflow execution results.
+
+If filepath equals the request ID (workflow_name:execution_id), streams the
+results zip file. Otherwise serves a file from the output directory (path
+normalized and checked to prevent directory traversal).
+
+**Parameters:**
+
+<ParamField path="workflow_name" type="str">
+Name of the workflow.
+</ParamField>
+
+<ParamField path="execution_id" type="str">
+Execution identifier.
+</ParamField>
+
+<ParamField path="filepath" type="str">
+Relative path within the output directory, or the request ID for the zip.
+</ParamField>
+
+<ParamField path="sync_redis" type="SyncRedis">
+[`SyncRedis`](./dependencies.mdx#earth2studio-serve-server-dependencies-SyncRedis) — Synchronous Redis client (injected).
+</ParamField>
+
+<ParamField path="async_redis" type="AsyncRedis">
+[`AsyncRedis`](./dependencies.mdx#earth2studio-serve-server-dependencies-AsyncRedis) — Async Redis client (injected).
+</ParamField>
+
+**Returns:** `StreamingResponse`
+
+File or zip contents with appropriate headers.
+
+**Raises:**
+
+- `HTTPException`: 403 on path traversal attempt; 404 if workflow, execution, file, or zip
+not found or results not completed; 500 on error.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-main-get_workflow_results">
+
+<CodeBlock links={{"earth2studio.serve.server.dependencies.SyncRedis":"./dependencies.mdx#earth2studio-serve-server-dependencies-SyncRedis"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.main.get_workflow_results(
+    workflow_name: str,
+    execution_id: str,
+    sync_redis: earth2studio.serve.server.dependencies.SyncRedis
+) -> dict[str, typing.Any] | fastapi.responses.StreamingResponse
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Get result metadata (e.g. metadata.json) for a completed workflow execution.
+
+**Parameters:**
+
+<ParamField path="workflow_name" type="str">
+Name of the workflow.
+</ParamField>
+
+<ParamField path="execution_id" type="str">
+Unique execution identifier.
+</ParamField>
+
+**Returns:** `dict`
+
+JSON metadata (e.g. from metadata_&#123;workflow_name&#125;:&#123;execution_id&#125;.json).
+
+**Raises:**
+
+- `HTTPException`: 202 if still queued/running/pending; 400 if expired or bad request;
+404 if workflow, execution, or metadata file not found, or if execution failed/cancelled.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-main-get_workflow_schema">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.main.get_workflow_schema(
+    workflow_name: str
+) -> dict[str, typing.Any]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Get the OpenAPI JSON schema for a workflow's parameters.
+
+For Workflow subclasses the schema comes from WorkflowParameters; for
+Earth2Workflow subclasses it is generated from the __call__ signature via
+AutoParameters.
+
+**Parameters:**
+
+<ParamField path="workflow_name" type="str">
+Name of the workflow.
+</ParamField>
+
+**Returns:** `dict`
+
+JSON schema for the workflow parameters (OpenAPI-compatible).
+
+**Raises:**
+
+- `HTTPException`: 404 if workflow not found; 500 if schema generation fails.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-main-get_workflow_status">
+
+<CodeBlock links={{"earth2studio.serve.server.dependencies.SyncRedis":"./dependencies.mdx#earth2studio-serve-server-dependencies-SyncRedis","earth2studio.serve.server.dependencies.InferenceQueue":"./dependencies.mdx#earth2studio-serve-server-dependencies-InferenceQueue","earth2studio.serve.server.workflow.WorkflowResult":"./workflow.mdx#earth2studio-serve-server-workflow-WorkflowResult"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.main.get_workflow_status(
+    workflow_name: str,
+    execution_id: str,
+    sync_redis: earth2studio.serve.server.dependencies.SyncRedis,
+    queue: earth2studio.serve.server.dependencies.InferenceQueue
+) -> earth2studio.serve.server.workflow.WorkflowResult
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Get the status of a workflow execution.
+
+**Parameters:**
+
+<ParamField path="workflow_name" type="str">
+Name of the workflow.
+</ParamField>
+
+<ParamField path="execution_id" type="str">
+Unique execution identifier.
+</ParamField>
+
+<ParamField path="sync_redis" type="SyncRedis">
+[`SyncRedis`](./dependencies.mdx#earth2studio-serve-server-dependencies-SyncRedis) — Synchronous Redis client (injected).
+</ParamField>
+
+<ParamField path="queue" type="InferenceQueue">
+[`InferenceQueue`](./dependencies.mdx#earth2studio-serve-server-dependencies-InferenceQueue) — RQ inference queue (injected).
+</ParamField>
+
+**Returns:** [`WorkflowResult`](./workflow.mdx#earth2studio-serve-server-workflow-WorkflowResult)
+
+Current status, progress, timestamps, and optional queue position.
+
+**Raises:**
+
+- `HTTPException`: 404 if workflow or execution not found; 500 on server error.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-main-health_check">
+
+<CodeBlock links={{"earth2studio.serve.server.dependencies.SyncRedis":"./dependencies.mdx#earth2studio-serve-server-dependencies-SyncRedis"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.main.health_check(
+    sync_redis: earth2studio.serve.server.dependencies.SyncRedis
+) -> dict[str, str]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Health and readiness check endpoint.
+
+Runs in-process health checks for all services and returns overall health.
+
+**Returns:** `dict`
+
+Keys ``status`` (e.g. "healthy"/"unhealthy") and ``timestamp`` (ISO format).
+
+**Raises:**
+
+- `HTTPException`: 503 if status is unhealthy; 500 if the check fails.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-main-lifespan">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.main.lifespan(
+    app: fastapi.FastAPI
+) -> collections.abc.AsyncGenerator[None, None]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Lifespan context manager for FastAPI application startup and shutdown.
+
+On startup: connects to Redis (async and sync), initializes the RQ inference
+queue, and registers custom workflows. On shutdown: closes Redis connections.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-main-list_workflows">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.main.list_workflows() -> dict[str, dict[str, str]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+List all available workflows.
+
+**Returns:** `dict`
+
+Single key ``workflows`` mapping workflow name to description.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-main-liveness">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.main.liveness() -> dict[str, str]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Liveness probe for Azure ML.
+
+**Returns:** `dict`
+
+``status`` key set to "alive" to indicate the container is running.
+
+</Indent>

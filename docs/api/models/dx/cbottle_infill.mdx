@@ -1,0 +1,274 @@
+---
+layout: overview
+title: earth2studio.models.dx.cbottle_infill
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`CBottleInfill`](#earth2studio-models-dx-cbottle_infill-CBottleInfill) | Climate in a bottle infill diagnostic |
+
+### API
+
+<Anchor id="earth2studio-models-dx-cbottle_infill-CBottleInfill">
+
+<CodeBlock links={{"earth2studio.utils.type.VariableArray":"../../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.cbottle_infill.CBottleInfill(
+    core_model: torch.nn.Module,
+    sst_ds: xarray.Dataset,
+    input_variables: list[str] | earth2studio.utils.type.VariableArray,
+    sampler_steps: int = 18,
+    sigma_max: float = 200,
+    seed: int | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+Climate in a bottle infill diagnostic
+Climate in a Bottle (cBottle) is an AI model for emulating global km-scale climate
+simulations and reanalysis on the equal-area HEALPix grid. The cBottle infill
+diagnostic enables users to generate all variables supported by cBottle from just
+a subset ontop of existing monthly average sea surface temperatures and solar
+conditioning. The cBottle infill model uses the a globally-trained coarse-resolution
+image diffusion model that generates 100km (50k-pixel) fields
+
+**Badges:** `region:global` `class:climate` `product:wind` `product:precip` `product:temp` `product:atmos` `product:ocean` `year:2025` `gpu:80gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="core_model" type="torch.nn.Module">
+Core Pytorch model
+</ParamField>
+
+<ParamField path="sst_ds" type="xr.Dataset">
+Sea surface temperature xarray dataset
+</ParamField>
+
+<ParamField path="input_variables" type="list[str] | VariableArray">
+`list[str] |` [`VariableArray`](../../utils/type.mdx#earth2studio-utils-type-VariableArray) — List of input variables that will be provided for conditioning the output
+generation. Must be a subset of the cBottle output / supported variables.
+See cBottle lexicon for full list.
+</ParamField>
+
+<ParamField path="sampler_steps" type="int" default="18">
+Number of diffusion steps, by default 18
+</ParamField>
+
+<ParamField path="sigma_max" type="float" default="200">
+Noise amplitude used to generate latent variables, by default 200
+</ParamField>
+
+<ParamField path="seed" type="int | None" default="None">
+If set, will fix the seed of the random generator for latent variables (no
+effect), by default None
+</ParamField>
+
+<Note>
+
+Unlike other diagnostics that have a fixed input, this diagnostic allows users to
+specify the input to be any subset of cBottle's output variables.
+Namely, the model can be adapted to the data present in the inference pipeline and
+will always generate all output fields based on the information provided.
+For more information see the following references:
+
+- https://arxiv.org/abs/2505.06474v1
+- https://github.com/NVlabs/cBottle
+- https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/cbottle
+- https://huggingface.co/nvidia/cbottle
+
+</Note>
+
+<ParamField path="input_variable_idx" type="ndarray">
+List of input variables expected for conditioning
+</ParamField>
+
+<ParamField path="input_variables" type="VariableArray">
+List of input variables expected for conditioning
+</ParamField>
+
+<Anchor id="earth2studio-models-dx-cbottle_infill-CBottleInfill-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.cbottle_infill.CBottleInfill.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Forward pass of diagnostic
+
+</Indent>
+<Anchor id="earth2studio-models-dx-cbottle_infill-CBottleInfill-get_cbottle_input">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.cbottle_infill.CBottleInfill.get_cbottle_input(
+    time: list[datetime.datetime],
+    x: torch.Tensor,
+    label: int = 1
+) -> dict[str, torch.Tensor]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Prepares the CBottle inputs
+
+Adopted from:
+
+- https://github.com/NVlabs/cBottle/blob/ed96dfe35d87ecefa4846307807e8241c4b24e71/src/cbottle/datasets/amip_sst_loader.py#L55
+- https://github.com/NVlabs/cBottle/blob/ed96dfe35d87ecefa4846307807e8241c4b24e71/src/cbottle/datasets/dataset_3d.py#L247
+
+**Parameters:**
+
+<ParamField path="time" type="list[datetime]">
+List of times for inference
+</ParamField>
+
+<ParamField path="x" type="torch.Tensor">
+Input lat/lon variables used to condition infill
+</ParamField>
+
+<ParamField path="label" type="int" default="1">
+Label ID, by default 1
+</ParamField>
+
+**Returns:** `dict[str, torch.Tensor]`
+
+Dictionary of input tensors for CBottle
+
+</Indent>
+<Anchor id="earth2studio-models-dx-cbottle_infill-CBottleInfill-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.cbottle_infill.CBottleInfill.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of diagnostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-dx-cbottle_infill-CBottleInfill-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.cbottle_infill.CBottleInfill.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Default pre-trained cBottle model package from Nvidia model registry
+
+</Indent>
+<Anchor id="earth2studio-models-dx-cbottle_infill-CBottleInfill-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.utils.type.VariableArray":"../../utils/type.mdx#earth2studio-utils-type-VariableArray","earth2studio.models.dx.base.DiagnosticModel":"./base.mdx#earth2studio-models-dx-base-DiagnosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.cbottle_infill.CBottleInfill.load_model(
+    package: earth2studio.models.auto.Package,
+    input_variables: list[str] | earth2studio.utils.type.VariableArray = ['u10m', 'v10m'],
+    sampler_steps: int = 18,
+    sigma_max: float = 200
+) -> earth2studio.models.dx.base.DiagnosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load AI datasource from package
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — CBottle AI model package
+</ParamField>
+
+<ParamField path="input_variables" type="list[str] | VariableArray" default="['u10m', 'v10m']">
+`list[str] |` [`VariableArray`](../../utils/type.mdx#earth2studio-utils-type-VariableArray) — List of input variables that will be provided for conditioning the output
+generation, by default ["u10m", "v10m"]
+</ParamField>
+
+<ParamField path="sampler_steps" type="int" default="18">
+Number of diffusion steps, by default 18
+</ParamField>
+
+<ParamField path="sigma_max" type="float" default="200">
+Noise amplitude used to generate latent variables, by default 200
+</ParamField>
+
+**Returns:** [`DiagnosticModel`](./base.mdx#earth2studio-models-dx-base-DiagnosticModel)
+
+Diagnostic model
+
+</Indent>
+<Anchor id="earth2studio-models-dx-cbottle_infill-CBottleInfill-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.cbottle_infill.CBottleInfill.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of diagnostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>

@@ -1,0 +1,469 @@
+# Install
+
+<Warning>
+
+**Base Install Limitations**
+
+**Base install scope:** The base install includes only core Earth2Studio APIs.
+Most models, data sources, examples, and workflows require an optional dependency
+group selected below.
+
+**GPU dependency compatibility:** GPU-dependent model dependencies can be sensitive
+to the PyTorch and CUDA versions in your environment.
+
+</Warning>
+
+<Info>
+
+**Prerequisites**
+
+- **PyTorch:** See the [PyTorch install guide](https://pytorch.org/get-started/locally/)
+  and make sure PyTorch is installed correctly on your system first.
+- **Python environment:** Initialize an appropriate Python environment. Python 3.13
+  is the recommended version.
+- **Package manager:** uv is recommended, but pip is also supported.
+
+</Info>
+
+## Install Commands
+
+Install the base package, or add the optional dependency group (extra) for the model, data source, or workflow you want to use. Replace `EXTRA` in the commands below with a name from the tables that follow. Multiple extras can be combined, for example `earth2studio[data,aifs]`.
+
+<Tabs>
+  <Tab title="GitHub release">
+
+```bash
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.19.0"
+uv add "earth2studio[EXTRA] @ git+https://github.com/NVIDIA/earth2studio.git@0.19.0"
+
+pip install "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.19.0"
+pip install "earth2studio[EXTRA] @ git+https://github.com/NVIDIA/earth2studio.git@0.19.0"
+```
+
+  </Tab>
+  <Tab title="PyPI">
+
+```bash
+uv add "earth2studio"
+uv add "earth2studio[EXTRA]"
+
+pip install "earth2studio"
+pip install "earth2studio[EXTRA]"
+```
+
+  </Tab>
+  <Tab title="GitHub main">
+
+```bash
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@main"
+uv add "earth2studio[EXTRA] @ git+https://github.com/NVIDIA/earth2studio.git@main"
+
+pip install "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@main"
+pip install "earth2studio[EXTRA] @ git+https://github.com/NVIDIA/earth2studio.git@main"
+```
+
+  </Tab>
+</Tabs>
+
+### Base Package
+
+Core package installs and broad dependency groups.
+
+| Extra | Description | Notes |
+| --- | --- | --- |
+| _(none)_ | Core Earth2Studio APIs, workflows, coordinates, and IO interfaces. | Most model and data backends are not included in the base install. |
+
+### Prognostic Models
+
+Forecast models that advance atmospheric state.
+
+| Extra | Description | Notes |
+| --- | --- | --- |
+| `ace2` | ACE-2 model dependencies. |  |
+| `camulator` | NSF NCAR CAMulator climate emulator (no additional packages). | The default checkpoint is ~4.8 GB and the default cyclic forcing file ~1.3 GB; both are downloaded from HuggingFace on first use. ([CAMulator model card](https://huggingface.co/willychap/camulator)) |
+| `aifs` | ECMWF AIFS model dependencies. | **Warning:** Depends on flash-attn, which can take a long time to build. ([flash-attn](https://github.com/Dao-AILab/flash-attention)) |
+| `aifsens` | ECMWF AIFS ensemble model dependencies. | **Warning:** Depends on flash-attn, which can take a long time to build. |
+| `aifs2` | ECMWF AIFS 2.0 model dependencies. | **Warning:** Depends on flash-attn, which can take a long time to build. |
+| `aifs2ens` | ECMWF AIFS 2.0 ensemble model dependencies. | **Warning:** Depends on flash-attn, which can take a long time to build. |
+| `atlas` | NVIDIA Atlas model dependencies. | **Warning:** Depends on natten for Python versions before 3.14, which can take a long time to build. |
+| `aurora` | Microsoft Aurora model dependencies. |  |
+| `dlesym` | DLESyM model dependencies. |  |
+| `dlwp` | DLWP model dependencies. |  |
+| `fcn` | FourCastNet model dependencies. |  |
+| `fcn3` | FourCastNet 3 model dependencies. | CUDA extensions are recommended for best performance. |
+| `fengwu` | FengWu model dependencies. | Requires ONNX Runtime GPU. ([ONNX Runtime GPU install docs](https://onnxruntime.ai/docs/install/#python-installs)) |
+| `fuxi` | FuXi model dependencies. | Requires ONNX Runtime GPU. ([ONNX Runtime GPU install docs](https://onnxruntime.ai/docs/install/#python-installs)) |
+| `gencast` | Google DeepMind GenCast model dependencies. | GenCast uses WeatherNext and requires Python 3.12 or newer. |
+| `graphcast` | Google DeepMind GraphCast model dependencies. | GraphCast uses WeatherNext and requires Python 3.12 or newer. |
+| `weathernext` | Google DeepMind WeatherNext 2 Cyclones model dependencies. | WeatherNext 2 uses WeatherNext and requires Python 3.12 or newer. Before importing JAX or Earth2Studio, set XLA_PYTHON_CLIENT_PREALLOCATE=false and XLA_PYTHON_CLIENT_ALLOCATOR=vmm. |
+| `interp-crps-dit` | Dependencies for the InterpCRPSDiT CRPS temporal interpolation model. Requires a base prognostic model. |  |
+| `interp-modafno` | Interpolation wrapper dependencies for AFNO-style prognostic models. |  |
+| `pangu` | Pangu model dependencies. | Requires ONNX Runtime GPU. ([ONNX Runtime GPU install docs](https://onnxruntime.ai/docs/install/#python-installs)) |
+| `samudrace` | SamudrACE coupled atmosphere-ocean model dependencies. | **Warning:** Requires fme at the 2026.4.0 release. This extra conflicts with the `ace2` extra, which pins fme to a pre-release commit, and with the `atlas`, `fcn3`, `perturbation`, and `sfno` extras via fme's torch-harmonics pin. ([fme](https://github.com/ai2cm/ace)) |
+| `sfno` | SFNO model dependencies. |  |
+| `stormcast` | StormCast model dependencies. |  |
+| `stormcast-conus` | StormCast-CONUS model dependencies. | **Warning:** Depends on natten for Python versions before 3.14, which can take a long time to build. |
+| `stormscope` | StormScope model dependencies, including Flash variants. | **Warning:** Depends on natten for Python versions before 3.14, which can take a long time to build. |
+| `ucast` | UCast model dependencies. |  |
+
+### Diagnostic Models
+
+Models that derive, downscale, track, or infer diagnostic products.
+
+| Extra | Description | Notes |
+| --- | --- | --- |
+| `cbottle` | CBottle diagnostic and video model dependencies. |  |
+| `climatenet` | ClimateNet diagnostic model dependencies. |  |
+| `corrdiff` | CorrDiff diagnostic model dependencies. |  |
+| `corrdiff-era5-hrrr` | CorrDiff ERA5 -> HRRR downscaler dependencies. | **Warning:** Depends on natten for Python versions before 3.14. |
+| `cosmo` | CorrDiff COSMO -> ERA5 model dependencies. | **Warning:** Depends on natten for Python versions before 3.14. |
+| `cyclone` | Tropical cyclone tracker dependencies. | TempestExtremes is not provided as a Python library and must be installed separately when using the tracker workflows. |
+| `derived` | Derived diagnostic model dependencies. |  |
+| `orbit` | ORBIT-2 diagnostic model dependencies. |  |
+| `precip-afno` | Precipitation AFNO diagnostic model dependencies. |  |
+| `precip-afno-v2` | Precipitation AFNO V2 diagnostic model dependencies. | **Warning:** Precipitation AFNO V2 is deprecated and performs worse than V1. |
+| `solarradiation-afno` | Solar Radiation AFNO diagnostic model dependencies. |  |
+| `windgust-afno` | Windgust AFNO diagnostic model dependencies. |  |
+
+### Data Assimilation
+
+Data assimilation model dependencies.
+
+<Warning>
+
+Data assimilation APIs are currently in beta and may change in future releases.
+
+</Warning>
+
+<Warning>
+
+Data assimilation extras install CUDA-dependent CuPy and cuDF packages.
+
+</Warning>
+
+| Extra | Description | Notes |
+| --- | --- | --- |
+| `da-cosmo` | CorrDiff COSMO-ERA5 data assimilation dependencies. | **Warning:** Depends on natten for Python versions before 3.14. |
+| `da-healda` | HealDA dependencies. |  |
+| `da-healda-v2` | HealDA v2 dependencies (the healda package). | Installs the `healda` package from its git repository at a pinned commit; the model needs a CUDA device and Triton at run time. |
+| `da-interp` | Interpolation data assimilation dependencies. |  |
+| `da-stormcast` | StormCast data assimilation dependencies. |  |
+
+### Data
+
+Data source dependencies for analysis, forecast, satellite, and tabular data.
+
+| Extra | Description | Notes |
+| --- | --- | --- |
+| `data` | Data source dependencies for analysis, forecast, satellite, and tabular data. |  |
+
+### Perturbation
+
+Perturbation method dependencies.
+
+| Extra | Description | Notes |
+| --- | --- | --- |
+| `perturbation` | Perturbation method dependencies. |  |
+
+### Statistics
+
+Statistic and metric dependencies.
+
+| Extra | Description | Notes |
+| --- | --- | --- |
+| `statistics` | Statistic and metric dependencies. |  |
+
+### Utilities
+
+Utility dependency group.
+
+| Extra | Description | Notes |
+| --- | --- | --- |
+| `utils` | Utility dependency group. |  |
+
+### Additional install steps
+
+Some extras require packages that are installed separately when installing from PyPI. Run the listed commands before installing the extra.
+
+<Accordion title="DLESyM">
+
+**pip**
+
+```bash
+pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"
+```
+
+**uv**
+
+```bash
+uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"
+```
+
+</Accordion>
+
+<Accordion title="FourCastNet 3">
+
+**pip**
+
+```bash
+export FORCE_CUDA_EXTENSION=1
+pip install --no-build-isolation "torch-harmonics @ git+https://github.com/NVIDIA/torch-harmonics.git@a632ca748a12bd9f74dbc1e00653317810991f74"
+pip install "makani @ git+https://github.com/NVIDIA/makani.git@b38fcb2799d7dbc146fa60459f3f9823394a8bf1"
+```
+
+**uv**
+
+```bash
+export FORCE_CUDA_EXTENSION=1
+uv add --no-build-isolation "torch-harmonics @ git+https://github.com/NVIDIA/torch-harmonics.git@a632ca748a12bd9f74dbc1e00653317810991f74"
+uv add "makani @ git+https://github.com/NVIDIA/makani.git@b38fcb2799d7dbc146fa60459f3f9823394a8bf1"
+```
+
+</Accordion>
+
+<Accordion title="GenCast">
+
+**pip**
+
+```bash
+pip install "weathernext @ git+https://github.com/google-deepmind/weathernext.git@9c034db1ff412d5db6cbe6bb0c5c9afc5a267719"
+```
+
+**uv**
+
+```bash
+uv add "weathernext @ git+https://github.com/google-deepmind/weathernext.git@9c034db1ff412d5db6cbe6bb0c5c9afc5a267719"
+```
+
+</Accordion>
+
+<Accordion title="GraphCast">
+
+**pip**
+
+```bash
+pip install "weathernext @ git+https://github.com/google-deepmind/weathernext.git@9c034db1ff412d5db6cbe6bb0c5c9afc5a267719"
+```
+
+**uv**
+
+```bash
+uv add "weathernext @ git+https://github.com/google-deepmind/weathernext.git@9c034db1ff412d5db6cbe6bb0c5c9afc5a267719"
+```
+
+</Accordion>
+
+<Accordion title="WeatherNext2">
+
+**pip**
+
+```bash
+pip install "weathernext @ git+https://github.com/google-deepmind/weathernext.git@9c034db1ff412d5db6cbe6bb0c5c9afc5a267719"
+```
+
+**uv**
+
+```bash
+uv add "weathernext @ git+https://github.com/google-deepmind/weathernext.git@9c034db1ff412d5db6cbe6bb0c5c9afc5a267719"
+```
+
+</Accordion>
+
+<Accordion title="SFNO">
+
+**pip**
+
+```bash
+pip install --no-build-isolation "torch-harmonics @ git+https://github.com/NVIDIA/torch-harmonics.git@a632ca748a12bd9f74dbc1e00653317810991f74"
+pip install "makani @ git+https://github.com/NVIDIA/makani.git@b38fcb2799d7dbc146fa60459f3f9823394a8bf1"
+```
+
+**uv**
+
+```bash
+uv add --no-build-isolation "torch-harmonics @ git+https://github.com/NVIDIA/torch-harmonics.git@a632ca748a12bd9f74dbc1e00653317810991f74"
+uv add "makani @ git+https://github.com/NVIDIA/makani.git@b38fcb2799d7dbc146fa60459f3f9823394a8bf1"
+```
+
+</Accordion>
+
+<Accordion title="StormCast-CONUS">
+
+**pip**
+
+```bash
+pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"
+```
+
+**uv**
+
+```bash
+uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"
+```
+
+</Accordion>
+
+<Accordion title="CorrDiff ERA5-HRRR">
+
+**pip**
+
+```bash
+pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@426f7552da4b4fa675e404e8a4f437e27681b668"
+```
+
+**uv**
+
+```bash
+uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@426f7552da4b4fa675e404e8a4f437e27681b668"
+```
+
+</Accordion>
+
+<Accordion title="CorrDiff COSMO-ERA5">
+
+**pip**
+
+```bash
+pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"
+```
+
+**uv**
+
+```bash
+uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"
+```
+
+</Accordion>
+
+<Accordion title="CorrDiff COSMO SDA">
+
+**pip**
+
+```bash
+pip install "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"
+```
+
+**uv**
+
+```bash
+uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"
+```
+
+</Accordion>
+
+## Verify Installation
+
+```bash
+python -c "import earth2studio; print(earth2studio.__version__)"
+```
+
+If you installed with uv and want to run inside the uv project:
+
+```bash
+uv run python -c "import earth2studio; print(earth2studio.__version__)"
+```
+
+## Environments
+
+For the best experience, create a fresh environment with uv, Docker, or another
+environment manager. For developer environments, refer to the
+[Developer Overview](/earth2studio/developer/overview#overview).
+
+### uv Project
+
+Using uv is the recommended way to set up a local Python environment for Earth2Studio.
+Assuming [uv is installed](https://docs.astral.sh/uv/getting-started/installation/), use
+the following commands:
+
+```bash
+mkdir earth2studio-project && cd earth2studio-project
+uv init --python=3.13
+uv add "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.19.0"
+```
+
+### Docker Container
+
+For a Docker environment, the recommended process is to use `uv` inside a container.
+The [NVIDIA PyTorch container](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch)
+typically provides a good base with many dependencies already installed and optimized
+for NVIDIA hardware.
+
+```bash
+docker run -it -t nvcr.io/nvidia/pytorch:26.04-py3
+
+apt-get update && apt-get install -y git make curl cmake python3-dev \
+    libeccodes-tools libeccodes-dev
+unset PIP_CONSTRAINT
+curl -LsSf https://astral.sh/uv/install.sh | sh && source $HOME/.local/bin/env
+uv pip install --system --break-system-packages \
+    "earth2studio @ git+https://github.com/NVIDIA/earth2studio.git@0.19.0"
+```
+
+<Note>
+
+**Extra Dependencies**
+
+Add extras to the `uv pip install` command in the same way you would for pip:
+
+```bash
+uv pip install --system --break-system-packages \
+    "earth2studio[aifs,data] @ git+https://github.com/NVIDIA/earth2studio.git@0.19.0"
+```
+
+</Note>
+
+<Accordion title="Earth2Studio in Docker">
+
+Some models and dependencies have specific system requirements, such as CUDA
+versions, that may require a different container. If you are comfortable with
+Docker, refer to the
+[testing Dockerfile](https://github.com/NVIDIA/earth2studio/blob/main/test/Dockerfile)
+as a reference for a general-purpose Earth2Studio image.
+
+</Accordion>
+
+### Conda Environment
+
+It is no longer recommended to use conda environment managers for Earth2Studio when uv
+is available. If conda is required for your system, use it only to create the Python
+environment and install Earth2Studio with standard Python tooling.
+
+```bash
+conda create -n earth2studio python=3.13
+conda activate earth2studio
+pip install earth2studio
+```
+
+## System Recommendations
+
+### Software
+
+Earth2Studio does not have specific software version requirements. The following
+versions are recommended to closely match development and automation environments:
+
+- OS: Ubuntu 24.04 LTS
+- Python Version: 3.13
+- CUDA Version: 13.0
+
+### Hardware
+
+Earth2Studio does not have specific hardware requirements. If PyTorch can run, many
+features of Earth2Studio should run as well. Most models do require a GPU with
+sufficient memory and compute capability.
+
+| GPU | GPU Memory (GB) | Precision | # of GPUs | Disk Space (GB) |
+| --- | --------------- | --------- | --------- | --------------- |
+| [NVIDIA GPU](https://developer.nvidia.com/cuda-gpus) with compute capability >= 8.9 | >=40 | FP32 | 1 | 128 |
+
+## Configuration
+
+Earth2Studio uses a few environment variables to configure package behavior:
+
+- `EARTH2STUDIO_CACHE`: General cache location for models and cached data. Defaults to
+  `~/.cache/earth2studio`.
+- `EARTH2STUDIO_DATA_CACHE`: Cache location for data sources. If set, this overrides
+  `EARTH2STUDIO_CACHE` for data source caching.
+- `EARTH2STUDIO_MODEL_CACHE`: Cache location for model packages. If set, this overrides
+  `EARTH2STUDIO_CACHE` for model checkpoint caching.
+- `EARTH2STUDIO_PACKAGE_TIMEOUT`: Maximum number of seconds for a model package download
+  from a remote store such as NGC, Hugging Face, or S3.

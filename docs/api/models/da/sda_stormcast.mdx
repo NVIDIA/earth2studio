@@ -1,0 +1,355 @@
+---
+layout: overview
+title: earth2studio.models.da.sda_stormcast
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`StormCastSDA`](#earth2studio-models-da-sda_stormcast-StormCastSDA) | StormCast with score-based data assimilation (SDA) using diffusion posterior |
+
+### API
+
+<Anchor id="earth2studio-models-da-sda_stormcast-StormCastSDA">
+
+<CodeBlock links={{"earth2studio.data.DataSource":"../../data/base.mdx#earth2studio-data-base-DataSource","earth2studio.utils.type.TimeTolerance":"../../utils/type.mdx#earth2studio-utils-type-TimeTolerance"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.da.sda_stormcast.StormCastSDA(
+    regression_model: torch.nn.Module,
+    diffusion_model: torch.nn.Module,
+    means: torch.Tensor,
+    stds: torch.Tensor,
+    invariants: torch.Tensor,
+    hrrr_lat_lim: tuple[int, int] = (273, 785),
+    hrrr_lon_lim: tuple[int, int] = (579, 1219),
+    variables: numpy.array = np.array(VARIABLES),
+    conditioning_means: torch.Tensor | None = None,
+    conditioning_stds: torch.Tensor | None = None,
+    conditioning_variables: numpy.array = np.array(CONDITIONING_VARIA...,
+    conditioning_data_source: earth2studio.data.DataSource | earth2studio.data.ForecastSource | None = None,
+    time_tolerance: earth2studio.utils.type.TimeTolerance = np.timedelta64(10, 'm'),
+    sampler_steps: int = 36,
+    sampler_args: dict[str, float | int] | None = None,
+    sda_std_obs: float = 0.1,
+    sda_gamma: float = 0.001
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+StormCast with score-based data assimilation (SDA) using diffusion posterior
+sampling for convection-allowing regional forecasts. Combines a regression and
+diffusion model with DPS guidance to assimilate observations during inference.
+Model time step size is 1 hour, taking as input:
+
+- High-resolution (3km) HRRR state over the central United States (99 vars)
+- High-resolution land-sea mask and orography invariants
+- Coarse resolution (25km) global state (26 vars)
+- Point observations for data assimilation
+
+The high-resolution grid is the HRRR Lambert conformal projection.
+Coarse-resolution inputs are regridded to the HRRR grid internally.
+
+**Badges:** `region:na` `class:data-assimilation` `class:nowcasting` `product:wind` `product:temp` `product:atmos` `product:radar` `product:insitu` `year:2024` `gpu:40gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="regression_model" type="torch.nn.Module">
+Deterministic model used to make an initial prediction
+</ParamField>
+
+<ParamField path="diffusion_model" type="torch.nn.Module">
+Generative model correcting the deterministic prediciton
+</ParamField>
+
+<ParamField path="means" type="torch.Tensor">
+Mean value of each input high-resolution variable
+</ParamField>
+
+<ParamField path="stds" type="torch.Tensor">
+Standard deviation of each input high-resolution variable
+</ParamField>
+
+<ParamField path="invariants" type="torch.Tensor">
+Static invariant  quantities
+</ParamField>
+
+<ParamField path="hrrr_lat_lim" type="tuple[int, int]" default="(273, 785)">
+HRRR grid latitude limits, defaults to be the StormCastV1 region in central
+United States, by default (273, 785)
+</ParamField>
+
+<ParamField path="hrrr_lon_lim" type="tuple[int, int]" default="(579, 1219)">
+HRRR grid longitude limits, defaults to be the StormCastV1 region in central
+United States,, by default (579, 1219)
+</ParamField>
+
+<ParamField path="variables" type="np.array" default="np.array(VARIABLES)">
+High-resolution variables, by default np.array(VARIABLES)
+</ParamField>
+
+<ParamField path="conditioning_means" type="torch.Tensor | None" default="None">
+Means to normalize conditioning data, by default None
+</ParamField>
+
+<ParamField path="conditioning_stds" type="torch.Tensor | None" default="None">
+Standard deviations to normalize conditioning data, by default None
+</ParamField>
+
+<ParamField path="conditioning_variables" type="np.array" default="np.array(CONDITIONING_VARIABLES)">
+Global variables for conditioning, by default np.array(CONDITIONING_VARIABLES)
+</ParamField>
+
+<ParamField path="conditioning_data_source" type="DataSource | ForecastSource | None" default="None">
+[`DataSource`](../../data/base.mdx#earth2studio-data-base-DataSource) `|` [`ForecastSource`](../../data/base.mdx#earth2studio-data-base-ForecastSource) `| None` — Data Source to use for global conditioning. Required for running in iterator mode, by default None
+</ParamField>
+
+<ParamField path="time_tolerance" type="TimeTolerance" default="np.timedelta64(10, 'm')">
+[`TimeTolerance`](../../utils/type.mdx#earth2studio-utils-type-TimeTolerance) — Time tolerance for filtering observations. Observations within the tolerance
+window around each requested time will be used for data assimilation,
+by default np.timedelta64(10, "m")
+</ParamField>
+
+<ParamField path="sampler_steps" type="int" default="36">
+Number of diffusion sampler steps, by default 36
+</ParamField>
+
+<ParamField path="sampler_args" type="dict[str, float | int] | None" default="None">
+Arguments to pass to the diffusion sampler, by default None
+</ParamField>
+
+<ParamField path="sda_std_obs" type="float" default="0.1">
+Observation noise standard deviation for DPS guidance, by default 0.1
+</ParamField>
+
+<ParamField path="sda_gamma" type="float" default="0.001">
+SDA scaling factor for DPS guidance, by default 0.001
+</ParamField>
+
+<Note>
+
+For more information see the following references:
+
+- https://arxiv.org/abs/2408.10958
+- https://huggingface.co/nvidia/stormcast-v1-era5-hrrr
+- https://arxiv.org/abs/2306.10574
+
+</Note>
+
+<Anchor id="earth2studio-models-da-sda_stormcast-StormCastSDA-__call__">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.sda_stormcast.StormCastSDA.__call__(
+    x: xarray.DataArray,
+    obs: pandas.DataFrame | None
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Runs assimilation model 1 step.
+
+**Parameters:**
+
+<ParamField path="x" type="xr.DataArray">
+Input state on the HRRR curvilinear grid
+</ParamField>
+
+<ParamField path="obs" type="pd.DataFrame | None">
+Sparse observations DataFrame, or None for no assimilation
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Output state one time-step into the future
+
+**Raises:**
+
+- `RuntimeError`: If conditioning data source is not initialized
+
+</Indent>
+<Anchor id="earth2studio-models-da-sda_stormcast-StormCastSDA-create_generator">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.sda_stormcast.StormCastSDA.create_generator(
+    x: xarray.DataArray
+) -> collections.abc.Generator[xarray.DataArray, pandas.DataFrame | None, None]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Creates a generator for iterative forecast with data assimilation.
+
+The generator yields forecast states and receives observation DataFrames
+via ``send()``. At each step, conditioning data is fetched, observations
+are mapped to the HRRR grid, and the diffusion model produces the next
+forecast step.
+
+**Example**
+
+&gt;&gt;&gt; gen = model.create_generator(x0)
+&gt;&gt;&gt; state = next(gen)           # yields initial state x0
+&gt;&gt;&gt; state = gen.send(obs_df)    # step 1 with observations
+&gt;&gt;&gt; state = gen.send(None)      # step 2 without observations
+
+**Parameters:**
+
+<ParamField path="x" type="xr.DataArray">
+Initial state on the HRRR curvilinear grid
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-da-sda_stormcast-StormCastSDA-init_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.sda_stormcast.StormCastSDA.init_coords() -> tuple[earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Initialization coordinate system
+
+</Indent>
+<Anchor id="earth2studio-models-da-sda_stormcast-StormCastSDA-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.FrameSchema":"../../utils/type.mdx#earth2studio-utils-type-FrameSchema"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.sda_stormcast.StormCastSDA.input_coords() -> tuple[earth2studio.utils.type.FrameSchema]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system specifying required DataFrame fields.
+
+</Indent>
+<Anchor id="earth2studio-models-da-sda_stormcast-StormCastSDA-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.sda_stormcast.StormCastSDA.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load assimilation package
+
+</Indent>
+<Anchor id="earth2studio-models-da-sda_stormcast-StormCastSDA-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.data.DataSource":"../../data/base.mdx#earth2studio-data-base-DataSource","earth2studio.utils.type.TimeTolerance":"../../utils/type.mdx#earth2studio-utils-type-TimeTolerance","earth2studio.models.da.base.AssimilationModel":"./base.mdx#earth2studio-models-da-base-AssimilationModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.sda_stormcast.StormCastSDA.load_model(
+    package: earth2studio.models.auto.Package,
+    conditioning_data_source: earth2studio.data.DataSource | earth2studio.data.ForecastSource = GFS_FX(verbose=False),
+    time_tolerance: earth2studio.utils.type.TimeTolerance = np.timedelta64(10, 'm'),
+    sampler_steps: int = 36,
+    sda_std_obs: float = 0.1,
+    sda_gamma: float = 0.001
+) -> earth2studio.models.da.base.AssimilationModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load assimilation from package
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Package to load model from
+</ParamField>
+
+<ParamField path="conditioning_data_source" type="DataSource | ForecastSource" default="GFS_FX(verbose=False)">
+[`DataSource`](../../data/base.mdx#earth2studio-data-base-DataSource) `|` [`ForecastSource`](../../data/base.mdx#earth2studio-data-base-ForecastSource) — Data source to use for global conditioning, by default GFS_FX
+</ParamField>
+
+<ParamField path="time_tolerance" type="TimeTolerance" default="np.timedelta64(10, 'm')">
+[`TimeTolerance`](../../utils/type.mdx#earth2studio-utils-type-TimeTolerance) — Time tolerance for filtering observations. Observations within the tolerance
+window around each requested time will be used for data assimilation,
+by default np.timedelta64(10, "m")
+</ParamField>
+
+<ParamField path="sampler_steps" type="int" default="36">
+Number of diffusion sampler steps, by default 36
+</ParamField>
+
+<ParamField path="sda_std_obs" type="float" default="0.1">
+Observation noise standard deviation for DPS guidance, by default 0.1
+</ParamField>
+
+<ParamField path="sda_gamma" type="float" default="0.001">
+SDA scaling factor for DPS guidance, by default 0.001
+</ParamField>
+
+**Returns:** [`AssimilationModel`](./base.mdx#earth2studio-models-da-base-AssimilationModel)
+
+Assimilation model
+
+</Indent>
+<Anchor id="earth2studio-models-da-sda_stormcast-StormCastSDA-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.sda_stormcast.StormCastSDA.output_coords(
+    input_coords: tuple[earth2studio.utils.type.CoordSystem]
+) -> tuple[earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the assimilation model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="tuple[CoordSystem]">
+`tuple[` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]` — Coordinates of tensor used to initialize the forecast model.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>

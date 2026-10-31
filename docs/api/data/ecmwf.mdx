@@ -1,0 +1,1062 @@
+---
+layout: overview
+title: earth2studio.data.ecmwf
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`AIFS_ENS_FX`](#earth2studio-data-ecmwf-AIFS_ENS_FX) | Artificial intelligence forecast system (AIFS) ENS forecast data on an |
+| [`AIFS_FX`](#earth2studio-data-ecmwf-AIFS_FX) | Artificial intelligence forecast system (AIFS) SINGLE forecast data on an |
+| [`ECMWFOpenDataAsyncTask`](#earth2studio-data-ecmwf-ECMWFOpenDataAsyncTask) | Small helper struct for Async tasks |
+| [`IFS`](#earth2studio-data-ecmwf-IFS) | Integrated forecast system (IFS) HRES initial state (analysis) data source on an |
+| [`IFS_ENS`](#earth2studio-data-ecmwf-IFS_ENS) | Integrated forecast system (IFS) ensemble (ENS) initial state data source on an |
+| [`IFS_ENS_FX`](#earth2studio-data-ecmwf-IFS_ENS_FX) | Integrated forecast system (IFS) ensemble (ENS) forecast data source on an |
+| [`IFS_FX`](#earth2studio-data-ecmwf-IFS_FX) | Integrated forecast system (IFS) HRES forecast data source on an equirectangular |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`validate_leadtime`](#earth2studio-data-ecmwf-validate_leadtime) | Verify all lead times are valid based on offline knowledge. |
+| [`validate_time`](#earth2studio-data-ecmwf-validate_time) | Verify all times are valid based on offline knowledge. |
+
+### API
+
+<Anchor id="earth2studio-data-ecmwf-AIFS_ENS_FX">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.ecmwf.AIFS_ENS_FX(
+    source: typing.Literal['aws', 'ecmwf', 'azure', 'google'] = 'aws',
+    member: int = 0,
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    client_kwargs: dict[str, typing.Any] = {}
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_ECMWFOpenDataSource](#earth2studio-data-ecmwf-_ECMWFOpenDataSource)
+
+Artificial intelligence forecast system (AIFS) ENS forecast data on an
+equirectangular grid at 0.25 degree resolution. AIFS is an AI forecast model
+developed by ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's
+servers (source `ecmwf`). Historical data is available through the AWS and Google
+Cloud mirrors (sources `aws` and `google`).
+
+**Badges:** `region:global` `dataclass:simulation` `dataset:aifs` `product:wind` `product:precip` `product:temp` `product:atmos` `provider:ecmwf`
+
+**Parameters:**
+
+<ParamField path="source" type="str" default="'aws'">
+Open-data mirror to fetch from: "aws", "ecmwf", "azure", or "google".
+By default "aws".
+</ParamField>
+
+<ParamField path="member" type="int" default="0">
+Ensemble member id to use. If 0 the control forecast will be requested, if
+greater than 0 perturbed ensemble member will be requested, by default 0.
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source in local memory, by default True.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True.
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Time in seconds after which the download will be cancelled if not finished
+successfully, by default 600.
+</ParamField>
+
+<ParamField path="client_kwargs" type="dict[str, Any]" default="&#123;&#125;">
+Additional keyword arguments passed to ``ecmwf.opendata.Client``,
+by default &#123;&#125;.
+</ParamField>
+
+<Note>
+
+Additional information on the data repository can be referenced here:
+
+- https://github.com/ecmwf/ecmwf-opendata
+- https://confluence.ecmwf.int/spaces/DAC/pages/272310539/ECMWF%2Bopen%2Bdata%2Breal-time%2Bforecasts%2Bfrom%2BIFS%2Band%2BAIFS
+- https://registry.opendata.aws/ecmwf-forecasts/
+- https://console.cloud.google.com/storage/browser/ecmwf-open-data/
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of data
+to your local machine for large requests.
+
+</Warning>
+
+<Anchor id="earth2studio-data-ecmwf-AIFS_ENS_FX-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ecmwf.AIFS_ENS_FX.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve AIFS ENS forecast data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="lead_time" type="timedelta | list[timedelta] | LeadTimeArray">
+`timedelta | list[timedelta] |` [`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Forecast lead times to fetch.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the data lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+AIFS ENS forecast data array
+
+</Indent>
+<Anchor id="earth2studio-data-ecmwf-AIFS_ENS_FX-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ecmwf.AIFS_ENS_FX.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async method to retrieve AIFS ENS forecast data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="lead_time" type="timedelta | list[timedelta] | LeadTimeArray">
+`timedelta | list[timedelta] |` [`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Forecast lead times to fetch.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the data lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+AIFS ENS forecast data array
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-ecmwf-AIFS_FX">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.ecmwf.AIFS_FX(
+    source: typing.Literal['aws', 'ecmwf', 'azure', 'google'] = 'aws',
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    client_kwargs: dict[str, typing.Any] = {}
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_ECMWFOpenDataSource](#earth2studio-data-ecmwf-_ECMWFOpenDataSource)
+
+Artificial intelligence forecast system (AIFS) SINGLE forecast data on an
+equirectangular grid at 0.25 degree resolution. AIFS is an AI forecast model
+developed by ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's
+servers (source `ecmwf`). Historical data is available through the AWS and Google
+Cloud mirrors (sources `aws` and `google`).
+
+**Badges:** `region:global` `dataclass:simulation` `dataset:aifs` `product:wind` `product:precip` `product:temp` `product:atmos` `provider:ecmwf`
+
+**Parameters:**
+
+<ParamField path="source" type="str" default="'aws'">
+Open-data mirror to fetch from: "aws", "ecmwf", "azure", or "google".
+By default "aws".
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source in local memory, by default True.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True.
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Time in seconds after which the download will be cancelled if not finished
+successfully, by default 600.
+</ParamField>
+
+<ParamField path="client_kwargs" type="dict[str, Any]" default="&#123;&#125;">
+Additional keyword arguments passed to ``ecmwf.opendata.Client``,
+by default &#123;&#125;.
+</ParamField>
+
+<Note>
+
+Additional information on the data repository can be referenced here:
+
+- https://github.com/ecmwf/ecmwf-opendata
+- https://confluence.ecmwf.int/spaces/DAC/pages/272310539/ECMWF%2Bopen%2Bdata%2Breal-time%2Bforecasts%2Bfrom%2BIFS%2Band%2BAIFS
+- https://registry.opendata.aws/ecmwf-forecasts/
+- https://console.cloud.google.com/storage/browser/ecmwf-open-data/
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of data
+to your local machine for large requests.
+
+</Warning>
+
+<Anchor id="earth2studio-data-ecmwf-AIFS_FX-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ecmwf.AIFS_FX.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve AIFS forecast data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="lead_time" type="timedelta | list[timedelta] | LeadTimeArray">
+`timedelta | list[timedelta] |` [`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Forecast lead times to fetch.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the data lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+AIFS forecast data array
+
+</Indent>
+<Anchor id="earth2studio-data-ecmwf-AIFS_FX-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ecmwf.AIFS_FX.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async method to retrieve AIFS forecast data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="lead_time" type="timedelta | list[timedelta] | LeadTimeArray">
+`timedelta | list[timedelta] |` [`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Forecast lead times to fetch.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the data lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+AIFS forecast data array.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-ecmwf-ECMWFOpenDataAsyncTask">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.ecmwf.ECMWFOpenDataAsyncTask(
+    data_array_indices: tuple[int, int, int],
+    time: datetime.datetime,
+    lead_time: datetime.timedelta,
+    previous_lead_time: datetime.timedelta | None,
+    variable: str,
+    levtype: str,
+    level: str | list[str],
+    modifier: collections.abc.Callable
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Small helper struct for Async tasks
+
+</Indent>
+
+<Anchor id="earth2studio-data-ecmwf-IFS">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.ecmwf.IFS(
+    source: typing.Literal['aws', 'ecmwf', 'azure', 'google'] = 'aws',
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    client_kwargs: dict[str, typing.Any] = {}
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_ECMWFOpenDataSource](#earth2studio-data-ecmwf-_ECMWFOpenDataSource)
+
+Integrated forecast system (IFS) HRES initial state (analysis) data source on an
+equirectangular grid at 0.25 degree resolution. IFS is a forecast model developed by
+ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers
+(source `ecmwf`). Historical data is available through the AWS and Google
+Cloud mirrors (sources `aws` and `google`).
+
+**Badges:** `region:global` `dataclass:analysis` `dataset:ifs` `product:wind` `product:precip` `product:temp` `product:atmos` `provider:ecmwf`
+
+**Parameters:**
+
+<ParamField path="source" type="str" default="'aws'">
+Open-data mirror to fetch from: "aws", "ecmwf", "azure", or "google".
+By default "aws".
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source in local memory, by default True.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True.
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Time in seconds after which the download will be cancelled if not finished
+successfully, by default 600.
+</ParamField>
+
+<ParamField path="client_kwargs" type="dict[str, Any]" default="&#123;&#125;">
+Additional keyword arguments passed to ``ecmwf.opendata.Client``,
+by default &#123;&#125;.
+</ParamField>
+
+<Note>
+
+Accumulated variables are provided from previous forecast cycles using forecast
+predictions that verify at the requested analysis time.
+
+Additional information on the data repository can be referenced here:
+
+- https://github.com/ecmwf/ecmwf-opendata
+- https://confluence.ecmwf.int/spaces/DAC/pages/272310539/ECMWF%2Bopen%2Bdata%2Breal-time%2Bforecasts%2Bfrom%2BIFS%2Band%2BAIFS
+- https://registry.opendata.aws/ecmwf-forecasts/
+- https://console.cloud.google.com/storage/browser/ecmwf-open-data/
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of data
+to your local machine for large requests.
+
+</Warning>
+
+<Anchor id="earth2studio-data-ecmwf-IFS-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ecmwf.IFS.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve IFS data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the data lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+IFS analysis data array
+
+</Indent>
+<Anchor id="earth2studio-data-ecmwf-IFS-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ecmwf.IFS.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async method to retrieve IFS analysis data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the data lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+IFS analysis data array.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-ecmwf-IFS_ENS">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.ecmwf.IFS_ENS(
+    source: typing.Literal['aws', 'ecmwf', 'azure', 'google'] = 'aws',
+    member: int = 1,
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    client_kwargs: dict[str, typing.Any] = {}
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_ECMWFOpenDataSource](#earth2studio-data-ecmwf-_ECMWFOpenDataSource)
+
+Integrated forecast system (IFS) ensemble (ENS) initial state data source on an
+equirectangular grid at 0.25 degree resolution. IFS is a forecast model developed by
+ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers
+(source `ecmwf`). Historical data is available through the AWS and Google
+Cloud mirrors (sources `aws` and `google`).
+
+**Badges:** `region:global` `dataclass:analysis` `dataset:ifs` `product:wind` `product:precip` `product:temp` `product:atmos` `provider:ecmwf`
+
+**Parameters:**
+
+<ParamField path="source" type="str" default="'aws'">
+Open-data mirror to fetch from: "aws", "ecmwf", "azure", or "google".
+By default "aws".
+</ParamField>
+
+<ParamField path="member" type="int" default="1">
+Ensemble member id to use. If 0 the control forecast will be requested, if
+greater than 0 perturbed ensemble member will be requested, by default 1.
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source in local memory, by default True.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True.
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Time in seconds after which the download will be cancelled if not finished
+successfully, by default 600.
+</ParamField>
+
+<ParamField path="client_kwargs" type="dict[str, Any]" default="&#123;&#125;">
+Additional keyword arguments passed to ``ecmwf.opendata.Client``,
+by default &#123;&#125;.
+</ParamField>
+
+<Note>
+
+Accumulated variables are provided from previous forecast cycles using forecast
+predictions that verify at the requested analysis time.
+
+Additional information on the data repository can be referenced here:
+
+- https://github.com/ecmwf/ecmwf-opendata
+- https://confluence.ecmwf.int/spaces/DAC/pages/272310539/ECMWF%2Bopen%2Bdata%2Breal-time%2Bforecasts%2Bfrom%2BIFS%2Band%2BAIFS
+- https://registry.opendata.aws/ecmwf-forecasts/
+- https://console.cloud.google.com/storage/browser/ecmwf-open-data/
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of data
+to your local machine for large requests.
+
+</Warning>
+
+<Anchor id="earth2studio-data-ecmwf-IFS_ENS-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ecmwf.IFS_ENS.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve IFS ENS data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the data lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+IFS ENS initial state data array.
+
+</Indent>
+<Anchor id="earth2studio-data-ecmwf-IFS_ENS-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ecmwf.IFS_ENS.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async method to retrieve IFS ENS initial state data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the data lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+IFS ENS initial state data array.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-ecmwf-IFS_ENS_FX">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.ecmwf.IFS_ENS_FX(
+    source: typing.Literal['aws', 'ecmwf', 'azure', 'google'] = 'aws',
+    member: int = 1,
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    client_kwargs: dict[str, typing.Any] = {}
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_ECMWFOpenDataSource](#earth2studio-data-ecmwf-_ECMWFOpenDataSource)
+
+Integrated forecast system (IFS) ensemble (ENS) forecast data source on an
+equirectangular grid at 0.25 degree resolution. IFS is a forecast model developed by
+ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers
+(source `ecmwf`). Historical data is available through the AWS and Google
+Cloud mirrors (sources `aws` and `google`).
+
+**Badges:** `region:global` `dataclass:simulation` `dataset:ifs` `product:wind` `product:precip` `product:temp` `product:atmos` `provider:ecmwf`
+
+**Parameters:**
+
+<ParamField path="source" type="str" default="'aws'">
+Open-data mirror to fetch from: "aws", "ecmwf", "azure", or "google".
+By default "aws".
+</ParamField>
+
+<ParamField path="member" type="int" default="1">
+Ensemble member id to use. If 0 the control forecast will be requested, if
+greater than 0 perturbed ensemble member will be requested, by default 1.
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source in local memory, by default True.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True.
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Time in seconds after which the download will be cancelled if not finished
+successfully, by default 600.
+</ParamField>
+
+<ParamField path="client_kwargs" type="dict[str, Any]" default="&#123;&#125;">
+Additional keyword arguments passed to ``ecmwf.opendata.Client``,
+by default &#123;&#125;.
+</ParamField>
+
+<Note>
+
+Additional information on the data repository can be referenced here:
+
+- https://github.com/ecmwf/ecmwf-opendata
+- https://confluence.ecmwf.int/spaces/DAC/pages/272310539/ECMWF%2Bopen%2Bdata%2Breal-time%2Bforecasts%2Bfrom%2BIFS%2Band%2BAIFS
+- https://registry.opendata.aws/ecmwf-forecasts/
+- https://console.cloud.google.com/storage/browser/ecmwf-open-data/
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of data
+to your local machine for large requests.
+
+</Warning>
+
+<Anchor id="earth2studio-data-ecmwf-IFS_ENS_FX-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ecmwf.IFS_ENS_FX.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve IFS ENS forecast data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="lead_time" type="timedelta | list[timedelta] | LeadTimeArray">
+`timedelta | list[timedelta] |` [`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Forecast lead times to fetch.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the data lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+IFS ENS forecast data array
+
+</Indent>
+<Anchor id="earth2studio-data-ecmwf-IFS_ENS_FX-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ecmwf.IFS_ENS_FX.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async method to retrieve IFS ENS forecast data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="lead_time" type="timedelta | list[timedelta] | LeadTimeArray">
+`timedelta | list[timedelta] |` [`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Forecast lead times to fetch.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the data lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+IFS ENS forecast data array.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-ecmwf-IFS_FX">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.ecmwf.IFS_FX(
+    source: typing.Literal['aws', 'ecmwf', 'azure', 'google'] = 'aws',
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    client_kwargs: dict[str, typing.Any] = {}
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_ECMWFOpenDataSource](#earth2studio-data-ecmwf-_ECMWFOpenDataSource)
+
+Integrated forecast system (IFS) HRES forecast data source on an equirectangular
+grid at 0.25 degree resolution. IFS is a forecast model developed by
+ECMWF. Data for the most recent 4 days can be retrieved from ECMWF's servers
+(source `ecmwf`). Historical data is available through the AWS and Google
+Cloud mirrors (sources `aws` and `google`).
+
+**Badges:** `region:global` `dataclass:simulation` `dataset:ifs` `product:wind` `product:precip` `product:temp` `product:atmos` `provider:ecmwf`
+
+**Parameters:**
+
+<ParamField path="source" type="str" default="'aws'">
+Open-data mirror to fetch from: "aws", "ecmwf", "azure", or "google".
+By default "aws".
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source in local memory, by default True.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True.
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Time in seconds after which the download will be cancelled if not finished
+successfully, by default 600.
+</ParamField>
+
+<ParamField path="client_kwargs" type="dict[str, Any]" default="&#123;&#125;">
+Additional keyword arguments passed to ``ecmwf.opendata.Client``,
+by default &#123;&#125;.
+</ParamField>
+
+<Note>
+
+Additional information on the data repository can be referenced here:
+
+- https://github.com/ecmwf/ecmwf-opendata
+- https://confluence.ecmwf.int/spaces/DAC/pages/272310539/ECMWF%2Bopen%2Bdata%2Breal-time%2Bforecasts%2Bfrom%2BIFS%2Band%2BAIFS
+- https://registry.opendata.aws/ecmwf-forecasts/
+- https://console.cloud.google.com/storage/browser/ecmwf-open-data/
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of data
+to your local machine for large requests.
+
+</Warning>
+
+<Anchor id="earth2studio-data-ecmwf-IFS_FX-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ecmwf.IFS_FX.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve IFS forecast data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="lead_time" type="timedelta | list[timedelta] | LeadTimeArray">
+`timedelta | list[timedelta] |` [`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Forecast lead times to fetch.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the data lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+IFS forecast data array
+
+</Indent>
+<Anchor id="earth2studio-data-ecmwf-IFS_FX-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ecmwf.IFS_FX.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async method to retrieve IFS forecast data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="lead_time" type="timedelta | list[timedelta] | LeadTimeArray">
+`timedelta | list[timedelta] |` [`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Forecast lead times to fetch.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the data lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+IFS forecast data array.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-ecmwf-validate_leadtime">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ecmwf.validate_leadtime(
+    model: str,
+    lead_times: list[datetime.timedelta],
+    interval: int,
+    max_lead_time: int
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Verify all lead times are valid based on offline knowledge.
+
+**Parameters:**
+
+<ParamField path="model" type="str">
+Model name.
+</ParamField>
+
+<ParamField path="lead_times" type="list[timedelta]">
+List of lead times to fetch data for.
+</ParamField>
+
+<ParamField path="interval" type="int">
+Required lead time interval in hours.
+</ParamField>
+
+<ParamField path="max_lead_time" type="timedelta">
+Maximum available lead time in hours.
+</ParamField>
+
+</Indent>
+
+<Anchor id="earth2studio-data-ecmwf-validate_time">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ecmwf.validate_time(
+    model: str,
+    source: str,
+    times: list[datetime.datetime],
+    min_time: datetime.datetime
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Verify all times are valid based on offline knowledge.
+
+**Parameters:**
+
+<ParamField path="model" type="str">
+Model name.
+</ParamField>
+
+<ParamField path="source" type="str">
+ECMWF client source.
+</ParamField>
+
+<ParamField path="times" type="list[datetime]">
+List of date times to fetch data for.
+</ParamField>
+
+<ParamField path="min_time" type="datetime">
+Earliest available datetime.
+</ParamField>
+
+</Indent>

@@ -1,0 +1,73 @@
+---
+layout: overview
+title: earth2studio.lexicon.mrms
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`MRMSLexicon`](#earth2studio-lexicon-mrms-MRMSLexicon) | Multi-Radar/Multi-Sensor (MRMS) product lexicon. |
+
+### API
+
+<Anchor id="earth2studio-lexicon-mrms-MRMSLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.mrms.MRMSLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Multi-Radar/Multi-Sensor (MRMS) product lexicon.
+
+This lexicon provides a minimal mapping from Earth2Studio variable identifiers
+to MRMS product names. Initially, only composite reflectivity is exposed.
+
+<Note>
+
+Additional resources:
+
+- https://registry.opendata.aws/noaa-mrms-pds/
+- https://www.nssl.noaa.gov/projects/mrms/
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-mrms-MRMSLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.mrms.MRMSLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Get item from MRMS vocabulary.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Earth2Studio variable id.
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+- MRMS product name used in the S3 key path.
+- A modifier function to apply to the loaded values (identity).
+
+</Indent>
+</Indent>

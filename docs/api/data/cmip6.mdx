@@ -1,0 +1,383 @@
+---
+layout: overview
+title: earth2studio.data.cmip6
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`CMIP6`](#earth2studio-data-cmip6-CMIP6) | CMIP6 data source for Earth2Studio. |
+| [`CMIP6MultiRealm`](#earth2studio-data-cmip6-CMIP6MultiRealm) | CMIP6 data source for Earth2Studio with multiple realms. |
+
+### API
+
+<Anchor id="earth2studio-data-cmip6-CMIP6">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.cmip6.CMIP6(
+    experiment_id: str,
+    source_id: str,
+    table_id: str,
+    variant_label: str,
+    file_start: str | None = None,
+    file_end: str | None = None,
+    cache: bool = True,
+    verbose: bool = True,
+    exact_time_match: bool = False,
+    pressure_level_tolerance: int = 0
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+CMIP6 data source for Earth2Studio.
+
+This class provides a thin convenience wrapper around the `intake-esgf` catalog that
+hosts the Coupled Model Inter-comparison Project Phase 6 (CMIP6) archive. This is
+meant to provide a seemless interface to the CMIP6 archive for Earth2Studio however
+the CMIP6 archive is very large there may be data that will break this interface.
+Currently this supports both atmospheric and oceanic datasets.
+
+**Badges:** `region:global` `dataclass:simulation` `dataset:cmip6` `product:wind` `product:precip` `product:temp` `product:atmos` `product:ocean`
+
+**Parameters:**
+
+<ParamField path="experiment_id" type="str">
+CMIP6 experiment identifier (e.g. "historical", "ssp585")
+</ParamField>
+
+<ParamField path="source_id" type="str">
+CMIP6 model identifier (e.g. "MPI-ESM1-2-LR")
+</ParamField>
+
+<ParamField path="table_id" type="str">
+CMOR table describing variable realm/frequency ("Amon", "Omon", "SImon")
+</ParamField>
+
+<ParamField path="variant_label" type="str">
+Ensemble member / initial-condition label such as "r1i1p1f1".
+</ParamField>
+
+<ParamField path="file_start" type="str" default="None">
+Optional filename prefix filters forwarded to ``ESGFCatalog.search`` to
+constrain the final dataset selection. Leave None to accept all, by default None
+</ParamField>
+
+<ParamField path="file_end" type="str" default="None">
+Optional filename suffix filters forwarded to ``ESGFCatalog.search`` to
+constrain the final dataset selection. Leave None to accept all, by default None
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True. Multiple CMIP6 instances
+can safely share the same cache directory as intake-esgf automatically organizes
+files into detailed subdirectories by project, model, experiment, variant, variable,
+and version, preventing any conflicts.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+<ParamField path="exact_time_match" type="bool" default="False">
+If True, raise an error when requested times don't match dataset times exactly.
+If False (default), use nearest neighbor time matching and issue a warning, by default False
+</ParamField>
+
+<ParamField path="pressure_level_tolerance" type="int" default="0">
+Tolerance for selecting pressure levels in pascals, by default 0
+</ParamField>
+
+<Note>
+
+Additional information on the CMIP6 data repository can be referenced here:
+
+- https://esgf-node.llnl.gov/search/cmip6/
+
+The intake-esgf package is used to search the CMIP6 data repository and load the
+data into an xarray dataset. Additional information on the intake-esgf package can
+be referenced here:
+
+- https://intake-esgf.readthedocs.io/en/latest/
+By default, this data source will retrieve the closest time available using nearest
+neighbor matching. Depending on the experiment and temporal resolution, this may be
+significantly different than what was requested. Set `exact_time_match=True` to
+enforce exact time matching if precise timestamps are critical.
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of data
+to your local machine for large requests. The source data used is provided in an
+unoptimized format.
+
+</Warning>
+
+<ParamField path="cache" type="str">
+Get the appropriate cache location.
+</ParamField>
+
+<Anchor id="earth2studio-data-cmip6-CMIP6-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.cmip6.CMIP6.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Function to get data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Strings or list of strings that refer to variables to return.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Loaded data array
+
+</Indent>
+<Anchor id="earth2studio-data-cmip6-CMIP6-available">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.cmip6.CMIP6.available(
+    time: datetime.datetime | numpy.datetime64,
+    experiment_id: str,
+    source_id: str,
+    table_id: str,
+    variant_label: str
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Check if the requested *exact* timestamp exists in the ESGF archive.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | np.datetime64">
+Timestamp to test (UTC).
+</ParamField>
+
+<ParamField path="experiment_id" type="str">
+CMIP6 experiment identifier (e.g. "historical", "ssp585").
+</ParamField>
+
+<ParamField path="source_id" type="str">
+CMIP6 model identifier (e.g. "MPI-ESM1-2-LR").
+</ParamField>
+
+<ParamField path="table_id" type="str">
+CMOR table describing variable realm/frequency ("Amon", "Omon", "SImon" ...).
+</ParamField>
+
+<ParamField path="variant_label" type="str">
+Ensemble member / initial-condition label such as "r1i1p1f1".
+</ParamField>
+
+<Note>
+
+The check performs an ESGF search and downloads at least one file to read
+its time coordinate bounds. If the target timestamp lies within the dataset's
+time span, `True` is returned. Otherwise returns `False`.
+
+</Note>
+
+<Warning>
+
+This method downloads data from ESGF servers to verify the time coordinate
+range. It is not a lightweight metadata-only check.
+
+</Warning>
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-cmip6-CMIP6MultiRealm">
+
+<CodeBlock links={{"earth2studio.data.cmip6.CMIP6":"#earth2studio-data-cmip6-CMIP6"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.cmip6.CMIP6MultiRealm(
+    cmip6_source_list: list[earth2studio.data.cmip6.CMIP6]
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+CMIP6 data source for Earth2Studio with multiple realms.
+
+This class allows combining multiple CMIP6 data sources from different realms
+(e.g., atmosphere, ocean, sea ice) into a single unified interface. Variables
+are fetched from each source in the order provided, and data on different grids
+are automatically regridded to a common regular lat/lon grid.
+
+**Badges:** `region:global` `dataclass:simulation` `dataset:cmip6` `product:wind` `product:precip` `product:temp` `product:atmos` `product:ocean`
+
+**Parameters:**
+
+<ParamField path="cmip6_source_list" type="list[CMIP6]">
+`list[` [`CMIP6`](#earth2studio-data-cmip6-CMIP6) `]` — List of CMIP6 data sources to combine. Variables will be fetched from
+sources in the order they appear in the list. All sources must have the
+same `exact_time_match` setting.
+</ParamField>
+
+**Raises:**
+
+- `ValueError`: If cmip6_source_list is empty or if sources have different exact_time_match settings.
+- `TypeError`: If any item in cmip6_source_list is not a CMIP6 instance.
+
+<Note>
+
+When multiple sources have different grids, curvilinear grids (e.g., from ocean
+or sea ice models) will be interpolated to the first regular lat/lon grid found
+using nearest-neighbor interpolation.
+
+All CMIP6 sources must be initialized with the same `exact_time_match` setting
+to ensure consistent time matching behavior across realms.
+
+</Note>
+
+<ParamField path="cache" type="list[str]">
+Get cache locations from all CMIP6 sources.
+</ParamField>
+<Anchor id="earth2studio-data-cmip6-CMIP6MultiRealm-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.cmip6.CMIP6MultiRealm.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve data from multiple CMIP6 sources and combine into single array.
+
+This method fetches the requested variables from the available CMIP6 sources,
+automatically regridding data from different grids to a common grid, and
+combines all variables into a single DataArray.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variable(s) to retrieve. Each variable will be fetched from the first
+source in the list that has it available.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Combined data array with dimensions (time, variable, lat, lon) or
+(time, variable, j, i) depending on the grid type.
+
+**Raises:**
+
+- `ValueError`: If any requested variables are not found in any of the sources.
+- `NotImplementedError`: If all sources use curvilinear grids (at least one regular lat/lon grid required).
+
+<Note>
+
+Variables are retrieved from sources in the order they appear in
+cmip6_source_list. If multiple sources contain the same variable,
+only the first one will be used.
+
+Curvilinear grids (ocean/sea ice) are regridded to regular grids using
+nearest-neighbor interpolation to preserve data coverage near coastlines.
+At least one source with a regular lat/lon grid (typically atmospheric data)
+is required when combining multiple sources with different grids.
+
+</Note>
+
+</Indent>
+<Anchor id="earth2studio-data-cmip6-CMIP6MultiRealm-available">
+
+<CodeBlock links={{"earth2studio.data.cmip6.CMIP6":"#earth2studio-data-cmip6-CMIP6"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.cmip6.CMIP6MultiRealm.available(
+    time: datetime.datetime | numpy.datetime64,
+    cmip6_source_list: list[earth2studio.data.cmip6.CMIP6]
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Check if the requested timestamp is available in all sources.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | np.datetime64">
+Timestamp to test (UTC).
+</ParamField>
+
+<ParamField path="cmip6_source_list" type="list[CMIP6]">
+`list[` [`CMIP6`](#earth2studio-data-cmip6-CMIP6) `]` — List of CMIP6 data sources to check.
+</ParamField>
+
+**Returns:** `bool`
+
+True if the timestamp is available in all sources, False otherwise.
+
+<Note>
+
+This method checks that ALL sources have data available at the requested time,
+since combining multi-realm data requires data from all sources. Each source
+is checked by downloading at least one file to verify the time coordinate range.
+
+</Note>
+
+<Warning>
+
+This method may download data from ESGF servers for each source to check
+time availability. For multiple sources, this can result in significant
+data transfer.
+
+</Warning>
+
+</Indent>
+</Indent>

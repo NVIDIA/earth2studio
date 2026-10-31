@@ -1,0 +1,294 @@
+---
+layout: overview
+title: earth2studio.data.samudrace
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`SamudrACEData`](#earth2studio-data-samudrace-SamudrACEData) | SamudrACE initial-condition data source. |
+| [`SamudrACEForcingData`](#earth2studio-data-samudrace-SamudrACEForcingData) | SamudrACE exogenous forcing data source. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-data-samudrace-SamudrACEData">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.samudrace.SamudrACEData(
+    cache: bool = True,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_SamudrACEBase](#earth2studio-data-samudrace-_SamudrACEBase)
+
+SamudrACE initial-condition data source.
+
+Provides the combined atmosphere and ocean initial-condition variables of
+the SamudrACE coupled emulator from the ``allenai/SamudrACE-CM4-piControl``
+HuggingFace repository, served with Earth2Studio variable names via the
+``SamudrACELexicon``.
+
+The SamudrACE checkpoint was trained on a GFDL CM4 preindustrial-control
+run, so initial conditions exist only at the published CM4 model-year
+timestamps (e.g. ``0151-01-06T00:00:00``); requesting any other time
+raises an error. Because such model years are outside the range of
+nanosecond-precision timestamps, times should be provided as
+second-precision ``np.datetime64`` values or ``datetime`` objects, and the
+returned time coordinate is second precision.
+
+**Badges:** `region:global` `dataclass:simulation` `product:temp` `product:atmos` `product:ocean`
+
+**Parameters:**
+
+<ParamField path="cache" type="bool" default="True">
+Cache downloaded files locally (via the shared HuggingFace hub
+cache), by default True.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Log download progress, by default True.
+</ParamField>
+
+<Note>
+
+For more information see the following references:
+
+- SamudrACE paper: https://arxiv.org/abs/2509.12490
+- HuggingFace repo: https://huggingface.co/allenai/SamudrACE-CM4-piControl
+
+</Note>
+
+<Warning>
+
+Each initial condition consists of two NetCDF files of roughly 100 MB
+total that are downloaded on demand.
+
+</Warning>
+
+<Anchor id="earth2studio-data-samudrace-SamudrACEData-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.samudrace.SamudrACEData.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Fetch initial-condition data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for. Every requested time must be one
+of the published initial-condition timestamps.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Earth2Studio variable names (see ``SamudrACELexicon``).
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data array with dimensions ``[time, variable, lat, lon]`` and
+latitude ordered north to south.
+
+</Indent>
+<Anchor id="earth2studio-data-samudrace-SamudrACEData-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.samudrace.SamudrACEData.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async wrapper for `__call__`.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Earth2Studio variable names.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data array with dimensions ``[time, variable, lat, lon]``.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-samudrace-SamudrACEForcingData">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.samudrace.SamudrACEForcingData(
+    scenario: str = '0311',
+    cache: bool = True,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_SamudrACEBase](#earth2studio-data-samudrace-_SamudrACEBase)
+
+SamudrACE exogenous forcing data source.
+
+Provides the exogenous atmosphere forcing variables of the SamudrACE
+coupled emulator (e.g. downward shortwave radiation at the top of the
+atmosphere, land/lake fraction, surface height) from the
+``allenai/SamudrACE-CM4-piControl`` HuggingFace repository, served with
+Earth2Studio variable names via the ``SamudrACELexicon``.
+
+Each forcing scenario NetCDF covers exactly one year of 6-hourly data on
+the no-leap CM4 model calendar (1460 timesteps). Time-varying fields are
+matched to requested times by month, day, and hour, ignoring the year, so
+the forcing series tiles annually for multi-year trajectories. Static
+fields are broadcast to every requested time. Requests that have no
+no-leap counterpart (February 29) or that fall off the 6-hourly grid
+raise an error.
+
+**Badges:** `region:global` `dataclass:simulation` `product:temp` `product:atmos`
+
+**Parameters:**
+
+<ParamField path="scenario" type="str" default="'0311'">
+Forcing scenario, either ``"0151"`` or ``"0311"``, by default
+``"0311"``.
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache downloaded files locally (via the shared HuggingFace hub
+cache), by default True.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Log download progress, by default True.
+</ParamField>
+
+<Note>
+
+For more information see the following references:
+
+- SamudrACE paper: https://arxiv.org/abs/2509.12490
+- HuggingFace repo: https://huggingface.co/allenai/SamudrACE-CM4-piControl
+
+</Note>
+
+<Warning>
+
+Each forcing scenario is a NetCDF file of roughly 300 MB that is
+downloaded on demand.
+
+</Warning>
+
+<Anchor id="earth2studio-data-samudrace-SamudrACEForcingData-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.samudrace.SamudrACEForcingData.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Fetch forcing data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for. Time-varying fields are matched
+by month, day, and hour on the no-leap forcing calendar.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Earth2Studio variable names (see ``SamudrACELexicon``).
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data array with dimensions ``[time, variable, lat, lon]`` and
+latitude ordered north to south.
+
+</Indent>
+<Anchor id="earth2studio-data-samudrace-SamudrACEForcingData-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.samudrace.SamudrACEForcingData.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async wrapper for `__call__`.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Earth2Studio variable names.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data array with dimensions ``[time, variable, lat, lon]``.
+
+</Indent>
+</Indent>

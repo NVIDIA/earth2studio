@@ -1,0 +1,250 @@
+---
+layout: overview
+title: earth2studio.run
+---
+## Module Contents
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`deterministic`](#earth2studio-run-deterministic) | Built in deterministic workflow. |
+| [`diagnostic`](#earth2studio-run-diagnostic) | Built in diagnostic workflow. |
+| [`ensemble`](#earth2studio-run-ensemble) | Built in ensemble workflow. |
+
+### API
+
+<Anchor id="earth2studio-run-deterministic">
+
+<CodeBlock links={{"earth2studio.models.px.PrognosticModel":"./models/px/base.mdx#earth2studio-models-px-base-PrognosticModel","earth2studio.data.DataSource":"./data/base.mdx#earth2studio-data-base-DataSource","earth2studio.io.IOBackend":"./io/base.mdx#earth2studio-io-base-IOBackend","earth2studio.utils.coords.CoordSystem":"./utils/type.mdx#earth2studio-utils-type-CoordSystem","earth2studio.utils.checkpoint.Checkpoint":"./utils/checkpoint.mdx#earth2studio-utils-checkpoint-Checkpoint","earth2studio.utils.checkpoint.CheckpointSession":"./utils/checkpoint.mdx#earth2studio-utils-checkpoint-CheckpointSession","earth2studio.utils.checkpoint.NullCheckpoint":"./utils/checkpoint.mdx#earth2studio-utils-checkpoint-NullCheckpoint"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.run.deterministic(
+    time: list[str] | list[datetime.datetime] | list[numpy.datetime64],
+    nsteps: int,
+    prognostic: earth2studio.models.px.PrognosticModel,
+    data: earth2studio.data.DataSource,
+    io: earth2studio.io.IOBackend,
+    output_coords: earth2studio.utils.coords.CoordSystem = OrderedDict({}),
+    device: torch.device | None = None,
+    verbose: bool = True,
+    checkpoint: earth2studio.utils.checkpoint.Checkpoint | earth2studio.utils.checkpoint.CheckpointSession | earth2studio.utils.checkpoint.NullCheckpoint = NullCheckpoint()
+) -> earth2studio.io.IOBackend
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Built in deterministic workflow.
+This workflow creates a determinstic inference pipeline to produce a forecast
+prediction using a prognostic model.
+
+**Parameters:**
+
+<ParamField path="time" type="list[str] | list[datetime] | list[np.datetime64]">
+List of string, datetimes or np.datetime64
+</ParamField>
+
+<ParamField path="nsteps" type="int">
+Number of forecast steps
+</ParamField>
+
+<ParamField path="prognostic" type="PrognosticModel">
+[`PrognosticModel`](./models/px/base.mdx#earth2studio-models-px-base-PrognosticModel) — Prognostic model
+</ParamField>
+
+<ParamField path="data" type="DataSource">
+[`DataSource`](./data/base.mdx#earth2studio-data-base-DataSource) — Data source
+</ParamField>
+
+<ParamField path="io" type="IOBackend">
+[`IOBackend`](./io/base.mdx#earth2studio-io-base-IOBackend) — IO object
+</ParamField>
+
+<ParamField path="output_coords" type="CoordSystem" default="OrderedDict(&#123;&#125;)">
+[`CoordSystem`](./utils/type.mdx#earth2studio-utils-type-CoordSystem) — IO output coordinate system override, by default OrderedDict(&#123;&#125;)
+</ParamField>
+
+<ParamField path="device" type="torch.device" default="None">
+Device to run inference on, by default None
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print inference progress, by default True
+</ParamField>
+
+<ParamField path="checkpoint" type="Checkpoint" default="NullCheckpoint()">
+[`Checkpoint`](./utils/checkpoint.mdx#earth2studio-utils-checkpoint-Checkpoint) — Checkpoint manager or checkpoint session used to record and resume workflow
+progress, by default no checkpoint
+</ParamField>
+
+**Returns:** [`IOBackend`](./io/base.mdx#earth2studio-io-base-IOBackend)
+
+Output IO object
+
+</Indent>
+
+<Anchor id="earth2studio-run-diagnostic">
+
+<CodeBlock links={{"earth2studio.models.px.PrognosticModel":"./models/px/base.mdx#earth2studio-models-px-base-PrognosticModel","earth2studio.models.dx.DiagnosticModel":"./models/dx/base.mdx#earth2studio-models-dx-base-DiagnosticModel","earth2studio.data.DataSource":"./data/base.mdx#earth2studio-data-base-DataSource","earth2studio.io.IOBackend":"./io/base.mdx#earth2studio-io-base-IOBackend","earth2studio.utils.coords.CoordSystem":"./utils/type.mdx#earth2studio-utils-type-CoordSystem","earth2studio.utils.checkpoint.Checkpoint":"./utils/checkpoint.mdx#earth2studio-utils-checkpoint-Checkpoint","earth2studio.utils.checkpoint.CheckpointSession":"./utils/checkpoint.mdx#earth2studio-utils-checkpoint-CheckpointSession","earth2studio.utils.checkpoint.NullCheckpoint":"./utils/checkpoint.mdx#earth2studio-utils-checkpoint-NullCheckpoint"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.run.diagnostic(
+    time: list[str] | list[datetime.datetime] | list[numpy.datetime64],
+    nsteps: int,
+    prognostic: earth2studio.models.px.PrognosticModel,
+    diagnostic: earth2studio.models.dx.DiagnosticModel,
+    data: earth2studio.data.DataSource | earth2studio.data.ForecastSource,
+    io: earth2studio.io.IOBackend,
+    output_coords: earth2studio.utils.coords.CoordSystem = OrderedDict({}),
+    device: torch.device | None = None,
+    verbose: bool = True,
+    checkpoint: earth2studio.utils.checkpoint.Checkpoint | earth2studio.utils.checkpoint.CheckpointSession | earth2studio.utils.checkpoint.NullCheckpoint = NullCheckpoint()
+) -> earth2studio.io.IOBackend
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Built in diagnostic workflow.
+This workflow creates a determinstic inference pipeline that couples a prognostic
+model with a diagnostic model.
+
+**Parameters:**
+
+<ParamField path="time" type="list[str] | list[datetime] | list[np.datetime64]">
+List of string, datetimes or np.datetime64
+</ParamField>
+
+<ParamField path="nsteps" type="int">
+Number of forecast steps
+</ParamField>
+
+<ParamField path="prognostic" type="PrognosticModel">
+[`PrognosticModel`](./models/px/base.mdx#earth2studio-models-px-base-PrognosticModel) — Prognostic model
+</ParamField>
+
+<ParamField path="diagnostic" type="DiagnosticModel">
+[`DiagnosticModel`](./models/dx/base.mdx#earth2studio-models-dx-base-DiagnosticModel) — Diagnostic model, must be on same coordinate axis as prognostic
+</ParamField>
+
+<ParamField path="data" type="DataSource | ForecastSource">
+[`DataSource`](./data/base.mdx#earth2studio-data-base-DataSource) `|` [`ForecastSource`](./data/base.mdx#earth2studio-data-base-ForecastSource) — Data source
+</ParamField>
+
+<ParamField path="io" type="IOBackend">
+[`IOBackend`](./io/base.mdx#earth2studio-io-base-IOBackend) — IO object
+</ParamField>
+
+<ParamField path="output_coords" type="CoordSystem" default="OrderedDict(&#123;&#125;)">
+[`CoordSystem`](./utils/type.mdx#earth2studio-utils-type-CoordSystem) — IO output coordinate system override, by default OrderedDict(&#123;&#125;)
+</ParamField>
+
+<ParamField path="device" type="torch.device" default="None">
+Device to run inference on, by default None
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print inference progress, by default True
+</ParamField>
+
+<ParamField path="checkpoint" type="Checkpoint" default="NullCheckpoint()">
+[`Checkpoint`](./utils/checkpoint.mdx#earth2studio-utils-checkpoint-Checkpoint) — Checkpoint manager or checkpoint session used to record and resume workflow
+progress, by default no checkpoint
+</ParamField>
+
+**Returns:** [`IOBackend`](./io/base.mdx#earth2studio-io-base-IOBackend)
+
+Output IO object
+
+</Indent>
+
+<Anchor id="earth2studio-run-ensemble">
+
+<CodeBlock links={{"earth2studio.models.px.PrognosticModel":"./models/px/base.mdx#earth2studio-models-px-base-PrognosticModel","earth2studio.data.DataSource":"./data/base.mdx#earth2studio-data-base-DataSource","earth2studio.io.IOBackend":"./io/base.mdx#earth2studio-io-base-IOBackend","earth2studio.perturbation.Perturbation":"./perturbation/base.mdx#earth2studio-perturbation-base-Perturbation","earth2studio.utils.coords.CoordSystem":"./utils/type.mdx#earth2studio-utils-type-CoordSystem","earth2studio.utils.checkpoint.Checkpoint":"./utils/checkpoint.mdx#earth2studio-utils-checkpoint-Checkpoint","earth2studio.utils.checkpoint.CheckpointSession":"./utils/checkpoint.mdx#earth2studio-utils-checkpoint-CheckpointSession","earth2studio.utils.checkpoint.NullCheckpoint":"./utils/checkpoint.mdx#earth2studio-utils-checkpoint-NullCheckpoint"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.run.ensemble(
+    time: list[str] | list[datetime.datetime] | list[numpy.datetime64],
+    nsteps: int,
+    nensemble: int,
+    prognostic: earth2studio.models.px.PrognosticModel,
+    data: earth2studio.data.DataSource,
+    io: earth2studio.io.IOBackend,
+    perturbation: earth2studio.perturbation.Perturbation,
+    batch_size: int | None = None,
+    output_coords: earth2studio.utils.coords.CoordSystem = OrderedDict({}),
+    device: torch.device | None = None,
+    verbose: bool = True,
+    checkpoint: earth2studio.utils.checkpoint.Checkpoint | earth2studio.utils.checkpoint.CheckpointSession | earth2studio.utils.checkpoint.NullCheckpoint = NullCheckpoint()
+) -> earth2studio.io.IOBackend
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Built in ensemble workflow.
+
+**Parameters:**
+
+<ParamField path="time" type="list[str] | list[datetime] | list[np.datetime64]">
+List of string, datetimes or np.datetime64
+</ParamField>
+
+<ParamField path="nsteps" type="int">
+Number of forecast steps
+</ParamField>
+
+<ParamField path="nensemble" type="int">
+Number of ensemble members to run inference for.
+</ParamField>
+
+<ParamField path="prognostic" type="PrognosticModel">
+[`PrognosticModel`](./models/px/base.mdx#earth2studio-models-px-base-PrognosticModel) — Prognostic models
+</ParamField>
+
+<ParamField path="data" type="DataSource">
+[`DataSource`](./data/base.mdx#earth2studio-data-base-DataSource) — Data source
+</ParamField>
+
+<ParamField path="io" type="IOBackend">
+[`IOBackend`](./io/base.mdx#earth2studio-io-base-IOBackend) — IO object
+</ParamField>
+
+<ParamField path="perturbation" type="Perturbation">
+[`Perturbation`](./perturbation/base.mdx#earth2studio-perturbation-base-Perturbation) — Method to perturb the initial condition to create an ensemble.
+</ParamField>
+
+<ParamField path="batch_size" type="int" default="None">
+Number of ensemble members to run in a single batch,
+by default None.
+</ParamField>
+
+<ParamField path="output_coords" type="CoordSystem" default="OrderedDict(&#123;&#125;)">
+[`CoordSystem`](./utils/type.mdx#earth2studio-utils-type-CoordSystem) — IO output coordinate system override, by default OrderedDict(&#123;&#125;)
+</ParamField>
+
+<ParamField path="device" type="torch.device" default="None">
+Device to run inference on, by default None
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print inference progress, by default True
+</ParamField>
+
+<ParamField path="checkpoint" type="Checkpoint" default="NullCheckpoint()">
+[`Checkpoint`](./utils/checkpoint.mdx#earth2studio-utils-checkpoint-Checkpoint) — Checkpoint manager or checkpoint session used to record and resume workflow
+progress, by default no checkpoint
+</ParamField>
+
+**Returns:** [`IOBackend`](./io/base.mdx#earth2studio-io-base-IOBackend)
+
+Output IO object
+
+</Indent>

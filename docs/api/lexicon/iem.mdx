@@ -1,0 +1,76 @@
+---
+layout: overview
+title: earth2studio.lexicon.iem
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`IEM_ASOSLexicon`](#earth2studio-lexicon-iem-IEM_ASOSLexicon) | Iowa Environmental Mesonet ASOS/AWOS observation lexicon. |
+
+### API
+
+<Anchor id="earth2studio-lexicon-iem-IEM_ASOSLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.iem.IEM_ASOSLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Iowa Environmental Mesonet ASOS/AWOS observation lexicon.
+
+The mappings only reference fields parsed by IEM. The unprocessed ``metar``
+field is intentionally not exposed.
+
+<Note>
+
+The ``fg10m`` variable has lower coverage than routine fields because IEM
+only populates ``gust`` when a station reports a wind gust.
+
+Additional resources:
+
+- https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?help
+- https://mesonet.agron.iastate.edu/request/download.phtml
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-iem-IEM_ASOSLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.iem.IEM_ASOSLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Get an IEM field mapping and conversion function.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Earth2Studio variable ID.
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+IEM parsed field key and a function that converts a parsed frame to
+Earth2Studio units.
+
+</Indent>
+</Indent>

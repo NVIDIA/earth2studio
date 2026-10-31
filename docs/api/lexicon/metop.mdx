@@ -1,0 +1,392 @@
+---
+layout: overview
+title: earth2studio.lexicon.metop
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`MetOpAMSUALexicon`](#earth2studio-lexicon-metop-MetOpAMSUALexicon) | Lexicon for MetOp AMSU-A Level 1B brightness temperature data. |
+| [`MetOpAVHRRLexicon`](#earth2studio-lexicon-metop-MetOpAVHRRLexicon) | Lexicon for MetOp AVHRR Level 1B data. |
+| [`MetOpIASILexicon`](#earth2studio-lexicon-metop-MetOpIASILexicon) | Lexicon for MetOp IASI Level 1C brightness temperature data. |
+| [`MetOpMHSLexicon`](#earth2studio-lexicon-metop-MetOpMHSLexicon) | Lexicon for MetOp MHS Level 1B brightness temperature data. |
+
+### API
+
+<Anchor id="earth2studio-lexicon-metop-MetOpAMSUALexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.metop.MetOpAMSUALexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Lexicon for MetOp AMSU-A Level 1B brightness temperature data.
+
+This lexicon maps the ``amsua`` variable to an identity modifier for
+brightness temperature observations in Kelvin.  Individual channels (1-15)
+are distinguished by the ``sensor_index`` column of the returned DataFrame,
+following the same convention used by [`UFSObsSat`](../data/ufs.mdx#earth2studio-data-ufs-UFSObsSat).
+
+AMSU-A is a 15-channel microwave radiometer on the MetOp satellite series
+providing atmospheric temperature profiles from the surface through the
+stratosphere.
+
+The data source returns calibrated brightness temperatures (K) derived from
+scene radiances via the Planck function with band correction coefficients.
+
+**References**
+
+- EUMETSAT. ATOVS Level 1 Products Product Guide (EUM/OPS-EPS/MAN/04/0030).
+- EUMETSAT. AMSU-A Level 1 Product Format Specification (EPS.MIS.SPE.97228).
+
+<Note>
+
+AMSU-A Channel Specifications (MetOp-B/C):
+
+========  ===========  ==========================================
+Channel   Frequency    Primary Application
+========  ===========  ==========================================
+1         23.8 GHz     Surface emissivity, precipitation
+2         31.4 GHz     Total column water vapor, cloud liquid water
+3         50.3 GHz     Lower troposphere temperature (~surface)
+4         52.8 GHz     Mid-troposphere temperature (~700 hPa)
+5         53.6 GHz     Mid-troposphere temperature (~500 hPa)
+6         54.4 GHz     Upper troposphere temperature (~400 hPa)
+7         54.9 GHz     Tropopause temperature (~300 hPa)
+8         55.5 GHz     Lower stratosphere (~200 hPa)
+9         57.29 GHz    Stratosphere (~90 hPa)
+10        57.29 GHz    Stratosphere (~50 hPa)
+11        57.29 GHz    Stratosphere (~25 hPa)
+12        57.29 GHz    Stratosphere (~10 hPa)
+13        57.29 GHz    Upper stratosphere (~5 hPa)
+14        57.29 GHz    Upper stratosphere (~2 hPa)
+15        89.0 GHz     Surface, precipitation, ice
+========  ===========  ==========================================
+
+Channel 15 (89.0 GHz) may have a high fraction of missing values
+in some L1B products due to quality filtering.
+
+Spatial resolution is approximately 48 km at nadir with 30 field-of-view
+positions per scan line. Each scan line takes 8 seconds.
+
+Variable documentation:
+    https://user.eumetsat.int/s3/eup-strapi-media/pdf_atovsl1b_pg_8bbaa8ba48.pdf
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-metop-MetOpAMSUALexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.metop.MetOpAMSUALexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable[[Any], typing.Any]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Get AMSU-A data key and modifier for a variable name.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Standardized variable name (``amsua``)
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+Tuple containing:
+- Data key for brightness temperature
+- Modifier function (identity -- brightness temperature in K)
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-lexicon-metop-MetOpAVHRRLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.metop.MetOpAVHRRLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Lexicon for MetOp AVHRR Level 1B data.
+
+This lexicon maps the ``avhrr`` variable to an identity modifier.
+Individual channels (1, 2, 3a, 3b, 4, 5) are distinguished by the
+``sensor_index`` column of the returned DataFrame.  The ``class``
+column differentiates observation types: ``"refl"`` for visible/NIR
+channels (1, 2, 3A) which return reflectance (%), and ``"rad"`` for
+thermal IR channels (3B, 4, 5) which return brightness temperature (K).
+
+AVHRR/3 is a 6-channel radiometer covering visible, near-infrared,
+and thermal infrared bands aboard the MetOp satellite series.
+Channels 3A and 3B are mutually exclusive (only one active per scan
+line, switched by telecommand).
+
+**References**
+
+- EUMETSAT. AVHRR Level 1b Product Guide (EUM/OPS-EPS/MAN/04/0029).
+- EUMETSAT. AVHRR Level 1 Product Format Specification (EPS.MIS.SPE.97231).
+
+<Note>
+
+AVHRR/3 Channel Specifications:
+
+========  ==============  ==============================================
+Channel   Wavelength      Primary Application
+========  ==============  ==============================================
+1         0.63 um (VIS)   Cloud/surface mapping, vegetation index (NDVI)
+2         0.865 um (NIR)  Vegetation, water/land boundaries
+3A        1.61 um (SWIR)  Snow/ice discrimination (daytime only)
+3B        3.74 um (MWIR)  Fire detection, night-time cloud/SST
+4         10.8 um (TIR)   Sea/land surface temperature, cloud top temp
+5         12.0 um (TIR)   Surface temperature, water vapor correction
+========  ==============  ==============================================
+
+Channels 3A/3B are mutually exclusive: 3A operates during daytime, 3B
+during nighttime (switched by telecommand). Both cannot be active
+simultaneously.
+
+Spatial resolution is 1.1 km at nadir with 2048 pixels per scan line.
+
+Variable documentation:
+    https://user.eumetsat.int/s3/eup-strapi-media/pdf_ten_97231_eps_avhrr_l1_pfs_8bbab17e80.pdf
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-metop-MetOpAVHRRLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.metop.MetOpAVHRRLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable[[Any], typing.Any]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Get AVHRR data key and modifier for a variable name.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Standardized variable name (``avhrr``)
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+Tuple containing:
+- Data key for calibrated observation
+- Modifier function (identity)
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-lexicon-metop-MetOpIASILexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.metop.MetOpIASILexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Lexicon for MetOp IASI Level 1C brightness temperature data.
+
+This lexicon maps the ``iasi`` variable to an identity modifier for
+brightness temperature observations in Kelvin.  Individual channels (1-8461)
+are distinguished by the ``sensor_index`` column of the returned DataFrame,
+following the same convention used by [`MetOpAMSUA`](../data/metop_amsua.mdx#earth2studio-data-metop_amsua-MetOpAMSUA)
+and [`UFSObsSat`](../data/ufs.mdx#earth2studio-data-ufs-UFSObsSat).
+
+IASI (Infrared Atmospheric Sounding Interferometer) is a Fourier-transform
+infrared spectrometer on the MetOp satellite series providing 8461 spectral
+channels across the thermal infrared (645--2760 cm-1).  The instrument
+measures calibrated spectral radiances that are converted to brightness
+temperature (K) via the Planck function.
+
+The data source returns calibrated brightness temperatures (K) for a
+user-selectable subset of the 8461 channels.  Each IASI field of regard
+(EFOV) comprises a 2x2 array of instantaneous fields of view (IFOVs),
+each approximately 12 km diameter at nadir.
+
+**References**
+
+- Clerbaux, C. et al. (2009). Monitoring of atmospheric composition using
+  the thermal infrared IASI/MetOp sounder. Atmos. Chem. Phys., 9, 6041-6054.
+- EUMETSAT. IASI Level 1 Product Guide (EUM/OPS-EPS/MAN/04/0032).
+- https://data.eumetsat.int/product/EO:EUM:DAT:METOP:IASIL1C-ALL
+
+<Note>
+
+IASI Spectral Band Specifications:
+
+======  ===============  ===============  =================
+Band    Channel Range    Wavenumber (cm-1) Primary Application
+======  ===============  ===============  =================
+1       1 -- 1997        645 -- 1210      CO2 / temperature sounding
+2       1998 -- 5116     1210 -- 1990     Water vapor / ozone
+3       5117 -- 8461     1990 -- 2760     Shortwave IR / trace gases
+======  ===============  ===============  =================
+
+Spectral sampling is 0.25 cm-1 with 0.5 cm-1 apodised resolution.
+
+Each scan line contains 30 EFOV positions x 4 IFOV pixels = 120 spectra.
+Spatial resolution is approximately 12 km at nadir per IFOV.
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-metop-MetOpIASILexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.metop.MetOpIASILexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable[[Any], typing.Any]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Get IASI data key and modifier for a variable name.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Standardized variable name (``iasi``)
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+Tuple containing:
+- Data key for brightness temperature
+- Modifier function (identity -- brightness temperature in K)
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-lexicon-metop-MetOpMHSLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.metop.MetOpMHSLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Lexicon for MetOp MHS Level 1B brightness temperature data.
+
+This lexicon maps the ``mhs`` variable to an identity modifier for
+brightness temperature observations in Kelvin.  Individual channels (1-5)
+are distinguished by the ``sensor_index`` column of the returned DataFrame,
+following the same convention used by [`UFSObsSat`](../data/ufs.mdx#earth2studio-data-ufs-UFSObsSat).
+
+MHS (Microwave Humidity Sounder) is a 5-channel cross-track scanning
+microwave radiometer aboard the MetOp satellite series, providing
+atmospheric humidity profiles from the surface through the upper
+troposphere.  MHS is the successor to AMSU-B and operates on MetOp-A
+(decommissioned 2021), MetOp-B, and MetOp-C.
+
+The data source returns calibrated brightness temperatures (K) derived from
+scene radiances via the Planck function with band correction coefficients.
+
+**References**
+
+- EUMETSAT. ATOVS Level 1 Products Product Guide (EUM/OPS-EPS/MAN/04/0030).
+- NOAA KLM User's Guide, Section 3.9 "MHS Instrument Description".
+
+<Note>
+
+MHS Channel Specifications (MetOp-B/C):
+
+========  ===============  ==========================================
+Channel   Frequency        Primary Application
+========  ===============  ==========================================
+1         89.0 GHz         Surface emissivity, ice/rain detection
+2         157.0 GHz        Mid-troposphere humidity, precipitation
+3         183.311±1 GHz    Upper troposphere humidity (~300 hPa)
+4         183.311±3 GHz    Mid/upper troposphere humidity (~500 hPa)
+5         190.311 GHz      Lower troposphere humidity, precipitation
+========  ===============  ==========================================
+
+Spatial resolution is approximately 16 km at nadir with 90 field-of-view
+positions per scan line.  The scan period is 8/3 seconds (shared antenna
+assembly with AMSU-A), covering a swath of ~2180 km.
+
+Variable documentation:
+    https://user.eumetsat.int/s3/eup-strapi-media/pdf_atovsl1b_pg_8bbaa8ba48.pdf
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-metop-MetOpMHSLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.metop.MetOpMHSLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable[[Any], typing.Any]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Get MHS data key and modifier for a variable name.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Standardized variable name (``mhs``)
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+Tuple containing:
+- Data key for brightness temperature
+- Modifier function (identity -- brightness temperature in K)
+
+</Indent>
+</Indent>

@@ -1,0 +1,82 @@
+---
+layout: overview
+title: earth2studio.lexicon.arco
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`ARCO_ERA5Lexicon`](#earth2studio-lexicon-arco-ARCO_ERA5Lexicon) | ARCO ERA5 Lexicon |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`__getattr__`](#earth2studio-lexicon-arco-__getattr__) | Return deprecated lexicon aliases. |
+
+### API
+
+<Anchor id="earth2studio-lexicon-arco-ARCO_ERA5Lexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.arco.ARCO_ERA5Lexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+ARCO ERA5 Lexicon
+ARCO specified &lt;Variable ID&gt;::&lt;Pressure Level&gt;
+
+<Note>
+
+Variable named based on ERA5 names, see CDS docs for resources.
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-arco-ARCO_ERA5Lexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.arco.ARCO_ERA5Lexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return name in ARCO_ERA5 vocabulary.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-lexicon-arco-__getattr__">
+
+<CodeBlock links={{"earth2studio.lexicon.arco.ARCO_ERA5Lexicon":"#earth2studio-lexicon-arco-ARCO_ERA5Lexicon"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.arco.__getattr__(
+    name: str
+) -> type[earth2studio.lexicon.arco.ARCO_ERA5Lexicon]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Return deprecated lexicon aliases.
+
+</Indent>

@@ -1,0 +1,151 @@
+---
+layout: overview
+title: earth2studio.statistics.lsd
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`log_spectral_distance`](#earth2studio-statistics-lsd-log_spectral_distance) | Statistic for calculating the radially averaged 2D log spectral distance (LSD) |
+
+### API
+
+<Anchor id="earth2studio-statistics-lsd-log_spectral_distance">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.statistics.lsd.log_spectral_distance(
+    reduction_dimensions: list[str] = [],
+    spatial_dimensions: tuple[str, str] | None = None,
+    ensemble_dimension: str | None = None,
+    wavenumber_cutoff: int | None = None,
+    batch_update: bool = False
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Statistic for calculating the radially averaged 2D log spectral distance (LSD)
+of one tensor with respect to another over a set of given dimensions. This is given
+in decibel (dB) as 10 * sqrt( mean( log10( psd(x) / psd(y) )**2 ) ).
+
+**Parameters:**
+
+<ParamField path="reduction_dimensions" type="List[str] = []" default="[]">
+A list of names corresponding to additional dimensions (besides the wavenumber)
+to perform the statistical reduction over.
+</ParamField>
+
+<ParamField path="spatial_dimensions" type="Tuple[str, str] | None = None" default="None">
+Indicates the spatial dimensions. If None, it is assumed that these are the last
+two dimensions.
+</ParamField>
+
+<ParamField path="ensemble_dimension" type="str | None = None" default="None">
+Indicates the ensemble dimension, if not None. The LSD is computed between each
+ensemble member in the prediction and the corresponding observation.
+</ParamField>
+
+<ParamField path="wavenumber_cutoff" type="int | None = None" default="None">
+If a positive integer, use only the first `wavenumber_cutoff` modes to compute LSD.
+If a negative integer, use all except the last `-wavenumber_cutoff` modes.
+If None (default), use all modes.
+</ParamField>
+
+<ParamField path="batch_update" type="bool = False" default="False">
+Whether to apply batch updates to the LSD with each invocation of __call__.
+This is particularly useful when data is recieved in a stream of batches. Each
+invocation of __call__ will return the running LSD.
+</ParamField>
+
+<ParamField path="mean">
+</ParamField>
+
+<ParamField path="reduction_dimensions" type="list[str]">
+</ParamField>
+<Anchor id="earth2studio-statistics-lsd-log_spectral_distance-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.lsd.log_spectral_distance.__call__(
+    x: torch.Tensor,
+    x_coords: earth2studio.utils.type.CoordSystem,
+    y: torch.Tensor,
+    y_coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Apply metric to data `x` and `y`, checking that their coordinates
+are broadcastable. While reducing over `reduction_dims`.
+
+If batch_update was passed True upon metric initialization then this method
+returns the running sample RMSE over all seen batches.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor, typically the forecast or prediction tensor.
+</ParamField>
+
+<ParamField path="x_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the `x` tensor.
+`reduction_dimensions` must be in x_coords, as do `ensemble_dimension` and
+`spatial_dimensions` if provided in constructor.
+</ParamField>
+
+<ParamField path="y" type="torch.Tensor">
+Input tensor #2 intended to be used as validation data.
+</ParamField>
+
+<ParamField path="y_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the `y` tensor.
+`reduction_dimensions` must be in y_coords, do `spatial_dimensions` if
+provided in constructor.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Returns root mean squared error tensor with appropriate reduced coordinates.
+
+</Indent>
+<Anchor id="earth2studio-statistics-lsd-log_spectral_distance-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.lsd.log_spectral_distance.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the computed statistic, corresponding to the given input coordinates
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>

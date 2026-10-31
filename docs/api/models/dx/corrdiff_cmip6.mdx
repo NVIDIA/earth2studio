@@ -1,0 +1,410 @@
+---
+layout: overview
+title: earth2studio.models.dx.corrdiff_cmip6
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`CorrDiffCMIP6`](#earth2studio-models-dx-corrdiff_cmip6-CorrDiffCMIP6) | CMIP6 to ERA5 downscaling model based on the CorrDiff architecture. This model |
+
+### API
+
+<Anchor id="earth2studio-models-dx-corrdiff_cmip6-CorrDiffCMIP6">
+
+<CodeBlock links={{"earth2studio.utils.type.LeadTimeArray":"../../utils/type.mdx#earth2studio-utils-type-LeadTimeArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.CorrDiffCMIP6(
+    input_variables: collections.abc.Sequence[str],
+    output_variables: collections.abc.Sequence[str],
+    residual_model: torch.nn.Module,
+    regression_model: torch.nn.Module,
+    lat_input_grid: torch.Tensor,
+    lon_input_grid: torch.Tensor,
+    lat_output_grid: torch.Tensor,
+    lon_output_grid: torch.Tensor,
+    in_center: torch.Tensor,
+    in_scale: torch.Tensor,
+    out_center: torch.Tensor,
+    out_scale: torch.Tensor,
+    invariants: collections.OrderedDict | None = None,
+    invariant_center: torch.Tensor | None = None,
+    invariant_scale: torch.Tensor | None = None,
+    number_of_samples: int = 1,
+    number_of_steps: int = 18,
+    solver: typing.Literal['euler', 'heun'] = 'euler',
+    sampler_type: typing.Literal['deterministic', 'stochastic'] = 'stochastic',
+    inference_mode: typing.Literal['regression', 'diffusion', 'both'] = 'both',
+    hr_mean_conditioning: bool = True,
+    seed: int | None = None,
+    grid_spacing_tolerance: float = 1e-05,
+    grid_bounds_margin: float = 0.0,
+    sigma_min: float | None = None,
+    sigma_max: float | None = None,
+    time_feature_center: torch.Tensor | None = None,
+    time_feature_scale: torch.Tensor | None = None,
+    output_lead_times: earth2studio.utils.type.LeadTimeArray = np.array([np.timedelta64(-1...
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [CorrDiff](./corrdiff.mdx#earth2studio-models-dx-corrdiff-CorrDiff)
+
+CMIP6 to ERA5 downscaling model based on the CorrDiff architecture. This model
+can be used to downscale both in the spatial and temporal dimensions.
+This model works with the `earth2studio.data.CMIP6MultiRealm` data source.
+
+**Badges:** `region:global` `class:downscaling` `class:climate` `product:wind` `product:precip` `product:temp` `product:atmos` `year:2026` `gpu:80gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="input_variables" type="Sequence[str]">
+List of input variable names
+</ParamField>
+
+<ParamField path="output_variables" type="Sequence[str]">
+List of output variable names
+</ParamField>
+
+<ParamField path="residual_model" type="torch.nn.Module">
+Core pytorch model for diffusion step
+</ParamField>
+
+<ParamField path="regression_model" type="torch.nn.Module">
+Core pytorch model for regression step
+</ParamField>
+
+<ParamField path="lat_input_grid" type="torch.Tensor">
+Input latitude grid of size [in_lat]
+</ParamField>
+
+<ParamField path="lon_input_grid" type="torch.Tensor">
+Input longitude grid of size [in_lon]
+</ParamField>
+
+<ParamField path="lat_output_grid" type="torch.Tensor">
+Output latitude grid of size [out_lat]
+</ParamField>
+
+<ParamField path="lon_output_grid" type="torch.Tensor">
+Output longitude grid of size [out_lon]
+</ParamField>
+
+<ParamField path="in_center" type="torch.Tensor">
+Model input center normalization tensor of size [in_var]
+</ParamField>
+
+<ParamField path="in_scale" type="torch.Tensor">
+Model input scale normalization tensor of size [in_var]
+</ParamField>
+
+<ParamField path="out_center" type="torch.Tensor">
+Model output center normalization tensor of size [out_var]
+</ParamField>
+
+<ParamField path="out_scale" type="torch.Tensor">
+Model output scale normalization tensor of size [out_var]
+</ParamField>
+
+<ParamField path="invariants" type="OrderedDict | None" default="None">
+Dictionary of invariant features, by default None
+</ParamField>
+
+<ParamField path="invariant_center" type="torch.Tensor | None" default="None">
+Model invariant center normalization tensor, by default None
+</ParamField>
+
+<ParamField path="invariant_scale" type="torch.Tensor | None" default="None">
+Model invariant scale normalization tensor, by default None
+</ParamField>
+
+<ParamField path="number_of_samples" type="int" default="1">
+Number of high resolution samples to draw from diffusion model, by default 1
+</ParamField>
+
+<ParamField path="number_of_steps" type="int" default="18">
+Number of langevin diffusion steps during sampling algorithm, by default 18
+</ParamField>
+
+<ParamField path="solver" type="Literal['euler', 'heun']" default="'euler'">
+Discretization of diffusion process, by default "euler"
+</ParamField>
+
+<ParamField path="sampler_type" type="Literal['deterministic', 'stochastic']" default="'stochastic'">
+Type of sampler to use, by default "stochastic"
+</ParamField>
+
+<ParamField path="inference_mode" type="Literal['regression', 'both']" default="'both'">
+Which inference mode to use ("both" or "regression"); diffusion-only
+is not supported in CorrDiffCMIP6. Default is "both".
+</ParamField>
+
+<ParamField path="hr_mean_conditioning" type="bool" default="True">
+Whether to use high-res mean conditioning, by default True
+</ParamField>
+
+<ParamField path="seed" type="int | None" default="None">
+Random seed for reproducibility, by default None
+</ParamField>
+
+<ParamField path="grid_spacing_tolerance" type="float" default="1e-05">
+Relative tolerance for checking regular grid spacing, by default 1e-5
+</ParamField>
+
+<ParamField path="grid_bounds_margin" type="float" default="0.0">
+Fraction of input grid range to allow for extrapolation, by default 0.0
+</ParamField>
+
+<ParamField path="sigma_min" type="float | None" default="None">
+Minimum noise level for diffusion process, by default None
+</ParamField>
+
+<ParamField path="sigma_max" type="float | None" default="None">
+Maximum noise level for diffusion process, by default None
+</ParamField>
+
+<ParamField path="time_feature_center" type="torch.Tensor | None" default="None">
+Normalization center for time features (sza, hod) of size [2], by default None
+</ParamField>
+
+<ParamField path="time_feature_scale" type="torch.Tensor | None" default="None">
+Normalization scale for time features (sza, hod) of size [2], by default None
+</ParamField>
+
+<ParamField path="output_lead_times" type="LeadTimeArray" default="np.array([np.timedelta64(-12, 'h')])">
+[`LeadTimeArray`](../../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Output lead times to sample at within the input time window. The default package
+is trained to support lead times between [-12, +11] hours at hourly intervals.
+This constraint ensures the input data remains aligned with the temporal features
+(SZA, HOD) calculated at the valid time. By default np.array([np.timedelta64(-12, "h")])
+</ParamField>
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+Run a single forward pass to predict CMIP6->ERA5 at two lead times within input window
+```
+
+</CodeBlock>
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+>>> model = CorrDiffCMIP6.load_model(
+...     CorrDiffCMIP6.load_default_package(),
+...     output_lead_times=np.array([np.timedelta64(-12, "h"), np.timedelta64(-6, "h")]),
+... )
+>>> model.seed = 1 # Set seed for reprod
+>>> model.number_of_samples = 1 # Modify number of samples if needed
+>>> model = model.to(device)
+>>>
+>>> # Build CMIP6 multi-realm data source, about 60 Gbs of data will be fetched
+>>> cmip6_kwargs = dict(
+...     experiment_id="ssp585",
+...     source_id="CanESM5",
+...     variant_label="r1i1p2f1",
+...     exact_time_match=True,
+... )
+>>> data = CMIP6MultiRealm([CMIP6(table_id=t, **cmip6_kwargs) for t in ("day", "Eday", "SIday")])
+>>>
+>>> x, coords = fetch_data(
+...     source=data,
+...     time=np.array([np.datetime64("2037-09-06T12:00")]), # Time must be 12:00 UTC
+...     lead_time=model.input_coords()["lead_time"],
+...     variable=model.input_coords()["variable"],
+...     device=device,
+... )
+>>>
+>>> # Run model forward pass
+>>> out, out_coords = model(x, coords)
+>>> da = xr.DataArray(data=out.cpu().numpy(), coords=out_coords, dims=list(out_coords.keys()))
+```
+
+</CodeBlock>
+
+<Note>
+
+For more information see the following references:
+
+- https://huggingface.co/nvidia/corrdiff-cmip6-era5
+
+</Note>
+
+<Anchor id="earth2studio-models-dx-corrdiff_cmip6-CorrDiffCMIP6-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCMIP6.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Forward pass of diagnostic
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cmip6-CorrDiffCMIP6-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCMIP6.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cmip6-CorrDiffCMIP6-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCMIP6.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load diagnostic package
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cmip6-CorrDiffCMIP6-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.utils.type.LeadTimeArray":"../../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.models.dx.base.DiagnosticModel":"./base.mdx#earth2studio-models-dx-base-DiagnosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCMIP6.load_model(
+    package: earth2studio.models.auto.Package,
+    output_lead_times: earth2studio.utils.type.LeadTimeArray = np.array([np.timedelta64(-1...,
+    device: str = 'cpu'
+) -> earth2studio.models.dx.base.DiagnosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load diagnostic from package
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Package containing model weights and configuration
+</ParamField>
+
+<ParamField path="output_lead_times" type="LeadTimeArray" default="np.array([np.timedelta64(-12, 'h')])">
+[`LeadTimeArray`](../../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Output lead times to sample at, by default np.array([np.timedelta64(-12, "h")])
+</ParamField>
+
+<ParamField path="device" type="str" default="'cpu'">
+Device to load model on, by default "cpu"
+</ParamField>
+
+**Returns:** [`DiagnosticModel`](./base.mdx#earth2studio-models-dx-base-DiagnosticModel)
+
+Diagnostic model
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cmip6-CorrDiffCMIP6-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCMIP6.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of diagnostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cmip6-CorrDiffCMIP6-postprocess_output">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCMIP6.postprocess_output(
+    x: torch.Tensor
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Denormalize output tensor using model's center and scale parameters.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Normalized output tensor to denormalize
+</ParamField>
+
+**Returns:** `torch.Tensor`
+
+Denormalized output tensor x * scale + center
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cmip6-CorrDiffCMIP6-preprocess_input">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCMIP6.preprocess_input(
+    x: torch.Tensor,
+    valid_time: datetime.datetime | None = None
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input preprocessing pipeline with optional time information.
+
+</Indent>
+</Indent>

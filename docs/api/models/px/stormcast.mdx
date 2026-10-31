@@ -1,0 +1,297 @@
+---
+layout: overview
+title: earth2studio.models.px.stormcast
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`StormCast`](#earth2studio-models-px-stormcast-StormCast) | StormCast generative convection-allowing model for regional forecasts consists of |
+
+### API
+
+<Anchor id="earth2studio-models-px-stormcast-StormCast">
+
+<CodeBlock links={{"earth2studio.data.DataSource":"../../data/base.mdx#earth2studio-data-base-DataSource"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.stormcast.StormCast(
+    regression_model: torch.nn.Module,
+    diffusion_model: torch.nn.Module,
+    means: torch.Tensor,
+    stds: torch.Tensor,
+    invariants: torch.Tensor,
+    hrrr_lat_lim: tuple[int, int] = (273, 785),
+    hrrr_lon_lim: tuple[int, int] = (579, 1219),
+    variables: numpy.array = np.array(VARIABLES),
+    conditioning_means: torch.Tensor | None = None,
+    conditioning_stds: torch.Tensor | None = None,
+    conditioning_variables: numpy.array = np.array(CONDITIONING_VARIA...,
+    conditioning_data_source: earth2studio.data.DataSource | earth2studio.data.ForecastSource | None = None,
+    sampler_steps: int = 18,
+    sampler_args: dict[str, float | int] | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin), [PrognosticMixin](./utils.mdx#earth2studio-models-px-utils-PrognosticMixin)
+
+StormCast generative convection-allowing model for regional forecasts consists of
+two core models: a regression and diffusion model. Model time step size is 1 hour,
+taking as input:
+
+- High-resolution (3km) HRRR state over the central United States (99 vars)
+- High-resolution land-sea mask and orography invariants
+- Coarse resolution (25km) global state (26 vars)
+
+The high-resolution grid is the HRRR Lambert conformal projection
+Coarse-resolution inputs are regridded to the HRRR grid internally.
+
+**Badges:** `region:na` `class:nowcasting` `product:wind` `product:temp` `product:radar` `product:atmos` `year:2024` `gpu:40gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="regression_model" type="torch.nn.Module">
+Deterministic model used to make an initial prediction
+</ParamField>
+
+<ParamField path="diffusion_model" type="torch.nn.Module">
+Generative model correcting the deterministic prediciton
+</ParamField>
+
+<ParamField path="means" type="torch.Tensor">
+Mean value of each input high-resolution variable
+</ParamField>
+
+<ParamField path="stds" type="torch.Tensor">
+Standard deviation of each input high-resolution variable
+</ParamField>
+
+<ParamField path="invariants" type="torch.Tensor">
+Static invariant  quantities
+</ParamField>
+
+<ParamField path="hrrr_lat_lim" type="tuple[int, int]" default="(273, 785)">
+HRRR grid latitude limits, defaults to be the StormCastV1 region in central
+United States, by default (273, 785)
+</ParamField>
+
+<ParamField path="hrrr_lon_lim" type="tuple[int, int]" default="(579, 1219)">
+HRRR grid longitude limits, defaults to be the StormCastV1 region in central
+United States,, by default (579, 1219)
+</ParamField>
+
+<ParamField path="variables" type="np.array" default="np.array(VARIABLES)">
+High-resolution variables, by default np.array(VARIABLES)
+</ParamField>
+
+<ParamField path="conditioning_means" type="torch.Tensor | None" default="None">
+Means to normalize conditioning data, by default None
+</ParamField>
+
+<ParamField path="conditioning_stds" type="torch.Tensor | None" default="None">
+Standard deviations to normalize conditioning data, by default None
+</ParamField>
+
+<ParamField path="conditioning_variables" type="np.array" default="np.array(CONDITIONING_VARIABLES)">
+Global variables for conditioning, by default np.array(CONDITIONING_VARIABLES)
+</ParamField>
+
+<ParamField path="conditioning_data_source" type="DataSource | ForecastSource | None" default="None">
+[`DataSource`](../../data/base.mdx#earth2studio-data-base-DataSource) `|` [`ForecastSource`](../../data/base.mdx#earth2studio-data-base-ForecastSource) `| None` — Data Source to use for global conditioning. Required for running in iterator mode, by default None
+</ParamField>
+
+<ParamField path="sampler_steps" type="int" default="18">
+Number of diffusion sampler steps, by default 36
+</ParamField>
+
+<ParamField path="sampler_args" type="dict[str, float | int]" default="None">
+Arguments to pass to the diffusion sampler, by default None
+</ParamField>
+
+<Note>
+
+For more information see the following references:
+
+- https://arxiv.org/abs/2408.10958
+- https://huggingface.co/nvidia/stormcast-v1-era5-hrrr
+
+</Note>
+
+<Anchor id="earth2studio-models-px-stormcast-StormCast-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormcast.StormCast.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Runs prognostic model 1 step
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Output tensor and coordinate system
+
+**Raises:**
+
+- `RuntimeError`: If conditioning data source is not initialized
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormcast-StormCast-create_iterator">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormcast.StormCast.create_iterator(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> collections.abc.Iterator[tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Creates a iterator which can be used to perform time-integration of the
+prognostic model. Will return the initial condition first (0th step).
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormcast-StormCast-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormcast.StormCast.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormcast-StormCast-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormcast.StormCast.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic package
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormcast-StormCast-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.data.DataSource":"../../data/base.mdx#earth2studio-data-base-DataSource","earth2studio.models.px.base.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormcast.StormCast.load_model(
+    package: earth2studio.models.auto.Package,
+    conditioning_data_source: earth2studio.data.DataSource | earth2studio.data.ForecastSource = GFS_FX(),
+    sampler_steps: int = 18
+) -> earth2studio.models.px.base.PrognosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic from package
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Package to load model from
+</ParamField>
+
+<ParamField path="conditioning_data_source" type="DataSource | ForecastSource" default="GFS_FX()">
+[`DataSource`](../../data/base.mdx#earth2studio-data-base-DataSource) `|` [`ForecastSource`](../../data/base.mdx#earth2studio-data-base-ForecastSource) — Data source to use for global conditioning, by default GFS_FX
+</ParamField>
+
+<ParamField path="sampler_steps" type="int" default="18">
+Number of diffusion sampler steps, by default 18
+</ParamField>
+
+**Returns:** [`PrognosticModel`](./base.mdx#earth2studio-models-px-base-PrognosticModel)
+
+Prognostic model
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormcast-StormCast-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormcast.StormCast.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of diagnostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>

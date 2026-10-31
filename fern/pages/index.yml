@@ -1,0 +1,889 @@
+# Navigation for the current version, kept next to the content it references.
+# Referenced from the `versions:` list in ../docs.yml. Paths are relative to this file.
+#
+# Mirrors the MkDocs `nav:` in /mkdocs.yml (tab order: Home, User Guide, API, Examples,
+# Blog, Changelog). Not migrated yet: the Scorecards tab (plugin-generated).
+# Blog archive/category pages are plugin-generated and are replaced by the post list on the blog index.
+
+tabs:
+  home:
+    display-name: Home
+    skip-slug: true
+  user-guide:
+    display-name: User Guide
+    skip-slug: true          # Tab adds no URL segment (/install, not /user-guide/install).
+  api:
+    display-name: API
+    slug: api                # Pages live under /api/<group>/<page>.
+  examples:
+    display-name: Examples
+    skip-slug: true          # Section slug below already provides /examples.
+  blog:
+    display-name: Blog
+    skip-slug: true          # Section slug below already provides /blog.
+  changelog:
+    display-name: Changelog
+    href: https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md
+
+navigation:
+  - tab: home
+    layout:
+      - page: Home
+        path: ../../docs/index.mdx
+        slug: /              # "/" makes this the version's landing page.
+  - tab: user-guide
+    layout:
+      # The userguide landing page is not in the MkDocs nav; keep it reachable but hidden.
+      - page: User Guide
+        path: ../../docs/userguide/index.mdx
+        slug: userguide
+        hidden: true
+      - page: Install
+        path: ../../docs/userguide/about/install.mdx
+        slug: install
+      - page: Overview
+        path: ../../docs/userguide/about/overview.mdx
+        slug: overview
+      - page: Catalog
+        path: ../../docs/userguide/about/catalog.mdx
+        slug: catalog
+      - section: Core Components
+        path: ../../docs/userguide/components/index.mdx
+        slug: components
+        contents:
+          - page: Prognostic Models
+            path: ../../docs/userguide/components/prognostic.mdx
+            slug: prognostic
+          - page: Diagnostic Models
+            path: ../../docs/userguide/components/diagnostic.mdx
+            slug: diagnostic
+          - page: Data Assimilation Models
+            path: ../../docs/userguide/components/data_assimilation.mdx
+            slug: data_assimilation
+          - page: Data Sources
+            path: ../../docs/userguide/components/datasources.mdx
+            slug: datasources
+          - page: Perturbations
+            path: ../../docs/userguide/components/perturbation.mdx
+            slug: perturbation
+          - page: IO Backends
+            path: ../../docs/userguide/components/io.mdx
+            slug: io
+          - page: Statistics
+            path: ../../docs/userguide/components/statistics.mdx
+            slug: statistics
+      - section: Advanced Usage
+        path: ../../docs/userguide/advanced/index.mdx
+        slug: advanced
+        contents:
+          - page: Checkpointing
+            path: ../../docs/userguide/advanced/checkpointing.mdx
+            slug: checkpointing
+          - page: Batch Dimension
+            path: ../../docs/userguide/advanced/batch.mdx
+            slug: batch
+          - page: AutoModels
+            path: ../../docs/userguide/advanced/auto.mdx
+            slug: auto
+          - page: Lexicon
+            path: ../../docs/userguide/advanced/lexicon.mdx
+            slug: lexicon
+          - section: Knowledge Base
+            path: ../../docs/userguide/notes/index.mdx
+            slug: notes
+            contents:
+              - page: Surface Pressure
+                path: ../../docs/userguide/notes/surface_pressure.mdx
+                slug: surface_pressure
+      - section: Developer Guide
+        path: ../../docs/userguide/developer/index.mdx
+        slug: developer
+        contents:
+          - page: Overview
+            path: ../../docs/userguide/developer/overview.mdx
+            slug: overview
+          - page: Dependencies
+            path: ../../docs/userguide/developer/dependency.mdx
+            slug: dependency
+          - page: Style
+            path: ../../docs/userguide/developer/style.mdx
+            slug: style
+          - page: Documentation
+            path: ../../docs/userguide/developer/documentation.mdx
+            slug: documentation
+          - page: Testing
+            path: ../../docs/userguide/developer/testing.mdx
+            slug: testing
+          - page: Build
+            path: ../../docs/userguide/developer/build.mdx
+            slug: build
+          - page: Recipes
+            path: ../../docs/userguide/developer/recipes.mdx
+            slug: recipes
+          - page: Skills
+            path: ../../docs/userguide/developer/skills.mdx
+            slug: skills
+      - section: Support
+        path: ../../docs/userguide/support/index.mdx
+        slug: support
+        contents:
+          - page: Troubleshooting
+            path: ../../docs/userguide/support/troubleshooting.mdx
+            slug: troubleshooting
+          - page: FAQ
+            path: ../../docs/userguide/support/faq.mdx
+            slug: faq
+  - tab: api
+    layout:
+      # Generated by fern/scripts/generate_api.py (Fern's Python library docs generator
+      # plus cleanup); re-run it to refresh the pages and this block. Do not edit by hand.
+      # BEGIN GENERATED API NAV (fern/scripts/generate_api.py) - do not edit by hand
+      - page: Overview
+        path: ../../docs/api/index.mdx
+        slug: overview
+      - section: Prognostic Models
+        path: ../../docs/api/models/px/index.mdx
+        slug: models_px
+        contents:
+          - page: ACE2ERA5
+            path: ../../docs/api/models/px/ace2.mdx
+            slug: ace2
+          - page: AIFS
+            path: ../../docs/api/models/px/aifs.mdx
+            slug: aifs
+          - page: AIFS2
+            path: ../../docs/api/models/px/aifs2.mdx
+            slug: aifs2
+          - page: AIFS2ENS
+            path: ../../docs/api/models/px/aifs2ens.mdx
+            slug: aifs2ens
+          - page: AIFSENS
+            path: ../../docs/api/models/px/aifsens.mdx
+            slug: aifsens
+          - page: Atlas
+            path: ../../docs/api/models/px/atlas.mdx
+            slug: atlas
+          - page: AtlasCRPS
+            path: ../../docs/api/models/px/atlas_crps.mdx
+            slug: atlas_crps
+          - page: Aurora
+            path: ../../docs/api/models/px/aurora.mdx
+            slug: aurora
+          - page: aurora1p5
+            path: ../../docs/api/models/px/aurora1p5.mdx
+            slug: aurora1p5
+          - page: CAMulator
+            path: ../../docs/api/models/px/camulator.mdx
+            slug: camulator
+          - page: CBottleVideo
+            path: ../../docs/api/models/px/cbottle_video.mdx
+            slug: cbottle_video
+          - page: DataReplay
+            path: ../../docs/api/models/px/datareplay.mdx
+            slug: datareplay
+          - page: dlesym
+            path: ../../docs/api/models/px/dlesym.mdx
+            slug: dlesym
+          - page: dlesym_v0_isccp_era5
+            path: ../../docs/api/models/px/dlesym_v0_isccp_era5.mdx
+            slug: dlesym_v0_isccp_era5
+          - page: DLWP
+            path: ../../docs/api/models/px/dlwp.mdx
+            slug: dlwp
+          - page: dxwrapper
+            path: ../../docs/api/models/px/dxwrapper.mdx
+            slug: dxwrapper
+          - page: FCN
+            path: ../../docs/api/models/px/fcn.mdx
+            slug: fcn
+          - page: FCN3
+            path: ../../docs/api/models/px/fcn3.mdx
+            slug: fcn3
+          - page: FengWu
+            path: ../../docs/api/models/px/fengwu.mdx
+            slug: fengwu
+          - page: FuXi
+            path: ../../docs/api/models/px/fuxi.mdx
+            slug: fuxi
+          - page: FuXiS2S
+            path: ../../docs/api/models/px/fuxi_s2s.mdx
+            slug: fuxi_s2s
+          - page: GenCastMini
+            path: ../../docs/api/models/px/gencast_mini.mdx
+            slug: gencast_mini
+          - page: GraphCastOperational
+            path: ../../docs/api/models/px/graphcast_operational.mdx
+            slug: graphcast_operational
+          - page: GraphCastSmall
+            path: ../../docs/api/models/px/graphcast_small.mdx
+            slug: graphcast_small
+          - page: InterpCRPSDiT
+            path: ../../docs/api/models/px/interpcrpsdit.mdx
+            slug: interpcrpsdit
+          - page: InterpModAFNO
+            path: ../../docs/api/models/px/interpmodafno.mdx
+            slug: interpmodafno
+          - page: pangu
+            path: ../../docs/api/models/px/pangu.mdx
+            slug: pangu
+          - page: Persistence
+            path: ../../docs/api/models/px/persistence.mdx
+            slug: persistence
+          - page: PrognosticMixin
+            path: ../../docs/api/models/px/utils.mdx
+            slug: utils
+          - page: PrognosticModel
+            path: ../../docs/api/models/px/base.mdx
+            slug: base
+          - page: SamudrACE
+            path: ../../docs/api/models/px/samudrace.mdx
+            slug: samudrace
+          - page: SFNO
+            path: ../../docs/api/models/px/sfno.mdx
+            slug: sfno
+          - page: StormCast
+            path: ../../docs/api/models/px/stormcast.mdx
+            slug: stormcast
+          - page: StormCastCONUS
+            path: ../../docs/api/models/px/stormcastconus.mdx
+            slug: stormcastconus
+          - page: stormscope
+            path: ../../docs/api/models/px/stormscope.mdx
+            slug: stormscope
+          - page: StormScopeMeteosatEU
+            path: ../../docs/api/models/px/stormscope_meteosat.mdx
+            slug: stormscope_meteosat
+          - page: ucast
+            path: ../../docs/api/models/px/ucast.mdx
+            slug: ucast
+          - page: weathernext2_cyclones
+            path: ../../docs/api/models/px/weathernext2_cyclones.mdx
+            slug: weathernext2_cyclones
+      - section: Diagnostic Models
+        path: ../../docs/api/models/dx/index.mdx
+        slug: models_dx
+        contents:
+          - page: CBottleInfill
+            path: ../../docs/api/models/dx/cbottle_infill.mdx
+            slug: cbottle_infill
+          - page: CBottleSR
+            path: ../../docs/api/models/dx/cbottle_sr.mdx
+            slug: cbottle_sr
+          - page: CBottleTCGuidance
+            path: ../../docs/api/models/dx/cbottle_tc.mdx
+            slug: cbottle_tc
+          - page: ClimateNet
+            path: ../../docs/api/models/dx/climatenet.mdx
+            slug: climatenet
+          - page: corrdiff
+            path: ../../docs/api/models/dx/corrdiff.mdx
+            slug: corrdiff
+          - page: corrdiff_era5_hrrr
+            path: ../../docs/api/models/dx/corrdiff_era5_hrrr.mdx
+            slug: corrdiff_era5_hrrr
+          - page: CorrDiffCMIP6
+            path: ../../docs/api/models/dx/corrdiff_cmip6.mdx
+            slug: corrdiff_cmip6
+          - page: CorrDiffCosmoEra5
+            path: ../../docs/api/models/dx/corrdiff_cosmo_era5.mdx
+            slug: corrdiff_cosmo_era5
+          - page: derived
+            path: ../../docs/api/models/dx/derived.mdx
+            slug: derived
+          - page: DiagnosticModel
+            path: ../../docs/api/models/dx/base.mdx
+            slug: base
+          - page: DLESyMv0_ISCCP_ERA5Precip
+            path: ../../docs/api/models/dx/dlesym_v0_isccp_era5_precip.mdx
+            slug: dlesym_v0_isccp_era5_precip
+          - page: Identity
+            path: ../../docs/api/models/dx/identity.mdx
+            slug: identity
+          - page: OrbitGlobalPrecip
+            path: ../../docs/api/models/dx/orbit2_precip.mdx
+            slug: orbit2_precip
+          - page: PrecipitationAFNO
+            path: ../../docs/api/models/dx/precipitation_afno.mdx
+            slug: precipitation_afno
+          - page: PrecipitationAFNOv2
+            path: ../../docs/api/models/dx/precipitation_afno_v2.mdx
+            slug: precipitation_afno_v2
+          - page: solarradiation_afno
+            path: ../../docs/api/models/dx/solarradiation_afno.mdx
+            slug: solarradiation_afno
+          - page: StormScopeDxNSRDB
+            path: ../../docs/api/models/dx/stormscope_dx_nsrdb.mdx
+            slug: stormscope_dx_nsrdb
+          - page: tc_tracking
+            path: ../../docs/api/models/dx/tc_tracking.mdx
+            slug: tc_tracking
+          - page: WindgustAFNO
+            path: ../../docs/api/models/dx/wind_gust.mdx
+            slug: wind_gust
+      - section: Data Assimilation
+        path: ../../docs/api/models/da/index.mdx
+        slug: models_da
+        contents:
+          - page: AssimilationModel
+            path: ../../docs/api/models/da/base.mdx
+            slug: base
+          - page: CorrDiffCosmoEra5SDA
+            path: ../../docs/api/models/da/sda_corrdiff_cosmo_era5.mdx
+            slug: sda_corrdiff_cosmo_era5
+          - page: HealDA
+            path: ../../docs/api/models/da/healda.mdx
+            slug: healda
+          - page: HealDAv2
+            path: ../../docs/api/models/da/healda_v2.mdx
+            slug: healda_v2
+          - page: InterpEquirectangular
+            path: ../../docs/api/models/da/interp.mdx
+            slug: interp
+          - page: StormCastSDA
+            path: ../../docs/api/models/da/sda_stormcast.mdx
+            slug: sda_stormcast
+          - page: utils
+            path: ../../docs/api/models/da/utils.mdx
+            slug: utils
+      - section: Data Sources
+        path: ../../docs/api/data/index.mdx
+        slug: datasources_analysis
+        contents:
+          - page: ACE2ERA5Data
+            path: ../../docs/api/data/ace2.mdx
+            slug: ace2
+          - page: arco
+            path: ../../docs/api/data/arco.mdx
+            slug: arco
+          - page: base
+            path: ../../docs/api/data/base.mdx
+            slug: base
+          - page: CAMulatorForcing
+            path: ../../docs/api/data/camulator.mdx
+            slug: camulator
+          - page: CBottle3D
+            path: ../../docs/api/data/cbottle.mdx
+            slug: cbottle
+          - page: cds
+            path: ../../docs/api/data/cds.mdx
+            slug: cds
+          - page: cmip6
+            path: ../../docs/api/data/cmip6.mdx
+            slug: cmip6
+          - page: const
+            path: ../../docs/api/data/const.mdx
+            slug: const
+          - page: dynamical
+            path: ../../docs/api/data/dynamical.mdx
+            slug: dynamical
+          - page: earthmover
+            path: ../../docs/api/data/earthmover.mdx
+            slug: earthmover
+          - page: ecmwf
+            path: ../../docs/api/data/ecmwf.mdx
+            slug: ecmwf
+          - page: gfs
+            path: ../../docs/api/data/gfs.mdx
+            slug: gfs
+          - page: GOES
+            path: ../../docs/api/data/goes.mdx
+            slug: goes
+          - page: goes_glm
+            path: ../../docs/api/data/goes_glm.mdx
+            slug: goes_glm
+          - page: himawari_ahi
+            path: ../../docs/api/data/himawari_ahi.mdx
+            slug: himawari_ahi
+          - page: hrrr
+            path: ../../docs/api/data/hrrr.mdx
+            slug: hrrr
+          - page: JPSS
+            path: ../../docs/api/data/jpss.mdx
+            slug: jpss
+          - page: MeteosatFCI
+            path: ../../docs/api/data/meteosat_fci.mdx
+            slug: meteosat_fci
+          - page: MRMS
+            path: ../../docs/api/data/mrms.mdx
+            slug: mrms
+          - page: ncar
+            path: ../../docs/api/data/ncar.mdx
+            slug: ncar
+          - page: NCEPObsTask
+            path: ../../docs/api/data/utils_ncep.mdx
+            slug: utils_ncep
+          - page: nclimgrid
+            path: ../../docs/api/data/nclimgrid.mdx
+            slug: nclimgrid
+          - page: OPERA
+            path: ../../docs/api/data/opera.mdx
+            slug: opera
+          - page: planetary_computer
+            path: ../../docs/api/data/planetary_computer.mdx
+            slug: planetary_computer
+          - page: rand
+            path: ../../docs/api/data/rand.mdx
+            slug: rand
+          - page: rx
+            path: ../../docs/api/data/rx.mdx
+            slug: rx
+          - page: samudrace
+            path: ../../docs/api/data/samudrace.mdx
+            slug: samudrace
+          - page: TimeWindow
+            path: ../../docs/api/data/time_window.mdx
+            slug: time_window
+          - page: utils
+            path: ../../docs/api/data/utils.mdx
+            slug: utils
+          - page: utils_bufr
+            path: ../../docs/api/data/utils_bufr.mdx
+            slug: utils_bufr
+          - page: utils_eumetsat
+            path: ../../docs/api/data/utils_eumetsat.mdx
+            slug: utils_eumetsat
+          - page: utils_ir
+            path: ../../docs/api/data/utils_ir.mdx
+            slug: utils_ir
+          - page: wb2
+            path: ../../docs/api/data/wb2.mdx
+            slug: wb2
+          - page: xr
+            path: ../../docs/api/data/xr.mdx
+            slug: xr
+      - section: Forecast Data Sources
+        slug: datasources_forecast
+        contents:
+          - page: CAMS_FX
+            path: ../../docs/api/data/cams.mdx
+            slug: cams
+          - page: cfs
+            path: ../../docs/api/data/cfs.mdx
+            slug: cfs
+          - page: cfs_reforecast
+            path: ../../docs/api/data/cfs_reforecast.mdx
+            slug: cfs_reforecast
+          - page: gefs
+            path: ../../docs/api/data/gefs.mdx
+            slug: gefs
+      - section: DataFrame Sources
+        slug: datasources_dataframe
+        contents:
+          - page: ghcn
+            path: ../../docs/api/data/ghcn.mdx
+            slug: ghcn
+          - page: ibtracs
+            path: ../../docs/api/data/ibtracs.mdx
+            slug: ibtracs
+          - page: IEM_ASOS
+            path: ../../docs/api/data/iem.mdx
+            slug: iem
+          - page: ISD
+            path: ../../docs/api/data/isd.mdx
+            slug: isd
+          - page: JPSS_ATMS
+            path: ../../docs/api/data/jpss_atms.mdx
+            slug: jpss_atms
+          - page: JPSS_CRIS
+            path: ../../docs/api/data/jpss_cris.mdx
+            slug: jpss_cris
+          - page: MeteosatLI
+            path: ../../docs/api/data/meteosat_li.mdx
+            slug: meteosat_li
+          - page: MetOpAMSUA
+            path: ../../docs/api/data/metop_amsua.mdx
+            slug: metop_amsua
+          - page: MetOpAVHRR
+            path: ../../docs/api/data/metop_avhrr.mdx
+            slug: metop_avhrr
+          - page: MetOpIASI
+            path: ../../docs/api/data/metop_iasi.mdx
+            slug: metop_iasi
+          - page: MetOpMHS
+            path: ../../docs/api/data/metop_mhs.mdx
+            slug: metop_mhs
+          - page: nnja
+            path: ../../docs/api/data/nnja.mdx
+            slug: nnja
+          - page: NomadsGDASObsConv
+            path: ../../docs/api/data/gdas.mdx
+            slug: gdas
+          - page: ufs
+            path: ../../docs/api/data/ufs.mdx
+            slug: ufs
+      - section: IO Backends
+        path: ../../docs/api/io/index.mdx
+        slug: io
+        contents:
+          - page: AsyncZarrBackend
+            path: ../../docs/api/io/async_zarr.mdx
+            slug: async_zarr
+          - page: IceChunkBackend
+            path: ../../docs/api/io/icechunk.mdx
+            slug: icechunk
+          - page: IOBackend
+            path: ../../docs/api/io/base.mdx
+            slug: base
+          - page: KVBackend
+            path: ../../docs/api/io/kv.mdx
+            slug: kv
+          - page: NetCDF4Backend
+            path: ../../docs/api/io/netcdf4.mdx
+            slug: netcdf4
+          - page: XarrayBackend
+            path: ../../docs/api/io/xarray.mdx
+            slug: xarray
+          - page: ZarrBackend
+            path: ../../docs/api/io/zarr.mdx
+            slug: zarr
+      - section: Perturbations
+        path: ../../docs/api/perturbation/index.mdx
+        slug: perturbation
+        contents:
+          - page: BredVector
+            path: ../../docs/api/perturbation/bv.mdx
+            slug: bv
+          - page: Brown
+            path: ../../docs/api/perturbation/brown.mdx
+            slug: brown
+          - page: gaussian
+            path: ../../docs/api/perturbation/gaussian.mdx
+            slug: gaussian
+          - page: HemisphericCentredBredVector
+            path: ../../docs/api/perturbation/hcbv.mdx
+            slug: hcbv
+          - page: LaggedEnsemble
+            path: ../../docs/api/perturbation/lagged.mdx
+            slug: lagged
+          - page: Perturbation
+            path: ../../docs/api/perturbation/base.mdx
+            slug: base
+          - page: spherical
+            path: ../../docs/api/perturbation/spherical.mdx
+            slug: spherical
+          - page: Zero
+            path: ../../docs/api/perturbation/zero.mdx
+            slug: zero
+      - section: Statistics
+        path: ../../docs/api/statistics/index.mdx
+        slug: statistics
+        contents:
+          - page: acc
+            path: ../../docs/api/statistics/acc.mdx
+            slug: acc
+          - page: base
+            path: ../../docs/api/statistics/base.mdx
+            slug: base
+          - page: brier_score
+            path: ../../docs/api/statistics/brier.mdx
+            slug: brier
+          - page: crps
+            path: ../../docs/api/statistics/crps.mdx
+            slug: crps
+          - page: energy_score
+            path: ../../docs/api/statistics/energy_score.mdx
+            slug: energy_score
+          - page: fss
+            path: ../../docs/api/statistics/fss.mdx
+            slug: fss
+          - page: log_spectral_distance
+            path: ../../docs/api/statistics/lsd.mdx
+            slug: lsd
+          - page: moments
+            path: ../../docs/api/statistics/moments.mdx
+            slug: moments
+          - page: rank_histogram
+            path: ../../docs/api/statistics/rank.mdx
+            slug: rank
+          - page: rmse
+            path: ../../docs/api/statistics/rmse.mdx
+            slug: rmse
+          - page: utils
+            path: ../../docs/api/statistics/utils.mdx
+            slug: utils
+          - page: weights
+            path: ../../docs/api/statistics/weights.mdx
+            slug: weights
+      - section: Utilities
+        path: ../../docs/api/utils/index.mdx
+        slug: utils_all
+        contents:
+          - page: checkpoint
+            path: ../../docs/api/utils/checkpoint.mdx
+            slug: checkpoint
+          - page: coords
+            path: ../../docs/api/utils/coords.mdx
+            slug: coords
+          - page: Earth2StudioAccessor
+            path: ../../docs/api/utils/cupy.mdx
+            slug: cupy
+          - page: imports
+            path: ../../docs/api/utils/imports.mdx
+            slug: imports
+          - page: interp
+            path: ../../docs/api/utils/interp.mdx
+            slug: interp
+          - page: ObsGridMapping
+            path: ../../docs/api/utils/obs.mdx
+            slug: obs
+          - page: time
+            path: ../../docs/api/utils/time.mdx
+            slug: time
+          - page: type
+            path: ../../docs/api/utils/type.mdx
+            slug: type
+      - page: Workflows
+        path: ../../docs/api/run.mdx
+        slug: workflows
+      - section: Additional Modules
+        slug: other
+        contents:
+          - page: lexicon (package)
+            path: ../../docs/api/lexicon/index.mdx
+            slug: lexicon_index
+          - page: lexicon.ace
+            path: ../../docs/api/lexicon/ace.mdx
+            slug: lexicon_ace
+          - page: lexicon.arco
+            path: ../../docs/api/lexicon/arco.mdx
+            slug: lexicon_arco
+          - page: lexicon.base
+            path: ../../docs/api/lexicon/base.mdx
+            slug: lexicon_base
+          - page: lexicon.cams
+            path: ../../docs/api/lexicon/cams.mdx
+            slug: lexicon_cams
+          - page: lexicon.camulator
+            path: ../../docs/api/lexicon/camulator.mdx
+            slug: lexicon_camulator
+          - page: lexicon.cbottle
+            path: ../../docs/api/lexicon/cbottle.mdx
+            slug: lexicon_cbottle
+          - page: lexicon.cds
+            path: ../../docs/api/lexicon/cds.mdx
+            slug: lexicon_cds
+          - page: lexicon.cfs
+            path: ../../docs/api/lexicon/cfs.mdx
+            slug: lexicon_cfs
+          - page: lexicon.cmip6
+            path: ../../docs/api/lexicon/cmip6.mdx
+            slug: lexicon_cmip6
+          - page: lexicon.cosmo
+            path: ../../docs/api/lexicon/cosmo.mdx
+            slug: lexicon_cosmo
+          - page: lexicon.dynamical
+            path: ../../docs/api/lexicon/dynamical.mdx
+            slug: lexicon_dynamical
+          - page: lexicon.earthmover
+            path: ../../docs/api/lexicon/earthmover.mdx
+            slug: lexicon_earthmover
+          - page: lexicon.ecmwf
+            path: ../../docs/api/lexicon/ecmwf.mdx
+            slug: lexicon_ecmwf
+          - page: lexicon.gdas
+            path: ../../docs/api/lexicon/gdas.mdx
+            slug: lexicon_gdas
+          - page: lexicon.gefs
+            path: ../../docs/api/lexicon/gefs.mdx
+            slug: lexicon_gefs
+          - page: lexicon.gfs
+            path: ../../docs/api/lexicon/gfs.mdx
+            slug: lexicon_gfs
+          - page: lexicon.ghcn
+            path: ../../docs/api/lexicon/ghcn.mdx
+            slug: lexicon_ghcn
+          - page: lexicon.goes
+            path: ../../docs/api/lexicon/goes.mdx
+            slug: lexicon_goes
+          - page: lexicon.goes_glm
+            path: ../../docs/api/lexicon/goes_glm.mdx
+            slug: lexicon_goes_glm
+          - page: lexicon.himawari_ahi
+            path: ../../docs/api/lexicon/himawari_ahi.mdx
+            slug: lexicon_himawari_ahi
+          - page: lexicon.hrrr
+            path: ../../docs/api/lexicon/hrrr.mdx
+            slug: lexicon_hrrr
+          - page: lexicon.ibtracs
+            path: ../../docs/api/lexicon/ibtracs.mdx
+            slug: lexicon_ibtracs
+          - page: lexicon.iem
+            path: ../../docs/api/lexicon/iem.mdx
+            slug: lexicon_iem
+          - page: lexicon.isd
+            path: ../../docs/api/lexicon/isd.mdx
+            slug: lexicon_isd
+          - page: lexicon.jpss
+            path: ../../docs/api/lexicon/jpss.mdx
+            slug: lexicon_jpss
+          - page: lexicon.meteosat
+            path: ../../docs/api/lexicon/meteosat.mdx
+            slug: lexicon_meteosat
+          - page: lexicon.metop
+            path: ../../docs/api/lexicon/metop.mdx
+            slug: lexicon_metop
+          - page: lexicon.mrms
+            path: ../../docs/api/lexicon/mrms.mdx
+            slug: lexicon_mrms
+          - page: lexicon.ncar
+            path: ../../docs/api/lexicon/ncar.mdx
+            slug: lexicon_ncar
+          - page: lexicon.nclimgrid
+            path: ../../docs/api/lexicon/nclimgrid.mdx
+            slug: lexicon_nclimgrid
+          - page: lexicon.nnja
+            path: ../../docs/api/lexicon/nnja.mdx
+            slug: lexicon_nnja
+          - page: lexicon.opera
+            path: ../../docs/api/lexicon/opera.mdx
+            slug: lexicon_opera
+          - page: lexicon.planetary_computer
+            path: ../../docs/api/lexicon/planetary_computer.mdx
+            slug: lexicon_planetary_computer
+          - page: lexicon.samudrace
+            path: ../../docs/api/lexicon/samudrace.mdx
+            slug: lexicon_samudrace
+          - page: lexicon.ufs
+            path: ../../docs/api/lexicon/ufs.mdx
+            slug: lexicon_ufs
+          - page: lexicon.wb2
+            path: ../../docs/api/lexicon/wb2.mdx
+            slug: lexicon_wb2
+          - page: models (package)
+            path: ../../docs/api/models/index.mdx
+            slug: models_index
+          - page: models.auto (package)
+            path: ../../docs/api/models/auto/index.mdx
+            slug: models_auto_index
+          - page: models.auto.mixin
+            path: ../../docs/api/models/auto/mixin.mdx
+            slug: models_auto_mixin
+          - page: models.auto.ngc
+            path: ../../docs/api/models/auto/ngc.mdx
+            slug: models_auto_ngc
+          - page: models.auto.package
+            path: ../../docs/api/models/auto/package.mdx
+            slug: models_auto_package
+          - page: models.batch
+            path: ../../docs/api/models/batch.mdx
+            slug: models_batch
+          - page: models.utils
+            path: ../../docs/api/models/utils.mdx
+            slug: models_utils
+          - page: serve (package)
+            path: ../../docs/api/serve/index.mdx
+            slug: serve_index
+          - page: serve.client (package)
+            path: ../../docs/api/serve/client/index.mdx
+            slug: serve_client_index
+          - page: serve.client.client
+            path: ../../docs/api/serve/client/client.mdx
+            slug: serve_client_client
+          - page: serve.client.e2client
+            path: ../../docs/api/serve/client/e2client.mdx
+            slug: serve_client_e2client
+          - page: serve.client.exceptions
+            path: ../../docs/api/serve/client/exceptions.mdx
+            slug: serve_client_exceptions
+          - page: serve.client.fsspec_utils
+            path: ../../docs/api/serve/client/fsspec_utils.mdx
+            slug: serve_client_fsspec_utils
+          - page: serve.client.models
+            path: ../../docs/api/serve/client/models.mdx
+            slug: serve_client_models
+          - page: serve.server (package)
+            path: ../../docs/api/serve/server/index.mdx
+            slug: serve_server_index
+          - page: serve.server.cleanup_daemon
+            path: ../../docs/api/serve/server/cleanup_daemon.mdx
+            slug: serve_server_cleanup_daemon
+          - page: serve.server.config
+            path: ../../docs/api/serve/server/config.mdx
+            slug: serve_server_config
+          - page: serve.server.cpu_worker
+            path: ../../docs/api/serve/server/cpu_worker.mdx
+            slug: serve_server_cpu_worker
+          - page: serve.server.dependencies
+            path: ../../docs/api/serve/server/dependencies.mdx
+            slug: serve_server_dependencies
+          - page: serve.server.e2workflow
+            path: ../../docs/api/serve/server/e2workflow.mdx
+            slug: serve_server_e2workflow
+          - page: serve.server.health
+            path: ../../docs/api/serve/server/health.mdx
+            slug: serve_server_health
+          - page: serve.server.main
+            path: ../../docs/api/serve/server/main.mdx
+            slug: serve_server_main
+          - page: serve.server.object_storage
+            path: ../../docs/api/serve/server/object_storage.mdx
+            slug: serve_server_object_storage
+          - page: serve.server.redis_factory
+            path: ../../docs/api/serve/server/redis_factory.mdx
+            slug: serve_server_redis_factory
+          - page: serve.server.utils
+            path: ../../docs/api/serve/server/utils.mdx
+            slug: serve_server_utils
+          - page: serve.server.worker
+            path: ../../docs/api/serve/server/worker.mdx
+            slug: serve_server_worker
+          - page: serve.server.workflow
+            path: ../../docs/api/serve/server/workflow.mdx
+            slug: serve_server_workflow
+      # END GENERATED API NAV
+  - tab: examples
+    layout:
+      # Pilot: Getting Started and Extend. MDX is generated next to each script by
+      # fern/scripts/convert_examples.py (edit the .py, then re-run the script).
+      - section: Examples
+        path: ../../examples/index.mdx
+        slug: examples
+        contents:
+          - section: Getting Started
+            path: ../../examples/01_getting_started/README.mdx
+            slug: 01_getting_started
+            contents:
+              - page: Running Deterministic Inference
+                path: ../../examples/01_getting_started/01_deterministic_workflow.mdx
+                slug: 01_deterministic_workflow
+              - page: Running Diagnostic Inference
+                path: ../../examples/01_getting_started/02_diagnostic_workflow.mdx
+                slug: 02_diagnostic_workflow
+              - page: Running Ensemble Inference
+                path: ../../examples/01_getting_started/03_ensemble_workflow.mdx
+                slug: 03_ensemble_workflow
+              - page: Checkpointing a Deterministic Forecast
+                path: ../../examples/01_getting_started/04_checkpoint_restart.mdx
+                slug: 04_checkpoint_restart
+          - section: Extending Earth2Studio
+            path: ../../examples/08_extend/README.mdx
+            slug: 08_extend
+            contents:
+              - page: Extending Prognostic Models
+                path: ../../examples/08_extend/01_custom_prognostic.mdx
+                slug: 01_custom_prognostic
+              - page: Extending Diagnostic Models
+                path: ../../examples/08_extend/02_custom_diagnostic.mdx
+                slug: 02_custom_diagnostic
+              - page: Extending Data Sources
+                path: ../../examples/08_extend/03_custom_datasource.mdx
+                slug: 03_custom_datasource
+      - page: Recipes
+        path: ../../docs/recipes/index.mdx
+        slug: recipes
+  - tab: blog
+    layout:
+      - section: Blog
+        path: ../../docs/blog/index.mdx
+        slug: blog
+        contents:
+          - page: Access Earthmover Marketplace Data with Earth2Studio
+            path: ../../docs/blog/posts/earthmover-marketplace.mdx
+            slug: earthmover-marketplace-data
+          - page: A Digital Twin for Soil Health Prediction
+            path: ../../docs/blog/posts/earth2_soil_health_prediction.mdx
+            slug: earth2-soil-health-prediction
+          - page: MkDocs Material Migration
+            path: ../../docs/blog/posts/mkdocs-upgrade.mdx
+            slug: mkdocs-material-migration
+  - tab: changelog

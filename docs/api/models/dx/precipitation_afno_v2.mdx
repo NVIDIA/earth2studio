@@ -1,0 +1,186 @@
+---
+layout: overview
+title: earth2studio.models.dx.precipitation_afno_v2
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`PrecipitationAFNOv2`](#earth2studio-models-dx-precipitation_afno_v2-PrecipitationAFNOv2) | Improved Precipitation AFNO diagnostic model. Predicts the total precipitation |
+
+### API
+
+<Anchor id="earth2studio-models-dx-precipitation_afno_v2-PrecipitationAFNOv2">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.PrecipitationAFNOv2(
+    core_model: torch.nn.Module,
+    landsea_mask: torch.Tensor,
+    orography: torch.Tensor,
+    center: torch.Tensor,
+    scale: torch.Tensor
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+Improved Precipitation AFNO diagnostic model. Predicts the total precipitation
+for the next 6 hours [t, t+6h] with the units m. This model uses 20 atmospheric
+inputs and outputs one on a 0.25 degree lat-lon grid (south-pole excluding)
+[720 x 1440].
+
+**Badges:** `region:global` `class:medium-range` `product:precip` `year:2024` `gpu:40gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="core_model" type="torch.nn.Module">
+Core pytorch model
+</ParamField>
+
+<ParamField path="landsea_mask" type="torch.Tensor">
+Land sea mask tensor of size [720,1440]
+</ParamField>
+
+<ParamField path="orography" type="torch.Tensor">
+Surface geopotential (orography) tensor of size [720,1440]
+</ParamField>
+
+<ParamField path="center" type="torch.Tensor">
+Model center normalization tensor of size [20,1,1]
+</ParamField>
+
+<ParamField path="scale" type="torch.Tensor">
+Model scale normalization tensor of size [20,1,1]
+</ParamField>
+
+<Note>
+
+For more information on the model, please refer to:
+
+- https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/afno_dx_tp-v1-era5
+
+</Note>
+
+<Warning>
+
+PrecipitationAFNOv2 performs worse than PrecipitationAFNO v1 and will be
+deprecated in upcoming releases.
+
+</Warning>
+
+<Anchor id="earth2studio-models-dx-precipitation_afno_v2-PrecipitationAFNOv2-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.PrecipitationAFNOv2.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Forward pass of diagnostic
+
+</Indent>
+<Anchor id="earth2studio-models-dx-precipitation_afno_v2-PrecipitationAFNOv2-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.PrecipitationAFNOv2.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of diagnostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-dx-precipitation_afno_v2-PrecipitationAFNOv2-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.PrecipitationAFNOv2.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic package
+
+</Indent>
+<Anchor id="earth2studio-models-dx-precipitation_afno_v2-PrecipitationAFNOv2-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.dx.base.DiagnosticModel":"./base.mdx#earth2studio-models-dx-base-DiagnosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.PrecipitationAFNOv2.load_model(
+    package: earth2studio.models.auto.Package
+) -> earth2studio.models.dx.base.DiagnosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load diagnostic from package
+
+</Indent>
+<Anchor id="earth2studio-models-dx-precipitation_afno_v2-PrecipitationAFNOv2-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.PrecipitationAFNOv2.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of diagnostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>

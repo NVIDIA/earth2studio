@@ -1,0 +1,726 @@
+---
+layout: overview
+title: earth2studio.models.dx.corrdiff
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`CorrDiff`](#earth2studio-models-dx-corrdiff-CorrDiff) | CorrDiff is a Corrector Diffusion model that learns mappings between |
+| [`CorrDiffTaiwan`](#earth2studio-models-dx-corrdiff-CorrDiffTaiwan) | CorrDiff is a Corrector Diffusion model that learns mappings between |
+
+### API
+
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiff">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.CorrDiff(
+    input_variables: collections.abc.Sequence[str],
+    output_variables: collections.abc.Sequence[str],
+    residual_model: torch.nn.Module,
+    regression_model: torch.nn.Module,
+    lat_input_grid: torch.Tensor,
+    lon_input_grid: torch.Tensor,
+    lat_output_grid: torch.Tensor,
+    lon_output_grid: torch.Tensor,
+    in_center: torch.Tensor,
+    in_scale: torch.Tensor,
+    out_center: torch.Tensor,
+    out_scale: torch.Tensor,
+    invariants: collections.OrderedDict | None = None,
+    invariant_center: torch.Tensor | None = None,
+    invariant_scale: torch.Tensor | None = None,
+    number_of_samples: int = 1,
+    number_of_steps: int = 18,
+    solver: typing.Literal['euler', 'heun'] = 'euler',
+    sampler_type: typing.Literal['deterministic', 'stochastic'] = 'stochastic',
+    inference_mode: typing.Literal['regression', 'diffusion', 'both'] = 'both',
+    hr_mean_conditioning: bool = True,
+    seed: int | None = None,
+    grid_spacing_tolerance: float = 1e-05,
+    grid_bounds_margin: float = 0.0,
+    sigma_min: float | None = None,
+    sigma_max: float | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+CorrDiff is a Corrector Diffusion model that learns mappings between
+low- and high-resolution weather data with high fidelity. This model combines
+regression and diffusion steps to generate high-resolution predictions.
+
+**Badges:** `region:global` `class:downscaling` `product:wind` `product:precip` `product:temp` `product:atmos` `year:2023` `gpu:80gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="input_variables" type="Sequence[str]">
+List of input variable names
+</ParamField>
+
+<ParamField path="output_variables" type="Sequence[str]">
+List of output variable names
+</ParamField>
+
+<ParamField path="residual_model" type="torch.nn.Module">
+Core pytorch model for diffusion step
+</ParamField>
+
+<ParamField path="regression_model" type="torch.nn.Module">
+Core pytorch model for regression step
+</ParamField>
+
+<ParamField path="lat_input_grid" type="torch.Tensor">
+Input latitude grid of size [in_lat, in_lon]
+</ParamField>
+
+<ParamField path="lon_input_grid" type="torch.Tensor">
+Input longitude grid of size [in_lat, in_lon]
+</ParamField>
+
+<ParamField path="lat_output_grid" type="torch.Tensor">
+Output latitude grid of size [out_lat, out_lon]
+</ParamField>
+
+<ParamField path="lon_output_grid" type="torch.Tensor">
+Output latitude grid of size [out_lat, out_lon]
+</ParamField>
+
+<ParamField path="in_center" type="torch.Tensor">
+Model input center normalization tensor of size [in_var]
+</ParamField>
+
+<ParamField path="in_scale" type="torch.Tensor">
+Model input scale normalization tensor of size [in_var]
+</ParamField>
+
+<ParamField path="out_center" type="torch.Tensor">
+Model output center normalization tensor of size [out_var]
+</ParamField>
+
+<ParamField path="out_scale" type="torch.Tensor">
+Model output scale normalization tensor of size [out_var]
+</ParamField>
+
+<ParamField path="invariants" type="OrderedDict | None" default="None">
+Dictionary of invariant features, by default None
+</ParamField>
+
+<ParamField path="invariant_center" type="torch.Tensor | None" default="None">
+Model invariant center normalization tensor of size [len(invariants)], by default None
+</ParamField>
+
+<ParamField path="invariant_scale" type="torch.Tensor | None" default="None">
+Model invariant scale normalization tensor of size [len(invariants)], by default None
+</ParamField>
+
+<ParamField path="number_of_samples" type="int" default="1">
+Number of high resolution samples to draw from diffusion model, by default 1
+</ParamField>
+
+<ParamField path="number_of_steps" type="int" default="18">
+Number of langevin diffusion steps during sampling algorithm, by default 18
+</ParamField>
+
+<ParamField path="solver" type="Literal['euler', 'heun']" default="'euler'">
+Discretization of diffusion process, by default "euler"
+</ParamField>
+
+<ParamField path="sampler_type" type="Literal['deterministic', 'stochastic']" default="'stochastic'">
+Type of sampler to use, by default "stochastic"
+</ParamField>
+
+<ParamField path="inference_mode" type="Literal['regression', 'diffusion', 'both']" default="'both'">
+Which inference mode to use, by default "both"
+</ParamField>
+
+<ParamField path="hr_mean_conditioning" type="bool" default="True">
+Whether to use high-res mean conditioning, by default True
+</ParamField>
+
+<ParamField path="seed" type="Optional[int]" default="None">
+Random seed for reproducibility, by default None
+</ParamField>
+
+<ParamField path="grid_spacing_tolerance" type="float" default="1e-05">
+Relative tolerance for checking regular grid spacing. Allows for slight variations
+in grid spacing (e.g., for Gaussian grids). For 1D grids, raises ValueError if
+spacing variations exceed this tolerance; use of a 2D curvilinear grid is suggested then.
+Default is 1e-5 (0.001%).
+</ParamField>
+
+<ParamField path="grid_bounds_margin" type="float" default="0.0">
+Fraction of input grid range to allow for extrapolation beyond input grid bounds.
+For example, 0.05 allows output grid to extend 5% beyond input grid range.
+Useful for Gaussian grids that don't include poles. For 1D grids, raises ValueError
+if the output grid extends beyond the allowed bounds. Default is 0.0 (no extrapolation).
+</ParamField>
+
+<ParamField path="sigma_min" type="float | None" default="None">
+Minimum noise level for diffusion process. If None, uses sampler-specific defaults
+By default None.
+</ParamField>
+
+<ParamField path="sigma_max" type="float | None" default="None">
+Maximum noise level for diffusion process. If None, uses sampler-specific defaults
+By default None.
+</ParamField>
+
+<Note>
+
+For more information on the model architecture and training, please refer to:
+
+- https://arxiv.org/html/2309.15214v
+- https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/corrdiff_inference_package
+
+</Note>
+
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiff-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiff.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Execute the model on input data.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system. May optionally contain a ``"time"`` key with an
+array-like of numpy datetime64 values (or a ``list[datetime]``) representing
+the validity time of each sample (i.e., when the atmospheric state is
+valid, not the forecast initialization time). If present, each value is
+passed to ``preprocess_input`` as ``valid_time`` for time-dependent
+preprocessing (e.g., computing solar zenith angle). If absent, ``None`` is
+passed.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Output tensor and coordinate system
+
+<Note>
+
+Subclass usage: The base class passes ``valid_time`` to ``preprocess_input``
+but does not use it. Subclasses can override ``preprocess_input`` to compute
+time-dependent features like solar zenith angle (SZA). The ``coords["time"]``
+array must have length equal to the batch size (first dimension of x).
+
+</Note>
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiff-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiff.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get the input coordinate system for the model.
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Dictionary containing the input coordinate system
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiff-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiff.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Default pre-trained corrdiff model package from Nvidia model registry
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiff-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.dx.base.DiagnosticModel":"./base.mdx#earth2studio-models-dx-base-DiagnosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiff.load_model(
+    package: earth2studio.models.auto.Package,
+    device: str | None = None,
+    sigma_min: float | None = None,
+    sigma_max: float | None = None
+) -> earth2studio.models.dx.base.DiagnosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load CorrDiff model from package.
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Package containing model weights and configuration
+</ParamField>
+
+<ParamField path="device" type="str | None" default="None">
+Device to load model onto (e.g., "cuda:0", "cpu"). By default None.
+</ParamField>
+
+<ParamField path="sigma_min" type="float | None" default="None">
+Minimum noise level for diffusion process. Priority order: (1) this argument,
+(2) metadata.json, (3) sampler internal defaults. By default None.
+</ParamField>
+
+<ParamField path="sigma_max" type="float | None" default="None">
+Maximum noise level for diffusion process. Priority order: (1) this argument,
+(2) metadata.json, (3) sampler internal defaults. By default None.
+</ParamField>
+
+**Returns:** [`DiagnosticModel`](./base.mdx#earth2studio-models-dx-base-DiagnosticModel)
+
+Initialized CorrDiff model
+
+**Raises:**
+
+- `ImportError`: If required dependencies are not installed
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiff-normalize_input">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiff.normalize_input(
+    x: torch.Tensor
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Normalize input tensor using model's center and scale parameters.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor to normalize [B, C, H, W]
+</ParamField>
+
+**Returns:** `torch.Tensor`
+
+Normalized input tensor (x - center) / scale
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiff-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiff.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get the output coordinate system for the model.
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Dictionary containing the output coordinate system
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiff-postprocess_output">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiff.postprocess_output(
+    x: torch.Tensor
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Denormalize output tensor using model's center and scale parameters.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Normalized output tensor to denormalize
+</ParamField>
+
+**Returns:** `torch.Tensor`
+
+Denormalized output tensor x * scale + center
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiff-preprocess_input">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiff.preprocess_input(
+    x: torch.Tensor,
+    valid_time: datetime.datetime | None = None
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Complete input preprocessing pipeline.
+
+Performs interpolation to output grid, ensures a batch dimension,
+concatenates invariants if available, and normalizes the input.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor of shape ``[C, H_in, W_in]`` or ``[B, C, H_in, W_in]``.
+If a batch dimension is not present, one will be added.
+</ParamField>
+
+<ParamField path="valid_time" type="datetime | None" default="None">
+Validity time for this sample (when the atmospheric state is valid).
+The base class ignores this parameter. Subclasses can override this
+method to compute time-dependent features such as solar zenith angle
+(SZA). Default is None.
+</ParamField>
+
+**Returns:** `torch.Tensor`
+
+Preprocessed and normalized input tensor ``[B, C+C_inv, H_out, W_out]``.
+
+<Note>
+
+For subclass implementers: ``valid_time`` is provided as an optional hook for
+time-dependent preprocessing (e.g., solar zenith angle). The base
+implementation ignores it; override this method if your model needs it.
+
+</Note>
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiff-to">
+
+<CodeBlock links={{"earth2studio.models.dx.corrdiff.CorrDiff":"#earth2studio-models-dx-corrdiff-CorrDiff"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiff.to(
+    device: torch.device
+) -> earth2studio.models.dx.corrdiff.CorrDiff
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Move the model to a device.
+
+**Parameters:**
+
+<ParamField path="device" type="torch.device">
+Device to move the model to
+</ParamField>
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiffTaiwan">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.CorrDiffTaiwan(
+    residual_model: torch.nn.Module,
+    regression_model: torch.nn.Module,
+    in_center: torch.Tensor,
+    in_scale: torch.Tensor,
+    out_center: torch.Tensor,
+    out_scale: torch.Tensor,
+    out_lat: torch.Tensor,
+    out_lon: torch.Tensor,
+    number_of_samples: int = 1,
+    number_of_steps: int = 8,
+    solver: typing.Literal['euler', 'heun'] = 'euler',
+    seed: int | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+CorrDiff is a Corrector Diffusion model that learns mappings between
+low- and high-resolution weather data with high fidelity. This particular
+model was trained over a particular region near Taiwan.
+
+**Badges:** `region:as` `class:downscaling` `product:wind` `product:precip` `product:temp` `product:atmos` `year:2023` `gpu:40gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="residual_model" type="torch.nn.Module">
+Core pytorch model
+</ParamField>
+
+<ParamField path="regression_model" type="torch.nn.Module">
+Core pytorch model
+</ParamField>
+
+<ParamField path="in_center" type="torch.Tensor">
+Model input center normalization tensor of size [20,1,1]
+</ParamField>
+
+<ParamField path="in_scale" type="torch.Tensor">
+Model input scale normalization tensor of size [20,1,1]
+</ParamField>
+
+<ParamField path="out_center" type="torch.Tensor">
+Model output center normalization tensor of size [4,1,1]
+</ParamField>
+
+<ParamField path="out_scale" type="torch.Tensor">
+Model output scale normalization tensor of size [4,1,1]
+</ParamField>
+
+<ParamField path="out_lat" type="torch.Tensor">
+Output latitude grid of size [448, 448]
+</ParamField>
+
+<ParamField path="out_lon" type="torch.Tensor">
+Output longitude grid of size [448, 448]
+</ParamField>
+
+<ParamField path="number_of_samples" type="int" default="1">
+Number of high resolution samples to draw from diffusion model.
+Default is 1
+</ParamField>
+
+<ParamField path="number_of_steps" type="int" default="8">
+Number of langevin diffusion steps during sampling algorithm.
+Default is 8
+</ParamField>
+
+<ParamField path="solver" type="Literal['euler', 'heun']" default="'euler'">
+Discretization of diffusion process. Only 'euler' and 'heun'
+are supported. Default is 'euler'
+</ParamField>
+
+<ParamField path="seed" type="int | None" default="None">
+Random seed for reproducibility. Default is None.
+</ParamField>
+
+<Note>
+
+This model and checkpoint are from Mardani, Morteza, et al. 2023. For more
+information see the following references:
+
+- https://arxiv.org/abs/2309.15214
+- https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/corrdiff_inference_package
+
+</Note>
+
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiffTaiwan-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffTaiwan.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Forward pass of diagnostic
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiffTaiwan-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffTaiwan.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiffTaiwan-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffTaiwan.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Default pre-trained corrdiff model package from Nvidia model registry
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiffTaiwan-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.dx.base.DiagnosticModel":"./base.mdx#earth2studio-models-dx-base-DiagnosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffTaiwan.load_model(
+    package: earth2studio.models.auto.Package,
+    device: str | None = None
+) -> earth2studio.models.dx.base.DiagnosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load diagnostic from package
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiffTaiwan-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffTaiwan.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of diagnostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff-CorrDiffTaiwan-unet_regression">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffTaiwan.unet_regression(
+    net: torch.nn.Module,
+    img_lr: torch.Tensor,
+    output_channels: int,
+    number_of_samples: int
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>staticmethod</Badge>
+
+Perform U-Net regression.
+
+**Parameters:**
+
+<ParamField path="net" type="torch.nn.Module">
+U-Net model for regression.
+</ParamField>
+
+<ParamField path="img_lr" type="torch.Tensor">
+Low-resolution input image of shape (1, C_in, H_hr, W_hr).
+</ParamField>
+
+<ParamField path="output_channels" type="int">
+Number of output channels C_out.
+</ParamField>
+
+<ParamField path="number_of_samples" type="int">
+Number of samples to generate for the single input batch element.
+Only used to expand the shape of the output tensor.
+</ParamField>
+
+**Returns:** `torch.Tensor: Predicted output with shape (number_of_samples, C_out,`
+
+</Indent>
+</Indent>

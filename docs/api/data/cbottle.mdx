@@ -1,0 +1,284 @@
+---
+layout: overview
+title: earth2studio.data.cbottle
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`CBottle3D`](#earth2studio-data-cbottle-CBottle3D) | Climate in a bottle data source |
+| [`DatasetModality`](#earth2studio-data-cbottle-DatasetModality) | Dataset label |
+
+### API
+
+<Anchor id="earth2studio-data-cbottle-CBottle3D">
+
+<CodeBlock links={{"earth2studio.data.cbottle.DatasetModality":"#earth2studio-data-cbottle-DatasetModality"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.cbottle.CBottle3D(
+    core_model: torch.nn.Module,
+    sst_ds: xarray.Dataset,
+    lat_lon: bool = True,
+    sampler_steps: int = 18,
+    sigma_max: float = 200.0,
+    batch_size: int = 4,
+    seed: int | None = None,
+    dataset_modality: earth2studio.data.cbottle.DatasetModality = DatasetModality.ERA5,
+    cache: bool = False,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../models/auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+Climate in a bottle data source
+Climate in a Bottle (cBottle) is an AI model for emulating global km-scale climate
+simulations and reanalysis on the equal-area HEALPix grid. The cBottle data source
+uses the a globally-trained coarse-resolution image diffusion model that generates
+100km (50k-pixel) fields given monthly average sea surface temperatures and solar
+conditioning.
+
+**Badges:** `region:global` `dataclass:simulation` `product:wind` `product:precip` `product:temp` `product:atmos` `product:ocean`
+
+**Parameters:**
+
+<ParamField path="core_model" type="torch.nn.Module">
+Core Pytorch model
+</ParamField>
+
+<ParamField path="sst_ds" type="xr.Dataset">
+Sea surface temperature xarray dataset
+</ParamField>
+
+<ParamField path="lat_lon" type="bool" default="True">
+Lat/lon toggle, if true data source will return output on a 0.25 deg lat/lon
+grid. If false, the native nested HealPix grid will be returned, by default True
+</ParamField>
+
+<ParamField path="sampler_steps" type="int" default="18">
+Number of diffusion steps, by default 18
+</ParamField>
+
+<ParamField path="sigma_max" type="float" default="200.0">
+Noise amplitude used to generate latent variables, by default 200
+</ParamField>
+
+<ParamField path="batch_size" type="int" default="4">
+Batch size to generate time samples at, consider adjusting based on hardware
+being used, by default 4
+</ParamField>
+
+<ParamField path="seed" type="int | None" default="None">
+If set, will fix the seed of the random generator for latent variables, by
+default None
+</ParamField>
+
+<ParamField path="dataset_modality" type="DatasetModality" default="DatasetModality.ERA5">
+[`DatasetModality`](#earth2studio-data-cbottle-DatasetModality) — Dataset modality label to use when sampling (0=ICON, 1=ERA5), by default
+DatasetModality.ERA5
+</ParamField>
+
+<ParamField path="cache" type="bool" default="False">
+Does nothing at the moment, by default False
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print generation progress, by default True
+</ParamField>
+
+<Note>
+
+For more information see the following references:
+
+- https://arxiv.org/abs/2505.06474v1
+- https://github.com/NVlabs/cBottle
+- https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/cbottle
+
+</Note>
+
+<ParamField path="cache" type="str">
+Get the appropriate cache location.
+</ParamField>
+
+<Anchor id="earth2studio-data-cbottle-CBottle3D-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.cbottle.CBottle3D.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Function to get data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in CBottle3D lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Generated data from CBottle
+
+</Indent>
+<Anchor id="earth2studio-data-cbottle-CBottle3D-get_cbottle_input">
+
+<CodeBlock links={{"earth2studio.data.cbottle.DatasetModality":"#earth2studio-data-cbottle-DatasetModality"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.cbottle.CBottle3D.get_cbottle_input(
+    times: list[datetime.datetime],
+    dataset_modality: earth2studio.data.cbottle.DatasetModality = DatasetModality.ERA5
+) -> dict[str, torch.Tensor]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Prepares the CBottle inputs
+
+Adopted from:
+
+- https://github.com/NVlabs/cBottle/blob/ed96dfe35d87ecefa4846307807e8241c4b24e71/src/cbottle/datasets/amip_sst_loader.py#L55
+- https://github.com/NVlabs/cBottle/blob/4f44c125398896fad1f4c9df3d80dc845758befa/src/cbottle/datasets/dataset_3d.py#L393
+
+**Parameters:**
+
+<ParamField path="times" type="list[datetime]">
+List of times for inference
+</ParamField>
+
+<ParamField path="dataset_modality" type="DatasetModality" default="DatasetModality.ERA5">
+[`DatasetModality`](#earth2studio-data-cbottle-DatasetModality) — Dataset modality label, by default DatasetModality.ERA5
+</ParamField>
+
+**Returns:** `dict[str, torch.Tensor]`
+
+Dictionary of input tensors for CBottle
+
+</Indent>
+<Anchor id="earth2studio-data-cbottle-CBottle3D-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../models/auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.cbottle.CBottle3D.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Default pre-trained CBottle3D model package from Nvidia model registry
+
+</Indent>
+<Anchor id="earth2studio-data-cbottle-CBottle3D-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../models/auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.data.base.DataSource":"./base.mdx#earth2studio-data-base-DataSource"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.cbottle.CBottle3D.load_model(
+    package: earth2studio.models.auto.Package,
+    lat_lon: bool = True,
+    sampler_steps: int = 18,
+    sigma_max: float = 200,
+    seed: int | None = None,
+    batch_size: int = 4,
+    verbose: bool = True
+) -> earth2studio.data.base.DataSource
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load AI datasource from package
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../models/auto/package.mdx#earth2studio-models-auto-package-Package) — CBottle AI model package
+</ParamField>
+
+<ParamField path="lat_lon" type="bool" default="True">
+Lat/lon toggle, if true prognostic input/output on a 0.25 deg lat/lon
+grid. If false, the native nested HealPix grid will be returned, by default
+True
+</ParamField>
+
+<ParamField path="sampler_steps" type="int" default="18">
+Number of diffusion steps, by default 18
+</ParamField>
+
+<ParamField path="sigma_max" type="float" default="200">
+Noise amplitude used to generate latent variables, by default 200
+</ParamField>
+
+<ParamField path="seed" type="int" default="None">
+Random generator seed for latent variables. If None, no seed will be used,
+by default None
+</ParamField>
+
+<ParamField path="batch_size" type="int" default="4">
+Batch size to generate time samples at, consider adjusting based on hardware
+being used, by default 4
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print generation progress, by default True
+</ParamField>
+
+**Returns:** [`DataSource`](./base.mdx#earth2studio-data-base-DataSource)
+
+Data source
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-cbottle-DatasetModality">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.cbottle.DatasetModality
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `enum.Enum`
+
+Dataset label
+
+</Indent>

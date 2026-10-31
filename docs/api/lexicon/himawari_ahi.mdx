@@ -1,0 +1,84 @@
+---
+layout: overview
+title: earth2studio.lexicon.himawari_ahi
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`HimawariAHILexicon`](#earth2studio-lexicon-himawari_ahi-HimawariAHILexicon) | Himawari AHI lexicon for mapping standardized variable names to AHI channel |
+
+### API
+
+<Anchor id="earth2studio-lexicon-himawari_ahi-HimawariAHILexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.himawari_ahi.HimawariAHILexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Himawari AHI lexicon for mapping standardized variable names to AHI channel
+identifiers used in the ISatSS L2 NetCDF files on AWS.
+
+The Himawari-8/9 Advanced Himawari Imager (AHI) has 16 spectral bands. The ISatSS
+processing produces per-channel tile files with the variable ``Sectorized_CMI``.
+This lexicon maps Earth2Studio variable names (``ahi01``-``ahi16``) to channel
+numbers used in the ISatSS filename convention (``M1C01``-``M1C16``).
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Standardized variable name (e.g., 'ahi01')
+</ParamField>
+
+<Note>
+
+AHI band specifications:
+https://www.data.jma.go.jp/mscweb/en/himawari89/space_segment/spsg_ahi.html
+
+NOAA AWS bucket documentation:
+https://aws.amazon.com/marketplace/pp/prodview-eu33kalocbhiw
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-himawari_ahi-HimawariAHILexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.himawari_ahi.HimawariAHILexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable[[Any], typing.Any]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Get AHI channel identifier and modifier for a standardized variable name.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Standardized variable name (e.g., 'ahi01')
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+Tuple containing:
+- AHI channel identifier (e.g., 'M1C01')
+- Modifier function for data transformation
+
+</Indent>
+</Indent>

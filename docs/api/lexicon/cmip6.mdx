@@ -1,0 +1,86 @@
+---
+layout: overview
+title: earth2studio.lexicon.cmip6
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`CMIP6Lexicon`](#earth2studio-lexicon-cmip6-CMIP6Lexicon) | CMIP6 Lexicon |
+
+### API
+
+<Anchor id="earth2studio-lexicon-cmip6-CMIP6Lexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.cmip6.CMIP6Lexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+CMIP6 Lexicon
+
+Maps between the Earth2Studio vocabulary and CMIP6 variable names.
+NOTE: CMIP6 has substantially more variables than in this lexicon.
+
+**References**
+
+* https://clipc-services.ceda.ac.uk/dreq/mipVars.html
+* https://github.com/PCMDI/cmip6-cmor-tables
+
+<Anchor id="earth2studio-lexicon-cmip6-CMIP6Lexicon-build_vocab">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.cmip6.CMIP6Lexicon.build_vocab() -> dict[str, tuple[str, int]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>staticmethod</Badge>
+
+Create mapping from Earth2Studio variable names to CMIP6 identifiers.
+
+</Indent>
+<Anchor id="earth2studio-lexicon-cmip6-CMIP6Lexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.cmip6.CMIP6Lexicon.get_item(
+    val: str
+) -> tuple[tuple[str, int], collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return CMIP6 mapping and modifier function.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Earth2Studio variable name.
+</ParamField>
+
+**Returns:** `tuple`
+
+*((cmip6_variable_id, level_hPa), modifier)*
+
+</Indent>
+</Indent>

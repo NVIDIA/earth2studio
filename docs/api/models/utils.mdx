@@ -1,0 +1,47 @@
+---
+layout: overview
+title: earth2studio.models.utils
+---
+## Module Contents
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`create_ort_session`](#earth2studio-models-utils-create_ort_session) | Create ORT session on specified device |
+
+### API
+
+<Anchor id="earth2studio-models-utils-create_ort_session">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.utils.create_ort_session(
+    onnx_file: str,
+    device: torch.device = torch.device('cpu', 0)
+) -> onnxruntime.InferenceSession
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Create ORT session on specified device
+
+**Parameters:**
+
+<ParamField path="onnx_file" type="str">
+ONNX file
+</ParamField>
+
+<ParamField path="device" type="torch.device" default="torch.device('cpu', 0)">
+Device for session to run on, by default "cpu"
+</ParamField>
+
+**Returns:** `ort.InferenceSession`
+
+ORT inference session
+
+</Indent>

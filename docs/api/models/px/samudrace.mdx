@@ -1,0 +1,297 @@
+---
+layout: overview
+title: earth2studio.models.px.samudrace
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`SamudrACE`](#earth2studio-models-px-samudrace-SamudrACE) | SamudrACE coupled climate emulator. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-models-px-samudrace-SamudrACE">
+
+<CodeBlock links={{"earth2studio.data.base.DataSource":"../../data/base.mdx#earth2studio-data-base-DataSource"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.samudrace.SamudrACE(
+    stepper: fme.coupled.stepper.CoupledStepper,
+    forcing_data_source: earth2studio.data.base.DataSource
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin), [PrognosticMixin](./utils.mdx#earth2studio-models-px-utils-PrognosticMixin)
+
+SamudrACE coupled climate emulator.
+
+Couples the ACE2 atmosphere emulator with the Samudra ocean emulator,
+driven by FME's ``CoupledStepper``. The atmosphere advances in 6 hour
+steps and the ocean advances once per coupled (5 day) cycle; all coupling
+logic (SST prescription, flux exchange and averaging, ocean-fraction
+prediction, masking) is owned by FME via
+``CoupledStepper.predict``, which this wrapper calls exactly once
+per coupled cycle.
+
+The primary interface is `create_iterator`, which yields the initial
+condition followed by one atmosphere step at a time. Atmosphere output
+fields update on every step; ocean output fields update once per coupled
+cycle and are held constant between cycle boundaries. Ocean diagnostic
+(non-prognostic) fields are NaN until the first cycle boundary, as are
+atmosphere diagnostic fields at the initial condition step.
+
+The model is iterator-only: it has no single-step forward call. Its
+time-step is the coupled cycle, which spans ``n_inner_steps`` atmosphere
+steps, so advancing the model is not expressible as one 6 hour forward
+pass; calling the model raises ``NotImplementedError``.
+
+Times are CM4 model years (e.g. year 151), which are outside the range of
+nanosecond-precision timestamps; provide time coordinates as
+second-precision ``np.datetime64`` values. Trajectories that cross a
+February 29 of the proleptic Gregorian time coordinate raise an error
+when the forcing is looked up, since that date has no counterpart on the
+no-leap forcing calendar.
+
+cuDNN autotuning (``torch.backends.cudnn.benchmark``) is left at its
+default (disabled). Toggling it on and off around each coupled cycle was
+found to make inference non-reproducible run-to-run: with a run-specific,
+GPU-timing-based algorithm search re-triggered every cycle, cuDNN can
+select a different (numerically non-identical) algorithm on different
+runs, which the coupled system's chaotic dynamics then amplify over the
+forecast.
+
+**Parameters:**
+
+<ParamField path="stepper" type="CoupledStepper">
+FME coupled stepper holding the atmosphere and ocean component
+steppers and the coupling configuration. Both components must be on
+the same latitude-longitude grid.
+</ParamField>
+
+<ParamField path="forcing_data_source" type="DataSource">
+[`DataSource`](../../data/base.mdx#earth2studio-data-base-DataSource) — Data source providing all exogenous forcing variables required by the
+coupled stepper (both atmosphere and ocean), on the model grid and
+with the model's Earth2Studio variable names (see
+``SamudrACELexicon``).
+</ParamField>
+
+<Note>
+
+For more information see the following references:
+
+- https://arxiv.org/abs/2509.12490
+- https://huggingface.co/allenai/SamudrACE-CM4-piControl
+
+</Note>
+
+<Anchor id="earth2studio-models-px-samudrace-SamudrACE-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.samudrace.SamudrACE.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Not supported; SamudrACE is an iterator-only prognostic.
+
+The model's time-step is the coupled (ocean) step, which spans
+``n_inner_steps`` atmosphere steps, so a single-step forward call
+cannot express advancing the model: advancing a full coupled cycle to
+return one 6 hour step would discard the remainder of the cycle and
+report ocean fields that have not advanced. Use
+`create_iterator` instead, which yields one atmosphere step at a
+time and runs the coupled stepper at each cycle boundary.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Never returns
+
+**Raises:**
+
+- `NotImplementedError`: Always; use `create_iterator`
+
+</Indent>
+<Anchor id="earth2studio-models-px-samudrace-SamudrACE-create_iterator">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.samudrace.SamudrACE.create_iterator(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> collections.abc.Iterator[tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Creates a iterator which can be used to perform time-integration of
+the prognostic model. Will return the initial condition first (0th
+step).
+
+The iterator yields one atmosphere (6 hour) step at a time. The
+coupled stepper runs lazily at each coupled cycle boundary; ocean
+output fields update once per cycle and are held constant between
+boundaries.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-samudrace-SamudrACE-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.samudrace.SamudrACE.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of the prognostic model.
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-px-samudrace-SamudrACE-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.samudrace.SamudrACE.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load the default SamudrACE model package from HuggingFace.
+
+**Returns:** [`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package)
+
+Package holding the ``allenai/SamudrACE-CM4-piControl``
+checkpoint, pinned to a specific repository revision
+
+</Indent>
+<Anchor id="earth2studio-models-px-samudrace-SamudrACE-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.data.base.DataSource":"../../data/base.mdx#earth2studio-data-base-DataSource","earth2studio.models.px.utils.PrognosticMixin":"./utils.mdx#earth2studio-models-px-utils-PrognosticMixin"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.samudrace.SamudrACE.load_model(
+    package: earth2studio.models.auto.Package,
+    forcing_data_source: earth2studio.data.base.DataSource | None = None,
+    scenario: str = '0311'
+) -> earth2studio.models.px.utils.PrognosticMixin
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load SamudrACE prognostic from package.
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Package holding the coupled model checkpoint
+</ParamField>
+
+<ParamField path="forcing_data_source" type="DataSource | None" default="None">
+[`DataSource`](../../data/base.mdx#earth2studio-data-base-DataSource) `| None` — External data source providing all exogenous forcing variables
+required by the coupled stepper, on the model grid and with the
+model's Earth2Studio variable names. If None, a
+``SamudrACEForcingData`` source for the selected scenario is
+used, by default None
+</ParamField>
+
+<ParamField path="scenario" type="str" default="'0311'">
+Forcing scenario for the default forcing data source, either
+"0151" or "0311"; ignored when ``forcing_data_source`` is
+provided, by default "0311"
+</ParamField>
+
+**Returns:** [`PrognosticMixin`](./utils.mdx#earth2studio-models-px-utils-PrognosticMixin)
+
+Prognostic model
+
+</Indent>
+<Anchor id="earth2studio-models-px-samudrace-SamudrACE-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.samudrace.SamudrACE.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the prognostic model.
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>

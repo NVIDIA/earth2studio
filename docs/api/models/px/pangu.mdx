@@ -1,0 +1,497 @@
+---
+layout: overview
+title: earth2studio.models.px.pangu
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`Pangu24`](#earth2studio-models-px-pangu-Pangu24) | Pangu Weather 24 hour model. This model consists of single auto-regressive |
+| [`Pangu3`](#earth2studio-models-px-pangu-Pangu3) | Pangu Weather 3 hour model. This model consists of three underlying |
+| [`Pangu6`](#earth2studio-models-px-pangu-Pangu6) | Pangu Weather 6 hour model. This model consists of two underlying auto-regressive |
+| [`PanguBase`](#earth2studio-models-px-pangu-PanguBase) | Pangu base class |
+
+### API
+
+<Anchor id="earth2studio-models-px-pangu-Pangu24">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.pangu.Pangu24(
+    ort_24hr: str
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [PanguBase](#earth2studio-models-px-pangu-PanguBase)
+
+Pangu Weather 24 hour model. This model consists of single auto-regressive
+model with a time-step size of 24 hours. Pangu Weather operates on 0.25 degree
+lat-lon grid (south-pole including) equirectangular grid with 69
+atmospheric/surface variables.
+
+**Badges:** `region:global` `class:medium-range` `product:wind` `product:temp` `product:atmos` `year:2023` `gpu:40gb` `backend:onnx`
+
+**Parameters:**
+
+<ParamField path="ort_24hr" type="str">
+Path to Pangu 24 hour onnx file
+</ParamField>
+
+<Note>
+
+This model uses the ONNX checkpoints from the original publication.
+For additional information see the following resources:
+
+- https://doi.org/10.1038/s41586-023-06185-3
+- https://github.com/198808xc/Pangu-Weather
+- https://huggingface.co/NickGeneva/earth_ai
+To avoid ONNX init session overhead of this model we recommend setting the default
+Pytorch device to the correct target prior to model construction.
+
+</Note>
+
+<Warning>
+
+We encourage users to familiarize themselves with the license restrictions of this
+model's checkpoints.
+
+</Warning>
+
+<Anchor id="earth2studio-models-px-pangu-Pangu24-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.pangu.Pangu24.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Runs 24 hour prognostic model 1 step.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Output tensor and coordinate system 24 hours in the future
+
+</Indent>
+<Anchor id="earth2studio-models-px-pangu-Pangu24-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.px.base.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.pangu.Pangu24.load_model(
+    package: earth2studio.models.auto.Package
+) -> earth2studio.models.px.base.PrognosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic from package
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-px-pangu-Pangu3">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.pangu.Pangu3(
+    ort_24hr: str,
+    ort_6hr: str,
+    ort_3hr: str,
+    eager_sessions: bool = False
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [PanguBase](#earth2studio-models-px-pangu-PanguBase)
+
+Pangu Weather 3 hour model. This model consists of three underlying
+auto-regressive models with a time-step size of 24, 6 and 3 hours. These three
+models are interweaved during prediction. Pangu Weather operates on 0.25 degree
+lat-lon grid (south-pole including) equirectangular grid with 69 atmospheric/surface
+variables.
+
+**Badges:** `region:global` `class:medium-range` `product:wind` `product:temp` `product:atmos` `year:2023` `gpu:40gb` `backend:onnx`
+
+**Parameters:**
+
+<ParamField path="ort_24hr" type="str">
+Path to Pangu 24 hour onnx file
+</ParamField>
+
+<ParamField path="ort_6hr" type="str">
+Path to Pangu 6 hour onnx file
+</ParamField>
+
+<ParamField path="ort_3hr" type="str">
+Path to Pangu 3 hour onnx file
+</ParamField>
+
+<ParamField path="eager_sessions" type="bool" default="False">
+Build the 24 and 6 hour sessions at construction instead of on first
+use in a rollout. Either way each session is built once and cached;
+eager keeps the build cost out of the first rollout steps, by default
+False
+</ParamField>
+
+<Note>
+
+This model uses the ONNX checkpoints from the original publication.
+For additional information see the following resources:
+
+- https://doi.org/10.1038/s41586-023-06185-3
+- https://github.com/198808xc/Pangu-Weather
+- https://huggingface.co/NickGeneva/earth_ai
+To avoid ONNX init session overhead of this model we recommend setting the default
+Pytorch device to the correct target prior to model construction.
+
+</Note>
+
+<Warning>
+
+We encourage users to familiarize themselves with the license restrictions of this
+model's checkpoints.
+
+</Warning>
+
+<Anchor id="earth2studio-models-px-pangu-Pangu3-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.pangu.Pangu3.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Runs 3 hour prognostic model 1 step.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Output tensor and coordinate system 3 hours in the future
+
+</Indent>
+<Anchor id="earth2studio-models-px-pangu-Pangu3-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.px.base.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.pangu.Pangu3.load_model(
+    package: earth2studio.models.auto.Package,
+    eager_sessions: bool = False
+) -> earth2studio.models.px.base.PrognosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic from package
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-px-pangu-Pangu6">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.pangu.Pangu6(
+    ort_24hr: str,
+    ort_6hr: str,
+    eager_sessions: bool = False
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [PanguBase](#earth2studio-models-px-pangu-PanguBase)
+
+Pangu Weather 6 hour model. This model consists of two underlying auto-regressive
+models with a time-step size of 24 hours and 6 hours. These two models are
+interweaved during prediction. Pangu Weather operates on 0.25 degree lat-lon grid
+(south-pole including) equirectangular grid with 69 atmospheric/surface variables.
+
+**Badges:** `region:global` `class:medium-range` `product:wind` `product:temp` `product:atmos` `year:2023` `gpu:40gb` `backend:onnx`
+
+**Parameters:**
+
+<ParamField path="ort_24hr" type="str">
+Path to Pangu 24 hour onnx file
+</ParamField>
+
+<ParamField path="ort_6hr" type="str">
+Path to Pangu 6 hour onnx file
+</ParamField>
+
+<ParamField path="eager_sessions" type="bool" default="False">
+Build the 24 hour session at construction instead of on first use in a
+rollout. Either way the session is built once and cached; eager keeps
+the build cost out of the first rollout step, by default False
+</ParamField>
+
+<Note>
+
+This model uses the ONNX checkpoints from the original publication.
+For additional information see the following resources:
+
+- https://doi.org/10.1038/s41586-023-06185-3
+- https://github.com/198808xc/Pangu-Weather
+- https://huggingface.co/NickGeneva/earth_ai
+To avoid ONNX init session overhead of this model we recommend setting the default
+Pytorch device to the correct target prior to model construction.
+
+</Note>
+
+<Warning>
+
+We encourage users to familiarize themselves with the license restrictions of this
+model's checkpoints.
+
+</Warning>
+
+<Anchor id="earth2studio-models-px-pangu-Pangu6-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.pangu.Pangu6.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Runs 6 hour prognostic model 1 step.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Output tensor and coordinate system 6 hours in the future
+
+</Indent>
+<Anchor id="earth2studio-models-px-pangu-Pangu6-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.px.base.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.pangu.Pangu6.load_model(
+    package: earth2studio.models.auto.Package,
+    eager_sessions: bool = False
+) -> earth2studio.models.px.base.PrognosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic from package
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-px-pangu-PanguBase">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.pangu.PanguBase()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin), [PrognosticMixin](./utils.mdx#earth2studio-models-px-utils-PrognosticMixin)
+
+Pangu base class
+
+<Anchor id="earth2studio-models-px-pangu-PanguBase-create_iterator">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.pangu.PanguBase.create_iterator(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> collections.abc.Iterator[tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Creates a iterator which can be used to perform time-integration of the
+prognostic model. Will return the initial condition first (0th step).
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-pangu-PanguBase-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.pangu.PanguBase.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of the prognostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-px-pangu-PanguBase-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.pangu.PanguBase.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic package
+
+</Indent>
+<Anchor id="earth2studio-models-px-pangu-PanguBase-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.pangu.PanguBase.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the prognostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-px-pangu-PanguBase-to">
+
+<CodeBlock links={{"earth2studio.models.px.base.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.pangu.PanguBase.to(
+    device: str | torch.device | int
+) -> earth2studio.models.px.base.PrognosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Move model (and default ORT session) to device
+
+</Indent>
+</Indent>

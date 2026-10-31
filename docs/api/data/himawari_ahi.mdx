@@ -1,0 +1,348 @@
+---
+layout: overview
+title: earth2studio.data.himawari_ahi
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`HimawariAHI`](#earth2studio-data-himawari_ahi-HimawariAHI) | Himawari-8/9 AHI (Advanced Himawari Imager) data source. |
+| [`HimawariAsyncTask`](#earth2studio-data-himawari_ahi-HimawariAsyncTask) | Async task for fetching a single Himawari tile. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-data-himawari_ahi-HimawariAHI">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.himawari_ahi.HimawariAHI(
+    satellite: str = 'himawari9',
+    lat_lon_bbox: tuple[float, float, float, float] | None = None,
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    async_workers: int = 32,
+    retries: int = 3
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Himawari-8/9 AHI (Advanced Himawari Imager) data source.
+
+This data source provides access to Himawari-8 and Himawari-9 satellite
+imagery from the NOAA ISatSS L2 Full Disk product on AWS S3. The data
+uses the same geostationary fixed grid projection as GOES, with the
+satellite positioned at 140.7°E.
+
+Each AHI channel is stored as tiled NetCDF files (88 tiles per channel).
+Higher-resolution channels (C01/C02/C04 at 1 km, C03 at 0.5 km) are
+downsampled to the 2 km grid via block averaging, producing a uniform
+5500×5500 pixel Full Disk output for all 16 channels.
+
+**Badges:** `region:as` `region:au` `dataclass:observation` `product:sat`
+
+**Parameters:**
+
+<ParamField path="satellite" type="str" default="'himawari9'">
+Which Himawari satellite to use ('himawari8' or 'himawari9'),
+by default 'himawari9'
+</ParamField>
+
+<ParamField path="lat_lon_bbox" type="tuple[float, float, float, float] | None" default="None">
+Bounding box ``(lat_min, lon_min, lat_max, lon_max)`` in degrees to
+crop the full-disk image. Only tiles that overlap the requested region
+are downloaded.  When ``None`` the full disk is returned, by default None
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Total timeout in seconds for the entire fetch operation,
+by default 600
+</ParamField>
+
+<ParamField path="async_workers" type="int" default="32">
+Maximum number of concurrent async fetch tasks. Fetches are many
+small tile objects, so throughput is round-trip-latency bound;
+by default 32
+</ParamField>
+
+<ParamField path="retries" type="int" default="3">
+Number of retry attempts per failed fetch task with
+exponential backoff, by default 3
+</ParamField>
+
+<Note>
+
+Additional information on the data repository:
+
+- https://www.data.jma.go.jp/mscweb/en/himawari89/space_segment/spsg_ahi.html
+- https://aws.amazon.com/marketplace/pp/prodview-eu33kalocbhiw
+- https://noaa-himawari9.s3.amazonaws.com/index.html
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount
+of data to your local machine for large requests. Each full disk image
+consists of 88 tile files per channel.
+
+</Warning>
+
+<ParamField path="_bucket" type="str">
+Anonymous S3 bucket for the configured satellite.
+</ParamField>
+
+<ParamField path="cache" type="str">
+Get the appropriate cache location.
+</ParamField>
+
+<Anchor id="earth2studio-data-himawari_ahi-HimawariAHI-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.himawari_ahi.HimawariAHI.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Function to get Himawari AHI data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC). Timezone-aware
+datetimes are converted to UTC automatically.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables
+to return. Must be in the Himawari lexicon (ahi01-ahi16).
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data array with dimensions [time, variable, y, x]
+
+</Indent>
+<Anchor id="earth2studio-data-himawari_ahi-HimawariAHI-available">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.himawari_ahi.HimawariAHI.available(
+    time: datetime.datetime | numpy.datetime64,
+    satellite: str = 'himawari9'
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Check if given date time is available in the Himawari object store.
+
+Performs a lightweight S3 listing to verify that data files actually
+exist for the requested time, accounting for potential data gaps.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | np.datetime64">
+Date time to check
+</ParamField>
+
+<ParamField path="satellite" type="str" default="'himawari9'">
+Which satellite to check, by default 'himawari9'
+</ParamField>
+
+**Returns:** `bool`
+
+If date time is available
+
+</Indent>
+<Anchor id="earth2studio-data-himawari_ahi-HimawariAHI-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.himawari_ahi.HimawariAHI.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get Himawari AHI data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variables to return using standardized names (ahi01-ahi16).
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data array with dimensions [time, variable, y, x]
+
+</Indent>
+<Anchor id="earth2studio-data-himawari_ahi-HimawariAHI-fetch_array">
+
+<CodeBlock links={{"earth2studio.data.himawari_ahi.HimawariAsyncTask":"#earth2studio-data-himawari_ahi-HimawariAsyncTask"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.himawari_ahi.HimawariAHI.fetch_array(
+    task: earth2studio.data.himawari_ahi.HimawariAsyncTask
+) -> tuple[numpy.ndarray, int, int] | None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Fetch a single tile from the remote store.
+
+**Parameters:**
+
+<ParamField path="task" type="HimawariAsyncTask">
+[`HimawariAsyncTask`](#earth2studio-data-himawari_ahi-HimawariAsyncTask) — Task with all fetch metadata
+</ParamField>
+
+**Returns:** `tuple[np.ndarray, int, int] | None`
+
+Tuple of (tile data at 2km resolution, row_offset, col_offset)
+in the output grid, or None if tile cannot be read.
+Offsets are read from the NetCDF ``tile_row_offset`` and
+``tile_column_offset`` attributes and normalised to 2 km pixels.
+
+</Indent>
+<Anchor id="earth2studio-data-himawari_ahi-HimawariAHI-fetch_wrapper">
+
+<CodeBlock links={{"earth2studio.data.himawari_ahi.HimawariAsyncTask":"#earth2studio-data-himawari_ahi-HimawariAsyncTask"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.himawari_ahi.HimawariAHI.fetch_wrapper(
+    task: earth2studio.data.himawari_ahi.HimawariAsyncTask,
+    xr_array: xarray.DataArray
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Unpack task, fetch with retry, and place result into output array.
+
+**Parameters:**
+
+<ParamField path="task" type="HimawariAsyncTask">
+[`HimawariAsyncTask`](#earth2studio-data-himawari_ahi-HimawariAsyncTask) — Task to execute
+</ParamField>
+
+<ParamField path="xr_array" type="xr.DataArray">
+Output array to write into
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-data-himawari_ahi-HimawariAHI-grid">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.himawari_ahi.HimawariAHI.grid() -> tuple[numpy.ndarray, numpy.ndarray]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return (lat, lon) in degrees for the native Himawari AHI grid.
+
+Uses the geostationary fixed grid projection from ISatSS metadata,
+which is the same projection formulation as GOES ABI.
+
+**Returns:** `tuple[np.ndarray, np.ndarray]`
+
+Tuple of (lat, lon) arrays in degrees, shape (5500, 5500)
+
+<Note>
+
+Projection reference:
+https://www.star.nesdis.noaa.gov/atmospheric-composition-training/python_abi_lat_lon.php
+
+</Note>
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-himawari_ahi-HimawariAsyncTask">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.himawari_ahi.HimawariAsyncTask(
+    time_idx: int,
+    var_idx: int,
+    remote_uri: str,
+    modifier: collections.abc.Callable,
+    downsample_factor: int = 1
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Async task for fetching a single Himawari tile.
+
+</Indent>

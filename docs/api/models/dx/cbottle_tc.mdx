@@ -1,0 +1,435 @@
+---
+layout: overview
+title: earth2studio.models.dx.cbottle_tc
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`CBottleTCGuidance`](#earth2studio-models-dx-cbottle_tc-CBottleTCGuidance) | Climate in a Bottle tropical cyclone guidance diagnostic. |
+| [`DatasetModality`](#earth2studio-models-dx-cbottle_tc-DatasetModality) | Dataset label |
+
+### API
+
+<Anchor id="earth2studio-models-dx-cbottle_tc-CBottleTCGuidance">
+
+<CodeBlock links={{"earth2studio.models.dx.cbottle_tc.DatasetModality":"#earth2studio-models-dx-cbottle_tc-DatasetModality"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.cbottle_tc.CBottleTCGuidance(
+    core_model: torch.nn.Module,
+    classifier_model: torch.nn.Module,
+    sst_ds: xarray.Dataset,
+    lat_lon: bool = True,
+    sampler_steps: int = 18,
+    sigma_max: float = 200.0,
+    batch_size: int = 4,
+    seed: int | None = None,
+    dataset_modality: earth2studio.models.dx.cbottle_tc.DatasetModality = DatasetModality.ERA5
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+Climate in a Bottle tropical cyclone guidance diagnostic.
+This model for Climate in a Bottle (cBottle) allows users to provide an cyclone
+guidance map on a lat-lon grid and synthesis global climate realizations at that
+given time. The tropical cyclone guidance field is regridded to HPX Level 3, which
+is then used during the sampling process.
+
+**Badges:** `region:global` `class:climate` `product:wind` `product:precip` `product:temp` `product:atmos` `year:2025` `gpu:80gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="core_model" type="torch.nn.Module">
+Core Pytorch diffusion model
+</ParamField>
+
+<ParamField path="classifier_model" type="torch.nn.Module">
+Pytorch classifier model
+</ParamField>
+
+<ParamField path="sst_ds" type="xr.Dataset">
+Sea surface temperature xarray dataset
+</ParamField>
+
+<ParamField path="lat_lon" type="bool" default="True">
+Lat/lon toggle, if true the model will return output on a 0.25 deg lat/lon
+grid. If false, the native nested HealPix grid will be returned, by default True
+</ParamField>
+
+<ParamField path="sampler_steps" type="int" default="18">
+Number of diffusion steps, by default 18
+</ParamField>
+
+<ParamField path="sigma_max" type="float" default="200.0">
+Noise amplitude used to generate latent variables, by default 200
+</ParamField>
+
+<ParamField path="batch_size" type="int" default="4">
+Batch size to generate time samples at, consider adjusting based on hardware
+being used, by default 4
+</ParamField>
+
+<ParamField path="seed" type="int" default="None">
+Random generator seed for latent variables. If None will use no seed, by default
+None
+</ParamField>
+
+<ParamField path="dataset_modality" type="DatasetModality" default="DatasetModality.ERA5">
+[`DatasetModality`](#earth2studio-models-dx-cbottle_tc-DatasetModality) — Dataset modality label to use when sampling (0=ICON, 1=ERA5), by default
+DatasetModality.ERA5
+</ParamField>
+
+<Note>
+
+For more information see the following references:
+
+- https://arxiv.org/abs/2505.06474v1
+- https://github.com/NVlabs/cBottle
+- https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/cbottle
+- https://huggingface.co/nvidia/cbottle
+This model provides the function `model.create_guidance_tensor`
+as a utility to create the input guidance tensor.
+
+</Note>
+
+<Anchor id="earth2studio-models-dx-cbottle_tc-CBottleTCGuidance-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.cbottle_tc.CBottleTCGuidance.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Forward pass of diagnostic
+
+</Indent>
+<Anchor id="earth2studio-models-dx-cbottle_tc-CBottleTCGuidance-calculate_odds_ratio">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.cbottle_tc.CBottleTCGuidance.calculate_odds_ratio(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem,
+    guidance_scale: float = 128,
+    compute_forward_divergences: bool = False
+) -> tuple[float | torch.Tensor, torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Compute classifier-guided log-odds ratio for one guidance sample.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input guidance tensor with the same layout expected by `__call__`.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Coordinate system associated with ``x``.
+</ParamField>
+
+<ParamField path="guidance_scale" type="float" default="128">
+Guidance scale forwarded to cBottle odds-ratio evaluation. Defaults to 128.
+</ParamField>
+
+<ParamField path="compute_forward_divergences" type="bool" default="False">
+If True, compute forward-phase Hutchinson divergence terms. These are
+not required for ``log_odds_ratio`` and increase runtime; by default False.
+</ParamField>
+
+**Returns:** `tuple[float | torch.Tensor, torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+log_odds_ratio, forward_latents, latent_coords
+
+<Note>
+
+This method requires the underlying cBottle model to be loaded with
+``allow_second_order_derivatives=True`` via `load_model`. The default
+``allow_second_order_derivatives=False`` path is optimized for standard guided
+sampling and fails for odds-ratio computations.
+
+</Note>
+
+</Indent>
+<Anchor id="earth2studio-models-dx-cbottle_tc-CBottleTCGuidance-create_guidance_tensor">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../../utils/type.mdx#earth2studio-utils-type-TimeArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.cbottle_tc.CBottleTCGuidance.create_guidance_tensor(
+    lat_coords: torch.Tensor,
+    lon_coords: torch.Tensor,
+    times: list[datetime.datetime] | earth2studio.utils.type.TimeArray
+) -> tuple[torch.Tensor, collections.OrderedDict]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Creates a TC guidance tensor from lat/lon coordinates.
+
+**Parameters:**
+
+<ParamField path="lat_coords" type="torch.Tensor">
+Latitude coordinates where TC guidance should be set
+</ParamField>
+
+<ParamField path="lon_coords" type="torch.Tensor">
+Longitude coordinates where TC guidance should be set
+</ParamField>
+
+<ParamField path="times" type="list[datetime] | TimeArray">
+`list[datetime] |` [`TimeArray`](../../utils/type.mdx#earth2studio-utils-type-TimeArray) — List of datetime objects or numpy datetime64 array specifying the times for
+the guidance tensor's coordinate system
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor, OrderedDict]`
+
+Tuple containing:
+- Guidance tensor with shape (n,1,721,1440) or (n,1,hpx) where values are 1
+    at the specified coordinates
+- OrderedDict with coordinate dimensions and values
+
+</Indent>
+<Anchor id="earth2studio-models-dx-cbottle_tc-CBottleTCGuidance-get_cbottle_input">
+
+<CodeBlock links={{"earth2studio.models.dx.cbottle_tc.DatasetModality":"#earth2studio-models-dx-cbottle_tc-DatasetModality"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.cbottle_tc.CBottleTCGuidance.get_cbottle_input(
+    times: list[datetime.datetime],
+    dataset_modality: earth2studio.models.dx.cbottle_tc.DatasetModality = DatasetModality.ERA5
+) -> dict[str, torch.Tensor]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Prepares the CBottle inputs
+
+Adopted from:
+
+- https://github.com/NVlabs/cBottle/blob/ed96dfe35d87ecefa4846307807e8241c4b24e71/src/cbottle/datasets/amip_sst_loader.py#L55
+- https://github.com/NVlabs/cBottle/blob/ed96dfe35d87ecefa4846307807e8241c4b24e71/src/cbottle/datasets/dataset_3d.py#L247
+
+**Parameters:**
+
+<ParamField path="time" type="list[datetime]">
+List of times for inference
+</ParamField>
+
+<ParamField path="dataset_modality" type="DatasetModality" default="DatasetModality.ERA5">
+[`DatasetModality`](#earth2studio-models-dx-cbottle_tc-DatasetModality) — Dataset modality label, by default DatasetModality.ERA5
+</ParamField>
+
+**Returns:** `dict[str, torch.Tensor]`
+
+Dictionary of input tensors for CBottle
+
+</Indent>
+<Anchor id="earth2studio-models-dx-cbottle_tc-CBottleTCGuidance-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.cbottle_tc.CBottleTCGuidance.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of diagnostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-dx-cbottle_tc-CBottleTCGuidance-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.cbottle_tc.CBottleTCGuidance.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Default pre-trained cBottle model package from Nvidia model registry
+
+</Indent>
+<Anchor id="earth2studio-models-dx-cbottle_tc-CBottleTCGuidance-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.dx.base.DiagnosticModel":"./base.mdx#earth2studio-models-dx-base-DiagnosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.cbottle_tc.CBottleTCGuidance.load_model(
+    package: earth2studio.models.auto.Package,
+    lat_lon: bool = True,
+    sampler_steps: int = 18,
+    sigma_max: float = 200,
+    seed: int | None = None,
+    allow_second_order_derivatives: bool = False
+) -> earth2studio.models.dx.base.DiagnosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load diagnostic from package
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — CBottle AI model package
+</ParamField>
+
+<ParamField path="lat_lon" type="bool" default="True">
+Lat/lon toggle, if true prognostic input/output on a 0.25 deg lat/lon
+grid. If false, the native nested HealPix grid will be returned, by default
+True
+</ParamField>
+
+<ParamField path="sampler_steps" type="int" default="18">
+Number of diffusion steps, by default 18
+</ParamField>
+
+<ParamField path="sigma_max" type="float" default="200">
+Noise amplitude used to generate latent variables, by default 80
+</ParamField>
+
+<ParamField path="seed" type="int" default="None">
+Random generator seed for latent variables. If None, no seed will be used,
+by default None
+</ParamField>
+
+<ParamField path="allow_second_order_derivatives" type="bool" default="False">
+Enable checkpoint/model loading path required for second-order autodiff
+(needed for odds-ratio computations). Keep False for faster standard
+guided inference, by default False.
+</ParamField>
+
+**Returns:** [`DiagnosticModel`](./base.mdx#earth2studio-models-dx-base-DiagnosticModel)
+
+Diagnostic model
+
+</Indent>
+<Anchor id="earth2studio-models-dx-cbottle_tc-CBottleTCGuidance-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.cbottle_tc.CBottleTCGuidance.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of diagnostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-dx-cbottle_tc-CBottleTCGuidance-regrid_hpx_to_latlon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.cbottle_tc.CBottleTCGuidance.regrid_hpx_to_latlon(
+    x: torch.Tensor,
+    grid: earth2grid.base.Grid
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Regrid an HPX tensor to lat/lon grid.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor whose last dimension is HPX pixels.
+</ParamField>
+
+<ParamField path="grid" type="earth2grid.base.Grid">
+Input HPX grid
+</ParamField>
+
+**Returns:** `torch.Tensor`
+
+Regridded tensor with trailing dimensions ``(..., nlat, nlon)``.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-dx-cbottle_tc-DatasetModality">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.cbottle_tc.DatasetModality
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `enum.Enum`
+
+Dataset label
+
+</Indent>
