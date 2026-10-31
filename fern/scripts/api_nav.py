@@ -71,9 +71,7 @@ DATA_LISTS = {
 def autosummary_names(md: Path) -> list[str]:
     if not md.exists():
         return []
-    return re.findall(
-        r"^(earth2studio\.[\w.]+)\s*$", md.read_text(), flags=re.M
-    )
+    return re.findall(r"^(earth2studio\.[\w.]+)\s*$", md.read_text(), flags=re.M)
 
 
 def assign_groups(rels: list[str], find_page, modules_dir: Path) -> dict[str, str]:
@@ -177,7 +175,11 @@ def build(
             if slug in used:
                 raise SystemExit(f"duplicate slug {slug!r} in group {gslug}")
             used.add(slug)
-            label = rel.replace("/", ".") if gslug == "other" else label_for(rel, pages[rel])
+            label = (
+                rel.replace("/", ".")
+                if gslug == "other"
+                else label_for(rel, pages[rel])
+            )
             if gslug == "other" and rel.endswith("/index"):
                 label = rel[: -len("/index")].replace("/", ".") + " (package)"
             entries.append((label.lower(), rel, label, slug))

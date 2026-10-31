@@ -117,7 +117,9 @@ LEGACY_API_LINK = re.compile(
     r"\[([^\]\n]+)\]\(https://nvidia\.github\.io/earth2studio/(?:main|latest)/modules/"
     r"[^)#\s]*#([A-Za-z0-9_.]+)\)"
 )
-LEGACY_ANY = re.compile(r"\(https://nvidia\.github\.io/earth2studio/(?:main|latest)/([^)\s]*)\)")
+LEGACY_ANY = re.compile(
+    r"\(https://nvidia\.github\.io/earth2studio/(?:main|latest)/([^)\s]*)\)"
+)
 
 
 _HEADING_IDS: dict[str, str] = {}
@@ -127,7 +129,9 @@ def heading_ids() -> dict[str, str]:
     """Map MkDocs custom heading ids (``## Title { #my_id }``) to Fern's heading slugs."""
     if not _HEADING_IDS:
         for md in (ROOT / "docs" / "userguide").rglob("*.md"):
-            for m in re.finditer(r"^#+\s+(.*?)\s*\{\s*#([\w-]+)\s*\}\s*$", md.read_text(), re.M):
+            for m in re.finditer(
+                r"^#+\s+(.*?)\s*\{\s*#([\w-]+)\s*\}\s*$", md.read_text(), re.M
+            ):
                 slug = re.sub(r"[^a-z0-9]+", "-", m.group(1).lower()).strip("-")
                 _HEADING_IDS[m.group(2)] = slug
     return _HEADING_IDS
@@ -158,7 +162,9 @@ def convert_links(text: str, resolver: Resolver) -> str:
         frag = "#" + heading_ids().get(frag, frag) if frag else ""
         return f"]({SITE}/{page}{frag})"
 
-    text = re.sub(r"\]\((?:\.\./)+userguide/([^)#\s]+?)\.md(#[^)\s]*)?\)", userguide, text)
+    text = re.sub(
+        r"\]\((?:\.\./)+userguide/([^)#\s]+?)\.md(#[^)\s]*)?\)", userguide, text
+    )
     text = LEGACY_API_LINK.sub(legacy_api, text)
     text = AUTOREF.sub(autoref, text)
     return text
@@ -170,7 +176,11 @@ def escape_prose(line: str) -> str:
         p = parts[i]
         p = re.sub(r"<(https?://[^>\s]+)>", r"[\1](\1)", p)
         p = p.replace("{", "\\{").replace("}", "\\}")
-        p = re.sub(r"<(?!/?(?:Note|Info|Tip|Warning|Accordion|Card|CardGroup|Tabs|Tab)\b)", "&lt;", p)
+        p = re.sub(
+            r"<(?!/?(?:Note|Info|Tip|Warning|Accordion|Card|CardGroup|Tabs|Tab)\b)",
+            "&lt;",
+            p,
+        )
         parts[i] = p
     return "".join(parts)
 
@@ -198,7 +208,9 @@ def markdown_to_mdx(lines: list[str], resolver: Resolver) -> list[str]:
             title = m.group(2)
             body: list[str] = []
             i += 1
-            while i < len(lines) and (lines[i].startswith("    ") or not lines[i].strip()):
+            while i < len(lines) and (
+                lines[i].startswith("    ") or not lines[i].strip()
+            ):
                 body.append(lines[i][4:] if lines[i].startswith("    ") else "")
                 i += 1
             while body and not body[-1].strip():
@@ -324,11 +336,11 @@ def convert_script(path: Path, resolver: Resolver) -> str:
 # --------------------------------------------------------------------------- #
 def read_readme(path: Path) -> tuple[str, str]:
     lines = [l for l in path.read_text().split("\n") if not l.startswith(".. _")]
-    lines = [l for l in lines]
+    lines = [*lines]
     while lines and not lines[0].strip():
         lines.pop(0)
     title = lines[0].strip()
-    body = [l for l in lines[2:]]
+    body = [*lines[2:]]
     desc = " ".join(" ".join(body).split())
     return title, desc
 

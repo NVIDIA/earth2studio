@@ -207,14 +207,16 @@ def drop_stray_params(items: list) -> list:
             while "</ParamField>" not in items[j]:
                 j += 1
                 chunk.append(items[j])
-            inner = "".join(
-                c for c in chunk if isinstance(c, str)
-            )
+            inner = "".join(c for c in chunk if isinstance(c, str))
             inner = re.sub(r"</?ParamField[^>]*>", "", inner).strip()
             if not inner and not in_params:
                 i = j + 1
                 # eat one following blank line
-                if i < len(items) and isinstance(items[i], str) and not items[i].strip():
+                if (
+                    i < len(items)
+                    and isinstance(items[i], str)
+                    and not items[i].strip()
+                ):
                     i += 1
                 continue
             out.extend(chunk)
