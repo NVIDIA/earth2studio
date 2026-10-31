@@ -26,7 +26,7 @@ import xarray as xr
 
 from earth2studio.coupling.errors import CouplingError
 from earth2studio.models.utils import step_interval
-from earth2studio.run._fields import _publishes_initial_condition
+from earth2studio.run._fields import _holds_input_fields, _publishes_initial_condition
 from earth2studio.utils.type import CoordinateSystem, FrameSchema
 
 
@@ -111,6 +111,7 @@ class _Node:
     cadence: int = 0
     spacing: int = 0
     ic_slots: tuple[int, ...] = ()  # output slots publishing an initial condition
+    state_slots: tuple[int, ...] = ()  # input slots a state connector may overwrite
 
     def exports(self, slot: int) -> tuple[str, ...]:
         """Variables output slot ``slot`` publishes."""
@@ -209,14 +210,20 @@ def _stateful(name: str, model: Any) -> _Node:
     if cadence <= 0:
         raise CouplingError(f"Component {name!r} does not advance in time")
     spacing = int(out_leads[1] - out_leads[0]) if len(out_leads) > 1 else cadence
-    # Output slot i publishes an initial condition from input slot i when that
-    # output declares that input's variables on its grid, as state slots come first.
-    ic_slots = tuple(
+    # Input slot i is a state slot when output slot i declares its variables on
+    # its grid, as state slots come first. It also publishes an initial condition
+    # unless it is a background ending before the analysis time.
+    state_slots = tuple(
         i
         for i, slot in enumerate(inputs[: len(outputs)])
         if not slot.frame
         and not slot.static
-        and _publishes_initial_condition(slot.signature, outputs[i])
+        and _holds_input_fields(slot.signature, outputs[i])
+    )
+    ic_slots = tuple(
+        i
+        for i in state_slots
+        if _publishes_initial_condition(inputs[i].signature, outputs[i])
     )
     return _Node(
         name,
@@ -231,6 +238,7 @@ def _stateful(name: str, model: Any) -> _Node:
         cadence,
         spacing,
         ic_slots,
+        state_slots,
     )
 
 
