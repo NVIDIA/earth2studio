@@ -109,6 +109,22 @@ def _map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataAr
     return x
 
 
+def _require_analysis_time_input(inputs: xr.DataArray) -> None:
+    """Reject models whose input ends before the analysis time.
+
+    The workflows write the initial condition and size stores from lead time
+    zero, so a model initialized from an earlier background cannot run under
+    them; ``PrognosticRunner`` handles such models.
+    """
+    leads = inputs.coords["lead_time"].values if "lead_time" in inputs.dims else None
+    if leads is not None and leads[-1] < np.timedelta64(0, "s"):
+        raise ValueError(
+            f"Input lead_time {leads} ends before the analysis time, which "
+            "run.deterministic, run.diagnostic and run.ensemble do not support; "
+            "use PrognosticRunner with Pipeline"
+        )
+
+
 def _lead_times(
     signature: xr.DataArray, nsteps: int, step: np.timedelta64 | None = None
 ) -> np.ndarray:

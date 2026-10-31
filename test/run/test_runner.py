@@ -416,6 +416,20 @@ def test_background_before_analysis_steps_at_forecast_interval() -> None:
     assert source.times == [T0 - np.timedelta64(9, "h")]
 
 
+def test_workflows_reject_a_background_before_the_analysis_time() -> None:
+    model = _FromBackground()
+    with pytest.raises(ValueError, match="PrognosticRunner"):
+        run.deterministic([T0], 2, model, _Zeros(), KVBackend(), verbose=False)
+    with pytest.raises(ValueError, match="PrognosticRunner"):
+        run.diagnostic(
+            [T0], 2, model, _WindSpeed(), _Zeros(), KVBackend(), verbose=False  # type: ignore[arg-type]
+        )
+    with pytest.raises(ValueError, match="PrognosticRunner"):
+        run.ensemble(
+            [T0], 2, 2, model, _Zeros(), KVBackend(), lambda x, c: (x, c), verbose=False  # type: ignore[arg-type]
+        )
+
+
 def test_forcing_is_fetched_requested_and_sent_each_step() -> None:
     model = _Forced()
     runner = PrognosticRunner(model, _Zeros(), forcing=(_Zeros(),))
