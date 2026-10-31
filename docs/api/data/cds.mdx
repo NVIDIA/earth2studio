@@ -1,0 +1,193 @@
+---
+layout: overview
+title: earth2studio.data.cds
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`CDS`](#earth2studio-data-cds-CDS) | Deprecated alias for `CDS_ERA5`. |
+| [`CDS_ERA5`](#earth2studio-data-cds-CDS_ERA5) | ERA5 reanalysis data served from the Climate Data Store (CDS). This data source |
+| [`CDS_ERA5Request`](#earth2studio-data-cds-CDS_ERA5Request) | CDS_ERA5 Request data class |
+
+### API
+
+<Anchor id="earth2studio-data-cds-CDS">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.cds.CDS(
+    cache: bool = True,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [CDS_ERA5](#earth2studio-data-cds-CDS_ERA5)
+
+Deprecated alias for `CDS_ERA5`.
+
+</Indent>
+
+<Anchor id="earth2studio-data-cds-CDS_ERA5">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.cds.CDS_ERA5(
+    cache: bool = True,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+ERA5 reanalysis data served from the Climate Data Store (CDS). This data source
+requires users to have a CDS API access key which can be obtained for free on the CDS
+webpage.
+
+**Badges:** `region:global` `dataclass:reanalysis` `dataset:era5` `product:wind` `product:precip` `product:temp` `product:atmos` `provider:copernicus`
+
+**Parameters:**
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+<Note>
+
+Additional information on the data repository, registration, and authentication can
+be referenced here:
+
+- https://cds.climate.copernicus.eu/how-to-api
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of data
+to your local machine for large requests.
+
+</Warning>
+
+<ParamField path="cache" type="str">
+Get the appropriate cache location.
+</ParamField>
+
+<ParamField path="cds_client" type="Any">
+Lazily initialize the CDS API client on first access.
+
+This allows cache hits to succeed without requiring CDS API credentials
+or network access, enabling use in air-gapped environments with
+pre-populated caches.
+</ParamField>
+<Anchor id="earth2studio-data-cds-CDS_ERA5-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.cds.CDS_ERA5.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Function to get data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in CDS_ERA5Lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+ERA5 weather data array from CDS_ERA5
+
+</Indent>
+<Anchor id="earth2studio-data-cds-CDS_ERA5-fetch_cds_dataarray">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.cds.CDS_ERA5.fetch_cds_dataarray(
+    time: datetime.datetime,
+    variables: list[str]
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieves CDS data array for given date time by fetching variable grib files
+using the cdsapi package and combining grib files into a single data array.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime">
+Date time to fetch
+</ParamField>
+
+<ParamField path="variables" type="list[str]">
+list of atmospheric variables to fetch. Must be supported in CDS_ERA5Lexicon
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+CDS data array for given date time
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-cds-CDS_ERA5Request">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.cds.CDS_ERA5Request(
+    dataset: str,
+    time: datetime.datetime,
+    variable: str,
+    levels: list[str],
+    modifiers: list[collections.abc.Callable],
+    indices: list[int],
+    ids: list[str]
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+CDS_ERA5 Request data class
+
+</Indent>

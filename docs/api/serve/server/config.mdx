@@ -1,0 +1,482 @@
+---
+layout: overview
+title: earth2studio.serve.server.config
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`AppConfig`](#earth2studio-serve-server-config-AppConfig) | Root configuration for the application |
+| [`CORSConfig`](#earth2studio-serve-server-config-CORSConfig) | CORS middleware configuration |
+| [`ConfigManager`](#earth2studio-serve-server-config-ConfigManager) | Singleton configuration manager using Hydra. |
+| [`LoggingConfig`](#earth2studio-serve-server-config-LoggingConfig) | Logging configuration |
+| [`ObjectStorageConfig`](#earth2studio-serve-server-config-ObjectStorageConfig) | Object storage configuration for S3/CloudFront and Azure Blob Storage |
+| [`PathsConfig`](#earth2studio-serve-server-config-PathsConfig) | File system paths configuration |
+| [`QueueConfig`](#earth2studio-serve-server-config-QueueConfig) | RQ queue configuration |
+| [`RedisConfig`](#earth2studio-serve-server-config-RedisConfig) | Redis connection configuration |
+| [`ServerConfig`](#earth2studio-serve-server-config-ServerConfig) | FastAPI server configuration |
+| [`WorkflowExposureConfig`](#earth2studio-serve-server-config-WorkflowExposureConfig) | Configuration for controlling which workflows are exposed via API endpoints |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`get_config`](#earth2studio-serve-server-config-get_config) | Get the global configuration instance. |
+| [`get_config_manager`](#earth2studio-serve-server-config-get_config_manager) | Get the configuration manager instance (singleton). |
+| [`get_workflow_config`](#earth2studio-serve-server-config-get_workflow_config) | Get the global workflow configuration. |
+| [`reset_config`](#earth2studio-serve-server-config-reset_config) | Reset the configuration manager singleton (mainly for testing). |
+| [`resolve_repo_root`](#earth2studio-serve-server-config-resolve_repo_root) | Return the repository root by walking up until ``pyproject.toml`` is found. |
+| [`resolve_serve_path`](#earth2studio-serve-server-config-resolve_serve_path) | Resolve a ``serve/`` sub-path, preferring an env-var override. |
+
+### API
+
+<Anchor id="earth2studio-serve-server-config-AppConfig">
+
+<CodeBlock links={{"earth2studio.serve.server.config.RedisConfig":"#earth2studio-serve-server-config-RedisConfig","earth2studio.serve.server.config.QueueConfig":"#earth2studio-serve-server-config-QueueConfig","earth2studio.serve.server.config.PathsConfig":"#earth2studio-serve-server-config-PathsConfig","earth2studio.serve.server.config.LoggingConfig":"#earth2studio-serve-server-config-LoggingConfig","earth2studio.serve.server.config.ServerConfig":"#earth2studio-serve-server-config-ServerConfig","earth2studio.serve.server.config.CORSConfig":"#earth2studio-serve-server-config-CORSConfig","earth2studio.serve.server.config.ObjectStorageConfig":"#earth2studio-serve-server-config-ObjectStorageConfig","earth2studio.serve.server.config.WorkflowExposureConfig":"#earth2studio-serve-server-config-WorkflowExposureConfig"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.config.AppConfig(
+    redis: earth2studio.serve.server.config.RedisConfig = RedisConfig(),
+    queue: earth2studio.serve.server.config.QueueConfig = QueueConfig(),
+    paths: earth2studio.serve.server.config.PathsConfig = PathsConfig(),
+    logging: earth2studio.serve.server.config.LoggingConfig = LoggingConfig(),
+    server: earth2studio.serve.server.config.ServerConfig = ServerConfig(),
+    cors: earth2studio.serve.server.config.CORSConfig = CORSConfig(),
+    object_storage: earth2studio.serve.server.config.ObjectStorageConfig = ObjectStorageConfig(),
+    workflow_exposure: earth2studio.serve.server.config.WorkflowExposureConfig = WorkflowExposureConfig()
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Root configuration for the application
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-config-CORSConfig">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.config.CORSConfig(
+    allow_origins: list = (lambda: ['*'])(),
+    allow_credentials: bool = True,
+    allow_methods: list = (lambda: ['*'])(),
+    allow_headers: list = (lambda: ['*'])()
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+CORS middleware configuration
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-config-ConfigManager">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.config.ConfigManager()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Singleton configuration manager using Hydra.
+
+This class provides a centralized way to access configuration throughout
+the application. It supports:
+- Loading from YAML files
+- Environment variable overrides
+- Command-line argument overrides
+- Programmatic access to config values
+
+<ParamField path="config" type="AppConfig">
+Get the current configuration
+</ParamField>
+
+<ParamField path="workflow_config" type="dict[str, Any]">
+Get the current configuration
+</ParamField>
+<Anchor id="earth2studio-serve-server-config-ConfigManager-get_redis_url">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.config.ConfigManager.get_redis_url() -> str
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get Redis connection URL
+
+</Indent>
+<Anchor id="earth2studio-serve-server-config-ConfigManager-setup_logging">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.config.ConfigManager.setup_logging() -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Configure logging using loguru.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-serve-server-config-LoggingConfig">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.config.LoggingConfig(
+    level: str = 'INFO',
+    format: str = '{time:YYYY-MM-DD HH:mm:ss....
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Logging configuration
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-config-ObjectStorageConfig">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.config.ObjectStorageConfig(
+    enabled: bool = False,
+    storage_type: typing.Literal['s3', 'azure'] = 's3',
+    bucket: str | None = None,
+    region: str = 'us-east-1',
+    prefix: str = 'outputs',
+    access_key_id: str | None = None,
+    secret_access_key: str | None = None,
+    session_token: str | None = None,
+    endpoint_url: str | None = None,
+    use_transfer_acceleration: bool = True,
+    max_concurrency: int = 16,
+    multipart_chunksize: int = 8 * 1024 * 1024,
+    use_rust_client: bool = True,
+    cloudfront_domain: str | None = None,
+    cloudfront_key_pair_id: str | None = None,
+    cloudfront_private_key: str | None = None,
+    signed_url_expires_in: int = 86400
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Object storage configuration for S3/CloudFront and Azure Blob Storage
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-config-PathsConfig">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.config.PathsConfig(
+    default_output_dir: str = '/outputs',
+    results_zip_dir: str = '/outputs',
+    output_format: typing.Literal['zarr', 'netcdf4'] = 'zarr',
+    result_zip_enabled: bool = False
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+File system paths configuration
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-config-QueueConfig">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.config.QueueConfig(
+    name: str = 'inference',
+    result_zip_queue_name: str = 'result_zip',
+    object_storage_queue_name: str = 'object_storage',
+    geocatalog_ingestion_queue_name: str = 'geocatalog_ingestion',
+    finalize_metadata_queue_name: str = 'finalize_metadata',
+    max_size: int = 10,
+    default_timeout: str = '1h',
+    job_timeout: str = '2h'
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+RQ queue configuration
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-config-RedisConfig">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.config.RedisConfig(
+    host: str = 'localhost',
+    port: int = 6379,
+    db: int = 0,
+    password: str | None = None,
+    socket_connect_timeout: int = 5,
+    socket_timeout: int = 5,
+    decode_responses: bool = True,
+    retention_ttl: int = 604800
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Redis connection configuration
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-config-ServerConfig">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.config.ServerConfig(
+    host: str = '0.0.0.0',
+    port: int = 8000,
+    workers: int = 1,
+    title: str = 'Earth2Studio REST API',
+    description: str = 'REST API for running Earth...,
+    version: str = '1.0.0',
+    docs_url: str = '/docs',
+    redoc_url: str = '/redoc',
+    results_ttl_hours: int = 24,
+    cleanup_watchdog_sec: int = 900
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+FastAPI server configuration
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-config-WorkflowExposureConfig">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.config.WorkflowExposureConfig(
+    exposed_workflows: list[str] = (lambda: [])(),
+    warmup_workflows: list[str] = (lambda: ['example_user_wor...
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Configuration for controlling which workflows are exposed via API endpoints
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-config-get_config">
+
+<CodeBlock links={{"earth2studio.serve.server.config.AppConfig":"#earth2studio-serve-server-config-AppConfig"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.config.get_config() -> earth2studio.serve.server.config.AppConfig
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get the global configuration instance.
+
+**Returns:** [`AppConfig`](#earth2studio-serve-server-config-AppConfig)
+
+The application configuration
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-config-get_config_manager">
+
+<CodeBlock links={{"earth2studio.serve.server.config.ConfigManager":"#earth2studio-serve-server-config-ConfigManager"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.config.get_config_manager() -> earth2studio.serve.server.config.ConfigManager
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get the configuration manager instance (singleton).
+
+**Example**
+
+&gt;&gt;&gt; from earth2studio.serve.server.config import get_config_manager
+&gt;&gt;&gt; manager = get_config_manager()
+&gt;&gt;&gt; manager.setup_logging()
+
+**Returns:** [`ConfigManager`](#earth2studio-serve-server-config-ConfigManager)
+
+The configuration manager
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-config-get_workflow_config">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.config.get_workflow_config(
+    name: str
+) -> dict[str, typing.Any]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get the global workflow configuration.
+
+**Returns:** `dict[str, Any]`
+
+dict[str, Any]: The workflow configuration
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-config-reset_config">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.config.reset_config() -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Reset the configuration manager singleton (mainly for testing).
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-config-resolve_repo_root">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.config.resolve_repo_root() -> pathlib.Path
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Return the repository root by walking up until ``pyproject.toml`` is found.
+
+Falls back gracefully: if no marker is found, the caller should treat the
+result as best-effort and prefer an explicit env-var override.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-config-resolve_serve_path">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.config.resolve_serve_path(
+    env_var: str,
+    relative_to_root: str
+) -> pathlib.Path
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Resolve a ``serve/`` sub-path, preferring an env-var override.
+
+**Parameters:**
+
+<ParamField path="env_var" type="str">
+Environment variable name (e.g. ``CONFIG_DIR``).
+</ParamField>
+
+<ParamField path="relative_to_root" type="str">
+Path relative to the repository root used when *env_var* is unset
+(e.g. ``serve/server/conf``).
+</ParamField>
+
+**Returns:** `Path`
+
+Absolute path to the requested directory/file.
+
+</Indent>

@@ -1,0 +1,329 @@
+---
+layout: overview
+title: earth2studio.data.goes
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`GOES`](#earth2studio-data-goes-GOES) | GOES (Geostationary Operational Environmental Satellite) data source. |
+
+### API
+
+<Anchor id="earth2studio-data-goes-GOES">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.goes.GOES(
+    satellite: str = 'goes16',
+    scan_mode: str = 'F',
+    max_workers: int = 24,
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    retries: int = 3
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+GOES (Geostationary Operational Environmental Satellite) data source.
+
+This data source provides access to GOES-16 and GOES-18 satellite data from AWS S3.
+The data is exclusively ABI (Advanced Baseline Imager) data for now.
+
+**Badges:** `region:na` `dataclass:observation` `product:sat` `provider:noaa`
+
+**Parameters:**
+
+<ParamField path="satellite" type="str" default="'goes16'">
+Which GOES satellite to use ('goes16', 'goes17', 'goes18', or 'goes19'), by default 'goes16'
+</ParamField>
+
+<ParamField path="scan_mode" type="str" default="'F'">
+For ABI: Scan mode ('F' for Full Disk, 'C' for Continental US)
+Mesoscale data is currently not supported due to the changing scan position.
+</ParamField>
+
+<ParamField path="max_workers" type="int" default="24">
+Maximum number of workers for parallel downloads, by default 24
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Whether to cache downloaded files, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Whether to print progress information, by default True
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Timeout for async operations in seconds, by default 600
+</ParamField>
+
+<Note>
+
+Beginners Guide to GOES-R Series Data:
+https://noaa-goes16.s3.amazonaws.com/Beginners_Guide_to_GOES-R_Series_Data.pdf
+
+AWS S3 Bucket:
+https://aws.amazon.com/marketplace/pp/prodview-ngejrbcumyjtu#usage
+
+ABI Data:
+
+- 16 spectral bands (abi01c-abi16c):
+
+    - abi01c, abi02c (Visible: Blue, Red)
+    - abi03c-abi06c (Near IR: Vegetation, Cirrus, Snow/Ice, Cloud particles)
+    - abi07c-abi16c (IR: Thermal and water vapor channels)
+
+- Scan modes:
+
+    - Full Disk (F): Entire Earth view
+    - Continental US (C): Continental US (20°N-50°N, 125°W-65°W)
+
+Missing data:
+
+Some pixels are ``_FillValue`` in NOAA's source file (e.g. calibration
+gaps or other instrument issues) and decode to NaN. This data source will
+warn with the affected pixel count whenever a pixel on the Earth disk is
+NaN, except within a narrow band at the limb: at the very edge of the
+visible disk, our idealized center-ray geometry says "Earth" while NOAA's
+radiance retrieval sometimes says "can't produce a value", a definitional
+disagreement confined to a measured 3-pixel rind with nothing genuinely
+missing inside it. NaNs in that rind are logged at debug level instead.
+Pixels off the disk are always fill-valued and are excluded entirely.
+
+</Note>
+
+<ParamField path="_bucket" type="str">
+Anonymous S3 bucket for the configured satellite.
+</ParamField>
+
+<ParamField path="cache" type="str">
+Return appropriate cache location.
+</ParamField>
+
+<Anchor id="earth2studio-data-goes-GOES-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.goes.GOES.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Function to get data
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the GOES lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data array containing the requested GOES data
+
+</Indent>
+<Anchor id="earth2studio-data-goes-GOES-available">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.goes.GOES.available(
+    time: datetime.datetime | numpy.datetime64,
+    satellite: str = 'goes16',
+    scan_mode: str = 'F'
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Checks if given date time is available in the GOES object store
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | np.datetime64">
+Date time to access
+</ParamField>
+
+<ParamField path="satellite" type="str" default="'goes16'">
+Which GOES satellite to check, by default "goes16"
+</ParamField>
+
+<ParamField path="scan_mode" type="str" default="'F'">
+Which scan mode to check, by default "F"
+</ParamField>
+
+**Returns:** `bool`
+
+If date time is available
+
+</Indent>
+<Anchor id="earth2studio-data-goes-GOES-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.goes.GOES.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get data
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variables to return using standardized names
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+GOES data array
+
+</Indent>
+<Anchor id="earth2studio-data-goes-GOES-fetch_array">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.goes.GOES.fetch_array(
+    time: datetime.datetime,
+    variable: list[str]
+) -> numpy.ndarray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Fetch GOES data array
+
+**Parameters:**
+
+<ParamField path="time" type="datetime">
+Time to get data for
+</ParamField>
+
+<ParamField path="variable" type="str">
+Variable to get
+</ParamField>
+
+**Returns:** `np.ndarray`
+
+GOES data array
+
+<Note>
+
+On-disk pixels that are fill-valued in the source file decode to NaN
+and trigger a logged warning; see the "Missing data" note on the
+`GOES` class docstring for how to interpret it.
+
+</Note>
+
+</Indent>
+<Anchor id="earth2studio-data-goes-GOES-fetch_wrapper">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.goes.GOES.fetch_wrapper(
+    e: tuple[int, datetime.datetime, list[str]],
+    xr_array: xarray.DataArray
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Small wrapper to pack arrays into the DataArray
+
+</Indent>
+<Anchor id="earth2studio-data-goes-GOES-grid">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.goes.GOES.grid(
+    satellite: str = 'goes16',
+    scan_mode: str = 'F'
+) -> tuple[numpy.ndarray, numpy.ndarray]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return (lat, lon) in degrees for the native GOES grid.
+
+**Parameters:**
+
+<ParamField path="satellite" type="str" default="'goes16'">
+Which GOES satellite to use, by default "goes16"
+</ParamField>
+
+<ParamField path="scan_mode" type="str" default="'F'">
+Scan mode ('F' for Full Disk, 'C' for Continental US), by default "F"
+</ParamField>
+
+**Returns:** `tuple[np.ndarray, np.ndarray]`
+
+Tuple of (lat, lon) in degrees
+
+<Note>
+
+This function is based on the GOES ABI fixed grid projection variables and constants.
+The projection comes from the recommended NOAA documentation:
+https://www.star.nesdis.noaa.gov/atmospheric-composition-training/python_abi_lat_lon.php
+
+</Note>
+
+</Indent>
+</Indent>

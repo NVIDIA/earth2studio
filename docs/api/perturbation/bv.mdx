@@ -1,0 +1,103 @@
+---
+layout: overview
+title: earth2studio.perturbation.bv
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`BredVector`](#earth2studio-perturbation-bv-BredVector) | Bred Vector perturbation method, a classical technique for pertubations in |
+
+### API
+
+<Anchor id="earth2studio-perturbation-bv-BredVector">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem","earth2studio.perturbation.base.Perturbation":"./base.mdx#earth2studio-perturbation-base-Perturbation"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.perturbation.bv.BredVector(
+    model: collections.abc.Callable[[torch.Tensor, CoordSystem], tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]],
+    noise_amplitude: float | torch.Tensor = 0.05,
+    integration_steps: int = 20,
+    ensemble_perturb: bool = False,
+    seeding_perturbation_method: earth2studio.perturbation.base.Perturbation = Brown()
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Bred Vector perturbation method, a classical technique for pertubations in
+ensemble forecasting.
+
+**Parameters:**
+
+<ParamField path="model" type="Callable[[torch.Tensor], torch.Tensor]">
+Dynamical model, typically this is the prognostic AI model.
+TODO: Update to prognostic looper
+</ParamField>
+
+<ParamField path="noise_amplitude" type="float | Tensor" default="0.05">
+Noise amplitude, by default 0.05. If a tensor,
+this must be broadcastable with the input data.
+</ParamField>
+
+<ParamField path="integration_steps" type="int" default="20">
+Number of integration steps to use in forward call, by default 20
+</ParamField>
+
+<ParamField path="ensemble_perturb" type="bool" default="False">
+Perturb the ensemble in an interacting fashion, by default False
+</ParamField>
+
+<ParamField path="seeding_perturbation_method" type="Perturbation" default="Brown()">
+[`Perturbation`](./base.mdx#earth2studio-perturbation-base-Perturbation) — Method to seed the Bred Vector perturbation, by default Brown Noise
+</ParamField>
+
+<Note>
+
+For additional information:
+
+- https://journals.ametsoc.org/view/journals/bams/74/12/1520-0477_1993_074_2317_efantg_2_0_co_2.xml
+- https://en.wikipedia.org/wiki/Bred_vector
+
+</Note>
+
+<Anchor id="earth2studio-perturbation-bv-BredVector-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.perturbation.bv.BredVector.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Apply perturbation method
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor intended to apply perturbation on
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the tensor
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]:`
+
+Output tensor and respective coordinate system dictionary
+
+</Indent>
+</Indent>

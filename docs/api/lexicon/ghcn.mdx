@@ -1,0 +1,147 @@
+---
+layout: overview
+title: earth2studio.lexicon.ghcn
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`GHCNDailyLexicon`](#earth2studio-lexicon-ghcn-GHCNDailyLexicon) | NOAA's Global Historical Climatology Network Daily (GHCN-D) lexicon. |
+| [`GHCNHourlyLexicon`](#earth2studio-lexicon-ghcn-GHCNHourlyLexicon) | NOAA's Global Historical Climatology Network Hourly (GHCNh) product lexicon. |
+
+### API
+
+<Anchor id="earth2studio-lexicon-ghcn-GHCNDailyLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.ghcn.GHCNDailyLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+NOAA's Global Historical Climatology Network Daily (GHCN-D) lexicon.
+
+This lexicon provides variable mappings for GHCN-Daily observation types.
+Metadata fields (station, time, lat, lon, elev) are defined in the
+GHCN data source schema.
+
+<Note>
+
+GHCN-D raw values use non-SI units (tenths of Celsius for temperatures,
+tenths of mm for precipitation). The modifier functions returned by
+``get_item`` convert to Earth2Studio standard units (K for temperature,
+m for precipitation/snow depth).
+
+Additional resources:
+
+- https://www.ncei.noaa.gov/pub/data/ghcn/daily/readme.txt
+- https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-daily
+- https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/doc/GHCND_documentation.pdf
+- https://www.ncei.noaa.gov/oa/global-historical-climatology-network/
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-ghcn-GHCNDailyLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.ghcn.GHCNDailyLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Get item from GHCN vocabulary.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Earth2Studio variable id.
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+- GHCN element code (e.g. ``"TMAX"``).
+- A modifier function that converts raw GHCN integer values to
+  Earth2Studio standard units.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-lexicon-ghcn-GHCNHourlyLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.ghcn.GHCNHourlyLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+NOAA's Global Historical Climatology Network Hourly (GHCNh) product lexicon.
+
+GHCNh is served as per-station parquet files with pre-parsed float columns
+(e.g. ``temperature``, ``wind_speed``).
+
+``VOCAB`` maps each Earth2Studio variable to the corresponding GHCNh parquet
+column name, or ``None`` for variables derived from multiple columns
+(``u10m``, ``v10m``, ``tcc``).
+
+<Note>
+
+Additional resources:
+
+- https://www.ncei.noaa.gov/products/global-historical-climatology-network-hourly
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-ghcn-GHCNHourlyLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.ghcn.GHCNHourlyLexicon.get_item(
+    val: str
+) -> tuple[str | None, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Get item from GHCNh vocabulary.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Earth2Studio variable id.
+</ParamField>
+
+**Returns:** `tuple[str | None, Callable]`
+
+- GHCNh parquet column name, or ``None`` for derived variables.
+- Modifier function converting the raw column value to Earth2Studio
+  standard units.
+
+</Indent>
+</Indent>

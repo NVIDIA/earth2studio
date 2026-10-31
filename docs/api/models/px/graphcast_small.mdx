@@ -1,0 +1,315 @@
+---
+layout: overview
+title: earth2studio.models.px.graphcast_small
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`GraphCastSmall`](#earth2studio-models-px-graphcast_small-GraphCastSmall) | GraphCast Small 1.0 degree model |
+
+### API
+
+<Anchor id="earth2studio-models-px-graphcast_small-GraphCastSmall">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.graphcast_small.GraphCastSmall(
+    ckpt: weathernext.weathernext1_graph.graphcast.CheckPoint,
+    diffs_stddev_by_level: xarray.Dataset,
+    mean_by_level: xarray.Dataset,
+    stddev_by_level: xarray.Dataset,
+    land_sea_mask: numpy.array,
+    geopotential_at_surface: numpy.array
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin), [PrognosticMixin](./utils.mdx#earth2studio-models-px-utils-PrognosticMixin)
+
+GraphCast Small 1.0 degree model
+
+A smaller, low-resolution version of GraphCast (1 degree resolution, 13 pressure
+levels and a smaller mesh), trained on ERA5 data from 1979 to 2015. This model is
+useful for running with lower memory and compute constraints while maintaining good
+forecast skill. The model operates on a 1-degree lat-lon grid (pole including)
+equirectangular grid with 85 variables including:
+
+- Surface variables (2m temperature, 10m winds, etc.)
+- Pressure level variables (temperature, winds, geopotential, etc.)
+- Static variables (land-sea mask, surface geopotential)
+
+**Badges:** `region:global` `class:medium-range` `product:wind` `product:precip` `product:temp` `product:atmos` `year:2022` `gpu:40gb` `provider:google` `backend:jax`
+
+**Parameters:**
+
+<ParamField path="ckpt" type="graphcast.CheckPoint">
+Model checkpoint containing weights and configuration
+</ParamField>
+
+<ParamField path="diffs_stddev_by_level" type="xr.Dataset">
+Standard deviation of differences by level for normalization
+</ParamField>
+
+<ParamField path="mean_by_level" type="xr.Dataset">
+Mean values by level for normalization
+</ParamField>
+
+<ParamField path="stddev_by_level" type="xr.Dataset">
+Standard deviation by level for normalization
+</ParamField>
+
+<ParamField path="land_sea_mask" type="np.array">
+One degree resolution [181x360] land sea mask on lat-lon grid
+</ParamField>
+
+<ParamField path="geopotential_at_surface" type="np.array">
+One degree resolution [181x360] geopotential at surface on lat-lon grid
+</ParamField>
+
+<Note>
+
+As of July 2026, GraphCast was renamed to WeatherNext 1-Graph in the
+WeatherNext codebase. This Earth2Studio wrapper keeps the GraphCast name
+for backwards compatibility.
+
+For more information see the following references:
+
+- https://arxiv.org/abs/2212.12794
+- https://github.com/google-deepmind/weathernext
+- https://www.science.org/doi/10.1126/science.adi2336
+
+</Note>
+
+<Warning>
+
+We encourage users to familiarize themselves with the license restrictions of this
+model's checkpoints.
+
+</Warning>
+
+<Anchor id="earth2studio-models-px-graphcast_small-GraphCastSmall-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.graphcast_small.GraphCastSmall.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Runs prognostic model 1 step.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Output tensor and coordinate system 6 hours in the future
+
+</Indent>
+<Anchor id="earth2studio-models-px-graphcast_small-GraphCastSmall-create_iterator">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.graphcast_small.GraphCastSmall.create_iterator(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> collections.abc.Iterator[tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Creates a iterator which can be used to perform time-integration of the
+prognostic model. Will return the initial condition first (0th step).
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-graphcast_small-GraphCastSmall-from_dataarray_to_dataset">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.graphcast_small.GraphCastSmall.from_dataarray_to_dataset(
+    data: xarray.DataArray,
+    lead_time: int = 6,
+    hour_steps: int = 6
+) -> xarray.Dataset
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+From a datarray get a dataset
+
+</Indent>
+<Anchor id="earth2studio-models-px-graphcast_small-GraphCastSmall-get_jax_device_from_tensor">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.graphcast_small.GraphCastSmall.get_jax_device_from_tensor(
+    x: torch.Tensor
+) -> jax.Device
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>staticmethod</Badge>
+
+From a tensor, get device and corresponding jax device
+
+</Indent>
+<Anchor id="earth2studio-models-px-graphcast_small-GraphCastSmall-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.graphcast_small.GraphCastSmall.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of the prognostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-px-graphcast_small-GraphCastSmall-iterator_result_to_tensor">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.graphcast_small.GraphCastSmall.iterator_result_to_tensor(
+    dataset: xarray.Dataset
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Convert a iterator result to a tensor
+
+</Indent>
+<Anchor id="earth2studio-models-px-graphcast_small-GraphCastSmall-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.graphcast_small.GraphCastSmall.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic package
+
+</Indent>
+<Anchor id="earth2studio-models-px-graphcast_small-GraphCastSmall-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.px.base.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.graphcast_small.GraphCastSmall.load_model(
+    package: earth2studio.models.auto.Package
+) -> earth2studio.models.px.base.PrognosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic from package
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Package to load model from
+</ParamField>
+
+**Returns:** [`PrognosticModel`](./base.mdx#earth2studio-models-px-base-PrognosticModel)
+
+Prognostic model
+
+</Indent>
+<Anchor id="earth2studio-models-px-graphcast_small-GraphCastSmall-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.graphcast_small.GraphCastSmall.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the prognostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>

@@ -1,0 +1,274 @@
+---
+layout: overview
+title: earth2studio.lexicon.jpss
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`JPSSATMSLexicon`](#earth2studio-lexicon-jpss-JPSSATMSLexicon) | Lexicon for JPSS ATMS (Advanced Technology Microwave Sounder) data source. |
+| [`JPSSCrISLexicon`](#earth2studio-lexicon-jpss-JPSSCrISLexicon) | Lexicon for JPSS CrIS (Cross-track Infrared Sounder) FSR data source. |
+| [`JPSSLexicon`](#earth2studio-lexicon-jpss-JPSSLexicon) | JPSS VIIRS lexicon for mapping standardized variable names to VIIRS product codes. |
+
+### API
+
+<Anchor id="earth2studio-lexicon-jpss-JPSSATMSLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.jpss.JPSSATMSLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Lexicon for JPSS ATMS (Advanced Technology Microwave Sounder) data source.
+
+This lexicon maps the ``atms`` variable to an identity modifier for brightness
+temperature observations in Kelvin.  Individual channels (1-22) are distinguished
+by the ``sensor_index`` column of the returned DataFrame, following the same
+convention used by [`UFSObsSat`](../data/ufs.mdx#earth2studio-data-ufs-UFSObsSat).
+
+The ATMS instrument is a 22-channel cross-track scanning microwave radiometer
+operating from 23 GHz to 183 GHz aboard NOAA-20 (JPSS-1) and NOAA-21 (JPSS-2).
+
+**References**
+
+- NOAA JPSS program:
+  https://www.nesdis.noaa.gov/current-satellite-missions/currently-flying/joint-polar-satellite-system
+- ATMS instrument description:
+  https://www.star.nesdis.noaa.gov/jpss/ATMS.php
+- AWS NOAA-20 open data:
+  https://registry.opendata.aws/noaa-nesdis-n20-pds/
+
+<Note>
+
+ATMS Channel Groups:
+
+- Channels 1-2 (23-31 GHz): Surface / precipitation / total precipitable water
+- Channels 3-15 (50-57 GHz): Temperature sounding (oxygen absorption complex)
+- Channel 16 (88 GHz): Surface / cloud / precipitation
+- Channels 17-22 (165-183 GHz): Humidity sounding (water vapor absorption)
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-jpss-JPSSATMSLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.jpss.JPSSATMSLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable[[Any], typing.Any]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Get ATMS BUFR key for a standardized variable name.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Standardized variable name (``atms``)
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+Tuple containing:
+- BUFR key name for brightness temperature
+- Modifier function (identity -- brightness temperature in K)
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-lexicon-jpss-JPSSCrISLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.jpss.JPSSCrISLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Lexicon for JPSS CrIS (Cross-track Infrared Sounder) FSR data source.
+
+This lexicon maps the ``crisfsr`` variable to an identity modifier for
+the raw HDF5 spectral-radiance field.  The data source itself applies
+optional Hamming apodization (default on) followed by the inverse Planck
+function to convert radiance into brightness temperature (K), so the
+``observation`` column in the returned DataFrame is directly comparable
+with [`UFSObsSat`](../data/ufs.mdx#earth2studio-data-ufs-UFSObsSat).  Individual channels are
+distinguished by the ``sensor_index`` column, which uses the GSI
+``sensor_chan`` numbering convention.
+
+The CrIS instrument is a Fourier-transform spectrometer operating in three
+infrared spectral bands aboard Suomi NPP, NOAA-20 (JPSS-1) and NOAA-21
+(JPSS-2).  In Full Spectral Resolution (FSR) mode the instrument produces
+2223 channels:
+
+- **LWIR** (9.14--15.38 µm, 650--1095 cm^-1): 717 channels at 0.625 cm^-1
+- **MWIR** (5.71--8.26 µm, 1210--1750 cm^-1): 869 channels at 0.625 cm^-1
+- **SWIR** (3.92--4.64 µm, 2155--2550 cm^-1): 637 channels at 0.625 cm^-1
+
+When ``apodize=True`` (default in [`JPSS_CRIS`](../data/jpss_cris.mdx#earth2studio-data-jpss_cris-JPSS_CRIS)),
+the 2 guard channels at each end of each band (4 per band, 12 total) are
+trimmed after apodization, yielding 2211 science channels with contiguous
+``sensor_index`` 1--2211.
+
+**References**
+
+- NOAA JPSS CrIS SDR:
+  https://www.star.nesdis.noaa.gov/jpss/CrIS.php
+- AWS NOAA-20 open data:
+  https://registry.opendata.aws/noaa-nesdis-n20-pds/
+- CrIS SDR documentation:
+  https://ncc.nesdis.noaa.gov/documents/documentation/viirs-users-guide-tech-report-142a-v1.3.pdf
+
+<Note>
+
+CrIS Channel Indexing (GSI ``sensor_chan`` convention):
+
+The CRTM defines 2211 science channels (713 + 865 + 633) across the three
+bands.  Each band has 2 guard channels at the low-wavenumber end and 2 at
+the high-wavenumber end that are excluded from CRTM/GSI.
+
+- sensor_chan   0       : LWIR guard channels 0--1 (not in GSI)
+- sensor_chan   1--713  : LWIR band (713 of 717 physical channels)
+- sensor_chan   0       : LWIR guard channels 715--716 (not in GSI)
+- sensor_chan   0       : MWIR guard channels 717--718 (not in GSI)
+- sensor_chan 714--1578 : MWIR band (865 of 869 physical channels)
+- sensor_chan   0       : MWIR guard channels 1584--1585 (not in GSI)
+- sensor_chan   0       : SWIR guard channels 1586--1587 (not in GSI)
+- sensor_chan 1579--2211: SWIR band (633 of 637 physical channels)
+- sensor_chan   0       : SWIR guard channels 2221--2222 (not in GSI)
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-jpss-JPSSCrISLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.jpss.JPSSCrISLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable[[Any], typing.Any]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Get CrIS HDF5 dataset key for a standardised variable name.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Standardised variable name (``crisfsr``)
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+Tuple containing:
+- HDF5 dataset key for spectral radiance
+- Modifier function (identity -- radiance is converted to
+  brightness temperature inside the data source)
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-lexicon-jpss-JPSSLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.jpss.JPSSLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+JPSS VIIRS lexicon for mapping standardized variable names to VIIRS product codes.
+
+This lexicon maps standardized variable names to VIIRS SDR (Level 1) and EDR (Level 2)
+product codes and HDF5 datasets used in AWS. It includes both raw radiance data and
+derived environmental products.
+
+**References**
+
+- NOAA STAR. (n.d.). VIIRS instrument specifications and band characteristics.
+  Retrieved September 29, 2025, from https://www.star.nesdis.noaa.gov/jpss/VIIRS.php
+- NOAA STAR. (n.d.). VIIRS Sensor Data Record (SDR) Algorithm Theoretical Basis
+  Document. Retrieved September 29, 2025, from
+  https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-003_JPSS_ATBD_VIIRS-SDR_E.pdf
+
+<Note>
+
+SDR Products (Level 1 - Calibrated Radiances):
+- I-bands (375m): viirs01i-viirs05i (high spatial resolution imagery)
+- M-bands (750m): viirs01m-viirs16m (moderate resolution multispectral)
+- Band numbering follows VIIRS instrument naming with zero-padding (I1→viirs01i, M15→viirs15m)
+- Applications: Ocean color, vegetation monitoring, cloud detection, fire detection, atmospheric profiling
+
+EDR Products (Level 2 - Derived Environmental Variables):
+- Surface/Land: lst (land surface temperature), salb (surface albedo), snc (snow cover)
+- Active Fire: afire (fire detection), fmask (fire confidence mask)
+- Cloud Suite: cmask (cloud mask), cphase (cloud phase), cth (cloud top height), etc.
+- Atmospheric: aod (aerosol optical depth), vash (volcanic ash detection)
+- Resolution: 375m-750m depending on input bands, global coverage every ~100 minutes
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-jpss-JPSSLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.jpss.JPSSLexicon.get_item(
+    val: str
+) -> tuple[str, str, str, collections.abc.Callable[[Any], typing.Any]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Get VIIRS product details for a standardized variable name.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Standardized variable name (e.g., 'viirs01i', 'viirs05m', 'lst', 'aod')
+</ParamField>
+
+**Returns:** `tuple[str, str, str, Callable]`
+
+Tuple containing:
+- Product type ("I", "M", or "L2")
+- Folder name for S3 path
+- Dataset name within HDF5 file
+- Modifier function for data transformation
+
+</Indent>
+</Indent>

@@ -1,0 +1,242 @@
+---
+layout: overview
+title: earth2studio.perturbation.spherical
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`GaussianRandomFieldS2`](#earth2studio-perturbation-spherical-GaussianRandomFieldS2) | A mean-zero Gaussian Random Field on the sphere with Matern covariance: |
+| [`SphericalGaussian`](#earth2studio-perturbation-spherical-SphericalGaussian) | Gaussian random field on the sphere with Matern covariance peturbation method |
+
+### API
+
+<Anchor id="earth2studio-perturbation-spherical-GaussianRandomFieldS2">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.perturbation.spherical.GaussianRandomFieldS2(
+    nlat: int,
+    alpha: float = 2.0,
+    tau: float = 3.0,
+    sigma: float | None = None,
+    radius: float = 1.0,
+    grid: str = 'equiangular',
+    dtype: torch.dtype = torch.float32,
+    device: torch.device = 'cuda:0'
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`
+
+A mean-zero Gaussian Random Field on the sphere with Matern covariance:
+C = sigma^2 (-Lap + tau^2 I)^(-alpha).
+
+Lap is the Laplacian on the sphere, I the identity operator,
+and sigma, tau, alpha are scalar parameters.
+
+Note: C is trace-class on L^2 if and only if alpha &gt; 1.
+
+**Parameters:**
+
+<ParamField path="nlat" type="int">
+Number of latitudinal modes;
+longitudinal modes are 2*nlat.
+</ParamField>
+
+<ParamField path="alpha" type="float" default="is 2">
+Regularity parameter. Larger means smoother.
+</ParamField>
+
+<ParamField path="tau" type="float" default="is 3">
+Lenght-scale parameter. Larger means more scales.
+</ParamField>
+
+<ParamField path="sigma" type="float" default="is None">
+Scale parameter. Larger means bigger.
+If None, sigma = tau**(0.5*(2*alpha - 2.0)).
+</ParamField>
+
+<ParamField path="radius" type="float" default="is 1">
+Radius of the sphere.
+</ParamField>
+
+<ParamField path="grid" type="string" default="is 'equiangular'">
+Grid type. Currently supports "equiangular" and
+"legendre-gauss".
+</ParamField>
+
+<ParamField path="dtype" type="torch.dtype" default="is torch.float32">
+Numerical type for the calculations.
+</ParamField>
+
+<ParamField path="nlat" type="int">
+Number of latitudinal modes; longitudinal modes are 2*nlat.
+</ParamField>
+
+<ParamField path="alpha" type="float" default="2.0">
+Regularity parameter. Larger means smoother, by default 2.0
+</ParamField>
+
+<ParamField path="tau" type="float" default="3.0">
+Lenght-scale parameter, by default 3.0
+</ParamField>
+
+<ParamField path="sigma" type="Union[float, None]" default="None">
+Scale parameter, by default None
+</ParamField>
+
+<ParamField path="radius" type="float" default="1.0">
+Radius of the sphere, by default 1.0
+</ParamField>
+
+<ParamField path="grid" type="str" default="'equiangular'">
+Grid type. Currently supports "equiangular" and "legendre-gauss", by default
+"equiangular"
+</ParamField>
+
+<ParamField path="dtype" type="torch.dtype" default="torch.float32">
+Numerical type for the calculations, by default torch.float32
+</ParamField>
+
+<ParamField path="device" type="torch.device" default="'cuda:0'">
+Pytorch device, by default "cuda:0"
+</ParamField>
+
+<ParamField path="isht">
+</ParamField>
+
+<ParamField path="lmax" type="= self.isht.lmax">
+</ParamField>
+
+<ParamField path="mmax" type="= self.isht.mmax">
+</ParamField>
+<Anchor id="earth2studio-perturbation-spherical-GaussianRandomFieldS2-forward">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.perturbation.spherical.GaussianRandomFieldS2.forward(
+    N: int,
+    xi: torch.Tensor | None = None
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Sample random functions from a spherical GRF.
+
+**Output**
+
+u : torch.Tensor
+   N random samples from the GRF returned as a
+   tensor of size (N, nlat, 2*nlat) on a equiangular grid.
+
+**Parameters:**
+
+<ParamField path="N" type="int">
+Number of functions to sample.
+</ParamField>
+
+<ParamField path="xi" type="torch.Tensor" default="is None">
+Noise is a complex tensor of size (N, lmax, mmax).
+If None, new Gaussian noise is sampled.
+If xi is provided, N is ignored.
+</ParamField>
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-perturbation-spherical-SphericalGaussian">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.perturbation.spherical.SphericalGaussian(
+    noise_amplitude: float | torch.Tensor = 0.05,
+    alpha: float = 2.0,
+    tau: float = 3.0,
+    sigma: float | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Gaussian random field on the sphere with Matern covariance peturbation method
+output to a lat lon grid
+
+**Parameters:**
+
+<ParamField path="noise_amplitude" type="float | Tensor" default="0.05">
+Noise amplitude, by default 0.05. If a tensor,
+this must be broadcastable with the input data.
+</ParamField>
+
+<ParamField path="alpha" type="float" default="2.0">
+Regularity parameter. Larger means smoother, by default 2.0
+</ParamField>
+
+<ParamField path="tau" type="float" default="3.0">
+Length-scale parameter. Larger means more scales, by default 3.0
+</ParamField>
+
+<ParamField path="sigma" type="Union[float, None]" default="None">
+Scale parameter. If None, sigma = tau**(0.5*(2*alpha - 2.0)), by default None
+</ParamField>
+
+<Warning>
+
+Presently this method generates noise on equirectangular grid of size [N, 2*N] when
+N is even or [N+1, 2*N] when N is odd.
+
+</Warning>
+
+<Anchor id="earth2studio-perturbation-spherical-SphericalGaussian-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.perturbation.spherical.SphericalGaussian.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Apply perturbation method
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor intended to apply perturbation on
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the tensor, must
+contain "lat" and "lon" coordinates
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]:`
+
+Output tensor and respective coordinate system dictionary
+
+</Indent>
+</Indent>

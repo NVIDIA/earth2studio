@@ -1,0 +1,178 @@
+---
+layout: overview
+title: earth2studio.models.dx.wind_gust
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`WindgustAFNO`](#earth2studio-models-dx-wind_gust-WindgustAFNO) | Wind gust AFNO diagnsotic model. Predicts the maximum wind gust during the |
+
+### API
+
+<Anchor id="earth2studio-models-dx-wind_gust-WindgustAFNO">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.WindgustAFNO(
+    core_model: torch.nn.Module,
+    landsea_mask: torch.Tensor,
+    orography: torch.Tensor,
+    center: torch.Tensor,
+    scale: torch.Tensor
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+Wind gust AFNO diagnsotic model. Predicts the maximum wind gust during the
+preceding hour with the units m/s. This model uses an 17 atmospheric inputs and
+outputs one on a 0.25 degree lat-lon grid (south-pole excluding) [720 x 1440].
+
+**Badges:** `region:global` `class:medium-range` `product:wind` `year:2024` `gpu:40gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="core_model" type="torch.nn.Module">
+Core pytorch model
+</ParamField>
+
+<ParamField path="landsea_mask" type="torch.Tensor">
+Land sea mask tensor of size [720,1440]
+</ParamField>
+
+<ParamField path="orography" type="torch.Tensor">
+Surface geopotential (orography) tensor of size [720,1440]
+</ParamField>
+
+<ParamField path="center" type="torch.Tensor">
+Model center normalization tensor of size [17,1,1]
+</ParamField>
+
+<ParamField path="scale" type="torch.Tensor">
+Model scale normalization tensor of size [17,1,1]
+</ParamField>
+
+<Note>
+
+For more information on the model, please refer to:
+
+- https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/afno_dx_wg-v1-era5
+
+</Note>
+
+<Anchor id="earth2studio-models-dx-wind_gust-WindgustAFNO-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.WindgustAFNO.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Forward pass of diagnostic
+
+</Indent>
+<Anchor id="earth2studio-models-dx-wind_gust-WindgustAFNO-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.WindgustAFNO.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of diagnostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-dx-wind_gust-WindgustAFNO-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.WindgustAFNO.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Default pre-trained windgustnet model package from Nvidia model registry
+
+</Indent>
+<Anchor id="earth2studio-models-dx-wind_gust-WindgustAFNO-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.dx.base.DiagnosticModel":"./base.mdx#earth2studio-models-dx-base-DiagnosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.WindgustAFNO.load_model(
+    package: earth2studio.models.auto.Package
+) -> earth2studio.models.dx.base.DiagnosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load diagnostic from package
+
+</Indent>
+<Anchor id="earth2studio-models-dx-wind_gust-WindgustAFNO-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.WindgustAFNO.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of diagnostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>

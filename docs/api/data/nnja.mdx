@@ -1,0 +1,789 @@
+---
+layout: overview
+title: earth2studio.data.nnja
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`NNJAObsConv`](#earth2studio-data-nnja-NNJAObsConv) | NNJA conventional (in-situ + GPS RO) observational data source. NOAA-NASA Joint |
+| [`NNJAObsSat`](#earth2studio-data-nnja-NNJAObsSat) | NNJA historical NCEP aggregate satellite observations. |
+| [`NNJAObsSatwnd`](#earth2studio-data-nnja-NNJAObsSatwnd) | NNJA satellite-derived atmospheric motion vector (SATWND) data source. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-data-nnja-NNJAObsConv">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeTolerance":"../utils/type.mdx#earth2studio-utils-type-TimeTolerance"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.nnja.NNJAObsConv(
+    source: str = 'prepbufr',
+    time_tolerance: earth2studio.utils.type.TimeTolerance = np.timedelta64(0, 'm'),
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    async_workers: int = 24,
+    decode_workers: int = 8,
+    retries: int = 3,
+    exclude_message_types: collections.abc.Sequence[str] = (),
+    original_event: bool = False,
+    layout: typing.Literal['long', 'wide'] = _DEFAULT_LAYOUT
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+NNJA conventional (in-situ + GPS RO) observational data source. NOAA-NASA Joint
+Archive (NNJA) of Observations for Earth System Reanalysis is an archive ideal for
+developing observation-driven weather forecasting tools, as it includes a wide
+cross-section of data from a plethora of sensing platforms (satellites, surface
+stations, weather balloons, and more) and features data from 1979 to the present.
+
+PrepBUFR reports are selected by report-header time to preserve complete
+profiles. ``time``, ``lat``, and ``lon`` contain level coordinates;
+``report_time``, ``report_lat``, and ``report_lon`` contain header coordinates.
+
+GPSRO rows use the shared columns with product-specific meanings:
+``type`` is receiver ``SAID``, ``station`` combines receiver/transmitter
+identifiers, ``quality`` is the QFRO flag table, ``pres`` is null, and
+``elev`` is impact parameter minus Earth radius of curvature for ``gps``
+rows. The ``gps_refractivity`` variable exposes the message's refractivity
+levels (``ARFR``, N-units) with ``elev`` set to the level height (``HEIT``)
+so consumers can derive their own vertical coordinate. Both carry the
+occultation's ``radius_curvature`` (``ELRC``) and ``geoid_undulation``
+(``GEODU``); a level without its own tangent point sits at the
+occultation's reference point. No retrieval
+product is read.
+
+**Badges:** `region:global` `dataclass:observation` `product:wind` `product:temp` `product:atmos` `product:insitu`
+
+**Parameters:**
+
+<ParamField path="source" type="('prepbufr', 'prepbufr.acft_profiles')" default="'prepbufr'">
+Which encoding family of the NNJA conventional archive to read,
+by default ``"prepbufr"``. These sources are different stages of the
+NCEP observation-processing pipeline, not independent replacement
+datasets:
+
+- ``"convbufr"`` points at raw dump streams grouped by family, such as
+  ``aircft``/``aircar``/``adpupa``/``adpsfc``. These files preserve
+  source-native schemas and require family-specific decoding and QC
+  before they resemble GSI-ready observations. The generic PrepBUFR
+  decoder does not implement those raw family schemas, so this source
+  raises ``NotImplementedError``.
+- ``"prepbufr"`` points at the merged PrepBUFR cycle file. This is the
+  preferred source for GSI-like conventional observations because
+  upstream obsproc has already merged dump families, standardized many
+  mnemonics, and attached report types / quality marks.
+- ``"prepbufr.acft_profiles"`` points at an aircraft-only PrepBUFR
+  profile product. It groups aircraft points into flight-level,
+  ascending, and descending profile report types that GSI remaps back
+  to ordinary aircraft report types during processing.
+</ParamField>
+
+<ParamField path="time_tolerance" type="TimeTolerance" default="np.timedelta64(0, 'm')">
+[`TimeTolerance`](../utils/type.mdx#earth2studio-utils-type-TimeTolerance) — Time tolerance window for filtering observations. Accepts a single
+value (symmetric ± window) or a tuple ``(lower, upper)`` for
+asymmetric windows, by default ``np.timedelta64(0, 'm')``.
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache downloaded files in the local filesystem cache, by default True.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Show progress bars, by default True.
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Timeout in seconds for downloading the files, by default 600. Decoding
+them is not bounded.
+</ParamField>
+
+<ParamField path="async_workers" type="int" default="24">
+Maximum number of concurrent async fetch tasks, by default 24.
+</ParamField>
+
+<ParamField path="decode_workers" type="int" default="8">
+Number of threads transforming decoded BUFR batches, by default 8.
+Decoding runs on earth2bufr's process-wide thread pool. Unless
+``EARTH2BUFR_NUM_THREADS`` is set, the first fetch sets it to 8 threads,
+the fastest setting measured on 16-112 cores.
+</ParamField>
+
+<ParamField path="retries" type="int" default="3">
+Number of retry attempts per failed fetch task with exponential
+backoff, by default 3.
+</ParamField>
+
+<ParamField path="exclude_message_types" type="Sequence[str]" default="()">
+PrepBUFR message families to skip at decode, e.g. ``("SATWND",)`` when
+atmospheric motion vectors come from `NNJAObsSatwnd` instead. By
+default every family is decoded.
+</ParamField>
+
+<ParamField path="original_event" type="bool" default="False">
+Return the report as first ingested (program code 1) instead of the latest
+quality-controlled event, by default False
+</ParamField>
+
+<ParamField path="layout" type="('long', 'wide')" default="'long'">
+``"long"`` returns one row per observation with the columns of
+``SCHEMA``. ``"wide"`` returns one row per PrepBUFR report level or
+GPS-RO profile level: the ``SCHEMA`` columns other than
+``observation``, ``variable`` and ``quality``, plus one
+``observation_&lt;variable&gt;`` and ``quality_&lt;variable&gt;`` column per
+requested variable, null where the level has no such observation. In
+wide output ``type`` is the encoded report type for
+``"prepbufr.acft_profiles"``. By default "long".
+</ParamField>
+
+<Note>
+
+Additional information on the data repository can be referenced here:
+
+- https://www.brightband.com/data/nnja-ai/
+- https://psl.noaa.gov/data/nnja_obs/
+- https://registry.opendata.aws/noaa-reanalyses-pds/
+- https://www.emc.ncep.noaa.gov/mmb/data_processing/prepbufr.doc/document.htm
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of data
+to your local machine for large requests.
+
+</Warning>
+
+<ParamField path="cache" type="str">
+Local cache directory for NNJA observation files.
+</ParamField>
+<Anchor id="earth2studio-data-nnja-NNJAObsConv-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.nnja.NNJAObsConv.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Fetch observations for a set of timestamps.
+
+</Indent>
+<Anchor id="earth2studio-data-nnja-NNJAObsConv-available">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.nnja.NNJAObsConv.available(
+    time: datetime.datetime | numpy.datetime64
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Check if given date time is available.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | np.datetime64">
+Date time to check
+</ParamField>
+
+**Returns:** `bool`
+
+If date time is available
+
+</Indent>
+<Anchor id="earth2studio-data-nnja-NNJAObsConv-cleanup">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.nnja.NNJAObsConv.cleanup() -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Remove temporary files when persistent caching is disabled.
+
+</Indent>
+<Anchor id="earth2studio-data-nnja-NNJAObsConv-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.nnja.NNJAObsConv.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get data.
+
+</Indent>
+<Anchor id="earth2studio-data-nnja-NNJAObsConv-fetch_files">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.nnja.NNJAObsConv.fetch_files(
+    uris: collections.abc.Sequence[str]
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Download remote files into the NNJA cache.
+
+</Indent>
+<Anchor id="earth2studio-data-nnja-NNJAObsConv-local_path">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.nnja.NNJAObsConv.local_path(
+    uri: str
+) -> str
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Return the deterministic cache path for an S3 URI.
+
+</Indent>
+<Anchor id="earth2studio-data-nnja-NNJAObsConv-resolve_fields">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.nnja.NNJAObsConv.resolve_fields(
+    fields: str | list[str] | pyarrow.Schema | None
+) -> pyarrow.Schema
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Resolve ``fields`` into a validated PyArrow schema subset.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-nnja-NNJAObsSat">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeTolerance":"../utils/type.mdx#earth2studio-utils-type-TimeTolerance"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.nnja.NNJAObsSat(
+    time_tolerance: earth2studio.utils.type.TimeTolerance = np.timedelta64(10, 'm'),
+    satellites: list[str] | None = None,
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    async_workers: int = 8,
+    decode_workers: int = 8,
+    retries: int = 3,
+    sensor_indices: dict[str, collections.abc.Sequence[int]] | None = None,
+    layout: typing.Literal['long', 'wide'] = _DEFAULT_LAYOUT
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+NNJA historical NCEP aggregate satellite observations.
+
+This source reads the NCEP satellite microwave (ATMS, MHS, AMSU-A,
+AMSU-B) and hyperspectral infrared sounder (AIRS, IASI, CrIS) BUFR
+products from the NNJA archive. It returns one long-format row per
+decoded channel, a missing value being a null observation.
+``sensor_index`` is the physical ``CHNM`` channel number, not a dense index
+into a selected channel list.
+
+The IR sounders are returned in brightness temperature (K) regardless of
+how the archive stores them: AIRS is encoded as brightness temperature
+(``TMBR``) directly, while IASI (scaled integer radiance, ``SCRA``) and
+CrIS (float radiance, ``SRAD``) are converted via Planck inversion. The
+``wavenumber`` column carries the channel centre wavenumber in cm⁻¹,
+computed from the instrument grids for IASI/CrIS and looked up per channel
+for ATMS (``SCCF``) and AIRS (``LOGRCW``) from the values the aggregates
+encode; it is null for MHS, AMSU-A and AMSU-B.
+The aggregates carry the NCEP channel subsets (281 AIRS, 616 IASI, 431
+CrIS) numbered on the instrument grids; ``cris`` routes to the
+full-spectral-resolution ``crisf4`` product whose channel numbers live
+on the 2211-channel FSR grid; ``SAT_CHANNELS`` in
+``earth2studio.data.utils_ncep`` lists them. Archive periods: AMSU-A and
+AMSU-B from 1998-10-26 (AMSU-B to 2014-06-06), MHS from 2005-02-01T12, ATMS
+from 2012-02-15, AIRS 2002-08-31 to 2023-01-18T06 (NASA/Aqua route), IASI from
+2008-01-01, CrIS (FSR) from 2018-01-16T18. A cycle outside its sensor's period
+is skipped like a missing file, with one warning per sensor; a request with no
+cycle in the period returns an empty frame. ``available(time, sensor)`` checks
+the period.
+All archived channels are returned by default; pass ``sensor_indices`` to
+narrow at decode time or subset downstream via the ``sensor_index``
+column.
+
+``atms`` returns the encoded 22-channel ``TMBR`` scene brightness
+temperature. ``atms_antenna_temperature`` returns the corresponding
+encoded ``TMANT`` antenna temperature. No conversion is performed between
+those two ATMS products.
+
+``mhs`` (5 channels), ``amsua`` (15 channels), and ``amsub`` (5 channels)
+return their normal-feed ``TMBR`` values as encoded by NCEP. For these
+legacy products the mnemonic does not always mean the same physical
+antenna-correction state. GSI treats normal-feed ``TMBR`` as antenna
+temperature for AMSU-A, AMSU-B, and MHS, except for NOAA-15/16, which its
+reader treats as already converted upstream. NOAA satingest independently
+confirms that exception for AMSU-A. The platform identity is retained so a
+downstream transform can apply the appropriate convention explicitly.
+
+``scan_position`` is the one-based cross-track position: the encoded
+``FOVN`` for the microwave sensors, AIRS (1-90), and IASI (1-120, a
+composite of 30 fields of regard x 4 detectors), and the encoded
+``FORN`` (1-30) for CrIS, whose ``FOVN``, the 1-9 detector index within
+the 3x3 field of regard, is the ``detector`` column (null for the other
+sensors). ``scan_angle`` is
+the signed nominal instrument look angle derived from the FOV for the
+microwave sensors; it is always null for the IR sounders, whose scan
+geometry is sensor-specific — use ``satellite_za`` (the unsigned
+Earth-view zenith magnitude) for view-angle screening.
+
+``elev`` (surface elevation) is populated only for CrIS, whose template
+carries ``HOLS``; the AIRS and IASI templates carry no surface-elevation
+field at all, so ``elev`` is null for them. (Their ``SELV`` field is the
+platform's orbital altitude, ~700-840 km, and must not be mistaken for
+surface elevation.) ``scan_line`` is the encoded ``SLNM``, a
+granule-local counter that repeats within a cycle file; pair it with
+``time`` to address a scan.
+
+``quality`` carries the per-channel provider flags. The footprint-level
+flags are ``scan_quality`` (ATMS 0-33-080, CrIS ``NSQF``),
+``granule_quality`` (ATMS 0-33-079) and ``footprint_quality`` (IASI
+``QGFQ``), each as encoded and null for sensors whose template lacks it.
+
+**Badges:** `region:global` `dataclass:observation` `product:atmos` `product:sat`
+
+**Parameters:**
+
+<ParamField path="time_tolerance" type="TimeTolerance" default="np.timedelta64(10, 'm')">
+[`TimeTolerance`](../utils/type.mdx#earth2studio-utils-type-TimeTolerance) — Time tolerance window for filtering observations. Accepts a single
+value (symmetric +/- window) or a tuple (lower, upper) for asymmetric
+windows, by default np.timedelta64(10, 'm').
+</ParamField>
+
+<ParamField path="satellites" type="list[str] | None" default="None">
+Satellite platforms to include. ``None`` includes every platform in
+the requested aggregate files.
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache downloaded files in the local filesystem cache, by default True.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Show progress bars, by default True.
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Timeout in seconds for downloading the files, by default 600. Decoding
+them is not bounded.
+</ParamField>
+
+<ParamField path="async_workers" type="int" default="8">
+Maximum number of concurrent async fetch tasks, by default 8.
+</ParamField>
+
+<ParamField path="decode_workers" type="int" default="8">
+Number of threads transforming decoded BUFR batches, by default 8.
+Decoding runs on earth2bufr's process-wide thread pool. Unless
+``EARTH2BUFR_NUM_THREADS`` is set, the first fetch sets it to 8 threads,
+the fastest setting measured on 16-112 cores.
+</ParamField>
+
+<ParamField path="retries" type="int" default="3">
+Number of retry attempts per failed fetch task with exponential
+backoff, by default 3.
+</ParamField>
+
+<ParamField path="sensor_indices" type="dict[str, Sequence[int]] | None" default="None">
+Per-sensor channel-number subsets for the IR sounders, e.g.
+``&#123;"cris": [19, 24], "iasi": [16]&#125;``. Named after the
+``sensor_indices`` selection of the JPSS/METOP sources and applied
+at decode time like theirs, but keyed per sensor since this source
+spans several instruments. Selections must be non-empty, unique
+channel numbers the sensor's archive carries (``SAT_CHANNELS``).
+Sensors absent from the dict (and all microwave sensors) return every
+archived channel. By default None (all channels).
+</ParamField>
+
+<ParamField path="layout" type="('long', 'wide')" default="'long'">
+``"long"`` returns one row per (footprint, channel) with the columns of
+``SCHEMA``. ``"wide"`` returns one sensor per call, one row per
+footprint: the footprint columns of ``SCHEMA`` that sensor fills and
+its per-channel values as fixed-size lists over its channel axis
+(``sensor_indices[sensor]`` ascending, else every archived channel),
+``quality`` and one ``observation_&lt;variable&gt;`` per variable, null in a
+slot whose channel the footprint lacks.
+`channel_axis` returns a frame's
+axis; the wavenumber follows from the channel number. Request several
+sensors concurrently, one call each, e.g.
+``asyncio.gather(*(source.fetch(time, [s]) for s in sensors))``; the
+calls share the source's decode slots. By default "long".
+</ParamField>
+
+<Note>
+
+Additional information on the archive and microwave product semantics:
+
+- https://psl.noaa.gov/data/nnja_obs/
+- https://registry.opendata.aws/noaa-reanalyses-pds/
+- https://github.com/NOAA-EMC/GSI/blob/860d13740352004fca0136a8c3d0ac9dea30e0da/src/gsi/read_bufrtovs.f90#L754-L823
+- https://github.com/NOAA-EMC/GSI/blob/860d13740352004fca0136a8c3d0ac9dea30e0da/src/gsi/radinfo.f90#L1523-L1643
+- https://github.com/NOAA-EMC/satingest/blob/3bb883d931d2cbdbd8c5871c30ac25941918c882/ush/ingest_script_atovs1b.sh#L188-L231
+- https://github.com/NOAA-EMC/satingest/blob/3bb883d931d2cbdbd8c5871c30ac25941918c882/sorc/bufr_tranamsua.fd/tranamsua.f#L887-L910
+- https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-001_JPSS_ATBD_ATMS_SDR_D.pdf
+- https://user.eumetsat.int/s3/ope-eup-strapi-media/ATOVS_Level_1b_Product_Guide_f89971ac20.pdf
+- https://www.ncei.noaa.gov/pub/data/cdo/documentation/podguides/N-15%20thru%20N-19/pdf/APPENDIX%20J%20Instrument%20Scan%20Properties.pdf
+
+</Note>
+
+<Warning>
+
+Aggregate cycle files contain millions of footprints, and hyperspectral
+IR requests return one long-format row per (footprint, channel). At all
+channels a single 6-hour cycle is on the order of 10⁸-10⁹ rows per
+sensor (CrIS ~940 M across its three platforms, IASI ~400 M, AIRS
+~210 M), which does not fit in memory on ordinary machines. All-channel
+requests are for narrow time windows and diagnostics; use
+``sensor_indices`` to select a channel subset for anything larger — the
+narrowing is applied before rows are built, so a 32-channel CrIS
+request costs roughly 32/431 of the above. A finite archived value is
+not a QC decision: historical files may retain passive or degraded
+channels even when the aggregate carries no usable quality flag.
+Training pipelines should apply an explicit platform/channel validity
+policy.
+
+</Warning>
+
+<ParamField path="cache" type="str">
+Local cache directory for NNJA observation files.
+</ParamField>
+<Anchor id="earth2studio-data-nnja-NNJAObsSat-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.nnja.NNJAObsSat.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Fetch observations for a set of timestamps.
+
+</Indent>
+<Anchor id="earth2studio-data-nnja-NNJAObsSat-available">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.nnja.NNJAObsSat.available(
+    time: datetime.datetime | numpy.datetime64,
+    sensor: str | None = None
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Check if given date time is available, for ``sensor`` if given.
+
+A time is available for a sensor when its cycle file (the nearest
+six-hourly cycle) lies in the sensor's archive period. Only the period is
+checked, not whether that file exists.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | np.datetime64">
+Date time to check
+</ParamField>
+
+<ParamField path="sensor" type="str | None" default="None">
+Sensor, e.g. ``"airs"``, by default None (any)
+</ParamField>
+
+**Returns:** `bool`
+
+If date time is available
+
+**Raises:**
+
+- `ValueError`: If ``sensor`` is not an NNJA satellite sensor
+
+</Indent>
+<Anchor id="earth2studio-data-nnja-NNJAObsSat-cleanup">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.nnja.NNJAObsSat.cleanup() -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Remove temporary files when persistent caching is disabled.
+
+</Indent>
+<Anchor id="earth2studio-data-nnja-NNJAObsSat-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.nnja.NNJAObsSat.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get data.
+
+</Indent>
+<Anchor id="earth2studio-data-nnja-NNJAObsSat-fetch_files">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.nnja.NNJAObsSat.fetch_files(
+    uris: collections.abc.Sequence[str]
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Download remote files into the NNJA cache.
+
+</Indent>
+<Anchor id="earth2studio-data-nnja-NNJAObsSat-local_path">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.nnja.NNJAObsSat.local_path(
+    uri: str
+) -> str
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Return the deterministic cache path for an S3 URI.
+
+</Indent>
+<Anchor id="earth2studio-data-nnja-NNJAObsSat-resolve_fields">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.nnja.NNJAObsSat.resolve_fields(
+    fields: str | list[str] | pyarrow.Schema | None
+) -> pyarrow.Schema
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Resolve ``fields`` into a validated PyArrow schema subset.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-nnja-NNJAObsSatwnd">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeTolerance":"../utils/type.mdx#earth2studio-utils-type-TimeTolerance"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.nnja.NNJAObsSatwnd(
+    time_tolerance: earth2studio.utils.type.TimeTolerance = np.timedelta64(0, 'm'),
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    async_workers: int = 24,
+    decode_workers: int = 8,
+    retries: int = 3,
+    layout: typing.Literal['long', 'wide'] = _DEFAULT_LAYOUT
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [NNJAObsConv](#earth2studio-data-nnja-NNJAObsConv)
+
+NNJA satellite-derived atmospheric motion vector (SATWND) data source.
+
+Reads the raw NCEP AMV dumps (``amv/`` in the NNJA archive) rather than the
+AMVs merged into PrepBUFR. The dumps keep every producer stream (GOES legacy
+and GOES-R, Meteosat, Himawari, MODIS, AVHRR, VIIRS, LEO-GEO, INSAT) with its
+own computation method, height assignment and quality indicators. Cycles
+through 2019 read the ``amv/merged`` reprocessed product and later cycles the
+operational ``amv/satwnd`` dump.
+
+``u``/``v`` rows are decomposed from ``WDIR``/``WSPD``. Shared columns follow
+`NNJAObsConv`: ``pres`` is the height assignment (``PRLC``, Pa),
+``quality`` the ``SWQM`` wind quality mark where the producer encodes one,
+``class`` is ``"SATWND"``; ``type``, ``station`` and ``elev`` are null
+since the dump carries no report type, station or geometric height. Extra
+columns carry ``satellite_id``, ``subset``, ``wind_method`` (``SWCM``),
+``wind_method_local`` (``CMCM``), ``height_method``, ``satellite_za`` and
+the raw quality indicators keyed by generating application. No report
+typing, quality control or thinning is applied.
+
+**Badges:** `region:global` `dataclass:observation` `product:wind` `product:sat`
+
+**Parameters:**
+
+<ParamField path="time_tolerance" type="TimeTolerance" default="np.timedelta64(0, 'm')">
+[`TimeTolerance`](../utils/type.mdx#earth2studio-utils-type-TimeTolerance) — Time tolerance window for filtering observations. Accepts a single
+value (symmetric ± window) or a tuple ``(lower, upper)`` for
+asymmetric windows, by default ``np.timedelta64(0, 'm')``.
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache downloaded files in the local filesystem cache, by default True.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Show progress bars, by default True.
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Timeout in seconds for downloading the files, by default 600. Decoding
+them is not bounded.
+</ParamField>
+
+<ParamField path="async_workers" type="int" default="24">
+Maximum number of concurrent async fetch tasks, by default 24.
+</ParamField>
+
+<ParamField path="decode_workers" type="int" default="8">
+Number of threads transforming decoded BUFR batches, by default 8.
+Decoding runs on earth2bufr's process-wide thread pool. Unless
+``EARTH2BUFR_NUM_THREADS`` is set, the first fetch sets it to 8 threads,
+the fastest setting measured on 16-112 cores.
+</ParamField>
+
+<ParamField path="retries" type="int" default="3">
+Number of retry attempts per failed fetch task with exponential
+backoff, by default 3.
+</ParamField>
+
+<ParamField path="layout" type="('long', 'wide')" default="'long'">
+``"long"`` returns one row per (wind, component) with the columns of
+``SCHEMA``. ``"wide"`` returns one row per wind: the ``SCHEMA`` columns
+the dump fills other than ``observation`` and ``variable``, with the
+components in ``observation_u`` and ``observation_v``. By default
+"long".
+</ParamField>
+
+<Note>
+
+Additional information on the data repository can be referenced here:
+
+- https://psl.noaa.gov/data/nnja_obs/
+- https://registry.opendata.aws/noaa-reanalyses-pds/
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of data
+to your local machine for large requests.
+
+</Warning>
+
+</Indent>

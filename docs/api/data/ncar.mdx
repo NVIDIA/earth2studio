@@ -1,0 +1,254 @@
+---
+layout: overview
+title: earth2studio.data.ncar
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`NCARAsyncTask`](#earth2studio-data-ncar-NCARAsyncTask) | Small helper struct for Async tasks |
+| [`NCAR_ERA5`](#earth2studio-data-ncar-NCAR_ERA5) | ERA5 data provided by NSF NCAR via the AWS Open Data Sponsorship Program. ERA5 |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-data-ncar-NCARAsyncTask">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.ncar.NCARAsyncTask(
+    ncar_file_uri: str,
+    ncar_data_variable: str,
+    ncar_time_indices: dict[int, numpy.datetime64],
+    ncar_level_indices: dict[int, str],
+    ncar_meta: dict[int, dict[str, typing.Any]]
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Small helper struct for Async tasks
+
+</Indent>
+
+<Anchor id="earth2studio-data-ncar-NCAR_ERA5">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.ncar.NCAR_ERA5(
+    max_workers: int = 24,
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    async_workers: int | None = None,
+    retries: int = 3
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+ERA5 data provided by NSF NCAR via the AWS Open Data Sponsorship Program. ERA5
+is the fifth generation of the ECMWF global reanalysis and available on a 0.25
+degree WGS84 grid at hourly intervals spanning from 1940 to the present.
+
+**Badges:** `region:global` `dataclass:reanalysis` `dataset:era5` `product:wind` `product:precip` `product:temp` `product:atmos` `provider:ncar`
+
+**Parameters:**
+
+<ParamField path="max_workers" type="int" default="24">
+Deprecated, retained for backwards compatibility. Use async_workers to
+control download concurrency, by default 24
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+    Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Timeout in seconds for async operations, by default 600
+</ParamField>
+
+<ParamField path="async_workers" type="int" default="None">
+Maximum number of concurrent downloads. By default None, which autoscales
+to the number of download tasks (capped at 64)
+</ParamField>
+
+<ParamField path="retries" type="int" default="3">
+Number of retries for each download task on transient errors, by default 3
+</ParamField>
+
+<Note>
+
+Additional resources:
+https://registry.opendata.aws/nsf-ncar-era5/
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of data
+to your local machine for large requests.
+
+</Warning>
+
+<ParamField path="cache" type="str">
+Return appropriate cache location.
+</ParamField>
+
+<Anchor id="earth2studio-data-ncar-NCAR_ERA5-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ncar.NCAR_ERA5.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Function to get data
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the NCAR lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+ERA5 weather data array from NCAR ERA5
+
+</Indent>
+<Anchor id="earth2studio-data-ncar-NCAR_ERA5-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ncar.NCAR_ERA5.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get data
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the NCAR_ERA5Lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+ERA5 weather data array from NCAR_ERA5
+
+</Indent>
+<Anchor id="earth2studio-data-ncar-NCAR_ERA5-fetch_array">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ncar.NCAR_ERA5.fetch_array(
+    nc_file_uri: str,
+    data_variable: str,
+    time_idx: list[int],
+    level_idx: list[int],
+    ncar_meta: dict
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Fetches requested array from remote store
+
+**Parameters:**
+
+<ParamField path="nc_file_uri" type="str">
+S3 URI to NetCDF file
+</ParamField>
+
+<ParamField path="data_variable" type="str">
+Data variable name of the array to use in the NetCDF file
+</ParamField>
+
+<ParamField path="time_idx" type="list[int]">
+Time indexes (hours since start time of file)
+</ParamField>
+
+<ParamField path="level_idx" type="list[int]">
+Pressure level indices if applicable, should be same length as time_idx
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data array loaded from requested file
+
+</Indent>
+<Anchor id="earth2studio-data-ncar-NCAR_ERA5-fetch_wrapper">
+
+<CodeBlock links={{"earth2studio.data.ncar.NCARAsyncTask":"#earth2studio-data-ncar-NCARAsyncTask"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ncar.NCAR_ERA5.fetch_wrapper(
+    task: earth2studio.data.ncar.NCARAsyncTask
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Small wrapper to pack arrays into the DataArray
+
+</Indent>
+</Indent>

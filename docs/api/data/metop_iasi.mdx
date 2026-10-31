@@ -1,0 +1,240 @@
+---
+layout: overview
+title: earth2studio.data.metop_iasi
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`MetOpIASI`](#earth2studio-data-metop_iasi-MetOpIASI) | EUMETSAT MetOp IASI Level 1C brightness temperature observations. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-data-metop_iasi-MetOpIASI">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeTolerance":"../utils/type.mdx#earth2studio-utils-type-TimeTolerance"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.metop_iasi.MetOpIASI(
+    satellite: str | None = None,
+    sensor_indices: list[int] | numpy.ndarray | None = None,
+    time_tolerance: earth2studio.utils.type.TimeTolerance = np.timedelta64(1, 'h'),
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+EUMETSAT MetOp IASI Level 1C brightness temperature observations.
+
+The Infrared Atmospheric Sounding Interferometer (IASI) is a Fourier
+transform infrared spectrometer aboard the MetOp series of polar-orbiting
+satellites. It measures calibrated spectral radiances across 8461 channels
+in the thermal infrared (645-2760 cm⁻¹, 3.6-15.5 µm), providing
+atmospheric temperature and humidity profiles, trace gas columns, and
+surface temperature at ~12 km spatial resolution.
+
+Each scan line contains 30 Extended Fields Of View (EFOVs), each
+consisting of a 2x2 array of 4 Instantaneous Fields Of View (IFOVs),
+yielding 120 spectra per scan line. A typical orbit pass contains
+~1400 scan lines (~168,000 IFOV spectra). To manage memory and processing time,
+a ``sensor_indices`` parameter allows selecting a subset of channels.
+
+This data source downloads Level 1C products from the EUMETSAT Data Store
+and parses the EPS native binary format to extract brightness temperatures,
+geolocation, and viewing geometry.
+
+**Badges:** `region:global` `dataclass:observation` `product:sat` `provider:eumetsat`
+
+**Parameters:**
+
+<ParamField path="satellite" type="str" default="None">
+Satellite platform filter for product search. One of "metop-a",
+"metop-b", "metop-c", or None (all available). By default None.
+</ParamField>
+
+<ParamField path="sensor_indices" type="list[int] | np.ndarray | None" default="None">
+1-based sensor indices to extract (subset of 1..8461). If None,
+the 174 GSI-assimilated channels (matching UFSObsSat) are used. Pass
+``np.arange(1, 8462)`` to extract all channels (warning: very large
+output).
+</ParamField>
+
+<ParamField path="time_tolerance" type="TimeTolerance" default="np.timedelta64(1, 'h')">
+[`TimeTolerance`](../utils/type.mdx#earth2studio-utils-type-TimeTolerance) — Time tolerance window for filtering observations. Accepts a single
+value (symmetric ± window) or a tuple (lower, upper) for asymmetric
+windows, by default np.timedelta64(1, 'h')
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress and info, by default True
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Time in seconds after which download will be cancelled if not finished,
+by default 600
+</ParamField>
+
+<Note>
+
+Requires EUMETSAT Data Store credentials. Set the following environment
+variables:
+
+- ``EUMETSAT_CONSUMER_KEY``: Your EUMETSAT API consumer key
+- ``EUMETSAT_CONSUMER_SECRET``: Your EUMETSAT API consumer secret
+
+Register at https://eoportal.eumetsat.int/ to obtain credentials.
+Additional information on the data repository:
+
+- https://data.eumetsat.int/product/EO:EUM:DAT:METOP:IASIL1C-ALL
+- https://user.eumetsat.int/resources/user-guides/metop-iasi-level-1-data-guide
+- Clerbaux et al. (2009), Atmos. Chem. Phys., 9, 6041–6054
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount
+of data to your local machine for large requests. IASI L1C files are
+typically 100-200 MB each, with ~42-45 products per day across 3
+satellites.
+
+</Warning>
+
+<ParamField path="cache" type="str">
+Get the appropriate cache location.
+</ParamField>
+<Anchor id="earth2studio-data-metop_iasi-MetOpIASI-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.metop_iasi.MetOpIASI.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Function to get IASI brightness temperature observations.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variables to return. Must be in MetOpIASILexicon
+(e.g. ``["iasi"]``).
+</ParamField>
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None" default="None">
+Fields to include in output, by default None (all fields).
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+IASI observation data in long format with one row per IFOV
+per channel.
+
+</Indent>
+<Anchor id="earth2studio-data-metop_iasi-MetOpIASI-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.metop_iasi.MetOpIASI.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get IASI data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variables to return. Must be in MetOpIASILexicon
+(e.g. ``["iasi"]``).
+</ParamField>
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None" default="None">
+Fields to include in output, by default None (all fields).
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+IASI observation data in long format with one row per IFOV
+per channel.
+
+</Indent>
+<Anchor id="earth2studio-data-metop_iasi-MetOpIASI-resolve_fields">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.metop_iasi.MetOpIASI.resolve_fields(
+    fields: str | list[str] | pyarrow.Schema | None
+) -> pyarrow.Schema
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Convert fields parameter into a validated PyArrow schema.
+
+**Parameters:**
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None">
+Field specification. None returns the full SCHEMA.
+</ParamField>
+
+**Returns:** `pa.Schema`
+
+A PyArrow schema containing only the requested fields
+
+**Raises:**
+
+- `KeyError`: If a requested field name is not in the SCHEMA
+- `TypeError`: If a field type doesn't match the SCHEMA
+
+</Indent>
+</Indent>

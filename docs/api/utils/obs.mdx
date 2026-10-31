@@ -1,0 +1,283 @@
+---
+layout: overview
+title: earth2studio.utils.obs
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`ObsGridMapping`](#earth2studio-utils-obs-ObsGridMapping) | Maps point observations to and from a 2-D model grid. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`filter_time_range`](#earth2studio-utils-obs-filter_time_range) | Filter DataFrame rows where time column is within the specified tolerance range. |
+
+### API
+
+<Anchor id="earth2studio-utils-obs-ObsGridMapping">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.utils.obs.ObsGridMapping(
+    grid_variables: numpy.ndarray,
+    grid_lat: numpy.ndarray | torch.Tensor,
+    grid_lon: numpy.ndarray | torch.Tensor,
+    device: torch.device | str | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Maps point observations to and from a 2-D model grid.
+
+Supports regular (1-D lat/lon axes) and irregular (2-D lat/lon) grids.
+CuPy is used automatically when available and the target device is a GPU.
+
+**Parameters:**
+
+<ParamField path="grid_variables" type="np.ndarray">
+Ordered array of variable names that define the channel dimension.
+</ParamField>
+
+<ParamField path="grid_lat" type="np.ndarray or torch.Tensor">
+Latitude coordinates. Shape ``(H,)`` for a regular grid or
+``(H, W)`` for an irregular grid.
+</ParamField>
+
+<ParamField path="grid_lon" type="np.ndarray or torch.Tensor">
+Longitude coordinates. Shape ``(W,)`` for a regular grid or
+``(H, W)`` for an irregular grid. Values are expected in [0, 360).
+</ParamField>
+
+<ParamField path="device" type="torch.device, str, or None" default="None">
+Target device. Inferred from ``grid_lat`` when it is a
+``torch.Tensor``; defaults to CPU otherwise.
+</ParamField>
+
+**Raises:**
+
+- `ValueError`: If ``grid_lat`` is neither 1-D nor 2-D.
+
+<Anchor id="earth2studio-utils-obs-ObsGridMapping-grid_to_obs">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.obs.ObsGridMapping.grid_to_obs(
+    x: torch.Tensor,
+    obs_c: torch.Tensor,
+    obs_i: torch.Tensor,
+    obs_j: torch.Tensor,
+    method: typing.Literal['nearest', 'linear'] = 'linear'
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Sample grid values at observation locations (differentiable).
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Grid tensor of shape ``(C, H, W)``.
+</ParamField>
+
+<ParamField path="obs_c" type="torch.Tensor">
+Channel index for each observation.
+</ParamField>
+
+<ParamField path="obs_i" type="torch.Tensor">
+Fractional row index for each observation.
+</ParamField>
+
+<ParamField path="obs_j" type="torch.Tensor">
+Fractional column index for each observation.
+</ParamField>
+
+<ParamField path="method" type="(nearest, linear)" default="'nearest'">
+Interpolation method.  ``"linear"`` (default) performs bilinear
+interpolation and supports gradient backpropagation.
+</ParamField>
+
+**Returns:** `torch.Tensor`
+
+Sampled values, shape ``(N,)``.
+
+**Raises:**
+
+- `ValueError`: If ``method`` is not ``"nearest"`` or ``"linear"``.
+
+</Indent>
+<Anchor id="earth2studio-utils-obs-ObsGridMapping-obs_coords">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.obs.ObsGridMapping.obs_coords(
+    obs_var: numpy.ndarray,
+    obs_lat: numpy.ndarray,
+    obs_lon: numpy.ndarray,
+    remove_out_of_bounds: bool = True
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Convert observation locations to fractional grid indices.
+
+**Parameters:**
+
+<ParamField path="obs_var" type="np.ndarray">
+Variable name for each observation.
+</ParamField>
+
+<ParamField path="obs_lat" type="np.ndarray">
+Latitude of each observation in degrees.
+</ParamField>
+
+<ParamField path="obs_lon" type="np.ndarray">
+Longitude of each observation in degrees, in [0, 360).
+</ParamField>
+
+<ParamField path="remove_out_of_bounds" type="bool" default="True">
+When ``True`` (default), observations outside the grid or with an
+unknown variable are removed from the returned arrays.  The full
+boolean mask is always returned as the fourth element.
+</ParamField>
+
+**Returns:** `torch.Tensor`
+
+Channel index for each (retained) observation.
+
+</Indent>
+<Anchor id="earth2studio-utils-obs-ObsGridMapping-obs_to_grid">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.obs.ObsGridMapping.obs_to_grid(
+    obs: pandas.DataFrame | None,
+    variables: list[str] | None = None,
+    request_time: numpy.datetime64 | None = None,
+    time_tolerance: numpy.timedelta64 | tuple[numpy.timedelta64, numpy.timedelta64] | None = None,
+    return_empty_grid: bool = False
+) -> tuple[torch.Tensor, torch.Tensor] | tuple[None, None]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Bin point observations onto the model grid.
+
+Observations are filtered to ``variables`` and to those within
+``time_tolerance`` of ``request_time``.  Multiple observations that
+fall in the same grid cell are averaged.
+
+**Parameters:**
+
+<ParamField path="obs" type="pd.DataFrame or None">
+Observation table with columns ``variable``, ``lat``, ``lon``, ``observation``.
+If ``request_time`` is used, ``obs`` must also have a ``time`` column.
+</ParamField>
+
+<ParamField path="variables" type="list[str]" default="None">
+Variable names to retain; others are discarded. ``None`` (default) uses all variables.
+</ParamField>
+
+<ParamField path="request_time" type="np.datetime64" default="None">
+Target valid time for the observations. ``None`` (default) skips time filtering.
+</ParamField>
+
+<ParamField path="time_tolerance" type="(np.timedelta64, tuple[np.timedelta64, np.timedelta64])" default="None">
+Time window used to filter observations around ``request_time``.
+A single ``np.timedelta64`` creates a symmetric window
+``[-time_tolerance, +time_tolerance]``.  A 2-tuple
+``(lower, upper)`` is passed directly to ``filter_time_range``
+as an asymmetric window. ``None`` (default) skips time filtering.
+</ParamField>
+
+<ParamField path="return_empty_grid" type="bool" default="False">
+When ``True``, return zero-filled tensors instead of
+``(None, None)`` when no observations are gridded.
+Defaults to ``False``.
+</ParamField>
+
+**Returns:** `torch.Tensor or None`
+
+Gridded observations, shape ``(1, C, H, W)``, or ``None`` when no
+observations remain and ``return_empty_grid`` is ``False``.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-utils-obs-filter_time_range">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"./type.mdx#earth2studio-utils-type-TimeArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.obs.filter_time_range(
+    df: pandas.DataFrame,
+    request_time: numpy.datetime64 | datetime.datetime | str | earth2studio.utils.type.TimeArray,
+    tolerance: tuple[numpy.timedelta64, numpy.timedelta64],
+    time_column: str = 'time'
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Filter DataFrame rows where time column is within the specified tolerance range.
+
+Filters the DataFrame to include only rows where the time column value is within
+[request_time + lower_bound, request_time + upper_bound]. When *request_time* is a
+`ndarray` of datetime64 values, a row is kept if it falls within the
+tolerance window of **any** of the provided times.
+
+**Parameters:**
+
+<ParamField path="df" type="pd.DataFrame | cudf.DataFrame">
+DataFrame to filter. Can be pandas or cudf DataFrame.
+</ParamField>
+
+<ParamField path="request_time" type="np.datetime64 | datetime | str | TimeArray">
+`np.datetime64 | datetime | str |` [`TimeArray`](./type.mdx#earth2studio-utils-type-TimeArray) — Reference time(s) for filtering. Observations within the tolerance window
+around this time will be included. If a numpy array of datetime64 is provided,
+the union of all individual tolerance windows is used.
+</ParamField>
+
+<ParamField path="tolerance" type="tuple[np.timedelta64, np.timedelta64]">
+Tuple of (lower_bound, upper_bound) time deltas defining the tolerance window.
+</ParamField>
+
+<ParamField path="time_column" type="str" default="'time'">
+Name of the time column in the DataFrame, by default "time"
+</ParamField>
+
+**Returns:** `pd.DataFrame | cudf.DataFrame`
+
+Filtered DataFrame containing only rows within the time tolerance range.
+Returns the same DataFrame type as the input (pandas or cudf).
+
+**Raises:**
+
+- `KeyError`: If the time_column is not present in the DataFrame
+
+</Indent>

@@ -1,0 +1,46 @@
+---
+layout: overview
+title: earth2studio.statistics.weights
+---
+## Module Contents
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`lat_weight`](#earth2studio-statistics-weights-lat_weight) | Compute the cosine-based latitude weighting for a given tensor |
+
+### API
+
+<Anchor id="earth2studio-statistics-weights-lat_weight">
+
+<CodeBlock links={{"earth2studio.statistics.weights.T":"#earth2studio-statistics-weights-T"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.weights.lat_weight(
+    lat: earth2studio.statistics.weights.T
+) -> earth2studio.statistics.weights.T
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Compute the cosine-based latitude weighting for a given tensor
+representing latitude coordinates. The latitude coordinates
+are assumed to be in degrees.
+
+Uses the formula weights = cos(lat * pi / 180.0)
+
+**Parameters:**
+
+<ParamField path="lat" type="Union[np.ndarray, torch.Tensor]">
+Array of latitude values, in degrees. Should be in the range [-90, 90].
+</ParamField>
+
+**Returns:** `Union[np.ndarray, torch.Tensor]`
+
+Array of latitude weights, formally defined above.
+
+</Indent>

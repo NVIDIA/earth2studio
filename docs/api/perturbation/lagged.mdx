@@ -1,0 +1,95 @@
+---
+layout: overview
+title: earth2studio.perturbation.lagged
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`LaggedEnsemble`](#earth2studio-perturbation-lagged-LaggedEnsemble) | Lagged Ensemble perturbation method. This method creates an ensemble |
+
+### API
+
+<Anchor id="earth2studio-perturbation-lagged-LaggedEnsemble">
+
+<CodeBlock links={{"earth2studio.data.DataSource":"../data/base.mdx#earth2studio-data-base-DataSource","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.perturbation.lagged.LaggedEnsemble(
+    source: earth2studio.data.DataSource,
+    lags: earth2studio.utils.type.LeadTimeArray
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Lagged Ensemble perturbation method. This method creates an ensemble
+by collecting initial conditions from different times, but verifying
+at the same time.
+
+**Parameters:**
+
+<ParamField path="source" type="DataSource">
+[`DataSource`](../data/base.mdx#earth2studio-data-base-DataSource) — The source for which to draw initial conditions from.
+</ParamField>
+
+<ParamField path="lags" type="LeadTimeArray">
+[`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — The list lags, in the form of LeadTimeArray, i.e., np.timedelta64, to include.
+Positive lags refer to future times whereas negative lags refer to
+previous times.  Using positive lags should not be used for forecasting
+purposes but can be used for hindcasting. A lag of zero is effectively
+an unperturbed ensemble member.
+
+For example,
+    lags = np.array([np.timedelta64(-6, "h"), np.timedelta64(0, "h")])
+    creates an ensemble with two lags, one of which is the current time and
+    one is 6 hours in the past.
+</ParamField>
+
+<Note>
+
+For additional information:
+
+- https://doi.org/10.1111/j.1600-0870.1983.tb00189.x
+
+</Note>
+
+<Anchor id="earth2studio-perturbation-lagged-LaggedEnsemble-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.perturbation.lagged.LaggedEnsemble.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Apply perturbation method
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor intended to apply perturbation on
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the tensor
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]:`
+
+Output tensor and respective coordinate system dictionary
+
+</Indent>
+</Indent>

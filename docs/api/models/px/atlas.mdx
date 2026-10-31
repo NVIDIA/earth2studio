@@ -1,0 +1,319 @@
+---
+layout: overview
+title: earth2studio.models.px.atlas
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`Atlas`](#earth2studio-models-px-atlas-Atlas) | Atlas prognostic model for ERA5 variables on a 0.25° global lat-lon grid. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`npdt64_to_naive_utc`](#earth2studio-models-px-atlas-npdt64_to_naive_utc) | - |
+
+### API
+
+<Anchor id="earth2studio-models-px-atlas-Atlas">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.atlas.Atlas(
+    autoencoders: torch.nn.ModuleList,
+    autoencoder_processors: torch.nn.ModuleList,
+    model: torch.nn.Module,
+    model_processor: torch.nn.Module,
+    sinterpolant: torch.nn.Module,
+    sinterpolant_sample_steps: int = 60
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin), [PrognosticMixin](./utils.mdx#earth2studio-models-px-utils-PrognosticMixin)
+
+Atlas prognostic model for ERA5 variables on a 0.25° global lat-lon grid.
+
+Atlas consumes two input lead times (t-6h and t) and predicts a single step at
+t+6h on a 721x1440 latitude-longitude grid.
+
+**Badges:** `region:global` `class:medium-range` `product:wind` `product:precip` `product:temp` `product:atmos` `year:2026` `gpu:80gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="autoencoders" type="nn.ModuleList">
+List of autoencoders for the full-resolution physical state.
+</ParamField>
+
+<ParamField path="autoencoder_processors" type="nn.ModuleList">
+List of autoencoder processors for the full-resolution physical state.
+</ParamField>
+
+<ParamField path="model" type="nn.Module">
+Model for the full-resolution physical state.
+</ParamField>
+
+<ParamField path="model_processor" type="nn.Module">
+Model processor for the full-resolution physical state.
+</ParamField>
+
+<ParamField path="sinterpolant" type="nn.Module">
+Stochastic interpolant for the low-resolution latent state.
+</ParamField>
+
+<ParamField path="sinterpolant_sample_steps" type="int" default="60">
+Number of steps to sample for the stochastic interpolant.
+</ParamField>
+
+<Note>
+
+For more information see the following references:
+
+- https://huggingface.co/nvidia/atlas-era5
+For best inference performance, set the environment variable `TORCH_ALLOW_TF32_CUBLAS_OVERRIDE=1`.
+This is on by default in NGC containers, but other environments may need to set it manually.
+
+</Note>
+
+<Warning>
+
+This model is expected to use the iterator interface for autoregressive
+rollouts longer than one step. Iteratively using the ``__call__`` and
+``prep_next_input`` methods will not produce correct results, since the model
+performs autoregressive timestepping using a full-resolution physical state
+and an internal low-resolution latent state.
+
+</Warning>
+
+<Anchor id="earth2studio-models-px-atlas-Atlas-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.atlas.Atlas.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Forward pass of the prognostic model, integrating a single 6h step.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor of shape (..., lead_time, variable, lat, lon) corresponding
+to the coordinate system. Lead times expected: [-6h, 0h].
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Coordinate dictionary describing `x`.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Output tensor advanced to t+6h and its coordinate system.
+
+</Indent>
+<Anchor id="earth2studio-models-px-atlas-Atlas-create_iterator">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.atlas.Atlas.create_iterator(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> collections.abc.Iterator[tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Create an iterator that yields the initial state then successive 6h steps.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Initial data tensor on device representing the initial condition.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Coordinate system for the initial data tensor.
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-atlas-Atlas-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.atlas.Atlas.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system expected by Atlas.
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Ordered dictionary with keys:
+- 'lead_time' : np.ndarray[np.timedelta64] of shape (2,)
+- 'variable' : np.ndarray[str] of shape (n_variables,)
+- 'lat' : np.ndarray[float] of shape (721,)
+- 'lon' : np.ndarray[float] of shape (1440,)
+
+<Note>
+
+- Lead times are fixed to [-6h, 0h].
+- Variables are defined by the module-level `VARIABLES`.
+- Spatial grid is 0.25° lat-lon: 721 latitudes, 1440 longitudes.
+
+</Note>
+
+</Indent>
+<Anchor id="earth2studio-models-px-atlas-Atlas-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.atlas.Atlas.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load the default package for the Atlas model.
+
+</Indent>
+<Anchor id="earth2studio-models-px-atlas-Atlas-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.px.base.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.atlas.Atlas.load_model(
+    package: earth2studio.models.auto.Package
+) -> earth2studio.models.px.base.PrognosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Instantiate and load Atlas from a package.
+
+</Indent>
+<Anchor id="earth2studio-models-px-atlas-Atlas-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.atlas.Atlas.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system produced by a single Atlas step (t+6h).
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Coordinate system associated with the input to the forward pass.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Ordered dictionary with keys:
+- 'time' : np.ndarray[np.datetime64] (copied from input if present)
+- 'lead_time' : np.timedelta64 set to +6h
+- 'variable' : np.ndarray[str] matching `VARIABLES`
+- 'lat' : np.ndarray[float] (copied from input if present, else 721 values)
+- 'lon' : np.ndarray[float] (copied from input if present, else 1440 values)
+
+</Indent>
+<Anchor id="earth2studio-models-px-atlas-Atlas-prep_next_input">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.atlas.Atlas.prep_next_input(
+    x_pred: torch.Tensor,
+    coords_pred: earth2studio.utils.type.CoordSystem,
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Prepare the next input for the Atlas model. Since the input requires two lead times
+but the model predicts one, we update a sliding window to make autoregressive predictions.
+
+**Parameters:**
+
+<ParamField path="x_pred" type="torch.Tensor">
+Predicted tensor from the previous step.
+</ParamField>
+
+<ParamField path="coords_pred" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Coordinates describing `x_pred`.
+</ParamField>
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor from the previous step.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Coordinates describing `x`.
+</ParamField>
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-px-atlas-npdt64_to_naive_utc">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.atlas.npdt64_to_naive_utc(
+    t: numpy.datetime64
+) -> datetime.datetime
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+</Indent>

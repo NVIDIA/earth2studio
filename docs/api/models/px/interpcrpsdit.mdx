@@ -1,0 +1,435 @@
+---
+layout: overview
+title: earth2studio.models.px.interpcrpsdit
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`InterpCRPSDiT`](#earth2studio-models-px-interpcrpsdit-InterpCRPSDiT) | One-shot, endpoint-pinned CRPS temporal interpolation with a DiT backbone (73 variables at |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-models-px-interpcrpsdit-InterpCRPSDiT">
+
+<CodeBlock links={{"earth2studio.models.px.base.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel","earth2studio.models.px.interpcrpsdit.OptionalVariable":"#earth2studio-models-px-interpcrpsdit-OptionalVariable"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.interpcrpsdit.InterpCRPSDiT(
+    dit: torch.nn.Module,
+    center: torch.Tensor,
+    scale: torch.Tensor,
+    static_inv: torch.Tensor,
+    lat2d: torch.Tensor,
+    lon2d: torch.Tensor,
+    px_model: earth2studio.models.px.base.PrognosticModel,
+    num_interp_steps: int = 6,
+    lon_pad: int = 128,
+    seed: int | None = None,
+    drop_variables: list[earth2studio.models.px.interpcrpsdit.OptionalVariable] | None = None,
+    amp_dtype: torch.dtype | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin), [PrognosticMixin](./utils.mdx#earth2studio-models-px-utils-PrognosticMixin)
+
+One-shot, endpoint-pinned CRPS temporal interpolation with a DiT backbone (73 variables at
+0.25 degree resolution, 721x1440).
+
+Upsamples the coarse trajectory of a base prognostic model to ``num_interp_steps`` sub-steps per
+coarse interval. For interior fraction ``tau`` and per-member latent ``z`` each frame is produced
+in a single forward pass as ``out(tau) = (1 - tau) x0 + tau xT + sin(pi tau) f(x0, xT, cond, z)``,
+a linear blend plus a DiT correction ``f`` that vanishes at both endpoints. Endpoints are copied
+from the base model, only interior frames are modelled. Ensemble spread comes entirely from the
+per-member latent ``z`` (trained with a CRPS objective).
+
+The model wraps a base prognostic model (``px_model``) so the pair acts as a single prognostic
+with higher temporal resolution. The coarse gap is taken from ``px_model`` (trained on 3-10 h)
+and the output resolution is
+``gap / num_interp_steps``, e.g. a 6 h gap with ``num_interp_steps=36`` gives 10 min.
+``num_interp_steps`` must divide the gap in minutes. A regional sub-domain is available via
+`set_domain`.
+
+The DiT runs on 720 latitudes (90 to -89.75). The -90 row of the 721x1440 output is filled with
+the zonal mean of the -89.75 row.
+
+**Badges:** `region:global` `class:mrf` `product:wind` `product:temp` `product:atmos` `year:2026` `gpu:80gb`
+
+**Parameters:**
+
+<ParamField path="dit" type="torch.nn.Module">
+DiT network predicting the correction ``f`` (a physicsnemo Module)
+</ParamField>
+
+<ParamField path="center" type="torch.Tensor">
+Per-variable normalization, shape (1, 73, 1, 1)
+</ParamField>
+
+<ParamField path="scale" type="torch.Tensor">
+Per-variable normalization, shape (1, 73, 1, 1)
+</ParamField>
+
+<ParamField path="static_inv" type="torch.Tensor">
+Time-invariant conditioning maps (12, H, W): sin/cos lat, sin/cos lon, lsm, orog and 6
+physical fields
+</ParamField>
+
+<ParamField path="lat2d" type="torch.Tensor">
+(H, W) latitude/longitude grids in degrees, defines the output grid
+</ParamField>
+
+<ParamField path="lon2d" type="torch.Tensor">
+(H, W) latitude/longitude grids in degrees, defines the output grid
+</ParamField>
+
+<ParamField path="px_model" type="PrognosticModel">
+[`PrognosticModel`](./base.mdx#earth2studio-models-px-base-PrognosticModel) — Base model producing the coarse trajectory
+</ParamField>
+
+<ParamField path="num_interp_steps" type="int" default="6">
+Sub-steps per coarse interval, must divide the coarse gap in minutes, by default 6
+</ParamField>
+
+<ParamField path="lon_pad" type="int" default="128">
+Circular longitude pad (columns) to reduce the date-line seam, 0 disables, by default 128
+</ParamField>
+
+<ParamField path="seed" type="int | None" default="None">
+If set, noise is drawn from a per-device generator seeded with this value. Results depend on
+the number of ensemble members and init times, by default None (global RNG)
+</ParamField>
+
+<ParamField path="drop_variables" type="list[OptionalVariable] | None" default="None">
+`list[` [`OptionalVariable`](#earth2studio-models-px-interpcrpsdit-OptionalVariable) `] | None` — Variables the base model does not supply, a subset of ``sp, u100m, v100m, tcwv``. Dropped
+channels are flagged absent to the DiT and omitted from the output, by default None
+</ParamField>
+
+<ParamField path="amp_dtype" type="torch.dtype | None" default="None">
+``None`` runs the DiT in fp32, ``torch.bfloat16`` / ``torch.float16`` run it under autocast.
+Endpoint pinning stays in fp32, by default None
+</ParamField>
+
+<Note>
+
+Trained and validated only on ERA5. The interior is a learned statistical interpolation with no
+physical conservation guarantee, so quality may degrade with other base data (e.g. GFS). A gap
+outside 3-10 h only warns. The DiT runs in fp32 by default, see ``amp_dtype``.
+
+</Note>
+
+<Anchor id="earth2studio-models-px-interpcrpsdit-InterpCRPSDiT-__call__">
+
+<CodeBlock links={{"earth2studio.utils.coords.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.interpcrpsdit.InterpCRPSDiT.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.coords.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.coords.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Run one step, returning the initial condition.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Initial-condition frame and its coordinate system
+
+</Indent>
+<Anchor id="earth2studio-models-px-interpcrpsdit-InterpCRPSDiT-create_iterator">
+
+<CodeBlock links={{"earth2studio.utils.coords.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.interpcrpsdit.InterpCRPSDiT.create_iterator(
+    x: torch.Tensor,
+    coords: earth2studio.utils.coords.CoordSystem
+) -> collections.abc.Iterator[tuple[torch.Tensor, earth2studio.utils.coords.CoordSystem]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Yield the initial condition, then interpolated sub-steps and coarse endpoints.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system.
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-interpcrpsdit-InterpCRPSDiT-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.coords.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.interpcrpsdit.InterpCRPSDiT.input_coords() -> earth2studio.utils.coords.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system, taken from the wrapped ``px_model``.
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary (``batch, time, lead_time, variable, lat, lon``).
+
+</Indent>
+<Anchor id="earth2studio-models-px-interpcrpsdit-InterpCRPSDiT-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.interpcrpsdit.InterpCRPSDiT.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load the default model package.
+
+**Returns:** [`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package)
+
+Default model package
+
+</Indent>
+<Anchor id="earth2studio-models-px-interpcrpsdit-InterpCRPSDiT-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.px.base.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel","earth2studio.models.px.interpcrpsdit.OptionalVariable":"#earth2studio-models-px-interpcrpsdit-OptionalVariable"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.interpcrpsdit.InterpCRPSDiT.load_model(
+    package: earth2studio.models.auto.Package,
+    px_model: earth2studio.models.px.base.PrognosticModel,
+    num_interp_steps: int = 6,
+    drop_variables: list[earth2studio.models.px.interpcrpsdit.OptionalVariable] | None = None,
+    amp_dtype: torch.dtype | None = None
+) -> earth2studio.models.px.base.PrognosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load from a package with the DiT checkpoint, normalization stats and static maps.
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Package holding ``CRPSModel.mdlus``, ``set_phys.nc``, ``global_means.npy``,
+``global_stds.npy``.
+</ParamField>
+
+<ParamField path="px_model" type="PrognosticModel">
+[`PrognosticModel`](./base.mdx#earth2studio-models-px-base-PrognosticModel) — Base model producing the coarse trajectory
+</ParamField>
+
+<ParamField path="num_interp_steps" type="int" default="6">
+Sub-steps per coarse interval, must divide the coarse gap in minutes, by default 6
+</ParamField>
+
+<ParamField path="drop_variables" type="list[OptionalVariable] | None" default="None">
+`list[` [`OptionalVariable`](#earth2studio-models-px-interpcrpsdit-OptionalVariable) `] | None` — Variables the base does not supply, see the class docstring, by default None
+</ParamField>
+
+<ParamField path="amp_dtype" type="torch.dtype | None" default="None">
+DiT inference precision, see the class docstring, by default None
+</ParamField>
+
+**Returns:** [`PrognosticModel`](./base.mdx#earth2studio-models-px-base-PrognosticModel)
+
+The loaded ``InterpCRPSDiT``.
+
+**Raises:**
+
+- `ValueError`: If ``set_phys.nc`` latitude is not descending or has non-finite values, or the
+normalization arrays are not ``len(VARIABLES)`` finite channels with positive scales.
+
+</Indent>
+<Anchor id="earth2studio-models-px-interpcrpsdit-InterpCRPSDiT-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.coords.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.interpcrpsdit.InterpCRPSDiT.output_coords(
+    input_coords: earth2studio.utils.coords.CoordSystem
+) -> earth2studio.utils.coords.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system at the sub-step cadence (coarse gap / ``num_interp_steps``),
+one sub-step past the input lead time.
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary.
+
+**Raises:**
+
+- `ValueError`: If the coarse gap (in minutes) is not divisible by ``num_interp_steps``.
+
+<Warning>
+
+[&lt;griffe._internal.docstrings.models.DocstringWarn object at 0x733ef4e75c10&gt;]
+
+</Warning>
+
+</Indent>
+<Anchor id="earth2studio-models-px-interpcrpsdit-InterpCRPSDiT-set_domain">
+
+<CodeBlock links={{"earth2studio.models.px.interpcrpsdit.InterpCRPSDiT":"#earth2studio-models-px-interpcrpsdit-InterpCRPSDiT"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.interpcrpsdit.InterpCRPSDiT.set_domain(
+    lat_min: float,
+    lat_max: float,
+    lon_min: float,
+    lon_max: float,
+    halo: int = 0,
+    min_cells: int | None = None
+) -> earth2studio.models.px.interpcrpsdit.InterpCRPSDiT
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Restrict the model to a regional sub-domain for a lat/lon bounding box.
+
+Returns a new `InterpCRPSDiT` sharing the loaded ``dit`` with the static maps and
+output grid sliced to the smallest block covering the box. The wrapped ``px_model`` is
+carried over and its frames are cropped to the run grid (bounding box plus halo, aligned to the
+patch size) with ``map_coords``, so it should supply a grid containing it, e.g. the global
+grid. Longitude wrap is disabled (``lon_pad=0``).
+
+**Parameters:**
+
+<ParamField path="lat_min" type="float">
+Bounding box in degrees, inside the current grid. Does not wrap the date line.
+</ParamField>
+
+<ParamField path="lat_max" type="float">
+Bounding box in degrees, inside the current grid. Does not wrap the date line.
+</ParamField>
+
+<ParamField path="lon_min" type="float">
+Bounding box in degrees, inside the current grid. Does not wrap the date line.
+</ParamField>
+
+<ParamField path="lon_max" type="float">
+Bounding box in degrees, inside the current grid. Does not wrap the date line.
+</ParamField>
+
+<ParamField path="halo" type="int" default="0">
+Extra cells added per side to run on, then trimmed from the output to push boundary
+artifacts off the returned box (not validated), by default 0
+</ParamField>
+
+<ParamField path="min_cells" type="int | None" default="None">
+Minimum run-grid size per side so the NATTEN kernel fits the latent grid, by default
+derived from the architecture at load
+</ParamField>
+
+**Returns:** [`InterpCRPSDiT`](#earth2studio-models-px-interpcrpsdit-InterpCRPSDiT)
+
+Sub-domain model whose ``output_coords`` cover the bounding box
+
+**Raises:**
+
+- `ValueError`: If the bounding box is degenerate, outside the grid or selects no cells, ``halo`` is
+negative, ``min_cells`` is below 1, patch snapping shrinks the window below the box, or
+the run window is below ``min_cells``.
+
+<Warning>
+
+The ``dit`` is shared and mutated in place on each forward, so a parent and its sub-domains
+can run sequentially but not concurrently. The sub-domain is placed on the parent's current
+device and does not follow later ``.to(...)`` calls on the parent. Skill outside the global
+ERA5 training distribution is unvalidated.
+
+</Warning>
+
+</Indent>
+<Anchor id="earth2studio-models-px-interpcrpsdit-InterpCRPSDiT-to">
+
+<CodeBlock links={{"earth2studio.models.px.base.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.interpcrpsdit.InterpCRPSDiT.to(
+    device: str | torch.device | int
+) -> earth2studio.models.px.base.PrognosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Move the model and the wrapped ``px_model`` to a device.
+
+**Parameters:**
+
+<ParamField path="device" type="str | torch.device | int">
+Target device
+</ParamField>
+
+**Returns:** [`PrognosticModel`](./base.mdx#earth2studio-models-px-base-PrognosticModel)
+
+Model on the target device
+
+</Indent>
+</Indent>

@@ -1,0 +1,147 @@
+---
+title: Running Deterministic Inference
+---
+
+Basic deterministic inference workflow.
+
+This example will demonstrate how to run a simple inference workflow to generate a
+basic deterministic forecast using one of the built in models of Earth-2 Inference
+Studio.
+
+In this example you will learn:
+
+- How to instantiate a built in prognostic model
+- Creating a data source and IO object
+- Running a simple built in workflow
+- Post-processing results
+
+<Info>
+
+Source: [`examples/01_getting_started/01_deterministic_workflow.py`](https://github.com/NVIDIA/earth2studio/blob/main/examples/01_getting_started/01_deterministic_workflow.py)
+
+</Info>
+
+<Accordion title="Script dependencies">
+
+This script declares its dependencies inline ([PEP 723](https://peps.python.org/pep-0723/)), so it can be run with `uv run`.
+
+```python
+# /// script
+# dependencies = [
+#   "earth2studio[dlwp] @ git+https://github.com/NVIDIA/earth2studio.git",
+#   "cartopy",
+# ]
+# ///
+```
+
+</Accordion>
+
+## Set Up
+
+All workflows inside Earth2Studio require constructed components to be
+handed to them. In this example, let's take a look at the most basic: [`earth2studio.run.deterministic`](/earth2studio/api/workflows#earth2studio-run-deterministic).
+
+Thus, we need the following:
+
+- Prognostic Model: Use the built in Deep Learning Weather Prediction (DLWP) model [`earth2studio.models.px.DLWP`](/earth2studio/api/models_px/dlwp#earth2studio-models-px-dlwp-DLWP).
+- Datasource: Pull data from the GFS data api [`earth2studio.data.GFS`](/earth2studio/api/datasources_analysis/gfs#earth2studio-data-gfs-GFS).
+- IO Backend: Let's save the outputs into a Zarr store [`earth2studio.io.ZarrBackend`](/earth2studio/api/io/zarr#earth2studio-io-zarr-ZarrBackend).
+
+```python
+import os
+
+os.makedirs("outputs", exist_ok=True)
+from dotenv import load_dotenv
+
+load_dotenv()  # TODO: make common example prep function
+
+from earth2studio.data import GFS
+from earth2studio.io import ZarrBackend
+from earth2studio.models.px import DLWP
+from earth2studio.utils.time import to_time_array
+
+# Load the default model package which downloads the check point from NGC
+package = DLWP.load_default_package()
+model = DLWP.load_model(package)
+
+# Create the data source
+data = GFS()
+
+# Create the IO handler, store in memory
+io = ZarrBackend()
+```
+
+## Fetch Data
+
+You can easily fetch raw Xarray data from an initial condition data source with
+a simple call. By default, this caches the data locally on your machine, so you
+won't have to re-download it if you access it again or use it in an inference
+pipeline.
+
+```python
+sample = data(
+    to_time_array(["2023-12-31T18:00:00", "2024-01-01"]),
+    model.input_coords()["variable"],
+)
+print(sample)
+```
+
+## Execute the Workflow
+
+With all components initialized, running the workflow is a single line of Python code.
+Workflow will return the provided IO object back to the user, which can be used to
+then post process. Some have additional APIs that can be handy for post-processing or
+saving to file. Check the API docs for more information.
+
+For the forecast we will predict for two days (these will get executed as a batch) for
+20 forecast steps which is 5 days.
+
+```python
+import earth2studio.run as run
+
+nsteps = 20
+io = run.deterministic(["2024-01-01"], nsteps, model, data, io)
+
+print(io.root.tree())
+```
+
+## Post Processing
+
+The last step is to post process our results. Cartopy is a great library for plotting
+fields on projections of a sphere. Here we will just plot the temperature at 2 meters
+(t2m) 1 day into the forecast.
+
+Notice that the Zarr IO function has additional APIs to interact with the stored data.
+
+```python
+import cartopy.crs as ccrs
+import matplotlib.pyplot as plt
+
+forecast = "2024-01-01"
+variable = "t2m"
+step = 4  # lead time = 24 hrs
+
+plt.close("all")
+# Create a Robinson projection
+projection = ccrs.Robinson()
+
+# Create a figure and axes with the specified projection
+fig, ax = plt.subplots(subplot_kw={"projection": projection}, figsize=(10, 6))
+
+# Plot the field using pcolormesh
+im = ax.pcolormesh(
+    io["lon"][:],
+    io["lat"][:],
+    io[variable][0, step],
+    transform=ccrs.PlateCarree(),
+    cmap="Spectral_r",
+)
+
+# Set title
+ax.set_title(f"{forecast} - Lead time: {6*step}hrs")
+
+# Add coastlines and gridlines
+ax.coastlines()
+ax.gridlines()
+plt.savefig("outputs/01_t2m_prediction.jpg")
+```

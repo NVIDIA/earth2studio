@@ -1,0 +1,118 @@
+---
+layout: overview
+title: earth2studio.models.auto.mixin
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`AutoModelMixin`](#earth2studio-models-auto-mixin-AutoModelMixin) | Abstract class that defines the utils needed auto loading / instantiating models |
+
+### API
+
+<Anchor id="earth2studio-models-auto-mixin-AutoModelMixin">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.auto.mixin.AutoModelMixin()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Abstract class that defines the utils needed auto loading / instantiating models
+
+<Anchor id="earth2studio-models-auto-mixin-AutoModelMixin-from_pretrained">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.auto.mixin.AutoModelMixin.from_pretrained(
+    pretrained_model_name_or_path: str | None = None
+) -> typing.Any
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Loads and instantiates a pre-trained Earth2Studio model
+
+**Parameters:**
+
+<ParamField path="pretrained_model_name_or_path" type="str" default="None">
+Path to model package (file system). If none is provided, the built in
+package will be used if provide, by default None. Valid inputs include:
+- A path to a directory containing model weights saved e.g.,
+    ./my_model_directory/.
+- A path or url/uri to a remote file system supported by Fsspec
+- A s3 uri supported by s3fs
+- A NGC model registry uri
+</ParamField>
+
+**Returns:** `Union[` [`PrognosticModel`](../px/base.mdx#earth2studio-models-px-base-PrognosticModel) `, Diagnostic]`
+
+Instantiated model with loaded checkpoint from loaded model package
+
+</Indent>
+<Anchor id="earth2studio-models-auto-mixin-AutoModelMixin-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.package.Package":"./package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.auto.mixin.AutoModelMixin.load_default_package() -> earth2studio.models.auto.package.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Loads the default model package
+
+**Returns:** [`Package`](./package.mdx#earth2studio-models-auto-package-Package)
+
+Model package, file system, object
+
+</Indent>
+<Anchor id="earth2studio-models-auto-mixin-AutoModelMixin-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.package.Package":"./package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.auto.mixin.AutoModelMixin.load_model(
+    package: earth2studio.models.auto.package.Package
+) -> typing.Any
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Instantiates and loads default model object from provided model package
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](./package.mdx#earth2studio-models-auto-package-Package) — Model package, file system, to fetch assets
+</ParamField>
+
+<ParamField path="**kwargs">
+Addition keyword arguments are allowed, must have defaults
+</ParamField>
+
+</Indent>
+</Indent>

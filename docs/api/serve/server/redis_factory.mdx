@@ -1,0 +1,76 @@
+---
+layout: overview
+title: earth2studio.serve.server.redis_factory
+---
+Centralized Redis client factory for worker processes.
+
+Worker processes (RQ) run in separate OS processes and cannot access FastAPI's
+app.state. This module provides a single factory function so all Redis client
+construction is defined in one place.
+
+## Module Contents
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`create_async_redis_client`](#earth2studio-serve-server-redis_factory-create_async_redis_client) | Create an async Redis client from the current server configuration. |
+| [`create_sync_redis_client`](#earth2studio-serve-server-redis_factory-create_sync_redis_client) | Create a synchronous Redis client from the current server configuration. |
+| [`get_worker_redis_client`](#earth2studio-serve-server-redis_factory-get_worker_redis_client) | Singleton Redis client for RQ worker processes. |
+
+### API
+
+<Anchor id="earth2studio-serve-server-redis_factory-create_async_redis_client">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.redis_factory.create_async_redis_client() -> redis.asyncio.Redis
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Create an async Redis client from the current server configuration.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-redis_factory-create_sync_redis_client">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.redis_factory.create_sync_redis_client() -> redis.Redis
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Create a synchronous Redis client from the current server configuration.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-redis_factory-get_worker_redis_client">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.redis_factory.get_worker_redis_client() -> redis.Redis
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Singleton Redis client for RQ worker processes.
+
+Returns the same client instance on every call within a single OS process.
+Used by both GPU and CPU worker modules to avoid duplicating the singleton
+pattern.
+
+</Indent>

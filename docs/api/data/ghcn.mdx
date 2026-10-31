@@ -1,0 +1,423 @@
+---
+layout: overview
+title: earth2studio.data.ghcn
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`GHCNDaily`](#earth2studio-data-ghcn-GHCNDaily) | NOAA's Global Historical Climatology Network Daily (GHCN-D) is a dataset that |
+| [`GHCNHourly`](#earth2studio-data-ghcn-GHCNHourly) | NOAA's Global Historical Climatology Network Hourly (GHCNh) is a global |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-data-ghcn-GHCNDaily">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeTolerance":"../utils/type.mdx#earth2studio-utils-type-TimeTolerance"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.ghcn.GHCNDaily(
+    stations: list[str],
+    time_tolerance: earth2studio.utils.type.TimeTolerance = np.timedelta64(0),
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    async_workers: int = 32,
+    retries: int = 3
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_GHCNBase](#earth2studio-data-ghcn-_GHCNBase)
+
+NOAA's Global Historical Climatology Network Daily (GHCN-D) is a dataset that
+contains daily climate summaries from land surface stations across the globe.
+
+**Example**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+# Southeast US, lat lon bounding box (lat min, lon min, lat max, lon max)
+stations = GHCNDaily.get_stations_bbox((30, -90, 36, -80))
+ds = GHCNDaily(stations, time_tolerance=timedelta(days=1))
+df = ds(datetime(2024, 1, 1), ["t2m_max", "tp"])
+
+```
+
+</CodeBlock>
+
+**Badges:** `region:global` `dataclass:observation` `product:wind` `product:precip` `product:temp` `product:atmos` `product:solar` `product:insitu` `provider:noaa`
+
+**Parameters:**
+
+<ParamField path="stations" type="list[str]">
+GHCN station IDs (11-character strings, e.g. ``"USW00023273"``) to
+attempt to fetch data from.
+</ParamField>
+
+<ParamField path="time_tolerance" type="TimeTolerance" default="np.timedelta64(0)">
+[`TimeTolerance`](../utils/type.mdx#earth2studio-utils-type-TimeTolerance) — Time tolerance window for filtering observations. Accepts a single value
+(symmetric +/- window) or a tuple (lower, upper) for asymmetric windows,
+by default np.timedelta64(0)
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress and missing data warnings, by default True
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Time in sec after which download will be cancelled if not finished successfully,
+by default 600
+</ParamField>
+
+<ParamField path="async_workers" type="int" default="32">
+Maximum number of concurrent async fetch tasks, by default 32.
+Fetches are small independent HTTP/S3 requests dominated by
+round-trip latency rather than bandwidth, so throughput scales
+with concurrency well past this default -- raising it further
+(e.g. 64) roughly halves wall time again for large station lists,
+at the cost of more concurrent requests against NOAA's endpoints.
+</ParamField>
+
+<ParamField path="retries" type="int" default="3">
+Number of retry attempts per failed fetch task with exponential backoff,
+by default 3
+</ParamField>
+
+<Note>
+
+To help get a list of possible station IDs, this class includes
+`GHCNDaily.get_stations_bbox` which accepts a lat-lon bounding box and will
+return known station IDs. For more information on the stations, users should
+consult the ``ghcnd-stations.txt`` which can be accessed with
+`GHCNDaily.get_station_metadata`.
+Additional information on the data repository can be referenced here:
+
+- https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-daily
+- https://registry.opendata.aws/noaa-ghcn/
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of data
+to your local machine for large requests.
+
+</Warning>
+
+<Anchor id="earth2studio-data-ghcn-GHCNDaily-available">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ghcn.GHCNDaily.available(
+    time: datetime.datetime | numpy.datetime64
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Check if given date time is available by verifying the partition exists on S3.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | np.datetime64">
+Date time to check
+</ParamField>
+
+**Returns:** `bool`
+
+If date time is available
+
+</Indent>
+<Anchor id="earth2studio-data-ghcn-GHCNDaily-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ghcn.GHCNDaily.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables (column
+ids) to return. Must be in the GHCNDaily lexicon.
+</ParamField>
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None" default="None">
+Fields to include in output, by default None (all fields).
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+GHCN data frame
+
+</Indent>
+<Anchor id="earth2studio-data-ghcn-GHCNDaily-get_station_inventory">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ghcn.GHCNDaily.get_station_inventory() -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Fetch and cache the GHCN station inventory file from S3.
+
+The inventory file contains station/element/date-range metadata showing
+which elements are available for each station and over what time period.
+
+**Returns:** `pd.DataFrame`
+
+Inventory with columns: ID, LAT, LON, ELEMENT, FIRSTYEAR, LASTYEAR
+
+</Indent>
+<Anchor id="earth2studio-data-ghcn-GHCNDaily-get_station_metadata">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ghcn.GHCNDaily.get_station_metadata() -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Fetch and cache the GHCN-Daily station list from the GHCN-Daily S3 bucket.
+
+Reads the fixed-width ``ghcnd-stations.txt`` list.
+
+**Returns:** `pd.DataFrame`
+
+Station metadata with columns: ID, LAT, LON, ELEV, STATE, NAME, GSN,
+HCN, WMO
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-ghcn-GHCNHourly">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeTolerance":"../utils/type.mdx#earth2studio-utils-type-TimeTolerance"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.ghcn.GHCNHourly(
+    stations: list[str],
+    time_tolerance: earth2studio.utils.type.TimeTolerance = np.timedelta64(10, 'm'),
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    async_workers: int = 32,
+    retries: int = 3
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_GHCNBase](#earth2studio-data-ghcn-_GHCNBase)
+
+NOAA's Global Historical Climatology Network Hourly (GHCNh) is a global
+database of hourly surface observations that supersedes the Integrated Surface
+Database (ISD). It compiles observations from thousands of stations worldwide
+into a common data model with consistent CSV encoding.
+
+**Example**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+# Atlanta Hartsfield-Jackson airport
+stations = GHCNHourly.get_stations_bbox((33, -85, 34, -84))
+ds = GHCNHourly(stations, time_tolerance=timedelta(hours=1))
+df = ds(datetime(2024, 1, 1, 12), ["t2m", "ws10m"])
+
+```
+
+</CodeBlock>
+
+**Badges:** `region:global` `dataclass:observation` `product:wind` `product:precip` `product:temp` `provider:noaa` `product:insitu`
+
+**Parameters:**
+
+<ParamField path="stations" type="list[str]">
+Station IDs in GHCN station format (11 characters), e.g. ``"USW00013874"``
+for Atlanta Hartsfield-Jackson. Use `GHCNHourly.get_stations_bbox`
+to discover IDs by geographic area.
+</ParamField>
+
+<ParamField path="time_tolerance" type="TimeTolerance" default="np.timedelta64(10, 'm')">
+[`TimeTolerance`](../utils/type.mdx#earth2studio-utils-type-TimeTolerance) — Time tolerance window for filtering observations. Accepts a single value
+(symmetric ± window) or a tuple (lower, upper) for asymmetric windows,
+by default np.timedelta64(10, 'm')
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress and missing data warnings, by default True
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Time in sec after which download will be cancelled if not finished
+successfully, by default 600
+</ParamField>
+
+<ParamField path="async_workers" type="int" default="32">
+Maximum number of concurrent async fetch tasks, by default 32.
+Fetches are small independent HTTP/S3 requests dominated by
+round-trip latency rather than bandwidth, so throughput scales
+with concurrency well past this default -- raising it further
+(e.g. 64) roughly halves wall time again for large station lists,
+at the cost of more concurrent requests against NOAA's endpoints.
+</ParamField>
+
+<ParamField path="retries" type="int" default="3">
+Number of retry attempts per failed fetch task with exponential backoff,
+by default 3
+</ParamField>
+
+<Note>
+
+To help get a list of possible station IDs, this class includes
+`GHCNHourly.get_stations_bbox` which accepts a lat-lon bounding box and
+will return known station IDs. For more information on the stations, users
+should consult the ``ghcnh-station-list.csv`` file accessible via
+`GHCNHourly.get_station_metadata`.
+Additional information on the data repository can be referenced here:
+
+- https://www.ncei.noaa.gov/products/global-historical-climatology-network-hourly
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of
+data to your local machine for large requests.
+
+</Warning>
+
+<Anchor id="earth2studio-data-ghcn-GHCNHourly-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ghcn.GHCNHourly.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables
+to return. Must be in the GHCNh lexicon.
+</ParamField>
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None" default="None">
+Fields to include in output, by default None (all fields).
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+GHCNh data frame
+
+</Indent>
+<Anchor id="earth2studio-data-ghcn-GHCNHourly-get_station_metadata">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ghcn.GHCNHourly.get_station_metadata() -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Fetch and cache the GHCNh station list.
+
+Reads the CSV ``ghcnh-station-list.csv`` list. This is distinct from the
+GHCN-Daily ``ghcnd-stations.txt`` list, which does not describe which
+stations are available in GHCNh and can return IDs without hourly files.
+The CSV carries the same descriptive columns as the daily list plus
+``ICAO`` and ``ISO_CODE``; column names are normalized to match
+`GHCNDaily.get_station_metadata`.
+
+**Returns:** `pd.DataFrame`
+
+Station metadata with columns: ID, LAT, LON, ELEV, STATE, NAME, GSN,
+HCN, WMO, ICAO, ISO_CODE
+
+</Indent>
+</Indent>

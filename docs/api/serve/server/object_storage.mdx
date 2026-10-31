@@ -1,0 +1,611 @@
+---
+layout: overview
+title: earth2studio.serve.server.object_storage
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`MSCObjectStorage`](#earth2studio-serve-server-object_storage-MSCObjectStorage) | Object storage using NVIDIA Multi-Storage Client (MSC) with Rust backend for AWS S3 and Azure Blob Storage. |
+| [`ObjectStorage`](#earth2studio-serve-server-object_storage-ObjectStorage) | Abstract base class for object storage operations. |
+| [`ObjectStorageError`](#earth2studio-serve-server-object_storage-ObjectStorageError) | Base exception for object storage errors. |
+| [`UploadResult`](#earth2studio-serve-server-object_storage-UploadResult) | Result of an upload operation. |
+
+### API
+
+<Anchor id="earth2studio-serve-server-object_storage-MSCObjectStorage">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.object_storage.MSCObjectStorage(
+    bucket: str,
+    storage_type: typing.Literal['s3', 'azure'] = 's3',
+    region: str | None = None,
+    access_key_id: str | None = None,
+    secret_access_key: str | None = None,
+    session_token: str | None = None,
+    endpoint_url: str | None = None,
+    use_transfer_acceleration: bool = False,
+    max_concurrency: int = 16,
+    multipart_chunksize: int = 8 * 1024 * 1024,
+    use_rust_client: bool = False,
+    profile_name: str | None = None,
+    cloudfront_domain: str | None = None,
+    cloudfront_key_pair_id: str | None = None,
+    cloudfront_private_key: str | None = None,
+    azure_account_name: str | None = None,
+    azure_container_name: str | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [ObjectStorage](#earth2studio-serve-server-object_storage-ObjectStorage)
+
+Object storage using NVIDIA Multi-Storage Client (MSC) with Rust backend for AWS S3 and Azure Blob Storage.
+
+MSC provides optimized parallel transfers; the Rust client bypasses Python's
+GIL for improved I/O performance (up to 12x faster). Uses sync_from for
+efficient directory uploads with parallel transfers.
+
+Supports both AWS S3 and Azure Blob Storage.
+
+For S3, credentials are read from environment variables: AWS_ACCESS_KEY_ID,
+AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN (optional), AWS_DEFAULT_REGION.
+
+For Azure Blob Storage, authentication uses DefaultAzureCredentials (managed identity,
+Azure CLI, etc.). Provide ``azure_account_name``; the blob service URL is always
+``https://&lt;account&gt;.blob.core.windows.net``. Do not use connection strings.
+
+**References**
+
+https://nvidia.github.io/multi-storage-client/user_guide/rust.html
+
+**Parameters:**
+
+<ParamField path="bucket" type="str">
+S3 bucket name or Azure container name.
+</ParamField>
+
+<ParamField path="storage_type" type="str" default="'s3'">
+Storage provider type, either "s3" or "azure". Default is "s3".
+</ParamField>
+
+<ParamField path="region" type="str" default="None">
+AWS region (e.g. 'us-east-1').
+</ParamField>
+
+<ParamField path="access_key_id" type="str" default="None">
+AWS access key ID (sets AWS_ACCESS_KEY_ID env var).
+</ParamField>
+
+<ParamField path="secret_access_key" type="str" default="None">
+AWS secret access key (sets AWS_SECRET_ACCESS_KEY env var).
+</ParamField>
+
+<ParamField path="session_token" type="str" default="None">
+AWS session token for temporary credentials.
+</ParamField>
+
+<ParamField path="endpoint_url" type="str" default="None">
+Custom endpoint URL for S3-compatible services (S3 only; not used for Azure).
+</ParamField>
+
+<ParamField path="use_transfer_acceleration" type="bool" default="False">
+Enable S3 Transfer Acceleration (bucket must support it). Default is False.
+</ParamField>
+
+<ParamField path="max_concurrency" type="int" default="16">
+Maximum number of concurrent transfers. Default is 16.
+</ParamField>
+
+<ParamField path="multipart_chunksize" type="int" default="8 * 1024 * 1024">
+Chunk size for multipart uploads in bytes. Default is 8 MB.
+</ParamField>
+
+<ParamField path="use_rust_client" type="bool" default="False">
+Use the high-performance Rust client. Default is False.
+</ParamField>
+
+<ParamField path="profile_name" type="str" default="None">
+Name for the MSC profile. Default is 'e2studio-s3' for S3, 'e2studio-azure' for Azure.
+</ParamField>
+
+<ParamField path="cloudfront_domain" type="str" default="None">
+CloudFront distribution domain for signed URLs.
+</ParamField>
+
+<ParamField path="cloudfront_key_pair_id" type="str" default="None">
+CloudFront key pair ID for signed URLs.
+</ParamField>
+
+<ParamField path="cloudfront_private_key" type="str" default="None">
+PEM private key content as string for signed URLs.
+</ParamField>
+
+<ParamField path="azure_account_name" type="str" default="None">
+Azure storage account name (required for Azure; used to build the standard blob URL).
+</ParamField>
+
+<ParamField path="azure_container_name" type="str" default="None">
+Azure container name.
+</ParamField>
+
+<ParamField path="_local_client" type="= msc.StorageClient(config=local_client_config)">
+</ParamField>
+
+<ParamField path="_storage_client" type="= msc.StorageClient(config=storage_client_config)">
+</ParamField>
+
+<ParamField path="azure_container_name" type="= azure_container_name or bucket">
+</ParamField>
+
+<ParamField path="endpoint_url" type="str | None = None">
+</ParamField>
+
+<ParamField path="profile_name">
+</ParamField>
+
+<ParamField path="region">
+</ParamField>
+<Anchor id="earth2studio-serve-server-object_storage-MSCObjectStorage-delete_file">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.object_storage.MSCObjectStorage.delete_file(
+    remote_key: str
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Delete a file from S3 using MSC delete() method.
+
+**Parameters:**
+
+<ParamField path="remote_key" type="str">
+S3 key to delete.
+</ParamField>
+
+**Returns:** `bool`
+
+True if successful, False otherwise.
+
+</Indent>
+<Anchor id="earth2studio-serve-server-object_storage-MSCObjectStorage-file_exists">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.object_storage.MSCObjectStorage.file_exists(
+    remote_key: str
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Check if a file exists in S3 using MSC info() method.
+
+**Parameters:**
+
+<ParamField path="remote_key" type="str">
+S3 key to check.
+</ParamField>
+
+**Returns:** `bool`
+
+True if the file exists, False otherwise.
+
+</Indent>
+<Anchor id="earth2studio-serve-server-object_storage-MSCObjectStorage-generate_signed_url">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.object_storage.MSCObjectStorage.generate_signed_url(
+    remote_key: str,
+    expires_in: int = 86400
+) -> str
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Generate a signed URL for accessing a file.
+
+For S3, generates a CloudFront signed URL.
+Azure blob access is not supported here; clients should obtain tokens to read blobs.
+
+**Parameters:**
+
+<ParamField path="remote_key" type="str">
+Storage key/path to the file. Can include wildcards for S3.
+</ParamField>
+
+<ParamField path="expires_in" type="int" default="86400">
+Number of seconds until the URL expires. Default is 86400.
+</ParamField>
+
+**Returns:** `str`
+
+Signed URL string.
+
+**Raises:**
+
+- `ObjectStorageError`: If required configuration is missing.
+
+</Indent>
+<Anchor id="earth2studio-serve-server-object_storage-MSCObjectStorage-upload_directory">
+
+<CodeBlock links={{"earth2studio.serve.server.object_storage.UploadResult":"#earth2studio-serve-server-object_storage-UploadResult"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.object_storage.MSCObjectStorage.upload_directory(
+    local_directory: str | pathlib.Path,
+    remote_prefix: str,
+    recursive: bool = True,
+    overwrite: bool = True
+) -> earth2studio.serve.server.object_storage.UploadResult
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Upload a local directory to S3 using Multi-Storage Client sync_from.
+
+Uses MSC's sync_from for efficient parallel directory uploads.
+
+**Parameters:**
+
+<ParamField path="local_directory" type="str or Path">
+Path to the local directory to upload.
+</ParamField>
+
+<ParamField path="remote_prefix" type="str">
+S3 prefix where files will be uploaded.
+</ParamField>
+
+<ParamField path="recursive" type="bool" default="True">
+If True, recursively upload all subdirectories. Default is True.
+</ParamField>
+
+<ParamField path="overwrite" type="bool" default="True">
+If True, overwrite existing files. Default is True.
+</ParamField>
+
+**Returns:** [`UploadResult`](#earth2studio-serve-server-object_storage-UploadResult)
+
+Details about the upload operation.
+
+</Indent>
+<Anchor id="earth2studio-serve-server-object_storage-MSCObjectStorage-upload_file">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.object_storage.MSCObjectStorage.upload_file(
+    local_file: str | pathlib.Path,
+    remote_key: str,
+    overwrite: bool = True
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Upload a single file to S3 using Multi-Storage Client with Rust backend.
+
+**Parameters:**
+
+<ParamField path="local_file" type="str or Path">
+Path to the local file.
+</ParamField>
+
+<ParamField path="remote_key" type="str">
+S3 key for the file.
+</ParamField>
+
+<ParamField path="overwrite" type="bool" default="True">
+If True, overwrite if exists. Default is True.
+</ParamField>
+
+**Returns:** `bool`
+
+True if successful, False otherwise.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-serve-server-object_storage-ObjectStorage">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.object_storage.ObjectStorage()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Abstract</Badge>
+
+Abstract base class for object storage operations.
+
+Defines the interface that all object storage implementations must follow.
+Subclasses implement the abstract methods for specific cloud providers
+(AWS S3, GCS, Azure Blob Storage, etc.).
+
+<Anchor id="earth2studio-serve-server-object_storage-ObjectStorage-delete_file">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.object_storage.ObjectStorage.delete_file(
+    remote_key: str
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>abstract</Badge>
+
+Delete a file from the object store.
+
+**Parameters:**
+
+<ParamField path="remote_key" type="str">
+Full key/path in the bucket.
+</ParamField>
+
+**Returns:** `bool`
+
+True if deletion was successful, False otherwise.
+
+</Indent>
+<Anchor id="earth2studio-serve-server-object_storage-ObjectStorage-file_exists">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.object_storage.ObjectStorage.file_exists(
+    remote_key: str
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>abstract</Badge>
+
+Check if a file exists in the object store.
+
+**Parameters:**
+
+<ParamField path="remote_key" type="str">
+Full key/path in the bucket.
+</ParamField>
+
+**Returns:** `bool`
+
+True if the file exists, False otherwise.
+
+</Indent>
+<Anchor id="earth2studio-serve-server-object_storage-ObjectStorage-generate_signed_url">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.object_storage.ObjectStorage.generate_signed_url(
+    remote_key: str,
+    expires_in: int = 86400
+) -> str
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>abstract</Badge>
+
+Generate a signed URL for a file in the object store.
+
+**Parameters:**
+
+<ParamField path="remote_key" type="str">
+Full key/path in the bucket.
+</ParamField>
+
+<ParamField path="expires_in" type="int" default="86400">
+Number of seconds the URL will be valid for. Default is 86400.
+</ParamField>
+
+**Returns:** `str`
+
+Signed URL string.
+
+</Indent>
+<Anchor id="earth2studio-serve-server-object_storage-ObjectStorage-upload_directory">
+
+<CodeBlock links={{"earth2studio.serve.server.object_storage.UploadResult":"#earth2studio-serve-server-object_storage-UploadResult"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.object_storage.ObjectStorage.upload_directory(
+    local_directory: str | pathlib.Path,
+    remote_prefix: str,
+    recursive: bool = True,
+    overwrite: bool = True
+) -> earth2studio.serve.server.object_storage.UploadResult
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>abstract</Badge>
+
+Upload a local directory to the object store at the specified path.
+
+**Parameters:**
+
+<ParamField path="local_directory" type="str or Path">
+Path to the local directory to upload.
+</ParamField>
+
+<ParamField path="remote_prefix" type="str">
+Prefix/path in the bucket where files will be uploaded.
+Files maintain their relative paths under this prefix.
+</ParamField>
+
+<ParamField path="recursive" type="bool" default="True">
+If True, recursively upload all subdirectories. Default is True.
+</ParamField>
+
+<ParamField path="overwrite" type="bool" default="True">
+If True, overwrite existing files in the destination. Default is True.
+</ParamField>
+
+**Returns:** [`UploadResult`](#earth2studio-serve-server-object_storage-UploadResult)
+
+Details about the upload operation.
+
+**Raises:**
+
+- `FileNotFoundError`: If the local directory does not exist.
+- `PermissionError`: If there are permission issues with the bucket.
+- `ObjectStorageError`: For other storage-related errors.
+
+</Indent>
+<Anchor id="earth2studio-serve-server-object_storage-ObjectStorage-upload_file">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.object_storage.ObjectStorage.upload_file(
+    local_file: str | pathlib.Path,
+    remote_key: str,
+    overwrite: bool = True
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>abstract</Badge>
+
+Upload a single file to the object store.
+
+**Parameters:**
+
+<ParamField path="local_file" type="str or Path">
+Path to the local file to upload.
+</ParamField>
+
+<ParamField path="remote_key" type="str">
+Full key/path in the bucket for the file.
+</ParamField>
+
+<ParamField path="overwrite" type="bool" default="True">
+If True, overwrite if the file already exists. Default is True.
+</ParamField>
+
+**Returns:** `bool`
+
+True if upload was successful, False otherwise.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-serve-server-object_storage-ObjectStorageError">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.object_storage.ObjectStorageError()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Exception</Badge>
+
+**Bases:** `Exception`
+
+Base exception for object storage errors.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-object_storage-UploadResult">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.object_storage.UploadResult(
+    success: bool,
+    files_uploaded: int,
+    total_bytes: int,
+    destination: str,
+    errors: list[str]
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Result of an upload operation.
+
+<ParamField path="destination" type="str">
+Destination path or URI.
+</ParamField>
+
+<ParamField path="errors" type="list[str]">
+List of error messages, if any.
+</ParamField>
+
+<ParamField path="files_uploaded" type="int">
+Number of files uploaded.
+</ParamField>
+
+<ParamField path="success" type="bool">
+Whether the upload completed without errors.
+</ParamField>
+
+<ParamField path="total_bytes" type="int">
+Total bytes uploaded.
+</ParamField>
+</Indent>

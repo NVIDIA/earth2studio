@@ -1,0 +1,50 @@
+---
+layout: overview
+title: earth2studio.data.utils_eumetsat
+---
+## Module Contents
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`eumetsat_credentials`](#earth2studio-data-utils_eumetsat-eumetsat_credentials) | Resolve EUMETSAT Data Store API credentials. |
+
+### API
+
+<Anchor id="earth2studio-data-utils_eumetsat-eumetsat_credentials">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_eumetsat.eumetsat_credentials() -> tuple[str, str]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Resolve EUMETSAT Data Store API credentials.
+
+Credentials are read from the ``EUMETSAT_CONSUMER_KEY`` and
+``EUMETSAT_CONSUMER_SECRET`` environment variables. When either is unset,
+the ``eumdac`` CLI credentials file is used as a fallback (by default
+``~/.eumdac/credentials``, overridable with ``EUMDAC_CONFIG_DIR``).
+
+Register at https://eoportal.eumetsat.int/ to obtain credentials.
+
+**Returns:** `tuple[str, str]`
+
+``(consumer_key, consumer_secret)``. Both are empty strings when no
+credentials could be resolved; a warning is logged in that case and
+any subsequent data fetch will fail.
+
+<Note>
+
+The ``eumdac`` credentials file layout is documented at
+https://gitlab.eumetsat.int/eumetlab/data-services/eumdac
+
+</Note>
+
+</Indent>

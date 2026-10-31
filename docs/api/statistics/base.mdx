@@ -1,0 +1,187 @@
+---
+layout: overview
+title: earth2studio.statistics.base
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`Metric`](#earth2studio-statistics-base-Metric) | Metrics interface. |
+| [`Statistic`](#earth2studio-statistics-base-Statistic) | Statistic interface. |
+
+### API
+
+<Anchor id="earth2studio-statistics-base-Metric">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.statistics.base.Metric()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Protocol</Badge>
+
+Metrics interface.
+
+<Anchor id="earth2studio-statistics-base-Metric-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.base.Metric.__call__(
+    x: torch.Tensor,
+    x_coords: earth2studio.utils.type.CoordSystem,
+    y: torch.Tensor,
+    y_coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Apply metric to data `x` and `y`, checking that their coordinates
+are broadcastable. While reducing over `reduction_dimensions`.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor #1 intended to apply metric to. `x` is typically understood
+to be the forecast or prediction tensor.
+</ParamField>
+
+<ParamField path="x_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the `x` tensor.
+`reduction_dimensions` must be in coords.
+</ParamField>
+
+<ParamField path="y" type="torch.Tensor">
+Input tensor #2 intended to apply statistic to. `y` is typically the observation
+or validation tensor.
+</ParamField>
+
+<ParamField path="y_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the `y` tensor.
+`reduction_dimensions` must be in coords.
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-statistics-base-Metric-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.base.Metric.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the computed statistic, corresponding to the given input coordinates
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-statistics-base-Statistic">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.statistics.base.Statistic()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Protocol</Badge>
+
+Statistic interface.
+
+<ParamField path="reduction_dimensions" type="list[str]">
+Gives the input dimensions of which the statistic performs a reduction
+over. The is used to determine, a priori, the output dimensions of a statistic.
+</ParamField>
+<Anchor id="earth2studio-statistics-base-Statistic-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.base.Statistic.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Apply statistic to data `x`, with coordinates `coords` and reduce
+over dimensions `reduction_dimensions`.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor intended to apply statistic to.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the tensor.
+`reduction_dimensions` must be in coords.
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-statistics-base-Statistic-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.base.Statistic.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the computed statistic, corresponding to the given input coordinates
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>
