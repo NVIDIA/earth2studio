@@ -76,7 +76,8 @@ are staged onto its device, and a connector's regridder runs there.
 A component may have several gridded output slots. A stateful component's
 output slots share their lead times; models whose outputs advance at different
 cadences, such as fused DLESyM, are split into components. The cadence is the
-outputs' last lead time minus the first input slot's last lead time. Output chunk `k` covers the output lead times
+model's step interval: the outputs' last lead time minus the later of the first
+input slot's last lead time and zero. Output chunk `k` covers the output lead times
 plus `k` cadences and is due at its last lead time; chunk 0 comes from
 `initialize`. A component whose forcing reduces a day of another's output
 therefore initializes once that day exists, with no special case.

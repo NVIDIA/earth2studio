@@ -109,13 +109,36 @@ def _map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataAr
     return x
 
 
-def _lead_times(signature: xr.DataArray, nsteps: int) -> np.ndarray:
-    """Return a rollout's full lead-time extent from one step's declaration."""
+def _require_analysis_time_input(inputs: xr.DataArray) -> None:
+    """Reject models whose input ends before the analysis time.
+
+    The workflows write the initial condition and size stores from lead time
+    zero, so a model initialized from an earlier background cannot run under
+    them; ``PrognosticRunner`` handles such models.
+    """
+    leads = inputs.coords["lead_time"].values if "lead_time" in inputs.dims else None
+    if leads is not None and leads[-1] < np.timedelta64(0, "s"):
+        raise ValueError(
+            f"Input lead_time {leads} ends before the analysis time, which "
+            "run.deterministic, run.diagnostic and run.ensemble do not support; "
+            "use PrognosticRunner with Pipeline"
+        )
+
+
+def _lead_times(
+    signature: xr.DataArray, nsteps: int, step: np.timedelta64 | None = None
+) -> np.ndarray:
+    """Return a rollout's full lead-time extent from one step's declaration.
+
+    ``step`` is the interval each model step advances, by default the
+    declaration's last lead time (an input ending at zero).
+    """
     leads = signature.coords["lead_time"].values
+    step = leads[-1] if step is None else step
     return np.concatenate(
         [
             np.zeros(1, dtype=leads.dtype),
-            *(leads + leads[-1] * i for i in range(nsteps)),
+            *(leads + step * i for i in range(nsteps)),
         ]
     )
 
@@ -164,9 +187,24 @@ def _io_template(
 def _publishes_initial_condition(inputs: xr.DataArray, outputs: xr.DataArray) -> bool:
     """Whether an input slot's final frame can open the output slot's stream.
 
-    It can when the output declares every input variable, on the input's grid;
-    outputs the input lacks, such as diagnostics, are left unwritten. Models whose
-    inputs are not among their outputs start at the first forecast.
+    It can when the input ends at the analysis time and the output holds the
+    input's fields (see :func:`_holds_input_fields`). Models whose inputs are not
+    among their outputs, or end before the analysis time, start at the first
+    forecast.
+    """
+    if "lead_time" not in inputs.dims:
+        return False
+    # An input ending before zero is a background, not the analysis-time state.
+    if inputs.coords["lead_time"].values[-1] < np.timedelta64(0, "s"):
+        return False
+    return _holds_input_fields(inputs, outputs)
+
+
+def _holds_input_fields(inputs: xr.DataArray, outputs: xr.DataArray) -> bool:
+    """Whether the output declares every input variable, on the input's grid.
+
+    Outputs the input lacks, such as diagnostics, are allowed. This makes the
+    input slot a state slot, whatever lead times it covers.
     """
     if "lead_time" not in inputs.dims or "variable" not in inputs.dims:
         return False

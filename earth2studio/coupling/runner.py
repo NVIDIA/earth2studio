@@ -205,7 +205,7 @@ class CoupledRunner:
     def _add_state(self, connector: Connector) -> None:
         self._check_names(connector)
         src, dst = self.nodes[connector.src], self.nodes[connector.dst]
-        if not dst.stateful or connector.slot not in dst.ic_slots:
+        if not dst.stateful or connector.slot not in dst.state_slots:
             raise CouplingError(
                 f"Connector {connector}: {connector.dst!r} has no state slot "
                 f"{connector.slot}, an input slot whose output slot holds the same "
