@@ -187,15 +187,26 @@ def _io_template(
 def _publishes_initial_condition(inputs: xr.DataArray, outputs: xr.DataArray) -> bool:
     """Whether an input slot's final frame can open the output slot's stream.
 
-    It can when the input ends at the analysis time and the output declares every
-    input variable, on the input's grid; outputs the input lacks, such as
-    diagnostics, are left unwritten. Models whose inputs are not among their
-    outputs, or end before the analysis time, start at the first forecast.
+    It can when the input ends at the analysis time and the output holds the
+    input's fields (see :func:`_holds_input_fields`). Models whose inputs are not
+    among their outputs, or end before the analysis time, start at the first
+    forecast.
     """
-    if "lead_time" not in inputs.dims or "variable" not in inputs.dims:
+    if "lead_time" not in inputs.dims:
         return False
     # An input ending before zero is a background, not the analysis-time state.
     if inputs.coords["lead_time"].values[-1] < np.timedelta64(0, "s"):
+        return False
+    return _holds_input_fields(inputs, outputs)
+
+
+def _holds_input_fields(inputs: xr.DataArray, outputs: xr.DataArray) -> bool:
+    """Whether the output declares every input variable, on the input's grid.
+
+    Outputs the input lacks, such as diagnostics, are allowed. This makes the
+    input slot a state slot, whatever lead times it covers.
+    """
+    if "lead_time" not in inputs.dims or "variable" not in inputs.dims:
         return False
     variables = {str(v) for v in inputs.coords["variable"].values}
     if not variables <= {str(v) for v in outputs.coords["variable"].values}:

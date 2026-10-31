@@ -21,6 +21,7 @@ from collections.abc import Mapping
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 from test_coupling_toys import (
     ATMOS_GRID,
     OCEAN_GRID,
@@ -30,15 +31,19 @@ from test_coupling_toys import (
     Fill,
     H,
     Mixed,
+    _check,
     _Toy,
     atmosphere,
     ocean,
     run,
     series,
+    signature,
     toy_runner,
 )
 
 from earth2studio.coupling import Connector, CoupledRunner, CouplingError
+from earth2studio.utils import coord_array_like
+from earth2studio.utils.type import CoordinateSystem
 
 
 def _state_coupled() -> CoupledRunner:
@@ -85,6 +90,60 @@ def test_state_overwrite_matches_forcing_coupling(
     sst = [float(x.sel(variable="sst").mean()) for x in streams["atmos"]]
     assert sst[0] == 5.0
     np.testing.assert_allclose(sst[-1], 2.042, atol=1e-6)
+
+
+class _BackgroundMixed(Mixed):
+    """``Mixed`` initialized from a background 6 h before the analysis time."""
+
+    def input_coords(self) -> CoordinateSystem:
+        return signature(["z1000", "sst"], ATMOS_GRID, [-6])
+
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        _check(input_coords, self.input_coords())
+        leads = input_coords["lead_time"].values[-1:] + 12 * H
+        return coord_array_like(input_coords, {"lead_time": leads})
+
+    def _advance(self, x: xr.DataArray) -> xr.DataArray:
+        # Step from the frame's own lead time; Mixed checks against input_coords.
+        y = x.isel(lead_time=[-1]).copy()
+        sst = float(y.sel(variable="sst").mean())
+        y.loc[{"variable": "z1000"}] = y.sel(variable="z1000") + 1 + 0.1 * sst
+        return y.assign_coords(lead_time=y["lead_time"] + 6 * H)
+
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, None]:  # type: ignore[override]
+        # Bring the background up to the analysis time, then forecast one step.
+        return self._advance(x.assign_coords(lead_time=x["lead_time"] + 6 * H)), None
+
+
+def test_a_background_slot_takes_a_state_connector() -> None:
+    # A constant 48 h ocean: SST 2, forced by a source rather than the atmosphere
+    sea = _Toy("sst", "z1000", OCEAN_GRID, 48, 0.0, 0.0)
+    runner = CoupledRunner(
+        {"atmos": _BackgroundMixed(), "ocean": sea},
+        [
+            Connector(
+                "ocean",
+                "atmos",
+                state=True,
+                variables=["sst"],
+                time="hold",
+                regridder=TO_ATMOS,
+            )
+        ],
+        sources={
+            "atmos": Fill(ATMOS_GRID, {"z1000": 0.0, "sst": 5.0}),
+            "ocean": (Fill(OCEAN_GRID, {"sst": 2.0}), Fill(OCEAN_GRID, {"z1000": 0.0})),
+        },
+    )
+    node = runner.nodes["atmos"]
+    assert (node.state_slots, node.ic_slots) == ((0,), ())
+    streams = run(runner, 18)
+    leads = [int(x["lead_time"].values[0] // H) for x in streams["atmos"]]
+    assert leads == [6, 12, 18]
+    # The background keeps its own SST, as the ocean has no frame before the item
+    # time; later steps take the ocean's.
+    sst = [float(x.sel(variable="sst").mean()) for x in streams["atmos"]]
+    np.testing.assert_allclose(sst, [5.0, 2.0, 2.0])
 
 
 def test_state_overwrite_is_described() -> None:
