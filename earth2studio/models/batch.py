@@ -14,16 +14,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import functools
+import gc
 import inspect
 import sys
 from collections import OrderedDict
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from itertools import chain, islice
 from typing import Any, TypeVar
 
 import numpy as np
 import torch
 import xarray as xr
+from loguru import logger
 
 from earth2studio.utils.coords import (
     coord_array,
@@ -38,6 +40,398 @@ from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 FuncType = Callable[..., Any]
 F = TypeVar("F", bound=FuncType)
+
+_OOM_TOKENS = (
+    "out of memory",
+    "cuda_error_out_of_memory",
+    "cublas_status_alloc_failed",
+    "cudnn_status_alloc_failed",
+)
+
+
+def _is_oom_error(exc: BaseException) -> bool:
+    if isinstance(exc, MemoryError) or any(
+        c.__name__ == "OutOfMemoryError" for c in type(exc).__mro__
+    ):
+        return True
+    return isinstance(exc, RuntimeError) and any(
+        t in str(exc).lower() for t in _OOM_TOKENS
+    )
+
+
+def _clear_gpu_memory(device: torch.device | str | None = None) -> None:
+    gc.collect()
+    target = torch.device(device) if device is not None else None
+    if (target is None or target.type == "cuda") and torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        cp = sys.modules.get("cupy")
+        if cp is not None:
+            cp.get_default_memory_pool().free_all_blocks()
+
+
+def _infer_device(
+    model: Any = None,
+    x: tuple[xr.DataArray, ...] = (),
+    device: torch.device | str | None = None,
+) -> torch.device:
+    if device is not None:
+        return torch.device(device)
+    for arr in x:
+        if hasattr(arr, "e2s"):
+            return arr.e2s.to_torch()[0].device
+    if isinstance(model, torch.nn.Module):
+        for p in chain(model.parameters(), model.buffers()):
+            return p.device
+    dev = getattr(model, "device", None)
+    if isinstance(dev, (torch.device, str)):
+        return torch.device(dev)
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def _fixed_ndim(model: Any, x: xr.DataArray) -> int:
+    ic_fn = getattr(model, "input_coords", None)
+    if callable(ic_fn):
+        try:
+            ic = ic_fn()
+            ic = ic[0] if isinstance(ic, tuple) else ic
+            dims = list(ic.dims if isinstance(ic, xr.DataArray) else ic.keys())
+            return max(0, len(dims) - (1 if dims and dims[0] == "batch" else 0))
+        except Exception:  # noqa: S110
+            pass
+    return max(0, x.ndim - 1)
+
+
+def _tensor_bytes(
+    dims: Sequence[Any],
+    sizes: dict[Any, int],
+    itemsize: int,
+    override: CoordSystem | None = None,
+) -> int:
+    shape = [
+        len(override[d]) if (override and d in override) else max(1, int(sizes[d]))
+        for d in dims
+    ]
+    return (int(np.prod(shape)) if shape else 1) * itemsize
+
+
+def _estimate_sample_memory(
+    *x: xr.DataArray,
+    output_coords: CoordSystem | xr.DataArray | None = None,
+    model: Any = None,
+    activation_multiplier: float = 4.0,
+) -> int:
+    override = output_coords if isinstance(output_coords, OrderedDict) else None
+    input_bytes = 0
+    for xi in x:
+        fixed = _fixed_ndim(model, xi)
+        dims = xi.dims[-fixed:] if fixed > 0 else ()
+        input_bytes += _tensor_bytes(dims, dict(xi.sizes), xi.dtype.itemsize)
+
+    output_bytes = input_bytes
+    if (
+        model is not None
+        and hasattr(model, "output_coords")
+        and hasattr(model, "input_coords")
+    ):
+        try:
+            ic = model.input_coords()
+            oc = (
+                model.output_coords(*ic)
+                if isinstance(ic, tuple)
+                else model.output_coords(ic)
+            )
+            slots = oc if isinstance(oc, tuple) else (oc,)
+            slot_bytes = sum(
+                _tensor_bytes(
+                    [d for d in s.dims if d not in ("batch", "time", "ensemble")],
+                    dict(s.sizes),
+                    s.dtype.itemsize,
+                )
+                + _tensor_bytes(
+                    [d for d in s.dims if d not in ("batch", "time", "ensemble")],
+                    dict(s.sizes),
+                    s.dtype.itemsize,
+                    override,
+                )
+                for s in slots
+                if isinstance(s, xr.DataArray)
+            )
+            if slot_bytes > 0:
+                output_bytes = slot_bytes
+        except Exception:  # noqa: S110
+            pass
+    elif override and x:
+        xi = x[0]
+        fixed = _fixed_ndim(model, xi)
+        dims = xi.dims[-fixed:] if fixed > 0 else ()
+        output_bytes = input_bytes + _tensor_bytes(
+            dims, dict(xi.sizes), xi.dtype.itemsize, override
+        )
+
+    return max(1, int(input_bytes * activation_multiplier + output_bytes))
+
+
+def _measure_model_memory(
+    model: Any,
+    *x: xr.DataArray,
+    step_fn: Callable[..., Any] | None = None,
+    output_coords: CoordSystem | None = None,
+    device: torch.device | str | None = None,
+) -> int:
+    sample_x = tuple(
+        xi.isel(
+            {
+                d: slice(0, 1)
+                for d in xi.dims[: max(0, xi.ndim - _fixed_ndim(model, xi))]
+            }
+        ).copy(deep=True)
+        for xi in x
+    )
+    analytic = _estimate_sample_memory(
+        *sample_x, output_coords=output_coords, model=model
+    )
+    target = _infer_device(model=model, x=sample_x, device=device)
+    fn = step_fn if step_fn is not None else model
+    if target.type != "cuda" or not torch.cuda.is_available() or not callable(fn):
+        return analytic
+
+    idx = target.index if target.index is not None else torch.cuda.current_device()
+    cuda_dev = torch.device(f"cuda:{idx}")
+    gens = [
+        (v, v.get_state())
+        for v in getattr(model, "__dict__", {}).values()
+        if isinstance(v, torch.Generator)
+    ]
+    _clear_gpu_memory(cuda_dev)
+    baseline = int(torch.cuda.memory_allocated(cuda_dev))
+    torch.cuda.reset_peak_memory_stats(cuda_dev)
+    try:
+        with torch.random.fork_rng(devices=[idx]), torch.no_grad():
+            out = fn(*sample_x)
+            torch.cuda.synchronize(cuda_dev)
+            peak = int(torch.cuda.max_memory_allocated(cuda_dev))
+            del out
+    except BaseException as exc:
+        if _is_oom_error(exc):
+            _clear_gpu_memory(cuda_dev)
+            return sys.maxsize
+        raise
+    finally:
+        for gen, state in gens:
+            gen.set_state(state)
+        del sample_x
+        _clear_gpu_memory(cuda_dev)
+
+    return max(peak - baseline, analytic)
+
+
+class AutoBatcher:
+    """VRAM-aware automatic batch size estimator and execution helper with OOM backoff.
+
+    Parameters
+    ----------
+    memory_fraction : float, optional
+        Fraction of available free GPU memory to allocate per batch in ``(0.0, 1.0]``,
+        by default 0.8
+    max_batch_size : int | None, optional
+        Optional upper bound on the selected batch size, by default None
+    min_batch_size : int, optional
+        Minimum batch size to try before raising an out-of-memory error, by default 1
+    oom_backoff : bool, optional
+        Whether to halve the batch size and retry on OOM, by default True
+    per_sample_bytes : int | None, optional
+        Optional user-supplied per-sample memory cost in bytes, by default None
+    available_bytes : int | None, optional
+        Optional explicit available memory in bytes, by default None
+    """
+
+    def __init__(
+        self,
+        memory_fraction: float = 0.8,
+        max_batch_size: int | None = None,
+        min_batch_size: int = 1,
+        oom_backoff: bool = True,
+        per_sample_bytes: int | None = None,
+        available_bytes: int | None = None,
+    ) -> None:
+        if not (0.0 < memory_fraction <= 1.0):
+            raise ValueError(
+                f"memory_fraction must be in (0.0, 1.0], got {memory_fraction}"
+            )
+        if min_batch_size < 1:
+            raise ValueError(f"min_batch_size must be >= 1, got {min_batch_size}")
+        if max_batch_size is not None and max_batch_size < min_batch_size:
+            raise ValueError(
+                f"max_batch_size ({max_batch_size}) must be >= min_batch_size ({min_batch_size})"
+            )
+        if per_sample_bytes is not None and per_sample_bytes < 1:
+            raise ValueError(f"per_sample_bytes must be >= 1, got {per_sample_bytes}")
+        self.memory_fraction = memory_fraction
+        self.max_batch_size = max_batch_size
+        self.min_batch_size = min_batch_size
+        self.oom_backoff = oom_backoff
+        self.per_sample_bytes = per_sample_bytes
+        self.available_bytes = available_bytes
+
+    @classmethod
+    def from_config(
+        cls, autobatch: "bool | AutoBatcher", batch_size: int | None = None
+    ) -> "AutoBatcher | None":
+        """Resolve an ``autobatch`` flag or instance paired with an optional ``batch_size`` cap.
+
+        Parameters
+        ----------
+        autobatch : bool | AutoBatcher
+            Autobatch configuration flag or instance.
+        batch_size : int | None, optional
+            Explicit batch size cap, by default None
+
+        Returns
+        -------
+        AutoBatcher | None
+            Configured :class:`AutoBatcher` or ``None`` when autobatching is disabled.
+        """
+        if batch_size is not None and batch_size < 1:
+            raise ValueError(f"batch_size must be >= 1, got {batch_size}")
+        if isinstance(autobatch, cls):
+            if batch_size is not None and autobatch.max_batch_size is None:
+                return cls(
+                    memory_fraction=autobatch.memory_fraction,
+                    max_batch_size=batch_size,
+                    min_batch_size=autobatch.min_batch_size,
+                    oom_backoff=autobatch.oom_backoff,
+                    per_sample_bytes=autobatch.per_sample_bytes,
+                    available_bytes=autobatch.available_bytes,
+                )
+            return autobatch
+        return cls(max_batch_size=batch_size) if autobatch else None
+
+    def estimate_batch_size(
+        self,
+        model: Any,
+        *x: xr.DataArray,
+        total_samples: int | None = None,
+        step_fn: Callable[..., Any] | None = None,
+        output_coords: CoordSystem | None = None,
+        device: torch.device | str | None = None,
+    ) -> int:
+        """Estimate the optimal batch size for ``model`` given input DataArrays ``x``.
+
+        Parameters
+        ----------
+        model : Any
+            Prognostic or diagnostic model to run.
+        *x : xr.DataArray
+            Sample or full input DataArrays.
+        total_samples : int | None, optional
+            Total number of batch items to process, by default None
+        step_fn : Callable[..., Any] | None, optional
+            Optional callable to execute during the 1-sample memory probe, by default None
+        output_coords : CoordSystem | None, optional
+            Optional output coordinate system override, by default None
+        device : torch.device | str | None, optional
+            Target execution device, by default None
+
+        Returns
+        -------
+        int
+            Selected batch size.
+        """
+        if total_samples is not None and total_samples <= self.min_batch_size:
+            return max(1, total_samples)
+        target = _infer_device(model=model, x=x, device=device)
+        cost = self.per_sample_bytes or _measure_model_memory(
+            model, *x, step_fn=step_fn, output_coords=output_coords, device=target
+        )
+        if self.available_bytes is not None:
+            free_bytes = max(0, int(self.available_bytes))
+        elif target.type == "cuda" and torch.cuda.is_available():
+            _clear_gpu_memory(target)
+            free_bytes = int(torch.cuda.mem_get_info(target)[0])
+        else:
+            free_bytes = 4 * (1024**3)
+
+        size = max(self.min_batch_size, int(free_bytes * self.memory_fraction) // cost)
+        if self.max_batch_size is not None:
+            size = min(size, self.max_batch_size)
+        if total_samples is not None:
+            size = min(size, max(self.min_batch_size, total_samples))
+        return int(size)
+
+    def backoff(
+        self,
+        exc: BaseException,
+        current_batch_size: int,
+        device: torch.device | str | None = None,
+    ) -> int:
+        """Halve the batch size on OOM or re-raise if recovery is not possible.
+
+        Parameters
+        ----------
+        exc : BaseException
+            Exception raised during execution.
+        current_batch_size : int
+            Batch size that triggered the failure.
+        device : torch.device | str | None, optional
+            Target device for clearing GPU cache, by default None
+
+        Returns
+        -------
+        int
+            Reduced batch size to retry with.
+        """
+        if (
+            not self.oom_backoff
+            or not _is_oom_error(exc)
+            or current_batch_size <= self.min_batch_size
+        ):
+            raise exc
+        _clear_gpu_memory(device)
+        next_size = max(self.min_batch_size, current_batch_size // 2)
+        logger.warning(
+            f"Out of memory with batch_size={current_batch_size}; "
+            f"backing off to batch_size={next_size} and retrying."
+        )
+        return next_size
+
+    def execute(
+        self,
+        total_samples: int,
+        batch_size: int,
+        fn: Callable[[int, int], Any],
+        device: torch.device | str | None = None,
+    ) -> int:
+        """Execute ``fn(start, end)`` across ``[0, total_samples)`` with OOM backoff.
+
+        Parameters
+        ----------
+        total_samples : int
+            Total number of items along the batch dimension.
+        batch_size : int
+            Initial batch size to use.
+        fn : Callable[[int, int], Any]
+            Callback accepting ``(start_index, end_index)`` for each sub-batch.
+        device : torch.device | str | None, optional
+            Target device for clearing GPU cache on OOM, by default None
+
+        Returns
+        -------
+        int
+            Final effective batch size after any OOM backoff adjustments.
+        """
+        if total_samples <= 0:
+            return max(1, batch_size)
+        current = max(self.min_batch_size, min(batch_size, total_samples))
+        start = 0
+        while start < total_samples:
+            end = min(start + current, total_samples)
+            try:
+                fn(start, end)
+            except BaseException as exc:
+                current = self.backoff(exc, end - start, device)
+                continue
+            start = end
+        return current
 
 
 class batch_func:
@@ -58,6 +452,15 @@ class batch_func:
     This preserves leading labels and auxiliary coordinates even if the model drops
     attributes. Output batch size must remain unchanged. Coordinates spanning both
     packed and fixed dimensions are rejected by the accessor.
+
+    Parameters
+    ----------
+    max_batch_size : int | None, optional
+        Optional maximum sub-batch size along the packed ``batch`` dimension for
+        non-generator calls, by default None
+    autobatch : bool | AutoBatcher, optional
+        Enable VRAM-aware automatic sub-batching and OOM backoff for non-generator
+        DataArray calls, by default False
 
     Note
     ----
@@ -90,7 +493,29 @@ class batch_func:
     ```
     """
 
+    def __init__(
+        self,
+        max_batch_size: int | None = None,
+        autobatch: bool | AutoBatcher = False,
+    ) -> None:
+        if max_batch_size is not None and max_batch_size < 1:
+            raise ValueError(f"max_batch_size must be >= 1, got {max_batch_size}")
+        self.max_batch_size = max_batch_size
+        self.autobatch = autobatch
+
     def __call__(self, func: F) -> Callable:
+        """Decorate a model method with automatic leading-dimension batch packing.
+
+        Parameters
+        ----------
+        func : F
+            Model method or generator function to wrap.
+
+        Returns
+        -------
+        Callable
+            Wrapped callable handling batch compression and restoration.
+        """
         if inspect.isgeneratorfunction(func):
             legacy = self._batch_wrap_generator(func)
             arrays = self._array_wrap_generator(func)
@@ -172,7 +597,47 @@ class batch_func:
             model: Any, x: xr.DataArray, *args: Any, **kwargs: Any
         ) -> xr.DataArray:
             packed, restore = self._compress_array(model, x)
-            return restore(func(model, packed, *args, **kwargs))
+            total = int(packed.sizes["batch"])
+            if self.max_batch_size is None and not self.autobatch:
+                return restore(func(model, packed, *args, **kwargs))
+
+            batcher = AutoBatcher.from_config(
+                self.autobatch, self.max_batch_size
+            ) or AutoBatcher(max_batch_size=self.max_batch_size, oom_backoff=False)
+            device = _infer_device(model=model, x=(packed,))
+            step_size = (
+                batcher.estimate_batch_size(
+                    model,
+                    packed,
+                    total_samples=total,
+                    step_fn=lambda s: func(model, s, *args, **kwargs),
+                    device=device,
+                )
+                if (self.autobatch and total > 1)
+                else (self.max_batch_size or total)
+            )
+            if step_size >= total and not batcher.oom_backoff:
+                return restore(func(model, packed, *args, **kwargs))
+
+            outputs: dict[int, xr.DataArray] = {}
+
+            def _run_slice(start: int, end: int) -> None:
+                sub = packed.isel(batch=slice(start, end)).assign_coords(
+                    batch=np.arange(end - start)
+                )
+                sub.attrs = dict(packed.attrs)
+                out_sub = func(model, sub, *args, **kwargs)
+                if not isinstance(out_sub, xr.DataArray):
+                    raise TypeError("Batched model must return a DataArray")
+                outputs[start] = out_sub.assign_coords(batch=np.arange(start, end))
+
+            batcher.execute(total, step_size, _run_slice, device=device)
+            ordered = [outputs[k] for k in sorted(outputs)]
+            combined = (
+                ordered[0] if len(ordered) == 1 else xr.concat(ordered, dim="batch")
+            ).assign_coords(batch=np.arange(total))
+            combined.attrs = dict(ordered[0].attrs)
+            return restore(combined)
 
         return _wrapper
 
@@ -211,29 +676,6 @@ class batch_func:
         CoordSystem | CoordinateSystem,
         torch.Size,
     ]:
-        """Compresses dimensions into the models batch dimension
-
-        Parameters
-        ----------
-        model : Any
-            Any object, prognostic / diagnostic model that has a input_coords property
-        x : torch.Tensor
-            Input tensor to compress
-        coords : CoordSystem
-            Input coordinate system
-
-        Returns
-        -------
-        tuple[ torch.Tensor, CoordSystem, CoordSystem, torch.Size, ]
-            Returns batch compressed tensor, compressed coords, the coords of the batch
-            dimensions and the shape of the batched dimensions. Later two are needed for
-            decompression.
-
-        Raises
-        ------
-        ValueError
-            If model's input_coords do not contain the batch dimension
-        """
         input_coords = model.input_coords()
         if isinstance(input_coords, xr.DataArray):
             return self._compress_coordinates(input_coords, x, coords)
@@ -327,25 +769,6 @@ class batch_func:
         batched_coords: CoordSystem | CoordinateSystem,
         batched_shape: torch.Size,
     ) -> tuple[torch.Tensor, CoordSystem | CoordinateSystem]:
-        """Decompresses the batch dimension of a tensor
-
-        Parameters
-        ----------
-        out : torch.Tensor
-            Batched tensor to decompress
-        out_coords : CoordSystem
-            Compressed coordinates
-        batched_coords : CoordSystem
-            The coords of the batch dimensions
-        batched_shape : torch.Size
-            The shape of the batched dimensions
-
-        Returns
-        -------
-        tuple[torch.Tensor, CoordSystem]
-            Uncompressed tensor and coordinates
-        """
-
         if isinstance(batched_coords, xr.DataArray):
             if not isinstance(out_coords, xr.DataArray):
                 raise TypeError("Model must return CoordinateSystem coordinates")
@@ -402,8 +825,6 @@ class batch_func:
         return out, out_coords
 
     def _batch_wrap(self, func: Callable) -> Callable:
-        """Standard batch function decorator"""
-
         # TODO: Better typing for model object
         @functools.wraps(func)
         def _wrapper(
@@ -470,8 +891,6 @@ class batch_func:
         return _wrapper
 
     def _batch_wrap_generator(self, func: Callable) -> Callable:
-        """Wrapper generator functions, for each output we need to decompress batches"""
-
         # Based on Pytorch: # https://github.com/pytorch/pytorch/pull/68617/files
         # TODO: Better typing for model object
         @functools.wraps(func)
