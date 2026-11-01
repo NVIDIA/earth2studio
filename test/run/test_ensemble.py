@@ -173,3 +173,37 @@ def test_ensemble_member_selection(batch_size):
     np.testing.assert_array_equal(io["ensemble"][:], [0, 2])
     assert sorted(set(io.written)) == [0, 2]
     assert not np.isnan(io["u10m"][:]).any()
+
+
+def test_ensemble_autobatch_and_oom_backoff():
+    """Verify ensemble workflow handles AutoBatcher estimation and OOM backoff."""
+    from earth2studio.models.batch import AutoBatcher
+
+    coords = OrderedDict([("lat", np.arange(3.0)), ("lon", np.arange(3.0))])
+
+    class OOMEnsemblePersistence(Persistence):
+        def _forward(self, x: xr.DataArray) -> xr.DataArray:
+            if x.sizes.get("ensemble", 1) > 2:
+                raise RuntimeError("CUDA out of memory")
+            return super()._forward(x)
+
+    batcher = AutoBatcher(
+        max_batch_size=4,
+        oom_backoff=True,
+        per_sample_bytes=100,
+        available_bytes=400,
+    )
+    io = run.ensemble(
+        ["2024-01-01"],
+        1,
+        4,
+        OOMEnsemblePersistence(["u10m"], coords),
+        Random(domain_coords=coords),
+        ZarrBackend(),
+        Zero(),
+        autobatch=batcher,
+        device="cpu",
+        verbose=False,
+    )
+    assert io["u10m"].shape == (4, 1, 2, 3, 3)
+    assert not np.isnan(io["u10m"][:]).any()
