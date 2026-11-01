@@ -122,10 +122,15 @@ def _estimate_sample_memory(
 ) -> int:
     override = output_coords if isinstance(output_coords, OrderedDict) else None
     input_bytes = 0
+    lead_scale = 1
     for xi in x:
         fixed = _fixed_ndim(model, xi)
-        dims = xi.dims[-fixed:] if fixed > 0 else ()
-        input_bytes += _tensor_bytes(dims, dict(xi.sizes), xi.dtype.itemsize)
+        # Include any non-batched leading axes (e.g. time inside an ensemble member)
+        sample_dims = xi.dims[1:] if xi.ndim > fixed else xi.dims
+        input_bytes += _tensor_bytes(sample_dims, dict(xi.sizes), xi.dtype.itemsize)
+        if xi.ndim > fixed + 1:
+            extra = int(np.prod(xi.shape[1 : xi.ndim - fixed]))
+            lead_scale = max(lead_scale, extra)
 
     output_bytes = input_bytes
     if (
@@ -157,15 +162,15 @@ def _estimate_sample_memory(
                 if isinstance(s, xr.DataArray)
             )
             if slot_bytes > 0:
-                output_bytes = slot_bytes
+                output_bytes = slot_bytes * lead_scale
         except Exception:  # noqa: S110
             pass
     elif override and x:
         xi = x[0]
         fixed = _fixed_ndim(model, xi)
-        dims = xi.dims[-fixed:] if fixed > 0 else ()
+        sample_dims = xi.dims[1:] if xi.ndim > fixed else xi.dims
         output_bytes = input_bytes + _tensor_bytes(
-            dims, dict(xi.sizes), xi.dtype.itemsize, override
+            sample_dims, dict(xi.sizes), xi.dtype.itemsize, override
         )
 
     return max(1, int(input_bytes * activation_multiplier + output_bytes))
@@ -178,13 +183,14 @@ def _measure_model_memory(
     output_coords: CoordSystem | None = None,
     device: torch.device | str | None = None,
 ) -> int:
+    # Slice only the primary batch dimension so secondary leading axes (e.g. time in ensemble)
+    # retain their full per-member footprint.
     sample_x = tuple(
-        xi.isel(
-            {
-                d: slice(0, 1)
-                for d in xi.dims[: max(0, xi.ndim - _fixed_ndim(model, xi))]
-            }
-        ).copy(deep=True)
+        (
+            xi.isel({xi.dims[0]: slice(0, 1)}).copy(deep=True)
+            if xi.ndim > _fixed_ndim(model, xi)
+            else xi.copy(deep=True)
+        )
         for xi in x
     )
     analytic = _estimate_sample_memory(
@@ -294,11 +300,16 @@ class AutoBatcher:
         if batch_size is not None and batch_size < 1:
             raise ValueError(f"batch_size must be >= 1, got {batch_size}")
         if isinstance(autobatch, cls):
-            if batch_size is not None and autobatch.max_batch_size is None:
+            if batch_size is not None:
+                cap = (
+                    batch_size
+                    if autobatch.max_batch_size is None
+                    else min(batch_size, autobatch.max_batch_size)
+                )
                 return cls(
                     memory_fraction=autobatch.memory_fraction,
-                    max_batch_size=batch_size,
-                    min_batch_size=autobatch.min_batch_size,
+                    max_batch_size=cap,
+                    min_batch_size=min(autobatch.min_batch_size, cap),
                     oom_backoff=autobatch.oom_backoff,
                     per_sample_bytes=autobatch.per_sample_bytes,
                     available_bytes=autobatch.available_bytes,
@@ -340,9 +351,19 @@ class AutoBatcher:
         if total_samples is not None and total_samples <= self.min_batch_size:
             return max(1, total_samples)
         target = _infer_device(model=model, x=x, device=device)
-        cost = self.per_sample_bytes or _measure_model_memory(
-            model, *x, step_fn=step_fn, output_coords=output_coords, device=target
-        )
+        if self.per_sample_bytes is not None:
+            lead_scale = 1
+            for xi in x:
+                fixed = _fixed_ndim(model, xi)
+                if xi.ndim > fixed + 1:
+                    lead_scale = max(
+                        lead_scale, int(np.prod(xi.shape[1 : xi.ndim - fixed]))
+                    )
+            cost = self.per_sample_bytes * lead_scale
+        else:
+            cost = _measure_model_memory(
+                model, *x, step_fn=step_fn, output_coords=output_coords, device=target
+            )
         if self.available_bytes is not None:
             free_bytes = max(0, int(self.available_bytes))
         elif target.type == "cuda" and torch.cuda.is_available():
@@ -614,29 +635,65 @@ class batch_func:
                     device=device,
                 )
                 if (self.autobatch and total > 1)
-                else (self.max_batch_size or total)
+                else (batcher.max_batch_size or total)
             )
             if step_size >= total and not batcher.oom_backoff:
                 return restore(func(model, packed, *args, **kwargs))
 
-            outputs: dict[int, xr.DataArray] = {}
+            combined: xr.DataArray | None = None
+            batch_coord_bufs: dict[Any, tuple[int, Any]] = {}
 
             def _run_slice(start: int, end: int) -> None:
+                nonlocal combined
+                chunk_size = end - start
                 sub = packed.isel(batch=slice(start, end)).assign_coords(
-                    batch=np.arange(end - start)
+                    batch=np.arange(chunk_size)
                 )
                 sub.attrs = dict(packed.attrs)
                 out_sub = func(model, sub, *args, **kwargs)
                 if not isinstance(out_sub, xr.DataArray):
                     raise TypeError("Batched model must return a DataArray")
-                outputs[start] = out_sub.assign_coords(batch=np.arange(start, end))
+                handshake_dim(out_sub, "batch", 0)
+                handshake_size(out_sub, "batch", chunk_size)
+                handshake_coords(out_sub, {"batch": np.arange(chunk_size)}, "batch")
+                if combined is None:
+                    buf = np.empty_like(out_sub.data, shape=(total, *out_sub.shape[1:]))
+                    coords: dict[Any, Any] = {"batch": np.arange(total)}
+                    batch_coord_bufs.clear()
+                    for name, coord in out_sub.coords.items():
+                        if name == "batch":
+                            continue
+                        if "batch" in coord.dims:
+                            c_pos = coord.dims.index("batch")
+                            c_shape = (
+                                *coord.shape[:c_pos],
+                                total,
+                                *coord.shape[c_pos + 1 :],
+                            )
+                            c_buf = np.empty_like(coord.data, shape=c_shape)
+                            batch_coord_bufs[name] = (c_pos, c_buf)
+                            coords[name] = (
+                                coord.dims,
+                                c_buf,
+                                dict(coord.attrs),
+                            )
+                        else:
+                            coords[name] = coord.variable
+                    combined = xr.DataArray(
+                        buf,
+                        dims=out_sub.dims,
+                        coords=coords,
+                        attrs=dict(out_sub.attrs),
+                        name=out_sub.name,
+                    )
+                combined.data[start:end] = out_sub.data
+                for name, (c_pos, c_buf) in batch_coord_bufs.items():
+                    idx = (slice(None),) * c_pos + (slice(start, end),)
+                    c_buf[idx] = out_sub.coords[name].data
+                del out_sub
 
             batcher.execute(total, step_size, _run_slice, device=device)
-            ordered = [outputs[k] for k in sorted(outputs)]
-            combined = (
-                ordered[0] if len(ordered) == 1 else xr.concat(ordered, dim="batch")
-            ).assign_coords(batch=np.arange(total))
-            combined.attrs = dict(ordered[0].attrs)
+            assert combined is not None  # noqa: S101
             return restore(combined)
 
         return _wrapper

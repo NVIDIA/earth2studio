@@ -181,7 +181,19 @@ def test_autobatcher_estimation_and_oom_backoff():
         per_sample_bytes=100,
         available_bytes=250,
     )
-    assert batcher.estimate_batch_size(model, x, total_samples=4, device="cpu") == 2
+    assert (
+        AutoBatcher.from_config(
+            AutoBatcher(max_batch_size=16), batch_size=2
+        ).max_batch_size
+        == 2
+    )
+    assert (
+        batcher.estimate_batch_size(
+            model, array_input(("batch",)), total_samples=4, device="cpu"
+        )
+        == 2
+    )
+    assert batcher.estimate_batch_size(model, x, total_samples=4, device="cpu") == 1
     assert batcher.estimate_batch_size(model, x, total_samples=1, device="cpu") == 1
 
     seen_chunks: list[tuple[int, int]] = []
@@ -228,3 +240,11 @@ def test_batch_func_subbatching_and_oom_backoff():
     out = model(x, scale=3)
     xr.testing.assert_identical(out, ArrayModel()(x, scale=3))
     assert model.seen_sizes == [2, 2]
+
+    class ReorderedChunkModel(ArrayModel):
+        @batch_func(max_batch_size=2)
+        def __call__(self, x):
+            return x.isel(batch=slice(None, None, -1))
+
+    with pytest.raises(ValueError, match="batch"):
+        ReorderedChunkModel()(x)

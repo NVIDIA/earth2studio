@@ -111,7 +111,6 @@ def _run_time_batches(
 
     if batcher is None:
         step_size = n_times if batch_size is None else min(n_times, batch_size)
-        batcher = AutoBatcher(oom_backoff=False)
     elif n_times <= 1:
         step_size = 1
     else:
@@ -145,56 +144,137 @@ def _run_time_batches(
             output_coords=output_coords,
             device=device,
         )
+        del x_probe
         logger.info(
             f"Autobatcher selected batch_size={step_size} for {n_times} initialization times."
         )
 
     stored_times = template.coords["time"].values
     field_coords = OrderedDict((k, v) for k, v in output_coords.items() if k != "time")
+    workflow_name = "diagnostic" if diagnostic is not None else "deterministic"
 
     with checkpoint as ckpt:
+        completed_times: list[int] = []
+        active_times: list[int] = []
+        if ckpt.exists and not isinstance(ckpt, NullCheckpoint):
+            completed_times = [int(v) for v in ckpt.metadata.get("completed_times", [])]
+            active_times = [int(v) for v in ckpt.metadata.get("active_times", [])]
 
-        def _run_slice(start: int, end: int) -> None:
-            batch_times = time[start:end]
-            keep = np.intersect1d(batch_times, stored_times)
-            x = _map_field(
-                fetch_data(
-                    source=data,
-                    time=batch_times,
-                    variable=prognostic_ic.coords["variable"].values,
-                    lead_time=prognostic_ic.coords["lead_time"].values,
-                    device=device,
-                ),
-                prognostic_ic,
-            )
-            logger.success(f"Fetched data from {data.__class__.__name__}")
-            model = _rollout(prognostic, x, True)
-            logger.info("Inference starting!")
-            with tqdm(
-                total=nsteps + 1,
-                desc="Running inference",
-                position=1,
-                disable=(not verbose),
-            ) as pbar:
-                for step, x in enumerate(model):
-                    x = cast(xr.DataArray, x)
-                    current_lead_time = x.coords["lead_time"].values[-1]
-                    if diagnostic is not None and diagnostic_ic is not None:
-                        x = _with_lead_time(
-                            diagnostic(_map_field(x, diagnostic_ic)), current_lead_time
+        completed = set(completed_times)
+        batch_id = next((i for i in range(n_times) if i not in completed), n_times)
+        restart_first_batch = (
+            ckpt.exists
+            and ckpt.write_count > 0
+            and batch_id < n_times
+            and ckpt.lead_time != template.coords["lead_time"].values[-1]
+        )
+        number_of_batches = (
+            ceil((n_times - batch_id) / step_size) if n_times > batch_id else 0
+        )
+        batch_index = 0
+        with tqdm(
+            total=number_of_batches,
+            desc="Total Time Batches",
+            position=2,
+            disable=(not verbose),
+        ) as batch_pbar:
+            while batch_id < n_times:
+                mini_batch_size = min(step_size, n_times - batch_id)
+                restart_step = None
+                if batch_index == 0 and restart_first_batch:
+                    if ckpt.catalog.level < 2:
+                        logger.warning(
+                            f"{workflow_name} received checkpoint level "
+                            f"{ckpt.catalog.level}; component state may not be "
+                            "complete enough to resume a rollout. Re-running from "
+                            "lead time zero."
                         )
-                    x = _map_field(x, field_coords)
-                    if len(keep) < len(batch_times):
-                        x = x.sel(time=keep)
-                    if len(keep):
-                        io.write(x)
-                    ckpt.write(lead_time=current_lead_time)
-                    pbar.update(1)
-                    if step == nsteps:
-                        break
+                        ckpt.write_count = 0
+                    else:
+                        if active_times and active_times[0] == batch_id:
+                            mini_batch_size = min(len(active_times), n_times - batch_id)
+                        restart_step = ckpt.write_count - 1
+                        if restart_step >= nsteps:
+                            completed.update(
+                                range(batch_id, batch_id + mini_batch_size)
+                            )
+                            completed_times = sorted(completed)
+                            batch_id += mini_batch_size
+                            batch_index += 1
+                            batch_pbar.update(1)
+                            continue
+                elif not isinstance(ckpt, NullCheckpoint):
+                    ckpt.write_count = 0
 
-        batcher.execute(n_times, step_size, _run_slice, device=device)
-        ckpt.flush()
+                batch_times = time[batch_id : batch_id + mini_batch_size]
+                time_indices = list(range(batch_id, batch_id + mini_batch_size))
+                keep = np.intersect1d(batch_times, stored_times)
+
+                try:
+                    x = _map_field(
+                        fetch_data(
+                            source=data,
+                            time=batch_times,
+                            variable=prognostic_ic.coords["variable"].values,
+                            lead_time=prognostic_ic.coords["lead_time"].values,
+                            device=device,
+                        ),
+                        prognostic_ic,
+                    )
+                    logger.success(f"Fetched data from {data.__class__.__name__}")
+                    model = _rollout(prognostic, x, restart_step is None)
+                    logger.info("Inference starting!")
+                    initial_progress = 0 if restart_step is None else restart_step + 1
+                    with tqdm(
+                        total=nsteps + 1,
+                        initial=initial_progress,
+                        desc=f"Running batch {batch_id} inference",
+                        position=1,
+                        leave=False,
+                        disable=(not verbose),
+                    ) as pbar:
+                        for local_step, x in enumerate(model):
+                            step = (
+                                local_step
+                                if restart_step is None
+                                else restart_step + local_step + 1
+                            )
+                            x = cast(xr.DataArray, x)
+                            current_lead_time = x.coords["lead_time"].values[-1]
+                            if diagnostic is not None and diagnostic_ic is not None:
+                                x = _with_lead_time(
+                                    diagnostic(_map_field(x, diagnostic_ic)),
+                                    current_lead_time,
+                                )
+                            x = _map_field(x, field_coords)
+                            if len(keep) < len(batch_times):
+                                x = x.sel(time=keep)
+                            if len(keep):
+                                io.write(x)
+                            if step == nsteps:
+                                completed.update(time_indices)
+                                completed_times = sorted(completed)
+                            ckpt.write(
+                                lead_time=current_lead_time,
+                                completed_times=completed_times,
+                                active_times=[] if step == nsteps else time_indices,
+                            )
+                            pbar.update(1)
+                            if step == nsteps:
+                                break
+                except BaseException as exc:
+                    if batcher is None:
+                        raise
+                    step_size = batcher.backoff(exc, mini_batch_size, device)
+                    restart_first_batch = False
+                    if not isinstance(ckpt, NullCheckpoint):
+                        ckpt.write_count = 0
+                    continue
+
+                ckpt.flush()
+                batch_id += mini_batch_size
+                batch_index += 1
+                batch_pbar.update(1)
 
     logger.success("\nInference complete")
     return io
@@ -597,12 +677,10 @@ def ensemble(
     )
 
     if autobatcher is not None:
-        x_probe = x0.expand_dims(ensemble=np.arange(1)).copy(deep=True)
         batch_size = autobatcher.estimate_batch_size(
             prognostic,
-            x_probe,
+            x0.expand_dims(ensemble=np.arange(1)),
             total_samples=nensemble,
-            step_fn=lambda x_in: cast(xr.DataArray, prognostic(perturbation(x_in))),
             output_coords=output_coords,
             device=device,
         )
@@ -616,9 +694,13 @@ def ensemble(
 
     with checkpoint as ckpt:
         completed_ensembles = []
+        active_ensembles: list[int] = []
         if ckpt.exists and not isinstance(ckpt, NullCheckpoint):
             completed_ensembles = [
                 int(value) for value in ckpt.metadata.get("completed_ensembles", [])
+            ]
+            active_ensembles = [
+                int(value) for value in ckpt.metadata.get("active_ensembles", [])
             ]
 
         completed = set(completed_ensembles)
@@ -650,9 +732,6 @@ def ensemble(
         ) as batch_pbar:
             while batch_id < nensemble:
                 mini_batch_size = min(batch_size, nensemble - batch_id)
-                ensemble_coords = np.arange(batch_id, batch_id + mini_batch_size)
-                ensemble_members = [int(value) for value in ensemble_coords]
-                written_members = np.intersect1d(ensemble_coords, stored_members)
                 restart_step = None
                 if batch_index == 0 and restart_first_batch:
                     if ckpt.catalog.level < 2:
@@ -664,14 +743,26 @@ def ensemble(
                         )
                         ckpt.write_count = 0
                     else:
+                        if active_ensembles and active_ensembles[0] == batch_id:
+                            mini_batch_size = min(
+                                len(active_ensembles), nensemble - batch_id
+                            )
                         restart_step = ckpt.write_count - 1
                         if restart_step >= nsteps:
+                            completed.update(
+                                range(batch_id, batch_id + mini_batch_size)
+                            )
+                            completed_ensembles = sorted(completed)
                             batch_id += mini_batch_size
                             batch_index += 1
                             batch_pbar.update(1)
                             continue
                 elif not isinstance(ckpt, NullCheckpoint):
                     ckpt.write_count = 0
+
+                ensemble_coords = np.arange(batch_id, batch_id + mini_batch_size)
+                ensemble_members = [int(value) for value in ensemble_coords]
+                written_members = np.intersect1d(ensemble_coords, stored_members)
 
                 try:
                     x = x0.expand_dims(ensemble=ensemble_coords).copy(deep=True)
@@ -707,6 +798,9 @@ def ensemble(
                             ckpt.write(
                                 lead_time=current_lead_time,
                                 completed_ensembles=completed_ensembles,
+                                active_ensembles=(
+                                    [] if step == nsteps else ensemble_members
+                                ),
                             )
                             pbar.update(1)
                             if step == nsteps:
@@ -716,6 +810,8 @@ def ensemble(
                         raise
                     batch_size = autobatcher.backoff(exc, mini_batch_size, device)
                     restart_first_batch = False
+                    if not isinstance(ckpt, NullCheckpoint):
+                        ckpt.write_count = 0
                     continue
 
                 ckpt.flush()
