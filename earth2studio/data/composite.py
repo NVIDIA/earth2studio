@@ -28,7 +28,11 @@ import torch
 import xarray as xr
 
 from earth2studio.data.base import DataSource, ForecastSource
-from earth2studio.data.utils import _is_forecast_source, _offset_times
+from earth2studio.data.utils import (
+    _is_ensemble_source,
+    _is_forecast_source,
+    _offset_times,
+)
 from earth2studio.utils.coords import E2S_STATISTICS
 from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 
@@ -65,6 +69,9 @@ class _Composite:
         self._device = devices.pop() if devices else torch.device("cpu")
         self._sources = dict(sources)
         self._routes = routes
+        self._ensemble = {
+            name for name, source in sources.items() if _is_ensemble_source(source)
+        }
 
     @property
     def sources(self) -> dict[str, DataSource | ForecastSource]:
@@ -95,6 +102,37 @@ class _Composite:
         first = steps[0]
         return first if all(step == first for step in steps) else None
 
+    @property
+    def is_ensemble(self) -> bool:
+        """Whether any component selects ensemble members."""
+        return bool(self._ensemble)
+
+    def _members(self, name: str, ensemble: Any) -> dict[str, Any]:
+        """Keyword arguments selecting ``ensemble`` from component ``name``."""
+        if ensemble is None or name not in self._ensemble:
+            return {}
+        return {"ensemble": ensemble}
+
+    def _check_ensemble(self, ensemble: Any) -> None:
+        if ensemble is not None and not self._ensemble:
+            raise ValueError("No component selects ensemble members")
+
+    def _broadcast(
+        self, parts: Mapping[str, xr.DataArray], ensemble: Any
+    ) -> list[xr.DataArray]:
+        """Give every part the requested members, repeating shared components."""
+        if ensemble is None:
+            return list(parts.values())
+        labels = np.asarray(ensemble)
+        return [
+            (
+                part.sel(ensemble=labels)
+                if name in self._ensemble
+                else part.expand_dims(ensemble=labels)
+            )
+            for name, part in parts.items()
+        ]
+
     def _plan(self, variable: Any) -> tuple[list[str], dict[str, list[str]]]:
         requested = [str(name) for name in np.atleast_1d(variable)]
         # Route qualified labels by base name; the component handles the statistic.
@@ -120,6 +158,10 @@ class CompositeSource(_Composite):
     fields on the same coordinates apart from ``variable``; wrap components on other
     grids in :class:`~earth2studio.data.RegriddedSource` with a shared target grid.
     Use :class:`CompositeForecastSource` to include forecast sources.
+
+    The composite selects ensemble members when any component does: requested
+    ``ensemble`` members go to those components, which must share member labels,
+    and other components' fields are repeated for every member.
 
     Parameters
     ----------
@@ -161,7 +203,12 @@ class CompositeSource(_Composite):
             )
         super().__init__(sources, variables)
 
-    def __call__(self, time: TimeArray, variable: VariableArray) -> xr.DataArray:
+    def __call__(
+        self,
+        time: TimeArray,
+        variable: VariableArray,
+        ensemble: Sequence[Any] | np.ndarray | None = None,
+    ) -> xr.DataArray:
         """Fetch each component's variables and join them in request order.
 
         Parameters
@@ -170,20 +217,31 @@ class CompositeSource(_Composite):
             Timestamps to return data for (UTC).
         variable : VariableArray
             Variables to return, optionally qualified with a temporal statistic.
+        ensemble : Sequence | np.ndarray, optional
+            Ensemble members to return on an ``ensemble`` dimension, in the labels
+            of the ensemble-aware components, by default None
 
         Returns
         -------
         xr.DataArray
             Requested variables, in request order.
         """
+        self._check_ensemble(ensemble)
         requested, groups = self._plan(variable)
-        parts = [
-            self._sources[name](time, np.array(names))  # type: ignore[call-arg]
+        parts = {
+            name: self._sources[name](  # type: ignore[call-arg]
+                time, np.array(names), **self._members(name, ensemble)
+            )
             for name, names in groups.items()
-        ]
-        return _join(parts, requested)
+        }
+        return _join(self._broadcast(parts, ensemble), requested)
 
-    async def fetch(self, time: TimeArray, variable: VariableArray) -> xr.DataArray:
+    async def fetch(
+        self,
+        time: TimeArray,
+        variable: VariableArray,
+        ensemble: Sequence[Any] | np.ndarray | None = None,
+    ) -> xr.DataArray:
         """Asynchronously fetch every component concurrently.
 
         Components without an async ``fetch`` run in a worker thread.
@@ -194,20 +252,29 @@ class CompositeSource(_Composite):
             Timestamps to return data for (UTC).
         variable : VariableArray
             Variables to return, optionally qualified with a temporal statistic.
+        ensemble : Sequence | np.ndarray, optional
+            Ensemble members to return on an ``ensemble`` dimension, in the labels
+            of the ensemble-aware components, by default None
 
         Returns
         -------
         xr.DataArray
             Requested variables, in request order.
         """
+        self._check_ensemble(ensemble)
         requested, groups = self._plan(variable)
         parts = await asyncio.gather(
             *(
-                _fetch(self._sources[name], time, np.array(names))
+                _fetch(
+                    self._sources[name],
+                    time,
+                    np.array(names),
+                    **self._members(name, ensemble),
+                )
                 for name, names in groups.items()
             )
         )
-        return _join(list(parts), requested)
+        return _join(self._broadcast(dict(zip(groups, parts)), ensemble), requested)
 
 
 class CompositeForecastSource(_Composite):
@@ -216,7 +283,8 @@ class CompositeForecastSource(_Composite):
     Routes and joins variables as :class:`CompositeSource` does. Forecast components
     receive each request unchanged. Analysis components are fetched at the valid
     times ``time + lead_time``, and their fields are labelled by the requested times
-    and lead times, so observations can join forecasts.
+    and lead times, so observations can join forecasts. Ensemble members are
+    selected as in :class:`CompositeSource`.
 
     Parameters
     ----------
@@ -254,7 +322,11 @@ class CompositeForecastSource(_Composite):
         }
 
     def __call__(
-        self, time: TimeArray, lead_time: LeadTimeArray, variable: VariableArray
+        self,
+        time: TimeArray,
+        lead_time: LeadTimeArray,
+        variable: VariableArray,
+        ensemble: Sequence[Any] | np.ndarray | None = None,
     ) -> xr.DataArray:
         """Fetch each component's variables and join them in request order.
 
@@ -266,28 +338,39 @@ class CompositeForecastSource(_Composite):
             Lead times to return for each initialization.
         variable : VariableArray
             Variables to return, optionally qualified with a temporal statistic.
+        ensemble : Sequence | np.ndarray, optional
+            Ensemble members to return on an ``ensemble`` dimension, in the labels
+            of the ensemble-aware components, by default None
 
         Returns
         -------
         xr.DataArray
             Requested variables, in request order.
         """
+        self._check_ensemble(ensemble)
         requested, groups = self._plan(variable)
-        parts = []
+        parts = {}
         for name, names in groups.items():
             source = self._sources[name]
+            members = self._members(name, ensemble)
             if name in self._analysis:
                 fields = [
-                    source(valid, np.array(names))  # type: ignore[call-arg]
+                    source(valid, np.array(names), **members)  # type: ignore[call-arg]
                     for valid in _valid_times(time, lead_time)
                 ]
-                parts.append(_label_leads(fields, time, lead_time))
+                parts[name] = _label_leads(fields, time, lead_time)
             else:
-                parts.append(source(time, lead_time, np.array(names)))  # type: ignore[call-arg]
-        return _join(parts, requested)
+                parts[name] = source(  # type: ignore[call-arg]
+                    time, lead_time, np.array(names), **members
+                )
+        return _join(self._broadcast(parts, ensemble), requested)
 
     async def fetch(
-        self, time: TimeArray, lead_time: LeadTimeArray, variable: VariableArray
+        self,
+        time: TimeArray,
+        lead_time: LeadTimeArray,
+        variable: VariableArray,
+        ensemble: Sequence[Any] | np.ndarray | None = None,
     ) -> xr.DataArray:
         """Asynchronously fetch every component concurrently.
 
@@ -301,21 +384,26 @@ class CompositeForecastSource(_Composite):
             Lead times to return for each initialization.
         variable : VariableArray
             Variables to return, optionally qualified with a temporal statistic.
+        ensemble : Sequence | np.ndarray, optional
+            Ensemble members to return on an ``ensemble`` dimension, in the labels
+            of the ensemble-aware components, by default None
 
         Returns
         -------
         xr.DataArray
             Requested variables, in request order.
         """
+        self._check_ensemble(ensemble)
         requested, groups = self._plan(variable)
 
         async def _component(name: str, names: list[str]) -> xr.DataArray:
             source = self._sources[name]
+            members = self._members(name, ensemble)
             if name not in self._analysis:
-                return await _fetch(source, time, lead_time, np.array(names))
+                return await _fetch(source, time, lead_time, np.array(names), **members)
             fields = await asyncio.gather(
                 *(
-                    _fetch(source, valid, np.array(names))
+                    _fetch(source, valid, np.array(names), **members)
                     for valid in _valid_times(time, lead_time)
                 )
             )
@@ -324,7 +412,7 @@ class CompositeForecastSource(_Composite):
         parts = await asyncio.gather(
             *(_component(name, names) for name, names in groups.items())
         )
-        return _join(list(parts), requested)
+        return _join(self._broadcast(dict(zip(groups, parts)), ensemble), requested)
 
 
 def _device(source: Any) -> torch.device:
@@ -336,14 +424,14 @@ def _device(source: Any) -> torch.device:
     return device
 
 
-def _fetch(source: Any, *args: Any) -> Awaitable[xr.DataArray]:
+def _fetch(source: Any, *args: Any, **kwargs: Any) -> Awaitable[xr.DataArray]:
     """Await a component's async ``fetch``, or run its call in a worker thread."""
     fetch: Callable[..., Awaitable[xr.DataArray]] | None = getattr(
         source, "fetch", None
     )
     if fetch is not None:
-        return fetch(*args)
-    return asyncio.to_thread(source, *args)
+        return fetch(*args, **kwargs)
+    return asyncio.to_thread(source, *args, **kwargs)
 
 
 def _valid_times(time: TimeArray, lead_time: LeadTimeArray) -> list[TimeArray]:

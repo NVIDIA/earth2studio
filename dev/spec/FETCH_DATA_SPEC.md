@@ -149,6 +149,10 @@ fetch_data(IFS_ENS(), time, variable, ensemble=[3, 4])
   its source's. There is no separate protocol: a runtime-checkable protocol
   checks member names only, and ensemble awareness cuts across `DataSource` and
   `ForecastSource`.
+- `CompositeSource` and `CompositeForecastSource` are ensemble-aware when any
+  component is, through `is_ensemble`. They pass `ensemble` to those components,
+  which must share member labels, and repeat other components' fields for every
+  member. Without such a component, they reject `ensemble`.
 - Labels are the source's own: `IFS_ENS`, `IFS_ENS_FX` and `AIFS_ENS_FX` use `0`
   for the control and `1` and up for perturbed members, `GEFS_FX` uses `gec00`
   and `gep01` to `gep30`, and `InferenceOutputSource` uses the stored `ensemble`
@@ -234,10 +238,10 @@ Tests must cover both source types, multiple initializations and leads, mixed
 instantaneous/statistical labels forwarded unchanged, rejection of qualified labels
 returned without statistics metadata, output ordering and metadata, native spatial
 geometry, CPU/CUDA placement, regridding after reduction, compositions forwarding
-qualified labels, sources returning device arrays, and ensemble members through
-both source types, temporal statistics and `RegriddedSource`. Source aggregation is tested
-with the shared helper and with each source that supports statistics. The fetch regressions live in
-`test/data/test_fetch_data_xarray.py` and `test/data/test_data_utils.py`, member
-selection by each ensemble-aware source in its own test file, with
-regridders in `test/grids/test_regrid.py` and window semantics in
-`test/utils/test_time_statistics.py`.
+qualified labels, sources returning device arrays, and ensemble members through both
+source types, temporal statistics, `RegriddedSource` and the composites. Source
+aggregation is tested with the shared helper and with each source that supports
+statistics. The fetch regressions live in `test/data/test_fetch_data_xarray.py` and
+`test/data/test_data_utils.py`, member selection by each ensemble-aware source in
+its own test file, with regridders in `test/grids/test_regrid.py` and window
+semantics in `test/utils/test_time_statistics.py`.

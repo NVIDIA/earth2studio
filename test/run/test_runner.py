@@ -29,7 +29,7 @@ import torch
 import xarray as xr
 
 import earth2studio.run as run
-from earth2studio.data import RegriddedSource
+from earth2studio.data import CompositeSource, RegriddedSource
 from earth2studio.grids import BilinearRegridder, LatLonGrid, infer_grid
 from earth2studio.io import KVBackend
 from earth2studio.io.utils import output_template
@@ -609,3 +609,15 @@ def test_diagnostic_runner_reads_the_member() -> None:
     assert source.ensembles == [[2]]
     (request,) = runner.data_requests(WorkItem(T0, np.timedelta64(0, "h"), (1,)))
     np.testing.assert_array_equal(request.ensemble, [2])
+
+
+def test_composite_initial_conditions_read_the_member() -> None:
+    members = _Members()
+    source = CompositeSource(
+        {"ens": members, "shared": _Zeros()}, {"ens": ["u10m"], "shared": ["v10m"]}
+    )
+    runner = PrognosticRunner(_model(), source, ensemble_member=lambda m: m + 1)
+    step, _ = list(runner.run_item(_member_item(2)))
+    np.testing.assert_array_equal(step["forecast"].sel(variable="u10m"), 3)
+    np.testing.assert_array_equal(step["forecast"].sel(variable="v10m"), 0)
+    assert members.ensembles == [[3]]
