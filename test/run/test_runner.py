@@ -296,16 +296,9 @@ def test_requests_are_per_item_and_match_fetch() -> None:
     np.testing.assert_array_equal(request.variable, ["u10m", "v10m"])
 
 
-@pytest.mark.parametrize(
-    "item",
-    [
-        WorkItem(T0, np.timedelta64(7, "h")),
-        WorkItem(T0, np.timedelta64(6, "h"), member_ids=(0, 1)),
-    ],
-)
-def test_rejects_unsupported_items(item: WorkItem) -> None:
+def test_rejects_unreachable_final_lead_times() -> None:
     with pytest.raises(ValueError):
-        list(PrognosticRunner(_model(), _Zeros()).run_item(item))
+        list(PrognosticRunner(_model(), _Zeros()).run_item(_item(7)))
 
 
 def test_forecast_stream_name_is_reserved() -> None:
@@ -621,3 +614,49 @@ def test_composite_initial_conditions_read_the_member() -> None:
     np.testing.assert_array_equal(step["forecast"].sel(variable="u10m"), 3)
     np.testing.assert_array_equal(step["forecast"].sel(variable="v10m"), 0)
     assert members.ensembles == [[3]]
+
+
+def test_batches_lay_members_along_a_leading_ensemble_dimension() -> None:
+    model, initial, forcing = _Forced(), _Members(), _Zeros()
+    runner = PrognosticRunner(
+        model, initial, forcing=(forcing,), ensemble_member=lambda m: m // 2 + 1
+    )
+    item = WorkItem(T0, np.timedelta64(12, "h"), member_ids=(1, 2, 3))
+    assert runner.supports_member_batching
+    steps = list(runner.run_item(item))
+    x = steps[-1]["forecast"]
+    assert x.dims[0] == "ensemble"
+    np.testing.assert_array_equal(x["ensemble"], [1, 2, 3])
+    # Members 2 and 3 share source member 2, fetched once per call.
+    np.testing.assert_array_equal(x.sel(ensemble=1), 1 + 2)
+    np.testing.assert_array_equal(x.sel(ensemble=3), 2 + 2)
+    assert initial.ensembles == [[1, 2]]
+    request, *_ = runner.data_requests(item)
+    np.testing.assert_array_equal(request.ensemble, [1, 2])
+    # The shared forcing reaches the model with the batch's members.
+    for step in steps:
+        assert step["forecast"]["ensemble"].size == 3
+
+
+def test_batched_members_match_single_member_runs() -> None:
+    runner = PrognosticRunner(
+        _model(),
+        _Members(),
+        diagnostics={"wind": _WindSpeed()},
+        ensemble_member=lambda m: m,
+    )
+    batched = list(runner.run_item(WorkItem(T0, np.timedelta64(6, "h"), (4, 9))))
+    for member in (4, 9):
+        single = list(runner.run_item(_member_item(member)))
+        for many, one in zip(batched, single):
+            for stream in ("forecast", "wind"):
+                xr.testing.assert_identical(
+                    many[stream].sel(ensemble=member, drop=True), one[stream]
+                )
+
+
+def test_diagnostic_runner_batches_members() -> None:
+    runner = DiagnosticRunner({"wind": _WindSpeed()}, _Ones())
+    (step,) = list(runner.run_item(WorkItem(T0, np.timedelta64(0, "h"), (0, 1))))
+    assert step["wind"].dims[0] == "ensemble"
+    np.testing.assert_allclose(step["wind"].values, np.hypot(1, 1))

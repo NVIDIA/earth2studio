@@ -501,8 +501,8 @@ class ProgressStore:
             raise ValueError(
                 f"Progress manifest '{manifest_path}' does not match this run; "
                 f"differing keys: {', '.join(differing)}. Resume needs the same "
-                "streams, seed and tags; otherwise use a new progress path or "
-                "overwrite=True."
+                "streams, seed, member batching and tags; otherwise use a new "
+                "progress path or overwrite=True."
             )
 
     # -- logs --------------------------------------------------------------

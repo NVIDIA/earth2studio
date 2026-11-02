@@ -358,8 +358,9 @@ def test_stochastic_components_are_seeded_per_member() -> None:
     item = WorkItem(T0, np.timedelta64(6, "h"), member_ids=(4,))
     list(runner.run_item(item))
     assert model.seeds == [member_seed(3 + zlib.crc32(b"atmos"), item.time, 4)]
-    with pytest.raises(ValueError, match="batch"):
-        list(runner.run_item(WorkItem(T0, np.timedelta64(6, "h"), member_ids=(0, 1))))
+    # A batch is seeded once, from its first member.
+    list(runner.run_item(WorkItem(T0, np.timedelta64(6, "h"), member_ids=(7, 8))))
+    assert model.seeds[-1] == member_seed(3 + zlib.crc32(b"atmos"), item.time, 7)
 
 
 def test_stochastic_components_draw_independent_seeds() -> None:
@@ -934,3 +935,23 @@ def test_members_read_their_source_member(ic_sources: Mapping[str, Fill]) -> Non
         [3],
         None,
     ]
+
+
+def test_batched_members_match_single_member_runs(
+    ic_sources: Mapping[str, Fill],
+) -> None:
+    atmos = _MemberFill(ATMOS_GRID, {"z1000": 0.0, "sst": 2.0})
+    runner = _toy({**ic_sources, "atmos": atmos}, ensemble_member=lambda m: m // 2)
+    assert runner.supports_member_batching
+    final = np.timedelta64(96, "h")
+    batched = list(runner.run_item(WorkItem(T0, final, member_ids=(2, 3, 4))))
+    # Members 2 and 3 share source member 1, fetched once.
+    assert atmos.ensembles == [[1, 2]]
+    for member in (2, 3, 4):
+        single = list(runner.run_item(WorkItem(T0, final, member_ids=(member,))))
+        assert len(batched) == len(single)
+        for many, one in zip(batched, single):
+            assert many.keys() == one.keys()
+            for name, x in many.items():
+                assert x.dims[0] == "ensemble"
+                xr.testing.assert_allclose(x.sel(ensemble=member, drop=True), one[name])

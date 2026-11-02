@@ -145,7 +145,10 @@ class _Toy(PrognosticMixin):
         _check(x, self.input_coords())
         _check(forcing, self.forcing_coords())
         self.seen.append(list(forcing["lead_time"].values))
-        y = x.isel(lead_time=[-1]) + self.offset + self.gain * float(forcing.mean())
+        # Mean per member, so batched members do not mix.
+        mean = forcing.mean([d for d in forcing.dims if d != "ensemble"])
+        y = x.isel(lead_time=[-1])
+        y = y.copy(data=(y + self.offset + self.gain * mean).transpose(*y.dims).data)
         return y.assign_coords(lead_time=y["lead_time"] + self.hours * H)
 
     def initialize(  # type: ignore[override]
@@ -354,7 +357,8 @@ class Mixed(PrognosticMixin):
     def _advance(self, x: xr.DataArray) -> xr.DataArray:
         _check(x, self.input_coords())
         y = x.isel(lead_time=[-1]).copy()
-        sst = float(y.sel(variable="sst").mean())
+        sst = y.sel(variable="sst")
+        sst = sst.mean([d for d in sst.dims if d != "ensemble"])  # per member
         y.loc[{"variable": "z1000"}] = y.sel(variable="z1000") + 1 + 0.1 * sst
         return y.assign_coords(lead_time=y["lead_time"] + 6 * H)
 

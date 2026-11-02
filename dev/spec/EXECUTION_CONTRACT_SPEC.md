@@ -86,7 +86,10 @@ class Runner(Protocol):
   fetching, for predownload. `()` means no inputs; `None` means not knowable
   upfront.
 - **Members.** Without `supports_member_batching`, a runner gets at most one
-  member per item, or `Pipeline` raises `ValueError` before running.
+  member per item, or `Pipeline` raises `ValueError` before running. A runner
+  that batches gives every model input of a multi-member item a leading
+  `ensemble` dimension labeled `item.member_ids`, repeating slots shared by all
+  members, so models receive the batch as an extra dynamic leading dimension.
 - **Source members.** Members of one ensemble may read different data, e.g. four
   seeded branches from each IFS ENS member. A built-in runner given
   `ensemble_member`, a function from a work item's member ID to a source member
@@ -96,7 +99,8 @@ class Runner(Protocol):
   request, recorded in `DataRequest.ensemble`. Other slots, and every slot
   without `ensemble_member`, are shared by all members. An item without member
   IDs raises `ValueError`. With one member per item, the fetched member's field
-  reaches the model without an `ensemble` dimension.
+  reaches the model without an `ensemble` dimension; in a batch, members sharing
+  a source member share its one fetched field.
 
 ### Stream schemas and outputs
 
@@ -117,9 +121,18 @@ other fixed labels equal the schema's.
 
 ### Seeding
 
-Before each member's rollout or first call, a runner seeds every stochastic model
-with `model.set_rng(member_seed(self.seed, item.time, member_id), reset=True)`.
-Deterministic items seed as member `0`. `seed` is a constructor argument (default
+Before each item's rollout or first call, a runner seeds every stochastic model
+with `model.set_rng(member_seed(self.seed, item.time, member_id), reset=True)`,
+where `member_id` is the item's first member. Deterministic items seed as member
+`0`.
+
+Models draw one random stream per call, so a batch is seeded once and its
+members share that stream: a stochastic member's output depends on which members
+share its batch. `member_batch=1` seeds every member alone, reproducing each
+member exactly whatever the other members. Seeding each batch element on its own
+(`set_rng` taking one seed per element, migrated model by model) is later work.
+`Pipeline` records the batch size in the progress manifest, so a resume cannot
+regroup members. `seed` is a constructor argument (default
 `0`) exposed as `runner.seed` for the progress manifest. Runners never touch
 global RNG state (`P14`, `D10`).
 
@@ -308,9 +321,9 @@ class ProgressStore:
 ```
 
 - **Unit keys.** Every finished item is recorded as `(time, final_lead_time, member_id)`
-  units; an item is done when all its units are. Keys ignore order, rank, world
-  size and grouping, so a resume may change any of them; a partly done group
-  reruns in full.
+  units; an item is done when all its units are. Keys ignore order, rank and
+  world size, so a resume may change any of them; a partly done group reruns in
+  full. Grouping is fixed by the manifest's `member_batch`.
 - **Setup.** Rank 0 calls `setup`, which clears the store if `overwrite`, merges
   existing logs into one and writes the manifest if none exists. It returns the
   run attempt, which `Pipeline` broadcasts.
@@ -322,9 +335,10 @@ class ProgressStore:
   `path` must be shared by all ranks.
 - **Listed once.** Only rank 0 calls `remaining`; `Pipeline` broadcasts it.
 
-`Pipeline` builds the manifest as JSON: `version` (`1`), `streams` (per stream:
+`Pipeline` builds the manifest as JSON: `version` (`2`), `streams` (per stream:
 dims, non-spatial labels, grid ID and dtype, and whether it is written), `seed`
-(`runner.seed` or `null`), and `tags`. The store merges its `tags` in, so a tag
+(`runner.seed` or `null`), `member_batch` (the most members of any item, `1`
+without members), and `tags`. The store merges its `tags` in, so a tag
 change is a mismatch. Model identity is not detectable, so callers record it in
 `tags`.
 
@@ -357,8 +371,7 @@ first forecast. Each step advances by the model's step interval (see
 [MODEL_CONTRACT_SPEC.md](MODEL_CONTRACT_SPEC.md#lead-time)). Sources
 default to `default_sources()`. Declared forcing is fetched initially and its
 time-varying slots are sent every step. The prognostic stream is `forecast`;
-each diagnostic adds a stream under the caller's name. Member batching is not
-yet supported.
+each diagnostic adds a stream under the caller's name.
 
 `DiagnosticRunner(diagnostics, source=None, step=None, seed=0, ensemble_member=None)` applies
 diagnostics directly to source data. Step `k` fetches inputs at the item's time
@@ -367,10 +380,10 @@ plus `k * step`; without `step`, an item is one step at lead time zero.
 The **coupled runner**, `earth2studio.coupling.CoupledRunner`, lives with the
 coupler ([COUPLING_SPEC.md](COUPLING_SPEC.md)). Per item it fetches each
 component's initial condition from bound sources, runs components at their own
-cadences, and yields component-named streams. It starts with
-`supports_member_batching = False`.
+cadences, and yields component-named streams.
 
-All three take `ensemble_member` (see **Source members** above).
+All three batch members (`supports_member_batching = True`) and take
+`ensemble_member` (see **Source members** above).
 
 ## Rules
 
@@ -380,7 +393,7 @@ All three take `ensemble_member` (see **Source members** above).
 | `X2` | Stream signatures carry the yielded fields' grid metadata and auxiliary coordinates |
 | `X3` | Outputs have dims `time` (`item.time` only), then the schema's fixed dims |
 | `X4` | Output `lead_time` labels lie within the schema's; other fixed labels equal it |
-| `X5` | Runners seed each stochastic model per member: `member_seed`, `reset=True` |
+| `X5` | Each item seeds stochastic models from its first member: `member_seed`, `reset=True` |
 | `X6` | `member_seed` depends only on base seed, time and member ID |
 | `X7` | Every rank passes identical items, or `run` raises `ValueError` first |
 | `X8` | Stores are planned from all items, so resume at any world size reuses them |
@@ -437,8 +450,7 @@ optional runner capability built on `(y, state)` (open decision 3).
 
 1. **Dependent work items**, such as warm-start cycling: v1 or out of scope?
 2. **Ensembles:** where perturbations are configured, likely a runner argument,
-   and member batching. Batching will fetch a batch's distinct source members
-   once and repeat them across the members sharing one.
+   Member batching is done; per-element seeding of stochastic batches is open.
 3. **Mid-item resume:** must `run.*` keep step-level checkpoint resume? If so,
    runners need an optional checkpoint built on `(y, state)`. Blocks phase 4 only.
 4. **Async fetching:** if needed, change runner and `Pipeline` loop together.

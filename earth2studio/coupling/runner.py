@@ -82,6 +82,10 @@ class CoupledRunner:
     output chunk;
     a diagnostic publishes every call.
 
+    Items with several members run as one batch on a leading ``ensemble``
+    dimension, observation frames shared by every member, seeded once from the first member, so stochastic members depend on
+    their batch; ``member_batch=1`` seeds each member alone.
+
     Parameters
     ----------
     components : Mapping[str, Any]
@@ -118,7 +122,7 @@ class CoupledRunner:
         If a declaration is invalid or the components cannot be scheduled.
     """
 
-    supports_member_batching = False
+    supports_member_batching = True
 
     def __init__(
         self,
@@ -427,8 +431,8 @@ class CoupledRunner:
 
     def run_item(self, item: WorkItem) -> Iterator[Mapping[str, xr.DataArray]]:
         """Yield each component's outputs as it publishes them."""
-        if len(item.member_ids) > 1:
-            raise ValueError("CoupledRunner does not batch ensemble members")
+        # A batch is seeded once, from its first member: stochastic members depend
+        # on their batch, and member_batch=1 seeds each member alone.
         member_id = item.member_ids[0] if item.member_ids else 0
         for name, node in self.nodes.items():
             _seed_model(
@@ -580,7 +584,7 @@ class _Execution:
             lead_time,
             _ensemble_labels(self.runner.ensemble_member, source, self.item),
         )
-        x = _fetch(request, signature, device)
+        x = _fetch(request, signature, device, self.item, self.runner.ensemble_member)
         if slot.static:
             x = x.isel(lead_time=0, drop=True)
         return x

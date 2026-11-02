@@ -21,9 +21,11 @@ from collections.abc import Mapping
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 from test_coupling_toys import (
     ATMOS_GRID,
     OCEAN_GRID,
+    T0,
     TO_ATMOS,
     TO_OCEAN,
     Double,
@@ -208,3 +210,25 @@ def test_pinned_components_stay_on_their_device(
     assert runner.device_of("atmos") == torch.device("meta")
     with pytest.raises(CouplingError, match="unknown component 'oceans'"):
         CoupledRunner({"ocean": ocean()}, devices={"oceans": "cpu"})
+
+
+def test_state_connectors_write_each_batched_members_state() -> None:
+    from test_coupled_runner import _MemberFill
+
+    from earth2studio.run import WorkItem
+
+    runner = _state_coupled()
+    ocean_source = _MemberFill(OCEAN_GRID, {"sst": 2.0})
+    runner.sources["ocean"] = (ocean_source,)
+    runner.ensemble_member = lambda m: m
+    final = np.timedelta64(96, "h")
+    batched = list(runner.run_item(WorkItem(T0, final, member_ids=(1, 3))))
+    for member in (1, 3):
+        single = list(runner.run_item(WorkItem(T0, final, member_ids=(member,))))
+        for many, one in zip(batched, single):
+            for name, x in many.items():
+                xr.testing.assert_allclose(x.sel(ensemble=member, drop=True), one[name])
+    # Each member's atmosphere carries its own ocean's SST once overwritten.
+    atmos = [step["atmos"] for step in batched if "atmos" in step][-1]
+    sst = atmos.sel(variable="sst").mean(["lat", "lon"])
+    assert float(sst.sel(ensemble=3).squeeze()) > float(sst.sel(ensemble=1).squeeze())

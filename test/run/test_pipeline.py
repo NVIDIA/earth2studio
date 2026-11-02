@@ -254,8 +254,35 @@ def test_ensemble_dimension_is_added_per_member() -> None:
     np.testing.assert_array_equal(store["u10m"][1, 0, :, 0, 0], np.arange(3))
 
 
+def test_member_batches_write_the_same_values_as_single_members() -> None:
+    stores = {}
+    for batch in (1, 2):
+        backend = KVBackend()
+        Pipeline(_runner(), output={"forecast": backend}, device="cpu").run(
+            work_items([T0], H12, members=[3, 5, 8], member_batch=batch)
+        )
+        stores[batch] = backend
+    np.testing.assert_array_equal(stores[2]["ensemble"], [3, 5, 8])
+    np.testing.assert_array_equal(stores[2]["u10m"], stores[1]["u10m"])
+
+
+def test_resume_rejects_a_different_member_batch(tmp_path: Path) -> None:
+    def run(batch: int) -> None:
+        Pipeline(
+            _runner(),
+            output={"forecast": KVBackend()},
+            progress=ProgressStore(tmp_path),
+            device="cpu",
+        ).run(work_items([T0], H12, members=4, member_batch=batch))
+
+    run(2)
+    with pytest.raises(ValueError, match="member_batch"):
+        run(1)
+
+
 def test_member_batches_need_a_batching_runner() -> None:
     runner = _Recording(_runner())
+    runner.supports_member_batching = False
     pipeline = Pipeline(runner, output={"forecast": KVBackend()}, device="cpu")
     with pytest.raises(ValueError, match="does not batch"):
         pipeline.run(work_items([T0], H12, members=2, member_batch=2))
@@ -437,8 +464,9 @@ def test_manifest_records_streams_seed_and_tags(tmp_path: Path) -> None:
         device="cpu",
     ).run(work_items([T0], H12))
     manifest = json.loads((tmp_path / "manifest.json").read_text())
-    assert manifest["version"] == 1
+    assert manifest["version"] == 2
     assert manifest["seed"] == 3
+    assert manifest["member_batch"] == 1
     assert manifest["tags"] == {"model": "tiny"}
     forecast = manifest["streams"]["forecast"]
     assert forecast["labels"]["variable"] == ["u10m"]

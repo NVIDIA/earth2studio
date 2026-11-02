@@ -142,9 +142,21 @@ def _nsteps(final_lead_time: np.timedelta64, step: np.timedelta64) -> int:
     return int(final_lead_time // step)
 
 
+EnsembleMember: TypeAlias = Callable[[int], Hashable]
+
+
 def _fetch(
-    request: DataRequest, signature: CoordinateSystem, device: torch.device
+    request: DataRequest,
+    signature: CoordinateSystem,
+    device: torch.device,
+    item: WorkItem | None = None,
+    ensemble_member: EnsembleMember | None = None,
 ) -> xr.DataArray:
+    """Fetch ``request`` onto ``signature``, laid out for ``item``'s members.
+
+    A batch of members gets a leading ``ensemble`` dimension labeled by member ID
+    (see :func:`_batch_members`); one member's field has none.
+    """
     # Off-grid sources arrive as RegriddedSource, which fetch_data applies.
     x = fetch_data(
         source=request.source,
@@ -154,13 +166,32 @@ def _fetch(
         device=device,
         ensemble=request.ensemble,
     )
-    if request.ensemble is not None and len(request.ensemble) == 1:
+    if item is not None and len(item.member_ids) > 1:
+        x = _batch_members(x, request, item, ensemble_member)
+    elif request.ensemble is not None:
         # One member per item: the model sees that member's field alone.
         x = x.isel(ensemble=0, drop=True)
     return _map_field(x, signature)
 
 
-EnsembleMember: TypeAlias = Callable[[int], Hashable]
+def _batch_members(
+    x: xr.DataArray,
+    request: DataRequest,
+    item: WorkItem,
+    ensemble_member: EnsembleMember | None,
+) -> xr.DataArray:
+    """Lay a fetched field out along ``item``'s members, labeled by member ID.
+
+    Members reading the same source member share its single fetched field, and
+    a slot read without members is repeated for every member, so every input of
+    a batch has the same leading ``ensemble`` dimension.
+    """
+    members = list(item.member_ids)
+    if request.ensemble is None:
+        return x.expand_dims(ensemble=members).copy()
+    assert ensemble_member is not None  # noqa: S101 - members come from it
+    labels = [ensemble_member(m) for m in members]
+    return x.sel(ensemble=labels).assign_coords(ensemble=members)
 
 
 def _ensemble_labels(
@@ -266,6 +297,9 @@ class PrognosticRunner:
     is published only when the input ends at zero and the output declares every
     input variable on the input's grid; otherwise the streams start at the first
     forecast. Forcing declared by the model is fetched and sent at every step.
+    Items with several members run as one batch on a leading ``ensemble``
+    dimension, seeded once from the first member, so stochastic members depend on
+    their batch; ``member_batch=1`` seeds each member alone.
 
     Parameters
     ----------
@@ -291,7 +325,7 @@ class PrognosticRunner:
         reads every slot the same way for every member.
     """
 
-    supports_member_batching = False  # Member perturbation is not implemented.
+    supports_member_batching = True
 
     def __init__(
         self,
@@ -419,11 +453,13 @@ class PrognosticRunner:
         )
 
     def _fetch_forcing(
-        self, requests: tuple[tuple[DataRequest, CoordinateSystem], ...]
+        self,
+        item: WorkItem,
+        requests: tuple[tuple[DataRequest, CoordinateSystem], ...],
     ) -> tuple[xr.DataArray, ...]:
         fields = []
         for request, signature in requests:
-            x = _fetch(request, signature, self.device)
+            x = _fetch(request, signature, self.device, item, self.ensemble_member)
             if "lead_time" not in signature.dims:  # Static slot.
                 x = x.isel(lead_time=0, drop=True)
             fields.append(x)
@@ -437,26 +473,34 @@ class PrognosticRunner:
 
     def run_item(self, item: WorkItem) -> Iterator[Mapping[str, xr.DataArray]]:
         """Publish the initial condition, if any, then every forecast through the final lead time."""
-        if len(item.member_ids) > 1:
-            raise ValueError("PrognosticRunner does not batch ensemble members")
+        # A batch is seeded once, from its first member: stochastic members depend
+        # on their batch, and member_batch=1 seeds each member alone.
         member_id = item.member_ids[0] if item.member_ids else 0
         _seed_model(self.seed, item.time, member_id, self.prognostic)
         for diagnostic in self.diagnostics.values():
             _seed_model(self.seed, item.time, member_id, diagnostic)
         nsteps = self.nsteps(item.final_lead_time)
-        x = _fetch(self._initial_request(item), self.input_signature, self.device)
+        x = _fetch(
+            self._initial_request(item),
+            self.input_signature,
+            self.device,
+            item,
+            self.ensemble_member,
+        )
         if self.publishes_initial_condition:
             yield self._publish(initial_condition(x))
         if nsteps == 0:
             return
-        forcing = self._fetch_forcing(self._forcing_requests(item))
+        forcing = self._fetch_forcing(item, self._forcing_requests(item))
         iterator = self.prognostic.create_iterator(x, *forcing)
         try:
             y = cast(xr.DataArray, next(iterator))
             yield self._publish(y)
             for _ in range(nsteps - 1):
                 leads = y.coords["lead_time"].values
-                step_forcing = self._fetch_forcing(self._forcing_requests(item, leads))
+                step_forcing = self._fetch_forcing(
+                    item, self._forcing_requests(item, leads)
+                )
                 y = cast(xr.DataArray, iterator.send(step_forcing or None))
                 yield self._publish(y)
         finally:
@@ -471,6 +515,9 @@ class DiagnosticRunner:
     lead time zero through the item's final lead time. A
     :class:`~earth2studio.data.ForecastSource` supplies forecast lead times; a
     :class:`~earth2studio.data.DataSource` supplies later valid times.
+    Items with several members run as one batch on a leading ``ensemble``
+    dimension, seeded once from the first member, so stochastic members depend on
+    their batch; ``member_batch=1`` seeds each member alone.
 
     Parameters
     ----------
@@ -489,7 +536,7 @@ class DiagnosticRunner:
         for it, as in :class:`PrognosticRunner`, by default None
     """
 
-    supports_member_batching = False  # Member batching is not implemented.
+    supports_member_batching = True
 
     def __init__(
         self,
@@ -573,8 +620,8 @@ class DiagnosticRunner:
 
     def run_item(self, item: WorkItem) -> Iterator[Mapping[str, xr.DataArray]]:
         """Fetch inputs and apply every diagnostic at each step."""
-        if len(item.member_ids) > 1:
-            raise ValueError("DiagnosticRunner does not batch ensemble members")
+        # A batch is seeded once, from its first member: stochastic members depend
+        # on their batch, and member_batch=1 seeds each member alone.
         member_id = item.member_ids[0] if item.member_ids else 0
         for diagnostic in self.diagnostics.values():
             _seed_model(self.seed, item.time, member_id, diagnostic)
@@ -582,6 +629,12 @@ class DiagnosticRunner:
             outputs = {}
             for name, request in self._requests(item, lead).items():
                 diagnostic = self.diagnostics[name]
-                x = _fetch(request, self.signatures[name], self.device)
+                x = _fetch(
+                    request,
+                    self.signatures[name],
+                    self.device,
+                    item,
+                    self.ensemble_member,
+                )
                 outputs[name] = diagnostic(x)
             yield outputs

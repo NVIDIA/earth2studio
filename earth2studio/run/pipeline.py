@@ -60,7 +60,7 @@ from earth2studio.utils.type import CoordinateSystem
 
 T = TypeVar("T")
 
-MANIFEST_VERSION = 1
+MANIFEST_VERSION = 2
 """Version of the progress manifest :class:`Pipeline` writes."""
 
 
@@ -252,7 +252,7 @@ class Pipeline:
         outputs = OutputManager(self.output or {})
         self._outputs = outputs
         try:
-            self._open_progress(schemas, rank)
+            self._open_progress(schemas, items, rank)
             # Rank 0 creates every store before the others open them (X13).
             _all_agree(lambda: outputs.prepare(schemas, items), rank == 0)
             _all_agree(lambda: outputs.prepare(schemas, items), rank != 0)
@@ -438,7 +438,9 @@ class Pipeline:
 
     # -- progress ------------------------------------------------------------
 
-    def _manifest(self, schemas: Mapping[str, CoordinateSystem]) -> dict[str, Any]:
+    def _manifest(
+        self, schemas: Mapping[str, CoordinateSystem], items: Sequence[WorkItem]
+    ) -> dict[str, Any]:
         written = set(self.output or {})
         return {
             "version": MANIFEST_VERSION,
@@ -447,16 +449,22 @@ class Pipeline:
                 for stream, schema in sorted(schemas.items())
             },
             "seed": getattr(self.runner, "seed", None),
+            # Stochastic members depend on which members share their batch, so a
+            # resume must group members the same way.
+            "member_batch": max(len(item.member_ids) for item in items) or 1,
             "tags": {},
         }
 
     def _open_progress(
-        self, schemas: Mapping[str, CoordinateSystem], rank: int
+        self,
+        schemas: Mapping[str, CoordinateSystem],
+        items: Sequence[WorkItem],
+        rank: int,
     ) -> None:
         progress = self.progress
         if progress is None:
             return
-        manifest = self._manifest(schemas)
+        manifest = self._manifest(schemas, items)
         attempt = broadcast(_all_agree(lambda: progress.setup(manifest), rank == 0))
         _all_agree(lambda: progress.open(manifest, rank, attempt))
 
