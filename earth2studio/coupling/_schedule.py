@@ -71,20 +71,32 @@ class _Read:
     variable: str  # producer variable
     modifier: str | None
     frames: tuple[int, ...]  # producer lead times read; empty when fetched
+    connector: Connector | None = None  # None: a label no connector feeds
+    # Window frames at or before the item time that the producer does not hold,
+    # fetched from the slot's source to complete a reduction.
+    backfill: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True)
 class _SlotPlan:
-    """What one slot receives for one call."""
+    """What one slot receives for one call; no reads means fetched whole."""
 
     slot: _Slot
     leads: np.ndarray
-    connector: Connector | None  # None: fetched from the slot's source
     reads: tuple[_Read, ...] = ()
 
     @property
+    def connectors(self) -> tuple[Connector, ...]:
+        """Connectors feeding the slot, in declaration order."""
+        found: list[Connector] = []
+        for read in self.reads:
+            if read.connector is not None and read.connector not in found:
+                found.append(read.connector)
+        return tuple(found)
+
+    @property
     def fetched(self) -> tuple[_Read, ...]:
-        """Reads of a connected slot that fall back to the slot's source."""
+        """Reads of a connected slot taken whole from the slot's source."""
         return tuple(read for read in self.reads if not read.frames)
 
 
@@ -137,7 +149,7 @@ class _Scheduler:
     def __init__(
         self,
         nodes: Mapping[str, _Node],
-        connectors: Mapping[tuple[str, int], Connector],
+        connectors: Mapping[tuple[str, int], tuple[Connector, ...]],
         spacing: Mapping[str, int],
         states: Mapping[str, tuple[Connector, ...]] | None = None,
     ) -> None:
@@ -146,10 +158,11 @@ class _Scheduler:
         self.spacing = spacing
         self.states = dict(states or {})
         self.triggered: dict[str, list[str]] = {name: [] for name in nodes}
-        for (dst, _), connector in connectors.items():
-            if not nodes[dst].stateful and connector.time == "exact":
-                if dst not in self.triggered[connector.src]:
-                    self.triggered[connector.src].append(dst)
+        for (dst, _), feeding in connectors.items():
+            for connector in feeding:
+                if not nodes[dst].stateful and connector.time == "exact":
+                    if dst not in self.triggered[connector.src]:
+                        self.triggered[connector.src].append(dst)
 
     def ticks(self, final: int) -> list[int]:
         """Lead times at which some stateful component's chunk is due."""
@@ -283,7 +296,9 @@ class _Run:
         """Plan reads of ``labels`` at ``leads``, or ``None`` if one must wait.
 
         Frames valid at or before the item time that the producer does not hold
-        fall back to the slot's source when ``fallback`` is set.
+        fall back to the slot's source when ``fallback`` is set: a whole read at
+        or before it, or the missing early frames of a window ending after it.
+        Frames after the item time always come from the producer.
         """
         buffer = self.buffers[connector.src]
         reads = []
@@ -293,10 +308,15 @@ class _Run:
                 base, modifier = _split_label(label)
                 variable = connector.source_variable(base)
                 frames: tuple[int, ...] | None = None
+                backfill: tuple[int, ...] = ()
                 if modifier is not None:
                     window = _window(modifier, lead, self.s.spacing[connector.src])
-                    if all(buffer.has(variable, f) for f in window):
+                    missing = tuple(f for f in window if not buffer.has(variable, f))
+                    if not missing:
                         frames = window
+                    elif fallback and lead > 0 and max(missing) <= 0:
+                        frames = tuple(f for f in window if f not in missing)
+                        backfill = missing
                 elif connector.time == "exact":
                     if buffer.has(variable, lead):
                         frames = (lead,)
@@ -308,7 +328,9 @@ class _Run:
                     if not (fallback and lead <= 0):
                         return None
                     frames = ()
-                reads.append(_Read(label, lead, variable, modifier, frames))
+                reads.append(
+                    _Read(label, lead, variable, modifier, frames, connector, backfill)
+                )
         return tuple(reads)
 
     def _plans(
@@ -317,16 +339,30 @@ class _Run:
         plans = []
         for slot in slots:
             leads = node.required(slot, index)
-            connector = None
+            feeding: tuple[Connector, ...] = ()
             if not slot.frame and not slot.static:
-                connector = self.s.connectors.get((node.name, slot.index))
-            if connector is None:
-                plans.append(_SlotPlan(slot, leads, None))
+                feeding = self.s.connectors.get((node.name, slot.index), ())
+            if not feeding:
+                plans.append(_SlotPlan(slot, leads))
                 continue
-            reads = self._resolve(connector, slot.labels, leads, ordinal, node.stateful)
-            if reads is None:
-                return None
-            plans.append(_SlotPlan(slot, leads, connector, reads))
+            reads: list[_Read] = []
+            for connector in feeding:
+                labels = tuple(label for label in slot.labels if connector.feeds(label))
+                resolved = self._resolve(
+                    connector, labels, leads, ordinal, node.stateful
+                )
+                if resolved is None:
+                    return None
+                reads.extend(resolved)
+            # Labels no connector feeds come from the slot's source at every lead.
+            fed = {read.label for read in reads}
+            reads.extend(
+                _Read(label, int(lead), label, None, ())
+                for lead in leads
+                for label in slot.labels
+                if label not in fed
+            )
+            plans.append(_SlotPlan(slot, leads, tuple(reads)))
         return tuple(plans)
 
     def _state_plans(
@@ -341,15 +377,15 @@ class _Run:
             reads = self._resolve(connector, labels, leads, ordinal, True)
             if reads is None:
                 return None
-            plans.append(_SlotPlan(slot, leads, connector, reads))
+            plans.append(_SlotPlan(slot, leads, reads))
         return tuple(plans)
 
     def _fire(self, event: _Event) -> _Event:
         if self.ages is not None:
             for plan in event.plans + event.states:
                 for read in plan.reads:
-                    if read.frames and plan.connector is not None:
-                        src = plan.connector.src
+                    if read.frames and read.connector is not None:
+                        src = read.connector.src
                         age = event.tick - min(read.frames)
                         self.ages[src] = max(self.ages.get(src, 0), age)
         event.frames = self.executor.fire(event, self.buffers)
@@ -425,17 +461,19 @@ class _Run:
                 return None
             slots, index = node.inputs, self.pending[name][0]
         for slot in slots:
-            connector = self.s.connectors.get((name, slot.index))
-            if connector is None or slot.frame or slot.static:
+            if slot.frame or slot.static:
                 continue
-            for lead in node.required(slot, index):
-                single = np.array([lead], dtype=np.int64)
-                for label in slot.labels:
-                    reads = self._resolve(
-                        connector, (label,), single, 1 << 62, node.stateful
-                    )
-                    if reads is None:
-                        return connector.src, label, int(lead)
+            for connector in self.s.connectors.get((name, slot.index), ()):
+                for lead in node.required(slot, index):
+                    single = np.array([lead], dtype=np.int64)
+                    for label in slot.labels:
+                        if not connector.feeds(label):
+                            continue
+                        reads = self._resolve(
+                            connector, (label,), single, 1 << 62, node.stateful
+                        )
+                        if reads is None:
+                            return connector.src, label, int(lead)
         return None
 
     def check_complete(self, limit: int) -> None:
@@ -470,14 +508,21 @@ class _Run:
             path.append(current)
         blocked = self._blocker(name)
         detail = ""
+        hint = "Use time='hold' to take the latest earlier frame, or check"
         if blocked is not None:
             producer, label, lead = blocked
-            detail = (
-                f": {producer!r} publishes no frames for {label!r} valid at "
-                f"{_fmt(lead)}"
-            )
+            if _split_label(label)[1] is None:
+                detail = (
+                    f": {producer!r} publishes no frame for {label!r} valid at "
+                    f"{_fmt(lead)}"
+                )
+            else:
+                detail = (
+                    f": {producer!r} publishes no frames after the item time for "
+                    f"{label!r} over its window ending at {_fmt(lead)}"
+                )
+                hint = "Reductions cannot hold; check"
         raise CouplingError(
             f"Component {name!r} cannot produce its output due at {_fmt(due)}"
-            f"{detail}. Use time='hold' to take the latest earlier frame, or "
-            "check the final lead time and the producer's cadence (C11)"
+            f"{detail}. {hint} the final lead time and the producer's cadence (C11)"
         )

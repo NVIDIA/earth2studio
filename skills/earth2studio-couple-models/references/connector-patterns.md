@@ -1,8 +1,8 @@
 # Connector Patterns
 
-Recipes for common exchanges. `H = np.timedelta64(1, "h")`. Each consumer slot
-takes at most one forcing connector; every unconnected slot is fetched from its
-source.
+Recipes for common exchanges. `H = np.timedelta64(1, "h")`. A connector feeds
+the labels its `variables` names, or the whole slot without `variables`. Labels
+no connector feeds, and unconnected slots, are fetched from sources.
 
 ## Timing
 
@@ -14,7 +14,9 @@ source.
 | Earlier frames on purpose (history) | slot `lead_time` values before the step's lead | `Connector("a", "b")` |
 
 - Qualified labels reduce frames in `[T - window, T)`. The window must be a
-  multiple of the producer's frame spacing.
+  multiple of the producer's frame spacing. Frames at or before the item time
+  that the producer never publishes (e.g. it has no initial condition) come
+  from the consumer slot's source; later frames always come from the producer.
 - `hold` applies to plain labels only. For a lagged reduction, have the consumer
   declare the slot at an earlier lead time instead.
 - Two `exact` connectors in a loop are a cycle (C11). Make one of them `hold`.
@@ -39,13 +41,29 @@ connectors = [
 ## Variables
 
 ```python
-Connector("a", "b", variables={"t2m": "temperature_2m"})  # dst label -> src variable
-Connector("a", "b", variables=["sst"])                    # identity: same as {"sst": "sst"}
+Connector("a", "b")                                       # feeds every label of the slot
+Connector("a", "b", variables={"t2m": "temperature_2m"})  # feeds t2m only, renamed
+Connector("a", "b", variables=["sst"])                    # feeds sst only: {"sst": "sst"}
 ```
 
-A qualified label renames its base: `{"tp": "precip"}` makes `tp:sum:24h`
-reduce the producer's `precip`. Each base must be published by exactly one of the
+`variables` names the labels a connector feeds, by base, so a rename also limits
+the connector to the labels it lists; list every label it should feed. A
+qualified label renames its base: `{"tp": "precip"}` makes `tp:sum:24h` reduce
+the producer's `precip`. Each base must be published by exactly one of the
 producer's output slots (C4).
+
+## Several producers into one slot
+
+One forcing slot can take labels from several components and its source. Each
+connector names its labels; they must not overlap (C3).
+
+```python
+# The impact model's single forcing slot declares ["sst", "tp:sum:24h", "lai"]:
+connectors = [
+    Connector("ocean", "impact", variables=["sst"], time="hold", regridder=from_ocean),
+    Connector("atmos", "impact", variables=["tp"], regridder=from_atmos),
+]  # "lai" comes from the impact model's forcing source
+```
 
 ## Grids
 

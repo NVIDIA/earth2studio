@@ -38,7 +38,8 @@ from data sources.
    [patterns](references/connector-patterns.md):
    - `exact` for the same valid time or a reduction, `hold` for a lag or to
      break a feedback loop;
-   - `variables` for renames;
+   - `variables` for renames, or to feed part of a slot so several producers
+     (and the slot's source) can share it;
    - a regridder whenever grids differ;
    - `state=True` for fields the model carries in its own state;
    - a diagnostic component between models for any conversion: derived
@@ -81,7 +82,7 @@ make format && make lint
 | --- | --- | --- |
 | `C1` | Outputs not gridded, or output slots at different lead times | Split the model into components |
 | `C2` | Diagnostic with no `exact` connector | Feed it with at least one `exact` edge |
-| `C3` | Two connectors on one slot, or a slot that is not time-varying gridded forcing | One connector per slot; check `slot=` |
+| `C3` | Two connectors feeding the same label, or a slot that is not time-varying gridded forcing | Name each connector's labels in `variables`; check `slot=` |
 | `C4` | Label not published by the producer, or published by two output slots | Use `variables=` to rename, or pick the right producer |
 | `C5` | Grids differ without a regridder, or the regridder's grids are wrong | `BilinearRegridder(src_grid, dst_grid)`, built from `infer_grid` |
 | `C7` | `hold` on a qualified label | Use `exact`, or declare the slot at an earlier lead |

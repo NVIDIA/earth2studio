@@ -34,6 +34,7 @@ from earth2studio.coupling._schedule import (
     _Event,
     _fmt,
     _Planner,
+    _Read,
     _Scheduler,
     _SlotPlan,
     _window,
@@ -130,7 +131,7 @@ class CoupledRunner:
             raise CouplingError(f"Stream names {clashes} are used twice (C12)")
         if not any(node.stateful for node in self.nodes.values()):
             raise CouplingError("CoupledRunner needs at least one stateful component")
-        self.connectors: dict[tuple[str, int], Connector] = {}
+        self.connectors: dict[tuple[str, int], tuple[Connector, ...]] = {}
         self.states: dict[str, tuple[Connector, ...]] = {}
         for connector in connectors:
             if connector.state:
@@ -237,11 +238,6 @@ class CoupledRunner:
     def _add(self, connector: Connector) -> None:
         self._check_names(connector)
         key = (connector.dst, connector.slot)
-        if key in self.connectors:
-            raise CouplingError(
-                f"Connectors {self.connectors[key]} and {connector} feed the same "
-                "slot (C3)"
-            )
         src, dst = self.nodes[connector.src], self.nodes[connector.dst]
         slots = {slot.index: slot for slot in dst.imports}
         if connector.slot not in slots:
@@ -251,26 +247,33 @@ class CoupledRunner:
                 f"gridded {kind} slot {connector.slot} (C3)"
             )
         slot = slots[connector.slot]
-        bases = set()
+        bases = {_split_label(label)[0] for label in slot.labels}
+        for base in connector.variables or {}:
+            if base not in bases:
+                raise CouplingError(
+                    f"Connector {connector} names {base!r}, which slot "
+                    f"{connector.slot} does not declare (C4)" + _suggest(base, bases)
+                )
+        fed = [label for label in slot.labels if connector.feeds(label)]
+        for other in self.connectors.get(key, ()):
+            shared = [label for label in fed if other.feeds(label)]
+            if shared:
+                raise CouplingError(
+                    f"Connectors {other} and {connector} both feed {shared}; name "
+                    "each connector's labels in variables (C3)"
+                )
         used: set[int] = set()
-        for label in slot.labels:
+        for label in fed:
             base, modifier = _split_label(label)
-            bases.add(base)
             used.add(self._producer(connector, label, connector.source_variable(base)))
             if modifier is not None and connector.time == "hold":
                 raise CouplingError(
                     f"Connector {connector}: time='hold' applies to plain labels, "
                     f"not the reduction {label!r} (C7)"
                 )
-        for base in connector.variables or {}:
-            if base not in bases:
-                raise CouplingError(
-                    f"Connector {connector} renames {base!r}, which slot "
-                    f"{connector.slot} does not declare (C4)" + _suggest(base, bases)
-                )
         for i in sorted(used):
             _check_geometry(connector, src.outputs[i], slot.signature)
-        self.connectors[key] = connector
+        self.connectors[key] = self.connectors.get(key, ()) + (connector,)
 
     def _spacing(self) -> dict[str, int]:
         """Lead-time spacing of each component's published frames."""
@@ -282,7 +285,8 @@ class CoupledRunner:
                 continue
             exact = [
                 c
-                for (dst, _), c in self.connectors.items()
+                for (dst, _), feeding in self.connectors.items()
+                for c in feeding
                 if dst == name and c.time == "exact"
             ]
             if not exact:
@@ -298,7 +302,8 @@ class CoupledRunner:
                     continue
                 sources = [
                     c.src
-                    for (dst, _), c in self.connectors.items()
+                    for (dst, _), feeding in self.connectors.items()
+                    for c in feeding
                     if dst == name and c.time == "exact"
                 ]
                 if all(src in spacing for src in sources):
@@ -306,7 +311,9 @@ class CoupledRunner:
         return spacing
 
     def _check_windows(self) -> None:
-        for connector in self.connectors.values():
+        for connector in self._all_connectors():
+            if connector.state:
+                continue
             slot = next(
                 s
                 for s in self.nodes[connector.dst].imports
@@ -314,6 +321,8 @@ class CoupledRunner:
             )
             for label in slot.labels:
                 _, modifier = _split_label(label)
+                if not connector.feeds(label):
+                    continue
                 if modifier is None or connector.src not in self.spacing:
                     continue
                 try:
@@ -372,7 +381,8 @@ class CoupledRunner:
 
     def _all_connectors(self) -> list[Connector]:
         states = [c for connectors in self.states.values() for c in connectors]
-        return list(self.connectors.values()) + states
+        feeding = [c for connectors in self.connectors.values() for c in connectors]
+        return feeding + states
 
     def output_coords(
         self, final_lead_time: np.timedelta64
@@ -443,7 +453,8 @@ class CoupledRunner:
                 target = f"state {slot}"
             else:
                 slot = next(s for s in dst.imports if s.index == connector.slot)
-                labels, target = list(slot.labels), str(slot)
+                labels = [label for label in slot.labels if connector.feeds(label)]
+                target = str(slot)
             extra = ", regridded" if connector.regridder is not None else ""
             lines.append(
                 f"  {connector.src} -> {connector.dst} {target} ({connector.time}"
@@ -501,13 +512,17 @@ class _Requests:
 
     def fire(self, event: _Event, buffers: Mapping[str, _Buffer]) -> None:
         for plan in event.plans:
-            if plan.connector is None:
+            if not plan.reads:
                 self._add(event.node, plan.slot, plan.slot.labels, plan.leads)
                 continue
             for lead in plan.leads:
                 labels = [r.label for r in plan.fetched if r.lead == int(lead)]
                 if labels:
                     self._add(event.node, plan.slot, labels, [lead])
+            for read in plan.reads:
+                if read.backfill:
+                    base = _split_label(read.label)[0]
+                    self._add(event.node, plan.slot, [base], read.backfill)
 
 
 class _Execution:
@@ -574,57 +589,103 @@ class _Execution:
         return tuple(_with_lead_time(x, lead) for x in outputs)
 
     def _held(
-        self, node: _Node, plan: _SlotPlan, buffers: Mapping[str, _Buffer], lead: int
+        self,
+        node: _Node,
+        plan: _SlotPlan,
+        connector: Connector,
+        buffers: Mapping[str, _Buffer],
+        lead: int,
     ) -> xr.DataArray | None:
-        """Connected labels the producer supplies at ``lead``, ready for the slot.
+        """Labels ``connector`` supplies at ``lead``, ready for the slot.
 
         Frames are selected or reduced, staged onto the receiving component's
-        device and regridded; ``None`` when none are held.
+        device and regridded; ``None`` when none are held. A window with
+        backfilled early frames is regridded before it is reduced, so the
+        producer's frames and the source's share the slot grid.
         """
-        connector = plan.connector
-        assert connector is not None  # noqa: S101 - connected plans only
         buffer = buffers[connector.src]
+        device = self.runner.device_of(node.name)
+        regridder = self.runner.regridders.get(connector)
         spacing = np.timedelta64(self.runner.spacing[connector.src], "ns")
         label = np.timedelta64(lead, "ns")
-        held = []
+
+        def onto_slot(x: xr.DataArray) -> xr.DataArray:
+            x = _stage(x, device)
+            return x if regridder is None else regridder(x)
+
+        def reduce(stack: xr.DataArray, modifier: str) -> xr.DataArray:
+            axis = stack.get_axis_num("lead_time")
+            return apply_time_statistic(
+                stack, modifier, label, spacing, "lead_time"
+            ).expand_dims(lead_time=[label], axis=axis)
+
+        held: list[xr.DataArray] = []
+        backfilled: list[tuple[_Read, str]] = []
         for read in plan.reads:
-            if read.lead != lead or not read.frames:
+            if read.connector is not connector or read.lead != lead or not read.frames:
                 continue
             if read.modifier is None:
                 x = buffer.get(read.variable, read.frames[0])
-            else:
+            elif not read.backfill:
                 stack = xr.concat(
                     [buffer.get(read.variable, f) for f in read.frames],
                     dim="lead_time",
                     combine_attrs="override",
                 )
-                axis = stack.get_axis_num("lead_time")
-                x = apply_time_statistic(
-                    stack, read.modifier, label, spacing, "lead_time"
-                ).expand_dims(lead_time=[label], axis=axis)
+                x = reduce(stack, read.modifier)
+            else:
+                backfilled.append((read, read.modifier))
+                continue
             held.append(x.assign_coords(variable=[read.label], lead_time=[label]))
-        if not held:
+        pieces = []
+        if held:
+            pieces.append(
+                onto_slot(xr.concat(held, "variable", combine_attrs="override"))
+            )
+        for read, modifier in backfilled:
+            produced = xr.concat(
+                [buffer.get(read.variable, f) for f in read.frames],
+                dim="lead_time",
+                combine_attrs="override",
+            )
+            produced = onto_slot(produced.assign_coords(variable=[read.label]))
+            base = _split_label(read.label)[0]
+            early = self._fetch(node, plan.slot, [base], read.backfill)
+            early = early.assign_coords(variable=[read.label])
+            if set(early.dims) == set(produced.dims):
+                early = early.transpose(*produced.dims)
+            stack = xr.concat(
+                [early, produced],
+                dim="lead_time",
+                join="override",
+                combine_attrs="override",
+            )
+            x = reduce(stack, modifier)
+            pieces.append(x.assign_coords(lead_time=[label]))
+        if not pieces:
             return None
-        x = xr.concat(held, dim="variable", combine_attrs="override")
-        x = _stage(x, self.runner.device_of(node.name))
-        regridder = self.runner.regridders.get(connector)
-        if regridder is not None:
-            x = regridder(x)
-        return x
+        if len(pieces) == 1:
+            return pieces[0]
+        return xr.concat(
+            pieces, dim="variable", join="override", combine_attrs="override"
+        )
 
     def _value(
         self, node: _Node, plan: _SlotPlan, buffers: Mapping[str, _Buffer]
     ) -> Any:
-        if plan.connector is None:
+        if not plan.reads:
             return self._fetch(node, plan.slot, plan.slot.labels, plan.leads)
         parts = []
         for lead in plan.leads:
             lead = int(lead)
             reads = [r for r in plan.reads if r.lead == lead]
-            pieces = []
-            held = self._held(node, plan, buffers, lead)
-            if held is not None:
-                pieces.append(held)
+            pieces: list[Any] = []
+            for connector in plan.connectors:
+                held = self._held(node, plan, connector, buffers, lead)
+                if held is not None:
+                    if pieces and set(held.dims) == set(pieces[0].dims):
+                        held = held.transpose(*pieces[0].dims)
+                    pieces.append(held)
             fetched = [r.label for r in reads if not r.frames]
             if fetched:
                 x = self._fetch(node, plan.slot, fetched, [lead])
@@ -694,7 +755,10 @@ class _Execution:
         producer supplies nothing at ``lead``. Raises if the delivered fields
         cannot fit the slot.
         """
-        piece = self._held(event.node, plan, buffers, lead)
+        (connector,) = plan.connectors or (None,)
+        piece = None
+        if connector is not None:
+            piece = self._held(event.node, plan, connector, buffers, lead)
         if piece is None:
             return None
         where = f"{event.node.name!r} {plan.slot}"
@@ -704,7 +768,7 @@ class _Execution:
             piece = _map_field(piece, signature)
         except ValueError as error:
             raise CouplingError(
-                f"Connector {plan.connector}: delivered state does not match "
+                f"Connector {connector}: delivered state does not match "
                 f"{where}: {error}"
             ) from error
         j = list(_ns(x.coords["lead_time"].values)).index(lead)
@@ -714,14 +778,14 @@ class _Execution:
         extra = [d for d in piece.dims if d not in target.dims]
         if extra:
             raise CouplingError(
-                f"Connector {plan.connector}: delivered state has dimensions "
+                f"Connector {connector}: delivered state has dimensions "
                 f"{extra} that {where} lacks"
             )
         missing = {d: target.sizes[d] for d in target.dims if d not in piece.dims}
         piece = piece.expand_dims(missing).transpose(*target.dims)
         if piece.shape != target.shape:
             raise CouplingError(
-                f"Connector {plan.connector}: delivered state of shape "
+                f"Connector {connector}: delivered state of shape "
                 f"{piece.shape} does not fit {where} of shape {target.shape}"
             )
         position: list[Any] = [slice(None)] * x.ndim
@@ -831,23 +895,28 @@ def _stage_like(x: xr.DataArray, like: xr.DataArray) -> xr.DataArray:
 
 
 def _describe_plan(plan: _SlotPlan, state: bool = False) -> str:
-    if plan.connector is None:
+    if not plan.reads:
         return f"{plan.slot} <- source"
     leads = ", ".join(_fmt(v) for v in plan.leads)
-    frames = sorted({f for read in plan.reads for f in read.frames})
-    used = ""
-    if frames and frames != sorted(int(v) for v in plan.leads):
-        span = (
-            _fmt(frames[0])
-            if len(frames) == 1
-            else f"{_fmt(frames[0])}..{_fmt(frames[-1])}"
-        )
-        used = f" from {span}"
+    feeds = []
+    for connector in plan.connectors:
+        reads = [read for read in plan.reads if read.connector is connector]
+        frames = sorted({f for read in reads for f in read.backfill + read.frames})
+        used = ""
+        if frames and frames != sorted(int(v) for v in plan.leads):
+            span = (
+                _fmt(frames[0])
+                if len(frames) == 1
+                else f"{_fmt(frames[0])}..{_fmt(frames[-1])}"
+            )
+            used = f" from {span}"
+        feeds.append(f"{connector.src} at {leads}{used}")
+    sourced = plan.fetched or any(read.backfill for read in plan.reads)
     if state:
-        extra = " + kept" if plan.fetched else ""
-        return f"state {plan.slot} <- {plan.connector.src} at {leads}{used}{extra}"
-    extra = " + source" if plan.fetched else ""
-    return f"{plan.slot} <- {plan.connector.src} at {leads}{used}{extra}"
+        return f"state {plan.slot} <- {', '.join(feeds)}" + (
+            " + kept" if sourced else ""
+        )
+    return f"{plan.slot} <- {', '.join(feeds)}" + (" + source" if sourced else "")
 
 
 __all__ = ["CoupledRunner"]

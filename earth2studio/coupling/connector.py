@@ -36,16 +36,19 @@ class Connector:
     slot signature. Conversions between the two, such as derived variables,
     units or vertical levels, are a diagnostic component placed between them.
 
-    Each slot label names a variable ``src`` exports. A qualified label such as
-    ``"tp:sum:24h"`` is reduced from ``src``'s ``tp`` frames over the half-open
-    window ``[T - 24h, T)`` ending at the required valid time ``T``.
+    Each slot label it feeds names a variable ``src`` exports. A qualified label
+    such as ``"tp:sum:24h"`` is reduced from ``src``'s ``tp`` frames over the
+    half-open window ``[T - 24h, T)`` ending at the required valid time ``T``.
+    Several connectors may feed one slot, each naming its labels in
+    ``variables``, so a slot can take ``sst`` from an ocean and ``tp`` from an
+    atmosphere; labels no connector feeds come from the slot's source.
 
     With ``state=True`` the connector instead overwrites variables of a stateful
     ``dst``'s own state: before each call, the variables ``variables`` names are
     replaced in the state slot ``slot``, an input slot whose output slot in the
-    same position declares its variables on its grid. ``initialize`` receives them in its
-    inputs and each ``step`` in the output it advances, at those lead times;
-    values ``src`` cannot supply at or before the item time are kept.
+    same position declares its variables on its grid. ``initialize`` receives
+    them in its inputs and each ``step`` in the output it advances, at those lead
+    times; values ``src`` cannot supply at or before the item time are kept.
 
     Parameters
     ----------
@@ -60,10 +63,10 @@ class Connector:
         ``state=True``. Models with a single forcing slot use 0; a model whose
         ``forcing_coords()`` returns ``(gridded, observations)`` is fed at 0.
     variables : Mapping[str, str] | Sequence[str] | None, optional
-        Renames from a ``dst`` base label to the ``src`` variable providing it,
-        such as ``{"tp": "tp06"}``; a sequence keeps each name. Required with
-        ``state=True``, where it names the variables overwritten. By default
-        None.
+        The ``dst`` base labels this connector feeds, mapped to the ``src``
+        variable providing each, such as ``{"tp": "tp06"}``; a sequence keeps
+        each name. By default None, which feeds every label of the slot. Required
+        with ``state=True``, where it names the variables overwritten.
     regridder : Regridder | None, optional
         Maps ``src``'s grid onto the slot's grid, by default None, which
         requires both grids to have the same geometry.
@@ -120,6 +123,10 @@ class Connector:
                 f"Connector {self.src!r} -> {self.dst!r} with state=True must name "
                 "the state variables it overwrites in variables"
             )
+
+    def feeds(self, label: str) -> bool:
+        """Whether this connector feeds slot label ``label``, by its base."""
+        return self.variables is None or _split_label(label)[0] in self.variables
 
     def source_variable(self, base: str) -> str:
         """Return the ``src`` variable providing ``dst`` base label ``base``."""

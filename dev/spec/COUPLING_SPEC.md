@@ -13,9 +13,10 @@ Status: `earth2studio.coupling` exports `Connector`, `CoupledRunner` and
 `CouplingError`. Tests are in `test/coupling/`; the tutorials are
 `dev/examples/10_coupling.py` and `dev/examples/11_stormscope_coupling.py`.
 
-Lineage: this replaces the `nvcoupler` prototype of PR #1229 and keeps its
-intent (connectors between components, a derived schedule, eager validation and
-a readable plan) while building on the model, regrid, time-statistics and
+Lineage: this replaces the `nvcoupler` prototype of PR #1229, which grew out of
+PR #1114 (the hand-computable toy models, lagged versus sequential coupling and
+the DLESyM split originate there), and keeps their intent (connectors between
+components, a derived schedule, eager validation and a readable plan) while building on the model, regrid, time-statistics and
 execution contracts. The impact-modeling requirements it serves are in the
 `earth2-impact-modeling` docs (CR1–CR7).
 
@@ -39,7 +40,7 @@ class Connector:
     src: str
     dst: str
     slot: int = 0
-    variables: Mapping[str, str] | Sequence[str] | None = None  # dst label -> src variable
+    variables: Mapping[str, str] | Sequence[str] | None = None  # fed base -> src variable; None feeds all
     regridder: Regridder | None = None
     time: Literal["exact", "hold"] = "exact"
     state: bool = False
@@ -82,8 +83,10 @@ plus `k` cadences and is due at its last lead time; chunk 0 comes from
 therefore initializes once that day exists, with no special case.
 
 Imports are a stateful component's time-varying gridded forcing slots, or a
-diagnostic's input slots. A connector feeds an import; every other slot is
-fetched from its source. Input slots, static forcing and DataFrame slots are
+diagnostic's input slots. Connectors feed an import: each feeds the labels its
+`variables` names, or every label without `variables`, so several connectors can
+feed one slot from different producers. Labels no connector feeds, and every
+other slot, are fetched from sources. Input slots, static forcing and DataFrame slots are
 always fetched. A diagnostic input slot without `lead_time`, as most
 diagnostics declare, takes the call's valid time as a leading dimension, as
 under `DiagnosticRunner`.
@@ -114,8 +117,12 @@ and slot label:
    tick. Qualified label: the producer's frames in `[T - w, T)` at its frame
    spacing, reduced with `apply_time_statistic`.
 3. If the producer cannot supply it and `T` is at or before the item time, a
-   stateful consumer fetches it from the slot's source. Otherwise the consumer
-   waits.
+   stateful consumer fetches it from the slot's source. A window ending after
+   the item time whose only missing frames are at or before it, as when the
+   producer publishes no initial condition, takes those frames of the base
+   variable from the slot's source and reduces them with the producer's.
+   Otherwise the consumer waits: frames after the item time always come from
+   the producer.
 4. Stage producer frames onto the consumer's device, regrid them with the
    connector's regridder, then map onto the slot signature with the slot's
    temporal-statistics metadata.
@@ -185,13 +192,13 @@ when to run, so the runner rejects its DataFrame slots. It fits elsewhere:
 | --- | --- |
 | `C1` | Components are prognostic, stateful assimilation or diagnostic models with gridded output slots; a stateful component's slots carry the same `lead_time` |
 | `C2` | Stateful components step at their declared cadence; diagnostics run when their inputs arrive and need at least one `exact` connector |
-| `C3` | One connector per `(dst, slot)`, targeting a time-varying gridded forcing slot or a diagnostic input slot; state connectors target state slots and may share one if their variables differ |
-| `C4` | Every slot label's base, after `variables`, is published by exactly one producer output slot; renames name declared bases |
+| `C3` | Connectors target a time-varying gridded forcing slot or a diagnostic input slot; several may feed one slot if their labels differ; state connectors target state slots and may share one if their variables differ |
+| `C4` | Every label a connector feeds has a base that, after `variables`, exactly one producer output slot publishes; `variables` names declared bases |
 | `C5` | Without a regridder each producer slot read and the consumer slot have the same geometry; with one, its source grid matches each slot read and its target grid the consumer slot |
 | `C6` | Required valid times follow the model contract; DataFrame slots are requested at the chunk's end, static slots only initially |
 | `C7` | `exact` waits for frames at each required time; `hold` takes the latest earlier-published frame and applies to plain labels only |
 | `C8` | Qualified labels reduce producer frames over `[T - w, T)`; the window must divide by the producer's frame spacing |
-| `C9` | Frames at or before the item time that the producer does not hold come from the slot's source, for stateful consumers only; state connectors keep the model's own values instead |
+| `C9` | Frames at or before the item time that the producer does not hold come from the slot's source, for stateful consumers only, including the early frames of a window ending later; state connectors keep the model's own values instead |
 | `C10` | An empty DataFrame from a source is passed as `None` |
 | `C11` | A stateful chunk due by the final lead time that cannot run raises, naming the cycle or the missing frame; construction checks this first |
 | `C12` | One uniquely named stream per output slot; `describe`, `output_coords` and `data_requests` come from the scheduler that runs the item; `data_requests` lists `fetch_data` calls only, not DataFrame fetches |
@@ -208,6 +215,10 @@ when to run, so the runner rejects its DataFrame slots. It fits elsewhere:
 - DataFrame payloads through connectors, and DataFrame-valued streams.
 - Output slots that advance at different lead times; split them, as for DLESyM.
 - Member batching, mid-item checkpoints and iterator hooks on coupled models.
+- Fields with a `level` dimension. Levels are encoded in variable names; a
+  diagnostic component can map other layouts onto them.
+- Training rollouts: nothing differentiates through the exchange, which stages
+  and regrids frames outside autograd.
 
 ## Open decisions
 

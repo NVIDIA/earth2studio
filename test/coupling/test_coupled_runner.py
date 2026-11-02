@@ -607,6 +607,101 @@ def test_diagnostics_may_have_several_output_slots(
     assert series(streams["both.1"]) == pytest.approx({0: 0.0, 6: 3.6})
 
 
+# -- windows that start at the item time -----------------------------------------
+
+
+class _Decoded(_Toy):
+    """6 h atmosphere whose input carries ``aux``, which its output drops.
+
+    Its outputs differ from its inputs, so it publishes no +0h frame.
+    """
+
+    def input_coords(self) -> CoordinateSystem:
+        return signature(["z1000", "aux"], self.grid)
+
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        leads = input_coords["lead_time"].values[-1:] + self.hours * H
+        return coord_array_like(
+            input_coords, {"lead_time": leads, "variable": ["z1000"]}
+        )
+
+    def _advance(self, x: xr.DataArray, forcing: xr.DataArray) -> xr.DataArray:
+        self.seen.append(list(forcing["lead_time"].values))
+        y = x.isel(lead_time=[-1]).sel(variable=["z1000"]) + 1.0
+        return y.assign_coords(lead_time=y["lead_time"] + self.hours * H)
+
+
+def _decoded_ocean() -> tuple[CoupledRunner, Fill]:
+    forcing = Fill(OCEAN_GRID, {"z1000": 10.0})
+    runner = CoupledRunner(
+        {"atmos": _Decoded("z1000", "sst", ATMOS_GRID, 6, 1.0, 0.0), "ocean": ocean()},
+        [Connector("atmos", "ocean", regridder=TO_OCEAN)],
+        sources={
+            "atmos": (
+                Fill(ATMOS_GRID, {"z1000": 0.0, "aux": 0.0}),
+                Fill(ATMOS_GRID, {"sst": 2.0}),
+            ),
+            "ocean": (Fill(OCEAN_GRID, {"sst": 2.0}), forcing),
+        },
+    )
+    return runner, forcing
+
+
+def test_window_frames_before_the_first_output_come_from_the_source() -> None:
+    runner, forcing = _decoded_ocean()
+    plan = runner.describe(np.timedelta64(48, "h"))
+    assert "atmos at +48h from +0h..+42h + source" in plan
+    sst = series(run(runner, 48)["ocean"])
+    # The +0h frame of the 48 h mean comes from the ocean's forcing source (10);
+    # the atmosphere supplies +6h..+42h = 1..7: mean (10 + 28) / 8 = 4.75.
+    np.testing.assert_allclose(sst[48], 2.0 + 0.01 * 4.75, atol=1e-6)
+    assert [(list(v), t) for t, v in forcing.calls] == [(["z1000"], [T0])]
+    requests = runner.data_requests(WorkItem(T0, np.timedelta64(48, "h")))
+    backfill = [r for r in requests if r.source is forcing]
+    assert [list(r.variable) for r in backfill] == [["z1000"]]
+    assert list(backfill[0].lead_time) == [np.timedelta64(0, "ns")]
+
+
+# -- several producers per slot ---------------------------------------------------
+
+
+class _Mixed(_Toy):
+    """6 h consumer: ``v <- v + z1000 + tp + c``, one forcing slot, three labels."""
+
+    def forcing_coords(self) -> CoordinateSystem:
+        return signature(["z1000", "tp", "c"], self.grid)
+
+    def _advance(self, x: xr.DataArray, forcing: xr.DataArray) -> xr.DataArray:
+        self.seen.append(list(forcing["variable"].values))
+        total = sum(float(forcing.sel(variable=v).mean()) for v in ("z1000", "tp", "c"))
+        y = x.isel(lead_time=[-1]) + total
+        return y.assign_coords(lead_time=y["lead_time"] + self.hours * H)
+
+
+def test_a_slot_takes_labels_from_several_producers_and_its_source() -> None:
+    mixed = _Mixed("v", "unused", ATMOS_GRID, 6, 0.0, 0.0)
+    runner = CoupledRunner(
+        {"atmos": atmosphere(), "rain": Rain(), "mix": mixed},
+        [
+            Connector("atmos", "mix", variables=["z1000"]),
+            Connector("rain", "mix", variables=["tp"]),
+        ],
+        sources={
+            "atmos": (Fill(ATMOS_GRID, {"z1000": 0.0}), Fill(ATMOS_GRID, {"sst": 2.0})),
+            "rain": Fill(ATMOS_GRID, {"tp": 0.0}),
+            "mix": (Fill(ATMOS_GRID, {"v": 0.0}), Fill(ATMOS_GRID, {"c": 0.5})),
+        },
+    )
+    plan = runner.describe(np.timedelta64(6, "h"))
+    assert "forcing[0] <- atmos at +0h, rain at +0h + source" in plan
+    assert "atmos -> mix forcing[0] (exact): z1000" in plan
+    v = series(run(runner, 12)["mix"])
+    # Each call reads the producers at its state's valid time: z1000 and tp are
+    # 0 initially, then 1.2 (1 + 0.1 * sst) and 2 at +6h; c is 0.5 throughout.
+    assert v == pytest.approx({0: 0.0, 6: 0.5, 12: 0.5 + 1.2 + 2.0 + 0.5})
+    assert mixed.seen[0] == ["z1000", "tp", "c"]
+
+
 # -- invalid couplings ------------------------------------------------------------
 
 
@@ -670,7 +765,7 @@ INVALID = [
             Connector("atmos", "ocean", regridder=TO_OCEAN),
             Connector("atmos", "ocean", regridder=TO_OCEAN),
         ),
-        "feed the same slot",
+        r"both feed \['z1000:mean:48h'\]",
     ),
     (
         lambda: _atmos_ocean(Connector("atmos", "ocean")),
@@ -704,7 +799,7 @@ INVALID = [
         lambda: _atmos_ocean(
             Connector("atmos", "ocean", variables={"t2m": "z1000"}, regridder=TO_OCEAN)
         ),
-        "renames 't2m'",
+        "names 't2m'",
     ),
     (
         lambda: CoupledRunner(
@@ -750,7 +845,7 @@ INVALID = [
                 "ocean": (Fill(OCEAN_GRID, {"sst": 2.0}), Fill(OCEAN_GRID, {"x": 0.0})),
             },
         ),
-        r"'ocean' publishes no frames for 'sst'",
+        r"'ocean' publishes no frame for 'sst'",
     ),
 ]
 
