@@ -149,24 +149,52 @@ def _is_forecast_source(source: DataSource | ForecastSource) -> bool:
     return "lead_time" in signature(source.__call__).parameters
 
 
+def _is_ensemble_source(source: DataSource | ForecastSource) -> bool:
+    """Return whether a source selects ensemble members through an ``ensemble`` keyword.
+
+    Wrappers that forward requests, such as :class:`RegriddedSource`, declare this
+    through an ``is_ensemble`` property; other sources by their call signature.
+
+    Parameters
+    ----------
+    source : DataSource | ForecastSource
+        Source to inspect.
+
+    Returns
+    -------
+    bool
+        True for an ensemble-aware source.
+    """
+    declared = getattr(source, "is_ensemble", None)
+    if isinstance(declared, bool):
+        return declared
+    return "ensemble" in signature(source.__call__).parameters
+
+
+def _members(ensemble: np.ndarray | None) -> dict[str, Any]:
+    """Keyword arguments selecting ``ensemble``, or none when it is not given."""
+    return {} if ensemble is None else {"ensemble": ensemble}
+
+
 def _fetch_instantaneous(
     source: DataSource | ForecastSource,
     time: TimeArray,
     lead_time: LeadTimeArray,
     variable: Sequence[str],
+    ensemble: np.ndarray | None = None,
 ) -> xr.DataArray:
     variables = cast(VariableArray, np.asarray(variable))
     if _is_forecast_source(source):
-        return cast(ForecastSource, source)(time, lead_time, variables).sel(
-            time=time, lead_time=lead_time, variable=variables
-        )
+        return cast(ForecastSource, source)(
+            time, lead_time, variables, **_members(ensemble)
+        ).sel(time=time, lead_time=lead_time, variable=variables)
 
     arrays = []
     for lead in lead_time:
         valid_time = _offset_times(time, lead)
-        array = cast(DataSource, source)(valid_time, variables).sel(
-            time=valid_time, variable=variables
-        )
+        array = cast(DataSource, source)(
+            valid_time, variables, **_members(ensemble)
+        ).sel(time=valid_time, variable=variables)
         array = array.expand_dims(
             lead_time=np.array([lead], dtype="timedelta64[ns]"), axis=1
         )
@@ -181,6 +209,7 @@ def _fetch_statistic(
     variable: Sequence[str],
     modifier: str,
     delta_t: np.timedelta64,
+    ensemble: np.ndarray | None = None,
 ) -> xr.DataArray:
     variables = cast(VariableArray, np.asarray(variable))
     forecast = _is_forecast_source(source)
@@ -188,12 +217,15 @@ def _fetch_statistic(
     if forecast:
         required = source_lead_times(modifier, lead_time, delta_t)
         source_array = cast(ForecastSource, source)(
-            time, cast(LeadTimeArray, np.unique(required)), variables
+            time,
+            cast(LeadTimeArray, np.unique(required)),
+            variables,
+            **_members(ensemble),
         ).sel(time=time, variable=variables)
     else:
         required = source_times(modifier, time[:, None] + lead_time[None, :], delta_t)
         source_array = cast(DataSource, source)(
-            cast(TimeArray, np.unique(required)), variables
+            cast(TimeArray, np.unique(required)), variables, **_members(ensemble)
         ).sel(variable=variables)
     _require_instantaneous(source_array, variables)
     by_time = []
@@ -228,6 +260,7 @@ def _fetch_dataarray(
     variable: VariableArray,
     lead_time: LeadTimeArray,
     delta_t: np.timedelta64 | None,
+    ensemble: np.ndarray | None = None,
 ) -> xr.DataArray:
     # Group source variables by reduction, retaining their requested output labels.
     groups: dict[str | None, dict[str, str]] = {}
@@ -259,7 +292,9 @@ def _fetch_dataarray(
     for modifier, group in groups.items():
         source_variables, labels = list(group), list(group.values())
         if modifier is None:
-            array = _fetch_instantaneous(source, time, lead_time, source_variables)
+            array = _fetch_instantaneous(
+                source, time, lead_time, source_variables, ensemble
+            )
             output_statistics.update(
                 {
                     group[name]: details
@@ -275,6 +310,7 @@ def _fetch_dataarray(
                 source_variables,
                 modifier,
                 cast(np.timedelta64, delta_t),
+                ensemble,
             )
             output_statistics.update(
                 {label: time_statistic_metadata(modifier) for label in labels}
@@ -284,7 +320,16 @@ def _fetch_dataarray(
         arrays[0] if len(arrays) == 1 else xr.concat(arrays, "variable", join="exact")
     )
     array = array.sel(variable=variable)
-    array = array.transpose("time", "lead_time", "variable", ...)
+    if ensemble is not None:
+        if "ensemble" not in array.dims:
+            raise ValueError(
+                f"{type(source).__name__} returned no ensemble dimension for "
+                f"members {list(ensemble)}"
+            )
+        array = array.sel(ensemble=ensemble)
+        array = array.transpose("ensemble", "time", "lead_time", "variable", ...)
+    else:
+        array = array.transpose("time", "lead_time", "variable", ...)
     array.attrs = dict(array.attrs)
     array.attrs.pop(E2S_STATISTICS, None)
     if output_statistics:
@@ -351,6 +396,7 @@ def fetch_data(
     target_grid: GridDefinition | None = None,
     regridder: Regridder | None = None,
     delta_t: np.timedelta64 | None = None,
+    ensemble: np.ndarray | Sequence[Any] | None = None,
 ) -> xr.DataArray:
     """Fetch field DataArrays with temporal statistics, optionally regridded.
 
@@ -380,13 +426,18 @@ def fetch_data(
     delta_t : np.timedelta64, optional
         Source cadence for temporal statistics; defaults to ``source.time_step``.
         Windows include their left endpoint and exclude their right endpoint.
+    ensemble : np.ndarray | Sequence, optional
+        Distinct ensemble member labels to fetch, in the source's own labeling,
+        by default None, which leaves member selection to the source. Only
+        ensemble-aware sources, those taking an ``ensemble`` keyword, accept it.
 
     Returns
     -------
     xr.DataArray
         Field values with dimensions [time, lead_time, variable, ...], auxiliary
         coordinates, actual grid metadata and normalized temporal statistics. The
-        field is on the source grid unless regridded.
+        field is on the source grid unless regridded. With ``ensemble``, a leading
+        ``ensemble`` dimension holds the requested members in order.
 
     Note
     ----
@@ -414,8 +465,19 @@ def fetch_data(
             )
     if variable.ndim != 1 or not variable.size:
         raise ValueError("variable must be a nonempty 1D array")
+    members = None if ensemble is None else np.asarray(ensemble)
+    if members is not None:
+        if members.ndim != 1 or not members.size:
+            raise ValueError("ensemble must be a nonempty 1D array")
+        if len(np.unique(members)) != members.size:
+            raise ValueError("ensemble must not repeat members")
+        if not _is_ensemble_source(source):
+            raise ValueError(
+                f"{type(source).__name__} does not select ensemble members; "
+                "only sources taking an ensemble keyword accept ensemble"
+            )
     lead_time = lead_time.astype("timedelta64[ns]")
-    da = _fetch_dataarray(source, time, variable, lead_time, delta_t)
+    da = _fetch_dataarray(source, time, variable, lead_time, delta_t, members)
     for key in (E2S_KIND, E2S_SCHEMA_VERSION, E2S_DYNAMIC_DIMS):
         da.attrs.pop(key, None)
     if device.type == "cuda":
@@ -526,6 +588,11 @@ class RegriddedSource:
     def is_forecast(self) -> bool:
         """Whether the wrapped source is a forecast source."""
         return _is_forecast_source(self.source)
+
+    @property
+    def is_ensemble(self) -> bool:
+        """Whether the wrapped source selects ensemble members."""
+        return _is_ensemble_source(self.source)
 
     @property
     def device(self) -> torch.device:

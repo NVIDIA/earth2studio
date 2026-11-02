@@ -22,6 +22,7 @@ from unittest.mock import AsyncMock, patch
 
 import numpy as np
 import pytest
+import xarray as xr
 
 from earth2studio.data import GEFS_FX, GEFS_FX_721x1440
 
@@ -473,3 +474,39 @@ def test_gefs_fetch_remote_file_key_and_cache(tmp_path, monkeypatch):
     # compatibility with the pre-obstore implementation
     expected = hashlib.sha256((path + "123").encode()).hexdigest()
     assert captured["cache_key"] == expected
+
+
+def test_gefs_member_names_its_files():
+    ds = GEFS_FX(member="gep02", cache=False, verbose=False)
+    time, lead = datetime(2024, 1, 1, 6), timedelta(hours=12)
+    assert "/gep02.t06z.pgrb2a.0p50.f012" in ds._grib_uri(time, lead)
+    assert "/gep05.t06z.pgrb2a.0p50.f012.idx" in ds._grib_index_uri(
+        time, lead, member="gep05"
+    )
+
+
+@pytest.mark.parametrize("source_class", [GEFS_FX, GEFS_FX_721x1440])
+def test_gefs_fetches_requested_members(source_class):
+    ds = source_class(cache=False, verbose=False)
+    ds.store = object()
+    seen = []
+
+    async def fetch_member(time, lead_time, variable, member):
+        seen.append(member)
+        value = float(member[-2:])
+        return xr.DataArray(
+            np.full((1, 1, 1), value),
+            dims=("time", "lead_time", "variable"),
+            coords={"time": time, "lead_time": lead_time, "variable": variable},
+        )
+
+    ds._fetch_member = fetch_member
+    time, lead = [datetime(2024, 1, 1)], [timedelta(hours=6)]
+    da = ds(time, lead, ["t2m"], ensemble=["gep03", "gec00"])
+    assert seen == ["gep03", "gec00"]
+    np.testing.assert_array_equal(da["ensemble"], ["gep03", "gec00"])
+    np.testing.assert_array_equal(da.sel(ensemble="gep03").values, [[[3.0]]])
+    default = ds(time, lead, ["t2m"])
+    assert seen[-1] == "gec00" and "ensemble" not in default.dims
+    with pytest.raises(ValueError, match="Invalid GEFS members"):
+        ds(time, lead, ["t2m"], ensemble=["gep99"])

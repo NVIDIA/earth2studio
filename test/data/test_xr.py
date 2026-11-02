@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import datetime
 import os
 import pathlib
@@ -347,3 +348,39 @@ def test_inference_output_source(
 
     dims = list(ds.da.dims)
     assert dims.index("variable") > dims.index("time")
+
+
+def _stored_ensemble() -> xr.Dataset:
+    """A stored forecast with members labeled 1 to 3, each holding its label."""
+    members = np.array([1, 2, 3])
+    values = np.broadcast_to(
+        members.astype(float)[:, None, None, None, None], (3, 1, 2, 2, 2)
+    )
+    coords = {
+        "ensemble": members,
+        "time": np.array(["2018-01-01T00"], dtype="datetime64[ns]"),
+        "lead_time": np.array([0, 6], dtype="timedelta64[h]"),
+        "lat": [0.0, 1.0],
+        "lon": [0.0, 1.0],
+    }
+    dims = ("ensemble", "time", "lead_time", "lat", "lon")
+    return xr.Dataset(
+        {"t2m": (dims, values), "u10m": (dims, values + 10)}, coords=coords
+    )
+
+
+def test_inference_output_source_selects_requested_members():
+    ds = InferenceOutputSource(_stored_ensemble())
+    time = np.array(["2018-01-01T06"], dtype="datetime64[ns]")
+    da = ds(time, ["u10m"], ensemble=[3, 1])
+    np.testing.assert_array_equal(da["ensemble"], [3, 1])
+    np.testing.assert_array_equal(da.isel(time=0, variable=0, lat=0, lon=0), [13, 11])
+    assert ds(time, ["u10m"]).sizes["ensemble"] == 3
+    fetched = asyncio.run(ds.fetch(time, ["t2m"], ensemble=[2]))
+    np.testing.assert_array_equal(fetched["ensemble"], [2])
+
+
+def test_inference_output_source_without_members_rejects_ensemble():
+    ds = InferenceOutputSource(_stored_ensemble(), filter_dict={"ensemble": 1})
+    with pytest.raises(ValueError, match="no ensemble dimension"):
+        ds(np.array(["2018-01-01T00"], dtype="datetime64[ns]"), ["t2m"], ensemble=[1])

@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
@@ -93,7 +94,8 @@ class InferenceOutputSource:
         (e.g., NetCDF/Zarr).
     filter_dict : dict, optional
         Dictionary of selections applied before transformation (e.g.
-        ``{"ensemble": 0}``). Coordinates not in the required
+        ``{"ensemble": 0}``; members can instead be selected per request with the
+        ``ensemble`` keyword). Coordinates not in the required
         dimensions are dropped after selection, by default {}
     **xr_args : Any
         Additional keyword arguments forwarded to ``xarray.open_dataset``.
@@ -164,6 +166,7 @@ class InferenceOutputSource:
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
+        ensemble: Sequence[Any] | np.ndarray | None = None,
     ) -> xr.DataArray:
         """Retrieve data for specified valid times and variables.
 
@@ -174,6 +177,9 @@ class InferenceOutputSource:
             transformation).
         variable : str | list[str] | VariableArray
             One or more variable names to return.
+        ensemble : Sequence | np.ndarray, optional
+            Stored ``ensemble`` labels to return, in this order, by default None,
+            which returns every stored member.
 
         Returns
         -------
@@ -185,12 +191,19 @@ class InferenceOutputSource:
         if not (isinstance(variable, list) or isinstance(variable, ndarray)):
             variable = [variable]
 
-        return self.da.sel(time=time, variable=variable)
+        if ensemble is None:
+            return self.da.sel(time=time, variable=variable)
+        if "ensemble" not in self.da.dims:
+            raise ValueError(
+                "Inference output has no ensemble dimension to select members from"
+            )
+        return self.da.sel(time=time, variable=variable, ensemble=np.asarray(ensemble))
 
     async def fetch(  # type: ignore[override]
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
+        ensemble: Sequence[Any] | np.ndarray | None = None,
     ) -> xr.DataArray:
         """Async function to get data
 
@@ -201,13 +214,16 @@ class InferenceOutputSource:
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
             return. Must be in the GFS lexicon.
+        ensemble : Sequence | np.ndarray, optional
+            Stored ``ensemble`` labels to return, in this order, by default None,
+            which returns every stored member.
 
         Returns
         -------
         xr.DataArray
             Inference output data array
         """
-        return self.__call__(time, variable)
+        return self.__call__(time, variable, ensemble)
 
 
 class DataSetFile:

@@ -33,6 +33,11 @@ class DataSource(Protocol):
     expose it as a ``device`` attribute holding a ``torch.device``. They return
     NumPy-backed fields on CPU and CuPy-backed fields on a CUDA device. The keyword
     is not part of the protocol; sources without the attribute are CPU sources.
+
+    Ensemble-aware sources, such as stored ensemble runs, also take an optional
+    ``ensemble`` keyword on ``__call__`` and ``fetch``, naming the members to
+    return on an ``ensemble`` dimension. It is not part of the protocol; without
+    it, a source returns the member it was built with.
     """
 
     def __call__(
@@ -94,7 +99,8 @@ class ForecastSource(Protocol):
     """Forecast source interface.
 
     Device placement follows the same optional ``device`` convention as
-    :class:`DataSource`.
+    :class:`DataSource`, and ensemble-aware sources, such as ensemble forecasts,
+    take the same optional ``ensemble`` keyword.
     """
 
     def __call__(  # type: ignore[override]
