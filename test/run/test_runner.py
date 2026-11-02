@@ -533,3 +533,79 @@ def test_diagnostic_runner_seeds_stochastic_diagnostics() -> None:
     item = WorkItem(T0, np.timedelta64(0, "h"), member_ids=(2,))
     list(runner.run_item(item))
     assert diagnostic.seeds == [(member_seed(5, T0, 2), True)]
+
+
+class _Members(_Zeros):
+    """Ensemble-aware source: member ``k`` holds the value ``k`` everywhere."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.ensembles: list[list[int] | None] = []
+
+    def __call__(  # type: ignore[override]
+        self, time: np.ndarray, variable: np.ndarray, ensemble: list | None = None
+    ) -> xr.DataArray:
+        x = super().__call__(time, variable)
+        self.ensembles.append(None if ensemble is None else list(ensemble))
+        if ensemble is None:
+            return x
+        members = np.asarray(ensemble)
+        offset = xr.DataArray(members.astype(np.float32), dims="ensemble")
+        return (x + offset).assign_coords(ensemble=members)
+
+
+def _member_item(member: int, hours: int = 6) -> WorkItem:
+    return WorkItem(T0, np.timedelta64(hours, "h"), member_ids=(member,))
+
+
+def test_members_read_their_source_member() -> None:
+    source = _Members()
+    runner = PrognosticRunner(_model(), source, ensemble_member=lambda m: m // 2 + 1)
+    for member in range(4):
+        steps = list(runner.run_item(_member_item(member)))
+        expected = member // 2 + 1
+        np.testing.assert_array_equal(steps[0]["forecast"].values, expected)
+        np.testing.assert_array_equal(steps[1]["forecast"].values, expected + 1)
+        assert "ensemble" not in steps[0]["forecast"].dims
+        (request,) = runner.data_requests(_member_item(member))
+        np.testing.assert_array_equal(request.ensemble, [expected])
+    assert source.ensembles == [[1], [1], [2], [2]]
+
+
+def test_forcing_reads_the_member_while_other_slots_are_shared() -> None:
+    model, initial, forcing = _Forced(), _Zeros(), _Members()
+    runner = PrognosticRunner(model, initial, forcing=(forcing,), ensemble_member=int)
+    steps = list(runner.run_item(_member_item(3, hours=12)))
+    # Each step adds one plus the forcing, member 3's value.
+    np.testing.assert_allclose(steps[-1]["forecast"], 8.0)
+    assert forcing.ensembles == [[3], [3]]
+    requests = runner.data_requests(_member_item(3, hours=12))
+    assert requests[0].ensemble is None
+    assert [r.ensemble.tolist() for r in requests[1:]] == [[3], [3]]
+
+
+def test_members_share_sources_without_ensemble_member() -> None:
+    source = _Members()
+    steps = list(PrognosticRunner(_model(), source).run_item(_member_item(2)))
+    np.testing.assert_array_equal(steps[0]["forecast"].values, 0)
+    assert source.ensembles == [None]
+
+
+def test_ensemble_member_needs_member_ids() -> None:
+    runner = PrognosticRunner(_model(), _Members(), ensemble_member=int)
+    with pytest.raises(ValueError, match="no member IDs"):
+        list(runner.run_item(_item(6)))
+    with pytest.raises(ValueError, match="no member IDs"):
+        runner.data_requests(_item(6))
+
+
+def test_diagnostic_runner_reads_the_member() -> None:
+    source = _Members()
+    runner = DiagnosticRunner(
+        {"wind": _WindSpeed()}, source, ensemble_member=lambda m: m + 1
+    )
+    (step,) = list(runner.run_item(WorkItem(T0, np.timedelta64(0, "h"), (1,))))
+    np.testing.assert_allclose(step["wind"].values, np.hypot(2, 2))
+    assert source.ensembles == [[2]]
+    (request,) = runner.data_requests(WorkItem(T0, np.timedelta64(0, "h"), (1,)))
+    np.testing.assert_array_equal(request.ensemble, [2])

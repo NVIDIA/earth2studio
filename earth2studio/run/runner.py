@@ -24,7 +24,7 @@ components, or coupling. See ``dev/spec/EXECUTION_CONTRACT_SPEC.md``.
 
 from __future__ import annotations
 
-from collections.abc import Hashable, Iterator, Mapping
+from collections.abc import Callable, Hashable, Iterator, Mapping
 from dataclasses import dataclass, field
 from itertools import chain
 from typing import Any, Protocol, TypeAlias, cast
@@ -35,6 +35,7 @@ import xarray as xr
 
 from earth2studio.data import DataSource, ForecastSource, fetch_data
 from earth2studio.data.base import DataFrameSource, ForecastFrameSource
+from earth2studio.data.utils import _is_ensemble_source
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.models.px.utils import initial_condition
@@ -55,7 +56,11 @@ SlotSource: TypeAlias = Source | DataFrameSource | ForecastFrameSource
 
 @dataclass(frozen=True)
 class DataRequest:
-    """Arguments for one :func:`~earth2studio.data.fetch_data` call; never fetches."""
+    """Arguments for one :func:`~earth2studio.data.fetch_data` call; never fetches.
+
+    ``ensemble`` names the source members to fetch, for ensemble-aware sources
+    read per member; ``None`` leaves member selection to the source.
+    """
 
     source: Source
     time: np.ndarray
@@ -63,6 +68,7 @@ class DataRequest:
     lead_time: np.ndarray = field(
         default_factory=lambda: np.array([np.timedelta64(0, "h")])
     )
+    ensemble: np.ndarray | None = None
 
 
 class Runner(Protocol):
@@ -146,8 +152,34 @@ def _fetch(
         variable=request.variable,
         lead_time=request.lead_time,
         device=device,
+        ensemble=request.ensemble,
     )
+    if request.ensemble is not None and len(request.ensemble) == 1:
+        # One member per item: the model sees that member's field alone.
+        x = x.isel(ensemble=0, drop=True)
     return _map_field(x, signature)
+
+
+EnsembleMember: TypeAlias = Callable[[int], Hashable]
+
+
+def _ensemble_labels(
+    ensemble_member: EnsembleMember | None, source: object, item: WorkItem
+) -> np.ndarray | None:
+    """Source members ``item`` reads from ``source``, distinct and in first-use order.
+
+    ``None`` when the runner reads no members per item or the source is not
+    ensemble-aware; such slots are shared by every member.
+    """
+    if ensemble_member is None or not _is_ensemble_source(cast(Source, source)):
+        return None
+    if not item.member_ids:
+        raise ValueError(
+            "ensemble_member reads source members per ensemble member, but the "
+            "work item has no member IDs"
+        )
+    labels = dict.fromkeys(ensemble_member(m) for m in item.member_ids)
+    return np.array(list(labels))
 
 
 def _signature_for_stream(
@@ -249,6 +281,14 @@ class PrognosticRunner:
         each stream to its own store.
     seed : int, optional
         Base seed for per-member seeding of stochastic models, by default 0
+    ensemble_member : Callable[[int], Hashable], optional
+        Maps a work item's member ID to the member that ensemble-aware sources
+        (those taking an ``ensemble`` keyword, such as
+        :class:`~earth2studio.data.IFS_ENS`) supply for it, in the source's own
+        labels, e.g. ``lambda m: m // 4 + 1`` for four members per source
+        member. Initial-condition and forcing slots read that member; slots
+        from other sources are shared by every member. By default None, which
+        reads every slot the same way for every member.
     """
 
     supports_member_batching = False  # Member perturbation is not implemented.
@@ -260,6 +300,7 @@ class PrognosticRunner:
         forcing: tuple[Source, ...] | None = None,
         diagnostics: Mapping[str, DiagnosticModel] | None = None,
         seed: int = 0,
+        ensemble_member: EnsembleMember | None = None,
     ) -> None:
         self.prognostic = prognostic
         input_signature = prognostic.input_coords()
@@ -285,6 +326,7 @@ class PrognosticRunner:
         if "forecast" in self.diagnostics:
             raise ValueError("Stream name 'forecast' is reserved for the prognostic")
         self.seed = seed
+        self.ensemble_member = ensemble_member
         self.device = _module_device(prognostic)
         oc = cast(CoordinateSystem, prognostic.output_coords(self.input_signature))
         self.output_leads = oc["lead_time"].values
@@ -343,7 +385,11 @@ class PrognosticRunner:
                 if output_leads is not None:
                     leads = leads[-1] + output_leads
             request = DataRequest(
-                source, np.array([item.time]), signature["variable"].values, leads
+                source,
+                np.array([item.time]),
+                signature["variable"].values,
+                leads,
+                _ensemble_labels(self.ensemble_member, source, item),
             )
             requests.append((request, signature))
         return tuple(requests)
@@ -354,6 +400,7 @@ class PrognosticRunner:
             np.array([item.time]),
             self.input_signature["variable"].values,
             self.input_signature["lead_time"].values,
+            _ensemble_labels(self.ensemble_member, self.source, item),
         )
 
     def data_requests(self, item: WorkItem) -> tuple[DataRequest, ...]:
@@ -437,6 +484,9 @@ class DiagnosticRunner:
         final lead time must be zero
     seed : int, optional
         Base seed for per-member seeding of stochastic diagnostics, by default 0
+    ensemble_member : Callable[[int], Hashable], optional
+        Maps a work item's member ID to the member ensemble-aware sources supply
+        for it, as in :class:`PrognosticRunner`, by default None
     """
 
     supports_member_batching = False  # Member batching is not implemented.
@@ -447,6 +497,7 @@ class DiagnosticRunner:
         source: Source | None = None,
         step: np.timedelta64 | None = None,
         seed: int = 0,
+        ensemble_member: EnsembleMember | None = None,
     ) -> None:
         if not diagnostics:
             raise ValueError("DiagnosticRunner needs at least one diagnostic")
@@ -468,6 +519,7 @@ class DiagnosticRunner:
             self.signatures[name] = signature
             self.sources[name] = chosen
         self.seed = seed
+        self.ensemble_member = ensemble_member
         self.step = step
         self.device = _module_device(next(iter(self.diagnostics.values())))
 
@@ -506,6 +558,7 @@ class DiagnosticRunner:
                 np.array([item.time]),
                 signature["variable"].values,
                 np.array([lead]),
+                _ensemble_labels(self.ensemble_member, self.sources[name], item),
             )
             for name, signature in self.signatures.items()
         }

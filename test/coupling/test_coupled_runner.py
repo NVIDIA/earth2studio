@@ -877,3 +877,60 @@ INVALID = [
 def test_invalid_couplings_fail_at_construction(build, match: str) -> None:
     with pytest.raises(CouplingError, match=match):
         build()
+
+
+# -- member-aware sources ----------------------------------------------------------
+
+
+class _MemberFill(Fill):
+    """Ensemble-aware ``Fill``: member ``k`` adds ``k`` to every value."""
+
+    def __init__(self, grid, values) -> None:  # type: ignore[no-untyped-def]
+        super().__init__(grid, values)
+        self.ensembles: list[list | None] = []
+
+    def __call__(  # type: ignore[override]
+        self, time: np.ndarray, variable: np.ndarray, ensemble: list | None = None
+    ) -> xr.DataArray:
+        x = super().__call__(time, variable)
+        self.ensembles.append(None if ensemble is None else list(ensemble))
+        if ensemble is None:
+            return x
+        members = np.asarray(ensemble)
+        offset = xr.DataArray(members.astype(np.float32), dims="ensemble")
+        return (x + offset).assign_coords(ensemble=members)
+
+
+def _toy(sources: Mapping[str, Fill], **kwargs: object) -> CoupledRunner:
+    return CoupledRunner(
+        {"atmos": atmosphere(), "ocean": ocean()},
+        [
+            Connector("ocean", "atmos", time="hold", regridder=TO_ATMOS),
+            Connector("atmos", "ocean", regridder=TO_OCEAN),
+        ],
+        sources=dict(sources),
+        **kwargs,  # type: ignore[arg-type]
+    )
+
+
+def test_members_read_their_source_member(ic_sources: Mapping[str, Fill]) -> None:
+    atmos = _MemberFill(ATMOS_GRID, {"z1000": 0.0, "sst": 2.0})
+    runner = _toy({**ic_sources, "atmos": atmos}, ensemble_member=lambda m: m + 1)
+    item = WorkItem(T0, np.timedelta64(96, "h"), member_ids=(2,))
+    streams: dict[str, list[xr.DataArray]] = {}
+    for step in runner.run_item(item):
+        for name, x in step.items():
+            streams.setdefault(name, []).append(x)
+    # Member 2 reads source member 3: as if the atmosphere started from z1000 = 3.
+    reference = run(
+        toy_runner({**ic_sources, "atmos": Fill(ATMOS_GRID, {"z1000": 3.0})}), 96
+    )
+    for name in reference:
+        assert series(streams[name]) == series(reference[name])
+    assert atmos.ensembles == [[3]]
+    assert ic_sources["ocean"].calls  # the ocean source is shared, read without members
+    requests = runner.data_requests(item)
+    assert [None if r.ensemble is None else list(r.ensemble) for r in requests] == [
+        [3],
+        None,
+    ]

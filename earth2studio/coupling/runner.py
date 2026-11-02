@@ -47,7 +47,9 @@ from earth2studio.models.utils import recommended_sources
 from earth2studio.run._fields import _map_field, _with_lead_time
 from earth2studio.run.runner import (
     DataRequest,
+    EnsembleMember,
     SlotSource,
+    _ensemble_labels,
     _fetch,
     _module_device,
     _seed_model,
@@ -103,6 +105,12 @@ class CoupledRunner:
         impact models, by default none. Every other component runs where its
         parameters or buffers are, or on the runner's device without any. Fetches
         and connected fields are staged onto the receiving component's device.
+    ensemble_member : Callable[[int], Hashable], optional
+        Maps a work item's member ID to the member that ensemble-aware sources
+        (those taking an ``ensemble`` keyword) supply for it, in the source's own
+        labels, by default None. Every fetched slot whose source is
+        ensemble-aware reads that member, initial conditions and forcing alike;
+        other slots are shared by every member.
 
     Raises
     ------
@@ -119,6 +127,7 @@ class CoupledRunner:
         sources: Mapping[str, SlotSource | tuple[SlotSource | None, ...]] | None = None,
         seed: int = 0,
         devices: Mapping[str, torch.device | str] | None = None,
+        ensemble_member: EnsembleMember | None = None,
     ) -> None:
         if not components:
             raise CouplingError("CoupledRunner needs at least one component")
@@ -159,6 +168,7 @@ class CoupledRunner:
         }
         self._recommended: dict[str, tuple[Any, ...]] = {}
         self.seed = seed
+        self.ensemble_member = ensemble_member
         self.spacing = self._spacing()
         self._check_windows()
         self._scheduler = _Scheduler(
@@ -340,7 +350,7 @@ class CoupledRunner:
         period = math.lcm(*(n.cadence for n in stateful))
         horizon = max(n.due(0) for n in stateful) + 2 * period
         ages: dict[str, int] = {}
-        requests = _Requests(self, _PROBE_TIME)
+        requests = _Requests(self)
         for _ in self._scheduler.run(requests, horizon, slack=period, ages=ages):
             pass
         longest = max(n.cadence for n in stateful)
@@ -410,7 +420,7 @@ class CoupledRunner:
 
     def data_requests(self, item: WorkItem) -> tuple[DataRequest, ...]:
         """Describe every ``fetch_data`` call ``item`` makes, in run order."""
-        requests = _Requests(self, item.time)
+        requests = _Requests(self, item)
         for _ in self._scheduler.run(requests, _final(item.final_lead_time)):
             pass
         return tuple(requests.requests)
@@ -487,9 +497,11 @@ class _Requests:
     does not describe; they are checked for a source but not recorded.
     """
 
-    def __init__(self, runner: CoupledRunner, time: np.datetime64) -> None:
+    def __init__(self, runner: CoupledRunner, item: WorkItem | None = None) -> None:
+        # Without an item, a dry run at a probe time that reads no members.
         self.runner = runner
-        self.time = np.array([time])
+        self.item = item
+        self.time = np.array([_PROBE_TIME if item is None else item.time])
         self.requests: list[DataRequest] = []
 
     def _add(self, node: _Node, slot: _Slot, labels: Sequence[str], leads: Any) -> None:
@@ -502,6 +514,13 @@ class _Requests:
                 self.time,
                 np.array(list(labels)),
                 np.asarray(leads, dtype=np.int64).astype("timedelta64[ns]"),
+                (
+                    None
+                    if self.item is None
+                    else _ensemble_labels(
+                        self.runner.ensemble_member, source, self.item
+                    )
+                ),
             )
         )
 
@@ -554,7 +573,13 @@ class _Execution:
         signature = slot.signature
         if list(labels) != list(slot.labels):
             signature = coord_array_like(signature, {"variable": list(labels)})
-        request = DataRequest(source, time, np.array(list(labels)), lead_time)
+        request = DataRequest(
+            source,
+            time,
+            np.array(list(labels)),
+            lead_time,
+            _ensemble_labels(self.runner.ensemble_member, source, self.item),
+        )
         x = _fetch(request, signature, device)
         if slot.static:
             x = x.isel(lead_time=0, drop=True)
