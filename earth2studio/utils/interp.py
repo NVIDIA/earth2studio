@@ -460,9 +460,11 @@ def interpolate_vertical(
         Field with a level dimension ``dim``.
     coordinate : Tensor
         Coordinate of each of ``x``'s levels: either one value per level, shape
-        ``(level,)`` in any order, or one column per point, shaped like ``x`` (or
-        broadcastable to it) and monotonic along ``dim`` in the same direction in
-        every column.
+        ``(level,)`` in any order without repeats, or one column per point, shaped
+        like ``x`` (or broadcastable to it) and monotonic along ``dim`` in the same
+        direction in every column. Columns that are not strictly monotonic, such
+        as hybrid levels under an implausible surface pressure, are filled with
+        ``fill_value``, or NaN without one, rather than interpolated.
     target : Tensor
         Coordinate of each output level, shape ``(target,)``, in the same units.
     dim : int, optional
@@ -497,6 +499,8 @@ def interpolate_vertical(
                 f"{len(coordinate)} coordinates given for {values.shape[-1]} levels"
             )
         levels, order = torch.sort(scale(coordinate))
+        if (levels.diff() <= 0).any():
+            raise ValueError("Coordinates must not repeat a level")
         values = values[..., order]
         high = torch.searchsorted(levels, wanted).clamp(1, len(levels) - 1)
         low_level, high_level = levels[high - 1], levels[high]
@@ -508,6 +512,7 @@ def interpolate_vertical(
         if first[0] > first[-1]:  # Columns run the same way; flip descending ones.
             levels, values = levels.flip(-1), values.flip(-1)
         levels = levels.contiguous()
+        invalid = (levels.diff(dim=-1) <= 0).any(dim=-1, keepdim=True)
         wanted = wanted.expand(*values.shape[:-1], len(target)).contiguous()
         high = torch.searchsorted(levels, wanted).clamp(1, values.shape[-1] - 1)
         low_level = torch.gather(levels, -1, high - 1)
@@ -522,4 +527,7 @@ def interpolate_vertical(
     if fill_value is not None:
         outside = (wanted < lowest) | (wanted > highest)
         output = output.masked_fill(outside, fill_value)
+    if coordinate.ndim != 1:
+        empty = float("nan") if fill_value is None else fill_value
+        output = output.masked_fill(invalid, empty)
     return output.movedim(-1, dim).to(dtype)

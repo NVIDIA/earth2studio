@@ -962,6 +962,12 @@ def test_derived_pressure_levels_from_interfaces_and_pressure_fields():
     )
     names = list(fields.input_coords()["variable"].values)
     assert names == ["t0k", "t1k", "pres0k", "pres1k"]
+    hrrr = DerivedPressureLevels(
+        ["t"], [700], model_levels=[1, 2], pressure="p", level_suffix="hl", grid=grid
+    )
+    assert list(hrrr.input_coords()["variable"].values) == [
+        "t1hl", "t2hl", "p1hl", "p2hl",
+    ]  # fmt: skip
     signature = coord_array_like(fields.input_coords(), {"batch": [0]})
     tensor = torch.zeros(signature.shape, dtype=torch.float64)
     tensor[0, :2] = torch.tensor([1.0, 2.0])[:, None, None]

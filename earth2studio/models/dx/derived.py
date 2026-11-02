@@ -623,14 +623,16 @@ class DerivedPressureLevels(_DerivedDiagnostic):
 
     Interpolation is linear in the logarithm of pressure, column by column. Levels
     are read from the lexicon's variable names: ``{variable}{p}`` on pressure
-    level ``p`` hPa, or ``{variable}{k}k`` on model level ``k``. Outputs are
+    level ``p`` hPa, or ``{variable}{k}{level_suffix}`` on model level ``k``, such
+    as ``t12k`` (ERA5, ACE) or ``t12hl`` (HRRR). Outputs are
     ``{variable}{p}`` on each target level. Inputs come in one of three forms:
 
     - ``input_levels``: pressure levels, such as ``t850``.
     - ``model_levels`` with ``a`` and ``b``: hybrid sigma-pressure model levels,
       ``p = a + b * sp``, plus surface pressure ``sp`` in Pa as the last input.
     - ``model_levels`` with ``pressure``: model levels of any kind whose pressure
-      the model publishes as a field on each level, such as ``pres{k}k`` in Pa.
+      the model publishes as a field on each level, such as HRRR's ``p{k}hl`` in
+      Pa.
 
     Used between coupled models, it maps one model's levels onto another's.
 
@@ -653,6 +655,9 @@ class DerivedPressureLevels(_DerivedDiagnostic):
         Hybrid surface-pressure coefficients, shaped like ``a``, by default None
     pressure : str | None, optional
         Variable holding each model level's pressure in Pa, by default None
+    level_suffix : str, optional
+        Suffix marking model levels in variable names, by default "k"; HRRR's
+        hybrid levels use "hl"
     grid : str | GridDefinition, optional
         Spatial grid configured before coordinate planning, by default
         "latlon-0.25deg"
@@ -675,6 +680,7 @@ class DerivedPressureLevels(_DerivedDiagnostic):
         a: Sequence[float] | None = None,
         b: Sequence[float] | None = None,
         pressure: str | None = None,
+        level_suffix: str = "k",
         grid: str | GridDefinition = "latlon-0.25deg",
         fill_value: float | None = None,
     ) -> None:
@@ -704,7 +710,7 @@ class DerivedPressureLevels(_DerivedDiagnostic):
             model_levels = [int(k) for k in model_levels]  # type: ignore[union-attr]
             if len(model_levels) < 2 or len(set(model_levels)) != len(model_levels):
                 raise ValueError("model_levels needs at least two distinct levels")
-            names = [f"{k}k" for k in model_levels]
+            names = [f"{k}{level_suffix}" for k in model_levels]
             if hybrid:
                 self.a, self.b, self.interfaces = _hybrid_coefficients(
                     a, b, len(model_levels)

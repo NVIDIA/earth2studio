@@ -217,3 +217,15 @@ def test_vertical_interpolation_half_precision_and_bounds():
         interpolate_vertical(x[:1], pressure[:1], target)
     with pytest.raises(ValueError, match="3 coordinates given for 2 levels"):
         interpolate_vertical(x, torch.ones(3), target)
+    with pytest.raises(ValueError, match="repeat a level"):
+        interpolate_vertical(x, torch.tensor([50000.0, 50000.0]), target)
+
+
+def test_non_monotonic_columns_are_filled_not_interpolated():
+    x = torch.tensor([[1.0, 2.0, 3.0], [1.0, 2.0, 3.0]])
+    columns = torch.tensor([[30000.0, 60000.0, 100000.0], [30000.0, 90000.0, 60000.0]])
+    target = torch.tensor([45000.0])
+    out = interpolate_vertical(x, columns, target, log=True)
+    assert torch.isfinite(out[0]).all() and torch.isnan(out[1]).all()
+    filled = interpolate_vertical(x, columns, target, log=True, fill_value=-1.0)
+    assert filled[1].tolist() == [-1.0]
