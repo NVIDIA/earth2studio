@@ -1,0 +1,744 @@
+---
+layout: overview
+title: earth2studio.data.utils_ncep
+---
+NCEP BUFR observation decoding for the NNJA and GDAS sources.
+
+Every stream decodes with earth2bufr into a native wide Arrow table: one row per
+PrepBUFR report level or GPS-RO profile level, per satellite wind, or per satellite
+footprint, with one ``observation_&lt;variable&gt;`` column per requested variable. The
+long format (one row per observation) is produced from it by `_to_long`.
+
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`NCEPObsTask`](#earth2studio-data-utils_ncep-NCEPObsTask) | One conventional NCEP observation cycle file to fetch and decode. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`assemble_frame`](#earth2studio-data-utils_ncep-assemble_frame) | Per-file wide tables -&gt; the requested layout as one DataFrame. |
+| [`channel_axis`](#earth2studio-data-utils_ncep-channel_axis) | Channel numbers of the slots of a wide satellite frame's ``sensor`` columns. |
+| [`compile_tables`](#earth2studio-data-utils_ncep-compile_tables) | Decode cached task files into wide tables, each with a ``cycle_time`` column. |
+| [`concat_tables`](#earth2studio-data-utils_ncep-concat_tables) | Concatenate tables; a column absent from some tables is null there. |
+| [`cycle_windows`](#earth2studio-data-utils_ncep-cycle_windows) | Map cadence file times to the observation-time intervals requested from them. |
+| [`decode_gpsro`](#earth2studio-data-utils_ncep-decode_gpsro) | Decode an NCEP GPSRO BUFR file into a wide table. |
+| [`decode_prepbufr`](#earth2studio-data-utils_ncep-decode_prepbufr) | Decode a merged NCEP PrepBUFR file into a wide table. |
+| [`decode_satellite`](#earth2studio-data-utils_ncep-decode_satellite) | Decode an NCEP aggregate satellite file into a wide table, one row per footprint. |
+| [`decode_satwnd`](#earth2studio-data-utils_ncep-decode_satwnd) | Decode an NCEP satwnd dump into a wide table, one row per wind. |
+| [`filter_to_intervals`](#earth2studio-data-utils_ncep-filter_to_intervals) | Keep the rows whose filter time lies in at least one closed interval. |
+| [`map_aircraft_profile_types`](#earth2studio-data-utils_ncep-map_aircraft_profile_types) | Map aircraft-profile report types (33x/43x/53x) to GSI aircraft types (13x/23x). |
+| [`observation_cycle_times`](#earth2studio-data-utils_ncep-observation_cycle_times) | Return the cycle file times a request reads. |
+| [`plan_conv_tasks`](#earth2studio-data-utils_ncep-plan_conv_tasks) | Partition variables by lexicon route prefix into per-cycle conv tasks. |
+| [`resolve_output_schema`](#earth2studio-data-utils_ncep-resolve_output_schema) | Resolve a requested field subset against a source schema. |
+| [`to_dataframe`](#earth2studio-data-utils_ncep-to_dataframe) | The columns of ``schema`` as a DataFrame of ``pd.ArrowDtype`` columns (zero-copy). |
+
+### API
+
+<Anchor id="earth2studio-data-utils_ncep-NCEPObsTask">
+
+<CodeBlock links={{"earth2studio.data.utils_ncep._NCEPPlan":"#earth2studio-data-utils_ncep-_NCEPPlan","earth2studio.data.utils_ncep.Intervals":"#earth2studio-data-utils_ncep-Intervals"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.utils_ncep.NCEPObsTask(
+    uri: str,
+    route: str,
+    datetime_file: datetime.datetime,
+    datetime_min: datetime.datetime,
+    datetime_max: datetime.datetime,
+    var_plan: earth2studio.data.utils_ncep._NCEPPlan,
+    intervals: earth2studio.data.utils_ncep.Intervals = (),
+    columns: frozenset[str] | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+One conventional NCEP observation cycle file to fetch and decode.
+
+``columns`` are the output columns requested of the decode; None requests all.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_ncep-assemble_frame">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_ncep.assemble_frame(
+    pieces: collections.abc.Sequence[tuple[typing.Any, pyarrow.Table]],
+    layout: str,
+    variables: collections.abc.Sequence[str],
+    long_schema: pyarrow.Schema,
+    fields: pyarrow.Schema,
+    source_id: str,
+    long_transform: collections.abc.Callable[[Any, pa.Table], pyarrow.Table] | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Per-file wide tables -&gt; the requested layout as one DataFrame.
+
+**Parameters:**
+
+<ParamField path="pieces" type="Sequence[tuple[task, pa.Table]]">
+Decoded wide tables per task, from `compile_tables`
+</ParamField>
+
+<ParamField path="layout" type="str">
+``"long"`` converts each file's table with `_to_long`; ``"wide"``
+returns the wide rows
+</ParamField>
+
+<ParamField path="variables" type="Sequence[str]">
+Requested variables, in long output order
+</ParamField>
+
+<ParamField path="long_schema" type="pa.Schema">
+The long schema of the source
+</ParamField>
+
+<ParamField path="fields" type="pa.Schema">
+Output columns
+</ParamField>
+
+<ParamField path="source_id" type="str">
+Stored in ``attrs["source"]``
+</ParamField>
+
+<ParamField path="long_transform" type="Callable[[task, pa.Table], pa.Table] | None" default="None">
+Applied to each file's long table
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+Frame of ``pd.ArrowDtype`` columns
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_ncep-channel_axis">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_ncep.channel_axis(
+    frame: pandas.DataFrame,
+    sensor: str
+) -> numpy.ndarray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Channel numbers of the slots of a wide satellite frame's ``sensor`` columns.
+
+In a ``layout="wide"`` `NNJAObsSat` frame of
+``sensor``, ``observation_&lt;variable&gt;`` and ``quality`` hold one value per slot;
+slot ``i`` is channel ``channel_axis(frame, sensor)[i]``.
+
+**Parameters:**
+
+<ParamField path="frame" type="pd.DataFrame">
+Wide satellite frame
+</ParamField>
+
+<ParamField path="sensor" type="str">
+Sensor name, e.g. ``"cris"``
+</ParamField>
+
+**Returns:** `np.ndarray`
+
+Channel numbers, ascending
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_ncep-compile_tables">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_ncep.compile_tables(
+    tasks: collections.abc.Sequence[typing.Any],
+    source_id: str,
+    local_path: collections.abc.Callable[[str], str],
+    decode_task: collections.abc.Callable[[str, Any], pyarrow.Table],
+    on_error: collections.abc.Callable[[str, int, int, Exception], None] | None = None,
+    downloaded: threading.Event | None = None
+) -> list[tuple[typing.Any, pyarrow.Table]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Decode cached task files into wide tables, each with a ``cycle_time`` column.
+
+Each file is decoded over the hull of its requested intervals and its rows are
+then cut to the intervals themselves.
+
+**Parameters:**
+
+<ParamField path="tasks" type="Sequence">
+Task objects exposing ``uri``, ``datetime_file`` and ``intervals``
+</ParamField>
+
+<ParamField path="source_id" type="str">
+Source identifier for log messages
+</ParamField>
+
+<ParamField path="local_path" type="Callable[[str], str]">
+Maps a URI to its local cache path
+</ParamField>
+
+<ParamField path="decode_task" type="Callable[[str, task], pa.Table]">
+Decodes one local file given ``(path, task)``
+</ParamField>
+
+<ParamField path="on_error" type="Callable[[str, int, int, Exception], None] | None" default="None">
+Called as ``on_error(uri, idx, n_tasks, exc)`` when ``decode_task``
+raises; the task is then skipped. If None the error propagates.
+</ParamField>
+
+<ParamField path="downloaded" type="threading.Event | None" default="None">
+Set once the downloads have finished. Until then a task waits for its file
+to appear in the cache (written atomically) and is decoded as soon as it
+does. If None every file is expected to be cached already.
+</ParamField>
+
+**Returns:** `list[tuple[task, pa.Table]]`
+
+Non-empty decoded tables in task order
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_ncep-concat_tables">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_ncep.concat_tables(
+    tables: collections.abc.Sequence[pyarrow.Table]
+) -> pyarrow.Table
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Concatenate tables; a column absent from some tables is null there.
+
+A column must have one type across the tables.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_ncep-cycle_windows">
+
+<CodeBlock links={{"earth2studio.data.utils_ncep.Intervals":"#earth2studio-data-utils_ncep-Intervals"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_ncep.cycle_windows(
+    time_list: list[datetime.datetime],
+    tolerance_lower: datetime.timedelta,
+    tolerance_upper: datetime.timedelta,
+    cadence: datetime.timedelta = timedelta(hours=6)
+) -> dict[datetime.datetime, earth2studio.data.utils_ncep.Intervals]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Map cadence file times to the observation-time intervals requested from them.
+
+Requests sharing a file keep their own intervals; overlapping or touching
+intervals are merged, so a file read for 23Z ±30 min and 02Z ±30 min returns
+no rows between 23:30 and 01:30.
+
+**Parameters:**
+
+<ParamField path="time_list" type="list[datetime]">
+Requested observation timestamps.
+</ParamField>
+
+<ParamField path="tolerance_lower" type="timedelta">
+Lower tolerance bound relative to each requested timestamp.
+</ParamField>
+
+<ParamField path="tolerance_upper" type="timedelta">
+Upper tolerance bound relative to each requested timestamp.
+</ParamField>
+
+<ParamField path="cadence" type="timedelta" default="timedelta(hours=6)">
+Cadence between published files, by default ``timedelta(hours=6)``.
+</ParamField>
+
+**Returns:** `dict[datetime,` [`Intervals`](#earth2studio-data-utils_ncep-Intervals) `]`
+
+Mapping from each required cadence file timestamp to its sorted, disjoint
+closed observation-time intervals.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_ncep-decode_gpsro">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_ncep.decode_gpsro(
+    path: str,
+    variables: collections.abc.Sequence[str],
+    dt_min: datetime.datetime,
+    dt_max: datetime.datetime,
+    decode_workers: int = 8
+) -> pyarrow.Table
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Decode an NCEP GPSRO BUFR file into a wide table.
+
+One row per bending-angle level (``observation_gps``, the level's last
+ionosphere-corrected entry, else its last entry) or refractivity level
+(``observation_gps_refractivity``).
+
+**Parameters:**
+
+<ParamField path="path" type="str">
+Local path to the GPSRO BUFR file
+</ParamField>
+
+<ParamField path="variables" type="Sequence[str]">
+Variables among ``gps`` and ``gps_refractivity``
+</ParamField>
+
+<ParamField path="dt_min" type="datetime">
+Closed observation time window
+</ParamField>
+
+<ParamField path="dt_max" type="datetime">
+Closed observation time window
+</ParamField>
+
+<ParamField path="decode_workers" type="int" default="8">
+Threads transforming decoded batches, by default 8
+</ParamField>
+
+**Returns:** `pa.Table`
+
+Wide table
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_ncep-decode_prepbufr">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_ncep.decode_prepbufr(
+    path: str,
+    variables: collections.abc.Sequence[str],
+    dt_min: datetime.datetime,
+    dt_max: datetime.datetime,
+    decode_workers: int = 8,
+    exclude_message_types: collections.abc.Collection[str] = (),
+    original_event: bool = False
+) -> pyarrow.Table
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Decode a merged NCEP PrepBUFR file into a wide table.
+
+One row per report level that gives any of ``variables``, in file order, with
+``observation_&lt;variable&gt;`` and ``quality_&lt;variable&gt;`` columns in Earth2Studio
+units (null where the level has no such observation).
+
+**Parameters:**
+
+<ParamField path="path" type="str">
+Local path to the PrepBUFR file
+</ParamField>
+
+<ParamField path="variables" type="Sequence[str]">
+Variables among ``u``, ``v``, ``q``, ``t`` and ``pres``
+</ParamField>
+
+<ParamField path="dt_min" type="datetime">
+Closed observation time window. Reports are kept or dropped whole by
+header time, which is every observation's time except drifting sounding
+levels.
+</ParamField>
+
+<ParamField path="dt_max" type="datetime">
+Closed observation time window. Reports are kept or dropped whole by
+header time, which is every observation's time except drifting sounding
+levels.
+</ParamField>
+
+<ParamField path="decode_workers" type="int" default="8">
+Threads transforming decoded batches, by default 8
+</ParamField>
+
+<ParamField path="exclude_message_types" type="Collection[str]" default="()">
+PrepBUFR message families (e.g. ``"SATWND"``) skipped at decode
+</ParamField>
+
+<ParamField path="original_event" type="bool" default="False">
+Take each observation's original report (the last event of its stack)
+instead of the latest, quality-controlled event (the first)
+</ParamField>
+
+**Returns:** `pa.Table`
+
+Wide table
+
+**Raises:**
+
+- `ValueError`: If the file has data messages but none of a known PrepBUFR message family,
+or a report has no DHR (observation time offset)
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_ncep-decode_satellite">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_ncep.decode_satellite(
+    path: str,
+    sensor: str,
+    plan: collections.abc.Mapping[str, str],
+    dt_min: datetime.datetime,
+    dt_max: datetime.datetime,
+    satellites: collections.abc.Collection[str] | None = None,
+    channels: collections.abc.Collection[int] | None = None,
+    decode_workers: int = 8
+) -> pyarrow.Table
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Decode an NCEP aggregate satellite file into a wide table, one row per footprint.
+
+Per-channel values are fixed-size lists over the channel axis, ``channels`` in
+ascending order or else ``SAT_CHANNELS[sensor]``: ``quality`` and one
+``observation_&lt;variable&gt;`` per requested variable, null in a slot whose channel
+the footprint lacks. The axis is recorded in the field metadata of these
+columns. Footprint columns are those of the sensor's wide schema. IASI and CrIS radiances are returned as brightness temperature.
+
+**Parameters:**
+
+<ParamField path="path" type="str">
+Local path to the BUFR file
+</ParamField>
+
+<ParamField path="sensor" type="str">
+One of ``atms``, ``mhs``, ``amsua``, ``amsub``, ``airs``, ``iasi``, ``cris``
+</ParamField>
+
+<ParamField path="plan" type="Mapping[str, str]">
+Variable -&gt; BUFR channel field (e.g. ``&#123;"atms": "TMBR"&#125;``)
+</ParamField>
+
+<ParamField path="dt_min" type="datetime">
+Closed observation time window
+</ParamField>
+
+<ParamField path="dt_max" type="datetime">
+Closed observation time window
+</ParamField>
+
+<ParamField path="satellites" type="Collection[str] | None" default="None">
+Platforms to keep, by default all
+</ParamField>
+
+<ParamField path="channels" type="Collection[int] | None" default="None">
+Channel numbers decoded for an IR sounder, by default ``SAT_CHANNELS[sensor]``
+</ParamField>
+
+<ParamField path="decode_workers" type="int" default="8">
+Threads transforming decoded batches, by default 8
+</ParamField>
+
+**Returns:** `pa.Table`
+
+Wide table
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_ncep-decode_satwnd">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_ncep.decode_satwnd(
+    path: str,
+    variables: collections.abc.Sequence[str],
+    dt_min: datetime.datetime,
+    dt_max: datetime.datetime,
+    decode_workers: int = 8,
+    quality_indicators: bool = True
+) -> pyarrow.Table
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Decode an NCEP satwnd dump into a wide table, one row per wind.
+
+**Parameters:**
+
+<ParamField path="path" type="str">
+Local path to the satwnd BUFR file
+</ParamField>
+
+<ParamField path="variables" type="Sequence[str]">
+Variables among ``u`` and ``v``
+</ParamField>
+
+<ParamField path="dt_min" type="datetime">
+Closed observation time window
+</ParamField>
+
+<ParamField path="dt_max" type="datetime">
+Closed observation time window
+</ParamField>
+
+<ParamField path="decode_workers" type="int" default="8">
+Threads transforming decoded batches, by default 8
+</ParamField>
+
+<ParamField path="quality_indicators" type="bool" default="True">
+Decode the GNAP/GNAPS quality indicators; when False their columns are
+null. By default True
+</ParamField>
+
+**Returns:** `pa.Table`
+
+Wide table
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_ncep-filter_to_intervals">
+
+<CodeBlock links={{"earth2studio.data.utils_ncep.Intervals":"#earth2studio-data-utils_ncep-Intervals"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_ncep.filter_to_intervals(
+    table: pyarrow.Table,
+    intervals: earth2studio.data.utils_ncep.Intervals
+) -> pyarrow.Table
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Keep the rows whose filter time lies in at least one closed interval.
+
+The filter time is the PrepBUFR report time where the table has one, else the
+row time, matching the decoders' window filter.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_ncep-map_aircraft_profile_types">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_ncep.map_aircraft_profile_types(
+    table: pyarrow.Table
+) -> pyarrow.Table
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Map aircraft-profile report types (33x/43x/53x) to GSI aircraft types (13x/23x).
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_ncep-observation_cycle_times">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_ncep.observation_cycle_times(
+    time: datetime.datetime,
+    tolerance_lower: datetime.timedelta,
+    tolerance_upper: datetime.timedelta,
+    cadence: datetime.timedelta = timedelta(hours=6)
+) -> list[datetime.datetime]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Return the cycle file times a request reads.
+
+NCEP cycle files (PrepBUFR, GPS-RO, satellite dumps and the GSI diagnostics
+built from them) hold the reports whose report time lies within
+``cadence / 2`` of their cycle ``T``. A request ``[tmin, tmax]`` reads every
+file whose span it overlaps in the interior,
+``T - cadence / 2 &lt; tmax`` and ``T + cadence / 2 &gt; tmin``, and the decoders
+cut the rows to the closed window by report time.
+
+A request returns the contents of the cycles it overlaps, cut to its window.
+An observation exactly on a ``T ± cadence / 2`` boundary is returned from the
+files the request reads; rows only a neighbouring cycle holds at that instant
+are not returned. A zero-length request reads every file whose closed span
+holds its instant, so an instant on a boundary reads both files. Each row
+carries its file's ``cycle_time``. Drifting-sonde
+levels can carry times past their file's span; they follow their report time.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime">
+Requested observation timestamp.
+</ParamField>
+
+<ParamField path="tolerance_lower" type="timedelta">
+Lower tolerance bound relative to ``time``.
+</ParamField>
+
+<ParamField path="tolerance_upper" type="timedelta">
+Upper tolerance bound relative to ``time``.
+</ParamField>
+
+<ParamField path="cadence" type="timedelta" default="timedelta(hours=6)">
+Cadence between published files, by default ``timedelta(hours=6)``.
+</ParamField>
+
+**Returns:** `list[datetime]`
+
+Cadence-aligned file timestamps whose spans overlap the interior of
+``[time + tolerance_lower, time + tolerance_upper]``.
+
+**Raises:**
+
+- `ValueError`: If ``cadence`` is not positive.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_ncep-plan_conv_tasks">
+
+<CodeBlock links={{"earth2studio.data.utils_ncep.Intervals":"#earth2studio-data-utils_ncep-Intervals","earth2studio.lexicon.base.LexiconType":"../lexicon/base.mdx#earth2studio-lexicon-base-LexiconType","earth2studio.data.utils_ncep.NCEPObsTask":"#earth2studio-data-utils_ncep-NCEPObsTask"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_ncep.plan_conv_tasks(
+    windows: collections.abc.Mapping[datetime.datetime, earth2studio.data.utils_ncep.Intervals],
+    variable: list[str],
+    lexicon: earth2studio.lexicon.base.LexiconType,
+    build_uri: collections.abc.Callable[[str, datetime], str]
+) -> list[earth2studio.data.utils_ncep.NCEPObsTask]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Partition variables by lexicon route prefix into per-cycle conv tasks.
+
+**Parameters:**
+
+<ParamField path="windows" type="Mapping[datetime, Intervals]">
+`Mapping[datetime,` [`Intervals`](#earth2studio-data-utils_ncep-Intervals) `]` — Cycle datetime -&gt; requested observation-time intervals (``cycle_windows``).
+</ParamField>
+
+<ParamField path="variable" type="list[str]">
+Requested variable ids, routed by their ``"route::key"`` lexicon prefix.
+</ParamField>
+
+<ParamField path="lexicon" type="LexiconType">
+[`LexiconType`](../lexicon/base.mdx#earth2studio-lexicon-base-LexiconType) — Source lexicon mapping a variable id to ``("route::key", modifier)``.
+</ParamField>
+
+<ParamField path="build_uri" type="Callable[[str, datetime], str]">
+Source hook returning the archive URI for a ``(route, cycle)`` pair.
+</ParamField>
+
+**Returns:** `list[` [`NCEPObsTask`](#earth2studio-data-utils_ncep-NCEPObsTask) `]`
+
+One task per ``(route, cycle)``.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_ncep-resolve_output_schema">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_ncep.resolve_output_schema(
+    schema: pyarrow.Schema,
+    fields: str | list[str] | pyarrow.Schema | None,
+    class_name: str
+) -> pyarrow.Schema
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Resolve a requested field subset against a source schema.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils_ncep-to_dataframe">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils_ncep.to_dataframe(
+    table: pyarrow.Table,
+    schema: pyarrow.Schema,
+    source_id: str
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+The columns of ``schema`` as a DataFrame of ``pd.ArrowDtype`` columns (zero-copy).
+
+``attrs["channels"]`` maps each sensor with per-channel columns in ``schema`` to
+its channel axis (see `channel_axis`).
+
+</Indent>

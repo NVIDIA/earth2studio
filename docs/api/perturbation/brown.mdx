@@ -1,0 +1,80 @@
+---
+layout: overview
+title: earth2studio.perturbation.brown
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`Brown`](#earth2studio-perturbation-brown-Brown) | Lat/Lon 2D brown noise |
+
+### API
+
+<Anchor id="earth2studio-perturbation-brown-Brown">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.perturbation.brown.Brown(
+    noise_amplitude: float | torch.Tensor = 0.05,
+    reddening: int = 2
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Lat/Lon 2D brown noise
+
+**Parameters:**
+
+<ParamField path="noise_amplitude" type="float | Tensor" default="0.05">
+Noise amplitude, by default 0.05. If a tensor,
+this must be broadcastable with the input data.
+</ParamField>
+
+<ParamField path="reddening" type="int" default="2">
+Reddening in Fourier space, by default 2
+</ParamField>
+
+<ParamField path="noise_amplitude">
+</ParamField>
+<Anchor id="earth2studio-perturbation-brown-Brown-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.perturbation.brown.Brown.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Apply perturbation method
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor intended to apply perturbation on
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the tensor, must
+contain "lat" and "lon" coordinates in last two dims
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]:`
+
+Output tensor and respective coordinate system dictionary
+
+</Indent>
+</Indent>

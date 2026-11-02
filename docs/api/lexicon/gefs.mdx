@@ -1,0 +1,113 @@
+---
+layout: overview
+title: earth2studio.lexicon.gefs
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`GEFSLexicon`](#earth2studio-lexicon-gefs-GEFSLexicon) | Global Ensemble Forecast System Lexicon, right now only support isobarric |
+| [`GEFSLexiconSel`](#earth2studio-lexicon-gefs-GEFSLexiconSel) | Global Ensemble Forecast System 0.25 Degree Lexicon (Select variables). GEFS |
+
+### API
+
+<Anchor id="earth2studio-lexicon-gefs-GEFSLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.gefs.GEFSLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Global Ensemble Forecast System Lexicon, right now only support isobarric
+GEFS vocab specified &lt;Product ID&gt;::&lt;Parameter ID&gt;::&lt;Level/ Layer&gt;
+
+<Note>
+
+Additional resources:
+- https://www.nco.ncep.noaa.gov/pmb/products/gens/gec00.t00z.pgrb2a.0p50.f003.shtml
+- https://www.nco.ncep.noaa.gov/pmb/products/gens/gec00.t00z.pgrb2b.0p50.f003.shtml
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-gefs-GEFSLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.gefs.GEFSLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Get item from GFS vocabulary.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-lexicon-gefs-GEFSLexiconSel">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.gefs.GEFSLexiconSel()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Global Ensemble Forecast System 0.25 Degree Lexicon (Select variables). GEFS
+vocab specified &lt;Product ID&gt;::&lt;Parameter ID&gt;::&lt;Level/ Layer&gt;
+
+<Note>
+
+Additional resources:
+- https://www.nco.ncep.noaa.gov/pmb/products/gens/gec00.t00z.pgrb2s.0p25.f000.shtml
+- https://www.nco.ncep.noaa.gov/pmb/products/gens/gec00.t00z.pgrb2s.0p25.f003.shtml
+- https://www.nco.ncep.noaa.gov/pmb/docs/grib2/grib2_doc/grib2_table4-2-0-3.shtml
+
+</Note>
+
+<Warning>
+
+Some variables are only present for lead time greater than 0
+
+</Warning>
+
+<Anchor id="earth2studio-lexicon-gefs-GEFSLexiconSel-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.gefs.GEFSLexiconSel.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Get item from GFS vocabulary.
+
+</Indent>
+</Indent>

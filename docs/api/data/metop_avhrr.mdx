@@ -1,0 +1,242 @@
+---
+layout: overview
+title: earth2studio.data.metop_avhrr
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`MetOpAVHRR`](#earth2studio-data-metop_avhrr-MetOpAVHRR) | EUMETSAT MetOp AVHRR Level 1B radiance and brightness temperature observations. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-data-metop_avhrr-MetOpAVHRR">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeTolerance":"../utils/type.mdx#earth2studio-utils-type-TimeTolerance"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.metop_avhrr.MetOpAVHRR(
+    satellite: str | None = None,
+    subsample: int = 1,
+    time_tolerance: earth2studio.utils.type.TimeTolerance = np.timedelta64(1, 'h'),
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+EUMETSAT MetOp AVHRR Level 1B radiance and brightness temperature observations.
+
+The Advanced Very High Resolution Radiometer (AVHRR) is a 6-channel
+cross-track scanning radiometer aboard the MetOp series of polar-orbiting
+satellites. It measures calibrated radiances in visible (0.58-1.6 µm)
+and infrared (3.7-12.5 µm) bands at 1 km spatial resolution.
+
+Channels 1-2 and 3A provide reflectances (visible/NIR), while channels
+3B, 4, and 5 provide brightness temperatures (thermal IR). Channels 3A
+and 3B cannot operate simultaneously.
+
+The returned `DataFrame` has one row per pixel per channel,
+following the same convention as [`UFSObsSat`](./ufs.mdx#earth2studio-data-ufs-UFSObsSat).
+The ``sensor_index`` column (1--6) identifies each channel.  The ``class``
+column differentiates observation types: ``"refl"`` for visible/NIR
+channels (1, 2, 3A) and ``"rad"`` for thermal IR channels (3B, 4, 5).
+
+This data source downloads Level 1B products from the EUMETSAT Data Store
+and parses the EPS native binary format directly. Calibration coefficients
+are read from the GIADR-radiance record; visible channels are converted
+to reflectance (%), thermal channels to brightness temperature (K).
+
+Geolocation uses the 103 EPS navigation tie points per scan line
+(~20 km spacing), avoiding expensive full-resolution interpolation.
+
+**Badges:** `region:global` `dataclass:observation` `product:sat` `provider:eumetsat`
+
+**Parameters:**
+
+<ParamField path="satellite" type="str" default="None">
+Satellite platform filter. One of "metop-a", "metop-b", "metop-c",
+or None (all available). By default None.
+</ParamField>
+
+<ParamField path="subsample" type="int" default="1">
+Scan-line subsampling factor. AVHRR produces ~1000+ scan lines per
+orbit; subsampling reduces data volume. By default 1.
+</ParamField>
+
+<ParamField path="time_tolerance" type="TimeTolerance" default="np.timedelta64(1, 'h')">
+[`TimeTolerance`](../utils/type.mdx#earth2studio-utils-type-TimeTolerance) — Time tolerance window for filtering observations. Accepts a single
+value (symmetric ± window) or a tuple (lower, upper) for asymmetric
+windows, by default np.timedelta64(1, 'h')
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress and info, by default True
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Time in seconds after which download will be cancelled if not finished,
+by default 600
+</ParamField>
+
+<Note>
+
+Requires EUMETSAT Data Store credentials. Set the following environment
+variables:
+
+- ``EUMETSAT_CONSUMER_KEY``: Your EUMETSAT API consumer key
+- ``EUMETSAT_CONSUMER_SECRET``: Your EUMETSAT API consumer secret
+
+Register at https://eoportal.eumetsat.int/ to obtain credentials.
+Additional information on the data repository:
+
+- https://data.eumetsat.int/data/map/EO:EUM:DAT:METOP:AVHRRL1
+- https://user.eumetsat.int/s3/eup-strapi-media/pdf_ten_990004_eps_avhrr1_pgs_194a06daf0.pdf
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount
+of data to your local machine for large requests. Each AVHRR orbit file
+is approximately 1 GB.
+
+</Warning>
+
+<ParamField path="cache" type="str">
+Get the appropriate cache location.
+</ParamField>
+<Anchor id="earth2studio-data-metop_avhrr-MetOpAVHRR-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.metop_avhrr.MetOpAVHRR.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Function to get AVHRR radiance/brightness temperature observations.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variables to return. Must be in MetOpAVHRRLexicon
+(e.g. ``["avhrr"]``).
+</ParamField>
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None" default="None">
+Fields to include in output, by default None (all fields).
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+AVHRR observation data in long format with one row per pixel
+per channel.
+
+</Indent>
+<Anchor id="earth2studio-data-metop_avhrr-MetOpAVHRR-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.metop_avhrr.MetOpAVHRR.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get AVHRR data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variables to return. Must be in MetOpAVHRRLexicon
+(e.g. ``["avhrr"]``).
+</ParamField>
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None" default="None">
+Fields to include in output, by default None (all fields).
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+AVHRR observation data in long format with one row per pixel
+per channel.
+
+</Indent>
+<Anchor id="earth2studio-data-metop_avhrr-MetOpAVHRR-resolve_fields">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.metop_avhrr.MetOpAVHRR.resolve_fields(
+    fields: str | list[str] | pyarrow.Schema | None
+) -> pyarrow.Schema
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Convert fields parameter into a validated PyArrow schema.
+
+**Parameters:**
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None">
+Field specification. None returns the full SCHEMA.
+</ParamField>
+
+**Returns:** `pa.Schema`
+
+A PyArrow schema containing only the requested fields
+
+**Raises:**
+
+- `KeyError`: If a requested field name is not in the SCHEMA
+- `TypeError`: If a field type doesn't match the SCHEMA
+
+</Indent>
+</Indent>

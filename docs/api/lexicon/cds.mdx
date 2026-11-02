@@ -1,0 +1,85 @@
+---
+layout: overview
+title: earth2studio.lexicon.cds
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`CDS_ERA5Lexicon`](#earth2studio-lexicon-cds-CDS_ERA5Lexicon) | Climate Data Store Lexicon |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`__getattr__`](#earth2studio-lexicon-cds-__getattr__) | Return deprecated lexicon aliases. |
+
+### API
+
+<Anchor id="earth2studio-lexicon-cds-CDS_ERA5Lexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.cds.CDS_ERA5Lexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Climate Data Store Lexicon
+CDS specified &lt;dataset&gt;::&lt;Variable ID&gt;::&lt;Pressure Level&gt;
+
+<Note>
+
+Additional resources:
+https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-single-levels?tab=overview
+https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels?tab=overview
+https://codes.ecmwf.int/grib/param-db/?filter=grib2
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-cds-CDS_ERA5Lexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.cds.CDS_ERA5Lexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return name in CDS vocabulary.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-lexicon-cds-__getattr__">
+
+<CodeBlock links={{"earth2studio.lexicon.cds.CDS_ERA5Lexicon":"#earth2studio-lexicon-cds-CDS_ERA5Lexicon"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.cds.__getattr__(
+    name: str
+) -> type[earth2studio.lexicon.cds.CDS_ERA5Lexicon]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Return deprecated lexicon aliases.
+
+</Indent>

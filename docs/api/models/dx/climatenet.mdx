@@ -1,0 +1,172 @@
+---
+layout: overview
+title: earth2studio.models.dx.climatenet
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`ClimateNet`](#earth2studio-models-dx-climatenet-ClimateNet) | Climate Net diagnostic model, built into Earth2Studio. This model can be used to |
+
+### API
+
+<Anchor id="earth2studio-models-dx-climatenet-ClimateNet">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.ClimateNet(
+    core_model: torch.nn.Module,
+    center: torch.Tensor,
+    scale: torch.Tensor
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+Climate Net diagnostic model, built into Earth2Studio. This model can be used to
+create prediction labels for tropical cyclones and atmospheric rivers from a set of
+three atmospheric variables on a quater degree resolution equirectangular grid. It
+produces three non-standard output channels climnet_bg, climnet_tc and climnet_ar
+representing background label, tropical cyclone and atmospheric river labels.
+
+**Badges:** `region:global` `class:medium-range` `product:atmos` `year:2021` `gpu:40gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="core_model" type="torch.nn.Module">
+Core pytorch model
+</ParamField>
+
+<ParamField path="center" type="torch.Tensor">
+Model center normalization tensor of size [20,1,1]
+</ParamField>
+
+<ParamField path="scale" type="torch.Tensor">
+Model scale normalization tensor of size [20,1,1]
+</ParamField>
+
+<Note>
+
+This model and checkpoint are from Prabhat et al. 2021. For more information see the
+following references:
+
+- https://doi.org/10.5194/gmd-14-107-2021
+- https://github.com/andregraubner/ClimateNet
+
+</Note>
+
+<Anchor id="earth2studio-models-dx-climatenet-ClimateNet-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.ClimateNet.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Forward pass of diagnostic
+
+</Indent>
+<Anchor id="earth2studio-models-dx-climatenet-ClimateNet-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.ClimateNet.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of diagnostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-dx-climatenet-ClimateNet-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.ClimateNet.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Default pre-trained climatenet model package from Nvidia model registry
+
+</Indent>
+<Anchor id="earth2studio-models-dx-climatenet-ClimateNet-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.dx.base.DiagnosticModel":"./base.mdx#earth2studio-models-dx-base-DiagnosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.ClimateNet.load_model(
+    package: earth2studio.models.auto.Package
+) -> earth2studio.models.dx.base.DiagnosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load diagnostic from package
+
+</Indent>
+<Anchor id="earth2studio-models-dx-climatenet-ClimateNet-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.ClimateNet.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of diagnostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>

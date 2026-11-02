@@ -1,0 +1,65 @@
+---
+layout: overview
+title: earth2studio.perturbation.base
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`Perturbation`](#earth2studio-perturbation-base-Perturbation) | Perturbation interface. |
+
+### API
+
+<Anchor id="earth2studio-perturbation-base-Perturbation">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.perturbation.base.Perturbation()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Protocol</Badge>
+
+Perturbation interface.
+
+<Anchor id="earth2studio-perturbation-base-Perturbation-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.perturbation.base.Perturbation.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Apply perturbation method to input tensor
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor intended to apply perturbation on
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the tensor
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]:`
+
+Output tensor and respective coordinate system dictionary
+
+</Indent>
+</Indent>

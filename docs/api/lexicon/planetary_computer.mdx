@@ -1,0 +1,255 @@
+---
+layout: overview
+title: earth2studio.lexicon.planetary_computer
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`PlanetaryComputerECMWFOpenDataIFSLexicon`](#earth2studio-lexicon-planetary_computer-PlanetaryComputerECMWFOpenDataIFSLexicon) | Lexicon exposing ECMWF Open Data IFS variables. |
+| [`PlanetaryComputerGOESLexicon`](#earth2studio-lexicon-planetary_computer-PlanetaryComputerGOESLexicon) | Lexicon for GOES-R ABI L2 Cloud and Moisture Imagery on Planetary Computer. |
+| [`PlanetaryComputerMODISFireLexicon`](#earth2studio-lexicon-planetary_computer-PlanetaryComputerMODISFireLexicon) | Lexicon exposing MODIS Thermal Anomalies daily fields. |
+| [`PlanetaryComputerOISSTLexicon`](#earth2studio-lexicon-planetary_computer-PlanetaryComputerOISSTLexicon) | Lexicon for NOAA OISST collections hosted on the Planetary Computer. |
+| [`PlanetaryComputerSentinel3AODLexicon`](#earth2studio-lexicon-planetary_computer-PlanetaryComputerSentinel3AODLexicon) | Lexicon exposing Sentinel-3 SYNERGY aerosol and reflectance variables. |
+
+### API
+
+<Anchor id="earth2studio-lexicon-planetary_computer-PlanetaryComputerECMWFOpenDataIFSLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.planetary_computer.PlanetaryComputerECMWFOpenDataIFSLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Lexicon exposing ECMWF Open Data IFS variables.
+
+For available variables, inspect the GRIB index sidecar exposed as the
+``index`` asset on any item of the ``ecmwf-forecast`` collection (one
+JSON-lines entry per GRIB message):
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+from pystac_client import Client
+
+client = Client.open("https://planetarycomputer.microsoft.com/api/stac/v1")
+search = client.search(collections=["ecmwf-forecast"], max_items=1)
+item = next(search.items())
+print(item.assets["index"].href)  # requires a SAS token to download
+```
+
+</CodeBlock>
+
+<Anchor id="earth2studio-lexicon-planetary_computer-PlanetaryComputerECMWFOpenDataIFSLexicon-build_vocab">
+
+<CodeBlock links={{"earth2studio.lexicon.planetary_computer.Modifier":"#earth2studio-lexicon-planetary_computer-Modifier"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.planetary_computer.PlanetaryComputerECMWFOpenDataIFSLexicon.build_vocab(
+    sfc_variables: dict,
+    prs_variables: dict,
+    prs_levels: list[int],
+    soil_variables: dict,
+    soil_layers: list[int]
+) -> dict[str, tuple[str, earth2studio.lexicon.planetary_computer.Modifier]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>staticmethod</Badge>
+
+</Indent>
+<Anchor id="earth2studio-lexicon-planetary_computer-PlanetaryComputerECMWFOpenDataIFSLexicon-get_item">
+
+<CodeBlock links={{"earth2studio.lexicon.planetary_computer.Modifier":"#earth2studio-lexicon-planetary_computer-Modifier"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.planetary_computer.PlanetaryComputerECMWFOpenDataIFSLexicon.get_item(
+    val: str
+) -> tuple[str, earth2studio.lexicon.planetary_computer.Modifier]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-lexicon-planetary_computer-PlanetaryComputerGOESLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.planetary_computer.PlanetaryComputerGOESLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Lexicon for GOES-R ABI L2 Cloud and Moisture Imagery on Planetary Computer.
+
+For more information, visit the documentation:
+https://planetarycomputer.microsoft.com/dataset/goes-cmi
+https://www.goes-r.gov/spacesegment/ABI-tech-summary.html
+
+<Note>
+
+Please see ``earth2studio.lexicon.goes.GOESLexicon`` for further details.
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-planetary_computer-PlanetaryComputerGOESLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.planetary_computer.PlanetaryComputerGOESLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable[[Any], typing.Any]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Get GOES ABI variable name and modifier for a standardized variable name.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Standardized variable name (e.g., 'abi01c')
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+Tuple containing:
+- GOES ABI variable name (e.g., 'CMI_C01')
+- Modifier function for data transformation
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-lexicon-planetary_computer-PlanetaryComputerMODISFireLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.planetary_computer.PlanetaryComputerMODISFireLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Lexicon exposing MODIS Thermal Anomalies daily fields.
+
+<Anchor id="earth2studio-lexicon-planetary_computer-PlanetaryComputerMODISFireLexicon-get_item">
+
+<CodeBlock links={{"earth2studio.lexicon.planetary_computer.Modifier":"#earth2studio-lexicon-planetary_computer-Modifier"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.planetary_computer.PlanetaryComputerMODISFireLexicon.get_item(
+    val: str
+) -> tuple[str, earth2studio.lexicon.planetary_computer.Modifier]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-lexicon-planetary_computer-PlanetaryComputerOISSTLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.planetary_computer.PlanetaryComputerOISSTLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Lexicon for NOAA OISST collections hosted on the Planetary Computer.
+
+<Anchor id="earth2studio-lexicon-planetary_computer-PlanetaryComputerOISSTLexicon-get_item">
+
+<CodeBlock links={{"earth2studio.lexicon.planetary_computer.Modifier":"#earth2studio-lexicon-planetary_computer-Modifier"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.planetary_computer.PlanetaryComputerOISSTLexicon.get_item(
+    val: str
+) -> tuple[str, earth2studio.lexicon.planetary_computer.Modifier]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-lexicon-planetary_computer-PlanetaryComputerSentinel3AODLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.planetary_computer.PlanetaryComputerSentinel3AODLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Lexicon exposing Sentinel-3 SYNERGY aerosol and reflectance variables.
+
+<Anchor id="earth2studio-lexicon-planetary_computer-PlanetaryComputerSentinel3AODLexicon-get_item">
+
+<CodeBlock links={{"earth2studio.lexicon.planetary_computer.Modifier":"#earth2studio-lexicon-planetary_computer-Modifier"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.planetary_computer.PlanetaryComputerSentinel3AODLexicon.get_item(
+    val: str
+) -> tuple[str, earth2studio.lexicon.planetary_computer.Modifier]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+</Indent>
+</Indent>

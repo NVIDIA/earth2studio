@@ -1,0 +1,266 @@
+---
+layout: overview
+title: earth2studio.data.arco
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`ARCO`](#earth2studio-data-arco-ARCO) | Deprecated alias for `ARCO_ERA5`. |
+| [`ARCO_ERA5`](#earth2studio-data-arco-ARCO_ERA5) | Analysis-Ready, Cloud Optimized (ARCO) ERA5 is a reanalysis data source |
+
+### API
+
+<Anchor id="earth2studio-data-arco-ARCO">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.arco.ARCO(
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [ARCO_ERA5](#earth2studio-data-arco-ARCO_ERA5)
+
+Deprecated alias for `ARCO_ERA5`.
+
+</Indent>
+
+<Anchor id="earth2studio-data-arco-ARCO_ERA5">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.arco.ARCO_ERA5(
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Analysis-Ready, Cloud Optimized (ARCO) ERA5 is a reanalysis data source
+curated by Google. This data is stored in Zarr format and contains 31 surface
+variables, pressure level variables defined on 37 pressure levels, and model level
+variables defined on the 137 native ERA5 vertical levels, all on a 0.25 degree lat
+lon grid. Temporal resolution is 1 hour.
+
+**Badges:** `region:global` `dataclass:reanalysis` `dataset:era5` `product:wind` `product:precip` `product:temp` `product:atmos` `provider:google`
+
+**Parameters:**
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Time in sec after which download will be cancelled if not finished successfully,
+by default 600
+</ParamField>
+
+<Note>
+
+Additional information on the data repository can be referenced here:
+
+- https://cloud.google.com/storage/docs/public-datasets/era5
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of data
+to your local machine for large requests.
+
+</Warning>
+
+<ParamField path="cache" type="str">
+Get the appropriate cache location.
+</ParamField>
+
+<Anchor id="earth2studio-data-arco-ARCO_ERA5-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.arco.ARCO_ERA5.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Function to get data
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the ARCO_ERA5Lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+ERA5 weather data array from ARCO_ERA5
+
+</Indent>
+<Anchor id="earth2studio-data-arco-ARCO_ERA5-available">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.arco.ARCO_ERA5.available(
+    time: datetime.datetime | numpy.datetime64
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Checks if given date time is avaliable in the ARCO_ERA5 data source
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | np.datetime64">
+Date time to access
+</ParamField>
+
+**Returns:** `bool`
+
+If date time is avaiable
+
+</Indent>
+<Anchor id="earth2studio-data-arco-ARCO_ERA5-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.arco.ARCO_ERA5.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get data
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the ARCO_ERA5Lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+ERA5 weather data array from ARCO_ERA5
+
+</Indent>
+<Anchor id="earth2studio-data-arco-ARCO_ERA5-fetch_array">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.arco.ARCO_ERA5.fetch_array(
+    time: datetime.datetime,
+    variable: str
+) -> numpy.ndarray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Fetches requested array from remote store
+
+**Parameters:**
+
+<ParamField path="time" type="datetime">
+Time to fetch
+</ParamField>
+
+<ParamField path="variable" type="str">
+Variable to fetch
+</ParamField>
+
+**Returns:** `np.ndarray`
+
+Data
+
+</Indent>
+<Anchor id="earth2studio-data-arco-ARCO_ERA5-fetch_chunk_group">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.arco.ARCO_ERA5.fetch_chunk_group(
+    e: tuple[datetime.datetime, int, str, bool, list],
+    xr_array: xarray.DataArray
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Fetch a Zarr chunk once and distribute slices to all variables
+that share the same underlying array.
+
+**Parameters:**
+
+<ParamField path="e" type="tuple">
+(time, time_index, arco_variable, is_mdl, var_entries) where
+var_entries is [(var_name, var_idx, level, modifier), ...]
+</ParamField>
+
+<ParamField path="xr_array" type="xr.DataArray">
+Output array to write into
+</ParamField>
+
+</Indent>
+</Indent>

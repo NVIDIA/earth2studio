@@ -1,0 +1,232 @@
+---
+layout: overview
+title: earth2studio.data.rand
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`Random`](#earth2studio-data-rand-Random) | A randomly generated normally distributed data. Primarily useful for testing. |
+| [`RandomDataFrame`](#earth2studio-data-rand-RandomDataFrame) | A randomly generated DataFrame source. Primarily useful for testing. |
+| [`Random_FX`](#earth2studio-data-rand-Random_FX) | A randomly generated normally distributed data. Primarily useful for testing. |
+
+### API
+
+<Anchor id="earth2studio-data-rand-Random">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.rand.Random(
+    domain_coords: collections.OrderedDict[str, numpy.ndarray]
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+A randomly generated normally distributed data. Primarily useful for testing.
+
+**Parameters:**
+
+<ParamField path="domain_coords" type="OrderedDict[str, np.ndarray]">
+Domain coordinates that the random data will assume (such as lat, lon).
+</ParamField>
+
+<Anchor id="earth2studio-data-rand-Random-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.rand.Random.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve random gaussian data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Strings or list of strings that refer to variables to return.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Random data array
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-rand-RandomDataFrame">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.rand.RandomDataFrame(
+    n_obs: int = 10,
+    tolerance: datetime.timedelta | numpy.timedelta64 = np.timedelta64(0),
+    schema: pyarrow.Schema | None = None,
+    field_generators: dict[str, collections.abc.Callable[[], typing.Any]] | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+A randomly generated DataFrame source. Primarily useful for testing.
+
+Generates random observations at random locations for specified times and variables.
+Each observation is a point in space-time with a random value.
+
+**Parameters:**
+
+<ParamField path="n_obs" type="int" default="10">
+Number of random observations to generate per time step, by default 10
+</ParamField>
+
+<ParamField path="tolerance" type="timedelta | np.timedelta64" default="np.timedelta64(0)">
+Time tolerance; observations will be randomly sampled within +/- tolerance
+of each requested time, by default np.timedelta64(0)
+</ParamField>
+
+<ParamField path="schema" type="pa.Schema | None" default="None">
+PyArrow schema to use for data generation. If None, uses default SCHEMA.
+Data will be generated dynamically based on schema field types, by default None
+</ParamField>
+
+<ParamField path="field_generators" type="dict[str, Callable[[], Any]] | None" default="None">
+Dictionary mapping field names to generator functions. These will be merged
+with the default generators. Default generators include: time, lat, lon,
+observation, variable. User-provided generators will override defaults,
+by default None
+</ParamField>
+
+<ParamField path="SCHEMA">
+</ParamField>
+
+<ParamField path="SOURCE_ID" type="= 'earth2studio.data.RandomDataFrame'">
+</ParamField>
+
+<ParamField path="_field_generators" type="= &#123;None: default_generators, None: user_generators&#125;">
+</ParamField>
+
+<ParamField path="schema" type="= schema if schema is not None else self.SCHEMA">
+</ParamField>
+
+<ParamField path="tolerance" type="= pd.to_timedelta(tolerance).to_pytimedelta()">
+</ParamField>
+<Anchor id="earth2studio-data-rand-RandomDataFrame-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray","earth2studio.utils.type.FieldArray":"../utils/type.mdx#earth2studio-utils-type-FieldArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.rand.RandomDataFrame.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | earth2studio.utils.type.FieldArray | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve random observation DataFrame.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Strings or list of strings that refer to variables to return.
+</ParamField>
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | FieldArray | None" default="None">
+`str | list[str] | pa.Schema |` [`FieldArray`](../utils/type.mdx#earth2studio-utils-type-FieldArray) `| None` — Fields to include in output, by default None (all fields).
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+Random observation DataFrame
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-rand-Random_FX">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.rand.Random_FX(
+    domain_coords: collections.OrderedDict[str, numpy.ndarray]
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+A randomly generated normally distributed data. Primarily useful for testing.
+
+**Parameters:**
+
+<ParamField path="domain_coords" type="OrderedDict[str, np.ndarray]">
+Domain coordinates that the random data will assume (such as lat, lon).
+</ParamField>
+
+<Anchor id="earth2studio-data-rand-Random_FX-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.rand.Random_FX.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve random gaussian data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Strings or list of strings that refer to variables to return.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Random data array
+
+</Indent>
+</Indent>

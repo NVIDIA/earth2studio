@@ -9,6 +9,7 @@ exclude_docs: |
   _build/**
   overrides/**
   scorecard/config/**
+  **/*.mdx
   **/__pycache__/
 site_dir: site
 strict: false

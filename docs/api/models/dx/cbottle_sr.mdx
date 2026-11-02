@@ -1,0 +1,287 @@
+---
+layout: overview
+title: earth2studio.models.dx.cbottle_sr
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`CBottleSR`](#earth2studio-models-dx-cbottle_sr-CBottleSR) | Climate in a Bottle Super-Resolution (CBottleSR) model. |
+
+### API
+
+<Anchor id="earth2studio-models-dx-cbottle_sr-CBottleSR">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.cbottle_sr.CBottleSR(
+    sr_model: torch.nn.Module,
+    lat_lon: bool = True,
+    output_resolution: tuple[int, int] = (2161, 4320),
+    super_resolution_window: tuple[int, int, int, int] | None = None,
+    sampler_steps: int = 18,
+    sigma_max: int = 800,
+    seed: int | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+Climate in a Bottle Super-Resolution (CBottleSR) model.
+
+CBottleSR is a diffusion-based super-resolution model that learns mappings between
+low- and high-resolution climate data with high fidelity. This model generates
+results at 5km resolution on a healpix grid with 10 levels of resolution (1024x1024).
+The results can be output in either HEALPix format or regridded to a lat/lon grid.
+If lat/lon is used for output, the results will be regridded to the specified output resolution.
+Suggested output resolutions are (2161, 4320) for ~10km equatorial resolution and (4321, 8640) for ~5km equatorial resolution.
+The model can also be used to generate results for a smaller region of the globe by specifying a super-resolution window.
+This is often desirable as full global results are computationally expensive.
+
+**Badges:** `region:global` `class:downscaling` `product:wind` `product:precip` `product:temp` `product:atmos` `year:2025` `gpu:80gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="sr_model" type="torch.nn.Module">
+Core cBottle super-resolution helper module implementing the diffusion process
+</ParamField>
+
+<ParamField path="lat_lon" type="bool, optional, by default True" default="True">
+Lat/lon toggle, if true the model will expect a lat/lon grid as input and output a lat/lon
+grid. If false, the native nested HealPix grid will be used for input and output.
+Input HEALPix is level 6 and output HEALPix is level 10 with NEST pixel ordering
+</ParamField>
+
+<ParamField path="output_resolution" type="Tuple[int, int]" default="(2161, 4320)">
+High-resolution output dimensions for lat/lon output. Only used when
+lat_lon=True, by default (2161, 4320)
+</ParamField>
+
+<ParamField path="super_resolution_window" type="Tuple[int, int, int, int] | None" default="None">
+Super-resolution window. If None, super-resolution is done on the entire global grid
+If provided, the super-resolution window is a tuple of (lat_south, lon_west, lat_north, lon_east)
+and will only apply super-resolution to the specified window. For lat/lon output, the result will
+just be returned for the specified window with the specified output resolution,
+by default None
+</ParamField>
+
+<ParamField path="sampler_steps" type="int" default="18">
+Number of diffusion steps, by default 18
+</ParamField>
+
+<ParamField path="sigma_max" type="int" default="800">
+Maximum noise level for diffusion process, by default 800
+</ParamField>
+
+<ParamField path="seed" type="int" default="None">
+Random generator seed for latent variables, by default None
+</ParamField>
+
+<Note>
+
+For more information see the following references:
+
+- https://arxiv.org/abs/2505.06474v1
+- https://github.com/NVlabs/cBottle
+- https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/cbottle
+- HEALPix: https://healpix.sourceforge.io/
+- https://huggingface.co/nvidia/cbottle
+
+</Note>
+
+<ParamField path="device" type="device">
+Current device for model buffers
+</ParamField>
+
+<Anchor id="earth2studio-models-dx-cbottle_sr-CBottleSR-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.cbottle_sr.CBottleSR.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Forward pass of diagnostic
+
+</Indent>
+<Anchor id="earth2studio-models-dx-cbottle_sr-CBottleSR-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.cbottle_sr.CBottleSR.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system
+
+</Indent>
+<Anchor id="earth2studio-models-dx-cbottle_sr-CBottleSR-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.cbottle_sr.CBottleSR.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Default pre-trained cBottle model package from Nvidia model registry
+
+</Indent>
+<Anchor id="earth2studio-models-dx-cbottle_sr-CBottleSR-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.dx.base.DiagnosticModel":"./base.mdx#earth2studio-models-dx-base-DiagnosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.cbottle_sr.CBottleSR.load_model(
+    package: earth2studio.models.auto.Package,
+    lat_lon: bool = True,
+    output_resolution: tuple[int, int] = (2161, 4320),
+    super_resolution_window: tuple[int, int, int, int] | None = None,
+    sampler_steps: int = 18,
+    sigma_max: int = 800,
+    seed: int | None = None,
+    distilled_model: bool = False
+) -> earth2studio.models.dx.base.DiagnosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load diagnostic model from package
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — CBottle AI model package
+</ParamField>
+
+<ParamField path="lat_lon" type="bool, optional, by default True" default="True">
+Lat/lon toggle, if true the model will expect a lat/lon grid as input and output a lat/lon
+grid. If false, the native nested HEALPix grid will be used for input and output
+Input HEALPix is level 6 and output HEALPix is level 10 with NEST pixel ordering
+</ParamField>
+
+<ParamField path="output_resolution" type="tuple[int, int]" default="(2161, 4320)">
+High-resolution output dimensions for lat/lon output, by default (2161, 4320)
+</ParamField>
+
+<ParamField path="super_resolution_window" type="tuple[int, int, int, int] | None" default="None">
+Super-resolution window for lat/lon output, by default None
+</ParamField>
+
+<ParamField path="sampler_steps" type="int" default="18">
+Number of diffusion steps, by default 18
+</ParamField>
+
+<ParamField path="sigma_max" type="float" default="800">
+Noise amplitude used to generate latent variables, by default 800
+</ParamField>
+
+<ParamField path="seed" type="int" default="None">
+Random generator seed for latent variables, by default None
+</ParamField>
+
+<ParamField path="distilled_model" type="bool" default="False">
+Whether to use the distilled model, If True, the distilled helper is used,
+enabling generation with fewer sampler steps, by default False
+</ParamField>
+
+**Returns:** [`DiagnosticModel`](./base.mdx#earth2studio-models-dx-base-DiagnosticModel)
+
+Diagnostic model
+
+</Indent>
+<Anchor id="earth2studio-models-dx-cbottle_sr-CBottleSR-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.cbottle_sr.CBottleSR.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of diagnostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-dx-cbottle_sr-CBottleSR-set_super_resolution_window">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.cbottle_sr.CBottleSR.set_super_resolution_window(
+    super_resolution_window: tuple[int, int, int, int] | None = None,
+    output_resolution: tuple[int, int] = (2161, 4320)
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Set or update the super-resolution window
+
+**Parameters:**
+
+<ParamField path="super_resolution_window" type="None | tuple[int, int, int, int]" default="None">
+Super-resolution window. If None, super-resolution is done
+on the entire global grid. If provided, the super-resolution window is a tuple
+of (lat_south, lon_west, lat_north, lon_east) and will only apply super-resolution
+to the specified window. By default None.
+</ParamField>
+
+<ParamField path="output_resolution" type="tuple[int, int] | None" default="(2161, 4320)">
+High-resolution output dimensions for lat/lon output. Only used when
+lat_lon=True, by default (2161, 4320)
+</ParamField>
+
+</Indent>
+</Indent>

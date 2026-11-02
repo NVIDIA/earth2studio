@@ -1,0 +1,178 @@
+---
+title: Earth2Studio
+description: Next-generation AI weather modeling in one Python package.
+---
+
+<p style={{ fontSize: "clamp(1.5rem, 4vw, 1.875rem)", fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.02em", margin: "0 0 1rem 0" }}>
+  Next-generation AI weather modeling.
+</p>
+
+Access a leading collection of weather and climate AI models, production-ready data
+sources, composable inference APIs, and GPU-accelerated workflows in one Python package.
+
+<div style={{ display: "flex", flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+  <a href="https://pypi.org/project/earth2studio/" style={{ display: "inline-block" }}>
+    <img src="https://img.shields.io/pypi/v/earth2studio?style=flat-square&color=76b900&label=release" alt="Latest release" style={{ margin: 0 }} />
+  </a>
+  <a href="https://github.com/NVIDIA/earth2studio/blob/main/LICENSE" style={{ display: "inline-block" }}>
+    <img src="https://img.shields.io/pypi/l/earth2studio?style=flat-square&color=76b900" alt="License" style={{ margin: 0 }} />
+  </a>
+</div>
+
+<CardGroup cols={2}>
+  <Card title="Get started" icon="fa-solid fa-arrow-right" href="/earth2studio/install">
+    Install Earth2Studio and its optional model and data dependencies.
+  </Card>
+  <Card title="User guide" icon="fa-solid fa-book" href="/earth2studio/userguide">
+    Learn the package design, core components, and advanced usage.
+  </Card>
+</CardGroup>
+
+## Run an AI forecast in a few lines of code
+
+<Tabs>
+  <Tab title="uv">
+
+```bash
+uv pip install "earth2studio[fcn]"
+```
+
+  </Tab>
+  <Tab title="pip">
+
+```bash
+pip install "earth2studio[fcn]"
+```
+
+  </Tab>
+</Tabs>
+
+```python
+from earth2studio import run
+from earth2studio.data import GFS
+from earth2studio.io import ZarrBackend
+from earth2studio.models.px import FCN
+
+model = FCN.load_model(FCN.load_default_package())
+run.deterministic(["2024-01-01"], 10, model, GFS(), ZarrBackend("fcn.zarr"))
+```
+
+## AI weather and climate tooling for every sector
+
+Earth2Studio gives research groups, agencies, enterprises, developers, and classrooms a
+shared Python surface for models, data, verification, and operational workflows.
+
+<CardGroup cols={3}>
+  <Card title="Scientists & researchers" icon="fa-solid fa-flask">
+    Benchmark models on identical data through one API, design ensemble experiments, and verify outputs with built-in deterministic and probabilistic metrics.
+  </Card>
+  <Card title="Met services & agencies" icon="fa-solid fa-satellite-dish">
+    Run, fine-tune, and deploy forecasting capability on infrastructure you control, from medium-range global guidance to rapid regional workflows.
+  </Card>
+  <Card title="Enterprise" icon="fa-solid fa-briefcase">
+    Build ensemble risk workflows for energy, insurance, logistics, agriculture, and climate resilience with reproducible AI forecasts.
+  </Card>
+  <Card title="Developers" icon="fa-solid fa-code">
+    Build weather-aware APIs, dashboards, agents, and decision products on a composable SDK that keeps models, data, IO, and workflows separate.
+  </Card>
+  <Card title="Educators & students" icon="fa-solid fa-graduation-cap">
+    Teach Earth system AI with an open on-ramp that can fetch data, load models, run forecasts, and store outputs using familiar scientific Python tools.
+  </Card>
+</CardGroup>
+
+## Built on the scientific Python ecosystem
+
+AI for weather and climate does not need to feel unfamiliar. If you already work with the
+scientific Python and PyData ecosystem, Earth2Studio gives you familiar building blocks for
+running modern AI weather models.
+
+[Zarr](https://zarr.dev) · [Xarray](https://xarray.dev) · [CuPy](https://cupy.dev) · [PyArrow](https://arrow.apache.org/docs/python/) · [RAPIDS](https://rapids.ai) · [PyTorch](https://pytorch.org) · [Obstore](https://developmentseed.org/obstore/) · [fsspec](https://filesystem-spec.readthedocs.io)
+
+## Forecast with the largest collection of AI models in the community
+
+| Model | Description |
+| --- | --- |
+| **FourCastNet 3** | AFNO-based medium-range forecasting |
+| **AIFS 2.0** | ECMWF AI forecast model workflows |
+| **StormScope** | Satellite and radar-conditioned forecast workflows |
+| **HEAL-DA** | Data assimilation and analysis correction |
+| **Pangu-Weather** | Operational-style global forecast rollouts |
+| **Aurora** | Foundation-model forecasting and analysis |
+| **StormCast-CONUS** | Regional CONUS forecasting workflows |
+| **CorrDiff** | Diffusion downscaling workflows |
+| **DLESyM** | Coupled Earth-system model inference |
+| **GraphCast** | Global graph neural weather forecasts |
+| **ACE-2** | AI2 climate and weather model interface |
+| **Atlas** | Generative medium-range forecast workflows |
+
+[Browse the full model catalog →](https://nvidia.github.io/earth2studio/main/userguide/about/catalog/?tab=models)
+
+## Connect to weather and climate data from around the globe
+
+NOAA, ECMWF, NASA, EUMETSAT, EarthMover, Dynamical, Planetary Computer, Copernicus CDS,
+NCEP, NCAR, AWS Open Data, NNJA, and more.
+
+[Browse the full data catalog →](https://nvidia.github.io/earth2studio/main/userguide/about/catalog/?tab=data)
+
+## Modular components for your use case
+
+<CardGroup cols={2}>
+  <Card title="Medium range models" icon="fa-solid fa-earth-americas" href="/earth2studio/api/models_px">
+    **Prognostic.** Global forecast rollouts and ensemble workflows.
+  </Card>
+  <Card title="Nowcasting models" icon="fa-solid fa-cloud-bolt" href="/earth2studio/api/models_dx">
+    **Prognostic.** Rapid-update precipitation, satellite, and radar workflows.
+  </Card>
+  <Card title="Climate models" icon="fa-solid fa-temperature-half" href="/earth2studio/api/models_px">
+    **Prognostic.** Seasonal, climate, and coupled Earth-system models.
+  </Card>
+  <Card title="Downscaling models" icon="fa-solid fa-magnifying-glass-chart" href="/earth2studio/api/models_dx">
+    **Diagnostic.** Super-resolution, correction, and diagnostic downscaling tools.
+  </Card>
+  <Card title="Data assimilation models" icon="fa-solid fa-arrows-to-circle" href="/earth2studio/api/models_da">
+    **Assimilation.** Observation-informed analysis and correction workflows.
+  </Card>
+  <Card title="Analysis data" icon="fa-solid fa-database" href="/earth2studio/api/datasources_analysis">
+    **Reanalysis.** ERA5, HRRR, IFS, and analysis-ready sources.
+  </Card>
+  <Card title="Forecast data" icon="fa-solid fa-chart-line" href="/earth2studio/api/datasources_forecast">
+    **Numerical.** Operational forecasts for initialization and conditioning.
+  </Card>
+  <Card title="Observation data" icon="fa-solid fa-satellite" href="/earth2studio/api/datasources_dataframe">
+    **DataFrames.** Conventional, satellite, radar, and station datasets.
+  </Card>
+</CardGroup>
+
+## Automate setup, discovery, and first forecasts
+
+Install Earth2Studio skills, then ask your coding agent to recommend a model, configure an
+environment, fetch data, or launch a deterministic forecast.
+
+```bash
+npx skills add NVIDIA/skills --skill earth2studio-install
+npx skills add NVIDIA/skills --skill earth2studio-discover
+npx skills add NVIDIA/skills --skill earth2studio-data-fetch
+npx skills add NVIDIA/skills --skill earth2studio-deterministic-forecast
+```
+
+- **Discover:** Recommend data, models, IO, and docs for a workflow.
+- **Install:** Set up Earth2Studio and model-specific dependencies.
+- **Run:** Create a forecast with GFS, FourCastNet3, and Zarr output.
+
+## Run a forecast, then make it your own
+
+Earth2Studio keeps the pieces separate: data sources fetch initial states and observations,
+models transform state, IO stores results, and workflows compose them. Easy to get started,
+easy to extend.
+
+<CardGroup cols={3}>
+  <Card title="Tutorial" icon="fa-brands fa-youtube" href="https://www.youtube.com/watch?v=Sog6aCapZeA">
+    Watch a walkthrough on YouTube.
+  </Card>
+  <Card title="Examples" icon="fa-solid fa-flask" href="/earth2studio/examples">
+    Executable examples for forecasts, diagnostics, and extension patterns.
+  </Card>
+  <Card title="API Reference" icon="fa-solid fa-code" href="/earth2studio/api/overview">
+    Browse the full API documentation.
+  </Card>
+</CardGroup>

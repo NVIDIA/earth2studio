@@ -1,0 +1,178 @@
+---
+layout: overview
+title: earth2studio.models.px.datareplay
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`DataReplay`](#earth2studio-models-px-datareplay-DataReplay) | Replay a data source through the prognostic model interface. |
+
+### API
+
+<Anchor id="earth2studio-models-px-datareplay-DataReplay">
+
+<CodeBlock links={{"earth2studio.data.DataSource":"../../data/base.mdx#earth2studio-data-base-DataSource","earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.datareplay.DataReplay(
+    source: earth2studio.data.DataSource | earth2studio.data.ForecastSource,
+    variable: str | list[str],
+    domain_coords: earth2studio.utils.type.CoordSystem,
+    step: numpy.timedelta64 = np.timedelta64(6, 'h')
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [PrognosticMixin](./utils.mdx#earth2studio-models-px-utils-PrognosticMixin)
+
+Replay a data source through the prognostic model interface.
+
+Data sources are queried at successive valid times. Forecast sources are queried
+at successive lead times from the initial time.
+
+**Badges:** `region:global` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="source" type="DataSource | ForecastSource">
+[`DataSource`](../../data/base.mdx#earth2studio-data-base-DataSource) `|` [`ForecastSource`](../../data/base.mdx#earth2studio-data-base-ForecastSource) — Source to replay.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str]">
+Variables to fetch.
+</ParamField>
+
+<ParamField path="domain_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Spatial coordinates expected from the source.
+</ParamField>
+
+<ParamField path="step" type="np.timedelta64" default="np.timedelta64(6, 'h')">
+Time between frames, by default np.timedelta64(6, "h")
+</ParamField>
+
+<ParamField path="_domain_coords">
+</ParamField>
+
+<ParamField path="_input_coords">
+</ParamField>
+
+<ParamField path="_variable" type="= np.asarray(variable).copy()">
+</ParamField>
+<Anchor id="earth2studio-models-px-datareplay-DataReplay-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.datareplay.DataReplay.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Advance the source by one step.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Source data and coordinates one step ahead.
+
+</Indent>
+<Anchor id="earth2studio-models-px-datareplay-DataReplay-create_iterator">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.datareplay.DataReplay.create_iterator(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> collections.abc.Iterator[tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Create an iterator over source frames.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Initial condition tensor.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Initial condition coordinates.
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-datareplay-DataReplay-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.datareplay.DataReplay.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of the prognostic model.
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Input coordinate system.
+
+</Indent>
+<Anchor id="earth2studio-models-px-datareplay-DataReplay-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.datareplay.DataReplay.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system one step ahead.
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Output coordinate system.
+
+</Indent>
+</Indent>

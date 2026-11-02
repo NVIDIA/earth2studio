@@ -1,0 +1,78 @@
+---
+layout: overview
+title: earth2studio.lexicon.ibtracs
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`IBTrACSLexicon`](#earth2studio-lexicon-ibtracs-IBTrACSLexicon) | International Best Track Archive for Climate Stewardship (IBTrACS) lexicon. |
+
+### API
+
+<Anchor id="earth2studio-lexicon-ibtracs-IBTrACSLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.ibtracs.IBTrACSLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+International Best Track Archive for Climate Stewardship (IBTrACS) lexicon.
+
+This lexicon provides variable mappings for IBTrACS tropical cyclone track data.
+Variables are mapped from IBTrACS NetCDF variables to Earth2Studio standard names.
+
+<Note>
+
+IBTrACS uses WMO-harmonized variables where available. Wind speeds are stored in
+knots and converted to m/s. Wind radii are stored in nautical miles and converted
+to kilometers. Pressure is stored in mb (hPa) and converted to Pa.
+
+Additional resources:
+
+- https://www.ncei.noaa.gov/products/international-best-track-archive
+- https://www.ncei.noaa.gov/sites/default/files/2025-04/IBTrACS_version4r01_Technical_Details.pdf
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-ibtracs-IBTrACSLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.ibtracs.IBTrACSLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Get item from IBTrACS vocabulary.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Earth2Studio variable id.
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+- IBTrACS variable key (may include :: for computed variables).
+- A modifier function that converts raw IBTrACS values to
+  Earth2Studio standard units.
+
+</Indent>
+</Indent>

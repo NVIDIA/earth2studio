@@ -1,0 +1,148 @@
+---
+layout: overview
+title: earth2studio.statistics.brier
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`brier_score`](#earth2studio-statistics-brier-brier_score) | Statistic for calculating the Brier score (BS) of one tensors |
+
+### API
+
+<Anchor id="earth2studio-statistics-brier-brier_score">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.statistics.brier.brier_score(
+    reduction_dimensions: list[str],
+    thresholds: numpy.typing.ArrayLike,
+    ensemble_dimension: str | None = None,
+    batch_update: bool = False
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Statistic for calculating the Brier score (BS) of one tensors
+with respect to another over a set of given dimensions.
+
+Follows the definition here:
+https://www.ecmwf.int/sites/default/files/elibrary/2017/17626-ensemble-verification-metrics.pdf
+
+If `ensemble_dimension` is provided, the forecast probability is inferred
+by averaging over the ensemble members.
+
+**Parameters:**
+
+<ParamField path="reduction_dimensions" type="List[str]">
+A list of names corresponding to dimensions to perform the
+statistical reduction over. Example: ['lat', 'lon']
+</ParamField>
+
+<ParamField path="thresholds" type="ArrayLike[float]">
+A list of the thresholds applied when calculating BS.
+</ParamField>
+
+<ParamField path="ensemble_dimension" type="str | None = None" default="None">
+Ensemble dimension for computation of probabilistic BS. If None (default),
+forecast is interpreted as deterministic.
+</ParamField>
+
+<ParamField path="batch_update" type="bool = False" default="False">
+Whether to apply batch updates to the BS with each invocation of __call__.
+This is particularly useful when data is recieved in a stream of batches. Each
+invocation of __call__ will return the running BS.
+</ParamField>
+
+<ParamField path="mean">
+</ParamField>
+
+<ParamField path="reduction_dimensions" type="list[str]">
+</ParamField>
+
+<ParamField path="thresholds" type="= np.array(thresholds).astype(np.float32)">
+</ParamField>
+<Anchor id="earth2studio-statistics-brier-brier_score-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.brier.brier_score.__call__(
+    x: torch.Tensor,
+    x_coords: earth2studio.utils.type.CoordSystem,
+    y: torch.Tensor,
+    y_coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Apply metric to data `x` and `y`, checking that their coordinates
+are broadcastable. While reducing over `reduction_dims`.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor, typically the forecast or prediction tensor.
+</ParamField>
+
+<ParamField path="x_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the `x` tensor.
+`reduction_dimensions` must be in x_coords, as do `ensemble_dimension` and
+`spatial_dimensions` if provided in constructor.
+</ParamField>
+
+<ParamField path="y" type="torch.Tensor">
+Input tensor #2 intended to be used as validation data..
+</ParamField>
+
+<ParamField path="y_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the `y` tensor.
+`reduction_dimensions` must be in y_coords, do `spatial_dimensions` if
+provided in constructor.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Returns root mean squared error tensor with appropriate reduced coordinates.
+
+</Indent>
+<Anchor id="earth2studio-statistics-brier-brier_score-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.brier.brier_score.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the computed statistic, corresponding to the given input coordinates
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>

@@ -1,0 +1,314 @@
+---
+layout: overview
+title: earth2studio.models.px.weathernext2_cyclones
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`WeatherNext2Cyclones`](#earth2studio-models-px-weathernext2_cyclones-WeatherNext2Cyclones) | WeatherNext 2 Cyclones operational medium-range forecast model. |
+| [`WeatherNext2CyclonesMini`](#earth2studio-models-px-weathernext2_cyclones-WeatherNext2CyclonesMini) | WeatherNext 2 Cyclones Mini medium-range forecast model. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-models-px-weathernext2_cyclones-WeatherNext2Cyclones">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.weathernext2_cyclones.WeatherNext2Cyclones()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_WeatherNext2Base](#earth2studio-models-px-weathernext2_cyclones-_WeatherNext2Base)
+
+WeatherNext 2 Cyclones operational medium-range forecast model.
+
+This wrapper uses Google DeepMind's operational 0.25 degree
+``WeatherNextCyclones_&lt;2025`` checkpoint family. These are the models that
+ran during the 2025 Atlantic hurricane season. Four trained checkpoint
+members are available; ``load_model`` selects member 1 by default.
+
+The model requires two input states, valid at ``-6h`` and ``0h`` lead time,
+and predicts 6 hours forward per model call. Cyclone tracking can be enabled
+with ``track_cyclones=True`` to accumulate WeatherNext's tropical cyclone
+diagnostics in the ``cyclone_tracks`` property.
+
+**Badges:** `region:global` `class:medium-range` `product:wind` `product:precip` `product:temp` `product:atmos` `product:ocean` `year:2026` `gpu:80gb` `provider:google` `backend:jax`
+
+**Parameters:**
+
+<ParamField path="ckpt" type="fgn.CheckPoint">
+Model checkpoint containing weights.
+</ParamField>
+
+<ParamField path="land_sea_mask" type="np.ndarray">
+Land-sea mask on the WeatherNext grid.
+</ParamField>
+
+<ParamField path="geopotential_at_surface" type="np.ndarray">
+Surface geopotential on the WeatherNext grid.
+</ParamField>
+
+<ParamField path="seed" type="int" default="0">
+Initial random seed for the stochastic FGN noise generator, by default 0.
+</ParamField>
+
+<ParamField path="jit_compile" type="bool" default="True">
+JIT-compile the model forward pass, by default True.
+</ParamField>
+
+<ParamField path="track_cyclones" type="bool" default="False">
+Accumulate tropical cyclone tracks in the ``cyclone_tracks`` property,
+by default False.
+</ParamField>
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+Access tropical cyclone tracks after a model call:
+```
+
+</CodeBlock>
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> model = WeatherNext2Cyclones.load_model(
+...     WeatherNext2Cyclones.load_default_package(),
+...     track_cyclones=True,
+... )
+>>> x, coords = model(x, coords)
+>>> tracks = model.cyclone_tracks
+>>> tracks[["track_id", "lead_time", "lat", "lon", "tcmsl", "tcw10m"]]
+```
+
+</CodeBlock>
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+The ``tcmsl`` and ``tcw10m`` columns provide Earth2Studio-compatible names
+for the minimum sea-level pressure and surface wind speed diagnostics.
+
+The tracker filters short-lived cyclogenesis tracks, so short rollouts can
+return an empty dataframe even when cyclone tracking is active. The active
+duration threshold is set by
+`model._cyclone_tracker.cyclogenesis_minimum_duration`.
+```
+
+</CodeBlock>
+
+<Note>
+
+To avoid JAX preallocating GPU memory and use the CUDA virtual memory
+management allocator, set these variables before importing JAX or
+Earth2Studio:
+
+.. code-block:: console
+
+    export XLA_PYTHON_CLIENT_PREALLOCATE=false
+    export XLA_PYTHON_CLIENT_ALLOCATOR=vmm
+For more information see the following references:
+
+- https://doi.org/10.1038/s41586-026-10953-2
+- https://github.com/google-deepmind/weathernext#provided-pretrained-models
+- https://huggingface.co/kashif/weathernext2
+- https://docs.jax.dev/en/latest/gpu_memory_allocation.html
+
+</Note>
+
+<Warning>
+
+The cyclone-tracking interface, including ``track_cyclones`` and
+``cyclone_tracks``, is in beta and may change in future releases as
+Earth2Studio standardizes how track diagnostics are exposed.
+
+We encourage users to familiarize themselves with the license restrictions of this
+model's checkpoints.
+
+</Warning>
+
+<Anchor id="earth2studio-models-px-weathernext2_cyclones-WeatherNext2Cyclones-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.px.base.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.weathernext2_cyclones.WeatherNext2Cyclones.load_model(
+    package: earth2studio.models.auto.Package,
+    seed: int = 0,
+    jit_compile: bool = True,
+    track_cyclones: bool = False,
+    checkpoint_member: int = 1
+) -> earth2studio.models.px.base.PrognosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load the operational prognostic model from a package.
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Package to load model from.
+</ParamField>
+
+<ParamField path="seed" type="int" default="0">
+Initial random seed for the stochastic FGN noise generator, by default 0.
+</ParamField>
+
+<ParamField path="jit_compile" type="bool" default="True">
+JIT-compile the model forward pass, by default True.
+</ParamField>
+
+<ParamField path="track_cyclones" type="bool" default="False">
+Accumulate tropical cyclone tracks in the ``cyclone_tracks`` property,
+by default False.
+</ParamField>
+
+<ParamField path="checkpoint_member" type="int" default="1">
+Operational checkpoint member from 1 through 4, by default 1.
+</ParamField>
+
+**Returns:** [`PrognosticModel`](./base.mdx#earth2studio-models-px-base-PrognosticModel)
+
+Prognostic model.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-px-weathernext2_cyclones-WeatherNext2CyclonesMini">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.weathernext2_cyclones.WeatherNext2CyclonesMini()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_WeatherNext2Base](#earth2studio-models-px-weathernext2_cyclones-_WeatherNext2Base)
+
+WeatherNext 2 Cyclones Mini medium-range forecast model.
+
+WeatherNext 2 is Google DeepMind's global medium-range weather forecasting
+model family. This wrapper uses the public ``WeatherNextCyclones_Mini``
+checkpoint and 1 degree sample grid.
+
+The model requires two input states, valid at ``-6h`` and ``0h`` lead time,
+and predicts 6 hours forward per model call. By default this wrapper returns
+only the gridded weather fields expected by Earth2Studio prognostic models.
+Cyclone tracking can be enabled with ``track_cyclones=True`` to accumulate
+WeatherNext's tropical cyclone track diagnostics in the ``cyclone_tracks``
+property without changing the model output type.
+
+**Badges:** `region:global` `class:medium-range` `product:wind` `product:precip` `product:temp` `product:atmos` `product:ocean` `year:2026` `gpu:40gb` `provider:google` `backend:jax`
+
+**Parameters:**
+
+<ParamField path="ckpt" type="fgn.CheckPoint">
+Model checkpoint containing weights.
+</ParamField>
+
+<ParamField path="land_sea_mask" type="np.ndarray">
+Land-sea mask on the WeatherNext grid.
+</ParamField>
+
+<ParamField path="geopotential_at_surface" type="np.ndarray">
+Surface geopotential on the WeatherNext grid.
+</ParamField>
+
+<ParamField path="seed" type="int" default="0">
+Initial random seed for the stochastic FGN noise generator, by default 0.
+</ParamField>
+
+<ParamField path="jit_compile" type="bool" default="True">
+JIT-compile the model forward pass, by default True.
+</ParamField>
+
+<ParamField path="track_cyclones" type="bool" default="False">
+Accumulate tropical cyclone tracks in the ``cyclone_tracks`` property,
+by default False.
+</ParamField>
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+Access tropical cyclone tracks after a model call:
+```
+
+</CodeBlock>
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> model = WeatherNext2CyclonesMini.load_model(
+...     WeatherNext2CyclonesMini.load_default_package(),
+...     track_cyclones=True,
+... )
+>>> x, coords = model(x, coords)
+>>> tracks = model.cyclone_tracks
+>>> tracks[["track_id", "lead_time", "lat", "lon", "tcmsl", "tcw10m"]]
+```
+
+</CodeBlock>
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+The ``tcmsl`` and ``tcw10m`` columns provide Earth2Studio-compatible names
+for the minimum sea-level pressure and surface wind speed diagnostics.
+
+The tracker filters short-lived cyclogenesis tracks, so short rollouts can
+return an empty dataframe even when cyclone tracking is active. The active
+duration threshold is set by
+`model._cyclone_tracker.cyclogenesis_minimum_duration`.
+```
+
+</CodeBlock>
+
+<Note>
+
+For more information see the following references:
+
+- https://doi.org/10.1038/s41586-026-10953-2
+- https://github.com/google-deepmind/weathernext
+- https://huggingface.co/kashif/weathernext2
+
+</Note>
+
+<Warning>
+
+The cyclone-tracking interface, including ``track_cyclones`` and
+``cyclone_tracks``, is in beta and may change in future releases as
+Earth2Studio standardizes how track diagnostics are exposed.
+
+We encourage users to familiarize themselves with the license restrictions of this
+model's checkpoints.
+
+</Warning>
+
+</Indent>

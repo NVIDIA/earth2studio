@@ -1,0 +1,378 @@
+---
+layout: overview
+title: earth2studio.models.px.cbottle_video
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`CBottleVideo`](#earth2studio-models-px-cbottle_video-CBottleVideo) | Climate in a bottle video prognostic |
+| [`DatasetModality`](#earth2studio-models-px-cbottle_video-DatasetModality) | Dataset label |
+| [`TimeStepperFunction`](#earth2studio-models-px-cbottle_video-TimeStepperFunction) | Supported time-stepper functions |
+
+### API
+
+<Anchor id="earth2studio-models-px-cbottle_video-CBottleVideo">
+
+<CodeBlock links={{"earth2studio.models.px.cbottle_video.DatasetModality":"#earth2studio-models-px-cbottle_video-DatasetModality","earth2studio.models.px.cbottle_video.TimeStepperFunction":"#earth2studio-models-px-cbottle_video-TimeStepperFunction"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.cbottle_video.CBottleVideo(
+    core_model: torch.nn.Module,
+    sst_ds: xarray.Dataset,
+    lat_lon: bool = True,
+    sampler_steps: int = 18,
+    sigma_max: float = 1000.0,
+    sigma_min: float = 0.02,
+    seed: int | None = None,
+    dataset_modality: earth2studio.models.px.cbottle_video.DatasetModality = DatasetModality.ERA5,
+    time_stepper: earth2studio.models.px.cbottle_video.TimeStepperFunction = TimeStepperFunction.HEUN
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin), [PrognosticMixin](./utils.mdx#earth2studio-models-px-utils-PrognosticMixin)
+
+Climate in a bottle video prognostic
+Climate in a Bottle (cBottle) is an AI model for emulating global km-scale climate
+simulations and reanalysis on the equal-area HEALPix grid. The cBottle video
+prognostic model uses the video diffusion checkpoint of CBottle trained to predict
+12 frames (initial state including) at a time.
+
+**Badges:** `region:global` `class:climate` `product:wind` `product:precip` `product:temp` `product:atmos` `product:solar` `year:2025` `gpu:40gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="core_model" type="torch.nn.Module">
+Core Pytorch model
+</ParamField>
+
+<ParamField path="sst_ds" type="xr.Dataset">
+Sea surface temperature xarray dataset
+</ParamField>
+
+<ParamField path="lat_lon" type="bool" default="True">
+Lat/lon toggle, if true data source will return output on a 0.25 deg lat/lon
+grid. If false, the native nested HealPix grid will be returned, by default True
+</ParamField>
+
+<ParamField path="sampler_steps" type="int" default="18">
+Number of diffusion steps, by default 18
+</ParamField>
+
+<ParamField path="sigma_max" type="float" default="1000.0">
+Maximum supported noise level during sampling, by default 1000
+</ParamField>
+
+<ParamField path="sigma_min" type="float" default="0.02">
+Minimum supported noise level during sampling, by default 0.02
+</ParamField>
+
+<ParamField path="seed" type="int | None" default="None">
+If set, will fix the seed of the random generator for latent variables, by
+default None
+</ParamField>
+
+<ParamField path="dataset_modality" type="DatasetModality" default="DatasetModality.ERA5">
+[`DatasetModality`](#earth2studio-models-px-cbottle_video-DatasetModality) — Dataset modality label to use when sampling (0=ICON, 1=ERA5), by default
+DatasetModality.ERA5
+</ParamField>
+
+<ParamField path="time_stepper" type="TimeStepperFunction" default="TimeStepperFunction.HEUN">
+[`TimeStepperFunction`](#earth2studio-models-px-cbottle_video-TimeStepperFunction) — Sampler function used to denoise, by default TimeStepperFunction.HEUN
+</ParamField>
+
+<Note>
+
+This wrapper allows users to provide an input condition for the first frame of the
+model. If this tensor is all NaNs no variable conditioning will be used running the
+network outside of time-stamp and respective SST.
+For more information see the following references:
+
+- https://arxiv.org/abs/2505.06474v1
+- https://github.com/NVlabs/cBottle
+- https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/cbottle
+- https://huggingface.co/nvidia/cbottle
+
+</Note>
+
+<Warning>
+
+Default model package has SST data from January 1940 to December 2022, expanded SST
+data should be provided out of this range.
+
+</Warning>
+
+<Anchor id="earth2studio-models-px-cbottle_video-CBottleVideo-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.cbottle_video.CBottleVideo.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Runs prognostic model 1 step.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input conditional tensor for first frame, if all NaNs model will not use
+any conditioning.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Output tensor and coordinate system 6 hours in the future
+
+</Indent>
+<Anchor id="earth2studio-models-px-cbottle_video-CBottleVideo-create_iterator">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.cbottle_video.CBottleVideo.create_iterator(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> collections.abc.Iterator[tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Creates a iterator which can be used to perform time-integration of the
+prognostic model. Will return the initial condition first (0th step).
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-cbottle_video-CBottleVideo-get_cbottle_input">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.models.px.cbottle_video.DatasetModality":"#earth2studio-models-px-cbottle_video-DatasetModality"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.cbottle_video.CBottleVideo.get_cbottle_input(
+    conditions: torch.Tensor,
+    times: earth2studio.utils.type.TimeArray,
+    dataset_modality: earth2studio.models.px.cbottle_video.DatasetModality = DatasetModality.ERA5,
+    device: torch.device = 'cpu'
+) -> dict[str, torch.Tensor]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Creates batch input for cbottle
+
+**Parameters:**
+
+<ParamField path="conditions" type="torch.Tensor">
+HPX conditional tensor for first time-step of size
+[time, 45, 1, 4**HPX_LEVEL*12]. If all NaNs no condition will be used.
+</ParamField>
+
+<ParamField path="times" type="TimeArray">
+[`TimeArray`](../../utils/type.mdx#earth2studio-utils-type-TimeArray) — Array of np.datetime64 time stamps to be samples of size [time], must have
+SST that can be sampled from self.sst
+</ParamField>
+
+<ParamField path="dataset_modality" type="DatasetModality" default="DatasetModality.ERA5">
+[`DatasetModality`](#earth2studio-models-px-cbottle_video-DatasetModality) — Dataset modality label, by default DatasetModality.ERA5
+</ParamField>
+
+<ParamField path="device" type="torch.device" default="'cpu'">
+Torch device, by default "cpu"
+</ParamField>
+
+**Returns:** `dict[str, torch.Tensor]`
+
+Input batch dictionary used in the CBottle repo
+
+</Indent>
+<Anchor id="earth2studio-models-px-cbottle_video-CBottleVideo-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.cbottle_video.CBottleVideo.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of prognostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-px-cbottle_video-CBottleVideo-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.cbottle_video.CBottleVideo.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Default pre-trained CBottle3D model package from Nvidia model registry
+
+</Indent>
+<Anchor id="earth2studio-models-px-cbottle_video-CBottleVideo-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.px.base.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.cbottle_video.CBottleVideo.load_model(
+    package: earth2studio.models.auto.Package,
+    lat_lon: bool = True,
+    sampler_steps: int = 18,
+    sigma_max: float = 1000,
+    seed: int | None = None
+) -> earth2studio.models.px.base.PrognosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic from package
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — CBottle AI model package
+</ParamField>
+
+<ParamField path="lat_lon" type="bool" default="True">
+Lat/lon toggle, if true prognostic input/output on a 0.25 deg lat/lon
+grid. If false, the native nested HealPix grid will be returned, by default
+True
+</ParamField>
+
+<ParamField path="sampler_steps" type="int" default="18">
+Number of diffusion steps, by default 18
+</ParamField>
+
+<ParamField path="sigma_max" type="float" default="1000">
+Noise amplitude used to generate latent variables, by default 200
+</ParamField>
+
+<ParamField path="seed" type="int" default="None">
+Random generator seed for latent variables. If None, no seed will be used,
+by default None
+</ParamField>
+
+**Returns:** [`PrognosticModel`](./base.mdx#earth2studio-models-px-base-PrognosticModel)
+
+Prognostic Model
+
+</Indent>
+<Anchor id="earth2studio-models-px-cbottle_video-CBottleVideo-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.cbottle_video.CBottleVideo.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of prognostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-px-cbottle_video-DatasetModality">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.cbottle_video.DatasetModality
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `enum.Enum`
+
+Dataset label
+
+</Indent>
+
+<Anchor id="earth2studio-models-px-cbottle_video-TimeStepperFunction">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.cbottle_video.TimeStepperFunction
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `enum.Enum`
+
+Supported time-stepper functions
+
+</Indent>

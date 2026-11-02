@@ -1,0 +1,693 @@
+---
+layout: overview
+title: earth2studio.models.dx.derived
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`DerivedRH`](#earth2studio-models-dx-derived-DerivedRH) | Calculates the relative humidity (RH) from specific humidity and temperature |
+| [`DerivedRHDewpoint`](#earth2studio-models-dx-derived-DerivedRHDewpoint) | Calculates the surface relative humidity (RH) from dewpoint temperature and air |
+| [`DerivedSurfacePressure`](#earth2studio-models-dx-derived-DerivedSurfacePressure) | Interpolates the surface pressure in hPa from pressure level geopotential, |
+| [`DerivedTCWV`](#earth2studio-models-dx-derived-DerivedTCWV) | Calculates the Total Column Water Vapor (TCWV) from specific humidity at |
+| [`DerivedVPD`](#earth2studio-models-dx-derived-DerivedVPD) | Calculates the Vapor Pressure Deficit (VPD) in hPa from relative humidity |
+| [`DerivedWS`](#earth2studio-models-dx-derived-DerivedWS) | Calculates the Wind Speed (WS) magnitude from eastward and northward wind |
+
+### API
+
+<Anchor id="earth2studio-models-dx-derived-DerivedRH">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.derived.DerivedRH(
+    levels: list[int | str] = [100]
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`
+
+Calculates the relative humidity (RH) from specific humidity and temperature
+for specified pressure levels. Based on the calculations ECMWF uses in the IFS
+numerical simulator which accounts for estimating the water vapor and ice present
+in the atmosphere.
+
+**Badges:** `region:global` `product:atmos` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="levels" type="list[int | str]" default="[100]">
+hPa Pressure levels to compute RH. The resulting expected input fields
+are specific humidity and temperature pairs for each pressure level. E.g. for
+level 100 hPa the input fields should be [t100, q100], by default [100]
+</ParamField>
+
+<Note>
+
+See reference, equation 7.98 onwards:
+
+- https://www.ecmwf.int/en/elibrary/81370-ifs-documentation-cy48r1-part-iv-physical-processes
+
+</Note>
+
+<Anchor id="earth2studio-models-dx-derived-DerivedRH-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.derived.DerivedRH.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Forward pass of diagnostic
+
+</Indent>
+<Anchor id="earth2studio-models-dx-derived-DerivedRH-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.derived.DerivedRH.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of diagnostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-dx-derived-DerivedRH-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.derived.DerivedRH.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of diagnostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-dx-derived-DerivedRHDewpoint">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.derived.DerivedRHDewpoint()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`
+
+Calculates the surface relative humidity (RH) from dewpoint temperature and air
+temperature. This calculation is based on the August-Roche-Magnus approximation.
+
+**Badges:** `region:global` `product:atmos` `provider:nvidia` `backend:pytorch`
+
+<Note>
+
+For more details see the following references:
+
+- https://doi.org/10.5194/gmd-9-523-2016 (Eq. B3)
+- https://doi.org/10.5194/tc-2023-8 (Eq. 1 and 5)
+- https://doi.org/10.1175/1520-0450%281996%29035%3C0601%3AIMFAOS%3E2.0.CO%3B2 (Eq. 21)
+- https://en.wikipedia.org/wiki/Clausius%E2%80%93Clapeyron_relation#August%E2%80%93Roche%E2%80%93Magnus_formula
+
+</Note>
+
+<Anchor id="earth2studio-models-dx-derived-DerivedRHDewpoint-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.derived.DerivedRHDewpoint.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Forward pass of diagnostic
+
+</Indent>
+<Anchor id="earth2studio-models-dx-derived-DerivedRHDewpoint-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.derived.DerivedRHDewpoint.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of diagnostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-dx-derived-DerivedRHDewpoint-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.derived.DerivedRHDewpoint.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of diagnostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-dx-derived-DerivedSurfacePressure">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.derived.DerivedSurfacePressure(
+    p_levels: list[int] | numpy.ndarray | torch.Tensor,
+    surface_geopotential: torch.Tensor,
+    surface_geopotential_coords: earth2studio.utils.type.CoordSystem,
+    temperature_correction: bool = True,
+    corr_adjustment: tuple[float, float] = (3.4257e-05, 1.5224)
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`
+
+Interpolates the surface pressure in hPa from pressure level geopotential,
+surface geopotential and optionally temperature. The calculation is based on
+linear interpolation of the logarithm of pressure, as well as an optional
+second-order correction based on temperature and an empirical adjustment.
+
+**Badges:** `region:global` `product:atmos` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="p_levels" type="list[int]">
+Pressure levels (hPa) that are used as input for the surface pressure
+interpolation. At least 2 levels are needed. They must be ordered from
+highest to lowest pressure.
+</ParamField>
+
+<ParamField path="temperature_correction" type="bool" default="True">
+Whether to apply the second-order correction to surface pressure accounting
+for temperature.
+</ParamField>
+
+<ParamField path="corr_adjustment" type="tuple[float, float]" default="(3.4257e-5, 1.5224)">
+An empirical adjustment to the temperature correction. The correction is modified
+as correction = corr_adjustment[0] + correction * corr_adjustment[1]. The default
+value was derived empirically optimizing the prediction of surface pressure in
+ERA5 data. The adjustment can be effectively disabled by passing
+`corr_adjustment=(0.0, 1.0)`.
+</ParamField>
+
+<Note>
+
+A more detailed description of the method is available at
+https://nvidia.github.io/earth2studio/userguide/notes/surface_pressure.md.
+
+</Note>
+
+<Anchor id="earth2studio-models-dx-derived-DerivedSurfacePressure-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.derived.DerivedSurfacePressure.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Forward pass of diagnostic
+
+</Indent>
+<Anchor id="earth2studio-models-dx-derived-DerivedSurfacePressure-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.derived.DerivedSurfacePressure.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of diagnostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-dx-derived-DerivedSurfacePressure-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.derived.DerivedSurfacePressure.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of diagnostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-dx-derived-DerivedTCWV">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.derived.DerivedTCWV(
+    levels: list[int] = [1000, 850, 700, 500, 300, ...
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`
+
+Calculates the Total Column Water Vapor (TCWV) from specific humidity at
+pressure levels and surface pressure. The calculation is based on the vertical
+integration of specific humidity using the trapezoidal rule:
+
+TCWV = (1/g) * ∫(p_top to p_surface) q dp
+
+Discretized as:
+TCWV ≈ (1/g) * Σ [(q_i + q_&#123;i+1&#125;)/2 * (p_i - p_&#123;i+1&#125;)]
+
+**Badges:** `region:global` `product:atmos` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="levels" type="list[int]" default="[1000, 850, 700, 500, 300, 200, 100]">
+Pressure levels (hPa) to use for the integration. They will be sorted
+internally from highest to lowest pressure. Default is
+[1000, 850, 700, 500, 300, 200, 100].
+</ParamField>
+
+<Note>
+
+The integration includes the layer between the surface pressure and the lowest
+pressure level, assuming the surface specific humidity equals the lowest level
+specific humidity.
+
+</Note>
+
+<Anchor id="earth2studio-models-dx-derived-DerivedTCWV-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.derived.DerivedTCWV.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Forward pass of diagnostic
+
+</Indent>
+<Anchor id="earth2studio-models-dx-derived-DerivedTCWV-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.derived.DerivedTCWV.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of diagnostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-dx-derived-DerivedTCWV-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.derived.DerivedTCWV.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of diagnostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-dx-derived-DerivedVPD">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.derived.DerivedVPD(
+    levels: list[int | str] = [100]
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`
+
+Calculates the Vapor Pressure Deficit (VPD) in hPa from relative humidity
+and temperature fields. The calculation is based on the formula:
+
+VPD = es * ((100 - rh) / 100)
+
+The variable es is the saturation vapor pressure calculated using the formula:
+
+es = 6.11 * exp((L / Rv) * ((1 / 273) - (1 / T)))
+
+where L is the latent heat of vaporization (2.26e6 J/kg), Rv is the gas constant for
+water vapor (461 J/kg/K).
+
+**Badges:** `region:global` `product:veg` `product:atmos` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="levels" type="list[int | str]" default="[100]">
+Pressure / height levels to compute VPD for. The resulting expected input fields
+are temperature and relative humidity pairs for each level. E.g. for level 100
+the input fields should be [t100, r100], by default [100]
+</ParamField>
+
+<Note>
+
+For additional information on the VPD calculation in millibars, please refer to:
+
+- Dennis Hartman "Global Physical Climatology" (p 350)
+- https://www.sciencedirect.com/book/9780123285317/global-physical-climatology
+
+</Note>
+
+<Anchor id="earth2studio-models-dx-derived-DerivedVPD-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.derived.DerivedVPD.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Forward pass of diagnostic
+
+</Indent>
+<Anchor id="earth2studio-models-dx-derived-DerivedVPD-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.derived.DerivedVPD.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of diagnostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-dx-derived-DerivedVPD-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.derived.DerivedVPD.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of diagnostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-dx-derived-DerivedWS">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.derived.DerivedWS(
+    levels: list[int | str] = [100]
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`
+
+Calculates the Wind Speed (WS) magnitude from eastward and northward wind
+components for specified levels. The calculation is based on the formula:
+ws = sqrt(u^2 + v^2)
+
+**Badges:** `region:global` `product:wind` `product:atmos` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="levels" type="list[int | str]" default="[100]">
+Pressure / height levels to compute WS for. The resulting expected input fields
+are u and v wind components pairs for each level. E.g. for level 100 the input
+fields should be [u100, v100], by default [100]
+</ParamField>
+
+<ParamField path="in_variables" type="= []">
+</ParamField>
+
+<ParamField path="out_variables" type="= [f'ws&#123;level&#125;' for level in levels]">
+</ParamField>
+<Anchor id="earth2studio-models-dx-derived-DerivedWS-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.derived.DerivedWS.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Forward pass of diagnostic
+
+</Indent>
+<Anchor id="earth2studio-models-dx-derived-DerivedWS-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.derived.DerivedWS.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of diagnostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-dx-derived-DerivedWS-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.derived.DerivedWS.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of diagnostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>

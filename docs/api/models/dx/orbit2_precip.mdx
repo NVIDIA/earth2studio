@@ -1,0 +1,383 @@
+---
+layout: overview
+title: earth2studio.models.dx.orbit2_precip
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`OrbitGlobalPrecip`](#earth2studio-models-dx-orbit2_precip-OrbitGlobalPrecip) | ORBIT-2 precipitation downscaling model supporting both 9.5m and 126m parameter |
+
+### API
+
+<Anchor id="earth2studio-models-dx-orbit2_precip-OrbitGlobalPrecip">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.OrbitGlobalPrecip(
+    core_model: torch.nn.Module,
+    land_sea_mask: numpy.ndarray,
+    orography: numpy.ndarray,
+    lattitude: numpy.ndarray,
+    landcover: numpy.ndarray,
+    normalize_mean_lowres: numpy.lib.npyio.NpzFile,
+    normalize_std_lowres: numpy.lib.npyio.NpzFile,
+    normalize_mean_highres: numpy.lib.npyio.NpzFile,
+    normalize_std_highres: numpy.lib.npyio.NpzFile,
+    do_tiling: bool,
+    div: int,
+    overlap: int
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+ORBIT-2 precipitation downscaling model supporting both 9.5m and 126m parameter
+variants.
+
+**Example**
+
+The derived inputs ``tp24``, ``t2m_max``, and ``t2m_min`` must be computed from
+hourly ERA5 fields before calling the model:
+
+&gt;&gt;&gt; import numpy as np
+&gt;&gt;&gt; import torch
+&gt;&gt;&gt; from earth2studio.data import NCAR_ERA5, prep_data_array
+&gt;&gt;&gt; from earth2studio.models.dx import OrbitGlobalPrecip
+&gt;&gt;&gt; from earth2studio.utils.time import to_time_array
+&gt;&gt;&gt;
+&gt;&gt;&gt; package = OrbitGlobalPrecip.load_default_package()
+&gt;&gt;&gt; orbit = OrbitGlobalPrecip.load_model(package)
+&gt;&gt;&gt; orbit = orbit.to("cuda")
+&gt;&gt;&gt; data = NCAR_ERA5()
+&gt;&gt;&gt; time = to_time_array([np.datetime64("2023-06-01")])
+&gt;&gt;&gt;
+&gt;&gt;&gt; # Fetch base variables (all except tp24, t2m_max, t2m_min)
+&gt;&gt;&gt; base_vars = orbit.input_coords()`"variable"`
+&gt;&gt;&gt; x, coords = prep_data_array(data(time, base_vars), device="cuda")
+&gt;&gt;&gt;
+&gt;&gt;&gt; # Build past 24-hour precipitation accumulation and t2 max/min.
+&gt;&gt;&gt; batch_p = torch.zeros((len(time), 24, 4, x.shape[-2], x.shape[-1]), device="cuda")
+&gt;&gt;&gt; for i in range(24):
+...     time0 = np.array(time) - np.timedelta64(i, "h")
+...     p, _ = prep_data_array(data(time0, ["cp", "lsp", "t2m", "sst"]), device="cuda")
+...     batch_p[:, i] = p
+&gt;&gt;&gt; total_p_24hr = (batch_p[:, :, 0] + batch_p[:, :, 1]).sum(dim=1).unsqueeze(1)
+&gt;&gt;&gt; t2_sst_combined = torch.where(
+...     torch.isnan(batch_p[:, :, 3]), batch_p[:, :, 2], batch_p[:, :, 3]
+... )
+&gt;&gt;&gt; t2_max = t2_sst_combined.max(dim=1).values.unsqueeze(1)
+&gt;&gt;&gt; t2_min = t2_sst_combined.min(dim=1).values.unsqueeze(1)
+&gt;&gt;&gt; x = torch.cat((x, total_p_24hr, t2_max, t2_min), dim=1)
+&gt;&gt;&gt;
+&gt;&gt;&gt; input_coords = OrderedDict(
+...     &#123;k: v for k, v in orbit.input_coords().items() if k != "batch"&#125;
+... )
+&gt;&gt;&gt; input_coords["time"] = time
+&gt;&gt;&gt; input_coords.move_to_end("time", last=False)
+&gt;&gt;&gt; output, output_coords = orbit(x, input_coords)
+
+**Badges:** `region:global` `class:medium-range` `product:precip` `year:2025` `gpu:40gb` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="core_model" type="torch.nn.Module">
+Core pytorch model
+</ParamField>
+
+<ParamField path="land_sea_mask" type="np.ndarray">
+Binary land-sea mask at 0.25° resolution, shape ``(720, 1440)``.
+Values are 1 over land, 0 over ocean.
+</ParamField>
+
+<ParamField path="orography" type="np.ndarray">
+Surface geopotential height (meters) at 0.25° resolution,
+shape ``(720, 1440)``.
+</ParamField>
+
+<ParamField path="lattitude" type="np.ndarray">
+Latitude values broadcast to grid shape ``(720, 1440)``, used as a
+positional encoding input to the model.
+</ParamField>
+
+<ParamField path="landcover" type="np.ndarray">
+Land-use / land-cover classification at 0.25° resolution,
+shape ``(720, 1440)``.
+</ParamField>
+
+<ParamField path="normalize_mean_lowres" type="np.lib.npyio.NpzFile">
+Per-variable mean values for input normalization. Keys are variable
+names, values are single-element arrays.
+</ParamField>
+
+<ParamField path="normalize_std_lowres" type="np.lib.npyio.NpzFile">
+Per-variable standard deviation values for input normalization. Keys
+are variable names, values are single-element arrays.
+</ParamField>
+
+<ParamField path="normalize_mean_highres" type="np.lib.npyio.NpzFile">
+Per-variable mean values for output denormalization. Keys are variable
+names, values are single-element arrays.
+</ParamField>
+
+<ParamField path="normalize_std_highres" type="np.lib.npyio.NpzFile">
+Per-variable standard deviation values for output denormalization. Keys
+are variable names, values are single-element arrays.
+</ParamField>
+
+<ParamField path="do_tiling" type="bool">
+Boolean to indicate whether tiled inference is performed
+</ParamField>
+
+<ParamField path="div" type="int">
+If performing tiling, number of tiles to divide input into
+</ParamField>
+
+<ParamField path="overlap" type="int">
+If performing tiling, number of overlap pixels to use during tiled inference
+</ParamField>
+
+<Note>
+
+This model and checkpoint are from Wang et al. 2025. For more information see the
+following references:
+
+- https://dl.acm.org/doi/10.1145/3712285.3771989
+- https://huggingface.co/jychoi-hpc/ORBIT-2
+A few details regarding the model's variables:
+
+- The input variables ``t2m_min`` and ``t2m_max`` are daily minimum and maximum.
+- ``t2m`` and ``sst`` are combined to represent global surface temperature.
+- The model is fine-tuned for IMERG 24-hour accumulated precipitation (``tp24``).
+
+</Note>
+
+<Anchor id="earth2studio-models-dx-orbit2_precip-OrbitGlobalPrecip-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.OrbitGlobalPrecip.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Forward pass of diagnostic
+
+</Indent>
+<Anchor id="earth2studio-models-dx-orbit2_precip-OrbitGlobalPrecip-adjust_coords_for_flip">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.OrbitGlobalPrecip.adjust_coords_for_flip(
+    coords: climate_learn.utils.visualize.TileCoordinates,
+    processor: climate_learn.utils.visualize.TileProcessor
+) -> climate_learn.utils.visualize.TileCoordinates
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>staticmethod</Badge>
+
+Adjust coordinates after vertical image flip.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-orbit2_precip-OrbitGlobalPrecip-clip_replace_constant">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.OrbitGlobalPrecip.clip_replace_constant(
+    y: torch.Tensor,
+    out_variables: list[str]
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>staticmethod</Badge>
+
+Postprocess Precipitation Data to get rid of unphysical values
+
+</Indent>
+<Anchor id="earth2studio-models-dx-orbit2_precip-OrbitGlobalPrecip-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.OrbitGlobalPrecip.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of diagnostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-dx-orbit2_precip-OrbitGlobalPrecip-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.OrbitGlobalPrecip.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic package
+
+</Indent>
+<Anchor id="earth2studio-models-dx-orbit2_precip-OrbitGlobalPrecip-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.dx.base.DiagnosticModel":"./base.mdx#earth2studio-models-dx-base-DiagnosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.OrbitGlobalPrecip.load_model(
+    package: earth2studio.models.auto.Package,
+    model_type: typing.Literal['global'] = 'global',
+    model_size: typing.Literal['9.5m', '126m'] = '9.5m',
+    model_variable: typing.Literal['precipitation'] = 'precipitation'
+) -> earth2studio.models.dx.base.DiagnosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load ORBIT-2 precipitation diagnostic model from package files.
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Model package containing configuration and checkpoint files.
+</ParamField>
+
+<ParamField path="model_type" type="Literal['global']" default="'global'">
+ORBIT-2 model family to load, by default "global"
+</ParamField>
+
+<ParamField path="model_size" type="Literal['9.5m', '126m']" default="'9.5m'">
+ORBIT-2 model size variant to load, by default "9.5m"
+</ParamField>
+
+<ParamField path="model_variable" type="Literal['precipitation']" default="'precipitation'">
+Target variable variant to load, by default "precipitation"
+</ParamField>
+
+**Returns:** [`DiagnosticModel`](./base.mdx#earth2studio-models-dx-base-DiagnosticModel)
+
+Loaded ORBIT-2 precipitation diagnostic model
+
+</Indent>
+<Anchor id="earth2studio-models-dx-orbit2_precip-OrbitGlobalPrecip-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.OrbitGlobalPrecip.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of diagnostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-dx-orbit2_precip-OrbitGlobalPrecip-preprocess_input">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.OrbitGlobalPrecip.preprocess_input(
+    x: torch.Tensor
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Preprocess Earth2Studio data to match ORBIT-2 DATA
+
+Expects input channels ordered as VARIABLES (including trailing sst).
+Replaces t2m with sst over ocean pixels (where land_sea_mask == 0 and
+sst is not NaN), then drops the sst channel before proceeding.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-orbit2_precip-OrbitGlobalPrecip-stitch_tiles">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.OrbitGlobalPrecip.stitch_tiles(
+    tiles: list,
+    tile_coords: list,
+    processor: climate_learn.utils.visualize.TileProcessor,
+    batch_size: int
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>staticmethod</Badge>
+
+Stitch tiles together into complete images.
+
+Reconstructs full image from processed tiles, handling overlap regions.
+
+</Indent>
+</Indent>

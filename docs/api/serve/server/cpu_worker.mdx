@@ -1,0 +1,408 @@
+---
+layout: overview
+title: earth2studio.serve.server.cpu_worker
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`FileManifestEntry`](#earth2studio-serve-server-cpu_worker-FileManifestEntry) | Entry in the file manifest describing a file in the zip |
+| [`ResultMetadata`](#earth2studio-serve-server-cpu_worker-ResultMetadata) | Metadata structure for results zip files |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`build_file_manifest`](#earth2studio-serve-server-cpu_worker-build_file_manifest) | Build a file manifest by recursively scanning output files. |
+| [`create_results_zip`](#earth2studio-serve-server-cpu_worker-create_results_zip) | Create zip file containing inference results and store it in the results directory. |
+| [`fail_workflow`](#earth2studio-serve-server-cpu_worker-fail_workflow) | Mark a workflow as failed and return an error dict. |
+| [`process_finalize_metadata`](#earth2studio-serve-server-cpu_worker-process_finalize_metadata) | RQ Worker function to finalize metadata file and set workflow status to COMPLETED. |
+| [`process_object_storage_upload`](#earth2studio-serve-server-cpu_worker-process_object_storage_upload) | RQ Worker function to finalize metadata and optionally upload workflow results to object storage. |
+| [`process_result_zip`](#earth2studio-serve-server-cpu_worker-process_result_zip) | RQ Worker function to process zip file creation for workflow results. |
+
+### API
+
+<Anchor id="earth2studio-serve-server-cpu_worker-FileManifestEntry">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.cpu_worker.FileManifestEntry(
+    path: str,
+    size: int
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Entry in the file manifest describing a file in the zip
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-cpu_worker-ResultMetadata">
+
+<CodeBlock links={{"earth2studio.serve.server.cpu_worker.FileManifestEntry":"#earth2studio-serve-server-cpu_worker-FileManifestEntry"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.cpu_worker.ResultMetadata(
+    request_id: str,
+    status: str,
+    completion_time: str | None,
+    execution_time_seconds: float | None,
+    workflow_type: str | None = None,
+    workflow_name: str | None = None,
+    created_at: str | None = None,
+    peak_memory_usage: str | None = None,
+    device: str | None = None,
+    zip_created_at: str = '',
+    parameters: dict[str, typing.Any] | None = None,
+    output_files: list[earth2studio.serve.server.cpu_worker.FileManifestEntry] = list(),
+    storage_type: str = 'server',
+    signed_url: str | None = None,
+    remote_path: str | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Metadata structure for results zip files
+
+<Anchor id="earth2studio-serve-server-cpu_worker-ResultMetadata-from_workflow_result">
+
+<CodeBlock links={{"earth2studio.serve.server.workflow.WorkflowResult":"./workflow.mdx#earth2studio-serve-server-workflow-WorkflowResult","earth2studio.serve.server.cpu_worker.FileManifestEntry":"#earth2studio-serve-server-cpu_worker-FileManifestEntry","earth2studio.serve.server.cpu_worker.ResultMetadata":"#earth2studio-serve-server-cpu_worker-ResultMetadata"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.cpu_worker.ResultMetadata.from_workflow_result(
+    workflow_result: earth2studio.serve.server.workflow.WorkflowResult,
+    request_id: str,
+    file_manifest: list[earth2studio.serve.server.cpu_worker.FileManifestEntry],
+    zip_created_at: str
+) -> earth2studio.serve.server.cpu_worker.ResultMetadata
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Create ResultMetadata from a WorkflowResult.
+
+**Parameters:**
+
+<ParamField path="workflow_result" type="WorkflowResult">
+[`WorkflowResult`](./workflow.mdx#earth2studio-serve-server-workflow-WorkflowResult) — WorkflowResult instance from workflow execution.
+</ParamField>
+
+<ParamField path="request_id" type="str">
+Fallback request ID (used if execution_id is not set).
+</ParamField>
+
+<ParamField path="file_manifest" type="list[FileManifestEntry]">
+`list[` [`FileManifestEntry`](#earth2studio-serve-server-cpu_worker-FileManifestEntry) `]` — List of files in the zip.
+</ParamField>
+
+<ParamField path="zip_created_at" type="str">
+ISO timestamp when zip was created.
+</ParamField>
+
+**Returns:** [`ResultMetadata`](#earth2studio-serve-server-cpu_worker-ResultMetadata)
+
+Populated metadata instance.
+
+</Indent>
+<Anchor id="earth2studio-serve-server-cpu_worker-ResultMetadata-to_dict">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.cpu_worker.ResultMetadata.to_dict() -> dict[str, typing.Any]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Convert to dictionary for JSON serialization
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-serve-server-cpu_worker-build_file_manifest">
+
+<CodeBlock links={{"earth2studio.serve.server.cpu_worker.FileManifestEntry":"#earth2studio-serve-server-cpu_worker-FileManifestEntry"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.cpu_worker.build_file_manifest(
+    output_path: pathlib.Path,
+    arc_prefix: str = ''
+) -> list[earth2studio.serve.server.cpu_worker.FileManifestEntry]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Build a file manifest by recursively scanning output files.
+
+**Parameters:**
+
+<ParamField path="output_path" type="Path">
+Path to output files (file or directory)
+</ParamField>
+
+<ParamField path="arc_prefix" type="str" default="''">
+Prefix for archive paths (used for nested directories)
+</ParamField>
+
+**Returns:** `list[` [`FileManifestEntry`](#earth2studio-serve-server-cpu_worker-FileManifestEntry) `]`
+
+List of FileManifestEntry objects describing all files
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-cpu_worker-create_results_zip">
+
+<CodeBlock links={{"earth2studio.serve.server.workflow.WorkflowResult":"./workflow.mdx#earth2studio-serve-server-workflow-WorkflowResult"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.cpu_worker.create_results_zip(
+    request_id: str,
+    output_path: pathlib.Path,
+    inference_request: earth2studio.serve.server.workflow.WorkflowResult,
+    results_zip_dir: pathlib.Path,
+    redis_client: redis.Redis,
+    create_zip: bool = True
+) -> str | None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Create zip file containing inference results and store it in the results directory.
+
+**Parameters:**
+
+<ParamField path="request_id" type="str">
+Execution ID for the workflow run.
+</ParamField>
+
+<ParamField path="output_path" type="Path">
+Path to output files.
+</ParamField>
+
+<ParamField path="inference_request" type="WorkflowResult">
+[`WorkflowResult`](./workflow.mdx#earth2studio-serve-server-workflow-WorkflowResult) — WorkflowResult instance from the completed workflow execution.
+</ParamField>
+
+<ParamField path="results_zip_dir" type="Path">
+Directory to store result zips.
+</ParamField>
+
+<ParamField path="redis_client" type="redis.Redis">
+Redis client instance.
+</ParamField>
+
+<ParamField path="create_zip" type="bool" default="True">
+If False, only build file manifest without creating zip file, by default True
+</ParamField>
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-cpu_worker-fail_workflow">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.cpu_worker.fail_workflow(
+    workflow_name: str,
+    execution_id: str,
+    error_message: str
+) -> dict[str, typing.Any]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Mark a workflow as failed and return an error dict.
+
+This is a common helper function used across CPU worker functions to handle
+workflow failures consistently.
+
+**Parameters:**
+
+<ParamField path="workflow_name" type="str">
+Name of the workflow
+</ParamField>
+
+<ParamField path="execution_id" type="str">
+Execution ID of the workflow
+</ParamField>
+
+<ParamField path="error_message" type="str">
+Error message describing the failure
+</ParamField>
+
+**Returns:** `dict[str, Any]`
+
+Dict with success=False and error message
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-cpu_worker-process_finalize_metadata">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.cpu_worker.process_finalize_metadata(
+    workflow_name: str,
+    execution_id: str
+) -> dict[str, typing.Any] | None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+RQ Worker function to finalize metadata file and set workflow status to COMPLETED.
+
+This function is intended to be executed by the CPU worker from the finalize_metadata_queue.
+It retrieves pending metadata and storage info from Redis, writes the final metadata file,
+and updates the workflow status to COMPLETED.
+
+**Parameters:**
+
+<ParamField path="workflow_name" type="str">
+Name of the workflow
+</ParamField>
+
+<ParamField path="execution_id" type="str">
+Execution ID of the workflow
+</ParamField>
+
+**Returns:** `dict[str, Any] | None`
+
+Dict containing result info, None on critical failure
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-cpu_worker-process_object_storage_upload">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.cpu_worker.process_object_storage_upload(
+    workflow_name: str,
+    execution_id: str,
+    output_path_str: str
+) -> dict[str, typing.Any] | None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+RQ Worker function to finalize metadata and optionally upload workflow results to object storage.
+
+This function is intended to be executed by the CPU worker from the object_storage_queue.
+It always creates the final metadata file, and optionally uploads to S3 and generates
+a CloudFront signed URL if object storage is enabled.
+
+For Azure, account and container are parsed from ``container_url`` in the workflow
+request parameters (pending metadata) when present. If ``container_url`` is absent,
+the upload step is skipped and the pipeline continues successfully. If
+``geo_catalog_url`` is set on the request and an upload ran, it is stored in Redis
+``storage_info`` for GeoCatalog ingestion.
+
+**Parameters:**
+
+<ParamField path="workflow_name" type="str">
+Name of the workflow
+</ParamField>
+
+<ParamField path="execution_id" type="str">
+Execution ID of the workflow
+</ParamField>
+
+<ParamField path="output_path_str" type="str">
+Path to the output files (as string for serialization)
+</ParamField>
+
+**Returns:** `dict[str, Any] | None`
+
+Dict containing result info, None on critical failure
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-cpu_worker-process_result_zip">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.cpu_worker.process_result_zip(
+    workflow_name: str,
+    execution_id: str,
+    output_path_str: str,
+    results_zip_dir_str: str,
+    create_zip: bool = True
+) -> str | None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+RQ Worker function to process zip file creation for workflow results.
+
+This function is intended to be executed by the CPU worker from the result_zip_queue.
+It builds the file manifest and optionally creates the zip file.
+
+**Parameters:**
+
+<ParamField path="workflow_name" type="str">
+Name of the workflow
+</ParamField>
+
+<ParamField path="execution_id" type="str">
+Execution ID of the workflow
+</ParamField>
+
+<ParamField path="output_path_str" type="str">
+Path to the output files (as string for serialization)
+</ParamField>
+
+<ParamField path="results_zip_dir_str" type="str">
+Directory to store result zips (as string for serialization)
+</ParamField>
+
+<ParamField path="create_zip" type="bool" default="True">
+If False, only build file manifest without creating zip file
+</ParamField>
+
+**Returns:** `str | None`
+
+The zip filename if created, "manifest_only" if skipped, None on error
+
+</Indent>

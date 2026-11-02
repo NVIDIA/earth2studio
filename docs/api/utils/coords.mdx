@@ -1,0 +1,493 @@
+---
+layout: overview
+title: earth2studio.utils.coords
+---
+## Module Contents
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`cat_coords`](#earth2studio-utils-coords-cat_coords) | concatenate data along coordinate dimension. |
+| [`convert_multidim_to_singledim`](#earth2studio-utils-coords-convert_multidim_to_singledim) | Converts a set of coordinates from a complex coordinate system, which has some |
+| [`handshake_coords`](#earth2studio-utils-coords-handshake_coords) | Simple check to see if the required dimensions have the same coordinate system |
+| [`handshake_dim`](#earth2studio-utils-coords-handshake_dim) | Simple check to see if coordinate system has a dimension in a particular index |
+| [`handshake_size`](#earth2studio-utils-coords-handshake_size) | Simple check to see if a coordinate system of a given dimension is a required |
+| [`map_coords`](#earth2studio-utils-coords-map_coords) | A basic interpolation util to map between coordinate systems with common |
+| [`map_coords_xr`](#earth2studio-utils-coords-map_coords_xr) | Map xarray DataArray to target coordinate system using selection or interpolation. |
+| [`split_coords`](#earth2studio-utils-coords-split_coords) | A utility function to split a dimension from a (x,coords) pair and convert it into |
+| [`tile_coords`](#earth2studio-utils-coords-tile_coords) | Tile tensor x to match dimensions in target_coords that don't exist in coords. |
+
+### API
+
+<Anchor id="earth2studio-utils-coords-cat_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"./type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.coords.cat_coords(
+    tensors: tuple[torch.Tensor, ...],
+    coords: tuple[earth2studio.utils.type.CoordSystem, ...],
+    dim: str = 'variable'
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+concatenate data along coordinate dimension.
+
+**Parameters:**
+
+<ParamField path="tensors" type="tuple[torch.Tensor, ...]">
+Tuple of input tensors to concatenate
+</ParamField>
+
+<ParamField path="coords" type="tuple[CoordSystem, ...]">
+`tuple[` [`CoordSystem`](./type.mdx#earth2studio-utils-type-CoordSystem) `, ...]` — Tuple of OrderedDicts representing coordinate systems for each tensor
+</ParamField>
+
+<ParamField path="dim" type="str" default="'variable'">
+name of dimension along which to concatenate
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](./type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Tuple containing output tensor and coordinate OrderedDict from
+concatenated data.
+
+**Raises:**
+
+- `ValueError`: If tensors and coords have different lengths
+If input tensors have different dimension names
+If non-concatenation dimensions don't match across inputs
+- `KeyError`: If concatenation dimension is not found in all coordinate systems
+
+</Indent>
+
+<Anchor id="earth2studio-utils-coords-convert_multidim_to_singledim">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"./type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.coords.convert_multidim_to_singledim(
+    coords: earth2studio.utils.type.CoordSystem,
+    return_mapping: bool = False
+) -> tuple[earth2studio.utils.type.CoordSystem, dict[str, list[str]]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Converts a set of coordinates from a complex coordinate system, which has some
+coordinates with multidimensional arrays, into a simple coordinate system
+containing only one-dimensional arrays.
+
+This conversion is done by creating individual indexes that are enumerations of
+the complex coordinate.
+
+**Assumptions**
+
+This code assumes that if a coordinate entry is n-dimensional, then the following
+(n-1) coordinate entries in the ordered dictionary have the same shape and represent
+the same multidimensional grid.
+
+**Example**
+
+Suppose we have lat/lon coordinates represented by 2-dimensional grids.
+<CodeBlock showLineNumbers={false}>
+
+```python
+lat = np.linspace(0, 1, 10)
+lon = np.linspace(0, 1, 20)
+LON, LAT = np.meshgrid(lat, lon)
+c = CoordSystem({"lat": LAT, "lon": LON})
+
+c1, m = convert_multidim_to_singledim(c)
+```
+
+</CodeBlock>
+
+`c1` has 2 keys - `x1` and `x2`, with shapes `(10,)` and `(20,)` respectively.
+
+**Parameters:**
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](./type.mdx#earth2studio-utils-type-CoordSystem) — CoordSystem to convert.
+</ParamField>
+
+**Returns:** [`CoordSystem`](./type.mdx#earth2studio-utils-type-CoordSystem)
+
+Converted coordinate system where each coordinate is 1-dimensional.
+
+</Indent>
+
+<Anchor id="earth2studio-utils-coords-handshake_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"./type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.coords.handshake_coords(
+    input_coords: earth2studio.utils.type.CoordSystem,
+    target_coords: earth2studio.utils.type.CoordSystem,
+    required_dim: str | list[str]
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Simple check to see if the required dimensions have the same coordinate system
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](./type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to validate
+</ParamField>
+
+<ParamField path="target_coords" type="CoordSystem">
+[`CoordSystem`](./type.mdx#earth2studio-utils-type-CoordSystem) — Target coordinate system
+</ParamField>
+
+<ParamField path="required_dim" type="str | list[str]">
+Required dimension(s) (name of coordinate)
+</ParamField>
+
+**Raises:**
+
+- `KeyError`: If required dim is not present in coordinate systems
+- `ValueError`: If coordinates of required dimensions don't match
+
+</Indent>
+
+<Anchor id="earth2studio-utils-coords-handshake_dim">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"./type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.coords.handshake_dim(
+    input_coords: earth2studio.utils.type.CoordSystem,
+    required_dim: str,
+    required_index: int | None = None
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Simple check to see if coordinate system has a dimension in a particular index
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](./type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to validate
+</ParamField>
+
+<ParamField path="required_dim" type="str">
+Required dimension (name of coordinate)
+</ParamField>
+
+<ParamField path="required_index" type="int" default="None">
+Required index of dimension if needed, by default None
+</ParamField>
+
+**Raises:**
+
+- `KeyError`: If required dimension is not found in the input coordinate system
+- `ValueError`: If the required index is outside the dimensionality of the input coordinate system
+- `ValueError`: If dimension is not in the required index
+
+</Indent>
+
+<Anchor id="earth2studio-utils-coords-handshake_size">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"./type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.coords.handshake_size(
+    input_coords: earth2studio.utils.type.CoordSystem,
+    required_dim: str,
+    required_size: int
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Simple check to see if a coordinate system of a given dimension is a required
+size
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](./type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to validate
+</ParamField>
+
+<ParamField path="required_dim" type="str">
+Required dimension (name of coordinate)
+</ParamField>
+
+<ParamField path="required_size" type="int">
+Required coordinate system size
+</ParamField>
+
+**Raises:**
+
+- `KeyError`: If required dim is not present in input coordinate system
+- `ValueError`: If required dimension is not of required size
+
+<Note>
+
+Presently assumes coordinate system of given dimension is 1D
+
+</Note>
+
+</Indent>
+
+<Anchor id="earth2studio-utils-coords-map_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"./type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.coords.map_coords(
+    x: torch.Tensor,
+    input_coords: earth2studio.utils.type.CoordSystem,
+    output_coords: earth2studio.utils.type.CoordSystem,
+    method: typing.Literal['nearest'] = 'nearest'
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+A basic interpolation util to map between coordinate systems with common
+dimensions. Namely, `output_coords` should consist of keys are present in
+`input_coords`. Note that `output_coords` do not need have all the dimensions of the
+`input_coords`. Does not support more advanced interpolation, such as between a regular
+and curvilinear grid. For such use-cases, use `fetch_data` or `prep_data_array` from
+`data/utils`.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input data to map
+</ParamField>
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](./type.mdx#earth2studio-utils-type-CoordSystem) — Respective input coordinate system
+</ParamField>
+
+<ParamField path="output_coords" type="CoordSystem">
+[`CoordSystem`](./type.mdx#earth2studio-utils-type-CoordSystem) — Target output coordinates to map.
+</ParamField>
+
+<ParamField path="method" type="Literal[&quot;nearest&quot;]" default="'nearest'">
+Method to use for mapping numeric coordinates, by default "nearest"
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](./type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Mapped data and coordinate system.
+
+**Raises:**
+
+- `KeyError:`: If output coordinate has a dimension not in the input coordinate
+- `ValueError`: If value in non-numeric output coordinate is not in input coordinate
+If asked to interpolate between 2D lat/lon (curvilinear) coordinates
+
+<Warning>
+
+Use this function with caution. Only certain coordinate transformations are
+supported / tested. Consider doing complex transforms manually in the inference
+pipeline.
+
+</Warning>
+
+</Indent>
+
+<Anchor id="earth2studio-utils-coords-map_coords_xr">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"./type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.coords.map_coords_xr(
+    x: xarray.DataArray,
+    output_coords: earth2studio.utils.type.CoordSystem,
+    method: typing.Literal['nearest'] = 'nearest'
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Map xarray DataArray to target coordinate system using selection or interpolation.
+
+Maps an input DataArray to match the coordinates specified in output_coords by
+selecting or interpolating along dimensions. Supports both numpy and cupy-backed
+DataArrays. Empty coordinate arrays are ignored, and warnings are issued for
+missing coordinate keys.
+
+**Parameters:**
+
+<ParamField path="x" type="xr.DataArray">
+Input DataArray to map. May be backed by numpy or cupy arrays.
+</ParamField>
+
+<ParamField path="output_coords" type="CoordSystem">
+[`CoordSystem`](./type.mdx#earth2studio-utils-type-CoordSystem) — Target coordinate system containing a subset of coordinates present in x.
+Dimensions not in output_coords are preserved from the input.
+</ParamField>
+
+<ParamField path="method" type="Literal['nearest']" default="'nearest'">
+Interpolation method for numeric coordinates, by default "nearest"
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Mapped DataArray with coordinates matching output_coords where specified.
+Preserves all dimensions and coordinates not specified in output_coords.
+
+**Raises:**
+
+- `KeyError`: If output coordinate dimension is not found in input DataArray
+- `ValueError`: If non-numeric coordinate values are not present in input coordinates
+If interpolation method is not supported
+
+</Indent>
+
+<Anchor id="earth2studio-utils-coords-split_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"./type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.coords.split_coords(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem,
+    dim: str = 'variable'
+) -> tuple[list[torch.Tensor], earth2studio.utils.type.CoordSystem, numpy.ndarray]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+A utility function to split a dimension from a (x,coords) pair and convert it into
+a list of tensors, a CoordSystem, and the dimension that extract from coords.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](./type.mdx#earth2studio-utils-type-CoordSystem) — Coordinates referring to the dimensions of x
+</ParamField>
+
+<ParamField path="dim" type="str" default="'variable'">
+Name of the dimension in coords to split along
+</ParamField>
+
+**Returns:** `list[torch.Tensor]`
+
+List of tensors extracted by splitting the extracted dimension from coords.
+
+</Indent>
+
+<Anchor id="earth2studio-utils-coords-tile_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"./type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.utils.coords.tile_coords(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem,
+    target_coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Tile tensor x to match dimensions in target_coords that don't exist in coords.
+
+This function tiles the input tensor to match leading dimensions from target_coords
+that are not present in coords. Dimensions that exist in both coords and target_coords
+are ignored in target_coords and use the values from coords instead.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Source tensor to be tiled
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](./type.mdx#earth2studio-utils-type-CoordSystem) — Coordinate system for x tensor
+</ParamField>
+
+<ParamField path="target_coords" type="CoordSystem">
+[`CoordSystem`](./type.mdx#earth2studio-utils-type-CoordSystem) — Target coordinate system. Dimensions that exist in coords are ignored.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](./type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Tuple containing the tiled tensor and updated coordinate system
+
+**Examples:**
+
+Tiling a tensor to match additional dimensions from target_coords.
+
+```python
+from collections import OrderedDict
+
+import numpy as np
+import torch
+
+from earth2studio.utils.coords import tile_coords
+
+x = torch.randn(3, 4)
+coords = OrderedDict(
+    {
+        "variable": np.array(["a", "b", "c"]),
+        "time": np.array([0, 1, 2, 3]),
+    }
+)
+
+target_coords = OrderedDict(
+    {
+        "batch": np.array([0, 1]),
+        "ensemble": np.array([0, 1, 2]),
+        "variable": np.array(["x", "y"]),  # Ignored, uses coords value
+        "time": np.array([10, 20, 30, 40]),  # Ignored, uses coords value
+    }
+)
+
+# Tile x to match batch and ensemble dimensions.
+x_tiled, out_coords = tile_coords(x, coords, target_coords)
+print(x_tiled.shape)
+print(list(out_coords.keys()))
+```
+
+```text
+torch.Size([2, 3, 3, 4])
+['batch', 'ensemble', 'variable', 'time']
+```
+
+</Indent>

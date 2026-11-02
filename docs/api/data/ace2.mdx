@@ -1,0 +1,150 @@
+---
+layout: overview
+title: earth2studio.data.ace2
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`ACE2ERA5Data`](#earth2studio-data-ace2-ACE2ERA5Data) | ACE2-ERA5 data source providing forcing or initial-conditions data. |
+
+### API
+
+<Anchor id="earth2studio-data-ace2-ACE2ERA5Data">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.ace2.ACE2ERA5Data(
+    mode: typing.Literal['forcing', 'initial_conditions'] = 'initial_conditions',
+    co2_fn: collections.abc.Callable[[Sequence[datetime]], numpy.ndarray] | None = None,
+    cache: bool = True,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+ACE2-ERA5 data source providing forcing or initial-conditions data.
+Files are downloaded on-demand and cached automatically. Data are served as-is; no transformations are applied,
+with the exception of global mean CO2 concentration, which may be overridden by a user-supplied function.
+
+Provides all input variables described in the ACE2-ERA5 paper.
+
+**References**
+
+- ACE2-ERA5 paper: https://arxiv.org/html/2411.11268v1
+
+**Badges:** `region:global` `dataclass:reanalysis` `dataset:era5` `product:wind` `product:precip` `product:temp` `product:atmos`
+
+**Parameters:**
+
+<ParamField path="mode" type="str" default="'initial_conditions'">
+Either "forcing" or "initial_conditions". Controls which data tree and filenames
+are used, by default "initial_conditions"
+</ParamField>
+
+<ParamField path="co2_fn" type="Callable[[Sequence[datetime]], np.ndarray] | None" default="None">
+Optional function returning CO2 concentration (ppm) for a given UTC datetime as
+a numpy array. If provided, the global mean CO2 concentration from the source is
+ignored, and is computed using this function. The function must accept a list of
+datetimes as input, and return a numpy array of CO2 concentrations of the same
+length, by default None
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+<ParamField path="_HF_REPO_ID" type="= 'allenai/ACE2-ERA5'">
+</ParamField>
+
+<ParamField path="_IC_ALLOWED_YEARS" type="= [1940, 1950, 1979, 2001, 2020]">
+</ParamField>
+
+<ParamField path="_hf_fs" type="= HfFileSystem()">
+</ParamField>
+
+<ParamField path="cache" type="str">
+Get the appropriate cache location.
+</ParamField>
+<Anchor id="earth2studio-data-ace2-ACE2ERA5Data-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ace2.ACE2ERA5Data.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Function to get data
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the ACE2 ERA5 lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data array from ACE2 ERA5
+
+</Indent>
+<Anchor id="earth2studio-data-ace2-ACE2ERA5Data-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.ace2.ACE2ERA5Data.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async wrapper function to get data
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the ACE2 ERA5 lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data array from ACE2 ERA5
+
+</Indent>
+</Indent>

@@ -1,0 +1,517 @@
+---
+layout: overview
+title: earth2studio.statistics.rmse
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`mae`](#earth2studio-statistics-rmse-mae) | Statistic for calculating the mean absolute error of two tensors |
+| [`rmse`](#earth2studio-statistics-rmse-rmse) | Statistic for calculating the root mean squared error of two tensors |
+| [`skill_spread`](#earth2studio-statistics-rmse-skill_spread) | Metric for calculating the skill/spread ratio of an ensemble forecast. |
+| [`spread_skill_ratio`](#earth2studio-statistics-rmse-spread_skill_ratio) | Metric for calculating the spread/skill ratio of an ensemble forecast. |
+
+### API
+
+<Anchor id="earth2studio-statistics-rmse-mae">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.statistics.rmse.mae()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [rmse](#earth2studio-statistics-rmse-rmse)
+
+Statistic for calculating the mean absolute error of two tensors
+over a set of given dimensions.
+
+**Parameters:**
+
+<ParamField path="reduction_dimensions" type="List[str]">
+A list of names corresponding to dimensions to perform the
+statistical reduction over. Example: ['lat', 'lon']
+</ParamField>
+
+<ParamField path="weights" type="torch.Tensor = None" default="None">
+A tensor containing weights to assign to the reduction dimensions.
+Note that these weights must have the same number of dimensions
+as passed in reduction_dimensions.
+Example: if reduction_dimensions = ['lat', 'lon'] then
+assert weights.ndim == 2.
+</ParamField>
+
+<ParamField path="batch_update" type="bool = False" default="False">
+Whether to apply batch updates to the rmse with each invocation of __call__.
+This is particularly useful when data is received in a stream of batches. Each
+invocation of __call__ will return the running rmse. In particular, it will apply
+the square root operation after calculating the running mean squared error.
+</ParamField>
+
+<ParamField path="ensemble_dimension" type="str | None = None" default="None">
+Compute ensemble mean over this dimension before computing MAE. If None (default),
+no reduction is performed.
+</ParamField>
+
+<Anchor id="earth2studio-statistics-rmse-mae-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.rmse.mae.__call__(
+    x: torch.Tensor,
+    x_coords: earth2studio.utils.type.CoordSystem,
+    y: torch.Tensor,
+    y_coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Apply metric to data `x` and `y`, checking that their coordinates
+are broadcastable. While reducing over `reduction_dims`.
+
+If batch_update was passed True upon metric initialization then this method
+returns the running sample MAE over all seen batches.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor, typically the forecast or prediction tensor, but MAE is
+symmetric with respect to `x` and `y`.
+</ParamField>
+
+<ParamField path="x_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the `x` tensor.
+`reduction_dimensions` must be in coords.
+</ParamField>
+
+<ParamField path="y" type="torch.Tensor">
+Input tensor #2 intended to be used as validation data, but MAE is symmetric
+with respect to `x` and `y`.
+</ParamField>
+
+<ParamField path="y_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the `y` tensor.
+`reduction_dimensions` must be in coords.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Returns root mean squared error tensor with appropriate reduced coordinates.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-statistics-rmse-rmse">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.statistics.rmse.rmse(
+    reduction_dimensions: list[str],
+    weights: torch.Tensor | None = None,
+    batch_update: bool = False,
+    ensemble_dimension: str | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Statistic for calculating the root mean squared error of two tensors
+over a set of given dimensions.
+
+**Parameters:**
+
+<ParamField path="reduction_dimensions" type="List[str]">
+A list of names corresponding to dimensions to perform the
+statistical reduction over. Example: ['lat', 'lon']
+</ParamField>
+
+<ParamField path="weights" type="torch.Tensor | None = None" default="None">
+A tensor containing weights to assign to the reduction dimensions.
+Note that these weights must have the same number of dimensions
+as passed in reduction_dimensions.
+Example: if reduction_dimensions = ['lat', 'lon'] then
+assert weights.ndim == 2.
+</ParamField>
+
+<ParamField path="batch_update" type="bool = False" default="False">
+Whether to apply batch updates to the rmse with each invocation of __call__.
+This is particularly useful when data is received in a stream of batches. Each
+invocation of __call__ will return the running rmse. In particular, it will apply
+the square root operation after calculating the running mean squared error.
+</ParamField>
+
+<ParamField path="ensemble_dimension" type="str | None = None" default="None">
+Compute ensemble mean over this dimension before computing RMSE. If None (default),
+no reduction is performed.
+</ParamField>
+
+<ParamField path="ensemble_mean" type="= mean([ensemble_dimension])">
+</ParamField>
+
+<ParamField path="mean">
+</ParamField>
+
+<ParamField path="reduction_dimensions" type="list[str]">
+</ParamField>
+<Anchor id="earth2studio-statistics-rmse-rmse-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.rmse.rmse.__call__(
+    x: torch.Tensor,
+    x_coords: earth2studio.utils.type.CoordSystem,
+    y: torch.Tensor,
+    y_coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Apply metric to data `x` and `y`, checking that their coordinates
+are broadcastable. While reducing over `reduction_dims`.
+
+If batch_update was passed True upon metric initialization then this method
+returns the running sample RMSE over all seen batches.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor, typically the forecast or prediction tensor, but RMSE is
+symmetric with respect to `x` and `y`.
+</ParamField>
+
+<ParamField path="x_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the `x` tensor.
+`reduction_dimensions` must be in coords.
+</ParamField>
+
+<ParamField path="y" type="torch.Tensor">
+Input tensor #2 intended to be used as validation data, but RMSE is symmetric
+with respect to `x` and `y`.
+</ParamField>
+
+<ParamField path="y_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the `y` tensor.
+`reduction_dimensions` must be in coords.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Returns root mean squared error tensor with appropriate reduced coordinates.
+
+</Indent>
+<Anchor id="earth2studio-statistics-rmse-rmse-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.rmse.rmse.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the computed statistic, corresponding to the given input coordinates
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-statistics-rmse-skill_spread">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.statistics.rmse.skill_spread()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [spread_skill_ratio](#earth2studio-statistics-rmse-spread_skill_ratio)
+
+Metric for calculating the skill/spread ratio of an ensemble forecast.
+
+Specifically, the spread is defined as the standard deviation of the ensemble
+forecast. The skill is defined as the rmse of the ensemble mean prediction. The
+ratio of these two quantities is defined as the spread/skill ratio.
+
+This method, instead of returning the ratio, returns the individual components
+of the ratio, i.e. the spread and the skill.
+
+<Anchor id="earth2studio-statistics-rmse-skill_spread-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.rmse.skill_spread.__call__(
+    x: torch.Tensor,
+    x_coords: earth2studio.utils.type.CoordSystem,
+    y: torch.Tensor,
+    y_coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Apply metric to data `x` and `y`, checking that their coordinates
+are broadcastable. While reducing over `reduction_dims`.
+
+If batch_update was passed True upon metric initialization then this method
+returns the running sample MSE and variance over all seen batches.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+The ensemble forecast input tensor. This is the tensor over which the
+ensemble mean and spread are calculated with respect to.
+</ParamField>
+
+<ParamField path="x_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the `x` tensor.
+`reduction_dimensions` must be in coords.
+</ParamField>
+
+<ParamField path="y" type="torch.Tensor">
+The observation input tensor.
+</ParamField>
+
+<ParamField path="y_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the `y` tensor.
+`reduction_dimensions` must be in coords.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Returns a tensor containing MSE and variance with appropriate reduced coordinates.
+
+</Indent>
+<Anchor id="earth2studio-statistics-rmse-skill_spread-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.rmse.skill_spread.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the computed statistic, corresponding to the given input coordinates
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-statistics-rmse-spread_skill_ratio">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.statistics.rmse.spread_skill_ratio(
+    ensemble_dimension: str,
+    reduction_dimensions: list[str],
+    ensemble_weights: torch.Tensor | None = None,
+    reduction_weights: torch.Tensor = None,
+    ensemble_batch_update: bool = False,
+    reduction_batch_update: bool = False
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Metric for calculating the spread/skill ratio of an ensemble forecast.
+
+ Specifically, the spread is defined as the standard deviation of the ensemble
+ forecast. The skill is defined as the rmse of the ensemble mean prediction. The
+ ratio of these two quantities is defined as the spread/skill ratio.
+
+**Parameters:**
+
+<ParamField path="ensemble_dimension" type="str">
+The dimension over which the spread and skill are calculated over.
+This should usually be "ensemble".
+</ParamField>
+
+<ParamField path="reduction_dimensions" type="list[str]">
+Dimensions to reduce (mean) the spread/skill ratio over. This is commonly done
+over time but can also be the globe or some region.
+Example: ['time', 'lat', 'lon']
+</ParamField>
+
+<ParamField path="ensemble_weights" type="torch.Tensor | None" default="None">
+A one-dimensional tensor containing weights to assign to the ensemble_dimension,
+by default None.
+</ParamField>
+
+<ParamField path="reduction_weights" type="torch.Tensor" default="None">
+A tensor containing weights to assign to the reduction dimensions.
+Note that these weights must have the same number of dimensions
+as passed in reduction_dimensions.
+Example: if reduction_dimensions = ['lat', 'lon'] then
+assert weights.ndim == 2. Ignored if None, by default None.
+</ParamField>
+
+<ParamField path="ensemble_batch_update" type="bool" default="False">
+Whether to apply batch updates to the ensemble mean and variance components
+of the spread and skill with each invocation of __call__. This is particularly
+useful when ensemble data is received in a stream of batches. Each invocation of
+__call__ will return the running spread/skill ratio., by default False.
+</ParamField>
+
+<ParamField path="reduction_batch_update" type="bool" default="False">
+Whether to apply batch updates to the reduction rmse and averaging components
+of the spread/skill with each invocation of __call__. This is particularly
+useful when time data is received in a stream of batches., by default False.
+</ParamField>
+
+<ParamField path="ensemble_dimension" type="= [ensemble_dimension]">
+</ParamField>
+
+<ParamField path="ensemble_mean">
+</ParamField>
+
+<ParamField path="ensemble_var">
+</ParamField>
+
+<ParamField path="reduced_mean">
+</ParamField>
+
+<ParamField path="reduced_rmse">
+</ParamField>
+
+<ParamField path="reduction_dimensions" type="list[str]">
+</ParamField>
+<Anchor id="earth2studio-statistics-rmse-spread_skill_ratio-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.rmse.spread_skill_ratio.__call__(
+    x: torch.Tensor,
+    x_coords: earth2studio.utils.type.CoordSystem,
+    y: torch.Tensor,
+    y_coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Apply metric to data `x` and `y`, checking that their coordinates
+are broadcastable. While reducing over `reduction_dims`.
+
+If batch_update was passed True upon metric initialization then this method
+returns the running sample RMSE over all seen batches.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+The ensemble forecast input tensor. This is the tensor over which the
+ensemble mean and spread are calculated with respect to.
+</ParamField>
+
+<ParamField path="x_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the `x` tensor.
+`reduction_dimensions` must be in coords.
+</ParamField>
+
+<ParamField path="y" type="torch.Tensor">
+The observation input tensor.
+</ParamField>
+
+<ParamField path="y_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the `y` tensor.
+`reduction_dimensions` must be in coords.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Returns root mean squared error tensor with appropriate reduced coordinates.
+
+</Indent>
+<Anchor id="earth2studio-statistics-rmse-spread_skill_ratio-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.statistics.rmse.spread_skill_ratio.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the computed statistic, corresponding to the given input coordinates
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>

@@ -1,0 +1,466 @@
+---
+layout: overview
+title: earth2studio.data.goes_glm
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`GOESGLM`](#earth2studio-data-goes_glm-GOESGLM) | NOAA GOES Geostationary Lightning Mapper (GLM) Level 2 Lightning |
+| [`GOESGLMGrid`](#earth2studio-data-goes_glm-GOESGLMGrid) | Gridded GOES GLM (Geostationary Lightning Mapper) lightning product for StormScope. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-data-goes_glm-GOESGLM">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeTolerance":"../utils/type.mdx#earth2studio-utils-type-TimeTolerance"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.goes_glm.GOESGLM(
+    satellite: str = 'east',
+    lat_lon_bbox: tuple[float, float, float, float] | None = None,
+    time_tolerance: earth2studio.utils.type.TimeTolerance = np.timedelta64(2, 'm'),
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    async_workers: int = 24,
+    retries: int = 3
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+NOAA GOES Geostationary Lightning Mapper (GLM) Level 2 Lightning
+Cluster-Filter Algorithm (LCFA) point lightning data source.
+
+Returns per-detection lightning observations from the GLM instrument
+on GOES-16/17/18/19, served as point observations in a pandas
+DataFrame. Each row corresponds to a single detection with a
+sub-second timestamp, latitude/longitude and the requested
+measurement.
+
+All three tiers of the GLM detection hierarchy are exposed, and may
+be mixed freely in one request since they are read from the same
+files:
+
+- **events** (``lightning_event_*``) — individual illuminated pixels
+  in a single 2 ms frame
+- **groups** (``lightning_group_*``) — spatially adjacent events
+  within one frame
+- **flashes** (``lightning_flash_*``) — groups clustered in space and
+  time; timestamped by their first constituent event
+
+Each level offers ``*_energy`` (optical energy, Joules) and
+``*_count`` (a constant 1.0 per record, suitable for density
+aggregation). Groups and flashes additionally offer ``*_area``, the
+native footprint area of the detection in m2, for aggregating
+detections as an extent density rather than as centroid counts.
+Events are single pixels and have no area field in LCFA.
+
+Files in the public NOAA AWS bucket are NetCDFs produced at roughly
+20 second cadence covering the GOES full-disk field of view. A
+spatial bounding box can be supplied to restrict detections at parse
+time and reduce memory usage for large windows.
+
+**Example**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+from datetime import datetime
+import numpy as np
+from earth2studio.data import GOESGLM
+
+ds = GOESGLM(
+    satellite="east",
+    lat_lon_bbox=(24.5, -125.0, 49.5, -66.0),  # CONUS
+    time_tolerance=np.timedelta64(5, "m"),
+)
+df = ds(
+    datetime(2024, 6, 1, 18, 0),
+    ["lightning_event_energy", "lightning_event_count"],
+)
+
+```
+
+</CodeBlock>
+
+**Badges:** `region:na` `region:sa` `dataclass:observation` `product:sat` `provider:noaa`
+
+**Parameters:**
+
+<ParamField path="satellite" type="str" default="'east'">
+Source satellite selector. Pass ``"east"`` (default) or
+``"west"`` to auto-select the active GOES-East / GOES-West
+platform for each requested timestamp; pass ``"G16"``,
+``"G17"``, ``"G18"`` or ``"G19"`` to pin a single platform.
+</ParamField>
+
+<ParamField path="lat_lon_bbox" type="tuple[float, float, float, float] | None" default="None">
+Bounding box ``(lat_min, lon_min, lat_max, lon_max)`` in
+degrees, applied at parse time. Accepts either ``[-180, 180)``
+or ``[0, 360)`` longitude convention (auto-detected when
+``lon_max &gt;= 180``). ``None`` (default) returns the full disk.
+For example, CONUS in the ``[-180, 180)`` convention is
+``(24.5, -125.0, 49.5, -66.0)``.
+</ParamField>
+
+<ParamField path="time_tolerance" type="TimeTolerance" default="np.timedelta64(2, 'm')">
+[`TimeTolerance`](../utils/type.mdx#earth2studio-utils-type-TimeTolerance) — Time tolerance window for selecting detections around each
+requested timestamp. Accepts a single value (symmetric ±
+window) or a tuple ``(lower, upper)`` for asymmetric windows,
+by default ``np.timedelta64(2, "m")``.
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache downloaded NetCDF files on local disk, by default True.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Show download progress bar, by default True.
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Total timeout in seconds for the entire fetch operation,
+by default 600.
+</ParamField>
+
+<ParamField path="async_workers" type="int" default="24">
+Maximum number of concurrent S3 fetch tasks, by default 24.
+</ParamField>
+
+<ParamField path="retries" type="int" default="3">
+Number of retry attempts per failed fetch task with
+exponential backoff, by default 3.
+</ParamField>
+
+<Note>
+
+Output longitudes are normalised to ``[0, 360)`` (Earth2Studio
+convention). Each record's timestamp is computed from the file's
+per-level time offset variable so sub-second precision (~ms) is
+preserved.
+The pre-0.19 variable ids ``flashe`` and ``flashc`` are deprecated
+aliases of ``lightning_event_energy`` and ``lightning_event_count``.
+They still select the correct measurement and are echoed back in the
+output ``variable`` column, but emit a ``FutureWarning`` and will be
+removed in a future release.
+Additional information on the data repository:
+
+- https://www.goes-r.gov/products/baseline-lightning-detection.html
+- https://registry.opendata.aws/noaa-goes/
+- https://www.ncei.noaa.gov/products/goes-terrestrial-weather-abi-glm
+
+</Note>
+
+<Warning>
+
+GLM produces hundreds of files per hour. Large time windows can
+download tens to hundreds of gigabytes of NetCDFs. Use
+``lat_lon_bbox`` to discard out-of-region detections on parse and
+keep ``time_tolerance`` bounded.
+
+</Warning>
+
+<ParamField path="cache" type="str">
+Local cache directory for this data source.
+</ParamField>
+
+<Anchor id="earth2studio-data-goes_glm-GOESGLM-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.goes_glm.GOESGLM.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Fetch GLM lightning detections for a set of timestamps.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return detections for (UTC). Timezone-aware
+datetimes are converted to UTC automatically.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variable ids defined in
+`earth2studio.lexicon.GOESGLMLexicon`, e.g.
+``"lightning_event_energy"`` or ``"lightning_flash_count"``.
+Event-, group- and flash-level ids may be mixed.
+</ParamField>
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None" default="None">
+Output column subset. ``None`` (default) returns all
+schema fields.
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+Long-format lightning observations with columns matching
+the resolved schema.
+
+</Indent>
+<Anchor id="earth2studio-data-goes_glm-GOESGLM-available">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.goes_glm.GOESGLM.available(
+    time: datetime.datetime | numpy.datetime64
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Check whether data is available for a given time.
+
+Offline check against the GLM archive window; per-slot
+platform cutovers are enforced when the source is called.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | np.datetime64">
+Date-time to check.
+</ParamField>
+
+**Returns:** `bool`
+
+</Indent>
+<Anchor id="earth2studio-data-goes_glm-GOESGLM-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.goes_glm.GOESGLM.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to fetch GLM detections.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return detections for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variable ids defined in `GOESGLMLexicon`.
+</ParamField>
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None" default="None">
+Output column subset. ``None`` (default) returns all
+schema fields.
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+Long-format lightning observations.
+
+</Indent>
+<Anchor id="earth2studio-data-goes_glm-GOESGLM-resolve_fields">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.goes_glm.GOESGLM.resolve_fields(
+    fields: str | list[str] | pyarrow.Schema | None
+) -> pyarrow.Schema
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Resolve a ``fields`` selector into a validated PyArrow schema.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-goes_glm-GOESGLMGrid">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.goes_glm.GOESGLMGrid(
+    satellite: str = 'east',
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    async_workers: int = 24,
+    retries: int = 3
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Gridded GOES GLM (Geostationary Lightning Mapper) lightning product for StormScope.
+
+Wraps `GOESGLM` (a per-event LCFA source) and accumulates events
+into a regular **0.1-degree** lat/lon grid via 5-minute binning and 2D
+histogramming, matching the GLM grid the StormScope MRMS+GLM nowcast model
+was trained on.
+
+Available variables:
+
+- ``glm_density``        : raw event count per cell (unweighted, matching training).
+- ``glm_energy_density`` : summed event energy (J) per cell.
+
+Counts are not mean/std normalized; the StormScope model applies ``log1p``
+internally. This source emits raw counts/sums on the 0.1-degree grid; the
+model bilinearly regrids to its own native grid.
+
+**Badges:** `region:na` `dataclass:observation` `product:sat` `provider:noaa`
+
+**Parameters:**
+
+<ParamField path="satellite" type="str" default="'east'">
+GOES platform selector passed to `GOESGLM` (``"east"`` default).
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache downloaded NetCDFs, by default True.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Show progress, by default True.
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Total timeout in seconds for each fetch operation, by default 600.
+</ParamField>
+
+<ParamField path="async_workers" type="int" default="24">
+Maximum number of concurrent S3 fetch tasks, by default 24.
+</ParamField>
+
+<ParamField path="retries" type="int" default="3">
+Number of retry attempts per failed fetch task, by default 3.
+</ParamField>
+
+<Note>
+
+Grid geometry (must match training): regular 0.1-degree grid over
+lat ``[20, 55]`` / lon ``[-130, -60]`` (350 x 700 cells), with cell centres at
+``edge + 0.5 * resolution``. Output longitudes are returned in the Earth2Studio
+``[0, 360)`` convention. The accumulation window is fixed at 5 minutes,
+bin-start labeled (the training cadence); do not substitute a 10-minute window.
+
+</Note>
+
+<ParamField path="lat" type="ndarray">
+1D array of grid-cell-centre latitudes.
+</ParamField>
+
+<ParamField path="lon" type="ndarray">
+1D array of grid-cell-centre longitudes ([0, 360) convention).
+</ParamField>
+<Anchor id="earth2studio-data-goes_glm-GOESGLMGrid-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.goes_glm.GOESGLMGrid.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Fetch the gridded GLM product for the requested times and variables.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — 5-minute-aligned timestamps (UTC). Each labels a ``[t, t+5min)`` bin.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — One or more of ``"glm_density"`` / ``"glm_energy_density"``.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Array with dims ``[time, variable, lat, lon]`` on the 0.1-degree grid.
+
+</Indent>
+<Anchor id="earth2studio-data-goes_glm-GOESGLMGrid-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.goes_glm.GOESGLMGrid.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to fetch the gridded GLM product.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — 5-minute-aligned timestamps (UTC). Each labels a ``[t, t+5min)`` bin.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — One or more of ``"glm_density"`` / ``"glm_energy_density"``.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Array with dims ``[time, variable, lat, lon]`` on the 0.1-degree grid.
+
+</Indent>
+</Indent>

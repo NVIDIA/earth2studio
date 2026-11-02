@@ -1,0 +1,177 @@
+---
+layout: overview
+title: earth2studio.models.px.persistence
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`Persistence`](#earth2studio-models-px-persistence-Persistence) | Persistence model that generates a forecast by applying the identity operator on |
+
+### API
+
+<Anchor id="earth2studio-models-px-persistence-Persistence">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.persistence.Persistence(
+    variable: str | list[str],
+    domain_coords: earth2studio.utils.type.CoordSystem,
+    history: int = 1,
+    dt: numpy.timedelta64 = np.timedelta64(6, 'h')
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [PrognosticMixin](./utils.mdx#earth2studio-models-px-utils-PrognosticMixin)
+
+Persistence model that generates a forecast by applying the identity operator on
+the initial condition and indexing the lead time by 6 hours. Primarily used in
+testing.
+
+**Badges:** `region:global` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="variable" type="Union[str, List[str]]">
+The variable or list of variables predicted by the model.
+</ParamField>
+
+<ParamField path="domain_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — The coordinates representing the domain for this model to operate on.
+</ParamField>
+
+<ParamField path="history" type="int" default="1">
+Specifies the number of previous time steps to include as input, by default set
+to 1.
+</ParamField>
+
+<ParamField path="dt" type="np.timedelta64" default="np.timedelta64(6, 'h')">
+Time-step size of model between inputs and output, by default np.timedelta64(6, "h")
+</ParamField>
+
+<ParamField path="_input_coords">
+</ParamField>
+
+<ParamField path="_output_coords">
+</ParamField>
+
+<ParamField path="checkpoint">
+</ParamField>
+<Anchor id="earth2studio-models-px-persistence-Persistence-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.persistence.Persistence.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Runs prognostic model 1 step.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Coordinate system, should have dimensions ``[time, lead_time, variable, *domain_dims]``
+</ParamField>
+
+**Returns:** `torch.Tensor`
+
+</Indent>
+<Anchor id="earth2studio-models-px-persistence-Persistence-create_iterator">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.persistence.Persistence.create_iterator(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> collections.abc.Iterator[tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Creates a iterator which can be used to perform time-integration of the
+prognostic model. Will return the initial condition first (0th step).
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-persistence-Persistence-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.persistence.Persistence.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of the prognostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-px-persistence-Persistence-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.persistence.Persistence.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the prognostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>

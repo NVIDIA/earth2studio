@@ -1,0 +1,59 @@
+---
+layout: overview
+title: earth2studio.serve.server.cleanup_daemon
+---
+## Module Contents
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`cleanup_expired_results`](#earth2studio-serve-server-cleanup_daemon-cleanup_expired_results) | Check Redis for expired results and clean them up. |
+| [`main`](#earth2studio-serve-server-cleanup_daemon-main) | Main daemon loop |
+
+### API
+
+<Anchor id="earth2studio-serve-server-cleanup_daemon-cleanup_expired_results">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.cleanup_daemon.cleanup_expired_results(
+    redis_client: redis.Redis,
+    results_ttl_hours: float,
+    retention_ttl: int,
+    default_output_dir: pathlib.Path,
+    results_zip_dir: pathlib.Path
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Check Redis for expired results and clean them up.
+
+This function:
+1. Checks Redis for completed inference requests older than TTL
+2. Deletes both raw result files and zip files
+3. Updates the status to "expired"
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-cleanup_daemon-main">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.cleanup_daemon.main() -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Main daemon loop
+
+</Indent>

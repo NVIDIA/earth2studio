@@ -1,0 +1,91 @@
+---
+layout: overview
+title: earth2studio.lexicon.gdas
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`GDASObsConvLexicon`](#earth2studio-lexicon-gdas-GDASObsConvLexicon) | NOAA GDAS lexicon for conventional and GPSRO observations. |
+
+### API
+
+<Anchor id="earth2studio-lexicon-gdas-GDASObsConvLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.gdas.GDASObsConvLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+NOAA GDAS lexicon for conventional and GPSRO observations.
+
+Maps Earth2Studio variable names to NCEP observation extraction parameters.
+The vocab value is either a PrepBUFR mnemonic (e.g., ``"TOB"`` for
+temperature) or ``"wind::u"`` / ``"wind::v"`` for wind components.
+
+The source returns PrepBUFR observation values in
+Earth2Studio standard units (the modifiers are the identity):
+
+- ``t``: TOB (DEG C) → Kelvin (+273.15)
+- ``q``: QOB (mg/kg) → kg kg-1 (÷1e6)
+- ``pres``: source pressure-observation POB rows (hPa / MB) → Pa (×100)
+- ``u``, ``v``: UOB/VOB already in m s-1 (no conversion)
+- ``gps``: combined ionosphere-corrected bending angle (no conversion)
+- ``gps_refractivity``: refractivity (N-units) at the message's ``HEIT``
+  height levels (no conversion)
+
+The GPSRO dump can also contain provider 1D-Var retrieval profiles for
+pressure (descriptor ``10004``), temperature (``12001``), and specific
+humidity (``13001``). They are intentionally not exposed here. UFS
+diagnostic ``gps_t`` and ``gps_q`` are model-background values sampled at
+the bending-angle location, not these BUFR retrieval fields.
+
+<Note>
+
+Additional resources on PrepBUFR format and observation types:
+
+- https://www.emc.ncep.noaa.gov/mmb/data_processing/prepbufr.doc/table_2.htm
+- https://www.emc.ncep.noaa.gov/mmb/data_processing/prepbufr.doc/document.htm
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-gdas-GDASObsConvLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.gdas.GDASObsConvLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable[..., pandas.DataFrame]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Get an item from the GDAS conventional vocabulary.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Earth2Studio variable id.
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+- PrepBUFR mnemonic/wind key or the GPSRO descriptor route.
+- The identity modifier; the source returns Earth2Studio units.
+
+</Indent>
+</Indent>

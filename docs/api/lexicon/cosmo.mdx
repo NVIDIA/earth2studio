@@ -1,0 +1,122 @@
+---
+layout: overview
+title: earth2studio.lexicon.cosmo
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`CosmoLexicon`](#earth2studio-lexicon-cosmo-CosmoLexicon) | COSMO-REA Lexicon |
+
+### API
+
+<Anchor id="earth2studio-lexicon-cosmo-CosmoLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.cosmo.CosmoLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+COSMO-REA Lexicon
+
+Maps between Earth2Studio vocabulary and the COSMO-REA output variable names
+used by [`CorrDiffCosmoEra5`](../models/dx/index.mdx#earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5) (COSMO-REA6 and
+COSMO-REA2). The vocabulary is the union over both resolutions: where a field
+has a canonical Earth2Studio name and matching units it maps to that name
+(e.g. ``t2m``, ``sp``, ``tp``, ``blh``); COSMO-specific fields with no canonical
+equivalent (model-level winds/temperatures/humidity, turbulent fluxes, TKE,
+averaged radiation fluxes, ...) keep a descriptive lowercase name.
+
+Each entry's value is ``(cosmo_name(s), scale)``: ``cosmo_name`` is the
+interior COSMO output name (a tuple when the two resolutions spell the same
+field differently, e.g. ``U_10M`` in REA6 vs ``10U`` in REA2), and ``scale``
+converts the COSMO value to the Earth2Studio name's units (e.g. ``CLCT`` is a
+percentage and ``tcc`` is a 0-1 fraction, so ``scale = 0.01``).
+
+The COSMO-REA regional reanalyses are DWD products:
+
+* COSMO-REA6 (~6 km): https://reanalysis.meteo.uni-bonn.de/?COSMO-REA6
+* COSMO-REA2 (~2.2 km): https://reanalysis.meteo.uni-bonn.de/?COSMO-REA2
+
+<Anchor id="earth2studio-lexicon-cosmo-CosmoLexicon-build_vocab">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.cosmo.CosmoLexicon.build_vocab() -> dict[str, tuple[tuple[str, ...] | str, float]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>staticmethod</Badge>
+
+Create the COSMO-REA vocab dictionary.
+
+</Indent>
+<Anchor id="earth2studio-lexicon-cosmo-CosmoLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.cosmo.CosmoLexicon.get_item(
+    val: str
+) -> tuple[tuple[str, ...] | str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return the COSMO name(s) and unit modifier for an Earth2Studio name.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Name in Earth2Studio terminology.
+</ParamField>
+
+**Returns:** `tuple[str | tuple[str, ...], Callable]`
+
+COSMO output name(s) and a modifier converting the COSMO value to the
+Earth2Studio name's units.
+
+</Indent>
+<Anchor id="earth2studio-lexicon-cosmo-CosmoLexicon-to_e2studio">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.cosmo.CosmoLexicon.to_e2studio(
+    cosmo_name: str
+) -> tuple[str, float]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Map a COSMO output variable name to ``(earth2studio_name, scale)``.
+
+The reverse of `VOCAB`, accepting either resolution's spelling.
+Unknown names fall back to their lowercased form with unit scale 1.0, so a
+new COSMO field still gets a sensible name rather than raising.
+
+</Indent>
+</Indent>

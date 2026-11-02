@@ -1,0 +1,327 @@
+---
+layout: overview
+title: earth2studio.data.jpss_atms
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`JPSS_ATMS`](#earth2studio-data-jpss_atms-JPSS_ATMS) | JPSS ATMS (Advanced Technology Microwave Sounder) Level 1 BUFR |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-data-jpss_atms-JPSS_ATMS">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.jpss_atms.JPSS_ATMS(
+    satellites: list[str] | None = None,
+    time_tolerance: earth2studio.utils.time.TimeTolerance = np.timedelta64(10, 'm'),
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    max_workers: int = 24,
+    retries: int = 3
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+JPSS ATMS (Advanced Technology Microwave Sounder) Level 1 BUFR
+brightness-temperature observations served from NOAA Open Data on AWS.
+
+Each BUFR file contains a single scan line with 96 cross-track
+field-of-view (FOV) positions and 22 microwave channels.
+The returned `DataFrame` has one row per FOV per channel,
+following the same convention as [`UFSObsSat`](./ufs.mdx#earth2studio-data-ufs-UFSObsSat).
+
+ATMS has 22 channels spanning 23.8--183.31 GHz.  The ``sensor_index``
+column (1--22) identifies each channel:
+
+.. list-table:: ATMS Channel Specification
+   :header-rows: 1
+   :widths: 8 15 35
+
+   * - Channel
+     - Frequency (GHz)
+     - Primary Sensitivity
+   * - 1
+     - 23.8
+     - Window / water-vapour (surface)
+   * - 2
+     - 31.4
+     - Window (surface emissivity, cloud liquid water)
+   * - 3
+     - 50.3
+     - Oxygen (lower troposphere temperature)
+   * - 4
+     - 51.76
+     - Oxygen (lower troposphere temperature)
+   * - 5
+     - 52.8
+     - Oxygen (troposphere temperature)
+   * - 6
+     - 53.596
+     - Oxygen (troposphere temperature)
+   * - 7
+     - 54.40
+     - Oxygen (mid-troposphere temperature)
+   * - 8
+     - 54.94
+     - Oxygen (mid-troposphere temperature)
+   * - 9
+     - 55.50
+     - Oxygen (upper troposphere temperature)
+   * - 10
+     - 57.29 (fO1)
+     - Oxygen (tropopause temperature)
+   * - 11
+     - 57.29 (fO2)
+     - Oxygen (lower stratosphere temperature)
+   * - 12
+     - 57.29 (fO3)
+     - Oxygen (stratosphere temperature)
+   * - 13
+     - 57.29 (fO4)
+     - Oxygen (stratosphere temperature)
+   * - 14
+     - 57.29 (fO5)
+     - Oxygen (upper stratosphere temperature)
+   * - 15
+     - 57.29 (fO6)
+     - Oxygen (upper stratosphere temperature)
+   * - 16
+     - 88.20
+     - Window (precipitation, sea ice)
+   * - 17
+     - 165.5
+     - Window (precipitation, ice cloud)
+   * - 18
+     - 183.31 (fH1)
+     - Water-vapour (upper troposphere humidity)
+   * - 19
+     - 183.31 (fH2)
+     - Water-vapour (mid-troposphere humidity)
+   * - 20
+     - 183.31 (fH3)
+     - Water-vapour (mid-troposphere humidity)
+   * - 21
+     - 183.31 (fH4)
+     - Water-vapour (lower troposphere humidity)
+   * - 22
+     - 183.31 (fH5)
+     - Water-vapour (lower troposphere humidity)
+
+Channels 10--15 share the 57.29 GHz oxygen-absorption line but use
+different passband offsets (fO1--fO6), giving each a distinct altitude
+weighting function.  Channels 18--22 similarly share 183.31 GHz with
+different offsets (fH1--fH5) for water-vapour profiling at different
+altitudes.
+
+**Badges:** `region:global` `dataclass:observation` `product:sat` `provider:noaa`
+
+**Parameters:**
+
+<ParamField path="satellites" type="list[str] | None" default="None">
+Satellite short-names to query.  Valid values are ``"n20"``
+(NOAA-20), ``"n21"`` (NOAA-21), and ``"npp"`` (Suomi NPP).
+By default ``None``, which queries all valid satellites.
+</ParamField>
+
+<ParamField path="time_tolerance" type="TimeTolerance" default="np.timedelta64(10, 'm')">
+[`TimeTolerance`](../utils/type.mdx#earth2studio-utils-type-TimeTolerance) — Time tolerance window for filtering observations. Accepts a single value
+(symmetric ± window) or a tuple (lower, upper) for asymmetric windows,
+by default, np.timedelta64(10, 'm').
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache downloaded BUFR files locally, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Show download progress bars, by default True
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Total timeout in seconds for the async fetch, by default 600
+</ParamField>
+
+<ParamField path="max_workers" type="int" default="24">
+Maximum number of concurrent S3 fetch tasks, by default 24
+</ParamField>
+
+<ParamField path="retries" type="int" default="3">
+Per-file retry count on transient I/O failures, by default 3
+</ParamField>
+
+<Note>
+
+Additional information on the data repository:
+
+- https://registry.opendata.aws/noaa-jpss/
+- https://www.star.nesdis.noaa.gov/jpss/ATMS.php
+- https://www.nesdis.noaa.gov/current-satellite-missions/currently-flying/joint-polar-satellite-system
+
+ATMS channel specification and BUFR SDR format:
+
+- https://www.star.nesdis.noaa.gov/jpss/documents/ATBD/D0001-M01-S01-001_JPSS_ATBD_ATMS_SDR_D.pdf
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount
+of data to your local machine for large requests.
+
+</Warning>
+
+<ParamField path="cache" type="str">
+Get the appropriate cache location.
+</ParamField>
+
+<Anchor id="earth2studio-data-jpss_atms-JPSS_ATMS-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.jpss_atms.JPSS_ATMS.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Fetch ATMS brightness-temperature observations.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variable names to return (e.g. ``["atms"]``).
+</ParamField>
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None" default="None">
+Subset of schema fields to include, by default None (all).
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+Long-format DataFrame with one row per FOV per channel.
+
+</Indent>
+<Anchor id="earth2studio-data-jpss_atms-JPSS_ATMS-available">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.jpss_atms.JPSS_ATMS.available(
+    time: datetime.datetime | numpy.datetime64
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Check whether data is available for a given time.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | np.datetime64">
+Date-time to check.
+</ParamField>
+
+**Returns:** `bool`
+
+</Indent>
+<Anchor id="earth2studio-data-jpss_atms-JPSS_ATMS-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.jpss_atms.JPSS_ATMS.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async implementation of the data fetch.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variable names to return.
+</ParamField>
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None" default="None">
+Subset of schema fields to include, by default None.
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+Long-format DataFrame.
+
+</Indent>
+<Anchor id="earth2studio-data-jpss_atms-JPSS_ATMS-resolve_fields">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.jpss_atms.JPSS_ATMS.resolve_fields(
+    fields: str | list[str] | pyarrow.Schema | None
+) -> pyarrow.Schema
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Convert *fields* parameter into a validated PyArrow schema.
+
+**Parameters:**
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None">
+Field specification.
+</ParamField>
+
+**Returns:** `pa.Schema`
+
+</Indent>
+</Indent>

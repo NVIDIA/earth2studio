@@ -1,0 +1,366 @@
+---
+layout: overview
+title: earth2studio.data.iem
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`IEM_ASOS`](#earth2studio-data-iem-IEM_ASOS) | IEM archive of parsed ASOS, AWOS, and METAR station observations. |
+
+### API
+
+<Anchor id="earth2studio-data-iem-IEM_ASOS">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeTolerance":"../utils/type.mdx#earth2studio-utils-type-TimeTolerance"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.iem.IEM_ASOS(
+    stations: str | list[str] | None = None,
+    networks: str | list[str] | None = None,
+    report_types: tuple[int, ...] = (3, 4),
+    time_tolerance: earth2studio.utils.type.TimeTolerance = np.timedelta64(10, 'm'),
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    async_workers: int = 16,
+    retries: int = 3
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+IEM archive of parsed ASOS, AWOS, and METAR station observations.
+
+This source uses the Iowa Environmental Mesonet bulk ASOS service. It
+requests only parsed observation fields and never requests or retains the
+unprocessed METAR report. IEM performs little quality control on this
+historical archive.
+
+**Badges:** `region:global` `dataclass:observation` `product:wind` `product:precip` `product:temp` `product:atmos` `product:insitu`
+
+**Parameters:**
+
+<ParamField path="stations" type="str | list[str] | None" default="None">
+IEM station identifiers to query. None queries all stations allowed by
+the selected networks, by default None.
+</ParamField>
+
+<ParamField path="networks" type="str | list[str] | None" default="None">
+IEM network identifiers, such as ``"IA_ASOS"``. None does not restrict
+the request by network, by default None.
+</ParamField>
+
+<ParamField path="report_types" type="tuple[int, ...]" default="(3, 4)">
+IEM report types to include: 1 for HFMETAR, 3 for routine, and 4 for
+special reports, by default (3, 4).
+</ParamField>
+
+<ParamField path="time_tolerance" type="TimeTolerance" default="np.timedelta64(10, 'm')">
+[`TimeTolerance`](../utils/type.mdx#earth2studio-utils-type-TimeTolerance) — Time tolerance window for filtering observations. Accepts a single value
+(symmetric +/- window) or a tuple (lower, upper) for asymmetric windows,
+by default np.timedelta64(10, "m").
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache parsed CSV responses in the local filesystem, by default True.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Show download progress, by default True.
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Total timeout in seconds for an async fetch, by default 600.
+</ParamField>
+
+<ParamField path="async_workers" type="int" default="16">
+Maximum number of concurrent fetch tasks. Request starts are rate-limited
+to one per second to comply with the IEM service limit, by default 16.
+</ParamField>
+
+<ParamField path="retries" type="int" default="3">
+Number of retries for transient download failures, by default 3.
+</ParamField>
+
+<Note>
+
+Additional resources:
+
+- https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?help
+- https://mesonet.agron.iastate.edu/request/download.phtml
+
+</Note>
+
+<Warning>
+
+Broad station or time selections can return large responses. IEM limits
+requests without explicit stations to 24 hours and applies an IP-based
+one-request-per-second throttle.
+
+</Warning>
+
+<ParamField path="cache" type="str">
+Return the local cache directory for parsed IEM CSV responses.
+</ParamField>
+
+<Anchor id="earth2studio-data-iem-IEM_ASOS-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.iem.IEM_ASOS.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve parsed IEM ASOS/AWOS observations.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return observations for in UTC.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variables from `IEM_ASOSLexicon` to return.
+</ParamField>
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None" default="None">
+Output fields to include, by default None (all fields).
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+Parsed observations in Earth2Studio long-form schema.
+
+</Indent>
+<Anchor id="earth2studio-data-iem-IEM_ASOS-available">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.iem.IEM_ASOS.available(
+    time: datetime.datetime | numpy.datetime64
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Check whether a timestamp is within the IEM archive range.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | np.datetime64">
+Timestamp to check.
+</ParamField>
+
+**Returns:** `bool`
+
+True when the timestamp is not earlier than the archive start.
+
+</Indent>
+<Anchor id="earth2studio-data-iem-IEM_ASOS-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.iem.IEM_ASOS.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    fields: str | list[str] | pyarrow.Schema | None = None
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Asynchronously retrieve parsed IEM ASOS/AWOS observations.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return observations for in UTC.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variables from `IEM_ASOSLexicon` to return.
+</ParamField>
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None" default="None">
+Output fields to include, by default None (all fields).
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+Parsed observations in Earth2Studio long-form schema.
+
+</Indent>
+<Anchor id="earth2studio-data-iem-IEM_ASOS-fetch_array">
+
+<CodeBlock links={{"earth2studio.data.iem._IEM_ASOSAsyncTask":"#earth2studio-data-iem-_IEM_ASOSAsyncTask"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.iem.IEM_ASOS.fetch_array(
+    task: earth2studio.data.iem._IEM_ASOSAsyncTask
+) -> bytes
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Download one parsed IEM CSV response.
+
+**Parameters:**
+
+<ParamField path="task" type="_IEM_ASOSAsyncTask">
+Bounded IEM request task.
+</ParamField>
+
+**Returns:** `bytes`
+
+CSV payload containing parsed fields only.
+
+</Indent>
+<Anchor id="earth2studio-data-iem-IEM_ASOS-fetch_wrapper">
+
+<CodeBlock links={{"earth2studio.data.iem._IEM_ASOSAsyncTask":"#earth2studio-data-iem-_IEM_ASOSAsyncTask"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.iem.IEM_ASOS.fetch_wrapper(
+    task: earth2studio.data.iem._IEM_ASOSAsyncTask
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Fetch and cache one parsed IEM CSV response.
+
+**Parameters:**
+
+<ParamField path="task" type="_IEM_ASOSAsyncTask">
+Bounded IEM request task.
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-data-iem-IEM_ASOS-get_station_metadata">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.iem.IEM_ASOS.get_station_metadata() -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Fetch and cache the IEM ASOS-class station catalog.
+
+**Returns:** `pd.DataFrame`
+
+Station metadata with columns ID, LAT, LON, ELEV, NAME, NETWORK,
+COUNTRY, and ONLINE.
+
+</Indent>
+<Anchor id="earth2studio-data-iem-IEM_ASOS-get_stations_bbox">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.iem.IEM_ASOS.get_stations_bbox(
+    lat_lon_bbox: tuple[float, float, float, float]
+) -> list[str]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return IEM ASOS-class station IDs within a lat/lon bounding box.
+
+**Parameters:**
+
+<ParamField path="lat_lon_bbox" type="tuple[float, float, float, float]">
+Bounding box [lat_min, lon_min, lat_max, lon_max]. Both
+[-180, 180) and [0, 360) longitude conventions are accepted;
+[0, 360) is detected when lon_max &gt;= 180.
+</ParamField>
+
+**Returns:** `list[str]`
+
+IEM station IDs inside the bounding box, including its boundary.
+
+</Indent>
+<Anchor id="earth2studio-data-iem-IEM_ASOS-resolve_fields">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.iem.IEM_ASOS.resolve_fields(
+    fields: str | list[str] | pyarrow.Schema | None
+) -> pyarrow.Schema
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Resolve requested output fields into a validated schema.
+
+**Parameters:**
+
+<ParamField path="fields" type="str | list[str] | pa.Schema | None">
+Field names or schema to select. None selects the full schema.
+</ParamField>
+
+**Returns:** `pa.Schema`
+
+Validated subset of `SCHEMA`.
+
+**Raises:**
+
+- `KeyError`: If a field is not present in the source schema.
+- `TypeError`: If a supplied field has an incompatible type.
+
+</Indent>
+</Indent>

@@ -1,0 +1,75 @@
+---
+layout: overview
+title: earth2studio.lexicon.opera
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`OPERALexicon`](#earth2studio-lexicon-opera-OPERALexicon) | Lexicon for EUMETNET OPERA composite radar data. |
+
+### API
+
+<Anchor id="earth2studio-lexicon-opera-OPERALexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.opera.OPERALexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Lexicon for EUMETNET OPERA composite radar data.
+
+Maps Earth2Studio variable names to ODIM HDF5 quantity codes stored inside
+the composite files.
+
+<Note>
+
+Variable documentation:
+https://eumetnet.github.io/openradardata-documentation/
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-opera-OPERALexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.opera.OPERALexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return ODIM quantity name and modifier for an Earth2Studio variable.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Earth2Studio variable name.
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+ODIM quantity code (used to identify the dataset inside the HDF5
+file) and an identity modifier function.
+
+**Raises:**
+
+- `KeyError`: If ``val`` is not in the lexicon.
+
+</Indent>
+</Indent>

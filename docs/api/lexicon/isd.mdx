@@ -1,0 +1,74 @@
+---
+layout: overview
+title: earth2studio.lexicon.isd
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`ISDLexicon`](#earth2studio-lexicon-isd-ISDLexicon) | NOAA's Integrated Surface Database (ISD) product lexicon. |
+
+### API
+
+<Anchor id="earth2studio-lexicon-isd-ISDLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.isd.ISDLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+NOAA's Integrated Surface Database (ISD) product lexicon.
+
+This lexicon provides variable mappings for ISD observation types.
+Metadata fields (station, time, lat, lon, elev) are defined in the
+ISD data source schema.
+
+<Note>
+
+Additional resources:
+
+- https://www.ncei.noaa.gov/data/global-hourly/doc/isd-format-document.pdf
+- https://www.ncei.noaa.gov/products/land-based-station/integrated-surface-database
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-isd-ISDLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.isd.ISDLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Get item from ISD vocabulary.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Earth2Studio variable id.
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+- Description of variable (not used).
+- A modifier function to apply to the loaded values (identity).
+
+</Indent>
+</Indent>

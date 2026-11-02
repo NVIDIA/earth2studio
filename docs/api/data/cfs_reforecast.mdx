@@ -1,0 +1,372 @@
+---
+layout: overview
+title: earth2studio.data.cfs_reforecast
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`CFSReforecastAsyncTask`](#earth2studio-data-cfs_reforecast-CFSReforecastAsyncTask) | Async fetch request for a single (time, lead_time) grib file. |
+| [`CFS_Reforecast_FX`](#earth2studio-data-cfs_reforecast-CFS_Reforecast_FX) | NCEP CFSv2 6-hourly 9-month reforecast (pressure-level product). |
+| [`CFS_Reforecast_FX_Flux`](#earth2studio-data-cfs_reforecast-CFS_Reforecast_FX_Flux) | NCEP CFSv2 6-hourly 9-month reforecast (surface-flux product). |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-data-cfs_reforecast-CFSReforecastAsyncTask">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.cfs_reforecast.CFSReforecastAsyncTask(
+    data_array_indices: tuple[int, int],
+    grib_uri: str,
+    variables: list[tuple[int, str, str, int, collections.abc.Callable]]
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Async fetch request for a single (time, lead_time) grib file.
+
+The reforecast archive has no `.idx` companions so each task downloads the
+whole grib file once and decodes every requested variable from it,
+avoiding redundant downloads when multiple variables share an (IC, lead)
+pair.
+
+</Indent>
+
+<Anchor id="earth2studio-data-cfs_reforecast-CFS_Reforecast_FX">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.cfs_reforecast.CFS_Reforecast_FX(
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    async_workers: int = 16,
+    retries: int = 3
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+NCEP CFSv2 6-hourly 9-month reforecast (pressure-level product).
+
+The CFS reforecast is a 30-year offline integration of CFSv2 produced by
+NCEP to support training and bias-correction of the operational system.
+Cycles are launched every 5 days from 1981-12-12 to 2011-03-27; each
+5-day cycle directory contains four 6-hourly initial conditions
+(00/06/12/18 UTC) integrated forward to roughly 9 months in 6-hour
+steps. Only ensemble member 01 of the operational 1-4 set is published
+in this 9-month series.
+
+This class exposes the pressure-level (``pgbf``) product on the same
+1 degree regular lat-lon grid (181 x 360) as the operational
+[`CFS_FX`](./cfs.mdx#earth2studio-data-cfs-CFS_FX). Variable definitions are taken
+verbatim from [`CFSLexicon`](../lexicon/cfs.mdx#earth2studio-lexicon-cfs-CFSLexicon), which the
+grib2 inventories match.
+
+**Badges:** `region:global` `dataclass:reanalysis` `product:wind` `product:temp` `product:atmos` `provider:noaa`
+
+**Parameters:**
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True. Cached files
+are large (~22 MB per (IC, lead) pgbf file) and are reused across
+variable requests for the same file.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True.
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Total timeout in seconds for the entire fetch operation, by default
+600.
+</ParamField>
+
+<ParamField path="async_workers" type="int" default="16">
+Maximum number of concurrent async fetch tasks, by default 16.
+Each task downloads one whole grib file.
+</ParamField>
+
+<ParamField path="retries" type="int" default="3">
+Number of retry attempts per failed fetch task with exponential
+backoff, by default 3.
+</ParamField>
+
+<Note>
+
+The reforecast `9-month` series only publishes ensemble member 01; no
+``member`` constructor argument is exposed.
+Additional information on the data repository:
+
+- https://www.ncei.noaa.gov/products/weather-climate-models/climate-forecast-system
+- https://www.ncei.noaa.gov/oa/prod-cfs-reforecast/index.html
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount
+of data to your local machine for large requests. Unlike the operational
+archive, the reforecast bucket has no `.idx` companions; every variable
+request triggers a full grib-file download (~22 MB) if not already
+cached.
+
+</Warning>
+
+<ParamField path="cache" type="str">
+Return the on-disk cache location for this instance.
+</ParamField>
+
+<Anchor id="earth2studio-data-cfs_reforecast-CFS_Reforecast_FX-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.cfs_reforecast.CFS_Reforecast_FX.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve CFS reforecast data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Initial-condition timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="lead_time" type="timedelta | list[timedelta] | LeadTimeArray">
+`timedelta | list[timedelta] |` [`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Forecast lead times to fetch (6-hour increments, 0 to ~9 months).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variable identifier(s). Must be in the source's lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+CFS reforecast data array with dimensions
+``[time, lead_time, variable, lat, lon]``.
+
+</Indent>
+<Anchor id="earth2studio-data-cfs_reforecast-CFS_Reforecast_FX-available">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.cfs_reforecast.CFS_Reforecast_FX.available(
+    time: datetime.datetime | numpy.datetime64
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Check whether a CFS reforecast initial condition is available.
+
+Performs offline validity checks (6-hour cycle, history range); the
+every-5-days cycle calendar is not enforced here because it shifts
+slightly across leap-year boundaries.  Off-schedule requests are
+surfaced as ``FileNotFoundError`` at fetch time.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | np.datetime64">
+Initial-condition date time to check.
+</ParamField>
+
+**Returns:** `bool`
+
+Whether the offline checks pass.
+
+</Indent>
+<Anchor id="earth2studio-data-cfs_reforecast-CFS_Reforecast_FX-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.cfs_reforecast.CFS_Reforecast_FX.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async fetch of CFS reforecast data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Initial-condition timestamps (UTC).
+</ParamField>
+
+<ParamField path="lead_time" type="timedelta | list[timedelta] | LeadTimeArray">
+`timedelta | list[timedelta] |` [`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Forecast lead times.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variable identifier(s). Must be in the source's lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+CFS reforecast data array.
+
+</Indent>
+<Anchor id="earth2studio-data-cfs_reforecast-CFS_Reforecast_FX-fetch_array">
+
+<CodeBlock links={{"earth2studio.data.cfs_reforecast.CFSReforecastAsyncTask":"#earth2studio-data-cfs_reforecast-CFSReforecastAsyncTask"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.cfs_reforecast.CFS_Reforecast_FX.fetch_array(
+    task: earth2studio.data.cfs_reforecast.CFSReforecastAsyncTask
+) -> list[tuple[int, numpy.ndarray]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Download a reforecast grib file and decode every requested variable.
+
+**Parameters:**
+
+<ParamField path="task" type="CFSReforecastAsyncTask">
+[`CFSReforecastAsyncTask`](#earth2studio-data-cfs_reforecast-CFSReforecastAsyncTask) — Task with URI and variable list.
+</ParamField>
+
+**Returns:** `list[tuple[int, np.ndarray]]`
+
+List of ``(variable_idx, ndarray)`` pairs aligned with the
+requested variables on the task.
+
+</Indent>
+<Anchor id="earth2studio-data-cfs_reforecast-CFS_Reforecast_FX-fetch_wrapper">
+
+<CodeBlock links={{"earth2studio.data.cfs_reforecast.CFSReforecastAsyncTask":"#earth2studio-data-cfs_reforecast-CFSReforecastAsyncTask"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.cfs_reforecast.CFS_Reforecast_FX.fetch_wrapper(
+    task: earth2studio.data.cfs_reforecast.CFSReforecastAsyncTask,
+    xr_array: xarray.DataArray
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Unpack a task, fetch with retry, and write all variables for it.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-cfs_reforecast-CFS_Reforecast_FX_Flux">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.cfs_reforecast.CFS_Reforecast_FX_Flux()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [CFS_Reforecast_FX](#earth2studio-data-cfs_reforecast-CFS_Reforecast_FX)
+
+NCEP CFSv2 6-hourly 9-month reforecast (surface-flux product).
+
+Same archive and access pattern as `CFS_Reforecast_FX` but
+exposes the ``flxf`` product on the native T126 Gaussian grid
+(190 x 384). Variable inventory mirrors
+[`CFSFluxLexicon`](../lexicon/cfs.mdx#earth2studio-lexicon-cfs-CFSFluxLexicon) (which the reforecast
+grib2 inventories match).
+
+**Badges:** `region:global` `dataclass:reanalysis` `product:precip` `product:land` `product:atmos` `provider:noaa`
+
+**Parameters:**
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True.
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Total timeout in seconds for the entire fetch operation, by default
+600.
+</ParamField>
+
+<ParamField path="async_workers" type="int" default="16">
+Maximum number of concurrent async fetch tasks, by default 16.
+</ParamField>
+
+<ParamField path="retries" type="int" default="3">
+Number of retry attempts per failed fetch task with exponential
+backoff, by default 3.
+</ParamField>
+
+<Note>
+
+Additional information on the data repository:
+
+- https://www.ncei.noaa.gov/products/weather-climate-models/climate-forecast-system
+- https://www.ncei.noaa.gov/oa/prod-cfs-reforecast/index.html
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount
+of data to your local machine for large requests.
+
+</Warning>
+
+</Indent>

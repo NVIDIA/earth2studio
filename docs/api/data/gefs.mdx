@@ -1,0 +1,433 @@
+---
+layout: overview
+title: earth2studio.data.gefs
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`GEFSAsyncTask`](#earth2studio-data-gefs-GEFSAsyncTask) | Small helper struct for Async tasks |
+| [`GEFS_FX`](#earth2studio-data-gefs-GEFS_FX) | The Global Ensemble Forecast System (GEFS) forecast source is a 30 member |
+| [`GEFS_FX_721x1440`](#earth2studio-data-gefs-GEFS_FX_721x1440) | The Global Ensemble Forecast System (GEFS) forecast source is a 30 member |
+
+### API
+
+<Anchor id="earth2studio-data-gefs-GEFSAsyncTask">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.gefs.GEFSAsyncTask(
+    data_array_indices: tuple[int, int, int],
+    gefs_file_uri: str,
+    gefs_byte_offset: int,
+    gefs_byte_length: int | None,
+    gefs_modifier: collections.abc.Callable
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Small helper struct for Async tasks
+
+</Indent>
+
+<Anchor id="earth2studio-data-gefs-GEFS_FX">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.gefs.GEFS_FX(
+    member: str = 'gec00',
+    max_workers: int = 24,
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    async_workers: int | None = None,
+    retries: int = 3
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+The Global Ensemble Forecast System (GEFS) forecast source is a 30 member
+ensemble forecast provided on an 0.5 degree equirectangular grid.  GEFS is a weather
+forecast model developed by  National Centers for Environmental Prediction (NCEP).
+This forecast source has data at 6-hour intervals spanning from Sept 23rd 2020 to
+present date. Each forecast provides 3-hourly predictions up to 10 days (240 hours)
+and 6 hourly predictions for another 6 days (384 hours).
+
+**Badges:** `region:global` `dataclass:simulation` `dataset:gfs` `product:wind` `product:precip` `product:temp` `product:atmos` `provider:noaa`
+
+**Parameters:**
+
+<ParamField path="member" type="str" default="'gec00'">
+GEFS member. Options are: control gec00 (control), gepNN (forecast member NN,
+e.g. gep01, gep02,...), by default "gec00"
+</ParamField>
+
+<ParamField path="max_workers" type="int" default="24">
+Deprecated, use async_workers instead. Kept for API compatibility, by
+default 24
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Time in sec after which download will be cancelled if not finished successfully,
+by default 600
+</ParamField>
+
+<ParamField path="async_workers" type="int" default="None">
+Maximum number of concurrent downloads. By default None, which autoscales
+to the number of download tasks (capped at 64)
+</ParamField>
+
+<ParamField path="retries" type="int" default="3">
+Number of retries for each download task on transient errors, by default 3
+</ParamField>
+
+<Note>
+
+Additional information on the data repository can be referenced here:
+
+- https://registry.opendata.aws/noaa-gefs/
+- https://www.ncei.noaa.gov/products/weather-climate-models/global-ensemble-forecast
+- https://www.nco.ncep.noaa.gov/pmb/products/gens/
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of data
+to your local machine for large requests.
+Some variables in the GEFS lexicon may not be available at lead time 0. Consult GEFS
+documentation for additional information.
+
+</Warning>
+
+<ParamField path="cache" type="str">
+Return appropriate cache location.
+</ParamField>
+
+<Anchor id="earth2studio-data-gefs-GEFS_FX-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.gefs.GEFS_FX.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve GEFS forecast data
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="lead_time" type="timedelta | list[timedelta] | LeadTimeArray">
+`timedelta | list[timedelta] |` [`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Forecast lead times to fetch.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the GEFS lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+GEFS forecast data array
+
+</Indent>
+<Anchor id="earth2studio-data-gefs-GEFS_FX-available">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.gefs.GEFS_FX.available(
+    time: datetime.datetime | numpy.datetime64
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Checks if given date time is avaliable in the GEFS object store. Uses S3
+store
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | np.datetime64">
+Date time to access
+</ParamField>
+
+**Returns:** `bool`
+
+If date time is avaiable
+
+</Indent>
+<Anchor id="earth2studio-data-gefs-GEFS_FX-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.gefs.GEFS_FX.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get data
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="lead_time" type="timedelta | list[timedelta] | LeadTimeArray">
+`timedelta | list[timedelta] |` [`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Forecast lead times to fetch.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the GEFS FX lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+GEFS forecast data array
+
+</Indent>
+<Anchor id="earth2studio-data-gefs-GEFS_FX-fetch_array">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.gefs.GEFS_FX.fetch_array(
+    grib_uri: str,
+    byte_offset: int,
+    byte_length: int | None,
+    modifier: collections.abc.Callable
+) -> numpy.ndarray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Fetch GEFS data array. This will first fetch the index file to get byte range
+of the needed data, fetch the respective grib files and lastly combining grib
+files into single data array.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime">
+Date time to fetch
+</ParamField>
+
+<ParamField path="lead_time" type="timedelta">
+Forecast lead time to fetch
+</ParamField>
+
+<ParamField path="variables" type="list[str]">
+Variables to fetch
+</ParamField>
+
+**Returns:** `np.ndarray`
+
+GEFS array for given time and lead time
+
+</Indent>
+<Anchor id="earth2studio-data-gefs-GEFS_FX-fetch_wrapper">
+
+<CodeBlock links={{"earth2studio.data.gefs.GEFSAsyncTask":"#earth2studio-data-gefs-GEFSAsyncTask"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.gefs.GEFS_FX.fetch_wrapper(
+    task: earth2studio.data.gefs.GEFSAsyncTask,
+    xr_array: xarray.DataArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Small wrapper to pack arrays into the DataArray
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-gefs-GEFS_FX_721x1440">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.gefs.GEFS_FX_721x1440(
+    member: str = 'gec00',
+    max_workers: int = 24,
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    async_workers: int | None = None,
+    retries: int = 3
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [GEFS_FX](#earth2studio-data-gefs-GEFS_FX)
+
+The Global Ensemble Forecast System (GEFS) forecast source is a 30 member
+ensemble forecast provided on an 0.25 degree equirectangular grid. GEFS is a
+weather forecast model developed by  National Centers for Environmental Prediction
+(NCEP). This data source provides the select variables of GEFS served on a higher
+resolution grid t 6-hour intervals spanning from Sept 23rd 2020 to present date.
+Each forecast provides 3-hourly predictions up to 10 days (240 hours) and 6 hourly
+predictions for another 6 days (384 hours).
+
+**Badges:** `region:global` `dataclass:simulation` `dataset:gfs` `product:wind` `product:precip` `product:temp` `product:atmos` `provider:noaa`
+
+**Parameters:**
+
+<ParamField path="member" type="str" default="'gec00'">
+GEFS member. Options are: control gec00 (control), gepNN (forecast member NN,
+e.g. gep01, gep02,...), by default "gec00"
+</ParamField>
+
+<ParamField path="max_workers" type="int" default="24">
+Deprecated, use async_workers instead. Kept for API compatibility, by
+default 24
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Time in sec after which download will be cancelled if not finished successfully,
+by default 600
+</ParamField>
+
+<ParamField path="async_workers" type="int" default="None">
+Maximum number of concurrent downloads. By default None, which autoscales
+to the number of download tasks (capped at 64)
+</ParamField>
+
+<ParamField path="retries" type="int" default="3">
+Number of retries for each download task on transient errors, by default 3
+</ParamField>
+
+<Note>
+
+NCEP only provides a small subset of variables on the higher resoluton 0.25 degree
+grid. For a larger selection, use the standard GEFS data source.
+Additional information on the data repository can be referenced here:
+
+- https://registry.opendata.aws/noaa-gefs/
+- https://www.ncei.noaa.gov/products/weather-climate-models/global-ensemble-forecast
+- https://www.nco.ncep.noaa.gov/pmb/products/gens/
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of data
+to your local machine for large requests.
+Some variables in the GEFS lexicon may not be available at lead time 0. Consult GEFS
+documentation for additional information.
+
+</Warning>
+
+<Anchor id="earth2studio-data-gefs-GEFS_FX_721x1440-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.gefs.GEFS_FX_721x1440.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve GEFS forecast data
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="lead_time" type="timedelta | list[timedelta] | LeadTimeArray">
+`timedelta | list[timedelta] |` [`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Forecast lead times to fetch.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the GEFS FX select lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+GEFS select forecast data array
+
+</Indent>
+</Indent>

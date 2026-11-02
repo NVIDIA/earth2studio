@@ -1,0 +1,265 @@
+---
+layout: overview
+title: earth2studio.models.px.fcn3
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`FCN3`](#earth2studio-models-px-fcn3-FCN3) | FourCastNet 3 advances global weather modeling by implementing a scalable, |
+
+### API
+
+<Anchor id="earth2studio-models-px-fcn3-FCN3">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.fcn3.FCN3(
+    core_model: torch.nn.Module,
+    variables: numpy.array = np.array(VARIABLES),
+    seed: int = 333
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin), [PrognosticMixin](./utils.mdx#earth2studio-models-px-utils-PrognosticMixin)
+
+FourCastNet 3 advances global weather modeling by implementing a scalable,
+geometric machine learning (ML) approach to probabilistic ensemble forecasting.
+The approach is designed to respect spherical geometry and to accurately model the
+spatially correlated probabilistic nature of the problem, resulting in stable
+spectra and realistic dynamics across multiple scales.
+
+FourCastNet 3 is a global probabilistic prognostic model.
+It operates on a 0.25 degree lat-lon grid (south-pole excluding)
+equirectangular grid with 72 variables.
+
+**Badges:** `region:global` `class:medium-range` `product:wind` `product:temp` `product:atmos` `year:2025` `gpu:80gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="core_model" type="torch.nn.Module">
+Core PyTorch model with loaded weights
+</ParamField>
+
+<ParamField path="variables" type="np.array" default="np.array(VARIABLES)">
+Variables associated with model, by default 72 variable model.
+</ParamField>
+
+<ParamField path="seed" type="int" default="333">
+Seed of the underlying FCN3 model's random generators, by default 333
+</ParamField>
+
+<Note>
+
+For more information see the following references:
+
+- https://arxiv.org/abs/2507.12144v2
+- https://arxiv.org/abs/2402.16845
+- https://huggingface.co/nvidia/fourcastnet3
+- https://catalog.ngc.nvidia.com/orgs/nvidia/teams/earth-2/models/fourcastnet3
+
+</Note>
+
+<Anchor id="earth2studio-models-px-fcn3-FCN3-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.fcn3.FCN3.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Runs prognostic model 1 step
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Output tensor and coordinate system
+
+</Indent>
+<Anchor id="earth2studio-models-px-fcn3-FCN3-create_iterator">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.fcn3.FCN3.create_iterator(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> collections.abc.Iterator[tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Creates a iterator which can be used to perform time-integration of the
+prognostic model. Will return the initial condition first (0th step).
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-fcn3-FCN3-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.fcn3.FCN3.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of the prognostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-px-fcn3-FCN3-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.fcn3.FCN3.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic package
+
+</Indent>
+<Anchor id="earth2studio-models-px-fcn3-FCN3-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.px.base.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.fcn3.FCN3.load_model(
+    package: earth2studio.models.auto.Package,
+    variables: list = VARIABLES
+) -> earth2studio.models.px.base.PrognosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic from package
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Package to load model from
+</ParamField>
+
+<ParamField path="variables" type="list" default="VARIABLES">
+Model variable override, by default VARIABLES for FCN3 72 channel
+</ParamField>
+
+**Returns:** [`PrognosticModel`](./base.mdx#earth2studio-models-px-base-PrognosticModel)
+
+Prognostic model
+
+</Indent>
+<Anchor id="earth2studio-models-px-fcn3-FCN3-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.fcn3.FCN3.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the prognostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-px-fcn3-FCN3-set_rng">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.fcn3.FCN3.set_rng(
+    seed: int = 333,
+    reset: bool = True
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Set the underlying FCN3 model's RNG
+
+**Parameters:**
+
+<ParamField path="seed" type="int" default="333">
+Seed for the RNG, by default 333
+</ParamField>
+
+<ParamField path="reset" type="bool" default="True">
+Whether to reset the state of the RNG, by default True
+</ParamField>
+
+</Indent>
+</Indent>

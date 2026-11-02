@@ -1,0 +1,321 @@
+---
+layout: overview
+title: earth2studio.data.rx
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`ARCO_ERA5RxBase`](#earth2studio-data-rx-ARCO_ERA5RxBase) | Base class for ARCO ERA5 prescriptive fields |
+| [`CosineSolarZenith`](#earth2studio-data-rx-CosineSolarZenith) | Cosine of solar zenith angle. Use with caution needs verification. |
+| [`LandSeaMask`](#earth2studio-data-rx-LandSeaMask) | Land-sea mask on a 0.25 degree equirectangular grid fetched from the ARCO v2 |
+| [`SurfaceGeoPotential`](#earth2studio-data-rx-SurfaceGeoPotential) | Surface geopotential on a 0.25 degree equirectangular grid fetched from the ARCO |
+
+### API
+
+<Anchor id="earth2studio-data-rx-ARCO_ERA5RxBase">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.rx.ARCO_ERA5RxBase(
+    id: str,
+    arco_id: str,
+    cache: bool = True,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Base class for ARCO ERA5 prescriptive fields
+
+**Parameters:**
+
+<ParamField path="id" type="str">
+Earth-2 studio variable ID
+</ParamField>
+
+<ParamField path="arco_id" type="str">
+ARCO name of variable array in Zarr store
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+<ParamField path="ARCO_LAT" type="= np.linspace(90, -90, 721)">
+</ParamField>
+
+<ParamField path="ARCO_LON" type="= np.linspace(0, 359.75, 1440)">
+</ParamField>
+
+<ParamField path="cache" type="str">
+Get the appropriate cache location.
+</ParamField>
+
+<ParamField path="zarr_group" type="= zarr.open(zstore, mode='r')">
+</ParamField>
+<Anchor id="earth2studio-data-rx-ARCO_ERA5RxBase-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.rx.ARCO_ERA5RxBase.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Fetch preciptive variable
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Preciptive variable will be repeated for each time.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Not relevant for this data-source
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Preciptive variable data array
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-rx-CosineSolarZenith">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.rx.CosineSolarZenith(
+    domain_coords: earth2studio.utils.type.CoordSystem
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Cosine of solar zenith angle. Use with caution needs verification.
+
+TODO: Depricate in favor of putting into model wrappers / other libraries
+
+**Parameters:**
+
+<ParamField path="domain_coords" type="OrderedDict[str, np.ndarray]">
+Domain coordinates that the cos-zenith angle will be generated for, mush include
+[lat, lon] in the last two dimensions.
+</ParamField>
+
+<Note>
+
+For more information see:
+
+- https://codes.ecmwf.int/grib/param-db/214001
+
+</Note>
+
+<Anchor id="earth2studio-data-rx-CosineSolarZenith-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.rx.CosineSolarZenith.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray = ''
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Fetch Cosine zenith angle
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Times to generate cosine solar zenith angle
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray" default="''">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Not relevant for this data-source
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Cosine zenith angle data array
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-rx-LandSeaMask">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.rx.LandSeaMask(
+    cache: bool = True,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [ARCO_ERA5RxBase](#earth2studio-data-rx-ARCO_ERA5RxBase)
+
+Land-sea mask on a 0.25 degree equirectangular grid fetched from the ARCO v2
+datasource. This mask's cells are between [0,1] which denotes is the proportion of
+land, as opposed to ocean or inland waters (lakes, reservoirs, rivers and coastal
+waters), in that cell.
+
+**Parameters:**
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+<Note>
+
+For more information see:
+
+- https://codes.ecmwf.int/grib/param-db/172
+
+</Note>
+
+<Anchor id="earth2studio-data-rx-LandSeaMask-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.rx.LandSeaMask.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray = 'lsm'
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Fetch ARCO land-sea mask
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Preciptive variable will be repeated for each time.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray" default="'lsm'">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Not relevant for this data-source, by default "lsm"
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Land-sea mask data array
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-rx-SurfaceGeoPotential">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.rx.SurfaceGeoPotential(
+    cache: bool = True,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [ARCO_ERA5RxBase](#earth2studio-data-rx-ARCO_ERA5RxBase)
+
+Surface geopotential on a 0.25 degree equirectangular grid fetched from the ARCO
+v2 datasource. This field is the gravitational potential energy of a unit mass
+relative to mean sea level. This is often referred to as the orography.
+
+**Parameters:**
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+<Note>
+
+For more information see:
+
+- https://codes.ecmwf.int/grib/param-db/129
+
+</Note>
+
+<Anchor id="earth2studio-data-rx-SurfaceGeoPotential-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.rx.SurfaceGeoPotential.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray = 'z'
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Fetch ARCO orography field
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Preciptive variable will be repeated for each time.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray" default="'z'">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Not relevant for this data-source, by default "z"
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Orography data array
+
+</Indent>
+</Indent>

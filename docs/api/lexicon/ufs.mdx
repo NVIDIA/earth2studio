@@ -1,0 +1,137 @@
+---
+layout: overview
+title: earth2studio.lexicon.ufs
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`GSIConventionalLexicon`](#earth2studio-lexicon-ufs-GSIConventionalLexicon) | NOAA maintained Gridpoint Statistical Interpolation (GSI) lexicon for |
+| [`GSISatelliteLexicon`](#earth2studio-lexicon-ufs-GSISatelliteLexicon) | NOAA maintained Gridpoint Statistical Interpolation (GSI) lexicon for |
+
+### API
+
+<Anchor id="earth2studio-lexicon-ufs-GSIConventionalLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.ufs.GSIConventionalLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+NOAA maintained Gridpoint Statistical Interpolation (GSI) lexicon for
+conventional (in-situ) observations. GSI is provided as part of the NOAA UFS data
+repository.
+GSI vocab specified &lt;platform&gt;::&lt;sensor/var&gt;::&lt;product&gt;::&lt;gsi column name of obs&gt;
+
+<Note>
+
+Additional resources:
+
+- https://registry.opendata.aws/noaa-ufs-gefsv13replay-pds/
+- https://psl.noaa.gov/data/ufs_replay/
+- https://ral.ucar.edu/solutions/products/gridpoint-statistical-interpolation-gsi
+- https://psl.noaa.gov/data/ufs_replay/202409-PSL-UFSReplay-HistoryFileVariableNames.pdf
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-ufs-GSIConventionalLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.ufs.GSIConventionalLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Get item from GSI vocabulary.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Earth2Studio variable id.
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+- GSI vocab string
+- A modifier function to apply to the loaded values (identity).
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-lexicon-ufs-GSISatelliteLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.ufs.GSISatelliteLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+NOAA maintained Gridpoint Statistical Interpolation (GSI) lexicon for
+satellite observations. GSI is provided as part of the NOAA UFS data
+repository.
+GSI vocab specified &lt;platforms&gt;::&lt;sensor/var&gt;::&lt;product&gt;::&lt;gsi column name of obs&gt;
+
+<Note>
+
+Additional resources:
+
+- https://registry.opendata.aws/noaa-ufs-gefsv13replay-pds/
+- https://psl.noaa.gov/data/ufs_replay/
+- https://ral.ucar.edu/solutions/products/gridpoint-statistical-interpolation-gsi
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-ufs-GSISatelliteLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.ufs.GSISatelliteLexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Get item from GSI vocabulary.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Earth2Studio variable id.
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+- GSI vocab string
+- A modifier function to apply to the loaded values (identity).
+
+</Indent>
+</Indent>

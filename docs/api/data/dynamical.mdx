@@ -1,0 +1,1122 @@
+---
+layout: overview
+title: earth2studio.data.dynamical
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`DynamicalAIFS`](#earth2studio-data-dynamical-DynamicalAIFS) | ECMWF AIFS Single analysis view from the dynamical.org catalog. |
+| [`DynamicalAIFSENS_FX`](#earth2studio-data-dynamical-DynamicalAIFSENS_FX) | ECMWF AIFS ENS ensemble forecast from the dynamical.org catalog. |
+| [`DynamicalAIFS_ENS`](#earth2studio-data-dynamical-DynamicalAIFS_ENS) | ECMWF AIFS ENS analysis view from the dynamical.org catalog. |
+| [`DynamicalAIFS_FX`](#earth2studio-data-dynamical-DynamicalAIFS_FX) | ECMWF AIFS Single forecast from the dynamical.org catalog. |
+| [`DynamicalGEFS`](#earth2studio-data-dynamical-DynamicalGEFS) | NOAA GEFS analysis from the dynamical.org catalog. |
+| [`DynamicalGEFS_FX`](#earth2studio-data-dynamical-DynamicalGEFS_FX) | NOAA GEFS (35 day) ensemble forecast from the dynamical.org catalog. |
+| [`DynamicalGFS`](#earth2studio-data-dynamical-DynamicalGFS) | NOAA GFS analysis from the dynamical.org catalog. |
+| [`DynamicalGFS_FX`](#earth2studio-data-dynamical-DynamicalGFS_FX) | NOAA GFS forecast from the dynamical.org catalog. |
+| [`DynamicalHRRR`](#earth2studio-data-dynamical-DynamicalHRRR) | NOAA HRRR analysis from the dynamical.org catalog. |
+| [`DynamicalHRRR_FX`](#earth2studio-data-dynamical-DynamicalHRRR_FX) | NOAA HRRR 48-hour virtual forecast from the dynamical.org catalog. |
+| [`DynamicalICON_EU_FX`](#earth2studio-data-dynamical-DynamicalICON_EU_FX) | DWD ICON-EU 5-day forecast from the dynamical.org catalog. |
+| [`DynamicalIFS_ENS`](#earth2studio-data-dynamical-DynamicalIFS_ENS) | ECMWF IFS ENS analysis view from the dynamical.org catalog. |
+| [`DynamicalIFS_ENS_FX`](#earth2studio-data-dynamical-DynamicalIFS_ENS_FX) | ECMWF IFS ENS (15 day, 0.25 degree) ensemble forecast from dynamical.org. |
+| [`DynamicalMRMS`](#earth2studio-data-dynamical-DynamicalMRMS) | NOAA MRMS CONUS analysis from the dynamical.org catalog. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-data-dynamical-DynamicalAIFS">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.dynamical.DynamicalAIFS(
+    cache: bool = True,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_DynamicalAnalysis](#earth2studio-data-dynamical-_DynamicalAnalysis)
+
+ECMWF AIFS Single analysis view from the dynamical.org catalog.
+
+Lead-time-zero view of the deterministic ECMWF Artificial Intelligence
+Forecasting System (AIFS) forecast archive, on a global 0.25 degree regular
+latitude/longitude grid.
+
+**Badges:** `region:global` `dataclass:analysis` `dataset:aifs` `product:wind` `product:temp` `product:atmos` `provider:dynamical`
+
+**Parameters:**
+
+<ParamField path="cache" type="bool" default="True">
+Retained for API parity; Icechunk reads chunks lazily on demand rather
+than caching whole files locally, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> source = DynamicalAIFS()
+>>> source.variables  # variables are determined dynamically
+```
+
+</CodeBlock>
+
+<Note>
+
+The dynamical.org dataset documentation and STAC metadata are available at:
+
+- https://dynamical.org/catalog/ecmwf-aifs-single-forecast/
+- https://stac.dynamical.org/ecmwf-aifs-single-forecast/collection.json
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of
+data to your local machine for large requests.
+
+</Warning>
+
+</Indent>
+
+<Anchor id="earth2studio-data-dynamical-DynamicalAIFSENS_FX">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.dynamical.DynamicalAIFSENS_FX(
+    member: int = 0,
+    cache: bool = True,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_DynamicalBase](#earth2studio-data-dynamical-_DynamicalBase)
+
+ECMWF AIFS ENS ensemble forecast from the dynamical.org catalog.
+
+Ensemble ECMWF Artificial Intelligence Forecasting System (AIFS ENS)
+forecasts (dimensions ``[time, lead_time, lat, lon]``) on a global 0.25
+degree regular latitude/longitude grid, out to 15 days at a 6 hourly step.
+A single ensemble member is selected via ``member``.
+
+**Badges:** `region:global` `dataclass:simulation` `dataset:aifs` `product:wind` `product:temp` `product:atmos` `provider:dynamical`
+
+**Parameters:**
+
+<ParamField path="member" type="int" default="0">
+Ensemble member index to select, by default 0 (control member).
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Retained for API parity; Icechunk reads chunks lazily on demand rather
+than caching whole files locally, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> source = DynamicalAIFSENS_FX()
+>>> source.variables  # variables are determined dynamically
+```
+
+</CodeBlock>
+
+<Note>
+
+The dynamical.org dataset documentation and STAC metadata are available at:
+
+- https://dynamical.org/catalog/ecmwf-aifs-ens-forecast/
+- https://stac.dynamical.org/ecmwf-aifs-ens-forecast/collection.json
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of
+data to your local machine for large requests.
+
+</Warning>
+
+</Indent>
+
+<Anchor id="earth2studio-data-dynamical-DynamicalAIFS_ENS">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.dynamical.DynamicalAIFS_ENS(
+    member: int = 0,
+    cache: bool = True,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_DynamicalAnalysis](#earth2studio-data-dynamical-_DynamicalAnalysis)
+
+ECMWF AIFS ENS analysis view from the dynamical.org catalog.
+
+Lead-time-zero view of the ECMWF Artificial Intelligence Forecasting System
+ensemble forecast archive, on a global 0.25 degree regular
+latitude/longitude grid. A single ensemble member is selected via
+``member``.
+
+**Badges:** `region:global` `dataclass:analysis` `dataset:aifs` `product:wind` `product:temp` `product:atmos` `provider:dynamical`
+
+**Parameters:**
+
+<ParamField path="member" type="int" default="0">
+Ensemble member index to select, by default 0 (control member).
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Retained for API parity; Icechunk reads chunks lazily on demand rather
+than caching whole files locally, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> source = DynamicalAIFS_ENS()
+>>> source.variables  # variables are determined dynamically
+```
+
+</CodeBlock>
+
+<Note>
+
+The dynamical.org dataset documentation and STAC metadata are available at:
+
+- https://dynamical.org/catalog/ecmwf-aifs-ens-forecast/
+- https://stac.dynamical.org/ecmwf-aifs-ens-forecast/collection.json
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of
+data to your local machine for large requests.
+
+</Warning>
+
+</Indent>
+
+<Anchor id="earth2studio-data-dynamical-DynamicalAIFS_FX">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.dynamical.DynamicalAIFS_FX(
+    cache: bool = True,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_DynamicalBase](#earth2studio-data-dynamical-_DynamicalBase)
+
+ECMWF AIFS Single forecast from the dynamical.org catalog.
+
+Deterministic ECMWF Artificial Intelligence Forecasting System (AIFS)
+forecasts (dimensions ``[time, lead_time, lat, lon]``) on a global 0.25
+degree regular latitude/longitude grid, out to 15 days at a 6 hourly step.
+
+**Badges:** `region:global` `dataclass:simulation` `dataset:aifs` `product:wind` `product:temp` `product:atmos` `provider:dynamical`
+
+**Parameters:**
+
+<ParamField path="cache" type="bool" default="True">
+Retained for API parity; Icechunk reads chunks lazily on demand rather
+than caching whole files locally, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> source = DynamicalAIFS_FX()
+>>> source.variables  # variables are determined dynamically
+```
+
+</CodeBlock>
+
+<Note>
+
+The dynamical.org dataset documentation and STAC metadata are available at:
+
+- https://dynamical.org/catalog/ecmwf-aifs-single-forecast/
+- https://stac.dynamical.org/ecmwf-aifs-single-forecast/collection.json
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of
+data to your local machine for large requests.
+
+</Warning>
+
+</Indent>
+
+<Anchor id="earth2studio-data-dynamical-DynamicalGEFS">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.dynamical.DynamicalGEFS(
+    cache: bool = True,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_DynamicalBase](#earth2studio-data-dynamical-_DynamicalBase)
+
+NOAA GEFS analysis from the dynamical.org catalog.
+
+Best-estimate analysis (dimensions ``[time, lat, lon]``) built from the
+first hours of successive NOAA Global Ensemble Forecast System runs, on a
+global 0.25 degree regular latitude/longitude grid.
+
+**Badges:** `region:global` `dataclass:analysis` `dataset:gfs` `product:wind` `product:temp` `product:atmos` `provider:dynamical`
+
+**Parameters:**
+
+<ParamField path="cache" type="bool" default="True">
+Retained for API parity; Icechunk reads chunks lazily on demand rather
+than caching whole files locally, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> source = DynamicalGEFS()
+>>> source.variables  # variables are determined dynamically
+```
+
+</CodeBlock>
+
+<Note>
+
+The dynamical.org dataset documentation and STAC metadata are available at:
+
+- https://dynamical.org/catalog/noaa-gefs-analysis/
+- https://stac.dynamical.org/noaa-gefs-analysis/collection.json
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of
+data to your local machine for large requests.
+
+</Warning>
+
+<Anchor id="earth2studio-data-dynamical-DynamicalGEFS-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.dynamical.DynamicalGEFS.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve analysis data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variable(s) to return, in the dynamical.org lexicon or native to the
+collection.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data array with dimensions ``[time, variable, lat, lon]``.
+
+</Indent>
+<Anchor id="earth2studio-data-dynamical-DynamicalGEFS-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.dynamical.DynamicalGEFS.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to retrieve analysis data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variable(s) to return, in the dynamical.org lexicon or native to the
+collection.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data array with dimensions ``[time, variable, lat, lon]``.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-dynamical-DynamicalGEFS_FX">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.dynamical.DynamicalGEFS_FX(
+    member: int = 0,
+    cache: bool = True,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_DynamicalBase](#earth2studio-data-dynamical-_DynamicalBase)
+
+NOAA GEFS (35 day) ensemble forecast from the dynamical.org catalog.
+
+NOAA Global Ensemble Forecast System forecasts (dimensions
+``[time, lead_time, lat, lon]``) on a global regular latitude/longitude
+grid, out to 35 days from the 00 UTC initialization. A single ensemble
+member is selected via ``member``.
+
+**Badges:** `region:global` `dataclass:simulation` `dataset:gfs` `product:wind` `product:temp` `product:atmos` `provider:dynamical`
+
+**Parameters:**
+
+<ParamField path="member" type="int" default="0">
+Ensemble member index to select, by default 0 (control member).
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Retained for API parity; Icechunk reads chunks lazily on demand rather
+than caching whole files locally, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> source = DynamicalGEFS_FX()
+>>> source.variables  # variables are determined dynamically
+```
+
+</CodeBlock>
+
+<Note>
+
+The dynamical.org dataset documentation and STAC metadata are available at:
+
+- https://dynamical.org/catalog/noaa-gefs-forecast-35-day/
+- https://stac.dynamical.org/noaa-gefs-forecast-35-day/collection.json
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of
+data to your local machine for large requests.
+
+</Warning>
+
+</Indent>
+
+<Anchor id="earth2studio-data-dynamical-DynamicalGFS">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.dynamical.DynamicalGFS(
+    cache: bool = True,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_DynamicalBase](#earth2studio-data-dynamical-_DynamicalBase)
+
+NOAA GFS analysis from the dynamical.org catalog.
+
+Best-estimate analysis (dimensions ``[time, lat, lon]``) built from the
+first hours of successive NOAA Global Forecast System runs, on a global
+0.25 degree regular latitude/longitude grid.
+
+**Badges:** `region:global` `dataclass:analysis` `dataset:gfs` `product:wind` `product:temp` `product:atmos` `provider:dynamical`
+
+**Parameters:**
+
+<ParamField path="cache" type="bool" default="True">
+Retained for API parity; Icechunk reads chunks lazily on demand rather
+than caching whole files locally, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> source = DynamicalGFS()
+>>> source.variables  # variables are determined dynamically
+```
+
+</CodeBlock>
+
+<Note>
+
+The dynamical.org dataset documentation and STAC metadata are available at:
+
+- https://dynamical.org/catalog/noaa-gfs-analysis/
+- https://stac.dynamical.org/noaa-gfs-analysis/collection.json
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of
+data to your local machine for large requests.
+
+</Warning>
+
+<Anchor id="earth2studio-data-dynamical-DynamicalGFS-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.dynamical.DynamicalGFS.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve analysis data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variable(s) to return, in the dynamical.org lexicon or native to the
+collection.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data array with dimensions ``[time, variable, lat, lon]``.
+
+</Indent>
+<Anchor id="earth2studio-data-dynamical-DynamicalGFS-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.dynamical.DynamicalGFS.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to retrieve analysis data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variable(s) to return, in the dynamical.org lexicon or native to the
+collection.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data array with dimensions ``[time, variable, lat, lon]``.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-dynamical-DynamicalGFS_FX">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.dynamical.DynamicalGFS_FX(
+    cache: bool = True,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_DynamicalBase](#earth2studio-data-dynamical-_DynamicalBase)
+
+NOAA GFS forecast from the dynamical.org catalog.
+
+Deterministic NOAA Global Forecast System forecasts (dimensions
+``[time, lead_time, lat, lon]``) on a global 0.25 degree regular
+latitude/longitude grid.
+
+**Badges:** `region:global` `dataclass:simulation` `dataset:gfs` `product:wind` `product:temp` `product:atmos` `provider:dynamical`
+
+**Parameters:**
+
+<ParamField path="cache" type="bool" default="True">
+Retained for API parity; Icechunk reads chunks lazily on demand rather
+than caching whole files locally, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> source = DynamicalGFS_FX()
+>>> source.variables  # variables are determined dynamically
+```
+
+</CodeBlock>
+
+<Note>
+
+The dynamical.org dataset documentation and STAC metadata are available at:
+
+- https://dynamical.org/catalog/noaa-gfs-forecast/
+- https://stac.dynamical.org/noaa-gfs-forecast/collection.json
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of
+data to your local machine for large requests.
+
+</Warning>
+
+</Indent>
+
+<Anchor id="earth2studio-data-dynamical-DynamicalHRRR">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.dynamical.DynamicalHRRR(
+    cache: bool = True,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_DynamicalAnalysis](#earth2studio-data-dynamical-_DynamicalAnalysis)
+
+NOAA HRRR analysis from the dynamical.org catalog.
+
+Best-estimate analysis from the NOAA High-Resolution Rapid Refresh model,
+on the native 3 km Lambert conformal CONUS grid. Data are returned on
+projection dimensions ``[y, x]`` with 2D ``lat``/``lon`` coordinates.
+
+**Badges:** `region:na` `dataclass:analysis` `dataset:hrrr` `product:wind` `product:precip` `product:temp` `product:atmos` `provider:dynamical`
+
+**Parameters:**
+
+<ParamField path="cache" type="bool" default="True">
+Retained for API parity; Icechunk reads chunks lazily on demand rather
+than caching whole files locally, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> source = DynamicalHRRR()
+>>> source.variables  # variables are determined dynamically
+```
+
+</CodeBlock>
+
+<Note>
+
+The dynamical.org dataset documentation and STAC metadata are available at:
+
+- https://dynamical.org/catalog/noaa-hrrr-analysis/
+- https://stac.dynamical.org/noaa-hrrr-analysis/collection.json
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of
+data to your local machine for large requests.
+
+</Warning>
+
+</Indent>
+
+<Anchor id="earth2studio-data-dynamical-DynamicalHRRR_FX">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.dynamical.DynamicalHRRR_FX(
+    cache: bool = True,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_DynamicalBase](#earth2studio-data-dynamical-_DynamicalBase)
+
+NOAA HRRR 48-hour virtual forecast from the dynamical.org catalog.
+
+NOAA High-Resolution Rapid Refresh forecasts on the native 3 km Lambert
+conformal CONUS grid. Data are returned on projection dimensions
+``[y, x]`` with 2D ``lat``/``lon`` coordinates.
+
+**Badges:** `region:na` `dataclass:simulation` `dataset:hrrr` `product:wind` `product:precip` `product:temp` `product:atmos` `provider:dynamical`
+
+**Parameters:**
+
+<ParamField path="cache" type="bool" default="True">
+Retained for API parity; Icechunk reads chunks lazily on demand rather
+than caching whole files locally, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> source = DynamicalHRRR_FX()
+>>> source.variables  # variables are determined dynamically
+```
+
+</CodeBlock>
+
+<Note>
+
+The dynamical.org dataset documentation and STAC metadata are available at:
+
+- https://dynamical.org/catalog/noaa-hrrr-forecast-48-hour-virtual/
+- https://stac.dynamical.org/noaa-hrrr-forecast-48-hour-virtual/collection.json
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of
+data to your local machine for large requests.
+
+</Warning>
+
+</Indent>
+
+<Anchor id="earth2studio-data-dynamical-DynamicalICON_EU_FX">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.dynamical.DynamicalICON_EU_FX(
+    cache: bool = True,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_DynamicalBase](#earth2studio-data-dynamical-_DynamicalBase)
+
+DWD ICON-EU 5-day forecast from the dynamical.org catalog.
+
+Deutscher Wetterdienst ICON-EU forecasts on a regional Europe 0.0625 degree
+regular latitude/longitude grid, out to 5 days.
+
+**Badges:** `region:eu` `dataclass:simulation` `product:wind` `product:precip` `product:temp` `product:atmos` `provider:dynamical`
+
+**Parameters:**
+
+<ParamField path="cache" type="bool" default="True">
+Retained for API parity; Icechunk reads chunks lazily on demand rather
+than caching whole files locally, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> source = DynamicalICON_EU_FX()
+>>> source.variables  # variables are determined dynamically
+```
+
+</CodeBlock>
+
+<Note>
+
+The dynamical.org dataset documentation and STAC metadata are available at:
+
+- https://dynamical.org/catalog/dwd-icon-eu-forecast-5-day/
+- https://stac.dynamical.org/dwd-icon-eu-forecast-5-day/collection.json
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of
+data to your local machine for large requests.
+
+</Warning>
+
+</Indent>
+
+<Anchor id="earth2studio-data-dynamical-DynamicalIFS_ENS">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.dynamical.DynamicalIFS_ENS(
+    member: int = 0,
+    cache: bool = True,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_DynamicalAnalysis](#earth2studio-data-dynamical-_DynamicalAnalysis)
+
+ECMWF IFS ENS analysis view from the dynamical.org catalog.
+
+Lead-time-zero view of the ECMWF Integrated Forecasting System ensemble
+forecast archive, on a global 0.25 degree regular latitude/longitude grid.
+A single ensemble member is selected via ``member``.
+
+**Badges:** `region:global` `dataclass:analysis` `dataset:ifs` `product:wind` `product:temp` `product:atmos` `provider:dynamical`
+
+**Parameters:**
+
+<ParamField path="member" type="int" default="0">
+Ensemble member index to select, by default 0 (control member).
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Retained for API parity; Icechunk reads chunks lazily on demand rather
+than caching whole files locally, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> source = DynamicalIFS_ENS()
+>>> source.variables  # variables are determined dynamically
+```
+
+</CodeBlock>
+
+<Note>
+
+The dynamical.org dataset documentation and STAC metadata are available at:
+
+- https://dynamical.org/catalog/ecmwf-ifs-ens-forecast-15-day-0-25-degree/
+- https://stac.dynamical.org/ecmwf-ifs-ens-forecast-15-day-0-25-degree/collection.json
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of
+data to your local machine for large requests.
+
+</Warning>
+
+</Indent>
+
+<Anchor id="earth2studio-data-dynamical-DynamicalIFS_ENS_FX">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.dynamical.DynamicalIFS_ENS_FX(
+    member: int = 0,
+    cache: bool = True,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_DynamicalBase](#earth2studio-data-dynamical-_DynamicalBase)
+
+ECMWF IFS ENS (15 day, 0.25 degree) ensemble forecast from dynamical.org.
+
+ECMWF Integrated Forecasting System ensemble forecasts (dimensions
+``[time, lead_time, lat, lon]``) on a global 0.25 degree regular
+latitude/longitude grid, out to 15 days from the 00 UTC initialization. A
+single ensemble member is selected via ``member``.
+
+**Badges:** `region:global` `dataclass:simulation` `dataset:ifs` `product:wind` `product:temp` `product:atmos` `provider:dynamical`
+
+**Parameters:**
+
+<ParamField path="member" type="int" default="0">
+Ensemble member index to select, by default 0 (control member).
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Retained for API parity; Icechunk reads chunks lazily on demand rather
+than caching whole files locally, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> source = DynamicalIFS_ENS_FX()
+>>> source.variables  # variables are determined dynamically
+```
+
+</CodeBlock>
+
+<Note>
+
+The dynamical.org dataset documentation and STAC metadata are available at:
+
+- https://dynamical.org/catalog/ecmwf-ifs-ens-forecast-15-day-0-25-degree/
+- https://stac.dynamical.org/ecmwf-ifs-ens-forecast-15-day-0-25-degree/collection.json
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of
+data to your local machine for large requests.
+
+</Warning>
+
+</Indent>
+
+<Anchor id="earth2studio-data-dynamical-DynamicalMRMS">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.dynamical.DynamicalMRMS(
+    cache: bool = True,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_DynamicalAnalysis](#earth2studio-data-dynamical-_DynamicalAnalysis)
+
+NOAA MRMS CONUS analysis from the dynamical.org catalog.
+
+Hourly NOAA Multi-Radar/Multi-Sensor precipitation analyses on a CONUS 0.01
+degree regular latitude/longitude grid.
+
+**Badges:** `region:na` `dataclass:analysis` `product:precip` `product:radar` `provider:dynamical`
+
+**Parameters:**
+
+<ParamField path="cache" type="bool" default="True">
+Retained for API parity; Icechunk reads chunks lazily on demand rather
+than caching whole files locally, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> source = DynamicalMRMS()
+>>> source.variables  # variables are determined dynamically
+```
+
+</CodeBlock>
+
+<Note>
+
+The dynamical.org dataset documentation and STAC metadata are available at:
+
+- https://dynamical.org/catalog/noaa-mrms-conus-analysis-hourly/
+- https://stac.dynamical.org/noaa-mrms-conus-analysis-hourly/collection.json
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of
+data to your local machine for large requests.
+
+</Warning>
+
+</Indent>

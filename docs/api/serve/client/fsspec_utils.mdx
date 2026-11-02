@@ -1,0 +1,235 @@
+---
+layout: overview
+title: earth2studio.serve.client.fsspec_utils
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`SignedURLFileSystem`](#earth2studio-serve-client-fsspec_utils-SignedURLFileSystem) | FSSpec filesystem that appends signed params to requests. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`create_cloudfront_mapper`](#earth2studio-serve-client-fsspec_utils-create_cloudfront_mapper) | Create an fsspec mapper for a CloudFront signed Zarr URL. |
+| [`get_mapper`](#earth2studio-serve-client-fsspec_utils-get_mapper) | Return an fsspec mapper for the result, or None for SERVER storage. |
+
+### API
+
+<Anchor id="earth2studio-serve-client-fsspec_utils-SignedURLFileSystem">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.client.fsspec_utils.SignedURLFileSystem(
+    base_fs: typing.Any,
+    query_params: dict[str, str],
+    base_url: str
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `AbstractFileSystem`
+
+FSSpec filesystem that appends signed params to requests.
+
+Wraps a base HTTP filesystem and URL; converts 403 responses to
+FileNotFoundError for compatibility with consumers like Zarr.
+
+<Anchor id="earth2studio-serve-client-fsspec_utils-SignedURLFileSystem-cat_file">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.client.fsspec_utils.SignedURLFileSystem.cat_file(
+    path: str,
+    start: int | None = None,
+    end: int | None = None,
+    kwargs: typing.Any = {}
+) -> typing.Any
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Read file contents with signed URL; 403 is converted to FileNotFoundError.
+
+**Parameters:**
+
+<ParamField path="path" type="str">
+Path or URL to read.
+</ParamField>
+
+<ParamField path="start" type="int" default="None">
+Start byte offset.
+</ParamField>
+
+<ParamField path="end" type="int" default="None">
+End byte offset.
+</ParamField>
+
+<ParamField path="**kwargs" type="Any" default="&#123;&#125;">
+Passed to the underlying filesystem.
+</ParamField>
+
+**Returns:** `Any`
+
+File contents (typically bytes).
+
+**Raises:**
+
+- `FileNotFoundError`: If the server returns 403.
+
+</Indent>
+<Anchor id="earth2studio-serve-client-fsspec_utils-SignedURLFileSystem-exists">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.client.fsspec_utils.SignedURLFileSystem.exists(
+    path: str,
+    kwargs: typing.Any = {}
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Return True if path exists; 403 is treated as not found.
+
+**Parameters:**
+
+<ParamField path="path" type="str">
+Path or URL to check.
+</ParamField>
+
+<ParamField path="**kwargs" type="Any" default="&#123;&#125;">
+Passed to the underlying filesystem.
+</ParamField>
+
+**Returns:** `bool`
+
+True if path exists, False if not found or 403.
+
+</Indent>
+<Anchor id="earth2studio-serve-client-fsspec_utils-SignedURLFileSystem-info">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.client.fsspec_utils.SignedURLFileSystem.info(
+    path: str,
+    kwargs: typing.Any = {}
+) -> typing.Any
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Return metadata for path with signed URL; 403 becomes FileNotFoundError.
+
+**Parameters:**
+
+<ParamField path="path" type="str">
+Path or URL.
+</ParamField>
+
+<ParamField path="**kwargs" type="Any" default="&#123;&#125;">
+Passed to the underlying filesystem.
+</ParamField>
+
+**Returns:** `Any`
+
+Metadata dict for the path.
+
+**Raises:**
+
+- `FileNotFoundError`: If the server returns 403.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-serve-client-fsspec_utils-create_cloudfront_mapper">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.client.fsspec_utils.create_cloudfront_mapper(
+    signed_url: str,
+    zarr_path: str = ''
+) -> typing.Any
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Create an fsspec mapper for a CloudFront signed Zarr URL.
+
+**Parameters:**
+
+<ParamField path="signed_url" type="str">
+CloudFront signed URL with Policy, Signature, and Key-Pair-Id query params.
+</ParamField>
+
+<ParamField path="zarr_path" type="str" default="''">
+Subpath within the signed URL to the Zarr store. Default is "".
+</ParamField>
+
+**Returns:** `fsspec.mapping.FSMap`
+
+Mapper suitable for use with xarray.open_zarr().
+
+</Indent>
+
+<Anchor id="earth2studio-serve-client-fsspec_utils-get_mapper">
+
+<CodeBlock links={{"earth2studio.serve.client.models.InferenceRequestResults":"./models.mdx#earth2studio-serve-client-models-InferenceRequestResults"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.client.fsspec_utils.get_mapper(
+    request_result: earth2studio.serve.client.models.InferenceRequestResults,
+    zarr_path: str = ''
+) -> typing.Any | None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Return an fsspec mapper for the result, or None for SERVER storage.
+
+**Parameters:**
+
+<ParamField path="request_result" type="InferenceRequestResults">
+[`InferenceRequestResults`](./models.mdx#earth2studio-serve-client-models-InferenceRequestResults) — Inference result containing storage type and optional signed_url.
+</ParamField>
+
+<ParamField path="zarr_path" type="str" default="''">
+Subpath to the Zarr store within the result. Default is "".
+</ParamField>
+
+**Returns:** `fsspec.mapping.FSMap or None`
+
+Mapper for S3/signed URL storage, or None for SERVER storage.
+
+**Raises:**
+
+- `ValueError`: If storage type is S3 but signed_url is missing, or storage type is unsupported.
+
+</Indent>

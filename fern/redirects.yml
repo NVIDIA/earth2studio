@@ -1,0 +1,143 @@
+# Redirect rules, referenced from docs.yml with `redirects: ./redirects.yml`.
+#
+# - The first matching rule wins, so specific rules go before the generic ones.
+# - `source` is matched WITHOUT the site base path (/earth2studio);
+#   `destination` MUST include it.
+# - Use one path segment per capture (a capture containing slashes is not substituted).
+# - `fern docs dev` cannot test redirects (it answers 200 for every URL). On a preview
+#   deployment, check only the first hop: `curl -s -o /dev/null -D - <url>` (no -L).
+#   A rule that fires returns a 308 with a Location header.
+#
+# Legacy URL shapes these rules cover (legacy host: https://nvidia.github.io/earth2studio):
+#   MkDocs + mike (current):  /<version>/userguide/<section>/<page>/   (version = main or X.Y.Z)
+#   Sphinx (older releases):  /userguide/<section>/<page>.html
+#
+# The Fern site has a single version, so every legacy version maps to the unversioned page.
+# The home page, User Guide, recipes, blog, and API reference (/modules -> /api) have been
+# migrated, plus the Getting Started and Extend example sections. The other example sections,
+# scorecards, and the catalog have no Fern equivalent yet and are intentionally NOT redirected.
+#
+# NOTE: Fern can only redirect requests it serves (docs.nvidia.com/earth2studio/...). Requests to
+# nvidia.github.io must be redirected by the legacy site itself (e.g. from the GitHub Pages
+# build) so they land on these new URLs.
+redirects:
+  # --- Specific rules (before the generic ones) ---------------------------------------------
+
+  # MkDocs "about" pages were merged into the top-level Install and Overview pages.
+  - source: /:version(main|[0-9]+\.[0-9]+\.[0-9]+)/userguide/about/:page(install|overview|catalog)
+    destination: /earth2studio/:page
+    permanent: true
+  - source: /:version(main|[0-9]+\.[0-9]+\.[0-9]+)/userguide/about/:page(intro|data|index)
+    destination: /earth2studio/overview
+    permanent: true
+
+  # Sphinx-era URLs for the same pages.
+  - source: /userguide/about/:page(install|overview).html
+    destination: /earth2studio/:page
+    permanent: true
+  - source: /userguide/about/:page(intro|data).html
+    destination: /earth2studio/overview
+    permanent: true
+
+  # Sphinx-generated index/search pages have no Fern equivalent; send them to the landing page.
+  - source: /:page(index|genindex|search|py-modindex).html
+    destination: /earth2studio
+    permanent: true
+  - source: /userguide/index.html
+    destination: /earth2studio/userguide
+    permanent: true
+
+  # MkDocs blog: posts lived at /<version>/blog/<yyyy>/<mm>/<dd>/<slug>/ and keep their slug.
+  - source: /:version(main|[0-9]+\.[0-9]+\.[0-9]+)/blog/archive/:year
+    destination: /earth2studio/blog
+    permanent: true
+  - source: /:version(main|[0-9]+\.[0-9]+\.[0-9]+)/blog/category/:name
+    destination: /earth2studio/blog
+    permanent: true
+  - source: /:version(main|[0-9]+\.[0-9]+\.[0-9]+)/blog/:year([0-9]{4})/:month([0-9]{2})/:day([0-9]{2})/:slug
+    destination: /earth2studio/blog/:slug
+    permanent: true
+  - source: /:version(main|[0-9]+\.[0-9]+\.[0-9]+)/blog
+    destination: /earth2studio/blog
+    permanent: true
+
+  - source: /:version(main|[0-9]+\.[0-9]+\.[0-9]+)/recipes
+    destination: /earth2studio/recipes
+    permanent: true
+
+  # API reference. The Fern API groups pages like the MkDocs nav, so /modules/<page> maps to
+  # /api/<page> with the same page name. The legacy site had one page per class
+  # (/modules/generated/<kind>/<fqn>); those land on the matching group.
+  - source: /:version(main|[0-9]+\.[0-9]+\.[0-9]+)/modules/generated/data/:name
+    destination: /earth2studio/api/datasources_analysis
+    permanent: true
+  - source: /:version(main|[0-9]+\.[0-9]+\.[0-9]+)/modules/generated/models/:name
+    destination: /earth2studio/api/models_px
+    permanent: true
+  - source: /:version(main|[0-9]+\.[0-9]+\.[0-9]+)/modules/generated/:kind(io|perturbation|statistics)/:name
+    destination: /earth2studio/api/:kind
+    permanent: true
+  - source: /:version(main|[0-9]+\.[0-9]+\.[0-9]+)/modules/:page(models_px|models_dx|models_da|datasources_analysis|datasources_forecast|datasources_dataframe|io|perturbation|statistics|utils_all|workflows)
+    destination: /earth2studio/api/:page
+    permanent: true
+  - source: /:version(main|[0-9]+\.[0-9]+\.[0-9]+)/modules
+    destination: /earth2studio/api/overview
+    permanent: true
+
+  # Examples gallery (pilot): only these sections are on Fern; the rest are not redirected.
+  - source: /:version(main|[0-9]+\.[0-9]+\.[0-9]+)/examples/:section(01_getting_started|08_extend)/:page
+    destination: /earth2studio/examples/:section/:page
+    permanent: true
+  - source: /:version(main|[0-9]+\.[0-9]+\.[0-9]+)/examples/:section(01_getting_started|08_extend)
+    destination: /earth2studio/examples/:section
+    permanent: true
+  - source: /:version(main|[0-9]+\.[0-9]+\.[0-9]+)/examples
+    destination: /earth2studio/examples
+    permanent: true
+
+  # --- Generic rules ------------------------------------------------------------------------
+
+  # Knowledge Base now lives under Advanced Usage.
+  - source: /:version(main|[0-9]+\.[0-9]+\.[0-9]+)/userguide/notes/:page
+    destination: /earth2studio/advanced/notes/:page
+    permanent: true
+  - source: /:version(main|[0-9]+\.[0-9]+\.[0-9]+)/userguide/notes
+    destination: /earth2studio/advanced/notes
+    permanent: true
+  - source: /userguide/notes/:page([A-Za-z0-9_-]+).html
+    destination: /earth2studio/advanced/notes/:page
+    permanent: true
+
+  # Knowledge Base now lives under Advanced Usage.
+  - source: /:version(main|[0-9]+\.[0-9]+\.[0-9]+)/userguide/notes/:page
+    destination: /earth2studio/advanced/notes/:page
+    permanent: true
+  - source: /:version(main|[0-9]+\.[0-9]+\.[0-9]+)/userguide/notes
+    destination: /earth2studio/advanced/notes
+    permanent: true
+  - source: /userguide/notes/:page([A-Za-z0-9_-]+).html
+    destination: /earth2studio/advanced/notes/:page
+    permanent: true
+
+  # MkDocs section pages, e.g. /main/userguide/components/prognostic/ -> /components/prognostic.
+  - source: /:version(main|[0-9]+\.[0-9]+\.[0-9]+)/userguide/:section(components|advanced|developer|support)/:page
+    destination: /earth2studio/:section/:page
+    permanent: true
+
+  # MkDocs section landing pages, e.g. /main/userguide/components/ -> /components.
+  - source: /:version(main|[0-9]+\.[0-9]+\.[0-9]+)/userguide/:section(components|advanced|developer|support)
+    destination: /earth2studio/:section
+    permanent: true
+
+  # Sphinx section pages, e.g. /userguide/components/prognostic.html -> /components/prognostic.
+  - source: /userguide/:section(components|advanced|developer|support)/:page([A-Za-z0-9_-]+).html
+    destination: /earth2studio/:section/:page
+    permanent: true
+
+  # User guide landing page and site root of every legacy version.
+  - source: /:version(main|[0-9]+\.[0-9]+\.[0-9]+)/userguide
+    destination: /earth2studio/userguide
+    permanent: true
+  - source: /:version(main|[0-9]+\.[0-9]+\.[0-9]+)
+    destination: /earth2studio
+    permanent: true

@@ -1,0 +1,305 @@
+---
+layout: overview
+title: earth2studio.models.px.dlwp
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`DLWP`](#earth2studio-models-px-dlwp-DLWP) | Deep learning weather prediction (DLWP)  prognostic model. This is a parsimonious |
+
+### API
+
+<Anchor id="earth2studio-models-px-dlwp-DLWP">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.dlwp.DLWP(
+    core_model: torch.nn.Module,
+    landsea_mask: torch.Tensor,
+    orography: torch.Tensor,
+    latgrid: torch.Tensor,
+    longrid: torch.Tensor,
+    cubed_sphere_transform: torch.Tensor,
+    cubed_sphere_inverse: torch.Tensor,
+    center: torch.Tensor,
+    scale: torch.Tensor
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin), [PrognosticMixin](./utils.mdx#earth2studio-models-px-utils-PrognosticMixin)
+
+Deep learning weather prediction (DLWP)  prognostic model. This is a parsimonious
+global forecast model with a time-step size of 6 hours. The core model is a
+convolutional encoder-decoder trained on [64,64] cubed sphere data that has an input
+of 18 fields (2x7 atmos variables + 4 prescriptive) and outputs 14 fields (2x7 atmos
+variables). This implementation provides a wrapper that accepts [721,1440] lat-lon
+equirectangular grid of just the atmospheric varaibles as an input for better
+compatability with common data sources. Prescriptive fields are added inside the
+model wrapper.
+
+**Badges:** `region:global` `class:subseasonal-seasonal` `product:temp` `product:atmos` `year:2021` `gpu:40gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="core_model" type="torch.nn.Module">
+Core cubed-sphere DLWP model.
+</ParamField>
+
+<ParamField path="landsea_mask" type="torch.Tensor">
+Land sea mask in cubed sphere form [6,64,64]
+</ParamField>
+
+<ParamField path="orography" type="torch.Tensor">
+Surface geopotential (orography) in cubed sphere form [6,64,64]
+</ParamField>
+
+<ParamField path="latgrid" type="torch.Tensor">
+Cubed sphere latitude coordinates [6,64,64]
+</ParamField>
+
+<ParamField path="longrid" type="torch.Tensor">
+Cubed sphere longitude coordinates [6,64,64]
+</ParamField>
+
+<ParamField path="cubed_sphere_transform" type="torch.Tensor">
+Sparse pytorch tensor to transform equirectangular fields to cubed sphere of
+size [24576, 1038240]
+</ParamField>
+
+<ParamField path="cubed_sphere_inverse" type="torch.Tensor">
+Sparse pytorch tensor to transform cubed sphere fields to equirectangular of
+size [1038240, 24576]
+</ParamField>
+
+<ParamField path="center" type="torch.Tensor">
+Model atmospheric variable center normalization tensor of size [1,7,1,1]
+</ParamField>
+
+<ParamField path="scale" type="torch.Tensor">
+Model atmospheric variable scale normalization tensor of size [1,7,1,1]
+</ParamField>
+
+<Note>
+
+For more information about this model see:
+
+- https://agupubs.onlinelibrary.wiley.com/doi/epdf/10.1029/2021MS002502
+- https://catalog.ngc.nvidia.com/orgs/nvidia/teams/modulus/models/modulus_dlwp_cubesphere
+
+</Note>
+
+<Anchor id="earth2studio-models-px-dlwp-DLWP-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlwp.DLWP.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Runs prognostic model 1 step.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Output tensor and coordinate system 6 hours in the future
+
+</Indent>
+<Anchor id="earth2studio-models-px-dlwp-DLWP-create_iterator">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlwp.DLWP.create_iterator(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> collections.abc.Iterator[tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Creates a iterator which can be used to perform time-integration of the
+prognostic model. Will return the initial condition first (0th step).
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-dlwp-DLWP-get_cosine_zenith_fields">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlwp.DLWP.get_cosine_zenith_fields(
+    times: numpy.array,
+    lead_time: datetime.timedelta,
+    device: torch.device | str = 'cuda'
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Creates cosine zenith fields for input time array
+
+</Indent>
+<Anchor id="earth2studio-models-px-dlwp-DLWP-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlwp.DLWP.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of the prognostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-px-dlwp-DLWP-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlwp.DLWP.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Default DLWP model package on NGC
+
+</Indent>
+<Anchor id="earth2studio-models-px-dlwp-DLWP-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.px.base.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlwp.DLWP.load_model(
+    package: earth2studio.models.auto.Package
+) -> earth2studio.models.px.base.PrognosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic from package
+
+</Indent>
+<Anchor id="earth2studio-models-px-dlwp-DLWP-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlwp.DLWP.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the prognostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-px-dlwp-DLWP-to_cubedsphere">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlwp.DLWP.to_cubedsphere(
+    x: torch.Tensor
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+[721,1440] eqr to [6,64,64] cs
+
+</Indent>
+<Anchor id="earth2studio-models-px-dlwp-DLWP-to_equirectangular">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.dlwp.DLWP.to_equirectangular(
+    x: torch.Tensor
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+[6,64,64] cs to [721,1440] eqr
+
+</Indent>
+</Indent>

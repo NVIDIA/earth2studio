@@ -1,0 +1,1549 @@
+---
+layout: overview
+title: earth2studio.data.utils
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`AsyncListableStore`](#earth2studio-data-utils-AsyncListableStore) | Read + list obspec capabilities required by listing data sources |
+| [`AsyncReadableStore`](#earth2studio-data-utils-AsyncReadableStore) | obspec capabilities required by the async byte-range read helpers. |
+| [`LocalCachingStore`](#earth2studio-data-utils-LocalCachingStore) | Wraps a read-only zarr store with a local on-disk cache backed by a zarr |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`async_retry`](#earth2studio-data-utils-async_retry) | Retry an async callable with exponential backoff and jitter. |
+| [`atomic_write_bytes`](#earth2studio-data-utils-atomic_write_bytes) | Writes bytes to a file atomically via a same-directory temp file. |
+| [`cancellable_to_thread`](#earth2studio-data-utils-cancellable_to_thread) | Run a blocking function in a thread with timeout support. |
+| [`datasource_cache_dir`](#earth2studio-data-utils-datasource_cache_dir) | Return (and create) a data-source-specific cache directory. |
+| [`datasource_cache_root`](#earth2studio-data-utils-datasource_cache_root) | Returns the root directory for data sources |
+| [`datasource_to_file`](#earth2studio-data-utils-datasource_to_file) | Utility function that can be used for building a local data store needed |
+| [`decode_grib_message`](#earth2studio-data-utils-decode_grib_message) | Decode one message from a local grib file into a numpy array. |
+| [`ensure_utc`](#earth2studio-data-utils-ensure_utc) | Normalize a datetime to naive UTC. |
+| [`fetch_data`](#earth2studio-data-utils-fetch_data) | Utility function to fetch data arrays from particular sources and load data on |
+| [`fetch_dataframe`](#earth2studio-data-utils-fetch_dataframe) | Utility function to fetch data frames from particular sources |
+| [`fetch_dataframes`](#earth2studio-data-utils-fetch_dataframes) | Fetch several DataFrame requests concurrently with `fetch_dataframe` |
+| [`gather_with_concurrency`](#earth2studio-data-utils-gather_with_concurrency) | Run coroutines with bounded concurrency and progress bar. |
+| [`managed_session`](#earth2studio-data-utils-managed_session) | Context manager for fsspec async sessions. |
+| [`obstore_fetch_to_cache`](#earth2studio-data-utils-obstore_fetch_to_cache) | Fetches a byte range of an object into a local cache file. |
+| [`obstore_list_prefix`](#earth2studio-data-utils-obstore_list_prefix) | Lists object keys under a prefix, optionally memoizing per prefix. |
+| [`obstore_read_chunked`](#earth2studio-data-utils-obstore_read_chunked) | Reads a whole object, fetching large objects as parallel byte ranges. |
+| [`obstore_read_range`](#earth2studio-data-utils-obstore_read_range) | Reads a byte range (or the remainder / whole) of an object via obstore. |
+| [`obstore_store_from_url`](#earth2studio-data-utils-obstore_store_from_url) | Creates an obstore ObjectStore from a URL for byte-range object reads. |
+| [`obstore_zarr_store`](#earth2studio-data-utils-obstore_zarr_store) | Creates a read-only zarr store backed by obstore from a store URL. |
+| [`prep_data_array`](#earth2studio-data-utils-prep_data_array) | Prepares a data array from a data source for inference workflows by converting |
+| [`prep_data_inputs`](#earth2studio-data-utils-prep_data_inputs) | Simple method to pre-process data source inputs into a common form |
+| [`prep_forecast_inputs`](#earth2studio-data-utils-prep_forecast_inputs) | Simple method to pre-process forecast source inputs into a common form |
+| [`radiance_to_bt`](#earth2studio-data-utils-radiance_to_bt) | Convert spectral radiance to brightness temperature via inverse Planck function. |
+| [`resolve_async_workers`](#earth2studio-data-utils-resolve_async_workers) | Resolves the concurrent download worker count for a data source. |
+| [`table_to_dataframe`](#earth2studio-data-utils-table_to_dataframe) | Convert an Arrow table to a DataFrame with Arrow-backed dtypes. |
+
+### API
+
+<Anchor id="earth2studio-data-utils-AsyncListableStore">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.utils.AsyncListableStore()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Protocol</Badge>
+
+**Bases:** [AsyncReadableStore](#earth2studio-data-utils-AsyncReadableStore), `ListAsync`
+
+Read + list obspec capabilities required by listing data sources
+(e.g. GOES / GOES GLM hour-directory discovery).
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils-AsyncReadableStore">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.utils.AsyncReadableStore()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Protocol</Badge>
+
+**Bases:** `GetAsync`, `GetRangeAsync`, `HeadAsync`
+
+obspec capabilities required by the async byte-range read helpers.
+
+Any obspec-conforming store (obstore stores included) satisfies this
+structurally; tests can pass a plain fake object instead of patching
+obstore internals.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils-LocalCachingStore">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.utils.LocalCachingStore(
+    store: zarr.abc.store.Store,
+    cache_storage: str
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `WrapperStore`
+
+Wraps a read-only zarr store with a local on-disk cache backed by a zarr
+LocalStore, intended for append-only immutable archive stores.
+
+Chunk data is cached indefinitely: existing chunks never change and newly
+appended data arrives under new keys (a cache miss). Metadata objects
+(``zarr.json`` / ``.zarray`` / ``.zgroup`` / ``.zattrs`` / ``.zmetadata``)
+encode the growing shape and attrs, so they are always refetched to keep a
+warm/persisted cache from going blind to newly appended data. Ranged reads
+(e.g. sharded stores) bypass the cache entirely — caching is a no-op for
+sharded stores.
+
+Concurrent reads of the same uncached key are de-duplicated with a per-key
+lock (double-checked against the cache), so a chunk is fetched and written
+at most once even under Zarr's concurrent chunk fan-out. Locks are shared
+process-wide and keyed by (cache directory, key), so separate store
+instances caching to the same directory de-duplicate against each other.
+
+**Parameters:**
+
+<ParamField path="store" type="zarr.abc.store.Store">
+Remote store to cache reads from
+</ParamField>
+
+<ParamField path="cache_storage" type="str">
+Local directory to store cached objects in. Must be unique per remote
+store, cached objects are keyed by their in-store path only.
+</ParamField>
+
+<ParamField path="_METADATA_SUFFIXES">
+</ParamField>
+
+<ParamField path="_cache" type="= zarr.storage.LocalStore(cache_storage)">
+</ParamField>
+
+<ParamField path="_fetch_locks" type="dict[str, Lock] = &#123;&#125;">
+</ParamField>
+<Anchor id="earth2studio-data-utils-LocalCachingStore-get">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils.LocalCachingStore.get(
+    key: str,
+    prototype: zarr.core.buffer.BufferPrototype,
+    byte_range: zarr.abc.store.ByteRequest | None = None
+) -> zarr.core.buffer.Buffer | None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-utils-async_retry">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils.async_retry(
+    coro_func: collections.abc.Callable[..., typing.Any],
+    args: typing.Any = (),
+    retries: int = 3,
+    backoff: float = 1.0,
+    task_timeout: float | None = None,
+    exceptions: tuple[type[BaseException], ...] = (OSError, TimeoutError),
+    no_retry: tuple[type[BaseException], ...] = (),
+    kwargs: typing.Any = {}
+) -> typing.Any
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Retry an async callable with exponential backoff and jitter.
+
+**Parameters:**
+
+<ParamField path="coro_func" type="Callable[..., Awaitable[T]]">
+`Callable[..., Awaitable[` [`T`](#earth2studio-data-utils-T) `]]` — Async function to call
+</ParamField>
+
+<ParamField path="*args" type="Any" default="()">
+Positional arguments for coro_func
+</ParamField>
+
+<ParamField path="retries" type="int" default="3">
+Maximum number of retry attempts, by default 3
+</ParamField>
+
+<ParamField path="backoff" type="float" default="1.0">
+Base delay in seconds (doubled each retry), by default 1.0
+</ParamField>
+
+<ParamField path="task_timeout" type="float | None" default="None">
+Timeout in seconds for each attempt, by default None (no timeout)
+</ParamField>
+
+<ParamField path="exceptions" type="tuple" default="(OSError, TimeoutError)">
+Exception types to catch and retry on. Should be scoped to transient
+I/O errors (OSError, IOError, TimeoutError, ConnectionError), not
+broad Exception which would mask programming errors.
+</ParamField>
+
+<ParamField path="no_retry" type="tuple" default="()">
+Exception types to re-raise immediately even when they subclass an
+entry in ``exceptions``, for permanent failures that would otherwise
+be retried uselessly (e.g. FileNotFoundError under OSError), by
+default ()
+</ParamField>
+
+<ParamField path="**kwargs" type="Any" default="&#123;&#125;">
+Keyword arguments for coro_func
+</ParamField>
+
+**Returns:** [`T`](#earth2studio-data-utils-T)
+
+Return value of coro_func
+
+**Raises:**
+
+- `Exception`: The last exception if all retries are exhausted
+- `asyncio.TimeoutError`: If task_timeout is exceeded on the final attempt
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils-atomic_write_bytes">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils.atomic_write_bytes(
+    path: str | os.PathLike,
+    data: bytes
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Writes bytes to a file atomically via a same-directory temp file.
+
+Readers never observe a partially written file: content is written to a
+unique temporary file in the destination directory and published with an
+atomic ``os.replace``. Concurrent writers of the same path are safe (the
+last writer wins with complete content), and interrupted writes leave the
+destination untouched.
+
+**Parameters:**
+
+<ParamField path="path" type="str | os.PathLike">
+Destination file path
+</ParamField>
+
+<ParamField path="data" type="bytes">
+Content to write
+</ParamField>
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils-cancellable_to_thread">
+
+<CodeBlock links={{"earth2studio.data.utils.T":"#earth2studio-data-utils-T"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils.cancellable_to_thread(
+    func: collections.abc.Callable[..., earth2studio.data.utils.T],
+    args: typing.Any = (),
+    timeout: float = 30.0,
+    kwargs: typing.Any = {}
+) -> earth2studio.data.utils.T
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Run a blocking function in a thread with timeout support.
+
+WARNING: This should be a LAST RESORT. Pure async operations are ALWAYS
+preferred because:
+1. Threads cannot be forcibly cancelled in Python - when timeout fires,
+   the coroutine is abandoned but the thread continues running
+2. This causes issues with pytest --timeout where tests hang
+3. Thread pool exhaustion can occur with many concurrent tasks
+
+PREFER these async alternatives:
+- fs._cat_file() for byte-range reads from s3fs/gcsfs
+- async zarr for zarr stores
+- httpx.AsyncClient for HTTP requests
+- aiofiles for file I/O
+
+Only use this for unavoidably synchronous operations like:
+- pygrib GRIB parsing (no async alternative)
+- Legacy libraries without async support
+
+**Parameters:**
+
+<ParamField path="func" type="Callable[..., T]">
+`Callable[...,` [`T`](#earth2studio-data-utils-T) `]` — Blocking function to run in thread
+</ParamField>
+
+<ParamField path="*args" type="Any" default="()">
+Positional arguments for func
+</ParamField>
+
+<ParamField path="timeout" type="float" default="30.0">
+Timeout in seconds, by default 30.0. After timeout, the coroutine
+raises TimeoutError but the thread continues (cannot be killed).
+</ParamField>
+
+<ParamField path="**kwargs" type="Any" default="&#123;&#125;">
+Keyword arguments for func
+</ParamField>
+
+**Returns:** [`T`](#earth2studio-data-utils-T)
+
+Return value of func
+
+**Raises:**
+
+- `asyncio.TimeoutError`: If the operation exceeds timeout. Note: the underlying thread
+continues running - it cannot be force-killed in Python.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils-datasource_cache_dir">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils.datasource_cache_dir(
+    subdir: str,
+    persistent: bool,
+    tmp_hash: str | None
+) -> str
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Return (and create) a data-source-specific cache directory.
+
+Provides the standard cache-location logic used by all observation data
+sources: ``&lt;root&gt;/&lt;subdir&gt;`` for persistent caches, or
+``&lt;root&gt;/&lt;subdir&gt;/tmp_&lt;subdir&gt;_&lt;hash&gt;`` for ephemeral per-instance caches.
+
+**Parameters:**
+
+<ParamField path="subdir" type="str">
+Source-specific subdirectory name (e.g. ``"nnja"``, ``"gdas_prepbufr"``).
+</ParamField>
+
+<ParamField path="persistent" type="bool">
+When True the directory is shared across runs (warm cache).  When
+False a unique temp subdirectory is used.
+</ParamField>
+
+<ParamField path="tmp_hash" type="str | None">
+Per-instance identifier for the temp subdirectory.  When *persistent*
+is False and this is None, a random hash is generated.  Ignored when
+*persistent* is True.
+</ParamField>
+
+**Returns:** `str`
+
+Absolute path to the cache directory (already created).
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils-datasource_cache_root">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils.datasource_cache_root() -> str
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Returns the root directory for data sources
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils-datasource_to_file">
+
+<CodeBlock links={{"earth2studio.data.base.DataSource":"./base.mdx#earth2studio-data-base-DataSource","earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils.datasource_to_file(
+    file_name: str,
+    source: earth2studio.data.base.DataSource,
+    time: list[str] | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: earth2studio.utils.type.VariableArray,
+    lead_time: earth2studio.utils.type.LeadTimeArray = np.array([np.timedelta64(0,...,
+    backend: typing.Literal['netcdf', 'zarr'] = 'netcdf',
+    chunks: dict[str, int] = {'variable': 1},
+    dtype: numpy.dtype | None = None,
+    backend_kwargs: dict[str, typing.Any] = {}
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Utility function that can be used for building a local data store needed
+for an inference request. This file can then be used with the
+`earth2studio.data.DataArrayFile` data source to load data from file.
+This is useful when multiple runs of the same input data is needed.
+
+**Parameters:**
+
+<ParamField path="file_name" type="str">
+File name of output NetCDF
+</ParamField>
+
+<ParamField path="source" type="DataSource">
+[`DataSource`](./base.mdx#earth2studio-data-base-DataSource) — The original data source to fetch from
+</ParamField>
+
+<ParamField path="time" type="list[str] | list[datetime] | list[np.datetime64]">
+List of time strings, datetimes or np.datetime64 (UTC)
+</ParamField>
+
+<ParamField path="variable" type="VariableArray">
+[`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Strings or list of strings that refer to variables to return
+</ParamField>
+
+<ParamField path="lead_time" type="LeadTimeArray" default="np.array([np.timedelta64(0, 'h')])">
+[`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Lead times to fetch for each provided time, by default
+np.array(np.timedelta64(0, "h"))
+</ParamField>
+
+<ParamField path="backend" type="Literal['netcdf', 'zarr']" default="'netcdf'">
+Storage backend to save output file as, by default "netcdf"
+</ParamField>
+
+<ParamField path="chunks" type="dict[str, int]" default="&#123;'variable': 1&#125;">
+Chunk sizes along each dimension, by default &#123;"variable": 1&#125;
+</ParamField>
+
+<ParamField path="dtype" type="np.dtype" default="None">
+Data type for storing data
+</ParamField>
+
+<ParamField path="backend_kwargs" type="dict[str, Any]" default="&#123;&#125;">
+Dictionary of keyword arguments forwarded to the underlying
+``xarray.DataArray.to_netcdf`` / ``xarray.DataArray.to_zarr``
+call depending on the selected backend.
+</ParamField>
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils-decode_grib_message">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils.decode_grib_message(
+    grib_file: str,
+    message_index: int = 1
+) -> numpy.ndarray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Decode one message from a local grib file into a numpy array.
+
+Shared by the GRIB byte-range data sources (GFS, HRRR, GEFS, CFS), which
+cache single-message (or few-submessage) slices to disk. Sync and
+module-level so callers can dispatch it via ``cancellable_to_thread`` and
+patch it in offline tests. Uses pygrib, which is faster and lower memory
+than xarray/cfgrib for single-message slices.
+
+**Parameters:**
+
+<ParamField path="grib_file" type="str">
+Path to local grib file.
+</ParamField>
+
+<ParamField path="message_index" type="int" default="1">
+1-based pygrib message index to extract, by default 1. Byte-range
+slices hold a single message; vector wind packings (e.g. CFS
+`UGRD`/`VGRD` siblings) hold multiple submessages.
+</ParamField>
+
+**Returns:** `np.ndarray`
+
+Decoded 2-D field values.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils-ensure_utc">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils.ensure_utc(
+    time: datetime.datetime
+) -> datetime.datetime
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Normalize a datetime to naive UTC.
+
+If timezone-aware, convert to UTC then strip tzinfo.
+If naive, assume UTC and return unchanged.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime">
+Input datetime (naive or tz-aware)
+</ParamField>
+
+**Returns:** `datetime`
+
+Naive datetime in UTC
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils-fetch_data">
+
+<CodeBlock links={{"earth2studio.data.base.DataSource":"./base.mdx#earth2studio-data-base-DataSource","earth2studio.data.base.ForecastSource":"./base.mdx#earth2studio-data-base-ForecastSource","earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils.fetch_data(
+    source: earth2studio.data.base.DataSource | earth2studio.data.base.ForecastSource,
+    time: earth2studio.utils.type.TimeArray,
+    variable: earth2studio.utils.type.VariableArray,
+    lead_time: earth2studio.utils.type.LeadTimeArray = np.array([np.timedelta64(0,...,
+    device: torch.device = 'cpu',
+    interp_to: earth2studio.utils.type.CoordSystem | None = None,
+    interp_method: str = 'nearest',
+    legacy: bool = True
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem] | xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Utility function to fetch data arrays from particular sources and load data on
+the target device. If desired, xarray interpolation/regridding in the spatial
+domain can be used by passing a target coordinate system via the optional
+`interp_to` argument.
+
+**Parameters:**
+
+<ParamField path="source" type="DataSource | ForecastSource">
+[`DataSource`](./base.mdx#earth2studio-data-base-DataSource) `|` [`ForecastSource`](./base.mdx#earth2studio-data-base-ForecastSource) — The data source to fetch from
+</ParamField>
+
+<ParamField path="time" type="TimeArray">
+[`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="VariableArray">
+[`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Strings or list of strings that refer to variables to return
+</ParamField>
+
+<ParamField path="lead_time" type="LeadTimeArray" default="np.array([np.timedelta64(0, 'h')])">
+[`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Lead times to fetch for each provided time, by default
+np.array(np.timedelta64(0, "h"))
+</ParamField>
+
+<ParamField path="device" type="torch.device" default="'cpu'">
+Torch device to load data tensor to, by default "cpu"
+</ParamField>
+
+<ParamField path="interp_to" type="CoordSystem" default="None">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — If provided, the fetched data will be interpolated to the coordinates
+specified by lat/lon arrays in this CoordSystem
+</ParamField>
+
+<ParamField path="interp_method" type="str" default="'nearest'">
+Interpolation method to use with xarray (by default 'nearest')
+</ParamField>
+
+<ParamField path="legacy" type="bool" default="True">
+If True (default), returns tuple of (torch.Tensor, CoordSystem).
+If False, returns xr.DataArray with numpy arrays for CPU or cupy arrays for CUDA.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) `] | xr.DataArray`
+
+If legacy=True: Tuple containing output tensor and coordinate OrderedDict.
+If legacy=False: xr.DataArray with numpy arrays (CPU) or cupy arrays (CUDA).
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils-fetch_dataframe">
+
+<CodeBlock links={{"earth2studio.data.base.DataFrameSource":"./base.mdx#earth2studio-data-base-DataFrameSource","earth2studio.data.base.ForecastFrameSource":"./base.mdx#earth2studio-data-base-ForecastFrameSource","earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray","earth2studio.utils.type.FieldArray":"../utils/type.mdx#earth2studio-utils-type-FieldArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils.fetch_dataframe(
+    source: earth2studio.data.base.DataFrameSource | earth2studio.data.base.ForecastFrameSource,
+    time: earth2studio.utils.type.TimeArray,
+    variable: earth2studio.utils.type.VariableArray,
+    fields: earth2studio.utils.type.FieldArray | None = None,
+    lead_time: earth2studio.utils.type.LeadTimeArray = np.array([np.timedelta64(0,...,
+    device: torch.device = 'cpu'
+) -> pandas.DataFrame | cudf.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Utility function to fetch data frames from particular sources
+
+**Parameters:**
+
+<ParamField path="source" type="DataFrameSource | ForecastFrameSource">
+[`DataFrameSource`](./base.mdx#earth2studio-data-base-DataFrameSource) `|` [`ForecastFrameSource`](./base.mdx#earth2studio-data-base-ForecastFrameSource) — The data source to fetch from
+</ParamField>
+
+<ParamField path="time" type="TimeArray">
+[`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="VariableArray">
+[`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Strings or list of strings that refer to variables to return
+</ParamField>
+
+<ParamField path="fields" type="FieldArray | None" default="None">
+[`FieldArray`](../utils/type.mdx#earth2studio-utils-type-FieldArray) `| None` — Array of strings indicating which fields to return in data frame, if None all
+possible fields will be returned, by default None
+</ParamField>
+
+<ParamField path="lead_time" type="LeadTimeArray" default="np.array([np.timedelta64(0, 'h')])">
+[`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Lead times to fetch for each provided time, by default
+np.array(np.timedelta64(0, "h"))
+</ParamField>
+
+<ParamField path="device" type="torch.device" default="'cpu'">
+Torch device to load data tensor to, by default "cpu"
+</ParamField>
+
+**Returns:** `pd.DataFrame | cudf.DataFrame`
+
+Pandas dataframe if device is CPU, cudf DataFrame if device is CUDA
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils-fetch_dataframes">
+
+<CodeBlock links={{"earth2studio.data.utils._FrameRequest":"#earth2studio-data-utils-_FrameRequest","earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils.fetch_dataframes(
+    requests: collections.abc.Mapping[str, earth2studio.data.utils._FrameRequest] | collections.abc.Sequence[earth2studio.data.utils._FrameRequest],
+    time: earth2studio.utils.type.TimeArray,
+    lead_time: earth2studio.utils.type.LeadTimeArray = np.array([np.timedelta64(0,...,
+    device: torch.device = 'cpu'
+) -> dict[str, pandas.DataFrame | cudf.DataFrame] | list[pandas.DataFrame | cudf.DataFrame]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Fetch several DataFrame requests concurrently with `fetch_dataframe`
+
+Each request is a source and a schema such as a model's ``input_coords`` entry:
+``schema["variable"]`` lists the variables to request and the schema's other
+keys are the fields to return.
+
+**Parameters:**
+
+<ParamField path="requests" type="Mapping[str, tuple[source, schema]] | Sequence[tuple[source, schema]]">
+Request name -&gt; (source, schema), or a sequence of (source, schema) pairs,
+e.g. ``list(zip(sources, model.input_coords()))``
+</ParamField>
+
+<ParamField path="time" type="TimeArray">
+[`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="lead_time" type="LeadTimeArray" default="np.array([np.timedelta64(0, 'h')])">
+[`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Lead times to fetch for each provided time, by default
+np.array(np.timedelta64(0, "h"))
+</ParamField>
+
+<ParamField path="device" type="torch.device" default="'cpu'">
+Torch device to load data to, by default "cpu"
+</ParamField>
+
+**Returns:** `dict[str, pd.DataFrame | cudf.DataFrame] | list[pd.DataFrame | cudf.DataFrame]`
+
+Request name -&gt; DataFrame for a mapping, or the DataFrames in request order
+for a sequence, each with ``request_time`` in its ``attrs``
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils-gather_with_concurrency">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils.gather_with_concurrency(
+    coros: list[typing.Any],
+    max_workers: int = 16,
+    task_timeout: float | None = None,
+    desc: str = 'Fetching',
+    verbose: bool = False
+) -> list[typing.Any]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Run coroutines with bounded concurrency and progress bar.
+
+This prevents resource exhaustion (connections, memory) when fetching
+hundreds of items by limiting concurrent tasks via an asyncio.Semaphore.
+
+**Parameters:**
+
+<ParamField path="coros" type="list[Coroutine]">
+Coroutines to execute
+</ParamField>
+
+<ParamField path="max_workers" type="int" default="16">
+Maximum concurrent tasks (semaphore bound), by default 16.
+This limits how many coroutines run simultaneously, NOT thread pool size.
+</ParamField>
+
+<ParamField path="task_timeout" type="float | None" default="None">
+Timeout in seconds for each individual task, by default None.
+If a task exceeds this timeout, it raises asyncio.TimeoutError.
+</ParamField>
+
+<ParamField path="desc" type="str" default="'Fetching'">
+Progress bar description
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="False">
+Disable the progress bar
+</ParamField>
+
+**Returns:** `list[Any]`
+
+Results from all coroutines in the same order as input
+
+**Raises:**
+
+- `asyncio.TimeoutError`: If any task exceeds task_timeout
+- `Exception`: Any exception raised by a coroutine is propagated
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils-managed_session">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils.managed_session(
+    fs: typing.Any
+) -> typing.Any
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Context manager for fsspec async sessions.
+
+Ensures the aiohttp session is properly closed even if an exception or
+timeout occurs during fetching. Use this instead of bare set_session/close
+to prevent session leaks.
+
+**Example**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+async with managed_session(self.fs) as session:
+    # fetch data here - session will be closed even on error
+    await gather_with_concurrency(coros, ...)
+```
+
+</CodeBlock>
+
+**Parameters:**
+
+<ParamField path="fs" type="Any">
+An fsspec filesystem instance (s3fs, gcsfs, etc.)
+</ParamField>
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils-obstore_fetch_to_cache">
+
+<CodeBlock links={{"earth2studio.data.utils.AsyncReadableStore":"#earth2studio-data-utils-AsyncReadableStore"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils.obstore_fetch_to_cache(
+    store: earth2studio.data.utils.AsyncReadableStore,
+    key: str,
+    cache_dir: str,
+    byte_offset: int = 0,
+    byte_length: int | None = None,
+    cache_key: str | None = None,
+    chunked: bool = False,
+    atomic: bool = False,
+    chunk_size: int = _READ_CHUNK_SIZE_BYTES,
+    max_concurrent: int = _READ_CHUNK_CONCURRENCY,
+    hedge_after: float | None = None
+) -> str
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Fetches a byte range of an object into a local cache file.
+
+Skips the fetch entirely when the cache file already exists. The cache
+file name defaults to ``sha256(key + str(byte_offset))``; callers
+migrating from fsspec-based fetching should pass an explicit ``cache_key``
+hashed from their historical (e.g. bucket-prefixed) path so existing warm
+caches remain valid.
+
+**Parameters:**
+
+<ParamField path="store" type="AsyncReadableStore">
+[`AsyncReadableStore`](#earth2studio-data-utils-AsyncReadableStore) — obspec-conforming store to read from (e.g. an obstore store)
+</ParamField>
+
+<ParamField path="key" type="str">
+Object key (bucket-relative path)
+</ParamField>
+
+<ParamField path="cache_dir" type="str">
+Directory to place the cache file in
+</ParamField>
+
+<ParamField path="byte_offset" type="int" default="0">
+Start byte, by default 0
+</ParamField>
+
+<ParamField path="byte_length" type="int | None" default="None">
+Number of bytes to read, by default None (read to end)
+</ParamField>
+
+<ParamField path="cache_key" type="str | None" default="None">
+Explicit cache file name, by default None (sha256 of key + offset)
+</ParamField>
+
+<ParamField path="chunked" type="bool" default="False">
+Fetch the object as concurrent byte-range chunks via
+`obstore_read_chunked`. Only valid for whole-object fetches
+(``byte_offset == 0`` and ``byte_length is None``), by default False
+</ParamField>
+
+<ParamField path="atomic" type="bool" default="False">
+Publish the cache file atomically (same-directory temp file +
+``os.replace``) so an interrupted or concurrent fetch of the same
+object can never leave a partial file behind as a poisoned cache
+entry. Intended for callers whose cache entries are plausibly written
+by several processes at once, by default False
+</ParamField>
+
+<ParamField path="chunk_size" type="int" default="_READ_CHUNK_SIZE_BYTES">
+Byte-range size per GET for chunked fetches, by default 1 MiB
+</ParamField>
+
+<ParamField path="max_concurrent" type="int" default="_READ_CHUNK_CONCURRENCY">
+Maximum concurrent range GETs for chunked fetches, by default 8
+</ParamField>
+
+<ParamField path="hedge_after" type="float | None" default="None">
+Delay before a slow range of a chunked fetch is requested a second
+time, by default None (no duplicate requests)
+</ParamField>
+
+**Returns:** `str`
+
+Path to the local cache file
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils-obstore_list_prefix">
+
+<CodeBlock links={{"earth2studio.data.utils.AsyncListableStore":"#earth2studio-data-utils-AsyncListableStore"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils.obstore_list_prefix(
+    store: earth2studio.data.utils.AsyncListableStore,
+    prefix: str,
+    cache: dict[str, list[str]] | None = None,
+    cacheable: bool = True
+) -> list[str]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Lists object keys under a prefix, optionally memoizing per prefix.
+
+The list stream is consumed asynchronously so LIST round-trips don't block
+the event loop while downloads are in flight. Callers with directory-style
+layouts (e.g. per-hour satellite archives) pass a per-instance ``cache``
+dict so repeated fetches over the same prefix issue a single LIST request;
+pass ``cacheable=False`` for prefixes that are still being filled (e.g. the
+current hour) so the cache is bypassed entirely and they are re-listed on
+every call.
+
+**Parameters:**
+
+<ParamField path="store" type="AsyncListableStore">
+[`AsyncListableStore`](#earth2studio-data-utils-AsyncListableStore) — obspec-conforming store to list (e.g. an obstore store)
+</ParamField>
+
+<ParamField path="prefix" type="str">
+Key prefix to list (bucket-relative)
+</ParamField>
+
+<ParamField path="cache" type="dict[str, list[str]] | None" default="None">
+Memoization dict keyed by prefix; by default None (no memoization)
+</ParamField>
+
+<ParamField path="cacheable" type="bool" default="True">
+Whether the result may be read from or stored in ``cache``, by
+default True
+</ParamField>
+
+**Returns:** `list[str]`
+
+Object keys (bucket-relative paths) under the prefix
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils-obstore_read_chunked">
+
+<CodeBlock links={{"earth2studio.data.utils.AsyncReadableStore":"#earth2studio-data-utils-AsyncReadableStore"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils.obstore_read_chunked(
+    store: earth2studio.data.utils.AsyncReadableStore,
+    key: str,
+    chunk_size: int = _READ_CHUNK_SIZE_BYTES,
+    max_concurrent: int = _READ_CHUNK_CONCURRENCY,
+    hedge_after: float | None = None
+) -> bytes
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Reads a whole object, fetching large objects as parallel byte ranges.
+
+A single whole-object GET runs at single-stream throughput; splitting
+large objects (e.g. tens-of-MB HDF5 granules) into ``chunk_size`` byte
+ranges fetched concurrently recovers multi-stream throughput. Objects of
+at most ``chunk_size`` bytes are read with a single range GET; larger
+objects are split with at most ``max_concurrent`` ranges in flight, then
+reassembled in order. All chunked reads running on one event loop share a
+limit of 256 ranges in flight, plus their duplicate requests when
+``hedge_after`` is set; the default settings never reach it for a single
+object.
+
+**Parameters:**
+
+<ParamField path="store" type="AsyncReadableStore">
+[`AsyncReadableStore`](#earth2studio-data-utils-AsyncReadableStore) — obspec-conforming store to read from (e.g. an obstore store)
+</ParamField>
+
+<ParamField path="key" type="str">
+Object key (bucket-relative path)
+</ParamField>
+
+<ParamField path="chunk_size" type="int" default="_READ_CHUNK_SIZE_BYTES">
+Byte-range size per GET, by default 1 MiB
+</ParamField>
+
+<ParamField path="max_concurrent" type="int" default="_READ_CHUNK_CONCURRENCY">
+Maximum concurrent range GETs for one object, by default 8
+</ParamField>
+
+<ParamField path="hedge_after" type="float | None" default="None">
+Seconds after which a range still outstanding is requested a second
+time. The first successful reply wins; a failure is raised when the
+original request fails before the second is sent, or when both fail.
+By default None (no duplicate requests)
+</ParamField>
+
+**Returns:** `bytes`
+
+The complete object payload
+
+**Raises:**
+
+- `FileNotFoundError`: If the object does not exist. obstore's ``NotFoundError`` subclasses
+plain ``Exception``, so it is translated here (mirroring
+``obstore_read_range``) to keep callers' retry semantics sane.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils-obstore_read_range">
+
+<CodeBlock links={{"earth2studio.data.utils.AsyncReadableStore":"#earth2studio-data-utils-AsyncReadableStore"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils.obstore_read_range(
+    store: earth2studio.data.utils.AsyncReadableStore,
+    key: str,
+    byte_offset: int = 0,
+    byte_length: int | None = None
+) -> bytes
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Reads a byte range (or the remainder / whole) of an object via obstore.
+
+Behavior by argument combination:
+
+- ``byte_length`` set: ranged read of exactly ``byte_length`` bytes
+  starting at ``byte_offset``
+- ``byte_length`` is None and ``byte_offset`` is 0: whole-object read
+  (e.g. GRIB ``.idx`` files)
+- ``byte_length`` is None and ``byte_offset`` &gt; 0: read from offset to the
+  end of the object (size resolved with a head request)
+
+**Parameters:**
+
+<ParamField path="store" type="AsyncReadableStore">
+[`AsyncReadableStore`](#earth2studio-data-utils-AsyncReadableStore) — obspec-conforming store to read from (e.g. an obstore store)
+</ParamField>
+
+<ParamField path="key" type="str">
+Object key (bucket-relative path)
+</ParamField>
+
+<ParamField path="byte_offset" type="int" default="0">
+Start byte, by default 0
+</ParamField>
+
+<ParamField path="byte_length" type="int | None" default="None">
+Number of bytes to read, by default None (read to end)
+</ParamField>
+
+**Returns:** `bytes`
+
+The requested bytes
+
+**Raises:**
+
+- `FileNotFoundError`: If the object does not exist. obstore's ``NotFoundError`` subclasses
+plain ``Exception``, so it is translated here to keep callers'
+existing ``except FileNotFoundError`` handling working.
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils-obstore_store_from_url">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils.obstore_store_from_url(
+    url: str,
+    anonymous: bool = True,
+    max_pool_connections: int = 24,
+    store_kwargs: typing.Any = {}
+) -> obstore.store.ObjectStore
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Creates an obstore ObjectStore from a URL for byte-range object reads.
+
+Serves as the shared store factory for GRIB `.idx` + byte-range data
+sources. Supports ``s3://`` (anonymous access injects
+``skip_signature=True`` and a ``us-east-1`` region default), ``gs://``
+(anonymous access injects ``skip_signature=True``) and ``http(s)://``
+URLs via `obstore.store.from_url`.
+
+**Parameters:**
+
+<ParamField path="url" type="str">
+Store URL, e.g. ``s3://noaa-gfs-bdp-pds``
+</ParamField>
+
+<ParamField path="anonymous" type="bool" default="True">
+Use unsigned/anonymous requests for s3/gs stores, by default True
+</ParamField>
+
+<ParamField path="max_pool_connections" type="int" default="24">
+Maximum idle connections kept per host, should match the fetch
+concurrency of the caller, by default 24
+</ParamField>
+
+<ParamField path="**store_kwargs" type="Any" default="&#123;&#125;">
+Additional store configuration forwarded to
+`obstore.store.from_url`, overriding the defaults above
+</ParamField>
+
+**Returns:** `obstore.store.ObjectStore`
+
+Configured object store
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils-obstore_zarr_store">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils.obstore_zarr_store(
+    url: str,
+    cache_storage: str | None = None,
+    credential_provider: typing.Any | None = None,
+    auth_token: str | None = None,
+    store_kwargs: dict[str, typing.Any] | None = None
+) -> zarr.abc.store.Store
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Creates a read-only zarr store backed by obstore from a store URL.
+
+Serves as the single integration point for obstore-backed zarr reads, use
+this over hand-rolled fsspec stores for cloud Zarr data sources.
+
+**Parameters:**
+
+<ParamField path="url" type="str">
+Store URL, e.g. "gs://bucket/path/to/store.zarr". Scheme dispatch
+(s3://, gs://, az://, file://, ...) is handled by
+`obstore.store.from_url`.
+</ParamField>
+
+<ParamField path="cache_storage" type="str | None" default="None">
+Local cache directory. If provided, whole-object reads are cached to
+a URL-specific sub-directory via `LocalCachingStore`, by
+default None (no caching)
+</ParamField>
+
+<ParamField path="credential_provider" type="Any | None" default="None">
+An obstore credential provider for authenticated access. Takes
+precedence over ``auth_token``, by default None
+</ParamField>
+
+<ParamField path="auth_token" type="str | None" default="None">
+Bearer token sent as an ``Authorization`` header for authenticated
+access, by default None
+</ParamField>
+
+<ParamField path="store_kwargs" type="dict[str, Any] | None" default="None">
+Additional configuration forwarded to `obstore.store.from_url`,
+e.g. ``&#123;"skip_signature": True&#125;`` for anonymous access to public
+buckets, by default None
+</ParamField>
+
+**Returns:** `zarr.abc.store.Store`
+
+Read-only zarr store
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils-prep_data_array">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils.prep_data_array(
+    da: xarray.DataArray,
+    device: torch.device = 'cpu',
+    interp_to: earth2studio.utils.type.CoordSystem | None = None,
+    interp_method: str = 'nearest'
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Prepares a data array from a data source for inference workflows by converting
+the data array to a torch tensor and the coordinate system to an OrderedDict.
+
+If desired, xarray interpolation/regridding in the spatial domain can be used
+by passing a target coordinate system via the optional `interp_to` argument.
+
+**Parameters:**
+
+<ParamField path="da" type="xr.DataArray">
+Input data array
+</ParamField>
+
+<ParamField path="device" type="torch.device" default="'cpu'">
+Torch devive to load data tensor to, by default "cpu"
+</ParamField>
+
+<ParamField path="interp_to" type="CoordSystem" default="None">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — If provided, the fetched data will be interpolated to the coordinates
+specified by lat/lon arrays in this CoordSystem
+</ParamField>
+
+<ParamField path="interp_method" type="str" default="'nearest'">
+Interpolation method to use with xarray (by default 'nearest')
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Tuple containing output tensor and coordinate OrderedDict
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils-prep_data_inputs">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils.prep_data_inputs(
+    time: datetime.datetime | list[datetime.datetime] | numpy.datetime64 | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> tuple[list[datetime.datetime], list[str]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Simple method to pre-process data source inputs into a common form
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | np.datetime64 | TimeArray">
+`datetime | list[datetime] | np.datetime64 |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Datetime, list of datetimes or array of np.datetime64 to fetch (UTC)
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables
+</ParamField>
+
+**Returns:** `tuple[list[datetime], list[str]]`
+
+Time and variable lists (times normalized to naive UTC)
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils-prep_forecast_inputs">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils.prep_forecast_inputs(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> tuple[list[datetime.datetime], list[datetime.timedelta], list[str]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Simple method to pre-process forecast source inputs into a common form
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Datetime, list of datetimes or array of np.datetime64 to fetch
+</ParamField>
+
+<ParamField path="lead_time" type="(timedelta | list[timedelta], LeadTimeArray)">
+`(timedelta | list[timedelta],` [`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) `)` — Timedelta, list of timedeltas or array of np.timedelta to fetch
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables
+</ParamField>
+
+**Returns:** `tuple[list[datetime], list[timedelta], list[str]]`
+
+Time, lead time, and variable lists
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils-radiance_to_bt">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils.radiance_to_bt(
+    radiance: numpy.ndarray,
+    wavenumber: numpy.ndarray | float,
+    band_correction: tuple[float, float] | None = None,
+    correction_formula: typing.Literal['additive', 'divisive'] = 'additive'
+) -> numpy.ndarray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Convert spectral radiance to brightness temperature via inverse Planck function.
+
+Computes brightness temperature from calibrated spectral radiance using:
+
+    T* = C2 * ν / ln(1 + C1 * ν³ / L)
+
+where C1 and C2 are the first and second radiation constants, ν is the
+wavenumber, and L is the spectral radiance.
+
+Optionally applies band correction for microwave/infrared sensors:
+
+- **Additive** (default): T = A + B * T* (AVHRR, MHS style)
+- **Divisive**: T = (T* - A) / B (AMSU-A style)
+
+**Parameters:**
+
+<ParamField path="radiance" type="np.ndarray">
+Spectral radiance in mW/(m²·sr·cm⁻¹). Can be 1D (n_obs,), 2D (n_obs, n_channels),
+or any shape. NaN and non-positive values are preserved as NaN in output.
+</ParamField>
+
+<ParamField path="wavenumber" type="np.ndarray | float">
+Central wavenumber(s) in cm⁻¹. If array, must broadcast with radiance
+(e.g., shape (n_channels,) for radiance shape (n_obs, n_channels)).
+</ParamField>
+
+<ParamField path="band_correction" type="tuple[float, float] | None" default="None">
+Band correction coefficients (A, B). If None, pure Planck inversion is used.
+For per-channel corrections, call this function per-channel.
+</ParamField>
+
+<ParamField path="correction_formula" type="('additive', 'divisive')" default="'additive'">
+How to apply band correction:
+- "additive": T = A + B * T* (default, used by AVHRR, MHS)
+- "divisive": T = (T* - A) / B (used by AMSU-A)
+</ParamField>
+
+**Returns:** `np.ndarray`
+
+Brightness temperature in Kelvin, same shape as radiance.
+Invalid radiance values (≤0 or NaN) yield NaN.
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+Pure Planck inversion for hyperspectral sounder (IASI, CrIS):
+```
+
+</CodeBlock>
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> wavenumbers = np.array([650.0, 700.0, 750.0])  # cm⁻¹
+>>> radiance = np.array([[10.0, 12.0, 15.0]])  # mW/(m²·sr·cm⁻¹)
+>>> bt = radiance_to_bt(radiance, wavenumbers)
+```
+
+</CodeBlock>
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+With band correction for microwave sounder (MHS):
+```
+
+</CodeBlock>
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> radiance = np.array([5.0, 6.0, 7.0])  # single channel
+>>> bt = radiance_to_bt(radiance, 18.75, band_correction=(0.5, 0.998))
+```
+
+</CodeBlock>
+
+<Note>
+
+Uses NIST CODATA 2018 radiation constants:
+- C1 = 1.191042972e-5 mW/(m²·sr·cm⁻⁴)
+- C2 = 1.438776877 K·cm
+
+</Note>
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils-resolve_async_workers">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils.resolve_async_workers(
+    async_workers: int | None,
+    n_tasks: int,
+    cap: int = 64
+) -> int
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Resolves the concurrent download worker count for a data source.
+
+When ``async_workers`` is None (the default for obstore-backed sources),
+concurrency autoscales to the number of pending download tasks, bounded by
+``cap`` to keep request bursts against public endpoints reasonable. An
+explicit ``async_workers`` value is always honored as-is.
+
+**Parameters:**
+
+<ParamField path="async_workers" type="int | None">
+User-provided worker count, or None to autoscale
+</ParamField>
+
+<ParamField path="n_tasks" type="int">
+Number of pending download tasks
+</ParamField>
+
+<ParamField path="cap" type="int" default="64">
+Upper bound applied when autoscaling, by default 64
+</ParamField>
+
+**Returns:** `int`
+
+Number of concurrent workers to use (at least 1)
+
+</Indent>
+
+<Anchor id="earth2studio-data-utils-table_to_dataframe">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.utils.table_to_dataframe(
+    table: pyarrow.Table,
+    dict_string_columns: collections.abc.Collection[str] = ()
+) -> pandas.DataFrame
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Convert an Arrow table to a DataFrame with Arrow-backed dtypes.
+
+Every column is converted with ``types_mapper=pd.ArrowDtype``, so the
+returned frame holds the table's buffers directly — chunked columns
+included, without consolidation — and ``pa.Table.from_pandas`` on the
+result is zero-copy, letting consumers project, filter, and thin in
+Arrow despite being handed a DataFrame.
+
+**Parameters:**
+
+<ParamField path="table" type="pa.Table">
+Table to convert. May be chunked; chunks are preserved.
+</ParamField>
+
+<ParamField path="dict_string_columns" type="Collection[str]" default="()">
+Names of low-cardinality string columns to dictionary-encode
+(``dictionary&lt;int8, string&gt;``, at most 128 distinct values) before
+conversion, cutting per-row string overhead on large frames. Only
+pass columns with few distinct values — encoding a high-cardinality
+column costs memory instead of saving it. Names absent from the
+table, or present but not string-typed, are ignored.
+</ParamField>
+
+**Returns:** `pd.DataFrame`
+
+Frame whose every column is a ``pd.ArrowDtype``.
+
+</Indent>

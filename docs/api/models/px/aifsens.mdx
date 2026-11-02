@@ -1,0 +1,312 @@
+---
+layout: overview
+title: earth2studio.models.px.aifsens
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`AIFSENS`](#earth2studio-models-px-aifsens-AIFSENS) | Artificial Intelligence Forecasting System Ensemble (AIFS ENS v1.0), a |
+
+### API
+
+<Anchor id="earth2studio-models-px-aifsens-AIFSENS">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.aifsens.AIFSENS(
+    model: torch.nn.Module,
+    latitudes: torch.Tensor,
+    longitudes: torch.Tensor,
+    interpolation_matrix: torch.Tensor,
+    inverse_interpolation_matrix: torch.Tensor,
+    invariants: torch.Tensor
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin), [PrognosticMixin](./utils.mdx#earth2studio-models-px-utils-PrognosticMixin)
+
+Artificial Intelligence Forecasting System Ensemble (AIFS ENS v1.0), a
+probabilistic, ensemble-based forecast model from the European Centre for
+Medium-Range Weather Forecasts (ECMWF). AIFS ENS uses a GNN encoder/decoder with a
+sliding-window transformer processor, trained on ERA5 reanalysis and operational NWP
+analyses, and is run four times daily with a 6-hour time step. The model is trained
+with a CRPS objective over a small ensemble to provide calibrated probabilistic
+output.
+
+**Badges:** `region:global` `class:medium-range` `product:wind` `product:precip` `product:temp` `product:atmos` `product:land` `product:solar` `year:2025` `gpu:48gb` `provider:ecmwf` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="model" type="torch.nn.Module">
+Core PyTorch module with the pretrained AIFSENS weights loaded.
+</ParamField>
+
+<ParamField path="latitudes" type="torch.Tensor">
+Latitude values for the native model grid, registered as a buffer for
+interpolation.
+</ParamField>
+
+<ParamField path="longitudes" type="torch.Tensor">
+Longitude values for the native model grid, registered as a buffer for
+interpolation.
+</ParamField>
+
+<ParamField path="interpolation_matrix" type="torch.Tensor">
+CSR sparse matrix mapping ERA5 lat/lon inputs onto the native model grid.
+</ParamField>
+
+<ParamField path="inverse_interpolation_matrix" type="torch.Tensor">
+CSR sparse matrix mapping outputs from the native model grid back to ERA5
+lat/lon.
+</ParamField>
+
+<ParamField path="invariants" type="torch.Tensor">
+Tensor of shape [4, 721, 1440] containing the invariant fields "lsm", "sdor",
+"slor" and "z"
+</ParamField>
+
+<Note>
+
+This model uses the checkpoints provided by ECMWF.
+For additional information see the following resources:
+
+- https://arxiv.org/abs/2406.01465
+- https://huggingface.co/ecmwf/aifs-ens-1.0
+- https://github.com/ecmwf/anemoi-core
+
+</Note>
+
+<Warning>
+
+We encourage users to familiarize themselves with the license restrictions of this
+model's checkpoints.
+
+</Warning>
+
+<Anchor id="earth2studio-models-px-aifsens-AIFSENS-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.aifsens.AIFSENS.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Runs prognostic model 1 step.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Output tensor and coordinate system 6 hours in the future
+
+</Indent>
+<Anchor id="earth2studio-models-px-aifsens-AIFSENS-create_iterator">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.aifsens.AIFSENS.create_iterator(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> collections.abc.Iterator[tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Creates a iterator which can be used to perform time-integration of the
+prognostic model. Will return the initial condition first (0th step).
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-aifsens-AIFSENS-get_cos_sin_julian_day">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.aifsens.AIFSENS.get_cos_sin_julian_day(
+    time_array: numpy.datetime64,
+    longitudes: torch.Tensor
+) -> tuple[torch.Tensor, torch.Tensor]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get cosine and sine of Julian day.
+
+Reference implementation: earthkit.data.sources.forcings.ForcingMaker
+https://github.com/ecmwf/earthkit-data/blob/main/src/earthkit/data/sources/forcings.py
+
+</Indent>
+<Anchor id="earth2studio-models-px-aifsens-AIFSENS-get_cos_sin_local_time">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.aifsens.AIFSENS.get_cos_sin_local_time(
+    time_array: numpy.datetime64,
+    longitudes: torch.Tensor
+) -> tuple[torch.Tensor, torch.Tensor]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get cosine and sine of local time.
+
+Reference implementation: earthkit.data.sources.forcings.ForcingMaker
+https://github.com/ecmwf/earthkit-data/blob/main/src/earthkit/data/sources/forcings.py
+
+</Indent>
+<Anchor id="earth2studio-models-px-aifsens-AIFSENS-get_cosine_zenith_fields">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.aifsens.AIFSENS.get_cosine_zenith_fields(
+    date: numpy.datetime64,
+    latitudes: torch.Tensor,
+    longitudes: torch.Tensor
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get cosine zenith fields for input time array.
+
+Reference implementation: earthkit.data.utils.meteo.cos_solar_zenith_angle
+https://github.com/ecmwf/earthkit-data/blob/main/src/earthkit/data/utils/meteo.py
+
+</Indent>
+<Anchor id="earth2studio-models-px-aifsens-AIFSENS-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.aifsens.AIFSENS.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of the prognostic model
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-models-px-aifsens-AIFSENS-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.aifsens.AIFSENS.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic package
+
+</Indent>
+<Anchor id="earth2studio-models-px-aifsens-AIFSENS-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.px.base.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.aifsens.AIFSENS.load_model(
+    package: earth2studio.models.auto.Package
+) -> earth2studio.models.px.base.PrognosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic from package
+
+</Indent>
+<Anchor id="earth2studio-models-px-aifsens-AIFSENS-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.aifsens.AIFSENS.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of the prognostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords
+by default None, will use self.input_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>

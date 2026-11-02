@@ -1,0 +1,90 @@
+---
+layout: overview
+title: earth2studio.lexicon.cbottle
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`CBottleLexicon`](#earth2studio-lexicon-cbottle-CBottleLexicon) | CBottle Lexicon |
+
+### API
+
+<Anchor id="earth2studio-lexicon-cbottle-CBottleLexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.cbottle.CBottleLexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+CBottle Lexicon
+
+Maps between Earth2Studio vocab and the labels used in the original repo.
+The dictionary order of variables produced by the model.
+
+<Note>
+
+Additional resources:
+https://github.com/NVlabs/cBottle/blob/ed96dfe35d87ecefa4846307807e8241c4b24e71/src/cbottle/datasets/dataset_2d.py#L25
+https://ceres.larc.nasa.gov/documents/cmip5-data/Tech-Note_CERES-EBAF-Surface_L3B_Ed2-8.pdf
+https://ceres.larc.nasa.gov/documents/cmip5-data/Tech-Note_rlut_CERES-EBAF_L3B_Ed2-6r_20121101.pdf
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-cbottle-CBottleLexicon-build_vocab">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.cbottle.CBottleLexicon.build_vocab() -> dict[str, tuple[str, int]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>staticmethod</Badge>
+
+Create CBottle vocab dictionary
+
+</Indent>
+<Anchor id="earth2studio-lexicon-cbottle-CBottleLexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.cbottle.CBottleLexicon.get_item(
+    val: str
+) -> tuple[tuple[str, int], collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return name in CBottle vocabulary
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Name in Earth-2 Studio terminology.
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+CBottle name and modifier function.
+
+</Indent>
+</Indent>

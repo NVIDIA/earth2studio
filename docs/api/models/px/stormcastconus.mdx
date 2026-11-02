@@ -1,0 +1,462 @@
+---
+layout: overview
+title: earth2studio.models.px.stormcastconus
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`StormCastCONUS`](#earth2studio-models-px-stormcastconus-StormCastCONUS) | StormCast-CONUS generative convection-allowing model for the full CONUS domain. |
+
+### API
+
+<Anchor id="earth2studio-models-px-stormcastconus-StormCastCONUS">
+
+<CodeBlock links={{"earth2studio.data.DataSource":"../../data/base.mdx#earth2studio-data-base-DataSource","earth2studio.utils.type.TimeArray":"../../utils/type.mdx#earth2studio-utils-type-TimeArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.stormcastconus.StormCastCONUS(
+    diffusion_model: torch.nn.Module,
+    means: torch.Tensor,
+    stds: torch.Tensor,
+    invariants: torch.Tensor,
+    conditioning_means: torch.Tensor,
+    conditioning_stds: torch.Tensor,
+    hrrr_lat_lim: tuple[int, int] = (17, 1041),
+    hrrr_lon_lim: tuple[int, int] = (3, 1795),
+    variables: numpy.ndarray = np.array(VARIABLES),
+    conditioning_variables: numpy.ndarray = np.array(CONDITIONING_VARIA...,
+    conditioning_data_source: earth2studio.data.DataSource | earth2studio.data.ForecastSource | None = None,
+    conditioning_init_time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray | None = None,
+    sampler_args: dict[str, float | int] | None = None,
+    num_diffusion_steps: int = 18,
+    num_sda_diffusion_steps: int = 36,
+    batch_size: int = 1,
+    time_tolerance: numpy.timedelta64 | tuple[numpy.timedelta64, numpy.timedelta64] | None = None,
+    sda_std_obs: float | dict[str, float] = 0.1,
+    sda_dps_norm: float = 2,
+    sda_gamma: float = 0.001,
+    use_amp: bool = True,
+    clamp_values: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin), [PrognosticMixin](./utils.mdx#earth2studio-models-px-utils-PrognosticMixin)
+
+StormCast-CONUS generative convection-allowing model for the full CONUS domain.
+
+- High-resolution (3km) HRRR state over the Continental United States (99 vars)
+- High-resolution land-sea mask and orography invariants
+- Coarse resolution (25km) global state (26 vars)
+
+The high-resolution grid is the HRRR Lambert conformal projection
+Coarse-resolution inputs are regridded to the HRRR grid internally.
+
+**Badges:** `region:na` `class:nowcasting` `product:wind` `product:temp` `product:precip` `product:radar` `product:atmos` `year:2026` `gpu:24gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="diffusion_model" type="torch.nn.Module">
+Configured diffusion model (e.g. a `_SplitModelWrapper` instance
+created by `load_model`). Must be a `_SplitModelWrapper` instance
+to set ``hrrr_lat_lim`` or ``hrrr_lon_lim`` to non-default values.
+</ParamField>
+
+<ParamField path="means" type="torch.Tensor">
+Per-channel mean for normalising the high-resolution state.
+</ParamField>
+
+<ParamField path="stds" type="torch.Tensor">
+Per-channel standard deviation for normalising the high-resolution state.
+</ParamField>
+
+<ParamField path="invariants" type="torch.Tensor">
+Static invariant fields (e.g. land-sea mask, orography).
+</ParamField>
+
+<ParamField path="conditioning_means" type="torch.Tensor">
+Per-channel mean for normalising the low-resolution conditioning.
+</ParamField>
+
+<ParamField path="conditioning_stds" type="torch.Tensor">
+Per-channel standard deviation for normalising the low-resolution conditioning.
+</ParamField>
+
+<ParamField path="hrrr_lat_lim" type="tuple[int, int]" default="(17, 1041)">
+HRRR grid latitude limits, defaults to be the StormCastCONUS region in Continental
+United States, by default (17, 1041)
+</ParamField>
+
+<ParamField path="hrrr_lon_lim" type="tuple[int, int]" default="(3, 1795)">
+HRRR grid longitude limits, defaults to be the StormCastCONUS region in Continental
+United States, by default (3, 1795)
+</ParamField>
+
+<ParamField path="variables" type="np.ndarray" default="np.array(VARIABLES)">
+High-resolution variable names, by default ``np.array(VARIABLES)``.
+</ParamField>
+
+<ParamField path="conditioning_variables" type="np.ndarray" default="np.array(CONDITIONING_VARIABLES)">
+Low-resolution conditioning variable names, by default
+``np.array(CONDITIONING_VARIABLES)``.
+</ParamField>
+
+<ParamField path="conditioning_data_source" type="DataSource or ForecastSource or None" default="None">
+[`DataSource`](../../data/base.mdx#earth2studio-data-base-DataSource) `or` [`ForecastSource`](../../data/base.mdx#earth2studio-data-base-ForecastSource) `or None` — Data source for global conditioning. Required for inference, by default None.
+</ParamField>
+
+<ParamField path="conditioning_init_time" type="datetime, list[datetime], TimeArray, or None" default="None">
+`datetime, list[datetime],` [`TimeArray`](../../utils/type.mdx#earth2studio-utils-type-TimeArray) `, or None` — Fixed initialisation time for ``conditioning_data_source``. When None,
+uses the same conditioning initialization time as the forecast. Useful when
+the conditioning is from a forecast source available on a coarser cycle
+(e.g. GFS_FX every 6 h while HRRR initialises hourly), by default None.
+</ParamField>
+
+<ParamField path="sampler_args" type="dict" default="None">
+Overrides for the EDM sampler/scheduler. Recognised keys:
+``sigma_min``, ``sigma_max``, ``rho`` (scheduler), and
+``S_churn``, ``S_min``, ``S_max``, ``S_noise`` (solver).
+Unspecified keys use sensible defaults.
+</ParamField>
+
+<ParamField path="num_diffusion_steps" type="int" default="18">
+Number of diffusion sampling steps for the EDM (no-obs) path, by default 18.
+</ParamField>
+
+<ParamField path="num_sda_diffusion_steps" type="int" default="36">
+Number of diffusion sampling steps for the SDA (obs-guided) path, by default 36.
+</ParamField>
+
+<ParamField path="batch_size" type="int" default="1">
+Maximum batch size processed in one forward pass, by default 1.
+</ParamField>
+
+<ParamField path="time_tolerance" type="np.timedelta64, tuple[np.timedelta64, np.timedelta64], or None" default="None">
+Time window for filtering observations around each target time.
+A single ``np.timedelta64`` creates a symmetric window; a 2-tuple
+``(lower, upper)`` is passed directly to ``ObsGridMapping.obs_to_grid``.
+``None`` disables time filtering, by default None.
+</ParamField>
+
+<ParamField path="sda_std_obs" type="float or dict[str, float]" default="0.1">
+Observation noise standard deviation (in physical units) used by the
+SDA denoiser when observations are provided. A scalar applies uniformly;
+a dict maps variable names to per-variable values (default 0.1 for
+unlisted variables). Dict values are converted to normalised units
+internally, by default 0.1.
+</ParamField>
+
+<ParamField path="sda_dps_norm" type="float" default="2">
+Gradient normalisation factor for DPS guidance, by default 2.
+</ParamField>
+
+<ParamField path="sda_gamma" type="float" default="0.001">
+DPS guidance step size / scale, by default 0.001.
+</ParamField>
+
+<ParamField path="use_amp" type="bool" default="True">
+Whether to run the diffusion forward pass under ``torch.autocast`` with
+bfloat16, by default True.
+</ParamField>
+
+<ParamField path="clamp_values" type="bool" default="True">
+Whether to apply reflectivity clipping in ``_forward``. When the model is
+loaded via `load_model`, this flag is also forwarded to
+`_SplitModelWrapper` to enable per-variable physical-minimum clamping,
+by default True.
+</ParamField>
+
+<Note>
+
+For more information see the following references:
+
+- https://arxiv.org/abs/2408.10958
+- https://huggingface.co/nvidia/stormcast-conus
+
+</Note>
+
+<Anchor id="earth2studio-models-px-stormcastconus-StormCastCONUS-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormcastconus.StormCastCONUS.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem,
+    obs: pandas.DataFrame | tuple[torch.Tensor, torch.Tensor] | None = None
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Runs prognostic model 1 step
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+<ParamField path="obs" type="pd.DataFrame, tuple[torch.Tensor, torch.Tensor], or None" default="None">
+Observations for SDA guidance. Either a dataframe with columns
+``variable``, ``lat``, ``lon``, ``observation``, ``time``, or a
+pre-gridded ``(y_obs, mask)`` tuple. ``None`` runs unconditional
+diffusion.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Output tensor and coordinate system
+
+**Raises:**
+
+- `RuntimeError`: If conditioning data source is not initialized
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormcastconus-StormCastCONUS-compile_model">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormcastconus.StormCastCONUS.compile_model() -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Compile the diffusion model forward pass with ``torch.compile``.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormcastconus-StormCastCONUS-create_generator">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormcastconus.StormCastCONUS.create_generator(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> collections.abc.Generator[tuple[torch.Tensor, earth2studio.utils.type.CoordSystem], pandas.DataFrame | None, None]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Create a generator for autoregressive rollout.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system
+</ParamField>
+
+**Raises:**
+
+- `RuntimeError`: If conditioning data source is not initialized
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormcastconus-StormCastCONUS-create_iterator">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormcastconus.StormCastCONUS.create_iterator(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> collections.abc.Iterator[tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Iterator wrapper around ``create_generator`` without observation input.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormcastconus-StormCastCONUS-denormalize">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormcastconus.StormCastCONUS.denormalize(
+    x: torch.Tensor,
+    in_place: bool = False
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Denormalise ``x`` back to physical units.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormcastconus-StormCastCONUS-get_obs_mapping">
+
+<CodeBlock links={{"earth2studio.utils.obs.ObsGridMapping":"../../utils/obs.mdx#earth2studio-utils-obs-ObsGridMapping"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormcastconus.StormCastCONUS.get_obs_mapping(
+    device: torch.device | None
+) -> earth2studio.utils.obs.ObsGridMapping
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Return the obs grid mapping, (re-)creating it if the device has changed.
+
+Building the ``LinearNDInterpolator`` over the full HRRR grid is
+expensive, so the mapping is cached and only rebuilt on a device change.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormcastconus-StormCastCONUS-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormcastconus.StormCastCONUS.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormcastconus-StormCastCONUS-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormcastconus.StormCastCONUS.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load prognostic package
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormcastconus-StormCastCONUS-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.data.DataSource":"../../data/base.mdx#earth2studio-data-base-DataSource","earth2studio.models.px.stormcastconus.StormCastCONUS":"#earth2studio-models-px-stormcastconus-StormCastCONUS"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormcastconus.StormCastCONUS.load_model(
+    package: earth2studio.models.auto.Package,
+    conditioning_data_source: earth2studio.data.DataSource | earth2studio.data.ForecastSource = GFS_FX(),
+    model_kwargs: typing.Any = {}
+) -> earth2studio.models.px.stormcastconus.StormCastCONUS
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load a `StormCastCONUS` model from a package.
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Package to load model from
+</ParamField>
+
+<ParamField path="conditioning_data_source" type="DataSource | ForecastSource" default="GFS_FX()">
+[`DataSource`](../../data/base.mdx#earth2studio-data-base-DataSource) `|` [`ForecastSource`](../../data/base.mdx#earth2studio-data-base-ForecastSource) — Data source to use for global conditioning, by default GFS_FX
+</ParamField>
+
+<ParamField path="**model_kwargs" type="Any" default="&#123;&#125;">
+Additional keyword arguments forwarded to the model constructor
+(e.g. ``hrrr_lat_lim``, ``num_diffusion_steps``, ``use_amp``,
+``clamp_values``). ``clamp_values`` is additionally applied to
+the internal `_SplitModelWrapper`.
+</ParamField>
+
+**Returns:** [`StormCastCONUS`](#earth2studio-models-px-stormcastconus-StormCastCONUS)
+
+StormCast-CONUS model
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormcastconus-StormCastCONUS-normalize">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormcastconus.StormCastCONUS.normalize(
+    x: torch.Tensor,
+    in_place: bool = False
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Normalise ``x`` to zero mean, unit variance.
+
+</Indent>
+<Anchor id="earth2studio-models-px-stormcastconus-StormCastCONUS-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.stormcastconus.StormCastCONUS.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system of prognostic model
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output coordinates.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary
+
+</Indent>
+</Indent>

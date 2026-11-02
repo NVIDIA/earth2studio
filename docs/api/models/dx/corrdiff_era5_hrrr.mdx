@@ -1,0 +1,594 @@
+---
+layout: overview
+title: earth2studio.models.dx.corrdiff_era5_hrrr
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`CorrDiffEra5Hrrr`](#earth2studio-models-dx-corrdiff_era5_hrrr-CorrDiffEra5Hrrr) | Generative downscaling from 0.25-degree ERA5 to 3 km HRRR over CONUS. |
+| [`CorrDiffEra5HrrrDistilled`](#earth2studio-models-dx-corrdiff_era5_hrrr-CorrDiffEra5HrrrDistilled) | Few-step distilled generator (Parallel Decoding Distillation) of the ERA5 -&gt; HRRR |
+
+### API
+
+<Anchor id="earth2studio-models-dx-corrdiff_era5_hrrr-CorrDiffEra5Hrrr">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.CorrDiffEra5Hrrr(
+    network: torch.nn.Module,
+    lat_input_grid: torch.Tensor,
+    lon_input_grid: torch.Tensor,
+    lat_output_grid: torch.Tensor,
+    lon_output_grid: torch.Tensor,
+    hrrr_y: torch.Tensor,
+    hrrr_x: torch.Tensor,
+    era5_center: torch.Tensor,
+    era5_scale: torch.Tensor,
+    out_center: torch.Tensor,
+    out_scale: torch.Tensor,
+    invariants: torch.Tensor,
+    network_kind: typing.Literal['rectified_flow', 'edm'] = 'rectified_flow',
+    era5_variables: collections.abc.Sequence[str] = ERA5_VARIABLES,
+    output_variables: collections.abc.Sequence[str] = OUTPUT_VARIABLES,
+    presence_flags: collections.abc.Sequence[str] = (),
+    day_of_year: bool = True,
+    prediction_type: typing.Literal['x0', 'flow'] = 'x0',
+    time_scale: float = 999.0,
+    number_of_samples: int = 1,
+    number_of_steps: int = 50,
+    solver: typing.Literal['heun', 'euler'] = 'heun',
+    shift: float = 32.0,
+    t_max: float = 0.99,
+    x0v_clip: float = 0.05,
+    sigma_min: float = 0.01,
+    sigma_max: float = 200.0,
+    rho: float = 7.0,
+    seed: int | None = None,
+    amp: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+Generative downscaling from 0.25-degree ERA5 to 3 km HRRR over CONUS.
+
+By default `load_model` loads the distilled 2-step generator of the model
+(`CorrDiffEra5HrrrDistilled`); pass
+``load_model(..., distilled_model=False)`` for the 50-step teacher.
+
+**Badges:** `region:na` `class:downscaling` `product:wind` `product:temp` `product:atmos` `product:radar` `year:2026` `gpu:80gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="network" type="torch.nn.Module">
+Conditioned network. For ``network_kind="rectified_flow"`` a
+``ConcatConditionWrapper(DiT)`` whose output is the velocity or the clean
+data (see ``prediction_type``); for ``network_kind="edm"`` an
+``EDMPreconditioner(ConcatConditionWrapper(DiT))`` (an x0-predictor).
+</ParamField>
+
+<ParamField path="lat_input_grid" type="torch.Tensor">
+1-D regular ERA5 input grid (the native training footprint). Latitude may
+be ascending or descending; input longitudes may use either the ``[0, 360)``
+or the ``[-180, 180)`` convention (compared modulo 360).
+</ParamField>
+
+<ParamField path="lon_input_grid" type="torch.Tensor">
+1-D regular ERA5 input grid (the native training footprint). Latitude may
+be ascending or descending; input longitudes may use either the ``[0, 360)``
+or the ``[-180, 180)`` convention (compared modulo 360).
+</ParamField>
+
+<ParamField path="lat_output_grid" type="torch.Tensor">
+2-D HRRR latitude / longitude ``[H, W]`` of the output crop (degrees).
+</ParamField>
+
+<ParamField path="lon_output_grid" type="torch.Tensor">
+2-D HRRR latitude / longitude ``[H, W]`` of the output crop (degrees).
+</ParamField>
+
+<ParamField path="hrrr_y" type="torch.Tensor">
+1-D native HRRR projection coordinates (m) of the output crop.
+</ParamField>
+
+<ParamField path="hrrr_x" type="torch.Tensor">
+1-D native HRRR projection coordinates (m) of the output crop.
+</ParamField>
+
+<ParamField path="era5_center" type="torch.Tensor">
+ERA5 input normalization (mean / std), size ``[n_era5]``.
+</ParamField>
+
+<ParamField path="era5_scale" type="torch.Tensor">
+ERA5 input normalization (mean / std), size ``[n_era5]``.
+</ParamField>
+
+<ParamField path="out_center" type="torch.Tensor">
+Output normalization (mean / std), size ``[n_out]``.
+</ParamField>
+
+<ParamField path="out_scale" type="torch.Tensor">
+Output normalization (mean / std), size ``[n_out]``.
+</ParamField>
+
+<ParamField path="invariants" type="torch.Tensor">
+Normalized static invariant channels ``[n_inv, H, W]``, appended to the
+conditioning after the cosine-zenith channel.
+</ParamField>
+
+<ParamField path="network_kind" type="Literal['rectified_flow', 'edm']" default="'rectified_flow'">
+Generative formulation, by default "rectified_flow"
+</ParamField>
+
+<ParamField path="era5_variables" type="Sequence[str]" default="ERA5_VARIABLES">
+Input channel order, by default `ERA5_VARIABLES`
+</ParamField>
+
+<ParamField path="output_variables" type="Sequence[str]" default="OUTPUT_VARIABLES">
+Output channel order, by default `OUTPUT_VARIABLES`
+</ParamField>
+
+<ParamField path="presence_flags" type="Sequence[str]" default="()">
+ERA5 variables that training randomly dropped from the input; one scalar
+"present" flag (always 1 at inference) per name.
+</ParamField>
+
+<ParamField path="day_of_year" type="bool" default="True">
+Whether the scalar conditioning carries ``[sin, cos]`` of the day-of-year
+phase at the validity time.
+</ParamField>
+
+<ParamField path="prediction_type" type="Literal['x0', 'flow']" default="'x0'">
+Rectified-flow output parameterization. Ignored for EDM, by default "x0"
+</ParamField>
+
+<ParamField path="time_scale" type="float" default="999.0">
+Multiplier applied to the rectified-flow time ``t in [0, 1]`` before the
+network's timestep embedder (the examples train with ``999.0``).
+</ParamField>
+
+<ParamField path="number_of_samples" type="int" default="1">
+Ensemble members per input; settable between calls.
+</ParamField>
+
+<ParamField path="number_of_steps" type="int" default="50">
+ODE solver steps (each Heun step costs two network evaluations). For a
+`CorrDiffEra5HrrrDistilled` network this is the number of blocks of
+its rollout and must be 1 or 2.
+</ParamField>
+
+<ParamField path="solver" type="(heun, euler)" default="'heun'">
+ODE solver. Unused for a distilled network, whose rollout is fixed.
+</ParamField>
+
+<ParamField path="shift" type="float" default="32.0">
+SD3 resolution shift ``a`` applied to the rectified-flow time grid,
+``t -&gt; a t / (1 + (a - 1) t)``; ``1.0`` disables it. The examples found
+``a`` of 12-32 optimal for full-domain sampling (the networks train on
+256 x 256 patches). Ignored for EDM. Unused for a distilled network, which
+carries its own time grid.
+</ParamField>
+
+<ParamField path="t_max" type="float" default="0.99">
+Rectified-flow start time (the noise end); kept slighly below 1 for stability.
+Unused for a distilled network.
+</ParamField>
+
+<ParamField path="x0v_clip" type="float" default="0.05">
+Lower clamp of the denominator in the x-prediction to velocity conversion
+``v = (x_t - x0_hat) / max(t, x0v_clip)`` near the data end (``t -&gt; 0``).
+Unused for a distilled network, which stores its own value.
+</ParamField>
+
+<ParamField path="sigma_min" type="float" default="0.01">
+EDM Karras schedule parameters. Ignored for rectified flow.
+</ParamField>
+
+<ParamField path="sigma_max" type="float" default="0.01">
+EDM Karras schedule parameters. Ignored for rectified flow.
+</ParamField>
+
+<ParamField path="rho" type="float" default="0.01">
+EDM Karras schedule parameters. Ignored for rectified flow.
+</ParamField>
+
+<ParamField path="seed" type="int | None" default="None">
+Base RNG seed for the sampling latents; member ``i`` uses ``seed + i``.
+``None`` leaves sampling unseeded.
+</ParamField>
+
+<ParamField path="amp" type="bool" default="True">
+Run network forwards under bf16 autocast while the ODE integration stays in
+fp32 (the examples' evaluation setting; roughly halves inference time).
+</ParamField>
+
+<Note>
+
+For more information see the following references:
+
+- https://huggingface.co/nvidia/corrdiff-era5-hrrr
+
+</Note>
+
+<Anchor id="earth2studio-models-dx-corrdiff_era5_hrrr-CorrDiffEra5Hrrr-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffEra5Hrrr.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Downscale ERA5 states to the HRRR CONUS crop.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor ``[batch, time, variable, lat, lon]`` (the wrapper
+flattens leading batch dimensions automatically).
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+``[batch, sample, time, variable, hrrr_y, hrrr_x]`` and its coordinates.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_era5_hrrr-CorrDiffEra5Hrrr-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffEra5Hrrr.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system: the native ERA5 CONUS footprint.
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system dictionary; regrid ERA5 onto ``lat`` / ``lon``.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_era5_hrrr-CorrDiffEra5Hrrr-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffEra5Hrrr.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Default pre-trained model package.
+
+**Returns:** [`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package)
+
+Model package with default checkpoint location
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_era5_hrrr-CorrDiffEra5Hrrr-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.dx.base.DiagnosticModel":"./base.mdx#earth2studio-models-dx-base-DiagnosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffEra5Hrrr.load_model(
+    package: earth2studio.models.auto.Package,
+    device: str | None = None,
+    number_of_samples: int | None = None,
+    number_of_steps: int | None = None,
+    seed: int | None = None,
+    amp: bool | None = None,
+    variant: typing.Literal['x_pred'] = 'x_pred',
+    distilled_model: bool = True
+) -> earth2studio.models.dx.base.DiagnosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load the model from a package.
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Model package to load from.
+</ParamField>
+
+<ParamField path="device" type="str | None" default="None">
+Device to place the model on, by default None (CPU).
+</ParamField>
+
+<ParamField path="number_of_samples" type="int | None" default="None">
+Ensemble members per input; defaults to the package metadata.
+</ParamField>
+
+<ParamField path="number_of_steps" type="int | None" default="None">
+ODE steps for the teacher, or blocks (1 or 2) for the distilled
+generator; defaults to the package metadata.
+</ParamField>
+
+<ParamField path="seed" type="int | None" default="None">
+Base RNG seed, by default None (unseeded).
+</ParamField>
+
+<ParamField path="amp" type="bool | None" default="None">
+bf16 autocast for the network; defaults to the package metadata.
+</ParamField>
+
+<ParamField path="variant" type="x_pred" default="'x_pred'">
+Sub-folder of the package to load, by default ``"x_pred"`` (the
+x-prediction rectified-flow model).
+</ParamField>
+
+<ParamField path="distilled_model" type="bool" default="True">
+Whether to use the distilled model. If True, the wrapper loads the
+distilled few-step generator (``corrdiff-era5-hrrr-distil.mdlus`` in the
+same package), which generates members in 1 or 2 sampler steps
+(``number_of_steps`` defaults to 2) at a fraction of the teacher's cost.
+Its sampling schedule is fixed by the checkpoint. If False, it loads the
+teacher sampled with 50 Heun steps, by default True
+</ParamField>
+
+**Returns:** [`DiagnosticModel`](./base.mdx#earth2studio-models-dx-base-DiagnosticModel)
+
+Loaded model.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_era5_hrrr-CorrDiffEra5Hrrr-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffEra5Hrrr.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system: HRRR crop on the native projection grid.
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinate system to transform into output_coords.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+``[batch, sample, time, variable, hrrr_y, hrrr_x]``; the 2-D latitude
+and longitude of the crop are available as ``lat_output_grid`` /
+``lon_output_grid``.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_era5_hrrr-CorrDiffEra5Hrrr-preprocess_input">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffEra5Hrrr.preprocess_input(
+    era5: torch.Tensor,
+    valid_time: datetime.datetime
+) -> tensordict.TensorDict
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Build the network conditioning for one ERA5 state.
+
+**Parameters:**
+
+<ParamField path="era5" type="torch.Tensor">
+``[n_era5, H_in, W_in]`` physical-unit ERA5 fields on the native grid.
+</ParamField>
+
+<ParamField path="valid_time" type="datetime">
+Validity time (UTC) of the state.
+</ParamField>
+
+**Returns:** `TensorDict`
+
+``cond_concat`` ``[1, n_era5 + 1 + n_inv, H, W]`` (normalized ERA5 on
+the HRRR grid, cosine zenith angle, invariants) and ``cond_vec``
+``[1, n_scalar]``.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-dx-corrdiff_era5_hrrr-CorrDiffEra5HrrrDistilled">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.corrdiff_era5_hrrr.CorrDiffEra5HrrrDistilled(
+    dit_args: dict,
+    n_grid: int = 64,
+    shift: float = 32.0,
+    t_max: float = 1.0,
+    x0v_clip: float = 0.05,
+    time_scale: float = 999.0
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_ModuleBase](#earth2studio-models-dx-corrdiff_era5_hrrr-_ModuleBase)
+
+Few-step distilled generator (Parallel Decoding Distillation) of the ERA5 -&gt; HRRR
+downscaler: the teacher's DiT backbone plus one output head per node of a fixed
+64-node time grid. One backbone evaluation at a block start yields the clean-state
+estimates of every node in the block, which the Euler rollout consumes; the trained
+block layouts are 1 step (one block of 64 intervals) and 2 steps (two blocks of 32).
+
+**Parameters:**
+
+<ParamField path="dit_args" type="dict">
+Constructor arguments of the backbone `physicsnemo.models.dit.DiT`.
+</ParamField>
+
+<ParamField path="n_grid" type="int" default="64">
+Number of grid intervals (heads). By default 64.
+</ParamField>
+
+<ParamField path="shift" type="float" default="32.0">
+Resolution shift of the time grid, ``t = shift u / (1 + (shift - 1) u)``. By default 32.
+</ParamField>
+
+<ParamField path="t_max" type="float" default="1.0">
+Noise level of the first grid node (1 = pure noise). By default 1.0.
+</ParamField>
+
+<ParamField path="x0v_clip" type="float" default="0.05">
+Floor of the time denominator in ``v = (x_t - x0_hat) / max(t, x0v_clip)``. By default 0.05.
+</ParamField>
+
+<ParamField path="time_scale" type="float" default="999.0">
+Factor applied to ``t`` before the backbone's time embedding. By default 999.
+</ParamField>
+
+<ParamField path="dit" type="= DiT(**dit_args)">
+</ParamField>
+
+<ParamField path="heads">
+</ParamField>
+
+<ParamField path="n_grid" type="= int(n_grid)">
+</ParamField>
+
+<ParamField path="shift" type="= float(shift)">
+</ParamField>
+
+<ParamField path="t_max" type="= float(t_max)">
+</ParamField>
+
+<ParamField path="time_scale" type="= float(time_scale)">
+</ParamField>
+
+<ParamField path="x0v_clip" type="= float(x0v_clip)">
+</ParamField>
+<Anchor id="earth2studio-models-dx-corrdiff_era5_hrrr-CorrDiffEra5HrrrDistilled-features">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.corrdiff_era5_hrrr.CorrDiffEra5HrrrDistilled.features(
+    x: torch.Tensor,
+    t: torch.Tensor,
+    condition: tensordict.TensorDict
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Backbone tokens ``[B, L, D]`` after the detokenizer's modulated norm.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_era5_hrrr-CorrDiffEra5HrrrDistilled-forward">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.corrdiff_era5_hrrr.CorrDiffEra5HrrrDistilled.forward(
+    noise: torch.Tensor,
+    condition: tensordict.TensorDict,
+    nfe: int = 2
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Alias of `sample`.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_era5_hrrr-CorrDiffEra5HrrrDistilled-head">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.corrdiff_era5_hrrr.CorrDiffEra5HrrrDistilled.head(
+    feats: torch.Tensor,
+    k: int
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Clean-state estimate of grid node ``k`` from the block-start features (fp32 head).
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_era5_hrrr-CorrDiffEra5HrrrDistilled-sample">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.corrdiff_era5_hrrr.CorrDiffEra5HrrrDistilled.sample(
+    noise: torch.Tensor,
+    condition: tensordict.TensorDict,
+    nfe: int = 2
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Few-step sample in normalized units: ``nfe`` blocks of ``n_grid / nfe`` intervals.
+
+Only the trained block layouts are allowed: ``nfe=1`` (one block) or ``nfe=2``
+(two blocks). Other values would run the heads at block starts they were never
+trained for, so they are rejected.
+
+</Indent>
+</Indent>

@@ -1,0 +1,126 @@
+---
+layout: overview
+title: earth2studio.lexicon.samudrace
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`SamudrACELexicon`](#earth2studio-lexicon-samudrace-SamudrACELexicon) | SamudrACE Lexicon |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-lexicon-samudrace-SamudrACELexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.samudrace.SamudrACELexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+SamudrACE Lexicon
+
+Maps Earth2Studio variable names to the variable labels used by the FME
+CoupledStepper of the SamudrACE coupled atmosphere-ocean emulator. Covers
+both the ACE2 atmosphere (CM4 model levels) and the Samudra ocean
+(depth-based naming) variables. Users may also access the
+``get_e2s_from_fme`` method to get the reverse mapping.
+
+Ocean variables use depth-based names with 'p' replacing decimal points
+(e.g. ``thetao2p5m`` for 2.5 m depth, ``so250m`` for 250 m depth).
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> from earth2studio.lexicon.samudrace import SamudrACELexicon
+>>> SamudrACELexicon["u10m"]
+("UGRD10m", <function mod at 0x...>)
+>>> SamudrACELexicon.get_e2s_from_fme("thetao_0")
+"thetao2p5m"
+```
+
+</CodeBlock>
+
+<Anchor id="earth2studio-lexicon-samudrace-SamudrACELexicon-get_e2s_from_fme">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.samudrace.SamudrACELexicon.get_e2s_from_fme(
+    val: str
+) -> str
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return name in Earth2Studio terminology.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Name in FME terminology.
+</ParamField>
+
+**Returns:** `str`
+
+Earth2Studio variable name.
+
+**Raises:**
+
+- `KeyError`: If the name is not in the SamudrACE lexicon.
+
+</Indent>
+<Anchor id="earth2studio-lexicon-samudrace-SamudrACELexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.samudrace.SamudrACELexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return name in SamudrACE/FME vocabulary.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Name in Earth2Studio terminology.
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+FME variable name and modifier function.
+
+**Raises:**
+
+- `KeyError`: If the name is not in the SamudrACE lexicon.
+
+</Indent>
+</Indent>

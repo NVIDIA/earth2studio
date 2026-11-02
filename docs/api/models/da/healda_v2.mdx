@@ -1,0 +1,347 @@
+---
+layout: overview
+title: earth2studio.models.da.healda_v2
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`HealDAv2`](#earth2studio-models-da-healda_v2-HealDAv2) | HealDA v2, a global machine-learning data-assimilation model that maps a 48-hour |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`channel_to_e2s`](#earth2studio-models-da-healda_v2-channel_to_e2s) | HealDA channel name -&gt; Earth2Studio variable name. |
+
+### API
+
+<Anchor id="earth2studio-models-da-healda_v2-HealDAv2">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.da.healda_v2.HealDAv2(
+    model: typing.Any
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+HealDA v2, a global machine-learning data-assimilation model that maps a 48-hour
+sequence of satellite and conventional observations to a 104-channel, 0.25 degree
+atmospheric analysis on a regular latitude-longitude grid.
+
+HealDA v2 is a stateless, deterministic, observation-only assimilation model. One
+analysis at time ``t`` reads an eight-frame, six-hourly window ending at ``t`` and
+every observation within three hours of each frame, i.e. observations spanning
+``[t - 45h, t + 3h]``, and returns the analysis of the last frame on the 721 x 1440
+equiangular grid.
+
+The model takes the NNJA observing system it was trained on as one wide
+DataFrame per stream, passed positionally in a fixed order,
+``model(prepbufr, gpsro, satwnd, *sensors)``: ``prepbufr`` (``u``, ``v``, ``q``,
+``t``, ``pres``), ``gpsro`` (``gps``, ``gps_refractivity``), ``satwnd`` (``u``,
+``v``), then one frame per satellite sensor in the model's sensor order (a subset
+of ``atms``, ``amsua``, ``amsub``, ``mhs``, ``airs``, ``iasi``, ``cris``).
+``input_coords()`` returns one schema per argument in the same order; a sensor
+schema's ``variable`` entry is its ``NNJAObsSat`` variable. Any source producing
+these schemas works; the NNJA sources return them with ``layout="wide"``, one
+stream per call. To reproduce training from NNJA, use
+``NNJAObsConv(original_event=True, exclude_message_types=("SATWND",),
+layout="wide")`` for ``prepbufr`` and ``gpsro``, ``NNJAObsSatwnd(layout="wide")``
+and ``NNJAObsSat(sensor_indices=model.sensor_indices, layout="wide")`` for each
+sensor; ``earth2studio.data.fetch_dataframes`` fetches them concurrently.
+
+Any stream may be ``None`` or empty, and trailing streams may be left out; the
+analysis then uses the others alone.
+Beyond the trained recipe, HealDA removes observations by its inference policy
+(``healda.observations.system.inference_filters``): channels inside dated
+denial windows, and footprints flagged by the satellite streams' provider
+quality columns.
+
+Recommended environment, set before Python starts:
+
+- ``MALLOC_ARENA_MAX=16`` keeps host memory level over repeated analyses in one
+  process.
+- ``PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`` avoids GPU out-of-memory
+  from fragmentation over repeated analyses.
+- ``OMP_NUM_THREADS=1``.
+
+**Badges:** `region:global` `class:data-assimilation` `product:wind` `product:temp` `product:atmos` `product:insitu` `product:sat` `year:2026` `gpu:80gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="model" type="healda.inference.DAModel">
+The trained network with its observation pipeline, as returned by
+``healda.inference.load_da_model``
+</ParamField>
+
+<Note>
+
+For more information see the following references:
+
+- https://github.com/NVlabs/HealDA
+- https://huggingface.co/nvidia/healda-v2
+
+</Note>
+
+<ParamField path="sensor_indices" type="dict[str, Sequence[int]]">
+IR sounder channels the model reads, for ``NNJAObsSat(sensor_indices=...)``.
+</ParamField>
+<Anchor id="earth2studio-models-da-healda_v2-HealDAv2-__call__">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.healda_v2.HealDAv2.__call__(
+    obs: pandas.DataFrame | None = ()
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Run HealDA v2 from NNJA observations.
+
+Each frame must carry a ``request_time`` entry in its ``.attrs``
+(``earth2studio.data.fetch_dataframe`` sets it) and should cover
+``[t - 45h, t + 3h]`` around each analysis time.
+
+**Parameters:**
+
+<ParamField path="*obs" type="pd.DataFrame | None" default="()">
+Wide observation frames in ``input_coords()`` order; a stream may be
+``None`` or empty and trailing streams may be left out, but at least
+one frame must be given
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Global analysis with dimensions [time, variable, lat, lon]. Data is on the
+same device as the model (cupy array for GPU, numpy for CPU).
+
+**Raises:**
+
+- `ValueError`: If no frame is given, more frames are given than streams, no frame
+carries ``request_time``, or a frame is in the long layout
+
+</Indent>
+<Anchor id="earth2studio-models-da-healda_v2-HealDAv2-build_output">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.healda_v2.HealDAv2.build_output(
+    analysis: torch.Tensor,
+    output_coords: earth2studio.utils.type.CoordSystem
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Physical-space analyses ``[time, variable, lat, lon]`` -&gt; DataArray.
+
+</Indent>
+<Anchor id="earth2studio-models-da-healda_v2-HealDAv2-create_generator">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.healda_v2.HealDAv2.create_generator() -> collections.abc.Generator[xarray.DataArray, tuple[pandas.DataFrame | None, ...], None]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Creates a generator which accepts observations and yields the analysis.
+
+</Indent>
+<Anchor id="earth2studio-models-da-healda_v2-HealDAv2-init_coords">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.healda_v2.HealDAv2.init_coords() -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Initialization coords (not required)
+
+</Indent>
+<Anchor id="earth2studio-models-da-healda_v2-HealDAv2-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.FrameSchema":"../../utils/type.mdx#earth2studio-utils-type-FrameSchema"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.healda_v2.HealDAv2.input_coords() -> tuple[earth2studio.utils.type.FrameSchema, ...]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system specifying required DataFrame fields.
+
+**Returns:** `tuple[` [`FrameSchema`](../../utils/type.mdx#earth2studio-utils-type-FrameSchema) `, ...]`
+
+The wide schema of each observation stream, one per ``__call__``
+argument: ``(prepbufr, gpsro, satwnd, *sensors)`` with the satellite
+sensors in the model's sensor order. The ``variable`` entry lists the
+variables to request; the other keys are the frame's columns
+
+</Indent>
+<Anchor id="earth2studio-models-da-healda_v2-HealDAv2-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.healda_v2.HealDAv2.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load the default HealDA v2 model package from HuggingFace.
+
+**Returns:** [`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package)
+
+Model package pointing to the HuggingFace repository
+
+</Indent>
+<Anchor id="earth2studio-models-da-healda_v2-HealDAv2-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.da.base.AssimilationModel":"./base.mdx#earth2studio-models-da-base-AssimilationModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.healda_v2.HealDAv2.load_model(
+    package: earth2studio.models.auto.Package,
+    checkpoint_name: str = 'healda_v2.checkpoint'
+) -> earth2studio.models.da.base.AssimilationModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load HealDA v2 from package.
+
+The model is built on the CPU; move it with ``.to("cuda")``, as the network
+runs on a CUDA device only, as a single unsharded process. The 0.25 degree
+recipe also fetches ERA5 static fields into the healda cache the first time it
+is built.
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Package containing the ``.checkpoint`` archive written by ``healda-train``
+</ParamField>
+
+<ParamField path="checkpoint_name" type="str" default="'healda_v2.checkpoint'">
+Name of the checkpoint file inside the package, by default
+"healda_v2.checkpoint"
+</ParamField>
+
+**Returns:** [`AssimilationModel`](./base.mdx#earth2studio-models-da-base-AssimilationModel)
+
+Loaded HealDA v2 assimilation model
+
+</Indent>
+<Anchor id="earth2studio-models-da-healda_v2-HealDAv2-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.FrameSchema":"../../utils/type.mdx#earth2studio-utils-type-FrameSchema","earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.healda_v2.HealDAv2.output_coords(
+    input_coords: tuple[earth2studio.utils.type.FrameSchema, ...],
+    request_time: numpy.ndarray | None = None,
+    kwargs: typing.Any = {}
+) -> tuple[earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system for the HealDA v2 analysis.
+
+**Parameters:**
+
+<ParamField path="input_coords" type="tuple[FrameSchema, ...]">
+`tuple[` [`FrameSchema`](../../utils/type.mdx#earth2studio-utils-type-FrameSchema) `, ...]` — Input coordinate system
+</ParamField>
+
+<ParamField path="request_time" type="np.ndarray | None" default="None">
+Analysis valid time(s), by default None
+</ParamField>
+
+**Returns:** `tuple[` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Coordinate system with time, variable, lat and lon dimensions
+
+</Indent>
+<Anchor id="earth2studio-models-da-healda_v2-HealDAv2-to">
+
+<CodeBlock links={{"earth2studio.models.da.healda_v2.HealDAv2":"#earth2studio-models-da-healda_v2-HealDAv2"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.healda_v2.HealDAv2.to(
+    device: typing.Any
+) -> earth2studio.models.da.healda_v2.HealDAv2
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Move the network and the observation pipeline to ``device``.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-models-da-healda_v2-channel_to_e2s">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.da.healda_v2.channel_to_e2s(
+    name: str
+) -> str
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+HealDA channel name -&gt; Earth2Studio variable name.
+
+</Indent>

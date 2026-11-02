@@ -1,0 +1,325 @@
+---
+layout: overview
+title: earth2studio.models.px.fuxi_s2s
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`FuXiS2S`](#earth2studio-models-px-fuxi_s2s-FuXiS2S) | FuXi-S2S global daily-mean prognostic model. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-models-px-fuxi_s2s-FuXiS2S">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.px.fuxi_s2s.FuXiS2S(
+    onnx_path: str
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin), [PrognosticMixin](./utils.mdx#earth2studio-models-px-utils-PrognosticMixin)
+
+FuXi-S2S global daily-mean prognostic model.
+
+    FuXi-S2S consumes daily means from two consecutive UTC calendar days and
+    predicts the following daily mean. A timestamp at 00:00 UTC labels the
+    corresponding calendar-day aggregate; it is not an instantaneous midnight
+    state.
+
+**Note**
+
+This model uses the ONNX checkpoint from the original publication repository. For
+    additional information see the following resources:
+
+    - https://www.nature.com/articles/s41467-024-50714-1
+    - https://github.com/tpys/FuXi-S2S
+    - https://zenodo.org/records/15718402
+    - https://huggingface.co/datasets/FudanFuXi/FuXi-S2S
+
+**Parameters**
+
+onnx_path : str
+        Path to the FuXi-S2S ONNX graph. Its external weight file named
+        ``fuxi_s2s`` must be in the same directory.
+
+**Note**
+
+Initial conditions must contain two consecutive UTC daily means on the
+    model's 1.5-degree grid. Instantaneous fields use calendar-day averages
+    from 00--23 UTC. Accumulated ``tp`` and ``ttr`` fields use the 24
+    interval-ending values from 01 UTC through 00 UTC of the following day.
+    Their daily means retain the units of each one-hour accumulation; for
+    example, multiply predicted ``tp`` by 24 to obtain a daily total.
+    Sea-surface temperature must retain ``NaN`` values over land. The wrapper
+    does not aggregate hourly fields or regrid initial conditions; callers must
+    provide these prepared daily inputs through an Earth2Studio data source.
+
+    The official ONNX graph samples flow-dependent perturbations internally, so
+    each forecast trajectory is one stochastic ensemble member. Member ``00`` in
+    the official inference script is the first stochastic member, not a
+    deterministic control.
+
+**Warning**
+
+We encourage users to familiarize themselves with the license restrictions of this
+    model's checkpoints.
+
+**Example**
+
+The following shows how to get approximate inputs from standard data
+    sources.  For formal input data consult
+https://zenodo.org/records/15718402
+
+    ```python
+    class DailyMeanARCO:
+        def __init__(self) -> None:
+            self.arco = ARCO_ERA5()
+
+        def __call__(
+            self,
+            time: datetime | list[datetime] | TimeArray,
+            variable: str | list[str] | VariableArray,
+        ) -> xr.DataArray:
+            time, variable = prep_data_inputs(time, variable)
+            daily_arrays = []
+            for day in time:
+                # Approximate daily means from 6-hourly ARCO ERA5
+                sub_daily = [day + timedelta(hours=h) for h in (0, 6, 12, 18)]
+                da_mean = self.arco(sub_daily, variable).mean("time", skipna=True)
+                daily_arrays.append(
+                    da_mean.interp(lat=S2S_LAT, lon=S2S_LON, method="linear")
+                )
+            da_out = xr.concat(daily_arrays, dim="time")
+            da_out = da_out.assign_coords(
+                time=np.array(time, dtype="datetime64[ns]")
+            )
+            return da_out
+
+    # Load the model
+    package = FuXiS2S.load_default_package()
+    model = FuXiS2S.load_model(package).to("cuda:0")
+
+    # Run a single deterministic step
+    import earth2studio.run as run
+    from earth2studio.io import ZarrBackend
+
+    io = run.deterministic(["2024-01-15"], 1, model, DailyMeanARCO(), ZarrBackend())
+    ```
+
+**Badges:** `region:global` `class:subseasonal-seasonal` `product:wind` `product:precip` `product:temp` `product:atmos` `product:ocean` `year:2024` `gpu:40gb` `backend:onnx`
+
+<Anchor id="earth2studio-models-px-fuxi_s2s-FuXiS2S-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.fuxi_s2s.FuXiS2S.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Run FuXi-S2S one daily step.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Two consecutive UTC daily means.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Coordinates describing the input tensor.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]`
+
+Predicted next daily mean and its coordinates.
+
+</Indent>
+<Anchor id="earth2studio-models-px-fuxi_s2s-FuXiS2S-create_iterator">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.fuxi_s2s.FuXiS2S.create_iterator(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> collections.abc.Iterator[tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Create a daily FuXi-S2S forecast iterator.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Two consecutive UTC daily means.
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Coordinates describing the input tensor.
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-models-px-fuxi_s2s-FuXiS2S-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.fuxi_s2s.FuXiS2S.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system of the prognostic model.
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Coordinate system for two consecutive UTC daily means.
+
+</Indent>
+<Anchor id="earth2studio-models-px-fuxi_s2s-FuXiS2S-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.fuxi_s2s.FuXiS2S.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load the FuXi-S2S package from an immutable Hugging Face mirror.
+
+**Returns:** [`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package)
+
+Package pointing to the mirrored FuXi-S2S checkpoint.
+
+<Note>
+
+The mirror contains unchanged assets from the official Zenodo record.
+The checkpoint is licensed CC BY-NC-ND 4.0 and restricted to
+non-commercial research use by its authors.
+
+</Note>
+
+</Indent>
+<Anchor id="earth2studio-models-px-fuxi_s2s-FuXiS2S-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.px.base.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.fuxi_s2s.FuXiS2S.load_model(
+    package: earth2studio.models.auto.Package
+) -> earth2studio.models.px.base.PrognosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load FuXi-S2S from an Earth2Studio package.
+
+**Parameters:**
+
+<ParamField path="package" type="Package">
+[`Package`](../auto/package.mdx#earth2studio-models-auto-package-Package) — Package containing ``fuxi_s2s.onnx`` and its external data file.
+</ParamField>
+
+**Returns:** [`PrognosticModel`](./base.mdx#earth2studio-models-px-base-PrognosticModel)
+
+Loaded FuXi-S2S prognostic wrapper.
+
+</Indent>
+<Anchor id="earth2studio-models-px-fuxi_s2s-FuXiS2S-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.fuxi_s2s.FuXiS2S.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Validate input coordinates and return the next daily coordinates.
+
+**Parameters:**
+
+<ParamField path="input_coords" type="CoordSystem">
+[`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Input coordinates with two consecutive daily lead times.
+</ParamField>
+
+**Returns:** [`CoordSystem`](../../utils/type.mdx#earth2studio-utils-type-CoordSystem)
+
+Output coordinates for the daily mean one day after the latest
+input.
+
+</Indent>
+<Anchor id="earth2studio-models-px-fuxi_s2s-FuXiS2S-to">
+
+<CodeBlock links={{"earth2studio.models.px.base.PrognosticModel":"./base.mdx#earth2studio-models-px-base-PrognosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.px.fuxi_s2s.FuXiS2S.to(
+    device: str | torch.device | int
+) -> earth2studio.models.px.base.PrognosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Move the wrapper and ONNX Runtime session to a device.
+
+**Parameters:**
+
+<ParamField path="device" type="str | torch.device | int">
+Target PyTorch device.
+</ParamField>
+
+**Returns:** [`PrognosticModel`](./base.mdx#earth2studio-models-px-base-PrognosticModel)
+
+This model on the requested device.
+
+</Indent>
+</Indent>

@@ -1,0 +1,214 @@
+---
+layout: overview
+title: earth2studio.data.mrms
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`MRMS`](#earth2studio-data-mrms-MRMS) | NOAA Multi-Radar/Multi-Sensor (MRMS) products via AWS S3. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-data-mrms-MRMS">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.mrms.MRMS(
+    max_offset_minutes: float = 10,
+    cache: bool = True,
+    verbose: bool = True,
+    max_workers: int = 24,
+    async_timeout: int = 600
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+NOAA Multi-Radar/Multi-Sensor (MRMS) products via AWS S3.
+
+This data source downloads MRMS GRIB2 files (gzipped) from the NOAA MRMS
+public S3 bucket, decompresses them into the Earth2Studio cache, and opens
+the result with pygrib. Initially, only the composite and base reflectivity
+products are supported, exposed via the Earth2Studio variable id ``refc``
+and ``refc_base``.
+
+This data source includes data where the source timestamp can have non-zero
+minutes/seconds (e.g., 12:59:59), unlike most other data sources. For
+convenience, it provides the configuration parameter ``max_offset_minutes``
+to allow for a time tolerance in minutes to search for the nearest available
+MRMS file to the requested timestamp. The actual timestamp of the source data
+is available in the returned data array as the coordinate ``actual_time_&lt;variable_id&gt;``.
+
+**Badges:** `region:na` `dataclass:observation` `product:radar` `provider:noaa`
+
+**Parameters:**
+
+<ParamField path="max_offset_minutes" type="float" default="10">
+Time tolerance in minutes to search for the nearest available MRMS
+file to the requested timestamp, by default 10 minutes.
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source in local filesystem cache, by default True.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print basic progress logs, by default True.
+</ParamField>
+
+<ParamField path="max_workers" type="int" default="24">
+Max workers in async IO thread pool for concurrent downloads, by default 24.
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Time in seconds after which the async fetch will be cancelled if not finished,
+by default 600.
+</ParamField>
+
+<Note>
+
+Additional information:
+
+- https://registry.opendata.aws/noaa-mrms-pds/
+- https://noaa-mrms-pds.s3.amazonaws.com/index.html
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can download sizable files depending on
+request volume and frequency.
+
+</Warning>
+
+<ParamField path="cache" type="str">
+Return MRMS cache directory.
+</ParamField>
+
+<Anchor id="earth2studio-data-mrms-MRMS-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.mrms.MRMS.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve MRMS data for given times and variables.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to fetch (UTC). Exact times must match available MRMS files.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Earth2Studio variable ids to return. Must be in the MRMS lexicon.
+Currently only ``refc`` is supported (composite reflectivity).
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data with dimensions ``[time, variable, y, x]``. Coordinates include
+``lat`` and ``lon`` on the same ``[y, x]`` grid when provided in the
+source file.
+
+</Indent>
+<Anchor id="earth2studio-data-mrms-MRMS-available">
+
+<CodeBlock links={{"earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.mrms.MRMS.available(
+    time: datetime.datetime | numpy.datetime64,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray,
+    max_offset_minutes: int = 10
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Check if an MRMS file exists for a given time. Only supports exact match.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | np.datetime64">
+Time to query (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Earth2Studio variable id(s). The corresponding MRMS product is derived
+from the lexicon. All variables must map to the same product.
+</ParamField>
+
+<ParamField path="max_offset_minutes" type="int" default="10">
+Time tolerance in minutes to search for the nearest available MRMS
+file to the requested timestamp, by default 0 (exact match only).
+</ParamField>
+
+**Returns:** `bool`
+
+True if the object exists in S3, else False.
+
+</Indent>
+<Anchor id="earth2studio-data-mrms-MRMS-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.mrms.MRMS.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get data
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the HRRR lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+MRMS weather data array
+
+</Indent>
+</Indent>

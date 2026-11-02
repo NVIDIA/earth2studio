@@ -1,0 +1,88 @@
+---
+layout: overview
+title: earth2studio.lexicon.ncar
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`NCAR_ERA5Lexicon`](#earth2studio-lexicon-ncar-NCAR_ERA5Lexicon) | NCAR ERA5 Lexicon |
+
+### API
+
+<Anchor id="earth2studio-lexicon-ncar-NCAR_ERA5Lexicon">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.lexicon.ncar.NCAR_ERA5Lexicon()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+NCAR ERA5 Lexicon
+S3 specified &lt;Prefix&gt;.&lt;N&gt;_&lt;ID&gt;_&lt;Name&gt;.&lt;Postfix&gt;
+
+&lt;Product ID&gt;::&lt;Variable ID N_ID_Name&gt;::&lt;Grid Type&gt;::&lt;Level Index&gt;
+
+<Note>
+
+Additional resources:
+https://registry.opendata.aws/nsf-ncar-era5/
+
+</Note>
+
+<Anchor id="earth2studio-lexicon-ncar-NCAR_ERA5Lexicon-build_vocab">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.ncar.NCAR_ERA5Lexicon.build_vocab() -> dict[str, str]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>staticmethod</Badge>
+
+Create NCAR ERA5 vocab dictionary
+
+</Indent>
+<Anchor id="earth2studio-lexicon-ncar-NCAR_ERA5Lexicon-get_item">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.lexicon.ncar.NCAR_ERA5Lexicon.get_item(
+    val: str
+) -> tuple[str, collections.abc.Callable]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Return name in NCAR ERA5 vocabulary.
+
+**Parameters:**
+
+<ParamField path="val" type="str">
+Name in Earth-2 terminology.
+</ParamField>
+
+**Returns:** `tuple[str, Callable]`
+
+NCAR ERA5 name and modifier function.
+
+</Indent>
+</Indent>

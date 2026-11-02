@@ -1,0 +1,389 @@
+---
+layout: overview
+title: earth2studio.data.cfs
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`CFSAsyncTask`](#earth2studio-data-cfs-CFSAsyncTask) | Async fetch request for a single (time, lead_time, variable) tuple. |
+| [`CFS_FX`](#earth2studio-data-cfs-CFS_FX) | NCEP Climate Forecast System v2 (CFSv2) pressure-level forecast source. |
+| [`CFS_FX_Flux`](#earth2studio-data-cfs-CFS_FX_Flux) | NCEP Climate Forecast System v2 surface-flux forecast source. |
+
+### API
+
+<Anchor id="earth2studio-data-cfs-CFSAsyncTask">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.cfs.CFSAsyncTask(
+    data_array_indices: tuple[int, int, int],
+    cfs_file_uri: str,
+    cfs_byte_offset: int,
+    cfs_byte_length: int | None,
+    cfs_submsg_index: int,
+    cfs_modifier: collections.abc.Callable
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Async fetch request for a single (time, lead_time, variable) tuple.
+
+A vector grib record packs both `UGRD` and `VGRD` into the same byte range;
+in that case the two siblings share `cfs_byte_offset` / `cfs_byte_length`
+and disambiguate via `cfs_submsg_index` (1-based pygrib message index
+within the cached byte-range file).
+
+</Indent>
+
+<Anchor id="earth2studio-data-cfs-CFS_FX">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.cfs.CFS_FX(
+    member: int = 1,
+    source: str = 'nomads',
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    async_workers: int | None = None,
+    retries: int = 3
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+NCEP Climate Forecast System v2 (CFSv2) pressure-level forecast source.
+
+CFSv2 is NCEP's operational coupled atmosphere-ocean-land-cryosphere
+forecast system. Each 6-hour cycle launches four ensemble members (1-4)
+that integrate forward in 6-hour steps; member 1 of selected cycles runs
+out to roughly 9 months. This data source exposes the `pgbf` product
+(pressure-level atmosphere, 1 degree regular lat-lon, 181 x 360).
+
+**Badges:** `region:global` `dataclass:simulation` `product:wind` `product:temp` `product:atmos` `provider:noaa`
+
+**Parameters:**
+
+<ParamField path="member" type="int" default="1">
+CFS ensemble member, one of &#123;1, 2, 3, 4&#125;, by default 1.
+</ParamField>
+
+<ParamField path="source" type="str" default="'nomads'">
+Backing store: ``"nomads"`` (default; NCEP's official real-time
+distribution, rolling ~7-day window) or ``"aws"`` (NOAA Big Data
+Program mirror at `s3://noaa-cfs-pds/`, anonymous, archive back to
+2023-04-22).
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True.
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Total timeout in seconds for the entire fetch operation, by default 600.
+</ParamField>
+
+<ParamField path="async_workers" type="int" default="None">
+Maximum number of concurrent downloads. By default None, which
+autoscales to the number of download tasks (capped at 64).
+</ParamField>
+
+<ParamField path="retries" type="int" default="3">
+Number of retry attempts per failed fetch task with exponential
+backoff, by default 3.
+</ParamField>
+
+<Note>
+
+The NOMADS rolling window keeps roughly the last seven days of cycles
+online; for older initial conditions use ``source="aws"``. Members 2-4
+integrate to substantially shorter lead times than member 1; the lead-time
+validator caps requests at 180 days regardless of member, but requests
+past a given member's actual horizon will raise `FileNotFoundError` at
+fetch time.
+Additional information on the data repository:
+
+- https://www.nco.ncep.noaa.gov/pmb/products/cfs/
+- https://registry.opendata.aws/noaa-cfs/
+- https://nomads.ncep.noaa.gov/pub/data/nccf/com/cfs/prod/
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount
+of data to your local machine for large requests.
+
+</Warning>
+
+<ParamField path="cache" type="str">
+Return the on-disk cache location for this instance.
+</ParamField>
+
+<Anchor id="earth2studio-data-cfs-CFS_FX-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.cfs.CFS_FX.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve CFS forecast data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Initial-condition timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="lead_time" type="timedelta | list[timedelta] | LeadTimeArray">
+`timedelta | list[timedelta] |` [`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Forecast lead times to fetch (6-hour increments).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variable identifier(s). Must be in the source's lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+CFS forecast data array with dimensions
+``[time, lead_time, variable, lat, lon]``.
+
+</Indent>
+<Anchor id="earth2studio-data-cfs-CFS_FX-available">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.cfs.CFS_FX.available(
+    time: datetime.datetime | numpy.datetime64,
+    member: int = 1
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Check whether a given CFS initial condition is available on AWS.
+
+Uses the public AWS PDS bucket (the most complete public archive)
+rather than NOMADS, so this works regardless of the rolling-window
+cutoff on the NCEP server.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | np.datetime64">
+Initial-condition date time to check.
+</ParamField>
+
+<ParamField path="member" type="int" default="1">
+CFS member to check, by default 1.
+</ParamField>
+
+**Returns:** `bool`
+
+Whether the cycle directory exists in the AWS bucket.
+
+</Indent>
+<Anchor id="earth2studio-data-cfs-CFS_FX-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.cfs.CFS_FX.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get CFS forecast data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Initial-condition timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="lead_time" type="timedelta | list[timedelta] | LeadTimeArray">
+`timedelta | list[timedelta] |` [`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Forecast lead times to fetch (6-hour increments).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variable identifier(s). Must be in the source's lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+CFS forecast data array.
+
+</Indent>
+<Anchor id="earth2studio-data-cfs-CFS_FX-fetch_array">
+
+<CodeBlock links={{"earth2studio.data.cfs.CFSAsyncTask":"#earth2studio-data-cfs-CFSAsyncTask"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.cfs.CFS_FX.fetch_array(
+    task: earth2studio.data.cfs.CFSAsyncTask
+) -> numpy.ndarray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Fetch a single grib record from the remote CFS store.
+
+**Parameters:**
+
+<ParamField path="task" type="CFSAsyncTask">
+[`CFSAsyncTask`](#earth2studio-data-cfs-CFSAsyncTask) — Task describing the URI, byte range, target grib short name, and
+value modifier.
+</ParamField>
+
+**Returns:** `np.ndarray`
+
+Decoded 2-D grib field, with `task.cfs_modifier` applied.
+
+</Indent>
+<Anchor id="earth2studio-data-cfs-CFS_FX-fetch_wrapper">
+
+<CodeBlock links={{"earth2studio.data.cfs.CFSAsyncTask":"#earth2studio-data-cfs-CFSAsyncTask"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.cfs.CFS_FX.fetch_wrapper(
+    task: earth2studio.data.cfs.CFSAsyncTask,
+    xr_array: xarray.DataArray
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Unpack a task, fetch with retry, and write into the output array.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-cfs-CFS_FX_Flux">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.cfs.CFS_FX_Flux()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [CFS_FX](#earth2studio-data-cfs-CFS_FX)
+
+NCEP Climate Forecast System v2 surface-flux forecast source.
+
+Identical access pattern to `CFS_FX` but exposes the ``flxf``
+product, which carries surface and near-surface diagnostic fields on the
+native T126 Gaussian grid (190 x 384). Use this source for surface fluxes
+(sensible/latent heat, radiation, precipitation rate), boundary-layer
+diagnostics, and cloud-cover summaries.
+
+**Badges:** `region:global` `dataclass:simulation` `product:wind` `product:precip` `product:temp` `provider:noaa` `product:atmos` `product:land`
+
+**Parameters:**
+
+<ParamField path="member" type="int" default="1">
+CFS ensemble member, one of &#123;1, 2, 3, 4&#125;, by default 1.
+</ParamField>
+
+<ParamField path="source" type="str" default="'nomads'">
+Backing store: ``"nomads"`` (default) or ``"aws"``.
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True.
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True.
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Total timeout in seconds for the entire fetch operation, by default 600.
+</ParamField>
+
+<ParamField path="async_workers" type="int" default="None">
+Maximum number of concurrent downloads. By default None, which
+autoscales to the number of download tasks (capped at 64).
+</ParamField>
+
+<ParamField path="retries" type="int" default="3">
+Number of retry attempts per failed fetch task with exponential
+backoff, by default 3.
+</ParamField>
+
+<Note>
+
+The Gaussian latitude axis is non-uniform; values are the roots of the
+Legendre polynomial of degree 190 mapped through ``arcsin``. Downstream
+consumers expecting an equiangular grid will need to regrid first.
+Additional information on the data repository:
+
+- https://www.nco.ncep.noaa.gov/pmb/products/cfs/
+- https://registry.opendata.aws/noaa-cfs/
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount
+of data to your local machine for large requests.
+
+</Warning>
+
+</Indent>

@@ -1,0 +1,101 @@
+---
+layout: overview
+title: earth2studio.io.base
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`IOBackend`](#earth2studio-io-base-IOBackend) | Interface for a generic IO backend. |
+
+### API
+
+<Anchor id="earth2studio-io-base-IOBackend">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.io.base.IOBackend()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Protocol</Badge>
+
+Interface for a generic IO backend.
+
+<Anchor id="earth2studio-io-base-IOBackend-add_array">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.base.IOBackend.add_array(
+    coords: earth2studio.utils.type.CoordSystem,
+    array_name: str | list[str],
+    kwargs: dict[str, typing.Any] = {}
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Add an array with `array_name` to the existing IO backend object.
+
+**Parameters:**
+
+<ParamField path="coords" type="OrderedDict">
+Ordered dictionary of representing the dimensions and coordinate data
+of x.
+</ParamField>
+
+<ParamField path="array_name" type="str">
+Name of the arrays that will be initialized with coordinates as dimensions.
+</ParamField>
+
+<ParamField path="kwargs" type="dict[str, Any]" default="&#123;&#125;">
+Optional keyword arguments that will be passed to the IO backend constructor.
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-io-base-IOBackend-write">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.base.IOBackend.write(
+    x: torch.Tensor | list[torch.Tensor],
+    coords: earth2studio.utils.type.CoordSystem,
+    array_name: str | list[str]
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Write data to the current backend using the passed array_name.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor | list[torch.Tensor]">
+Tensor(s) to be written to zarr store.
+</ParamField>
+
+<ParamField path="coords" type="OrderedDict">
+Coordinates of the passed data.
+</ParamField>
+
+<ParamField path="array_name" type="str | list[str]">
+Name(s) of the array(s) that will be written to.
+</ParamField>
+
+</Indent>
+</Indent>

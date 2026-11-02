@@ -1,0 +1,325 @@
+---
+layout: overview
+title: earth2studio.data.meteosat_fci
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`MeteosatFCI`](#earth2studio-data-meteosat_fci-MeteosatFCI) | EUMETSAT MTG-I FCI Level-1C Full Disk calibrated radiance data source. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-data-meteosat_fci-MeteosatFCI">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.meteosat_fci.MeteosatFCI(
+    resolution: typing.Literal['2km', '1km', '500m'] = '2km',
+    lat_lon_bbox: tuple[tuple[float, float], tuple[float, float]] | None = None,
+    pixel_bbox: tuple[tuple[int, int], tuple[int, int]] | None = None,
+    flip_north_south: bool = False,
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 1200,
+    retries: int = 3
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+EUMETSAT MTG-I FCI Level-1C Full Disk calibrated radiance data source.
+
+This data source provides access to Meteosat Third Generation (MTG)
+Flexible Combined Imager (FCI) Level-1C Full Disk products via the
+EUMETSAT Data Store. The 16 spectral channels in the Full Disk High
+Spectral Imagery (FDHSI) product cover visible, near-IR, water-vapour and
+infrared bands at 1 km or 2 km nadir resolution. Four channels are also
+available in the High Resolution Fast Imagery (HRFI) product at 500 m or
+1 km. Variables are read from either collection depending on which resolution
+is set.
+
+**Badges:** `region:eu` `region:af` `dataclass:observation` `product:sat` `provider:eumetsat`
+
+**Parameters:**
+
+<ParamField path="resolution" type="Literal['2km', '1km', '500m']" default="'2km'">
+Grid resolution — ``'2km'``, ``'1km'``, or ``'500m'``. FDHSI channels
+are available at ``'2km'`` (IR/WV bands) or ``'1km'`` (VIS/NIR bands);
+HRFI channels are available at ``'1km'`` or ``'500m'``. By default
+``'2km'``.
+</ParamField>
+
+<ParamField path="lat_lon_bbox" type="tuple[tuple[float, float], tuple[float, float]] | None" default="None">
+Bounding box ``((lat_min, lat_max), (lon_min, lon_max))`` in degrees to
+crop the full-disk image. Only BODY segments that overlap the requested
+latitude range are read, saving disk and memory. When ``None`` the full
+disk is returned, by default None
+</ParamField>
+
+<ParamField path="pixel_bbox" type="tuple[tuple[int, int], tuple[int, int]] | None" default="None">
+Bounding box ``((row_start, row_end), (col_start, col_end))`` in pixel
+coordinates (native FCI order: row 0 = south, end-exclusive) to crop
+the full-disk image. Mutually exclusive with ``lat_lon_bbox``. When
+``None`` the full disk is returned, by default None
+</ParamField>
+
+<ParamField path="flip_north_south" type="bool" default="False">
+When ``True`` the output array row 0 is north and latitude increases
+downward (conventional image orientation).  When ``False`` (the
+default) the native FCI convention is preserved: row 0 is south and
+latitude increases upward.
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache downloaded products on local disk, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="1200">
+Total timeout in seconds for the entire fetch operation,
+by default 1200
+</ParamField>
+
+<ParamField path="retries" type="int" default="3">
+Number of retry attempts per failed fetch task with
+exponential backoff, by default 3
+</ParamField>
+
+<Note>
+
+Requires EUMETSAT Data Store credentials. Set the following environment
+variables:
+
+- ``EUMETSAT_CONSUMER_KEY``: Your EUMETSAT API consumer key
+- ``EUMETSAT_CONSUMER_SECRET``: Your EUMETSAT API consumer secret
+
+Register at https://eoportal.eumetsat.int/ to obtain credentials.
+Additional information on the data repository:
+
+- https://data.eumetsat.int/product/EO:EUM:DAT:0662
+- https://user.eumetsat.int/resources/user-guides/mtg-fci-level-1c-data-guide
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount
+of data to your local machine for large requests.
+
+</Warning>
+
+<ParamField path="cache" type="str">
+Return appropriate cache location.
+</ParamField>
+<Anchor id="earth2studio-data-meteosat_fci-MeteosatFCI-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.meteosat_fci.MeteosatFCI.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve MTG FCI data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variables to return.  Must be in the ``MeteosatFCILexicon``.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data array with dimensions ``[time, variable, y, x]``.
+
+</Indent>
+<Anchor id="earth2studio-data-meteosat_fci-MeteosatFCI-available">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.meteosat_fci.MeteosatFCI.available(
+    time: datetime.datetime | numpy.datetime64
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Check if a given datetime is available.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | np.datetime64">
+Date time to check
+</ParamField>
+
+**Returns:** `bool`
+
+Whether the requested date time is available.
+
+</Indent>
+<Anchor id="earth2studio-data-meteosat_fci-MeteosatFCI-available_variables">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.meteosat_fci.MeteosatFCI.available_variables() -> set[str]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Return variables available at the current resolution.
+
+**Returns:** `set`
+
+Set of strings indicating the variables available at the resolution
+passed to the constructor.
+
+</Indent>
+<Anchor id="earth2studio-data-meteosat_fci-MeteosatFCI-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.meteosat_fci.MeteosatFCI.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to retrieve MTG FCI data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Variables to return.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data array with dimensions ``[time, variable, y, x]``.
+
+</Indent>
+<Anchor id="earth2studio-data-meteosat_fci-MeteosatFCI-grid">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.meteosat_fci.MeteosatFCI.grid(
+    resolution: typing.Literal['2km', '1km', '500m'] = '2km'
+) -> tuple[numpy.ndarray, numpy.ndarray]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>staticmethod</Badge>
+
+Return (lat, lon) in degrees for the native MTG FCI grid.
+
+**Parameters:**
+
+<ParamField path="resolution" type="Literal['2km', '1km', '500m']" default="'2km'">
+Grid resolution — ``'2km'``, ``'1km'``, or ``'500m'``, by default
+``'2km'``
+</ParamField>
+
+**Returns:** `tuple[np.ndarray, np.ndarray]`
+
+``(lat, lon)`` arrays of shape ``(_GRID_SIZE[resolution])`` in
+degrees.  Off-Earth pixels are NaN.
+
+</Indent>
+<Anchor id="earth2studio-data-meteosat_fci-MeteosatFCI-projection_extent">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.meteosat_fci.MeteosatFCI.projection_extent(
+    resolution: typing.Literal['2km', '1km', '500m'] = '2km',
+    pixel_bbox: tuple[tuple[int, int], tuple[int, int]] | None = None
+) -> tuple[float, float, float, float]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>staticmethod</Badge>
+
+Return the geostationary projection extent in metres for plotting.
+
+Computes the ``(x_min, x_max, y_min, y_max)`` extent of the FCI
+grid in native geostationary projection coordinates.  This is
+useful for plotting with ``imshow`` on a
+`cartopy.crs.Geostationary` axis.
+
+**Parameters:**
+
+<ParamField path="resolution" type="Literal['2km', '1km', '500m']" default="'2km'">
+Grid resolution — ``'2km'``, ``'1km'``, or ``'500m'``, by default
+``'2km'``
+</ParamField>
+
+<ParamField path="pixel_bbox" type="tuple[tuple[int, int], tuple[int, int]] | None" default="None">
+Bounding box ``((row_start, row_end), (col_start, col_end))`` in
+pixel coordinates, matching the ``pixel_bbox`` argument accepted
+by the `MeteosatFCI` constructor. When provided, the
+extent is computed for this cropped sub-region of the full disk
+rather than the full disk itself. By default None (full disk).
+</ParamField>
+
+**Returns:** `tuple[float, float, float, float]`
+
+``(x_min, x_max, y_min, y_max)`` in metres.
+
+</Indent>
+</Indent>

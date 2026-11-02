@@ -1,0 +1,298 @@
+---
+layout: overview
+title: earth2studio.serve.server.e2workflow
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`AutoParameters`](#earth2studio-serve-server-e2workflow-AutoParameters) | Automatically: |
+| [`BackendProgress`](#earth2studio-serve-server-e2workflow-BackendProgress) | Wrap an IOBackend to automatically update writing progress to API server. |
+| [`Earth2Workflow`](#earth2studio-serve-server-e2workflow-Earth2Workflow) | Base class for implementing workflows in Earth2Studio that can be served as APIs. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+| [`func_to_model`](#earth2studio-serve-server-e2workflow-func_to_model) | Create a Pydantic model from function call signature |
+
+### API
+
+<Anchor id="earth2studio-serve-server-e2workflow-AutoParameters">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.e2workflow.AutoParameters()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Abstract</Badge>
+
+**Bases:** `ABCMeta`
+
+Automatically:
+- Assign the ``name`` attribute of the class to ``__name__`` if not set.
+- Create Pydantic model corresponding to the ``__init__`` signature of the class
+  and assign it to the Config attribute.
+- Create Pydantic model corresponding to the ``__call__`` signature of the class
+  and assign it to the Parameters attribute.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-server-e2workflow-BackendProgress">
+
+<CodeBlock links={{"earth2studio.io.IOBackend":"../../io/base.mdx#earth2studio-io-base-IOBackend","earth2studio.serve.server.e2workflow.Earth2Workflow":"#earth2studio-serve-server-e2workflow-Earth2Workflow"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.e2workflow.BackendProgress(
+    io: earth2studio.io.IOBackend,
+    workflow: earth2studio.serve.server.e2workflow.Earth2Workflow,
+    execution_id: str,
+    progress_dim: str = 'lead_time'
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Wrap an IOBackend to automatically update writing progress to API server.
+
+<Anchor id="earth2studio-serve-server-e2workflow-BackendProgress-__getattr__">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.e2workflow.BackendProgress.__getattr__(
+    name: str
+) -> typing.Any
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Allow passthrough of unwrapped attributes.
+
+</Indent>
+<Anchor id="earth2studio-serve-server-e2workflow-BackendProgress-__getitem__">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.e2workflow.BackendProgress.__getitem__(
+    key: str
+) -> typing.Any
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Allow subscripting to access underlying io object.
+
+</Indent>
+<Anchor id="earth2studio-serve-server-e2workflow-BackendProgress-add_array">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.e2workflow.BackendProgress.add_array(
+    coords: earth2studio.utils.type.CoordSystem,
+    array_name: str | list[str],
+    kwargs: dict[str, typing.Any] = {}
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Add array and initialize progress report.
+
+</Indent>
+<Anchor id="earth2studio-serve-server-e2workflow-BackendProgress-write">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.e2workflow.BackendProgress.write(
+    x: torch.Tensor | list[torch.Tensor],
+    coords: earth2studio.utils.type.CoordSystem,
+    array_name: str | list[str]
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Write results and log progress.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-serve-server-e2workflow-Earth2Workflow">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.server.e2workflow.Earth2Workflow()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [Workflow](./workflow.mdx#earth2studio-serve-server-workflow-Workflow)
+
+Base class for implementing workflows in Earth2Studio that can be served as APIs.
+
+<Anchor id="earth2studio-serve-server-e2workflow-Earth2Workflow-__call__">
+
+<CodeBlock links={{"earth2studio.io.IOBackend":"../../io/base.mdx#earth2studio-io-base-IOBackend"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.e2workflow.Earth2Workflow.__call__(
+    io: earth2studio.io.IOBackend
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>abstract</Badge>
+
+Subclasses must implement the workflow logic in the __call__ method.
+The method must accept an IOBackend in the ``io`` argument to store
+the results.
+
+</Indent>
+<Anchor id="earth2studio-serve-server-e2workflow-Earth2Workflow-run">
+
+<CodeBlock links={{"earth2studio.serve.server.workflow.WorkflowParameters":"./workflow.mdx#earth2studio-serve-server-workflow-WorkflowParameters"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.e2workflow.Earth2Workflow.run(
+    parameters: dict[str, typing.Any] | earth2studio.serve.server.workflow.WorkflowParameters,
+    execution_id: str
+) -> dict[str, typing.Any]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Run custom workflow.
+
+Chooses Zarr vs NetCDF output from ``paths.output_format`` in server config.
+If the workflow's ``__call__`` defines an ``output_format`` parameter, a value
+sent in the API request overrides the server default; if the client omits it,
+the server default is used.
+
+</Indent>
+<Anchor id="earth2studio-serve-server-e2workflow-Earth2Workflow-update_progress">
+
+<CodeBlock links={{"earth2studio.serve.server.workflow.WorkflowProgress":"./workflow.mdx#earth2studio-serve-server-workflow-WorkflowProgress"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.e2workflow.Earth2Workflow.update_progress(
+    progress: earth2studio.serve.server.workflow.WorkflowProgress
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Update workflow execution progress.
+
+This method is intended for child workflows to update progress
+information during execution. It uses the execution_id stored
+during the run() method.
+
+If execution_id is not set (e.g., when running outside the API server),
+this method is a no-op and silently returns without updating progress.
+
+**Parameters:**
+
+<ParamField path="progress" type="WorkflowProgress">
+[`WorkflowProgress`](./workflow.mdx#earth2studio-serve-server-workflow-WorkflowProgress) — WorkflowProgress object containing progress information to update.
+</ParamField>
+
+**Examples:**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+>>> progress = WorkflowProgress(
+...     progress="Processing data...",
+...     current_step=5,
+...     total_steps=10
+... )
+>>> self.update_progress(progress)
+```
+
+</CodeBlock>
+
+</Indent>
+<Anchor id="earth2studio-serve-server-e2workflow-Earth2Workflow-validate_parameters">
+
+<CodeBlock links={{"earth2studio.serve.server.workflow.WorkflowParameters":"./workflow.mdx#earth2studio-serve-server-workflow-WorkflowParameters"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.e2workflow.Earth2Workflow.validate_parameters(
+    parameters: dict[str, typing.Any] | earth2studio.serve.server.workflow.WorkflowParameters
+) -> earth2studio.serve.server.workflow.WorkflowParameters
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Validate and convert input parameters
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-serve-server-e2workflow-func_to_model">
+
+<CodeBlock links={{"earth2studio.serve.server.workflow.WorkflowParameters":"./workflow.mdx#earth2studio-serve-server-workflow-WorkflowParameters"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.server.e2workflow.func_to_model(
+    function: collections.abc.Callable,
+    model_name: str = 'Parameters',
+    exclude_params: set = set(),
+    base: type[earth2studio.serve.server.workflow.WorkflowParameters] = WorkflowParameters
+) -> type[earth2studio.serve.server.workflow.WorkflowParameters]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Create a Pydantic model from function call signature
+
+</Indent>

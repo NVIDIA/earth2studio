@@ -1,0 +1,265 @@
+---
+layout: overview
+title: earth2studio.data.nclimgrid
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`NClimGridDaily`](#earth2studio-data-nclimgrid-NClimGridDaily) | NOAA NClimGrid daily gridded climate data source. |
+| [`NClimGridDailyAsyncTask`](#earth2studio-data-nclimgrid-NClimGridDailyAsyncTask) | Async task for a single NClimGridDaily fetch operation. |
+
+### API
+
+<Anchor id="earth2studio-data-nclimgrid-NClimGridDaily">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.nclimgrid.NClimGridDaily(
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+NOAA NClimGrid daily gridded climate data source.
+
+NClimGrid provides daily CONUS gridded temperature and precipitation data
+on a ~1/24 degree (~0.0417°) latitude/longitude grid. Data spans from
+1951 to the present and is stored as monthly NetCDF files on AWS S3.
+
+Available variables: t2m_max, t2m_min, t2m (daily avg), tp (precipitation).
+
+**Badges:** `region:na` `dataclass:observation` `product:temp` `product:precip` `provider:noaa`
+
+**Parameters:**
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Total timeout in seconds for the entire fetch operation,
+by default 600
+</ParamField>
+
+<Note>
+
+Additional information on the data repository:
+
+- https://www.ncei.noaa.gov/products/land-based-station/nclimgrid-daily
+- https://registry.opendata.aws/noaa-nclimgrid/
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of data
+to your local machine for large requests.
+
+</Warning>
+
+<ParamField path="cache" type="str">
+Get the appropriate cache location.
+</ParamField>
+
+<Anchor id="earth2studio-data-nclimgrid-NClimGridDaily-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.nclimgrid.NClimGridDaily.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Function to get NClimGrid data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Canonical Earth2Studio variable name(s). Must be in the
+NClimGridLexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+NClimGrid weather data array with dimensions [time, variable, lat, lon].
+
+</Indent>
+<Anchor id="earth2studio-data-nclimgrid-NClimGridDaily-available">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.nclimgrid.NClimGridDaily.available(
+    time: datetime.datetime | numpy.datetime64
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Check if given date time is available.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | np.datetime64">
+Date time to check.
+</ParamField>
+
+**Returns:** `bool`
+
+If date time is available.
+
+</Indent>
+<Anchor id="earth2studio-data-nclimgrid-NClimGridDaily-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.nclimgrid.NClimGridDaily.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get NClimGrid data.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — Canonical Earth2Studio variable name(s). Must be in the
+NClimGridLexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+NClimGrid weather data array with dimensions [time, variable, lat, lon].
+
+</Indent>
+<Anchor id="earth2studio-data-nclimgrid-NClimGridDaily-fetch_array">
+
+<CodeBlock links={{"earth2studio.data.nclimgrid.NClimGridDailyAsyncTask":"#earth2studio-data-nclimgrid-NClimGridDailyAsyncTask"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.nclimgrid.NClimGridDaily.fetch_array(
+    task: earth2studio.data.nclimgrid.NClimGridDailyAsyncTask
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Fetch a single variable/time slice from remote store.
+
+**Parameters:**
+
+<ParamField path="task" type="NClimGridDailyAsyncTask">
+[`NClimGridDailyAsyncTask`](#earth2studio-data-nclimgrid-NClimGridDailyAsyncTask) — Task with all fetch metadata.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Data array with dimensions [time, variable, lat, lon].
+
+</Indent>
+<Anchor id="earth2studio-data-nclimgrid-NClimGridDaily-fetch_wrapper">
+
+<CodeBlock links={{"earth2studio.data.nclimgrid.NClimGridDailyAsyncTask":"#earth2studio-data-nclimgrid-NClimGridDailyAsyncTask"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.nclimgrid.NClimGridDaily.fetch_wrapper(
+    task: earth2studio.data.nclimgrid.NClimGridDailyAsyncTask
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Unpack task, fetch data, and return as a single-element DataArray.
+
+**Parameters:**
+
+<ParamField path="task" type="NClimGridDailyAsyncTask">
+[`NClimGridDailyAsyncTask`](#earth2studio-data-nclimgrid-NClimGridDailyAsyncTask) — Task with all fetch metadata.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Single time/variable slice with dims [time, variable, lat, lon].
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-nclimgrid-NClimGridDailyAsyncTask">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.nclimgrid.NClimGridDailyAsyncTask(
+    time_index: int,
+    variable_index: int,
+    variable_id: str,
+    native_key: str,
+    modifier: collections.abc.Callable,
+    nc_uri: str,
+    target_date: numpy.datetime64
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Async task for a single NClimGridDaily fetch operation.
+
+</Indent>

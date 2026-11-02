@@ -1,0 +1,339 @@
+---
+layout: overview
+title: earth2studio.data.wb2
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`WB2Climatology`](#earth2studio-data-wb2-WB2Climatology) | Climatology provided by WeatherBench2, |
+| [`WB2ERA5`](#earth2studio-data-wb2-WB2ERA5) | ERA5 reanalysis data with several derived variables on a 0.25 degree lat-lon grid |
+| [`WB2ERA5_121x240`](#earth2studio-data-wb2-WB2ERA5_121x240) | ERA5 reanalysis data with several derived variables down sampled to a 1.5 degree |
+| [`WB2ERA5_32x64`](#earth2studio-data-wb2-WB2ERA5_32x64) | ERA5 reanalysis data with several derived variables down sampled to a 5.625 degree |
+
+### API
+
+<Anchor id="earth2studio-data-wb2-WB2Climatology">
+
+<CodeBlock links={{"earth2studio.data.wb2.ClimatologyZarrStore":"#earth2studio-data-wb2-ClimatologyZarrStore"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.wb2.WB2Climatology(
+    climatology_zarr_store: earth2studio.data.wb2.ClimatologyZarrStore = '1990-2017_6h_1440x721.zarr',
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_WB2Base](#earth2studio-data-wb2-_WB2Base)
+
+Climatology provided by WeatherBench2,
+
+|    A climatology is used for e.g. computing anomaly metrics such as the ACC.
+|    For WeatherBench 2, the climatology was computed using a running window for
+|    smoothing (see paper and script) for each day of year and sixth hour of day.
+|    We have computed climatologies for 1990-2017 and 1990-2019.
+
+**Badges:** `region:global` `dataclass:reanalysis` `dataset:era5` `product:wind` `product:precip` `product:temp` `product:atmos` `provider:google`
+
+**Parameters:**
+
+<ParamField path="climatology_zarr_store" type="ClimatologyZarrStore" default="'1990-2017_6h_1440x721.zarr'">
+[`ClimatologyZarrStore`](#earth2studio-data-wb2-ClimatologyZarrStore) — Stores within `gs://weatherbench2/datasets/era5-hourly-climatology/` to select
+As of 05/03/2024 this is the following list of available files:
+
+- 1990-2017_6h_1440x721.zarr
+- 1990-2017_6h_512x256_equiangular_conservative.zarr
+- 1990-2017_6h_240x121_equiangular_with_poles_conservative.zarr
+- 1990-2017_6h_64x32_equiangular_conservative.zarr
+- 1990-2019_6h_1440x721.zarr
+- 1990-2019_6h_512x256_equiangular_conservative.zarr
+- 1990-2019_6h_240x121_equiangular_with_poles_conservative.zarr
+- 1990-2019_6h_64x32_equiangular_conservative.zarr
+
+by default `1990-2019_6h_1440x721.zarr`
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Time in sec after which download will be cancelled if not finished successfully,
+by default 600
+</ParamField>
+
+<Note>
+
+Additional information on the data repository can be referenced here:
+
+- https://weatherbench2.readthedocs.io/en/latest/data-guide.html#era5-climatology
+- https://arxiv.org/abs/2308.15560
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of data
+to your local machine for large requests.
+
+</Warning>
+
+<Anchor id="earth2studio-data-wb2-WB2Climatology-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.wb2.WB2Climatology.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get data
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the WB2 Climatology lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+ERA5 weather data array from weather bench 2
+
+</Indent>
+<Anchor id="earth2studio-data-wb2-WB2Climatology-fetch_array">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.wb2.WB2Climatology.fetch_array(
+    time: datetime.datetime,
+    variable: str
+) -> numpy.ndarray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Fetches requested array from remote store
+
+**Parameters:**
+
+<ParamField path="time" type="datetime">
+Time to fetch
+</ParamField>
+
+<ParamField path="variable" type="str">
+Variable to fetch
+</ParamField>
+
+**Returns:** `np.ndarray`
+
+Data
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-wb2-WB2ERA5">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.wb2.WB2ERA5(
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_WB2Base](#earth2studio-data-wb2-_WB2Base)
+
+ERA5 reanalysis data with several derived variables on a 0.25 degree lat-lon grid
+from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels. Provided by the
+WeatherBench2 data repository.
+
+**Badges:** `region:global` `dataclass:reanalysis` `dataset:era5` `product:wind` `product:precip` `product:temp` `product:atmos` `provider:google`
+
+**Parameters:**
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Time in sec after which download will be cancelled if not finished successfully,
+by default 600
+</ParamField>
+
+<Note>
+
+Additional information on the data repository can be referenced here:
+
+- https://weatherbench2.readthedocs.io/en/latest/data-guide.html#era5
+- https://arxiv.org/abs/2308.15560
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of data
+to your local machine for large requests.
+
+</Warning>
+
+</Indent>
+
+<Anchor id="earth2studio-data-wb2-WB2ERA5_121x240">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.wb2.WB2ERA5_121x240(
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_WB2Base](#earth2studio-data-wb2-_WB2Base)
+
+ERA5 reanalysis data with several derived variables down sampled to a 1.5 degree
+lat-lon grid from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels.
+Provided by the WeatherBench2 data repository.
+
+**Badges:** `region:global` `dataclass:reanalysis` `dataset:era5` `product:wind` `product:precip` `product:temp` `product:atmos` `provider:google`
+
+**Parameters:**
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Time in sec after which download will be cancelled if not finished successfully,
+by default 600
+</ParamField>
+
+<Note>
+
+Additional information on the data repository can be referenced here:
+
+- https://weatherbench2.readthedocs.io/en/latest/data-guide.html#era5
+- https://arxiv.org/abs/2308.15560
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of data
+to your local machine for large requests.
+
+</Warning>
+
+</Indent>
+
+<Anchor id="earth2studio-data-wb2-WB2ERA5_32x64">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.wb2.WB2ERA5_32x64(
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [_WB2Base](#earth2studio-data-wb2-_WB2Base)
+
+ERA5 reanalysis data with several derived variables down sampled to a 5.625 degree
+lat-lon grid from 1959 to 2023 (incl) to 6 hour intervals on 13 pressure levels.
+Provided by the WeatherBench2 data repository.
+
+**Badges:** `region:global` `dataclass:reanalysis` `dataset:era5` `product:wind` `product:precip` `product:temp` `product:atmos` `provider:google`
+
+**Parameters:**
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Time in sec after which download will be cancelled if not finished successfully,
+by default 600
+</ParamField>
+
+<Note>
+
+Additional information on the data repository can be referenced here:
+
+- https://weatherbench2.readthedocs.io/en/latest/data-guide.html#era5
+- https://arxiv.org/abs/2308.15560
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of data
+to your local machine for large requests.
+
+</Warning>
+
+</Indent>

@@ -1,0 +1,569 @@
+---
+layout: overview
+title: earth2studio.models.dx.corrdiff_cosmo_era5
+---
+COSMO-REA downscaling diagnostic models (ERA5 -&gt; COSMO-REA6 / REA2).
+
+Earth2Studio `DiagnosticModel` wrapper for the ``corrdiff-cosmo-era5``
+package. One class: ``mode`` selects mean (deterministic) or diffusion (sampled
+with the EDM/Karras scheme); ``resolution`` selects the rea6/rea2 checkpoint. Both
+modes use a DiT-RoPE network (a diffusion transformer with rotary position
+embeddings) at a fixed output resolution; the network is crop-size agnostic, so a
+sub-region of any size runs in a single forward.
+
+Domain handling:
+
+* The model consumes an ERA5 crop and downscales onto a **rotated-pole** target
+  grid. ``time`` is a leading coordinate dimension (not folded into batch)
+  because the solar-zenith conditioning channel depends on the validity time.
+* The package ships the **native** trained grid + static invariants verbatim, plus
+  an **extended** grid + invariants covering a margin around it. Full-domain
+  ``__call__`` takes input regridded onto ``input_coords()`` (the native footprint);
+  sub-regions -- including into the extended margin -- are reached via `set_domain`
+  (next bullet).
+* A **sub-region** is obtained with `set_domain`, which slices the grid +
+  exact invariants to a bounding box (no aggregation). The bbox may lie inside the
+  native trained footprint, or reach into the extended invariant margin -- the
+  latter proceeds with a one-time out-of-distribution warning; beyond the extended
+  extent raises. Both the mean and diffusion models are DiT-RoPE (crop-size
+  agnostic at the fixed resolution), so a sub-domain runs at any size in a single
+  forward.
+
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`CorrDiffCosmoEra5`](#earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5) | COSMO-REA downscaling model: ERA5 -&gt; high-resolution COSMO-REA. |
+
+### Functions
+
+| Name | Description |
+|------|-------------|
+
+### API
+
+<Anchor id="earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.dx.CorrDiffCosmoEra5(
+    era5_variables: collections.abc.Sequence[str],
+    output_variables: collections.abc.Sequence[str],
+    regression_model: torch.nn.Module | None,
+    diffusion_model: torch.nn.Module | None,
+    resolution: typing.Literal['rea6', 'rea2'],
+    mode: typing.Literal['mean', 'diffusion'],
+    lat_input_grid: torch.Tensor,
+    lon_input_grid: torch.Tensor,
+    lat_output_grid: torch.Tensor,
+    lon_output_grid: torch.Tensor,
+    era5_center: torch.Tensor,
+    era5_scale: torch.Tensor,
+    out_center: torch.Tensor,
+    out_scale: torch.Tensor,
+    static_invariants: collections.OrderedDict[str, torch.Tensor],
+    pre_invariant_variables: collections.abc.Sequence[str],
+    post_invariant_variables: collections.abc.Sequence[str],
+    channel_transforms: dict | None = None,
+    constraints: dict | None = None,
+    number_of_samples: int = 1,
+    physical_clamp: bool = True,
+    number_of_steps: int = 18,
+    sigma_min: float = 0.002,
+    sigma_max: float = 800.0,
+    rho: float = 7.0,
+    solver: typing.Literal['heun', 'euler'] = 'heun',
+    seed: int | None = None,
+    amp: bool = False,
+    hub_heights: collections.abc.Sequence[float] | None = None,
+    hub_interp: typing.Literal['linear', 'log'] = 'linear',
+    wind_levels: dict | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `Module`, [AutoModelMixin](../auto/mixin.mdx#earth2studio-models-auto-mixin-AutoModelMixin)
+
+COSMO-REA downscaling model: ERA5 -&gt; high-resolution COSMO-REA.
+
+Diagnostic model that downscales a global ERA5 state to high-resolution
+COSMO-REA regional reanalysis over Europe -- COSMO-REA6 (~6 km) or COSMO-REA2
+(~2.2 km), selected with ``resolution``. The input is an ERA5 state, so it can
+downscale an ERA5 analysis directly or run behind a global forecast model
+(e.g. SFNO -&gt; CorrDiffCosmoEra5).
+
+``mode`` selects one of two networks trained per resolution:
+
+* ``"mean"`` -- a deterministic regression predicting the conditional mean
+  ``E[y | x]``: a single smooth field in one forward pass. Fast; a good first
+  high-resolution look or a deterministic conditional-mean baseline.
+* ``"diffusion"`` -- a generative model sampling the conditional distribution
+  ``p(y | x)``: an ensemble of ``number_of_samples`` realizations (seeded for
+  reproducibility) that also captures the spread the mean cannot represent.
+
+Both networks are PhysicsNeMo DiTs at a fixed grid resolution but crop-size
+agnostic, so `set_domain` returns an instance restricted to any lat/lon
+sub-region without retraining (bounded to the trained footprint). Each
+resolution ships an extended grid beyond its native footprint; for COSMO-REA2
+-- whose native footprint is central-European -- the extended grid reaches a
+broad European domain, enabling 2.2 km downscaling across it. Outputs are
+surface and model-level (3D) fields -- winds,
+temperature, humidity, precipitation, cloud cover, fluxes, TKE, PBL height;
+variables with a canonical Earth2Studio name are relabelled via
+[`CosmoLexicon`](../../lexicon/cosmo.mdx#earth2studio-lexicon-cosmo-CosmoLexicon) and COSMO-specific fields keep a
+descriptive name. Optionally emits derived hub-height wind components (see
+``hub_heights``).
+
+**Badges:** `region:eu` `class:downscaling` `product:wind` `product:precip` `product:temp` `product:atmos` `year:2026` `gpu:80gb` `provider:nvidia` `backend:pytorch`
+
+**Parameters:**
+
+<ParamField path="era5_variables" type="Sequence[str]">
+ERA5 input variable names (canonical Earth2Studio lexicon), in network order.
+</ParamField>
+
+<ParamField path="output_variables" type="Sequence[str]">
+Output (COSMO-REA) variable names, in network output-channel order.
+</ParamField>
+
+<ParamField path="regression_model" type="torch.nn.Module | None">
+Network for ``mode="mean"`` (an upstream physicsnemo RoPE-NATTEN ``DiT``).
+</ParamField>
+
+<ParamField path="diffusion_model" type="torch.nn.Module | None">
+Network for ``mode="diffusion"`` (an upstream physicsnemo
+``EDMPreconditioner(ConcatConditionWrapper(DiT))``).
+</ParamField>
+
+<ParamField path="resolution" type="(rea6, rea2)" default="'rea6'">
+Which COSMO-REA resolution this package targets.
+</ParamField>
+
+<ParamField path="mode" type="(mean, diffusion)" default="'mean'">
+Which model to run.
+</ParamField>
+
+<ParamField path="lat_input_grid" type="torch.Tensor">
+1D increasing regular ERA5 input grid (the native default footprint).
+</ParamField>
+
+<ParamField path="lon_input_grid" type="torch.Tensor">
+1D increasing regular ERA5 input grid (the native default footprint).
+</ParamField>
+
+<ParamField path="lat_output_grid" type="torch.Tensor">
+2D curvilinear native (rotated-pole) target grid [out_lat, out_lon].
+</ParamField>
+
+<ParamField path="lon_output_grid" type="torch.Tensor">
+2D curvilinear native (rotated-pole) target grid [out_lat, out_lon].
+</ParamField>
+
+<ParamField path="era5_center" type="torch.Tensor">
+ERA5 input normalization (mean/std), size [n_era5].
+</ParamField>
+
+<ParamField path="era5_scale" type="torch.Tensor">
+ERA5 input normalization (mean/std), size [n_era5].
+</ParamField>
+
+<ParamField path="out_center" type="torch.Tensor">
+Output normalization (mean/std) in transformed space, size [n_out].
+</ParamField>
+
+<ParamField path="out_scale" type="torch.Tensor">
+Output normalization (mean/std) in transformed space, size [n_out].
+</ParamField>
+
+<ParamField path="static_invariants" type="OrderedDict[str, torch.Tensor]">
+Native, already-normalized static invariant channels (non-position),
+each [out_lat, out_lon] — e.g. ``elevation_norm``, ``land_fraction``,
+``z0_lu``, ``slope_east``, ``slope_north``. Position channels (sin/cos
+lat/lon) and ``cos_zenith`` are computed, not stored here.
+</ParamField>
+
+<ParamField path="pre_invariant_variables" type="Sequence[str]">
+Names of the invariant channels before / after ``cos_zenith`` in the
+background channel order.
+</ParamField>
+
+<ParamField path="post_invariant_variables" type="Sequence[str]">
+Names of the invariant channels before / after ``cos_zenith`` in the
+background channel order.
+</ParamField>
+
+<ParamField path="channel_transforms" type="dict | None" default="None">
+Per-output-channel nonlinear transform spec (from the package metadata),
+used to invert after de-normalizing.
+</ParamField>
+
+<ParamField path="constraints" type="dict | None" default="None">
+Physical-constraint spec (``metadata["constraints"]``): per-channel
+``bounds`` (min/max clamps) and a shortwave ``sza_gate`` (the dawn/dusk
+solar gate), applied in physical space in postprocess for both modes.
+</ParamField>
+
+<ParamField path="number_of_samples" type="int" default="1">
+Number of samples (diffusion); the ``sample`` dim is kept (size 1) for
+``mode="mean"`` so both modes share an output contract. The constructor
+value is the default; it is settable at runtime between calls
+(``model.number_of_samples = N``).
+</ParamField>
+
+<ParamField path="physical_clamp" type="bool" default="True">
+Apply physical-bounds + the shortwave dawn/dusk solar gate to outputs.
+</ParamField>
+
+<ParamField path="number_of_steps" type="int" default="18">
+Diffusion sampler step count (EDM Heun). Defaults to 18.
+</ParamField>
+
+<ParamField path="sigma_min" type="float" default="0.002">
+Diffusion noise-schedule bounds. Default to 0.002 / 800.0.
+</ParamField>
+
+<ParamField path="sigma_max" type="float" default="0.002">
+Diffusion noise-schedule bounds. Default to 0.002 / 800.0.
+</ParamField>
+
+<ParamField path="rho" type="float" default="7.0">
+Karras noise-schedule exponent. Defaults to 7.0.
+</ParamField>
+
+<ParamField path="solver" type="(heun, euler)" default="'heun'">
+Diffusion ODE solver: ``"heun"`` (2nd-order, default) or ``"euler"``
+(1st-order).
+</ParamField>
+
+<ParamField path="seed" type="int | None" default="None">
+Base RNG seed for diffusion sampling (a per-sample offset is added).
+``None`` (default) leaves sampling unseeded.
+</ParamField>
+
+<ParamField path="amp" type="bool" default="False">
+Run the network forward passes (regression patches and the diffusion
+denoiser) under ``torch.autocast`` bf16. Roughly halves inference time
+on Ampere+ GPUs at a negligible accuracy cost; the sampler bookkeeping
+stays in fp64. Defaults to ``False`` (full precision).
+</ParamField>
+
+<ParamField path="hub_heights" type="Sequence[float]" default="None">
+Optional list of above-ground heights (m) at which to emit interpolated
+wind components ``u&#123;H&#125;m``/``v&#123;H&#125;m`` (e.g. ``[100]`` -&gt; ``u100m``,
+``v100m``), vertically interpolated from the model's 3D wind levels. Wind
+speed is obtained by composing the stock ``DerivedWS(levels=["&#123;H&#125;m"])``
+diagnostic on the output. ``None`` (default) -&gt; no derived outputs and
+behavior/``output_variables`` are unchanged. Requires ``wind_levels``.
+Names follow the lexicon ``m``-suffix convention (m above surface, as
+``u100m``); arbitrary ``H`` need not be pre-registered in the lexicon
+(outputs are produced, not fetched). A height outside the levels' range
+is clamped (not extrapolated) and warns.
+</ParamField>
+
+<ParamField path="hub_interp" type="(linear, log)" default="'linear'">
+Interpolation method for the hub-height wind components: ``"linear"`` (in
+geometric height) or ``"log"`` (in ``ln(height)``). Both are
+roughness-free between levels. Defaults to ``"linear"``.
+</ParamField>
+
+<ParamField path="wind_levels" type="dict" default="None">
+Package metadata describing the 3D wind levels for hub-height derivation:
+each level's ``&#123;u, v&#125;`` output channels + its ``a, b`` height coefficients
+(``height = a + b*elevation_invariant``) and the elevation invariant name.
+Supplied by the package; required when ``hub_heights`` is set.
+</ParamField>
+
+<Note>
+
+The diffusion sampler controls (``number_of_steps``, ``sigma_min``,
+``sigma_max``, ``rho``, ``solver``) default to the package metadata but are
+exposed for inference tuning rather than fixed: as with any diffusion sampler,
+these settings can shape the sampled output distribution (e.g. ensemble spread
+and the representation of extremes).
+
+The models are trained on ERA5 (global input) paired with COSMO-REA regional
+reanalysis (high-resolution target) over Europe:
+
+- COSMO-REA6 (~6 km), DWD: https://reanalysis.meteo.uni-bonn.de/?COSMO-REA6
+- COSMO-REA2 (~2.2 km), DWD: https://reanalysis.meteo.uni-bonn.de/?COSMO-REA2
+- ERA5, ECMWF: https://www.ecmwf.int/en/forecasts/dataset/ecmwf-reanalysis-v5
+- https://huggingface.co/nvidia/corrdiff-cosmo-era5
+
+</Note>
+
+<ParamField path="_identity_output_indices" type="tuple[int, ...]">
+Indices of the trained output channels that use plain linear
+normalization only -- no value transform and unit scale 1.0.
+
+These are the channels an observation can be assimilated into directly: the
+conversion into the model's internal (normalized) units is just
+``(obs - center) / scale``, which is only valid for such "plain" channels. A
+value transform (e.g. log/logit) bends the values non-linearly, and a unit
+scale != 1.0 (e.g. precip's mm-&gt;m) rescales them, so neither can be mapped
+that way.
+
+A channel is left out if it has any non-empty entry in ``channel_transforms``
+-- so a new transform added later is excluded automatically, without updating
+this list -- or a lexicon unit scale != 1.0. Only the trained
+``output_variables`` are considered, so the derived hub-height wind channels
+(e.g. ``u100m``) are naturally excluded. Postprocess clamps / day-night gates
+are intentionally ignored here: they run later (postprocessing) and are a
+separate concern. Consumed by ``CorrDiffCosmoEra5SDA``.
+</ParamField>
+
+<Anchor id="earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCosmoEra5.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Run the model. ``x`` is [batch, time, variable, lat, lon]; ``coords``
+carries a ``time`` axis (validity times) driving the solar-zenith channel.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5-input_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCosmoEra5.input_coords() -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Input coordinate system. ``time`` is a dynamic leading dim; lat/lon
+are the native ERA5 footprint (regrid the ERA5 input onto this grid).
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5-load_default_package">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCosmoEra5.load_default_package() -> earth2studio.models.auto.Package
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Default pre-trained COSMO-REA downscaling package (combined rea6/rea2).
+
+Returns the hosted package; pick the model within it via
+``load_model(..., mode=, resolution=)`` (or rely on the ``mean``/``rea6``
+defaults through ``from_pretrained``).
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5-load_model">
+
+<CodeBlock links={{"earth2studio.models.auto.Package":"../auto/package.mdx#earth2studio-models-auto-package-Package","earth2studio.models.dx.base.DiagnosticModel":"./base.mdx#earth2studio-models-dx-base-DiagnosticModel"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCosmoEra5.load_model(
+    package: earth2studio.models.auto.Package,
+    device: str | None = None,
+    mode: typing.Literal['mean', 'diffusion'] = 'mean',
+    resolution: typing.Literal['rea6', 'rea2'] = 'rea6',
+    hub_heights: collections.abc.Sequence[float] | None = None,
+    hub_interp: typing.Literal['linear', 'log'] = 'linear'
+) -> earth2studio.models.dx.base.DiagnosticModel
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Load a COSMO-REA downscaling model from a package.
+
+``mode`` (&#123;"mean", "diffusion"&#125;) and ``resolution`` (&#123;"rea6", "rea2"&#125;)
+select the checkpoint within one package. All other
+configuration (sampler, normalization, transforms) comes from the package
+metadata.
+
+``hub_heights``/``hub_interp`` opt into derived hub-height wind components
+(``u&#123;H&#125;m``/``v&#123;H&#125;m``; compose ``DerivedWS`` for speed); they require the
+package to carry a ``wind_levels`` metadata block (else requesting
+``hub_heights`` raises). See the constructor.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5-output_coords">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCosmoEra5.output_coords(
+    input_coords: earth2studio.utils.type.CoordSystem
+) -> earth2studio.utils.type.CoordSystem
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Output coordinate system on the rotated-pole target grid.
+
+The input must be on the native ERA5 grid (`input_coords`); for a
+sub-region use `set_domain` (which gives a new instance with its own
+native grid). Arbitrary/flexible domains are not supported.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5-postprocess_output">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCosmoEra5.postprocess_output(
+    x: torch.Tensor,
+    valid_time: datetime.datetime,
+    lat2d: numpy.ndarray,
+    lon2d: numpy.ndarray
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+De-normalize -&gt; invert per-channel transforms -&gt; physical clamp/bounds +
+solar gate -&gt; unit rescale (e.g. CLCT % -&gt; tcc fraction) -&gt; append derived
+hub-height wind. ``lat2d``/``lon2d`` are numpy (for the solar gate).
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5-preprocess_input">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCosmoEra5.preprocess_input(
+    era5: torch.Tensor,
+    valid_time: datetime.datetime,
+    lat2d: torch.Tensor,
+    lon2d: torch.Tensor
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Assemble the normalized network background from a raw ERA5 frame.
+
+``era5`` is [n_era5, H_in, W_in]. Returns [1, C_bg, H_out, W_out].
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5-set_domain">
+
+<CodeBlock links={{"earth2studio.models.dx.corrdiff_cosmo_era5.CorrDiffCosmoEra5":"#earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCosmoEra5.set_domain(
+    lat_min: float,
+    lat_max: float,
+    lon_min: float,
+    lon_max: float,
+    margin_deg: float = 1.0,
+    halo: int = 0
+) -> earth2studio.models.dx.corrdiff_cosmo_era5.CorrDiffCosmoEra5
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Restrict the model to a sub-domain for a lat/lon bounding box.
+
+Returns a NEW `CorrDiffCosmoEra5` that shares the loaded network(s)
+but whose target grid + static invariants are sliced to the smallest
+block of the (rotated) grid covering ``[lat_min, lat_max] x [lon_min,
+lon_max]``. The returned instance is a fixed-domain model with its own
+``input_coords``/``output_coords``, so it composes with the standard run
+pipelines. The ERA5 input grid is recomputed to cover it (+ ``margin_deg``).
+
+The network is shared by reference and each forward rebinds its latent-grid
+state on it in place, so the parent and its sub-domains are safe to run
+sequentially but NOT concurrently against the same network (two threads or
+async tasks would overwrite each other's grid binding -&gt; wrong-grid output);
+run concurrent domains in separate processes.
+
+Three-tier coverage (when the package ships extended invariants):
+
+* bbox inside the **native** trained footprint -&gt; proceed (validated);
+* bbox reaching into the **extended margin** (invariants exist there but
+  it is outside the trained footprint) -&gt; proceed + a one-time OOD warning;
+* bbox beyond the **extended extent** -&gt; ``ValueError`` (no invariants).
+
+Without extended invariants only the native footprint is supported. A
+returned sub-domain keeps only its own (cropped) grid, not the full or
+extended one, so call ``set_domain`` once on the full loaded model: a
+second ``set_domain`` on a returned sub-domain cannot reach back to the
+full or extended footprint (a bbox outside the sub-domain's grid raises).
+For several sub-regions, call ``set_domain`` multiple times on the full
+model instead.
+
+``halo`` (px, default 0 = off): run on a block expanded by ``halo`` real
+cells per side and trim it off the output, keeping the returned bbox
+interior clear of the DiT's boundary artifact (~32 px); clamps + warns at
+the grid edge. Both models are DiT-RoPE (crop-size agnostic at the fixed
+resolution), so any size runs in a single forward — but the run grid is
+snapped to a multiple of
+the DiT ``patch_size`` (an odd extent would floor to extent-1) and must be
+at least ``attn_kernel*patch`` cells per side (NATTEN must fit the latent),
+so very small bboxes raise.
+
+</Indent>
+<Anchor id="earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5-to">
+
+<CodeBlock links={{"earth2studio.models.dx.corrdiff_cosmo_era5.CorrDiffCosmoEra5":"#earth2studio-models-dx-corrdiff_cosmo_era5-CorrDiffCosmoEra5"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.models.dx.CorrDiffCosmoEra5.to(
+    device: torch.device
+) -> earth2studio.models.dx.corrdiff_cosmo_era5.CorrDiffCosmoEra5
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Move the model to a device (the active regression/diffusion sub-network
+is a registered submodule, so ``super().to`` moves it too).
+
+**Parameters:**
+
+<ParamField path="device" type="torch.device">
+Device to move the model to
+</ParamField>
+
+</Indent>
+</Indent>

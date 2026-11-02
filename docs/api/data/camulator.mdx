@@ -1,0 +1,202 @@
+---
+layout: overview
+title: earth2studio.data.camulator
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`CAMulatorForcing`](#earth2studio-data-camulator-CAMulatorForcing) | CAMulator prescribed forcing data source: TOA insolation (``mtdwswrf``), |
+
+### API
+
+<Anchor id="earth2studio-data-camulator-CAMulatorForcing">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.camulator.CAMulatorForcing(
+    mode: typing.Literal['cyclic', 'transient'] = 'cyclic',
+    forcing_file: str | None = None,
+    leap_day: typing.Literal['nearest', 'raise'] = 'nearest',
+    cache: bool = True,
+    verbose: bool = True
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+CAMulator prescribed forcing data source: TOA insolation (``mtdwswrf``),
+sea-surface temperature (``sst``), sea-ice fraction (``sic``) and CO2 volume
+mixing ratio (``global_mean_co2``, ppm) on the 1 degree CAMulator grid, as
+shipped with the CAMulator model on HuggingFace. Two records are available:
+a cyclic climatological year (default; every year of a rollout sees the same
+forcing) and the transient 1980-2014 record. Files are downloaded on demand
+and cached.
+
+The forcing files use a 365-day (no leap) calendar at 6-hourly resolution.
+Requested times are matched by month, day and hour (cyclic) or year, month,
+day and hour (transient); the 29th of February has no forcing and by default
+reuses the 28th.
+
+**Badges:** `region:global` `dataclass:simulation` `product:atmos` `product:ocean` `provider:ncar`
+
+**Parameters:**
+
+<ParamField path="mode" type="str" default="'cyclic'">
+Either "cyclic" (climatological year) or "transient" (1980-2014), by
+default "cyclic"
+</ParamField>
+
+<ParamField path="forcing_file" type="str" default="None">
+Local NetCDF file to read instead of downloading the shipped file. Must
+hold the CESM variables ``SOLIN``, ``SST``, ``ICEFRAC`` and
+``co2vmr_3d`` with dimensions ``(time, latitude, longitude)`` on the
+CAMulator grid and a no-leap time coordinate, by default None
+</ParamField>
+
+<ParamField path="leap_day" type="str" default="'nearest'">
+Handling of 29 February requests: "nearest" reuses the 28 February
+forcing (a warning is logged once), "raise" raises a ValueError, by
+default "nearest"
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache the downloaded forcing file on local disk, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Log download progress, by default True
+</ParamField>
+
+<Note>
+
+Additional information on the forcing data can be found at:
+
+- https://huggingface.co/willychap/camulator
+- https://arxiv.org/abs/2504.06007
+
+</Note>
+
+<Warning>
+
+The forcing is served from single NetCDF files downloaded on first use: about
+1.3 GB for the cyclic year and 9.7 GB for the transient record. With
+``cache=True`` the file lives in the HuggingFace hub cache (``HF_HOME``);
+with ``cache=False`` it is deleted after every call, which is unsuitable for
+model rollouts.
+
+</Warning>
+
+<ParamField path="cache" type="str">
+Return the local cache path for downloaded files.
+</ParamField>
+<Anchor id="earth2studio-data-camulator-CAMulatorForcing-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.camulator.CAMulatorForcing.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Function to get data
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC). Must fall on 00, 06, 12 or 18 UTC.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be forcing variables in the CAMulator lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Forcing data array with dimensions ``[time, variable, lat, lon]``
+
+</Indent>
+<Anchor id="earth2studio-data-camulator-CAMulatorForcing-available">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.camulator.CAMulatorForcing.available(
+    time: datetime.datetime | numpy.datetime64
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Checks if the given time is on the 6-hourly CAMulator forcing grid.
+Whether a particular date exists in the record depends on the ``mode`` of
+the instance (any date for the cyclic year, 1980-2014 for the transient
+record), which is checked when data is requested.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | np.datetime64">
+Time to check
+</ParamField>
+
+**Returns:** `bool`
+
+True if the time falls on 00, 06, 12 or 18 UTC
+
+</Indent>
+<Anchor id="earth2studio-data-camulator-CAMulatorForcing-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.camulator.CAMulatorForcing.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get data
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC). Must fall on 00, 06, 12 or 18 UTC.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be forcing variables in the CAMulator lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+Forcing data array with dimensions ``[time, variable, lat, lon]``
+
+</Indent>
+</Indent>

@@ -1,0 +1,196 @@
+---
+layout: overview
+title: earth2studio.perturbation.hcbv
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`HemisphericCentredBredVector`](#earth2studio-perturbation-hcbv-HemisphericCentredBredVector) | Bred Vector perturbation method, following the approach introduced in |
+
+### API
+
+<Anchor id="earth2studio-perturbation-hcbv-HemisphericCentredBredVector">
+
+<CodeBlock links={{"earth2studio.models.px.PrognosticModel":"../models/px/base.mdx#earth2studio-models-px-base-PrognosticModel","earth2studio.data.DataSource":"../data/base.mdx#earth2studio-data-base-DataSource","earth2studio.perturbation.base.Perturbation":"./base.mdx#earth2studio-perturbation-base-Perturbation"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.perturbation.hcbv.HemisphericCentredBredVector(
+    model: earth2studio.models.px.PrognosticModel,
+    data: earth2studio.data.DataSource,
+    seeding_perturbation_method: earth2studio.perturbation.base.Perturbation,
+    noise_amplitude: float | torch.Tensor = 0.35,
+    integration_steps: int = 3
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Bred Vector perturbation method, following the approach introduced in
+'Huge Ensembles Part I: Design of Ensemble Weather Forecasts using Spherical Fourier
+Neural Operators'. The vector is bred by advancing in time. The bred vector is
+scaled seperately in the northern and southern extra-tropics and interpolated in the
+tropics. Additionally, it applies a centred perturbation, ie generating two
+perturbed stated by adding and subtracting the bred vector, respecitvely.
+
+**Parameters:**
+
+<ParamField path="model" type="PrognosticModel">
+[`PrognosticModel`](../models/px/base.mdx#earth2studio-models-px-base-PrognosticModel) — Dynamical model, typically this is the prognostic AI model
+</ParamField>
+
+<ParamField path="data" type="DataSource">
+[`DataSource`](../data/base.mdx#earth2studio-data-base-DataSource) — data source for obtaining warmup time steps
+</ParamField>
+
+<ParamField path="seeding_perturbation_method" type="Perturbation">
+[`Perturbation`](./base.mdx#earth2studio-perturbation-base-Perturbation) — Method to seed the Bred Vector perturbation that will be applied to the initial
+input of the model.
+</ParamField>
+
+<ParamField path="noise_amplitude" type="float | Tensor" default="0.35">
+Noise amplitude, by default 0.05. If a tensor, this must be broadcastable with
+the input data
+</ParamField>
+
+<ParamField path="integration_steps" type="int" default="3">
+Number of integration steps to use in forward call, by default 3
+</ParamField>
+
+<Note>
+
+For additional information:
+
+- https://arxiv.org/abs/2408.03100
+- https://journals.ametsoc.org/view/journals/bams/74/12/1520-0477_1993_074_2317_efantg_2_0_co_2.xml
+- https://en.wikipedia.org/wiki/Bred_vector
+
+</Note>
+
+<Anchor id="earth2studio-perturbation-hcbv-HemisphericCentredBredVector-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.perturbation.hcbv.HemisphericCentredBredVector.__call__(
+    x: torch.Tensor,
+    coords: earth2studio.utils.type.CoordSystem
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Apply perturbation method
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor intended to apply perturbation on, not used in this
+perturbation method
+</ParamField>
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict representing coordinate system that describes the tensor.
+Must contain coordinates (Any, "time", "lead_time", "variable", "lat",
+"lon"). Time and lead_time must have size 1.
+</ParamField>
+
+**Returns:** `tuple[torch.Tensor,` [`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) `]:`
+
+Output tensor and respective coordinate system dictionary
+
+</Indent>
+<Anchor id="earth2studio-perturbation-hcbv-HemisphericCentredBredVector-create_generator">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.perturbation.hcbv.HemisphericCentredBredVector.create_generator(
+    time: earth2studio.utils.type.TimeArray,
+    generator_size: int = 1,
+    device: torch.device = 'cpu'
+) -> collections.abc.Generator[torch.Tensor, None, None]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Creates and initializes the perturbation generator
+
+</Indent>
+<Anchor id="earth2studio-perturbation-hcbv-HemisphericCentredBredVector-force_non_neg">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.perturbation.hcbv.HemisphericCentredBredVector.force_non_neg(
+    x: torch.Tensor
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Clip variables to non-negative values
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-perturbation-hcbv-HemisphericCentredBredVector-hemispheric_norm">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.perturbation.hcbv.HemisphericCentredBredVector.hemispheric_norm(
+    x: torch.Tensor,
+    device: torch.device
+) -> torch.Tensor
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Calculate norm of fields speperately in northern and southern extra-tropics
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor">
+Input tensor to apply norm to
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-perturbation-hcbv-HemisphericCentredBredVector-set_clip_indices">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.perturbation.hcbv.HemisphericCentredBredVector.set_clip_indices() -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+If humidity and tcwv in variable set, add to list of variables to clip
+
+</Indent>
+</Indent>

@@ -1,0 +1,444 @@
+---
+layout: overview
+title: earth2studio.serve.client.models
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`HealthStatus`](#earth2studio-serve-client-models-HealthStatus) | Health status response. |
+| [`InferenceRequest`](#earth2studio-serve-client-models-InferenceRequest) | Main inference request payload. |
+| [`InferenceRequestResponse`](#earth2studio-serve-client-models-InferenceRequestResponse) | Response when submitting an inference request. |
+| [`InferenceRequestResults`](#earth2studio-serve-client-models-InferenceRequestResults) | Results of a completed inference request. |
+| [`InferenceRequestStatus`](#earth2studio-serve-client-models-InferenceRequestStatus) | Status information for an inference request. |
+| [`OutputFile`](#earth2studio-serve-client-models-OutputFile) | Information about an output file. |
+| [`ProgressInfo`](#earth2studio-serve-client-models-ProgressInfo) | Progress information for inference requests. |
+| [`RequestStatus`](#earth2studio-serve-client-models-RequestStatus) | Status values for inference requests. |
+| [`StorageType`](#earth2studio-serve-client-models-StorageType) | Storage type for inference results. |
+
+### API
+
+<Anchor id="earth2studio-serve-client-models-HealthStatus">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.client.models.HealthStatus(
+    status: str,
+    timestamp: datetime.datetime
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Health status response.
+
+<Anchor id="earth2studio-serve-client-models-HealthStatus-from_dict">
+
+<CodeBlock links={{"earth2studio.serve.client.models.HealthStatus":"#earth2studio-serve-client-models-HealthStatus"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.client.models.HealthStatus.from_dict(
+    data: dict[str, typing.Any]
+) -> earth2studio.serve.client.models.HealthStatus
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Build a HealthStatus from an API response dict.
+
+**Parameters:**
+
+<ParamField path="data" type="dict[str, Any]">
+API response dictionary containing status and timestamp.
+</ParamField>
+
+**Returns:** [`HealthStatus`](#earth2studio-serve-client-models-HealthStatus)
+
+Constructed health status instance.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-serve-client-models-InferenceRequest">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.client.models.InferenceRequest(
+    parameters: dict[str, typing.Any] | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Main inference request payload.
+
+<Anchor id="earth2studio-serve-client-models-InferenceRequest-json_serial">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.client.models.InferenceRequest.json_serial(
+    obj: typing.Any
+) -> typing.Any
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>staticmethod</Badge>
+
+JSON serializer for objects not serializable by default json code.
+
+**Parameters:**
+
+<ParamField path="obj" type="Any">
+Object to serialize (numpy array, datetime, timedelta, etc.).
+</ParamField>
+
+**Returns:** `Any`
+
+JSON-serializable representation of the object.
+
+</Indent>
+<Anchor id="earth2studio-serve-client-models-InferenceRequest-to_dict">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.client.models.InferenceRequest.to_dict() -> dict[str, typing.Any]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Convert to dictionary for JSON serialization.
+
+**Returns:** `dict[str, Any]`
+
+Dictionary suitable for JSON request body (e.g. &#123;"parameters": ...&#125;).
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-serve-client-models-InferenceRequestResponse">
+
+<CodeBlock links={{"earth2studio.serve.client.models.RequestStatus":"#earth2studio-serve-client-models-RequestStatus"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.client.models.InferenceRequestResponse(
+    execution_id: str,
+    status: earth2studio.serve.client.models.RequestStatus,
+    message: str,
+    timestamp: datetime.datetime
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Response when submitting an inference request.
+
+<Anchor id="earth2studio-serve-client-models-InferenceRequestResponse-from_dict">
+
+<CodeBlock links={{"earth2studio.serve.client.models.InferenceRequestResponse":"#earth2studio-serve-client-models-InferenceRequestResponse"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.client.models.InferenceRequestResponse.from_dict(
+    data: dict[str, typing.Any]
+) -> earth2studio.serve.client.models.InferenceRequestResponse
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Build an InferenceRequestResponse from an API response dict.
+
+**Parameters:**
+
+<ParamField path="data" type="dict[str, Any]">
+API response dictionary containing execution_id, status, message, timestamp.
+</ParamField>
+
+**Returns:** [`InferenceRequestResponse`](#earth2studio-serve-client-models-InferenceRequestResponse)
+
+Constructed response instance.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-serve-client-models-InferenceRequestResults">
+
+<CodeBlock links={{"earth2studio.serve.client.models.RequestStatus":"#earth2studio-serve-client-models-RequestStatus","earth2studio.serve.client.models.OutputFile":"#earth2studio-serve-client-models-OutputFile","earth2studio.serve.client.models.StorageType":"#earth2studio-serve-client-models-StorageType"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.client.models.InferenceRequestResults(
+    request_id: str,
+    status: earth2studio.serve.client.models.RequestStatus,
+    output_files: list[earth2studio.serve.client.models.OutputFile],
+    completion_time: datetime.datetime | None,
+    execution_time_seconds: float | None = None,
+    storage_type: earth2studio.serve.client.models.StorageType = StorageType.SERVER,
+    signed_url: str | None = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Results of a completed inference request.
+
+<Anchor id="earth2studio-serve-client-models-InferenceRequestResults-from_dict">
+
+<CodeBlock links={{"earth2studio.serve.client.models.InferenceRequestResults":"#earth2studio-serve-client-models-InferenceRequestResults"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.client.models.InferenceRequestResults.from_dict(
+    data: dict[str, typing.Any]
+) -> earth2studio.serve.client.models.InferenceRequestResults
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Build InferenceRequestResults from an API response dict.
+
+**Parameters:**
+
+<ParamField path="data" type="dict[str, Any]">
+API response dictionary containing request_id, status, output_files,
+completion_time, and optional execution_time_seconds, storage_type, signed_url.
+</ParamField>
+
+**Returns:** [`InferenceRequestResults`](#earth2studio-serve-client-models-InferenceRequestResults)
+
+Constructed results instance.
+
+</Indent>
+<Anchor id="earth2studio-serve-client-models-InferenceRequestResults-result_paths">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.client.models.InferenceRequestResults.result_paths() -> list[str]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Get paths to result data files found in the request response.
+
+**Returns:** `list[str]`
+
+List of result paths (e.g. zarr roots or .nc files). Append to the
+server results URL to download or open.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-serve-client-models-InferenceRequestStatus">
+
+<CodeBlock links={{"earth2studio.serve.client.models.RequestStatus":"#earth2studio-serve-client-models-RequestStatus","earth2studio.serve.client.models.ProgressInfo":"#earth2studio-serve-client-models-ProgressInfo"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.client.models.InferenceRequestStatus(
+    execution_id: str,
+    status: earth2studio.serve.client.models.RequestStatus,
+    progress: earth2studio.serve.client.models.ProgressInfo | None,
+    error_message: str | None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Status information for an inference request.
+
+<Anchor id="earth2studio-serve-client-models-InferenceRequestStatus-from_dict">
+
+<CodeBlock links={{"earth2studio.serve.client.models.InferenceRequestStatus":"#earth2studio-serve-client-models-InferenceRequestStatus"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.client.models.InferenceRequestStatus.from_dict(
+    data: dict[str, typing.Any]
+) -> earth2studio.serve.client.models.InferenceRequestStatus
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Build an InferenceRequestStatus from an API response dict.
+
+**Parameters:**
+
+<ParamField path="data" type="dict[str, Any]">
+API response dictionary containing execution_id, status, progress, error_message.
+</ParamField>
+
+**Returns:** [`InferenceRequestStatus`](#earth2studio-serve-client-models-InferenceRequestStatus)
+
+Constructed status instance.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-serve-client-models-OutputFile">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.client.models.OutputFile(
+    path: str,
+    size: int
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Information about an output file.
+
+<Anchor id="earth2studio-serve-client-models-OutputFile-from_dict">
+
+<CodeBlock links={{"earth2studio.serve.client.models.OutputFile":"#earth2studio-serve-client-models-OutputFile"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.serve.client.models.OutputFile.from_dict(
+    data: dict[str, typing.Any]
+) -> earth2studio.serve.client.models.OutputFile
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Build an OutputFile from an API response dict.
+
+**Parameters:**
+
+<ParamField path="data" type="dict[str, Any]">
+API response dictionary containing path and size.
+</ParamField>
+
+**Returns:** [`OutputFile`](#earth2studio-serve-client-models-OutputFile)
+
+Constructed output file instance.
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-serve-client-models-ProgressInfo">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.client.models.ProgressInfo(
+    progress: str,
+    current_step: int,
+    total_steps: int
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Progress information for inference requests.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-client-models-RequestStatus">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.client.models.RequestStatus
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `enum.Enum`
+
+Status values for inference requests.
+
+</Indent>
+
+<Anchor id="earth2studio-serve-client-models-StorageType">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.serve.client.models.StorageType
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** `enum.Enum`
+
+Storage type for inference results.
+
+</Indent>

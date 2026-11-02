@@ -1,0 +1,225 @@
+# Data and Forecast Sources
+
+Datasources are objects that offer a simple API to access a "dataset" of weather/climate
+data at a certain index.
+Many implemented in the package provide access to data generated from numerical models,
+data assimilation results or even generative AI models.
+These typically serve as an initial state for inference of an AI model or some other
+downstream task or target data to evaluate the accuracy of a particular model.
+Data sources may be remote cloud-based data stores or files on your local machine.
+The list of data sources that are already built into Earth2Studio can be found in
+the API documentation [earth2studio.data.analysis](/earth2studio/api/datasources_analysis).
+
+| Source type | Interface | Return type |
+| --- | --- | --- |
+| Data source | `(time, variable)` | `xr.DataArray` |
+| Forecast source | `(time, lead_time, variable)` | `xr.DataArray` |
+| DataFrame source | `(time, variable)` | `pd.DataFrame` |
+| ForecastFrame source | `(time, lead_time, variable)` | `pd.DataFrame` |
+
+<Note>
+
+Earth2Studio has data and forecast sources. The only difference being the latter
+has a lead time input. Some data stores may have both implemented where the data source
+provides the initial states and data-assimilated data, while the forecast source provides
+results from a predictive model.
+
+</Note>
+
+## Data Source Interface
+
+The full requirements for a standard diagnostic model are defined explicitly in the
+`earth2studio/models/dx/base.py`.
+
+```python
+@runtime_checkable
+class DataSource(Protocol):
+    """Data source interface."""
+
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Function to get data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Datetime, list of datetimes or array of np.datetime64 to return data for.
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return.
+
+        Returns
+        -------
+        xr.DataArray
+            An xarray data-array with the dimensions [time, variable, ....]. The coords
+            should be provided. Time coordinate should be a datetime array and the
+            variable coordinate should be array of strings with Earth2Studio variable
+            ids.
+        """
+        pass
+
+    async def fetch(  # type: ignore[override]
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async function to get data. Async data sources support this.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Datetime, list of datetimes or array of np.datetime64 to return data for.
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return.
+
+        Returns
+        -------
+        xr.DataArray
+            An xarray data-array with the dimensions [time, variable, ....]. The coords
+            should be provided. Time coordinate should be a datetime array and the
+            variable coordinate should be array of strings with Earth2Studio variable
+            ids.
+        """
+        pass
+
+```
+
+<Note>
+
+While not a requirement, built-in remote data sources offer local caching when fetching
+data which is stored in the Earth2Studio cache. Refer to
+[Configuration](/earth2studio/install#configuration) for details on
+how to customize this location.
+
+</Note>
+
+### Beyond N-D Array Data
+
+Earth2Studio attempts to stick with N-D array data structures when possible,
+however this is not always possible or practical.
+As a result, Earth2Studio also supports remote data sources for tabular data, which is
+typically used when sparse observations or measurements are involved.
+
+- `earth2studio.data.base.DataFrameSource`
+- `earth2studio.data.base.ForecastFrameSource`
+
+The call signatures mirror data/forecast sources; the difference is the return type: a
+pandas DataFrame (tabular) instead of an Xarray DataArray.
+
+## Data Source Usage
+
+The `__call__` function is the way data is fetched from the data source and placed
+into an in-memory Xarray data array.
+You must provide both the times and variables for the data source to fetch.
+Variables can differ between data-sources and models.
+The package lexicon is used as the source of truth and translator for data sources
+discussed in more detail in the [Lexicon](/earth2studio/advanced/lexicon#lexicon) section.
+
+This data array can then be used on the CPU for postprocessing and saving to file.
+However, to use this as an initial state for inference with a model this Xarray data
+array will need to get moved to the GPU and follow the standard data movement pattern
+of Earth2Studio detailed in the [Data Movement](/earth2studio/overview#data-movement) section.
+There are a few utility functions inside Earth2Studio to make this process easy.
+These utility functions are commonly used in workflows.
+
+<Warning>
+
+Each data source has its own methods for serving or calculating each variable.
+Users should be aware that the same variable across multiple data sources will
+potentially not be identical.
+Refer to each data source's documentation for details.
+
+</Warning>
+
+For async use cases some data/forecast sources support an async `fetch` function
+that is available.
+In these data sources, the `__call__` function is just a synchronous wrapper
+around the async function.
+The functionality is identical between the two.
+Use the synchronous `__call__` for most workflows; use async `fetch` when batching
+many requests or optimizing download performance.
+Not all data sources have an async implementation, reference
+[earth2studio.data.analysis](/earth2studio/api/datasources_analysis) for more
+information.
+Async-based data sources provide extremely fast download speeds compared to others,
+so users should explore and test different ones if possible.
+
+### `earth2studio.data.fetch_data`
+
+The `fetch_data` function is useful for getting a PyTorch tensor and
+coordinate system for a given model.
+This utility fetches data for an array of times and lead times for the specified
+variables.
+For example, in the deterministic workflow `earth2studio.run.deterministic`, it is
+used to get the initial state for the provided prognostic.
+
+```python
+        # Fetch data from data source and load onto device
+        if hasattr(prognostic, "interp_method"):
+            interp_to = prognostic_ic
+            interp_method = prognostic.interp_method
+        else:
+            interp_to = None
+            interp_method = "nearest"
+
+        x, coords = fetch_data(
+            source=data,
+            time=time,
+            variable=prognostic_ic["variable"],
+            lead_time=prognostic_ic["lead_time"],
+            device=device,
+            interp_to=interp_to,
+            interp_method=interp_method,
+        )
+
+        logger.success(f"Fetched data from {data.__class__.__name__}")
+```
+
+### `earth2studio.data.fetch_dataframe` and `earth2studio.data.fetch_dataframes`
+
+`fetch_dataframe` is the DataFrame counterpart of `fetch_data`: it fetches the
+requested variables and fields from a DataFrame source and records the request time
+in the frame's `attrs["request_time"]`, which data assimilation models read.
+`fetch_dataframes` runs several such requests concurrently. Each request is a source
+and a schema, for example an entry of a data assimilation model's `input_coords()`:
+the schema's `variable` entry lists the variables and its other keys are the fields.
+A list of `(source, schema)` pairs returns a list of frames in the same order, and a
+dict of named pairs returns a dict.
+
+```python
+schemas = model.input_coords()
+obs = fetch_dataframes(list(zip(sources, schemas)), time)
+analysis = model(*obs)
+```
+
+### `earth2studio.data.prep_data_array`
+
+The `prep_data_array` function is another useful utility when interacting more directly
+with a data source.
+This function takes an Xarray data array and returns a tensor and coordinate system to
+be used with other components.
+Typically, it is used as part of various utils in Earth2Studio, but may prove
+useful to users implementing custom data sources where greater control is needed.
+
+## Custom Data Sources
+
+Custom data sources are often essential when working with large or on-prem
+datasets.
+So long as the data source can satisfy the API outlined in the interface above, it can
+integrate seamlessly into Earth2Studio.
+We recommend that you review the [extension examples](/earth2studio/examples/08_extend)
+examples, which will step you through the basic process of implementing your own
+data source.
+
+## Contributing a Datasource
+
+We are always looking for new remote data stores that our users may be interested in for
+running inference.
+It's essential to make sure data sources can be accessed by all users and allow the
+partial downloads of the data based on the users requests.
+If you happen to manage a data source or have a data source in mind,
+[open an issue](https://github.com/NVIDIA/earth2studio/issues) on the repo and we can discuss.

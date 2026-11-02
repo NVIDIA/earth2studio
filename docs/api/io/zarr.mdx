@@ -1,0 +1,254 @@
+---
+layout: overview
+title: earth2studio.io.zarr
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`ZarrBackend`](#earth2studio-io-zarr-ZarrBackend) | A backend that supports the zarr format. |
+
+### API
+
+<Anchor id="earth2studio-io-zarr-ZarrBackend">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.io.zarr.ZarrBackend(
+    file_name: str = None,
+    chunks: dict[str, int] = {'ensemble': 1, 'time': 1, ...,
+    backend_kwargs: dict[str, typing.Any] = {'overwrite': False},
+    zarr_codecs: zarr.core.array.CompressorsLike = None
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+A backend that supports the zarr format.
+
+**Parameters:**
+
+<ParamField path="file_name" type="str" default="None">
+Optional name to provide to the zarr store, if provided then this function
+will create a directory store with this file name. If none, will create a
+in-memory store., by default None
+</ParamField>
+
+<ParamField path="chunks" type="dict[str, int]" default="&#123;'ensemble': 1, 'time': 1, 'lead_time': 1, 'variable': 1&#125;">
+An ordered dict of chunks to use with the data passed through data/coords, by
+default &#123;&#125;
+</ParamField>
+
+<ParamField path="backend_kwargs" type="dict[str, Any]" default="&#123;'overwrite': False&#125;">
+Key word arguments for zarr.Group root object, by default &#123;"overwrite": False&#125;
+</ParamField>
+
+<ParamField path="zarr_codecs" type="CompressorsLike" default="None">
+Compression codec to use when creating any new arrays. Only effects Zarr 3.0.
+If None, will use no compressor, by default None
+</ParamField>
+
+<Note>
+
+For keyword argument options see: https://zarr.readthedocs.io/en/latest/api/zarr/index.html#zarr.group
+
+</Note>
+
+<Anchor id="earth2studio-io-zarr-ZarrBackend-__contains__">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.zarr.ZarrBackend.__contains__(
+    item: str
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Checks if item in Zarr Group.
+
+**Parameters:**
+
+<ParamField path="item" type="str">
+
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-io-zarr-ZarrBackend-__getitem__">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.zarr.ZarrBackend.__getitem__(
+    item: str
+) -> zarr.core.array.Array
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Gets item in Zarr Group.
+
+**Parameters:**
+
+<ParamField path="item" type="str">
+
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-io-zarr-ZarrBackend-__iter__">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.zarr.ZarrBackend.__iter__() -> collections.abc.Iterator
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Return an iterator over Zarr Group member names.
+
+</Indent>
+<Anchor id="earth2studio-io-zarr-ZarrBackend-__len__">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.zarr.ZarrBackend.__len__() -> int
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Gets length of Zarr Group.
+
+</Indent>
+<Anchor id="earth2studio-io-zarr-ZarrBackend-add_array">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.zarr.ZarrBackend.add_array(
+    coords: earth2studio.utils.type.CoordSystem,
+    array_name: str | list[str],
+    data: torch.Tensor | list[torch.Tensor] = None,
+    kwargs: typing.Any = {}
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Add an array to the existing zarr group.
+
+**Parameters:**
+
+<ParamField path="coords" type="CoordSystem">
+[`CoordSystem`](../utils/type.mdx#earth2studio-utils-type-CoordSystem) — Ordered dict of coordinate information.
+</ParamField>
+
+<ParamField path="array_name" type="str">
+Name to add to zarr group for the new array.
+</ParamField>
+
+<ParamField path="data" type="torch.Tensor | list[torch.Tensor]" default="None">
+Optional data to initialize the array with. If None, then
+the array is NaN initialized (zarr default).
+Can also pass a list of tensors, which must match in length to the
+list of array_names passed. If a list of tensors is passed, it is assumed
+that each tensor share `coords`.
+</ParamField>
+
+<ParamField path="kwargs" type="Any" default="&#123;&#125;">
+Optional keyword arguments passed to zarr dataset constructor.
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-io-zarr-ZarrBackend-read">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.zarr.ZarrBackend.read(
+    coords: earth2studio.utils.type.CoordSystem,
+    array_name: str,
+    device: torch.device = 'cpu'
+) -> tuple[torch.Tensor, earth2studio.utils.type.CoordSystem]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Read data from the current zarr group using the passed array_name.
+
+**Parameters:**
+
+<ParamField path="coords" type="OrderedDict">
+Coordinates of the data to be read.
+</ParamField>
+
+<ParamField path="array_name" type="str | list[str]">
+Name(s) of the array(s) to read from.
+</ParamField>
+
+<ParamField path="device" type="torch.device" default="'cpu'">
+device to place the read data from, by default 'cpu'
+</ParamField>
+
+</Indent>
+<Anchor id="earth2studio-io-zarr-ZarrBackend-write">
+
+<CodeBlock links={{"earth2studio.utils.type.CoordSystem":"../utils/type.mdx#earth2studio-utils-type-CoordSystem"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.io.zarr.ZarrBackend.write(
+    x: torch.Tensor | list[torch.Tensor],
+    coords: earth2studio.utils.type.CoordSystem,
+    array_name: str | list[str]
+) -> None
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Write data to the current zarr group using the passed array_name.
+
+**Parameters:**
+
+<ParamField path="x" type="torch.Tensor | list[torch.Tensor]">
+Tensor(s) to be written to zarr store.
+</ParamField>
+
+<ParamField path="coords" type="OrderedDict">
+Coordinates of the passed data.
+</ParamField>
+
+<ParamField path="array_name" type="str | list[str]">
+Name(s) of the array(s) that will be written to.
+</ParamField>
+
+</Indent>
+</Indent>

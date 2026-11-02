@@ -1,0 +1,504 @@
+---
+layout: overview
+title: earth2studio.data.hrrr
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`HRRR`](#earth2studio-data-hrrr-HRRR) | High-Resolution Rapid Refresh (HRRR) data source provides hourly North-American |
+| [`HRRRAsyncTask`](#earth2studio-data-hrrr-HRRRAsyncTask) | Small helper struct for Async tasks |
+| [`HRRR_FX`](#earth2studio-data-hrrr-HRRR_FX) | High-Resolution Rapid Refresh (HRRR) forecast source provides a North-American |
+
+### API
+
+<Anchor id="earth2studio-data-hrrr-HRRR">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.hrrr.HRRR(
+    source: str = 'aws',
+    max_workers: int = 24,
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    async_workers: int | None = None,
+    retries: int = 3
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+High-Resolution Rapid Refresh (HRRR) data source provides hourly North-American
+weather analysis data developed by NOAA (used to initialize the HRRR forecast
+model). This data source is provided on a Lambert conformal 3km grid at 1-hour
+intervals. The spatial dimensionality of HRRR data is [1059, 1799].
+
+The `hrrr_x` and `hrrr_y` coordinates of the resulting `DataArray` are the native
+coordinates of the HRRR model. The corresponding CRS can be set up with cartopy:
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+import cartopy.crs as ccrs
+
+proj_hrrr = ccrs.LambertConformal(
+    central_longitude=262.5,
+    central_latitude=38.5,
+    standard_parallels=(38.5, 38.5),
+    globe=ccrs.Globe(semimajor_axis=6371229, semiminor_axis=6371229),
+)
+
+```
+
+</CodeBlock>
+
+**Badges:** `region:na` `dataclass:analysis` `dataset:hrrr` `product:wind` `product:precip` `product:temp` `product:atmos` `product:radar` `provider:noaa`
+
+**Parameters:**
+
+<ParamField path="source" type="str" default="'aws'">
+Data source to use ('aws', 'google', 'azure', 'nomads'), by default 'aws'
+</ParamField>
+
+<ParamField path="max_workers" type="int" default="24">
+Deprecated, has no effect. Kept for API compatibility, by default 24
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Time in sec after which download will be cancelled if not finished successfully,
+by default 600
+</ParamField>
+
+<ParamField path="async_workers" type="int" default="None">
+Maximum number of concurrent downloads. By default None, which autoscales to
+the number of download tasks (capped at 64)
+</ParamField>
+
+<ParamField path="retries" type="int" default="3">
+Number of retries for each download task on transient errors, by default 3
+</ParamField>
+
+<Note>
+
+Additional information on the data repository can be referenced here:
+
+- https://www.nco.ncep.noaa.gov/pmb/products/hrrr/
+- https://rapidrefresh.noaa.gov/hrrr/
+- https://aws.amazon.com/marketplace/pp/prodview-yd5ydptv3vuz2#resources
+- https://hrrrzarr.s3.amazonaws.com/index.html
+- https://console.cloud.google.com/marketplace/product/noaa-public/hrrr
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of data
+to your local machine for large requests.
+
+</Warning>
+
+<ParamField path="cache" type="str">
+Return appropriate cache location.
+</ParamField>
+
+<Anchor id="earth2studio-data-hrrr-HRRR-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.hrrr.HRRR.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve HRRR analysis data (lead time 0)
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the HRRR lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+HRRR weather data array
+
+</Indent>
+<Anchor id="earth2studio-data-hrrr-HRRR-available">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.hrrr.HRRR.available(
+    time: datetime.datetime | numpy.datetime64
+) -> bool
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Checks if given date time is avaliable in the HRRR object store. Uses S3
+store
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | np.datetime64">
+Date time to access
+</ParamField>
+
+**Returns:** `bool`
+
+If date time is avaiable
+
+</Indent>
+<Anchor id="earth2studio-data-hrrr-HRRR-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.hrrr.HRRR.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get data
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the HRRR lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+HRRR weather data array
+
+</Indent>
+<Anchor id="earth2studio-data-hrrr-HRRR-fetch_array">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.hrrr.HRRR.fetch_array(
+    grib_uri: str,
+    byte_offset: int,
+    byte_length: int,
+    modifier: collections.abc.Callable
+) -> numpy.ndarray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Fetch HRRR data array. This will first fetch the index file to get byte range
+of the needed data, fetch the respective grib files and lastly combining grib
+files into single data array.
+
+**Parameters:**
+
+<ParamField path="time" type="datetime">
+Date time to fetch
+</ParamField>
+
+<ParamField path="lead_time" type="timedelta">
+Forecast lead time to fetch
+</ParamField>
+
+<ParamField path="variables" type="list[str]">
+Variables to fetch
+</ParamField>
+
+**Returns:** `np.ndarray`
+
+HRRR array for given time and lead time
+
+</Indent>
+<Anchor id="earth2studio-data-hrrr-HRRR-fetch_wrapper">
+
+<CodeBlock links={{"earth2studio.data.hrrr.HRRRAsyncTask":"#earth2studio-data-hrrr-HRRRAsyncTask"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.hrrr.HRRR.fetch_wrapper(
+    task: earth2studio.data.hrrr.HRRRAsyncTask,
+    xr_array: xarray.DataArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Small wrapper to pack arrays into the DataArray
+
+</Indent>
+<Anchor id="earth2studio-data-hrrr-HRRR-grid">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.hrrr.HRRR.grid() -> tuple[numpy.array, numpy.array]
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>classmethod</Badge>
+
+Generates the HRRR lambert conformal projection grid coordinates. Creates the
+HRRR grid using single parallel lambert conformal mapping
+
+**Returns:** `tuple[np.array, np.array]`
+
+tuple: (lat, lon) in degrees
+
+<Note>
+
+For more information about the HRRR grid see:
+
+- https://ntrs.nasa.gov/api/citations/20160009371/downloads/20160009371.pdf
+
+</Note>
+
+</Indent>
+</Indent>
+
+<Anchor id="earth2studio-data-hrrr-HRRRAsyncTask">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.hrrr.HRRRAsyncTask(
+    data_array_indices: tuple[int, int, int],
+    hrrr_file_uri: str,
+    hrrr_byte_offset: int,
+    hrrr_byte_length: int,
+    hrrr_modifier: collections.abc.Callable
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>Dataclass</Badge>
+
+Small helper struct for Async tasks
+
+</Indent>
+
+<Anchor id="earth2studio-data-hrrr-HRRR_FX">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.data.hrrr.HRRR_FX(
+    source: str = 'aws',
+    max_workers: int = 24,
+    cache: bool = True,
+    verbose: bool = True,
+    async_timeout: int = 600,
+    async_workers: int | None = None,
+    retries: int = 3
+)
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+**Bases:** [HRRR](#earth2studio-data-hrrr-HRRR)
+
+High-Resolution Rapid Refresh (HRRR) forecast source provides a North-American
+weather forecasts with hourly forecast runs developed by NOAA. This forecast source
+has hourly forecast steps up to a lead time of 48 hours. Data is provided on a
+Lambert conformal 3km grid at 1-hour intervals. The spatial dimensionality of HRRR
+data is [1059, 1799].
+
+**Badges:** `region:na` `dataclass:simulation` `dataset:hrrr` `product:wind` `product:precip` `product:temp` `product:atmos` `product:radar` `provider:noaa`
+
+**Parameters:**
+
+<ParamField path="source" type="str" default="'aws'">
+Data source to use ('aws', 'google', 'azure', 'nomads'), by default 'aws'
+</ParamField>
+
+<ParamField path="max_workers" type="int" default="24">
+Deprecated, has no effect. Kept for API compatibility, by default 24
+</ParamField>
+
+<ParamField path="cache" type="bool" default="True">
+Cache data source on local memory, by default True
+</ParamField>
+
+<ParamField path="verbose" type="bool" default="True">
+Print download progress, by default True
+</ParamField>
+
+<ParamField path="async_timeout" type="int" default="600">
+Time in sec after which download will be cancelled if not finished successfully,
+by default 600
+</ParamField>
+
+<ParamField path="async_workers" type="int" default="None">
+Maximum number of concurrent downloads. By default None, which autoscales to
+the number of download tasks (capped at 64)
+</ParamField>
+
+<ParamField path="retries" type="int" default="3">
+Number of retries for each download task on transient errors, by default 3
+</ParamField>
+
+<Note>
+
+48 hour forecasts are provided on 6 hour intervals. 18 hour forecasts are generated
+hourly.
+Additional information on the data repository can be referenced here:
+
+- https://www.nco.ncep.noaa.gov/pmb/products/hrrr/
+- https://rapidrefresh.noaa.gov/hrrr/
+- https://console.cloud.google.com/marketplace/product/noaa-public/hrrr
+
+</Note>
+
+<Warning>
+
+This is a remote data source and can potentially download a large amount of data
+to your local machine for large requests.
+
+</Warning>
+
+<Anchor id="earth2studio-data-hrrr-HRRR_FX-__call__">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.hrrr.HRRR_FX.__call__(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Retrieve HRRR forecast data
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="lead_time" type="timedelta | list[timedelta] | LeadTimeArray">
+`timedelta | list[timedelta] |` [`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Forecast lead times to fetch.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the HRRR lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+HRRR forecast data array
+
+</Indent>
+<Anchor id="earth2studio-data-hrrr-HRRR_FX-fetch">
+
+<CodeBlock links={{"earth2studio.utils.type.TimeArray":"../utils/type.mdx#earth2studio-utils-type-TimeArray","earth2studio.utils.type.LeadTimeArray":"../utils/type.mdx#earth2studio-utils-type-LeadTimeArray","earth2studio.utils.type.VariableArray":"../utils/type.mdx#earth2studio-utils-type-VariableArray"}} showLineNumbers={false} wordWrap={true}>
+
+```python
+earth2studio.data.hrrr.HRRR_FX.fetch(
+    time: datetime.datetime | list[datetime.datetime] | earth2studio.utils.type.TimeArray,
+    lead_time: datetime.timedelta | list[datetime.timedelta] | earth2studio.utils.type.LeadTimeArray,
+    variable: str | list[str] | earth2studio.utils.type.VariableArray
+) -> xarray.DataArray
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+<Badge>async</Badge>
+
+Async function to get data
+
+**Parameters:**
+
+<ParamField path="time" type="datetime | list[datetime] | TimeArray">
+`datetime | list[datetime] |` [`TimeArray`](../utils/type.mdx#earth2studio-utils-type-TimeArray) — Timestamps to return data for (UTC).
+</ParamField>
+
+<ParamField path="lead_time" type="timedelta | list[timedelta] | LeadTimeArray">
+`timedelta | list[timedelta] |` [`LeadTimeArray`](../utils/type.mdx#earth2studio-utils-type-LeadTimeArray) — Forecast lead times to fetch.
+</ParamField>
+
+<ParamField path="variable" type="str | list[str] | VariableArray">
+`str | list[str] |` [`VariableArray`](../utils/type.mdx#earth2studio-utils-type-VariableArray) — String, list of strings or array of strings that refer to variables to
+return. Must be in the HRRR FX lexicon.
+</ParamField>
+
+**Returns:** `xr.DataArray`
+
+HRRR forecast data array
+
+</Indent>
+</Indent>

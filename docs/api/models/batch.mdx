@@ -1,0 +1,93 @@
+---
+layout: overview
+title: earth2studio.models.batch
+---
+## Module Contents
+
+### Classes
+
+| Name | Description |
+|------|-------------|
+| [`batch_coords`](#earth2studio-models-batch-batch_coords) | Batch utility decorator which can be added to prognostic and diagnostic |
+| [`batch_func`](#earth2studio-models-batch-batch_func) | Batch utility decorator which can be added to prognostic and diagnostic models |
+
+### API
+
+<Anchor id="earth2studio-models-batch-batch_coords">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.batch.batch_coords()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Batch utility decorator which can be added to prognostic and diagnostic
+output_coords methods to help enable support for automatic batching of data.
+This class contains a decorator function which should be added to output_coord
+calls where this functionality is desired.
+
+<Note>
+
+`input_coords` and `output_coords` must have "batch" as the
+coordinate system of the first dimensions. I.e. first key entry needs to be "batch".
+
+</Note>
+
+</Indent>
+
+<Anchor id="earth2studio-models-batch-batch_func">
+
+<CodeBlock showLineNumbers={false} wordWrap={true}>
+
+```python
+class earth2studio.models.batch.batch_func()
+```
+
+</CodeBlock>
+</Anchor>
+
+<Indent>
+
+Batch utility decorator which can be added to prognostic and diagnostic models
+to help enable support for automatic batching of data. This class contains a
+decorator function which should be added to calls where this functionality is
+desired.
+
+**Example**
+
+<CodeBlock showLineNumbers={false}>
+
+```python
+class Model():
+
+    input_coords = OrderedDict([("batch", np.empty(0)), ...])
+    output_coords = OrderedDict([("batch", np.empty(0)), ...])
+
+    @batch_func()
+    def __call__(
+        self,
+        x: torch.Tensor,
+        coords: CoordSystem,
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        ...
+```
+
+</CodeBlock>
+
+<Note>
+
+A model attributes `input_coords` and `output_coords` must have "batch" as the
+coordinate system of the first dimensions. I.e. first key entry needs to be "batch".
+When decorating a method of a model, such as `__call__`, the method is required to
+have a signature of `(self, *args: Any, **kwargs: Any) -&gt; tuple[torch.Tensor, CoordSystem]`.
+All positional arguments must be a sequence of (x, CoordSystem) pairs. All kwargs are
+passed through to the wrapped function without modification.
+
+</Note>
+
+</Indent>
