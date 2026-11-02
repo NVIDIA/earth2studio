@@ -87,6 +87,16 @@ class Runner(Protocol):
   upfront.
 - **Members.** Without `supports_member_batching`, a runner gets at most one
   member per item, or `Pipeline` raises `ValueError` before running.
+- **Source members.** Members of one ensemble may read different data, e.g. four
+  seeded branches from each IFS ENS member. A built-in runner given
+  `ensemble_member`, a function from a work item's member ID to a source member
+  label, fetches every slot whose source is ensemble-aware (see
+  [FETCH_DATA_SPEC.md](FETCH_DATA_SPEC.md#ensemble-members)) for the item's
+  members: initial conditions and forcing alike, the distinct labels in one
+  request, recorded in `DataRequest.ensemble`. Other slots, and every slot
+  without `ensemble_member`, are shared by all members. An item without member
+  IDs raises `ValueError`. With one member per item, the fetched member's field
+  reaches the model without an `ensemble` dimension.
 
 ### Stream schemas and outputs
 
@@ -339,7 +349,7 @@ physicsnemo's `DistributedManager`, which is optional.
 
 ## Built-in runners
 
-`PrognosticRunner(prognostic, source=None, forcing=None, diagnostics=None, seed=0)`
+`PrognosticRunner(prognostic, source=None, forcing=None, diagnostics=None, seed=0, ensemble_member=None)`
 drives `create_iterator` and publishes the initial condition as the first step,
 matching `run.deterministic`, when the input ends at zero and the output declares
 every input variable on the input's grid; otherwise the streams start at the
@@ -350,7 +360,7 @@ time-varying slots are sent every step. The prognostic stream is `forecast`;
 each diagnostic adds a stream under the caller's name. Member batching is not
 yet supported.
 
-`DiagnosticRunner(diagnostics, source=None, step=None, seed=0)` applies
+`DiagnosticRunner(diagnostics, source=None, step=None, seed=0, ensemble_member=None)` applies
 diagnostics directly to source data. Step `k` fetches inputs at the item's time
 plus `k * step`; without `step`, an item is one step at lead time zero.
 
@@ -359,6 +369,8 @@ coupler ([COUPLING_SPEC.md](COUPLING_SPEC.md)). Per item it fetches each
 component's initial condition from bound sources, runs components at their own
 cadences, and yields component-named streams. It starts with
 `supports_member_batching = False`.
+
+All three take `ensemble_member` (see **Source members** above).
 
 ## Rules
 
@@ -385,6 +397,7 @@ cadences, and yields component-named streams. It starts with
 | `X19` | A manifest mismatch raises `ValueError` unless the progress store overwrites |
 | `X20` | A run or close failure on any rank raises on every rank at the end of `run` |
 | `X21` | With `sync`, every rank calls it once per round, idle ranks with `None` |
+| `X22` | With `ensemble_member`, ensemble-aware slots fetch the item's mapped members |
 
 Tests live in `test/run/`. `X7`, `X9`'s collectives, `X13`, `X18`, `X20` and `X21` run
 under `torchrun` with two CPU ranks on gloo; the rest run single-process.
@@ -424,7 +437,8 @@ optional runner capability built on `(y, state)` (open decision 3).
 
 1. **Dependent work items**, such as warm-start cycling: v1 or out of scope?
 2. **Ensembles:** where perturbations are configured, likely a runner argument,
-   and member batching for coupled runs.
+   and member batching. Batching will fetch a batch's distinct source members
+   once and repeat them across the members sharing one.
 3. **Mid-item resume:** must `run.*` keep step-level checkpoint resume? If so,
    runners need an optional checkpoint built on `(y, state)`. Blocks phase 4 only.
 4. **Async fetching:** if needed, change runner and `Pipeline` loop together.

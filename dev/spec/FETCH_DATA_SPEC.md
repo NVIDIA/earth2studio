@@ -32,6 +32,7 @@ def fetch_data(
     device: torch.device | str = "cpu",
     target_grid: GridDefinition | None = None,
     regridder: Regridder | None = None,
+    ensemble: np.ndarray | Sequence | None = None,
 ) -> xr.DataArray:
     ...
 ```
@@ -48,6 +49,9 @@ def fetch_data(
 - `regridder` is a `Regridder` to apply (see [REGRID_SPEC.md](REGRID_SPEC.md)).
   Choosing a method, or a registered one with `resolve_regridder`, is the
   caller's job.
+- `ensemble` names distinct members to fetch from an ensemble-aware source, in
+  the source's own labels (see [Ensemble Members](#ensemble-members)). Other
+  sources reject it with `ValueError`.
 
 There is no separate `metadata` or `statistics` input. Temporal quantities are
 declared in variable labels. `target_grid` replaces the former `interp_to`, and
@@ -120,6 +124,41 @@ then restore the requested initialization timestamps and add a `lead_time`
 dimension. For instantaneous forecasts, request initialization times and leads
 directly. Select returned coordinates in request order.
 
+## Ensemble Members
+
+Ensemble forecasts and stored ensemble runs supply one field per member, and an
+ensemble run may start each member from a different one: for example four seeded
+branches from each of 50 IFS ENS members, member `m` starting from forecast
+member `m // 4 + 1`. Members are therefore a request coordinate, like
+`lead_time`, on the sources that have them:
+
+```python
+IFS_ENS()(time, variable)                     # unchanged: the configured member
+IFS_ENS()(time, variable, ensemble=[3, 4])    # ensemble dimension labeled 3, 4
+fetch_data(IFS_ENS(), time, variable, ensemble=[3, 4])
+```
+
+- An ensemble-aware source takes an optional `ensemble` keyword on `__call__`
+  and `fetch`, after its other arguments. Given, the result has an `ensemble`
+  dimension holding those members; omitted, the source behaves as before,
+  returning the member it was built with. The `DataSource` and `ForecastSource`
+  protocols are unchanged, and other sources are untouched.
+- A source is ensemble-aware when its `__call__` signature contains `ensemble`,
+  mirroring forecast detection. Wrappers that forward requests through `*args`
+  declare it with a boolean `is_ensemble` property; `RegriddedSource` reports
+  its source's. There is no separate protocol: a runtime-checkable protocol
+  checks member names only, and ensemble awareness cuts across `DataSource` and
+  `ForecastSource`.
+- Labels are the source's own: `IFS_ENS`, `IFS_ENS_FX` and `AIFS_ENS_FX` use `0`
+  for the control and `1` and up for perturbed members, `GEFS_FX` uses `gec00`
+  and `gep01` to `gep30`, and `InferenceOutputSource` uses the stored `ensemble`
+  coordinate. Any subset, including all members, is requested by listing its
+  labels.
+- `fetch_data` forwards `ensemble` to every source call, including those for
+  temporal statistics, raises if the source returns no `ensemble` dimension, and
+  selects members in request order. Labels must be distinct; callers repeat
+  members after fetching.
+
 ## Temporal Statistics
 
 `fetch_data` passes every label, qualified or not, to the source unchanged; the
@@ -150,6 +189,8 @@ before the first `:`, so a component providing `t2m` also receives
 
 - Return one `xr.DataArray`, ordered as `[time, lead_time, variable, ...]`, with
   remaining source dimensions retained. Lead coordinates use nanosecond precision.
+  With `ensemble`, a leading `ensemble` dimension comes first, labeled by the
+  requested members in order.
 - Without a regridder, preserve source spatial coordinates, auxiliary geometry,
   array name, and source attributes. Do not infer a grid, reconstruct grid
   metadata, or relabel geometry. Groups must agree on shared coordinates when
@@ -193,8 +234,10 @@ Tests must cover both source types, multiple initializations and leads, mixed
 instantaneous/statistical labels forwarded unchanged, rejection of qualified labels
 returned without statistics metadata, output ordering and metadata, native spatial
 geometry, CPU/CUDA placement, regridding after reduction, compositions forwarding
-qualified labels, and sources returning device arrays. Source aggregation is tested
+qualified labels, sources returning device arrays, and ensemble members through
+both source types, temporal statistics and `RegriddedSource`. Source aggregation is tested
 with the shared helper and with each source that supports statistics. The fetch regressions live in
-`test/data/test_fetch_data_xarray.py` and `test/data/test_data_utils.py`, with
+`test/data/test_fetch_data_xarray.py` and `test/data/test_data_utils.py`, member
+selection by each ensemble-aware source in its own test file, with
 regridders in `test/grids/test_regrid.py` and window semantics in
 `test/utils/test_time_statistics.py`.
