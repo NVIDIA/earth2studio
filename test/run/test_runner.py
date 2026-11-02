@@ -306,6 +306,57 @@ def test_initial_condition_only_for_zero_final_lead_time() -> None:
     np.testing.assert_array_equal(steps[0]["forecast"].values, 0)
 
 
+class _Decoded(PrognosticMixin):
+    """Model whose outputs differ from its inputs: winds in, wind speed out."""
+
+    def input_coords(self) -> CoordinateSystem:
+        return _model().input_coords()
+
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        return coord_array_like(
+            input_coords,
+            {
+                "lead_time": input_coords["lead_time"].values[-1:]
+                + np.timedelta64(6, "h"),
+                "variable": ["ws10m"],
+            },
+        )
+
+    def _advance(self, x: xr.DataArray) -> xr.DataArray:
+        y = x.isel(lead_time=[-1], variable=[0]) + 1
+        return y.assign_coords(
+            lead_time=y["lead_time"] + np.timedelta64(6, "h"), variable=["ws10m"]
+        )
+
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, None]:  # type: ignore[override]
+        return self._advance(x), None
+
+    def step(  # type: ignore[override]
+        self, y: xr.DataArray, state: None = None
+    ) -> tuple[xr.DataArray, None]:
+        y = y.assign_coords(variable=["u10m"])
+        return self._advance(y), None
+
+    def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:  # type: ignore[override]
+        return self._default_create_iterator(x)
+
+    def to(self, device: torch.device) -> "_Decoded":
+        return self
+
+
+def test_outputs_unlike_inputs_start_at_the_first_forecast() -> None:
+    runner = PrognosticRunner(_Decoded(), _Zeros())
+    assert not runner.publishes_initial_condition
+    assert PrognosticRunner(_model(), _Zeros()).publishes_initial_condition
+    steps = list(runner.run_item(_item(12)))
+    hours = [s["forecast"]["lead_time"].values[0] for s in steps]
+    assert np.array(hours).astype("timedelta64[h]").astype(int).tolist() == [6, 12]
+    planned = runner.output_coords(np.timedelta64(12, "h"))["forecast"]["lead_time"]
+    assert planned.values.astype("timedelta64[h]").astype(int).tolist() == [6, 12]
+    assert [str(v) for v in steps[0]["forecast"]["variable"].values] == ["ws10m"]
+    assert list(runner.run_item(_item(0))) == []
+
+
 def test_forcing_is_fetched_requested_and_sent_each_step() -> None:
     model = _Forced()
     runner = PrognosticRunner(model, _Zeros(), forcing=(_Zeros(),))

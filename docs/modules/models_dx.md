@@ -29,6 +29,7 @@ earth2studio.models.dx.CorrDiffCosmoEra5
 earth2studio.models.dx.CorrDiffEra5Hrrr
 earth2studio.models.dx.CorrDiffTaiwan
 earth2studio.models.dx.ClimateNet
+earth2studio.models.dx.DerivedPressureLevels
 earth2studio.models.dx.DerivedRH
 earth2studio.models.dx.DerivedRHDewpoint
 earth2studio.models.dx.DerivedSurfacePressure
