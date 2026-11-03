@@ -17,7 +17,7 @@
 from collections.abc import Generator
 from copy import deepcopy
 from itertools import product
-from typing import cast
+from typing import Any, cast
 
 import numpy as np
 import torch
@@ -43,7 +43,7 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordinateSystem
+from earth2studio.utils.type import CoordinateSystem, DiffusionSolver
 
 try:
     from omegaconf import OmegaConf
@@ -51,6 +51,9 @@ try:
     from physicsnemo.diffusion.preconditioners.legacy import EDMPrecond
     from physicsnemo.diffusion.samplers import sample
     from physicsnemo.models.diffusion_unets import StormCastUNet
+
+    from earth2studio.models.nn.diffusion import SOLVERS
+    from earth2studio.models.nn.diffusion import solver_options as _solver_options
 except ImportError:
     OptionalDependencyFailure("stormcast")
     StormCastUNet = None
@@ -139,6 +142,19 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     sampler_args : dict[str, float  |  int], optional
         Arguments to pass to the diffusion sampler, by default None
 
+    solver : DiffusionSolver, optional
+        Select the numerical method for integrating the sampling ODE in reverse
+        time. Stochastic variants also inject noise along the trajectory, by
+        default "edm_stochastic_heun"
+    solver_options : dict[str, Any] | None, optional
+        Options passed to the selected solver to customize its behavior or
+        override defaults. The wrapper supplies the noise-schedule coefficients.
+        Do not pass ``num_steps`` here; set the sampling step count with
+        ``sampler_steps`` instead. By default None
+        See the `PhysicsNeMo solver API
+        <https://docs.nvidia.com/physicsnemo/latest/physicsnemo/api/diffusion/samplers.html#solvers>`_
+        for the options supported by each method.
+
     Badges
     ------
     region:na class:nowcasting product:wind product:temp product:radar product:atmos year:2024
@@ -161,8 +177,21 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         conditioning_variables: np.array = np.array(CONDITIONING_VARIABLES),
         sampler_steps: int = 18,
         sampler_args: dict[str, float | int] | None = None,
+        *,
+        solver: DiffusionSolver = "edm_stochastic_heun",
+        solver_options: dict[str, Any] | None = None,
     ):
         super().__init__()
+        if solver not in SOLVERS:
+            raise ValueError(
+                f"Unknown solver {solver!r}; choose from {tuple(SOLVERS)}."
+            )
+        self.solver = solver
+        if solver_options is not None and "num_steps" in solver_options:
+            raise ValueError(
+                "Do not pass 'num_steps' in solver_options; use sampler_steps instead."
+            )
+        self.solver_options = dict(solver_options or {})
         self.regression_model = regression_model
         self.diffusion_model = diffusion_model
         self.register_buffer("means", means)
@@ -179,6 +208,10 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             "S_noise": 1,
         }
         if sampler_args is not None:
+            if "num_steps" in sampler_args:
+                raise ValueError(
+                    "Do not pass 'num_steps' in sampler_args; use sampler_steps instead."
+                )
             self.sampler_args.update(sampler_args)
 
         parent = cast(ProjectedGrid, resolve_grid("hrrr"))
@@ -259,6 +292,9 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         cls,
         package: Package,
         sampler_steps: int = 18,
+        *,
+        solver: DiffusionSolver = "edm_stochastic_heun",
+        solver_options: dict[str, Any] | None = None,
     ) -> PrognosticModel:
         """Load prognostic from package
 
@@ -268,6 +304,19 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Package to load model from
         sampler_steps : int, optional
             Number of diffusion sampler steps, by default 18
+
+        solver : DiffusionSolver, optional
+            Select the numerical method for integrating the sampling ODE in
+            reverse time. Stochastic variants also inject noise along the
+            trajectory, by default "edm_stochastic_heun"
+        solver_options : dict[str, Any] | None, optional
+            Options passed to the selected solver to customize its behavior or
+            override defaults. The wrapper supplies the noise-schedule
+            coefficients. Do not pass ``num_steps`` here; set the sampling step count
+            with ``sampler_steps`` instead. By default None
+            See the `PhysicsNeMo solver API
+            <https://docs.nvidia.com/physicsnemo/latest/physicsnemo/api/diffusion/samplers.html#solvers>`_
+            for the options supported by each method.
 
         Returns
         -------
@@ -321,7 +370,9 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         # EDM sampler arguments
         if config.sampler_args is not None:
-            sampler_args = config.sampler_args
+            sampler_args = dict(config.sampler_args)
+            # The public sampler_steps argument owns the sampling grid.
+            sampler_args.pop("num_steps", None)
         else:
             sampler_args = {}
 
@@ -337,6 +388,8 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             conditioning_variables=conditioning_variables,
             sampler_steps=sampler_steps,
             sampler_args=sampler_args,
+            solver=solver,
+            solver_options=solver_options,
         )
 
     @torch.inference_mode()
@@ -400,13 +453,15 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             latents,
             noise_scheduler=scheduler,
             num_steps=self.sampler_steps,
-            solver="edm_stochastic_heun",
-            solver_options={
-                "S_churn": self.sampler_args["S_churn"],
-                "S_min": self.sampler_args["S_min"],
-                "S_max": self.sampler_args["S_max"],
-                "S_noise": self.sampler_args["S_noise"],
-            },
+            solver=self.solver,
+            solver_options=_solver_options(
+                scheduler,
+                self.solver,
+                prediction_type="x0",
+                num_steps=self.sampler_steps,
+                defaults=self.sampler_args,
+                options=self.solver_options,
+            ),
         )
 
         out += edm_out

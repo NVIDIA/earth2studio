@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- [StormCast](earth2studio/models/px/stormcast.py),
+  [StormCast CONUS](earth2studio/models/px/stormcastconus.py),
+  [StormCast SDA](earth2studio/models/da/sda_stormcast.py), and
+  [StormCast CONUS SDA](earth2studio/models/da/sda_stormcastconus.py) accept optional `solver`
+  and `solver_options` arguments when loading. These controls support experiments
+  with numerical integration methods to compare forecast quality and sampling
+  cost. Overrides are opt-in. Existing solver selections remain the defaults.
+  Refer to the [diffusion solver guide](docs/userguide/advanced/diffusion_solvers.md)
+  for examples and configuration details.
 - Added regional inference to `CorrDiffEra5Hrrr`: `with_region` (`DomainAdaptable`)
   returns a view on the block of the HRRR crop covering a box, with the CorrDiff
   regional helpers shared in `earth2studio.models.nn.corrdiff`.

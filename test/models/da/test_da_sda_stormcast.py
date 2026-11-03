@@ -59,7 +59,6 @@ X_START, X_END = 32, 64
 NVAR = 3
 NVAR_COND = 5
 SAMPLER_ARGS = {
-    "num_steps": 2,
     "sigma_min": 0.002,
     "sigma_max": 88.0,
     "rho": 7.0,
@@ -99,6 +98,7 @@ def _build_model(device="cpu"):
         conditioning_means=conditioning_means,
         conditioning_stds=conditioning_stds,
         conditioning_variables=conditioning_variables,
+        sampler_steps=2,
         sampler_args=SAMPLER_ARGS,
     ).to(device)
 
