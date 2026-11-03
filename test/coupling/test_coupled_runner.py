@@ -35,7 +35,6 @@ from test_coupling_toys import (
     H,
     Observations,
     Rain,
-    _check,
     _Toy,
     atmosphere,
     ocean,
@@ -313,32 +312,14 @@ def test_a_lone_forced_model_matches_prognostic_runner() -> None:
     assert coupled == pytest.approx(direct)
 
 
-class _Background(_Toy):
-    """Initialized from a background 9 h before the analysis time, then 3 h steps."""
-
-    def __init__(self) -> None:
-        super().__init__("z1000", "sst", ATMOS_GRID, 3, 1.0, 0.1)
-
-    def input_coords(self) -> CoordinateSystem:
-        return signature(["z1000"], ATMOS_GRID, [-9])
-
-    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
-        _check(input_coords, self.input_coords())
-        leads = input_coords["lead_time"].values[-1:] + 12 * H
-        return coord_array_like(input_coords, {"lead_time": leads})
-
-    def initialize(  # type: ignore[override]
-        self, x: xr.DataArray, forcing: xr.DataArray
-    ) -> tuple[xr.DataArray, None]:
-        # Bring the background up to the analysis time, then forecast one step.
-        return super().initialize(
-            x.assign_coords(lead_time=x["lead_time"] + 9 * H), forcing
-        )
+def _background() -> _Toy:
+    """Atmosphere initialized from a background 9 h before the analysis time."""
+    return _Toy("z1000", "sst", ATMOS_GRID, 3, 1.0, 0.1, background=9)
 
 
-def test_a_background_before_the_analysis_time_steps_at_its_forecast_cadence() -> None:
+def test_background_steps_at_forecast_cadence() -> None:
     sources = (Fill(ATMOS_GRID, {"z1000": 0.0}), Fill(ATMOS_GRID, {"sst": 3.0}))
-    runner = CoupledRunner({"atmos": _Background()}, sources={"atmos": sources})
+    runner = CoupledRunner({"atmos": _background()}, sources={"atmos": sources})
     node = runner.nodes["atmos"]
     assert node.cadence == int(np.timedelta64(3, "h") // np.timedelta64(1, "ns"))
     assert (node.ic_lead, node.ic_slots) == (0, ())
@@ -346,7 +327,7 @@ def test_a_background_before_the_analysis_time_steps_at_its_forecast_cadence() -
     assert list(coupled) == [3, 6, 9]
     leads = runner.output_coords(np.timedelta64(9, "h"))["atmos"]["lead_time"]
     assert [int(v // H) for v in leads.values] == [3, 6, 9]
-    single = PrognosticRunner(_Background(), sources[0], forcing=sources[1:])
+    single = PrognosticRunner(_background(), sources[0], forcing=sources[1:])
     direct = {
         int(s["forecast"]["lead_time"].values[-1] // H): float(s["forecast"].mean())
         for s in single.run_item(WorkItem(T0, np.timedelta64(9, "h")))

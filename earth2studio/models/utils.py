@@ -30,6 +30,8 @@ except ImportError:
 import numpy as np
 import torch
 
+from earth2studio.utils.type import LeadTimeArray
+
 if TYPE_CHECKING:
     from earth2studio.data.base import (
         DataFrameSource,
@@ -65,7 +67,9 @@ def recommended_sources(
     return None
 
 
-def step_interval(input_lead_time: np.ndarray, output_lead_time: np.ndarray) -> Any:
+def step_interval(
+    input_lead_time: LeadTimeArray, output_lead_time: LeadTimeArray
+) -> np.timedelta64:
     """Time a stateful model advances per ``step``, from its declared lead times.
 
     The interval is the output's last lead time minus the later of the input's
@@ -76,19 +80,18 @@ def step_interval(input_lead_time: np.ndarray, output_lead_time: np.ndarray) -> 
 
     Parameters
     ----------
-    input_lead_time : np.ndarray
+    input_lead_time : LeadTimeArray
         Lead times of the first input slot, relative to the analysis time
-    output_lead_time : np.ndarray
-        Lead times of the output ``initialize`` returns, in the same units
+    output_lead_time : LeadTimeArray
+        Lead times of the output ``initialize`` returns
 
     Returns
     -------
-    Any
-        Interval in the arrays' type: ``np.timedelta64`` for timedelta arrays,
-        an integer for integer arrays
+    np.timedelta64
+        Interval each ``step`` advances
     """
-    end = input_lead_time[-1]
-    return output_lead_time[-1] - max(end, end - end)  # end - end: zero, same units
+    start = max(input_lead_time[-1], np.timedelta64(0, "s"))
+    return np.timedelta64(output_lead_time[-1] - start)
 
 
 def create_ort_session(

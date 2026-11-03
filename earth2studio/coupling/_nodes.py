@@ -206,7 +206,10 @@ def _stateful(name: str, model: Any) -> _Node:
     # A first input ending before zero is a background that initialize brings up
     # to the analysis time; the cadence counts from zero, not from the background.
     ic_lead = max(int(inputs[0].leads[-1]), 0)
-    cadence = int(step_interval(inputs[0].leads, out_leads))
+    interval = step_interval(
+        inputs[0].signature["lead_time"].values, outputs[0]["lead_time"].values
+    )
+    cadence = int(_ns(interval)[0])
     if cadence <= 0:
         raise CouplingError(f"Component {name!r} does not advance in time")
     spacing = int(out_leads[1] - out_leads[0]) if len(out_leads) > 1 else cadence

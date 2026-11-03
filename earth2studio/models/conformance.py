@@ -988,21 +988,16 @@ def _hook_free(model: Any) -> Iterator[None]:
 def _next_plan(
     model: Any, inputs: tuple[xr.DataArray, ...], outputs: tuple[xr.DataArray, ...]
 ) -> tuple[xr.DataArray, ...]:
-    """Plan the step after ``outputs``, which advances by the model's interval.
-
-    The declared inputs are shifted so their output follows ``outputs`` by one
-    interval; for inputs ending at zero, that is shifting them to end where
-    ``outputs`` end.
-    """
+    """Plan the step after ``outputs``, which advances by the model's interval."""
     first = _slots(model.output_coords(*inputs))
     interval = step_interval(inputs[0].lead_time.values, first[0].lead_time.values)
-    offset = (
-        max(x.lead_time.values[-1] for x in outputs)
-        + interval
-        - max(x.lead_time.values[-1] for x in first)
-    )
+    first_end = max(x.lead_time.values[-1] for x in first)
+    next_end = max(x.lead_time.values[-1] for x in outputs) + interval
+    # Output lead times move with the inputs (P6), so shifting the declared inputs
+    # by the gap between the first output's end and the next one's plans the next.
+    shift = next_end - first_end
     shifted = tuple(
-        coord_array_like(x, {"lead_time": x.lead_time.values + offset}) for x in inputs
+        coord_array_like(x, {"lead_time": x.lead_time.values + shift}) for x in inputs
     )
     return _slots(model.output_coords(*shifted))
 
