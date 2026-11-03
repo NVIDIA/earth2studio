@@ -449,9 +449,11 @@ class Pipeline:
                 for stream, schema in sorted(schemas.items())
             },
             "seed": getattr(self.runner, "seed", None),
-            # Stochastic members depend on which members share their batch, so a
-            # resume must group members the same way.
-            "member_batch": max(len(item.member_ids) for item in items) or 1,
+            # Stochastic members depend on which members share their batch and
+            # on its first member, so a resume must group members the same way.
+            "member_groups": [
+                list(group) for group in sorted({item.member_ids for item in items})
+            ],
             "tags": {},
         }
 

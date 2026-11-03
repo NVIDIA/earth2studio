@@ -32,6 +32,7 @@ from earth2studio.data import (
     InferenceOutputSource,
     Random,
 )
+from earth2studio.data.utils import _is_ensemble_source
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import Persistence
 from earth2studio.perturbation import Zero
@@ -371,6 +372,7 @@ def _stored_ensemble() -> xr.Dataset:
 
 def test_inference_output_source_selects_requested_members():
     ds = InferenceOutputSource(_stored_ensemble())
+    assert _is_ensemble_source(ds)
     time = np.array(["2018-01-01T06"], dtype="datetime64[ns]")
     da = ds(time, ["u10m"], ensemble=[3, 1])
     np.testing.assert_array_equal(da["ensemble"], [3, 1])
@@ -382,5 +384,6 @@ def test_inference_output_source_selects_requested_members():
 
 def test_inference_output_source_without_members_rejects_ensemble():
     ds = InferenceOutputSource(_stored_ensemble(), filter_dict={"ensemble": 1})
+    assert not _is_ensemble_source(ds)
     with pytest.raises(ValueError, match="no ensemble dimension"):
         ds(np.array(["2018-01-01T00"], dtype="datetime64[ns]"), ["t2m"], ensemble=[1])

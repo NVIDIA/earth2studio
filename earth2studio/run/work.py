@@ -281,7 +281,7 @@ class ProgressStore:
 
     Progress is recorded as ``(time, final_lead_time, member_id)`` units, with no
     member for deterministic items, so resume is free to change item order,
-    rank count and member grouping; a partly done member group reruns in full.
+    rank count and the times; a partly done member group reruns in full.
     Each rank appends to its own log under ``path``, named by run attempt and
     rank, so no file ever has two writers. ``path`` must be shared by all ranks.
 

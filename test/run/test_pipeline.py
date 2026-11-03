@@ -266,18 +266,31 @@ def test_member_batches_write_the_same_values_as_single_members() -> None:
     np.testing.assert_array_equal(stores[2]["u10m"], stores[1]["u10m"])
 
 
-def test_resume_rejects_a_different_member_batch(tmp_path: Path) -> None:
-    def run(batch: int) -> None:
-        Pipeline(
-            _runner(),
-            output={"forecast": KVBackend()},
-            progress=ProgressStore(tmp_path),
-            device="cpu",
-        ).run(work_items([T0], H12, members=4, member_batch=batch))
+def _run_groups(path: Path, groups: list[tuple[int, ...]]) -> None:
+    Pipeline(
+        _runner(),
+        output={"forecast": KVBackend()},
+        progress=ProgressStore(path),
+        device="cpu",
+    ).run([WorkItem(T0, H12, group) for group in groups])
 
-    run(2)
-    with pytest.raises(ValueError, match="member_batch"):
-        run(1)
+
+@pytest.mark.parametrize(
+    "regrouped",
+    [
+        [(0,), (1,), (2,), (3,)],
+        [(0, 2), (1, 3)],
+        [(1, 0), (2, 3)],
+    ],
+    ids=["batch-size", "partners", "order"],
+)
+def test_resume_rejects_regrouped_members(
+    tmp_path: Path, regrouped: list[tuple[int, ...]]
+) -> None:
+    _run_groups(tmp_path, [(0, 1), (2, 3)])
+    with pytest.raises(ValueError, match="member_groups"):
+        _run_groups(tmp_path, regrouped)
+    _run_groups(tmp_path, [(2, 3), (0, 1)])
 
 
 def test_member_batches_need_a_batching_runner() -> None:
@@ -466,7 +479,7 @@ def test_manifest_records_streams_seed_and_tags(tmp_path: Path) -> None:
     manifest = json.loads((tmp_path / "manifest.json").read_text())
     assert manifest["version"] == 2
     assert manifest["seed"] == 3
-    assert manifest["member_batch"] == 1
+    assert manifest["member_groups"] == [[]]
     assert manifest["tags"] == {"model": "tiny"}
     forecast = manifest["streams"]["forecast"]
     assert forecast["labels"]["variable"] == ["u10m"]

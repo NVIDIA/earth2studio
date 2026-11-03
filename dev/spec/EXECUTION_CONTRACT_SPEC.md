@@ -131,8 +131,8 @@ members share that stream: a stochastic member's output depends on which members
 share its batch. `member_batch=1` seeds every member alone, reproducing each
 member exactly whatever the other members. Seeding each batch element on its own
 (`set_rng` taking one seed per element, migrated model by model) is later work.
-`Pipeline` records the batch size in the progress manifest, so a resume cannot
-regroup members. `seed` is a constructor argument (default
+`Pipeline` records the member groups in the progress manifest, so a resume
+cannot regroup or reorder members. `seed` is a constructor argument (default
 `0`) exposed as `runner.seed` for the progress manifest. Runners never touch
 global RNG state (`P14`, `D10`).
 
@@ -323,7 +323,7 @@ class ProgressStore:
 - **Unit keys.** Every finished item is recorded as `(time, final_lead_time, member_id)`
   units; an item is done when all its units are. Keys ignore order, rank and
   world size, so a resume may change any of them; a partly done group reruns in
-  full. Grouping is fixed by the manifest's `member_batch`.
+  full. Grouping is fixed by the manifest's `member_groups`.
 - **Setup.** Rank 0 calls `setup`, which clears the store if `overwrite`, merges
   existing logs into one and writes the manifest if none exists. It returns the
   run attempt, which `Pipeline` broadcasts.
@@ -337,8 +337,8 @@ class ProgressStore:
 
 `Pipeline` builds the manifest as JSON: `version` (`2`), `streams` (per stream:
 dims, non-spatial labels, grid ID and dtype, and whether it is written), `seed`
-(`runner.seed` or `null`), `member_batch` (the most members of any item, `1`
-without members), and `tags`. The store merges its `tags` in, so a tag
+(`runner.seed` or `null`), `member_groups` (the distinct ordered member groups
+of the items, `[[]]` without members), and `tags`. The store merges its `tags` in, so a tag
 change is a mismatch. Model identity is not detectable, so callers record it in
 `tags`.
 

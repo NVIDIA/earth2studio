@@ -162,6 +162,11 @@ class InferenceOutputSource:
             self.da = self.da.rename({"lead_time": "time"})
             self.da = self.da.assign_coords(time=time_array)
 
+    @property
+    def is_ensemble(self) -> bool:
+        """Whether the stored output keeps an ``ensemble`` dimension to select."""
+        return "ensemble" in self.da.dims
+
     def __call__(
         self,
         time: datetime | list[datetime] | TimeArray,
