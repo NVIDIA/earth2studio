@@ -23,6 +23,7 @@ from typing import Any
 import numpy as np
 import xarray as xr
 
+from earth2studio.grids import infer_grid, same_geometry
 from earth2studio.io.utils import output_template
 from earth2studio.models.px.utils import initial_condition
 from earth2studio.utils.coords import CoordSystem, coord_array_like
@@ -158,6 +159,30 @@ def _io_template(
         leading = {**leading, "lead_time": leads}
         return output_template(signature, leading=leading)
     return output_template(signature, leading=leading, coords={"lead_time": leads})
+
+
+def _publishes_initial_condition(inputs: xr.DataArray, outputs: xr.DataArray) -> bool:
+    """Whether an input slot's final frame can open the output slot's stream.
+
+    It can when the output declares every input variable, on the input's grid;
+    outputs the input lacks, such as diagnostics, are left unwritten. Models whose
+    inputs are not among their outputs start at the first forecast.
+    """
+    if "lead_time" not in inputs.dims or "variable" not in inputs.dims:
+        return False
+    variables = {str(v) for v in inputs.coords["variable"].values}
+    if not variables <= {str(v) for v in outputs.coords["variable"].values}:
+        return False
+    try:
+        return same_geometry(infer_grid(inputs), infer_grid(outputs))
+    except Exception:  # noqa: BLE001 - not every signature carries a grid
+        fixed = ("batch", "time", "lead_time", "variable")
+        dims = [d for d in inputs.dims if d not in fixed]
+        return dims == [d for d in outputs.dims if d not in fixed] and all(
+            np.array_equal(inputs.coords[d].values, outputs.coords[d].values)
+            for d in dims
+            if d in inputs.coords and d in outputs.coords
+        )
 
 
 def _with_lead_time(x: xr.DataArray, lead_time: np.ndarray) -> xr.DataArray:

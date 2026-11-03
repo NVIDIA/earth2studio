@@ -30,6 +30,19 @@ output: generated/utils/interp
 earth2studio.utils.interp.LatLonInterpolation
 {% endautosummary %}
 
+## Vertical Interpolation
+
+<!-- e2s-autosummary
+currentmodule: earth2studio.utils.interp
+template: function
+output: generated/utils/interp
+-->
+
+{% autosummary %}
+earth2studio.utils.interp.hybrid_pressure
+earth2studio.utils.interp.interpolate_vertical
+{% endautosummary %}
+
 ## Regridders
 
 Implementations of the `earth2studio.grids.Regridder` protocol, which map fields

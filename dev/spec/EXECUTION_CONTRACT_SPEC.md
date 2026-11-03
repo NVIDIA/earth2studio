@@ -22,8 +22,8 @@ output = {"forecast": ZarrBackend("out/forecast.zarr")}
 progress = ProgressStore("out/.progress")
 Pipeline.from_model(model, GFS(), output=output, progress=progress).run(items)
 
-# Coupled (illustrative): the coupler's Driver supplies the runner.
-Pipeline(driver.to_runner(ics={...}), output=output).run(items)
+# Coupled: CoupledRunner is a Runner; one stream per component.
+Pipeline(CoupledRunner(components, connectors), output=output).run(items)
 ```
 
 `earth2studio.run` never imports the coupler; coupled runners live with it.
@@ -341,20 +341,22 @@ physicsnemo's `DistributedManager`, which is optional.
 
 `PrognosticRunner(prognostic, source=None, forcing=None, diagnostics=None, seed=0)`
 drives `create_iterator` and publishes the initial condition as the first step,
-matching `run.deterministic`. Sources default to `default_sources()`. Declared
-forcing is fetched initially and its time-varying slots are sent every step. The
-prognostic stream is `forecast`; each diagnostic adds a stream under the caller's
-name. Member batching is not yet supported.
+matching `run.deterministic`, when the output declares every input variable on
+the input's grid; otherwise the streams start at the first forecast. Sources
+default to `default_sources()`. Declared forcing is fetched initially and its
+time-varying slots are sent every step. The prognostic stream is `forecast`;
+each diagnostic adds a stream under the caller's name. Member batching is not
+yet supported.
 
 `DiagnosticRunner(diagnostics, source=None, step=None, seed=0)` applies
 diagnostics directly to source data. Step `k` fetches inputs at the item's time
 plus `k * step`; without `step`, an item is one step at lead time zero.
 
-The **coupled runner** lives with the coupler and wraps its `Driver`. Per item it
-builds a driver for the item's window, fetches each component's initial condition
-from bound sources, and yields each `Driver.steps()` step as component-named
-streams. It needs a per-item clock, initial conditions from sources rather than
-tensors, and starts with `supports_member_batching = False`.
+The **coupled runner**, `earth2studio.coupling.CoupledRunner`, lives with the
+coupler ([COUPLING_SPEC.md](COUPLING_SPEC.md)). Per item it fetches each
+component's initial condition from bound sources, runs components at their own
+cadences, and yields component-named streams. It starts with
+`supports_member_batching = False`.
 
 ## Rules
 
@@ -397,8 +399,11 @@ optional runner capability built on `(y, state)` (open decision 3).
 2. **Pipeline.** Done: `run/work.py`, the runner follow-up, `run/output.py` and
    `run/pipeline.py`. Next: replace the eval `forecast`, `diagnostic` and
    `dlesym` pipelines with built-in runners.
-3. **Coupled runner.** StormScope GOES and MRMS as Driver components, replacing
-   the eval `stormscope` pipeline.
+3. **Coupled runner.** `CoupledRunner` is done
+   ([COUPLING_SPEC.md](COUPLING_SPEC.md)), and `dev/examples/11_stormscope_coupling.py`
+   runs the Flash StormScope GOES and MRMS models as coupled components (GPU
+   check pending). Next: compare against the eval `stormscope` pipeline and
+   replace it.
 4. **Workflows.** `run.deterministic`, `run.diagnostic` and `run.ensemble` become
    thin wrappers over `Pipeline.from_model`.
 
@@ -428,8 +433,8 @@ optional runner capability built on `(y, state)` (open decision 3).
 2. A hand-written runner stops early and returns `None` data requests —
    `dev/examples/06_runner.py`.
 3. `Pipeline` drives `PrognosticRunner` and `DiagnosticRunner` identically,
-   writing one store per stream — `test/run/test_pipeline.py`; later, a coupled
-   runner too.
+   writing one store per stream — `test/run/test_pipeline.py`; `CoupledRunner`
+   too — `test/coupling/test_pipeline.py`.
 4. A forced model (StormCast-shaped mock) and fused DLESyM run through
    `PrognosticRunner` unchanged.
 5. Split DLESyM through the coupled runner reproduces the fused model.
