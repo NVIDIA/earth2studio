@@ -15,7 +15,7 @@
 # limitations under the License.
 
 from dataclasses import replace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
@@ -32,6 +32,7 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
+from earth2studio.utils.type import DiffusionSolver
 
 if TYPE_CHECKING:
     from earth2studio.data.base import DataSource
@@ -44,6 +45,12 @@ try:
         SuperResolutionModel,
     )
     from earth2grid import healpix
+
+    from earth2studio.models._cbottle import (
+        DistilledSuperResolutionSampler,
+        SuperResolutionSampler,
+    )
+    from earth2studio.models.nn.diffusion import SOLVERS
 except ImportError:
     OptionalDependencyFailure("cbottle")
     earth2grid = None
@@ -132,6 +139,20 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     sigma_max : int, optional
         Maximum noise level for diffusion process, by default 800
 
+    solver : DiffusionSolver | None, optional
+        Select the numerical method for integrating the sampling ODE in reverse
+        time. ``None`` preserves the default method, including native distilled
+        sampling. Supplied helpers keep their sampler and reject overrides. By
+        default None
+    solver_options : dict[str, Any] | None, optional
+        Options passed to the selected solver to customize its behavior or
+        override defaults. Do not pass ``num_steps`` here; set the sampling step
+        count with ``sampler_steps`` instead. Distilled models require an
+        explicit ``solver`` to use these options. By default None
+        See the `PhysicsNeMo solver API
+        <https://docs.nvidia.com/physicsnemo/latest/physicsnemo/api/diffusion/samplers.html#solvers>`_
+        for the options supported by each method.
+
     Badges
     ------
     region:global class:downscaling product:wind product:precip product:temp product:atmos
@@ -149,10 +170,41 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         super_resolution_window: tuple[int, int, int, int] | None = None,
         sampler_steps: int = 18,
         sigma_max: int = 800,
+        *,
+        solver: DiffusionSolver | None = None,
+        solver_options: dict[str, Any] | None = None,
     ) -> None:
         super().__init__()
+        if solver is not None and solver not in SOLVERS:
+            raise ValueError(
+                f"Unknown solver {solver!r}; choose from {tuple(SOLVERS)}."
+            )
+        self.solver = solver
+        if solver_options is not None and "num_steps" in solver_options:
+            raise ValueError(
+                "Do not pass 'num_steps' in solver_options; use sampler_steps instead."
+            )
+        self.solver_options = dict(solver_options or {})
 
+        if (solver is not None or solver_options) and not isinstance(
+            sr_model, (SuperResolutionSampler, DistilledSuperResolutionSampler)
+        ):
+            raise TypeError(
+                "Solver overrides require a helper created by CBottleSR.load_model. "
+                "Supplied C-Bottle helpers retain their own sampler."
+            )
+        if (
+            isinstance(sr_model, DistilledSuperResolutionSampler)
+            and solver is None
+            and solver_options
+        ):
+            raise ValueError("Distilled solver_options require an explicit solver.")
         self.sr_model = sr_model
+        if isinstance(
+            sr_model, (SuperResolutionSampler, DistilledSuperResolutionSampler)
+        ):
+            sr_model.solver = self.solver
+            sr_model.solver_options = self.solver_options
         self.sampler_steps = sampler_steps
         self.sigma_max = sigma_max
 
@@ -413,6 +465,9 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         sampler_steps: int = 18,
         sigma_max: int = 800,
         distilled_model: bool = False,
+        *,
+        solver: DiffusionSolver | None = None,
+        solver_options: dict[str, Any] | None = None,
     ) -> DiagnosticModel:
         """Load diagnostic model from package
 
@@ -436,6 +491,21 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             Whether to use the distilled model, If True, the distilled helper is used,
             enabling generation with fewer sampler steps, by default False
 
+        solver : DiffusionSolver | None, optional
+            Select the numerical method for integrating the sampling ODE in
+            reverse time. ``None`` preserves the default method, including
+            native distilled sampling. Alternatives for distilled checkpoints
+            use the fixed two-step schedule and can change predictions and
+            randomness. By default None
+        solver_options : dict[str, Any] | None, optional
+            Options passed to the selected solver to customize its behavior or
+            override defaults. Do not pass ``num_steps`` here; set the sampling step
+            count with ``sampler_steps`` instead. Distilled models require an
+            explicit ``solver`` to use these options. By default None
+            See the `PhysicsNeMo solver API
+            <https://docs.nvidia.com/physicsnemo/latest/physicsnemo/api/diffusion/samplers.html#solvers>`_
+            for the options supported by each method.
+
         Returns
         -------
         DiagnosticModel
@@ -451,7 +521,9 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             "cBottle-SR-Distill.zip" if distilled_model else "cBottle-SR.zip"
         )
         model_cls = (
-            DistilledSuperResolutionModel if distilled_model else SuperResolutionModel
+            DistilledSuperResolutionSampler
+            if distilled_model
+            else SuperResolutionSampler
         )
         state_path = package.resolve(checkpoint_name)
 
@@ -469,6 +541,8 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             super_resolution_window=super_resolution_window,
             sampler_steps=sampler_steps,
             sigma_max=sigma_max,
+            solver=solver,
+            solver_options=solver_options,
         )
 
     def _reorder_to_sr_channels(self, x: torch.Tensor) -> torch.Tensor:

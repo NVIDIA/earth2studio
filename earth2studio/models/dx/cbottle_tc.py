@@ -16,6 +16,8 @@
 
 from datetime import datetime, timedelta
 from enum import IntEnum
+from functools import partial
+from typing import Any
 
 import cftime
 import numpy as np
@@ -44,13 +46,16 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.time import to_time_array
-from earth2studio.utils.type import TimeArray
+from earth2studio.utils.type import DiffusionSolver, TimeArray
 
 try:
     import earth2grid
     from cbottle.checkpointing import Checkpoint
     from cbottle.datasets.dataset_2d import encode_sst
     from cbottle.inference import CBottle3d, MixtureOfExpertsDenoiser
+
+    from earth2studio.models._cbottle import sample_cbottle
+    from earth2studio.models.nn.diffusion import SOLVERS
 except ImportError:
     OptionalDependencyFailure("cbottle")
     earth2grid = None
@@ -114,6 +119,19 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         Dataset modality label to use when sampling (0=ICON, 1=ERA5), by default
         DatasetModality.ERA5
 
+    solver : DiffusionSolver | None, optional
+        Select the numerical method for integrating the sampling ODE in reverse
+        time. ``None`` preserves the checkpoint's default method. ICON
+        translation and odds-ratio calculations keep their native samplers. By
+        default None
+    solver_options : dict[str, Any] | None, optional
+        Options passed to the selected solver to customize its behavior or
+        override defaults. Do not pass ``num_steps`` here; set the sampling step
+        count with ``sampler_steps`` instead. By default None
+        See the `PhysicsNeMo solver API
+        <https://docs.nvidia.com/physicsnemo/latest/physicsnemo/api/diffusion/samplers.html#solvers>`_
+        for the options supported by each method.
+
     Badges
     ------
     region:global class:climate product:wind product:precip product:temp product:atmos
@@ -136,8 +154,21 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         sigma_max: float = 200.0,
         batch_size: int = 4,
         dataset_modality: DatasetModality = DatasetModality.ERA5,
+        *,
+        solver: DiffusionSolver | None = None,
+        solver_options: dict[str, Any] | None = None,
     ):
         super().__init__()
+        if solver is not None and solver not in SOLVERS:
+            raise ValueError(
+                f"Unknown solver {solver!r}; choose from {tuple(SOLVERS)}."
+            )
+        self.solver = solver
+        if solver_options is not None and "num_steps" in solver_options:
+            raise ValueError(
+                "Do not pass 'num_steps' in solver_options; use sampler_steps instead."
+            )
+        self.solver_options = dict(solver_options or {})
 
         self.sst = sst_ds
         self.lat_lon = lat_lon
@@ -282,6 +313,9 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
         sampler_steps: int = 18,
         sigma_max: float = 200,
         allow_second_order_derivatives: bool = False,
+        *,
+        solver: DiffusionSolver | None = None,
+        solver_options: dict[str, Any] | None = None,
     ) -> DiagnosticModel:
         """Load diagnostic from package
 
@@ -301,6 +335,18 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             Enable checkpoint/model loading path required for second-order autodiff
             (needed for odds-ratio computations). Keep False for faster standard
             guided inference, by default False.
+
+        solver : DiffusionSolver | None, optional
+            Select the numerical method for integrating the sampling ODE in
+            reverse time. ``None`` preserves the checkpoint's default method. By
+            default None
+        solver_options : dict[str, Any] | None, optional
+            Options passed to the selected solver to customize its behavior or
+            override defaults. Do not pass ``num_steps`` here; set the sampling step
+            count with ``sampler_steps`` instead. By default None
+            See the `PhysicsNeMo solver API
+            <https://docs.nvidia.com/physicsnemo/latest/physicsnemo/api/diffusion/samplers.html#solvers>`_
+            for the options supported by each method.
 
         Returns
         -------
@@ -345,6 +391,8 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             lat_lon=lat_lon,
             sampler_steps=sampler_steps,
             sigma_max=sigma_max,
+            solver=solver,
+            solver_options=solver_options,
         )
 
     def create_guidance_tensor(
@@ -519,12 +567,17 @@ class CBottleTCGuidance(torch.nn.Module, AutoModelMixin):
             device = batch["target"].device
             # Backend seeds cover only latents; translation and churn use Torch globals.
             with fork_rng(self._rng_seed, device, states=self._rng_states):
-                output, cb_coords = self.core_model.sample(
+                output, cb_coords = self.core_model._sample_with_latents(
                     batch,
+                    sampler=partial(
+                        sample_cbottle, solver=self.solver, options=self.solver_options
+                    ),
                     guidance_pixels=indices_where_tc,
                     seed=None,
                     guidance_scale=self.guidance_scale,
                 )
+
+                # If ICON, translate
                 if DatasetModality(self.dataset_modality) == DatasetModality.ICON:
                     output = self.core_model._normalize(output)
                     output = self.core_model._reorder(output)
