@@ -45,6 +45,7 @@ from earth2studio.run._fields import (  # noqa: F401 - re-exported helpers
     _io_template,
     _lead_times,
     _map_field,
+    _require_analysis_time_input,
     _rollout,
     _with_lead_time,
 )
@@ -135,6 +136,7 @@ def deterministic(
     logger.info(f"Inference device: {device}")
     prognostic = prognostic.to(device)
     prognostic_ic = cast(xr.DataArray, prognostic.input_coords())
+    _require_analysis_time_input(prognostic_ic)
     time = to_time_array(time)
 
     # Set up IO backend
@@ -268,6 +270,7 @@ def diagnostic(
     diagnostic = diagnostic.to(device)
 
     prognostic_ic = cast(xr.DataArray, prognostic.input_coords())
+    _require_analysis_time_input(prognostic_ic)
     diagnostic_ic = cast(xr.DataArray, diagnostic.input_coords())
     time = to_time_array(time)
 
@@ -404,6 +407,7 @@ def ensemble(
     prognostic = prognostic.to(device)
 
     prognostic_ic = cast(xr.DataArray, prognostic.input_coords())
+    _require_analysis_time_input(prognostic_ic)
     time = to_time_array(time)
     x0 = fetch_data(
         source=data,

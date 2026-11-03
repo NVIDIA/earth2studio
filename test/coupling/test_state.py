@@ -87,6 +87,37 @@ def test_state_overwrite_matches_forcing_coupling(
     np.testing.assert_allclose(sst[-1], 2.042, atol=1e-6)
 
 
+def test_a_background_slot_takes_a_state_connector() -> None:
+    # A constant 48 h ocean: SST 2, forced by a source rather than the atmosphere
+    sea = _Toy("sst", "z1000", OCEAN_GRID, 48, 0.0, 0.0)
+    runner = CoupledRunner(
+        {"atmos": Mixed(background=6), "ocean": sea},
+        [
+            Connector(
+                "ocean",
+                "atmos",
+                state=True,
+                variables=["sst"],
+                time="hold",
+                regridder=TO_ATMOS,
+            )
+        ],
+        sources={
+            "atmos": Fill(ATMOS_GRID, {"z1000": 0.0, "sst": 5.0}),
+            "ocean": (Fill(OCEAN_GRID, {"sst": 2.0}), Fill(OCEAN_GRID, {"z1000": 0.0})),
+        },
+    )
+    node = runner.nodes["atmos"]
+    assert (node.state_slots, node.ic_slots) == ((0,), ())
+    streams = run(runner, 18)
+    leads = [int(x["lead_time"].values[0] // H) for x in streams["atmos"]]
+    assert leads == [6, 12, 18]
+    # The background keeps its own SST, as the ocean has no frame before the item
+    # time; later steps take the ocean's.
+    sst = [float(x.sel(variable="sst").mean()) for x in streams["atmos"]]
+    np.testing.assert_allclose(sst, [5.0, 2.0, 2.0])
+
+
 def test_state_overwrite_is_described() -> None:
     plan = _state_coupled().describe(np.timedelta64(12, "h"))
     assert "ocean -> atmos state input[0] (hold, regridded): sst" in plan

@@ -38,7 +38,7 @@ from earth2studio.data.base import DataFrameSource, ForecastFrameSource
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.models.px.utils import initial_condition
-from earth2studio.models.utils import recommended_sources
+from earth2studio.models.utils import recommended_sources, step_interval
 from earth2studio.run._fields import (
     _lead_times,
     _map_field,
@@ -228,7 +228,10 @@ class PrognosticRunner:
     Each step yields the prognostic output as stream ``"forecast"`` and each
     diagnostic's output under its own stream name. Steps run from the initial
     condition through the item's final lead time -- the steps ``run.deterministic``
-    writes. The initial condition is published only when the output declares every
+    writes. Each step advances by the output's last lead time less the later of
+    the input's last lead time and zero, so a model initialized from a background
+    before the analysis time steps at its forecast interval. The initial condition
+    is published only when the input ends at zero and the output declares every
     input variable on the input's grid; otherwise the streams start at the first
     forecast. Forcing declared by the model is fetched and sent at every step.
 
@@ -285,7 +288,9 @@ class PrognosticRunner:
         self.device = _module_device(prognostic)
         oc = cast(CoordinateSystem, prognostic.output_coords(self.input_signature))
         self.output_leads = oc["lead_time"].values
-        self.step = self.output_leads[-1] - self.input_signature["lead_time"].values[-1]
+        self.step = step_interval(
+            self.input_signature["lead_time"].values, self.output_leads
+        )
         self.publishes_initial_condition = _publishes_initial_condition(
             self.input_signature, oc
         )
@@ -311,7 +316,7 @@ class PrognosticRunner:
         supervision concretizes.
         """
         oc = self.prognostic.output_coords(self.input_signature)
-        leads = _lead_times(oc, self.nsteps(final_lead_time))
+        leads = _lead_times(oc, self.nsteps(final_lead_time), self.step)
         if not self.publishes_initial_condition:
             leads = leads[1:]
         forecast = _signature_for_stream(oc, leads)
