@@ -16,17 +16,20 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import os
 import shutil
 import uuid
 from datetime import datetime, timedelta, timezone
+from typing import Literal
 
 import numpy as np
 import pandas as pd
 import pyarrow as pa
 
 from earth2studio.data.utils import (
+    _CleanupAfterLastCall,
     _sync_async,
     async_retry,
     datasource_cache_dir,
@@ -37,13 +40,18 @@ from earth2studio.data.utils import (
 )
 from earth2studio.data.utils_bufr import BUFR_DEPENDENCY_KEY
 from earth2studio.data.utils_ncep import (
+    _DEFAULT_LAYOUT,
     NCEP_CONVENTIONAL_PUBLIC_SCHEMA,
     NCEPObsTask,
-    compile_dataframe,
+    _conv_stream_schema,
+    _validate_layout,
+    assemble_frame,
+    compile_tables,
     cycle_windows,
     decode_gpsro,
     decode_prepbufr,
     plan_conv_tasks,
+    resolve_output_schema,
 )
 from earth2studio.lexicon.gdas import GDASObsConvLexicon
 from earth2studio.utils.imports import check_optional_dependencies
@@ -98,15 +106,23 @@ class NomadsGDASObsConv:
     verbose : bool, optional
         Print download progress, by default True.
     async_timeout : int, optional
-        Total timeout in seconds for the entire fetch, by default 600.
+        Timeout in seconds for downloading the files, by default 600. Decoding
+        them is not bounded.
     async_workers : int, optional
         Maximum concurrent async download tasks, by default 4.
     decode_workers : int, optional
-        Number of parallel processes for BUFR message decoding. Set to 1 to disable
-        multiprocessing, by default 8.
+        Number of threads transforming decoded BUFR batches, by default 8.
+        Decoding runs on earth2bufr's process-wide thread pool. Unless
+        ``EARTH2BUFR_NUM_THREADS`` is set, the first fetch sets it to 8 threads,
+        the fastest setting measured on 16-112 cores.
     retries : int, optional
         Number of retry attempts per failed download with exponential
         backoff, by default 3.
+    layout : {"long", "wide"}, optional
+        ``"long"`` returns one row per observation with the columns of
+        ``SCHEMA``. ``"wide"`` returns one row per PrepBUFR report level or
+        GPS-RO profile level, as :class:`earth2studio.data.NNJAObsConv` does.
+        By default "long".
 
     Warning
     -------
@@ -144,6 +160,7 @@ class NomadsGDASObsConv:
         async_workers: int = 4,
         decode_workers: int = 8,
         retries: int = 3,
+        layout: Literal["long", "wide"] = _DEFAULT_LAYOUT,
     ) -> None:
         self._tolerance_lower, self._tolerance_upper = normalize_time_tolerance(
             time_tolerance
@@ -157,7 +174,9 @@ class NomadsGDASObsConv:
         self._async_workers = async_workers
         self._decode_workers = max(1, decode_workers)
         self._retries = retries
+        self._layout = _validate_layout(layout)
         self._tmp_cache_hash: str | None = uuid.uuid4().hex[:8] if not cache else None
+        self._calls = _CleanupAfterLastCall(self)
         self._store = obstore_store_from_url(
             NOMADS_STORE_URL, anonymous=False, max_pool_connections=async_workers
         )
@@ -192,15 +211,9 @@ class NomadsGDASObsConv:
         ValueError
             If requested time is out of valid range.
         """
-        try:
-            df = _sync_async(
-                self.fetch, time, variable, fields, timeout=self.async_timeout
-            )
-        finally:
-            if not self._cache:
-                shutil.rmtree(self.cache, ignore_errors=True)
-
-        return df
+        with self._calls:
+            # async_timeout bounds the download inside fetch; decode is not bounded.
+            return _sync_async(self.fetch, time, variable, fields)
 
     async def fetch(
         self,
@@ -225,7 +238,10 @@ class NomadsGDASObsConv:
             Observation data.
         """
         time_list, variable_list = prep_data_inputs(time, variable)
-        output_fields = self.resolve_fields(fields)
+        output_fields = self.resolve_fields(fields) if self._layout == "long" else None
+        if self._layout == "wide":
+            # A wide call returns one stream; raise before downloading
+            _conv_stream_schema(variable_list, type(self).__name__)
 
         self._validate_time(time_list)
 
@@ -243,28 +259,39 @@ class NomadsGDASObsConv:
             )
             for t in tasks
         ]
-        await gather_with_concurrency(
-            coros,
-            max_workers=self._async_workers,
-            desc="Fetching GDAS conventional observations",
-            verbose=(not self._verbose),
+        await asyncio.wait_for(
+            gather_with_concurrency(
+                coros,
+                max_workers=self._async_workers,
+                desc="Fetching GDAS conventional observations",
+                verbose=(not self._verbose),
+            ),
+            self.async_timeout,
         )
 
-        # Decode and compile
-        df = compile_dataframe(
-            tasks,
+        # Decoding is CPU-bound; it runs off the event loop
+        pieces = await asyncio.to_thread(
+            compile_tables, tasks, self.SOURCE_ID, self.local_path, self._decode_file
+        )
+        if self._layout == "wide":
+            schema = resolve_output_schema(
+                _conv_stream_schema(variable_list, type(self).__name__),
+                fields,
+                class_name=type(self).__name__,
+            )
+        elif output_fields is None:
+            schema = self.SCHEMA
+        else:
+            schema = pa.schema([self.SCHEMA.field(name) for name in output_fields])
+        return await asyncio.to_thread(
+            assemble_frame,
+            pieces,
+            self._layout,
+            variable_list,
             self.SCHEMA,
+            schema,
             self.SOURCE_ID,
-            self.local_path,
-            self._decode_file,
         )
-
-        # Select output columns
-        if output_fields is not None:
-            df = df[[f for f in output_fields if f in df.columns]]
-
-        df.attrs["source"] = self.SOURCE_ID
-        return df
 
     def _create_tasks(
         self,
@@ -305,25 +332,16 @@ class NomadsGDASObsConv:
     # ------------------------------------------------------------------
     # File decode (dispatch by task route)
     # ------------------------------------------------------------------
-    def _decode_file(self, local_path: str, task: NCEPObsTask) -> pd.DataFrame:
+    def _decode_file(self, local_path: str, task: NCEPObsTask) -> pa.Table:
         """Decode a cached BUFR file dispatching by route."""
-        if task.route == "gpsro":
-            frame = decode_gpsro(
-                local_path,
-                task.var_plan,
-                task.datetime_min,
-                task.datetime_max,
-                decode_workers=self._decode_workers,
-            )
-            return frame[self.SCHEMA.names]
-        frame = decode_prepbufr(
+        decode = decode_gpsro if task.route == "gpsro" else decode_prepbufr
+        return decode(
             local_path,
-            task.var_plan,
+            list(task.var_plan),
             task.datetime_min,
             task.datetime_max,
             decode_workers=self._decode_workers,
         )
-        return frame[self.SCHEMA.names]
 
     # ------------------------------------------------------------------
     # Validation
@@ -360,6 +378,11 @@ class NomadsGDASObsConv:
     def cache(self) -> str:
         """Get the appropriate cache location."""
         return datasource_cache_dir("gdas_prepbufr", self._cache, self._tmp_cache_hash)
+
+    def cleanup(self) -> None:
+        """Remove temporary files when persistent caching is disabled."""
+        if not self._cache:
+            shutil.rmtree(self.cache, ignore_errors=True)
 
     @classmethod
     def available(cls, time: datetime | np.datetime64) -> bool:

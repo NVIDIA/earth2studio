@@ -328,7 +328,7 @@ class ISD:
             value_name="observation",
         )
         df_long = df_long.dropna(subset=["observation"]).reset_index(drop=True)
-        df_long = df_long[[name for name in schema.names]]
+        df_long = df_long[[*schema.names]]
         for field in schema:
             if field.name in df_long.columns and pa.types.is_floating(field.type):
                 df_long[field.name] = df_long[field.name].astype(

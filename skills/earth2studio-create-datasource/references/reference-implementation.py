@@ -31,7 +31,7 @@ Conventions:
 - File name: lowercase with underscores (e.g. gfs.py, cfs.py)
 
 Optional native temporal statistics (only when requested): follow
-``temporal-statistics.py`` and ``dev/spec/TIME_STATISTICS_SPEC.md``. Expose the
+``temporal-statistics.py``. Expose the
 lexicon via ``lexicon = SourceNameLexicon`` and declare supported methods on that
 lexicon. Use ``plan_statistics`` to split plain variables from statistics and plan the
 sample coordinates, validate them, then ``reduce_statistics`` with a source

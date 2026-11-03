@@ -34,7 +34,7 @@ class SourceNameLexicon(metaclass=LexiconType):
     """
 
     # OPTIONAL: only enable after implementing native temporal statistics.
-    # See temporal-statistics.py and dev/spec/TIME_STATISTICS_SPEC.md.
+    # See temporal-statistics.py.
     # TIME_STATISTICS: tuple[str, ...] = ("mean", "sum", "min", "max")
     # Expose this class as source.lexicon; keep qualified labels out of VOCAB.
     # The source parses the suffix and resolves only the base variable here.

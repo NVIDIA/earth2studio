@@ -30,6 +30,19 @@ output: generated/utils/interp
 earth2studio.utils.interp.LatLonInterpolation
 {% endautosummary %}
 
+## Vertical Interpolation
+
+<!-- e2s-autosummary
+currentmodule: earth2studio.utils.interp
+template: function
+output: generated/utils/interp
+-->
+
+{% autosummary %}
+earth2studio.utils.interp.hybrid_pressure
+earth2studio.utils.interp.interpolate_vertical
+{% endautosummary %}
+
 ## Regridders
 
 Implementations of the `earth2studio.grids.Regridder` protocol, which map fields
@@ -139,7 +152,37 @@ output: generated/data
 {% autosummary %}
 earth2studio.data.datasource_to_file
 earth2studio.data.fetch_data
+earth2studio.data.fetch_dataframe
+earth2studio.data.fetch_dataframes
 earth2studio.data.prep_data_array
+{% endautosummary %}
+
+## STAC Utilities
+
+Shared layer for lazy, cloud-native access to STAC-cataloged rasters that
+collection-specific data sources build on.
+
+<!-- e2s-autosummary
+currentmodule: earth2studio.data.stac
+template: function
+output: generated/data/stac
+-->
+
+{% autosummary %}
+earth2studio.data.stac.search
+earth2studio.data.stac.search_items
+earth2studio.data.stac.open_asset
+earth2studio.data.stac.collections
+{% endautosummary %}
+
+<!-- e2s-autosummary
+currentmodule: earth2studio.data.stac
+template: class
+output: generated/data/stac
+-->
+
+{% autosummary %}
+earth2studio.data.stac.StacProvider
 {% endautosummary %}
 
 ## Model Utilities

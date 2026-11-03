@@ -37,6 +37,9 @@ activate `earth2studio-data-fetch` first.
 - `skills/earth2studio-deterministic-forecast/` — Build deterministic
   (single-member) forecast scripts with model selection, data source,
   IO backend, and nsteps calculation
+- `skills/earth2studio-couple-models/` — Run several models that feed
+  each other with `CoupledRunner` and connectors, check the schedule,
+  and test the coupling
 
 ### Data
 
@@ -51,6 +54,8 @@ activate `earth2studio-data-fetch` first.
   ForecastFrameSource) end-to-end
 - `skills/earth2studio-create-prognostic/` — Create a new prognostic
   (time-stepping forecast) model wrapper end-to-end
+- `skills/earth2studio-create-assimilation/` — Create or migrate DA wrappers;
+  align independent/stateful tests with the structured DX/PX test form
 
 ### Developer
 

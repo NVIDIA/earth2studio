@@ -42,7 +42,7 @@ def make_fcn() -> FCN:
 
 def input_array(signature: xr.DataArray) -> xr.DataArray:
     dims = ("member", "time", *signature.dims[1:])
-    coords = {key: value for key, value in signature.coords.items()}
+    coords = {**signature.coords}
     coords.update(
         member=[2, 5],
         time=np.array(["2020-01-01", "2020-01-02"], dtype="datetime64[D]"),

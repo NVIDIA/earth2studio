@@ -29,8 +29,8 @@ class GDASObsConvLexicon(metaclass=LexiconType):
     The vocab value is either a PrepBUFR mnemonic (e.g., ``"TOB"`` for
     temperature) or ``"wind::u"`` / ``"wind::v"`` for wind components.
 
-    Modifier functions convert raw PrepBUFR observation values to
-    Earth2Studio standard units:
+    The source returns PrepBUFR observation values in
+    Earth2Studio standard units (the modifiers are the identity):
 
     - ``t``: TOB (DEG C) → Kelvin (+273.15)
     - ``q``: QOB (mg/kg) → kg kg-1 (÷1e6)
@@ -77,8 +77,6 @@ class GDASObsConvLexicon(metaclass=LexiconType):
         -------
         tuple[str, Callable]
             - PrepBUFR mnemonic/wind key or the GPSRO descriptor route.
-            - A modifier function to apply to the loaded DataFrame.  The
-              modifier converts the ``observation`` column from raw PrepBUFR
-              units to Earth2Studio standard units.
+            - The identity modifier; the source returns Earth2Studio units.
         """
         return get_ncep_conventional_item(val, route_prefix=True)

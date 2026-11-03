@@ -26,6 +26,7 @@ from .base import Pipeline, PredownloadFrameStore, PredownloadStore
 from .diagnostic import DiagnosticPipeline
 from .dlesym import DLESyMPipeline
 from .forecast import ForecastPipeline
+from .seasonal import WindowMeanForecastPipeline
 from .stormscope import StormScopePipeline
 
 __all__ = [
@@ -38,6 +39,7 @@ __all__ = [
     "PredownloadFrameStore",
     "PredownloadStore",
     "StormScopePipeline",
+    "WindowMeanForecastPipeline",
     "build_pipeline",
 ]
 

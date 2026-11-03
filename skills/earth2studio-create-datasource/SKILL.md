@@ -21,7 +21,8 @@ description: >
   May add Python dependencies to pyproject.toml as part of development.
   Do NOT use for fetching data with existing sources, model inference, or
   Earth2Studio installation/setup tasks.
-argument-hint: URL or description of remote data store (optional)
+  The user may optionally supply a URL, file path, or description of the
+  remote data store to start from.
 ---
 
 # Create and Validate Data Source
@@ -269,11 +270,6 @@ Ask once (advisory, do not block):
 > `t2m:mean:24h`)? Default: no.
 
 If yes, load `references/temporal-statistics.py` and follow it. In short:
-
-The contracts are `dev/spec/TIME_STATISTICS_SPEC.md` (source responsibilities and
-method-call diagram) and `dev/spec/FETCH_DATA_SPEC.md` (native dispatch and generic
-`delta_t` fallback). Keep the source, lexicon, and reference templates consistent
-with them when changing the implementation.
 
 1. **Document support** in the source's class docstring using a `Note` headed
    `Temporal statistics:`. List methods, label syntax, sampling cadence, window

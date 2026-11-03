@@ -263,7 +263,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
     def load_default_package(cls) -> Package:
         """Default pre-trained cBottle model package from Nvidia model registry"""
         return Package(
-            "hf://nvidia/cbottle@eebd93c85b3cd3a5a8f79c546ed917b0b80438f4",
+            "hf://nvidia/cbottle@368507e5caefe75721f29aaf408d59482626d0c1",
             cache_options={
                 "cache_storage": Package.default_cache("cbottle"),
                 "same_names": True,
@@ -299,9 +299,9 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             Diagnostic model
         """
         checkpoints = [
-            package.resolve("cBottle-3d/training-state-000512000.checkpoint"),
-            package.resolve("cBottle-3d/training-state-002048000.checkpoint"),
-            package.resolve("cBottle-3d/training-state-009856000.checkpoint"),
+            package.resolve("cBottle-3d-ema/ema-checkpoint-000512000.checkpoint"),
+            package.resolve("cBottle-3d-ema/ema-checkpoint-002048000.checkpoint"),
+            package.resolve("cBottle-3d-ema/ema-checkpoint-009856000.checkpoint"),
         ]
 
         # https://github.com/NVlabs/cBottle/blob/4f44c125398896fad1f4c9df3d80dc845758befa/src/cbottle/inference.py#L106
@@ -430,6 +430,11 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             output_coords["lat"].shape[0],
             output_coords["lon"].shape[0],
         )
+
+        # Sea ice concentration is a fraction, diffusion sampling + regridding can
+        # overshoot so clamp to the physical range
+        sic_idx = int(np.where(output_coords["variable"] == "sic")[0][0])
+        output[..., sic_idx, :, :] = output[..., sic_idx, :, :].clamp(0.0, 1.0)
 
         return from_torch(output, output_coords)
 

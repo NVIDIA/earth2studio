@@ -27,7 +27,7 @@ import weakref
 from collections.abc import Callable
 from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass, replace
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Literal
 
 import h5netcdf
@@ -38,12 +38,14 @@ from loguru import logger
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
+    _CleanupAfterLastCall,
     _sync_async,
     datasource_cache_root,
     obstore_fetch_to_cache,
     obstore_store_from_url,
     prep_data_inputs,
 )
+from earth2studio.data.utils_ncep import observation_cycle_times
 from earth2studio.lexicon import GSIConventionalLexicon, GSISatelliteLexicon
 from earth2studio.utils.time import normalize_time_tolerance
 from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
@@ -213,6 +215,7 @@ class _UFSObsBase:
         self._max_workers = max_workers
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
+        self._calls = _CleanupAfterLastCall(self)
         self._decode_workers = decode_workers
         self._decode_pool: concurrent.futures.ProcessPoolExecutor | None = None
         # Anonymous obstore S3 store for the public NOAA UFS replay bucket.
@@ -246,15 +249,10 @@ class _UFSObsBase:
         fields : str | list[str] | pa.Schema | None, optional
             Fields to include in output, by default None (all fields).
         """
-        try:
-            df = _sync_async(
+        with self._calls:
+            return _sync_async(
                 self.fetch, time, variable, fields, timeout=self.async_timeout
             )
-        finally:
-            if not self._cache:
-                shutil.rmtree(self.cache, ignore_errors=True)
-
-        return df
 
     async def fetch(
         self,
@@ -648,6 +646,11 @@ class _UFSObsBase:
             )
         return cache_location
 
+    def cleanup(self) -> None:
+        """Remove temporary files when persistent caching is disabled."""
+        if not self._cache:
+            shutil.rmtree(self.cache, ignore_errors=True)
+
 
 class UFSObsConv(_UFSObsBase):
     """NOAA UFS GEFS-v13 replay observations in-situ data
@@ -754,9 +757,9 @@ class UFSObsConv(_UFSObsBase):
             for t in time_list:
                 tmin = t + self._tolerance_lower
                 tmax = t + self._tolerance_upper
-                day = tmin.replace(minute=0, second=0, microsecond=0)
-                day = day.replace(hour=(day.hour // 6) * 6)
-                while day <= tmax:
+                for day in observation_cycle_times(
+                    t, self._tolerance_lower, self._tolerance_upper
+                ):
                     year_key = day.strftime("%Y")
                     month_key = day.strftime("%m")
                     datetime_key = day.strftime("%Y%m%d%H")
@@ -772,7 +775,6 @@ class UFSObsConv(_UFSObsBase):
                             e2s_obs_name=v,
                         )
                     )
-                    day = day + timedelta(hours=6)
         return tasks
 
     @classmethod
@@ -976,9 +978,9 @@ class UFSObsSat(_UFSObsBase):
                 for t in time_list:
                     tmin = t + self._tolerance_lower
                     tmax = t + self._tolerance_upper
-                    day = tmin.replace(minute=0, second=0, microsecond=0)
-                    day = day.replace(hour=(day.hour // 6) * 6)
-                    while day <= tmax:
+                    for day in observation_cycle_times(
+                        t, self._tolerance_lower, self._tolerance_upper
+                    ):
                         year_key = day.strftime("%Y")
                         month_key = day.strftime("%m")
                         datetime_key = day.strftime("%Y%m%d%H")
@@ -995,7 +997,6 @@ class UFSObsSat(_UFSObsBase):
                                 satellite=gsi_platform,
                             )
                         )
-                        day = day + timedelta(hours=6)
         return tasks
 
     def _build_column_map(self, schema: pa.Schema) -> dict[str, str]:

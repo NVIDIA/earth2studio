@@ -29,28 +29,12 @@ def test_nnja_obs_conv_lexicon_parse():
         assert callable(modifier)
 
 
-def test_nnja_obs_conv_lexicon_modifiers():
-    """The conv lexicon modifiers convert raw PrepBUFR units to Earth2Studio standards."""
-    # t: degrees C -> Kelvin
-    _, mod = NNJAObsConvLexicon["t"]
-    df = mod(pd.DataFrame({"observation": [0.0]}))
-    assert df["observation"].iloc[0] == pytest.approx(273.15)
-
-    # q: mg/kg -> kg/kg
-    _, mod = NNJAObsConvLexicon["q"]
-    df = mod(pd.DataFrame({"observation": [1e6]}))
-    assert df["observation"].iloc[0] == pytest.approx(1.0)
-
-    # pres: hPa -> Pa
-    _, mod = NNJAObsConvLexicon["pres"]
-    df = mod(pd.DataFrame({"observation": [1.0]}))
-    assert df["observation"].iloc[0] == pytest.approx(100.0)
-
-    # u, v, gps: identity (already SI)
-    for var in ("u", "v", "gps"):
+def test_nnja_obs_conv_lexicon_modifiers_are_identity():
+    # The NCEP decoders return Earth2Studio units, so the modifiers pass frames through
+    frame = pd.DataFrame({"observation": [3.14]})
+    for var in NNJAObsConvLexicon.VOCAB:
         _, mod = NNJAObsConvLexicon[var]
-        df = mod(pd.DataFrame({"observation": [3.14]}))
-        assert df["observation"].iloc[0] == pytest.approx(3.14)
+        assert mod(frame) is frame
 
 
 def test_nnja_obs_conv_lexicon_routes():

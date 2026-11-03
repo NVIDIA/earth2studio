@@ -65,7 +65,6 @@ Contract
 Helpers live in ``earth2studio/data/utils.py``; parsing and offsets in
 ``earth2studio/utils/time_statistics.py``. Do not write new reducers; register
 them with ``register_time_statistic``.
-Contracts: ``dev/spec/TIME_STATISTICS_SPEC.md`` and ``dev/spec/FETCH_DATA_SPEC.md``.
 Call path: plan_statistics -> validation -> reduce_statistics -> fetch(coord, base)
 -> reduce_samples -> out[target, slot] -> output attrs.
 

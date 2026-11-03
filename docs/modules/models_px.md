@@ -48,6 +48,7 @@ earth2studio.models.px.FuXiS2S
 earth2studio.models.px.GenCastMini
 earth2studio.models.px.GraphCastOperational
 earth2studio.models.px.GraphCastSmall
+earth2studio.models.px.InterpCRPSDiT
 earth2studio.models.px.InterpModAFNO
 earth2studio.models.px.Pangu24
 earth2studio.models.px.Pangu6

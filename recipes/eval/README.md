@@ -350,8 +350,9 @@ python main.py campaign=healda_dlwp_2024_monthly
 
 ### Observation sources
 
-DA models consume observation **DataFrames**, not gridded fields, so
-there is no gridded IC store.  Observations come from the sources
+The default DA runner consumes observation **DataFrames** only; it does not
+supply background fields or gridded forcing, so it has no gridded DA IC store.
+The general DA interface also supports DataArray inputs. Observations here come from the sources
 declared under `model.da.obs_sources`:
 
 ```yaml
@@ -370,7 +371,7 @@ da:
 ```
 
 Entries are matched **positionally, in declaration order** against the
-model's `input_coords()` tuple.  Two convenience keys are handled by the
+model's `input_coords()` slots. Two convenience keys are handled by the
 recipe rather than passed to the source constructor: `enabled: false`
 disables a slot (the model receives `None` — e.g. a conv-only ablation),
 and `time_tolerance_hours: [lo, hi]` sets the observation window as
@@ -462,17 +463,23 @@ from the standard IC path (`ic_source` BYO → predownloaded `data.zarr` →
 is logged prominently at setup.  Set `model.fill_missing_variables=false`
 to error on any gap instead (pure-DA ICs only).
 
-### Stateful DA models
+### Runner input limits and stateful DA
 
 The pipelines drive DA models through an `AssimilationRunner` seam
-(`src/assimilation.py`).  Stateless models (where `init_coords()` is
-`None`, e.g. in HealDA) use the default `StatelessAssimilationRunner`, which calls the
-model independently per analysis time so work items distribute freely
-across ranks.  Stateful/cycling models (e.g. StormCastSDA, which carries
-a background state between cycles) need a cycling runner that steps
-`model.create_generator()` sequentially — wire one in via the optional
-`model.da.runner` Hydra block; the stateless runner refuses stateful
-models with a clear error.
+(`src/assimilation.py`). The default `StatelessAssimilationRunner` calls an
+`AssimilationModel` independently per analysis time so work items distribute
+freely across ranks. It supports only tabular observation inputs, such as HealDA's
+`input_coords()` schemas. It rejects gridded inputs explicitly.
+These restrictions do not determine statefulness: CorrDiff uses independent
+calls but still needs an ERA5 background that this runner cannot supply.
+
+Continuing a trajectory (e.g. StormCastSDA) requires a runner accepting
+`StatefulAssimilationModel`, using `initialize`/`step` or
+`create_iterator(background, conditioning, obs)` sequentially. Initialization
+and the first iterator yield compute an analysis; there is no priming or
+initial-background yield. Later sends supply `(conditioning, obs)`; conditioning
+remains required when observations are `None`. A custom `AssimilationRunner`
+can be wired through `model.da.runner`; a built-in cycling runner is not provided.
 
 ## Multi-GPU Execution
 
@@ -554,12 +561,13 @@ xarray); readers on zarr 2.x fail with a codec error.
 ## Configuration
 
 All configuration lives under `cfg/` and uses [Hydra](https://hydra.cc/docs/intro/).
-The config is organized into three layers:
+The config is organized into four layers:
 
 | Layer | Location | Purpose |
 | --- | --- | --- |
 | Base | `cfg/default.yaml` | Shared defaults (pipeline, data source, output, predownload) |
 | Model | `cfg/model/*.yaml` | Model architecture and checkpoint |
+| Data source | `cfg/data_source/*.yaml` | Source of initial conditions and verification |
 | Campaign | `cfg/campaign/*.yaml` | ICs, ensemble, variables, forecast length |
 
 ### Campaign configs
@@ -605,6 +613,16 @@ can switch on the command line:
 ```bash
 python main.py model=fcn3
 ```
+
+### Data source selection
+
+The data source is a Hydra group as well.  `cfg/data_source/arco_era5.yaml`,
+the default, reads hourly ARCO ERA5.  `arco_era5_daily.yaml` wraps the same
+source in `WindowMeanSource` to serve UTC calendar-day means, which
+models such as FuXi-S2S expect as initial conditions.  A campaign switches
+with `defaults: [override /data_source: arco_era5_daily]`.  An inline
+`data_source:` block merges over the selected source instead, which is how
+the custom examples above work.
 
 ### Ensemble runs
 
@@ -1152,6 +1170,13 @@ Built-in pipelines (pass the fully qualified class path via `cfg.pipeline`):
   Earth-system forecast (atmos + ocean on different cadences).
 - **`StormScopePipeline`** (`src.pipelines.stormscope.StormScopePipeline`) —
   coupled GOES/MRMS nowcasting.
+- **`WindowMeanForecastPipeline`**
+  (`src.pipelines.seasonal.WindowMeanForecastPipeline`) — prognostic rollout
+  stored as means over fixed-length windows or calendar months for
+  subseasonal-to-seasonal archives, optionally interpolated to a coarser
+  grid, with scoring left to the user.
+  See `campaign=fuxi_s2s_2024` for 30-day windows and
+  `campaign=fuxi_s2s_2024_monthly` for calendar months.
 
 ### Custom pipelines
 

@@ -18,11 +18,41 @@ import asyncio
 import pathlib
 import shutil
 from datetime import datetime, timedelta
+from unittest.mock import Mock
 
 import numpy as np
 import pytest
 
 from earth2studio.data import AIFS_ENS_FX, AIFS_FX, IFS, IFS_ENS, IFS_ENS_FX, IFS_FX
+from earth2studio.data import ecmwf as ecmwf_module
+
+
+@pytest.mark.parametrize(
+    "source_class, model",
+    [
+        (IFS, "ifs"),
+        (IFS_FX, "ifs"),
+        (IFS_ENS, "ifs"),
+        (IFS_ENS_FX, "ifs"),
+        (AIFS_FX, "aifs-single"),
+        (AIFS_ENS_FX, "aifs-ens"),
+    ],
+)
+@pytest.mark.parametrize("source", ["aws", "google"])
+def test_opendata_client_kwargs(source_class, model, source, monkeypatch):
+    client_factory = Mock(return_value=Mock())
+    monkeypatch.setattr(ecmwf_module.opendata, "Client", client_factory)
+
+    source_class(
+        source=source,
+        client_kwargs={"preserve_request_order": True},
+    )
+
+    client_factory.assert_called_once_with(
+        source=source,
+        model=model,
+        preserve_request_order=True,
+    )
 
 
 def test_accumulation_alias_tasks_use_previous_lead_time():

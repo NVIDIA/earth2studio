@@ -201,7 +201,7 @@ def test_native_mapping_preserves_storage_and_rejects_wrong_geometry():
         for node in tree.body
         if isinstance(node, ast.Assign)
         and isinstance(node.targets[0], ast.Name)
-        and node.targets[0].id in {"x", "truth_x", "truth_signature"}
+        and node.targets[0].id in {"x", "input_signature", "truth_x", "truth_signature"}
     ]
     namespace = dict(
         np=np,
