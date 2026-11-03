@@ -1,5 +1,5 @@
 # @package _global_
-# FCN3 monthly 2024 — 4-member ensemble, monthly ICs, 14-day forecasts.
+# FCN3 monthly 2024 - 4-member ensemble, monthly ICs, 14-day forecasts.
 # 12 ICs x 4 members = 48 work items
 defaults:
     - override /model: fcn3
@@ -27,10 +27,9 @@ resume: true
 
 perturbation: null
 
-# Cache the full forecast-window valid times into data.zarr so score.py can
-# use it as the verification store.  Must be set here (not just on the
-# predownload.py CLI) because score.py re-reads this block to decide whether
-# data.zarr holds verification data.
+# Predownload the verification fields over the forecast window into
+# verification.zarr for score.py.  Set it here rather than only on the
+# predownload.py command line, since score.py reads this block too.
 predownload:
     verification:
         enabled: true

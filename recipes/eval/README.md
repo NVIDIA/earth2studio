@@ -14,7 +14,8 @@ Key features:
 - **Data assimilation support** — evaluate `AssimilationModel`-class models
   (e.g. HealDA) directly against reanalysis, or use them to initialize a
   forecast (e.g. HealDA + FCN3)
-- **Extensible pipeline interface** — subclass `Pipeline` to add custom inference loops
+- **Pluggable runner interface**: any object satisfying the
+  `earth2studio.run.Runner` protocol adds a custom inference loop
 - Multi-GPU distributed inference via `torchrun` / SLURM / MPI
 - Clean work-distribution with automatic load balancing across ranks
 - Parallel, non-blocking zarr I/O via thread pool
@@ -44,9 +45,9 @@ Key features:
   - [Online scoring](#online-scoring)
   - [Report](#report)
 - [Architecture](#architecture)
-  - [Pipeline interface](#pipeline-interface)
-  - [Custom pipelines](#custom-pipelines)
-- [Extending the recipe](./docs/extending.md) — BYO data, custom models, custom pipelines
+  - [Runner interface](#runner-interface)
+  - [Custom runners](#custom-runners)
+- [Extending the recipe](./docs/extending.md) for BYO data, custom models, custom runners
 - [Testing](#testing)
 
 ## Quick Start
@@ -79,13 +80,15 @@ To bypass this check (e.g. data is already cached from a prior run), pass
 
 ## Pre-downloading Data
 
-`predownload.py` must be run before `main.py`.  It fetches initial condition
-data (and optionally verification data) and writes it into explicit zarr stores
-under `<output.path>/`.  It accepts the **same config overrides** as `main.py`,
-so the two commands stay in sync with no extra bookkeeping.
+Run `predownload.py` before `main.py`. It fetches the data the configured
+runner reads (and optionally verification data) and writes it into explicit
+zarr stores under `<output.path>/`. It accepts the **same config overrides**
+as `main.py`, so the two commands stay in sync with no extra bookkeeping.
 
-IC variables, lead times, and model step size are inferred automatically from
-the model's `input_coords()` / `output_coords()`.
+The runner describes every fetch it makes through
+`runner.data_requests(item)` (and `frame_requests(item)` for observation
+DataFrames). The model signatures fix the initial-condition variables,
+input lead times, and forecast valid times; the config never lists them.
 
 ```bash
 # Single process (login node or interactive session)
@@ -102,27 +105,33 @@ torchrun --nproc_per_node=8 --standalone predownload.py
 python predownload.py predownload.verification.enabled=true
 ```
 
-> **Note.** `predownload.verification.enabled` is also consulted by
-> `score.py` to decide whether `data.zarr` holds verification data: when
-> it's false (the default), the scorer refuses to treat an IC-only
-> `data.zarr` as a verification store.  Set it in your **campaign
-> config**, not just as a one-shot CLI override to `predownload.py` —
-> otherwise `score.py` will read the default (`false`) and fail with
-> "No verification data found".  The bundled campaigns (`dlwp_*`,
-> `fcn3_*`, `dlesym_*`) set it explicitly.
+> **Note.** Verification always lives in its own `verification.zarr`,
+> never in the IC store. `score.py` and online scoring read it when it
+> exists; otherwise they fall back to the bring-your-own
+> `verification_source`, then to a live fetch from
+> `predownload.verification.source` or `data_source`. Set
+> `predownload.verification.enabled=true` in your **campaign config**, not
+> just as a one-shot command-line override to `predownload.py`, so every
+> entry point agrees on where verification comes from. The bundled campaigns
+> (`dlwp_*`, `fcn3_*`, `dlesym_*`, `healda_*`) set it explicitly.
 
 ### Zarr stores
 
-Predownload creates the following stores in `<output.path>/`:
+`predownload.py` groups the runner's requests by the source they target and
+writes one store per source *role* (`runner.source_roles`) in `<output.path>/`:
 
+<!-- markdownlint-disable MD013 -->
 | Store | Dimensions | Contents |
 | --- | --- | --- |
-| `data.zarr` | `(time, variable, <spatial...>)` | IC data (plus verification if same source) |
-| `verification.zarr` | `(time, variable, <spatial...>)` | Only when verification source differs |
-| `obs_<name>.parquet/` | one parquet file per analysis time | DA pipelines only — observation DataFrames (see [Observation predownload](#observation-predownload)) |
+| `<role>.zarr` | one array per variable on `(time, <spatial...>)` | Every valid time a role needs: `data.zarr` for initial conditions, `forcing<k>.zarr` per forcing slot, `goes.zarr` / `mrms.zarr` for StormScope |
+| `verification.zarr` | one array per variable on `(time, <spatial...>)` | Verification fields at every forecast valid time, on the scored grid; always a separate store (`predownload.verification.enabled=true`) |
+| `<slot>.parquet/` | one parquet file per analysis time | DA runners only: observation DataFrames (see [Observation pre-download](#observation-predownload)) |
+<!-- markdownlint-enable MD013 -->
 
-`main.py` automatically detects and reads from `data.zarr` when
-`require_predownload=true` (the default).
+At inference time each runner slot resolves through `src.data.resolve_source`:
+a bring-your-own node wins, then `PredownloadedSource` reads an existing
+`<role>.zarr`, then the live source. `require_predownload=true` (the default)
+only makes `main.py` insist on the `.predownload.done` sentinel.
 
 ### Disable the per-source cache
 
@@ -137,7 +146,7 @@ targets, that doubles the disk footprint of every run.
 The bundled configs all set `cache: false` on their data sources for
 this reason.  When you add a new source — at the top level via
 `data_source:` or per-component (e.g. StormScope's `ic_source` /
-`conditioning_data_source` blocks) — pass it through as well:
+`conditioning_source` blocks), pass it through as well:
 
 ```yaml
 data_source:
@@ -151,16 +160,18 @@ want to refetch it).
 
 ### Resume after interruption
 
-Progress is tracked per-timestamp via marker files.  If a predownload job is
-killed (e.g. by a SLURM time limit), re-running with the same config skips
-already-completed timestamps:
+A `ProgressStore` under `<output.path>/.progress_predownload_<role>` tracks
+progress per time. If a SLURM time limit or a crash ends a pre-download job
+early, re-running with the same config skips already-completed times:
 
 ```bash
 # Just re-run — resume is automatic
 python predownload.py campaign=fcn3_2024_monthly
 ```
 
-To recreate stores from scratch, set `predownload.overwrite=true`.
+To recreate stores from scratch, set `predownload.overwrite=true`. The zarr
+stores have a fixed layout, so changing the campaign's times or variables also
+requires it; a mismatching progress manifest fails with that hint.
 
 ## Using Your Own Data
 
@@ -232,92 +243,82 @@ python main.py \
 > `resume=false` / `output.overwrite=true` or move to a new `run_id` —
 > otherwise stale markers may reference data that no longer matches.
 
-### Multi-source pipelines (StormScope)
+### Coupled multi-source runners
 
 The default StormScope checkpoint is the **`3km_10min`** CONUS nowcasting
-variant (3 km grid, 10-minute step).  The pipeline runs two coupled models:
+variant (3 km grid, 10-minute step). The `stormscope` runner
+(`src/runners/stormscope.py`) couples two models:
 
 - **`StormScopeGOES`** — forecasts the eight ABI satellite channels.  The
   `3km_10min` variant is *pure obs*: it takes **no external conditioning**.
 - **`StormScopeMRMS`** — forecasts radar reflectivity (`refc`, `refc_base`)
   **plus a gridded GLM lightning channel** (`glm_density`), conditioned on
-  GOES (observations at the IC time, then the GOES model's own predictions
-  during rollout via `call_with_conditioning`).
+  GOES (observations at the IC time, then the GOES model's own forecast
+  frames during rollout).
 
-So the pipeline needs three IC-side sources — GOES satellite, MRMS radar, and
-GLM lightning — living on three different native grids.  A single top-level
-`ic_source` doesn't fit, so the pipeline declares `needs_data_source = False`
-and resolves its own sources from per-component config blocks; `main.py` skips
-top-level source resolution and the predownload sentinel check for these
-pipelines.
+Both models run on the shared HRRR projected grid and land in `forecast.zarr`
+as the streams `goes` and `mrms`. The runner binds one source per role rather
+than using the top-level `data_source` / `ic_source`:
 
-The **GLM channel** (`glm_density`) is a *state* channel — both an input
-(observation history) and a predicted output that evolves autoregressively.
-It comes from `earth2studio.data.GOESGLMGrid` on a 0.1° lat/lon grid and is
-regridded **bilinearly** onto the model grid (`src.regrid.BilinearRegridder`),
-matching the model's own `build_glm_interpolator` — unlike the
-nearest-neighbor path used for radar/satellite.
+<!-- markdownlint-disable MD013 -->
+| Role | Config node | Default |
+| --- | --- | --- |
+| `goes` | `model.goes.ic_source` | the GOES model's `default_sources()` |
+| `mrms` | `model.mrms.ic_source` | the MRMS model's `default_sources()` (radar composed with GOES GLM lightning) |
+| `mrms_conditioning` | `model.mrms.conditioning_source` | the GOES history fetched for the GOES model, when it covers the conditioning variables and lead times |
+| `goes_forcing` | `model.goes.forcing_source` | the GOES model's recommendation; conditioned variants only (`6km_1hr`) |
+<!-- markdownlint-enable MD013 -->
 
-BYO is done by overriding the per-component entries in `cfg.model`:
+Interpolation onto the model grid is the models' own concern. Their default
+sources wrap raw GOES and MRMS in nearest-neighbour `earth2studio.grids`
+mappings bounded by the checkpoint's `max_dist_km`. GLM lightning
+(`earth2studio.data.GOESGLMGrid`, a 0.1° lat/lon grid) goes through bilinear
+interpolation, matching the model's own GLM interpolator. A bring-your-own
+source must already deliver fields on the model `y`/`x` grid: a pre-downloaded
+store, or `earth2studio.data.RegriddedSource` around a raw source:
 
-```bash
-python main.py campaign=stormscope_2023_convection \
-    model.goes.ic_source._target_=my_pkg.MyGoesZarrSource \
-    model.goes.ic_source.path=/data/my_goes.zarr \
-    model.goes.ic_grid._target_=my_pkg.my_goes_grid \
-    model.mrms.ic_source._target_=my_pkg.MyMrmsZarrSource \
-    model.mrms.ic_source.path=/data/my_mrms.zarr \
-    model.mrms.ic_grid._target_=my_pkg.my_mrms_grid \
-    model.mrms.glm_data_source._target_=my_pkg.MyGlmSource \
-    model.mrms.glm_grid._target_=my_pkg.my_glm_grid
+```yaml
+model:
+    goes:
+        ic_source:
+            _target_: my_pkg.MyGoesZarrSource
+            path: /data/my_goes.zarr
+    mrms:
+        ic_source:
+            _target_: my_pkg.MyMrmsGlmZarrSource   # refc, refc_base, glm_density
+            path: /data/my_mrms.zarr
+        conditioning_source: null                  # reuse the GOES history
 ```
 
-`ic_grid` (and `glm_grid`) is a Hydra-instantiable callable that returns
-`(lats, lons)` for the source's native grid — the pipeline uses it to build
-StormScope's internal interpolator.  If your BYO store is already on the HRRR
-grid, point `ic_grid` at a resolver that returns the model's own `y`/`x` —
-StormScope's `prep_input` detects the match and skips interpolation.
+An optional `model.region` box (`{kind: box, params: [west, south, east,
+north]}`) restricts both models to the same sub-domain through
+`with_region`, so their grids keep matching.
 
 #### Predownload with HRRR-aligned storage
 
-Running `predownload.py` for a StormScope campaign writes **three** zarr
-stores, each already resampled onto the model's HRRR sub-region — radar and
-satellite via a nearest-neighbor regridder
-(`src.regrid.NearestNeighborRegridder`), GLM via the bilinear regridder
-(`src.regrid.BilinearRegridder`):
+Running `predownload.py` for a StormScope campaign writes one zarr store per
+role, each already on the model grid:
 
 ```bash
 python predownload.py campaign=stormscope_2023_convection
-# → <output.path>/data_goes.zarr   (time, y, x)  GOES ABI channels (nearest)
-# → <output.path>/data_mrms.zarr   (time, y, x)  radar refc/refc_base (nearest)
-# → <output.path>/data_glm.zarr    (time, y, x)  glm_density (bilinear)
+# → <output.path>/goes.zarr   (time, y, x)  GOES ABI channels
+# → <output.path>/mrms.zarr   (time, y, x)  refc, refc_base, glm_density
 ```
 
-Each store covers both the IC input window and every forecast valid time, so
-`data_mrms.zarr` / `data_glm.zarr` double as verification for scoring the
-radar and lightning channels.
+Each store holds every valid time the runner requests for the IC history.
+At inference time `resolve_source` prefers these stores for the `goes` and
+`mrms` roles, so `main.py` needs no network access to the GOES and MRMS
+archives. That saves disk (raw GOES is ~10× the footprint on the model grid;
+raw GLM is far larger still) and inference time. After the first step,
+`glm_density` comes from the model's own predictions.
 
-At inference time, `main.py` auto-detects these stores under `<output.path>`.
-The MRMS state spans two grids (radar + GLM), so its IC is reassembled from
-`data_mrms.zarr` + `data_glm.zarr` via a `CompositeSource` that dispatches
-each variable to the store providing it; `data_goes.zarr` is wired in with
-`PredownloadedSource` directly.  Because every store is already on the model
-`y`/`x`, StormScope's `prep_input` skips its live interpolators — so the
-predownload is both a disk-size win (raw GOES is ~10× the regridded footprint;
-raw GLM is far larger still) and an inference-speed win.  After the first
-step, `glm_density` flows autoregressively from the model's own predictions.
+Verification for scoring the radar and lightning channels resolves
+separately, like any other campaign (`verification_source`, or
+`predownload.verification.source` with `predownload.verification.enabled=true`).
 
-Per-model BYO overrides of `ic_source` (or `glm_data_source`) bypass
-predownload for that source.  To fully skip predownload, either set
-`model.goes.ic_byo=true model.mrms.ic_byo=true` or simply don't run
-`predownload.py` — the pipeline falls back to the live sources, wrapping each
-in the appropriate regridder (nearest for radar/satellite, bilinear for GLM)
-so the assembled state still lands on the model grid.
-
-Because the `3km_10min` GOES model is pure-obs, there is **no** conditioning
-source to predownload (no `cond_goes.zarr`).  MRMS conditioning is supplied
-externally in the coupling loop (the GOES state via `call_with_conditioning`),
-so its internal conditioning source is bypassed too.
+Because the `3km_10min` GOES model is pure-obs, there is **no** forcing source
+to pre-download. The GOES history serves the MRMS conditioning by default, so
+the planner writes no `mrms_conditioning.zarr` either.
 
 ## Data Assimilation Models
 
@@ -328,10 +329,10 @@ supports two evaluation modes, both driven by the same predownload /
 inference / scoring / report entry points:
 
 <!-- markdownlint-disable MD013 -->
-| Mode | Pipeline | Campaign example |
+| Mode | Runner | Campaign example |
 | --- | --- | --- |
-| Analysis vs. reanalysis | `src.pipelines.assimilation.AssimilationPipeline` | `healda_2024_analysis` |
-| DA-initialized forecast | `src.pipelines.assimilation.AssimilationForecastPipeline` | `healda_dlwp_2024_monthly`, `healda_fcn3_2024_monthly` |
+| Analysis vs. reanalysis | `runner: assimilation` (`src.runners.assimilation.AssimilationRunner`) | `healda_2024_analysis` |
+| DA-initialized forecast | `runner: assimilation_forecast` (the forecast runner reading initial conditions from `AnalysisSource`) | `healda_ucast_2024_monthly` |
 <!-- markdownlint-enable MD013 -->
 
 ```bash
@@ -342,10 +343,10 @@ python score.py campaign=healda_2024_analysis
 python report.py campaign=healda_2024_analysis
 
 # Forecast mode — HealDA analyses initialize a prognostic rollout.
-# healda_dlwp_2024_monthly is the lightweight example (DLWP, slim deps,
-# NGC checkpoint); healda_fcn3_2024_monthly is the FCN3 variant.
-python predownload.py campaign=healda_dlwp_2024_monthly
-python main.py campaign=healda_dlwp_2024_monthly
+# healda_ucast_2024_monthly uses UCast (1.5-degree grid, 12-hour step,
+# slim dependencies, HuggingFace checkpoint).
+python predownload.py campaign=healda_ucast_2024_monthly
+python main.py campaign=healda_ucast_2024_monthly
 ```
 
 ### Observation sources
@@ -380,16 +381,18 @@ hours around each analysis time.
 ### Observation predownload
 
 `predownload.py` caches observations alongside the gridded stores: one
-parquet file per analysis time under `<output.path>/obs_<name>.parquet/`
-(e.g. `obs_conv.parquet/`, `obs_sat.parquet/`), each holding the full
-`time_tolerance` window for that analysis time.  The same per-timestamp
-resume markers and multi-rank distribution as the zarr stores apply, so
+parquet file per analysis time under `<output.path>/<slot>.parquet/`
+(e.g. `conv.parquet/`, `sat.parquet/`), each holding the full
+`time_tolerance` window for that analysis time. The runner declares them
+through `frame_requests(item)`, the DataFrame counterpart of
+`data_requests`. The same per-time progress store and multi-rank
+distribution as the zarr stores apply, so
 an interrupted download continues where it left off and
 `torchrun --nproc_per_node=N predownload.py` parallelizes the fetch.
 
-At inference time the pipelines **automatically prefer** a predownloaded
-`obs_<name>.parquet` store over the live source when it exists — the
-observation analogue of the `data.zarr` substitution — so `main.py`
+At inference time the runners **automatically prefer** a pre-downloaded
+`<slot>.parquet` store over the live source when it exists, the
+observation analogue of the `<role>.zarr` substitution. `main.py` then
 needs no network access to the obs archives.  Requesting an analysis
 time that was not predownloaded fails loudly rather than silently
 falling back to a live fetch.
@@ -437,49 +440,46 @@ gaps surface immediately.
 
 ### Analysis mode
 
-Each work-item time produces one analysis, written with a singleton
-`lead_time=[0]` axis (the same layout as `DiagnosticPipeline`), so the
-standard scoring aligns verification at the analysis time itself and the
-report reads "analysis error per cycle time".  The DA model must emit
-its analysis on the verification grid — for HealDA, `lat_lon: true` with
-`output_resolution: [721, 1440]` matches ARCO_ERA5 0.25°.  Predownload
-declares the `obs_*.parquet` stores plus a `verification.zarr` (set
-`predownload.verification.enabled=true` in the campaign).
+Each work-item time produces one analysis, yielded as the `analysis`
+stream with a singleton `lead_time=[0]` axis, the same layout as the
+library's `DiagnosticRunner`. The standard scoring then aligns
+verification at the analysis time itself, and the report reads as analysis
+error per cycle time. The runner requires `nsteps: 0`. The DA model must
+emit its analysis on the verification grid; for HealDA, `lat_lon: true` with
+`output_resolution: [721, 1440]` matches ARCO_ERA5 0.25°. `predownload.py`
+writes the `<slot>.parquet` stores plus a `verification.zarr` (set
+`predownload.verification.enabled=true` in the campaign); there is no
+gridded initial-condition store in this mode.
 
-### Forecast mode (e.g. HealDA + FCN3)
+### Forecast mode (HealDA initializing `UCast`)
 
-`AssimilationForecastPipeline` subclasses `ForecastPipeline` and replaces
-only initial-condition acquisition: one analysis per prognostic input
-lead offset (history models get one per offset) instead of a
-`data_source` fetch.  Rollout, diagnostics, ensemble/perturbation,
-output, scoring, and report are the standard forecast path — a HealDA+FCN3
-campaign is directly comparable against a plain FCN3 campaign with
-reanalysis ICs by diffing their `scores_summary.csv`.
+The `assimilation_forecast` builder constructs the ordinary forecast runner
+on `model.forecast` and replaces only its initial-condition source with an
+`AnalysisSource`. That `DataSource` runs the DA model at every requested
+valid time, so a history model gets one analysis per prognostic input lead
+offset. Rollout, diagnostics, ensemble/perturbation, output, scoring, and
+report are the standard forecast path. Diffing the `scores_summary.csv` of
+a HealDA-initialized `UCast` campaign against a plain `UCast` campaign with
+reanalysis initial conditions compares the two directly.
 
-Prognostic input variables the DA analysis does not provide are **filled**
-from the standard IC path (`ic_source` BYO → predownloaded `data.zarr` →
-`data_source`); predownload narrows `data.zarr` to exactly that fill set
-(no store is created when the DA model covers all inputs).  The fill set
-is logged prominently at setup.  Set `model.fill_missing_variables=false`
-to error on any gap instead (pure-DA ICs only).
+A `CompositeSource` **fills** prognostic input variables the DA analysis
+does not provide from the standard initial-condition path (`ic_source` BYO →
+pre-downloaded `data.zarr` → `data_source` → the model's recommended source).
+The runner's `data` role then carries only the fill variables, so
+`predownload.py` narrows `data.zarr` to exactly that set and creates no
+store when the DA model covers all inputs. The builder logs the fill set
+prominently. Set `model.fill_missing_variables=false` to error on any gap
+instead (pure-DA initial conditions only).
 
-### Runner input limits and stateful DA
+### Stateless assimilation models only
 
-The pipelines drive DA models through an `AssimilationRunner` seam
-(`src/assimilation.py`). The default `StatelessAssimilationRunner` calls an
-`AssimilationModel` independently per analysis time so work items distribute
-freely across ranks. It supports only tabular observation inputs, such as HealDA's
-`input_coords()` schemas. It rejects gridded inputs explicitly.
-These restrictions do not determine statefulness: CorrDiff uses independent
-calls but still needs an ERA5 background that this runner cannot supply.
-
-Continuing a trajectory (e.g. StormCastSDA) requires a runner accepting
-`StatefulAssimilationModel`, using `initialize`/`step` or
-`create_iterator(background, conditioning, obs)` sequentially. Initialization
-and the first iterator yield compute an analysis; there is no priming or
-initial-background yield. Later sends supply `(conditioning, obs)`; conditioning
-remains required when observations are `None`. A custom `AssimilationRunner`
-can be wired through `model.da.runner`; a built-in cycling runner is not provided.
+The runners support independent (stateless) DA models: each analysis is
+one `model(*obs)` call, so work items distribute freely across ranks.
+Observations arrive as DataFrames, one `DataFrameSource` per model input
+slot; the runners reject gridded DA inputs (a background field, as CorrDiff
+needs). Cycling `StatefulAssimilationModel` runs, and the former
+`model.da.runner` override meant for them, are out of scope; setting
+`model.da.runner` now raises an error.
 
 ## Multi-GPU Execution
 
@@ -489,9 +489,10 @@ Use `torchrun` to distribute forecasts across GPUs:
 torchrun --nproc_per_node=$NGPU --standalone main.py
 ```
 
-Work items (one per initial-time / ensemble-member pair) are partitioned
-automatically and evenly across ranks. Remainder items are absorbed by the
-first rank rather than requiring exact divisibility.
+Each work item covers one initial time and a group of `member_batch`
+ensemble members. `earth2studio.run.work.distribute_work` splits the items
+into contiguous, balanced slices; the first `len(items) % world_size` ranks
+take one extra item, so exact divisibility is not required.
 
 ## Resuming and Multi-Job Runs
 
@@ -501,8 +502,10 @@ existing zarr store.  This is useful in two scenarios:
 ### Resuming after a failure
 
 If a job is killed or times out partway through, re-submit with the same
-config plus `resume=true`.  Completed work items are detected via marker
-files in `<output.path>/.progress/` and automatically skipped:
+config plus `resume=true`. An `earth2studio.run.ProgressStore` in
+`<output.path>/.progress/` records completed work items, which the rerun
+skips; an item counts as done only after its outputs flush, so an
+interrupted item reruns in full:
 
 ```bash
 torchrun --nproc_per_node=$NGPU --standalone main.py resume=true
@@ -543,17 +546,18 @@ output:
 Note that larger *chunks* are not the alternative: `time`, `lead_time` and
 `ensemble` are written one slice at a time, so a chunk spanning several of them
 would let concurrent writes read-modify-write the same object and lose one of
-them.  `OutputManager` rejects a chunk size other than 1 on those axes.
+them. `build_backend` in `src/output.py` rejects a chunk size other than 1
+on those axes.
 
 Only `lead_time` is safe to shard on a multi-rank run.  `time` and `ensemble`
 are the distributed axes, and shard buffering is per-process, so a shard
 spanning two ranks is written in full by both and the later write silently
-discards the other's data.  `OutputManager` rejects sharding those axes
-whenever the world size is greater than one.  Sharding also interacts with
-resume: `flush()` runs after every work item there, writing out any incomplete
-shard, and re-entering that shard later falls back to a read-modify-write of
-the whole object.  Sharding on `lead_time` only avoids this.  Predownload
-stores hold a single `lead_time` and are always written unsharded.
+discards the other's data. The library `Pipeline` rejects stores sharded on
+those axes whenever the world size is greater than one. Sharding also
+interacts with resume. `flush()` runs after every work item there, writing
+out any incomplete shard, and re-entering that shard later falls back to
+rewriting the whole object. Sharding on `lead_time` only avoids this.
+Pre-downloaded stores hold a single `lead_time` and never use shards.
 
 Reading a sharded store requires zarr ≥ 3 (and a correspondingly recent
 xarray); readers on zarr 2.x fail with a codec error.
@@ -565,7 +569,7 @@ The config is organized into four layers:
 
 | Layer | Location | Purpose |
 | --- | --- | --- |
-| Base | `cfg/default.yaml` | Shared defaults (pipeline, data source, output, predownload) |
+| Base | `cfg/default.yaml` | Shared defaults for runner, data, output, pre-download and scoring |
 | Model | `cfg/model/*.yaml` | Model architecture and checkpoint |
 | Data source | `cfg/data_source/*.yaml` | Source of initial conditions and verification |
 | Campaign | `cfg/campaign/*.yaml` | ICs, ensemble, variables, forecast length |
@@ -617,12 +621,15 @@ python main.py model=fcn3
 ### Data source selection
 
 The data source is a Hydra group as well.  `cfg/data_source/arco_era5.yaml`,
-the default, reads hourly ARCO ERA5.  `arco_era5_daily.yaml` wraps the same
-source in `WindowMeanSource` to serve UTC calendar-day means, which
-models such as FuXi-S2S expect as initial conditions.  A campaign switches
-with `defaults: [override /data_source: arco_era5_daily]`.  An inline
-`data_source:` block merges over the selected source instead, which is how
-the custom examples above work.
+the default, reads hourly ARCO ERA5. Models that need time statistics as
+input, such as FuXi-S2S's UTC calendar-day means, declare them with qualified
+variable labels in their input signature (`t2m:mean:0h:24h`,
+`tp:mean:1h:25h`, and so on). `earth2studio.data.fetch_data` then computes
+the statistic from the hourly source itself, so the recipe needs no daily
+mean source wrapper. A campaign switches sources with
+`defaults: [override /data_source: ...]`. An inline `data_source:` block
+merges over the selected source instead, which is how the custom examples
+above work.
 
 ### Ensemble runs
 
@@ -635,8 +642,9 @@ perturbation:
     noise_amplitude: 0.05
 ```
 
-For stochastic models (e.g. FCN3), the pipeline also calls
-`model.set_rng(seed=...)` per ensemble member when available.
+The runner draws each member's perturbation under `member_seed(random_seed,
+time, member)`. For stochastic models (for example FCN3), the runner also
+seeds the model's RNG from that seed before each item.
 
 ### Scoring
 
@@ -805,7 +813,7 @@ bit-for-bit.
 | `output.retain` | `all` (default) · `none` — drop `forecast.zarr` entirely; only legal with online scoring |
 | `scoring.online.scores_store` | Where the finalize step writes; `null` → `scoring.output.store_name` |
 | `scoring.online.ensemble_group_size` | Ranks per group `G`; `null` → `G = ensemble_size / K` |
-| `scoring.online.members_per_rank` | Members per rank `K`; `> 1` needs a pipeline with `run_item_batched` |
+| `scoring.online.members_per_rank` | Members per rank `K`; `> 1` needs a runner with `supports_member_batching` |
 | `scoring.online.stats_store` | The durable artifact (default `stats.zarr`) |
 | `scoring.online.climatology` | A `DataSource` on the verification grid; required for ACC |
 <!-- markdownlint-enable MD013 -->
@@ -829,15 +837,19 @@ torchrun --nproc_per_node=8 --standalone main.py \
 `G * K` must equal `ensemble_size` exactly — ragged groups are rejected
 with a clear error rather than silently padded.
 
-Batched rollouts stack members on the model's batch axis, so a pipeline
-must implement `run_item_batched` to support them; `ForecastPipeline`
-(and everything deriving from it) does.  Perturbations are drawn per
-member under each member's own seed, so initial conditions still match a
-`K = 1` run exactly.  A **stochastic model's** internal RNG, however, is
-seeded once per batch — so with `set_rng`-bearing models (e.g. FCN3)
-individual members are a different draw than they would be at `K = 1`.
-The ensemble stays statistically valid; the pipeline logs a warning so
-this is never a silent difference.
+A batched rollout stacks members on the model's batch axis: one work item
+carries more than one `member_ids` entry, which a runner accepts only when
+its `supports_member_batching` flag is true. `EnsembleRunner` (the
+`forecast`, `assimilation_forecast`, and `window_mean` runners) does; the
+`stormscope` and `assimilation` runners run one member per item. Offline
+runs batch members with the top-level `member_batch` setting instead. The
+runner draws each member's perturbation under that member's own seed, so
+initial conditions still match a `K = 1` run exactly. The runner seeds a
+**stochastic model's** internal RNG once per item, though. With
+`set_rng`-bearing models (for example FCN3), individual members are then a
+different draw than they would be at `K = 1`. The ensemble stays
+statistically valid; `EnsembleRunner` logs a warning so this is never a
+silent difference.
 
 **Metrics.**  The online path does *not* use `scoring.metrics` — it
 accumulates a fixed set of mergeable sums and derives the metric set from
@@ -920,10 +932,12 @@ the online finalize already wrote; setting
 `scoring.online.scores_store` moves the online store instead if you'd
 rather that change.
 
-**Resume.**  The unit of durability is the `(IC, group)` pair rather than
-the `(IC, member)` work item, so online runs use their own marker
-namespace (`.online_progress`).  A crash loses at most one IC per group;
-re-submit with `resume=true`.
+**Resume.**  Online runs record finished items in the same
+`<output.path>/.progress` store as offline runs. An item counts as done only
+after its round's group reduction, so a crash loses at most one IC per
+group; re-submit with `resume=true`. A resumed online run needs whole
+initial conditions: the recipe rejects an IC with some member groups
+recorded and others not, pointing at the progress store.
 
 **Failure domain.**  A dead rank hangs its whole group rather than merely
 forfeiting its own items.  `scoring.online.nccl_timeout_s` (default 30 min)
@@ -1075,135 +1089,149 @@ recipes/eval/
 ├── score.py             # Hydra entry point — distributed scoring
 ├── report.py            # Hydra entry point — report generation
 ├── cfg/
-│   ├── default.yaml     # Base config (shared defaults + predownload + scoring + report)
+│   ├── default.yaml     # Base config (runner, sources, output, predownload, scoring, report)
 │   ├── predownload.yaml # Thin overlay (hydra.run.dir only)
-│   ├── model/
-│   │   ├── dlwp.yaml
-│   │   └── fcn3.yaml
+│   ├── data_source/
+│   │   └── arco_era5.yaml
+│   ├── model/           # One file per model (dlwp, fcn3, dlesym, fuxi_s2s, ...)
 │   └── campaign/        # One file per evaluation campaign
-│       ├── dlwp_2024_monthly.yaml
-│       └── fcn3_2024_monthly.yaml
 ├── src/
-│   ├── pipelines/       # Pipeline package — ABC + built-in pipelines
-│   │   ├── base.py      #   Pipeline ABC, Predownload(Frame)Store, shared run loop
-│   │   ├── forecast.py  #   ForecastPipeline (prognostic rollout)
-│   │   ├── diagnostic.py #  DiagnosticPipeline (diagnostic-only)
-│   │   ├── assimilation.py # AssimilationPipeline + AssimilationForecastPipeline
-│   │   ├── dlesym.py    #   DLESyMPipeline (HEALPix forecast variant)
-│   │   └── stormscope.py #  StormScopePipeline (coupled GOES+MRMS nowcasting)
-│   ├── report/          # Report package — aggregation, plotting, sections
-│   │   ├── aggregation.py #  Score loading, time/ensemble aggregation, spread-skill
-│   │   ├── plotting.py  #   Matplotlib + cartopy primitives
-│   │   ├── sections.py  #   Section renderers (summary, curves, heatmaps, visualization)
-│   │   └── main.py      #   generate_report orchestration
-│   ├── assimilation.py  # DA plumbing — model loader, obs sources, runners
-│   ├── scoring.py       # Scoring logic — metrics, data alignment, score loop
+│   ├── campaign.py      # Initial times, members, work items, ensemble-group ordering
+│   ├── runners/         # Runner builders — src.runners.build_runner and the built-ins
+│   │   ├── __init__.py  #   BUILTIN_RUNNERS, build_runner, forecast, diagnostic builders
+│   │   ├── ensemble.py  #   EnsembleRunner (PrognosticRunner + per-member perturbation)
+│   │   ├── assimilation.py # AssimilationRunner, AnalysisSource, DA builders
+│   │   ├── stormscope.py #  StormScopeRunner (coupled GOES + MRMS, streams goes/mrms)
+│   │   └── seasonal.py  #   WindowMeanRunner (window means of a rollout)
+│   ├── data.py          # resolve_source, Predownloaded(Frame)Source, FrameRequest
+│   ├── models.py        # Model loading (prognostic, diagnostic, assimilation)
+│   ├── output.py        # Store paths, zarr backends, output regridders, per-stream variables
+│   ├── logs.py          # Logging and process-group setup
+│   ├── scoring.py       # Offline scoring — metrics, data alignment, score loop
 │   ├── online.py        # Online scoring — ensemble groups, accumulators, stats.zarr
-│   ├── work.py          # WorkItem, distribution, resume markers
-│   ├── distributed.py   # Rank-ordered execution, logging setup
-│   ├── models.py        # Model loading (prognostic + diagnostic)
-│   ├── output.py        # OutputManager (zarr lifecycle)
-│   ├── grids.py         # Grid-resolver helpers (goes, mrms, glm, gfs, arco)
-│   └── data.py          # Predownloaded(Frame)Source (zarr/parquet → source)
+│   ├── metrics.py       # Recipe metrics (mse, ensemble_variance) as library Statistics
+│   ├── regions.py       # Regional masks for both scoring pathways
+│   └── report/          # Report package — aggregation, plotting, sections
+│       ├── aggregation.py #  Score loading, time/ensemble aggregation, spread-skill
+│       ├── plotting.py  #   Matplotlib + cartopy primitives
+│       ├── sections.py  #   Section renderers (summary, curves, heatmaps, visualization)
+│       └── main.py      #   generate_report orchestration
+├── scorecard/           # Scorecard campaigns, baselines, exporter
+│   └── utils/
+│       ├── baselines.py #   PersistenceBaseline, ClimatologyForecast
+│       └── sources.py   #   StormCast grid, conditioning and window helpers
+├── test/
 └── pyproject.toml
 ```
 
-Each source module has a specific scoped responsibilities:
+The recipe builds on `earth2studio.run`: the library owns work distribution
+(`WorkItem`, `work_items`, `distribute_work`), resume (`ProgressStore`), the
+per-item execution contract (`Runner`, `PrognosticRunner`,
+`DiagnosticRunner`) and the supervising loop (`Pipeline`). Interpolation
+between grids comes from `earth2studio.grids`, fetching from
+`earth2studio.data.fetch_data`, and metrics from `earth2studio.statistics`.
+Each recipe module has a scoped responsibility:
 
 <!-- markdownlint-disable MD013 -->
 | Module | Responsibility |
 | --- | --- |
-| `pipelines/` | `Pipeline` ABC and built-in implementations (Forecast, Diagnostic, Assimilation, DLESyM, StormScope, Regional) |
-| `assimilation.py` | DA plumbing — `load_assimilation`, `ObsSourceSet`, `AssimilationRunner`, analysis→tensor conversion |
-| `report/` | Score aggregation, matplotlib plotting, section rendering, markdown report assembly |
-| `scoring.py` | Metric instantiation, data loading/alignment, scoring loop |
+| `campaign.py` | Parse initial conditions from config; `build_items`; order items into lockstep ensemble groups for online scoring |
+| `runners/` | `build_runner` from `cfg.runner`; built-in runners and their `source_roles` |
+| `data.py` | `resolve_source` (BYO → pre-downloaded → live); `PredownloadedSource` / `PredownloadedFrameSource` serving the pre-downloaded zarr / parquet stores |
+| `models.py` | Load prognostic, diagnostic, and assimilation models from config nodes |
+| `output.py` | Store paths; `build_backend` (ZarrBackend / AsyncZarrBackend); `build_regridders` from `output.regrid`; `stream_variables` |
+| `scoring.py` | Metric instantiation, data loading/alignment, offline scoring loop |
 | `online.py` | In-loop scoring — ensemble-group comms, sufficient-statistic accumulators, `stats.zarr` → `scores.zarr` finalize |
-| `work.py` | Define work units; parse ICs from config; distribute across ranks and ensemble groups |
-| `distributed.py` | Rank-ordered execution primitive; logging setup |
-| `models.py` | Load prognostic/diagnostic models from config |
-| `output.py` | Zarr store creation, validation, threaded writes, consolidation |
-| `grids.py` | Hydra-instantiable grid resolvers (`goes_grid`, `mrms_grid`, `glm_grid`, `gfs_grid`, `arco_grid`) |
-| `data.py` | `PredownloadedSource` / `PredownloadedFrameSource` — wrappers serving predownloaded zarr / parquet stores |
+| `metrics.py`, `regions.py` | Recipe-specific statistics and regional masks |
+| `report/` | Score aggregation, matplotlib plotting, section rendering, markdown report assembly |
 <!-- markdownlint-enable MD013 -->
 
-### Pipeline interface
+### Runner interface
 
-All inference logic is driven by a **Pipeline** — an abstract base class
-(`src/pipelines/base.py`) that separates per-work-item inference from the
-shared scaffolding (work iteration, output filtering, ensemble injection,
-zarr writes).  Subclasses implement three methods:
+A **runner** drives all inference logic: an object satisfying the
+`earth2studio.run.Runner` protocol that executes one work item at a time
+and yields outputs keyed by *stream*. `main.py` builds it, builds the work
+items, and hands both to `earth2studio.run.Pipeline`. The pipeline owns
+everything above a single item: splitting items over ranks, filtering
+outputs to `output.variables`, interpolating onto the output grid, online
+scoring, zarr writes, and resume.
 
-| Method | Purpose |
+| Member | Purpose |
 | --- | --- |
-| `setup(cfg, device)` | Load models, move to device, cache coordinate metadata |
-| `build_total_coords(times, ensemble_size)` | Define the full zarr output coordinate system |
-| `run_item(item, data_source, device)` | Yield `(tensor, coords)` pairs for one work item |
+| `supports_member_batching` | Whether one item may carry more than one member in `member_ids` |
+| `to(device)` | Move the models to `device` |
+| `output_coords(final_lead_time)` | Per-stream signature: `lead_time`, then the field dimensions |
+| `data_requests(item)` | The item's gridded fetches (`DataRequest`), used by `predownload.py` |
+| `run_item(item)` | Yield, per step, a mapping of stream name to `xr.DataArray` |
 
-Two optional hooks matter for online scoring:
+Every runner the recipe builds also carries `source_roles`, a mapping of
+role name to bound source (`data`, `forcing0`, `goes`, and so on), which names
+the stores `predownload.py` writes and `resolve_source` reads back.
+Runners binding observation DataFrames add `frame_requests(item)`.
+
+A stream is a named sequence of outputs sharing variables, grid and
+lead-time pattern: `forecast` plus one stream per diagnostic for the
+forecast runner, `analysis` for DA, `goes` and `mrms` for StormScope.
+The recipe writes every stream into the one `<output.path>/forecast.zarr`
+group and splits `output.variables` over the streams carrying each name.
+It interpolates each stream onto the `output.regrid` grid when set, and
+records finished items in a `ProgressStore` at `<output.path>/.progress`
+for `resume=true`.
+
+`cfg.runner` selects the builder. A name picks a built-in; any further keys
+pass as keyword arguments to the builder:
+
+```yaml
+runner: forecast                 # a built-in name
+runner: {name: window_mean, window: 30D}   # a built-in with options
+runner: {_target_: my_pkg.my_runner, option: value}   # any importable builder
+```
 
 <!-- markdownlint-disable MD013 -->
-| Hook | Purpose |
-| --- | --- |
-| `supports_online_scoring` | Class flag asserting that `run_item` yields an identical coord sequence for every ensemble member — the invariant an ensemble group's per-step reduction depends on |
-| `run_item_batched(items, ...)` | Roll `K` members of one IC forward together, yielding a leading `ensemble` axis.  Required for `members_per_rank > 1` |
+| `runner:` | Implementation | What it does |
+| --- | --- | --- |
+| `forecast` (default) | `EnsembleRunner` over `model` | Prognostic rollout with optional diagnostics, perturbation, and member batching; the `forecast` stream plus one per diagnostic. Coupled models such as DLESyM and forced models such as StormCast run here too |
+| `diagnostic` | `earth2studio.run.DiagnosticRunner` | Diagnostics applied to source data (for example CorrDiff); one stream per diagnostic at lead time zero |
+| `assimilation` | `AssimilationRunner` | One DA analysis per item as the `analysis` stream; requires `nsteps: 0` |
+| `assimilation_forecast` | `EnsembleRunner` reading from `AnalysisSource` | DA analyses initialize the prognostic rollout of `model.forecast` |
+| `stormscope` | `StormScopeRunner` | Coupled GOES → MRMS short-range forecast; streams `goes` and `mrms` |
+| `window_mean` | `WindowMeanRunner` over the forecast runner | Rollout stored as means over fixed windows (`window: 30D`); the `lead_time` axis holds the window ends. See `campaign=fuxi_s2s_2024` |
 <!-- markdownlint-enable MD013 -->
 
-The base class `Pipeline.run()` handles everything else: iterating work
-items, building the output variable filter, injecting the ensemble dimension,
-and writing to the `OutputManager`.
+### Custom runners
 
-Built-in pipelines (pass the fully qualified class path via `cfg.pipeline`):
-
-- **`ForecastPipeline`** (`src.pipelines.forecast.ForecastPipeline`, the
-  default) — prognostic rollout with optional diagnostic models.  Yields
-  one output per lead-time step.
-- **`DiagnosticPipeline`** (`src.pipelines.diagnostic.DiagnosticPipeline`) —
-  diagnostic-only (no prognostic model).  Yields a single output per work
-  item.
-- **`AssimilationPipeline`** (`src.pipelines.assimilation.AssimilationPipeline`)
-  — data-assimilation analysis scored directly against reanalysis.  Yields
-  a single `lead_time=0` output per work item.
-- **`AssimilationForecastPipeline`**
-  (`src.pipelines.assimilation.AssimilationForecastPipeline`) — prognostic
-  rollout initialized from a data-assimilation analysis (e.g. HealDA+FCN3).
-- **`DLESyMPipeline`** (`src.pipelines.dlesym.DLESyMPipeline`) — coupled
-  Earth-system forecast (atmos + ocean on different cadences).
-- **`StormScopePipeline`** (`src.pipelines.stormscope.StormScopePipeline`) —
-  coupled GOES/MRMS nowcasting.
-- **`WindowMeanForecastPipeline`**
-  (`src.pipelines.seasonal.WindowMeanForecastPipeline`) — prognostic rollout
-  stored as means over fixed-length windows or calendar months for
-  subseasonal-to-seasonal archives, optionally interpolated to a coarser
-  grid, with scoring left to the user.
-  See `campaign=fuxi_s2s_2024` for 30-day windows and
-  `campaign=fuxi_s2s_2024_monthly` for calendar months.
-
-### Custom pipelines
-
-To add a custom inference loop, subclass `Pipeline` and set `pipeline` in
-your Hydra config to the fully-qualified class name:
+To add a custom inference loop, write a builder `(cfg, prefer_predownloaded=True,
+**options) -> Runner` and point `runner` at it with a `_target_` block.
+See [docs/extending.md](./docs/extending.md) for the full contract, the
+worked examples (`src/runners/seasonal.py`, `src/runners/stormscope.py`)
+and how `predownload.py` derives its stores from the runner.
 
 ```python
-# my_pipeline.py
-from src.pipelines import Pipeline
+# my_runner.py
+from earth2studio.run import Runner
 
-class MyPipeline(Pipeline):
-    def setup(self, cfg, device):
+class MyRunner:
+    supports_member_batching = False
+
+    def to(self, device): ...
+    def output_coords(self, final_lead_time): ...
+    def data_requests(self, item): ...
+    def run_item(self, item):
         ...
-    def build_total_coords(self, times, ensemble_size):
-        ...
-    def run_item(self, item, data_source, device):
-        ...
-        yield x, coords
+        yield {"forecast": x}
+
+def my_runner(cfg, prefer_predownloaded=True, **options) -> Runner:
+    return MyRunner(...)
 ```
 
 ```yaml
 # In your Hydra config override:
-pipeline: my_pipeline.MyPipeline
+runner: {_target_: my_runner.my_runner}
 ```
 
-Custom pipelines inherit the full shared machinery — distributed output
-management, ensemble dimension handling, threaded zarr writes — for free.
+Custom runners inherit the full shared machinery from `Pipeline` without
+extra code: work distribution, output filtering and interpolation, the
+ensemble dimension, threaded zarr writes, online scoring, and resume.
 
 ## Testing
 
@@ -1212,17 +1240,18 @@ tests live in `test/`. They use a lightweight `Persistence` model and
 `Random` data source so no network access or model checkpoints are required.
 
 ```bash
-# Run all tests (multi-GPU tests auto-skip when GPUs are unavailable)
+# Run all tests (CPU only, no downloads)
 pytest test/ -v
 
-# Only the pure-logic work-distribution tests (no GPU needed)
-pytest test/test_work.py -v
+# Only the entry point: build_runner and main.run on the fixtures
+pytest test/test_main.py -v
 
-# Only multi-GPU tests (requires 2+ CUDA GPUs)
-pytest test/test_multigpu.py -v
+# Only predownload planning and the store writers
+pytest test/test_predownload.py -v
 ```
 
-Multi-GPU tests launch `torchrun` as a subprocess, so each test exercises
-the real distributed code path. They are guarded by `skipif` markers based
-on `torch.cuda.device_count()` and will be collected but skipped when the
-required number of GPUs is not present.
+`test/conftest.py` composes the real `cfg/default.yaml` over a temporary
+output path (`compose_cfg`), so tests exercise the same config the entry
+points read. `test/test_online.py` ends with a two-rank `gloo` test that
+launches `torchrun` on itself to cover the real collective code path; set
+`E2S_EVAL_SKIP_MULTIRANK` to skip it.

@@ -18,7 +18,9 @@
 
 Every stage launches one of the recipe's scripts (predownload.py, main.py,
 score.py) under torchrun - no inference, scoring or metric code is
-reimplemented here, and nothing is assumed beyond the campaign config.
+reimplemented here, and the campaign config is the only input.  The
+campaigns select the recipe's runners (``runner: forecast``) and place
+off-grid models onto the shared ERA5 grid with ``output.regrid``.
 
     python run_scorecard.py fcn3_2025_scorecard
     python run_scorecard.py aurora_2025_scorecard score prune
@@ -173,7 +175,8 @@ def main() -> int:
         / f"{project}_{run_id}"
     )
     os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
-    # scorecard.pipelines.* in the campaign configs resolves from the recipe root.
+    # scorecard.utils.* targets in the campaign configs (baselines, source
+    # adapters) resolve from the recipe root, next to the recipe's src package.
     os.environ["PYTHONPATH"] = (
         f"{RECIPE}{os.pathsep}{os.environ['PYTHONPATH']}"
         if os.environ.get("PYTHONPATH")

@@ -111,7 +111,7 @@ def load_scores(cfg: DictConfig) -> xr.Dataset:
             "Run scoring (score.py) before generating a report."
         )
     logger.info(f"Opened score store: {store_path}")
-    ds = xr.open_zarr(store_path)
+    ds = xr.open_zarr(store_path, consolidated=False)
     if "region" in ds.dims:
         labels = [str(r) for r in ds.region.values]
         pick = str(
@@ -158,66 +158,75 @@ def parse_score_arrays(
     return groups
 
 
+def _verification_dataset(cfg: DictConfig) -> xr.Dataset | None:
+    """Open the verification data as a Dataset when a local store holds it.
+
+    The predownloaded ``<output.path>/verification.zarr`` wins; otherwise a
+    bring-your-own ``verification_source`` whose instance exposes a
+    ``store_path`` (such as :class:`src.data.PredownloadedSource`) opens
+    from that path.  Any other source has no Dataset form and yields
+    ``None``.
+    """
+    verif_path = os.path.join(cfg.output.path, "verification.zarr")
+    if os.path.isdir(verif_path):
+        return xr.open_zarr(verif_path, consolidated=False)
+    byo = cfg.get("verification_source", None)
+    if byo is None:
+        return None
+    # Local import keeps the report importable without the data layer.
+    from ..data import instantiate_source
+
+    try:
+        source = instantiate_source(byo)
+    except Exception as err:  # noqa: BLE001 - visualization degrades gracefully
+        logger.warning(f"Could not instantiate verification_source: {err}")
+        return None
+    path = getattr(source, "store_path", None)
+    if isinstance(path, str) and os.path.isdir(path):
+        return xr.open_zarr(path, consolidated=False)
+    logger.info(
+        "verification_source is not a local zarr store; visualization "
+        "sections cannot read it."
+    )
+    return None
+
+
 def _open_data_stores(
     cfg: DictConfig,
 ) -> tuple[xr.Dataset | None, xr.Dataset | None]:
     """Open prediction and verification zarr stores for visualization.
 
-    Returns ``(None, None)`` if either store is missing — visualization
-    sections degrade gracefully.
-
-    Verification store discovery delegates to
-    :meth:`src.pipelines.base.Pipeline.verification_zarr_paths` so the
-    report inherits pipeline-specific overrides.  When multiple zarrs
-    are returned, they are merged by variable with :func:`xarray.merge`;
-    all component stores must share ``time`` and spatial coords.
+    Returns ``None`` for a store that is missing, so visualization sections
+    degrade gracefully.  Verification resolves to
+    ``<output.path>/verification.zarr`` when present, else to a
+    bring-your-own ``verification_source`` backed by a local zarr store.
 
     Parameters
     ----------
     cfg : DictConfig
-        Hydra config with ``output.path``.
+        Hydra config with ``output.path`` and optional
+        ``verification_source``.
 
     Returns
     -------
     tuple[xr.Dataset | None, xr.Dataset | None]
         ``(prediction_ds, verification_ds)``
     """
-    # Local imports avoid a circular dependency through src.pipelines → src.report.
-    from ..pipelines import build_pipeline
-    from ..pipelines.base import default_verification_zarr_paths
-
     pred_path = os.path.join(cfg.output.path, "forecast.zarr")
     pred_ds = None
-    if os.path.exists(pred_path):
-        pred_ds = xr.open_zarr(pred_path)
+    if os.path.isdir(pred_path):
+        pred_ds = xr.open_zarr(pred_path, consolidated=False)
     else:
         logger.info(
-            f"Prediction store not found at '{pred_path}' — "
+            f"Prediction store not found at '{pred_path}'; "
             "visualization sections will be skipped."
         )
 
-    # Honor pipeline-specific overrides of verification_zarr_paths when a
-    # pipeline is configured; otherwise use the default discovery inline.
-    if cfg.get("pipeline") is not None:
-        paths = build_pipeline(cfg).verification_zarr_paths(cfg)
-    else:
-        paths = default_verification_zarr_paths(cfg)
-
-    verif_ds: xr.Dataset | None
-    if not paths:
-        verif_ds = None
+    verif_ds = _verification_dataset(cfg)
+    if verif_ds is None:
         logger.info(
-            "Verification store not found — visualization sections will be skipped."
+            "Verification store not found; visualization sections will be skipped."
         )
-    elif len(paths) == 1:
-        verif_ds = xr.open_zarr(paths[0])
-    else:
-        logger.info(
-            "Verification: merging per-model stores "
-            f"({', '.join(os.path.basename(p) for p in paths)})"
-        )
-        verif_ds = xr.merge([xr.open_zarr(p) for p in paths])
-
     return pred_ds, verif_ds
 
 

@@ -1,10 +1,10 @@
 # @package _global_
-# DLESyM seasonal example — 3 ICs, 8 iterator steps = 768h (32 days) per IC.
-# One iterator step = 96h and produces 16 lead times at 6h stride.
+# DLESyM seasonal example - 3 ICs, 8 iterator steps = 768h (32 days) per IC.
+# One iterator step = 96h and produces 16 lead times at 6h stride; the
+# default forecast runner stores every lead of every step.
 defaults:
     - override /model: dlesym
 
-pipeline: src.pipelines.dlesym.DLESyMPipeline
 run_id: dlesym_2021_seasonal
 
 start_times:
@@ -16,10 +16,9 @@ start_times:
 # Output zarr lead_time dim has length 8*16 + 1 = 129.
 nsteps: 8
 
-# Cache the full forecast-window valid times into data.zarr so score.py can
-# use it as the verification store.  Must be set here (not just on the
-# predownload.py CLI) because score.py re-reads this block to decide whether
-# data.zarr holds verification data.
+# Predownload the verification fields over the forecast window into
+# verification.zarr for score.py.  Set it here rather than only on the
+# predownload.py command line, since score.py reads this block too.
 predownload:
     verification:
         enabled: true
