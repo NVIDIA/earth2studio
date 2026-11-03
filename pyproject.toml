@@ -154,7 +154,7 @@ atlas = [
     "timm",
     "torch-harmonics",
     "einops",
-    "nvidia-physicsnemo>=1.3.0",
+    "nvidia-physicsnemo @ git+https://github.com/NVIDIA/physicsnemo.git@06d9e07b260c6668d76a79df972c54dfc65b5906",
 ]
 aurora = [
     "microsoft-aurora>=2.0.0",
