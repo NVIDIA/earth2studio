@@ -247,7 +247,7 @@ def test_stormscope_iter(device, batch):
         ]
 
 
-def create_conditioned_goes(device="cpu", h=8, w=8):
+def create_conditioned_goes(device="cpu", h=8, w=8, **solver_kwargs):
     """Spoof 6km-style GOES model conditioned on z500 at its input times."""
     return StormScopeGOESConditioned(
         model_spec=[
@@ -267,13 +267,27 @@ def create_conditioned_goes(device="cpu", h=8, w=8):
         conditioning_stds=torch.ones(1, 1, 1, 1),
         y_coords=np.arange(h),
         x_coords=np.arange(w),
-        sampler_args={"num_steps": 2},
+        sampler_args={"num_steps": 8},
+        **solver_kwargs,
     ).to(device)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_stormscope_goes_conditioned(device):
-    model = create_conditioned_goes(device)
+@pytest.mark.parametrize(
+    "solver, solver_options",
+    [
+        ("edm_stochastic_heun", {"S_churn": 0.2}),
+        ("euler", {}),
+        ("heun", {"alpha": 1.0}),
+        ("exponential_euler", {}),
+        ("dpmpp_2m", {}),
+        ("dpmpp_2m_unic2", {}),
+    ],
+)
+def test_stormscope_goes_conditioned(device, solver, solver_options):
+    model = create_conditioned_goes(
+        device, solver=solver, solver_options=solver_options
+    )
     forcing = model.forcing_coords()
     assert forcing is not None
     np.testing.assert_array_equal(forcing["variable"], ["z500"])
@@ -975,7 +989,17 @@ def test_stormscope_exceptions(device):
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_stormscope_staged_denoising(device):
+@pytest.mark.parametrize(
+    "solver",
+    [
+        "edm_stochastic_heun",
+        "exponential_euler",
+        "edm_stochastic_exponential_euler",
+        "dpmpp_2m",
+        "dpmpp_2m_unic2",
+    ],
+)
+def test_stormscope_staged_denoising(device, solver):
     """Test StormScope staged denoising with multiple experts"""
     nvar = 8
     h, w = 32, 64
@@ -1007,7 +1031,8 @@ def test_stormscope_staged_denoising(device):
         conditioning_means=None,
         conditioning_stds=None,
         conditioning_variables=None,
-        sampler_args={"num_steps": 2},
+        sampler_args={"num_steps": 8},
+        solver=solver,
         y_coords=y,
         x_coords=x,
     ).to(device)
@@ -1023,6 +1048,15 @@ def test_stormscope_staged_denoising(device):
     t_low = torch.tensor(5.0, device=device)
     expert_low = model._select_expert(t_low)
     assert expert_low == model.stage_models[1]
+
+    with torch.inference_mode():
+        result = model._edm_sampler(
+            torch.randn(1, nvar, h, w, device=device),
+            num_steps=8,
+            sigma_max=88,
+            S_churn=0.1,
+        )
+    assert torch.isfinite(result).all()
 
 
 @pytest.mark.package
@@ -1369,3 +1403,25 @@ def test_stormscope_default_coverage(device):
     values = out.e2s.as_numpy().values
     assert np.isfinite(values[..., valid]).all()
     assert np.isnan(values[..., ~valid]).all()
+
+
+@pytest.mark.parametrize("model_class", [StormScopeGOES, StormScopeMRMS])
+def test_rejects_duplicate_step_count(model_class):
+    with pytest.raises(ValueError, match="sampler_args"):
+        model_class(
+            [],
+            torch.zeros(1),
+            torch.ones(1),
+            torch.zeros(1, 1),
+            torch.zeros(1, 1),
+            solver_options={"num_steps": 4},
+        )
+
+
+@pytest.mark.parametrize("model_class", [StormScopeGOES, StormScopeMRMS])
+@pytest.mark.parametrize(
+    "options", [{"solver": "heun"}, {"solver_options": {"S_churn": 1.0}}]
+)
+def test_flash_rejects_solver_overrides(model_class, options):
+    with pytest.raises(ValueError, match="fixed rollout"):
+        model_class.load_model(None, model_name="3km_10min_flash", **options)
