@@ -14,705 +14,217 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for window-mean (subseasonal-to-seasonal) scoring.
+"""Window-mean runner for subseasonal-to-seasonal archives.
 
-Covers :class:`src.data.WindowMeanSource`, :class:`src.regrid.LinearRegridder`
-and :class:`src.pipelines.seasonal.WindowMeanForecastPipeline`.  The
-pipeline runs a stub prognostic whose state grows by one per step and a
-data source whose fields equal the valid time in hours, so every window
-mean has a closed-form value.
+The prognostic is a persistence model whose state grows by one per 6-hour
+step, so every window mean has a closed-form value relative to the initial
+condition drawn from the ``Random`` source.
 """
 
 from __future__ import annotations
-
-import asyncio
-from collections import OrderedDict
-from collections.abc import Iterator
-from typing import Any
-from unittest.mock import patch
 
 import numpy as np
 import pytest
 import torch
 import xarray as xr
-from omegaconf import OmegaConf
-from src.data import WindowMeanSource
-from src.output import OutputManager
-from src.pipelines import WindowMeanForecastPipeline, build_pipeline
-from src.regrid import LinearRegridder, RegriddedSource
-from src.work import WorkItem
+from main import run
+from omegaconf import open_dict
+from src.campaign import build_items, final_lead_time
+from src.output import store_path
+from src.runners import build_runner
+from src.runners.ensemble import EnsembleRunner
+from src.runners.seasonal import WindowMeanRunner, window_mean
 
-from earth2studio.utils.coords import CoordSystem
+from earth2studio.io import KVBackend
+from earth2studio.models.px import Persistence
+from earth2studio.run import Pipeline, work_items
+from test.conftest import VARIABLES
 
-LAT = np.linspace(90.0, -90.0, 37)  # 5 degrees
-LON = np.arange(0.0, 360.0, 5.0)
-VARIABLES = ["t2m", "z500"]
-HOUR = np.timedelta64(1, "h")
-EPOCH = np.datetime64("2024-01-01T00:00", "ns")
-_RANK0 = "src.models.run_on_rank0_first"
-
-
-def _hours(*values: int) -> np.ndarray:
-    return (np.array(values) * HOUR).astype("timedelta64[ns]")
+T0 = np.datetime64("2024-01-01T00:00:00")
+H6 = np.timedelta64(6, "h")
+H12 = np.timedelta64(12, "h")
 
 
-class _HourSource:
-    """DataSource whose fields are constant: the valid time in hours since 2024-01-01.
+class _Counting(Persistence):
+    """Persistence whose state grows by one every step."""
 
-    Records every request so tests can check which samples a wrapper asked for.
-    """
+    def _forward(self, x: xr.DataArray) -> xr.DataArray:
+        y = super()._forward(x)
+        tensor, _ = y.e2s.to_torch()
+        tensor.add_(1.0)
+        return y
 
-    def __init__(self, nan_at: str | None = None) -> None:
-        self.calls: list[np.ndarray] = []
-        self._nan_at = None if nan_at is None else np.datetime64(nan_at, "ns")
+    def step(self, y: xr.DataArray, state: None) -> tuple[xr.DataArray, None]:
+        out, state = super().step(y, state)
+        tensor, _ = out.e2s.to_torch()
+        tensor.add_(1.0)
+        return out, state
 
-    def __call__(self, time: Any, variable: Any) -> xr.DataArray:
-        times = np.atleast_1d(np.asarray(time, dtype="datetime64[ns]"))
-        variables = (
-            [variable] if isinstance(variable, str) else [str(v) for v in variable]
-        )
-        self.calls.append(times.copy())
-        hours = ((times - EPOCH) / HOUR).astype(np.float64)[:, None, None, None]
-        data = np.broadcast_to(
-            hours, (len(times), len(variables), len(LAT), len(LON))
-        ).copy()
-        if self._nan_at is not None:
-            data[times == self._nan_at] = np.nan
-        return xr.DataArray(
-            data,
-            dims=("time", "variable", "lat", "lon"),
-            coords={"time": times, "variable": variables, "lat": LAT, "lon": LON},
-        )
 
-    async def fetch(self, time: Any, variable: Any) -> xr.DataArray:
-        return self(time, variable)
+@pytest.fixture()
+def counting(small_grid) -> _Counting:
+    return _Counting(variable=VARIABLES, domain_coords=small_grid)
+
+
+@pytest.fixture()
+def runner(counting, data_source, fake_diagnostic) -> WindowMeanRunner:
+    inner = EnsembleRunner(counting, data_source, diagnostics={"diag": fake_diagnostic})
+    return WindowMeanRunner(inner, window="12h")
+
+
+def _values(x: xr.DataArray) -> np.ndarray:
+    return x.e2s.to_torch()[0].cpu().numpy()
 
 
 # ---------------------------------------------------------------------------
-# WindowMeanSource
+# Lead schema
 # ---------------------------------------------------------------------------
 
 
-class TestWindowMeanSource:
-    def test_mean_over_trailing_window(self):
-        source = _HourSource()
-        mean = WindowMeanSource(source, "24h", "6h")
-        out = mean(np.datetime64("2024-01-02T00"), VARIABLES)
-        assert out.dims == ("time", "variable", "lat", "lon")
-        assert out.time.values[0] == np.datetime64("2024-01-02T00", "ns")
-        # Samples at 06, 12, 18 and 24 hours: the window excludes its start.
-        np.testing.assert_allclose(out.values, 15.0)
+def test_window_labels_replace_the_lead_axis(runner) -> None:
+    schemas = runner.output_coords(4 * H6)
+    assert set(schemas) == {"forecast", "diag"}
+    inner = runner.inner.output_coords(4 * H6)
+    for stream, schema in schemas.items():
         np.testing.assert_array_equal(
-            np.concatenate(source.calls), EPOCH + _hours(6, 12, 18, 24)
+            schema["lead_time"].values,
+            np.array([H12, 2 * H12], dtype="timedelta64[ns]"),
         )
-
-    def test_chunks_requests_to_the_wrapped_source(self):
-        source = _HourSource()
-        mean = WindowMeanSource(source, "24h", "1h", chunk_size=5)
-        out = mean([np.datetime64("2024-01-02T00")], "t2m")
-        assert [len(c) for c in source.calls] == [5, 5, 5, 5, 4]
-        np.testing.assert_allclose(out.values, 12.5)  # mean of 1..24
-
-    def test_several_times_concatenate_in_request_order(self):
-        mean = WindowMeanSource(_HourSource(), "24h", "6h")
-        times = np.array(
-            [np.datetime64("2024-01-03T00"), np.datetime64("2024-01-02T00")]
-        )
-        out = mean(times, VARIABLES)
-        assert out.shape == (2, 2, len(LAT), len(LON))
-        np.testing.assert_array_equal(out.time.values, times.astype("datetime64[ns]"))
-        np.testing.assert_allclose(out.isel(time=0).values, 39.0)
-        np.testing.assert_allclose(out.isel(time=1).values, 15.0)
-
-    def test_start_alignment_gives_calendar_day_means(self):
-        source = _HourSource()
-        mean = WindowMeanSource(source, "24h", "6h", align="start")
-        out = mean(np.datetime64("2024-01-02T00"), "t2m")
-        # Samples at 00, 06, 12 and 18 UTC of January 2nd: hours 24..42.
-        np.testing.assert_allclose(out.values, 33.0)
+        assert schema.dims == inner[stream].dims
         np.testing.assert_array_equal(
-            np.concatenate(source.calls), EPOCH + _hours(24, 30, 36, 42)
+            schema["variable"].values, inner[stream]["variable"].values
         )
+    assert runner.step == H6
+    assert runner.window == np.timedelta64(H12, "ns")
+    assert runner.supports_member_batching
 
-    def test_rejects_unknown_alignment(self):
-        with pytest.raises(ValueError, match="align"):
-            WindowMeanSource(_HourSource(), "24h", "6h", align="middle")
 
-    def test_composes_daily_means_into_window_means(self):
-        source = _HourSource()
-        daily = WindowMeanSource(source, "24h", "6h", align="start")
-        weekly = WindowMeanSource(daily, "48h", "24h")
-        out = weekly(np.datetime64("2024-01-03T00"), "t2m")
-        # The days January 2 and 3 (hours 24..42 and 48..66): mean 45.
-        np.testing.assert_allclose(out.values, 45.0)
-        np.testing.assert_array_equal(
-            np.concatenate(source.calls), EPOCH + _hours(*range(24, 67, 6))
+def test_window_must_be_whole_steps(runner) -> None:
+    runner.window = np.timedelta64(9, "h").astype("timedelta64[ns]")
+    with pytest.raises(ValueError, match="whole number of model steps"):
+        runner.output_coords(18 * np.timedelta64(1, "h"))
+
+
+def test_final_lead_time_must_cover_whole_windows(runner) -> None:
+    with pytest.raises(ValueError, match="whole number of .* windows"):
+        runner.output_coords(3 * H6)
+    with pytest.raises(ValueError, match="covers no window"):
+        runner.output_coords(np.timedelta64(0, "h"))
+
+
+def test_rejects_calendar_months_and_bad_windows(counting, data_source) -> None:
+    inner = EnsembleRunner(counting, data_source)
+    with pytest.raises(NotImplementedError, match="month"):
+        WindowMeanRunner(inner, window="month")
+    with pytest.raises(ValueError, match="positive"):
+        WindowMeanRunner(inner, window="-6h")
+
+
+# ---------------------------------------------------------------------------
+# Rollout
+# ---------------------------------------------------------------------------
+
+
+def test_run_item_averages_each_window(runner) -> None:
+    item = work_items([T0], 4 * H6)[0]
+    np.random.seed(0)
+    ic = _values(next(iter(runner.inner.run_item(item)))["forecast"])
+    np.random.seed(0)
+    outputs = list(runner.run_item(item))
+    assert len(outputs) == 2
+    for k, step in enumerate(outputs, start=1):
+        assert set(step) == {"forecast", "diag"}
+        forecast = step["forecast"]
+        assert forecast.dims == ("time", "lead_time", "variable", "lat", "lon")
+        np.testing.assert_array_equal(forecast["lead_time"].values, [k * H12])
+        np.testing.assert_array_equal(forecast["time"].values, [T0])
+        # Window k holds steps 2k-1 and 2k: mean ic + 2k - 0.5.
+        np.testing.assert_allclose(_values(forecast), ic + 2 * k - 0.5, rtol=1e-6)
+        diag = step["diag"]
+        np.testing.assert_array_equal(diag["lead_time"].values, [k * H12])
+        np.testing.assert_array_equal(diag["variable"].values, ["diag_a", "t2m"])
+        np.testing.assert_allclose(
+            _values(diag.sel(variable="t2m")), _values(forecast.sel(variable="t2m"))
         )
+        np.testing.assert_array_equal(_values(diag.sel(variable="diag_a")), 0.0)
 
-    def test_rejects_a_source_that_drops_times(self):
-        class _Dropping(_HourSource):
-            def __call__(self, time: Any, variable: Any) -> xr.DataArray:
-                return super().__call__(time, variable).isel(time=slice(1, None))
 
-        mean = WindowMeanSource(_Dropping(), "24h", "6h")
-        with pytest.raises(ValueError, match="requested times"):
-            mean(np.datetime64("2024-01-02T00"), "t2m")
+def test_run_item_keeps_members_on_the_leading_axis(runner) -> None:
+    item = work_items([T0], 2 * H6, members=[1, 4], member_batch=2)[0]
+    outputs = list(runner.run_item(item))
+    assert len(outputs) == 1
+    forecast = outputs[0]["forecast"]
+    assert forecast.dims[0] == "ensemble"
+    np.testing.assert_array_equal(forecast["ensemble"].values, [1, 4])
+    assert forecast.sizes["lead_time"] == 1
 
-    def test_nan_sample_propagates(self):
-        mean = WindowMeanSource(_HourSource(nan_at="2024-01-01T12"), "24h", "6h")
-        out = mean(np.datetime64("2024-01-02T00"), "t2m")
-        assert np.isnan(out.values).all()
 
-    @pytest.mark.parametrize(
-        "window, cadence",
-        [("25h", "6h"), ("0h", "6h"), ("24h", "0h"), ("3h", "6h")],
+def test_pipeline_writes_one_field_per_window(runner) -> None:
+    store = KVBackend()
+    items = work_items(
+        [T0, T0 + np.timedelta64(1, "D")], 4 * H6, members=4, member_batch=2
     )
-    def test_rejects_window_not_a_multiple_of_cadence(self, window, cadence):
-        with pytest.raises(ValueError):
-            WindowMeanSource(_HourSource(), window, cadence)
-
-    def test_async_fetch_matches_call(self):
-        mean = WindowMeanSource(_HourSource(), "12h", "6h")
-        t = np.datetime64("2024-01-02T00")
-        xr.testing.assert_equal(mean(t, "t2m"), asyncio.run(mean.fetch(t, "t2m")))
-
-
-# ---------------------------------------------------------------------------
-# LinearRegridder
-# ---------------------------------------------------------------------------
-
-
-class TestLinearRegridder:
-    def test_coincident_targets_subsample(self):
-        regridder = LinearRegridder(LAT, LON, LAT[::2], LON[::2])
-        x = torch.randn(3, len(LAT), len(LON))
-        y = regridder.apply(x, spatial_dims=("lat", "lon"))
-        torch.testing.assert_close(y, x[:, ::2, ::2])
-
-    def test_linear_field_is_reproduced_between_points(self):
-        target_lat = np.array([87.5, 0.0, -42.5])
-        target_lon = np.array([2.5, 180.0, 352.5])
-        regridder = LinearRegridder(LAT, LON, target_lat, target_lon)
-        field = torch.as_tensor(2.0 * LAT[:, None] + 0.5 * LON[None, :])
-        y = regridder.apply(field, spatial_dims=("lat", "lon"))
-        expected = 2.0 * target_lat[:, None] + 0.5 * target_lon[None, :]
-        np.testing.assert_allclose(y.numpy(), expected)
-
-    def test_longitude_wraps_on_a_global_grid(self):
-        regridder = LinearRegridder(LAT, LON, np.array([0.0]), np.array([357.5]))
-        x = torch.zeros(len(LAT), len(LON))
-        x[:, 0] = 10.0
-        x[:, -1] = 20.0
-        y = regridder.apply(x, spatial_dims=("lat", "lon"))
-        assert y.item() == pytest.approx(15.0)  # halfway between 355 and 360
-
-    def test_nan_neighbour_does_not_spread_into_coincident_points(self):
-        regridder = LinearRegridder(LAT, LON, LAT[::2], LON[::2])
-        x = torch.arange(len(LAT) * len(LON), dtype=torch.float32)
-        x = x.view(len(LAT), len(LON))
-        x[:, 1::2] = float("nan")  # every odd source column is land
-        y = regridder.apply(x, spatial_dims=("lat", "lon"))
-        torch.testing.assert_close(y, x[::2, ::2])
-        between = LinearRegridder(LAT, LON, LAT[:1], np.array([2.5]))
-        assert torch.isnan(between.apply(x, spatial_dims=("lat", "lon"))).all()
-
-    def test_inexact_grid_coordinates_still_subsample(self):
-        lon = np.arange(0.0, 360.0, 0.1)  # 0.1 degree steps are not exact floats
-        regridder = LinearRegridder(LAT, lon, LAT, np.arange(0.0, 360.0, 1.0))
-        x = torch.zeros(len(LAT), len(lon))
-        x[:, 1::2] = float("nan")
-        y = regridder.apply(x, spatial_dims=("lat", "lon"))
-        torch.testing.assert_close(y, torch.zeros(len(LAT), 360))
-
-    def test_target_outside_latitude_range_raises(self):
-        lat_720 = np.linspace(90.0, -89.75, 720)
-        with pytest.raises(ValueError, match="outside"):
-            LinearRegridder(lat_720, LON, np.array([-90.0]), np.array([0.0]))
-
-    def test_regional_longitude_does_not_wrap(self):
-        with pytest.raises(ValueError, match="outside"):
-            LinearRegridder(LAT, np.arange(0.0, 100.0, 5.0), LAT[:2], np.array([150.0]))
-
-    def test_to_resolution_subsamples_a_quarter_degree_grid(self):
-        regridder = LinearRegridder.to_resolution(
-            np.linspace(90.0, -90.0, 721), np.arange(0.0, 360.0, 0.25), 1.0
-        )
-        assert regridder is not None
-        coords = regridder.target_coords()
-        np.testing.assert_array_equal(coords["lat"], np.arange(90.0, -91.0, -1.0))
-        np.testing.assert_array_equal(coords["lon"], np.arange(0.0, 360.0, 1.0))
-        x = torch.arange(721 * 1440, dtype=torch.float32).view(721, 1440)
-        torch.testing.assert_close(
-            regridder.apply(x, spatial_dims=("lat", "lon")), x[::4, ::4]
-        )
-
-    def test_to_resolution_keeps_only_covered_rows(self):
-        regridder = LinearRegridder.to_resolution(
-            np.linspace(90.0, -89.75, 720), np.arange(0.0, 360.0, 0.25), 1.0
-        )
-        assert regridder is not None
-        np.testing.assert_array_equal(
-            regridder.target_coords()["lat"], np.arange(90.0, -90.0, -1.0)
-        )
-
-    def test_to_resolution_follows_the_source_extent(self):
-        western = LinearRegridder.to_resolution(
-            np.linspace(90.0, -90.0, 721), np.arange(-180.0, 180.0, 0.25), 1.0
-        )
-        assert western is not None
-        np.testing.assert_array_equal(
-            western.target_coords()["lon"], np.arange(-180.0, 180.0, 1.0)
-        )
-        regional = LinearRegridder.to_resolution(
-            np.arange(60.0, 19.9, -0.5), np.arange(100.0, 160.1, 0.5), 1.0
-        )
-        assert regional is not None
-        coords = regional.target_coords()
-        np.testing.assert_array_equal(coords["lat"], np.arange(60.0, 19.0, -1.0))
-        np.testing.assert_array_equal(coords["lon"], np.arange(100.0, 161.0, 1.0))
-
-    def test_to_resolution_is_none_for_a_grid_that_is_already_coarse(self):
-        assert (
-            LinearRegridder.to_resolution(
-                np.linspace(90.0, -90.0, 121), np.arange(0.0, 360.0, 1.5), 1.0
-            )
-            is None
-        )
-        assert LinearRegridder.to_resolution(LAT, LON, 5.0) is None
-
-    def test_apply_with_coords_replaces_spatial_dims(self):
-        regridder = LinearRegridder(LAT, LON, LAT[::2], LON[::2])
-        coords: CoordSystem = OrderedDict(
-            {
-                "time": np.array([EPOCH]),
-                "lead_time": _hours(24),
-                "variable": np.array(VARIABLES),
-                "lat": LAT,
-                "lon": LON,
-            }
-        )
-        x = torch.zeros(1, 1, 2, len(LAT), len(LON))
-        y, out = regridder.apply_with_coords(x, coords)
-        assert list(out) == ["time", "lead_time", "variable", "lat", "lon"]
-        assert y.shape == (1, 1, 2, 19, 36)
-        np.testing.assert_array_equal(out["lat"], LAT[::2])
-
-    def test_regridded_source_returns_target_grid(self):
-        regridder = LinearRegridder(LAT, LON, LAT[::2], LON[::2])
-        da = RegriddedSource(_HourSource(), regridder)(
-            np.datetime64("2024-01-01T06"), VARIABLES
-        )
-        assert da.dims == ("time", "variable", "lat", "lon")
-        np.testing.assert_array_equal(da.lat.values, LAT[::2])
-        np.testing.assert_allclose(da.values, 6.0)
-
-    def test_to_returns_self(self):
-        regridder = LinearRegridder(LAT, LON, LAT[::2], LON[::2])
-        assert regridder.to("cpu") is regridder
+    Pipeline(
+        runner,
+        output={"forecast": store},
+        output_variables={"forecast": ["t2m"]},
+        device="cpu",
+    ).run(items)
+    assert tuple(store.dims["t2m"]) == ("ensemble", "time", "lead_time", "lat", "lon")
+    assert store["t2m"].shape[:3] == (4, 2, 2)
+    np.testing.assert_array_equal(store["lead_time"].values, np.array([H12, 2 * H12]))
+    assert not torch.isnan(store["t2m"]).any()
+    assert "z500" not in store
 
 
 # ---------------------------------------------------------------------------
-# WindowMeanForecastPipeline
+# Builder and recipe entry point
 # ---------------------------------------------------------------------------
 
 
-class _CountingModel:
-    """Stub prognostic with a 6-hour step whose state grows by one each step.
-
-    The mean over steps ``a..b`` is the initial state plus ``(a + b) / 2``.
-    Exposes the ``load_default_package`` / ``load_model`` hooks that
-    :func:`src.models.load_prognostic` calls, so the pipeline sets up from
-    a config exactly as with a real model.
-    """
-
-    @classmethod
-    def load_default_package(cls) -> None:
-        return None
-
-    @classmethod
-    def load_model(cls, package: Any = None) -> _CountingModel:
-        return cls()
-
-    def to(self, device: Any) -> _CountingModel:
-        return self
-
-    def input_coords(self) -> CoordSystem:
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": _hours(0),
-                "variable": np.array(VARIABLES),
-                "lat": LAT,
-                "lon": LON,
-            }
-        )
-
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        out = OrderedDict(input_coords)
-        out["lead_time"] = _hours(6)
-        return out
-
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        coords = OrderedDict(coords)
-        yield x, coords
-        step = 0
-        while True:
-            step += 1
-            x = x + 1.0
-            out = OrderedDict(coords)
-            out["lead_time"] = _hours(6 * step)
-            yield x, out
+def _window_cfg(base_cfg, nsteps: int = 4):
+    cfg = base_cfg
+    with open_dict(cfg):
+        cfg.runner = {"name": "window_mean", "window": "12h"}
+        cfg.nsteps = nsteps
+    return cfg
 
 
-class _StoppingModel(_CountingModel):
-    """Stops after six steps, two steps into the second 24-hour window."""
-
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        for step, (x_step, c) in enumerate(super().create_iterator(x, coords)):
-            if step > 6:
-                return
-            yield x_step, c
-
-
-class _BoundaryStoppingModel(_CountingModel):
-    """Stops after four steps, exactly at the end of the first 24-hour window."""
-
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        for step, (x_step, c) in enumerate(super().create_iterator(x, coords)):
-            if step > 4:
-                return
-            yield x_step, c
+def test_builder_wraps_the_forecast_runner(base_cfg) -> None:
+    cfg = _window_cfg(base_cfg)
+    runner = build_runner(cfg)
+    assert isinstance(runner, WindowMeanRunner)
+    assert isinstance(runner.inner, EnsembleRunner)
+    assert runner.step == H6
+    assert "data" in runner.source_roles
+    # nsteps keeps meaning model steps.
+    assert final_lead_time(cfg, runner) == 4 * H6
+    items = build_items(cfg, runner)
+    assert items[0].final_lead_time == 4 * H6
+    direct = window_mean(cfg, window="1D")
+    assert direct.window == np.timedelta64(1, "D").astype("timedelta64[ns]")
 
 
-class _PairModel(_CountingModel):
-    """Yields two 6-hour leads per step, like a multi-lead model."""
-
-    def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        coords = OrderedDict(coords)
-        yield x, coords
-        lt_axis = list(coords).index("lead_time")
-        step = 0
-        while True:
-            step += 1
-            pair = torch.cat([x + (2 * step - 1), x + 2 * step], dim=lt_axis)
-            out = OrderedDict(coords)
-            out["lead_time"] = _hours(12 * step - 6, 12 * step)
-            yield pair, out
+def test_builder_rejects_partial_windows_before_running(base_cfg) -> None:
+    cfg = _window_cfg(base_cfg, nsteps=3)
+    runner = build_runner(cfg)
+    with pytest.raises(ValueError, match="whole number"):
+        runner.output_coords(final_lead_time(cfg, runner))
 
 
-class _RecordingScorer:
-    """Stands in for the online scorer: keeps every chunk ``Pipeline.run`` hands over."""
-
-    def __init__(self) -> None:
-        self.steps: list[tuple[torch.Tensor, CoordSystem]] = []
-
-    def begin_item(self, item: WorkItem) -> None:
-        pass
-
-    def update(self, x: torch.Tensor, coords: CoordSystem) -> None:
-        self.steps.append((x.clone(), OrderedDict(coords)))
-
-    def finish_item(self, item: WorkItem) -> None:
-        pass
-
-
-def _cfg(
-    tmp_path,
-    *,
-    nsteps: int = 8,
-    window: str = "24h",
-    target_resolution: float | None = 10.0,
-    start_times: tuple[str, ...] = ("2024-01-01 00:00:00",),
-    model: str = "_CountingModel",
-    months: int | None = None,
-):
-    return OmegaConf.create(
-        {
-            "project": "test_eval",
-            "run_id": "s2s",
-            "start_times": list(start_times),
-            "nsteps": nsteps,
-            "ensemble_size": 1,
-            "random_seed": 42,
-            "pipeline": {
-                "_target_": "src.pipelines.seasonal.WindowMeanForecastPipeline",
-                "window": window,
-                "target_resolution": target_resolution,
-                "months": months,
+def test_main_run_stores_window_means_on_the_output_grid(base_cfg) -> None:
+    cfg = _window_cfg(base_cfg)
+    with open_dict(cfg):
+        cfg.output.regrid = {
+            "grid": {
+                "lat": {"start": 90.0, "stop": -90.0, "num": 2},
+                "lon": {"start": 0.0, "stop": 180.0, "num": 2},
             },
-            "model": {"architecture": f"{__name__}.{model}"},
-            "data_source": {"_target_": f"{__name__}._HourSource"},
-            "predownload": {"verification": {"enabled": False, "source": None}},
-            "output": {
-                "path": str(tmp_path / "outputs"),
-                "variables": list(VARIABLES),
-                "overwrite": True,
-                "thread_writers": 0,
-                "chunks": {"time": 1, "lead_time": 1},
-            },
+            "method": "nearest",
         }
-    )
-
-
-class TestWindowMeanForecastPipeline:
-    @pytest.fixture(autouse=True)
-    def _single_process(self):
-        # load_prognostic wraps the package download in the distributed
-        # rank-0 helper, which needs an initialized manager; run it inline.
-        with patch(_RANK0, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
-            yield
-
-    def test_window_leads_end_each_window(self):
-        pipeline = WindowMeanForecastPipeline(window="24h")
-        leads = pipeline.window_leads(np.timedelta64(6, "h"), nsteps=8)
-        np.testing.assert_array_equal(leads, _hours(24, 48))
-
-    @pytest.mark.parametrize(
-        "window, nsteps, match",
-        [
-            ("20h", 8, "whole number of model steps"),
-            ("24h", 6, "whole number of 4-step windows"),
-            ("24h", 2, "whole number of 4-step windows"),
-        ],
-    )
-    def test_window_leads_reject_misaligned_windows(self, window, nsteps, match):
-        pipeline = WindowMeanForecastPipeline(window=window)
-        with pytest.raises(ValueError, match=match):
-            pipeline.window_leads(np.timedelta64(6, "h"), nsteps)
-
-    def test_rejects_non_positive_arguments(self):
-        with pytest.raises(ValueError, match="window"):
-            WindowMeanForecastPipeline(window="0h")
-        with pytest.raises(ValueError, match="target_resolution"):
-            WindowMeanForecastPipeline(window="24h", target_resolution=0)
-
-    def test_setup_builds_lead_axis_and_target_grid(self, tmp_path):
-        cfg = _cfg(tmp_path)
-        pipeline = build_pipeline(cfg)
-        pipeline.setup(cfg, torch.device("cpu"))
-        total = pipeline.build_total_coords(np.array([EPOCH]), 1)
-        assert list(total) == ["time", "lead_time", "lat", "lon"]
-        np.testing.assert_array_equal(total["lead_time"], _hours(24, 48))
-        np.testing.assert_array_equal(total["lat"], np.arange(90.0, -91.0, -10.0))
-        np.testing.assert_array_equal(total["lon"], np.arange(0.0, 360.0, 10.0))
-        assert pipeline.supports_member_batching()
-
-    def test_coarser_model_grid_is_kept(self, tmp_path):
-        cfg = _cfg(tmp_path, target_resolution=1.0)
-        pipeline = build_pipeline(cfg)
-        pipeline.setup(cfg, torch.device("cpu"))
-        assert pipeline._output_regridder is None
-        np.testing.assert_array_equal(pipeline.effective_spatial_ref()["lat"], LAT)
-
-    def test_run_item_yields_one_mean_per_window(self, tmp_path):
-        cfg = _cfg(tmp_path)
-        pipeline = build_pipeline(cfg)
-        pipeline.setup(cfg, torch.device("cpu"))
-        item = WorkItem(time=EPOCH, ensemble_id=0, seed=0)
-        steps = list(pipeline.run_item(item, _HourSource(), torch.device("cpu")))
-        assert len(steps) == 2
-        assert [c["lead_time"][0] for _, c in steps] == list(_hours(24, 48))
-        # The IC field is 0 (hours since the epoch) and step k adds k, so the
-        # windows average steps 1..4 and 5..8 on the model's native grid.
-        assert steps[0][0].shape == (1, 1, 2, len(LAT), len(LON))
-        torch.testing.assert_close(steps[0][0], torch.full_like(steps[0][0], 2.5))
-        torch.testing.assert_close(steps[1][0], torch.full_like(steps[1][0], 6.5))
-
-    def test_run_item_batched_averages_each_member(self, tmp_path):
-        cfg = _cfg(tmp_path)
-        pipeline = build_pipeline(cfg)
-        pipeline.setup(cfg, torch.device("cpu"))
-        items = [WorkItem(time=EPOCH, ensemble_id=m, seed=m) for m in range(2)]
-        steps = list(
-            pipeline.run_item_batched(items, _HourSource(), torch.device("cpu"))
-        )
-        assert len(steps) == 2
-        x, coords = steps[0]
-        assert list(coords)[0] == "ensemble"
-        assert list(coords["ensemble"]) == [0, 1]
-        assert x.shape == (2, 1, 1, 2, len(LAT), len(LON))
-        torch.testing.assert_close(x, torch.full_like(x, 2.5))
-
-    def test_rollout_that_stops_early_raises(self, tmp_path):
-        cfg = _cfg(tmp_path, model="_StoppingModel")
-        pipeline = build_pipeline(cfg)
-        pipeline.setup(cfg, torch.device("cpu"))
-        item = WorkItem(time=EPOCH, ensemble_id=0, seed=0)
-        with pytest.raises(RuntimeError, match="2 steps short"):
-            list(pipeline.run_item(item, _HourSource(), torch.device("cpu")))
-
-    def test_rollout_that_stops_at_a_window_end_raises(self, tmp_path):
-        cfg = _cfg(tmp_path, model="_BoundaryStoppingModel")
-        pipeline = build_pipeline(cfg)
-        pipeline.setup(cfg, torch.device("cpu"))
-        item = WorkItem(time=EPOCH, ensemble_id=0, seed=0)
-        with pytest.raises(RuntimeError, match="after 1 of 2 windows"):
-            list(pipeline.run_item(item, _HourSource(), torch.device("cpu")))
-
-    def test_rollout_with_several_leads_per_step(self, tmp_path):
-        cfg = _cfg(tmp_path, model="_PairModel")
-        pipeline = build_pipeline(cfg)
-        pipeline.setup(cfg, torch.device("cpu"))
-        item = WorkItem(time=EPOCH, ensemble_id=0, seed=0)
-        steps = pipeline.run_item(item, _HourSource(), torch.device("cpu"))
-        # Leads 6h..24h and 30h..48h fill the two windows across step boundaries.
-        first, second = next(steps), next(steps)
-        torch.testing.assert_close(first[0], torch.full_like(first[0], 2.5))
-        torch.testing.assert_close(second[0], torch.full_like(second[0], 6.5))
-        assert second[1]["lead_time"][0] == _hours(48)[0]
-        # nsteps counts iterator steps, so a third window has no lead on the axis.
-        with pytest.raises(RuntimeError, match="next window end"):
-            next(steps)
-
-    def test_run_scores_regridded_means(self, tmp_path):
-        cfg = _cfg(tmp_path, start_times=("2024-01-01 00:00:00", "2024-01-02 00:00:00"))
-        pipeline = build_pipeline(cfg)
-        pipeline.setup(cfg, torch.device("cpu"))
-        times = [EPOCH, EPOCH + _hours(24)[0]]
-        items = [WorkItem(time=t, ensemble_id=0, seed=i) for i, t in enumerate(times)]
-        scorer = _RecordingScorer()
-        pipeline.run(
-            items,
-            _HourSource(),
-            None,
-            VARIABLES,
-            torch.device("cpu"),
-            cfg,
-            scorer=scorer,
-        )
-        assert len(scorer.steps) == 4
-        x, coords = scorer.steps[3]
-        assert x.shape == (1, 1, 2, 19, 36)
-        assert coords["lead_time"][0] == _hours(48)[0]
-        torch.testing.assert_close(x, torch.full_like(x, 24.0 + 6.5))
-
-    def test_predownload_declares_only_the_ic_store(self, tmp_path):
-        cfg = _cfg(tmp_path, start_times=("2024-01-01 00:00:00", "2024-01-02 00:00:00"))
-        stores = build_pipeline(cfg).predownload_stores(cfg)
-        assert [s.role for s in stores] == ["ic"]
-        assert list(stores[0].times) == [EPOCH, EPOCH + _hours(24)[0]]
-        assert list(stores[0].variables) == VARIABLES
-        np.testing.assert_array_equal(stores[0].spatial_ref["lat"], LAT)
-
-    def test_predownload_rejects_verification(self, tmp_path):
-        cfg = _cfg(tmp_path)
-        cfg.predownload.verification.enabled = True
-        with pytest.raises(ValueError, match="verification"):
-            build_pipeline(cfg).predownload_stores(cfg)
-
-    def test_predownload_follows_a_byo_ic_source(self, tmp_path):
-        cfg = _cfg(tmp_path)
-        cfg.ic_source = {"_target_": f"{__name__}._HourSource"}
-        assert build_pipeline(cfg).predownload_stores(cfg) == []
-
-    # -- calendar months ----------------------------------------------------
-    # 6-hour steps from 2024-01-01: January holds steps 0..123, with the
-    # initial state opening it, and February, a leap month, steps 124..239.
-
-    def test_month_windows_follow_the_calendar(self):
-        pipeline = WindowMeanForecastPipeline(window="month", months=3)
-        day = np.timedelta64(1, "D")
-        on_first = pipeline.month_windows(EPOCH)
-        assert [(k, s // day, e // day) for k, s, e in on_first] == [
-            (0, 0, 31),
-            (1, 31, 60),
-            (2, 60, 91),
-        ]
-        mid_month = pipeline.month_windows(EPOCH + 14 * day)
-        assert [(k, s // day, e // day) for k, s, e in mid_month] == [
-            (1, 17, 46),
-            (2, 46, 77),
-        ]
-
-    def test_calendar_months_average_each_month(self, tmp_path):
-        cfg = _cfg(tmp_path, window="month", months=2, nsteps=239)
-        pipeline = build_pipeline(cfg)
-        pipeline.setup(cfg, torch.device("cpu"))
-        item = WorkItem(time=EPOCH, ensemble_id=0, seed=0)
-        steps = list(pipeline.run_item(item, _HourSource(), torch.device("cpu")))
-        assert [c["lead_time"][0] for _, c in steps] == [0, 1]
-        torch.testing.assert_close(steps[0][0], torch.full_like(steps[0][0], 61.5))
-        torch.testing.assert_close(steps[1][0], torch.full_like(steps[1][0], 181.5))
-
-    def test_mid_month_start_stores_nan_for_lead_month_0(self, tmp_path):
-        # From 2024-01-15, hour 336, February holds steps 68..183.
-        cfg = _cfg(tmp_path, window="month", months=2, nsteps=183)
-        pipeline = build_pipeline(cfg)
-        pipeline.setup(cfg, torch.device("cpu"))
-        item = WorkItem(time=EPOCH + _hours(336)[0], ensemble_id=0, seed=0)
-        steps = list(pipeline.run_item(item, _HourSource(), torch.device("cpu")))
-        assert [c["lead_time"][0] for _, c in steps] == [0, 1]
-        assert torch.isnan(steps[0][0]).all()
-        torch.testing.assert_close(steps[1][0], torch.full_like(steps[1][0], 461.5))
-
-    def test_calendar_lead_axis_and_horizon_check(self, tmp_path):
-        cfg = _cfg(tmp_path, window="month", months=2, nsteps=239)
-        pipeline = build_pipeline(cfg)
-        pipeline.setup(cfg, torch.device("cpu"))
-        total = pipeline.build_total_coords(np.array([EPOCH]), 1)
-        np.testing.assert_array_equal(total["lead_time"], [0, 1])
-        assert not pipeline.supports_online_scoring
-        assert WindowMeanForecastPipeline(window="24h").supports_online_scoring
-
-        short = _cfg(tmp_path, window="month", months=2, nsteps=238)
-        pipeline = build_pipeline(short)
-        pipeline.setup(short, torch.device("cpu"))
-        with pytest.raises(ValueError, match="nsteps >= 239"):
-            pipeline.build_total_coords(np.array([EPOCH]), 1)
-
-    def test_calendar_mode_rejects_bad_arguments(self, tmp_path):
-        with pytest.raises(ValueError, match="positive months"):
-            WindowMeanForecastPipeline(window="month")
-        with pytest.raises(ValueError, match="only applies to window='month'"):
-            WindowMeanForecastPipeline(window="30D", months=2)
-        cfg = _cfg(tmp_path, window="month", months=1, nsteps=239)
-        pipeline = build_pipeline(cfg)
-        pipeline.setup(cfg, torch.device("cpu"))
-        with pytest.raises(ValueError, match="stores nothing"):
-            pipeline.build_total_coords(np.array([EPOCH + _hours(336)[0]]), 1)
-
-    def test_calendar_rollout_that_stops_early_raises(self, tmp_path):
-        cfg = _cfg(
-            tmp_path,
-            model="_BoundaryStoppingModel",
-            window="month",
-            months=2,
-            nsteps=239,
-        )
-        pipeline = build_pipeline(cfg)
-        pipeline.setup(cfg, torch.device("cpu"))
-        item = WorkItem(time=EPOCH, ensemble_id=0, seed=0)
-        with pytest.raises(RuntimeError, match="after 0 of 2 calendar months"):
-            list(pipeline.run_item(item, _HourSource(), torch.device("cpu")))
-
-    def test_calendar_months_land_in_the_store(self, tmp_path):
-        cfg = _cfg(
-            tmp_path, window="month", months=2, nsteps=239, target_resolution=None
-        )
-        cfg.output.io_backend = "zarr"
-        pipeline = build_pipeline(cfg)
-        pipeline.setup(cfg, torch.device("cpu"))
-        total = pipeline.build_total_coords(np.array([EPOCH]), 1)
-        with OutputManager(cfg) as output_mgr:
-            output_mgr.validate_output_store(total, list(VARIABLES))
-            pipeline.run(
-                work_items=[WorkItem(time=EPOCH, ensemble_id=0, seed=0)],
-                data_source=_HourSource(),
-                output_mgr=output_mgr,
-                output_variables=list(VARIABLES),
-                device=torch.device("cpu"),
-                cfg=cfg,
-            )
-        ds = xr.open_zarr(tmp_path / "outputs" / "forecast.zarr", consolidated=False)
-        np.testing.assert_array_equal(ds["lead_time"].values, [0, 1])
-        means = ds["t2m"].isel(time=0).mean(dim=("lat", "lon")).values
-        np.testing.assert_allclose(means, [61.5, 181.5])
+    run(cfg)
+    ds = xr.open_zarr(store_path(cfg), consolidated=False)
+    assert ds["t2m"].dims == ("time", "lead_time", "lat", "lon")
+    np.testing.assert_array_equal(ds["lead_time"].values, np.array([H12, 2 * H12]))
+    assert ds["t2m"].shape[-2:] == (2, 2)
+    assert not np.isnan(ds["t2m"].values).any()

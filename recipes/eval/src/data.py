@@ -14,12 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Data source wrappers for predownloaded zarr stores."""
+"""Local data stores and source resolution.
+
+Regridding, composition and temporal statistics now live in the library
+(:class:`~earth2studio.data.RegriddedSource`,
+:class:`~earth2studio.data.CompositeSource`, qualified variable labels such as
+``t2m:mean:0h:24h``), so this module keeps only what is specific to the recipe:
+the zarr and parquet stores ``predownload.py`` writes, and the rule deciding
+whether a runner slot reads a bring-your-own source, a predownloaded store or
+the live source.
+"""
 
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
@@ -30,125 +39,212 @@ import xarray as xr
 from loguru import logger
 from omegaconf import DictConfig
 
-from earth2studio.data import DataSource
 from earth2studio.utils.type import TimeArray, VariableArray
 
 
-def resolve_ic_source(
+@dataclass(frozen=True)
+class FrameRequest:
+    """One observation-frame fetch a runner makes, for predownload.
+
+    The tabular counterpart of :class:`earth2studio.run.runner.DataRequest`.
+    Runners binding DataFrame sources expose ``frame_requests(item)`` returning
+    a tuple of these; ``predownload.py`` caches them under
+    ``<output.path>/<name>.parquet``.
+
+    Attributes
+    ----------
+    name : str
+        Slot name, also the frame store name.
+    source : Any
+        DataFrameSource to fetch from.
+    time : np.ndarray
+        Analysis times to fetch.
+    variable : np.ndarray
+        Variables requested from the source.
+    fields : np.ndarray | None
+        Columns requested, or None for all.
+    """
+
+    name: str
+    source: Any
+    time: np.ndarray
+    variable: np.ndarray
+    fields: np.ndarray | None = None
+
+
+def store_name(role: str) -> str:
+    """Zarr store file name of a predownload role (``data`` -> ``data.zarr``)."""
+    return f"{role}.zarr"
+
+
+def instantiate_source(node: Any) -> Any:
+    """Instantiate a Hydra source node, passing through live source objects."""
+    if node is None:
+        return None
+    if isinstance(node, (DictConfig, dict)) and "_target_" in node:
+        return hydra.utils.instantiate(node)
+    return node
+
+
+def resolve_source(
     cfg: DictConfig,
-    *,
-    store_name: str = "data.zarr",
+    role: str,
     byo: Any = None,
-    live_source: Any = None,
-) -> DataSource:
-    """Resolve the initial-condition data source for a pipeline.
+    live: Any = None,
+    prefer_predownloaded: bool = True,
+) -> Any:
+    """Pick the source feeding one runner slot.
 
-    Resolution order:
-
-    1. *byo* — explicit user-provided (BYO) override config node.  When
-       provided, Hydra-instantiated and returned directly.
-    2. ``<cfg.output.path>/<store_name>`` — predownloaded zarr cache.
-       When present, wrapped in :class:`PredownloadedSource`.
-    3. *live_source* — live source config node.  Hydra-instantiated
-       fresh.  Required if neither *byo* nor a cache is available.
-
-    Used by :mod:`main` (single-source: ``byo=cfg.get("ic_source")``,
-    ``live_source=cfg.data_source``) and by
-    :class:`~src.pipelines.stormscope.StormScopePipeline` (multi-source:
-    one call per model with ``store_name="data_<side>.zarr"`` and
-    ``live_source=cfg.model.<side>.ic_source``).
+    Resolution order: a bring-your-own node, then the predownloaded store
+    ``<output.path>/<role>.zarr`` when present and allowed, then the live node.
+    ``None`` leaves the slot to the model's own ``default_sources()``.
 
     Parameters
     ----------
     cfg : DictConfig
-        Full Hydra config — only ``cfg.output.path`` is consulted.
-    store_name : str
-        Filename of the cached zarr under ``cfg.output.path``.  Defaults
-        to ``"data.zarr"``.
+        Config; this reads only ``output.path``.
+    role : str
+        Slot role naming the predownloaded store (``data``, ``forcing0``, ...).
     byo : Any, optional
-        Explicit BYO override config (DictConfig node).  ``None`` means
-        no BYO override.
-    live_source : Any, optional
-        Live source config (DictConfig node) to fall back to.  Required
-        when there is no BYO override and no cache.
+        User-provided source node or object, by default None
+    live : Any, optional
+        Live source node or object, by default None
+    prefer_predownloaded : bool, optional
+        Whether an existing predownloaded store takes precedence over ``live``,
+        by default True.  ``predownload.py`` passes False.
 
     Returns
     -------
-    DataSource
-
-    Raises
-    ------
-    ValueError
-        If no cache is present, no BYO override is provided, and
-        *live_source* is ``None``.
+    Any
+        A data source, or ``None`` for the model default.
     """
     if byo is not None:
-        logger.info("Using user-provided ic source (BYO).")
-        return hydra.utils.instantiate(byo)
+        logger.info(f"Slot '{role}': using the bring-your-own source")
+        return instantiate_source(byo)
+    path = os.path.join(cfg.output.path, store_name(role))
+    if prefer_predownloaded and os.path.isdir(path):
+        logger.info(f"Slot '{role}': reading predownloaded store {path}")
+        return PredownloadedSource(path)
+    if live is None:
+        logger.info(f"Slot '{role}': using the model's recommended source")
+        return None
+    logger.info(f"Slot '{role}': using the live source")
+    return instantiate_source(live)
 
-    cache_path = os.path.join(cfg.output.path, store_name)
-    if os.path.exists(cache_path):
-        logger.info(f"Using predownloaded data store: {cache_path}")
-        return PredownloadedSource(cache_path)
 
-    if live_source is None:
-        raise ValueError(
-            f"resolve_ic_source: no cache at '{cache_path}', no BYO override, "
-            "and no live_source was provided."
+class PredownloadedSource:
+    """Data source backed by a predownloaded zarr store.
+
+    The store holds one array per variable on ``(time, <spatial...>)`` with its
+    grid coordinates, as ``predownload.py`` writes it through the library's
+    :class:`~earth2studio.io.ZarrBackend`.  Requests are exact label lookups;
+    a time that was not predownloaded raises ``KeyError``.
+
+    Parameters
+    ----------
+    store_path : str
+        Path to the zarr store.
+    """
+
+    def __init__(self, store_path: str) -> None:
+        if not os.path.isdir(store_path):
+            raise FileNotFoundError(f"No predownloaded store at '{store_path}'")
+        self.store_path = store_path
+        ds = xr.open_zarr(store_path, consolidated=False)
+        self._da = ds.to_array("variable").transpose("time", "variable", ...)
+        self._da.attrs.update(ds.attrs)
+        times = self._da.coords["time"].values
+        steps = np.unique(np.diff(times)) if times.size > 1 else np.array([])
+        self.time_step: np.timedelta64 | None = (
+            np.timedelta64(steps[0]) if steps.size == 1 else None
         )
-    logger.info(f"No cache at '{cache_path}' — instantiating live source directly.")
-    return hydra.utils.instantiate(live_source)
+
+    @property
+    def variables(self) -> list[str]:
+        """Stored variable names."""
+        return [str(v) for v in self._da.coords["variable"].values]
+
+    @property
+    def times(self) -> np.ndarray:
+        """Stored valid times."""
+        return self._da.coords["time"].values
+
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Return stored fields for the requested times and variables.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Valid times to return.
+        variable : str | list[str] | VariableArray
+            Variables to return.
+
+        Returns
+        -------
+        xr.DataArray
+            Field with dimensions ``[time, variable, <spatial...>]``.
+        """
+        times = np.atleast_1d(np.asarray(time, dtype="datetime64[ns]"))
+        variables = [str(v) for v in np.atleast_1d(np.asarray(variable))]
+        missing = sorted(set(variables) - set(self.variables))
+        if missing:
+            raise KeyError(
+                f"Predownloaded store '{self.store_path}' lacks variables "
+                f"{missing}; re-run predownload.py with them in the campaign."
+            )
+        try:
+            da = self._da.sel(time=times, variable=variables)
+        except KeyError as error:
+            raise KeyError(
+                f"Predownloaded store '{self.store_path}' lacks some of the times "
+                f"{[str(t) for t in times]}; re-run predownload.py with the "
+                "campaign's initial conditions and lead times."
+            ) from error
+        return da.load()
+
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async version of :meth:`__call__`."""
+        return self(time, variable)
 
 
 def frame_store_path(output_path: str, name: str) -> str:
-    """Return the on-disk directory of a predownloaded DataFrame store.
-
-    Shared by the predownload writer and
-    :class:`PredownloadedFrameSource` so the layout is defined once:
-    ``<output_path>/<name>.parquet/`` holding one parquet file per
-    analysis time.
-    """
+    """Directory of a predownloaded DataFrame store: ``<output>/<name>.parquet``."""
     return os.path.join(output_path, f"{name}.parquet")
 
 
 def frame_filename(time: np.datetime64) -> str:
-    """Return the per-time parquet filename inside a frame store.
-
-    Uses the same compact-timestamp convention as the progress markers
-    (``20240101T000000.parquet``) so files sort chronologically.
-    """
+    """Per-time parquet file name inside a frame store (``20240101T000000.parquet``)."""
     ts = str(np.datetime64(time, "s")).replace("-", "").replace(":", "")
     return f"{ts}.parquet"
 
 
 class PredownloadedFrameSource:
-    """DataFrameSource backed by a predownloaded parquet directory.
+    """DataFrame source backed by a predownloaded parquet directory.
 
-    Serves observation DataFrames cached by ``predownload.py`` (one
-    parquet file per analysis time, see :func:`frame_store_path` /
-    :func:`frame_filename`) through the ``DataFrameSource`` protocol, so
-    :func:`earth2studio.data.fetch_dataframe` works on it unchanged —
-    including re-attaching the ``request_time`` attrs that DA models
-    rely on.
-
-    Each stored frame already holds the full observation window for its
-    analysis time (the live source's ``time_tolerance`` expansion
-    happened at download time), so lookups are exact-filename matches:
-    requesting a time that was not predownloaded raises
-    ``FileNotFoundError`` rather than silently returning nothing.
+    Serves the observation frames ``predownload.py`` cached, one parquet file
+    per analysis time, through the ``DataFrameSource`` protocol so
+    :func:`earth2studio.data.fetch_dataframe` works on it unchanged.  Each
+    stored frame already holds the full observation window of its analysis
+    time, so lookups are exact file matches.
 
     Parameters
     ----------
     store_path : str
-        Path to the ``<name>.parquet`` directory on disk.
+        Path to the ``<name>.parquet`` directory.
     """
 
     def __init__(self, store_path: str) -> None:
         if not os.path.isdir(store_path):
-            raise FileNotFoundError(
-                f"PredownloadedFrameSource: no frame store at '{store_path}'."
-            )
-        self._store_path = store_path
+            raise FileNotFoundError(f"No predownloaded frame store at '{store_path}'")
+        self.store_path = store_path
 
     def __call__(
         self,
@@ -156,520 +252,44 @@ class PredownloadedFrameSource:
         variable: str | list[str] | VariableArray,
         fields: Any = None,
     ) -> pd.DataFrame:
-        """Return the stored observation frame(s) for the requested times.
+        """Return the stored observation frames for the requested times.
 
         Parameters
         ----------
         time : datetime | list[datetime] | TimeArray
-            Analysis times to return frames for.  Each must have been
-            predownloaded.
+            Analysis times; each must exist in the predownloaded store.
         variable : str | list[str] | VariableArray
-            Variables to return.  When the stored frame carries a
-            ``variable`` column, rows are narrowed to this set;
-            otherwise the frame is returned as stored (it was already
-            fetched with the model's schema variables).
+            Variables to keep when the frame carries a ``variable`` column.
         fields : array-like, optional
-            Columns to return.  ``None`` returns all stored columns.
+            Columns to return, by default every stored column.
 
         Returns
         -------
         pd.DataFrame
-            Concatenation of the per-time frames, in request order.
+            Concatenation of the per-time frames in request order.
         """
         times = np.atleast_1d(np.asarray(time, dtype="datetime64[ns]"))
         pieces: list[pd.DataFrame] = []
         for t in times:
-            path = os.path.join(self._store_path, frame_filename(t))
+            path = os.path.join(self.store_path, frame_filename(t))
             if not os.path.exists(path):
                 raise FileNotFoundError(
                     f"Predownloaded observation frame for {t} not found at "
-                    f"'{path}'.  Re-run predownload.py with this time included "
-                    "(or remove the store directory to fetch live)."
+                    f"'{path}'; re-run predownload.py with this time included."
                 )
             pieces.append(pd.read_parquet(path))
         df = pieces[0] if len(pieces) == 1 else pd.concat(pieces, ignore_index=True)
-
         if variable is not None and "variable" in df.columns:
-            requested = [str(v) for v in np.atleast_1d(variable)]
+            requested = [str(v) for v in np.atleast_1d(np.asarray(variable))]
             df = df[df["variable"].isin(requested)].reset_index(drop=True)
-
         if fields is not None:
-            requested_fields = [str(f) for f in np.atleast_1d(fields)]
-            missing = [f for f in requested_fields if f not in df.columns]
+            wanted = [str(f) for f in np.atleast_1d(np.asarray(fields))]
+            missing = [f for f in wanted if f not in df.columns]
             if missing:
                 raise KeyError(
-                    f"Predownloaded frame store '{self._store_path}' is missing "
-                    f"requested fields {missing} (stored columns: "
-                    f"{list(df.columns)}).  The store was likely built for a "
-                    "different model schema — re-run predownload.py with "
+                    f"Frame store '{self.store_path}' lacks fields {missing} "
+                    f"(stored: {list(df.columns)}); re-run predownload.py with "
                     "predownload.overwrite=true."
                 )
-            df = df[requested_fields]
+            df = df[wanted]
         return df
-
-
-class PredownloadedSource:
-    """DataSource backed by a predownloaded zarr store.
-
-    The zarr store is expected to have dimensions
-    ``(time, variable, <spatial...>)`` with no ``lead_time`` dimension.
-    Because ``lead_time`` is absent from :meth:`__call__`, ``fetch_data``
-    automatically handles lead-time expansion by calling
-    ``source(ic_time + lead, variable)`` for each requested lead time.
-
-    Parameters
-    ----------
-    store_path : str
-        Path to the zarr store on disk.
-    """
-
-    def __init__(self, store_path: str) -> None:
-        # to_array puts "variable" first; transpose so time leads per DataSource protocol.
-        self._da = (
-            xr.open_zarr(store_path)
-            .to_array("variable")
-            .transpose("time", "variable", ...)
-        )
-
-    def __call__(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Return data for the requested times and variables.
-
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Timestamps to return data for.
-        variable : str | list[str] | VariableArray
-            Variable names to return.
-
-        Returns
-        -------
-        xr.DataArray
-            Data with dimensions ``[time, variable, <spatial...>]``.
-        """
-        if not isinstance(time, (list, np.ndarray)):
-            time = [time]
-        if not isinstance(variable, (list, np.ndarray)):
-            variable = [variable]
-        return self._da.sel(time=time, variable=variable)
-
-    async def fetch(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Async version of :meth:`__call__`."""
-        return self(time, variable)
-
-
-class CompositeSource:
-    """DataSource composed of multiple sources dispatched by variable.
-
-    Each request for one or more variables is split into per-source
-    sub-requests according to which component source advertises that
-    variable, then the sub-results are concatenated along the
-    ``variable`` dim.  Designed for multi-source pipelines such as
-    StormScope where different variables live in different predownloaded
-    zarrs (``data_goes.zarr`` holds ABI channels; ``data_mrms.zarr``
-    holds ``refc``).
-
-    All component sources must produce DataArrays with the same
-    non-variable dimensions (time, lead_time if any, spatial dims) and
-    the same spatial coordinate values — otherwise concatenation will
-    raise.  The component sources' variables must be mutually disjoint.
-
-    Parameters
-    ----------
-    sources : dict[str, DataSource]
-        Mapping from a descriptive name (for error messages) to a
-        ``DataSource`` instance.  Iteration order is preserved; when the
-        same variable is advertised by more than one source the first
-        one wins.
-    variable_index : dict[str, str]
-        Mapping from variable name to the component source name that
-        should handle it.  Typically built by inspecting each zarr's
-        array list — see :meth:`from_predownloaded_stores`.
-    """
-
-    def __init__(
-        self,
-        sources: Mapping[str, DataSource],
-        variable_index: dict[str, str],
-    ) -> None:
-        unknown = sorted(set(variable_index.values()) - set(sources))
-        if unknown:
-            raise ValueError(f"variable_index references unknown sources: {unknown}")
-        self._sources = dict(sources)
-        self._var_index = dict(variable_index)
-
-    @classmethod
-    def from_predownloaded_stores(cls, stores: dict[str, str]) -> CompositeSource:
-        """Build a :class:`CompositeSource` by inspecting each zarr's vars.
-
-        Parameters
-        ----------
-        stores : dict[str, str]
-            Mapping from source name → zarr store path.  Each store is
-            opened once; its top-level array names become the variable
-            index entries that dispatch to that source.
-
-        Returns
-        -------
-        CompositeSource
-        """
-        sources: dict[str, PredownloadedSource] = {}
-        variable_index: dict[str, str] = {}
-        for name, path in stores.items():
-            src = PredownloadedSource(path)
-            sources[name] = src
-            # PredownloadedSource._da is the result of to_array("variable");
-            # its "variable" coord enumerates the store's data vars.
-            for v in src._da.coords["variable"].values:
-                v_str = str(v)
-                if v_str not in variable_index:
-                    variable_index[v_str] = name
-        return cls(sources, variable_index)
-
-    def __call__(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        if not isinstance(variable, (list, np.ndarray)):
-            variables: list[str] = [str(variable)]
-        else:
-            variables = [str(v) for v in variable]
-
-        missing = [v for v in variables if v not in self._var_index]
-        if missing:
-            known = sorted(self._var_index)
-            raise KeyError(
-                f"CompositeSource: variables {missing} not found in any "
-                f"component source (known: {known})"
-            )
-
-        # Preserve caller-requested variable order; group by source while
-        # remembering each variable's target index in the output.
-        per_source: dict[str, list[str]] = {}
-        for v in variables:
-            per_source.setdefault(self._var_index[v], []).append(v)
-
-        partial_das: list[xr.DataArray] = []
-        for src_name, vars_for_src in per_source.items():
-            partial_das.append(self._sources[src_name](time, vars_for_src))
-
-        # Concatenate along the variable dim, then reorder to match the
-        # caller's requested variable order.
-        combined = xr.concat(partial_das, dim="variable")
-        return combined.sel(variable=variables)
-
-    async def fetch(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        return self(time, variable)
-
-
-class CadenceRoundedSource:
-    """DataSource wrapper that rounds valid-time requests to a fixed cadence.
-
-    Used when a caller (e.g. a 10-min StormScope model) queries the
-    underlying store at a finer cadence than its native resolution
-    (e.g. hourly GFS or ERA5).  Each valid time in the request is
-    rounded to the nearest cadence boundary before being forwarded;
-    the returned ``xr.DataArray`` is *relabeled* with the caller's
-    original (pre-round) times so downstream consumers see the
-    requested valid times rather than the coarser underlying ones.
-
-    Deduplication is automatic — if the request produces duplicate
-    rounded times, the underlying source is only called with unique
-    values, and the result is re-indexed on the way out.
-
-    Parameters
-    ----------
-    source : DataSource
-        Wrapped source.  Must speak the ``(time, variable)`` protocol.
-    cadence : str | timedelta | np.timedelta64
-        Native resolution of the underlying data.  Parsed via
-        ``pd.Timedelta`` so strings like ``"1h"``, ``"30min"`` work.
-    """
-
-    def __init__(
-        self,
-        source: Any,
-        cadence: Any,
-    ) -> None:
-        self._source = source
-        self._cadence_ns: np.timedelta64 = (
-            pd.Timedelta(cadence).to_timedelta64().astype("timedelta64[ns]")
-        )
-        if int(self._cadence_ns.astype("int64")) <= 0:
-            raise ValueError(f"cadence must be positive, got {cadence}")
-
-    def _round_nearest(self, times: np.ndarray) -> np.ndarray:
-        """Round each datetime64 to the nearest multiple of the cadence."""
-        t_int = np.asarray(times, dtype="datetime64[ns]").astype("int64")
-        c = int(self._cadence_ns.astype("int64"))
-        # (x + c/2) // c * c — nearest-multiple rounding for non-negative offsets;
-        # also correct for the epoch-relative timestamps we deal with here.
-        rounded = ((t_int + c // 2) // c) * c
-        return rounded.astype("datetime64[ns]")
-
-    def __call__(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        if not isinstance(time, (list, np.ndarray)):
-            times = np.array([time], dtype="datetime64[ns]")
-        else:
-            times = np.asarray(time, dtype="datetime64[ns]")
-
-        rounded = self._round_nearest(times)
-
-        # Dedupe to unique rounded values, preserving insertion order.
-        unique_seen: dict[int, np.datetime64] = {}
-        for r in rounded:
-            unique_seen.setdefault(int(r.astype("int64")), r)
-        unique_rounded = np.array(list(unique_seen.values()), dtype="datetime64[ns]")
-
-        da = self._source(unique_rounded, variable)
-
-        # Expand back to the caller's requested-time count/order.
-        idx_map = {int(t.astype("int64")): i for i, t in enumerate(unique_rounded)}
-        indices = np.array(
-            [idx_map[int(r.astype("int64"))] for r in rounded],
-            dtype=np.int64,
-        )
-        out = da.isel(time=indices)
-        # Relabel the time axis with the original requested values so
-        # downstream selection / dim handling sees what was asked for.
-        out = out.assign_coords(time=times)
-        return out
-
-    async def fetch(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        return self(time, variable)
-
-
-class ValidTimeForecastAdapter:
-    """Adapt a :class:`ForecastSource` to the :class:`DataSource` protocol.
-
-    Wraps a forecast source (``__call__(time, lead_time, variable)``) so
-    that callers can request data by *valid time* alone, matching the
-    ``DataSource`` contract.  Each valid time is looked up in
-    ``lookup`` to resolve which ``(init_time, lead_time)`` pair to
-    query — the forecast source is called once per valid time and the
-    returned DataArray's ``(time, lead_time)`` axes are squeezed and
-    relabeled with the requested valid time.
-
-    Used at predownload to flatten forecast fetches into a
-    valid-time-keyed zarr that :class:`PredownloadedSource` can serve
-    at inference time in place of a live forecast source (e.g.
-    substituting a local zarr for ``GFS_FX`` in StormScope's
-    ``conditioning_data_source``).
-
-    Parameters
-    ----------
-    source : ForecastSource
-        The wrapped forecast source.  Only its ``__call__`` is used.
-    lookup : dict[np.datetime64, tuple[np.datetime64, np.timedelta64]]
-        Mapping ``valid_time → (init_time, lead_time)``.  Every valid
-        time the adapter will be asked for must appear here; missing
-        keys raise ``KeyError``.
-
-    Notes
-    -----
-    This adapter is stateless beyond ``lookup`` and not threadsafe for
-    concurrent mutation.  It does not attempt to dedupe or batch fetches
-    across valid times — the predownload loop already iterates one
-    valid time at a time, so per-call fan-out is fine.
-    """
-
-    def __init__(
-        self,
-        source: Any,
-        lookup: dict[Any, tuple[Any, Any]],
-    ) -> None:
-        self._source = source
-        # Normalize all lookup entries to ns-unit numpy scalars so the
-        # downstream membership check is robust to mixed-unit inputs
-        # (pd.Timestamp, np.datetime64[s], datetime, ...).
-        self._lookup: dict[np.datetime64, tuple[np.datetime64, np.timedelta64]] = {
-            np.datetime64(pd.Timestamp(k), "ns"): (
-                np.datetime64(pd.Timestamp(v[0]), "ns"),
-                np.timedelta64(pd.Timedelta(v[1]), "ns"),
-            )
-            for k, v in lookup.items()
-        }
-
-    def __call__(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        if not isinstance(time, (list, np.ndarray)):
-            times_iter: list = [time]
-        else:
-            times_iter = list(time)
-        if not isinstance(variable, (list, np.ndarray)):
-            variables = [variable]
-        else:
-            variables = list(variable)
-
-        pieces: list[xr.DataArray] = []
-        for t in times_iter:
-            key = np.datetime64(pd.Timestamp(t), "ns")
-            if key not in self._lookup:
-                known = sorted(self._lookup)
-                first = known[0] if known else "<empty>"
-                last = known[-1] if known else "<empty>"
-                raise KeyError(
-                    f"ValidTimeForecastAdapter: valid_time {t} not in lookup "
-                    f"(known range: {first} → {last}, N={len(known)})."
-                )
-            init, lead = self._lookup[key]
-            init_dt = pd.Timestamp(init).to_pydatetime()
-            da = self._source([init_dt], np.array([lead]), variables)
-            # Collapse the (now-constant) (time, lead_time) pair and
-            # relabel with the caller-supplied valid time.
-            da = da.isel(time=0, lead_time=0, drop=True)
-            da = da.expand_dims(time=[np.datetime64(pd.Timestamp(t), "ns")])
-            pieces.append(da)
-
-        if len(pieces) == 1:
-            return pieces[0]
-        return xr.concat(pieces, dim="time")
-
-    async def fetch(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        return self(time, variable)
-
-
-class WindowMeanSource:
-    """DataSource wrapper that averages the wrapped source over a trailing window.
-
-    A request for time ``t`` returns the mean of the wrapped source over a
-    window of length ``window``, sampled every ``cadence``.  ``align`` sets
-    where the window sits:
-
-    * ``"end"`` (the default) averages ``t - window + cadence, ..., t``.  A
-      30-day window at a 6-hour cadence covers 120 samples.  For models that
-      output instantaneous states, these are the windows that
-      :class:`~src.pipelines.seasonal.WindowMeanForecastPipeline` averages
-      and labels by their last lead time.
-    * ``"start"`` averages ``t, ..., t + window - cadence``.  A 24-hour
-      window at a 1-hour cadence turns an hourly source into UTC
-      calendar-day means labelled 00:00, the input that daily-mean models
-      such as FuXi-S2S expect.  To verify such a model, wrap this daily
-      source in an ``"end"``-aligned one with a 24-hour cadence, so each
-      window averages the same calendar days as the forecast.
-
-    Because the mean keeps the requested time as its label, ``fetch_data``
-    and the predownload store treat it like any other field.  Wrapped
-    around a climatology, the source yields the window-mean climatology
-    that anomaly correlation needs.  NaN propagates: a NaN in any sample
-    makes the window mean NaN at that point instead of biasing it.
-
-    Parameters
-    ----------
-    source : DataSource
-        Wrapped source.  Must speak the ``(time, variable)`` protocol.
-    window : str | timedelta | np.timedelta64
-        Window length, parsed via ``pd.Timedelta`` (``"30D"``, ``"720h"``).
-    cadence : str | timedelta | np.timedelta64
-        Sampling interval inside the window.  Must divide ``window``.
-    align : str
-        ``"end"`` for a window ending at the requested time, ``"start"``
-        for one beginning there.
-    chunk_size : int
-        Samples fetched per call to the wrapped source, which bounds the
-        memory a long window on a fine grid needs.
-    """
-
-    def __init__(
-        self,
-        source: Any,
-        window: Any,
-        cadence: Any,
-        align: str = "end",
-        chunk_size: int = 8,
-    ) -> None:
-        if align not in ("start", "end"):
-            raise ValueError(f"align must be 'start' or 'end', got {align!r}")
-        self._source = source
-        window_ns = pd.Timedelta(window).to_timedelta64().astype("timedelta64[ns]")
-        cadence_ns = pd.Timedelta(cadence).to_timedelta64().astype("timedelta64[ns]")
-        if int(cadence_ns.astype("int64")) <= 0:
-            raise ValueError(f"cadence must be positive, got {cadence!r}")
-        count, remainder = divmod(
-            int(window_ns.astype("int64")), int(cadence_ns.astype("int64"))
-        )
-        if count < 1 or remainder:
-            raise ValueError(
-                f"window {window!r} must be a positive multiple of cadence {cadence!r}"
-            )
-        # Sample offsets from the requested time, oldest first.
-        steps = np.arange(count) * cadence_ns
-        if align == "end":
-            steps = steps + cadence_ns - window_ns
-        self._offsets = steps.astype("timedelta64[ns]")
-        self._chunk_size = max(1, int(chunk_size))
-
-    def __call__(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Return the window mean for each requested time.
-
-        Parameters
-        ----------
-        time : datetime | list[datetime] | TimeArray
-            Window labels: the window end, or its start with ``align="start"``.
-        variable : str | list[str] | VariableArray
-            Variable names to average.
-
-        Returns
-        -------
-        xr.DataArray
-            Means with dimensions ``[time, variable, <spatial...>]``.
-        """
-        times = np.atleast_1d(np.asarray(time, dtype="datetime64[ns]"))
-
-        pieces: list[xr.DataArray] = []
-        for t in times:
-            samples = t + self._offsets
-            total: xr.DataArray | None = None
-            for start in range(0, len(samples), self._chunk_size):
-                chunk = samples[start : start + self._chunk_size]
-                da = self._source(chunk, variable)
-                if da.sizes["time"] != len(chunk):
-                    raise ValueError(
-                        f"WindowMeanSource: the wrapped source returned "
-                        f"{da.sizes['time']} of {len(chunk)} requested times for "
-                        f"the window labelled {t}."
-                    )
-                part = da.sum("time", skipna=False)
-                total = part if total is None else total + part
-            assert total is not None  # noqa: S101 - the window has >= 1 sample
-            pieces.append((total / len(samples)).expand_dims(time=[t]))
-        return pieces[0] if len(pieces) == 1 else xr.concat(pieces, dim="time")
-
-    async def fetch(
-        self,
-        time: datetime | list[datetime] | TimeArray,
-        variable: str | list[str] | VariableArray,
-    ) -> xr.DataArray:
-        """Async version of :meth:`__call__`."""
-        return self(time, variable)

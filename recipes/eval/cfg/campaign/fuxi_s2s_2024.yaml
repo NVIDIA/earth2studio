@@ -18,18 +18,17 @@
 # Subseasonal archive example: FuXi-S2S rolled out 60 days from two initial
 # conditions and stored as two 30-day means per run (forecast.zarr), for
 # scoring elsewhere.  The model steps one day at a time on a 1.5 degree
-# grid, so the 1 degree target keeps the model grid; a 0.25 degree model
-# would be interpolated.  It consumes UTC calendar-day means, which the
-# arco_era5_daily source serves for the two initial frames.  This 60-day
-# run produces two means and extends beyond the published 42-day horizon.
+# grid; output.regrid interpolates each mean onto a 1 degree grid, the
+# resolution subseasonal archives use.  The model's qualified input labels
+# (t2m:mean:0h:24h ...) make the hourly arco_era5 source serve UTC
+# calendar-day means for the two initial frames.  This 60-day run produces
+# two means and extends beyond the published 42-day horizon.
 defaults:
     - override /model: fuxi_s2s
-    - override /data_source: arco_era5_daily
 
-pipeline:
-    _target_: src.pipelines.seasonal.WindowMeanForecastPipeline
+runner:
+    name: window_mean
     window: 30D              # a whole number of model steps
-    target_resolution: 1.0   # degrees; null keeps the model grid
 run_id: fuxi_s2s_2024
 
 start_times:
@@ -39,6 +38,17 @@ start_times:
 # 60 daily steps = two 30-day windows per run.
 nsteps: 60
 
-# Variables kept in forecast.zarr, one field per window.
+# Window means are stored for external scoring; no verification store.
+predownload:
+    verification:
+        enabled: false
+
 output:
+    # Variables kept in forecast.zarr, one field per window.
     variables: [t2m, t850, z500, msl, tp]
+    # 1 degree output grid; remove to keep the model's 1.5 degree grid.
+    regrid:
+        grid:
+            lat: {start: 90, stop: -90, num: 181}
+            lon: {start: 0, stop: 359, num: 360}
+        method: bilinear

@@ -30,7 +30,7 @@
 #   * 336 steps of 1 h: the model rolls out hourly (each hour is a full
 #     forward pass), so the scorecard verifies every hour against ERA5
 #     fetched on the fly from ARCO rather than the shared 6-hourly store
-#   * output pole-padded onto ERA5's 721 grid
+#   * output gathered onto ERA5's 721 grid (output.regrid, nearest)
 #   * needs t-6h history, so it keeps its own IC store.
 # ---------------------------------------------------------------------------
 defaults:
@@ -105,6 +105,11 @@ data_source:
     verbose: false
 output:
     path: ${oc.env:SCORECARD_OUT,/code/earth2studio_eval/recipes/eval/scorecard/models/aurora1p5ens/outputs}/${project}_${run_id}
+    # Gather the model's native 720 x 1440 output onto ERA5's 721 x 1440
+    # grid before scoring (see the note next to `runner` below).
+    regrid:
+        grid: latlon-0.25deg
+        method: nearest
     # Online scoring: never write the raw forecast store; stats.zarr is
     # the artifact.
     retain: none
@@ -222,15 +227,8 @@ verification_source:
     verbose: false
 predownload:
     verification:
-        enabled: false
-pipeline:
-    _target_: scorecard.utils.pipelines.RegriddedForecastPipeline
-    target_lat:
-        start: 90.0
-        stop: -90.0
-        num: 721
-    target_lon:
-        start: 0.0
-        stop: 359.75
-        num: 1440
-    share_verification: false
+        enabled: false   # bring-your-own above
+# The model's native 720 x 1440 output is gathered onto ERA5's 721 x 1440
+# grid before scoring (its 720 latitudes are exactly the target's first 720;
+# the appended -90 row carries zero latitude weight).
+runner: forecast
