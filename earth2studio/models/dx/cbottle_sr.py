@@ -230,30 +230,6 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         """Current device for model buffers"""
         return self._device_buffer.device
 
-    def set_super_resolution_window(
-        self,
-        super_resolution_window: tuple[int, int, int, int] | None = None,
-        output_resolution: tuple[int, int] = (2161, 4320),
-    ) -> None:
-        """Set or update the super-resolution window in place
-
-        This changes this instance, so coordinate signatures captured from it
-        beforehand become stale. Prefer :meth:`with_region`, which returns an
-        independently configured view and leaves this model unchanged.
-
-        Parameters
-        ----------
-        super_resolution_window : None | tuple[int, int, int, int], optional
-            Super-resolution window. If None, super-resolution is done
-            on the entire global grid. If provided, the super-resolution window is a tuple
-            of (lat_south, lon_west, lat_north, lon_east) and will only apply super-resolution
-            to the specified window. By default None.
-        output_resolution : tuple[int, int] | None, optional
-            High-resolution output dimensions for lat/lon output. Only used when
-            lat_lon=True, by default (2161, 4320)
-        """
-        self._configure_window(super_resolution_window, output_resolution)
-
     def _configure_window(
         self,
         super_resolution_window: tuple[float, float, float, float] | None,

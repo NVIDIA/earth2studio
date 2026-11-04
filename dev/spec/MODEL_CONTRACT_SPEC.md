@@ -861,8 +861,10 @@ The checker implements this contract. Wrappers and consumers migrate separately:
   `StormScopeGOES` and `StormScopeMRMS` implement it for box regions: Flash variants
   crop the HRRR footprint with context, and baseline variants return full-footprint
   views, which cover any supported region. `CorrDiffEra5Hrrr`, `CorrDiffCosmoEra5`,
-  `StormCastCONUS` and `cBottleSR` adopt the protocol additively, keeping their
-  constructor limits, `set_domain` and `set_super_resolution_window` as adapters.
+  `StormCastCONUS` and `cBottleSR` implement it too. `with_region` replaces
+  `CorrDiffCosmoEra5.set_domain` and `CBottleSR.set_super_resolution_window`, which
+  are removed; construction-time window arguments (StormCastCONUS `hrrr_lat_lim` /
+  `hrrr_lon_lim`, cBottleSR `super_resolution_window`) remain.
   `StormCast` stays fixed-domain: its additive positional embedding and invariants
   cover only its 512×640 window. See
   [flexible_domain.md](../scratch/flexible_domain.md).

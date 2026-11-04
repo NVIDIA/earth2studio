@@ -482,15 +482,6 @@ class TestCBottleSRRegion:
         dx._follow_network()
         assert dx.device.type == "meta"
 
-    @pytest.mark.skipif(cbottle is not None, reason="inspects the offline backend")
-    def test_cbottle_sr_set_super_resolution_window(self, mock_cbottle_core_model):
-        dx = CBottleSR(mock_cbottle_core_model, output_resolution=(8, 16))
-        dx.set_super_resolution_window((0, -120, 50, -40), (4, 6))
-        assert dx.super_resolution_extents == (-120, -40, 0, 50)
-        assert dx.output_coords(dx.input_coords()).shape[-2:] == (4, 6)
-        dx.set_super_resolution_window(None, (8, 16))
-        assert dx.super_resolution_extents is None
-
 
 @pytest.mark.package
 @pytest.mark.parametrize("device", ["cuda:0"])

@@ -33,8 +33,7 @@ Domain handling:
   ``__call__`` takes input regridded onto ``input_coords()`` (the native footprint);
   sub-regions -- including into the extended margin -- are reached via
   :meth:`with_region` (next bullet).
-* A **sub-region** is a view returned by :meth:`with_region` (or the legacy
-  :meth:`set_domain` adapter), which slices the grid + exact invariants to a
+* A **sub-region** is a view returned by :meth:`with_region`, which slices the grid + exact invariants to a
   bounding box (no aggregation). The bbox may lie inside the
   native trained footprint, or reach into the extended invariant margin -- the
   latter proceeds with a one-time out-of-distribution warning; beyond the extended
@@ -215,8 +214,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     agnostic, so the model is :class:`~earth2studio.models.base.DomainAdaptable`:
     :meth:`with_region` returns a view restricted to any lat/lon box without
     retraining (bounded to the supported footprint), configured by
-    ``region_halo`` and ``region_margin_deg``. :meth:`set_domain` remains as a
-    compatibility adapter that also returns a view. Each
+    ``region_halo`` and ``region_margin_deg``. Each
     resolution ships an extended grid beyond its native footprint; for COSMO-REA2
     -- whose native footprint is central-European -- the extended grid reaches a
     broad European domain, enabling 2.2 km downscaling across it. Outputs are
@@ -529,7 +527,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         self.region_margin_deg = 1.0
         # Full supported footprint shared with views (see _full_footprint).
         self._footprint: dict[str, Any] | None = None
-        # _halo: internal state of a view (with_region / set_domain), NOT a free
+        # _halo: internal state of a view made by with_region, NOT a free
         # toggle. (top, bottom, left, right) px the view runs then trims off the
         # output; (0,0,0,0) = no halo (the default).
         self._halo = (0, 0, 0, 0)
@@ -1154,8 +1152,8 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     def _snap_to_patch(self, lo: int, hi: int, n: int) -> tuple[int, int]:
         """Snap a run-window extent ``[lo, hi)`` (one axis) to a multiple of
         ``_patch_size``; see :func:`earth2studio.models.nn.corrdiff.snap_to_patch`.
-        ``set_domain`` folds the outward growth into the halo trim so the reported
-        bbox is unchanged, and raises on the negative trim a shrink would produce.
+        :meth:`with_region` folds the outward growth into the halo trim so the
+        reported bbox is unchanged, and raises on the negative trim a shrink would produce.
         No-op when ``_patch_size == 1`` (synthetic test instances)."""
         return snap_to_patch(lo, hi, n, self._patch_size)
 
@@ -1166,8 +1164,8 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         attention's latent grid and the detokenizer's patch counts -- and nothing
         else: no learnable weight depends on the grid, so this is all that differs
         per resolution. Shared by the regression forward and the diffusion sampler.
-        Mutates ``dit`` in place, so callers sharing one network (e.g. sub-domains
-        from ``set_domain``) must not run concurrently -- see ``set_domain``.
+        Mutates ``dit`` in place, so callers sharing one network (e.g. views from
+        :meth:`with_region`) must not run concurrently.
         Returns the latent grid so callers can pass it through forward-time
         ``attn_kwargs`` for PhysicsNeMo RoPE table providers.
         """
@@ -1491,8 +1489,10 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         The view shares the loaded network(s) and runs on the smallest block of the
         footprint whose cells contain the box: the cells with centers inside it
         plus one bracketing row and column per side, grown to the DiT patch size
-        and expanded by ``region_halo`` cells that are run and then trimmed. Its
-        ERA5 input grid covers the block plus ``region_margin_deg``. Selection uses
+        and expanded by ``region_halo`` cells that are run and then trimmed (the DiT
+        leaves a boundary artifact roughly 32 cells deep; the halo clamps, with a
+        warning, at the grid edge). Its ERA5 input grid covers the block plus
+        ``region_margin_deg``. Selection uses
         the full supported footprint, so a view's ``with_region`` reaches all of
         it: boxes inside the native footprint are validated, boxes reaching into
         the extended margin (when the package ships one) run with an
@@ -1546,58 +1546,6 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
             lon_max,
             margin_deg=self.region_margin_deg,
             halo=self.region_halo,
-            bracket=True,
-        )
-
-    def set_domain(
-        self,
-        lat_min: float,
-        lat_max: float,
-        lon_min: float,
-        lon_max: float,
-        margin_deg: float = 1.0,
-        halo: int = 0,
-    ) -> Self:
-        """Restrict the model to a sub-domain for a lat/lon bounding box.
-
-        Compatibility adapter for :meth:`with_region`, which is the preferred API.
-        Returns a view, like :meth:`with_region`, that shares the loaded network(s)
-        but whose target grid + static invariants are sliced to the block of
-        cells whose centers lie inside ``[lat_min, lat_max] x [lon_min, lon_max]``
-        (no bracketing row/column). The view has its own
-        ``input_coords``/``output_coords``, so it composes with the standard run
-        pipelines. The ERA5 input grid is recomputed to cover it (+ ``margin_deg``).
-
-        The network is shared by reference and each forward rebinds its latent-grid
-        state on it in place, so the parent and its sub-domains are safe to run
-        sequentially but NOT concurrently against the same network (two threads or
-        async tasks would overwrite each other's grid binding -> wrong-grid output);
-        run concurrent domains in separate processes.
-
-        Three-tier coverage (when the package ships extended invariants):
-
-        * bbox inside the **native** trained footprint -> proceed (validated);
-        * bbox reaching into the **extended margin** (invariants exist there but
-          it is outside the trained footprint) -> proceed + a one-time OOD warning;
-        * bbox beyond the **extended extent** -> ``ValueError`` (no invariants).
-
-        Without extended invariants only the native footprint is supported. Views
-        keep a reference to the full footprint, so ``set_domain`` (or
-        :meth:`with_region`) on a returned sub-domain selects from the whole
-        native and extended footprint, not only the sub-domain's own grid.
-
-        ``halo`` (px, default 0 = off): run on a block expanded by ``halo`` real
-        cells per side and trim it off the output, keeping the returned bbox
-        interior clear of the DiT's boundary artifact (~32 px); clamps + warns at
-        the grid edge. Both models are DiT-RoPE (crop-size agnostic at the fixed
-        resolution), so any size runs in a single forward — but the run grid is
-        snapped to a multiple of
-        the DiT ``patch_size`` (an odd extent would floor to extent-1) and must be
-        at least ``attn_kernel*patch`` cells per side (NATTEN must fit the latent),
-        so very small bboxes raise.
-        """
-        return self._select(
-            lat_min, lat_max, lon_min, lon_max, margin_deg, halo, bracket=False
         )
 
     def _select(
@@ -1608,14 +1556,12 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         lon_max: float,
         margin_deg: float,
         halo: int,
-        bracket: bool,
     ) -> Self:
         """View on the footprint block covering a lat/lon box.
 
-        ``bracket`` adds one row and column of cells beyond the centers inside the
-        box on each side (where the footprint has them), so the block's cell areas
-        contain the box (:meth:`with_region`); without it the block stops at the
-        last center inside (:meth:`set_domain`).
+        The block holds the cells whose centers lie inside the box plus one row
+        and column beyond them on each side (where the footprint has them), so its
+        cell areas contain the box.
         """
         footprint = self._full_footprint()
         # Slice from the extended grid when available (it contains the native
@@ -1666,9 +1612,8 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         cols = np.where(inside.any(axis=0))[0]
         i0, i1 = int(rows[0]), int(rows[-1]) + 1
         j0, j1 = int(cols[0]), int(cols[-1]) + 1
-        if bracket:
-            i0, i1 = max(i0 - 1, 0), min(i1 + 1, Hn)
-            j0, j1 = max(j0 - 1, 0), min(j1 + 1, Wn)
+        i0, i1 = max(i0 - 1, 0), min(i1 + 1, Hn)
+        j0, j1 = max(j0 - 1, 0), min(j1 + 1, Wn)
 
         # Halo: expand the block by `halo` px, clamped to the grid edge (real
         # surrounding data); the border is run then trimmed in _forward.
@@ -1964,7 +1909,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
 
         # Native default grids: lat/lon_input are the 1D regular ERA5 source grid;
         # lat/lon_output are the 2D curvilinear (rotated-pole) COSMO-REA target.
-        # (set_domain slices sub-grids from these, or from the extended grid below.)
+        # (with_region slices sub-grids from these, or from the extended grid below.)
         with xr.open_dataset(package.resolve(prefix + "grids.nc")) as ds:
             lat_input_grid = torch.as_tensor(
                 np.asarray(ds["lat_input"]), device=device, dtype=torch.float32
@@ -1990,7 +1935,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
             if n not in POS_VARIABLES
         ]
         static_invariants: "OrderedDict[str, torch.Tensor]" = OrderedDict()
-        # Keep the full extended grid + invariants (CPU numpy) for set_domain() to
+        # Keep the full extended grid + invariants (CPU numpy) for with_region() to
         # reach the OOD margin band beyond the native footprint. The native
         # invariants for the default output are sliced from the extended ones below
         # (native_offset/native_shape); the native output grid itself comes from

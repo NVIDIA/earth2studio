@@ -18,7 +18,7 @@
 
 These are construction-based (no real package / no GPU forward): they exercise
 the metadata-driven plumbing — per-mode parsing, the output->lexicon coord
-mapping, the inline-constraint parsing, and crucially that ``set_domain()``
+mapping, the inline-constraint parsing, and crucially that ``with_region()``
 preserves the full per-resolution/per-mode config.
 """
 
@@ -397,11 +397,11 @@ def test_call_end_to_end_with_hub():
     assert torch.isfinite(out).all()
 
 
-# ── set_domain tests ────────────────────────────────────────────────────────
+# ── regional view tests ────────────────────────────────────────────────────────
 
 
-def test_set_domain_preserves_config():
-    """set_domain() must carry through EVERY per-mode/per-resolution field."""
+def test_with_region_preserves_config():
+    """with_region() must carry through EVERY per-mode/per-resolution field."""
     dx = _build(
         number_of_steps=12,
         sigma_min=0.01,
@@ -413,7 +413,7 @@ def test_set_domain_preserves_config():
         physical_clamp=False,
     )
     dx.set_rng(42)
-    cr = dx.set_domain(lat_min=48.0, lat_max=52.0, lon_min=8.0, lon_max=13.0)
+    cr = dx.with_region(Region.box(8.0, 48.0, 13.0, 52.0))
     assert cr._rng_generator is not dx._rng_generator
     assert torch.equal(cr._rng_generator.get_state(), dx._rng_generator.get_state())
 
@@ -448,20 +448,22 @@ def test_set_domain_preserves_config():
     assert cr.static_invariants.shape[-2:] == cr.lat_output_grid.shape
 
 
-def test_set_domain_halo_clamps_at_grid_edge():
+def test_with_region_halo_clamps_at_grid_edge():
     """When the halo would extend past the grid edge it is clamped."""
     dx = _build()
+    dx.region_halo = 2
     with pytest.warns(UserWarning, match="clamped at the grid edge"):
-        cr = dx.set_domain(47.5, 50.0, 9.0, 11.0, halo=2)
-    assert cr._halo == (1, 2, 2, 2)
+        cr = dx.with_region(Region.box(9.0, 47.5, 11.0, 50.0))
+    # The bracketed block starts at the top row and one column in from the left
+    assert cr._halo == (0, 2, 1, 2)
 
 
-def test_set_domain_snaps_run_grid_to_patch():
-    """For a real DiT (patch_size>1) set_domain snaps the RUN grid to a multiple
+def test_with_region_snaps_run_grid_to_patch():
+    """For a real DiT (patch_size>1) with_region snaps the RUN grid to a multiple
     of patch_size."""
     dx = _build()
     dx._patch_size = 2
-    cr = dx.set_domain(49.5, 51.3, 9.5, 11.5)
+    cr = dx.with_region(Region.box(9.5, 49.5, 11.5, 51.3))
     rg = tuple(cr.lat_output_grid.shape)
     assert rg[0] % 2 == 0 and rg[1] % 2 == 0
     top, bot, left, right = cr._halo
@@ -487,28 +489,28 @@ def _attach_extended_grid(
     return dx
 
 
-def test_set_domain_extended_footprint():
-    """set_domain uses extended grid for OOD margins."""
+def test_with_region_extended_footprint():
+    """with_region uses extended grid for OOD margins."""
     inside = _attach_extended_grid(_build())
-    sub = inside.set_domain(49.0, 51.0, 9.0, 11.0)
+    sub = inside.with_region(Region.box(9.0, 49.0, 11.0, 51.0))
     assert isinstance(sub, CorrDiffCosmoEra5)
     assert sub.lat_output_grid.shape[0] < inside.lat_output_grid.shape[0]
     margin = _attach_extended_grid(_build())
-    sub2 = margin.set_domain(53.3, 54.0, 9.0, 11.0)
+    sub2 = margin.with_region(Region.box(9.0, 53.3, 11.0, 54.0))
     assert isinstance(sub2, CorrDiffCosmoEra5)
     assert sub2.lat_output_numpy.max() > 53.0
 
 
-def test_set_domain_extended_state_guards():
+def test_with_region_extended_state_guards():
     """Extended grid state guards fire when arrays are incomplete."""
     dx = _attach_extended_grid(_build())
     dx._ext_lon_numpy = None
     with pytest.raises(RuntimeError, match="extended grid arrays are not set"):
-        dx.set_domain(49.0, 51.0, 9.0, 11.0)
+        dx.with_region(Region.box(9.0, 49.0, 11.0, 51.0))
     dx2 = _attach_extended_grid(_build())
     dx2._ext_static_numpy = None
     with pytest.raises(RuntimeError, match="extended static array is not set"):
-        dx2.set_domain(49.0, 51.0, 9.0, 11.0)
+        dx2.with_region(Region.box(9.0, 49.0, 11.0, 51.0))
 
 
 # ── with_region (DomainAdaptable) tests ─────────────────────────────────────
@@ -550,10 +552,6 @@ def test_with_region_view():
     for a, b in zip(_output_grid(from_view), _output_grid(from_root)):
         np.testing.assert_array_equal(a, b)
     assert _output_grid(from_root)[1].max() > lon.max()
-    # ... and so does a legacy set_domain sub-domain
-    sub = dx.set_domain(49.0, 51.0, 9.0, 11.0)
-    for a, b in zip(_output_grid(sub.with_region(far)), _output_grid(from_root)):
-        np.testing.assert_array_equal(a, b)
 
 
 @pytest.mark.parametrize(
@@ -632,8 +630,10 @@ def test_with_region_views_follow_shared_network():
 def test_forward_core_halo_trims_border():
     """Halo-expanded run grid is trimmed back to the bbox in the output."""
     dx = _build(regression_model=PhooRegDiT(len(OUTPUT_VARIABLES)))
-    plain = dx.set_domain(48.0, 52.0, 8.0, 13.0, halo=0)
-    haloed = dx.set_domain(48.0, 52.0, 8.0, 13.0, halo=1)
+    box = Region.box(8.0, 48.0, 13.0, 52.0)
+    plain = dx.with_region(box)
+    dx.region_halo = 1
+    haloed = dx.with_region(box)
     assert haloed._halo != (0, 0, 0, 0)
     Hp, Wp = plain.lat_output_numpy.shape
 

@@ -85,10 +85,11 @@ model protocol.
   covering block of the HRRR crop, snapped to the DiT patch and attention kernel.
 - `CorrDiffCosmoEra5` (implemented): `with_region` accepts boxes, bracketing the
   cells inside the box by one row and column so cell areas cover it. Views keep a
-  reference to the native and extended footprint, so `with_region` and `set_domain`
-  on a view reach all of it, with the native / out-of-distribution margin / reject
-  tiers. `region_halo` and `region_margin_deg` configure the run halo and ERA5 input
-  margin. `set_domain` remains as an adapter with its center-only selection.
+  reference to the native and extended footprint, so `with_region` on a view reaches
+  all of it, with the native / out-of-distribution margin / reject tiers.
+  `region_halo` and `region_margin_deg` configure the run halo and ERA5 input margin.
+  `set_domain` is removed; it selected only cells whose centers lay inside the box.
+  `CorrDiffCosmoEra5SDA.load_model` takes `region=` in place of `domain=`.
 - `StormCastCONUS` (implemented): `with_region` accepts boxes inside the CONUS
   footprint, snapped outward to the DiT patch grid and grown to the attention kernel.
   `_SplitModelWrapper.crop_model` only records the crop; each forward binds the
@@ -102,8 +103,8 @@ model protocol.
   antimeridian, and bands; a partial band passes full-longitude extents that do not
   collapse to one meridian, and `band(-90, 90)` is global. `output_resolution` stays
   the view grid's shape. HEALPix output keeps the full level-10 grid, of which only
-  the region's patches are super-resolved. `set_super_resolution_window` remains an
-  in-place adapter documented as making captured signatures stale.
+  the region's patches are super-resolved. `set_super_resolution_window`, which
+  changed the instance in place, is removed; the constructor window remains.
 - Future globe-wide patch models: build a local grid from `Region.rectangle`,
   including its orientation, and ship a documented default region.
 
