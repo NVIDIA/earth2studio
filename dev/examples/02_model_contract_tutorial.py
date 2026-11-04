@@ -70,8 +70,9 @@ print(declared.dims)
 print(declared["batch"].size, declared["lead_time"])
 
 # %%
-# Lead time is relative and ends at zero, so two history steps six hours apart
-# declare ``[-6h, 0h]``. The final entry is the step being advanced from.
+# Lead time is relative and usually ends at zero, so two history steps six hours
+# apart declare ``[-6h, 0h]``. The final entry is the step being advanced from.
+# A model initialized from an earlier background may end before zero instead.
 
 # %%
 # Resolve Output Coordinates

@@ -27,7 +27,10 @@ try:
 except ImportError:
     ort = None
     InferenceSession = TypeVar("InferenceSession")  # type: ignore
+import numpy as np
 import torch
+
+from earth2studio.utils.type import LeadTimeArray
 
 if TYPE_CHECKING:
     from earth2studio.data.base import (
@@ -62,6 +65,33 @@ def recommended_sources(
     if declared is not None:
         return declared()
     return None
+
+
+def step_interval(
+    input_lead_time: LeadTimeArray, output_lead_time: LeadTimeArray
+) -> np.timedelta64:
+    """Time a stateful model advances per ``step``, from its declared lead times.
+
+    The interval is the output's last lead time minus the later of the input's
+    last lead time and zero. An input ending at zero, the usual case, gives the
+    output's last lead time. An input ending before zero, such as a background
+    that ``initialize`` first brings up to the analysis time, does not lengthen
+    the interval: a background at -9 h with a first output at +3 h steps by 3 h.
+
+    Parameters
+    ----------
+    input_lead_time : LeadTimeArray
+        Lead times of the first input slot, relative to the analysis time
+    output_lead_time : LeadTimeArray
+        Lead times of the output ``initialize`` returns
+
+    Returns
+    -------
+    np.timedelta64
+        Interval each ``step`` advances
+    """
+    start = max(input_lead_time[-1], np.timedelta64(0, "s"))
+    return np.timedelta64(output_lead_time[-1] - start)
 
 
 def create_ort_session(

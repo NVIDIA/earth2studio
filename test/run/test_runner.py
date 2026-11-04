@@ -20,7 +20,8 @@ The model is FCN's real DataArray execution path with an add-one core, and the
 source returns zeros, so step ``k`` holds the value ``k`` everywhere.
 """
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from typing import Any
 
 import numpy as np
 import pytest
@@ -142,20 +143,28 @@ class _StochasticWindSpeed(_WindSpeed):
 
 
 class _Forced(PrognosticMixin):
-    """Migrated model adding its forcing; records the forcing leads it receives."""
+    """Migrated model adding its forcing; records the forcing leads it receives.
 
-    def __init__(self) -> None:
+    With ``background`` hours, the input is a background that many hours before
+    the analysis time, which ``initialize`` brings up to it before stepping 6 h.
+    """
+
+    def __init__(self, background: int = 0) -> None:
+        self.background = np.timedelta64(background, "h")
         self.seen: list[list[np.timedelta64]] = []
 
     def input_coords(self) -> CoordinateSystem:
-        return _model().input_coords()
+        return coord_array_like(
+            _model().input_coords(), {"lead_time": np.array([-self.background])}
+        )
 
     def forcing_coords(self) -> CoordinateSystem:
         return coord_array_like(self.input_coords(), {"variable": ["sst"]})
 
     def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        lead = input_coords["lead_time"].values[-1:] + self.background
         return coord_array_like(
-            input_coords, {"lead_time": np.array([6], dtype="timedelta64[h]")}
+            input_coords, {"lead_time": lead + np.timedelta64(6, "h")}
         )
 
     def _advance(self, x: xr.DataArray, forcing: xr.DataArray) -> xr.DataArray:
@@ -166,6 +175,7 @@ class _Forced(PrognosticMixin):
     def initialize(  # type: ignore[override]
         self, x: xr.DataArray, forcing: xr.DataArray
     ) -> tuple[xr.DataArray, None]:
+        x = x.assign_coords(lead_time=x["lead_time"] + self.background)
         return self._advance(x, forcing), None
 
     def step(  # type: ignore[override]
@@ -177,6 +187,9 @@ class _Forced(PrognosticMixin):
         self, x: xr.DataArray, forcing: xr.DataArray
     ) -> Iterator[xr.DataArray]:
         return self._default_create_iterator(x, forcing)
+
+    def to(self, device: torch.device) -> "_Forced":
+        return self
 
 
 def _model() -> _TinyFCN:
@@ -355,6 +368,43 @@ def test_outputs_unlike_inputs_start_at_the_first_forecast() -> None:
     assert planned.values.astype("timedelta64[h]").astype(int).tolist() == [6, 12]
     assert [str(v) for v in steps[0]["forecast"]["variable"].values] == ["ws10m"]
     assert list(runner.run_item(_item(0))) == []
+
+
+def test_background_before_analysis_steps_at_forecast_interval() -> None:
+    source = _Zeros()
+    runner = PrognosticRunner(_Forced(background=9), source, forcing=(_Zeros(),))
+    assert runner.step == np.timedelta64(6, "h")
+    assert not runner.publishes_initial_condition
+    assert runner.nsteps(np.timedelta64(18, "h")) == 3
+    steps = list(runner.run_item(_item(18)))
+    hours = [
+        int(s["forecast"]["lead_time"].values[0] // np.timedelta64(1, "h"))
+        for s in steps
+    ]
+    assert hours == [6, 12, 18]
+    planned = runner.output_coords(np.timedelta64(18, "h"))["forecast"]["lead_time"]
+    assert (planned.values // np.timedelta64(1, "h")).tolist() == hours
+    assert source.times == [T0 - np.timedelta64(9, "h")]
+
+
+@pytest.mark.parametrize(
+    "workflow",
+    [
+        lambda m: run.deterministic([T0], 2, m, _Zeros(), KVBackend(), verbose=False),
+        lambda m: run.diagnostic(
+            [T0], 2, m, _WindSpeed(), _Zeros(), KVBackend(), verbose=False
+        ),
+        lambda m: run.ensemble(
+            [T0], 2, 2, m, _Zeros(), KVBackend(), lambda x, c: (x, c), verbose=False
+        ),
+    ],
+    ids=["deterministic", "diagnostic", "ensemble"],
+)
+def test_workflows_reject_a_background_before_the_analysis_time(
+    workflow: Callable[[Any], object],
+) -> None:
+    with pytest.raises(ValueError, match="PrognosticRunner"):
+        workflow(_Forced(background=9))
 
 
 def test_forcing_is_fetched_requested_and_sent_each_step() -> None:
