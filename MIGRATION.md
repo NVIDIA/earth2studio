@@ -86,7 +86,9 @@ Targets: [AssimilationModel / StatefulAssimilationModel](earth2studio/models/da/
 Target: [PrognosticModel](earth2studio/models/px/base.py).
 
 - Tensor/dictionary calls → DataArray calls and coordinate signatures, as for diagnostics.
-  Input history leads are increasing, relative to initialization, and end at zero.
+  Input history leads are increasing, relative to initialization, and end at or
+  before zero (an input ending before zero is a background `initialize` brings up
+  to the analysis time).
 - Hidden rollout state → `y, state = model.initialize(x)`, then
   `y, state = model.step(y, state=state)`. Multiple outputs: `step(*y, state=state)`.
   `model(...)` returns initialization's forecast and starts fresh each call.
