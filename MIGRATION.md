@@ -115,9 +115,9 @@ Targets: [source protocols](earth2studio/data/base.py), [fetch_data](earth2studi
 - `interp_to` / `interp_method` → `target_grid` / explicit `regridder`.
   Use `infer_grid(model.input_coords())` for a single gridded slot. A target alone handles
   matching/cropping/nearby selection; provide a `Regridder` for the intended interpolation.
-- Fetch all declared variables/history. Temporal qualifiers need `delta_t` or source
-  `time_step`; windows include the left endpoint, exclude the right. Do not aggregate
-  already aggregated source fields again.
+- Fetch all declared variables/history. Temporal qualifiers require native source
+  support; sampling belongs to the source and `fetch_data` has no `delta_t` override.
+  Windows include the left endpoint and exclude the right.
 - Declare supported statistics in lexicon `TIME_STATISTICS`; handle them per source.
 
 ## IO objects

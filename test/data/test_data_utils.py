@@ -80,13 +80,13 @@ def test_time_statistics_planning_and_reduction():
         ("mean", "max"),
     )
     assert plain == [(0, "t2m"), (3, "a::b:c")]
-    assert [(s[0], s[1], s[2]) for s in stats] == [
+    assert [(s.slot, s.base, s.modifier) for s in stats] == [
         (1, "t2m", "mean:12h"),
         (2, "u10m", "max:6h"),
     ]
     # Left-closed window ending at each target, shape (target, sample)
-    assert stats[0][3].shape == (2, 2)
-    assert stats[0][3][1, -1] == np.datetime64("2024-01-02T00")
+    assert stats[0].samples.shape == (2, 2)
+    assert stats[0].samples[1, -1] == np.datetime64("2024-01-02T00")
     assert set(attrs[E2S_STATISTICS]) == {"t2m:mean:12h", "u10m:max:6h"}
 
     # Lead time targets are planned relative to the initialization time and every
@@ -99,7 +99,7 @@ def test_time_statistics_planning_and_reduction():
         ("sum",),
         validate=validated.extend,
     )
-    assert np.issubdtype(stats[0][3].dtype, np.timedelta64)
+    assert np.issubdtype(stats[0].samples.dtype, np.timedelta64)
     assert validated == [datetime.timedelta(hours=h) for h in (0, 1, 2)]
 
     for variables, message in (
@@ -490,12 +490,8 @@ def test_regridded_source():
         np.testing.assert_array_equal(array["lead_time"], lead_time)
         np.testing.assert_array_equal(array["lon"], _COARSE_GRID.longitude)
 
-    # Generic temporal statistics use an explicitly supplied sampling cadence.
-    array = fetch_data(
-        analysis, time, np.array(["a:mean:12h", "b"]), delta_t=np.timedelta64(6, "h")
-    )
-    assert array.sizes["lon"] == _COARSE_GRID.shape[1]
-    np.testing.assert_allclose(array, 1)
+    with pytest.raises(ValueError, match="does not support temporal statistic"):
+        fetch_data(analysis, time, np.array(["a:mean:12h", "b"]))
 
 
 def test_regridded_source_errors():
@@ -530,7 +526,7 @@ class _LoggingCoarsener(_CoarseningRegridder):
 
 def test_regridded_source_and_regridder_argument_order():
     time = np.array([np.datetime64("2024-01-01T12")])
-    variable = np.array(["a:mean:12h"])
+    variable = np.array(["a"])
 
     # A regridded source is an ordinary source: each fetched frame is regridded.
     log = []
@@ -538,18 +534,16 @@ def test_regridded_source_and_regridder_argument_order():
         RegriddedSource(_NativeSource(), _LoggingCoarsener(log)),
         time,
         variable,
-        delta_t=np.timedelta64(6, "h"),
     )
-    assert [sizes["time"] for sizes in log] == [2]
+    assert [sizes["time"] for sizes in log] == [1]
 
-    # The regridder argument regrids the reduced field once.
+    # The regridder argument also regrids the returned field once.
     log.clear()
     argument = fetch_data(
         _NativeSource(),
         time,
         variable,
         regridder=_LoggingCoarsener(log),
-        delta_t=np.timedelta64(6, "h"),
     )
     assert [sizes["time"] for sizes in log] == [1]
     xr.testing.assert_allclose(composed, argument)
@@ -588,7 +582,7 @@ def test_fetch_data_device_aware_source():
             return array.copy(data=cp.asarray(array.data))
 
     time = np.array([np.datetime64("2024-01-01T12")])
-    variable = np.array(["a:mean:12h"])
+    variable = np.array(["a"])
     for composed in (True, False):
         regridder = BilinearRegridder(_NATIVE_GRID, _COARSE_GRID)
         source = _DeviceSource()
@@ -598,7 +592,6 @@ def test_fetch_data_device_aware_source():
             variable,
             device="cuda:0",
             regridder=None if composed else regridder,
-            delta_t=np.timedelta64(6, "h"),
         )
         assert isinstance(array.data, cp.ndarray)
         assert array.data.device.id == 0
@@ -611,7 +604,6 @@ def test_fetch_data_device_aware_source():
         time,
         variable,
         device="cpu",
-        delta_t=np.timedelta64(6, "h"),
     )
     assert isinstance(array.data, np.ndarray)
 
@@ -627,21 +619,12 @@ def test_fetch_data_time_statistics(source):
         },
         dynamic=("time",),
     )
-    with pytest.raises(ValueError, match="delta_t is required"):
+    with pytest.raises(ValueError, match="does not support temporal statistic"):
         fetch_data(
             source,
             np.array([np.datetime64("2024-01-02")]),
             metadata.coords["variable"].values,
         )
-    array = fetch_data(
-        source,
-        np.array([np.datetime64("2024-01-02")]),
-        metadata.coords["variable"].values,
-        delta_t=np.timedelta64(6, "h"),
-    )
-    np.testing.assert_allclose(array.sel(variable="a:mean:24h"), -15)
-    np.testing.assert_allclose(array.sel(variable="a:max:12h"), -6)
-    np.testing.assert_allclose(array.sel(variable="b"), 0)
 
 
 def test_fetch_data_out_of_ns_range():

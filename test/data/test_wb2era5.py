@@ -165,10 +165,9 @@ def test_wb2era5_time_statistics_mock(mock_statistic_zarr, monkeypatch):
         ds,
         np.array([time], dtype="datetime64[ns]"),
         np.array(["t2m:mean:24h"]),
-        delta_t=np.timedelta64(12, "h"),
     )
-    assert data.values[0, 0, 0, 0, 0] == index - 3
-    assert set(reads) == {index - 4, index - 2}
+    assert data.values[0, 0, 0, 0, 0] == index - 2.5
+    assert set(reads) == set(range(index - 4, index))
 
     # Both native entry points reject equivalent requests before fetching samples.
     reads.clear()
@@ -179,14 +178,12 @@ def test_wb2era5_time_statistics_mock(mock_statistic_zarr, monkeypatch):
     ):
         with pytest.raises(ValueError, match="duplicate quantities"):
             ds(time, duplicate)
-        for cadence in (None, np.timedelta64(6, "h")):
-            with pytest.raises(ValueError, match="duplicate quantities"):
-                fetch_data(
-                    ds,
-                    np.array([time], dtype="datetime64[ns]"),
-                    np.array(duplicate),
-                    delta_t=cadence,
-                )
+        with pytest.raises(ValueError, match="duplicate quantities"):
+            fetch_data(
+                ds,
+                np.array([time], dtype="datetime64[ns]"),
+                np.array(duplicate),
+            )
     assert reads == []
 
     climate = WB2Climatology()
@@ -194,14 +191,12 @@ def test_wb2era5_time_statistics_mock(mock_statistic_zarr, monkeypatch):
     assert not hasattr(climate.lexicon, "TIME_STATISTICS")
 
     async def fetch(time, variable):
-        assert variable == ["t2m"]
-        return await ds.fetch(time, variable)
+        pytest.fail("Unsupported statistics must be rejected before fetching")
 
     monkeypatch.setattr(climate, "fetch", fetch)
-    data = fetch_data(
-        climate,
-        np.array([time], dtype="datetime64[ns]"),
-        np.array(["t2m:mean:24h"]),
-        delta_t=np.timedelta64(6, "h"),
-    )
-    assert data.values[0, 0, 0, 0, 0] == index - 2.5
+    with pytest.raises(ValueError, match="does not support temporal statistic"):
+        fetch_data(
+            climate,
+            np.array([time], dtype="datetime64[ns]"),
+            np.array(["t2m:mean:24h"]),
+        )

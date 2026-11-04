@@ -2,7 +2,7 @@
 
 Declare temporal quantities in variable labels, and have data sources produce
 them. Native data sources own temporal aggregation; `fetch_data` forwards supported
-labels, preserves their metadata, and offers generic reduction with explicit `delta_t`.
+labels and preserves their metadata. Sampling and reduction belong to the source.
 
 ## Declarations and Ownership
 
@@ -91,8 +91,8 @@ accumulation caveats. Capability metadata belongs on the source's lexicon as
 `TIME_STATISTICS`, a tuple of supported method names. Sources expose their lexicon
 through `lexicon`; they do not expose `time_statistics` or `time_step` attributes.
 An absent lexicon declaration means no native support. `fetch_data` discovers
-support through the lexicon (and through wrapped/component sources); an explicit
-`delta_t` instead requests generic reduction at that cadence.
+support through the lexicon (and through wrapped/component sources) and rejects
+unsupported methods before fetching.
 
 ## Planning and Reduction
 
@@ -116,17 +116,17 @@ dimension. Xarray preserves NumPy, CuPy, or Dask execution without implicit tran
 
 ### Native source request pipeline
 
-Two functions in `earth2studio.data.utils` support the source's own request model;
-there are no new classes or request objects:
+Two functions in `earth2studio.data.utils` support the source's own request model:
 
-1. `plain, stats, attrs = plan_statistics(variable, targets, delta_t, supported,
+1. `plain, stats, attrs = plan_statistics(variable, target_times, delta_t, supported,
    validate=...)` splits the requested labels and plans the samples. `supported` is the lexicon's
-   `TIME_STATISTICS`. `targets` are the output valid times (or the lead times of one
+   `TIME_STATISTICS`. `target_times` are the output valid times (or the lead times of one
    initialization for forecast sources) and `delta_t` the source cadence. `plain` is
    `[(slot, name)]` of unqualified labels (including raw `::` identifiers), which the
    source fetches with its ordinary path. `stats` is
-   `[(slot, base, modifier, samples)]`, where `samples` is `(target, sample)` of the
-   coordinates to read (`source_times` / `source_lead_times`). Malformed labels,
+   a list of `StatisticPlan` dataclasses with `slot`, `base`, `modifier`, and `samples`
+   fields. `samples` contains the coordinates to read, shaped `(target, sample)`
+   (`source_times` / `source_lead_times`). Malformed labels,
    unsupported methods, empty base names and duplicate normalized quantities raise
    `ValueError`. `attrs` is the output's `earth2studio_statistics` metadata.
 2. `validate` is called once with the sorted unique sample coordinates (`datetime`, or
@@ -207,8 +207,8 @@ register_time_statistic("range", lambda x, dim: x.max(dim) - x.min(dim))
 ```
 
 Native sources reduce through the registry, so a registered statistic works once the
-source lists its name in the lexicon's `TIME_STATISTICS`. The generic path
-(`fetch_data` with explicit `delta_t`) accepts any registered statistic.
+source lists its name in the lexicon's `TIME_STATISTICS`. Standalone
+`apply_time_statistic` also accepts registered statistics.
 
 ## Metadata and Scope
 

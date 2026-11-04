@@ -6,8 +6,7 @@
 `xr.DataArray` with consistent time, lead-time, and variable dimensions. It owns
 source dispatch, output assembly, device placement, and the order in which
 regridding is applied. Native data sources own temporal aggregation; `fetch_data`
-forwards supported labels and preserves their metadata. Explicit `delta_t` selects
-generic reduction instead.
+forwards supported labels and preserves their metadata.
 
 This contract reflects the API in [PR #1170](https://github.com/NVIDIA/earth2studio/pull/1170).
 Temporal windows follow [TIME_STATISTICS_SPEC.md](TIME_STATISTICS_SPEC.md); spatial
@@ -25,7 +24,6 @@ def fetch_data(
     device: torch.device | str = "cpu",
     target_grid: GridDefinition | None = None,
     regridder: Regridder | None = None,
-    delta_t: np.timedelta64 | None = None,
 ) -> xr.DataArray:
     ...
 ```
@@ -35,8 +33,6 @@ def fetch_data(
   and timedelta values respectively, without `NaT`.
 - `variable` is a nonempty one-dimensional array of requested labels, optionally
   qualified with a temporal statistic.
-- `delta_t` is the sampling cadence for generic temporal reductions. Omit it to
-  use native source statistics; provide it to override native handling.
 - `device` accepts CPU or CUDA destinations. CUDA output requires CuPy.
 - `target_grid` is the grid to return fields on, typically
   `infer_grid(model.input_coords())`; use `resolve_grid` for a registered name.
@@ -47,8 +43,7 @@ def fetch_data(
 
 There is no separate `metadata` or `statistics` input. Temporal quantities are
 declared in variable labels. `target_grid` replaces the former `interp_to`, and
-`regridder` replaces `interp_method`. Native sampling cadence belongs to the source;
-`delta_t` remains available for the generic fallback.
+`regridder` replaces `interp_method`. Sampling cadence belongs to the source.
 
 ### Regridding
 
@@ -80,14 +75,13 @@ public in `earth2studio.grids`.
 
 ### Order of Operations
 
-1. Fetch native statistics or fetch base fields and apply generic temporal reductions.
+1. Fetch requested fields, including source-computed temporal statistics.
 2. Assemble requested labels and their statistics metadata on the source grid.
 3. Move the result to `device` if it is not already there.
 4. Map onto the target grid on `device`.
 
 Regridding requested through `fetch_data` follows reduction. A `RegriddedSource`
-regrids whatever its wrapped source returns: native statistics are reduced first,
-but generic fallback calls the wrapper for base samples and reduces them afterwards.
+regrids whatever its wrapped source returns, after any temporal reduction.
 
 ### Source Backing and Device
 
@@ -99,7 +93,7 @@ protocol is unchanged, and a source without the attribute is a CPU source.
 devices with the CUDA index made explicit, so `cuda` matches the current device. `fetch_data` accepts
 either backing and moves data only in step 3. Reduction backing is implementation
 specific: the native helpers currently reduce NumPy fields before source
-device conversion, while generic block reductions preserve their input backing.
+device conversion.
 
 ## Source Dispatch
 
@@ -120,7 +114,7 @@ directly. Select returned coordinates in request order.
 
 ## Temporal Statistics
 
-Without `delta_t`, `fetch_data` discovers methods through
+`fetch_data` discovers methods through
 `source.lexicon.TIME_STATISTICS` and passes supported qualified labels unchanged.
 The source aggregates as described in
 [TIME_STATISTICS_SPEC.md](TIME_STATISTICS_SPEC.md#source-responsibilities):
@@ -132,15 +126,8 @@ variables = np.array(["t2m", "t2m:mean:24h", "tp:sum:0h:6h"])
 For analysis sources, the source receives valid timestamps `time + lead_time` and
 anchors windows to them. For forecast sources, it receives initializations and
 leads and reduces over leads within each initialization. A source that does not
-support a requested method requires an explicit `delta_t`. Invalid source windows
+support a requested method raises `ValueError` before any source calls. Invalid source windows
 raise before field downloads; `fetch_data` propagates source errors.
-
-With explicit `delta_t`, native dispatch is disabled. `fetch_data` groups base
-variables by normalized modifier, plans the union of required coordinates with
-`source_times` or `source_lead_times`, fetches base fields, and reduces each target
-using `apply_time_statistic`. Generic reduction rejects base fields already marked
-as aggregated in `earth2studio_statistics`. It materializes the requested samples;
-native sources are preferable for long windows and large grids.
 
 Native adapters use `plan_statistics` to parse labels and plan sample coordinates,
 and `reduce_statistics` to fetch them through a source coroutine and reduce each
@@ -149,18 +136,19 @@ Plain variables keep the source's ordinary path. Sources must validate coordinat
 before fetching and propagate failures. Shared reduction imposes no sampling cadence.
 
 Source results must record native reductions in `earth2studio_statistics` as
-specified by the source contract. `fetch_data` preserves these entries and creates
-metadata for generic reductions; it currently trusts native capability declarations
+specified by the source contract. `fetch_data` preserves these entries and trusts
+native capability declarations
 rather than independently validating each returned metadata entry. Duplicate
 normalized quantities are rejected before any source calls. Raw backend identifiers
-containing `::` pass through without statistic parsing.
+containing `::` pass through without statistic parsing. Metadata does not record
+`delta_t`: source sampling may vary within a window.
 
 Wrappers forward qualified labels. `RegriddedSource` passes them to its source and
 regrids the reduced field. The composites route a label by its base name, the text
 before the first `:`, so a component providing `t2m` also receives
 `t2m:mean:24h`. Native capability discovery unwraps `RegriddedSource` and takes the
-intersection of component methods for composites. Heterogeneous composites may
-therefore need an explicit `delta_t` even when one component supports a method.
+intersection of component methods for composites. A method must therefore be
+supported by every component to be requested through `fetch_data`.
 
 ## Output Contract
 
@@ -168,8 +156,7 @@ therefore need an explicit `delta_t` even when one component supports a method.
   remaining source dimensions retained. Lead coordinates use nanosecond precision.
 - Without a regridder, preserve source spatial coordinates, auxiliary geometry,
   array name, and source attributes. Do not infer a grid, reconstruct grid
-  metadata, or relabel geometry. Groups must agree on shared coordinates when
-  concatenated.
+  metadata, or relabel geometry.
 - With a regridder, spatial coordinates and grid metadata follow its target grid
   under `R3` and `R4`; other coordinates and attributes are preserved.
 - Preserve the `earth2studio_statistics` the source records, including metadata
@@ -205,12 +192,11 @@ A trailing window at lead zero is rejected because its required leads are negati
 ## Deferred Work and Verification
 
 Bounds selection, a single coordinate-system request object, and fetch-plan caching
-are outside this contract. Native reduction is described in the time-statistics spec;
-generic fallback still materializes sample arrays.
+are outside this contract. Native reduction is described in the time-statistics spec.
 
 Tests must cover both source types, multiple initializations and leads, mixed
-instantaneous/statistical labels forwarded unchanged, generic cadence override,
-rejection of duplicate quantities and generic re-reduction, output metadata, native spatial
+instantaneous/statistical labels forwarded unchanged, rejection of unsupported
+statistics and duplicate quantities, output metadata, native spatial
 geometry, CPU/CUDA placement, regridding after reduction, compositions forwarding
 qualified labels, and sources returning device arrays. Source aggregation is tested
 with the shared helper and with each source that supports statistics. The fetch regressions live in

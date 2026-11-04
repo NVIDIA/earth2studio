@@ -148,7 +148,7 @@ def test_qualified_labels_route_by_base_name():
         source(TIME, ["t2m:mean:24h"])
 
     # Only statistics supported natively by every component are advertised, so
-    # fetch_data forwards those labels and reduces anything else itself.
+    # fetch_data forwards those labels and rejects unsupported methods.
     from earth2studio.data.utils import _source_statistics
 
     assert not hasattr(source, "time_statistics")
@@ -312,21 +312,22 @@ def test_statistics_metadata_merged_from_every_component():
     array = source(TIME, ["refc", "tp"])
     assert set(array.attrs[E2S_STATISTICS]) == {"refc", "tp"}
     assert set(source(TIME, ["tp"]).attrs[E2S_STATISTICS]) == {"tp"}
-    # Already aggregated variables from any component cannot be reduced again.
+    # Components without native statistics cannot receive qualified labels.
     with pytest.raises(ValueError, match="statistic"):
         fetch_data(
             source,
             TIME,
             np.array(["refc:sum:12h", "tp:sum:12h"]),
-            delta_t=np.timedelta64(6, "h"),
         )
 
 
 def test_temporal_statistics_through_regridded_components():
     fine = _Source({"abi01c": 10.0}, grid=FINE)
+    radar = _Source({"refc:mean:12h": 1.0})
+    fine.lexicon = radar.lexicon = type("Lexicon", (), {"TIME_STATISTICS": ("mean",)})
     source = CompositeSource(
         {
-            "radar": _Source({"refc": 1.0}),
+            "radar": radar,
             "satellite": RegriddedSource(fine, BilinearRegridder(FINE, GRID)),
         },
         {"radar": ["refc"], "satellite": ["abi01c"]},
@@ -335,10 +336,10 @@ def test_temporal_statistics_through_regridded_components():
         source,
         TIME,
         np.array(["refc:mean:12h", "abi01c"]),
-        delta_t=np.timedelta64(6, "h"),
     )
     np.testing.assert_allclose(array[0, 0, :, 0, 0], [1.0, 10.0])
     assert array.sizes["lon"] == GRID.shape[1]
+    assert radar.requests == [["refc:mean:12h"]]
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda missing")

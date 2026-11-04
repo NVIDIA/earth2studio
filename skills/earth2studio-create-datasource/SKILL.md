@@ -66,7 +66,7 @@ Follow every step in order.
 > **Deliverables first:** Write the source file and test file (Steps 6–7)
 > before extended exploration, documentation, registration, CHANGELOG, or PR
 > work. Skip Steps 8–14 when the user asks for implementation only. Step 7b
-> (temporal statistics) is optional and off by default.
+> (temporal statistics) is included by default for regular-cadence gridded sources.
 >
 > **Before you finish:** Run verification commands in the repo root so results
 > appear in the session log:
@@ -94,7 +94,7 @@ Load these on demand during the relevant steps:
 | `references/reference-implementation.py` | Obstore-backed source skeleton with FILL comments | Steps 6–10 |
 | `references/reference-lexicon.py` | Lexicon skeleton with FILL comments | Step 4 |
 | `references/testing-guide.py` | Test skeleton with FILL comments | Step 11 |
-| `references/temporal-statistics.py` | OPTIONAL: statistics skeleton, supported methods, mock test sample | Step 7b (only if wanted) |
+| `references/temporal-statistics.py` | Statistics skeleton, supported methods, mock test sample | Step 7b |
 | `references/validation-guide.md` | Plot templates, PR body template, Greptile handling | Steps 12–14 (optional, for templates) |
 
 ---
@@ -105,7 +105,7 @@ Load these on demand during the relevant steps:
 Step 0: Obtain reference → Step 1: Determine type → Step 2: Dependencies
 → Step 3: Add deps → Step 4: Create lexicon → Step 5: Update vocab/schema
 → Step 6: Create skeleton → Step 7: Implement source
-→ (Step 7b: optional temporal statistics) → Step 8: Register
+→ Step 7b: temporal statistics → Step 8: Register
 → Step 9: Documentation → Step 10: CHANGELOG → Step 11: Tests
 → Step 12: Validate & plots (user confirms) → Step 13: PR + sanity comment
 → Step 14: Greptile review
@@ -256,20 +256,15 @@ Present: class name, file path, skeleton code, task dataclass.
 
 ---
 
-### Step 7b — Temporal Statistics (OPTIONAL)
+### Step 7b — Temporal Statistics
 
-**Not every source needs this. Skip unless the user asks for it or the source
-is a regular-cadence gridded source where it is clearly useful.** Sources whose
-lexicons do not declare native statistics still work: `fetch_data` fetches the extra
-times and reduces them itself with an explicit `delta_t`. Never add it to
-DataFrame/station/satellite sources with irregular timing, and do not add it silently.
+**Include native temporal statistics by default for regular-cadence gridded
+sources.** Tell the user which methods and cadence the source will support.
+Skip if the user opts out or the source is unsuitable (e.g. climatology or
+irregular DataFrame/station/satellite observations). `fetch_data` rejects
+statistic labels for sources without native support.
 
-Ask once (advisory, do not block):
-
-> Should this source compute temporal statistics natively (e.g.
-> `t2m:mean:24h`)? Default: no.
-
-If yes, load `references/temporal-statistics.py` and follow it. In short:
+Load `references/temporal-statistics.py` and follow it. In short:
 
 1. **Document support** in the source's class docstring using a `Note` headed
    `Temporal statistics:`. List methods, label syntax, sampling cadence, window
@@ -278,11 +273,12 @@ If yes, load `references/temporal-statistics.py` and follow it. In short:
    and expose that lexicon as `source.lexicon`. Omit this metadata for lexicons
    without native support (e.g. climatology). Do not add source-level
    `time_statistics` or `time_step` attributes.
-2. **Plan**: `plain, stats, attrs = plan_statistics(variable, targets, delta_t,
+2. **Plan**: `plain, stats, attrs = plan_statistics(variable, target_times, delta_t,
    supported=self.lexicon.TIME_STATISTICS, validate=self._validate_time, ...)`. `plain` is `[(slot, name)]`
    fetched with the source's ordinary path; `stats` is
-   `[(slot, base, modifier, samples)]` with `samples` shaped `(target, sample)`.
-   `targets` are valid times, or the lead times of one initialization for forecasts.
+   a list of `StatisticPlan` dataclasses with `slot`, `base`, `modifier`, and
+   `samples` fields. `samples` has shape `(target, sample)`. `target_times` are
+   valid times, or the lead times of one initialization for forecasts.
 3. **Validate**: `plan_statistics` passes every unique sample coordinate to `validate`
    before anything is downloaded.
    Irregular sources build their own sample lists from `time_statistic_metadata`.
@@ -449,7 +445,7 @@ Agent: [loads skill, proceeds through Steps 0–14]
 canonical method ordering, obstore helpers, `gather_with_concurrency`, `async_retry`,
 reference URLs in docstrings, `try/finally` cleanup.
 
-**Temporal statistics:** optional; reuse `plan_statistics` / `reduce_statistics` from
+**Temporal statistics:** include for regular-cadence gridded sources; reuse `plan_statistics` / `reduce_statistics` from
 `earth2studio/data/utils.py`; one transient window stack per target, never the whole request.
 
 **AVOID:** hand-rolled fsspec stores, `asyncio.to_thread`, bare `tqdm.gather`,

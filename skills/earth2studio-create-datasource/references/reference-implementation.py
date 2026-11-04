@@ -30,7 +30,7 @@ Conventions:
 - Class name: PascalCase (e.g. GFS, ARCO_ERA5, CFS_FX, HimawariAHI)
 - File name: lowercase with underscores (e.g. gfs.py, cfs.py)
 
-Optional native temporal statistics (only when requested): follow
+Native temporal statistics (default for regular-cadence gridded sources): follow
 ``temporal-statistics.py``. Expose the
 lexicon via ``lexicon = SourceNameLexicon`` and declare supported methods on that
 lexicon. Use ``plan_statistics`` to split plain variables from statistics and plan the

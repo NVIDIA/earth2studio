@@ -107,22 +107,19 @@ field = fetch_data(
     source,
     np.array([np.datetime64("2024-01-02T00")]),
     np.array(["t2m:mean:24h"]),
-    delta_t=np.timedelta64(6, "h"),
 )
 ```
 
-Here `source` is an analysis source providing instantaneous `t2m`.
+Here `source` is a six-hourly analysis source supporting `t2m:mean:24h`.
 The mean includes the four samples at -24, -18, -12 and -6 hours. Windows are
-left-closed and right-open. An explicit `delta_t` selects generic reduction at
-that sampling cadence. Without it, statistics are delegated to sources that
-support them natively; other sources require `delta_t`. Qualified variable labels
+left-closed and right-open. Statistics are delegated to sources that support them
+natively; unsupported methods raise `ValueError` before fetching. Qualified variable labels
 such as `"t2m:mean:24h"` declare reductions; duplicate normalized quantities are rejected.
 Output `earth2studio_statistics` describes the reductions actually performed.
-Generic reduction rejects source variables already marked as aggregated.
 
 `ARCO_ERA5`, `GFS_FX`, `HRRR`, and `HRRR_FX` handle statistics natively with
 hourly sampling; `GFS` and the `WB2ERA5` variants use six-hourly sampling.
-All support `mean`, `sum`, `min`, and `max` without an explicit `delta_t`.
+All support `mean`, `sum`, `min`, and `max`.
 Sampling cadence is internal to each source. Reductions of accumulated variables
 operate on stored values; overlapping accumulation periods can double-count totals.
 Supported methods are documented under **Temporal statistics:** in each source's

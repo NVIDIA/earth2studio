@@ -14,22 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""OPTIONAL reference: native temporal statistics in a data source.
+"""Reference: native temporal statistics in a data source.
 
-This file is a TEMPLATE, not importable code. Load it at Step 7b ONLY when
-the user wants the source to compute temporal statistics itself.
+This file is a TEMPLATE, not importable code. Load it at Step 7b for
+regular-cadence gridded sources unless the user opts out.
 
 Temporal statistics are variable labels such as ``"t2m:mean:24h"`` (window
 ``[-24h, 0h)``) or ``"tp:sum:+0h:+6h"`` (explicit offsets). Methods: ``mean``,
 ``sum``, ``min``, ``max``. Windows are left-closed/right-open. Regular coordinate
 helpers require cadence-aligned windows; reducers impose no sampling cadence.
 
-NOT every source needs this. A source whose lexicon does not declare native
-statistics keeps working: ``fetch_data`` fetches the extra times and
-reduces them itself with an explicit ``delta_t``. Native support is worth it when
-the source can share fetches (one file per time) or reuse its own cache. Irregular
-sources select available samples using parsed window offsets. Means are sample
-weighted, not duration weighted. Skip native support when the user did not ask.
+Skip native support for unsuitable sources, such as climatology or irregular
+observations. ``fetch_data`` rejects statistic labels without native support.
+Irregular sources need source-specific
+sample selection using parsed window offsets. Means are sample weighted,
+not duration weighted.
 
 Contract
 --------
@@ -44,8 +43,9 @@ Contract
    source class attribute.
 2. ``plan_statistics`` parses labels and returns ``plain, stats, attrs``. ``plain``
    is ``[(slot, name)]`` (unqualified labels and raw ``::`` identifiers) for the
-   source's ordinary path; ``stats`` is ``[(slot, base, modifier, samples)]`` with
-   ``samples`` shaped ``(target, sample)``. It rejects malformed/duplicate labels
+   source's ordinary path; ``stats`` is a list of ``StatisticPlan`` dataclasses
+   with ``slot``, ``base``, ``modifier``, and ``samples`` fields. ``samples`` has
+   shape ``(target, sample)``. It rejects malformed/duplicate labels
    and methods outside ``supported``.
 3. ``validate`` receives every unique sampled coordinate before downloading. Irregular sources build
    their own sample arrays from ``time_statistic_metadata`` offsets.
@@ -56,7 +56,7 @@ Contract
    works if listed in ``TIME_STATISTICS``), written to ``out`` and released.
    Overlapping windows re-read shared samples (disk caches make this cheap).
 5. Propagate fetch failures (the shared helper cancels outstanding fetches).
-   Memory is the output plus a few transient window stacks.
+   Memory includes the output and one transient window stack.
 6. Set ``xr_array.attrs.update(attrs)`` so downstream code knows the result is
    already reduced.
 7. Pass ``verbose=True`` to ``plan_statistics`` to tell the user what is

@@ -23,12 +23,13 @@ import pytest
 import torch
 import xarray as xr
 
-from earth2studio.data import Random, fetch_data
+from earth2studio.data import fetch_data
 from earth2studio.grids import LatLonGrid
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import AIFS
 from earth2studio.utils import coord_array, coord_array_like
 from earth2studio.utils.cupy import from_torch
+from test.models._random import RandomStatistics as Random
 
 
 @pytest.fixture
@@ -728,9 +729,7 @@ def test_aifs_call(time, device, backend):
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
-    x = fetch_data(
-        r, time, variable, lead_time, device=device, delta_t=np.timedelta64(1, "h")
-    )
+    x = fetch_data(r, time, variable, lead_time, device=device)
     x.attrs.update(earth2studio_grid_id="latlon-0.25deg", earth2studio_crs="EPSG:4326")
     coords = x
     out = p(x)
@@ -908,9 +907,7 @@ def test_aifs_exceptions(dc, device, backend):
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
-    x = fetch_data(
-        r, time, variable, lead_time, device=device, delta_t=np.timedelta64(1, "h")
-    )
+    x = fetch_data(r, time, variable, lead_time, device=device)
 
     with pytest.raises((KeyError, ValueError)):
         p(x)
@@ -987,9 +984,7 @@ def test_aifs_package(device, model):
     # Get Data and convert to tensor, coords
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
-    x = fetch_data(
-        r, time, variable, lead_time, device=device, delta_t=np.timedelta64(1, "h")
-    )
+    x = fetch_data(r, time, variable, lead_time, device=device)
     x.attrs.update(earth2studio_grid_id="latlon-0.25deg", earth2studio_crs="EPSG:4326")
     coords = x
     out = p(x)

@@ -28,6 +28,7 @@ from collections import OrderedDict
 from collections.abc import Awaitable, Callable, Collection, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from inspect import signature
@@ -79,7 +80,6 @@ from earth2studio.utils.time import (
     to_time_array,
 )
 from earth2studio.utils.time_statistics import (
-    apply_time_statistic,
     reduce_samples,
     source_lead_times,
     source_times,
@@ -175,54 +175,6 @@ def _fetch_instantaneous(
     return xr.concat(arrays, "lead_time")
 
 
-def _fetch_statistic(
-    source: DataSource | ForecastSource,
-    time: TimeArray,
-    lead_time: LeadTimeArray,
-    variable: Sequence[str],
-    modifier: str,
-    delta_t: np.timedelta64,
-) -> xr.DataArray:
-    variables = cast(VariableArray, np.asarray(variable))
-    forecast = _is_forecast_source(source)
-    dimension = "lead_time" if forecast else "time"
-    if forecast:
-        required = source_lead_times(modifier, lead_time, delta_t)
-        source_array = cast(ForecastSource, source)(
-            time, cast(LeadTimeArray, np.unique(required)), variables
-        ).sel(time=time, variable=variables)
-    else:
-        required = source_times(modifier, time[:, None] + lead_time[None, :], delta_t)
-        source_array = cast(DataSource, source)(
-            cast(TimeArray, np.unique(required)), variables
-        ).sel(variable=variables)
-    _require_instantaneous(source_array, variables)
-    by_time = []
-    for target_time in time:
-        samples = (
-            source_array.sel(time=target_time, drop=True) if forecast else source_array
-        )
-        by_lead = []
-        for lead in lead_time:
-            reduced = apply_time_statistic(
-                samples,
-                modifier,
-                lead if forecast else target_time + lead,
-                delta_t,
-                dimension,
-            )
-            by_lead.append(reduced.expand_dims(lead_time=[lead]))
-        by_time.append(xr.concat(by_lead, "lead_time").expand_dims(time=[target_time]))
-    return xr.concat(by_time, "time")
-
-
-def _require_instantaneous(array: xr.DataArray, variables: VariableArray) -> None:
-    if set(array.attrs.get(E2S_STATISTICS, {})).intersection(variables):
-        raise ValueError(
-            "Cannot apply a time statistic to already aggregated source data"
-        )
-
-
 def _source_statistics(source: DataSource | ForecastSource) -> tuple[str, ...]:
     """Discover native reductions from lexicons, including wrapped sources."""
     # Import locally: composites themselves use the fetching helpers in this module.
@@ -243,15 +195,8 @@ def _fetch_dataarray(
     time: TimeArray,
     variable: VariableArray,
     lead_time: LeadTimeArray,
-    delta_t: np.timedelta64 | None,
 ) -> xr.DataArray:
-    # Group source variables by reduction, retaining their requested output labels.
-    groups: dict[str | None, dict[str, str]] = {}
     native = _source_statistics(source)
-    # An explicit cadence requests the generic reduction path. Otherwise let
-    # native sources choose their sampling internally.
-    if delta_t is not None:
-        native = ()
     quantities: set[tuple[str, str | None]] = set()
     for label in map(str, variable):
         source_variable, separator, parsed_modifier = label.partition(":")
@@ -268,54 +213,22 @@ def _fetch_dataarray(
         if quantity in quantities:
             raise ValueError("Requested variables contain duplicate quantities")
         quantities.add(quantity)
-        if modifier is not None and modifier.partition(":")[0] in native:
-            # The source computes this statistic itself: request the label as is
-            # and let it fetch the extra times or lead times it needs.
-            groups.setdefault(None, {})[label] = label
-            continue
-        group = groups.setdefault(modifier, {})
-        group[source_variable] = label
 
-    # Validate every window before any source calls.
-    for modifier in groups:
-        if modifier is not None:
-            if delta_t is None:
-                raise ValueError("delta_t is required for temporal statistics")
-            source_lead_times(modifier, lead_time, delta_t)
+    for _, modifier in quantities:
+        if modifier is not None and modifier.partition(":")[0] not in native:
+            raise ValueError(
+                f"{type(source).__name__} does not support temporal statistic "
+                f"'{modifier.partition(':')[0]}'"
+            )
 
-    arrays = []
-    output_statistics = {}
-    for modifier, group in groups.items():
-        source_variables, labels = list(group), list(group.values())
-        if modifier is None:
-            array = _fetch_instantaneous(source, time, lead_time, source_variables)
-            output_statistics.update(
-                {
-                    group[name]: details
-                    for name, details in array.attrs.get(E2S_STATISTICS, {}).items()
-                    if name in group
-                }
-            )
-        else:
-            array = _fetch_statistic(
-                source,
-                time,
-                lead_time,
-                source_variables,
-                modifier,
-                cast(np.timedelta64, delta_t),
-            )
-            output_statistics.update(
-                {label: time_statistic_metadata(modifier) for label in labels}
-            )
-        arrays.append(array.assign_coords(variable=labels))
-    array = (
-        arrays[0] if len(arrays) == 1 else xr.concat(arrays, "variable", join="exact")
-    )
-    array = array.sel(variable=variable)
+    array = _fetch_instantaneous(source, time, lead_time, list(map(str, variable)))
     array = array.transpose("time", "lead_time", "variable", ...)
     array.attrs = dict(array.attrs)
-    array.attrs.pop(E2S_STATISTICS, None)
+    output_statistics = {
+        name: details
+        for name, details in array.attrs.pop(E2S_STATISTICS, {}).items()
+        if name in variable
+    }
     if output_statistics:
         array.attrs[E2S_STATISTICS] = output_statistics
     return array
@@ -379,7 +292,6 @@ def fetch_data(
     device: torch.device | str = "cpu",
     target_grid: GridDefinition | None = None,
     regridder: Regridder | None = None,
-    delta_t: np.timedelta64 | None = None,
 ) -> xr.DataArray:
     """Fetch field DataArrays with temporal statistics, optionally regridded.
 
@@ -406,11 +318,6 @@ def fetch_data(
     regridder : Regridder, optional
         Regridder to apply, by default None. It must produce ``target_grid`` when
         both are given.
-    delta_t : np.timedelta64, optional
-        Sampling cadence for generic temporal reductions. When omitted, statistics
-        are delegated to sources that support them natively; other sources require
-        an explicit cadence. When provided, overrides native statistic handling.
-        Windows include their left endpoint and exclude their right endpoint.
 
     Returns
     -------
@@ -421,6 +328,9 @@ def fetch_data(
 
     Note
     ----
+    Temporal statistics require native source support. The source chooses its
+    sampling and computes the reduction; unsupported methods raise ``ValueError``.
+    Windows include their left endpoint and exclude their right endpoint.
     Sources may return NumPy- or CuPy-backed fields. Temporal reductions run on
     that backing; the result then moves to ``device`` only if it is not already
     there, and regridding runs last, on ``device``. Regridding automatically
@@ -446,7 +356,7 @@ def fetch_data(
     if variable.ndim != 1 or not variable.size:
         raise ValueError("variable must be a nonempty 1D array")
     lead_time = lead_time.astype("timedelta64[ns]")
-    da = _fetch_dataarray(source, time, variable, lead_time, delta_t)
+    da = _fetch_dataarray(source, time, variable, lead_time)
     for key in (E2S_KIND, E2S_SCHEMA_VERSION, E2S_DYNAMIC_DIMS):
         da.attrs.pop(key, None)
     if device.type == "cuda":
@@ -2068,26 +1978,33 @@ _DESCRIPTIONS = {
     "max": "reduced to the maximum",
 }
 
-#: Statistic-variable plan entry ``(slot, base, modifier, samples)``
-StatisticPlan = tuple[int, str, str, np.ndarray]
+
+@dataclass
+class StatisticPlan:
+    """One statistic variable and its sample coordinates, shaped ``(target, sample)``."""
+
+    slot: int
+    base: str
+    modifier: str
+    samples: np.ndarray
 
 
 def plan_statistics(
     variable: Sequence[str],
-    targets: np.ndarray,
+    target_times: np.ndarray,
     delta_t: np.timedelta64,
     supported: Sequence[str],
     validate: Callable[[list[Any]], None] | None = None,
     source: str = "Data source",
     verbose: bool = False,
 ) -> tuple[list[tuple[int, str]], list[StatisticPlan], dict[str, Any]]:
-    """Split a request into plain and statistic variables and plan the samples.
+    """Plan a request as ``plain, stats, attrs = plan_statistics(...)``.
 
     Parameters
     ----------
     variable : Sequence[str]
         Plain or statistic-qualified labels, in output variable order
-    targets : np.ndarray
+    target_times : np.ndarray
         Output targets: ``datetime64`` valid times or ``timedelta64`` lead times
         (of one initialization time)
     delta_t : np.timedelta64
@@ -2105,10 +2022,12 @@ def plan_statistics(
 
     Returns
     -------
-    tuple[list[tuple[int, str]], list[StatisticPlan], dict[str, Any]]
-        ``(slot, name)`` of plain variables, ``(slot, base, modifier, samples)`` of
-        statistic variables where ``samples`` has shape ``(target, sample)`` and
-        holds the coordinates to fetch, and attributes for the output
+    plain : list[tuple[int, str]]
+        Output slot and name of each plain variable
+    stats : list[StatisticPlan]
+        Statistic variables and their sample coordinates
+    attrs : dict[str, Any]
+        Statistics metadata to attach to the output
 
     Raises
     ------
@@ -2119,7 +2038,7 @@ def plan_statistics(
     stats: list[StatisticPlan] = []
     metadata: dict[str, Any] = {}
     seen: set[tuple[str, str]] = set()
-    is_time = np.issubdtype(targets.dtype, np.datetime64)
+    is_time = np.issubdtype(target_times.dtype, np.datetime64)
     sample_times = source_times if is_time else source_lead_times
     for slot, label in enumerate(map(str, variable)):
         base, separator, qualifier = label.partition(":")
@@ -2143,7 +2062,11 @@ def plan_statistics(
             plain.append((slot, label))
             continue
         modifier = str(info["modifier"])
-        stats.append((slot, base, modifier, sample_times(modifier, targets, delta_t)))
+        stats.append(
+            StatisticPlan(
+                slot, base, modifier, sample_times(modifier, target_times, delta_t)
+            )
+        )
         metadata[label] = info
         if verbose:
             logger.info(
@@ -2152,7 +2075,7 @@ def plan_statistics(
             )
     if validate is not None and stats:
         convert = as_datetime if is_time else as_timedelta
-        validate(sorted({convert(t) for *_, samples in stats for t in samples.ravel()}))
+        validate(sorted({convert(t) for plan in stats for t in plan.samples.ravel()}))
     return plain, stats, {E2S_STATISTICS: metadata} if metadata else {}
 
 
@@ -2189,9 +2112,9 @@ async def reduce_statistics(
         Show the progress bar, by default True
     """
     jobs = [
-        (slot, i, base, modifier, coords)
-        for slot, base, modifier, samples in stats
-        for i, coords in enumerate(samples)
+        (plan.slot, i, plan.base, plan.modifier, coords)
+        for plan in stats
+        for i, coords in enumerate(plan.samples)
     ]
     for job in tqdm(jobs, desc=desc, disable=not verbose):
         await _reduce_window(out, job, fetch, async_workers or 4)
