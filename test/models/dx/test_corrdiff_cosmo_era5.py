@@ -617,6 +617,18 @@ def test_with_region_extended_margin():
         dx.with_region(Region.box(9.0, 53.0, 11.0, 55.0))
 
 
+def test_with_region_views_follow_shared_network():
+    """Moving a view moves the shared network; the parent follows it."""
+    dx = _build(regression_model=PhooRegDiT(len(OUTPUT_VARIABLES)))
+    dx.regression_model.register_parameter("weight", torch.nn.Parameter(torch.zeros(1)))
+    view = dx.with_region(Region.box(9.2, 49.0, 11.5, 51.2))
+    view.to("meta")
+    assert dx.regression_model.weight.device.type == "meta"
+    assert dx.era5_center.device.type == "cpu"
+    dx._follow_network()
+    assert dx.era5_center.device.type == dx.lat_output_grid.device.type == "meta"
+
+
 def test_forward_core_halo_trims_border():
     """Halo-expanded run grid is trimmed back to the bbox in the output."""
     dx = _build(regression_model=PhooRegDiT(len(OUTPUT_VARIABLES)))

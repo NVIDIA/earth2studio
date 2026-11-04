@@ -1387,6 +1387,14 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
             out = out[..., top : out.shape[-2] - bot, left : out.shape[-1] - right]
         return out
 
+    def _follow_network(self) -> None:
+        """Move to the shared network's device if another view moved it."""
+        for network in (self.regression_model, self.diffusion_model):
+            param = next(network.parameters(), None) if network is not None else None
+            if param is not None and param.device != self.era5_center.device:
+                self.to(param.device)
+                return
+
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Downscale labelled ERA5 frames on the configured domain.
 
@@ -1402,6 +1410,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
             Downscaled samples matching ``output_coords(x)`` on the rotated-pole
             target grid. Sample dimensions follow time.
         """
+        self._follow_network()
         signature = self.output_coords(x)
         x, restore = batch_func()._compress_array(self, x)
         output_coords = self.output_coords(x)
@@ -1490,8 +1499,9 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         out-of-distribution warning, and boxes beyond it raise.
 
         Views share networks and rebind their latent grid on every forward, so run
-        them in sequence, not concurrently. Each view starts from a copy of this
-        model's :meth:`set_rng` stream.
+        them in sequence, not concurrently. Moving one view moves the shared
+        networks; the others follow on their next call. Each view starts from a
+        copy of this model's :meth:`set_rng` stream.
 
         Parameters
         ----------

@@ -471,6 +471,18 @@ class TestCBottleSRRegion:
         torch.testing.assert_close(out_view.e2s.to_torch()[0], out_dx.e2s.to_torch()[0])
 
     @pytest.mark.skipif(cbottle is not None, reason="inspects the offline backend")
+    def test_cbottle_sr_views_follow_shared_network(self, mock_cbottle_core_model):
+        dx = CBottleSR(mock_cbottle_core_model, output_resolution=(8, 16))
+        # A shared module network, so its device is observable
+        dx.sr_model = torch.nn.Linear(1, 1)
+        view = dx.with_region(Region.box(-120, 0, -40, 50))
+        view.to("meta")
+        assert dx.sr_model.weight.device.type == "meta"
+        assert dx.device.type == "cpu"
+        dx._follow_network()
+        assert dx.device.type == "meta"
+
+    @pytest.mark.skipif(cbottle is not None, reason="inspects the offline backend")
     def test_cbottle_sr_set_super_resolution_window(self, mock_cbottle_core_model):
         dx = CBottleSR(mock_cbottle_core_model, output_resolution=(8, 16))
         dx.set_super_resolution_window((0, -120, 50, -40), (4, 6))

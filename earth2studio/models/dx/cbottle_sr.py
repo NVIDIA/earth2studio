@@ -340,6 +340,8 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         super-resolved. ``band(-90, 90)`` is the whole globe. Neither this model
         nor other views change, and a view can select any region of the globe.
         Views share the network, so run them in sequence, not concurrently.
+        Moving one view moves the shared network; the others follow on their
+        next call.
 
         Parameters
         ----------
@@ -625,6 +627,14 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         out = self.regrid_hpx_high_res_to_output(out).to(torch.float32)
         return out[0]
 
+    def _follow_network(self) -> None:
+        """Move to the shared network's device if another view moved it."""
+        if not isinstance(self.sr_model, torch.nn.Module):
+            return
+        param = next(self.sr_model.parameters(), None)
+        if param is not None and param.device != self.device:
+            self.to(param.device)
+
     @batch_func()
     def __call__(
         self,
@@ -643,6 +653,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             Super-resolved fields matching ``output_coords(x)``, including the
             configured high-resolution spatial coordinates.
         """
+        self._follow_network()
         output_coords = self.output_coords(x)
         x = x.e2s.to_torch()[0].to(self.device).clone()
 

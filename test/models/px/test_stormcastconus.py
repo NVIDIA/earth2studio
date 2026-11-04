@@ -782,6 +782,30 @@ def test_stormcastconus_with_region_rng():
     assert "cpu" not in full._rng_states
 
 
+def test_stormcastconus_views_follow_shared_networks():
+    full = _build_model()
+    # Views copy the wrapper but share its submodules (here a stand-in network)
+    shared = full.diffusion_model.shared = torch.nn.Linear(1, 1)
+    view = full.with_region(_box(slice(12, 15), slice(20, 23)))
+    # Moving a view moves the shared networks but not the parent's buffers
+    view.to("meta")
+    assert shared.weight.device.type == "meta"
+    assert full.means.device.type == "cpu"
+    full._follow_network()
+    assert full.means.device.type == full.lat_tensor.device.type == "meta"
+
+
+def test_stormcastconus_cropped_pos_embed_tracks_weight_updates():
+    wrapper = _build_model().with_region(_box(slice(12, 15), slice(20, 23)))
+    wrapper = wrapper.diffusion_model
+    key = next(iter(wrapper.pos_embed_full))
+    before = wrapper._cropped_pos_embed(key).clone()
+    # load_state_dict copies in place, keeping the parameter's address
+    with torch.no_grad():
+        wrapper.pos_embed_full[key].add_(1.0)
+    torch.testing.assert_close(wrapper._cropped_pos_embed(key), before + 1.0)
+
+
 def test_stormcastconus_bound_pos_embed_grad():
     wrapper = _build_model().diffusion_model
     with torch.inference_mode():

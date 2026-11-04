@@ -381,7 +381,9 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         embeddings stay whole on the shared networks; each forward selects the
         view's portion. A view's ``with_region`` reaches the whole footprint.
 
-        Views share networks, so run them in sequence, not concurrently.
+        Views share networks, so run them in sequence, not concurrently. Moving
+        one view moves the shared networks; the others follow on their next
+        forecast.
 
         Parameters
         ----------
@@ -765,6 +767,12 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return denoiser
 
     @torch.no_grad()  # safe - PhysicsNeMo SDA code uses torch.enable_grad()
+    def _follow_network(self) -> None:
+        """Move to the shared networks' device if another view moved them."""
+        param = next(self.diffusion_model.parameters(), None)
+        if param is not None and param.device != self.means.device:
+            self.to(param.device)
+
     def _predict(
         self,
         x: xr.DataArray,
@@ -794,6 +802,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             If conditioning data source is not initialized
         """
 
+        self._follow_network()
         # StormCast-CONUS wants the low-res conditioning at t + 1 h so we do output_coords first
         output_coords = self.output_coords(x)
         encoding = deepcopy(x.encoding)
@@ -1236,9 +1245,10 @@ class _SplitModelWrapper(torch.nn.Module):
         self._pos_embed_crop = {}
 
     def _cropped_pos_embed(self, key: str) -> torch.nn.Parameter:
-        """Positional embedding of the crop, cached per source tensor."""
+        """Positional embedding of the crop, cached per source tensor and version."""
         full = self.pos_embed_full[key]
-        source = (full.data_ptr(), full.device, full.dtype)
+        # The version counter catches in-place updates such as load_state_dict
+        source = (full.data_ptr(), full.device, full.dtype, full._version)
         cached = self._pos_embed_crop.get(key)
         if cached is not None and cached[0] == source:
             return cached[1]
