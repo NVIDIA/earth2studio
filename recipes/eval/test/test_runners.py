@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""EnsembleRunner: member batching and per-member perturbation."""
+"""EnsembleRunner: member batching, per-member perturbation and seeding."""
 
 from __future__ import annotations
 
@@ -24,11 +24,27 @@ import torch
 from src.runners.ensemble import EnsembleRunner
 
 from earth2studio.io import KVBackend
+from earth2studio.models.px import Persistence
 from earth2studio.perturbation import Gaussian
 from earth2studio.run import Pipeline, PrognosticRunner, work_items
+from earth2studio.run.work import member_seed
+from test.conftest import VARIABLES
 
 T0 = np.datetime64("2024-01-01T00:00:00")
 H6 = np.timedelta64(6, "h")
+
+
+class StochasticPersistence(Persistence):
+    """Persistence that declares itself stochastic and records its seeds."""
+
+    stochastic = True
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.seeds: list[int] = []
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        self.seeds.append(int(seed))
 
 
 def _steps(runner, item):
@@ -102,3 +118,34 @@ def test_pipeline_writes_members_into_one_store(prognostic, data_source) -> None
     assert tuple(store.dims["t2m"]) == ("ensemble", "time", "lead_time", "lat", "lon")
     assert store["t2m"].shape[:3] == (4, 2, 2)
     assert not torch.isnan(store["t2m"]).any()
+
+
+def test_stochastic_models_roll_one_member_per_item(data_source, small_grid) -> None:
+    model = StochasticPersistence(variable=VARIABLES, domain_coords=small_grid)
+    runner = EnsembleRunner(model, data_source, seed=7)
+    assert runner.stochastic_models == ("prognostic",)
+    assert not runner.supports_member_batching
+    batched = work_items([T0], H6, members=[0, 1], member_batch=2)[0]
+    with pytest.raises(ValueError, match="one member per item"):
+        list(runner.run_item(batched))
+    for item in work_items([T0], H6, members=[0, 1], member_batch=1):
+        assert len(_steps(runner, item)) == 2
+    assert model.seeds == [member_seed(7, T0, 0), member_seed(7, T0, 1)]
+
+
+def test_batching_stochastic_members_is_an_explicit_opt_in(
+    data_source, small_grid
+) -> None:
+    model = StochasticPersistence(variable=VARIABLES, domain_coords=small_grid)
+    runner = EnsembleRunner(model, data_source, seed=7, batch_stochastic=True)
+    assert runner.supports_member_batching
+    steps = _steps(runner, work_items([T0], H6, members=[0, 1], member_batch=2)[0])
+    assert steps[-1].sizes["ensemble"] == 2
+    # One seed per batch, from its first member.
+    assert model.seeds == [member_seed(7, T0, 0)]
+
+
+def test_deterministic_models_batch_members_by_default(prognostic, data_source) -> None:
+    runner = EnsembleRunner(prognostic, data_source)
+    assert runner.stochastic_models == ()
+    assert runner.supports_member_batching

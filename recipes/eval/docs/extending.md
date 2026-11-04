@@ -36,9 +36,9 @@ it in place of `verification.zarr`. `predownload.py` automatically skips
 whichever side is BYO; with both, `main.py` skips the sentinel check
 entirely and running `predownload.py` is unnecessary.
 
-Every runner slot resolves the same way, in the order **BYO →
-pre-downloaded `<role>.zarr` → live source → the model's own
-`default_sources()`**. This chain is
+Every runner slot resolves the same way: a BYO node, then a pre-downloaded
+`<role>.zarr`, then the live source, then the model's own
+`default_sources()`. This chain is
 [src/data.py](../src/data.py):`resolve_source(cfg, role, byo, live)`. A
 custom runner builder should call it for each source it binds, so BYO and
 pre-downloaded stores work the same way as for the built-ins.
@@ -82,10 +82,9 @@ express), skip to the runner section below.
 
 A runner encapsulates "how a work item runs": binding data sources,
 fetching, model iteration and the coordinate bookkeeping of what it
-yields. Everything above one item belongs to `earth2studio.run.Pipeline`
-and you never write it again: splitting items over ranks, filtering to
-`output.variables`, interpolating onto the output grid, zarr writes, online
-scoring, and resume. Write a runner when:
+yields. Everything above one item belongs to `earth2studio.run.Pipeline`,
+as [Pipeline responsibilities](#pipeline-responsibilities) lists. Write a
+runner when:
 
 * your rollout needs post-processing before storage (window means of every
   step; see [src/runners/seasonal.py](../src/runners/seasonal.py));
@@ -161,7 +160,9 @@ more than one member, and your outputs must carry a leading `ensemble`
 dimension labelled by them (see
 [src/runners/ensemble.py](../src/runners/ensemble.py):`EnsembleRunner`).
 Seed per member with `earth2studio.run.work.member_seed(seed, item.time,
-member)`.
+member)`. A batch cannot seed a stochastic model per member, so report
+`supports_member_batching = False` for it, as `EnsembleRunner` does unless
+the campaign sets `batch_stochastic_members: true`.
 
 ### Builder and registration
 
@@ -203,7 +204,10 @@ A runner needs no pre-download hooks. `predownload.py` builds the runner
 with live sources, collects `runner.data_requests(item)` over every work
 item, and groups the requests by the source object they target. Each group
 becomes one store `<output.path>/<role>.zarr` holding every
-`time + lead_time` the requests cover. The role is the key under which the
+`time + lead_time` the requests cover. For a `ForecastSource` the store
+instead holds every initial time and lead time, on
+`(time, lead_time, <spatial...>)`, and reads back as a forecast source. The
+role is the key under which the
 runner lists that source in its optional `source_roles` dict
 (`{"data": source, "forcing0": ...}`); a source the runner did not name
 gets `source<k>`. At inference `resolve_source(cfg, role, ...)` finds the
@@ -222,14 +226,14 @@ Verification is independent of the runner. With
 `predownload.verification.enabled=true`, `predownload.py` always writes a
 separate `<output.path>/verification.zarr`. It covers every initial time
 plus every lead of the runner's `forecast` stream (or its first stream),
-on the `output.regrid` grid when the config names one. `score.py` and online
-scoring resolve the verification source as BYO `verification_source` →
-`verification.zarr` → live `predownload.verification.source` or
-`data_source`.
+on the `output.regrid` grid, reached with its method, when the config names
+one. `score.py` and online scoring resolve the verification source as the
+BYO `verification_source`, then `verification.zarr`, then the live
+`predownload.verification.source` or `data_source`.
 
-### What the pipeline does for you
+### Pipeline responsibilities
 
-You do **not** need to handle any of the following in `run_item`:
+`run_item` does not handle any of the following:
 
 * distributing work items across ranks and marking them done for resume;
 * filtering yielded fields to the configured `output.variables`;
@@ -239,8 +243,7 @@ You do **not** need to handle any of the following in `run_item`:
 
 See `earth2studio/run/pipeline.py`:`Pipeline.run` for the shared outer
 loop and `dev/spec/EXECUTION_CONTRACT_SPEC.md` for the contract it
-enforces. That is the ground truth on ordering if you are deciding where
-to put runner logic.
+enforces. The spec settles where runner logic belongs.
 
 ### Testing
 

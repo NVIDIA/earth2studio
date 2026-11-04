@@ -26,6 +26,7 @@ import pytest
 import xarray as xr
 from omegaconf import open_dict
 from predownload import (
+    download_gridded_store,
     plan_frame_stores,
     plan_gridded_stores,
     plan_verification_store,
@@ -34,17 +35,22 @@ from predownload import (
 from src.campaign import build_items
 from src.data import (
     FrameRequest,
+    PredownloadedForecastSource,
     PredownloadedFrameSource,
     PredownloadedSource,
     frame_filename,
     frame_store_path,
+    open_predownloaded,
+    resolve_source,
 )
 from src.output import sentinel_path, store_path
 from src.runners import build_runner
 
 from earth2studio.data import fetch_data
+from earth2studio.grids import LatLonGrid, resolve_regridder
 from earth2studio.run import WorkItem
-from test.conftest import SMALL_LAT, SMALL_LON, VARIABLES
+from earth2studio.run.runner import DataRequest
+from test.conftest import SMALL_LAT, SMALL_LON, VARIABLES, SeededRandom
 
 TIMES = ["2024-01-01 00:00:00", "2024-01-01 06:00:00"]
 
@@ -127,7 +133,7 @@ def test_predownloaded_store_feeds_fetch_data(cfg) -> None:
     assert x.dims == ("time", "lead_time", "variable", "lat", "lon")
     assert x.shape == (1, 1, 2, len(SMALL_LAT), len(SMALL_LON))
     np.testing.assert_array_equal(x["lat"].values, SMALL_LAT)
-    # The inference entry point now prefers the cached store.
+    # The inference entry point prefers the cached store.
     runner = build_runner(cfg)
     assert isinstance(runner.source_roles["data"], PredownloadedSource)
 
@@ -151,6 +157,110 @@ def test_verification_store_is_separate_and_regridded(cfg) -> None:
     assert set(verification.data_vars) == set(VARIABLES)
     source = PredownloadedSource(store_path(cfg, "verification.zarr"))
     assert source.time_step == np.timedelta64(6, "h")
+
+
+def test_verification_store_uses_the_configured_regrid_method(cfg) -> None:
+    target = LatLonGrid(np.linspace(60.0, -60.0, 2), np.linspace(10.0, 190.0, 2))
+    with open_dict(cfg):
+        cfg.predownload.verification.enabled = True
+        cfg.output.regrid = {
+            "grid": {
+                "lat": {"start": 60.0, "stop": -60.0, "num": 2},
+                "lon": {"start": 10.0, "stop": 190.0, "num": 2},
+            },
+            "method": "bilinear",
+        }
+    run(cfg)
+    verification = _open(cfg, "verification.zarr")
+    time = np.array(TIMES[:1], dtype="datetime64[ns]")
+    source = SeededRandom(domain_coords={"lat": SMALL_LAT, "lon": SMALL_LON})
+    live = fetch_data(source, time=time, variable=np.array(VARIABLES))
+    live = live.isel(time=0, lead_time=0)
+    small = LatLonGrid(SMALL_LAT, SMALL_LON)
+    bilinear = resolve_regridder(small, target, "bilinear")(live)
+    nearest = resolve_regridder(small, target, "nearest")(live)
+    stored = verification["t2m"].sel(time=time[0]).values
+    np.testing.assert_allclose(stored, bilinear.sel(variable="t2m").values, rtol=1e-5)
+    assert not np.allclose(stored, nearest.sel(variable="t2m").values)
+
+
+class _FakeForecast:
+    """Forecast source whose values encode the initial time and the lead."""
+
+    def __call__(self, time, lead_time, variable) -> xr.DataArray:
+        times = np.atleast_1d(np.asarray(time, dtype="datetime64[ns]"))
+        leads = np.atleast_1d(np.asarray(lead_time, dtype="timedelta64[ns]"))
+        variables = np.atleast_1d(np.asarray(variable))
+        hours = leads.astype("timedelta64[h]").astype(float)
+        origin = np.datetime64("2024-01-01", "ns")
+        days = (times - origin).astype("timedelta64[h]").astype(float) / 24.0
+        shape = (len(times), len(leads), len(variables), len(SMALL_LAT), len(SMALL_LON))
+        data = np.zeros(shape, dtype="float32")
+        data += days[:, None, None, None, None] * 100.0
+        data += hours[None, :, None, None, None]
+        return xr.DataArray(
+            data,
+            dims=("time", "lead_time", "variable", "lat", "lon"),
+            coords={
+                "time": times,
+                "lead_time": leads,
+                "variable": variables,
+                "lat": SMALL_LAT,
+                "lon": SMALL_LON,
+            },
+        )
+
+
+class _ForecastRunner:
+    """Runner stub binding one forecast source under the role ``fx``."""
+
+    step = np.timedelta64(6, "h")
+    leads = np.array([0, 6], dtype="timedelta64[h]")
+
+    def __init__(self, source: _FakeForecast) -> None:
+        self.source = source
+        self.source_roles = {"fx": source}
+
+    def data_requests(self, item: WorkItem):
+        return (
+            DataRequest(
+                self.source, np.array([item.time]), np.array(VARIABLES), self.leads
+            ),
+        )
+
+
+def test_forecast_source_is_cached_per_lead_time(cfg) -> None:
+    source = _FakeForecast()
+    runner = _ForecastRunner(source)
+    items = build_items(cfg, runner)
+    stores = plan_gridded_stores(cfg, runner, items)
+    assert [s.role for s in stores] == ["fx"]
+    store = stores[0]
+    np.testing.assert_array_equal(store.times, np.array(TIMES, dtype="datetime64[ns]"))
+    np.testing.assert_array_equal(
+        store.lead_times, _ForecastRunner.leads.astype("timedelta64[ns]")
+    )
+
+    download_gridded_store(cfg, store, overwrite=False)
+    ds = _open(cfg, "fx.zarr")
+    assert ds["t2m"].dims == ("time", "lead_time", "lat", "lon")
+    assert ds["t2m"].shape == (2, 2, len(SMALL_LAT), len(SMALL_LON))
+
+    cached = open_predownloaded(store_path(cfg, "fx.zarr"))
+    assert isinstance(cached, PredownloadedForecastSource)
+    time = np.array(TIMES[1:], dtype="datetime64[ns]")
+    live = fetch_data(
+        source, time=time, variable=np.array(VARIABLES), lead_time=store.lead_times
+    )
+    back = fetch_data(
+        cached, time=time, variable=np.array(VARIABLES), lead_time=store.lead_times
+    )
+    assert tuple(back.dims) == tuple(live.dims)
+    np.testing.assert_array_equal(back.values, live.values)
+    # The cached value at (06:00, lead 6h) is the forecast (0.25 days * 100 + 6h),
+    # not the analysis at the 12:00 valid time (0.5 days * 100).
+    assert float(back.isel(time=0, lead_time=1, variable=0, lat=0, lon=0)) == 31.0
+    assert isinstance(resolve_source(cfg, "fx"), PredownloadedForecastSource)
 
 
 def test_resume_skips_finished_times_and_overwrite_restarts(cfg, monkeypatch) -> None:

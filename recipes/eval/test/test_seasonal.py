@@ -197,7 +197,7 @@ def test_builder_wraps_the_forecast_runner(base_cfg) -> None:
     assert isinstance(runner.inner, EnsembleRunner)
     assert runner.step == H6
     assert "data" in runner.source_roles
-    # nsteps keeps meaning model steps.
+    # nsteps counts model steps, not windows.
     assert final_lead_time(cfg, runner) == 4 * H6
     items = build_items(cfg, runner)
     assert items[0].final_lead_time == 4 * H6

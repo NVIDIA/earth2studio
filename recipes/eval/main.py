@@ -33,6 +33,8 @@ Multi-GPU::
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import hydra
 import torch
 from loguru import logger
@@ -51,18 +53,41 @@ from src.output import (
 )
 from src.runners import build_runner
 
-from earth2studio.run import Pipeline, ProgressStore
+from earth2studio.run import Pipeline, ProgressStore, WorkItem
 from earth2studio.run.work import rank0_first, rank_info
 
 
-def check_predownload(cfg: DictConfig, runner: object) -> None:
+def fetches_nothing(runner: object, items: Sequence[WorkItem]) -> bool:
+    """Whether ``runner`` declares no gridded or observation fetch for any item.
+
+    A runner whose ``data_requests`` returns ``None`` (unknowable) counts as
+    fetching.
+    """
+    if getattr(runner, "frame_requests", None) is not None:
+        return False
+    data_requests = getattr(runner, "data_requests", None)
+    if data_requests is None:
+        return False
+    for item in items:
+        requests = data_requests(item)
+        if requests is None or len(requests):
+            return False
+    return True
+
+
+def check_predownload(
+    cfg: DictConfig, runner: object, items: Sequence[WorkItem]
+) -> None:
     """Refuse to start without the predownload sentinel, when required.
 
-    Runners that fetch nothing skip the check (``data_requests``
-    returns an empty tuple for their items) and when both the initial
-    conditions and the verification data are bring-your-own.
+    Runners that fetch nothing for their items skip the check (see
+    :func:`fetches_nothing`), as do campaigns whose initial conditions and
+    verification data are both bring-your-own.
     """
     if not cfg.get("require_predownload", True):
+        return
+    if fetches_nothing(runner, items):
+        logger.info(f"{type(runner).__name__} fetches no data; no pre-download needed.")
         return
     fully_byo = (
         cfg.get("ic_source") is not None and cfg.get("verification_source") is not None
@@ -95,9 +120,8 @@ def run(cfg: DictConfig, device: torch.device | str = "cpu") -> None:
     resume = bool(cfg.get("resume", False))
 
     runner = build_runner(cfg)
-    check_predownload(cfg, runner)
-
-    items = build_items(cfg, runner, member_batch=members_per_item(cfg))
+    items = build_items(cfg, runner, member_batch=members_per_item(cfg, runner))
+    check_predownload(cfg, runner, items)
     final_lead_time = max(item.final_lead_time for item in items)
     schemas = runner.output_coords(final_lead_time)
     regridders = build_regridders(cfg, schemas)

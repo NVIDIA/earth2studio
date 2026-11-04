@@ -47,14 +47,22 @@ runner: forecast
 
 # Forcing sources, one per forcing slot of the prognostic model (StormCast
 # conditioning, climatology baselines).  null uses the model's recommended
-# sources; entries resolve like data_source (BYO -> predownloaded
-# forcing_<k>.zarr -> live).
+# sources; entries resolve like data_source (BYO, then predownloaded
+# forcing_<k>.zarr, then live).
 forcing_sources: null
 
 # Members rolled out together in one work item for offline runs (online
 # scoring uses scoring.online.members_per_rank).  Prognostic models absorb the
 # members into their batch dimension.
 member_batch: 1
+
+# Stochastic models (FCN3, Aurora 1.5 ensemble, FuXi-S2S, ...) are seeded per
+# member (EXECUTION_CONTRACT X5), so they roll one member per item and
+# member_batch / members_per_rank above 1 are refused.  Setting this to true
+# batches their members anyway: the batch shares the first member's seed, so
+# a member's trajectory depends on the batch size, and the runner logs the
+# deviation.
+batch_stochastic_members: false
 
 # ---------------------------------------------------------------------------
 # Pre-download enforcement
@@ -99,7 +107,7 @@ resume: false
 # Config group under cfg/data_source/ (see the defaults list above):
 #   arco_era5       — ARCO ERA5, hourly, 0.25 degree (default)
 #   (daily-mean models such as FuXi-S2S declare qualified labels like
-#   t2m:mean:0h:24h, so the hourly source computes the means itself)
+#   t2m:mean:0h:24h; fetch_data computes the means from the hourly source)
 # Campaigns swap it with `override /data_source: ...`; an inline
 # `data_source:` block merges over the selected one instead.
 
@@ -241,7 +249,9 @@ scoring:
     # a climatology is configured).
     online:
         ensemble_group_size: null      # null -> G = ensemble_size / K
-        members_per_rank: 1            # K > 1 needs Pipeline.run_item_batched
+        members_per_rank: 1            # K > 1 needs a runner with
+                                       # supports_member_batching (stochastic
+                                       # models: batch_stochastic_members)
         stats_store: stats.zarr        # the durable artifact
         # Where the finalize step writes.  null -> scoring.output.store_name.
         # Set it when also scoring the same run offline, so the two stores

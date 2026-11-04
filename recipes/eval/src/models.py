@@ -18,8 +18,8 @@
 
 A model node names an ``architecture`` (an ``AutoModelMixin`` class) and may
 add ``package_path`` and ``load_args``; Hydra instantiates ``_target_`` nodes
-directly.  Packages download on rank 0 first, which fills a shared cache
-once.
+directly.  Every load runs on rank 0 first, which fills a shared package
+cache once before the other ranks read it.
 """
 
 from __future__ import annotations
@@ -53,7 +53,7 @@ def load_from_node(node: DictConfig | dict, kind: str = "model") -> Any:
         The loaded model, not yet placed on a device.
     """
     if "_target_" in node:
-        model = hydra.utils.instantiate(node)
+        model = rank0_first(lambda: hydra.utils.instantiate(node))
         logger.success(f"Instantiated {kind}: {type(model).__name__}")
         return model
     if "architecture" not in node:
@@ -62,14 +62,20 @@ def load_from_node(node: DictConfig | dict, kind: str = "model") -> Any:
             f"{list(node.keys())}"
         )
     cls = hydra.utils.get_class(node["architecture"])
-    if node.get("package_path"):
-        from earth2studio.models.auto import Package
-
-        package = Package(node["package_path"])
-    else:
-        package = rank0_first(cls.load_default_package)
     load_args: dict[str, Any] = dict(node.get("load_args", {}) or {})
-    model = cls.load_model(package=package, **load_args)
+
+    def load() -> Any:
+        # Packages are lazy: the download happens inside load_model, so the
+        # whole load runs rank 0 first.
+        if node.get("package_path"):
+            from earth2studio.models.auto import Package
+
+            package = Package(node["package_path"])
+        else:
+            package = cls.load_default_package()
+        return cls.load_model(package=package, **load_args)
+
+    model = rank0_first(load)
     logger.success(f"Loaded {kind}: {cls.__name__}")
     return model
 

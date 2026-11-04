@@ -17,8 +17,8 @@
 """Pre-download script for the eval recipe.
 
 Caches the data the configured runner will fetch into local stores before
-the GPU inference job runs.  Accepts the same Hydra config as ``main.py`` so
-the two scripts stay in sync automatically.
+the GPU inference job runs.  Accepts the same Hydra config as ``main.py``, so
+both scripts read one campaign definition.
 
 Architecture
 ------------
@@ -31,8 +31,10 @@ the source they target, names each group after the role the runner gave the
 source (``runner.source_roles``) and writes one store per role:
 
 - ``<output.path>/<role>.zarr`` holds every valid time a role needs, one
-  array per variable on ``(time, <spatial dims>)``.  ``main.py`` reads it
-  through :class:`src.data.PredownloadedSource`.
+  array per variable on ``(time, <spatial dims>)``; for a forecast source
+  the store holds every initial time and lead time on ``(time, lead_time,
+  <spatial dims>)``.  ``main.py`` reads the store back through
+  :func:`src.data.open_predownloaded`.
 - ``<output.path>/verification.zarr`` holds the verification fields at every
   forecast valid time, on the scored grid, always as a separate store.
 - ``<output.path>/<name>.parquet/`` holds one observation frame per analysis
@@ -82,14 +84,21 @@ from src.data import (
     frame_filename,
     frame_store_path,
     instantiate_source,
+    is_forecast_source,
     store_name,
 )
 from src.logs import configure_logging, finalize_distributed, init_distributed
-from src.output import build_regridders, progress_path, sentinel_path, store_path
+from src.output import (
+    OutputRegridder,
+    output_regridder,
+    progress_path,
+    sentinel_path,
+    store_path,
+)
 from src.runners import build_runner
 
 from earth2studio.data import fetch_data, fetch_dataframe
-from earth2studio.grids import GridDefinition, infer_grid
+from earth2studio.grids import GridDefinition
 from earth2studio.io import ZarrBackend
 from earth2studio.run import ProgressStore, WorkItem, work_items
 from earth2studio.run.runner import DataRequest
@@ -108,27 +117,38 @@ VERIFICATION_ROLE = "verification"
 
 @dataclass
 class GriddedStore:
-    """One zarr store to fill: a source, its valid times and variables.
+    """One zarr store to fill: a source, its times and variables.
 
     Attributes
     ----------
     role : str
         Store name without extension (``data``, ``forcing0``, ``verification``).
     source : Any
-        DataSource to fetch from.
+        DataSource or ForecastSource to fetch from.
     times : np.ndarray
-        Valid times to cache, ``datetime64[ns]``, sorted and unique.
+        Times to cache, ``datetime64[ns]``, sorted and unique: valid times of a
+        data source, initial times of a forecast source.
     variables : list[str]
         Variables to cache, in first-seen order.
-    target_grid : GridDefinition | None
-        Grid to regrid fetched fields onto, or None for the source grid.
+    lead_times : np.ndarray | None
+        Lead times of a forecast source, ``timedelta64[ns]``, sorted and
+        unique; None for a data source.
+    regrid : OutputRegridder | None
+        Brings fetched fields onto the ``output.regrid`` grid, or None to keep
+        the source grid.
     """
 
     role: str
     source: Any
     times: np.ndarray
     variables: list[str]
-    target_grid: GridDefinition | None = None
+    lead_times: np.ndarray | None = None
+    regrid: OutputRegridder | None = None
+
+    @property
+    def target_grid(self) -> GridDefinition | None:
+        """Grid the stored fields land on, or None for the source grid."""
+        return None if self.regrid is None else self.regrid.target_grid
 
 
 @dataclass
@@ -194,7 +214,9 @@ def plan_gridded_stores(
     Source identity matches each request to ``runner.source_roles``; a source
     the runner did not name gets the role ``source<k>``.  The planner skips the
     ``data`` role when ``ic_source`` is bring-your-own, and every role bound to
-    no source.
+    no source.  The store of a data source covers every ``time + lead_time``
+    of its requests, that of a forecast source every initial time and lead
+    time.
 
     Parameters
     ----------
@@ -227,6 +249,7 @@ def plan_gridded_stores(
 
     by_role: dict[str, GriddedStore] = {}
     times: dict[str, list[np.ndarray]] = {}
+    leads: dict[str, list[np.ndarray]] = {}
     unnamed = 0
     for request in requests:
         if request.source is None:
@@ -245,13 +268,24 @@ def plan_gridded_stores(
             )
             by_role[role] = store
             times[role] = []
+            leads[role] = []
         for name in np.asarray(request.variable).reshape(-1):
             name = str(name)
             if name not in store.variables:
                 store.variables.append(name)
-        times[role].append(_valid_times(request))
+        if is_forecast_source(request.source):
+            times[role].append(
+                np.asarray(request.time, dtype="datetime64[ns]").reshape(-1)
+            )
+            leads[role].append(
+                np.asarray(request.lead_time, dtype="timedelta64[ns]").reshape(-1)
+            )
+        else:
+            times[role].append(_valid_times(request))
     for role, store in by_role.items():
         store.times = _as_times(np.concatenate(times[role]))
+        if leads[role]:
+            store.lead_times = np.unique(np.concatenate(leads[role]))
     for role in sorted(byo_roles):
         logger.info(f"Role '{role}' is bring-your-own; not cached.")
     return list(by_role.values())
@@ -273,8 +307,9 @@ def plan_verification_store(
     holds and ``verification_source`` is not bring-your-own.  The source is
     ``predownload.verification.source`` or, failing that, ``data_source``
     (or the runner's own ``data`` source).  Valid times are every initial
-    time plus every lead of the runner's forecast stream; the target grid is
-    the scored grid when ``output.regrid`` names one.
+    time plus every lead of the runner's forecast stream; when
+    ``output.regrid`` names a grid, the configured method brings the fields
+    onto it.
 
     Parameters
     ----------
@@ -320,16 +355,9 @@ def plan_verification_store(
     leads = np.asarray(schema.coords["lead_time"].values, dtype="timedelta64[ns]")
     initial = _as_times(item.time for item in items)
     times = _as_times((initial[:, None] + leads[None, :]).reshape(-1))
-    target_grid: GridDefinition | None = None
-    if cfg.output.get("regrid"):
-        regridders = build_regridders(cfg, schemas)
-        stream = "forecast" if "forecast" in schemas else next(iter(schemas))
-        target_grid = (
-            regridders[stream].target_grid
-            if stream in regridders
-            else infer_grid(schema)
-        )
-    return GriddedStore(VERIFICATION_ROLE, source, times, variables, target_grid)
+    return GriddedStore(
+        VERIFICATION_ROLE, source, times, variables, regrid=output_regridder(cfg)
+    )
 
 
 def plan_frame_stores(
@@ -427,16 +455,23 @@ def _remove_dir(path: str | Path) -> None:
 
 
 def _fetch_field(store: GriddedStore, time: np.datetime64) -> xr.DataArray:
-    """Fetch one valid time of a store and drop the lead-time axis."""
+    """Fetch one time of a store on its target grid.
+
+    A data-source store drops the singleton lead-time axis; a forecast-source
+    store keeps every cached lead time.
+    """
     x = fetch_data(
         store.source,
         time=np.array([time], dtype="datetime64[ns]"),
         variable=np.array(store.variables),
-        lead_time=ZERO_LEAD,
+        lead_time=ZERO_LEAD if store.lead_times is None else store.lead_times,
         device="cpu",
-        target_grid=store.target_grid,
     )
-    return x.isel(lead_time=0, drop=True)
+    if store.regrid is not None:
+        x = store.regrid(x)
+    if store.lead_times is None:
+        x = x.isel(lead_time=0, drop=True)
+    return x
 
 
 def download_gridded_store(
@@ -463,14 +498,20 @@ def download_gridded_store(
         "role": store.role,
         "variables": list(store.variables),
         "times": [str(t) for t in store.times.astype("datetime64[s]")],
+        "lead_times": (
+            None
+            if store.lead_times is None
+            else [str(t) for t in store.lead_times.astype("timedelta64[s]")]
+        ),
     }
     if overwrite and rank == 0:
         _remove_dir(path)
     progress = _progress(cfg, store.role, manifest, overwrite)
     my_items, n_remaining = _my_times(progress, store.times)
+    leads = "" if store.lead_times is None else f" x {len(store.lead_times)} leads"
     logger.info(
         f"{store.role}: {len(my_items)}/{n_remaining} remaining times on this rank "
-        f"({len(store.times)} total), variables {store.variables}"
+        f"({len(store.times)} total{leads}), variables {store.variables}"
     )
     if n_remaining == 0:
         progress.close()

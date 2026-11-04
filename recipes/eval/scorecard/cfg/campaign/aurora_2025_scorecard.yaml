@@ -104,7 +104,9 @@ data_source:
 output:
     path: ${oc.env:SCORECARD_OUT,/code/earth2studio_eval/recipes/eval/scorecard/models/aurora/outputs}/${project}_${run_id}
     # Gather the model's native 720 x 1440 output onto ERA5's 721 x 1440
-    # grid before scoring (see the note next to `runner` below).
+    # grid before scoring: its 720 latitudes are the target's first 720,
+    # and the appended -90 row carries zero latitude weight, so the shared
+    # verification store applies as is.
     regrid:
         grid: latlon-0.25deg
         method: nearest
@@ -210,8 +212,4 @@ verification_source:
 predownload:
     verification:
         enabled: false   # bring-your-own above
-# The model's native 720 x 1440 output is gathered onto ERA5's 721 x 1440
-# grid before scoring (its 720 latitudes are exactly the target's first 720;
-# the appended -90 row carries zero latitude weight), so the shared
-# verification store is reused as is.
 runner: forecast

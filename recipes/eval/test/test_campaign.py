@@ -42,6 +42,15 @@ class _NoStepRunner:
     pass
 
 
+class _NoBatchRunner(_StepRunner):
+    supports_member_batching = False
+    stochastic_models = ("prognostic",)
+
+
+class _BatchRunner(_StepRunner):
+    supports_member_batching = True
+
+
 def test_initial_times_from_list() -> None:
     cfg = OmegaConf.create(
         {"start_times": ["2024-01-02 00:00:00", "2024-01-01 00:00:00"]}
@@ -116,6 +125,20 @@ def test_members_per_item_follows_scoring_mode() -> None:
     assert members_per_item(online) == 4
 
 
+def test_members_per_item_caps_runners_without_member_batching() -> None:
+    offline = OmegaConf.create({"member_batch": 2, "scoring": {"mode": "offline"}})
+    online = OmegaConf.create(
+        {"scoring": {"mode": "online", "online": {"members_per_rank": 4}}}
+    )
+    assert members_per_item(offline, _BatchRunner()) == 2
+    assert members_per_item(online, _BatchRunner()) == 4
+    assert members_per_item(offline, _NoBatchRunner()) == 1
+    with pytest.raises(ValueError, match="batch_stochastic_members"):
+        members_per_item(online, _NoBatchRunner())
+    single = OmegaConf.create({"member_batch": 1})
+    assert members_per_item(single, _NoBatchRunner()) == 1
+
+
 def test_build_items_matches_library_work_items() -> None:
     cfg = OmegaConf.create(
         {
@@ -153,10 +176,10 @@ def test_order_for_groups_gives_lockstep_groups(
     slices = [distribute_work(ordered, rank, world_size) for rank in range(world_size)]
     for block in range(world_size // group_size):
         group = slices[block * group_size : (block + 1) * group_size]
-        # Every rank of a group runs the same times in the same rounds...
+        # Every rank of a group runs the same times in the same rounds.
         for rank_items in group[1:]:
             assert [i.time for i in rank_items] == [i.time for i in group[0]]
-        # ...and each rank carries one fixed member group.
+        # Each rank carries one fixed member group.
         for rank_items in group:
             assert len({i.member_ids for i in rank_items}) <= 1
         # Together a group covers every member of each of its times.

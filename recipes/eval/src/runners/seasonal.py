@@ -20,8 +20,8 @@ Subseasonal-to-seasonal archives and their verification use weekly or monthly
 means rather than individual steps.  :class:`WindowMeanRunner` wraps the
 recipe's forecast runner, averages the steps that fall into each window, and
 yields one field per window, so the forecast store has a short ``lead_time``
-axis holding the window ends.  A coarser output grid, which these archives
-also use, comes from ``output.regrid`` like for any other runner.
+axis holding the window ends.  ``output.regrid`` selects the coarser grid
+these archives use, as for any other runner.
 """
 
 from __future__ import annotations
@@ -66,8 +66,7 @@ class WindowMeanRunner:
     final lead time a whole number of windows; a partial window would be a
     mean over fewer steps than its label claims.
 
-    Calendar-month windows (``window="month"``), which the previous pipeline
-    labelled by integer lead month, are not supported: the lead axis of a
+    Calendar-month windows (``window="month"``) are not supported: the lead axis of a
     stream is a ``timedelta64`` axis shared by every initial condition, and a
     calendar month has no fixed length.  Approximate them with ``"30D"``.
 

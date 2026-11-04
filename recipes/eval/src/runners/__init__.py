@@ -22,7 +22,7 @@
     runner: diagnostic        # diagnostics applied to source data
     runner: assimilation      # DA analyses scored directly
     runner: assimilation_forecast   # DA analyses initialize a prognostic
-    runner: stormscope        # coupled GOES -> MRMS nowcast
+    runner: stormscope        # coupled GOES and MRMS nowcast
     runner:                   # a built-in with options
         name: window_mean
         window: 30D
@@ -149,7 +149,8 @@ def forecast(
     ----------
     cfg : DictConfig
         Campaign config: ``model``, optional ``diagnostics``, ``perturbation``,
-        ``data_source`` / ``ic_source`` / ``forcing_sources``, ``random_seed``.
+        ``data_source`` / ``ic_source`` / ``forcing_sources``, ``random_seed``
+        and ``batch_stochastic_members``.
     prefer_predownloaded : bool, optional
         Read predownloaded stores when present, by default True
     model_node : DictConfig, optional
@@ -195,6 +196,7 @@ def forecast(
         diagnostics=diagnostics,
         seed=int(cfg.get("random_seed", 42)),
         perturbation=perturbation,
+        batch_stochastic=bool(cfg.get("batch_stochastic_members", False)),
     )
     runner.source_roles = {  # type: ignore[attr-defined]
         "data": runner.source,
@@ -205,6 +207,11 @@ def forecast(
 
 def diagnostic(cfg: DictConfig, prefer_predownloaded: bool = True) -> DiagnosticRunner:
     """Build the diagnostic-only runner: diagnostics applied to source data.
+
+    A configured source (``ic_source`` or ``data_source``) feeds every
+    diagnostic under the role ``data``.  Without one, each diagnostic reads its
+    own recommended source under the role ``data_<stream>``, so
+    ``predownload.py`` caches each and inference finds the stores again.
 
     Parameters
     ----------
@@ -231,5 +238,15 @@ def diagnostic(cfg: DictConfig, prefer_predownloaded: bool = True) -> Diagnostic
     runner = DiagnosticRunner(
         diagnostics, source=source, seed=int(cfg.get("random_seed", 42))
     )
-    runner.source_roles = {"data": next(iter(runner.sources.values()))}  # type: ignore[attr-defined]
+    roles: dict[str, Any] = {}
+    if source is not None:
+        roles["data"] = source
+    else:
+        for name, recommended in runner.sources.items():
+            role = f"data_{name}"
+            runner.sources[name] = resolve_source(
+                cfg, role, live=recommended, prefer_predownloaded=prefer_predownloaded
+            )
+            roles[role] = runner.sources[name]
+    runner.source_roles = roles  # type: ignore[attr-defined]
     return runner
