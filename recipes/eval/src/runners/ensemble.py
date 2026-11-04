@@ -19,10 +19,15 @@
 :class:`~earth2studio.run.PrognosticRunner` rolls one member per item and has
 no perturbation stage.  :class:`EnsembleRunner` adds both: an item's
 ``member_ids`` ride on a leading ``ensemble`` axis, each member gets its own
-perturbation
-under its own :func:`~earth2studio.run.work.member_seed`, and the members roll
-out together through the model's batch dimension, as ``run.ensemble`` does.
-Deterministic items (no members) fall through to the library runner.
+perturbation under its own :func:`~earth2studio.run.work.member_seed`, and the
+members roll out together through the model's batch dimension, as
+``run.ensemble`` does.  Deterministic items (no members) fall through to the
+library runner.
+
+Stochastic models are the exception: the execution contract (rule X5) seeds
+each of them per member, which a batched rollout cannot do, so by default
+they roll one member per item and the runner reports
+``supports_member_batching = False``.
 """
 
 from __future__ import annotations
@@ -83,9 +88,23 @@ class EnsembleRunner(PrognosticRunner):
         Initial-condition perturbation, drawn per member under that member's
         seed, by default None.  Models whose stochasticity drives the spread
         need none.
-    """
+    batch_stochastic : bool, optional
+        Batch the members of stochastic models too, by default False.  Rule X5
+        of the execution contract seeds a stochastic model per member, which a
+        batched rollout cannot do: its members share the first member's seed,
+        so a member's trajectory depends on how many members it ran with.
+        Without the flag, stochastic models roll one member per item; with
+        it, they batch and the runner logs the deviation once.
 
-    supports_member_batching = True
+    Attributes
+    ----------
+    stochastic_models : tuple[str, ...]
+        Names (``prognostic`` or diagnostic stream names) of the models that
+        declare ``stochastic = True``.
+    supports_member_batching : bool
+        Whether items may carry more than one member: always for
+        deterministic models, only with ``batch_stochastic`` otherwise.
+    """
 
     def __init__(
         self,
@@ -95,9 +114,17 @@ class EnsembleRunner(PrognosticRunner):
         diagnostics: Mapping[str, DiagnosticModel] | None = None,
         seed: int = 0,
         perturbation: Perturbation | None = None,
+        batch_stochastic: bool = False,
     ) -> None:
         super().__init__(prognostic, source, forcing, diagnostics, seed)
         self.perturbation = perturbation
+        self.batch_stochastic = batch_stochastic
+        models = (("prognostic", prognostic), *self.diagnostics.items())
+        self.stochastic_models: tuple[str, ...] = tuple(
+            name for name, model in models if getattr(model, "stochastic", False)
+        )
+        self.supports_member_batching = not self.stochastic_models or batch_stochastic
+        self._warned_batching = False
 
     def to(self, device: torch.device) -> EnsembleRunner:
         """Move every model to ``device`` and fetch onto it."""
@@ -127,29 +154,44 @@ class EnsembleRunner(PrognosticRunner):
         """Give a fetched field a leading, writable ``ensemble`` axis."""
         return x.expand_dims(ensemble=members, axis=0).copy(deep=True)
 
+    def _check_batch(self, members: np.ndarray) -> None:
+        """Refuse, or warn once about, batching the members of stochastic models."""
+        if len(members) < 2 or not self.stochastic_models:
+            return
+        names = ", ".join(self.stochastic_models)
+        if not self.batch_stochastic:
+            raise ValueError(
+                f"Stochastic model(s) {names} roll one member per item, so each "
+                f"member gets its own seed (EXECUTION_CONTRACT X5); got members "
+                f"{members.tolist()}. Build items with member_batch=1 or set "
+                "batch_stochastic_members=true."
+            )
+        if not self._warned_batching:
+            logger.warning(
+                f"Batching {len(members)} members of stochastic model(s) {names}: "
+                "they share the first member's seed, so a member's trajectory "
+                "depends on the batch (batch_stochastic_members=true relaxes "
+                "EXECUTION_CONTRACT X5)."
+            )
+            self._warned_batching = True
+
     def run_item(self, item: WorkItem) -> Iterator[Mapping[str, xr.DataArray]]:
         """Publish the perturbed initial state, then every forecast step.
 
-        A deterministic item runs through the library runner unchanged.
-        Stochastic models receive one seed per item, from the first member's
-        seed, so a member's trajectory in a batch is a valid but different
-        draw from its single-member run; perturbations are per member.
+        A deterministic item runs through the library runner unchanged.  The
+        item's first member seeds every model; perturbations are per member.
+        An item of a stochastic model holds one member unless
+        ``batch_stochastic`` allows more, see :meth:`_check_batch`.
         """
         if not item.member_ids:
             yield from super().run_item(item)
             return
         members = np.asarray(item.member_ids, dtype=np.int64)
+        self._check_batch(members)
         first = int(members[0])
         _seed_model(self.seed, item.time, first, self.prognostic)
         for diagnostic in self.diagnostics.values():
             _seed_model(self.seed, item.time, first, diagnostic)
-        if len(members) > 1 and getattr(self.prognostic, "stochastic", False):
-            logger.warning(
-                f"{type(self.prognostic).__name__} is stochastic and rolls "
-                f"{len(members)} members in one batch seeded once; members will "
-                "not reproduce a one-member-per-item run (the ensemble is still a "
-                "valid draw)."
-            )
         nsteps = self.nsteps(item.final_lead_time)
         x = _fetch(self._initial_request(item), self.input_signature, self.device)
         x = self._perturb(self._with_members(x, members), item)

@@ -18,8 +18,8 @@
 
 StormCast runs on a window of the HRRR grid: the model cuts it from the
 registered ``hrrr`` grid at construction (``hrrr_lat_lim`` / ``hrrr_lon_lim``),
-so the window has no registered name a campaign could pass to a regridder.  The helpers
-here rebuild that window from the same limits and wrap a source so the
+so the window has no registered name a campaign could pass to a regridder.
+The helpers here rebuild that window from the same limits and wrap a source so the
 forecast runner receives fields on the model grid::
 
     forcing_sources:

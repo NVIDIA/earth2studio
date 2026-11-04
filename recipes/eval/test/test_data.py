@@ -27,20 +27,24 @@ import pytest
 import xarray as xr
 from omegaconf import OmegaConf
 from src.data import (
+    PredownloadedForecastSource,
     PredownloadedFrameSource,
     PredownloadedSource,
     frame_filename,
     frame_store_path,
     instantiate_source,
+    is_forecast_source,
+    open_predownloaded,
     resolve_source,
     store_name,
 )
 
-from earth2studio.data import Random
+from earth2studio.data import Random, fetch_data
 from earth2studio.io import ZarrBackend
-from earth2studio.utils.coords import coord_array
+from earth2studio.utils.coords import E2S_STATISTICS, coord_array
 
 TIMES = np.array(["2024-01-01", "2024-01-02", "2024-01-03"], dtype="datetime64[ns]")
+LEADS = np.array([0, 6], dtype="timedelta64[h]").astype("timedelta64[ns]")
 VARIABLES = ["t2m", "z500"]
 LAT = np.array([90.0, 0.0, -90.0])
 LON = np.array([0.0, 90.0, 180.0, 270.0])
@@ -54,6 +58,26 @@ def _write_store(path, times=TIMES, variables=VARIABLES, lat=LAT, lon=LON):
     io.add_array(coord_array(("time", "variable", "lat", "lon"), coords))
     data = np.random.default_rng(42).standard_normal(
         (len(times), len(variables), len(lat), len(lon))
+    )
+    da = xr.DataArray(data.astype("float32"), dims=list(coords), coords=coords)
+    io.write(da)
+    io.close()
+    return da
+
+
+def _write_forecast_store(path, times=TIMES, leads=LEADS, variables=VARIABLES):
+    """Write a forecast-source store (``(time, lead_time, lat, lon)`` arrays)."""
+    io = ZarrBackend(str(path))
+    coords = {
+        "time": times,
+        "lead_time": leads,
+        "variable": np.array(variables),
+        "lat": LAT,
+        "lon": LON,
+    }
+    io.add_array(coord_array(("time", "lead_time", "variable", "lat", "lon"), coords))
+    data = np.random.default_rng(7).standard_normal(
+        (len(times), len(leads), len(variables), len(LAT), len(LON))
     )
     da = xr.DataArray(data.astype("float32"), dims=list(coords), coords=coords)
     io.write(da)
@@ -133,6 +157,132 @@ class TestPredownloadedSource:
         assert da.sizes["lead_time"] == 2
 
 
+class TestQualifiedLabels:
+    """Stored time statistics answer fetch_data's split requests."""
+
+    LABELS = ["t2m:mean:0h:24h", "tp:mean:1h:25h"]
+
+    @pytest.fixture()
+    def store(self, tmp_path):
+        written = _write_store(tmp_path / "data.zarr", variables=self.LABELS)
+        return PredownloadedSource(str(tmp_path / "data.zarr")), written
+
+    def test_window_length_is_the_time_step(self, store):
+        source, _ = store
+        assert source.time_step == np.timedelta64(24, "h")
+        # Zarr lists arrays in store order, not request order.
+        assert sorted(source.variables) == sorted(self.LABELS)
+
+    def test_fetch_data_round_trips_the_reduced_fields(self, store):
+        source, written = store
+        da = fetch_data(
+            source,
+            time=TIMES[1:2],
+            variable=np.array(self.LABELS),
+            lead_time=np.array([-24, 0], dtype="timedelta64[h]"),
+        )
+        assert list(da["variable"].values) == self.LABELS
+        for k, t in enumerate(TIMES[:2]):
+            for label in self.LABELS:
+                np.testing.assert_allclose(
+                    da.sel(variable=label).isel(time=0, lead_time=k).values,
+                    written.sel(time=t, variable=label).values,
+                )
+        statistics = da.attrs[E2S_STATISTICS]
+        assert set(statistics) == set(self.LABELS)
+        assert statistics["tp:mean:1h:25h"]["start_offset"] == np.timedelta64(1, "h")
+
+    def test_base_variable_is_shifted_by_the_window_start(self, store):
+        source, written = store
+        asked = TIMES[:1] + np.timedelta64(1, "h")
+        da = source(asked, ["tp"])
+        np.testing.assert_array_equal(da["time"].values, asked)
+        assert list(da["variable"].values) == ["tp"]
+        np.testing.assert_allclose(
+            da.values.squeeze(),
+            written.sel(time=TIMES[0], variable="tp:mean:1h:25h").values,
+        )
+        assert E2S_STATISTICS not in da.attrs
+
+    def test_direct_label_request_carries_statistics_metadata(self, store):
+        source, written = store
+        da = source(TIMES[:1], ["t2m:mean:0h:24h"])
+        assert set(da.attrs[E2S_STATISTICS]) == {"t2m:mean:0h:24h"}
+        np.testing.assert_allclose(
+            da.values.squeeze(),
+            written.sel(time=TIMES[0], variable="t2m:mean:0h:24h").values,
+        )
+
+    def test_two_statistics_of_one_variable_are_rejected(self, tmp_path):
+        _write_store(
+            tmp_path / "x.zarr", variables=["t2m:mean:0h:24h", "t2m:sum:0h:24h"]
+        )
+        with pytest.raises(ValueError, match="two statistics"):
+            PredownloadedSource(str(tmp_path / "x.zarr"))
+
+    def test_mixed_window_lengths_are_rejected(self, tmp_path):
+        _write_store(
+            tmp_path / "x.zarr", variables=["t2m:mean:0h:24h", "z500:mean:0h:6h"]
+        )
+        with pytest.raises(ValueError, match="mixes"):
+            PredownloadedSource(str(tmp_path / "x.zarr"))
+
+
+class TestPredownloadedForecastSource:
+    @pytest.fixture()
+    def store(self, tmp_path):
+        path = tmp_path / "fx.zarr"
+        return path, _write_forecast_store(path)
+
+    def test_open_predownloaded_picks_the_kind(self, store, tmp_path):
+        path, _ = store
+        assert isinstance(open_predownloaded(str(path)), PredownloadedForecastSource)
+        _write_store(tmp_path / "data.zarr")
+        assert isinstance(
+            open_predownloaded(str(tmp_path / "data.zarr")), PredownloadedSource
+        )
+        with pytest.raises(ValueError, match="forecast-source store"):
+            PredownloadedSource(str(path))
+        with pytest.raises(ValueError, match="data-source store"):
+            PredownloadedForecastSource(str(tmp_path / "data.zarr"))
+        with pytest.raises(FileNotFoundError):
+            open_predownloaded(str(tmp_path / "nope.zarr"))
+
+    def test_is_forecast_source(self, store, tmp_path):
+        path, _ = store
+        assert is_forecast_source(open_predownloaded(str(path)))
+        _write_store(tmp_path / "data.zarr")
+        assert not is_forecast_source(PredownloadedSource(str(tmp_path / "data.zarr")))
+        assert not is_forecast_source(Random(domain_coords={"lat": LAT}))
+
+    def test_fetch_data_uses_initial_time_and_lead(self, store):
+        path, written = store
+        source = PredownloadedForecastSource(str(path))
+        np.testing.assert_array_equal(source.lead_times, LEADS)
+        np.testing.assert_array_equal(source.times, TIMES)
+        assert source.time_step == np.timedelta64(6, "h")
+        da = fetch_data(
+            source, time=TIMES[:1], variable=np.array(["z500"]), lead_time=LEADS
+        )
+        assert tuple(da.dims) == ("time", "lead_time", "variable", "lat", "lon")
+        np.testing.assert_allclose(
+            da.isel(time=0, lead_time=1, variable=0).values,
+            written.sel(time=TIMES[0], lead_time=LEADS[1], variable="z500").values,
+        )
+
+    def test_missing_lead_raises(self, store):
+        path, _ = store
+        source = PredownloadedForecastSource(str(path))
+        with pytest.raises(KeyError, match="lacks some of the times or lead times"):
+            source(TIMES[:1], np.array([12], dtype="timedelta64[h]"), ["z500"])
+
+    def test_async_fetch(self, store):
+        path, _ = store
+        source = PredownloadedForecastSource(str(path))
+        result = asyncio.run(source.fetch(TIMES[:1], LEADS[:1], ["t2m"]))
+        assert result.sizes["lead_time"] == 1
+
+
 # ---------------------------------------------------------------------------
 # resolve_source
 # ---------------------------------------------------------------------------
@@ -165,6 +315,11 @@ class TestResolveSource:
         )
         assert isinstance(source, PredownloadedSource)
         assert source.store_path == str(tmp_path / "verification.zarr")
+
+    def test_predownloaded_forecast_store(self, tmp_path):
+        _write_forecast_store(tmp_path / "fx.zarr")
+        source = resolve_source(self._cfg(tmp_path), "fx", live={"_target_": "x"})
+        assert isinstance(source, PredownloadedForecastSource)
 
     def test_live_when_store_not_preferred(self, tmp_path):
         _write_store(tmp_path / "data.zarr")

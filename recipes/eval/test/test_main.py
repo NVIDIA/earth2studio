@@ -18,15 +18,20 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
+import pytest
 import xarray as xr
-from main import run
+from main import check_predownload, run
 from omegaconf import open_dict
 from src.campaign import build_items
+from src.data import PredownloadedSource
 from src.output import store_path, stream_variables
 from src.runners import build_runner
 from src.runners.ensemble import EnsembleRunner
 
+from earth2studio.run import DiagnosticRunner
 from test.conftest import SMALL_LAT, SMALL_LON, VARIABLES
 
 
@@ -111,3 +116,76 @@ def test_output_regrid_to_coarser_grid(base_cfg) -> None:
     ds = _open(cfg)
     assert ds["t2m"].shape[-2:] == (2, 2)
     np.testing.assert_array_equal(ds["lat"].values, [90.0, -90.0])
+
+
+class _NoFetchRunner:
+    """Runner that declares no fetch at all."""
+
+    step = np.timedelta64(6, "h")
+
+    def data_requests(self, item):
+        return ()
+
+
+class _UnknownFetchRunner(_NoFetchRunner):
+    """Runner that cannot describe its fetches."""
+
+    def data_requests(self, item):
+        return None
+
+
+def test_check_predownload_skips_runners_that_fetch_nothing(base_cfg) -> None:
+    with open_dict(base_cfg):
+        base_cfg.require_predownload = True
+    items = build_items(base_cfg, _NoFetchRunner())
+    check_predownload(base_cfg, _NoFetchRunner(), items)
+    with pytest.raises(RuntimeError, match="sentinel"):
+        check_predownload(base_cfg, _UnknownFetchRunner(), items)
+    with open_dict(base_cfg):
+        base_cfg.require_predownload = False
+    check_predownload(base_cfg, _UnknownFetchRunner(), items)
+
+
+def test_diagnostic_runner_names_every_recommended_source(base_cfg) -> None:
+    from predownload import run as predownload_run
+
+    cfg = base_cfg
+    source = {
+        "_target_": "test.conftest.SeededRandom",
+        "domain_coords": {"lat": SMALL_LAT.tolist(), "lon": SMALL_LON.tolist()},
+    }
+    with open_dict(cfg):
+        cfg.runner = "diagnostic"
+        cfg.nsteps = 0
+        cfg.data_source = None
+        cfg.diagnostics = {
+            "a": {
+                "_target_": "test.conftest.FakeDiagnostic",
+                "input_variables": ["t2m"],
+                "output_variables": ["diag_a"],
+                "source": source,
+            },
+            "b": {
+                "_target_": "test.conftest.FakeDiagnostic",
+                "input_variables": ["z500"],
+                "output_variables": ["diag_b"],
+                "source": source,
+            },
+        }
+        cfg.output.variables = ["diag_a", "diag_b"]
+    runner = build_runner(cfg, prefer_predownloaded=False)
+    assert isinstance(runner, DiagnosticRunner)
+    assert set(runner.source_roles) == {"data_a", "data_b"}
+    assert runner.source_roles["data_a"] is runner.sources["a"]
+    assert runner.source_roles["data_b"] is runner.sources["b"]
+
+    predownload_run(cfg)
+    assert Path(store_path(cfg, "data_a.zarr")).is_dir()
+    assert Path(store_path(cfg, "data_b.zarr")).is_dir()
+    cached = build_runner(cfg)
+    assert isinstance(cached.sources["a"], PredownloadedSource)
+    assert isinstance(cached.sources["b"], PredownloadedSource)
+    assert set(cached.source_roles) == {"data_a", "data_b"}
+    run(cfg)
+    ds = _open(cfg)
+    assert set(ds.data_vars) == {"diag_a", "diag_b"}

@@ -16,9 +16,8 @@
 # limitations under the License.
 
 # Monthly aggregations of FuXi-S2S forecasts, approximated by fixed 30-day
-# windows.  Calendar-month means labelled by integer lead month, which the
-# previous WindowMeanForecastPipeline(window='month') stored, are not
-# supported by the window_mean runner: a stream's lead_time axis is a
+# windows.  The window_mean runner does not support calendar-month means
+# labelled by integer lead month: a stream's lead_time axis is a
 # timedelta64 axis shared by every initial condition, and a calendar month
 # has no fixed length.  Starting at 00 UTC on the 1st, window 1 covers days
 # 1-30 of the start month and window 2 days 31-60, so the July start holds

@@ -16,10 +16,10 @@
 
 """Local data stores and source resolution.
 
-Regridding, composition and temporal statistics now live in the library
+The library handles regridding, composition and temporal statistics
 (:class:`~earth2studio.data.RegriddedSource`,
 :class:`~earth2studio.data.CompositeSource`, qualified variable labels such as
-``t2m:mean:0h:24h``), so this module keeps only what is specific to the recipe:
+``t2m:mean:0h:24h``); this module holds what is specific to the recipe:
 the zarr and parquet stores ``predownload.py`` writes, and the rule deciding
 whether a runner slot reads a bring-your-own source, a predownloaded store or
 the live source.
@@ -28,8 +28,10 @@ the live source.
 from __future__ import annotations
 
 import os
+from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
+from inspect import signature
 from typing import Any
 
 import hydra
@@ -39,7 +41,9 @@ import xarray as xr
 from loguru import logger
 from omegaconf import DictConfig
 
-from earth2studio.utils.type import TimeArray, VariableArray
+from earth2studio.utils.coords import E2S_STATISTICS
+from earth2studio.utils.time_statistics import time_statistic_metadata
+from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 
 
 @dataclass(frozen=True)
@@ -124,7 +128,7 @@ def resolve_source(
     path = os.path.join(cfg.output.path, store_name(role))
     if prefer_predownloaded and os.path.isdir(path):
         logger.info(f"Slot '{role}': reading predownloaded store {path}")
-        return PredownloadedSource(path)
+        return open_predownloaded(path)
     if live is None:
         logger.info(f"Slot '{role}': using the model's recommended source")
         return None
@@ -132,13 +136,65 @@ def resolve_source(
     return instantiate_source(live)
 
 
-class PredownloadedSource:
-    """Data source backed by a predownloaded zarr store.
+def is_forecast_source(source: Any) -> bool:
+    """Whether ``source`` takes ``(time, lead_time, variable)`` requests.
 
-    The store holds one array per variable on ``(time, <spatial...>)`` with its
+    Mirrors the dispatch of :func:`earth2studio.data.fetch_data`: a boolean
+    ``is_forecast`` attribute decides, else the call signature.
+    """
+    declared = getattr(source, "is_forecast", None)
+    if isinstance(declared, bool):
+        return declared
+    return "lead_time" in signature(source.__call__).parameters
+
+
+def open_predownloaded(
+    store_path: str,
+) -> PredownloadedSource | PredownloadedForecastSource:
+    """Open a predownloaded zarr store as the kind of source it caches.
+
+    A store with a ``lead_time`` dimension caches a
+    :class:`~earth2studio.data.ForecastSource`; any other caches a
+    :class:`~earth2studio.data.DataSource`.
+
+    Parameters
+    ----------
+    store_path : str
+        Path to the zarr store.
+
+    Returns
+    -------
+    PredownloadedSource | PredownloadedForecastSource
+        The source serving the store.
+    """
+    if not os.path.isdir(store_path):
+        raise FileNotFoundError(f"No predownloaded store at '{store_path}'")
+    with xr.open_zarr(store_path, consolidated=False) as ds:
+        forecast = "lead_time" in ds.dims
+    if forecast:
+        return PredownloadedForecastSource(store_path)
+    return PredownloadedSource(store_path)
+
+
+class _PredownloadedStore:
+    """Fields of one predownloaded zarr store, served by exact label lookups.
+
+    The store holds one array per variable label on ``(time, <spatial...>)``,
+    or on ``(time, lead_time, <spatial...>)`` for a forecast source, with its
     grid coordinates, as ``predownload.py`` writes it through the library's
-    :class:`~earth2studio.io.ZarrBackend`.  Requests are exact label lookups;
-    a time that was not predownloaded raises ``KeyError``.
+    :class:`~earth2studio.io.ZarrBackend`.  A time, lead time or variable that
+    was not predownloaded raises ``KeyError``.
+
+    The store holds qualified labels such as ``t2m:mean:0h:24h`` already
+    reduced.  Until sources reduce their own windows (FETCH_DATA_SPEC),
+    :func:`earth2studio.data.fetch_data` splits every qualified label, asks the
+    source for the base variable at the window's sample times and reduces those
+    samples.  The store declares the window length as its ``time_step``, so a
+    window holds exactly one sample, its first.  The store answers the request
+    for the base variable at that sample time with the stored field, and the
+    library's reduction over one sample is the identity.  A request
+    for the qualified label itself returns the stored field with its statistics
+    metadata, as the spec's target state will ask for.
 
     Parameters
     ----------
@@ -146,28 +202,125 @@ class PredownloadedSource:
         Path to the zarr store.
     """
 
+    is_forecast: bool = False
+
     def __init__(self, store_path: str) -> None:
         if not os.path.isdir(store_path):
             raise FileNotFoundError(f"No predownloaded store at '{store_path}'")
         self.store_path = store_path
         ds = xr.open_zarr(store_path, consolidated=False)
-        self._da = ds.to_array("variable").transpose("time", "variable", ...)
+        if ("lead_time" in ds.dims) != self.is_forecast:
+            kind = "forecast-source" if "lead_time" in ds.dims else "data-source"
+            raise ValueError(
+                f"'{store_path}' is a {kind} store; open it with open_predownloaded()"
+            )
+        leading = ("time", "lead_time") if self.is_forecast else ("time",)
+        self._da = ds.to_array("variable").transpose(*leading, "variable", ...)
         self._da.attrs.update(ds.attrs)
-        times = self._da.coords["time"].values
-        steps = np.unique(np.diff(times)) if times.size > 1 else np.array([])
-        self.time_step: np.timedelta64 | None = (
-            np.timedelta64(steps[0]) if steps.size == 1 else None
-        )
+        self._labels = [str(v) for v in self._da.coords["variable"].values]
+        self._shifted = "lead_time" if self.is_forecast else "time"
+        self._statistics: dict[str, tuple[str, np.timedelta64]] = {}
+        windows: set[np.timedelta64] = set()
+        for label in self._labels:
+            base, separator, modifier = label.partition(":")
+            if not separator:
+                continue
+            meta = time_statistic_metadata(modifier)
+            if base in self._statistics:
+                raise ValueError(
+                    f"Predownloaded store '{store_path}' holds two statistics of "
+                    f"'{base}'; fetch_data asks for the base variable, so they "
+                    "cannot be told apart"
+                )
+            start = np.timedelta64(meta["start_offset"], "ns")
+            self._statistics[base] = (label, start)
+            windows.add(np.timedelta64(meta["window"], "ns"))
+        if len(windows) > 1:
+            raise ValueError(
+                f"Predownloaded store '{store_path}' mixes statistics windows "
+                f"{sorted(windows)}; one window length per store is supported"
+            )
+        axis = self._da.coords[self._shifted].values
+        steps = np.unique(np.diff(axis)) if axis.size > 1 else np.array([])
+        self.time_step: np.timedelta64 | None
+        if windows:
+            self.time_step = windows.pop()
+        else:
+            self.time_step = np.timedelta64(steps[0]) if steps.size == 1 else None
 
     @property
     def variables(self) -> list[str]:
-        """Stored variable names."""
-        return [str(v) for v in self._da.coords["variable"].values]
+        """Stored variable labels."""
+        return list(self._labels)
 
     @property
     def times(self) -> np.ndarray:
-        """Stored valid times."""
+        """Stored times: valid times, or initial times for a forecast store."""
         return self._da.coords["time"].values
+
+    def _select(
+        self, names: Sequence[str], indexers: dict[str, np.ndarray]
+    ) -> xr.DataArray:
+        """Stored fields for ``names`` at the requested ``indexers``.
+
+        A stored statistic answers for its base variable: the lookup uses the
+        stored label, shifted back by the window's start offset along ``time``
+        (``lead_time`` for a forecast store), and returns no statistics
+        metadata, so :func:`earth2studio.data.fetch_data` reduces it.
+        """
+        missing = sorted(
+            n for n in set(names) if n not in self._labels and n not in self._statistics
+        )
+        if missing:
+            raise KeyError(
+                f"Predownloaded store '{self.store_path}' lacks variables "
+                f"{missing}; re-run predownload.py with them in the campaign."
+            )
+        statistics: dict[str, Any] = {}
+        pieces: list[xr.DataArray] = []
+        for name in names:
+            lookup = dict(indexers)
+            if name in self._labels:
+                stored = name
+                if ":" in name:
+                    statistics[name] = time_statistic_metadata(name.partition(":")[2])
+            else:
+                stored, start = self._statistics[name]
+                lookup[self._shifted] = indexers[self._shifted] - start
+            try:
+                piece = self._da.sel(variable=[stored], **lookup)
+            except KeyError as error:
+                wanted = {k: [str(v) for v in vals] for k, vals in lookup.items()}
+                axes = "times or lead times" if self.is_forecast else "times"
+                raise KeyError(
+                    f"Predownloaded store '{self.store_path}' lacks some of the "
+                    f"{axes} {wanted} for '{name}'; re-run predownload.py with "
+                    "the campaign's initial conditions and lead times."
+                ) from error
+            pieces.append(
+                piece.assign_coords(
+                    variable=[name], **{self._shifted: indexers[self._shifted]}
+                )
+            )
+        da = pieces[0] if len(pieces) == 1 else xr.concat(pieces, "variable")
+        da.attrs = dict(self._da.attrs)
+        da.attrs.pop(E2S_STATISTICS, None)
+        if statistics:
+            da.attrs[E2S_STATISTICS] = statistics
+        return da.load()
+
+
+class PredownloadedSource(_PredownloadedStore):
+    """Data source backed by a predownloaded store on ``(time, <spatial...>)``.
+
+    See :class:`_PredownloadedStore` for the store layout and for how it
+    serves stored time statistics.
+
+    Parameters
+    ----------
+    store_path : str
+        Path to the zarr store.
+    """
 
     def __call__(
         self,
@@ -190,21 +343,7 @@ class PredownloadedSource:
         """
         times = np.atleast_1d(np.asarray(time, dtype="datetime64[ns]"))
         variables = [str(v) for v in np.atleast_1d(np.asarray(variable))]
-        missing = sorted(set(variables) - set(self.variables))
-        if missing:
-            raise KeyError(
-                f"Predownloaded store '{self.store_path}' lacks variables "
-                f"{missing}; re-run predownload.py with them in the campaign."
-            )
-        try:
-            da = self._da.sel(time=times, variable=variables)
-        except KeyError as error:
-            raise KeyError(
-                f"Predownloaded store '{self.store_path}' lacks some of the times "
-                f"{[str(t) for t in times]}; re-run predownload.py with the "
-                "campaign's initial conditions and lead times."
-            ) from error
-        return da.load()
+        return self._select(variables, {"time": times})
 
     async def fetch(
         self,
@@ -213,6 +352,63 @@ class PredownloadedSource:
     ) -> xr.DataArray:
         """Async version of :meth:`__call__`."""
         return self(time, variable)
+
+
+class PredownloadedForecastSource(_PredownloadedStore):
+    """Forecast source backed by a store on ``(time, lead_time, <spatial...>)``.
+
+    ``predownload.py`` writes it for runner slots bound to a
+    :class:`~earth2studio.data.ForecastSource`, caching every requested lead
+    time of every initial time.
+
+    Parameters
+    ----------
+    store_path : str
+        Path to the zarr store.
+    """
+
+    is_forecast = True
+
+    @property
+    def lead_times(self) -> np.ndarray:
+        """Stored forecast lead times."""
+        return self._da.coords["lead_time"].values
+
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Return stored forecasts for the requested times, leads and variables.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Initial times to return.
+        lead_time : timedelta | list[timedelta] | LeadTimeArray
+            Forecast lead times to return.
+        variable : str | list[str] | VariableArray
+            Variables to return.
+
+        Returns
+        -------
+        xr.DataArray
+            Field with dimensions ``[time, lead_time, variable, <spatial...>]``.
+        """
+        times = np.atleast_1d(np.asarray(time, dtype="datetime64[ns]"))
+        leads = np.atleast_1d(np.asarray(lead_time, dtype="timedelta64[ns]"))
+        variables = [str(v) for v in np.atleast_1d(np.asarray(variable))]
+        return self._select(variables, {"time": times, "lead_time": leads})
+
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async version of :meth:`__call__`."""
+        return self(time, lead_time, variable)
 
 
 def frame_store_path(output_path: str, name: str) -> str:

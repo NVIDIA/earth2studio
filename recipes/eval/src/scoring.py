@@ -60,7 +60,13 @@ from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.type import CoordinateSystem
 
 from .data import resolve_source
-from .output import progress_path, remove_store, store_path
+from .output import (
+    OutputRegridder,
+    output_regridder,
+    progress_path,
+    remove_store,
+    store_path,
+)
 from .regions import (
     NON_SPATIAL,
     SpatialCoords,
@@ -151,7 +157,7 @@ class RegionalMetric:
     Wraps per-region instances of the same underlying metric (each built
     with region-masked weights) behind the Metric protocol, so the store
     schema, chunking validation and write path treat it as any other
-    metric; its output simply carries a leading string-labelled ``region``
+    metric; its output carries a leading string-labelled ``region``
     dimension.
 
     Parameters
@@ -480,11 +486,13 @@ def load_verification_chunk(
     variables: Sequence[str],
     spatial_coords: SpatialCoords,
     device: torch.device | str,
+    regrid: OutputRegridder | None = None,
 ) -> xr.DataArray:
     """Load verification data aligned to a prediction chunk.
 
     Fetches the valid times ``time + lead_time`` through
-    :func:`earth2studio.data.fetch_data` and relabels the result with the
+    :func:`earth2studio.data.fetch_data`, brings them onto the ``output.regrid``
+    grid when the campaign names one, and relabels the result with the
     prediction grid's coordinates so it aligns with the prediction chunk.
 
     Parameters
@@ -501,6 +509,9 @@ def load_verification_chunk(
         Spatial coordinates of the prediction grid.
     device : torch.device | str
         Device of the returned field.
+    regrid : OutputRegridder, optional
+        The campaign's ``output.regrid`` regridder, by default None (the
+        source must already sit on the prediction grid).
 
     Returns
     -------
@@ -528,6 +539,8 @@ def load_verification_chunk(
             "Ensure predownload completed for every lead time, or drop the "
             "missing variable(s) from cfg.scoring.variables."
         ) from exc
+    if regrid is not None:
+        da = regrid(da)
     da = da.isel(time=0, drop=True)
     spatial = [d for d in da.dims if d not in ("lead_time", "variable")]
     da = _dimension_coords_only(da.transpose("lead_time", "variable", *spatial))
@@ -894,6 +907,7 @@ def run_scoring(
     nan_policy = _parse_nan_policy(cfg)
     valid_ranges = _parse_valid_ranges(cfg)
     variables = [str(v) for v in variables]
+    regrid = output_regridder(cfg)
 
     for item in tqdm(my_items, desc="Scoring", disable=rank != 0):
         time = np.datetime64(item.time, "ns")
@@ -902,7 +916,7 @@ def run_scoring(
         for lt_chunk in lead_time_chunks:
             x = load_prediction_chunk(prediction_ds, time, lt_chunk, variables, device)
             y = load_verification_chunk(
-                verif_source, time, lt_chunk, variables, spatial_coords, device
+                verif_source, time, lt_chunk, variables, spatial_coords, device, regrid
             )
             if nan_policy == "zero_fill":
                 x, y = _zero_fill(x), _zero_fill(y)

@@ -25,6 +25,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -51,7 +52,8 @@ class FakeDiagnostic(torch.nn.Module):
 
     Output variables absent from the input are zero.  Declares a dynamic
     ``batch`` prefix like the library's diagnostics, so leading ``time`` and
-    ``lead_time`` axes pass through.
+    ``lead_time`` axes pass through.  An optional ``source`` becomes its
+    recommended data source.
     """
 
     def __init__(
@@ -59,12 +61,17 @@ class FakeDiagnostic(torch.nn.Module):
         input_variables: list[str],
         output_variables: list[str],
         grid: LatLonGrid | None = None,
+        source: Any = None,
     ) -> None:
         super().__init__()
         self._input_variables = list(input_variables)
         self._output_variables = list(output_variables)
         self._grid = grid or LatLonGrid(SMALL_LAT, SMALL_LON)
+        self._source = source
         self.calls = 0
+
+    def default_sources(self) -> Any:
+        return self._source
 
     def input_coords(self) -> CoordinateSystem:
         return coord_array(

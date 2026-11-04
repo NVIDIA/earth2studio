@@ -358,9 +358,9 @@ def stormscope(cfg: DictConfig, prefer_predownloaded: bool = True) -> StormScope
 
     Each model node loads through :func:`src.models.load_from_node` (its
     ``load_args`` such as ``model_name``, ``amp`` and ``compile`` pass to
-    ``load_model``).  Both models take an optional ``cfg.model.region`` box (``{kind: box,
-    params: [west, south, east, north]}``).  Sources
-    resolve per role: ``goes`` and ``mrms`` from each node's ``ic_source``,
+    ``load_model``).  Both models take an optional ``cfg.model.region`` box
+    (``{kind: box, params: [west, south, east, north]}``).  Sources resolve
+    per role: ``goes`` and ``mrms`` from each node's ``ic_source``,
     ``mrms_conditioning`` from ``cfg.model.mrms.conditioning_source`` and
     ``goes_forcing`` from ``cfg.model.goes.forcing_source``; an unset node
     falls back to the predownloaded store, then the model default.

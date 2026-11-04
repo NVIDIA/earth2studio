@@ -19,8 +19,8 @@
 :class:`earth2studio.run.Pipeline` owns the store lifecycle; this module only
 turns the ``output`` config block into backends and decides which of a runner's
 streams carry the requested variables.  Every stream writes into the same
-``forecast.zarr`` group, as the recipe has always stored prognostic and
-diagnostic variables side by side.
+``forecast.zarr`` group, so prognostic and diagnostic variables sit side by
+side.
 """
 
 from __future__ import annotations
@@ -29,20 +29,24 @@ import os
 import shutil
 from collections import OrderedDict
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+import xarray as xr
 from loguru import logger
 from omegaconf import DictConfig, OmegaConf
 
 from earth2studio.grids import (
+    GridDefinition,
     LatLonGrid,
     Regridder,
     infer_grid,
     resolve_grid,
     resolve_regridder,
     same_geometry,
+    select_subset,
 )
 from earth2studio.io import AsyncZarrBackend, IOBackend, ZarrBackend
 from earth2studio.run import WorkItem
@@ -270,17 +274,129 @@ def _target_grid(spec: Any) -> str | LatLonGrid:
     return LatLonGrid(axes[0], axes[1])
 
 
+@dataclass(frozen=True)
+class RegridSpec:
+    """The ``output.regrid`` block: the grid every stream and the verification land on.
+
+    Attributes
+    ----------
+    target : str | LatLonGrid
+        Registered grid name, or explicit latitude and longitude axes.
+    method : str
+        Registered regridder method, ``nearest`` by default.
+    options : dict[str, Any]
+        Keyword arguments of the regridder, such as ``fill_value``.
+    """
+
+    target: str | LatLonGrid
+    method: str = "nearest"
+    options: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def target_grid(self) -> GridDefinition:
+        """The resolved target grid."""
+        if isinstance(self.target, str):
+            return resolve_grid(self.target)
+        return self.target
+
+    def regridder(self, source_grid: GridDefinition) -> Regridder | None:
+        """Regridder from ``source_grid`` onto the target, or None when already there."""
+        if same_geometry(source_grid, self.target_grid):
+            return None
+        return resolve_regridder(source_grid, self.target, self.method, **self.options)
+
+
+def regrid_spec(cfg: DictConfig) -> RegridSpec | None:
+    """Parse ``output.regrid``; ``null`` keeps every stream on its native grid.
+
+    The block names a ``grid`` (a registered name such as ``latlon-0.25deg``, or
+    ``{lat: {start, stop, num}, lon: {...}}``), an optional ``method`` (default
+    ``nearest``) and the regridder's keyword arguments, under ``options`` or as
+    further keys of the block.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Config with the ``output`` block.
+
+    Returns
+    -------
+    RegridSpec | None
+        The parsed block, or None when regridding is off.
+    """
+    spec = cfg.output.get("regrid")
+    if not spec:
+        return None
+    block = dict(OmegaConf.to_container(spec, resolve=True))  # type: ignore[arg-type]
+    if "grid" not in block:
+        raise ValueError("output.regrid needs a 'grid' entry")
+    target = _target_grid(block.pop("grid"))
+    method = str(block.pop("method", None) or "nearest")
+    options = dict(block.pop("options", None) or {})
+    options.update(block)
+    return RegridSpec(target, method, options)
+
+
+class OutputRegridder:
+    """Bring fetched fields onto the ``output.regrid`` grid with its method.
+
+    A fetched field reveals its grid only once it arrives, so the first call
+    builds the regridder and later calls reuse it while the source grid stays
+    the same.  Fields already on the target pass through, and exact crops
+    select the subset, as :func:`earth2studio.data.fetch_data` does for a
+    ``target_grid``.
+
+    Parameters
+    ----------
+    spec : RegridSpec
+        The parsed ``output.regrid`` block.
+    """
+
+    def __init__(self, spec: RegridSpec) -> None:
+        self.spec = spec
+        self.target_grid: GridDefinition = spec.target_grid
+        self._source_grid: GridDefinition | None = None
+        self._regridder: Regridder | None = None
+
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Return ``x`` on the target grid."""
+        source_grid = infer_grid(x)
+        if same_geometry(source_grid, self.target_grid):
+            return x
+        subset = select_subset(x, source_grid, self.target_grid)
+        if subset is not None:
+            return subset
+        if (
+            self._regridder is None
+            or self._source_grid is None
+            or not same_geometry(self._source_grid, source_grid)
+        ):
+            self._regridder = resolve_regridder(
+                source_grid, self.spec.target, self.spec.method, **self.spec.options
+            )
+            self._source_grid = source_grid
+            logger.info(
+                f"Regridding fetched {source_grid.topology} fields "
+                f"{dict(zip(source_grid.dims, source_grid.shape))} -> "
+                f"{dict(zip(self.target_grid.dims, self.target_grid.shape))} "
+                f"({self.spec.method})"
+            )
+        return self._regridder(x)
+
+
+def output_regridder(cfg: DictConfig) -> OutputRegridder | None:
+    """An :class:`OutputRegridder` for ``output.regrid``, or None without the block."""
+    spec = regrid_spec(cfg)
+    return None if spec is None else OutputRegridder(spec)
+
+
 def build_regridders(
     cfg: DictConfig, schemas: Mapping[str, CoordinateSystem]
 ) -> dict[str, Regridder]:
     """Build the per-stream output regridders from ``output.regrid``.
 
-    ``output.regrid`` is ``null`` (store every stream on its native grid) or a
-    mapping with ``grid`` (a registered grid name such as ``latlon-0.25deg``,
-    or ``{lat: {start, stop, num}, lon: {...}}``), an optional ``method``
-    (default ``nearest``) and further regridder options such as
-    ``fill_value`` or ``max_dist_km``.  Streams already on the target grid
-    get no regridder.
+    Streams already on the target grid get no regridder; see
+    :func:`regrid_spec` for the block's layout.
 
     Parameters
     ----------
@@ -294,22 +410,20 @@ def build_regridders(
     dict[str, Regridder]
         Regridder per stream needing one.
     """
-    spec = cfg.output.get("regrid")
-    if not spec:
+    spec = regrid_spec(cfg)
+    if spec is None:
         return {}
-    options = dict(OmegaConf.to_container(spec, resolve=True))  # type: ignore[arg-type]
-    target = _target_grid(options.pop("grid"))
-    method = str(options.pop("method", "nearest"))
-    target_grid = resolve_grid(target) if isinstance(target, str) else target
+    target_grid = spec.target_grid
     regridders: dict[str, Regridder] = {}
     for stream, schema in schemas.items():
         source_grid = infer_grid(schema)
-        if same_geometry(source_grid, target_grid):
+        regridder = spec.regridder(source_grid)
+        if regridder is None:
             continue
-        regridders[stream] = resolve_regridder(source_grid, target, method, **options)
+        regridders[stream] = regridder
         logger.info(
             f"Stream '{stream}': regridding {source_grid.topology} "
             f"{dict(zip(source_grid.dims, source_grid.shape))} -> "
-            f"{dict(zip(target_grid.dims, target_grid.shape))} ({method})"
+            f"{dict(zip(target_grid.dims, target_grid.shape))} ({spec.method})"
         )
     return regridders

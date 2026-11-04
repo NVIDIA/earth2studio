@@ -27,8 +27,8 @@ Online scoring removes the raw store from the critical path.  It plugs into
 hook: the pipeline hands every filtered, regridded field to
 :meth:`OnlineScorer.update`, which reads the verification field for
 ``IC + lead``, forms this rank's contributions, joins one reduction over its
-**ensemble group**, and lets the group root append an IC slab of
-**mergeable statistics** to ``stats.zarr`` in :meth:`OnlineScorer.finish_item`.
+ensemble group, and lets the group root append an IC slab of
+mergeable statistics to ``stats.zarr`` in :meth:`OnlineScorer.finish_item`.
 
 Ensemble groups
 ---------------
@@ -89,7 +89,7 @@ from earth2studio.utils.type import CoordinateSystem
 
 from .campaign import order_for_groups
 from .data import instantiate_source, resolve_source
-from .output import progress_path
+from .output import OutputRegridder, output_regridder, progress_path
 from .regions import (
     build_spatial_weights,
     events_to_attrs,
@@ -660,11 +660,12 @@ class FieldCache:
     """Valid-time keyed LRU cache over a gridded data source.
 
     Serves verification (and climatology) fields to the scoring loop through
-    :func:`earth2studio.data.fetch_data`, asking for the scored grid so a
-    the library crops or regrids a source on a larger grid.  The cache
-    normalizes fields once on the way in (variable order, spatial dimension
-    order, NaN policy and valid-range clamping) so the scoring loop treats a
-    cached field as directly comparable to a model output.
+    :func:`earth2studio.data.fetch_data`.  With an ``output.regrid`` block, its
+    method brings the fields onto the scored grid; without one the library
+    crops, or regrids by nearest neighbor, a source on a larger grid.
+    The cache normalizes fields once on the way in (variable order, spatial
+    dimension order, NaN policy and valid-range clamping) so the scoring loop
+    treats a cached field as directly comparable to a model output.
 
     Parameters
     ----------
@@ -686,6 +687,8 @@ class FieldCache:
         Per-variable ``{min, max}`` clamps, by default None
     label : str, optional
         Name used in error messages, by default ``"Verification"``
+    regrid : OutputRegridder, optional
+        The campaign's ``output.regrid`` regridder, by default None
     """
 
     def __init__(
@@ -699,10 +702,12 @@ class FieldCache:
         nan_policy: str = "propagate",
         valid_ranges: Mapping[str, Any] | None = None,
         label: str = "Verification",
+        regrid: OutputRegridder | None = None,
     ) -> None:
         self._source = source
         self._variables = [str(v) for v in variables]
         self._grid = grid
+        self._regrid = regrid
         self._spatial_coords = spatial_coords
         self._spatial_dims = tuple(spatial_coords)
         self._device = torch.device(device)
@@ -736,8 +741,10 @@ class FieldCache:
             np.array([valid_time], dtype="datetime64[ns]"),
             np.array(self._variables),
             device=self._device,
-            target_grid=self._grid,
+            target_grid=None if self._regrid is not None else self._grid,
         )
+        if self._regrid is not None:
+            da = self._regrid(da)
         for dim in ("time", "lead_time"):
             if dim in da.dims:
                 da = da.isel({dim: 0}, drop=True)
@@ -1048,7 +1055,7 @@ class WeightSum:
         )
 
     def update(self, ctx: StepContext) -> None:
-        """Accumulate this lead step's contribution."""
+        """Add this lead step's weight normalizer per variable."""
         if not ctx.comm.is_root:
             return
         _put(
@@ -1198,7 +1205,7 @@ class LogSpectralDistance:
         )
 
     def update(self, ctx: StepContext) -> None:
-        """Accumulate this lead step's contribution."""
+        """Compute each member's log spectral distance at this lead."""
         if ctx.n_spatial != 2:
             raise ValueError(
                 "scoring.online.lsd needs a 2D spatial grid; got "
@@ -1270,7 +1277,7 @@ class EnsembleMeanSquaredError:
         )
 
     def update(self, ctx: StepContext) -> None:
-        """Accumulate this lead step's contribution."""
+        """Add the squared ensemble-mean error of this lead step."""
         if not ctx.comm.is_root:
             return
         if ctx.s1 is None:
@@ -1320,7 +1327,7 @@ class EnsembleSpread:
         )
 
     def update(self, ctx: StepContext) -> None:
-        """Accumulate this lead step's contribution."""
+        """Add the weighted ensemble variance of this lead step."""
         if not ctx.comm.is_root:
             return
         if ctx.s1 is None or ctx.s2 is None:
@@ -1378,7 +1385,7 @@ class RankHistogram:
         )
 
     def update(self, ctx: StepContext) -> None:
-        """Accumulate this lead step's contribution."""
+        """Count where the verification ranks among the members at this lead."""
         if not ctx.comm.is_root:
             return
         if ctx.below is None:
@@ -1421,7 +1428,7 @@ class AnomalyMoments:
     """Weighted cross-moments of the ensemble mean against verification.
 
     Five sums per ``(IC, lead, variable)`` reconstruct bias, Pearson
-    correlation and, with a climatology, ACC.  Field names encode whether a
+    correlation and, with a climatology, ACC.  Field names encode whether
     the step subtracted a climatology (``a``/``b`` for anomalies, ``f``/``y``
     for raw fields), so :func:`finalize_stats` can tell whether ACC is derivable.
     """
@@ -1465,7 +1472,7 @@ class AnomalyMoments:
         }
 
     def update(self, ctx: StepContext) -> None:
-        """Accumulate this lead step's contribution."""
+        """Add the cross-moments of this lead step."""
         if not ctx.comm.is_root:
             return
         if ctx.s1 is None:
@@ -1568,7 +1575,7 @@ class _PendingExchange:
 class PairwiseExchange:
     """Forms ``sum_{i<j} sum_s w_s |f_i(s) - f_j(s)|`` across an ensemble group.
 
-    Members meet via an all-gather of the **residual** ``f_i - y`` (so the
+    Members meet via an all-gather of the residual ``f_i - y`` (so the
     wire dtype's relative precision applies to error-sized values), using
 
     .. code-block:: text
@@ -1764,7 +1771,7 @@ class FairCRPS:
         return local, buf
 
     def update(self, ctx: StepContext) -> None:
-        """Accumulate this lead step's contribution."""
+        """Add the member term and advance the pairwise exchange for this lead."""
         local_index, buf_index = self._positions(ctx)
         if local_index:
             index = torch.tensor(
@@ -2638,7 +2645,8 @@ def verification_source_names(cfg: DictConfig) -> list[str | None]:
 def named_store_filename(base: str, ref_name: str | None) -> str:
     """Filename ``base`` takes for reference ``ref_name``'s own store.
 
-    ``None`` maps to ``base`` unchanged; a name goes before the extension: ``("stats.zarr", "era5")`` -> ``"stats__era5.zarr"``.
+    ``None`` maps to ``base`` unchanged; a name goes before the extension, so
+    ``("stats.zarr", "era5")`` gives ``"stats__era5.zarr"``.
     """
     if ref_name is None:
         return base
@@ -2977,6 +2985,7 @@ class OnlineRun:
                 max_size=settings.verification_cache_size,
                 nan_policy=nan_policy,
                 label="Climatology",
+                regrid=output_regridder(cfg),
             )
 
         stores: dict[str | None, ZarrBackend] = {}
@@ -3001,6 +3010,7 @@ class OnlineRun:
                     max_size=settings.verification_cache_size,
                     nan_policy=nan_policy,
                     valid_ranges=valid_ranges,  # type: ignore[arg-type]
+                    regrid=output_regridder(cfg),
                 ),
                 climatology=climatology,
                 variables=scored,

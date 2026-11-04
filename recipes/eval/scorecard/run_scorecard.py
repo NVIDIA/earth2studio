@@ -205,17 +205,9 @@ def main() -> int:
                 # Cheap single-process re-derivation from stats.zarr.
                 launch("score.py", args.campaign, overrides, 1)
             else:
-                # time=1 chunks: ranks score disjoint ICs, so no
-                # shared-chunk writes (races); whole-array elsewhere keeps
-                # file counts small.
-                chunks = [
-                    "output.io_backend=zarr",
-                    "output.chunks.time=1",
-                    f"output.chunks.lead_time={int(cfg['nsteps']) + 1}",
-                ]
-                if int(cfg.get("ensemble_size", 1)) > 1:
-                    chunks.append(f"+output.chunks.ensemble={cfg['ensemble_size']}")
-                launch("score.py", args.campaign, chunks + overrides, args.ngpu)
+                # score.py lays out scores.zarr itself (one time per chunk,
+                # ranks scoring disjoint initial conditions).
+                launch("score.py", args.campaign, overrides, args.ngpu)
             stamp_provenance(out / "scores.zarr")
         elif stage == "prune":
             if online and not (out / "forecast.zarr").exists():

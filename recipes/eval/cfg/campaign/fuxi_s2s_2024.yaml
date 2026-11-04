@@ -20,8 +20,8 @@
 # scoring elsewhere.  The model steps one day at a time on a 1.5 degree
 # grid; output.regrid interpolates each mean onto a 1 degree grid, the
 # resolution subseasonal archives use.  The model's qualified input labels
-# (t2m:mean:0h:24h ...) make the hourly arco_era5 source serve UTC
-# calendar-day means for the two initial frames.  This 60-day run produces
+# (t2m:mean:0h:24h ...) tell fetch_data to compute UTC calendar-day means
+# from the hourly arco_era5 source for the two initial frames.  This 60-day run produces
 # two means and extends beyond the published 42-day horizon.
 defaults:
     - override /model: fuxi_s2s

@@ -27,9 +27,8 @@ resume: true
 
 perturbation: null
 
-# Predownload the verification fields over the forecast window into
-# verification.zarr for score.py.  Set it here rather than only on the
-# predownload.py command line, since score.py reads this block too.
+# score.py reads this block too, so set it in the campaign rather than only
+# on the predownload.py command line.
 predownload:
     verification:
         enabled: true

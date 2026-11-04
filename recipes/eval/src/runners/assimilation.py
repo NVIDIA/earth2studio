@@ -35,8 +35,8 @@ per model input slot, and declares them for predownload through
 
 The runners support independent (stateless) DA models only: each analysis is
 one ``model(*obs)`` call, so work items distribute freely across ranks.
-Cycling ``StatefulAssimilationModel`` runs, and the former
-``cfg.model.da.runner`` override meant for them, are out of scope.
+Cycling ``StatefulAssimilationModel`` runs are out of scope, and a
+``cfg.model.da.runner`` entry is an error.
 """
 
 from __future__ import annotations

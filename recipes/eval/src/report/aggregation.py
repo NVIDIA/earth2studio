@@ -178,7 +178,7 @@ def _verification_dataset(cfg: DictConfig) -> xr.Dataset | None:
 
     try:
         source = instantiate_source(byo)
-    except Exception as err:  # noqa: BLE001 - visualization degrades gracefully
+    except Exception as err:  # noqa: BLE001 - visualization is optional
         logger.warning(f"Could not instantiate verification_source: {err}")
         return None
     path = getattr(source, "store_path", None)
@@ -196,8 +196,8 @@ def _open_data_stores(
 ) -> tuple[xr.Dataset | None, xr.Dataset | None]:
     """Open prediction and verification zarr stores for visualization.
 
-    Returns ``None`` for a store that is missing, so visualization sections
-    degrade gracefully.  Verification resolves to
+    Returns ``None`` for a missing store, and the visualization sections
+    skip it.  Verification resolves to
     ``<output.path>/verification.zarr`` when present, else to a
     bring-your-own ``verification_source`` backed by a local zarr store.
 
