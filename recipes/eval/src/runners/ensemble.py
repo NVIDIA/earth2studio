@@ -180,6 +180,8 @@ class EnsembleRunner(PrognosticRunner):
 
         A deterministic item runs through the library runner unchanged.  The
         item's first member seeds every model; perturbations are per member.
+        As in the library runner, the initial condition is published only when
+        ``publishes_initial_condition`` holds.
         An item of a stochastic model holds one member unless
         ``batch_stochastic`` allows more, see :meth:`_check_batch`.
         """
@@ -195,7 +197,8 @@ class EnsembleRunner(PrognosticRunner):
         nsteps = self.nsteps(item.final_lead_time)
         x = _fetch(self._initial_request(item), self.input_signature, self.device)
         x = self._perturb(self._with_members(x, members), item)
-        yield self._publish(initial_condition(x))
+        if self.publishes_initial_condition:
+            yield self._publish(initial_condition(x))
         if nsteps == 0:
             return
         forcing = tuple(
