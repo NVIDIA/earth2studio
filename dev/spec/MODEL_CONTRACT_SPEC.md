@@ -860,10 +860,11 @@ The checker implements this contract. Wrappers and consumers migrate separately:
 - **Domain selection.** Add `DomainAdaptable`, `Region` and checks for `G1`–`G4`.
   `StormScopeGOES` and `StormScopeMRMS` implement it for box regions: Flash variants
   crop the HRRR footprint with context, and baseline variants return full-footprint
-  views, which cover any supported region. `CorrDiffCosmoEra5`,
-  `StormCastCONUS`/`StormCast` and `cBottleSR` adopt the protocol additively,
-  keeping their constructor limits, `set_domain` and
-  `set_super_resolution_window` as adapters; see
+  views, which cover any supported region. `CorrDiffEra5Hrrr`, `CorrDiffCosmoEra5`,
+  `StormCastCONUS` and `cBottleSR` adopt the protocol additively, keeping their
+  constructor limits, `set_domain` and `set_super_resolution_window` as adapters.
+  `StormCast` stays fixed-domain: its additive positional embedding and invariants
+  cover only its 512×640 window. See
   [flexible_domain.md](../scratch/flexible_domain.md).
 - **Examples and drivers.** `earth2studio.run`, `examples/` and `dev/examples/` call
   `create_iterator` and count `nsteps + 1` yields; they move to `nsteps` yields,

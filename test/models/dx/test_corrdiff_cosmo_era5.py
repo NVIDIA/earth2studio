@@ -40,7 +40,9 @@ import xarray as xr
 from test_corrdiff import _input_field
 
 import earth2studio.models.dx.corrdiff_cosmo_era5 as cosmo_module
+from earth2studio.grids import Region
 from earth2studio.models.auto import Package
+from earth2studio.models.base import DomainAdaptable
 from earth2studio.models.conformance import (
     check_diagnostic_contract,
 )
@@ -507,6 +509,112 @@ def test_set_domain_extended_state_guards():
     dx2._ext_static_numpy = None
     with pytest.raises(RuntimeError, match="extended static array is not set"):
         dx2.set_domain(49.0, 51.0, 9.0, 11.0)
+
+
+# ── with_region (DomainAdaptable) tests ─────────────────────────────────────
+
+
+def _output_grid(dx: CorrDiffCosmoEra5) -> tuple[np.ndarray, np.ndarray]:
+    out = dx.output_coords(dx.input_coords())
+    return np.asarray(out["lat"]), np.asarray(out["lon"])
+
+
+def test_with_region_view():
+    """A view covers the box, shares the network and leaves the parent unchanged."""
+    dx = _build()
+    assert isinstance(dx, DomainAdaptable)
+    dx.set_rng(7)
+    before = dx.output_coords(dx.input_coords())
+    view = dx.with_region(Region.box(9.2, 49.0, 11.5, 51.2))
+
+    assert isinstance(view, CorrDiffCosmoEra5)
+    assert view.regression_model is dx.regression_model
+    lat, lon = _output_grid(view)
+    # Cells bracketing the box: its edges lie within the view's grid.
+    assert lat.min() <= 49.0 and lat.max() >= 51.2
+    assert lon.min() <= 9.2 and lon.max() >= 11.5
+    assert lat.size < dx.lat_output_numpy.size
+    assert view.static_invariants.shape[-2:] == lat.shape
+    # Independent copy of the parent's noise stream
+    assert view._rng_generator is not dx._rng_generator
+    assert torch.equal(view._rng_generator.get_state(), dx._rng_generator.get_state())
+    # The parent is unchanged
+    after = dx.output_coords(dx.input_coords())
+    np.testing.assert_array_equal(after["lat"], before["lat"])
+    np.testing.assert_array_equal(after["lon"], before["lon"])
+    assert dx.lat_output_numpy.shape == (8, 8)
+
+    # A view reaches the full footprint, outside its own crop
+    far = Region.box(12.5, 47.5, 13.5, 48.5)
+    from_view, from_root = view.with_region(far), dx.with_region(far)
+    for a, b in zip(_output_grid(from_view), _output_grid(from_root)):
+        np.testing.assert_array_equal(a, b)
+    assert _output_grid(from_root)[1].max() > lon.max()
+    # ... and so does a legacy set_domain sub-domain
+    sub = dx.set_domain(49.0, 51.0, 9.0, 11.0)
+    for a, b in zip(_output_grid(sub.with_region(far)), _output_grid(from_root)):
+        np.testing.assert_array_equal(a, b)
+
+
+@pytest.mark.parametrize(
+    "region",
+    [
+        Region.band(48.0, 50.0),
+        Region.rectangle(50.0, 10.0, 1e5),
+        Region.circle(50.0, 10.0, 1e5),
+        Region.box(170.0, 48.0, -170.0, 50.0),
+        Region.box(0.0, 48.0, 10.0, 50.0),
+        Region.box(9.0, 48.0, 10.0, 60.0),
+    ],
+)
+def test_with_region_rejects(region):
+    with pytest.raises(ValueError):
+        _build().with_region(region)
+
+
+def test_with_region_halo_and_margin():
+    """region_halo and region_margin_deg configure the views with_region makes."""
+    dx = _build()
+    box = Region.box(9.2, 49.0, 11.5, 51.2)
+    plain = dx.with_region(box)
+    dx.region_halo = 1
+    dx.region_margin_deg = 2.0
+    haloed = dx.with_region(box)
+    assert plain._halo == (0, 0, 0, 0)
+    assert haloed._halo == (1, 1, 1, 1)
+    assert haloed.region_halo == 1 and haloed.region_margin_deg == 2.0
+    # The halo is run, then trimmed: same reported grid
+    for a, b in zip(_output_grid(haloed), _output_grid(plain)):
+        np.testing.assert_array_equal(a, b)
+    assert haloed.lat_output_grid.shape[0] == plain.lat_output_grid.shape[0] + 2
+    # The input grid keeps the margin around the (halo-expanded) run grid
+    assert haloed.lat_input_numpy.min() <= np.floor(haloed.lat_output_numpy.min()) - 2
+    assert plain.lat_input_numpy.min() > haloed.lat_input_numpy.min()
+
+
+def test_with_region_extended_margin():
+    """Boxes in the extended margin warn; beyond it they raise."""
+    from loguru import logger
+
+    dx = _attach_extended_grid(_build())
+    messages: list[str] = []
+    sink = logger.add(lambda m: messages.append(str(m)), level="WARNING")
+    try:
+        inside = dx.with_region(Region.box(9.0, 49.0, 11.0, 51.0))
+        assert not messages
+        view = dx.with_region(Region.box(9.0, 53.3, 11.0, 54.0))
+    finally:
+        logger.remove(sink)
+    assert any("out-of-distribution" in m for m in messages)
+    assert view.lat_output_numpy.max() >= 54.0
+    assert inside.static_invariants.shape[-2:] == inside.lat_output_grid.shape
+    # A view still reaches the extended margin
+    np.testing.assert_array_equal(
+        inside.with_region(Region.box(9.0, 53.3, 11.0, 54.0)).lat_output_numpy,
+        view.lat_output_numpy,
+    )
+    with pytest.raises(ValueError, match="footprint"):
+        dx.with_region(Region.box(9.0, 53.0, 11.0, 55.0))
 
 
 def test_forward_core_halo_trims_border():
