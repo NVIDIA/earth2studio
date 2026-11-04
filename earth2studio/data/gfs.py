@@ -89,12 +89,8 @@ class GFS:
 
     Note
     ----
-    Temporal statistics: ``mean``, ``sum``, ``min``, and ``max`` accept labels
-    ``variable:method:window`` or ``variable:method:start:end``. Windows are
-    left-closed/right-open, sampled every six hours relative to the analysis time.
-    ``t2m:mean:24h`` averages the preceding four analyses, excluding that time.
-    ``tp06`` represents trailing six-hour accumulations; sums are totals only
-    when those intervals do not overlap.
+    This data source supports the following temporal statistics: ``mean``,
+    ``sum``, ``min``, and ``max``. The temporal sampling cadence is six hours.
 
     Note
     ----
@@ -627,18 +623,13 @@ class GFS_FX(GFS):
 
     ``tp06`` is the trailing six-hour precipitation total in metres, reconstructed
     across accumulation-bucket resets within the same forecast initialization.
-    All requested ``tp06`` sample lead times must be at least six hours. Temporal
-    statistics of ``tp06`` reduce these six-hour totals; overlapping totals in a
-    sum count overlapping precipitation more than once.
+    All requested ``tp06`` sample lead times must be at least six hours.
 
     Note
     ----
-    Temporal statistics: ``mean``, ``sum``, ``min``, and ``max`` accept labels
-    ``variable:method:window`` or ``variable:method:start:end``. Windows are
-    left-closed/right-open, sampled hourly over lead times of one initialization.
-    ``t2m:mean:6h`` at lead six hours averages leads zero through five hours.
-    Negative or unavailable leads are rejected. Raw ``tp`` accumulation buckets
-    reset every six hours; summing them is not a precipitation total.
+    This data source supports the following temporal statistics: ``mean``,
+    ``sum``, ``min``, and ``max``. The temporal sampling cadence is one hour
+    over forecast lead times.
 
     Parameters
     ----------

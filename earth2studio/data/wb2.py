@@ -324,11 +324,8 @@ class WB2ERA5(_WB2Base):
 
     Note
     ----
-    Temporal statistics: ``mean``, ``sum``, ``min``, and ``max`` accept labels
-    ``variable:method:window`` or ``variable:method:start:end``. Windows are
-    left-closed/right-open, sampled every six hours relative to the analysis time.
-    ``t2m:mean:24h`` averages the preceding four samples, excluding that time.
-    Sums of overlapping ``tp12`` or ``tp24`` accumulations double-count rainfall.
+    This data source supports the following temporal statistics: ``mean``,
+    ``sum``, ``min``, and ``max``. The temporal sampling cadence is six hours.
 
     Parameters
     ----------
@@ -382,11 +379,8 @@ class WB2ERA5_121x240(_WB2Base):
 
     Note
     ----
-    Temporal statistics: ``mean``, ``sum``, ``min``, and ``max`` accept labels
-    ``variable:method:window`` or ``variable:method:start:end``. Windows are
-    left-closed/right-open, sampled every six hours relative to the analysis time.
-    ``t2m:mean:24h`` averages the preceding four samples, excluding that time.
-    Sums of overlapping ``tp12`` or ``tp24`` accumulations double-count rainfall.
+    This data source supports the following temporal statistics: ``mean``,
+    ``sum``, ``min``, and ``max``. The temporal sampling cadence is six hours.
 
     Parameters
     ----------
@@ -440,11 +434,8 @@ class WB2ERA5_32x64(_WB2Base):
 
     Note
     ----
-    Temporal statistics: ``mean``, ``sum``, ``min``, and ``max`` accept labels
-    ``variable:method:window`` or ``variable:method:start:end``. Windows are
-    left-closed/right-open, sampled every six hours relative to the analysis time.
-    ``t2m:mean:24h`` averages the preceding four samples, excluding that time.
-    Sums of overlapping ``tp12`` or ``tp24`` accumulations double-count rainfall.
+    This data source supports the following temporal statistics: ``mean``,
+    ``sum``, ``min``, and ``max``. The temporal sampling cadence is six hours.
 
     Parameters
     ----------

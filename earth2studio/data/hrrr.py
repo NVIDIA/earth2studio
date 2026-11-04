@@ -85,11 +85,8 @@ class HRRR:
     ```
     Note
     ----
-    Temporal statistics: ``mean``, ``sum``, ``min``, and ``max`` accept labels
-    ``variable:method:window`` or ``variable:method:start:end``. Windows are
-    left-closed/right-open, sampled hourly relative to the analysis time.
-    ``t2m:mean:6h`` averages the preceding six analyses, excluding that time.
-    Reductions act on stored values, including any native accumulations.
+    This data source supports the following temporal statistics: ``mean``,
+    ``sum``, ``min``, and ``max``. The temporal sampling cadence is one hour.
 
     Parameters
     ----------
@@ -673,12 +670,9 @@ class HRRR_FX(HRRR):
 
     Note
     ----
-    Temporal statistics: ``mean``, ``sum``, ``min``, and ``max`` accept labels
-    ``variable:method:window`` or ``variable:method:start:end``. Windows are
-    left-closed/right-open, sampled hourly over lead times of one initialization.
-    ``t2m:mean:6h`` at lead six hours averages leads zero through five hours.
-    Negative or unavailable leads are rejected. Reductions act on stored values,
-    including any native accumulations.
+    This data source supports the following temporal statistics: ``mean``,
+    ``sum``, ``min``, and ``max``. The temporal sampling cadence is one hour
+    over forecast lead times.
 
     Parameters
     ----------

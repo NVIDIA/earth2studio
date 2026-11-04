@@ -76,15 +76,8 @@ class ARCO_ERA5:
 
     Note
     ----
-    Temporal statistics: ``mean``, ``sum``, ``min``, and ``max`` accept labels
-    ``variable:method:window`` or ``variable:method:start:end``. Windows are
-    left-closed/right-open, sampled hourly relative to the analysis time.
-    ``t2m:mean:24h`` averages the preceding 24 samples, excluding that time.
-
-    Warning
-    -------
-    Accumulation timestamps mark interval ends; sums of overlapping multi-hour
-    accumulations can double-count precipitation or radiation.
+    This data source supports the following temporal statistics: ``mean``,
+    ``sum``, ``min``, and ``max``. The temporal sampling cadence is one hour.
 
     Badges
     ------
