@@ -136,6 +136,16 @@ cannot regroup or reorder members. `seed` is a constructor argument (default
 `0`) exposed as `runner.seed` for the progress manifest. Runners never touch
 global RNG state (`P14`, `D10`).
 
+A runner given a `perturbation` applies it to the fetched initial condition
+before publishing or rolling it out, one member at a time: it calls
+`perturbation.set_rng(member_seed(self.seed, item.time, member_id), reset=True)`
+and perturbs that member's field alone, in the layout it has without a batch.
+A perturbation without `set_rng` runs inside a Torch RNG fork seeded the same
+way. Unlike a stochastic model's draws, a member's perturbation therefore does
+not depend on its batch. Perturbations that run models, read their own sources
+or perturb members together (bred vectors, `LaggedEnsemble`) raise
+`ValueError` at construction.
+
 `member_seed(base, time, member_id)` keeps the eval recipe's derivation, so eval
 results reproduce: FNV-1a 64 over `struct.pack(">qqq", base, seconds, member_id)`,
 modulo `2**63`.
@@ -363,7 +373,8 @@ physicsnemo's `DistributedManager`, which is optional.
 
 ## Built-in runners
 
-`PrognosticRunner(prognostic, source=None, forcing=None, diagnostics=None, seed=0, ensemble_member=None)`
+`PrognosticRunner(prognostic, source=None, forcing=None, diagnostics=None, seed=0,
+ensemble_member=None, perturbation=None)`
 drives `create_iterator` and publishes the initial condition as the first step,
 matching `run.deterministic`, when the input ends at zero and the output declares
 every input variable on the input's grid; otherwise the streams start at the
@@ -393,8 +404,8 @@ All three batch members (`supports_member_batching = True`) and take
 | `X2` | Stream signatures carry the yielded fields' grid metadata and auxiliary coordinates |
 | `X3` | Outputs have dims `time` (`item.time` only), then the schema's fixed dims |
 | `X4` | Output `lead_time` labels lie within the schema's; other fixed labels equal it |
-| `X5` | Each item seeds stochastic models from its first member: `member_seed`, `reset=True` |
-| `X6` | `member_seed` depends only on base seed, time and member ID |
+| `X5` | Each item seeds stochastic models once, from its first member's `member_seed` |
+| `X6` | Perturbations draw each member alone from its `member_seed` (base seed, time, member) |
 | `X7` | Every rank passes identical items, or `run` raises `ValueError` first |
 | `X8` | Stores are planned from all items, so resume at any world size reuses them |
 | `X9` | `distribute_work` slices evenly and contiguously; idle ranks join collectives |
@@ -441,6 +452,8 @@ optional runner capability built on `(y, state)` (open decision 3).
 - Core has only the `Scorer` and `sync` hooks; metrics and rank communication stay
   in recipes.
 - Member grouping lives in `work_items`, since groups are part of item identity.
+- Perturbations are a runner argument (`perturbation=`, per component for
+  `CoupledRunner`), drawn per member under `member_seed`.
 - Plain mappings for per-stream settings and backends.
 - Only `Pipeline` runs collectives; output and progress stores are rank-local.
 - Distributed stores need blocks of 1 along `time` and `ensemble`, which backends
@@ -449,8 +462,8 @@ optional runner capability built on `(y, state)` (open decision 3).
 ## Open decisions
 
 1. **Dependent work items**, such as warm-start cycling: v1 or out of scope?
-2. **Ensembles:** where perturbations are configured, likely a runner argument,
-   Member batching is done; per-element seeding of stochastic batches is open.
+2. **Ensembles:** per-element seeding of stochastic batches; bred vectors (model
+   runs, own source, `+/-` pairs) and lagged ensembles in the runners.
 3. **Mid-item resume:** must `run.*` keep step-level checkpoint resume? If so,
    runners need an optional checkpoint built on `(y, state)`. Blocks phase 4 only.
 4. **Async fetching:** if needed, change runner and `Pipeline` loop together.

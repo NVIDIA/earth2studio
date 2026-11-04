@@ -39,7 +39,13 @@ from earth2studio.data.utils import _is_ensemble_source
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.models.px.utils import initial_condition
-from earth2studio.models.utils import recommended_sources, step_interval
+from earth2studio.models.utils import fork_rng, recommended_sources, step_interval
+from earth2studio.perturbation import (
+    BredVector,
+    HemisphericCentredBredVector,
+    LaggedEnsemble,
+    Perturbation,
+)
 from earth2studio.run._fields import (
     _lead_times,
     _map_field,
@@ -285,6 +291,61 @@ def _seed_model(
     return seed
 
 
+def _check_perturbation(perturbation: object) -> None:
+    """Reject perturbations that cannot perturb one member at a time."""
+    if isinstance(perturbation, (BredVector, HemisphericCentredBredVector)):
+        raise ValueError(
+            f"{type(perturbation).__name__} is not supported by the runners yet: "
+            "bred vectors run the prognostic model on their own data source and "
+            "perturb members in +/- pairs"
+        )
+    if isinstance(perturbation, LaggedEnsemble):
+        raise ValueError(
+            "LaggedEnsemble is not supported by the runners: it fetches all members "
+            "from its own source at once rather than perturbing each member"
+        )
+
+
+def _perturb(
+    perturbation: Perturbation | None,
+    x: xr.DataArray,
+    base: int,
+    item: WorkItem,
+    device: torch.device,
+) -> xr.DataArray:
+    """Perturb an initial condition, drawing each member alone (``X6``).
+
+    Each member is perturbed under its own ``member_seed`` and in the layout it
+    has when run alone, so its perturbation does not depend on its batch.
+    Deterministic items perturb as member ``0``.
+    """
+    if perturbation is None:
+        return x
+    if len(item.member_ids) <= 1:
+        member = item.member_ids[0] if item.member_ids else 0
+        seed = member_seed(base, item.time, member)
+        return _perturb_member(perturbation, x, seed, device)
+    out = x.copy(deep=True)
+    axis = x.get_axis_num("ensemble")
+    for i, member in enumerate(item.member_ids):
+        seed = member_seed(base, item.time, member)
+        part = _perturb_member(perturbation, x.isel(ensemble=i), seed, device)
+        out.data[(slice(None),) * axis + (i,)] = part.data
+    return out
+
+
+def _perturb_member(
+    perturbation: Perturbation, x: xr.DataArray, seed: int, device: torch.device
+) -> xr.DataArray:
+    set_rng = getattr(perturbation, "set_rng", None)
+    if callable(set_rng):
+        set_rng(seed, reset=True)
+        return perturbation(x)
+    # Perturbations without their own stream draw from a forked global RNG.
+    with fork_rng(seed, device=device):
+        return perturbation(x)
+
+
 class PrognosticRunner:
     """Roll one prognostic model forward, optionally applying diagnostics.
 
@@ -299,7 +360,8 @@ class PrognosticRunner:
     forecast. Forcing declared by the model is fetched and sent at every step.
     Items with several members run as one batch on a leading ``ensemble``
     dimension, seeded once from the first member, so stochastic members depend on
-    their batch; ``member_batch=1`` seeds each member alone.
+    their batch; ``member_batch=1`` seeds each member alone. A perturbation, by
+    contrast, draws each member alone under its own seed.
 
     Parameters
     ----------
@@ -323,6 +385,11 @@ class PrognosticRunner:
         member. Initial-condition and forcing slots read that member; slots
         from other sources are shared by every member. By default None, which
         reads every slot the same way for every member.
+    perturbation : Perturbation, optional
+        Initial-condition perturbation, applied to each member under its own
+        ``member_seed`` through the perturbation's ``set_rng``, or a forked
+        global RNG without one, by default None. Bred vectors and
+        :class:`~earth2studio.perturbation.LaggedEnsemble` are not supported.
     """
 
     supports_member_batching = True
@@ -335,6 +402,7 @@ class PrognosticRunner:
         diagnostics: Mapping[str, DiagnosticModel] | None = None,
         seed: int = 0,
         ensemble_member: EnsembleMember | None = None,
+        perturbation: Perturbation | None = None,
     ) -> None:
         self.prognostic = prognostic
         input_signature = prognostic.input_coords()
@@ -361,6 +429,8 @@ class PrognosticRunner:
             raise ValueError("Stream name 'forecast' is reserved for the prognostic")
         self.seed = seed
         self.ensemble_member = ensemble_member
+        _check_perturbation(perturbation)
+        self.perturbation = perturbation
         self.device = _module_device(prognostic)
         oc = cast(CoordinateSystem, prognostic.output_coords(self.input_signature))
         self.output_leads = oc["lead_time"].values
@@ -487,6 +557,7 @@ class PrognosticRunner:
             item,
             self.ensemble_member,
         )
+        x = _perturb(self.perturbation, x, self.seed, item, self.device)
         if self.publishes_initial_condition:
             yield self._publish(initial_condition(x))
         if nsteps == 0:

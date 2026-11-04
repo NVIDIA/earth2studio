@@ -44,14 +44,17 @@ from earth2studio.coupling.errors import CouplingError, _suggest
 from earth2studio.data import fetch_dataframe
 from earth2studio.grids import infer_grid, same_geometry
 from earth2studio.models.utils import recommended_sources
+from earth2studio.perturbation import Perturbation
 from earth2studio.run._fields import _map_field, _with_lead_time
 from earth2studio.run.runner import (
     DataRequest,
     EnsembleMember,
     SlotSource,
+    _check_perturbation,
     _ensemble_labels,
     _fetch,
     _module_device,
+    _perturb,
     _seed_model,
     _signature_for_stream,
 )
@@ -83,8 +86,10 @@ class CoupledRunner:
     a diagnostic publishes every call.
 
     Items with several members run as one batch on a leading ``ensemble``
-    dimension, observation frames shared by every member, seeded once from the first member, so stochastic members depend on
-    their batch; ``member_batch=1`` seeds each member alone.
+    dimension, observation frames shared by every member, seeded once from the
+    first member, so stochastic members depend on their batch; ``member_batch=1``
+    seeds each member alone. A perturbation, by contrast, draws each member alone
+    under its own seed.
 
     Parameters
     ----------
@@ -115,6 +120,10 @@ class CoupledRunner:
         labels, by default None. Every fetched slot whose source is
         ensemble-aware reads that member, initial conditions and forcing alike;
         other slots are shared by every member.
+    perturbation : Mapping[str, Perturbation], optional
+        Initial-condition perturbation per stateful component, applied to its
+        first input slot as :class:`~earth2studio.run.PrognosticRunner` applies
+        it, from the component's offset seed, by default none.
 
     Raises
     ------
@@ -132,6 +141,7 @@ class CoupledRunner:
         seed: int = 0,
         devices: Mapping[str, torch.device | str] | None = None,
         ensemble_member: EnsembleMember | None = None,
+        perturbation: Mapping[str, Perturbation] | None = None,
     ) -> None:
         if not components:
             raise CouplingError("CoupledRunner needs at least one component")
@@ -173,6 +183,19 @@ class CoupledRunner:
         self._recommended: dict[str, tuple[Any, ...]] = {}
         self.seed = seed
         self.ensemble_member = ensemble_member
+        self.perturbation = dict(perturbation or {})
+        for name, perturb in self.perturbation.items():
+            if name not in self.nodes:
+                raise CouplingError(
+                    f"Perturbation given for unknown component {name!r}"
+                    + _suggest(name, self.nodes)
+                )
+            if not self.nodes[name].stateful:
+                raise CouplingError(
+                    f"Perturbation given for component {name!r}, which has no "
+                    "initial condition"
+                )
+            _check_perturbation(perturb)
         self.spacing = self._spacing()
         self._check_windows()
         self._scheduler = _Scheduler(
@@ -594,6 +617,16 @@ class _Execution:
             self._fetch(node, slot, slot.labels, [0] if slot.frame else slot.leads)
             for slot in node.inputs
         )
+        perturbation = self.runner.perturbation.get(node.name)
+        if perturbation is not None:
+            x = _perturb(
+                perturbation,
+                values[0],
+                _component_seed(self.runner.seed, node.name),
+                self.item,
+                self.runner.device_of(node.name),
+            )
+            values = (x, *values[1:])
         self.inputs[node.name] = values
         return values
 

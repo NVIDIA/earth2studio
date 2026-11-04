@@ -36,6 +36,13 @@ from earth2studio.io.utils import output_template
 from earth2studio.models.dx import Identity
 from earth2studio.models.px.fcn import FCN
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.perturbation import (
+    BredVector,
+    Brown,
+    Gaussian,
+    HemisphericCentredBredVector,
+    LaggedEnsemble,
+)
 from earth2studio.run import DiagnosticRunner, PrognosticRunner, Runner, WorkItem
 from earth2studio.run.runner import _signature_for_stream
 from earth2studio.run.work import member_seed
@@ -660,3 +667,50 @@ def test_diagnostic_runner_batches_members() -> None:
     (step,) = list(runner.run_item(WorkItem(T0, np.timedelta64(0, "h"), (0, 1))))
     assert step["wind"].dims[0] == "ensemble"
     np.testing.assert_allclose(step["wind"].values, np.hypot(1, 1))
+
+
+class _GlobalNoise:
+    """Perturbation without ``set_rng``, drawing from the global Torch RNG."""
+
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        return x.copy(data=x.values + torch.randn(x.shape).numpy())
+
+
+@pytest.mark.parametrize(
+    "perturbation", [Gaussian, _GlobalNoise], ids=["set_rng", "global"]
+)
+def test_perturbation_draws_each_member_alone(perturbation: type) -> None:
+    runner = PrognosticRunner(_model(), _Zeros(), perturbation=perturbation())
+    before = torch.random.get_rng_state()
+    batched = list(runner.run_item(WorkItem(T0, np.timedelta64(6, "h"), (4, 9))))
+    assert torch.equal(torch.random.get_rng_state(), before)
+    initial = batched[0]["forecast"]
+    assert not np.allclose(initial.sel(ensemble=4), initial.sel(ensemble=9))
+    assert not np.allclose(initial, 0)
+    for member in (4, 9):
+        single = list(runner.run_item(_member_item(member)))
+        for many, one in zip(batched, single):
+            xr.testing.assert_identical(
+                many["forecast"].sel(ensemble=member, drop=True), one["forecast"]
+            )
+    # Deterministic items perturb as member 0.
+    xr.testing.assert_identical(
+        list(runner.run_item(_item(0)))[0]["forecast"],
+        list(runner.run_item(_member_item(0, hours=0)))[0]["forecast"],
+    )
+
+
+@pytest.mark.parametrize(
+    "perturbation",
+    [
+        lambda: BredVector(lambda x: x),
+        lambda: HemisphericCentredBredVector(_model(), _Zeros(), Brown()),
+        lambda: LaggedEnsemble(_Zeros(), np.array([0], dtype="timedelta64[h]")),
+    ],
+    ids=["bred", "hcbv", "lagged"],
+)
+def test_runner_rejects_perturbations_needing_whole_ensembles(
+    perturbation: Callable[[], Any],
+) -> None:
+    with pytest.raises(ValueError, match="not supported by the runners"):
+        PrognosticRunner(_model(), _Zeros(), perturbation=perturbation())

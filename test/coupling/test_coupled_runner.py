@@ -47,6 +47,7 @@ from test_coupling_toys import (
 from earth2studio.coupling import Connector, CoupledRunner, CouplingError
 from earth2studio.grids import NearestRegridder
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.perturbation import BredVector, Gaussian
 from earth2studio.run import PrognosticRunner, Runner, WorkItem
 from earth2studio.utils import coord_array_like
 from earth2studio.utils.type import CoordinateSystem
@@ -955,3 +956,37 @@ def test_batched_members_match_single_member_runs(
             for name, x in many.items():
                 assert x.dims[0] == "ensemble"
                 xr.testing.assert_allclose(x.sel(ensemble=member, drop=True), one[name])
+
+
+def test_perturbation_draws_each_member_alone(ic_sources: Mapping[str, Fill]) -> None:
+    runner = _toy(ic_sources, perturbation={"ocean": Gaussian()})
+    final = np.timedelta64(96, "h")
+    batched = list(runner.run_item(WorkItem(T0, final, member_ids=(2, 3))))
+    initial = next(step["ocean"] for step in batched if "ocean" in step)
+    assert not np.allclose(initial.sel(ensemble=2), initial.sel(ensemble=3))
+    assert not np.allclose(initial, 2.0)
+    for member in (2, 3):
+        single = list(runner.run_item(WorkItem(T0, final, member_ids=(member,))))
+        for many, one in zip(batched, single):
+            for name, x in many.items():
+                xr.testing.assert_allclose(x.sel(ensemble=member, drop=True), one[name])
+
+
+@pytest.mark.parametrize(
+    "perturbation, match",
+    [
+        ({"sea": Gaussian()}, "unknown component 'sea'"),
+        ({"double": Gaussian()}, "no initial condition"),
+        ({"atmos": BredVector(lambda x: x)}, "not supported by the runners"),
+    ],
+)
+def test_perturbation_needs_a_stateful_component(
+    ic_sources: Mapping[str, Fill], perturbation: dict, match: str
+) -> None:
+    with pytest.raises(ValueError, match=match):
+        CoupledRunner(
+            {"atmos": atmosphere(), "double": Double()},
+            [Connector("atmos", "double")],
+            sources={"atmos": (ic_sources["atmos"], Fill(ATMOS_GRID, {"sst": 2.0}))},
+            perturbation=perturbation,
+        )

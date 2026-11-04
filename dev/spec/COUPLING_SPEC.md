@@ -49,7 +49,7 @@ class CoupledRunner:  # satisfies earth2studio.run.Runner
     supports_member_batching = True
     def __init__(
         self, components, connectors=(), sources=None, seed=0, devices=None,
-        ensemble_member=None,
+        ensemble_member=None, perturbation=None,
     ): ...
     def describe(self, final_lead_time) -> str: ...
     def to(self, device) -> CoupledRunner: ...
@@ -171,6 +171,9 @@ a diagnostic slot publishes at every call.
 Streams carry the producing model's grid and the item's `time`, as `X1`–`X4`
 require. Seeding follows `X5`, from a base seed offset per component
 by the CRC-32 of its name, so stochastic components draw independent noise.
+`perturbation` maps stateful component names to initial-condition
+perturbations, applied to the first input slot per member as `X6` requires,
+from the same offset seed.
 With `ensemble_member`, every fetched slot whose source is ensemble-aware reads
 the item's mapped member, as `X22` requires; connected slots read what their
 producer published, and DataFrame slots are shared. Batched members travel on a
