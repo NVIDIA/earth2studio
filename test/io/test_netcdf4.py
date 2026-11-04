@@ -31,6 +31,64 @@ from earth2studio.io import NetCDF4Backend
 from earth2studio.utils.coords import convert_multidim_to_singledim, split_coords
 
 
+@pytest.mark.parametrize(
+    "unit, values, stored_units, stored_values",
+    [
+        ("h", [-6, 0, 6], "hours", [-6, 0, 6]),
+        ("ms", [-1001, 0, 1001], "milliseconds", [-1001, 0, 1001]),
+        ("us", [-1001, 0, 1001], "microseconds", [-1001, 0, 1001]),
+        ("ns", [-1, 0, 2**53 + 1], "nanoseconds", [-1, 0, 2**53 + 1]),
+        ("6h", [-1, 0, 1], "hours", [-6, 0, 6]),
+    ],
+)
+def test_netcdf4_lead_time_roundtrip(
+    tmp_path: Path,
+    unit: str,
+    values: list[int],
+    stored_units: str,
+    stored_values: list[int],
+) -> None:
+    lead_time = np.array(values, dtype=f"timedelta64[{unit}]")
+    coords = OrderedDict(
+        time=np.array([np.datetime64("2024-01-01")]), lead_time=lead_time
+    )
+    expected = torch.arange(len(lead_time), dtype=torch.float32).reshape(1, -1)
+    file_name = tmp_path / "lead_time.nc"
+    nc = NetCDF4Backend(file_name, backend_kwargs={"mode": "w"})
+    try:
+        nc.add_array(coords, "fields", data=expected)
+        assert nc["lead_time"].units == stored_units
+        np.testing.assert_array_equal(nc["lead_time"][:], stored_values)
+    finally:
+        nc.close()
+
+    with xarray.open_dataset(file_name, decode_timedelta=True) as dataset:
+        np.testing.assert_array_equal(dataset.lead_time.values, lead_time)
+        np.testing.assert_array_equal(dataset.fields.values, expected.numpy())
+        decoded_coords = OrderedDict(
+            time=dataset.time.values, lead_time=dataset.lead_time.values
+        )
+
+    nc = NetCDF4Backend(file_name)
+    try:
+        np.testing.assert_array_equal(nc.coords["lead_time"], lead_time)
+        actual, _ = nc.read(decoded_coords, "fields")
+        torch.testing.assert_close(actual, expected)
+    finally:
+        nc.close()
+
+    # Coordinates decoded by xarray must also be accepted for a new output file.
+    nc = NetCDF4Backend(tmp_path / "rewritten.nc", backend_kwargs={"mode": "w"})
+    try:
+        nc.add_array(decoded_coords, "fields", data=expected)
+    finally:
+        nc.close()
+    with xarray.open_dataset(
+        tmp_path / "rewritten.nc", decode_timedelta=True
+    ) as dataset:
+        np.testing.assert_array_equal(dataset.lead_time.values, lead_time)
+
+
 def test_netcdf4_write_is_visible_before_close(tmp_path: Path) -> None:
     coords = OrderedDict({"lat": np.arange(2), "lon": np.arange(2)})
     source_path = tmp_path / "source.nc"

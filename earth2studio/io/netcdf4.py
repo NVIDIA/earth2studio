@@ -32,6 +32,9 @@ units_map = {
     "h": "hours",
     "D": "days",
     "s": "seconds",
+    "ms": "milliseconds",
+    "us": "microseconds",
+    "ns": "nanoseconds",
     "m": "minutes",
     "Y": "years",
 }
@@ -144,7 +147,8 @@ class NetCDF4Backend:
             elif np.issubdtype(data.dtype, np.timedelta64):
                 units, _ = np.datetime_data(data[0])
                 out_units = units_map[units]
-                data = data / np.timedelta64(1, units)
+                # Preserve integer precision, including sub-second lead times.
+                data = data.astype(f"timedelta64[{units}]").astype(np.int64)
                 var = self.root.createVariable(name, "i8", (name,))
                 var.units = out_units
                 var.calendar = "gregorian"
