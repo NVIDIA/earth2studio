@@ -68,6 +68,10 @@ inherit. Wrappers around external engines conform without subclassing.
   `ValueError` if any target point lacks coverage.
 - Floating dtypes are preserved. Other dtypes may be promoted so the fill is
   representable.
+- `NearestRegridder` takes an optional `source_mask` shaped like the source
+  grid; masked points are never selected, so a land-masked ocean field fills
+  every target from its nearest valid point. The mask is fixed at construction
+  (`R1`), unlike NaNs in the data, which propagate (`R7`).
 
 ## Registry
 
