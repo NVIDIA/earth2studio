@@ -33,7 +33,7 @@ from earth2studio.models.px.fuxi_s2s import VARIABLES
 from earth2studio.utils import coord_array, coord_array_like, handshake_dim
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.time_statistics import source_times
-from test.models._random import RandomStatistics as Random
+from test.models.test_random_statistics import RandomStatistics as Random
 
 
 @pytest.fixture(autouse=True)

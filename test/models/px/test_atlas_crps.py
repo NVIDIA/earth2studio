@@ -31,7 +31,7 @@ from earth2studio.models.px import AtlasCRPS
 from earth2studio.utils import coord_array, coord_array_like
 from earth2studio.utils.checkpoint import Checkpoint
 from earth2studio.utils.cupy import from_torch
-from test.models._random import RandomStatistics as Random
+from test.models.test_random_statistics import RandomStatistics as Random
 
 
 class PhooAtlasCRPSModel(torch.nn.Module):

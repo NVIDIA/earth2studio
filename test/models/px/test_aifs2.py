@@ -29,7 +29,7 @@ from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import AIFS2
 from earth2studio.utils import coord_array, coord_array_like
 from earth2studio.utils.cupy import from_torch
-from test.models._random import RandomStatistics as Random
+from test.models.test_random_statistics import RandomStatistics as Random
 
 
 @pytest.fixture
