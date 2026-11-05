@@ -100,6 +100,11 @@ python ../main.py --config-path=$(pwd)/cfg --config-name=extract_era5.yaml \
 
 ### Expected Result — Historic Extraction
 
+> [!Important]
+> The reference tracks in `../aux_data` were extracted before the extraction
+> included the last 6-hourly time step of a storm. Until they are regenerated
+> with the current code, the comparison below shows that additional time step.
+
 The run should produce two reference tracks in `outputs_reference_tracks/`.
 Output is deterministic regardless of the `num_workers` setting (each storm writes
 its own CSV independently). Now, let us compare the extracted tracks with the
