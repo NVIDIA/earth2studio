@@ -145,7 +145,7 @@ x = fetch_data(
 dt_hours = int(
     sfno.output_coords(sic).coords["lead_time"].values[0] / np.timedelta64(1, "h")
 )
-x = _map_field(x, sic)
+x = _map_field(x, sic).astype(np.float32)
 model = sfno.create_iterator(x)
 # The iterator yields the t=0 analysis first (before any forward step), so the four
 # 6-hourly steps to 24 h take lead_hours // dt_hours + 1 = 5 calls (the first call
