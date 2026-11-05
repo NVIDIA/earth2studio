@@ -56,6 +56,16 @@ E2STUDIO_SCHEMA = pa.schema([
 
 Each data source **MUST** define its own lexicon class that maps Earth2Studio variable names to data source-specific information.
 
+### Optional Temporal-Statistics Capabilities
+
+For native statistics, declare `TIME_STATISTICS: tuple[str, ...]` on the lexicon
+(for example `("mean", "sum", "min", "max")`) and expose it as `source.lexicon`.
+Omit the declaration when unsupported. Keep `VOCAB` and `get_item` focused on base
+variables: the source parses qualified labels with `statistic_modifiers`
+before lookup. Do not add one lexicon entry for every possible window.
+See [TIME_STATISTICS_SPEC.md](mdc:dev/spec/TIME_STATISTICS_SPEC.md) and the
+create-datasource skill's `references/temporal-statistics.py` for support functions.
+
 ### Lexicon Class Structure
 
 ```python
