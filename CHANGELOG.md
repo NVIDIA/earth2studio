@@ -15,6 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   returns a view on the block of the HRRR crop covering a box, with the CorrDiff
   regional helpers shared in `earth2studio.models.nn.corrdiff`.
 
+- [CorrDiff wrappers](earth2studio/models/dx/corrdiff.py), including the
+  [CMIP6](earth2studio/models/dx/corrdiff_cmip6.py),
+  [COSMO/ERA5](earth2studio/models/dx/corrdiff_cosmo_era5.py),
+  [ERA5/HRRR](earth2studio/models/dx/corrdiff_era5_hrrr.py), and
+  [SDA](earth2studio/models/da/sda_corrdiff_cosmo_era5.py) variants, accept optional
+  `solver` and `solver_options` arguments when loading. Use them to experiment
+  with numerical integration methods and compare sampling quality and cost.
+  Overrides are opt-in. Existing solver selections remain the defaults.
+  Refer to the [diffusion solver guide](docs/userguide/advanced/diffusion_solvers.md)
+  for examples and configuration details.
+
 ### Changed
 
 ### Deprecated

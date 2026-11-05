@@ -3,6 +3,7 @@
 - [Checkpointing](checkpointing.md)
 - [Batch Dimension](batch.md)
 - [AutoModels](auto.md)
+- [Diffusion solvers](diffusion_solvers.md)
 - [Lexicon](lexicon.md)
 
 ## Knowledge Base
