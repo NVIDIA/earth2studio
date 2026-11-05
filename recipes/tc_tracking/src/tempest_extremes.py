@@ -27,6 +27,9 @@ import xarray as xr
 from loguru import logger
 from omegaconf import DictConfig
 
+# in-memory file system, the default location of TE's input files
+SHARED_MEMORY = "/dev/shm"  # noqa: S108
+
 
 class TempestExtremes:
     """Track tropical cyclones in model output with TempestExtremes (TE).
@@ -106,7 +109,8 @@ class TempestExtremes:
 
         # file arguments are set per member
         self.detect_cmd = self._without_arguments(
-            detect_cmd.split(), ["--in_data", "--in_data_list", "--out", "--out_file_list"]
+            detect_cmd.split(),
+            ["--in_data", "--in_data_list", "--out", "--out_file_list"],
         )
         self.stitch_cmd = self._without_arguments(
             stitch_cmd.split(), ["--in", "--in_list", "--out"]
@@ -125,7 +129,9 @@ class TempestExtremes:
             os.makedirs(os.path.join(self.store_dir, "raw_data"), exist_ok=True)
 
         if scratch_dir is None:
-            scratch_dir = "/dev/shm" if os.path.isdir("/dev/shm") else self.store_dir  # noqa: S108
+            scratch_dir = (
+                SHARED_MEMORY if os.path.isdir(SHARED_MEMORY) else self.store_dir
+            )
         self.scratch_dir = tempfile.mkdtemp(prefix="tc_tracking_", dir=scratch_dir)
 
         # forecast steps of the current batch, filled by record_state
@@ -135,7 +141,9 @@ class TempestExtremes:
         self._tasks: list[Future] = []
         if asynchronous:
             if max_workers is None:
-                max_workers = max(1, (os.cpu_count() or 1) // max(1, torch.cuda.device_count()))
+                max_workers = max(
+                    1, (os.cpu_count() or 1) // max(1, torch.cuda.device_count())
+                )
             self._executor = ThreadPoolExecutor(
                 max_workers=max_workers, thread_name_prefix="tempest_extremes"
             )
@@ -169,7 +177,9 @@ class TempestExtremes:
             stitch_cmd=cfg.stitch_cmd,
             input_vars=cfg.vars,
             store_dir=store_dir,
-            heights=load_heights(cfg.orography_path) if "orography_path" in cfg else None,
+            heights=(
+                load_heights(cfg.orography_path) if "orography_path" in cfg else None
+            ),
             keep_raw_data=cfg.get("keep_raw_data", False),
             print_te_output=cfg.get("print_te_output", False),
             scratch_dir=cfg.get("scratch_dir", None),
@@ -245,7 +255,9 @@ class TempestExtremes:
             if self._executor is None:
                 self._track_member(raw, track)
             else:
-                self._tasks.append(self._executor.submit(self._track_member, raw, track))
+                self._tasks.append(
+                    self._executor.submit(self._track_member, raw, track)
+                )
 
         return track_files
 

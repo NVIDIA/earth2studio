@@ -17,14 +17,13 @@
 import gc
 import os
 import random
-import sys
 from itertools import chain, islice
 
 import numpy as np
 import torch
 import xarray as xr
 from loguru import logger
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
 from tqdm import tqdm
 from zarr import consolidate_metadata
@@ -40,12 +39,15 @@ from src.tc_hunt_utils import (
     InstabilityDetection,
     assign_runs_to_rank,
     get_set_of_random_seeds,
-    remove_duplicates,
     run_with_rank_ordered_execution,
     set_initial_times,
     share_gpu_memory_with_cupy,
 )
 from src.tempest_extremes import TempestExtremes
+
+# one model rollout: initial condition, indices of the members in the batch and
+# the batch's random seed
+Run = tuple[np.datetime64, np.ndarray, int]
 
 
 def initialise(cfg: DictConfig) -> None:
@@ -76,8 +78,8 @@ def initialise(cfg: DictConfig) -> None:
     if torch.cuda.is_available():
         share_gpu_memory_with_cupy()
 
-    # intialise random seeds
-    # NOTE: DOES NOT affect the internal random state of the forecast models)
+    # seed global random number generators, which does not affect the
+    # models' own random state
     if "random_seed" in cfg:
         torch.manual_seed(cfg.random_seed)
         np.random.seed(cfg.random_seed)
@@ -150,7 +152,7 @@ def run_inference(
     cfg: DictConfig,
     store: ZarrBackend | None,
     template: xr.DataArray | None,
-    ic_mems: list[tuple[np.datetime64, np.ndarray, int]],
+    runs: list[Run],
 ) -> None:
     """Run ensemble inference and optionally track tropical cyclones.
 
@@ -170,7 +172,7 @@ def run_inference(
         Zarr output store, or None if fields are written to NetCDF or not at all
     template : xr.DataArray | None
         Output template of the run, or None if no fields are written
-    ic_mems : list[tuple[np.datetime64, np.ndarray, int]]
+    runs : list[Run]
         List of (initial_condition, member_indices, random_seed) tuples
     """
 
@@ -181,7 +183,9 @@ def run_inference(
     # NetCDF stores are created per IC and stay open, as unstable members can
     # be re-queued to the end of the work list
     nc_stores: dict[np.datetime64, NetCDF4Backend] = {}
-    x0, x0_ic = None, None
+    out_vars = None if template is None else template.coords["variable"].values
+    # initial condition, shared by all batches of an IC
+    x0: xr.DataArray | None = None
 
     # TODO: add the native WeatherNext 2 cyclone tracker as alternative to
     # TempestExtremes once WeatherNext 2 is supported by the recipe
@@ -198,14 +202,13 @@ def run_inference(
             thresholds=cfg.stability_check.thresholds,
         )
 
-    for ic, mems, seed in ic_mems:
+    for ic, mems, seed in runs:
         if cfg.store_type == "netcdf" and ic not in nc_stores:
-            nc_stores[ic] = initialise_netcdf_output(cfg, model, ic, ic_mems)
+            nc_stores[ic] = initialise_netcdf_output(cfg, model, ic, runs)
         if cfg.store_type == "netcdf":
             store = nc_stores[ic]
 
-        # initial condition, shared by all batches of an IC
-        if ic != x0_ic:
+        if x0 is None or x0.coords["time"].values[0] != ic:
             x0 = fetch_data(
                 data_source_mngr.select_data_source(ic),
                 time=[ic],
@@ -213,7 +216,6 @@ def run_inference(
                 lead_time=inputs.coords["lead_time"].values,
                 device=dist.device,
             )
-            x0_ic = ic
         x = x0.expand_dims(ensemble=mems)
 
         if stability_check:
@@ -233,7 +235,7 @@ def run_inference(
             # hold GPU memory, collect them before the model allocates again
             gc.collect()
             if store is not None:
-                store.write(y.sel(variable=template.coords["variable"].values))
+                store.write(y.sel(variable=out_vars))
             if cyclone_tracking:
                 cyclone_tracking.record_state(y)
 
@@ -242,7 +244,7 @@ def run_inference(
                 if not stable:
                     if cyclone_tracking:
                         cyclone_tracking.reset()
-                    ic_mems.append((ic, mems, seed + 1))
+                    runs.append((ic, mems, seed + 1))
                     logger.warning(
                         f"CAUTION: one of members {mems} became unstable. will re-create with new seed."
                     )
@@ -271,14 +273,8 @@ def run_inference(
             consolidate_metadata(store.store)
 
 
-def configure_runs(
-    cfg: DictConfig,
-) -> tuple[list[tuple[np.datetime64, np.ndarray, int]] | None, list[np.datetime64]]:
-    """Build and distribute the list of ensemble runs from the configuration.
-
-    Generates all (initial_condition, member_batch, random_seed) combinations
-    based on the configured ICs, ensemble size, and batch size, then
-    distributes them across all ranks.
+def ensemble_runs(cfg: DictConfig) -> tuple[list[Run], np.ndarray]:
+    """All runs of an ensemble: every batch of members for every IC.
 
     Parameters
     ----------
@@ -287,123 +283,71 @@ def configure_runs(
 
     Returns
     -------
-    tuple[list[tuple[np.datetime64, np.ndarray, int]] | None, list[np.datetime64]]
-        Tuple of (work items for this rank, list of all initial-condition times)
+    tuple[list[Run], np.ndarray]
+        Runs as (initial_condition, member_indices, random_seed) and all ICs
     """
-    ic_mems = []
-
     ics = set_initial_times(cfg)
-
-    seeds = get_set_of_random_seeds(
-        n_ics=len(ics),
-        ensemble_size=cfg.ensemble_size,
-        batch_size=cfg.batch_size,
-        seed=cfg.random_seed if "random_seed" in cfg else None,
-    )
-
-    ii = 0
-    for ic in ics:
-        for mem in range(0, cfg.ensemble_size, cfg.batch_size):
-            mems = np.arange(mem, min(mem + cfg.batch_size, cfg.ensemble_size))
-            ic_mems.append((ic, mems, int(seeds[ii])))
-            ii += 1
-
-    if not DistributedManager().distributed:
-        return ic_mems, ics
-
-    ic_mems_rank = assign_runs_to_rank(ic_mems)
-
-    return ic_mems_rank, ics
-
-
-def generate_ensemble(cfg: DictConfig) -> None:
-    """Generate an ensemble forecast with optional cyclone tracking.
-
-    Entry point that initialises the environment, configures runs, loads
-    the model, sets up the output store, and runs distributed ensemble
-    inference.
-
-    Parameters
-    ----------
-    cfg : DictConfig
-        Hydra configuration object
-    """
-    initialise(cfg)
-
-    ic_mems, ics = configure_runs(cfg)
-
-    model = load_model(cfg)
-
-    store, template = (
-        run_with_rank_ordered_execution(  # TODO: wrap only zarr store in that loop
-            setup_output,
-            cfg=cfg,
-            model=model,
-            ics=ics,
-            add_arrays=DistributedManager().rank == 0,
+    first_members = range(0, cfg.ensemble_size, cfg.batch_size)
+    seeds = iter(
+        get_set_of_random_seeds(
+            n_ics=len(ics),
+            ensemble_size=cfg.ensemble_size,
+            batch_size=cfg.batch_size,
+            seed=cfg.get("random_seed", None),
         )
     )
 
-    if ic_mems is None:
-        DistributedManager().cleanup()
-        sys.exit()
+    runs = [
+        (
+            ic,
+            np.arange(first, min(first + cfg.batch_size, cfg.ensemble_size)),
+            int(next(seeds)),
+        )
+        for ic in ics
+        for first in first_members
+    ]
+    return runs, ics
 
-    run_inference(model, cfg, store, template, ic_mems)
 
+def reproduction_runs(cfg: DictConfig) -> tuple[list[Run], np.ndarray]:
+    """Runs reproducing the members listed in ``cfg.reproduce_members``.
 
-def set_reproduction_configs(
-    cfg: DictConfig,
-) -> tuple[list[tuple[np.datetime64, np.ndarray, int]] | None, list[np.datetime64]]:
-    """Build and distribute work items for reproducing specific ensemble members.
-
-    Parses the ``reproduce_members`` config list, expands each requested member
-    to its full batch (since the internal random state can only be set per
-    batch), de-duplicates, and distributes across ranks.
+    A model's random state can only be set per batch, so each requested member
+    is reproduced together with the other members of its original batch, which
+    requires the same ``batch_size`` as in the original run.
 
     Parameters
     ----------
     cfg : DictConfig
-        Hydra configuration object.  Must contain ``reproduce_members`` (list
+        Hydra configuration object. Must contain ``reproduce_members`` (list
         of ``[ic, member_id, seed]`` triples), ``batch_size``, and
         ``ensemble_size``.
 
     Returns
     -------
-    tuple[list[tuple[np.datetime64, np.ndarray, int]] | None, list[np.datetime64]]
-        Tuple of (work items for this rank, list of all initial-condition times)
+    tuple[list[Run], np.ndarray]
+        Runs as (initial_condition, member_indices, random_seed), sorted by IC,
+        and all ICs
     """
-    ic_mems = OmegaConf.to_container(cfg.reproduce_members)
+    # keyed by batch, so that members of the same batch are run only once
+    runs: dict[tuple, Run] = {}
+    for ic, member, seed in cfg.reproduce_members:
+        ic = np.datetime64(ic)
+        first = member // cfg.batch_size * cfg.batch_size
+        mems = np.arange(first, min(first + cfg.batch_size, cfg.ensemble_size))
+        runs[(ic, first, seed)] = (ic, mems, int(seed))
 
-    ics = []
-    for ii in range(len(ic_mems)):
-        ic_mems[ii][0] = np.datetime64(ic_mems[ii][0])
-        ics.append(ic_mems[ii][0])
-
-        # expand to the full batch that contains the requested member
-        batch_id = ic_mems[ii][1] // cfg.batch_size
-        ic_mems[ii][1] = np.arange(
-            batch_id * cfg.batch_size,
-            min((batch_id + 1) * cfg.batch_size, cfg.ensemble_size),
-        )
-
-    ic_mems = remove_duplicates(ic_mems)
-    ic_mems.sort(key=lambda x: x[0])
-    ics = list(set(ics))
-
-    if not DistributedManager().distributed:
-        return ic_mems, ics
-
-    ic_mems_rank = assign_runs_to_rank(ic_mems)
-
-    return ic_mems_rank, ics
+    ordered = sorted(runs.values(), key=lambda run: run[0])
+    return ordered, np.unique([run[0] for run in ordered])
 
 
-def reproduce_members(cfg: DictConfig) -> None:
-    """Reproduce specific ensemble members to extract atmospheric fields.
+def run_ensemble(cfg: DictConfig) -> None:
+    """Generate an ensemble, or reproduce some of its members, and track cyclones.
 
-    Entry point that validates the configuration, sets up reproduction work
-    items, loads the model, and re-runs inference for the requested members
-    with the original random seeds so that results are bit-identical.
+    Entry point of the modes ``generate_ensemble`` and ``reproduce_members``,
+    which differ only in the runs they perform. Initialises the environment,
+    distributes the runs across ranks, loads the model, sets up the output
+    store and runs the inference.
 
     Parameters
     ----------
@@ -413,29 +357,29 @@ def reproduce_members(cfg: DictConfig) -> None:
     Raises
     ------
     ValueError
-        If ``store_type`` is ``"zarr"`` (not supported for reproduction)
+        If members are reproduced into a Zarr store, which is not supported
     """
-    if cfg.store_type == "zarr":
+    reproduce = cfg.mode == "reproduce_members"
+    if reproduce and cfg.store_type == "zarr":
         raise ValueError("Zarr output not supported for reproducing ensemble members")
 
     initialise(cfg)
 
-    ic_mems, ics = set_reproduction_configs(cfg)
+    runs, ics = reproduction_runs(cfg) if reproduce else ensemble_runs(cfg)
+    runs = assign_runs_to_rank(runs)
 
     model = load_model(cfg)
 
-    store, template = (
-        run_with_rank_ordered_execution(  # TODO: wrap only zarr store in that loop
-            setup_output,
-            cfg=cfg,
-            model=model,
-            ics=ics,
-            add_arrays=DistributedManager().rank == 0,
-        )
+    store, template = run_with_rank_ordered_execution(
+        setup_output,
+        cfg=cfg,
+        model=model,
+        ics=ics,
+        add_arrays=DistributedManager().rank == 0,
     )
 
-    if ic_mems is None:
+    if runs is None:
         DistributedManager().cleanup()
-        sys.exit()
+        return
 
-    run_inference(model, cfg, store, template, ic_mems)
+    run_inference(model, cfg, store, template, runs)

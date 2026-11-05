@@ -421,9 +421,7 @@ def _init_worker(cfg: DictConfig, ibtracs_path: str) -> None:
     _WORKER["dsm"] = DataSourceManager(cfg)
 
 
-def _run_case(
-    case: str, time_step: np.timedelta64, max_dist: float = 300_000
-) -> None:
+def _run_case(case: str, time_step: np.timedelta64, max_dist: float = 300_000) -> None:
     """Per-worker entry point: process one storm and write its CSV.
 
     ``max_dist`` (in metres) can be overridden by ``max_dist`` in the config.
