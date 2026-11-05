@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import math
 import os
 import urllib.request
 from concurrent.futures import ProcessPoolExecutor
@@ -173,14 +172,12 @@ def extract_from_ibtracs(
         }
     )
 
-    ic = storm.time[0]
+    # round the first observation down to 00h, 06h, 12h or 18h
+    ic = storm.time[0].astype("datetime64[h]")
+    ic -= np.timedelta64(pd.Timestamp(ic).hour % 6, "h")
 
-    # Ensure ic is at 00h, 06h, 12h, or 18h
-    hours = pd.Timestamp(ic).hour % 6
-    if hours:
-        ic = (ic - np.timedelta64(hours, "h")).astype("datetime64[h]")
-
-    n_steps = math.ceil((storm.time[-1] - ic) / time_step)
+    # all time steps from ic up to and including the last observation
+    n_steps = (storm.time[-1] - ic) // time_step + 1
 
     ib_storm = ib_storm[
         ib_storm["time"].isin(np.arange(ic, ic + n_steps * time_step, time_step))
@@ -347,6 +344,7 @@ def process_case(
     ibtracs: tropytracks.TrackDataset,
     data_source_mngr: DataSourceManager,
     time_step: np.timedelta64,
+    max_dist: float,
 ) -> pd.DataFrame | None:
     """Run the full baseline pipeline for one storm.
 
@@ -362,13 +360,15 @@ def process_case(
         Manager providing the correct data source for the time range.
     time_step : np.timedelta64
         Time step for the reanalysis extraction.
+    max_dist : float
+        Maximum distance (in metres) between the extracted track and the
+        IBTrACS reference position, see :func:`match_tracks`.
 
     Returns
     -------
     pd.DataFrame | None
         The merged matched track ready for :func:`write_track_to_csv`, or
-        ``None`` if no reanalysis track matched within the configured
-        ``max_dist`` threshold (defaults to 300 km).
+        ``None`` if no reanalysis track matched within ``max_dist``.
     """
     ib_storm, ic, n_steps = extract_from_ibtracs(cfg, ibtracs, case, time_step)
 
@@ -381,7 +381,6 @@ def process_case(
         data_source_mngr=data_source_mngr,
     )
 
-    max_dist = cfg.get("max_dist", 300000)
     matched_track = match_tracks(ib_storm, hist_tracks, case, max_dist)
     if matched_track.empty:
         return None
@@ -400,8 +399,8 @@ def _init_worker(cfg: DictConfig, ibtracs_path: str) -> None:
     storms it ends up handling. Also called directly in the serial fast path.
 
     The :class:`DistributedManager` singleton is also marked as initialised
-    here: the ``TempestExtremes`` diagnostic queries ``DistributedManager()``
-    for its rank, and a fresh worker process starts with the singleton
+    here: loading the orography queries ``DistributedManager()`` for its
+    rank, and a fresh worker process starts with the singleton
     uninitialised. Baseline extraction parallelises via
     :class:`ProcessPoolExecutor` and does not need a real torch process
     group, so we skip straight to physicsnemo's no-launcher fallback (rank
@@ -422,14 +421,22 @@ def _init_worker(cfg: DictConfig, ibtracs_path: str) -> None:
     _WORKER["dsm"] = DataSourceManager(cfg)
 
 
-def _run_case(case: str, time_step: np.timedelta64) -> None:
-    """Per-worker entry point: process one storm and write its CSV."""
+def _run_case(
+    case: str, time_step: np.timedelta64, max_dist: float = 300_000
+) -> None:
+    """Per-worker entry point: process one storm and write its CSV.
+
+    ``max_dist`` (in metres) can be overridden by ``max_dist`` in the config.
+    """
     cfg = _WORKER["cfg"]
-    matched = process_case(case, cfg, _WORKER["ibtracs"], _WORKER["dsm"], time_step)
+    max_dist = cfg.get("max_dist", max_dist)
+    matched = process_case(
+        case, cfg, _WORKER["ibtracs"], _WORKER["dsm"], time_step, max_dist
+    )
     if matched is None:
         logger.warning(
-            f"no reanalysis track matched storm {case} within the 300 km "
-            f"threshold — skipping CSV output"
+            f"no reanalysis track matched storm {case} within the "
+            f"{max_dist / 1000:.0f} km threshold — skipping CSV output"
         )
         return
     write_track_to_csv(matched, case, cfg.store_dir, cfg.cases[case].basin)
