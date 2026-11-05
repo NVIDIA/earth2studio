@@ -61,14 +61,66 @@ torch-harmonics and TempestExtremes all require compilation,
 
 ### 1.1 Container (Recommended)
 
-A Dockerfile is provided in the top-level directory of the
-repository.
-[Building an image from this Dockerfile][docker-build]
-is highly recommended as it avoids the need to compile
-flash-attention (which otherwise can take hours) and installs
-TempestExtremes. Note that compiling torch-harmonics and
-therefore building the container might still take around
-20min.
+The [Dockerfile](./Dockerfile) in this directory builds an image
+on top of the PhysicsNeMo container, which already ships PyTorch,
+flash-attention and NATTEN. It adds TempestExtremes and installs
+the recipe's dependencies with uv, including all supported models
+(FCN3, SFNO, AIFS-ENS, the hourly interpolation models and
+WeatherNext 2). The recipe code itself is not part of the image,
+it is mounted at runtime.
+
+```bash
+cd recipes/tc_tracking
+docker build -t tc_tracking:1.0 .
+```
+
+Building takes a few minutes, most of it for compiling
+torch-harmonics. The build can be adjusted with build arguments:
+
+| Argument | Default | Purpose |
+| --- | --- | --- |
+| `AIFS_VERSION` | `1` | AIFS-ENS version, `1` or `2`; both cannot be installed together |
+| `MAX_JOBS` | from free RAM | Source files compiled in parallel |
+| `NVCC_THREADS` | `5` | GPU architectures compiled in parallel per file |
+
+Every parallel compile process needs up to 3 GB of RAM. By
+default, `MAX_JOBS` is therefore derived from the memory available
+at build time (at most one job per core). If the build fails with
+`Killed` or `signal 9` in the log, or the machine becomes
+unresponsive while compiling, compiling ran out of memory. In that
+case, reduce the parallelism, for example for an image with
+AIFS-ENS v2:
+
+```bash
+docker build --build-arg AIFS_VERSION=2 \
+    --build-arg MAX_JOBS=1 --build-arg NVCC_THREADS=1 \
+    -t tc_tracking:1.0-aifs2 .
+```
+
+The image builds on x86 and ARM machines (e.g. DGX Spark); on ARM,
+build it on the machine itself.
+
+[launch_tc_tracking.sh](./launch_tc_tracking.sh) starts the
+container with the repository mounted at `/workspace` and the
+shell in the recipe directory:
+
+```bash
+./launch_tc_tracking.sh                                    # interactive shell
+./launch_tc_tracking.sh python main.py --config-name=helene.yaml
+GPUS=0,1 IMAGE=tc_tracking:1.0-aifs2 ./launch_tc_tracking.sh
+```
+
+The script
+
+- runs the container as the calling user, so all outputs and
+  cache files are owned by that user on the host,
+- caches model weights and data on the host in
+  `~/.cache/earth2studio` (`E2S_CACHE`) and `~/.cache/huggingface`
+  (`HF_CACHE`), so they are downloaded only once,
+- mounts `~/.cdsapirc` if present, which `CDS_ERA5` needs,
+- uses the host's shared memory (`--ipc=host`), where
+  TempestExtremes stages its input. Docker's default of 64 MB is
+  too small for that.
 
 ### 1.2 UV Environment
 
@@ -95,13 +147,16 @@ therefore building the container might still take around
 > so PyTorch must be present in the environment before
 > running `uv sync`.
 
-The project contains a `pyproject.toml` and a `uv.lock` file
-for setting up the environment. First install PyTorch for
-your system, then sync the remaining dependencies:
+The dependencies are defined in `pyproject.toml`, with one extra
+per model. AIFS-ENS v1 (`aifs`) and v2 (`aifs-v2`) depend on
+incompatible versions of `anemoi-models`, so only one of them can
+be installed. `all` installs everything with AIFS-ENS v1,
+`all-aifs-v2` everything with AIFS-ENS v2. First install PyTorch
+for your system, then sync the remaining dependencies:
 
 ```bash
 uv pip install torch
-uv sync
+uv sync --extra all        # or: uv sync --extra all-aifs-v2
 ```
 
 This creates a uv environment in the `.venv` directory.
@@ -147,9 +202,7 @@ The pipeline has three operational modes:
   and extract tropical cyclones.
 - **`reproduce_members`**: Reproduce
   individual ensemble members to store atmospheric fields
-  of interesting tracks. Note: Currently only works with
-  FCN3, as AIFS-ENS does not expose a method to set the
-  model's internal random state.
+  of interesting tracks.
 - **`extract_baseline`**: Extract tropical
   cyclone tracks from historical reanalysis data (e.g. ERA5)
   for validation purposes.
@@ -170,9 +223,7 @@ The pipeline has three operational modes:
   and extract tropical cyclones.
 - **`reproduce_members`**: Reproduce
   individual ensemble members to store atmospheric fields
-  of interesting tracks. Note: Currently only works with
-  FCN3, as AIFS-ENS does not expose a method to set the
-  model's internal random state.
+  of interesting tracks.
 - **`extract_baseline`**: Extract tropical
   cyclone tracks from historical reanalysis data (e.g. ERA5)
   for validation purposes.
@@ -211,7 +262,9 @@ be found at `cfg/helene.yaml`.
 ```yaml
 project: 'helene'             # project name
 mode: 'generate_ensemble'     # choose mode
-model: 'aifs'                 # 'fcn3' or 'aifs'
+model: 'aifs'                 # 'fcn3', 'aifs' or 'aifs-v2'
+# optional: bitwise reproducible runs, see 2.2 (default: False)
+deterministic: False
 # optional: random seed
 # (does NOT control model-internal random state)
 random_seed: 7777
@@ -387,12 +440,16 @@ for ensemble members with particularly interesting tracks,
 examining the atmospheric fields can help understand the
 storm's evolution.
 
-FCN3 provides access to its internal random state, enabling
-exact reproduction of individual ensemble members. In theory,
-AIFS-ENS should have this capability as well, but the
-internal random state is not exposed through the Anemoi
-models interface, preventing reproducibility of AIFS-ENS
-runs.
+FCN3 and AIFS-ENS draw their noise from a random state that
+is seeded per batch, enabling exact reproduction of individual
+ensemble members.
+
+For AIFS-ENS, set `deterministic: True` in both the original
+and the reproducing run. Its graph layers otherwise sum in a
+varying order on the GPU, and the resulting round-off
+differences grow to a few hPa within days. Deterministic GPU
+kernels cost roughly 10% runtime; FCN3 is reproducible
+without them.
 
 Note that
 [reproducibility is challenging](https://arxiv.org/abs/1605.04339)
@@ -802,7 +859,6 @@ tracks are identical.
 [te-repo]: https://github.com/ClimateGlobalChange/tempestextremes
 [te-install]: https://github.com/ClimateGlobalChange/tempestextremes?tab=readme-ov-file#installation-via-cmake-recommended
 [flash-attn-help]: https://nvidia.github.io/earth2studio/userguide/support/troubleshooting.html#flash-attention-has-long-build-time-for-aifs-models
-[docker-build]: https://docs.docker.com/get-started/docker-concepts/building-images/build-tag-and-publish-an-image/#build-an-image
 [ppe-docs]: https://docs.python.org/3/library/concurrent.futures.html#processpoolexecutor
 
 <!-- markdownlint-enable MD013 -->

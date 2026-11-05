@@ -13,103 +13,69 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# mypy: disable-error-code="union-attr"
 
-import copy
 import os
 import shutil
-from collections import OrderedDict
 
 import numpy as np
-import torch
+import xarray as xr
 from omegaconf import DictConfig
 
 from earth2studio.io import NetCDF4Backend, ZarrBackend
+from earth2studio.io.utils import output_template
 from earth2studio.models.px import PrognosticModel
-from earth2studio.utils.coords import coord_array, map_coords
-from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.coords import coord_array
 
 
-def initialise_output_coords(
-    cfg: DictConfig,
-    model: PrognosticModel,
-    ics: np.ndarray,
-    out_vars: list[str],
-) -> OrderedDict:
-    """construct output corrds for storing fields.
+def build_output_template(
+    cfg: DictConfig, model: PrognosticModel, ics: np.ndarray, mems: np.ndarray
+) -> xr.DataArray:
+    """Signature of all fields written by the run.
 
     Parameters
     ----------
     cfg : DictConfig
-        Hydra config object.
+        Hydra config object, providing ``ensemble_size``, ``n_steps`` and
+        ``out_vars``.
     model : PrognosticModel
-        Prognostic model whose coordinate metadata is used.
+        Prognostic model whose output grid is stored.
     ics : np.ndarray
-        Array of initial condition times (dtype ``datetime64``).
-    out_vars : list[str]
-        Variable names to include in the output.
+        Initial condition times (dtype ``datetime64``).
+    mems : np.ndarray
+        Ensemble member indices.
 
     Returns
     -------
-    OrderedDict
-        Output coordinate mapping with keys *time*, *lead_time*,
-        *variable*, and the spatial dimensions from the model.
+    xr.DataArray
+        Allocation-free template with dimensions ``(ensemble, time, lead_time,
+        variable, lat, lon)``, where ``lead_time`` covers the initial condition
+        and all ``n_steps`` forecast steps.
+
+    Raises
+    ------
+    ValueError
+        If an output variable is not both an input and an output of the model,
+        which is required since the initial condition is stored as well.
     """
-    out_coords = OrderedDict(
-        {
-            k: v
-            for k, v in model.output_coords(model.input_coords()).items()
-            if (k != "batch") and (v.shape != 0)
-        }
+    out_vars = list(dict.fromkeys(cfg.out_vars))
+    inputs = model.input_coords()
+    outputs = model.output_coords(inputs)
+
+    missing = set(out_vars) - (
+        set(inputs.coords["variable"].values) & set(outputs.coords["variable"].values)
     )
+    if missing:
+        raise ValueError(f"out_vars {sorted(missing)} are not provided by the model")
 
-    out_coords["time"] = ics
-    out_coords["lead_time"] = np.asarray(
-        [out_coords["lead_time"] * i for i in range(cfg.n_steps + 1)]
-    ).flatten()
-    out_coords["variable"] = np.array(out_vars)
-
-    out_coords.move_to_end("lead_time", last=False)
-    out_coords.move_to_end("time", last=False)
-
-    return out_coords
-
-
-def add_arrays_to_store(
-    store: ZarrBackend | NetCDF4Backend,
-    out_coords: OrderedDict,
-    mems: np.ndarray,
-    add_arrays: bool,
-    ic: np.datetime64 | None = None,
-) -> None:
-    """Allocate arrays on a storage backend.
-
-    Parameters
-    ----------
-    store : ZarrBackend | NetCDF4Backend
-        Storage backend.
-    out_coords : OrderedDict
-        Base output coordinate mapping (not modified).
-    mems : np.ndarray
-        Ensemble member indices.
-    add_arrays : bool
-        If ``True``, call ``store.add_array``; otherwise do nothing.
-    ic : np.datetime64 | None, optional
-        If provided, restrict the *time* coordinate to this single IC.
-    """
-    oco = copy.deepcopy(out_coords)
-    oco["ensemble"] = mems
-    oco.move_to_end("ensemble", last=False)
-
-    if ic is not None:
-        oco["time"] = np.array([ic])
-
-    if add_arrays:
-        # The template's variable labels name the arrays to create, its other
-        # dimensions size them
-        store.add_array(coord_array(tuple(oco), oco))
-
-    return
+    step = outputs.coords["lead_time"].values[-1] - inputs.coords["lead_time"].values[-1]
+    return output_template(
+        outputs,
+        leading={"ensemble": np.asarray(mems), "time": np.asarray(ics)},
+        coords={
+            "lead_time": step * np.arange(cfg.n_steps + 1),
+            "variable": np.array(out_vars),
+        },
+    )
 
 
 def setup_output(
@@ -117,10 +83,10 @@ def setup_output(
     model: PrognosticModel,
     ics: np.ndarray,
     add_arrays: bool,
-) -> tuple[ZarrBackend | None, OrderedDict]:
+) -> tuple[ZarrBackend | None, xr.DataArray | None]:
     """Set up the storage backend.
 
-    Supports Zarr and NetCDF store types.  For NetCDF the store is created
+    Supports Zarr and NetCDF store types. For NetCDF the store is created
     later per initial condition (see :func:`initialise_netcdf_output`), so
     this function returns ``None`` as the store.
 
@@ -137,66 +103,50 @@ def setup_output(
 
     Returns
     -------
-    tuple[ZarrBackend | None, OrderedDict]
-        The storage backend (or ``None`` for NetCDF / no-store) and the
-        output coordinate mapping.
+    tuple[ZarrBackend | None, xr.DataArray | None]
+        The Zarr store (``None`` for NetCDF or no output) and the output
+        template (``None`` if no fields are stored).
 
     Raises
     ------
     ValueError
         If ``cfg.store_type`` is not one of ``"zarr"``, ``"netcdf"``, or
-        ``"none"``.
+        ``"none"``, or if ``out_vars`` is missing.
     """
-    if "out_vars" in cfg:
-        out_vars = list(dict.fromkeys(cfg.out_vars))
-    else:
-        out_vars = []
-        if not cfg.store_type == "none":
-            raise ValueError("out_vars must be specified if store_type is not none.")
-    out_coords = initialise_output_coords(cfg, model, ics, out_vars)
-    chunks = {
-        "ensemble": 1,
-        "time": 1,
-        "lead_time": 1,
-        "variable": 1,
-    }
+    if cfg.store_type not in ("zarr", "netcdf", "none"):
+        raise ValueError(f"Invalid store type: {cfg.store_type}")
+    if cfg.store_type == "none":
+        return None, None
+    if "out_vars" not in cfg:
+        raise ValueError("out_vars must be specified if store_type is not none.")
+
+    template = build_output_template(cfg, model, ics, np.arange(cfg.ensemble_size))
     # TODO: let proc zero create dir and add barrier
     os.makedirs(cfg.store_dir, exist_ok=True)
+
+    if cfg.store_type == "netcdf":
+        return None, template
+
     file_name = os.path.join(cfg.store_dir, cfg.project)
+    if not file_name.endswith(".zarr"):
+        file_name += ".zarr"
+    if os.path.exists(file_name) and add_arrays:
+        shutil.rmtree(file_name)
 
-    if cfg.store_type == "netcdf" or cfg.store_type == "none":
-        store = None
+    store = ZarrBackend(
+        file_name=file_name,
+        chunks={"ensemble": 1, "time": 1, "lead_time": 1},
+        backend_kwargs={"overwrite": False},
+    )
+    if add_arrays:
+        store.add_array(template)
 
-    elif cfg.store_type == "zarr":
-        # TODO: wrap in ordered_execution function
-        if not file_name.endswith(".zarr"):
-            file_name += ".zarr"
-
-        if os.path.exists(file_name) and add_arrays:
-            shutil.rmtree(file_name)
-
-        store = ZarrBackend(
-            file_name=file_name,
-            chunks=chunks,
-            backend_kwargs={"overwrite": False},
-        )
-
-        add_arrays_to_store(
-            store=store,
-            out_coords=out_coords,
-            mems=np.asarray(list(range(cfg.ensemble_size))).flatten(),
-            add_arrays=add_arrays,
-        )
-
-    else:
-        raise ValueError(f"Invalid store type: {cfg.store_type}")
-
-    return store, out_coords
+    return store, template
 
 
 def initialise_netcdf_output(
     cfg: DictConfig,
-    out_coords: OrderedDict,
+    model: PrognosticModel,
     ic: np.datetime64,
     ic_mems: list[tuple[np.datetime64, np.ndarray, int]],
 ) -> NetCDF4Backend:
@@ -209,8 +159,8 @@ def initialise_netcdf_output(
     ----------
     cfg : DictConfig
         Hydra config object.
-    out_coords : OrderedDict
-        Output coordinate mapping (not modified).
+    model : PrognosticModel
+        Prognostic model whose output grid is stored.
     ic : np.datetime64
         Initial condition time for this file.
     ic_mems : list[tuple[np.datetime64, np.ndarray, int]]
@@ -222,14 +172,9 @@ def initialise_netcdf_output(
     NetCDF4Backend
         Initialised storage backend ready for writing.
     """
-    mems = np.concatenate([mem for iic, mem, _ in ic_mems if iic == ic]).flatten()
-    seeds = np.concatenate(
-        [
-            np.array([seed] * len(mem), dtype=int)
-            for iic, mem, seed in ic_mems
-            if iic == ic
-        ]
-    ).flatten()
+    runs = [(mems, seed) for iic, mems, seed in ic_mems if iic == ic]
+    mems = np.concatenate([mems for mems, _ in runs])
+    seeds = np.concatenate([np.full(len(mems), seed) for mems, seed in runs])
 
     # setup filename
     file_name = os.path.join(cfg.store_dir, cfg.project)
@@ -241,54 +186,23 @@ def initialise_netcdf_output(
     )
     file_name = file_name.replace(":", ".")
 
-    # create store
-    chunks = {
-        "ensemble": 1,
-        "time": 1,
-        "lead_time": 1,
-        "variable": 1,
-    }
     store = NetCDF4Backend(
-        file_name=file_name,
-        backend_kwargs={"mode": "w", "diskless": False, "chunks": chunks},
+        file_name=file_name, backend_kwargs={"mode": "w", "diskless": False}
     )
 
-    # add random seed to store, an array named after itself rather than by a
+    # random seed of each member, an array named after itself rather than by a
     # variable label
-    seed_coords = OrderedDict({"ensemble": mems})
     store.add_array(
-        coord_array(("ensemble",), seed_coords, dtype=seeds.dtype, name="random_seed")
+        coord_array(
+            ("ensemble",), {"ensemble": mems}, dtype=seeds.dtype, name="random_seed"
+        )
     )
-    store.write(from_torch(torch.from_numpy(seeds), seed_coords, name="random_seed"))
+    store.write(
+        xr.DataArray(
+            seeds, dims=("ensemble",), coords={"ensemble": mems}, name="random_seed"
+        )
+    )
 
-    # add arrays to the store
-    add_arrays_to_store(
-        store=store, out_coords=out_coords, mems=mems, ic=ic, add_arrays=True
-    )
+    store.add_array(build_output_template(cfg, model, np.array([ic]), mems))
 
     return store
-
-
-def write_to_store(
-    store: ZarrBackend | NetCDF4Backend | None,
-    xx: torch.Tensor,
-    coords: OrderedDict,
-    out_coords: OrderedDict,
-) -> None:
-    """Map coordinates and write a single time-step to the store.
-    If store is ``None`` the call is a no-op.
-
-    Parameters
-    ----------
-    store : ZarrBackend | NetCDF4Backend | None
-        Storage backend, or ``None`` to skip writing.
-    xx : torch.Tensor
-        Data tensor for the current time-step.
-    coords : OrderedDict
-        Coordinate mapping for *xx*.
-    out_coords : OrderedDict
-        Target output coordinate mapping used for remapping.
-    """
-    if store is not None:
-        xx_sub, coords_sub = map_coords(xx, coords, out_coords)
-        store.write(from_torch(xx_sub, coords_sub))
