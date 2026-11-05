@@ -109,6 +109,19 @@ def test_plan_verification_store_covers_every_valid_time(cfg) -> None:
     assert plan_verification_store(cfg, runner, items) is None
 
 
+def test_verification_falls_back_to_the_runner_source(cfg) -> None:
+    runner = build_runner(cfg, prefer_predownloaded=False)
+    items = build_items(cfg, runner)
+    with open_dict(cfg):
+        cfg.predownload.verification.enabled = True
+        cfg.data_source = None
+    runner.source_roles = {}
+    assert plan_verification_store(cfg, runner, items) is None
+    runner.verification_source = runner.source
+    store = plan_verification_store(cfg, runner, items)
+    assert store is not None and store.source is runner.source
+
+
 def test_run_writes_data_store_and_sentinel(cfg) -> None:
     run(cfg)
     ds = _open(cfg, "data.zarr")

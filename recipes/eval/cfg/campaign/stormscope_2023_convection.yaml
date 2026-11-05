@@ -13,12 +13,22 @@ start_times:
 
 nsteps: 6                   # 6 × 10min = 60min forecast
 
+# ERA5 cannot verify GOES or MRMS channels; the runner's own observation
+# sources do (see above).
+data_source: null
+predownload:
+    verification:
+        enabled: true
+
 # The stormscope runner binds its own sources per role (goes, mrms, and
 # mrms_conditioning / goes_forcing when configured) from the models'
 # default_sources(); the top-level data_source / ic_source are not used.
 # Predownload writes <output.path>/goes.zarr and mrms.zarr, which the runner
-# prefers when present.  Verification for scoring is resolved separately
-# (verification_source / predownload.verification.source).
+# prefers when present.  Verification comes from the same GOES and MRMS
+# observations at every forecast valid time: with data_source unset, the
+# runner composes the two live sources and predownload writes them into
+# verification.zarr, which score.py reads.  A bring-your-own
+# verification_source replaces that.
 #
 # Bring-your-own data: set per-model source nodes delivering fields on the
 # model grid (a predownloaded store, or a RegriddedSource around a raw source):

@@ -32,6 +32,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from inspect import signature
+from types import SimpleNamespace
 from typing import Any
 
 import hydra
@@ -186,15 +187,10 @@ class _PredownloadedStore:
     was not predownloaded raises ``KeyError``.
 
     The store holds qualified labels such as ``t2m:mean:0h:24h`` already
-    reduced.  Until sources reduce their own windows (FETCH_DATA_SPEC),
-    :func:`earth2studio.data.fetch_data` splits every qualified label, asks the
-    source for the base variable at the window's sample times and reduces those
-    samples.  The store declares the window length as its ``time_step``, so a
-    window holds exactly one sample, its first.  The store answers the request
-    for the base variable at that sample time with the stored field, and the
-    library's reduction over one sample is the identity.  A request
-    for the qualified label itself returns the stored field with its statistics
-    metadata, as the spec's target state will ask for.
+    reduced and serves them natively: its ``lexicon.TIME_STATISTICS`` declares the
+    methods of the stored labels, :func:`earth2studio.data.fetch_data` passes
+    those labels through unchanged, and the returned field carries their
+    statistics metadata.
 
     Parameters
     ----------
@@ -218,35 +214,18 @@ class _PredownloadedStore:
         self._da = ds.to_array("variable").transpose(*leading, "variable", ...)
         self._da.attrs.update(ds.attrs)
         self._labels = [str(v) for v in self._da.coords["variable"].values]
-        self._shifted = "lead_time" if self.is_forecast else "time"
-        self._statistics: dict[str, tuple[str, np.timedelta64]] = {}
-        windows: set[np.timedelta64] = set()
+        self._statistics: dict[str, Any] = {}
         for label in self._labels:
-            base, separator, modifier = label.partition(":")
-            if not separator:
-                continue
-            meta = time_statistic_metadata(modifier)
-            if base in self._statistics:
-                raise ValueError(
-                    f"Predownloaded store '{store_path}' holds two statistics of "
-                    f"'{base}'; fetch_data asks for the base variable, so they "
-                    "cannot be told apart"
-                )
-            start = np.timedelta64(meta["start_offset"], "ns")
-            self._statistics[base] = (label, start)
-            windows.add(np.timedelta64(meta["window"], "ns"))
-        if len(windows) > 1:
-            raise ValueError(
-                f"Predownloaded store '{store_path}' mixes statistics windows "
-                f"{sorted(windows)}; one window length per store is supported"
-            )
-        axis = self._da.coords[self._shifted].values
+            _, separator, modifier = label.partition(":")
+            if separator:
+                self._statistics[label] = time_statistic_metadata(modifier)
+        methods = sorted({str(meta["method"]) for meta in self._statistics.values()})
+        self.lexicon = SimpleNamespace(TIME_STATISTICS=tuple(methods))
+        axis = self._da.coords["lead_time" if self.is_forecast else "time"].values
         steps = np.unique(np.diff(axis)) if axis.size > 1 else np.array([])
-        self.time_step: np.timedelta64 | None
-        if windows:
-            self.time_step = windows.pop()
-        else:
-            self.time_step = np.timedelta64(steps[0]) if steps.size == 1 else None
+        self.time_step: np.timedelta64 | None = (
+            np.timedelta64(steps[0]) if steps.size == 1 else None
+        )
 
     @property
     def variables(self) -> list[str]:
@@ -261,50 +240,26 @@ class _PredownloadedStore:
     def _select(
         self, names: Sequence[str], indexers: dict[str, np.ndarray]
     ) -> xr.DataArray:
-        """Stored fields for ``names`` at the requested ``indexers``.
-
-        A stored statistic answers for its base variable: the lookup uses the
-        stored label, shifted back by the window's start offset along ``time``
-        (``lead_time`` for a forecast store), and returns no statistics
-        metadata, so :func:`earth2studio.data.fetch_data` reduces it.
-        """
-        missing = sorted(
-            n for n in set(names) if n not in self._labels and n not in self._statistics
-        )
+        """Stored fields for ``names`` at the requested ``indexers``."""
+        missing = sorted(set(names) - set(self._labels))
         if missing:
             raise KeyError(
                 f"Predownloaded store '{self.store_path}' lacks variables "
                 f"{missing}; re-run predownload.py with them in the campaign."
             )
-        statistics: dict[str, Any] = {}
-        pieces: list[xr.DataArray] = []
-        for name in names:
-            lookup = dict(indexers)
-            if name in self._labels:
-                stored = name
-                if ":" in name:
-                    statistics[name] = time_statistic_metadata(name.partition(":")[2])
-            else:
-                stored, start = self._statistics[name]
-                lookup[self._shifted] = indexers[self._shifted] - start
-            try:
-                piece = self._da.sel(variable=[stored], **lookup)
-            except KeyError as error:
-                wanted = {k: [str(v) for v in vals] for k, vals in lookup.items()}
-                axes = "times or lead times" if self.is_forecast else "times"
-                raise KeyError(
-                    f"Predownloaded store '{self.store_path}' lacks some of the "
-                    f"{axes} {wanted} for '{name}'; re-run predownload.py with "
-                    "the campaign's initial conditions and lead times."
-                ) from error
-            pieces.append(
-                piece.assign_coords(
-                    variable=[name], **{self._shifted: indexers[self._shifted]}
-                )
-            )
-        da = pieces[0] if len(pieces) == 1 else xr.concat(pieces, "variable")
+        try:
+            da = self._da.sel(variable=list(names), **indexers)
+        except KeyError as error:
+            wanted = {k: [str(v) for v in vals] for k, vals in indexers.items()}
+            axes = "times or lead times" if self.is_forecast else "times"
+            raise KeyError(
+                f"Predownloaded store '{self.store_path}' lacks some of the "
+                f"{axes} {wanted}; re-run predownload.py with the campaign's "
+                "initial conditions and lead times."
+            ) from error
         da.attrs = dict(self._da.attrs)
         da.attrs.pop(E2S_STATISTICS, None)
+        statistics = {n: self._statistics[n] for n in names if n in self._statistics}
         if statistics:
             da.attrs[E2S_STATISTICS] = statistics
         return da.load()
@@ -313,8 +268,8 @@ class _PredownloadedStore:
 class PredownloadedSource(_PredownloadedStore):
     """Data source backed by a predownloaded store on ``(time, <spatial...>)``.
 
-    See :class:`_PredownloadedStore` for the store layout and for how it
-    serves stored time statistics.
+    See :class:`_PredownloadedStore` for the store layout and the native
+    time statistics.
 
     Parameters
     ----------

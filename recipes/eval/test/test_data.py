@@ -158,7 +158,7 @@ class TestPredownloadedSource:
 
 
 class TestQualifiedLabels:
-    """Stored time statistics answer fetch_data's split requests."""
+    """The store serves its time statistics natively, as fetch_data expects."""
 
     LABELS = ["t2m:mean:0h:24h", "tp:mean:1h:25h"]
 
@@ -167,9 +167,10 @@ class TestQualifiedLabels:
         written = _write_store(tmp_path / "data.zarr", variables=self.LABELS)
         return PredownloadedSource(str(tmp_path / "data.zarr")), written
 
-    def test_window_length_is_the_time_step(self, store):
+    def test_lexicon_declares_the_stored_methods(self, store):
         source, _ = store
-        assert source.time_step == np.timedelta64(24, "h")
+        assert source.lexicon.TIME_STATISTICS == ("mean",)
+        assert source.time_step == np.timedelta64(1, "D")
         # Zarr lists arrays in store order, not request order.
         assert sorted(source.variables) == sorted(self.LABELS)
 
@@ -192,40 +193,16 @@ class TestQualifiedLabels:
         assert set(statistics) == set(self.LABELS)
         assert statistics["tp:mean:1h:25h"]["start_offset"] == np.timedelta64(1, "h")
 
-    def test_base_variable_is_shifted_by_the_window_start(self, store):
-        source, written = store
-        asked = TIMES[:1] + np.timedelta64(1, "h")
-        da = source(asked, ["tp"])
-        np.testing.assert_array_equal(da["time"].values, asked)
-        assert list(da["variable"].values) == ["tp"]
-        np.testing.assert_allclose(
-            da.values.squeeze(),
-            written.sel(time=TIMES[0], variable="tp:mean:1h:25h").values,
-        )
-        assert E2S_STATISTICS not in da.attrs
+    def test_unsupported_method_is_rejected(self, store):
+        source, _ = store
+        with pytest.raises(ValueError, match="does not support"):
+            fetch_data(source, time=TIMES[:1], variable=np.array(["t2m:max:0h:24h"]))
 
-    def test_direct_label_request_carries_statistics_metadata(self, store):
-        source, written = store
-        da = source(TIMES[:1], ["t2m:mean:0h:24h"])
-        assert set(da.attrs[E2S_STATISTICS]) == {"t2m:mean:0h:24h"}
-        np.testing.assert_allclose(
-            da.values.squeeze(),
-            written.sel(time=TIMES[0], variable="t2m:mean:0h:24h").values,
-        )
-
-    def test_two_statistics_of_one_variable_are_rejected(self, tmp_path):
-        _write_store(
-            tmp_path / "x.zarr", variables=["t2m:mean:0h:24h", "t2m:sum:0h:24h"]
-        )
-        with pytest.raises(ValueError, match="two statistics"):
-            PredownloadedSource(str(tmp_path / "x.zarr"))
-
-    def test_mixed_window_lengths_are_rejected(self, tmp_path):
-        _write_store(
-            tmp_path / "x.zarr", variables=["t2m:mean:0h:24h", "z500:mean:0h:6h"]
-        )
-        with pytest.raises(ValueError, match="mixes"):
-            PredownloadedSource(str(tmp_path / "x.zarr"))
+    def test_plain_labels_carry_no_statistics(self, tmp_path):
+        _write_store(tmp_path / "plain.zarr")
+        source = PredownloadedSource(str(tmp_path / "plain.zarr"))
+        assert source.lexicon.TIME_STATISTICS == ()
+        assert E2S_STATISTICS not in source(TIMES[:1], ["t2m"]).attrs
 
 
 class TestPredownloadedForecastSource:

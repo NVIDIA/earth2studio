@@ -305,8 +305,10 @@ def plan_verification_store(
 
     The planner caches verification when ``predownload.verification.enabled``
     holds and ``verification_source`` is not bring-your-own.  The source is
-    ``predownload.verification.source`` or, failing that, ``data_source``
-    (or the runner's own ``data`` source).  Valid times are every initial
+    ``predownload.verification.source`` or, failing that, ``data_source``,
+    the runner's own ``data`` source, or a ``verification_source`` the runner
+    exposes (StormScope composes its GOES and MRMS observations).  Valid times
+    are every initial
     time plus every lead of the runner's forecast stream; when
     ``output.regrid`` names a grid, the configured method brings the fields
     onto it.
@@ -337,6 +339,8 @@ def plan_verification_store(
     source = instantiate_source(node)
     if source is None:
         source = (getattr(runner, "source_roles", None) or {}).get("data")
+    if source is None:
+        source = getattr(runner, "verification_source", None)
     if source is None:
         logger.warning(
             "No verification source: set predownload.verification.source or "

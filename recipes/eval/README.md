@@ -312,9 +312,11 @@ archives, and the stores hold only the model grid rather than the raw
 GOES and GLM footprints. After the first step,
 `glm_density` comes from the model's own predictions.
 
-Verification for scoring the radar and lightning channels resolves
-separately, like any other campaign (`verification_source`, or
-`predownload.verification.source` with `predownload.verification.enabled=true`).
+Verification for the GOES, radar and lightning channels comes from the same
+observation sources at every forecast valid time. The campaign leaves
+`data_source` unset, so the runner composes its live GOES and MRMS sources
+and `predownload.py` writes them into `verification.zarr` for `score.py`. A
+bring-your-own `verification_source` replaces that.
 
 Because the `3km_10min` GOES model reads observations only, there is no forcing source
 to pre-download. The GOES history serves the MRMS conditioning by default, so
