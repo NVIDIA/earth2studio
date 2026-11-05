@@ -71,6 +71,7 @@ def build_model(
     core: torch.nn.Module,
     conservation_fixers: bool = False,
     wind_filter: bool = False,
+    forcing_block_size: int = 40,
 ) -> CAMulator:
     """CAMulator wrapper with identity normalization, synthetic hybrid
     coefficients and a random forcing source on the model grid."""
@@ -99,6 +100,7 @@ def build_model(
         ),
         conservation_fixers=conservation_fixers,
         wind_filter=wind_filter,
+        forcing_block_size=forcing_block_size,
     )
 
 
@@ -382,3 +384,93 @@ def test_camulator_package(device):
     handshake_dim(out_coords, "variable", 3)
     handshake_dim(out_coords, "lead_time", 2)
     handshake_dim(out_coords, "time", 1)
+
+
+class CountingForcing:
+    """Random forcing source that counts data source calls and, with ``end`` set,
+    refuses valid times past it like a finite forcing record."""
+
+    def __init__(self, end: np.datetime64 | None = None):
+        self.source = Random({"lat": CAMULATOR_GRID_LAT, "lon": CAMULATOR_GRID_LON})
+        self.end = end
+        self.calls = 0
+        self.times_requested = 0
+
+    def __call__(self, time, variable):
+        self.calls += 1
+        time = np.atleast_1d(np.asarray(time, dtype="datetime64[ns]"))
+        if self.end is not None and (time > self.end).any():
+            raise ValueError("time not available")
+        self.times_requested += len(time)
+        # Deterministic per valid time so block and single-step reads agree
+        arrays = []
+        for t in time:
+            g = torch.Generator().manual_seed(
+                int(t.astype("datetime64[h]").astype(int))
+            )
+            arrays.append(torch.rand(len(variable), H, W, generator=g).numpy())
+        da = self.source(time, variable)
+        da.values[:] = np.stack(arrays)
+        return da
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_camulator_forcing_block(device):
+    """Block forcing reads give the same rollout as single-step reads with far
+    fewer data source calls, and fall back to single steps past the record."""
+    torch.cuda.empty_cache()
+    time = np.array([np.datetime64("2001-01-01T00:00")])
+    nsteps = 6
+    net = PhooCamulatorNet()
+    x0, coords0 = random_input(build_model(net), time, device)
+
+    def rollout(block_size: int, end: np.datetime64 | None = None):
+        p = build_model(net, forcing_block_size=block_size).to(device)
+        p.forcing_data_source = CountingForcing(end)
+        outs = []
+        it = p.create_iterator(x0.clone(), coords0.copy())
+        next(it)
+        for _ in range(nsteps):
+            out, out_coords = next(it)
+            outs.append(out.clone())
+        return torch.stack(outs), out_coords, p.forcing_data_source
+
+    ref, ref_coords, src1 = rollout(1)
+    assert src1.calls == nsteps
+    assert src1.times_requested == nsteps
+
+    blk, blk_coords, src4 = rollout(4)
+    assert src4.calls == 2
+    assert src4.times_requested == 8
+    assert torch.equal(blk, ref)
+    assert blk_coords["lead_time"][0] == ref_coords["lead_time"][0]
+    # Output is stamped with its valid time: input time + 6 h per step
+    assert ref_coords["time"][0] + ref_coords["lead_time"][0] == time[
+        0
+    ] + np.timedelta64(6 * nsteps, "h")
+
+    # Record ends two steps short of the second block: fall back to single reads
+    end = time[0] + np.timedelta64(6 * (nsteps - 1), "h")
+    fb, _, src_end = rollout(4, end=end)
+    assert torch.equal(fb, ref)
+    assert src_end.times_requested == 4 + 2
+
+    # The stand-in network ignores the forcing, so check the normalized forcing
+    # fed to the network directly: block reads equal single-step reads
+    p1 = build_model(net, forcing_block_size=1).to(device)
+    p4 = build_model(net, forcing_block_size=4).to(device)
+    p1.forcing_data_source = CountingForcing()
+    p4.forcing_data_source = CountingForcing()
+    dev = p1.device_buffer.device
+    for k in range(nsteps):
+        c = coords0.copy()
+        c["lead_time"] = c["lead_time"] + k * np.timedelta64(6, "h")
+        f1 = p1._fetch_forcing(c, dev, 1)
+        f4 = p4._fetch_forcing(c, dev, 4)
+        assert f1.shape == (1, 4, H, W)
+        assert torch.equal(f1, f4)
+    assert p1.forcing_data_source.calls == nsteps
+    assert p4.forcing_data_source.calls == 2
+
+    with pytest.raises(ValueError):
+        build_model(PhooCamulatorNet(), forcing_block_size=0)

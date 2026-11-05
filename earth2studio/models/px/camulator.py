@@ -145,7 +145,16 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     evaporation are 6 h accumulations (m). The CREDIT toolbox's ``Quick_Climate.py``
     uses the forcing stored in its initial-condition tensor for the first step,
     whereas this wrapper reads the forcing data source at every step; with the same
-    forcing the two agree to float32 rounding.
+    forcing the two agree to float32 rounding. Outputs are stamped with their valid
+    time: ``time + lead_time`` of the output coordinates is the time the state is
+    valid for, 6 hours after the input that produced it, whereas older CREDIT
+    tooling stamps each output with its input time.
+
+    In :meth:`create_iterator` the forcing is read from ``forcing_data_source`` in
+    blocks of ``forcing_block_size`` steps and kept on the device, which removes
+    the per-step read; the values fed to the network are identical to reading one
+    step at a time. A block that reaches past the end of the forcing record falls
+    back to single-step reads.
 
     The default forcing source is the cyclic climatological year (1980-2014 mean
     seasonal cycle, CO2 fixed at its year-2000 mean of 369 ppm), so a default
@@ -205,6 +214,11 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Apply the global mass, water and energy fixers, by default True
     wind_filter : bool, optional
         Apply the wind-artifact filter, by default True
+    forcing_block_size : int, optional
+        Number of 6 h steps of forcing read from ``forcing_data_source`` in one
+        call and cached on the device during :meth:`create_iterator` rollouts
+        (40 steps of the four forcing fields is about 35 MB per input time), by
+        default 40
 
     Badges
     ------
@@ -229,8 +243,11 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         forcing_data_source: DataSource | None = None,
         conservation_fixers: bool = True,
         wind_filter: bool = True,
+        forcing_block_size: int = 40,
     ) -> None:
         super().__init__()
+        if forcing_block_size < 1:
+            raise ValueError("forcing_block_size must be at least 1")
         self.model = core_model
         # CREDIT applies the statistics in float32, except the gridded surface
         # pressure statistics and the forcing statistics, which stay in float64;
@@ -255,6 +272,10 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.forcing_data_source = forcing_data_source
         self.conservation_fixers = conservation_fixers
         self.wind_filter = wind_filter
+        self.forcing_block_size = forcing_block_size
+        # Normalized forcing (4, lat, lon) on the device keyed by valid time;
+        # holds at most the last block read
+        self._forcing_cache: dict[np.datetime64, torch.Tensor] = {}
         self._dt = np.timedelta64(6, "h")
         self._n_seconds = CAMULATOR_STEP_SECONDS
 
@@ -291,7 +312,8 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Returns
         -------
         CoordSystem
-            Coordinate system dictionary
+            Coordinate system dictionary. ``time + lead_time`` is the valid time
+            of the output, 6 hours after the input valid time.
         """
         output_coords = OrderedDict(
             {
@@ -348,6 +370,7 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         forcing_data_source: DataSource | None = None,
         conservation_fixers: bool = True,
         wind_filter: bool = True,
+        forcing_block_size: int = 40,
     ) -> PrognosticModel:
         """Load prognostic model from package
 
@@ -365,6 +388,9 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             Apply the global mass, water and energy fixers, by default True
         wind_filter : bool, optional
             Apply the wind-artifact filter, by default True
+        forcing_block_size : int, optional
+            Number of 6 h steps of forcing read and cached per data source call
+            during rollouts, by default 40
 
         Returns
         -------
@@ -446,14 +472,44 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             forcing_data_source=forcing_data_source,
             conservation_fixers=conservation_fixers,
             wind_filter=wind_filter,
+            forcing_block_size=forcing_block_size,
         )
 
-    def _fetch_forcing(self, coords: CoordSystem, device: torch.device) -> torch.Tensor:
+    def _fetch_forcing(
+        self, coords: CoordSystem, device: torch.device, block_size: int = 1
+    ) -> torch.Tensor:
         """Normalized forcing at the input valid times in model (south-to-north)
-        orientation, shape (time, 4, lat, lon)."""
+        orientation, shape (time, 4, lat, lon).
+
+        With ``block_size > 1`` the forcing for the next ``block_size`` steps is
+        read from the data source in one call and cached on ``device``; later
+        calls for those valid times are served from the cache. Each cached step
+        is exactly what a single-step read would produce."""
         valid_times = np.asarray(coords["time"]) + coords["lead_time"][0]
-        da = self.forcing_data_source(valid_times, FORCING_VARIABLES)
-        da = da.transpose("time", "variable", "lat", "lon")
+        if all(t in self._forcing_cache for t in valid_times):
+            return torch.stack([self._forcing_cache[t] for t in valid_times])
+
+        if block_size > 1:
+            block = np.unique(
+                np.concatenate([valid_times + k * self._dt for k in range(block_size)])
+            )
+            try:
+                forcing = self._read_forcing(block, device)
+            except ValueError:
+                # The block reaches past the forcing record: read step by step
+                forcing = self._read_forcing(valid_times, device)
+                block = valid_times
+        else:
+            forcing = self._read_forcing(valid_times, device)
+            block = valid_times
+        self._forcing_cache = {t: forcing[i] for i, t in enumerate(block)}
+        return torch.stack([self._forcing_cache[t] for t in valid_times])
+
+    def _read_forcing(self, times: np.ndarray, device: torch.device) -> torch.Tensor:
+        """Read and normalize the forcing at ``times`` (datetime64) from the data
+        source, shape (len(times), 4, lat, lon), model orientation."""
+        da = self.forcing_data_source(times, FORCING_VARIABLES)
+        da = da.sel(time=times).transpose("time", "variable", "lat", "lon")
         if not np.allclose(da["lat"].values, CAMULATOR_GRID_LAT) or not np.allclose(
             da["lon"].values, CAMULATOR_GRID_LON
         ):
@@ -572,13 +628,19 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     @torch.inference_mode()
     def _step(
-        self, state_n: torch.Tensor, coords: CoordSystem, device: torch.device
+        self,
+        state_n: torch.Tensor,
+        coords: CoordSystem,
+        device: torch.device,
+        forcing_block_size: int = 1,
     ) -> torch.Tensor:
         """Advance a normalized state ``(batch, time, 130, lat, lon)`` by one step,
         returning the post-processed normalized prediction
         ``(batch, time, 147, lat, lon)``."""
         b, t, _, h, w = state_n.shape
-        forcing = self._fetch_forcing(coords, device)  # (t, 4, h, w)
+        forcing = self._fetch_forcing(
+            coords, device, forcing_block_size
+        )  # (t, 4, h, w)
         statics = self.statics.expand(b, t, -1, h, w)
         inp = torch.cat(
             [state_n, statics, forcing.unsqueeze(0).expand(b, -1, -1, -1, -1)], dim=2
@@ -670,7 +732,7 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x, coords = self.front_hook(x, coords)
             if not default_hooks:
                 state_n = self._normalize_state(x.to(device))
-            y_n = self._step(state_n, coords, device)
+            y_n = self._step(state_n, coords, device, self.forcing_block_size)
             out = self._denormalize_output(y_n)
             out_coords = self.output_coords(coords)
             out, out_coords = self.rear_hook(out, out_coords)

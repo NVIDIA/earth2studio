@@ -30,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is a NaN observation instead of a dropped row, so every footprint appears.
 - ECMWF open-data sources accept a `client_kwargs` dictionary for
   `opendata.Client`.
+- `CAMulator` reads the forcing in blocks of `forcing_block_size` steps (default
+  40) during rollouts and caches them on the device instead of one data source
+  call per step; the forcing fed to the network is unchanged.
 
 ### Deprecated
 
