@@ -452,7 +452,8 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         invariants_path = os.path.join(cache_dir, "invariants.pt")
 
         if os.path.exists(invariants_path):
-            invariants = torch.load(invariants_path, weights_only=True)
+            # float() also repairs float64 caches written by earlier versions
+            invariants = torch.load(invariants_path, weights_only=True).float()
         else:
             ifs = IFS(cache=True, verbose=False)
             invariants = fetch_data(
@@ -461,6 +462,7 @@ class AIFSENS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 variable=["lsm", "sdor", "slor", "z"],
             )
             invariants, _ = invariants.squeeze().e2s.to_torch()
+            invariants = invariants.float()
             # Cache the invariants tensor
             os.makedirs(cache_dir, exist_ok=True)
             torch.save(invariants, invariants_path)
