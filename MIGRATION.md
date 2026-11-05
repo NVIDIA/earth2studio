@@ -109,7 +109,9 @@ Target: [PrognosticModel](earth2studio/models/px/base.py).
   set `region_margin_deg` / `region_halo`, then `with_region(Region.box(lon_min, lat_min, lon_max, lat_max))`
   (the view adds one bracketing row/column per side).
   `CorrDiffCosmoEra5SDA.load_model(domain=...)` → `region=Region.box(...)`.
-  `CBottleSR.set_super_resolution_window(...)` → `with_region(Region.box(...))`.
+  `CBottleSR.set_super_resolution_window(...)` → `with_region(Region.box(...))`;
+  `CBottleSR(super_resolution_window=(s, w, n, e))` → `region=Region.box(w, s, e, n)`.
+  `InterpCRPSDiT.set_domain(..., halo)` → set `region_halo`, then `with_region(Region.box(...))`.
 
 ## Data sources and fetching
 

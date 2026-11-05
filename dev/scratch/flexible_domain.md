@@ -96,6 +96,9 @@ model protocol.
   slice of the full positional embedding and the tokenizer geometry to the shared
   sub-models and restores them afterwards. `torch.compile` wraps only the routed
   denoiser, so binding stays outside the graph. Constructor limits remain an adapter.
+- `InterpCRPSDiT` (implemented): `with_region` accepts boxes and slices the static
+  maps and grid to the covering block, snapped to the patch size. `region_halo`
+  configures the run halo; the former public `set_domain` is now private.
 - `StormCast` (not adopted): its diffusion network uses an additive positional
   embedding fixed at 512×640, and the package invariants cover only that window, so
   its constructor limits cannot select another domain. It stays fixed-domain.
@@ -104,7 +107,8 @@ model protocol.
   collapse to one meridian, and `band(-90, 90)` is global. `output_resolution` stays
   the view grid's shape. HEALPix output keeps the full level-10 grid, of which only
   the region's patches are super-resolved. `set_super_resolution_window`, which
-  changed the instance in place, is removed; the constructor window remains.
+  changed the instance in place, is removed; the constructor and `load_model` take
+  a `region` in place of the `super_resolution_window` tuple.
 - Future globe-wide patch models: build a local grid from `Region.rectangle`,
   including its orientation, and ship a documented default region.
 

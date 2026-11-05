@@ -214,12 +214,11 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
     agnostic, so the model is :class:`~earth2studio.models.base.DomainAdaptable`:
     :meth:`with_region` returns a view restricted to any lat/lon box without
     retraining (bounded to the supported footprint), configured by
-    ``region_halo`` and ``region_margin_deg``. Each
-    resolution ships an extended grid beyond its native footprint; for COSMO-REA2
-    -- whose native footprint is central-European -- the extended grid reaches a
-    broad European domain, enabling 2.2 km downscaling across it. Outputs are
-    surface and model-level (3D) fields -- winds,
-    temperature, humidity, precipitation, cloud cover, fluxes, TKE, PBL height;
+    ``region_halo`` and ``region_margin_deg``. Each resolution ships an extended
+    grid beyond its native footprint; for COSMO-REA2 -- whose native footprint is
+    central-European -- the extended grid reaches a broad European domain,
+    enabling 2.2 km downscaling across it. Outputs are surface and model-level
+    (3D) fields -- winds, temperature, humidity, precipitation, cloud cover, fluxes, TKE, PBL height;
     variables with a canonical Earth2Studio name are relabelled via
     [`CosmoLexicon`][earth2studio.lexicon.CosmoLexicon] and COSMO-specific fields keep a
     descriptive name. Optionally emits derived hub-height wind components (see
@@ -519,31 +518,18 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         # constructor arg, so it can be set on an existing instance, e.g.
         # ``dx.check_inputs = False``). Warns if the network input has NaN/Inf.
         self.check_inputs = True
-        # Settings with_region applies to the views it makes (configuration of
-        # this model, not protocol arguments): cells run beyond each side of the
-        # region then trimmed off the output (keeps the DiT boundary artifact out
-        # of the region), and degrees of ERA5 input kept around the view's grid.
+        # User settings read by with_region, see its docstring
         self.region_halo = 0
         self.region_margin_deg = 1.0
-        # Full supported footprint shared with views (see _full_footprint).
+        # Full footprint shared with views, built lazily by _full_footprint
         self._footprint: dict[str, Any] | None = None
-        # _halo: internal state of a view made by with_region, NOT a free
-        # toggle. (top, bottom, left, right) px the view runs then trims off the
-        # output; (0,0,0,0) = no halo (the default).
+        # Halo (top, bottom, left, right) a view runs on and trims from its output
         self._halo = (0, 0, 0, 0)
-        # Extended grid + invariants for with_region() into the out-of-distribution
-        # (OOD) margin band.
-        # Set by load_model (the loaded model); None on sub-domains/synthetic
-        # instances -> views then restrict to the native footprint only.
+        # Grid and invariants extended past the native footprint, set by load_model
         self._ext_lat_numpy: np.ndarray | None = None
         self._ext_lon_numpy: np.ndarray | None = None
         self._ext_static_numpy: np.ndarray | None = None
-        # DiT grid constraints, used by with_region to snap the run grid: the
-        # detokenizer reconstructs (H//patch)*patch rows, so an odd extent would
-        # mismatch the allocated output; and NATTEN needs the latent >= kernel, so
-        # the run domain must be >= attn_kernel*patch per side. load_model sets
-        # these from the arch; the (1, 0) defaults make them no-ops for synthetic
-        # instances that have no real DiT.
+        # DiT patch size and minimum run-grid size per side, set by load_model
         self._patch_size = 1
         self._min_domain_cells = 0
 
@@ -1483,7 +1469,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
             }
         return self._footprint
 
-    def with_region(self, region: Region, /) -> Self:
+    def with_region(self, region: Region) -> Self:
         """Return a view of this model covering a geographic box.
 
         The view shares the loaded network(s) and runs on the smallest block of the
@@ -1492,11 +1478,11 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         and expanded by ``region_halo`` cells that are run and then trimmed (the DiT
         leaves a boundary artifact roughly 32 cells deep; the halo clamps, with a
         warning, at the grid edge). Its ERA5 input grid covers the block plus
-        ``region_margin_deg``. Selection uses
-        the full supported footprint, so a view's ``with_region`` reaches all of
-        it: boxes inside the native footprint are validated, boxes reaching into
-        the extended margin (when the package ships one) run with an
-        out-of-distribution warning, and boxes beyond it raise.
+        ``region_margin_deg``. Selection uses the full supported footprint, so a
+        view's ``with_region`` reaches all of it: boxes inside the native footprint
+        are validated, boxes reaching into the extended margin (when the package
+        ships one) run with an out-of-distribution warning, and boxes beyond it
+        raise.
 
         Views share networks and rebind their latent grid on every forward, so run
         them in sequence, not concurrently. Moving one view moves the shared

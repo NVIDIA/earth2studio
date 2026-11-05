@@ -371,7 +371,7 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             }
         return self._footprint
 
-    def with_region(self, region: Region, /) -> Self:
+    def with_region(self, region: Region) -> Self:
         """Return a view of this model covering a geographic box.
 
         The view shares the loaded sub-models and runs on the smallest block of
@@ -766,13 +766,13 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return denoiser
 
-    @torch.no_grad()  # safe - PhysicsNeMo SDA code uses torch.enable_grad()
     def _follow_network(self) -> None:
         """Move to the shared networks' device if another view moved them."""
         param = next(self.diffusion_model.parameters(), None)
         if param is not None and param.device != self.means.device:
             self.to(param.device)
 
+    @torch.no_grad()  # safe - PhysicsNeMo SDA code uses torch.enable_grad()
     def _predict(
         self,
         x: xr.DataArray,

@@ -446,10 +446,12 @@ def test_interpcrpsdit_drop_variables(base_variables):
         pytest.param(2, (2, 2, 3, 2), "global", id="halo2-global"),
     ],
 )
-def test_interpcrpsdit_set_domain(halo, exp_halo, base):
-    sub = _model().set_domain(
-        lat_min=10, lat_max=70, lon_min=50, lon_max=200, halo=halo, min_cells=4
-    )
+def test_interpcrpsdit_region_halo(halo, exp_halo, base):
+    model = _model()
+    model._min_domain_cells = 4
+    model.region_halo = halo
+    sub = model.with_region(Region.box(west=50, south=10, east=200, north=70))
+    assert sub.region_halo == halo
     assert sub._halo == exp_halo
     if base == "regional":
         sub.px_model = Ramp(
@@ -495,7 +497,7 @@ def test_interpcrpsdit_set_domain_exceptions(kwargs, match):
     args = dict(lat_min=10, lat_max=70, lon_min=50, lon_max=200, min_cells=4)
     args.update(kwargs)
     with pytest.raises(ValueError, match=match):
-        _model().set_domain(**args)
+        _model()._set_domain(**args)
 
 
 def test_interpcrpsdit_superset_base_grid():

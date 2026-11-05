@@ -1303,7 +1303,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         "mrms_coverage_mask",
     )
 
-    def with_region(self, region: Region, /) -> Self:
+    def with_region(self, region: Region) -> Self:
         """Return a view of this model covering a geographic box.
 
         The view shares the loaded experts and crops the grid, invariants and

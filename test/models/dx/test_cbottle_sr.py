@@ -81,7 +81,7 @@ def offline_sr(monkeypatch):
         core,
         lat_lon=True,
         output_resolution=(2161, 4320),
-        super_resolution_window=None,
+        region=None,
         **kwargs,
     ):
         torch.nn.Module.__init__(self)
@@ -119,7 +119,10 @@ def offline_sr(monkeypatch):
                 return out[None, :, None], None
 
         self.sr_model = Core()
-        self._configure_window(super_resolution_window, output_resolution)
+        window, full_longitude = (
+            self._region_window(region) if region is not None else (None, False)
+        )
+        self._configure_window(window, output_resolution, full_longitude)
 
     monkeypatch.setattr(CBottleSR, "__init__", initialize)
     monkeypatch.setattr(sr_module, "replace", lambda x: x)
@@ -173,22 +176,22 @@ class TestCBottleSRMock:
     )
     @pytest.mark.parametrize("output_resolution", [(721, 1440)])
     @pytest.mark.parametrize(
-        "device,window",
+        "device,region",
         [
-            ("cuda:0", (0, -120, 50, -40)),
+            ("cuda:0", Region.box(-120, 0, -40, 50)),
             ("cuda:0", None),
-            ("cuda:0", (0, -120, 50, -40)),
+            ("cuda:0", Region.band(-30, 30)),
         ],  # Skipping CPU tests, should work be too slow
     )
     def test_cbottle_sr_latlon(
-        self, x, device, output_resolution, window, mock_cbottle_core_model
+        self, x, device, output_resolution, region, mock_cbottle_core_model
     ):
         # Create CBottleSR model with mock core model
         dx = CBottleSR(
             mock_cbottle_core_model,
             lat_lon=True,
             output_resolution=output_resolution,
-            super_resolution_window=window,
+            region=region,
             sampler_steps=2,  # Smallest valid EDM schedule
             sigma_max=800,  # Reduced for testing
         ).to(device)
@@ -393,6 +396,15 @@ class TestCBottleSRRegion:
         np.testing.assert_array_equal(dx.output_lon, lon)
         assert dx.regrid_hpx_high_res_to_output is regridder
         assert _same_signature(dx.output_coords(dx.input_coords()), signature)
+
+        # The constructor region selects the same grid as with_region
+        built = CBottleSR(
+            mock_cbottle_core_model,
+            output_resolution=(16, 32),
+            region=Region.box(-120, 0, -40, 50),
+        )
+        assert _same_signature(built.output_coords(built.input_coords()), coords)
+        assert built.super_resolution_extents == view.super_resolution_extents
 
         # A view reaches the whole globe, as the parent does
         for region in (Region.box(10, -20, 30, 20), Region.band(-90, 90)):

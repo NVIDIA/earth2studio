@@ -125,12 +125,10 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     output_resolution : Tuple[int, int], optional
         High-resolution output dimensions for lat/lon output. Only used when
         lat_lon=True, by default (2161, 4320)
-    super_resolution_window : Tuple[int, int, int, int] | None, optional
-        Super-resolution window. If None, super-resolution is done on the entire global grid
-        If provided, the super-resolution window is a tuple of (lat_south, lon_west, lat_north, lon_east)
-        and will only apply super-resolution to the specified window. For lat/lon output, the result will
-        just be returned for the specified window with the specified output resolution.
-        Prefer :meth:`with_region` for new code, by default None
+    region : Region | None, optional
+        Region to super-resolve, a :meth:`~earth2studio.grids.Region.box` or
+        :meth:`~earth2studio.grids.Region.band` as accepted by :meth:`with_region`.
+        If None, super-resolution is done on the entire globe, by default None
     sampler_steps : int, optional
         Number of diffusion steps, by default 18
     sigma_max : int, optional
@@ -150,7 +148,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         sr_model: torch.nn.Module,
         lat_lon: bool = True,
         output_resolution: tuple[int, int] = (2161, 4320),
-        super_resolution_window: tuple[int, int, int, int] | None = None,
+        region: Region | None = None,
         sampler_steps: int = 18,
         sigma_max: int = 800,
     ) -> None:
@@ -221,7 +219,10 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             self.regrid_input_to_hpx_low_res = None
 
         # Setup super resolution window (this will initialize output coords and patch index)
-        self._configure_window(super_resolution_window, output_resolution)
+        window, full_longitude = (
+            self._region_window(region) if region is not None else (None, False)
+        )
+        self._configure_window(window, output_resolution, full_longitude)
 
         self._coords = Coords(self.sr_model.batch_info, self.hpx_low_res_grid)
 
@@ -304,7 +305,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             self.output_grid = self.hpx_high_res_grid
             self.regrid_hpx_high_res_to_output = None
 
-    def with_region(self, region: Region, /) -> Self:
+    def with_region(self, region: Region) -> Self:
         """Return a view of this model super-resolving a geographic region.
 
         The view shares the loaded super-resolution network and super-resolves
@@ -336,6 +337,13 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         ValueError
             If the region is not a box or band, or has zero extent.
         """
+        return self._view(*self._region_window(region))
+
+    def _region_window(
+        self, region: Region
+    ) -> tuple[tuple[float, float, float, float] | None, bool]:
+        """Window ``(lat_south, lon_west, lat_north, lon_east)`` and band flag for
+        :meth:`_configure_window`, None for the globe."""
         # A linspace output grid over a zero-extent region repeats coordinates
         if region.kind == "box":
             west, south, east, north = region.params
@@ -343,14 +351,14 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
                 raise ValueError("Region box must have positive extent")
             if west > east:
                 east += 360.0  # cross the antimeridian eastward
-            return self._view((south, west, north, east), False)
+            return (south, west, north, east), False
         if region.kind == "band":
             south, north = region.params
             if south == north:
                 raise ValueError("Region band must have positive extent")
             if (south, north) == (-90.0, 90.0):
-                return self._view(None, False)
-            return self._view((south, 0.0, north, 360.0), True)
+                return None, False
+            return (south, 0.0, north, 360.0), True
         raise ValueError(
             f"{type(self).__name__} supports only box and band regions, "
             f"not {region.kind!r}"
@@ -484,7 +492,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         package: Package,
         lat_lon: bool = True,
         output_resolution: tuple[int, int] = (2161, 4320),
-        super_resolution_window: tuple[int, int, int, int] | None = None,
+        region: Region | None = None,
         sampler_steps: int = 18,
         sigma_max: int = 800,
         distilled_model: bool = False,
@@ -501,8 +509,9 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             Input HEALPix is level 6 and output HEALPix is level 10 with NEST pixel ordering
         output_resolution : tuple[int, int], optional
             High-resolution output dimensions for lat/lon output, by default (2161, 4320)
-        super_resolution_window : tuple[int, int, int, int] | None, optional
-            Super-resolution window for lat/lon output, by default None
+        region : Region | None, optional
+            Region to super-resolve, a box or band as accepted by
+            :meth:`with_region`; None super-resolves the globe, by default None
         sampler_steps : int, optional
             Number of diffusion steps, by default 18
         sigma_max : float, optional
@@ -541,7 +550,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             sr_model,
             lat_lon=lat_lon,
             output_resolution=output_resolution,
-            super_resolution_window=super_resolution_window,
+            region=region,
             sampler_steps=sampler_steps,
             sigma_max=sigma_max,
         )

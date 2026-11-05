@@ -491,7 +491,7 @@ not implement it. Design notes and wrapper guidance are in
 ```python
 @runtime_checkable
 class DomainAdaptable(Protocol):
-    def with_region(self, region: Region, /) -> Self: ...
+    def with_region(self, region: Region) -> Self: ...
 ```
 
 A loaded model starts on its default domain, usually its full native footprint, and
@@ -861,10 +861,11 @@ The checker implements this contract. Wrappers and consumers migrate separately:
   `StormScopeGOES` and `StormScopeMRMS` implement it for box regions: Flash variants
   crop the HRRR footprint with context, and baseline variants return full-footprint
   views, which cover any supported region. `CorrDiffEra5Hrrr`, `CorrDiffCosmoEra5`,
-  `StormCastCONUS` and `cBottleSR` implement it too. `with_region` replaces
-  `CorrDiffCosmoEra5.set_domain` and `CBottleSR.set_super_resolution_window`, which
-  are removed; construction-time window arguments (StormCastCONUS `hrrr_lat_lim` /
-  `hrrr_lon_lim`, cBottleSR `super_resolution_window`) remain.
+  `StormCastCONUS`, `cBottleSR` and `InterpCRPSDiT` implement it too. `with_region`
+  replaces `CorrDiffCosmoEra5.set_domain`, `InterpCRPSDiT.set_domain` and
+  `CBottleSR.set_super_resolution_window`, which are removed. StormCastCONUS keeps
+  its construction-time `hrrr_lat_lim` / `hrrr_lon_lim`; cBottleSR's constructor
+  and `load_model` take a `region`.
   `StormCast` stays fixed-domain: its additive positional embedding and invariants
   cover only its 512×640 window. See
   [flexible_domain.md](../scratch/flexible_domain.md).

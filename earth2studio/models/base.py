@@ -37,7 +37,7 @@ class DomainAdaptable(Protocol):
     concurrently only where the wrapper documents it.
     """
 
-    def with_region(self, region: Region, /) -> Self:
+    def with_region(self, region: Region) -> Self:
         """Return a view of this model covering a geographic region.
 
         The model selects the grid of every input, forcing and output slot itself,
