@@ -30,7 +30,7 @@
 #   * 336 steps of 1 h: the model rolls out hourly (each hour is a full
 #     forward pass), so the scorecard verifies every hour against ERA5
 #     fetched on the fly from ARCO rather than the shared 6-hourly store
-#   * output pole-padded onto ERA5's 721 grid
+#   * output gathered onto ERA5's 721 grid (output.regrid, nearest)
 #   * needs t-6h history, so it keeps its own IC store.
 # ---------------------------------------------------------------------------
 defaults:
@@ -96,6 +96,11 @@ start_times:
 nsteps: 336
 ensemble_size: 16
 random_seed: 42
+# Aurora 1.5 ensemble is stochastic, so EXECUTION_CONTRACT X5 would roll one
+# member per item; this opts in to the two-members-per-rank batching
+# configured under scoring.online: both members of a rank share one seed, so
+# single trajectories differ from a K=1 run while the ensemble stays i.i.d.
+batch_stochastic_members: true
 resume: true
 perturbation: null
 require_predownload: true
@@ -105,6 +110,13 @@ data_source:
     verbose: false
 output:
     path: ${oc.env:SCORECARD_OUT,/code/earth2studio_eval/recipes/eval/scorecard/models/aurora1p5ens/outputs}/${project}_${run_id}
+    # Gather the model's native 720 x 1440 output onto ERA5's 721 x 1440
+    # grid before scoring: its 720 latitudes are the target's first 720,
+    # and the appended -90 row carries zero latitude weight, so the shared
+    # verification store applies as is.
+    regrid:
+        grid: latlon-0.25deg
+        method: nearest
     # Online scoring: never write the raw forecast store; stats.zarr is
     # the artifact.
     retain: none
@@ -206,7 +218,8 @@ scoring:
     # below — `scoring.metrics` does not apply here.
     online:
         # 16 members on one 8-GPU node: 2 members per rank -> one ensemble
-        # group per node, so the CRPS member exchange stays on NVLink.
+        # group per node, so the CRPS member exchange stays on NVLink
+        # (batch_stochastic_members above allows this for a stochastic model).
         members_per_rank: 2
         # Per-member MAE and radially averaged log spectral distance (dB)
         # vs ERA5.  The regional splits come from the defaults entry
@@ -222,15 +235,5 @@ verification_source:
     verbose: false
 predownload:
     verification:
-        enabled: false
-pipeline:
-    _target_: scorecard.utils.pipelines.RegriddedForecastPipeline
-    target_lat:
-        start: 90.0
-        stop: -90.0
-        num: 721
-    target_lon:
-        start: 0.0
-        stop: 359.75
-        num: 1440
-    share_verification: false
+        enabled: false   # bring-your-own above
+runner: forecast

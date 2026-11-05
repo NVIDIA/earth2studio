@@ -19,7 +19,8 @@
 #
 # The forecast at every lead time is an ERA5 hourly climatology
 # (1990-2017, day-of-year x hour-of-day, native 0.25°) at the valid time,
-# predownloaded into climatology.zarr by the pipeline below.  70 scored
+# fetched through the model's forcing slot (forcing_sources below) and
+# predownloaded into forcing0.zarr.  70 scored
 # variables — everything the climatology source provides (no u100m/v100m).
 # Shown in the docs plots as a reference
 # line rather than as its own scorecard page.
@@ -199,9 +200,12 @@ predownload:
     verification:
         # Verification is BYO from the fcn3 campaign's store above.
         enabled: false
-pipeline:
-    _target_: scorecard.utils.pipelines.ClimatologyPipeline
-    climatology_source:
-        _target_: earth2studio.data.WB2Climatology
-        cache: false
-        verbose: false
+# The climatology is the baseline's forcing slot: the forecast runner fetches
+# it at every step's valid time from this source, and predownload.py caches
+# those fetches into <output.path>/forcing0.zarr so nothing is read remotely
+# inside the inference loop.
+runner: forecast
+forcing_sources:
+    - _target_: earth2studio.data.WB2Climatology
+      cache: false
+      verbose: false

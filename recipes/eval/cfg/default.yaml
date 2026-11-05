@@ -30,21 +30,39 @@ start_times:
 # ic_block_step: 24   # hours between ICs
 
 # ---------------------------------------------------------------------------
-# Pipeline
+# Runner — how one work item (initial condition, members) is executed
 # ---------------------------------------------------------------------------
-# Fully qualified class path, or a {_target_: ...} block.  Built-in options:
-#   src.pipelines.forecast.ForecastPipeline     — prognostic rollout (default)
-#   src.pipelines.diagnostic.DiagnosticPipeline — diagnostic-only (e.g. CorrDiff)
-#   src.pipelines.dlesym.DLESyMPipeline         — coupled Earth-system forecast
-#   src.pipelines.stormscope.StormScopePipeline — coupled GOES/MRMS nowcasting
-#   src.pipelines.seasonal.WindowMeanForecastPipeline
-#       — stores a rollout as window means (weekly, monthly) for S2S archives
-#   src.pipelines.assimilation.AssimilationPipeline
-#       — DA analysis scored against reanalysis (e.g. HealDA)
-#   src.pipelines.assimilation.AssimilationForecastPipeline
-#       — DA-initialized forecast (e.g. HealDA + FCN3)
-# Custom pipelines: point at your own subclass of src.pipelines.Pipeline.
-pipeline: src.pipelines.forecast.ForecastPipeline
+# A built-in name, or a {_target_: ...} block naming a callable
+# (cfg, **kwargs) -> earth2studio.run.Runner.  Built-ins:
+#   forecast              — prognostic rollout with optional diagnostics,
+#                           perturbation and ensembles (default)
+#   diagnostic            — diagnostics applied to source data (e.g. CorrDiff)
+#   assimilation          — DA analysis scored against reanalysis (e.g. HealDA)
+#   assimilation_forecast — DA analysis initializes a prognostic rollout
+#   stormscope            — coupled GOES/MRMS nowcasting
+#   window_mean           — rollout stored as window means (weekly, monthly)
+# Coupled models such as DLESyM and forced models such as StormCast run
+# through the default forecast runner.
+runner: forecast
+
+# Forcing sources, one per forcing slot of the prognostic model (StormCast
+# conditioning, climatology baselines).  null uses the model's recommended
+# sources; entries resolve like data_source (BYO, then predownloaded
+# forcing_<k>.zarr, then live).
+forcing_sources: null
+
+# Members rolled out together in one work item for offline runs (online
+# scoring uses scoring.online.members_per_rank).  Prognostic models absorb the
+# members into their batch dimension.
+member_batch: 1
+
+# Stochastic models (FCN3, Aurora 1.5 ensemble, FuXi-S2S, ...) are seeded per
+# member (EXECUTION_CONTRACT X5), so they roll one member per item and
+# member_batch / members_per_rank above 1 are refused.  Setting this to true
+# batches their members anyway: the batch shares the first member's seed, so
+# a member's trajectory depends on the batch size, and the runner logs the
+# deviation.
+batch_stochastic_members: false
 
 # ---------------------------------------------------------------------------
 # Pre-download enforcement
@@ -64,7 +82,7 @@ random_seed: 42        # base seed for reproducible perturbations
 # ---------------------------------------------------------------------------
 # Resume / multi-job support
 # ---------------------------------------------------------------------------
-# When true, skip work items that already have completion markers and append
+# When true, skip work items recorded in <output.path>/.progress and append
 # to the existing zarr store.  Useful for resuming after a failure or
 # splitting work across multiple SLURM submissions with the same config.
 resume: false
@@ -88,7 +106,8 @@ resume: false
 # ---------------------------------------------------------------------------
 # Config group under cfg/data_source/ (see the defaults list above):
 #   arco_era5       — ARCO ERA5, hourly, 0.25 degree (default)
-#   arco_era5_daily — daily means of ERA5 (for FuXi-S2S)
+#   (daily-mean models such as FuXi-S2S declare qualified labels like
+#   t2m:mean:0h:24h; fetch_data computes the means from the hourly source)
 # Campaigns swap it with `override /data_source: ...`; an inline
 # `data_source:` block merges over the selected one instead.
 
@@ -122,6 +141,13 @@ output:
         - t2m
         - z500
     overwrite: true
+    # Regrid every stream onto a target grid before writing and scoring.
+    # null keeps the models' native grids.  Example (ERA5 0.25 degree):
+    # regrid:
+    #     grid: latlon-0.25deg          # registered name, or {lat: {start, stop, num}, lon: {...}}
+    #     method: nearest               # any registered regridder method
+    #     options: {max_dist_km: auto}  # keyword arguments of the regridder
+    regrid: null
     thread_writers: 4   # 0 = synchronous writes
     # time/lead_time/ensemble must keep chunk size 1 with async_zarr: they are
     # written one slice per step, and a larger chunk would let concurrent writes
@@ -157,30 +183,28 @@ output:
 # ---------------------------------------------------------------------------
 # Pre-download settings (used by predownload.py, consulted by score.py)
 # ---------------------------------------------------------------------------
-# predownload.py writes zarr stores into <output.path>/:
-#   - data.zarr       — IC data (and verification data when using the same
-#                        source).  main.py reads IC data from here.
-#   - verification.zarr — only created when verification.source is explicitly
-#                          set to a different data source.
-# Per-timestamp progress markers enable resume after interruption.
+# predownload.py caches every source the runner fetches from into
+# <output.path>/<role>.zarr (role "data" for initial conditions, "forcing<k>"
+# for forcing slots, model-specific roles for coupled runners), observation
+# frames into <output.path>/<slot>.parquet, and verification data into a
+# separate <output.path>/verification.zarr.  Resume is per time through
+# .progress_predownload_<role>; a campaign whose times or variables changed
+# must set predownload.overwrite=true.
 #
-# `verification.enabled` is the source of truth for whether data.zarr holds
-# verification data.  score.py re-reads this block and falls back to
-# data.zarr only when `enabled=true` AND `source=null` (the merged path);
-# otherwise it raises rather than silently using an IC-only store.
-# If you want scoring, set `enabled=true` in your campaign config so it
-# applies to both predownload.py and score.py — don't pass it only as a
-# one-shot CLI override to predownload.py.
+# `verification.enabled` gates the verification store; score.py and online
+# scoring read verification.zarr when present, else the BYO
+# verification_source, else the live source.  Set `enabled=true` in your
+# campaign config so predownload.py and score.py agree.
 predownload:
     overwrite: false             # if true, recreate stores from scratch
     verification:
         enabled: false
-        source: null             # null = merge into data.zarr using data_source
-                                 # set explicitly for a separate verification.zarr
-    # DA pipelines only: cache observation DataFrames to
-    # <output.path>/obs_<name>.parquet (one file per analysis time).
-    # main.py automatically prefers these stores over the live obs
-    # sources when present.  Set enabled=false to always fetch live.
+        source: null             # null = fetch verification from data_source;
+                                 # set a node to use another source
+    # DA runners only: cache observation DataFrames to
+    # <output.path>/<slot>.parquet (one file per analysis time).  Inference
+    # prefers these stores over the live observation sources when present;
+    # set enabled=false to always fetch live.
     observations:
         enabled: true
 
@@ -225,7 +249,9 @@ scoring:
     # a climatology is configured).
     online:
         ensemble_group_size: null      # null -> G = ensemble_size / K
-        members_per_rank: 1            # K > 1 needs Pipeline.run_item_batched
+        members_per_rank: 1            # K > 1 needs a runner with
+                                       # supports_member_batching (stochastic
+                                       # models: batch_stochastic_members)
         stats_store: stats.zarr        # the durable artifact
         # Where the finalize step writes.  null -> scoring.output.store_name.
         # Set it when also scoring the same run offline, so the two stores

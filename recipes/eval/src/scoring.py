@@ -14,14 +14,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Scoring module: compare predictions against verification data.
+"""Offline scoring: compare stored forecasts against verification data.
 
-Loads inference outputs from a zarr store, aligns them with predownloaded
-verification data, applies configured ``earth2studio.statistics`` metrics,
-and writes the resulting scores to a shared ``scores.zarr`` store.
+Opens the ``forecast.zarr`` store ``main.py`` wrote, fetches verification at
+the valid times of every forecast through :func:`earth2studio.data.fetch_data`,
+applies the configured ``earth2studio.statistics`` metrics on
+:class:`xarray.DataArray` fields and writes the results to a shared
+``scores.zarr`` store through :class:`earth2studio.io.ZarrBackend`.
 
 Designed for multi-GPU use: each rank scores an independent subset of
-initial-condition times.  Lead-time chunking keeps memory bounded.
+initial-condition times, and a :class:`earth2studio.run.ProgressStore` records
+finished times so a run can resume.  Lead-time chunking keeps memory bounded.
+
+Score store schema
+------------------
+One array per metric and variable, named ``<metric>__<variable>`` (or just
+``<metric>`` when the metric reduces the ``variable`` dimension), over
+``(time, <metric output dimensions>)`` -- typically ``(time, lead_time)``,
+``(time, region, lead_time)`` with ``scoring.regions`` or
+``(time, ensemble, lead_time)`` for per-member metrics.
 """
 
 from __future__ import annotations
@@ -29,6 +40,7 @@ from __future__ import annotations
 import inspect
 import os
 from collections import OrderedDict
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 import hydra
@@ -39,17 +51,59 @@ from loguru import logger
 from omegaconf import DictConfig, OmegaConf
 from tqdm import tqdm
 
-from earth2studio.data import DataSource
+from earth2studio.data import fetch_data
+from earth2studio.io import ZarrBackend
+from earth2studio.run import ProgressStore, WorkItem
 from earth2studio.statistics.weights import lat_weight
 from earth2studio.utils.coords import CoordSystem, coord_array
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.type import CoordinateSystem
 
-from .distributed import get_rank
-from .output import OutputManager
-from .regions import region_masks, scoring_regions, spatial_dims
-from .work import write_scoring_marker
+from .data import resolve_source
+from .output import (
+    OutputRegridder,
+    output_regridder,
+    progress_path,
+    remove_store,
+    store_path,
+)
+from .regions import (
+    NON_SPATIAL,
+    SpatialCoords,
+    region_masks,
+    scoring_regions,
+    spatial_axes,
+)
 
-# Dimensions that are never spatial.
-_NON_SPATIAL = frozenset({"ensemble", "time", "lead_time", "batch"})
+# ---------------------------------------------------------------------------
+# Config helpers
+# ---------------------------------------------------------------------------
+
+
+def online_mode(cfg: DictConfig) -> bool:
+    """Whether ``scoring.mode`` selects the online pathway.
+
+    Raises
+    ------
+    ValueError
+        On an unknown mode, rather than silently falling back to offline.
+    """
+    mode = str(cfg.get("scoring", {}).get("mode", "offline")).lower()
+    if mode not in ("offline", "online"):
+        raise ValueError(
+            f"Invalid scoring.mode '{mode}'; expected 'offline' or 'online'."
+        )
+    return mode == "online"
+
+
+def score_store_path(cfg: DictConfig) -> str:
+    """Path of the score store: ``<output.path>/<scoring.output.store_name>``."""
+    return store_path(cfg, str(cfg.scoring.output.get("store_name", "scores.zarr")))
+
+
+def scoring_progress_path(cfg: DictConfig) -> os.PathLike:
+    """Directory of the scoring :class:`~earth2studio.run.ProgressStore`."""
+    return progress_path(cfg, "progress_scoring")
 
 
 # ---------------------------------------------------------------------------
@@ -58,14 +112,15 @@ _NON_SPATIAL = frozenset({"ensemble", "time", "lead_time", "batch"})
 
 
 def _is_statistic(obj: Any) -> bool:
-    """Return True if *obj* follows the Statistic (2-arg) protocol.
+    """Return True if *obj* follows the Statistic (one-array) protocol.
 
-    The ``earth2studio.statistics.base.Statistic`` protocol defines
-    ``__call__(self, x, coords)`` (2 required positional args after self),
-    while ``Metric`` defines ``__call__(self, x, x_coords, y, y_coords)``
-    (4 required positional args).  We distinguish the two by inspecting
-    the call signature.
+    ``earth2studio.statistics.Statistic.__call__`` takes ``x`` only, while
+    ``Metric.__call__`` takes ``x`` and ``y``.  Wrappers may declare which
+    protocol they forward to through an ``is_statistic`` attribute.
     """
+    flag = getattr(obj, "is_statistic", None)
+    if flag is not None:
+        return bool(flag)
     sig = inspect.signature(type(obj).__call__)
     required = [
         p
@@ -78,7 +133,7 @@ def _is_statistic(obj: Any) -> bool:
         )
         and p.default is inspect.Parameter.empty
     ]
-    return len(required) == 2
+    return len(required) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -86,13 +141,23 @@ def _is_statistic(obj: Any) -> bool:
 # ---------------------------------------------------------------------------
 
 
+def _with_region(inner: xr.DataArray, names: Sequence[str]) -> CoordinateSystem:
+    """Signature of *inner* behind a leading, string-labelled ``region`` axis."""
+    coords: dict[Any, Any] = {
+        key: value.variable for key, value in inner.coords.items()
+    }
+    coords["region"] = np.array(list(names))
+    sizes = {dim: inner.sizes[dim] for dim in inner.dims}
+    return coord_array(("region", *inner.dims), coords, sizes=sizes, dtype=inner.dtype)
+
+
 class RegionalMetric:
     """One metric applied per named region, stacked on a ``region`` axis.
 
     Wraps per-region instances of the same underlying metric (each built
     with region-masked weights) behind the Metric protocol, so the store
-    schema, chunking validation, and write path treat it as any other
-    metric — its output simply carries a leading string-labeled ``region``
+    schema, chunking validation and write path treat it as any other
+    metric; its output carries a leading string-labelled ``region``
     dimension.
 
     Parameters
@@ -105,42 +170,35 @@ class RegionalMetric:
         self._per_region = per_region
         first = next(iter(per_region.values()))
         self.reduction_dimensions = first.reduction_dimensions
-        self._inner_is_statistic = _is_statistic(first)
+        self.ensemble_dimension = getattr(first, "ensemble_dimension", None)
+        self.is_statistic = _is_statistic(first)
 
-    def _region_coords(self, inner: CoordSystem) -> CoordSystem:
-        coords: CoordSystem = OrderedDict()
-        coords["region"] = np.array(list(self._per_region))
-        coords.update(inner)
-        return coords
+    @property
+    def regions(self) -> list[str]:
+        """Region labels in output order."""
+        return list(self._per_region)
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Inner metric's output coords behind a leading ``region`` axis."""
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Inner metric's output signature behind a leading ``region`` axis."""
         first = next(iter(self._per_region.values()))
-        return self._region_coords(first.output_coords(input_coords))
+        return _with_region(first.output_coords(input_coords), self.regions)
 
-    def __call__(
-        self,
-        x: torch.Tensor,
-        x_coords: CoordSystem,
-        y: torch.Tensor | None = None,
-        y_coords: CoordSystem | None = None,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray, y: xr.DataArray | None = None) -> xr.DataArray:
         """Apply every region's instance and stack the results."""
-        values = []
-        inner_coords: CoordSystem = OrderedDict()
+        values: list[torch.Tensor] = []
+        last: xr.DataArray | None = None
         for metric in self._per_region.values():
-            if self._inner_is_statistic:
-                value, inner_coords = metric(x, x_coords)
-            else:
-                value, inner_coords = metric(x, x_coords, y, y_coords)
-            values.append(value)
-        return torch.stack(values, dim=0), self._region_coords(inner_coords)
+            last = metric(x) if self.is_statistic else metric(x, y)
+            values.append(last.e2s.to_torch()[0])
+        if last is None:
+            raise ValueError("RegionalMetric needs at least one region")
+        return from_torch(torch.stack(values, dim=0), _with_region(last, self.regions))
 
 
 def _embed_mask(
     mask: torch.Tensor,
     red_dims: list[str],
-    spatial_coords: CoordSystem,
+    grid_dims: list[str],
 ) -> torch.Tensor:
     """Reshape a spatial-shaped region mask onto a metric's reduction dims.
 
@@ -149,18 +207,17 @@ def _embed_mask(
     axis per reduction dimension.  Permute the mask's axes into reduction
     order and insert size-1 axes for non-spatial reduction dims.
     """
-    dims = spatial_dims(spatial_coords)
-    perm = [dims.index(d) for d in red_dims if d in dims]
+    perm = [grid_dims.index(d) for d in red_dims if d in grid_dims]
     out = mask.permute(perm)
     for i, d in enumerate(red_dims):
-        if d not in dims:
+        if d not in grid_dims:
             out = out.unsqueeze(i)
     return out
 
 
 def instantiate_metrics(
     cfg: DictConfig,
-    spatial_coords: CoordSystem,
+    spatial_coords: SpatialCoords,
 ) -> OrderedDict:
     """Create metric instances from the ``scoring.metrics`` config block.
 
@@ -171,27 +228,28 @@ def instantiate_metrics(
 
     With ``scoring.regions`` (plus any boxes declared by ``scoring.events``),
     every metric that reduces over all spatial dimensions and accepts a
-    ``weights`` argument becomes a :class:`RegionalMetric` - adding a
-    labeled ``region`` axis to its scores.
+    ``weights`` argument becomes a :class:`RegionalMetric`, adding a
+    labelled ``region`` axis to its scores.
 
     Parameters
     ----------
     cfg : DictConfig
         Full Hydra config (reads ``cfg.scoring.metrics``,
         ``cfg.scoring.lat_weights`` and ``cfg.scoring.regions``).
-    spatial_coords : CoordSystem
-        Spatial coordinate arrays from the prediction store (used to
-        compute latitude weights and region masks).
+    spatial_coords : Mapping[str, Any] | xr.DataArray
+        Spatial coordinate arrays of the scored grid, or a coordinate
+        signature carrying them (used for latitude weights and masks).
 
     Returns
     -------
     OrderedDict[str, Metric]
         Metric instances keyed by their config name.
     """
+    grid = spatial_axes(spatial_coords)
+    grid_dims = list(grid)
     use_lat_weights = cfg.scoring.get("lat_weights", False)
     regions = scoring_regions(cfg.scoring)
-    masks = region_masks(spatial_coords, regions) if regions is not None else None
-    grid_dims = spatial_dims(spatial_coords)
+    masks = region_masks(grid, regions) if regions is not None else None
     metrics: OrderedDict = OrderedDict()
 
     for name, metric_cfg in cfg.scoring.metrics.items():
@@ -199,28 +257,21 @@ def instantiate_metrics(
         target = cfg_dict.pop("_target_")
         cls = hydra.utils.get_class(target)
         red_dims = list(cfg_dict.get("reduction_dimensions", []))
+        shape = [len(grid[d]) if d in grid else 1 for d in red_dims]
 
-        # Inject cosine latitude weights when appropriate.
-        # Weights must have exactly len(reduction_dimensions) dims with
-        # sizes matching each reduction dim's coordinate length.
+        # Inject cosine latitude weights when appropriate.  Weights must
+        # have exactly len(reduction_dimensions) dims with sizes matching
+        # each reduction dim's coordinate length.
         if (
             use_lat_weights
-            and "lat" in spatial_coords
+            and "lat" in grid
             and "lat" in red_dims
             and "weights" not in cfg_dict
         ):
-            lat_vals = spatial_coords["lat"]
-            weights_1d = lat_weight(torch.tensor(lat_vals, dtype=torch.float32))
-            shape = [
-                len(spatial_coords[d]) if d in spatial_coords else 1 for d in red_dims
-            ]
-            lat_idx = red_dims.index("lat")
-            # Start with ones at the full shape, then broadcast lat in.
-            weights = torch.ones(shape)
+            weights_1d = lat_weight(torch.tensor(grid["lat"], dtype=torch.float32))
             view_shape = [1] * len(red_dims)
-            view_shape[lat_idx] = len(lat_vals)
-            weights = weights * weights_1d.reshape(view_shape)
-            cfg_dict["weights"] = weights
+            view_shape[red_dims.index("lat")] = len(grid["lat"])
+            cfg_dict["weights"] = torch.ones(shape) * weights_1d.reshape(view_shape)
 
         # Region-mask the metric when it can carry the masking: it must
         # reduce over every spatial dimension (a partial spatial reduction
@@ -233,27 +284,20 @@ def instantiate_metrics(
         if masks is not None and not maskable:
             logger.warning(
                 f"Metric '{name}' cannot be region-masked (needs a 'weights' "
-                "argument and a full spatial reduction) — scored on the "
-                "whole grid only."
+                "argument and a full spatial reduction); scored on the whole "
+                "grid only."
             )
 
         if masks is not None and maskable:
             base = cfg_dict.pop("weights", None)
-            if base is None:
-                base = torch.ones(
-                    [
-                        len(spatial_coords[d]) if d in spatial_coords else 1
-                        for d in red_dims
-                    ]
-                )
+            base = torch.ones(shape) if base is None else torch.as_tensor(base)
             per_region: OrderedDict = OrderedDict()
             for region_name, mask in masks.items():
-                embedded = _embed_mask(mask, red_dims, spatial_coords).to(base.dtype)
+                embedded = _embed_mask(mask, red_dims, grid_dims).to(base.dtype)
                 per_region[region_name] = cls(**cfg_dict, weights=base * embedded)
             metrics[name] = RegionalMetric(per_region)
             logger.info(
-                f"Instantiated metric '{name}': {target} "
-                f"({len(per_region)} regions)"
+                f"Instantiated metric '{name}': {target} ({len(per_region)} regions)"
             )
         else:
             metrics[name] = cls(**cfg_dict)
@@ -268,7 +312,7 @@ def instantiate_metrics(
 
 
 def open_prediction_store(cfg: DictConfig) -> xr.Dataset:
-    """Open the inference output zarr store as an xarray Dataset.
+    """Open the inference output store ``forecast.zarr`` as a Dataset.
 
     Parameters
     ----------
@@ -284,29 +328,27 @@ def open_prediction_store(cfg: DictConfig) -> xr.Dataset:
     FileNotFoundError
         If the prediction store does not exist.
     """
-    store_path = os.path.join(cfg.output.path, "forecast.zarr")
-    if not os.path.exists(store_path):
+    path = store_path(cfg)
+    if not os.path.isdir(path):
         raise FileNotFoundError(
-            f"Prediction store not found at '{store_path}'.\n"
+            f"Prediction store not found at '{path}'.\n"
             "Run inference (main.py) before scoring."
         )
-    logger.info(f"Opened prediction store: {store_path}")
-    return xr.open_zarr(store_path)
+    logger.info(f"Opened prediction store: {path}")
+    return xr.open_zarr(path, consolidated=False)
 
 
-def open_verification_source(cfg: DictConfig) -> DataSource:
-    """Open the verification data source via the pipeline hook.
+def open_verification_source(cfg: DictConfig) -> Any:
+    """Resolve the verification data source.
 
-    Thin wrapper around :meth:`src.pipelines.base.Pipeline.verification_source`.
-    The base hook resolves ``cfg.verification_source`` (BYO) first, then
-    falls back to local predownload zarrs (``verification.zarr``,
-    ``data.zarr``, or per-model ``data_*.zarr`` → :class:`CompositeSource`).
-    Pipelines may override for non-standard layouts.
+    A bring-your-own ``verification_source`` wins; otherwise the
+    predownloaded ``<output.path>/verification.zarr``; otherwise the live
+    ``predownload.verification.source`` or ``data_source``.
 
     Parameters
     ----------
     cfg : DictConfig
-        Hydra config with ``output.path`` and optional ``verification_source``.
+        Hydra config.
 
     Returns
     -------
@@ -314,14 +356,19 @@ def open_verification_source(cfg: DictConfig) -> DataSource:
 
     Raises
     ------
-    FileNotFoundError
-        If neither a BYO override nor any predownload store is available.
+    ValueError
+        If no config entry names a verification source.
     """
-    # Local import avoids a circular dependency at module import time.
-    from .pipelines import build_pipeline
-
-    pipeline = build_pipeline(cfg)
-    return pipeline.verification_source(cfg)
+    live = cfg.predownload.verification.get("source", None) or cfg.get("data_source")
+    source = resolve_source(
+        cfg, "verification", byo=cfg.get("verification_source"), live=live
+    )
+    if source is None:
+        raise ValueError(
+            "No verification source: set verification_source, run predownload.py "
+            "with predownload.verification.enabled=true, or configure data_source."
+        )
+    return source
 
 
 def spatial_coords_from_dataset(ds: xr.Dataset) -> CoordSystem:
@@ -335,25 +382,30 @@ def spatial_coords_from_dataset(ds: xr.Dataset) -> CoordSystem:
     Returns
     -------
     CoordSystem
-        Spatial coordinate arrays (e.g. ``{lat: [...], lon: [...]}``,
-        or ``{x: [...], y: [...]}`` for non-lat/lon grids).
+        Spatial coordinate arrays (e.g. ``{lat: [...], lon: [...]}``, or
+        ``{x: [...], y: [...]}`` for non-lat/lon grids).  A dimension
+        without a coordinate gets ``arange(size)``.
     """
     coords: CoordSystem = OrderedDict()
     for dim in ds.dims:
-        if dim not in _NON_SPATIAL:
-            coords[dim] = ds.coords[dim].values
+        if dim in NON_SPATIAL:
+            continue
+        if dim in ds.coords:
+            coords[str(dim)] = np.asarray(ds.coords[dim].values)
+        else:
+            coords[str(dim)] = np.arange(ds.sizes[dim])
     return coords
 
 
 def build_input_coords_template(
     prediction_ds: xr.Dataset,
     lead_times: np.ndarray,
-    variables: list[str],
-) -> CoordSystem:
-    """Build a representative input coordinate system for metric introspection.
+    variables: Sequence[str],
+) -> CoordinateSystem:
+    """Build the coordinate signature of one forecast for metric introspection.
 
-    Used to call ``metric.output_coords()`` in order to determine the
-    shape of the score arrays before any data is loaded.
+    Used to call ``metric.output_coords()`` to determine the shape of the
+    score arrays before loading any data.
 
     Parameters
     ----------
@@ -361,33 +413,42 @@ def build_input_coords_template(
         Opened prediction zarr store.
     lead_times : np.ndarray
         All lead time values from the prediction store.
-    variables : list[str]
+    variables : Sequence[str]
         Variable names to be scored.
 
     Returns
     -------
-    CoordSystem
-        Template with ``(ensemble?, lead_time, variable, <spatial...>)``.
+    CoordinateSystem
+        Signature with ``(ensemble?, lead_time, variable, <spatial...>)``.
     """
-    template: CoordSystem = OrderedDict()
+    coords: dict[str, Any] = {}
+    dims: list[str] = []
     if "ensemble" in prediction_ds.dims:
-        template["ensemble"] = prediction_ds.coords["ensemble"].values
-    template["lead_time"] = lead_times
-    template["variable"] = np.array(variables)
-    for dim in prediction_ds.dims:
-        if dim not in _NON_SPATIAL:
-            template[dim] = prediction_ds.coords[dim].values
-    return template
+        dims.append("ensemble")
+        coords["ensemble"] = np.asarray(prediction_ds.coords["ensemble"].values)
+    dims += ["lead_time", "variable"]
+    coords["lead_time"] = np.asarray(lead_times)
+    coords["variable"] = np.array([str(v) for v in variables])
+    for dim, values in spatial_coords_from_dataset(prediction_ds).items():
+        dims.append(dim)
+        coords[dim] = values
+    return coord_array(dims, coords)
+
+
+def _dimension_coords_only(da: xr.DataArray) -> xr.DataArray:
+    """Drop auxiliary coordinates, keeping one coordinate per dimension."""
+    extra = [c for c in da.coords if c not in da.dims]
+    return da.drop_vars(extra) if extra else da
 
 
 def load_prediction_chunk(
     prediction_ds: xr.Dataset,
     time: np.datetime64,
     lead_times: np.ndarray,
-    variables: list[str],
-    device: torch.device,
-) -> tuple[torch.Tensor, CoordSystem]:
-    """Load a chunk of prediction data for one IC time and lead-time range.
+    variables: Sequence[str],
+    device: torch.device | str,
+) -> xr.DataArray:
+    """Load one initial time and lead-time range of the prediction store.
 
     Parameters
     ----------
@@ -397,53 +458,42 @@ def load_prediction_chunk(
         Initial-condition time to select.
     lead_times : np.ndarray
         Lead-time values for this chunk.
-    variables : list[str]
+    variables : Sequence[str]
         Variable names to load.
-    device : torch.device
-        Target device for the returned tensor.
+    device : torch.device | str
+        Device of the returned field (NumPy-backed on CPU, CuPy on CUDA).
 
     Returns
     -------
-    tuple[torch.Tensor, CoordSystem]
-        Tensor and coords with dimensions
+    xr.DataArray
+        Float32 field with dimensions
         ``(ensemble?, lead_time, variable, <spatial...>)``.
     """
-    subset = prediction_ds[variables].sel(time=time, lead_time=lead_times)
+    subset = prediction_ds[list(variables)].sel(time=time, lead_time=lead_times)
     da = subset.to_array(dim="variable")
-
-    has_ensemble = "ensemble" in da.dims
-    spatial_dims = [
-        d for d in da.dims if d not in {"variable", "ensemble", "lead_time"}
-    ]
-
-    if has_ensemble:
-        dim_order = ["ensemble", "lead_time", "variable"] + spatial_dims
-    else:
-        dim_order = ["lead_time", "variable"] + spatial_dims
-
-    da = da.transpose(*dim_order)
-    tensor = torch.from_numpy(da.values.copy()).to(device=device, dtype=torch.float32)
-
-    coords: CoordSystem = OrderedDict()
-    for dim in dim_order:
-        coords[dim] = np.array(da.coords[dim].values)
-    return tensor, coords
+    spatial = [d for d in da.dims if d not in NON_SPATIAL and d != "variable"]
+    order = (["ensemble"] if "ensemble" in da.dims else []) + ["lead_time", "variable"]
+    da = _dimension_coords_only(da.transpose(*order, *spatial))
+    da = da.assign_coords(variable=np.array([str(v) for v in da["variable"].values]))
+    tensor = torch.as_tensor(np.ascontiguousarray(da.values), dtype=torch.float32)
+    return from_torch(tensor.to(device), da)
 
 
 def load_verification_chunk(
-    source: DataSource,
+    source: Any,
     time: np.datetime64,
     lead_times: np.ndarray,
-    variables: list[str],
-    spatial_coords: CoordSystem,
-    device: torch.device,
-) -> tuple[torch.Tensor, CoordSystem]:
+    variables: Sequence[str],
+    spatial_coords: SpatialCoords,
+    device: torch.device | str,
+    regrid: OutputRegridder | None = None,
+) -> xr.DataArray:
     """Load verification data aligned to a prediction chunk.
 
-    For each lead time, the valid time ``time + lead_time`` is computed and
-    fetched from the verification source.  The returned tensor uses
-    ``lead_time`` (not valid time) as its first dimension so that it aligns
-    with the prediction chunk.
+    Fetches the valid times ``time + lead_time`` through
+    :func:`earth2studio.data.fetch_data`, brings them onto the ``output.regrid``
+    grid when the campaign names one, and relabels the result with the
+    prediction grid's coordinates so it aligns with the prediction chunk.
 
     Parameters
     ----------
@@ -453,50 +503,58 @@ def load_verification_chunk(
         Initial-condition time.
     lead_times : np.ndarray
         Lead-time values for this chunk.
-    variables : list[str]
+    variables : Sequence[str]
         Variable names to load.
-    spatial_coords : CoordSystem
-        Spatial coordinate arrays (for building the output CoordSystem).
-    device : torch.device
-        Target device for the returned tensor.
+    spatial_coords : Mapping[str, Any] | xr.DataArray
+        Spatial coordinates of the prediction grid.
+    device : torch.device | str
+        Device of the returned field.
+    regrid : OutputRegridder, optional
+        The campaign's ``output.regrid`` regridder, by default None (the
+        source must already sit on the prediction grid).
 
     Returns
     -------
-    tuple[torch.Tensor, CoordSystem]
-        Tensor and coords with dimensions
-        ``(lead_time, variable, <spatial...>)``.
+    xr.DataArray
+        Float32 field with dimensions ``(lead_time, variable, <spatial...>)``.
+
+    Raises
+    ------
+    ValueError
+        If the verification grid does not match the prediction grid.
     """
-    valid_times = time + lead_times
+    grid = spatial_axes(spatial_coords)
     try:
-        da = source(list(valid_times), list(variables))
+        da = fetch_data(
+            source,
+            time=np.array([time], dtype="datetime64[ns]"),
+            variable=np.array([str(v) for v in variables]),
+            lead_time=np.asarray(lead_times).astype("timedelta64[ns]"),
+            device=device,
+        )
     except KeyError as exc:
-        # The verification source (often a CompositeSource globbed over the
-        # predownloaded data_*.zarr stores) has no channel for a requested
-        # scoring variable — e.g. glm_density when data_glm.zarr is absent
-        # (interrupted predownload, or a pre-PR output dir).  Surface the
-        # scoring context rather than a bare CompositeSource KeyError.
         raise KeyError(
-            f"Scoring requested variables {list(variables)} but the "
-            f"verification source could not supply all of them ({exc}). "
-            "Ensure predownload completed (e.g. data_glm.zarr exists for "
-            "glm_density), or drop the missing variable(s) from "
-            "cfg.scoring.variables / the campaign outputs."
+            f"Scoring requested variables {list(variables)} at the valid times of "
+            f"{time} but the verification source could not supply them ({exc}). "
+            "Ensure predownload completed for every lead time, or drop the "
+            "missing variable(s) from cfg.scoring.variables."
         ) from exc
-
-    # da has dims (time, variable, <spatial...>); reorder consistently.
-    spatial_dims = [d for d in da.dims if d not in {"time", "variable"}]
-    dim_order = ["time", "variable"] + spatial_dims
-    da = da.transpose(*dim_order)
-
-    tensor = torch.from_numpy(da.values.copy()).to(device=device, dtype=torch.float32)
-
-    # Relabel the time axis as lead_time for alignment with predictions.
-    coords: CoordSystem = OrderedDict()
-    coords["lead_time"] = lead_times
-    coords["variable"] = np.array(variables)
-    for dim in spatial_dims:
-        coords[dim] = spatial_coords[dim]
-    return tensor, coords
+    if regrid is not None:
+        da = regrid(da)
+    da = da.isel(time=0, drop=True)
+    spatial = [d for d in da.dims if d not in ("lead_time", "variable")]
+    da = _dimension_coords_only(da.transpose("lead_time", "variable", *spatial))
+    if list(spatial) != list(grid) or any(da.sizes[d] != len(grid[d]) for d in grid):
+        raise ValueError(
+            "Verification grid "
+            f"{ {d: da.sizes[d] for d in spatial} } does not match the prediction "
+            f"grid { {d: len(v) for d, v in grid.items()} }."
+        )
+    da = da.assign_coords(
+        lead_time=np.asarray(lead_times), **{d: grid[d] for d in grid}
+    )
+    tensor, _ = da.e2s.to_torch()
+    return from_torch(tensor.to(torch.float32), da)
 
 
 # ---------------------------------------------------------------------------
@@ -530,199 +588,19 @@ def build_lead_time_chunks(
     ]
 
 
-# ---------------------------------------------------------------------------
-# Score variable naming
-# ---------------------------------------------------------------------------
-
-
-def score_variable_names(
-    metric_name: str,
-    metric_output_coords: CoordSystem,
-) -> list[str]:
-    """Determine zarr array names for a metric's output.
-
-    If the metric preserves the ``variable`` dimension, names are
-    ``{metric_name}__{variable_name}``.  If ``variable`` was reduced away,
-    the single array name is just ``metric_name``.
-
-    Parameters
-    ----------
-    metric_name : str
-        Config name of the metric (e.g. ``"rmse"``).
-    metric_output_coords : CoordSystem
-        Output coords from ``metric.output_coords()``.
-
-    Returns
-    -------
-    list[str]
-        Zarr array names for this metric.
-    """
-    if "variable" in metric_output_coords:
-        return [f"{metric_name}__{v}" for v in metric_output_coords["variable"]]
-    return [metric_name]
-
-
-def all_score_variable_names(
-    metrics: OrderedDict,
-    input_coords_template: CoordSystem,
-) -> list[str]:
-    """Collect all zarr array names across all configured metrics.
-
-    Parameters
-    ----------
-    metrics : OrderedDict[str, Metric]
-        Metric instances keyed by name.
-    input_coords_template : CoordSystem
-        Representative input coords for ``output_coords()`` calls.
-
-    Returns
-    -------
-    list[str]
-        Flat list of all score array names.
-    """
-    names: list[str] = []
-    for metric_name, metric in metrics.items():
-        out_coords = metric.output_coords(input_coords_template)
-        names.extend(score_variable_names(metric_name, out_coords))
-    return names
-
-
-# ---------------------------------------------------------------------------
-# Validation
-# ---------------------------------------------------------------------------
-
-
-def build_superset_score_coords(
-    metrics: OrderedDict,
-    input_coords_template: CoordSystem,
-    times: np.ndarray,
-) -> CoordSystem:
-    """Build the superset coordinate system for the score zarr store.
-
-    Collects the *union* of all non-variable output dimensions across
-    every metric and prepends a ``time`` axis.  This defines the store's
-    coordinate axes; individual metric arrays may use any subset.
-
-    Parameters
-    ----------
-    metrics : OrderedDict[str, Metric]
-        Metric instances keyed by name.
-    input_coords_template : CoordSystem
-        Representative input coords for ``output_coords()`` calls.
-    times : np.ndarray
-        All initial-condition times that will appear in the store.
-
-    Returns
-    -------
-    CoordSystem
-        ``(time, <union of surviving dims across all metrics>)``
-    """
-    all_dims: dict[str, np.ndarray] = {}
-    for metric in metrics.values():
-        out = metric.output_coords(input_coords_template)
-        for dim, vals in out.items():
-            if dim != "variable" and dim not in all_dims:
-                all_dims[dim] = vals
-
-    total: CoordSystem = OrderedDict()
-    total["time"] = times
-    for dim, vals in all_dims.items():
-        if dim != "time":
-            total[dim] = vals
-    return total
-
-
-def group_score_arrays_by_dims(
-    metrics: OrderedDict,
-    input_coords_template: CoordSystem,
-    times: np.ndarray,
-) -> list[tuple[CoordSystem, list[str]]]:
-    """Group score arrays by their output dimension structure.
-
-    Metrics that reduce different dimensions produce arrays with different
-    shapes.  This function groups them so each group's arrays share the
-    same coordinate axes and can be created in a single
-    ``ZarrBackend.add_array`` call.
-
-    Parameters
-    ----------
-    metrics : OrderedDict[str, Metric]
-        Metric instances keyed by name.
-    input_coords_template : CoordSystem
-        Representative input coords for ``output_coords()`` calls.
-    times : np.ndarray
-        All initial-condition times for the ``time`` coordinate.
-
-    Returns
-    -------
-    list[tuple[CoordSystem, list[str]]]
-        Each entry is ``(group_coords, variable_names)`` where all
-        variables in the group share the same dimension structure.
-    """
-    groups: dict[tuple[str, ...], tuple[CoordSystem, list[str]]] = {}
-
-    for metric_name, metric in metrics.items():
-        out = metric.output_coords(input_coords_template)
-
-        # This metric's store coords: time + non-variable output dims.
-        metric_coords: CoordSystem = OrderedDict()
-        metric_coords["time"] = times
-        for dim, vals in out.items():
-            if dim not in ("variable", "time"):
-                metric_coords[dim] = vals
-
-        dim_key = tuple(metric_coords.keys())
-        var_names = score_variable_names(metric_name, out)
-
-        if dim_key in groups:
-            groups[dim_key][1].extend(var_names)
-        else:
-            groups[dim_key] = (metric_coords, list(var_names))
-
-    return list(groups.values())
-
-
-def add_score_arrays(
-    io: Any,
-    array_groups: list[tuple[CoordSystem, list[str]]],
-) -> None:
-    """Add score arrays to the zarr store, skipping any that already exist.
-
-    Safe to call on every rank via ``run_on_rank0_first`` — rank 0 creates
-    the arrays, subsequent ranks find them already present and no-op.
-
-    Each group becomes one IO template whose ``variable`` labels name the
-    score arrays to create and whose other dimensions size them.
-
-    Parameters
-    ----------
-    io : ZarrBackend
-        The underlying I/O backend (from ``OutputManager.io``).
-    array_groups : list[tuple[CoordSystem, list[str]]]
-        Groups from :func:`group_score_arrays_by_dims`.
-    """
-    for group_coords, group_vars in array_groups:
-        new_vars = [v for v in group_vars if v not in io]
-        if not new_vars:
-            continue
-        coords = {dim: np.asarray(vals) for dim, vals in group_coords.items()}
-        coords["variable"] = np.array(new_vars)
-        io.add_array(coord_array((*group_coords, "variable"), coords))
-
-
 def validate_lead_time_chunking(
-    metrics: OrderedDict,
+    metrics: Mapping[str, Any],
     chunk_size: int | None,
     n_lead_times: int,
 ) -> None:
-    """Validate that chunking is safe for the configured metrics.
+    """Check that chunking is safe for the configured metrics.
 
     Chunking over ``lead_time`` produces incorrect results for metrics
-    that reduce over it, because partial reductions cannot be combined.
+    that reduce over it, because partial reductions do not combine.
 
     Parameters
     ----------
-    metrics : OrderedDict[str, Metric]
+    metrics : Mapping[str, Metric]
         Metric instances.
     chunk_size : int | None
         Configured chunk size (``None`` means no chunking).
@@ -735,8 +613,7 @@ def validate_lead_time_chunking(
         If chunking is active and a metric reduces over ``lead_time``.
     """
     if chunk_size is None or chunk_size <= 0 or chunk_size >= n_lead_times:
-        return  # no chunking, nothing to validate
-
+        return
     for name, metric in metrics.items():
         if "lead_time" in metric.reduction_dimensions:
             raise ValueError(
@@ -748,182 +625,431 @@ def validate_lead_time_chunking(
 
 
 # ---------------------------------------------------------------------------
+# Score store schema
+# ---------------------------------------------------------------------------
+
+
+def score_variable_names(
+    metric_name: str,
+    metric_output_coords: CoordinateSystem,
+) -> list[str]:
+    """Determine the zarr array names of a metric's output.
+
+    If the metric preserves the ``variable`` dimension, names are
+    ``{metric_name}__{variable_name}``.  If ``variable`` was reduced away,
+    the single array name is just ``metric_name``.
+
+    Parameters
+    ----------
+    metric_name : str
+        Config name of the metric (e.g. ``"rmse"``).
+    metric_output_coords : CoordinateSystem
+        Output signature from ``metric.output_coords()``.
+
+    Returns
+    -------
+    list[str]
+        Zarr array names for this metric.
+    """
+    if "variable" in metric_output_coords.dims:
+        return [f"{metric_name}__{v}" for v in metric_output_coords["variable"].values]
+    return [metric_name]
+
+
+def all_score_variable_names(
+    metrics: Mapping[str, Any],
+    input_coords_template: CoordinateSystem,
+) -> list[str]:
+    """Collect all zarr array names across all configured metrics.
+
+    Parameters
+    ----------
+    metrics : Mapping[str, Metric]
+        Metric instances keyed by name.
+    input_coords_template : CoordinateSystem
+        Representative input signature for ``output_coords()`` calls.
+
+    Returns
+    -------
+    list[str]
+        Flat list of all score array names.
+    """
+    names: list[str] = []
+    for metric_name, metric in metrics.items():
+        names.extend(
+            score_variable_names(
+                metric_name, metric.output_coords(input_coords_template)
+            )
+        )
+    return names
+
+
+def _store_dims(output: CoordinateSystem) -> list[str]:
+    """Dimensions of a metric's score arrays: ``time`` then its output dims."""
+    return ["time"] + [str(d) for d in output.dims if d not in ("variable", "time")]
+
+
+def group_score_arrays_by_dims(
+    metrics: Mapping[str, Any],
+    input_coords_template: CoordinateSystem,
+    times: np.ndarray,
+) -> list[tuple[CoordSystem, list[str]]]:
+    """Group score arrays by their output dimension structure.
+
+    Metrics that reduce different dimensions produce arrays with different
+    shapes.  This function groups them so each group's arrays share the
+    same coordinate axes and can be created in a single
+    ``ZarrBackend.add_array`` call.
+
+    Parameters
+    ----------
+    metrics : Mapping[str, Metric]
+        Metric instances keyed by name.
+    input_coords_template : CoordinateSystem
+        Representative input signature for ``output_coords()`` calls.
+    times : np.ndarray
+        All initial-condition times for the ``time`` coordinate.
+
+    Returns
+    -------
+    list[tuple[CoordSystem, list[str]]]
+        Each entry is ``(group_coords, array_names)`` where all arrays in
+        the group share the same dimensions, ``time`` first.
+    """
+    groups: dict[tuple[str, ...], tuple[CoordSystem, list[str]]] = {}
+    for metric_name, metric in metrics.items():
+        out = metric.output_coords(input_coords_template)
+        metric_coords: CoordSystem = OrderedDict()
+        metric_coords["time"] = np.asarray(times).astype("datetime64[ns]")
+        for dim in _store_dims(out)[1:]:
+            metric_coords[dim] = np.asarray(out[dim].values)
+        key = tuple(metric_coords)
+        names = score_variable_names(metric_name, out)
+        if key in groups:
+            groups[key][1].extend(names)
+        else:
+            groups[key] = (metric_coords, list(names))
+    return list(groups.values())
+
+
+def add_score_arrays(
+    io: ZarrBackend,
+    array_groups: list[tuple[CoordSystem, list[str]]],
+) -> None:
+    """Add score arrays to the zarr store, skipping any that already exist.
+
+    Safe to call on every rank inside :func:`earth2studio.run.work.rank0_first`:
+    rank 0 creates the arrays, the other ranks find them present and no-op.
+
+    Each group becomes one IO template whose ``variable`` labels name the
+    score arrays to create and whose other dimensions size them.
+
+    Parameters
+    ----------
+    io : ZarrBackend
+        The score store backend.
+    array_groups : list[tuple[CoordSystem, list[str]]]
+        Groups from :func:`group_score_arrays_by_dims`.
+    """
+    for group_coords, group_vars in array_groups:
+        new_vars = [v for v in group_vars if v not in io]
+        if not new_vars:
+            continue
+        coords = {dim: np.asarray(vals) for dim, vals in group_coords.items()}
+        coords["variable"] = np.array(new_vars)
+        io.add_array(coord_array((*group_coords, "variable"), coords))
+
+
+def open_score_store(
+    cfg: DictConfig,
+    array_groups: list[tuple[CoordSystem, list[str]]],
+    rank: int,
+    events: Mapping[str, Any] | None = None,
+) -> ZarrBackend:
+    """Create or open the score store and add the score arrays.
+
+    Call on every rank inside :func:`earth2studio.run.work.rank0_first`.
+    With ``scoring.output.overwrite`` and no resume, rank 0 clears an
+    existing store first.  The chunk sizes come from
+    ``scoring.output.chunks`` (default ``{time: 1}``) and the parsed events
+    go onto the store attributes so the scorecard exporter can
+    window the per-IC scores.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Full Hydra config.
+    array_groups : list[tuple[CoordSystem, list[str]]]
+        Groups from :func:`group_score_arrays_by_dims`.
+    rank : int
+        This process's rank.
+    events : Mapping[str, Any] | None
+        JSON-friendly events (see :func:`src.regions.events_to_attrs`).
+
+    Returns
+    -------
+    ZarrBackend
+    """
+    path = score_store_path(cfg)
+    resume = bool(cfg.scoring.get("resume", False))
+    overwrite = bool(cfg.scoring.output.get("overwrite", False)) and not resume
+    if rank == 0 and overwrite:
+        remove_store(path)
+    chunks = {
+        str(k): int(v)
+        for k, v in dict(cfg.scoring.output.get("chunks", None) or {"time": 1}).items()
+    }
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    io = ZarrBackend(path, chunks=chunks, backend_kwargs={"overwrite": False})
+    add_score_arrays(io, array_groups)
+    if events is not None and rank == 0:
+        io.root.attrs["events"] = dict(events)
+    logger.info(f"Score store ready: {path}")
+    return io
+
+
+# ---------------------------------------------------------------------------
 # Core scoring loop
 # ---------------------------------------------------------------------------
 
 
-def run_scoring(
-    my_times: list[np.datetime64],
-    prediction_ds: xr.Dataset,
-    verif_source: DataSource,
-    metrics: OrderedDict,
-    output_mgr: OutputManager,
-    variables: list[str],
-    lead_times: np.ndarray,
-    lead_time_chunks: list[np.ndarray],
-    spatial_coords: CoordSystem,
-    device: torch.device,
-    cfg: DictConfig,
-) -> None:
-    """Score predictions against verification for assigned IC times.
+def _parse_nan_policy(cfg: DictConfig) -> str:
+    policy = str(cfg.scoring.get("nan_policy", "propagate")).lower()
+    if policy not in ("propagate", "zero_fill"):
+        raise ValueError(
+            f"Invalid scoring.nan_policy '{policy}'; "
+            "expected 'propagate' or 'zero_fill'."
+        )
+    if policy == "zero_fill":
+        logger.info(
+            "Scoring nan_policy=zero_fill: NaNs in prediction and verification "
+            "chunks are replaced with 0 before metric evaluation.  RMSE-style "
+            "metrics normalize over all grid points, so invalid points contribute "
+            "zero to the sum of squares and bias the score low by "
+            "sqrt(N_valid/N_total)."
+        )
+    return policy
 
-    For each initial-condition time, loads prediction and verification data
-    in lead-time chunks, applies every configured metric, and writes the
-    results to the output store.
+
+def _parse_valid_ranges(cfg: DictConfig) -> dict:
+    valid_ranges_cfg = cfg.scoring.get("valid_ranges", None)
+    if valid_ranges_cfg is None:
+        return {}
+    valid_ranges = OmegaConf.to_container(valid_ranges_cfg, resolve=True) or {}
+    if valid_ranges:
+        logger.info(
+            f"Scoring valid_ranges: clamping {sorted(valid_ranges)} in both "
+            "prediction and verification before metric evaluation."
+        )
+    return dict(valid_ranges)
+
+
+def _zero_fill(da: xr.DataArray) -> xr.DataArray:
+    tensor, _ = da.e2s.to_torch()
+    return from_torch(torch.nan_to_num(tensor, nan=0.0), da)
+
+
+def run_scoring(
+    my_items: Sequence[WorkItem],
+    prediction_ds: xr.Dataset,
+    verif_source: Any,
+    metrics: Mapping[str, Any],
+    io: ZarrBackend,
+    variables: Sequence[str],
+    lead_times: np.ndarray,
+    lead_time_chunks: Sequence[np.ndarray],
+    spatial_coords: SpatialCoords,
+    device: torch.device | str,
+    cfg: DictConfig,
+    progress: ProgressStore | None = None,
+    rank: int = 0,
+) -> None:
+    """Score predictions against verification for the assigned work items.
+
+    For each item (one initial-condition time), loads prediction and
+    verification data in lead-time chunks, applies every configured metric
+    and writes the results to the score store, then records the item in
+    the progress store.
 
     Parameters
     ----------
-    my_times : list[np.datetime64]
-        IC times assigned to this rank.
+    my_items : Sequence[WorkItem]
+        Items assigned to this rank, one per initial time.
     prediction_ds : xr.Dataset
         Opened prediction zarr store.
     verif_source : DataSource
         Verification data source.
-    metrics : OrderedDict[str, Metric]
+    metrics : Mapping[str, Metric]
         Metric instances keyed by name.
-    output_mgr : OutputManager
-        Validated output manager for the score store.
-    variables : list[str]
+    io : ZarrBackend
+        Score store with its arrays added (see :func:`open_score_store`).
+    variables : Sequence[str]
         Variable names to score.
     lead_times : np.ndarray
         Full array of lead-time values (for concatenating chunks).
-    lead_time_chunks : list[np.ndarray]
+    lead_time_chunks : Sequence[np.ndarray]
         Partitioned lead-time arrays.
-    spatial_coords : CoordSystem
-        Spatial coordinate arrays from the prediction store.
-    device : torch.device
-        Device for tensor computations.
+    spatial_coords : Mapping[str, Any] | xr.DataArray
+        Spatial coordinates of the prediction grid.
+    device : torch.device | str
+        Device for metric computations.
     cfg : DictConfig
-        Full Hydra config.
+        Full Hydra config (``scoring.nan_policy``, ``scoring.valid_ranges``).
+    progress : ProgressStore, optional
+        Opened progress store recording finished items, by default None
+    rank : int, optional
+        This process's rank, which gates the progress bar, by default 0
     """
-    if not my_times:
-        logger.warning("No times assigned for scoring — skipping.")
+    if not my_items:
+        logger.info(f"Rank {rank}: no times assigned for scoring.")
         return
 
-    resume = cfg.scoring.get("resume", False)
-    nan_policy = str(cfg.scoring.get("nan_policy", "propagate")).lower()
-    if nan_policy not in ("propagate", "zero_fill"):
-        raise ValueError(
-            f"Invalid scoring.nan_policy '{nan_policy}'; "
-            "expected 'propagate' or 'zero_fill'."
-        )
-    if nan_policy == "zero_fill":
-        logger.info(
-            "Scoring nan_policy=zero_fill: NaNs in prediction and verification "
-            "chunks will be replaced with 0 before metric evaluation. "
-            "RMSE-style metrics normalize over all grid points, so invalid "
-            "points contribute zero to the sum-of-squares and bias the score "
-            "low by sqrt(N_valid/N_total)."
-        )
+    nan_policy = _parse_nan_policy(cfg)
+    valid_ranges = _parse_valid_ranges(cfg)
+    variables = [str(v) for v in variables]
+    regrid = output_regridder(cfg)
 
-    valid_ranges_cfg = cfg.scoring.get("valid_ranges", None)
-    if valid_ranges_cfg is not None:
-        valid_ranges = OmegaConf.to_container(valid_ranges_cfg, resolve=True) or {}
-        if valid_ranges:
-            logger.info(
-                f"Scoring valid_ranges: clamping {sorted(valid_ranges)} in both "
-                "prediction and verification before metric evaluation."
-            )
-    else:
-        valid_ranges = {}
-
-    # Rank only gates tqdm output below.
-    rank = get_rank()
-
-    for time in tqdm(my_times, desc="Scoring", disable=rank != 0):
-        # Accumulate chunk results per metric.
-        chunk_results: dict[str, list[tuple[torch.Tensor, CoordSystem]]] = {
-            name: [] for name in metrics
-        }
+    for item in tqdm(my_items, desc="Scoring", disable=rank != 0):
+        time = np.datetime64(item.time, "ns")
+        chunk_results: dict[str, list[xr.DataArray]] = {name: [] for name in metrics}
 
         for lt_chunk in lead_time_chunks:
-            x, x_coords = load_prediction_chunk(
-                prediction_ds, time, lt_chunk, variables, device
+            x = load_prediction_chunk(prediction_ds, time, lt_chunk, variables, device)
+            y = load_verification_chunk(
+                verif_source, time, lt_chunk, variables, spatial_coords, device, regrid
             )
-            y, y_coords = load_verification_chunk(
-                verif_source,
-                time,
-                lt_chunk,
-                variables,
-                spatial_coords,
-                device,
-            )
-
             if nan_policy == "zero_fill":
-                x = torch.nan_to_num(x, nan=0.0)
-                y = torch.nan_to_num(y, nan=0.0)
-
+                x, y = _zero_fill(x), _zero_fill(y)
             if valid_ranges:
-                x = _apply_valid_ranges(x, x_coords, valid_ranges)
-                y = _apply_valid_ranges(y, y_coords, valid_ranges)
+                x = apply_valid_ranges(x, valid_ranges)
+                y = apply_valid_ranges(y, valid_ranges)
 
             for metric_name, metric in metrics.items():
                 if _is_statistic(metric):
-                    score_val, score_coords = metric(x, x_coords)
+                    score = metric(x)
                 else:
-                    score_val, score_coords = metric(x, x_coords, y, y_coords)
-                chunk_results[metric_name].append((score_val.cpu(), score_coords))
+                    score = metric(x, _observation_for(metric, x, y))
+                chunk_results[metric_name].append(score.e2s.as_numpy())
 
-        # Concatenate chunks along lead_time and write scores for this time.
         for metric_name, chunks in chunk_results.items():
-            score, score_coords = _concat_chunks(chunks, lead_times)
+            score = _concat_chunks(chunks, lead_times)
+            io.write(_score_field(score, metric_name, time))
 
-            # Prefix variable names for the zarr store.
-            write_coords: CoordSystem = OrderedDict()
-            write_coords["time"] = np.array([time])
-
-            for dim, vals in score_coords.items():
-                if dim == "variable":
-                    write_coords["variable"] = np.array(
-                        [f"{metric_name}__{v}" for v in vals]
-                    )
-                else:
-                    write_coords[dim] = vals
-
-            # If metric reduced the variable dim, inject it.
-            if "variable" not in write_coords:
-                score = score.unsqueeze(-1)
-                write_coords["variable"] = np.array([metric_name])
-
-            # Prepend time dimension.
-            score = score.unsqueeze(0)
-            output_mgr.write(score, write_coords)
-
-        if resume:
-            output_mgr.flush()
-            write_scoring_marker(time, cfg)
+        io.flush()
+        if progress is not None:
+            progress.mark_done(item)
 
     logger.success("Scoring complete.")
+
+
+def _observation_for(metric: Any, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
+    """Shape the observation to the forecast for one metric.
+
+    Metrics compare ``x`` and ``y`` on identical dimensions.  A per-member
+    metric on an ensemble forecast (one that neither reduces the
+    ``ensemble`` dimension nor averages over it through
+    ``ensemble_dimension``) sees the observation broadcast along
+    ``ensemble``; every other metric gets ``y`` unchanged.
+    """
+    if "ensemble" not in x.dims or "ensemble" in y.dims:
+        return y
+    if "ensemble" in metric.reduction_dimensions:
+        return y
+    if getattr(metric, "ensemble_dimension", None) == "ensemble":
+        return y
+    return y.expand_dims(ensemble=x["ensemble"].values).transpose(*x.dims)
+
+
+def _score_field(
+    score: xr.DataArray, metric_name: str, time: np.datetime64
+) -> xr.DataArray:
+    """Turn one metric result into the field written to the score store.
+
+    Variable labels become ``<metric>__<variable>`` (a reduced ``variable``
+    dimension comes back with the metric name as its only label) and a
+    leading ``time`` axis locates the initial condition.  Auxiliary
+    coordinates go away so only dimension labels take part in matching.
+    """
+    score = _dimension_coords_only(score)
+    if "variable" in score.dims:
+        labels = [f"{metric_name}__{v}" for v in score["variable"].values]
+        score = score.assign_coords(variable=np.array(labels))
+    else:
+        score = score.expand_dims(variable=np.array([metric_name]))
+    score = score.expand_dims(time=np.array([time], dtype="datetime64[ns]"))
+    dims = ["time"] + [d for d in score.dims if d not in ("time", "variable")]
+    return score.transpose(*dims, "variable")
+
+
+def apply_valid_ranges(
+    da: xr.DataArray, valid_ranges: Mapping[str, Any]
+) -> xr.DataArray:
+    """Clamp per-variable values of a field to the configured physical range.
+
+    ``valid_ranges`` maps variable names to ``{min: ..., max: ...}`` entries;
+    either bound may be ``None`` / absent for a one-sided clamp.  Variables
+    not listed stay untouched.
+
+    Use case: verification sources (e.g. MRMS ``refc``) encode no-data
+    pixels as large fill values (``-9999``) that otherwise
+    dominate the sum of squares in RMSE-style metrics.  Clamping both
+    prediction and verification to the physical range turns those pixels
+    into a shared in-range value (typically 0 for non-negative fields),
+    contributing about zero to the error.
+
+    Parameters
+    ----------
+    da : xr.DataArray
+        Field with a ``variable`` dimension.
+    valid_ranges : Mapping[str, Mapping[str, float | None]]
+        Mapping from variable name to ``{min, max}``.
+
+    Returns
+    -------
+    xr.DataArray
+        Clamped copy of *da*.
+    """
+    if "variable" not in da.dims:
+        return da
+    tensor, _ = da.e2s.to_torch()
+    coords: CoordSystem = OrderedDict(
+        (
+            str(d),
+            (
+                np.asarray(da.coords[d].values)
+                if d in da.coords
+                else np.arange(da.sizes[d])
+            ),
+        )
+        for d in da.dims
+    )
+    return from_torch(_apply_valid_ranges(tensor.clone(), coords, valid_ranges), da)
 
 
 def _apply_valid_ranges(
     x: torch.Tensor,
     coords: CoordSystem,
-    valid_ranges: dict,
+    valid_ranges: Mapping[str, Any],
 ) -> torch.Tensor:
-    """Clamp per-variable values in *x* to the configured physical range.
+    """Clamp per-variable values in *x* in place along its ``variable`` axis.
 
-    ``valid_ranges`` maps variable names to ``{min: ..., max: ...}``
-    entries; either bound may be ``None`` / absent for a one-sided
-    clamp.  Variables not listed are left untouched.  The clamp is
-    applied in-place along the ``variable`` axis.
-
-    Use case: verification sources (e.g. MRMS ``refc``) encode
-    no-data pixels as large-magnitude fill values (``-9999``) that
-    otherwise dominate the sum-of-squares in RMSE-style metrics.
-    Clamping to the physical range on both prediction and verification
-    turns those pixels into a shared in-range value (typically 0 for
-    non-negative fields), contributing ~zero to the error.
+    Tensor-level core of :func:`apply_valid_ranges`, shared with the online
+    scorer.
 
     Parameters
     ----------
     x : torch.Tensor
         Tensor with a ``variable`` axis.
     coords : CoordSystem
-        Matching coord system (used to locate the variable axis and
-        map variable names to axis indices).
-    valid_ranges : dict[str, dict[str, float | None]]
+        Matching coordinate system (locates the variable axis and maps
+        variable names to axis indices).
+    valid_ranges : Mapping[str, Mapping[str, float | None]]
         Mapping from variable name to ``{min, max}``.
+
+    Returns
+    -------
+    torch.Tensor
+        *x*, clamped in place.
     """
     if "variable" not in coords:
         return x
@@ -934,11 +1060,10 @@ def _apply_valid_ranges(
         if var_name not in var_names:
             continue
         idx = var_names.index(var_name)
-        vmin = spec.get("min") if isinstance(spec, dict) else None
-        vmax = spec.get("max") if isinstance(spec, dict) else None
+        vmin = spec.get("min") if isinstance(spec, Mapping) else None
+        vmax = spec.get("max") if isinstance(spec, Mapping) else None
         if vmin is None and vmax is None:
             continue
-
         slicer: list[Any] = [slice(None)] * x.ndim
         slicer[var_axis] = idx
         key = tuple(slicer)
@@ -951,35 +1076,28 @@ def _apply_valid_ranges(
 
 
 def _concat_chunks(
-    chunks: list[tuple[torch.Tensor, CoordSystem]],
+    chunks: Sequence[xr.DataArray],
     full_lead_times: np.ndarray,
-) -> tuple[torch.Tensor, CoordSystem]:
-    """Concatenate lead-time chunk results into a single score tensor.
+) -> xr.DataArray:
+    """Concatenate lead-time chunk results into a single score array.
 
     Parameters
     ----------
-    chunks : list[tuple[torch.Tensor, CoordSystem]]
-        Per-chunk ``(score, coords)`` pairs from a single metric.
+    chunks : Sequence[xr.DataArray]
+        Per-chunk results of a single metric, NumPy-backed.
     full_lead_times : np.ndarray
-        Complete lead-time array for the full trajectory.
+        Complete lead-time array of the forecast.
 
     Returns
     -------
-    tuple[torch.Tensor, CoordSystem]
-        Concatenated score and coords.
+    xr.DataArray
+        Concatenated score.
     """
     if len(chunks) == 1:
         return chunks[0]
-
-    score_coords = chunks[0][1].copy()
-
-    if "lead_time" in score_coords:
-        lt_dim_idx = list(score_coords.keys()).index("lead_time")
-        score = torch.cat([c[0] for c in chunks], dim=lt_dim_idx)
-        score_coords["lead_time"] = full_lead_times
-    else:
-        # lead_time was reduced — chunks cannot be combined by concatenation.
-        # This path should be blocked by validate_lead_time_chunking().
-        score = chunks[-1][0]
-
-    return score, score_coords
+    if "lead_time" in chunks[0].dims:
+        out = xr.concat(list(chunks), dim="lead_time")
+        return out.assign_coords(lead_time=np.asarray(full_lead_times))
+    # The metric reduced lead_time, so concatenation cannot combine the
+    # chunks; validate_lead_time_chunking() blocks this path.
+    return chunks[-1]

@@ -5,7 +5,7 @@
 defaults:
     - override /model: stormscope_goes_mrms
 
-pipeline: src.pipelines.stormscope.StormScopePipeline
+runner: stormscope
 run_id: stormscope_2023_convection
 
 start_times:
@@ -13,36 +13,39 @@ start_times:
 
 nsteps: 6                   # 6 × 10min = 60min forecast
 
-# The StormScope pipeline sets needs_data_source=False, so main.py neither
-# resolves a top-level ic_source/data_source nor enforces the predownload
-# sentinel.  Data sources are resolved inside cfg.model.{goes,mrms}.ic_source
-# (radar) and cfg.model.mrms.glm_data_source (lightning).
+# ERA5 cannot verify GOES or MRMS channels; the runner's own observation
+# sources do (see above).
+data_source: null
+predownload:
+    verification:
+        enabled: true
+
+# The stormscope runner binds its own sources per role (goes, mrms, and
+# mrms_conditioning / goes_forcing when configured) from the models'
+# default_sources(); the top-level data_source / ic_source are not used.
+# Predownload writes <output.path>/goes.zarr and mrms.zarr, which the runner
+# prefers when present.  Verification comes from the same GOES and MRMS
+# observations at every forecast valid time: with data_source unset, the
+# runner composes the two live sources and predownload writes them into
+# verification.zarr, which score.py reads.  A bring-your-own
+# verification_source replaces that.
 #
-# Bring-your-own data: override the per-model ic_source entries below.
-# If your BYO store is already on the HRRR grid, point ic_grid at a resolver
-# that returns the model's own y/x — StormScope's prep_input detects the
-# match and skips interpolation.
+# Bring-your-own data: set per-model source nodes delivering fields on the
+# model grid (a predownloaded store, or a RegriddedSource around a raw source):
 #
 # model:
 #     goes:
 #         ic_source:
 #             _target_: my_pkg.MyGoesZarrSource
 #             path: /data/my_goes.zarr
-#         ic_grid:
-#             _target_: my_pkg.my_goes_grid
 #     mrms:
 #         ic_source:
-#             _target_: my_pkg.MyMrmsZarrSource
+#             _target_: my_pkg.MyMrmsGlmZarrSource   # refc, refc_base, glm_density
 #             path: /data/my_mrms.zarr
-#         ic_grid:
-#             _target_: my_pkg.my_mrms_grid
+#         conditioning_source: null                  # reuse the GOES history
 #
-# GLM (glm_density) is a state channel sourced from GOESGLMGrid on a
-# 0.1-degree grid and bilinearly regridded to the model grid.  Predownload
-# writes it to data_glm.zarr (alongside data_goes.zarr / data_mrms.zarr);
-# at inference the MRMS state is reassembled from the radar + GLM stores via
-# a CompositeSource.  To bring your own GLM store, override
-# model.mrms.glm_data_source / model.mrms.glm_grid the same way.
+# GLM (glm_density) is a state channel: the MRMS default source composes MRMS
+# radar with GOESGLMGrid lightning (bilinear onto the model grid) itself.
 
 output:
     variables:

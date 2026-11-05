@@ -14,329 +14,182 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from contextlib import ExitStack
+"""Eval recipe inference entry point.
+
+Builds the campaign's runner and work items from the Hydra config and hands
+them to :class:`earth2studio.run.Pipeline`, which distributes items over
+ranks, writes every stream into ``forecast.zarr``, scores online when asked,
+and records finished items for resume.
+
+Single process::
+
+    python main.py campaign=dlwp_2024_monthly
+
+Multi-GPU::
+
+    python -m torch.distributed.run --nproc_per_node=8 --standalone main.py \\
+        campaign=fcn3_2024_monthly
+"""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
 
 import hydra
-import numpy as np
 import torch
 from loguru import logger
 from omegaconf import DictConfig
-from physicsnemo.distributed import DistributedManager
-from src.data import resolve_ic_source
-from src.distributed import configure_logging
-from src.online import (
-    build_group_comm,
-    build_online_scorers,
-    build_statistics,
-    check_verification_coverage,
-    finalize_online_stats,
-    named_store_filename,
-    online_enabled,
-    open_stats_store,
-    parse_online_settings,
-    resolve_verification_sources,
+from src.campaign import build_items, members_per_item, online_scoring
+from src.logs import configure_logging, finalize_distributed, init_distributed
+from src.output import (
+    build_backend,
+    build_regridders,
+    parallel_coords,
+    progress_path,
     retain_raw_output,
+    sentinel_path,
+    store_path,
+    stream_variables,
 )
-from src.output import OutputManager, sentinel_path
-from src.pipelines import build_pipeline
-from src.pipelines.base import Pipeline
-from src.work import (
-    build_group_work_items,
-    build_work_items,
-    clear_online_progress,
-    clear_progress,
-    distribute_work,
-    filter_completed_items,
-    filter_online_completed,
-)
+from src.runners import build_runner
+
+from earth2studio.run import Pipeline, ProgressStore, WorkItem
+from earth2studio.run.work import rank0_first, rank_info
+
+
+def fetches_nothing(runner: object, items: Sequence[WorkItem]) -> bool:
+    """Whether ``runner`` declares no gridded or observation fetch for any item.
+
+    A runner whose ``data_requests`` returns ``None`` (unknowable) counts as
+    fetching.
+    """
+    if getattr(runner, "frame_requests", None) is not None:
+        return False
+    data_requests = getattr(runner, "data_requests", None)
+    if data_requests is None:
+        return False
+    for item in items:
+        requests = data_requests(item)
+        if requests is None or len(requests):
+            return False
+    return True
+
+
+def check_predownload(
+    cfg: DictConfig, runner: object, items: Sequence[WorkItem]
+) -> None:
+    """Refuse to start without the predownload sentinel, when required.
+
+    Runners that fetch nothing for their items skip the check (see
+    :func:`fetches_nothing`), as do campaigns whose initial conditions and
+    verification data are both bring-your-own.
+    """
+    if not cfg.get("require_predownload", True):
+        return
+    if fetches_nothing(runner, items):
+        logger.info(f"{type(runner).__name__} fetches no data; no pre-download needed.")
+        return
+    fully_byo = (
+        cfg.get("ic_source") is not None and cfg.get("verification_source") is not None
+    )
+    if fully_byo:
+        logger.info("Initial conditions and verification are bring-your-own.")
+        return
+    path = sentinel_path(cfg)
+    if not path.exists():
+        raise RuntimeError(
+            f"Pre-download sentinel not found at '{path}'.\n"
+            "Run 'python predownload.py' with the same config before inference, "
+            "or set require_predownload=false to fetch live."
+        )
+    logger.info(f"Pre-download sentinel found: {path}")
+
+
+def run(cfg: DictConfig, device: torch.device | str = "cpu") -> None:
+    """Run the campaign described by ``cfg`` on this rank.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Full recipe config.
+    device : torch.device | str, optional
+        Device to run inference on, by default CPU.
+    """
+    rank, world_size = rank_info()
+    online = online_scoring(cfg)
+    resume = bool(cfg.get("resume", False))
+
+    runner = build_runner(cfg)
+    items = build_items(cfg, runner, member_batch=members_per_item(cfg, runner))
+    check_predownload(cfg, runner, items)
+    final_lead_time = max(item.final_lead_time for item in items)
+    schemas = runner.output_coords(final_lead_time)
+    regridders = build_regridders(cfg, schemas)
+    variables = stream_variables(schemas, list(cfg.output.variables))
+
+    # Online scoring reduces each forecast to summary statistics in the
+    # inference loop; it may also reorder the items so the ranks of an
+    # ensemble group run one initial condition in lockstep.
+    online_run = None
+    scorer = sync = None
+    if online:
+        from src.online import OnlineRun, parse_online_settings
+
+        settings = parse_online_settings(cfg)
+        online_run = OnlineRun.build(
+            cfg, settings, runner, items, schemas, regridders, variables, device
+        )
+        items = online_run.items
+        scorer, sync = online_run.scorer, online_run.sync
+
+    output = None
+    if retain_raw_output(cfg):
+        lead_time = schemas[next(iter(variables))].coords["lead_time"].values
+        parallel = parallel_coords(items, lead_time)
+        overwrite = bool(cfg.output.get("overwrite", False)) and not resume
+        backend = rank0_first(
+            lambda: build_backend(cfg, store_path(cfg), parallel, overwrite, rank)
+        )
+        output = {stream: backend for stream in variables}
+    elif not online:
+        raise ValueError("output.retain=none is only legal with scoring.mode=online")
+
+    progress = ProgressStore(
+        progress_path(cfg),
+        tags={"project": str(cfg.project), "run_id": str(cfg.run_id)},
+        overwrite=not resume,
+    )
+    logger.info(
+        f"Running {len(items)} work items on {world_size} rank(s); streams "
+        f"{sorted(variables)} -> {store_path(cfg) if output else 'no raw store'}"
+    )
+    Pipeline(
+        runner,
+        output=output,
+        scorer=scorer,
+        output_variables=variables,
+        regridder=regridders,
+        progress=progress,
+        device=device,
+        sync=sync,
+    ).run(items)
+    if online_run is not None:
+        online_run.finalize()
 
 
 @hydra.main(version_base=None, config_path="cfg", config_name="default")
 def main(cfg: DictConfig) -> None:
-    """Eval recipe entry point — distributed model inference."""
-
-    DistributedManager.initialize()
+    """Eval recipe entry point: distributed model inference."""
     configure_logging()
-    dist = DistributedManager()
-    device = dist.device
-
-    # Instantiate the pipeline early (no weights loaded yet) so we can
-    # consult its class-level flags before the pre-download sentinel check
-    # and the primary data-source resolution.
-    pipeline = build_pipeline(cfg)
-
-    # --- Pre-download check -------------------------------------------------
-    # The top-level sentinel check applies to single-source pipelines, where
-    # `predownload.py` writes a sentinel after caching `cfg.data_source`.
-    # Multi-source pipelines (needs_data_source=False) handle their own
-    # source resolution + BYO via pipeline-specific config blocks, so the
-    # top-level sentinel is not meaningful for them.
-    if pipeline.needs_data_source:
-        fully_byo = (
-            cfg.get("ic_source") is not None
-            and cfg.get("verification_source") is not None
-        )
-        if cfg.get("require_predownload", True) and not fully_byo:
-            sp = sentinel_path(cfg)
-            if not sp.exists():
-                raise RuntimeError(
-                    f"Pre-download sentinel not found at '{sp}'.\n"
-                    "Run 'python predownload.py' with the same config before inference.\n"
-                    "To skip this check, set require_predownload=false."
-                )
-            logger.info(f"Pre-download sentinel found: {sp}")
-    else:
-        logger.info(
-            f"Pipeline '{type(pipeline).__name__}' resolves its own data "
-            "sources; skipping top-level predownload sentinel check."
-        )
-
-    if online_enabled(cfg):
-        _run_online(cfg, pipeline, dist, device)
-    else:
-        _run_offline(cfg, pipeline, dist, device)
-
+    timeout = None
+    if online_scoring(cfg):
+        timeout = cfg.scoring.online.get("nccl_timeout_s", None)
+    device = init_distributed(timeout)
+    try:
+        run(cfg, device)
+    finally:
+        finalize_distributed()
     logger.success("Eval recipe finished.")
-
-
-def _run_offline(
-    cfg: DictConfig,
-    pipeline: Pipeline,
-    dist: DistributedManager,
-    device: torch.device,
-) -> None:
-    """Store-then-score path — write every field to ``forecast.zarr``.
-
-    Work items are ``(IC, member)`` pairs distributed freely across ranks;
-    scoring happens afterwards in ``score.py``.
-    """
-    all_items = build_work_items(cfg)
-    resume = cfg.get("resume", False)
-
-    if resume:
-        remaining_items = filter_completed_items(all_items, cfg)
-        if not remaining_items:
-            logger.success("All work items already completed — nothing to do.")
-            if dist.distributed:
-                torch.distributed.barrier()
-            return
-    else:
-        remaining_items = all_items
-        if cfg.output.get("overwrite", False):
-            clear_progress(cfg)
-
-    my_items = distribute_work(remaining_items, dist.rank, dist.world_size)
-
-    pipeline.setup(cfg, device)
-
-    # Use all_items for coord building so the zarr schema always covers the
-    # full set of ICs, even when resuming a partial run.
-    all_times = np.array(sorted({item.time for item in all_items}))
-    output_variables = list(cfg.output.variables)
-    total_coords = pipeline.build_total_coords(all_times, cfg.get("ensemble_size", 1))
-
-    # Single-source pipelines: main.py resolves and passes the primary source.
-    # Multi-source pipelines: pipeline.setup() has already cached its sources
-    # internally, so main.py passes None and the pipeline ignores it.
-    if pipeline.needs_data_source:
-        data_source = resolve_ic_source(
-            cfg,
-            byo=cfg.get("ic_source"),
-            live_source=cfg.data_source,
-        )
-    else:
-        data_source = None
-
-    with OutputManager(cfg) as output_mgr:
-        output_mgr.validate_output_store(
-            total_coords, output_variables, grid_coords=pipeline.grid_coords()
-        )
-        if my_items:
-            pipeline.run(
-                my_items, data_source, output_mgr, output_variables, device, cfg
-            )
-        else:
-            logger.info(f"Rank {dist.rank}: no work items, waiting at barrier.")
-
-
-def _run_online(
-    cfg: DictConfig,
-    pipeline: Pipeline,
-    dist: DistributedManager,
-    device: torch.device,
-) -> None:
-    """In-line scoring path — reduce to sufficient statistics as we go.
-
-    Ranks are partitioned into ensemble groups; initial conditions are
-    distributed across *groups* rather than across ranks, and every rank of
-    a group runs the same IC with a different slice of the ensemble.  The
-    durable artifact is ``stats.zarr``; ``forecast.zarr`` is written only
-    when ``output.retain=all``.
-
-    Every rank — including leftover ranks that join no group — must reach
-    the store-creation and context-exit barriers, so the collective calls
-    below are deliberately outside the `comm is not None` guards.
-    """
-    settings = parse_online_settings(cfg)
-    ensemble_size = cfg.get("ensemble_size", 1)
-    retain_raw = retain_raw_output(cfg)
-
-    if not pipeline.supports_online_scoring:
-        raise ValueError(
-            f"Pipeline '{type(pipeline).__name__}' is not validated for online "
-            "scoring (supports_online_scoring=False).  Use scoring.mode=offline, "
-            "or set the flag on the pipeline once its yield sequence is "
-            "confirmed identical across ensemble members."
-        )
-    if settings.members_per_rank > 1 and not pipeline.supports_member_batching():
-        raise ValueError(
-            f"scoring.online.members_per_rank={settings.members_per_rank} needs "
-            f"a batched rollout, but '{type(pipeline).__name__}' does not "
-            "implement run_item_batched.  Set members_per_rank=1 and launch at "
-            f"least ensemble_size={ensemble_size} ranks."
-        )
-
-    # --- Ensemble groups ----------------------------------------------------
-    # Collective over the world: every rank enters build_group_comm.
-    comm = build_group_comm(settings, dist.rank, dist.world_size, ensemble_size)
-
-    all_items = build_work_items(cfg)
-    all_times = np.array(sorted({item.time for item in all_items}))
-
-    resume = cfg.get("resume", False)
-    if resume:
-        remaining_times = filter_online_completed(list(all_times), cfg)
-        if not remaining_times:
-            logger.success("All ICs already scored online — nothing to do.")
-            if dist.distributed:
-                torch.distributed.barrier()
-            if dist.rank == 0:
-                finalize_online_stats(cfg)
-            return
-    else:
-        remaining_times = list(all_times)
-        if cfg.output.get("overwrite", False):
-            clear_online_progress(cfg)
-
-    my_times: list[np.datetime64] = []
-    my_items = []
-    if comm is not None and remaining_times:
-        my_times = distribute_work(
-            remaining_times, comm.group.group_id, comm.group.n_groups
-        )
-        my_items = build_group_work_items(my_times, comm.group, cfg)
-
-    # --- Pipeline setup -----------------------------------------------------
-    pipeline.setup(cfg, device)
-
-    scoring_variables = list(cfg.scoring.variables)
-    output_variables = (
-        list(cfg.output.variables) if retain_raw else list(scoring_variables)
-    )
-    missing = [v for v in scoring_variables if v not in output_variables]
-    if missing:
-        raise ValueError(
-            f"scoring.variables {missing} are not in output.variables — online "
-            "scoring reads the same filtered chunks that are written, so every "
-            "scored variable must also be an output variable."
-        )
-
-    total_coords = pipeline.build_total_coords(all_times, ensemble_size)
-    lead_times = np.asarray(total_coords["lead_time"])
-    spatial_coords = pipeline.effective_spatial_ref()
-
-    # --- Verification ---------------------------------------------------
-    # Verification is required predownloaded, so full coverage of every
-    # (IC + lead) valid time is knowable before the first forecast runs.
-    # That turns what would otherwise hang a whole ensemble group hours in
-    # into a startup error. `verif_sources` is always a *named collection*
-    # of references (scoring.online.verification_sources); with none
-    # configured it normalizes to a single entry keyed None
-    # (see resolve_verification_sources) rather than main.py running a
-    # separate single-source code path. named_store_filename maps that
-    # sentinel back to a plain, unprefixed filename, so nothing below needs
-    # to branch on "how many references" to keep an existing
-    # single-reference campaign's stats.zarr / scores.zarr unchanged.
-    verif_sources = resolve_verification_sources(cfg, pipeline)
-    if my_times:
-        for ref_name, source in verif_sources.items():
-            check_verification_coverage(source, my_times, lead_times, scoring_variables)
-
-    if pipeline.needs_data_source:
-        data_source = resolve_ic_source(
-            cfg,
-            byo=cfg.get("ic_source"),
-            live_source=cfg.data_source,
-        )
-    else:
-        data_source = None
-
-    # --- Stores ---------------------------------------------------------
-    # One stats.zarr per named reference — named_store_filename resolves
-    # the unnamed reference to a plain filename, so this is the same loop
-    # whether there is one reference or several. `statistics` is rebuilt
-    # per reference only to describe the store's schema; the accumulation
-    # instances actually used live inside each OnlineScorer built below.
-    stats_mgrs: dict[str | None, OutputManager] = {}
-    for ref_name in verif_sources:
-        stats_store_name = named_store_filename(settings.stats_store, ref_name)
-        statistics = build_statistics(
-            ensemble_size,
-            settings.climatology is not None,
-            settings,
-            scoring_variables,
-        )
-        stats_mgrs[ref_name] = open_stats_store(
-            cfg,
-            statistics,
-            scoring_variables,
-            all_times,
-            lead_times,
-            ensemble_size,
-            store_name=stats_store_name,
-        )
-    raw_mgr = OutputManager(cfg) if retain_raw else None
-
-    with ExitStack() as stack:
-        for mgr in stats_mgrs.values():
-            stack.enter_context(mgr)
-        if raw_mgr is not None:
-            stack.enter_context(raw_mgr)
-            raw_mgr.validate_output_store(
-                total_coords, output_variables, grid_coords=pipeline.grid_coords()
-            )
-
-        if my_items and comm is not None:
-            scorer = build_online_scorers(
-                cfg,
-                settings,
-                comm,
-                verif_sources,
-                scoring_variables,
-                lead_times,
-                spatial_coords,
-                stats_mgrs,
-                device,
-                known_missing_leads=pipeline.known_missing_leads(),
-            )
-            pipeline.run(
-                my_items,
-                data_source,
-                raw_mgr,
-                output_variables,
-                device,
-                cfg,
-                scorer=scorer,
-                member_batch=settings.members_per_rank,
-            )
-        else:
-            logger.info(f"Rank {dist.rank}: no ICs assigned, waiting at barrier.")
-
-    # Cheap and idempotent — re-derives each reference's scores store from its
-    # full statistics store, so it is correct after a resumed or multi-job
-    # campaign too.
-    if dist.rank == 0:
-        finalize_online_stats(cfg)
 
 
 if __name__ == "__main__":

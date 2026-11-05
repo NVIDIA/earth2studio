@@ -17,9 +17,14 @@
 # FuXi-S2S subseasonal prognostic (ONNX checkpoint of the publication).
 # One model step advances one day on a 1.5 degree grid (121 x 240).  The
 # state is a UTC calendar-day mean labelled 00:00 of that day, and the two
-# initial frames must be daily means too: pair it with
-# `override /data_source: arco_era5_daily`.  The graph samples its own
-# perturbations, so every trajectory is one stochastic member.
+# initial frames must be daily means too.  The model declares them with
+# qualified variable labels (t2m:mean:0h:24h; tp:mean:1h:25h and
+# ttr:mean:1h:25h for the accumulations), and earth2studio.data.fetch_data
+# computes those means from the plain hourly arco_era5 source, so no
+# daily-mean data source wrapper is needed.  predownload.py stores the
+# reduced daily fields under the qualified labels.  The graph samples its
+# own perturbations, so every trajectory is one stochastic member and the
+# runner rolls one member per item (see batch_stochastic_members).
 architecture: earth2studio.models.px.FuXiS2S
 # Omit package_path to use the default Hugging Face mirror of the checkpoint.
 # package_path: /path/to/custom/checkpoint

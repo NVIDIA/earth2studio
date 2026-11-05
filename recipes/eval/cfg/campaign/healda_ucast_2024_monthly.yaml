@@ -1,7 +1,7 @@
 # @package _global_
 # HealDA-initialized UCast — monthly 2024 ICs, 14-day deterministic forecasts.
 # The DA+forecast example using UCast: 1.5-degree grid, 12-hour step, slim
-# dependencies, HuggingFace checkpoint.  Exercises AssimilationForecastPipeline
+# dependencies, HuggingFace checkpoint.  Exercises the assimilation_forecast runner
 # (obs predownload, DA ICs, fill store, verification, scoring, report).
 #
 # HealDA covers all ERA5 pressure-level and most surface variables; UCast's
@@ -17,7 +17,7 @@ defaults:
 
 run_id: healda_ucast_2024_monthly
 
-pipeline: src.pipelines.assimilation.AssimilationForecastPipeline
+runner: assimilation_forecast
 
 # Every month in 2024 (12 ICs)
 start_times:

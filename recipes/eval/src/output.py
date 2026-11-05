@@ -13,761 +13,417 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# mypy: disable-error-code="call-overload,arg-type"
+
+"""Output stores: paths, IO backends and per-stream variable selection.
+
+:class:`earth2studio.run.Pipeline` owns the store lifecycle; this module only
+turns the ``output`` config block into backends and decides which of a runner's
+streams carry the requested variables.  Every stream writes into the same
+``forecast.zarr`` group, so prognostic and diagnostic variables sit side by
+side.
+"""
 
 from __future__ import annotations
 
 import os
 import shutil
 from collections import OrderedDict
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
 from pathlib import Path
-from types import TracebackType
 from typing import Any
 
 import numpy as np
-import torch
 import xarray as xr
-import zarr
 from loguru import logger
-from omegaconf import DictConfig
-from physicsnemo.distributed import DistributedManager
+from omegaconf import DictConfig, OmegaConf
 
-from earth2studio.io import AsyncZarrBackend, ZarrBackend
-from earth2studio.models.dx import DiagnosticModel
-from earth2studio.models.px import PrognosticModel
-from earth2studio.utils.coords import CoordSystem, coord_array, handshake_coords
-from earth2studio.utils.cupy import from_torch
+from earth2studio.grids import (
+    GridDefinition,
+    LatLonGrid,
+    Regridder,
+    infer_grid,
+    resolve_grid,
+    resolve_regridder,
+    same_geometry,
+    select_subset,
+)
+from earth2studio.io import AsyncZarrBackend, IOBackend, ZarrBackend
+from earth2studio.run import WorkItem
+from earth2studio.utils.coords import CoordSystem
+from earth2studio.utils.type import CoordinateSystem
 
-from .distributed import run_on_rank0_first
-
-_NON_SPATIAL_DIMS = frozenset({"batch", "time", "lead_time", "variable", "ensemble"})
-
-# Axes the pipelines write one slice at a time (per work item / rollout step).
-# AsyncZarrBackend requires these to be chunk-1 parallel coordinates.
-_ITERATION_DIMS = ("time", "lead_time", "ensemble")
-
-
-def _spatial_dims(coords: CoordSystem | xr.DataArray) -> list[str]:
-    """Return dimension names from *coords* that are spatial (not structural).
-
-    Structural dimensions (batch, time, lead_time, variable, ensemble) are
-    excluded; everything else is treated as a spatial dimension whose values
-    should be carried through to output stores.
-
-    Accepts either a coordinate dict or a model coordinate signature.
-    """
-    dims = coords.dims if isinstance(coords, xr.DataArray) else coords
-    return [str(d) for d in dims if d not in _NON_SPATIAL_DIMS]
+_ITERATION_DIMS = ("ensemble", "time", "lead_time")
 
 
-def _labels(coords: CoordSystem | xr.DataArray, dim: str) -> np.ndarray:
-    """Labels of *dim*, from a coordinate dict or a coordinate signature."""
-    values = coords.coords[dim] if isinstance(coords, xr.DataArray) else coords[dim]
-    return np.asarray(values)
-
-
-def build_output_coords(
-    spatial_ref: CoordSystem,
-    output_variables: list[str],
-) -> CoordSystem:
-    """Build the coordinate filter used to sub-select model output before writing.
-
-    Parameters
-    ----------
-    spatial_ref : CoordSystem
-        Reference coordinate system whose spatial entries define the output
-        grid.  Typically the output coords of the prognostic or diagnostic
-        model.
-    output_variables : list[str]
-        Variable names to extract from the model state at each step.
-
-    Returns
-    -------
-    CoordSystem
-        Filter with ``variable`` and any spatial dimension keys.
-    """
-    oc: CoordSystem = OrderedDict()
-    oc["variable"] = np.array(output_variables)
-    for dim in _spatial_dims(spatial_ref):
-        oc[dim] = _labels(spatial_ref, dim)
-    return oc
+def store_path(cfg: DictConfig, name: str = "forecast.zarr") -> str:
+    """Path of a store under ``output.path``."""
+    return os.path.join(cfg.output.path, name)
 
 
 def sentinel_path(cfg: DictConfig) -> Path:
-    """Return the path of the pre-download sentinel file for this eval run.
-
-    The sentinel is written by ``predownload.py`` on successful completion and
-    checked by ``main.py`` when ``require_predownload`` is true.  It lives
-    alongside the forecast zarr so it is trivially co-located with the run
-    outputs and visible to every node on a shared filesystem.
-
-    Parameters
-    ----------
-    cfg : DictConfig
-        Hydra config with an ``output.path`` key.
-
-    Returns
-    -------
-    Path
-        ``<output.path>/.predownload.done``
-    """
+    """Path of the pre-download sentinel ``predownload.py`` writes."""
     return Path(cfg.output.path) / ".predownload.done"
 
 
-def build_forecast_coords(
-    prognostic: PrognosticModel,
-    times: np.ndarray,
-    nsteps: int,
-    ensemble_size: int = 1,
-    spatial_ref: CoordSystem | None = None,
-) -> CoordSystem:
-    """Build the full coordinate system for a standard prognostic forecast.
+def progress_path(cfg: DictConfig, name: str = "progress") -> Path:
+    """Directory of a :class:`~earth2studio.run.ProgressStore`."""
+    return Path(cfg.output.path) / f".{name}"
 
-    Derives lead-time coordinates from the model's single-step output (the
-    same convention used in ``earth2studio.run.deterministic``), then
-    combines them with time, ensemble, and spatial dimensions.
+
+def retain_raw_output(cfg: DictConfig) -> bool:
+    """Whether to write the raw forecast store (see the ``output`` config block)."""
+    retain = str(cfg.output.get("retain", "all")).lower()
+    if retain not in ("all", "none"):
+        raise ValueError(f"output.retain must be 'all' or 'none', got {retain!r}")
+    return retain == "all"
+
+
+def parallel_coords(items: Sequence[WorkItem], lead_time: np.ndarray) -> CoordSystem:
+    """Full labels of the dimensions written one slice at a time.
 
     Parameters
     ----------
-    prognostic : PrognosticModel
-        Model whose output coordinates determine lead-time stride and
-        spatial dimensions.
-    times : np.ndarray
-        All initial-condition times that will appear in the output.
-    nsteps : int
-        Number of forecast steps.
-    ensemble_size : int
-        Total number of ensemble members.  When 1 the ensemble dimension
-        is omitted.
-    spatial_ref : CoordSystem | None
-        If provided, the spatial dims of the output store are taken from
-        this coord system instead of the model's output coords.  Used
-        when an output regridder is active so that the zarr schema
-        reflects the *regridded* grid rather than the model's native one.
+    items : Sequence[WorkItem]
+        Every item of the run.
+    lead_time : np.ndarray
+        Lead times of the stream schema.
 
     Returns
     -------
     CoordSystem
-        Full coordinate system suitable for passing to
-        :meth:`OutputManager.validate_output_store`.
-    """
-    input_c = prognostic.input_coords()
-    output_c = prognostic.output_coords(input_c)
-
-    total: CoordSystem = OrderedDict()
-    if ensemble_size > 1:
-        total["ensemble"] = np.arange(ensemble_size)
-    total["time"] = times
-
-    zero = np.array([np.timedelta64(0, "ns")])
-    step_lead = output_c["lead_time"]
-    step_stride = step_lead[-1]
-    total["lead_time"] = np.concatenate(
-        [
-            zero,
-            np.asarray([step_lead + step_stride * i for i in range(nsteps)])
-            .flatten()
-            .astype("timedelta64[ns]"),
-        ]
-    )
-
-    ref = spatial_ref if spatial_ref is not None else output_c
-    for dim in _spatial_dims(ref):
-        total[dim] = _labels(ref, dim)
-
-    return total
-
-
-def build_diagnostic_coords(
-    diagnostics: list[DiagnosticModel],
-    times: np.ndarray,
-    ensemble_size: int = 1,
-    spatial_ref: CoordSystem | None = None,
-) -> CoordSystem:
-    """Build the full coordinate system for a diagnostic-only pipeline.
-
-    Uses the first diagnostic model to determine the output spatial grid.
-    The time dimension is a single ``lead_time=0`` slice per initial
-    condition (no forecast rollout).
-
-    Parameters
-    ----------
-    diagnostics : list[DiagnosticModel]
-        Diagnostic models that will be run.  The first model's output
-        coordinates define the spatial grid.
-    times : np.ndarray
-        All initial-condition times that will appear in the output.
-    ensemble_size : int
-        Total number of ensemble members.  When 1 the ensemble dimension
-        is omitted.
-    spatial_ref : CoordSystem | None
-        If provided, the spatial dims of the output store are taken from
-        this coord system instead of the first diagnostic's output coords.
-
-    Returns
-    -------
-    CoordSystem
-        Full coordinate system suitable for passing to
-        :meth:`OutputManager.validate_output_store`.
-    """
-    if not diagnostics:
-        raise ValueError("At least one diagnostic model is required.")
-
-    dx = diagnostics[0]
-    ref = (
-        spatial_ref if spatial_ref is not None else dx.output_coords(dx.input_coords())
-    )
-
-    total: CoordSystem = OrderedDict()
-    if ensemble_size > 1:
-        total["ensemble"] = np.arange(ensemble_size)
-    total["time"] = times
-    total["lead_time"] = np.array([np.timedelta64(0, "ns")])
-
-    for dim in _spatial_dims(ref):
-        total[dim] = _labels(ref, dim)
-
-    return total
-
-
-def build_analysis_coords(
-    times: np.ndarray,
-    ensemble_size: int = 1,
-    spatial_ref: CoordSystem | None = None,
-) -> CoordSystem:
-    """Build the full coordinate system for an analysis-product pipeline.
-
-    Analyses (e.g. data-assimilation output) are single-time products, so
-    the layout matches :func:`build_diagnostic_coords` — one
-    ``lead_time=0`` slice per initial condition — but is keyed on an
-    explicit *spatial_ref* rather than a diagnostic model.
-
-    Parameters
-    ----------
-    times : np.ndarray
-        All analysis times that will appear in the output.
-    ensemble_size : int
-        Total number of ensemble members.  When 1 the ensemble dimension
-        is omitted.
-    spatial_ref : CoordSystem | None
-        Coordinate system whose spatial dims define the output grid.
-
-    Returns
-    -------
-    CoordSystem
-        Full coordinate system suitable for passing to
-        :meth:`OutputManager.validate_output_store`.
-    """
-    if spatial_ref is None:
-        raise ValueError("spatial_ref is required for analysis coords.")
-
-    total: CoordSystem = OrderedDict()
-    if ensemble_size > 1:
-        total["ensemble"] = np.arange(ensemble_size)
-    total["time"] = times
-    total["lead_time"] = np.array([np.timedelta64(0, "ns")])
-
-    for dim in _spatial_dims(spatial_ref):
-        total[dim] = _labels(spatial_ref, dim)
-
-    return total
-
-
-def build_predownload_coords(
-    spatial_ref: CoordSystem,
-    times: np.ndarray,
-) -> CoordSystem:
-    """Build coords for a predownload zarr store: ``(time, <spatial...>)``.
-
-    The returned coordinate system has a ``time`` dimension followed by
-    whatever spatial dimensions are present in *spatial_ref*.  Variables
-    are not included — they are passed separately as array names to
-    :meth:`OutputManager.validate_output_store`.
-
-    Parameters
-    ----------
-    spatial_ref : CoordSystem
-        Reference coordinate system whose spatial entries define the grid.
-    times : np.ndarray
-        All valid times to be stored (IC-adjusted times, verification
-        times, or the union of both).
-
-    Returns
-    -------
-    CoordSystem
-        ``(time, <spatial...>)`` coordinate system.
+        ``ensemble`` (ensemble runs only), ``time`` and ``lead_time`` labels.
     """
     coords: CoordSystem = OrderedDict()
-    coords["time"] = times
-    for dim in _spatial_dims(spatial_ref):
-        coords[dim] = _labels(spatial_ref, dim)
+    members = sorted({int(m) for item in items for m in item.member_ids})
+    if members:
+        coords["ensemble"] = np.array(members, dtype=np.int64)
+    coords["time"] = np.unique(
+        np.array([item.time for item in items], dtype="datetime64[ns]")
+    )
+    coords["lead_time"] = np.asarray(lead_time).astype("timedelta64[ns]")
     return coords
 
 
-def build_score_coords(
-    metric: Any,
-    times: np.ndarray,
-    input_coords_template: CoordSystem,
-) -> CoordSystem:
-    """Build the output coordinate system for a single metric's score arrays.
-
-    Calls ``metric.output_coords()`` on a template coordinate system (which
-    should mirror the shape of the tensors that will be passed to the metric)
-    to determine which dimensions survive reduction.  A ``time`` axis is
-    prepended since scores are computed per initial-condition time.
-
-    Parameters
-    ----------
-    metric : Metric
-        An ``earth2studio.statistics`` metric instance (or any object with an
-        ``output_coords`` method).
-    times : np.ndarray
-        All initial-condition times that will appear in the score store.
-    input_coords_template : CoordSystem
-        Representative coordinate system matching the tensors that will be
-        passed to the metric (e.g. ``{lead_time, variable, lat, lon}``).
-
-    Returns
-    -------
-    CoordSystem
-        Coordinate system for the score arrays: ``(time, <surviving dims>)``.
-    """
-    score_output = metric.output_coords(input_coords_template)
-    total: CoordSystem = OrderedDict()
-    total["time"] = times
-    for dim, vals in score_output.items():
-        if dim != "time":
-            total[dim] = vals
-    return total
+def remove_store(path: str) -> None:
+    """Delete a store directory if it exists."""
+    if os.path.isdir(path):
+        shutil.rmtree(path)
+        logger.info(f"Removed existing store {path}")
 
 
-def build_output_template(
-    total_coords: CoordSystem,
-    variables: list[str],
-    grid_coords: dict[str, tuple[tuple[str, ...], np.ndarray]] | None = None,
-) -> xr.DataArray:
-    """Build the IO template describing one array per output variable.
+def build_backend(
+    cfg: DictConfig,
+    path: str,
+    parallel: CoordSystem,
+    overwrite: bool,
+    rank: int,
+    chunks: Mapping[str, int] | None = None,
+) -> IOBackend:
+    """Build the configured IO backend for one store.
 
-    The pipelines carry their output schema as a coordinate dict plus a list
-    of variable names; the IO backends take a concrete :class:`xr.DataArray`
-    template instead, where the ``variable`` labels name the arrays to create
-    and every other dimension sizes them.  This is the one place that
-    conversion happens.
-
-    ``variable`` is inserted ahead of the first spatial dimension, which is
-    where the pipelines put it in the fields they write, so the stored
-    dimension order matches the write order.
-
-    Auxiliary coordinates (``grid_coords``) become coordinate arrays on the
-    dimensions they name — for example ``lat[y, x]`` — and the backend lists
-    them in the CF ``coordinates`` attribute of every data array, so
-    ``xarray.open_zarr`` exposes them as coordinates rather than data
-    variables.
-
-    Parameters
-    ----------
-    total_coords : CoordSystem
-        Full coordinate system of the store, without ``variable`` (e.g. from
-        :func:`build_forecast_coords`).
-    variables : list[str]
-        Variable names to create in the store.
-    grid_coords : dict, optional
-        ``name -> (dims, values)`` auxiliary coordinates.
-
-    Returns
-    -------
-    xr.DataArray
-        Allocation-free template for :meth:`add_array`.
-    """
-    dims = [dim for dim in total_coords if dim != "variable"]
-    spatial = _spatial_dims(total_coords)
-    dims.insert(dims.index(spatial[0]) if spatial else len(dims), "variable")
-
-    coords: dict[Any, Any] = {
-        dim: np.asarray(values)
-        for dim, values in total_coords.items()
-        if dim != "variable"
-    }
-    coords["variable"] = np.array(variables)
-    for name, (aux_dims, values) in (grid_coords or {}).items():
-        coords[name] = (tuple(aux_dims), np.asarray(values))
-
-    return coord_array(dims, coords)
-
-
-class OutputManager:
-    """Distributed-safe lifecycle manager for a zarr store.
-
-    Handles the full output lifecycle: store creation (rank 0), validation
-    (other ranks), writes (optionally threaded), and metadata consolidation.
-    Use as a context manager to guarantee safe creation and cleanup.
-
-    The constructor performs only basic config validation.  Call
-    :meth:`validate_output_store` with a pre-built coordinate system and
-    variable list to create or validate the zarr store before writing.
+    Call on every rank inside :func:`earth2studio.run.work.rank0_first`, so
+    rank 0 creates or clears the store before the others open it.
 
     Parameters
     ----------
     cfg : DictConfig
-        Hydra config — expects ``output`` section with ``path``,
-        ``chunks``, and optionally ``thread_writers``.
-    store_name : str
-        Name of the zarr store directory relative to ``output.path``.
-        Defaults to ``"forecast.zarr"``.
-    overwrite : bool | None
-        If provided, overrides ``output.overwrite`` from config.
-    resume : bool | None
-        If provided, overrides the top-level ``resume`` from config.
-    chunks : dict[str, int] | None
-        If provided, overrides ``output.chunks`` from config.  Used by
-        stores whose natural chunking differs from the forecast store's
-        (e.g. the online-scoring statistics store, which is small enough
-        to keep a whole IC trajectory in one chunk).
-    shard_coords : dict[str, int] | None
-        If provided, overrides ``output.shard_coords`` from config.  Pass an
-        empty dict for stores that sharding cannot help, such as the
-        single-``lead_time`` predownload stores.
-    io_backend : str | None
-        If provided, overrides ``output.io_backend`` from config (``"zarr"``
-        or ``"async_zarr"``).  Used by stores that manage their own zarr
-        arrays directly against the synchronous backend API — the
-        online-scoring statistics store (see ``add_stats_arrays`` in
-        ``src/online.py``) — rather than through :meth:`add_array`, since
-        that low-level access has no async-safe equivalent today.
+        Config with the ``output`` block (``io_backend``, ``chunks``,
+        ``thread_writers``, ``shard_coords``, ``max_inflight_shards``).
+    path : str
+        Store path.
+    parallel : CoordSystem
+        Labels of the iteration dimensions, see :func:`parallel_coords`.
+    overwrite : bool
+        Whether rank 0 clears an existing store first.
+    rank : int
+        This process's rank.
+    chunks : Mapping[str, int], optional
+        Chunk sizes overriding ``output.chunks``.
+
+    Returns
+    -------
+    IOBackend
+        A :class:`~earth2studio.io.ZarrBackend` or
+        :class:`~earth2studio.io.AsyncZarrBackend`.
     """
-
-    def __init__(
-        self,
-        cfg: DictConfig,
-        store_name: str = "forecast.zarr",
-        overwrite: bool | None = None,
-        resume: bool | None = None,
-        chunks: dict[str, int] | None = None,
-        shard_coords: dict[str, int] | None = None,
-        io_backend: str | None = None,
-    ) -> None:
-        output_cfg = cfg.output
-        self._dist = DistributedManager()
-
-        self._path = os.path.join(output_cfg.path, store_name)
-        self._overwrite = (
-            overwrite if overwrite is not None else output_cfg.get("overwrite", False)
+    output = cfg.output
+    backend = str(output.get("io_backend", "async_zarr"))
+    if backend not in ("zarr", "async_zarr"):
+        raise ValueError(
+            f"output.io_backend must be 'zarr' or 'async_zarr', got {backend!r}"
         )
-        self._resume = resume if resume is not None else cfg.get("resume", False)
-        self._thread_io = output_cfg.get("thread_writers", 0)
-        self._chunks: dict[str, int] = dict(
-            chunks
-            if chunks is not None
-            else output_cfg.get("chunks", {"time": 1, "lead_time": 1})
-        )
-
-        if io_backend is not None:
-            self._backend = str(io_backend)
-        else:
-            self._backend = str(output_cfg.get("io_backend", "async_zarr"))
-        if self._backend not in ("zarr", "async_zarr"):
-            raise ValueError(
-                f"output.io_backend must be 'zarr' or 'async_zarr', "
-                f"got {self._backend!r}"
-            )
-        self._shard_coords: dict[str, int] = dict(
-            shard_coords
-            if shard_coords is not None
-            else output_cfg.get("shard_coords", {}) or {}
-        )
-        self._max_inflight_shards = int(output_cfg.get("max_inflight_shards", 4))
-
-        if self._is_async:
-            bad_chunks = sorted(
-                dim
-                for dim, size in self._chunks.items()
-                if dim in _ITERATION_DIMS and size != 1
-            )
-            if bad_chunks:
-                raise ValueError(
-                    f"output.chunks must use chunk size 1 for {bad_chunks} with "
-                    "io_backend=async_zarr: these axes are written one slice per "
-                    "step. Use output.shard_coords to reduce file count instead."
-                )
-        elif self._thread_io > 0:
+    chunk_sizes = {
+        str(k): int(v)
+        for k, v in dict(
+            chunks if chunks is not None else output.get("chunks", {}) or {}
+        ).items()
+    }
+    # Ranks write different time/ensemble positions, so those dimensions and
+    # the per-step lead_time axis get chunk size 1 (see EXECUTION_CONTRACT X14).
+    for dim in _ITERATION_DIMS:
+        if dim in parallel:
+            chunk_sizes.setdefault(dim, 1)
+    threads = int(output.get("thread_writers", 0) or 0)
+    shards = {
+        str(k): int(v) for k, v in dict(output.get("shard_coords", {}) or {}).items()
+    }
+    if rank == 0 and overwrite:
+        remove_store(path)
+    if backend == "zarr":
+        if threads:
             logger.warning(
-                "output.thread_writers is ignored with io_backend=zarr, "
-                "writes are synchronous. Use io_backend=async_zarr for "
-                "threaded writes."
+                "output.thread_writers is ignored with io_backend=zarr; use "
+                "io_backend=async_zarr for threaded writes."
             )
-
-        bad_axes = sorted(set(self._shard_coords) - {"lead_time"})
-        if bad_axes and self._dist.world_size > 1:
-            raise ValueError(
-                f"output.shard_coords may only shard 'lead_time', got {bad_axes}. "
-                "time/ensemble are the axes work is distributed over, so a shard "
-                "spanning two ranks is silently truncated to one rank's data."
-            )
-        if self._shard_coords and not self._is_async:
+        if shards:
             raise ValueError(
                 "output.shard_coords requires output.io_backend=async_zarr"
             )
+        return ZarrBackend(
+            path, chunks=chunk_sizes, backend_kwargs={"overwrite": False}
+        )
+    bad = sorted(
+        d for d in _ITERATION_DIMS if d in parallel and chunk_sizes.get(d, 1) != 1
+    )
+    if bad:
+        raise ValueError(
+            f"output.chunks must use chunk size 1 for {bad} with "
+            "io_backend=async_zarr; use output.shard_coords to cut file count."
+        )
+    chunked = {d: s for d, s in chunk_sizes.items() if d not in parallel}
+    return AsyncZarrBackend(
+        path,
+        parallel_coords=parallel,
+        blocking=threads == 0,
+        pool_size=max(1, threads),
+        chunked_coords=chunked,
+        shard_coords=shards,
+        max_inflight_shards=int(output.get("max_inflight_shards", 4)),
+    )
 
-        self._total_coords: CoordSystem | None = None
-        self._variables: list[str] | None = None
-        self._io: ZarrBackend | AsyncZarrBackend | None = None
 
-    @property
-    def _is_async(self) -> bool:
-        return self._backend == "async_zarr"
+def stream_variables(
+    schemas: Mapping[str, CoordinateSystem], variables: Sequence[str]
+) -> dict[str, list[str]]:
+    """Split the requested output variables over the streams carrying them.
 
-    # ------------------------------------------------------------------
-    # Context manager protocol
-    # ------------------------------------------------------------------
+    Parameters
+    ----------
+    schemas : Mapping[str, CoordinateSystem]
+        Stream schemas from ``runner.output_coords``.
+    variables : Sequence[str]
+        Variables to store, in order.
 
-    def __enter__(self) -> OutputManager:
-        return self
+    Returns
+    -------
+    dict[str, list[str]]
+        Variables per stream, omitting streams that carry none.
 
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
-    ) -> None:
-        write_error: BaseException | None = None
-        if isinstance(self._io, AsyncZarrBackend):
-            # Drains the backend's pool and writes out any incomplete shard.
-            # Logged first so that if a rank hangs here, its last log line
-            # names the culprit rather than the collective timeout downstream.
-            logger.debug(f"Rank {self._dist.rank}: draining async writes")
-            try:
-                self._io.close()
-            except Exception as e:  # noqa: BLE001
-                write_error = e
-                logger.error(f"Async write failed: {e}")
-
-        has_error = exc_type is not None or write_error is not None
-        if self._dist.distributed:
-            err_flag = torch.tensor(
-                [1.0 if has_error else 0.0], device=self._dist.device
-            )
-            torch.distributed.all_reduce(err_flag, op=torch.distributed.ReduceOp.MAX)
-            any_error = err_flag.item() > 0
-        else:
-            any_error = has_error
-
-        if any_error:
-            logger.warning(
-                f"Skipping barrier/consolidation due to error (local={has_error})"
-            )
-            if write_error is not None and exc_type is None:
-                raise write_error
-            return
-
-        if self._dist.distributed:
-            torch.distributed.barrier()
-
-        if self._dist.rank == 0 and self._io is not None:
-            logger.info("Consolidating zarr metadata")
-            zarr.consolidate_metadata(self._io.store)
-
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
-
-    def validate_output_store(
-        self,
-        total_coords: CoordSystem,
-        variables: list[str],
-        grid_coords: dict[str, tuple[tuple[str, ...], np.ndarray]] | None = None,
-    ) -> None:
-        """Create or validate the zarr store against the given schema.
-
-        On first call this opens the zarr store using rank-ordered execution
-        (rank 0 creates, others validate).  All ranks in a distributed job
-        **must** call this method so that the internal barriers are satisfied.
-
-        If the store already exists on disk (and ``overwrite`` is false),
-        the existing coordinates are validated against *total_coords*.
-
-        Parameters
-        ----------
-        total_coords : CoordSystem
-            Full coordinate system for the output arrays (e.g. from
-            :func:`build_forecast_coords`).
-        variables : list[str]
-            Variable names to create in the store.
-        grid_coords : dict, optional
-            Auxiliary coordinate arrays on the store's spatial dims, written
-            once at creation (see :meth:`src.pipelines.base.Pipeline.grid_coords`).
-        """
-        self._total_coords = total_coords
-        self._variables = variables
-        self._grid_coords = dict(grid_coords or {})
-        self._io = run_on_rank0_first(self._open_store)
-
-    @property
-    def io(self) -> ZarrBackend | AsyncZarrBackend:
-        """The underlying IO backend (available after :meth:`validate_output_store`)."""
-        if self._io is None:
-            raise RuntimeError(
-                "Output store not initialized. "
-                "Call validate_output_store() before accessing io."
-            )
-        return self._io
-
-    def write(self, x: torch.Tensor, coords: CoordSystem) -> None:
-        """Write a chunk of forecast data.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Data tensor to write.
-        coords : CoordSystem
-            Coordinates corresponding to *x*.
-        """
-        self.io.write(from_torch(x, coords))
-
-    def flush(self) -> None:
-        """Wait for pending writes to land.
-
-        Called between work items during resume runs, so a completion marker is
-        never written before the data it refers to. Raises if a write failed.
-        """
-        if isinstance(self.io, AsyncZarrBackend):
-            self.io.flush()
-
-    # ------------------------------------------------------------------
-    # Private helpers
-    # ------------------------------------------------------------------
-
-    def _open_store(self) -> ZarrBackend | AsyncZarrBackend:
-        """Create or open the zarr store (called inside rank-ordered context)."""
-        if self._total_coords is None or self._variables is None:
-            raise ValueError(
-                "Total coordinates and variables must be set before opening the store"
-            )
-        is_rank0 = self._dist.rank == 0 if self._dist.distributed else True
-
-        os.makedirs(os.path.dirname(self._path) or ".", exist_ok=True)
-
-        store_exists = os.path.exists(self._path)
-
-        if is_rank0 and store_exists:
-            if self._resume:
-                logger.info(f"Resuming into existing store: {self._path}")
-            elif self._overwrite:
-                logger.warning(f"Overwriting existing store: {self._path}")
-                shutil.rmtree(self._path)
-                store_exists = False
-            else:
-                raise FileExistsError(
-                    f"{self._path} already exists. "
-                    "Set output.overwrite=true to replace, "
-                    "or resume=true to append."
-                )
-
-        chunks = dict(self._chunks)
-        if "ensemble" not in chunks and "ensemble" in self._total_coords:
-            chunks["ensemble"] = 1
-
-        io: ZarrBackend | AsyncZarrBackend
-        if self._is_async:
-            # Iteration axes are parallel coordinates, which the backend chunks at
-            # 1 and allows to be written one slice at a time (guarded in __init__).
-            # Every other dim keeps its requested chunk size and is written whole.
-            parallel: CoordSystem = OrderedDict(
-                (dim, np.asarray(values))
-                for dim, values in self._total_coords.items()
-                if dim in _ITERATION_DIMS
-            )
-            chunked = {
-                dim: int(size)
-                for dim, size in chunks.items()
-                if dim not in _ITERATION_DIMS and dim in self._total_coords
+    Raises
+    ------
+    ValueError
+        If no stream produces a variable.
+    """
+    wanted = [str(v) for v in variables]
+    if not wanted:
+        raise ValueError("output.variables must name at least one variable")
+    selected: dict[str, list[str]] = {}
+    found: set[str] = set()
+    for stream, schema in schemas.items():
+        if "variable" not in schema.dims:
+            continue
+        names = set(np.asarray(schema["variable"].values).astype(str))
+        mine = [v for v in wanted if v in names and v not in found]
+        if mine:
+            selected[stream] = mine
+            found.update(mine)
+    missing = [v for v in wanted if v not in found]
+    if missing:
+        available = sorted(
+            {
+                str(v)
+                for schema in schemas.values()
+                if "variable" in schema.dims
+                for v in np.asarray(schema["variable"].values)
             }
-            io = AsyncZarrBackend(
-                self._path,
-                parallel_coords=parallel,
-                blocking=self._thread_io <= 0,
-                pool_size=max(self._thread_io, 1),
-                chunked_coords=chunked,
-                shard_coords=self._shard_coords,
-                max_inflight_shards=self._max_inflight_shards,
+        )
+        raise ValueError(
+            f"output.variables {missing} are produced by no stream; available: "
+            f"{available}"
+        )
+    return selected
+
+
+def _target_grid(spec: Any) -> str | LatLonGrid:
+    """Resolve an ``output.regrid.grid`` entry: a registered name or lat/lon axes."""
+    if isinstance(spec, str):
+        return spec
+    spec = dict(spec)
+    axes = []
+    for key in ("lat", "lon"):
+        axis = spec.get(key)
+        if axis is None:
+            raise ValueError("output.regrid.grid needs 'lat' and 'lon' or a grid name")
+        if isinstance(axis, Mapping):
+            axes.append(
+                np.linspace(float(axis["start"]), float(axis["stop"]), int(axis["num"]))
             )
         else:
-            io = ZarrBackend(
-                file_name=self._path,
-                chunks=chunks,
-                backend_kwargs={"overwrite": False},
+            axes.append(np.asarray(axis, dtype=float))
+    return LatLonGrid(axes[0], axes[1])
+
+
+@dataclass(frozen=True)
+class RegridSpec:
+    """The ``output.regrid`` block: the grid every stream and the verification land on.
+
+    Attributes
+    ----------
+    target : str | LatLonGrid
+        Registered grid name, or explicit latitude and longitude axes.
+    method : str
+        Registered regridder method, ``nearest`` by default.
+    options : dict[str, Any]
+        Keyword arguments of the regridder, such as ``fill_value``.
+    """
+
+    target: str | LatLonGrid
+    method: str = "nearest"
+    options: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def target_grid(self) -> GridDefinition:
+        """The resolved target grid."""
+        if isinstance(self.target, str):
+            return resolve_grid(self.target)
+        return self.target
+
+    def regridder(self, source_grid: GridDefinition) -> Regridder | None:
+        """Regridder from ``source_grid`` onto the target, or None when already there."""
+        if same_geometry(source_grid, self.target_grid):
+            return None
+        return resolve_regridder(source_grid, self.target, self.method, **self.options)
+
+
+def regrid_spec(cfg: DictConfig) -> RegridSpec | None:
+    """Parse ``output.regrid``; ``null`` keeps every stream on its native grid.
+
+    The block names a ``grid`` (a registered name such as ``latlon-0.25deg``, or
+    ``{lat: {start, stop, num}, lon: {...}}``), an optional ``method`` (default
+    ``nearest``) and the regridder's keyword arguments, under ``options`` or as
+    further keys of the block.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Config with the ``output`` block.
+
+    Returns
+    -------
+    RegridSpec | None
+        The parsed block, or None when regridding is off.
+    """
+    spec = cfg.output.get("regrid")
+    if not spec:
+        return None
+    block = dict(OmegaConf.to_container(spec, resolve=True))  # type: ignore[arg-type]
+    if "grid" not in block:
+        raise ValueError("output.regrid needs a 'grid' entry")
+    target = _target_grid(block.pop("grid"))
+    method = str(block.pop("method", None) or "nearest")
+    options = dict(block.pop("options", None) or {})
+    options.update(block)
+    return RegridSpec(target, method, options)
+
+
+class OutputRegridder:
+    """Bring fetched fields onto the ``output.regrid`` grid with its method.
+
+    A fetched field reveals its grid only once it arrives, so the first call
+    builds the regridder and later calls reuse it while the source grid stays
+    the same.  Fields already on the target pass through, and exact crops
+    select the subset, as :func:`earth2studio.data.fetch_data` does for a
+    ``target_grid``.
+
+    Parameters
+    ----------
+    spec : RegridSpec
+        The parsed ``output.regrid`` block.
+    """
+
+    def __init__(self, spec: RegridSpec) -> None:
+        self.spec = spec
+        self.target_grid: GridDefinition = spec.target_grid
+        self._source_grid: GridDefinition | None = None
+        self._regridder: Regridder | None = None
+
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Return ``x`` on the target grid."""
+        source_grid = infer_grid(x)
+        if same_geometry(source_grid, self.target_grid):
+            return x
+        subset = select_subset(x, source_grid, self.target_grid)
+        if subset is not None:
+            return subset
+        if (
+            self._regridder is None
+            or self._source_grid is None
+            or not same_geometry(self._source_grid, source_grid)
+        ):
+            self._regridder = resolve_regridder(
+                source_grid, self.spec.target, self.spec.method, **self.spec.options
             )
+            self._source_grid = source_grid
+            logger.info(
+                f"Regridding fetched {source_grid.topology} fields "
+                f"{dict(zip(source_grid.dims, source_grid.shape))} -> "
+                f"{dict(zip(self.target_grid.dims, self.target_grid.shape))} "
+                f"({self.spec.method})"
+            )
+        return self._regridder(x)
 
-        if is_rank0 and not store_exists:
-            if self._variables:
-                io.add_array(
-                    build_output_template(
-                        self._total_coords, self._variables, self._grid_coords
-                    )
-                )
-                logger.info(f"Created forecast store: {self._path}")
-            else:
-                # No arrays to declare yet: the scoring store creates its own,
-                # once each metric's surviving dimensions are known (see
-                # `add_score_arrays` in src/scoring.py).
-                logger.info(f"Created empty store: {self._path}")
-        else:
-            for v in self._variables:
-                if v not in io:
-                    raise ValueError(
-                        f"Variable '{v}' missing from store — "
-                        "rank 0 initialization failed?"
-                    )
-            # An empty store has no coordinates to validate against: its arrays,
-            # and with them its coordinates, are declared later.
-            if self._variables or io.coords:
-                for dim in self._total_coords:
-                    handshake_coords(io.coords, self._total_coords, required_dim=dim)
-            if self._is_async or self._dist.world_size > 1:
-                self._validate_store_geometry(io)
-            if is_rank0:
-                logger.info(f"Validated existing store for resume: {self._path}")
-            else:
-                logger.debug(f"Rank {self._dist.rank} validated store: {self._path}")
 
-        return io
+def output_regridder(cfg: DictConfig) -> OutputRegridder | None:
+    """An :class:`OutputRegridder` for ``output.regrid``, or None without the block."""
+    spec = regrid_spec(cfg)
+    return None if spec is None else OutputRegridder(spec)
 
-    def _validate_store_geometry(self, io: ZarrBackend | AsyncZarrBackend) -> None:
-        """Reject resuming into a store whose on-disk layout the writers would race on.
 
-        The ``__init__`` guards only see the config; the store carries the geometry
-        it was created with.  Two layouts would silently lose data: chunks > 1 on an
-        iteration axis, which async slice-at-a-time writes race on (checked on any
-        async resume), and shards on a distributed axis, which two ranks would each
-        write in full (checked when ``world_size > 1``).
-        """
-        if self._variables is None:
-            return
-        for v in self._variables:
-            array = io[v]
-            dims = list(array.metadata.dimension_names or [])
-            for axis, dim in enumerate(dims):
-                if dim not in _ITERATION_DIMS:
-                    continue
-                if self._is_async and array.chunks[axis] != 1:
-                    raise ValueError(
-                        f"Existing array '{v}' has chunk size "
-                        f"{array.chunks[axis]} on '{dim}', likely created with "
-                        "io_backend=zarr. async_zarr writes one slice at a time, "
-                        "so concurrent writes into a shared chunk would silently "
-                        "lose data. Resume with output.io_backend=zarr or "
-                        "recreate the store."
-                    )
-                if (
-                    self._dist.world_size > 1
-                    and dim in ("time", "ensemble")
-                    and array.shards is not None
-                    and array.shards[axis] > array.chunks[axis]
-                ):
-                    raise ValueError(
-                        f"Existing array '{v}' is sharded on '{dim}' (shard size "
-                        f"{array.shards[axis]}, chunk size {array.chunks[axis]}), "
-                        "likely by an earlier single-process run. Work is "
-                        "distributed over time/ensemble, so resuming with "
-                        "multiple ranks would silently lose data. Resume "
-                        "single-process or recreate the store."
-                    )
+def build_regridders(
+    cfg: DictConfig, schemas: Mapping[str, CoordinateSystem]
+) -> dict[str, Regridder]:
+    """Build the per-stream output regridders from ``output.regrid``.
+
+    Streams already on the target grid get no regridder; see
+    :func:`regrid_spec` for the block's layout.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Config with the ``output`` block.
+    schemas : Mapping[str, CoordinateSystem]
+        Stream schemas from ``runner.output_coords``.
+
+    Returns
+    -------
+    dict[str, Regridder]
+        Regridder per stream needing one.
+    """
+    spec = regrid_spec(cfg)
+    if spec is None:
+        return {}
+    target_grid = spec.target_grid
+    regridders: dict[str, Regridder] = {}
+    for stream, schema in schemas.items():
+        source_grid = infer_grid(schema)
+        regridder = spec.regridder(source_grid)
+        if regridder is None:
+            continue
+        regridders[stream] = regridder
+        logger.info(
+            f"Stream '{stream}': regridding {source_grid.topology} "
+            f"{dict(zip(source_grid.dims, source_grid.shape))} -> "
+            f"{dict(zip(target_grid.dims, target_grid.shape))} ({spec.method})"
+        )
+    return regridders

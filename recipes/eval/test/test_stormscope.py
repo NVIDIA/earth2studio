@@ -14,981 +14,401 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for StormScopePipeline.
+"""StormScopeRunner: coupled GOES to MRMS rollout on fake models.
 
-Uses stub GOES and MRMS models that mimic the minimal StormScope API
-surface — ``input_coords`` / ``output_coords`` / ``__call__`` /
-``call_with_conditioning`` / ``next_input`` / ``build_*_interpolator``
-and the ``y`` / ``x`` grid attributes.  This lets the tests exercise
-the full coupling loop without loading either real checkpoint.
-
-Covers:
-
-* Helper functions — ``_infer_step_delta``, ``_concat_var_lists``.
-* ``StormScopePipeline.build_total_coords`` — shape of the zarr schema.
-* ``StormScopePipeline.run_item`` — coupling-loop call order (GOES
-  forward, then MRMS with GOES-state as conditioning, then both
-  ``next_input``), yield count, and combined variable axis.
+The fake GOES model adds one per step and the fake MRMS model adds ten plus
+the mean of the GOES conditioning it receives, so the values a step holds
+show which frames each model saw.  Sources return constants on a 3 x 4
+curvilinear grid, so every test runs on CPU without downloads.
 """
 
 from __future__ import annotations
 
-from collections import OrderedDict
+from collections.abc import Generator
 from typing import Any
 
 import numpy as np
 import pytest
 import torch
 import xarray as xr
-from omegaconf import OmegaConf
-from src.data import CompositeSource, PredownloadedSource, resolve_ic_source
-from src.pipelines import StormScopePipeline
-from src.pipelines.stormscope import (
-    _concat_var_lists,
-    _infer_step_delta,
+from omegaconf import open_dict
+from src.campaign import build_items, final_lead_time
+from src.runners import build_runner
+from src.runners.stormscope import StormScopeRunner, stormscope
+
+from earth2studio.data import fetch_data
+from earth2studio.grids import CurvilinearGrid, Region
+from earth2studio.io import KVBackend, ZarrBackend
+from earth2studio.run import Pipeline, work_items
+from earth2studio.run.work import member_seed
+from earth2studio.utils.coords import coord_array, coord_array_like
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.type import CoordinateSystem
+from test.conftest import compose_cfg
+
+T0 = np.datetime64("2023-12-05T12:00:00")
+STEP = np.timedelta64(10, "m")
+GOES_LEADS = np.array([-10, 0], dtype="timedelta64[m]")
+MRMS_LEADS = np.array([-10, 0], dtype="timedelta64[m]")
+GOES_VARS = ["abi07c", "abi13c", "abi01c"]
+MRMS_VARS = ["refc", "glm_density"]
+CONDITIONING_VARS = ["abi13c", "abi07c"]
+LAT = np.array(
+    [[40.0, 40.1, 40.2, 40.3], [39.0, 39.1, 39.2, 39.3], [38.0, 38.1, 38.2, 38.3]]
 )
-from src.work import WorkItem
-
-from earth2studio.utils.coords import CoordSystem
-
-# ---------------------------------------------------------------------------
-# Helper-function tests
-# ---------------------------------------------------------------------------
-
-
-class TestConcatVarLists:
-    def test_no_overlap(self):
-        assert _concat_var_lists(["a", "b"], ["c", "d"]) == ["a", "b", "c", "d"]
-
-    def test_full_overlap(self):
-        assert _concat_var_lists(["a", "b"], ["a", "b"]) == ["a", "b"]
-
-    def test_partial_overlap_preserves_first_list_order(self):
-        assert _concat_var_lists(
-            ["abi01c", "abi02c", "abi07c"], ["abi07c", "refc"]
-        ) == [
-            "abi01c",
-            "abi02c",
-            "abi07c",
-            "refc",
-        ]
+LON = np.array([[260.0, 261.0, 262.0, 263.0]] * 3)
+GRID = CurvilinearGrid(
+    LAT,
+    LON,
+    y=np.array([0.0, 3000.0, 6000.0]),
+    x=np.array([0.0, 3000.0, 6000.0, 9000.0]),
+)
 
 
-# ---------------------------------------------------------------------------
-# Stub StormScope models
-# ---------------------------------------------------------------------------
+class ConstantSource:
+    """Data source returning ``fill`` everywhere on the model grid."""
 
+    def __init__(self, fill: float, variables: list[str] | None = None) -> None:
+        self.fill = fill
+        self.variables = variables
+        self.calls: list[tuple[np.ndarray, np.ndarray]] = []
 
-def _hours_td(m: int) -> np.timedelta64:
-    return np.timedelta64(m, "m").astype("timedelta64[ns]")
-
-
-class _StubStormScope:
-    """Shared scaffolding for GOES and MRMS stubs.
-
-    Implements the StormScope API surface that :class:`StormScopePipeline`
-    calls during setup, build_total_coords, and run_item.  Subclasses
-    override ``variables`` and whether ``call_with_conditioning`` is
-    provided.  Forward passes return a zero tensor reshaped to the
-    model's output shape — sufficient for exercising coord bookkeeping
-    and yield-count logic without any actual math.
-
-    * ``input_coords``: ``{batch, time, lead_time=[0min], variable, y, x}``
-    * ``output_coords``: ``{batch, time, lead_time=[input_last+60min], variable, y, x}``
-    * ``next_input``: non-sliding — returns pred unchanged.
-    """
-
-    variables: list[str]
-
-    def __init__(self) -> None:
-        self.y = torch.arange(4)
-        self.x = torch.arange(5)
-        self.input_interp_built = False
-        self.conditioning_interp_built = False
-        self.call_count = 0
-        self.next_input_calls = 0
-
-    # --- coords ------------------------------------------------------------
-
-    def input_coords(self) -> CoordSystem:
-        return OrderedDict(
-            [
-                ("batch", np.empty(0)),
-                ("time", np.empty(0)),
-                ("lead_time", np.array([_hours_td(0)])),
-                ("variable", np.array(self.variables)),
-                ("y", self.y.numpy()),
-                ("x", self.x.numpy()),
-            ]
+    def __call__(self, time: np.ndarray, variable: np.ndarray) -> xr.DataArray:
+        time, variable = np.atleast_1d(time), np.atleast_1d(variable)
+        if self.variables is not None:
+            missing = set(variable.tolist()) - set(self.variables)
+            if missing:
+                raise KeyError(f"Source lacks {sorted(missing)}")
+        self.calls.append((time, variable))
+        signature = coord_array(
+            ("time", "variable", "y", "x"),
+            {"time": time, "variable": variable},
+            grid=GRID,
+        )
+        return from_torch(
+            torch.full(signature.shape, self.fill, dtype=torch.float32), signature
         )
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        out_lt = np.array([_hours_td(60)]) + input_coords["lead_time"][-1]
-        return OrderedDict(
-            [
-                ("batch", input_coords["batch"]),
-                ("time", input_coords["time"]),
-                ("lead_time", out_lt),
-                ("variable", np.array(self.variables)),
-                ("y", self.y.numpy()),
-                ("x", self.x.numpy()),
-            ]
+
+class FakeGOES:
+    """Unforced GOES model adding ``add`` per ten-minute step."""
+
+    stochastic = True
+
+    def __init__(self, add: float = 1.0, variables: list[str] | None = None) -> None:
+        self.add = add
+        self.variables = list(variables or GOES_VARS)
+        self.seeds: list[int] = []
+        self.regions: list[Region] = []
+        self.fill = 100.0
+
+    def input_coords(self) -> CoordinateSystem:
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "y", "x"),
+            {"lead_time": GOES_LEADS, "variable": np.array(self.variables)},
+            dynamic=("batch", "time"),
+            grid=GRID,
         )
 
-    # --- interpolators -----------------------------------------------------
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        lead = input_coords["lead_time"].values[-1]
+        return coord_array_like(input_coords, {"lead_time": np.array([lead + STEP])})
 
-    def build_input_interpolator(
-        self, lats: Any, lons: Any, max_dist_km: Any = None
-    ) -> None:
-        self.input_interp_built = True
+    def forcing_coords(self) -> None:
+        return None
 
-    def build_conditioning_interpolator(
-        self, lats: Any, lons: Any, max_dist_km: Any = None
-    ) -> None:
-        self.conditioning_interp_built = True
+    def default_sources(self) -> ConstantSource:
+        return ConstantSource(self.fill)
 
-    # --- inference ---------------------------------------------------------
-
-    def _forward_shape(
-        self, coords: CoordSystem, out_coords: CoordSystem
-    ) -> tuple[int, ...]:
-        # (batch=1, time=1, lead=1, var=N, y=4, x=5) — matches StormScope's 6D layout.
-        return (
-            1,
-            1,
-            len(out_coords["lead_time"]),
-            len(self.variables),
-            len(self.y),
-            len(self.x),
-        )
-
-    def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        self.call_count += 1
-        out_coords = self.output_coords(coords)
-        return torch.zeros(self._forward_shape(coords, out_coords)), out_coords
-
-    def next_input(
-        self,
-        pred: torch.Tensor,
-        pred_coords: CoordSystem,
-        x: torch.Tensor,
-        x_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        # Non-sliding (60-min model): pred becomes the next input directly.
-        self.next_input_calls += 1
-        return pred, pred_coords.copy()
-
-    # --- misc --------------------------------------------------------------
-
-    def to(self, device: Any) -> _StubStormScope:
+    def to(self, device: torch.device) -> FakeGOES:
         return self
 
-    def eval(self) -> _StubStormScope:
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        self.seeds.append(seed)
+
+    def with_region(self, region: Region) -> FakeGOES:
+        self.regions.append(region)
         return self
 
+    def _advance(self, x: xr.DataArray, increment: float) -> xr.DataArray:
+        last = x.isel(lead_time=[-1])
+        y = last + increment
+        y = y.assign_coords(lead_time=last["lead_time"].values + STEP)
+        y.attrs = dict(x.attrs)
+        return y
 
-class _StubStormScopeGOES(_StubStormScope):
-    variables = ["abi01c", "abi02c", "abi07c"]
+    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, Any, None]:
+        y = self._advance(x, self.add)
+        while True:
+            yield y
+            y = self._advance(y, self.add)
 
 
-class _StubStormScopeMRMS(_StubStormScope):
-    variables = ["refc"]
+class FakeMRMS(FakeGOES):
+    """Radar model adding ten plus the mean of the GOES conditioning it receives."""
 
     def __init__(self) -> None:
-        super().__init__()
-        self.cond_call_count = 0
-        self.last_conditioning: torch.Tensor | None = None
+        super().__init__(add=10.0, variables=MRMS_VARS)
+        self.conditioning: list[xr.DataArray] = []
+        self.fill = 5.0
 
-    def call_with_conditioning(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-        conditioning: torch.Tensor,
-        conditioning_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        self.cond_call_count += 1
-        self.last_conditioning = conditioning
-        return self.__call__(x, coords)
+    def input_coords(self) -> CoordinateSystem:
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "y", "x"),
+            {"lead_time": MRMS_LEADS, "variable": np.array(self.variables)},
+            dynamic=("batch", "time"),
+            grid=GRID,
+        )
 
+    def forcing_coords(self) -> CoordinateSystem:
+        return coord_array_like(
+            self.input_coords(), {"variable": np.array(CONDITIONING_VARS)}
+        )
 
-# ---------------------------------------------------------------------------
-# _infer_step_delta
-# ---------------------------------------------------------------------------
+    def default_sources(self) -> tuple[ConstantSource, ConstantSource]:  # type: ignore[override]
+        return ConstantSource(self.fill), ConstantSource(-1.0)
 
-
-class TestInferStepDelta:
-    def test_60min_stride(self):
-        model = _StubStormScopeGOES()
-        delta = _infer_step_delta(model)
-        assert delta == _hours_td(60)
-
-
-# ---------------------------------------------------------------------------
-# Pipeline construction (bypassing Hydra setup) and build_total_coords
-# ---------------------------------------------------------------------------
+    def create_iterator(  # type: ignore[override]
+        self, x: xr.DataArray, conditioning: xr.DataArray
+    ) -> Generator[xr.DataArray, xr.DataArray, None]:
+        self.conditioning.append(conditioning)
+        y = self._advance(x, self.add + float(conditioning.mean()))
+        while True:
+            sent = yield y
+            self.conditioning.append(sent)
+            y = self._advance(y, self.add + float(sent.mean()))
 
 
-def _make_stub_pipeline() -> StormScopePipeline:
-    """Build a StormScopePipeline with both models pre-wired.
+def _runner(**kwargs: Any) -> StormScopeRunner:
+    return StormScopeRunner(FakeGOES(), FakeMRMS(), seed=7, **kwargs)
 
-    Mirrors what ``setup`` would do, minus the hydra.utils.call /
-    instantiate calls that require a full config tree.
-    """
-    pipeline = StormScopePipeline()
-    pipeline.model_goes = _StubStormScopeGOES()
-    pipeline.model_mrms = _StubStormScopeMRMS()
-    pipeline.nsteps = 2
 
-    # Cached IC coords (matches what setup reads from model.input_coords()).
-    pipeline._goes_ic_coords = pipeline.model_goes.input_coords()
-    pipeline._mrms_ic_coords = pipeline.model_mrms.input_coords()
+def _steps(runner: StormScopeRunner, item: Any) -> list[dict[str, xr.DataArray]]:
+    return [dict(step) for step in runner.run_item(item)]
 
-    # Minimal IC sources — just need to expose a callable that returns an
-    # xr.DataArray with the right shape.  See _stub_source() below.
-    pipeline._goes_ic_source = _stub_source(
-        pipeline.model_goes.variables, pipeline.model_goes
+
+def test_step_and_output_coords_cover_every_lead_time() -> None:
+    runner = _runner()
+    assert runner.step == STEP
+    schemas = runner.output_coords(3 * STEP)
+    assert set(schemas) == {"goes", "mrms"}
+    for name, variables in (("goes", GOES_VARS), ("mrms", MRMS_VARS)):
+        signature = schemas[name]
+        assert signature.dims == ("batch", "time", "lead_time", "variable", "y", "x")
+        np.testing.assert_array_equal(
+            signature["lead_time"].values, np.arange(4) * STEP
+        )
+        assert signature["variable"].values.tolist() == variables
+        assert signature.sizes["y"] == 3 and signature.sizes["x"] == 4
+    with pytest.raises(ValueError):
+        runner.output_coords(np.timedelta64(15, "m"))
+
+
+def test_run_item_publishes_initial_conditions_then_coupled_steps() -> None:
+    runner = _runner()
+    steps = _steps(runner, work_items([T0], 2 * STEP)[0])
+    assert len(steps) == 3
+    for k, step in enumerate(steps):
+        assert set(step) == {"goes", "mrms"}
+        for x in step.values():
+            assert x.dims == ("time", "lead_time", "variable", "y", "x")
+            np.testing.assert_array_equal(x["lead_time"].values, [k * STEP])
+            assert x["time"].values[0] == T0
+    # GOES: observations 100, then +1 per step.
+    for k, step in enumerate(steps):
+        np.testing.assert_allclose(step["goes"].values, 100.0 + k)
+    # MRMS: observations 5, first step conditioned on GOES observations (100),
+    # the second on the first GOES forecast (101).
+    np.testing.assert_allclose(steps[0]["mrms"].values, 5.0)
+    np.testing.assert_allclose(steps[1]["mrms"].values, 5.0 + 10.0 + 100.0)
+    np.testing.assert_allclose(steps[2]["mrms"].values, 115.0 + 10.0 + 101.0)
+
+
+def test_mrms_is_conditioned_on_goes_forecast_frames_at_its_lead_times() -> None:
+    runner = _runner()
+    mrms = runner.mrms
+    _steps(runner, work_items([T0], 3 * STEP)[0])
+    initial, *frames = mrms.conditioning
+    # Initialization: the GOES observation history, conditioning variables only.
+    assert initial["variable"].values.tolist() == CONDITIONING_VARS
+    np.testing.assert_array_equal(initial["lead_time"].values, MRMS_LEADS)
+    np.testing.assert_allclose(initial.values, 100.0)
+    # Each later step: the GOES forecast at the previous radar forecast's lead time.
+    assert len(frames) == 2
+    for k, frame in enumerate(frames, start=1):
+        assert frame["variable"].values.tolist() == CONDITIONING_VARS
+        np.testing.assert_array_equal(frame["lead_time"].values, [k * STEP])
+        np.testing.assert_allclose(frame.values, 100.0 + k)
+        assert frame.dims == ("time", "lead_time", "variable", "y", "x")
+
+
+def test_zero_steps_publishes_only_initial_conditions() -> None:
+    runner = _runner()
+    steps = _steps(runner, work_items([T0], np.timedelta64(0, "h"))[0])
+    assert len(steps) == 1
+    assert runner.mrms.conditioning == []
+
+
+def test_data_requests_name_the_fetches_and_reuse_goes_for_conditioning() -> None:
+    runner = _runner()
+    item = work_items([T0], 2 * STEP)[0]
+    requests = runner.data_requests(item)
+    assert [r.source for r in requests] == [runner.goes_source, runner.mrms_source]
+    assert runner.conditioning_source is None
+    np.testing.assert_array_equal(requests[0].variable, GOES_VARS)
+    np.testing.assert_array_equal(requests[0].lead_time, GOES_LEADS)
+    np.testing.assert_array_equal(requests[1].variable, MRMS_VARS)
+    _steps(runner, item)
+    # ``fetch_data`` calls a source once per lead time; the GOES observations
+    # arrive once and double as the radar conditioning, never fetched twice.
+    assert len(runner.goes_source.calls) == len(GOES_LEADS)
+    assert len(runner.mrms_source.calls) == len(MRMS_LEADS)
+
+
+def test_explicit_conditioning_source_is_fetched_separately() -> None:
+    conditioning = ConstantSource(50.0)
+    runner = _runner(conditioning_source=conditioning)
+    item = work_items([T0], STEP)[0]
+    requests = runner.data_requests(item)
+    assert [r.source for r in requests] == [
+        runner.goes_source,
+        runner.mrms_source,
+        conditioning,
+    ]
+    np.testing.assert_array_equal(requests[2].variable, CONDITIONING_VARS)
+    steps = _steps(runner, item)
+    np.testing.assert_allclose(steps[1]["mrms"].values, 5.0 + 10.0 + 50.0)
+    assert len(conditioning.calls) == len(requests[2].lead_time)
+
+
+def test_conditioning_falls_back_to_mrms_default_when_goes_lacks_variables() -> None:
+    goes = FakeGOES(variables=["abi01c"])
+    runner = StormScopeRunner(goes, FakeMRMS())
+    assert isinstance(runner.conditioning_source, ConstantSource)
+    assert runner.conditioning_source.fill == -1.0
+
+
+def test_models_are_seeded_per_member_and_batching_is_rejected() -> None:
+    runner = _runner()
+    items = work_items([T0], STEP, members=[2, 5], member_batch=1)
+    for item in items:
+        _steps(runner, item)
+    expected = [member_seed(7, T0, 2), member_seed(7, T0, 5)]
+    assert runner.goes.seeds == expected
+    assert runner.mrms.seeds == expected
+    assert runner.supports_member_batching is False
+    with pytest.raises(ValueError, match="batch"):
+        _steps(runner, work_items([T0], STEP, members=[0, 1], member_batch=2)[0])
+
+
+def test_mismatched_grids_or_strides_are_rejected() -> None:
+    class OtherGrid(FakeMRMS):
+        def input_coords(self) -> CoordinateSystem:
+            return coord_array(
+                ("batch", "time", "lead_time", "variable", "y", "x"),
+                {"lead_time": MRMS_LEADS, "variable": np.array(MRMS_VARS)},
+                dynamic=("batch", "time"),
+                grid=CurvilinearGrid(LAT, LON),
+            )
+
+    with pytest.raises(ValueError, match="grid"):
+        StormScopeRunner(FakeGOES(), OtherGrid())
+
+    class Hourly(FakeMRMS):
+        def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+            lead = input_coords["lead_time"].values[-1]
+            return coord_array_like(
+                input_coords, {"lead_time": np.array([lead + np.timedelta64(1, "h")])}
+            )
+
+    with pytest.raises(ValueError, match="stride"):
+        StormScopeRunner(FakeGOES(), Hourly())
+
+
+def test_pipeline_writes_both_streams(tmp_path) -> None:
+    runner = _runner()
+    goes_store, mrms_store = KVBackend(), KVBackend()
+    items = work_items([T0, T0 + np.timedelta64(1, "h")], 2 * STEP)
+    Pipeline(runner, output={"goes": goes_store, "mrms": mrms_store}, device="cpu").run(
+        items
     )
-    pipeline._mrms_ic_source = _stub_source(
-        pipeline.model_mrms.variables, pipeline.model_mrms
-    )
-
-    # Spatial reference — union of GOES + MRMS variables on HRRR y/x.
-    all_vars = _concat_var_lists(
-        pipeline.model_goes.variables, pipeline.model_mrms.variables
-    )
-    pipeline._spatial_ref = OrderedDict(
-        [
-            ("variable", np.array(all_vars)),
-            ("y", pipeline.model_goes.y.numpy()),
-            ("x", pipeline.model_goes.x.numpy()),
-        ]
-    )
-    return pipeline
-
-
-def _stub_source(variables: list[str], model: _StubStormScope):
-    """DataSource returning zero-filled DataArrays on the model's native grid."""
-
-    class _Src:
-        def __call__(self, time, variable):
-            t = np.atleast_1d(time)
-            v = np.atleast_1d(variable)
-            data = np.zeros(
-                (len(t), len(v), len(model.y), len(model.x)),
-                dtype="float32",
-            )
-            return xr.DataArray(
-                data,
-                dims=("time", "variable", "y", "x"),
-                coords={
-                    "time": t,
-                    "variable": v,
-                    "y": model.y.numpy(),
-                    "x": model.x.numpy(),
-                },
-            )
-
-        async def fetch(self, time, variable):
-            return self(time, variable)
-
-    return _Src()
-
-
-class TestBuildTotalCoords:
-    def test_lead_time_steps_from_model_stride(self):
-        pipeline = _make_stub_pipeline()
-        times = np.array([np.datetime64("2023-12-05T12:00:00")])
-        coords = pipeline.build_total_coords(times, ensemble_size=1)
-
-        assert "ensemble" not in coords
-        assert "time" in coords
-        # nsteps=2, stride=60min → lead_time = [60min, 120min]
-        assert len(coords["lead_time"]) == 2
-        assert coords["lead_time"][0] == _hours_td(60)
-        assert coords["lead_time"][1] == _hours_td(120)
-        assert "y" in coords
-        assert "x" in coords
-
-    def test_ensemble_coord_added(self):
-        pipeline = _make_stub_pipeline()
-        times = np.array([np.datetime64("2023-12-05T12:00:00")])
-        coords = pipeline.build_total_coords(times, ensemble_size=3)
-        assert "ensemble" in coords
-        np.testing.assert_array_equal(coords["ensemble"], np.arange(3))
-
-    def test_mismatched_strides_raises(self):
-        pipeline = _make_stub_pipeline()
-
-        # Monkey-patch MRMS stub to advertise a 10-minute stride.
-        def _mrms_output_coords(input_coords):
-            out_lt = np.array([_hours_td(10)]) + input_coords["lead_time"][-1]
-            oc = input_coords.copy()
-            oc["lead_time"] = out_lt
-            return oc
-
-        pipeline.model_mrms.output_coords = _mrms_output_coords  # type: ignore[method-assign]
-        times = np.array([np.datetime64("2023-12-05T12:00:00")])
-        with pytest.raises(ValueError, match="share a forecast stride"):
-            pipeline.build_total_coords(times, ensemble_size=1)
-
-
-# ---------------------------------------------------------------------------
-# run_item — coupling-loop behavior
-# ---------------------------------------------------------------------------
-
-
-class TestStormScopeRunItem:
-    @pytest.fixture()
-    def pipeline(self):
-        return _make_stub_pipeline()
-
-    def test_yields_nsteps_outputs(self, pipeline):
-        item = WorkItem(
-            time=np.datetime64("2023-12-05T12:00:00"), ensemble_id=0, seed=0
-        )
-        outputs = list(pipeline.run_item(item, None, torch.device("cpu")))
-        assert len(outputs) == pipeline.nsteps
-
-    def test_calls_models_nsteps_times(self, pipeline):
-        item = WorkItem(
-            time=np.datetime64("2023-12-05T12:00:00"), ensemble_id=0, seed=0
-        )
-        list(pipeline.run_item(item, None, torch.device("cpu")))
-
-        assert (
-            pipeline.model_goes.call_count == pipeline.nsteps
-        ), "GOES.__call__ should be invoked once per step"
-        assert (
-            pipeline.model_mrms.cond_call_count == pipeline.nsteps
-        ), "MRMS.call_with_conditioning should be invoked once per step"
-        assert pipeline.model_goes.next_input_calls == pipeline.nsteps
-        assert pipeline.model_mrms.next_input_calls == pipeline.nsteps
-
-    def test_yielded_variable_axis_is_combined(self, pipeline):
-        item = WorkItem(
-            time=np.datetime64("2023-12-05T12:00:00"), ensemble_id=0, seed=0
-        )
-        outputs = list(pipeline.run_item(item, None, torch.device("cpu")))
-
-        expected_vars = pipeline.model_goes.variables + pipeline.model_mrms.variables
-        for _, coords in outputs:
-            assert list(coords["variable"]) == expected_vars
-
-    def test_yielded_tensor_includes_batch_dim(self, pipeline):
-        """run_item yields the raw model output (with a size-1 ``batch`` dim).
-
-        :class:`Pipeline.run` squeezes the ``batch`` axis before output
-        filtering because :attr:`StormScopePipeline._run_item_includes_batch_dim`
-        is ``True``; this test pins the contract at the subclass boundary.
-        """
-        assert pipeline._run_item_includes_batch_dim is True
-
-        item = WorkItem(
-            time=np.datetime64("2023-12-05T12:00:00"), ensemble_id=0, seed=0
-        )
-        outputs = list(pipeline.run_item(item, None, torch.device("cpu")))
-
-        for x, coords in outputs:
-            assert "batch" in coords
-            # Expect (batch=1, time=1, lead=1, var=N, y=4, x=5) = 6 dims
-            assert x.ndim == 6
-            assert x.shape[0] == 1
-            assert x.shape[-2:] == (4, 5)
-
-    def test_mrms_conditioning_is_goes_state(self, pipeline):
-        """MRMS must receive the GOES state tensor (pre-next_input) as conditioning."""
-        item = WorkItem(
-            time=np.datetime64("2023-12-05T12:00:00"), ensemble_id=0, seed=0
-        )
-        list(pipeline.run_item(item, None, torch.device("cpu")))
-
-        # The stub records the last conditioning tensor passed in; its variable
-        # axis must have len(GOES vars), not len(MRMS vars).
-        assert pipeline.model_mrms.last_conditioning is not None
-        # Shape (batch=1, time=1, lead=1, var=3, y=4, x=5)
-        assert pipeline.model_mrms.last_conditioning.shape[3] == len(
-            pipeline.model_goes.variables
-        )
-
-
-# ---------------------------------------------------------------------------
-# resolve_ic_source — predownloaded-cache preference (StormScope call path)
-# ---------------------------------------------------------------------------
-
-
-class TestResolveIcSource:
-    """Verify :func:`src.data.resolve_ic_source` honours StormScope's call path.
-
-    The helper decides between:
-    * a :class:`PredownloadedSource` wrapping ``<output.path>/<store_name>``
-      when the directory exists on disk, and
-    * a hydra-instantiated live source otherwise.
-    """
-
-    def test_returns_predownloaded_source_when_cache_exists(self, tmp_path):
-        cache = tmp_path / "data_goes.zarr"
-
-        # Write a minimal zarr that PredownloadedSource can open.
-        data = np.zeros((1, 4, 5), dtype="float32")
-        ds = xr.Dataset(
-            {"abi01c": (("time", "y", "x"), data)},
-            coords={
-                "time": np.array(["2023-12-05T12:00:00"], dtype="datetime64[ns]"),
-                "y": np.arange(4),
-                "x": np.arange(5),
-            },
-        )
-        ds.to_zarr(str(cache), mode="w")
-
-        cfg = OmegaConf.create(
-            {
-                "output": {"path": str(tmp_path)},
-                "model": {
-                    "goes": {
-                        "ic_source": {
-                            "_target_": "unreachable.module.Source",
-                        }
-                    }
-                },
-            }
-        )
-        src = resolve_ic_source(
-            cfg,
-            store_name="data_goes.zarr",
-            live_source=cfg.model.goes.ic_source,
-        )
-        assert isinstance(src, PredownloadedSource)
-
-    def test_falls_back_to_live_source_when_cache_absent(self, tmp_path):
-        # No zarr on disk → should instantiate the live source.  Point _target_
-        # at a trivial built-in so we can assert the fallback without network I/O.
-        cfg = OmegaConf.create(
-            {
-                "output": {"path": str(tmp_path)},
-                "model": {
-                    "goes": {
-                        "ic_source": {
-                            "_target_": "collections.OrderedDict",
-                        }
-                    }
-                },
-            }
-        )
-        src = resolve_ic_source(
-            cfg,
-            store_name="data_goes.zarr",
-            live_source=cfg.model.goes.ic_source,
-        )
-        assert isinstance(src, OrderedDict)
-
-
-# ---------------------------------------------------------------------------
-# verification_source — CompositeSource over per-model predownload stores
-# ---------------------------------------------------------------------------
-
-
-def _write_yx_zarr(path, variables):
-    """Minimal (time, y, x) zarr so PredownloadedSource can open it."""
-    import xarray as xr
-
-    t = np.array(["2023-12-05T12:00:00"], dtype="datetime64[ns]")
-    y = np.arange(4)
-    x = np.arange(5)
-    ds = xr.Dataset()
-    for v in variables:
-        ds[v] = xr.DataArray(
-            np.zeros((1, 4, 5), dtype="float32"),
-            dims=["time", "y", "x"],
-            coords={"time": t, "y": y, "x": x},
-        )
-    ds.to_zarr(str(path), mode="w")
-
-
-class TestVerificationSource:
-    """``Pipeline.verification_source`` honours the per-model ``data_*.zarr``
-    layout used by StormScope via its default ``verification_zarr_paths``
-    discovery (the StormScope subclass no longer needs to override)."""
-
-    def test_returns_composite_when_both_stores_exist(self, tmp_path):
-        _write_yx_zarr(tmp_path / "data_goes.zarr", ["abi01c", "abi02c"])
-        _write_yx_zarr(tmp_path / "data_mrms.zarr", ["refc"])
-        cfg = OmegaConf.create({"output": {"path": str(tmp_path)}})
-
-        pipeline = StormScopePipeline()
-        src = pipeline.verification_source(cfg)
-        assert isinstance(src, CompositeSource)
-
-        # Dispatch must work for variables from both stores.
-        t = np.array(["2023-12-05T12:00:00"], dtype="datetime64[ns]")
-        result = src(t, ["abi01c", "refc"])
-        assert result.sizes["variable"] == 2
-
-    def test_raises_when_no_stores_exist(self, tmp_path):
-        cfg = OmegaConf.create({"output": {"path": str(tmp_path)}})
-        pipeline = StormScopePipeline()
-        with pytest.raises(FileNotFoundError):
-            pipeline.verification_source(cfg)
-
-    def test_returns_predownloaded_source_when_only_one_store_exists(self, tmp_path):
-        _write_yx_zarr(tmp_path / "data_goes.zarr", ["abi01c"])
-        cfg = OmegaConf.create({"output": {"path": str(tmp_path)}})
-        pipeline = StormScopePipeline()
-        src = pipeline.verification_source(cfg)
-        assert isinstance(src, PredownloadedSource)
-
-
-# ---------------------------------------------------------------------------
-# Conditioning source swap on setup
-# ---------------------------------------------------------------------------
-
-
-class _ModelStub:
-    """Just enough surface for ``_maybe_swap_conditioning`` to mutate."""
-
-    def __init__(self) -> None:
-        self.conditioning_data_source = object()  # sentinel "live source"
-
-
-class TestMaybeSwapConditioning:
-    """``_maybe_swap_conditioning`` replaces a model's conditioning source
-    with a :class:`PredownloadedSource` when ``cond_<side>.zarr`` is
-    present on disk; otherwise it leaves the attribute untouched so the
-    model keeps whatever source the campaign config installed at load
-    time."""
-
-    def test_swaps_when_cache_exists(self, tmp_path):
-        # Write a minimal cond_goes.zarr PredownloadedSource can open.
-        cond_path = tmp_path / "cond_goes.zarr"
-        xr.Dataset(
-            {
-                "z500": xr.DataArray(
-                    np.zeros((1, 4, 5), dtype="float32"),
-                    dims=["time", "y", "x"],
-                    coords={
-                        "time": np.array(
-                            ["2023-12-05T12:00:00"], dtype="datetime64[ns]"
-                        ),
-                        "y": np.arange(4),
-                        "x": np.arange(5),
-                    },
-                )
-            }
-        ).to_zarr(str(cond_path), mode="w")
-
-        # `_maybe_swap_conditioning` reads cfg.model.<side>.conditioning_cadence,
-        # so the model block must exist (even if empty).
-        cfg = OmegaConf.create(
-            {
-                "output": {"path": str(tmp_path)},
-                "model": {"goes": {}},
-            }
-        )
-        pipeline = StormScopePipeline()
-        model = _ModelStub()
-        sentinel = model.conditioning_data_source
-
-        pipeline._maybe_swap_conditioning(cfg, "goes", model)
-
-        assert isinstance(model.conditioning_data_source, PredownloadedSource)
-        assert model.conditioning_data_source is not sentinel
-
-    def test_no_op_when_cache_absent(self, tmp_path):
-        cfg = OmegaConf.create({"output": {"path": str(tmp_path)}})
-        pipeline = StormScopePipeline()
-        model = _ModelStub()
-        sentinel = model.conditioning_data_source
-
-        pipeline._maybe_swap_conditioning(cfg, "goes", model)
-
-        # Live source retained.
-        assert model.conditioning_data_source is sentinel
-
-    def test_wraps_with_cadence_when_configured(self, tmp_path):
-        """With ``conditioning_cadence`` set, the predownloaded source is
-        wrapped in ``CadenceRoundedSource`` so the GOES model's sub-hour
-        queries route to the nearest stored hourly value."""
-        from src.data import CadenceRoundedSource
-
-        cond_path = tmp_path / "cond_goes.zarr"
-        xr.Dataset(
-            {
-                "z500": xr.DataArray(
-                    np.zeros((1, 4, 5), dtype="float32"),
-                    dims=["time", "y", "x"],
-                    coords={
-                        "time": np.array(
-                            ["2023-12-05T12:00:00"], dtype="datetime64[ns]"
-                        ),
-                        "y": np.arange(4),
-                        "x": np.arange(5),
-                    },
-                )
-            }
-        ).to_zarr(str(cond_path), mode="w")
-
-        cfg = OmegaConf.create(
-            {
-                "output": {"path": str(tmp_path)},
-                "model": {
-                    "goes": {"conditioning_cadence": "1h"},
-                },
-            }
-        )
-        pipeline = StormScopePipeline()
-        model = _ModelStub()
-        pipeline._maybe_swap_conditioning(cfg, "goes", model)
-
-        assert isinstance(model.conditioning_data_source, CadenceRoundedSource)
-
-
-# ---------------------------------------------------------------------------
-# _build_conditioning_store — DataSource vs ForecastSource, cadence dedup
-# ---------------------------------------------------------------------------
-
-
-class _FakeConditioningModel:
-    """StormScope-model-shaped stub sufficient for ``_build_conditioning_store``.
-
-    Advertises conditioning variables, a cropped HRRR sub-region, and
-    numpy-array ``y`` / ``x``.  No actual forward pass.
-    """
-
-    def __init__(self, variables=("z500",)):
-        self.conditioning_variables = list(variables)
-        self.latitudes = torch.zeros(4, 5, dtype=torch.float32)
-        self.longitudes = torch.zeros(4, 5, dtype=torch.float32)
-        self.y = np.arange(4)
-        self.x = np.arange(5)
-
-
-def _grid_resolver_registered():
-    """Register a Hydra-instantiable stub grid resolver once per test session."""
-    import sys
-    import types
-
-    mod_name = "test._stormscope_cond_stubs"
-    if mod_name in sys.modules:
-        return mod_name
-    mod = types.ModuleType(mod_name)
-
-    def stub_grid():
-        lats = torch.tensor([[0.0, 0.0], [1.0, 1.0]])
-        lons = torch.tensor([[0.0, 1.0], [0.0, 1.0]])
-        return lats, lons
-
-    class _StubDataSource:
-        def __call__(self, time, variable):
-            times = np.atleast_1d(np.asarray(time, dtype="datetime64[ns]"))
-            variables = np.atleast_1d(variable)
-            data = np.zeros((len(times), len(variables), 2, 2), dtype="float32")
-            return xr.DataArray(
-                data,
-                dims=["time", "variable", "lat", "lon"],
-                coords={
-                    "time": times,
-                    "variable": variables,
-                    "lat": [0.0, 1.0],
-                    "lon": [0.0, 1.0],
-                },
-            )
-
-        async def fetch(self, time, variable):
-            return self(time, variable)
-
-    class _StubForecastSource:
-        def __call__(self, time, lead_time, variable):
-            times = np.atleast_1d(np.asarray(time, dtype="datetime64[ns]"))
-            leads = np.atleast_1d(np.asarray(lead_time, dtype="timedelta64[ns]"))
-            variables = np.atleast_1d(variable)
-            data = np.zeros(
-                (len(times), len(leads), len(variables), 2, 2), dtype="float32"
-            )
-            return xr.DataArray(
-                data,
-                dims=["time", "lead_time", "variable", "lat", "lon"],
-                coords={
-                    "time": times,
-                    "lead_time": leads,
-                    "variable": variables,
-                    "lat": [0.0, 1.0],
-                    "lon": [0.0, 1.0],
-                },
-            )
-
-    mod.stub_grid = stub_grid
-    mod._StubDataSource = _StubDataSource
-    mod._StubForecastSource = _StubForecastSource
-    sys.modules[mod_name] = mod
-    return mod_name
-
-
-class TestBuildConditioningStore:
-    """End-to-end tests for ``StormScopePipeline._build_conditioning_store``.
-
-    Covers source-type autodetection (ForecastSource → wrapped in
-    ``ValidTimeForecastAdapter``; DataSource → forwarded directly) and
-    cadence-based deduplication of requested valid times.
-    """
-
-    def _make_model_cfg(self, *, source_target: str, cadence: str | None = None):
-        mod = _grid_resolver_registered()
-        block = {
-            "load_args": {
-                "conditioning_data_source": {
-                    "_target_": f"{mod}.{source_target}",
-                },
-            },
-            "conditioning_grid": {
-                "_target_": f"{mod}.stub_grid",
-            },
+    assert tuple(goes_store.dims["abi13c"]) == ("time", "lead_time", "y", "x")
+    assert goes_store["abi13c"].shape == (2, 3, 3, 4)
+    assert mrms_store["refc"].shape == (2, 3, 3, 4)
+    np.testing.assert_allclose(mrms_store["refc"][:, 1], 115.0)
+    np.testing.assert_allclose(goes_store["abi01c"][:, 2], 102.0)
+
+    zarr_store = ZarrBackend(str(tmp_path / "forecast.zarr"))
+    members = work_items([T0], STEP, members=2, member_batch=1)
+    Pipeline(
+        runner,
+        output={"goes": zarr_store, "mrms": zarr_store},
+        output_variables={"goes": ["abi13c"], "mrms": ["refc"]},
+        device="cpu",
+    ).run(members)
+    ds = xr.open_zarr(tmp_path / "forecast.zarr", consolidated=False)
+    assert set(ds.data_vars) == {"abi13c", "refc"}
+    assert ds["refc"].dims == ("ensemble", "time", "lead_time", "y", "x")
+    assert ds["refc"].shape == (2, 1, 2, 3, 4)
+    np.testing.assert_array_equal(ds["ensemble"].values, [0, 1])
+
+
+def _stormscope_cfg(tmp_path, region: dict | None = None):
+    cfg = compose_cfg(tmp_path, ["nsteps=3", "runner=stormscope", "random_seed=11"])
+    with open_dict(cfg):
+        cfg.model = {
+            "goes": {"_target_": "test.test_stormscope.FakeGOES"},
+            "mrms": {"_target_": "test.test_stormscope.FakeMRMS"},
+            "region": region,
         }
-        if cadence is not None:
-            block["conditioning_cadence"] = cadence
-        return OmegaConf.create(block)
-
-    def _run(
-        self,
-        *,
-        source_target: str,
-        cadence: str | None,
-        input_offsets: list,
-        forecast_offsets: list,
-    ):
-        from src.data import ValidTimeForecastAdapter
-
-        pipeline = StormScopePipeline()
-        model = _FakeConditioningModel()
-        model_cfg = self._make_model_cfg(source_target=source_target, cadence=cadence)
-        spatial_ref = OrderedDict([("y", model.y), ("x", model.x)])
-        ic_times = [np.datetime64("2023-12-05T12:00:00", "ns")]
-
-        store = pipeline._build_conditioning_store(
-            model=model,
-            model_cfg=model_cfg,
-            side="goes",
-            unique_ic_times=ic_times,
-            input_offsets=input_offsets,
-            forecast_offsets=forecast_offsets,
-            spatial_ref=spatial_ref,
-            max_dist_km=30.0,
-        )
-        return store, ValidTimeForecastAdapter
-
-    def test_forecast_source_is_wrapped_in_adapter(self):
-        store, ValidTimeForecastAdapter = self._run(
-            source_target="_StubForecastSource",
-            cadence=None,
-            input_offsets=[np.timedelta64(0, "m")],
-            forecast_offsets=[np.timedelta64(60, "m")],
-        )
-        assert store is not None
-        # RegriddedSource wraps the adapter; peek at _source.
-        from src.regrid import RegriddedSource
-
-        assert isinstance(store.source, RegriddedSource)
-        assert isinstance(store.source._source, ValidTimeForecastAdapter)
-
-    def test_data_source_is_forwarded_directly(self):
-        """ARCO_ERA5-style ``DataSource`` conditioning — no valid-time adapter needed."""
-        store, ValidTimeForecastAdapter = self._run(
-            source_target="_StubDataSource",
-            cadence=None,
-            input_offsets=[np.timedelta64(0, "m")],
-            forecast_offsets=[np.timedelta64(60, "m")],
-        )
-        assert store is not None
-        from src.regrid import RegriddedSource
-
-        assert isinstance(store.source, RegriddedSource)
-        # Underlying is the raw DataSource, NOT the adapter.
-        assert not isinstance(store.source._source, ValidTimeForecastAdapter)
-
-    def test_cadence_dedupes_subhour_offsets(self):
-        """10-min offsets inside a single hour dedupe to one stored time
-        when ``conditioning_cadence='1h'``."""
-        store, _ = self._run(
-            source_target="_StubDataSource",
-            cadence="1h",
-            input_offsets=[np.timedelta64(0, "m")],
-            forecast_offsets=[
-                np.timedelta64(10, "m"),
-                np.timedelta64(20, "m"),
-                np.timedelta64(30, "m"),
-                np.timedelta64(40, "m"),
-                np.timedelta64(50, "m"),
-                np.timedelta64(60, "m"),
-            ],
-        )
-        assert store is not None
-        # 0, 10, 20min → 12:00; 30, 40, 50min → 13:00; 60min → 13:00.
-        # Unique stored valid times: {12:00, 13:00}.
-        assert len(store.times) == 2
-        assert store.times[0] == np.datetime64("2023-12-05T12:00:00", "ns")
-        assert store.times[1] == np.datetime64("2023-12-05T13:00:00", "ns")
-
-    def test_no_cadence_keeps_every_offset(self):
-        store, _ = self._run(
-            source_target="_StubDataSource",
-            cadence=None,
-            input_offsets=[np.timedelta64(0, "m")],
-            forecast_offsets=[
-                np.timedelta64(10, "m"),
-                np.timedelta64(20, "m"),
-                np.timedelta64(30, "m"),
-            ],
-        )
-        assert store is not None
-        # 4 distinct valid times when no rounding applies.
-        assert len(store.times) == 4
+        cfg.output.variables = GOES_VARS + MRMS_VARS
+    return cfg
 
 
-# ---------------------------------------------------------------------------
-# _build_glm_store — GLM (glm_density) predownload store
-# ---------------------------------------------------------------------------
+def test_builder_binds_default_sources_and_records_roles(tmp_path) -> None:
+    cfg = _stormscope_cfg(tmp_path)
+    runner = build_runner(cfg)
+    assert isinstance(runner, StormScopeRunner)
+    assert runner.seed == 11
+    assert set(runner.source_roles) == {"goes", "mrms"}
+    assert runner.source_roles["goes"] is runner.goes_source
+    assert runner.source_roles["mrms"] is runner.mrms_source
+    assert runner.goes.regions == [] and runner.mrms.regions == []
+    # Verification composes the live GOES and MRMS observations over the
+    # output variables of both models.
+    verification = runner.verification_source
+    assert set(verification.sources) == {"goes", "mrms"}
+    field = fetch_data(
+        verification, time=np.array([T0]), variable=np.array(["abi13c", "refc"])
+    )
+    assert list(field["variable"].values) == ["abi13c", "refc"]
+    assert final_lead_time(cfg, runner) == 3 * STEP
+    items = build_items(cfg, runner)
+    assert len(items) == 1 and items[0].final_lead_time == 3 * STEP
 
 
-class _FakeGlmModel:
-    """StormScope-MRMS-shaped stub sufficient for ``_build_glm_store`` /
-    ``_resolve_mrms_ic_source``.
-
-    Advertises a ``glm_density`` state channel, the cropped HRRR sub-region
-    (``latitudes`` / ``longitudes``), and numpy ``y`` / ``x`` — the surface the
-    bilinear regridder reads.  No forward pass.
-    """
-
-    def __init__(self, *, with_glm: bool = True):
-        self.variables = ["refc", "refc_base"] + (["glm_density"] if with_glm else [])
-        self.glm_variables = np.array(["glm_density"]) if with_glm else np.array([])
-        self.n_glm_channels = 1 if with_glm else 0
-        self.latitudes = torch.zeros(4, 5, dtype=torch.float32)
-        self.longitudes = torch.zeros(4, 5, dtype=torch.float32)
-        self.y = np.arange(4)
-        self.x = np.arange(5)
-
-
-class TestBuildGlmStore:
-    """``StormScopePipeline._build_glm_store`` — the bilinear-regridded
-    ``data_glm.zarr`` store for GLM-bearing MRMS variants."""
-
-    def _make_model_cfg(self, *, with_glm_source=True, with_glm_grid=True):
-        mod = _grid_resolver_registered()
-        block: dict[str, Any] = {"load_args": {}}
-        if with_glm_source:
-            block["load_args"]["glm_data_source"] = {
-                "_target_": f"{mod}._StubDataSource",
-            }
-        if with_glm_grid:
-            block["glm_grid"] = {"_target_": f"{mod}.stub_grid"}
-        return OmegaConf.create(block)
-
-    def test_builds_bilinear_regridded_store(self):
-        from src.regrid import BilinearRegridder, RegriddedSource
-
-        pipeline = StormScopePipeline()
-        model = _FakeGlmModel()
-        model_cfg = self._make_model_cfg()
-        spatial_ref = OrderedDict([("y", model.y), ("x", model.x)])
-        fetch_times = [
-            np.datetime64("2023-12-05T12:00:00", "ns"),
-            np.datetime64("2023-12-05T12:10:00", "ns"),
-        ]
-
-        store = pipeline._build_glm_store(
-            model=model,
-            model_cfg=model_cfg,
-            fetch_times=fetch_times,
-            spatial_ref=spatial_ref,
-        )
-        assert store is not None
-        assert store.name == "data_glm"
-        assert store.role == "ic"
-        assert store.variables == ["glm_density"]
-        assert store.times == fetch_times
-        assert isinstance(store.source, RegriddedSource)
-        assert isinstance(store.source._regridder, BilinearRegridder)
-
-    def test_returns_none_without_glm_source(self):
-        pipeline = StormScopePipeline()
-        model = _FakeGlmModel()
-        model_cfg = self._make_model_cfg(with_glm_source=False)
-        store = pipeline._build_glm_store(
-            model=model,
-            model_cfg=model_cfg,
-            fetch_times=[np.datetime64("2023-12-05T12:00:00", "ns")],
-            spatial_ref=OrderedDict([("y", model.y), ("x", model.x)]),
-        )
-        assert store is None
-
-    def test_returns_none_without_glm_grid(self):
-        pipeline = StormScopePipeline()
-        model = _FakeGlmModel()
-        model_cfg = self._make_model_cfg(with_glm_grid=False)
-        store = pipeline._build_glm_store(
-            model=model,
-            model_cfg=model_cfg,
-            fetch_times=[np.datetime64("2023-12-05T12:00:00", "ns")],
-            spatial_ref=OrderedDict([("y", model.y), ("x", model.x)]),
-        )
-        assert store is None
-
-    def test_returns_none_without_glm_channels(self):
-        pipeline = StormScopePipeline()
-        model = _FakeGlmModel(with_glm=False)
-        model_cfg = self._make_model_cfg()
-        store = pipeline._build_glm_store(
-            model=model,
-            model_cfg=model_cfg,
-            fetch_times=[np.datetime64("2023-12-05T12:00:00", "ns")],
-            spatial_ref=OrderedDict([("y", model.y), ("x", model.x)]),
-        )
-        assert store is None
+def test_builder_applies_region_and_configured_sources(tmp_path) -> None:
+    cfg = _stormscope_cfg(
+        tmp_path, region={"kind": "box", "params": [-100.0, 30.0, -90.0, 40.0]}
+    )
+    with open_dict(cfg):
+        cfg.model.goes.ic_source = {
+            "_target_": "test.test_stormscope.ConstantSource",
+            "fill": 3.0,
+        }
+        cfg.model.mrms.conditioning_source = {
+            "_target_": "test.test_stormscope.ConstantSource",
+            "fill": 4.0,
+        }
+    runner = stormscope(cfg, prefer_predownloaded=False)
+    assert runner.goes.regions == [Region.box(-100.0, 30.0, -90.0, 40.0)]
+    assert runner.mrms.regions == runner.goes.regions
+    assert runner.goes_source.fill == 3.0
+    assert runner.conditioning_source.fill == 4.0
+    assert set(runner.source_roles) == {"goes", "mrms", "mrms_conditioning"}
 
 
-# ---------------------------------------------------------------------------
-# _resolve_mrms_ic_source — radar + GLM composite vs single-source
-# ---------------------------------------------------------------------------
-
-
-class TestResolveMrmsIcSource:
-    """``StormScopePipeline._resolve_mrms_ic_source`` assembles the MRMS IC.
-
-    For GLM-bearing variants the radar (``data_mrms.zarr``) and lightning
-    (``data_glm.zarr``) stores are recombined via a
-    :class:`~src.data.CompositeSource`; variants without GLM keep the legacy
-    single-source resolution.
-    """
-
-    def test_composite_when_both_stores_exist(self, tmp_path):
-        _write_yx_zarr(tmp_path / "data_mrms.zarr", ["refc", "refc_base"])
-        _write_yx_zarr(tmp_path / "data_glm.zarr", ["glm_density"])
-        cfg = OmegaConf.create(
-            {"output": {"path": str(tmp_path)}, "model": {"mrms": {}}}
-        )
-
-        pipeline = StormScopePipeline()
-        pipeline.model_mrms = _FakeGlmModel()
-        src = pipeline._resolve_mrms_ic_source(cfg)
-        assert isinstance(src, CompositeSource)
-
-        # Dispatch must reach both component stores.
-        t = np.array(["2023-12-05T12:00:00"], dtype="datetime64[ns]")
-        result = src(t, ["refc", "glm_density"])
-        assert result.sizes["variable"] == 2
-
-    def test_single_source_path_without_glm(self, tmp_path):
-        # No GLM channels → legacy single-source resolution.  No cache on disk,
-        # so the live source (a trivial built-in) is instantiated.
-        cfg = OmegaConf.create(
-            {
-                "output": {"path": str(tmp_path)},
-                "model": {
-                    "mrms": {"ic_source": {"_target_": "collections.OrderedDict"}}
-                },
-            }
-        )
-        pipeline = StormScopePipeline()
-        pipeline.model_mrms = _FakeGlmModel(with_glm=False)
-        src = pipeline._resolve_mrms_ic_source(cfg)
-        assert isinstance(src, OrderedDict)
+def test_builder_requires_both_model_nodes(tmp_path) -> None:
+    cfg = compose_cfg(tmp_path, ["runner=stormscope"])
+    with pytest.raises(ValueError, match="cfg.model.goes"):
+        stormscope(cfg)
