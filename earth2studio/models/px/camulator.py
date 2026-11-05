@@ -147,6 +147,16 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     whereas this wrapper reads the forcing data source at every step; with the same
     forcing the two agree to float32 rounding.
 
+    The default forcing source is the cyclic climatological year (1980-2014 mean
+    seasonal cycle, CO2 fixed at its year-2000 mean of 369 ppm), so a default
+    rollout is a climatology run; no published CAMulator result uses this
+    forcing. Pass ``CAMulatorForcing(mode="transient")`` for the 1980-2014
+    record. The wrapper runs at PyTorch's default precision (TF32 matmul and
+    cuDNN convolutions enabled on Ampere and later GPUs), as did the published
+    checkpoint-69 runs. Reproducing the bitwise comparison against the CREDIT
+    toolbox requires disabling TF32 and enabling deterministic algorithms on
+    both sides.
+
     Note
     ----
     This model is NSF NCAR's autoregressive emulator of the CAM6 atmosphere,
@@ -188,8 +198,9 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Data source providing ``mtdwswrf``, ``sst``, ``sic`` and
         ``global_mean_co2`` on the CAMulator grid, by default
         ``CAMulatorForcing()``, which serves the shipped climatological (cyclic)
-        year. The forcing files use a 365-day calendar, so leap days reuse the
-        28 February forcing.
+        year: the 1980-2014 mean seasonal cycle with CO2 fixed at its year-2000
+        mean of 369 ppm. The forcing files use a 365-day calendar, so leap days
+        reuse the 28 February forcing.
     conservation_fixers : bool, optional
         Apply the global mass, water and energy fixers, by default True
     wind_filter : bool, optional
@@ -197,9 +208,8 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:global class:climate class:medium-range product:wind product:precip
-    product:temp product:atmos product:solar year:2025 gpu:24gb provider:ncar
-    backend:pytorch
+    region:global class:climate product:wind product:precip product:temp
+    product:atmos product:solar year:2025 gpu:24gb provider:ncar backend:pytorch
     """
 
     def __init__(
@@ -448,12 +458,16 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             da["lon"].values, CAMULATOR_GRID_LON
         ):
             raise ValueError("CAMulator forcing data must be on the CAMulator grid")
-        forcing = torch.from_numpy(np.ascontiguousarray(da.values)).to(device).float()
+        # Normalized in float64 like CREDIT, then cast at the network input. The
+        # ppm -> mol mol-1 conversion is done in float64 as well: the data source
+        # scales the raw float32 mixing ratio by 1e6, and undoing that in float32
+        # loses one ulp for some values, which breaks bitwise agreement with the
+        # CREDIT toolbox after a few steps.
+        forcing = torch.from_numpy(np.ascontiguousarray(da.values)).to(device).double()
         forcing = torch.flip(forcing, dims=(-2,))
         forcing[:, 3] = forcing[:, 3] * 1.0e-6  # ppm -> mol mol-1
-        # Normalized in float64 like CREDIT, then cast at the network input
         forcing = (
-            forcing.double() - self.forcing_center.view(1, -1, 1, 1)
+            forcing - self.forcing_center.view(1, -1, 1, 1)
         ) / self.forcing_scale.view(1, -1, 1, 1)
         return forcing.float()
 
