@@ -294,12 +294,16 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self._lon1d = self._lon_np[0, :].astype(np.float64)
         # Sub-domain halo (top, bottom, left, right) trimmed from emitted frames, and output grid
         self._halo = (0, 0, 0, 0)
+        # Halo with_region runs on and trims per side, user-settable before calling it
+        self.region_halo = 0
         self._out_lat1d = self._lat1d
         self._out_lon1d = self._lon1d
         # Append a -90 row to emitted frames (global grids only, set by load_model)
         self._pole = False
         # Minimum run-grid size per side, derived from the DiT architecture in load_model
         self._min_domain_cells = 64
+        # Full grid and static maps a view selects from, None on the loaded model
+        self._footprint: dict[str, Any] | None = None
 
     def __str__(self) -> str:
         return "InterpCRPSDiT"
@@ -498,19 +502,32 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     @staticmethod
     def _snap_to_patch(lo: int, hi: int, n: int, p: int) -> tuple[int, int]:
         # Snap window [lo, hi) outward to multiples of the patch size p, flooring at the grid edge n.
-        # The floor can shrink the window below the request, set_domain detects and raises.
+        # The floor can shrink the window below the request, _set_domain detects and raises.
         lo = (lo // p) * p
         hi = ((hi + p - 1) // p) * p
         if hi > n:
             hi = (n // p) * p
         return lo, hi
 
-    def with_region(self, region: Region, /) -> Self:
+    def with_region(self, region: Region) -> Self:
         """Return a regional view of this model for a geographic box.
 
         The view shares the loaded DiT and slices the static maps and output grid to the smallest
-        block covering the box, see :meth:`set_domain` for the halo option. The base model must
-        supply a grid containing the block, e.g. the global grid.
+        block covering the box. The wrapped ``px_model`` is carried over and its frames are
+        selected to the run grid (box plus halo, aligned to the patch size), so it should supply a
+        grid containing it, e.g. the global grid. Longitude wrap is disabled in the view.
+
+        Set ``region_halo`` on the model before calling to run on that many extra cells per side
+        and trim them from the output, pushing boundary artifacts off the box (not validated). The
+        halo is clamped, with a warning, at the grid edge. Calling it on a view selects from the
+        loaded model's full grid.
+
+        Warning
+        -------
+        The ``dit`` is shared and mutated in place on each forward, so a parent and its views can
+        run sequentially but not concurrently. The view is placed on the parent's current device
+        and does not follow later ``.to(...)`` calls on the parent. Skill outside the global ERA5
+        training distribution is unvalidated.
 
         Parameters
         ----------
@@ -526,18 +543,34 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Raises
         ------
         ValueError
-            If the region is not a box or does not fit the model grid, see :meth:`set_domain`.
+            If the region is not a box, is degenerate, lies outside the model grid or selects
+            no cells, ``region_halo`` is negative, patch snapping shrinks the window below the
+            box, or the run window is too small for the DiT's attention kernel.
         """
         if region.kind != "box":
             raise ValueError(
                 f"{type(self).__name__} supports only box regions, not {region.kind!r}"
             )
         west, south, east, north = region.params
-        if self._lon1d.min() >= 0.0:
+        if self._full_footprint()["lon1d"].min() >= 0.0:
             west, east = west % 360.0, east % 360.0
-        return cast("Self", self.set_domain(south, north, west, east))
+        return cast(
+            "Self", self._set_domain(south, north, west, east, halo=self.region_halo)
+        )
 
-    def set_domain(
+    def _full_footprint(self) -> dict[str, Any]:
+        """Grid and static maps of the loaded model, which every view selects from."""
+        if self._footprint is not None:
+            return self._footprint
+        return {
+            "static_inv": self.static_inv,
+            "lat2d": self.lat2d,
+            "lon2d": self.lon2d,
+            "lat1d": self._lat1d,
+            "lon1d": self._lon1d,
+        }
+
+    def _set_domain(
         self,
         lat_min: float,
         lat_max: float,
@@ -546,45 +579,11 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         halo: int = 0,
         min_cells: int | None = None,
     ) -> "InterpCRPSDiT":
-        """Restrict the model to a regional sub-domain for a lat/lon bounding box.
-
-        Returns a new :class:`InterpCRPSDiT` sharing the loaded ``dit`` with the static maps and
-        output grid sliced to the smallest block covering the box. The wrapped ``px_model`` is
-        carried over and its frames are selected to the run grid (bounding box plus halo, aligned
-        to the patch size), so it should supply a grid containing it, e.g. the global grid.
-        Longitude wrap is disabled (``lon_pad=0``). :meth:`with_region` wraps this method.
-
-        Warning
-        -------
-        The ``dit`` is shared and mutated in place on each forward, so a parent and its sub-domains
-        can run sequentially but not concurrently. The sub-domain is placed on the parent's current
-        device and does not follow later ``.to(...)`` calls on the parent. Skill outside the global
-        ERA5 training distribution is unvalidated.
-
-        Parameters
-        ----------
-        lat_min, lat_max, lon_min, lon_max : float
-            Bounding box in degrees, inside the current grid. Does not wrap the date line.
-        halo : int, optional
-            Extra cells added per side to run on, then trimmed from the output to push boundary
-            artifacts off the returned box (not validated), by default 0
-        min_cells : int | None, optional
-            Minimum run-grid size per side so the NATTEN kernel fits the latent grid, by default
-            derived from the architecture at load
-
-        Returns
-        -------
-        InterpCRPSDiT
-            Sub-domain model whose ``output_coords`` cover the bounding box
-
-        Raises
-        ------
-        ValueError
-            If the bounding box is degenerate, outside the grid or selects no cells, ``halo`` is
-            negative, ``min_cells`` is below 1, patch snapping shrinks the window below the box, or
-            the run window is below ``min_cells``.
-        """
-        lat1d, lon1d = self._lat1d, self._lon1d
+        # View for a lat/lon bounding box (no date-line wrap), see with_region. min_cells is the
+        # minimum run-grid size per side so the NATTEN kernel fits the latent grid, by default
+        # derived from the architecture at load.
+        footprint = self._full_footprint()
+        lat1d, lon1d = footprint["lat1d"], footprint["lon1d"]
         if lat_min >= lat_max or lon_min >= lon_max:
             raise ValueError(
                 "require lat_min < lat_max and lon_min < lon_max (no date-line wrap)"
@@ -600,7 +599,7 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             or lon_max > lon1d.max()
         ):
             raise ValueError(
-                f"bounding box lat[{lat_min},{lat_max}] lon[{lon_min},{lon_max}] is outside the current grid "
+                f"bounding box lat[{lat_min},{lat_max}] lon[{lon_min},{lon_max}] is outside the model grid "
                 f"lat[{lat1d.min()},{lat1d.max()}] lon[{lon1d.min()},{lon1d.max()}]"
             )
         inside_lat = (lat1d >= lat_min) & (lat1d <= lat_max)
@@ -642,9 +641,9 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             dit=self.dit,  # shared, sequential use only
             center=self.center,
             scale=self.scale,
-            static_inv=self.static_inv[:, i0e:i1e, j0e:j1e].clone(),
-            lat2d=self.lat2d[i0e:i1e, j0e:j1e].clone(),
-            lon2d=self.lon2d[i0e:i1e, j0e:j1e].clone(),
+            static_inv=footprint["static_inv"][:, i0e:i1e, j0e:j1e].clone(),
+            lat2d=footprint["lat2d"][i0e:i1e, j0e:j1e].clone(),
+            lon2d=footprint["lon2d"][i0e:i1e, j0e:j1e].clone(),
             px_model=self.px_model,
             num_interp_steps=self.num_interp_steps,
             lon_pad=0,
@@ -654,9 +653,11 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             amp_dtype=self.amp_dtype,
         )
         sub._halo = halo_trim
+        sub._footprint = footprint
         sub._out_lat1d = lat1d[i0:i1]  # bounding box without halo
         sub._out_lon1d = lon1d[j0:j1]
         sub._min_domain_cells = self._min_domain_cells
+        sub.region_halo = self.region_halo
         sub._rng_seed, sub._rng_states = self._rng_seed, deepcopy(self._rng_states)
         sub.to(self.center.device)
         return sub

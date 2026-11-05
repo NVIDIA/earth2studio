@@ -81,14 +81,36 @@ model protocol.
   minimum and four-point alignment; baseline variants return full-footprint views.
   Views share experts, crop grids, invariants and valid masks from the full
   footprint, and rebind the experts' image size on every forward.
-- `CorrDiffCosmoEra5`: add `with_region`; keep a reference to the full footprint in
-  views and adapt the current `set_domain` API through `Region.box`. Treat its run grid
-  and trimmed output grid separately.
-- `StormCastCONUS` / `StormCast`: share the full weights; select crops without
-  replacing network parameters. Keep existing constructor limits as an adapter.
-- `cBottleSR`: return an independently configured view from `with_region`; retain
-  the in-place setter for compatibility while discouraging its use after signatures
-  have been captured.
+- `CorrDiffEra5Hrrr` (implemented): `with_region` accepts boxes and selects the
+  covering block of the HRRR crop, snapped to the DiT patch and attention kernel.
+- `CorrDiffCosmoEra5` (implemented): `with_region` accepts boxes, bracketing the
+  cells inside the box by one row and column so cell areas cover it. Views keep a
+  reference to the native and extended footprint, so `with_region` on a view reaches
+  all of it, with the native / out-of-distribution margin / reject tiers.
+  `region_halo` and `region_margin_deg` configure the run halo and ERA5 input margin.
+  `set_domain` is removed; it selected only cells whose centers lay inside the box.
+  `CorrDiffCosmoEra5SDA.load_model` takes `region=` in place of `domain=`.
+- `StormCastCONUS` (implemented): `with_region` accepts boxes inside the CONUS
+  footprint, snapped outward to the DiT patch grid and grown to the attention kernel.
+  `_SplitModelWrapper.crop_model` only records the crop; each forward binds the
+  slice of the full positional embedding and the tokenizer geometry to the shared
+  sub-models and restores them afterwards. `torch.compile` wraps only the routed
+  denoiser, so binding stays outside the graph. Constructor limits remain an adapter.
+- `InterpCRPSDiT` (implemented): `with_region` accepts boxes and slices the static
+  maps and grid to the covering block, snapped to the patch size. Views keep a
+  reference to the loaded model's grid and static maps, so `with_region` on a view
+  reaches all of it. `region_halo`
+  configures the run halo; the former public `set_domain` is now private.
+- `StormCast` (not adopted): its diffusion network uses an additive positional
+  embedding fixed at 512×640, and the package invariants cover only that window, so
+  its constructor limits cannot select another domain. It stays fixed-domain.
+- `cBottleSR` (implemented): `with_region` accepts boxes, including ones crossing the
+  antimeridian, and bands; a partial band passes full-longitude extents that do not
+  collapse to one meridian, and `band(-90, 90)` is global. `output_resolution` stays
+  the view grid's shape. HEALPix output keeps the full level-10 grid, of which only
+  the region's patches are super-resolved. `set_super_resolution_window`, which
+  changed the instance in place, is removed; the constructor and `load_model` take
+  a `region` in place of the `super_resolution_window` tuple.
 - Future globe-wide patch models: build a local grid from `Region.rectangle`,
   including its orientation, and ship a documented default region.
 

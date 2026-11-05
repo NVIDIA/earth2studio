@@ -41,6 +41,7 @@ from physicsnemo.diffusion.guidance import (
 )
 from physicsnemo.diffusion.noise_schedulers import EDMNoiseScheduler
 
+from earth2studio.grids import Region
 from earth2studio.models.auto import Package
 from earth2studio.models.da.sda_corrdiff_cosmo_era5 import CorrDiffCosmoEra5SDA
 from earth2studio.models.dx.corrdiff_cosmo_era5 import CorrDiffCosmoEra5
@@ -729,7 +730,7 @@ def test_corrdiff_sda_deterministic_seed() -> None:
 # ── load_model (mocked DX loader) ────────────────────────────────────────────
 # The DX suite already covers metadata / NetCDF grid / checkpoint loading and model
 # construction, so these mock CorrDiffCosmoEra5.load_model and assert only the SDA's
-# own wiring (mode/resolution request, wrapping, arg forwarding, set_domain).
+# own wiring (mode/resolution request, wrapping, arg forwarding, with_region).
 
 
 def test_load_model_wraps_diffusion():
@@ -760,8 +761,8 @@ def test_load_model_wraps_diffusion():
     assert sda.amp is True
 
 
-def test_load_model_domain_crops():
-    # domain= runs the real set_domain on the loaded model BEFORE wrapping, so the obs
+def test_load_model_region_crops():
+    # region= runs the real with_region on the loaded model BEFORE wrapping, so the obs
     # grid tracks the cropped downscaler (a stale grid would misplace observations).
     full = _build()
     with patch.object(CorrDiffCosmoEra5, "load_model", return_value=full):
@@ -769,9 +770,9 @@ def test_load_model_domain_crops():
             MagicMock(),
             assimilate_variables=("u10m", "v10m"),
             resolution="rea6",
-            domain=dict(lat_min=48.0, lat_max=52.0, lon_min=8.5, lon_max=12.5),
+            region=Region.box(8.5, 48.0, 12.5, 52.0),
         )
-    assert sda.model is not full  # set_domain returned a cropped copy
+    assert sda.model is not full  # with_region returned a cropped view
     assert sda.model.lat_output_numpy.shape[0] < full.lat_output_numpy.shape[0]
     assert sda._lat_np.shape == sda.model.lat_output_numpy.shape
 

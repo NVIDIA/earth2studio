@@ -919,7 +919,7 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             }
         return self._footprint
 
-    def with_region(self, region: Region, /) -> Self:
+    def with_region(self, region: Region) -> Self:
         """Return a view of this model covering a geographic box.
 
         The view shares the loaded network and runs on the smallest block of the
