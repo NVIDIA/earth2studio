@@ -30,6 +30,7 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pytest
+import torch
 import xarray as xr
 from omegaconf import OmegaConf, open_dict
 from src.data import PredownloadedFrameSource, frame_filename, frame_store_path
@@ -161,6 +162,7 @@ class FakeDA:
         return FakeObsSource(value=10.0), FakeObsSource(value=20.0)
 
     def to(self, device):
+        self.device = torch.device(device)
         return self
 
     def __call__(self, conv_obs=None, sat_obs=None) -> xr.DataArray:
@@ -493,3 +495,13 @@ def test_fill_source_is_regridded_onto_the_analysis_grid(tmp_path) -> None:
     item = work_items([T0], H6)[0]
     steps = list(runner.run_item(item))
     assert steps[0]["forecast"].shape[-2:] == (len(SMALL_LAT), len(SMALL_LON))
+
+
+def test_forecast_runner_moves_the_da_model_too(tmp_path) -> None:
+    cfg = _da_forecast_cfg(tmp_path, DA_VARIABLES)
+    runner = assimilation_forecast(cfg)
+    analysis = runner.source
+    assert isinstance(analysis, AnalysisSource)
+    assert not hasattr(analysis.model, "device")
+    assert runner.to(torch.device("cpu")) is runner
+    assert analysis.model.device == torch.device("cpu")

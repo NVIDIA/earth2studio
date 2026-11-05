@@ -36,6 +36,7 @@ from src.campaign import build_items, final_lead_time
 from src.runners import build_runner
 from src.runners.stormscope import StormScopeRunner, stormscope
 
+from earth2studio.data import fetch_data
 from earth2studio.grids import CurvilinearGrid, Region
 from earth2studio.io import KVBackend, ZarrBackend
 from earth2studio.run import Pipeline, work_items
@@ -373,6 +374,14 @@ def test_builder_binds_default_sources_and_records_roles(tmp_path) -> None:
     assert runner.source_roles["goes"] is runner.goes_source
     assert runner.source_roles["mrms"] is runner.mrms_source
     assert runner.goes.regions == [] and runner.mrms.regions == []
+    # Verification composes the live GOES and MRMS observations over the
+    # output variables of both models.
+    verification = runner.verification_source
+    assert set(verification.sources) == {"goes", "mrms"}
+    field = fetch_data(
+        verification, time=np.array([T0]), variable=np.array(["abi13c", "refc"])
+    )
+    assert list(field["variable"].values) == ["abi13c", "refc"]
     assert final_lead_time(cfg, runner) == 3 * STEP
     items = build_items(cfg, runner)
     assert len(items) == 1 and items[0].final_lead_time == 3 * STEP

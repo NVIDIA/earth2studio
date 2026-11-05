@@ -910,4 +910,14 @@ def assimilation_forecast(
 
     runner.frame_requests = frame_requests  # type: ignore[attr-defined]
     runner.data_requests = data_requests  # type: ignore[method-assign]
+    forecast_to = runner.to
+
+    def to(device: torch.device) -> EnsembleRunner:
+        # The DA model lives in the analysis source, which the forecast runner
+        # does not know about; move it along with the forecast models.
+        forecast_to(device)
+        analysis.to(torch.device(device))
+        return runner
+
+    runner.to = to  # type: ignore[method-assign]
     return runner

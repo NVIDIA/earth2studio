@@ -40,6 +40,7 @@ import xarray as xr
 from loguru import logger
 from omegaconf import DictConfig, OmegaConf
 
+from earth2studio.data import CompositeSource
 from earth2studio.grids import Region
 from earth2studio.models.px.utils import initial_condition
 from earth2studio.models.utils import recommended_sources
@@ -107,6 +108,10 @@ class StormScopeRunner:
     """
 
     supports_member_batching = False  # One member per item.
+    verification_source: Source | None = None
+    """Live GOES and MRMS observations composed over both models' output
+    variables; the builder sets it, and ``predownload.py`` caches the
+    verification store from it when the campaign names no other source."""
 
     def __init__(
         self,
@@ -417,4 +422,35 @@ def stormscope(cfg: DictConfig, prefer_predownloaded: bool = True) -> StormScope
     if runner.goes_forcing_source is not None:
         roles["goes_forcing"] = runner.goes_forcing_source
     runner.source_roles = roles  # type: ignore[attr-defined]
+    runner.verification_source = _verification_source(cfg, node, goes, mrms, runner)
     return runner
+
+
+def _verification_source(
+    cfg: DictConfig, node: DictConfig, goes: Any, mrms: Any, runner: StormScopeRunner
+) -> Source:
+    """Compose the live GOES and MRMS observations over both models' outputs.
+
+    Verification covers every forecast valid time, so it reads the live
+    sources (the configured ``ic_source`` nodes or the models' defaults), not
+    the predownloaded history stores.
+    """
+
+    def live(role: str, model: Any, slot_node: Any, label: str) -> Any:
+        source = resolve_source(cfg, role, live=slot_node, prefer_predownloaded=False)
+        return source if source is not None else _default_source(model, 0, label)
+
+    def outputs(model: Any, signature: CoordinateSystem) -> list[str]:
+        oc = cast(CoordinateSystem, model.output_coords(signature))
+        return [str(v) for v in oc["variable"].values]
+
+    return CompositeSource(
+        {
+            "goes": live("goes", goes, node.goes.get("ic_source"), "GOES"),
+            "mrms": live("mrms", mrms, node.mrms.get("ic_source"), "MRMS"),
+        },
+        {
+            "goes": outputs(goes, runner.goes_signature),
+            "mrms": outputs(mrms, runner.mrms_signature),
+        },
+    )
