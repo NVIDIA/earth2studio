@@ -173,18 +173,15 @@ in the configs to these executables.
 
 #### Potential Issues with torch-harmonics
 
-If the `--frozen` flag cannot be used (e.g. when updating
-dependencies to their latest versions), torch-harmonics may
-fail during the dependency resolution phase. During this
-phase, uv must build torch-harmonics to resolve dependencies
-before installation, but the build can fail if other
-dependencies are not yet installed. Additionally, a Git LFS
-error occasionally appears. To address these issues, split
-the installation into a two-step process and skip Git LFS:
+uv builds torch-harmonics while resolving the dependencies,
+which can fail if other dependencies are not yet installed.
+Additionally, a Git LFS error occasionally appears. To
+address these issues, split the installation into a two-step
+process and skip Git LFS:
 
 ```bash
-GIT_LFS_SKIP_SMUDGE=1 uv sync --no-install-package torch-harmonics
-GIT_LFS_SKIP_SMUDGE=1 uv sync
+GIT_LFS_SKIP_SMUDGE=1 uv sync --extra all --no-install-package torch-harmonics
+GIT_LFS_SKIP_SMUDGE=1 uv sync --extra all
 ```
 
 ## 2. Configure and Execute Runs
@@ -217,17 +214,7 @@ settings using Slurm, MPI, or torchrun, e.g.
 torchrun --nproc-per-node=2 main.py --config-name=config.yaml
 ```
 
-The pipeline has three operational modes:
-
-- **`generate_ensemble`**: Generate an ensemble prediction
-  and extract tropical cyclones.
-- **`reproduce_members`**: Reproduce
-  individual ensemble members to store atmospheric fields
-  of interesting tracks.
-- **`extract_baseline`**: Extract tropical
-  cyclone tracks from historical reanalysis data (e.g. ERA5)
-  for validation purposes.
-  The CPU-bound `extract_baseline` mode does not use
+The CPU-bound `extract_baseline` mode does not use
   `torchrun` and does not require a GPU. Instead, individual
   storms are distributed across CPU worker processes via the
   ``num_workers`` configuration entry (see
@@ -251,11 +238,10 @@ be found at `cfg/helene.yaml`.
 > internally. Deterministic models can be added as well,
 > but require an additional perturbation method to produce
 > meaningful ensemble members. When adding a deterministic
-> model, register it in `generate_tc_hunt_ensembles.py`
-> alongside the existing model branches **and** add a
-> corresponding perturbation step in the
-> `# set random state or apply perturbation` section of the
-> same file.
+> model, register it in `load_model` in
+> `src/modes/generate_tc_hunt_ensembles.py` **and** perturb
+> the initial condition `x` in `run_inference` before the
+> rollout.
 
 **Basics:**
 
@@ -288,11 +274,12 @@ batch_size: 2        # batch size for inference
 ```
 
 **GPU Memory Requirements**: For a batch size of 1,
-AIFS-ENS requires approximately 50GB of GPU memory and
-scales nearly linearly with increasing batch size. FCN3
-requires over 60GB for batch size 1, but memory usage
-increases only marginally with larger batch sizes, making
-it more memory-efficient for batched inference.
+AIFS-ENS v1 peaks at about 38GB of GPU memory, which fits
+on a 48GB GPU, and scales nearly linearly with increasing
+batch size. FCN3 requires over 60GB for batch size 1, but
+memory usage increases only marginally with larger batch
+sizes, making it more memory-efficient for batched
+inference.
 
 **IO Configuration:**
 
@@ -669,12 +656,13 @@ large data volumes involved.
 
 **General Integration Approach:**
 
-TempestExtremes is implemented as a diagnostic model class
-but without returning any data, since results are written
-directly to disk. The diagnostic model class spawns a
-subprocess to execute TempestExtremes command-line tools.
-Track files are produced directly by TempestExtremes and
-written to the specified output directory.
+The `TempestExtremes` class in `src/tempest_extremes.py`
+collects the forecast steps of a batch in memory. Once the
+batch is complete, it writes one input file per ensemble
+member and runs the TempestExtremes command-line tools
+DetectNodes and StitchNodes on it in a subprocess. The track
+files are written by TempestExtremes directly to the output
+directory.
 
 Since TempestExtremes requires file-based input, we must
 provide atmospheric data through files. To avoid the
@@ -682,7 +670,11 @@ overhead of writing and reading large volumes of data
 to/from disk, we write temporary files to `/dev/shm`
 (shared memory filesystem), effectively creating in-memory
 files that TempestExtremes can access while avoiding
-physical disk I/O.
+physical disk I/O. Each tracker uses its own subdirectory,
+so several runs can share a node. In Docker, `/dev/shm`
+is limited to 64MB unless the container is started with
+`--ipc=host` or a larger `--shm-size`, as
+`launch_tc_tracking.sh` does.
 
 <!-- markdownlint-disable MD033 -->
 
@@ -700,8 +692,10 @@ enabling tracking with virtually no overhead.
 **Implementation Details**:
 
 - In asynchronous mode, each ensemble member in a batch is
-  assigned its own processing thread, allowing parallel
-  tracking across the batch.
+  tracked in its own background thread, allowing parallel
+  tracking across the batch. A failure of TempestExtremes
+  stops the run at the next batch or at the end of the
+  run, with the output of TempestExtremes.
 - If TempestExtremes execution becomes slower than GPU
   prediction (which might occur with AIFS-ENS on newer GPUs
   like B200), consider increasing the batch size. GPU
@@ -710,8 +704,8 @@ enabling tracking with virtually no overhead.
   one member remains constant.
 - **Concurrency control**: On multi-GPU nodes, multiple
   ranks share the same CPUs. Use `max_workers_per_rank` to
-  limit the number of concurrent TempestExtremes
-  subprocesses per rank. A good default is
+  limit the number of members tracked in parallel per
+  rank. A good default is
   `cpu_count / gpus_per_node` (e.g. 8 on a 64-core node
   with 8 GPUs). If omitted, the value is derived
   automatically from `cpu_count / gpu_count`.
@@ -779,7 +773,7 @@ case = 'helene_2024_north_atlantic'
 pred_track_dir = '/path/to/outputs_helene/cyclone_tracks_te'
 tru_track_dir = '/path/to/outputs_reference_tracks'
 # If you skipped baseline extraction, use:
-# tru_track_dir = '/path/to/test/aux_data'
+# tru_track_dir = '/path/to/tc_tracking/aux_data'
 ```
 
 **For Hato**, use:
@@ -789,7 +783,7 @@ case = 'hato_2017_west_pacific'
 pred_track_dir = '/path/to/outputs_hato/cyclone_tracks_te'
 tru_track_dir = '/path/to/outputs_reference_tracks'
 # If you skipped baseline extraction, use:
-# tru_track_dir = '/path/to/test/aux_data'
+# tru_track_dir = '/path/to/tc_tracking/aux_data'
 ```
 
 ### 5.4 Reproduce Interesting Members to Extract Fields
@@ -798,7 +792,8 @@ Suppose that after conducting the above analysis you want
 to take a closer look at ensemble members 0, 8, 9, and 12
 of the Helene prediction. Since the forecast was produced
 with FCN3, we can reproduce these members and store the
-atmospheric fields for detailed analysis.
+atmospheric fields for detailed analysis. For AIFS-ENS,
+both runs need `deterministic: True`.
 
 **Reproduce with Field Storage**:
 
@@ -830,7 +825,7 @@ create animated visualisations:
    ```python
    field_data = (
        '/path/to/outputs_reproduce_helene'
-       '/helene_2024-09-24T00.00.00_mems0000-0015.nc'
+       '/reproduce_helene_2024-09-24T00.00.00_mems0000-0013.nc'
    )
    track_dir = (
        '/path/to/outputs_reproduce_helene'
