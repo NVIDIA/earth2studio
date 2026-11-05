@@ -39,15 +39,17 @@ from earth2studio.utils.coords import (
     coord_array,
     handshake_dataarray,
 )
-from earth2studio.utils.time_statistics import time_statistic_metadata
+from earth2studio.utils.time_statistics import (
+    apply_time_statistic,
+    source_times,
+    time_statistic_metadata,
+)
 
 TIME = np.array([np.datetime64("2024-01-02T00", "s")])
 GRID = LatLonGrid(np.array([2.0, 1.0, 0.0]), np.array([0.0, 1.0, 2.0]))
 
 
 class AnalysisSource:
-    time_step = np.timedelta64(1, "h")
-
     def __init__(self, grid=GRID, attrs=None):
         self.grid = grid
         self.attrs = attrs or {}
@@ -79,6 +81,48 @@ class ForecastSource(AnalysisSource):
         return xr.concat(arrays, "lead_time")
 
 
+class NativeAnalysisSource(AnalysisSource):
+    lexicon = type("Lexicon", (), {"TIME_STATISTICS": ("mean", "sum", "min", "max")})
+
+    def __call__(self, time, variable):
+        self.requests.append((np.array(time), np.array(variable)))
+        fields, metadata = [], {}
+        for label in variable:
+            base, _, modifier = label.partition(":")
+            if not modifier:
+                fields.append(AnalysisSource(self.grid)(time, np.array([label])))
+                continue
+            targets = []
+            for target in time:
+                samples = source_times(modifier, target, np.timedelta64(1, "h"))
+                raw = AnalysisSource(self.grid)(samples, np.array([base]))
+                reduced = apply_time_statistic(
+                    raw, modifier, target, np.timedelta64(1, "h")
+                )
+                targets.append(reduced.expand_dims(time=[target]))
+            fields.append(xr.concat(targets, "time").assign_coords(variable=[label]))
+            metadata[label] = time_statistic_metadata(modifier)
+        array = xr.concat(fields, "variable")
+        array.attrs.update(self.attrs)
+        array.attrs[E2S_STATISTICS] = metadata
+        return array
+
+
+class NativeForecastSource(NativeAnalysisSource):
+    def __call__(self, time, lead_time, variable):
+        self.requests.append((np.array(time), np.array(lead_time), np.array(variable)))
+        return xr.concat(
+            [
+                super(NativeForecastSource, self)
+                .__call__(time + lead, variable)
+                .assign_coords(time=time)
+                .expand_dims(lead_time=[lead], axis=1)
+                for lead in lead_time
+            ],
+            "lead_time",
+        )
+
+
 def request(variables=("a",), grid=GRID, **kwargs):
     dims = resolve_grid(grid).dims if isinstance(grid, str) else grid.dims
     return coord_array(
@@ -98,6 +142,21 @@ def test_default_field_array():
     assert array.attrs["source"] == "offline"
     assert array.attrs == {"source": "offline"}
     np.testing.assert_allclose(array[0, 0, 0], [[2, 4, 6], [1, 3, 5], [0, 2, 4]])
+
+
+@pytest.mark.parametrize("source_cls", [AnalysisSource, ForecastSource])
+def test_unsupported_statistics_rejected_before_fetch(source_cls):
+    source = source_cls()
+    with pytest.raises(ValueError, match="does not support temporal statistic 'mean'"):
+        fetch_data(source, TIME, np.array(["a", "a:mean:3h"]))
+    assert not source.requests
+
+
+def test_sampling_override_removed():
+    source = AnalysisSource()
+    with pytest.raises(TypeError, match="unexpected keyword argument 'delta_t'"):
+        fetch_data(source, TIME, np.array(["a"]), delta_t=np.timedelta64(1, "h"))
+    assert not source.requests
 
 
 def test_source_variable_order_is_respected():
@@ -150,7 +209,7 @@ def test_projected_source_bilinear_regridding():
     np.testing.assert_allclose(array[0, 0, 0], [[1.5, 3.5], [2.5, 4.5]])
 
 
-@pytest.mark.parametrize("source_cls", [AnalysisSource, ForecastSource])
+@pytest.mark.parametrize("source_cls", [NativeAnalysisSource, NativeForecastSource])
 def test_signature_statistics_are_computed(source_cls):
     signature = request(("a:sum:3h", "b"))
     array = fetch_data(
@@ -168,7 +227,7 @@ def test_signature_statistics_are_computed(source_cls):
     assert not {E2S_KIND, E2S_SCHEMA_VERSION, E2S_DYNAMIC_DIMS} & array.attrs.keys()
 
 
-@pytest.mark.parametrize("source_cls", [AnalysisSource, ForecastSource])
+@pytest.mark.parametrize("source_cls", [NativeAnalysisSource, NativeForecastSource])
 def test_qualified_statistics_preserve_order_and_metadata(source_cls):
     labels = np.array(["a:mean:3h", "a", "a:max:0h:+2h"])
     array = fetch_data(source_cls(), TIME, labels)
@@ -185,8 +244,8 @@ def test_qualified_statistics_preserve_order_and_metadata(source_cls):
     }
 
 
-@pytest.mark.parametrize("source_cls", [AnalysisSource, ForecastSource])
-def test_grouped_time_windows(source_cls):
+@pytest.mark.parametrize("source_cls", [NativeAnalysisSource, NativeForecastSource])
+def test_native_time_windows(source_cls):
     times = TIME + np.array([0, 72], dtype="timedelta64[h]")
     leads = np.array([-24, 0], dtype="timedelta64[h]")
     labels = np.array(["a:mean:0h:24h", "b:mean:1h:25h", "c:mean:0h:24h"])
@@ -214,47 +273,20 @@ def test_grouped_time_windows(source_cls):
         label: time_statistic_metadata(label.partition(":")[2]) for label in labels
     }
 
-    # ForecastSource also records its internal per-lead analysis calls.
+    # fetch_data forwards target coordinates and qualified labels unchanged.
     calls = [
         call
         for call in source.requests
-        if len(call) == (3 if source_cls is ForecastSource else 2)
+        if len(call) == (3 if source_cls is NativeForecastSource else 2)
     ]
-    assert len(calls) == 2
-    for call, start in zip(calls, [0, 1], strict=True):
-        expected_variables = ["a", "c"] if start == 0 else ["b"]
-        np.testing.assert_array_equal(call[-1], expected_variables)
-        hours = np.arange(-24 + start, 24 + start).astype("timedelta64[h]")
-        if source_cls is ForecastSource:
+    assert len(calls) == (1 if source_cls is NativeForecastSource else 2)
+    for i, call in enumerate(calls):
+        np.testing.assert_array_equal(call[-1], labels)
+        if source_cls is NativeForecastSource:
             np.testing.assert_array_equal(call[0], times)
-            np.testing.assert_array_equal(call[1], hours)
+            np.testing.assert_array_equal(call[1], leads)
         else:
-            expected_times = np.unique(times[:, None] + hours[None, :])
-            np.testing.assert_array_equal(call[0], expected_times)
-
-
-@pytest.mark.parametrize("source_cls", [AnalysisSource, ForecastSource])
-@pytest.mark.parametrize("duplicate", [False, True])
-def test_daily_window_rejects_incomplete_or_duplicate_samples(source_cls, duplicate):
-    def corrupt(array, dimension):
-        indexes = np.arange(array.sizes[dimension] - 1)
-        if duplicate:
-            indexes = np.append(np.arange(array.sizes[dimension]), 0)
-        return array.isel({dimension: indexes})
-
-    class IncompleteAnalysis(AnalysisSource):
-        def __call__(self, time, variable):
-            return corrupt(super().__call__(time, variable), "time")
-
-    class IncompleteForecast(ForecastSource):
-        def __call__(self, time, lead_time, variable):
-            return corrupt(super().__call__(time, lead_time, variable), "lead_time")
-
-    source = (
-        IncompleteForecast() if source_cls is ForecastSource else IncompleteAnalysis()
-    )
-    with pytest.raises(ValueError, match="[Mm]issing|[Dd]uplicate"):
-        fetch_data(source, TIME, np.array(["tp:mean:1h:25h"]))
+            np.testing.assert_array_equal(call[0], times + leads[i])
 
 
 def test_duplicate_normalized_quantities_fail_before_fetch():
@@ -267,15 +299,14 @@ def test_duplicate_normalized_quantities_fail_before_fetch():
 @pytest.mark.parametrize(
     "regridder, expected",
     [
-        (BilinearRegridder, [[1.0, 3.0], [0.0, 2.0]]),
-        # Midpoints round to the upper neighbor along each axis.
-        (NearestRegridder, [[2.5, 4.5], [1.5, 3.5]]),
+        (BilinearRegridder, [[0.9, 3.3], [-0.3, 2.1]]),
+        (NearestRegridder, [[0.5, 4.5], [-1.5, 2.5]]),
     ],
 )
 def test_regridding_follows_temporal_reduction(regridder, expected):
-    target = LatLonGrid(np.array([1.5, 0.5]), np.array([0.5, 1.5]))
+    target = LatLonGrid(np.array([1.6, 0.4]), np.array([0.4, 1.6]))
     array = fetch_data(
-        AnalysisSource(),
+        NativeAnalysisSource(),
         TIME,
         np.array(["a:mean:2h"]),
         regridder=regridder(GRID, target),
@@ -414,12 +445,13 @@ def test_source_metadata_mismatch_is_not_relabelled():
     assert array.attrs[E2S_CRS] == "EPSG:3857"
 
 
-def test_already_aggregated_source_not_reduced_twice():
+def test_aggregated_source_without_native_support_rejected():
     source = AnalysisSource(
         attrs={E2S_STATISTICS: {"a": time_statistic_metadata("sum:6h")}}
     )
     with pytest.raises(ValueError, match="statistic"):
         fetch_data(source, TIME, np.array(["a:sum:3h"]))
+    assert not source.requests
 
 
 @pytest.mark.parametrize(
@@ -434,7 +466,7 @@ def test_invalid_lead_time(lead):
 def test_cuda_field_array():
     cp = pytest.importorskip("cupy")
     array = fetch_data(
-        AnalysisSource(),
+        NativeAnalysisSource(),
         TIME,
         np.array(["a:mean:2h"]),
         device="cuda:0",

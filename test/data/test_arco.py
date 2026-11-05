@@ -14,9 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import datetime
 import pathlib
 import shutil
+import weakref
 
 import numpy as np
 import pytest
@@ -127,3 +129,85 @@ def test_arco_deprecation_warning():
     assert isinstance(data_source, ARCO_ERA5)
     assert isinstance(data_source, ARCO)
     assert ARCO.available(datetime.datetime(1939, 2, 25)) is False
+
+
+@pytest.mark.timeout(30)
+def test_arco_time_statistics_mock(mock_statistic_zarr, monkeypatch):
+    ds = ARCO_ERA5(cache=True, verbose=True)
+    reads = mock_statistic_zarr(ds)
+    time = datetime.datetime(2024, 1, 2)
+    index = ds._get_time_index(time)
+    variables = ["t2m", "t2m:mean:6h", "t2m:sum:6h", "t2m:max:6h", "t2m:min:+1h:+4h"]
+    data = ds(time, variables)
+
+    assert data.shape == (1, 5, 2, 2)
+    values = [float(data.sel(variable=v).values[0, 0, 0]) for v in variables]
+    # Window [-6h, 0h) covers hourly fields index-6 .. index-1
+    assert values == [
+        index,
+        index - 3.5,
+        6 * index - 21,
+        index - 1,
+        index + 1,
+    ]
+    assert set(data.attrs["earth2studio_statistics"]) == set(variables[1:])
+    # Plain and statistic paths read hourly fields -6h..+3h and the instant
+    assert set(reads) == set(range(index - 6, index + 4))
+
+    reads.clear()
+    data = ds(time, ["t2m", "t2m:mean:+0h:+2h"])
+    np.testing.assert_allclose(data.values[0, :, 0, 0], [index, index + 0.5])
+    assert set(reads) == {index, index + 1}
+
+    # Two pressure levels of one hour (and a window over a third) are one chunk
+    reads.clear()
+    data = ds(time, ["t500", "t850", "t500:max:+0h:+2h"])
+    # Level index 0 (500 hPa) is +0 and index 1 (850 hPa) is +1 in the fake chunk
+    assert data.values[0, 0, 0, 0] == index
+    assert data.values[0, 1, 0, 0] == index + 1
+    assert data.values[0, 2, 0, 0] == index + 1
+    assert set(reads) == {index, index + 1}
+
+    # A trailing-sum variable (read directly) next to its base field still works
+    reads.clear()
+    data = ds(time, ["tp", "tp06"])
+    assert data.values[0, 0, 0, 0] == index
+    assert data.values[0, 1, 0, 0] == 6 * index - 15
+
+    # Statistics over derived accumulations reduce the hourly sums.
+    reads.clear()
+    data = ds(time, ["tp06:mean:2h", "tp06:sum:2h"])
+    np.testing.assert_allclose(
+        data.values[0, :, 0, 0], [6 * index - 24, 12 * index - 48]
+    )
+    assert set(reads) == set(range(index - 7, index))
+
+    # Long windows must release each fetched chunk immediately, not cache all
+    # hours of the window.
+    refs = []
+    get_array = ds.zarr_group.get
+
+    async def tracked_array(name):
+        array = await get_array(name)
+        getitem = array.getitem
+
+        async def tracked_chunk(index):
+            chunk = await getitem(index)
+            refs.append(weakref.ref(chunk))
+            assert sum(ref() is not None for ref in refs) <= 4
+            await asyncio.sleep(0)
+            return chunk
+
+        monkeypatch.setattr(array, "getitem", tracked_chunk)
+        return array
+
+    monkeypatch.setattr(ds.zarr_group, "get", tracked_array)
+    reads.clear()
+    data = ds(time, ["t500:mean:240h", "t850:mean:240h"])
+    np.testing.assert_allclose(data.values[0, :, 0, 0], [index - 120.5, index - 119.5])
+    assert set(reads) == set(range(index - 240, index))
+    assert all(ref() is None for ref in refs)
+
+    # Regular hourly sampling rejects windows not divisible by its cadence.
+    with pytest.raises(ValueError):
+        ds(time, ["t2m:mean:90m"])
