@@ -325,7 +325,7 @@ class MeteosatFCI:
     - ``EUMETSAT_CONSUMER_KEY``: Your EUMETSAT API consumer key
     - ``EUMETSAT_CONSUMER_SECRET``: Your EUMETSAT API consumer secret
 
-    Register at https://eoportal.eumetsat.int/ to obtain credentials.
+    Register at https://user.eumetsat.int/ to obtain credentials.
 
     Note
     ----
