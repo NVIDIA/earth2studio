@@ -98,40 +98,30 @@ def extract_from_historic_data(
     times = np.arange(n_steps) * time_step
     data_source = data_source_mngr.select_data_source(ic + times)
 
-    xx, coords = fetch_data(
+    # all time steps of the storm as a single-member "forecast" from ic
+    x = fetch_data(
         data_source,
         time=[ic],
         lead_time=times,
         variable=variables,
         device="cpu",
-    )
-    xx = xx.unsqueeze(0)
-    coords["ensemble"] = np.array([0])
-    coords.move_to_end("ensemble", last=False)
-
-    heights, height_coords = (
-        load_heights(cfg.cyclone_tracking.orography_path)
-        if "orography_path" in cfg.cyclone_tracking
-        else (None, None)
-    )
+    ).expand_dims(ensemble=[0])
 
     cyclone_tracking = TempestExtremes(
         detect_cmd=cfg.cyclone_tracking.detect_cmd,
         stitch_cmd=cfg.cyclone_tracking.stitch_cmd,
         input_vars=variables,
-        batch_size=1,
-        n_steps=n_steps - 1,
-        time_step=time_step,
-        lats=coords["lat"],
-        lons=coords["lon"],
-        static_vars=heights,
-        static_coords=height_coords,
         store_dir=cfg.store_dir,
+        heights=(
+            load_heights(cfg.cyclone_tracking.orography_path)
+            if "orography_path" in cfg.cyclone_tracking
+            else None
+        ),
         keep_raw_data=cfg.cyclone_tracking.get("keep_raw_data", False),
         print_te_output=cfg.cyclone_tracking.get("print_te_output", False),
         scratch_dir=cfg.cyclone_tracking.get("scratch_dir", None),
     )
-    cyclone_tracking.record_state(xx, coords)
+    cyclone_tracking.record_state(x)
     cyclone_tracking()
 
     hist_tracks = pd.read_csv(cyclone_tracking.track_files[0])

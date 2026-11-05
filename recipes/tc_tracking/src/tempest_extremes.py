@@ -15,12 +15,10 @@
 # limitations under the License.
 
 import atexit
-import copy
 import os
 import shutil
 import threading
 import time
-from collections import OrderedDict
 from concurrent.futures import Future, ThreadPoolExecutor
 from subprocess import run
 from typing import Any
@@ -33,16 +31,6 @@ from physicsnemo.distributed import DistributedManager
 from rich.console import Console
 from rich.table import Table
 from rich.traceback import Traceback
-
-from earth2studio.io import KVBackend
-from earth2studio.utils.coords import (
-    CoordSystem,
-    cat_coords,
-    coord_array,
-    map_coords,
-    tile_coords,
-)
-from earth2studio.utils.cupy import from_torch
 
 
 class TempestExtremes:
@@ -69,8 +57,7 @@ class TempestExtremes:
     The result will be a TE-generated track file, stored in a user-defined location
 
     NOTE:
-        - currently works on batch size 1 only (currently worked on)
-        - length of time direction in input coords must be 1 (add test)
+        - all members of a batch have to start from the same initial condition
 
     Tip: To iterate on the TE command without having to always run a model, set
     keep_raw_data to True and work with TE directly on the netcdf file that the
@@ -88,22 +75,11 @@ class TempestExtremes:
         Example: "/path/to/StitchNodes --in_fmt lon,lat,msl,wind_speed,height --range 8.0 --mintime 54h --maxgap 4 --out_file_format csv --threshold wind_speed,>=,10.,10;lat,<=,50.,10;lat,>=,-50.,10;height,<=,150.,10"
     input_vars : list[str]
         List of variables which are required for the tracking algorithm
-    batch_size : int
-        Number of ensemble members per batch
-    n_steps : int
-        Number of time steps
-    time_step : np.ndarray | list[np.timedelta64] | np.timedelta64
-        Time step interval
-    lats : np.ndarray | torch.Tensor
-        Latitude coordinates
-    lons : np.ndarray | torch.Tensor
-        Longitude coordinates
     store_dir : str
         Path for storing output files.
-    static_vars : torch.Tensor, optional
-        A tensor holding static data like orography, by default None
-    static_coords : dict, optional
-        Coordinates of the static data, by default None
+    heights : xr.DataArray, optional
+        Surface height on the (lat, lon) grid of the tracked fields, added to
+        each time step as variable ``height``, by default None
     keep_raw_data : bool, optional
         Whether to keep raw data files, by default False
     print_te_output : bool, optional
@@ -121,14 +97,8 @@ class TempestExtremes:
         detect_cmd: str,
         stitch_cmd: str,
         input_vars: list[str],
-        batch_size: int,
-        n_steps: int,
-        time_step: np.ndarray | list[np.timedelta64] | np.timedelta64,
-        lats: np.ndarray | torch.Tensor,
-        lons: np.ndarray | torch.Tensor,
         store_dir: str,
-        static_vars: torch.Tensor | None = None,
-        static_coords: dict | None = None,
+        heights: xr.DataArray | None = None,
         keep_raw_data: bool = False,
         print_te_output: bool = False,
         scratch_dir: str | None = None,
@@ -138,38 +108,15 @@ class TempestExtremes:
         self.rank = DistributedManager().rank
         self.print_te_output = print_te_output
         self.keep_raw = keep_raw_data
-        self.static_vars = static_vars
-        self.static_coords = static_coords
-        self.time_step = time_step
-        self.input_vars = input_vars
-        self.batch_size = batch_size
-        self.n_steps = n_steps
-        self.lats = lats
-        self.lons = lons
+        self.heights = heights
+        self.input_vars = list(input_vars)
 
-        if isinstance(self.time_step, (np.ndarray, list)):
-            if not len(self.time_step) == 1:
-                raise ValueError(
-                    "TempestExtremes connector currently only accepts multiple ensemble members from a single ICs."
-                )
-            self.time_step = self.time_step[0]
-        if (static_vars is None) != (static_coords is None):
-            raise ValueError(
-                "provide both values and coords for static fields or don't."
-                + " currently, only one of them is provided"
-            )
-
-        self._lead_times = np.asarray(
-            [self.time_step * i for i in range(self.n_steps + 1)]
-        ).flatten()
+        # forecast steps of the current batch, filled by record_state
+        self._buffer: list[xr.DataArray] = []
 
         self.format_tempestextremes_commands(detect_cmd, stitch_cmd)
 
         self.check_tempest_extremes_availability()
-
-        self.initialise_store_coords()
-
-        self.initialise_te_kvstore()
 
         self.setup_output_directories(scratch_dir, store_dir)
 
@@ -315,114 +262,51 @@ class TempestExtremes:
         if DistributedManager().local_rank == 0:
             os.makedirs(self.scratch_dir, exist_ok=True)
 
-    def initialise_store_coords(self) -> None:
-        """Initialize coordinate system for data storage.
-
-        Creates the internal coordinate system for storing to the internal
-        KV io backend, with optionally adding static variables at each time step.
-        """
-        _input_vars = self.input_vars
-        if self.static_coords:
-            _input_vars = np.array(
-                list(self.input_vars) + list(self.static_coords["variable"])
-            )
-
-        self._store_coords = OrderedDict(
-            {
-                "lead_time": self._lead_times,
-                "variable": np.array(_input_vars),
-                "lat": np.array(self.lats),
-                "lon": np.array(self.lons),
-            }
-        )
-
-    @property
-    def input_coords(self) -> OrderedDict:
-        """Returns the coords of the data to be passed to record_state.
-
-        Returns
-        -------
-        OrderedDict
-            Coordinate system for input data
-        """
-        return OrderedDict(
-            {
-                "time": np.empty(0),
-                "lead_time": self._lead_times,
-                "variable": np.array(self.input_vars),
-                "lat": np.array(self.lats),
-                "lon": np.array(self.lons),
-            }
-        )
-
-    def initialise_te_kvstore(self) -> None:
-        """Initialize the KV store that stores model output in TE compatible format."""
-        # create store
-        self.store = KVBackend()
-
-        # add arrays to the store, one per output variable
-        oco = copy.deepcopy(self._store_coords)
-
-        # placeholder labels, replaced with this batch's values in record_state
-        oco["time"] = np.array([np.datetime64("NaT", "ns")])
-        oco["ensemble"] = np.arange(self.batch_size)
-        oco.move_to_end("time", last=False)
-        oco.move_to_end("ensemble", last=False)
-
-        self.store.add_array(coord_array(tuple(oco), oco))
-
     def dump_raw_data(self) -> tuple[list[str], np.ndarray]:
-        """Dump raw data from store to NetCDF files.
+        """Dump the buffered forecast to one NetCDF file per ensemble member.
 
-        Morphs the store to TempestExtremes-compatible [time, lat, lon] structure
-        and writes to (optionally in-RAM) NetCDF files, which can be ingested by TE.
+        TempestExtremes expects fields with dimensions (time, lat, lon), so the
+        lead times of the buffer are converted to absolute times. Files are
+        written to the scratch directory (by default in RAM).
 
         Returns
         -------
         tuple[list[str], np.ndarray]
             Tuple of (list of paths to the created NetCDF files, member indices)
         """
-        if len(self.store.coords["time"]) > 1:
+        fields = xr.concat(self._buffer, dim="lead_time")
+        self._buffer = []
+
+        if fields.sizes["time"] != 1:
             raise ValueError(
                 "Currently, TempestExtremes interface only works for single IC per evaluation cycle."
             )
+        ic = fields.coords["time"].values[0]
 
-        ic = self.store.coords["time"].values[0]
-        mems = self.store.coords["ensemble"].values
+        # (ensemble, time, lat, lon) per variable, without model metadata
+        fields = fields.isel(time=0, drop=True).reset_coords(drop=True)
+        fields = fields.assign_coords(lead_time=ic + fields.coords["lead_time"].values)
+        fields = fields.rename(lead_time="time")
+        fields.attrs = {}
+        data = fields.to_dataset(dim="variable")
 
-        # morph store to TempestExtremes-compatible [time, lat, lon] structure
-        lead_times = self.store.coords.pop("lead_time").values
-        self.store.coords["time"] = xr.Variable(
-            ("time",), np.array([ic + lt for lt in lead_times])
-        )
-
-        for var in self.store.root.keys():
-            self.store.root[var] = self.store.root[var].squeeze(1)
-            self.store.dims[var] = ("ensemble", "time", "lat", "lon")
-
-        # for each member, write te compatible nc file
-        raw_files = []
-
-        # in case last batch has less ensemble members than batch size, expand coords of store so to_xarray() does not fail
-        if len(mems) < self.batch_size:
-            self.store.coords["ensemble"] = xr.Variable(
-                ("ensemble",),
-                np.array(
-                    list(mems) + [None] * (self.batch_size - len(mems)), dtype=object
+        if self.heights is not None:
+            data["height"] = (
+                ("time", "lat", "lon"),
+                np.broadcast_to(
+                    self.heights.values, (data.sizes["time"], *self.heights.shape)
                 ),
             )
 
+        mems = fields.coords["ensemble"].values
+        raw_files = []
         for mem in mems:
             raw_dat = f"{np.datetime_as_string(ic, unit='s')}_mem_{mem:04d}.nc"
             raw_dat = os.path.join(self.scratch_dir, raw_dat)
             raw_files.append(raw_dat)
-            kw_args = {"path": raw_dat, "format": "NETCDF4", "mode": "w"}
-
-            _store = self.store.to_xarray().sel(ensemble=mem).drop_vars("ensemble")
-            _store.to_netcdf(**kw_args)
-
-        # new clean store
-        self.initialise_te_kvstore()
+            data.sel(ensemble=mem, drop=True).to_netcdf(
+                raw_dat, format="NETCDF4", mode="w"
+            )
 
         return raw_files, mems
 
@@ -485,39 +369,20 @@ class TempestExtremes:
 
         return ins, outs, node_files, track_files
 
-    def record_state(self, xx: torch.Tensor, coords: CoordSystem) -> None:
-        """Record state data to the internal store.
+    def reset(self) -> None:
+        """Discard the buffered forecast steps, e.g. of an unstable batch."""
+        self._buffer = []
 
-        Updates store with current time and ensemble information,
-        concatenates static data if available, and writes to store.
+    def record_state(self, x: xr.DataArray) -> None:
+        """Buffer the tracking variables of one forecast step on the host.
 
         Parameters
         ----------
-        xx : torch.Tensor
-            Input tensor data
-        coords : CoordSystem
-            Coordinate system for the input data
+        x : xr.DataArray
+            Forecast with dimensions (ensemble, time, lead_time, variable,
+            lat, lon) on the grid of ``heights``
         """
-        # update store mem and time
-        for dim in ["time", "ensemble"]:
-            if not np.array_equal(self.store.coords[dim].values, coords[dim]):
-                self.store.coords[dim] = xr.Variable((dim,), np.asarray(coords[dim]))
-
-        # concatenate static data
-        if self.static_vars is not None and self.static_coords is not None:
-            self.static_vars = self.static_vars.to(xx.device)
-            static_coords = CoordSystem(self.static_coords)
-            if len(xx.shape) > len(self.static_vars.shape):
-                _static_vars, _static_coords = tile_coords(
-                    self.static_vars, static_coords, coords
-                )
-            else:
-                _static_vars, _static_coords = self.static_vars, static_coords
-            xx, coords = cat_coords((xx, _static_vars), (coords, _static_coords))
-
-        # select output data and write to store
-        xx_sub, coords_sub = map_coords(xx, coords, self._store_coords)
-        self.store.write(from_torch(xx_sub, coords_sub))
+        self._buffer.append(x.sel(variable=self.input_vars).e2s.as_numpy())
 
     @staticmethod
     def run_te(command: list[str], print_output: bool) -> None:
@@ -884,15 +749,13 @@ class AsyncTempestExtremes(TempestExtremes):
         self._has_failed = False  # Track if any previous task failed
         self._cleanup_done = False  # Track if cleanup has been performed
 
-    def record_state(self, xx: torch.Tensor, coords: CoordSystem) -> None:
+    def record_state(self, x: xr.DataArray) -> None:
         """Record state data, checking for any previous task failures.
 
         Parameters
         ----------
-        xx : torch.Tensor
-            Input tensor data
-        coords : CoordSystem
-            Coordinate system for the input data
+        x : xr.DataArray
+            Forecast step, see :meth:`TempestExtremes.record_state`
 
         Raises
         ------
@@ -903,7 +766,7 @@ class AsyncTempestExtremes(TempestExtremes):
         self._check_for_failures()
 
         # Call parent's record_state method
-        super().record_state(xx, coords)
+        super().record_state(x)
 
     def _check_for_failures(self) -> None:
         """Check if any previous tasks failed with ChildProcessError and raise immediately.

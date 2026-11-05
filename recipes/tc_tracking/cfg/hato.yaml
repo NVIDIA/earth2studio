@@ -1,6 +1,7 @@
 project: 'hato'
 mode: 'generate_ensemble'
-model: 'aifs' # 'fcn3' 'aifs'
+model: 'aifs' # 'fcn3', 'aifs' or 'aifs-v2'
+deterministic: False  # True: bitwise reproducible, needed for AIFS-ENS
 
 ics: ["2017-08-21 12:00:00"]
 n_steps: 20

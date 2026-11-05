@@ -22,6 +22,9 @@ import os
 os.environ.setdefault("MKL_NUM_THREADS", "1")
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("MKL_DYNAMIC", "FALSE")
+# Let PyTorch grow its memory segments instead of fragmenting the GPU memory,
+# must be set before CUDA is initialised
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 import hydra  # noqa: E402
 from loguru import logger  # noqa: E402
