@@ -484,10 +484,28 @@ def test_interpcrpsdit_with_region():
         model.with_region(Region.band(south=10, north=70))
 
 
+def test_interpcrpsdit_view_reaches_full_grid():
+    model = _model()
+    model._min_domain_cells = 4
+    model.region_halo = 1
+    view = model.with_region(Region.box(west=50, south=10, east=200, north=70))
+    # A box outside the first view, reached from the view as from the model
+    region = Region.box(west=10, south=-60, east=40, north=-20)
+    a, b = view.with_region(region), model.with_region(region)
+    for name in ("static_inv", "lat2d", "lon2d"):
+        torch.testing.assert_close(getattr(a, name), getattr(b, name))
+    np.testing.assert_array_equal(a._out_lat1d, b._out_lat1d)
+    np.testing.assert_array_equal(a._out_lon1d, b._out_lon1d)
+    assert a._halo == b._halo
+    out_a, out_b = a(_input(a)), b(_input(b))
+    np.testing.assert_array_equal(out_a.lat.values, out_b.lat.values)
+    np.testing.assert_array_equal(out_a.lon.values, out_b.lon.values)
+
+
 @pytest.mark.parametrize(
     "kwargs, match",
     [
-        ({"lat_min": -100}, "outside the current grid"),
+        ({"lat_min": -100}, "outside the model grid"),
         ({"min_cells": 1000}, "per-side minimum"),
         ({"halo": -1}, "halo must be non-negative"),
         ({"min_cells": 0}, "min_cells must be >= 1"),

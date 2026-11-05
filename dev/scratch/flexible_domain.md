@@ -97,7 +97,9 @@ model protocol.
   sub-models and restores them afterwards. `torch.compile` wraps only the routed
   denoiser, so binding stays outside the graph. Constructor limits remain an adapter.
 - `InterpCRPSDiT` (implemented): `with_region` accepts boxes and slices the static
-  maps and grid to the covering block, snapped to the patch size. `region_halo`
+  maps and grid to the covering block, snapped to the patch size. Views keep a
+  reference to the loaded model's grid and static maps, so `with_region` on a view
+  reaches all of it. `region_halo`
   configures the run halo; the former public `set_domain` is now private.
 - `StormCast` (not adopted): its diffusion network uses an additive positional
   embedding fixed at 512×640, and the package invariants cover only that window, so

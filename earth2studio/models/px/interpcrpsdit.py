@@ -302,6 +302,8 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self._pole = False
         # Minimum run-grid size per side, derived from the DiT architecture in load_model
         self._min_domain_cells = 64
+        # Full grid and static maps a view selects from, None on the loaded model
+        self._footprint: dict[str, Any] | None = None
 
     def __str__(self) -> str:
         return "InterpCRPSDiT"
@@ -517,7 +519,8 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         Set ``region_halo`` on the model before calling to run on that many extra cells per side
         and trim them from the output, pushing boundary artifacts off the box (not validated). The
-        halo is clamped, with a warning, at the grid edge.
+        halo is clamped, with a warning, at the grid edge. Calling it on a view selects from the
+        loaded model's full grid.
 
         Warning
         -------
@@ -549,11 +552,23 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 f"{type(self).__name__} supports only box regions, not {region.kind!r}"
             )
         west, south, east, north = region.params
-        if self._lon1d.min() >= 0.0:
+        if self._full_footprint()["lon1d"].min() >= 0.0:
             west, east = west % 360.0, east % 360.0
         return cast(
             "Self", self._set_domain(south, north, west, east, halo=self.region_halo)
         )
+
+    def _full_footprint(self) -> dict[str, Any]:
+        """Grid and static maps of the loaded model, which every view selects from."""
+        if self._footprint is not None:
+            return self._footprint
+        return {
+            "static_inv": self.static_inv,
+            "lat2d": self.lat2d,
+            "lon2d": self.lon2d,
+            "lat1d": self._lat1d,
+            "lon1d": self._lon1d,
+        }
 
     def _set_domain(
         self,
@@ -567,7 +582,8 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # View for a lat/lon bounding box (no date-line wrap), see with_region. min_cells is the
         # minimum run-grid size per side so the NATTEN kernel fits the latent grid, by default
         # derived from the architecture at load.
-        lat1d, lon1d = self._lat1d, self._lon1d
+        footprint = self._full_footprint()
+        lat1d, lon1d = footprint["lat1d"], footprint["lon1d"]
         if lat_min >= lat_max or lon_min >= lon_max:
             raise ValueError(
                 "require lat_min < lat_max and lon_min < lon_max (no date-line wrap)"
@@ -583,7 +599,7 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             or lon_max > lon1d.max()
         ):
             raise ValueError(
-                f"bounding box lat[{lat_min},{lat_max}] lon[{lon_min},{lon_max}] is outside the current grid "
+                f"bounding box lat[{lat_min},{lat_max}] lon[{lon_min},{lon_max}] is outside the model grid "
                 f"lat[{lat1d.min()},{lat1d.max()}] lon[{lon1d.min()},{lon1d.max()}]"
             )
         inside_lat = (lat1d >= lat_min) & (lat1d <= lat_max)
@@ -625,9 +641,9 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             dit=self.dit,  # shared, sequential use only
             center=self.center,
             scale=self.scale,
-            static_inv=self.static_inv[:, i0e:i1e, j0e:j1e].clone(),
-            lat2d=self.lat2d[i0e:i1e, j0e:j1e].clone(),
-            lon2d=self.lon2d[i0e:i1e, j0e:j1e].clone(),
+            static_inv=footprint["static_inv"][:, i0e:i1e, j0e:j1e].clone(),
+            lat2d=footprint["lat2d"][i0e:i1e, j0e:j1e].clone(),
+            lon2d=footprint["lon2d"][i0e:i1e, j0e:j1e].clone(),
             px_model=self.px_model,
             num_interp_steps=self.num_interp_steps,
             lon_pad=0,
@@ -637,6 +653,7 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             amp_dtype=self.amp_dtype,
         )
         sub._halo = halo_trim
+        sub._footprint = footprint
         sub._out_lat1d = lat1d[i0:i1]  # bounding box without halo
         sub._out_lon1d = lon1d[j0:j1]
         sub._min_domain_cells = self._min_domain_cells
