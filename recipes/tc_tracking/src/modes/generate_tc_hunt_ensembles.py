@@ -34,7 +34,7 @@ from earth2studio.io import NetCDF4Backend, ZarrBackend
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.px import PrognosticModel
 from earth2studio.models.px.utils import initial_condition
-from src.data.tc_hunt_data_utils import DataSourceManager, load_heights
+from src.data.tc_hunt_data_utils import DataSourceManager
 from src.data.tc_hunt_file_output import initialise_netcdf_output, setup_output
 from src.tc_hunt_utils import (
     InstabilityDetection,
@@ -45,7 +45,7 @@ from src.tc_hunt_utils import (
     set_initial_times,
     share_gpu_memory_with_cupy,
 )
-from src.tempest_extremes import AsyncTempestExtremes, TempestExtremes
+from src.tempest_extremes import TempestExtremes
 
 
 def initialise(cfg: DictConfig) -> None:
@@ -185,29 +185,11 @@ def run_inference(
 
     # TODO: add the native WeatherNext 2 cyclone tracker as alternative to
     # TempestExtremes once WeatherNext 2 is supported by the recipe
-    cyclone_tracking = None
-    if "cyclone_tracking" in cfg:
-        tracker = (
-            AsyncTempestExtremes
-            if cfg.cyclone_tracking.asynchronous
-            else TempestExtremes
-        )
-        cyclone_tracking = tracker(
-            detect_cmd=cfg.cyclone_tracking.detect_cmd,
-            stitch_cmd=cfg.cyclone_tracking.stitch_cmd,
-            input_vars=cfg.cyclone_tracking.vars,
-            store_dir=cfg.store_dir,
-            heights=(
-                load_heights(cfg.cyclone_tracking.orography_path)
-                if "orography_path" in cfg.cyclone_tracking
-                else None
-            ),
-            keep_raw_data=cfg.cyclone_tracking.get("keep_raw_data", False),
-            print_te_output=cfg.cyclone_tracking.get("print_te_output", False),
-            scratch_dir=cfg.cyclone_tracking.get("scratch_dir", None),
-            timeout=cfg.cyclone_tracking.get("task_timeout_seconds", 120),
-            max_workers_per_rank=cfg.cyclone_tracking.get("max_workers_per_rank", None),
-        )
+    cyclone_tracking = (
+        TempestExtremes.from_config(cfg.cyclone_tracking, cfg.store_dir)
+        if "cyclone_tracking" in cfg
+        else None
+    )
 
     stability_check = None
     if "stability_check" in cfg:
@@ -274,9 +256,9 @@ def run_inference(
                 ]
             )
 
-    # Wait for all async cyclone tracking tasks to complete before continuing
-    if cyclone_tracking and isinstance(cyclone_tracking, AsyncTempestExtremes):
-        cyclone_tracking.cleanup()
+    # wait for tracking running in the background
+    if cyclone_tracking:
+        cyclone_tracking.close()
 
     for nc_store in nc_stores.values():
         nc_store.close()

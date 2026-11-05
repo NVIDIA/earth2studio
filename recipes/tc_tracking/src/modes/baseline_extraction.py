@@ -28,7 +28,7 @@ from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
 
 from earth2studio.data import fetch_data
-from src.data.tc_hunt_data_utils import DataSourceManager, load_heights
+from src.data.tc_hunt_data_utils import DataSourceManager
 from src.tc_hunt_utils import great_circle_distance
 from src.tempest_extremes import TempestExtremes
 
@@ -69,6 +69,7 @@ def ensure_ibtracs(path: str) -> str:
 
 def extract_from_historic_data(
     cfg: DictConfig,
+    case: str,
     ic: np.datetime64,
     n_steps: int,
     time_step: np.timedelta64,
@@ -80,6 +81,8 @@ def extract_from_historic_data(
     ----------
     cfg : DictConfig
         Hydra configuration object.
+    case : str
+        Storm name, used to name the intermediate track file.
     ic : np.datetime64
         Initial condition (start time).
     n_steps : int
@@ -107,26 +110,16 @@ def extract_from_historic_data(
         device="cpu",
     ).expand_dims(ensemble=[0])
 
-    cyclone_tracking = TempestExtremes(
-        detect_cmd=cfg.cyclone_tracking.detect_cmd,
-        stitch_cmd=cfg.cyclone_tracking.stitch_cmd,
-        input_vars=variables,
-        store_dir=cfg.store_dir,
-        heights=(
-            load_heights(cfg.cyclone_tracking.orography_path)
-            if "orography_path" in cfg.cyclone_tracking
-            else None
-        ),
-        keep_raw_data=cfg.cyclone_tracking.get("keep_raw_data", False),
-        print_te_output=cfg.cyclone_tracking.get("print_te_output", False),
-        scratch_dir=cfg.cyclone_tracking.get("scratch_dir", None),
+    cyclone_tracking = TempestExtremes.from_config(
+        cfg.cyclone_tracking, cfg.store_dir, asynchronous=False
     )
     cyclone_tracking.record_state(x)
-    cyclone_tracking()
+    (track_file,) = cyclone_tracking(out_file_names=[f"tracks_{case}.csv"])
+    cyclone_tracking.close()
 
-    hist_tracks = pd.read_csv(cyclone_tracking.track_files[0])
+    hist_tracks = pd.read_csv(track_file)
     hist_tracks.columns = hist_tracks.columns.str.strip()
-    os.remove(cyclone_tracking.track_files[0])
+    os.remove(track_file)
 
     return hist_tracks
 
@@ -381,6 +374,7 @@ def process_case(
 
     hist_tracks = extract_from_historic_data(
         cfg=cfg,
+        case=case,
         ic=ic,
         n_steps=n_steps,
         time_step=time_step,
