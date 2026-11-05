@@ -1,6 +1,7 @@
 project: 'helene'
 mode: 'generate_ensemble'
-model: 'fcn3' # 'fcn3' 'aifs'
+model: 'fcn3' # 'fcn3', 'aifs' or 'aifs-v2'
+deterministic: False  # True: bitwise reproducible, needed for AIFS-ENS
 
 ics: ["2024-09-24 00:00:00"]
 n_steps: 28

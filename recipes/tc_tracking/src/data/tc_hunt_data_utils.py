@@ -16,11 +16,9 @@
 
 import os
 import re
-from collections import OrderedDict
 
 import hydra
 import numpy as np
-import torch
 import xarray as xr
 from huggingface_hub import hf_hub_download
 from omegaconf import DictConfig
@@ -53,7 +51,7 @@ def resolve_oro_path(oro_path: str) -> str:
     return hf_hub_download(repo_id, filename, revision=revision, local_dir=cache_dir)
 
 
-def load_heights(oro_path: str) -> tuple[torch.Tensor, OrderedDict]:
+def load_heights(oro_path: str) -> xr.DataArray:
     """Load orography data and convert geopotential to height.
 
     Parameters
@@ -66,25 +64,22 @@ def load_heights(oro_path: str) -> tuple[torch.Tensor, OrderedDict]:
 
     Returns
     -------
-    tuple[torch.Tensor, OrderedDict]
-        Height field as a tensor and the corresponding coordinate mapping
-        with keys *variable*, *lat*, *lon*.
+    xr.DataArray
+        Surface height in metres, named ``height``, with dimensions
+        ``(lat, lon)``.
     """
     oro_path = run_with_rank_ordered_execution(resolve_oro_path, oro_path)
     oro = xr.load_dataset(oro_path)
 
-    coords = OrderedDict(
-        {
-            "variable": np.array(["height"]),
-            "lat": oro.latitude.values,
-            "lon": oro.longitude.values,
-        }
-    )
-    geop = (
-        torch.Tensor(oro["Z"].to_numpy()) / 9.80665
-    )  # divide by gravity to get height
+    # divide geopotential by gravity to get height
+    geop = oro["Z"].squeeze(drop=True).values / 9.80665
 
-    return geop, coords
+    return xr.DataArray(
+        geop.astype(np.float32),
+        dims=("lat", "lon"),
+        coords={"lat": oro.latitude.values, "lon": oro.longitude.values},
+        name="height",
+    )
 
 
 class DataSourceManager:

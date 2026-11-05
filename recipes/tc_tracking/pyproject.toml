@@ -1,6 +1,6 @@
 [project]
 name = "earth2studio.recipe.tc_hunt"
-version = "0.1.0"
+version = "0.2.0"
 description = "global ensemble prediction with tropical cyclone tracking"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -8,59 +8,82 @@ authors = [
   { name = "NVIDIA Earth-2 Team" },
 ]
 dependencies = [
-    "earth2studio[data]>=0.11.0",
+    "earth2studio[data]>=1.0.0a0",
     "huggingface-hub",
     "hydra-core>=1.3.2",
-    "importlib-metadata>=8.7.0",
-    "more-itertools>=10.7.0",
     "omegaconf>=2.3.0",
-    "ruamel-yaml>=0.18.14",
-    "scipy>=1.16.0",
+    # tropycal still imports pkg_resources, which setuptools 82 removed
     "setuptools>=80.9.0,<82",
     "tqdm>=4.67.1",
     "tropycal>=1.4",
-    "zarrdump>=0.6.0",
 ]
 
 [project.optional-dependencies]
+# AIFS-ENS v1 and v2 pin different anemoi-models versions, so only one of them
+# (and only one of the "all" flavours) can be installed, see [tool.uv] conflicts
 aifs = [
-    "earth2studio[aifsens]>=0.11.0",
+    "earth2studio[aifsens]",
+]
+aifs-v2 = [
+    "earth2studio[aifs2ens]",
 ]
 fcn3 = [
-    "earth2studio[fcn3]>=0.11.0",
+    "earth2studio[fcn3]",
+]
+sfno = [
+    "earth2studio[sfno]",
+]
+# hourly temporal interpolation of 6-hourly forecasts
+interp = [
+    "earth2studio[interp-modafno,interp-crps-dit]",
+]
+weathernext = [
+    "earth2studio[weathernext]",
 ]
 plot = [
     "cartopy>=0.24.1",
-    "ipykernel>=6.30.1",
     "matplotlib>=3.10.3",
-    "moviepy>=2.2.1",
 ]
 dev = [
-    "ninja>=1.13.0",
     "pre-commit>=4.5.0",
     "pytest>=8.1.0",
 ]
 all = [
-    "earth2studio.recipe.tc_hunt[aifs]",
-    "earth2studio.recipe.tc_hunt[fcn3]",
-    "earth2studio.recipe.tc_hunt[plot]",
-    "earth2studio.recipe.tc_hunt[dev]",
+    "earth2studio.recipe.tc_hunt[aifs,fcn3,sfno,interp,weathernext,plot,dev]",
+]
+all-aifs-v2 = [
+    "earth2studio.recipe.tc_hunt[aifs-v2,fcn3,sfno,interp,weathernext,plot,dev]",
 ]
 
 [project.urls]
-Homepage = "https://github.com/NVIDIA/earth2studio/recipes/tc_tracking"
-Documentation = "https://github.com/NVIDIA/earth2studio/recipes/tc_tracking/README.md"
+Homepage = "https://github.com/NVIDIA/earth2studio/tree/main/recipes/tc_tracking"
+Documentation = "https://github.com/NVIDIA/earth2studio/blob/main/recipes/tc_tracking/README.md"
 Issues = "https://github.com/NVIDIA/earth2studio/issues"
 Changelog = "https://github.com/NVIDIA/earth2studio/blob/main/CHANGELOG.md"
 
 # ==== UV configuration ====
-[tool.uv.sources]
-torch-harmonics = { git = "https://github.com/NVIDIA/torch-harmonics.git" }
-earth2studio = { git = "https://github.com/NVIDIA/earth2studio.git" }
-
 [tool.uv]
-no-build-isolation-package = ["torch-harmonics", "flash-attn"]
+# the recipe is run from source (python main.py), only its dependencies are installed
+package = false
+conflicts = [
+    [{ extra = "aifs" }, { extra = "aifs-v2" }],
+    [{ extra = "aifs" }, { extra = "all-aifs-v2" }],
+    [{ extra = "aifs-v2" }, { extra = "all" }],
+    [{ extra = "all" }, { extra = "all-aifs-v2" }],
+]
+no-build-isolation-package = ["earth2grid", "flash-attn", "natten", "torch-harmonics"]
 
-[tool.hatch.build.targets.sdist]
-include = ["src/**/*.py"]
-exclude = []
+[tool.uv.extra-build-dependencies]
+earth2grid = ["setuptools", "torch"]
+flash-attn = ["torch", "packaging", "ninja"]
+natten = ["setuptools", "cmake", "torch"]
+
+# Git sources of earth2studio are not inherited by dependents, so the pins from
+# earth2studio's pyproject.toml that the extras above need are repeated here
+[tool.uv.sources]
+# TODO: switch to the earth2studio>=1.0.0 release once published
+earth2studio = { git = "https://github.com/NVIDIA/earth2studio.git", rev = "865f50b8a6245f95915c2848e331642688b86a18" }
+cfgrib = { git = "https://github.com/NickGeneva/cfgrib.git", rev = "6a9af3173d7050b5fa5d221755f97e6ecb8c3433" }
+makani = { git = "https://github.com/NVIDIA/makani.git", rev = "b38fcb2799d7dbc146fa60459f3f9823394a8bf1" }
+torch-harmonics = { git = "https://github.com/NVIDIA/torch-harmonics.git", rev = "a632ca748a12bd9f74dbc1e00653317810991f74" }
+weathernext = { git = "https://github.com/google-deepmind/weathernext.git", rev = "9c034db1ff412d5db6cbe6bb0c5c9afc5a267719" }

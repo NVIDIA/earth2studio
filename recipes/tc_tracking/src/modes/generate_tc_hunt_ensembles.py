@@ -13,18 +13,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# mypy: disable-error-code="call-overload"
 
+import gc
 import os
 import random
 import sys
-from collections import OrderedDict
-from collections.abc import Callable
-from copy import deepcopy
-from typing import cast
+from itertools import chain, islice
 
 import numpy as np
 import torch
+import xarray as xr
 from loguru import logger
 from omegaconf import DictConfig, OmegaConf
 from physicsnemo.distributed import DistributedManager
@@ -35,13 +33,9 @@ from earth2studio.data import fetch_data
 from earth2studio.io import NetCDF4Backend, ZarrBackend
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.px import PrognosticModel
-from earth2studio.utils.coords import CoordSystem, map_coords
+from earth2studio.models.px.utils import initial_condition
 from src.data.tc_hunt_data_utils import DataSourceManager, load_heights
-from src.data.tc_hunt_file_output import (
-    initialise_netcdf_output,
-    setup_output,
-    write_to_store,
-)
+from src.data.tc_hunt_file_output import initialise_netcdf_output, setup_output
 from src.tc_hunt_utils import (
     InstabilityDetection,
     assign_runs_to_rank,
@@ -49,6 +43,7 @@ from src.tc_hunt_utils import (
     remove_duplicates,
     run_with_rank_ordered_execution,
     set_initial_times,
+    share_gpu_memory_with_cupy,
 )
 from src.tempest_extremes import AsyncTempestExtremes, TempestExtremes
 
@@ -56,20 +51,30 @@ from src.tempest_extremes import AsyncTempestExtremes, TempestExtremes
 def initialise(cfg: DictConfig) -> None:
     """Set up the runtime environment for ensemble generation.
 
-    Configures CUDA memory allocation, initialises the distributed manager,
-    and seeds all random number generators if a seed is provided in the config.
-    Note that this does not affect the internal random state of forecast models.
+    Selects deterministic GPU kernels if ``deterministic`` is ``True``,
+    initialises the distributed manager, and seeds all random number
+    generators if a seed is provided in the config. Note that this does not
+    affect the internal random state of forecast models.
 
     Parameters
     ----------
     cfg : DictConfig
-        Hydra configuration object. May contain a ``random_seed`` key
+        Hydra configuration object. May contain ``deterministic`` and
+        ``random_seed`` keys
     """
-    # make pytorch occupy only GPU memory it really needs
-    os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+    # Order-preserving GPU kernels make runs bitwise reproducible, which e.g.
+    # the scatter operations in AIFS-ENS' graph layers otherwise are not.
+    # Costs about 10% runtime. cuBLAS reads its workspace setting when it
+    # creates its first handle, so this has to happen before any computation
+    deterministic = cfg.get("deterministic", False)
+    if deterministic:
+        os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+    torch.use_deterministic_algorithms(deterministic)
 
     # initialise distributed manager
     DistributedManager.initialize()
+    if torch.cuda.is_available():
+        share_gpu_memory_with_cupy()
 
     # intialise random seeds
     # NOTE: DOES NOT affect the internal random state of the forecast models)
@@ -90,7 +95,8 @@ def load_model(cfg: DictConfig) -> PrognosticModel:
     ----------
     cfg : DictConfig
         Hydra configuration object. Must contain ``model`` (str) and may
-        contain ``model_package`` (str)
+        contain ``model_package`` (str). Supported models are ``fcn3``,
+        ``aifs`` (AIFS-ENS v1) and ``aifs-v2`` (AIFS-ENS v2)
 
     Returns
     -------
@@ -107,19 +113,25 @@ def load_model(cfg: DictConfig) -> PrognosticModel:
         raise ValueError(
             "cfg.model must be specified in the YAML config (e.g. 'fcn3' or 'aifs')"
         )
-    model_name = cfg.model
 
+    # imported lazily, so that only the installed models' dependencies are needed
     model_cls: type[AutoModelMixin]
-    if model_name.lower().startswith("aifs"):
-        from earth2studio.models.px import AIFSENS
-
-        model_cls = AIFSENS
-    elif model_name == "fcn3":
+    if cfg.model == "fcn3":
         from earth2studio.models.px import FCN3
 
         model_cls = FCN3
+    elif cfg.model == "aifs":
+        from earth2studio.models.px import AIFSENS
+
+        model_cls = AIFSENS
+    elif cfg.model == "aifs-v2":
+        from earth2studio.models.px import AIFS2ENS
+
+        model_cls = AIFS2ENS
     else:
-        raise ValueError(f"model {model_name} not supported")
+        raise ValueError(
+            f"model {cfg.model} not supported, choose from 'fcn3', 'aifs', 'aifs-v2'"
+        )
 
     # load weights
     pkg = (
@@ -136,10 +148,10 @@ def load_model(cfg: DictConfig) -> PrognosticModel:
 def run_inference(
     model: PrognosticModel,
     cfg: DictConfig,
-    store: ZarrBackend | NetCDF4Backend | None,
-    out_coords: OrderedDict,
+    store: ZarrBackend | None,
+    template: xr.DataArray | None,
     ic_mems: list[tuple[np.datetime64, np.ndarray, int]],
-) -> ZarrBackend | NetCDF4Backend | None:
+) -> None:
     """Run ensemble inference and optionally track tropical cyclones.
 
     Iterates over initial-condition / ensemble-member batches, fetches the
@@ -154,37 +166,27 @@ def run_inference(
         Prognostic model
     cfg : DictConfig
         Hydra configuration object
-    store : ZarrBackend | NetCDF4Backend | None
-        Output store (Zarr, NetCDF, or None)
-    out_coords : OrderedDict
-        Output coordinate system for sub-selecting written fields
+    store : ZarrBackend | None
+        Zarr output store, or None if fields are written to NetCDF or not at all
+    template : xr.DataArray | None
+        Output template of the run, or None if no fields are written
     ic_mems : list[tuple[np.datetime64, np.ndarray, int]]
         List of (initial_condition, member_indices, random_seed) tuples
-
-    Returns
-    -------
-    ZarrBackend | NetCDF4Backend | None
-        The output store after all data has been written
     """
 
     dist = DistributedManager()
     data_source_mngr = DataSourceManager(cfg)
+    inputs = model.input_coords()
 
-    # Per-IC caches: avoid re-creating NetCDF stores or re-fetching data when
-    # the same IC is encountered again (e.g. after stability re-queuing).
+    # NetCDF stores are created per IC and stay open, as unstable members can
+    # be re-queued to the end of the work list
     nc_stores: dict[np.datetime64, NetCDF4Backend] = {}
-    ic_data_cache: dict[np.datetime64, tuple[torch.Tensor, OrderedDict]] = {}
+    x0, x0_ic = None, None
 
+    # TODO: add the native WeatherNext 2 cyclone tracker as alternative to
+    # TempestExtremes once WeatherNext 2 is supported by the recipe
     cyclone_tracking = None
     if "cyclone_tracking" in cfg:
-        oco = model.output_coords(model.input_coords())
-
-        heights, height_coords = (
-            load_heights(cfg.cyclone_tracking.orography_path)
-            if "orography_path" in cfg.cyclone_tracking
-            else (None, None)
-        )
-
         tracker = (
             AsyncTempestExtremes
             if cfg.cyclone_tracking.asynchronous
@@ -194,14 +196,12 @@ def run_inference(
             detect_cmd=cfg.cyclone_tracking.detect_cmd,
             stitch_cmd=cfg.cyclone_tracking.stitch_cmd,
             input_vars=cfg.cyclone_tracking.vars,
-            batch_size=cfg.batch_size,
-            n_steps=cfg.n_steps,
-            time_step=oco["lead_time"][0],
-            lats=oco["lat"],
-            lons=oco["lon"],
-            static_vars=heights,
-            static_coords=height_coords,
             store_dir=cfg.store_dir,
+            heights=(
+                load_heights(cfg.cyclone_tracking.orography_path)
+                if "orography_path" in cfg.cyclone_tracking
+                else None
+            ),
             keep_raw_data=cfg.cyclone_tracking.get("keep_raw_data", False),
             print_te_output=cfg.cyclone_tracking.get("print_te_output", False),
             scratch_dir=cfg.cyclone_tracking.get("scratch_dir", None),
@@ -212,71 +212,63 @@ def run_inference(
     stability_check = None
     if "stability_check" in cfg:
         stability_check = InstabilityDetection(
-            vars=np.array(cfg.stability_check.variables),
-            thresholds=np.array(cfg.stability_check.thresholds),
+            vars=cfg.stability_check.variables,
+            thresholds=cfg.stability_check.thresholds,
         )
 
     for ic, mems, seed in ic_mems:
-        mini_batch_size = len(mems)
-
-        data_source = data_source_mngr.select_data_source(ic)
-
         if cfg.store_type == "netcdf" and ic not in nc_stores:
-            nc_stores[ic] = initialise_netcdf_output(cfg, out_coords, ic, ic_mems)
+            nc_stores[ic] = initialise_netcdf_output(cfg, model, ic, ic_mems)
         if cfg.store_type == "netcdf":
             store = nc_stores[ic]
 
-        if ic not in ic_data_cache:
-            x0, coords0 = fetch_data(
-                data_source,
-                time=[np.datetime64(ic)],
-                lead_time=model.input_coords()["lead_time"],
-                variable=model.input_coords()["variable"],
+        # initial condition, shared by all batches of an IC
+        if ic != x0_ic:
+            x0 = fetch_data(
+                data_source_mngr.select_data_source(ic),
+                time=[ic],
+                variable=inputs.coords["variable"].values,
+                lead_time=inputs.coords["lead_time"].values,
                 device=dist.device,
             )
-            ic_data_cache[ic] = (x0, coords0)
-        else:
-            x0, coords0 = ic_data_cache[ic]
-
-        coords = {"ensemble": np.array(mems)} | coords0.copy()
-        xx = x0.unsqueeze(0).repeat(mini_batch_size, *([1] * x0.ndim))
+            x0_ic = ic
+        x = x0.expand_dims(ensemble=mems)
 
         if stability_check:
-            stability_check.reset(deepcopy(coords))
+            stability_check.reset()
 
-        # Set random state where supported. FCN3 exposes set_rng for seeding
-        # its internal noise generator; AIFS-ENS does not expose its internal
-        # noise state, so seeding is silently skipped.
-        if hasattr(model, "set_rng"):
-            model.set_rng(seed=seed)  # type: ignore[attr-defined]
+        # each batch draws its noise from its own seed, which makes the batch
+        # reproducible, see reproduce_members
+        model.set_rng(seed=seed)
 
-        # This pipeline still uses the legacy tensor/coordinate model API.
-        iterator = cast(Callable, model.create_iterator)(xx, CoordSystem(coords))
-        stab = torch.ones(mini_batch_size)
-
-        # roll out the model and record data as desired
-        for _, (xx, coords) in tqdm(
-            zip(range(cfg.n_steps + 1), iterator), total=cfg.n_steps + 1
-        ):
-            write_to_store(store, xx, coords, out_coords)
+        # the iterator yields forecasts only, so the IC is prepended
+        rollout = chain(
+            [initial_condition(x)], islice(model.create_iterator(x), cfg.n_steps)
+        )
+        stable = True
+        for y in tqdm(rollout, total=cfg.n_steps + 1):
+            # fields of previous steps can sit in reference cycles that still
+            # hold GPU memory, collect them before the model allocates again
+            gc.collect()
+            if store is not None:
+                store.write(y.sel(variable=template.coords["variable"].values))
             if cyclone_tracking:
-                cyclone_tracking.record_state(xx, coords)
+                cyclone_tracking.record_state(y)
 
             if stability_check:
-                yy, coy = map_coords(
-                    xx, CoordSystem(coords), stability_check.input_coords
-                )
-                stab, _ = stability_check(yy, coy)
-                if not stab.all():
+                stable = stability_check(y).all()
+                if not stable:
+                    if cyclone_tracking:
+                        cyclone_tracking.reset()
                     ic_mems.append((ic, mems, seed + 1))
                     logger.warning(
                         f"CAUTION: one of members {mems} became unstable. will re-create with new seed."
                     )
                     break
 
-        if cyclone_tracking and stab.all():
+        if cyclone_tracking and stable:
             cyclone_tracking(
-                out_file_names=[  # TODO add seed only for FCN3 members, as the seed in AIFS is not exposed. also check for netcdf output
+                out_file_names=[
                     f"tracks_{np.datetime_as_string(ic, unit='s')}_mem_{mem:04d}_seed_{seed}_bs_{cfg.batch_size}.csv"
                     for mem in mems
                 ]
@@ -286,13 +278,15 @@ def run_inference(
     if cyclone_tracking and isinstance(cyclone_tracking, AsyncTempestExtremes):
         cyclone_tracking.cleanup()
 
-    # Consolidate metadata in zarr files
-    if dist.rank == 0 and cfg.store_type == "zarr" and store is not None:
-        # TODO add barrier such that rank 0 finishes last
-        if isinstance(store, ZarrBackend):
-            consolidate_metadata(store.store)
+    for nc_store in nc_stores.values():
+        nc_store.close()
 
-    return store
+    # Consolidate metadata in zarr files
+    if isinstance(store, ZarrBackend):
+        store.close()
+        if dist.rank == 0:
+            # TODO add barrier such that rank 0 finishes last
+            consolidate_metadata(store.store)
 
 
 def configure_runs(
@@ -358,7 +352,7 @@ def generate_ensemble(cfg: DictConfig) -> None:
 
     model = load_model(cfg)
 
-    store, out_coords = (
+    store, template = (
         run_with_rank_ordered_execution(  # TODO: wrap only zarr store in that loop
             setup_output,
             cfg=cfg,
@@ -372,7 +366,7 @@ def generate_ensemble(cfg: DictConfig) -> None:
         DistributedManager().cleanup()
         sys.exit()
 
-    store = run_inference(model, cfg, store, out_coords, ic_mems)
+    run_inference(model, cfg, store, template, ic_mems)
 
 
 def set_reproduction_configs(
@@ -437,16 +431,10 @@ def reproduce_members(cfg: DictConfig) -> None:
     Raises
     ------
     ValueError
-        If ``store_type`` is ``"zarr"`` (not supported for reproduction) or
-        the model is not ``"fcn3"`` (only FCN3 exposes its internal random
-        state).
+        If ``store_type`` is ``"zarr"`` (not supported for reproduction)
     """
     if cfg.store_type == "zarr":
         raise ValueError("Zarr output not supported for reproducing ensemble members")
-    if "model" not in cfg:
-        raise ValueError("cfg.model must be specified in the YAML config (e.g. 'fcn3')")
-    if cfg.model != "fcn3":
-        raise ValueError("Currently, reproducibility works for FCN3 only")
 
     initialise(cfg)
 
@@ -454,7 +442,7 @@ def reproduce_members(cfg: DictConfig) -> None:
 
     model = load_model(cfg)
 
-    store, out_coords = (
+    store, template = (
         run_with_rank_ordered_execution(  # TODO: wrap only zarr store in that loop
             setup_output,
             cfg=cfg,
@@ -468,4 +456,4 @@ def reproduce_members(cfg: DictConfig) -> None:
         DistributedManager().cleanup()
         sys.exit()
 
-    store = run_inference(model, cfg, store, out_coords, ic_mems)
+    run_inference(model, cfg, store, template, ic_mems)
