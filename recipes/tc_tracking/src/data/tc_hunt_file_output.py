@@ -67,7 +67,9 @@ def build_output_template(
     if missing:
         raise ValueError(f"out_vars {sorted(missing)} are not provided by the model")
 
-    step = outputs.coords["lead_time"].values[-1] - inputs.coords["lead_time"].values[-1]
+    step = (
+        outputs.coords["lead_time"].values[-1] - inputs.coords["lead_time"].values[-1]
+    )
     return output_template(
         outputs,
         leading={"ensemble": np.asarray(mems), "time": np.asarray(ics)},
@@ -148,7 +150,7 @@ def initialise_netcdf_output(
     cfg: DictConfig,
     model: PrognosticModel,
     ic: np.datetime64,
-    ic_mems: list[tuple[np.datetime64, np.ndarray, int]],
+    runs: list[tuple[np.datetime64, np.ndarray, int]],
 ) -> NetCDF4Backend:
     """Create a NetCDF4 store for a single initial condition.
 
@@ -163,7 +165,7 @@ def initialise_netcdf_output(
         Prognostic model whose output grid is stored.
     ic : np.datetime64
         Initial condition time for this file.
-    ic_mems : list[tuple[np.datetime64, np.ndarray, int]]
+    runs : list[tuple[np.datetime64, np.ndarray, int]]
         Full list of ``(ic_time, member_indices, seed)`` tuples; only
         entries matching *ic* are used.
 
@@ -172,9 +174,9 @@ def initialise_netcdf_output(
     NetCDF4Backend
         Initialised storage backend ready for writing.
     """
-    runs = [(mems, seed) for iic, mems, seed in ic_mems if iic == ic]
-    mems = np.concatenate([mems for mems, _ in runs])
-    seeds = np.concatenate([np.full(len(mems), seed) for mems, seed in runs])
+    batches = [(mems, seed) for iic, mems, seed in runs if iic == ic]
+    mems = np.concatenate([mems for mems, _ in batches])
+    seeds = np.concatenate([np.full(len(mems), seed) for mems, seed in batches])
 
     # setup filename
     file_name = os.path.join(cfg.store_dir, cfg.project)
