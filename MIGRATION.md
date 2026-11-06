@@ -105,6 +105,13 @@ Target: [PrognosticModel](earth2studio/models/px/base.py).
   `PrognosticMixin` supplies private helpers; implement fixed-signature public methods.
 - Declare `stochastic`; stochastic models use model-local `set_rng(seed, reset=True)`.
   For `DomainAdaptable` models, assign `model = model.with_region(region)` and re-query signatures.
+  `CorrDiffCosmoEra5.set_domain(lat_min, lat_max, lon_min, lon_max, margin_deg, halo)` →
+  set `region_margin_deg` / `region_halo`, then `with_region(Region.box(lon_min, lat_min, lon_max, lat_max))`
+  (the view adds one bracketing row/column per side).
+  `CorrDiffCosmoEra5SDA.load_model(domain=...)` → `region=Region.box(...)`.
+  `CBottleSR.set_super_resolution_window(...)` → `with_region(Region.box(...))`;
+  `CBottleSR(super_resolution_window=(s, w, n, e))` → `region=Region.box(w, s, e, n)`.
+  `InterpCRPSDiT.set_domain(..., halo)` → set `region_halo`, then `with_region(Region.box(...))`.
 
 ## Data sources and fetching
 
@@ -117,9 +124,9 @@ Targets: [source protocols](earth2studio/data/base.py), [fetch_data](earth2studi
 - `interp_to` / `interp_method` → `target_grid` / explicit `regridder`.
   Use `infer_grid(model.input_coords())` for a single gridded slot. A target alone handles
   matching/cropping/nearby selection; provide a `Regridder` for the intended interpolation.
-- Fetch all declared variables/history. Temporal qualifiers need `delta_t` or source
-  `time_step`; windows include the left endpoint, exclude the right. Do not aggregate
-  already aggregated source fields again.
+- Fetch all declared variables/history. Temporal qualifiers require native source
+  support; sampling belongs to the source and `fetch_data` has no `delta_t` override.
+  Windows include the left endpoint and exclude the right.
 - Declare supported statistics in lexicon `TIME_STATISTICS`; handle them per source.
 
 ## IO objects

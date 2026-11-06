@@ -279,6 +279,30 @@ def apply_time_statistic(
     return _TIME_STATISTICS[window.method](selected, dimension)
 
 
+def reduce_samples(modifier: str, samples: np.ndarray) -> np.ndarray:
+    """Reduce the leading axis of stacked samples with a registered statistic.
+
+    The stack is wrapped in a transient ``xr.DataArray`` with a ``sample`` dimension
+    and reduced through the registry, so statistics added with
+    :func:`register_time_statistic` are available to every source.
+
+    Parameters
+    ----------
+    modifier : str
+        Statistic method and window, such as ``"mean:24h"``.
+    samples : np.ndarray
+        Stacked samples, shape ``(sample, ...)``.
+
+    Returns
+    -------
+    np.ndarray
+        Reduction over the sample axis, shape ``samples.shape[1:]``.
+    """
+    dims = ["sample", *(f"axis{n}" for n in range(samples.ndim - 1))]
+    reduction = _TIME_STATISTICS[_parse(modifier).method]
+    return reduction(xr.DataArray(samples, dims=dims), "sample").values
+
+
 def time_statistic_metadata(
     modifier: str,
 ) -> dict[str, str | np.timedelta64]:

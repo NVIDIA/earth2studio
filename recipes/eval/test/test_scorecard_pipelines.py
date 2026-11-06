@@ -452,24 +452,22 @@ class TestIndexDims:
 
 
 class TestApplyCrop:
-    def test_routes_to_set_domain(self):
+    def test_routes_to_with_region(self):
         from src.pipelines.regional import apply_crop
 
-        class Model:
-            def set_domain(self, lat_min, lat_max, lon_min, lon_max, margin_deg=1.0):
-                return ("cropped", lat_min, lat_max, lon_min, lon_max, margin_deg)
+        from earth2studio.grids import Region
 
-        out = apply_crop(
-            Model(),
-            {
-                "lat_min": 45,
-                "lat_max": 50,
-                "lon_min": 5,
-                "lon_max": 12,
-                "margin_deg": 2.0,
-            },
-        )
-        assert out == ("cropped", 45, 50, 5, 12, 2.0)
+        class Model:
+            region_margin_deg = 1.0
+
+            def with_region(self, region):
+                return ("cropped", region, self.region_margin_deg)
+
+        crop = {"lat_min": 45, "lat_max": 50, "lon_min": 5, "lon_max": 12}
+        out = apply_crop(Model(), {**crop, "margin_deg": 2.0})
+        assert out == ("cropped", Region.box(5, 45, 12, 50), 2.0)
+        with pytest.raises(TypeError, match="region_halo"):
+            apply_crop(Model(), {**crop, "halo": 2})
 
     def test_none_is_identity_and_missing_hook_raises(self):
         from src.pipelines.regional import apply_crop

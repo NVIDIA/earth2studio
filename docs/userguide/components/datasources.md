@@ -121,24 +121,30 @@ field = fetch_data(
     source,
     np.array([np.datetime64("2024-01-02T00")]),
     np.array(["t2m:mean:24h"]),
-    delta_t=np.timedelta64(6, "h"),
 )
 ```
 
-Here `source` is an analysis or forecast source providing instantaneous `t2m`.
+Here `source` is a six-hourly analysis source supporting `t2m:mean:24h`.
 The mean includes the four samples at -24, -18, -12 and -6 hours. Windows are
-left-closed and right-open. The cadence defaults to `source.time_step` when
-available; otherwise provide `delta_t` explicitly. Qualified variable labels
+left-closed and right-open. Statistics are delegated to sources that support them
+natively; unsupported methods raise `ValueError` before fetching. Qualified variable labels
 such as `"t2m:mean:24h"` declare reductions; duplicate normalized quantities are rejected.
 Output `earth2studio_statistics` describes the reductions actually performed.
-Already aggregated source variables cannot be reduced again.
 
-`ARCO_ERA5.time_step` is `np.timedelta64(1, "h")`, so ARCO statistics requests
-use hourly samples automatically without an explicit `delta_t`.
+`ARCO_ERA5`, `GFS_FX`, `HRRR`, and `HRRR_FX` handle statistics natively with
+hourly sampling; `GFS` and the `WB2ERA5` variants use six-hourly sampling.
+All support `mean`, `sum`, `min`, and `max`.
+Sampling cadence is internal to each source. Reductions of accumulated variables
+operate on stored values; overlapping accumulation periods can double-count totals.
+Supported methods are documented under **Temporal statistics:** in each source's
+class docstring; capability metadata lives in `source.lexicon.TIME_STATISTICS`.
+Sources do not need `time_step` or `time_statistics` attributes.
 
 Analysis sources fetch absolute valid timestamps, while forecast sources reduce
-lead times separately for each initialization. Missing or duplicate reduction
-samples raise an error.
+lead times separately for each initialization. For a trailing 24-hour forecast
+mean, request a lead of at least 24 hours so the window stays within that
+initialization. Unavailable sample coordinates and failed downloads raise errors;
+NaN values are skipped by the reducers.
 
 The former tuple return and `legacy` argument have been removed. Access values
 through `field.data` and coordinates through `field.coords`.

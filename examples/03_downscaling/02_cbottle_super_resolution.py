@@ -72,6 +72,7 @@ load_dotenv()  # TODO: make common example prep function
 import torch
 
 from earth2studio.data import WB2ERA5, CBottle3D, fetch_data
+from earth2studio.grids import Region
 from earth2studio.models.dx import CBottleInfill, CBottleSR
 
 # Get the device
@@ -81,18 +82,14 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 package = CBottle3D.load_default_package()
 cbottle_ds = CBottle3D.load_model(package)
 
-# Load the super resolution model
-super_resolution_window = (
-    0,
-    -120,
-    50,
-    -40,
-)  # (lat south, lon west, lat north, lon east)
+# Load the super resolution model, restricted to a region since global super
+# resolution is expensive
+region = Region.box(west=-120, south=0, east=-40, north=50)
 package = CBottleSR.load_default_package()
 cbottle_sr = CBottleSR.load_model(
     package,
     output_resolution=(1024, 1024),
-    super_resolution_window=super_resolution_window,
+    region=region,
     distilled_model=True,
 )
 
@@ -187,18 +184,14 @@ sr_synth_x = sr_synth_x.e2s.as_numpy()
 era5_x = era5_x.e2s.as_numpy()
 sr_infill_x = sr_infill_x.e2s.as_numpy()
 
-# Create projection focused on a region of interest (North Atlantic/Europe)
+# Create projection focused on the super-resolved region
 projection = ccrs.PlateCarree()
 fig = plt.figure(figsize=(24, 24))
 
 # Plot synthetic data
 ax0 = fig.add_subplot(2, 2, 1, projection=projection)
-extent = [
-    super_resolution_window[1] - 10,
-    super_resolution_window[3] + 10,
-    super_resolution_window[0] - 10,
-    super_resolution_window[2] + 10,
-]
+west, south, east, north = region.params
+extent = [west - 10, east + 10, south - 10, north + 10]
 ax0.set_extent(extent, crs=ccrs.PlateCarree())
 c = ax0.pcolormesh(
     synth_coords["lon"],

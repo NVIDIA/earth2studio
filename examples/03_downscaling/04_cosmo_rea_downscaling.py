@@ -76,7 +76,7 @@ sampler_steps = 12  # diffusion denoising steps (more = sharper, slower; diffusi
 amp = True  # reduced-precision (bf16) autocast: faster, lower memory on recent GPUs
 ensemble_size = 9  # diffusion ensemble members for the Germany sub-domain
 device = "cuda:0"
-germany = dict(lat_min=47.0, lat_max=55.5, lon_min=5.0, lon_max=16.0)
+germany = (5.0, 47.0, 16.0, 55.5)  # west, south, east, north (degrees)
 projection = (
     ccrs.PlateCarree()
 )  # COSMO-REA lat/lon are geographic; plot with coastlines
@@ -99,6 +99,7 @@ def geo_axes(ax):
 
 # %%
 from earth2studio.data import ARCO_ERA5, fetch_data
+from earth2studio.grids import Region
 from earth2studio.models.auto import Package
 from earth2studio.models.dx import CorrDiffCosmoEra5
 from earth2studio.models.px import SFNO
@@ -144,7 +145,7 @@ x = fetch_data(
 dt_hours = int(
     sfno.output_coords(sic).coords["lead_time"].values[0] / np.timedelta64(1, "h")
 )
-x = _map_field(x, sic)
+x = _map_field(x, sic).astype(np.float32)
 model = sfno.create_iterator(x)
 # The iterator yields the t=0 analysis first (before any forward step), so the four
 # 6-hourly steps to 24 h take lead_hours // dt_hours + 1 = 5 calls (the first call
@@ -248,15 +249,16 @@ plt.savefig("outputs/04_cosmo_rea_downscaling.jpg", dpi=150)
 # %%
 # Downscaling a smaller domain (Germany)
 # --------------------------------------
-# Often only a region of interest is needed, not the whole domain. ``set_domain``
-# restricts the model to a geographic bounding box: its static surface fields
+# Often only a region of interest is needed, not the whole domain. ``with_region``
+# returns a view of the model restricted to a geographic box (``Region.box``) that
+# shares the loaded network: its static surface fields
 # (terrain, land-sea mask, ...) are sliced straight out of the full trained grid
 # (not interpolated), so it is valid for sub-regions inside the trained domain and
 # much faster -- the diffusion model processes far fewer grid patches per step. The
 # same SFNO forecast is reused; we just hand it to the sub-domain model.
 
 # %%
-dx_de = dx.set_domain(**germany)
+dx_de = dx.with_region(Region.box(*germany))
 x_de = sfno_to_downscaler(x_fc, dx_de, valid_time)
 out_de = dx_de(x_de)
 out_de_coords = out_de.coords
@@ -434,7 +436,7 @@ plt.savefig(
 # forward (no tiling).
 
 # %%
-dx_mean_de = dx_mean.set_domain(**germany)
+dx_mean_de = dx_mean.with_region(Region.box(*germany))
 x_mde = sfno_to_downscaler(x_fc, dx_mean_de, valid_time)
 reg_de = dx_mean_de(x_mde)
 reg_clct = reg_de[0, 0, 0, ov.index("CLCT")].e2s.as_numpy().values
@@ -486,7 +488,7 @@ plt.savefig(
 # %%
 dx_hub = CorrDiffCosmoEra5.load_model(
     package, device=device, mode="mean", resolution="rea6", hub_heights=[100]
-).set_domain(**germany)
+).with_region(Region.box(*germany))
 x_hub = sfno_to_downscaler(x_fc, dx_hub, valid_time)
 out_hub = dx_hub(x_hub)
 hub_coords = out_hub.coords
@@ -526,7 +528,7 @@ plt.savefig(
 # %%
 dx2 = CorrDiffCosmoEra5.load_model(
     package, device=device, mode="mean", resolution="rea2"
-).set_domain(lat_min=47.5, lat_max=51.0, lon_min=7.0, lon_max=13.0)
+).with_region(Region.box(7.0, 47.5, 13.0, 51.0))
 x2 = sfno_to_downscaler(x_fc, dx2, valid_time)
 out2 = dx2(x2)
 oc2 = out2.coords
