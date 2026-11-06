@@ -18,6 +18,7 @@ import gc
 import os
 import random
 import shutil
+from collections import OrderedDict
 from itertools import chain, islice
 from typing import Any
 
@@ -55,6 +56,9 @@ from src.tc_hunt_utils import (
     shared_store,
 )
 from src.tempest_extremes import TempestExtremes
+
+# initial conditions kept on the host besides the current one, for retries
+IC_CACHE_SIZE = 2
 
 # one batch: initial condition, indices of its members and the random seeds to
 # try in order, the original seed first, then the retry seeds
@@ -210,8 +214,10 @@ def run_inference(
         raise TypeError("models with several inputs are not supported")
 
     out_vars = None if template is None else template.coords["variable"].values
-    # initial condition of the last batch, shared by all batches of an IC
+    # initial condition of the last batch, shared by all batches of an IC, and
+    # the previous ones on the host
     x0: xr.DataArray | None = None
+    ic_cache: OrderedDict[np.datetime64, xr.DataArray] = OrderedDict()
     # members that stayed unstable with all their seeds
     failed: list[tuple[np.datetime64, np.ndarray, tuple[int, ...]]] = []
 
@@ -264,13 +270,22 @@ def run_inference(
         last_attempt = attempt + 1 == len(seeds)
 
         if x0 is None or x0.coords["time"].values[0] != ic:
-            x0 = fetch_data(
-                data_source_mngr.select_data_source(ic),
-                time=[ic],
-                variable=inputs.coords["variable"].values,
-                lead_time=inputs.coords["lead_time"].values,
-                device=dist.device,
-            )
+            if x0 is not None:
+                # keep recent ICs on the host, retries may need them again
+                ic_cache[x0.coords["time"].values[0]] = x0.e2s.as_numpy()
+                while len(ic_cache) > IC_CACHE_SIZE:
+                    ic_cache.popitem(last=False)
+            if ic in ic_cache:
+                logger.info(f"rank {dist.rank}: initial condition {ic} from cache")
+                x0 = ic_cache.pop(ic).e2s.as_cupy(dist.device.index)
+            else:
+                x0 = fetch_data(
+                    data_source_mngr.select_data_source(ic),
+                    time=[ic],
+                    variable=inputs.coords["variable"].values,
+                    lead_time=inputs.coords["lead_time"].values,
+                    device=dist.device,
+                )
         x = x0.expand_dims(ensemble=mems)
 
         out: Any = None
@@ -278,25 +293,30 @@ def run_inference(
             out = initialise_netcdf_output(cfg, model, ic, mems, seed)
         elif cfg.store_type == "zarr":
             out = open_batch_zarr(cfg, model, ic, mems)
-        stable = False
         try:
             stable = rollout(x, seed, out)
             if not stable and last_attempt and cfg.store_type == "netcdf":
                 write_seed(out, mems, -1)
-        finally:
-            if cfg.store_type == "netcdf":
+        except BaseException:
+            # an error, not an instability: leave the batch incomplete, a
+            # resumed run reruns it
+            if out is not None:
                 out.close()
-            elif cfg.store_type == "zarr":
-                # an unstable attempt leaves no store, a failed batch only its
-                # attributes with seed -1
-                path = batch_zarr_path(cfg, ic, mems)
-                if stable or last_attempt:
-                    close_batch_zarr(
-                        out, path, ic, mems, seed if stable else -1, attempt + 1
-                    )
-                else:
-                    out.close()
-                    shutil.rmtree(path)
+            raise
+
+        if cfg.store_type == "netcdf":
+            out.close()
+        elif cfg.store_type == "zarr":
+            # an unstable attempt leaves no store, a failed batch only its
+            # attributes with seed -1
+            path = batch_zarr_path(cfg, ic, mems)
+            if stable or last_attempt:
+                close_batch_zarr(
+                    out, path, ic, mems, seed if stable else -1, attempt + 1
+                )
+            else:
+                out.close()
+                shutil.rmtree(path)
 
         ic_str = np.datetime_as_string(ic, unit="s")
         if stable:
