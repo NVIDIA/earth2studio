@@ -19,9 +19,9 @@ Risk: Review before execution as proposals could introduce incorrect or misleadi
 Mitigation: Review and scan skill before deployment. <br>
 
 ## Reference(s): <br>
-- [Earth2Studio Analysis Data Sources](https://nvidia.github.io/earth2studio/modules/datasources_analysis.html) <br>
-- [Earth2Studio Forecast Data Sources](https://nvidia.github.io/earth2studio/modules/datasources_forecast.html) <br>
-- [Earth2Studio DataFrame Data Sources](https://nvidia.github.io/earth2studio/modules/datasources_dataframe.html) <br>
+- [Earth2Studio Analysis Data Sources](https://nvidia.github.io/earth2studio/main/modules/datasources_analysis/) <br>
+- [Earth2Studio Forecast Data Sources](https://nvidia.github.io/earth2studio/main/modules/datasources_forecast/) <br>
+- [Earth2Studio DataFrame Data Sources](https://nvidia.github.io/earth2studio/main/modules/datasources_dataframe/) <br>
 - [Earth2Studio Lexicon](https://github.com/NVIDIA/earth2studio/tree/main/earth2studio/lexicon) <br>
 
 
