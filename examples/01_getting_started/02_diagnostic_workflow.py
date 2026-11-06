@@ -44,10 +44,17 @@ In this example you will learn:
 # %%
 # Set Up
 # ------
-# All workflows inside Earth2Studio require constructed components to be handed to
-# them. In this example, let's take a look at the diagnostic workflow:
-# [`earth2studio.run.diagnostic`](https://nvidia.github.io/earth2studio/main/modules/generated/workflows/diagnostic/#earth2studio.run.diagnostic).
-#
+# For this example, the built in diagnostic workflow [`earth2studio.run.diagnostic`][earth2studio.run.diagnostic]
+# will be used.
+
+# %%
+# .. literalinclude:: ../../earth2studio/run/__init__.py
+#    :language: python
+#    :start-after: # sphinx - diagnostic start
+#    :end-before: # sphinx - diagnostic end
+
+
+# %%
 # Thus, we need the following:
 #
 # - Prognostic Model: Use the built in FourCastNet Model [`earth2studio.models.px.FCN`][earth2studio.models.px.FCN].
@@ -93,7 +100,7 @@ io = ZarrBackend()
 # %% tags=["e2sg-profile:setup"]
 sample = data(
     to_time_array(["2024-01-01"]),
-    prognostic_model.input_coords()["variable"],
+    prognostic_model.input_coords().coords["variable"].values,
 )
 print(sample)
 
@@ -136,7 +143,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 forecast = datetime(2024, 1, 1)
-variable = "tp"
+variable = "tp:sum:6h"
 step = 8  # lead time = 48 hrs
 
 plt.close("all")

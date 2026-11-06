@@ -452,24 +452,22 @@ class TestIndexDims:
 
 
 class TestApplyCrop:
-    def test_routes_to_set_domain(self):
+    def test_routes_to_with_region(self):
         from src.pipelines.regional import apply_crop
 
-        class Model:
-            def set_domain(self, lat_min, lat_max, lon_min, lon_max, margin_deg=1.0):
-                return ("cropped", lat_min, lat_max, lon_min, lon_max, margin_deg)
+        from earth2studio.grids import Region
 
-        out = apply_crop(
-            Model(),
-            {
-                "lat_min": 45,
-                "lat_max": 50,
-                "lon_min": 5,
-                "lon_max": 12,
-                "margin_deg": 2.0,
-            },
-        )
-        assert out == ("cropped", 45, 50, 5, 12, 2.0)
+        class Model:
+            region_margin_deg = 1.0
+
+            def with_region(self, region):
+                return ("cropped", region, self.region_margin_deg)
+
+        crop = {"lat_min": 45, "lat_max": 50, "lon_min": 5, "lon_max": 12}
+        out = apply_crop(Model(), {**crop, "margin_deg": 2.0})
+        assert out == ("cropped", Region.box(5, 45, 12, 50), 2.0)
+        with pytest.raises(TypeError, match="region_halo"):
+            apply_crop(Model(), {**crop, "halo": 2})
 
     def test_none_is_identity_and_missing_hook_raises(self):
         from src.pipelines.regional import apply_crop
@@ -498,22 +496,28 @@ class TestGridCoords:
 
     @pytest.mark.skipif(int(zarr.__version__.split(".")[0]) < 3, reason="zarr v3 API")
     def test_written_as_xarray_coordinates(self, tmp_path):
-        from src.output import write_grid_coords
+        from collections import OrderedDict
+
+        from src.output import build_output_template
+
+        from earth2studio.io import ZarrBackend
 
         path = str(tmp_path / "store.zarr")
-        group = zarr.open_group(path, mode="w")
-        group.create_array(
-            "t2m", shape=(2, 3, 4), dtype="f4", dimension_names=("time", "y", "x")
+        total_coords = OrderedDict(
+            {
+                "time": np.arange(2),
+                "y": np.arange(3),
+                "x": np.arange(4),
+            }
         )
-        for name, n in (("time", 2), ("y", 3), ("x", 4)):
-            arr = group.create_array(
-                name, shape=(n,), dtype="i8", dimension_names=(name,)
-            )
-            arr[...] = np.arange(n)
         lat2 = np.linspace(45, 50, 3)[:, None] * np.ones((1, 4))
-        write_grid_coords(
-            path, {"lat": (("y", "x"), lat2), "lon": (("y", "x"), lat2 + 10)}, ["t2m"]
+        template = build_output_template(
+            total_coords,
+            ["t2m"],
+            {"lat": (("y", "x"), lat2), "lon": (("y", "x"), lat2 + 10)},
         )
+        ZarrBackend(file_name=path).add_array(template)
+
         ds = xr.open_zarr(path, consolidated=False)
         assert set(ds.coords) >= {"lat", "lon"} and ds["lat"].dims == ("y", "x")
         assert list(ds.data_vars) == ["t2m"]

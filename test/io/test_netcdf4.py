@@ -14,560 +14,234 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
+import json
 import shutil
-import tempfile
-from collections import OrderedDict
-from datetime import datetime, timedelta
 from pathlib import Path
 
 import netCDF4
 import numpy as np
 import pytest
-import torch
-import xarray
+import xarray as xr
 
+from earth2studio.grids import LatLonGrid
 from earth2studio.io import NetCDF4Backend
-from earth2studio.utils.coords import convert_multidim_to_singledim, split_coords
+from earth2studio.io.netcdf4 import LEAD_TIME_UNITS, TIME_CALENDAR, TIME_UNITS
+from earth2studio.utils.coords import coord_array
+
+# Protocol behavior is covered by test_io_contract.py
+
+TIMES = np.array(["2024-01-01T00", "2024-01-01T06"], dtype="datetime64[h]")
+LEADS = np.arange(3) * np.timedelta64(6, "h")
+VARIABLES = ["t2m", "tp:sum:6h"]
+GRID = LatLonGrid(np.array([1.0, 0.0, -1.0]), np.arange(4.0))
+
+
+def make_template() -> xr.DataArray:
+    return coord_array(
+        ("time", "lead_time", "variable", "lat", "lon"),
+        {"time": TIMES, "lead_time": LEADS, "variable": VARIABLES},
+        grid=GRID,
+        attrs={"units": "K"},
+    )
+
+
+def make_field(time: np.ndarray = TIMES, seed: int = 0) -> xr.DataArray:
+    shape = (len(time), len(LEADS), len(VARIABLES), 3, 4)
+    data = np.random.default_rng(seed).standard_normal(shape).astype(np.float32)
+    return xr.DataArray(
+        data,
+        dims=("time", "lead_time", "variable", "lat", "lon"),
+        coords={
+            "time": time,
+            "lead_time": LEADS,
+            "variable": VARIABLES,
+            **GRID.coords(),
+        },
+    )
+
+
+def test_netcdf4_dataset(tmp_path: Path) -> None:
+    io = NetCDF4Backend(tmp_path / "store.nc", backend_kwargs={"mode": "w"})
+    assert isinstance(io.root, netCDF4.Dataset)
+    assert len(io) == 0
+
+    io.add_array(make_template())
+    # Dunder access covers every netCDF4 variable, coordinates included
+    assert len(io) == 6
+    assert set(io) == {"time", "lead_time", "lat", "lon", *VARIABLES}
+    assert "t2m" in io and "lat" in io and "u10m" not in io
+    assert isinstance(io["t2m"], netCDF4.Variable)
+    assert io["t2m"].dimensions == ("time", "lead_time", "lat", "lon")
+    assert io["t2m"].shape == (2, 3, 3, 4)
+    io.close()
+
+
+def test_netcdf4_memory_store() -> None:
+    # Diskless stores never touch the file system
+    io = NetCDF4Backend(
+        "inmemory.nc", backend_kwargs={"mode": "w", "diskless": True, "persist": False}
+    )
+    io.add_array(make_template())
+    field = make_field()
+    io.write(field)
+    io.flush()
+    np.testing.assert_array_equal(
+        io.to_xarray()["t2m"].values, field.sel(variable="t2m").values
+    )
+    io.close()
+    assert not Path("inmemory.nc").exists()
 
 
 def test_netcdf4_write_is_visible_before_close(tmp_path: Path) -> None:
-    coords = OrderedDict({"lat": np.arange(2), "lon": np.arange(2)})
     source_path = tmp_path / "source.nc"
     copied_path = tmp_path / "copied.nc"
-    expected = np.arange(4, dtype=np.float32).reshape(2, 2)
-    nc = NetCDF4Backend(source_path, backend_kwargs={"mode": "w"})
-
+    io = NetCDF4Backend(source_path, backend_kwargs={"mode": "w"})
+    field = make_field()
     try:
-        nc.add_array(coords, "fields")
-        nc.write(torch.from_numpy(expected), coords, "fields")
+        io.add_array(make_template())
+        io.write(field)
+        io.flush()
         shutil.copyfile(source_path, copied_path)
 
-        with xarray.open_dataset(copied_path) as dataset:
-            assert np.array_equal(dataset["fields"].values, expected)
-    finally:
-        nc.close()
-
-
-@pytest.mark.parametrize(
-    "time",
-    [
-        [np.datetime64("1958-01-31T00:00:00")],
-        [np.datetime64("1971-06-01T06:00:00"), np.datetime64("2021-11-23T12:00:00")],
-    ],
-)
-@pytest.mark.parametrize(
-    "lead_time",
-    [
-        np.array([np.timedelta64(0, "h")]),
-        np.array([np.timedelta64(-6, "h"), np.timedelta64(0, "h")]),
-    ],
-)
-@pytest.mark.parametrize(
-    "variable",
-    [
-        ["t2m"],
-        ["t2m", "tcwv"],
-    ],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_netcdf4_fields(
-    time: list[np.datetime64],
-    lead_time: list[np.datetime64],
-    variable: list[str],
-    device: str,
-) -> None:
-
-    total_coords = OrderedDict(
-        {
-            "time": np.asarray(time),
-            "lead_time": lead_time,
-            "variable": np.asarray(variable),
-            "lat": np.linspace(-90, 90, 180),
-            "lon": np.linspace(0, 360, 360, endpoint=False),
-        }
-    )
-
-    # Test Memory Store
-    nc = NetCDF4Backend(
-        "inmemory.nc", backend_kwargs={"mode": "w", "diskless": True, "persist": False}
-    )
-    assert isinstance(nc.root, netCDF4.Dataset)
-
-    # Instantiate
-    array_name = "fields"
-    nc.add_array(total_coords, array_name)
-
-    # Check instantiation
-    for dim in total_coords:
-        assert dim in nc
-        assert dim in nc.coords
-        assert nc[dim].shape == total_coords[dim].shape
-
-    # Test __contains__
-    assert array_name in nc
-
-    # Test __getitem__
-    shape = tuple([len(dim) for dim in total_coords.values()])
-    assert nc[array_name].shape == shape
-
-    # Test __len__
-    assert len(nc) == 6
-
-    # Test __iter__
-    for array in nc:
-        assert array in ["fields", "time", "lead_time", "variable", "lat", "lon"]
-
-    # Test add_array with torch.Tensor
-    nc.add_array(
-        total_coords,
-        "dummy_1",
-        data=torch.randn(shape, device=device, dtype=torch.float32),
-    )
-
-    assert "dummy_1" in nc
-    assert nc["dummy_1"].shape == shape
-
-    # Test writing
-
-    # Test full write
-    x = torch.randn(shape, device=device, dtype=torch.float32)
-    nc.write(x, total_coords, "fields_1")
-    assert "fields_1" in nc
-    assert nc["fields_1"].shape == x.shape
-
-    partial_coords = OrderedDict(
-        {
-            "time": np.asarray(time)[:1],
-            "lead_time": np.asarray(lead_time)[:1],
-            "variable": np.asarray(variable)[:1],
-            "lat": total_coords["lat"],
-            "lon": total_coords["lon"][:180],
-        }
-    )
-    partial_data = torch.randn((1, 1, 1, 180, 180), device=device)
-    nc.write(partial_data, partial_coords, array_name)
-    assert np.allclose(nc[array_name][0, 0, 0, :, :180], partial_data.to("cpu").numpy())
-
-    xx, _ = nc.read(partial_coords, array_name, device=device)
-    assert torch.allclose(partial_data, xx)
-
-    nc.close()
-
-    # Test Directory Store
-    with tempfile.TemporaryDirectory() as td:
-        file_name = os.path.join(td, "temp_nc.nc")
-
-        nc = NetCDF4Backend(file_name)
-        assert isinstance(nc.root, netCDF4.Dataset)
-
-        # Instantiate
-        array_name = "fields"
-        nc.add_array(total_coords, array_name)
-
-        # Check instantiation
-        for dim in total_coords:
-            assert dim in nc
-            assert dim in nc.coords
-            assert nc[dim].shape == total_coords[dim].shape
-
-        assert array_name in nc
-        assert nc[array_name].shape == tuple(
-            [len(val) for val in total_coords.values()]
-        )
-
-        # Test writing
-        partial_coords = OrderedDict(
-            {
-                "time": np.asarray(time)[:1],
-                "lead_time": np.asarray(lead_time)[:1],
-                "variable": np.asarray(variable)[:1],
-                "lat": total_coords["lat"],
-                "lon": total_coords["lon"][:180],
-            }
-        )
-        partial_data = torch.randn((1, 1, 1, 180, 180), device=device)
-        nc.write(partial_data, partial_coords, array_name)
-        assert np.allclose(
-            nc[array_name][0, 0, 0, :, :180], partial_data.to("cpu").numpy()
-        )
-        nc.close()
-
-        nc = NetCDF4Backend(file_name)
-        for coord in nc.coords:
-            assert np.all(total_coords[coord] == nc.coords[coord])
-
-
-@pytest.mark.parametrize(
-    "time",
-    [
-        [np.datetime64("1958-01-31T00:00:00")],
-        [np.datetime64("1971-06-01T06:00:00"), np.datetime64("2021-11-23T12:00:00")],
-    ],
-)
-@pytest.mark.parametrize(
-    "variable",
-    [
-        ["t2m"],
-        ["t2m", "tcwv"],
-    ],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_netcdf4_variable(
-    time: list[np.datetime64], variable: list[str], device: str
-) -> None:
-
-    total_coords = OrderedDict(
-        {
-            "time": np.asarray(time),
-            "variable": np.asarray(variable),
-            "lat": np.linspace(-90, 90, 180),
-            "lon": np.linspace(0, 360, 360, endpoint=False),
-        }
-    )
-
-    # Remove var names
-    coords = total_coords.copy()
-    var_names = coords.pop("variable")
-
-    # Test Memory Store
-    nc = NetCDF4Backend(
-        "inmemory.nc", backend_kwargs={"mode": "w", "diskless": True, "persist": False}
-    )
-    assert isinstance(nc.root, netCDF4.Dataset)
-
-    nc.add_array(coords, var_names)
-    for dim in coords:
-        assert nc.coords[dim].shape == coords[dim].shape
-
-    for var_name in var_names:
-        assert var_name in nc
-        assert nc[var_name].shape == tuple([len(values) for values in coords.values()])
-
-    # Test writing
-    partial_coords = OrderedDict(
-        {
-            "time": np.asarray(time)[:1],
-            "variable": np.asarray(variable)[:1],
-            "lat": total_coords["lat"],
-            "lon": total_coords["lon"][:180],
-        }
-    )
-    partial_data = torch.randn((1, 1, 180, 180), device=device)
-    nc.write(*split_coords(partial_data, partial_coords, "variable"))
-    assert np.allclose(nc[variable[0]][0, :, :180], partial_data.to("cpu").numpy())
-    nc.close()
-
-    # Test Directory Store
-    with tempfile.TemporaryDirectory() as td:
-        file_name = os.path.join(td, "temp_nc.nc")
-        nc = NetCDF4Backend(file_name)
-        assert isinstance(nc.root, netCDF4.Dataset)
-
-        nc.add_array(coords, var_names)
-        for dim in coords:
-            assert nc.coords[dim].shape == coords[dim].shape
-
-        for var_name in var_names:
-            assert var_name in nc
-            assert nc[var_name].shape == tuple(
-                [len(values) for values in coords.values()]
+        with xr.open_dataset(copied_path) as dataset:
+            np.testing.assert_array_equal(
+                dataset["t2m"].values, field.sel(variable="t2m").values
             )
+    finally:
+        io.close()
 
-        # Test writing
-        partial_coords = OrderedDict(
-            {
-                "time": np.asarray(time)[:1],
-                "variable": np.asarray(variable)[:1],
-                "lat": total_coords["lat"],
-                "lon": total_coords["lon"][:180],
-            }
+
+def test_netcdf4_reopen(tmp_path: Path) -> None:
+    # A reopened store keeps its coordinates, so add_array is a no-op and
+    # writes continue where they left off
+    path = tmp_path / "store.nc"
+    io = NetCDF4Backend(path, backend_kwargs={"mode": "w"})
+    first = make_field(time=TIMES[:1], seed=1)
+    io.add_array(make_template())
+    io.write(first)
+    io.close()
+
+    io = NetCDF4Backend(path)
+    np.testing.assert_array_equal(io.to_xarray()["time"].values, TIMES)
+    io.add_array(make_template())
+    assert len(io) == 6
+    second = make_field(time=TIMES[1:], seed=2)
+    io.write(second)
+    io.close()
+
+    with xr.open_dataset(path) as dataset:
+        stored = dataset["t2m"]
+        assert stored.time.dtype == np.dtype("datetime64[ns]")
+        np.testing.assert_array_equal(
+            stored.sel(time=TIMES[0]).values, first.sel(variable="t2m").values[0]
         )
-        partial_data = torch.randn((1, 1, 180, 180), device=device)
-        nc.write(*split_coords(partial_data, partial_coords, "variable"))
-        assert np.allclose(nc[variable[0]][0, :, :180], partial_data.to("cpu").numpy())
-        nc.close()
+        np.testing.assert_array_equal(
+            stored.sel(time=TIMES[1]).values, second.sel(variable="t2m").values[0]
+        )
 
 
-@pytest.mark.parametrize(
-    "mode",
-    ["r+", "w"],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])  #
-def test_netcdf4_file(mode: str, device: str, tmp_path: str) -> None:
-    time = [np.datetime64("1958-01-31T00:00:00")]
-    variable = ["t2m", "tcwv"]
-    total_coords = OrderedDict(
-        {
-            "time": np.asarray(time),
-            "variable": np.asarray(variable),
-            "lat": np.linspace(-90, 90, 180),
-            "lon": np.linspace(0, 360, 360, endpoint=False),
-        }
+def test_netcdf4_cf_time_encoding(tmp_path: Path) -> None:
+    # Labels are stored as CF nanosecond integers, which cftime also reads
+    path = tmp_path / "store.nc"
+    io = NetCDF4Backend(path, backend_kwargs={"mode": "w"})
+    io.add_array(make_template())
+    io.close()
+
+    with netCDF4.Dataset(path) as dataset:
+        time = dataset["time"]
+        assert time.units == TIME_UNITS
+        assert time.calendar == TIME_CALENDAR
+        np.testing.assert_array_equal(
+            time[:], TIMES.astype("datetime64[ns]").astype("int64")
+        )
+        assert dataset["lead_time"].units == LEAD_TIME_UNITS
+
+    with xr.open_dataset(path) as dataset:
+        assert dataset["time"].dtype == np.dtype("datetime64[ns]")
+        assert dataset["lead_time"].dtype == np.dtype("timedelta64[ns]")
+        np.testing.assert_array_equal(dataset["time"].values, TIMES)
+        np.testing.assert_array_equal(dataset["lead_time"].values, LEADS)
+
+
+def test_netcdf4_json_attributes(tmp_path: Path) -> None:
+    # netCDF cannot store lists or dictionaries, so they become JSON strings
+    io = NetCDF4Backend(tmp_path / "store.nc", backend_kwargs={"mode": "w"})
+    io.add_array(make_template().assign_attrs(levels=[100, 200], extra={"a": 1}))
+    io.flush()
+    stored = io.to_xarray()["t2m"]
+    assert stored.attrs["units"] == "K"
+    assert json.loads(stored.attrs["levels"]) == [100, 200]
+    assert json.loads(stored.attrs["extra"]) == {"a": 1}
+    assert json.loads(stored.attrs["dims"]) == ["lat", "lon"]
+    io.close()
+
+
+def test_netcdf4_auxiliary_coordinates(tmp_path: Path) -> None:
+    # Auxiliary coordinates are listed in the CF coordinates attribute
+    io = NetCDF4Backend(tmp_path / "store.nc", backend_kwargs={"mode": "w"})
+    latitude = np.arange(12.0).reshape(3, 4)
+    io.add_array(
+        coord_array(
+            ("y", "x"),
+            {
+                "lat": (("y", "x"), latitude),
+                "lon": (("y", "x"), latitude + 100.0),
+            },
+            name="t2m",
+        )
+    )
+    assert io["t2m"].coordinates == "lat lon"
+    io.flush()
+    stored = io.to_xarray()["t2m"]
+    assert set(stored.coords) == {"lat", "lon"}
+    np.testing.assert_array_equal(stored.coords["lat"].values, latitude)
+    io.close()
+
+
+def test_netcdf4_dimension_size_conflict(tmp_path: Path) -> None:
+    io = NetCDF4Backend(tmp_path / "store.nc", backend_kwargs={"mode": "w"})
+    io.add_array(coord_array(("sample",), sizes={"sample": 3}, name="seed"))
+    with pytest.raises(ValueError, match="size 3"):
+        io.add_array(coord_array(("sample",), sizes={"sample": 4}, name="other"))
+    io.close()
+
+
+def test_netcdf4_closed(tmp_path: Path) -> None:
+    path = tmp_path / "store.nc"
+    io = NetCDF4Backend(path, backend_kwargs={"mode": "w"})
+    io.add_array(make_template())
+    field = make_field()
+    io.write(field)
+    io.close()
+    io.close()
+
+    with pytest.raises(RuntimeError):
+        io.write(field)
+    with pytest.raises(RuntimeError):
+        io.add_array(make_template())
+    with pytest.raises(RuntimeError):
+        io.read(make_template())
+    # A closed store is reopened from its file
+    np.testing.assert_array_equal(
+        io.to_xarray()["t2m"].values, field.sel(variable="t2m").values
     )
 
-    # Test File Store
-    nc = NetCDF4Backend(tmp_path / "test.nc", backend_kwargs={"mode": mode})
-    assert isinstance(nc.root, netCDF4.Dataset)
 
-    shape = tuple([len(values) for values in total_coords.values()])
-    array_name = "fields"
-    dummy = torch.randn(shape, device=device, dtype=torch.float32)
-    nc.add_array(total_coords, array_name, data=dummy)
-    nc.close()
-
-    # Check to see if write mode overwrites netCDF
-    nc = NetCDF4Backend(tmp_path / "test.nc", backend_kwargs={"mode": mode})
-    nc.add_array(total_coords, array_name, data=dummy)
-    nc.close()
-
-
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])  #
-def test_netcdf4_calendar(device: str, tmp_path: str) -> None:
-    time = [np.datetime64("1958-01-31T00:00:00")]
-    lead_time = [np.timedelta64(1, "h")]
-    variable = ["t2m", "tcwv"]
-    total_coords = OrderedDict(
-        {
-            "time": np.asarray(time),
-            "lead_time": np.asarray(lead_time),
-            "variable": np.asarray(variable),
-            "lat": np.linspace(-90, 90, 180),
-            "lon": np.linspace(0, 360, 360, endpoint=False),
-        }
-    )
-
-    # Test File Store
-    nc = NetCDF4Backend(tmp_path / "test.nc", backend_kwargs={"mode": "w"})
-    assert isinstance(nc.root, netCDF4.Dataset)
-
-    shape = tuple([len(values) for values in total_coords.values()])
-    array_name = "fields"
-    dummy = torch.randn(shape, device=device, dtype=torch.float32)
-    nc.add_array(total_coords, array_name, data=dummy)
-    nc.close()
-
-    # Check that the calendar matches with xarray and netCDF4
-    ds = xarray.open_dataset(tmp_path / "test.nc")
-    xarray_time = ds.time[0].values
-    xarray_lead_time = ds.lead_time[0].values
-    assert xarray_time == np.asarray(time)
-    assert xarray_lead_time == np.asarray(lead_time)
-
-    # Convert to datetime
-    _unix = np.datetime64(0, "s")
-    _ds = np.timedelta64(1, "s")
-    xarray_datetime = datetime.utcfromtimestamp((xarray_time - _unix) / _ds)
-
-    # Get the time from netCDF4
-    netcdf4_hours = netCDF4.Dataset(tmp_path / "test.nc")["time"][0].data.item()
-    netcdf4_datetime = datetime(1, 1, 1) + timedelta(hours=netcdf4_hours)
-    assert xarray_datetime == netcdf4_datetime
-
-
-@pytest.mark.parametrize(
-    "time",
-    [
-        [np.datetime64("1958-01-31")],
-        [np.datetime64("1971-06-01T06:00:00"), np.datetime64("2021-11-23T12:00:00")],
-    ],
-)
-@pytest.mark.parametrize(
-    "variable",
-    [["t2m"], ["t2m", "tcwv"]],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_netcdf4_exceptions(
-    time: list[np.datetime64], variable: list[str], device: str
-) -> None:
-
-    total_coords = OrderedDict(
-        {
-            "time": np.asarray(time),
-            "variable": np.asarray(variable),
-            "lat": np.linspace(-90, 90, 180),
-            "lon": np.linspace(0, 360, 360, endpoint=False),
-        }
-    )
-
-    # Test Memory Store
-    nc = NetCDF4Backend(
-        "inmemory.nc", backend_kwargs={"mode": "w", "diskless": True, "persist": False}
-    )
-    assert isinstance(nc.root, netCDF4.Dataset)
-
-    # Test mismatch between len(array_names) and len(data)
-    shape = tuple([len(values) for values in total_coords.values()])
-    array_name = "fields"
-    dummy = torch.randn(shape, device=device, dtype=torch.float32)
-    with pytest.raises(ValueError):
-        nc.add_array(total_coords, array_name, data=[dummy] * 2)
-
-    # Test trying to add the same array twice.
-    nc.add_array(
-        total_coords,
-        ["dummy_1"],
-        data=[dummy],
-    )
-    nc.add_array(
-        total_coords,
-        ["dummy_1"],
-        data=[dummy + 1.0],
-    )
-    assert np.allclose(nc["dummy_1"][:], dummy.cpu().numpy())
-
-    # Try to write with bad coords
-    bad_coords = {"ensemble": np.arange(0)} | total_coords
-    bad_shape = (1,) + shape
-    dummy = torch.randn(bad_shape, device=device, dtype=torch.float32)
-    with pytest.raises(AssertionError):
-        nc.write(dummy, bad_coords, "dummy_1")
-
-    # Try to write with too many array names
-    with pytest.raises(ValueError):
-        nc.write([dummy, dummy], bad_coords, "dummy_1")
-
-    nc.close()
-
-
-@pytest.mark.parametrize(
-    "time",
-    [
-        [np.datetime64("1958-01-31T00:00:00")],
-        [np.datetime64("1971-06-01T06:00:00"), np.datetime64("2021-11-23T12:00:00")],
-    ],
-)
-@pytest.mark.parametrize(
-    "lead_time",
-    [
-        np.array([np.timedelta64(0, "h")]),
-        np.array([np.timedelta64(-6, "h"), np.timedelta64(0, "h")]),
-    ],
-)
-@pytest.mark.parametrize(
-    "variable",
-    [
-        ["t2m"],
-        ["t2m", "tcwv"],
-    ],
-)
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_netcdf4_fields_multidim(
-    time: list[np.datetime64],
-    lead_time: list[np.datetime64],
-    variable: list[str],
-    device: str,
-) -> None:
-
-    lat = np.linspace(-90, 90, 180)
-    lon = np.linspace(0, 360, 360, endpoint=False)
-    LON, LAT = np.meshgrid(lon, lat)
-
-    total_coords = OrderedDict(
-        {
-            "time": np.asarray(time),
-            "lead_time": lead_time,
-            "variable": np.asarray(variable),
-            "lat": LAT,
-            "lon": LON,
-        }
-    )
-
-    adjusted_coords, _ = convert_multidim_to_singledim(total_coords)
-
-    # Test Memory Store
-    nc = NetCDF4Backend(
-        "inmemory.nc", backend_kwargs={"mode": "w", "diskless": True, "persist": False}
-    )
-    assert isinstance(nc.root, netCDF4.Dataset)
-
-    # Instantiate
-    array_name = "fields"
-    nc.add_array(total_coords, array_name)
-
-    # Check instantiation
-    for dim in adjusted_coords:
-        assert dim in nc
-        assert dim in nc.coords
-        assert nc[dim].shape == adjusted_coords[dim].shape
-
-    # Test __contains__
-    assert array_name in nc
-
-    # Test __getitem__
-    shape = tuple([len(dim) for dim in adjusted_coords.values()])
-    assert nc[array_name].shape == shape
-
-    # Test __len__
-    assert len(nc) == 8
-
-    # Test __iter__
-    for array in nc:
-        assert array in [
-            "fields",
-            "time",
-            "lead_time",
-            "variable",
-            "ilat",
-            "ilon",
-            "lat",
-            "lon",
-        ]
-
-    # Test add_array with torch.Tensor
-    nc.add_array(
-        total_coords,
-        "dummy_1",
-        data=torch.randn(shape, device=device, dtype=torch.float32),
-    )
-
-    assert "dummy_1" in nc
-    assert nc["dummy_1"].shape == shape
-
-    # Test writing
-
-    # Test full write
-    x = torch.randn(shape, device=device, dtype=torch.float32)
-    nc.write(x, adjusted_coords, array_name)
-
-    xx, _ = nc.read(adjusted_coords, array_name, device=device)
-    assert torch.allclose(x, xx)
-
-    # Test separate write
-    nc.write(x, total_coords, "fields_1")
-    assert "fields_1" in nc
-    assert nc["fields_1"].shape == x.shape
-
-    xx, _ = nc.read(total_coords, "fields_1", device=device)
-    assert torch.allclose(x, xx)
-
-    nc.close()
-
-
-def test_netcdf4_write_uninitialized_array(tmp_path: str) -> None:
-    lat = np.arange(4)
-    lon = np.arange(10)
-    coords = OrderedDict({"lat": lat, "lon": lon})
-
-    nc_path = tmp_path / "uninitialized.nc"
-    nc = NetCDF4Backend(nc_path, backend_kwargs={"mode": "w"})
-    nc.add_array(coords, ["init"])
-
-    nc.write(
-        torch.zeros((4, 2), dtype=torch.float32),
-        {"lat": lat, "lon": lon[:2]},
-        "init",
-    )
-    nc.write(
-        torch.ones((4, 5), dtype=torch.float32),
-        {"lat": lat, "lon": lon[:5]},
-        "newvar",
-    )
-    nc.close()
-
-    # Verify via xarray
-    ds = xarray.open_dataset(nc_path)
-    assert "init" in ds.data_vars
-    assert "newvar" in ds.data_vars
-    assert np.allclose(ds["init"].isel(lon=slice(0, 2)).values, 0.0)
-    assert np.allclose(ds["newvar"].isel(lon=slice(0, 5)).values, 1.0)
+def test_netcdf4_read_partial(tmp_path: Path) -> None:
+    io = NetCDF4Backend(tmp_path / "store.nc", backend_kwargs={"mode": "w"})
+    io.add_array(make_template())
+    field = make_field()
+    io.write(field)
+    selection = {
+        "time": TIMES[::-1],
+        "lead_time": LEADS[[2, 0]],
+        "variable": ["t2m"],
+        "lat": GRID.coords()["lat"].values,
+        "lon": np.arange(2.0),
+    }
+    result = io.read(selection)
+    expected = field.sel(selection)
+    assert result.dims == tuple(selection)
+    np.testing.assert_array_equal(result.values, expected.values)
+    assert result.attrs["units"] == "K"
+    io.close()

@@ -14,52 +14,150 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
+"""Private helpers shared by statistics and metrics"""
 
-from earth2studio.utils.type import CoordSystem
+from collections.abc import Mapping, Sequence
+from typing import Any
+
+import numpy as np
+import torch
+import xarray as xr
+
+from earth2studio.utils.coords import E2S_DYNAMIC_DIMS, coord_array, handshake_coords
+from earth2studio.utils.type import CoordinateSystem
 
 
 def _broadcast_weights(
-    weights: torch.Tensor, rd: list[str], coords: CoordSystem
+    weights: torch.Tensor | np.ndarray | None,
+    rd: list[str],
+    x: xr.DataArray,
+    device: torch.device,
 ) -> torch.Tensor:
-    """
-    Broadcast weights to appropriate dimensions. This is meant for internal use.
+    shape = [x.sizes[d] if d in rd else 1 for d in x.dims]
+    if weights is None:
+        return torch.ones(shape, device=device)
+    dim_shapes = [x.sizes[d] for d in x.dims if d in rd]
+    if list(weights.shape) != dim_shapes:
+        raise AssertionError(
+            "Error, weights have don't have an appropriate shape.\n"
+            + f"weights have shape {weights.shape} but should have shape {dim_shapes}."
+        )
+    weights_t = torch.as_tensor(weights, device=device)
+    if weights_t.dtype in (torch.float16, torch.bfloat16):
+        weights_t = weights_t.float()
+    return weights_t.reshape(shape)
+
+
+def _output_signature(
+    template: CoordinateSystem,
+    remove: Sequence[str] = (),
+    add: "Mapping[str, Any] | None" = None,
+    add_first: bool = False,
+    dtype: Any = None,
+) -> CoordinateSystem:
+    """Build the output coordinate system of a statistic
 
     Parameters
     ----------
-    weights : torch.Tensor
-        A tensor contains weights to broadcast to shape of coords. Can also
-        be None, in which a 1.0 is returned.
-    rd : List[str]
-        A list of dimension names corresponding to the dimensions of weights.
-    coords : CoordSystem
-        An ordered dict containing dimensions and coordinates that the weights
-        will be broadcasted to.
+    template : CoordinateSystem
+        Input coordinate system (or data)
+    remove : Sequence[str]
+        Dimensions removed by the statistic. Coordinates depending on these
+        dimensions are removed as well.
+    add : Mapping[str, Any] | None
+        New one dimensional dimensions / coordinates to add, by default None
+    add_first : bool
+        Place the added dimensions at the front of the output rather than the
+        end, by default False
+    dtype : Any
+        Output dtype, defaults to template dtype
+
+    Returns
+    -------
+    CoordinateSystem
+        Allocation-free coordinate signature
     """
-    if weights is None:
-        return torch.ones([len(v) if c in rd else 1 for c, v in coords.items()])
-    else:
-        dim_shapes = [len(v) for c, v in coords.items() if c in rd]
-        if list(weights.shape) != dim_shapes:
-            raise AssertionError(
-                "Error, weights have don't have an appropriate shape.\n"
-                + f"weights have shape {weights.shape} but should have shape {dim_shapes}."
-            )
-        rs = [slice(len(v)) if c in rd else None for c, v in coords.items()]
-        return weights[rs]
+    for d in remove:
+        if d not in template.dims:
+            raise KeyError(f"Dimension {d} not found in input coordinates")
+    dims = [d for d in template.dims if d not in remove]
+    coords: dict[str, Any] = {
+        key: val.variable
+        for key, val in template.coords.items()
+        if key not in remove and set(val.dims) <= set(dims)
+    }
+    sizes = {d: template.sizes[d] for d in dims}
+    new_dims: list[str] = []
+    for key, val in (add or {}).items():
+        new_dims.append(key)
+        coords[key] = np.asarray(val)
+    dims = new_dims + dims if add_first else dims + new_dims
+    dynamic = tuple(d for d in template.attrs.get(E2S_DYNAMIC_DIMS, ()) if d in dims)
+    if tuple(dims[: len(dynamic)]) != dynamic:
+        dynamic = ()
+    return coord_array(
+        dims,
+        coords,
+        dynamic=dynamic,
+        sizes=sizes,
+        dtype=template.dtype if dtype is None else dtype,
+    )
 
 
 def _spatial_dims_to_end(
-    x: torch.Tensor, coords: CoordSystem, spatial_dimensions: tuple[str, str]
-) -> tuple[torch.Tensor, CoordSystem]:
-    """Permute spatial dimensions to last two dimensions."""
-    coords = coords.copy()
-    dims = list(range(x.ndim))
-    coord_list = list(coords)
-    for dim_name in spatial_dimensions:
-        dim_index = coord_list.index(dim_name)
-        dims.remove(dim_index)
-        dims.append(dim_index)
-        coords.move_to_end(dim_name)
-    x = x.permute(*dims).contiguous()
-    return (x, coords)
+    x: xr.DataArray, spatial_dimensions: Sequence[str]
+) -> xr.DataArray:
+    """Permute spatial dimensions to the last dimensions."""
+    order = [d for d in x.dims if d not in spatial_dimensions] + list(
+        spatial_dimensions
+    )
+    return x.transpose(*order)
+
+
+def _align_xy(
+    x: xr.DataArray, y: xr.DataArray, ensemble_dimension: str | None = None
+) -> xr.DataArray:
+    """Check that x (ignoring an optional ensemble dimension) and y share dimensions
+    and coordinates, returning y transposed into the dimension order of x.
+
+    Parameters
+    ----------
+    x : xr.DataArray
+        Forecast / prediction
+    y : xr.DataArray
+        Observation / validation
+    ensemble_dimension : str | None
+        Dimension present only in x, by default None
+
+    Raises
+    ------
+    ValueError
+        If the ensemble dimension is missing in x or present in y or if the remaining
+        dimensions / coordinates are incompatible
+    """
+    if ensemble_dimension is not None:
+        if ensemble_dimension not in x.dims:
+            raise ValueError(
+                f"Ensemble dimension {ensemble_dimension} must be in x dimensions."
+            )
+        if ensemble_dimension in y.dims:
+            raise ValueError(
+                f"Ensemble dimension {ensemble_dimension} must not be in y dimensions."
+            )
+    x_dims = [d for d in x.dims if d != ensemble_dimension]
+    if set(x_dims) != set(y.dims):
+        raise ValueError(
+            f"Dimensions of x {tuple(x_dims)} and y {tuple(y.dims)} are incompatible."
+        )
+    y = y.transpose(*x_dims)
+    for d in x_dims:
+        if d in x.coords and d in y.coords:
+            try:
+                handshake_coords(x, y, d)
+            except (ValueError, KeyError) as e:
+                raise ValueError("Coordinates are incompatible.") from e
+        elif x.sizes[d] != y.sizes[d]:
+            raise ValueError("Coordinates are incompatible.")
+    for coord in {"lat", "lon"} & x.coords.keys() & y.coords.keys():
+        handshake_coords(x, y, coord)
+    return y

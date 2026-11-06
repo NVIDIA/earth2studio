@@ -14,20 +14,110 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
+from collections.abc import Sequence
 
 import numpy as np
 import torch
+import xarray as xr
 
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.grids import GridDefinition, LatLonGrid, resolve_grid
+from earth2studio.models.batch import batch_func
 from earth2studio.utils import (
-    handshake_coords,
-    handshake_dim,
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.interp import hybrid_pressure, interpolate_vertical
+from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 
-class DerivedWS(torch.nn.Module):
+class _DerivedDiagnostic(torch.nn.Module):
+    stochastic = False
+
+    def __init__(self, grid: str | GridDefinition) -> None:
+        super().__init__()
+        definition = resolve_grid(grid) if isinstance(grid, str) else grid
+        if len(definition.dims) != 2:
+            raise ValueError("Derived diagnostics require a two-dimensional grid")
+        self.grid = grid
+        self._spatial_dims = definition.dims
+
+    def default_sources(self) -> None:
+        """Return no recommended input data source.
+
+        Returns
+        -------
+        None
+            Input data sources are chosen by the caller.
+        """
+        return None
+
+    def input_coords(self) -> CoordinateSystem:
+        """Input coordinate system of the diagnostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature on the configured
+            spatial grid.
+        """
+        return coord_array(
+            ("batch", "variable", *self._spatial_dims),
+            {"variable": np.asarray(self.in_variables)},
+            dynamic=("batch",),
+            grid=self.grid,
+        )
+
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Output coordinate system of the diagnostic model.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform,
+            on the configured grid.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray output signature for the derived
+            variables, preserving leading dimensions and unaffected metadata
+            and coordinates.
+        """
+        handshake_dataarray(input_coords, self.input_coords())
+        output = coord_array_like(
+            input_coords, {"variable": np.asarray(self.out_variables)}
+        )
+        output.encoding = input_coords.encoding.copy()
+        return output
+
+    @torch.inference_mode()
+    @batch_func()
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Compute derived fields on the input device.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            NumPy- or CuPy-backed input with the declared trailing dimensions.
+
+        Returns
+        -------
+        xr.DataArray
+            Derived fields with the input name, encoding and unaffected metadata.
+        """
+        output_coords = self.output_coords(x)
+        tensor, _ = x.e2s.to_torch()
+        output = from_torch(self._compute(tensor), output_coords)
+        output.encoding = x.encoding.copy()
+        return output
+
+    def _compute(self, x: torch.Tensor) -> torch.Tensor:
+        raise NotImplementedError
+
+
+class DerivedWS(_DerivedDiagnostic):
     """Calculates the Wind Speed (WS) magnitude from eastward and northward wind
     components for specified levels. The calculation is based on the formula:
     ws = sqrt(u^2 + v^2)
@@ -38,6 +128,8 @@ class DerivedWS(torch.nn.Module):
         Pressure / height levels to compute WS for. The resulting expected input fields
         are u and v wind components pairs for each level. E.g. for level 100 the input
         fields should be [u100, v100], by default [100]
+    grid : str | GridDefinition, optional
+        Spatial grid configured before coordinate planning, by default "latlon-0.25deg"
 
     Badges
     ------
@@ -45,74 +137,27 @@ class DerivedWS(torch.nn.Module):
     provider:nvidia backend:pytorch
     """
 
-    def __init__(self, levels: list[int | str] = [100]) -> None:
-        super().__init__()
+    def __init__(
+        self,
+        levels: list[int | str] = [100],
+        grid: str | GridDefinition = "latlon-0.25deg",
+    ) -> None:
+        super().__init__(grid)
         self.levels = levels
         self.in_variables = []
         for input_level in [[f"u{level}", f"v{level}"] for level in levels]:
             self.in_variables.extend(input_level)
         self.out_variables = [f"ws{level}" for level in levels]
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of diagnostic model
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "variable": np.array(self.in_variables),
-                "lat": np.empty(0),
-                "lon": np.empty(0),
-            }
-        )
-
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of diagnostic model
-
-        Parameters
-        ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "variable", 1)
-        handshake_dim(input_coords, "lat", 2)
-        handshake_dim(input_coords, "lon", 3)
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        output_coords = input_coords.copy()
-        output_coords["variable"] = np.array(self.out_variables)
-        return output_coords
-
-    @torch.inference_mode()
-    @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Forward pass of diagnostic"""
-        output_coords = self.output_coords(coords)
+    def _compute(self, x: torch.Tensor) -> torch.Tensor:
         # This function expects [u, v] pairs
         u = x[..., ::2, :, :]
         v = x[..., 1::2, :, :]
         out_tensor = torch.sqrt(u**2 + v**2)
-        return out_tensor, output_coords
+        return out_tensor
 
 
-class DerivedRH(torch.nn.Module):
+class DerivedRH(_DerivedDiagnostic):
     """Calculates the relative humidity (RH) from specific humidity and temperature
     for specified pressure levels. Based on the calculations ECMWF uses in the IFS
     numerical simulator which accounts for estimating the water vapor and ice present
@@ -130,6 +175,8 @@ class DerivedRH(torch.nn.Module):
         hPa Pressure levels to compute RH. The resulting expected input fields
         are specific humidity and temperature pairs for each pressure level. E.g. for
         level 100 hPa the input fields should be [t100, q100], by default [100]
+    grid : str | GridDefinition, optional
+        Spatial grid configured before coordinate planning, by default "latlon-0.25deg"
 
     Badges
     ------
@@ -137,8 +184,12 @@ class DerivedRH(torch.nn.Module):
     provider:nvidia backend:pytorch
     """
 
-    def __init__(self, levels: list[int | str] = [100]) -> None:
-        super().__init__()
+    def __init__(
+        self,
+        levels: list[int | str] = [100],
+        grid: str | GridDefinition = "latlon-0.25deg",
+    ) -> None:
+        super().__init__(grid)
         self.levels = levels
         self.in_variables = []
         for input_level in [[f"t{level}", f"q{level}"] for level in levels]:
@@ -146,61 +197,15 @@ class DerivedRH(torch.nn.Module):
         self.out_variables = [f"r{level}" for level in levels]
         # Set up pressure levels tensor
         pressure_levels = [100 * float(level) for level in levels]
-        self.pressure_levels = torch.tensor(pressure_levels)[:, None, None]
+        # Keep Pa constants in full precision even when the module is cast to half.
+        self.pressure_levels = torch.tensor(pressure_levels, dtype=torch.float32)[
+            :, None, None
+        ]
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of diagnostic model
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "variable": np.array(self.in_variables),
-                "lat": np.empty(0),
-                "lon": np.empty(0),
-            }
-        )
-
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of diagnostic model
-
-        Parameters
-        ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "variable", 1)
-        handshake_dim(input_coords, "lat", 2)
-        handshake_dim(input_coords, "lon", 3)
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        output_coords = input_coords.copy()
-        output_coords["variable"] = np.array(self.out_variables)
-        return output_coords
-
-    @torch.inference_mode()
-    @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Forward pass of diagnostic"""
-        output_coords = self.output_coords(coords)
-
+    def _compute(self, x: torch.Tensor) -> torch.Tensor:
+        output_dtype = x.dtype
+        if x.dtype in (torch.float16, torch.bfloat16):
+            x = x.float()
         epsilon = 0.621981
         t = x[..., ::2, :, :]  # K
         q = x[..., 1::2, :, :]  # g/kg
@@ -216,10 +221,10 @@ class DerivedRH(torch.nn.Module):
         out_tensor = 100 * e / es
         out_tensor = torch.clamp(out_tensor, 0, 100)
 
-        return out_tensor, output_coords
+        return out_tensor.to(output_dtype)
 
 
-class DerivedRHDewpoint(torch.nn.Module):
+class DerivedRHDewpoint(_DerivedDiagnostic):
     """Calculates the surface relative humidity (RH) from dewpoint temperature and air
     temperature. This calculation is based on the August-Roche-Magnus approximation.
 
@@ -232,68 +237,23 @@ class DerivedRHDewpoint(torch.nn.Module):
     - https://doi.org/10.1175/1520-0450%281996%29035%3C0601%3AIMFAOS%3E2.0.CO%3B2 (Eq. 21)
     - https://en.wikipedia.org/wiki/Clausius%E2%80%93Clapeyron_relation#August%E2%80%93Roche%E2%80%93Magnus_formula
 
+    Parameters
+    ----------
+    grid : str | GridDefinition, optional
+        Spatial grid configured before coordinate planning, by default "latlon-0.25deg"
+
     Badges
     ------
     region:global product:atmos
     provider:nvidia backend:pytorch
     """
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, grid: str | GridDefinition = "latlon-0.25deg") -> None:
+        super().__init__(grid)
+        self.in_variables = ["t2m", "d2m"]
+        self.out_variables = ["r2m"]
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of diagnostic model
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "variable": np.array(["t2m", "d2m"]),
-                "lat": np.empty(0),
-                "lon": np.empty(0),
-            }
-        )
-
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of diagnostic model
-
-        Parameters
-        ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "variable", 1)
-        handshake_dim(input_coords, "lat", 2)
-        handshake_dim(input_coords, "lon", 3)
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        output_coords = input_coords.copy()
-        output_coords["variable"] = np.array(["r2m"])
-        return output_coords
-
-    @torch.inference_mode()
-    @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Forward pass of diagnostic"""
-        output_coords = self.output_coords(coords)
-
+    def _compute(self, x: torch.Tensor) -> torch.Tensor:
         t = x[..., ::2, :, :] - 273.16  # K -> C
         d = x[..., 1::2, :, :] - 273.16  # K -> C
 
@@ -308,10 +268,10 @@ class DerivedRHDewpoint(torch.nn.Module):
         out_tensor = torch.where(t < 0, e_cold / es_cold, e / es) * 100
         # Clamp to 0-100%
         out_tensor = torch.clamp(out_tensor, 0, 100)
-        return out_tensor, output_coords
+        return out_tensor
 
 
-class DerivedVPD(torch.nn.Module):
+class DerivedVPD(_DerivedDiagnostic):
     """Calculates the Vapor Pressure Deficit (VPD) in hPa from relative humidity
     and temperature fields. The calculation is based on the formula:
 
@@ -337,6 +297,8 @@ class DerivedVPD(torch.nn.Module):
         Pressure / height levels to compute VPD for. The resulting expected input fields
         are temperature and relative humidity pairs for each level. E.g. for level 100
         the input fields should be [t100, r100], by default [100]
+    grid : str | GridDefinition, optional
+        Spatial grid configured before coordinate planning, by default "latlon-0.25deg"
 
     Badges
     ------
@@ -344,66 +306,19 @@ class DerivedVPD(torch.nn.Module):
     provider:nvidia backend:pytorch
     """
 
-    def __init__(self, levels: list[int | str] = [100]) -> None:
-        super().__init__()
+    def __init__(
+        self,
+        levels: list[int | str] = [100],
+        grid: str | GridDefinition = "latlon-0.25deg",
+    ) -> None:
+        super().__init__(grid)
         self.levels = levels
         self.in_variables = []
         for input_level in [[f"t{level}", f"r{level}"] for level in levels]:
             self.in_variables.extend(input_level)
         self.out_variables = [f"vpd{level}" for level in levels]
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of diagnostic model
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "variable": np.array(self.in_variables),
-                "lat": np.empty(0),
-                "lon": np.empty(0),
-            }
-        )
-
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of diagnostic model
-
-        Parameters
-        ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "variable", 1)
-        handshake_dim(input_coords, "lat", 2)
-        handshake_dim(input_coords, "lon", 3)
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        output_coords = input_coords.copy()
-        output_coords["variable"] = np.array(self.out_variables)
-        return output_coords
-
-    @torch.inference_mode()
-    @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Forward pass of diagnostic"""
-        output_coords = self.output_coords(coords)
+    def _compute(self, x: torch.Tensor) -> torch.Tensor:
         # This function expects [temp, rh] pairs
         t = x[..., ::2, :, :]
         r = x[..., 1::2, :, :]
@@ -412,10 +327,10 @@ class DerivedVPD(torch.nn.Module):
         es = 6.11 * torch.exp((L / Rv) * ((1.0 / 273.16) - (1.0 / t)))
         out_tensor = es * ((100.0 - r) / 100.0)
 
-        return out_tensor, output_coords
+        return out_tensor
 
 
-class DerivedSurfacePressure(torch.nn.Module):
+class DerivedSurfacePressure(_DerivedDiagnostic):
     """Interpolates the surface pressure in hPa from pressure level geopotential,
     surface geopotential and optionally temperature. The calculation is based on
     linear interpolation of the logarithm of pressure, as well as an optional
@@ -460,7 +375,15 @@ class DerivedSurfacePressure(torch.nn.Module):
         temperature_correction: bool = True,
         corr_adjustment: tuple[float, float] = (3.4257e-5, 1.5224),
     ) -> None:
-        super().__init__()
+        if tuple(surface_geopotential_coords) != ("lat", "lon"):
+            raise ValueError(
+                "Surface geopotential coordinates must be ordered lat, lon"
+            )
+        super().__init__(
+            LatLonGrid(
+                surface_geopotential_coords["lat"], surface_geopotential_coords["lon"]
+            )
+        )
         self.temperature_correction = temperature_correction
         self.corr_adjustment = corr_adjustment
 
@@ -486,49 +409,6 @@ class DerivedSurfacePressure(torch.nn.Module):
             raise ValueError(
                 "The surface geopotential coordinates must match the size of the tensor."
             )
-
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of diagnostic model
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "variable": self.in_variables,
-                "lat": self.surface_geopotential_coords["lat"],
-                "lon": self.surface_geopotential_coords["lon"],
-            }
-        )
-
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of diagnostic model
-
-        Parameters
-        ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "variable", 1)
-        handshake_dim(input_coords, "lat", 2)
-        handshake_dim(input_coords, "lon", 3)
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        output_coords = input_coords.copy()
-        output_coords["variable"] = self.out_variables
-        return output_coords
 
     @torch.inference_mode()
     def _find_pressure_level_below(
@@ -613,19 +493,11 @@ class DerivedSurfacePressure(torch.nn.Module):
 
         return torch.exp(log_p).reshape(*data_shape)
 
-    @torch.inference_mode()
-    @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Forward pass of diagnostic"""
-        output_coords = self.output_coords(coords)
+    def _compute(self, x: torch.Tensor) -> torch.Tensor:
         num_levels = len(self.log_p_levels)
 
         # unpack inputs, swap variable dimension to dim 0, flatten batch dims to dim 1
-        variable_dim = list(coords).index("variable")
+        variable_dim = 1
         z_levels = x[:, :num_levels].transpose(0, variable_dim)
         shape = z_levels.shape
         flat_shape = (shape[0], np.prod(shape[1:-2]), *shape[-2:])
@@ -642,10 +514,10 @@ class DerivedSurfacePressure(torch.nn.Module):
             t_levels=t_levels if self.temperature_correction else None,
         ).reshape(output_shape)
 
-        return sp_pred, output_coords
+        return sp_pred
 
 
-class DerivedTCWV(torch.nn.Module):
+class DerivedTCWV(_DerivedDiagnostic):
     """Calculates the Total Column Water Vapor (TCWV) from specific humidity at
     pressure levels and surface pressure. The calculation is based on the vertical
     integration of specific humidity using the trapezoidal rule:
@@ -667,6 +539,8 @@ class DerivedTCWV(torch.nn.Module):
         Pressure levels (hPa) to use for the integration. They will be sorted
         internally from highest to lowest pressure. Default is
         [1000, 850, 700, 500, 300, 200, 100].
+    grid : str | GridDefinition, optional
+        Spatial grid configured before coordinate planning, by default "latlon-0.25deg"
 
     Badges
     ------
@@ -677,9 +551,11 @@ class DerivedTCWV(torch.nn.Module):
     g = 9.8067  # Earth's gravitational constant (m/s**2)
 
     def __init__(
-        self, levels: list[int] = [1000, 850, 700, 500, 300, 200, 100]
+        self,
+        levels: list[int] = [1000, 850, 700, 500, 300, 200, 100],
+        grid: str | GridDefinition = "latlon-0.25deg",
     ) -> None:
-        super().__init__()
+        super().__init__(grid)
         # Sort levels from highest to lowest pressure (descending)
         levels = sorted(levels, reverse=True)
         self.in_variables = [f"q{level}" for level in levels] + ["sp"]
@@ -691,59 +567,7 @@ class DerivedTCWV(torch.nn.Module):
         )
         self.register_buffer("plevels", plevels)
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of diagnostic model
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "variable": np.array(self.in_variables),
-                "lat": np.empty(0),
-                "lon": np.empty(0),
-            }
-        )
-
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of diagnostic model
-
-        Parameters
-        ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary
-        """
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "variable", 1)
-        handshake_dim(input_coords, "lat", 2)
-        handshake_dim(input_coords, "lon", 3)
-        handshake_coords(input_coords, target_input_coords, "variable")
-
-        output_coords = input_coords.copy()
-        output_coords["variable"] = np.array(self.out_variables)
-        return output_coords
-
-    @torch.inference_mode()
-    @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Forward pass of diagnostic"""
-        output_coords = self.output_coords(coords)
-
+    def _compute(self, x: torch.Tensor) -> torch.Tensor:
         q_levels = x[..., :-1, :, :]
         sp = x[..., -1, :, :]
         tcwv = torch.zeros_like(sp)
@@ -791,4 +615,172 @@ class DerivedTCWV(torch.nn.Module):
         # Divide by gravity to get TCWV in kg/m^2
         out_tensor = tcwv.unsqueeze(-3) / self.g
 
-        return out_tensor, output_coords
+        return out_tensor
+
+
+class DerivedPressureLevels(_DerivedDiagnostic):
+    """Interpolates fields from model or pressure levels onto pressure levels.
+
+    Interpolation is linear in the logarithm of pressure, column by column. Levels
+    are read from the lexicon's variable names: ``{variable}{p}`` on pressure
+    level ``p`` hPa, or ``{variable}{k}{level_suffix}`` on model level ``k``, such
+    as ``t12k`` (ERA5, ACE) or ``t12hl`` (HRRR). Outputs are
+    ``{variable}{p}`` on each target level. Inputs come in one of three forms:
+
+    - ``input_levels``: pressure levels, such as ``t850``.
+    - ``model_levels`` with ``a`` and ``b``: hybrid sigma-pressure model levels,
+      ``p = a + b * sp``, plus surface pressure ``sp`` in Pa as the last input.
+    - ``model_levels`` with ``pressure``: model levels of any kind whose pressure
+      the model publishes as a field on each level, such as HRRR's ``p{k}hl`` in
+      Pa.
+
+    Used between coupled models, it maps one model's levels onto another's.
+
+    Parameters
+    ----------
+    variables : list[str]
+        Variables to interpolate, such as ``["t", "u", "v"]``.
+    levels : list[float]
+        Target pressure levels in hPa.
+    input_levels : list[float] | None, optional
+        Pressure levels of the inputs in hPa, by default None
+    model_levels : list[int] | None, optional
+        Model level numbers of the inputs, as named in the lexicon (e.g. 1-137 for
+        ERA5), from the top of the model down, by default None
+    a : Sequence[float] | None, optional
+        Hybrid pressure coefficients in Pa: one per model level, or one per
+        interface (``len(model_levels) + 1``, as ECMWF publishes them), in which
+        case each level takes the mean pressure of its interfaces, by default None
+    b : Sequence[float] | None, optional
+        Hybrid surface-pressure coefficients, shaped like ``a``, by default None
+    pressure : str | None, optional
+        Variable holding each model level's pressure in Pa, by default None
+    level_suffix : str, optional
+        Suffix marking model levels in variable names, by default "k"; HRRR's
+        hybrid levels use "hl"
+    grid : str | GridDefinition, optional
+        Spatial grid configured before coordinate planning, by default
+        "latlon-0.25deg"
+    fill_value : float | None, optional
+        Value for target levels outside a column, such as below the surface, by
+        default None, which takes the nearest level's value.
+
+    Badges
+    ------
+    region:global product:atmos
+    provider:nvidia backend:pytorch
+    """
+
+    def __init__(
+        self,
+        variables: list[str],
+        levels: list[float],
+        input_levels: list[float] | None = None,
+        model_levels: list[int] | None = None,
+        a: Sequence[float] | None = None,
+        b: Sequence[float] | None = None,
+        pressure: str | None = None,
+        level_suffix: str = "k",
+        grid: str | GridDefinition = "latlon-0.25deg",
+        fill_value: float | None = None,
+    ) -> None:
+        super().__init__(grid)
+        if not variables:
+            raise ValueError("DerivedPressureLevels needs at least one variable")
+        if (input_levels is None) == (model_levels is None):
+            raise ValueError("Pass exactly one of input_levels and model_levels")
+        hybrid = a is not None or b is not None
+        if input_levels is not None and (hybrid or pressure is not None):
+            raise ValueError("a, b and pressure apply to model_levels only")
+        if model_levels is not None and hybrid == (pressure is not None):
+            raise ValueError("model_levels need either a and b, or pressure")
+        _check_pressure_levels(levels)
+        self.variables = list(variables)
+        self.levels = [float(level) for level in levels]
+        self.fill_value = fill_value
+        self.pressure = pressure
+        self.a = self.b = None
+        self.interfaces = False
+        if input_levels is not None:
+            _check_pressure_levels(input_levels)
+            self.input_levels: list[float] | None = [float(p) for p in input_levels]
+            names = [_level_name(level) for level in self.input_levels]
+        else:
+            self.input_levels = None
+            model_levels = [int(k) for k in model_levels]  # type: ignore[union-attr]
+            if len(model_levels) < 2 or len(set(model_levels)) != len(model_levels):
+                raise ValueError("model_levels needs at least two distinct levels")
+            names = [f"{k}{level_suffix}" for k in model_levels]
+            if hybrid:
+                self.a, self.b, self.interfaces = _hybrid_coefficients(
+                    a, b, len(model_levels)
+                )
+        self.nlevel = len(names)
+        self.in_variables = [f"{v}{name}" for v in self.variables for name in names]
+        if pressure is not None:
+            self.in_variables += [f"{pressure}{name}" for name in names]
+        if self.a is not None:
+            self.in_variables.append("sp")
+        self.out_variables = [
+            f"{v}{_level_name(level)}" for v in self.variables for level in self.levels
+        ]
+        # Pressures stay out of module buffers so a half-precision cast of the
+        # model cannot overflow them; they are built per call in float32 or wider.
+
+    def _compute(self, x: torch.Tensor) -> torch.Tensor:
+        nvar, nlevel = len(self.variables), self.nlevel
+        work = torch.promote_types(x.dtype, torch.float32)
+        values = x[..., : nvar * nlevel, :, :]
+        values = values.reshape(*x.shape[:-3], nvar, nlevel, *x.shape[-2:])
+        if self.a is not None:
+            surface = x[..., -1, :, :].to(work)
+            pressure = hybrid_pressure(self.a, self.b, surface, self.interfaces)  # type: ignore[arg-type]
+            pressure = pressure.movedim(-1, -3).unsqueeze(-4)
+        elif self.pressure is not None:
+            pressure = x[..., nvar * nlevel : (nvar + 1) * nlevel, :, :].to(work)
+            pressure = pressure.unsqueeze(-4)
+        else:
+            pressure = torch.tensor(self.input_levels, device=x.device, dtype=work)
+            pressure = pressure * 100.0
+        target = torch.tensor(self.levels, device=x.device, dtype=work) * 100.0
+        output = interpolate_vertical(
+            values, pressure, target, dim=-3, log=True, fill_value=self.fill_value
+        )
+        return output.reshape(*x.shape[:-3], -1, *x.shape[-2:])
+
+
+def _check_pressure_levels(levels: Sequence[float]) -> None:
+    levels = [float(level) for level in levels]
+    if not levels or min(levels) <= 0:
+        raise ValueError("Pressure levels must be positive")
+    if len(set(levels)) != len(levels):
+        raise ValueError(f"Pressure levels {levels} repeat a level")
+
+
+def _hybrid_coefficients(
+    a: Sequence[float] | None, b: Sequence[float] | None, nlevel: int
+) -> tuple[tuple[float, ...], tuple[float, ...], bool]:
+    """Validate hybrid coefficients given per level or per interface."""
+    if a is None or b is None or len(a) != len(b):
+        raise ValueError("Hybrid coefficients a and b must have equal length")
+    if len(a) not in (nlevel, nlevel + 1):
+        raise ValueError(
+            f"{len(a)} hybrid coefficients for {nlevel} model levels; pass one per "
+            "level or one per interface"
+        )
+    interfaces = len(a) == nlevel + 1
+    for surface in (50000.0, 110000.0):
+        pressure = hybrid_pressure(
+            a, b, torch.tensor(surface, dtype=torch.float64), interfaces
+        )
+        if (pressure <= 0).any() or (pressure.diff() <= 0).any():
+            raise ValueError(
+                "Hybrid coefficients must give positive pressure increasing "
+                "from the top of the model down"
+            )
+    return tuple(map(float, a)), tuple(map(float, b)), interfaces
+
+
+def _level_name(level: float) -> str:
+    """Lexicon suffix of a pressure level: ``850`` for 850 hPa, ``2.5`` for 2.5 hPa."""
+    return f"{level:g}"

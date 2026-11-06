@@ -20,6 +20,7 @@ from collections import OrderedDict
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
 from earth2studio.statistics import (
     Metric,
@@ -30,8 +31,66 @@ from earth2studio.statistics import (
     spread_skill_ratio,
 )
 from earth2studio.utils.coords import handshake_coords, handshake_dim
+from earth2studio.utils.cupy import backend, from_torch
 
 lat_weights = lat_weight(torch.as_tensor(np.linspace(-90.0, 90.0, 361)))
+
+
+@pytest.mark.parametrize("coordinate", [None, "lat", "lon"])
+def test_rmse_geographic_coordinates(coordinate) -> None:
+    x = xr.DataArray(
+        np.ones((2, 3)),
+        dims=("hrrr_y", "hrrr_x"),
+        coords={
+            "hrrr_y": np.arange(2),
+            "hrrr_x": np.arange(3),
+            "lat": (("hrrr_y", "hrrr_x"), np.arange(6).reshape(2, 3)),
+            "lon": (("hrrr_y", "hrrr_x"), np.arange(6).reshape(2, 3) + 10),
+        },
+    )
+    y = x.transpose("hrrr_x", "hrrr_y")
+    metric = rmse(["hrrr_y", "hrrr_x"])
+    if coordinate is None:
+        assert metric(x, y).e2s.to_torch()[0].item() == 0
+    else:
+        y = y.assign_coords({coordinate: y.coords[coordinate] + 1})
+        with pytest.raises(ValueError):
+            metric(x, y)
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize("metric", [rmse, mae])
+def test_error_metric_torch_autograd(device, metric) -> None:
+    tensor = torch.randn((3, 4, 6), device=device, requires_grad=True)
+    truth = torch.randn((4, 6), device=device, requires_grad=True)
+    coords = {"time": np.arange(4), "station": np.arange(6)}
+    with backend("torch"):
+        x = from_torch(tensor, {"ensemble": np.arange(3), **coords})
+        y = from_torch(truth, coords)
+        result = metric(["station"], ensemble_dimension="ensemble")(x, y)
+        result_t, _ = result.e2s.to_torch()
+        assert result_t.requires_grad
+        assert result_t.device == tensor.device
+
+    diff = tensor.mean(dim=0) - truth
+    expected = (
+        diff.square().mean(dim=1).sqrt() if metric is rmse else diff.abs().mean(dim=1)
+    )
+    torch.testing.assert_close(result_t, expected)
+    actual_grad = torch.autograd.grad(result_t.sum(), (tensor, truth))
+    expected_grad = torch.autograd.grad(expected.sum(), (tensor, truth))
+    for actual, reference in zip(actual_grad, expected_grad):
+        torch.testing.assert_close(actual, reference)
+
+
+def _check_output(metric: Metric, x: xr.DataArray, z: xr.DataArray) -> None:
+    """Check output DataArray against the allocation-free output signature"""
+    out = metric.output_coords(x)
+    assert z.dims == out.dims
+    assert z.shape == out.shape
+    for i, ci in enumerate(z.dims):
+        handshake_dim(out, ci, i)
+        handshake_coords(out, z, ci)
 
 
 @pytest.mark.parametrize("statistic", [rmse, mae])
@@ -49,8 +108,6 @@ def test_rmse(
     statistic: Metric, reduction_weights: tuple[list[str], np.ndarray], device: str
 ) -> None:
 
-    x = torch.randn((10, 1, 2, 361, 720), device=device)
-
     x_coords = OrderedDict(
         {
             "ensemble": np.arange(10),
@@ -60,36 +117,28 @@ def test_rmse(
             "lon": np.linspace(0.0, 360.0, 720, endpoint=False),
         }
     )
+    x = from_torch(torch.randn((10, 1, 2, 361, 720), device=device), x_coords)
 
     y_coords = copy.deepcopy(x_coords)
-    y = torch.randn((10, 1, 2, 361, 720), device=device)
+    y = from_torch(torch.randn((10, 1, 2, 361, 720), device=device), y_coords)
 
     reduction_dimensions, weights = reduction_weights
     if weights is not None:
         weights = weights.to(device)
     RMSE = statistic(reduction_dimensions, weights=weights)
 
-    z, c = RMSE(x, x_coords, y, y_coords)
-    assert not any([ri in c for ri in reduction_dimensions])
-    assert list(z.shape) == [len(val) for val in c.values()]
-
-    out_test_coords = RMSE.output_coords(x_coords)
-    for i, ci in enumerate(c):
-        handshake_dim(out_test_coords, ci, i)
-        handshake_coords(out_test_coords, c, ci)
+    z = RMSE(x, y)
+    assert not any([ri in z.dims for ri in reduction_dimensions])
+    assert z.dims == tuple(d for d in x.dims if d not in reduction_dimensions)
+    _check_output(RMSE, x, z)
 
     ## Test broadcasting
-    y = torch.randn((1, 1, 2, 361, 720), device=device)
     y_coords["ensemble"] = np.arange(1)
+    y = from_torch(torch.randn((1, 1, 2, 361, 720), device=device), y_coords)
 
-    z, c = RMSE(x, x_coords, y, y_coords)
-    assert not any([ri in c for ri in reduction_dimensions])
-    assert list(z.shape) == [len(val) for val in c.values()]
-
-    out_test_coords = RMSE.output_coords(x_coords)
-    for i, ci in enumerate(c):
-        handshake_dim(out_test_coords, ci, i)
-        handshake_coords(out_test_coords, c, ci)
+    # Non-matching ensemble coordinates are no longer broadcastable
+    with pytest.raises(ValueError):
+        RMSE(x, y)
 
 
 @pytest.mark.parametrize("statistic", [rmse, mae])
@@ -99,8 +148,6 @@ def test_rmse_ensemble(
     statistic: Metric, ensemble_dimension: str | None, device: str
 ) -> None:
 
-    x = torch.randn((10, 1, 2, 361, 720), device=device)
-
     x_coords = OrderedDict(
         {
             "ensemble": np.arange(10),
@@ -110,27 +157,22 @@ def test_rmse_ensemble(
             "lon": np.linspace(0.0, 360.0, 720, endpoint=False),
         }
     )
+    x = from_torch(torch.randn((10, 1, 2, 361, 720), device=device), x_coords)
 
-    y_coords = copy.deepcopy(x_coords)
     y_coords = copy.deepcopy(x_coords)
     if ensemble_dimension is not None:
         y_coords.pop(ensemble_dimension)
     y_shape = [len(y_coords[c]) for c in y_coords]
-    y = torch.randn(y_shape, device=device)
+    y = from_torch(torch.randn(y_shape, device=device), y_coords)
 
     RMSE = statistic(
         reduction_dimensions=["time", "lat", "lon"],
         ensemble_dimension=ensemble_dimension,
     )
 
-    z, c = RMSE(x, x_coords, y, y_coords)
-    assert ensemble_dimension not in c
-    assert list(z.shape) == [len(val) for val in c.values()]
-
-    out_test_coords = RMSE.output_coords(x_coords)
-    for i, ci in enumerate(c):
-        handshake_dim(out_test_coords, ci, i)
-        handshake_coords(out_test_coords, c, ci)
+    z = RMSE(x, y)
+    assert ensemble_dimension not in z.dims
+    _check_output(RMSE, x, z)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -145,28 +187,34 @@ def test_batch_mean(device: str) -> None:
         }
     )
 
-    y = torch.randn((10, 10), device=device)
+    y_t = torch.randn((10, 10), device=device)
     y_coords = OrderedDict({"lat": big_coords["lat"], "lon": big_coords["lon"]})
 
     RMSE = rmse(["ensemble"], batch_update=True)
     assert str(RMSE) == "ensemble_rmse"
     for inds in range(0, 100, 10):
-        x = big_x[inds : inds + 10]
         coords = big_coords.copy()
         coords["ensemble"] = coords["ensemble"][inds : inds + 10]
+        x = from_torch(big_x[inds : inds + 10], coords)
+        # y must share the dimensions of x, so broadcast it along ensemble
+        y = from_torch(y_t[None].expand(10, -1, -1).contiguous(), coords)
 
-        z, c = RMSE(x, coords, y, y_coords)
+        if inds == 0:
+            # y without the ensemble dimension is not compatible with x
+            with pytest.raises(ValueError):
+                RMSE(x, from_torch(y_t, y_coords))
+
+        z = RMSE(x, y)
         assert torch.allclose(
-            z,
-            torch.sqrt(torch.mean((big_x[: inds + 10] - y[None]) ** 2, dim=0)),
+            torch.as_tensor(z.e2s.to_torch()[0], device=device),
+            torch.sqrt(torch.mean((big_x[: inds + 10] - y_t[None]) ** 2, dim=0)),
             atol=1e-3,
         )
-        assert c == y_coords
+        assert z.dims == tuple(y_coords.keys())
+        for d, v in y_coords.items():
+            np.testing.assert_array_equal(z.coords[d].values, v)
 
-        out_test_coords = RMSE.output_coords(coords)
-        for i, ci in enumerate(c):
-            handshake_dim(out_test_coords, ci, i)
-            handshake_coords(out_test_coords, c, ci)
+        _check_output(RMSE, x, z)
 
 
 @pytest.mark.parametrize(
@@ -183,8 +231,6 @@ def test_spread_skill(
 ) -> None:
 
     n_ensemble = 2800
-    x = 3.0 + 2.0 * torch.randn((n_ensemble, 2, 2, 361, 90), device=device)
-
     x_coords = OrderedDict(
         {
             "ensemble": np.arange(n_ensemble),
@@ -196,10 +242,13 @@ def test_spread_skill(
             "lon": np.linspace(0.0, 360.0, 90, endpoint=False),
         }
     )
+    x = from_torch(
+        3.0 + 2.0 * torch.randn((n_ensemble, 2, 2, 361, 90), device=device), x_coords
+    )
 
     y_coords = copy.deepcopy(x_coords)
     y_coords.pop("ensemble")
-    y = 3.0 + 2.0 * torch.randn((2, 2, 361, 90), device=device)
+    y = from_torch(3.0 + 2.0 * torch.randn((2, 2, 361, 90), device=device), y_coords)
 
     ensemble_dimension = "ensemble"
     reduction_dimensions, weights = reduction_weights
@@ -209,15 +258,13 @@ def test_spread_skill(
         ensemble_dimension, reduction_dimensions, reduction_weights=weights
     )
 
-    z, c = SSR(x, x_coords, y, y_coords)
-    assert not any([ri in c for ri in ["ensemble"] + reduction_dimensions])
-    assert list(z.shape) == [len(val) for val in c.values()]
-    assert torch.allclose(z, torch.ones_like(z), rtol=1e-1, atol=1e-1)
+    z = SSR(x, y)
+    assert not any([ri in z.dims for ri in ["ensemble"] + reduction_dimensions])
+    z_t = torch.as_tensor(z.e2s.to_torch()[0])
+    assert list(z_t.shape) == list(z.shape)
+    assert torch.allclose(z_t, torch.ones_like(z_t), rtol=1e-1, atol=1e-1)
 
-    out_test_coords = SSR.output_coords(x_coords)
-    for i, ci in enumerate(c):
-        handshake_dim(out_test_coords, ci, i)
-        handshake_coords(out_test_coords, c, ci)
+    _check_output(SSR, x, z)
 
 
 @pytest.mark.parametrize(
@@ -234,8 +281,6 @@ def test_skill_spread(
 ) -> None:
 
     n_ensemble = 600
-    x = 3.0 + 2.0 * torch.randn((n_ensemble, 2, 2, 361, 720), device=device)
-
     x_coords = OrderedDict(
         {
             "ensemble": np.arange(n_ensemble),
@@ -247,10 +292,13 @@ def test_skill_spread(
             "lon": np.linspace(0.0, 360.0, 720, endpoint=False),
         }
     )
+    x = from_torch(
+        3.0 + 2.0 * torch.randn((n_ensemble, 2, 2, 361, 720), device=device), x_coords
+    )
 
     y_coords = copy.deepcopy(x_coords)
     y_coords.pop("ensemble")
-    y = 3.0 + 2.0 * torch.randn((2, 2, 361, 720), device=device)
+    y = from_torch(3.0 + 2.0 * torch.randn((2, 2, 361, 720), device=device), y_coords)
 
     ensemble_dimension = "ensemble"
     reduction_dimensions, weights = reduction_weights
@@ -260,14 +308,13 @@ def test_skill_spread(
         ensemble_dimension, reduction_dimensions, reduction_weights=weights
     )
 
-    z, c = SSR(x, x_coords, y, y_coords)
-    assert not any([ri in c for ri in ["ensemble"] + reduction_dimensions])
-    assert list(z.shape) == [len(val) for val in c.values()]
+    z = SSR(x, y)
+    assert not any([ri in z.dims for ri in ["ensemble"] + reduction_dimensions])
+    assert z.dims[0] == "metric"
+    np.testing.assert_array_equal(z.coords["metric"].values, ["mse", "variance"])
+    assert z.sizes["metric"] == 2
 
-    out_test_coords = SSR.output_coords(x_coords)
-    for i, ci in enumerate(c):
-        handshake_dim(out_test_coords, ci, i)
-        handshake_coords(out_test_coords, c, ci)
+    _check_output(SSR, x, z)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -282,8 +329,8 @@ def test_ensemble_batch_spread_skill(device) -> None:
         }
     )
 
-    y = torch.randn((10, 10), device=device)
     y_coords = OrderedDict({"lat": big_coords["lat"], "lon": big_coords["lon"]})
+    y = from_torch(torch.randn((10, 10), device=device), y_coords)
 
     ensemble_dimension = "ensemble"
     reduction_dimensions = ["lat", "lon"]
@@ -294,29 +341,28 @@ def test_ensemble_batch_spread_skill(device) -> None:
 
     assert str(SSR1) == "ensemble_lat_lon_spread_skill"
     for inds in range(0, 100, 10):
-        x1 = big_x[inds : inds + 10]
         coords1 = big_coords.copy()
         coords1["ensemble"] = coords1["ensemble"][inds : inds + 10]
+        x1 = from_torch(big_x[inds : inds + 10], coords1)
 
-        ss1, c1 = SSR1(x1, coords1, y, y_coords)
+        ss1 = SSR1(x1, y)
 
-        x2 = big_x[: inds + 10]
         coords2 = big_coords.copy()
         coords2["ensemble"] = coords2["ensemble"][: inds + 10]
-        ss2, c2 = SSR2(x2, coords2, y, y_coords)
+        x2 = from_torch(big_x[: inds + 10], coords2)
+        ss2 = SSR2(x2, y)
 
         assert torch.allclose(
-            ss1,
-            ss2,
+            torch.as_tensor(ss1.e2s.to_torch()[0], device=device),
+            torch.as_tensor(ss2.e2s.to_torch()[0], device=device),
             atol=1e-3,
         )
 
-        assert c1 == c2
+        assert ss1.dims == ss2.dims
+        assert ss1.shape == ss2.shape
+        xr.testing.assert_equal(ss1.coords.to_dataset(), ss2.coords.to_dataset())
 
-        out_test_coords = SSR1.output_coords(coords1)
-        for i, ci in enumerate(c1):
-            handshake_dim(out_test_coords, ci, i)
-            handshake_coords(out_test_coords, c1, ci)
+        _check_output(SSR1, x1, ss1)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -332,7 +378,7 @@ def test_time_batch_spread_skill(device) -> None:
         }
     )
 
-    y = torch.randn((100, 10, 10), device=device)
+    y_t = torch.randn((100, 10, 10), device=device)
     y_coords = OrderedDict(
         {"time": big_coords["time"], "lat": big_coords["lat"], "lon": big_coords["lon"]}
     )
@@ -346,35 +392,34 @@ def test_time_batch_spread_skill(device) -> None:
 
     assert str(SSR1) == "ensemble_time_lat_lon_spread_skill"
     for inds in range(0, 100, 10):
-        x1 = big_x[:, inds : inds + 10]
         coords1 = big_coords.copy()
         coords1["time"] = coords1["time"][inds : inds + 10]
+        x1 = from_torch(big_x[:, inds : inds + 10], coords1)
 
-        y1 = y[inds : inds + 10]
         y_coords1 = y_coords.copy()
         y_coords1["time"] = y_coords1["time"][inds : inds + 10]
+        y1 = from_torch(y_t[inds : inds + 10], y_coords1)
 
-        ss1, c1 = SSR1(x1, coords1, y1, y_coords1)
+        ss1 = SSR1(x1, y1)
 
-        x2 = big_x[:, : inds + 10]
         coords2 = big_coords.copy()
         coords2["time"] = coords2["time"][: inds + 10]
+        x2 = from_torch(big_x[:, : inds + 10], coords2)
 
-        y2 = y[: inds + 10]
         y_coords2 = y_coords.copy()
         y_coords2["time"] = y_coords2["time"][: inds + 10]
+        y2 = from_torch(y_t[: inds + 10], y_coords2)
 
-        ss2, c2 = SSR2(x2, coords2, y2, y_coords2)
+        ss2 = SSR2(x2, y2)
 
         assert torch.allclose(
-            ss1,
-            ss2,
+            torch.as_tensor(ss1.e2s.to_torch()[0], device=device),
+            torch.as_tensor(ss2.e2s.to_torch()[0], device=device),
             atol=1e-3,
         )
 
-        assert c1 == c2
+        assert ss1.dims == ss2.dims
+        assert ss1.shape == ss2.shape
+        xr.testing.assert_equal(ss1.coords.to_dataset(), ss2.coords.to_dataset())
 
-        out_test_coords = SSR1.output_coords(coords1)
-        for i, ci in enumerate(c1):
-            handshake_dim(out_test_coords, ci, i)
-            handshake_coords(out_test_coords, c1, ci)
+        _check_output(SSR1, x1, ss1)

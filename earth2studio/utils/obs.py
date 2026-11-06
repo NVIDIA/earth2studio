@@ -40,13 +40,10 @@ except ImportError:
     cp = None
 
 try:
-    from cupyx.scipy.interpolate import LinearNDInterpolator
+    from scipy.interpolate import LinearNDInterpolator
 except ImportError:
-    try:
-        from scipy.interpolate import LinearNDInterpolator
-    except ImportError:
-        OptionalDependencyFailure("utils", "linear")
-        LinearNDInterpolator = None
+    OptionalDependencyFailure("utils", "linear")
+    LinearNDInterpolator = None
 
 
 def filter_time_range(

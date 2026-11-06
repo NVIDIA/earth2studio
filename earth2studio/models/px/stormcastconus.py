@@ -15,34 +15,42 @@
 # limitations under the License.
 
 import types
-import warnings
-from collections import OrderedDict
 from collections.abc import Callable, Generator, Iterator
+from contextlib import contextmanager
+from copy import copy, deepcopy
 from datetime import datetime
 from itertools import product
-from typing import Any
+from typing import Any, Self
 
 import numpy as np
 import pandas as pd
 import torch
 import xarray as xr
 
-from earth2studio.data import GFS_FX, HRRR, DataSource, ForecastSource, fetch_data
+from earth2studio.data import DataSource, ForecastSource
+from earth2studio.grids import BilinearRegridder, ProjectedGrid, Region, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
-from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import (
-    handshake_coords,
-    handshake_dim,
-    handshake_size,
+from earth2studio.models.batch import batch_func
+from earth2studio.models.nn.corrdiff import (
+    dit_grid_constraints,
+    points_in_grid_footprint,
 )
-from earth2studio.utils.coords import map_coords
+from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.utils import fork_rng
+from earth2studio.utils import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_nonempty,
+    handshake_time,
+)
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
 from earth2studio.utils.obs import ObsGridMapping
-from earth2studio.utils.type import CoordSystem, TimeArray
+from earth2studio.utils.type import CoordinateSystem
 
 try:
     import physicsnemo.nn.module.dit_layers as _dit_layers
@@ -89,6 +97,23 @@ CONDITIONING_VARIABLES = ["u10m", "v10m", "t2m", "tcwv", "sp", "msl"] + [
 FULL_MODEL_HRRR_BBOX = ((17, 1041), (3, 1795))
 
 
+def _cover(lo: int, hi: int, n: int, patch: int, minimum: int) -> tuple[int, int]:
+    """Grow ``[lo, hi)`` within ``[0, n)`` to patch-aligned bounds of a minimum size.
+
+    Bounds snap outward to multiples of ``patch``; a window shorter than
+    ``minimum`` grows about its center, shifting inward at the edges.
+    """
+    lo, hi = max(lo, 0), min(hi, n)
+    lo, hi = lo - lo % patch, min(-(-hi // patch) * patch, n - n % patch)
+    size = min(-(-max(hi - lo, minimum) // patch) * patch, n - n % patch)
+    if hi - lo < size:
+        grow = size - (hi - lo)
+        lo -= (grow // 2) - (grow // 2) % patch
+        lo = min(max(lo, 0), n - n % patch - size)
+        hi = lo + size
+    return lo, hi
+
+
 @check_optional_dependencies()
 class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     """StormCast-CONUS generative convection-allowing model for the full CONUS domain.
@@ -97,8 +122,15 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     - High-resolution land-sea mask and orography invariants
     - Coarse resolution (25km) global state (26 vars)
 
-    The high-resolution grid is the HRRR Lambert conformal projection
-    Coarse-resolution inputs are regridded to the HRRR grid internally.
+    The high-resolution grid is the HRRR Lambert conformal projection.
+    Coarse-resolution conditioning must arrive on that grid; the source recommended
+    by ``default_sources()`` regrids it there.
+
+    The model is :class:`~earth2studio.models.base.DomainAdaptable`:
+    :meth:`with_region` returns a view on the block of the CONUS footprint covering
+    a geographic box, sharing the loaded networks, so views run in sequence, not
+    concurrently. ``hrrr_lat_lim`` / ``hrrr_lon_lim`` select an HRRR index window
+    at construction.
 
     Note
     ----
@@ -134,13 +166,6 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     conditioning_variables : np.ndarray, optional
         Low-resolution conditioning variable names, by default
         ``np.array(CONDITIONING_VARIABLES)``.
-    conditioning_data_source : DataSource or ForecastSource or None, optional
-        Data source for global conditioning. Required for inference, by default None.
-    conditioning_init_time : datetime, list[datetime], TimeArray, or None, optional
-        Fixed initialisation time for ``conditioning_data_source``. When None,
-        uses the same conditioning initialization time as the forecast. Useful when
-        the conditioning is from a forecast source available on a coarser cycle
-        (e.g. GFS_FX every 6 h while HRRR initialises hourly), by default None.
     sampler_args : dict, optional
         Overrides for the EDM sampler/scheduler. Recognised keys:
         ``sigma_min``, ``sigma_max``, ``rho`` (scheduler), and
@@ -194,8 +219,6 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         hrrr_lon_lim: tuple[int, int] = (3, 1795),
         variables: np.ndarray = np.array(VARIABLES),
         conditioning_variables: np.ndarray = np.array(CONDITIONING_VARIABLES),
-        conditioning_data_source: DataSource | ForecastSource | None = None,
-        conditioning_init_time: datetime | list[datetime] | TimeArray | None = None,
         sampler_args: dict[str, float | int] | None = None,
         num_diffusion_steps: int = 18,
         num_sda_diffusion_steps: int = 36,
@@ -265,34 +288,13 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
             self.diffusion_model.crop_model(crop_bbox)
 
-        hrrr_lat, hrrr_lon = HRRR.grid()
-        self.lat = hrrr_lat[
-            hrrr_lat_lim[0] : hrrr_lat_lim[1], hrrr_lon_lim[0] : hrrr_lon_lim[1]
-        ]
-        self.lon = hrrr_lon[
-            hrrr_lat_lim[0] : hrrr_lat_lim[1], hrrr_lon_lim[0] : hrrr_lon_lim[1]
-        ]
-        self.hrrr_x = HRRR.HRRR_X[hrrr_lon_lim[0] : hrrr_lon_lim[1]]
-        self.hrrr_y = HRRR.HRRR_Y[hrrr_lat_lim[0] : hrrr_lat_lim[1]]
-
+        self._set_grid(hrrr_lat_lim, hrrr_lon_lim)
         self.variables = variables
         self.conditioning_variables = conditioning_variables
-        self.conditioning_data_source = conditioning_data_source
-        if conditioning_data_source is None:
-            warnings.warn(
-                "No conditioning data source was provided to StormCastCONUS, "
-                "set the conditioning_data_source attribute of the model "
-                "before running inference."
-            )
-        self.conditioning_init_time = conditioning_init_time
         self.register_buffer("conditioning_means", conditioning_means)
         self.register_buffer("conditioning_stds", conditioning_stds)
 
-        # Cache grid limits and precomputed normalisation factors
-        self.hrrr_lat_lim = hrrr_lat_lim
-        self.hrrr_lon_lim = hrrr_lon_lim
-        self.register_buffer("lat_tensor", torch.as_tensor(self.lat))
-        self.register_buffer("lon_tensor", torch.as_tensor(self.lon))
+        # Precomputed normalisation factors
         self.register_buffer("mean_inv_std", -self.means / self.stds)
         self.register_buffer("inv_std", 1.0 / self.stds)
         self.register_buffer(
@@ -322,62 +324,224 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         self.use_amp = use_amp
         self.clamp_values = clamp_values
         self.refc_channel = list(variables).index("refc")
+        # Full-footprint geometry shared with regional views (see with_region)
+        self._footprint: dict[str, np.ndarray] | None = None
+        self._compiled = False
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system"""
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array([np.timedelta64(0, "h")]),
-                "variable": np.array(self.variables),
-                "hrrr_y": self.hrrr_y,
-                "hrrr_x": self.hrrr_x,
-            }
+    def _set_grid(
+        self, hrrr_lat_lim: tuple[int, int], hrrr_lon_lim: tuple[int, int]
+    ) -> None:
+        """Set the projected grid of the HRRR index window this model runs on."""
+        hrrr_grid = resolve_grid("hrrr")
+        if not isinstance(hrrr_grid, ProjectedGrid):
+            raise TypeError("The registered HRRR grid must be a ProjectedGrid")
+        self.grid = ProjectedGrid(
+            hrrr_grid.y[slice(*hrrr_lat_lim)],
+            hrrr_grid.x[slice(*hrrr_lon_lim)],
+            hrrr_grid.crs,
         )
+        grid_coords = self.grid.coords()
+        self.lat = np.asarray(grid_coords["lat"])
+        self.lon = np.asarray(grid_coords["lon"])
+        self.hrrr_lat_lim = hrrr_lat_lim
+        self.hrrr_lon_lim = hrrr_lon_lim
+        device = self.means.device
+        self.register_buffer("lat_tensor", torch.as_tensor(self.lat, device=device))
+        self.register_buffer("lon_tensor", torch.as_tensor(self.lon, device=device))
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of prognostic model
+    def _footprint_limits(self) -> tuple[tuple[int, int], tuple[int, int]]:
+        """HRRR index limits of the full footprint the networks were trained on."""
+        (y0, _), (x0, _) = FULL_MODEL_HRRR_BBOX
+        height, width = self.diffusion_model.full_grid_shape
+        return (y0, y0 + height), (x0, x0 + width)
+
+    def _full_footprint(self) -> dict[str, np.ndarray]:
+        """Full-footprint lat/lon, captured once and shared with views."""
+        if self._footprint is None:
+            (y0, y1), (x0, x1) = self._footprint_limits()
+            hrrr_grid = resolve_grid("hrrr")
+            if not isinstance(hrrr_grid, ProjectedGrid):
+                raise TypeError("The registered HRRR grid must be a ProjectedGrid")
+            coords = ProjectedGrid(
+                hrrr_grid.y[y0:y1], hrrr_grid.x[x0:x1], hrrr_grid.crs
+            ).coords()
+            self._footprint = {
+                "lat": np.asarray(coords["lat"]),
+                "lon": np.asarray(coords["lon"]),
+            }
+        return self._footprint
+
+    def with_region(self, region: Region) -> Self:
+        """Return a view of this model covering a geographic box.
+
+        The view shares the loaded sub-models and runs on the smallest block of
+        the full CONUS footprint containing the box: the cells whose centers lie
+        inside it plus one bracketing row and column per side, grown outward to
+        the DiT patch grid and to at least the attention kernel. Positional
+        embeddings stay whole on the shared networks; each forward selects the
+        view's portion. A view's ``with_region`` reaches the whole footprint.
+
+        Views share networks, so run them in sequence, not concurrently. Moving
+        one view moves the shared networks; the others follow on their next
+        forecast.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output coordinates.
+        region : Region
+            Box (:meth:`~earth2studio.grids.Region.box`) inside the CONUS
+            footprint, not crossing the antimeridian.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        Self
+            View whose ``hrrr_lat_lim`` / ``hrrr_lon_lim`` give its block on the
+            HRRR grid, with a copy of this model's :meth:`set_rng` stream.
+
+        Raises
+        ------
+        ValueError
+            If the region is not a box, is not inside the footprint, selects no
+            gridpoint, or the model cannot be cropped.
         """
+        if region.kind != "box":
+            raise ValueError(
+                f"{type(self).__name__} supports only box regions, not {region.kind!r}"
+            )
+        if not isinstance(self.diffusion_model, _SplitModelWrapper):
+            raise ValueError(
+                "Regional views require diffusion_model to be a _SplitModelWrapper"
+            )
+        west, south, east, north = region.params
+        # HRRR longitudes run 0-360 and do not cross the prime meridian
+        west, east = west % 360.0, east % 360.0
+        if west > east:
+            raise ValueError("Region box must not cross the antimeridian")
+        footprint = self._full_footprint()
+        lat, lon = footprint["lat"], footprint["lon"]
+        corner_lat = np.array([south, south, north, north])
+        corner_lon = np.array([west, east, west, east])
+        covered = points_in_grid_footprint(corner_lat, corner_lon, lat, lon)
+        if not covered.all():
+            raise ValueError(
+                f"Region lat[{south}, {north}] lon[{west}, {east}] is not fully inside "
+                f"the CONUS footprint ({int((~covered).sum())}/4 corners outside)"
+            )
+        inside = (lat >= south) & (lat <= north) & (lon >= west) & (lon <= east)
+        if not inside.any():
+            raise ValueError(
+                "Region selects no gridpoint (smaller than one cell?); widen it"
+            )
+        height, width = lat.shape
+        rows = np.flatnonzero(inside.any(axis=1))
+        cols = np.flatnonzero(inside.any(axis=0))
+        model_dit = self.diffusion_model.model_high.model.model
+        patch = tuple(int(v) for v in model_dit.patch_size)
+        minimum = (
+            dit_grid_constraints(model_dit)[1]
+            if isinstance(model_dit, torch.nn.Module)
+            else max(patch)
+        )
+        i0, i1 = _cover(int(rows[0]) - 1, int(rows[-1]) + 2, height, patch[0], minimum)
+        j0, j1 = _cover(int(cols[0]) - 1, int(cols[-1]) + 2, width, patch[1], minimum)
+        (y0, _), (x0, _) = self._footprint_limits()
+        lat_lim, lon_lim = (y0 + i0, y0 + i1), (x0 + j0, x0 + j1)
+        if (
+            self.invariants.shape[-2] < lat_lim[1]
+            or self.invariants.shape[-1] < lon_lim[1]
+        ):
+            raise ValueError("Invariants do not cover the selected HRRR window")
+        return self._view(lat_lim, lon_lim, ((i0, i1), (j0, j1)))
 
-        output_coords = OrderedDict(
+    def _view(
+        self,
+        hrrr_lat_lim: tuple[int, int],
+        hrrr_lon_lim: tuple[int, int],
+        crop_bbox: tuple[tuple[int, int], tuple[int, int]],
+    ) -> Self:
+        """Copy of this model on a window of the full footprint, sharing networks."""
+        footprint = self._full_footprint()
+        view = copy(self)
+        view._buffers = self._buffers.copy()
+        view._modules = self._modules.copy()
+        view._parameters = self._parameters.copy()
+        view._non_persistent_buffers_set = self._non_persistent_buffers_set.copy()
+        # The wrapper owns the crop; its sub-models stay shared
+        wrapper = copy(self.diffusion_model)
+        wrapper._buffers = wrapper._buffers.copy()
+        wrapper._modules = wrapper._modules.copy()
+        wrapper._parameters = wrapper._parameters.copy()
+        wrapper._non_persistent_buffers_set = wrapper._non_persistent_buffers_set.copy()
+        wrapper.models = dict(wrapper.models)
+        # Drop compiled entry points bound to the parent's wrapper
+        wrapper.__dict__.pop("forward", None)
+        wrapper.__dict__.pop("_route", None)
+        wrapper.crop_model(crop_bbox)
+        view.diffusion_model = wrapper
+        view.sampler_args = self.sampler_args.copy()
+        view._footprint = footprint
+        view._set_grid(hrrr_lat_lim, hrrr_lon_lim)
+        view.obs_grid_mapping = None
+        # An independent copy of the sampling stream, or unseeded like the parent
+        view._rng_states = deepcopy(self._rng_states)
+        if self._compiled:
+            view._compiled = False
+            view.compile_model()
+        return view
+
+    @property
+    def hrrr_x(self) -> np.ndarray:
+        """Native projected x coordinates derived from the input signature."""
+        return np.asarray(self.input_coords()["x"])
+
+    @property
+    def hrrr_y(self) -> np.ndarray:
+        """Native projected y coordinates derived from the input signature."""
+        return np.asarray(self.input_coords()["y"])
+
+    def input_coords(self) -> CoordinateSystem:
+        """Input coordinate system of the prognostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature on the cropped HRRR
+            projected grid.
+        """
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "y", "x"),
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array([np.timedelta64(1, "h")]),
+                "lead_time": np.array([np.timedelta64(0, "h")]),
                 "variable": np.array(self.variables),
-                "hrrr_y": self.hrrr_y,
-                "hrrr_x": self.hrrr_x,
-            }
+            },
+            dynamic=("batch", "time"),
+            grid=self.grid,
         )
 
-        target_input_coords = self.input_coords()
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Output coordinate system of the prognostic model.
 
-        handshake_dim(input_coords, "hrrr_x", 5)
-        handshake_dim(input_coords, "hrrr_y", 4)
-        handshake_dim(input_coords, "variable", 3)
-        # Index coords are arbitrary as long its on the HRRR grid, so just check size
-        handshake_size(input_coords, "hrrr_y", self.lat.shape[0])
-        handshake_size(input_coords, "hrrr_x", self.lat.shape[1])
-        handshake_coords(input_coords, target_input_coords, "variable")
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform,
+            with absolute forecast lead times.
 
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["time"] = input_coords["time"]
-        output_coords["lead_time"] = (
-            output_coords["lead_time"] + input_coords["lead_time"]
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray output signature one hour after the input,
+            preserving the input grid and leading dimensions.
+        """
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
+        lead = np.asarray(input_coords.coords["lead_time"])
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
         )
-        return output_coords
+        return coord_array_like(
+            input_coords,
+            {"lead_time": lead + np.timedelta64(1, "h")},
+        )
 
     def get_obs_mapping(self, device: torch.device | None) -> ObsGridMapping:
         """Return the obs grid mapping, (re-)creating it if the device has changed.
@@ -395,10 +559,22 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return self.obs_grid_mapping
 
     def compile_model(self) -> None:
-        """Compile the diffusion model forward pass with ``torch.compile``."""
-        self.diffusion_model.forward = torch.compile(
-            self.diffusion_model.forward, dynamic=False
-        )
+        """Compile the diffusion model forward pass with ``torch.compile``.
+
+        For a :class:`_SplitModelWrapper` only the routed denoising is compiled,
+        so binding a regional crop stays outside the graph.
+        """
+        if self._compiled:
+            return
+        if isinstance(self.diffusion_model, _SplitModelWrapper):
+            self.diffusion_model._route = torch.compile(  # type: ignore[method-assign]
+                self.diffusion_model._route, dynamic=False
+            )
+        else:
+            self.diffusion_model.forward = torch.compile(
+                self.diffusion_model.forward, dynamic=False
+            )
+        self._compiled = True
 
     def normalize(self, x: torch.Tensor, in_place: bool = False) -> torch.Tensor:
         """Normalise ``x`` to zero mean, unit variance."""
@@ -527,21 +703,40 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         if num_steps is None:
             num_steps = self.num_diffusion_steps
-        latents = self.sampler_args["sigma_max"] * torch.randn_like(state)
+        # PhysicsNeMo's stochastic Heun solver draws global noise internally.
+        with fork_rng(self._rng_seed, state.device, states=self._rng_states):
+            latents = self.sampler_args["sigma_max"] * torch.randn_like(state)
+            return sample(
+                denoiser,
+                latents,
+                noise_scheduler=self.scheduler,
+                num_steps=num_steps,
+                solver="edm_stochastic_heun",
+                solver_options={
+                    "S_churn": self.sampler_args["S_churn"],
+                    "S_min": self.sampler_args["S_min"],
+                    "S_max": self.sampler_args["S_max"],
+                    "S_noise": self.sampler_args["S_noise"],
+                },
+            )
 
-        return sample(
-            denoiser,
-            latents,
-            noise_scheduler=self.scheduler,
-            num_steps=num_steps,
-            solver="edm_stochastic_heun",
-            solver_options={
-                "S_churn": self.sampler_args["S_churn"],
-                "S_min": self.sampler_args["S_min"],
-                "S_max": self.sampler_args["S_max"],
-                "S_noise": self.sampler_args["S_noise"],
-            },
-        )
+    stochastic = True
+    _rng_seed: int | None = None
+    _rng_states: dict[str, torch.Tensor] | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the CONUS diffusion sampler's latent and churn noise.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for diffusion sampling.
+        reset : bool, optional
+            Reset existing sampling state, by default True.
+        """
+        if reset or self._rng_seed is None:
+            self._rng_seed = seed
+            self._rng_states = {}
 
     def _edm_denoiser(self, condition: TensorDict) -> Any:
         """Build an unconditional EDM denoiser for the given conditioning."""
@@ -571,22 +766,25 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         return denoiser
 
+    def _follow_network(self) -> None:
+        """Move to the shared networks' device if another view moved them."""
+        param = next(self.diffusion_model.parameters(), None)
+        if param is not None and param.device != self.means.device:
+            self.to(param.device)
+
     @torch.no_grad()  # safe - PhysicsNeMo SDA code uses torch.enable_grad()
-    @batch_func()
-    def __call__(
+    def _predict(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
+        x: xr.DataArray,
+        conditioning: xr.DataArray,
         obs: pd.DataFrame | tuple[torch.Tensor, torch.Tensor] | None = None,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    ) -> xr.DataArray:
         """Runs prognostic model 1 step
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Input field on the declared projected grid.
         obs : pd.DataFrame, tuple[torch.Tensor, torch.Tensor], or None, optional
             Observations for SDA guidance. Either a dataframe with columns
             ``variable``, ``lat``, ``lon``, ``observation``, ``time``, or a
@@ -595,8 +793,8 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system
+        xr.DataArray
+            Forecast field one hour after the input.
 
         Raises
         ------
@@ -604,13 +802,30 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             If conditioning data source is not initialized
         """
 
+        self._follow_network()
         # StormCast-CONUS wants the low-res conditioning at t + 1 h so we do output_coords first
-        output_coords = self.output_coords(coords)
-        conditioning = self._get_conditioning(output_coords, x.shape[0], x.device)
+        output_coords = self.output_coords(x)
+        encoding = deepcopy(x.encoding)
+        handshake_dataarray(
+            conditioning,
+            coord_array_like(output_coords, {"variable": self.conditioning_variables}),
+        )
+        if not bool(np.isfinite(conditioning.data).all()):
+            raise ValueError("Conditioning must be finite")
+        name = x.name
+        x, restore = batch_func()._compress_array(self, x)
+        conditioning, _ = batch_func()._compress_array(self, conditioning)
+        output_coords = self.output_coords(x)
+        conditioning = conditioning.e2s.to_torch()[0].to(
+            device=self.means.device, dtype=torch.float32
+        )
+        x, coords = x.e2s.to_torch()
+        # Checkpoints expect float32 inputs; autocast does not convert float64.
+        x = x.to(device=self.means.device, dtype=torch.float32)
         x = x.clone()  # prevent editing of argument
 
-        for j, time in enumerate(coords["time"]):
-            for k, lead_time in enumerate(coords["lead_time"]):
+        for j, time in enumerate(np.asarray(coords["time"])):
+            for k, lead_time in enumerate(np.asarray(coords["lead_time"])):
                 t = time + lead_time
                 if obs is not None:
                     if isinstance(obs, tuple):
@@ -632,160 +847,137 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                         mask=mask,
                     )
 
-        return x, output_coords
+        out = from_torch(x, output_coords, name=name)
+        out.attrs = deepcopy(out.attrs)
+        out.encoding = encoding
+        return restore(out)
 
-    @batch_func()
-    def create_generator(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], pd.DataFrame | None, None]:
-        """Create a generator for autoregressive rollout.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
-
-        Yields
-        ------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinate system after each time step
-
-        Receives
-        --------
-        pd.DataFrame or None
-            Observation dataframe with columns 'variable', 'lat', 'lon',
-            'observation', 'time', or None for no observations
-
-        Raises
-        ------
-        RuntimeError
-            If conditioning data source is not initialized
-        """
-        if self.conditioning_data_source is None:
-            raise RuntimeError(
-                "StormCastCONUS has been called without initializing the model's "
-                "conditioning_data_source"
-            )
-
-        obs = yield x, coords
-
-        try:
-            while True:
-                x, coords = self.front_hook(x, coords)
-                x, coords = self(x, coords, obs=obs)
-                x, coords = self.rear_hook(x, coords)
-                obs = yield x, coords
-        except GeneratorExit:
-            pass
-
-    def create_iterator(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Iterator wrapper around ``create_generator`` without observation input."""
-        yield from self.create_generator(x, coords)
-
-    def _get_conditioning(
-        self,
-        coords: CoordSystem,
-        batch_size: int,
-        device: torch.device,
-    ) -> torch.Tensor:
-        """Fetch and interpolate low-resolution conditioning to the HRRR grid.
-
-        Parameters
-        ----------
-        coords : CoordSystem
-            Input coordinate system containing ``time`` and ``lead_time``.
-        batch_size : int
-            Number of ensemble members; conditioning is replicated accordingly.
-        device : torch.device
-            Target device for the returned tensor.
+    def forcing_coords(self) -> CoordinateSystem:
+        """Describe caller-regridded conditioning for the next forecast time.
 
         Returns
         -------
-        torch.Tensor
-            Conditioning tensor of shape ``(batch, time, lead_time, C_cond, H, W)``.
-
-        Raises
-        ------
-        RuntimeError
-            If ``conditioning_data_source`` is not set.
-        ValueError
-            If ``conditioning_init_time`` has an incompatible shape or does not
-            produce a uniform lead-time offset across ``coords["time"]``.
+        CoordinateSystem
+            Allocation-free conditioning signature on the model grid at relative
+            lead time one hour. Each step consumes its next forecast-time frame.
         """
-
-        if self.conditioning_data_source is None:
-            raise RuntimeError(
-                "StormCastCONUS has been called without initializing the model's conditioning_data_source"
-            )
-
-        if self.conditioning_init_time is not None:
-            init_time = np.asarray(
-                self.conditioning_init_time, dtype=coords["time"].dtype
-            )
-            try:
-                init_time = init_time.reshape(coords["time"].shape)
-            except ValueError:
-                raise ValueError(
-                    "conditioning_init_time must be a scalar or match the "
-                    "shape of coords['time']"
-                )
-            offsets = coords["time"] - init_time
-            if not np.all(offsets == offsets.reshape(-1)[0]):
-                raise ValueError(
-                    "conditioning_init_time must produce a uniform lead-time "
-                    "offset across coords['time']; differing per-time offsets "
-                    "are not supported"
-                )
-            lead_time = coords["lead_time"] + offsets.reshape(-1)[0]
-        else:
-            init_time = coords["time"]
-            lead_time = coords["lead_time"]
-
-        conditioning, conditioning_coords = fetch_data(
-            self.conditioning_data_source,
-            time=init_time,
-            variable=self.conditioning_variables,
-            lead_time=lead_time,
-            device=device,
-            interp_to=coords | {"_lat": self.lat, "_lon": self.lon},
-            interp_method="linear",
-        )
-        # ensure data dimensions in the expected order
-        conditioning_coords_ordered = OrderedDict(
-            {
-                k: conditioning_coords[k]
-                for k in ["time", "lead_time", "variable", "lat", "lon"]
-            }
-        )
-        conditioning, conditioning_coords = map_coords(
-            conditioning, conditioning_coords, conditioning_coords_ordered
+        return coord_array_like(
+            self.output_coords(self.input_coords()),
+            {"variable": self.conditioning_variables},
         )
 
-        # Add a batch dim
-        conditioning = conditioning.repeat(batch_size, 1, 1, 1, 1, 1)
-        conditioning_coords.update({"batch": np.empty(0)})
-        conditioning_coords.move_to_end("batch", last=False)
+    def default_sources(self) -> tuple[DataSource, DataSource | ForecastSource]:
+        """Recommend HRRR inputs and GFS conditioning on the model grid.
 
-        # Remap forecast coords to the model time/lead axes. Data are already
-        # aligned by valid time; labels may differ when conditioning_init_time
-        # shifts the forecast initialisation.
-        if self.conditioning_init_time is not None:
-            conditioning_coords["time"] = coords["time"]
-            conditioning_coords["lead_time"] = coords["lead_time"]
+        Returns
+        -------
+        tuple[DataSource, DataSource | ForecastSource]
+            HRRR input source followed by GFS forecasts bilinearly regridded from
+            the global 0.25 degree grid onto the model grid. To condition on
+            another source, such as a global model's forecast, supply it to the
+            runner on the model grid, for example as a
+            :class:`~earth2studio.data.RegriddedSource`.
+        """
+        from earth2studio.data import GFS_FX, HRRR, RegriddedSource
 
-        # Handshake conditioning coords
-        handshake_coords(conditioning_coords, coords, "lead_time")
-        handshake_coords(conditioning_coords, coords, "time")
+        regridder = BilinearRegridder("latlon-0.25deg", self.grid)
+        return HRRR(), RegriddedSource(GFS_FX(), regridder)
 
-        return conditioning
+    def __call__(self, x: xr.DataArray, conditioning: xr.DataArray) -> xr.DataArray:
+        """Predict one hour ahead using caller-provided conditioning, without hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+        conditioning : xr.DataArray
+            Conditioning on the model grid at the next forecast valid time.
+
+        Returns
+        -------
+        xr.DataArray
+            First hourly forecast matching ``output_coords(x)``.
+        """
+        return self.initialize(x, conditioning)[0]
+
+    def initialize(
+        self, x: xr.DataArray, conditioning: xr.DataArray
+    ) -> tuple[xr.DataArray, tuple[int, dict[str, torch.Tensor]]]:
+        """Compute the first prediction and capture the isolated sampling stream.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+        conditioning : xr.DataArray
+            Fields matching ``forcing_coords()`` at the forecast valid time, on
+            the model grid.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[int, dict[str, torch.Tensor]]]
+            First hourly forecast and continuation seed and RNG state tensors.
+            Iterator hooks are not applied.
+        """
+        handshake_nonempty(x)
+        if self._rng_seed is None:
+            self.set_rng(int(torch.randint(2**31, ())))
+        y = self._predict(x, conditioning)
+        if self._rng_seed is None or self._rng_states is None:
+            raise RuntimeError("Sampling stream was not initialized")
+        return y, (self._rng_seed, deepcopy(self._rng_states))
+
+    def step(
+        self,
+        y: xr.DataArray,
+        conditioning: xr.DataArray,
+        state: tuple[int, dict[str, torch.Tensor]],
+    ) -> tuple[xr.DataArray, tuple[int, dict[str, torch.Tensor]]]:
+        """Advance from the supplied forecast, forcing, and sampling state.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast, including any caller-applied edits.
+        conditioning : xr.DataArray
+            New conditioning fields one hour after ``y``, on the model grid.
+        state : tuple[int, dict[str, torch.Tensor]]
+            Seed and RNG state tensors returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, tuple[int, dict[str, torch.Tensor]]]
+            Next hourly forecast and updated sampling state, without hooks.
+        """
+        previous = self._rng_seed, self._rng_states
+        self._rng_seed, self._rng_states = deepcopy(state)
+        try:
+            prediction = self._predict(y, conditioning)
+            return prediction, (self._rng_seed, deepcopy(self._rng_states))
+        finally:
+            self._rng_seed, self._rng_states = previous
+
+    def create_iterator(
+        self,
+        x: xr.DataArray,
+        conditioning: xr.DataArray,
+    ) -> Generator[xr.DataArray, xr.DataArray | tuple[xr.DataArray, ...] | None, None]:
+        """Yield hourly forecasts, receiving new conditioning through ``send``.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Initial fields matching ``input_coords()``.
+        conditioning : xr.DataArray
+            Initial conditioning for the first forecast time on the model grid.
+
+        Yields
+        ------
+        xr.DataArray
+            Forecasts beginning with ``initialize``. The rear hook runs before
+            every yield and the front hook before each subsequent step.
+        """
+        yield from self._default_create_iterator(x, conditioning)
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -804,7 +996,6 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def load_model(
         cls,
         package: Package,
-        conditioning_data_source: DataSource | ForecastSource = GFS_FX(),
         **model_kwargs: Any,
     ) -> "StormCastCONUS":
         """Load a :class:`StormCastCONUS` model from a package.
@@ -813,8 +1004,6 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         ----------
         package : Package
             Package to load model from
-        conditioning_data_source : DataSource | ForecastSource, optional
-            Data source to use for global conditioning, by default GFS_FX
         **model_kwargs
             Additional keyword arguments forwarded to the model constructor
             (e.g. ``hrrr_lat_lim``, ``num_diffusion_steps``, ``use_amp``,
@@ -922,7 +1111,6 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             variables=variables,
             conditioning_means=conditioning_means,
             conditioning_stds=conditioning_stds,
-            conditioning_data_source=conditioning_data_source,
             conditioning_variables=conditioning_variables,
             sampler_args=sampler_args,
             **model_kwargs,
@@ -938,8 +1126,9 @@ class _SplitModelWrapper(torch.nn.Module):
     geopotential, temperature / moisture, winds), and their outputs are merged
     channel-wise.
 
-    Optionally crops positional embeddings and tokeniser geometry when inference
-    is run on a subdomain of the full CONUS HRRR grid.
+    Optionally runs on a subdomain of the full CONUS HRRR grid: :meth:`crop_model`
+    records the crop, and each forward binds the matching slice of the full
+    positional embeddings and the tokeniser geometry to the shared sub-models.
 
     Parameters
     ----------
@@ -1030,13 +1219,20 @@ class _SplitModelWrapper(torch.nn.Module):
 
         self.full_grid_shape = full_grid_shape
         self.grid_shape = full_grid_shape
+        self.crop_bbox: tuple[tuple[int, int], tuple[int, int]] | None = None
+        self._pos_embed_crop: dict[str, tuple[Any, torch.nn.Parameter]] = {}
         self.pos_embed_full = {
             k: model.model.model.tokenizer.pos_embed
             for (k, model) in self.models.items()
         }
 
     def crop_model(self, bbox: tuple[tuple[int, int], tuple[int, int]]) -> None:
-        """Crop all sub-models to an HRRR index bounding box.
+        """Run all sub-models on an HRRR index bounding box.
+
+        Only records the crop on this wrapper; the shared sub-models keep their
+        full-grid geometry and positional embeddings, and :meth:`forward` binds
+        the crop for the duration of each call (see :meth:`_bound`). Wrappers
+        sharing sub-models can therefore hold different crops.
 
         Parameters
         ----------
@@ -1044,40 +1240,79 @@ class _SplitModelWrapper(torch.nn.Module):
             ``((lat_start, lat_end), (lon_start, lon_end))`` indices on the model
             grid (not the full HRRR grid). Bounds must align with the DiT patch size.
         """
+        self.crop_bbox = bbox
         self.grid_shape = (bbox[0][1] - bbox[0][0], bbox[1][1] - bbox[1][0])
+        self._pos_embed_crop = {}
+
+    def _cropped_pos_embed(self, key: str) -> torch.nn.Parameter:
+        """Positional embedding of the crop, cached per source tensor and version."""
+        full = self.pos_embed_full[key]
+        # The version counter catches in-place updates such as load_state_dict
+        source = (full.data_ptr(), full.device, full.dtype, full._version)
+        cached = self._pos_embed_crop.get(key)
+        if cached is not None and cached[0] == source:
+            return cached[1]
+        if self.crop_bbox is None:
+            raise RuntimeError("No crop is set")
         p = self.model_high.model.model.patch_size
-        H_full, W_full = (
-            self.full_grid_shape[0] // p[0],
-            self.full_grid_shape[1] // p[1],
-        )
-        bb_crop = (
-            (bbox[0][0] // p[0], bbox[0][1] // p[0]),
-            (bbox[1][0] // p[1], bbox[1][1] // p[1]),
-        )
-
-        def _crop_single_posemb(pos_embed_full: torch.Tensor) -> torch.Tensor:
-            pos_embed_full_2D = pos_embed_full.view(
-                H_full, W_full, pos_embed_full.shape[-1]
+        (y0, y1), (x0, x1) = self.crop_bbox
+        h_full = self.full_grid_shape[0] // p[0]
+        w_full = self.full_grid_shape[1] // p[1]
+        lead, channels = full.shape[:-2], full.shape[-1]
+        # A normal (non-inference) constant, so the cache built under inference
+        # mode also serves the grad-enabled DPS path; the state's gradient is
+        # unaffected by the additive embedding.
+        with torch.inference_mode(False), torch.no_grad():
+            grid = full.detach().reshape(*lead, h_full, w_full, channels)
+            crop = grid[..., y0 // p[0] : y1 // p[0], x0 // p[1] : x1 // p[1], :]
+            param = torch.nn.Parameter(
+                crop.reshape(*lead, -1, channels).clone(), requires_grad=False
             )
-            pos_embed_crop_2D = pos_embed_full_2D[
-                bb_crop[0][0] : bb_crop[0][1], bb_crop[1][0] : bb_crop[1][1], :
-            ]
-            H_crop, W_crop, C = pos_embed_crop_2D.shape
-            return pos_embed_crop_2D.reshape(H_crop * W_crop, C)
+        self._pos_embed_crop[key] = (source, param)
+        return param
 
-        for key, model in self.models.items():
-            dit = model.model.model
-            dit.input_size = self.grid_shape
-            dit.tokenizer.input_size = self.grid_shape
-            dit.tokenizer.h_patches = self.grid_shape[0] // p[0]
-            dit.tokenizer.w_patches = self.grid_shape[1] // p[1]
-            pos_embed_crop = _crop_single_posemb(self.pos_embed_full[key])
-            dit.tokenizer.register_parameter(
-                "pos_embed", torch.nn.Parameter(pos_embed_crop)
-            )
-            dit.detokenizer.input_size = self.grid_shape
-            dit.detokenizer.h_patches = self.grid_shape[0] // p[0]
-            dit.detokenizer.w_patches = self.grid_shape[1] // p[1]
+    @contextmanager
+    def _bound(self) -> Iterator[None]:
+        """Bind the shared sub-models to this wrapper's crop for one call.
+
+        Sets the DiT tokenizer / detokenizer geometry and swaps in the cropped
+        positional embedding, restoring the full-grid state on exit. Wrappers
+        sharing sub-models must therefore not run concurrently.
+        """
+        bbox = getattr(self, "crop_bbox", None)
+        full = ((0, self.full_grid_shape[0]), (0, self.full_grid_shape[1]))
+        if bbox is None or bbox == full:
+            yield
+            return
+        p = self.model_high.model.model.patch_size
+        size = self.grid_shape
+        patches = (size[0] // p[0], size[1] // p[1])
+        saved = []
+        try:
+            for key, model in self.models.items():
+                dit = model.model.model
+                tok, detok = dit.tokenizer, dit.detokenizer
+                saved.append(
+                    (
+                        dit,
+                        dit.input_size,
+                        (tok.input_size, tok.h_patches, tok.w_patches),
+                        (detok.input_size, detok.h_patches, detok.w_patches),
+                        tok._parameters["pos_embed"],
+                    )
+                )
+                dit.input_size = size
+                tok.input_size, (tok.h_patches, tok.w_patches) = size, patches
+                detok.input_size, (detok.h_patches, detok.w_patches) = size, patches
+                tok._parameters["pos_embed"] = self._cropped_pos_embed(key)
+            yield
+        finally:
+            for dit, input_size, tok_state, detok_state, pos_embed in saved:
+                tok, detok = dit.tokenizer, dit.detokenizer
+                dit.input_size = input_size
+                tok.input_size, tok.h_patches, tok.w_patches = tok_state
+                detok.input_size, detok.h_patches, detok.w_patches = detok_state
+                tok._parameters["pos_embed"] = pos_embed
 
     def forward(
         self,
@@ -1110,6 +1345,17 @@ class _SplitModelWrapper(torch.nn.Module):
         path, ``DPSScorePredictor`` enables gradients and needs the computational
         graph to propagate through this module for the DPS score correction.
         """
+        with self._bound():
+            return self._route(x, sigma, condition, **model_kwargs)
+
+    def _route(
+        self,
+        x: torch.Tensor,
+        sigma: torch.Tensor,
+        condition: TensorDict,
+        **model_kwargs: Any,
+    ) -> torch.Tensor:
+        """Denoise with the sub-model(s) for ``sigma`` on the bound grid."""
         sigma = sigma.flatten()
 
         attn_kwargs = dict(model_kwargs.get("attn_kwargs", {}))

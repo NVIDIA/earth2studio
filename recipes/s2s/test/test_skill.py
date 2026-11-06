@@ -89,7 +89,7 @@ def main() -> None:
                 variable=var,
                 time=ds.time.values,
                 lead_time=verif_lead_times,
-                interp_to=interp_coords,
+                target_grid=interp_coords,
             )
             verif = verif[:, :, 0, :, :]
             verif_coords.pop("variable")
