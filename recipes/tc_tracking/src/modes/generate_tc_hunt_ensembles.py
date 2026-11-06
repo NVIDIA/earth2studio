@@ -227,15 +227,13 @@ def run_inference(
             store = nc_stores[ic]
 
         if x0 is None or x0.coords["time"].values[0] != ic:
-            # sources can return float64 (e.g. CDS_ERA5), which FCN3 does not
-            # cast, while all models compute in float32
             x0 = fetch_data(
                 data_source_mngr.select_data_source(ic),
                 time=[ic],
                 variable=inputs.coords["variable"].values,
                 lead_time=inputs.coords["lead_time"].values,
                 device=dist.device,
-            ).astype("float32")
+            )
         x = x0.expand_dims(ensemble=mems)
 
         if stability_check:
