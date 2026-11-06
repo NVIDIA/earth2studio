@@ -88,6 +88,7 @@ from earth2studio.utils.type import (
     CoordSystem,
     FieldArray,
     LeadTimeArray,
+    MemberArray,
     TimeArray,
     VariableArray,
 )
@@ -150,10 +151,12 @@ def _is_forecast_source(source: DataSource | ForecastSource) -> bool:
 
 
 def _is_ensemble_source(source: DataSource | ForecastSource) -> bool:
-    """Return whether a source selects ensemble members through an ``ensemble`` keyword.
+    """Return whether a source selects ensemble members through a ``member`` keyword.
 
-    Wrappers that forward requests, such as :class:`RegriddedSource`, declare this
-    through an ``is_ensemble`` property; other sources by their call signature.
+    Ensemble sources follow :class:`~earth2studio.data.EnsembleDataSource` or
+    :class:`~earth2studio.data.EnsembleForecastSource`. Wrappers that forward
+    requests, such as :class:`RegriddedSource`, declare this through an
+    ``is_ensemble`` property; other sources by their call signature.
 
     Parameters
     ----------
@@ -163,17 +166,17 @@ def _is_ensemble_source(source: DataSource | ForecastSource) -> bool:
     Returns
     -------
     bool
-        True for an ensemble-aware source.
+        True for an ensemble source.
     """
     declared = getattr(source, "is_ensemble", None)
     if isinstance(declared, bool):
         return declared
-    return "ensemble" in signature(source.__call__).parameters
+    return "member" in signature(source.__call__).parameters
 
 
-def _members(ensemble: np.ndarray | None) -> dict[str, Any]:
-    """Keyword arguments selecting ``ensemble``, or none when it is not given."""
-    return {} if ensemble is None else {"ensemble": ensemble}
+def _members(member: np.ndarray | None) -> dict[str, Any]:
+    """Keyword arguments selecting ``member``, or none when it is not given."""
+    return {} if member is None else {"member": member}
 
 
 def _fetch_instantaneous(
@@ -181,20 +184,20 @@ def _fetch_instantaneous(
     time: TimeArray,
     lead_time: LeadTimeArray,
     variable: Sequence[str],
-    ensemble: np.ndarray | None = None,
+    member: np.ndarray | None = None,
 ) -> xr.DataArray:
     variables = cast(VariableArray, np.asarray(variable))
     if _is_forecast_source(source):
         return cast(ForecastSource, source)(
-            time, lead_time, variables, **_members(ensemble)
+            time, lead_time, variables, **_members(member)
         ).sel(time=time, lead_time=lead_time, variable=variables)
 
     arrays = []
     for lead in lead_time:
         valid_time = _offset_times(time, lead)
-        array = cast(DataSource, source)(
-            valid_time, variables, **_members(ensemble)
-        ).sel(time=valid_time, variable=variables)
+        array = cast(DataSource, source)(valid_time, variables, **_members(member)).sel(
+            time=valid_time, variable=variables
+        )
         array = array.expand_dims(
             lead_time=np.array([lead], dtype="timedelta64[ns]"), axis=1
         )
@@ -209,7 +212,7 @@ def _fetch_statistic(
     variable: Sequence[str],
     modifier: str,
     delta_t: np.timedelta64,
-    ensemble: np.ndarray | None = None,
+    member: np.ndarray | None = None,
 ) -> xr.DataArray:
     variables = cast(VariableArray, np.asarray(variable))
     forecast = _is_forecast_source(source)
@@ -220,12 +223,12 @@ def _fetch_statistic(
             time,
             cast(LeadTimeArray, np.unique(required)),
             variables,
-            **_members(ensemble),
+            **_members(member),
         ).sel(time=time, variable=variables)
     else:
         required = source_times(modifier, time[:, None] + lead_time[None, :], delta_t)
         source_array = cast(DataSource, source)(
-            cast(TimeArray, np.unique(required)), variables, **_members(ensemble)
+            cast(TimeArray, np.unique(required)), variables, **_members(member)
         ).sel(variable=variables)
     _require_instantaneous(source_array, variables)
     by_time = []
@@ -260,7 +263,7 @@ def _fetch_dataarray(
     variable: VariableArray,
     lead_time: LeadTimeArray,
     delta_t: np.timedelta64 | None,
-    ensemble: np.ndarray | None = None,
+    member: np.ndarray | None = None,
 ) -> xr.DataArray:
     # Group source variables by reduction, retaining their requested output labels.
     groups: dict[str | None, dict[str, str]] = {}
@@ -293,7 +296,7 @@ def _fetch_dataarray(
         source_variables, labels = list(group), list(group.values())
         if modifier is None:
             array = _fetch_instantaneous(
-                source, time, lead_time, source_variables, ensemble
+                source, time, lead_time, source_variables, member
             )
             output_statistics.update(
                 {
@@ -310,7 +313,7 @@ def _fetch_dataarray(
                 source_variables,
                 modifier,
                 cast(np.timedelta64, delta_t),
-                ensemble,
+                member,
             )
             output_statistics.update(
                 {label: time_statistic_metadata(modifier) for label in labels}
@@ -320,13 +323,13 @@ def _fetch_dataarray(
         arrays[0] if len(arrays) == 1 else xr.concat(arrays, "variable", join="exact")
     )
     array = array.sel(variable=variable)
-    if ensemble is not None:
+    if member is not None:
         if "ensemble" not in array.dims:
             raise ValueError(
                 f"{type(source).__name__} returned no ensemble dimension for "
-                f"members {list(ensemble)}"
+                f"members {list(member)}"
             )
-        array = array.sel(ensemble=ensemble)
+        array = array.sel(ensemble=member)
         array = array.transpose("ensemble", "time", "lead_time", "variable", ...)
     else:
         array = array.transpose("time", "lead_time", "variable", ...)
@@ -396,7 +399,7 @@ def fetch_data(
     target_grid: GridDefinition | None = None,
     regridder: Regridder | None = None,
     delta_t: np.timedelta64 | None = None,
-    ensemble: np.ndarray | Sequence[Any] | None = None,
+    member: int | str | Sequence[Any] | MemberArray | None = None,
 ) -> xr.DataArray:
     """Fetch field DataArrays with temporal statistics, optionally regridded.
 
@@ -426,17 +429,18 @@ def fetch_data(
     delta_t : np.timedelta64, optional
         Source cadence for temporal statistics; defaults to ``source.time_step``.
         Windows include their left endpoint and exclude their right endpoint.
-    ensemble : np.ndarray | Sequence, optional
-        Distinct ensemble member labels to fetch, in the source's own labeling,
-        by default None, which leaves member selection to the source. Only
-        ensemble-aware sources, those taking an ``ensemble`` keyword, accept it.
+    member : int | str | Sequence | MemberArray, optional
+        Distinct ensemble member label or labels to fetch, in the source's own
+        labeling, by default None, which returns the member the source was built
+        with. Only ensemble sources, those taking a ``member`` keyword (see
+        :class:`~earth2studio.data.EnsembleDataSource`), accept it.
 
     Returns
     -------
     xr.DataArray
         Field values with dimensions [time, lead_time, variable, ...], auxiliary
         coordinates, actual grid metadata and normalized temporal statistics. The
-        field is on the source grid unless regridded. With ``ensemble``, a leading
+        field is on the source grid unless regridded. With ``member``, a leading
         ``ensemble`` dimension holds the requested members in order.
 
     Note
@@ -465,16 +469,16 @@ def fetch_data(
             )
     if variable.ndim != 1 or not variable.size:
         raise ValueError("variable must be a nonempty 1D array")
-    members = None if ensemble is None else np.asarray(ensemble)
+    members = prep_member_inputs(member)
     if members is not None:
-        if members.ndim != 1 or not members.size:
-            raise ValueError("ensemble must be a nonempty 1D array")
+        if not members.size:
+            raise ValueError("member must name at least one member")
         if len(np.unique(members)) != members.size:
-            raise ValueError("ensemble must not repeat members")
+            raise ValueError("member must not repeat members")
         if not _is_ensemble_source(source):
             raise ValueError(
                 f"{type(source).__name__} does not select ensemble members; "
-                "only sources taking an ensemble keyword accept ensemble"
+                "only sources taking a member keyword accept member"
             )
     lead_time = lead_time.astype("timedelta64[ns]")
     da = _fetch_dataarray(source, time, variable, lead_time, delta_t, members)
@@ -910,6 +914,30 @@ def prep_forecast_inputs(
     time, variable = prep_data_inputs(time, variable)
 
     return time, lead_time, variable
+
+
+def prep_member_inputs(
+    member: int | str | Sequence[Any] | MemberArray | None,
+) -> MemberArray | None:
+    """Normalize an ensemble source's ``member`` input to a 1D array of labels.
+
+    Parameters
+    ----------
+    member : int | str | Sequence | MemberArray | None
+        Member label, sequence of labels or array of labels, or None.
+
+    Returns
+    -------
+    MemberArray | None
+        1D array of member labels in request order, or None when ``member`` is
+        None.
+    """
+    if member is None:
+        return None
+    members = np.asarray(member)
+    if members.ndim > 1:
+        raise ValueError("member must be a label or a 1D sequence of labels")
+    return np.atleast_1d(members)
 
 
 def datasource_to_file(

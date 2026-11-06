@@ -543,13 +543,13 @@ class _Members(_Zeros):
         self.ensembles: list[list[int] | None] = []
 
     def __call__(  # type: ignore[override]
-        self, time: np.ndarray, variable: np.ndarray, ensemble: list | None = None
+        self, time: np.ndarray, variable: np.ndarray, member: list | None = None
     ) -> xr.DataArray:
         x = super().__call__(time, variable)
-        self.ensembles.append(None if ensemble is None else list(ensemble))
-        if ensemble is None:
+        self.ensembles.append(None if member is None else list(member))
+        if member is None:
             return x
-        members = np.asarray(ensemble)
+        members = np.asarray(member)
         offset = xr.DataArray(members.astype(np.float32), dims="ensemble")
         return (x + offset).assign_coords(ensemble=members)
 
@@ -560,7 +560,7 @@ def _member_item(member: int, hours: int = 6) -> WorkItem:
 
 def test_members_read_their_source_member() -> None:
     source = _Members()
-    runner = PrognosticRunner(_model(), source, ensemble_member=lambda m: m // 2 + 1)
+    runner = PrognosticRunner(_model(), source, source_member=lambda m: m // 2 + 1)
     for member in range(4):
         steps = list(runner.run_item(_member_item(member)))
         expected = member // 2 + 1
@@ -568,20 +568,20 @@ def test_members_read_their_source_member() -> None:
         np.testing.assert_array_equal(steps[1]["forecast"].values, expected + 1)
         assert "ensemble" not in steps[0]["forecast"].dims
         (request,) = runner.data_requests(_member_item(member))
-        np.testing.assert_array_equal(request.ensemble, [expected])
+        np.testing.assert_array_equal(request.member, [expected])
     assert source.ensembles == [[1], [1], [2], [2]]
 
 
 def test_forcing_reads_the_member_while_other_slots_are_shared() -> None:
     model, initial, forcing = _Forced(), _Zeros(), _Members()
-    runner = PrognosticRunner(model, initial, forcing=(forcing,), ensemble_member=int)
+    runner = PrognosticRunner(model, initial, forcing=(forcing,), source_member=int)
     steps = list(runner.run_item(_member_item(3, hours=12)))
     # Each step adds one plus the forcing, member 3's value.
     np.testing.assert_allclose(steps[-1]["forecast"], 8.0)
     assert forcing.ensembles == [[3], [3]]
     requests = runner.data_requests(_member_item(3, hours=12))
-    assert requests[0].ensemble is None
-    assert [r.ensemble.tolist() for r in requests[1:]] == [[3], [3]]
+    assert requests[0].member is None
+    assert [r.member.tolist() for r in requests[1:]] == [[3], [3]]
 
 
 def test_members_share_sources_without_ensemble_member() -> None:
@@ -592,7 +592,7 @@ def test_members_share_sources_without_ensemble_member() -> None:
 
 
 def test_ensemble_member_needs_member_ids() -> None:
-    runner = PrognosticRunner(_model(), _Members(), ensemble_member=int)
+    runner = PrognosticRunner(_model(), _Members(), source_member=int)
     with pytest.raises(ValueError, match="no member IDs"):
         list(runner.run_item(_item(6)))
     with pytest.raises(ValueError, match="no member IDs"):
@@ -602,13 +602,13 @@ def test_ensemble_member_needs_member_ids() -> None:
 def test_diagnostic_runner_reads_the_member() -> None:
     source = _Members()
     runner = DiagnosticRunner(
-        {"wind": _WindSpeed()}, source, ensemble_member=lambda m: m + 1
+        {"wind": _WindSpeed()}, source, source_member=lambda m: m + 1
     )
     (step,) = list(runner.run_item(WorkItem(T0, np.timedelta64(0, "h"), (1,))))
     np.testing.assert_allclose(step["wind"].values, np.hypot(2, 2))
     assert source.ensembles == [[2]]
     (request,) = runner.data_requests(WorkItem(T0, np.timedelta64(0, "h"), (1,)))
-    np.testing.assert_array_equal(request.ensemble, [2])
+    np.testing.assert_array_equal(request.member, [2])
 
 
 def test_composite_initial_conditions_read_the_member() -> None:
@@ -616,7 +616,7 @@ def test_composite_initial_conditions_read_the_member() -> None:
     source = CompositeSource(
         {"ens": members, "shared": _Zeros()}, {"ens": ["u10m"], "shared": ["v10m"]}
     )
-    runner = PrognosticRunner(_model(), source, ensemble_member=lambda m: m + 1)
+    runner = PrognosticRunner(_model(), source, source_member=lambda m: m + 1)
     step, _ = list(runner.run_item(_member_item(2)))
     np.testing.assert_array_equal(step["forecast"].sel(variable="u10m"), 3)
     np.testing.assert_array_equal(step["forecast"].sel(variable="v10m"), 0)
@@ -626,7 +626,7 @@ def test_composite_initial_conditions_read_the_member() -> None:
 def test_batches_lay_members_along_a_leading_ensemble_dimension() -> None:
     model, initial, forcing = _Forced(), _Members(), _Zeros()
     runner = PrognosticRunner(
-        model, initial, forcing=(forcing,), ensemble_member=lambda m: m // 2 + 1
+        model, initial, forcing=(forcing,), source_member=lambda m: m // 2 + 1
     )
     item = WorkItem(T0, np.timedelta64(12, "h"), member_ids=(1, 2, 3))
     assert runner.supports_member_batching
@@ -639,7 +639,7 @@ def test_batches_lay_members_along_a_leading_ensemble_dimension() -> None:
     np.testing.assert_array_equal(x.sel(ensemble=3), 2 + 2)
     assert initial.ensembles == [[1, 2]]
     request, *_ = runner.data_requests(item)
-    np.testing.assert_array_equal(request.ensemble, [1, 2])
+    np.testing.assert_array_equal(request.member, [1, 2])
     # The shared forcing reaches the model with the batch's members.
     for step in steps:
         assert step["forecast"]["ensemble"].size == 3
@@ -650,7 +650,7 @@ def test_batched_members_match_single_member_runs() -> None:
         _model(),
         _Members(),
         diagnostics={"wind": _WindSpeed()},
-        ensemble_member=lambda m: m,
+        source_member=lambda m: m,
     )
     batched = list(runner.run_item(WorkItem(T0, np.timedelta64(6, "h"), (4, 9))))
     for member in (4, 9):

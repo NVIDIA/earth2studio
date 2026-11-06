@@ -502,11 +502,15 @@ def test_gefs_fetches_requested_members(source_class):
 
     ds._fetch_member = fetch_member
     time, lead = [datetime(2024, 1, 1)], [timedelta(hours=6)]
-    da = ds(time, lead, ["t2m"], ensemble=["gep03", "gec00"])
+    da = ds(time, lead, ["t2m"], member=["gep03", "gec00"])
     assert seen == ["gep03", "gec00"]
+    assert da.dims[0] == "ensemble"
     np.testing.assert_array_equal(da["ensemble"], ["gep03", "gec00"])
+    np.testing.assert_array_equal(
+        ds(time, lead, ["t2m"], member="gep01")["ensemble"], ["gep01"]
+    )
     np.testing.assert_array_equal(da.sel(ensemble="gep03").values, [[[3.0]]])
     default = ds(time, lead, ["t2m"])
     assert seen[-1] == "gec00" and "ensemble" not in default.dims
     with pytest.raises(ValueError, match="Invalid GEFS members"):
-        ds(time, lead, ["t2m"], ensemble=["gep99"])
+        ds(time, lead, ["t2m"], member=["gep99"])

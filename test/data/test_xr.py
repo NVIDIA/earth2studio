@@ -374,16 +374,17 @@ def test_inference_output_source_selects_requested_members():
     ds = InferenceOutputSource(_stored_ensemble())
     assert _is_ensemble_source(ds)
     time = np.array(["2018-01-01T06"], dtype="datetime64[ns]")
-    da = ds(time, ["u10m"], ensemble=[3, 1])
+    da = ds(time, ["u10m"], member=[3, 1])
+    assert da.dims[0] == "ensemble"
     np.testing.assert_array_equal(da["ensemble"], [3, 1])
     np.testing.assert_array_equal(da.isel(time=0, variable=0, lat=0, lon=0), [13, 11])
     assert ds(time, ["u10m"]).sizes["ensemble"] == 3
-    fetched = asyncio.run(ds.fetch(time, ["t2m"], ensemble=[2]))
+    fetched = asyncio.run(ds.fetch(time, ["t2m"], member=[2]))
     np.testing.assert_array_equal(fetched["ensemble"], [2])
 
 
-def test_inference_output_source_without_members_rejects_ensemble():
+def test_inference_output_source_without_members_rejects_member():
     ds = InferenceOutputSource(_stored_ensemble(), filter_dict={"ensemble": 1})
     assert not _is_ensemble_source(ds)
     with pytest.raises(ValueError, match="no ensemble dimension"):
-        ds(np.array(["2018-01-01T00"], dtype="datetime64[ns]"), ["t2m"], ensemble=[1])
+        ds(np.array(["2018-01-01T00"], dtype="datetime64[ns]"), ["t2m"], member=[1])

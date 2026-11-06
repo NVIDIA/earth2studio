@@ -21,7 +21,7 @@ import pathlib
 import shutil
 import uuid
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Literal
@@ -37,6 +37,7 @@ from earth2studio.data.utils import (
     datasource_cache_root,
     prep_data_inputs,
     prep_forecast_inputs,
+    prep_member_inputs,
 )
 from earth2studio.lexicon import AIFSLexicon, IFSLexicon
 from earth2studio.lexicon.ecmwf import (
@@ -48,7 +49,12 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
+from earth2studio.utils.type import (
+    LeadTimeArray,
+    MemberArray,
+    TimeArray,
+    VariableArray,
+)
 
 try:
     import ecmwf.opendata as opendata
@@ -171,7 +177,7 @@ class _ECMWFOpenDataSource(ABC):
         time: datetime | list[datetime] | TimeArray,
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
         variable: str | list[str] | VariableArray,
-        ensemble: Sequence[int] | np.ndarray | None = None,
+        member: int | list[int] | MemberArray | None = None,
     ) -> xr.DataArray:
         """Retrieve ECMWF data.
 
@@ -184,14 +190,14 @@ class _ECMWFOpenDataSource(ABC):
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
             return. Must be in the data lexicon.
-        ensemble : Sequence[int] | np.ndarray, optional
+        member : int | list[int] | MemberArray, optional
             Ensemble members to fetch, by default None, which fetches the members
             the source was built with.
 
         Note
         ----
-        For peturbed data from ensemble models, and whenever ``ensemble`` is given,
-        the returned data array will have an extra `ensemble` dimension added to it.
+        For peturbed data from ensemble models the returned data array will have an
+        extra `ensemble` dimension added to it, which leads when ``member`` is given.
 
         Returns
         -------
@@ -209,7 +215,7 @@ class _ECMWFOpenDataSource(ABC):
             time,
             lead_time,
             variable,
-            ensemble,
+            member,
             timeout=self.async_timeout,
         )
 
@@ -218,20 +224,20 @@ class _ECMWFOpenDataSource(ABC):
         time: datetime | list[datetime] | TimeArray,
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
         variable: str | list[str] | VariableArray,
-        ensemble: Sequence[int] | np.ndarray | None = None,
+        member: int | list[int] | MemberArray | None = None,
     ) -> xr.DataArray:
         """Async method to retrieve ECMWF data.
 
-        Without ``ensemble``, fetches the members the source was built with. With it,
+        Without ``member``, fetches the members the source was built with. With it,
         fetches the control member ``0`` and perturbed members ``1`` and up as
-        separate requests, and returns them on an ``ensemble`` dimension in the
-        requested order.
+        separate requests, and returns them on a leading ``ensemble`` dimension in
+        the requested order.
         """
-        if ensemble is None:
+        if member is None:
             return await self._fetch_members(
                 time, lead_time, variable, self._fc_type, self._members
             )
-        members = [int(m) for m in ensemble]
+        members = [int(m) for m in prep_member_inputs(member)]  # type: ignore[union-attr]
         if any(m < 0 for m in members):
             raise ValueError(f"Invalid {self._model} ensemble members {members}")
         groups: list[tuple[Literal["cf", "pf"], list[int]]] = []
@@ -247,7 +253,7 @@ class _ECMWFOpenDataSource(ABC):
                 da = da.expand_dims(ensemble=np.array(group), axis=3)
             arrays.append(da)
         da = arrays[0] if len(arrays) == 1 else xr.concat(arrays, "ensemble")
-        return da.sel(ensemble=np.array(members))
+        return da.sel(ensemble=np.array(members)).transpose("ensemble", ...)
 
     async def _fetch_members(
         self,
@@ -338,14 +344,14 @@ class _ECMWFOpenDataSource(ABC):
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
-        ensemble: Sequence[int] | np.ndarray | None = None,
+        member: int | list[int] | MemberArray | None = None,
     ) -> xr.DataArray:
         """Retrieve analysis-style data synchronously."""
         return _sync_async(
             self._fetch_analysis,
             time,
             variable,
-            ensemble,
+            member,
             timeout=self.async_timeout,
         )
 
@@ -353,7 +359,7 @@ class _ECMWFOpenDataSource(ABC):
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
-        ensemble: Sequence[int] | np.ndarray | None = None,
+        member: int | list[int] | MemberArray | None = None,
     ) -> xr.DataArray:
         """Async retrieve analysis-style data, accounting for accumulated aliases."""
         time, variable = prep_data_inputs(time, variable)
@@ -365,7 +371,7 @@ class _ECMWFOpenDataSource(ABC):
                 time,
                 np.array([0], dtype="datetime64[h]"),
                 instant_variables,
-                ensemble,
+                member,
             )
             arrays.append(da.isel(lead_time=0).drop_vars("lead_time"))
 
@@ -386,7 +392,7 @@ class _ECMWFOpenDataSource(ABC):
                 [t - timedelta(hours=hours) for t in time],
                 [timedelta(hours=hours)],
                 accumulation_variables,
-                ensemble,
+                member,
             )
             da = da.isel(lead_time=0).drop_vars("lead_time")
             arrays.append(da.assign_coords(time=time))
@@ -905,7 +911,7 @@ class IFS_ENS(_ECMWFOpenDataSource):
         Open-data mirror to fetch from: "aws", "ecmwf", "azure", or "google".
         By default "aws".
     member: int, optional
-        Ensemble member id to use when a request names no ``ensemble`` members. If
+        Ensemble member id to use when a request names no ``member``. If
         0 the control forecast will be requested, if greater than 0 perturbed
         ensemble member will be requested, by default 1.
     cache : bool, optional
@@ -980,7 +986,7 @@ class IFS_ENS(_ECMWFOpenDataSource):
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
-        ensemble: Sequence[int] | np.ndarray | None = None,
+        member: int | list[int] | MemberArray | None = None,
     ) -> xr.DataArray:
         """Retrieve IFS ENS data.
 
@@ -991,19 +997,19 @@ class IFS_ENS(_ECMWFOpenDataSource):
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
             return. Must be in the data lexicon.
-        ensemble : Sequence[int] | np.ndarray, optional
+        member : int | list[int] | MemberArray, optional
             Ensemble members to fetch, ``0`` for the control and ``1`` and up
-            for perturbed members, returned on an ``ensemble`` dimension in this
-            order, by default None, which fetches the member the source was built
-            with and drops the dimension.
+            for perturbed members, returned on a leading ``ensemble`` dimension in
+            this order, by default None, which fetches the member the source was
+            built with and drops the dimension.
 
         Returns
         -------
         xr.DataArray
             IFS ENS initial state data array.
         """
-        da = self._call_analysis(time, variable, ensemble)
-        if ensemble is None and "ensemble" in da.dims:
+        da = self._call_analysis(time, variable, member)
+        if member is None and "ensemble" in da.dims:
             da = da.isel(ensemble=0).drop_vars("ensemble")
         return da
 
@@ -1011,7 +1017,7 @@ class IFS_ENS(_ECMWFOpenDataSource):
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
-        ensemble: Sequence[int] | np.ndarray | None = None,
+        member: int | list[int] | MemberArray | None = None,
     ) -> xr.DataArray:
         """Async method to retrieve IFS ENS initial state data.
 
@@ -1022,19 +1028,19 @@ class IFS_ENS(_ECMWFOpenDataSource):
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
             return. Must be in the data lexicon.
-        ensemble : Sequence[int] | np.ndarray, optional
+        member : int | list[int] | MemberArray, optional
             Ensemble members to fetch, ``0`` for the control and ``1`` and up
-            for perturbed members, returned on an ``ensemble`` dimension in this
-            order, by default None, which fetches the member the source was built
-            with and drops the dimension.
+            for perturbed members, returned on a leading ``ensemble`` dimension in
+            this order, by default None, which fetches the member the source was
+            built with and drops the dimension.
 
         Returns
         -------
         xr.DataArray
             IFS ENS initial state data array.
         """
-        da = await self._fetch_analysis(time, variable, ensemble)
-        if ensemble is None and "ensemble" in da.dims:
+        da = await self._fetch_analysis(time, variable, member)
+        if member is None and "ensemble" in da.dims:
             da = da.isel(ensemble=0).drop_vars("ensemble")
         return da
 
@@ -1076,7 +1082,7 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
         Open-data mirror to fetch from: "aws", "ecmwf", "azure", or "google".
         By default "aws".
     member: int, optional
-        Ensemble member id to use when a request names no ``ensemble`` members. If
+        Ensemble member id to use when a request names no ``member``. If
         0 the control forecast will be requested, if greater than 0 perturbed
         ensemble member will be requested, by default 1.
     cache : bool, optional
@@ -1149,7 +1155,7 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
         time: datetime | list[datetime] | TimeArray,
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
         variable: str | list[str] | VariableArray,
-        ensemble: Sequence[int] | np.ndarray | None = None,
+        member: int | list[int] | MemberArray | None = None,
     ) -> xr.DataArray:
         """Retrieve IFS ENS forecast data.
 
@@ -1162,19 +1168,19 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
             return. Must be in the data lexicon.
-        ensemble : Sequence[int] | np.ndarray, optional
+        member : int | list[int] | MemberArray, optional
             Ensemble members to fetch, ``0`` for the control and ``1`` and up
-            for perturbed members, returned on an ``ensemble`` dimension in this
-            order, by default None, which fetches the member the source was built
-            with and drops the dimension.
+            for perturbed members, returned on a leading ``ensemble`` dimension in
+            this order, by default None, which fetches the member the source was
+            built with and drops the dimension.
 
         Returns
         -------
         xr.DataArray
             IFS ENS forecast data array
         """
-        da = self._call(time, lead_time, variable, ensemble)
-        if ensemble is None and "ensemble" in da.dims:
+        da = self._call(time, lead_time, variable, member)
+        if member is None and "ensemble" in da.dims:
             da = da.isel(ensemble=0).drop_vars("ensemble")
         return da
 
@@ -1183,7 +1189,7 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
         time: datetime | list[datetime] | TimeArray,
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
         variable: str | list[str] | VariableArray,
-        ensemble: Sequence[int] | np.ndarray | None = None,
+        member: int | list[int] | MemberArray | None = None,
     ) -> xr.DataArray:
         """Async method to retrieve IFS ENS forecast data.
 
@@ -1196,19 +1202,19 @@ class IFS_ENS_FX(_ECMWFOpenDataSource):
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
             return. Must be in the data lexicon.
-        ensemble : Sequence[int] | np.ndarray, optional
+        member : int | list[int] | MemberArray, optional
             Ensemble members to fetch, ``0`` for the control and ``1`` and up
-            for perturbed members, returned on an ``ensemble`` dimension in this
-            order, by default None, which fetches the member the source was built
-            with and drops the dimension.
+            for perturbed members, returned on a leading ``ensemble`` dimension in
+            this order, by default None, which fetches the member the source was
+            built with and drops the dimension.
 
         Returns
         -------
         xr.DataArray
             IFS ENS forecast data array.
         """
-        da = await super()._ecmwf_fetch(time, lead_time, variable, ensemble)
-        if ensemble is None and "ensemble" in da.dims:
+        da = await super()._ecmwf_fetch(time, lead_time, variable, member)
+        if member is None and "ensemble" in da.dims:
             da = da.isel(ensemble=0).drop_vars("ensemble")
         return da
 
@@ -1374,7 +1380,7 @@ class AIFS_ENS_FX(_ECMWFOpenDataSource):
         Open-data mirror to fetch from: "aws", "ecmwf", "azure", or "google".
         By default "aws".
     member: int, optional
-        Ensemble member id to use when a request names no ``ensemble`` members. If
+        Ensemble member id to use when a request names no ``member``. If
         0 the control forecast will be requested, if greater than 0 perturbed
         ensemble member will be requested, by default 0.
     cache : bool, optional
@@ -1443,7 +1449,7 @@ class AIFS_ENS_FX(_ECMWFOpenDataSource):
         time: datetime | list[datetime] | TimeArray,
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
         variable: str | list[str] | VariableArray,
-        ensemble: Sequence[int] | np.ndarray | None = None,
+        member: int | list[int] | MemberArray | None = None,
     ) -> xr.DataArray:
         """Retrieve AIFS ENS forecast data.
 
@@ -1456,19 +1462,19 @@ class AIFS_ENS_FX(_ECMWFOpenDataSource):
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
             return. Must be in the data lexicon.
-        ensemble : Sequence[int] | np.ndarray, optional
+        member : int | list[int] | MemberArray, optional
             Ensemble members to fetch, ``0`` for the control and ``1`` and up
-            for perturbed members, returned on an ``ensemble`` dimension in this
-            order, by default None, which fetches the member the source was built
-            with and drops the dimension.
+            for perturbed members, returned on a leading ``ensemble`` dimension in
+            this order, by default None, which fetches the member the source was
+            built with and drops the dimension.
 
         Returns
         -------
         xr.DataArray
             AIFS ENS forecast data array
         """
-        da = self._call(time, lead_time, variable, ensemble)
-        if ensemble is None and "ensemble" in da.dims:
+        da = self._call(time, lead_time, variable, member)
+        if member is None and "ensemble" in da.dims:
             da = da.isel(ensemble=0).drop_vars("ensemble")
         return da
 
@@ -1477,7 +1483,7 @@ class AIFS_ENS_FX(_ECMWFOpenDataSource):
         time: datetime | list[datetime] | TimeArray,
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
         variable: str | list[str] | VariableArray,
-        ensemble: Sequence[int] | np.ndarray | None = None,
+        member: int | list[int] | MemberArray | None = None,
     ) -> xr.DataArray:
         """Async method to retrieve AIFS ENS forecast data.
 
@@ -1490,19 +1496,19 @@ class AIFS_ENS_FX(_ECMWFOpenDataSource):
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
             return. Must be in the data lexicon.
-        ensemble : Sequence[int] | np.ndarray, optional
+        member : int | list[int] | MemberArray, optional
             Ensemble members to fetch, ``0`` for the control and ``1`` and up
-            for perturbed members, returned on an ``ensemble`` dimension in this
-            order, by default None, which fetches the member the source was built
-            with and drops the dimension.
+            for perturbed members, returned on a leading ``ensemble`` dimension in
+            this order, by default None, which fetches the member the source was
+            built with and drops the dimension.
 
         Returns
         -------
         xr.DataArray
             AIFS ENS forecast data array
         """
-        da = await super()._ecmwf_fetch(time, lead_time, variable, ensemble)
-        if ensemble is None and "ensemble" in da.dims:
+        da = await super()._ecmwf_fetch(time, lead_time, variable, member)
+        if member is None and "ensemble" in da.dims:
             da = da.isel(ensemble=0).drop_vars("ensemble")
         return da
 

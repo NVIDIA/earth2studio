@@ -49,7 +49,7 @@ class CoupledRunner:  # satisfies earth2studio.run.Runner
     supports_member_batching = True
     def __init__(
         self, components, connectors=(), sources=None, seed=0, devices=None,
-        ensemble_member=None, perturbation=None,
+        source_member=None, perturbation=None,
     ): ...
     def describe(self, final_lead_time) -> str: ...
     def to(self, device) -> CoupledRunner: ...
@@ -174,7 +174,7 @@ by the CRC-32 of its name, so stochastic components draw independent noise.
 `perturbation` maps stateful component names to initial-condition
 perturbations, applied to the first input slot per member as `X6` requires,
 from the same offset seed.
-With `ensemble_member`, every fetched slot whose source is ensemble-aware reads
+With `source_member`, every fetched slot whose source is an ensemble source reads
 the item's mapped member, as `X22` requires; connected slots read what their
 producer published, and DataFrame slots are shared. Batched members travel on a
 leading `ensemble` dimension through connectors, buffers, time statistics,

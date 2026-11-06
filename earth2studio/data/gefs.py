@@ -19,7 +19,7 @@ import os
 import pathlib
 import shutil
 import uuid
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -40,10 +40,16 @@ from earth2studio.data.utils import (
     obstore_fetch_to_cache,
     obstore_store_from_url,
     prep_forecast_inputs,
+    prep_member_inputs,
     resolve_async_workers,
 )
 from earth2studio.lexicon import GEFSLexicon, GEFSLexiconSel
-from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
+from earth2studio.utils.type import (
+    LeadTimeArray,
+    MemberArray,
+    TimeArray,
+    VariableArray,
+)
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
@@ -71,7 +77,7 @@ class GEFS_FX:
     Parameters
     ----------
     member : str, optional
-        GEFS member used when a request names no ``ensemble`` members. Options are:
+        GEFS member used when a request names no ``member``. Options are:
         control gec00 (control), gepNN (forecast member NN, e.g. gep01, gep02,...),
         by default "gec00"
     max_workers : int, optional
@@ -169,7 +175,7 @@ class GEFS_FX:
         time: datetime | list[datetime] | TimeArray,
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
         variable: str | list[str] | VariableArray,
-        ensemble: Sequence[str] | np.ndarray | None = None,
+        member: str | list[str] | MemberArray | None = None,
     ) -> xr.DataArray:
         """Retrieve GEFS forecast data
 
@@ -182,10 +188,10 @@ class GEFS_FX:
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
             return. Must be in the GEFS lexicon.
-        ensemble : Sequence[str] | np.ndarray, optional
-            GEFS members to fetch (e.g. ``["gec00", "gep01"]``), returned on an
-            ``ensemble`` dimension in this order, by default None, which fetches
-            the member the source was built with, without the dimension.
+        member : str | list[str] | MemberArray, optional
+            GEFS members to fetch (e.g. ``["gec00", "gep01"]``), returned on a
+            leading ``ensemble`` dimension in this order, by default None, which
+            fetches the member the source was built with, without the dimension.
 
         Returns
         -------
@@ -198,7 +204,7 @@ class GEFS_FX:
                 time,
                 lead_time,
                 variable,
-                ensemble,
+                member,
                 timeout=self.async_timeout,
             )
         finally:
@@ -213,7 +219,7 @@ class GEFS_FX:
         time: datetime | list[datetime] | TimeArray,
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
         variable: str | list[str] | VariableArray,
-        ensemble: Sequence[str] | np.ndarray | None = None,
+        member: str | list[str] | MemberArray | None = None,
     ) -> xr.DataArray:
         """Async function to get data
 
@@ -226,10 +232,10 @@ class GEFS_FX:
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
             return. Must be in the GEFS FX lexicon.
-        ensemble : Sequence[str] | np.ndarray, optional
-            GEFS members to fetch (e.g. ``["gec00", "gep01"]``), returned on an
-            ``ensemble`` dimension in this order, by default None, which fetches
-            the member the source was built with, without the dimension.
+        member : str | list[str] | MemberArray, optional
+            GEFS members to fetch (e.g. ``["gec00", "gep01"]``), returned on a
+            leading ``ensemble`` dimension in this order, by default None, which
+            fetches the member the source was built with, without the dimension.
 
         Returns
         -------
@@ -240,16 +246,16 @@ class GEFS_FX:
         if self.store is None:
             await self._async_init()
 
-        if ensemble is None:
+        if member is None:
             return await self._fetch_member(time, lead_time, variable, self._member)
-        members = [str(m) for m in ensemble]
+        members = [str(m) for m in prep_member_inputs(member)]  # type: ignore[union-attr]
         invalid = [m for m in members if m not in self.GEFS_MEMBERS]
         if invalid:
             raise ValueError(f"Invalid GEFS members {invalid}")
         # One file per member; each member's fetch is concurrent on its own.
         arrays = [
-            await self._fetch_member(time, lead_time, variable, member)
-            for member in members
+            await self._fetch_member(time, lead_time, variable, label)
+            for label in members
         ]
         return xr.concat(arrays, "ensemble").assign_coords(ensemble=members)
 
@@ -657,7 +663,7 @@ class GEFS_FX_721x1440(GEFS_FX):
     Parameters
     ----------
     member : str, optional
-        GEFS member used when a request names no ``ensemble`` members. Options are:
+        GEFS member used when a request names no ``member``. Options are:
         control gec00 (control), gepNN (forecast member NN, e.g. gep01, gep02,...),
         by default "gec00"
     max_workers : int, optional
@@ -736,7 +742,7 @@ class GEFS_FX_721x1440(GEFS_FX):
         time: datetime | list[datetime] | TimeArray,
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
         variable: str | list[str] | VariableArray,
-        ensemble: Sequence[str] | np.ndarray | None = None,
+        member: str | list[str] | MemberArray | None = None,
     ) -> xr.DataArray:
         """Retrieve GEFS forecast data
 
@@ -749,17 +755,17 @@ class GEFS_FX_721x1440(GEFS_FX):
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
             return. Must be in the GEFS FX select lexicon.
-        ensemble : Sequence[str] | np.ndarray, optional
-            GEFS members to fetch (e.g. ``["gec00", "gep01"]``), returned on an
-            ``ensemble`` dimension in this order, by default None, which fetches
-            the member the source was built with, without the dimension.
+        member : str | list[str] | MemberArray, optional
+            GEFS members to fetch (e.g. ``["gec00", "gep01"]``), returned on a
+            leading ``ensemble`` dimension in this order, by default None, which
+            fetches the member the source was built with, without the dimension.
 
         Returns
         -------
         xr.DataArray
             GEFS select forecast data array
         """
-        return super().__call__(time, lead_time, variable, ensemble)
+        return super().__call__(time, lead_time, variable, member)
 
     @classmethod
     def _validate_leadtime(cls, lead_times: list[timedelta]) -> None:

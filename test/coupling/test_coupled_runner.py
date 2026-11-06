@@ -892,13 +892,13 @@ class _MemberFill(Fill):
         self.ensembles: list[list | None] = []
 
     def __call__(  # type: ignore[override]
-        self, time: np.ndarray, variable: np.ndarray, ensemble: list | None = None
+        self, time: np.ndarray, variable: np.ndarray, member: list | None = None
     ) -> xr.DataArray:
         x = super().__call__(time, variable)
-        self.ensembles.append(None if ensemble is None else list(ensemble))
-        if ensemble is None:
+        self.ensembles.append(None if member is None else list(member))
+        if member is None:
             return x
-        members = np.asarray(ensemble)
+        members = np.asarray(member)
         offset = xr.DataArray(members.astype(np.float32), dims="ensemble")
         return (x + offset).assign_coords(ensemble=members)
 
@@ -917,7 +917,7 @@ def _toy(sources: Mapping[str, Fill], **kwargs: object) -> CoupledRunner:
 
 def test_members_read_their_source_member(ic_sources: Mapping[str, Fill]) -> None:
     atmos = _MemberFill(ATMOS_GRID, {"z1000": 0.0, "sst": 2.0})
-    runner = _toy({**ic_sources, "atmos": atmos}, ensemble_member=lambda m: m + 1)
+    runner = _toy({**ic_sources, "atmos": atmos}, source_member=lambda m: m + 1)
     item = WorkItem(T0, np.timedelta64(96, "h"), member_ids=(2,))
     streams: dict[str, list[xr.DataArray]] = {}
     for step in runner.run_item(item):
@@ -932,7 +932,7 @@ def test_members_read_their_source_member(ic_sources: Mapping[str, Fill]) -> Non
     assert atmos.ensembles == [[3]]
     assert ic_sources["ocean"].calls  # the ocean source is shared, read without members
     requests = runner.data_requests(item)
-    assert [None if r.ensemble is None else list(r.ensemble) for r in requests] == [
+    assert [None if r.member is None else list(r.member) for r in requests] == [
         [3],
         None,
     ]
@@ -942,7 +942,7 @@ def test_batched_members_match_single_member_runs(
     ic_sources: Mapping[str, Fill],
 ) -> None:
     atmos = _MemberFill(ATMOS_GRID, {"z1000": 0.0, "sst": 2.0})
-    runner = _toy({**ic_sources, "atmos": atmos}, ensemble_member=lambda m: m // 2)
+    runner = _toy({**ic_sources, "atmos": atmos}, source_member=lambda m: m // 2)
     assert runner.supports_member_batching
     final = np.timedelta64(96, "h")
     batched = list(runner.run_item(WorkItem(T0, final, member_ids=(2, 3, 4))))

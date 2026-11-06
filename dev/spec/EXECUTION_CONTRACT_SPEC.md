@@ -92,12 +92,12 @@ class Runner(Protocol):
   members, so models receive the batch as an extra dynamic leading dimension.
 - **Source members.** Members of one ensemble may read different data, e.g. four
   seeded branches from each IFS ENS member. A built-in runner given
-  `ensemble_member`, a function from a work item's member ID to a source member
-  label, fetches every slot whose source is ensemble-aware (see
+  `source_member`, a function from a work item's member ID to a source member
+  label, fetches every slot whose source is an ensemble source (see
   [FETCH_DATA_SPEC.md](FETCH_DATA_SPEC.md#ensemble-members)) for the item's
   members: initial conditions and forcing alike, the distinct labels in one
-  request, recorded in `DataRequest.ensemble`. Other slots, and every slot
-  without `ensemble_member`, are shared by all members. An item without member
+  request, recorded in `DataRequest.member`. Other slots, and every slot
+  without `source_member`, are shared by all members. An item without member
   IDs raises `ValueError`. With one member per item, the fetched member's field
   reaches the model without an `ensemble` dimension; in a batch, members sharing
   a source member share its one fetched field.
@@ -374,7 +374,7 @@ physicsnemo's `DistributedManager`, which is optional.
 ## Built-in runners
 
 `PrognosticRunner(prognostic, source=None, forcing=None, diagnostics=None, seed=0,
-ensemble_member=None, perturbation=None)`
+source_member=None, perturbation=None)`
 drives `create_iterator` and publishes the initial condition as the first step,
 matching `run.deterministic`, when the input ends at zero and the output declares
 every input variable on the input's grid; otherwise the streams start at the
@@ -384,7 +384,7 @@ default to `default_sources()`. Declared forcing is fetched initially and its
 time-varying slots are sent every step. The prognostic stream is `forecast`;
 each diagnostic adds a stream under the caller's name.
 
-`DiagnosticRunner(diagnostics, source=None, step=None, seed=0, ensemble_member=None)` applies
+`DiagnosticRunner(diagnostics, source=None, step=None, seed=0, source_member=None)` applies
 diagnostics directly to source data. Step `k` fetches inputs at the item's time
 plus `k * step`; without `step`, an item is one step at lead time zero.
 
@@ -394,7 +394,7 @@ component's initial condition from bound sources, runs components at their own
 cadences, and yields component-named streams.
 
 All three batch members (`supports_member_batching = True`) and take
-`ensemble_member` (see **Source members** above).
+`source_member` (see **Source members** above).
 
 ## Rules
 
@@ -421,7 +421,7 @@ All three batch members (`supports_member_batching = True`) and take
 | `X19` | A manifest mismatch raises `ValueError` unless the progress store overwrites |
 | `X20` | A run or close failure on any rank raises on every rank at the end of `run` |
 | `X21` | With `sync`, every rank calls it once per round, idle ranks with `None` |
-| `X22` | With `ensemble_member`, ensemble-aware slots fetch the item's mapped members |
+| `X22` | With `source_member`, slots read from ensemble sources fetch the item's mapped members |
 
 Tests live in `test/run/`. `X7`, `X9`'s collectives, `X13`, `X18`, `X20` and `X21` run
 under `torchrun` with two CPU ranks on gloo; the rest run single-process.

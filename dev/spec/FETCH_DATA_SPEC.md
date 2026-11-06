@@ -32,7 +32,7 @@ def fetch_data(
     device: torch.device | str = "cpu",
     target_grid: GridDefinition | None = None,
     regridder: Regridder | None = None,
-    ensemble: np.ndarray | Sequence | None = None,
+    member: int | str | Sequence | MemberArray | None = None,
 ) -> xr.DataArray:
     ...
 ```
@@ -49,9 +49,9 @@ def fetch_data(
 - `regridder` is a `Regridder` to apply (see [REGRID_SPEC.md](REGRID_SPEC.md)).
   Choosing a method, or a registered one with `resolve_regridder`, is the
   caller's job.
-- `ensemble` names distinct members to fetch from an ensemble-aware source, in
-  the source's own labels (see [Ensemble Members](#ensemble-members)). Other
-  sources reject it with `ValueError`.
+- `member` names one member or distinct members to fetch from an ensemble
+  source, in the source's own labels (see [Ensemble Members](#ensemble-members)).
+  Other sources reject it with `ValueError`.
 
 There is no separate `metadata` or `statistics` input. Temporal quantities are
 declared in variable labels. `target_grid` replaces the former `interp_to`, and
@@ -134,31 +134,40 @@ member `m // 4 + 1`. Members are therefore a request coordinate, like
 
 ```python
 IFS_ENS()(time, variable)                     # unchanged: the configured member
-IFS_ENS()(time, variable, ensemble=[3, 4])    # ensemble dimension labeled 3, 4
-fetch_data(IFS_ENS(), time, variable, ensemble=[3, 4])
+IFS_ENS()(time, variable, member=[3, 4])      # leading ensemble dimension: 3, 4
+IFS_ENS()(time, variable, member=3)           # leading ensemble dimension: 3
+fetch_data(IFS_ENS(), time, variable, member=[3, 4])
 ```
 
-- An ensemble-aware source takes an optional `ensemble` keyword on `__call__`
-  and `fetch`, after its other arguments. Given, the result has an `ensemble`
-  dimension holding those members; omitted, the source behaves as before,
-  returning the member it was built with. The `DataSource` and `ForecastSource`
-  protocols are unchanged, and other sources are untouched.
-- A source is ensemble-aware when its `__call__` signature contains `ensemble`,
+- Ensemble sources follow `EnsembleDataSource` or `EnsembleForecastSource` in
+  `earth2studio/data/base.py`: a `DataSource` or `ForecastSource` whose
+  `__call__` and `fetch` also take an optional `member` keyword after their
+  other arguments. `member` takes a label, a list of labels or a `MemberArray`,
+  as `time` and `variable` take a value, list or array. Given, even as one
+  label, the result has a leading `ensemble` dimension holding those members in
+  request order; omitted, the source returns the member it was built with,
+  without the dimension, so an ensemble source still serves every `DataSource`
+  or `ForecastSource` caller. `prep_member_inputs` normalizes the keyword.
+- The keyword is `member` and the dimension `ensemble`, the dimension name
+  runner outputs, IO backends and `InferenceOutputSource` already use: `member`
+  selects along `ensemble` as `time` and `variable` select along theirs.
+- A source is an ensemble source when its `__call__` signature contains `member`,
   mirroring forecast detection. Wrappers that forward requests through `*args`
   declare it with a boolean `is_ensemble` property; `RegriddedSource` reports
-  its source's. There is no separate protocol: a runtime-checkable protocol
-  checks member names only, and ensemble awareness cuts across `DataSource` and
-  `ForecastSource`.
-- `CompositeSource` and `CompositeForecastSource` are ensemble-aware when any
-  component is, through `is_ensemble`. They pass `ensemble` to those components,
+  its source's. The protocols document the contract and serve type checking; a
+  runtime-checkable protocol checks method names only, so `isinstance` cannot
+  tell ensemble sources from other sources and detection does not use it.
+- `CompositeSource` and `CompositeForecastSource` are ensemble sources when any
+  component is, through `is_ensemble`. They pass `member` to those components,
   which must share member labels, and repeat other components' fields for every
-  member. Without such a component, they reject `ensemble`.
+  member. Without such a component, they reject `member`.
 - Labels are the source's own: `IFS_ENS`, `IFS_ENS_FX` and `AIFS_ENS_FX` use `0`
   for the control and `1` and up for perturbed members, `GEFS_FX` uses `gec00`
   and `gep01` to `gep30`, and `InferenceOutputSource` uses the stored `ensemble`
   coordinate. Any subset, including all members, is requested by listing its
-  labels.
-- `fetch_data` forwards `ensemble` to every source call, including those for
+  labels. Constructor members, such as `IFS_ENS(member=k)`, remain the default
+  for calls without the keyword.
+- `fetch_data` forwards `member` to every source call, including those for
   temporal statistics, raises if the source returns no `ensemble` dimension, and
   selects members in request order. Labels must be distinct; callers repeat
   members after fetching.
@@ -193,7 +202,7 @@ before the first `:`, so a component providing `t2m` also receives
 
 - Return one `xr.DataArray`, ordered as `[time, lead_time, variable, ...]`, with
   remaining source dimensions retained. Lead coordinates use nanosecond precision.
-  With `ensemble`, a leading `ensemble` dimension comes first, labeled by the
+  With `member`, a leading `ensemble` dimension comes first, labeled by the
   requested members in order.
 - Without a regridder, preserve source spatial coordinates, auxiliary geometry,
   array name, and source attributes. Do not infer a grid, reconstruct grid
@@ -242,6 +251,6 @@ qualified labels, sources returning device arrays, and ensemble members through 
 source types, temporal statistics, `RegriddedSource` and the composites. Source
 aggregation is tested with the shared helper and with each source that supports
 statistics. The fetch regressions live in `test/data/test_fetch_data_xarray.py` and
-`test/data/test_data_utils.py`, member selection by each ensemble-aware source in
+`test/data/test_data_utils.py`, member selection by each ensemble source in
 its own test file, with regridders in `test/grids/test_regrid.py` and window
 semantics in `test/utils/test_time_statistics.py`.

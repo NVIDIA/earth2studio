@@ -48,15 +48,15 @@ from earth2studio.perturbation import Perturbation
 from earth2studio.run._fields import _map_field, _with_lead_time
 from earth2studio.run.runner import (
     DataRequest,
-    EnsembleMember,
     SlotSource,
+    SourceMember,
     _check_perturbation,
-    _ensemble_labels,
     _fetch,
     _module_device,
     _perturb,
     _seed_model,
     _signature_for_stream,
+    _source_members,
 )
 from earth2studio.run.work import WorkItem
 from earth2studio.utils.coords import E2S_STATISTICS, coord_array_like
@@ -114,12 +114,12 @@ class CoupledRunner:
         impact models, by default none. Every other component runs where its
         parameters or buffers are, or on the runner's device without any. Fetches
         and connected fields are staged onto the receiving component's device.
-    ensemble_member : Callable[[int], Hashable], optional
-        Maps a work item's member ID to the member that ensemble-aware sources
-        (those taking an ``ensemble`` keyword) supply for it, in the source's own
-        labels, by default None. Every fetched slot whose source is
-        ensemble-aware reads that member, initial conditions and forcing alike;
-        other slots are shared by every member.
+    source_member : Callable[[int], Hashable], optional
+        Maps a work item's member ID to the member that ensemble sources (those
+        taking a ``member`` keyword) supply for it, in the source's own labels,
+        by default None. Every fetched slot whose source is an ensemble source
+        reads that member, initial conditions and forcing alike; other slots are
+        shared by every member.
     perturbation : Mapping[str, Perturbation], optional
         Initial-condition perturbation per stateful component, applied to its
         first input slot as :class:`~earth2studio.run.PrognosticRunner` applies
@@ -140,7 +140,7 @@ class CoupledRunner:
         sources: Mapping[str, SlotSource | tuple[SlotSource | None, ...]] | None = None,
         seed: int = 0,
         devices: Mapping[str, torch.device | str] | None = None,
-        ensemble_member: EnsembleMember | None = None,
+        source_member: SourceMember | None = None,
         perturbation: Mapping[str, Perturbation] | None = None,
     ) -> None:
         if not components:
@@ -182,7 +182,7 @@ class CoupledRunner:
         }
         self._recommended: dict[str, tuple[Any, ...]] = {}
         self.seed = seed
-        self.ensemble_member = ensemble_member
+        self.source_member = source_member
         self.perturbation = dict(perturbation or {})
         for name, perturb in self.perturbation.items():
             if name not in self.nodes:
@@ -544,9 +544,7 @@ class _Requests:
                 (
                     None
                     if self.item is None
-                    else _ensemble_labels(
-                        self.runner.ensemble_member, source, self.item
-                    )
+                    else _source_members(self.runner.source_member, source, self.item)
                 ),
             )
         )
@@ -605,9 +603,9 @@ class _Execution:
             time,
             np.array(list(labels)),
             lead_time,
-            _ensemble_labels(self.runner.ensemble_member, source, self.item),
+            _source_members(self.runner.source_member, source, self.item),
         )
-        x = _fetch(request, signature, device, self.item, self.runner.ensemble_member)
+        x = _fetch(request, signature, device, self.item, self.runner.source_member)
         if slot.static:
             x = x.isel(lead_time=0, drop=True)
         return x

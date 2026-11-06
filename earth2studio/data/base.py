@@ -21,7 +21,12 @@ import pandas as pd
 import pyarrow as pa
 import xarray as xr
 
-from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
+from earth2studio.utils.type import (
+    LeadTimeArray,
+    MemberArray,
+    TimeArray,
+    VariableArray,
+)
 
 
 # --8<-- [start:data-source-interface]
@@ -34,10 +39,7 @@ class DataSource(Protocol):
     NumPy-backed fields on CPU and CuPy-backed fields on a CUDA device. The keyword
     is not part of the protocol; sources without the attribute are CPU sources.
 
-    Ensemble-aware sources, such as stored ensemble runs, also take an optional
-    ``ensemble`` keyword on ``__call__`` and ``fetch``, naming the members to
-    return on an ``ensemble`` dimension. It is not part of the protocol; without
-    it, a source returns the member it was built with.
+    Sources with ensemble members also follow :class:`EnsembleDataSource`.
     """
 
     def __call__(
@@ -99,8 +101,8 @@ class ForecastSource(Protocol):
     """Forecast source interface.
 
     Device placement follows the same optional ``device`` convention as
-    :class:`DataSource`, and ensemble-aware sources, such as ensemble forecasts,
-    take the same optional ``ensemble`` keyword.
+    :class:`DataSource`. Sources with ensemble members also follow
+    :class:`EnsembleForecastSource`.
     """
 
     def __call__(  # type: ignore[override]
@@ -158,6 +160,155 @@ class ForecastSource(Protocol):
             The coords should be provided. Time coordinate should be a TimeArray,
             lead time coordinate a LeadTimeArray and the variable coordinate should be
             an array of strings with Earth2Studio variable ids.
+        """
+        pass
+
+
+# --8<-- [start:ensemble-source-interface]
+@runtime_checkable
+class EnsembleDataSource(DataSource, Protocol):
+    """Data source interface for sources with ensemble members.
+
+    An ensemble source is a :class:`DataSource` whose ``__call__`` and ``fetch``
+    also take an optional ``member`` keyword selecting members along a leading
+    ``ensemble`` dimension, as ``time`` and ``variable`` select along theirs. Member
+    labels are the source's own, such as ``0`` for a control forecast or
+    ``"gep01"``. A scalar or sequence returns the members in request order on a
+    leading ``ensemble`` dimension; omitting ``member`` returns the member the
+    source was built with, without the dimension, so an ensemble source still
+    serves any :class:`DataSource` caller.
+
+    ``isinstance`` checks only that the methods exist, so it does not tell
+    ensemble sources from other data sources. Pipelines detect them by the
+    ``member`` keyword on ``__call__``; wrappers that forward requests declare
+    it through an ``is_ensemble`` property instead.
+    """
+
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+        member: int | str | list[int] | list[str] | MemberArray | None = None,
+    ) -> xr.DataArray:
+        """Function to get data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Datetime, list of datetimes or array of np.datetime64 to return data for.
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return.
+        member : int | str | list[int] | list[str] | MemberArray, optional
+            Member label, list of labels or array of labels to return, by default
+            None, which returns the member the source was built with.
+
+        Returns
+        -------
+        xr.DataArray
+            An xarray data-array with the dimensions [time, variable, ....], led by
+            an ``ensemble`` dimension when ``member`` is given.
+        """
+        pass
+
+    async def fetch(  # type: ignore[override]
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+        member: int | str | list[int] | list[str] | MemberArray | None = None,
+    ) -> xr.DataArray:
+        """Async function to get data. Async data sources support this.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Datetime, list of datetimes or array of np.datetime64 to return data for.
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return.
+        member : int | str | list[int] | list[str] | MemberArray, optional
+            Member label, list of labels or array of labels to return, by default
+            None, which returns the member the source was built with.
+
+        Returns
+        -------
+        xr.DataArray
+            An xarray data-array with the dimensions [time, variable, ....], led by
+            an ``ensemble`` dimension when ``member`` is given.
+        """
+        pass
+
+
+# --8<-- [end:ensemble-source-interface]
+
+
+@runtime_checkable
+class EnsembleForecastSource(ForecastSource, Protocol):
+    """Forecast source interface for sources with ensemble members.
+
+    Selects members with an optional ``member`` keyword as
+    :class:`EnsembleDataSource` does.
+    """
+
+    def __call__(  # type: ignore[override]
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+        member: int | str | list[int] | list[str] | MemberArray | None = None,
+    ) -> xr.DataArray:
+        """Function to get data.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Datetime, list of datetimes or array of np.datetime64 to return data for.
+        lead_time: timedelta | list[timedelta], LeadTimeArray
+            Timedelta, list of timedeltas or array of np.timedelta that refers to the
+            forecast lead time to fetch.
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return.
+        member : int | str | list[int] | list[str] | MemberArray, optional
+            Member label, list of labels or array of labels to return, by default
+            None, which returns the member the source was built with.
+
+        Returns
+        -------
+        xr.DataArray
+            An xarray data-array with the dimensions [time, lead_time, variable, ...],
+            led by an ``ensemble`` dimension when ``member`` is given.
+        """
+        pass
+
+    async def fetch(  # type: ignore[override]
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+        member: int | str | list[int] | list[str] | MemberArray | None = None,
+    ) -> xr.DataArray:
+        """Async function to get data. Async forecast sources support this.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Datetime, list of datetimes or array of np.datetime64 to return data for.
+        lead_time: timedelta | list[timedelta], LeadTimeArray
+            Timedelta, list of timedeltas or array of np.timedelta that refers to the
+            forecast lead time to fetch.
+        variable : str | list[str] | VariableArray
+            String, list of strings or array of strings that refer to variables to
+            return.
+        member : int | str | list[int] | list[str] | MemberArray, optional
+            Member label, list of labels or array of labels to return, by default
+            None, which returns the member the source was built with.
+
+        Returns
+        -------
+        xr.DataArray
+            An xarray data-array with the dimensions [time, lead_time, variable, ...],
+            led by an ``ensemble`` dimension when ``member`` is given.
         """
         pass
 

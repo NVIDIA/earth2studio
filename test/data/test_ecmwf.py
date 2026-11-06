@@ -115,14 +115,15 @@ def _ensemble_source(source_class, monkeypatch, member=1):
 
 def test_ifs_ens_fetches_requested_members_by_forecast_type(monkeypatch):
     ds, calls = _ensemble_source(IFS_ENS, monkeypatch)
-    da = ds(datetime(2025, 1, 1), ["t2m"], ensemble=[2, 0, 1])
+    da = ds(datetime(2025, 1, 1), ["t2m"], member=[2, 0, 1])
 
     assert calls == [("cf", [0]), ("pf", [2, 1])]
+    assert da.dims[0] == "ensemble"
     np.testing.assert_array_equal(da["ensemble"], [2, 0, 1])
     np.testing.assert_array_equal(da.isel(time=0, variable=0), [2, 0, 1])
 
 
-def test_ifs_ens_without_ensemble_returns_its_member(monkeypatch):
+def test_ifs_ens_without_member_returns_its_member(monkeypatch):
     ds, calls = _ensemble_source(IFS_ENS, monkeypatch, member=3)
     da = ds(datetime(2025, 1, 1), ["t2m"])
 
@@ -135,17 +136,18 @@ def test_ifs_ens_without_ensemble_returns_its_member(monkeypatch):
 def test_ensemble_forecasts_fetch_requested_members(source_class, monkeypatch):
     ds, calls = _ensemble_source(source_class, monkeypatch)
     da = asyncio.run(
-        ds.fetch([datetime(2025, 1, 1)], [timedelta(hours=6)], ["t2m"], ensemble=[4])
+        ds.fetch([datetime(2025, 1, 1)], [timedelta(hours=6)], ["t2m"], member=4)
     )
 
     assert calls == [("pf", [4])]
+    assert da.dims[0] == "ensemble"
     np.testing.assert_array_equal(da["ensemble"], [4])
 
 
 def test_ensemble_rejects_negative_members(monkeypatch):
     ds, _ = _ensemble_source(IFS_ENS, monkeypatch)
     with pytest.raises(ValueError, match="ensemble members"):
-        ds(datetime(2025, 1, 1), ["t2m"], ensemble=[-1])
+        ds(datetime(2025, 1, 1), ["t2m"], member=[-1])
 
 
 def test_grib_request_uses_requested_members(monkeypatch, tmp_path):

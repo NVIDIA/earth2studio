@@ -220,7 +220,7 @@ def test_state_connectors_write_each_batched_members_state() -> None:
     runner = _state_coupled()
     ocean_source = _MemberFill(OCEAN_GRID, {"sst": 2.0})
     runner.sources["ocean"] = (ocean_source,)
-    runner.ensemble_member = lambda m: m
+    runner.source_member = lambda m: m
     final = np.timedelta64(96, "h")
     batched = list(runner.run_item(WorkItem(T0, final, member_ids=(1, 3))))
     for member in (1, 3):
