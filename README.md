@@ -9,7 +9,7 @@
 
 # NVIDIA Earth2Studio
 
-**Next-generation AI weather and climate modeling, for humans and agents.**
+**Next-generation AI weather and climate modeling.**
 
 [![python version][e2studio_python_img]][e2studio_python_url]
 [![license][e2studio_license_img]][e2studio_license_url]
