@@ -16,8 +16,6 @@
 
 import ast
 from collections import OrderedDict
-from collections.abc import Hashable
-from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -28,13 +26,11 @@ import xarray as xr
 
 import earth2studio.run as run
 from earth2studio.data import Constant, Random, Random_FX, fetch_data
-from earth2studio.grids import LatLonGrid, ProjectedGrid
+from earth2studio.grids import ProjectedGrid
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import Persistence
 from earth2studio.utils.checkpoint import Checkpoint
 from earth2studio.utils.coords import coord_array
-from earth2studio.utils.cupy import from_torch
-from earth2studio.utils.time import to_time_array
 
 
 # This class is used to verify the workflow moved the model onto the right device
@@ -234,120 +230,6 @@ def test_native_mapping_preserves_storage_and_rejects_wrong_geometry():
     invalid.attrs["earth2studio_crs"] = "EPSG:4326"
     with pytest.raises(ValueError, match="CRS"):
         run._map_field(invalid, model.input_coords())
-    # Native Foundry fetches must align labels explicitly, using the real API.
-    target = Persistence(["t2m"], LatLonGrid([1.0, 0.0], [0.0, 1.0, 2.0]))
-    source = Constant(
-        OrderedDict(lat=np.array([0.0, 1.0, 2.0]), lon=np.array([0.0, 1.0, 2.0, 3.0])),
-        7,
-    )
-    for filename, attr in (
-        ("foundry_fcn3.py", "fcn3"),
-        ("foundry_fcn3_stormscope_goes.py", "fcn3_interp"),
-    ):
-        tree = ast.parse(
-            (root / "serve/server/example_workflows" / filename).read_text()
-        )
-        method = next(
-            node
-            for node in ast.walk(tree)
-            if isinstance(node, ast.FunctionDef) and node.name == "get_fcn3_input"
-        )
-        namespace = dict(
-            xr=xr,
-            datetime=datetime,
-            fetch_data=fetch_data,
-            to_time_array=to_time_array,
-            _map_field=run._map_field,
-        )
-        exec(  # noqa: S102 - exercise the local workflow method without server/weight imports
-            compile(ast.Module(body=[method], type_ignores=[]), filename, "exec"),
-            namespace,
-        )
-        workflow = SimpleNamespace(
-            **{attr: target}, data=source, data_fcn3=source, device="cpu"
-        )
-        actual = namespace["get_fcn3_input"](workflow, datetime(2024, 1, 1))
-        target.output_coords(actual)
-        assert actual.shape[-2:] == (2, 3)
-        np.testing.assert_array_equal(actual.lat, [1.0, 0.0])
-
-    # Run the actual conditioning loop: the untouched initial yield has one more
-    # latitude than the interpolator was built for, later forecasts do not.
-    from unittest.mock import Mock
-
-    tree = ast.parse(
-        (
-            root / "serve/server/example_workflows/foundry_fcn3_stormscope_goes.py"
-        ).read_text()
-    )
-    # run_fcn3 builds its write templates with the module's grid helpers.
-    wanted = ("_spatial_dims", "_spatial_coords", "run_fcn3")
-    methods = [
-        n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name in wanted
-    ]
-    methods.sort(key=lambda n: wanted.index(n.name))
-    input_model = Persistence(["t2m"], LatLonGrid([1.0, 0.0, -1.0], [0.0, 1.0, 2.0]))
-    field = fetch_data(
-        Constant(OrderedDict(lat=[1.0, 0.0, -1.0], lon=[0.0, 1.0, 2.0]), 7),
-        np.array(["2024-01-01"], dtype="datetime64[h]"),
-        np.array(["t2m"]),
-    )
-    grid = input_model.input_coords().isel(lat=slice(2))
-    outputs = [
-        field,
-        field.isel(lat=slice(2)).assign_coords(lead_time=[np.timedelta64(1, "h")]),
-    ]
-
-    def regrid(field):
-        # Each FCN3 frame is selected onto the conditioning grid before regridding.
-        assert field.shape[-2:] == (2, 3)
-        np.testing.assert_array_equal(field.lat, [1.0, 0.0])
-        return field
-
-    workflow = SimpleNamespace(
-        fcn3_interp=SimpleNamespace(
-            input_coords=lambda: grid,
-            output_coords=lambda x: grid,
-            px_model=SimpleNamespace(px_model=Mock()),
-            create_iterator=lambda x: iter(outputs),
-        ),
-        conditioning_regridder=regrid,
-        stormscope=SimpleNamespace(
-            input_coords=lambda: xr.DataArray(
-                np.zeros((2, 3)), dims=("y", "x"), coords={"y": [0, 1], "x": [0, 1, 2]}
-            ),
-            conditioning_variables=np.array(["t2m"]),
-        ),
-        update_progress=Mock(),
-    )
-    namespace = dict(
-        xr=xr,
-        datetime=datetime,
-        np=np,
-        IOBackend=object,
-        to_time_array=to_time_array,
-        WorkflowProgress=SimpleNamespace,
-        logger=Mock(),
-        coord_array=coord_array,
-        from_torch=from_torch,
-        Hashable=Hashable,
-    )
-    exec(  # noqa: S102 - execute the local workflow loop without server/weight imports
-        compile(ast.Module(body=methods, type_ignores=[]), "conditioning-loop", "exec"),
-        namespace,
-    )  # noqa: S102
-    io = Mock()
-    namespace["run_fcn3"](
-        workflow,
-        io,
-        field,
-        1,
-        datetime(2024, 1, 1),
-        np.array([0, 1], dtype="timedelta64[h]"),
-        0,
-        1,
-    )
-    assert io.write.call_count == 2
 
 
 def test_native_checkpoint_resume(tmp_path):

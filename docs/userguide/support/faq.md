@@ -16,6 +16,13 @@ making Earth2Studio as feature rich as possible for users.
 Open an issue to discuss the model you're interested in using / integrating and we can
 work out a plan to get it integrated.
 
+## How do I deploy Earth2Studio as an inference service?
+
+The inference server and client previously included in Earth2Studio (`earth2studio.serve`
+and the `serve/` directory) have moved to
+[PhysicsNeMo Serve](https://github.com/NVIDIA/physicsnemo-serve).
+See [Deployment and Serving](../advanced/serving.md).
+
 ## Earth2Studio requires X.Y.Z package or Python version, can I use another?
 
 Earth2Studio has adopted the [Scientific Python](https://scientific-python.org/specs/)

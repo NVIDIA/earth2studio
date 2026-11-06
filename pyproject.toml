@@ -91,32 +91,6 @@ utils = [
     "scipy>=1.15.2",
     "earth2grid",
 ]
-serve = [
-    # Core FastAPI dependencies
-    "fastapi>=0.104.0",
-    "uvicorn[standard]>=0.24.0",
-    "pydantic>=2.0.0",
-    # Redis dependencies
-    "redis>=5.0.0",
-    "types-redis",
-    "hiredis>=2.0.0",
-    "rq>=1.15.0",
-    # Metrics
-    "prometheus_client>=0.17.0",
-    # Additional utilities
-    "aiofiles>=23.0.0",
-    "httpx>=0.25.0",
-    "hydra-core>=1.3.0",
-    "python-dotenv>=1.0.0",
-    "python-multipart>=0.0.6",
-    "requests>=2.25.0",
-    "urllib3>=1.26.0",
-    # Object storage related
-    "cryptography>=41.0.0",
-    "multi-storage-client>=0.44.0",
-    "azure-storage-blob>=12.19.0",
-    "azure-identity>=1.15.0",
-]
 # PX Models
 ace2 = [
     "fme",
@@ -338,7 +312,7 @@ da-stormcast = [
 # torch-harmonics used by `atlas`, `fcn3`, `perturbation`, and `sfno` (see
 # [tool.uv.sources] and the conflicts declared in [tool.uv]).
 all = [
-    "earth2studio[data,perturbation,statistics,utils,serve]",
+    "earth2studio[data,perturbation,statistics,utils]",
     "earth2studio[atlas,aurora,camulator,dlwp,dlesym,fcn,fcn3,fengwu,fuxi,gencast,interp-crps-dit,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast,ucast,weathernext]",
     "earth2studio[cbottle,climatenet,corrdiff,cosmo,corrdiff-era5-hrrr,orbit,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
     "earth2studio[da-interp,da-stormcast,da-healda,da-healda-v2,da-cosmo]",
@@ -526,7 +500,6 @@ exclude = [".claude"]
 # Ignore `S101` (assertions) in all `test` files.
 "test/*.py" = ["S101"]
 "skills/**/*.py" = ["F401", "E731", "I001", "S101"]
-"serve/server/test/*.py" = ["S101"]
 "recipes/**/test/*.py" = ["S101"]
 
 # ==== Pytest configuration ====
@@ -600,8 +573,7 @@ ignore-regex = ["^get$", "^mock_.*", ".*BaseClass.*"]
 python_version = "3.13"
 packages = ['earth2studio']
 exclude = [
-    'examples', 'test', 'docs', 'serve/test', 'recipes/.*/test',
-    'serve/server/example_workflows', 'skills',
+    'examples', 'test', 'docs', 'recipes/.*/test', 'skills',
 ]
 disallow_untyped_calls = true
 disallow_untyped_defs = true
