@@ -25,7 +25,7 @@ You **MUST NOT** install, upgrade, or modify packages on the user's
 behalf. Provide the exact command; the user runs it. No exceptions.
 
 **Forbidden:** running `pip install`, `uv pip install`, `uv add`,
-`uv sync`, `conda install`, `apt install`, or any package manager.
+`uv sync`, `uv init`, `uv venv`, `conda install`, `apt install`, or any package manager.
 
 When a package is needed:
 
@@ -53,7 +53,7 @@ the sources below and quote from them.
 | Need | Where to look (repo path first, live page as a fallback) |
 |------|------------------------------------------------|
 | Install commands, release ref, extras, per-extra pre-install steps and warnings | `docs/userguide/about/install_options.yml` (generates the live install page) |
-| Environments (uv, Docker, conda), prerequisites, verification, environment variables | `docs/userguide/about/install.md` |
+| Recommended environment (the "uv Project" section), Docker, prerequisites, verification, environment variables | `docs/userguide/about/install.md` |
 | Supported Python versions | `requires-python` in `pyproject.toml` |
 | Full list of extras and what each pulls in | `[project.optional-dependencies]` in `pyproject.toml` |
 | Known failures | `docs/userguide/support/troubleshooting.md` and `docs/userguide/support/faq.md` |
@@ -76,19 +76,27 @@ incomplete.
 
 1. **Read the sources above.** Note the current release ref, supported Python
    versions, and the extras relevant to the user.
-2. **Ask only what is missing** (at most 3 questions): package manager (uv is the
-   recommended default per the docs), new project vs. existing, and which
-   models or data sources they plan to use.
-3. **Provide the command(s)** built from the `command_templates` and extra
+2. **Recommend a uv project by default.** The docs recommend a dedicated uv
+   project (`uv init` in a fresh directory, then `uv add` for Earth2Studio and
+   its extras) rather than installing into a system or shared Python. It keeps
+   the environment isolated and reproducible, and the install page's commands
+   are written as `uv add`. Give the project-setup commands from the "uv Project" section of
+   `install.md`, using the Python version it recommends. Only fall back to
+   pip, an existing environment, or Docker if the user asks for it or already
+   has one; say what the tradeoff is.
+3. **Ask only what is missing** (at most 3 questions): whether they already have
+   a project or environment to add to, and which models or data sources they
+   plan to use.
+4. **Provide the command(s)** built from the `command_templates` and extra
    entries in `install_options.yml`. Surface any preinstall steps, warnings, or
    notes attached to the chosen extras (slow builds, `--no-build-isolation`,
    CUDA-specific packages, and so on). Do not paraphrase from memory.
-4. **Wait for the user to run it**, then have them verify using the command in
-   `install.md`.
-5. **Mention configuration only when relevant** (limited disk, shared
+5. **Wait for the user to run it**, then have them verify using the command in
+   `install.md` (use the `uv run` form inside a uv project).
+6. **Mention configuration only when relevant** (limited disk, shared
    filesystem, CI). The environment variables and their meaning are listed in
    `install.md`.
-6. **On failure**, start from `troubleshooting.md` and `faq.md`. Check that
+7. **On failure**, start from `troubleshooting.md` and `faq.md`. Check that
    PyTorch and CUDA are working before blaming Earth2Studio.
 
 ## Limitations
