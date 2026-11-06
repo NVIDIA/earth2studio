@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed NetCDF4 IO support for millisecond, microsecond and nanosecond lead times,
+  preserving integer precision when writing timedelta coordinates (#1303).
+
 ### Security
 
 ### Dependencies
