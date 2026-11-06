@@ -12,6 +12,7 @@
     kind: ["data", "datasource", "datasources", "data-sources"].includes(requestedTab) ? "data" : "model",
     query: params.get("q") || "",
     filters: {},
+    vram: "",
     page: Math.max(1, Number.parseInt(params.get("page") || "1", 10) || 1),
   };
 
@@ -51,12 +52,23 @@
     return (state.filters[group] || new Set()).has(value);
   }
 
+  function knownVram(value) {
+    return typeof value === "number" && Number.isFinite(value) && value >= 0;
+  }
+
+  function vramValues() {
+    return [...new Set(records
+      .filter((item) => item.kind === "model" && knownVram(item.recommended_vram_gb))
+      .map((item) => item.recommended_vram_gb))].sort((a, b) => a - b);
+  }
+
   function updateUrl() {
     const next = new URLSearchParams();
     next.set("tab", state.kind === "data" ? "data" : "models");
     const query = state.query.trim();
     if (query) next.set("q", query);
     if (state.page > 1) next.set("page", String(state.page));
+    if (state.kind === "model" && state.vram !== "") next.set("vram", state.vram);
     Object.entries(state.filters).forEach(([group, values]) => {
       [...values].sort().forEach((value) => next.append(group.split(" ").join("_"), value));
     });
@@ -65,6 +77,11 @@
   }
 
   function hydrateFiltersFromUrl() {
+    const capacities = params.getAll("vram");
+    if (state.kind === "model" && capacities.length === 1 &&
+        vramValues().some((value) => String(value) === capacities[0])) {
+      state.vram = capacities[0];
+    }
     groupOrder[state.kind].forEach((group) => {
       const values = params.getAll(group.split(" ").join("_"));
       if (values.length) state.filters[group] = new Set(values);
@@ -73,6 +90,8 @@
 
   function matches(item) {
     if (item.kind !== state.kind) return false;
+    if (state.kind === "model" && state.vram !== "" &&
+        (!knownVram(item.recommended_vram_gb) || item.recommended_vram_gb > Number(state.vram))) return false;
     const haystack = [item.title, item.summary, item.group, ...(item.chips || [])]
       .join(" ")
       .toLowerCase();
@@ -87,7 +106,18 @@
   }
 
   function filterPanel() {
-    return groupOrder[state.kind]
+    const memory = state.kind === "model" ? `
+      <div class="e2s-catalog-filter-group">
+        <label for="e2s-catalog-vram">Available GPU VRAM</label>
+        <select id="e2s-catalog-vram" data-catalog-vram aria-describedby="e2s-catalog-vram-help">
+          <option value=""${state.vram === "" ? " selected" : ""}>Any capacity</option>
+          ${vramValues().map((value) => `<option value="${value}"${state.vram === String(value) ? " selected" : ""}>${value} GB</option>`).join("")}
+        </select>
+        <p id="e2s-catalog-vram-help">Shows known recommendations at or below your capacity.
+          Unknown requirements are excluded when a capacity is selected.
+          Recommendations do not guarantee hardware compatibility or performance.</p>
+      </div>` : "";
+    return memory + groupOrder[state.kind]
       .map((group) => {
         const values = sortedValues(group);
         if (!values.length) return "";
@@ -198,6 +228,7 @@
       button.addEventListener("click", () => {
         state.kind = button.dataset.catalogKind;
         state.filters = {};
+        state.vram = "";
         state.page = 1;
         render();
       });
@@ -208,10 +239,17 @@
       state.page = 1;
       renderResults();
     });
+    const vramSelect = root.querySelector("[data-catalog-vram]");
+    if (vramSelect) vramSelect.addEventListener("change", () => {
+      state.vram = vramSelect.value;
+      state.page = 1;
+      renderResults();
+    });
     const clearButton = root.querySelector("[data-catalog-clear]");
     if (clearButton) clearButton.addEventListener("click", () => {
       state.query = "";
       state.filters = {};
+      state.vram = "";
       state.page = 1;
       render();
     });

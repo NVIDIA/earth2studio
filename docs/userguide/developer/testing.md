@@ -167,3 +167,34 @@ provide more information.
 
 If you are contributing a model, be sure to make the developers aware of this to
 properly integrate it into the CI pipeline.
+
+## Catalog documentation tests
+
+Run the catalog metadata and JavaScript tests without importing models or downloading
+weights:
+
+```bash
+make docs-test DOCS_TEST_PYTHON=.venv/bin/python
+```
+
+The runner uses `test/docs/` with `--confcutdir` to isolate it from the model test
+configuration. It needs pytest, PyYAML, and the configured mkdocs-badges package.
+Node.js runs the JavaScript tests through pytest; that test is skipped if Node.js
+is unavailable. `make docs-generate` runs this suite before generating the docs,
+including in documentation builds. The JavaScript tests execute the catalog script
+with a small DOM/event adapter; they do not validate browser layout.
+
+For the optional browser check, use an environment with Playwright and Chromium
+already installed, generate the catalog, then run:
+
+```bash
+.venv/bin/python docs/generate_api.py
+.venv/bin/python docs/generate_catalog.py
+E2S_CATALOG_BROWSER_TESTS=1 .venv/bin/python -m pytest \
+  --confcutdir=test/docs test/docs/test_catalog_browser.py
+```
+
+This check serves the generated JSON and catalog assets through local Playwright
+routes without external requests. Set `E2S_CHROMIUM_EXECUTABLE` to use an existing
+Chromium executable, and `E2S_CATALOG_SCREENSHOT` to an output PNG path to capture
+the filtered catalog for visual inspection.
