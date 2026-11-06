@@ -108,7 +108,9 @@ def resumed_seed(cfg: DictConfig) -> int:
 
     seed = cfg.get("random_seed", None)
     current = _run_info(cfg, stored["random_seed"] if seed is None else int(seed))
-    differ = [key for key in ("random_seed",) + _RUN_KEYS if stored[key] != current[key]]
+    differ = [
+        key for key in ("random_seed",) + _RUN_KEYS if stored[key] != current[key]
+    ]
     if differ:
         raise ValueError(
             f"resume: config differs from the run to resume ({path}) in "
@@ -131,7 +133,9 @@ def write_status(
         json.dump({"random_seed": int(seed), "last_seed": int(last_seed)}, f)
 
 
-def _tracks_complete(cfg: DictConfig, ic: np.datetime64, mems: np.ndarray, seed: int) -> bool:
+def _tracks_complete(
+    cfg: DictConfig, ic: np.datetime64, mems: np.ndarray, seed: int
+) -> bool:
     if "cyclone_tracking" not in cfg:
         return True
     track_dir = os.path.join(cfg.store_dir, "cyclone_tracks_te")
@@ -181,7 +185,9 @@ def pending_runs(cfg: DictConfig, runs: list[Run]) -> list[Run]:
                 done += 1
             else:
                 # tracking was interrupted: rerun with the seed that was stable
-                pending.append((ic, mems, seeds[seeds.index(status["random_seed"]) :]))
+                stable = status["random_seed"]
+                rest = seeds[seeds.index(stable) :] if stable in seeds else (stable,)
+                pending.append((ic, mems, rest))
             continue
 
         tried = status["last_seed"]

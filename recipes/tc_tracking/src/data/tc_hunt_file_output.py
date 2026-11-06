@@ -216,7 +216,9 @@ def initialise_netcdf_output(
     # random seed of each member, an array named after itself rather than by a
     # variable label
     store.add_array(
-        coord_array(("ensemble",), {"ensemble": mems}, dtype=np.int64, name="random_seed")
+        coord_array(
+            ("ensemble",), {"ensemble": mems}, dtype=np.int64, name="random_seed"
+        )
     )
     write_seed(store, mems, seed)
 
