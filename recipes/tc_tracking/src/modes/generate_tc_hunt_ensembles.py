@@ -43,6 +43,7 @@ from src.data.tc_hunt_file_output import (
     write_seed,
 )
 from src.data.zarr_merge import merge_batch_stores
+from src.resume import pending_runs, resumed_seed, start_run, write_status
 from src.tc_hunt_utils import (
     InstabilityDetection,
     RetryQueue,
@@ -306,6 +307,7 @@ def run_inference(
                         for mem in mems
                     ]
                 )
+            write_status(cfg, ic, mems, seed, seed)
             return
 
         if cyclone_tracking:
@@ -317,6 +319,7 @@ def run_inference(
             )
             failed.append((ic, mems, seeds))
             retries.add_failed(len(mems))
+            write_status(cfg, ic, mems, -1, seed)
         else:
             logger.warning(
                 f"rank {dist.rank}: members {mems.tolist()} of {ic_str} unstable with seed {seed}, "
@@ -389,13 +392,15 @@ def base_seed(cfg: DictConfig) -> int:
     return int(store.get("base_seed"))
 
 
-def ensemble_runs(cfg: DictConfig) -> tuple[list[Run], np.ndarray]:
+def ensemble_runs(cfg: DictConfig, seed: int) -> tuple[list[Run], np.ndarray]:
     """All runs of an ensemble: every batch of members for every IC.
 
     Parameters
     ----------
     cfg : DictConfig
         Hydra configuration object
+    seed : int
+        Base seed, from which the seeds of all batches are drawn
 
     Returns
     -------
@@ -409,7 +414,7 @@ def ensemble_runs(cfg: DictConfig) -> tuple[list[Run], np.ndarray]:
             n_ics=len(ics),
             ensemble_size=cfg.ensemble_size,
             batch_size=cfg.batch_size,
-            seed=base_seed(cfg),
+            seed=seed,
             n_retries=max_retries(cfg),
         )
     )
@@ -479,12 +484,24 @@ def run_ensemble(cfg: DictConfig) -> None:
         If members are reproduced into a Zarr store, which is not supported
     """
     reproduce = cfg.mode == "reproduce_members"
+    resume = cfg.get("resume", False)
     if reproduce and cfg.store_type == "zarr":
         raise ValueError("Zarr output not supported for reproducing ensemble members")
+    if reproduce and resume:
+        raise ValueError("resume is not supported for reproducing ensemble members")
 
     initialise(cfg)
 
-    runs, ics = reproduction_runs(cfg) if reproduce else ensemble_runs(cfg)
+    if reproduce:
+        runs, ics = reproduction_runs(cfg)
+    elif resume:
+        runs, ics = ensemble_runs(cfg, resumed_seed(cfg))
+        runs = pending_runs(cfg, runs)
+    else:
+        seed = base_seed(cfg)
+        runs, ics = ensemble_runs(cfg, seed)
+        if DistributedManager().rank == 0:
+            start_run(cfg, seed)
     runs = assign_runs_to_rank(runs)
 
     model = load_model(cfg)
@@ -494,7 +511,7 @@ def run_ensemble(cfg: DictConfig) -> None:
         cfg=cfg,
         model=model,
         ics=ics,
-        remove_old=DistributedManager().rank == 0,
+        remove_old=DistributedManager().rank == 0 and not resume,
     )
 
     # every rank runs the inference, also without runs: its setup contains
