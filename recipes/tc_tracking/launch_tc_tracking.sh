@@ -22,7 +22,7 @@
 set -euo pipefail
 
 IMAGE=${IMAGE:-tc_tracking:1.0}
-GPUS=${GPUS:-1}                                       # comma-separated device ids
+GPUS=${GPUS:-0}                                       # comma-separated device ids
 E2S_CACHE=${E2S_CACHE:-${HOME}/.cache/earth2studio}   # model weights and data
 HF_CACHE=${HF_CACHE:-${HOME}/.cache/huggingface}      # Hugging Face hub downloads
 CDSAPIRC=${CDSAPIRC:-${HOME}/.cdsapirc}               # credentials for CDS_ERA5

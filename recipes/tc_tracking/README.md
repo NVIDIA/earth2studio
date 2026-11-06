@@ -718,7 +718,9 @@ enabling tracking with virtually no overhead.
   like B200), consider increasing the batch size. GPU
   prediction time scales approximately linearly with batch
   size, while the time for a single CPU thread to process
-  one member remains constant.
+  one member remains constant. There is no backpressure:
+  members waiting for tracking pile up in `/dev/shm`
+  (about 0.7 GB per member for the Helene setup).
 - **Concurrency control**: On multi-GPU nodes, multiple
   ranks share the same CPUs. Use `max_workers_per_rank` to
   limit the number of members tracked in parallel per

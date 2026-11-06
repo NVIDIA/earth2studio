@@ -114,20 +114,9 @@ class DataSourceManager:
             # instantiate data source
             self.data_sources[name] = hydra.utils.instantiate(source.source)
 
-            # extract valid years for source and build mapping
-            years = source.years
-            if isinstance(years, str):
-                if "-" not in years:
-                    years = int(years)
-
-            if isinstance(years, int):
-                years = [years]
-            else:
-                years = list(
-                    range(int(years.split("-")[0]), int(years.split("-")[1]) + 1)
-                )
-
-            for year in years:
+            # valid years of the source: a single year or a range "2000-2010"
+            lo, _, hi = str(source.years).partition("-")
+            for year in range(int(lo), int(hi or lo) + 1):
                 self.data_source_mapping[year] = name
 
         return

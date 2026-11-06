@@ -132,6 +132,7 @@ class TempestExtremes:
             scratch_dir = (
                 SHARED_MEMORY if os.path.isdir(SHARED_MEMORY) else self.store_dir
             )
+        os.makedirs(scratch_dir, exist_ok=True)
         self.scratch_dir = tempfile.mkdtemp(prefix="tc_tracking_", dir=scratch_dir)
 
         # forecast steps of the current batch, filled by record_state

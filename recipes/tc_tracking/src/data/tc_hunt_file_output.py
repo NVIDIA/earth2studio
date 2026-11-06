@@ -179,9 +179,7 @@ def initialise_netcdf_output(
     seeds = np.concatenate([np.full(len(mems), seed) for mems, seed in batches])
 
     # setup filename
-    file_name = os.path.join(cfg.store_dir, cfg.project)
-    if file_name.endswith(".nc"):
-        file_name = file_name.replace(".nc", "")
+    file_name = os.path.join(cfg.store_dir, cfg.project).removesuffix(".nc")
     file_name = (
         file_name
         + f"_{np.datetime_as_string(ic, unit='s')}_mems{mems[0]:04d}-{mems[-1]:04d}.nc"

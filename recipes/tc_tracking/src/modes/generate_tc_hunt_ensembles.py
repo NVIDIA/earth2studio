@@ -220,68 +220,69 @@ def run_inference(
     # so the per-step gc.collect() below only scans new objects (ms, not 0.5 s)
     gc.freeze()
 
-    for ic, mems, seed in runs:
-        if cfg.store_type == "netcdf" and ic not in nc_stores:
-            nc_stores[ic] = initialise_netcdf_output(cfg, model, ic, runs)
-        if cfg.store_type == "netcdf":
-            store = nc_stores[ic]
+    try:
+        for ic, mems, seed in runs:
+            if cfg.store_type == "netcdf" and ic not in nc_stores:
+                nc_stores[ic] = initialise_netcdf_output(cfg, model, ic, runs)
+            if cfg.store_type == "netcdf":
+                store = nc_stores[ic]
 
-        if x0 is None or x0.coords["time"].values[0] != ic:
-            x0 = fetch_data(
-                data_source_mngr.select_data_source(ic),
-                time=[ic],
-                variable=inputs.coords["variable"].values,
-                lead_time=inputs.coords["lead_time"].values,
-                device=dist.device,
-            )
-        x = x0.expand_dims(ensemble=mems)
-
-        if stability_check:
-            stability_check.reset()
-
-        # each batch draws its noise from its own seed, which makes the batch
-        # reproducible, see reproduce_members
-        model.set_rng(seed=seed)
-
-        # the iterator yields forecasts only, so the IC is prepended
-        rollout = chain(
-            [initial_condition(x)], islice(model.create_iterator(x), cfg.n_steps)
-        )
-        stable = True
-        for y in tqdm(rollout, total=cfg.n_steps + 1):
-            # fields of previous steps can sit in reference cycles that still
-            # hold GPU memory, collect them before the model allocates again
-            gc.collect()
-            if store is not None:
-                store.write(y.sel(variable=out_vars))
-            if cyclone_tracking:
-                cyclone_tracking.record_state(y)
+            if x0 is None or x0.coords["time"].values[0] != ic:
+                x0 = fetch_data(
+                    data_source_mngr.select_data_source(ic),
+                    time=[ic],
+                    variable=inputs.coords["variable"].values,
+                    lead_time=inputs.coords["lead_time"].values,
+                    device=dist.device,
+                )
+            x = x0.expand_dims(ensemble=mems)
 
             if stability_check:
-                stable = stability_check(y).all()
-                if not stable:
-                    if cyclone_tracking:
-                        cyclone_tracking.reset()
-                    runs.append((ic, mems, seed + 1))
-                    logger.warning(
-                        f"CAUTION: one of members {mems} became unstable. will re-create with new seed."
-                    )
-                    break
+                stability_check.reset()
 
-        if cyclone_tracking and stable:
-            cyclone_tracking(
-                out_file_names=[
-                    f"tracks_{np.datetime_as_string(ic, unit='s')}_mem_{mem:04d}_seed_{seed}_bs_{cfg.batch_size}.csv"
-                    for mem in mems
-                ]
+            # each batch draws its noise from its own seed, which makes the batch
+            # reproducible, see reproduce_members
+            model.set_rng(seed=seed)
+
+            # the iterator yields forecasts only, so the IC is prepended
+            rollout = chain(
+                [initial_condition(x)], islice(model.create_iterator(x), cfg.n_steps)
             )
+            stable = True
+            for y in tqdm(rollout, total=cfg.n_steps + 1):
+                # fields of previous steps can sit in reference cycles that still
+                # hold GPU memory, collect them before the model allocates again
+                gc.collect()
+                if store is not None:
+                    store.write(y.sel(variable=out_vars))
+                if cyclone_tracking:
+                    cyclone_tracking.record_state(y)
 
-    # wait for tracking running in the background
-    if cyclone_tracking:
-        cyclone_tracking.close()
+                if stability_check:
+                    stable = stability_check(y).all()
+                    if not stable:
+                        if cyclone_tracking:
+                            cyclone_tracking.reset()
+                        runs.append((ic, mems, seed + 1))
+                        logger.warning(
+                            f"CAUTION: one of members {mems} became unstable. will re-create with new seed."
+                        )
+                        break
 
-    for nc_store in nc_stores.values():
-        nc_store.close()
+            if cyclone_tracking and stable:
+                cyclone_tracking(
+                    out_file_names=[
+                        f"tracks_{np.datetime_as_string(ic, unit='s')}_mem_{mem:04d}_seed_{seed}_bs_{cfg.batch_size}.csv"
+                        for mem in mems
+                    ]
+                )
+    finally:
+        # also on failure, so no scratch files are left in /dev/shm
+        # wait for tracking running in the background
+        if cyclone_tracking:
+            cyclone_tracking.close()
+        for nc_store in nc_stores.values():
+            nc_store.close()
 
     # Consolidate metadata in zarr files
     if isinstance(store, ZarrBackend):
