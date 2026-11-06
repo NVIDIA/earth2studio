@@ -33,8 +33,6 @@ Paste this into your coding agent (Claude, Codex, OpenCode, Cursor, etc.):
 ```text
 Help me get started with NVIDIA Earth2Studio. Read the install and discover skills
 in https://github.com/NVIDIA/earth2studio/tree/main/skills and follow them.
-Ask one question at a time, run commands only with my approval, and keep secrets
-out of chat.
 ```
 
 Then ask for what you want:
