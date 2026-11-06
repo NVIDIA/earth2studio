@@ -152,20 +152,18 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     ----
     A few details regarding the model's variables:
 
-    - The input variables ``t2m_min`` and ``t2m_max`` are daily minimum and maximum
-      and are requested as the temporal statistics ``t2m:min:24h`` and
-      ``t2m:max:24h`` (window ``[t-24h, t)``, the instantaneous 2m temperature over
-      the previous 24 hours). The 24-hour accumulated precipitation input is requested
-      as ``tp:sum:-23h:1h`` (window ``[t-23h, t+1h)``, the 24 hourly accumulations
-      ending at ``t``). The data source must therefore support temporal statistics
-      (e.g. :py:class:`earth2studio.data.ARCO_ERA5`).
-    - ``t2m`` and ``sst`` are combined to represent global surface temperature: over
-      the ocean ``sst`` replaces ``t2m``. This is applied to the instantaneous
-      fields and to the daily extremes, so the daily extremes of ``sst`` are also
-      requested (``sst:max:24h`` and ``sst:min:24h``) and are dropped after the
-      combination, leaving the 19 model input channels.
-    - The model is fine-tuned for IMERG 24-hour accumulated precipitation
-      (``tp:sum:-23h:1h``), which is also the output variable of this model.
+    - ``t2m_max`` and ``t2m_min`` are the daily maximum and minimum 2m temperature,
+      requested as the temporal statistics ``t2m:max:24h`` and ``t2m:min:24h``
+      (window ``[t-24h, t)``).
+    - ``tp24`` is the 24-hour accumulated precipitation, requested as
+      ``tp:sum:-23h:1h`` (window ``[t-23h, t+1h)``, the 24 hourly accumulations
+      ending at ``t``).
+    - ``t2m`` and ``sst`` are combined to represent global surface temperature, with
+      ``sst`` replacing ``t2m`` over the ocean. The same is applied to the daily
+      extremes using ``sst:max:24h`` and ``sst:min:24h``. The ``sst`` inputs are
+      dropped after combining, leaving 19 model input channels.
+    - The model is fine-tuned for IMERG 24-hour accumulated precipitation, which is
+      also the output variable (``tp:sum:-23h:1h``).
 
     Parameters
     ----------
