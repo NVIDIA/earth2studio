@@ -17,21 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `OrbitGlobalPrecip` now requests its 24-hour precipitation and daily 2m temperature
-  max/min inputs as native temporal statistics (`tp:sum:-23h:1h`,
-  `t2m:max:24h`, `t2m:min:24h`) and defaults to `ARCO_ERA5`, replacing the
-  manual hourly accumulation in the docstring example. The input signature now has 22
-  variables: `sst:max:24h` and `sst:min:24h` are added so the `sst` / `t2m` blend is
-  applied to the daily extremes as well.
-
 ### Deprecated
 
 ### Removed
 
 ### Fixed
-
-- `OrbitGlobalPrecip.load_model` now returns the model in eval mode; dropout was
-  previously active at inference, making outputs non-deterministic.
 
 ### Security
 
