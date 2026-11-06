@@ -74,8 +74,10 @@ cd recipes/tc_tracking
 docker build -t tc_tracking:1.0 .
 ```
 
-Building takes a few minutes, most of it for compiling
-torch-harmonics. The build can be adjusted with build arguments:
+The image installs Earth2Studio from the latest commit of the
+`1.0.0-rc` branch; rebuild with `docker build --no-cache` to pick
+up newer commits. Building takes a few minutes, most of it for
+compiling torch-harmonics. The build can be adjusted with build arguments:
 
 | Argument | Default | Purpose |
 | --- | --- | --- |
@@ -121,6 +123,10 @@ The script
 - uses the host's shared memory (`--ipc=host`), where
   TempestExtremes stages its input. Docker's default of 64 MB is
   too small for that.
+
+With `LOCAL_E2S=1`, the container uses the Earth2Studio code of the
+mounted repository instead of the one installed in the image, to
+develop the recipe and Earth2Studio together.
 
 ### 1.2 UV Environment
 
