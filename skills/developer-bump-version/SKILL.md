@@ -106,7 +106,7 @@ Also ensure the **released** version section (the one just below):
 
 ### **[CONFIRM — Release Date]**
 
-If the use doesn't know, just keep it as is, make sure to tell user this is an option.
+If the user doesn't know, just keep it as is, make sure to tell user this is an option.
 If the released section does not already have a date set, ask the user what
 date to use before proceeding.
 

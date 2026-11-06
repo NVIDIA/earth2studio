@@ -80,3 +80,25 @@ def test_model_deterministic_seed(model):
     xr.testing.assert_identical(first, model(x).e2s.as_numpy())
     model.set_rng(43)
     assert not np.array_equal(first.values, model(x).e2s.as_numpy().values)
+
+
+def test_model_region(model):
+    # Only when the model implements DomainAdaptable; adapt region and expectations.
+    from earth2studio.grids import Region
+    from earth2studio.models.base import DomainAdaptable
+
+    if not isinstance(model, DomainAdaptable):
+        pytest.skip("Fixed-domain model")
+    region = Region.box(-120.0, 30.0, -100.0, 40.0)  # adapt to the footprint
+    view = model.with_region(region)
+    assert view is not model  # new object sharing weights, parent unchanged
+    check_diagnostic_contract(view)
+    x = make_input(view)
+    handshake_dataarray(view(x), view.output_coords(x))
+    # A view selects from the full footprint: same region, same block.
+    assert (
+        view.with_region(region).output_coords(make_input(view)).shape
+        == view.output_coords(x).shape
+    )
+    with pytest.raises(ValueError):
+        model.with_region(Region.box(0.0, -89.0, 1.0, -88.0))  # outside footprint

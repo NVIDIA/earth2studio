@@ -21,14 +21,41 @@ section marked with ``# FILL:``.  Each ``# FILL:`` comment describes
 exactly what to replace.
 
 See real examples:
-- Gridded DataSource / ForecastSource: earth2studio/data/cfs.py
+- Gridded DataSource / ForecastSource with statistics: earth2studio/data/gfs.py
+- Zarr with statistics: earth2studio/data/arco.py (ARCO_ERA5)
+- Projected grid (auxiliary 2D lat/lon): earth2studio/data/hrrr.py
 - DataFrame DataFrameSource: earth2studio/data/nnja.py
 - HTTP-based: earth2studio/data/gdas.py
+
+Contracts (source of truth, read before deviating from this template):
+- .agents/rules/e2s-004..e2s-008, e2s-012 and earth2studio/data/base.py
+- earth2studio/data/utils.py (fetch_data, plan_statistics, reduce_statistics),
+  earth2studio/grids/__init__.py (infer_grid, resolve_grid) and MIGRATION.md
 
 Conventions:
 - File lives at earth2studio/data/<source_name>.py
 - Class name: PascalCase (e.g. GFS, ARCO_ERA5, CFS_FX, HimawariAHI)
 - File name: lowercase with underscores (e.g. gfs.py, cfs.py)
+
+Output conventions (1.0):
+- Optional ``device`` constructor keyword (default "cpu"), stored as a
+  ``torch.device`` in ``self.device``; NumPy output on CPU, CuPy on CUDA. It is
+  not part of the protocol and gfs.py/arco.py/hrrr.py do not implement it yet, so
+  add it only for sources that can produce CUDA output. Never add ``device`` to
+  ``__call__`` or ``fetch``.
+- Dims start ``[time, variable, ...]`` (``[time, lead_time, variable, ...]`` for
+  forecasts); values in unnormalized physical units. ``fetch_data`` reorders
+  and adds ``lead_time`` for analysis sources.
+- Regular lat/lon sources use 1D ``lat``/``lon`` dims. Projected sources use
+  ``y``/``x`` axes in projected units plus 2D ``lat``/``lon`` coordinates and the
+  ``earth2studio_crs`` attr (or ``earth2studio_grid_id`` for a registered grid) so
+  ``infer_grid`` can recognize them; hrrr.py's ``hrrr_y``/``hrrr_x`` dims predate
+  this and are not inferable. ``fetch_data`` does not fix grid metadata. If the
+  grid is registered (``earth2studio.grids.resolve_grid``), build coordinates from
+  ``resolve_grid(<id>).coords()`` so downstream regridders recognize it.
+- Time tolerance (DataFrame sources): ``time_tolerance: TimeTolerance`` parsed
+  with ``normalize_time_tolerance``; a single value is a symmetric +/-, a tuple is
+  (lower, upper).
 
 Native temporal statistics (default for regular-cadence gridded sources): follow
 ``temporal-statistics.py``. Expose the
@@ -51,6 +78,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 import numpy as np
+import torch
 import xarray as xr
 from loguru import logger
 from obstore.store import ObjectStore
@@ -148,6 +176,9 @@ class SourceName:
     retries : int, optional
         Number of retry attempts per failed fetch with exponential backoff,
         by default 3.
+    device : torch.device | str, optional
+        Device of the returned data. CPU returns NumPy-backed arrays and CUDA returns
+        CuPy-backed arrays on that device, by default "cpu".
 
     Warning
     -------
@@ -164,6 +195,9 @@ class SourceName:
     FILL: Add provider:<provider> when known. Add dataset:<family> only when
     this source belongs to a named dataset family.
     """
+
+    # FILL: Expose the lexicon (declare TIME_STATISTICS there if supported)
+    # lexicon = SourceNameLexicon
 
     # FILL: If this is a DataFrameSource, define SCHEMA here:
     # SCHEMA = pa.schema([
@@ -182,7 +216,9 @@ class SourceName:
         async_timeout: int = 600,
         async_workers: int | None = None,
         retries: int = 3,
+        device: torch.device | str = "cpu",
     ) -> None:
+        self.device = torch.device(device)
         self._cache = cache
         self._verbose = verbose
         self._async_workers = async_workers
@@ -214,7 +250,7 @@ class SourceName:
         variable: str | list[str] | VariableArray,
         # FILL: ForecastSource adds: lead_time: timedelta | list[timedelta] | LeadTimeArray,
         # FILL: DataFrameSource adds: fields: str | list[str] | pa.Schema | None = None,
-    ) -> xr.DataArray:
+    ) -> xr.DataArray:  # FILL: pd.DataFrame for DataFrameSource
         """Retrieve data for given times and variables.
 
         Parameters
@@ -301,6 +337,9 @@ class SourceName:
             verbose=(not self._verbose),
         )
 
+        # FILL: Temporal statistics (Step 7b): ``xr_array.attrs.update(attrs)``
+        if self.device.type == "cuda":
+            xr_array = xr_array.e2s.as_cupy(self.device.index)
         return xr_array
 
     # ------------------------------------------------------------------
@@ -454,6 +493,7 @@ class SourceName:
 #
 # 3. docs/modules/datasources_analysis.md (or _forecast.md, _dataframe.md)
 #    Add class to the {% autosummary %} block in alphabetical order.
+#    (DataFrameSource goes in datasources_dataframe.md.)
 #
 # 4. CHANGELOG.md
 #    Under the current unreleased version, add:

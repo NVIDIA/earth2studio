@@ -122,3 +122,24 @@ def test_model_signatures(model):
 # results feed recurrence. In-place front edits intentionally change prior yields.
 # Seeded tests: compare reset rollouts, differing seeds, reset=False continuation,
 # global RNG before/after, and replay unaffected by model.set_rng mid-rollout.
+# Regional views (only when the model implements DomainAdaptable): see
+# test_model_region below; adapt the region and expected block to the model.
+
+
+def test_model_region(model):
+    from earth2studio.grids import Region
+    from earth2studio.models.base import DomainAdaptable
+
+    if not isinstance(model, DomainAdaptable):
+        pytest.skip("Fixed-domain model")
+    region = Region.box(-120.0, 30.0, -100.0, 40.0)  # adapt to the footprint
+    before = model.input_coords().sizes
+    view = model.with_region(region)
+    assert view is not model  # new object sharing weights
+    assert model.input_coords().sizes == before  # parent unchanged
+    check_prognostic_contract(view)  # the view obeys the full contract
+    # A view selects from the full footprint: same region, same block.
+    again = view.with_region(region)
+    assert again.input_coords().sizes == view.input_coords().sizes
+    with pytest.raises(ValueError):
+        model.with_region(Region.box(0.0, -89.0, 1.0, -88.0))  # outside footprint

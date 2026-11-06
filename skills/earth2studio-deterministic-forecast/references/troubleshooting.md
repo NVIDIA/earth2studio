@@ -7,6 +7,8 @@
 | `KeyError` on variable | Lexicon missing variable | Check compat; pick different source |
 | `OutOfMemoryError` | VRAM exceeded | Use smaller model or free cache |
 | `FileNotFoundError` package | Weights not cached | Call `load_default_package()` first |
+| `ValueError` about forcing / slots | Model has forcing slots | Use `Pipeline.from_model` or a manual loop; see `forcing_coords()` |
+| `ValueError` on store extent / write | Output template does not cover the written labels | Rebuild with `output_template(...)` covering all times and leads |
 | `TimeoutError` data fetch | API slow/unreachable | Retry or use cached source |
 | `ValueError: nsteps` | Horizon < model step | Increase horizon or finer model |
 
@@ -14,9 +16,11 @@
 
 Common pairings:
 
-- **Global models** (AIFS, Pangu, GraphCast, SFNO, etc.) → GFS, ARCO_ERA5, CDS_ERA5, WB2ERA5, IFS
-- **Regional models** (StormCast, HRRR-based) → HRRR
-- **Historical/research runs** → ARCO_ERA5, CDS_ERA5, WB2ERA5, NCAR_ERA5
+Start from `model.default_sources()`. If you need another source, check that
+its lexicon (`earth2studio/lexicon/`) has every variable in
+`model.input_coords().coords["variable"]`, and that regional models get a source
+covering their region. Reanalysis sources suit historical runs; operational
+sources have limited history.
 
 ## IO Backend Selection
 

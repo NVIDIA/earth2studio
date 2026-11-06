@@ -20,26 +20,40 @@ This diagnostic model performs probabilistic super-resolution similar to CorrDif
 generating multiple samples from a coarse input grid to a fine output grid.
 """
 
-from collections import OrderedDict
-
 import numpy as np
 import torch
+import xarray as xr
 
+from earth2studio.grids import LatLonGrid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.utils import handshake_coords, handshake_dim
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.coords import (
+    coord_array,
+    handshake_dataarray,
+    handshake_nonempty,
+)
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.type import CoordinateSystem
 
 INPUT_VARIABLES = ["t2m", "u10m", "v10m", "msl"]
 OUTPUT_VARIABLES = ["t2m", "u10m", "v10m", "msl"]
+INPUT_GRID = LatLonGrid(
+    np.linspace(90, -90, 91, endpoint=True),
+    np.linspace(0, 360, 180, endpoint=False),
+)
+OUTPUT_GRID = LatLonGrid(
+    np.linspace(90, -90, 361, endpoint=True),
+    np.linspace(0, 360, 720, endpoint=False),
+)
 
 
 class SuperResolution(torch.nn.Module, AutoModelMixin):
     """Probabilistic super-resolution diagnostic model.
 
     Performs probabilistic super-resolution from a coarse 2-degree grid
-    to a fine 0.5-degree grid, generating multiple samples per input.
+    to a fine 0.5-degree grid, generating multiple samples per input. Seed the
+    sampler with ``set_rng``; the constructor and ``load_model`` take no seed.
 
     Parameters
     ----------
@@ -55,14 +69,19 @@ class SuperResolution(torch.nn.Module, AutoModelMixin):
         Output scale normalization tensor
     number_of_samples : int, optional
         Number of samples to generate per input, by default 1
-    seed : int | None, optional
-        Random seed for reproducibility, by default None
 
     Note
     ----
     Similar to CorrDiff, this model generates multiple high-resolution
     samples from a single low-resolution input using probabilistic methods.
+
+    Badges
+    ------
+    region:global class:downscaling provider:nvidia backend:pytorch
     """
+
+    stochastic: bool = True
+    _rng: torch.Generator | None = None
 
     def __init__(
         self,
@@ -72,12 +91,12 @@ class SuperResolution(torch.nn.Module, AutoModelMixin):
         out_center: torch.Tensor,
         out_scale: torch.Tensor,
         number_of_samples: int = 1,
-        seed: int | None = None,
     ) -> None:
         super().__init__()
+        if not isinstance(number_of_samples, int) or number_of_samples < 1:
+            raise ValueError("`number_of_samples` must be a positive integer.")
         self.core_model = core_model
         self.number_of_samples = number_of_samples
-        self.seed = seed
 
         # Register normalization buffers
         self.register_buffer("in_center", in_center)
@@ -85,63 +104,77 @@ class SuperResolution(torch.nn.Module, AutoModelMixin):
         self.register_buffer("out_center", out_center)
         self.register_buffer("out_scale", out_scale)
 
-        # Output grid dimensions
-        self._out_lat = np.linspace(90, -90, 361, endpoint=True)
-        self._out_lon = np.linspace(0, 360, 720, endpoint=False)
-
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of diagnostic model.
-
-        Returns
-        -------
-        CoordSystem
-            Coordinate system dictionary for coarse 2-degree grid.
-        """
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "variable": np.array(INPUT_VARIABLES),
-                "lat": np.linspace(90, -90, 91, endpoint=True),
-                "lon": np.linspace(0, 360, 180, endpoint=False),
-            }
-        )
-
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system with sample dimension.
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the sampler's local noise generator.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinates to validate and transform.
+        seed : int
+            Seed for the noise stream.
+        reset : bool, optional
+            Replace an existing generator, by default True. When False the
+            generator is only created if absent and the seed is otherwise ignored.
+        """
+        if reset or self._rng is None:
+            self._rng = torch.Generator().manual_seed(seed)
+
+    def default_sources(self) -> None:
+        """Recommend no input data source.
 
         Returns
         -------
-        CoordSystem
-            Output coordinates including sample dimension.
+        None
+            No source recommendation; the caller supplies the input field.
         """
-        target_input_coords = self.input_coords()
+        return None
 
-        # Validate input dimensions
-        handshake_dim(input_coords, "variable", -3)
-        handshake_dim(input_coords, "lat", -2)
-        handshake_dim(input_coords, "lon", -1)
+    def input_coords(self) -> CoordinateSystem:
+        """Input coordinate system of the diagnostic model.
 
-        # Validate coordinate values
-        handshake_coords(input_coords, target_input_coords, "variable")
-        handshake_coords(input_coords, target_input_coords, "lat")
-        handshake_coords(input_coords, target_input_coords, "lon")
-
-        # Output includes sample dimension
-        output_coords = OrderedDict(
-            {
-                **{k: input_coords[k] for k in list(input_coords)[:-3]},
-                "sample": np.arange(self.number_of_samples),
-                "variable": np.array(OUTPUT_VARIABLES),
-                "lat": self._out_lat,
-                "lon": self._out_lon,
-            }
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free signature on the coarse 2-degree grid.
+        """
+        return coord_array(
+            ("batch", "variable", "lat", "lon"),
+            {"variable": INPUT_VARIABLES},
+            dynamic=("batch",),
+            grid=INPUT_GRID,
         )
-        return output_coords
+
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Output coordinate system with a sample dimension on the fine grid.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free signature with the leading input dimensions, then
+            ``sample``, ``variable`` and the fine lat/lon grid.
+        """
+        handshake_dataarray(input_coords, self.input_coords())
+        leading = input_coords.dims[:-3]
+        coords = {
+            dim: input_coords.coords[dim].values
+            for dim in leading
+            if dim in input_coords.coords
+        }
+        coords["sample"] = np.arange(self.number_of_samples)
+        coords["variable"] = OUTPUT_VARIABLES
+        dynamic = tuple(input_coords.attrs.get("earth2studio_dynamic_dims", ()))
+        return coord_array(
+            (*leading, "sample", "variable", "lat", "lon"),
+            coords,
+            dynamic=dynamic,
+            sizes={dim: input_coords.sizes[dim] for dim in leading},
+            dtype=input_coords.dtype,
+            grid=OUTPUT_GRID,
+        )
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -165,7 +198,6 @@ class SuperResolution(torch.nn.Module, AutoModelMixin):
         cls,
         package: Package,
         number_of_samples: int = 1,
-        seed: int | None = None,
     ) -> DiagnosticModel:
         """Load generative diagnostic from package.
 
@@ -175,52 +207,36 @@ class SuperResolution(torch.nn.Module, AutoModelMixin):
             Model package with checkpoint files.
         number_of_samples : int, optional
             Number of samples to generate, by default 1
-        seed : int | None, optional
-            Random seed for reproducibility, by default None
 
         Returns
         -------
         DiagnosticModel
             Loaded model instance.
         """
-        # Resolve checkpoint files
-        model_path = package.resolve("model.pt")
-        in_center_path = package.resolve("in_center.npy")
-        in_scale_path = package.resolve("in_scale.npy")
-        out_center_path = package.resolve("out_center.npy")
-        out_scale_path = package.resolve("out_scale.npy")
-
-        # Load model
-        core_model = torch.load(model_path, map_location="cpu", weights_only=False)
+        # Load model on CPU; the caller moves it with .to(device)
+        core_model = torch.load(
+            package.resolve("model.pt"), map_location="cpu", weights_only=False
+        )
         core_model.eval()
         core_model.requires_grad_(False)
 
         # Load normalization parameters
-        in_center = torch.from_numpy(np.load(in_center_path)).view(4, 1, 1)
-        in_scale = torch.from_numpy(np.load(in_scale_path)).view(4, 1, 1)
-        out_center = torch.from_numpy(np.load(out_center_path)).view(4, 1, 1)
-        out_scale = torch.from_numpy(np.load(out_scale_path)).view(4, 1, 1)
+        in_center = torch.from_numpy(np.load(package.resolve("in_center.npy")))
+        in_scale = torch.from_numpy(np.load(package.resolve("in_scale.npy")))
+        out_center = torch.from_numpy(np.load(package.resolve("out_center.npy")))
+        out_scale = torch.from_numpy(np.load(package.resolve("out_scale.npy")))
 
         return cls(
             core_model,
-            in_center=in_center,
-            in_scale=in_scale,
-            out_center=out_center,
-            out_scale=out_scale,
+            in_center=in_center.view(4, 1, 1),
+            in_scale=in_scale.view(4, 1, 1),
+            out_center=out_center.view(4, 1, 1),
+            out_scale=out_scale.view(4, 1, 1),
             number_of_samples=number_of_samples,
-            seed=seed,
         )
 
-    def _normalize_input(self, x: torch.Tensor) -> torch.Tensor:
-        """Normalize input tensor."""
-        return (x - self.in_center) / self.in_scale
-
-    def _denormalize_output(self, x: torch.Tensor) -> torch.Tensor:
-        """Denormalize output tensor."""
-        return x * self.out_scale + self.out_center
-
     def _forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Internal forward pass generating samples.
+        """Generate samples for a single input.
 
         Parameters
         ----------
@@ -232,65 +248,56 @@ class SuperResolution(torch.nn.Module, AutoModelMixin):
         torch.Tensor
             Generated samples [samples, var, lat, lon].
         """
-        device = x.device
-
-        # Normalize input
-        x_norm = self._normalize_input(x.unsqueeze(0))
-
-        # Generate samples
+        x_norm = ((x - self.in_center) / self.in_scale).unsqueeze(0)
         samples = []
-        for i in range(self.number_of_samples):
-            # Set seed for reproducibility if provided
-            if self.seed is not None:
-                torch.manual_seed(self.seed + i)
-
-            # Generate noise for stochastic generation
-            noise = torch.randn(1, 4, 361, 720, device=device)
-
-            # Forward pass through model
-            sample = self.core_model(x_norm, noise)
-            samples.append(sample)
-
-        # Stack samples: [samples, var, lat, lon]
+        for _ in range(self.number_of_samples):
+            # Draw from the local generator so global RNG state is untouched;
+            # unseeded models fall back to the global RNG.
+            if self._rng is None:
+                noise = torch.randn(1, 4, 361, 720, device=x.device)
+            else:
+                noise = torch.randn(1, 4, 361, 720, generator=self._rng).to(x.device)
+            samples.append(self.core_model(x_norm, noise))
         out = torch.cat(samples, dim=0)
-
-        # Denormalize
-        out = self._denormalize_output(out)
-
-        return out
+        return out * self.out_scale + self.out_center
 
     @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Forward pass generating samples.
+    def _generate(self, x: xr.DataArray) -> xr.DataArray:
+        """Generate samples for a batch-packed input.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor with shape (batch, variable, lat, lon).
-        coords : CoordSystem
-            Input coordinate system.
+        x : xr.DataArray
+            Batch-packed input with dims (batch, variable, lat, lon).
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor (batch, sample, variable, lat, lon) and coordinates.
+        xr.DataArray
+            Samples with dims (batch, sample, variable, lat, lon).
         """
-        output_coords = self.output_coords(coords)
+        handshake_nonempty(x)
+        signature = self.output_coords(x)
+        tensor, _ = x.e2s.to_torch()
+        out = torch.stack([self._forward(tensor[i]) for i in range(tensor.shape[0])])
+        return from_torch(out, signature)
 
-        with torch.no_grad():
-            # Allocate output tensor
-            out = torch.zeros(
-                [len(v) for v in output_coords.values()],
-                device=x.device,
-                dtype=torch.float32,
-            )
+    @torch.inference_mode()
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Generate high-resolution samples.
 
-            # Generate samples for each batch element
-            for i in range(out.shape[0]):
-                out[i] = self._forward(x[i])
+        Parameters
+        ----------
+        x : xr.DataArray
+            Input field with dims (..., variable, lat, lon) matching
+            ``input_coords()``.
 
-        return out, output_coords
+        Returns
+        -------
+        xr.DataArray
+            Samples matching ``output_coords(x)`` with dims
+            (..., sample, variable, lat, lon).
+        """
+        signature = self.output_coords(x)
+        # batch_func restores the original leading dims first and appends new
+        # ones, so a new sample axis must be transposed into its planned place.
+        return self._generate(x).transpose(*signature.dims)

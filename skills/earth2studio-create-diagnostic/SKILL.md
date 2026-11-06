@@ -45,6 +45,8 @@ Diagnostics transform fields without a rollout, forcing API or iterator hooks.
    axes only where needed; clone borrowed storage before in-place kernels.
    Declare sample axes and changed grids for generative outputs. Use
    `set_rng(seed, reset=True)` for stochastic models, with isolated RNG draws.
+   If the model can run on a sub-domain, also implement
+   [`with_region`](references/model-contract.md#regional-views-domainadaptable).
 5. **Load weights when applicable.** Resolve immutable `Package` assets, load on
    CPU, call `eval()`, register buffers, and guard actual optional dependencies.
    Override `to` for non-Torch state. Follow
@@ -84,6 +86,7 @@ grids, sample axes and output slots rather than a generic "forward pass."
 | [Model contract](references/model-contract.md) | Always, before implementation |
 | [Skeleton](references/skeleton-template.py) | Starting a single-input wrapper |
 | [Method examples](references/method-templates.py) | Packaging or multiple slots |
+| [Regional views](references/model-contract.md#regional-views-domainadaptable) | The model supports sub-domains |
 | [Testing guide](references/testing-guide.py) | Building mock/contract tests |
 | [Validation guide](references/validation-guide.md) | Comparing with upstream inference |
 | [PR body](references/pr-body-template.md), [validation comment](references/pr-comment-template.md) | A PR is requested |

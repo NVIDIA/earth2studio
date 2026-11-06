@@ -23,7 +23,7 @@ Mitigation: Review and scan skill before deployment. <br>
 - [method-templates.py](references/method-templates.py) <br>
 - [testing-guide.py](references/testing-guide.py) <br>
 - [validation-guide.md](references/validation-guide.md) <br>
-- [Earth2Studio Diagnostic Models User Guide](docs/userguide/components/diagnostic.md) <br>
+- [Earth2Studio Diagnostic Models User Guide](https://nvidia.github.io/earth2studio/main/userguide/components/diagnostic/) <br>
 
 
 ## Skill Output: <br>

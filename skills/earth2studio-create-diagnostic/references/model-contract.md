@@ -59,7 +59,8 @@ boundaries. Invalid coordinates raise `ValueError`. `coord_array_like` preserves
 leading axes and unaffected metadata. Replacing variables or lead time drops
 dependent auxiliaries; rebuild them if needed. Spatial changes require a fresh
 grid-backed `coord_array`. Generative outputs declare `sample` after the original
-leading dimensions.
+leading dimensions. `batch_func` restores the original leading dimensions and
+appends new ones, so transpose the result to `output_coords(x).dims`.
 
 Fields use array data on the model device (normally NumPy on CPU, CuPy on CUDA).
 Document any device movement. Convert at the Torch boundary with
@@ -82,8 +83,34 @@ only an absent stream. Calls advance it. Never-seeded models may use global RNG.
 After seeding, repeatable seeds reproduce outputs, different seeds differ, and
 neither seeding nor execution leaves global RNG state perturbed. Use a local
 generator/functional key or a scoped RNG fork for backends without generator
-injection. Fork only the relevant devices and numerical call. Global RNG forks
+injection (`earth2studio.models.utils.fork_rng(seed, device, states)` restores
+global Torch RNG on exit and keeps the stream in a reusable `states` dictionary). Fork only the relevant devices and numerical call. Global RNG forks
 isolate sequential execution, not concurrent threads.
+
+## Regional Views (`DomainAdaptable`)
+
+Diagnostics that can run on a sub-domain of their supported footprint (for
+example downscalers) additionally implement
+[DomainAdaptable](../../../earth2studio/models/base.py), a runtime-checkable
+protocol with one method, `with_region(self, region: Region) -> Self`
+(`Region` comes from `earth2studio.grids`: `Region.box/band/rectangle/circle`).
+It is optional; fixed-domain models do not implement it. Requirements:
+
+- Return a new view with its own `input_coords`/`output_coords` signatures; share
+  weights, statics and heavy state with the parent. Never mutate the parent or
+  sibling views.
+- The model chooses the grid for every input and output slot itself, using whole
+  cells that cover the region. Reject unsupported kinds, regions partly or wholly
+  outside the footprint, and regions too small for the network with `ValueError`.
+  For `rectangle` regions honor center and orientation.
+- A view selects from the full supported footprint, not from its own block, so
+  `view.with_region(r)` equals `model.with_region(r)`.
+- A view copies, not shares, an RNG stream so seeding one view does not move others.
+- Views must satisfy the same contract (`check_diagnostic_contract(view)`).
+
+See `earth2studio/models/dx/corrdiff_era5_hrrr.py`, `corrdiff_cosmo_era5.py` and
+`cbottle_sr.py` for real implementations and `test/models/test_base.py` for a
+minimal protocol example.
 
 ## Rules and Verification
 
@@ -106,7 +133,8 @@ slots, fixed signatures (D11), planning, ownership and stochastic behavior.
 For deterministic models,
 the expected skip is `D10: model does not declare itself stochastic`, not an empty
 list. Pin legitimate skips with reasons, never suppress actual violations.
-Verify numerical results, invalid/empty inputs, arbitrary leading axes, metadata,
+Verify numerical results, regional views (`with_region`) when implemented,
+invalid/empty inputs, arbitrary leading axes, metadata,
 input nonmutation, source ordering and RNG isolation. Package tests load real
 weights only when explicitly enabled; dependency skips are not conformance.
 

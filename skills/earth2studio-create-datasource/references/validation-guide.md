@@ -100,6 +100,14 @@ Create a standalone script (do NOT commit).
 
 ### Gridded template (DataSource / ForecastSource)
 
+Before plotting, confirm the grid is recognized: `infer_grid(data)` from
+`earth2studio.grids` must succeed (projected/curvilinear output needs 2D
+`lat`/`lon` coordinates and the CRS or grid-ID attr). If the source supports
+temporal statistics, also plot or print one labeled variable such as
+`"t2m:mean:1day"` and check `data.attrs` contains `earth2studio_statistics`.
+For projected grids, `pcolormesh(arr.lon, arr.lat, ...)` still works because
+`lat`/`lon` are 2D.
+
 ```python
 """Sanity-check plot for <SourceName>."""
 import cartopy.crs as ccrs

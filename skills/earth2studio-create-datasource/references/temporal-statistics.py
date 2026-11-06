@@ -21,8 +21,14 @@ regular-cadence gridded sources unless the user opts out.
 
 Temporal statistics are variable labels such as ``"t2m:mean:24h"`` (window
 ``[-24h, 0h)``) or ``"tp:sum:+0h:+6h"`` (explicit offsets). Methods: ``mean``,
-``sum``, ``min``, ``max``. Windows are left-closed/right-open. Regular coordinate
-helpers require cadence-aligned windows; reducers impose no sampling cadence.
+``sum``, ``min``, ``max``. Windows are left-closed/right-open: ``t2m:mean:24h`` is
+``[T-24h, T)`` and ``t2m:mean:-12h:+12h`` is ``[T-12h, T+12h)``. Regular coordinate
+helpers require the source cadence to divide the window exactly; reducers impose no
+sampling cadence. Durations accept ns/us/ms/s/m/h/d/w units (plurals too), never
+months or years. Labels split at the first ``:`` only; raw backend IDs containing
+``::`` are plain variables. Forecast sources vary leads within one initialization,
+never switch cycles, and must validate every expanded lead (negative included)
+before downloading.
 
 Skip native support for unsuitable sources, such as climatology or irregular
 observations. ``fetch_data`` rejects statistic labels without native support.

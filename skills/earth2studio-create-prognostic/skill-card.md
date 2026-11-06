@@ -23,6 +23,7 @@ Mitigation: Review and scan skill before deployment. <br>
 - [method-templates.py](references/method-templates.py) <br>
 - [testing-guide.py](references/testing-guide.py) <br>
 - [validation-guide.md](references/validation-guide.md) <br>
+- [Earth2Studio Prognostic Models User Guide](https://nvidia.github.io/earth2studio/main/userguide/components/prognostic/) <br>
 
 
 ## Skill Output: <br>
