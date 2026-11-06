@@ -97,11 +97,9 @@ in_coords_ll = model_ll.input_coords()
 in_coords_hpx = model_hpx.input_coords()
 print(
     "DLESyM LatLon input coord shapes: ",
-    [(k, v.shape) for k, v in in_coords_ll.items()],
+    dict(in_coords_ll.sizes),
 )
-print(
-    "DLESyM HPX input coord shapes: ", [(k, v.shape) for k, v in in_coords_hpx.items()]
-)
+print("DLESyM HPX input coord shapes: ", dict(in_coords_hpx.sizes))
 print("Lat-lon input variable names: ", in_coords_ll["variable"])
 print(
     "Lat-lon output variable names: ", model_ll.output_coords(in_coords_ll)["variable"]
@@ -131,32 +129,34 @@ print(
 # %%
 ic_date = np.datetime64("2021-06-15")
 
-full_variables = list(in_coords_ll["variable"])
+full_variables = list(in_coords_ll.coords["variable"].values)
 
-# `ttr03` (the model's trailing 3-hour accumulated `ttr` input, if present
-# in `full_variables`) is served directly by the ERA5 ARCO data source like
-# any other accumulated variable (e.g. `tp06`), so no special-cased fetch or
-# splicing is needed here.
-x, coords = fetch_data(
+# Qualified labels such as `ttr:sum:-2h:1h` declare the model's temporal
+# windows. fetch_data reduces the hourly ERA5 samples and retains those labels.
+x = fetch_data(
     source=data,
     time=np.array([ic_date]),
     variable=np.array(full_variables),
-    lead_time=in_coords_ll["lead_time"],
+    lead_time=in_coords_ll.coords["lead_time"].values,
     device=device,
 )
 
 # Can call the `DLESyMLatLon` model directly with the input lat/lon data
-y, y_coords = model_ll(x, coords)
+from earth2studio.run import _dimension_coords, _map_field
+
+x = _map_field(x, in_coords_ll)
+y = model_ll(x)
 
 # Or, we can use the pre-processing and regridding utilities to regrid the data onto
 # the HEALPix grid, and then run directly with `DLESyM`, which expects HEALPix data
-x_prep, coords_prep = model_ll._prepare_derived_variables(x, coords)
-x_hpx, coords_hpx = model_ll.to_hpx(x_prep), model_ll.coords_to_hpx(coords_prep)
-y_hpx, y_coords_hpx = model_hpx(x_hpx, coords_hpx)
+x_hpx = model_ll._initial_state(x)
+y_hpx = model_hpx(x_hpx)
 
 # Retrieve the valid outputs for atmos/ocean components from the predictions
-y_atmos, y_atmos_coords = model_ll.retrieve_valid_atmos_outputs(y, y_coords)
-y_ocean, y_ocean_coords = model_ll.retrieve_valid_ocean_outputs(y, y_coords)
+y_atmos = model_ll.retrieve_valid_atmos_outputs(y)
+y_ocean = model_ll.retrieve_valid_ocean_outputs(y)
+y_atmos_coords = _dimension_coords(y_atmos)
+y_ocean_coords = _dimension_coords(y_ocean)
 
 print(
     "Atmosphere outputs (variables, lead_time [hrs]):",
@@ -179,17 +179,13 @@ print(
 
 # %%
 n_steps = 16
-model_iter_ll = model_ll.create_iterator(x, coords)
+model_iter_ll = model_ll.create_iterator(x)
 
 for i in range(n_steps):
-    x_step, x_step_coords = next(model_iter_ll)
+    x_step = next(model_iter_ll)
     if i > 0:  # Don't retrieve the first step as it is the initial condition
-        x_atmos, x_atmos_coords = model_ll.retrieve_valid_atmos_outputs(
-            x_step, x_step_coords
-        )
-        x_ocean, x_ocean_coords = model_ll.retrieve_valid_ocean_outputs(
-            x_step, x_step_coords
-        )
+        x_atmos = model_ll.retrieve_valid_atmos_outputs(x_step)
+        x_ocean = model_ll.retrieve_valid_ocean_outputs(x_step)
 
 print(f"Completed forecast with {n_steps} steps")
 
@@ -203,40 +199,42 @@ print(f"Completed forecast with {n_steps} steps")
 
 # %%
 from earth2studio.io import KVBackend
-from earth2studio.utils.coords import map_coords, split_coords
+from earth2studio.io.utils import output_template
 
 io = KVBackend()
 
-output_coords = model_ll.output_coords(coords)
-inp_lead_time = model_ll.input_coords()["lead_time"]
-out_lead_times = [
-    output_coords["lead_time"] + output_coords["lead_time"][-1] * i
-    for i in range(n_steps)
-]
-output_coords["lead_time"] = np.concatenate([inp_lead_time, *out_lead_times])
+# Arrays are created from a concrete template. The model's output signature declares
+# one coupled step, so the store's lead times are the input history followed by every
+# step of the roll out, and the dynamic leading dimensions are replaced by the single
+# initialization time being run.
+signature = model_ll.output_coords(model_ll.input_coords())
+inp_lead_time = model_ll.input_coords().coords["lead_time"].values
+out_lead_time = signature.coords["lead_time"].values
+template = output_template(
+    signature,
+    leading={"time": np.array([ic_date])},
+    coords={
+        "lead_time": np.concatenate(
+            [
+                inp_lead_time,
+                *(out_lead_time + out_lead_time[-1] * i for i in range(n_steps)),
+            ]
+        )
+    },
+)
+io.add_array(template)
 
-total_coords = output_coords.copy()
-for key, value in output_coords.items():  # Scrub batch dims
-    if value.shape == (0,):
-        del total_coords[key]
-var_names = total_coords.pop("variable")
-io.add_array(total_coords, var_names)
-
-model_iter = model_ll.create_iterator(x, coords)
-for step, (x_step, coords_step) in enumerate(model_iter):
-    # The very first yield is the initial condition itself, whose variable
-    # set is prognostic-only (e.g. no tp6/msl) -- every later yield is a
-    # true model output and includes the diagnostic variables too. Map
-    # against whichever of `output_coords`'s variables this step actually
-    # has; the array's diagnostic columns stay at their zero-initialized
-    # default for this one step.
-    step_output_coords = output_coords.copy()
-    step_variables = set(coords_step["variable"])
-    step_output_coords["variable"] = np.array(
-        [v for v in output_coords["variable"] if v in step_variables]
-    )
-    x_step, coords_step = map_coords(x_step, coords_step, step_output_coords)
-    io.write(*split_coords(x_step, coords_step))
+stored_variables = template.coords["variable"].values
+model_iter = model_ll.create_iterator(x)
+for step, x_step in enumerate(model_iter):
+    # The very first yield is the initial condition itself, whose variable set is
+    # prognostic-only (e.g. no tp:sum:6h/msl) and also carries the raw inputs the
+    # model derives its state from -- every later yield is a true model output and
+    # includes the diagnostic variables too. A write may hold any subset of the
+    # store's labels, so each step is narrowed to the variables the store holds; the
+    # diagnostic columns stay at their fill value for this one step.
+    step_variables = set(x_step.coords["variable"].values)
+    io.write(x_step.sel(variable=[v for v in stored_variables if v in step_variables]))
     if step == n_steps:
         break
 

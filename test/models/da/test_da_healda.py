@@ -274,12 +274,14 @@ def test_healda_call(device, request_time, lat_lon):
     assert np.all(out.coords["time"].values == request_time)
 
 
-def test_healda_call_missing_request_time():
+def test_healda_exceptions():
     model = _build_model()
     df = _build_raw_conv_df(5)
     df.attrs = {}  # No request_time → should raise
     with pytest.raises(ValueError, match="request_time"):
         model(df)
+    with pytest.raises(ValueError, match="At least one"):
+        model(None, None)
 
 
 def test_healda_call_empty_obs():
@@ -294,46 +296,62 @@ def test_healda_call_empty_obs():
     assert np.all(np.isnan(out.values))
 
 
-def test_healda_generator():
-    model = _build_model()
+@pytest.mark.parametrize(
+    "device",
+    [
+        "cpu",
+        pytest.param(
+            "cuda:0",
+            marks=pytest.mark.skipif(
+                not torch.cuda.is_available(), reason="cuda missing"
+            ),
+        ),
+    ],
+)
+def test_healda_call_observations(device: str) -> None:
+    model = _build_model(device=device)
     request_time = np.array([np.datetime64("2024-01-01T12:00:00")])
     conv_df = _build_raw_conv_df(10, request_time)
-    sat_df = _build_raw_sat_df(10, request_time)
+    conv_df["observation"] = 250.0
+    sat_time = request_time + np.timedelta64(1, "D")
+    sat_df = _build_raw_sat_df(10, sat_time)
+    sat_df["observation"] = 270.0
+    original_conv = conv_df.copy(deep=True)
+    original_sat = sat_df.copy(deep=True)
+    simultaneous_sat = sat_df.copy(deep=True)
+    simultaneous_sat["time"] = request_time[0]
+    simultaneous_sat.attrs = {"request_time": request_time}
 
-    gen = model.create_generator()
-    result = gen.send(None)
-    assert result is None
+    def observation_mean(inputs: dict[str, torch.Tensor]) -> torch.Tensor:
+        return inputs["obs"].mean().expand(1, NVAR, 1, NPIX).clone()
 
-    # conv only
-    with patch.object(model, "_forward", _mock_forward):
-        da = gen.send((conv_df, None))
-    assert isinstance(da, xr.DataArray)
-    assert da.shape == (1, NVAR, NPIX)
+    with patch.object(model, "_forward", side_effect=observation_mean) as forward:
+        first = model(conv_df, None)
+        first_values = first.e2s.to_torch()[0].clone()
+        for conv, sat, time, expected, count in [
+            (None, sat_df, sat_time, 270.0, 10),
+            (conv_df, simultaneous_sat, request_time, 260.0, 20),
+            (conv_df, None, request_time, 250.0, 10),
+        ]:
+            out = model(conv, sat)
+            assert out.shape == (1, NVAR, NPIX)
+            np.testing.assert_array_equal(out.time, time)
+            values = out.e2s.to_torch()[0]
+            assert values.device == torch.device(device)
+            torch.testing.assert_close(values, torch.full_like(values, expected))
+            assert forward.call_args.args[0]["obs"].numel() == count
 
-    # sat only
-    with patch.object(model, "_forward", _mock_forward):
-        da = gen.send((None, sat_df))
-    assert isinstance(da, xr.DataArray)
-    assert da.shape == (1, NVAR, NPIX)
+        torch.testing.assert_close(model(conv_df).e2s.to_torch()[0], first_values)
 
-    # both
-    with patch.object(model, "_forward", _mock_forward):
-        da = gen.send((conv_df, sat_df))
-    assert isinstance(da, xr.DataArray)
-    assert da.shape == (1, NVAR, NPIX)
-
-    with pytest.raises(ValueError, match="At least one"):
-        gen.send((None, None))
-
-    gen.close()
-
-
-def test_healda_init_coords():
-    model = _build_model()
-    assert model.init_coords() is None
+    torch.testing.assert_close(first_values, torch.full_like(first_values, 250.0))
+    torch.testing.assert_close(first.e2s.to_torch()[0], first_values)
+    pd.testing.assert_frame_equal(conv_df, original_conv)
+    pd.testing.assert_frame_equal(sat_df, original_sat)
+    np.testing.assert_array_equal(conv_df.attrs["request_time"], request_time)
+    np.testing.assert_array_equal(sat_df.attrs["request_time"], sat_time)
 
 
-def test_healda_input_coords():
+def test_healda_coords():
     model = _build_model()
     conv_schema, sat_schema = model.input_coords()
     assert "time" in conv_schema
@@ -344,15 +362,11 @@ def test_healda_input_coords():
     assert "lat" in sat_schema
     assert "observation" in sat_schema
     assert "sensor_index" in sat_schema
-
-
-def test_healda_output_coords():
-    model = _build_model()
     request_time = np.array([np.datetime64("2024-01-01T12:00:00")])
-    (coords,) = model.output_coords(model.input_coords(), request_time=request_time)
-    assert "time" in coords
-    assert "variable" in coords
-    assert "npix" in coords
+    coords = model.output_coords(*model.input_coords(), request_time=request_time)
+    assert "time" in coords.coords
+    assert "variable" in coords.coords
+    assert "npix" in coords.coords
     assert len(coords["variable"]) == NVAR
     assert len(coords["npix"]) == NPIX
 

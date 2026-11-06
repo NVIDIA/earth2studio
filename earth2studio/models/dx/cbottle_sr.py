@@ -14,24 +14,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
+from copy import copy
 from dataclasses import replace
+from typing import TYPE_CHECKING, Self
 
 import numpy as np
 import torch
+import xarray as xr
 
+from earth2studio.grids import LatLonGrid, Region, infer_grid, resolve_grid
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.utils import (
-    handshake_coords,
-    handshake_dim,
-)
+from earth2studio.models.utils import fork_rng
+from earth2studio.utils.coords import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 try:
     import earth2grid
@@ -94,8 +98,11 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     The results can be output in either HEALPix format or regridded to a lat/lon grid.
     If lat/lon is used for output, the results will be regridded to the specified output resolution.
     Suggested output resolutions are (2161, 4320) for ~10km equatorial resolution and (4321, 8640) for ~5km equatorial resolution.
-    The model can also be used to generate results for a smaller region of the globe by specifying a super-resolution window.
-    This is often desirable as full global results are computationally expensive.
+    The model can also be used to generate results for a smaller region of the globe,
+    which is often desirable as full global results are computationally expensive.
+    :meth:`with_region` returns a view restricted to a
+    :meth:`~earth2studio.grids.Region.box` or :meth:`~earth2studio.grids.Region.band`
+    (the model is :class:`~earth2studio.models.base.DomainAdaptable`).
 
     Note
     ----
@@ -118,18 +125,14 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     output_resolution : Tuple[int, int], optional
         High-resolution output dimensions for lat/lon output. Only used when
         lat_lon=True, by default (2161, 4320)
-    super_resolution_window : Tuple[int, int, int, int] | None, optional
-        Super-resolution window. If None, super-resolution is done on the entire global grid
-        If provided, the super-resolution window is a tuple of (lat_south, lon_west, lat_north, lon_east)
-        and will only apply super-resolution to the specified window. For lat/lon output, the result will
-        just be returned for the specified window with the specified output resolution,
-        by default None
+    region : Region | None, optional
+        Region to super-resolve, a :meth:`~earth2studio.grids.Region.box` or
+        :meth:`~earth2studio.grids.Region.band` as accepted by :meth:`with_region`.
+        If None, super-resolution is done on the entire globe, by default None
     sampler_steps : int, optional
         Number of diffusion steps, by default 18
     sigma_max : int, optional
         Maximum noise level for diffusion process, by default 800
-    seed : int, optional
-        Random generator seed for latent variables, by default None
 
     Badges
     ------
@@ -138,23 +141,22 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     provider:nvidia backend:pytorch
     """
 
+    stochastic = True
+
     def __init__(
         self,
         sr_model: torch.nn.Module,
         lat_lon: bool = True,
         output_resolution: tuple[int, int] = (2161, 4320),
-        super_resolution_window: tuple[int, int, int, int] | None = None,
+        region: Region | None = None,
         sampler_steps: int = 18,
         sigma_max: int = 800,
-        seed: int | None = None,
     ) -> None:
         super().__init__()
 
         self.sr_model = sr_model
-        self.seed = seed
         self.sampler_steps = sampler_steps
         self.sigma_max = sigma_max
-        self._sample_index = 0
 
         self.register_buffer(
             "_device_buffer",
@@ -203,7 +205,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         # Input grids
         if self.input_type == "latlon":
             self.input_grid = earth2grid.latlon.equiangular_lat_lon_grid(
-                721, 1440, includes_south_pole=False
+                721, 1440, includes_south_pole=True
             )
             self.regrid_input_to_hpx_low_res = earth2grid.get_regridder(
                 self.input_grid, self.hpx_low_res_grid
@@ -216,10 +218,11 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             self.input_grid = self.hpx_low_res_grid
             self.regrid_input_to_hpx_low_res = None
 
-        self.output_resolution = output_resolution
-
         # Setup super resolution window (this will initialize output coords and patch index)
-        self.set_super_resolution_window(super_resolution_window, output_resolution)
+        window, full_longitude = (
+            self._region_window(region) if region is not None else (None, False)
+        )
+        self._configure_window(window, output_resolution, full_longitude)
 
         self._coords = Coords(self.sr_model.batch_info, self.hpx_low_res_grid)
 
@@ -228,59 +231,66 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         """Current device for model buffers"""
         return self._device_buffer.device
 
-    def set_super_resolution_window(
+    def _configure_window(
         self,
-        super_resolution_window: tuple[int, int, int, int] | None = None,
-        output_resolution: tuple[int, int] = (2161, 4320),
+        super_resolution_window: tuple[float, float, float, float] | None,
+        output_resolution: tuple[int, int],
+        full_longitude: bool = False,
     ) -> None:
-        """Set or update the super-resolution window
+        """Configure the super-resolved window, output grid and output regridder.
 
         Parameters
         ----------
-        super_resolution_window : None | tuple[int, int, int, int], optional
-            Super-resolution window. If None, super-resolution is done
-            on the entire global grid. If provided, the super-resolution window is a tuple
-            of (lat_south, lon_west, lat_north, lon_east) and will only apply super-resolution
-            to the specified window. By default None.
-        output_resolution : tuple[int, int] | None, optional
-            High-resolution output dimensions for lat/lon output. Only used when
-            lat_lon=True, by default (2161, 4320)
+        super_resolution_window : tuple[float, float, float, float] | None
+            ``(lat_south, lon_west, lat_north, lon_east)``, or None for the globe.
+            The lat/lon output spans ``lon_west`` to ``lon_east`` inclusive, so an
+            antimeridian window passes ``lon_east > 180``.
+        output_resolution : tuple[int, int]
+            Lat/lon output shape.
+        full_longitude : bool, optional
+            The window spans every longitude between its latitudes (a band); its
+            longitude bounds are ignored, by default False.
         """
-        # Update super resolution window
         self.super_resolution_window = super_resolution_window
-        self.super_resolution_extents = None
+        self.output_resolution = output_resolution
+        self.super_resolution_extents: tuple[float, float, float, float] | None = None
         if super_resolution_window is not None:
             lat_south, lon_west, lat_north, lon_east = super_resolution_window
+            if full_longitude:
+                # cBottle reduces longitudes modulo 360 and treats west > east as
+                # crossing the antimeridian; west == east would select one meridian.
+                lon_west, lon_east = 0.0, float(np.nextafter(360.0, 0.0))
             self.super_resolution_extents = (lon_west, lon_east, lat_south, lat_north)
 
         # Update output coordinates and grids based on output type
         if self.output_type == "latlon":
             if super_resolution_window is not None:
+                lat_south, lon_west, lat_north, lon_east = super_resolution_window
                 self.output_lat = np.linspace(
-                    super_resolution_window[0],
-                    super_resolution_window[2],
-                    output_resolution[0],
+                    lat_south, lat_north, output_resolution[0]
                 )
-                self.output_lon = np.linspace(
-                    super_resolution_window[1],
-                    super_resolution_window[3],
-                    output_resolution[1],
-                )
-                # Update output grid
+                if full_longitude:
+                    self.output_lon = np.linspace(
+                        0, 360, output_resolution[1], endpoint=False
+                    )
+                else:
+                    self.output_lon = np.linspace(
+                        lon_west, lon_east, output_resolution[1]
+                    )
+                # Longitudes above 180 degrees (antimeridian windows) interpolate
+                # like the global grid's [0, 360) axis
                 self.output_grid = earth2grid.latlon.LatLonGrid(
                     self.output_lat, self.output_lon
                 )
             else:
-                self.output_lat = np.linspace(90, -90, output_resolution[0])
-                self.output_lon = np.linspace(
-                    0, 360, output_resolution[1], endpoint=False
-                )
-                # Update output grid
                 self.output_grid = earth2grid.latlon.equiangular_lat_lon_grid(
                     output_resolution[0],
                     output_resolution[1],
-                    includes_south_pole=False,
+                    includes_south_pole=True,
                 )
+                # Public axes describe the actual interpolation target.
+                self.output_lat = np.asarray(self.output_grid.lat).ravel()
+                self.output_lon = np.asarray(self.output_grid.lon).ravel()
 
             # Update regridder for high-res HEALPix to output
             self.regrid_hpx_high_res_to_output = earth2grid.get_regridder(
@@ -295,82 +305,174 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             self.output_grid = self.hpx_high_res_grid
             self.regrid_hpx_high_res_to_output = None
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system"""
-        if self.input_type == "latlon":
-            return OrderedDict(
-                {
-                    "batch": np.empty(0),
-                    "variable": np.array(VARIABLES),
-                    "lat": np.linspace(90, -90, 721),
-                    "lon": np.linspace(0, 360, 1440, endpoint=False),
-                }
-            )
-        else:  # healpix
-            # HEALPix level 6: nside = 2^6 = 64, npix = 64^2 * 12 = 49,152 pixels
-            nside = 2**HPX_LEVEL_LR
-            npix = nside**2 * 12
-            return OrderedDict(
-                {
-                    "batch": np.empty(0),
-                    "variable": np.array(VARIABLES),
-                    "hpx": np.arange(npix),
-                }
-            )
+    def with_region(self, region: Region) -> Self:
+        """Return a view of this model super-resolving a geographic region.
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of diagnostic model
+        The view shares the loaded super-resolution network and super-resolves
+        only the HEALPix patches touching the region. With lat/lon output, its
+        output grid spans the region with this model's ``output_resolution``
+        points per axis, edges included, so the cell centers on the grid edges
+        lie on the region boundary. With HEALPix output, the output grid stays the
+        full level-10 grid, of which only the region's patches are
+        super-resolved. ``band(-90, 90)`` is the whole globe. Neither this model
+        nor other views change, and a view can select any region of the globe.
+        Views share the network, so run them in sequence, not concurrently.
+        Moving one view moves the shared network; the others follow on their
+        next call.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
-            by default None, will use self.input_coords.
+        region : Region
+            :meth:`~earth2studio.grids.Region.box` (which may cross the
+            antimeridian) or :meth:`~earth2studio.grids.Region.band`.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        Self
+            View whose coordinate signatures describe the selected grid, with a
+            copy of this model's :meth:`set_rng` stream.
+
+        Raises
+        ------
+        ValueError
+            If the region is not a box or band, or has zero extent.
         """
-        # Validate input coordinates against expected input coords
-        target_input_coords = self.input_coords()
-        handshake_dim(input_coords, "variable", 1)
-        handshake_coords(input_coords, target_input_coords, "variable")
+        return self._view(*self._region_window(region))
 
-        if self.input_type == "latlon":
-            handshake_dim(input_coords, "lon", 3)
-            handshake_dim(input_coords, "lat", 2)
-            handshake_coords(input_coords, target_input_coords, "lon")
-            handshake_coords(input_coords, target_input_coords, "lat")
-        else:  # healpix input
-            handshake_dim(input_coords, "hpx", 2)
-            handshake_coords(input_coords, target_input_coords, "hpx")
+    def _region_window(
+        self, region: Region
+    ) -> tuple[tuple[float, float, float, float] | None, bool]:
+        """Window ``(lat_south, lon_west, lat_north, lon_east)`` and band flag for
+        :meth:`_configure_window`, None for the globe."""
+        # A linspace output grid over a zero-extent region repeats coordinates
+        if region.kind == "box":
+            west, south, east, north = region.params
+            if west == east or south == north:
+                raise ValueError("Region box must have positive extent")
+            if west > east:
+                east += 360.0  # cross the antimeridian eastward
+            return (south, west, north, east), False
+        if region.kind == "band":
+            south, north = region.params
+            if south == north:
+                raise ValueError("Region band must have positive extent")
+            if (south, north) == (-90.0, 90.0):
+                return None, False
+            return (south, 0.0, north, 360.0), True
+        raise ValueError(
+            f"{type(self).__name__} supports only box and band regions, "
+            f"not {region.kind!r}"
+        )
 
-        # Build output coordinate system based on output type
-        if self.output_type == "latlon":
-            output_coords = OrderedDict(
-                {
-                    "batch": np.empty(0),
-                    "variable": np.array(VARIABLES),
-                    "lat": self.output_lat,
-                    "lon": self.output_lon,
-                }
+    def _view(
+        self,
+        window: tuple[float, float, float, float] | None,
+        full_longitude: bool,
+    ) -> Self:
+        """Copy of this model on another window, sharing the network."""
+        view = copy(self)
+        view._buffers = self._buffers.copy()
+        view._modules = self._modules.copy()
+        view._parameters = self._parameters.copy()
+        view._non_persistent_buffers_set = self._non_persistent_buffers_set.copy()
+        # An independent copy of the noise stream, or unseeded like the parent
+        view._rng_states = (
+            dict(self._rng_states) if self._rng_states is not None else None
+        )
+        view._configure_window(window, self.output_resolution, full_longitude)
+        return view
+
+    def default_sources(self) -> "DataSource":
+        """Recommend the CBottle3D data source.
+
+        This recommendation loads the data generator's checkpoint on CPU.
+
+        Returns
+        -------
+        DataSource
+            Loaded CBottle3D generator using this model's grid representation.
+        """
+        from earth2studio.data import CBottle3D
+
+        return CBottle3D.load_model(
+            CBottle3D.load_default_package(), lat_lon=self.input_type == "latlon"
+        )
+
+    def input_coords(self) -> xr.DataArray:
+        """Input coordinate system of the diagnostic model.
+
+        Returns
+        -------
+        xr.DataArray
+            Allocation-free DataArray input signature.
+        """
+        grid = (
+            LatLonGrid(
+                np.asarray(self.input_grid.lat).ravel(),
+                np.asarray(self.input_grid.lon).ravel(),
             )
-        else:  # healpix output
-            # HEALPix level 10: nside = 2^10 = 1024, npix = 1024^2 * 12 = 12,582,912 pixels
-            nside = 2**HPX_LEVEL_HR
-            npix = nside**2 * 12
-            output_coords = OrderedDict(
-                {
-                    "batch": np.empty(0),
-                    "variable": np.array(VARIABLES),
-                    "hpx": np.arange(npix),
-                }
-            )
+            if self.input_type == "latlon"
+            else "healpix-l6-nested"
+        )
+        return coord_array(
+            (
+                "batch",
+                "variable",
+                *(grid.dims if isinstance(grid, LatLonGrid) else ("hpx",)),
+            ),
+            {"variable": np.array(VARIABLES)},
+            dynamic=("batch",),
+            grid=grid,
+        )
 
-        output_coords["batch"] = input_coords["batch"]
-        return output_coords
+    def output_coords(self, input_coords: xr.DataArray) -> xr.DataArray:
+        """Output coordinate system of the diagnostic model.
+
+        Parameters
+        ----------
+        input_coords : xr.DataArray
+            Input coordinate signature or DataArray to validate and transform.
+
+        Returns
+        -------
+        xr.DataArray
+            Allocation-free DataArray output signature.
+        """
+        signature = self.input_coords()
+        handshake_dataarray(input_coords, signature)
+        grid = (
+            LatLonGrid(
+                np.asarray(self.output_grid.lat).ravel(),
+                np.asarray(self.output_grid.lon).ravel(),
+            )
+            if self.output_type == "latlon"
+            else resolve_grid(f"healpix-l{HPX_LEVEL_HR}-nested")
+        )
+        if grid.fingerprint() == infer_grid(input_coords).fingerprint():
+            return coord_array_like(input_coords)
+        leading = input_coords.dims[: -len(signature.attrs["dims"]) - 1]
+        return coord_array(
+            (*leading, "variable", *grid.dims),
+            {
+                k: v.variable
+                for k, v in input_coords.coords.items()
+                if set(v.dims).issubset((*leading, "variable"))
+            },
+            sizes={d: input_coords.sizes[d] for d in leading},
+            dynamic=input_coords.attrs.get("earth2studio_dynamic_dims", ()),
+            grid=(
+                grid
+                if self.output_type == "latlon"
+                else f"healpix-l{HPX_LEVEL_HR}-nested"
+            ),
+            dtype=input_coords.dtype,
+            name=input_coords.name,
+            attrs={
+                k: v
+                for k, v in input_coords.attrs.items()
+                if k not in signature.attrs and k != "earth2studio_grid_id"
+            },
+        )
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -390,10 +492,9 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         package: Package,
         lat_lon: bool = True,
         output_resolution: tuple[int, int] = (2161, 4320),
-        super_resolution_window: tuple[int, int, int, int] | None = None,
+        region: Region | None = None,
         sampler_steps: int = 18,
         sigma_max: int = 800,
-        seed: int | None = None,
         distilled_model: bool = False,
     ) -> DiagnosticModel:
         """Load diagnostic model from package
@@ -408,14 +509,13 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             Input HEALPix is level 6 and output HEALPix is level 10 with NEST pixel ordering
         output_resolution : tuple[int, int], optional
             High-resolution output dimensions for lat/lon output, by default (2161, 4320)
-        super_resolution_window : tuple[int, int, int, int] | None, optional
-            Super-resolution window for lat/lon output, by default None
+        region : Region | None, optional
+            Region to super-resolve, a box or band as accepted by
+            :meth:`with_region`; None super-resolves the globe, by default None
         sampler_steps : int, optional
             Number of diffusion steps, by default 18
         sigma_max : float, optional
             Noise amplitude used to generate latent variables, by default 800
-        seed : int, optional
-            Random generator seed for latent variables, by default None
         distilled_model : bool, optional
             Whether to use the distilled model, If True, the distilled helper is used,
             enabling generation with fewer sampler steps, by default False
@@ -450,10 +550,9 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
             sr_model,
             lat_lon=lat_lon,
             output_resolution=output_resolution,
-            super_resolution_window=super_resolution_window,
+            region=region,
             sampler_steps=sampler_steps,
             sigma_max=sigma_max,
-            seed=seed,
         )
 
     def _reorder_to_sr_channels(self, x: torch.Tensor) -> torch.Tensor:
@@ -463,6 +562,23 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
     def _reorder_from_sr_channels(self, x: torch.Tensor) -> torch.Tensor:
         """Reorder channels from the super resolution model"""
         return torch.index_select(x, 0, self._from_sr_index)
+
+    _rng_seed: int | None = None
+    _rng_states: dict[str, torch.Tensor] | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed cBottle super-resolution latent and sampler noise.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for super-resolution sampling.
+        reset : bool, optional
+            Reset existing sampling state, by default True.
+        """
+        if reset or self._rng_seed is None:
+            self._rng_seed = seed
+            self._rng_states = {}
 
     @torch.inference_mode()
     def _forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -480,29 +596,13 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
 
         x = x.unsqueeze(0).unsqueeze(2)
 
-        if self.seed is not None:
-            rng_devices: list[torch.device] = []
-            if self.device.type == "cuda":
-                rng_devices.append(self.device)
-
-            with torch.random.fork_rng(devices=rng_devices, enabled=True):
-                seed = self.seed + self._sample_index
-                torch.manual_seed(seed)
-                if self.device.type == "cuda":
-                    torch.cuda.manual_seed_all(seed)
-                out, _ = self.sr_model(
-                    x,
-                    coords=replace(self._coords),
-                    extents=self.super_resolution_extents,
-                )
-        else:
+        # The super-resolution backend accepts neither seed nor generator.
+        with fork_rng(self._rng_seed, x.device, states=self._rng_states):
             out, _ = self.sr_model(
                 x,
                 coords=replace(self._coords),
                 extents=self.super_resolution_extents,
             )
-
-        self._sample_index += 1
 
         out = self._reorder_from_sr_channels(out[0, :, 0])
         if self.output_type == "healpix":
@@ -512,21 +612,42 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         out = self.regrid_hpx_high_res_to_output(out).to(torch.float32)
         return out[0]
 
+    def _follow_network(self) -> None:
+        """Move to the shared network's device if another view moved it."""
+        if not isinstance(self.sr_model, torch.nn.Module):
+            return
+        param = next(self.sr_model.parameters(), None)
+        if param is not None and param.device != self.device:
+            self.to(param.device)
+
     @batch_func()
     def __call__(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Forward pass of diagnostic"""
-        output_coords = self.output_coords(coords)
+        x: xr.DataArray,
+    ) -> xr.DataArray:
+        """Super-resolve a labelled field on the configured output domain.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Coarse conditioning fields matching ``input_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            Super-resolved fields matching ``output_coords(x)``, including the
+            configured high-resolution spatial coordinates.
+        """
+        self._follow_network()
+        output_coords = self.output_coords(x)
+        x = x.e2s.to_torch()[0].to(self.device).clone()
 
         out = torch.zeros(
-            [len(v) for v in output_coords.values()],
+            output_coords.shape,
             device=x.device,
             dtype=torch.float32,
         )
 
         for i in range(out.shape[0]):
             out[i] = self._forward(x[i])
-        return out, output_coords
+        return from_torch(out, output_coords)

@@ -59,6 +59,7 @@ from earth2studio.models.px.stormcast import StormCast
 from earth2studio.models.px.stormcastconus import StormCastCONUS
 from earth2studio.models.px.stormscope import (
     StormScopeGOES,
+    StormScopeGOESConditioned,
     StormScopeMRMS,
 )
 from earth2studio.models.px.stormscope_meteosat import StormScopeMeteosatEU

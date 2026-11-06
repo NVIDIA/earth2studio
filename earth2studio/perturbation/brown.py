@@ -14,10 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import torch
+import xarray as xr
 
 from earth2studio.utils import handshake_dim
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.cupy import from_torch
 
 
 class Brown:
@@ -43,34 +46,29 @@ class Brown:
         )
 
     @torch.inference_mode()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Apply perturbation method
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor intended to apply perturbation on
-        coords : CoordSystem
-            Ordered dict representing coordinate system that describes the tensor, must
-            contain "lat" and "lon" coordinates in last two dims
+        x : xr.DataArray
+            xarray DataArray intended to apply perturbation on, must contain "lat" and
+            "lon" dimensions in the last two dims
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]:
-            Output tensor and respective coordinate system dictionary
+        xr.DataArray
+            Perturbed DataArray with the coordinates of the input
         """
-        shape = x.shape
         # Check the required dimensions are present
-        handshake_dim(coords, required_dim="lat", required_index=-2)
-        handshake_dim(coords, required_dim="lon", required_index=-1)
+        handshake_dim(x, required_dim="lat", required_index=-2)
+        handshake_dim(x, required_dim="lon", required_index=-1)
 
-        noise = self._generate_noise_correlated(tuple(shape), device=x.device)
-        noise_amplitude = self.noise_amplitude.to(x.device)
-        return x + noise_amplitude * noise, coords
+        tensor, _ = x.e2s.to_torch()
+        noise = self._generate_noise_correlated(tuple(tensor.shape), tensor.device)
+        noise = noise.to(tensor.dtype)
+        noise_amplitude = self.noise_amplitude.to(tensor.device)
+        return from_torch(tensor + noise_amplitude * noise, x)
 
     def _generate_noise_correlated(
         self, shape: tuple[int, ...], device: torch.device

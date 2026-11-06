@@ -25,14 +25,15 @@ import threading
 import uuid
 import weakref
 from collections import OrderedDict
-from collections.abc import Callable, Collection, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Collection, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from inspect import signature
 from pathlib import Path
-from typing import Any, ClassVar, Literal, Protocol, TypeVar, overload
+from typing import Any, ClassVar, Literal, Protocol, TypeVar, cast, overload
 
 import fsspec.asyn
 import numpy as np
@@ -57,12 +58,32 @@ from earth2studio.data.base import (
     ForecastFrameSource,
     ForecastSource,
 )
+from earth2studio.grids import (
+    GridDefinition,
+    Regridder,
+    infer_grid,
+    resolve_regridder,
+    same_geometry,
+    select_subset,
+)
+from earth2studio.utils.coords import (
+    E2S_DYNAMIC_DIMS,
+    E2S_KIND,
+    E2S_SCHEMA_VERSION,
+    E2S_STATISTICS,
+)
 from earth2studio.utils.interp import LatLonInterpolation
 from earth2studio.utils.time import (
     leadtimearray_to_timedelta,
     normalize_time_precision,
     timearray_to_datetime,
     to_time_array,
+)
+from earth2studio.utils.time_statistics import (
+    reduce_samples,
+    source_lead_times,
+    source_times,
+    time_statistic_metadata,
 )
 from earth2studio.utils.type import (
     CoordSystem,
@@ -83,7 +104,7 @@ except ImportError:
     cudf = None
 
 
-def _offset_times(time: TimeArray, lead: np.timedelta64) -> np.ndarray:
+def _offset_times(time: TimeArray, lead: np.timedelta64) -> TimeArray:
     """Offset times by a lead time, keeping nanosecond precision when possible.
 
     Parameters
@@ -98,23 +119,181 @@ def _offset_times(time: TimeArray, lead: np.timedelta64) -> np.ndarray:
     np.ndarray
         Offset timestamps, as ``datetime64[ns]`` when representable.
     """
-    return normalize_time_precision(np.array([t + lead for t in time]))
+    # Avoid promoting climate-calendar dates to overflowing nanoseconds when
+    # the offset can be represented exactly at the timestamps' own precision.
+    unit = np.datetime_data(time.dtype)[0]
+    coarse_lead = lead.astype(f"timedelta64[{unit}]")
+    if coarse_lead == lead:
+        lead = coarse_lead
+    return cast(TimeArray, normalize_time_precision(np.asarray(time) + lead))
+
+
+def _is_forecast_source(source: DataSource | ForecastSource) -> bool:
+    """Return whether a source takes ``(time, lead_time, variable)`` requests.
+
+    Wrappers that forward requests, such as :class:`RegriddedSource`, declare this
+    through an ``is_forecast`` property; other sources by their call signature.
+
+    Parameters
+    ----------
+    source : DataSource | ForecastSource
+        Source to inspect.
+
+    Returns
+    -------
+    bool
+        True for a forecast source.
+    """
+    declared = getattr(source, "is_forecast", None)
+    if isinstance(declared, bool):
+        return declared
+    return "lead_time" in signature(source.__call__).parameters
+
+
+def _fetch_instantaneous(
+    source: DataSource | ForecastSource,
+    time: TimeArray,
+    lead_time: LeadTimeArray,
+    variable: Sequence[str],
+) -> xr.DataArray:
+    variables = cast(VariableArray, np.asarray(variable))
+    if _is_forecast_source(source):
+        return cast(ForecastSource, source)(time, lead_time, variables).sel(
+            time=time, lead_time=lead_time, variable=variables
+        )
+
+    arrays = []
+    for lead in lead_time:
+        valid_time = _offset_times(time, lead)
+        array = cast(DataSource, source)(valid_time, variables).sel(
+            time=valid_time, variable=variables
+        )
+        array = array.expand_dims(
+            lead_time=np.array([lead], dtype="timedelta64[ns]"), axis=1
+        )
+        arrays.append(array.assign_coords(time=time))
+    return xr.concat(arrays, "lead_time")
+
+
+def _source_statistics(source: DataSource | ForecastSource) -> tuple[str, ...]:
+    """Discover native reductions from lexicons, including wrapped sources."""
+    # Import locally: composites themselves use the fetching helpers in this module.
+    from earth2studio.data.composite import _Composite
+
+    if isinstance(source, RegriddedSource):
+        return _source_statistics(source.source)
+    if isinstance(source, _Composite):
+        supported = [_source_statistics(s) for s in source.sources.values()]
+        if not supported:
+            return ()
+        return tuple(m for m in supported[0] if all(m in s for s in supported[1:]))
+    return tuple(getattr(getattr(source, "lexicon", None), "TIME_STATISTICS", ()))
+
+
+def _fetch_dataarray(
+    source: DataSource | ForecastSource,
+    time: TimeArray,
+    variable: VariableArray,
+    lead_time: LeadTimeArray,
+) -> xr.DataArray:
+    native = _source_statistics(source)
+    quantities: set[tuple[str, str | None]] = set()
+    for label in map(str, variable):
+        source_variable, separator, parsed_modifier = label.partition(":")
+        if "::" in label:  # Raw GRIB identifiers are not statistic labels.
+            source_variable, separator = label, ""
+        if not source_variable:
+            raise ValueError("Variable name must not be empty")
+        modifier = (
+            str(time_statistic_metadata(parsed_modifier)["modifier"])
+            if separator
+            else None
+        )
+        quantity = (source_variable, modifier)
+        if quantity in quantities:
+            raise ValueError("Requested variables contain duplicate quantities")
+        quantities.add(quantity)
+
+    for _, modifier in quantities:
+        if modifier is not None and modifier.partition(":")[0] not in native:
+            raise ValueError(
+                f"{type(source).__name__} does not support temporal statistic "
+                f"'{modifier.partition(':')[0]}'"
+            )
+
+    array = _fetch_instantaneous(source, time, lead_time, list(map(str, variable)))
+    array = array.transpose("time", "lead_time", "variable", ...)
+    array.attrs = dict(array.attrs)
+    output_statistics = {
+        name: details
+        for name, details in array.attrs.pop(E2S_STATISTICS, {}).items()
+        if name in variable
+    }
+    if output_statistics:
+        array.attrs[E2S_STATISTICS] = output_statistics
+    return array
+
+
+def _map_to_target(
+    array: xr.DataArray,
+    source: DataSource | ForecastSource,
+    target_grid: GridDefinition | None,
+    regridder: Regridder | None,
+) -> xr.DataArray:
+    """Bring a fetched field onto ``target_grid``, cautiously when inferring."""
+    if regridder is not None:
+        if target_grid is not None and not same_geometry(
+            regridder.target_grid, target_grid
+        ):
+            raise ValueError("regridder.target_grid does not match target_grid")
+        return regridder(array)
+    if target_grid is None:
+        return array
+
+    try:
+        source_grid = infer_grid(array)
+    except ValueError as error:
+        raise ValueError(
+            f"Cannot determine the grid of fields from {type(source).__name__}; "
+            "pass a Regridder built for its grid"
+        ) from error
+    if same_geometry(source_grid, target_grid):
+        return array
+    subset = select_subset(array, source_grid, target_grid)
+    if subset is not None:
+        return subset
+
+    # Never extrapolate automatically: nearest within the source resolution, and
+    # raise rather than fill targets beyond the source.
+    try:
+        built = resolve_regridder(
+            source_grid, target_grid, "nearest", max_dist_km="auto", fill_value=None
+        )
+    except ValueError as error:
+        raise ValueError(
+            f"Cannot regrid {type(source).__name__} fields automatically: {error}; "
+            "pass a Regridder to choose a method and fill"
+        ) from error
+    logger.info(
+        f"Regridding {type(source).__name__} fields from a {source_grid.topology} "
+        f"grid {dict(zip(source_grid.dims, source_grid.shape))} to a "
+        f"{target_grid.topology} grid "
+        f"{dict(zip(target_grid.dims, target_grid.shape))} by nearest neighbor; "
+        "pass a Regridder to choose the method and reuse its weights"
+    )
+    return built(array)
 
 
 def fetch_data(
     source: DataSource | ForecastSource,
     time: TimeArray,
     variable: VariableArray,
-    lead_time: LeadTimeArray = np.array([np.timedelta64(0, "h")]),
-    device: torch.device = "cpu",
-    interp_to: CoordSystem | None = None,
-    interp_method: str = "nearest",
-    legacy: bool = True,
-) -> tuple[torch.Tensor, CoordSystem] | xr.DataArray:
-    """Utility function to fetch data arrays from particular sources and load data on
-    the target device. If desired, xarray interpolation/regridding in the spatial
-    domain can be used by passing a target coordinate system via the optional
-    `interp_to` argument.
+    lead_time: LeadTimeArray = cast(LeadTimeArray, np.array([np.timedelta64(0, "h")])),
+    device: torch.device | str = "cpu",
+    target_grid: GridDefinition | None = None,
+    regridder: Regridder | None = None,
+) -> xr.DataArray:
+    """Fetch field DataArrays with temporal statistics, optionally regridded.
 
     Parameters
     ----------
@@ -123,71 +302,75 @@ def fetch_data(
     time : TimeArray
         Timestamps to return data for (UTC).
     variable : VariableArray
-        Strings or list of strings that refer to variables to return
+        Variable labels, optionally qualified with a temporal statistic, e.g.
+        ``"t2m:mean:24h"``.
     lead_time : LeadTimeArray, optional
         Lead times to fetch for each provided time, by default
         np.array(np.timedelta64(0, "h"))
-    device : torch.device, optional
-        Torch device to load data tensor to, by default "cpu"
-    interp_to : CoordSystem, optional
-        If provided, the fetched data will be interpolated to the coordinates
-        specified by lat/lon arrays in this CoordSystem
-    interp_method : str
-        Interpolation method to use with xarray (by default 'nearest')
-    legacy : bool, optional
-        If True (default), returns tuple of (torch.Tensor, CoordSystem).
-        If False, returns xr.DataArray with numpy arrays for CPU or cupy arrays for CUDA.
+    device : torch.device | str, optional
+        NumPy CPU or CuPy CUDA destination, by default "cpu"
+    target_grid : GridDefinition, optional
+        Grid to return fields on, such as ``infer_grid(model.input_coords())``, by
+        default None, which keeps the source grid. Without ``regridder``, fields
+        already on it pass through, exact crops are selected, and otherwise fields
+        are regridded by nearest neighbor within the source resolution, raising if
+        the target extends beyond the source.
+    regridder : Regridder, optional
+        Regridder to apply, by default None. It must produce ``target_grid`` when
+        both are given.
 
     Returns
     -------
-    tuple[torch.Tensor, CoordSystem] | xr.DataArray
-        If legacy=True: Tuple containing output tensor and coordinate OrderedDict.
-        If legacy=False: xr.DataArray with numpy arrays (CPU) or cupy arrays (CUDA).
+    xr.DataArray
+        Field values with dimensions [time, lead_time, variable, ...], auxiliary
+        coordinates, actual grid metadata and normalized temporal statistics. The
+        field is on the source grid unless regridded.
+
+    Note
+    ----
+    Temporal statistics require native source support. The source chooses its
+    sampling and computes the reduction; unsupported methods raise ``ValueError``.
+    Windows include their left endpoint and exclude their right endpoint.
+    Sources may return NumPy- or CuPy-backed fields. Temporal reductions run on
+    that backing; the result then moves to ``device`` only if it is not already
+    there, and regridding runs last, on ``device``. Regridding automatically
+    constructs a regridder on every call; pass a
+    :class:`~earth2studio.grids.Regridder` to choose the method and reuse it.
     """
-    sig = signature(source.__call__)
     device = torch.device(device)
-
-    if "lead_time" in sig.parameters:
-        # Working with a Forecast Data Source
-        da = source(time, lead_time, variable)  # type: ignore
-
-    else:
-        da = []
-        for lead in lead_time:
-            adjust_times = _offset_times(time, lead)
-            da0 = source(adjust_times, variable)  # type: ignore
-            da0 = da0.expand_dims(dim={"lead_time": 1}, axis=1)
-            da0 = da0.assign_coords(lead_time=np.array([lead], dtype="timedelta64[ns]"))
-            da0 = da0.assign_coords(time=time)
-            da.append(da0)
-
-        da = xr.concat(da, "lead_time")
-
-    if legacy:
-        return prep_data_array(
-            da,
-            device=device,
-            interp_to=interp_to,
-            interp_method=interp_method,
-        )
-
-    # Non-legacy path: return xr.DataArray
-    else:
-        if interp_to is not None:
+    if device.type not in {"cpu", "cuda"}:
+        raise ValueError("fetch_data supports only CPU and CUDA devices")
+    time = cast(TimeArray, np.asarray(time))
+    lead_time = cast(LeadTimeArray, np.asarray(lead_time))
+    variable = cast(VariableArray, np.asarray(variable))
+    for name, values, kind in (("time", time, "M"), ("lead_time", lead_time, "m")):
+        if (
+            values.ndim != 1
+            or not values.size
+            or values.dtype.kind != kind
+            or np.isnat(values).any()
+        ):
             raise ValueError(
-                "The interp_to argument is not supported when legacy is False. Set legacy=True to use interpolation."
+                f"{name} must be a nonempty 1D {'datetime' if kind == 'M' else 'timedelta'} array without NaT"
             )
-        # Convert to cupy arrays if CUDA device and cupy is available
-        if device.type == "cuda":
-            if cp is not None:
-                with cp.cuda.Device(device.index or 0):
-                    da = da.copy(data=cp.asarray(da.values))
-            else:
-                raise ImportError(
-                    "cupy is required when using device='cuda' with legacy=False. "
-                    "Install cupy or use legacy=True."
-                )
-        return da
+    if variable.ndim != 1 or not variable.size:
+        raise ValueError("variable must be a nonempty 1D array")
+    lead_time = lead_time.astype("timedelta64[ns]")
+    da = _fetch_dataarray(source, time, variable, lead_time)
+    for key in (E2S_KIND, E2S_SCHEMA_VERSION, E2S_DYNAMIC_DIMS):
+        da.attrs.pop(key, None)
+    if device.type == "cuda":
+        if cp is None:
+            raise ImportError("cupy is required for CUDA DataArrays")
+        with cp.cuda.Device(
+            device.index if device.index is not None else cp.cuda.Device().id
+        ):
+            da = da.copy(data=cp.asarray(da.data))
+    elif cp is not None and isinstance(da.data, cp.ndarray):
+        da = da.copy(data=cp.asnumpy(da.data))
+    else:
+        da = da.copy(data=np.asarray(da.data))
+    return _map_to_target(da, source, target_grid, regridder)
 
 
 def fetch_dataframe(
@@ -247,6 +430,87 @@ def fetch_dataframe(
         return result
     else:
         return df
+
+
+class RegriddedSource:
+    """Data or forecast source whose fields are regridded onto a target grid.
+
+    Composes a source with a :class:`~earth2studio.grids.Regridder` so the pair
+    stands in for the source wherever a ``DataSource`` or ``ForecastSource`` is
+    accepted, for example as a model's recommended source for a slot on another
+    grid. Requests pass through unchanged; only the spatial dimensions of the
+    result are mapped.
+
+    Parameters
+    ----------
+    source : DataSource | ForecastSource
+        Source to wrap, whose native grid is the regridder's ``source_grid``.
+    regridder : Regridder
+        Regridder applied to fetched fields, on whatever backing and device the
+        source returns them.
+    """
+
+    def __init__(
+        self, source: DataSource | ForecastSource, regridder: Regridder
+    ) -> None:
+        if not isinstance(regridder, Regridder):
+            raise TypeError("regridder must implement the Regridder protocol")
+        self.source = source
+        self.regridder = regridder
+
+    @property
+    def is_forecast(self) -> bool:
+        """Whether the wrapped source is a forecast source."""
+        return _is_forecast_source(self.source)
+
+    @property
+    def device(self) -> torch.device:
+        """Device the wrapped source returns fields on."""
+        return torch.device(getattr(self.source, "device", "cpu"))
+
+    # Requests are forwarded as given, so one wrapper serves both source protocols:
+    # ``(time, variable)`` for a DataSource, ``(time, lead_time, variable)`` for a
+    # ForecastSource.
+
+    def __call__(self, *args: Any, **kwargs: Any) -> xr.DataArray:
+        """Fetch from the wrapped source and regrid the result.
+
+        Parameters
+        ----------
+        *args, **kwargs : Any
+            Request arguments of the wrapped source.
+
+        Returns
+        -------
+        xr.DataArray
+            Source field on the regridder's ``target_grid``.
+        """
+        return self.regridder(self.source(*args, **kwargs))
+
+    async def fetch(self, *args: Any, **kwargs: Any) -> xr.DataArray:
+        """Asynchronously fetch from the wrapped source and regrid the result.
+
+        Parameters
+        ----------
+        *args, **kwargs : Any
+            Request arguments of the wrapped source.
+
+        Returns
+        -------
+        xr.DataArray
+            Source field on the regridder's ``target_grid``.
+
+        Raises
+        ------
+        AttributeError
+            If the wrapped source does not support async fetch.
+        """
+        if not hasattr(self.source, "fetch"):
+            raise AttributeError(
+                f"Wrapped source {type(self.source).__name__} does not support "
+                "async fetch"
+            )
+        return self.regridder(await self.source.fetch(*args, **kwargs))
 
 
 _FrameRequest = tuple[DataFrameSource | ForecastFrameSource, Mapping[str, Any]]
@@ -1703,3 +1967,238 @@ def table_to_dataframe(
     if schema is not table.schema:
         table = table.cast(schema)
     return table.to_pandas(types_mapper=pd.ArrowDtype)
+
+
+# Native temporal statistics for data sources
+
+_DESCRIPTIONS = {
+    "mean": "averaged",
+    "sum": "accumulated (summed)",
+    "min": "reduced to the minimum",
+    "max": "reduced to the maximum",
+}
+
+
+@dataclass
+class StatisticPlan:
+    """One statistic variable and its sample coordinates, shaped ``(target, sample)``."""
+
+    slot: int
+    base: str
+    modifier: str
+    samples: np.ndarray
+
+
+def plan_statistics(
+    variable: Sequence[str],
+    target_times: np.ndarray,
+    delta_t: np.timedelta64,
+    supported: Sequence[str],
+    validate: Callable[[list[Any]], None] | None = None,
+    source: str = "Data source",
+    verbose: bool = False,
+) -> tuple[list[tuple[int, str]], list[StatisticPlan], dict[str, Any]]:
+    """Plan a request as ``plain, stats, attrs = plan_statistics(...)``.
+
+    Parameters
+    ----------
+    variable : Sequence[str]
+        Plain or statistic-qualified labels, in output variable order
+    target_times : np.ndarray
+        Output targets: ``datetime64`` valid times or ``timedelta64`` lead times
+        (of one initialization time)
+    delta_t : np.timedelta64
+        Sampling interval of the source
+    supported : Sequence[str]
+        Statistic methods the source declares in its lexicon
+    validate : Callable[[list[Any]], None] | None, optional
+        Source validation of every planned sample, called once with the sorted unique
+        ``datetime`` (or ``timedelta`` for lead time targets) values before anything
+        is fetched; should raise ValueError for samples the source cannot provide
+    source : str, optional
+        Source name used for operation logging
+    verbose : bool, optional
+        Log the reduction and window of each statistic
+
+    Returns
+    -------
+    plain : list[tuple[int, str]]
+        Output slot and name of each plain variable
+    stats : list[StatisticPlan]
+        Statistic variables and their sample coordinates
+    attrs : dict[str, Any]
+        Statistics metadata to attach to the output
+
+    Raises
+    ------
+    ValueError
+        If a label is empty, duplicated or uses a method the source does not support
+    """
+    plain: list[tuple[int, str]] = []
+    stats: list[StatisticPlan] = []
+    metadata: dict[str, Any] = {}
+    seen: set[tuple[str, str]] = set()
+    is_time = np.issubdtype(target_times.dtype, np.datetime64)
+    sample_times = source_times if is_time else source_lead_times
+    for slot, label in enumerate(map(str, variable)):
+        base, separator, qualifier = label.partition(":")
+        if not base:
+            raise ValueError("Variable name must not be empty")
+        info = (
+            time_statistic_metadata(qualifier)
+            if separator and "::" not in label
+            else {}
+        )
+        if info and str(info["method"]) not in supported:
+            raise ValueError(
+                f"Time statistic '{info['method']}' in '{label}' is not supported by "
+                f"this source, supported: {tuple(supported)}"
+            )
+        quantity = (base, str(info.get("modifier", ""))) if info else (label, "")
+        if quantity in seen:
+            raise ValueError("Requested variables contain duplicate quantities")
+        seen.add(quantity)
+        if not info:
+            plain.append((slot, label))
+            continue
+        modifier = str(info["modifier"])
+        stats.append(
+            StatisticPlan(
+                slot, base, modifier, sample_times(modifier, target_times, delta_t)
+            )
+        )
+        metadata[label] = info
+        if verbose:
+            logger.info(
+                f"{source}: {label} {_DESCRIPTIONS.get(str(info['method']), 'reduced')} "
+                f"over {modifier} (left-closed/right-open window)"
+            )
+    if validate is not None and stats:
+        convert = as_datetime if is_time else as_timedelta
+        validate(sorted({convert(t) for plan in stats for t in plan.samples.ravel()}))
+    return plain, stats, {E2S_STATISTICS: metadata} if metadata else {}
+
+
+async def reduce_statistics(
+    out: np.ndarray,
+    stats: Sequence[StatisticPlan],
+    fetch: Callable[[Any, str], Awaitable[np.ndarray]],
+    async_workers: int | None = None,
+    desc: str = "Fetching time statistic samples",
+    verbose: bool = True,
+) -> None:
+    """Fetch the planned samples and reduce them into the output array.
+
+    Statistic variables are processed one target at a time. The samples of a window
+    are fetched by a bounded worker pool into a single transient stack, reduced with
+    the registered statistic and written to ``out``. Peak memory is therefore one
+    window of fields (window length times grid size), independent of the request
+    size. Fetch failures propagate; there are no partial windows.
+
+    Parameters
+    ----------
+    out : np.ndarray
+        Output array ``(target, variable, ...)``, written in place
+    stats : Sequence[StatisticPlan]
+        Statistic entries from :py:func:`plan_statistics`
+    fetch : Callable[[Any, str], Awaitable[np.ndarray]]
+        Source function ``fetch(coordinate, base_variable)`` returning one field
+        with the grid shape of ``out`` (lexicon modifiers applied)
+    async_workers : int | None, optional
+        Maximum concurrent sample fetches within a window, by default 4
+    desc : str, optional
+        Progress bar description
+    verbose : bool, optional
+        Show the progress bar, by default True
+    """
+    jobs = [
+        (plan.slot, i, plan.base, plan.modifier, coords)
+        for plan in stats
+        for i, coords in enumerate(plan.samples)
+    ]
+    for job in tqdm(jobs, desc=desc, disable=not verbose):
+        await _reduce_window(out, job, fetch, async_workers or 4)
+
+
+async def _reduce_window(
+    out: np.ndarray,
+    job: tuple[int, int, str, str, np.ndarray],
+    fetch: Callable[[Any, str], Awaitable[np.ndarray]],
+    workers: int,
+) -> None:
+    """Fetch one window of samples into a stack and reduce it into ``out``"""
+    slot, i, base, modifier, coords = job
+    stack = np.empty((len(coords),) + out.shape[2:], dtype=out.dtype)
+
+    async def sample(k: int) -> None:
+        stack[k] = await fetch(coords[k], base)
+
+    await map_with_concurrency(
+        range(len(coords)), sample, async_workers=workers, verbose=False
+    )
+    out[i, slot] = reduce_samples(modifier, stack)
+
+
+def as_datetime(coord: Any) -> datetime:
+    """Convert a ``datetime64`` sample coordinate to a naive UTC ``datetime``."""
+    return pd.Timestamp(coord).to_pydatetime()
+
+
+def as_timedelta(coord: Any) -> timedelta:
+    """Convert a ``timedelta64`` sample coordinate to a ``timedelta``."""
+    return pd.Timedelta(coord).to_pytimedelta()
+
+
+async def map_with_concurrency(
+    items: Sequence[T],
+    function: Callable[[T], Awaitable[None]],
+    desc: str = "Fetching time statistic samples",
+    verbose: bool = True,
+    async_workers: int | None = None,
+    task_timeout: float | None = None,
+) -> None:
+    """Apply an async function to source-owned items with bounded concurrency.
+
+    A fixed worker pool bounds both live fetch tasks and decoded samples, rather
+    than allocating one asyncio task per expanded timestamp. Fields are consumed
+    immediately by the function; its return value is not retained. On failure or cancellation,
+    all workers are canceled and awaited before returning to the caller.
+
+    Parameters
+    ----------
+    items : Sequence[T]
+        Source-owned work items, each consumed exactly once
+    function : Callable[[T], Awaitable[None]]
+        Coroutine processing an item, including any output assignment
+    desc : str, optional
+        Progress bar description
+    verbose : bool, optional
+        Show the progress bar, by default True
+    async_workers : int | None, optional
+        Maximum concurrent fetches, autoscaled when None
+    task_timeout : float | None, optional
+        Timeout in seconds of each fetch
+    """
+
+    workers = resolve_async_workers(async_workers, len(items))
+    if workers < 1:
+        raise ValueError("async_workers must be at least 1")
+    pending = iter(items)
+    with tqdm(total=len(items), desc=desc, disable=not verbose) as progress:
+
+        async def worker() -> None:
+            """Consume items until the shared iterator is exhausted"""
+            for item in pending:
+                if task_timeout is None:
+                    await function(item)
+                else:
+                    await asyncio.wait_for(function(item), timeout=task_timeout)
+                progress.update(1)
+
+        tasks = [asyncio.create_task(worker()) for _ in range(min(workers, len(items)))]
+        try:
+            await asyncio.gather(*tasks)
+        finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)

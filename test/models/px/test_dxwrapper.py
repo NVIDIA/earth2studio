@@ -19,9 +19,12 @@ from collections import OrderedDict
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
-from earth2studio.data import Random, fetch_data
-from earth2studio.io import XarrayBackend
+from earth2studio.grids import LatLonGrid
+from earth2studio.models.conformance import (
+    check_prognostic_contract,
+)
 from earth2studio.models.dx import (
     CorrDiffTaiwan,
     DerivedSurfacePressure,
@@ -30,11 +33,84 @@ from earth2studio.models.dx import (
     SolarRadiationAFNO1H,
 )
 from earth2studio.models.px import FCN3, DiagnosticWrapper, Persistence
-from earth2studio.run import deterministic
-from earth2studio.utils.coords import map_coords
+from earth2studio.utils import coord_array, coord_array_like, handshake_dataarray
+from earth2studio.utils.cupy import from_torch
+
+
+@pytest.fixture(autouse=True)
+def optional_backend(request):
+    if (
+        "device" in request.fixturenames
+        and request.getfixturevalue("device").startswith("cuda")
+        and not torch.cuda.is_available()
+    ):
+        pytest.skip("CUDA unavailable")
+    if request.node.name.startswith(
+        (
+            "test_dxwrapper_call",
+            "test_dxwrapper_iter",
+            "test_dxwrapper_run",
+            "test_fcn3_conformance",
+        )
+    ):
+        pytest.importorskip("makani")
+        pytest.importorskip("physicsnemo.utils.zenith_angle")
+
+
+def test_dxwrapper_dispatches_rng():
+    class Component(torch.nn.Module):
+        stochastic = True
+        _rng_generator = None
+
+        def set_rng(self, seed, reset=True):
+            if reset or self._rng_generator is None:
+                self._rng_generator = torch.Generator().manual_seed(seed)
+
+    components = [Component(), Component()]
+    wrapper = DiagnosticWrapper(*components)
+    assert wrapper.stochastic
+    wrapper.set_rng(12, reset=False)
+    states = [model._rng_generator.get_state() for model in components]
+    wrapper.set_rng(99, reset=False)
+    for model, state in zip(components, states):
+        assert torch.equal(model._rng_generator.get_state(), state)
+
+
+def make_input(model, times, device="cpu"):
+    signature = model.input_coords()
+    if "time" in signature.dims:
+        signature = coord_array_like(
+            signature, {"batch": [0], "time": np.asarray(times)}
+        )
+        return from_torch(torch.randn(signature.shape, device=device), signature).isel(
+            batch=0, drop=True
+        )
+    signature = signature.rename(batch="time")
+    signature.attrs["earth2studio_dynamic_dims"] = ("time",)
+    signature = coord_array_like(signature, {"time": np.asarray(times)})
+    return from_torch(torch.randn(signature.shape, device=device), signature)
+
+
+@pytest.mark.parametrize("has_time", [False, True])
+def test_make_input_unique_time_dimension(has_time):
+    class Model:
+        def input_coords(self):
+            leading = ("batch", "time") if has_time else ("batch",)
+            return coord_array(
+                (*leading, "lead_time", "variable"),
+                {"lead_time": [np.timedelta64(0, "h")], "variable": ["t2m"]},
+                dynamic=leading,
+            )
+
+    times = np.array(["2025-08-21", "2025-08-22"], dtype="datetime64[ns]")
+    field = make_input(Model(), times)
+    assert field.dims == ("time", "lead_time", "variable")
+    assert field.shape == (2, 1, 1)
+    np.testing.assert_array_equal(field.coords["time"], times)
 
 
 class PhooFCN3Preprocessor(torch.nn.Module):
+    generator = None
 
     def __init__(
         self,
@@ -54,7 +130,7 @@ class PhooFCN3Preprocessor(torch.nn.Module):
         return self.state
 
     def update_internal_state(self, replace_state=True):
-        self.state = torch.randn((10,), device=self.state.device)
+        self.state = torch.randn((10,), generator=self.generator).to(self.state.device)
 
 
 class PhooFCN3Model(torch.nn.Module):
@@ -67,12 +143,21 @@ class PhooFCN3ModelWrapper(torch.nn.Module):
     def __init__(self, model):
         super().__init__()
         self.model = model
+        self._generator = None
 
     def forward(self, x, t, normalized_data: bool = False, replace_state: bool = False):
-        return x
+        # Deterministic (identity) unless set_rng() has seeded a local generator,
+        # mirroring the real core model's noise-conditioned forward so that FCN3's
+        # declared stochastic=True is exercisable by the conformance rollout rules.
+        if self._generator is None:
+            return x
+        noise = torch.randn(x.shape, generator=self._generator).to(x.device)
+        return x + noise
 
     def set_rng(self, reset: bool = True, seed: int = 333):
-        return
+        if reset or self._generator is None:
+            self._generator = torch.Generator().manual_seed(seed)
+            self.model.preprocessor.generator = torch.Generator().manual_seed(seed)
 
 
 class PhooAFNOPrecipV2(torch.nn.Module):
@@ -117,7 +202,6 @@ class PhooCorrDiff(torch.nn.Module):
         return torch.as_tensor(sigma)
 
 
-@pytest.mark.skip(reason="FCN3 test for dx wrapper is slow")
 @pytest.mark.parametrize("device", ["cuda:0"])  # Removing CPU here too slow atm "cpu",
 @pytest.mark.parametrize("model_type", ["precip", "solar"])
 @pytest.mark.parametrize(
@@ -180,25 +264,10 @@ def test_dxwrapper_call(device, model_type, times):
         device=device
     )
 
-    dc = {k: wrapped_model.input_coords()[k] for k in ["lat", "lon"]}
-    data = Random(dc)
-
-    x, coords = fetch_data(
-        data,
-        times,
-        variable=wrapped_model.input_coords()["variable"],
-        device=device,
-    )
-    x, input_coords = map_coords(x, coords, wrapped_model.input_coords())
-    x, coords = wrapped_model(x, input_coords)
-
-    coord_shape = tuple(coord.shape[0] for coord in coords.values())
-    expected_shape = tuple(
-        coord.shape[0] for coord in wrapped_model.output_coords(input_coords).values()
-    )
-    assert x.shape == coord_shape
-    assert x.shape == expected_shape
-    assert tuple(coords) == ("time", "lead_time", "variable", "lat", "lon")
+    field = make_input(wrapped_model, times, device)
+    output = wrapped_model(field)
+    handshake_dataarray(output, wrapped_model.output_coords(field))
+    assert output.dims == ("time", "lead_time", "variable", "lat", "lon")
 
 
 @pytest.mark.parametrize("device", ["cuda:0"])  # Removing CPU here too slow atm "cpu",
@@ -237,12 +306,13 @@ def test_dxwrapper_iter(device, times, number_of_samples):
         number_of_samples=number_of_samples,
     ).to(device)
 
-    # Create persistence prognostic model
-    lat = np.linspace(-90, 90, 721)
-    lon = np.linspace(0, 360, 1440, endpoint=False)
+    # Create persistence prognostic model on a coarse regional grid covering the
+    # CorrDiff input domain (a global 0.25 degree grid makes the regridder build slow)
+    lat = np.linspace(10, 35, 51)
+    lon = np.linspace(105, 135, 61, endpoint=False)
     domain_coords = OrderedDict({"lat": lat, "lon": lon})
     px_model = Persistence(
-        variable=corrdiff_model.input_coords()["variable"],
+        variable=corrdiff_model.input_coords()["variable"].values.tolist(),
         domain_coords=domain_coords,
         dt=np.timedelta64(6, "h"),
     ).to(device)
@@ -252,26 +322,13 @@ def test_dxwrapper_iter(device, times, number_of_samples):
         dx_model=corrdiff_model,
     ).to(device=device)
 
-    dc = {k: wrapped_model.input_coords()[k] for k in ["lat", "lon"]}
-    data = Random(dc)
-
-    x, coords = fetch_data(
-        data,
-        times,
-        variable=px_model.input_coords()["variable"],
-        device=device,
-    )
-    x, coords = map_coords(x, coords, wrapped_model.input_coords())
+    x = make_input(wrapped_model, times, device)
     # Get generator
-    p_iter = wrapped_model.create_iterator(x, coords)
-    for i, (out, out_coords) in enumerate(p_iter):
-
-        coord_shape = tuple(coord.shape[0] for coord in out_coords.values())
-        expected_shape = tuple(
-            coord.shape[0] for coord in wrapped_model.output_coords(coords).values()
-        )
-        assert out.shape == coord_shape
-        assert out.shape == expected_shape
+    p_iter = wrapped_model.create_iterator(x)
+    for i, out in enumerate(p_iter):
+        expected = wrapped_model.output_coords(x)
+        assert out.shape == expected.shape
+        assert out.lead_time.values[0] == np.timedelta64(6 * (i + 1), "h")
 
         if i == 2:
             break
@@ -306,12 +363,13 @@ def test_dxwrapper_run(device, times, number_of_samples):
         number_of_samples=number_of_samples,
     ).to(device)
 
-    # Create persistence prognostic model
-    lat = np.linspace(-90, 90, 721)
-    lon = np.linspace(0, 360, 1440, endpoint=False)
+    # Create persistence prognostic model on a coarse regional grid covering the
+    # CorrDiff input domain (a global 0.25 degree grid makes the regridder build slow)
+    lat = np.linspace(10, 35, 51)
+    lon = np.linspace(105, 135, 61, endpoint=False)
     domain_coords = OrderedDict({"lat": lat, "lon": lon})
     px_model = Persistence(
-        variable=corrdiff_model.input_coords()["variable"],
+        variable=corrdiff_model.input_coords()["variable"].values.tolist(),
         domain_coords=domain_coords,
         dt=np.timedelta64(6, "h"),
     ).to(device)
@@ -321,18 +379,125 @@ def test_dxwrapper_run(device, times, number_of_samples):
         dx_model=corrdiff_model,
     ).to(device=device)
 
-    dc = {k: wrapped_model.input_coords()[k] for k in ["lat", "lon"]}
-    data = Random(dc)
+    field = make_input(wrapped_model, times, device)
+    iterator = wrapped_model.create_iterator(field)
+    for step in range(1, 3):
+        output = next(iterator)
+        assert output.lead_time.values[0] == np.timedelta64(step * 6, "h")
+    iterator.close()
 
-    x, coords = fetch_data(
-        data,
-        times,
-        variable=px_model.input_coords()["variable"],
-        device=device,
+
+def test_fcn3_conformance():
+    fcn3_model = PhooFCN3ModelWrapper(PhooFCN3Model(PhooFCN3Preprocessor()))
+    px_model = FCN3(fcn3_model)
+    check_prognostic_contract(px_model)
+
+
+def test_persistence_conformance():
+    """Check the Persistence prognostic model against the model contract.
+
+    Persistence does not declare `stochastic`, so P14 is reported as an
+    informational skip rather than a violation.
+    """
+    lat = np.linspace(-90, 90, 721)
+    lon = np.linspace(0, 360, 1440, endpoint=False)
+    domain_coords = OrderedDict({"lat": lat, "lon": lon})
+    px_model = Persistence(
+        variable=["t2m", "u10m"],
+        domain_coords=domain_coords,
+        dt=np.timedelta64(6, "h"),
     )
-    x, coords = map_coords(x, coords, wrapped_model.input_coords())
-    io = XarrayBackend()
-    deterministic(times, 2, wrapped_model, data, io, device=device)
+    check_prognostic_contract(px_model)
+
+
+def test_diagnosticwrapper_conformance(tmp_path):
+    from earth2studio.grids import ProjectedGrid
+    from earth2studio.models.px.dxwrapper import PrepareInputCoordsDefault
+
+    projected = ProjectedGrid(
+        np.array([1000.0, 2000.0]), np.array([3000.0, 4000.0, 5000.0]), "EPSG:3857"
+    )
+    diagnostic = DerivedWS(["10m"], grid=projected)
+    source = Persistence(
+        ["u10m", "v10m"], LatLonGrid(np.array([0.0, 1.0]), np.array([0.0, 1.0, 2.0]))
+    )
+    prepared = PrepareInputCoordsDefault()(
+        source.output_coords(source.input_coords()), diagnostic.input_coords()
+    )
+    diagnostic.output_coords(prepared)
+    assert prepared.attrs["earth2studio_crs"] == "EPSG:3857"
+    np.testing.assert_array_equal(prepared.y, projected.y)
+    np.testing.assert_array_equal(prepared.x, projected.x)
+    wrapper = DiagnosticWrapper(source, diagnostic)
+    field = make_input(wrapper, [np.datetime64("2024-01-01")])
+    field.data[..., 0, :, :] = 3
+    field.data[..., 1, :, :] = 4
+    result = wrapper(field)
+    handshake_dataarray(result, wrapper.output_coords(field))
+    np.testing.assert_allclose(result.values, 5)
+    assert result.attrs["earth2studio_crs"] == "EPSG:3857"
+    grid = LatLonGrid(np.linspace(30, 40, 4), np.arange(6))
+    px_model = Persistence(["u10m", "v10m", "u100m", "v100m"], grid, history=2)
+    inner = DiagnosticWrapper(px_model, DerivedWS(["10m"], grid=grid))
+    wrapped_model = DiagnosticWrapper(inner, DerivedWS(["100m"], grid=grid))
+    check_prognostic_contract(wrapped_model)
+    field = make_input(wrapped_model, [np.datetime64("2024-01-01")]).expand_dims(
+        member=["a", "b"]
+    )
+    field.name = "weather"
+    field.attrs["nested"] = {"owner": ["caller"]}
+    field.encoding = {"nested": {"owner": ["caller"]}}
+    field = field.assign_coords(aux=("member", [1, 2]), units=("variable", ["m/s"] * 4))
+    before = field.copy(deep=True)
+    calls = []
+
+    def front(x):
+        calls.append(("front", x.dims))
+        x.attrs["nested"]["owner"].append("hook")
+        return x.drop_vars("aux", errors="ignore")
+
+    def rear(x):
+        calls.append(("rear", x.dims))
+        return x
+
+    wrapped_model.front_hook = front
+    wrapped_model.rear_hook = rear
+    output = wrapped_model(field)
+    assert calls == []
+    handshake_dataarray(output, wrapped_model.output_coords(field))
+    iterator = wrapped_model.create_iterator(field)
+    initial = next(iterator)
+    assert [c[0] for c in calls] == ["rear"]
+    xr.testing.assert_identical(initial, output)
+    first = next(iterator)
+    assert [c[0] for c in calls] == ["rear", "front", "rear"]
+    assert calls[0][1] == field.dims
+    assert "aux" not in first.coords
+    assert "units" not in first.coords
+    assert first.name == field.name and first.encoding == field.encoding
+    frozen = first.data.copy()
+    next(iterator)
+    np.testing.assert_array_equal(first.data, frozen)
+    xr.testing.assert_identical(field, before)
+    iterator.close()
+    wrapped_model.clear_hooks()
+
+    class SamplingWind(DerivedWS):
+        stochastic = True
+        generator = None
+
+        def set_rng(self, seed, reset=True):
+            if reset or self.generator is None:
+                self.generator = torch.Generator().manual_seed(seed)
+
+        def __call__(self, x):
+            result = super().__call__(x)
+            result.data += torch.randn(result.shape, generator=self.generator).numpy()
+            return result
+
+    sampled = DiagnosticWrapper(px_model, SamplingWind(["10m"], grid=grid))
+    assert sampled.stochastic
+    check_prognostic_contract(sampled)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -356,7 +521,7 @@ def test_prepare_output1(device):
         OrderedDict(
             [
                 ("time", np.array([np.datetime64("2024-01-01")])),
-                ("variable", np.array(["precip"])),
+                ("variable", np.array(["tp:sum:6h"])),
                 ("lat", np.linspace(-90, 90, 10)),
                 ("lon", np.linspace(0, 360, 20)),
             ]
@@ -367,11 +532,18 @@ def test_prepare_output1(device):
     px_x = torch.randn(1, 2, 10, 20, device=device)
     dx_x = [torch.randn(1, 1, 10, 20, device=device)]
 
-    x_out, coords_out = prepare_output(px_x, px_coords, dx_x, dx_coords)
+    px_field = from_torch(px_x, coord_array(tuple(px_coords), px_coords))
+    dx_fields = [
+        from_torch(t, coord_array(tuple(c), c)) for t, c in zip(dx_x, dx_coords)
+    ]
+    output = prepare_output(px_field, dx_fields)
+    x_out, _ = output.e2s.to_torch()
+    coords_out = output.coords
 
     # Verify shape and concatenation
     assert x_out.shape == (1, 3, 10, 20)
-    assert list(coords_out["variable"]) == ["t2m", "u10m", "precip"]
+    assert list(coords_out["variable"]) == ["t2m", "u10m", "tp:sum:6h"]
+    assert set(output.attrs["earth2studio_statistics"]) == {"tp:sum:6h"}
     assert x_out.device.type == device.split(":")[0]
 
 
@@ -412,7 +584,13 @@ def test_prepare_output2(device):
     px_x = torch.randn(1, 2, 20, 40, device=device)
     dx_x = [torch.randn(1, 1, 10, 20, device=device)]
 
-    x_out, coords_out = prepare_output(px_x, px_coords, dx_x, dx_coords)
+    px_field = from_torch(px_x, coord_array(tuple(px_coords), px_coords))
+    dx_fields = [
+        from_torch(t, coord_array(tuple(c), c)) for t, c in zip(dx_x, dx_coords)
+    ]
+    output = prepare_output(px_field, dx_fields)
+    x_out, _ = output.e2s.to_torch()
+    coords_out = output.coords
 
     # Verify shape and concatenation
     assert x_out.shape == (1, 3, 10, 20)
@@ -463,7 +641,13 @@ def test_prepare_output3(device):
     dx_x = [torch.randn(2, 1, 10, 20, device=device)]
 
     # Test forward pass
-    x_out, coords_out = prepare_output(px_x, px_coords, dx_x, dx_coords)
+    px_field = from_torch(px_x, coord_array(tuple(px_coords), px_coords))
+    dx_fields = [
+        from_torch(t, coord_array(tuple(c), c)) for t, c in zip(dx_x, dx_coords)
+    ]
+    output = prepare_output(px_field, dx_fields)
+    x_out, _ = output.e2s.to_torch()
+    coords_out = output.coords
 
     # Verify only dx outputs are used
     assert x_out.shape == (2, 1, 10, 20)
@@ -505,7 +689,13 @@ def test_prepare_output_subregion(device):
     px_x = torch.randn(1, 1, 10, 40, device=device)
     dx_x = [torch.randn(1, 1, 5, 20, device=device)]
 
-    x_out, coords_out = prepare_output(px_x, px_coords, dx_x, dx_coords)
+    px_field = from_torch(px_x, coord_array(tuple(px_coords), px_coords))
+    dx_fields = [
+        from_torch(t, coord_array(tuple(c), c)) for t, c in zip(dx_x, dx_coords)
+    ]
+    output = prepare_output(px_field, dx_fields)
+    x_out, _ = output.e2s.to_torch()
+    coords_out = output.coords
 
     assert x_out.shape == (1, 1, 5, 20)
     assert list(coords_out["variable"]) == ["precip"]
@@ -523,10 +713,16 @@ def test_prepare_output_subregion(device):
             ]
         )
     ]
-    px_x = torch.randn(1, 1, 10, 20, device=device)
+    px_x = torch.randn(1, 1, 10, 40, device=device)
     dx_x = [torch.randn(1, 1, 8, 10, device=device)]
 
-    x_out, coords_out = prepare_output(px_x, px_coords, dx_x, dx_coords)
+    px_field = from_torch(px_x, coord_array(tuple(px_coords), px_coords))
+    dx_fields = [
+        from_torch(t, coord_array(tuple(c), c)) for t, c in zip(dx_x, dx_coords)
+    ]
+    output = prepare_output(px_field, dx_fields)
+    x_out, _ = output.e2s.to_torch()
+    coords_out = output.coords
 
     assert x_out.shape == (1, 1, 8, 10)
     assert list(coords_out["variable"]) == ["precip"]
@@ -573,7 +769,13 @@ def test_prepare_output_tensor_multiple_dx_models(device):
         torch.randn(1, 1, 10, 20, device=device),
     ]
 
-    x_out, coords_out = prepare_output(px_x, px_coords, dx_x, dx_coords)
+    px_field = from_torch(px_x, coord_array(tuple(px_coords), px_coords))
+    dx_fields = [
+        from_torch(t, coord_array(tuple(c), c)) for t, c in zip(dx_x, dx_coords)
+    ]
+    output = prepare_output(px_field, dx_fields)
+    x_out, _ = output.e2s.to_torch()
+    coords_out = output.coords
 
     # Verify shape and concatenation with multiple dx models
     assert x_out.shape == (1, 4, 10, 20)

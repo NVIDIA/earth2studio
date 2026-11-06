@@ -81,9 +81,9 @@ from tqdm import tqdm
 
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.io import IOBackend
+from earth2studio.io.utils import output_template
 from earth2studio.models.px import PrognosticModel
 from earth2studio.statistics import Statistic
-from earth2studio.utils.coords import map_coords
 from earth2studio.utils.time import to_time_array
 
 logger.remove()
@@ -130,38 +130,52 @@ def run_stats(
     prognostic = prognostic.to(device)
     # Fetch data from data source and load onto device
     time = to_time_array(time)
-    x, coords = fetch_data(
+    from earth2studio.run import _map_field
+
+    x = fetch_data(
         source=data,
         time=time,
-        lead_time=prognostic.input_coords()["lead_time"],
-        variable=prognostic.input_coords()["variable"],
+        lead_time=prognostic.input_coords().coords["lead_time"].values,
+        variable=prognostic.input_coords().coords["variable"].values,
         device=device,
     )
     logger.success(f"Fetched data from {data.__class__.__name__}")
 
-    # Set up IO backend
-    total_coords = coords.copy()
-    output_coords = prognostic.output_coords(prognostic.input_coords())
-    total_coords["lead_time"] = np.asarray(
-        [output_coords["lead_time"] * i for i in range(nsteps + 1)]
-    ).flatten()
-    # Remove reduced dimensions from statistic
-    for d in statistic.reduction_dimensions:
-        total_coords.pop(d, None)
-
-    io.add_array(total_coords, str(statistic))
+    # Set up IO backend. Arrays are created from a concrete template: the model's
+    # output signature is concretized over the times and lead times of the roll out,
+    # then the dimensions the statistic reduces over are dropped and the statistic's
+    # name is attached, since a template without a `variable` dimension names a
+    # single array after itself.
+    signature = prognostic.output_coords(prognostic.input_coords())
+    leads = signature.coords["lead_time"].values
+    template = output_template(
+        signature,
+        leading={"time": time},
+        coords={
+            "lead_time": np.concatenate(
+                [
+                    np.zeros(1, dtype=leads.dtype),
+                    *(leads + leads[-1] * i for i in range(nsteps)),
+                ]
+            )
+        },
+    )
+    template = template.isel(
+        {dim: 0 for dim in statistic.reduction_dimensions}, drop=True
+    ).rename(str(statistic))
+    io.add_array(template)
 
     # Map lat and lon if needed
-    x, coords = map_coords(x, coords, prognostic.input_coords())
+    x = _map_field(x, prognostic.input_coords())
 
     # Create prognostic iterator
-    model = prognostic.create_iterator(x, coords)
+    model = prognostic.create_iterator(x)
 
     logger.info("Inference starting!")
     with tqdm(total=nsteps + 1, desc="Running inference") as pbar:
-        for step, (x, coords) in enumerate(model):
-            s, coords = statistic(x, coords)
-            io.write(s, coords, str(statistic))
+        for step, x in enumerate(model):
+            # Statistics take and return xarray DataArrays, name the result for IO
+            io.write(statistic(x).rename(str(statistic)))
             pbar.update(1)
             if step == nsteps:
                 break
@@ -183,16 +197,14 @@ def run_stats(
 # - IO Backend: Save the outputs into a NetCDF4 store [`earth2studio.io.NetCDF4Backend`][earth2studio.io.NetCDF4Backend].
 
 # %%
-from collections import OrderedDict
-
 import fsspec
 import numpy as np
 import torch
+import xarray as xr
 
 from earth2studio.data import GFS
 from earth2studio.io import NetCDF4Backend
 from earth2studio.models.px import Pangu24
-from earth2studio.utils.type import CoordSystem
 
 # Load the default model package which downloads the check point from NGC
 package = Pangu24.load_default_package()
@@ -272,12 +284,11 @@ class SOI:
 
         self.reduction_dimensions = list(self.tahiti_coords)
 
-    def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Computes the SOI given an input.
 
-        coords must be a superset of both
+        x must have `variable`, `lat`, `lon`, `time` and `lead_time` dimensions and
+        cover (to nearest grid point) both
 
         tahiti_coords = {
             'variable': np.array(['msl']),
@@ -297,44 +308,46 @@ class SOI:
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            coordinate system belonging to the input tensor.
+        x : xr.DataArray
+            Input data array
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Returns the SOI and appropriate coordinate system.
+        xr.DataArray
+            Returns the SOI with the `variable`, `lat` and `lon` dimensions reduced.
         """
-        tahiti, _ = map_coords(x, coords, self.tahiti_coords)
-        darwin, _ = map_coords(x, coords, self.darwin_coords)
+        slp = x.e2s.as_numpy().sel(variable="msl")
+        tahiti = slp.sel(
+            lat=self.tahiti_coords["lat"][0],
+            lon=self.tahiti_coords["lon"][0],
+            method="nearest",
+        )
+        darwin = slp.sel(
+            lat=self.darwin_coords["lat"][0],
+            lon=self.darwin_coords["lon"][0],
+            method="nearest",
+        )
+        tahiti = tahiti.copy(data=tahiti.data / 100.0)
+        darwin = darwin.copy(data=darwin.data / 100.0)
 
-        tahiti = tahiti.squeeze(-3, -2, -1) / 100.0
-        darwin = darwin.squeeze(-3, -2, -1) / 100.0
-        output_coords = OrderedDict(
-            {k: v for k, v in coords.items() if k not in self.reduction_dimensions}
+        # Get month of each valid time, broadcast against (..., time, lead_time)
+        times = x.coords["time"].values.reshape(-1, 1) + x.coords[
+            "lead_time"
+        ].values.reshape(1, -1)
+        months = np.array([pd.Timestamp(t).month for t in times.flatten()]).reshape(
+            times.shape
         )
 
-        # Get time coordinates
-        times = coords["time"].reshape(-1, 1) + coords["lead_time"].reshape(1, -1)
-        months = torch.broadcast_to(
-            torch.as_tensor(
-                [pd.Timestamp(t).month for t in times.flatten()],
-                device=tahiti.device,
-                dtype=torch.int32,
-            ).reshape(times.shape),
-            tahiti.shape,
-        )
+        cm = self.climatological_means.numpy()
+        cs = self.climatological_std.numpy()
+        norm = self.normalization.numpy()
 
-        cm = self.climatological_means.to(tahiti.device)
-        cs = self.climatological_std.to(tahiti.device)
-        norm = self.normalization.to(tahiti.device)
+        tahiti_std_anomaly = (tahiti.data - cm[months, 0]) / cs[months, 0]
+        darwin_std_anomaly = (darwin.data - cm[months, 1]) / cs[months, 1]
 
-        tahiti_std_anomaly = (tahiti - cm[months, 0]) / cs[months, 0]
-        darwin_std_anomaly = (tahiti - cm[months, 1]) / cs[months, 1]
-
-        return (tahiti_std_anomaly - darwin_std_anomaly) / norm[months], output_coords
+        return tahiti.copy(
+            data=(tahiti_std_anomaly - darwin_std_anomaly) / norm[months]
+        ).drop_vars(["variable", "lat", "lon"], errors="ignore")
 
 
 soi = SOI()
@@ -364,7 +377,12 @@ io = run_stats(["2022-01-01"], nsteps, nensemble, model, soi, data, io)
 # %%
 import matplotlib.pyplot as plt
 
-times = io["time"][:].flatten() + io["lead_time"][:].flatten()
+# The NetCDF store holds CF encoded times: nanoseconds since the epoch for `time`
+# and nanoseconds for `lead_time`, so decode them before plotting
+times = (
+    io["time"][:].astype("datetime64[ns]").flatten()
+    + io["lead_time"][:].astype("timedelta64[ns]").flatten()
+)
 
 fig = plt.figure(figsize=(12, 4))
 ax = fig.add_subplot(1, 1, 1)

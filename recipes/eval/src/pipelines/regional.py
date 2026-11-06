@@ -13,6 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# mypy: disable-error-code="misc,union-attr"
 
 """Pipelines for limited-area models on a window of a larger grid.
 
@@ -25,7 +26,7 @@ Two pipelines and the source adapters they share:
   predownloads those fields into ``conditioning.zarr`` or streams them.
 * :class:`RegionalDiagnosticPipeline` runs a regional downscaling model
   (CorrDiff COSMO): it applies a ``crop`` box through the model's
-  ``set_domain``, windows a global input source onto the model's input
+  ``with_region``, windows a global input source onto the model's input
   grid with the longitude convention aligned, and stores a curvilinear
   output on index dimensions.
 
@@ -50,13 +51,15 @@ import tempfile
 from collections import OrderedDict
 from collections.abc import Iterator
 from dataclasses import replace
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import torch
 import xarray as xr
 from omegaconf import DictConfig
 
+from earth2studio.grids import Region
+from earth2studio.models.base import DomainAdaptable
 from earth2studio.utils.coords import map_coords
 from earth2studio.utils.type import CoordSystem
 
@@ -151,39 +154,49 @@ def align_longitudes(da: xr.DataArray, target_lon: np.ndarray) -> xr.DataArray:
 
 
 def apply_crop(model: Any, crop: dict | None) -> Any:
-    """Restrict a loaded model to a lat/lon box through its ``set_domain``.
+    """Restrict a loaded model to a lat/lon box through its ``with_region``.
 
-    One ``crop:`` block in a campaign covers both ways Earth2Studio models
-    expose cropped inference: models that choose their window after loading
-    (``set_domain``, CorrDiff COSMO) take it here; models that take window
-    limits in their constructor (StormCast-CONUS's ``hrrr_lat_lim`` and
-    ``hrrr_lon_lim``) receive them through ``model.load_args`` instead, and
-    a ``crop:`` block on such a model raises with that hint.
+    Models whose domain can be selected after loading
+    (:class:`~earth2studio.models.base.DomainAdaptable`, such as CorrDiff COSMO
+    and StormCast-CONUS) take the ``crop:`` block here. Fixed-domain models
+    raise; models with constructor window limits (StormCast-CONUS's
+    ``hrrr_lat_lim`` and ``hrrr_lon_lim``) can receive those through
+    ``model.load_args`` instead.
 
     Parameters
     ----------
     model : Any
         Loaded model.
     crop : dict | None
-        ``{lat_min, lat_max, lon_min, lon_max}`` plus any extra keyword
-        arguments for ``set_domain`` (for example ``margin_deg``); ``None``
-        leaves the model unchanged.
+        ``{lat_min, lat_max, lon_min, lon_max}`` plus any regional settings of
+        the model, named without their ``region_`` prefix (for example
+        ``margin_deg`` and ``halo`` set CorrDiff COSMO's ``region_margin_deg``
+        and ``region_halo``); ``None`` leaves the model unchanged.
 
     Returns
     -------
     Any
-        The cropped model (a new instance for ``set_domain`` models).
+        A view of the model covering the box.
     """
     if not crop:
         return model
-    if not hasattr(model, "set_domain"):
+    if not isinstance(model, DomainAdaptable):
         raise TypeError(
-            f"{type(model).__name__} has no set_domain(); pass its own window "
+            f"{type(model).__name__} cannot select a region; pass its own window "
             "limits through model.load_args instead of a crop block."
         )
     box = dict(crop)
-    bbox = [box.pop(k) for k in ("lat_min", "lat_max", "lon_min", "lon_max")]
-    return model.set_domain(*bbox, **box)
+    lat_min, lat_max, lon_min, lon_max = (
+        box.pop(k) for k in ("lat_min", "lat_max", "lon_min", "lon_max")
+    )
+    for key, value in box.items():
+        setting = f"region_{key}"
+        if not hasattr(model, setting):
+            raise TypeError(
+                f"{type(model).__name__} has no {setting} setting for crop key {key!r}"
+            )
+        setattr(model, setting, value)
+    return model.with_region(Region.box(lon_min, lat_min, lon_max, lat_max))
 
 
 def _index_dims(coords: CoordSystem) -> tuple[CoordSystem, dict[str, np.ndarray]]:
@@ -334,8 +347,8 @@ class RegionalForecastPipeline(ForecastPipeline):
         configured with ``cache: true``.
     crop : DictConfig | dict | None, optional
         ``{lat_min, lat_max, lon_min, lon_max}`` applied through the model's
-        ``set_domain`` after loading (see :func:`apply_crop`).  Models that
-        take window limits in their constructor use ``model.load_args``
+        ``with_region`` after loading (see :func:`apply_crop`).  Fixed-domain
+        models with constructor window limits use ``model.load_args``
         instead.  By default None.
     """
 
@@ -591,7 +604,7 @@ class RegionalDiagnosticPipeline(DiagnosticPipeline):
     with the three things a regional downscaler needs (CorrDiff COSMO is the
     configured example):
 
-    * ``crop``: a lat/lon box applied through the model's ``set_domain``
+    * ``crop``: a lat/lon box applied through the model's ``with_region``
       after loading, the same block :class:`RegionalForecastPipeline` takes.
     * Input windowing: the pipeline crops a global source to the model's
       own input grid at fetch time and aligns the longitude convention, so
@@ -610,8 +623,8 @@ class RegionalDiagnosticPipeline(DiagnosticPipeline):
     Parameters
     ----------
     crop : DictConfig | dict | None, optional
-        ``{lat_min, lat_max, lon_min, lon_max}`` for ``set_domain``, plus
-        any extra keyword arguments it takes, by default None.
+        ``{lat_min, lat_max, lon_min, lon_max}`` for ``with_region``, plus
+        any regional settings (see :func:`apply_crop`), by default None.
     """
 
     def __init__(self, crop: DictConfig | dict | None = None) -> None:
@@ -694,7 +707,7 @@ class RegionalDiagnosticPipeline(DiagnosticPipeline):
                     [("batch", np.array([0]))]
                     + [(k, v) for k, v in c_in.items() if k != "batch"]
                 )
-            y, y_coords = dx(x_in, c_in)
+            y, y_coords = cast(Any, dx)(x_in, c_in)
             y, y_coords = _rename_sample_axis(y, y_coords, member_ids)
             y_coords, _ = _index_dims(y_coords)
             keys = list(y_coords)

@@ -20,7 +20,8 @@ import numpy as np
 import pytest
 import torch
 
-from earth2studio.perturbation import Zero
+from earth2studio.perturbation import Perturbation, Zero
+from earth2studio.utils.cupy import from_torch
 
 
 @pytest.mark.parametrize(
@@ -47,11 +48,15 @@ def test_zero(x, device):
 
     x = x.to(device)
     coords = OrderedDict([(f"{i}", np.arange(x.shape[i])) for i in range(x.ndim)])
+    xda = from_torch(x, coords, attrs={"units": "K"})
 
     prtb = Zero()
-    xout, coords = prtb(x, coords)
-    dx = xout - x
+    assert isinstance(prtb, Perturbation)
+    out = prtb(xda)
+    dx = out.e2s.to_torch()[0] - x
 
+    assert out.dims == xda.dims
+    assert out.attrs == xda.attrs
     assert dx.shape == x.shape
     assert torch.sum(dx) == 0
     assert dx.device == x.device

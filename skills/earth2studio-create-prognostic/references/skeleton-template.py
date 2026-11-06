@@ -14,421 +14,209 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Prognostic Model Wrapper Skeleton Template.
+"""Native one-frame prognostic template; adapt core shapes, grid and package assets.
 
-This file demonstrates the required structure for Earth2Studio prognostic model
-wrappers. Copy this template and replace TODO comments with implementations.
-
-Method ordering is CANONICAL and must be preserved:
-1. __init__ — constructor
-2. input_coords — input coordinate system
-3. output_coords — output coordinate system (decorated @batch_coords())
-4. load_default_package — classmethod returning default Package
-5. load_model — classmethod loading model from package
-6. to — device management (optional, only if non-PyTorch state exists)
-7. Private/support methods (e.g., _prepare_input, _normalize, etc.)
-8. __call__ — single-step forward (decorated @batch_func())
-9. _default_generator — batch-decorated generator (decorated @batch_func())
-10. create_iterator — public time-integration entry point
-
-See real examples:
-- earth2studio/models/px/pangu.py
-- earth2studio/models/px/aurora.py
-- earth2studio/models/px/fcnv2.py
+Initialization computes the first forecast; this one-frame core needs no extra
+state. See method-templates.py for explicit history. Keep optional imports behind
+OptionalDependencyFailure and guard packaged loaders for their actual backend.
 """
 
-from collections import OrderedDict
-from collections.abc import Iterator
+from collections.abc import Generator
+from typing import cast
 
 import numpy as np
 import torch
+import xarray as xr
 
+from earth2studio.grids import GridDefinition
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
-from earth2studio.models.px.base import PrognosticModel
+from earth2studio.models.batch import batch_func
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils import handshake_coords, handshake_dim
-from earth2studio.utils.imports import (
-    OptionalDependencyFailure,
-    check_optional_dependencies,
+from earth2studio.utils.coords import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_nonempty,
 )
-from earth2studio.utils.type import CoordSystem
-
-# ---------------------------------------------------------------------------
-# Optional dependency imports (try/except pattern)
-# ---------------------------------------------------------------------------
-try:
-    # TODO: Import optional packages here
-    # import model_package
-    pass
-except ImportError:
-    OptionalDependencyFailure("model-name")  # TODO: Use your dependency group name
-    # model_package = None
-
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-
-# TODO: Define variable list from E2STUDIO_VOCAB
-VARIABLES = [
-    # Surface variables
-    "t2m",
-    "u10m",
-    "v10m",
-    "msl",
-    # Pressure level variables (examples)
-    "z500",
-    "t850",
-    "u500",
-    "v500",
-]
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.type import CoordinateSystem
 
 
 class ModelName(torch.nn.Module, AutoModelMixin, PrognosticMixin):
-    """One-line description of the model.
-
-    Extended description of the model, its source, architecture,
-    and any relevant details.
+    """Forecast one configured field frame with a Torch core.
 
     Parameters
     ----------
-    core_model : torch.nn.Module, optional
-        Core model instance. None for simple models without external weights.
-    center : torch.Tensor, optional
-        Normalization center values.
-    scale : torch.Tensor, optional
-        Normalization scale values.
-
-    Note
-    ----
-    For more information see: <link to paper/repo>
-
-    Additional resources:
-    - <link to checkpoint source>
-    - <link to model documentation>
-
-    Badges
-    ------
-    Use only badges defined in docs/conf.py
-    (https://github.com/NVIDIA/earth2studio/blob/main/docs/conf.py). Order them
-    as region(s), class, product(s), year, gpu. Do not add unsupported badges.
-    region:global class:mrf product:wind product:temp year:2026 gpu:40gb
+    core_model : torch.nn.Module
+        Core accepting and returning (batch, variable, lat, lon).
+    grid : GridDefinition | str
+        Configured lat/lon grid, fixed throughout a rollout.
     """
 
-    # =========================================================================
-    # 1. CONSTRUCTOR
-    # =========================================================================
-    def __init__(
-        self,
-        core_model: torch.nn.Module | None = None,
-        center: torch.Tensor | None = None,
-        scale: torch.Tensor | None = None,
-    ) -> None:
+    def __init__(self, core_model: torch.nn.Module, grid: GridDefinition | str) -> None:
         super().__init__()
         self.model = core_model
-        # Register normalization parameters as buffers
-        if center is not None:
-            self.register_buffer("center", center)
-        if scale is not None:
-            self.register_buffer("scale", scale)
-        # Device tracking buffer (required for all px models)
+        self.grid = grid
         self.register_buffer("device_buffer", torch.empty(0))
-        # TODO: Store time step as timedelta
         self._time_step = np.timedelta64(6, "h")
 
-    # =========================================================================
-    # 2. INPUT COORDINATES
-    # =========================================================================
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of the prognostic model.
+    def input_coords(self) -> CoordinateSystem:
+        """Declare the input coordinate system.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary.
+        CoordinateSystem
+            Allocation-free signature for one temperature frame on the configured
+            grid, with arbitrary leading dimensions.
         """
-        return OrderedDict(
-            {
-                "batch": np.empty(0),  # MUST be first, MUST be np.empty(0)
-                "time": np.empty(0),  # Dynamic time dimension
-                "lead_time": np.array([np.timedelta64(0, "h")]),  # Initial lead time
-                "variable": np.array(VARIABLES),
-                # TODO: Set grid dimensions from reference. Keep public
-                # Earth2Studio latitude north-to-south even if the core model
-                # uses south-to-north internally.
-                "lat": np.linspace(90, -90, 721, endpoint=True),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+        return coord_array(
+            ("batch", "lead_time", "variable", "lat", "lon"),
+            {"lead_time": np.array([0], dtype="timedelta64[h]"), "variable": ["t2m"]},
+            dynamic=("batch",),
+            grid=self.grid,
         )
 
-    # =========================================================================
-    # 3. OUTPUT COORDINATES
-    # =========================================================================
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of the prognostic model.
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Validate relative history and plan the next absolute lead time.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinates to validate and transform.
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
-        CoordSystem
-            Output coordinates with updated lead_time.
-
-        Raises
-        ------
-        ValueError
-            If input coordinates are invalid.
+        CoordinateSystem
+            Allocation-free output signature six hours after the input lead time.
         """
-        target_input_coords = self.input_coords()
-
-        # Validate dimensions exist at correct indices
-        # handshake_dim indices match position in OrderedDict:
-        # batch=0, time=1, lead_time=2, variable=3, lat=4, lon=5
-        handshake_dim(input_coords, "lead_time", 2)
-        handshake_dim(input_coords, "variable", 3)
-        handshake_dim(input_coords, "lat", 4)
-        handshake_dim(input_coords, "lon", 5)
-
-        # Validate coordinate values match expected
-        handshake_coords(input_coords, target_input_coords, "variable")
-        handshake_coords(input_coords, target_input_coords, "lat")
-        handshake_coords(input_coords, target_input_coords, "lon")
-
-        output_coords = input_coords.copy()
-        output_coords["lead_time"] = input_coords["lead_time"] + np.array(
-            [self._time_step]
+        if "lead_time" not in input_coords.coords:
+            raise ValueError("lead_time is required")
+        lead = input_coords.lead_time.values
+        if (
+            input_coords.lead_time.dims != ("lead_time",)
+            or lead.size != 1
+            or not np.issubdtype(lead.dtype, np.timedelta64)
+            or np.isnat(lead).any()
+        ):
+            raise ValueError("lead_time must contain one finite timedelta")
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
         )
-        return output_coords
+        return coord_array_like(
+            input_coords, {"lead_time": lead[-1:] + self._time_step}
+        )
 
-    # =========================================================================
-    # 4. LOAD DEFAULT PACKAGE
-    # =========================================================================
     @classmethod
     def load_default_package(cls) -> Package:
-        """Default pre-trained model package on HuggingFace/NGC/S3.
+        """Describe the model's immutable checkpoint package.
 
         Returns
         -------
         Package
-            Model package with checkpoint files.
-
-        Warning
-        -------
-        NEVER commit credentials, API keys, or secrets to this file.
-        If authentication is required, use environment variables:
-        - HF_TOKEN for HuggingFace
-        - NGC_API_KEY for NVIDIA NGC
-        - AWS credentials via standard AWS environment variables
+            Package containing core weights. Replace the example URL with the
+            model's immutable checkpoint revision.
         """
-        # TODO: Replace with actual checkpoint URL
-        # Lock HuggingFace URLs to specific commit: hf://org/repo@commit
         return Package(
-            "hf://organization/model-name@abc123def456",
-            cache_options={
-                "cache_storage": Package.default_cache("model_name"),
-                "same_names": True,
-            },
+            "hf://organization/model@commit",
+            cache_options={"cache_storage": Package.default_cache("model_name")},
         )
 
-    # =========================================================================
-    # 5. LOAD MODEL
-    # =========================================================================
     @classmethod
-    @check_optional_dependencies()
-    def load_model(
-        cls,
-        package: Package,
-    ) -> PrognosticModel:
-        """Load prognostic model from package.
+    def load_model(cls, package: Package) -> "ModelName":
+        """Load the core and its configured grid from package assets.
 
         Parameters
         ----------
         package : Package
-            Model package with checkpoint files.
+            Package containing the model weights.
 
         Returns
         -------
-        PrognosticModel
-            Loaded model instance.
+        ModelName
+            Wrapper with core weights loaded on CPU in evaluation mode.
         """
-        # Resolve checkpoint files from package
-        model_path = package.resolve("model.pt")
-        center_path = package.resolve("center.npy")
-        scale_path = package.resolve("scale.npy")
+        core = torch.load(
+            package.resolve("model.pt"), map_location="cpu", weights_only=False
+        )
+        core.eval()
+        return cls(core, grid="latlon-0.25deg")
 
-        # Load model (always to CPU first)
-        core_model = torch.load(model_path, map_location="cpu", weights_only=False)
-        core_model.eval()
-
-        # Load normalization parameters
-        center = torch.from_numpy(np.load(center_path))
-        scale = torch.from_numpy(np.load(scale_path))
-
-        return cls(core_model, center=center, scale=scale)
-
-    # =========================================================================
-    # 6. DEVICE MANAGEMENT (optional)
-    # =========================================================================
-    # NOTE: Only override .to() if there is non-PyTorch state to manage
-    # (e.g., ONNX Runtime sessions, JAX device placement).
-    # For pure PyTorch wrappers, inherited .to() is sufficient.
-    #
-    # def to(self, device: torch.device | str) -> PrognosticModel:
-    #     """Move model to device.
-    #
-    #     Parameters
-    #     ----------
-    #     device : torch.device | str
-    #         Target device.
-    #
-    #     Returns
-    #     -------
-    #     PrognosticModel
-    #         Model on target device.
-    #     """
-    #     super().to(device)
-    #     # Handle non-PyTorch state here
-    #     return self
-
-    # =========================================================================
-    # 7. PRIVATE/SUPPORT METHODS
-    # =========================================================================
-    def _normalize(self, x: torch.Tensor) -> torch.Tensor:
-        """Normalize input tensor."""
-        return (x - self.center) / self.scale
-
-    def _denormalize(self, x: torch.Tensor) -> torch.Tensor:
-        """Denormalize output tensor."""
-        return x * self.scale + self.center
-
-    # =========================================================================
-    # 8. SINGLE-STEP FORWARD
-    # =========================================================================
-    @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Run prognostic model 1 step.
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Compute the first forecast without iterator hooks.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor with shape (batch, time, lead_time, variable, lat, lon).
-        coords : CoordSystem
-            Input coordinate system.
+        x : xr.DataArray
+            Initial field on the configured grid.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensor and coordinates one time step ahead.
+        xr.DataArray
+            First forecast, with a six-hour lead-time advance.
         """
-        target_input_coords = self.input_coords()
-        handshake_dim(coords, "lead_time", 2)
-        handshake_dim(coords, "variable", 3)
-        handshake_dim(coords, "lat", 4)
-        handshake_dim(coords, "lon", 5)
-        handshake_coords(coords, target_input_coords, "lead_time")
-        handshake_coords(coords, target_input_coords, "variable")
-        handshake_coords(coords, target_input_coords, "lat")
-        handshake_coords(coords, target_input_coords, "lon")
+        return cast(xr.DataArray, self._default_call(x))
 
-        # Move to device
-        device = self.device_buffer.device
-        x = x.to(device)
-
-        # TODO: Reshape input tensor for the core model
-        # If the core model uses south-to-north latitude, torch.flip the
-        # internal tensor before the model and flip the output back before
-        # returning. Public coords must remain 90 to -90.
-        # E2S format: (batch, time, lead_time, variable, lat, lon)
-        # Example reshape to (batch, variable, lat, lon):
-        # x_model = x.squeeze(1).squeeze(1)  # Remove time and lead_time dims
-
-        # Normalize
-        # x_model = self._normalize(x_model)
-
-        # Run forward pass
-        with torch.no_grad():
-            # y_model = self.model(x_model)
-            pass
-
-        # Denormalize
-        # y_model = self._denormalize(y_model)
-
-        # TODO: Reshape output back to E2S format
-        # output = y_model.unsqueeze(1).unsqueeze(1)  # Add time and lead_time dims
-
-        out_coords = self.output_coords(coords)
-        # TODO: Return actual output instead of placeholder
-        return x, out_coords
-
-    # =========================================================================
-    # 9. BATCH-DECORATED GENERATOR
-    # =========================================================================
-    @batch_func()
-    def _default_generator(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Batch-decorated generator for time integration.
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, None]:
+        """Compute the first forecast and empty continuation state without hooks.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Initial condition tensor.
-        coords : CoordSystem
-            Initial coordinate system.
+        x : xr.DataArray
+            Initial field, moved to the model device at the core boundary.
 
-        Yields
-        ------
-        tuple[torch.Tensor, CoordSystem]
-            Predicted state and coordinates at each time step.
+        Returns
+        -------
+        tuple[xr.DataArray, None]
+            Forecast and state; this model needs only its preceding output.
         """
-        # MUST yield initial condition first (step 0)
-        yield x, coords
+        return self._forward(x), None
 
-        # Time integration loop (runs indefinitely)
-        current_x = x
-        current_coords = coords
-        while True:
-            # Apply front hook (for perturbation injection, etc.)
-            current_x, current_coords = self.front_hook(current_x, current_coords)
+    def step(self, y: xr.DataArray, state: None) -> tuple[xr.DataArray, None]:
+        """Advance a preceding forecast without modifying it or applying hooks.
 
-            # Forward step
-            current_x, current_coords = self.__call__(current_x, current_coords)
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast matching the output signature.
+        state : None
+            Empty state returned alongside that forecast.
 
-            # Apply rear hook (for post-processing, etc.)
-            current_x, current_coords = self.rear_hook(current_x, current_coords)
+        Returns
+        -------
+        tuple[xr.DataArray, None]
+            Next forecast and empty state.
+        """
+        if state is not None:
+            raise ValueError("This single-frame model expects state=None")
+        return self._forward(y), None
 
-            yield current_x, current_coords
+    @torch.inference_mode()
+    @batch_func()
+    def _forward(self, x: xr.DataArray) -> xr.DataArray:
+        # Batch only the array-to-array numerical boundary, not (y, state).
+        handshake_nonempty(x)
+        signature = self.output_coords(x)
+        tensor, _ = x.e2s.to_torch()
+        tensor = tensor.to(self.device_buffer.device).clone()
+        output = self.model(tensor[:, 0]).unsqueeze(1)
+        return from_torch(output, signature)
 
-    # =========================================================================
-    # 10. PUBLIC ITERATOR ENTRY POINT
-    # =========================================================================
     def create_iterator(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Create time-integration iterator.
+        self, x: xr.DataArray
+    ) -> Generator[xr.DataArray, xr.DataArray | tuple[xr.DataArray, ...] | None, None]:
+        """Yield complete forecasts with hooks in original leading dimensions.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Initial condition tensor.
-        coords : CoordSystem
-            Initial coordinate system.
+        x : xr.DataArray
+            Initial field. No forcing slots are declared for this model.
 
         Yields
         ------
-        tuple[torch.Tensor, CoordSystem]
-            Predicted state and coordinates at each time step.
+        xr.DataArray
+            Forecasts at +6h, +12h, and so on relative to the final input lead.
+            The rear hook runs before every yield and the front hook before each
+            subsequent step; their returned fields feed recurrence directly.
+            Resume with ``next``; supplied forcing is rejected by the helper.
         """
-        yield from self._default_generator(x, coords)
+        yield from self._default_create_iterator(x)

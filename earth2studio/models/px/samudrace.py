@@ -16,7 +16,8 @@
 
 import contextlib
 from collections import OrderedDict
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
+from copy import deepcopy
 from typing import Any
 
 import numpy as np
@@ -24,16 +25,24 @@ import torch
 import xarray as xr
 
 from earth2studio.data.base import DataSource
+from earth2studio.grids import LatLonGrid
 from earth2studio.lexicon.samudrace import SamudrACELexicon
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.px.utils import PrognosticMixin
-from earth2studio.utils.coords import handshake_coords, handshake_dim
+from earth2studio.utils.coords import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_nonempty,
+    handshake_time,
+)
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 try:
     # Optional dependency: FME
@@ -137,23 +146,21 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     ``CoupledStepper.predict``, which this wrapper calls exactly once
     per coupled cycle.
 
-    The primary interface is :meth:`create_iterator`, which yields the initial
-    condition followed by one atmosphere step at a time. Atmosphere output
-    fields update on every step; ocean output fields update once per coupled
-    cycle and are held constant between cycle boundaries. Ocean diagnostic
-    (non-prognostic) fields are NaN until the first cycle boundary, as are
-    atmosphere diagnostic fields at the initial condition step.
+    A direct call and each :meth:`create_iterator` yield return one complete
+    coupled-cycle forecast chunk. Atmosphere fields update at each frame;
+    ocean fields update at the final frame and remain constant between cycle
+    boundaries. Ocean diagnostic fields are NaN before the first boundary.
+    The initial condition is not yielded.
 
-    The model is iterator-only: it has no single-step forward call. Its
-    time-step is the coupled cycle, which spans ``n_inner_steps`` atmosphere
-    steps, so advancing the model is not expressible as one 6 hour forward
-    pass; calling the model raises ``NotImplementedError``.
+    The caller supplies the initial forcing window and sends new forcing
+    frames for each subsequent cycle. The rear hook transforms every forecast
+    chunk before publication; the front hook runs before subsequent cycles.
 
     Times are CM4 model years (e.g. year 151), which are outside the range of
     nanosecond-precision timestamps; provide time coordinates as
     second-precision ``np.datetime64`` values. Trajectories that cross a
     February 29 of the proleptic Gregorian time coordinate raise an error
-    when the forcing is looked up, since that date has no counterpart on the
+    when forcing is prepared, since that date has no counterpart on the
     no-leap forcing calendar.
 
     cuDNN autotuning (``torch.backends.cudnn.benchmark``) is left at its
@@ -289,68 +296,52 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self.lat = model_lat.copy()
         self.lon = atmos_hc.lon.cpu().numpy().copy()
 
-    def input_coords(self) -> CoordSystem:
+    def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the prognostic model.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free DataArray input signature.
         """
-        return CoordSystem(
+        return coord_array(
+            ("batch", "time", "lead_time", "variable", "lat", "lon"),
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
                 "lead_time": np.array([np.timedelta64(0, "h")]),
                 "variable": np.array(self._in_vars_e2s, dtype=object),
-                "lat": self.lat,
-                "lon": self.lon,
-            }
+            },
+            dynamic=("batch", "time"),
+            grid=LatLonGrid(self.lat, self.lon),
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
         """Output coordinate system of the prognostic model.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform into output_coords
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary
+        CoordinateSystem
+            Allocation-free DataArray output signature.
         """
-        output_coords = OrderedDict(
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
+        lead = input_coords.lead_time
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead.values - lead.values[-1]),
+            self.input_coords(),
+        )
+        return coord_array_like(
+            input_coords,
             {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "lead_time": np.array([self._dt]),
-                "variable": np.array(self._out_vars_e2s, dtype=object),
-                "lat": self.lat,
-                "lon": self.lon,
-            }
+                "lead_time": lead.values[-1:]
+                + np.arange(1, self._n_inner_steps + 1) * self._dt,
+                "variable": np.array(self._out_vars_e2s),
+            },
         )
-        if input_coords is None:
-            return output_coords
-
-        test_coords = input_coords.copy()
-        test_coords["lead_time"] = (
-            test_coords["lead_time"] - input_coords["lead_time"][0]
-        )
-        target_input_coords = self.input_coords()
-        for i, key in enumerate(target_input_coords):
-            if key not in ["batch", "time"]:
-                handshake_dim(test_coords, key, i)
-                handshake_coords(test_coords, target_input_coords, key)
-
-        output_coords["batch"] = input_coords["batch"]
-        output_coords["time"] = input_coords["time"]
-        output_coords["lead_time"] = (
-            input_coords["lead_time"][0] + output_coords["lead_time"]
-        )
-        return output_coords
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -455,8 +446,43 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         valid = valid.reshape(n_batch * len(coords["time"]), len(offsets))
         return xr.DataArray(_datetime64_to_cftime(valid), dims=["sample", "time"])
 
-    def _fetch_forcing_window(
+    def forcing_coords(self) -> CoordinateSystem:
+        """Describe the complete exogenous forcing window for one coupled cycle.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free signature including the cycle-start boundary and
+            all atmospheric forcing times through the ocean update. Subsequent
+            steps consume only the new frames beyond the retained boundary.
+        """
+        return coord_array_like(
+            self.input_coords(),
+            {
+                "variable": [
+                    _to_e2s_name(name)
+                    for name in sorted(
+                        set(self._atmos_forcing_vars + self._ocean_forcing_vars)
+                    )
+                ],
+                "lead_time": np.arange(-self._n_inner_steps, 1) * self._dt
+                + self._dt_ocean,
+            },
+        )
+
+    def default_sources(self) -> tuple[None, DataSource]:
+        """Recommend the configured source for the external forcing slot.
+
+        Returns
+        -------
+        tuple[None, DataSource]
+            No input recommendation, followed by the configured forcing source.
+        """
+        return None, self.forcing_data_source
+
+    def _prepare_forcing_window(
         self,
+        forcing: xr.DataArray,
         coords: CoordSystem,
         variables: list[str],
         offsets: np.ndarray,
@@ -492,34 +518,14 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             # window time coordinates
             return BatchData(data={}, time=time_da, horizontal_dims=["lat", "lon"])
 
-        # The forcing data source is called directly (rather than through
-        # fetch_data) at second time precision: SamudrACE times are CM4 model
-        # years, which overflow nanosecond precision timestamps
         n_time, n_window = len(coords["time"]), len(offsets)
-        total_offsets = (coords["lead_time"][0] + offsets).astype("timedelta64[s]")
-        valid = coords["time"][:, None].astype("datetime64[s]") + total_offsets
         variables_e2s = [_to_e2s_name(name) for name in variables]
-        da = self.forcing_data_source(
-            valid.reshape(-1), np.array(variables_e2s, dtype=object)
+        da = forcing.sel(
+            variable=variables_e2s, lead_time=coords["lead_time"][0] + offsets
         )
-        if not (
-            np.allclose(da.coords["lat"].values, self.lat)
-            and np.allclose(da.coords["lon"].values, self.lon)
-        ):
-            raise ValueError("Forcing data source must provide data on the model grid")
-        # [time * window, variable, lat, lon] -> [sample, window, var, lat, lon]
-        forcing_x = torch.as_tensor(
-            np.ascontiguousarray(da.transpose("time", "variable", "lat", "lon").values),
-            device=device,
-            dtype=dtype,
-        )
+        forcing_x = da.e2s.to_torch()[0].to(device=device, dtype=dtype).clone()
         forcing_x = forcing_x.reshape(
-            n_time, n_window, len(variables), *forcing_x.shape[-2:]
-        )
-        forcing_x = (
-            forcing_x.unsqueeze(0)
-            .expand(n_batch, -1, -1, -1, -1, -1)
-            .reshape(n_batch * n_time, n_window, len(variables), *forcing_x.shape[-2:])
+            n_batch * n_time, n_window, len(variables), *forcing_x.shape[-2:]
         )
         forcing_x = self._flip(forcing_x)
         data = {name: forcing_x[:, :, j] for j, name in enumerate(variables)}
@@ -574,6 +580,7 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _run_cycle(
         self,
         state: CoupledPrognosticState,
+        forcing: xr.DataArray,
         coords: CoordSystem,
         n_batch: int,
         device: torch.device,
@@ -607,11 +614,23 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         atmos_offsets = np.arange(self._n_inner_steps + 1) * self._dt
         ocean_offsets = np.arange(2) * self._dt_ocean
         forcing = CoupledBatchData(
-            ocean_data=self._fetch_forcing_window(
-                coords, self._ocean_forcing_vars, ocean_offsets, n_batch, device, dtype
+            ocean_data=self._prepare_forcing_window(
+                forcing,
+                coords,
+                self._ocean_forcing_vars,
+                ocean_offsets,
+                n_batch,
+                device,
+                dtype,
             ),
-            atmosphere_data=self._fetch_forcing_window(
-                coords, self._atmos_forcing_vars, atmos_offsets, n_batch, device, dtype
+            atmosphere_data=self._prepare_forcing_window(
+                forcing,
+                coords,
+                self._atmos_forcing_vars,
+                atmos_offsets,
+                n_batch,
+                device,
+                dtype,
             ),
         )
         with torch.inference_mode():
@@ -713,43 +732,6 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 block[:, j] = x[:, 0, var_index[name]]
         return block
 
-    def _build_initial_output(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Construct an initial-condition output matching the output schema.
-
-        Prognostic variables are copied from the initial condition and
-        diagnostic (output-only) variables are NaN-filled, so that the
-        variable set and tensor shape match subsequent forecast steps.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor of shape [batch, time, 1, variable, lat, lon]
-        coords : CoordSystem
-            Input coordinate system
-
-        Returns
-        -------
-        tuple[torch.Tensor, CoordSystem]
-            Initial condition output tensor and coordinate system
-        """
-        ic_coords = coords.copy()
-        ic_coords["variable"] = np.array(self._out_vars_e2s, dtype=object)
-
-        b, t, _, _, n_lat, n_lon = x.shape
-        y0 = torch.full(
-            (b, t, 1, len(self._out_vars), n_lat, n_lon),
-            float("nan"),
-            device=x.device,
-            dtype=x.dtype,
-        )
-        var_index_in = {name: j for j, name in enumerate(self._in_vars)}
-        for j, name in enumerate(self._out_vars):
-            if name in var_index_in:
-                y0[:, :, 0, j] = x[:, :, 0, var_index_in[name]]
-        return y0, ic_coords
-
     def _next_input_tensor(
         self,
         atmos_prediction: dict[str, torch.Tensor],
@@ -780,163 +762,189 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         b, t = batch_shape
         return x.reshape(b, t, 1, len(self._in_vars), *x.shape[-2:])
 
-    def _validate_input(self, x: torch.Tensor, coords: CoordSystem) -> None:
-        """Validate an input tensor and coordinate system.
+    def __call__(self, x: xr.DataArray, forcing: xr.DataArray) -> xr.DataArray:
+        """Return the complete forecast chunk for one coupled cycle, without hooks.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
-
-        Raises
-        ------
-        ValueError
-            If the input tensor or coordinate system is invalid
-        """
-        if x.ndim != 6:
-            raise ValueError(
-                "SamudrACE requires input tensor with shape "
-                "[batch, time, lead_time, variable, lat, lon], got shape "
-                f"{tuple(x.shape)}"
-            )
-        if len(coords["lead_time"]) != 1:
-            raise ValueError(
-                "SamudrACE expects a single input lead_time, got "
-                f"{len(coords['lead_time'])}"
-            )
-        # Raises on coordinate handshake failure
-        self.output_coords(coords)
-
-    def __call__(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Not supported; SamudrACE is an iterator-only prognostic.
-
-        The model's time-step is the coupled (ocean) step, which spans
-        ``n_inner_steps`` atmosphere steps, so a single-step forward call
-        cannot express advancing the model: advancing a full coupled cycle to
-        return one 6 hour step would discard the remainder of the cycle and
-        report ocean fields that have not advanced. Use
-        :meth:`create_iterator` instead, which yields one atmosphere step at a
-        time and runs the coupled stepper at each cycle boundary.
-
-        Parameters
-        ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Coupled prognostic state with arbitrary leading dimensions.
+        forcing : xr.DataArray
+            Complete initial forcing window including the cycle-start boundary.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Never returns
-
-        Raises
-        ------
-        NotImplementedError
-            Always; use :meth:`create_iterator`
+        xr.DataArray
+            All atmosphere forecasts in the cycle, with ocean fields held until
+            the final frame updates them at the coupled boundary.
         """
-        raise NotImplementedError(
-            "SamudrACE does not support a single forward call: its time-step "
-            "is the coupled (ocean) step, which spans "
-            f"{self._n_inner_steps} atmosphere steps. Use "
-            "SamudrACE.create_iterator to integrate the model one atmosphere "
-            "step at a time."
-        )
+        return self.initialize(x, forcing)[0]
 
-    @batch_func()
-    def _default_generator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Generator[tuple[torch.Tensor, CoordSystem], None, None]:
-        """Generator to perform time-integration of the coupled model.
+    def initialize(
+        self, x: xr.DataArray, forcing: xr.DataArray
+    ) -> tuple[xr.DataArray, xr.DataArray]:
+        """Compute the first coupled forecast chunk and retain the forcing boundary.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Coupled initial fields matching ``input_coords()``.
+        forcing : xr.DataArray
+            Full ``forcing_coords()`` window, including the cycle start and all
+            atmospheric steps through the ocean-update boundary.
 
-        Yields
-        ------
-        tuple[torch.Tensor, CoordSystem]
-            Output tensors and coordinate systems, one atmosphere step at a
-            time, starting with the initial condition
+        Returns
+        -------
+        tuple[xr.DataArray, xr.DataArray]
+            Complete coupled forecast chunk and its final forcing frame for
+            continuation. Iterator hooks are not applied.
         """
-        coords = coords.copy()
-        self._validate_input(x, coords)
-        b, t = x.shape[0], x.shape[1]
+        return self._forward(x, forcing)
 
-        # Yield the initial condition (step 0) in the output schema
-        y0, y0_coords = self._build_initial_output(x, coords)
-        yield y0, y0_coords
-
-        # The coupled prognostic state is held between cycles; a tensor view
-        # of the cycle-start state is maintained for the front hook
-        state = self._state_from_tensor(x, coords)
-        ocean_block = self._initial_ocean_block(x, coords)
-
-        while True:
-            hooked_x, coords = self.front_hook(x, coords)
-            if hooked_x is not x:
-                # A front hook modified the cycle-start state; rebuild the
-                # coupled state from the hooked tensor
-                x = hooked_x
-                state = self._state_from_tensor(x, coords)
-
-            atmos_prediction, ocean_prediction, state = self._run_cycle(
-                state, coords, b, x.device, x.dtype
+    def _forward(
+        self,
+        x: xr.DataArray,
+        forcing: xr.DataArray,
+        previous: xr.DataArray | None = None,
+    ) -> tuple[xr.DataArray, xr.DataArray]:
+        handshake_nonempty(x)
+        self.output_coords(x)
+        expected = coord_array_like(
+            x,
+            {
+                "variable": self.forcing_coords().coords["variable"].values,
+                "lead_time": x.lead_time.values[-1:]
+                + self.forcing_coords().lead_time.values,
+            },
+        )
+        required = set(self.forcing_coords().coords) | set(expected.dims)
+        handshake_dataarray(
+            forcing,
+            expected.drop_vars(
+                [name for name in expected.coords if name not in required]
+            ),
+        )
+        if not bool(np.isfinite(forcing.data).all()):
+            raise ValueError("Forcing must be finite")
+        packed, restore = batch_func()._compress_array(self, x)
+        tensor, coords = self._array_tensor(packed)
+        native = self._state_from_tensor(tensor, coords)
+        atmos, ocean, _ = self._run_cycle(
+            native, forcing, coords, tensor.shape[0], tensor.device, tensor.dtype
+        )
+        held = self._initial_ocean_block(tensor, coords)
+        if previous is not None:
+            ocean_fields = previous.isel(lead_time=-1).sel(
+                variable=[_to_e2s_name(name) for name in self._ocean_out_vars]
             )
-            next_ocean_block = self._ocean_block_from_prediction(ocean_prediction)
+            held = self._flip(
+                ocean_fields.e2s.to_torch()[0]
+                .to(tensor.device)
+                .reshape_as(held)
+                .clone()
+            )
+        updated = self._ocean_block_from_prediction(ocean)
+        outputs = [
+            self._assemble_step(
+                atmos,
+                index,
+                updated if index == self._n_inner_steps - 1 else held,
+                tensor.shape[:2],
+            )
+            for index in range(self._n_inner_steps)
+        ]
+        result = restore(
+            from_torch(
+                torch.cat(outputs, dim=2), self.output_coords(packed), name=x.name
+            )
+        )
+        result.encoding = deepcopy(x.encoding)
+        result.attrs = deepcopy(x.attrs)
+        return result, forcing.isel(lead_time=slice(-1, None)).copy(deep=True)
 
-            for inner_step in range(self._n_inner_steps):
-                is_boundary = inner_step == self._n_inner_steps - 1
-                out = self._assemble_step(
-                    atmos_prediction,
-                    inner_step,
-                    next_ocean_block if is_boundary else ocean_block,
-                    (b, t),
-                )
-                out_coords = coords.copy()
-                out_coords["variable"] = np.array(self._out_vars_e2s, dtype=object)
-                out_coords["lead_time"] = (
-                    coords["lead_time"] + (inner_step + 1) * self._dt
-                )
-                out, out_coords = self.rear_hook(out, out_coords)
-                yield out, out_coords
+    def step(
+        self, y: xr.DataArray, forcing: xr.DataArray, state: xr.DataArray
+    ) -> tuple[xr.DataArray, xr.DataArray]:
+        """Advance one coupled cycle with newly supplied forcing frames.
 
-            ocean_block = next_ocean_block
-            x = self._next_input_tensor(atmos_prediction, ocean_prediction, (b, t))
-            coords = coords.copy()
-            coords["lead_time"] = coords["lead_time"] + self._n_inner_steps * self._dt
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous complete coupled forecast chunk, including caller edits.
+        forcing : xr.DataArray
+            New forcing frames for the next cycle, excluding the shared boundary
+            frame retained in ``state``.
+        state : xr.DataArray
+            Final forcing frame returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, xr.DataArray]
+            Next coupled forecast chunk and updated forcing boundary, without
+            iterator hooks.
+        """
+        expected = coord_array_like(
+            y,
+            {
+                "variable": self.forcing_coords().coords["variable"].values,
+                "lead_time": y.lead_time.values + self._dt_ocean,
+            },
+        )
+        required = set(self.forcing_coords().coords) | set(expected.dims)
+        handshake_dataarray(
+            forcing,
+            expected.drop_vars(
+                [name for name in expected.coords if name not in required]
+            ),
+        )
+        boundary = state.drop_vars(
+            [name for name in state.coords if name not in required]
+        )
+        forcing = forcing.drop_vars(
+            [name for name in forcing.coords if name not in required]
+        )
+        forcing = xr.concat(
+            [boundary, forcing],
+            dim="lead_time",
+            coords="minimal",
+            compat="override",
+            join="exact",
+        )
+        x = y.isel(lead_time=slice(-1, None)).sel(variable=self._in_vars_e2s)
+        return self._forward(x, forcing, previous=y)
+
+    def _array_tensor(self, x: xr.DataArray) -> tuple[torch.Tensor, CoordSystem]:
+        handshake_time(x)
+        tensor, _ = x.e2s.to_torch()
+        tensor = (
+            tensor.to(self.device_buffer.device).reshape(-1, *tensor.shape[-5:]).clone()
+        )
+        coords = OrderedDict(
+            batch=np.arange(tensor.shape[0]),
+            **{d: x.coords[d].values for d in x.dims[-5:]},
+        )
+        return tensor, coords
 
     def create_iterator(
         self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Creates a iterator which can be used to perform time-integration of
-        the prognostic model. Will return the initial condition first (0th
-        step).
+        x: xr.DataArray,
+        forcing: xr.DataArray,
+    ) -> Generator[xr.DataArray, xr.DataArray | tuple[xr.DataArray, ...] | None, None]:
+        """Yield complete coupled forecast cycles, beginning with the first forecast.
 
-        The iterator yields one atmosphere (6 hour) step at a time. The
-        coupled stepper runs lazily at each coupled cycle boundary; ocean
-        output fields update once per cycle and are held constant between
-        boundaries.
+        Ocean output fields update at the final frame of each cycle and are held
+        constant between boundaries. Send new forcing frames for the next cycle.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor
-        coords : CoordSystem
-            Input coordinate system
+        x : xr.DataArray
+            Coupled initial state.
+        forcing : xr.DataArray
+            Initial forcing window, including the cycle start.
 
         Yields
         ------
-        Iterator[tuple[torch.Tensor, CoordSystem]]
-            Iterator of output tensors and coordinate systems
+        xr.DataArray
+            Complete forecast chunk for one coupled cycle.
         """
-        yield from self._default_generator(x, coords)
+        yield from self._default_create_iterator(x, forcing)

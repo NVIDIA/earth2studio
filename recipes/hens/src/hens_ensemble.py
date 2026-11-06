@@ -33,7 +33,13 @@ from earth2studio.io import IOBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
-from earth2studio.utils.coords import CoordSystem, cat_coords, map_coords, split_coords
+from earth2studio.utils.coords import (
+    CoordSystem,
+    cat_coords,
+    coord_array,
+    map_coords,
+)
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.time import to_time_array
 
 from .hens_utilities import (
@@ -256,20 +262,26 @@ class EnsembleBase:
             ]
         ).flatten()
 
-        for i, (k, oc) in enumerate(self.output_coords_dict.items()):
+        for k, oc in self.output_coords_dict.items():
 
             # augment and overwrite total coords with dimensions of output coords
             for key, value in total_coords.items():
                 total_coords[key] = oc.get(key, value)
 
-            if i == 0:
-                # initialise place for variables in io backend
-                variables_to_save = total_coords.pop("variable")
-
             if (
                 self.io_dict[k] is not None
             ):  # cyclone tracker still missing field output, to be fixed
-                self.io_dict[k].add_array(total_coords, variables_to_save)
+                # The template's variable labels name the arrays to create, its
+                # other dimensions size them
+                self.io_dict[k].add_array(
+                    coord_array(
+                        tuple(total_coords),
+                        {
+                            dim: np.asarray(values)
+                            for dim, values in total_coords.items()
+                        },
+                    )
+                )
 
         return
 
@@ -337,7 +349,7 @@ class EnsembleBase:
         torch.manual_seed(torch_seed)
 
         # Perturb ensemble
-        xx, coords = self.perturbation(xx, coords)
+        xx, coords = self.perturbation(from_torch(xx, coords)).e2s.to_torch()
 
         # Create prognostic iterator
         model = self.prognostic.create_iterator(xx, coords)
@@ -436,7 +448,7 @@ class EnsembleBase:
                     for k in self.io_dict.keys():
                         output_coords = self.output_coords_dict[k]
                         xx_sub, coords_sub = map_coords(xx, coords, output_coords)
-                        self.io_dict[k].write(*split_coords(xx_sub, coords_sub))
+                        self.io_dict[k].write(from_torch(xx_sub, coords_sub))
 
                     pbar.update(1)
                     if step == self.nsteps:

@@ -71,17 +71,15 @@ from dotenv import load_dotenv
 
 load_dotenv()  # TODO: make common example prep function
 
-from collections import OrderedDict
 from datetime import datetime
 
 import numpy as np
 import torch
 from loguru import logger
 
-from earth2studio.data import DataSource, prep_data_array
+from earth2studio.data import DataSource
 from earth2studio.io import IOBackend
 from earth2studio.models.dx import CorrDiffTaiwan
-from earth2studio.utils.coords import map_coords, split_coords
 from earth2studio.utils.time import to_time_array
 
 
@@ -122,28 +120,26 @@ def run(
 
     # Fetch data from data source and load onto device
     time = to_time_array(time)
-    x, coords = prep_data_array(
-        data(time, corrdiff.input_coords()["variable"]), device=device
-    )
-    x, coords = map_coords(x, coords, corrdiff.input_coords())
+    from earth2studio.data import fetch_data
+    from earth2studio.run import _map_field
+
+    x = fetch_data(
+        data, time, corrdiff.input_coords().coords["variable"].values, device=device
+    ).squeeze("lead_time", drop=True)
+    x = _map_field(x, corrdiff.input_coords())
 
     logger.success(f"Fetched data from {data.__class__.__name__}")
 
-    # Set up IO backend
-    output_coords = corrdiff.output_coords(corrdiff.input_coords())
-    total_coords = OrderedDict(
-        {
-            "time": coords["time"],
-            "sample": output_coords["sample"],
-            "lat": output_coords["lat"],
-            "lon": output_coords["lon"],
-        }
-    )
-    io.add_array(total_coords, output_coords["variable"])
+    # Set up IO backend. CorrDiff's output signature is already concrete here since
+    # it was derived from the fetched initial condition, so it is used directly as
+    # the template. The output grid is curvilinear, so its two-dimensional `lat` and
+    # `lon` are auxiliary coordinates of the `y`/`x` dimensions; the backend stores
+    # them alongside the data arrays, ready for the plotting section.
+    io.add_array(corrdiff.output_coords(x))
 
     logger.info("Inference starting!")
-    x, coords = corrdiff(x, coords)
-    io.write(*split_coords(x, coords))
+    x = corrdiff(x)
+    io.write(x)
 
     logger.success("Inference complete")
     return io

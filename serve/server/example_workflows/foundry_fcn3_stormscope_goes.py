@@ -14,8 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
-from collections.abc import Sequence
+from collections.abc import Hashable, Sequence
 from datetime import datetime, timedelta
 from typing import Any, Literal
 
@@ -23,36 +22,52 @@ import numpy as np
 import torch
 import xarray as xr
 import zarr
-from cftime import date2num
 from loguru import logger
 
 from earth2studio.data import (
-    GOES,
-    InferenceOutputSource,
     PlanetaryComputerECMWFOpenDataIFS,
     PlanetaryComputerGOES,
+    RegriddedSource,
     fetch_data,
 )
-from earth2studio.io import IOBackend, NetCDF4Backend, XarrayBackend, ZarrBackend
+from earth2studio.grids import NearestRegridder, infer_grid
+from earth2studio.io import IOBackend, XarrayBackend, ZarrBackend
 from earth2studio.models.dx import DerivedSurfacePressure
 from earth2studio.models.px import FCN3, DiagnosticWrapper, InterpModAFNO
 from earth2studio.models.px.stormscope import (
     StormScopeBase,
-    StormScopeGOES,
+    StormScopeGOESConditioned,
 )
+from earth2studio.run import _map_field
 from earth2studio.serve.server import (
     Earth2Workflow,
     WorkflowParameters,
     WorkflowProgress,
     WorkflowRegistry,
 )
-from earth2studio.utils.coords import CoordSystem, map_coords, split_coords
-from earth2studio.utils.time import timearray_to_datetime, to_time_array
+from earth2studio.utils.coords import coord_array, coord_array_like
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.time import to_time_array
 
-GOES_MODEL_NAME = "6km_60min_natten_cos_zenith_input_eoe_v2"
+GOES_MODEL_NAME = "6km_1hr"
 
 _MAX_FORECAST_STEPS = 32
 _MAX_ENSEMBLE_SAMPLES = 32
+
+
+def _spatial_dims(signature: xr.DataArray) -> tuple[str, ...]:
+    """Grid dimensions of a coordinate signature, in signature order."""
+    return tuple(signature.attrs.get("dims", ()))
+
+
+def _spatial_coords(signature: xr.DataArray) -> dict[Hashable, xr.Variable]:
+    """Grid dimension and auxiliary coordinates of a coordinate signature."""
+    spatial = set(_spatial_dims(signature))
+    return {
+        key: value.variable
+        for key, value in signature.coords.items()
+        if spatial.intersection(value.dims)
+    }
 
 
 @WorkflowRegistry.instance().register
@@ -77,20 +92,27 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
 
         self.data_fcn3 = PlanetaryComputerECMWFOpenDataIFS(verbose=False, cache=False)
 
-        scan_mode = "C"
+        # GOES-16 and GOES-19 share the GOES-East CONUS grid, so both reuse the
+        # regridder of StormScope's default GOES source onto the model grid.
+        goes_source, gfs_source = self.stormscope.default_sources()
+        goes_regridder = goes_source.regridder
         self.data_stormscope = {
-            satellite: PlanetaryComputerGOES(
-                satellite=satellite, scan_mode=scan_mode, verbose=False, cache=False
+            satellite: RegriddedSource(
+                PlanetaryComputerGOES(
+                    satellite=satellite, scan_mode="C", verbose=False, cache=False
+                ),
+                goes_regridder,
             )
             for satellite in ["goes16", "goes19"]
         }
 
-        # GOES-16 and GOES19 have the same grid
-        goes_lat, goes_lon = GOES.grid(satellite="goes16", scan_mode=scan_mode)
+        # FCN3 conditioning is regridded onto the model grid like the default GFS
+        # conditioning, whose distance limit covers the grid from 0.25 degrees.
         coords_out = self.fcn3_interp.output_coords(self.fcn3_interp.input_coords())
-        self.stormscope.build_input_interpolator(goes_lat, goes_lon)
-        self.stormscope.build_conditioning_interpolator(
-            coords_out["lat"], coords_out["lon"]
+        self.conditioning_regridder = NearestRegridder(
+            infer_grid(coords_out),
+            infer_grid(self.stormscope.input_coords()),
+            max_dist_km=gfs_source.regridder.max_dist_km,
         )
 
     @classmethod
@@ -135,7 +157,7 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
         orography_fn = package.resolve("orography.nc")
         with xr.open_dataset(orography_fn) as ds:
             z_surface = torch.as_tensor(ds["Z"][0].values)
-        z_surf_coords = OrderedDict({d: fcn3.input_coords()[d] for d in ["lat", "lon"]})
+        z_surf_coords = {d: fcn3.input_coords()[d].values for d in ["lat", "lon"]}
         sp_model = DerivedSurfacePressure(
             p_levels=[50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000],
             surface_geopotential=z_surface,
@@ -148,17 +170,18 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
         # Add temporal interpolation to 1 hour
         fcn3_interp = InterpModAFNO.from_pretrained()
         fcn3_interp.px_model = fcn3_sp
+        # Diagnose the interpolation endpoint, not the public initial condition.
+        fcn3_interp.prepare_endpoint = fcn3_sp._diagnose
         fcn3_interp.to(device=self.device)
         fcn3_interp.eval()
         return fcn3_interp
 
-    def load_stormscope(self) -> StormScopeGOES:
-        """Load the StormScope GOES model package and move it to the workflow device."""
+    def load_stormscope(self) -> StormScopeGOESConditioned:
+        """Load the z500-conditioned StormScope GOES model onto the workflow device."""
         logger.info("Loading StormScope")
         package = StormScopeBase.load_default_package()
-        stormscope = StormScopeGOES.load_model(
+        stormscope = StormScopeGOESConditioned.load_model(
             package=package,
-            conditioning_data_source=None,  # set later
             model_name=GOES_MODEL_NAME,
         )
         stormscope.to(self.device)
@@ -220,25 +243,64 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
     def setup_io(
         self,
         io: IOBackend,
-        output_coords: CoordSystem,
+        output_coords: dict[str, np.ndarray],
         seeds_fcn3: Sequence[int],
         seeds_stormscope: Sequence[int],
     ) -> None:
         """Define IO arrays, CRS metadata, and per-model seeds for ensemble outputs."""
-        io.add_array(
-            {k: v for k, v in output_coords.items() if k != "variable"},
-            output_coords["variable"],
+        # Reuse the model's grid coordinates and metadata; 'lead_time' is folded into
+        # 'time' and the model's batch dimension becomes 'ensemble'.
+        signature = self.stormscope.input_coords()
+        template = coord_array(
+            ("ensemble", "time", "variable", *_spatial_dims(signature)),
+            {
+                "ensemble": output_coords["ensemble"],
+                "time": output_coords["time"],
+                "variable": output_coords["variable"],
+                **_spatial_coords(signature),
+            },
+            dtype=signature.dtype,
+            attrs=signature.attrs,
         )
+        io.add_array(template)
 
         # Storing seeds separately makes it easier to filter with Titiler
-        e_coords = {"ensemble": output_coords["ensemble"]}
         n_stormscope_per_fcn3 = len(seeds_stormscope) // len(seeds_fcn3)
         tiled_seeds_fcn3 = np.repeat(seeds_fcn3, n_stormscope_per_fcn3)
-        io.add_array(e_coords, "seed_fcn3", data=torch.tensor(tiled_seeds_fcn3))
-        io.add_array(e_coords, "seed_stormscope", data=torch.tensor(seeds_stormscope))
+        seed_template = coord_array(
+            ("ensemble",),
+            {"ensemble": output_coords["ensemble"]},
+            dtype=np.int64,
+            name="seed_fcn3",
+        )
+        io.add_array(seed_template)
+        io.write(
+            xr.DataArray(
+                np.asarray(tiled_seeds_fcn3, dtype=np.int64),
+                dims=("ensemble",),
+                coords={"ensemble": output_coords["ensemble"]},
+                name="seed_fcn3",
+            )
+        )
+        seed_template = coord_array(
+            ("ensemble",),
+            {"ensemble": output_coords["ensemble"]},
+            dtype=np.int64,
+            name="seed_stormscope",
+        )
+        io.add_array(seed_template)
+        io.write(
+            xr.DataArray(
+                np.asarray(seeds_stormscope, dtype=np.int64),
+                dims=("ensemble",),
+                coords={"ensemble": output_coords["ensemble"]},
+                name="seed_stormscope",
+            )
+        )
 
         # Add CRS definition
-        io.add_array({}, "crs")
+        crs_template = coord_array((), {}, name="crs")
+        io.add_array(crs_template)
         io.root["crs"].grid_mapping_name = "lambert_conformal_conic"
         io.root["crs"].standard_parallel = 38.5
         io.root["crs"].longitude_of_central_meridian = 262.5
@@ -249,85 +311,61 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
         for var in output_coords["variable"]:
             io.root[var].grid_mapping = "crs"
 
-        # Set attributes for automatic parsing of dimensions
+        # The grid supplies y/x CF attributes; ensure ensemble/time are CF friendly.
         io.root["ensemble"].standard_name = "realization"
         io.root["time"].standard_name = "time"
         io.root["time"].axis = "T"
-        io.root["y"].standard_name = "projection_y_coordinate"
-        io.root["y"].units = "m"
-        io.root["y"].axis = "Y"
-        io.root["x"].standard_name = "projection_x_coordinate"
-        io.root["x"].units = "m"
-        io.root["x"].axis = "X"
 
-        # Unwrap BackendProgress (serve API)
-        e2io = (
-            io
-            if isinstance(io, (NetCDF4Backend, ZarrBackend))
-            else getattr(io, "io", None)
-        )
-
+        e2io = io if isinstance(io, ZarrBackend) else getattr(io, "io", None)
         if isinstance(e2io, ZarrBackend):
             zarr.consolidate_metadata(e2io.store)
 
-        if isinstance(e2io, NetCDF4Backend):
-            # Planetary Computer does not like the original time format (hours since 0001-01-01).
-            # Re-encode from the same datetimes as add_dimension so values match units, then
-            # sync so the coordinate is flushed.
-            ref_time = np.datetime_as_string(output_coords["time"][0], unit="s")
-            units = f"hours since {ref_time.replace('T', ' ')}"
-            tv = e2io.root["time"]
-            tv.units = units
-            tv[:] = date2num(
-                timearray_to_datetime(output_coords["time"]),
-                units=units,
-                calendar=tv.calendar,
-            )
-            e2io.root.sync()
-
-        return io
-
-    def get_fcn3_input(self, time: datetime) -> tuple[torch.Tensor, CoordSystem]:
+    def get_fcn3_input(self, time: datetime) -> xr.DataArray:
         """Fetch FCN3 branch input from Planetary Computer ECMWF IFS."""
-        x, coords = fetch_data(
+        signature = self.fcn3_interp.input_coords()
+        field = fetch_data(
             self.data_fcn3,
             time=to_time_array([time]),
-            variable=self.fcn3_interp.input_coords()["variable"],
+            variable=signature["variable"].values,
+            lead_time=signature.lead_time.values,
             device=self.device,
         )
-        return x, coords
+        return _map_field(field, signature)
 
-    def get_stormscope_input(self, time: datetime) -> tuple[torch.Tensor, CoordSystem]:
+    def get_stormscope_input(self, time: datetime) -> xr.DataArray:
         """Fetch GOES inputs for StormScope (GOES-16 vs GOES-19 by date) and preprocess."""
         coords_in = self.stormscope.input_coords()
         if time < datetime(2025, 4, 7):
             data = self.data_stormscope["goes16"]
         else:
             data = self.data_stormscope["goes19"]
-        x, coords = fetch_data(
+        field = fetch_data(
             data,
             time=to_time_array([time]),
-            variable=coords_in["variable"],
-            lead_time=coords_in["lead_time"],
+            variable=coords_in["variable"].values,
+            lead_time=coords_in["lead_time"].values,
             device=self.device,
         )
+        tensor, coords = field.e2s.to_torch()
 
         batch_size = 1
-        if x.dim() == 5:
-            x = x.unsqueeze(0).repeat(batch_size, 1, 1, 1, 1, 1)
+        if tensor.dim() == 5:
+            tensor = tensor.unsqueeze(0).repeat(batch_size, 1, 1, 1, 1, 1)
             coords["batch"] = np.arange(batch_size)
             coords.move_to_end("batch", last=False)
 
-        x, coords = self.stormscope.prep_input(x, coords)
-        x = torch.where(self.stormscope.valid_mask, x, torch.nan)
+        tensor, coords = self.stormscope.prep_input(tensor, coords)
+        tensor = torch.where(self.stormscope.valid_mask, tensor, torch.nan)
 
-        return x, coords
+        signature = coord_array_like(
+            coords_in, {"batch": coords["batch"], "time": coords["time"]}
+        )
+        return from_torch(tensor, signature)
 
     def run_fcn3(
         self,
         io: IOBackend,
-        x: torch.Tensor,
-        coords_x: CoordSystem,
+        x: xr.DataArray,
         seed_fcn3: int,
         start_time_stormscope: datetime,
         lead_times: np.ndarray,
@@ -337,29 +375,33 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
         """Run FCN3 to produce conditioning fields for StormScope up to the given horizon."""
         # Create z500 conditioning with FCN3
         coords_in = self.stormscope.input_coords()
-        start_time_stormscope = to_time_array([start_time_stormscope])
+        start_time_array = to_time_array([start_time_stormscope])
         variables = self.stormscope.conditioning_variables
-        # Start time and lead times are shifted to StormScope start time
-        output_coords = {
-            "time": start_time_stormscope,
-            "lead_time": lead_times,
-            "variable": variables,
-            "y": coords_in["y"],
-            "x": coords_in["x"],
-        }
-        io.add_array(
-            {k: v for k, v in output_coords.items() if k != "variable"}, variables
+        template = coord_array(
+            ("time", "lead_time", "variable", *_spatial_dims(coords_in)),
+            {
+                "time": start_time_array,
+                "lead_time": lead_times,
+                "variable": variables,
+                **_spatial_coords(coords_in),
+            },
+            dtype=coords_in.dtype,
+            attrs=coords_in.attrs,
         )
+        io.add_array(template)
 
         model_gap = int(
-            (start_time_stormscope - coords_x["time"]) / np.timedelta64(1, "h")
+            ((start_time_array - x.time.values) / np.timedelta64(1, "h")).item()
         )
 
         self.fcn3_interp.px_model.px_model.set_rng(seed=seed_fcn3)
-        iterator = self.fcn3_interp.create_iterator(x.clone(), coords_x.copy())
+        iterator = self.fcn3_interp.create_iterator(x.copy(deep=True))
+        conditioning_grid = self.fcn3_interp.output_coords(
+            self.fcn3_interp.input_coords()
+        )
 
         n_steps = model_gap + len(lead_times)
-        for step, (x, coords_x) in enumerate(iterator):
+        for step, x in enumerate(iterator):
             # Update progress for FCN3 step
             msg = (
                 f"Processing FCN3 for sample {sample + 1}/{total_samples} "
@@ -378,22 +420,60 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
                 # Skip initial steps leading up to StormScope start time
                 continue
 
-            x, coords_x = map_coords(x, coords_x, OrderedDict({"variable": variables}))
-            x, coords_x = self.stormscope.prep_input(x, coords_x, conditioning=True)
-            coords_x["time"] = start_time_stormscope
+            field = self.conditioning_regridder(
+                x.sel(
+                    variable=variables,
+                    lat=conditioning_grid.lat.values,
+                    lon=conditioning_grid.lon.values,
+                )
+            )
+            tensor, coords_x = field.e2s.to_torch()
+            coords_x["time"] = start_time_array
             coords_x["lead_time"] = coords_x["lead_time"] - np.timedelta64(
                 model_gap, "h"
             )
-            io.write(*split_coords(x, coords_x))
+            field = from_torch(
+                tensor,
+                coord_array(
+                    tuple(coords_x),
+                    dict(coords_x),
+                    dtype=coords_in.dtype,
+                ),
+            )
+            io.write(field)
 
             if step == (n_steps - 1):
                 break
 
+    def stormscope_conditioning(
+        self, io_fcn3: XarrayBackend, y: xr.DataArray
+    ) -> xr.DataArray:
+        """FCN3 conditioning at the lead times of ``y``, in StormScope's forcing layout."""
+        lead_times = y.lead_time.values
+        signature = coord_array_like(
+            self.stormscope.forcing_coords(),
+            {
+                "batch": y.batch.values,
+                "time": y.time.values,
+                "lead_time": lead_times,
+            },
+        )
+        # (time, lead_time, variable, y, x), broadcast over the batch members.
+        frames = np.stack(
+            [
+                io_fcn3[str(v)].sel(lead_time=lead_times).values
+                for v in self.stormscope.conditioning_variables
+            ],
+            axis=-3,
+        )
+        tensor = torch.as_tensor(frames, dtype=torch.float32, device=self.device)
+        return from_torch(tensor.expand(signature.shape).contiguous(), signature)
+
     def run_stormscope(
         self,
         io: IOBackend,
-        y: torch.Tensor,
-        coords_y: CoordSystem,
+        io_fcn3: XarrayBackend,
+        y: xr.DataArray,
         seed_fcn3: int,
         seed_stormscope: int,
         lead_times: np.ndarray,
@@ -401,7 +481,7 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
         sample: int,
         total_samples: int,
     ) -> None:
-        """Run StormScope autoregressively and write outputs to ``io``."""
+        """Run StormScope conditioned on FCN3 z500 and write outputs to ``io``."""
         n_steps = len(lead_times)
 
         def log_progress(step: int) -> None:
@@ -419,46 +499,37 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
             logger.info(msg)
 
         def prep_output(
-            y_pred: torch.Tensor, coords_pred: CoordSystem
-        ) -> tuple[torch.Tensor, CoordSystem]:
-            y_out, coords_out = map_coords(
-                y_pred, coords_pred, CoordSystem({"variable": variables})
-            )
-            del coords_out["batch"]
-            # Reuse batch dimension as ensemble dimension (squeeze/unsqueeze)
-            coords_out["ensemble"] = np.array([sample])
-            coords_out.move_to_end("ensemble", last=False)
-            # Combine time and lead_time
-            lead_time_dim = list(coords_out).index("lead_time")
-            y_out = y_out.squeeze(lead_time_dim)
-            coords_out["time"] = coords_out["time"] + coords_out["lead_time"]
-            del coords_out["lead_time"]
-            return y_out, coords_out
+            y_pred: xr.DataArray,
+        ) -> xr.DataArray:
+            y_out = y_pred.sel(variable=variables).rename(batch="ensemble")
+            y_out = y_out.assign_coords(ensemble=[sample])
+            valid_time = y_out.time.values + y_out.lead_time.values[0]
+            return y_out.isel(lead_time=0, drop=True).assign_coords(time=valid_time)
 
         # Update progress for step within sample
         log_progress(0)
 
         # Store initial GOES data (identical across seeds)
-        y_out, coords_out = prep_output(y, coords_y)
-        io.write(*split_coords(y_out, coords_out))
+        y_out = prep_output(y.isel(lead_time=slice(-1, None)))
+        io.write(y_out)
 
-        # Cannot use seeded Generator before torch==2.10
-        # Use self.stormscope.sampler_args["randn_like"] once updated
-        torch.manual_seed(seed_stormscope)
-
+        self.stormscope.set_rng(seed_stormscope)
+        y_pred, state = self.stormscope.initialize(
+            y, self.stormscope_conditioning(io_fcn3, y)
+        )
         for step in range(1, n_steps):
-            y_pred, coords_pred = self.stormscope(y, coords_y)
-
             # Update progress for step within sample
             log_progress(step)
 
-            y_out, coords_out = prep_output(y_pred, coords_pred)
-            io.write(*split_coords(y_out, coords_out))
+            y_out = prep_output(y_pred)
+            io.write(y_out)
 
             if step == (n_steps - 1):
                 break
 
-            y, coords_y = self.stormscope.next_input(y_pred, coords_pred, y, coords_y)
+            y_pred, state = self.stormscope.step(
+                y_pred, self.stormscope_conditioning(io_fcn3, y_pred), state
+            )
 
     def __call__(
         self,
@@ -488,8 +559,8 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
         n_stormscope_per_fcn3 = len(seeds_stormscope) // len(seeds_fcn3)
         variables = self.validate_variables(variables)
 
-        x_ori, coords_x_ori = self.get_fcn3_input(start_time_fcn3)
-        y_ori, coords_y_ori = self.get_stormscope_input(start_time_stormscope)
+        x_ori = self.get_fcn3_input(start_time_fcn3)
+        y_ori = self.get_stormscope_input(start_time_stormscope)
 
         coords_out = self.stormscope.output_coords(self.stormscope.input_coords())
         output_coords = {
@@ -497,8 +568,8 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
             # Planetary Computer does not like separate 'lead_time'
             "time": to_time_array([start_time_stormscope]) + lead_times,
             "variable": variables,
-            "y": coords_out["y"],
-            "x": coords_out["x"],
+            "y": coords_out["y"].values,
+            "x": coords_out["x"].values,
         }
         self.setup_io(io, output_coords, seeds_fcn3, seeds_stormscope)
 
@@ -510,16 +581,12 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
             io_fcn3 = XarrayBackend()
             self.run_fcn3(
                 io=io_fcn3,
-                x=x_ori.clone(),
-                coords_x=coords_x_ori.copy(),
+                x=x_ori.copy(deep=True),
                 seed_fcn3=seed_fcn3,
                 start_time_stormscope=start_time_stormscope,
                 lead_times=lead_times,
                 sample=sample,
                 total_samples=total_samples,
-            )
-            self.stormscope.conditioning_data_source = InferenceOutputSource(
-                io_fcn3.root
             )
 
             # Run StormScope forecast conditioned on FCN3
@@ -527,8 +594,8 @@ class FoundryFCN3StormScopeGOESWorkflow(Earth2Workflow):
             for _ in range(n_stormscope_per_fcn3):
                 self.run_stormscope(
                     io=io,
-                    y=y_ori.clone(),
-                    coords_y=coords_y_ori.copy(),
+                    io_fcn3=io_fcn3,
+                    y=y_ori.copy(deep=True),
                     seed_fcn3=seed_fcn3,
                     seed_stormscope=seeds_stormscope[sample],
                     lead_times=lead_times,

@@ -13,8 +13,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# mypy: disable-error-code="call-overload,arg-type"
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime
 from math import ceil
@@ -25,12 +26,18 @@ import torch
 from loguru import logger
 from tqdm import tqdm
 
-from earth2studio.data import DataSource, fetch_data
+from earth2studio.data import DataSource, fetch_data, prep_data_array
 from earth2studio.io import ZarrBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
-from earth2studio.utils.coords import CoordSystem, cat_coords, map_coords, split_coords
+from earth2studio.utils.coords import (
+    CoordSystem,
+    cat_coords,
+    coord_array,
+    map_coords,
+)
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.time import to_time_array
 
 from .s2s_utilities import (
@@ -184,15 +191,13 @@ class S2SEnsembleRunner:
             IC times
         """
         self.time = to_time_array(time)
-        self.x0, self.coords0 = cast(
-            tuple[torch.Tensor, CoordSystem],
+        self.x0, self.coords0 = prep_data_array(
             fetch_data(
                 source=data,
-                time=time,
+                time=self.time,
                 variable=self.prognostic_ic["variable"],
                 lead_time=self.prognostic_ic["lead_time"],
                 device="cpu",
-                legacy=True,
             ),
         )
         logger.success(f"Fetched data from {data.__class__.__name__}")
@@ -228,18 +233,24 @@ class S2SEnsembleRunner:
             ]
         ).flatten()
 
-        for i, (k, oc) in enumerate(self.output_coords_dict.items()):
+        for k, oc in self.output_coords_dict.items():
 
             # augment and overwrite total coords with dimensions of output coords
             for key, value in total_coords.items():
                 total_coords[key] = oc.get(key, value)
 
-            if i == 0:
-                # initialise place for variables in io backend
-                variables_to_save = total_coords.pop("variable")
-
             if self.io_dict[k] is not None:
-                self.io_dict[k].add_array(total_coords, variables_to_save)
+                # The template's variable labels name the arrays to create, its
+                # other dimensions size them
+                self.io_dict[k].add_array(
+                    coord_array(
+                        tuple(total_coords),
+                        {
+                            dim: np.asarray(values)
+                            for dim, values in total_coords.items()
+                        },
+                    )
+                )
 
         return
 
@@ -308,10 +319,13 @@ class S2SEnsembleRunner:
 
         # Perturb ensemble
         # Use rank ordered execution to prevent race condition when using HENS perturbation
-        xx, coords = run_with_rank_ordered_execution(self.perturbation, xx, coords)
+        xx, coords = run_with_rank_ordered_execution(
+            self.perturbation, from_torch(xx, coords)
+        ).e2s.to_torch()
 
         # Create prognostic iterator
-        model = self.prognostic.create_iterator(xx, coords)
+        # This pipeline still uses the legacy tensor/coordinate model API.
+        model = cast(Callable, self.prognostic.create_iterator)(xx, coords)
 
         return model, mini_batch_size, full_seed_string, torch_seed
 
@@ -330,14 +344,13 @@ class S2SEnsembleRunner:
         None
         """
 
+        field = from_torch(xx_sub, coords_sub)
         for k in self.io_dict.keys():
             if self.writer_executor is not None:
-                future = self.writer_executor.submit(
-                    self.io_dict[k].write, *split_coords(xx_sub, coords_sub)
-                )
+                future = self.writer_executor.submit(self.io_dict[k].write, field)
                 self.writer_threads.append(future)
             else:
-                self.io_dict[k].write(*split_coords(xx_sub, coords_sub))
+                self.io_dict[k].write(field)
 
     @torch.inference_mode()
     def __call__(self) -> dict[str, ZarrBackend]:
@@ -372,7 +385,7 @@ class S2SEnsembleRunner:
                     for dx_name, dx_model in self.dx_model_dict.items():
                         # select input vars, remove lead time dim and apply diagnostic model
                         yy, codia = map_coords(xx, coords, self.dx_ic_dict[dx_name])
-                        yy, codib = dx_model(yy, codia)
+                        yy, codib = cast(Callable, dx_model)(yy, codia)
 
                         # concatenate diagnostic variable to forecast vars
                         xx, coords = cat_coords((xx, yy), (coords, codib), "variable")

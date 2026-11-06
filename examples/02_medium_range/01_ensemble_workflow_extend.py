@@ -50,7 +50,7 @@ In this example you will learn:
 # [`earth2studio.run.ensemble`][earth2studio.run.ensemble].
 
 # %%
-# .. literalinclude:: ../../earth2studio/run.py
+# .. literalinclude:: ../../earth2studio/run/__init__.py
 #    :language: python
 #    :start-after: # sphinx - ensemble start
 #    :end-before: # sphinx - ensemble end
@@ -72,14 +72,13 @@ from dotenv import load_dotenv
 load_dotenv()  # TODO: make common example prep function
 
 import numpy as np
-import torch
+import xarray as xr
 
 from earth2studio.data import GFS
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import DLWP
 from earth2studio.perturbation import Perturbation, SphericalGaussian
 from earth2studio.run import ensemble
-from earth2studio.utils.type import CoordSystem
 
 # Load the default model package which downloads the check point from NGC
 package = DLWP.load_default_package()
@@ -105,18 +104,13 @@ class ApplyToVariable:
             variable = [variable]
         self.variable = variable
 
-    @torch.inference_mode()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         # Apply perturbation
-        xp, _ = self.pm(x, coords)
-        # Add perturbed slice back into original tensor
-        ind = np.isin(coords["variable"], self.variable)
-        x[..., ind, :, :] = xp[..., ind, :, :]
-        return x, coords
+        xp = self.pm(x)
+        # Add perturbed slice back into a copy of the original array
+        out = x.copy(deep=True)
+        out.loc[{"variable": self.variable}] = xp.sel(variable=self.variable)
+        return out
 
 
 # Generate a new noise amplitude that specifically targets 't2m' with a 1 K noise amplitude

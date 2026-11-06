@@ -22,6 +22,14 @@ import torch
 
 from earth2studio.perturbation import CorrelatedSphericalGaussian, Gaussian
 from earth2studio.utils.checkpoint import Checkpoint
+from earth2studio.utils.cupy import from_torch
+
+
+def _da(x, dims):
+    """Wrap tensor as DataArray with integer coordinates"""
+    return from_torch(
+        x, OrderedDict((d, np.arange(n)) for d, n in zip(dims, x.shape)), attrs={"a": 1}
+    )
 
 
 @pytest.mark.parametrize(
@@ -29,11 +37,11 @@ from earth2studio.utils.checkpoint import Checkpoint
     [
         [
             torch.randn(4, 16, 16, 16),
-            OrderedDict([("a", []), ("variable", []), ("lat", []), ("lon", [])]),
+            ("a", "variable", "lat", "lon"),
         ],
         [
             torch.randn(4, 32, 16),
-            OrderedDict([("variable", []), ("lat", []), ("lon", [])]),
+            ("variable", "lat", "lon"),
         ],
     ],
 )
@@ -62,8 +70,10 @@ def test_gaussian(x, coords, amplitude, device):
             [x.shape[list(coords).index("variable")], 1, 1], device=device
         )
     prtb = Gaussian(amplitude)
-    xout, coords = prtb(x, coords)
-    dx = xout - x
+    out = prtb(_da(x, coords))
+    assert out.dims == tuple(coords)
+    assert out.attrs == {"a": 1}
+    dx = out.e2s.to_torch()[0] - x
 
     assert dx.shape == x.shape
     assert torch.allclose(
@@ -78,23 +88,22 @@ def test_gaussian(x, coords, amplitude, device):
 
 
 def test_gaussian_checkpoint(tmp_path):
-    x = torch.zeros(2, 3)
-    coords = OrderedDict([("batch", []), ("variable", [])])
+    x = _da(torch.zeros(2, 3), ("batch", "variable"))
 
     level_one_checkpoint = Checkpoint(
         "gaussian-level-1", path=tmp_path / "level-1", level=1
     )
     with level_one_checkpoint as ckpt:
         perturbation = Gaussian(1.0)
-        expected_level_one, _ = perturbation(x, coords)
+        expected_level_one = perturbation(x)
         assert perturbation.checkpoint.generator_state is not None
         ckpt.write(lead_time=np.timedelta64(0, "h"))
 
     with level_one_checkpoint.select(-1):
         perturbation = Gaussian(1.0)
-        level_one_output, _ = perturbation(x, coords)
+        level_one_output = perturbation(x)
         assert perturbation.checkpoint.checkpoint_state_loaded
-        assert torch.allclose(level_one_output, expected_level_one)
+        assert np.allclose(level_one_output, expected_level_one)
 
     level_two_checkpoint = Checkpoint(
         "gaussian-level-2",
@@ -104,22 +113,22 @@ def test_gaussian_checkpoint(tmp_path):
     )
     with level_two_checkpoint as ckpt:
         perturbation = Gaussian(1.0)
-        perturbation(x, coords)
+        perturbation(x)
         assert perturbation.checkpoint.generator_state is not None
         ckpt.write(lead_time=np.timedelta64(0, "h"))
-        perturbation(x, coords)
+        perturbation(x)
         assert perturbation.checkpoint.generator_state is not None
         ckpt.write(lead_time=np.timedelta64(6, "h"))
-        expected_level_two_next, _ = perturbation(x, coords)
-        expected_level_two_third, _ = perturbation(x, coords)
+        expected_level_two_next = perturbation(x)
+        expected_level_two_third = perturbation(x)
 
     with level_two_checkpoint.select(-1):
         perturbation = Gaussian(1.0)
-        resumed, _ = perturbation(x, coords)
+        resumed = perturbation(x)
         assert perturbation.checkpoint.checkpoint_state_loaded
-        assert torch.allclose(resumed, expected_level_two_next)
-        next_perturbed, _ = perturbation(x, coords)
-        assert torch.allclose(next_perturbed, expected_level_two_third)
+        assert np.allclose(resumed, expected_level_two_next)
+        next_perturbed = perturbation(x)
+        assert np.allclose(next_perturbed, expected_level_two_third)
 
 
 def test_correlated_spherical_gaussian_no_amplitude():
@@ -131,11 +140,11 @@ def test_correlated_spherical_gaussian_no_amplitude():
 def test_correlated_spherical_gaussian_wrong_ratio():
     """Test that incorrect lat/lon ratio raises error"""
     x = torch.randn(4, 16, 15, 16)  # Wrong ratio
-    coords = OrderedDict([("variable", []), ("time", []), ("lat", []), ("lon", [])])
+    coords = ("variable", "time", "lat", "lon")
 
     prtb = CorrelatedSphericalGaussian(noise_amplitude=0.05)
     with pytest.raises(ValueError):
-        prtb(x, coords)
+        prtb(_da(x, coords))
 
 
 @pytest.mark.parametrize("latents", [[2], [2, 4], [2, 4, 2]])
@@ -155,13 +164,13 @@ def test_correlated_spherical_gaussian_wrong_ratio():
 def test_correlated_spherical_gaussian_odd_even_lats(latents: list[int], nlat, device):
     """Test CorrelatedSphericalGaussian handles both odd and even latitude counts"""
     x = torch.randn(*latents, nlat, 2 * 32).to(device)  # Keep lon count even
-    coords = OrderedDict([("batch", []), ("variable", []), ("lat", []), ("lon", [])])
+    coords = ("ensemble", "batch", "variable", "lat", "lon")[-x.ndim :]
 
     prtb = CorrelatedSphericalGaussian(
         noise_amplitude=0.05, sigma=1.0, length_scale=5.0e5, time_scale=48.0
     )
 
-    output, _ = prtb(x, coords)
+    output = prtb(_da(x, coords)).e2s.to_torch()[0]
     assert output.shape == x.shape
     assert output.device == x.device
     # Need a good statistical test for this
