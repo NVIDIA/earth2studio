@@ -23,6 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `fetch_data` now always returns floating point fields as float32 and accepts
+  sources called with repeated timestamps.
+- `run` field mapping now maps HRRR native `hrrr_y`/`hrrr_x` dims onto StormCast's
+  `y`/`x` and tolerates floating point noise in matching lat/lon coordinates.
+- Updated examples for the 1.0 API (initial condition handling, `Pipeline` for
+  StormCast, `Region`, variable names).
+
 ### Security
 
 ### Dependencies
