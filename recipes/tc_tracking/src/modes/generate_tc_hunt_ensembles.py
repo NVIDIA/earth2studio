@@ -17,6 +17,7 @@
 import gc
 import os
 import random
+import shutil
 from itertools import chain, islice
 from typing import Any
 
@@ -27,19 +28,21 @@ from loguru import logger
 from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
 from tqdm import tqdm
-from zarr import consolidate_metadata
 
 from earth2studio.data import fetch_data
-from earth2studio.io import NetCDF4Backend, ZarrBackend
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.px import PrognosticModel
 from earth2studio.models.px.utils import initial_condition
 from src.data.tc_hunt_data_utils import DataSourceManager
 from src.data.tc_hunt_file_output import (
+    batch_zarr_path,
+    close_batch_zarr,
     initialise_netcdf_output,
+    open_batch_zarr,
     setup_output,
     write_seed,
 )
+from src.data.zarr_merge import merge_batch_stores
 from src.tc_hunt_utils import (
     InstabilityDetection,
     RetryQueue,
@@ -171,7 +174,6 @@ def load_model(cfg: DictConfig) -> PrognosticModel:
 def run_inference(
     model: PrognosticModel,
     cfg: DictConfig,
-    store: ZarrBackend | None,
     template: xr.DataArray | None,
     runs: list[Run],
     retries: RetryQueue,
@@ -179,7 +181,7 @@ def run_inference(
     """Run ensemble inference and optionally track tropical cyclones.
 
     Iterates over the batches of this rank, fetches their initial condition,
-    rolls out the prognostic model, writes fields to the output store, and
+    rolls out the prognostic model, writes fields to a store per batch, and
     feeds predictions to TempestExtremes for cyclone tracking if configured.
     If the stability check is enabled, a batch that becomes unstable is put
     into the retry queue with its next seed, where any rank can take it. A
@@ -192,8 +194,6 @@ def run_inference(
         Prognostic model
     cfg : DictConfig
         Hydra configuration object
-    store : ZarrBackend | None
-        Zarr output store, or None if fields are written to NetCDF or not at all
     template : xr.DataArray | None
         Output template of the run, or None if no fields are written
     runs : list[Run]
@@ -272,9 +272,12 @@ def run_inference(
             )
         x = x0.expand_dims(ensemble=mems)
 
-        out = store
+        out: Any = None
         if cfg.store_type == "netcdf":
             out = initialise_netcdf_output(cfg, model, ic, mems, seed)
+        elif cfg.store_type == "zarr":
+            out = open_batch_zarr(cfg, model, ic, mems)
+        stable = False
         try:
             stable = rollout(x, seed, out)
             if not stable and last_attempt and cfg.store_type == "netcdf":
@@ -282,6 +285,17 @@ def run_inference(
         finally:
             if cfg.store_type == "netcdf":
                 out.close()
+            elif cfg.store_type == "zarr":
+                # an unstable attempt leaves no store, a failed batch only its
+                # attributes with seed -1
+                path = batch_zarr_path(cfg, ic, mems)
+                if stable or last_attempt:
+                    close_batch_zarr(
+                        out, path, ic, mems, seed if stable else -1, attempt + 1
+                    )
+                else:
+                    out.close()
+                    shutil.rmtree(path)
 
         ic_str = np.datetime_as_string(ic, unit="s")
         if stable:
@@ -342,12 +356,10 @@ def run_inference(
             "of each rank"
         )
 
-    # Consolidate metadata in zarr files
-    if isinstance(store, ZarrBackend):
-        store.close()
-        if dist.rank == 0:
-            # TODO add barrier such that rank 0 finishes last
-            consolidate_metadata(store.store)
+    # take() returned None on all ranks only once every batch store is closed,
+    # so rank 0 can merge them without a barrier
+    if cfg.store_type == "zarr" and dist.rank == 0:
+        merge_batch_stores(cfg)
 
 
 def max_retries(cfg: DictConfig) -> int:
@@ -477,16 +489,16 @@ def run_ensemble(cfg: DictConfig) -> None:
 
     model = load_model(cfg)
 
-    store, template = run_with_rank_ordered_execution(
+    template = run_with_rank_ordered_execution(
         setup_output,
         cfg=cfg,
         model=model,
         ics=ics,
-        add_arrays=DistributedManager().rank == 0,
+        remove_old=DistributedManager().rank == 0,
     )
 
     # every rank runs the inference, also without runs: its setup contains
     # collectives (e.g. loading the orography), which all ranks have to reach.
     # No collectives after the setup, as idle ranks finish early
     retries = RetryQueue(shared_store(), DistributedManager().world_size)
-    run_inference(model, cfg, store, template, runs, retries)
+    run_inference(model, cfg, template, runs, retries)

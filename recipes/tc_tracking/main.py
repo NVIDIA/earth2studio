@@ -30,6 +30,7 @@ import hydra  # noqa: E402
 from loguru import logger  # noqa: E402
 from omegaconf import DictConfig  # noqa: E402
 from src.modes.baseline_extraction import extract_baseline  # noqa: E402
+from src.data.zarr_merge import merge_batch_stores  # noqa: E402
 from src.modes.generate_tc_hunt_ensembles import run_ensemble  # noqa: E402
 
 
@@ -43,10 +44,14 @@ def tc_hunt(cfg: DictConfig) -> None:
     elif cfg.mode == "extract_baseline":
         extract_baseline(cfg)
 
+    # merge the batch stores of an interrupted Zarr run
+    elif cfg.mode == "merge_zarr":
+        merge_batch_stores(cfg)
+
     else:
         raise ValueError(
             f"invalid mode: {cfg.mode}, choose from "
-            f'"generate_ensemble", "reproduce_members", "extract_baseline"'
+            f'"generate_ensemble", "reproduce_members", "extract_baseline", "merge_zarr"'
         )
 
     logger.success("finished **yaaayyyy**")

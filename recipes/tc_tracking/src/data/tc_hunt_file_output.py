@@ -16,12 +16,15 @@
 
 import os
 import shutil
+import time
 
 import numpy as np
 import xarray as xr
+import zarr
+from loguru import logger
 from omegaconf import DictConfig
 
-from earth2studio.io import NetCDF4Backend, ZarrBackend
+from earth2studio.io import AsyncZarrBackend, NetCDF4Backend
 from earth2studio.io.utils import output_template
 from earth2studio.models.px import PrognosticModel
 from earth2studio.utils.coords import coord_array
@@ -84,17 +87,25 @@ def build_output_template(
     )
 
 
+def combined_zarr_path(cfg: DictConfig) -> str:
+    """Path of the Zarr store all batches are merged into."""
+    return os.path.join(cfg.store_dir, cfg.project.removesuffix(".zarr") + ".zarr")
+
+
+def batch_zarr_dir(cfg: DictConfig) -> str:
+    """Directory of the per-batch Zarr stores."""
+    return os.path.join(cfg.store_dir, cfg.project.removesuffix(".zarr") + "_batches")
+
+
 def setup_output(
     cfg: DictConfig,
     model: PrognosticModel,
     ics: np.ndarray,
-    add_arrays: bool,
-) -> tuple[ZarrBackend | None, xr.DataArray | None]:
-    """Set up the storage backend.
+    remove_old: bool,
+) -> xr.DataArray | None:
+    """Check the output configuration and prepare the output directory.
 
-    Supports Zarr and NetCDF store types. For NetCDF the store is created
-    later per initial condition (see :func:`initialise_netcdf_output`), so
-    this function returns ``None`` as the store.
+    The stores themselves are created per batch, see :func:`open_batch_store`.
 
     Parameters
     ----------
@@ -104,14 +115,13 @@ def setup_output(
         Prognostic model whose coordinate metadata is used.
     ics : np.ndarray
         Array of initial condition times (dtype ``datetime64``).
-    add_arrays : bool
-        If ``True``, allocate output arrays on the backend immediately.
+    remove_old : bool
+        If ``True``, remove the Zarr outputs of an earlier run of the project.
 
     Returns
     -------
-    tuple[ZarrBackend | None, xr.DataArray | None]
-        The Zarr store (``None`` for NetCDF or no output) and the output
-        template (``None`` if no fields are stored).
+    xr.DataArray | None
+        Output template of the whole run, ``None`` if no fields are stored.
 
     Raises
     ------
@@ -122,32 +132,19 @@ def setup_output(
     if cfg.store_type not in ("zarr", "netcdf", "none"):
         raise ValueError(f"Invalid store type: {cfg.store_type}")
     if cfg.store_type == "none":
-        return None, None
+        return None
     if "out_vars" not in cfg:
         raise ValueError("out_vars must be specified if store_type is not none.")
 
     template = build_output_template(cfg, model, ics, np.arange(cfg.ensemble_size))
-    # TODO: let proc zero create dir and add barrier
     os.makedirs(cfg.store_dir, exist_ok=True)
 
-    if cfg.store_type == "netcdf":
-        return None, template
+    if cfg.store_type == "zarr" and remove_old:
+        for path in (combined_zarr_path(cfg), batch_zarr_dir(cfg)):
+            if os.path.exists(path):
+                shutil.rmtree(path)
 
-    file_name = os.path.join(cfg.store_dir, cfg.project)
-    if not file_name.endswith(".zarr"):
-        file_name += ".zarr"
-    if os.path.exists(file_name) and add_arrays:
-        shutil.rmtree(file_name)
-
-    store = ZarrBackend(
-        file_name=file_name,
-        chunks={"ensemble": 1, "time": 1, "lead_time": 1},
-        backend_kwargs={"overwrite": False},
-    )
-    if add_arrays:
-        store.add_array(template)
-
-    return store, template
+    return template
 
 
 def batch_name(ic: np.datetime64, mems: np.ndarray) -> str:
@@ -226,3 +223,112 @@ def initialise_netcdf_output(
     store.add_array(build_output_template(cfg, model, np.array([ic]), mems))
 
     return store
+
+
+def batch_zarr_path(cfg: DictConfig, ic: np.datetime64, mems: np.ndarray) -> str:
+    """Path of the Zarr store of one batch."""
+    return os.path.join(batch_zarr_dir(cfg), batch_name(ic, mems) + ".zarr")
+
+
+def open_batch_zarr(
+    cfg: DictConfig, model: PrognosticModel, ic: np.datetime64, mems: np.ndarray
+) -> AsyncZarrBackend:
+    """Create the Zarr store of one batch, replacing an existing one.
+
+    Writes run in background threads. Chunks hold one member, IC, lead time
+    and variable. With ``zarr_shard_per_member`` (default ``True``), all lead
+    times of a member, IC and variable form one shard, which is kept in host
+    memory until the member is complete and then written at once. Without,
+    every chunk is written as its own file as soon as it is computed.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra config object.
+    model : PrognosticModel
+        Prognostic model whose output grid is stored.
+    ic : np.datetime64
+        Initial condition of the batch.
+    mems : np.ndarray
+        Members of the batch.
+
+    Returns
+    -------
+    AsyncZarrBackend
+        Store ready for writing; close it with :func:`close_batch_zarr`.
+    """
+    path = batch_zarr_path(cfg, ic, mems)
+    if os.path.exists(path):
+        shutil.rmtree(path)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    template = build_output_template(cfg, model, np.array([ic]), mems)
+    lead_times = template.coords["lead_time"].values
+    shard = cfg.get("zarr_shard_per_member", True)
+    store = AsyncZarrBackend(
+        file_name=path,
+        parallel_coords={
+            "ensemble": np.asarray(mems),
+            "time": np.array([ic]),
+            "lead_time": lead_times,
+        },
+        blocking=False,
+        shard_coords={"lead_time": len(lead_times)} if shard else {},
+    )
+    store.add_array(template)
+    return store
+
+
+def close_batch_zarr(
+    store: AsyncZarrBackend,
+    path: str,
+    ic: np.datetime64,
+    mems: np.ndarray,
+    seed: int,
+    n_seeds_tried: int,
+) -> None:
+    """Wait for the writes of a batch store, then record its seed.
+
+    Parameters
+    ----------
+    store : AsyncZarrBackend
+        Store of the batch
+    path : str
+        Path of the store
+    ic : np.datetime64
+        Initial condition of the batch
+    mems : np.ndarray
+        Members of the batch
+    seed : int
+        Seed used for the batch, ``-1`` if the batch failed
+    n_seeds_tried : int
+        Number of seeds the batch has been run with
+    """
+    then = time.time()
+    store.close()
+    logger.info(f"waited {time.time() - then:.1f}s for the writes of {path}")
+    mark_batch_zarr(path, ic, mems, seed, n_seeds_tried)
+
+
+def mark_batch_zarr(
+    path: str, ic: np.datetime64, mems: np.ndarray, seed: int, n_seeds_tried: int
+) -> None:
+    """Record the seed of a finished batch store, which marks it as complete.
+
+    A batch that failed with all its seeds gets ``random_seed = -1`` and keeps
+    no fields, only these attributes.
+    """
+    if seed == -1:
+        if os.path.exists(path):
+            shutil.rmtree(path)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+    group = zarr.open_group(path, mode="a")
+    group.attrs.update(
+        {
+            "ic": np.datetime_as_string(ic, unit="s"),
+            "members": [int(mem) for mem in mems],
+            "random_seed": int(seed),
+            "n_seeds_tried": n_seeds_tried,
+            "complete": True,
+        }
+    )
