@@ -20,10 +20,10 @@ Mitigation: Review and scan skill before deployment. <br>
 
 ## Reference(s): <br>
 - [Earth2Studio Documentation](https://nvidia.github.io/earth2studio/) <br>
-- [Prognostic Models](https://nvidia.github.io/earth2studio/modules/models_px.html) <br>
-- [Diagnostic Models](https://nvidia.github.io/earth2studio/modules/models_dx.html) <br>
-- [Data Sources (Analysis)](https://nvidia.github.io/earth2studio/modules/datasources_analysis.html) <br>
-- [Examples Gallery](https://nvidia.github.io/earth2studio/examples/index.html) <br>
+- [Prognostic Models](https://nvidia.github.io/earth2studio/main/modules/models_px/) <br>
+- [Diagnostic Models](https://nvidia.github.io/earth2studio/main/modules/models_dx/) <br>
+- [Data Sources (Analysis)](https://nvidia.github.io/earth2studio/main/modules/datasources_analysis/) <br>
+- [Examples Gallery](https://nvidia.github.io/earth2studio/main/examples/index/) <br>
 - [GitHub Repository](https://github.com/NVIDIA/earth2studio) <br>
 
 
