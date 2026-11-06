@@ -148,15 +148,12 @@ def _nsteps(final_lead_time: np.timedelta64, step: np.timedelta64) -> int:
     return int(final_lead_time // step)
 
 
-SourceMember: TypeAlias = Callable[[int], Hashable]
-
-
 def _fetch(
     request: DataRequest,
     signature: CoordinateSystem,
     device: torch.device,
     item: WorkItem | None = None,
-    source_member: SourceMember | None = None,
+    source_member: Callable[[int], Hashable] | None = None,
 ) -> xr.DataArray:
     """Fetch ``request`` onto ``signature``, laid out for ``item``'s members.
 
@@ -184,7 +181,7 @@ def _batch_members(
     x: xr.DataArray,
     request: DataRequest,
     item: WorkItem,
-    source_member: SourceMember | None,
+    source_member: Callable[[int], Hashable] | None,
 ) -> xr.DataArray:
     """Lay a fetched field out along ``item``'s members, labeled by member ID.
 
@@ -201,7 +198,7 @@ def _batch_members(
 
 
 def _source_members(
-    source_member: SourceMember | None, source: object, item: WorkItem
+    source_member: Callable[[int], Hashable] | None, source: object, item: WorkItem
 ) -> np.ndarray | None:
     """Source members ``item`` reads from ``source``, distinct and in first-use order.
 
@@ -401,7 +398,7 @@ class PrognosticRunner:
         forcing: tuple[Source, ...] | None = None,
         diagnostics: Mapping[str, DiagnosticModel] | None = None,
         seed: int = 0,
-        source_member: SourceMember | None = None,
+        source_member: Callable[[int], Hashable] | None = None,
         perturbation: Perturbation | None = None,
     ) -> None:
         self.prognostic = prognostic
@@ -615,7 +612,7 @@ class DiagnosticRunner:
         source: Source | None = None,
         step: np.timedelta64 | None = None,
         seed: int = 0,
-        source_member: SourceMember | None = None,
+        source_member: Callable[[int], Hashable] | None = None,
     ) -> None:
         if not diagnostics:
             raise ValueError("DiagnosticRunner needs at least one diagnostic")

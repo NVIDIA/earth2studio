@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import math
 import zlib
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Hashable, Iterator, Mapping, Sequence
 from itertools import chain
 from typing import Any
 
@@ -49,7 +49,6 @@ from earth2studio.run._fields import _map_field, _with_lead_time
 from earth2studio.run.runner import (
     DataRequest,
     SlotSource,
-    SourceMember,
     _check_perturbation,
     _fetch,
     _module_device,
@@ -140,7 +139,7 @@ class CoupledRunner:
         sources: Mapping[str, SlotSource | tuple[SlotSource | None, ...]] | None = None,
         seed: int = 0,
         devices: Mapping[str, torch.device | str] | None = None,
-        source_member: SourceMember | None = None,
+        source_member: Callable[[int], Hashable] | None = None,
         perturbation: Mapping[str, Perturbation] | None = None,
     ) -> None:
         if not components:
