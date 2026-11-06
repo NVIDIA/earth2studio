@@ -42,7 +42,7 @@ from earth2studio.models.dx import (
         (CorrDiffCosmoEra5, ARCO_ERA5),
         (CorrDiffEra5Hrrr, ARCO_ERA5),
         (CorrDiffTaiwan, GFS),
-        (OrbitGlobalPrecip, NCAR_ERA5),
+        (OrbitGlobalPrecip, ARCO_ERA5),
         (PrecipitationAFNO, WB2ERA5),
         (PrecipitationAFNOv2, ARCO_ERA5),
         (SolarRadiationAFNO1H, ARCO_ERA5),

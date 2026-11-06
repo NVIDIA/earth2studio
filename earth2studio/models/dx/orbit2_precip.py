@@ -74,6 +74,18 @@ VARIABLES = [
     "t2m_min",
 ]
 
+# Daily statistics are accumulated over the 24 hourly ERA5 samples valid at
+# t-23h, ..., t (window [t-23h, t+1h)), i.e. the 24 hours ending at (and including)
+# the requested time
+TP24_LABEL = "tp:sum:-23h:1h"
+T2M_MAX_LABEL = "t2m:max:-23h:1h"
+T2M_MIN_LABEL = "t2m:min:-23h:1h"
+_STATISTIC_LABELS = {
+    "tp24": TP24_LABEL,
+    "t2m_max": T2M_MAX_LABEL,
+    "t2m_min": T2M_MIN_LABEL,
+}
+
 ORBIT_VARIABLE_MAPPING = [
     "2m_temperature",
     "temperature_200",
@@ -130,9 +142,16 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     ----
     A few details regarding the model's variables:
 
-    - The input variables ``t2m_min`` and ``t2m_max`` are daily minimum and maximum.
+    - The input variables ``t2m_min`` and ``t2m_max`` are daily minimum and maximum
+      and are requested as the temporal statistics ``t2m:min:-23h:1h`` and
+      ``t2m:max:-23h:1h``. Likewise the 24-hour accumulated precipitation input is
+      requested as ``tp:sum:-23h:1h``. Each window covers the 24 hourly samples
+      valid at ``t-23h, ..., t`` (inclusive of the requested time), so the data
+      source must support temporal statistics (e.g.
+      :py:class:`earth2studio.data.ARCO_ERA5`).
     - ``t2m`` and ``sst`` are combined to represent global surface temperature.
-    - The model is fine-tuned for IMERG 24-hour accumulated precipitation (``tp24``).
+    - The model is fine-tuned for IMERG 24-hour accumulated precipitation
+      (``tp:sum:-23h:1h``), which is also the output variable of this model.
 
     Parameters
     ----------
@@ -172,45 +191,26 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
 
     Example
     -------
-    The derived inputs ``tp24``, ``t2m_max``, and ``t2m_min`` must be computed from
-    hourly ERA5 fields before calling the model:
+    The 24-hour accumulated precipitation and daily 2m temperature extremes are
+    computed by the data source as temporal statistics:
 
     >>> import numpy as np
-    >>> import torch
-    >>> from earth2studio.data import NCAR_ERA5, prep_data_array
+    >>> from earth2studio.data import ARCO_ERA5, fetch_data
     >>> from earth2studio.models.dx import OrbitGlobalPrecip
     >>> from earth2studio.utils.time import to_time_array
-    >>> from earth2studio.utils.coords import coord_array_like
-    >>> from earth2studio.utils.cupy import from_torch
     >>>
     >>> package = OrbitGlobalPrecip.load_default_package()
     >>> orbit = OrbitGlobalPrecip.load_model(package)
     >>> orbit = orbit.to("cuda")
-    >>> data = NCAR_ERA5()
     >>> time = to_time_array([np.datetime64("2023-06-01")])
     >>>
-    >>> # Fetch base variables (all except tp24, t2m_max, t2m_min)
-    >>> base_vars = orbit.input_coords()["variable"].values[:-3]
-    >>> x, coords = prep_data_array(data(time, base_vars), device="cuda")
-    >>>
-    >>> # Build past 24-hour precipitation accumulation and t2 max/min.
-    >>> batch_p = torch.zeros((len(time), 24, 4, x.shape[-2], x.shape[-1]), device="cuda")
-    >>> for i in range(24):
-    ...     time0 = np.array(time) - np.timedelta64(i, "h")
-    ...     p, _ = prep_data_array(data(time0, ["cp", "lsp", "t2m", "sst"]), device="cuda")
-    ...     batch_p[:, i] = p
-    >>> total_p_24hr = (batch_p[:, :, 0] + batch_p[:, :, 1]).sum(dim=1).unsqueeze(1)
-    >>> t2_sst_combined = torch.where(
-    ...     torch.isnan(batch_p[:, :, 3]), batch_p[:, :, 2], batch_p[:, :, 3]
+    >>> x = fetch_data(
+    ...     source=ARCO_ERA5(),
+    ...     time=time,
+    ...     variable=orbit.input_coords()["variable"].values,
+    ...     device="cuda",
     ... )
-    >>> t2_max = t2_sst_combined.max(dim=1).values.unsqueeze(1)
-    >>> t2_min = t2_sst_combined.min(dim=1).values.unsqueeze(1)
-    >>> x = torch.cat((x, total_p_24hr, t2_max, t2_min), dim=1)
-    >>>
-    >>> signature = orbit.input_coords().rename(batch="time")
-    >>> signature.attrs["earth2studio_dynamic_dims"] = ("time",)
-    >>> signature = coord_array_like(signature, {"time": time})
-    >>> output = orbit(from_torch(x, signature))
+    >>> output = orbit(x)
 
     Badges
     ------
@@ -308,16 +308,17 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         self.overlap = overlap
 
     def default_sources(self) -> "DataSource":
-        """Recommend the NCAR ERA5 data source.
+        """Recommend the ARCO ERA5 data source, which natively supports the temporal
+        statistics (24-hour sum, max and min) required by the model inputs.
 
         Returns
         -------
         DataSource
-            ``NCAR_ERA5`` data source for the input slot.
+            ``ARCO_ERA5`` data source for the input slot.
         """
-        from earth2studio.data import NCAR_ERA5
+        from earth2studio.data import ARCO_ERA5
 
-        return NCAR_ERA5()
+        return ARCO_ERA5()
 
     def input_coords(self) -> CoordinateSystem:
         """Input coordinate system of the diagnostic model.
@@ -329,18 +330,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         """
         return coord_array(
             ("batch", "variable", "lat", "lon"),
-            {
-                "variable": np.array(
-                    [
-                        {
-                            "tp24": "tp:sum:24h",
-                            "t2m_max": "t2m:max:24h",
-                            "t2m_min": "t2m:min:24h",
-                        }.get(v, v)
-                        for v in VARIABLES
-                    ]
-                )
-            },
+            {"variable": np.array([_STATISTIC_LABELS.get(v, v) for v in VARIABLES])},
             dynamic=("batch",),
             grid="latlon-0.25deg",
         )
@@ -369,7 +359,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
                     for k, v in input_coords.coords.items()
                     if set(v.dims).issubset(leading)
                 },
-                "variable": ["tp:sum:24h"],
+                "variable": [TP24_LABEL],
             },
             sizes={d: input_coords.sizes[d] for d in leading},
             dynamic=input_coords.attrs.get("earth2studio_dynamic_dims", ()),
@@ -772,6 +762,10 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
         output_coords = self.output_coords(x)
 
         with torch.no_grad():
-            out = self._forward(x.e2s.to_torch()[0].to(self.norm_mean.device).clone())
+            out = self._forward(
+                x.e2s.to_torch()[0]
+                .to(device=self.norm_mean.device, dtype=self.norm_mean.dtype)
+                .clone()
+            )
 
         return from_torch(out, output_coords)
