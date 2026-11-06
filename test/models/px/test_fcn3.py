@@ -148,6 +148,20 @@ def test_fcn3_call(time, device, dummy_model):
     assert out.dims == ("time", "lead_time", "variable", "lat", "lon")
 
 
+def test_fcn3_float64_input(dummy_model):
+    # Sources such as CDS_ERA5 return float64; FCN3 must cast to float32
+    p = FCN3(PhooFCN3ModelWrapper(dummy_model))
+    dc = {k: p.input_coords()[k] for k in ["lat", "lon"]}
+    x = fetch_data(
+        Random(dc),
+        np.array([np.datetime64("1993-04-05T00:00")]),
+        p.input_coords()["variable"],
+        p.input_coords()["lead_time"],
+    ).astype("float64")
+    x.attrs.update(earth2studio_grid_id="latlon-0.25deg", earth2studio_crs="EPSG:4326")
+    assert p(x).dtype == np.float32
+
+
 @pytest.mark.parametrize(
     "ensemble",
     [1, 2],
