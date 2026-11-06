@@ -2665,6 +2665,28 @@ body .md-grid {
   cursor: pointer;
 }
 
+.e2s-catalog-filter-group > label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.e2s-catalog-filter-group select {
+  width: 100%;
+  margin-top: 0.45rem;
+  padding: 0.35rem;
+  border: 1px solid var(--md-default-fg-color--light);
+  border-radius: 0.25rem;
+  background: var(--md-default-bg-color);
+  color: var(--md-default-fg-color);
+  font: inherit;
+}
+
+#e2s-catalog-vram-help {
+  margin-bottom: 0;
+  font-size: 0.65rem;
+}
+
 .e2s-catalog-filter input {
   accent-color: var(--md-accent-fg-color);
 }

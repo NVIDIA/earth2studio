@@ -44,6 +44,7 @@ def _package_available(package: str) -> bool:
 # Mapping of test file patterns to required dependency groups or packages
 # Files matching these patterns will be skipped during collection if deps missing
 _TEST_DEPENDENCIES: dict[str, list[str]] = {
+    "test/docs/test_catalog.py": ["PyYAML", "mkdocs-badges"],
     # Data tests
     "test/data/test_cbottle.py": ["cbottle"],
     "test/data/test_goes_glm.py": ["netCDF4"],

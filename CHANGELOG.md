@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added an Available GPU VRAM selector to the model catalog, filtering known
+  recommended memory at or below the selected capacity while labeling unknown
+  requirements and preserving recommended VRAM on model cards.
+
 ### Changed
 
 ### Deprecated
