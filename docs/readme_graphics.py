@@ -1417,7 +1417,7 @@ def agent_setup() -> str:
     ]
     command_lines = "\n".join(f"""
         <span class="agent-line" style="--chars: {chars}; animation-delay: {delay}">
-          <span class="cmd">$</span> npx skills add NVIDIA/skills --skill {esc(skill)}
+          <span class="cmd">$</span> npx skills add NVIDIA/earth2studio --skill {esc(skill)}
         </span>""" for skill, chars, delay in commands)
     skill_cards = [
         (
