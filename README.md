@@ -11,10 +11,6 @@
 
 **Weather and climate AI inference, for humans and agents.**
 
-```bash
-pip install earth2studio
-```
-
 [![python version][e2studio_python_img]][e2studio_python_url]
 [![license][e2studio_license_img]][e2studio_license_url]
 [![coverage][e2studio_cov_img]][e2studio_cov_url]
