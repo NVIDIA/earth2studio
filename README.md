@@ -18,7 +18,7 @@
 
 [Install][e2studio_install_url] | [User-Guide][e2studio_userguide_url] |
 [Examples][e2studio_examples_url] | [API][e2studio_api_url] |
-[Skills][nvidia_skills_url]
+[Skills](./skills)
 
 </div>
 
@@ -46,8 +46,7 @@ Fetch ERA5 surface winds for March 2024 and save them to Zarr.
 ```
 
 More skills for extending Earth2Studio (new prognostic, diagnostic, data source,
-assimilation and coupled models) live in [`skills/`](./skills) and the
-[NVIDIA Skills catalog][nvidia_skills_url].
+assimilation and coupled models) live in [`skills/`](./skills).
 
 ## For humans
 
@@ -99,4 +98,3 @@ Apache License 2.0, see the [LICENSE file][e2studio_license_url].
 
 <!-- Misc links -->
 [physicsnemo_repo_url]: https://github.com/NVIDIA/physicsnemo
-[nvidia_skills_url]: https://build.nvidia.com/skills?q=earth2studio
