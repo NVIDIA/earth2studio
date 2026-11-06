@@ -202,6 +202,8 @@ def test_orbit2_precip_package(device, model_size):
     dx = OrbitGlobalPrecip.load_model(
         package, "global", model_size, "precipitation"
     ).to(device)
+    # Dropout must be disabled for (deterministic) inference
+    assert not any(m.training for m in dx.modules())
     x = torch.randn(1, 20, 721, 1440).to(device)
     coords = coord_array_like(dx.input_coords(), {"batch": np.arange(x.shape[0])})
     out = dx(from_torch(x, coords))

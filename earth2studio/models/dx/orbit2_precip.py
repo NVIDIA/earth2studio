@@ -535,6 +535,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
             package.resolve("mean_std/era5/0.25_deg/normalize_std.npz")
         )
 
+        # Inference only: disable dropout (the checkpoint model is built in train mode)
         return cls(
             model,
             land_sea_mask,
@@ -548,7 +549,7 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
             do_tiling,
             div,
             overlap,
-        )
+        ).eval()
 
     def _denormalize_output(self, yhat: torch.Tensor) -> torch.Tensor:
         """Denormalize model output using precomputed buffers.

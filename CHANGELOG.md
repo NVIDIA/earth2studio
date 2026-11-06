@@ -28,6 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `OrbitGlobalPrecip.load_model` now returns the model in eval mode; dropout was
+  previously active at inference, making outputs non-deterministic.
+
 ### Security
 
 ### Dependencies
