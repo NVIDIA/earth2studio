@@ -72,18 +72,28 @@ VARIABLES = [
     "tp24",
     "t2m_max",
     "t2m_min",
+    "sst_max",
+    "sst_min",
 ]
+
+# (t2m, sst) channel pairs; sst is combined into t2m over the ocean and then dropped
+T2M_SST_PAIRS = (("t2m", "sst"), ("t2m_max", "sst_max"), ("t2m_min", "sst_min"))
 
 # ``tp`` is accumulated over the hour ending at its stamp, so the 24 hourly samples
 # valid at t-23h, ..., t (window [t-23h, t+1h)) cover the 24 hours ending at t.
-# ``t2m`` is instantaneous, so its extremes use the past 24 hours [t-24h, t).
+# ``t2m`` and ``sst`` are instantaneous, so their extremes use the past 24 hours
+# [t-24h, t).
 TP24_LABEL = "tp:sum:-23h:1h"
 T2M_MAX_LABEL = "t2m:max:24h"
 T2M_MIN_LABEL = "t2m:min:24h"
+SST_MAX_LABEL = "sst:max:24h"
+SST_MIN_LABEL = "sst:min:24h"
 _STATISTIC_LABELS = {
     "tp24": TP24_LABEL,
     "t2m_max": T2M_MAX_LABEL,
     "t2m_min": T2M_MIN_LABEL,
+    "sst_max": SST_MAX_LABEL,
+    "sst_min": SST_MIN_LABEL,
 }
 
 ORBIT_VARIABLE_MAPPING = [
@@ -149,7 +159,11 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
       as ``tp:sum:-23h:1h`` (window ``[t-23h, t+1h)``, the 24 hourly accumulations
       ending at ``t``). The data source must therefore support temporal statistics
       (e.g. :py:class:`earth2studio.data.ARCO_ERA5`).
-    - ``t2m`` and ``sst`` are combined to represent global surface temperature.
+    - ``t2m`` and ``sst`` are combined to represent global surface temperature: over
+      the ocean ``sst`` replaces ``t2m``. This is applied to the instantaneous
+      fields and to the daily extremes, so the daily extremes of ``sst`` are also
+      requested (``sst:max:24h`` and ``sst:min:24h``) and are dropped after the
+      combination, leaving the 19 model input channels.
     - The model is fine-tuned for IMERG 24-hour accumulated precipitation
       (``tp:sum:-23h:1h``), which is also the output variable of this model.
 
@@ -569,28 +583,35 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     def preprocess_input(self, x: torch.Tensor) -> torch.Tensor:
         """Preprocess Earth2Studio data to match ORBIT-2 DATA
 
-        Expects input channels ordered as VARIABLES (including trailing sst).
-        Replaces t2m with sst over ocean pixels (where land_sea_mask == 0 and
-        sst is not NaN), then drops the sst channel before proceeding.
+        Expects input channels ordered as VARIABLES (including the sst channels).
+        Replaces t2m with sst over ocean pixels (where land_sea_mask == 0 and sst is
+        not NaN) and t2m_max / t2m_min with sst_max / sst_min wherever those are not
+        NaN, then drops the sst channels before proceeding.
         """
-        # Drop sst channel based on its position in VARIABLES
-        sst_index = VARIABLES.index("sst")
+        sst_index = [VARIABLES.index(sst) for _, sst in T2M_SST_PAIRS]
+        keep = [i for i in range(len(VARIABLES)) if i not in sst_index]
+        t2m_index = [keep.index(VARIABLES.index(t2m)) for t2m, _ in T2M_SST_PAIRS]
         sst = x[:, sst_index]
-        x = torch.cat((x[:, :sst_index], x[:, sst_index + 1 :]), dim=1)
+        x = x[:, keep]
 
         # Input lat is [90, ..., -90] (721 points, descending)
         # Flip lat axis to get [-90, ..., 90] (ascending)
         x = torch.flip(x, dims=(2,))
-        sst = torch.flip(sst, dims=(1,))
+        sst = torch.flip(sst, dims=(2,))
 
         # Remove the last row (was 90° before flip, now at end) to get (720, 1440)
         x = x[:, :, :-1, :]
-        sst = sst[:, :-1, :]
+        sst = sst[:, :, :-1, :]
 
-        # Replace t2m (channel 0) with sst over ocean
+        # Replace t2m with sst over ocean. The daily max / min are replaced wherever
+        # sst is defined (no land-sea mask), matching the previous documented
+        # construction of these inputs (sst where not NaN, else t2m).
         ocean_mask = self.land_sea_mask.squeeze() == 0
-        replace_mask = ocean_mask & ~torch.isnan(sst)
-        x[:, 0] = torch.where(replace_mask, sst, x[:, 0])
+        for i, t2m_i in enumerate(t2m_index):
+            replace_mask = ~torch.isnan(sst[:, i])
+            if i == 0:
+                replace_mask = replace_mask & ocean_mask
+            x[:, t2m_i] = torch.where(replace_mask, sst[:, i], x[:, t2m_i])
 
         # Add static variables (buffers are already on correct device)
         # Buffers are (1, 1, H, W), expand to (batch, 1, H, W)
