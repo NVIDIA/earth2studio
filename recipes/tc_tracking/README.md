@@ -438,6 +438,14 @@ differences grow to a few hPa within days. Deterministic GPU
 kernels cost roughly 10% runtime; FCN3 is reproducible
 without them.
 
+> [!Warning]
+> AIFS-ENS v2 is not bitwise reproducible, even with
+> `deterministic: True`. Repeated runs with the same seed give
+> one of two slightly different results (a few Pa in `msl`
+> after 18 h, growing to a few hPa), so reproduced tracks may
+> differ slightly from the original ones. The cause is not
+> known yet.
+
 Note that
 [reproducibility is challenging](https://arxiv.org/abs/1605.04339)
 and only works reliably when using the same environment on
