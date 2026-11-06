@@ -962,7 +962,7 @@ def model(backend) -> AIFS:
         )
 
     package = AIFS.load_default_package()
-    with patch("earth2studio.models.px.aifs.fetch_data", side_effect=mock_fetch_data):
+    with patch("earth2studio.data.utils.fetch_data", side_effect=mock_fetch_data):
         p = AIFS.load_model(package)
     return p
 

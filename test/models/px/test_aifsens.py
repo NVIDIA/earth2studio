@@ -445,9 +445,7 @@ def model(backend) -> AIFSENS:
         )
 
     package = AIFSENS.load_default_package()
-    with patch(
-        "earth2studio.models.px.aifsens.fetch_data", side_effect=mock_fetch_data
-    ):
+    with patch("earth2studio.data.utils.fetch_data", side_effect=mock_fetch_data):
         p = AIFSENS.load_model(package)
     return p
 
