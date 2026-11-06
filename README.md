@@ -22,9 +22,7 @@
 
 </div>
 
-Earth2Studio is a Python toolkit for running AI Earth system models *fast*: one
-unified API over models, data sources, IO backends and SciML tooling. Swap a model
-or a data source and the rest of the pipeline keeps working.
+Access a leading collection of weather and climate AI models, production-ready data sources, composable inference APIs, and GPU-accelerated workflows in one Python package.
 
 ## For agents
 
