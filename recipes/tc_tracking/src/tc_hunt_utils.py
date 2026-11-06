@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pickle
+import time
 from collections.abc import Callable
 from math import ceil
 from typing import Any
@@ -86,9 +88,18 @@ def share_gpu_memory_with_cupy() -> None:
 
 
 def get_set_of_random_seeds(
-    n_ics: int, ensemble_size: int, batch_size: int, seed: int | None
+    n_ics: int,
+    ensemble_size: int,
+    batch_size: int,
+    seed: int | None,
+    n_retries: int = 0,
 ) -> np.ndarray:
-    """Generate a unique set of random seeds for ensemble batches.
+    """Generate unique random seeds for ensemble batches and their retries.
+
+    The original seeds come first, then one round of retry seeds per retry,
+    all from the same generator and all unique. A round is drawn again until
+    it does not collide with any earlier seed, so a larger ``n_retries`` only
+    adds rounds and leaves the earlier seeds unchanged.
 
     Parameters
     ----------
@@ -100,31 +111,37 @@ def get_set_of_random_seeds(
         Number of ensemble members per batch.
     seed : int | None
         Seed for the random number generator.
+    n_retries : int, optional
+        Number of retry seeds per batch, by default 0
 
     Returns
     -------
     np.ndarray
-        Array of ``uint32`` random seeds with length ``n_batches * n_ics``.
+        ``uint32`` seeds of shape ``(n_batches * n_ics, 1 + n_retries)``,
+        column 0 holding the original seeds.
 
     Raises
     ------
     RecursionError
         If a unique set cannot be found within 1000 iterations.
     """
-    n_batches = ceil(ensemble_size / batch_size)
+    n_runs = ceil(ensemble_size / batch_size) * n_ics
     rng = np.random.default_rng(seed=seed)
 
-    seeds = np.array([])
-    ii = 0
-    while len(np.unique(seeds)) != n_batches * n_ics:
-        ii += 1
-        if ii > 1000:
+    rounds: list[np.ndarray] = []
+    for _ in range(1 + n_retries):
+        drawn = np.concatenate(rounds) if rounds else np.array([], dtype=np.uint32)
+        for _ in range(1000):
+            seeds = rng.integers(low=0, high=2**32, size=n_runs, dtype=np.uint32)
+            if len(np.unique(np.concatenate([drawn, seeds]))) == len(drawn) + n_runs:
+                break
+        else:
             raise RecursionError(
-                f"failed to generate unique set of {n_batches*n_ics} random seeds after 1000 iterations. giving up :("
+                f"failed to generate unique set of {n_runs} random seeds after 1000 iterations. giving up :("
             )
-        seeds = rng.integers(low=0, high=2**32, size=n_batches * n_ics, dtype=np.uint32)
+        rounds.append(seeds)
 
-    return seeds
+    return np.stack(rounds, axis=1)
 
 
 def assign_runs_to_rank(items: list[Any]) -> list[Any]:
@@ -209,6 +226,108 @@ def run_with_rank_ordered_execution(
         torch.distributed.barrier()
 
     return result
+
+
+def shared_store() -> torch.distributed.Store:
+    """Key-value store shared by all ranks.
+
+    The TCP store of the default process group, hosted by the root process,
+    or an in-process store without a distributed setup. Store calls are TCP
+    requests, not collectives, so they can be made by single ranks at any time
+    and do not run into NCCL timeouts.
+
+    Returns
+    -------
+    torch.distributed.Store
+        Store with keys prefixed by ``tc_hunt/``
+    """
+    if DistributedManager.is_initialized() and DistributedManager().distributed:
+        # private, but the only handle on the store torch.distributed already runs
+        from torch.distributed.distributed_c10d import _get_default_store
+
+        store = _get_default_store()
+    else:
+        store = torch.distributed.HashStore()
+    return torch.distributed.PrefixStore("tc_hunt/", store)
+
+
+class RetryQueue:
+    """Batches to retry, shared by all ranks through the root's key-value store.
+
+    A rank puts a batch that became unstable into the queue. Once a rank has
+    finished its initial runs, it takes batches from the queue until all ranks
+    have finished their initial runs, no retry is running any more and every
+    queued batch has been taken. A rank therefore helps with the retries of
+    other ranks instead of idling.
+
+    Every item is taken by exactly one rank: items are numbered by an atomic
+    counter, and a rank owns item ``i`` if it is the first to increment
+    ``claim/i``. Items are only put by ranks that are still running, before they
+    report to be done, so no item is left behind.
+
+    Parameters
+    ----------
+    store : torch.distributed.Store
+        Store shared by all ranks, see :func:`shared_store`
+    world_size : int
+        Number of ranks
+    poll_seconds : float, optional
+        Waiting time between two looks at an empty queue, by default 5
+    """
+
+    def __init__(
+        self, store: torch.distributed.Store, world_size: int, poll_seconds: float = 5
+    ) -> None:
+        self.store = torch.distributed.PrefixStore("retries/", store)
+        self.world_size = world_size
+        self.poll_seconds = poll_seconds
+        self._cursor = 0
+
+    def _count(self, key: str) -> int:
+        return self.store.add(key, 0)
+
+    def put(self, item: Any) -> None:
+        """Queue an item for any rank to take."""
+        index = self.store.add("queued", 1) - 1
+        self.store.set(f"item/{index}", pickle.dumps(item))
+
+    def finish_initial(self) -> None:
+        """Report that this rank has finished its initial runs."""
+        self.store.add("done", 1)
+
+    def take(self) -> Any | None:
+        """Wait for an item, ``None`` once there is no work left for any rank.
+
+        Every item taken has to be reported with :meth:`task_done` once it ran.
+        """
+        while True:
+            queued = self._count("queued")
+            while self._cursor < queued:
+                index = self._cursor
+                self._cursor += 1
+                if self.store.add(f"claim/{index}", 1) == 1:
+                    self.store.add("running", 1)
+                    # waits if the item is claimed before it is set
+                    return pickle.loads(self.store.get(f"item/{index}"))  # noqa: S301
+
+            if self._count("done") == self.world_size and self._count("running") == 0:
+                # a rank may have queued an item before it finished
+                if self._count("queued") == queued:
+                    return None
+                continue
+            time.sleep(self.poll_seconds)
+
+    def task_done(self) -> None:
+        """Report that a taken item has been run."""
+        self.store.add("running", -1)
+
+    def add_failed(self, count: int) -> None:
+        """Count members that stayed unstable after their last retry."""
+        self.store.add("failed", count)
+
+    def failed(self) -> int:
+        """Members of all ranks that stayed unstable, final once take returned None."""
+        return self._count("failed")
 
 
 class InstabilityDetection:

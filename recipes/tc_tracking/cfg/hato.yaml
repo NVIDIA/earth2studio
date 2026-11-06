@@ -30,6 +30,7 @@ cyclone_tracking:
 stability_check:
     variables: ['t1000', 'u250', 'v850']
     thresholds: [10, 10, 10]
+    max_retries: 3  # then the batch is logged as failed
 
 # hydra logs
 hydra:

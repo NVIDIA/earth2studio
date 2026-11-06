@@ -150,16 +150,46 @@ def setup_output(
     return store, template
 
 
+def batch_name(ic: np.datetime64, mems: np.ndarray) -> str:
+    """Name of a batch's output: IC and member range, e.g.
+    ``2024-09-24T00.00.00_mems0000-0001``."""
+    ic_str = np.datetime_as_string(ic, unit="s").replace(":", ".")
+    return f"{ic_str}_mems{mems[0]:04d}-{mems[-1]:04d}"
+
+
+def write_seed(store: NetCDF4Backend, mems: np.ndarray, seed: int) -> None:
+    """Write the random seed of a batch, ``-1`` marks members without valid data.
+
+    Parameters
+    ----------
+    store : NetCDF4Backend
+        Store of the batch, with a ``random_seed`` array
+    mems : np.ndarray
+        Members of the batch
+    seed : int
+        Seed used for the batch, or ``-1`` if the batch failed
+    """
+    store.write(
+        xr.DataArray(
+            np.full(len(mems), seed, dtype=np.int64),
+            dims=("ensemble",),
+            coords={"ensemble": mems},
+            name="random_seed",
+        )
+    )
+
+
 def initialise_netcdf_output(
     cfg: DictConfig,
     model: PrognosticModel,
     ic: np.datetime64,
-    runs: list[tuple[np.datetime64, np.ndarray, int]],
+    mems: np.ndarray,
+    seed: int,
 ) -> NetCDF4Backend:
-    """Create a NetCDF4 store for a single initial condition.
+    """Create the NetCDF4 store of one batch, overwriting an existing one.
 
-    The file name encodes the IC timestamp and ensemble member range.
-    Random seeds are written into the store alongside the forecast arrays.
+    The file name encodes the IC and the batch's member range. The batch's
+    random seed is written into the store alongside the forecast arrays.
 
     Parameters
     ----------
@@ -168,27 +198,19 @@ def initialise_netcdf_output(
     model : PrognosticModel
         Prognostic model whose output grid is stored.
     ic : np.datetime64
-        Initial condition time for this file.
-    runs : list[tuple[np.datetime64, np.ndarray, int]]
-        Full list of ``(ic_time, member_indices, seed)`` tuples; only
-        entries matching *ic* are used.
+        Initial condition of the batch.
+    mems : np.ndarray
+        Members of the batch.
+    seed : int
+        Random seed of the batch.
 
     Returns
     -------
     NetCDF4Backend
         Initialised storage backend ready for writing.
     """
-    batches = [(mems, seed) for iic, mems, seed in runs if iic == ic]
-    mems = np.concatenate([mems for mems, _ in batches])
-    seeds = np.concatenate([np.full(len(mems), seed) for mems, seed in batches])
-
-    # setup filename
     file_name = os.path.join(cfg.store_dir, cfg.project).removesuffix(".nc")
-    file_name = (
-        file_name
-        + f"_{np.datetime_as_string(ic, unit='s')}_mems{mems[0]:04d}-{mems[-1]:04d}.nc"
-    )
-    file_name = file_name.replace(":", ".")
+    file_name = f"{file_name}_{batch_name(ic, mems)}.nc"
 
     store = NetCDF4Backend(
         file_name=file_name, backend_kwargs={"mode": "w", "diskless": False}
@@ -197,15 +219,9 @@ def initialise_netcdf_output(
     # random seed of each member, an array named after itself rather than by a
     # variable label
     store.add_array(
-        coord_array(
-            ("ensemble",), {"ensemble": mems}, dtype=seeds.dtype, name="random_seed"
-        )
+        coord_array(("ensemble",), {"ensemble": mems}, dtype=np.int64, name="random_seed")
     )
-    store.write(
-        xr.DataArray(
-            seeds, dims=("ensemble",), coords={"ensemble": mems}, name="random_seed"
-        )
-    )
+    write_seed(store, mems, seed)
 
     store.add_array(build_output_template(cfg, model, np.array([ic]), mems))
 
