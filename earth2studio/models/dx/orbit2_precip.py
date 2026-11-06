@@ -152,12 +152,10 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     ----
     A few details regarding the model's variables:
 
-    - ``t2m_max`` and ``t2m_min`` are the daily maximum and minimum 2m temperature,
-      requested as the temporal statistics ``t2m:max:24h`` and ``t2m:min:24h``
-      (window ``[t-24h, t)``).
-    - ``tp24`` is the 24-hour accumulated precipitation, requested as
-      ``tp:sum:-23h:1h`` (window ``[t-23h, t+1h)``, the 24 hourly accumulations
-      ending at ``t``).
+    - ``t2m:max:24h`` and ``t2m:min:24h`` are the daily maximum and minimum 2m
+      temperature over the window ``[t-24h, t)``.
+    - ``tp:sum:-23h:1h`` is the 24-hour accumulated precipitation over the window
+      ``[t-23h, t+1h)``, the 24 hourly accumulations ending at ``t``.
     - ``t2m`` and ``sst`` are combined to represent global surface temperature, with
       ``sst`` replacing ``t2m`` over the ocean. The same is applied to the daily
       extremes using ``sst:max:24h`` and ``sst:min:24h``. The ``sst`` inputs are
