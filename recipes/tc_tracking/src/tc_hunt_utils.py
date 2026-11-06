@@ -228,6 +228,8 @@ class InstabilityDetection:
     ------
     ValueError
         If the number of thresholds does not match the number of variables.
+        Raised by a call if the reference values (first call after
+        :meth:`reset`) contain NaN, which would fail every check.
     """
 
     def __init__(self, vars: list[str], thresholds: list[float]) -> None:
@@ -264,6 +266,12 @@ class InstabilityDetection:
         means = means.transpose("ensemble", "variable").e2s.as_numpy().values
 
         if self.baseline is None:
+            nan_vars = np.array(self.vars)[np.isnan(means).any(axis=0)]
+            if nan_vars.size:
+                raise ValueError(
+                    f"stability check variables {nan_vars.tolist()} contain NaN in "
+                    "the initial condition, choose other variables"
+                )
             self.baseline = means
 
         return (np.abs(means - self.baseline) < self.thresholds).all(axis=-1)
