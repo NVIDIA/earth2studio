@@ -16,7 +16,7 @@
 
 import pytest
 
-from earth2studio.data import ARCO_ERA5, GFS, NCAR_ERA5, WB2ERA5
+from earth2studio.data import ARCO_ERA5, GFS, WB2ERA5
 from earth2studio.models.dx import (
     CBottleInfill,
     ClimateNet,
