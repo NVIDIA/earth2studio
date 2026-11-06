@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `OrbitGlobalPrecip` now requests its 24-hour precipitation and daily 2m temperature
   max/min inputs as native temporal statistics (`tp:sum:-23h:1h`,
-  `t2m:max:-23h:1h`, `t2m:min:-23h:1h`) and defaults to `ARCO_ERA5`, replacing the
+  `t2m:max:24h`, `t2m:min:24h`) and defaults to `ARCO_ERA5`, replacing the
   manual hourly accumulation in the docstring example.
 
 ### Deprecated

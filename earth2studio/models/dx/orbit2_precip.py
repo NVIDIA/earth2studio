@@ -74,12 +74,12 @@ VARIABLES = [
     "t2m_min",
 ]
 
-# Daily statistics are accumulated over the 24 hourly ERA5 samples valid at
-# t-23h, ..., t (window [t-23h, t+1h)), i.e. the 24 hours ending at (and including)
-# the requested time
+# ``tp`` is accumulated over the hour ending at its stamp, so the 24 hourly samples
+# valid at t-23h, ..., t (window [t-23h, t+1h)) cover the 24 hours ending at t.
+# ``t2m`` is instantaneous, so its extremes use the past 24 hours [t-24h, t).
 TP24_LABEL = "tp:sum:-23h:1h"
-T2M_MAX_LABEL = "t2m:max:-23h:1h"
-T2M_MIN_LABEL = "t2m:min:-23h:1h"
+T2M_MAX_LABEL = "t2m:max:24h"
+T2M_MIN_LABEL = "t2m:min:24h"
 _STATISTIC_LABELS = {
     "tp24": TP24_LABEL,
     "t2m_max": T2M_MAX_LABEL,
@@ -143,12 +143,12 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
     A few details regarding the model's variables:
 
     - The input variables ``t2m_min`` and ``t2m_max`` are daily minimum and maximum
-      and are requested as the temporal statistics ``t2m:min:-23h:1h`` and
-      ``t2m:max:-23h:1h``. Likewise the 24-hour accumulated precipitation input is
-      requested as ``tp:sum:-23h:1h``. Each window covers the 24 hourly samples
-      valid at ``t-23h, ..., t`` (inclusive of the requested time), so the data
-      source must support temporal statistics (e.g.
-      :py:class:`earth2studio.data.ARCO_ERA5`).
+      and are requested as the temporal statistics ``t2m:min:24h`` and
+      ``t2m:max:24h`` (window ``[t-24h, t)``, the instantaneous 2m temperature over
+      the previous 24 hours). The 24-hour accumulated precipitation input is requested
+      as ``tp:sum:-23h:1h`` (window ``[t-23h, t+1h)``, the 24 hourly accumulations
+      ending at ``t``). The data source must therefore support temporal statistics
+      (e.g. :py:class:`earth2studio.data.ARCO_ERA5`).
     - ``t2m`` and ``sst`` are combined to represent global surface temperature.
     - The model is fine-tuned for IMERG 24-hour accumulated precipitation
       (``tp:sum:-23h:1h``), which is also the output variable of this model.
