@@ -32,7 +32,6 @@ Earth2Studio organizes tests into separate tox environments based on functionali
 - **`test-px-models`** - Prognostic model tests (requires `all` extra)
 - **`test-dx-models`** - Diagnostic model tests (requires `all` extra)
 - **`test-da-models`** - Data assimilation model tests (requires `all` extra)
-- **`test-serve`** - Serve/API tests (requires `serve` extra)
 
 ### Automatic Test Skipping
 
@@ -130,7 +129,6 @@ debugging and allows parallel execution. Each job only runs when relevant files 
 - **`test-px-models`** - Runs when prognostic model code or tests change
 - **`test-dx-models`** - Runs when diagnostic model code or tests change
 - **`test-da-models`** - Runs when data assimilation model code or tests change
-- **`test-serve`** - Runs when serve, API code, or tests change
 
 To force all tests to run regardless of changes, set the `CI_PYTEST_ALL` environment variable
 to `1`, `true`, `yes`, or `on`.
