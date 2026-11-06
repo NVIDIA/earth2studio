@@ -498,6 +498,9 @@ full batch must always be reproduced. For example, with a
 batch size of 2 in the example above, the run would reproduce
 members 4, 5, 8, and 9 from the midnight ensemble, and
 members 4, 5, 12, and 13 from the midday ensemble.
+Use the same `batch_size` and `ensemble_size` as in the
+original run: they define the batches, and a member's noise
+depends on the batch it was generated in.
 
 ### 2.3 Extract Reference Tracks from ERA5
 

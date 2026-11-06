@@ -10,7 +10,7 @@ set -e
 model=${1:-fcn3}
 ic="2024-09-24 00:00:00"
 case "$model" in
-    # FCN3 is reproducible as is and batches members efficiently
+    # FCN3 is reproducible as is; batch size 2 checks that whole batches are reproduced
     fcn3) overrides=(model=fcn3 batch_size=2) ;;
     # AIFS-ENS needs deterministic GPU kernels to be reproducible, and one
     # member per batch keeps it within 48 GB of GPU memory
