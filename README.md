@@ -47,8 +47,6 @@ To keep the skills installed, add them from this repository:
 ```bash
 npx skills add NVIDIA/earth2studio --skill earth2studio-install
 npx skills add NVIDIA/earth2studio --skill earth2studio-discover
-npx skills add NVIDIA/earth2studio --skill earth2studio-data-fetch
-npx skills add NVIDIA/earth2studio --skill earth2studio-deterministic-forecast
 ```
 
 Skills for extending Earth2Studio (new prognostic, diagnostic, data source,
