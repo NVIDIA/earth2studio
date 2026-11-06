@@ -38,6 +38,8 @@ class TempestExtremes:
     the tracker writes one NetCDF file per ensemble member, with dimensions
     (time, lat, lon), and runs TE's DetectNodes and StitchNodes on it, which
     produces one CSV track file per member in ``<store_dir>/cyclone_tracks_te``.
+    With ``detect_chunk_steps``, DetectNodes already runs on chunks of steps
+    while they are recorded, and StitchNodes on the nodes of all chunks.
 
     TE only provides a command-line interface, so the DetectNodes and
     StitchNodes commands are passed in as strings, giving full control over the
@@ -85,6 +87,12 @@ class TempestExtremes:
         the number of CPU cores per GPU
     timeout : float, optional
         Seconds :meth:`close` waits for each member, by default 120
+    detect_chunk_steps : int, optional
+        Run DetectNodes every this many recorded steps instead of once on the
+        whole forecast. DetectNodes works on one time step at a time, so the
+        tracks are the same, but the host memory and scratch space needed no
+        longer grow with the length of the forecast. By default None (the
+        whole forecast at once)
     """
 
     def __init__(
@@ -100,6 +108,7 @@ class TempestExtremes:
         asynchronous: bool = False,
         max_workers: int | None = None,
         timeout: float = 120,
+        detect_chunk_steps: int | None = None,
     ):
         self.input_vars = list(input_vars)
         self.heights = heights
@@ -135,8 +144,14 @@ class TempestExtremes:
         os.makedirs(scratch_dir, exist_ok=True)
         self.scratch_dir = tempfile.mkdtemp(prefix="tc_tracking_", dir=scratch_dir)
 
-        # forecast steps of the current batch, filled by record_state
+        # forecast steps of the current batch not yet detected, filled by
+        # record_state
         self._buffer: list[xr.DataArray] = []
+        self.detect_chunk_steps = detect_chunk_steps
+        # per member of the current batch: detection task and node file of
+        # every chunk
+        self._nodes: dict[str, list[tuple[Future | None, str]]] = {}
+        self._chunk = 0
 
         self._executor: ThreadPoolExecutor | None = None
         self._tasks: list[Future] = []
@@ -187,6 +202,7 @@ class TempestExtremes:
             asynchronous=asynchronous,
             max_workers=cfg.get("max_workers_per_rank", None),
             timeout=cfg.get("task_timeout_seconds", 120),
+            detect_chunk_steps=cfg.get("detect_chunk_steps", None),
         )
 
     @staticmethod
@@ -205,11 +221,32 @@ class TempestExtremes:
         return out
 
     def reset(self) -> None:
-        """Discard the buffered forecast steps, e.g. of an unstable batch."""
+        """Discard the forecast of the current batch, e.g. of an unstable one.
+
+        Waits for its detection tasks that are already running and removes their
+        files.
+        """
         self._buffer = []
+        discarded = set()
+        for chunks in self._nodes.values():
+            for task, node_file in chunks:
+                discarded.add(task)
+                if task is not None and not task.cancel():
+                    try:
+                        task.result(timeout=self.timeout)
+                    except Exception:  # noqa: S110
+                        pass  # the batch is discarded anyway
+                if os.path.exists(node_file):
+                    os.remove(node_file)
+        self._nodes = {}
+        self._chunk = 0
+        self._tasks = [task for task in self._tasks if task not in discarded]
 
     def record_state(self, x: xr.DataArray) -> None:
         """Buffer the tracking variables of one forecast step on the host.
+
+        With ``detect_chunk_steps``, DetectNodes runs on the buffer whenever it
+        holds that many steps, which bounds the buffer's memory.
 
         Parameters
         ----------
@@ -218,9 +255,14 @@ class TempestExtremes:
             lat, lon) on the grid of ``heights``
         """
         self._buffer.append(x.sel(variable=self.input_vars).e2s.as_numpy())
+        if self.detect_chunk_steps and len(self._buffer) >= self.detect_chunk_steps:
+            self._detect_chunk()
 
     def __call__(self, out_file_names: list[str] | None = None) -> list[str]:
-        """Track cyclones in the buffered forecast, one track file per member.
+        """Track cyclones in the recorded forecast, one track file per member.
+
+        Runs DetectNodes on the steps not yet detected, then StitchNodes on the
+        nodes of all chunks of a member.
 
         Parameters
         ----------
@@ -240,38 +282,53 @@ class TempestExtremes:
         """
         self._raise_failures()
 
-        raw_files = self.dump_raw_data()
+        if self._buffer:
+            self._detect_chunk()
+        nodes, self._nodes, self._chunk = self._nodes, {}, 0
+
         if out_file_names is None:
-            out_file_names = [
-                "tracks_" + os.path.basename(raw).removesuffix(".nc") + ".csv"
-                for raw in raw_files
-            ]
-        if len(out_file_names) != len(raw_files):
+            out_file_names = [f"tracks_{name}.csv" for name in nodes]
+        if len(out_file_names) != len(nodes):
             raise ValueError(
-                f"{len(out_file_names)} file names passed for {len(raw_files)} members"
+                f"{len(out_file_names)} file names passed for {len(nodes)} members"
             )
 
         track_files = [os.path.join(self.store_dir, name) for name in out_file_names]
-        for raw, track in zip(raw_files, track_files):
+        for chunks, track in zip(nodes.values(), track_files):
+            # the executor runs tasks in the order submitted, so a stitch task
+            # only waits for detection tasks that are already running
             if self._executor is None:
-                self._track_member(raw, track)
+                self._stitch_member(chunks, track)
             else:
                 self._tasks.append(
-                    self._executor.submit(self._track_member, raw, track)
+                    self._executor.submit(self._stitch_member, chunks, track)
                 )
 
         return track_files
 
-    def dump_raw_data(self) -> list[str]:
-        """Write the buffered forecast to one NetCDF file per ensemble member.
+    def _detect_chunk(self) -> None:
+        """Write the buffer to files and run DetectNodes on them, per member."""
+        for name, raw in self.dump_raw_data().items():
+            node_file = raw.removesuffix(".nc") + "_nodes.txt"
+            if self._executor is None:
+                self._detect(raw, node_file)
+                task = None
+            else:
+                task = self._executor.submit(self._detect, raw, node_file)
+                self._tasks.append(task)
+            self._nodes.setdefault(name, []).append((task, node_file))
+        self._chunk += 1
+
+    def dump_raw_data(self) -> dict[str, str]:
+        """Write the buffered steps to one NetCDF file per ensemble member.
 
         TE expects fields with dimensions (time, lat, lon), so the lead times
-        of the buffer are converted to absolute times.
+        of the buffer are converted to absolute times. Empties the buffer.
 
         Returns
         -------
-        list[str]
-            Paths of the NetCDF files, one per member
+        dict[str, str]
+            Paths of the NetCDF files, keyed by ``<ic>_mem_<member>``
         """
         fields = xr.concat(self._buffer, dim="lead_time")
         self._buffer = []
@@ -296,32 +353,44 @@ class TempestExtremes:
             )
 
         # written in the calling thread, as HDF5 is not thread-safe
-        raw_files = []
+        raw_files = {}
         for mem in fields.coords["ensemble"].values:
-            raw = os.path.join(
-                self.scratch_dir,
-                f"{np.datetime_as_string(ic, unit='s')}_mem_{mem:04d}.nc",
-            )
+            name = f"{np.datetime_as_string(ic, unit='s')}_mem_{mem:04d}"
+            raw = os.path.join(self.scratch_dir, f"{name}_chunk_{self._chunk:04d}.nc")
             data.sel(ensemble=mem, drop=True).to_netcdf(raw, format="NETCDF4", mode="w")
-            raw_files.append(raw)
+            raw_files[name] = raw
 
         return raw_files
 
-    def _track_member(self, raw_file: str, track_file: str) -> None:
-        """Run DetectNodes and StitchNodes on the input file of one member."""
-        then = time.time()
-        node_file = raw_file.removesuffix(".nc") + "_nodes.txt"
+    def _detect(self, raw_file: str, node_file: str) -> None:
+        """Run DetectNodes on the input file of one member and chunk."""
         try:
             self._run(self.detect_cmd + ["--in_data", raw_file, "--out", node_file])
-            self._run(self.stitch_cmd + ["--in", node_file, "--out", track_file])
         finally:
-            if os.path.exists(node_file):
-                os.remove(node_file)
             if self.keep_raw:
                 raw_dir = os.path.join(self.store_dir, "raw_data")
                 shutil.move(raw_file, os.path.join(raw_dir, os.path.basename(raw_file)))
             else:
                 os.remove(raw_file)
+
+    def _stitch_member(
+        self, chunks: list[tuple[Future | None, str]], track_file: str
+    ) -> None:
+        """Run StitchNodes on the nodes of all chunks of one member."""
+        then = time.time()
+        node_files = [node_file for _, node_file in chunks]
+        list_file = node_files[0].removesuffix("_chunk_0000_nodes.txt") + "_nodes.lst"
+        try:
+            for task, _ in chunks:
+                if task is not None:
+                    task.result()
+            with open(list_file, "w") as f:
+                f.write("\n".join(node_files) + "\n")
+            self._run(self.stitch_cmd + ["--in_list", list_file, "--out", track_file])
+        finally:
+            for path in node_files + [list_file]:
+                if os.path.exists(path):
+                    os.remove(path)
         logger.info(
             f"took {time.time() - then:.1f}s to track {os.path.basename(track_file)}"
         )
