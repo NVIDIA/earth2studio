@@ -130,6 +130,20 @@ def load_model(cfg: DictConfig) -> PrognosticModel:
         from earth2studio.models.px import AIFS2ENS
 
         model_cls = AIFS2ENS
+        # TODO: find the remaining source of non-determinism in AIFS-ENS v2.
+        # Same seed and deterministic=True still give one of two slightly
+        # different results (a few Pa in msl after 18 h, growing to hPa), seemingly
+        # depending on GPU memory state. Not the seeding, not the edge sort of
+        # anemoi's Triton graph attention, not gc.freeze; untested: PyG backend
+        # (does not fit into 48 GB), allocation-dependent kernel selection.
+        if cfg.get("deterministic", False) or cfg.mode == "reproduce_members":
+            logger.warning(
+                "\n" + "!" * 78 + "\n"
+                "AIFS-ENS v2 is NOT bitwise reproducible, even with deterministic=True.\n"
+                "Reproduced members can differ slightly from the original run, and\n"
+                "their tracks may not match exactly. See README, section 2.2.\n"
+                + "!" * 78
+            )
     else:
         raise ValueError(
             f"model {cfg.model} not supported, choose from 'fcn3', 'aifs', 'aifs-v2'"
@@ -201,6 +215,10 @@ def run_inference(
             vars=cfg.stability_check.variables,
             thresholds=cfg.stability_check.thresholds,
         )
+
+    # exclude everything alive now (model, libraries) from garbage collection,
+    # so the per-step gc.collect() below only scans new objects (ms, not 0.5 s)
+    gc.freeze()
 
     for ic, mems, seed in runs:
         if cfg.store_type == "netcdf" and ic not in nc_stores:
