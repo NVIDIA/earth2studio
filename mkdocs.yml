@@ -526,6 +526,7 @@ nav:
     - Batch Dimension: userguide/advanced/batch.md
     - AutoModels: userguide/advanced/auto.md
     - Lexicon: userguide/advanced/lexicon.md
+    - Deployment and Serving: userguide/advanced/serving.md
     - Knowledge Base:
       - userguide/notes/index.md
       - Surface Pressure: userguide/notes/surface_pressure.md

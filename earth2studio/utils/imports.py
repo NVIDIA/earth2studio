@@ -360,7 +360,7 @@ def pytest_require(
     *packages : str
         Package specs, optionally with version constraints (e.g., "scipy>=1.15", "torch").
     groups : list[str] | None
-        Dependency group names from pyproject.toml (e.g., ["serve", "data"]).
+        Dependency group names from pyproject.toml (e.g., ["data", "statistics"]).
 
     Returns
     -------
@@ -369,9 +369,9 @@ def pytest_require(
 
     Examples
     --------
-    Skip entire module if 'serve' group dependencies are not installed:
+    Skip entire module if 'data' group dependencies are not installed:
 
-    >>> pytestmark = pytest_require(groups=["serve"])
+    >>> pytestmark = pytest_require(groups=["data"])
 
     Skip if specific packages are missing or wrong version:
 
@@ -379,7 +379,7 @@ def pytest_require(
 
     Combine packages and groups:
 
-    >>> pytestmark = pytest_require("redis>=5.0", groups=["serve"])
+    >>> pytestmark = pytest_require("pandas>=2.0", groups=["data"])
     """
     import pytest  # Lazy import - pytest is a dev dependency
 
