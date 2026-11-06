@@ -277,12 +277,14 @@ def run_inference(
                     ]
                 )
     finally:
-        # also on failure, so no scratch files are left in /dev/shm
+        # also on failure, so outputs are flushed and no scratch files are
+        # left in /dev/shm; stores first, as closing the tracker raises if a
+        # TempestExtremes job failed
+        for nc_store in nc_stores.values():
+            nc_store.close()
         # wait for tracking running in the background
         if cyclone_tracking:
             cyclone_tracking.close()
-        for nc_store in nc_stores.values():
-            nc_store.close()
 
     # Consolidate metadata in zarr files
     if isinstance(store, ZarrBackend):
