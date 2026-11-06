@@ -219,8 +219,8 @@ proceed in two steps:
    CI keep working.
 2. **Backends and drivers.** Migrate `ZarrBackend`, `IceChunkBackend`,
   `NetCDF4Backend`, `KVBackend` and `AsyncZarrBackend`. Move `run.deterministic`,
-   `run.diagnostic` and `run.ensemble` to `io.write(y)`, and serve's
-   `BackendProgress`, examples, recipes and tests with them. Remove the private
+   `run.diagnostic` and `run.ensemble` to `io.write(y)`,
+   and examples, recipes and tests with them. Remove the private
    legacy protocol, `_output_dimensions` and `split_coords` from IO paths. Recipes
    with their own scoring IO, such as s2s, migrate separately.
 

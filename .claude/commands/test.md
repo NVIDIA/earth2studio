@@ -17,7 +17,6 @@ therefore which tox environment) is required.
 | `test-dx-models` | `all` | `test/models/dx` |
 | `test-da-models` | `all` | `test/models/da` |
 | `test-px-models-ace2` | `ace2` | `test/models/px/test_ace2.py` |
-| `test-serve` | `serve` | `test/serve` |
 
 > **Note**: The `test` environment also covers `test/models/test_batch.py` and
 > `test/utils/test_imports.py`. Check `tox.ini` for the full authoritative list.

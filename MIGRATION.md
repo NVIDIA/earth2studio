@@ -174,6 +174,12 @@ external forcing. They retain `nsteps`, dictionary `output_coords`, and initial 
 custom iterator loops must publish initial fields separately. Update custom callbacks and
 IO using the sections above. For new orchestration, see [Pipeline](dev/examples/09_pipeline.py).
 
+## Serving
+
+The beta `earth2studio.serve` package, the `serve` install extra (`earth2studio[serve]`),
+the top-level `serve/` directory, and the `make container-service` target are removed.
+Use [PhysicsNeMo Serve](https://github.com/NVIDIA/physicsnemo-serve) for deployment.
+
 ## Verify
 
 - Build a checklist from each migrated component's rules in [dev/spec](dev/spec/README.md);
