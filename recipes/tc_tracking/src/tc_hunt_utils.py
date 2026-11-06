@@ -127,35 +127,36 @@ def get_set_of_random_seeds(
     return seeds
 
 
-def assign_runs_to_rank(items: list[Any]) -> list[Any] | None:
+def assign_runs_to_rank(items: list[Any]) -> list[Any]:
     """Partition work items across distributed ranks.
 
-    Splits *items* evenly across all ranks via contiguous slicing, which is
-    deterministic for a deterministic input. Returns ``None`` for ranks that
-    receive no work.
+    Splits *items* into contiguous blocks whose sizes differ by at most one,
+    the first ranks taking the extra items. Contiguous blocks keep the batches
+    of an initial condition on few ranks. Deterministic for a deterministic
+    input.
 
     Parameters
     ----------
     items : list[Any]
-        List of work items (e.g. ``(initial_condition, member_indices, seed)``
-        tuples or storm names).
+        List of work items, e.g. ``(initial_condition, member_indices, seeds)``
+        tuples.
 
     Returns
     -------
-    list[Any] | None
-        Subset of *items* assigned to this rank, or ``None`` if idle.
+    list[Any]
+        Subset of *items* assigned to this rank, empty if the rank is idle.
     """
     dist = DistributedManager()
 
-    items_per_rank = len(items) // dist.world_size
-    if len(items) % dist.world_size != 0:
-        items_per_rank += 1
+    base, remainder = divmod(len(items), dist.world_size)
+    start = dist.rank * base + min(dist.rank, remainder)
+    end = start + base + (dist.rank < remainder)
+    items = items[start:end]
 
-    items = items[dist.rank * items_per_rank : (dist.rank + 1) * items_per_rank]
-
-    if len(items) == 0:
-        logger.info(f"nothing to do for rank {dist.rank}, exiting")
-        return None
+    if items:
+        logger.info(f"rank {dist.rank}: {len(items)} runs")
+    else:
+        logger.info(f"rank {dist.rank}: no runs")
 
     return items
 

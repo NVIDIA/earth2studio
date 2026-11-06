@@ -404,8 +404,7 @@ def run_ensemble(cfg: DictConfig) -> None:
         add_arrays=DistributedManager().rank == 0,
     )
 
-    if runs is None:
-        DistributedManager().cleanup()
-        return
-
+    # every rank runs the inference, also without runs: its setup contains
+    # collectives (e.g. loading the orography), which all ranks have to reach.
+    # No collectives after the setup, as idle ranks finish early
     run_inference(model, cfg, store, template, runs)
