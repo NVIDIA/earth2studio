@@ -220,6 +220,17 @@ settings using Slurm, MPI, or torchrun, e.g.
 torchrun --nproc-per-node=2 main.py --config-name=config.yaml
 ```
 
+The batches (one IC and `batch_size` members each) are split
+into contiguous blocks of nearly equal size, one per rank, so
+the batches of an IC stay on few ranks. A rank without
+batches still runs the setup. A batch that becomes unstable
+(see the stability check below) goes into a queue shared by
+all ranks. Once a rank has finished its own batches, it takes
+batches from this queue until no rank has work left, so ranks
+help each other with retries instead of idling. If a rank
+crashes, the others would wait for it: `torchrun` and
+`srun --kill-on-bad-exit` stop all ranks in that case.
+
 The CPU-bound `extract_baseline` mode does not use
   `torchrun` and does not require a GPU. Instead, individual
   storms are distributed across CPU worker processes via the
@@ -257,9 +268,13 @@ mode: 'generate_ensemble'     # choose mode
 model: 'aifs'                 # 'fcn3', 'aifs' or 'aifs-v2'
 # optional: bitwise reproducible runs, see 2.2 (default: False)
 deterministic: False
-# optional: random seed
-# (does NOT control model-internal random state)
+# optional: random seed, from which the seeds of all batches
+# are drawn (does NOT control model-internal random state).
+# If not set, rank 0 draws one and logs it.
 random_seed: 7777
+# optional: continue an interrupted or partly failed run,
+# see "Resuming a Run" below (default: False)
+resume: False
 # optional: path to model weights
 # (uses default package if omitted)
 model_package: '/path/to/weights'
@@ -302,10 +317,38 @@ store_type: "netcdf"
 store_dir: "./outputs_${project}"
 # field variables to write to file
 out_vars: ['msl', 'z300', 'z500', 'u10m', 'v10m']
+# optional, Zarr only: one shard per member, IC and variable
+# (default: True), see below
+zarr_shard_per_member: True
 ```
 
 The data source can be any of the Earth-2 Studio data
 sources or a custom data source implementation.
+
+**Output Files**: Every batch writes its own store, so that
+any rank can run any batch, including retries. NetCDF output
+is one file per batch,
+`<project>_<ic>_mems<first>-<last>.nc`. Zarr output is
+written into one store per batch under `<project>_batches/`,
+which rank 0 merges into `<project>.zarr` at the end of the
+run. The merge moves no data, it hard-links the batch's
+chunk files into the combined store. If a run is
+interrupted, `mode: 'merge_zarr'` with the same config merges
+the batch stores that are complete. Both formats contain a
+variable `random_seed` with the seed each member was run
+with, `-1` for members without valid fields (unstable with
+all seeds, or not run).
+
+Zarr chunks hold one member, IC, lead time and variable.
+With `zarr_shard_per_member: True`, all lead times of a
+member, IC and variable form one shard, i.e. one file. Zarr
+would rewrite a shard on every partial write, so the shard
+is kept in host memory until the member is complete and
+then written at once, in the background. This needs about
+`batch_size x len(out_vars) x (n_steps + 1) x 4 MB` of host
+memory per rank at 0.25 degree. For very long rollouts or
+little host memory, set it to `False`: every step is then
+written as its own files right away.
 
 **Storage Considerations**: Exercise caution when storing
 field variables, as storage requirements grow rapidly
@@ -351,6 +394,8 @@ cyclone_tracking:
     task_timeout_seconds: 120   # timeout for tracking tasks
     print_te_output: False      # print TE output to terminal
     max_workers_per_rank: 8     # max concurrent TE subprocesses per rank
+    # run DetectNodes every n steps (null = once per rollout)
+    detect_chunk_steps: null
 ```
 
 <!-- markdownlint-enable MD013 -->
@@ -376,6 +421,17 @@ need to specify file paths explicitly (see
 use `--in_data_list` and `--out_file_list` for
 `DetectNodes`, and `--in` and `--out` for `StitchNodes`.
 
+**Long Rollouts**: By default, the tracking variables of all
+steps are kept in host memory and written to `scratch_dir`
+(in memory as well, if it is `/dev/shm`) before DetectNodes
+runs. With `detect_chunk_steps`, DetectNodes runs on chunks
+of that many steps while the model rolls out, and StitchNodes
+on the nodes of all chunks at the end. DetectNodes works on
+one time step at a time, so the tracks are the same, but
+memory no longer grows with the rollout length. For rollouts
+of months, also set `scratch_dir` to a directory on disk and,
+for Zarr output, consider `zarr_shard_per_member: False`.
+
 **Stability Check** (optional)
 
 FCN3 can perform stable rollouts on subseasonal timescales
@@ -394,19 +450,48 @@ check has been implemented to detect and handle these cases:
 - **Implementation**: Provide a list of variables to monitor
   and a threshold for each. Global averages are computed at
   initialisation and at each time step. If any variable's
-  global average exceeds its threshold, the simulation is
-  interrupted and restarted with a new random seed.
+  global average exceeds its threshold, the simulation of
+  the batch is interrupted and queued for a retry with a new
+  random seed, which any rank can take. A retried batch keeps
+  its member numbers, and its output records the seed it was
+  run with.
+- **Retries**: At most `max_retries` (default 3) per batch.
+  The retry seeds are drawn from the same generator as the
+  original seeds, so all seeds of a run are unique and depend
+  only on `random_seed`. A batch that stays unstable with all
+  its seeds is logged as failed, writes no track files, and
+  its fields are marked with `random_seed = -1`.
 - **Limitation**: This is a basic implementation. More
   advanced detection methods that don't require 10 extra
-  simulation days, and better load-balancing when many
-  ensemble members become unstable, would be beneficial
-  improvements.
+  simulation days would be beneficial improvements.
 
 ```yaml
 stability_check:
     variables: ['t1000', 'u250', 'v850']
     thresholds: [10, 10, 10]
+    max_retries: 3  # then the batch is logged as failed
 ```
+
+**Resuming a Run** (optional)
+
+A run records its settings in `<project>_run.json` and every
+finished batch in `<project>_status/` (both in `store_dir`).
+Rerunning the same config with `resume: True` skips the
+batches that are done (fields written and all track files
+present), reruns the missing ones, and continues failed
+batches with their next retry seed. For the latter, raise
+`max_retries`; the seeds of all other batches stay the same.
+The settings that define the batches and their seeds
+(`random_seed`, `model`, ICs, `ensemble_size`, `batch_size`,
+`n_steps`, `out_vars`, `store_type`) must not change; the
+number of ranks may. Without `resume`, a run starts from
+scratch and replaces the outputs of an earlier run of the
+project.
+
+To stop a run, send SIGTERM (`kill <pid>` of `torchrun` or
+of the Python process, `scancel` on Slurm): the run exits
+and removes its scratch files. Ctrl-C does not work, as a
+dependency of Earth2Studio replaces Python's SIGINT handler.
 
 **Hydra Configuration** (optional)
 
@@ -461,7 +546,10 @@ To reproduce a run, you need:
 
 - Configuration file from the original run (ideally)
 - Ensemble member ID and random seed for all members to be
-  reproduced (both provided in the track CSV filename)
+  reproduced (both provided in the track CSV filename, the
+  seed also in the `random_seed` variable of the field
+  output). For a member that was retried after an
+  instability, this is the seed of the retry.
 - Batch size (also provided in the track CSV filename)
 
 **Configuration Changes:**
@@ -830,9 +918,10 @@ both runs need `deterministic: True`.
    ```
 
 4. This should produce a folder `outputs_reproduce_helene`
-   containing both track files and a NetCDF file named
-   `reproduce_helene_2024-09-24T00.00.00_mems0000-0013.nc`
-   with the atmospheric fields.
+   containing both track files and one NetCDF file per
+   reproduced batch with the atmospheric fields, e.g.
+   `reproduce_helene_2024-09-24T00.00.00_mems0008-0009.nc`
+   for members 8 and 9.
 
 **Visualise Tracks and Fields**:
 
@@ -844,7 +933,7 @@ create animated visualisations:
    ```python
    field_data = (
        '/path/to/outputs_reproduce_helene'
-       '/reproduce_helene_2024-09-24T00.00.00_mems0000-0013.nc'
+       '/reproduce_helene_2024-09-24T00.00.00_mems0008-0009.nc'
    )
    track_dir = (
        '/path/to/outputs_reproduce_helene'

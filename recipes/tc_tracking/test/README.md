@@ -27,7 +27,11 @@ You can find the track files in `outputs_baseline_helene/cyclone_tracks_te`.
 The directory should contain five csv files with naming pattern according to
 `tracks_2024-09-24T00:00:00_mem_000X_seed_YYYYYYYYY_bs_2.csv`
 This pattern provides information about initial condition, ensemble member ID,
-random seed and batch size.
+random seed and batch size. The seed is the one the member was run with: if
+its batch became unstable and was retried (see the stability check in the main
+README), it is the seed of the retry. With field output (`store_type`
+`netcdf` or `zarr`), the same seed is stored in the variable `random_seed`;
+NetCDF output is one file per batch.
 
 ## Test 2: Reproducibility of Helene Ensemble Members
 
