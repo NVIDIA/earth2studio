@@ -26,25 +26,14 @@ import xarray as xr
 from huggingface_hub import HfFileSystem
 
 from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
+from earth2studio.grids import resolve_grid
 from earth2studio.lexicon.ace import ACELexicon
-from earth2studio.utils.imports import (
-    OptionalDependencyFailure,
-    check_optional_dependencies,
-)
+from earth2studio.utils.imports import check_optional_dependencies
 from earth2studio.utils.type import TimeArray, VariableArray
 
-try:
-    # ACE2 uses F90 regular gaussian grid internally
-    # https://confluence.ecmwf.int/display/OIFS/4.3+OpenIFS%3A+Horizontal+Resolution+and+Configurations
-    # Compute gaussian grid latitudes using legendre polynomials
-    from scipy.special import roots_legendre
-
-    ACE_GRID_LAT = np.degrees(np.arcsin(roots_legendre(2 * 90)[0]))
-    ACE_GRID_LON = np.linspace(0.5, 359.5, 4 * 90, endpoint=True)
-except ImportError:
-    OptionalDependencyFailure("data")
-    ACE_GRID_LAT = None
-    ACE_GRID_LON = None
+# Share the exact Gaussian axes with the model's registered input signature.
+ACE_GRID_LAT = resolve_grid("gaussian-f90").coords()["lat"].values
+ACE_GRID_LON = resolve_grid("gaussian-f90").coords()["lon"].values
 
 
 @check_optional_dependencies("ace2")

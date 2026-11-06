@@ -17,6 +17,7 @@
 import asyncio
 import datetime
 import os
+import weakref
 from collections import OrderedDict
 from pathlib import Path
 
@@ -29,8 +30,11 @@ import xarray as xr
 
 from earth2studio.data import (
     DataArrayFile,
+    DataSource,
+    ForecastSource,
     Random,
     RandomDataFrame,
+    RegriddedSource,
     datasource_to_file,
     fetch_data,
     fetch_dataframe,
@@ -44,15 +48,223 @@ from earth2studio.data.utils import (
     ensure_utc,
     gather_with_concurrency,
     managed_session,
+    map_with_concurrency,
     obstore_fetch_to_cache,
     obstore_list_prefix,
     obstore_read_chunked,
     obstore_read_range,
     obstore_store_from_url,
     obstore_zarr_store,
+    plan_statistics,
     prep_data_inputs,
     prep_forecast_inputs,
+    reduce_statistics,
 )
+from earth2studio.grids import (
+    BilinearRegridder,
+    CurvilinearGrid,
+    LatLonGrid,
+    NearestRegridder,
+)
+from earth2studio.utils.coords import E2S_STATISTICS, coord_array
+from earth2studio.utils.time_statistics import _TIME_STATISTICS, register_time_statistic
+
+
+def test_time_statistics_planning_and_reduction():
+    # Planning splits plain/statistic variables; reduction streams bounded windows
+    times = np.array(["2024-01-02T00", "2024-01-02T06"], dtype="datetime64[ns]")
+    plain, stats, attrs = plan_statistics(
+        ["t2m", "t2m:mean:12h", "u10m:max:6h", "a::b:c"],
+        times,
+        np.timedelta64(6, "h"),
+        ("mean", "max"),
+    )
+    assert plain == [(0, "t2m"), (3, "a::b:c")]
+    assert [(s.slot, s.base, s.modifier) for s in stats] == [
+        (1, "t2m", "mean:12h"),
+        (2, "u10m", "max:6h"),
+    ]
+    # Left-closed window ending at each target, shape (target, sample)
+    assert stats[0].samples.shape == (2, 2)
+    assert stats[0].samples[1, -1] == np.datetime64("2024-01-02T00")
+    assert set(attrs[E2S_STATISTICS]) == {"t2m:mean:12h", "u10m:max:6h"}
+
+    # Lead time targets are planned relative to the initialization time and every
+    # planned sample is validated once, before anything is fetched
+    validated = []
+    _, stats, _ = plan_statistics(
+        ["t2m:sum:2h"],
+        np.array([2, 3], dtype="timedelta64[h]"),
+        np.timedelta64(1, "h"),
+        ("sum",),
+        validate=validated.extend,
+    )
+    assert np.issubdtype(stats[0].samples.dtype, np.timedelta64)
+    assert validated == [datetime.timedelta(hours=h) for h in (0, 1, 2)]
+
+    for variables, message in (
+        ([":mean:6h"], "must not be empty"),
+        (["t2m:mean:6h", "t2m:mean:6h"], "duplicate"),
+        (["t2m:sum:6h"], "not supported"),
+    ):
+        with pytest.raises(ValueError, match=message):
+            plan_statistics(variables, times, np.timedelta64(1, "h"), ("mean",))
+
+    # Statistics reduce transient sample stacks through the registry, so newly
+    # registered statistics work, and only one window is alive at a time.
+    register_time_statistic("range", lambda a, d: a.max(d) - a.min(d))
+    try:
+        times = np.array([3, 4], dtype="timedelta64[h]")
+        variables = [
+            "t2m",
+            "t2m:range:240h",
+            *(f"t2m:{method}:2h" for method in ("mean", "sum", "min", "max")),
+        ]
+        plain, stats, _ = plan_statistics(
+            variables,
+            times,
+            np.timedelta64(1, "h"),
+            ("mean", "sum", "min", "max", "range"),
+        )
+        assert plain == [(0, "t2m")]
+        out = np.full((2, 6, 2), np.nan)
+        refs = []
+
+        async def fetch(coord, base):
+            assert base == "t2m"
+            field = np.array([coord / np.timedelta64(1, "h"), np.nan])
+            refs.append(weakref.ref(field))
+            await asyncio.sleep(0)
+            return field
+
+        asyncio.run(
+            reduce_statistics(out, stats, fetch, async_workers=3, verbose=False)
+        )
+        assert all(ref() is None for ref in refs)
+        np.testing.assert_allclose(out[:, 0], np.nan, equal_nan=True)
+        np.testing.assert_allclose(out[:, 1, 0], [239, 239])
+        # Window [t-2h, t) of hourly samples
+        np.testing.assert_allclose(out[:, 2, 0], [1.5, 2.5])
+        np.testing.assert_allclose(out[:, 3, 0], [3, 5])
+        np.testing.assert_allclose(out[:, 4, 0], [1, 2])
+        np.testing.assert_allclose(out[:, 5, 0], [2, 3])
+        # Missing cells ignore NaN; sum of nothing is zero
+        np.testing.assert_allclose(
+            out[:, 2:, 1], [[np.nan, 0, np.nan, np.nan]] * 2, equal_nan=True
+        )
+    finally:
+        _TIME_STATISTICS.pop("range")
+
+    # A failing fetch propagates and leaves no running tasks
+    _, stats, _ = plan_statistics(
+        ["t2m:mean:24h"],
+        np.array([24], dtype="timedelta64[h]"),
+        np.timedelta64(1, "h"),
+        ("mean",),
+    )
+    out = np.full((1, 1, 2), np.nan)
+
+    async def run():
+        initial = len(asyncio.all_tasks())
+
+        async def fetch(coord, base):
+            if coord == np.timedelta64(5, "h"):
+                raise OSError("mock fetch failed")
+            await asyncio.sleep(0.01)
+            return np.zeros(2)
+
+        with pytest.raises(OSError, match="mock fetch failed"):
+            await reduce_statistics(out, stats, fetch, async_workers=3, verbose=False)
+        assert len(asyncio.all_tasks()) == initial
+
+    asyncio.run(run())
+    assert np.isnan(out).all()
+
+    # Bounded worker pool: failure, cancellation and timeout leave nothing running
+    asyncio.run(_check_map_with_concurrency())
+
+
+async def _check_map_with_concurrency():
+    requests = list(range(240))
+    active = 0
+    ready = asyncio.Event()
+    initial_tasks = len(asyncio.all_tasks())
+
+    async def failing_fetch(request):
+        nonlocal active
+        active += 1
+        try:
+            if active == 3:
+                ready.set()
+            await ready.wait()
+            if request is requests[0]:
+                raise OSError("mock fetch failed")
+            await asyncio.Event().wait()
+        finally:
+            active -= 1
+
+    with pytest.raises(OSError, match="mock fetch failed"):
+        await map_with_concurrency(
+            requests, failing_fetch, async_workers=3, verbose=False
+        )
+    assert active == 0
+    assert len(asyncio.all_tasks()) == initial_tasks
+
+    ready.clear()
+
+    async def waiting_fetch(request):
+        nonlocal active
+        active += 1
+        ready.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            active -= 1
+
+    operation = asyncio.create_task(
+        map_with_concurrency(requests, waiting_fetch, async_workers=3, verbose=False)
+    )
+    await ready.wait()
+    operation.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await operation
+    assert active == 0
+
+    with pytest.raises(asyncio.TimeoutError):
+        await map_with_concurrency(
+            requests, waiting_fetch, async_workers=3, verbose=False, task_timeout=0.01
+        )
+    assert active == 0
+
+
+class _AnalysisSequence:
+    def __call__(self, time, variable):
+        values = (np.asarray(time) - np.datetime64("2024-01-02")) / np.timedelta64(
+            1, "h"
+        )
+        return xr.DataArray(
+            np.broadcast_to(values[:, None, None], (len(time), len(variable), 2)),
+            dims=("time", "variable", "x"),
+            coords={"time": time, "variable": variable, "x": [0, 1]},
+        )
+
+
+class _ForecastSequence:
+    def __call__(self, time, lead_time, variable):
+        values = np.asarray(lead_time) / np.timedelta64(1, "h")
+        return xr.DataArray(
+            np.broadcast_to(
+                values[None, :, None, None],
+                (len(time), len(lead_time), len(variable), 2),
+            ),
+            dims=("time", "lead_time", "variable", "x"),
+            coords={
+                "time": time,
+                "lead_time": lead_time,
+                "variable": variable,
+                "x": [0, 1],
+            },
+        )
 
 
 @pytest.fixture
@@ -196,13 +408,223 @@ def test_fetch_data(time, lead_time, device):
     domain = OrderedDict({"lat": np.random.randn(720), "lon": np.random.randn(1440)})
     r = Random(domain)
 
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    if device != "cpu":
+        pytest.importorskip("cupy")
+    x = fetch_data(r, time, variable, lead_time, device=device)
+    coords = x.coords
 
-    assert x.device == torch.device(device)
+    assert isinstance(x, xr.DataArray)
     assert np.all(coords["time"] == time)
     assert np.all(coords["lead_time"] == lead_time)
     assert np.all(coords["variable"] == variable)
-    assert not torch.isnan(x).any()
+    assert not np.isnan(x.data).any()
+
+
+_NATIVE_GRID = LatLonGrid(np.array([10.0, 0.0]), np.arange(0.0, 360.0, 90.0))
+_COARSE_GRID = LatLonGrid(np.array([10.0, 0.0]), np.arange(0.0, 360.0, 180.0))
+
+
+class _CoarseningRegridder:
+    """Keep every other longitude of the native grid."""
+
+    source_grid = _NATIVE_GRID
+    target_grid = _COARSE_GRID
+
+    def __call__(self, x):
+        if x.sizes["lon"] != self.source_grid.shape[1]:
+            raise ValueError("Field is not on the source grid")
+        return x.isel(lon=slice(None, None, 2))
+
+    def to(self, device):
+        return self
+
+
+class _NativeSource:
+    def _field(self, time, variable, lead_time=None):
+        time, variable = np.atleast_1d(time), np.atleast_1d(variable)
+        dims, coords = ["time", "variable"], {"time": time, "variable": variable}
+        if lead_time is not None:
+            lead_time = np.atleast_1d(lead_time)
+            dims.insert(1, "lead_time")
+            coords["lead_time"] = lead_time
+        coords |= {"lat": _NATIVE_GRID.latitude, "lon": _NATIVE_GRID.longitude}
+        shape = [len(coords[dim]) for dim in dims] + list(_NATIVE_GRID.shape)
+        return xr.DataArray(np.ones(shape), dims=(*dims, "lat", "lon"), coords=coords)
+
+    def __call__(self, time, variable):
+        return self._field(time, variable)
+
+    async def fetch(self, time, variable):
+        return self._field(time, variable)
+
+
+class _NativeForecastSource(_NativeSource):
+    def __call__(self, time, lead_time, variable):
+        return self._field(time, variable, lead_time)
+
+    async def fetch(self, time, lead_time, variable):
+        return self._field(time, variable, lead_time)
+
+
+def test_regridded_source():
+    time = np.array([np.datetime64("2024-01-01")])
+    lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
+    variable = np.array(["a", "b"])
+
+    analysis = RegriddedSource(_NativeSource(), _CoarseningRegridder())
+    assert isinstance(analysis, DataSource)
+    for array in (
+        analysis(time, variable),
+        asyncio.run(analysis.fetch(time, variable=variable)),
+    ):
+        assert array.dims == ("time", "variable", "lat", "lon")
+        np.testing.assert_array_equal(array["lon"], _COARSE_GRID.longitude)
+
+    forecast = RegriddedSource(_NativeForecastSource(), _CoarseningRegridder())
+    assert isinstance(forecast, ForecastSource)
+    for array in (
+        forecast(time, lead_time, variable),
+        asyncio.run(forecast.fetch(time, lead_time, variable)),
+    ):
+        assert array.dims == ("time", "lead_time", "variable", "lat", "lon")
+        np.testing.assert_array_equal(array["lead_time"], lead_time)
+        np.testing.assert_array_equal(array["lon"], _COARSE_GRID.longitude)
+
+    with pytest.raises(ValueError, match="does not support temporal statistic"):
+        fetch_data(analysis, time, np.array(["a:mean:12h", "b"]))
+
+
+def test_regridded_source_errors():
+    with pytest.raises(TypeError, match="Regridder protocol"):
+        RegriddedSource(_NativeSource(), lambda x: x)
+
+    class _SyncSource:
+        def __call__(self, time, variable):
+            return _NativeSource()(time, variable)
+
+    wrapped = RegriddedSource(_SyncSource(), _CoarseningRegridder())
+    with pytest.raises(AttributeError, match="async fetch"):
+        asyncio.run(wrapped.fetch(np.datetime64("2024-01-01"), "a"))
+
+    # Swapping in a source on another grid fails in the regridder.
+    coarse = RegriddedSource(
+        RegriddedSource(_NativeSource(), _CoarseningRegridder()),
+        _CoarseningRegridder(),
+    )
+    with pytest.raises(ValueError, match="source grid"):
+        coarse(np.datetime64("2024-01-01"), "a")
+
+
+class _LoggingCoarsener(_CoarseningRegridder):
+    def __init__(self, log):
+        self.log = log
+
+    def __call__(self, x):
+        self.log.append(dict(x.sizes))
+        return super().__call__(x)
+
+
+def test_regridded_source_and_regridder_argument_order():
+    time = np.array([np.datetime64("2024-01-01T12")])
+    variable = np.array(["a"])
+
+    # A regridded source is an ordinary source: each fetched frame is regridded.
+    log = []
+    composed = fetch_data(
+        RegriddedSource(_NativeSource(), _LoggingCoarsener(log)),
+        time,
+        variable,
+    )
+    assert [sizes["time"] for sizes in log] == [1]
+
+    # The regridder argument also regrids the returned field once.
+    log.clear()
+    argument = fetch_data(
+        _NativeSource(),
+        time,
+        variable,
+        regridder=_LoggingCoarsener(log),
+    )
+    assert [sizes["time"] for sizes in log] == [1]
+    xr.testing.assert_allclose(composed, argument)
+
+
+def test_regridded_source_forwards_device():
+    assert RegriddedSource(_NativeSource(), _CoarseningRegridder()).device == (
+        torch.device("cpu")
+    )
+
+    class _DeviceSource(_NativeSource):
+        device = torch.device("cuda", 1)
+
+    wrapped = RegriddedSource(_DeviceSource(), _CoarseningRegridder())
+    assert wrapped.device == torch.device("cuda", 1)
+
+
+def test_regridded_forecast_source_dispatch():
+    time = np.array([np.datetime64("2024-01-01")])
+    lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
+    source = RegriddedSource(_NativeForecastSource(), _CoarseningRegridder())
+    assert source.is_forecast
+    array = fetch_data(source, time, np.array(["a"]), lead_time)
+    assert array.dims == ("time", "lead_time", "variable", "lat", "lon")
+    np.testing.assert_array_equal(array["lead_time"], lead_time)
+    np.testing.assert_array_equal(array["lon"], _COARSE_GRID.longitude)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda missing")
+def test_fetch_data_device_aware_source():
+    cp = pytest.importorskip("cupy")
+
+    class _DeviceSource(_NativeSource):
+        def _field(self, time, variable, lead_time=None):
+            array = super()._field(time, variable, lead_time)
+            return array.copy(data=cp.asarray(array.data))
+
+    time = np.array([np.datetime64("2024-01-01T12")])
+    variable = np.array(["a"])
+    for composed in (True, False):
+        regridder = BilinearRegridder(_NATIVE_GRID, _COARSE_GRID)
+        source = _DeviceSource()
+        array = fetch_data(
+            RegriddedSource(source, regridder) if composed else source,
+            time,
+            variable,
+            device="cuda:0",
+            regridder=None if composed else regridder,
+        )
+        assert isinstance(array.data, cp.ndarray)
+        assert array.data.device.id == 0
+        # Tables were cached on the device the field arrived on.
+        assert 0 in regridder._devices
+        np.testing.assert_allclose(cp.asnumpy(array.data), 1)
+
+    array = fetch_data(
+        RegriddedSource(_DeviceSource(), BilinearRegridder(_NATIVE_GRID, _COARSE_GRID)),
+        time,
+        variable,
+        device="cpu",
+    )
+    assert isinstance(array.data, np.ndarray)
+
+
+@pytest.mark.parametrize("source", [_AnalysisSequence(), _ForecastSequence()])
+def test_fetch_data_time_statistics(source):
+    metadata = coord_array(
+        ("time", "lead_time", "variable", "x"),
+        {
+            "lead_time": [np.timedelta64(0, "h")],
+            "variable": ["a:mean:24h", "a:max:12h", "b"],
+            "x": [0, 1],
+        },
+        dynamic=("time",),
+    )
+    with pytest.raises(ValueError, match="does not support temporal statistic"):
+        fetch_data(
+            source,
+            np.array([np.datetime64("2024-01-02")]),
+            metadata.coords["variable"].values,
+        )
 
 
 def test_fetch_data_out_of_ns_range():
@@ -228,13 +650,14 @@ def test_fetch_data_out_of_ns_range():
     variable = np.array(["a"])
     lead_time = np.array([np.timedelta64(0, "h"), np.timedelta64(6, "h")])
 
-    x, coords = fetch_data(RecordingSource(), time, variable, lead_time)
+    x = fetch_data(RecordingSource(), time, variable, lead_time)
+    coords = x.coords
 
     assert len(received) == len(lead_time)
     assert received[0][0] == time[0]
     assert received[1][0] == time[0] + np.timedelta64(6, "h")
     assert np.all(coords["time"] == time)
-    assert not torch.isnan(x).any()
+    assert not np.isnan(x.data).any()
 
 
 @pytest.mark.parametrize(
@@ -249,7 +672,7 @@ def test_fetch_data_out_of_ns_range():
         ),
     ],
 )
-def test_fetch_data_legacy_false(device):
+def test_fetch_data_backend(device):
 
     if device == "cuda:0" and torch.cuda.is_available():
         try:
@@ -263,7 +686,7 @@ def test_fetch_data_legacy_false(device):
     domain = OrderedDict({"lat": np.random.randn(720), "lon": np.random.randn(1440)})
     r = Random(domain)
 
-    da = fetch_data(r, time, variable, lead_time, device=device, legacy=False)
+    da = fetch_data(r, time, variable, lead_time, device=device)
 
     assert isinstance(da, xr.DataArray)
     assert da.dims == ("time", "lead_time", "variable", "lat", "lon")
@@ -404,114 +827,39 @@ def test_fetch_dataframe_keeps_source_attrs():
     ],
 )
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-def test_fetch_data_interp(time, lead_time, device):
-    pytest.importorskip("scipy", reason="scipy not installed")
-    # Original (source) domain
+def test_fetch_data_regridding(time, lead_time, device):
+    if device != "cpu":
+        pytest.importorskip("cupy")
     variable = np.array(["a", "b", "c"])
-    domain = OrderedDict(
-        {
-            "lat": np.linspace(90, -90, 721, endpoint=True),
-            "lon": np.linspace(0, 360, 1440),
-        }
+    source_grid = LatLonGrid(
+        np.linspace(90, -90, 721, endpoint=True), np.linspace(0, 360, 1440)
     )
-    r = Random(domain)
+    r = Random(OrderedDict(lat=source_grid.latitude, lon=source_grid.longitude))
 
-    # Target domain, 1d lat/lon coords
     lat = np.linspace(60, 20, num=256)
     lon = np.linspace(130, 60, num=512)
-    target_coords = OrderedDict(
-        {
-            "_lat": lat,
-            "_lon": lon,
-        }
+    targets = (
+        LatLonGrid(lat, lon),
+        CurvilinearGrid(*np.meshgrid(lat, lon, indexing="ij")),
     )
-
-    # nearest neighbor interp
-    x, coords = fetch_data(
-        r,
-        time,
-        variable,
-        lead_time,
-        device=device,
-        interp_to=target_coords,
-        interp_method="nearest",
-    )
-
-    assert x.device == torch.device(device)
-    assert np.all(coords["time"] == time)
-    assert np.all(coords["lead_time"] == lead_time)
-    assert np.all(coords["variable"] == variable)
-    assert coords["_lat"].shape == (256,)
-    assert coords["_lon"].shape == (512,)
-    assert not torch.isnan(x).any()
-
-    # bilinear interp
-    x, coords = fetch_data(
-        r,
-        time,
-        variable,
-        lead_time,
-        device=device,
-        interp_to=target_coords,
-        interp_method="linear",
-    )
-
-    assert x.device == torch.device(device)
-    assert np.all(coords["time"] == time)
-    assert np.all(coords["lead_time"] == lead_time)
-    assert np.all(coords["variable"] == variable)
-    assert coords["_lat"].shape == (256,)
-    assert coords["_lon"].shape == (512,)
-    assert not torch.isnan(x).any()
-
-    # Target domain, 2d lat/lon coords
-    lat = np.linspace(60, 20, num=256)
-    lon = np.linspace(130, 60, num=512)
-    lat2d, lon2d = np.meshgrid(lat, lon, indexing="ij")
-    target_coords = OrderedDict(
-        {
-            "_lat": lat2d,
-            "_lon": lon2d,
-        }
-    )
-
-    # nearest neighbor interp
-    x, coords = fetch_data(
-        r,
-        time,
-        variable,
-        lead_time,
-        device=device,
-        interp_to=target_coords,
-        interp_method="nearest",
-    )
-
-    assert x.device == torch.device(device)
-    assert np.all(coords["time"] == time)
-    assert np.all(coords["lead_time"] == lead_time)
-    assert np.all(coords["variable"] == variable)
-    assert coords["_lat"].shape == (256, 512)
-    assert coords["_lon"].shape == (256, 512)
-    assert not torch.isnan(x).any()
-
-    # bilinear interp
-    x, coords = fetch_data(
-        r,
-        time,
-        variable,
-        lead_time,
-        device=device,
-        interp_to=target_coords,
-        interp_method="linear",
-    )
-
-    assert x.device == torch.device(device)
-    assert np.all(coords["time"] == time)
-    assert np.all(coords["lead_time"] == lead_time)
-    assert np.all(coords["variable"] == variable)
-    assert coords["_lat"].shape == (256, 512)
-    assert coords["_lon"].shape == (256, 512)
-    assert not torch.isnan(x).any()
+    for target in targets:
+        for regridder in (
+            NearestRegridder(source_grid, target),
+            BilinearRegridder(source_grid, target),
+        ):
+            x = fetch_data(
+                r, time, variable, lead_time, device=device, regridder=regridder
+            )
+            assert np.all(x.coords["time"] == time)
+            assert np.all(x.coords["lead_time"] == lead_time)
+            assert np.all(x.coords["variable"] == variable)
+            assert x.dims[-2:] == target.dims
+            for name, values in target.coords().items():
+                np.testing.assert_array_equal(x.coords[name], values)
+            assert not np.isnan(x.data).any()
+            assert type(x.data).__module__.split(".")[0] == (
+                "numpy" if device == "cpu" else "cupy"
+            )
 
 
 @pytest.mark.parametrize(
@@ -566,14 +914,15 @@ def test_datasource_to_file(time, lead_time, backend, tmp_path):
     ds = DataArrayFile(file_name)
     # Only the requested times offset by each lead are saved
     assert ds.da.sizes["time"] == len(time) * len(lead_time)
-    x, coords = fetch_data(ds, time, variable, lead_time)
+    x = fetch_data(ds, time, variable, lead_time)
+    coords = x.coords
 
     assert np.all(coords["time"] == time)
     assert np.all(coords["lead_time"] == lead_time)
     assert np.all(coords["variable"] == variable)
     assert np.all(coords["lat"] == domain["lat"])
     assert np.all(coords["lon"] == domain["lon"])
-    assert not torch.isnan(x).any()
+    assert not np.isnan(x.data).any()
 
 
 def test_datasource_cache(tmp_path, monkeypatch):

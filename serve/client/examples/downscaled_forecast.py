@@ -30,9 +30,10 @@ from datetime import datetime
 
 import matplotlib.pyplot as plt
 import torch
+import xarray as xr
 
 from earth2studio.data import HRRR  # type: ignore[import-untyped]
-from earth2studio.io import XarrayBackend  # type: ignore[import-untyped]
+from earth2studio.io import ZarrBackend  # type: ignore[import-untyped]
 from earth2studio.models.px import StormCast  # type: ignore[import-untyped]
 from earth2studio.run import deterministic  # type: ignore[import-untyped]
 from earth2studio.serve.client.e2client import RemoteEarth2Workflow
@@ -90,7 +91,7 @@ def main(
 
     stormcast = StormCast.from_pretrained()
     stormcast.conditioning_data_source = conditioning_source
-    io = XarrayBackend()
+    io = ZarrBackend()
     hrrr_ic = HRRR()
 
     deterministic(
@@ -98,7 +99,7 @@ def main(
     )
 
     # Extract t2m data for the specified location
-    ds = io.root
+    ds = xr.open_zarr(io.store, consolidated=False)
     t2m = ds["t2m"].sel(hrrr_x=x, hrrr_y=y, method="nearest").values.ravel()
 
     # Extract time coordinate

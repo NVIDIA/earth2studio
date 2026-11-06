@@ -1373,29 +1373,3 @@ def load_flash_experts(
             }
         )
     return stages
-
-
-def configure_region(
-    model: StormScopeBase, region: Mapping[str, Sequence[float]] | None, padding: int
-) -> None:
-    """Slice wrapper geometry without mutating the shared Flash experts."""
-    model.region_info = resolve_region(
-        model._lat_cpu_copy, model._lon_cpu_copy, region, padding
-    )
-    y0, y1, x0, x1 = model.region_info.input_bounds
-    for name in (
-        "latitudes",
-        "longitudes",
-        "valid_mask",
-        "conditioning_valid_mask",
-        "topo",
-        "nexrad_proximity",
-        "mrms_coverage_mask",
-    ):
-        value = model._buffers.get(name)
-        if value is not None:
-            model.register_buffer(name, value[y0:y1, x0:x1].clone())
-    model.y = model.y[y0:y1].copy()
-    model.x = model.x[x0:x1].copy()
-    model._lat_cpu_copy = model.latitudes.detach().cpu().numpy()
-    model._lon_cpu_copy = model.longitudes.detach().cpu().numpy()

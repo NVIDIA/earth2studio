@@ -131,6 +131,8 @@ class HRRRLexicon(metaclass=LexiconType):
 
         return {**sfc_variables, **prs_variables, **hybrid_variables}
 
+    TIME_STATISTICS: tuple[str, ...] = ("mean", "sum", "min", "max")
+
     VOCAB = build_vocab()
 
     @classmethod
@@ -273,6 +275,8 @@ class HRRRFXLexicon(metaclass=LexiconType):
                 )
 
         return {**sfc_variables, **prs_variables, **hybrid_variables}
+
+    TIME_STATISTICS: tuple[str, ...] = ("mean", "sum", "min", "max")
 
     VOCAB = build_vocab()
 

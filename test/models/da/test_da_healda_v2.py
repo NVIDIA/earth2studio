@@ -22,6 +22,7 @@ import pytest
 import torch
 import xarray as xr
 
+from earth2studio.data import NNJAObsConv, NNJAObsSat, NNJAObsSatwnd
 from earth2studio.data.utils_ncep import (
     _NCEP_PREPBUFR_WIDE_SCHEMA,
     _sat_wide_schema,
@@ -329,23 +330,8 @@ def test_healda_v2_call_empty_frames_runs_without_observations():
     assert [set(call) for call in model._model.calls] == [{"times"}]
 
 
-def test_healda_v2_generator():
-    model = _build_model()
-    request_time = np.array([CYCLE])
-    gen = model.create_generator()
-    assert gen.send(None) is None
-    da = gen.send((None, _gpsro_df(request_time)))
-    assert isinstance(da, xr.DataArray)
-    da = gen.send((None, None, _satwnd_df(request_time)))
-    assert da.shape == (1, len(CHANNELS), NLAT, NLON)
-    with pytest.raises(ValueError, match="At least one"):
-        gen.send(())
-    gen.close()
-
-
 def test_healda_v2_coords():
     model = _build_model()
-    assert model.init_coords() is None
     prepbufr, gpsro, satwnd, atms, amsua, cris = model.input_coords()
     assert [list(schema["variable"]) for schema in model.input_coords()] == [
         ["u", "v", "q", "t", "pres"],
@@ -362,11 +348,25 @@ def test_healda_v2_coords():
     assert all("scan_angle" not in schema for schema in model.input_coords())
     with pytest.raises(ValueError, match="at most 6 frames"):
         model(*[None] * 6, _satwnd_df(np.array([CYCLE])))
-    (coords,) = model.output_coords(
-        model.input_coords(), request_time=np.array([CYCLE])
-    )
-    assert list(coords) == ["time", "variable", "lat", "lon"]
-    assert len(coords["lat"]) == NLAT and len(coords["lon"]) == NLON
+    coords = model.output_coords(*model.input_coords(), request_time=np.array([CYCLE]))
+    assert list(coords.dims) == ["time", "variable", "lat", "lon"]
+    assert coords.shape == (1, len(CHANNELS), NLAT, NLON)
+    assert list(coords.coords["variable"].values) == E2S_VARIABLES
+
+
+def test_healda_v2_default_sources():
+    model = _build_model()
+    conv, gpsro, satwnd, *sats = model.default_sources()
+    assert isinstance(conv, NNJAObsConv) and gpsro is conv
+    assert isinstance(satwnd, NNJAObsSatwnd)
+    assert all(isinstance(sat, NNJAObsSat) for sat in sats)
+    assert len(model.default_sources()) == len(model.input_coords())
+
+
+def test_healda_v2_rng():
+    model = _build_model()
+    assert model.stochastic is False
+    model.set_rng(0)
 
 
 def test_healda_v2_sensor_indices():

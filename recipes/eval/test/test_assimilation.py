@@ -141,9 +141,6 @@ class FakeDA:
         return cls(**kwargs)
 
     # -- AssimilationModel protocol ------------------------------------
-    def init_coords(self):
-        return None
-
     def input_coords(self):
         conv_schema = OrderedDict(
             {
@@ -165,18 +162,21 @@ class FakeDA:
         )
         return conv_schema, sat_schema
 
-    def output_coords(self, input_coords, request_time=None, **kwargs):
+    def output_coords(
+        self, conv_obs=None, sat_obs=None, *, request_time=None, **kwargs
+    ):
         if request_time is None:
             request_time = np.array([np.datetime64("NaT")], dtype="datetime64[ns]")
-        return (
-            OrderedDict(
-                {
-                    "time": request_time,
-                    "variable": np.array(self.variables, dtype=str),
-                    "lat": self.lat,
-                    "lon": self.lon,
-                }
-            ),
+        from earth2studio.utils import coord_array
+
+        return coord_array(
+            ("time", "variable", "lat", "lon"),
+            {
+                "time": request_time,
+                "variable": np.array(self.variables, dtype=str),
+                "lat": self.lat,
+                "lon": self.lon,
+            },
         )
 
     def __call__(self, conv_obs=None, sat_obs=None) -> xr.DataArray:
@@ -193,9 +193,7 @@ class FakeDA:
         request_time = np.asarray(request_time, dtype="datetime64[ns]")
 
         self.call_count += 1
-        (output_coords,) = self.output_coords(
-            self.input_coords(), request_time=request_time
-        )
+        output_coords = self.output_coords(request_time=request_time)
         shape = (
             len(request_time),
             len(self.variables),
@@ -206,32 +204,14 @@ class FakeDA:
         return xr.DataArray(
             rng.standard_normal(shape).astype(np.float32),
             dims=["time", "variable", "lat", "lon"],
-            coords=output_coords,
+            coords=output_coords.coords,
         )
 
-    def create_generator(self):
-        inputs = yield None
-        while True:
-            conv_obs, sat_obs = inputs if inputs is not None else (None, None)
-            inputs = yield self(conv_obs, sat_obs)
+    def default_sources(self) -> None:
+        return None
 
     def to(self, device):
         return self
-
-
-class FakeStatefulDA(FakeDA):
-    """A DA fake that requires a background state (init_coords not None)."""
-
-    def init_coords(self):
-        return (
-            OrderedDict(
-                {
-                    "variable": np.array(self.variables, dtype=str),
-                    "lat": self.lat,
-                    "lon": self.lon,
-                }
-            ),
-        )
 
 
 def _make_obs_set(model, conv_source=None, sat_source=None) -> ObsSourceSet:
@@ -322,11 +302,6 @@ class TestStatelessRunner:
         runner = StatelessAssimilationRunner(model, _make_obs_set(model))
         with pytest.raises(ValueError, match="disabled"):
             runner.analysis(np.datetime64("2024-01-01"))
-
-    def test_stateful_model_rejected(self):
-        model = FakeStatefulDA()
-        with pytest.raises(NotImplementedError, match="stateful"):
-            StatelessAssimilationRunner(model, _make_obs_set(model, FakeObsSource()))
 
     def test_build_runner_default_is_stateless(self):
         model = FakeDA()

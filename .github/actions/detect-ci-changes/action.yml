@@ -27,6 +27,9 @@ inputs:
   before-sha:
     description: Commit before the current main push.
     default: ""
+  base-branch:
+    description: Target branch for copied PR change detection.
+    default: main
 
 outputs:
   data:
@@ -80,8 +83,8 @@ runs:
             git diff --name-only "$base" "$GITHUB_SHA" > changed-files.txt
             ;;
           pr)
-            git fetch origin main
-            git diff --name-only origin/main...HEAD > changed-files.txt
+            git fetch origin "refs/heads/${INPUTS_BASE_BRANCH}"
+            git diff --name-only FETCH_HEAD...HEAD > changed-files.txt
             ;;
           *)
             echo "Unknown change detection mode: ${INPUTS_MODE}"
@@ -135,3 +138,4 @@ runs:
         INPUTS_RUN_ALL: ${{ inputs.run-all }}
         INPUTS_MODE: ${{ inputs.mode }}
         INPUTS_BEFORE_SHA: ${{ inputs.before-sha }}
+        INPUTS_BASE_BRANCH: ${{ inputs.base-branch }}

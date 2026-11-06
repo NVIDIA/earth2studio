@@ -23,8 +23,16 @@ import torch
 
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.px import FCN
-from earth2studio.utils import handshake_dim
-from earth2studio.utils.checkpoint import Checkpoint
+from earth2studio.utils.coords import coord_array
+from earth2studio.utils.cupy import from_torch
+
+
+@pytest.fixture(autouse=True)
+def cupy_for_cuda(request):
+    if hasattr(request.node, "callspec") and request.node.callspec.params.get(
+        "device", "cpu"
+    ).startswith("cuda"):
+        pytest.importorskip("cupy")
 
 
 class PhooFCNModel(torch.nn.Module):
@@ -35,6 +43,30 @@ class PhooFCNModel(torch.nn.Module):
 class IncrementFCNModel(torch.nn.Module):
     def forward(self, x):
         return x + 1
+
+
+def test_fcn_coordinate_signatures():
+    model = FCN(PhooFCNModel(), torch.zeros(26, 1, 1), torch.ones(26, 1, 1))
+    input_coords = model.input_coords()
+    output_coords = model.output_coords(input_coords)
+
+    assert input_coords.data.nbytes == output_coords.data.nbytes == 0
+    assert (
+        input_coords.attrs["earth2studio_grid_id"]
+        == "latlon-0.25deg-south-pole-excluded"
+    )
+    assert output_coords.coords["lead_time"] == np.timedelta64(6, "h")
+
+
+def _random_source() -> Random:
+    return Random(
+        OrderedDict(
+            {
+                "lat": np.linspace(90, -90, 720, endpoint=False),
+                "lon": np.linspace(0, 360, 1440, endpoint=False),
+            }
+        )
+    )
 
 
 @pytest.mark.parametrize(
@@ -59,30 +91,27 @@ def test_fcn_call(time, device):
 
     p = FCN(model, center, scale).to(device)
 
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["lead_time"]
-    del dc["variable"]
-    # Initialize Data Source
-    r = Random(dc)
+    signature = p.input_coords()
+    r = _random_source()
 
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    # Keep field values in the tensor and attach the public coordinate signature.
+    lead_time = signature["lead_time"].values
+    variable = signature["variable"].values
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
+    coords = coord_array(tuple(coords), coords, attrs=signature.attrs)
 
-    out, out_coords = p(x, coords)
+    array = from_torch(x, coords, attrs=signature.attrs)
+    result = p(array)
+    out, out_coords = result.e2s.to_torch()
 
     if not isinstance(time, Iterable):
         time = [time]
 
     assert out.shape == torch.Size([len(time), 1, 26, 720, 1440])
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    assert (
+        out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
+    ).all()
+    assert result.dims == ("time", "lead_time", "variable", "lat", "lon")
 
 
 @pytest.mark.parametrize(
@@ -99,34 +128,34 @@ def test_fcn_iter(ensemble, device):
 
     p = FCN(model, center, scale).to(device)
 
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["lead_time"]
-    del dc["variable"]
-    # Initialize Data Source
-    r = Random(dc)
+    signature = p.input_coords()
+    r = _random_source()
 
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    # Get field values and dimension labels.
+    lead_time = signature["lead_time"].values
+    variable = signature["variable"].values
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
 
     # Add ensemble to front
     x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)
     coords.update({"ensemble": np.arange(ensemble)})
     coords.move_to_end("ensemble", last=False)
+    coords = coord_array(tuple(coords), coords, attrs=signature.attrs)
 
-    p_iter = p.create_iterator(x, coords)
+    p_iter = p.create_iterator(from_torch(x, coords, attrs=signature.attrs))
 
     if not isinstance(time, Iterable):
         time = [time]
 
     # Get generator
-    next(p_iter)  # Skip first which should return the input
-    for i, (out, out_coords) in enumerate(p_iter):
+    for i, result in enumerate(p_iter):
+        out, out_coords = result.e2s.to_torch()
+        assert result.dims == coords.dims
         assert len(out.shape) == 6
         assert out.shape == torch.Size([ensemble, len(time), 1, 26, 720, 1440])
-        assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+        assert (
+            out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
+        ).all()
         assert (out_coords["ensemble"] == np.arange(ensemble)).all()
         assert out_coords["lead_time"][0] == np.timedelta64(6 * (i + 1), "h")
 
@@ -134,43 +163,17 @@ def test_fcn_iter(ensemble, device):
             break
 
 
-def test_fcn_checkpoint_level_2_state_round_trip(tmp_path):
+def test_fcn_shifted_output_signature():
+    model = PhooFCNModel()
     center = torch.zeros(26, 1, 1)
     scale = torch.ones(26, 1, 1)
-    source_model = FCN(IncrementFCNModel(), center, scale)
-    base_coords = source_model.input_coords()
-    coords = OrderedDict(
-        {
-            "time": np.array([np.datetime64("1993-04-05T00:00")]),
-            "lead_time": base_coords["lead_time"],
-            "variable": base_coords["variable"],
-            "lat": base_coords["lat"],
-            "lon": base_coords["lon"],
-        }
+    p = FCN(model, center, scale)
+    signature = p.input_coords().assign_coords(
+        lead_time=np.array([12], dtype="timedelta64[h]")
     )
-    x = torch.zeros(1, 1, 26, 720, 1440)
-
-    checkpoint = Checkpoint("fcn", path=tmp_path, flush_interval=1, level=2)
-    with checkpoint as ckpt:
-        model = FCN(IncrementFCNModel(), center, scale)
-        iterator = model.create_iterator(x, coords)
-        next(iterator)
-        saved_x, saved_coords = next(iterator)
-        assert saved_coords["lead_time"][0] == np.timedelta64(6, "h")
-        assert saved_x[0, 0, 0, 0, 0] == 1
-        ckpt.write(lead_time=saved_coords["lead_time"][-1])
-
-    checkpoint = Checkpoint("fcn", path=tmp_path, level=2)
-    with checkpoint.select(-1):
-        model = FCN(IncrementFCNModel(), center, scale)
-        assert model.checkpoint.checkpoint_state_loaded
-        restart_x = torch.full_like(x, -5)
-        resumed_x, resumed_coords = next(model.create_iterator(restart_x, coords))
-
-    assert resumed_coords["lead_time"][0] == np.timedelta64(12, "h")
-    assert resumed_x[0, 0, 0, 0, 0] == 2
-    assert resumed_x.amin() == 2
-    assert resumed_x.amax() == 2
+    output = p.output_coords(signature)
+    assert output.data.nbytes == 0
+    assert output.lead_time.values[0] == np.timedelta64(18, "h")
 
 
 @pytest.mark.parametrize(
@@ -190,16 +193,16 @@ def test_fcn_exceptions(dc, device):
 
     p = FCN(model, center, scale).to(device)
 
-    # Initialize Data Source
     r = Random(dc)
 
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    signature = p.input_coords()
+    lead_time = signature["lead_time"].values
+    variable = signature["variable"].values
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
+    coords = coord_array(tuple(coords), coords, attrs=signature.attrs)
 
     with pytest.raises((KeyError, ValueError)):
-        p(x, coords)
+        p(from_torch(x, coords, attrs=signature.attrs))
 
 
 @pytest.fixture(scope="function")
@@ -218,28 +221,24 @@ def test_fcn_package(model, device):
     # Test the cached model package FCN
     p = model.to(device)
 
-    dc = p.input_coords()
-    del dc["batch"]
-    del dc["lead_time"]
-    del dc["variable"]
-    # Initialize Data Source
-    r = Random(dc)
+    signature = p.input_coords()
+    r = _random_source()
 
-    # Get Data and convert to tensor, coords
-    lead_time = p.input_coords()["lead_time"]
-    variable = p.input_coords()["variable"]
-    x, coords = fetch_data(r, time, variable, lead_time, device=device)
+    # Keep field values in the tensor and attach the public coordinate signature.
+    lead_time = signature["lead_time"].values
+    variable = signature["variable"].values
+    x, coords = fetch_data(r, time, variable, lead_time, device=device).e2s.to_torch()
+    coords = coord_array(tuple(coords), coords, attrs=signature.attrs)
 
-    out, out_coords = p(x, coords)
+    result = p(from_torch(x, coords, attrs=signature.attrs))
+    out, out_coords = result.e2s.to_torch()
 
     if not isinstance(time, Iterable):
         time = [time]
 
     assert out.shape == torch.Size([len(time), 1, 26, 720, 1440])
-    assert (out_coords["variable"] == p.output_coords(coords)["variable"]).all()
+    assert (
+        out_coords["variable"] == p.output_coords(p.input_coords())["variable"]
+    ).all()
     assert (out_coords["time"] == time).all()
-    handshake_dim(out_coords, "lon", 4)
-    handshake_dim(out_coords, "lat", 3)
-    handshake_dim(out_coords, "variable", 2)
-    handshake_dim(out_coords, "lead_time", 1)
-    handshake_dim(out_coords, "time", 0)
+    assert result.dims == ("time", "lead_time", "variable", "lat", "lon")

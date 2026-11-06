@@ -14,9 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
+from __future__ import annotations
 
-from earth2studio.utils.type import CoordSystem
+import xarray as xr
 
 
 class Zero:
@@ -25,24 +25,17 @@ class Zero:
     Primarily used for deterministic runs in ensemble workflows
     """
 
-    @torch.inference_mode()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Apply perturbation method
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor intended to apply perturbation on
-        coords : CoordSystem
-            Ordered dict representing coordinate system that describes the tensor
+        x : xr.DataArray
+            xarray DataArray intended to apply perturbation on
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]:
-            Output tensor and respective coordinate system dictionary
+        xr.DataArray
+            Unmodified input DataArray
         """
-        return x, coords
+        return x
