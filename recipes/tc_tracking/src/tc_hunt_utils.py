@@ -184,6 +184,10 @@ def run_with_rank_ordered_execution(
     Any
         Return value of ``func(*args, **kwargs)``.
     """
+    # no distributed setup (e.g. worker processes of baseline extraction)
+    if not DistributedManager.is_initialized():
+        return func(*args, **kwargs)
+
     dist = DistributedManager()
     current_rank = dist.rank
 
@@ -252,7 +256,11 @@ class InstabilityDetection:
             Boolean array (``True`` = stable) per ensemble member.
         """
         x = x.sel(variable=self.vars)
-        means = x.mean(dim=[d for d in x.dims if d not in ("ensemble", "variable")])
+        # skipna=False: NaNs make the mean NaN, which fails the check below
+        means = x.mean(
+            dim=[d for d in x.dims if d not in ("ensemble", "variable")],
+            skipna=False,
+        )
         means = means.transpose("ensemble", "variable").e2s.as_numpy().values
 
         if self.baseline is None:
