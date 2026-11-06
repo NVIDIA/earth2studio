@@ -28,15 +28,16 @@ or a data source and the rest of the pipeline keeps working.
 
 ## For agents
 
-Install the Earth2Studio skills, restart your agent (Claude, Codex, OpenCode, etc.)
-and ask:
+Paste this into your coding agent (Claude, Codex, OpenCode, Cursor, etc.):
 
-```bash
-npx skills add NVIDIA/earth2studio --skill earth2studio-install
-npx skills add NVIDIA/earth2studio --skill earth2studio-discover
-npx skills add NVIDIA/earth2studio --skill earth2studio-data-fetch
-npx skills add NVIDIA/earth2studio --skill earth2studio-deterministic-forecast
+```text
+Help me get started with NVIDIA Earth2Studio. Read the install and discover skills
+in https://github.com/NVIDIA/earth2studio/tree/main/skills and follow them.
+Ask one question at a time, run commands only with my approval, and keep secrets
+out of chat.
 ```
+
+Then ask for what you want:
 
 ```text
 Create me a 10-day AI forecasting pipeline starting from the latest GFS analysis.
@@ -45,8 +46,17 @@ Recommend the best model for a 2-week global forecast on one GPU.
 Fetch ERA5 surface winds for March 2024 and save them to Zarr.
 ```
 
-More skills for extending Earth2Studio (new prognostic, diagnostic, data source,
-assimilation and coupled models) live in [`skills/`](./skills).
+To keep the skills installed, add them from this repository:
+
+```bash
+npx skills add NVIDIA/earth2studio --skill earth2studio-install
+npx skills add NVIDIA/earth2studio --skill earth2studio-discover
+npx skills add NVIDIA/earth2studio --skill earth2studio-data-fetch
+npx skills add NVIDIA/earth2studio --skill earth2studio-deterministic-forecast
+```
+
+Skills for extending Earth2Studio (new prognostic, diagnostic, data source,
+assimilation and coupled models) also live in [`skills/`](./skills).
 
 ## For humans
 
