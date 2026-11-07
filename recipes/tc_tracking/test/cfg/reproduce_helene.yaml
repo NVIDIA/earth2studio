@@ -1,6 +1,7 @@
 project: 'reproduce_helene'
 mode: 'reproduce_members'
 model: 'fcn3'
+deterministic: False  # True: bitwise reproducible, needed for AIFS-ENS
 
 reproduce_members: [
                     ['2024-09-24 00:00:00', 3, '???'],
