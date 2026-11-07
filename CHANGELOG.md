@@ -21,10 +21,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- Removed the beta `earth2studio.serve` package, the `serve` install extra, and the
-  top-level `serve/` directory (server, client, Dockerfile, and example workflows).
-  Deployment now lives in [PhysicsNeMo Serve](https://github.com/NVIDIA/physicsnemo-serve).
-
 ### Fixed
 
 ### Security
