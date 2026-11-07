@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
-import os
 import zipfile
 from collections.abc import Generator, Hashable
 
@@ -23,11 +22,10 @@ import torch
 import xarray as xr
 
 from earth2studio.data import IFS
-from earth2studio.data.utils import fetch_data
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.px.aifs import _aifs_initialize, _aifs_step
 from earth2studio.models.px.base import PrognosticModel
-from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.models.px.utils import PrognosticMixin, load_invariants
 from earth2studio.utils import (
     coord_array,
     coord_array_like,
@@ -522,23 +520,11 @@ class AIFS2(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         # Fetch invariants from IFS (only if preloading)
         # Use a recent date to ensure wave data (wmb) is available
         if preload_invariants:
-            # Check for cached invariants first
-            cache_dir = Package.default_cache("aifs-single-2.0")
-            invariants_path = os.path.join(cache_dir, "invariants.pt")
-
-            if os.path.exists(invariants_path):
-                invariants = torch.load(invariants_path, weights_only=True)
-            else:
-                ifs = IFS(cache=True, verbose=False)
-                invariants = fetch_data(
-                    source=ifs,
-                    time=np.array([np.datetime64("2026-05-15T00:00:00")]),
-                    variable=["lsm", "sdor", "slor", "z", "wmb"],
-                )
-                invariants, _ = invariants.squeeze().e2s.to_torch()
-                # Cache the invariants tensor
-                os.makedirs(cache_dir, exist_ok=True)
-                torch.save(invariants, invariants_path)
+            invariants = load_invariants(
+                Package.default_cache("aifs-single-2.0"),
+                np.datetime64("2026-05-15T00:00:00"),
+                ["lsm", "sdor", "slor", "z", "wmb"],
+            )
         else:
             # Placeholder - invariants will come from input
             invariants = torch.empty(0)

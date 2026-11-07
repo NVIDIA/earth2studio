@@ -15,9 +15,12 @@
 # limitations under the License.
 from __future__ import annotations
 
+import os
 from collections.abc import Callable, Generator
 from typing import TYPE_CHECKING, Any, cast
 
+import numpy as np
+import torch
 import xarray as xr
 
 from earth2studio.utils.type import CoordinateSystem
@@ -30,6 +33,52 @@ Hook = Callable[
     [xr.DataArray | tuple[xr.DataArray, ...]],
     xr.DataArray | tuple[xr.DataArray, ...],
 ]
+
+
+def load_invariants(
+    cache_dir: str,
+    time: np.datetime64,
+    variables: list[str],
+    source: DataSource | None = None,
+) -> torch.Tensor:
+    """Load invariant fields as a float32 tensor, cached as ``invariants.pt``.
+
+    Parameters
+    ----------
+    cache_dir : str
+        Directory of the cached ``invariants.pt``
+    time : np.datetime64
+        Time to fetch the invariants for
+    variables : list[str]
+        Invariant variables, in the order of the returned tensor
+    source : DataSource | None, optional
+        Data source, by default IFS
+
+    Returns
+    -------
+    torch.Tensor
+        Invariants of shape ``(variable, lat, lon)``
+    """
+    path = os.path.join(cache_dir, "invariants.pt")
+    if os.path.exists(path):
+        # float() also repairs float64 caches written by earlier versions
+        return torch.load(path, weights_only=True).float()
+
+    from earth2studio.data import IFS
+    from earth2studio.data.utils import fetch_data
+
+    if source is None:
+        source = IFS(cache=True, verbose=False)
+    # sources can return float64, models compute in float32
+    invariants, _ = (
+        fetch_data(source=source, time=np.array([time]), variable=variables)
+        .squeeze()
+        .e2s.to_torch()
+    )
+    invariants = invariants.float()
+    os.makedirs(cache_dir, exist_ok=True)
+    torch.save(invariants, path)
+    return invariants
 
 
 def _count(signature: Any) -> int:

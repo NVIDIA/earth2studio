@@ -27,6 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `AIFS`, `AIFSENS`, `AIFS2` and `AIFS2ENS` failing on the float64 invariants
+  that `fetch_data` returns since 1.0: `load_model` casts the fetched and the cached
+  invariants (`invariants.pt`) to float32.
+- Fixed `FCN3` failing on float64 input (e.g. from `CDS_ERA5`) under bf16 autocast;
+  the input is cast to float32.
+
 ### Security
 
 ### Dependencies

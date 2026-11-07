@@ -403,7 +403,9 @@ class FCN3(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         signature = self.output_coords(x)
         handshake_time(x)
         tensor, coords = x.e2s.to_torch()
-        tensor = tensor.to(self.device_buffer.device)
+        # sources can return float64 (e.g. CDS_ERA5), which bf16 autocast leaves
+        # alone, so the first convolution would fail
+        tensor = tensor.to(self.device_buffer.device, dtype=torch.float32)
         if reset:
             self._reset_internal_state(x.sizes["batch"], x.sizes["time"])
         result = from_torch(

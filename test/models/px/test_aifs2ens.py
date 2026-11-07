@@ -1009,9 +1009,7 @@ def model(backend) -> AIFS2ENS:
         )
 
     package = AIFS2ENS.load_default_package()
-    with patch(
-        "earth2studio.models.px.aifs2ens.fetch_data", side_effect=mock_fetch_data
-    ):
+    with patch("earth2studio.data.utils.fetch_data", side_effect=mock_fetch_data):
         p = AIFS2ENS.load_model(package)
     return p
 
