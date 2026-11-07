@@ -40,10 +40,16 @@ from earth2studio.data.utils import (
     obstore_fetch_to_cache,
     obstore_store_from_url,
     prep_forecast_inputs,
+    prep_member_inputs,
     resolve_async_workers,
 )
 from earth2studio.lexicon import GEFSLexicon, GEFSLexiconSel
-from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
+from earth2studio.utils.type import (
+    LeadTimeArray,
+    MemberArray,
+    TimeArray,
+    VariableArray,
+)
 
 logger.remove()
 logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
@@ -71,8 +77,9 @@ class GEFS_FX:
     Parameters
     ----------
     member : str, optional
-        GEFS member. Options are: control gec00 (control), gepNN (forecast member NN,
-        e.g. gep01, gep02,...), by default "gec00"
+        GEFS member used when a request names no ``member``. Options are:
+        control gec00 (control), gepNN (forecast member NN, e.g. gep01, gep02,...),
+        by default "gec00"
     max_workers : int, optional
         Deprecated, use async_workers instead. Kept for API compatibility, by
         default 24
@@ -168,6 +175,7 @@ class GEFS_FX:
         time: datetime | list[datetime] | TimeArray,
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
         variable: str | list[str] | VariableArray,
+        member: str | list[str] | MemberArray | None = None,
     ) -> xr.DataArray:
         """Retrieve GEFS forecast data
 
@@ -180,6 +188,10 @@ class GEFS_FX:
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
             return. Must be in the GEFS lexicon.
+        member : str | list[str] | MemberArray, optional
+            GEFS members to fetch (e.g. ``["gec00", "gep01"]``), returned on a
+            leading ``ensemble`` dimension in this order, by default None, which
+            fetches the member the source was built with, without the dimension.
 
         Returns
         -------
@@ -188,7 +200,12 @@ class GEFS_FX:
         """
         try:
             xr_array = _sync_async(
-                self.fetch, time, lead_time, variable, timeout=self.async_timeout
+                self.fetch,
+                time,
+                lead_time,
+                variable,
+                member,
+                timeout=self.async_timeout,
             )
         finally:
             # Delete cache if needed
@@ -202,6 +219,7 @@ class GEFS_FX:
         time: datetime | list[datetime] | TimeArray,
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
         variable: str | list[str] | VariableArray,
+        member: str | list[str] | MemberArray | None = None,
     ) -> xr.DataArray:
         """Async function to get data
 
@@ -214,6 +232,10 @@ class GEFS_FX:
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
             return. Must be in the GEFS FX lexicon.
+        member : str | list[str] | MemberArray, optional
+            GEFS members to fetch (e.g. ``["gec00", "gep01"]``), returned on a
+            leading ``ensemble`` dimension in this order, by default None, which
+            fetches the member the source was built with, without the dimension.
 
         Returns
         -------
@@ -224,6 +246,27 @@ class GEFS_FX:
         if self.store is None:
             await self._async_init()
 
+        if member is None:
+            return await self._fetch_member(time, lead_time, variable, self._member)
+        members = [str(m) for m in prep_member_inputs(member)]  # type: ignore[union-attr]
+        invalid = [m for m in members if m not in self.GEFS_MEMBERS]
+        if invalid:
+            raise ValueError(f"Invalid GEFS members {invalid}")
+        # One file per member; each member's fetch is concurrent on its own.
+        arrays = [
+            await self._fetch_member(time, lead_time, variable, label)
+            for label in members
+        ]
+        return xr.concat(arrays, "ensemble").assign_coords(ensemble=members)
+
+    async def _fetch_member(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        lead_time: timedelta | list[timedelta] | LeadTimeArray,
+        variable: str | list[str] | VariableArray,
+        member: str,
+    ) -> xr.DataArray:
+        """Fetch one GEFS member's forecast data."""
         time, lead_time, variable = prep_forecast_inputs(time, lead_time, variable)
         # Create cache dir if doesnt exist
         pathlib.Path(self.cache).mkdir(parents=True, exist_ok=True)
@@ -256,7 +299,7 @@ class GEFS_FX:
             },
         )
 
-        async_tasks = await self._create_tasks(time, lead_time, variable)
+        async_tasks = await self._create_tasks(time, lead_time, variable, member)
         coros = [self.fetch_wrapper(task, xr_array=xr_array) for task in async_tasks]
 
         await gather_with_concurrency(
@@ -270,7 +313,11 @@ class GEFS_FX:
         return xr_array
 
     async def _create_tasks(
-        self, time: list[datetime], lead_time: list[timedelta], variable: list[str]
+        self,
+        time: list[datetime],
+        lead_time: list[timedelta],
+        variable: list[str],
+        member: str | None = None,
     ) -> list[GEFSAsyncTask]:
         """Create download tasks, each corresponding to one grib byte range
 
@@ -280,6 +327,8 @@ class GEFS_FX:
             Timestamps to be downloaded (UTC).
         variables : list[str]
             List of variables to be downloaded.
+        member : str, optional
+            GEFS member, by default the member the source was built with.
 
         Returns
         -------
@@ -294,7 +343,7 @@ class GEFS_FX:
             gefs_name_str, _ = self.lexicon[v]  # type: ignore
             products.add(gefs_name_str.split("::")[0])
         args = [
-            self._grib_index_uri(t, lt, p)
+            self._grib_index_uri(t, lt, p, member)
             for t in time
             for lt in lead_time
             for p in products
@@ -346,7 +395,7 @@ class GEFS_FX:
                     tasks.append(
                         GEFSAsyncTask(
                             data_array_indices=(i, j, k),
-                            gefs_file_uri=self._grib_uri(t, lt, product),
+                            gefs_file_uri=self._grib_uri(t, lt, product, member),
                             gefs_byte_offset=byte_offset,
                             gefs_byte_length=byte_length,
                             gefs_modifier=modifier,
@@ -520,7 +569,11 @@ class GEFS_FX:
         )
 
     def _grib_uri(
-        self, time: datetime, lead_time: timedelta, product: str = "pgrb2a"
+        self,
+        time: datetime,
+        lead_time: timedelta,
+        product: str = "pgrb2a",
+        member: str | None = None,
     ) -> str:
         """Generates the URI for GEFS grib files"""
         lead_hour = int(lead_time.total_seconds() // 3600)
@@ -529,12 +582,16 @@ class GEFS_FX:
         file_name = os.path.join(file_name, f"{self._product_class}/{product}{p_res}")
         file_name = os.path.join(
             file_name,
-            f"{self._member}.t{time.hour:0>2}z.{product}.{self._product_resolution}.f{lead_hour:03d}",
+            f"{member or self._member}.t{time.hour:0>2}z.{product}.{self._product_resolution}.f{lead_hour:03d}",
         )
         return os.path.join(self.GEFS_BUCKET_NAME, file_name)
 
     def _grib_index_uri(
-        self, time: datetime, lead_time: timedelta, product: str = "pgrb2a"
+        self,
+        time: datetime,
+        lead_time: timedelta,
+        product: str = "pgrb2a",
+        member: str | None = None,
     ) -> str:
         """Generates the URI for GEFS index grib files"""
         # https://noaa-gefs-pds.s3.amazonaws.com/index.html#gefs.20250513/00/atmos/pgrb2ap5/
@@ -544,7 +601,7 @@ class GEFS_FX:
         file_name = os.path.join(file_name, f"{self._product_class}/{product}{p_res}")
         file_name = os.path.join(
             file_name,
-            f"{self._member}.t{time.hour:0>2}z.{product}.{self._product_resolution}.f{lead_hour:03d}.idx",
+            f"{member or self._member}.t{time.hour:0>2}z.{product}.{self._product_resolution}.f{lead_hour:03d}.idx",
         )
         return os.path.join(self.GEFS_BUCKET_NAME, file_name)
 
@@ -606,8 +663,9 @@ class GEFS_FX_721x1440(GEFS_FX):
     Parameters
     ----------
     member : str, optional
-        GEFS member. Options are: control gec00 (control), gepNN (forecast member NN,
-        e.g. gep01, gep02,...), by default "gec00"
+        GEFS member used when a request names no ``member``. Options are:
+        control gec00 (control), gepNN (forecast member NN, e.g. gep01, gep02,...),
+        by default "gec00"
     max_workers : int, optional
         Deprecated, use async_workers instead. Kept for API compatibility, by
         default 24
@@ -684,6 +742,7 @@ class GEFS_FX_721x1440(GEFS_FX):
         time: datetime | list[datetime] | TimeArray,
         lead_time: timedelta | list[timedelta] | LeadTimeArray,
         variable: str | list[str] | VariableArray,
+        member: str | list[str] | MemberArray | None = None,
     ) -> xr.DataArray:
         """Retrieve GEFS forecast data
 
@@ -696,13 +755,17 @@ class GEFS_FX_721x1440(GEFS_FX):
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
             return. Must be in the GEFS FX select lexicon.
+        member : str | list[str] | MemberArray, optional
+            GEFS members to fetch (e.g. ``["gec00", "gep01"]``), returned on a
+            leading ``ensemble`` dimension in this order, by default None, which
+            fetches the member the source was built with, without the dimension.
 
         Returns
         -------
         xr.DataArray
             GEFS select forecast data array
         """
-        return super().__call__(time, lead_time, variable)
+        return super().__call__(time, lead_time, variable, member)
 
     @classmethod
     def _validate_leadtime(cls, lead_times: list[timedelta]) -> None:

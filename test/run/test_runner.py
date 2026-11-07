@@ -29,13 +29,20 @@ import torch
 import xarray as xr
 
 import earth2studio.run as run
-from earth2studio.data import RegriddedSource
+from earth2studio.data import CompositeSource, RegriddedSource
 from earth2studio.grids import BilinearRegridder, LatLonGrid, infer_grid
 from earth2studio.io import KVBackend
 from earth2studio.io.utils import output_template
 from earth2studio.models.dx import Identity
 from earth2studio.models.px.fcn import FCN
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.perturbation import (
+    BredVector,
+    Brown,
+    Gaussian,
+    HemisphericCentredBredVector,
+    LaggedEnsemble,
+)
 from earth2studio.run import DiagnosticRunner, PrognosticRunner, Runner, WorkItem
 from earth2studio.run.runner import _signature_for_stream
 from earth2studio.run.work import member_seed
@@ -296,16 +303,9 @@ def test_requests_are_per_item_and_match_fetch() -> None:
     np.testing.assert_array_equal(request.variable, ["u10m", "v10m"])
 
 
-@pytest.mark.parametrize(
-    "item",
-    [
-        WorkItem(T0, np.timedelta64(7, "h")),
-        WorkItem(T0, np.timedelta64(6, "h"), member_ids=(0, 1)),
-    ],
-)
-def test_rejects_unsupported_items(item: WorkItem) -> None:
+def test_rejects_unreachable_final_lead_times() -> None:
     with pytest.raises(ValueError):
-        list(PrognosticRunner(_model(), _Zeros()).run_item(item))
+        list(PrognosticRunner(_model(), _Zeros()).run_item(_item(7)))
 
 
 def test_forecast_stream_name_is_reserved() -> None:
@@ -533,3 +533,184 @@ def test_diagnostic_runner_seeds_stochastic_diagnostics() -> None:
     item = WorkItem(T0, np.timedelta64(0, "h"), member_ids=(2,))
     list(runner.run_item(item))
     assert diagnostic.seeds == [(member_seed(5, T0, 2), True)]
+
+
+class _Members(_Zeros):
+    """Ensemble-aware source: member ``k`` holds the value ``k`` everywhere."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.ensembles: list[list[int] | None] = []
+
+    def __call__(  # type: ignore[override]
+        self, time: np.ndarray, variable: np.ndarray, member: list | None = None
+    ) -> xr.DataArray:
+        x = super().__call__(time, variable)
+        self.ensembles.append(None if member is None else list(member))
+        if member is None:
+            return x
+        members = np.asarray(member)
+        offset = xr.DataArray(members.astype(np.float32), dims="ensemble")
+        return (x + offset).assign_coords(ensemble=members)
+
+
+def _member_item(member: int, hours: int = 6) -> WorkItem:
+    return WorkItem(T0, np.timedelta64(hours, "h"), member_ids=(member,))
+
+
+def test_members_read_their_source_member() -> None:
+    source = _Members()
+    runner = PrognosticRunner(_model(), source, source_member=lambda m: m // 2 + 1)
+    for member in range(4):
+        steps = list(runner.run_item(_member_item(member)))
+        expected = member // 2 + 1
+        np.testing.assert_array_equal(steps[0]["forecast"].values, expected)
+        np.testing.assert_array_equal(steps[1]["forecast"].values, expected + 1)
+        assert "ensemble" not in steps[0]["forecast"].dims
+        (request,) = runner.data_requests(_member_item(member))
+        np.testing.assert_array_equal(request.member, [expected])
+    assert source.ensembles == [[1], [1], [2], [2]]
+
+
+def test_forcing_reads_the_member_while_other_slots_are_shared() -> None:
+    model, initial, forcing = _Forced(), _Zeros(), _Members()
+    runner = PrognosticRunner(model, initial, forcing=(forcing,), source_member=int)
+    steps = list(runner.run_item(_member_item(3, hours=12)))
+    # Each step adds one plus the forcing, member 3's value.
+    np.testing.assert_allclose(steps[-1]["forecast"], 8.0)
+    assert forcing.ensembles == [[3], [3]]
+    requests = runner.data_requests(_member_item(3, hours=12))
+    assert requests[0].member is None
+    assert [r.member.tolist() for r in requests[1:]] == [[3], [3]]
+
+
+def test_members_share_sources_without_ensemble_member() -> None:
+    source = _Members()
+    steps = list(PrognosticRunner(_model(), source).run_item(_member_item(2)))
+    np.testing.assert_array_equal(steps[0]["forecast"].values, 0)
+    assert source.ensembles == [None]
+
+
+def test_ensemble_member_needs_member_ids() -> None:
+    runner = PrognosticRunner(_model(), _Members(), source_member=int)
+    with pytest.raises(ValueError, match="no member IDs"):
+        list(runner.run_item(_item(6)))
+    with pytest.raises(ValueError, match="no member IDs"):
+        runner.data_requests(_item(6))
+
+
+def test_diagnostic_runner_reads_the_member() -> None:
+    source = _Members()
+    runner = DiagnosticRunner(
+        {"wind": _WindSpeed()}, source, source_member=lambda m: m + 1
+    )
+    (step,) = list(runner.run_item(WorkItem(T0, np.timedelta64(0, "h"), (1,))))
+    np.testing.assert_allclose(step["wind"].values, np.hypot(2, 2))
+    assert source.ensembles == [[2]]
+    (request,) = runner.data_requests(WorkItem(T0, np.timedelta64(0, "h"), (1,)))
+    np.testing.assert_array_equal(request.member, [2])
+
+
+def test_composite_initial_conditions_read_the_member() -> None:
+    members = _Members()
+    source = CompositeSource(
+        {"ens": members, "shared": _Zeros()}, {"ens": ["u10m"], "shared": ["v10m"]}
+    )
+    runner = PrognosticRunner(_model(), source, source_member=lambda m: m + 1)
+    step, _ = list(runner.run_item(_member_item(2)))
+    np.testing.assert_array_equal(step["forecast"].sel(variable="u10m"), 3)
+    np.testing.assert_array_equal(step["forecast"].sel(variable="v10m"), 0)
+    assert members.ensembles == [[3]]
+
+
+def test_batches_lay_members_along_a_leading_ensemble_dimension() -> None:
+    model, initial, forcing = _Forced(), _Members(), _Zeros()
+    runner = PrognosticRunner(
+        model, initial, forcing=(forcing,), source_member=lambda m: m // 2 + 1
+    )
+    item = WorkItem(T0, np.timedelta64(12, "h"), member_ids=(1, 2, 3))
+    assert runner.supports_member_batching
+    steps = list(runner.run_item(item))
+    x = steps[-1]["forecast"]
+    assert x.dims[0] == "ensemble"
+    np.testing.assert_array_equal(x["ensemble"], [1, 2, 3])
+    # Members 2 and 3 share source member 2, fetched once per call.
+    np.testing.assert_array_equal(x.sel(ensemble=1), 1 + 2)
+    np.testing.assert_array_equal(x.sel(ensemble=3), 2 + 2)
+    assert initial.ensembles == [[1, 2]]
+    request, *_ = runner.data_requests(item)
+    np.testing.assert_array_equal(request.member, [1, 2])
+    # The shared forcing reaches the model with the batch's members.
+    for step in steps:
+        assert step["forecast"]["ensemble"].size == 3
+
+
+def test_batched_members_match_single_member_runs() -> None:
+    runner = PrognosticRunner(
+        _model(),
+        _Members(),
+        diagnostics={"wind": _WindSpeed()},
+        source_member=lambda m: m,
+    )
+    batched = list(runner.run_item(WorkItem(T0, np.timedelta64(6, "h"), (4, 9))))
+    for member in (4, 9):
+        single = list(runner.run_item(_member_item(member)))
+        for many, one in zip(batched, single):
+            for stream in ("forecast", "wind"):
+                xr.testing.assert_identical(
+                    many[stream].sel(ensemble=member, drop=True), one[stream]
+                )
+
+
+def test_diagnostic_runner_batches_members() -> None:
+    runner = DiagnosticRunner({"wind": _WindSpeed()}, _Ones())
+    (step,) = list(runner.run_item(WorkItem(T0, np.timedelta64(0, "h"), (0, 1))))
+    assert step["wind"].dims[0] == "ensemble"
+    np.testing.assert_allclose(step["wind"].values, np.hypot(1, 1))
+
+
+class _GlobalNoise:
+    """Perturbation without ``set_rng``, drawing from the global Torch RNG."""
+
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        return x.copy(data=x.values + torch.randn(x.shape).numpy())
+
+
+@pytest.mark.parametrize(
+    "perturbation", [Gaussian, _GlobalNoise], ids=["set_rng", "global"]
+)
+def test_perturbation_draws_each_member_alone(perturbation: type) -> None:
+    runner = PrognosticRunner(_model(), _Zeros(), perturbation=perturbation())
+    before = torch.random.get_rng_state()
+    batched = list(runner.run_item(WorkItem(T0, np.timedelta64(6, "h"), (4, 9))))
+    assert torch.equal(torch.random.get_rng_state(), before)
+    initial = batched[0]["forecast"]
+    assert not np.allclose(initial.sel(ensemble=4), initial.sel(ensemble=9))
+    assert not np.allclose(initial, 0)
+    for member in (4, 9):
+        single = list(runner.run_item(_member_item(member)))
+        for many, one in zip(batched, single):
+            xr.testing.assert_identical(
+                many["forecast"].sel(ensemble=member, drop=True), one["forecast"]
+            )
+    # Deterministic items perturb as member 0.
+    xr.testing.assert_identical(
+        list(runner.run_item(_item(0)))[0]["forecast"],
+        list(runner.run_item(_member_item(0, hours=0)))[0]["forecast"],
+    )
+
+
+@pytest.mark.parametrize(
+    "perturbation",
+    [
+        lambda: BredVector(lambda x: x),
+        lambda: HemisphericCentredBredVector(_model(), _Zeros(), Brown()),
+        lambda: LaggedEnsemble(_Zeros(), np.array([0], dtype="timedelta64[h]")),
+    ],
+    ids=["bred", "hcbv", "lagged"],
+)
+def test_runner_rejects_perturbations_needing_whole_ensembles(
+    perturbation: Callable[[], Any],
+) -> None:
+    with pytest.raises(ValueError, match="not supported by the runners"):
+        PrognosticRunner(_model(), _Zeros(), perturbation=perturbation())

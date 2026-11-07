@@ -207,7 +207,7 @@ class _FusedDLESyMShaped(PrognosticMixin):
         y = y.expand_dims(variable=variables).expand_dims(
             lead_time=x["lead_time"].values[-1] + self.output_times
         )
-        return y.transpose("time", "lead_time", "variable", *self.grid.dims)
+        return y.transpose(..., "time", "lead_time", "variable", *self.grid.dims)
 
     def _window(self, y: xr.DataArray) -> xr.DataArray:
         """Rebuild the next step's input window from the published outputs."""
@@ -362,13 +362,47 @@ def test_fused_dlesym_initial_condition_omits_diagnostic_variables() -> None:
     assert np.isnan(float(io["tp06"][0, 0, 0, 0, 0, 0]))
 
 
-def test_member_batching_is_rejected_for_both_shapes() -> None:
-    model = _StormCastShaped()
-    runner = PrognosticRunner(
-        model,
-        _GridSource(model.input_coords(), model.variables),
-        forcing=(_GridSource(model.forcing_coords(), model.conditioning_variables),),
-    )
-    assert runner.supports_member_batching is False
-    with pytest.raises(ValueError):
-        list(runner.run_item(WorkItem(T0, np.timedelta64(1, "h"), member_ids=(0, 1))))
+def _shaped_runners() -> list[tuple[PrognosticRunner, PrognosticMixin]]:
+    storm = _StormCastShaped()
+    dlesym = _FusedDLESyMShaped()
+    return [
+        (
+            PrognosticRunner(
+                storm,
+                _GridSource(storm.input_coords(), storm.variables, fill=0.0),
+                forcing=(
+                    _GridSource(storm.forcing_coords(), storm.conditioning_variables),
+                ),
+                seed=3,
+            ),
+            storm,
+        ),
+        (
+            PrognosticRunner(
+                dlesym,
+                _GridSource(
+                    dlesym.input_coords(),
+                    dlesym.atmos_variables + dlesym.ocean_variables,
+                    fill=0.0,
+                ),
+                seed=3,
+            ),
+            dlesym,
+        ),
+    ]
+
+
+@pytest.mark.parametrize("index", [0, 1])
+def test_member_batches_match_single_members_for_both_shapes(index: int) -> None:
+    runner, model = _shaped_runners()[index]
+    final = np.timedelta64(24, "h") if index else np.timedelta64(2, "h")
+    batched = list(runner.run_item(WorkItem(T0, final, member_ids=(5, 6))))
+    # A batch is seeded once, from its first member.
+    assert model.seeds == [(member_seed(3, T0, 5), True)]  # type: ignore[attr-defined]
+    single = list(runner.run_item(WorkItem(T0, final, member_ids=(6,))))
+    assert len(batched) == len(single)
+    for many, one in zip(batched, single):
+        x = many["forecast"]
+        assert x.dims[0] == "ensemble"
+        np.testing.assert_array_equal(x["ensemble"], [5, 6])
+        xr.testing.assert_identical(x.sel(ensemble=6, drop=True), one["forecast"])

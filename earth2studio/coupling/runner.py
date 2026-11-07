@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import math
 import zlib
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Hashable, Iterator, Mapping, Sequence
 from itertools import chain
 from typing import Any
 
@@ -44,14 +44,18 @@ from earth2studio.coupling.errors import CouplingError, _suggest
 from earth2studio.data import fetch_dataframe
 from earth2studio.grids import infer_grid, same_geometry
 from earth2studio.models.utils import recommended_sources
+from earth2studio.perturbation import Perturbation
 from earth2studio.run._fields import _map_field, _with_lead_time
 from earth2studio.run.runner import (
     DataRequest,
     SlotSource,
+    _check_perturbation,
     _fetch,
     _module_device,
+    _perturb,
     _seed_model,
     _signature_for_stream,
+    _source_members,
 )
 from earth2studio.run.work import WorkItem
 from earth2studio.utils.coords import E2S_STATISTICS, coord_array_like
@@ -80,6 +84,12 @@ class CoupledRunner:
     output chunk;
     a diagnostic publishes every call.
 
+    Items with several members run as one batch on a leading ``ensemble``
+    dimension, observation frames shared by every member, seeded once from the
+    first member, so stochastic members depend on their batch; ``member_batch=1``
+    seeds each member alone. A perturbation, by contrast, draws each member alone
+    under its own seed.
+
     Parameters
     ----------
     components : Mapping[str, Any]
@@ -103,6 +113,16 @@ class CoupledRunner:
         impact models, by default none. Every other component runs where its
         parameters or buffers are, or on the runner's device without any. Fetches
         and connected fields are staged onto the receiving component's device.
+    source_member : Callable[[int], Hashable], optional
+        Maps a work item's member ID to the member that ensemble sources (those
+        taking a ``member`` keyword) supply for it, in the source's own labels,
+        by default None. Every fetched slot whose source is an ensemble source
+        reads that member, initial conditions and forcing alike; other slots are
+        shared by every member.
+    perturbation : Mapping[str, Perturbation], optional
+        Initial-condition perturbation per stateful component, applied to its
+        first input slot as :class:`~earth2studio.run.PrognosticRunner` applies
+        it, from the component's offset seed, by default none.
 
     Raises
     ------
@@ -110,7 +130,7 @@ class CoupledRunner:
         If a declaration is invalid or the components cannot be scheduled.
     """
 
-    supports_member_batching = False
+    supports_member_batching = True
 
     def __init__(
         self,
@@ -119,6 +139,8 @@ class CoupledRunner:
         sources: Mapping[str, SlotSource | tuple[SlotSource | None, ...]] | None = None,
         seed: int = 0,
         devices: Mapping[str, torch.device | str] | None = None,
+        source_member: Callable[[int], Hashable] | None = None,
+        perturbation: Mapping[str, Perturbation] | None = None,
     ) -> None:
         if not components:
             raise CouplingError("CoupledRunner needs at least one component")
@@ -159,6 +181,20 @@ class CoupledRunner:
         }
         self._recommended: dict[str, tuple[Any, ...]] = {}
         self.seed = seed
+        self.source_member = source_member
+        self.perturbation = dict(perturbation or {})
+        for name, perturb in self.perturbation.items():
+            if name not in self.nodes:
+                raise CouplingError(
+                    f"Perturbation given for unknown component {name!r}"
+                    + _suggest(name, self.nodes)
+                )
+            if not self.nodes[name].stateful:
+                raise CouplingError(
+                    f"Perturbation given for component {name!r}, which has no "
+                    "initial condition"
+                )
+            _check_perturbation(perturb)
         self.spacing = self._spacing()
         self._check_windows()
         self._scheduler = _Scheduler(
@@ -340,7 +376,7 @@ class CoupledRunner:
         period = math.lcm(*(n.cadence for n in stateful))
         horizon = max(n.due(0) for n in stateful) + 2 * period
         ages: dict[str, int] = {}
-        requests = _Requests(self, _PROBE_TIME)
+        requests = _Requests(self)
         for _ in self._scheduler.run(requests, horizon, slack=period, ages=ages):
             pass
         longest = max(n.cadence for n in stateful)
@@ -410,15 +446,15 @@ class CoupledRunner:
 
     def data_requests(self, item: WorkItem) -> tuple[DataRequest, ...]:
         """Describe every ``fetch_data`` call ``item`` makes, in run order."""
-        requests = _Requests(self, item.time)
+        requests = _Requests(self, item)
         for _ in self._scheduler.run(requests, _final(item.final_lead_time)):
             pass
         return tuple(requests.requests)
 
     def run_item(self, item: WorkItem) -> Iterator[Mapping[str, xr.DataArray]]:
         """Yield each component's outputs as it publishes them."""
-        if len(item.member_ids) > 1:
-            raise ValueError("CoupledRunner does not batch ensemble members")
+        # A batch is seeded once, from its first member: stochastic members depend
+        # on their batch, and member_batch=1 seeds each member alone.
         member_id = item.member_ids[0] if item.member_ids else 0
         for name, node in self.nodes.items():
             _seed_model(
@@ -487,9 +523,11 @@ class _Requests:
     does not describe; they are checked for a source but not recorded.
     """
 
-    def __init__(self, runner: CoupledRunner, time: np.datetime64) -> None:
+    def __init__(self, runner: CoupledRunner, item: WorkItem | None = None) -> None:
+        # Without an item, a dry run at a probe time that reads no members.
         self.runner = runner
-        self.time = np.array([time])
+        self.item = item
+        self.time = np.array([_PROBE_TIME if item is None else item.time])
         self.requests: list[DataRequest] = []
 
     def _add(self, node: _Node, slot: _Slot, labels: Sequence[str], leads: Any) -> None:
@@ -502,6 +540,11 @@ class _Requests:
                 self.time,
                 np.array(list(labels)),
                 np.asarray(leads, dtype=np.int64).astype("timedelta64[ns]"),
+                (
+                    None
+                    if self.item is None
+                    else _source_members(self.runner.source_member, source, self.item)
+                ),
             )
         )
 
@@ -554,8 +597,14 @@ class _Execution:
         signature = slot.signature
         if list(labels) != list(slot.labels):
             signature = coord_array_like(signature, {"variable": list(labels)})
-        request = DataRequest(source, time, np.array(list(labels)), lead_time)
-        x = _fetch(request, signature, device)
+        request = DataRequest(
+            source,
+            time,
+            np.array(list(labels)),
+            lead_time,
+            _source_members(self.runner.source_member, source, self.item),
+        )
+        x = _fetch(request, signature, device, self.item, self.runner.source_member)
         if slot.static:
             x = x.isel(lead_time=0, drop=True)
         return x
@@ -565,6 +614,16 @@ class _Execution:
             self._fetch(node, slot, slot.labels, [0] if slot.frame else slot.leads)
             for slot in node.inputs
         )
+        perturbation = self.runner.perturbation.get(node.name)
+        if perturbation is not None:
+            x = _perturb(
+                perturbation,
+                values[0],
+                _component_seed(self.runner.seed, node.name),
+                self.item,
+                self.runner.device_of(node.name),
+            )
+            values = (x, *values[1:])
         self.inputs[node.name] = values
         return values
 
