@@ -174,7 +174,7 @@ def coord_array(
         only index coordinates.
     grid_dims : mapping, optional
         Rename grid dimensions to model dimensions, for example
-        ``{"y": "hrrr_y", "x": "hrrr_x"}``. Explicit coordinates use model names.
+        ``{"y": "north", "x": "east"}``. Explicit coordinates use model names.
     dtype : dtype-like, optional
         Declared field dtype; no field values are allocated.
     name : hashable, optional

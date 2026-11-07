@@ -51,7 +51,7 @@ def rng_model(monkeypatch):
     p.register_buffer("lat_output_grid", torch.ones(2, 3) * 28)
     p._lat_out_cpu = p.lat_output_grid.numpy()
     p._lon_out_cpu = np.ones((2, 3)) * 262
-    p.hrrr_y, p.hrrr_x = np.arange(2), np.arange(3)
+    p.y, p.x = np.arange(2), np.arange(3)
     p.era5_variables, p.output_variables = np.array(["t2m"]), np.array(["t2m"])
     p.number_of_samples = 2
     p.number_of_steps = 2
@@ -133,8 +133,8 @@ def model_args():
         lon_input_grid=torch.arange(260, 265, 0.5),
         lat_output_grid=lat + 0.05 * lon.sin(),
         lon_output_grid=lon,
-        hrrr_y=torch.arange(4) * 3000,
-        hrrr_x=torch.arange(6) * 3000,
+        y=torch.arange(4) * 3000,
+        x=torch.arange(6) * 3000,
         era5_center=torch.zeros(26),
         era5_scale=torch.ones(26),
         out_center=torch.arange(99).float(),
@@ -195,9 +195,7 @@ def test_corrdiff_era5_hrrr(model_args, kind, prediction, batch_size, device):
     np.testing.assert_array_equal(coords.coords["variable"], ERA5_VARIABLES)
     np.testing.assert_array_equal(out_coords["variable"], OUTPUT_VARIABLES)
     expected = dx.output_coords(coords)
-    for index, dim in enumerate(
-        ["batch", "sample", "time", "variable", "hrrr_y", "hrrr_x"]
-    ):
+    for index, dim in enumerate(["batch", "sample", "time", "variable", "y", "x"]):
         handshake_dim(out_coords, dim, index)
         np.testing.assert_array_equal(out_coords[dim], expected.coords[dim])
     dx.set_rng(0)
@@ -360,8 +358,8 @@ def domain_args(model_args):
     return model_args | dict(
         lat_output_grid=lat + 0.05 * lon.sin(),
         lon_output_grid=lon,
-        hrrr_y=torch.from_numpy(hrrr.y[500:508].copy()),  # HRRR rows 500..507
-        hrrr_x=torch.from_numpy(hrrr.x[800:812].copy()),  # HRRR columns 800..811
+        y=torch.from_numpy(hrrr.y[500:508].copy()),  # HRRR rows 500..507
+        x=torch.from_numpy(hrrr.x[800:812].copy()),  # HRRR columns 800..811
         invariants=torch.randn(3, 8, 12),
     )
 
@@ -395,15 +393,15 @@ def test_corrdiff_era5_hrrr_with_region(domain_args):
     assert view.network is dx.network and view._rng_generator is not dx._rng_generator
     torch.testing.assert_close(view.lat_output_grid, dx.lat_output_grid[1:6, 3:9])
     torch.testing.assert_close(view.invariants, dx.invariants[:, 1:6, 3:9])
-    np.testing.assert_array_equal(view.hrrr_y, dx.hrrr_y[1:6])
+    np.testing.assert_array_equal(view.y, dx.y[1:6])
     assert view._lat_out_cpu.min() < 27.5 and view._lat_out_cpu.max() > 28.3
     assert view._lon_out_cpu.min() < 262.0 and view._lon_out_cpu.max() > 263.0
     # the input stays the native ERA5 grid; the output is the block
     field = _era5_field(view)
     out, out_coords = view(field).e2s.to_torch()
     assert out.shape == (1, 2, 1, 99, 5, 6) and torch.isfinite(out).all()
-    np.testing.assert_array_equal(out_coords["hrrr_y"], dx.hrrr_y[1:6])
-    np.testing.assert_array_equal(out_coords["hrrr_x"], dx.hrrr_x[3:9])
+    np.testing.assert_array_equal(out_coords["y"], dx.y[1:6])
+    np.testing.assert_array_equal(out_coords["x"], dx.x[3:9])
     np.testing.assert_array_equal(
         view.output_coords(field).coords["lat"].values, dx._lat_out_cpu[1:6, 3:9]
     )
@@ -465,7 +463,7 @@ def test_corrdiff_era5_hrrr_with_region_dit(domain_args):
         field = _era5_field(view)
         out, out_coords = view(field).e2s.to_torch()
         assert out.shape == (1, 1, 1, 99, 6, 6) and torch.isfinite(out).all()
-        np.testing.assert_array_equal(out_coords["hrrr_y"], dx.hrrr_y[1:7])
+        np.testing.assert_array_equal(out_coords["y"], dx.y[1:7])
         # the shared backbone is restored to its construction grid after a
         # regional run and still serves the full grid
         dit = find_dit(network)
@@ -521,8 +519,8 @@ def test_corrdiff_era5_hrrr_with_region_natten_rope(model_args, backbone, monkey
                 network=network,
                 lat_output_grid=lat + 0.05 * lon.sin(),
                 lon_output_grid=lon,
-                hrrr_y=torch.from_numpy(resolve_grid("hrrr").y[500:516].copy()),
-                hrrr_x=torch.from_numpy(resolve_grid("hrrr").x[800:824].copy()),
+                y=torch.from_numpy(resolve_grid("hrrr").y[500:516].copy()),
+                x=torch.from_numpy(resolve_grid("hrrr").x[800:824].copy()),
                 invariants=torch.randn(3, 16, 24),
                 number_of_steps=2,
                 number_of_samples=1,
@@ -558,7 +556,7 @@ def test_corrdiff_era5_hrrr_with_region_natten_rope(model_args, backbone, monkey
     assert (i1 - i0) % 2 == 0 and (j1 - j0) % 2 == 0 and min(i1 - i0, j1 - j0) >= 6
     out, out_coords = view(field).e2s.to_torch()
     assert out.shape[-2:] == (i1 - i0, j1 - j0) and torch.isfinite(out).all()
-    np.testing.assert_array_equal(out_coords["hrrr_y"], dx.hrrr_y[i0:i1])
+    np.testing.assert_array_equal(out_coords["y"], dx.y[i0:i1])
     # ... and restores the construction grid and the original RoPE tables
     assert grid_state() == (full_latent, full_latent, full_latent, True)
 

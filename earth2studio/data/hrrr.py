@@ -45,6 +45,7 @@ from earth2studio.data.utils import (
     prep_forecast_inputs,
     reduce_statistics,
 )
+from earth2studio.grids import ProjectedGrid, resolve_grid
 from earth2studio.lexicon import HRRRFXLexicon, HRRRLexicon
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -69,7 +70,7 @@ class HRRR:
     model). This data source is provided on a Lambert conformal 3km grid at 1-hour
     intervals. The spatial dimensionality of HRRR data is [1059, 1799].
 
-    The `hrrr_x` and `hrrr_y` coordinates of the resulting `DataArray` are the native
+    The `x` and `y` coordinates of the resulting `DataArray` are the native
     coordinates of the HRRR model. The corresponding CRS can be set up with cartopy:
 
     ```python
@@ -290,8 +291,8 @@ class HRRR:
         # Make sure input time is valid
         self._validate_time(time)
 
-        # Generate HRRR lat-lon grid to append onto data array
-        lat, lon = self.grid()
+        # Native HRRR grid coordinates (y, x, lat, lon) from the registered grid spec
+        grid_coords = self._grid_coords()
         # Note, this could be more memory efficient and avoid pre-allocation of the array
         # but this is much much cleaner to deal with
         xr_array = xr.DataArray(
@@ -305,19 +306,13 @@ class HRRR:
                 ),
                 np.nan,
             ),
-            dims=["time", "lead_time", "variable", "hrrr_y", "hrrr_x"],
+            dims=["time", "lead_time", "variable", "y", "x"],
             coords={
                 "time": time,
                 "lead_time": [timedelta(hours=0)],
                 "variable": variable,
-                "hrrr_x": self.HRRR_X,
-                "hrrr_y": self.HRRR_Y,
-                "lat": (("hrrr_y", "hrrr_x"), lat),
-                "lon": (("hrrr_y", "hrrr_x"), lon),
             },
-        )
-        xr_array["hrrr_y"].attrs = {"standard_name": "latitude", "axis": "Y"}
-        xr_array["hrrr_x"].attrs = {"standard_name": "longitude", "axis": "X"}
+        ).assign_coords(grid_coords)
 
         times = np.asarray(time, dtype="datetime64[ns]")
         plain, stats, attrs = plan_statistics(
@@ -581,6 +576,14 @@ class HRRR:
             cache_location = os.path.join(cache_location, "tmp_hrrr")
         return cache_location
 
+    def _grid_coords(self) -> xr.Coordinates:
+        """Native ``y``/``x`` and 2D ``lat``/``lon`` coordinates from the registered
+        ``hrrr`` grid definition, restricted to this source's axes."""
+        grid = resolve_grid("hrrr")
+        if not isinstance(grid, ProjectedGrid):
+            raise TypeError("The registered HRRR grid must be a ProjectedGrid")
+        return ProjectedGrid(self.HRRR_Y, self.HRRR_X, grid.crs).coords()
+
     @classmethod
     def grid(cls) -> tuple[np.array, np.array]:
         """Generates the HRRR lambert conformal projection grid coordinates. Creates the
@@ -806,8 +809,8 @@ class HRRR_FX(HRRR):
         self._validate_time(time)
         self._validate_leadtime(time, lead_time)
 
-        # Generate HRRR lat-lon grid to append onto data array
-        lat, lon = self.grid()
+        # Native HRRR grid coordinates (y, x, lat, lon) from the registered grid spec
+        grid_coords = self._grid_coords()
         # Note, this could be more memory efficient and avoid pre-allocation of the array
         # but this is much much cleaner to deal with, compared to something seen in the
         # NCAR data source.
@@ -822,19 +825,13 @@ class HRRR_FX(HRRR):
                 ),
                 np.nan,
             ),
-            dims=["time", "lead_time", "variable", "hrrr_y", "hrrr_x"],
+            dims=["time", "lead_time", "variable", "y", "x"],
             coords={
                 "time": time,
                 "lead_time": lead_time,
                 "variable": variable,
-                "hrrr_x": self.HRRR_X,
-                "hrrr_y": self.HRRR_Y,
-                "lat": (("hrrr_y", "hrrr_x"), lat),
-                "lon": (("hrrr_y", "hrrr_x"), lon),
             },
-        )
-        xr_array["hrrr_y"].attrs = {"standard_name": "latitude", "axis": "Y"}
-        xr_array["hrrr_x"].attrs = {"standard_name": "longitude", "axis": "X"}
+        ).assign_coords(grid_coords)
 
         leads = np.asarray(lead_time, dtype="timedelta64[ns]")
         plain, stats, attrs = plan_statistics(
