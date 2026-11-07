@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Updated the `FuXiS2S` documentation and example to build its daily-mean inputs
+  with native ARCO ERA5 temporal statistics (`fetch_data` with `target_grid`),
+  including the `D-1` workflow-time convention for the 00:00 UTC forecast start.
+
 ### Deprecated
 
 ### Removed

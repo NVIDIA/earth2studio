@@ -196,8 +196,16 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     The compact ``mean:24h`` modifier instead describes the preceding day
     and must not be substituted at the same start-of-day timestamp.
     Sea-surface temperature must retain ``NaN`` values over land. The wrapper
-    does not aggregate hourly fields or regrid initial conditions; callers must
-    provide these prepared daily inputs through an Earth2Studio data source.
+    does not aggregate hourly fields or regrid initial conditions. Sources with
+    native temporal statistics, such as
+    :py:class:`~earth2studio.data.ARCO_ERA5`, compute these windows when the
+    qualified labels are requested through
+    :py:func:`~earth2studio.data.fetch_data`, which can also regrid to the model
+    grid with ``target_grid``.
+
+    A forecast issued at the 00:00 UTC timestamp of day ``D`` needs the daily
+    means of days ``D-2`` and ``D-1``. The ``D-1`` aggregate (and its ``tp`` and
+    ``ttr`` windows) ends at ``D`` 00:00 UTC, so the workflow time is ``D-1``.
 
     The official ONNX graph samples flow-dependent perturbations internally, so
     each forecast trajectory is one stochastic ensemble member. Member ``00`` in
@@ -211,18 +219,38 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Example
     -------
-    Prepared daily data must carry the qualified labels returned by
-    ``input_coords()["variable"]``. For formal input data consult
-    https://zenodo.org/records/15718402. A statistics-aware fetch layer can
-    split each label at its first colon, fetch the base variable over the
-    declared window, and reduce it with ``apply_time_statistic``. Use hourly
-    source data to reproduce the daily sampling convention.
+    Daily-mean initial conditions are fetched from hourly ARCO ERA5 with
+    native temporal statistics and regridded to the model's 1.5-degree grid.
+    The workflow time is the day whose aggregate is the most recent input.
+    The forecast then starts on the following day.
 
     ```python
+    import numpy as np
+
+    import earth2studio.run as run
+    from earth2studio.data import ARCO_ERA5, fetch_data
+    from earth2studio.grids import infer_grid
+    from earth2studio.io import ZarrBackend
+
     package = FuXiS2S.load_default_package()
     model = FuXiS2S.load_model(package).to("cuda:0")
-    requested_variables = model.input_coords()["variable"]
-    # Includes "t2m:mean:0h:24h" and "tp:mean:1h:25h".
+
+    # Single step by hand (inputs: days 2024-01-13 and 2024-01-14)
+    coords = model.input_coords()
+    x = fetch_data(
+        ARCO_ERA5(),
+        time=np.array([np.datetime64("2024-01-14")]),
+        variable=coords["variable"].values,
+        lead_time=coords["lead_time"].values,
+        target_grid=infer_grid(coords),
+        device="cuda:0",
+    )
+    y = model(x)
+
+    # Or run the full workflow with the model's default data source
+    io = run.deterministic(
+        ["2024-01-14"], 1, model, model.default_sources(), ZarrBackend()
+    )
     ```
 
     Badges
@@ -242,11 +270,14 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def default_sources(self) -> DataSource:
         """Recommend hourly ARCO ERA5 for the declared daily-mean windows.
 
+        ARCO ERA5 natively evaluates the qualified temporal statistics in
+        :py:meth:`input_coords`. Regrid to the model grid with
+        ``fetch_data(..., target_grid=...)``.
+
         Returns
         -------
         DataSource
-            Raw hourly source. The caller must aggregate the declared daily
-            windows and regrid to the model's input grid.
+            Hourly source with native temporal statistics.
         """
         from earth2studio.data import ARCO_ERA5
 
