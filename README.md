@@ -1,9 +1,9 @@
 <!-- markdownlint-disable MD033 MD041 -->
 
 > [!IMPORTANT]
-> **1.0.0**: This tier has been released. For a migration guide please point your agent
-> to this [migration guide](https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/MIGRATION.md)
-> to transition.
+> **1.0.0**: This is a major release with breaking changes from pre-1.0 releases.
+> See the [migration guide](https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/MIGRATION.md)
+> if you need help transitioning, or point your agent to it.
 
 <div align="center">
 
