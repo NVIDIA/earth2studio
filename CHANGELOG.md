@@ -21,16 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-### Fixed
+- Removed the beta `earth2studio.serve` package, the `serve` install extra, and the
+  top-level `serve/` directory (server, client, Dockerfile, and example workflows).
+  Deployment now lives in [PhysicsNeMo Serve](https://github.com/NVIDIA/physicsnemo-serve).
 
-- `fetch_data` now always returns floating point fields as float32 and accepts
-  sources called with repeated timestamps.
-- `HRRR` and `HRRR_FX` now return the native `y`/`x` dims with lat/lon from the
-  registered `hrrr` grid, matching StormCast's grid.
-- Removed remaining `hrrr_y`/`hrrr_x` names: `CorrDiffEra5Hrrr` output dims and
-  constructor arguments, StormCast attributes and `prep_data_array` now use `y`/`x`.
-- Updated examples for the 1.0 API (initial condition handling, `Pipeline` for
-  StormCast, `Region`, variable names).
+### Fixed
 
 ### Security
 
