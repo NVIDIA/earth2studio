@@ -191,7 +191,7 @@ def test_native_mapping_preserves_storage_and_rejects_wrong_geometry():
             dims=("time", "variable", "y", "x"),
             coords={"time": time, "variable": variable, **parent.coords()},
             attrs={**parent.attrs, "earth2studio_crs": parent.crs.to_string()},
-        ).rename(y="hrrr_y", x="hrrr_x")
+        )
 
     tree = ast.parse(
         (root / "examples/05_data_assimilation/01_stormcast_sda.py").read_text()

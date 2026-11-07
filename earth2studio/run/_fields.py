@@ -34,21 +34,6 @@ def _dimension_coords(x: xr.DataArray) -> CoordSystem:
     return OrderedDict((dim, x.coords[dim].values) for dim in x.dims)
 
 
-_NATIVE_AXIS_ALIASES = {"hrrr_y": "y", "hrrr_x": "x"}
-
-
-def _coords_match(source: np.ndarray, target: np.ndarray) -> bool:
-    """Compare geometry coordinates, tolerating round-off from independent
-    projection evaluations (e.g. HRRR lat/lon computed by source vs. model)."""
-    if source.shape != target.shape:
-        return False
-    if np.issubdtype(source.dtype, np.floating) and np.issubdtype(
-        target.dtype, np.floating
-    ):
-        return bool(np.allclose(source, target, rtol=0.0, atol=1e-9))
-    return bool(np.array_equal(source, target))
-
-
 def _map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataArray:
     """Select model variables/domain, retaining runtime times and auxiliary geometry.
 
@@ -59,14 +44,6 @@ def _map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataAr
     coordinates = (
         _dimension_coords(target) if isinstance(target, xr.DataArray) else target
     )
-    # HRRR sources expose native hrrr_y/hrrr_x axes; models use standard y/x names
-    aliases = {
-        old: new
-        for old, new in _NATIVE_AXIS_ALIASES.items()
-        if old in x.dims and new in coordinates and new not in x.dims
-    }
-    if aliases:
-        x = x.rename(aliases)
     for dim, values in coordinates.items():
         if dim in ("batch", "time", "lead_time") or len(values) == 0:
             continue
@@ -100,15 +77,11 @@ def _map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataAr
             if (
                 name not in x.coords
                 or x.coords[name].dims != coordinate.dims
-                or not _coords_match(x.coords[name].values, coordinate.values)
+                or not np.array_equal(x.coords[name], coordinate)
             ):
                 raise ValueError(
                     f"Source geometry does not match target coordinate {name}"
                 )
-            if not np.array_equal(x.coords[name].values, coordinate.values):
-                # Adopt the target's exact values so the model's strict
-                # handshake does not trip on round-off in the source's geometry.
-                x = x.assign_coords({name: (coordinate.dims, coordinate.values)})
         actual_crs = x.attrs.get("earth2studio_crs")
         if actual_crs is not None and actual_crs != target.attrs.get(
             "earth2studio_crs"

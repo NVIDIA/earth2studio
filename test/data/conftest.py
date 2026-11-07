@@ -56,10 +56,6 @@ def mock_statistic_grib(monkeypatch, tmp_path):
         name = type(ds).__module__.rsplit(".", 1)[-1]
         for axis in ("GFS_LAT", "GFS_LON") if name == "gfs" else ("HRRR_Y", "HRRR_X"):
             monkeypatch.setattr(ds, axis, np.arange(2))
-        if name == "hrrr":
-            monkeypatch.setattr(
-                ds, "grid", lambda: (np.zeros((2, 2)), np.zeros((2, 2)))
-            )
 
         def hours(uri):
             day = re.search(r"(?:gfs|hrrr)\.(\d{8})", uri)[1]
