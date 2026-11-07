@@ -26,7 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `fetch_data` now always returns floating point fields as float32 and accepts
   sources called with repeated timestamps.
 - `HRRR` and `HRRR_FX` now return the native `y`/`x` dims with lat/lon from the
-  registered `hrrr` grid (previously `hrrr_y`/`hrrr_x`), matching StormCast's grid.
+  registered `hrrr` grid, matching StormCast's grid.
+- Removed remaining `hrrr_y`/`hrrr_x` names: `CorrDiffEra5Hrrr` output dims and
+  constructor arguments, StormCast attributes and `prep_data_array` now use `y`/`x`.
 - Updated examples for the 1.0 API (initial condition handling, `Pipeline` for
   StormCast, `Region`, variable names).
 

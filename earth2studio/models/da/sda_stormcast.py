@@ -227,8 +227,8 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         grid_coords = self.grid.coords()
         self.lat = np.asarray(grid_coords["lat"])
         self.lon = np.asarray(grid_coords["lon"])
-        self.hrrr_x = self.grid.x
-        self.hrrr_y = self.grid.y
+        self.x = self.grid.x
+        self.y = self.grid.y
 
         # Build ordered boundary polygon from 2D grid perimeter for
         # point-in-grid testing (top row -> right col -> bottom row -> left col)
@@ -620,14 +620,10 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         device: torch.device,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         n_var = len(self.variables)
-        n_hrrr_y, n_hrrr_x = self.lat.shape
+        n_y, n_x = self.lat.shape
 
-        y_obs = torch.zeros(
-            1, n_var, n_hrrr_y, n_hrrr_x, device=device, dtype=torch.float32
-        )
-        mask = torch.zeros(
-            1, n_var, n_hrrr_y, n_hrrr_x, device=device, dtype=torch.float32
-        )
+        y_obs = torch.zeros(1, n_var, n_y, n_x, device=device, dtype=torch.float32)
+        mask = torch.zeros(1, n_var, n_y, n_x, device=device, dtype=torch.float32)
 
         if obs is None or len(obs) == 0:
             return y_obs, mask
@@ -669,8 +665,8 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
         # Find nearest HRRR grid point for each observation using a KD-tree
         # to avoid allocating the full [n_obs, n_grid] distance matrix.
         _, nearest_flat = self._grid_tree.query(np.column_stack([obs_lat, obs_lon]))
-        nearest_y = nearest_flat // n_hrrr_x
-        nearest_x = nearest_flat % n_hrrr_x
+        nearest_y = nearest_flat // n_x
+        nearest_x = nearest_flat % n_x
 
         # Map variable names to indices
         var_to_idx = {str(v): i for i, v in enumerate(self.variables)}
@@ -685,9 +681,9 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
             vals = torch.tensor(obs_val[valid], device=device, dtype=torch.float32)
 
             # Flatten (vi, yi, xi) into a single linear index for scatter ops
-            flat_idx = vi * (n_hrrr_y * n_hrrr_x) + yi * n_hrrr_x + xi
+            flat_idx = vi * (n_y * n_x) + yi * n_x + xi
             flat_sum = torch.zeros(
-                n_var * n_hrrr_y * n_hrrr_x, device=device, dtype=torch.float32
+                n_var * n_y * n_x, device=device, dtype=torch.float32
             )
             flat_cnt = torch.zeros_like(flat_sum)
             flat_sum.scatter_add_(0, flat_idx, vals)
@@ -695,8 +691,8 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
 
             occupied = flat_cnt > 0
             flat_avg = torch.where(occupied, flat_sum / flat_cnt, flat_sum)
-            y_obs[0] = flat_avg.view(n_var, n_hrrr_y, n_hrrr_x)
-            mask[0] = occupied.float().view(n_var, n_hrrr_y, n_hrrr_x)
+            y_obs[0] = flat_avg.view(n_var, n_y, n_x)
+            mask[0] = occupied.float().view(n_var, n_y, n_x)
 
         return y_obs, mask
 

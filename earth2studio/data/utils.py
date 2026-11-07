@@ -658,12 +658,9 @@ def prep_data_array(
             data = torch.Tensor(da.values).to(device)
             out = interp(data)
 
-            # HARD CODE FOR STORMCAST
-            # TODO: FIX THIS BY CORRECTING STORMCAST COORDINATES
-            if "hrrr_y" in out_coords:
-                del out_coords["hrrr_y"]
-            if "hrrr_x" in out_coords:
-                del out_coords["hrrr_x"]
+            # The native curvilinear dims are replaced by the target grid
+            for dim in da["_lat"].dims:
+                out_coords.pop(dim, None)
         else:
             if len(interp_to["_lat"].shape) > 1 or len(interp_to["_lon"].shape) > 1:
                 # Target grid uses curvilinear coordinates: define internal dims y, x

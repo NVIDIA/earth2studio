@@ -100,7 +100,7 @@ def main(
 
     # Extract t2m data for the specified location
     ds = xr.open_zarr(io.store, consolidated=False)
-    t2m = ds["t2m"].sel(hrrr_x=x, hrrr_y=y, method="nearest").values.ravel()
+    t2m = ds["t2m"].sel(x=x, y=y, method="nearest").values.ravel()
 
     # Extract time coordinate
     time_coord = ds["lead_time"].values.astype("timedelta64[h]")
