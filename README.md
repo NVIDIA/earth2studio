@@ -20,11 +20,11 @@
 [Examples][e2studio_examples_url] | [API][e2studio_api_url] |
 [Skills](./skills)
 
-![Earth2Studio hero][e2studio_hero_img]
-
 </div>
 
 Access a leading collection of weather and climate AI models, production-ready data sources, composable inference APIs, and GPU-accelerated workflows in one Python package.
+
+![Earth2Studio hero][e2studio_hero_img]
 
 ## For agents
 
