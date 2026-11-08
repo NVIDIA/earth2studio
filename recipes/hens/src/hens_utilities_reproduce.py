@@ -18,7 +18,7 @@ import hashlib
 import secrets
 
 import numpy as np
-from omegaconf import DictConfig
+from omegaconf import DictConfig, open_dict
 
 
 def get_reproducibility_settings(cfg: DictConfig) -> tuple[str | int, list[int], bool]:
@@ -55,6 +55,8 @@ def get_reproducibility_settings(cfg: DictConfig) -> tuple[str | int, list[int],
         base_random_seed = cfg["random_seed"]
     except KeyError:
         base_random_seed = secrets.randbelow(1_000_000)
+        with open_dict(cfg):
+            cfg.random_seed = base_random_seed
     try:
         torch_use_deterministic_algorithms = cfg["torch_use_deterministic_algorithms"]
     except KeyError:
@@ -202,5 +204,3 @@ def ensure_all_torch_seeds_are_unique(
             full_seed_string_list.append(full_seed_strings)
     if torch_seeds_list:
         check_uniquness_of_torch_seeds(np.concatenate(torch_seeds_list, axis=0))
-    else:
-        raise ValueError("Torch seeds could not be calculated.")

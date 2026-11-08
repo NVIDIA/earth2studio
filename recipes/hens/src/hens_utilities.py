@@ -26,7 +26,6 @@ import torch
 import xarray as xr
 from loguru import logger
 from omegaconf import DictConfig, open_dict
-from physicsnemo.distributed import DistributedManager
 
 from earth2studio.data import DataSource
 from earth2studio.io import IOBackend, KVBackend, XarrayBackend
@@ -36,6 +35,7 @@ from earth2studio.models.px import PrognosticModel
 from earth2studio.perturbation import Perturbation
 from earth2studio.utils.time import to_time_array
 
+from .hens_distributed import worker_rank
 from .hens_utilities_reproduce import (
     ensure_all_torch_seeds_are_unique,
     get_reproducibility_settings,
@@ -227,7 +227,7 @@ def initialise_output(
     - The function constructs a file name based on the project name, initial condition time, and model package name.
     - It supports different file formats such as NetCDF and Zarr.
     - The function ensures that the output directory exists before attempting to write data.
-    - In a distributed setting, only the process with rank 0 creates the necessary directories to avoid race conditions.
+    - Each worker creates its output directories with ``exist_ok=True``.
     """
     if "file_output" not in cfg:
         return {}
@@ -252,14 +252,14 @@ def initialise_output(
         io = hydra.utils.instantiate(cfg.file_output.format)
         if isinstance(io, partial):  # add out file names
             if cfg.file_output.format._target_.split(".")[-1].startswith("NetCDF"):
-                file_name = out_path + ".nc"
+                output_file = out_path + ".nc"
             elif cfg.file_output.format._target_.split(".")[-1].startswith("Zarr"):
-                file_name = out_path + ".zarr"
+                output_file = out_path + ".zarr"
             else:
                 raise ValueError(
                     f"no file name extension implemented for {io}. It's a one-liner tho, do it quickly ;)"
                 )
-            io = io(file_name=file_name)
+            io = io(file_name=output_file)
         io_dict[k] = io
 
     return io_dict
@@ -304,29 +304,19 @@ def pair_packages_ics(
                 ii * num_batch_per_ic : (ii + 1) * num_batch_per_ic
             ]
             # Find the intersection with batch_ids_produce to filter relevant batches
-            batch_ids_produce_model = list(
+            batch_ids_produce_model = sorted(
                 set(batch_ids_model).intersection(set(batch_ids_produce))
             )
             # If there are batch IDs to process, add the configuration to the list
             if batch_ids_produce_model:
                 configs.append((pkg, ic, ii * ensemble_size, batch_ids_produce_model))
 
-    dist = DistributedManager()
-    if dist.world_size > 1:
-        if len(configs) % dist.world_size == 0:
-            nconfigs_proc = len(configs) // dist.world_size
-        else:
-            nconfigs_proc = len(configs) // dist.world_size + 1
-
-        idx = dist.rank * nconfigs_proc
-        configs = configs[idx : min(idx + nconfigs_proc, len(configs))]
-
-        if not len(configs) > 0:
-            logger.warning(f"nothing to do for rank {dist.rank}. exiting.")
-            exit()
-
+    rank, world_size = worker_rank()
+    nconfigs_proc = -(-len(configs) // world_size)
+    idx = rank * nconfigs_proc
+    configs = configs[idx : idx + nconfigs_proc]
     logger.info(
-        f"rank {dist.rank}: predicting from following models/initial times: {configs}"
+        f"rank {rank}: predicting from following models/initial times: {configs}"
     )
 
     return configs
@@ -423,8 +413,8 @@ def initialise(
 
     model_dict, model_packages = get_model(cfg)
     default_model = update_model_dict(model_dict, model_packages[0])["model"]
-    lon_coords = default_model.output_coords(default_model.input_coords())["lon"]
-    lat_coords = default_model.output_coords(default_model.input_coords())["lat"]
+    lon_coords = default_model.output_coords(default_model.input_coords())["lon"].values
+    lat_coords = default_model.output_coords(default_model.input_coords())["lat"].values
 
     coords_dict = initialize_cropbox(
         cfg=cfg, lon_coords=lon_coords, lat_coords=lat_coords
@@ -581,11 +571,8 @@ def initialize_output_coords(
     output_coords: dict
         output coordinates
     """
-    output_vars = np.array(
-        list(dict.fromkeys(cfg.file_output.output_vars))
-    )  # this loads the variables from the config and discards duplicates
     output_coords = (
-        {"variable": np.array(output_vars)}
+        {"variable": np.array(list(dict.fromkeys(cfg.file_output.output_vars)))}
         if "file_output" in cfg and "output_vars" in cfg.file_output
         else {}
     )
@@ -834,7 +821,7 @@ def write_to_disk(
     model_dict: dict,
     io_dict: dict[str, IOBackend],
     writer_executor: ThreadPoolExecutor | None = None,
-    writer_threads: list[Future] = [],
+    writer_threads: list[Future] | None = None,
 ) -> tuple[ThreadPoolExecutor | None, list[Future]]:
     """Method which writes in-memory backends to file.
 
@@ -859,6 +846,7 @@ def write_to_disk(
         List of writer threads and executor pool if exists
     """
 
+    writer_threads = [] if writer_threads is None else writer_threads
     pkg = model_dict["package"]
     if pkg != "vanilla":
         pkg = "_pkg_" + pkg.split("_")[-1]
@@ -870,22 +858,17 @@ def write_to_disk(
 
         kw_args = {"path": out_path + ".nc", "format": "NETCDF4"}
 
+        if isinstance(io, XarrayBackend):
+            tmp = io.root
+        elif isinstance(io, KVBackend):
+            tmp = io.to_xarray()
+        else:
+            continue  # Pipeline already flushed and closed disk-backed stores.
+        tmp = extend_xarray_for_reproducibility(tmp, io, cfg, model_dict)
         if writer_executor is not None:
-            if isinstance(io, XarrayBackend):
-                tmp = io.root
-            elif isinstance(io, KVBackend):
-                tmp = io.to_xarray()
-            tmp = extend_xarray_for_reproducibility(tmp, io, cfg, model_dict)
             writer_threads.append(writer_executor.submit(tmp.to_netcdf, **kw_args))
         else:
-            if isinstance(io, XarrayBackend):
-                tmp = io.root
-                tmp = extend_xarray_for_reproducibility(tmp, io, cfg, model_dict)
-                tmp.to_netcdf(**kw_args)
-            elif isinstance(io, KVBackend):
-                tmp = io.to_xarray()
-                tmp = extend_xarray_for_reproducibility(tmp, io, cfg, model_dict)
-                tmp.to_netcdf(**kw_args)
+            tmp.to_netcdf(**kw_args)
 
     return writer_executor, writer_threads
 
@@ -914,16 +897,12 @@ def extend_xarray_for_reproducibility(
     xr.Dataset
         The augmented xarray dataset
     """
-    # This entire method needs work
-    if not hasattr(io, "coords"):
-        return x
-
     batch_ids = [
         get_batchid_from_ensid(cfg.nensemble, cfg.batch_size, ensid)
-        for ensid in io.coords["ensemble"]
+        for ensid in x.ensemble.values
     ]
     x = x.assign_attrs(batch_ids=batch_ids)
-    x = x.assign_attrs(torch_version=torch.__version__)
+    x = x.assign_attrs(torch_version=str(torch.__version__))
     x = x.assign_attrs(model_package=model_dict["package"])
     x = x.assign_attrs(batch_size=cfg.batch_size)
     x = x.assign_attrs(nensemble=cfg.nensemble)
@@ -1021,59 +1000,3 @@ def get_batchid_from_ensid(
     )
 
     return batch_id
-
-
-def save_corrdiff_output(cd_output_dict: dict, save_path: str) -> None:
-    """
-    Save CorrDiff model output to a NetCDF file as a Dataset with one variable per CorrDiff output.
-
-    Parameters
-    ----------
-    cd_output_dict : dict
-        Dictionary containing 'coords' and 'output' (list of tensors) for the CorrDiff model.
-    save_path : str
-        Path to save the NetCDF file.
-    """
-    cd_coords = cd_output_dict["coords"]
-    cd_tensor = torch.cat(cd_output_dict["output"], dim=2).cpu().numpy()
-
-    lat = cd_coords["lat"]
-    lon = cd_coords["lon"]
-
-    # Use lead_time from coords if present, else fallback to range
-    lead_time = cd_coords.get("lead_time", np.arange(cd_tensor.shape[2]))
-
-    # Handle both 1D and 2D lat/lon
-    if lat.ndim == 2 and lon.ndim == 2:
-        spatial_dims = ("y", "x")
-        lat_coord = (spatial_dims, lat)  # type: ignore
-        lon_coord = (spatial_dims, lon)  # type: ignore
-        dims = ["ensemble", "time", "lead_time", "sample", "y", "x"]
-    elif lat.ndim == 1 and lon.ndim == 1:
-        lat_coord = ("y", lat)  # type: ignore
-        lon_coord = ("x", lon)  # type: ignore
-        dims = ["ensemble", "time", "lead_time", "sample", "y", "x"]
-    else:
-        raise ValueError("lat/lon must both be 1D or both be 2D arrays.")
-
-    # Remove the variable dimension and create a Dataset with one variable per CorrDiff output
-    variables = cd_coords["variable"]
-    dataset_vars = {}
-    for i, var in enumerate(variables):
-        # Select only the i-th variable from the variable dimension (axis 4)
-        var_tensor = cd_tensor[..., i, :, :]
-        dataset_vars[str(var)] = (dims, var_tensor)
-
-    # Build coordinates dict (excluding 'variable')
-    coords = {
-        "ensemble": ("ensemble", cd_coords["ensemble"]),
-        "time": ("time", cd_coords["time"]),
-        "lead_time": ("lead_time", lead_time),
-        "sample": ("sample", cd_coords["sample"]),
-        "lat": lat_coord,
-        "lon": lon_coord,
-    }
-
-    ds = xr.Dataset(data_vars=dataset_vars, coords=coords)
-
-    ds.to_netcdf(save_path)

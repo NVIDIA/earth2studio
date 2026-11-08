@@ -87,13 +87,10 @@ For the best experience the following hardware specifications are recommended:
 
 ## Quick Start
 
-Start by installing the required packages with pip:
+From `recipes/hens` in an Earth2Studio 1.0 checkout, install the recipe dependencies:
 
 ```bash
-# If using uv package manager
 uv sync
-# Pip
-pip install -r recipe-requirements.txt
 ```
 
 The provided JupyText python script `hens_notebook.py` is already set up to run
@@ -118,6 +115,42 @@ uv run jupytext --to notebook hens_notebook.py
 ```
 
 Output results will be stored in the `outputs` folder.
+
+### Earth2Studio 1.0 execution
+
+The recipe uses a custom `HENSRunner` with `earth2studio.run.Pipeline`.
+Models, perturbations, and diagnostics exchange labeled `xarray.DataArray` fields;
+Pipeline plans each regional output and flushes and closes its backend.
+The initial condition is written once, followed by exactly `nsteps` forecasts.
+Diagnostic models run in configuration order, so later diagnostics can consume
+variables produced by earlier ones. CorrDiff and cyclone tracking retain their
+per-batch NetCDF outputs.
+
+Each Pipeline work item contains a complete HENS perturbation batch. Keep the
+checkpoint order, initial time, random seed, ensemble size, and batch size fixed
+when reproducing selected `batch_ids`. Bred-vector centering depends on the whole
+batch, so changing its membership changes the perturbations. Global ensemble and
+batch IDs are preserved when selecting a subset, including a short final batch.
+For odd batch sizes, reproducing a batch may also regenerate its predecessor's
+perturbations to recover the paired member; only selected batches are forecast
+and written.
+
+MPI and `torchrun` workers split checkpoint/initial-condition pairs using launcher
+environment variables. Each worker runs a local Pipeline on its local GPU without
+initializing a Torch distributed process group. Workers assigned no pairs return
+normally. For example, from this directory:
+
+```bash
+uv run torchrun --standalone --nproc_per_node=2 main.py --config-name=helene
+```
+
+Lightweight CPU migration tests require no model weights or weather downloads.
+From the repository root with development dependencies and `hydra-core` installed:
+
+```bash
+uv run pytest recipes/hens/test/test_hens_pipeline.py -q
+```
+
 For further configuration options, see the following section.
 
 ## Documentation

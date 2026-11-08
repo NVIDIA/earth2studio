@@ -16,7 +16,6 @@
 
 import hydra
 from omegaconf import DictConfig
-from physicsnemo.distributed import DistributedManager
 from src.hens_run import run_inference
 from src.hens_utilities import initialise
 
@@ -24,8 +23,6 @@ from src.hens_utilities import initialise
 @hydra.main(version_base=None, config_path="cfg", config_name="helene")
 def main(cfg: DictConfig) -> None:
     """Main Hydra function with instantiation"""
-
-    DistributedManager.initialize()
 
     (
         ensemble_configs,

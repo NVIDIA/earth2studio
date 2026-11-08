@@ -128,26 +128,26 @@ class HENSPerturbation:
                 f"provide path to data set containing {lead_time}h deterministic [r]mse"
             )
 
-        model_vars = model.input_coords()["variable"]
+        model_vars = model.input_coords()["variable"].values
         if perturbed_var is None:
             perturbed_var = model_vars
         elif isinstance(perturbed_var, str):
             perturbed_var = [perturbed_var]
 
         # set noise for variables which shall not be perturbed to 0.
-        skill = open_dataset(skill_path)
-        scale_vec = Tensor(
-            asarray(
-                [
-                    (
-                        skill.sel(channel=var, lead_time=lead_time)["value"].item()
-                        if var in perturbed_var
-                        else 0.0
-                    )
-                    for var in model_vars
-                ]
+        with open_dataset(skill_path) as skill:
+            scale_vec = Tensor(
+                asarray(
+                    [
+                        (
+                            skill.sel(channel=var, lead_time=lead_time)["value"].item()
+                            if var in perturbed_var
+                            else 0.0
+                        )
+                        for var in model_vars
+                    ]
+                )
             )
-        )
 
         return scale_vec.reshape(1, 1, 1, -1, 1, 1) * noise_amplification
 

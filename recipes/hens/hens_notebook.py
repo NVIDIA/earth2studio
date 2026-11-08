@@ -69,10 +69,8 @@ out_dir = "./outputs"
 
 from dotenv import load_dotenv
 from omegaconf import OmegaConf
-from physicsnemo.distributed import DistributedManager
 
 load_dotenv()
-DistributedManager.initialize()
 
 # Create the configuration dictionary
 from pathlib import Path
