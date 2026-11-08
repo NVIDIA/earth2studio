@@ -200,6 +200,18 @@ def test_map_roll_condition():
     assert torch.equal(mapped_x, expected_x)
     assert np.all(mapped_coords["lon"] == expected_coords["lon"])
     assert np.all(mapped_coords["lat"] == expected_coords["lat"])
+    # Test non-symmetric roll shifts (shift=1 and shift=3 for 4 elements)
+    input_coords = OrderedDict({"lon": np.array([0, 90, 180, 270])})
+    output_coords = OrderedDict({"lon": np.array([90, 180, 270, 0])})
+    x = torch.arange(4).float()
+    mapped_x, mapped_coords = map_coords(x, input_coords, output_coords)
+    assert torch.equal(mapped_x, torch.tensor([1, 2, 3, 0], dtype=torch.float32))
+    assert np.all(mapped_coords["lon"] == output_coords["lon"])
+
+    output_coords = OrderedDict({"lon": np.array([270, 0, 90, 180])})
+    mapped_x, mapped_coords = map_coords(x, input_coords, output_coords)
+    assert torch.equal(mapped_x, torch.tensor([3, 0, 1, 2], dtype=torch.float32))
+    assert np.all(mapped_coords["lon"] == output_coords["lon"])
 
 
 def test_map_errors():

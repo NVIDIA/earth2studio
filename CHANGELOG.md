@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed shift direction in `map_coords` roll condition when reordering cyclic coordinates
 ### Security
 
 ### Dependencies

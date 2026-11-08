@@ -247,8 +247,8 @@ def map_coords(
             # Roll condition
             first_element = outc[0]
             shift_amount = np.where(inc == first_element)[0][0]
-            if np.array_equal(np.roll(inc, shift_amount), outc):
-                x = torch.roll(x, shifts=shift_amount, dims=dim)
+            if np.array_equal(np.roll(inc, -shift_amount), outc):
+                x = torch.roll(x, shifts=-shift_amount, dims=dim)
                 mapped_coords[key] = outc
                 continue
 
@@ -260,7 +260,7 @@ def map_coords(
                 # TODO: Improve this method / outright remove
                 x_slice = [slice(None)] * min([len(input_coords), x.ndim])
                 x_slice[dim] = slice(indx, indx + outc.shape[0])
-                x = x[x_slice]
+                x = x[tuple(x_slice)]
                 mapped_coords[key] = outc
                 continue
 
