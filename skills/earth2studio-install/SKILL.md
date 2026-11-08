@@ -12,7 +12,7 @@ metadata:
     - deployment
     - environment
 description: >
-  Guide installing Earth2Studio in a uv project, selecting versions and model extras, and
+  Guide installing Earth2Studio with uv or pip, selecting versions and model extras, and
   configuring the environment. Do NOT use for writing inference code, choosing
   models, or PhysicsNeMo questions.
 ---
@@ -110,8 +110,9 @@ incomplete.
    project, run it from the project root; do not reinitialize the project or
    change its Python pin automatically. Check compatibility with the selected
    release, especially for older versions. Use a different Python version only
-   when required by that release or the user's project. Use pip or Docker only
-   for an explicit request or an established workflow that requires it.
+   when required by that release or the user's project. **pip is also supported**;
+   use it when requested or when the user already has a pip-based workflow.
+   Use Docker when requested or required by their existing workflow.
 4. **Map the models and data sources they want to extras.** In
    `install_options.yml`, each entry under `categories[].items[]` has an `extra`
    (the name to install) and `api_refs` (the classes it enables, for example
@@ -125,9 +126,13 @@ incomplete.
    found above. Follow the guide's default uv source: `github` for a release tag,
    `github-main` for main. Substitute the verified or requested tag into
    `{release_ref}`, or `package.main_ref` into `{main_ref}`. Use `uv add`, not
-   `uv pip install`, for projects; combine extras as `earth2studio[extra1,extra2]`.
+   `uv pip install`, for uv projects; combine extras as `earth2studio[extra1,extra2]`.
    Include the main instability warning even when the user chose main up front.
-   If PyPI is explicitly requested, pin a chosen version with `==<version>`.
+   For pip, use `command_templates.<source>.pip` in `install_options.yml`,
+   including the matching pip-specific `preinstall` steps. Follow
+   `defaults.sources.pip` (currently `pypi`) for releases; use `github-main` for
+   main or `github` for an explicitly requested Git tag install. For PyPI,
+   pin the selected release with `==<version>`.
    Surface any `preinstall` steps (keyed by package manager, and for uv by
    source, so pick the one matching the command you chose), `warnings`, or `notes` attached to
    the chosen entries (slow builds such as flash-attn, `--no-build-isolation`,
