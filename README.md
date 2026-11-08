@@ -41,6 +41,9 @@ for my task. If I have a local checkout, use its AGENTS.md instead.
 documentation and skills. Then ask for what you want:
 
 ```text
+Summarize new models and features in the latest Earth2Studio release.
+Include the version, release date, and links to the release notes.
+
 Create me a 10-day AI forecasting pipeline starting from the latest GFS analysis.
 Set up my environment for FourCastNet3 inference.
 Recommend the best model for a 2-week global forecast on one GPU.
