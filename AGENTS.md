@@ -43,16 +43,17 @@ Activate the matching skill with your agent's skill tool, or read its `SKILL.md`
 
 ### Install skills if needed
 
-No install is needed to read local skills. To register them with your agent, run
-from your project (requires Node.js/npm) and select your agent when prompted:
+Install skills directly from the Earth2Studio GitHub repository for current guidance.
+Run from your project (requires Node.js/npm) and select your agent when prompted:
 
 ```bash
-npx skills add NVIDIA/earth2studio --skill earth2studio-install
-npx skills add NVIDIA/earth2studio --skill earth2studio-discover
+npx skills add https://github.com/NVIDIA/earth2studio --skill earth2studio-install
+npx skills add https://github.com/NVIDIA/earth2studio --skill earth2studio-discover
 ```
 
 Set the `--skill` value to any listed skill name. These commands use the default branch.
-For a local version, run from the Earth2Studio checkout:
+Reading local skills needs no installation. To register the version in your GitHub
+checkout, run from its root:
 
 ```bash
 npx skills add . --skill earth2studio-install
