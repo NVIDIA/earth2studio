@@ -1,5 +1,8 @@
 # Earth2Studio Agent Guide
 
+Earth2Studio is an AI weather and climate Python package with a large catalog of data sources
+and prognostic, diagnostic, and data assimilation models. It builds on PyTorch, xarray, and CuPy.
+
 Task guides live in [`skills/`](./skills/). Use the routes below to find relevant documentation.
 
 ## Route the task
