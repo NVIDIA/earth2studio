@@ -28,6 +28,7 @@ b, r, nir, ir = (g[gv.index(k)] for k in ("abi01c", "abi02c", "abi03c", "abi13c"
 
 
 def st(x, lo, hi, g=1.0):
+    """Scale values to the unit interval and apply an inverse-gamma stretch."""
     return np.clip((x - lo) / (hi - lo), 0, 1) ** (1.0 / g)
 
 

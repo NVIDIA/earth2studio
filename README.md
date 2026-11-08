@@ -82,6 +82,8 @@ Everything else (model zoo, data sources, news, tutorials) lives on the
 is new, [CONTRIBUTING](./CONTRIBUTING.md) to get involved, and
 [Earth-2 Open Models](https://huggingface.co/collections/nvidia/earth-2) for NVIDIA's
 open weights and [PhysicsNeMo][physicsnemo_repo_url] for training recipes.
+For deploying workflows as an inference service, see
+[PhysicsNeMo Serve](https://github.com/NVIDIA/physicsnemo-serve).
 
 > [!NOTE]
 > Earth2Studio is an interface to third‑party models, checkpoints, and datasets.

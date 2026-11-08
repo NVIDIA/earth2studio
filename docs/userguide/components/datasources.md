@@ -41,6 +41,20 @@ The full requirements for a standard diagnostic model are defined explicitly in 
     [Configuration](../about/install.md#configuration_userguide) for details on
     how to customize this location.
 
+### Ensemble Members
+
+<!-- markdownlint-disable-next-line MD042 -->
+[](){ #earth2studio.data.EnsembleDataSource }
+
+Sources with ensemble members, such as ensemble forecasts or stored ensemble runs,
+also follow `EnsembleDataSource` or `EnsembleForecastSource`. They take an optional
+`member` keyword that selects members, in the source's own labels, along a leading
+`ensemble` dimension. Without it, they return the member they were built with.
+
+```python
+--8<-- "earth2studio/data/base.py:ensemble-source-interface"
+```
+
 ### Beyond N-D Array Data
 
 Earth2Studio attempts to stick with N-D array data structures when possible,

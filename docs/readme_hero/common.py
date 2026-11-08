@@ -29,6 +29,7 @@ MPL = os.path.join(os.path.dirname(matplotlib.__file__), "mpl-data", "fonts", "t
 
 
 def font(bold=False, mono=False, size=20):
+    """Load a bundled DejaVu font with the requested style and size."""
     from PIL import ImageFont
 
     n = (
@@ -40,11 +41,13 @@ def font(bold=False, mono=False, size=20):
 
 
 def save_rgb(arr, name):
+    """Save a normalized RGB array as an eight-bit panel PNG."""
     a = np.clip(arr, 0, 1)
     Image.fromarray((a * 255).astype(np.uint8)).save(P(f"panels/{name}.png"))
 
 
 def stats(name, arr):
+    """Print image dimensions, mean brightness, and nonblack pixel coverage."""
     a = np.asarray(arr)[..., :3]
     lum = a.mean(-1)
     print(

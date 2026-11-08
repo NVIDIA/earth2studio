@@ -337,6 +337,30 @@ def test_stormcast_sda_call(time, device):
     assert out.e2s.to_torch()[0].device == model.device
 
 
+def test_stormcast_sda_call_with_leading_member_dimension():
+    model = _build_model()
+    time = np.array(
+        [np.datetime64("2024-01-01T00:00"), np.datetime64("2024-01-01T06:00")]
+    )
+    x = _build_input_da(model, time).expand_dims(ensemble=[3, 5])
+    c = _build_input_da(model, time, conditioning=True).expand_dims(ensemble=[3, 5])
+    shapes = []
+
+    def forward(x, conditioning, y_obs, mask):
+        shapes.append((tuple(x.shape), tuple(conditioning.shape)))
+        return x + 1
+
+    with patch.object(model, "_forward", forward):
+        out = model(x, c, None)
+
+    ny, nx = model.lat.shape
+    assert out.dims[:2] == ("ensemble", "time")
+    assert out.shape == (2, len(time), 1, NVAR, ny, nx)
+    # One call per member and time, each on that member's single frame.
+    assert shapes == [((1, NVAR, ny, nx), (1, NVAR_COND, ny, nx))] * 4
+    torch.testing.assert_close(out.e2s.to_torch()[0], x.e2s.to_torch()[0] + 1)
+
+
 # ---------- Test: exceptions ----------
 
 

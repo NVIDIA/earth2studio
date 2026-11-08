@@ -31,6 +31,7 @@ WHITE, GREY, DIM, CY = (240, 244, 250), (128, 138, 156), (70, 78, 94), (60, 220,
 
 
 def crop_nonblack(im, thr=10, pad=6):
+    """Crop to pixels brighter than the threshold, retaining a small border."""
     a = np.asarray(im.convert("L"))
     ys, xs = np.where(a > thr)
     return im.crop(
@@ -44,6 +45,7 @@ def crop_nonblack(im, thr=10, pad=6):
 
 
 def spaced(draw, xy, text, f, fill, track=0):
+    """Draw text with extra character spacing and return the final x position."""
     x, y = xy
     for ch in text:
         draw.text((x, y), ch, font=f, fill=fill)
@@ -52,12 +54,14 @@ def spaced(draw, xy, text, f, fill, track=0):
 
 
 def header(x, y, num, title, sub):
+    """Draw a numbered panel heading and subtitle on the hero canvas."""
     spaced(d, (x, y + 4), num, font(mono=True, size=22), CY, 2)
     spaced(d, (x + 44, y + 2), title, font(bold=True, size=30), WHITE, 3)
     d.text((x + 44, y + 40), sub, font=font(mono=True, size=21), fill=GREY)
 
 
 def place(path, box, crop=False, cover=False):
+    """Fit or cover a canvas box with an image, optionally trimming black edges."""
     x, y, w, h = box
     im = Image.open(path).convert("RGB")
     if crop:
@@ -75,6 +79,7 @@ def place(path, box, crop=False, cover=False):
 
 
 def tag(x, y, text, color=GREY):
+    """Draw a label over a translucent black background on the canvas."""
     f = font(mono=True, size=20)
     tw = d.textlength(text, font=f)
     ov = Image.new("RGBA", canvas.size, (0, 0, 0, 0))

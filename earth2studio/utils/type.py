@@ -29,6 +29,7 @@ CoordinateSystem = xr.DataArray
 VariableArray = np.ndarray[str]
 LeadTimeArray = np.ndarray[np.timedelta64]
 TimeArray = np.ndarray[np.datetime64]
+MemberArray = np.ndarray
 FieldArray = np.ndarray[str]
 
 TimeTolerance = (

@@ -19,6 +19,7 @@ from scipy.ndimage import zoom
 
 
 def down(a, k):
+    """Downsample the spatial axes with NaN-aware block means."""
     h, w = a.shape[-2:]
     h2, w2 = h // k * k, w // k * k
     a = a[..., :h2, :w2]
@@ -40,18 +41,21 @@ irmap = LinearSegmentedColormap.from_list("ir", ir_cols)
 
 
 def truecolor(r, g, b, gain, gamma=0.62):
+    """Combine visible channels with gain and gamma correction into RGB."""
     rgb = np.stack([r, g, b], -1) * gain
     rgb = np.clip(np.nan_to_num(rgb), 0, 1) ** gamma
     return rgb
 
 
 def ir_rgb(ir):
+    """Map infrared brightness temperatures to enhanced RGB colors."""
     n = np.clip((300 - ir) / 100, 0, 1)
     n = np.nan_to_num(n)
     return irmap(n)[..., :3]
 
 
 def blend(vis, ir, valid):
+    """Blend daytime visible and nighttime infrared colors, masking invalid pixels."""
     lum = vis.mean(-1, keepdims=True)
     w = np.clip((lum - 0.05) / 0.25, 0, 1)  # day weight
     out = vis * w + (ir * 0.8) * (1 - w)

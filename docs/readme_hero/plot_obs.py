@@ -23,6 +23,7 @@ H, W = 1440, 2880  # 0.125 deg
 
 
 def dens(lat, lon, sig):
+    """Bin observation locations on the global grid and smooth their density."""
     lon = ((lon + 180) % 360) - 180
     h, _, _ = np.histogram2d(lat, lon, bins=[H, W], range=[[-90, 90], [-180, 180]])
     h = gaussian_filter(h, sig, mode="wrap")
@@ -30,6 +31,7 @@ def dens(lat, lon, sig):
 
 
 def norm(h, p=99.7, gamma=0.55):
+    """Normalize positive densities by a percentile and apply gamma correction."""
     h = h / np.percentile(h[h > 0], p) if (h > 0).any() else h
     return np.clip(h, 0, 1) ** gamma
 

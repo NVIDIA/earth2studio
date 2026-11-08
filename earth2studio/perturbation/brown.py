@@ -19,6 +19,7 @@ from __future__ import annotations
 import torch
 import xarray as xr
 
+from earth2studio.models.utils import fork_rng
 from earth2studio.utils import handshake_dim
 from earth2studio.utils.cupy import from_torch
 
@@ -33,6 +34,11 @@ class Brown:
         this must be broadcastable with the input data.
     reddening : int, optional
         Reddening in Fourier space, by default 2
+
+    Note
+    ----
+    Draws from the global Torch RNG until :meth:`set_rng` seeds it, after which
+    draws come from an isolated stream that leaves global RNG state untouched.
     """
 
     def __init__(
@@ -44,6 +50,23 @@ class Brown:
             if isinstance(noise_amplitude, torch.Tensor)
             else torch.Tensor([noise_amplitude])
         )
+        self._seed: int | None = None
+        self._rng_states: dict[str, torch.Tensor] = {}
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Initialize or reset the perturbation's isolated random stream.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for the noise draws
+        reset : bool, optional
+            Reset an existing stream, by default True. If False, an already
+            seeded stream is kept.
+        """
+        if reset or self._seed is None:
+            self._seed = seed
+            self._rng_states = {}
 
     @torch.inference_mode()
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
@@ -65,7 +88,8 @@ class Brown:
         handshake_dim(x, required_dim="lon", required_index=-1)
 
         tensor, _ = x.e2s.to_torch()
-        noise = self._generate_noise_correlated(tuple(tensor.shape), tensor.device)
+        with fork_rng(self._seed, tensor.device, self._rng_states):
+            noise = self._generate_noise_correlated(tuple(tensor.shape), tensor.device)
         noise = noise.to(tensor.dtype)
         noise_amplitude = self.noise_amplitude.to(tensor.device)
         return from_torch(tensor + noise_amplitude * noise, x)

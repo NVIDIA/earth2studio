@@ -352,3 +352,92 @@ def test_device_components_join_on_device():
     array = source(TIME, ["y", "x"])
     assert isinstance(array.data, cp.ndarray)
     np.testing.assert_allclose(cp.asnumpy(array.data[0, :, 0, 0]), [2.0, 1.0])
+
+
+class _MemberSource(_Source):
+    """Ensemble-aware component: member ``m`` adds ``100 * m``; records members."""
+
+    def __init__(self, offsets, **kwargs):
+        super().__init__(offsets, **kwargs)
+        self.ensembles = []
+
+    def _members(self, field, member):
+        self.ensembles.append(None if member is None else list(member))
+        if member is None:
+            return field
+        # Members come back after variable and reversed, as a source may order them.
+        members = np.asarray(member)[::-1]
+        offset = xr.DataArray(100.0 * members, dims="ensemble")
+        return (field + offset).assign_coords(ensemble=members)
+
+    def __call__(self, time, variable, member=None):
+        return self._members(self._field(time, variable), member)
+
+
+class _MemberForecastSource(_MemberSource):
+    def __call__(self, time, lead_time, variable, member=None):
+        return self._members(self._field(time, variable, lead_time), member)
+
+
+def test_members_go_to_ensemble_components_and_repeat_the_rest():
+    members, static = _MemberSource({"t2m": 1.0}), _Source({"lsm": 5.0})
+    source = CompositeSource(
+        {"ens": members, "static": static}, {"ens": ["t2m"], "static": ["lsm"]}
+    )
+    assert source.is_ensemble
+    for field in (
+        source(TIME, ["lsm", "t2m"], member=[2, 1]),
+        asyncio.run(source.fetch(TIME, ["lsm", "t2m"], member=[2, 1])),
+    ):
+        assert field.dims[0] == "ensemble"
+        np.testing.assert_array_equal(field["ensemble"], [2, 1])
+        np.testing.assert_array_equal(field["variable"], ["lsm", "t2m"])
+        np.testing.assert_allclose(
+            field.sel(variable="t2m").max(["lat", "lon"]), [[201], [101]]
+        )
+        np.testing.assert_allclose(field.sel(variable="lsm"), 5.0)
+    assert members.ensembles == [[2, 1], [2, 1]]
+    # Without member, every component is read as before.
+    assert "ensemble" not in source(TIME, ["lsm", "t2m"]).dims
+    assert members.ensembles[-1] is None
+
+
+def test_forecast_composite_selects_members_for_every_component_kind():
+    analysis = _MemberSource({"sst": 3.0})
+    forecast = _MemberForecastSource({"t2m": 1.0})
+    shared = _ForecastSource({"u10m": 7.0})
+    source = CompositeForecastSource(
+        {"analysis": analysis, "forecast": forecast, "shared": shared},
+        {"analysis": ["sst"], "forecast": ["t2m"], "shared": ["u10m"]},
+    )
+    leads = np.array([0, 6], dtype="timedelta64[h]")
+    for field in (
+        source(TIME, leads, ["sst", "t2m", "u10m"], member=[4]),
+        asyncio.run(source.fetch(TIME, leads, ["sst", "t2m", "u10m"], member=[4])),
+    ):
+        np.testing.assert_array_equal(field["ensemble"], [4])
+        np.testing.assert_allclose(field.sel(variable="sst"), 403.0)
+        np.testing.assert_allclose(field.sel(variable="t2m"), 401.0)
+        np.testing.assert_allclose(field.sel(variable="u10m"), 7.0)
+    # Analysis components are read at each valid time, each with the members.
+    assert analysis.ensembles == [[4]] * 4
+
+
+def test_composites_without_ensemble_components_reject_members():
+    source, _, _ = _composite()
+    assert not source.is_ensemble
+    with pytest.raises(ValueError, match="No component selects ensemble members"):
+        source(TIME, ["refc"], member=[1])
+    with pytest.raises(ValueError, match="does not select ensemble members"):
+        fetch_data(source, TIME, np.array(["refc"]), member=[1])
+
+
+def test_fetch_data_selects_members_through_a_composite():
+    source = CompositeSource(
+        {"ens": _MemberSource({"t2m": 1.0}), "static": _Source({"lsm": 5.0})},
+        {"ens": ["t2m"], "static": ["lsm"]},
+    )
+    field = fetch_data(source, TIME, np.array(["t2m", "lsm"]), member=[3])
+    assert field.dims[:4] == ("ensemble", "time", "lead_time", "variable")
+    np.testing.assert_allclose(field.sel(variable="t2m"), 301.0)
+    np.testing.assert_allclose(field.sel(variable="lsm"), 5.0)

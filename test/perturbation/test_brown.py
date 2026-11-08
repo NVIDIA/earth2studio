@@ -105,3 +105,19 @@ def test_brown_failure(x, coords, error):
     with pytest.raises(error):
         prtb = Brown()
         prtb(_da(x, coords))
+
+
+def test_brown_set_rng_seeds_an_isolated_stream():
+    method = Brown()
+    x = _da(torch.zeros(2, 3, 16, 32), ("time", "variable", "lat", "lon"))
+    before = torch.random.get_rng_state()
+    method.set_rng(5)
+    first, second = method(x), method(x)
+    assert torch.equal(torch.random.get_rng_state(), before)
+    assert not np.allclose(first.values, second.values)
+    method.set_rng(5)
+    np.testing.assert_array_equal(method(x).values, first.values)
+    method.set_rng(6, reset=False)
+    np.testing.assert_array_equal(method(x).values, second.values)
+    method.set_rng(6)
+    assert not np.allclose(method(x).values, first.values)

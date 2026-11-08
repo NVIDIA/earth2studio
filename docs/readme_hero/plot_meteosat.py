@@ -29,6 +29,7 @@ var = [str(v) for v in e["var"]]
 
 
 def ch(a, n):
+    """Select a named FCI channel from the loaded variable order."""
     return a[var.index(n)]
 
 
@@ -42,6 +43,7 @@ NU = {
 
 
 def bt(L, n):
+    """Approximate brightness temperature from radiance at the band center."""
     nu = NU[n]
     return C2 * nu / np.log1p(C1 * nu**3 / np.maximum(L, 1e-3))
 
@@ -58,16 +60,19 @@ ESUN = {
 
 
 def refl(L, n):
+    """Approximate reflectance using nominal band-center solar irradiance."""
     lam, es = ESUN[n]
     nm_per_cm1 = (lam * 1e-4) ** 2 * 1e7
     return L / (es / np.pi * nm_per_cm1)
 
 
 def stretch(x, lo, hi, g=1.0):
+    """Scale values to the unit interval and apply an inverse-gamma stretch."""
     return np.clip((x - lo) / (hi - lo), 0, 1) ** (1.0 / g)
 
 
 def render(a, which):
+    """Build a convection, cloud, or true-color RGB composite from FCI channels."""
     L = lambda n: np.nan_to_num(ch(a, n))
     if which == "conv":
         R = stretch(bt(L("fci63wv"), "fci63wv") - bt(L("fci73wv"), "fci73wv"), -35, 5)
@@ -118,6 +123,7 @@ ASPECT = 1.6
 
 
 def panel(a, which, name, bg_nan=True):
+    """Save a geostationary RGB panel with coastlines and report image statistics."""
     rgb = render(a, which)
     valid = np.isfinite(ch(a, "fci06vis"))
     rgb = np.where(valid[..., None], rgb, 0)
