@@ -12,7 +12,7 @@ metadata:
     - deployment
     - environment
 description: >
-  Guide installing Earth2Studio via uv or pip, selecting model extras, and
+  Guide installing Earth2Studio in a uv project, selecting versions and model extras, and
   configuring the environment. Do NOT use for writing inference code, choosing
   models, or PhysicsNeMo questions.
 ---
@@ -40,7 +40,7 @@ them to execute it themselves.
 ## Purpose
 
 Help users install Earth2Studio and its optional model dependencies for their
-use case: pick the package manager, select optional extras, set environment
+use case: select a version, add optional extras with uv, set environment
 variables, and verify the install. Do not write inference code or compose
 workflows.
 
@@ -50,13 +50,15 @@ Install commands, release refs, extras, and build quirks change every release.
 Nothing in this skill is authoritative. Before recommending any command, read
 the sources below and quote from them.
 
-| Need | Where to look (repo path first, live page as a fallback) |
-|------|------------------------------------------------|
-| Install commands, release ref, extras, which classes each extra enables (`api_refs`), per-extra pre-install steps and warnings | `docs/userguide/about/install_options.yml` (generates the live install page) |
-| Recommended environment (the "uv Project" section), Docker, prerequisites, verification, environment variables | `docs/userguide/about/install.md` |
-| Supported Python versions | `requires-python` in `pyproject.toml` |
-| Full list of extras and what each pulls in | `[project.optional-dependencies]` in `pyproject.toml` |
-| Known failures | `docs/userguide/support/troubleshooting.md` and `docs/userguide/support/faq.md` |
+- `docs/userguide/about/install_options.yml`: command templates, release ref,
+  extras, class mappings (`api_refs`), pre-install steps, and warnings.
+- `https://github.com/NVIDIA/earth2studio/releases/latest` or
+  `gh api repos/NVIDIA/earth2studio/releases/latest`: latest stable release and exact tag.
+- `docs/userguide/about/install.md`: uv project setup, Docker, prerequisites,
+  verification, and environment variables.
+- `pyproject.toml`: `requires-python` and `[project.optional-dependencies]`.
+- `docs/userguide/support/troubleshooting.md` and `docs/userguide/support/faq.md`:
+  known failures.
 
 Live pages (note the `/main/` segment; URLs without it return 404):
 
@@ -74,19 +76,42 @@ incomplete.
 
 ## Instructions
 
-1. **Read the sources above.** Note the current release ref, supported Python
-   versions, and the extras relevant to the user.
-2. **Recommend a uv project by default.** The docs recommend a dedicated uv
-   project (`uv init` in a fresh directory, then `uv add` for Earth2Studio and
-   its extras) rather than installing into a system or shared Python. It keeps
-   the environment isolated and reproducible, and the install page's commands
-   are written as `uv add`. Give the project-setup commands from the "uv Project" section of
-   `install.md`, using the Python version it recommends. Only fall back to
-   pip, an existing environment, or Docker if the user asks for it or already
-   has one; say what the tradeoff is.
-3. **Ask only what is missing** (at most 3 questions): whether they already have
-   a project or environment to add to, and which models or data sources they
-   plan to use.
+1. **Read the sources above.** Check `package.release_ref` against the latest
+   stable GitHub release. Use the verified release tag, not a prerelease or the
+   version of a development checkout. If the lookup is unavailable, label the
+   configured ref as the documented release, not a verified latest release.
+2. **Ask which version they want**, unless they already specified one. Present
+   these choices in order, replacing `<version>` with the actual release number:
+
+   > Which Earth2Studio version would you like to install?
+   >
+   > 1. **Latest release: `<version>` (recommended).** Best default for most users.
+   > 2. **Main branch (second choice).** For unreleased features; may be unstable
+   >    and include breaking changes.
+   > 3. **Older or different version.** Which release or tag do you need?
+
+   Wait for their choice before giving version-specific install commands. If
+   they ask you to choose, use the latest stable release. For a specific tag,
+   verify it exists. Read the selected tag's install guide and `pyproject.toml`
+   (and `install_options.yml` when available) so extras and Python support match
+   that version. For main, read those sources from main. If local sources target
+   a different version, fetch the matching sources rather than mixing releases.
+3. **Use uv to add Earth2Studio to their Python project.** Ask only what is
+   missing (at most 3 questions total): version choice, existing project, and
+   models or data sources needed. For a new project, follow the guide's
+   "uv Project" setup with **Python 3.13** by default:
+
+   ```bash
+   mkdir earth2studio-project && cd earth2studio-project
+   uv init --python=3.13
+   ```
+
+   Then provide `uv add` with the selected version and extras. In an existing
+   project, run it from the project root; do not reinitialize the project or
+   change its Python pin automatically. Check compatibility with the selected
+   release, especially for older versions. Use a different Python version only
+   when required by that release or the user's project. Use pip or Docker only
+   for an explicit request or an established workflow that requires it.
 4. **Map the models and data sources they want to extras.** In
    `install_options.yml`, each entry under `categories[].items[]` has an `extra`
    (the name to install) and `api_refs` (the classes it enables, for example
@@ -97,7 +122,13 @@ incomplete.
    `pyproject.toml` and the class docstring before guessing. Several extras can
    go in one command.
 5. **Provide the command(s)** built from the `command_templates` and the extras
-   found above. Surface any `preinstall` steps (keyed by package manager, and for uv by
+   found above. Follow the guide's default uv source: `github` for a release tag,
+   `github-main` for main. Substitute the verified or requested tag into
+   `{release_ref}`, or `package.main_ref` into `{main_ref}`. Use `uv add`, not
+   `uv pip install`, for projects; combine extras as `earth2studio[extra1,extra2]`.
+   Include the main instability warning even when the user chose main up front.
+   If PyPI is explicitly requested, pin a chosen version with `==<version>`.
+   Surface any `preinstall` steps (keyed by package manager, and for uv by
    source, so pick the one matching the command you chose), `warnings`, or `notes` attached to
    the chosen entries (slow builds such as flash-attn, `--no-build-isolation`,
    CUDA-specific packages, large checkpoint downloads, and so on). Do not
