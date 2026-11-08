@@ -70,7 +70,7 @@ assimilation and coupled models) also live in [`skills/`](./skills).
 - [**Assimilate**][e2studio_da_api] observations into global analyses.
 - [**Fetch**][e2studio_data_api] analysis, forecast and observation data from public sources.
 - [**Compose**][e2studio_examples_url] ensembles and coupled multi-model workflows.
-- [**Store**][e2studio_userguide_url] results to Zarr, NetCDF and more.
+- [**Store**][e2studio_io_api] results to Zarr, NetCDF and more.
 
 ## Documentation
 
@@ -110,6 +110,7 @@ Apache License 2.0, see the [LICENSE file][e2studio_license_url].
 [e2studio_px_api]: https://nvidia.github.io/earth2studio/main/modules/models_px/
 [e2studio_dx_api]: https://nvidia.github.io/earth2studio/main/modules/models_dx/
 [e2studio_da_api]: https://nvidia.github.io/earth2studio/main/modules/models_da/
+[e2studio_io_api]: https://nvidia.github.io/earth2studio/main/modules/io/
 [e2studio_data_api]: https://nvidia.github.io/earth2studio/main/modules/datasources_analysis/
 
 <!-- Misc links -->
