@@ -65,7 +65,7 @@ assimilation and coupled models) also live in [`skills/`](./skills).
 
 ## Main Features
 
-- [**Forecast**][e2studio_px_api] with prognostic models like SFNO, FourCastNet 3 and Aurora.
+- [**Forecast**][e2studio_px_api] with prognostic AI models such as FourCastNet 3, Aurora, WeatherNext and many more.
 - [**Diagnose**][e2studio_dx_api] derived fields such as precipitation, wind speed and downscaled output.
 - [**Assimilate**][e2studio_da_api] observations into global analyses.
 - [**Fetch**][e2studio_data_api] analysis, forecast and observation data from public sources.
