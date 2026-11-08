@@ -22,7 +22,8 @@
 
 </div>
 
-Access a leading collection of weather and climate AI models, production-ready data sources, composable inference APIs, and GPU-accelerated workflows in one Python package.
+Access a leading collection of weather and climate AI models, production-ready data sources,
+composable inference APIs, and GPU-accelerated workflows in one Python package.
 
 ![Earth2Studio hero][e2studio_hero_img]
 
@@ -31,11 +32,13 @@ Access a leading collection of weather and climate AI models, production-ready d
 Paste this into your coding agent (Claude, Codex, OpenCode, Cursor, etc.):
 
 ```text
-Help me get started with NVIDIA Earth2Studio. Read the install and discover skills
-in https://github.com/NVIDIA/earth2studio/tree/main/skills and follow them.
+Help me get started with NVIDIA Earth2Studio. Read
+https://github.com/NVIDIA/earth2studio/blob/main/AGENTS.md and follow its guidance
+for my task. If I have a local checkout, use its AGENTS.md instead.
 ```
 
-Then ask for what you want:
+[`AGENTS.md`](./AGENTS.md) routes usage and development tasks to the relevant
+documentation and skills. Then ask for what you want:
 
 ```text
 Create me a 10-day AI forecasting pipeline starting from the latest GFS analysis.
@@ -51,8 +54,8 @@ npx skills add NVIDIA/earth2studio --skill earth2studio-install
 npx skills add NVIDIA/earth2studio --skill earth2studio-discover
 ```
 
-Skills for extending Earth2Studio (new prognostic, diagnostic, data source,
-assimilation and coupled models) also live in [`skills/`](./skills).
+User workflow skills and developer-only package implementation skills are listed
+in [`AGENTS.md`](./AGENTS.md).
 
 ## For humans
 
