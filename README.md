@@ -63,6 +63,15 @@ assimilation and coupled models) also live in [`skills/`](./skills).
 | [**User Guide**][e2studio_userguide_url] | Components, design philosophy and extending the package |
 | [**API**][e2studio_api_url] | Every [prognostic][e2studio_px_api], [diagnostic][e2studio_dx_api] and [data source][e2studio_data_api] |
 
+## Main Features
+
+- [**Forecast**][e2studio_px_api] with prognostic models like SFNO, FourCastNet 3 and Aurora.
+- [**Diagnose**][e2studio_dx_api] derived fields such as precipitation, wind speed and downscaled output.
+- [**Assimilate**][e2studio_da_api] observations into global analyses.
+- [**Fetch**][e2studio_data_api] analysis, forecast and observation data from public sources.
+- [**Compose**][e2studio_examples_url] ensembles and coupled multi-model workflows.
+- [**Store**][e2studio_userguide_url] results to Zarr, NetCDF and more.
+
 ## Documentation
 
 Everything else (model zoo, data sources, news, tutorials) lives on the
@@ -100,6 +109,7 @@ Apache License 2.0, see the [LICENSE file][e2studio_license_url].
 [e2studio_api_url]: https://nvidia.github.io/earth2studio/main/modules/
 [e2studio_px_api]: https://nvidia.github.io/earth2studio/main/modules/models_px/
 [e2studio_dx_api]: https://nvidia.github.io/earth2studio/main/modules/models_dx/
+[e2studio_da_api]: https://nvidia.github.io/earth2studio/main/modules/models_da/
 [e2studio_data_api]: https://nvidia.github.io/earth2studio/main/modules/datasources_analysis/
 
 <!-- Misc links -->
