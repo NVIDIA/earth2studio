@@ -20,6 +20,8 @@
 [Examples][e2studio_examples_url] | [API][e2studio_api_url] |
 [Skills](./skills)
 
+![Earth2Studio hero][e2studio_hero_img]
+
 </div>
 
 Access a leading collection of weather and climate AI models, production-ready data sources, composable inference APIs, and GPU-accelerated workflows in one Python package.
@@ -102,3 +104,4 @@ Apache License 2.0, see the [LICENSE file][e2studio_license_url].
 
 <!-- Misc links -->
 [physicsnemo_repo_url]: https://github.com/NVIDIA/physicsnemo
+[e2studio_hero_img]: https://huggingface.co/datasets/nvidia/earth2studio-assets/resolve/main/readme/earth2studio_hero_image.png
