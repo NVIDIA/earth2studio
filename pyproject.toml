@@ -521,6 +521,7 @@ exclude = [".claude"]
 # Ignore `F401` (import violations) in all `__init__.py` files, and in `docs/*.py`.
 "__init__.py" = ["F401"]
 "docs/*.py" = ["F401", "S603"]
+"docs/readme_hero/*.py" = ["F401", "F403", "F405", "E402", "E731", "E741", "S603"]
 "examples/*.py" = ["E402"]
 "recipes/**/*_notebook.py" = ["E402"]
 # Ignore `S101` (assertions) in all `test` files.
