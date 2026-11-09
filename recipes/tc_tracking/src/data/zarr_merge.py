@@ -21,9 +21,10 @@ rank can run any batch, also a retry. The batch stores and the combined store
 share their layout: one array per variable, chunks (or shards) of a single
 member and IC. A chunk or shard file of a batch therefore is a file of the
 combined store too, only under a key with shifted member and IC indices. The
-merge hard-links these files instead of copying the data.
+merge moves these files into the combined store instead of copying the data.
 """
 
+import errno
 import glob
 import json
 import os
@@ -99,8 +100,11 @@ def _create_combined(
     )[...] = -1
 
 
-def _link_batch(batch: str, path: str, ics: np.ndarray) -> tuple[np.ndarray, int]:
-    """Hard-link the chunk files of a batch into the combined store.
+def _move_batch(batch: str, path: str, ics: np.ndarray) -> tuple[np.ndarray, int]:
+    """Move the chunk files of a batch into the combined store.
+
+    A batch interrupted while moving keeps the files not moved yet, so merging
+    it again completes it.
 
     Returns
     -------
@@ -111,7 +115,9 @@ def _link_batch(batch: str, path: str, ics: np.ndarray) -> tuple[np.ndarray, int
     members = ds.coords["ensemble"].values
     ic_index = int(np.flatnonzero(ics == ds.coords["time"].values[0])[0])
 
-    for name in _data_arrays(batch):
+    # check all arrays before moving anything, so a mismatch leaves the batch whole
+    names = _data_arrays(batch)
+    for name in names:
         meta = _metadata(batch, name)
         combined = _metadata(path, name)
         for key in _LAYOUT_KEYS:
@@ -126,7 +132,9 @@ def _link_batch(batch: str, path: str, ics: np.ndarray) -> tuple[np.ndarray, int
                     f"{store_meta.get('chunk_key_encoding')}, the merge supports only "
                     f"{_CHUNK_KEY_ENCODING}"
                 )
-        dims = meta["dimension_names"]
+
+    for name in names:
+        dims = _metadata(batch, name)["dimension_names"]
         member_axis, ic_axis = dims.index("ensemble"), dims.index("time")
 
         chunk_dir = os.path.join(batch, name, "c")
@@ -138,12 +146,12 @@ def _link_batch(batch: str, path: str, ics: np.ndarray) -> tuple[np.ndarray, int
             parts[ic_axis] = str(ic_index)
             dst = os.path.join(path, name, "c", *parts)
             os.makedirs(os.path.dirname(dst), exist_ok=True)
-            if os.path.exists(dst):
-                os.remove(dst)
             try:
-                os.link(src, dst)
-            except OSError:
-                shutil.copy2(src, dst)
+                os.replace(src, dst)  # atomic, replaces the member's old file
+            except OSError as err:
+                if err.errno != errno.EXDEV:
+                    raise
+                shutil.move(src, dst)  # other file system: copy, then delete
 
     return members, ic_index
 
@@ -152,9 +160,9 @@ def merge_batch_stores(cfg: DictConfig) -> None:
     """Merge all complete batch stores of a run into the combined store.
 
     Creates the combined store if it does not exist, otherwise adds the
-    batches to it, replacing the members they contain. Batch stores are
-    removed once merged; incomplete ones (e.g. of an interrupted run) are kept
-    and logged.
+    batches to it, replacing the members they contain. The chunk files are
+    moved, and each batch store is removed once it is merged; incomplete ones
+    (e.g. of an interrupted run) are kept and logged.
 
     Parameters
     ----------
@@ -183,23 +191,28 @@ def merge_batch_stores(cfg: DictConfig) -> None:
         if not with_fields:
             logger.error(f"no batch with fields to merge into {path}")
             return
-        _create_combined(path, with_fields[0], ics, members)
+        # created under another name and renamed when done, so that an
+        # interrupted merge never leaves a partial combined store behind
+        tmp = path + ".tmp"
+        shutil.rmtree(tmp, ignore_errors=True)
+        _create_combined(tmp, with_fields[0], ics, members)
+        os.rename(tmp, path)
 
+    # one batch after the other: move its files, record its seed, delete it.
+    # An interrupted merge leaves the remaining batches (and the rest of the
+    # current one) in their stores, and merging again finishes it
     seeds = zarr.open_array(os.path.join(path, "random_seed"), mode="r+")
     values = seeds[...]
     for batch in complete:
         attrs = zarr.open_group(batch, mode="r").attrs
         ic_index = int(np.flatnonzero(ics == np.datetime64(attrs["ic"]))[0])
-        if attrs["random_seed"] == -1:
-            values[attrs["members"], ic_index] = -1
-        else:
-            _link_batch(batch, path, ics)
-            values[attrs["members"], ic_index] = attrs["random_seed"]
-    seeds[...] = values
+        if attrs["random_seed"] != -1:
+            _move_batch(batch, path, ics)
+        values[attrs["members"], ic_index] = attrs["random_seed"]
+        seeds[...] = values
+        shutil.rmtree(batch)
 
     zarr.consolidate_metadata(path)
-    for batch in complete:
-        shutil.rmtree(batch)
     if os.path.isdir(batch_zarr_dir(cfg)) and not os.listdir(batch_zarr_dir(cfg)):
         os.rmdir(batch_zarr_dir(cfg))
 

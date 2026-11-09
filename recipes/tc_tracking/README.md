@@ -336,8 +336,9 @@ is one file per batch,
 `<project>_<ic>_mems<first>-<last>.nc`. Zarr output is
 written into one store per batch under `<project>_batches/`,
 which rank 0 merges into `<project>.zarr` at the end of the
-run (not when reproducing members, see section 2.2). The merge moves no data, it hard-links the batch's
-chunk files into the combined store. If a run is
+run (not when reproducing members, see section 2.2). The
+merge copies no data, it moves the batch's chunk files into
+the combined store and deletes the batch store. If a run is
 interrupted, `mode: 'merge_zarr'` with the same config merges
 the batch stores that are complete. Both formats contain a
 variable `random_seed` with the seed each member was run
