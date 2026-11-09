@@ -99,7 +99,7 @@ header(
     x01,
     y1,
     "01",
-    "MEDIUM RANGE AND CLIMATE FORECASTING",
+    "MEDIUM RANGE, S2S AND CLIMATE FORECASTING",
     "SFNO · 0.25° · +144 h · 10 m wind, streamlines, MSLP · init 2026-01-15 00Z",
 )
 place(P("panels/globe_raw.png"), (x01, y1 + BAND, GL, GL), crop=True)
