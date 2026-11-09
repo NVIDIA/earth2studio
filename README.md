@@ -73,7 +73,7 @@ in [`AGENTS.md`](./AGENTS.md).
 
 - [**Forecast**][e2studio_px_api] with global and regional prognostic AI models.
 - [**Diagnose**][e2studio_dx_api] derived fields such as precipitation, wind speed and downscaled output.
-- [**Assimilate**][e2studio_da_api] observations into global analyses.
+- [**Assimilate**][e2studio_da_api] sparse observations into global and regional analyses.
 - [**Fetch**][e2studio_data_api] analysis, forecast and observation data from public sources.
 - [**Compose**][e2studio_examples_url] ensembles and coupled multi-model workflows.
 - [**Store**][e2studio_io_api] results to Zarr, NetCDF and more.
