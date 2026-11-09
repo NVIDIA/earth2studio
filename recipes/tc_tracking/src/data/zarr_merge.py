@@ -43,6 +43,8 @@ from src.tc_hunt_utils import set_initial_times
 
 # array metadata that has to agree between batch and combined store
 _LAYOUT_KEYS = ("data_type", "chunk_grid", "codecs", "fill_value", "dimension_names")
+# chunk file names the merge can rewrite: c/<i>/<j>/..., one directory per axis
+_CHUNK_KEY_ENCODING = {"name": "default", "configuration": {"separator": "/"}}
 
 
 def _metadata(store_path: str, name: str) -> dict[str, Any]:
@@ -116,6 +118,13 @@ def _link_batch(batch: str, path: str, ics: np.ndarray) -> tuple[np.ndarray, int
             if meta.get(key) != combined.get(key):
                 raise ValueError(
                     f"{batch}: array {name} differs from the combined store in {key}"
+                )
+        for store, store_meta in ((batch, meta), (path, combined)):
+            if store_meta.get("chunk_key_encoding") != _CHUNK_KEY_ENCODING:
+                raise ValueError(
+                    f"{store}: array {name} names its chunk files "
+                    f"{store_meta.get('chunk_key_encoding')}, the merge supports only "
+                    f"{_CHUNK_KEY_ENCODING}"
                 )
         dims = meta["dimension_names"]
         member_axis, ic_axis = dims.index("ensemble"), dims.index("time")

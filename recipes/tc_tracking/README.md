@@ -334,7 +334,7 @@ is one file per batch,
 `<project>_<ic>_mems<first>-<last>.nc`. Zarr output is
 written into one store per batch under `<project>_batches/`,
 which rank 0 merges into `<project>.zarr` at the end of the
-run. The merge moves no data, it hard-links the batch's
+run (not when reproducing members, see section 2.2). The merge moves no data, it hard-links the batch's
 chunk files into the combined store. If a run is
 interrupted, `mode: 'merge_zarr'` with the same config merges
 the batch stores that are complete. Both formats contain a
@@ -598,6 +598,16 @@ members 4, 5, 12, and 13 from the midday ensemble.
 Use the same `batch_size` and `ensemble_size` as in the
 original run: they define the batches, and a member's noise
 depends on the batch it was generated in.
+
+**Output**: Each reproduced batch is written to its own file
+or store, `<project>_<ic>_mems<first>-<last>.nc` or `.zarr`.
+Zarr stores of reproduced batches are not merged. To add them
+to the Zarr store of an ensemble, move them into its
+`<project>_batches/` directory and run `mode: 'merge_zarr'`
+with the ensemble's configuration. This needs the same
+`out_vars`, `n_steps` and `zarr_shard_per_member`. It
+replaces those members in an existing store, or creates the
+store if the ensemble was run without fields.
 
 ### 2.3 Extract Reference Tracks from ERA5
 

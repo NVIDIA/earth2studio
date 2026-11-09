@@ -228,8 +228,17 @@ def initialise_netcdf_output(
 
 
 def batch_zarr_path(cfg: DictConfig, ic: np.datetime64, mems: np.ndarray) -> str:
-    """Path of the Zarr store of one batch."""
-    return os.path.join(batch_zarr_dir(cfg), batch_name(ic, mems) + ".zarr")
+    """Path of the Zarr store of one batch.
+
+    Under ``<project>_batches/`` for an ensemble, merged at the end; for
+    reproduced members ``<project>_<batch>.zarr``, kept as it is, like the
+    NetCDF files.
+    """
+    name = batch_name(ic, mems) + ".zarr"
+    if cfg.mode == "reproduce_members":
+        project = cfg.project.removesuffix(".zarr")
+        return os.path.join(cfg.store_dir, f"{project}_{name}")
+    return os.path.join(batch_zarr_dir(cfg), name)
 
 
 def open_batch_zarr(

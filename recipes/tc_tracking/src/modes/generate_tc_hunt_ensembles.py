@@ -380,8 +380,9 @@ def run_inference(
         )
 
     # take() returned None on all ranks only once every batch store is closed,
-    # so rank 0 can merge them without a barrier
-    if cfg.store_type == "zarr" and dist.rank == 0:
+    # so rank 0 can merge them without a barrier. Reproduced batches are kept
+    # as separate stores
+    if cfg.store_type == "zarr" and cfg.mode != "reproduce_members" and dist.rank == 0:
         merge_batch_stores(cfg)
 
 
@@ -501,12 +502,10 @@ def run_ensemble(cfg: DictConfig) -> None:
     Raises
     ------
     ValueError
-        If members are reproduced into a Zarr store, which is not supported
+        If members are reproduced with ``resume``, which is not supported
     """
     reproduce = cfg.mode == "reproduce_members"
     resume = cfg.get("resume", False)
-    if reproduce and cfg.store_type == "zarr":
-        raise ValueError("Zarr output not supported for reproducing ensemble members")
     if reproduce and resume:
         raise ValueError("resume is not supported for reproducing ensemble members")
 
