@@ -124,10 +124,10 @@ def _link_batch(batch: str, path: str, ics: np.ndarray) -> tuple[np.ndarray, int
         for src in glob.glob(os.path.join(chunk_dir, "**", "*"), recursive=True):
             if os.path.isdir(src):
                 continue
-            key = os.path.relpath(src, chunk_dir).split(os.sep)
-            key[member_axis] = str(int(members[int(key[member_axis])]))
-            key[ic_axis] = str(ic_index)
-            dst = os.path.join(path, name, "c", *key)
+            parts = os.path.relpath(src, chunk_dir).split(os.sep)
+            parts[member_axis] = str(int(members[int(parts[member_axis])]))
+            parts[ic_axis] = str(ic_index)
+            dst = os.path.join(path, name, "c", *parts)
             os.makedirs(os.path.dirname(dst), exist_ok=True)
             if os.path.exists(dst):
                 os.remove(dst)
@@ -157,7 +157,8 @@ def merge_batch_stores(cfg: DictConfig) -> None:
     ics = set_initial_times(cfg)
     members = np.arange(cfg.ensemble_size)
 
-    complete, incomplete = [], []
+    complete: list[str] = []
+    incomplete: list[str] = []
     for batch in sorted(glob.glob(os.path.join(batch_zarr_dir(cfg), "*.zarr"))):
         attrs = zarr.open_group(batch, mode="r").attrs
         (complete if attrs.get("complete", False) else incomplete).append(batch)
