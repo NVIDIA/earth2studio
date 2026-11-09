@@ -1,0 +1,98 @@
+{
+  "event": "Hurricane Ida remnants over NYC",
+  "study_area": "South Queens / Jamaica Bay",
+  "precip": {
+    "init_time": "2021-09-01T12:00:00.000000000",
+    "forecast_model": "FourCastNet + PrecipitationAFNO",
+    "frames": [
+      {
+        "index": 0,
+        "lead_hours": 6,
+        "valid_time": "2021-09-01T18:00",
+        "png": "precip_lead_06h.png",
+        "tif": "/home/jesscmiel/projects/earth2studio/projects/nyc_flash_flood_case_study/data/processed/earth2_precip/precip_lead_06h.tif",
+        "mean_mm": 4.323268413543701,
+        "max_mm": 5.351292610168457
+      },
+      {
+        "index": 1,
+        "lead_hours": 12,
+        "valid_time": "2021-09-02T00:00",
+        "png": "precip_lead_12h.png",
+        "tif": "/home/jesscmiel/projects/earth2studio/projects/nyc_flash_flood_case_study/data/processed/earth2_precip/precip_lead_12h.tif",
+        "mean_mm": 21.808130264282227,
+        "max_mm": 25.380882263183594
+      },
+      {
+        "index": 2,
+        "lead_hours": 18,
+        "valid_time": "2021-09-02T06:00",
+        "png": "precip_lead_18h.png",
+        "tif": "/home/jesscmiel/projects/earth2studio/projects/nyc_flash_flood_case_study/data/processed/earth2_precip/precip_lead_18h.tif",
+        "mean_mm": 8.213379859924316,
+        "max_mm": 9.56131362915039
+      },
+      {
+        "index": 3,
+        "lead_hours": 24,
+        "valid_time": "2021-09-02T12:00",
+        "png": "precip_lead_24h.png",
+        "tif": "/home/jesscmiel/projects/earth2studio/projects/nyc_flash_flood_case_study/data/processed/earth2_precip/precip_lead_24h.tif",
+        "mean_mm": 0.00038793846033513546,
+        "max_mm": 0.0018156884470954537
+      }
+    ],
+    "storm_total_png": "precip_storm_total.png",
+    "storm_total_tif": "/home/jesscmiel/projects/earth2studio/projects/nyc_flash_flood_case_study/data/processed/earth2_precip/precip_storm_total.tif",
+    "storm_total_max_mm": 39.25322341918945,
+    "storm_total_mean_mm": 34.34516525268555,
+    "display_note": "Precip layers are bilinearly resampled from the native ~0.25\u00b0 Earth2 grid onto a denser display grid for visualization only; this is not physical downscaling.",
+    "interval_hours": 6.0,
+    "bounds": [
+      [
+        40.55,
+        -74.12
+      ],
+      [
+        40.73,
+        -73.72
+      ]
+    ]
+  },
+  "infra": {
+    "stations_geojson": "subway_stations.geojson",
+    "basins_geojson": "catch_basins.geojson",
+    "roads_geojson": "roads.geojson",
+    "n_stations": 309,
+    "n_basins": 0,
+    "n_roads": 2500
+  },
+  "disruption": {
+    "roads_geojson": "roads_with_disruption.geojson",
+    "disrupted_geojson": "roads_potential_disruption.geojson",
+    "hotspot_png": "precip_terrain_hotspot.png",
+    "n_disrupted": 125,
+    "n_roads": 2500,
+    "rule": "Road segment marked if any sample point falls in cells with storm-total precip \u2265 35.5 mm (max of 20.0 mm and domain P75) AND terrain screening \u2265 0.92 (max of 0.55 and domain P75). Heuristic exposure only \u2014 not a traffic or inundation forecast.",
+    "precip_threshold_mm": 35.480674743652344,
+    "terrain_threshold": 0.9234345555305481
+  },
+  "reports": {
+    "n_reports": 599,
+    "geojson": "observed_311.geojson"
+  },
+  "terrain": {
+    "terrain_png": "terrain_screening.png",
+    "terrain_bounds": [
+      [
+        40.55,
+        -74.12
+      ],
+      [
+        40.73,
+        -73.72
+      ]
+    ]
+  },
+  "disclaimer": "Exploratory prototype. Not inundation depth, not emergency guidance, not a verified flood forecast."
+}

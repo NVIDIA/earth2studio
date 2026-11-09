@@ -1,0 +1,27 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Data and results
+/data/raw/
+/data/processed/
+/outputs/
+
+# Ignore generated figures except the Ida v0 demo deliverables
+/figures/*
+!/figures/ida_v0_event_map.html
+!/figures/IDA_V0_DEMO_README.md
+!/figures/ida_v0_assets/
+!/figures/ida_v0_assets/**
+
+# Forecasts: keep clipped Ida v0 NetCDF only (global runs stay local)
+/data/forecasts/*
+!/data/forecasts/.gitkeep
+!/data/forecasts/nyc_precip_ida_20210901T12.nc
+
+# Editor
+.vscode/
+.DS_Store

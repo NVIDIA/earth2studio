@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ida v0 | Earth2 NYC flood-impact prototype</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+  <style>
+    :root {
+      --ink: #1c2430;
+      --muted: #5b6775;
+      --panel: #f4f7f8;
+      --line: #d5dde3;
+      --accent: #1f6f8b;
+      --warn: #9a3412;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; font-family: "IBM Plex Sans", "Segoe UI", sans-serif; color: var(--ink); background: #e8eef1; }
+    body { display: grid; grid-template-columns: 320px 1fr; }
+    aside { background: var(--panel); border-right: 1px solid var(--line); padding: 18px 16px; overflow: auto; }
+    h1 { font-size: 1.25rem; margin: 0 0 4px; letter-spacing: -0.02em; }
+    .eyebrow { text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.68rem; color: var(--muted); margin: 0 0 8px; }
+    .sub { color: var(--muted); font-size: 0.86rem; margin: 0 0 16px; line-height: 1.4; }
+    .badge { display: inline-block; background: #fff7ed; color: var(--warn); border: 1px solid #fdba74; border-radius: 4px; padding: 2px 8px; font-size: 0.72rem; font-weight: 600; }
+    section { margin: 18px 0; padding-top: 12px; border-top: 1px solid var(--line); }
+    section h2 { font-size: 0.92rem; margin: 0 0 8px; }
+    label.row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 0; font-size: 0.86rem; }
+    input[type="range"] { width: 100%; }
+    .readout { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--accent); }
+    #map { height: 100%; width: 100%; }
+    .disclaimer { position: absolute; z-index: 1000; left: 12px; bottom: 12px; max-width: 420px; background: rgba(255,255,255,0.94); border: 1px solid var(--line); padding: 8px 10px; font-size: 0.75rem; line-height: 1.35; color: var(--muted); }
+    details.limits { font-size: 0.8rem; color: var(--muted); }
+    details.limits summary { cursor: pointer; color: var(--ink); font-weight: 600; }
+    .metric { display: flex; justify-content: space-between; font-size: 0.82rem; margin: 4px 0; }
+    .metric b { font-variant-numeric: tabular-nums; }
+    .legend-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+  </style>
+</head>
+<body>
+  <aside>
+    <p class="eyebrow">Earth2Studio · NYC flood impact · v0</p>
+    <h1>Ida remnants replay</h1>
+    <p class="sub">South Queens / Jamaica Bay · Earth2 FCN + PrecipitationAFNO precip with terrain screening and 311 complaints.</p>
+    <span class="badge">NOT inundation depth / NOT emergency guidance</span>
+
+    <section>
+      <h2>Forecast lead</h2>
+      <input id="leadSlider" type="range" min="0" max="3" value="3" step="1" aria-label="Forecast lead">
+      <div class="metric"><span>Lead</span><span class="readout" id="leadReadout">—</span></div>
+      <div class="metric"><span>Valid time (UTC)</span><span class="readout" id="validReadout">—</span></div>
+      <div class="metric"><span>Interval precip (domain max)</span><span class="readout" id="precipReadout">—</span></div>
+    </section>
+
+    <section>
+      <h2>Map layers</h2>
+      <label class="row"><span><span class="legend-swatch" style="background:#3b82f6"></span>Earth2 6 h precip</span><input id="precipToggle" type="checkbox" checked></label>
+      <label class="row"><span><span class="legend-swatch" style="background:#7c3aed"></span>Storm-total precip</span><input id="totalToggle" type="checkbox"></label>
+      <label class="row"><span><span class="legend-swatch" style="background:#ea580c"></span>Terrain screening</span><input id="terrainToggle" type="checkbox"></label>
+      <label class="row"><span><span class="legend-swatch" style="background:#dc2626"></span>Precip×terrain hotspot</span><input id="hotspotToggle" type="checkbox" checked></label>
+      <label class="row"><span><span class="legend-swatch" style="background:#64748b"></span>Roads</span><input id="roadsToggle" type="checkbox" checked></label>
+      <label class="row"><span><span class="legend-swatch" style="background:#b91c1c"></span>Potential road disruption</span><input id="disruptToggle" type="checkbox" checked></label>
+      <label class="row"><span><span class="legend-swatch" style="background:#0f766e"></span>Rail / subway stations</span><input id="stationsToggle" type="checkbox" checked></label>
+      <label class="row"><span><span class="legend-swatch" style="background:#0369a1"></span>Catch basins (sampled)</span><input id="basinsToggle" type="checkbox"></label>
+      <label class="row"><span><span class="legend-swatch" style="background:#e11d48"></span>311 flood-related reports</span><input id="reportsToggle" type="checkbox" checked></label>
+    </section>
+
+    <section>
+      <h2>Run metadata</h2>
+      <div class="metric"><span>Init</span><b id="initMeta">—</b></div>
+      <div class="metric"><span>Model</span><b style="max-width:180px;text-align:right;font-weight:500">FCN + PrecipAFNO</b></div>
+      <div class="metric"><span>311 reports</span><b id="reportsMeta">—</b></div>
+      <div class="metric"><span>Roads flagged</span><b id="disruptMeta">—</b></div>
+    </section>
+
+    <section>
+      <details class="limits" open>
+        <summary>What this is / is not</summary>
+        <p><b>Forecast layer:</b> Earth2 six-hour accumulated precipitation (mm) from FCN + PrecipitationAFNO, GFS ICs. Display is bilinearly resampled from ~0.25° cells — not street-scale truth.</p>
+        <p><b>Terrain screening:</b> relative low/flat index from USGS ~10 m DEM. No rainfall, soils, or drainage.</p>
+        <p><b>311 points:</b> geocoded flood-related service requests (complaints), not surveyed flood depths or extents.</p>
+        <p><b>Road disruption:</b> heuristic overlap of roads with high storm-total precip and high terrain screening. Not traffic modeling or inundation depth.</p>
+        <p><b>Not included:</b> water depth, calibrated sewer hydraulics, emergency alerts, or verified skill scores.</p>
+      </details>
+    </section>
+  </aside>
+  <div style="position:relative">
+    <div id="map"></div>
+    <div class="disclaimer">Prototype for Hurricane Ida remnants (2021-09-01). OpenStreetMap basemap. Layers are exploratory research products.</div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script>
+    const manifest = {"event": "Hurricane Ida remnants over NYC", "study_area": "South Queens / Jamaica Bay", "precip": {"init_time": "2021-09-01T12:00:00.000000000", "forecast_model": "FourCastNet + PrecipitationAFNO", "frames": [{"index": 0, "lead_hours": 6, "valid_time": "2021-09-01T18:00", "png": "precip_lead_06h.png", "tif": "/home/jesscmiel/projects/earth2studio/projects/nyc_flash_flood_case_study/data/processed/earth2_precip/precip_lead_06h.tif", "mean_mm": 4.323268413543701, "max_mm": 5.351292610168457}, {"index": 1, "lead_hours": 12, "valid_time": "2021-09-02T00:00", "png": "precip_lead_12h.png", "tif": "/home/jesscmiel/projects/earth2studio/projects/nyc_flash_flood_case_study/data/processed/earth2_precip/precip_lead_12h.tif", "mean_mm": 21.808130264282227, "max_mm": 25.380882263183594}, {"index": 2, "lead_hours": 18, "valid_time": "2021-09-02T06:00", "png": "precip_lead_18h.png", "tif": "/home/jesscmiel/projects/earth2studio/projects/nyc_flash_flood_case_study/data/processed/earth2_precip/precip_lead_18h.tif", "mean_mm": 8.213379859924316, "max_mm": 9.56131362915039}, {"index": 3, "lead_hours": 24, "valid_time": "2021-09-02T12:00", "png": "precip_lead_24h.png", "tif": "/home/jesscmiel/projects/earth2studio/projects/nyc_flash_flood_case_study/data/processed/earth2_precip/precip_lead_24h.tif", "mean_mm": 0.00038793846033513546, "max_mm": 0.0018156884470954537}], "storm_total_png": "precip_storm_total.png", "storm_total_tif": "/home/jesscmiel/projects/earth2studio/projects/nyc_flash_flood_case_study/data/processed/earth2_precip/precip_storm_total.tif", "storm_total_max_mm": 39.25322341918945, "storm_total_mean_mm": 34.34516525268555, "display_note": "Precip layers are bilinearly resampled from the native ~0.25\u00b0 Earth2 grid onto a denser display grid for visualization only; this is not physical downscaling.", "interval_hours": 6.0, "bounds": [[40.55, -74.12], [40.73, -73.72]]}, "infra": {"stations_geojson": "subway_stations.geojson", "basins_geojson": "catch_basins.geojson", "roads_geojson": "roads.geojson", "n_stations": 309, "n_basins": 0, "n_roads": 2500}, "disruption": {"roads_geojson": "roads_with_disruption.geojson", "disrupted_geojson": "roads_potential_disruption.geojson", "hotspot_png": "precip_terrain_hotspot.png", "n_disrupted": 125, "n_roads": 2500, "rule": "Road segment marked if any sample point falls in cells with storm-total precip \u2265 35.5 mm (max of 20.0 mm and domain P75) AND terrain screening \u2265 0.92 (max of 0.55 and domain P75). Heuristic exposure only \u2014 not a traffic or inundation forecast.", "precip_threshold_mm": 35.480674743652344, "terrain_threshold": 0.9234345555305481}, "reports": {"n_reports": 599, "geojson": "observed_311.geojson"}, "terrain": {"terrain_png": "terrain_screening.png", "terrain_bounds": [[40.55, -74.12], [40.73, -73.72]]}, "disclaimer": "Exploratory prototype. Not inundation depth, not emergency guidance, not a verified flood forecast."};
+    const assets = "ida_v0_assets/";
+    const bounds = manifest.precip.bounds;
+    const map = L.map("map", { zoomControl: true }).fitBounds(bounds);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap"
+    }).addTo(map);
+
+    const precipOverlays = manifest.precip.frames.map((frame) =>
+      L.imageOverlay(assets + frame.png, bounds, { opacity: 0.72, interactive: false })
+    );
+    let activePrecip = precipOverlays[precipOverlays.length - 1];
+    activePrecip.addTo(map);
+
+    const totalLayer = L.imageOverlay(assets + manifest.precip.storm_total_png, bounds, { opacity: 0.65 });
+    const terrainLayer = manifest.terrain.terrain_png
+      ? L.imageOverlay(assets + manifest.terrain.terrain_png, bounds, { opacity: 0.55 })
+      : null;
+    const hotspotLayer = L.imageOverlay(assets + manifest.disruption.hotspot_png, bounds, { opacity: 0.55 }).addTo(map);
+
+    let roadsLayer = null;
+    let disruptLayer = null;
+    let stationsLayer = null;
+    const reportsLayer = L.markerClusterGroup({ showCoverageOnHover: false });
+
+    function setLead(index) {
+      const frame = manifest.precip.frames[index];
+      if (map.hasLayer(activePrecip)) map.removeLayer(activePrecip);
+      activePrecip = precipOverlays[index];
+      if (document.getElementById("precipToggle").checked) activePrecip.addTo(map);
+      document.getElementById("leadReadout").textContent = `+${frame.lead_hours} h`;
+      document.getElementById("validReadout").textContent = frame.valid_time.replace("T", " ");
+      document.getElementById("precipReadout").textContent = `${frame.max_mm.toFixed(1)} mm`;
+    }
+
+    document.getElementById("initMeta").textContent = (manifest.precip.init_time || "").slice(0, 16);
+    document.getElementById("reportsMeta").textContent = String(manifest.reports.n_reports);
+    document.getElementById("disruptMeta").textContent = `${manifest.disruption.n_disrupted} / ${manifest.disruption.n_roads}`;
+
+    document.getElementById("leadSlider").addEventListener("input", (event) => setLead(Number(event.target.value)));
+    setLead(Number(document.getElementById("leadSlider").value));
+
+    function bindToggle(id, layer) {
+      const input = document.getElementById(id);
+      input.addEventListener("change", () => {
+        if (!layer) return;
+        if (input.checked) layer.addTo(map); else map.removeLayer(layer);
+      });
+    }
+    bindToggle("totalToggle", totalLayer);
+    bindToggle("terrainToggle", terrainLayer);
+    bindToggle("hotspotToggle", hotspotLayer);
+    document.getElementById("precipToggle").addEventListener("change", (event) => {
+      if (event.target.checked) activePrecip.addTo(map); else map.removeLayer(activePrecip);
+    });
+
+    fetch(assets + manifest.infra.roads_geojson).then((r) => r.json()).then((geo) => {
+      roadsLayer = L.geoJSON(geo, {
+        style: { color: "#64748b", weight: 1, opacity: 0.55 },
+        onEachFeature: (feature, layer) => layer.bindTooltip(feature.properties.st_name || "road")
+      });
+      if (document.getElementById("roadsToggle").checked) roadsLayer.addTo(map);
+      bindToggle("roadsToggle", roadsLayer);
+    });
+
+    fetch(assets + manifest.disruption.disrupted_geojson).then((r) => r.json()).then((geo) => {
+      disruptLayer = L.geoJSON(geo, {
+        style: { color: "#b91c1c", weight: 3, opacity: 0.9 },
+        onEachFeature: (feature, layer) => layer.bindTooltip((feature.properties.st_name || "road") + " · potential disruption (heuristic)")
+      }).addTo(map);
+      bindToggle("disruptToggle", disruptLayer);
+    });
+
+    fetch(assets + manifest.infra.stations_geojson).then((r) => r.json()).then((geo) => {
+      stationsLayer = L.geoJSON(geo, {
+        pointToLayer: (feature, latlng) => L.circleMarker(latlng, {
+          radius: 5, color: "#0f766e", weight: 1, fillColor: "#14b8a6", fillOpacity: 0.9
+        }),
+        onEachFeature: (feature, layer) => layer.bindTooltip(feature.properties.name || feature.properties.Name || "Station")
+      }).addTo(map);
+      bindToggle("stationsToggle", stationsLayer);
+    });
+
+    let basinsLayer = null;
+    if (manifest.infra.basins_geojson) {
+      fetch(assets + manifest.infra.basins_geojson).then((r) => r.json()).then((geo) => {
+        basinsLayer = L.geoJSON(geo, {
+          pointToLayer: (feature, latlng) => L.circleMarker(latlng, {
+            radius: 2, color: "#0369a1", weight: 0, fillColor: "#0ea5e9", fillOpacity: 0.55
+          }),
+          onEachFeature: (feature, layer) => layer.bindTooltip(feature.properties.unitid || "Catch basin")
+        });
+        bindToggle("basinsToggle", basinsLayer);
+      });
+    }
+
+    if (manifest.reports.geojson) {
+      fetch(assets + manifest.reports.geojson).then((r) => r.json()).then((geo) => {
+        L.geoJSON(geo, {
+          pointToLayer: (feature, latlng) => L.circleMarker(latlng, {
+            radius: 4, color: "#9f1239", weight: 1, fillColor: "#e11d48", fillOpacity: 0.85
+          }),
+          onEachFeature: (feature, layer) => {
+            const p = feature.properties;
+            layer.bindTooltip(`${p.descriptor || "Flood report"} · ${p.created_date || ""}`);
+          }
+        }).eachLayer((layer) => reportsLayer.addLayer(layer));
+        reportsLayer.addTo(map);
+        bindToggle("reportsToggle", reportsLayer);
+      });
+    }
+  </script>
+</body>
+</html>
