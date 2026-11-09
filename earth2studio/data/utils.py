@@ -201,14 +201,16 @@ def _fetch_instantaneous(
 ) -> xr.DataArray:
     variables = cast(VariableArray, np.asarray(variable))
     if _is_forecast_source(source):
-        array = cast(ForecastSource, source)(time, lead_time, variables)
+        array = cast(ForecastSource, source)(
+            time, lead_time, variables, **_members(member)
+        )
         array = _select_times(array, time)
         return array.sel(lead_time=lead_time, variable=variables)
 
     arrays = []
     for lead in lead_time:
         valid_time = _offset_times(time, lead)
-        array = cast(DataSource, source)(valid_time, variables)
+        array = cast(DataSource, source)(valid_time, variables, **_members(member))
         array = _select_times(array, valid_time).sel(variable=variables)
         array = array.expand_dims(
             lead_time=np.array([lead], dtype="timedelta64[ns]"), axis=1
@@ -384,8 +386,9 @@ def fetch_data(
     xr.DataArray
         Field values with dimensions [time, lead_time, variable, ...], auxiliary
         coordinates, actual grid metadata and normalized temporal statistics. The
-        field is on the source grid unless regridded. Floating point fields are
-        always returned as float32, regardless of the source's dtype.
+        field is on the source grid unless regridded. With ``member``, a leading
+        ``ensemble`` dimension holds the requested members in order. Floating point
+        fields are always returned as float32, regardless of the source's dtype.
 
     Note
     ----
