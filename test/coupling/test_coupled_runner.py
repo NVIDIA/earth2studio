@@ -47,6 +47,7 @@ from test_coupling_toys import (
 from earth2studio.coupling import Connector, CoupledRunner, CouplingError
 from earth2studio.grids import NearestRegridder
 from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.perturbation import BredVector, Gaussian
 from earth2studio.run import PrognosticRunner, Runner, WorkItem
 from earth2studio.utils import coord_array_like
 from earth2studio.utils.type import CoordinateSystem
@@ -358,8 +359,9 @@ def test_stochastic_components_are_seeded_per_member() -> None:
     item = WorkItem(T0, np.timedelta64(6, "h"), member_ids=(4,))
     list(runner.run_item(item))
     assert model.seeds == [member_seed(3 + zlib.crc32(b"atmos"), item.time, 4)]
-    with pytest.raises(ValueError, match="batch"):
-        list(runner.run_item(WorkItem(T0, np.timedelta64(6, "h"), member_ids=(0, 1))))
+    # A batch is seeded once, from its first member.
+    list(runner.run_item(WorkItem(T0, np.timedelta64(6, "h"), member_ids=(7, 8))))
+    assert model.seeds[-1] == member_seed(3 + zlib.crc32(b"atmos"), item.time, 7)
 
 
 def test_stochastic_components_draw_independent_seeds() -> None:
@@ -877,3 +879,114 @@ INVALID = [
 def test_invalid_couplings_fail_at_construction(build, match: str) -> None:
     with pytest.raises(CouplingError, match=match):
         build()
+
+
+# -- member-aware sources ----------------------------------------------------------
+
+
+class _MemberFill(Fill):
+    """Ensemble-aware ``Fill``: member ``k`` adds ``k`` to every value."""
+
+    def __init__(self, grid, values) -> None:  # type: ignore[no-untyped-def]
+        super().__init__(grid, values)
+        self.ensembles: list[list | None] = []
+
+    def __call__(  # type: ignore[override]
+        self, time: np.ndarray, variable: np.ndarray, member: list | None = None
+    ) -> xr.DataArray:
+        x = super().__call__(time, variable)
+        self.ensembles.append(None if member is None else list(member))
+        if member is None:
+            return x
+        members = np.asarray(member)
+        offset = xr.DataArray(members.astype(np.float32), dims="ensemble")
+        return (x + offset).assign_coords(ensemble=members)
+
+
+def _toy(sources: Mapping[str, Fill], **kwargs: object) -> CoupledRunner:
+    return CoupledRunner(
+        {"atmos": atmosphere(), "ocean": ocean()},
+        [
+            Connector("ocean", "atmos", time="hold", regridder=TO_ATMOS),
+            Connector("atmos", "ocean", regridder=TO_OCEAN),
+        ],
+        sources=dict(sources),
+        **kwargs,  # type: ignore[arg-type]
+    )
+
+
+def test_members_read_their_source_member(ic_sources: Mapping[str, Fill]) -> None:
+    atmos = _MemberFill(ATMOS_GRID, {"z1000": 0.0, "sst": 2.0})
+    runner = _toy({**ic_sources, "atmos": atmos}, source_member=lambda m: m + 1)
+    item = WorkItem(T0, np.timedelta64(96, "h"), member_ids=(2,))
+    streams: dict[str, list[xr.DataArray]] = {}
+    for step in runner.run_item(item):
+        for name, x in step.items():
+            streams.setdefault(name, []).append(x)
+    # Member 2 reads source member 3: as if the atmosphere started from z1000 = 3.
+    reference = run(
+        toy_runner({**ic_sources, "atmos": Fill(ATMOS_GRID, {"z1000": 3.0})}), 96
+    )
+    for name in reference:
+        assert series(streams[name]) == series(reference[name])
+    assert atmos.ensembles == [[3]]
+    assert ic_sources["ocean"].calls  # the ocean source is shared, read without members
+    requests = runner.data_requests(item)
+    assert [None if r.member is None else list(r.member) for r in requests] == [
+        [3],
+        None,
+    ]
+
+
+def test_batched_members_match_single_member_runs(
+    ic_sources: Mapping[str, Fill],
+) -> None:
+    atmos = _MemberFill(ATMOS_GRID, {"z1000": 0.0, "sst": 2.0})
+    runner = _toy({**ic_sources, "atmos": atmos}, source_member=lambda m: m // 2)
+    assert runner.supports_member_batching
+    final = np.timedelta64(96, "h")
+    batched = list(runner.run_item(WorkItem(T0, final, member_ids=(2, 3, 4))))
+    # Members 2 and 3 share source member 1, fetched once.
+    assert atmos.ensembles == [[1, 2]]
+    for member in (2, 3, 4):
+        single = list(runner.run_item(WorkItem(T0, final, member_ids=(member,))))
+        assert len(batched) == len(single)
+        for many, one in zip(batched, single):
+            assert many.keys() == one.keys()
+            for name, x in many.items():
+                assert x.dims[0] == "ensemble"
+                xr.testing.assert_allclose(x.sel(ensemble=member, drop=True), one[name])
+
+
+def test_perturbation_draws_each_member_alone(ic_sources: Mapping[str, Fill]) -> None:
+    runner = _toy(ic_sources, perturbation={"ocean": Gaussian()})
+    final = np.timedelta64(96, "h")
+    batched = list(runner.run_item(WorkItem(T0, final, member_ids=(2, 3))))
+    initial = next(step["ocean"] for step in batched if "ocean" in step)
+    assert not np.allclose(initial.sel(ensemble=2), initial.sel(ensemble=3))
+    assert not np.allclose(initial, 2.0)
+    for member in (2, 3):
+        single = list(runner.run_item(WorkItem(T0, final, member_ids=(member,))))
+        for many, one in zip(batched, single):
+            for name, x in many.items():
+                xr.testing.assert_allclose(x.sel(ensemble=member, drop=True), one[name])
+
+
+@pytest.mark.parametrize(
+    "perturbation, match",
+    [
+        ({"sea": Gaussian()}, "unknown component 'sea'"),
+        ({"double": Gaussian()}, "no initial condition"),
+        ({"atmos": BredVector(lambda x: x)}, "not supported by the runners"),
+    ],
+)
+def test_perturbation_needs_a_stateful_component(
+    ic_sources: Mapping[str, Fill], perturbation: dict, match: str
+) -> None:
+    with pytest.raises(ValueError, match=match):
+        CoupledRunner(
+            {"atmos": atmosphere(), "double": Double()},
+            [Connector("atmos", "double")],
+            sources={"atmos": (ic_sources["atmos"], Fill(ATMOS_GRID, {"sst": 2.0}))},
+            perturbation=perturbation,
+        )

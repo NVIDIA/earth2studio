@@ -227,7 +227,7 @@ def _with_lead_time(x: xr.DataArray, lead_time: np.ndarray) -> xr.DataArray:
     """Restore the lead-time axis a diagnostic dropped, after the leading ``time`` axis."""
     if "lead_time" in x.dims:
         return x
-    position = 1 if "time" in x.dims else 0
+    position = x.get_axis_num("time") + 1 if "time" in x.dims else 0
     return x.expand_dims(lead_time=np.atleast_1d(lead_time), axis=position)
 
 

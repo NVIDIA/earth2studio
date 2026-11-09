@@ -46,8 +46,11 @@ class Connector:
     state: bool = False
 
 class CoupledRunner:  # satisfies earth2studio.run.Runner
-    supports_member_batching = False
-    def __init__(self, components, connectors=(), sources=None, seed=0, devices=None): ...
+    supports_member_batching = True
+    def __init__(
+        self, components, connectors=(), sources=None, seed=0, devices=None,
+        source_member=None, perturbation=None,
+    ): ...
     def describe(self, final_lead_time) -> str: ...
     def to(self, device) -> CoupledRunner: ...
     def device_of(self, name) -> torch.device: ...
@@ -166,8 +169,17 @@ output slot, else `name.0`, `name.1` and so on. Stream names must be unique. A
 stateful slot publishes its initial condition, when it has one, and every chunk;
 a diagnostic slot publishes at every call.
 Streams carry the producing model's grid and the item's `time`, as `X1`–`X4`
-require. Per-member seeding follows `X5`, from a base seed offset per component
+require. Seeding follows `X5`, from a base seed offset per component
 by the CRC-32 of its name, so stochastic components draw independent noise.
+`perturbation` maps stateful component names to initial-condition
+perturbations, applied to the first input slot per member as `X6` requires,
+from the same offset seed.
+With `source_member`, every fetched slot whose source is an ensemble source reads
+the item's mapped member, as `X22` requires; connected slots read what their
+producer published, and DataFrame slots are shared. Batched members travel on a
+leading `ensemble` dimension through connectors, buffers, time statistics,
+regridders and state connectors; one observation frame serves every member, so a
+DA component must accept a batched background with unbatched observations.
 
 ## Independent assimilation models
 
