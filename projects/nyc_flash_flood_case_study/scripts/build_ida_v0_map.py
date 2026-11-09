@@ -805,7 +805,15 @@ def write_html(manifest: dict) -> Path:
         document.getElementById("mrmsToggle").checked = false;
         document.getElementById("diffToggle").checked = false;
         document.getElementById("precipToggle").checked = true;
-        setTimeout(() => {{ mapLeft.invalidateSize(); if (mapRight) mapRight.invalidateSize(); }}, 50);
+        setTimeout(() => {{
+          mapLeft.invalidateSize();
+          if (mapRight) {{
+            mapRight.invalidateSize();
+            mapRight.fitBounds(bounds);
+          }}
+          setLead(Number(document.getElementById("leadSlider").value));
+        }}, 100);
+        return;
       }} else {{
         stage.classList.add("single"); stage.classList.remove("compare");
         rightPane.hidden = true;
