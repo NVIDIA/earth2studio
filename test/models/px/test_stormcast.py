@@ -161,11 +161,11 @@ def test_stormcast_call(time, device):
     nvar, nvar_cond = 3, 5
     dc = OrderedDict(
         [
-            ("hrrr_y", HRRR.HRRR_Y[Y_START:Y_END]),
-            ("hrrr_x", HRRR.HRRR_X[X_START:X_END]),
+            ("y", HRRR.HRRR_Y[Y_START:Y_END]),
+            ("x", HRRR.HRRR_X[X_START:X_END]),
         ]
     )
-    lat, lon = np.meshgrid(dc["hrrr_y"], dc["hrrr_x"], indexing="ij")
+    lat, lon = np.meshgrid(dc["y"], dc["x"], indexing="ij")
 
     r = Random(dc)
 
@@ -196,7 +196,7 @@ def test_stormcast_call(time, device):
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
     x = fetch_data(r, time, np.asarray(variable), np.asarray(lead_time))
-    x = x.rename(hrrr_y="y", hrrr_x="x").assign_coords(p.grid.coords())
+    x = x.assign_coords(p.grid.coords())
     x.attrs = dict(p.grid.attrs, earth2studio_crs=p.grid.crs)
     x.attrs["nested"] = {"items": [1]}
     x.encoding["nested"] = {"items": [2]}
@@ -236,11 +236,11 @@ def test_stormcast_iter(ensemble, device):
     nvar, nvar_cond = 3, 5
     dc = OrderedDict(
         [
-            ("hrrr_y", HRRR.HRRR_Y[Y_START:Y_END]),
-            ("hrrr_x", HRRR.HRRR_X[X_START:X_END]),
+            ("y", HRRR.HRRR_Y[Y_START:Y_END]),
+            ("x", HRRR.HRRR_X[X_START:X_END]),
         ]
     )
-    lat, lon = np.meshgrid(dc["hrrr_y"], dc["hrrr_x"], indexing="ij")
+    lat, lon = np.meshgrid(dc["y"], dc["x"], indexing="ij")
 
     r = Random(dc)
 
@@ -271,7 +271,7 @@ def test_stormcast_iter(ensemble, device):
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
     x = fetch_data(r, time, np.asarray(variable), np.asarray(lead_time))
-    x = x.rename(hrrr_y="y", hrrr_x="x").assign_coords(p.grid.coords())
+    x = x.assign_coords(p.grid.coords())
     x.attrs = dict(p.grid.attrs, earth2studio_crs=p.grid.crs)
     x = x.expand_dims(ensemble=np.arange(ensemble)).copy(deep=True)
     x = x.assign_coords(member=("ensemble", np.arange(ensemble) + 10))
@@ -348,11 +348,11 @@ def test_stormcast_exceptions(dc, device):
     Y_START, Y_END = 273, 785
     dc = OrderedDict(
         [
-            ("hrrr_y", HRRR.HRRR_Y[Y_START:Y_END]),
-            ("hrrr_x", HRRR.HRRR_X[X_START:X_END]),
+            ("y", HRRR.HRRR_Y[Y_START:Y_END]),
+            ("x", HRRR.HRRR_X[X_START:X_END]),
         ]
     )
-    lat, lon = np.meshgrid(dc["hrrr_y"], dc["hrrr_x"], indexing="ij")
+    lat, lon = np.meshgrid(dc["y"], dc["x"], indexing="ij")
 
     r = Random(dc)
     means = torch.zeros(1, 99, 1, 1)
@@ -370,7 +370,7 @@ def test_stormcast_exceptions(dc, device):
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
     x = fetch_data(r, time, np.asarray(variable), np.asarray(lead_time))
-    x = x.rename(hrrr_y="y", hrrr_x="x").assign_coords(p.grid.coords())
+    x = x.assign_coords(p.grid.coords())
     x.attrs = dict(p.grid.attrs, earth2studio_crs=p.grid.crs)
 
     with pytest.raises(TypeError):
@@ -392,11 +392,11 @@ def test_stormcast_conformance():
     nvar, nvar_cond = 3, 5
     dc = OrderedDict(
         [
-            ("hrrr_y", HRRR.HRRR_Y[Y_START:Y_END]),
-            ("hrrr_x", HRRR.HRRR_X[X_START:X_END]),
+            ("y", HRRR.HRRR_Y[Y_START:Y_END]),
+            ("x", HRRR.HRRR_X[X_START:X_END]),
         ]
     )
-    lat, lon = np.meshgrid(dc["hrrr_y"], dc["hrrr_x"], indexing="ij")
+    lat, lon = np.meshgrid(dc["y"], dc["x"], indexing="ij")
 
     variables = np.array(["u%02d" % i for i in range(nvar)])
     means = torch.zeros(1, nvar, 1, 1)
@@ -446,8 +446,8 @@ def test_stormcast_package(cond_dims, device, model):
     Y_START, Y_END = 273, 785
     dc = OrderedDict(
         [
-            ("hrrr_y", HRRR.HRRR_Y[Y_START:Y_END]),
-            ("hrrr_x", HRRR.HRRR_X[X_START:X_END]),
+            ("y", HRRR.HRRR_Y[Y_START:Y_END]),
+            ("x", HRRR.HRRR_X[X_START:X_END]),
         ]
     )
     r = Random(dc)
@@ -465,7 +465,7 @@ def test_stormcast_package(cond_dims, device, model):
     lead_time = p.input_coords()["lead_time"]
     variable = p.input_coords()["variable"]
     x = fetch_data(r, time, np.asarray(variable), np.asarray(lead_time), device=device)
-    x = x.rename(hrrr_y="y", hrrr_x="x").assign_coords(p.grid.coords())
+    x = x.assign_coords(p.grid.coords())
     x.attrs = dict(p.grid.attrs, earth2studio_crs=p.grid.crs)
     out = p(x)
     out_coords = out
