@@ -115,57 +115,6 @@ uv run jupytext --to notebook hens_notebook.py
 
 Output results will be stored in the `outputs` folder.
 
-### Earth2Studio 1.0 execution
-
-The recipe uses a custom `HENSRunner` with `earth2studio.run.Pipeline`.
-Models, perturbations, and diagnostics exchange labeled `xarray.DataArray` fields;
-Pipeline plans each regional output and flushes and closes its backend.
-The initial condition is written once, followed by exactly `nsteps` forecasts.
-Diagnostic models run in configuration order, so later diagnostics can consume
-variables produced by earlier ones. CorrDiff and cyclone tracking retain their
-per-batch NetCDF outputs.
-
-Each Pipeline work item contains a complete HENS perturbation batch. Keep the
-checkpoint order, initial time, random seed, ensemble size, and batch size fixed
-when reproducing selected `batch_ids`. Bred-vector centering depends on the whole
-batch, so changing its membership changes the perturbations. Global ensemble and
-batch IDs are preserved when selecting a subset, including a short final batch.
-For odd batch sizes, reproducing a batch may also regenerate its predecessor's
-perturbations to recover the paired member; only selected batches are forecast
-and written.
-
-MPI and `torchrun` workers split checkpoint/initial-condition pairs using launcher
-environment variables. Each worker runs a local Pipeline on its local GPU without
-initializing a Torch distributed process group. Workers assigned no pairs return
-normally. For example, from this directory:
-
-```bash
-uv run torchrun --standalone --nproc_per_node=2 main.py --config-name=helene
-```
-
-#### Why `hens_distributed.py` exists
-
-This small launcher adapter reads rank, world size, and local GPU index from
-MPI or `torchrun` environment variables. On a single process it defaults to rank
-zero and one worker. It preserves HENS's checkpoint/IC partitioning: different
-workers can load different checkpoint weights and write separate files.
-It does not implement model parallelism or communicate tensors between GPUs.
-Using a collective Pipeline here would require every rank to participate in the
-same work plan, rather than these independent checkpoint-specific runs.
-
-#### What Pipeline simplifies
-
-Pipeline now owns output allocation, work-item execution, writing, flushing, and
-backend cleanup. The old manual tensor/coordinate forecast loop and legacy
-CorrDiff serialization helper have been removed, along with the unused generic
-perturbation initializer. `HENSRunner` retains only recipe-specific behavior:
-whole-batch bred-vector centering and seeds, ordered diagnostic chaining,
-regional selection, and per-batch tracking/downscaling outputs.
-The standard `PrognosticRunner` rejects bred-vector perturbations, so replacing
-this runner with it would change the ensemble method. Further consolidation
-would require shared support for batch-dependent perturbations and chained
-diagnostics in the core runner.
-
 For further configuration options, see the following section.
 
 ## Documentation
