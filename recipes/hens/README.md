@@ -166,13 +166,6 @@ this runner with it would change the ensemble method. Further consolidation
 would require shared support for batch-dependent perturbations and chained
 diagnostics in the core runner.
 
-Lightweight CPU migration tests require no model weights or weather downloads.
-From the repository root with development dependencies and `hydra-core` installed:
-
-```bash
-uv run pytest recipes/hens/test/test_hens_pipeline.py -q
-```
-
 For further configuration options, see the following section.
 
 ## Documentation
