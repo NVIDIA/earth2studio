@@ -830,12 +830,19 @@ class StormCastSDA(torch.nn.Module, AutoModelMixin):
 
         # Include sampler-side global draws, but never suspend the RNG fork at yield.
         next_state = {key: value.clone() for key, value in state.items()}
+        # Leading dimensions before time, such as a batch of ensemble members,
+        # each assimilate the same observations at their time.
+        time_axis = x.get_axis_num("time")
+        lead = output_coords.lead_time.values[0]
         with fork_rng(seed=seed, device=device, states=next_state):
-            for j, t in enumerate(x.coords["time"].data):
-                obs_time = t + output_coords.lead_time.values[0]
-                y_obs, mask = self._build_obs_tensors(obs, obs_time, device)
-                x_tensor[j, :] = self._forward(
-                    x_tensor[j, :], c_tensor[j, :], y_obs, mask
+            obs_tensors = [
+                self._build_obs_tensors(obs, t + lead, device)
+                for t in x.coords["time"].data
+            ]
+            for index in np.ndindex(*x_tensor.shape[: time_axis + 1]):
+                y_obs, mask = obs_tensors[index[-1]]
+                x_tensor[index] = self._forward(
+                    x_tensor[index], c_tensor[index], y_obs, mask
                 )
 
         return from_torch(x_tensor, output_coords), next_state

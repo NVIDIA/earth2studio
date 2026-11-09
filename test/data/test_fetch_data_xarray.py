@@ -19,7 +19,7 @@ import pytest
 import torch
 import xarray as xr
 
-from earth2studio.data import fetch_data
+from earth2studio.data import RegriddedSource, fetch_data
 from earth2studio.grids import (
     E2S_CRS,
     E2S_GRID_ID,
@@ -514,3 +514,114 @@ def test_cuda_field_array():
         cp.asnumpy(array.data[0, 0, 0]),
         [[0.5, 2.5, 4.5], [-0.5, 1.5, 3.5], [-1.5, 0.5, 2.5]],
     )
+
+
+class MemberAnalysisSource(AnalysisSource):
+    """Ensemble-aware source offsetting member ``m`` by ``100 * m``.
+
+    Members come back after ``variable`` and in reverse request order, so tests
+    see ``fetch_data`` reorder them.
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.ensembles = []
+
+    def _members(self, array, member):
+        self.ensembles.append(None if member is None else list(member))
+        if member is None:
+            return array
+        members = np.asarray(member)[::-1]
+        offset = xr.DataArray(100.0 * members.astype(float), dims="ensemble")
+        array = (array + offset).assign_coords(ensemble=members)
+        return array.transpose("time", ..., "variable", "ensemble", *self.grid.dims)
+
+    def __call__(self, time, variable, member=None):
+        return self._members(super().__call__(time, variable), member)
+
+
+class MemberForecastSource(MemberAnalysisSource, ForecastSource):
+    def __call__(self, time, lead_time, variable, member=None):
+        array = ForecastSource.__call__(self, time, lead_time, variable)
+        return self._members(array, member)
+
+
+@pytest.mark.parametrize("source_cls", [MemberAnalysisSource, MemberForecastSource])
+def test_ensemble_members_lead_in_request_order(source_cls):
+    source = source_cls()
+    leads = np.array([0, 1], dtype="timedelta64[h]")
+    array = fetch_data(source, TIME, np.array(["a"]), leads, member=[3, 1])
+    assert array.dims == ("ensemble", "time", "lead_time", "variable", "lat", "lon")
+    np.testing.assert_array_equal(array["ensemble"], [3, 1])
+    base = fetch_data(source, TIME, np.array(["a"]), leads)
+    assert "ensemble" not in base.dims
+    np.testing.assert_allclose(array.sel(ensemble=3) - base, 300)
+    np.testing.assert_allclose(array.sel(ensemble=1) - base, 100)
+    # One call per lead for analysis sources, each with or without the members.
+    calls = len(source.ensembles) // 2
+    assert source.ensembles == [[3, 1]] * calls + [None] * calls
+
+
+class MemberNativeAnalysisSource(MemberAnalysisSource, NativeAnalysisSource):
+    def __call__(self, time, variable, member=None):
+        array = NativeAnalysisSource.__call__(self, time, variable)
+        return self._members(array, member).assign_attrs(array.attrs)
+
+
+class MemberNativeForecastSource(MemberAnalysisSource, NativeForecastSource):
+    def __call__(self, time, lead_time, variable, member=None):
+        array = NativeForecastSource.__call__(self, time, lead_time, variable)
+        return self._members(array, member).assign_attrs(array.attrs)
+
+
+@pytest.mark.parametrize(
+    "source_cls", [MemberNativeAnalysisSource, MemberNativeForecastSource]
+)
+def test_ensemble_members_reach_native_statistics(source_cls):
+    labels = np.array(["a:mean:3h", "a"])
+    array = fetch_data(source_cls(), TIME, labels, member=["2"])
+    base = fetch_data(source_cls(), TIME, labels)
+    np.testing.assert_allclose(array.sel(ensemble="2") - base, 200)
+    assert array.attrs[E2S_STATISTICS] == base.attrs[E2S_STATISTICS]
+
+
+def test_member_needs_an_ensemble_source():
+    with pytest.raises(ValueError, match="does not select ensemble members"):
+        fetch_data(AnalysisSource(), TIME, np.array(["a"]), member=[1])
+
+
+@pytest.mark.parametrize("member", [[], [1, 1], [[1]]])
+def test_member_must_be_distinct_members(member):
+    with pytest.raises(ValueError, match="member"):
+        fetch_data(MemberAnalysisSource(), TIME, np.array(["a"]), member=member)
+
+
+@pytest.mark.parametrize("member", [2, np.int64(2), np.array([2]), [2]])
+def test_scalar_member_keeps_the_ensemble_dimension(member):
+    source = MemberAnalysisSource()
+    array = fetch_data(source, TIME, np.array(["a"]), member=member)
+    assert array.dims[0] == "ensemble"
+    np.testing.assert_array_equal(array["ensemble"], [2])
+    assert source.ensembles == [[2]]
+
+
+def test_ensemble_source_must_return_members():
+    class Ignores(AnalysisSource):
+        def __call__(self, time, variable, member=None):
+            return super().__call__(time, variable)
+
+    with pytest.raises(ValueError, match="no ensemble dimension"):
+        fetch_data(Ignores(), TIME, np.array(["a"]), member=[1])
+
+
+def test_regridded_source_forwards_member():
+    target = LatLonGrid(np.array([1.5, 0.5]), np.array([0.5, 1.5]))
+    source = RegriddedSource(MemberAnalysisSource(), NearestRegridder(GRID, target))
+    assert source.is_ensemble
+    assert not RegriddedSource(
+        AnalysisSource(), NearestRegridder(GRID, target)
+    ).is_ensemble
+    array = fetch_data(source, TIME, np.array(["a"]), member=[1, 2])
+    base = fetch_data(source, TIME, np.array(["a"]))
+    np.testing.assert_array_equal(array["ensemble"], [1, 2])
+    np.testing.assert_allclose(array.sel(ensemble=2) - base, 200)

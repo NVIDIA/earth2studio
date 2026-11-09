@@ -24,6 +24,7 @@ def fetch_data(
     device: torch.device | str = "cpu",
     target_grid: GridDefinition | None = None,
     regridder: Regridder | None = None,
+    member: int | str | Sequence | MemberArray | None = None,
 ) -> xr.DataArray:
     ...
 ```
@@ -40,6 +41,9 @@ def fetch_data(
 - `regridder` is a `Regridder` to apply (see [REGRID_SPEC.md](REGRID_SPEC.md)).
   Choosing a method, or a registered one with `resolve_regridder`, is the
   caller's job.
+- `member` names one member or distinct members to fetch from an ensemble
+  source, in the source's own labels (see [Ensemble Members](#ensemble-members)).
+  Other sources reject it with `ValueError`.
 
 There is no separate `metadata` or `statistics` input. Temporal quantities are
 declared in variable labels. `target_grid` replaces the former `interp_to`, and
@@ -112,6 +116,54 @@ then restore the requested initialization timestamps and add a `lead_time`
 dimension. For instantaneous forecasts, request initialization times and leads
 directly. Select returned coordinates in request order.
 
+## Ensemble Members
+
+Ensemble forecasts and stored ensemble runs supply one field per member, and an
+ensemble run may start each member from a different one: for example four seeded
+branches from each of 50 IFS ENS members, member `m` starting from forecast
+member `m // 4 + 1`. Members are therefore a request coordinate, like
+`lead_time`, on the sources that have them:
+
+```python
+IFS_ENS()(time, variable)                     # unchanged: the configured member
+IFS_ENS()(time, variable, member=[3, 4])      # leading ensemble dimension: 3, 4
+IFS_ENS()(time, variable, member=3)           # leading ensemble dimension: 3
+fetch_data(IFS_ENS(), time, variable, member=[3, 4])
+```
+
+- Ensemble sources follow `EnsembleDataSource` or `EnsembleForecastSource` in
+  `earth2studio/data/base.py`: a `DataSource` or `ForecastSource` whose
+  `__call__` and `fetch` also take an optional `member` keyword after their
+  other arguments. `member` takes a label, a list of labels or a `MemberArray`,
+  as `time` and `variable` take a value, list or array. Given, even as one
+  label, the result has a leading `ensemble` dimension holding those members in
+  request order; omitted, the source returns the member it was built with,
+  without the dimension, so an ensemble source still serves every `DataSource`
+  or `ForecastSource` caller. `prep_member_inputs` normalizes the keyword.
+- The keyword is `member` and the dimension `ensemble`, the dimension name
+  runner outputs, IO backends and `InferenceOutputSource` already use: `member`
+  selects along `ensemble` as `time` and `variable` select along theirs.
+- A source is an ensemble source when its `__call__` signature contains `member`,
+  mirroring forecast detection. Wrappers that forward requests through `*args`
+  declare it with a boolean `is_ensemble` property; `RegriddedSource` reports
+  its source's. The protocols document the contract and serve type checking; a
+  runtime-checkable protocol checks method names only, so `isinstance` cannot
+  tell ensemble sources from other sources and detection does not use it.
+- `CompositeSource` and `CompositeForecastSource` are ensemble sources when any
+  component is, through `is_ensemble`. They pass `member` to those components,
+  which must share member labels, and repeat other components' fields for every
+  member. Without such a component, they reject `member`.
+- Labels are the source's own: `IFS_ENS`, `IFS_ENS_FX` and `AIFS_ENS_FX` use `0`
+  for the control and `1` and up for perturbed members, `GEFS_FX` uses `gec00`
+  and `gep01` to `gep30`, and `InferenceOutputSource` uses the stored `ensemble`
+  coordinate. Any subset, including all members, is requested by listing its
+  labels. Constructor members, such as `IFS_ENS(member=k)`, remain the default
+  for calls without the keyword.
+- `fetch_data` forwards `member` to every source call, with qualified labels
+  alike, so a source reduces each member's own samples. It raises if the source
+  returns no `ensemble` dimension, and selects members in request order. Labels
+  must be distinct; callers repeat members after fetching.
+
 ## Temporal Statistics
 
 `fetch_data` discovers methods through
@@ -154,6 +206,8 @@ supported by every component to be requested through `fetch_data`.
 
 - Return one `xr.DataArray`, ordered as `[time, lead_time, variable, ...]`, with
   remaining source dimensions retained. Lead coordinates use nanosecond precision.
+  With `member`, a leading `ensemble` dimension comes first, labeled by the
+  requested members in order.
 - Without a regridder, preserve source spatial coordinates, auxiliary geometry,
   array name, and source attributes. Do not infer a grid, reconstruct grid
   metadata, or relabel geometry.
@@ -198,8 +252,10 @@ Tests must cover both source types, multiple initializations and leads, mixed
 instantaneous/statistical labels forwarded unchanged, rejection of unsupported
 statistics and duplicate quantities, output metadata, native spatial
 geometry, CPU/CUDA placement, regridding after reduction, compositions forwarding
-qualified labels, and sources returning device arrays. Source aggregation is tested
-with the shared helper and with each source that supports statistics. The fetch regressions live in
-`test/data/test_fetch_data_xarray.py` and `test/data/test_data_utils.py`, with
-regridders in `test/grids/test_regrid.py` and window semantics in
-`test/utils/test_time_statistics.py`.
+qualified labels, sources returning device arrays, and ensemble members through both
+source types, temporal statistics, `RegriddedSource` and the composites. Source
+aggregation is tested with the shared helper and with each source that supports
+statistics. The fetch regressions live in `test/data/test_fetch_data_xarray.py` and
+`test/data/test_data_utils.py`, member selection by each ensemble source in
+its own test file, with regridders in `test/grids/test_regrid.py` and window
+semantics in `test/utils/test_time_statistics.py`.

@@ -17,7 +17,14 @@
 from . import _gdal  # noqa: F401  (must come before the ECMWF-backed sources)
 from .ace2 import ACE2ERA5Data
 from .arco import ARCO, ARCO_ERA5
-from .base import DataFrameSource, DataSource, ForecastFrameSource, ForecastSource
+from .base import (
+    DataFrameSource,
+    DataSource,
+    EnsembleDataSource,
+    EnsembleForecastSource,
+    ForecastFrameSource,
+    ForecastSource,
+)
 from .cams import CAMS_FX
 from .camulator import CAMulatorForcing
 from .cbottle import CBottle3D
