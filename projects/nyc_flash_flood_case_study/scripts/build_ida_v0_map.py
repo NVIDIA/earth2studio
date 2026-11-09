@@ -611,14 +611,15 @@ def write_html(manifest: dict) -> Path:
     label.row {{ display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 0; font-size: 0.86rem; }}
     input[type="range"] {{ width: 100%; }}
     .readout {{ font-variant-numeric: tabular-nums; font-weight: 600; color: var(--accent); }}
-    .map-stage {{ position: relative; display: grid; height: 100%; min-height: 0; }}
+    .map-stage {{ position: relative; display: grid; height: 100%; min-height: 0; width: 100%; }}
     .map-stage.single {{ grid-template-columns: 1fr; }}
     .map-stage.compare {{ grid-template-columns: 1fr 1fr; }}
-    .map-pane {{ position: relative; min-height: 0; border-left: 1px solid var(--line); }}
+    .map-pane {{ position: relative; min-height: 0; height: 100%; width: 100%; border-left: 1px solid var(--line); overflow: hidden; }}
     .map-pane:first-child {{ border-left: 0; }}
-    .map-el {{ height: 100%; width: 100%; }}
+    .map-pane[hidden] {{ display: none !important; }}
+    .map-el {{ position: absolute; inset: 0; }}
     .pane-label {{ position: absolute; z-index: 1000; top: 10px; left: 52px; background: rgba(255,255,255,0.92); border: 1px solid var(--line); padding: 4px 8px; font-size: 0.75rem; font-weight: 600; }}
-    .disclaimer {{ position: absolute; z-index: 1000; left: 12px; bottom: 12px; max-width: 460px; background: rgba(255,255,255,0.94); border: 1px solid var(--line); padding: 8px 10px; font-size: 0.75rem; line-height: 1.35; color: var(--muted); }}
+    .disclaimer {{ position: absolute; z-index: 1000; left: 12px; bottom: 12px; max-width: 460px; background: rgba(255,255,255,0.94); border: 1px solid var(--line); padding: 8px 10px; font-size: 0.75rem; line-height: 1.35; color: var(--muted); pointer-events: none; }}
     details.limits {{ font-size: 0.8rem; color: var(--muted); }}
     details.limits summary {{ cursor: pointer; color: var(--ink); font-weight: 600; }}
     .metric {{ display: flex; justify-content: space-between; font-size: 0.82rem; margin: 4px 0; gap: 8px; }}
@@ -716,13 +717,29 @@ def write_html(manifest: dict) -> Path:
     }}).addTo(mapLeft);
 
     let mapRight = null;
-    if (hasMrms) {{
-      mapRight = L.map("mapRight", {{ zoomControl: true }}).fitBounds(bounds);
+    let mapsLinked = false;
+    let syncingMaps = false;
+    function syncMaps(source, target) {{
+      if (!target || syncingMaps) return;
+      syncingMaps = true;
+      try {{
+        target.setView(source.getCenter(), source.getZoom(), {{ animate: false }});
+      }} finally {{
+        syncingMaps = false;
+      }}
+    }}
+    function ensureRightMap() {{
+      if (!hasMrms || mapRight) return mapRight;
+      mapRight = L.map("mapRight", {{ zoomControl: true }});
       L.tileLayer("https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png", {{
         maxZoom: 19, attribution: "&copy; OpenStreetMap"
       }}).addTo(mapRight);
-      mapLeft.on("moveend", () => {{ if (mapRight) mapRight.setView(mapLeft.getCenter(), mapLeft.getZoom(), {{ animate: false }}); }});
-      mapRight.on("moveend", () => {{ mapLeft.setView(mapRight.getCenter(), mapRight.getZoom(), {{ animate: false }}); }});
+      if (!mapsLinked) {{
+        mapLeft.on("moveend", () => syncMaps(mapLeft, mapRight));
+        mapRight.on("moveend", () => syncMaps(mapRight, mapLeft));
+        mapsLinked = true;
+      }}
+      return mapRight;
     }}
 
     const e2Overlays = manifest.precip.frames.map((frame) =>
@@ -807,12 +824,11 @@ def write_html(manifest: dict) -> Path:
         document.getElementById("precipToggle").checked = true;
         setTimeout(() => {{
           mapLeft.invalidateSize();
-          if (mapRight) {{
-            mapRight.invalidateSize();
-            mapRight.fitBounds(bounds);
-          }}
+          const right = ensureRightMap();
+          right.invalidateSize();
+          right.setView(mapLeft.getCenter(), mapLeft.getZoom(), {{ animate: false }});
           setLead(Number(document.getElementById("leadSlider").value));
-        }}, 100);
+        }}, 150);
         return;
       }} else {{
         stage.classList.add("single"); stage.classList.remove("compare");
