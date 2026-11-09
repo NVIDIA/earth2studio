@@ -231,7 +231,9 @@ help each other with retries instead of idling. If a rank
 fails with an error, it logs the error and exits at once, so
 that the launcher stops the other ranks instead of leaving
 them waiting for it. `torchrun` does this by default; with
-`srun`, pass `--kill-on-bad-exit=1`. Rerun with
+`srun`, pass `--kill-on-bad-exit=1` (or set
+`export SLURM_KILL_BAD_EXIT=1` in the batch script, which
+applies to every `srun` in it). Rerun with
 `resume: True` to finish the remaining batches.
 
 The CPU-bound `extract_baseline` mode does not use
