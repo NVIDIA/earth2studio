@@ -147,66 +147,6 @@ Execute the ensemble inference by running:
 [mpirun -n XX] uv run main.py --config-name=helene.yaml
 ```
 
-##### Reproduced Helene validation
-
-The following are fresh forecasts from this migrated recipe, run on an NVIDIA
-H100 PCIe 80 GB with Python 3.13, Torch 2.15.0+cu132, and the pinned Makani and
-torch-harmonics sources. The successful run took approximately 7 minutes 17 seconds
-(including IC fetching and first-run kernel compilation, excluding installation
-and checkpoint downloads).
-
-| Setting | Value |
-| --- | --- |
-| Initialization | 2024-09-24 12:00 and 18:00 UTC, GFS analysis |
-| Checkpoints | HENS SFNO epoch 70, seeds 12 and 16 |
-| Members | 4 per checkpoint, **8 per initialization** |
-| Batching / random seed | 2 / 377778 |
-| Breeding | 3 steps, `z500` seed noise, amplification 0.35 |
-| Forecast | 20 six-hour advances; 21 saved times, including IC |
-| Tracker | Wu–Duan, 250 km search distance, window size 2 |
-
-Animations and static plots are local validation artifacts and must not be
-committed or uploaded. Generate them with the plotting command below.
-
-Blue lines are tracked HENS cyclones in the map domain; red is the Helene
-IBTrACS series already embedded in `src/plot/fork_n_spoon.py`. The two
-initializations are plotted separately, each with eight unique ensemble IDs.
-These reproduce the recipe's comparison workflow, not the exact original banner
-pixels or a full 29-checkpoint ensemble. No track-error skill score is implied.
-The embedded reference ends on September 28 at 12 UTC; the five-day forecasts
-continue beyond it. Missing track points are expected when detection ends.
-
-Readback verified four regional forecast files and eight track files with 21
-times each, and finite values for all five saved forecast variables. Both GIFs
-contain 21 frames. The real run also exposed and fixed a float64 GFS to float32
-SFNO mismatch in bred-vector warm-up data, covered by a regression test.
-
-To reproduce, run from `recipes/hens` after installing the dependencies above:
-
-```bash
-REGISTRY="$PWD/hens_model_registry"
-OUT="$PWD/outputs_helene"
-for SEED in 12 16; do
-  wget -r -np -nH --cut-dirs=4 -R 'index.html*' -P "$REGISTRY" \
-    "https://portal.nersc.gov/cfs/m4416/hens/earth2mip_prod_registry/sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed${SEED}/"
-done
-wget -P "$REGISTRY" \
-  https://portal.nersc.gov/cfs/m4416/hens/d2m_sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16.nc
-
-SKILL="$REGISTRY/d2m_sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16.nc"
-uv run --no-sync python main.py --config-name=helene \
-  forecast_model.registry="$REGISTRY" \
-  perturbation.skill_path="$SKILL" \
-  file_output.path="$OUT" cyclone_tracking.path="$OUT"
-
-MPLBACKEND=Agg uv run --no-sync python src/plot/fork_n_spoon.py \
-  "$OUT/cyclones" "$OUT/plots"
-```
-
-The plotting command groups files by initialization and writes a GIF and PNG
-under each timestamp directory. Cartopy downloads Natural Earth map features on
-first use. Keep the generated NetCDF files locally for further analysis.
-
 #### Storm Bernd
 
 This example demonstrates the use of diagnostic models in ensemble forecasting,
