@@ -637,7 +637,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         longitudes = (
             torch.from_numpy(np.load(package.resolve("lon.npy"))) + 360.0
         ) % 360.0
-        hrrr_y, hrrr_x = HRRR.HRRR_Y, HRRR.HRRR_X
+        grid_y, grid_x = HRRR.HRRR_Y, HRRR.HRRR_X
         full_y, full_x = latitudes.shape[0], longitudes.shape[1]
         anchor_y = int((full_y - image_size[0]) / 2)
         anchor_x = int((full_x - image_size[1]) / 2)
@@ -647,8 +647,8 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         longitudes = StormScopeBase._crop_invariant(
             longitudes, image_size, spatial_downsample
         )
-        y = hrrr_y[anchor_y : anchor_y + image_size[0]][::spatial_downsample]
-        x = hrrr_x[anchor_x : anchor_x + image_size[1]][::spatial_downsample]
+        y = grid_y[anchor_y : anchor_y + image_size[0]][::spatial_downsample]
+        x = grid_x[anchor_x : anchor_x + image_size[1]][::spatial_downsample]
 
         # Input/output timesteps configuration
         if pkg["sliding_window"]:

@@ -104,7 +104,7 @@ def _build_model(device="cpu"):
 
 
 def _build_input_da(model, time, device="cpu", conditioning=False):
-    dc = OrderedDict([("y", model.hrrr_y), ("x", model.hrrr_x)])
+    dc = OrderedDict([("y", model.y), ("x", model.x)])
     r = Random(dc)
     x = fetch_data(
         r,

@@ -182,10 +182,11 @@ n_steps = 16
 model_iter_ll = model_ll.create_iterator(x)
 
 for i in range(n_steps):
-    x_step = next(model_iter_ll)
-    if i > 0:  # Don't retrieve the first step as it is the initial condition
-        x_atmos = model_ll.retrieve_valid_atmos_outputs(x_step)
-        x_ocean = model_ll.retrieve_valid_ocean_outputs(x_step)
+    x_step = next(
+        model_iter_ll
+    )  # Iterator yields forecasts only (no initial condition)
+    x_atmos = model_ll.retrieve_valid_atmos_outputs(x_step)
+    x_ocean = model_ll.retrieve_valid_ocean_outputs(x_step)
 
 print(f"Completed forecast with {n_steps} steps")
 
@@ -204,37 +205,25 @@ from earth2studio.io.utils import output_template
 io = KVBackend()
 
 # Arrays are created from a concrete template. The model's output signature declares
-# one coupled step, so the store's lead times are the input history followed by every
-# step of the roll out, and the dynamic leading dimensions are replaced by the single
-# initialization time being run.
+# one coupled step, so the store's lead times are every step of the roll out, and the
+# dynamic leading dimensions are replaced by the single initialization time being run.
 signature = model_ll.output_coords(model_ll.input_coords())
-inp_lead_time = model_ll.input_coords().coords["lead_time"].values
 out_lead_time = signature.coords["lead_time"].values
 template = output_template(
     signature,
     leading={"time": np.array([ic_date])},
     coords={
         "lead_time": np.concatenate(
-            [
-                inp_lead_time,
-                *(out_lead_time + out_lead_time[-1] * i for i in range(n_steps)),
-            ]
+            [out_lead_time + out_lead_time[-1] * i for i in range(n_steps)]
         )
     },
 )
 io.add_array(template)
 
-stored_variables = template.coords["variable"].values
-model_iter = model_ll.create_iterator(x)
-for step, x_step in enumerate(model_iter):
-    # The very first yield is the initial condition itself, whose variable set is
-    # prognostic-only (e.g. no tp:sum:6h/msl) and also carries the raw inputs the
-    # model derives its state from -- every later yield is a true model output and
-    # includes the diagnostic variables too. A write may hold any subset of the
-    # store's labels, so each step is narrowed to the variables the store holds; the
-    # diagnostic columns stay at their fill value for this one step.
-    step_variables = set(x_step.coords["variable"].values)
-    io.write(x_step.sel(variable=[v for v in stored_variables if v in step_variables]))
+# The iterator yields forecasts only (the initial condition is not yielded), so each
+# yield is one complete coupled step and we stop after n_steps of them.
+for step, x_step in enumerate(model_ll.create_iterator(x), start=1):
+    io.write(x_step)
     if step == n_steps:
         break
 

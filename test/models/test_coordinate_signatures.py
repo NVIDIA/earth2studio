@@ -81,10 +81,8 @@ def test_regional_input_signature(regional_model):
         np.testing.assert_array_equal(signature.y, regional_model.grid.y)
         np.testing.assert_array_equal(signature.x, regional_model.grid.x)
         assert infer_grid(signature).fingerprint() == regional_model.grid.fingerprint()
-        np.testing.assert_array_equal(regional_model.hrrr_y, signature.y)
-        np.testing.assert_array_equal(regional_model.hrrr_x, signature.x)
-        assert "hrrr_y" not in regional_model.__dict__
-        assert "hrrr_x" not in regional_model.__dict__
+        np.testing.assert_array_equal(regional_model.y, signature.y)
+        np.testing.assert_array_equal(regional_model.x, signature.x)
         cropped = regional_model.grid
         np.testing.assert_array_equal(signature.lat, cropped.coords()["lat"])
         np.testing.assert_array_equal(signature.lon, cropped.coords()["lon"])
