@@ -31,6 +31,7 @@ os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 import hydra  # noqa: E402
 from loguru import logger  # noqa: E402
 from omegaconf import DictConfig  # noqa: E402
+from physicsnemo.distributed import DistributedManager  # noqa: E402
 from src.data.zarr_merge import merge_batch_stores  # noqa: E402
 from src.modes.baseline_extraction import extract_baseline  # noqa: E402
 from src.modes.generate_tc_hunt_ensembles import run_ensemble  # noqa: E402
@@ -39,6 +40,29 @@ from src.modes.generate_tc_hunt_ensembles import run_ensemble  # noqa: E402
 def _exit_on_sigterm(signum: int, frame: object) -> None:
     """Turn SIGTERM into a normal exit, so that cleanup code runs."""
     sys.exit(128 + signum)
+
+
+def _exit_on_error_if_distributed() -> None:
+    """End this rank at once after an error, if other ranks are running.
+
+    Called with the exception being handled, after the finally blocks of the
+    run (stores closed, scratch files removed). A normal exit would shut down
+    the process group, which can block while other ranks wait for this one,
+    and they wait for it at their next barrier or in the retry loop. The job
+    would then hang until its time limit. Exiting here lets torchrun or
+    ``srun --kill-on-bad-exit`` stop the other ranks.
+    """
+    if not (
+        DistributedManager.is_initialized() and DistributedManager().world_size > 1
+    ):
+        return
+    logger.exception(
+        f"rank {DistributedManager().rank} failed, stopping it so the launcher stops "
+        "the other ranks; rerun with resume: True to finish the remaining batches"
+    )
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(1)
 
 
 @hydra.main(version_base=None, config_path="cfg", config_name="none")
@@ -50,7 +74,11 @@ def tc_hunt(cfg: DictConfig) -> None:
     signal.signal(signal.SIGTERM, _exit_on_sigterm)
 
     if cfg.mode in ("generate_ensemble", "reproduce_members"):
-        run_ensemble(cfg)
+        try:
+            run_ensemble(cfg)
+        except Exception:
+            _exit_on_error_if_distributed()
+            raise
 
     elif cfg.mode == "extract_baseline":
         extract_baseline(cfg)

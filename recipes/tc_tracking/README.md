@@ -228,8 +228,11 @@ batches still runs the setup. A batch that becomes unstable
 all ranks. Once a rank has finished its own batches, it takes
 batches from this queue until no rank has work left, so ranks
 help each other with retries instead of idling. If a rank
-crashes, the others would wait for it: `torchrun` and
-`srun --kill-on-bad-exit` stop all ranks in that case.
+fails with an error, it logs the error and exits at once, so
+that the launcher stops the other ranks instead of leaving
+them waiting for it. `torchrun` does this by default; with
+`srun`, pass `--kill-on-bad-exit=1`. Rerun with
+`resume: True` to finish the remaining batches.
 
 The CPU-bound `extract_baseline` mode does not use
   `torchrun` and does not require a GPU. Instead, individual
