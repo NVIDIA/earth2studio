@@ -1243,7 +1243,7 @@ async def cancellable_to_thread(
     timeout: float = 30.0,
     **kwargs: Any,
 ) -> T:
-    """Run a blocking function in a thread with timeout support.
+    """Run a blocking function in a thread, limiting how long the caller waits.
 
     WARNING: This should be a LAST RESORT. Pure async operations are ALWAYS
     preferred because:
