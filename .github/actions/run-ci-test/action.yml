@@ -124,6 +124,16 @@ runs:
         include-hidden-files: true
         if-no-files-found: ignore
 
+    - name: Upload data test logs and results
+      if: always() && inputs.tox-env == 'test-data'
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: data-test-results
+        path: .cache/data-test-results
+        include-hidden-files: true
+        if-no-files-found: warn
+        retention-days: 14
+
     - name: Save testmon cache
       if: >
         success() &&

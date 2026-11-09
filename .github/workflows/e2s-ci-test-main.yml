@@ -176,6 +176,7 @@ jobs:
 
   test-data:
     name: Test data sources
+    timeout-minutes: 45
     if: github.repository == 'NVIDIA/earth2studio'
     needs: setup-env
     runs-on: linux-amd64-gpu-h100-latest-1

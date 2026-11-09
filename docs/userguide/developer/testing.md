@@ -98,6 +98,44 @@ uvx tox -c tox.ini run -e test-data
 uvx tox -c tox.ini run -e test-data -- -v
 ```
 
+### Bounded data-source tests
+
+`test-data` still uses Tox to install the `data` and `cbottle` extras. Inside that
+environment, lexicon tests run first in a normal pytest session. A small supervisor
+runs each data-source test file under `test/data/` in a fresh pytest
+process, with eight files running concurrently. Defaults are **300 seconds per file**
+and **1,200 seconds for the run**, plus a short termination grace period. File limits
+include imports, fixtures, tests, teardown, and interpreter shutdown. Expired process
+groups are terminated, then killed; a timeout or incomplete pytest session fails the run.
+Existing per-test timeout and xfail markers still apply within each file.
+
+```bash
+make pytest TOX_ENV=test-data
+
+# Narrow a run; pytest arguments after -- are forwarded to each child.
+DATA_TEST_PATHS=test/data/test_gfs.py uvx tox -e test-data -- --slow -k statistic
+
+# Tune parallelism and deadlines (seconds).
+DATA_TEST_WORKERS=2 DATA_TEST_FILE_TIMEOUT=600 DATA_TEST_TIMEOUT=1800 \
+    make pytest TOX_ENV=test-data
+
+# Exercise the supervisor itself, without installing data extras or accessing networks.
+uvx tox -e test-data-runner
+```
+
+Each completed file has one grouped CI log with individual test results. Failed files
+also print the complete child output and any available timeout stack dump. Full logs,
+incremental events, the file-selection manifest, summary JSON, and JUnit XML are written
+to `.cache/data-test-results/` and uploaded as the **data-test-results** artifact even
+when tests fail. Interrupted tests and collected-but-unstarted tests remain visible.
+
+Testmon still selects tests within each file by dependency changes. Its databases live
+under `data-files/` beside `TESTMON_DATAFILE`, with one database per file; existing CI
+cache uploads include that directory. The first run with this layout starts a fresh
+baseline. Coverage files are also isolated per file and combined by the usual coverage
+job. Tox positional arguments replace its default pytest arguments, as before; include
+`--testmon` and `--cov` explicitly when overriding defaults if desired.
+
 ### Running Tests Directly with pytest
 
 For rapid iteration during development, you can run pytest directly:
