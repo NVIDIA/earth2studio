@@ -51,11 +51,8 @@ The following command can be used to download the entire model registry from [NE
 > [!WARNING]
 > The entire model registry is 241 Gb.
 
-> [!TIP]
-> To download the individual checkpoints on an "as need" basis, just run the recipe with
-> out executing this command.
-> The checkpoints will get downloaded to the registry folder defined in the config from
-> the HuggingFace mirror. (coming soon)
+> For the smaller Helene validation, download only the two checkpoints listed below.
+> The recipe expects a populated local registry; it does not download missing checkpoints.
 <!-- markdownlint-enable MD028 -->
 
 ```bash
@@ -90,7 +87,9 @@ For the best experience the following hardware specifications are recommended:
 From `recipes/hens` in an Earth2Studio 1.0 checkout, install the recipe dependencies:
 
 ```bash
-uv sync
+uv venv
+uv pip install --python .venv/bin/python torch setuptools ninja wheel
+uv sync --no-build-isolation-package torch-harmonics
 ```
 
 The provided JupyText python script `hens_notebook.py` is already set up to run
@@ -144,6 +143,29 @@ normally. For example, from this directory:
 uv run torchrun --standalone --nproc_per_node=2 main.py --config-name=helene
 ```
 
+#### Why `hens_distributed.py` exists
+
+This small launcher adapter reads rank, world size, and local GPU index from
+MPI or `torchrun` environment variables. On a single process it defaults to rank
+zero and one worker. It preserves HENS's checkpoint/IC partitioning: different
+workers can load different checkpoint weights and write separate files.
+It does not implement model parallelism or communicate tensors between GPUs.
+Using a collective Pipeline here would require every rank to participate in the
+same work plan, rather than these independent checkpoint-specific runs.
+
+#### What Pipeline simplifies
+
+Pipeline now owns output allocation, work-item execution, writing, flushing, and
+backend cleanup. The old manual tensor/coordinate forecast loop and legacy
+CorrDiff serialization helper have been removed, along with the unused generic
+perturbation initializer. `HENSRunner` retains only recipe-specific behavior:
+whole-batch bred-vector centering and seeds, ordered diagnostic chaining,
+regional selection, and per-batch tracking/downscaling outputs.
+The standard `PrognosticRunner` rejects bred-vector perturbations, so replacing
+this runner with it would change the ensemble method. Further consolidation
+would require shared support for batch-dependent perturbations and chained
+diagnostics in the core runner.
+
 Lightweight CPU migration tests require no model weights or weather downloads.
 From the repository root with development dependencies and `hydra-core` installed:
 
@@ -182,6 +204,66 @@ Execute the ensemble inference by running:
 ```bash
 [mpirun -n XX] uv run main.py --config-name=helene.yaml
 ```
+
+##### Reproduced Helene validation
+
+The following are fresh forecasts from this migrated recipe, run on an NVIDIA
+H100 PCIe 80 GB with Python 3.13, Torch 2.15.0+cu132, and the pinned Makani and
+torch-harmonics sources. The successful run took approximately 7 minutes 17 seconds
+(including IC fetching and first-run kernel compilation, excluding installation
+and checkpoint downloads).
+
+| Setting | Value |
+| --- | --- |
+| Initialization | 2024-09-24 12:00 and 18:00 UTC, GFS analysis |
+| Checkpoints | HENS SFNO epoch 70, seeds 12 and 16 |
+| Members | 4 per checkpoint, **8 per initialization** |
+| Batching / random seed | 2 / 377778 |
+| Breeding | 3 steps, `z500` seed noise, amplification 0.35 |
+| Forecast | 20 six-hour advances; 21 saved times, including IC |
+| Tracker | Wu–Duan, 250 km search distance, window size 2 |
+
+Animations and static plots are local validation artifacts and must not be
+committed or uploaded. Generate them with the plotting command below.
+
+Blue lines are tracked HENS cyclones in the map domain; red is the Helene
+IBTrACS series already embedded in `src/plot/fork_n_spoon.py`. The two
+initializations are plotted separately, each with eight unique ensemble IDs.
+These reproduce the recipe's comparison workflow, not the exact original banner
+pixels or a full 29-checkpoint ensemble. No track-error skill score is implied.
+The embedded reference ends on September 28 at 12 UTC; the five-day forecasts
+continue beyond it. Missing track points are expected when detection ends.
+
+Readback verified four regional forecast files and eight track files with 21
+times each, and finite values for all five saved forecast variables. Both GIFs
+contain 21 frames. The real run also exposed and fixed a float64 GFS to float32
+SFNO mismatch in bred-vector warm-up data, covered by a regression test.
+
+To reproduce, run from `recipes/hens` after installing the dependencies above:
+
+```bash
+REGISTRY="$PWD/hens_model_registry"
+OUT="$PWD/outputs_helene"
+for SEED in 12 16; do
+  wget -r -np -nH --cut-dirs=4 -R 'index.html*' -P "$REGISTRY" \
+    "https://portal.nersc.gov/cfs/m4416/hens/earth2mip_prod_registry/sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed${SEED}/"
+done
+wget -P "$REGISTRY" \
+  https://portal.nersc.gov/cfs/m4416/hens/d2m_sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16.nc
+
+SKILL="$REGISTRY/d2m_sfno_linear_74chq_sc2_layers8_edim620_wstgl2-epoch70_seed16.nc"
+uv run --no-sync python main.py --config-name=helene \
+  forecast_model.registry="$REGISTRY" \
+  perturbation.skill_path="$SKILL" \
+  file_output.path="$OUT" cyclone_tracking.path="$OUT"
+
+MPLBACKEND=Agg uv run --no-sync python src/plot/fork_n_spoon.py \
+  "$OUT/cyclones" "$OUT/plots"
+```
+
+The plotting command groups files by initialization and writes a GIF and PNG
+under each timestamp directory. Cartopy downloads Natural Earth map features on
+first use. Keep the generated NetCDF files locally for further analysis.
 
 #### Storm Bernd
 

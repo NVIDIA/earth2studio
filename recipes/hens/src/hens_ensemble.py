@@ -181,6 +181,7 @@ class HENSRunner:
         # Copy the expanded batch so perturbations cannot change cached ICs.
         x = (
             self._initial[item.time]
+            .astype(self.inputs.dtype)
             .expand_dims(ensemble=list(item.member_ids))
             .copy(deep=True)
         )

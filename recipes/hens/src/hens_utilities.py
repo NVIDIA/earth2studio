@@ -31,8 +31,6 @@ from earth2studio.data import DataSource
 from earth2studio.io import IOBackend, KVBackend, XarrayBackend
 from earth2studio.models.auto import Package
 from earth2studio.models.dx import CorrDiff
-from earth2studio.models.px import PrognosticModel
-from earth2studio.perturbation import Perturbation
 from earth2studio.utils.time import to_time_array
 
 from .hens_distributed import worker_rank
@@ -40,49 +38,6 @@ from .hens_utilities_reproduce import (
     ensure_all_torch_seeds_are_unique,
     get_reproducibility_settings,
 )
-
-
-def initialise_perturbation(
-    model: PrognosticModel,
-    data_source: DataSource,
-    start_time: np.ndarray[np.datetime64],
-    cfg: DictConfig,
-) -> Perturbation:
-    """Initialise perturbation method. Some methods need to be initialized with model,
-    data, start_time, etc. which can not always be defined in the config requireing
-    partial instantiation.
-
-    Parameters
-    ----------
-    model : PrognosticModel
-        forecast model.
-    data : DataSource
-        Data source from which to obtain ICs
-    start_time : np.ndarray[np.datetime64]
-        IC times
-    cfg : DictConfig
-        Hydra config object
-
-    Returns
-    -------
-    Perturbation
-        Perturbation method.
-    """
-    perturbation = hydra.utils.instantiate(cfg.perturbation)
-
-    if isinstance(perturbation, partial):  # inform about model, IC etc
-        if perturbation.func.__name__ == "HENSPerturbation":
-            perturbation = perturbation(
-                model=model, start_time=start_time, data_source=data_source
-            )
-        elif perturbation.func.__name__ == "BredVector":
-            perturbation = perturbation(model=model)
-        else:
-            raise ValueError(
-                f"perturbation method {perturbation.func.__name__} not implemented for partial instantiation"
-            )
-
-    return perturbation
 
 
 def build_package_list(cfg: DictConfig) -> list[str]:

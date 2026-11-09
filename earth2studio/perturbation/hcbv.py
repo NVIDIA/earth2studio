@@ -115,7 +115,7 @@ class HemisphericCentredBredVector:
             lead_time=input_coords.coords["lead_time"].values,
             device=device,
         )
-        input_data = _map_field(input_data, input_coords)
+        input_data = _map_field(input_data, input_coords).astype(input_coords.dtype)
 
         if input_coords.sizes["lead_time"] > 1:
             logger.warning(
