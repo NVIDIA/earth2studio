@@ -101,7 +101,7 @@ uvx tox -c tox.ini run -e test-data -- -v
 ### Test results
 
 Tox writes JUnit reports to `.cache/test-results/<tox-env>/`. CI includes full console
-logs and uploads **test-results-<tox-env>** artifacts even on failure, retained for **3 days**.
+logs and uploads `test-results-<tox-env>` artifacts even on failure, retained for **3 days**.
 
 ### Bounded data-source tests
 
