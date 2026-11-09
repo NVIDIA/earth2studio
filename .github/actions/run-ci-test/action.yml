@@ -113,7 +113,9 @@ runs:
         # tox-uv otherwise selects its bundled uv, which can miss that cache.
         export TOX_UV_PATH="$(command -v uv)"
         "$TOX_UV_PATH" --version
-        make pytest-ci
+        mkdir -p ".cache/test-results/${TOX_ENV}"
+        set -o pipefail
+        make pytest-ci 2>&1 | tee ".cache/test-results/${TOX_ENV}/output.log"
 
     - name: Upload coverage data
       if: always()
@@ -124,15 +126,15 @@ runs:
         include-hidden-files: true
         if-no-files-found: ignore
 
-    - name: Upload data test logs and results
-      if: always() && inputs.tox-env == 'test-data'
+    - name: Upload test logs and results
+      if: always()
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
       with:
-        name: data-test-results
-        path: .cache/data-test-results
+        name: test-results-${{ inputs.tox-env }}
+        path: .cache/test-results
         include-hidden-files: true
         if-no-files-found: warn
-        retention-days: 14
+        retention-days: 3
 
     - name: Save testmon cache
       if: >

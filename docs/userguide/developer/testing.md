@@ -98,43 +98,33 @@ uvx tox -c tox.ini run -e test-data
 uvx tox -c tox.ini run -e test-data -- -v
 ```
 
+### Test results
+
+Tox writes JUnit reports to `.cache/test-results/<tox-env>/`. CI includes full console
+logs and uploads **test-results-<tox-env>** artifacts even on failure, retained for **3 days**.
+
 ### Bounded data-source tests
 
-`test-data` still uses Tox to install the `data` and `cbottle` extras. Inside that
-environment, lexicon tests run first in a normal pytest session. A small supervisor
-runs each data-source test file under `test/data/` in a fresh pytest
-process, with eight files running concurrently. Defaults are **300 seconds per file**
-and **1,200 seconds for the run**, plus a short termination grace period. File limits
-include imports, fixtures, tests, teardown, and interpreter shutdown. Expired process
-groups are terminated, then killed; a timeout or incomplete pytest session fails the run.
-Existing per-test timeout and xfail markers still apply within each file.
+`test-data` runs lexicon tests normally, then data-source files in isolated pytest
+processes: **8 workers**, **300 seconds per file**, **1,200 seconds total** for data
+tests, plus termination grace. Deadlines include startup and shutdown; timed-out process
+groups are killed and fail the run. Per-file logs and partial results are saved under
+`.cache/test-results/test-data/data/`.
 
 ```bash
-make pytest TOX_ENV=test-data
-
-# Narrow a run; pytest arguments after -- are forwarded to each child.
+# Select data files and filter tests.
 DATA_TEST_PATHS=test/data/test_gfs.py uvx tox -e test-data -- --slow -k statistic
 
 # Tune parallelism and deadlines (seconds).
 DATA_TEST_WORKERS=2 DATA_TEST_FILE_TIMEOUT=600 DATA_TEST_TIMEOUT=1800 \
     make pytest TOX_ENV=test-data
 
-# Exercise the supervisor itself, without installing data extras or accessing networks.
+# Test the supervisor offline.
 uvx tox -e test-data-runner
 ```
 
-Each completed file has one grouped CI log with individual test results. Failed files
-also print the complete child output and any available timeout stack dump. Full logs,
-incremental events, the file-selection manifest, summary JSON, and JUnit XML are written
-to `.cache/data-test-results/` and uploaded as the **data-test-results** artifact even
-when tests fail. Interrupted tests and collected-but-unstarted tests remain visible.
-
-Testmon still selects tests within each file by dependency changes. Its databases live
-under `data-files/` beside `TESTMON_DATAFILE`, with one database per file; existing CI
-cache uploads include that directory. The first run with this layout starts a fresh
-baseline. Coverage files are also isolated per file and combined by the usual coverage
-job. Tox positional arguments replace its default pytest arguments, as before; include
-`--testmon` and `--cov` explicitly when overriding defaults if desired.
+Testmon and coverage state are isolated per file. Arguments after `--` replace Tox's
+pytest defaults; include `--testmon` and `--cov` to retain selection and coverage.
 
 ### Running Tests Directly with pytest
 

@@ -163,7 +163,9 @@ def main() -> int:
         "--timeout", type=float, default=float(os.getenv("DATA_TEST_TIMEOUT", "1200"))
     )
     parser.add_argument("--grace", type=float, default=2)
-    parser.add_argument("--output", type=Path, default=Path(".cache/data-test-results"))
+    parser.add_argument(
+        "--output", type=Path, default=Path(".cache/test-results/test-data/data")
+    )
     parser.add_argument(
         "paths",
         nargs="*",
