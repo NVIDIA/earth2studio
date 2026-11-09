@@ -1,0 +1,121 @@
+{
+  "product": "MultiSensor_QPE_01H_Pass1_00.00",
+  "product_note": "NOAA MRMS MultiSensor QPE 01H Pass1 (public S3). Hourly depths summed into 6 h intervals ending at each Earth2 valid time. Units treated as mm. Not BREF/reflectivity.",
+  "source": "https://noaa-mrms-pds.s3.amazonaws.com/",
+  "init_time": "2021-09-01T12:00:00",
+  "shared_display_vmax_mm": 142.17919921875,
+  "frames": [
+    {
+      "lead_hours": 6,
+      "valid_time": "2021-09-01T18:00",
+      "png": "mrms_qpe_lead_06h.png",
+      "tif": "/home/jesscmiel/projects/earth2studio/projects/nyc_flash_flood_case_study/data/processed/mrms_qpe/mrms_qpe_lead_06h.tif",
+      "mean_mm": 2.0329673290252686,
+      "max_mm": 4.953685283660889,
+      "n_hourly_files": 6,
+      "hourly_ends_utc": [
+        "2021-09-01T13:00",
+        "2021-09-01T14:00",
+        "2021-09-01T15:00",
+        "2021-09-01T16:00",
+        "2021-09-01T17:00",
+        "2021-09-01T18:00"
+      ]
+    },
+    {
+      "lead_hours": 12,
+      "valid_time": "2021-09-02T00:00",
+      "png": "mrms_qpe_lead_12h.png",
+      "tif": "/home/jesscmiel/projects/earth2studio/projects/nyc_flash_flood_case_study/data/processed/mrms_qpe/mrms_qpe_lead_12h.tif",
+      "mean_mm": 22.826684951782227,
+      "max_mm": 61.3129997253418,
+      "n_hourly_files": 6,
+      "hourly_ends_utc": [
+        "2021-09-01T19:00",
+        "2021-09-01T20:00",
+        "2021-09-01T21:00",
+        "2021-09-01T22:00",
+        "2021-09-01T23:00",
+        "2021-09-02T00:00"
+      ]
+    },
+    {
+      "lead_hours": 18,
+      "valid_time": "2021-09-02T06:00",
+      "png": "mrms_qpe_lead_18h.png",
+      "tif": "/home/jesscmiel/projects/earth2studio/projects/nyc_flash_flood_case_study/data/processed/mrms_qpe/mrms_qpe_lead_18h.tif",
+      "mean_mm": 90.51799011230469,
+      "max_mm": 142.17919921875,
+      "n_hourly_files": 6,
+      "hourly_ends_utc": [
+        "2021-09-02T01:00",
+        "2021-09-02T02:00",
+        "2021-09-02T03:00",
+        "2021-09-02T04:00",
+        "2021-09-02T05:00",
+        "2021-09-02T06:00"
+      ]
+    },
+    {
+      "lead_hours": 24,
+      "valid_time": "2021-09-02T12:00",
+      "png": "mrms_qpe_lead_24h.png",
+      "tif": "/home/jesscmiel/projects/earth2studio/projects/nyc_flash_flood_case_study/data/processed/mrms_qpe/mrms_qpe_lead_24h.tif",
+      "mean_mm": 0.1031830683350563,
+      "max_mm": 1.957192063331604,
+      "n_hourly_files": 6,
+      "hourly_ends_utc": [
+        "2021-09-02T07:00",
+        "2021-09-02T08:00",
+        "2021-09-02T09:00",
+        "2021-09-02T10:00",
+        "2021-09-02T11:00",
+        "2021-09-02T12:00"
+      ]
+    }
+  ],
+  "storm_total_png": "mrms_qpe_storm_total.png",
+  "storm_total_tif": "/home/jesscmiel/projects/earth2studio/projects/nyc_flash_flood_case_study/data/processed/mrms_qpe/mrms_qpe_storm_total.tif",
+  "storm_total_max_mm": 203.64581298828125,
+  "storm_total_mean_mm": 115.4808349609375,
+  "diff_frames": [
+    {
+      "lead_hours": 6,
+      "png": "diff_e2_minus_mrms_lead_06h.png",
+      "mean_diff_mm": 2.2903008460998535,
+      "rmse_mm": 2.5035197734832764,
+      "max_abs_diff_mm": 4.5882697105407715
+    },
+    {
+      "lead_hours": 12,
+      "png": "diff_e2_minus_mrms_lead_12h.png",
+      "mean_diff_mm": -1.0185539722442627,
+      "rmse_mm": 11.048540115356445,
+      "max_abs_diff_mm": 39.952674865722656
+    },
+    {
+      "lead_hours": 18,
+      "png": "diff_e2_minus_mrms_lead_18h.png",
+      "mean_diff_mm": -82.30461883544922,
+      "rmse_mm": 87.80799865722656,
+      "max_abs_diff_mm": 134.834228515625
+    },
+    {
+      "lead_hours": 24,
+      "png": "diff_e2_minus_mrms_lead_24h.png",
+      "mean_diff_mm": -0.10279512405395508,
+      "rmse_mm": 0.31740057468414307,
+      "max_abs_diff_mm": 1.9563138484954834
+    }
+  ],
+  "bounds": [
+    [
+      40.55,
+      -74.12
+    ],
+    [
+      40.73,
+      -73.72
+    ]
+  ]
+}

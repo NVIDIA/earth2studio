@@ -572,9 +572,18 @@ def export_terrain_assets() -> dict:
 
 
 def write_html(manifest: dict) -> Path:
-    """Write a Leaflet map whose time slider steps through real Earth2 forecast leads."""
+    """Write a Leaflet map with Earth2 leads and optional MRMS QPE compare view."""
     html_path = FIGURES_DIR / "ida_v0_event_map.html"
     n_frames = len(manifest["precip"]["frames"])
+    has_mrms = bool(manifest.get("mrms_qpe"))
+    compare_disabled = "" if has_mrms else "disabled"
+    mrms_checked = "checked" if has_mrms else "disabled"
+    mrms_note = (
+        "MRMS MultiSensor QPE 01H summed to 6 h intervals matching Earth2 leads. Not BREF."
+        if has_mrms
+        else "MRMS QPE assets not built — rerun with --with-mrms-qa."
+    )
+    mrms_product = "QPE 01H Pass1" if has_mrms else "n/a"
     html = f"""<!doctype html>
 <html lang="en">
 <head>
@@ -586,16 +595,12 @@ def write_html(manifest: dict) -> Path:
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
   <style>
     :root {{
-      --ink: #1c2430;
-      --muted: #5b6775;
-      --panel: #f4f7f8;
-      --line: #d5dde3;
-      --accent: #1f6f8b;
-      --warn: #9a3412;
+      --ink: #1c2430; --muted: #5b6775; --panel: #f4f7f8; --line: #d5dde3;
+      --accent: #1f6f8b; --warn: #9a3412;
     }}
     * {{ box-sizing: border-box; }}
     html, body {{ margin: 0; height: 100%; font-family: "IBM Plex Sans", "Segoe UI", sans-serif; color: var(--ink); background: #e8eef1; }}
-    body {{ display: grid; grid-template-columns: 320px 1fr; }}
+    body {{ display: grid; grid-template-columns: 330px 1fr; }}
     aside {{ background: var(--panel); border-right: 1px solid var(--line); padding: 18px 16px; overflow: auto; }}
     h1 {{ font-size: 1.25rem; margin: 0 0 4px; letter-spacing: -0.02em; }}
     .eyebrow {{ text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.68rem; color: var(--muted); margin: 0 0 8px; }}
@@ -606,34 +611,56 @@ def write_html(manifest: dict) -> Path:
     label.row {{ display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 0; font-size: 0.86rem; }}
     input[type="range"] {{ width: 100%; }}
     .readout {{ font-variant-numeric: tabular-nums; font-weight: 600; color: var(--accent); }}
-    #map {{ height: 100%; width: 100%; }}
-    .disclaimer {{ position: absolute; z-index: 1000; left: 12px; bottom: 12px; max-width: 420px; background: rgba(255,255,255,0.94); border: 1px solid var(--line); padding: 8px 10px; font-size: 0.75rem; line-height: 1.35; color: var(--muted); }}
+    .map-stage {{ position: relative; display: grid; height: 100%; min-height: 0; }}
+    .map-stage.single {{ grid-template-columns: 1fr; }}
+    .map-stage.compare {{ grid-template-columns: 1fr 1fr; }}
+    .map-pane {{ position: relative; min-height: 0; border-left: 1px solid var(--line); }}
+    .map-pane:first-child {{ border-left: 0; }}
+    .map-el {{ height: 100%; width: 100%; }}
+    .pane-label {{ position: absolute; z-index: 1000; top: 10px; left: 52px; background: rgba(255,255,255,0.92); border: 1px solid var(--line); padding: 4px 8px; font-size: 0.75rem; font-weight: 600; }}
+    .disclaimer {{ position: absolute; z-index: 1000; left: 12px; bottom: 12px; max-width: 460px; background: rgba(255,255,255,0.94); border: 1px solid var(--line); padding: 8px 10px; font-size: 0.75rem; line-height: 1.35; color: var(--muted); }}
     details.limits {{ font-size: 0.8rem; color: var(--muted); }}
     details.limits summary {{ cursor: pointer; color: var(--ink); font-weight: 600; }}
-    .metric {{ display: flex; justify-content: space-between; font-size: 0.82rem; margin: 4px 0; }}
-    .metric b {{ font-variant-numeric: tabular-nums; }}
+    .metric {{ display: flex; justify-content: space-between; font-size: 0.82rem; margin: 4px 0; gap: 8px; }}
+    .metric b {{ font-variant-numeric: tabular-nums; text-align: right; }}
     .legend-swatch {{ display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }}
+    .mode-btn {{ width: 100%; margin-top: 6px; padding: 8px 10px; border: 1px solid var(--line); background: #fff; border-radius: 6px; cursor: pointer; font-weight: 600; }}
+    .mode-btn.active {{ border-color: var(--accent); background: #e8f4f8; color: var(--accent); }}
+    .mode-btn:disabled {{ opacity: 0.5; cursor: not-allowed; }}
+    .qa-note {{ font-size: 0.78rem; color: var(--muted); line-height: 1.35; margin-top: 6px; }}
   </style>
 </head>
 <body>
   <aside>
     <p class="eyebrow">Earth2Studio · NYC flood impact · v0</p>
     <h1>Ida remnants replay</h1>
-    <p class="sub">South Queens / Jamaica Bay · Earth2 FCN + PrecipitationAFNO precip with terrain screening and 311 complaints.</p>
+    <p class="sub">South Queens / Jamaica Bay · Earth2 FCN + PrecipitationAFNO with terrain, infrastructure, 311, and optional MRMS QPE QA.</p>
     <span class="badge">NOT inundation depth / NOT emergency guidance</span>
 
     <section>
       <h2>Forecast lead</h2>
-      <input id="leadSlider" type="range" min="0" max="{n_frames - 1}" value="{max(0, n_frames - 1)}" step="1" aria-label="Forecast lead">
+      <input id="leadSlider" type="range" min="0" max="{n_frames - 1}" value="1" step="1" aria-label="Forecast lead">
       <div class="metric"><span>Lead</span><span class="readout" id="leadReadout">—</span></div>
       <div class="metric"><span>Valid time (UTC)</span><span class="readout" id="validReadout">—</span></div>
-      <div class="metric"><span>Interval precip (domain max)</span><span class="readout" id="precipReadout">—</span></div>
+      <div class="metric"><span>Earth2 6 h max</span><span class="readout" id="precipReadout">—</span></div>
+      <div class="metric"><span>MRMS QPE 6 h max</span><span class="readout" id="mrmsReadout">—</span></div>
+      <div class="metric"><span>E2 − MRMS mean</span><span class="readout" id="diffReadout">—</span></div>
+    </section>
+
+    <section>
+      <h2>View mode</h2>
+      <button class="mode-btn active" id="modeSingle" type="button">Single map</button>
+      <button class="mode-btn" id="modeCompare" type="button" {compare_disabled}>Side-by-side Earth2 | MRMS QPE</button>
+      <p class="qa-note">{mrms_note}</p>
     </section>
 
     <section>
       <h2>Map layers</h2>
       <label class="row"><span><span class="legend-swatch" style="background:#3b82f6"></span>Earth2 6 h precip</span><input id="precipToggle" type="checkbox" checked></label>
-      <label class="row"><span><span class="legend-swatch" style="background:#7c3aed"></span>Storm-total precip</span><input id="totalToggle" type="checkbox"></label>
+      <label class="row"><span><span class="legend-swatch" style="background:#0f766e"></span>MRMS QPE 6 h</span><input id="mrmsToggle" type="checkbox" {mrms_checked}></label>
+      <label class="row"><span><span class="legend-swatch" style="background:#7c3aed"></span>Earth2 storm-total</span><input id="totalToggle" type="checkbox"></label>
+      <label class="row"><span><span class="legend-swatch" style="background:#115e59"></span>MRMS storm-total</span><input id="mrmsTotalToggle" type="checkbox" {compare_disabled}></label>
+      <label class="row"><span><span class="legend-swatch" style="background:#b45309"></span>Diff (E2 − MRMS)</span><input id="diffToggle" type="checkbox" {compare_disabled}></label>
       <label class="row"><span><span class="legend-swatch" style="background:#ea580c"></span>Terrain screening</span><input id="terrainToggle" type="checkbox"></label>
       <label class="row"><span><span class="legend-swatch" style="background:#dc2626"></span>Precip×terrain hotspot</span><input id="hotspotToggle" type="checkbox" checked></label>
       <label class="row"><span><span class="legend-swatch" style="background:#64748b"></span>Roads</span><input id="roadsToggle" type="checkbox" checked></label>
@@ -646,24 +673,32 @@ def write_html(manifest: dict) -> Path:
     <section>
       <h2>Run metadata</h2>
       <div class="metric"><span>Init</span><b id="initMeta">—</b></div>
-      <div class="metric"><span>Model</span><b style="max-width:180px;text-align:right;font-weight:500">FCN + PrecipAFNO</b></div>
+      <div class="metric"><span>Model</span><b>FCN + PrecipAFNO</b></div>
       <div class="metric"><span>311 reports</span><b id="reportsMeta">—</b></div>
       <div class="metric"><span>Roads flagged</span><b id="disruptMeta">—</b></div>
+      <div class="metric"><span>MRMS product</span><b style="max-width:160px">{mrms_product}</b></div>
     </section>
 
     <section>
       <details class="limits" open>
         <summary>What this is / is not</summary>
-        <p><b>Forecast layer:</b> Earth2 six-hour accumulated precipitation (mm) from FCN + PrecipitationAFNO, GFS ICs. Display is bilinearly resampled from ~0.25° cells — not street-scale truth.</p>
-        <p><b>Terrain screening:</b> relative low/flat index from USGS ~10 m DEM. No rainfall, soils, or drainage.</p>
-        <p><b>311 points:</b> geocoded flood-related service requests (complaints), not surveyed flood depths or extents.</p>
-        <p><b>Road disruption:</b> heuristic overlap of roads with high storm-total precip and high terrain screening. Not traffic modeling or inundation depth.</p>
-        <p><b>Not included:</b> water depth, calibrated sewer hydraulics, emergency alerts, or verified skill scores.</p>
+        <p><b>Earth2 precip:</b> six-hour accumulations (mm) from FCN + PrecipitationAFNO, GFS ICs. Display resampled from ~0.25° — not street-scale truth.</p>
+        <p><b>MRMS QPE:</b> MultiSensor quantitative precipitation estimate (1 h), summed to the same 6 h windows. Observed rainfall reference — not BREF reflectivity.</p>
+        <p><b>Diff:</b> Earth2 minus MRMS on the display grid (exploratory; grids differ in native resolution).</p>
+        <p><b>Terrain / 311 / roads:</b> context and complaints only — not inundation depth or emergency guidance.</p>
       </details>
     </section>
   </aside>
-  <div style="position:relative">
-    <div id="map"></div>
+
+  <div id="mapStage" class="map-stage single">
+    <div class="map-pane">
+      <div class="pane-label" id="leftLabel">Earth2 (+ context)</div>
+      <div id="mapLeft" class="map-el"></div>
+    </div>
+    <div class="map-pane" id="rightPane" hidden>
+      <div class="pane-label">MRMS QPE (observed)</div>
+      <div id="mapRight" class="map-el"></div>
+    </div>
     <div class="disclaimer">Prototype for Hurricane Ida remnants (2021-09-01). OpenStreetMap basemap. Layers are exploratory research products.</div>
   </div>
 
@@ -673,88 +708,171 @@ def write_html(manifest: dict) -> Path:
     const manifest = {json.dumps(manifest)};
     const assets = "ida_v0_assets/";
     const bounds = manifest.precip.bounds;
-    const map = L.map("map", {{ zoomControl: true }}).fitBounds(bounds);
-    L.tileLayer("https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png", {{
-      maxZoom: 19,
-      attribution: "&copy; OpenStreetMap"
-    }}).addTo(map);
+    const hasMrms = Boolean(manifest.mrms_qpe);
 
-    const precipOverlays = manifest.precip.frames.map((frame) =>
+    const mapLeft = L.map("mapLeft", {{ zoomControl: true }}).fitBounds(bounds);
+    L.tileLayer("https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png", {{
+      maxZoom: 19, attribution: "&copy; OpenStreetMap"
+    }}).addTo(mapLeft);
+
+    let mapRight = null;
+    if (hasMrms) {{
+      mapRight = L.map("mapRight", {{ zoomControl: true }}).fitBounds(bounds);
+      L.tileLayer("https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png", {{
+        maxZoom: 19, attribution: "&copy; OpenStreetMap"
+      }}).addTo(mapRight);
+      mapLeft.on("moveend", () => {{ if (mapRight) mapRight.setView(mapLeft.getCenter(), mapLeft.getZoom(), {{ animate: false }}); }});
+      mapRight.on("moveend", () => {{ mapLeft.setView(mapRight.getCenter(), mapRight.getZoom(), {{ animate: false }}); }});
+    }}
+
+    const e2Overlays = manifest.precip.frames.map((frame) =>
       L.imageOverlay(assets + frame.png, bounds, {{ opacity: 0.72, interactive: false }})
     );
-    let activePrecip = precipOverlays[precipOverlays.length - 1];
-    activePrecip.addTo(map);
+    let activeE2 = e2Overlays[1] || e2Overlays[0];
+    activeE2.addTo(mapLeft);
+
+    const mrmsOverlays = hasMrms
+      ? manifest.mrms_qpe.frames.map((frame) => L.imageOverlay(assets + frame.png, bounds, {{ opacity: 0.72, interactive: false }}))
+      : [];
+    let activeMrms = mrmsOverlays[1] || mrmsOverlays[0] || null;
+
+    const diffOverlays = hasMrms
+      ? manifest.mrms_qpe.diff_frames.map((frame) => L.imageOverlay(assets + frame.png, bounds, {{ opacity: 0.7, interactive: false }}))
+      : [];
+    let activeDiff = null;
 
     const totalLayer = L.imageOverlay(assets + manifest.precip.storm_total_png, bounds, {{ opacity: 0.65 }});
+    const mrmsTotalLayer = hasMrms
+      ? L.imageOverlay(assets + manifest.mrms_qpe.storm_total_png, bounds, {{ opacity: 0.65 }})
+      : null;
     const terrainLayer = manifest.terrain.terrain_png
       ? L.imageOverlay(assets + manifest.terrain.terrain_png, bounds, {{ opacity: 0.55 }})
       : null;
-    const hotspotLayer = L.imageOverlay(assets + manifest.disruption.hotspot_png, bounds, {{ opacity: 0.55 }}).addTo(map);
+    const hotspotLayer = L.imageOverlay(assets + manifest.disruption.hotspot_png, bounds, {{ opacity: 0.55 }}).addTo(mapLeft);
 
-    let roadsLayer = null;
-    let disruptLayer = null;
-    let stationsLayer = null;
+    let compareMode = false;
+    let roadsLayer = null, disruptLayer = null, stationsLayer = null, basinsLayer = null;
     const reportsLayer = L.markerClusterGroup({{ showCoverageOnHover: false }});
 
     function setLead(index) {{
       const frame = manifest.precip.frames[index];
-      if (map.hasLayer(activePrecip)) map.removeLayer(activePrecip);
-      activePrecip = precipOverlays[index];
-      if (document.getElementById("precipToggle").checked) activePrecip.addTo(map);
-      document.getElementById("leadReadout").textContent = `+${{frame.lead_hours}} h`;
+      if (mapLeft.hasLayer(activeE2)) mapLeft.removeLayer(activeE2);
+      activeE2 = e2Overlays[index];
+      if (document.getElementById("precipToggle").checked) activeE2.addTo(mapLeft);
+
+      if (hasMrms) {{
+        const mrms = manifest.mrms_qpe.frames[index];
+        const diff = manifest.mrms_qpe.diff_frames[index];
+        if (activeMrms) {{
+          if (mapLeft.hasLayer(activeMrms)) mapLeft.removeLayer(activeMrms);
+          if (mapRight && mapRight.hasLayer(activeMrms)) mapRight.removeLayer(activeMrms);
+        }}
+        activeMrms = mrmsOverlays[index];
+        if (compareMode && mapRight) activeMrms.addTo(mapRight);
+        else if (document.getElementById("mrmsToggle").checked) activeMrms.addTo(mapLeft);
+
+        if (activeDiff && mapLeft.hasLayer(activeDiff)) mapLeft.removeLayer(activeDiff);
+        activeDiff = diffOverlays[index];
+        if (document.getElementById("diffToggle").checked && !compareMode) activeDiff.addTo(mapLeft);
+
+        document.getElementById("mrmsReadout").textContent = mrms.max_mm.toFixed(1) + " mm";
+        document.getElementById("diffReadout").textContent = diff.mean_diff_mm.toFixed(1) + " mm";
+      }} else {{
+        document.getElementById("mrmsReadout").textContent = "n/a";
+        document.getElementById("diffReadout").textContent = "n/a";
+      }}
+
+      document.getElementById("leadReadout").textContent = "+" + frame.lead_hours + " h";
       document.getElementById("validReadout").textContent = frame.valid_time.replace("T", " ");
-      document.getElementById("precipReadout").textContent = `${{frame.max_mm.toFixed(1)}} mm`;
+      document.getElementById("precipReadout").textContent = frame.max_mm.toFixed(1) + " mm";
+      document.getElementById("leftLabel").textContent = compareMode
+        ? ("Earth2 · +" + frame.lead_hours + " h")
+        : "Earth2 (+ context)";
+    }}
+
+    function setCompare(on) {{
+      compareMode = on && hasMrms;
+      const stage = document.getElementById("mapStage");
+      const rightPane = document.getElementById("rightPane");
+      document.getElementById("modeSingle").classList.toggle("active", !compareMode);
+      document.getElementById("modeCompare").classList.toggle("active", compareMode);
+      if (compareMode) {{
+        stage.classList.add("compare"); stage.classList.remove("single");
+        rightPane.hidden = false;
+        [hotspotLayer, totalLayer, terrainLayer].forEach((layer) => {{ if (layer && mapLeft.hasLayer(layer)) mapLeft.removeLayer(layer); }});
+        if (activeDiff && mapLeft.hasLayer(activeDiff)) mapLeft.removeLayer(activeDiff);
+        if (activeMrms && mapLeft.hasLayer(activeMrms)) mapLeft.removeLayer(activeMrms);
+        document.getElementById("mrmsToggle").checked = false;
+        document.getElementById("diffToggle").checked = false;
+        document.getElementById("precipToggle").checked = true;
+        setTimeout(() => {{ mapLeft.invalidateSize(); if (mapRight) mapRight.invalidateSize(); }}, 50);
+      }} else {{
+        stage.classList.add("single"); stage.classList.remove("compare");
+        rightPane.hidden = true;
+        if (mapRight && activeMrms && mapRight.hasLayer(activeMrms)) mapRight.removeLayer(activeMrms);
+        setTimeout(() => mapLeft.invalidateSize(), 50);
+      }}
+      setLead(Number(document.getElementById("leadSlider").value));
     }}
 
     document.getElementById("initMeta").textContent = (manifest.precip.init_time || "").slice(0, 16);
     document.getElementById("reportsMeta").textContent = String(manifest.reports.n_reports);
-    document.getElementById("disruptMeta").textContent = `${{manifest.disruption.n_disrupted}} / ${{manifest.disruption.n_roads}}`;
-
+    document.getElementById("disruptMeta").textContent = manifest.disruption.n_disrupted + " / " + manifest.disruption.n_roads;
     document.getElementById("leadSlider").addEventListener("input", (event) => setLead(Number(event.target.value)));
+    document.getElementById("modeSingle").addEventListener("click", () => setCompare(false));
+    document.getElementById("modeCompare").addEventListener("click", () => setCompare(true));
     setLead(Number(document.getElementById("leadSlider").value));
 
     function bindToggle(id, layer) {{
       const input = document.getElementById(id);
+      if (!input || input.disabled) return;
       input.addEventListener("change", () => {{
         if (!layer) return;
-        if (input.checked) layer.addTo(map); else map.removeLayer(layer);
+        if (input.checked) layer.addTo(mapLeft); else mapLeft.removeLayer(layer);
       }});
     }}
     bindToggle("totalToggle", totalLayer);
+    bindToggle("mrmsTotalToggle", mrmsTotalLayer);
     bindToggle("terrainToggle", terrainLayer);
     bindToggle("hotspotToggle", hotspotLayer);
     document.getElementById("precipToggle").addEventListener("change", (event) => {{
-      if (event.target.checked) activePrecip.addTo(map); else map.removeLayer(activePrecip);
+      if (event.target.checked) activeE2.addTo(mapLeft); else mapLeft.removeLayer(activeE2);
     }});
+    if (hasMrms) {{
+      document.getElementById("mrmsToggle").addEventListener("change", (event) => {{
+        if (compareMode) return;
+        if (event.target.checked) activeMrms.addTo(mapLeft); else mapLeft.removeLayer(activeMrms);
+      }});
+      document.getElementById("diffToggle").addEventListener("change", (event) => {{
+        if (compareMode) return;
+        if (event.target.checked) activeDiff.addTo(mapLeft); else mapLeft.removeLayer(activeDiff);
+      }});
+    }}
 
     fetch(assets + manifest.infra.roads_geojson).then((r) => r.json()).then((geo) => {{
       roadsLayer = L.geoJSON(geo, {{
         style: {{ color: "#64748b", weight: 1, opacity: 0.55 }},
         onEachFeature: (feature, layer) => layer.bindTooltip(feature.properties.st_name || "road")
       }});
-      if (document.getElementById("roadsToggle").checked) roadsLayer.addTo(map);
+      if (document.getElementById("roadsToggle").checked) roadsLayer.addTo(mapLeft);
       bindToggle("roadsToggle", roadsLayer);
     }});
-
     fetch(assets + manifest.disruption.disrupted_geojson).then((r) => r.json()).then((geo) => {{
       disruptLayer = L.geoJSON(geo, {{
         style: {{ color: "#b91c1c", weight: 3, opacity: 0.9 }},
         onEachFeature: (feature, layer) => layer.bindTooltip((feature.properties.st_name || "road") + " · potential disruption (heuristic)")
-      }}).addTo(map);
+      }}).addTo(mapLeft);
       bindToggle("disruptToggle", disruptLayer);
     }});
-
     fetch(assets + manifest.infra.stations_geojson).then((r) => r.json()).then((geo) => {{
       stationsLayer = L.geoJSON(geo, {{
         pointToLayer: (feature, latlng) => L.circleMarker(latlng, {{
           radius: 5, color: "#0f766e", weight: 1, fillColor: "#14b8a6", fillOpacity: 0.9
         }}),
-        onEachFeature: (feature, layer) => layer.bindTooltip(feature.properties.name || feature.properties.Name || "Station")
-      }}).addTo(map);
+        onEachFeature: (feature, layer) => layer.bindTooltip(feature.properties.name || "Station")
+      }}).addTo(mapLeft);
       bindToggle("stationsToggle", stationsLayer);
     }});
-
-    let basinsLayer = null;
     if (manifest.infra.basins_geojson) {{
       fetch(assets + manifest.infra.basins_geojson).then((r) => r.json()).then((geo) => {{
         basinsLayer = L.geoJSON(geo, {{
@@ -766,7 +884,6 @@ def write_html(manifest: dict) -> Path:
         bindToggle("basinsToggle", basinsLayer);
       }});
     }}
-
     if (manifest.reports.geojson) {{
       fetch(assets + manifest.reports.geojson).then((r) => r.json()).then((geo) => {{
         L.geoJSON(geo, {{
@@ -775,10 +892,10 @@ def write_html(manifest: dict) -> Path:
           }}),
           onEachFeature: (feature, layer) => {{
             const p = feature.properties;
-            layer.bindTooltip(`${{p.descriptor || "Flood report"}} · ${{p.created_date || ""}}`);
+            layer.bindTooltip((p.descriptor || "Flood report") + " · " + (p.created_date || ""));
           }}
         }}).eachLayer((layer) => reportsLayer.addLayer(layer));
-        reportsLayer.addTo(map);
+        reportsLayer.addTo(mapLeft);
         bindToggle("reportsToggle", reportsLayer);
       }});
     }}
@@ -797,6 +914,16 @@ def main() -> None:
     parser.add_argument("--global-forecast", type=Path, default=DEFAULT_GLOBAL)
     parser.add_argument("--clipped-forecast", type=Path, default=DEFAULT_CLIPPED)
     parser.add_argument("--skip-normalize", action="store_true")
+    parser.add_argument(
+        "--with-mrms-qa",
+        action="store_true",
+        help="Fetch NOAA MRMS MultiSensor QPE (not BREF) and add Earth2 vs observed compare layers.",
+    )
+    parser.add_argument(
+        "--skip-infra",
+        action="store_true",
+        help="Reuse existing roads/stations geojson assets if present.",
+    )
     args = parser.parse_args()
 
     _ensure_dirs()
@@ -812,9 +939,36 @@ def main() -> None:
     precip_meta = export_precip_layers(args.clipped_forecast)
     print(f"  {len(precip_meta['frames'])} leads; storm-total max {precip_meta['storm_total_max_mm']:.1f} mm")
 
-    print("Fetching infrastructure…")
-    infra_meta = fetch_infrastructure()
-    print(f"  roads={infra_meta['n_roads']} stations={infra_meta['n_stations']}")
+    mrms_meta = None
+    if args.with_mrms_qa:
+        from nyc_flash_flood_case_study.mrms_qpe_qa import build_mrms_qpe_qa
+
+        print("Fetching MRMS MultiSensor QPE and aggregating to 6 h leads…")
+        init = precip_meta["init_time"].split(".")[0]
+        mrms_meta = build_mrms_qpe_qa(precip_meta["frames"], init_time=init)
+        print(
+            f"  MRMS storm-total max {mrms_meta['storm_total_max_mm']:.1f} mm; "
+            f"shared vmax {mrms_meta['shared_display_vmax_mm']:.1f} mm"
+        )
+
+    if args.skip_infra and (ASSETS_DIR / "roads.geojson").exists() and (ASSETS_DIR / "subway_stations.geojson").exists():
+        print("Reusing cached infrastructure assets…")
+        infra_meta = None
+        if (ASSETS_DIR / "manifest.json").exists():
+            infra_meta = json.loads((ASSETS_DIR / "manifest.json").read_text()).get("infra")
+        if not infra_meta:
+            infra_meta = {
+                "stations_geojson": "subway_stations.geojson",
+                "basins_geojson": "catch_basins.geojson",
+                "roads_geojson": "roads.geojson",
+                "n_stations": 0,
+                "n_basins": 0,
+                "n_roads": 0,
+            }
+    else:
+        print("Fetching infrastructure…")
+        infra_meta = fetch_infrastructure()
+        print(f"  roads={infra_meta['n_roads']} stations={infra_meta['n_stations']}")
 
     print("Building disruption heuristic…")
     disruption_meta = build_disruption_heuristic(precip_meta)
@@ -834,9 +988,12 @@ def main() -> None:
         "terrain": terrain_meta,
         "disclaimer": (
             "Exploratory prototype. Not inundation depth, not emergency guidance, "
-            "not a verified flood forecast."
+            "not a verified flood forecast. MRMS QPE is the observed precip reference; BREF is not used."
         ),
     }
+    if mrms_meta is not None:
+        manifest["mrms_qpe"] = mrms_meta
+
     manifest_path = ASSETS_DIR / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2))
     html_path = write_html(manifest)

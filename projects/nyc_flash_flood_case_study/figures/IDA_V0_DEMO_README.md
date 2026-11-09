@@ -38,12 +38,27 @@ cd projects/nyc_flash_flood_case_study
   --clipped-forecast data/forecasts/nyc_precip_ida_20210901T12.nc
 ```
 
+## MRMS QPE QA (observed precip)
+
+Rebuild with observed rainfall for side-by-side QA (uses NOAA public S3 **MultiSensor QPE 01H Pass1**, not BREF):
+
+```bash
+.venv/bin/python scripts/build_ida_v0_map.py \
+  --skip-normalize --skip-infra \
+  --clipped-forecast data/forecasts/nyc_precip_ida_20210901T12.nc \
+  --with-mrms-qa
+```
+
+Hourly QPE files are summed into the same +6/+12/+18/+24 h windows as Earth2. The map adds MRMS 6 h / storm-total layers, an Earth2−MRMS difference layer, and a **Side-by-side Earth2 | MRMS QPE** view. Earth2Studio's built-in `data.MRMS` currently exposes reflectivity only, so this path downloads QPE directly from `noaa-mrms-pds`.
+
 ## Layer guide — what is / is not
 
 | Layer | What it is | What it is **not** |
 | --- | --- | --- |
 | **Earth2 6 h precip** | AI weather forecast precipitation accumulation for each 6-hour lead (mm), from FCN + PrecipitationAFNO with GFS initial conditions. Time slider = forecast leads. | Street-scale QPE, radar, or gauge rainfall. Native model grid is ~0.25°; the map bilinearly resamples for display only (not physical downscaling). |
-| **Storm-total precip** | Sum of the positive 6 h interval fields over the forecast window. | Verified storm rainfall total for Ida. |
+| **MRMS QPE 6 h / storm-total** | NOAA MultiSensor quantitative precipitation estimate (1 h), summed to matching 6 h intervals / storm window. | BREF reflectivity; gauge-only analysis; flood depth. |
+| **Diff (E2 − MRMS)** | Exploratory difference on the shared display grid. | A formal verification scorecard. |
+| **Storm-total precip (Earth2)** | Sum of the positive 6 h interval fields over the forecast window. | Verified storm rainfall total for Ida. |
 | **Terrain screening** | Relative low-elevation / flatness index from USGS ~10 m DEM. | Flood probability; excludes rainfall, soils, imperviousness, and drainage. |
 | **Precip × terrain hotspot** | Cells where storm-total precip and terrain screening are both high (percentile/threshold rule). | Inundation extent or water depth. |
 | **Roads / potential disruption** | OSM highway segments; disruption flag = heuristic overlap with hotspot cells (higher-class roads preferred on the overlay). | Traffic closure prediction, hydraulic road flooding, or emergency routing. |

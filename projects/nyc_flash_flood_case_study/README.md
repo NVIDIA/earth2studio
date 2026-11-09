@@ -122,6 +122,15 @@ cd projects/nyc_flash_flood_case_study
 
 Open `figures/ida_v0_event_map.html`. See `figures/IDA_V0_DEMO_README.md` for the layer guide and disclaimers. This is **not** inundation depth or emergency guidance.
 
+Optional MRMS **QPE** QA (not BREF) for Earth2 vs observed precip, including a side-by-side compare mode:
+
+```bash
+.venv/bin/python scripts/build_ida_v0_map.py \
+  --skip-normalize --skip-infra \
+  --clipped-forecast data/forecasts/nyc_precip_ida_20210901T12.nc \
+  --with-mrms-qa
+```
+
 ## Product Concept Demo
 
 Build the interactive scenario workbench with synthetic moderate, severe, and extreme rainfall/depth-proxy scenarios:
