@@ -192,7 +192,7 @@ class SamudrACE(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Badges
     ------
-    region:global class:climate product:wind product:precip product:temp product:atmos product:ocean year:2025
+    region:global class:climate product:wind product:precip product:temp product:atmos product:ocean year:2025 gpu:40gb
     """
 
     def __init__(
