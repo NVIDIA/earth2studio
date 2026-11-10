@@ -105,44 +105,37 @@ logs and uploads `test-results-<tox-env>` artifacts even on failure, retained fo
 
 ### Bounded data-source tests
 
-`test-data` runs supervisor checks and lexicon tests, then data-source files in isolated pytest
-processes: **8 workers**, **300 seconds per file**, **1,200 seconds total** for data
-tests, plus termination grace. File deadlines are cumulative across restarts, including
-startup and shutdown; exhausting either budget fails the run. Per-file logs and partial
-results are saved under
-`.cache/test-results/test-data/data/`.
+`test-data` runs supervisor checks and lexicon tests, then isolated data-test processes
+with **8 workers**, **300s per file**, and **1,200s total**, plus termination grace.
+Override these with `DATA_TEST_WORKERS`, `DATA_TEST_FILE_TIMEOUT`, and `DATA_TEST_TIMEOUT`.
+File budgets include startup, shutdown, and restarts; exceeding a budget fails the run.
+Logs and partial results: `.cache/test-results/test-data/data/`.
+Each file gets a temporary data cache, retained across restarts and removed on completion.
 
-Network tests use `@pytest.mark.live(timeout=60)` (60 seconds if omitted).
-`--live=changed|all|none` selects them independently of their timeout. Local runs default
-to `none`; CI uses `changed`, comparing a PR against its merge base or a branch push
-against its previous SHA. Source/lexicon families and matching test files enable their
-live tests; shared utilities and test infrastructure enable all sources. Locally, set
-`DATA_TEST_BASE` to a Git revision (default `HEAD`, including uncommitted changes).
+Mark network tests with `@pytest.mark.live(timeout=60)` (default: 60s):
 
-Only a live **call** exceeding its deadline becomes XFAIL: the supervisor kills its
-process group and resumes remaining cases in a fresh process. Assertions, other errors,
-setup/teardown hangs, and shutdown hangs remain failures. Enabled source files bypass
-testmon selection so cached successes cannot suppress live tests. Other files retain
-normal testmon selection. Use `--live-timeout` to override all marker deadlines.
+- `--live=none`: skip live tests (local default).
+- `--live=changed`: run affected sources (CI default); shared changes enable all sources.
+  CI compares against the PR merge base or the pushed branch's previous tip.
+  Locally, `DATA_TEST_BASE` defaults to `HEAD`, including uncommitted changes.
+- `--live=all`: run all live tests.
+
+Only live-call timeouts become XFAIL; the process is killed and remaining tests resume
+in a fresh process. Other errors fail normally. Selected live files bypass testmon.
+Use `--live-timeout` to override marker deadlines.
 
 ```bash
-# Select data files and filter tests.
-DATA_TEST_PATHS=test/data/test_gfs.py uvx tox -e test-data -- --slow -k statistic
-
-# Run changed sources with their marker deadlines.
+# Run changed sources.
 DATA_TEST_BASE=upstream/1.0.0-rc uvx tox -e test-data -- --live=changed --testmon
 
-# Run every live source with a longer call limit and finite cumulative budgets.
+# Run one source with longer budgets.
+DATA_TEST_PATHS=test/data/test_gfs.py \
 DATA_TEST_FILE_TIMEOUT=3600 DATA_TEST_TIMEOUT=7200 \
     uvx tox -e test-data -- --live=all --live-timeout=600 --package
-
-# Tune parallelism and deadlines (seconds).
-DATA_TEST_WORKERS=2 DATA_TEST_FILE_TIMEOUT=600 DATA_TEST_TIMEOUT=1800 \
-    make pytest TOX_ENV=test-data
 ```
 
-Testmon and coverage state are isolated per file. Arguments after `--` replace Tox's
-pytest defaults; include `--testmon` and `--cov` to retain selection and coverage.
+Arguments after `--` apply only to data-source tests and replace their Tox defaults;
+include `--testmon` and `--cov` as needed. Lexicon tests run with fixed defaults.
 
 ### Running Tests Directly with pytest
 

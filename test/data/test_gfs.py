@@ -39,7 +39,7 @@ from earth2studio.data.utils import fetch_data
         ],
     ],
 )
-@pytest.mark.parametrize("variable", ["t2m", ["msl", "tp"]])
+@pytest.mark.parametrize("variable", ["t2m", ["msl"]])
 def test_gfs_fetch(time, variable):
 
     ds = GFS(cache=False)

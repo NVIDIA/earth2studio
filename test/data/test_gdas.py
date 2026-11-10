@@ -16,7 +16,7 @@
 
 import pathlib
 import shutil
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import numpy as np
@@ -27,13 +27,15 @@ import pytest
 from earth2studio.data import NomadsGDASObsConv, utils_ncep
 from earth2studio.lexicon import GDASObsConvLexicon
 
+LIVE_TIME = (datetime.now(timezone.utc) - timedelta(hours=24)).replace(tzinfo=None)
+
 
 @pytest.mark.live(timeout=120)
 @pytest.mark.parametrize(
     "time",
     [
-        datetime(2026, 4, 4, 0),
-        [datetime(2026, 4, 4, 0), datetime(2026, 4, 4, 6)],
+        LIVE_TIME,
+        [LIVE_TIME, LIVE_TIME + timedelta(hours=6)],
     ],
 )
 @pytest.mark.parametrize("variable", ["t", ["t", "pres"]])
@@ -64,7 +66,7 @@ def test_nomads_gdas_wind(variable):
         time_tolerance=timedelta(minutes=180),
         cache=False,
     )
-    time = datetime(2026, 4, 4, 0)
+    time = LIVE_TIME
     df = ds(time, variable)
 
     assert isinstance(df, pd.DataFrame)
@@ -79,7 +81,7 @@ def test_nomads_gdas_wind(variable):
 @pytest.mark.live(timeout=120)
 @pytest.mark.parametrize(
     "time",
-    [np.array([np.datetime64("2026-04-04T00:00")])],
+    [np.array([np.datetime64(LIVE_TIME)])],
 )
 @pytest.mark.parametrize("variable", [["t", "pres"]])
 @pytest.mark.parametrize("cache", [True, False])

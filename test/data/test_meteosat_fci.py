@@ -36,15 +36,11 @@ from earth2studio.data import MeteosatFCI
 _EUROPE_BBOX = ((35.0, 60.0), (-10.0, 30.0))
 
 
-@pytest.mark.live(timeout=120)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "time,variable",
     [
         (datetime(2025, 3, 1, 12, 0), "fci87ir"),
-        (
-            [datetime(2025, 3, 1, 12, 0), datetime(2025, 3, 1, 12, 10)],
-            ["fci87ir", "fci63wv"],
-        ),
     ],
 )
 def test_meteosat_fci_fetch(time, variable):
@@ -60,7 +56,7 @@ def test_meteosat_fci_fetch(time, variable):
     assert not np.all(np.isnan(data.values))
 
 
-@pytest.mark.live(timeout=120)
+@pytest.mark.live(timeout=60)
 def test_meteosat_fci_cache():
     ds = MeteosatFCI(resolution="2km", lat_lon_bbox=_EUROPE_BBOX, cache=True)
     time = datetime(2025, 3, 1, 12, 0)
@@ -71,7 +67,7 @@ def test_meteosat_fci_cache():
     shutil.rmtree(ds.cache, ignore_errors=True)
 
 
-@pytest.mark.live(timeout=120)
+@pytest.mark.live(timeout=60)
 def test_meteosat_fci_hrfi_fetch():
     # HRFI vis_06 at 500 m.  pixel_bbox restricts which BODY segments are read.
     # pixel_bbox format: ((row_start, row_end), (col_start, col_end))

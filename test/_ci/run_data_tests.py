@@ -14,7 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Run each data-source test file in a bounded, disposable POSIX process group."""
+"""Run data-source pytest files in separate POSIX process groups.
+
+Defaults: 8 workers, 300 seconds per file, and 1,200 seconds overall. File
+budgets include startup, shutdown, and all restarts. Override these limits with
+DATA_TEST_WORKERS, DATA_TEST_FILE_TIMEOUT, and DATA_TEST_TIMEOUT.
+
+A live-call timeout kills the process group, records XFAIL, and resumes remaining
+tests in a fresh process. File/global timeouts fail the run. Incremental results
+and per-file logs survive termination for console reporting and CI artifacts.
+"""
 
 import argparse
 import json
@@ -24,6 +33,7 @@ import shlex
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 import xml.etree.ElementTree as ET
 from collections import deque
@@ -215,6 +225,7 @@ def main() -> int:
     )
     pending = deque(files)
     started_files = {}
+    caches = {}
     active = {}
     results = []
     deadline = time.monotonic() + args.timeout
@@ -236,6 +247,7 @@ def main() -> int:
                 directory.mkdir(parents=True, exist_ok=True)
                 first = file not in started_files
                 if first:
+                    caches[file] = tempfile.TemporaryDirectory(prefix="e2s-data-")
                     (directory / "events.jsonl").write_text("")
                     (directory / "stacks.log").write_text("")
                     started_files[file] = time.monotonic()
@@ -244,6 +256,8 @@ def main() -> int:
                     DATA_TEST_EVENTS=str(directory / "events.jsonl"),
                     DATA_TEST_STACKS=str(directory / "stacks.log"),
                     PYTHONUNBUFFERED="1",
+                    EARTH2STUDIO_CACHE=caches[file].name,
+                    EARTH2STUDIO_DATA_CACHE=caches[file].name,
                     DATA_TEST_COMPLETED=json.dumps(
                         [
                             event["nodeid"]
@@ -310,6 +324,15 @@ def main() -> int:
                         reason = "LIVE TIMEOUT"
                 if code is not None or reason:
                     stop(process, directory, args.grace)
+                    if reason == "LIVE TIMEOUT" and any(
+                        event["event"] == "report"
+                        and event["nodeid"] == live["nodeid"]
+                        and (event["phase"] == "call" or event["outcome"] == "FAILED")
+                        for event in events(directory)
+                    ):
+                        # The call finished during shutdown: never replace its result
+                        # with XFAIL. The interrupted process remains a hard failure.
+                        reason = "FAILED"
                     if reason == "LIVE TIMEOUT":
                         with (directory / "events.jsonl").open("a") as stream:
                             for event in [
@@ -332,6 +355,7 @@ def main() -> int:
                         report(file, directory, process.returncode, reason, elapsed)
                     )
                     del active[file]
+                    caches.pop(file).cleanup()
                     write_summary(output, results)
             if expired:
                 while pending:
@@ -366,6 +390,8 @@ def main() -> int:
     finally:
         for process, directory, _ in active.values():
             stop(process, directory, args.grace)
+        for cache in caches.values():
+            cache.cleanup()
         write_summary(output, results)
     print(f"Results: {output}", flush=True)
     return int(interrupted or any(result["status"] != "PASSED" for result in results))

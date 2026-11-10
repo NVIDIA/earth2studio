@@ -16,7 +16,7 @@
 
 import inspect
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import numpy as np
@@ -152,6 +152,9 @@ IFS_ANALYSIS_VARIABLES = (
     IFS_ANALYSIS_SURFACE_VARIABLES + IFS_ANALYSIS_PRESSURE_VARIABLES
 )
 TEST_TIME = datetime(2022, 1, 1, 0)
+IFS_LIVE_TIME = (datetime.now(timezone.utc) - timedelta(days=1)).replace(
+    hour=0, minute=0, second=0, microsecond=0, tzinfo=None
+)
 
 
 @pytest.mark.live(timeout=60)
@@ -181,8 +184,8 @@ def test_earthmover_era5_fetch(time, variable):
 @pytest.mark.parametrize(
     "time",
     [
-        TEST_TIME,
-        [TEST_TIME, TEST_TIME + timedelta(hours=6)],
+        IFS_LIVE_TIME,
+        [IFS_LIVE_TIME, IFS_LIVE_TIME + timedelta(hours=6)],
     ],
 )
 @pytest.mark.parametrize("variable", ["t2m", ["t2m", "msl"]])
@@ -204,8 +207,8 @@ def test_earthmover_brightband_ifs_fetch(time, variable):
 @pytest.mark.parametrize(
     "time,lead_time",
     [
-        (TEST_TIME, timedelta(hours=0)),
-        (TEST_TIME, [timedelta(hours=0), timedelta(hours=6)]),
+        (IFS_LIVE_TIME, timedelta(hours=0)),
+        (IFS_LIVE_TIME, [timedelta(hours=0), timedelta(hours=6)]),
     ],
 )
 @pytest.mark.parametrize("variable", ["t2m", ["t2m", "msl"]])

@@ -112,26 +112,7 @@ runs:
         DATA_TEST_PREVIOUS_SHA: ${{ github.event.before }}
         DATA_TEST_BASELINE_RUN: ${{ inputs.save-testmon-cache }}
         EARTH2STUDIO_MODEL_CACHE: ${{ runner.temp }}/earth2studio-models
-      run: |
-        # Reuse the uv binary that populated the container's package/build cache.
-        # tox-uv otherwise selects its bundled uv, which can miss that cache.
-        export TOX_UV_PATH="$(command -v uv)"
-        "$TOX_UV_PATH" --version
-        if [[ "$TOX_ENV" == "test-data" ]]; then
-          # Copied PR branches need their merge base, not just the latest commit.
-          if [[ "$(git rev-parse --is-shallow-repository)" == "true" ]]; then
-            git fetch --unshallow --no-tags origin
-          fi
-          if [[ "$DATA_TEST_BASELINE_RUN" == "true" && "$DATA_TEST_PREVIOUS_SHA" != "0000000000000000000000000000000000000000" && -n "$DATA_TEST_PREVIOUS_SHA" ]]; then
-            export DATA_TEST_BASE="$DATA_TEST_PREVIOUS_SHA"
-          else
-            git fetch --no-tags origin "$DATA_TEST_BASE_BRANCH"
-            export DATA_TEST_BASE="$(git merge-base HEAD FETCH_HEAD)"
-          fi
-        fi
-        mkdir -p ".cache/test-results/${TOX_ENV}"
-        set -o pipefail
-        make pytest-ci 2>&1 | tee ".cache/test-results/${TOX_ENV}/output.log"
+      run: bash test/_ci/run_ci_tests.sh
 
     - name: Upload coverage data
       if: always()

@@ -21,6 +21,7 @@ import os
 import shutil
 import uuid
 from collections import OrderedDict
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -165,16 +166,7 @@ class NCAR_ERA5:
             ERA5 weather data array from NCAR ERA5
         """
 
-        try:
-            xr_array = _sync_async(
-                self.fetch, time, variable, timeout=self.async_timeout
-            )
-        finally:
-            # Delete cache if needed
-            if not self._cache:
-                shutil.rmtree(self.cache)
-
-        return xr_array
+        return _sync_async(self.fetch, time, variable, timeout=self.async_timeout)
 
     async def fetch(
         self,
@@ -196,64 +188,68 @@ class NCAR_ERA5:
         xr.DataArray
             ERA5 weather data array from NCAR_ERA5
         """
-        # Lazily initialize the object store on first use
-        if self.store is None:
-            await self._async_init()
+        try:
+            # Lazily initialize the object store on first use
+            if self.store is None:
+                await self._async_init()
 
-        time, variable = prep_data_inputs(time, variable)
-        # Create cache dir if doesnt exist
-        Path(self.cache).mkdir(parents=True, exist_ok=True)
+            time, variable = prep_data_inputs(time, variable)
+            # Create cache dir if doesnt exist
+            Path(self.cache).mkdir(parents=True, exist_ok=True)
 
-        # Make sure input time is valid
-        self._validate_time(time)
+            # Make sure input time is valid
+            self._validate_time(time)
 
-        # Create tasks and group based on variable
-        data_arrays: dict[str, list[xr.DataArray]] = {}
-        async_tasks = []
-        for task in self._create_tasks(time, variable).values():
-            future = self.fetch_wrapper(task)
-            async_tasks.append(future)
+            # Create tasks and group based on variable
+            data_arrays: dict[str, list[xr.DataArray]] = {}
+            async_tasks = []
+            for task in self._create_tasks(time, variable).values():
+                future = self.fetch_wrapper(task)
+                async_tasks.append(future)
 
-        # Now wait
-        results = await gather_with_concurrency(
-            async_tasks,
-            max_workers=resolve_async_workers(self._async_workers, len(async_tasks)),
-            desc="Fetching NCAR ERA5 data",
-            verbose=(not self._verbose),
-        )
-        # Group based on variable
-        for result in results:
-            key = str(result.coords["variable"])
-            if key not in data_arrays:
-                data_arrays[key] = []
-            data_arrays[key].append(result)
-
-        # Concat times for same variable groups
-        array_list = []
-        for arrs in data_arrays.values():
-            if len(arrs) > 1 and "time" in arrs[0].dims:
-                # Only concat on time if multiple arrays and time dimension exists
-                array_list.append(xr.concat(arrs, dim="time"))
-            else:
-                # For single arrays or arrays without time dim, just take the first
-                array_list.append(arrs[0])
-
-        # Now concat varaibles
-        res = xr.concat(array_list, dim="variable", coords="minimal")
-        res.name = None  # remove name, which is kept from one of the arrays
-
-        # Delete cache if needed
-        if not self._cache:
-            shutil.rmtree(self.cache)
-
-        if "time" in res.dims:
-            return res.sel(time=time, variable=variable)
-        else:
-            # For files without time dimension, just select variables
-            logger.warning(
-                "No time dimension found in dataset, selecting variables only"
+            # Now wait
+            results = await gather_with_concurrency(
+                async_tasks,
+                max_workers=resolve_async_workers(
+                    self._async_workers, len(async_tasks)
+                ),
+                desc="Fetching NCAR ERA5 data",
+                verbose=(not self._verbose),
             )
-            return res.sel(variable=variable)
+            # Group based on variable
+            for result in results:
+                key = str(result.coords["variable"])
+                if key not in data_arrays:
+                    data_arrays[key] = []
+                data_arrays[key].append(result)
+
+            # Concat times for same variable groups
+            array_list = []
+            for arrs in data_arrays.values():
+                if len(arrs) > 1 and "time" in arrs[0].dims:
+                    # Only concat on time if multiple arrays and time dimension exists
+                    array_list.append(xr.concat(arrs, dim="time"))
+                else:
+                    # For single arrays or arrays without time dim, just take the first
+                    array_list.append(arrs[0])
+
+            # Now concat varaibles
+            res = xr.concat(array_list, dim="variable", coords="minimal")
+            res.name = None  # remove name, which is kept from one of the arrays
+
+            if "time" in res.dims:
+                return res.sel(time=time, variable=variable)
+            else:
+                # For files without time dimension, just select variables
+                logger.warning(
+                    "No time dimension found in dataset, selecting variables only"
+                )
+                return res.sel(variable=variable)
+        finally:
+            # Own temporary-cache cleanup for both sync and async callers.
+            if not self._cache:
+                with suppress(FileNotFoundError):
+                    shutil.rmtree(self.cache)
 
     def _create_tasks(
         self, time: list[datetime], variable: list[str]

@@ -203,7 +203,7 @@ def test_cmip6_pressure_level_tolerance():
 @pytest.mark.parametrize(
     "time, source_id, expected",
     [
-        pytest.param(datetime(2015, 1, 16), "CanESM5", True, id="exists"),
+        pytest.param(datetime(2015, 1, 16, 12), "CanESM5", True, id="exists"),
         pytest.param(datetime(1800, 1, 1), "CanESM5", False, id="too_early"),
         pytest.param(datetime(2015, 1, 16), "NonExistentModel", False, id="bad_model"),
     ],
@@ -284,7 +284,7 @@ def test_cmip6_multi_realm_available_variables():
 @pytest.mark.parametrize(
     "time, expected",
     [
-        pytest.param(datetime(2015, 1, 16), True, id="available"),
+        pytest.param(datetime(2015, 1, 16, 12), True, id="available"),
         pytest.param(datetime(1800, 1, 1), False, id="too_early"),
     ],
 )

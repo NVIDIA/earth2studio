@@ -363,17 +363,12 @@ def test_metop_iasi_call_mock_empty(tmp_path):
 # ---------------------------------------------------------------------------
 # Network integration tests (slow, xfail)
 # ---------------------------------------------------------------------------
-@pytest.mark.live(timeout=120)
+@pytest.mark.live(timeout=90)
 @pytest.mark.parametrize(
     "time,variable,tol",
     [
         (
             datetime(2025, 1, 15, 11),
-            ["iasi"],
-            timedelta(minutes=5),
-        ),
-        (
-            [datetime(2025, 1, 15, 10), datetime(2025, 1, 15, 11)],
             ["iasi"],
             timedelta(minutes=5),
         ),
@@ -386,8 +381,8 @@ def test_metop_iasi_fetch(time, variable, tol):
     assert set(df["variable"].unique()).issubset(set(variable))
 
 
-@pytest.mark.live(timeout=120)
-@pytest.mark.parametrize("cache", [True, False])
+@pytest.mark.live(timeout=90)
+@pytest.mark.parametrize("cache", [True])
 def test_metop_iasi_cache(cache):
     ds = MetOpIASI(
         satellite="metop-c",

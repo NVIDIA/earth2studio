@@ -67,6 +67,60 @@ def run_files(tmp_path: Path, files: dict[str, str], *options: str, pytest_args=
     return result, summary
 
 
+def test_data_caches_are_private_and_removed(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path / "shared"))
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path / "shared"))
+    (tmp_path / "shared").mkdir()
+    source = """
+import os, time
+from pathlib import Path
+def test_cache():
+    root = Path(os.environ['EARTH2STUDIO_DATA_CACHE'])
+    assert str(root) == os.environ['EARTH2STUDIO_CACHE']
+    assert root.is_dir()
+    Path(__file__ + '.cache-path').write_text(str(root))
+    (root / 'download').write_text('data')
+    time.sleep(DELAY)
+"""
+    result, summary = run_files(
+        tmp_path,
+        {
+            "test_fast.py": source.replace("DELAY", "0.2"),
+            "test_stuck.py": source.replace("DELAY", "60"),
+        },
+    )
+    assert result.returncode == 1
+    roots = [
+        Path((tmp_path / (name + ".cache-path")).read_text())
+        for name in ("test_fast.py", "test_stuck.py")
+    ]
+    assert roots[0] != roots[1]
+    assert all(not root.exists() for root in roots)
+    assert {entry["status"] for entry in summary} == {"PASSED", "TIMEOUT"}
+
+
+def test_failure_during_timeout_shutdown_is_preserved(tmp_path: Path):
+    result, summary = run_files(
+        tmp_path,
+        {"test_race.py": """
+import faulthandler, signal, time, pytest
+@pytest.mark.live(timeout=0.15)
+def test_race():
+    faulthandler.unregister(signal.SIGUSR1)
+    def fail(signum, frame):
+        raise AssertionError('failure during shutdown')
+    signal.signal(signal.SIGUSR1, fail)
+    time.sleep(60)
+def test_later():
+    pass
+"""},
+        pytest_args=("--live=all",),
+    )
+    assert result.returncode == 1, result.stdout
+    assert summary[0]["tests"]["test_race.py::test_race"]["status"] == "FAILED"
+    assert "failure during shutdown" in result.stdout
+
+
 def test_live_timeout_restarts_and_only_timeout_is_xfailed(tmp_path: Path):
     result, summary = run_files(
         tmp_path,
@@ -76,11 +130,13 @@ from pathlib import Path
 @pytest.mark.live(timeout=0.15)
 def test_timeout():
     Path('old_pid').write_text(str(os.getpid()))
+    Path(os.environ['EARTH2STUDIO_DATA_CACHE'], 'kept').write_text('download')
     print('live download stuck')
     time.sleep(60)
 @pytest.mark.live
 def test_assertion():
     assert os.getpid() != int(Path('old_pid').read_text())
+    assert Path(os.environ['EARTH2STUDIO_DATA_CACHE'], 'kept').read_text() == 'download'
     assert False, 'real assertion'
 @pytest.mark.live
 def test_error():

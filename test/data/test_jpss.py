@@ -18,7 +18,7 @@ import asyncio
 import hashlib
 import pathlib
 import shutil
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import h5py  # type: ignore
@@ -26,6 +26,11 @@ import numpy as np
 import pytest
 
 from earth2studio.data import JPSS
+
+# Stay within the 90-day archive window, allowing time for product publication.
+LIVE_TIME = (datetime.now(timezone.utc) - timedelta(days=30)).replace(
+    hour=12, minute=0, second=0, microsecond=0, tzinfo=None
+)
 
 
 @pytest.mark.live(timeout=30)
@@ -35,28 +40,28 @@ from earth2studio.data import JPSS
         (
             "noaa-20",
             "I",
-            datetime(year=2024, month=6, day=25, hour=12, minute=0, second=0),
+            LIVE_TIME,
             "viirs01i",
         ),
         (
             "noaa-20",
             "M",
-            datetime(year=2024, month=6, day=25, hour=12, minute=0, second=0),
+            LIVE_TIME,
             ["viirs02m", "viirs03m"],
         ),
         (
             "noaa-21",
             "I",
             [
-                datetime(year=2024, month=6, day=25, hour=12, minute=0, second=0),
-                datetime(year=2024, month=6, day=25, hour=12, minute=1, second=0),
+                LIVE_TIME,
+                LIVE_TIME + timedelta(minutes=1),
             ],
             "viirs05i",
         ),
         (
             "snpp",
             "L2",
-            datetime(year=2025, month=6, day=25, hour=12, minute=0, second=0),
+            LIVE_TIME,
             "lst",
         ),
     ],
@@ -102,7 +107,7 @@ def test_jpss_cache(cache):
     """Test JPSS caching behavior for both enabled and disabled cache options."""
 
     ds = JPSS(satellite="noaa-20", product_type="M", cache=cache)
-    time = np.array([np.datetime64("2024-06-25T12:00:00")])
+    time = np.array([np.datetime64(LIVE_TIME)])
     variable = ["viirs01m", "viirs02m", "viirs03m"]
 
     data = ds(time, variable)
@@ -143,21 +148,21 @@ def test_jpss_cache(cache):
         (
             "noaa-20",
             "I",
-            datetime(year=2024, month=6, day=25, hour=12, minute=0, second=0),
+            LIVE_TIME,
             "viirs01i",
             True,
         ),
         (
             "noaa-21",
             "M",
-            datetime(year=2024, month=6, day=25, hour=12, minute=0, second=0),
+            LIVE_TIME,
             "viirs02m",
             True,
         ),
         (
             "snpp",
             "L2",
-            datetime(year=2025, month=6, day=25, hour=12, minute=0, second=0),
+            LIVE_TIME,
             "lst",
             True,
         ),
@@ -215,7 +220,7 @@ def test_jpss_invalid_variable():
     "time",
     [
         datetime(2010, 1, 1, 0, 0, 0),
-        datetime(2025, 6, 25, 12, 0, 0),
+        LIVE_TIME,
     ],
 )
 def test_jpss_available(time):

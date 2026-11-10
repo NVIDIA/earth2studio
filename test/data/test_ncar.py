@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import io
 import pathlib
 import shutil
@@ -219,6 +220,53 @@ def test_ncar_create_tasks_accumulated_mult():
 # ----------------------------------------------------------------------
 # Mock end-to-end (no network, exercises __call__ path)
 # ----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("cache", [False, True])
+def test_ncar_cache_cleanup(tmp_path, monkeypatch, asynchronous, cache):
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
+    ds = NCAR_ERA5(cache=cache, verbose=False)
+    time = datetime(2024, 1, 1)
+    expected = xr.DataArray(
+        [1.0],
+        dims="time",
+        coords={"time": [np.datetime64(time)], "variable": "sd"},
+    )
+    with (
+        patch.object(ds, "_async_init", AsyncMock()),
+        patch.object(ds, "fetch_wrapper", AsyncMock(return_value=expected)),
+    ):
+        result = asyncio.run(ds.fetch(time, "sd")) if asynchronous else ds(time, "sd")
+    assert result.item() == 1.0
+    assert pathlib.Path(ds.cache).exists() == cache
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("stage", ["init", "fetch"])
+def test_ncar_cache_cleanup_on_error(tmp_path, monkeypatch, asynchronous, stage):
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
+    ds = NCAR_ERA5(cache=False, verbose=False)
+    error = ValueError("original fetch error")
+
+    async def fail_fetch(task):
+        assert pathlib.Path(ds.cache).is_dir()
+        (pathlib.Path(ds.cache) / "partial").touch()
+        raise error
+
+    with (
+        patch.object(
+            ds, "_async_init", AsyncMock(side_effect=error if stage == "init" else None)
+        ),
+        patch.object(ds, "fetch_wrapper", side_effect=fail_fetch),
+        pytest.raises(ValueError, match="original fetch error") as caught,
+    ):
+        if asynchronous:
+            asyncio.run(ds.fetch(datetime(2024, 1, 1), "sd"))
+        else:
+            ds(datetime(2024, 1, 1), "sd")
+    assert caught.value is error
+    assert not pathlib.Path(ds.cache).exists()
 
 
 def _fake_read_dataset(captured: list):
