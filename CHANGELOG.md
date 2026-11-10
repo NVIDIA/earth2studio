@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `ISD` returning non-NaN `u10m` and `v10m` for observations whose wind
+  direction is missing (999), and zero wind for a valid 9 degree direction.
+
 ### Security
 
 ### Dependencies
