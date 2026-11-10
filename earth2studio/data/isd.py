@@ -605,7 +605,9 @@ class ISD:
         """Extract the hourly total precipitation in meters
 
         Liquid precipitation period quantity is indicated by column AA1 and is provided
-        in mm at a scale factor of 10 (so 10^-5). 9999 is missing
+        in mm at a scale factor of 10 (so 10^-5). 9999 is missing. AA1 is a string
+        field (period (hours), depth, condition code, quality code); only one hour
+        periods are kept, since reports of 3, 6 or 24 hour totals are not hourly.
         """
         if "AA1" not in df:
             df["tp"] = np.nan
@@ -615,9 +617,10 @@ class ISD:
         if parts.shape[1] < 2:
             df["tp"] = np.nan
             return df
+        period = pd.to_numeric(parts[0], errors="coerce")
         amt = pd.to_numeric(parts[1], errors="coerce")
-        # 9999 indicates missing
-        amt = amt.where(amt != 9999.0, np.nan) / 10000.0
+        # 9999 indicates missing, only keep one hour accumulation periods
+        amt = amt.where((amt != 9999.0) & (period == 1), np.nan) / 10000.0
         df["tp"] = amt
         return df
 
