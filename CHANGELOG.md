@@ -17,10 +17,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Ported the tropical cyclone tracking recipe (`recipes/tc_tracking`) to the 1.0 API
-  and added AIFS-ENS v1 and v2 next to FCN3, a container build, and fixes for
-  asynchronous tracking and GPU memory use.
-
 ### Deprecated
 
 ### Removed
