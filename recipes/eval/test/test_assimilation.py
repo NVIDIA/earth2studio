@@ -44,11 +44,10 @@ from src.runners.assimilation import (
     assimilation,
     assimilation_forecast,
 )
-from src.runners.ensemble import EnsembleRunner
 
 from earth2studio.data import CompositeSource
 from earth2studio.io import KVBackend
-from earth2studio.run import Pipeline, work_items
+from earth2studio.run import Pipeline, PrognosticRunner, work_items
 from earth2studio.utils.coords import E2S_DYNAMIC_DIMS, coord_array
 from test.conftest import SMALL_LAT, SMALL_LON, compose_cfg
 
@@ -443,7 +442,7 @@ def test_assimilation_builder_from_config(tmp_path) -> None:
 def test_forecast_without_fill_uses_the_analysis_directly(tmp_path) -> None:
     cfg = _da_forecast_cfg(tmp_path, ["t2m"])
     runner = build_runner(cfg)
-    assert isinstance(runner, EnsembleRunner)
+    assert isinstance(runner, PrognosticRunner)
     assert isinstance(runner.source, AnalysisSource)
     assert "data" not in runner.source_roles
     item = work_items([T0], H6)[0]

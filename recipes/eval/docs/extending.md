@@ -70,13 +70,17 @@ python main.py model=my_model
 The recipe drives your model via the standard earth2studio iterator
 (`create_iterator` for prognostics; `__call__` for diagnostics), so no
 Python changes are needed as long as the class honours that contract.
-Multi-step outputs, coupled components on different cadences (DLESyM)
-and forcing slots (StormCast) are all handled by the default `forecast`
-runner, which is the library's `PrognosticRunner`.
+Multi-step outputs, fused coupled models (DLESyM) and forcing slots
+(StormCast) are all handled by the default `forecast` runner, which is
+the library's `PrognosticRunner`. Separate models that exchange fields,
+such as StormScope's GOES and MRMS pair, run through
+`earth2studio.coupling.CoupledRunner`;
+[src/runners/stormscope.py](../src/runners/stormscope.py) is a builder
+that wires two models and one `Connector` into it.
 
-If your model needs a different iteration pattern (models coupled by
-hand, outputs reduced before storage, sources the model protocol cannot
-express), skip to the runner section below.
+If your rollout needs a different iteration pattern (outputs reduced
+before storage, sources the model protocol cannot express), skip to the
+runner section below.
 
 ## Add a custom runner
 
@@ -88,9 +92,10 @@ runner when:
 
 * your rollout needs post-processing before storage (window means of every
   step; see [src/runners/seasonal.py](../src/runners/seasonal.py));
-* you couple models yourself, with more than one source, and more than one
-  output stream (GOES and MRMS; see
-  [src/runners/stormscope.py](../src/runners/stormscope.py));
+* you drive two or more models in a way `earth2studio.coupling.CoupledRunner`
+  cannot express; models that exchange fields get a `CoupledRunner` from a
+  builder instead, as [src/runners/stormscope.py](../src/runners/stormscope.py)
+  shows;
 * your data requirements do not fit the default IC-plus-forcing pattern.
 
 ### Runner protocol
@@ -157,12 +162,11 @@ no stream produces is an error.
 
 Member batching: with `supports_member_batching = True` an item may carry
 more than one member, and your outputs must carry a leading `ensemble`
-dimension labelled by them (see
-[src/runners/ensemble.py](../src/runners/ensemble.py):`EnsembleRunner`).
-Seed per member with `earth2studio.run.work.member_seed(seed, item.time,
-member)`. A batch cannot seed a stochastic model per member, so report
-`supports_member_batching = False` for it, as `EnsembleRunner` does unless
-the campaign sets `batch_stochastic_members: true`.
+dimension labelled by them, as `earth2studio.run.PrognosticRunner` does.
+Seed stochastic models once per item, from its first member, with
+`earth2studio.run.work.member_seed(seed, item.time, member)` (execution
+contract rule X5). Draw any perturbation one member at a time under that
+member's seed (rule X6).
 
 ### Builder and registration
 
@@ -250,7 +254,9 @@ enforces. The spec settles where runner logic belongs.
 `test/test_main.py` runs `build_runner` and the full `main.run` on the
 small-grid fixtures of `test/conftest.py` (`Persistence` prognostic,
 `Random` source, `compose_cfg(tmp_path, overrides)` over the real
-`cfg/default.yaml`); `test/test_runners.py` covers `EnsembleRunner`.
-`test/test_seasonal.py` and `test/test_stormscope.py` test the two worked
-examples on CPU with fake models, including their builders through
-`build_runner`; copy their shape to start a new runner's test file.
+`cfg/default.yaml`); `test/test_runners.py` covers the `forecast` builder
+and the member layout of the library runner it returns.
+`test/test_seasonal.py` tests the worked example on CPU with fake models,
+including its builder through `build_runner`. `test/test_stormscope.py`
+does the same for the `stormscope` builder over the library's coupled
+runner. Copy their shape to start a new runner's test file.

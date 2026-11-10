@@ -53,16 +53,13 @@ forcing_sources: null
 
 # Members rolled out together in one work item for offline runs (online
 # scoring uses scoring.online.members_per_rank).  Prognostic models absorb the
-# members into their batch dimension.
+# members into their batch dimension.  Perturbations draw each member alone
+# under its own seed, so a member's initial condition never depends on the
+# batch.  Stochastic models (FCN3, Aurora 1.5 ensemble, FuXi-S2S, ...) are
+# seeded once per item, from its first member (EXECUTION_CONTRACT X5), so a
+# member's trajectory depends on which members share its item; 1 reproduces
+# every member exactly whatever the others.
 member_batch: 1
-
-# Stochastic models (FCN3, Aurora 1.5 ensemble, FuXi-S2S, ...) are seeded per
-# member (EXECUTION_CONTRACT X5), so they roll one member per item and
-# member_batch / members_per_rank above 1 are refused.  Setting this to true
-# batches their members anyway: the batch shares the first member's seed, so
-# a member's trajectory depends on the batch size, and the runner logs the
-# deviation.
-batch_stochastic_members: false
 
 # ---------------------------------------------------------------------------
 # Pre-download enforcement
@@ -239,8 +236,12 @@ scoring:
     # (G) ranks; a group owns one IC at a time and rank g carries members
     # [g*K, (g+1)*K) where K = members_per_rank and G * K = ensemble_size.
     # ICs are distributed across groups, not ranks.  The default (G = M,
-    # K = 1) needs world_size >= ensemble_size and leaves run_item — and
-    # therefore per-member seeding — bit-for-bit identical to offline runs.
+    # K = 1) needs world_size >= ensemble_size.  Online scoring runs the
+    # same run_item as an offline run, so perturbed members match offline
+    # ones whatever K.  A stochastic model is seeded once per item from its
+    # first member (EXECUTION_CONTRACT X5), so its trajectories match an
+    # offline run only when both group members alike: members_per_rank
+    # equal to member_batch, or both 1.
     #
     # `metrics` above does NOT apply to the online path: online scoring
     # accumulates a fixed set of sufficient statistics and derives the
@@ -249,9 +250,9 @@ scoring:
     # a climatology is configured).
     online:
         ensemble_group_size: null      # null -> G = ensemble_size / K
-        members_per_rank: 1            # K > 1 needs a runner with
-                                       # supports_member_batching (stochastic
-                                       # models: batch_stochastic_members)
+        members_per_rank: 1            # K members per item; every runner
+                                       # but assimilation batches them.  See
+                                       # member_batch for stochastic models
         stats_store: stats.zarr        # the durable artifact
         # Where the finalize step writes.  null -> scoring.output.store_name.
         # Set it when also scoring the same run offline, so the two stores

@@ -17,6 +17,11 @@
 # Bring-your-own sources replace a role with `ic_source:` / `conditioning_source:`
 # nodes below; they must already deliver fields on the model grid (for example a
 # predownloaded store, or earth2studio.data.RegriddedSource around a raw source).
+# The stormscope runner couples the two models with
+# earth2studio.coupling.CoupledRunner: the GOES model feeds the radar model's
+# GOES conditioning slot, from its observed history at initialization and from
+# its forecast at every later step.  Members batch on a leading ensemble axis;
+# each model is seeded per member from its own offset of random_seed.
 
 goes:
     architecture: earth2studio.models.px.StormScopeGOES
@@ -31,6 +36,8 @@ goes:
         compile: true
     # ic_source: null          # GOES history on the model grid (model default)
     # forcing_source: null     # only for conditioned variants (6km_1hr): GFS_FX
+    # perturbation: null       # ensemble runs only: an earth2studio.perturbation
+    #                          # node applied to this model's initial condition
 
 mrms:
     architecture: earth2studio.models.px.StormScopeMRMS
@@ -41,9 +48,11 @@ mrms:
         amp: true
         compile: true
     # ic_source: null            # radar + GLM history on the model grid (model default)
-    # conditioning_source: null  # GOES history initializing the radar model; by
-    #                            # default the GOES observations fetched for the
-    #                            # GOES model are reused (one fetch, one store).
+    # conditioning_source: null  # GOES history frames the GOES model does not hold
+    #                            # (a radar history longer than the GOES one); the
+    #                            # GOES model itself conditions the radar model.
+    #                            # Default: the GOES source above (one store).
+    # perturbation: null         # ensemble runs only, as for the GOES model
 
 # Optional regional view, applied to both models with the same padding so
 # their grids keep matching (earth2studio.grids.Region.box order):

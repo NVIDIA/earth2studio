@@ -26,7 +26,8 @@
 # Details:
 #   * 7 scored variables (every model output that ERA5 provides)
 #   * 1 member — deterministic
-#   * 56 steps of 6 h, native 721x1440 [90,-90] grid (no regridding)
+#   * 28 steps of 12 h, each yielding the 6 h and 12 h leads (56 six-hourly
+#     leads in all), native 721x1440 [90,-90] grid (no regridding)
 #   * needs t-6h history, so it keeps its own IC store.
 # ---------------------------------------------------------------------------
 defaults:
@@ -88,7 +89,7 @@ start_times:
     - "2025-12-08 06:00:00"
     - "2025-12-15 12:00:00"
     - "2025-12-22 18:00:00"
-nsteps: 56           # 56 x 6h = 14 days
+nsteps: 28           # 28 x 12h = 14 days; nsteps counts model steps, not leads
 ensemble_size: 1
 resume: true
 perturbation: null

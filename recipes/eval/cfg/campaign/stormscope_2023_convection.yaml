@@ -20,9 +20,11 @@ predownload:
     verification:
         enabled: true
 
-# The stormscope runner binds its own sources per role (goes, mrms, and
-# mrms_conditioning / goes_forcing when configured) from the models'
-# default_sources(); the top-level data_source / ic_source are not used.
+# The stormscope runner couples the two models (earth2studio.coupling.
+# CoupledRunner; the GOES model feeds the radar model's conditioning) and
+# binds its own sources per role (goes, mrms, and mrms_conditioning /
+# goes_forcing when configured) from the models' default_sources(); the
+# top-level data_source / ic_source are not used.
 # Predownload writes <output.path>/goes.zarr and mrms.zarr, which the runner
 # prefers when present.  Verification comes from the same GOES and MRMS
 # observations at every forecast valid time: with data_source unset, the
@@ -42,7 +44,7 @@ predownload:
 #         ic_source:
 #             _target_: my_pkg.MyMrmsGlmZarrSource   # refc, refc_base, glm_density
 #             path: /data/my_mrms.zarr
-#         conditioning_source: null                  # reuse the GOES history
+#         conditioning_source: null                  # the GOES model conditions MRMS
 #
 # GLM (glm_density) is a state channel: the MRMS default source composes MRMS
 # radar with GOESGLMGrid lightning (bilinear onto the model grid) itself.

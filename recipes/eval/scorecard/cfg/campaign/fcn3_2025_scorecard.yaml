@@ -99,19 +99,14 @@ start_times:
 nsteps: 56           # 56 x 6h = 14 days
 ensemble_size: 16
 random_seed: 42
-# FCN3 is stochastic, so EXECUTION_CONTRACT X5 would roll one member per
-# item; this opts in to the two-members-per-rank batching configured under
-# scoring.online (see the note there).
-batch_stochastic_members: true
-
 # Resume is on so an expired allocation can be picked up mid-campaign.
 # Online progress markers live in <output.path>/.online_progress/ — clear
 # them (or bump run_id) if the data source ever changes.
 resume: true
 
-# FCN3 is intrinsically stochastic: the recipe calls set_rng(seed=item.seed)
-# per member, so members diverge through the model's own calibrated noise.
-# An IC perturbation would double-count it.
+# FCN3 is intrinsically stochastic: the runner seeds it once per work item
+# (EXECUTION_CONTRACT X5), and members diverge through the model's own
+# calibrated noise.  An IC perturbation would double-count it.
 perturbation: null
 
 # ---------------------------------------------------------------------------
@@ -238,8 +233,7 @@ scoring:
         # Note: the batched rollout draws FCN3's internal noise jointly per
         # member pair, so individual member trajectories differ from a
         # one-member-per-rank (K=1, 16-rank) run — the ensemble statistics
-        # are unchanged (members stay i.i.d.).  batch_stochastic_members
-        # above allows this.
+        # are unchanged (members stay i.i.d.); see EXECUTION_CONTRACT X5.
         members_per_rank: 2
         # Per-member MAE and radially averaged log spectral distance (dB)
         # vs ERA5 — the scorecard's deterministic panel.  The regional

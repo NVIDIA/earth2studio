@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Process setup shared by the entry points: logging and the process group."""
+"""Process setup shared by the entry points: logging, process group, GPU pool."""
 
 from __future__ import annotations
 
@@ -57,6 +57,34 @@ def configure_logging() -> None:
     )
 
 
+def share_cupy_allocator() -> None:
+    """Serve CuPy's GPU allocations from PyTorch's caching allocator.
+
+    :func:`earth2studio.data.fetch_data` returns CuPy-backed fields on a CUDA
+    device and the models hand Torch tensors back, so one run fills two
+    memory pools that cannot see each other's free blocks: an Aurora 1.5
+    ensemble run held 16 GiB idle in the CuPy pool while PyTorch ran out of
+    memory.  Here every CuPy block is a Torch tensor that the CuPy memory object
+    owns: dropping the CuPy array drops the tensor and the block returns to
+    PyTorch's pool, with no free callback that the cyclic garbage collector
+    could clear first.  Without CuPy this does nothing.
+    """
+    try:
+        import cupy
+    except ImportError:
+        return
+
+    def malloc(size: int) -> cupy.cuda.MemoryPointer:
+        device_id = cupy.cuda.Device().id
+        block = torch.empty(
+            size, dtype=torch.uint8, device=torch.device("cuda", device_id)
+        )
+        memory = cupy.cuda.UnownedMemory(block.data_ptr(), size, block, device_id)
+        return cupy.cuda.MemoryPointer(memory, 0)
+
+    cupy.cuda.set_allocator(malloc)
+
+
 def init_distributed(timeout_s: float | None = None) -> torch.device:
     """Initialize ``torch.distributed`` under ``torchrun`` and pick the device.
 
@@ -72,13 +100,16 @@ def init_distributed(timeout_s: float | None = None) -> torch.device:
     Returns
     -------
     torch.device
-        ``cuda:{LOCAL_RANK}`` when CUDA is available, otherwise CPU.
+        ``cuda:{LOCAL_RANK}`` when CUDA is available, otherwise CPU.  On CUDA,
+        CuPy allocates from PyTorch's pool from here on
+        (:func:`share_cupy_allocator`).
     """
     world_size = int(os.environ.get("WORLD_SIZE", "1"))
     local_rank = int(os.environ.get("LOCAL_RANK", "0"))
     if torch.cuda.is_available():
         torch.cuda.set_device(local_rank)
         device = torch.device(f"cuda:{local_rank}")
+        share_cupy_allocator()
     else:
         device = torch.device("cpu")
     if world_size > 1 and not dist.is_initialized():

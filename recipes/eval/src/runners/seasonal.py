@@ -73,8 +73,8 @@ class WindowMeanRunner:
     Parameters
     ----------
     inner : PrognosticRunner
-        Runner whose rollout to average, typically the recipe's
-        :class:`~src.runners.ensemble.EnsembleRunner`.
+        Runner whose rollout to average, typically the ``forecast`` runner
+        built by :func:`src.runners.forecast`.
     window : str | np.timedelta64 | pd.Timedelta
         Window length parsed by :class:`pandas.Timedelta` (``"30D"``,
         ``"7D"``, ``"720h"``).

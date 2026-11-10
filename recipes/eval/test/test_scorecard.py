@@ -39,7 +39,6 @@ from scorecard.utils.sources import (
     stormcast_conditioning,
     stormcast_grid,
 )
-from src.runners.ensemble import EnsembleRunner
 
 from earth2studio.data import RegriddedSource
 from earth2studio.grids import LatLonGrid, resolve_grid
@@ -161,9 +160,9 @@ class TestClimatologyForecast:
         )
         assert valid == [6.0, 12.0, 18.0]
 
-    def test_ensemble_runner_broadcasts_members(self, small_grid: LatLonGrid) -> None:
+    def test_forecast_runner_broadcasts_members(self, small_grid: LatLonGrid) -> None:
         model = ClimatologyForecast(VARIABLES, grid=small_grid)
-        runner = EnsembleRunner(model, source=_Zeros(), forcing=(_Climatology(),))
+        runner = PrognosticRunner(model, source=_Zeros(), forcing=(_Climatology(),))
         items = work_items([T0], 2 * H6, members=2, member_batch=2)
         forecasts = [out["forecast"] for out in runner.run_item(items[0])]
         assert forecasts[-1].dims[0] == "ensemble"

@@ -61,7 +61,7 @@ from earth2studio.grids import (
 )
 from earth2studio.models.da.base import AssimilationModel
 from earth2studio.models.utils import recommended_sources
-from earth2studio.run import DataRequest, WorkItem
+from earth2studio.run import DataRequest, PrognosticRunner, WorkItem
 from earth2studio.run.runner import (
     _module_device,
     _seed_model,
@@ -78,7 +78,6 @@ from ..data import (
     resolve_source,
 )
 from . import forecast as build_forecast
-from .ensemble import EnsembleRunner
 
 ZERO_LEAD = np.array([np.timedelta64(0, "h")])
 """The single lead time of an analysis product."""
@@ -837,7 +836,7 @@ def assimilation(
 
 def assimilation_forecast(
     cfg: DictConfig, prefer_predownloaded: bool = True
-) -> EnsembleRunner:
+) -> PrognosticRunner:
     """Build the DA-initialized forecast runner.
 
     Builds the forecast runner of :func:`src.runners.forecast` on
@@ -859,7 +858,7 @@ def assimilation_forecast(
 
     Returns
     -------
-    EnsembleRunner
+    PrognosticRunner
         Forecast runner initialized from DA analyses.
     """
     if "forecast" not in cfg.model:
@@ -912,7 +911,7 @@ def assimilation_forecast(
     runner.data_requests = data_requests  # type: ignore[method-assign]
     forecast_to = runner.to
 
-    def to(device: torch.device) -> EnsembleRunner:
+    def to(device: torch.device) -> PrognosticRunner:
         # The DA model lives in the analysis source, which the forecast runner
         # does not know about; move it along with the forecast models.
         forecast_to(device)

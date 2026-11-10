@@ -32,12 +32,11 @@ from omegaconf import open_dict
 from src.campaign import build_items, final_lead_time
 from src.output import store_path
 from src.runners import build_runner
-from src.runners.ensemble import EnsembleRunner
 from src.runners.seasonal import WindowMeanRunner, window_mean
 
 from earth2studio.io import KVBackend
 from earth2studio.models.px import Persistence
-from earth2studio.run import Pipeline, work_items
+from earth2studio.run import Pipeline, PrognosticRunner, work_items
 from test.conftest import VARIABLES
 
 T0 = np.datetime64("2024-01-01T00:00:00")
@@ -68,7 +67,9 @@ def counting(small_grid) -> _Counting:
 
 @pytest.fixture()
 def runner(counting, data_source, fake_diagnostic) -> WindowMeanRunner:
-    inner = EnsembleRunner(counting, data_source, diagnostics={"diag": fake_diagnostic})
+    inner = PrognosticRunner(
+        counting, data_source, diagnostics={"diag": fake_diagnostic}
+    )
     return WindowMeanRunner(inner, window="12h")
 
 
@@ -113,7 +114,7 @@ def test_final_lead_time_must_cover_whole_windows(runner) -> None:
 
 
 def test_rejects_calendar_months_and_bad_windows(counting, data_source) -> None:
-    inner = EnsembleRunner(counting, data_source)
+    inner = PrognosticRunner(counting, data_source)
     with pytest.raises(NotImplementedError, match="month"):
         WindowMeanRunner(inner, window="month")
     with pytest.raises(ValueError, match="positive"):
@@ -194,7 +195,7 @@ def test_builder_wraps_the_forecast_runner(base_cfg) -> None:
     cfg = _window_cfg(base_cfg)
     runner = build_runner(cfg)
     assert isinstance(runner, WindowMeanRunner)
-    assert isinstance(runner.inner, EnsembleRunner)
+    assert isinstance(runner.inner, PrognosticRunner)
     assert runner.step == H6
     assert "data" in runner.source_roles
     # nsteps counts model steps, not windows.

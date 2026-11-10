@@ -23,8 +23,8 @@
 # computes those means from the plain hourly arco_era5 source, so no
 # daily-mean data source wrapper is needed.  predownload.py stores the
 # reduced daily fields under the qualified labels.  The graph samples its
-# own perturbations, so every trajectory is one stochastic member and the
-# runner rolls one member per item (see batch_stochastic_members).
+# own perturbations, so every trajectory is one stochastic member; the
+# members of one work item share a random stream (see member_batch).
 architecture: earth2studio.models.px.FuXiS2S
 # Omit package_path to use the default Hugging Face mirror of the checkpoint.
 # package_path: /path/to/custom/checkpoint

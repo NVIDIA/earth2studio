@@ -120,7 +120,7 @@ def run(cfg: DictConfig, device: torch.device | str = "cpu") -> None:
     resume = bool(cfg.get("resume", False))
 
     runner = build_runner(cfg)
-    items = build_items(cfg, runner, member_batch=members_per_item(cfg, runner))
+    items = build_items(cfg, runner, member_batch=members_per_item(cfg))
     check_predownload(cfg, runner, items)
     final_lead_time = max(item.final_lead_time for item in items)
     schemas = runner.output_coords(final_lead_time)

@@ -42,15 +42,6 @@ class _NoStepRunner:
     pass
 
 
-class _NoBatchRunner(_StepRunner):
-    supports_member_batching = False
-    stochastic_models = ("prognostic",)
-
-
-class _BatchRunner(_StepRunner):
-    supports_member_batching = True
-
-
 def test_initial_times_from_list() -> None:
     cfg = OmegaConf.create(
         {"start_times": ["2024-01-02 00:00:00", "2024-01-01 00:00:00"]}
@@ -123,20 +114,6 @@ def test_members_per_item_follows_scoring_mode() -> None:
     )
     assert members_per_item(offline) == 2
     assert members_per_item(online) == 4
-
-
-def test_members_per_item_caps_runners_without_member_batching() -> None:
-    offline = OmegaConf.create({"member_batch": 2, "scoring": {"mode": "offline"}})
-    online = OmegaConf.create(
-        {"scoring": {"mode": "online", "online": {"members_per_rank": 4}}}
-    )
-    assert members_per_item(offline, _BatchRunner()) == 2
-    assert members_per_item(online, _BatchRunner()) == 4
-    assert members_per_item(offline, _NoBatchRunner()) == 1
-    with pytest.raises(ValueError, match="batch_stochastic_members"):
-        members_per_item(online, _NoBatchRunner())
-    single = OmegaConf.create({"member_batch": 1})
-    assert members_per_item(single, _NoBatchRunner()) == 1
 
 
 def test_build_items_matches_library_work_items() -> None:

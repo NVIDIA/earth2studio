@@ -268,50 +268,31 @@ def online_scoring(cfg: DictConfig) -> bool:
     return bool(scoring) and str(scoring.get("mode", "offline")).lower() == "online"
 
 
-def members_per_item(cfg: DictConfig, runner: object | None = None) -> int:
+def members_per_item(cfg: DictConfig) -> int:
     """Members rolled out together in one work item.
 
     Online scoring reads ``scoring.online.members_per_rank``; offline runs use
-    ``member_batch`` (default one member per item).  A runner that does not
-    batch members caps the count at one: with a warning offline, with an error
-    online, where the ensemble groups size themselves on ``members_per_rank``.
+    ``member_batch`` (default one member per item).  Every built-in runner but
+    ``assimilation`` batches members: the library runners stack them on a
+    leading ``ensemble`` axis, perturb each alone under its own seed and seed
+    a stochastic model once per item, from its first member (EXECUTION_CONTRACT
+    X5), so only ``1`` reproduces each member exactly.
+    :class:`earth2studio.run.Pipeline` rejects batched items for a runner
+    without ``supports_member_batching``.
 
     Parameters
     ----------
     cfg : DictConfig
         Campaign config.
-    runner : object, optional
-        The campaign's :class:`earth2studio.run.Runner`; None skips the
-        ``supports_member_batching`` check.
 
     Returns
     -------
     int
         Members per item.
     """
-    online = online_scoring(cfg)
-    if online:
-        requested = int(cfg.scoring.online.get("members_per_rank", 1) or 1)
-    else:
-        requested = int(cfg.get("member_batch", 1) or 1)
-    if requested <= 1 or runner is None:
-        return requested
-    if getattr(runner, "supports_member_batching", False):
-        return requested
-    why = f"{type(runner).__name__} rolls one member per item"
-    stochastic = tuple(getattr(runner, "stochastic_models", ()))
-    if stochastic:
-        why += (
-            f" because {', '.join(stochastic)} is stochastic and seeded per member "
-            "(EXECUTION_CONTRACT X5); batch_stochastic_members=true batches anyway"
-        )
-    if online:
-        raise ValueError(
-            f"scoring.online.members_per_rank={requested} needs member batching, "
-            f"but {why}."
-        )
-    logger.warning(f"member_batch={requested} ignored: {why}.")
-    return 1
+    if online_scoring(cfg):
+        return int(cfg.scoring.online.get("members_per_rank", 1) or 1)
+    return int(cfg.get("member_batch", 1) or 1)
 
 
 def campaign_times(items: Sequence[WorkItem]) -> np.ndarray:

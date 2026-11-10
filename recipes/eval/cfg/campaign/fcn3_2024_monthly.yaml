@@ -77,6 +77,7 @@ scoring:
             _target_: earth2studio.statistics.crps
             reduction_dimensions: [lat, lon]
             ensemble_dimension: ensemble
+            fair: true   # the unbiased estimator, as the online path computes
 
 report:
     title: "FCN3 Ensemble 2024 — 14-day Evaluation"

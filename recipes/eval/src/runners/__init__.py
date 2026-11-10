@@ -18,7 +18,7 @@
 
 ``cfg.runner`` names a builder.  Select a built-in by name::
 
-    runner: forecast          # prognostic rollout, ensembles via EnsembleRunner
+    runner: forecast          # prognostic rollout, members batched per item
     runner: diagnostic        # diagnostics applied to source data
     runner: assimilation      # DA analyses scored directly
     runner: assimilation_forecast   # DA analyses initialize a prognostic
@@ -46,11 +46,10 @@ import hydra
 from loguru import logger
 from omegaconf import DictConfig, OmegaConf
 
-from earth2studio.run import DiagnosticRunner, Runner
+from earth2studio.run import DiagnosticRunner, PrognosticRunner, Runner
 
 from ..data import resolve_source
 from ..models import load_diagnostics, load_prognostic
-from .ensemble import EnsembleRunner
 
 BUILTIN_RUNNERS: dict[str, str] = {
     "forecast": "src.runners.forecast",
@@ -142,15 +141,15 @@ def forecast(
     prefer_predownloaded: bool = True,
     model_node: DictConfig | None = None,
     source: Any = None,
-) -> EnsembleRunner:
+) -> PrognosticRunner:
     """Build the prognostic rollout runner.
 
     Parameters
     ----------
     cfg : DictConfig
-        Campaign config: ``model``, optional ``diagnostics``, ``perturbation``,
-        ``data_source`` / ``ic_source`` / ``forcing_sources``, ``random_seed``
-        and ``batch_stochastic_members``.
+        Campaign config: ``model``, optional ``diagnostics``, ``perturbation``
+        (applied to ensembles only), ``data_source`` / ``ic_source`` /
+        ``forcing_sources`` and ``random_seed``.
     prefer_predownloaded : bool, optional
         Read predownloaded stores when present, by default True
     model_node : DictConfig, optional
@@ -161,7 +160,7 @@ def forecast(
 
     Returns
     -------
-    EnsembleRunner
+    PrognosticRunner
         Runner yielding the ``forecast`` stream plus one per diagnostic.
     """
     prognostic = load_prognostic(cfg, model_node)
@@ -189,14 +188,13 @@ def forecast(
     perturbation = None
     if (cfg.get("ensemble_size", 1) or 1) > 1 and cfg.get("perturbation"):
         perturbation = hydra.utils.instantiate(cfg.perturbation)
-    runner = EnsembleRunner(
+    runner = PrognosticRunner(
         prognostic,
         source=source,
         forcing=forcing,
         diagnostics=diagnostics,
         seed=int(cfg.get("random_seed", 42)),
         perturbation=perturbation,
-        batch_stochastic=bool(cfg.get("batch_stochastic_members", False)),
     )
     runner.source_roles = {  # type: ignore[attr-defined]
         "data": runner.source,

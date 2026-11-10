@@ -14,14 +14,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""EnsembleRunner: member batching, per-member perturbation and seeding."""
+"""The ``forecast`` runner: the library's PrognosticRunner wired by the recipe.
+
+Member batching, per-member perturbation and seeding are library behaviour
+(EXECUTION_CONTRACT X5 and X6).  These tests pin the layout the recipe's
+stores, online scorer and campaign configs rely on, and the builder's wiring.
+"""
 
 from __future__ import annotations
 
 import numpy as np
 import pytest
 import torch
-from src.runners.ensemble import EnsembleRunner
+from omegaconf import open_dict
+from src.runners import forecast
 
 from earth2studio.io import KVBackend
 from earth2studio.models.px import Persistence
@@ -51,21 +57,25 @@ def _steps(runner, item):
     return [step["forecast"] for step in runner.run_item(item)]
 
 
-def test_deterministic_item_matches_prognostic_runner(prognostic, data_source) -> None:
-    item = work_items([T0], 2 * H6)[0]
-    torch.manual_seed(0)
-    ours = _steps(EnsembleRunner(prognostic, data_source), item)
-    torch.manual_seed(0)
-    theirs = _steps(PrognosticRunner(prognostic, data_source), item)
-    assert len(ours) == len(theirs) == 3
-    for a, b in zip(ours, theirs):
-        assert a.dims == b.dims
-        np.testing.assert_array_equal(a.values, b.values)
+def test_builder_wires_the_library_runner(base_cfg) -> None:
+    runner = forecast(base_cfg)
+    assert isinstance(runner, PrognosticRunner)
+    assert runner.seed == 42
+    assert runner.perturbation is None  # ensemble_size=1 ignores the block
+    assert runner.source_roles["data"] is runner.source
+    with open_dict(base_cfg):
+        base_cfg.ensemble_size = 2
+        base_cfg.perturbation = {
+            "_target_": "earth2studio.perturbation.Gaussian",
+            "noise_amplitude": 0.1,
+        }
+    ensemble = forecast(base_cfg)
+    assert isinstance(ensemble.perturbation, Gaussian)
 
 
 def test_ensemble_item_carries_members_on_leading_axis(prognostic, data_source) -> None:
     item = work_items([T0], 2 * H6, members=[3, 5], member_batch=2)[0]
-    steps = _steps(EnsembleRunner(prognostic, data_source), item)
+    steps = _steps(PrognosticRunner(prognostic, data_source), item)
     assert len(steps) == 3
     for step in steps:
         assert step.dims[0] == "ensemble"
@@ -92,7 +102,9 @@ def _perturbations() -> list:
 def test_perturbation_is_per_member_and_batch_invariant(
     prognostic, data_source, perturbation
 ) -> None:
-    runner = EnsembleRunner(prognostic, data_source, perturbation=perturbation, seed=7)
+    runner = PrognosticRunner(
+        prognostic, data_source, perturbation=perturbation, seed=7
+    )
     batched = _steps(
         runner, work_items([T0], H6, members=[0, 1, 2], member_batch=3)[0]
     )[-1]
@@ -101,9 +113,9 @@ def test_perturbation_is_per_member_and_batch_invariant(
         for item in work_items([T0], H6, members=[0, 1, 2], member_batch=1)
     ]
     for m, single in enumerate(singles):
-        np.testing.assert_allclose(
-            batched.isel(ensemble=m).values, single.isel(ensemble=0).values
-        )
+        # One member runs without the axis; Pipeline adds it when storing.
+        assert "ensemble" not in single.dims
+        np.testing.assert_allclose(batched.isel(ensemble=m).values, single.values)
     # Members differ from one another.
     assert not np.allclose(
         batched.isel(ensemble=0).values, batched.isel(ensemble=1).values
@@ -112,7 +124,7 @@ def test_perturbation_is_per_member_and_batch_invariant(
 
 def test_pipeline_writes_members_into_one_store(prognostic, data_source) -> None:
     store = KVBackend()
-    runner = EnsembleRunner(prognostic, data_source, perturbation=Gaussian(0.1))
+    runner = PrognosticRunner(prognostic, data_source, perturbation=Gaussian(0.1))
     items = work_items([T0, T0 + np.timedelta64(1, "D")], H6, members=4, member_batch=2)
     Pipeline(runner, output={"forecast": store}, device="cpu").run(items)
     assert tuple(store.dims["t2m"]) == ("ensemble", "time", "lead_time", "lat", "lon")
@@ -120,32 +132,17 @@ def test_pipeline_writes_members_into_one_store(prognostic, data_source) -> None
     assert not torch.isnan(store["t2m"]).any()
 
 
-def test_stochastic_models_roll_one_member_per_item(data_source, small_grid) -> None:
-    model = StochasticPersistence(variable=VARIABLES, domain_coords=small_grid)
-    runner = EnsembleRunner(model, data_source, seed=7)
-    assert runner.stochastic_models == ("prognostic",)
-    assert not runner.supports_member_batching
-    batched = work_items([T0], H6, members=[0, 1], member_batch=2)[0]
-    with pytest.raises(ValueError, match="one member per item"):
-        list(runner.run_item(batched))
-    for item in work_items([T0], H6, members=[0, 1], member_batch=1):
-        assert len(_steps(runner, item)) == 2
-    assert model.seeds == [member_seed(7, T0, 0), member_seed(7, T0, 1)]
-
-
-def test_batching_stochastic_members_is_an_explicit_opt_in(
+def test_stochastic_batch_is_seeded_once_from_its_first_member(
     data_source, small_grid
 ) -> None:
     model = StochasticPersistence(variable=VARIABLES, domain_coords=small_grid)
-    runner = EnsembleRunner(model, data_source, seed=7, batch_stochastic=True)
+    runner = PrognosticRunner(model, data_source, seed=7)
     assert runner.supports_member_batching
     steps = _steps(runner, work_items([T0], H6, members=[0, 1], member_batch=2)[0])
     assert steps[-1].sizes["ensemble"] == 2
-    # One seed per batch, from its first member.
     assert model.seeds == [member_seed(7, T0, 0)]
-
-
-def test_deterministic_models_batch_members_by_default(prognostic, data_source) -> None:
-    runner = EnsembleRunner(prognostic, data_source)
-    assert runner.stochastic_models == ()
-    assert runner.supports_member_batching
+    # member_batch=1 seeds every member alone, so each reproduces whatever the others.
+    model.seeds.clear()
+    for item in work_items([T0], H6, members=[0, 1], member_batch=1):
+        assert len(_steps(runner, item)) == 2
+    assert model.seeds == [member_seed(7, T0, 0), member_seed(7, T0, 1)]

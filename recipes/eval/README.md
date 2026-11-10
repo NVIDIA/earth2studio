@@ -246,8 +246,9 @@ python main.py \
 ### Coupled multi-source runners
 
 The default StormScope checkpoint is the **`3km_10min`** CONUS nowcasting
-variant (3 km grid, 10-minute step). The `stormscope` runner
-(`src/runners/stormscope.py`) couples two models:
+variant (3 km grid, 10-minute step). The `stormscope` builder
+(`src/runners/stormscope.py`) couples two models with the library's
+`earth2studio.coupling.CoupledRunner`:
 
 - **`StormScopeGOES`** — forecasts the eight ABI satellite channels.  The
   `3km_10min` variant is *pure obs*: it takes **no external conditioning**.
@@ -257,15 +258,20 @@ variant (3 km grid, 10-minute step). The `stormscope` runner
   frames during rollout).
 
 Both models run on the shared HRRR projected grid and land in `forecast.zarr`
-as the streams `goes` and `mrms`. The runner binds one source per role rather
-than using the top-level `data_source` / `ic_source`:
+as the streams `goes` and `mrms`. One `Connector("goes", "mrms")` feeds the
+GOES model's frames into the radar model's conditioning slot: the observed
+history it holds at initialization, then its forecast at every step. Members
+batch on a leading `ensemble` axis, each model takes a per-member seed from
+its own offset of `random_seed`, and `model.<name>.perturbation` perturbs
+that model's initial condition in ensemble runs. The builder binds one source per
+role rather than using the top-level `data_source` / `ic_source`:
 
 <!-- markdownlint-disable MD013 -->
 | Role | Config node | Default |
 | --- | --- | --- |
 | `goes` | `model.goes.ic_source` | the GOES model's `default_sources()` |
 | `mrms` | `model.mrms.ic_source` | the MRMS model's `default_sources()` (radar composed with GOES GLM lightning) |
-| `mrms_conditioning` | `model.mrms.conditioning_source` | the GOES history fetched for the GOES model, when it covers the conditioning variables and lead times |
+| `mrms_conditioning` | `model.mrms.conditioning_source` | the `goes` source; the GOES model feeds the slot, so a source only serves history frames the GOES model does not hold (a radar history longer than the GOES one) |
 | `goes_forcing` | `model.goes.forcing_source` | the GOES model's recommendation; conditioned variants only (`6km_1hr`) |
 <!-- markdownlint-enable MD013 -->
 
@@ -287,7 +293,7 @@ model:
         ic_source:
             _target_: my_pkg.MyMrmsGlmZarrSource   # refc, refc_base, glm_density
             path: /data/my_mrms.zarr
-        conditioning_source: null                  # reuse the GOES history
+        conditioning_source: null                  # the GOES model conditions MRMS
 ```
 
 An optional `model.region` box (`{kind: box, params: [west, south, east,
@@ -319,8 +325,9 @@ and `predownload.py` writes them into `verification.zarr` for `score.py`. A
 bring-your-own `verification_source` replaces that.
 
 Because the `3km_10min` GOES model reads observations only, there is no forcing source
-to pre-download. The GOES history serves the MRMS conditioning by default, so
-the planner writes no `mrms_conditioning.zarr` either.
+to pre-download. The GOES model conditions the radar model and the `goes`
+source serves any earlier history frame, so the planner writes no
+`mrms_conditioning.zarr` either.
 
 ## Data Assimilation Models
 
@@ -648,10 +655,12 @@ perturbation:
 ```
 
 The runner draws each member's perturbation under `member_seed(random_seed,
-time, member)`. For stochastic models (for example FCN3), the runner also
-seeds the model's RNG from that seed before each member's rollout, so such
-models roll one member per item unless `batch_stochastic_members: true`,
-as [Members per rank](#members-per-rank-k--1) explains.
+time, member)`, one member at a time. A member's initial condition does not
+depend on the members it runs with. The runner seeds a stochastic
+model (for example FCN3) once per work item, from its first member, so the
+trajectories do depend on the item's members. The default `member_batch: 1`
+reproduces every member exactly. [Members per rank](#members-per-rank-k--1)
+covers batching.
 
 ### Scoring
 
@@ -809,9 +818,11 @@ groups*.  A group owns one IC at a time and its ranks carry disjoint
 slices of the ensemble — rank `g` runs members `[g*K, (g+1)*K)` where
 `G * K = ensemble_size` and `K` is `members_per_rank`.  ICs are
 distributed across **groups**, not ranks.  With the default `K = 1` you
-need `world_size >= ensemble_size`, and `run_item` — including per-member
-seeding — is untouched, so online runs reproduce offline forecasts
-bit-for-bit.
+need `world_size >= ensemble_size`.  Online scoring runs the same
+`run_item` as an offline run, so perturbed members match offline ones
+whatever `K`.  The runner seeds a stochastic model once per item, from
+its first member. Its trajectories match an offline run only when both
+group members alike: `members_per_rank` equal to `member_batch`, or both 1.
 
 <!-- markdownlint-disable MD013 -->
 | Setting | Meaning |
@@ -820,7 +831,7 @@ bit-for-bit.
 | `output.retain` | `all` (default) · `none` — drop `forecast.zarr` entirely; only legal with online scoring |
 | `scoring.online.scores_store` | Where the finalize step writes; `null` → `scoring.output.store_name` |
 | `scoring.online.ensemble_group_size` | Ranks per group `G`; `null` → `G = ensemble_size / K` |
-| `scoring.online.members_per_rank` | Members per rank `K`; `> 1` needs a runner with `supports_member_batching` (stochastic models: `batch_stochastic_members: true`) |
+| `scoring.online.members_per_rank` | Members per rank `K`; `> 1` batches `K` members per item (every runner but `assimilation`) |
 | `scoring.online.stats_store` | The durable artifact (default `stats.zarr`) |
 | `scoring.online.climatology` | A `DataSource` on the verification grid; required for ACC |
 <!-- markdownlint-enable MD013 -->
@@ -835,36 +846,31 @@ NVLink, roughly a 10× reduction in the dominant communication cost.  It
 also lets you run an ensemble at all when `world_size < ensemble_size`.
 
 ```bash
-# 56 members, 8 ranks per group -> groups are node-local; FCN3 is
-# stochastic, so batching its members is an explicit opt-in
+# 56 members, 7 per rank -> 8-rank groups, each inside one node
 torchrun --nproc_per_node=8 --standalone main.py \
     campaign=fcn3_2024_monthly scoring.mode=online output.retain=none \
-    ensemble_size=56 scoring.online.members_per_rank=7 \
-    batch_stochastic_members=true
+    ensemble_size=56 scoring.online.members_per_rank=7
 ```
 
 `G * K` must equal `ensemble_size` exactly — ragged groups are rejected
 with a clear error rather than silently padded.
 
 A batched rollout stacks members on the model's batch axis: one work item
-carries more than one `member_ids` entry, which a runner accepts only when
-its `supports_member_batching` flag is true. `EnsembleRunner` (the
-`forecast`, `assimilation_forecast`, and `window_mean` runners) does for
-deterministic models. The `stormscope` and `assimilation` runners run one
-member per item. Offline runs batch members with the top-level
-`member_batch` setting instead. The runner draws each member's perturbation
-under that member's own seed, so initial conditions still match a `K = 1`
-run exactly.
+carries more than one `member_ids` entry. The library runners behind
+`forecast`, `assimilation_forecast`, `window_mean`, `diagnostic` and
+`stormscope` all batch members; only the `assimilation` runner runs one
+member per item, and the pipeline rejects batched items for it. Offline
+runs batch members with the top-level `member_batch` setting instead. The
+runner draws each member's perturbation under that member's own seed, so
+initial conditions still match a `K = 1` run exactly.
 
-Stochastic models, such as FCN3, declare `stochastic = True` and get one
-seed per member, as the execution contract requires. A batched rollout cannot do that,
-so `EnsembleRunner` rolls them one member per item and rejects
-`members_per_rank > 1` with an error. Set `batch_stochastic_members: true`
-to batch them anyway. The members of an item then share the first member's
-seed, so single trajectories differ from a `K = 1` run. The ensemble stays
-statistically valid, and the runner logs the deviation once. The bundled
-FCN3, Aurora 1.5 and Atlas CRPS scorecard campaigns opt in to keep their
-groups node-local.
+Stochastic models, such as FCN3, declare `stochastic = True`. The runner
+seeds them once per work item, from its first member (execution contract
+rule X5). The members of an item share that random stream, so single
+trajectories differ from a `K = 1` run while the ensemble stays
+statistically valid. `K = 1` reproduces every member exactly. The bundled
+FCN3, Aurora 1.5 and Atlas CRPS scorecard campaigns run two members per
+rank to keep their groups node-local.
 
 **Metrics.**  The online path does *not* use `scoring.metrics` — it
 accumulates a fixed set of mergeable sums and derives the metric set from
@@ -1114,9 +1120,8 @@ recipes/eval/
 │   ├── campaign.py      # Initial times, members, work items, ensemble-group ordering
 │   ├── runners/         # Runner builders: src.runners.build_runner and the built-ins
 │   │   ├── __init__.py  #   BUILTIN_RUNNERS, build_runner, forecast, diagnostic builders
-│   │   ├── ensemble.py  #   EnsembleRunner (PrognosticRunner + per-member perturbation)
 │   │   ├── assimilation.py # AssimilationRunner, AnalysisSource, DA builders
-│   │   ├── stormscope.py #  StormScopeRunner (coupled GOES + MRMS, streams goes/mrms)
+│   │   ├── stormscope.py #  stormscope builder: CoupledRunner over GOES + MRMS (goes/mrms)
 │   │   └── seasonal.py  #   WindowMeanRunner (window means of a rollout)
 │   ├── data.py          # resolve_source, Predownloaded(Frame)Source, FrameRequest
 │   ├── models.py        # Model loading (prognostic, diagnostic, assimilation)
@@ -1205,11 +1210,11 @@ runner: {_target_: my_pkg.my_runner, option: value}   # any importable builder
 <!-- markdownlint-disable MD013 -->
 | `runner:` | Implementation | What it does |
 | --- | --- | --- |
-| `forecast` (default) | `EnsembleRunner` over `model` | Prognostic rollout with optional diagnostics, perturbation, and member batching; the `forecast` stream plus one per diagnostic. Coupled models such as DLESyM and forced models such as StormCast run here too |
+| `forecast` (default) | `earth2studio.run.PrognosticRunner` over `model` | Prognostic rollout with optional diagnostics, perturbation, and member batching; the `forecast` stream plus one per diagnostic. Coupled models such as DLESyM and forced models such as StormCast run here too |
 | `diagnostic` | `earth2studio.run.DiagnosticRunner` | Diagnostics applied to source data (for example CorrDiff); one stream per diagnostic at lead time zero |
 | `assimilation` | `AssimilationRunner` | One DA analysis per item as the `analysis` stream; requires `nsteps: 0` |
-| `assimilation_forecast` | `EnsembleRunner` reading from `AnalysisSource` | DA analyses initialize the prognostic rollout of `model.forecast` |
-| `stormscope` | `StormScopeRunner` | Coupled GOES and MRMS short-range forecast; streams `goes` and `mrms` |
+| `assimilation_forecast` | `PrognosticRunner` reading from `AnalysisSource` | DA analyses initialize the prognostic rollout of `model.forecast` |
+| `stormscope` | `earth2studio.coupling.CoupledRunner` over `model.goes` and `model.mrms` | The GOES model feeds the radar model through one connector; streams `goes` and `mrms`, members batched |
 | `window_mean` | `WindowMeanRunner` over the forecast runner | Rollout stored as means over fixed windows (`window: 30D`); the `lead_time` axis holds the window ends. See `campaign=fuxi_s2s_2024` |
 <!-- markdownlint-enable MD013 -->
 
@@ -1218,8 +1223,10 @@ runner: {_target_: my_pkg.my_runner, option: value}   # any importable builder
 To add a custom inference loop, write a builder `(cfg, prefer_predownloaded=True,
 **options) -> Runner` and point `runner` at it with a `_target_` block.
 See [docs/extending.md](./docs/extending.md) for the full contract, the
-worked examples (`src/runners/seasonal.py`, `src/runners/stormscope.py`)
-and how `predownload.py` derives its stores from the runner.
+worked example (`src/runners/seasonal.py`) and how `predownload.py`
+derives its stores from the runner. Models that exchange fields need no
+custom runner: `src/runners/stormscope.py` builds the library's
+`earth2studio.coupling.CoupledRunner` instead.
 
 ```python
 # my_runner.py

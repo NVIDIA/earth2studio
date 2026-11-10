@@ -29,9 +29,8 @@ from src.campaign import build_items
 from src.data import PredownloadedSource
 from src.output import store_path, stream_variables
 from src.runners import build_runner
-from src.runners.ensemble import EnsembleRunner
 
-from earth2studio.run import DiagnosticRunner
+from earth2studio.run import DiagnosticRunner, PrognosticRunner
 from test.conftest import SMALL_LAT, SMALL_LON, VARIABLES
 
 
@@ -41,7 +40,7 @@ def _open(cfg) -> xr.Dataset:
 
 def test_build_runner_defaults_to_forecast(base_cfg) -> None:
     runner = build_runner(base_cfg)
-    assert isinstance(runner, EnsembleRunner)
+    assert isinstance(runner, PrognosticRunner)
     items = build_items(base_cfg, runner)
     assert len(items) == 1 and items[0].final_lead_time == np.timedelta64(12, "h")
     schemas = runner.output_coords(items[0].final_lead_time)

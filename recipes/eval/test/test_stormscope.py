@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""StormScopeRunner: coupled GOES to MRMS rollout on fake models.
+"""The ``stormscope`` builder and the coupled runner it returns, on fake models.
 
 The fake GOES model adds one per step and the fake MRMS model adds ten plus
 the mean of the GOES conditioning it receives, so the values a step holds
@@ -24,7 +24,7 @@ curvilinear grid, so every test runs on CPU without downloads.
 
 from __future__ import annotations
 
-from collections.abc import Generator
+import zlib
 from typing import Any
 
 import numpy as np
@@ -34,11 +34,13 @@ import xarray as xr
 from omegaconf import open_dict
 from src.campaign import build_items, final_lead_time
 from src.runners import build_runner
-from src.runners.stormscope import StormScopeRunner, stormscope
+from src.runners.stormscope import COMPONENTS, couple, stormscope
 
+from earth2studio.coupling import CoupledRunner, CouplingError
 from earth2studio.data import fetch_data
 from earth2studio.grids import CurvilinearGrid, Region
 from earth2studio.io import KVBackend, ZarrBackend
+from earth2studio.perturbation import Gaussian
 from earth2studio.run import Pipeline, work_items
 from earth2studio.run.work import member_seed
 from earth2studio.utils.coords import coord_array, coord_array_like
@@ -63,6 +65,11 @@ GRID = CurvilinearGrid(
     y=np.array([0.0, 3000.0, 6000.0]),
     x=np.array([0.0, 3000.0, 6000.0, 9000.0]),
 )
+
+
+def _seed(base: int, name: str, member: int) -> int:
+    """The seed the coupled runner hands component ``name`` for ``member``."""
+    return member_seed(base + zlib.crc32(name.encode()), T0, member)
 
 
 class ConstantSource:
@@ -137,15 +144,17 @@ class FakeGOES:
         y.attrs = dict(x.attrs)
         return y
 
-    def create_iterator(self, x: xr.DataArray) -> Generator[xr.DataArray, Any, None]:
-        y = self._advance(x, self.add)
-        while True:
-            yield y
-            y = self._advance(y, self.add)
+    def initialize(self, x: xr.DataArray) -> tuple[xr.DataArray, None]:
+        return self._advance(x, self.add), None
+
+    def step(self, y: xr.DataArray, state: None = None) -> tuple[xr.DataArray, None]:
+        return self._advance(y, self.add), None
 
 
 class FakeMRMS(FakeGOES):
     """Radar model adding ten plus the mean of the GOES conditioning it receives."""
+
+    leads = MRMS_LEADS
 
     def __init__(self) -> None:
         super().__init__(add=10.0, variables=MRMS_VARS)
@@ -155,7 +164,7 @@ class FakeMRMS(FakeGOES):
     def input_coords(self) -> CoordinateSystem:
         return coord_array(
             ("batch", "time", "lead_time", "variable", "y", "x"),
-            {"lead_time": MRMS_LEADS, "variable": np.array(self.variables)},
+            {"lead_time": self.leads, "variable": np.array(self.variables)},
             dynamic=("batch", "time"),
             grid=GRID,
         )
@@ -168,30 +177,40 @@ class FakeMRMS(FakeGOES):
     def default_sources(self) -> tuple[ConstantSource, ConstantSource]:  # type: ignore[override]
         return ConstantSource(self.fill), ConstantSource(-1.0)
 
-    def create_iterator(  # type: ignore[override]
+    def initialize(  # type: ignore[override]
         self, x: xr.DataArray, conditioning: xr.DataArray
-    ) -> Generator[xr.DataArray, xr.DataArray, None]:
+    ) -> tuple[xr.DataArray, None]:
         self.conditioning.append(conditioning)
-        y = self._advance(x, self.add + float(conditioning.mean()))
-        while True:
-            sent = yield y
-            self.conditioning.append(sent)
-            y = self._advance(y, self.add + float(sent.mean()))
+        return self._advance(x, self.add + float(conditioning.mean())), None
+
+    def step(  # type: ignore[override]
+        self, y: xr.DataArray, conditioning: xr.DataArray, state: None = None
+    ) -> tuple[xr.DataArray, None]:
+        self.conditioning.append(conditioning)
+        return self._advance(y, self.add + float(conditioning.mean())), None
 
 
-def _runner(**kwargs: Any) -> StormScopeRunner:
-    return StormScopeRunner(FakeGOES(), FakeMRMS(), seed=7, **kwargs)
+def _runner(
+    goes: FakeGOES | None = None, mrms: FakeMRMS | None = None, **kwargs: Any
+) -> CoupledRunner:
+    return couple(goes or FakeGOES(), mrms or FakeMRMS(), seed=7, **kwargs)
 
 
-def _steps(runner: StormScopeRunner, item: Any) -> list[dict[str, xr.DataArray]]:
-    return [dict(step) for step in runner.run_item(item)]
+def _streams(runner: CoupledRunner, item: Any) -> dict[str, list[xr.DataArray]]:
+    """Every frame ``run_item`` publishes, per stream, in order."""
+    frames: dict[str, list[xr.DataArray]] = {name: [] for name in COMPONENTS}
+    for published in runner.run_item(item):
+        for name, x in published.items():
+            frames[name].append(x)
+    return frames
 
 
 def test_step_and_output_coords_cover_every_lead_time() -> None:
     runner = _runner()
     assert runner.step == STEP
+    assert runner.supports_member_batching
     schemas = runner.output_coords(3 * STEP)
-    assert set(schemas) == {"goes", "mrms"}
+    assert set(schemas) == set(COMPONENTS)
     for name, variables in (("goes", GOES_VARS), ("mrms", MRMS_VARS)):
         signature = schemas[name]
         assert signature.dims == ("batch", "time", "lead_time", "variable", "y", "x")
@@ -200,36 +219,34 @@ def test_step_and_output_coords_cover_every_lead_time() -> None:
         )
         assert signature["variable"].values.tolist() == variables
         assert signature.sizes["y"] == 3 and signature.sizes["x"] == 4
-    with pytest.raises(ValueError):
-        runner.output_coords(np.timedelta64(15, "m"))
 
 
 def test_run_item_publishes_initial_conditions_then_coupled_steps() -> None:
     runner = _runner()
-    steps = _steps(runner, work_items([T0], 2 * STEP)[0])
-    assert len(steps) == 3
-    for k, step in enumerate(steps):
-        assert set(step) == {"goes", "mrms"}
-        for x in step.values():
+    streams = _streams(runner, work_items([T0], 2 * STEP)[0])
+    for frames in streams.values():
+        assert len(frames) == 3
+        for k, x in enumerate(frames):
             assert x.dims == ("time", "lead_time", "variable", "y", "x")
             np.testing.assert_array_equal(x["lead_time"].values, [k * STEP])
             assert x["time"].values[0] == T0
     # GOES: observations 100, then +1 per step.
-    for k, step in enumerate(steps):
-        np.testing.assert_allclose(step["goes"].values, 100.0 + k)
-    # MRMS: observations 5, first step conditioned on GOES observations (100),
+    for k, x in enumerate(streams["goes"]):
+        np.testing.assert_allclose(x.values, 100.0 + k)
+    # MRMS: observations 5, first step conditioned on the GOES history (100),
     # the second on the first GOES forecast (101).
-    np.testing.assert_allclose(steps[0]["mrms"].values, 5.0)
-    np.testing.assert_allclose(steps[1]["mrms"].values, 5.0 + 10.0 + 100.0)
-    np.testing.assert_allclose(steps[2]["mrms"].values, 115.0 + 10.0 + 101.0)
+    np.testing.assert_allclose(streams["mrms"][0].values, 5.0)
+    np.testing.assert_allclose(streams["mrms"][1].values, 5.0 + 10.0 + 100.0)
+    np.testing.assert_allclose(streams["mrms"][2].values, 115.0 + 10.0 + 101.0)
 
 
 def test_mrms_is_conditioned_on_goes_forecast_frames_at_its_lead_times() -> None:
-    runner = _runner()
-    mrms = runner.mrms
-    _steps(runner, work_items([T0], 3 * STEP)[0])
+    mrms = FakeMRMS()
+    runner = _runner(mrms=mrms)
+    _streams(runner, work_items([T0], 3 * STEP)[0])
     initial, *frames = mrms.conditioning
-    # Initialization: the GOES observation history, conditioning variables only.
+    # Initialization: the GOES history the GOES model holds, conditioning
+    # variables only.
     assert initial["variable"].values.tolist() == CONDITIONING_VARS
     np.testing.assert_array_equal(initial["lead_time"].values, MRMS_LEADS)
     np.testing.assert_allclose(initial.values, 100.0)
@@ -239,81 +256,114 @@ def test_mrms_is_conditioned_on_goes_forecast_frames_at_its_lead_times() -> None
         assert frame["variable"].values.tolist() == CONDITIONING_VARS
         np.testing.assert_array_equal(frame["lead_time"].values, [k * STEP])
         np.testing.assert_allclose(frame.values, 100.0 + k)
-        assert frame.dims == ("time", "lead_time", "variable", "y", "x")
 
 
 def test_zero_steps_publishes_only_initial_conditions() -> None:
-    runner = _runner()
-    steps = _steps(runner, work_items([T0], np.timedelta64(0, "h"))[0])
-    assert len(steps) == 1
-    assert runner.mrms.conditioning == []
+    mrms = FakeMRMS()
+    runner = _runner(mrms=mrms)
+    streams = _streams(runner, work_items([T0], np.timedelta64(0, "h"))[0])
+    assert [len(frames) for frames in streams.values()] == [1, 1]
+    assert mrms.conditioning == []
 
 
 def test_data_requests_name_the_fetches_and_reuse_goes_for_conditioning() -> None:
-    runner = _runner()
+    goes_source, mrms_source = ConstantSource(100.0), ConstantSource(5.0)
+    runner = _runner(goes_source=goes_source, mrms_source=mrms_source)
+    assert runner.sources["goes"] == (goes_source,)
+    assert runner.sources["mrms"] == (mrms_source, goes_source)
     item = work_items([T0], 2 * STEP)[0]
     requests = runner.data_requests(item)
-    assert [r.source for r in requests] == [runner.goes_source, runner.mrms_source]
-    assert runner.conditioning_source is None
+    assert [r.source for r in requests] == [goes_source, mrms_source]
     np.testing.assert_array_equal(requests[0].variable, GOES_VARS)
     np.testing.assert_array_equal(requests[0].lead_time, GOES_LEADS)
     np.testing.assert_array_equal(requests[1].variable, MRMS_VARS)
-    _steps(runner, item)
-    # ``fetch_data`` calls a source once per lead time; the GOES observations
-    # arrive once and double as the radar conditioning, never fetched twice.
-    assert len(runner.goes_source.calls) == len(GOES_LEADS)
-    assert len(runner.mrms_source.calls) == len(MRMS_LEADS)
+    _streams(runner, item)
+    # ``fetch_data`` calls a source once per lead time; the GOES history the
+    # GOES model fetched doubles as the radar conditioning, never fetched twice.
+    assert len(goes_source.calls) == len(GOES_LEADS)
+    assert len(mrms_source.calls) == len(MRMS_LEADS)
 
 
-def test_explicit_conditioning_source_is_fetched_separately() -> None:
-    conditioning = ConstantSource(50.0)
-    runner = _runner(conditioning_source=conditioning)
+class LongHistoryMRMS(FakeMRMS):
+    """Radar model whose history starts one frame before the GOES one."""
+
+    leads = np.array([-20, -10, 0], dtype="timedelta64[m]")
+
+
+def test_history_the_goes_model_lacks_comes_from_the_conditioning_source() -> None:
+    goes_source, conditioning = ConstantSource(100.0), ConstantSource(50.0)
+    mrms = LongHistoryMRMS()
+    runner = _runner(
+        mrms=mrms, goes_source=goes_source, conditioning_source=conditioning
+    )
     item = work_items([T0], STEP)[0]
-    requests = runner.data_requests(item)
-    assert [r.source for r in requests] == [
-        runner.goes_source,
-        runner.mrms_source,
-        conditioning,
-    ]
-    np.testing.assert_array_equal(requests[2].variable, CONDITIONING_VARS)
-    steps = _steps(runner, item)
-    np.testing.assert_allclose(steps[1]["mrms"].values, 5.0 + 10.0 + 50.0)
-    assert len(conditioning.calls) == len(requests[2].lead_time)
+    backfill = [r for r in runner.data_requests(item) if r.source is conditioning]
+    assert len(backfill) == 1
+    np.testing.assert_array_equal(backfill[0].variable, CONDITIONING_VARS)
+    np.testing.assert_array_equal(backfill[0].lead_time, [np.timedelta64(-20, "m")])
+    _streams(runner, item)
+    initial = mrms.conditioning[0]
+    np.testing.assert_array_equal(initial["lead_time"].values, LongHistoryMRMS.leads)
+    np.testing.assert_allclose(initial.isel(lead_time=0).values, 50.0)
+    np.testing.assert_allclose(initial.isel(lead_time=[1, 2]).values, 100.0)
+    assert len(conditioning.calls) == 1
+    # Without a conditioning source, the GOES source serves those frames.
+    runner = _runner(mrms=LongHistoryMRMS(), goes_source=goes_source)
+    assert runner.sources["mrms"][1] is goes_source
 
 
-def test_conditioning_falls_back_to_mrms_default_when_goes_lacks_variables() -> None:
-    goes = FakeGOES(variables=["abi01c"])
-    runner = StormScopeRunner(goes, FakeMRMS())
-    assert isinstance(runner.conditioning_source, ConstantSource)
-    assert runner.conditioning_source.fill == -1.0
+def test_models_are_seeded_per_model_and_per_member() -> None:
+    goes, mrms = FakeGOES(), FakeMRMS()
+    runner = _runner(goes=goes, mrms=mrms)
+    for item in work_items([T0], STEP, members=[2, 5], member_batch=1):
+        _streams(runner, item)
+    assert goes.seeds == [_seed(7, "goes", 2), _seed(7, "goes", 5)]
+    assert mrms.seeds == [_seed(7, "mrms", 2), _seed(7, "mrms", 5)]
+    assert goes.seeds[0] != mrms.seeds[0]
 
 
-def test_models_are_seeded_per_member_and_batching_is_rejected() -> None:
-    runner = _runner()
-    items = work_items([T0], STEP, members=[2, 5], member_batch=1)
-    for item in items:
-        _steps(runner, item)
-    expected = [member_seed(7, T0, 2), member_seed(7, T0, 5)]
-    assert runner.goes.seeds == expected
-    assert runner.mrms.seeds == expected
-    assert runner.supports_member_batching is False
-    with pytest.raises(ValueError, match="batch"):
-        _steps(runner, work_items([T0], STEP, members=[0, 1], member_batch=2)[0])
+def test_batched_members_match_single_member_runs() -> None:
+    goes = FakeGOES()
+    runner = _runner(goes=goes)
+    batched = _streams(
+        runner, work_items([T0], 2 * STEP, members=[3, 4], member_batch=2)[0]
+    )
+    # The runner seeds a batch once, from its first member (EXECUTION_CONTRACT X5).
+    assert goes.seeds == [_seed(7, "goes", 3)]
+    for frames in batched.values():
+        for x in frames:
+            assert x.dims[0] == "ensemble"
+            np.testing.assert_array_equal(x["ensemble"].values, [3, 4])
+    for member in (3, 4):
+        single = _streams(
+            runner, work_items([T0], 2 * STEP, members=[member], member_batch=1)[0]
+        )
+        for name in COMPONENTS:
+            assert len(batched[name]) == len(single[name])
+            for many, one in zip(batched[name], single[name]):
+                xr.testing.assert_allclose(many.sel(ensemble=member, drop=True), one)
 
 
-def test_mismatched_grids_or_strides_are_rejected() -> None:
+def test_mismatched_grids_are_rejected() -> None:
     class OtherGrid(FakeMRMS):
         def input_coords(self) -> CoordinateSystem:
             return coord_array(
                 ("batch", "time", "lead_time", "variable", "y", "x"),
                 {"lead_time": MRMS_LEADS, "variable": np.array(MRMS_VARS)},
                 dynamic=("batch", "time"),
-                grid=CurvilinearGrid(LAT, LON),
+                grid=CurvilinearGrid(LAT + 0.5, LON, y=GRID.y, x=GRID.x),
             )
 
-    with pytest.raises(ValueError, match="grid"):
-        StormScopeRunner(FakeGOES(), OtherGrid())
+    with pytest.raises(CouplingError, match="grid"):
+        _runner(mrms=OtherGrid())
 
+
+def test_conditioning_variables_the_goes_model_lacks_are_rejected() -> None:
+    with pytest.raises(CouplingError, match="does not publish"):
+        _runner(goes=FakeGOES(variables=["abi01c"]))
+
+
+def test_models_of_different_cadences_couple_on_their_common_step() -> None:
     class Hourly(FakeMRMS):
         def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
             lead = input_coords["lead_time"].values[-1]
@@ -321,8 +371,13 @@ def test_mismatched_grids_or_strides_are_rejected() -> None:
                 input_coords, {"lead_time": np.array([lead + np.timedelta64(1, "h")])}
             )
 
-    with pytest.raises(ValueError, match="stride"):
-        StormScopeRunner(FakeGOES(), Hourly())
+    runner = _runner(mrms=Hourly())
+    assert runner.step == np.timedelta64(1, "h")
+    schemas = runner.output_coords(np.timedelta64(2, "h"))
+    assert schemas["goes"].sizes["lead_time"] == 13
+    np.testing.assert_array_equal(
+        schemas["mrms"]["lead_time"].values, np.array([0, 60, 120], "timedelta64[m]")
+    )
 
 
 def test_pipeline_writes_both_streams(tmp_path) -> None:
@@ -339,7 +394,7 @@ def test_pipeline_writes_both_streams(tmp_path) -> None:
     np.testing.assert_allclose(goes_store["abi01c"][:, 2], 102.0)
 
     zarr_store = ZarrBackend(str(tmp_path / "forecast.zarr"))
-    members = work_items([T0], STEP, members=2, member_batch=1)
+    members = work_items([T0], STEP, members=2, member_batch=2)
     Pipeline(
         runner,
         output={"goes": zarr_store, "mrms": zarr_store},
@@ -351,10 +406,13 @@ def test_pipeline_writes_both_streams(tmp_path) -> None:
     assert ds["refc"].dims == ("ensemble", "time", "lead_time", "y", "x")
     assert ds["refc"].shape == (2, 1, 2, 3, 4)
     np.testing.assert_array_equal(ds["ensemble"].values, [0, 1])
+    np.testing.assert_allclose(ds["refc"].isel(lead_time=1).values, 115.0)
 
 
-def _stormscope_cfg(tmp_path, region: dict | None = None):
-    cfg = compose_cfg(tmp_path, ["nsteps=3", "runner=stormscope", "random_seed=11"])
+def _stormscope_cfg(tmp_path, region: dict | None = None, *overrides: str):
+    cfg = compose_cfg(
+        tmp_path, ["nsteps=3", "runner=stormscope", "random_seed=11", *overrides]
+    )
     with open_dict(cfg):
         cfg.model = {
             "goes": {"_target_": "test.test_stormscope.FakeGOES"},
@@ -368,12 +426,18 @@ def _stormscope_cfg(tmp_path, region: dict | None = None):
 def test_builder_binds_default_sources_and_records_roles(tmp_path) -> None:
     cfg = _stormscope_cfg(tmp_path)
     runner = build_runner(cfg)
-    assert isinstance(runner, StormScopeRunner)
+    assert isinstance(runner, CoupledRunner)
     assert runner.seed == 11
+    assert runner.perturbation == {}
     assert set(runner.source_roles) == {"goes", "mrms"}
-    assert runner.source_roles["goes"] is runner.goes_source
-    assert runner.source_roles["mrms"] is runner.mrms_source
-    assert runner.goes.regions == [] and runner.mrms.regions == []
+    goes_source, mrms_source = runner.source_roles["goes"], runner.source_roles["mrms"]
+    assert isinstance(goes_source, ConstantSource) and goes_source.fill == 100.0
+    assert isinstance(mrms_source, ConstantSource) and mrms_source.fill == 5.0
+    # The GOES model feeds the radar conditioning; its source backs that slot.
+    assert runner.sources["goes"] == (goes_source,)
+    assert runner.sources["mrms"] == (mrms_source, goes_source)
+    goes, mrms = (runner.nodes[name].model for name in COMPONENTS)
+    assert goes.regions == [] and mrms.regions == []
     # Verification composes the live GOES and MRMS observations over the
     # output variables of both models.
     verification = runner.verification_source
@@ -401,11 +465,31 @@ def test_builder_applies_region_and_configured_sources(tmp_path) -> None:
             "fill": 4.0,
         }
     runner = stormscope(cfg, prefer_predownloaded=False)
-    assert runner.goes.regions == [Region.box(-100.0, 30.0, -90.0, 40.0)]
-    assert runner.mrms.regions == runner.goes.regions
-    assert runner.goes_source.fill == 3.0
-    assert runner.conditioning_source.fill == 4.0
+    goes, mrms = (runner.nodes[name].model for name in COMPONENTS)
+    assert goes.regions == [Region.box(-100.0, 30.0, -90.0, 40.0)]
+    assert mrms.regions == goes.regions
     assert set(runner.source_roles) == {"goes", "mrms", "mrms_conditioning"}
+    assert runner.source_roles["goes"].fill == 3.0
+    assert runner.sources["goes"] == (runner.source_roles["goes"],)
+    assert runner.sources["mrms"][1] is runner.source_roles["mrms_conditioning"]
+    assert runner.sources["mrms"][1].fill == 4.0
+
+
+def test_builder_perturbs_each_model_for_ensembles_only(tmp_path) -> None:
+    cfg = _stormscope_cfg(tmp_path, None, "ensemble_size=2")
+    with open_dict(cfg):
+        cfg.model.goes.perturbation = {
+            "_target_": "earth2studio.perturbation.Gaussian",
+            "noise_amplitude": 0.1,
+        }
+    runner = stormscope(cfg, prefer_predownloaded=False)
+    assert set(runner.perturbation) == {"goes"}
+    assert isinstance(runner.perturbation["goes"], Gaussian)
+    # The perturbation node never reaches the model loader.
+    assert runner.nodes["goes"].model.variables == GOES_VARS
+    with open_dict(cfg):
+        cfg.ensemble_size = 1
+    assert stormscope(cfg, prefer_predownloaded=False).perturbation == {}
 
 
 def test_builder_requires_both_model_nodes(tmp_path) -> None:
