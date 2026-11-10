@@ -34,6 +34,7 @@ into this skill will go stale. Read the sources below, filter, and cite them.
 | Prognostic, diagnostic, and data assimilation models, with their badges (class, region, GPU memory, year, provider) | `docs/modules/models_px.md`, `models_dx.md`, `models_da.md` |
 | Data sources (analysis, forecast, dataframe) | `docs/modules/datasources_analysis.md`, `datasources_forecast.md`, `datasources_dataframe.md` |
 | What a model needs (variables, grid, lead times) | the model class in `earth2studio/models/{px,dx,da}/` (`input_coords`, `output_coords`) and its docstring |
+| Model details and limitations | model cards linked in the model docstring or API page's References, often on Hugging Face |
 | What a data source provides | the class in `earth2studio/data/` and its lexicon in `earth2studio/lexicon/` |
 | Variable naming conventions | `docs/userguide/advanced/lexicon.md` and `E2STUDIO_VOCAB` in `earth2studio/lexicon/base.py` |
 | Examples, by workflow type | `examples/` (numbered category folders, each with a `README.rst`) and the gallery page |
@@ -63,15 +64,23 @@ question needs, not everything.
 2. **Find candidate models** in the model pages. Filter with the badges shown
    there. Chains are common (a prognostic model feeding a diagnostic one), so
    check both kinds when relevant.
-3. **Find data sources** that cover the user's region, variables, and need
+3. **Verify the requested outputs.** Read each candidate's source, especially
+   `output_coords`, variable definitions, and class docstring. An input variable
+   or badge alone does not establish prediction support. If details are unclear,
+   follow the docstring or API page's References to the linked model card, often
+   on Hugging Face, for units, accumulation intervals, coverage, and limitations.
+   For precipitation, distinguish amounts or rates from radar reflectivity, and
+   direct predictions from diagnostics requiring another model. Cite the sources
+   used and flag anything you cannot verify.
+4. **Find data sources** that cover the user's region, variables, and need
    (historical, operational, or observations).
-4. **Check compatibility from code, not by name.** Read the model's
+5. **Check compatibility from code, not by name.** Read the model's
    `input_coords` for its variable list and check the data source's lexicon
    (`earth2studio/lexicon/`) covers every one. The model docs and API pages
    are a fallback when only the docs are available, but they are less precise,
    so say so.
-5. **Pick 1-3 relevant examples** from `examples/` and say what each shows.
-6. **Reply concisely** with the use case, 2-4 recommended models (with the
+6. **Pick 1-3 relevant examples** from `examples/` and say what each shows.
+7. **Reply concisely** with the use case, 2-4 recommended models (with the
    tradeoff between them), compatible data sources, examples, and next steps.
    Always include links to the pages or file paths you used. Send installation
    questions to `earth2studio-install`.

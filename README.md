@@ -47,6 +47,7 @@ Include the version, release date, and links to the release notes.
 Create me a 10-day AI forecasting pipeline starting from the latest GFS analysis.
 Set up my environment for FourCastNet3 inference.
 Recommend the best model for a 2-week global forecast on one GPU.
+What models do you have that support predicting precipitation?
 Fetch ERA5 surface winds for March 2024 and save them to Zarr.
 ```
 
