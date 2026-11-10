@@ -37,16 +37,24 @@ from src.tc_hunt_utils import set_initial_times
 
 Run = tuple[np.datetime64, np.ndarray, tuple[int, ...]]
 
-# settings that define the runs and their seeds, which a resumed run must share
+# settings that define the runs, their seeds and their results, which a resumed
+# run must share. Others may change, e.g. stability_check (max_retries,
+# thresholds), scratch_dir, detect_chunk_steps or the number of workers
 _RUN_KEYS = (
     "model",
+    "model_package",
+    "deterministic",
+    "data_source",
     "ics",
     "ensemble_size",
     "batch_size",
     "n_steps",
     "out_vars",
     "store_type",
+    "cyclone_tracking",
 )
+# the settings of cyclone_tracking that change the tracks
+_TRACKING_KEYS = ("vars", "detect_cmd", "stitch_cmd", "orography_path")
 
 
 def _project(cfg: DictConfig) -> str:
@@ -63,17 +71,40 @@ def status_dir(cfg: DictConfig) -> str:
     return _project(cfg) + "_status"
 
 
+def _plain(value: Any) -> Any:
+    """A config entry as plain Python objects, for JSON."""
+    if OmegaConf.is_config(value):
+        return OmegaConf.to_container(value, resolve=True)
+    return value
+
+
+def _write_json(path: str, data: dict[str, Any], **kwargs: Any) -> None:
+    """Write a JSON file in one step, so that a killed run leaves no partial file."""
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f, **kwargs)
+    os.replace(tmp, path)
+
+
 def _run_info(cfg: DictConfig, seed: int) -> dict[str, Any]:
-    out_vars = cfg.get("out_vars", None)
+    tracking = cfg.get("cyclone_tracking", None)
     return {
         "random_seed": seed,
         "model": cfg.model,
+        "model_package": cfg.get("model_package", None),
+        "deterministic": cfg.get("deterministic", False),
+        "data_source": _plain(cfg.get("data_source", None)),
         "ics": [np.datetime_as_string(ic, unit="s") for ic in set_initial_times(cfg)],
         "ensemble_size": cfg.ensemble_size,
         "batch_size": cfg.batch_size,
         "n_steps": cfg.n_steps,
-        "out_vars": None if out_vars is None else OmegaConf.to_object(out_vars),
+        "out_vars": _plain(cfg.get("out_vars", None)),
         "store_type": cfg.store_type,
+        "cyclone_tracking": (
+            None
+            if tracking is None
+            else {key: _plain(tracking.get(key, None)) for key in _TRACKING_KEYS}
+        ),
     }
 
 
@@ -85,8 +116,7 @@ def start_run(cfg: DictConfig, seed: int) -> None:
     os.makedirs(cfg.store_dir, exist_ok=True)
     if os.path.exists(status_dir(cfg)):
         shutil.rmtree(status_dir(cfg))
-    with open(run_info_path(cfg), "w") as f:
-        json.dump(_run_info(cfg, seed), f, indent=2)
+    _write_json(run_info_path(cfg), _run_info(cfg, seed), indent=2)
 
 
 def resumed_seed(cfg: DictConfig) -> int:
@@ -109,12 +139,16 @@ def resumed_seed(cfg: DictConfig) -> int:
     seed = cfg.get("random_seed", None)
     current = _run_info(cfg, stored["random_seed"] if seed is None else int(seed))
     differ = [
-        key for key in ("random_seed",) + _RUN_KEYS if stored[key] != current[key]
+        key
+        for key in ("random_seed",) + _RUN_KEYS
+        if stored.get(key, None) != current[key]
     ]
     if differ:
         raise ValueError(
             f"resume: config differs from the run to resume ({path}) in "
-            + ", ".join(f"{key}: {stored[key]} -> {current[key]}" for key in differ)
+            + ", ".join(
+                f"{key}: {stored.get(key, None)} -> {current[key]}" for key in differ
+            )
         )
     logger.info(f"resuming the run of {path}, random_seed {stored['random_seed']}")
     return int(stored["random_seed"])
@@ -129,8 +163,10 @@ def write_status(
 ) -> None:
     """Record a finished batch: its seed, or ``-1`` with the last seed tried."""
     os.makedirs(status_dir(cfg), exist_ok=True)
-    with open(_status_path(cfg, ic, mems), "w") as f:
-        json.dump({"random_seed": int(seed), "last_seed": int(last_seed)}, f)
+    _write_json(
+        _status_path(cfg, ic, mems),
+        {"random_seed": int(seed), "last_seed": int(last_seed)},
+    )
 
 
 def _tracks_complete(
@@ -174,11 +210,14 @@ def pending_runs(cfg: DictConfig, runs: list[Run]) -> list[Run]:
     pending, done, still_failed = [], 0, 0
     for ic, mems, seeds in runs:
         path = _status_path(cfg, ic, mems)
-        if not os.path.exists(path):
+        try:
+            with open(path) as f:
+                status = json.load(f)
+        except (OSError, ValueError):
+            # missing, or broken by a run killed while writing it (status files
+            # of older runs, as they are now written in one step)
             pending.append((ic, mems, seeds))
             continue
-        with open(path) as f:
-            status = json.load(f)
 
         if status["random_seed"] != -1:
             if _tracks_complete(cfg, ic, mems, status["random_seed"]):

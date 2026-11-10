@@ -487,10 +487,14 @@ batches that are done (fields written and all track files
 present), reruns the missing ones, and continues failed
 batches with their next retry seed. For the latter, raise
 `max_retries`; the seeds of all other batches stay the same.
-The settings that define the batches and their seeds
-(`random_seed`, `model`, ICs, `ensemble_size`, `batch_size`,
-`n_steps`, `out_vars`, `store_type`) must not change; the
-number of ranks may. Without `resume`, a run starts from
+The settings that define the batches, their seeds and their
+results (`random_seed`, `model`, `model_package`,
+`deterministic`, `data_source`, ICs, `ensemble_size`,
+`batch_size`, `n_steps`, `out_vars`, `store_type`, and
+`vars`, `detect_cmd`, `stitch_cmd` and `orography_path` of
+`cyclone_tracking`) must not change; resume raises if they
+do. The number of ranks, `stability_check`, `scratch_dir`,
+`detect_chunk_steps` and the worker settings may change. Without `resume`, a run starts from
 scratch and replaces the outputs of an earlier run of the
 project.
 

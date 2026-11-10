@@ -117,6 +117,13 @@ def _move_batch(batch: str, path: str, ics: np.ndarray) -> tuple[np.ndarray, int
 
     # check all arrays before moving anything, so a mismatch leaves the batch whole
     names = _data_arrays(batch)
+    fields = [name for name in _data_arrays(path) if name != "random_seed"]
+    if names != fields:
+        raise ValueError(
+            f"{batch}: variables {names} differ from those of the combined store "
+            f"{fields}"
+        )
+    target = xr.open_zarr(path, consolidated=False)
     for name in names:
         meta = _metadata(batch, name)
         combined = _metadata(path, name)
@@ -124,6 +131,18 @@ def _move_batch(batch: str, path: str, ics: np.ndarray) -> tuple[np.ndarray, int
             if meta.get(key) != combined.get(key):
                 raise ValueError(
                     f"{batch}: array {name} differs from the combined store in {key}"
+                )
+        # same steps and grid, i.e. the same shape apart from members and ICs
+        for dim in meta["dimension_names"]:
+            if dim in ("ensemble", "time"):
+                continue
+            if ds.sizes[dim] != target.sizes[dim] or (
+                dim in ds.coords
+                and not np.array_equal(ds.coords[dim].values, target.coords[dim].values)
+            ):
+                raise ValueError(
+                    f"{batch}: array {name} differs from the combined store in {dim} "
+                    f"(size {ds.sizes[dim]} vs {target.sizes[dim]})"
                 )
         for store, store_meta in ((batch, meta), (path, combined)):
             if store_meta.get("chunk_key_encoding") != _CHUNK_KEY_ENCODING:

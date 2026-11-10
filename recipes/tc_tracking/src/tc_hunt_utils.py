@@ -305,10 +305,13 @@ class RetryQueue:
             while self._cursor < queued:
                 index = self._cursor
                 self._cursor += 1
+                # counted as running before the claim, so that a rank finding
+                # running == 0 knows no claim is in progress
+                self.store.add("running", 1)
                 if self.store.add(f"claim/{index}", 1) == 1:
-                    self.store.add("running", 1)
                     # waits if the item is claimed before it is set
                     return pickle.loads(self.store.get(f"item/{index}"))  # noqa: S301
+                self.store.add("running", -1)
 
             if self._count("done") == self.world_size and self._count("running") == 0:
                 # a rank may have queued an item before it finished

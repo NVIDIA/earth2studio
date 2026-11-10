@@ -152,6 +152,10 @@ class TempestExtremes:
         # every chunk
         self._nodes: dict[str, list[tuple[Future | None, str]]] = {}
         self._chunk = 0
+        # every discarded batch moves on to a new subdirectory of the scratch
+        # directory, so that its tasks still running cannot touch the files of
+        # a retry of the same batch
+        self._attempt = 0
 
         self._executor: ThreadPoolExecutor | None = None
         self._tasks: list[Future] = []
@@ -224,7 +228,8 @@ class TempestExtremes:
         """Discard the forecast of the current batch, e.g. of an unstable one.
 
         Waits for its detection tasks that are already running and removes their
-        files.
+        files. A task still running after the timeout keeps its files, which
+        are in a directory of their own and removed at :meth:`close`.
         """
         self._buffer = []
         discarded = set()
@@ -240,6 +245,7 @@ class TempestExtremes:
                     os.remove(node_file)
         self._nodes = {}
         self._chunk = 0
+        self._attempt += 1
         self._tasks = [task for task in self._tasks if task not in discarded]
 
     def record_state(self, x: xr.DataArray) -> None:
@@ -353,10 +359,12 @@ class TempestExtremes:
             )
 
         # written in the calling thread, as HDF5 is not thread-safe
+        work_dir = os.path.join(self.scratch_dir, f"attempt_{self._attempt:04d}")
+        os.makedirs(work_dir, exist_ok=True)
         raw_files = {}
         for mem in fields.coords["ensemble"].values:
             name = f"{np.datetime_as_string(ic, unit='s')}_mem_{mem:04d}"
-            raw = os.path.join(self.scratch_dir, f"{name}_chunk_{self._chunk:04d}.nc")
+            raw = os.path.join(work_dir, f"{name}_chunk_{self._chunk:04d}.nc")
             data.sel(ensemble=mem, drop=True).to_netcdf(raw, format="NETCDF4", mode="w")
             raw_files[name] = raw
 
@@ -386,9 +394,12 @@ class TempestExtremes:
                     task.result()
             with open(list_file, "w") as f:
                 f.write("\n".join(node_files) + "\n")
-            self._run(self.stitch_cmd + ["--in_list", list_file, "--out", track_file])
+            # renamed once complete: a resumed run counts any track file as done
+            partial = track_file + ".tmp"
+            self._run(self.stitch_cmd + ["--in_list", list_file, "--out", partial])
+            os.replace(partial, track_file)
         finally:
-            for path in node_files + [list_file]:
+            for path in node_files + [list_file, track_file + ".tmp"]:
                 if os.path.exists(path):
                     os.remove(path)
         logger.info(
