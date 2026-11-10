@@ -17,6 +17,7 @@
 import os
 import shutil
 import time
+from collections import OrderedDict
 
 import numpy as np
 import xarray as xr
@@ -278,11 +279,9 @@ def open_batch_zarr(
     shard = cfg.get("zarr_shard_per_member", True)
     store = AsyncZarrBackend(
         file_name=path,
-        parallel_coords={
-            "ensemble": np.asarray(mems),
-            "time": np.array([ic]),
-            "lead_time": lead_times,
-        },
+        parallel_coords=OrderedDict(
+            ensemble=np.asarray(mems), time=np.array([ic]), lead_time=lead_times
+        ),
         blocking=False,
         shard_coords={"lead_time": len(lead_times)} if shard else {},
     )

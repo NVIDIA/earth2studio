@@ -243,7 +243,8 @@ def run_inference(
 
         # each batch draws its noise from its own seed, which makes the batch
         # reproducible, see reproduce_members
-        model.set_rng(seed=seed)
+        # not part of the PrognosticModel protocol, all supported models have it
+        model.set_rng(seed=seed)  # type: ignore[attr-defined]
 
         # the iterator yields forecasts only, so the IC is prepended
         steps = chain(

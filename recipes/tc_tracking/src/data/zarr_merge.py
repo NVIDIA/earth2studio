@@ -29,6 +29,7 @@ import glob
 import json
 import os
 import shutil
+from collections import OrderedDict
 from typing import Any
 
 import numpy as np
@@ -83,7 +84,7 @@ def _create_combined(
     lead_times = coords["lead_time"]
     store = AsyncZarrBackend(
         file_name=path,
-        parallel_coords={"ensemble": members, "time": ics, "lead_time": lead_times},
+        parallel_coords=OrderedDict(ensemble=members, time=ics, lead_time=lead_times),
         shard_coords={"lead_time": len(lead_times)} if sharded else {},
     )
     store.add_array(template)
