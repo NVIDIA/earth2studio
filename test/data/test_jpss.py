@@ -28,9 +28,7 @@ import pytest
 from earth2studio.data import JPSS
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "satellite,product_type,time,variable",
     [
@@ -98,9 +96,7 @@ def test_jpss_fetch(satellite, product_type, time, variable):
     )
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize("cache", [True, False])
 def test_jpss_cache(cache):
     """Test JPSS caching behavior for both enabled and disabled cache options."""
@@ -140,9 +136,7 @@ def test_jpss_cache(cache):
         pass
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "satellite,product_type,time,variable,valid",
     [
@@ -216,8 +210,7 @@ def test_jpss_invalid_variable():
         )
 
 
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [

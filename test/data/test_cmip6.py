@@ -26,9 +26,7 @@ from earth2studio.data import CMIP6
 from earth2studio.data.cmip6 import CMIP6MultiRealm
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "table_id, variable",
     [
@@ -70,9 +68,7 @@ def test_cmip6_fetch(table_id, variable, time):
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "table_id, variable",
     [
@@ -137,9 +133,7 @@ def test_cmip6_init_valid():
     assert ds.variant_label == "r1i1p1f1"
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "variable, expected_exc",
     [
@@ -205,8 +199,7 @@ def test_cmip6_pressure_level_tolerance():
     assert data_ok.shape == (1, 1, len(lat), len(lon))
 
 
-@pytest.mark.xfail
-@pytest.mark.timeout(90)
+@pytest.mark.live(timeout=90)
 @pytest.mark.parametrize(
     "time, source_id, expected",
     [
@@ -259,9 +252,7 @@ def test_cmip6_multi_realm_validation_errors():
         CMIP6MultiRealm([atmos, ocean])
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 def test_cmip6_multi_realm_available_variables():
     """Test that available_variables returns union of all sources."""
     atmos = CMIP6(
@@ -289,8 +280,7 @@ def test_cmip6_multi_realm_available_variables():
     )
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
+@pytest.mark.live
 @pytest.mark.parametrize(
     "time, expected",
     [
@@ -325,9 +315,7 @@ def test_cmip6_multi_realm_available(time, expected):
     assert result is expected
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 def test_cmip6_multi_realm():
     """Combine multi-realm tests to reduce repeated downloads."""
     atmos = CMIP6(

@@ -463,9 +463,7 @@ def test_jpss_cris_rejects_invalid_projection(sensor_indices):
 # ---------------------------------------------------------------------------
 # Network / slow tests
 # ---------------------------------------------------------------------------
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "time",
     [
@@ -512,9 +510,7 @@ def test_jpss_cris_schema_fields():
     assert ds.resolve_fields(subset_fields).names == subset_fields
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize("cache", [True, False])
 def test_jpss_cris_cache(cache):
     ds = JPSS_CRIS(

@@ -26,9 +26,7 @@ import xarray as xr
 from earth2studio.data import GOES
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "satellite,time,variable,scan_mode",
     [
@@ -146,9 +144,7 @@ def test_goes_fetch(satellite, time, variable, scan_mode):
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "time",
     [
@@ -188,9 +184,7 @@ def test_goes_cache(time, variable, cache):
         pass
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "satellite,scan_mode,time,variable,valid",
     [
@@ -221,8 +215,7 @@ def test_goes_sources(satellite, scan_mode, time, variable, valid):
     assert shape[3] == expected_dims[1]
 
 
-@pytest.mark.xfail
-@pytest.mark.timeout(15)
+@pytest.mark.live(timeout=15)
 @pytest.mark.parametrize(
     "time",
     [

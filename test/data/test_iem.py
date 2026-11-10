@@ -77,9 +77,7 @@ _STATION_GEOJSON = {
 }
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 def test_iem_asos_fetch():
     source = IEM_ASOS(
         stations="DSM",
@@ -95,9 +93,7 @@ def test_iem_asos_fetch():
     assert frame["observation"].notna().all()
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize("cache", [True, False])
 def test_iem_asos_cache(cache):
     source = IEM_ASOS(

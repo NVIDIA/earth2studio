@@ -184,9 +184,7 @@ def now6h():
     return datetime(nt.year, nt.month, nt.day, nt.hour - delta_hr)
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -234,9 +232,7 @@ def test_ifs_fetch(time, variable):
         pass
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -280,9 +276,7 @@ def test_ifs_ens_fetch(time, variable, member):
     assert np.allclose(data.values, data_fx.values[:, 0])
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -327,9 +321,7 @@ def test_ifs_ens_fx_fetch(time, lead_time, variable):
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "lead_time",
     [
@@ -366,9 +358,7 @@ def test_aifs_ens_fx_fetch(lead_time, variable, member):
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "time",
     [

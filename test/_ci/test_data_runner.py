@@ -27,7 +27,13 @@ import pytest
 RUNNER = Path(__file__).with_name("run_data_tests.py")
 
 
-def run_files(tmp_path: Path, files: dict[str, str], *options: str):
+@pytest.fixture(autouse=True)
+def isolated_live_selection(monkeypatch):
+    for name in ("DATA_TEST_LIVE", "DATA_TEST_BASE", "DATA_TEST_CHANGED_FILES"):
+        monkeypatch.delenv(name, raising=False)
+
+
+def run_files(tmp_path: Path, files: dict[str, str], *options: str, pytest_args=()):
     for name, content in files.items():
         (tmp_path / name).write_text(content)
     (tmp_path / "pytest.ini").write_text("[pytest]\n")
@@ -49,6 +55,7 @@ def run_files(tmp_path: Path, files: dict[str, str], *options: str):
             *files,
             "--",
             "-q",
+            *pytest_args,
         ],
         cwd=tmp_path,
         env=env,
@@ -58,6 +65,131 @@ def run_files(tmp_path: Path, files: dict[str, str], *options: str):
     )
     summary = json.loads((tmp_path / "results/summary.json").read_text())
     return result, summary
+
+
+def test_live_timeout_restarts_and_only_timeout_is_xfailed(tmp_path: Path):
+    result, summary = run_files(
+        tmp_path,
+        {"test_live.py": """
+import os, time, pytest
+from pathlib import Path
+@pytest.mark.live(timeout=0.15)
+def test_timeout():
+    Path('old_pid').write_text(str(os.getpid()))
+    print('live download stuck')
+    time.sleep(60)
+@pytest.mark.live
+def test_assertion():
+    assert os.getpid() != int(Path('old_pid').read_text())
+    assert False, 'real assertion'
+@pytest.mark.live
+def test_error():
+    raise RuntimeError('real error')
+def test_later():
+    pass
+"""},
+        pytest_args=("--live=all",),
+    )
+    assert result.returncode == 1, result.stdout
+    assert [case["status"] for case in summary[0]["tests"].values()] == [
+        "XFAIL",
+        "FAILED",
+        "FAILED",
+        "PASSED",
+    ]
+    assert "real assertion" in result.stdout
+    assert "real error" in result.stdout
+    assert "live download stuck" in result.stdout
+    with pytest.raises(ProcessLookupError):
+        os.kill(int((tmp_path / "old_pid").read_text()), 0)
+
+
+@pytest.mark.parametrize("mode", ["none", "changed"])
+def test_live_selection_skips_unselected_sources(tmp_path: Path, monkeypatch, mode):
+    monkeypatch.setenv("DATA_TEST_CHANGED_FILES", "docs/index.md")
+    result, summary = run_files(
+        tmp_path,
+        {
+            "test_gfs.py": "import pytest\n@pytest.mark.live\ndef test_live():\n assert False\ndef test_mock():\n pass\n"
+        },
+        pytest_args=(f"--live={mode}",),
+    )
+    assert result.returncode == 0, result.stdout
+    assert [case["status"] for case in summary[0]["tests"].values()] == [
+        "SKIPPED",
+        "PASSED",
+    ]
+
+
+@pytest.mark.parametrize(
+    "changed",
+    ["earth2studio/data/gfs.py", "earth2studio/data/utils.py", "test/data/test_gfs.py"],
+)
+def test_changed_source_enables_live_tests(tmp_path: Path, monkeypatch, changed):
+    monkeypatch.setenv("DATA_TEST_CHANGED_FILES", changed)
+    result, summary = run_files(
+        tmp_path,
+        {"test_gfs.py": "import pytest\n@pytest.mark.live\ndef test_live():\n pass\n"},
+        pytest_args=("--live=changed",),
+    )
+    assert result.returncode == 0, result.stdout
+    assert next(iter(summary[0]["tests"].values()))["status"] == "PASSED"
+
+
+def test_live_timeout_override_and_remaining_cases(tmp_path: Path):
+    result, summary = run_files(
+        tmp_path,
+        {
+            "test_live.py": "import pytest, time\n@pytest.mark.live(timeout=60)\ndef test_live():\n time.sleep(60)\ndef test_later():\n pass\n"
+        },
+        pytest_args=("--live=all", "--live-timeout=0.1"),
+    )
+    assert result.returncode == 0, result.stdout
+    assert [case["status"] for case in summary[0]["tests"].values()] == [
+        "XFAIL",
+        "PASSED",
+    ]
+
+
+def test_live_teardown_timeout_is_failure(tmp_path: Path):
+    result, summary = run_files(
+        tmp_path,
+        {
+            "test_live.py": "import pytest, time\n@pytest.fixture\ndef stuck():\n yield\n time.sleep(60)\n@pytest.mark.live(timeout=0.1)\ndef test_live(stuck):\n pass\n"
+        },
+        pytest_args=("--live=all",),
+    )
+    assert result.returncode == 1, result.stdout
+    assert summary[0]["status"] == "TIMEOUT"
+
+
+def test_enabled_live_tests_bypass_testmon(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("DATA_TEST_CHANGED_FILES", "earth2studio/data/gfs.py")
+    body = "import pytest\n@pytest.mark.live\ndef test_live():\n pass\n"
+    for _ in range(2):
+        result, summary = run_files(
+            tmp_path,
+            {"test_gfs.py": body},
+            pytest_args=("-p", "testmon.pytest_testmon", "--testmon", "--live=changed"),
+        )
+        assert result.returncode == 0, result.stdout
+        assert next(iter(summary[0]["tests"].values()))["status"] == "PASSED"
+
+
+def test_live_restarts_keep_cumulative_file_budget(tmp_path: Path):
+    result, summary = run_files(
+        tmp_path,
+        {
+            "test_live.py": "import pytest, time\n@pytest.mark.live(timeout=0.15)\n@pytest.mark.parametrize('i', range(20))\ndef test_live(i):\n time.sleep(60)\n"
+        },
+        pytest_args=("--live=all",),
+    )
+    assert result.returncode == 1, result.stdout
+    assert summary[0]["status"] == "TIMEOUT"
+    outcomes = [case["status"] for case in summary[0]["tests"].values()]
+    assert "XFAIL" in outcomes
+    assert "NOT RUN" in outcomes
+    assert summary[0]["duration"] < 4
 
 
 def test_reports_failures_and_preserves_success_logs(tmp_path: Path):

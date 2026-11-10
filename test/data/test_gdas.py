@@ -28,9 +28,7 @@ from earth2studio.data import NomadsGDASObsConv, utils_ncep
 from earth2studio.lexicon import GDASObsConvLexicon
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
+@pytest.mark.live(timeout=120)
 @pytest.mark.parametrize(
     "time",
     [
@@ -59,9 +57,7 @@ def test_nomads_gdas_fetch(time, variable):
     assert (df["lon"] >= 0).all() and (df["lon"] < 360).all()
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
+@pytest.mark.live(timeout=120)
 @pytest.mark.parametrize("variable", [["u", "v"]])
 def test_nomads_gdas_wind(variable):
     ds = NomadsGDASObsConv(
@@ -80,9 +76,7 @@ def test_nomads_gdas_wind(variable):
     assert (obs.abs() < 200).all()  # m/s, no wind > 200 m/s
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
+@pytest.mark.live(timeout=120)
 @pytest.mark.parametrize(
     "time",
     [np.array([np.datetime64("2026-04-04T00:00")])],

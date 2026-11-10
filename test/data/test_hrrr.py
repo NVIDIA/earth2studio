@@ -27,9 +27,7 @@ from obstore.store import GCSStore, HTTPStore, S3Store
 from earth2studio.data import HRRR, HRRR_FX
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -65,9 +63,7 @@ def test_hrrr_fetch(time, variable):
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time,lead_time",
     [
@@ -142,9 +138,7 @@ def test_hrrr_init():
         HRRR(source="azure")
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [

@@ -212,9 +212,7 @@ def test_cfs_reforecast_missing_variable_returns_nan(tmp_path, monkeypatch):
     assert np.isnan(data.sel(variable="z500").values).all()
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(180)
+@pytest.mark.live(timeout=180)
 @pytest.mark.parametrize("cache", [True, False])
 def test_cfs_reforecast_cache(tmp_path, monkeypatch, cache):
     monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
@@ -233,9 +231,7 @@ def test_cfs_reforecast_cache(tmp_path, monkeypatch, cache):
 # ----------------------------------------------------------------------
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(180)
+@pytest.mark.live(timeout=180)
 @pytest.mark.parametrize(
     "time,lead_time,variable",
     [
@@ -270,9 +266,7 @@ def test_cfs_reforecast_pgbf_fetch(time, lead_time, variable):
     assert float(data.lat.max()) == 90.0
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(180)
+@pytest.mark.live(timeout=180)
 def test_cfs_reforecast_flxf_fetch():
     ds = CFS_Reforecast_FX_Flux(cache=False)
     data = ds(_TEST_CYCLE, timedelta(hours=6), ["t2m", "u10m", "v10m", "tpf"])

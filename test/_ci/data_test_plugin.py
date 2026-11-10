@@ -18,25 +18,136 @@
 
 import faulthandler
 import json
+import math
 import os
 import signal
+import subprocess
+import time
+from pathlib import Path
 
 import pytest
 
 
 def emit(event: str, **fields: object) -> None:
+    if "DATA_TEST_EVENTS" not in os.environ:
+        return
     with open(os.environ["DATA_TEST_EVENTS"], "a") as stream:
         stream.write(json.dumps({"event": event, **fields}) + "\n")
 
 
-def pytest_configure() -> None:
+def positive_timeout(value: str) -> float:
+    seconds = float(value)
+    if not math.isfinite(seconds) or seconds <= 0:
+        raise ValueError("live timeout must be finite and positive")
+    return seconds
+
+
+def pytest_addoption(parser) -> None:
+    parser.addoption(
+        "--live",
+        choices=("changed", "all", "none"),
+        default=os.getenv("DATA_TEST_LIVE", "none"),
+    )
+    parser.addoption("--live-timeout", type=positive_timeout, default=None)
+
+
+def changed_files() -> list[str]:
+    if "DATA_TEST_CHANGED_FILES" in os.environ:
+        return os.environ["DATA_TEST_CHANGED_FILES"].splitlines()
+    base = os.getenv("DATA_TEST_BASE", "HEAD")
+    try:
+        return subprocess.check_output(  # noqa: S603
+            ["git", "diff", "--name-only", base, "--"],  # noqa: S607
+            text=True,
+            timeout=10,
+        ).splitlines()
+    except (subprocess.SubprocessError, OSError) as error:
+        raise pytest.UsageError(
+            f"Cannot determine live-test changes against {base}: {error}"
+        ) from error
+
+
+def source_changed(file: str, changes: list[str]) -> bool:
+    name = Path(file).stem.removeprefix("test_")
+    for change in changes:
+        path = Path(change)
+        if change.startswith(("earth2studio/data/", "earth2studio/lexicon/")):
+            # Source families also cover ace2_era5, ghcn_daily, wb2era5, etc.
+            if name.startswith(path.stem):
+                return True
+            if path.stem.startswith(("utils", "_")) or path.stem in {
+                "base",
+                "stac",
+                "time_window",
+                "composite",
+            }:
+                return True
+        elif change.startswith("test/data/test_"):
+            if path.stem == Path(file).stem:
+                return True
+        elif change.startswith(
+            ("earth2studio/utils/", "test/_ci/", ".github/")
+        ) or change in {
+            "test/conftest.py",
+            "test/data/conftest.py",
+            "pyproject.toml",
+            "uv.lock",
+            "tox.ini",
+        }:
+            return True
+    return False
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_configure(config) -> None:
+    config.addinivalue_line(
+        "markers",
+        "live(timeout=60): live data-source call; only its deadline is an expected failure",
+    )
+    config._live_changes = (
+        changed_files() if config.getoption("live") == "changed" else []
+    )
+    # Disable selection before testmon can omit entire files. Keep collection/coverage.
+    if config.getoption("live") == "all" or (
+        config.getoption("live") == "changed"
+        and any(source_changed(file, config._live_changes) for file in config.args)
+    ):
+        config.option.testmon_noselect = True
+    if "DATA_TEST_EVENTS" not in os.environ:
+        return
     # pytest redirects fd 2 during capture; use a separate descriptor so a killed
     # test cannot take its diagnostic stack dump with the capture buffer.
     stack_fd = os.open(
-        os.environ["DATA_TEST_STACKS"], os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600
+        os.environ["DATA_TEST_STACKS"], os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600
     )
     faulthandler.register(signal.SIGUSR1, file=stack_fd, all_threads=True)
     emit("ready")
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_collection_modifyitems(config, items) -> None:
+    completed = set(json.loads(os.getenv("DATA_TEST_COMPLETED", "[]")))
+    items[:] = [item for item in items if item.nodeid not in completed]
+    for item in items:
+        marker = item.get_closest_marker("live")
+        if marker is None:
+            continue
+        timeout = config.getoption("live_timeout")
+        item._live_timeout = positive_timeout(
+            str(timeout if timeout is not None else marker.kwargs.get("timeout", 60))
+        )
+        mode = config.getoption("live")
+        if mode == "none" or (
+            mode == "changed"
+            and not source_changed(str(item.path), config._live_changes)
+        ):
+            item.add_marker(pytest.mark.skip(reason="live source not selected"))
+        elif "DATA_TEST_EVENTS" not in os.environ:
+            raise pytest.UsageError(
+                "Run live tests through tox -e test-data (process supervision required)"
+            )
+        # The supervisor owns this timeout; pytest-timeout must not interrupt first.
+        item.add_marker(pytest.mark.timeout(0), append=False)
 
 
 def pytest_collection_finish(session: pytest.Session) -> None:
@@ -50,7 +161,13 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_call(item: pytest.Item) -> None:
-    emit("phase", nodeid=item.nodeid, phase="call")
+    emit(
+        "phase",
+        nodeid=item.nodeid,
+        phase="call",
+        started=time.monotonic(),
+        timeout=getattr(item, "_live_timeout", None),
+    )
 
 
 @pytest.hookimpl(tryfirst=True)

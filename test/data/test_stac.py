@@ -571,9 +571,7 @@ def test_collections(fake_client) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.slow
-@pytest.mark.xfail()
-@pytest.mark.timeout(120)
+@pytest.mark.live(timeout=120)
 def test_live_planetary_computer_landsat_window() -> None:
     da = stac.search(
         "landsat-c2-l2",
@@ -595,9 +593,7 @@ def test_live_planetary_computer_landsat_window() -> None:
     assert qa.dtype == np.uint16 and qa.chunks is not None
 
 
-@pytest.mark.slow
-@pytest.mark.xfail()
-@pytest.mark.timeout(120)
+@pytest.mark.live(timeout=120)
 def test_live_earth_search_sentinel2_window() -> None:
     da = stac.search(
         "sentinel-2-l2a",

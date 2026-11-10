@@ -28,9 +28,7 @@ from earth2studio.data import GFS, GFS_FX
 from earth2studio.data.utils import fetch_data
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -63,9 +61,7 @@ def test_gfs_fetch(time, variable):
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time,lead_time",
     [
@@ -107,9 +103,7 @@ def test_gfs_fx_fetch(time, lead_time):
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -150,9 +144,7 @@ def test_gfs_cache(time, variable, cache):
         pass
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(15)
+@pytest.mark.live(timeout=15)
 @pytest.mark.parametrize(
     "source,time,variable,valid",
     [
@@ -181,7 +173,7 @@ def test_gfs_sources(source, time, variable, valid):
     assert not np.isnan(data.values).any()
 
 
-@pytest.mark.timeout(15)
+@pytest.mark.live(timeout=15)
 @pytest.mark.parametrize(
     "time",
     [

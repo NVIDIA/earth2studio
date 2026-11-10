@@ -18,6 +18,7 @@
 
 import argparse
 import json
+import math
 import os
 import shlex
 import signal
@@ -75,12 +76,10 @@ def report(
     for event in records:
         kind = event["event"]
         if kind == "collected":
-            cases.update(
-                {
-                    node: {"status": "NOT RUN", "duration": 0.0, "detail": ""}
-                    for node in event["nodeids"]
-                }
-            )
+            for node in event["nodeids"]:
+                cases.setdefault(
+                    node, {"status": "NOT RUN", "duration": 0.0, "detail": ""}
+                )
         elif kind == "phase":
             cases[event["nodeid"]].update(status="INTERRUPTED", phase=event["phase"])
         elif kind == "report":
@@ -95,6 +94,10 @@ def report(
     for case in cases.values():
         if case["status"] == "INTERRUPTED" and status == "TIMEOUT":
             case["status"] = "TIMEOUT"
+    if status == "PASSED" and any(
+        case["status"] == "FAILED" for case in cases.values()
+    ):
+        status = "FAILED"
     title = f"{status} {file} ({duration:.1f}s, exit={code})"
     print(title, flush=True)
     github = os.environ.get("GITHUB_ACTIONS") == "true"
@@ -108,7 +111,7 @@ def report(
                 else ""
             )
         )
-    if status != "PASSED":
+    if status != "PASSED" or any(event["event"] == "live_timeout" for event in records):
         print(
             f"File result: {status}; deadline includes collection and interpreter shutdown."
         )
@@ -175,7 +178,10 @@ def main() -> int:
     split = argv.index("--") if "--" in argv else len(argv)
     args = parser.parse_args(argv[:split])
     pytest_args = argv[split + 1 :]
-    if min(args.workers, args.file_timeout, args.timeout, args.grace) <= 0:
+    if any(
+        not math.isfinite(value) or value <= 0
+        for value in (args.workers, args.file_timeout, args.timeout, args.grace)
+    ):
         parser.error("workers and time limits must be positive")
     files = sorted(
         {
@@ -200,12 +206,15 @@ def main() -> int:
                 workers=args.workers,
                 file_timeout=args.file_timeout,
                 timeout=args.timeout,
+                live=os.getenv("DATA_TEST_LIVE", "none"),
+                base=os.getenv("DATA_TEST_BASE", "HEAD"),
             ),
             indent=2,
         )
         + "\n"
     )
     pending = deque(files)
+    started_files = {}
     active = {}
     results = []
     deadline = time.monotonic() + args.timeout
@@ -225,12 +234,23 @@ def main() -> int:
                 key = str(Path(file).with_suffix("")).replace("/", "_")
                 directory = output / key
                 directory.mkdir(parents=True, exist_ok=True)
-                (directory / "events.jsonl").write_text("")
+                first = file not in started_files
+                if first:
+                    (directory / "events.jsonl").write_text("")
+                    (directory / "stacks.log").write_text("")
+                    started_files[file] = time.monotonic()
                 env = dict(
                     os.environ,
                     DATA_TEST_EVENTS=str(directory / "events.jsonl"),
                     DATA_TEST_STACKS=str(directory / "stacks.log"),
                     PYTHONUNBUFFERED="1",
+                    DATA_TEST_COMPLETED=json.dumps(
+                        [
+                            event["nodeid"]
+                            for event in events(directory)
+                            if event["event"] == "finished"
+                        ]
+                    ),
                 )
                 env["PYTHONPATH"] = os.pathsep.join(
                     [str(Path(__file__).parent.resolve()), env.get("PYTHONPATH", "")]
@@ -260,8 +280,8 @@ def main() -> int:
                     file,
                 ]
                 print(f"RUNNING {file} (limit {args.file_timeout:g}s)", flush=True)
-                started = time.monotonic()
-                with (directory / "output.log").open("w") as log:
+                started = started_files[file]
+                with (directory / "output.log").open("w" if first else "a") as log:
                     process = subprocess.Popen(  # noqa: S603
                         command,
                         env=env,
@@ -275,13 +295,39 @@ def main() -> int:
                 elapsed = time.monotonic() - started
                 code = process.poll()
                 reason = ""
+                live = None
+                for event in events(directory):
+                    if event["event"] in {"ready", "report", "finished"}:
+                        live = None
+                    elif event["event"] == "phase":
+                        live = event if event.get("timeout") else None
                 if code is None:
                     if interrupted:
                         reason = "INTERRUPTED"
                     elif time.monotonic() >= deadline or elapsed >= args.file_timeout:
                         reason = "TIMEOUT"
+                    elif live and time.monotonic() >= live["started"] + live["timeout"]:
+                        reason = "LIVE TIMEOUT"
                 if code is not None or reason:
                     stop(process, directory, args.grace)
+                    if reason == "LIVE TIMEOUT":
+                        with (directory / "events.jsonl").open("a") as stream:
+                            for event in [
+                                dict(event="live_timeout", nodeid=live["nodeid"]),
+                                dict(
+                                    event="report",
+                                    nodeid=live["nodeid"],
+                                    phase="call",
+                                    outcome="XFAIL",
+                                    duration=live["timeout"],
+                                    detail=f"Live call exceeded {live['timeout']}s; process group terminated",
+                                ),
+                                dict(event="finished", nodeid=live["nodeid"]),
+                            ]:
+                                stream.write(json.dumps(event) + "\n")
+                        del active[file]
+                        pending.appendleft(file)
+                        continue
                     results.append(
                         report(file, directory, process.returncode, reason, elapsed)
                     )
@@ -290,6 +336,18 @@ def main() -> int:
             if expired:
                 while pending:
                     file = pending.popleft()
+                    if file in started_files:
+                        key = str(Path(file).with_suffix("")).replace("/", "_")
+                        results.append(
+                            report(
+                                file,
+                                output / key,
+                                None,
+                                "INTERRUPTED" if interrupted else "TIMEOUT",
+                                time.monotonic() - started_files[file],
+                            )
+                        )
+                        continue
                     print(
                         f"NOT RUN {file} (global deadline or cancellation)", flush=True
                     )

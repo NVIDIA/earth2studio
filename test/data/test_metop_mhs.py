@@ -203,9 +203,7 @@ def test_metop_mhs_call_mock_empty(tmp_path):
 # ---------------------------------------------------------------------------
 # Network integration tests (slow, xfail)
 # ---------------------------------------------------------------------------
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
+@pytest.mark.live(timeout=120)
 @pytest.mark.parametrize(
     "time,variable,tol",
     [
@@ -228,9 +226,7 @@ def test_metop_mhs_fetch(time, variable, tol):
     assert set(df["variable"].unique()).issubset(set(variable))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
+@pytest.mark.live(timeout=120)
 @pytest.mark.parametrize("cache", [True, False])
 def test_metop_mhs_cache(cache):
     ds = MetOpMHS(time_tolerance=timedelta(hours=1), cache=cache, verbose=False)

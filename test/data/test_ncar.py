@@ -30,9 +30,7 @@ from earth2studio.data import NCAR_ERA5
 from earth2studio.data.ncar import _read_object_store_dataset
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -66,9 +64,7 @@ def test_ncar_fetch(time, variable):
     assert np.array_equal(data.coords["lon"].values, NCAR_ERA5.NCAR_EAR5_LON)
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [

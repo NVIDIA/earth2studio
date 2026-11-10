@@ -79,9 +79,7 @@ def test_planetary_computer_base_extract_not_implemented() -> None:
         ds.extract_variable_numpy(None, None, datetime.now(timezone.utc))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail()
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "time,variable",
     [
@@ -113,9 +111,7 @@ def test_planetary_computer_oisst_fetch(time, variable) -> None:
     assert np.isfinite(data.values).any()
 
 
-@pytest.mark.slow
-@pytest.mark.xfail()
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize("cache", [True, False])
 def test_planetary_computer_oisst_cache(cache: bool) -> None:
     """Ensure cache directory behavior matches flag settings."""
@@ -135,9 +131,7 @@ def test_planetary_computer_oisst_cache(cache: bool) -> None:
         pass
 
 
-@pytest.mark.slow
-@pytest.mark.xfail()
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "time,variable",
     [
@@ -167,9 +161,7 @@ def test_planetary_computer_sentinel3_fetch(time, variable) -> None:
     assert np.isfinite(data.values).any()
 
 
-@pytest.mark.slow
-@pytest.mark.xfail()
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize("cache", [True, False])
 def test_planetary_computer_sentinel3_cache(cache: bool) -> None:
     """Ensure Sentinel-3 cache behavior aligns with flag."""
@@ -189,9 +181,7 @@ def test_planetary_computer_sentinel3_cache(cache: bool) -> None:
         pass
 
 
-@pytest.mark.slow
-@pytest.mark.xfail()
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "time,variable,tile",
     [
@@ -226,9 +216,7 @@ def test_planetary_computer_modis_fire_fetch(time, variable, tile) -> None:
     assert lon.shape == (1200, 1200)
 
 
-@pytest.mark.slow
-@pytest.mark.xfail()
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize("cache", [True, False])
 def test_planetary_computer_modis_fire_cache(cache: bool) -> None:
     ds = PlanetaryComputerMODISFire(tile="h35v10", cache=cache, verbose=False)
@@ -308,9 +296,7 @@ def test_planetary_computer_ifs_index_entry_matches() -> None:
         assert var
 
 
-@pytest.mark.slow
-@pytest.mark.xfail()
-@pytest.mark.timeout(240)
+@pytest.mark.live(timeout=240)
 def test_planetary_computer_ifs_ranged_benchmark() -> None:
     # Benchmark GRIB index byte-range fetches against whole-file downloads.
     # The ranged path resolves per-message byte ranges from the item's GRIB
@@ -343,9 +329,7 @@ def test_planetary_computer_ifs_ranged_benchmark() -> None:
     assert t_ranged < t_whole
 
 
-@pytest.mark.slow
-@pytest.mark.xfail()
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "time,variable",
     [
@@ -373,9 +357,7 @@ def test_planetary_computer_ifs_fetch(time, variable) -> None:
     assert np.array_equal(data.coords["variable"].values, np.array(variables))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail()
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "satellite,scan_mode,time,variable",
     [
