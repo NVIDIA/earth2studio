@@ -44,10 +44,12 @@ from earth2studio.data.utils import radiance_to_bt
 from earth2studio.data.utils_bufr import datetime_ns
 from earth2studio.data.utils_ir import wavenumber_cm_inverse
 from earth2studio.data.utils_ncep import (
+    _NCEP_GPSRO_WIDE_SCHEMA,
     NCEP_CONVENTIONAL_PUBLIC_SCHEMA,
     NCEP_MICROWAVE_OUTPUT_SCHEMA,
     NCEP_SATWND_PUBLIC_SCHEMA,
     _to_long,
+    _wide_schema,
     channel_axis,
     compile_tables,
     cycle_windows,
@@ -169,7 +171,7 @@ def test_nnja_obs_conv_exceptions():
     with pytest.raises(ValueError):
         NNJAObsConv(source="not_a_source", cache=False, verbose=False)
 
-    with pytest.raises(NotImplementedError, match="raw dump streams"):
+    with pytest.raises(ValueError, match="convbufr requires"):
         NNJAObsConv(source="convbufr", cache=False, verbose=False)
 
     # Invalid variable - test via lexicon lookup directly (avoids network)
@@ -1001,6 +1003,9 @@ def _gpsro_batch(stamps: list[datetime]) -> pa.RecordBatch:
             "SAID": [44.0] * n,
             "PTID": [7.0] * n,
             "QFRO": [0.0] * n,
+            "PCCF": [90.0] * n,
+            "_source_message_index": [2] * n,
+            "_source_subset_index": list(range(n)),
             "ELRC": [6.37e6] * n,
             "GEODU": [12.0] * n,
             "CLATH": [10.0] * n,
@@ -1214,11 +1219,157 @@ def test_gpsro_long_wide_and_closed_window(fake_bufr):
     assert pc.count(wide["observation_gps"]).as_py() == 2
     assert pc.count(wide["observation_gps_refractivity"]).as_py() == 4
     assert pc.max(wide["time"]).as_py() == end
+    assert wide["report"].to_pylist() == [(2 << 32), (2 << 32) + 1] + [
+        (2 << 32),
+        (2 << 32),
+        (2 << 32) + 1,
+        (2 << 32) + 1,
+    ]
+    assert wide["profile_level"].to_pylist() == [0, 0, 0, 1, 0, 1]
+    assert wide["confidence"].to_pylist() == [90.0] * 6
     long = _to_long(wide, variables, NCEP_CONVENTIONAL_PUBLIC_SCHEMA)
     assert long.column_names == NCEP_CONVENTIONAL_PUBLIC_SCHEMA.names
     assert long["variable"].to_pylist() == ["gps"] * 2 + ["gps_refractivity"] * 4
     np.testing.assert_allclose(long["observation"].to_numpy()[:2], 0.01, rtol=1e-6)
     assert long["station"].to_pylist()[0] == "00440007"
+
+
+def test_nnja_raw_surface_wide_preserves_report_and_units(fake_bufr):
+    source = NNJAObsConv(source="convbufr", family="adpsfc", layout="wide")
+    variables = ["t", "u", "pres", "tp:sum:3h"]
+    (task,) = source._create_tasks([T0], variables)
+    assert f"/conv/convbufr/adpsfc/{T0:%Y/%m}/" in task.uri
+    batch = _batch(
+        {
+            **_time_parts([T0, T0]),
+            "CLAT": [12.34567, 45.1],
+            "CLON": [-10.0, 30.0],
+            "RPID": ["A", "B"],
+            "PRES": [100013.0, 100125.0],
+            "TMDB": [282.15, None],
+            "WDIR": [90.0, None],
+            "WSPD": [2.5, None],
+            "DRF1BIT": _struct_list([[(6.0,)], []], ["TP03"]),
+            "_data_category": [0, 1],
+            "_source_message_index": [0, 1],
+            "_source_subset_index": [0, 0],
+        }
+    )
+    fake_bufr["raw"] = _FakeBufr(
+        [batch], messages=[SimpleNamespace(local_sub_category=1)] * 2
+    )
+    wide = source._decode_file("raw", task)
+    assert wide["class"].to_pylist() == ["ADPSFC", "SFCSHP"]
+    assert wide["report"].to_pylist() == [0, 1 << 32]
+    assert wide["observation_t"].to_pylist() == [282.15, None]
+    assert wide["observation_pres"].to_pylist() == [100013.0, 100125.0]
+    assert wide["observation_u"].to_pylist() == [-2.5, None]
+    assert wide["observation_tp:sum:3h"].to_pylist() == [0.006, None]
+
+
+def test_nnja_raw_upper_air_keeps_every_level_and_report(fake_bufr):
+    source = NNJAObsConv(source="convbufr", family="adpupa", layout="wide")
+    variables = ["t", "v", "pres"]
+    (task,) = source._create_tasks([T0], variables)
+    assert task.uri.endswith(
+        f"/conv/convbufr/adpupa/{T0:%Y/%m}/gdas.{T0:%Y%m%d}.t{T0:%H}z.adpupa.bufr_d.nr"
+    )
+    names = ["PRLC", "TMDB", "TMDP", "WDIR", "WSPD"]
+    batch = _batch(
+        {
+            **_time_parts([T0, T0]),
+            # A missing minute is the top of the hour for radiosondes
+            "MINU": [None, 0.0],
+            "CLAT": [40.0, -20.0],
+            "CLON": [255.0, 30.0],
+            "RPID": ["72469", "61641"],
+            "SELV": [1611.0, 25.0],
+            # Repeated 850 hPa levels (temperature and wind blocks) stay separate
+            "UARLV": _struct_list(
+                [
+                    [
+                        (85000.0, 280.0, 270.0, 180.0, 5.0),
+                        (85000.0, None, None, 90.0, 10.0),
+                        (50000.0, 260.0, 250.0, None, None),
+                    ],
+                    [(100000.0, 300.0, 295.0, 0.0, 2.0)],
+                ],
+                names,
+            ),
+            "_source_message_index": [3, 3],
+            "_source_subset_index": [0, 1],
+        }
+    )
+    messages = [SimpleNamespace(local_sub_category=c) for c in (1, 2, 3, 4)]
+    fake_bufr["raw"] = _FakeBufr([batch], messages=messages)
+    wide = source._decode_file("raw", task)
+    # cycle_time is added when the per-file tables are assembled
+    schema = source._output_fields(None, variables)
+    assert {*wide.column_names, "cycle_time"} == set(schema.names)
+    assert wide["class"].to_pylist() == ["ADPUPA"] * 4
+    assert wide["time"].to_pylist() == [T0] * 4
+    assert wide["report"].to_pylist() == [3 << 32] * 3 + [(3 << 32) + 1]
+    assert wide["profile_level"].to_pylist() == [0, 1, 2, 0]
+    assert wide["subset"].to_pylist() == [4] * 4
+    assert wide["station"].to_pylist() == ["72469"] * 3 + ["61641"]
+    assert wide["observation_pres"].to_pylist() == [85000.0, 85000.0, 50000.0, 1e5]
+    assert wide["observation_t"].to_pylist() == [280.0, None, 260.0, 300.0]
+    v = wide["observation_v"].to_pylist()
+    assert v[2] is None
+    np.testing.assert_allclose([v[0], v[1], v[3]], [5.0, 0.0, -2.0], atol=1e-12)
+    assert wide.schema.field("observation_t").type == pa.float64()
+
+
+def test_nnja_raw_conventional_validation():
+    with pytest.raises(ValueError, match="convbufr requires"):
+        NNJAObsConv(source="convbufr", family="aircft", layout="wide")
+    with pytest.raises(ValueError, match="convbufr requires"):
+        NNJAObsConv(source="convbufr", family="adpupa")
+    with pytest.raises(ValueError, match="only supported"):
+        NNJAObsConv(family="adpupa", layout="wide")
+    upper = NNJAObsConv(source="convbufr", family="adpupa", layout="wide")
+    with pytest.raises(ValueError, match="Unsupported variables"):
+        upper._output_fields(None, ["msl"])
+    surface = NNJAObsConv(source="convbufr", family="adpsfc", layout="wide")
+    names = surface._output_fields(None, ["msl", "tp:sum:24h"]).names
+    assert {"report", "profile_level", "observation_tp:sum:24h"} <= set(names)
+    assert "observation_t" not in names
+
+
+@pytest.mark.parametrize("profile_metadata", [False, True])
+def test_nnja_gpsro_profile_metadata_is_opt_in(
+    fake_bufr, monkeypatch, tmp_path, profile_metadata
+):
+    extra = ["report", "profile_level", "confidence", "ionosphere_corrected"]
+    source = NNJAObsConv(
+        time_tolerance=(timedelta(hours=-3), timedelta(hours=3)),
+        cache=False,
+        verbose=False,
+        layout="wide",
+        gpsro_profile_metadata=profile_metadata,
+    )
+    # The flag only changes the GPS-RO stream
+    assert (
+        source._output_fields(None, ["t"]).names
+        == NNJAObsConv(layout="wide")._output_fields(None, ["t"]).names
+    )
+    stamps = [T0, T0 + timedelta(hours=1)]
+    _source_with_files(source, fake_bufr, monkeypatch, tmp_path, [_gpsro_batch(stamps)])
+    frame = source(T0, ["gps", "gps_refractivity"])
+    if not profile_metadata:
+        assert not set(extra) & set(frame.columns)
+        assert source._output_fields(None, ["gps"]).equals(
+            _wide_schema(_NCEP_GPSRO_WIDE_SCHEMA, ["gps"])
+        )
+        return
+    assert set(extra) <= set(frame.columns)
+    frame = frame.sort_values(["report", "profile_level"], kind="stable")
+    assert sorted(set(frame["report"])) == [2 << 32, (2 << 32) + 1]
+    assert frame["confidence"].tolist() == [90.0] * len(frame)
+    assert frame["ionosphere_corrected"].all()
+    schema = source._output_fields(None, ["gps"])
+    for name in extra:
+        assert schema.field(name).metadata[b"description"]
 
 
 @pytest.mark.parametrize("category", [102, 230])
@@ -1627,6 +1778,38 @@ def test_ir_channel_filter_and_brightness_temperature(fake_bufr):
         radiance_to_bt(radiance, wavenumber).astype(np.float32),
     )
     np.testing.assert_array_equal(long["wavenumber"].to_numpy(), wavenumber)
+    assert "observation_iasi_radiance" not in wide.column_names
+    raw = decode_satellite(
+        "iasi",
+        "iasi",
+        {"iasi_radiance": "SCRA"},
+        T0,
+        T0,
+        channels=[16, 49],
+        decode_workers=1,
+    )
+    np.testing.assert_array_equal(
+        raw["observation_iasi_radiance"].to_pylist(),
+        [[1016.0 * 10.0**-7, 1049.0 * 10.0**-7]],
+    )
+    assert raw.schema.field("lat").type == pa.float64()
+    assert "observation_iasi" not in raw.column_names
+    assert "quality" not in raw.column_names
+    with pytest.raises(ValueError, match="requires layout"):
+        NNJAObsSat()._output_fields(None, ["iasi_radiance"])
+    wide_source = NNJAObsSat(layout="wide", sensor_indices={"iasi": [49, 16]})
+    schema = wide_source._output_fields(None, ["iasi_radiance"])
+    radiance = schema.field("observation_iasi_radiance").type
+    assert radiance == pa.list_(pa.float64(), 2)
+    assert schema.field("lat").type == pa.float64()
+    assert not {"quality", "observation_iasi"} & set(schema.names)
+    both = wide_source._output_fields(None, ["iasi", "iasi_radiance"])
+    assert both.field("observation_iasi").type == pa.list_(pa.float32(), 2)
+    assert both.field("observation_iasi_radiance").type == radiance
+    # Without iasi_radiance the IASI schema is unchanged
+    default = wide_source._output_fields(None, ["iasi"])
+    assert default.field("lat").type == pa.float32()
+    assert "quality" in default.names
 
 
 def test_cris_band_quality_is_read_by_slot(fake_bufr):

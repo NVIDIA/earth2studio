@@ -901,12 +901,61 @@ _NCEP_GPSRO_WIDE_SCHEMA = _conv_wide_schema(
         "pressure_quality",
     ),
 )
+_REPORT_FIELD = pa.field(
+    "report",
+    pa.uint64(),
+    nullable=True,
+    metadata={
+        "description": (
+            "Report identifier unique within a file: BUFR message index in the "
+            "upper 32 bits, subset index in the lower 32 bits"
+        )
+    },
+)
+_PROFILE_LEVEL_FIELD = pa.field(
+    "profile_level",
+    pa.uint32(),
+    nullable=True,
+    metadata={"description": "Zero-based level index within the report's profile"},
+)
+# Opt-in GPS-RO profile columns (``NNJAObsConv(gpsro_profile_metadata=True)``)
+_NCEP_GPSRO_PROFILE_WIDE_SCHEMA = (
+    _NCEP_GPSRO_WIDE_SCHEMA.append(_REPORT_FIELD)
+    .append(_PROFILE_LEVEL_FIELD)
+    .append(
+        pa.field(
+            "confidence",
+            pa.float32(),
+            nullable=True,
+            metadata={"description": "Percent confidence of the profile (PCCF, %)"},
+        )
+    )
+    .append(
+        pa.field(
+            "ionosphere_corrected",
+            pa.bool_(),
+            nullable=True,
+            metadata={
+                "description": (
+                    "Whether a bending-angle row is the ionosphere-corrected value "
+                    "(mean frequency 0) rather than the level's last single-frequency "
+                    "value; always true for refractivity rows"
+                )
+            },
+        )
+    )
+)
 
 
-def _conv_stream_schema(variables: Collection[str], class_name: str) -> pa.Schema:
+def _conv_stream_schema(
+    variables: Collection[str],
+    class_name: str,
+    gpsro_profile_metadata: bool = False,
+) -> pa.Schema:
     """The wide schema of the conventional stream (PrepBUFR or GPS-RO) holding
     ``variables``, with the observation and quality columns of ``variables`` only; a
-    wide call returns one stream.
+    wide call returns one stream. ``gpsro_profile_metadata`` adds the GPS-RO report,
+    profile level, confidence and ionosphere-correction columns.
 
     Raises
     ------
@@ -914,7 +963,12 @@ def _conv_stream_schema(variables: Collection[str], class_name: str) -> pa.Schem
         If ``variables`` span both streams
     """
     if set(variables) <= set(GPSRO_VARIABLES):
-        return _wide_schema(_NCEP_GPSRO_WIDE_SCHEMA, variables)
+        schema = (
+            _NCEP_GPSRO_PROFILE_WIDE_SCHEMA
+            if gpsro_profile_metadata
+            else _NCEP_GPSRO_WIDE_SCHEMA
+        )
+        return _wide_schema(schema, variables)
     if set(variables) <= set(PREPBUFR_VARIABLES):
         return _wide_schema(_NCEP_PREPBUFR_WIDE_SCHEMA, variables)
     raise ValueError(
@@ -991,7 +1045,12 @@ _SAT_SENSOR_FOOTPRINT = {
 }
 
 
-def _sat_wide_schema(sensor: str, channels: Collection[int] | None = None) -> pa.Schema:
+def _sat_wide_schema(
+    sensor: str,
+    channels: Collection[int] | None = None,
+    *,
+    raw_iasi: bool = False,
+) -> pa.Schema:
     """Wide schema of one sensor: the shared footprint columns, the sensor's own
     footprint columns, and ``quality`` and ``observation_<variable>`` over the channel
     axis ``channels`` (ascending), else ``SAT_CHANNELS[sensor]``."""
@@ -1006,26 +1065,40 @@ def _sat_wide_schema(sensor: str, channels: Collection[int] | None = None) -> pa
         NCEP_MICROWAVE_OUTPUT_SCHEMA,
         ("sensor_index", "quality", "wavenumber", "observation", "variable", *others),
     )
+    if raw_iasi:
+        # Raw IASI radiance keeps the decoded float64 footprint geometry rather
+        # than casting it to float32.
+        footprint = [
+            field.with_type(pa.float64()) if field.type == pa.float32() else field
+            for field in footprint
+        ]
     return pa.schema(
         [
             *footprint,
-            _channel_field(
-                "quality",
-                pa.uint32(),
-                sensor,
-                axis,
-                f"{sensor} per-channel quality, one slot per channel",
+            *(
+                [
+                    _channel_field(
+                        "quality",
+                        pa.uint32(),
+                        sensor,
+                        axis,
+                        f"{sensor} per-channel quality, one slot per channel",
+                    )
+                ]
+                if not raw_iasi
+                else []
             ),
             *[
                 _channel_field(
                     f"observation_{variable}",
-                    pa.float32(),
+                    pa.float64() if variable == "iasi_radiance" else pa.float32(),
                     sensor,
                     axis,
                     f"Observation of variable {variable!r}, one slot per channel",
                 )
                 for variable, variable_sensor in SAT_VARIABLE_SENSOR.items()
                 if variable_sensor == sensor
+                and (raw_iasi or variable != "iasi_radiance")
             ],
         ]
     )
@@ -1925,6 +1998,7 @@ _GPSRO_SCALARS = (
 )
 _GPSRO_PROJECTION = [
     *_GPSRO_SCALARS,
+    "PCCF",
     "DRF16BIT.CLATH",
     "DRF16BIT.CLONH",
     "DRF16BIT.DRF8BIT.MEFR",
@@ -1947,6 +2021,222 @@ def _list_entries(lists: pa.ListArray) -> tuple[pa.StructArray, np.ndarray]:
     lengths = np.diff(offsets)
     parent = np.repeat(np.arange(len(lists)), lengths)
     return lists.values, parent
+
+
+def _report_ids(batch: pa.RecordBatch) -> np.ndarray:
+    return (
+        batch.column("_source_message_index").to_numpy().astype(np.uint64) << 32
+    ) | batch.column("_source_subset_index").to_numpy().astype(np.uint64)
+
+
+RAW_CONV_VARIABLES = {
+    "adpupa": ("t", "td", "u", "v", "pres"),
+    "adpsfc": (
+        "t",
+        "td",
+        "u",
+        "v",
+        "pres",
+        "msl",
+        "visibility",
+        "tp:sum:3h",
+        "tp:sum:24h",
+    ),
+}
+
+
+def raw_conv_schema(variables: Sequence[str]) -> pa.Schema:
+    """Schema of a raw conventional dump, one row per report level."""
+    return pa.schema(
+        [
+            E2STUDIO_SCHEMA.field("time"),
+            pa.field(
+                "cycle_time",
+                pa.timestamp("ns"),
+                nullable=True,
+                metadata={"description": "Assimilation cycle time of the dump file"},
+            ),
+            pa.field(
+                "lat",
+                pa.float64(),
+                nullable=True,
+                metadata={"description": "Report latitude (degrees north)"},
+            ),
+            pa.field(
+                "lon",
+                pa.float64(),
+                nullable=True,
+                metadata={
+                    "description": "Report longitude as encoded (degrees east, -180 to 180)"
+                },
+            ),
+            pa.field(
+                "station",
+                pa.string(),
+                nullable=True,
+                metadata={"description": "Station or ship identifier (RPID)"},
+            ),
+            pa.field(
+                "station_elev",
+                pa.float64(),
+                nullable=True,
+                metadata={"description": "Station elevation (m)"},
+            ),
+            pa.field(
+                "class",
+                pa.string(),
+                nullable=True,
+                metadata={"description": "Report family: ADPUPA, ADPSFC or SFCSHP"},
+            ),
+            _REPORT_FIELD,
+            _PROFILE_LEVEL_FIELD,
+            pa.field(
+                "subset",
+                pa.uint16(),
+                nullable=True,
+                metadata={"description": "Local data subcategory of the BUFR message"},
+            ),
+            *(_observation_field(v, pa.float64()) for v in variables),
+        ]
+    )
+
+
+def _raw_conv_batch(
+    batch: pa.RecordBatch,
+    family: str,
+    variables: Sequence[str],
+    window: tuple[int, int],
+    subtypes: np.ndarray,
+) -> pa.Table:
+    n = batch.num_rows
+
+    # Some raw templates repeat header mnemonics for later timestamps. Only the
+    # first occurrence describes the report.
+    def column(name: str, default: float = np.nan) -> np.ndarray:
+        indices = batch.schema.get_all_field_indices(name)
+        return (
+            float_values(batch.column(indices[0]))
+            if indices
+            else np.full(n, default, dtype=np.float64)
+        )
+
+    upper = family == "adpupa"
+    minute = column("MINU", 0 if upper else np.nan)
+    if upper:
+        minute = np.nan_to_num(minute)
+    year, month, day, hour = (column(key) for key in ("YEAR", "MNTH", "DAYS", "HOUR"))
+    stamp, valid = civil_time_ns(year, month, day, hour, minute, np.zeros(n))
+    message = batch.column("_source_message_index").to_numpy()
+    header = {
+        "time": timestamps_ns(stamp),
+        "lat": pa.array(column("CLAT"), from_pandas=True),
+        "lon": pa.array(column("CLON"), from_pandas=True),
+        "station": batch.column(batch.schema.get_all_field_indices("RPID")[0]),
+        "station_elev": pa.array(column("SELV"), from_pandas=True),
+        "class": pa.array(
+            np.where(batch.column("_data_category").to_numpy() == 1, "SFCSHP", "ADPSFC")
+            if not upper
+            else ["ADPUPA"] * n
+        ),
+        "report": pa.array(_report_ids(batch)),
+        "subset": pa.array(subtypes[message]),
+    }
+    measurement = {
+        "t": "TMDB",
+        "td": "TMDP",
+        "msl": "PMSL",
+        "visibility": "HOVI",
+        "tp:sum:3h": "TP03",
+        "tp:sum:24h": "TP24",
+    }
+    names = ("TMDB", "TMDP", "WDIR", "WSPD")
+    if upper:
+        # PRLC's list holds the physical levels, including repeated pressures
+        # in separate wind and temperature blocks. Do not merge those levels.
+        path = _find_leaf_paths(batch.schema, ["PRLC"]).get("PRLC", ())
+        if len(path) == 2:
+            lists = batch.column(path[0])
+            levels, parent = _list_entries(lists)
+            index = np.arange(len(parent))
+            level_number = index - lists.offsets.to_numpy()[parent]
+            paths = _find_leaf_paths(pa.schema(list(levels.type)), [*names, "PRLC"])
+            gather = _NestedGather(levels, index, take_last=False)
+            data = {}
+            for name in (*names, "PRLC"):
+                if name in paths:
+                    values, good = gather(paths[name])
+                    data[name] = np.where(good, values, np.nan)
+                else:
+                    data[name] = np.full(len(parent), np.nan)
+        elif len(path) == 1:
+            parent = np.arange(n)
+            level_number = np.zeros(n, dtype=np.uint32)
+            data = {name: column(name) for name in (*names, "PRLC")}
+        elif not path:
+            return raw_conv_schema(variables).empty_table()
+        else:
+            raise ValueError(f"Unsupported raw upper-air pressure path {path}")
+        data["pres"] = data["PRLC"]
+    else:
+        parent = np.arange(n)
+        level_number = np.zeros(n, dtype=np.uint32)
+        data = {name: column(name) for name in (*names, "PMSL", "HOVI", "REHU", "ALSE")}
+        data["pres"] = column("PRES")
+        paths = _find_leaf_paths(batch.schema, ("TP03", "TP24"))
+        gather = _NestedGather(batch, parent, take_last=False)
+        for name in ("TP03", "TP24"):
+            data[name] = np.full(n, np.nan)
+            if name in paths:
+                values, good = gather(paths[name])
+                data[name] = np.where(good, values, np.nan)
+        valid &= np.isfinite(np.stack(tuple(data.values()))).any(axis=0)
+    keep = (valid & (stamp >= window[0]) & (stamp <= window[1]))[parent]
+    columns = {key: values.take(parent[keep]) for key, values in header.items()}
+    columns["profile_level"] = pa.array(level_number[keep], type=pa.uint32())
+    direction = np.deg2rad(data["WDIR"])
+    observations = {
+        **{var: data[name] for var, name in measurement.items() if name in data},
+        "u": -data["WSPD"] * np.sin(direction),
+        "v": -data["WSPD"] * np.cos(direction),
+        "pres": data["pres"],
+    }
+    for var in variables:
+        value = observations[var][keep]
+        columns[f"observation_{var}"] = float_with_nulls(
+            value / 1000 if var.startswith("tp:") else value, pa.float64()
+        )
+    return pa.table(columns)
+
+
+def decode_raw_conventional(
+    path: str,
+    family: str,
+    variables: Sequence[str],
+    dt_min: datetime,
+    dt_max: datetime,
+) -> pa.Table:
+    """Decode an NNJA raw radiosonde or surface dump into wide physical fields."""
+    window = (datetime_ns(dt_min), datetime_ns(dt_max))
+    with open_bufr(path) as source:
+        subtypes = np.array(
+            [m.local_sub_category for m in source.info.messages], dtype=np.uint16
+        )
+        batches = iter_batches(
+            source,
+            path,
+            fixed_replication="structural",
+            data_category_filter=[2, 4] if family == "adpupa" else [0, 1],
+        )
+        tables = [
+            t
+            for batch in batches
+            if (
+                t := _raw_conv_batch(batch, family, variables, window, subtypes)
+            ).num_rows
+        ]
+    return (
+        pa.concat_tables(tables) if tables else raw_conv_schema(variables).empty_table()
+    )
 
 
 def _gpsro_batch(
@@ -1983,6 +2273,8 @@ def _gpsro_batch(
     elrc, elrc_valid = scalar["ELRC"]
     geodu, geodu_valid = scalar["GEODU"]
     qfro, qfro_valid = scalar["QFRO"]
+    confidence = _column(batch, "PCCF")
+    report = _report_ids(batch)
     station = pc.binary_join_element_wise(
         pc.utf8_lpad(
             pc.cast(masked(said.astype(np.int64), said_valid, pa.int64()), pa.string()),
@@ -2022,6 +2314,9 @@ def _gpsro_batch(
             ]
             subset = subset[rows]
             level_index = frequency_level[rows]
+            corrected_level = corrected[level_index] >= 0
+            offsets = batch.column("DRF16BIT").offsets.to_numpy()
+            level_number = level_index - offsets[subset]
             level_lat, level_lat_valid = numpy_with_mask(level_struct.field("CLATH"))
             level_lon, level_lon_valid = numpy_with_mask(level_struct.field("CLONH"))
             lat = np.where(
@@ -2042,6 +2337,9 @@ def _gpsro_batch(
                 heit_valid & value_valid & subset_ok[refractivity_subset]
             )
             subset = refractivity_subset[rows]
+            corrected_level = np.ones(len(rows), dtype=bool)
+            offsets = batch.column("DRF16BIT_2").offsets.to_numpy()
+            level_number = rows - offsets[subset]
             lat = lat_ref[subset]
             lon = lon_ref[subset]
             elev = heit[rows].astype(np.float32)
@@ -2061,6 +2359,14 @@ def _gpsro_batch(
             "lat": pa.array(lat.astype(np.float32), type=pa.float32()),
             "lon": pa.array(np.mod(lon, 360.0).astype(np.float32), type=pa.float32()),
             "station": station.take(pa.array(subset)),
+            "report": pa.array(report[subset]),
+            "profile_level": pa.array(level_number, type=pa.uint32()),
+            "confidence": (
+                null_array(pa.float32(), k)
+                if confidence is None
+                else float_with_nulls(confidence[subset], pa.float32())
+            ),
+            "ionosphere_corrected": pa.array(corrected_level),
             "radius_curvature": masked(elrc[subset], elrc_valid[subset], pa.float64()),
             "geoid_undulation": masked(
                 geodu[subset], geodu_valid[subset], pa.float64()
@@ -2133,7 +2439,7 @@ def decode_gpsro(
             if t is not None
         ]
     if not tables:
-        return _empty_wide(_NCEP_GPSRO_WIDE_SCHEMA, variables)
+        return _empty_wide(_NCEP_GPSRO_PROFILE_WIDE_SCHEMA, variables)
     return pa.concat_tables(tables, promote_options="permissive")
 
 
@@ -2864,12 +3170,13 @@ def _sat_batch(
         elev = _column(batch, "HOLS")
 
     observations: dict[str, np.ndarray] = {}
+    quality: np.ndarray | None
+    raw_iasi = "iasi_radiance" in plan
     if sensor == "airs":
         quality = rows.take("ACQF")
         for variable, field in plan.items():
             observations[variable] = rows.take(field, np.float32)
     elif sensor in ("iasi", "cris"):
-        wavenumber = wavenumber_cm_inverse(sensor, channels)
         coded = rows.take(_IR_OBSERVATION[sensor])
         if is_cris:
             radiance = cris_radiance_mw(coded)
@@ -2882,11 +3189,15 @@ def _sat_batch(
             ).ravel()
         else:
             exponent = _iasi_scale_exponent(batch, rows, coded, iasi_groups)
-            radiance = iasi_radiance_mw(coded, exponent)
-            quality = np.full(slots, np.nan)
-        bt = radiance_to_bt(radiance.reshape(rows.shape), wavenumber).ravel()
-        for variable in plan:
-            observations[variable] = bt
+            radiance = iasi_radiance_mw(coded, exponent) if "iasi" in plan else None
+            quality = None if raw_iasi else np.full(slots, np.nan)
+            if raw_iasi:
+                observations["iasi_radiance"] = coded * np.power(10.0, -exponent)
+        if radiance is not None:
+            bt = radiance_to_bt(
+                radiance.reshape(rows.shape), wavenumber_cm_inverse(sensor, channels)
+            ).ravel()
+            observations.update(dict.fromkeys(plan.keys() - {"iasi_radiance"}, bt))
     else:
         if sensor == "atms":
             sccf = rows.take("SCCF").reshape(rows.shape)
@@ -2900,11 +3211,12 @@ def _sat_batch(
             observations[variable] = rows.take(field, np.float32)
 
     kept = rows.kept
+    precision = pa.float64() if raw_iasi else pa.float32()
 
     def footprint_float(values_: np.ndarray | None) -> pa.Array:
         if values_ is None:
-            return null_array(pa.float32(), len(kept))
-        return float_with_nulls(values_[kept].astype(np.float32), pa.float32())
+            return null_array(precision, len(kept))
+        return float_with_nulls(values_[kept], precision)
 
     def footprint_uint(values_: np.ndarray | None, arrow_type: pa.DataType) -> pa.Array:
         if values_ is None:
@@ -2914,8 +3226,8 @@ def _sat_batch(
     columns: dict[str, pa.Array] = {
         "time": timestamps_ns(time_ns[kept]),
         "class": constant_dictionary("rad", len(kept)),
-        "lat": pa.array(lat[kept].astype(np.float32)),
-        "lon": pa.array(np.mod(lon[kept], 360.0).astype(np.float32)),
+        "lat": pa.array(lat[kept], type=precision),
+        "lon": pa.array(np.mod(lon[kept], 360.0), type=precision),
         "elev": footprint_float(elev),
         "scan_angle": footprint_float(scan_angle),
         "scan_position": footprint_uint(position, pa.uint16()),
@@ -2935,11 +3247,13 @@ def _sat_batch(
             _column(batch, "QGFQ") if sensor == "iasi" else None, pa.uint8()
         ),
         "satellite": _satellite_column(said[kept]),
-        "quality": rows.lists(uint_with_nulls(quality, pa.uint32())),
     }
+    if quality is not None:
+        columns["quality"] = rows.lists(uint_with_nulls(quality, pa.uint32()))
     for variable, values_ in observations.items():
+        dtype = pa.float64() if variable == "iasi_radiance" else pa.float32()
         columns[f"observation_{variable}"] = rows.lists(
-            float_with_nulls(values_.astype(np.float32, copy=False), pa.float32())
+            float_with_nulls(values_, dtype)
         )
     return pa.table(columns)
 
@@ -2987,7 +3301,7 @@ def decode_satellite(
     window_ns = (datetime_ns(dt_min), datetime_ns(dt_max))
     satellite_filter = None if satellites is None else frozenset(satellites)
     axis = sorted(SAT_CHANNELS[sensor] if channels is None else set(channels))
-    schema = _sat_wide_schema(sensor, axis)
+    schema = _sat_wide_schema(sensor, axis, raw_iasi="iasi_radiance" in plan)
     axis_values = np.array(axis, dtype=np.float64)
     iasi_groups: dict[bytes, np.ndarray] = {}
     with open_bufr(path) as source:

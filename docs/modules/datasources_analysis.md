@@ -48,6 +48,7 @@ earth2studio.data.MRMS
 earth2studio.data.MeteosatFCI
 earth2studio.data.NClimGridDaily
 earth2studio.data.NCAR_ERA5
+earth2studio.data.OISST
 earth2studio.data.OPERA
 earth2studio.data.PlanetaryComputerECMWFOpenDataIFS
 earth2studio.data.PlanetaryComputerGOES
