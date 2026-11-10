@@ -27,6 +27,19 @@ Canonical test order (must match this sequence):
 5. test_source_available     — available() classmethod
 6. test_source_validate_time — (optional) _validate_time internals
 
+Output contract checked in the call mock (see e2s-004..e2s-007 rules):
+- The result is NumPy-backed; if the source implements the optional ``device``
+  keyword, also assert ``ds.device == torch.device("cpu")`` by default.
+- Dims start ``[time, variable, ...]`` (``[time, lead_time, variable, ...]`` for
+  forecasts) with ``time``/``variable`` coordinates.
+- ``fetch_data(ds, time, variable)`` returns an ``xr.DataArray`` with dims
+  ``[time, lead_time, variable, ...]`` (mocked I/O, no network).
+- Non-lat/lon sources: ``infer_grid(data)`` (``earth2studio.grids``) succeeds, and
+  for a registered grid its ``fingerprint()`` matches ``resolve_grid(<id>)``.
+- Sources supporting statistics: ``fetch_data(ds, time, ["t2m:mean:1day"])``
+  carries ``E2S_STATISTICS`` in ``attrs``; unsupported methods raise ``ValueError``.
+- CUDA coverage is optional: guard with ``torch.cuda.is_available()`` and skip.
+
 Rules:
 - No docstrings on test functions (project convention)
 - Use strategic parameterization — minimize combos, maximize coverage
@@ -76,6 +89,9 @@ from unittest.mock import AsyncMock, patch
 import numpy as np
 import pandas as pd
 import pytest
+import torch
+
+from earth2studio.data import fetch_data
 
 # FILL: Import your source class
 # from earth2studio.data import SourceName
@@ -188,6 +204,17 @@ def test_source_call_mock(tmp_path, monkeypatch):
     # # Verify output shape and content
     # assert data.shape == (1, 2, 181, 360)  # FILL: expected shape
     # np.testing.assert_allclose(data.sel(variable="t2m").values[0], fake_grid)
+    # assert isinstance(data.data, np.ndarray)
+    # assert ds.device == torch.device("cpu")  # only if device is implemented
+    #
+    # # fetch_data adds lead_time and returns a single DataArray (DataSource)
+    # with (
+    #     patch.object(ds, "_async_init", new=AsyncMock(return_value=None)),
+    #     patch.object(ds, "fetch_array", side_effect=_fake_fetch_array),
+    # ):
+    #     field = fetch_data(ds, np.array([np.datetime64("2024-06-01T00")]),
+    #                        np.array(["t2m"]))
+    # assert field.dims[:3] == ("time", "lead_time", "variable")
     pass
 
 

@@ -5,7 +5,7 @@
     "expected_skill": "earth2studio-create-diagnostic",
     "expected_script": "evals/targets/eval_1_target.py",
     "expected_test": "evals/targets/test/eval_1_test_target.py",
-    "ground_truth": "Creates a simple diagnostic model inheriting only from torch.nn.Module (no AutoModelMixin needed). Takes u10m and v10m as input, computes sqrt(u^2 + v^2) as output. Uses @batch_func with output_coords preserving leading dimensions directly. Test file includes mock tests for call and exceptions.",
+    "ground_truth": "Creates a simple diagnostic model inheriting only from torch.nn.Module (no AutoModelMixin needed). Declares allocation-free DataArray input_coords/output_coords via coord_array and coord_array_like, default_sources returning None, and stochastic = False. Takes u10m and v10m as input, computes sqrt(u^2 + v^2) as output. Uses @torch.inference_mode() and @batch_func() with a DataArray __call__. Test file includes mock tests for call, exceptions, and check_diagnostic_contract conformance.",
     "expected_behavior": [
       "Reads /workspace/skills/earth2studio-create-diagnostic/SKILL.md before implementing",
       "Classifies as Simple diagnostic (no checkpoints)",
@@ -23,7 +23,7 @@
     "expected_skill": "earth2studio-create-diagnostic",
     "expected_script": "evals/targets/eval_2_target.py",
     "expected_test": "evals/targets/test/eval_2_test_target.py",
-    "ground_truth": "Creates an AutoModel diagnostic with torch.nn.Module + AutoModelMixin inheritance. Implements load_default_package and load_model classmethods. Uses register_buffer for center/scale. Test fixture creates dummy package with model.pt, center.npy, scale.npy.",
+    "ground_truth": "Creates an AutoModel diagnostic with torch.nn.Module + AutoModelMixin inheritance and the native DataArray contract. Implements load_default_package and load_model classmethods that load weights on CPU. Uses register_buffer for center/scale. Test fixture creates dummy package with model.pt, center.npy, scale.npy; tests cover call, exceptions, buffers and check_diagnostic_contract conformance.",
     "expected_behavior": [
       "Reads /workspace/skills/earth2studio-create-diagnostic/SKILL.md before implementing",
       "Classifies as AutoModel diagnostic",
@@ -37,11 +37,11 @@
   },
   {
     "id": "create-diagnostic-eval-003-generative-superres",
-    "question": "Read the skill at /workspace/skills/earth2studio-create-diagnostic/SKILL.md, then implement a new Earth2Studio diagnostic model called `SuperResolution` that performs probabilistic super-resolution similar to CorrDiff. It should take 4 input variables (t2m, u10m, v10m, msl) on a coarse 2-degree grid (91x180) and output the same 4 variables on a fine 0.5-degree grid (361x720). The model should support generating multiple samples (number_of_samples parameter) and include a seed parameter for reproducibility. Output coords should include a 'sample' dimension.",
+    "question": "Read the skill at /workspace/skills/earth2studio-create-diagnostic/SKILL.md, then implement a new Earth2Studio diagnostic model called `SuperResolution` that performs probabilistic super-resolution similar to CorrDiff. It should take 4 input variables (t2m, u10m, v10m, msl) on a coarse 2-degree grid (91x180) and output the same 4 variables on a fine 0.5-degree grid (361x720). The model should support generating multiple samples (number_of_samples parameter) and support reproducibility through set_rng (no seed constructor or load_model parameter). Output coords should include a 'sample' dimension.",
     "expected_skill": "earth2studio-create-diagnostic",
     "expected_script": "evals/targets/eval_3_target.py",
     "expected_test": "evals/targets/test/eval_3_test_target.py",
-    "ground_truth": "Creates a generative diagnostic following CorrDiff patterns. Output_coords includes 'sample' dimension. Forward pass generates number_of_samples samples. Supports seed for reproducibility. Test includes test_samples to verify sample dimension and test_deterministic_seed for reproducibility.",
+    "ground_truth": "Creates a generative diagnostic following CorrDiff patterns with stochastic = True and set_rng(seed, reset=True) backed by a local torch.Generator; no seed argument on the constructor or load_model. output_coords declares a 'sample' axis and the fine output grid via coord_array. Forward pass generates number_of_samples samples. Test includes sample-dimension checks, set_rng reproducibility (same seed equal, different seed differs) and check_diagnostic_contract conformance.",
     "expected_behavior": [
       "Reads /workspace/skills/earth2studio-create-diagnostic/SKILL.md before implementing",
       "Classifies as Generative diagnostic",

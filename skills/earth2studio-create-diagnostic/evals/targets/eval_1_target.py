@@ -21,14 +21,18 @@ It computes wind speed at 10m (ws10m) from u10m and v10m components using
 the formula: ws10m = sqrt(u10m^2 + v10m^2).
 """
 
-from collections import OrderedDict
-
-import numpy as np
 import torch
+import xarray as xr
 
 from earth2studio.models.batch import batch_func
-from earth2studio.utils import handshake_coords, handshake_dim
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.coords import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_nonempty,
+)
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.type import CoordinateSystem
 
 INPUT_VARIABLES = ["u10m", "v10m"]
 OUTPUT_VARIABLES = ["ws10m"]
@@ -43,87 +47,79 @@ class WindSpeed(torch.nn.Module):
     Note
     ----
     Wind speed is computed as: ws10m = sqrt(u10m^2 + v10m^2)
+
+    Badges
+    ------
+    region:global product:wind provider:nvidia backend:pytorch
     """
+
+    stochastic: bool = False
 
     def __init__(self) -> None:
         super().__init__()
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of diagnostic model.
+    def input_coords(self) -> CoordinateSystem:
+        """Input coordinate system of the diagnostic model.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary.
+        CoordinateSystem
+            Allocation-free signature with a dynamic leading batch dimension,
+            the u10m/v10m variables and the 0.25 degree global lat/lon grid.
         """
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "variable": np.array(INPUT_VARIABLES),
-                "lat": np.linspace(90, -90, 721, endpoint=True),
-                "lon": np.linspace(0, 360, 1440, endpoint=False),
-            }
+        return coord_array(
+            ("batch", "variable", "lat", "lon"),
+            {"variable": INPUT_VARIABLES},
+            dynamic=("batch",),
+            grid="latlon-0.25deg",
         )
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of diagnostic model.
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Validate the input and plan the output coordinate system.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinates to validate and transform.
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
-        CoordSystem
-            Output coordinates with ws10m variable.
+        CoordinateSystem
+            Allocation-free signature with the ws10m variable.
         """
-        target_input_coords = self.input_coords()
+        handshake_dataarray(input_coords, self.input_coords())
+        return coord_array_like(input_coords, {"variable": OUTPUT_VARIABLES})
 
-        # Validate dimensions
-        handshake_dim(input_coords, "variable", -3)
-        handshake_dim(input_coords, "lat", -2)
-        handshake_dim(input_coords, "lon", -1)
+    def default_sources(self) -> None:
+        """Recommend no input data source.
 
-        # Validate coordinate values
-        handshake_coords(input_coords, target_input_coords, "variable")
-        handshake_coords(input_coords, target_input_coords, "lat")
-        handshake_coords(input_coords, target_input_coords, "lon")
+        Returns
+        -------
+        None
+            No source recommendation; the caller supplies the input field.
+        """
+        return None
 
-        output_coords = input_coords.copy()
-        output_coords["variable"] = np.array(OUTPUT_VARIABLES)
-        return output_coords
-
+    @torch.inference_mode()
     @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Compute wind speed from u/v components.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor with shape (batch, 2, lat, lon) where
-            variable dimension contains [u10m, v10m].
-        coords : CoordSystem
-            Input coordinate system.
+        x : xr.DataArray
+            Input field with dims (..., variable, lat, lon) where the variable
+            coordinate is [u10m, v10m].
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Wind speed tensor (batch, 1, lat, lon) and output coordinates.
+        xr.DataArray
+            Wind speed field matching ``output_coords(x)``.
         """
-        output_coords = self.output_coords(coords)
-
-        with torch.no_grad():
-            # Extract u and v components
-            # x shape: (batch, 2, lat, lon) where variable=["u10m", "v10m"]
-            u = x[:, 0:1, :, :]
-            v = x[:, 1:2, :, :]
-
-            # Compute wind speed
-            ws = torch.sqrt(u**2 + v**2)
-
-        return ws, output_coords
+        handshake_nonempty(x)
+        signature = self.output_coords(x)
+        tensor, _ = x.e2s.to_torch()
+        # tensor shape: (batch, 2, lat, lon) after batch_func compression
+        u = tensor[:, 0:1]
+        v = tensor[:, 1:2]
+        return from_torch(torch.sqrt(u**2 + v**2), signature)

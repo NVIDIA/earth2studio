@@ -19,11 +19,11 @@ Risk: Review before execution as proposals could introduce incorrect or misleadi
 Mitigation: Review and scan skill before deployment. <br>
 
 ## Reference(s): <br>
-- [Prognostic Models](https://nvidia.github.io/earth2studio/modules/models_px.html) <br>
-- [Data Sources (Analysis)](https://nvidia.github.io/earth2studio/modules/datasources_analysis.html) <br>
-- [Data Sources (Forecast)](https://nvidia.github.io/earth2studio/modules/datasources_forecast.html) <br>
-- [IO Backends](https://nvidia.github.io/earth2studio/modules/io.html) <br>
-- [run.deterministic source](https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/run.py) <br>
+- [Prognostic Models](https://nvidia.github.io/earth2studio/main/modules/models_px/) <br>
+- [Data Sources (Analysis)](https://nvidia.github.io/earth2studio/main/modules/datasources_analysis/) <br>
+- [Data Sources (Forecast)](https://nvidia.github.io/earth2studio/main/modules/datasources_forecast/) <br>
+- [IO Backends](https://nvidia.github.io/earth2studio/main/modules/io/) <br>
+- [run.deterministic source](https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/run/__init__.py) <br>
 - [Troubleshooting Guide](references/troubleshooting.md) <br>
 
 

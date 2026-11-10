@@ -182,10 +182,15 @@ for differently ordered cores. Use Earth2Studio variable names and qualified
 statistic labels such as `tp:sum:6h`.
 
 Initial field history is finite, nonempty, explicitly labelled, 1-D timedelta,
-strictly increasing and ends at relative zero. Validate labels before subtracting
-the final lead for `handshake_dataarray`. Add output offsets to the final input
-lead, not a constant; nonzero starts and shifted rollouts must work. Forcing may
-include positive relative offsets when the core requires target-time fields.
+strictly increasing and ends at or before relative zero (P3). Usually it ends at
+zero; a background ending earlier is brought to the analysis time by
+`initialize`. Validate labels before subtracting the final lead for
+`handshake_dataarray`. Add output offsets to the final input lead, not a
+constant; nonzero starts and shifted rollouts must work. The time one `step`
+advances is the output's last lead minus the later of the input's last lead and
+zero; `earth2studio.models.utils.step_interval(input_lead_time, output_lead_time)`
+computes it. Forcing may include positive relative offsets when the core requires
+target-time fields.
 
 `output_coords` accepts declarations or actual fields without reading field data
 or modifying input metadata. Use `coord_array_like` for new lead times/variables;
@@ -200,6 +205,30 @@ returned fields omit signature-only attrs. `batch_func` currently handles an
 array-to-array numerical method, not arbitrary `(y, state)` results: decorate
 the private core helper, not `initialize`/`step`. Multi-slot cores may need
 per-slot batching. Do not pack the outer iterator: hooks see original dimensions.
+
+## Regional Views (`DomainAdaptable`)
+
+Models that can run on a sub-domain of their supported footprint additionally
+implement [DomainAdaptable](../../../earth2studio/models/base.py), a runtime
+checkable protocol with one method, `with_region(self, region: Region) -> Self`
+(`Region` comes from `earth2studio.grids`: `Region.box/band/rectangle/circle`).
+This is optional and independent of the prognostic interface; fixed-domain models
+do not implement it. Requirements:
+
+- Return a new view with its own `input_coords`/`output_coords`/`forcing_coords`
+  signatures; share weights, statics and other heavy state with the parent.
+  Never mutate the parent or sibling views.
+- The model chooses the grid for every input, forcing and output slot itself, using
+  whole cells that cover the region. Reject unsupported kinds, regions partly or
+  wholly outside the footprint, and regions too small for the network with a
+  `ValueError`. For `rectangle` regions honor center and orientation.
+- A view selects from the full supported footprint, not from its own block, so
+  `view.with_region(r)` equals `model.with_region(r)` and can reach beyond the view.
+- A view copies, not shares, an RNG stream so seeding one view does not move others.
+- Views must satisfy the same contract (`check_prognostic_contract(view)`).
+
+Study `earth2studio/models/px/stormcastconus.py` and `stormscope.py` for real
+implementations, and `test/models/test_base.py` for a minimal protocol example.
 
 ## Iteration, Hooks and Ownership
 
@@ -248,7 +277,10 @@ different seeds differ.
 
 After seeding, seeding and execution must leave global RNG state unperturbed.
 Use a local generator rebuilt from serialized state, a functional key, or a scoped
-RNG fork for backends requiring global seeding. Fork only relevant devices and
+RNG fork for backends requiring global seeding
+(`earth2studio.models.utils.fork_rng(seed, device, states)` restores global Torch
+RNG on exit and keeps the stream in a reusable `states` dictionary). Fork only
+relevant devices and
 numerical calls, never across yields. Global RNG forks do not isolate concurrent
 threads; run those components serially within a process.
 
@@ -288,8 +320,8 @@ component-specific tests when checkpoint integration is requested. The checker
 returns unevaluated rules with reasons; pin those explicitly.
 `rollout=False` intentionally disables execution
 checks and is not a substitute for full conformance. Keep model-specific tests for
-numerical correctness, source ordering and absence of internal fetching, which
-generic probes cannot prove. Update drivers that count `nsteps + 1` yields when
+numerical correctness, regional views (`with_region`) when implemented, source
+ordering and absence of internal fetching, which generic probes cannot prove. Update drivers that count `nsteps + 1` yields when
 integrating migrated models; runtime protocol checks alone cannot catch this.
 
 Tests use mock weights, numerical expectations, invalid/empty inputs, shifted

@@ -20,228 +20,194 @@ description: >
 
 ## Purpose
 
-Guide a user through downloading weather/climate data via Earth2Studio data source
-APIs. Identifies compatible sources by checking the lexicon, verifies variable
-support, and produces a working fetch script outputting an xarray DataArray.
+Guide a user through fetching weather/climate data with Earth2Studio data
+sources: pick a source that provides the requested variables and times, verify
+support from the lexicon, and produce a working script that returns an xarray
+DataArray (or a pandas DataFrame for observations).
 
 ## Prerequisites
 
-- Earth2Studio installed (`uv pip install earth2studio` or equivalent)
-- Network access to remote data stores (GCS, S3, CDS API, etc.)
-- For CDS-based sources: valid CDS API key configured (`~/.cdsapirc`)
-- Python 3.10+
+- Earth2Studio installed (see `earth2studio-install`; it owns the Python
+  version, extras, and environment setup)
+- Network access to the remote data store
+- Some sources need credentials or an extra (for example CDS needs
+  `~/.cdsapirc`); the source's docstring says what it needs
+
+## Core principle: read the repo and live docs, do not memorize
+
+Sources, variables, and lexicons change every release. Any list in this skill
+would go stale, so look things up and cite what you used.
+
+| Need | Where to look (repo path first, live page as a fallback) |
+|------|------------------------------------------------|
+| Available sources (analysis, forecast, dataframe) | `docs/modules/datasources_analysis.md`, `datasources_forecast.md`, `datasources_dataframe.md` |
+| Source constructor args, auth, and caveats | the class in `earth2studio/data/` and its docstring |
+| Variables a source supports | its lexicon in `earth2studio/lexicon/` (`VOCAB` keys) |
+| Temporal statistics a source supports | `TIME_STATISTICS` in its lexicon, and the "Temporal statistics" section of the class docstring |
+| Variable naming | `docs/userguide/advanced/lexicon.md`, `E2STUDIO_VOCAB` in `earth2studio/lexicon/base.py` |
+| Fetch helpers (`fetch_data`, `fetch_dataframe`, regridding, local stores) | `earth2studio/data/utils.py` and `docs/userguide/components/datasources.md` |
+| Source interfaces (call signatures) | `earth2studio/data/base.py` |
+| Cache locations and env vars | `docs/userguide/about/install.md` |
+| Changes from 0.x | `MIGRATION.md` ("Data sources and fetching") |
+
+Live pages (note the `/main/` segment; URLs without it return 404):
+
+```text
+https://nvidia.github.io/earth2studio/main/modules/datasources_analysis/
+https://nvidia.github.io/earth2studio/main/modules/datasources_forecast/
+https://nvidia.github.io/earth2studio/main/modules/datasources_dataframe/
+https://nvidia.github.io/earth2studio/main/userguide/components/datasources/
+https://nvidia.github.io/earth2studio/main/userguide/advanced/lexicon/
+```
+
+If working in a local clone, read the files directly. Otherwise fetch from
+`https://github.com/NVIDIA/earth2studio` or the live pages. Fetch only what the
+request needs.
 
 ## Instructions
 
-You are helping a user download specific weather/climate data using
-Earth2Studio's data source APIs. Your job is to identify which data source(s)
-can provide the requested variables, verify compatibility via the lexicon
-system, and produce a working fetch script.
+### Step 1. Understand the request
 
-### Core principle: live docs and lexicon are the source of truth
+Ask at most 3 questions, skipping what is already known:
 
-Data source APIs, available variables, and the lexicon evolve between releases.
-Before recommending a data source or writing a fetch script:
+- **Variables.** Use Earth2Studio names (`t2m`, `u500`, `z850`, `tp`, `msl`).
+  Map plain language ("500 hPa geopotential height") using `E2STUDIO_VOCAB`.
+- **Time.** One timestamp, a range, or several discrete times (UTC).
+- **Data type.** Analysis/reanalysis (state at a time), forecast (init time plus
+  lead times), or point observations (a DataFrame, not a gridded array).
+- **Lead time and init time** (forecast only).
+- **Region and grid.** Global or regional; does the data need to match a model's
+  grid (see regridding below)?
+- **Statistics.** Does the user want an accumulation or aggregate over a window
+  (for example 24 h mean temperature) instead of an instantaneous field?
+- **Output.** In-memory DataArray (default), or a local NetCDF/Zarr file.
 
-1. **Fetch the relevant data source doc page** to confirm the API signature
-   and constructor arguments.
-2. **Check the lexicon** to verify the requested variable is supported by
-   that data source.
+### Step 2. Choose candidate sources
 
-Live doc references (fetch only what the user's request requires):
+Match the data type to the right docs page (analysis, forecast, or dataframe),
+then filter by temporal coverage (operational sources keep limited history,
+reanalyses go back decades), region and resolution, and access (some need keys or
+extras). Check each candidate's lexicon: a variable that is not a `VOCAB` key
+cannot be fetched from that source.
 
-- **Analysis data sources:**
-  <https://nvidia.github.io/earth2studio/modules/datasources_analysis.html>
-- **Forecast data sources:**
-  <https://nvidia.github.io/earth2studio/modules/datasources_forecast.html>
-- **DataFrame data sources:**
-  <https://nvidia.github.io/earth2studio/modules/datasources_dataframe.html>
-- **Lexicon base:**
-  <https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/lexicon/base.py>
-- **Lexicon per-source:**
-  <https://github.com/NVIDIA/earth2studio/tree/main/earth2studio/lexicon>
+Present viable options and tradeoffs briefly and let the user pick. If one choice
+is clearly best, recommend it and ask for confirmation.
 
-### Interaction protocol
+### Step 3. Write the fetch script
 
-#### Step 1. Understand the user's request
+Use the source's own docstring for constructor arguments. Match the source type:
 
-Extract from what the user has said (ask follow-ups if needed, cap at 3
-questions):
+| Source type | Call | Returns |
+|-------------|------|---------|
+| Analysis | `ds(time, variable)` | DataArray `[time, variable, ...]` |
+| Forecast | `ds(time, lead_time, variable)` | DataArray `[time, lead_time, variable, ...]` |
+| DataFrame | `ds(time, variable, fields=None)` | pandas DataFrame |
+| Forecast DataFrame | `ds(time, lead_time, variable, fields=None)` | pandas DataFrame |
 
-- **Variables** — what do they want? Use Earth2Studio variable names
-  (e.g. `t2m`, `u500`, `z850`, `tp`, `msl`). If the user uses plain language
-  ("500 hPa geopotential height"), map it to the E2Studio name by checking
-  the live `base.py` E2STUDIO_VOCAB.
-- **Time** — what date/time range? A single timestamp, a range, or multiple
-  discrete times?
-- **Data type** — analysis/reanalysis (historical state) or forecast (lead-time based)?
-- **Lead time** (forecast only) — how far ahead? Which initialization time?
-- **Region** — global or regional (e.g. North America for HRRR)?
-- **Output format** — xarray DataArray (default), save to file (NetCDF/Zarr)?
-
-#### Step 2. Identify candidate data sources
-
-Based on the request type, narrow candidates:
-
-**Analysis/reanalysis** (historical state at a specific time):
-
-- Use analysis data source page to identify options
-- Common choices: GFS (operational, recent), HRRR (NA, hourly),
-  IFS/IFS_ENS (ECMWF), ARCO_ERA5/CDS_ERA5/WB2ERA5/NCAR_ERA5 (ERA5 reanalysis),
-  GOES/MRMS/JPSS (observational)
-
-**Forecast** (predictions from an initialization time with lead times):
-
-- Use forecast data source page to identify options
-- Common choices: GFS_FX, GEFS_FX, HRRR_FX, IFS_FX, IFS_ENS_FX,
-  AIFS_FX, CFS_FX
-
-Key differentiators to surface:
-
-- **Temporal coverage** — operational sources (GFS, HRRR) have limited
-  history; reanalysis (ERA5 via ARCO_ERA5/CDS_ERA5/WB2) goes back decades
-- **Spatial resolution** — HRRR is 3km NA-only; GFS is 0.25° global;
-  WB2ERA5_32x64 is 5.625° global
-- **Update frequency** — some are real-time, some have multi-day lag
-
-#### Step 3. Verify variable support via lexicon
-
-This is critical. Each data source has a lexicon file that defines which
-E2Studio variables it can provide.
-
-To verify:
-
-1. Fetch the source's lexicon file from
-   `https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/lexicon/<source>.py`
-   (e.g. `gfs.py`, `hrrr.py`, `cds.py`, `arco.py`, `wb2.py`)
-2. Check that the user's requested variable(s) appear as keys in the
-   source's `VOCAB` dict
-3. If a variable is NOT in a source's lexicon, that source cannot provide
-   it — try another
-
-The lexicon VOCAB maps Earth2Studio variable names → source-specific
-identifiers. If a variable key exists in the VOCAB, the source supports it.
-
-Present the results clearly: *"GFS supports `t2m`, `u500`, `z850`. HRRR also
-supports these but is limited to North America. ARCO_ERA5 supports all
-three and has data back to 1959."*
-
-#### Step 4. Confirm data source selection with user
-
-Present the viable options with tradeoffs:
-
-| Source | Variables | Coverage | Resolution | Time Range |
-|--------|-----------|----------|------------|------------|
-| ... | ... | ... | ... | ... |
-
-Let the user pick. If there's one obvious choice, recommend it and ask for
-confirmation.
-
-#### Step 5. Generate fetch script
-
-Write a Python script that uses the selected data source to fetch the
-requested data. The script structure depends on whether it's an analysis or
-forecast source.
-
-**Analysis source pattern:**
+For gridded data, prefer `fetch_data` from `earth2studio.data`. It works with
+both analysis and forecast sources and is what inference pipelines use:
 
 ```python
-import datetime
-from earth2studio.data import <SourceClass>
+import numpy as np
+from earth2studio.data import fetch_data, <SourceClass>
 
-# Initialize data source
 ds = <SourceClass>()
 
-# Fetch data
-# Analysis sources use: ds(time, variable) -> xr.DataArray
-time = [datetime.datetime(YYYY, M, D, H)]  # or array of times
-variable = ["var1", "var2"]  # E2Studio variable names
-
-data = ds(time, variable)
+x = fetch_data(
+    ds,
+    time=np.array([np.datetime64("YYYY-MM-DDTHH:00")]),
+    variable=np.array(["t2m", "u10m"]),
+    lead_time=np.array([np.timedelta64(0, "h")]),  # forecast sources: the lead times
+)
+# x is one xr.DataArray with dims [time, lead_time, variable, ...]
+print(x.dims, x.shape)
+print(x.coords)
 ```
 
-**Forecast source pattern:**
+Rules that `fetch_data` enforces, and the reasons behind them:
 
-```python
-import datetime
-from earth2studio.data import <SourceClass>
+- `time` and `lead_time` are non-empty 1D NumPy `datetime64` / `timedelta64`
+  arrays without NaT, and `variable` is a non-empty 1D array. Plain
+  `datetime.datetime` lists work when calling a source directly, but not here.
+- The result is always a single DataArray (the old `tensor, coords` tuple and
+  the `legacy=` option are gone from 1.0).
+- Pass `device="cuda"` to get CuPy-backed data; the default is NumPy on CPU.
 
-# Initialize data source
-ds = <SourceClass>()
+Calling a source directly (`ds(time, variable)`) is fine for a simple one-off and
+gives the same kind of DataArray without the extra handling.
 
-# Forecast sources use: ds(time, lead_time, variable) -> xr.DataArray
-time = [datetime.datetime(YYYY, M, D, H)]  # initialization time
-lead_time = [datetime.timedelta(hours=H)]   # or array of lead times
-variable = ["var1", "var2"]
+#### Optional features, use only when the request needs them
 
-data = ds(time, lead_time, variable)
-```
+- **Temporal statistics.** Qualify a variable with a statistic and window, for
+  example `"t2m:mean:24h"` (methods such as `mean`, `sum`, `min`, `max`). Only
+  sources whose lexicon declares `TIME_STATISTICS` support it; others raise
+  `ValueError`. Windows include the left endpoint and exclude the right. For
+  forecast sources the requested lead time must cover the window.
+- **Regridding.** Pass `target_grid` (for example
+  `infer_grid(model.input_coords())`) to return data on a given grid. Without a
+  `regridder` it passes through, crops exactly, or uses nearest neighbor, and it
+  raises if the target extends beyond the source. For a chosen method, pass a
+  regridder from `earth2studio.grids` (see `list_regridders`).
+- **Observations.** Use `fetch_dataframe(source, time, variable, fields=...)`,
+  or `fetch_dataframes` to pull several sources concurrently. DataFrame sources
+  expose a `SCHEMA`; use `fields` to select columns. Some require constructor
+  arguments (for example `ISD` needs `stations=[...]`) and have a
+  `time_tolerance` for matching observations to requested times.
+- **Combining sources.** `CompositeSource` / `CompositeForecastSource` map
+  variables to different sources behind one interface. A source can only be
+  one type in a call; do not mix analysis and forecast in one `fetch_data`.
+- **Saving locally.** `datasource_to_file(...)` writes NetCDF or Zarr, which can
+  be read back with `DataArrayFile`, `DataSetFile`, or `DataArrayDirectory`.
+  Prefer this over repeated network fetches in later runs.
 
-Always fetch the specific data source's API doc page to confirm the exact
-constructor arguments and call signature before writing the script — they can
-vary (some need auth tokens, cache paths, specific parameters).
+Include in the script: imports, short comments, and how to inspect the result
+(`print(x)`, `x.shape`, `x.coords`).
 
-Include in the script:
+### Step 4. Offer next steps
 
-- Appropriate imports
-- Clear comments explaining each step
-- How to inspect the result (`print(data)`, `data.shape`, `data.coords`)
-- Optional: saving to file if the user requested it
+- How to change variables/times without rewriting the script.
+- Data is cached locally after the first fetch. `EARTH2STUDIO_CACHE` sets the
+  cache root, `EARTH2STUDIO_DATA_CACHE` overrides it for data sources only.
+- If they want to run a model on the data, point them to `earth2studio-discover`
+  and `earth2studio-deterministic-forecast`.
 
-#### Step 6. Offer next steps
+## Ownership and out-of-scope
 
-After delivering the script, mention:
+**Owns:** choosing data sources for a variable/time request, verifying variable
+support via the lexicon, and generating fetch scripts.
 
-- How to change variables/times without rewriting the whole thing
-- If they might want to feed this into a model, point them to the
-  discover skill
-- Cache behavior (data is cached locally after first fetch via
-  `EARTH2STUDIO_CACHE`)
+**Does not own:** installation (`earth2studio-install`), model selection
+(`earth2studio-discover`), inference pipelines, writing a new data source
+(see `earth2studio-create-datasource`), or credential setup beyond what the
+docs describe.
 
-### Ownership and out-of-scope
+## Example
 
-**Owns:** identifying data sources for a user's variable/time request,
-verifying variable support via lexicon, generating data fetch scripts,
-explaining analysis vs. forecast source differences.
+> "I need 500 hPa geopotential height and 2m temperature from ERA5 for
+> January 1, 2020 at 00Z."
 
-**Does not own:** installation (earth2studio-install), model selection
-(earth2studio-discover), inference pipelines, custom data source creation
-(point to extend examples), data source authentication setup beyond what
-the docs describe.
-
-## Examples
-
-Typical invocation:
-
-> "I need 500 hPa geopotential height and 2m temperature from ERA5
-> for January 1, 2020 at 00Z."
-
-The skill would:
-
-1. Map plain language → `z500`, `t2m`
-2. Check ARCO_ERA5/CDS_ERA5/WB2ERA5 lexicons for support
-3. Recommend ARCO_ERA5 (free, no API key) or CDS_ERA5 (official, needs key)
-4. Generate a fetch script using the selected source
+1. Map to `z500`, `t2m`.
+2. Check the ERA5-based sources' lexicons in `earth2studio/lexicon/`.
+3. Recommend the one that needs no API key if the user has none, otherwise the
+   official one; confirm.
+4. Generate a `fetch_data` script for the chosen source.
 
 ## Limitations
 
-- **Network required** — all data sources fetch from remote stores
-  (GCS, S3, CDS API)
-- **No local file loading** — for local NetCDF/Zarr, use
-  `DataArrayFile`/`DataSetFile` directly
-- **One source type per script** — cannot mix analysis and forecast
-  sources in a single call
-- **Variable availability varies** — not all sources provide all
-  variables; always verify via lexicon
-- **Rate limits** — CDS API has queue-based throttling; GCS/S3 sources
-  are generally faster
+- Network is required; sources read from remote stores.
+- Variable availability and time coverage differ per source; always verify.
+- Only as current as the branch or docs you read.
+- Rate limits and queues (notably CDS) are outside Earth2Studio's control.
 
 ## Troubleshooting
 
 | Error | Cause | Solution |
 |-------|-------|----------|
-| `KeyError: '<var>'` | Not in lexicon | Check lexicon; try another source |
-| `FileNotFoundError` / 404 | Time not available | Verify temporal coverage |
-| `CDS API timeout` | Queue congestion | Retry or use ARCO_ERA5 |
-| `ModuleNotFoundError` | Not installed | `uv pip install earth2studio` |
-| Empty DataArray | Time/var mismatch | Check datetime and variable name |
+| `KeyError: '<var>'` | Not in the source's lexicon | Check `VOCAB`; try another source |
+| `ValueError` mentioning a statistic | Source lacks that temporal statistic | Check `TIME_STATISTICS`; use a supporting source or compute it yourself |
+| `ValueError` on `time` / `lead_time` | Not a 1D `datetime64` / `timedelta64` array | Build the arrays with `np.array([np.datetime64(...)])` |
+| `FileNotFoundError` / 404 | Time outside the source's coverage | Check the source's temporal coverage |
+| Timeout on a CDS source | Queue congestion | Retry later or use a source without a queue |
+| `ModuleNotFoundError` | Missing extra or install | See `earth2studio-install` |
+| Empty result | Time/variable mismatch | Recheck timestamp (UTC) and variable name |
+| Target grid error | `target_grid` extends beyond the source | Choose a source covering the region or a smaller grid |

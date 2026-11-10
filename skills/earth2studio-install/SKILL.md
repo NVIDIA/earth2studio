@@ -12,7 +12,7 @@ metadata:
     - deployment
     - environment
 description: >
-  Guide installing Earth2Studio via uv or pip, selecting model extras, and
+  Guide installing Earth2Studio with uv or pip, selecting versions and model extras, and
   configuring the environment. Do NOT use for writing inference code, choosing
   models, or PhysicsNeMo questions.
 ---
@@ -25,10 +25,7 @@ You **MUST NOT** install, upgrade, or modify packages on the user's
 behalf. Provide the exact command; the user runs it. No exceptions.
 
 **Forbidden:** running `pip install`, `uv pip install`, `uv add`,
-`uv sync`, `conda install`, `apt install`, or any package manager.
-
-**Instead:** give the exact command and ask the user to run it.
-Explain why the package is needed.
+`uv sync`, `uv init`, `uv venv`, `conda install`, `apt install`, or any package manager.
 
 When a package is needed:
 
@@ -42,171 +39,123 @@ them to execute it themselves.
 
 ## Purpose
 
-Help users install Earth2Studio and its optional model dependencies correctly for
-their use case. This skill handles package installation, optional-extra selection,
-environment variable configuration, and install verification.
-
-## Prerequisites
-
-- Python 3.10+ (3.13 recommended)
-- CUDA-capable GPU with compatible drivers for GPU extras
-- uv (recommended) or pip package manager
-- Internet access (packages installed from PyPI and GitHub)
-
-You are helping a user install Earth2Studio and its optional model
-dependencies. Your only job is to get the package installed correctly
-for their use case — do not write inference code, do not compose
+Help users install Earth2Studio and its optional model dependencies for their
+use case: select a version, add optional extras with uv, set environment
+variables, and verify the install. Do not write inference code or compose
 workflows.
 
-## Core principle: docs are the source of truth
+## Core principle: read the source, do not recall it
 
-Earth2Studio installation commands, version tags, and extra names change
-between releases. **Before executing or recommending any install command,
-fetch the live installation docs:**
+Install commands, release refs, extras, and build quirks change every release.
+Nothing in this skill is authoritative. Before recommending any command, read
+the sources below and quote from them.
+
+- `docs/userguide/about/install_options.yml`: command templates, release ref,
+  extras, class mappings (`api_refs`), pre-install steps, and warnings.
+- `https://github.com/NVIDIA/earth2studio/releases/latest` or
+  `gh api repos/NVIDIA/earth2studio/releases/latest`: latest stable release and exact tag.
+- `docs/userguide/about/install.md`: uv project setup, Docker, prerequisites,
+  verification, and environment variables.
+- `pyproject.toml`: `requires-python` and `[project.optional-dependencies]`.
+- `docs/userguide/support/troubleshooting.md` and `docs/userguide/support/faq.md`:
+  known failures.
+
+Live pages (note the `/main/` segment; URLs without it return 404):
 
 ```text
 https://nvidia.github.io/earth2studio/main/userguide/about/install/
+https://nvidia.github.io/earth2studio/main/userguide/support/troubleshooting/
+https://nvidia.github.io/earth2studio/main/userguide/support/faq/
 ```
 
-Parse the page for the current version tag, available extras, and any
-special build notes. The workflow below is structural guidance — the
-specific commands come from the live page.
-
-**Local fallback:** if WebFetch is unavailable or the live page does not
-render fully (e.g. JavaScript widget), read the install configuration
-file in the repository instead:
-
-```text
-docs/userguide/about/install_options.yml
-```
-
-This YAML file is the single source of truth used to generate the
-install page. It contains the current release tag, every optional extra
-grouped by category (prognostic, diagnostic, data-assimilation, data,
-perturbation, statistics, utils), per-extra preinstall steps, warnings,
-and command templates for both uv and pip.
+If working in a local clone, read the repo files directly. Otherwise fetch the
+raw files from `https://github.com/NVIDIA/earth2studio` (the `main` branch, or the
+release tag the user wants) or use the live pages. The install page renders its
+commands with JavaScript, so prefer `install_options.yml` when the page looks
+incomplete.
 
 ## Instructions
 
-### Step 1. Fetch live docs
+1. **Read the sources above.** Check `package.release_ref` against the latest
+   stable GitHub release. Use the verified release tag, not a prerelease or the
+   version of a development checkout. If the lookup is unavailable, label the
+   configured ref as the documented release, not a verified latest release.
+2. **Ask which version they want**, unless they already specified one. Present
+   these choices in order, replacing `<version>` with the actual release number:
 
-Use WebFetch on the install URL above. Extract:
+   > Which Earth2Studio version would you like to install?
+   >
+   > 1. **Latest release: `<version>` (recommended).** Best default for most users.
+   > 2. **Main branch (second choice).** For unreleased features; may be unstable
+   >    and include breaking changes.
+   > 3. **Older or different version.** Which release or tag do you need?
 
-- Current release version tag (e.g. `@0.18.0`)
-- Available optional extras by category
-- Known build quirks (e.g. `--no-build-isolation` for pip,
-  manual pre-installs)
+   Wait for their choice before giving version-specific install commands. If
+   they ask you to choose, use the latest stable release. For a specific tag,
+   verify it exists. Read the selected tag's install guide and `pyproject.toml`
+   (and `install_options.yml` when available) so extras and Python support match
+   that version. For main, read those sources from main. If local sources target
+   a different version, fetch the matching sources rather than mixing releases.
+3. **Use uv to add Earth2Studio to their Python project.** Ask only what is
+   missing (at most 3 questions total): version choice, existing project, and
+   models or data sources needed. For a new project, follow the guide's
+   "uv Project" setup with **Python 3.13** by default:
 
-If the live page is incomplete or unavailable, read
-`docs/userguide/about/install_options.yml` from the repository to
-obtain the same information.
+   ```bash
+   mkdir earth2studio-project && cd earth2studio-project
+   uv init --python=3.13
+   ```
 
-Keep this data in working memory for all subsequent steps.
-
-### Step 2. Understand the user's environment
-
-Ask (cap at 3 questions, skip what the user already answered):
-
-1. **Package manager** — uv (recommended) or pip? If unsure, recommend
-   uv and link <https://docs.astral.sh/uv/getting-started/installation/>
-2. **Project context** — new project or adding to existing?
-3. **Python version** — recommend the version from the docs
-   (currently 3.13)
-
-### Step 3. Base install
-
-Provide commands from the live docs based on their answers:
-
-- **uv** uses a git source (not PyPI) to handle URL-based transitive dependencies
-- **pip** installs from PyPI but some extras require manual pre-install steps
-
-After the user runs the install, verify:
-
-```python
-import earth2studio
-earth2studio.__version__
-```
-
-### Step 4. Select models and extras
-
-Present the available extras organized by use case. Ask what the user
-plans to do — don't dump all options unprompted. Categories from the
-docs:
-
-| Category | Example extras |
-|----------|---------------|
-| Prognostic (forecasting) | ace2, aifs, aifs2, atlas, aurora, dlesym, dlwp, fcn, fcn3, fengwu, fuxi, gencast, graphcast, pangu, samudrace, sfno, stormcast, stormcast-conus, stormscope, ucast, ... |
-| Diagnostic (post-processing) | cbottle, climatenet, corrdiff, cosmo, cyclone, derived, orbit, precip-afno, solarradiation-afno, windgust-afno, ... |
-| Data assimilation (beta) | da-cosmo, da-healda, da-interp, da-stormcast |
-| Submodules | data, perturbation, statistics, utils |
-
-The exact list comes from the live docs — cite those, not this table.
-
-Ask:
-
-1. Which models do you plan to use?
-2. Do you need submodule extras (data sources, perturbation methods,
-   statistics)?
-3. Or install everything? (uv only: `--extra all`)
-
-### Step 5. Install selected extras
-
-Provide the exact commands from the live docs for their selections.
-Key warnings to surface:
-
-- **Slow builds**: flash-attention (AIFS variants), natten
-  (Atlas, StormCast-CONUS, StormScope, CorrDiff COSMO), torch-harmonics
-  CUDA extensions (FCN3, SFNO) — can take 10-30+ minutes
-- **pip-specific manual steps**: some models require
-  `--no-build-isolation` or pre-installing packages like earth2grid,
-  torch-harmonics, or makani
-- **Data assimilation models**: require CuPy (+ cuDF for most; `da-cosmo` is
-  CuPy-only), defaulting to CUDA 13 (`cupy-cuda13x`, `cudf-cu13`)
-
-### Step 6. Configuration (offer, don't force)
-
-Mention environment variables the user might want to set — only if
-relevant (e.g. limited disk, shared filesystem, CI environment):
-
-| Variable | Purpose |
-|----------|---------|
-| `EARTH2STUDIO_CACHE` | General cache directory |
-| `EARTH2STUDIO_DATA_CACHE` | Data source cache (overrides general) |
-| `EARTH2STUDIO_MODEL_CACHE` | Model checkpoint cache (overrides general) |
-| `EARTH2STUDIO_PACKAGE_TIMEOUT` | Max seconds for model downloads |
-
-## Troubleshooting
-
-If installation fails, point the user to:
-
-- <https://nvidia.github.io/earth2studio/main/userguide/support/troubleshooting/>
-- <https://nvidia.github.io/earth2studio/main/userguide/support/faq/>
-
-Common issues:
-
-- **PyTorch/CUDA mismatch**: verify `torch.cuda.is_available()` first
-- **flash-attention build failure**: CUDA toolkit version must match
-  PyTorch CUDA
-- **ONNX Runtime GPU**: may need version-specific install for their CUDA
-- **ecCodes missing**: required for GRIB data handling; install via
-  `sudo apt-get install libeccodes-dev` (Debian/Ubuntu) or
-  `conda install -c conda-forge eccodes`
-- **Python.h: No such file or directory**: missing Python development
-  headers; install via `sudo apt-get install python3-dev`
+   Then provide `uv add` with the selected version and extras. In an existing
+   project, run it from the project root; do not reinitialize the project or
+   change its Python pin automatically. Check compatibility with the selected
+   release, especially for older versions. Use a different Python version only
+   when required by that release or the user's project. **pip is also supported**;
+   use it when requested or when the user already has a pip-based workflow.
+   Use Docker when requested or required by their existing workflow.
+4. **Map the models and data sources they want to extras.** In
+   `install_options.yml`, each entry under `categories[].items[]` has an `extra`
+   (the name to install) and `api_refs` (the classes it enables, for example
+   `earth2studio.models.px.Aurora1p5` belongs to the `aurora` extra). Search
+   `api_refs` for the class name the user needs. Data sources generally share one
+   `data` extra, and perturbation, statistics, and utilities have their own
+   groups. If a class is not listed, check `[project.optional-dependencies]` in
+   `pyproject.toml` and the class docstring before guessing. Several extras can
+   go in one command.
+5. **Provide the command(s)** built from the `command_templates` and the extras
+   found above. Follow the guide's default uv source: `github` for a release tag,
+   `github-main` for main. Substitute the verified or requested tag into
+   `{release_ref}`, or `package.main_ref` into `{main_ref}`. Use `uv add`, not
+   `uv pip install`, for uv projects; combine extras as `earth2studio[extra1,extra2]`.
+   Include the main instability warning even when the user chose main up front.
+   For pip, use `command_templates.<source>.pip` in `install_options.yml`,
+   including the matching pip-specific `preinstall` steps. Follow
+   `defaults.sources.pip` (currently `pypi`) for releases; use `github-main` for
+   main or `github` for an explicitly requested Git tag install. For PyPI,
+   pin the selected release with `==<version>`.
+   Surface any `preinstall` steps (keyed by package manager, and for uv by
+   source, so pick the one matching the command you chose), `warnings`, or `notes` attached to
+   the chosen entries (slow builds such as flash-attn, `--no-build-isolation`,
+   CUDA-specific packages, large checkpoint downloads, and so on). Do not
+   paraphrase from memory.
+6. **Wait for the user to run it**, then have them verify using the command in
+   `install.md` (use the `uv run` form inside a uv project).
+7. **Mention configuration only when relevant** (limited disk, shared
+   filesystem, CI). The environment variables and their meaning are listed in
+   `install.md`.
+8. **On failure**, start from `troubleshooting.md` and `faq.md`. Check that
+   PyTorch and CUDA are working before blaming Earth2Studio.
 
 ## Limitations
 
-- Cannot help with runtime errors unrelated to missing dependencies
-- Does not cover model checkpoint downloads (those happen at first inference)
-- Data source setup beyond the `data` extra is out of scope
-- Cannot write inference or training code, or compose Earth2Studio workflows
+- Does not cover runtime errors unrelated to missing dependencies.
+- Does not cover model checkpoint downloads (these happen at first use).
+- Does not set up data sources beyond selecting the relevant extra.
 
 ## Ownership and out-of-scope
 
-**Owns:** package installation, optional-extra selection, environment
-variable configuration, install verification.
+**Owns:** package installation, optional-extra selection, environment variable
+guidance, install verification.
 
-**Does not own:** writing inference or training code, composing
-Earth2Studio workflows, data source setup beyond the `data` extra,
-model checkpoint downloads (those happen at runtime), troubleshooting
-runtime errors unrelated to missing dependencies.
+**Does not own:** writing inference or training code, composing Earth2Studio
+workflows, choosing models (use `earth2studio-discover`), PhysicsNeMo questions.

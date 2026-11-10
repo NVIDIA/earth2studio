@@ -16,15 +16,17 @@
 
 """Tests for PrecipEstimator diagnostic model."""
 
-from collections import OrderedDict
-
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
 from earth2studio.models.auto import Package
+from earth2studio.models.conformance import check_diagnostic_contract
 from earth2studio.models.dx import PrecipEstimator
-from earth2studio.utils import handshake_dim
+from earth2studio.models.dx.base import DiagnosticModel
+from earth2studio.utils import coord_array_like, handshake_dataarray
+from earth2studio.utils.cupy import from_torch
 
 
 class PhooPrecipEstimator(torch.nn.Module):
@@ -51,99 +53,65 @@ def test_package(tmp_path_factory):
     return Package(str(tmp_path))
 
 
+def make_input(model, batch: int = 1, device: str = "cpu") -> xr.DataArray:
+    signature = coord_array_like(model.input_coords(), {"batch": np.arange(batch)})
+    return from_torch(torch.randn(signature.shape, device=device), signature)
+
+
 class TestPrecipEstimatorMock:
     """Mock tests using dummy model weights."""
 
-    @pytest.mark.parametrize(
-        "x",
-        [
-            torch.randn(1, 5, 361, 720),
-            torch.randn(2, 5, 361, 720),
-        ],
-    )
+    @pytest.mark.parametrize("batch", [1, 2])
     @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-    def test_precip_estimator_call(self, test_package, x, device):
+    def test_precip_estimator_call(self, test_package, batch, device):
         """Test forward pass of PrecipEstimator."""
         if device == "cuda:0" and not torch.cuda.is_available():
             pytest.skip("No GPU available")
 
         dx = PrecipEstimator.load_model(test_package).to(device)
-        x = x.to(device)
+        x = make_input(dx, batch, device)
+        before = x.copy(deep=True)
 
-        coords = OrderedDict(
-            {
-                "batch": np.ones(x.shape[0]),
-                "variable": dx.input_coords()["variable"],
-                "lat": dx.input_coords()["lat"],
-                "lon": dx.input_coords()["lon"],
-            }
+        out = dx(x)
+
+        assert out.shape == (batch, 1, 361, 720)
+        assert list(out.coords["variable"].values) == ["tp"]
+        handshake_dataarray(out, dx.output_coords(x))
+        # Dummy model passes through the first (t2m) channel
+        np.testing.assert_allclose(
+            out.e2s.as_numpy().values[:, 0], x.e2s.as_numpy().values[:, 0]
         )
+        xr.testing.assert_identical(x.e2s.as_numpy(), before.e2s.as_numpy())
 
-        out, out_coords = dx(x, coords)
+    def test_precip_estimator_exceptions(self, test_package):
+        """Test PrecipEstimator raises on invalid inputs."""
+        dx = PrecipEstimator.load_model(test_package)
+        x = make_input(dx)
 
-        # Validate output shape: [batch, 1, 361, 720]
-        assert out.shape == torch.Size([x.shape[0], 1, 361, 720])
-
-        # Validate output variable
-        assert np.array_equal(out_coords["variable"], np.array(["tp"]))
-
-        # Validate dimension ordering
-        handshake_dim(out_coords, "lon", 3)
-        handshake_dim(out_coords, "lat", 2)
-        handshake_dim(out_coords, "variable", 1)
-        handshake_dim(out_coords, "batch", 0)
-
-    @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
-    def test_precip_estimator_exceptions(self, test_package, device):
-        """Test PrecipEstimator raises on invalid coordinates."""
-        if device == "cuda:0" and not torch.cuda.is_available():
-            pytest.skip("No GPU available")
-
-        dx = PrecipEstimator.load_model(test_package).to(device)
-        x = torch.randn(1, 5, 361, 720).to(device)
-
-        # Test 1: Wrong variable name
-        wrong_coords = OrderedDict(
-            {
-                "batch": np.ones(1),
-                "variable": np.array(["wrong_var"]),
-                "lat": dx.input_coords()["lat"],
-                "lon": dx.input_coords()["lon"],
-            }
-        )
+        # Wrong variable names
         with pytest.raises((KeyError, ValueError)):
-            dx(x, wrong_coords)
+            dx(x.assign_coords(variable=["a", "b", "c", "d", "e"]))
 
-        # Test 2: Wrong dimension order
-        wrong_coords = OrderedDict(
-            {
-                "batch": np.ones(1),
-                "variable": dx.input_coords()["variable"],
-                "lon": dx.input_coords()["lon"],
-                "lat": dx.input_coords()["lat"],
-            }
-        )
+        # Wrong dimension order
         with pytest.raises(ValueError):
-            dx(x, wrong_coords)
+            dx(x.transpose(*reversed(x.dims)))
 
-        # Test 3: Wrong lat values
-        wrong_coords = OrderedDict(
-            {
-                "batch": np.ones(1),
-                "variable": dx.input_coords()["variable"],
-                "lat": np.linspace(-90, 90, 361),
-                "lon": dx.input_coords()["lon"],
-            }
-        )
+        # Wrong grid size
         with pytest.raises(ValueError):
-            dx(x, wrong_coords)
+            dx(x.isel(lat=slice(0, 180)))
 
     def test_precip_estimator_normalization(self, test_package):
-        """Test that normalization is applied correctly."""
+        """Test that normalization buffers are registered with the right shape."""
         dx = PrecipEstimator.load_model(test_package)
 
-        # Check buffers exist
-        assert hasattr(dx, "center")
-        assert hasattr(dx, "scale")
         assert dx.center.shape == torch.Size([5, 1, 1])
         assert dx.scale.shape == torch.Size([5, 1, 1])
+        assert {"center", "scale"} <= {name for name, _ in dx.named_buffers()}
+
+    def test_precip_estimator_conformance(self, test_package):
+        """Test PrecipEstimator against the native diagnostic contract."""
+        dx = PrecipEstimator.load_model(test_package)
+        assert isinstance(dx, DiagnosticModel)
+        assert check_diagnostic_contract(dx) == [
+            "D10: model does not declare itself stochastic"
+        ]

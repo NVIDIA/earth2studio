@@ -20,19 +20,29 @@ This diagnostic model estimates total precipitation from atmospheric variables
 using a neural network loaded from a model package.
 """
 
-from collections import OrderedDict
-
 import numpy as np
 import torch
+import xarray as xr
 
+from earth2studio.grids import LatLonGrid
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.utils import handshake_coords, handshake_dim
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.coords import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_nonempty,
+)
+from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.type import CoordinateSystem
 
 INPUT_VARIABLES = ["t2m", "u10m", "v10m", "msl", "tcwv"]
 OUTPUT_VARIABLES = ["tp"]
+GRID = LatLonGrid(
+    np.linspace(90, -90, 361, endpoint=True),
+    np.linspace(0, 360, 720, endpoint=False),
+)
 
 
 class PrecipEstimator(torch.nn.Module, AutoModelMixin):
@@ -54,7 +64,13 @@ class PrecipEstimator(torch.nn.Module, AutoModelMixin):
     ----
     This model estimates 6-hourly total precipitation from atmospheric
     state variables on a 0.5-degree grid.
+
+    Badges
+    ------
+    region:global product:precipitation provider:nvidia backend:pytorch
     """
+
+    stochastic: bool = False
 
     def __init__(
         self,
@@ -67,51 +83,47 @@ class PrecipEstimator(torch.nn.Module, AutoModelMixin):
         self.register_buffer("center", center)
         self.register_buffer("scale", scale)
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system of diagnostic model.
+    def input_coords(self) -> CoordinateSystem:
+        """Input coordinate system of the diagnostic model.
 
         Returns
         -------
-        CoordSystem
-            Coordinate system dictionary.
+        CoordinateSystem
+            Allocation-free signature with a dynamic leading batch dimension,
+            the five input variables and the 0.5 degree global grid.
         """
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "variable": np.array(INPUT_VARIABLES),
-                "lat": np.linspace(90, -90, 361, endpoint=True),
-                "lon": np.linspace(0, 360, 720, endpoint=False),
-            }
+        return coord_array(
+            ("batch", "variable", "lat", "lon"),
+            {"variable": INPUT_VARIABLES},
+            dynamic=("batch",),
+            grid=GRID,
         )
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system of diagnostic model.
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Validate the input and plan the output coordinate system.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinates to validate and transform.
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
 
         Returns
         -------
-        CoordSystem
-            Output coordinates with tp variable.
+        CoordinateSystem
+            Allocation-free signature with the tp variable.
         """
-        target_input_coords = self.input_coords()
+        handshake_dataarray(input_coords, self.input_coords())
+        return coord_array_like(input_coords, {"variable": OUTPUT_VARIABLES})
 
-        # Validate dimensions
-        handshake_dim(input_coords, "variable", -3)
-        handshake_dim(input_coords, "lat", -2)
-        handshake_dim(input_coords, "lon", -1)
+    def default_sources(self) -> None:
+        """Recommend no input data source.
 
-        # Validate coordinate values
-        handshake_coords(input_coords, target_input_coords, "variable")
-        handshake_coords(input_coords, target_input_coords, "lat")
-        handshake_coords(input_coords, target_input_coords, "lon")
-
-        output_coords = input_coords.copy()
-        output_coords["variable"] = np.array(OUTPUT_VARIABLES)
-        return output_coords
+        Returns
+        -------
+        None
+            No source recommendation; the caller supplies the input field.
+        """
+        return None
 
     @classmethod
     def load_default_package(cls) -> Package:
@@ -149,7 +161,7 @@ class PrecipEstimator(torch.nn.Module, AutoModelMixin):
         center_path = package.resolve("center.npy")
         scale_path = package.resolve("scale.npy")
 
-        # Load model
+        # Load model on CPU; the caller moves it with .to(device)
         core_model = torch.load(model_path, map_location="cpu", weights_only=False)
         core_model.eval()
         core_model.requires_grad_(False)
@@ -160,37 +172,25 @@ class PrecipEstimator(torch.nn.Module, AutoModelMixin):
 
         return cls(core_model, center=center, scale=scale)
 
+    @torch.inference_mode()
     @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Forward pass of diagnostic model.
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Estimate total precipitation.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Input tensor with shape (batch, 5, lat, lon).
-        coords : CoordSystem
-            Input coordinate system.
+        x : xr.DataArray
+            Input field with dims (..., variable, lat, lon) matching
+            ``input_coords()``.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            Precipitation tensor (batch, 1, lat, lon) and coordinates.
+        xr.DataArray
+            Precipitation field matching ``output_coords(x)``.
         """
-        output_coords = self.output_coords(coords)
-
-        with torch.no_grad():
-            # Move to device
-            device = next(self.parameters()).device
-            x = x.to(device)
-
-            # Normalize
-            x = (x - self.center) / self.scale
-
-            # Forward pass
-            out = self.core_model(x)
-
-        return out, output_coords
+        handshake_nonempty(x)
+        signature = self.output_coords(x)
+        # tensor shape: (batch, 5, lat, lon) after batch_func compression
+        tensor, _ = x.e2s.to_torch()
+        out = self.core_model((tensor - self.center) / self.scale)
+        return from_torch(out, signature)

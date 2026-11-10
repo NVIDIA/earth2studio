@@ -1,16 +1,17 @@
 [
   {
     "id": "install-eval-001-uv-pangu",
-    "question": "I want to install earth2studio using uv in a new project. I plan to use the Pangu weather model. How do I set this up?",
+    "question": "I want to install the latest stable release of earth2studio using uv in a new project. I plan to use the Pangu weather model. How do I set this up?",
     "expected_skill": "earth2studio-install",
     "expected_script": null,
-    "ground_truth": "Provides uv-based install commands from the live docs including the git source syntax. Adds the pangu extra. Includes verification step with import check. Mentions Python version recommendation.",
+    "ground_truth": "Verifies the latest stable release and provides uv init --python=3.13 followed by uv add with the release tag and pangu extra, using the matching install sources. Includes verification with uv run.",
     "expected_behavior": [
-      "Uses uv add or uv pip install with git source syntax (not PyPI)",
+      "Uses uv add with the verified latest stable GitHub release tag, not uv pip install",
       "Includes the pangu extra in the install command",
       "Provides a verification command (import earth2studio or check version)",
       "Fetches or references the live installation docs page",
-      "Mentions Python version recommendation"
+      "Recommends Python 3.13 with uv init --python=3.13",
+      "Honors the explicit latest-release choice without asking the version question again"
     ]
   },
   {
@@ -29,13 +30,15 @@
   },
   {
     "id": "install-eval-003-uv-multiple-extras",
-    "question": "I want to install earth2studio with uv and add multiple model extras — specifically AIFS, FuXi, and CorrDiff. What's the right way to do this?",
+    "question": "I want to add earth2studio from main to my existing uv project with AIFS, FuXi, and CorrDiff extras. What's the right way to do this?",
     "expected_skill": "earth2studio-install",
     "expected_script": null,
-    "ground_truth": "Provides uv command with multiple --extra flags. Warns about slow builds (flash-attention for AIFS). Lists the extras correctly from the docs. Distinguishes between prognostic and diagnostic extras.",
+    "ground_truth": "Provides uv add with the main GitHub ref and combined aifs,fuxi,corrdiff extras from main's install sources. Warns about main instability and flash-attention build time. Preserves the existing project.",
     "expected_behavior": [
       "Includes all three extras (aifs, fuxi, corrdiff) in the install command",
-      "Uses correct uv syntax for multiple extras (--extra flags)",
+      "Uses uv add with combined extras and git+https://github.com/NVIDIA/earth2studio.git@main",
+      "Warns that main may be unstable or include breaking changes",
+      "Does not reinitialize the existing project or change its Python pin",
       "Warns about flash-attention build time for AIFS",
       "Fetches or references the live installation docs page",
       "Distinguishes between prognostic and diagnostic extras"
@@ -53,6 +56,37 @@
       "Does not suggest reinstalling the entire package from scratch",
       "Fetches or references the live installation docs page",
       "Provides verification that the extra was installed correctly"
+    ]
+  },
+  {
+    "id": "install-eval-005-version-choice",
+    "question": "Help me add Earth2Studio to a new Python project. I have uv installed, no models chosen yet.",
+    "expected_skill": "earth2studio-install",
+    "expected_script": null,
+    "ground_truth": "Checks the latest stable release and asks the user to choose it, main, or an older/different version in that order. Shows the actual release number, recommends the release first, warns about main instability, and recommends uv with Python 3.13. Waits for the version choice.",
+    "expected_behavior": [
+      "Checks the latest stable GitHub release rather than assuming the checkout version is latest",
+      "Lists latest release first with its actual version number and recommended label",
+      "Lists main second with an instability or breaking-change warning",
+      "Lists older or different version third and asks for the desired release or tag",
+      "Recommends uv project setup with Python 3.13",
+      "Waits for the version choice before giving version-specific install commands",
+      "Does not execute package-manager commands"
+    ]
+  },
+  {
+    "id": "install-eval-006-older-release",
+    "question": "My existing uv project needs Earth2Studio 0.19.0 for reproducibility. How do I add that version?",
+    "expected_skill": "earth2studio-install",
+    "expected_script": null,
+    "ground_truth": "Verifies the 0.19.0 tag and consults its installation guidance and Python requirements. Gives uv add pinned to that tag, preserving the existing project and Python pin. Does not substitute latest or main.",
+    "expected_behavior": [
+      "Verifies the requested tag and reads matching release sources",
+      "Uses uv add with git+https://github.com/NVIDIA/earth2studio.git@0.19.0",
+      "Checks Python compatibility rather than imposing Python 3.13 on an older release",
+      "Does not reinitialize the project, silently switch versions, or repeat the version menu",
+      "Provides a uv run verification command",
+      "Does not execute package-manager commands"
     ]
   }
 ]

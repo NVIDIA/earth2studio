@@ -58,7 +58,9 @@ helpers.
 6. **Handle weights and RNG.** Resolve immutable `Package` assets, load on CPU,
    call `eval()`, register buffers and guard optional backend dependencies.
    Override `to` for non-Torch state. Stochastic models implement `set_rng` and
-   retain per-rollout RNG position in explicit state for replay.
+   retain per-rollout RNG position in explicit state for replay. If the model can
+   run on a sub-domain, also implement
+   [`with_region`](references/model-contract.md#regional-views-domainadaptable).
 7. **Test** in `test/models/px/test_<name>.py` using
    [testing patterns](references/testing-guide.py). Cover numerical values,
    initialization/step/iterator equivalence, replay, hooks, ownership, metadata,
@@ -96,6 +98,7 @@ or single-frame wording from older wrappers.
 | [Skeleton](references/skeleton-template.py) | Starting a single-frame wrapper |
 | [Method examples](references/method-templates.py) | Retaining history in explicit state |
 | [Forcing and slots](references/model-contract.md#forcing-and-slots) | Forced or coupled execution |
+| [Regional views](references/model-contract.md#regional-views-domainadaptable) | The model supports sub-domains |
 | [Testing guide](references/testing-guide.py) | Building mock/contract tests |
 | [Validation guide](references/validation-guide.md) | Comparing with upstream inference |
 | [PR body](references/pr-body-template.md), [validation comment](references/pr-comment-template.md) | A PR is requested |

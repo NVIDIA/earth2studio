@@ -1,90 +1,108 @@
-# AGENTS.md — Earth2Studio AI Agent Entry Point
+# Earth2Studio Agent Guide
 
-AI agent skills for NVIDIA Earth2Studio weather and climate inference
-library. Skills live in **`skills/`** (repo root) and coding rules live
-in **`.agents/rules/`**. Skills are task-specific guides for building
-inference pipelines, integrating data sources, wrapping models, and
-managing releases.
+Earth2Studio is an AI weather and climate Python package with a large catalog of data sources
+and prognostic, diagnostic, and data assimilation models. It builds on PyTorch, xarray, and CuPy.
 
-## IMPORTANT: Skill Activation
+Task guides live in [`skills/`](./skills/). Use the routes below to find relevant documentation.
 
-**Before implementing any new model, data source, or running inference,
-check if a matching skill exists and activate it first.** Skills contain
-tested workflows, templates, and validation steps that ensure correct
-implementation.
+## Route the task
 
-To activate a skill:
+- **User:** uses or extends Earth2Studio in their own Python project, even if they
+  are a software developer by profession.
+- **Developer:** actively develops the Earth2Studio package itself, including its
+  code, tests, documentation, and agent skills.
 
-1. Use the `Skill` tool (Claude Code) or `skill` tool (OpenCode/Codex)
-2. Read the SKILL.md file in the skill directory
-3. Follow the workflow steps exactly
+If unclear, ask:
+**"Are you using or extending Earth2Studio in your own Python project, or developing
+the Earth2Studio package itself?"**
 
-If the user asks to "create a prognostic model" → activate
-`earth2studio-create-prognostic` first. If they ask to "fetch data" →
-activate `earth2studio-data-fetch` first.
+Prefer files in the local checkout; otherwise use the matching release on GitHub
+or the [documentation site](https://nvidia.github.io/earth2studio/main/).
+Read and cite only the sources relevant to the task.
 
-## Skills directory
+## For users
 
-### Discovery and installation
+| Task | Start here |
+| --- | --- |
+| Install and configure | [Install guide][install], [command options][install-options] |
+| Select a forecast model | [Prognostics][prognostics], [model implementations][px] |
+| Find diagnostics or assimilation | [Diagnostics][diagnostics], [assimilation][assimilation] |
+| Choose a data source | [Analysis][analysis], [forecast][forecast], [observations][observations] |
+| Build a workflow | [Examples][examples], [recipes][recipes], [component guide][components] |
+| Compare forecast skill | [Published scorecards][scorecards], [evaluation recipe][eval] |
+| Compute or reproduce scorecards | [Scorecard recipe][scorecard-recipe], [metrics][statistics] |
+| Resolve setup problems | [Troubleshooting][troubleshooting], [FAQ][faq] |
 
-- `skills/earth2studio-discover/` — Find which models, data sources,
-  and examples fit a weather/climate use case
-- `skills/earth2studio-install/` — Install Earth2Studio, select model
-  extras, configure environment variables
+The [install-selector script][install-script] builds commands from `install_options.yml`;
+[the generator][install-generator] prepares it for the docs.
 
-### Inference
+Choose models by region, variables, forecast horizon, and GPU memory. Compare scorecards
+by metric and lead time. See [evaluation configuration][scorecard-config],
+[score data][scorecard-data], and the [page generator][scorecard-generator].
 
-- `skills/earth2studio-deterministic-forecast/` — Build deterministic
-  (single-member) forecast scripts with model selection, data source,
-  IO backend, and nsteps calculation
-- `skills/earth2studio-couple-models/` — Run several models that feed
-  each other with `CoupledRunner` and connectors, check the schedule,
-  and test the coupling
+## User skills
 
-### Data
+Activate the matching skill with your agent's skill tool, or read its `SKILL.md` directly.
 
-- `skills/earth2studio-data-fetch/` — Download weather/climate data for
-  specific variables, times, and lead times using Earth2Studio data
-  sources
+### Install skills if needed
 
-### Implementation (new components)
+Install skills directly from the Earth2Studio GitHub repository for current guidance.
+Run from your project (requires Node.js/npm) and select your agent when prompted:
 
-- `skills/earth2studio-create-datasource/` — Create a new data source
-  wrapper (DataSource, ForecastSource, DataFrameSource, or
-  ForecastFrameSource) end-to-end
-- `skills/earth2studio-create-prognostic/` — Create a new prognostic
-  (time-stepping forecast) model wrapper end-to-end
-- `skills/earth2studio-create-assimilation/` — Create or migrate DA wrappers;
-  align independent/stateful tests with the structured DX/PX test form
+```bash
+npx skills add https://github.com/NVIDIA/earth2studio --skill earth2studio-install
+npx skills add https://github.com/NVIDIA/earth2studio --skill earth2studio-discover
+```
 
-### Developer
+Set the `--skill` value to any listed skill name. These commands use the default branch.
+Reading local skills needs no installation. To register the version in your GitHub
+checkout, run from its root:
 
-- `skills/developer-release-rebase/` — Prepare a new minor
-  alpha release (rebase, bump version, changelog, PR). Developer only.
+```bash
+npx skills add . --skill earth2studio-install
+```
 
-## Python environment
+For the Python package, follow the install skill: use the install guide's uv setup,
+select extras from `install_options.yml`, and give the user install and verification commands.
 
-Always use `uv run` to execute Python commands (e.g. `uv run pytest`,
-`uv run black`). Alternatively, use the project virtualenv at `.venv/`
-(e.g. `.venv/bin/python`). **Never use the system Python directly** —
-it does not have project dependencies installed.
+### Available user skills
 
-## Key conventions (quick reference)
+- [earth2studio-discover](./skills/earth2studio-discover/SKILL.md): choose models, sources, and examples.
+- [earth2studio-install](./skills/earth2studio-install/SKILL.md): install and configure the package.
+- [earth2studio-deterministic-forecast](./skills/earth2studio-deterministic-forecast/SKILL.md)
+  for single-member forecast scripts.
+- [earth2studio-couple-models](./skills/earth2studio-couple-models/SKILL.md): run connected models.
+- [earth2studio-data-fetch](./skills/earth2studio-data-fetch/SKILL.md): download weather/climate data.
 
-- **License header** — every `.py` file in `earth2studio/` must start
-  with the SPDX Apache-2.0 header.
-- **Type hints** — all public functions must be fully typed; the
-  codebase is mypy-clean.
-- **Logging** — use `loguru.logger`, never `print()`, inside
-  `earth2studio/`.
-- **Formatting** — black; run `make format`.
-- **Linting** — ruff + mypy; run `make lint` before opening a PR.
+## For developers
 
-## Developer rules
+Start with [CONTRIBUTING.md](./CONTRIBUTING.md) and the
+[developer guide](./docs/userguide/developer/overview.md).
 
-The authoritative coding rules live in `.agents/rules/`. These are for
-**developers contributing to Earth2Studio** (not end users). Read the
-relevant rule file(s) before writing or reviewing code:
+### Implementation skills (developers only)
+
+These skills are for adding or migrating components in Earth2Studio itself.
+Activate the matching skill; use `npx skills add` above if installation is needed.
+
+- [earth2studio-create-datasource](./skills/earth2studio-create-datasource/SKILL.md)
+- [earth2studio-create-prognostic](./skills/earth2studio-create-prognostic/SKILL.md)
+- [earth2studio-create-diagnostic](./skills/earth2studio-create-diagnostic/SKILL.md)
+- [earth2studio-create-assimilation](./skills/earth2studio-create-assimilation/SKILL.md)
+
+Creating or editing repository skills is developer-only work. See the
+[skill development guide](./docs/userguide/developer/skills.md).
+
+### Key conventions
+
+- **Python:** use `uv run` or `.venv/bin/python`, never system Python.
+- **License:** start package `.py` files with the SPDX Apache-2.0 header.
+- **Types:** fully type public functions; check with mypy.
+- **Logging:** use `loguru.logger` in `earth2studio/`.
+- **Checks:** run `make format`, `make lint`, and relevant tests before opening a PR.
+
+### Developer rules
+
+Read relevant files in [`.agents/rules/`](./.agents/rules/) before changing package code:
 
 | Rule file | Topic |
 | --- | --- |
@@ -105,16 +123,30 @@ relevant rule file(s) before writing or reviewing code:
 
 ## Resources
 
-### Documentation
+- [API reference](https://nvidia.github.io/earth2studio/main/modules/)
+- [Example gallery](https://nvidia.github.io/earth2studio/main/examples/)
+- [Issues and support](https://github.com/NVIDIA/earth2studio/issues)
 
-- [Earth2Studio Docs](https://nvidia.github.io/earth2studio/)
-- [API Reference](https://nvidia.github.io/earth2studio/modules/index.html)
-
-### Examples
-
-- [Gallery Examples](https://nvidia.github.io/earth2studio/examples/index.html)
-
-### Support
-
-- [File a Bug](https://github.com/NVIDIA/earth2studio/issues/new)
-- [All Issues](https://github.com/NVIDIA/earth2studio/issues)
+[install]: ./docs/userguide/about/install.md
+[install-options]: ./docs/userguide/about/install_options.yml
+[install-script]: ./docs/assets/javascripts/e2s-install-selector.js
+[install-generator]: ./docs/generate_install_options.py
+[prognostics]: ./docs/modules/models_px.md
+[px]: ./earth2studio/models/px/
+[diagnostics]: ./docs/modules/models_dx.md
+[assimilation]: ./docs/modules/models_da.md
+[analysis]: ./docs/modules/datasources_analysis.md
+[forecast]: ./docs/modules/datasources_forecast.md
+[observations]: ./docs/modules/datasources_dataframe.md
+[examples]: ./examples/
+[recipes]: ./recipes/
+[components]: ./docs/userguide/components/
+[scorecards]: https://nvidia.github.io/earth2studio/main/scorecard/generated/
+[eval]: ./recipes/eval/README.md
+[scorecard-recipe]: ./recipes/eval/scorecard/README.md
+[statistics]: ./docs/modules/statistics.md
+[troubleshooting]: ./docs/userguide/support/troubleshooting.md
+[faq]: ./docs/userguide/support/faq.md
+[scorecard-config]: ./docs/scorecard/config/
+[scorecard-data]: https://huggingface.co/datasets/nvidia/earth2studio-assets/tree/main/scorecard
+[scorecard-generator]: ./docs/generate_scorecard.py

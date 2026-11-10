@@ -39,7 +39,7 @@ implementation, testing, validation, and PR submission.
 - Earth2Studio dev environment with `uv` (`uv run python` must work)
 - Git configured with fork (`origin`) and upstream (`upstream`) remotes
 - Access to the target remote data store (credentials if private)
-- Python 3.10+
+- Python 3.11+ (`requires-python = ">=3.11,<3.15"`)
 
 > **⚠️ Credential Safety:** If the remote store requires authentication,
 > credentials must be passed via environment variables only. Never hard-code
@@ -84,6 +84,17 @@ Follow every step in order.
 > the skill and improve. Be concise.
 >
 > **One source type per invocation.** Invoke again for companion types.
+>
+> **Source of truth:** if this skill and the repo disagree, the repo wins. Read
+> `.agents/rules/e2s-004` to `e2s-008` and `e2s-012` (rules per source type,
+> lexicons, time tolerance), `earth2studio/data/base.py` (protocols),
+> `earth2studio/data/utils.py` (`fetch_data`, `plan_statistics`,
+> `reduce_statistics`), `earth2studio/grids/__init__.py` (grids, `infer_grid`,
+> `resolve_grid`) and `MIGRATION.md` (1.0 checklist). Current reference
+> implementations: `gfs.py` (GRIB, analysis + forecast, statistics), `arco.py`
+> (Zarr, statistics), `hrrr.py` (projected grid), `nnja.py` (DataFrame).
+> Where rules `e2s-004`/`e2s-005` point to a design document that is not in
+> your checkout, rely on the statistics summary below and the code above.
 
 ### Reference Files
 
@@ -135,6 +146,58 @@ If empty, ask:
 | **ForecastFrameSource** | `pd.DataFrame` | Yes | Sparse forecast obs |
 
 Key factors: gridded vs sparse → DataArray vs DataFrame; analysis vs forecast → Source vs ForecastSource.
+
+Output contract shared by all types (details in `earth2studio/data/base.py`):
+
+- Device convention (documented in the `DataSource` docstring in `base.py`):
+  an optional constructor keyword `device: torch.device | str = "cpu"`, stored
+  as `self.device = torch.device(device)`; NumPy/pandas on CPU, CuPy/cuDF on
+  CUDA. It is not part of the protocol and `gfs.py`/`arco.py`/`hrrr.py` do not
+  implement it yet, so add it only for sources that can produce CUDA output
+  (or when asked). Never add `device` to `__call__` or `fetch`.
+- Gridded dims start `[time, variable, ...]` (`[time, lead_time, variable, ...]`
+  for forecasts). `fetch_data(source, time, variable, lead_time, device,
+  target_grid, regridder)` adds `lead_time` to analysis output, moves data to
+  `device` (CUDA needs CuPy), and returns one `xr.DataArray` with dims
+  `[time, lead_time, variable, ...]`. It does not repair grid metadata, but it
+  does call `infer_grid(array)` when `target_grid` is given, so output must be
+  inferable (below).
+- Grid metadata so `infer_grid` works (`earth2studio/grids/__init__.py`):
+  - 1D `lat`/`lon` dims: `LatLonGrid`.
+  - Projected sources: dims `y`/`x` with 1D projected-coordinate axes, 2D
+    `lat`/`lon` auxiliary coords, and the `earth2studio_crs` attr (or the
+    `earth2studio_grid_id` attr for a registered grid). A CRS alone is not a
+    grid. `hrrr.py` still uses `hrrr_y`/`hrrr_x` dims, which `infer_grid`
+    cannot recognize; do not copy that for new sources.
+  - 2D `lat`/`lon` on `(y, x)`: curvilinear. `lat`/`lon` along `x`: point grid.
+  - If the grid is registered (`list_grids()`), build coordinates with
+    `resolve_grid("<id>").coords()` (returns axes plus 2D auxiliaries) and set
+    `earth2studio_grid_id`. Register a new fixed grid with
+    `register_grid(name, definition)` in `earth2studio/grids`.
+  - Callers regrid with `target_grid=infer_grid(model.input_coords())` or an
+    explicit `NearestRegridder`/`BilinearRegridder` (`earth2studio.grids`).
+    `RegriddedSource`, `CompositeSource` and `CompositeForecastSource` in
+    `earth2studio.data` wrap sources; do not reimplement them.
+- Temporal statistics (gridded sources; details in `temporal-statistics.py`):
+  - Labels are `base:method:window`, e.g. `t2m:mean:1day`, `t2m:max:30days`,
+    or an offset window `t2m:mean:-12h:+12h`. Split only at the first `:`;
+    base names never contain `:` and raw backend IDs with `::` pass through.
+  - Methods: `mean`, `sum`, `min`, `max`. Windows are half-open: `mean:24h`
+    is `[T-24h, T)`, `mean:-12h:+12h` is `[T-12h, T+12h)`. The source cadence
+    must divide the window exactly. Units: ns, us, ms, s, m/min, h/hr, d/day,
+    w/wk/week (plurals fine); no months or years.
+  - Means are sample-weighted. Unqualified labels keep the source's own
+    meaning (including native accumulations). Unsupported methods raise
+    `ValueError`; `fetch_data` rejects statistics for sources without
+    `lexicon.TIME_STATISTICS`.
+  - Forecast sources shift leads within one initialization and never
+    substitute another cycle; validate every expanded lead (including
+    negative ones) before downloading. Analysis sources use valid times.
+  - Record reductions in `attrs[E2S_STATISTICS]` (from
+    `earth2studio.utils.coords`) via the `attrs` returned by `plan_statistics`.
+- DataFrame sources with a time window take `time_tolerance: TimeTolerance` and
+  use `normalize_time_tolerance` from `earth2studio/utils/time.py`
+  (rule `e2s-012`); never interpret the value by hand.
 
 #### [CONFIRM — Source Type]
 
@@ -193,7 +256,7 @@ Create `earth2studio/lexicon/<source_name>.py` with:
 - Use `::` separator for structured keys
 - Use `references/reference-lexicon.py` as the starting template
 
-Map remote variables against `E2STUDIO_VOCAB` (282 entries in
+Map remote variables against `E2STUDIO_VOCAB` (in
 `earth2studio/lexicon/base.py`).
 
 #### [CONFIRM — Lexicon & Variable Mapping]
@@ -247,12 +310,13 @@ Present: class name, file path, skeleton code, task dataclass.
 > alongside the source. Add `test_<source>_call_mock` for async sources.
 
 **Sync sources:** Use `prep_data_inputs`/`prep_forecast_inputs`, direct `__call__`.
+Add the optional `device` keyword only per the device convention above.
 
 **Async sources:** See `references/reference-implementation.py` for required patterns:
 `_sync_async`, `gather_with_concurrency`, `async_retry`, `obstore_fetch_to_cache`,
 `obstore_zarr_store` for Zarr, `try/finally` cleanup. Constructor params:
 `cache=True`, `verbose=True`, `async_timeout=600`, `async_workers=None`,
-`retries=3`. DataFrame sources add `time_tolerance`.
+`retries=3` (plus optional `device="cpu"`). DataFrame sources add `time_tolerance`.
 
 ---
 
@@ -321,7 +385,7 @@ lead < 0). Mock I/O, not the planner or reducer. The sample is in
 
 - Add the class alphabetically to the appropriate autosummary block in
   `docs/modules/datasources_analysis.md`, `datasources_forecast.md`, or
-  `datasources_dataframe.md`
+  `datasources_dataframe.md` (MkDocs; there is no Sphinx `.rst` registration)
 - Class docstring: Parameters, Warning (download size), Note (reference URLs),
   Badges (last)
 - Keep the existing `region`, `dataclass`, and `product` badges accurate. Add
@@ -441,8 +505,8 @@ Agent: [loads skill, proceeds through Steps 0–14]
 
 ## Reminders
 
-**DO:** `uv run python`, `loguru.logger`, alphabetical order in `__init__.py`/RST/CHANGELOG,
-canonical method ordering, obstore helpers, `gather_with_concurrency`, `async_retry`,
+**DO:** `uv run python`, `loguru.logger`, alphabetical order in `__init__.py`/docs autosummary/CHANGELOG,
+canonical method ordering, `device` keyword, obstore helpers, `gather_with_concurrency`, `async_retry`,
 reference URLs in docstrings, `try/finally` cleanup.
 
 **Temporal statistics:** include for regular-cadence gridded sources; reuse `plan_statistics` / `reduce_statistics` from
