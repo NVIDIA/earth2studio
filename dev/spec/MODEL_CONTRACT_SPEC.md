@@ -158,7 +158,7 @@ not a tensor/coordinate pair. Random/Random_FX keep their data-source API, and
 assimilation protocols are outside this migration. Regional prognostic wrappers also
 use native DataArrays. StormCastCONUS's stored `ProjectedGrid` is its geometry
 source of truth: geographic auxiliaries derive from the cropped grid declaration,
-native axes from `input_coords()["y"]`/`["x"]`, and read-only `hrrr_y`/`hrrr_x` from
+native axes from `input_coords()["y"]`/`["x"]`, and read-only `y`/`x` attributes from
 those coordinates.
 
 Runtime protocol membership checks method presence, not signatures, so it does not

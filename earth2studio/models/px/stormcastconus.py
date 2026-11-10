@@ -489,12 +489,12 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return view
 
     @property
-    def hrrr_x(self) -> np.ndarray:
+    def x(self) -> np.ndarray:
         """Native projected x coordinates derived from the input signature."""
         return np.asarray(self.input_coords()["x"])
 
     @property
-    def hrrr_y(self) -> np.ndarray:
+    def y(self) -> np.ndarray:
         """Native projected y coordinates derived from the input signature."""
         return np.asarray(self.input_coords()["y"])
 

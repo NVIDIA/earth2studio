@@ -187,7 +187,7 @@ class StormCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
         self.lat = np.asarray(self.grid.coords()["lat"])
         self.lon = np.asarray(self.grid.coords()["lon"])
-        self.hrrr_x, self.hrrr_y = self.grid.x, self.grid.y
+        self.x, self.y = self.grid.x, self.grid.y
 
         self.variables = variables
 
