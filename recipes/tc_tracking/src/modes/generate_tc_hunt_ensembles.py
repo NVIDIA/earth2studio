@@ -193,6 +193,8 @@ def run_inference(
     dist = DistributedManager()
     data_source_mngr = DataSourceManager(cfg)
     inputs = model.input_coords()
+    if isinstance(inputs, tuple):
+        raise TypeError("models with several inputs are not supported")
 
     # NetCDF stores are created per IC and stay open, as unstable members can
     # be re-queued to the end of the work list
@@ -224,8 +226,9 @@ def run_inference(
         for ic, mems, seed in runs:
             if cfg.store_type == "netcdf" and ic not in nc_stores:
                 nc_stores[ic] = initialise_netcdf_output(cfg, model, ic, runs)
-            if cfg.store_type == "netcdf":
-                store = nc_stores[ic]
+            out: ZarrBackend | NetCDF4Backend | None = (
+                nc_stores[ic] if cfg.store_type == "netcdf" else store
+            )
 
             if x0 is None or x0.coords["time"].values[0] != ic:
                 x0 = fetch_data(
@@ -242,7 +245,8 @@ def run_inference(
 
             # each batch draws its noise from its own seed, which makes the batch
             # reproducible, see reproduce_members
-            model.set_rng(seed=seed)
+            # not part of the PrognosticModel protocol, all supported models have it
+            model.set_rng(seed=seed)  # type: ignore[attr-defined]
 
             # the iterator yields forecasts only, so the IC is prepended
             rollout = chain(
@@ -253,8 +257,8 @@ def run_inference(
                 # fields of previous steps can sit in reference cycles that still
                 # hold GPU memory, collect them before the model allocates again
                 gc.collect()
-                if store is not None:
-                    store.write(y.sel(variable=out_vars))
+                if out is not None:
+                    out.write(y.sel(variable=out_vars))
                 if cyclone_tracking:
                     cyclone_tracking.record_state(y)
 
