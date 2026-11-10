@@ -220,7 +220,7 @@ class TestParseOptionalDependencies:
     def test_contains_known_groups(self):
         """Test that known dependency groups are present."""
         deps = _parse_optional_dependencies()
-        assert "serve" in deps
+        assert "fcn" in deps
         assert "data" in deps
         assert "ace2" in deps
 
