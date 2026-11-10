@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import numpy as np
 import pytest
 import torch
 
@@ -62,3 +63,11 @@ def test_hrrrfx_run_deterministic(variable, device):
         assert input.device == output.device
         if label.split("::")[1] == "HGT" and v.startswith("z"):
             torch.allclose(output, 9.81 * input)
+
+
+@pytest.mark.parametrize("lexicon", [HRRRLexicon, HRRRFXLexicon])
+def test_hrrr_lexicon_snow_water_equivalent(lexicon):
+    # WEASD is stored in kg m-2, sd is snow depth in m of water equivalent
+    label, modifier = lexicon["sd"]
+    assert label.split("::")[1] == "WEASD"
+    assert modifier(np.array([25.0])) == pytest.approx(np.array([0.025]))

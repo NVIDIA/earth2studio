@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `HRRR` and `HRRR_FX` return `sd` in meters of water equivalent and `GEFS_FX_721x1440`
+  returns `tp` in meters, instead of the kg m-2 stored in the GRIB files, which made
+  both about 1000 times too large.
+
 ### Security
 
 ### Dependencies
