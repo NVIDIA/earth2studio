@@ -59,7 +59,11 @@ def build_output_template(
     """
     out_vars = list(dict.fromkeys(cfg.out_vars))
     inputs = model.input_coords()
+    if isinstance(inputs, tuple):
+        raise TypeError("models with several inputs are not supported")
     outputs = model.output_coords(inputs)
+    if isinstance(outputs, tuple):
+        raise TypeError("models with several outputs are not supported")
 
     missing = set(out_vars) - (
         set(inputs.coords["variable"].values) & set(outputs.coords["variable"].values)
