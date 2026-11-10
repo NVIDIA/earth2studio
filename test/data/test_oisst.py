@@ -14,12 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import shutil
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import netCDF4
 import numpy as np
+import obstore as obs
 import pytest
 
 from earth2studio.data import OISST
@@ -122,6 +124,59 @@ def test_oisst_call_mock(tmp_path, monkeypatch):
     # No product within the lookback window
     with pytest.raises(FileNotFoundError):
         OISST(verbose=False)(datetime(2024, 1, 2), "sst")
+
+
+def test_oisst_overlapping_fetches_share_the_temporary_cache(tmp_path, monkeypatch):
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+    product = tmp_path / "product.nc"
+    _write_product(product, 0.0)
+    ds = OISST(cache=False, verbose=False)
+    first_done = asyncio.Event()
+
+    async def fetch(store, key, cache, **kwargs):
+        # The second request reads its file only after the first request finished
+        if "20240102" in key:
+            await first_done.wait()
+        path = Path(cache) / key.replace("/", "_")
+        shutil.copy(product, path)
+        return str(path)
+
+    monkeypatch.setattr("earth2studio.data.oisst.obstore_fetch_to_cache", fetch)
+
+    async def first():
+        try:
+            return await ds.fetch(datetime(2024, 1, 1), "sst")
+        finally:
+            first_done.set()
+
+    async def both():
+        return await asyncio.gather(first(), ds.fetch(datetime(2024, 1, 2), "sst"))
+
+    results = asyncio.run(both())
+    assert [r.sst_date.values[0] for r in results] == [
+        np.datetime64("2024-01-01", "ns"),
+        np.datetime64("2024-01-02", "ns"),
+    ]
+    # The last call to finish removes the temporary cache
+    assert not Path(ds.cache).exists()
+
+
+def test_oisst_retries_obstore_errors(tmp_path, monkeypatch):
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
+    product = tmp_path / "product.nc"
+    _write_product(product, 0.0)
+    attempts = []
+
+    async def fetch(store, key, cache, **kwargs):
+        attempts.append(key)
+        if len(attempts) == 1:
+            raise obs.exceptions.GenericError("connection reset")
+        return str(product)
+
+    monkeypatch.setattr("earth2studio.data.oisst.obstore_fetch_to_cache", fetch)
+    result = OISST(verbose=False, retries=1)(datetime(2024, 1, 1), "sst")
+    assert result.shape == (1, 1, 720, 1440)
+    assert len(attempts) == 2
 
 
 def test_oisst_exceptions():

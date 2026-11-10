@@ -23,10 +23,12 @@ from uuid import uuid4
 
 import netCDF4
 import numpy as np
+import obstore as obs
 import torch
 import xarray as xr
 
 from earth2studio.data.utils import (
+    _CleanupAfterLastCall,
     _sync_async,
     async_retry,
     datasource_cache_root,
@@ -117,6 +119,8 @@ class OISST:
         self.device = torch.device(device)
         self.store = obstore_store_from_url(self.ROOT)
         self._temporary = uuid4().hex
+        # Overlapping calls share the temporary cache; the last one removes it
+        self._calls = _CleanupAfterLastCall(self)
 
     def __call__(
         self,
@@ -124,11 +128,7 @@ class OISST:
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
         """Fetch daily SST; arguments and result match fetch."""
-        try:
-            return _sync_async(self.fetch, time, variable, timeout=self.async_timeout)
-        finally:
-            if not self._cache and Path(self.cache).exists():
-                shutil.rmtree(self.cache)
+        return _sync_async(self.fetch, time, variable, timeout=self.async_timeout)
 
     async def fetch(
         self,
@@ -149,6 +149,14 @@ class OISST:
         xr.DataArray
             Fields with time, variable, latitude and longitude dimensions.
         """
+        with self._calls:
+            return await self._fetch(time, variable)
+
+    async def _fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
         times, variables = prep_data_inputs(time, variable)
         if variables != ["sst"]:
             raise KeyError("OISST supplies only sst")
@@ -191,9 +199,11 @@ class OISST:
                         atomic=True,
                         retries=self.retries,
                         task_timeout=self.async_timeout,
-                        no_retry=(FileNotFoundError,),
+                        # obstore errors derive from BaseError, not OSError
+                        exceptions=(OSError, TimeoutError, obs.exceptions.BaseError),
+                        no_retry=(FileNotFoundError, obs.exceptions.NotFoundError),
                     )
-                except FileNotFoundError:
+                except (FileNotFoundError, obs.exceptions.NotFoundError):
                     continue
                 with netCDF4.Dataset(path) as data:
                     variable = data.variables["sst"]
@@ -220,6 +230,11 @@ class OISST:
     def _validate_time(times: list[datetime]) -> None:
         if any(t < datetime(1981, 9, 1) for t in times):
             raise ValueError("OISST begins on 1981-09-01")
+
+    def cleanup(self) -> None:
+        """Remove temporary files when persistent caching is disabled."""
+        if not self._cache:
+            shutil.rmtree(self.cache, ignore_errors=True)
 
     @property
     def cache(self) -> str:
