@@ -268,3 +268,53 @@ def test_native_checkpoint_resume(tmp_path):
             checkpoint=session,
         )
     np.testing.assert_array_equal(io["t2m"][:], 7)
+
+
+def test_deterministic_autobatch_and_oom_backoff():
+    """Verify deterministic workflow handles batch_size and AutoBatcher OOM backoff."""
+    from earth2studio.models.batch import AutoBatcher
+
+    coords = OrderedDict([("lat", np.arange(4)), ("lon", np.arange(4))])
+    times = ["2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04"]
+
+    class OOMPersistence(Persistence):
+        def _forward(self, x: xr.DataArray) -> xr.DataArray:
+            if x.sizes.get("time", 1) > 2:
+                raise RuntimeError("CUDA out of memory")
+            return super()._forward(x)
+
+    data = Constant(coords, 5.0)
+
+    # 1. Test batch_size without autobatch splits times cleanly
+    io_fixed = run.deterministic(
+        times[:3],
+        2,
+        Persistence(["t2m"], coords),
+        data,
+        ZarrBackend(),
+        batch_size=2,
+        device="cpu",
+        verbose=False,
+    )
+    assert io_fixed["t2m"].shape == (3, 3, 4, 4)
+    np.testing.assert_array_equal(io_fixed["t2m"][:], 5.0)
+
+    # 2. Test AutoBatcher backoff on OOM
+    batcher = AutoBatcher(
+        max_batch_size=4,
+        oom_backoff=True,
+        per_sample_bytes=100,
+        available_bytes=400,
+    )
+    io = run.deterministic(
+        times,
+        1,
+        OOMPersistence(["t2m"], coords),
+        data,
+        ZarrBackend(),
+        autobatch=batcher,
+        device="cpu",
+        verbose=False,
+    )
+    assert io["t2m"].shape == (4, 2, 4, 4)
+    np.testing.assert_array_equal(io["t2m"][:], 5.0)

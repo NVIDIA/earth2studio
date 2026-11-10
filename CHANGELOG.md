@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `AutoBatcher` in `earth2studio.models.batch` with VRAM-aware automatic
+  batch sizing, 1-sample forward memory probing, and OOM halving backoff.
+- Added `batch_size` and `autobatch` parameters to `deterministic`, `diagnostic`,
+  and `ensemble` workflows for automatic initialization-time and ensemble-member
+  batching with out-of-memory recovery.
+- Extended `@batch_func()` decorator with optional `max_batch_size` and `autobatch`
+  parameters for transparent DataArray sub-batching.
 - Added regional inference to `CorrDiffEra5Hrrr`: `with_region` (`DomainAdaptable`)
   returns a view on the block of the HRRR crop covering a box, with the CorrDiff
   regional helpers shared in `earth2studio.models.nn.corrdiff`.

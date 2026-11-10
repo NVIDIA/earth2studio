@@ -176,3 +176,58 @@ def test_diagnostic_output_coords(output_coords, device):
     del output_coords["variable"]
     for key, value in output_coords.items():
         assert np.array_equal(io[key], value)
+
+
+def test_diagnostic_autobatch_and_oom_backoff():
+    """Verify diagnostic workflow handles batch_size and AutoBatcher OOM backoff."""
+    from earth2studio.data import Constant
+    from earth2studio.models.batch import AutoBatcher
+
+    coords = OrderedDict([("lat", np.arange(4)), ("lon", np.arange(4))])
+    times = ["2024-01-01", "2024-01-02", "2024-01-03"]
+
+    class OOMDiagnostic(Identity):
+        def __call__(self, x: xr.DataArray) -> xr.DataArray:
+            if x.sizes.get("time", 1) > 1:
+                raise RuntimeError("CUDA out of memory")
+            return super().__call__(x)
+
+    data = Constant(coords, 3.0)
+    model = Persistence(["t2m"], coords)
+    diagnostic = OOMDiagnostic()
+
+    # 1. Test fixed batch_size
+    io_fixed = run.diagnostic(
+        times,
+        2,
+        model,
+        Identity(),
+        data,
+        ZarrBackend(),
+        batch_size=2,
+        device="cpu",
+        verbose=False,
+    )
+    assert io_fixed["t2m"].shape == (3, 3, 4, 4)
+    np.testing.assert_array_equal(io_fixed["t2m"][:], 3.0)
+
+    # 2. Test AutoBatcher OOM backoff
+    batcher = AutoBatcher(
+        max_batch_size=3,
+        oom_backoff=True,
+        per_sample_bytes=100,
+        available_bytes=300,
+    )
+    io = run.diagnostic(
+        times[:2],
+        1,
+        model,
+        diagnostic,
+        data,
+        ZarrBackend(),
+        autobatch=batcher,
+        device="cpu",
+        verbose=False,
+    )
+    assert io["t2m"].shape == (2, 2, 4, 4)
+    np.testing.assert_array_equal(io["t2m"][:], 3.0)

@@ -185,6 +185,81 @@ Model Input: torch.Size([1, 2]) OrderedDict([('batch', array([0])), ('dim1', arr
 Output: torch.Size([4]) OrderedDict([('dim2', array([0, 1, 2, 3]))])
 ```
 
+## Automatic Batching
+
+When processing large datasets or ensembles, running too many samples at once can
+exhaust GPU memory (OOM), while running too few underutilizes resources.
+Earth2Studio provides `earth2studio.models.batch.AutoBatcher` to automatically
+determine memory-optimal batch sizes and recover dynamically when memory limits
+are reached.
+
+### AutoBatcher
+
+`AutoBatcher` measures model memory consumption via an isolated 1-sample forward probe
+on CUDA (tracking `torch.cuda.max_memory_allocated`), falling back to coordinate-based
+analytic estimation. It queries the device's free VRAM and computes a batch size that
+fits within a target fraction of memory (`memory_fraction=0.8` by default):
+
+```python
+from earth2studio.models.batch import AutoBatcher
+
+batcher = AutoBatcher(
+    memory_fraction=0.8,
+    max_batch_size=16,
+    oom_backoff=True,
+)
+```
+
+If an out-of-memory error occurs during execution, `batcher.backoff()` clears GPU
+memory caches, halves the batch size, and retries the failed slice until it reaches
+`min_batch_size`.
+
+### Model Decorator Sub-Batching
+
+The `@batch_func()` decorator accepts `max_batch_size` and `autobatch` options to
+sub-batch large DataArray calls transparently:
+
+```python
+from earth2studio.models.batch import AutoBatcher, batch_func
+
+
+class LargeModel:
+    @batch_func(autobatch=AutoBatcher())
+    def __call__(self, x):
+        return x
+```
+
+### Workflow Integration
+
+The built-in `deterministic`, `diagnostic`, and `ensemble` workflows accept `batch_size`
+and `autobatch` parameters:
+
+```python
+import earth2studio.run as run
+
+# Batch initialization times with automatic memory sizing:
+run.deterministic(
+    times,
+    nsteps,
+    model,
+    data,
+    io,
+    autobatch=True,
+)
+
+# Batch ensemble members with automatic sizing and OOM recovery:
+run.ensemble(
+    times,
+    nsteps,
+    nensemble=50,
+    model=model,
+    data=data,
+    io=io,
+    perturbation=perturbation,
+    autobatch=True,
+)
+```
+
 ## Batch Dimension in IO
 
 The IO backends require users to pre-define the output coordinate system on which the
