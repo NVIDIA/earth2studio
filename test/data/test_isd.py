@@ -366,3 +366,56 @@ class TestISDExtractors:
         np.testing.assert_allclose(
             out["tcc"].to_numpy(), np.array([expected]), equal_nan=True
         )
+
+
+def _station_year_frame(dates: list[str]) -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "STATION": "72403093738",
+            "DATE": pd.to_datetime(dates),
+            "SOURCE": "7",
+            "REPORT_TYPE": "FM-15",
+            "LATITUDE": 38.9,
+            "LONGITUDE": -77.4,
+            "ELEVATION": 89.5,
+            "NAME": "TEST",
+            "TMP": "+0100,1",
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    "time, tol, expected",
+    [
+        # Overlapping windows must not return an observation twice
+        (
+            [datetime(2024, 1, 1, 6), datetime(2024, 1, 1, 7)],
+            timedelta(hours=1),
+            3,
+        ),
+        # A window crossing the year boundary also reads the next year
+        ([datetime(2024, 12, 31, 23, 30)], timedelta(hours=1), 3),
+        ([datetime(2025, 1, 1, 0, 30)], timedelta(hours=1), 3),
+    ],
+)
+def test_isd_window_selection(time, tol, expected):
+    frames = {
+        2024: _station_year_frame(
+            [
+                "2024-01-01T05:30",
+                "2024-01-01T06:30",
+                "2024-01-01T07:30",
+                "2024-12-31T23:45",
+            ]
+        ),
+        2025: _station_year_frame(["2025-01-01T00:00", "2025-01-01T00:20"]),
+    }
+
+    async def fetch_station_year(station_id, year):
+        return frames.get(year, pd.DataFrame())
+
+    ds = ISD(stations=["72403093738"], time_tolerance=tol, cache=False, verbose=False)
+    ds._fetch_station_year = fetch_station_year
+    df = ds(time, ["t2m"])
+    assert len(df) == expected
+    assert not df.duplicated(subset=["time", "station", "variable"]).any()
