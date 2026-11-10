@@ -343,10 +343,14 @@ class TempestExtremes:
 
     def _raise_failures(self) -> None:
         """Raise the error of the first failed background task, if any."""
+        # check each task once, so one finishing in between is not dropped unread
+        pending = []
         for task in self._tasks:
-            if task.done() and task.exception() is not None:
+            if not task.done():
+                pending.append(task)
+            elif task.exception() is not None:
                 raise ChildProcessError("cyclone tracking failed") from task.exception()
-        self._tasks = [task for task in self._tasks if not task.done()]
+        self._tasks = pending
 
     def close(self) -> None:
         """Wait for all members to be tracked and remove the scratch directory.
