@@ -208,7 +208,13 @@ def merge_batch_stores(cfg: DictConfig) -> None:
     ]
     if not os.path.exists(path):
         if not with_fields:
-            logger.error(f"no batch with fields to merge into {path}")
+            logger.error(
+                f"no batch has valid fields (all failed or none complete), so "
+                f"{path} is not created. The batch stores in "
+                f"{batch_zarr_dir(cfg)} are kept with their random_seed = -1 "
+                "markers; rerun with resume: True and a higher "
+                "stability_check.max_retries (or other thresholds) to continue"
+            )
             return
         # created under another name and renamed when done, so that an
         # interrupted merge never leaves a partial combined store behind

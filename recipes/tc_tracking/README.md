@@ -343,7 +343,9 @@ interrupted, `mode: 'merge_zarr'` with the same config merges
 the batch stores that are complete. Both formats contain a
 variable `random_seed` with the seed each member was run
 with, `-1` for members without valid fields (unstable with
-all seeds, or not run).
+all seeds, or not run). If no batch of a Zarr run has valid
+fields, `<project>.zarr` is not created and the batch stores
+are kept; resume with a higher `max_retries` to continue.
 
 Zarr chunks hold one member, IC, lead time and variable.
 With `zarr_shard_per_member: True`, all lead times of a
