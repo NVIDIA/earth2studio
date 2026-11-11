@@ -86,6 +86,10 @@ class HENSPerturbation:
 
         return
 
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed breeding noise and reset carried pairs through the public API."""
+        self.perturbation.set_rng(seed, reset=reset)
+
     def get_noise_vector(
         self,
         model: PrognosticModel,

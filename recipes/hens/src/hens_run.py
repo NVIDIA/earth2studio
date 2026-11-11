@@ -15,12 +15,14 @@
 # limitations under the License.
 
 from concurrent.futures import Future, ThreadPoolExecutor
+from pathlib import Path
 from typing import Any
 
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 from earth2studio.data.base import DataSource
 from earth2studio.models.dx.base import DiagnosticModel
+from earth2studio.run import ProgressStore
 
 from .hens_ensemble import EnsembleBase
 from .hens_perturbation import HENSPerturbation
@@ -47,6 +49,17 @@ def run_inference(
 ) -> None:
     """Run this worker's checkpoint/IC pairs and drain asynchronous writers."""
     try:
+        resume = cfg.get("file_output", {}).get("resume", False)
+        if resume:
+            output = cfg.file_output
+            if (
+                output.format._target_ != "earth2studio.io.ZarrBackend"
+                or not output.format.get("_partial_", False)
+                or output.format.get("backend_kwargs", {}).get("overwrite", False)
+            ):
+                raise ValueError(
+                    "HENS resume requires a partial ZarrBackend with overwrite=False"
+                )
         for pkg, ic, ens_idx, batch_ids_produce in ensemble_configs:
             base_seed_string = create_base_seed_string(pkg, ic, str(base_random_seed))
             model_dict = update_model_dict(model_dict, pkg)
@@ -77,6 +90,19 @@ def run_inference(
                     batch_ids_produce=batch_ids_produce,
                     base_seed_string=base_seed_string,
                     pkg=pkg,
+                    progress=(
+                        ProgressStore(
+                            Path(cfg.file_output.path)
+                            / "progress"
+                            / f"{cfg.project}_{Path(pkg).name}_{ic}",
+                            tags={
+                                "package": pkg,
+                                "config": OmegaConf.to_container(cfg, resolve=True),
+                            },
+                        )
+                        if resume
+                        else None
+                    ),
                 )
                 ensemble_runner()
             finally:

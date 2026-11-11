@@ -26,6 +26,7 @@ from loguru import logger
 
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.models.px import PrognosticModel
+from earth2studio.models.utils import fork_rng
 from earth2studio.perturbation.base import Perturbation
 from earth2studio.utils import handshake_dim, handshake_size
 from earth2studio.utils.cupy import from_torch
@@ -88,6 +89,23 @@ class HemisphericCentredBredVector:
         self.seeding_perturbation_method = seeding_perturbation_method
         self.set_clip_indices()
         self._residual: list[torch.Tensor] = []
+        self._seed: int | None = None
+        self._rng_states: dict[str, torch.Tensor] = {}
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the noise stream, clearing carried paired members on reset.
+
+        With reset=False, an existing stream and its paired member are retained.
+        The caller owns seeding the dynamical model, which may be shared with a
+        forecast runner. Seeded noise draws leave global Torch RNG unchanged.
+        """
+        if reset or self._seed is None:
+            self._seed = seed
+            self._rng_states = {}
+            self._residual = []
+        set_rng = getattr(self.seeding_perturbation_method, "set_rng", None)
+        if callable(set_rng):
+            set_rng(seed, reset=reset)
 
     @torch.inference_mode()
     def create_generator(
@@ -133,7 +151,10 @@ class HemisphericCentredBredVector:
         # May work...
 
         # generate perturbed initial state
-        xper, _ = self.seeding_perturbation_method(state.copy(deep=True)).e2s.to_torch()
+        with fork_rng(self._seed, xunp.device, self._rng_states):
+            xper, _ = self.seeding_perturbation_method(
+                state.copy(deep=True)
+            ).e2s.to_torch()
 
         for ii in range(self.integration_steps):
             xunp = cast(

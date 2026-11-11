@@ -22,6 +22,7 @@ import torch
 import xarray as xr
 from loguru import logger
 
+from earth2studio.models.utils import fork_rng
 from earth2studio.perturbation.base import Perturbation
 from earth2studio.perturbation.brown import Brown
 from earth2studio.utils.cupy import from_torch
@@ -61,7 +62,7 @@ class BredVector:
         noise_amplitude: float | torch.Tensor = 0.05,
         integration_steps: int = 20,
         ensemble_perturb: bool = False,
-        seeding_perturbation_method: Perturbation = Brown(),
+        seeding_perturbation_method: Perturbation | None = None,
     ):
         self.model = model
         self.noise_amplitude = (
@@ -71,7 +72,26 @@ class BredVector:
         )
         self.ensemble_perturb = ensemble_perturb
         self.integration_steps = integration_steps
-        self.seeding_perturbation_method = seeding_perturbation_method
+        self.seeding_perturbation_method = (
+            Brown()
+            if seeding_perturbation_method is None
+            else seeding_perturbation_method
+        )
+        self._seed: int | None = None
+        self._rng_states: dict[str, torch.Tensor] = {}
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the noise stream; preserve an existing stream when reset is False.
+
+        The caller owns seeding the dynamical model, which may be shared with a
+        forecast runner. Seeded noise draws leave global Torch RNG unchanged.
+        """
+        if reset or self._seed is None:
+            self._seed = seed
+            self._rng_states = {}
+        set_rng = getattr(self.seeding_perturbation_method, "set_rng", None)
+        if callable(set_rng):
+            set_rng(seed, reset=reset)
 
     @torch.inference_mode()
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
@@ -98,7 +118,8 @@ class BredVector:
         def run_model(data: torch.Tensor) -> torch.Tensor:
             return self.model(from_torch(data, x)).e2s.to_torch()[0]
 
-        dx, _ = self.seeding_perturbation_method(x.copy(deep=True)).e2s.to_torch()
+        with fork_rng(self._seed, x0.device, self._rng_states):
+            dx, _ = self.seeding_perturbation_method(x.copy(deep=True)).e2s.to_torch()
         dx = dx - x0
 
         xd = run_model(torch.clone(x0))

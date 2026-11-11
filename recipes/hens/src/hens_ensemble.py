@@ -30,8 +30,8 @@ from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.models.px.utils import initial_condition
 from earth2studio.models.utils import step_interval
-from earth2studio.perturbation import HemisphericCentredBredVector, Perturbation
-from earth2studio.run import Pipeline, WorkItem
+from earth2studio.perturbation import Perturbation
+from earth2studio.run import Pipeline, ProgressStore, WorkItem
 from earth2studio.run._fields import _map_field, _with_lead_time
 from earth2studio.run.runner import _signature_for_stream
 from earth2studio.utils.coords import coord_array, coord_array_like
@@ -98,6 +98,7 @@ class HENSRunner:
         self.nensemble = nensemble
         self.batch_size = batch_size
         self.base_seed_string = base_seed_string
+        self.seed = base_seed_string
         self.diagnostics = dict(dx_model_dict or {})
         self.downscaling = dict(cd_model_dict or {})
         self.tracking = cyclone_tracking
@@ -191,7 +192,10 @@ class HENSRunner:
 
     def _seed(self, batch_id: int) -> None:
         seed = calculate_torch_seed(f"{self.base_seed_string}_{batch_id}")
-        torch.manual_seed(seed)
+        set_rng = getattr(self.perturbation, "set_rng", None)
+        if not callable(set_rng):
+            raise TypeError("HENS perturbations must implement set_rng")
+        set_rng(seed, reset=True)
         for model in [
             self.prognostic,
             *self.diagnostics.values(),
@@ -208,23 +212,34 @@ class HENSRunner:
             member % self.nensemble
         ) // self.batch_size
         with torch.inference_mode():
-            bred = getattr(self.perturbation, "perturbation", self.perturbation)
-            if isinstance(bred, HemisphericCentredBredVector):
-                # Odd batches carry a paired member from the preceding batch.
-                # Reconstruct that state for isolated/reordered work items, without
-                # forecasting or writing the predecessor. Even batches start clean.
-                bred._residual = []
-                local_batch = (member % self.nensemble) // self.batch_size
-                if self.batch_size % 2 and local_batch % 2:
-                    previous = WorkItem(
-                        item.time,
-                        item.final_lead_time,
-                        tuple(range(member - self.batch_size, member)),
-                    )
-                    self._seed(batch_id - 1)
-                    self.perturbation(self._fetch(previous))
+            paired = None
+            local_batch = (member % self.nensemble) // self.batch_size
+            if self.batch_size % 2 and local_batch % 2:
+                # Materialize the predecessor's complete pairs before resetting
+                # its stream. The extra member is this batch's first member.
+                previous = WorkItem(
+                    item.time,
+                    item.final_lead_time,
+                    tuple(range(member - self.batch_size, member + 1)),
+                )
+                self._seed(batch_id - 1)
+                paired = self.perturbation(self._fetch(previous)).isel(
+                    ensemble=slice(-1, None)
+                )
             self._seed(batch_id)
-            x = self.perturbation(self._fetch(item))
+            if paired is None:
+                x = self.perturbation(self._fetch(item))
+            elif len(item.member_ids) == 1:
+                x = paired
+            else:
+                remaining = WorkItem(
+                    item.time, item.final_lead_time, item.member_ids[1:]
+                )
+                x = xr.concat(
+                    [paired, self.perturbation(self._fetch(remaining))],
+                    dim="ensemble",
+                    join="exact",
+                )
             tracker = self.tracking.tracker if self.tracking is not None else None
             if tracker is not None:
                 tracker.reset_path_buffer()
@@ -314,6 +329,7 @@ class EnsembleBase:
         batch_ids_produce: list[int] | None = None,
         base_seed_string: str = "0",
         pkg: str = "",
+        progress: ProgressStore | None = None,
     ) -> None:
         if len(time) != 1 or nsteps < 0 or nensemble < 1:
             raise ValueError(
@@ -360,7 +376,10 @@ class EnsembleBase:
                 WorkItem(to_time_array(time)[0], nsteps * self.runner.step, members)
             )
         self.pipeline = Pipeline(
-            self.runner, output=io_dict, device=device or local_device()
+            self.runner,
+            output=io_dict,
+            device=device or local_device(),
+            progress=progress,
         )
 
     def __call__(self) -> dict[str, IOBackend]:

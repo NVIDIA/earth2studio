@@ -400,6 +400,24 @@ file_output:
 
 ### Execution
 
+To resume interrupted runs, set `file_output.resume: true` and use this output
+format with an explicit `random_seed`:
+
+```yaml
+format:
+    _target_: earth2studio.io.ZarrBackend
+    _partial_: True
+    backend_kwargs:
+        overwrite: False
+```
+
+Rerun the same configuration and output paths. Progress is stored under
+`file_output.path/progress`, separately for each checkpoint and initialization.
+Completed batches are skipped; incomplete batches are rerun, including their
+tracking and CorrDiff files. Keep the progress directory and all output files
+together. Changed configurations are rejected; use a fresh output directory for
+a new run. Resume is not supported for NetCDF or in-memory/async-export backends.
+
 To execute the inference pipeline, tailor the config file to your needs and run:
 
 ```bash

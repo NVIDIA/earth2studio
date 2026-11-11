@@ -121,6 +121,15 @@ other fixed labels equal the schema's.
 
 ### Seeding
 
+`X5`/`X6` describe the built-in runners. A custom runner may choose its own
+reproducibility unit (such as a perturbation batch) and seed derivation, provided
+each item's outputs depend only on the item and the runner's seed and fixed
+configuration, not on rank, item order or previously executed items. It must
+never touch global RNG state. HENS uses this path to reproduce published batches
+with its SHA-256 seed derivation. Custom runners expose their seed as
+`runner.seed` for the progress manifest and record other reproducibility settings
+in `ProgressStore` tags.
+
 Before each item's rollout or first call, a runner seeds every stochastic model
 with `model.set_rng(member_seed(self.seed, item.time, member_id), reset=True)`,
 where `member_id` is the item's first member. Deterministic items seed as member
