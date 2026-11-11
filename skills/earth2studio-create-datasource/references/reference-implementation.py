@@ -233,14 +233,7 @@ class SourceName:
             Fetched data array with dims (time, variable, lat, lon).
         """
         # FILL: For ForecastSource return shape is (time, lead_time, variable, lat, lon)
-        try:
-            xr_array = _sync_async(
-                self.fetch, time, variable, timeout=self.async_timeout
-            )
-        finally:
-            if not self._cache:
-                shutil.rmtree(self.cache, ignore_errors=True)
-        return xr_array
+        return _sync_async(self.fetch, time, variable, timeout=self.async_timeout)
 
     # ------------------------------------------------------------------
     # Async fetch
@@ -264,6 +257,17 @@ class SourceName:
         xr.DataArray
             Data array with dims (time, variable, lat, lon).
         """
+        try:
+            return await self._fetch(time, variable)
+        finally:
+            if not self._cache:
+                shutil.rmtree(self.cache, ignore_errors=True)
+
+    async def _fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
         if self.store is None:
             await self._async_init()
 

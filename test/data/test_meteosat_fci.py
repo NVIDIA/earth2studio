@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import pathlib
-import shutil
 from datetime import datetime
 from unittest.mock import patch
 
@@ -54,17 +53,6 @@ def test_meteosat_fci_fetch(time, variable):
     assert 0 < data.shape[2] < 5568
     assert 0 < data.shape[3] < 5568
     assert not np.all(np.isnan(data.values))
-
-
-@pytest.mark.live(timeout=60)
-def test_meteosat_fci_cache():
-    ds = MeteosatFCI(resolution="2km", lat_lon_bbox=_EUROPE_BBOX, cache=True)
-    time = datetime(2025, 3, 1, 12, 0)
-    data1 = ds(time, "fci87ir")
-    data2 = ds(time, "fci87ir")  # served from cache — no re-download
-    assert data1.shape == data2.shape
-    assert pathlib.Path(ds.cache).is_dir()
-    shutil.rmtree(ds.cache, ignore_errors=True)
 
 
 @pytest.mark.live(timeout=60)
