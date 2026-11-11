@@ -55,6 +55,7 @@ from src.scoring import (
     scoring_progress_path,
     spatial_coords_from_dataset,
     validate_lead_time_chunking,
+    verification_regridder,
 )
 
 from earth2studio.io import ZarrBackend
@@ -393,6 +394,34 @@ class TestLoadChunks:
             load_verification_chunk(
                 source, TIMES[0], LEAD_TIMES, VARIABLES, coords, "cpu"
             )
+
+    def test_verification_is_selected_onto_a_coarser_prediction_grid(self, det_cfg):
+        # A forecast on every other point of the verification grid, as a 1.5
+        # degree model under 0.25 degree reanalysis: without output.regrid the
+        # verification lands on the prediction grid.
+        source = PredownloadedSource(store_path(det_cfg, "verification.zarr"))
+        coords = OrderedDict(lat=SMALL_LAT[::2], lon=SMALL_LON[::2])
+        regrid = verification_regridder(det_cfg, coords)
+        assert regrid is not None
+        y = load_verification_chunk(
+            source, TIMES[1], LEAD_TIMES, VARIABLES, coords, "cpu", regrid
+        )
+        assert y.shape[-2:] == (len(SMALL_LAT[::2]), len(SMALL_LON[::2]))
+        np.testing.assert_array_equal(y["lat"].values, SMALL_LAT[::2])
+        full = load_verification_chunk(
+            source,
+            TIMES[1],
+            LEAD_TIMES,
+            VARIABLES,
+            OrderedDict(lat=SMALL_LAT, lon=SMALL_LON),
+            "cpu",
+        )
+        np.testing.assert_allclose(y.values, full.values[..., ::2, ::2])
+        # A projected grid has no latitude/longitude axes to align with.
+        assert (
+            verification_regridder(det_cfg, OrderedDict(y=SMALL_LAT, x=SMALL_LON))
+            is None
+        )
 
     def test_missing_variable_is_explained(self, det_cfg):
         source = PredownloadedSource(store_path(det_cfg, "verification.zarr"))

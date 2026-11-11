@@ -62,10 +62,10 @@ from earth2studio.utils.type import CoordinateSystem
 from .data import resolve_source
 from .output import (
     OutputRegridder,
-    output_regridder,
     progress_path,
     remove_store,
     store_path,
+    verification_regridder,
 )
 from .regions import (
     NON_SPATIAL,
@@ -510,7 +510,8 @@ def load_verification_chunk(
     device : torch.device | str
         Device of the returned field.
     regrid : OutputRegridder, optional
-        The campaign's ``output.regrid`` regridder, by default None (the
+        Brings the fetched fields onto the prediction grid (see
+        :func:`src.output.verification_regridder`), by default None (the
         source must already sit on the prediction grid).
 
     Returns
@@ -907,7 +908,7 @@ def run_scoring(
     nan_policy = _parse_nan_policy(cfg)
     valid_ranges = _parse_valid_ranges(cfg)
     variables = [str(v) for v in variables]
-    regrid = output_regridder(cfg)
+    regrid = verification_regridder(cfg, spatial_coords)
 
     for item in tqdm(my_items, desc="Scoring", disable=rank != 0):
         time = np.datetime64(item.time, "ns")

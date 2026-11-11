@@ -882,10 +882,10 @@ def assimilation_forecast(
         cfg, analysis, needed, prefer_predownloaded, fallback=recommended
     )
     runner.source = source
-    roles = {k: v for k, v in runner.source_roles.items() if k != "data"}
+    roles = {k: v for k, v in runner.source_roles.items() if k != "data"}  # type: ignore[attr-defined]
     if fill is not None:
         roles["data"] = fill
-    runner.source_roles = roles
+    runner.source_roles = roles  # type: ignore[attr-defined]
     runner.frame_roles = obs.roles  # type: ignore[attr-defined]
     ic_leads = runner.input_signature["lead_time"].values
     original_requests = runner.data_requests

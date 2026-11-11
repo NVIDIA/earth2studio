@@ -62,6 +62,15 @@ def test_deterministic_run_writes_forecast_store(base_cfg) -> None:
     assert not np.isnan(ds["t2m"].values).any()
 
 
+def test_resume_refuses_to_switch_scoring_mode(base_cfg) -> None:
+    run(base_cfg)
+    with open_dict(base_cfg):
+        base_cfg.scoring.mode = "online"
+        base_cfg.resume = True
+    with pytest.raises(ValueError, match="does not match"):
+        run(base_cfg)
+
+
 def test_ensemble_run_and_resume(base_cfg) -> None:
     cfg = base_cfg
     with open_dict(cfg):

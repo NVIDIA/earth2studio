@@ -2090,12 +2090,21 @@ class OnlineScorer:
         device: torch.device,
         nan_policy: str = "propagate",
         valid_ranges: Mapping[str, Any] | None = None,
+        streams: Mapping[str, Sequence[str]] | None = None,
     ) -> None:
         if nan_policy not in ("propagate", "zero_fill"):
             raise ValueError(
                 f"Invalid scoring.nan_policy '{nan_policy}'; expected 'propagate' or 'zero_fill'."
             )
         self._settings = settings
+        # Output variables per stream (src.output.stream_variables): a variable
+        # scores from the stream that owns it, so a diagnostic re-emitting a
+        # forecast variable never overwrites the forecast's statistics.
+        self._streams: dict[str, frozenset[str]] | None = (
+            None
+            if streams is None
+            else {s: frozenset(str(v) for v in names) for s, names in streams.items()}
+        )
         self._comm = comm
         self._verification = verification
         self._climatology = climatology
@@ -2156,7 +2165,8 @@ class OnlineScorer:
         item : WorkItem
             The item under way.
         stream : str
-            Stream name; informational.
+            Stream name.  With ``streams`` given, only that stream's output
+            variables score, and the scorer skips every other stream.
         x : xr.DataArray
             Field with ``lead_time`` and ``variable`` dimensions, the scored
             grid's spatial dimensions, optional singleton ``time``/``batch``
@@ -2166,7 +2176,16 @@ class OnlineScorer:
         if self._item is None:
             raise RuntimeError("OnlineScorer.update called before begin_item.")
         names = [str(v) for v in np.asarray(x.coords["variable"].values)]
-        mine = [(k, v) for k, v in enumerate(names) if v in self._var_pos]
+        allowed: frozenset[str] | None = None
+        if self._streams is not None:
+            allowed = self._streams.get(stream)
+            if not allowed:
+                return
+        mine = [
+            (k, v)
+            for k, v in enumerate(names)
+            if v in self._var_pos and (allowed is None or v in allowed)
+        ]
         if not mine:
             return
         if "lead_time" not in x.dims:
@@ -3021,6 +3040,7 @@ class OnlineRun:
                 device=device,
                 nan_policy=nan_policy,
                 valid_ranges=valid_ranges,  # type: ignore[arg-type]
+                streams=variables,
             )
         scorer: OnlineScorer | MultiRefScorer = (
             scorers[None] if list(scorers) == [None] else MultiRefScorer(scorers)

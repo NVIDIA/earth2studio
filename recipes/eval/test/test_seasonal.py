@@ -37,6 +37,7 @@ from src.runners.seasonal import WindowMeanRunner, window_mean
 from earth2studio.io import KVBackend
 from earth2studio.models.px import Persistence
 from earth2studio.run import Pipeline, PrognosticRunner, work_items
+from earth2studio.utils.coords import coord_array_like
 from test.conftest import VARIABLES
 
 T0 = np.datetime64("2024-01-01T00:00:00")
@@ -58,6 +59,35 @@ class _Counting(Persistence):
         tensor, _ = out.e2s.to_torch()
         tensor.add_(1.0)
         return out, state
+
+
+class _TwoLead(_Counting):
+    """Counting persistence yielding the 6 h and 12 h leads of each 12 h step.
+
+    The 6 h lead adds one to the step's input, the 12 h lead adds two.
+    """
+
+    def output_coords(self, input_coords: xr.DataArray) -> xr.DataArray:
+        lead = np.asarray(input_coords.lead_time)[-1]
+        return coord_array_like(
+            input_coords, {"lead_time": np.array([lead + H6, lead + H12])}
+        )
+
+    def _two(self, last: xr.DataArray) -> xr.DataArray:
+        lead = last.lead_time.values[-1]
+        y = xr.concat([last, last], dim="lead_time").copy(deep=True)
+        y = y.assign_coords(lead_time=np.array([lead + H6, lead + H12]))
+        tensor, _ = y.e2s.to_torch()
+        axis = y.get_axis_num("lead_time")
+        tensor.select(axis, 0).add_(1.0)
+        tensor.select(axis, 1).add_(2.0)
+        return y
+
+    def _forward(self, x: xr.DataArray) -> xr.DataArray:
+        return self._two(x.isel(lead_time=slice(-1, None)))
+
+    def step(self, y: xr.DataArray, state: None) -> tuple[xr.DataArray, None]:
+        return self._two(y.isel(lead_time=slice(-1, None))), None
 
 
 @pytest.fixture()
@@ -148,6 +178,36 @@ def test_run_item_averages_each_window(runner) -> None:
             _values(diag.sel(variable="t2m")), _values(forecast.sel(variable="t2m"))
         )
         np.testing.assert_array_equal(_values(diag.sel(variable="diag_a")), 0.0)
+
+
+@pytest.mark.parametrize(
+    "window, expected", [("6h", [1.0, 2.0, 3.0, 4.0]), ("12h", [1.5, 3.5])]
+)
+def test_windows_close_inside_a_multi_lead_step(
+    small_grid, data_source, window: str, expected: list[float]
+) -> None:
+    # A 12 h model publishing its 6 h and 12 h leads together: a 6 h window
+    # closes inside each step, a 12 h window averages both leads.
+    inner = PrognosticRunner(
+        _TwoLead(variable=VARIABLES, domain_coords=small_grid), data_source
+    )
+    runner = WindowMeanRunner(inner, window=window)
+    assert runner.step == H12
+    item = work_items([T0], 2 * H12)[0]
+    initial = None
+    for published in inner.run_item(item):
+        initial = published["forecast"]
+        break
+    assert initial is not None and float(initial["lead_time"].values[0]) == 0.0
+    base = _values(initial)[0]
+    outputs = [dict(step) for step in runner.run_item(item)]
+    assert len(outputs) == len(expected)
+    ends = runner.window_leads(item.final_lead_time)
+    for k, (step, offset) in enumerate(zip(outputs, expected)):
+        np.testing.assert_array_equal(step["forecast"]["lead_time"].values, [ends[k]])
+        np.testing.assert_allclose(
+            _values(step["forecast"])[0], base + offset, rtol=1e-5
+        )
 
 
 def test_run_item_keeps_members_on_the_leading_axis(runner) -> None:

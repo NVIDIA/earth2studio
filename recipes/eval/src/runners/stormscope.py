@@ -70,7 +70,7 @@ def _default_source(model: Any, slot: int, label: str) -> Source:
         raise ValueError(
             f"StormScope {label} needs a source; the model recommends none"
         )
-    return cast(Source, recommended)
+    return recommended
 
 
 def coupled_step(*models: Any) -> np.timedelta64:
@@ -170,12 +170,18 @@ def couple(
 
 
 def _region(node: Any) -> Region | None:
-    """Build a :class:`~earth2studio.grids.Region` from ``cfg.model.region``."""
+    """Build the box :class:`~earth2studio.grids.Region` of ``cfg.model.region``."""
     if not node:
         return None
-    return Region(
-        kind=str(node["kind"]), params=tuple(float(p) for p in node["params"])
-    )
+    kind = str(node["kind"])
+    params = [float(p) for p in node["params"]]
+    if kind != "box" or len(params) != 4:
+        raise ValueError(
+            "StormScope model.region must be {kind: box, params: [west, south, "
+            "east, north]}; got "
+            f"kind={kind!r} with {len(params)} parameter(s)"
+        )
+    return Region.box(*params)
 
 
 _SLOT_KEYS = ("ic_source", "conditioning_source", "forcing_source", "perturbation")

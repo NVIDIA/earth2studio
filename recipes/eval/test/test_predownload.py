@@ -47,7 +47,7 @@ from src.output import sentinel_path, store_path
 from src.runners import build_runner
 
 from earth2studio.data import fetch_data
-from earth2studio.grids import LatLonGrid, resolve_regridder
+from earth2studio.grids import LatLonGrid, resolve_regridder, same_geometry
 from earth2studio.run import WorkItem
 from earth2studio.run.runner import DataRequest
 from test.conftest import SMALL_LAT, SMALL_LON, VARIABLES, SeededRandom
@@ -102,7 +102,7 @@ def test_plan_verification_store_covers_every_valid_time(cfg) -> None:
         + np.arange(3)[None, :] * np.timedelta64(6, "h")
     )
     np.testing.assert_array_equal(store.times, expected)
-    assert store.target_grid is None
+    assert same_geometry(store.target_grid, LatLonGrid(SMALL_LAT, SMALL_LON))
     # A bring-your-own verification source needs no cache.
     with open_dict(cfg):
         cfg.verification_source = dict(cfg.data_source)
@@ -170,6 +170,26 @@ def test_verification_store_is_separate_and_regridded(cfg) -> None:
     assert set(verification.data_vars) == set(VARIABLES)
     source = PredownloadedSource(store_path(cfg, "verification.zarr"))
     assert source.time_step == np.timedelta64(6, "h")
+
+
+def test_verification_lands_on_a_coarser_forecast_grid_without_regrid(cfg) -> None:
+    # The model runs on every other point of the source grid (UCast at 1.5
+    # degrees under 0.25 degree reanalysis); verification follows the forecast.
+    from earth2studio.grids import list_grids, register_grid
+
+    if "latlon-coarse" not in list_grids():
+        register_grid("latlon-coarse", LatLonGrid(SMALL_LAT[::2], SMALL_LON[::2]))
+    with open_dict(cfg):
+        cfg.predownload.verification.enabled = True
+        cfg.model.domain_coords = "latlon-coarse"
+    run(cfg)
+    verification = _open(cfg, "verification.zarr")
+    np.testing.assert_array_equal(verification["lat"].values, SMALL_LAT[::2])
+    np.testing.assert_array_equal(verification["lon"].values, SMALL_LON[::2])
+    # The initial-condition store keeps the source grid; fetch_data maps it
+    # onto the model grid at run time.
+    data = _open(cfg, "data.zarr")
+    assert data["t2m"].shape[-2:] == (len(SMALL_LAT), len(SMALL_LON))
 
 
 def test_verification_store_uses_the_configured_regrid_method(cfg) -> None:

@@ -855,6 +855,12 @@ torchrun --nproc_per_node=8 --standalone main.py \
 `G * K` must equal `ensemble_size` exactly — ragged groups are rejected
 with a clear error rather than silently padded.
 
+Every distributed process fetches through its own temporary data cache
+(`src/logs.py`). Sources with `cache: false` such as `HRRR` delete their
+download directory after each fetch, which would remove files another rank
+is still reading. Set `EARTH2STUDIO_DATA_CACHE` yourself to keep one shared
+root; model packages use the model cache either way.
+
 A batched rollout stacks members on the model's batch axis: one work item
 carries more than one `member_ids` entry. The library runners behind
 `forecast`, `assimilation_forecast`, `window_mean`, `diagnostic` and

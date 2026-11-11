@@ -199,6 +199,7 @@ def _make_scorer(
     source: FixedSource,
     name: str = "stats.zarr",
     lat_weights: bool = True,
+    streams: dict[str, list[str]] | None = None,
 ) -> tuple[OnlineScorer, str]:
     comm = _single_comm(ensemble_size)
     stats = build_statistics(ensemble_size, False, settings, VARIABLES)
@@ -219,6 +220,7 @@ def _make_scorer(
         weights=build_spatial_weights(SPATIAL, lat_weights, regions=settings.regions),
         store=store,
         device=torch.device("cpu"),
+        streams=streams,
     )
     return scorer, path
 
@@ -658,6 +660,34 @@ class TestAccumulation:
                 "forecast",
                 _field(np.stack([truth, truth]), LEADS[0], VARIABLES, (0, 1)),
             )
+
+    def test_streams_outside_the_output_selection_are_ignored(self, tmp_path) -> None:
+        # A diagnostic re-emitting t2m with other values must not overwrite
+        # the forecast's statistics; the stream owning the variable scores it.
+        cfg, settings = _settings(tmp_path)
+        source = FixedSource()
+        reference, path_reference = _make_scorer(
+            tmp_path, cfg, settings, 1, source, name="reference.zarr"
+        )
+        _score_offsets(reference, source, [0.5])
+        reference._store.close()
+        scorer, path = _make_scorer(
+            tmp_path, cfg, settings, 1, source, streams={"forecast": VARIABLES}
+        )
+        item = WorkItem(T0, np.timedelta64(LEADS[-1], "s"))
+        scorer.begin_item(item)
+        for lead in LEADS:
+            valid = np.datetime64(T0, "ns") + lead
+            truth = source(valid, VARIABLES).values[0]
+            scorer.update(item, "diag", _field(truth + 100.0, lead, VARIABLES, None))
+            scorer.update(item, "forecast", _field(truth + 0.5, lead, VARIABLES, None))
+            scorer.update(item, "diag", _field(truth + 100.0, lead, VARIABLES, None))
+        scorer.finish_item(item)
+        scorer._store.close()
+        ds = xr.open_zarr(path, consolidated=False).sel(time=T0)
+        ds_reference = xr.open_zarr(path_reference, consolidated=False).sel(time=T0)
+        for name in ds_reference.data_vars:
+            np.testing.assert_allclose(ds[name].values, ds_reference[name].values)
 
     def test_unscored_variables_are_ignored(self, tmp_path) -> None:
         cfg, settings = _settings(tmp_path)

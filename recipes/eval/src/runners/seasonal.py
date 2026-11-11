@@ -225,7 +225,10 @@ class WindowMeanRunner:
         """Average the inner rollout's steps into windows, one yield per window.
 
         Each yield maps every stream to its mean over the window just closed,
-        labelled by the window end on ``lead_time``.
+        labelled by the window end on ``lead_time``.  The runner walks the
+        leads in order, so a model yielding more than one lead per step
+        (DLWP's 6 h and 12 h) closes a window inside one step when the window
+        ends there.
         """
         ends = self.window_leads(item.final_lead_time)
         totals: dict[str, torch.Tensor] = {}
@@ -233,25 +236,13 @@ class WindowMeanRunner:
         templates: dict[str, xr.DataArray] = {}
         done = 0
         for outputs in self.inner.run_item(item):
-            closed: dict[str, xr.DataArray] = {}
-            forecast_leads = _leads(outputs.get("forecast"))
-            for stream, x in outputs.items():
-                leads = _leads(x) if "lead_time" in x.dims else forecast_leads
-                if leads is None:
-                    raise ValueError(
-                        f"Stream {stream!r} carries no lead_time and no forecast "
-                        "stream accompanies it."
+            for lead, samples in self._by_lead(outputs):
+                if lead > ends[done]:
+                    raise RuntimeError(
+                        f"Lead {pd.Timedelta(lead)} arrived before window "
+                        f"{done + 1} closed at {pd.Timedelta(ends[done])}."
                     )
-                for j, lead in enumerate(leads):
-                    if lead <= _ZERO:
-                        continue  # the initial condition the runner publishes first
-                    if lead > ends[done]:
-                        raise RuntimeError(
-                            f"Stream {stream!r} reached lead {pd.Timedelta(lead)} "
-                            f"before window {done + 1} closed at "
-                            f"{pd.Timedelta(ends[done])}."
-                        )
-                    sample = x.isel(lead_time=[j]) if "lead_time" in x.dims else x
+                for stream, sample in samples.items():
                     tensor, _ = sample.e2s.to_torch()
                     tensor = tensor.to(torch.float32)
                     if stream in totals:
@@ -261,27 +252,52 @@ class WindowMeanRunner:
                         totals[stream] = tensor.clone()
                         counts[stream] = 1
                         templates[stream] = sample
-                    if lead == ends[done]:
-                        closed[stream] = self._close(
-                            totals.pop(stream),
-                            counts.pop(stream),
-                            templates.pop(stream),
-                            ends[done],
-                        )
-            if closed:
-                if totals:
+                if lead != ends[done]:
+                    continue
+                missing = sorted(set(totals) - set(samples))
+                if missing:
                     raise RuntimeError(
-                        f"Streams {sorted(totals)} did not close window {done + 1} "
-                        f"together with {sorted(closed)}."
+                        f"Streams {missing} published nothing at lead "
+                        f"{pd.Timedelta(lead)}, where window {done + 1} closes."
                     )
-                yield closed
+                yield {
+                    stream: self._close(
+                        totals.pop(stream),
+                        counts.pop(stream),
+                        templates.pop(stream),
+                        lead,
+                    )
+                    for stream in list(totals)
+                }
                 done += 1
                 if done == len(ends):
-                    break
-        if done != len(ends):
-            raise RuntimeError(
-                f"The rollout ended after {done} of {len(ends)} windows."
-            )
+                    return
+        raise RuntimeError(f"The rollout ended after {done} of {len(ends)} windows.")
+
+    @staticmethod
+    def _by_lead(
+        outputs: Mapping[str, xr.DataArray],
+    ) -> list[tuple[np.timedelta64, dict[str, xr.DataArray]]]:
+        """One inner yield split by positive lead, ascending.
+
+        Each entry maps every stream to its one-lead sample at that lead; a
+        stream without a ``lead_time`` axis follows the ``forecast`` leads.
+        """
+        forecast_leads = _leads(outputs.get("forecast"))
+        samples: dict[np.timedelta64, dict[str, xr.DataArray]] = {}
+        for stream, x in outputs.items():
+            leads = _leads(x) if "lead_time" in x.dims else forecast_leads
+            if leads is None:
+                raise ValueError(
+                    f"Stream {stream!r} carries no lead_time and no forecast "
+                    "stream accompanies it."
+                )
+            for j, lead in enumerate(leads):
+                if lead <= _ZERO:
+                    continue  # the initial condition the runner publishes first
+                sample = x.isel(lead_time=[j]) if "lead_time" in x.dims else x
+                samples.setdefault(lead, {})[stream] = sample
+        return sorted(samples.items(), key=lambda entry: entry[0])
 
     @staticmethod
     def _close(

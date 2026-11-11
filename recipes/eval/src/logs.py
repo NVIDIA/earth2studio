@@ -18,9 +18,12 @@
 
 from __future__ import annotations
 
+import atexit
 import logging
 import os
+import shutil
 import sys
+import tempfile
 from datetime import timedelta
 
 import torch
@@ -85,12 +88,31 @@ def share_cupy_allocator() -> None:
     cupy.cuda.set_allocator(malloc)
 
 
+def isolate_data_cache() -> None:
+    """Give this process its own temporary data-source cache.
+
+    Sources such as ``HRRR`` with ``cache: false`` download into a temporary
+    directory under the data cache root and delete it after every fetch, so
+    ranks fetching at once through one shared root remove each other's files.
+    A per-process root avoids that and goes at exit.  A user-set
+    ``EARTH2STUDIO_DATA_CACHE`` keeps the shared root instead, and model
+    packages use the model cache, which this leaves alone.
+    """
+    if os.environ.get("EARTH2STUDIO_DATA_CACHE"):
+        return
+    path = tempfile.mkdtemp(prefix="e2s-data-cache-")
+    os.environ["EARTH2STUDIO_DATA_CACHE"] = path
+    atexit.register(shutil.rmtree, path, ignore_errors=True)
+    logger.info(f"Per-process data cache: {path}")
+
+
 def init_distributed(timeout_s: float | None = None) -> torch.device:
     """Initialize ``torch.distributed`` under ``torchrun`` and pick the device.
 
     Without launcher environment variables the process stays single-rank.
     The library's :class:`~earth2studio.run.Pipeline` reads rank and world
-    size from ``torch.distributed`` directly.
+    size from ``torch.distributed`` directly.  Distributed processes get their
+    own data cache (:func:`isolate_data_cache`).
 
     Parameters
     ----------
@@ -112,6 +134,8 @@ def init_distributed(timeout_s: float | None = None) -> torch.device:
         share_cupy_allocator()
     else:
         device = torch.device("cpu")
+    if world_size > 1:
+        isolate_data_cache()
     if world_size > 1 and not dist.is_initialized():
         backend = "nccl" if device.type == "cuda" else "gloo"
         kwargs = {}

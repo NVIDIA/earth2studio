@@ -390,6 +390,46 @@ def output_regridder(cfg: DictConfig) -> OutputRegridder | None:
     return None if spec is None else OutputRegridder(spec)
 
 
+def verification_regridder(
+    cfg: DictConfig, spatial: xr.DataArray | Mapping[str, Any]
+) -> OutputRegridder | None:
+    """The regridder bringing verification onto the scored grid.
+
+    ``output.regrid`` when the campaign names one.  Otherwise the forecast
+    grid itself: verification fetched on a finer latitude/longitude grid
+    lands on the forecast grid by subset selection (a 1.5 degree model under
+    0.25 degree reanalysis) or by nearest neighbour, as the legacy runner
+    mapped source fields onto the model grid.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Config with the ``output`` block.
+    spatial : xr.DataArray | Mapping[str, Any]
+        The forecast stream's signature, or its spatial axes by name.
+
+    Returns
+    -------
+    OutputRegridder | None
+        The regridder, or None for a forecast grid without latitude/longitude
+        axes (projected nowcasts), whose sources already deliver the model grid.
+    """
+    regridder = output_regridder(cfg)
+    if regridder is not None:
+        return regridder
+    try:
+        grid = (
+            infer_grid(spatial)
+            if isinstance(spatial, xr.DataArray)
+            else LatLonGrid(np.asarray(spatial["lat"]), np.asarray(spatial["lon"]))
+        )
+    except Exception:  # noqa: BLE001 - no latitude/longitude grid to align with
+        return None
+    if not isinstance(grid, LatLonGrid):
+        return None
+    return OutputRegridder(RegridSpec(grid, "nearest"))
+
+
 def build_regridders(
     cfg: DictConfig, schemas: Mapping[str, CoordinateSystem]
 ) -> dict[str, Regridder]:

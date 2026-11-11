@@ -90,10 +90,10 @@ from src.data import (
 from src.logs import configure_logging, finalize_distributed, init_distributed
 from src.output import (
     OutputRegridder,
-    output_regridder,
     progress_path,
     sentinel_path,
     store_path,
+    verification_regridder,
 )
 from src.runners import build_runner
 
@@ -309,9 +309,9 @@ def plan_verification_store(
     the runner's own ``data`` source, or a ``verification_source`` the runner
     exposes (StormScope composes its GOES and MRMS observations).  Valid times
     are every initial
-    time plus every lead of the runner's forecast stream; when
-    ``output.regrid`` names a grid, the configured method brings the fields
-    onto it.
+    time plus every lead of the runner's forecast stream.  The fields land on
+    the ``output.regrid`` grid when the campaign names one, else on the
+    forecast grid (see :func:`src.output.verification_regridder`).
 
     Parameters
     ----------
@@ -360,7 +360,11 @@ def plan_verification_store(
     initial = _as_times(item.time for item in items)
     times = _as_times((initial[:, None] + leads[None, :]).reshape(-1))
     return GriddedStore(
-        VERIFICATION_ROLE, source, times, variables, regrid=output_regridder(cfg)
+        VERIFICATION_ROLE,
+        source,
+        times,
+        variables,
+        regrid=verification_regridder(cfg, schema),
     )
 
 

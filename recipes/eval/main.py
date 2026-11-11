@@ -156,7 +156,14 @@ def run(cfg: DictConfig, device: torch.device | str = "cpu") -> None:
 
     progress = ProgressStore(
         progress_path(cfg),
-        tags={"project": str(cfg.project), "run_id": str(cfg.run_id)},
+        # Online and offline runs share the progress store; the tag makes a
+        # resume that switches mode fail instead of skipping finished items,
+        # which would leave the new statistics store empty.
+        tags={
+            "project": str(cfg.project),
+            "run_id": str(cfg.run_id),
+            "scoring": "online" if online else "offline",
+        },
         overwrite=not resume,
     )
     logger.info(
