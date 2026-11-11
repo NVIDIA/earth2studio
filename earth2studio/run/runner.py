@@ -27,14 +27,13 @@ from __future__ import annotations
 from collections.abc import Callable, Hashable, Iterator, Mapping
 from dataclasses import dataclass, field
 from itertools import chain
-from typing import Any, Protocol, TypeAlias, cast
+from typing import Any, Protocol, cast
 
 import numpy as np
 import torch
 import xarray as xr
 
 from earth2studio.data import DataSource, ForecastSource, fetch_data
-from earth2studio.data.base import DataFrameSource, ForecastFrameSource
 from earth2studio.data.utils import _is_ensemble_source
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
@@ -48,16 +47,12 @@ from earth2studio.perturbation import (
 )
 from earth2studio.run._fields import (
     _lead_times,
-    _map_field,
     _publishes_initial_condition,
+    map_field,
 )
 from earth2studio.run.work import WorkItem, member_seed
 from earth2studio.utils.coords import E2S_DYNAMIC_DIMS, coord_array
 from earth2studio.utils.type import CoordinateSystem
-
-Source: TypeAlias = DataSource | ForecastSource
-# A source for any model slot: gridded fields, or DataFrames for observation slots.
-SlotSource: TypeAlias = Source | DataFrameSource | ForecastFrameSource
 
 
 @dataclass(frozen=True)
@@ -68,7 +63,7 @@ class DataRequest:
     member; ``None`` fetches the member the source was built with.
     """
 
-    source: Source
+    source: DataSource | ForecastSource
     time: np.ndarray
     variable: np.ndarray
     lead_time: np.ndarray = field(
@@ -174,7 +169,7 @@ def _fetch(
     elif request.member is not None:
         # One member per item: the model sees that member's field alone.
         x = x.isel(ensemble=0, drop=True)
-    return _map_field(x, signature)
+    return map_field(x, signature)
 
 
 def _batch_members(
@@ -205,7 +200,9 @@ def _source_members(
     ``None`` when the runner reads no members per item or the source is not an
     ensemble source; such slots are shared by every member.
     """
-    if source_member is None or not _is_ensemble_source(cast(Source, source)):
+    if source_member is None or not _is_ensemble_source(
+        cast(DataSource | ForecastSource, source)
+    ):
         return None
     if not item.member_ids:
         raise ValueError(
@@ -269,7 +266,7 @@ def _diagnostic_coords(
 ) -> CoordinateSystem:
     """Stream signature for ``diagnostic`` applied to fields like ``signature``."""
     # Selects the diagnostic's variables and domain; never regrids.
-    output = diagnostic.output_coords(_map_field(signature, diagnostic.input_coords()))
+    output = diagnostic.output_coords(map_field(signature, diagnostic.input_coords()))
     return _signature_for_stream(output, leads)
 
 
@@ -394,8 +391,8 @@ class PrognosticRunner:
     def __init__(
         self,
         prognostic: PrognosticModel,
-        source: Source | None = None,
-        forcing: tuple[Source, ...] | None = None,
+        source: DataSource | ForecastSource | None = None,
+        forcing: tuple[DataSource | ForecastSource, ...] | None = None,
         diagnostics: Mapping[str, DiagnosticModel] | None = None,
         seed: int = 0,
         source_member: Callable[[int], Hashable] | None = None,
@@ -415,8 +412,8 @@ class PrognosticRunner:
         forcing_sources = forcing if forcing is not None else tuple(recommended[1:])
         if initial_source is None or any(s is None for s in forcing_sources):
             raise ValueError("Every input and forcing slot needs a source")
-        self.source: Source = initial_source
-        self.forcing: tuple[Source, ...] = tuple(
+        self.source: DataSource | ForecastSource = initial_source
+        self.forcing: tuple[DataSource | ForecastSource, ...] = tuple(
             s for s in forcing_sources if s is not None
         )
         if len(self.forcing) != len(self.forcing_signatures):
@@ -535,7 +532,7 @@ class PrognosticRunner:
     def _publish(self, x: xr.DataArray) -> Mapping[str, xr.DataArray]:
         outputs = {"forecast": x}
         for name, diagnostic in self.diagnostics.items():
-            outputs[name] = diagnostic(_map_field(x, diagnostic.input_coords()))
+            outputs[name] = diagnostic(map_field(x, diagnostic.input_coords()))
         return outputs
 
     def run_item(self, item: WorkItem) -> Iterator[Mapping[str, xr.DataArray]]:
@@ -609,7 +606,7 @@ class DiagnosticRunner:
     def __init__(
         self,
         diagnostics: Mapping[str, DiagnosticModel],
-        source: Source | None = None,
+        source: DataSource | ForecastSource | None = None,
         step: np.timedelta64 | None = None,
         seed: int = 0,
         source_member: Callable[[int], Hashable] | None = None,
@@ -618,7 +615,7 @@ class DiagnosticRunner:
             raise ValueError("DiagnosticRunner needs at least one diagnostic")
         self.diagnostics = dict(diagnostics)
         self.signatures: dict[str, CoordinateSystem] = {}
-        self.sources: dict[str, Source] = {}
+        self.sources: dict[str, DataSource | ForecastSource] = {}
         for name, diagnostic in self.diagnostics.items():
             signature = diagnostic.input_coords()
             if isinstance(signature, tuple):

@@ -147,7 +147,7 @@ def christmas_five_day_ensemble(
     # ==========================================
     # Fetch Initialization Data
     prognostic_ic = prognostic.input_coords()
-    from earth2studio.run import _map_field
+    from earth2studio.run import map_field
 
     times = to_time_array(times)
 
@@ -179,7 +179,7 @@ def christmas_five_day_ensemble(
     x = x.expand_dims(ensemble=np.arange(nensemble)).copy(deep=True)
 
     # Map lat and lon if needed
-    x = _map_field(x, prognostic_ic)
+    x = map_field(x, prognostic_ic)
 
     # Perturb ensemble
     x = perturbation(x)

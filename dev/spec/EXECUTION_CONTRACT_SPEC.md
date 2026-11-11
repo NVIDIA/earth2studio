@@ -475,7 +475,7 @@ optional runner capability built on `(y, state)` (open decision 3).
    `dev/examples/06_runner.py`.
 3. `Pipeline` drives `PrognosticRunner` and `DiagnosticRunner` identically,
    writing one store per stream — `test/run/test_pipeline.py`; `CoupledRunner`
-   too — `test/coupling/test_pipeline.py`.
+   too — `test/coupling/test_coupled_pipeline.py`.
 4. A forced model (StormCast-shaped mock) and fused DLESyM run through
    `PrognosticRunner` unchanged.
 5. Split DLESyM through the coupled runner reproduces the fused model.

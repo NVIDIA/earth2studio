@@ -131,7 +131,7 @@ def run_stats(
     prognostic = prognostic.to(device)
     # Fetch data from data source and load onto device
     time = to_time_array(time)
-    from earth2studio.run import _map_field
+    from earth2studio.run import map_field
 
     x = fetch_data(
         source=data,
@@ -167,7 +167,7 @@ def run_stats(
     io.add_array(template)
 
     # Map lat and lon if needed
-    x = _map_field(x, prognostic.input_coords())
+    x = map_field(x, prognostic.input_coords())
 
     # Create prognostic iterator
     model = prognostic.create_iterator(x)

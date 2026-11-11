@@ -121,12 +121,12 @@ def run(
     # Fetch data from data source and load onto device
     time = to_time_array(time)
     from earth2studio.data import fetch_data
-    from earth2studio.run import _map_field
+    from earth2studio.run import map_field
 
     x = fetch_data(
         data, time, corrdiff.input_coords().coords["variable"].values, device=device
     ).squeeze("lead_time", drop=True)
-    x = _map_field(x, corrdiff.input_coords())
+    x = map_field(x, corrdiff.input_coords())
 
     logger.success(f"Fetched data from {data.__class__.__name__}")
 
