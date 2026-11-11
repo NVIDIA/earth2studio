@@ -33,7 +33,7 @@ from earth2studio.run import WorkItem
 
 # TODO: switch to public equivalents once core exposes them
 from earth2studio.run._fields import _map_field, _with_lead_time
-from earth2studio.utils.coords import coord_array
+from earth2studio.utils.coords import coord_array, coord_array_like
 from earth2studio.utils.type import CoordinateSystem
 
 from .s2s_perturbation import HENSPerturbation
@@ -134,18 +134,21 @@ class S2SRunner:
         forecast_vars = list(outputs["variable"].values)
         ic_vars = list(inputs["variable"].values)
         ic_ok = True
+        # Diagnostics chain: each sees the forecast plus earlier diagnostics' outputs
+        signature = outputs
         for diagnostic in self.diagnostics.values():
             dx_in = set(diagnostic.input_coords()["variable"].values)
-            signature = _map_field(outputs, diagnostic.input_coords())
-            dx_out = list(diagnostic.output_coords(signature)["variable"].values)
             if not dx_in.issubset(forecast_vars):
                 raise ValueError(
                     f"Diagnostic {type(diagnostic).__name__} needs variables "
                     f"{sorted(dx_in.difference(forecast_vars))} the forecast lacks"
                 )
+            dx_signature = _map_field(signature, diagnostic.input_coords())
+            dx_out = list(diagnostic.output_coords(dx_signature)["variable"].values)
             ic_ok = ic_ok and dx_in.issubset(ic_vars)
             forecast_vars += dx_out
             ic_vars += dx_out
+            signature = coord_array_like(signature, {"variable": forecast_vars})
         missing = set(self.output_variables).difference(forecast_vars)
         if missing:
             raise ValueError(
