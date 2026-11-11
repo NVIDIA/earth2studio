@@ -108,7 +108,10 @@ def report(
         case["status"] == "FAILED" for case in cases.values()
     ):
         status = "FAILED"
-    title = f"{status} {file} ({duration:.1f}s, exit={code})"
+    label = status
+    if status == "PASSED" and any(case["status"] == "XFAIL" for case in cases.values()):
+        label = "PASSED (XFAIL)"
+    title = f"{label} {file} ({duration:.1f}s, exit={code})"
     print(title, flush=True)
     github = os.environ.get("GITHUB_ACTIONS") == "true"
     print(f"::group::{title}" if github else f"--- {file} ---", flush=True)
@@ -123,7 +126,7 @@ def report(
         )
     if status != "PASSED" or any(event["event"] == "live_timeout" for event in records):
         print(
-            f"File result: {status}; deadline includes collection and interpreter shutdown."
+            f"File result: {label}; deadline includes collection and interpreter shutdown."
         )
         for log in (directory / "output.log", directory / "stacks.log"):
             if log.exists():
