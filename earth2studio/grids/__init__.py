@@ -147,6 +147,41 @@ def resolve_grid(grid: str) -> GridDefinition:
     raise ValueError(f"Unknown Earth2Studio grid '{grid}'")
 
 
+def with_grid_metadata(array: xr.DataArray, grid: str | None = None) -> xr.DataArray:
+    """Describe an array's spatial axes using a grid definition.
+
+    Reuse a named grid only when its index coordinates match exactly. Subsets
+    and alternative resolutions retain their actual axes and omit the grid ID.
+    Without a named grid, only rectilinear latitude/longitude is annotated.
+    Data, dimension order, and existing non-grid attributes are preserved.
+    """
+    registered = resolve_grid(grid) if grid is not None else None
+    matched = registered is not None and all(
+        dim in array.coords and np.array_equal(array[dim], coordinate)
+        for dim, coordinate in registered.coords(only_index=True).items()
+    )
+    definition: GridDefinition
+    if matched and registered is not None:
+        definition = registered
+    elif isinstance(registered, ProjectedGrid):
+        definition = ProjectedGrid(array.y.values, array.x.values, registered.crs)
+    elif all(
+        dim in array.coords and array[dim].dims == (dim,) for dim in ("lat", "lon")
+    ):
+        definition = LatLonGrid(array.lat.values, array.lon.values)
+    else:
+        return array
+
+    result = array.assign_coords(definition.coords())
+    result.attrs.update(definition.attrs)
+    result.attrs.pop(E2S_GRID_ID, None)
+    if definition.crs is not None:
+        result.attrs[E2S_CRS] = definition.crs.to_string()
+    if matched:
+        result.attrs[E2S_GRID_ID] = grid
+    return result
+
+
 def infer_grid(array: xr.DataArray | xr.Dataset) -> GridDefinition:
     """Infer a grid from explicit metadata or standard Xarray coordinates."""
     grid_id = array.attrs.get(E2S_GRID_ID)
@@ -430,4 +465,5 @@ __all__ = [
     "resolve_regridder",
     "same_geometry",
     "select_subset",
+    "with_grid_metadata",
 ]

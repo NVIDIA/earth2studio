@@ -42,8 +42,8 @@ from earth2studio.data.utils import (
     obstore_store_from_url,
     prep_forecast_inputs,
     resolve_async_workers,
-    with_grid_metadata,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon import CFSFluxLexicon, CFSLexicon
 from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 

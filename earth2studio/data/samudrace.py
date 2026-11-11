@@ -23,7 +23,8 @@ import xarray as xr
 from huggingface_hub import hf_hub_download
 from loguru import logger
 
-from earth2studio.data.utils import datasource_cache_dir, with_grid_metadata
+from earth2studio.data.utils import datasource_cache_dir
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon.samudrace import SamudrACELexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 

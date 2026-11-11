@@ -32,8 +32,8 @@ from earth2studio.data.utils import (
     datasource_cache_root,
     prep_data_inputs,
     prep_forecast_inputs,
-    with_grid_metadata,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon.base import LexiconType
 from earth2studio.lexicon.earthmover import (
     EarthMoverERA5Lexicon,

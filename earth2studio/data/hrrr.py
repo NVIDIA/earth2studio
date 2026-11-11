@@ -44,8 +44,8 @@ from earth2studio.data.utils import (
     prep_data_inputs,
     prep_forecast_inputs,
     reduce_statistics,
-    with_grid_metadata,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon import HRRRFXLexicon, HRRRLexicon
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,

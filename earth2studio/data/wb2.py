@@ -37,8 +37,8 @@ from earth2studio.data.utils import (
     plan_statistics,
     prep_data_inputs,
     reduce_statistics,
-    with_grid_metadata,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon import WB2ClimatetologyLexicon, WB2Lexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 

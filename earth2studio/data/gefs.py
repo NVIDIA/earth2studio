@@ -42,8 +42,8 @@ from earth2studio.data.utils import (
     prep_forecast_inputs,
     prep_member_inputs,
     resolve_async_workers,
-    with_grid_metadata,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon import GEFSLexicon, GEFSLexiconSel
 from earth2studio.utils.type import (
     LeadTimeArray,

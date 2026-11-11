@@ -33,8 +33,8 @@ from tqdm import tqdm
 from earth2studio.data.utils import (
     datasource_cache_root,
     prep_data_inputs,
-    with_grid_metadata,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon import CDS_ERA5Lexicon
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,

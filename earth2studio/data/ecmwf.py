@@ -38,8 +38,8 @@ from earth2studio.data.utils import (
     prep_data_inputs,
     prep_forecast_inputs,
     prep_member_inputs,
-    with_grid_metadata,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon import AIFSLexicon, IFSLexicon
 from earth2studio.lexicon.ecmwf import (
     AIFS_ACCUMULATION_HOURS,

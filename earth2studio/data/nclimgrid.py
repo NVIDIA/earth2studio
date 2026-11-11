@@ -36,8 +36,8 @@ from earth2studio.data.utils import (
     obstore_fetch_to_cache,
     obstore_store_from_url,
     prep_data_inputs,
-    with_grid_metadata,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon.nclimgrid import NClimGridLexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 

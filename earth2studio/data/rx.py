@@ -27,8 +27,8 @@ from earth2studio.data.utils import (
     datasource_cache_root,
     obstore_zarr_store,
     prep_data_inputs,
-    with_grid_metadata,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.utils import handshake_dim
 from earth2studio.utils.type import CoordSystem, TimeArray, VariableArray
 

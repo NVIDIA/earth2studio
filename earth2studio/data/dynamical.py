@@ -34,8 +34,8 @@ from earth2studio.data.utils import (
     datasource_cache_root,
     ensure_utc,
     prep_forecast_inputs,
-    with_grid_metadata,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon import DynamicalLexicon
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,

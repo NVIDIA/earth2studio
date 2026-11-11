@@ -38,8 +38,8 @@ from earth2studio.data.utils import (
     obstore_read_range,
     obstore_store_from_url,
     prep_data_inputs,
-    with_grid_metadata,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon import MRMSLexicon
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,

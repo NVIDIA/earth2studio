@@ -40,8 +40,8 @@ from earth2studio.data.utils import (
     plan_statistics,
     prep_data_inputs,
     reduce_statistics,
-    with_grid_metadata,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon import ARCO_ERA5Lexicon
 from earth2studio.lexicon.arco import ACCUMULATION_HOURS
 from earth2studio.utils.type import TimeArray, VariableArray

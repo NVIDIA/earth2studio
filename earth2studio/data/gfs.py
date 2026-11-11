@@ -45,8 +45,8 @@ from earth2studio.data.utils import (
     prep_data_inputs,
     prep_forecast_inputs,
     reduce_statistics,
-    with_grid_metadata,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon import GFSLexicon
 from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 

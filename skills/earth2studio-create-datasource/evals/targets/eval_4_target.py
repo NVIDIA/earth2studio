@@ -37,8 +37,8 @@ from earth2studio.data.utils import (
     obstore_store_from_url,
     prep_data_inputs,
     resolve_async_workers,
-    with_grid_metadata,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon import PhooLexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 
