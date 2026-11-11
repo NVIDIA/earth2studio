@@ -134,10 +134,10 @@ x = fetch_data(
 )
 
 # Run a single coupled step (lat/lon in, lat/lon out)
-from earth2studio.run import _dimension_coords, _map_field
+from earth2studio.run import _dimension_coords, map_field
 from earth2studio.utils.cupy import from_torch
 
-x = _map_field(x, in_coords)
+x = map_field(x, in_coords)
 y = model(x)
 
 y_atmos = model.retrieve_valid_atmos_outputs(y)

@@ -23,10 +23,10 @@ from typing import Any
 import numpy as np
 import xarray as xr
 
-from earth2studio.grids import infer_grid, same_geometry
+from earth2studio.grids import E2S_CRS, E2S_GRID_ID, infer_grid, same_geometry
 from earth2studio.io.utils import output_template
 from earth2studio.models.px.utils import initial_condition
-from earth2studio.utils.coords import CoordSystem, coord_array_like
+from earth2studio.utils.coords import E2S_STATISTICS, CoordSystem, coord_array_like
 
 
 def _dimension_coords(x: xr.DataArray) -> CoordSystem:
@@ -34,12 +34,29 @@ def _dimension_coords(x: xr.DataArray) -> CoordSystem:
     return OrderedDict((dim, x.coords[dim].values) for dim in x.dims)
 
 
-def _map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataArray:
-    """Select model variables/domain, retaining runtime times and auxiliary geometry.
+def map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataArray:
+    """Select the variables and domain of ``target`` from ``x``.
 
-    Exact contiguous selections are views; nearest numeric selections preserve the
-    legacy runner's mapping behavior. Curvilinear auxiliaries are never indexed as
-    dimensions. Model validation checks their geometry at the inference boundary.
+    Use it to fit fetched data or a model's output to another model's inputs, or to
+    an output subset. ``batch``, ``time`` and ``lead_time`` are kept from ``x``,
+    as are coordinates that ``target`` leaves empty. Exact contiguous selections
+    are views; labels missing from a numeric coordinate select the nearest one.
+    Curvilinear auxiliaries are never indexed as dimensions; model validation
+    checks their geometry at the inference boundary.
+
+    Parameters
+    ----------
+    x : xr.DataArray
+        Field to select from
+    target : xr.DataArray | CoordSystem
+        Signature to select, such as ``model.input_coords()``, or a mapping of
+        coordinate names to labels
+
+    Returns
+    -------
+    xr.DataArray
+        ``x`` on ``target``'s coordinates, carrying ``target``'s grid metadata when
+        ``target`` is a DataArray
     """
     coordinates = (
         _dimension_coords(target) if isinstance(target, xr.DataArray) else target
@@ -64,11 +81,11 @@ def _map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataAr
         )
         x = x.isel({dim: selection}).assign_coords({dim: values})
         if dim == "variable":
-            statistics = coord_array_like(x).attrs.get("earth2studio_statistics")
+            statistics = coord_array_like(x).attrs.get(E2S_STATISTICS)
             x.attrs = dict(x.attrs)
-            x.attrs.pop("earth2studio_statistics", None)
+            x.attrs.pop(E2S_STATISTICS, None)
             if statistics:
-                x.attrs["earth2studio_statistics"] = statistics
+                x.attrs[E2S_STATISTICS] = statistics
     if isinstance(target, xr.DataArray) and "dims" in target.attrs:
         spatial_dims = set(target.attrs["dims"])
         for name, coordinate in target.coords.items():
@@ -82,10 +99,8 @@ def _map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataAr
                 raise ValueError(
                     f"Source geometry does not match target coordinate {name}"
                 )
-        actual_crs = x.attrs.get("earth2studio_crs")
-        if actual_crs is not None and actual_crs != target.attrs.get(
-            "earth2studio_crs"
-        ):
+        actual_crs = x.attrs.get(E2S_CRS)
+        if actual_crs is not None and actual_crs != target.attrs.get(E2S_CRS):
             raise ValueError("Source CRS does not match target CRS")
         x = x.copy(deep=False)
         for key in (
@@ -94,8 +109,8 @@ def _map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataAr
             "shape",
             "topology",
             "crs",
-            "earth2studio_crs",
-            "earth2studio_grid_id",
+            E2S_CRS,
+            E2S_GRID_ID,
             "level",
             "nside",
             "ordering",
@@ -107,6 +122,22 @@ def _map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataAr
             if key in target.attrs:
                 x.attrs[key] = target.attrs[key]
     return x
+
+
+# Private alias kept for recipes written before ``map_field`` was public.
+_map_field = map_field
+
+
+def _require_unforced(prognostic: Any, workflow: str) -> None:
+    """Reject forced models, whose iterators need forcing sources ``run.*`` lacks."""
+    forcing_coords = getattr(prognostic, "forcing_coords", None)
+    if callable(forcing_coords) and forcing_coords() is not None:
+        raise ValueError(
+            f"run.{workflow} does not supply forcing, but "
+            f"{type(prognostic).__name__} declares forcing_coords(). Use "
+            "PrognosticRunner with Pipeline, which fetches each forcing slot "
+            "from the model's recommended sources or the forcing= argument."
+        )
 
 
 def _require_analysis_time_input(inputs: xr.DataArray) -> None:
@@ -160,7 +191,7 @@ def _io_template(
     """
     # Selections along leading dims (time, ensemble) apply to `leading` below; the
     # signature only has its dynamic batch prefix there
-    signature = _map_field(
+    signature = map_field(
         signature,
         OrderedDict((k, v) for k, v in output_coords.items() if k in signature.dims),
     )
@@ -174,7 +205,7 @@ def _io_template(
         dim: np.asarray(output_coords.get(dim, values))
         for dim, values in leading.items()
     }
-    # output_template rejects spatial replacements; _map_field already applied them.
+    # output_template rejects spatial replacements; map_field already applied them.
     # Only lead_time is a fixed-dim replacement here; time/ensemble are leading dims.
     if "lead_time" not in signature.dims:
         # A diagnostic may drop lead time; the store keeps the rollout's axis, so the

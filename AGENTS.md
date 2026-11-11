@@ -54,6 +54,8 @@ activate `earth2studio-data-fetch` first.
   ForecastFrameSource) end-to-end
 - `skills/earth2studio-create-prognostic/` — Create a new prognostic
   (time-stepping forecast) model wrapper end-to-end
+- `skills/earth2studio-create-diagnostic/` — Create or migrate a
+  diagnostic model wrapper end-to-end
 - `skills/earth2studio-create-assimilation/` — Create or migrate DA wrappers;
   align independent/stateful tests with the structured DX/PX test form
 
@@ -61,6 +63,12 @@ activate `earth2studio-data-fetch` first.
 
 - `skills/developer-release-rebase/` — Prepare a new minor
   alpha release (rebase, bump version, changelog, PR). Developer only.
+- `skills/developer-bump-version/` — Start a new development cycle on
+  main after a release merge (changelog section, version bump).
+  Developer only.
+- `skills/developer-open-refactor-pr/` — Open a 1.0 refactor PR
+  against `1.0.0-rc` with the required label and title prefix.
+  Developer only.
 
 ## Python environment
 

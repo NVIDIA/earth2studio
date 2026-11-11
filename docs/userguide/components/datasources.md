@@ -209,12 +209,10 @@ analysis = model(*obs)
 
 ### `earth2studio.data.prep_data_array`
 
-The `prep_data_array` function is another useful utility when interacting more directly
-with a data source.
-This function takes an Xarray data array and returns a tensor and coordinate system to
-be used with other components.
-Typically, it is used as part of various utils in Earth2Studio, but may prove
-useful to users implementing custom data sources where greater control is needed.
+`prep_data_array` is a legacy helper that converts a data array to a tensor and
+coordinate system for code written against the pre-1.0 tensor API.
+Components now take DataArrays directly, so new code should use `fetch_data`, or the
+data array a source returns, instead.
 
 ## Custom Data Sources
 

@@ -150,10 +150,11 @@ front- and rear-hook edits feed the next rolling state (see
 Open Questions). Fields move to the model device at the Torch/ONNX boundary. Input
 preparation and units follow `TIME_STATISTICS_SPEC.md` (calendar-day means).
 
-The legacy `CoordSystem` (`OrderedDict[str, np.ndarray]`) remains for statistics,
-perturbations, private numerical helpers and, until backends migrate
-([IO_SPEC.md](IO_SPEC.md)), tensor-based IO; convert explicitly with
-`.e2s.to_torch()` and `from_torch()`. `fetch_data()` returns one field DataArray,
+The legacy `CoordSystem` (`OrderedDict[str, np.ndarray]`) remains only in private
+numerical helpers, IO coordinate bookkeeping and legacy utilities such as
+`prep_data_array`; statistics, perturbations and IO backends take DataArrays
+([IO_SPEC.md](IO_SPEC.md)). Convert explicitly with `.e2s.to_torch()` and
+`from_torch()`. `fetch_data()` returns one field DataArray,
 not a tensor/coordinate pair. Random/Random_FX keep their data-source API, and
 assimilation protocols are outside this migration. Regional prognostic wrappers also
 use native DataArrays. StormCastCONUS's stored `ProjectedGrid` is its geometry

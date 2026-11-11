@@ -147,9 +147,9 @@ x = fetch_data(
 )
 
 # Add a batch dimension
-from earth2studio.run import _map_field
+from earth2studio.run import map_field
 
-x = _map_field(x, input_coords).expand_dims(batch=[0])
+x = map_field(x, input_coords).expand_dims(batch=[0])
 
 # First forecast step plus the state needed to continue the rollout
 y, state = model.initialize(x)

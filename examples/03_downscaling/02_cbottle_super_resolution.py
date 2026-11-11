@@ -116,7 +116,7 @@ import datetime
 
 import numpy as np
 
-from earth2studio.run import _map_field
+from earth2studio.run import map_field
 
 times = np.array([datetime.datetime(2020, 1, 1)], dtype="datetime64[ns]")
 
@@ -132,7 +132,7 @@ del cbottle_ds  # Clean up data source model to free GPU memory
 
 # Perform super resolution on synthetic data
 cbottle_sr = cbottle_sr.to(device)
-synth_x = _map_field(synth_x, cbottle_sr.input_coords())
+synth_x = map_field(synth_x, cbottle_sr.input_coords())
 sr_synth_x = cbottle_sr(synth_x)
 
 # %%
@@ -154,11 +154,11 @@ era5_x = fetch_data(
 
 # Perform infilling to get all required variables
 cbottle_infill = cbottle_infill.to(device)
-infill_x = cbottle_infill(_map_field(era5_x, cbottle_infill.input_coords()))
+infill_x = cbottle_infill(map_field(era5_x, cbottle_infill.input_coords()))
 del cbottle_infill  # Clean up infill model to free GPU memory
 
 # Select the required variables and reshape for super resolution
-infill_x = _map_field(infill_x, cbottle_sr.input_coords())
+infill_x = map_field(infill_x, cbottle_sr.input_coords())
 sr_infill_x = cbottle_sr(infill_x)
 
 # %%

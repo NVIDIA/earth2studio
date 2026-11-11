@@ -81,7 +81,7 @@ logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
 from earth2studio.data import GFS_FX, HRRR, GHCNHourly, fetch_data
 from earth2studio.models.da import StormCastConusSDA
-from earth2studio.run import _map_field
+from earth2studio.run import map_field
 
 # Load the default model package
 package = StormCastConusSDA.load_default_package()
@@ -125,7 +125,7 @@ x = fetch_data(
 # Fetch preserves the source grid. Select native labels explicitly.
 input_signature = model.input_coords()
 x = x.sel(y=input_signature.y, x=input_signature.x)
-x = _map_field(
+x = map_field(
     x,
     input_signature,
 )
@@ -423,7 +423,7 @@ truth_x = fetch_data(
 )
 truth_signature = model.input_coords().sel(variable=[plot_var])
 truth_x = truth_x.sel(y=input_signature.y, x=input_signature.x)
-truth_x = _map_field(
+truth_x = map_field(
     truth_x,
     truth_signature,
 )
