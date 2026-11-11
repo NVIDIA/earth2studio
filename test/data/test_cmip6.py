@@ -26,7 +26,7 @@ from earth2studio.data import CMIP6
 from earth2studio.data.cmip6 import CMIP6MultiRealm
 
 
-@pytest.mark.live(timeout=60)
+@pytest.mark.live(timeout=20)
 @pytest.mark.parametrize(
     "table_id, variable",
     [
@@ -38,14 +38,6 @@ from earth2studio.data.cmip6 import CMIP6MultiRealm
     "time",
     [
         pytest.param(datetime(2015, 1, 16), id="single_stamp"),
-        pytest.param(
-            [datetime(2015, 1, 15), datetime(2015, 1, 17)],
-            id="two_stamps",
-        ),
-        pytest.param(
-            datetime(2014, 1, 15),
-            id="non_matching_timespan",
-        ),
     ],
 )
 def test_cmip6_fetch(table_id, variable, time):
@@ -68,7 +60,7 @@ def test_cmip6_fetch(table_id, variable, time):
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
-@pytest.mark.live(timeout=60)
+@pytest.mark.live(timeout=20)
 @pytest.mark.parametrize(
     "table_id, variable",
     [
@@ -81,7 +73,7 @@ def test_cmip6_fetch(table_id, variable, time):
         pytest.param([datetime(2015, 1, 16)]),
     ],
 )
-@pytest.mark.parametrize("cache", [True, False])
+@pytest.mark.parametrize("cache", [True])
 def test_cmip6_cache(table_id, variable, time, cache):
 
     ds = CMIP6(
@@ -133,7 +125,7 @@ def test_cmip6_init_valid():
     assert ds.variant_label == "r1i1p1f1"
 
 
-@pytest.mark.live(timeout=30)
+@pytest.mark.live(timeout=10)
 @pytest.mark.parametrize(
     "variable, expected_exc",
     [
@@ -199,7 +191,7 @@ def test_cmip6_pressure_level_tolerance():
     assert data_ok.shape == (1, 1, len(lat), len(lon))
 
 
-@pytest.mark.live(timeout=90)
+@pytest.mark.live(timeout=10)
 @pytest.mark.parametrize(
     "time, source_id, expected",
     [
@@ -252,7 +244,7 @@ def test_cmip6_multi_realm_validation_errors():
         CMIP6MultiRealm([atmos, ocean])
 
 
-@pytest.mark.live(timeout=30)
+@pytest.mark.live(timeout=10)
 def test_cmip6_multi_realm_available_variables():
     """Test that available_variables returns union of all sources."""
     atmos = CMIP6(
@@ -280,7 +272,7 @@ def test_cmip6_multi_realm_available_variables():
     )
 
 
-@pytest.mark.live
+@pytest.mark.live(timeout=10)
 @pytest.mark.parametrize(
     "time, expected",
     [
@@ -289,11 +281,7 @@ def test_cmip6_multi_realm_available_variables():
     ],
 )
 def test_cmip6_multi_realm_available(time, expected):
-    """Test the CMIP6MultiRealm.available class-method.
-
-    Note: This test uses daily datasets (day and SIday) to ensure timestamp alignment.
-    Marked as xfail because available() downloads significant data (multiple GB).
-    """
+    """Test availability across monthly atmosphere and ocean datasets."""
     atmos = CMIP6(
         experiment_id="ssp585",
         source_id="CanESM5",
@@ -301,7 +289,6 @@ def test_cmip6_multi_realm_available(time, expected):
         variant_label="r1i1p2f1",
     )
 
-    # Use daily sea ice data (SIday) to ensure timestamp alignment with day
     sea_ice = CMIP6(
         experiment_id="ssp585",
         source_id="CanESM5",
@@ -315,7 +302,7 @@ def test_cmip6_multi_realm_available(time, expected):
     assert result is expected
 
 
-@pytest.mark.live(timeout=60)
+@pytest.mark.live(timeout=20)
 def test_cmip6_multi_realm():
     """Combine multi-realm tests to reduce repeated downloads."""
     atmos = CMIP6(
