@@ -503,8 +503,19 @@ def fetch_dataframe(
             raise ImportError(
                 "cudf is required for CUDA device. Install with: pip install cudf"
             )
+        # cuDF's Arrow interchange uses variable-size list offsets. Preserve
+        # the fixed channel order while adapting the Arrow representation.
+        lists = {
+            name: df[name].astype(
+                pd.ArrowDtype(pa.list_(dtype.pyarrow_dtype.value_type))
+            )
+            for name, dtype in df.dtypes.items()
+            if isinstance(dtype, pd.ArrowDtype)
+            and pa.types.is_fixed_size_list(dtype.pyarrow_dtype)
+        }
         with cp.cuda.Device(device.index):
-            result = cudf.from_pandas(df)
+            result = cudf.from_pandas(df.assign(**lists) if lists else df)
+            result.attrs = df.attrs
         return result
     else:
         return df
