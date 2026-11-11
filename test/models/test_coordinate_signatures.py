@@ -184,8 +184,8 @@ def test_precipitation_signature():
     assert signature.data.nbytes == 0
     output = model.output_coords(signature)
     assert output.shape == (0, 1, 720, 1440)
-    np.testing.assert_array_equal(output.coords["variable"], ["tp:sum:6h"])
-    assert output.attrs[E2S_STATISTICS]["tp:sum:6h"]["modifier"] == "sum:6h"
+    np.testing.assert_array_equal(output.coords["variable"], ["tp06"])
+    assert E2S_STATISTICS not in output.attrs
     assert E2S_STATISTICS not in signature.attrs
     assert output.data.nbytes == 0
     with pytest.raises(ValueError, match="variable"):
@@ -301,8 +301,8 @@ def test_precipitation_array_call():
 
     output = model(from_torch(torch.zeros(20, 720, 1440), coords))
     assert output.shape == (1, 720, 1440)
-    np.testing.assert_array_equal(output["variable"], ["tp:sum:6h"])
-    assert output.attrs[E2S_STATISTICS]["tp:sum:6h"]["modifier"] == "sum:6h"
+    np.testing.assert_array_equal(output["variable"], ["tp06"])
+    assert E2S_STATISTICS not in output.attrs
 
 
 def test_regional_array_rollout(regional_model):
@@ -315,6 +315,7 @@ def test_regional_array_rollout(regional_model):
     coords = coords.assign_coords(source="test", member_label=("member", ["a", "b"]))
     x = torch.ones(coords.shape)
     if isinstance(model, StormCastCONUS):
+        model.diffusion_model = torch.nn.Identity()
         model.batch_size = 1
         model._forward = lambda state, *args, **kwargs: state + 1
     else:
@@ -411,6 +412,6 @@ def test_fcn_array_rollout():
         torch.testing.assert_close(y, x)
         assert output.dims == coords.dims
         np.testing.assert_array_equal(
-            output.lead_time, np.array([step * 6], dtype="timedelta64[h]")
+            output.lead_time, np.array([(step + 1) * 6], dtype="timedelta64[h]")
         )
     iterator.close()
