@@ -88,7 +88,7 @@ class HENSPerturbation:
     def get_noise_vector(
         self,
         model: PrognosticModel,
-        skill_path: str | None = None,
+        skill_path: str,
         noise_amplification: float = 1.0,
         perturbed_var: str | list[str] | None = None,
         lead_time: int = 48,
@@ -103,8 +103,8 @@ class HENSPerturbation:
         ----------
         model : PrognosticModel
             The prognostic model used for forecasting
-        skill_path : str, optional
-            Path to the file containing model skill scores (RMSE/MSE), by default None
+        skill_path : str
+            Path to the file containing model skill scores (RMSE/MSE)
         noise_amplification : float, optional
             Base amplification factor for the noise vector, by default 1.0
         perturbed_var : str | list[str] | None, optional
@@ -117,16 +117,7 @@ class HENSPerturbation:
         torch.Tensor
             A noise vector with shape (1, 1, 1, n_vars, 1, 1) where n_vars is the number of model variables
 
-        Raises
-        ------
-        ValueError
-            If skill_path is not provided
         """
-        if skill_path is None:
-            raise ValueError(
-                f"provide path to data set containing {lead_time}h deterministic [r]mse"
-            )
-
         model_vars = model.input_coords()["variable"].values
         if perturbed_var is None:
             perturbed_var = model_vars
