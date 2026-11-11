@@ -15,8 +15,8 @@
 # limitations under the License.
 # mypy: disable-error-code="call-overload"
 
+import numpy as np
 import xarray as xr
-from numpy import asarray
 from torch import Tensor, inference_mode
 from xarray import open_dataset
 
@@ -57,17 +57,14 @@ class HENSPerturbation:
         integration_steps: int,
     ) -> None:
 
-        noise_amp_seed = self.get_noise_vector(
-            model,
-            skill_path=skill_path,
-            noise_amplification=noise_amplification,
-            perturbed_var=perturbed_var,
-        )
         noise_amp_iter = self.get_noise_vector(
             model,
             skill_path=skill_path,
             noise_amplification=noise_amplification,
         )
+        variables = model.input_coords()["variable"].values
+        mask = Tensor(np.isin(variables, perturbed_var)).reshape(1, 1, 1, -1, 1, 1)
+        noise_amp_seed = noise_amp_iter * mask
 
         seed_perturbation = CorrelatedSphericalGaussian(
             noise_amplitude=noise_amp_seed,
@@ -83,8 +80,6 @@ class HENSPerturbation:
             integration_steps=integration_steps,  # use cfg.breeding_steps
             seeding_perturbation_method=seed_perturbation,
         )
-
-        return
 
     def set_rng(self, seed: int, reset: bool = True) -> None:
         """Seed breeding noise and reset carried pairs through the public API."""
@@ -141,7 +136,7 @@ class HENSPerturbation:
         # set noise for variables which shall not be perturbed to 0.
         with open_dataset(skill_path) as skill:
             scale_vec = Tensor(
-                asarray(
+                np.asarray(
                     [
                         (
                             skill.sel(channel=var, lead_time=lead_time)["value"].item()

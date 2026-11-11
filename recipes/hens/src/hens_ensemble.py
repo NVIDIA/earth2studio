@@ -15,7 +15,6 @@
 # limitations under the License.
 
 from collections.abc import Iterator, Mapping
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -25,32 +24,39 @@ import xarray as xr
 
 from earth2studio.data import DataSource, fetch_data
 from earth2studio.grids import LatLonGrid, infer_grid
-from earth2studio.io import IOBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.models.px.utils import initial_condition
 from earth2studio.models.utils import step_interval
 from earth2studio.perturbation import Perturbation
-from earth2studio.run import Pipeline, ProgressStore, WorkItem
+from earth2studio.run import WorkItem
 from earth2studio.run._fields import _map_field, _with_lead_time
 from earth2studio.run.runner import _signature_for_stream
 from earth2studio.utils.coords import coord_array, coord_array_like
-from earth2studio.utils.time import to_time_array
 from earth2studio.utils.type import CoordinateSystem
 
-from .hens_distributed import local_device
 from .hens_utilities_reproduce import calculate_torch_seed
 
 
 def _regional_field(x: xr.DataArray, selection: Mapping[str, Any]) -> xr.DataArray:
-    """Select a HENS lat/lon region and refresh its grid metadata."""
-    if "lon" in selection:
-        longitude = np.asarray(selection["lon"])
-        if (longitude < 0).any() and (x.lon.values >= 0).all():
+    """Apply the same crop/variable selection to planning signatures and fields."""
+    if "lon_min" in selection:
+        west, east = selection["lon_min"], selection["lon_max"]
+        south, north = selection["lat_min"], selection["lat_max"]
+        lower, upper = (-180, 180) if west < 0 else (0, 360)
+        if not (-90 <= south < north <= 90 and lower <= west < east <= upper):
+            raise ValueError("Invalid cropbox latitude/longitude bounds")
+        if west < 0 and (x.lon.values >= 0).all():
             x = x.assign_coords(lon=(x.lon + 180) % 360 - 180).sortby("lon")
-        elif (longitude > 180).any() and (x.lon.values < 0).any():
+        elif east > 180 and (x.lon.values < 0).any():
             x = x.assign_coords(lon=x.lon % 360).sortby("lon")
-    x = _map_field(x, selection)
+        lat = x.lat.values[(x.lat.values >= south) & (x.lat.values <= north)]
+        lon = x.lon.values[(x.lon.values >= west) & (x.lon.values <= east)]
+        if not lat.size or not lon.size:
+            raise ValueError("Cropbox does not intersect the model grid")
+        x = _map_field(x, {"lat": lat, "lon": lon})
+    if "variable" in selection:
+        x = _map_field(x, {"variable": selection["variable"]})
     signature = coord_array(
         x.dims,
         dict(x.coords),
@@ -301,92 +307,3 @@ class HENSRunner:
                 ).to_netcdf(
                     path / f"corrdiff_{name}_pkg_{self.pkg}_{stamp}_batch_{batch_id}.nc"
                 )
-
-
-class EnsembleBase:
-    """Configure a local Pipeline for one HENS checkpoint/initial-condition pair.
-
-    The public recipe entry point retains its existing arguments. Work items keep
-    the original global batch IDs and member groups, including a short last batch.
-    """
-
-    def __init__(
-        self,
-        time: list[str] | list[datetime] | list[np.datetime64],
-        nsteps: int,
-        nensemble: int,
-        prognostic: PrognosticModel,
-        data: DataSource,
-        io_dict: dict[str, IOBackend],
-        perturbation: Perturbation,
-        output_coords_dict: Mapping[str, Mapping[str, Any]],
-        dx_model_dict: Mapping[str, DiagnosticModel] | None = None,
-        cd_model_dict: Mapping[str, Any] | None = None,
-        cyclone_tracking: Any = None,
-        batch_size: int | None = None,
-        device: torch.device | None = None,
-        ensemble_idx_base: int = 0,
-        batch_ids_produce: list[int] | None = None,
-        base_seed_string: str = "0",
-        pkg: str = "",
-        progress: ProgressStore | None = None,
-    ) -> None:
-        if len(time) != 1 or nsteps < 0 or nensemble < 1:
-            raise ValueError(
-                "HENS needs one IC, nonnegative nsteps and a positive ensemble size"
-            )
-        batch_size = nensemble if batch_size is None else batch_size
-        if batch_size < 1 or ensemble_idx_base < 0 or ensemble_idx_base % nensemble:
-            raise ValueError("Invalid batch size or checkpoint ensemble offset")
-        batch_size = min(batch_size, nensemble)
-        num_batches = -(-nensemble // batch_size)
-        first_batch = ensemble_idx_base // nensemble * num_batches
-        batches = (
-            list(range(first_batch, first_batch + num_batches))
-            if batch_ids_produce is None
-            else sorted(set(batch_ids_produce))
-        )
-        if any(
-            batch < first_batch or batch >= first_batch + num_batches
-            for batch in batches
-        ):
-            raise ValueError("Batch IDs do not belong to this checkpoint")
-        self.io_dict = io_dict
-        self.runner = HENSRunner(
-            prognostic,
-            data,
-            perturbation,
-            {name: output_coords_dict[name] for name in io_dict},
-            nensemble,
-            batch_size,
-            base_seed_string,
-            dx_model_dict,
-            cd_model_dict,
-            cyclone_tracking,
-            pkg,
-        )
-        self.items = []
-        for batch in batches:
-            start = (batch - first_batch) * batch_size
-            members = tuple(
-                ensemble_idx_base + i
-                for i in range(start, min(start + batch_size, nensemble))
-            )
-            self.items.append(
-                WorkItem(to_time_array(time)[0], nsteps * self.runner.step, members)
-            )
-        self.pipeline = Pipeline(
-            self.runner,
-            output=io_dict,
-            device=device or local_device(),
-            progress=progress,
-        )
-
-    def __call__(self) -> dict[str, IOBackend]:
-        """Run all selected batches and return the readable, closed backends."""
-        if torch.distributed.is_initialized():
-            raise RuntimeError(
-                "HENS assigns checkpoint/IC pairs per process; launch without initializing a Torch process group"
-            )
-        self.pipeline.run(self.items)
-        return self.io_dict

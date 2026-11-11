@@ -18,13 +18,15 @@ from contextlib import ExitStack
 from pathlib import Path
 from typing import Any
 
+import torch
 from omegaconf import DictConfig, OmegaConf
 
 from earth2studio.data.base import DataSource
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.run import ProgressStore
+from earth2studio.run import Pipeline, ProgressStore, work_items
 
-from .hens_ensemble import EnsembleBase
+from .hens_distributed import local_device
+from .hens_ensemble import HENSRunner
 from .hens_perturbation import HENSPerturbation
 from .hens_utilities import initialise_output, update_model_dict, write_to_disk
 from .hens_utilities_reproduce import create_base_seed_string
@@ -42,6 +44,12 @@ def run_inference(
     base_random_seed: str | int,
 ) -> None:
     """Run this worker's checkpoint/IC pairs with backend-owned output buffering."""
+    if torch.distributed.is_initialized():
+        raise RuntimeError("Launch HENS without initializing a Torch process group")
+    if cfg.nensemble < 1 or cfg.batch_size < 1 or cfg.nsteps < 0:
+        raise ValueError(
+            "HENS requires positive ensemble/batch sizes and nonnegative nsteps"
+        )
     resume = cfg.get("file_output", {}).get("resume", False)
     if resume:
         output = cfg.file_output
@@ -69,26 +77,37 @@ def run_inference(
             # Cover planning failures too; close every store even if one fails.
             for io in io_dict.values():
                 outputs.callback(io.close)
-            ensemble_runner = EnsembleBase(
-                time=[ic],
-                nsteps=cfg.nsteps,
+            runner = HENSRunner(
                 nensemble=cfg.nensemble,
                 prognostic=model_dict["model"],
                 data=data_source,
-                io_dict=io_dict,
                 perturbation=perturbation,
-                output_coords_dict=output_coords_dict,
+                output_coords_dict={name: output_coords_dict[name] for name in io_dict},
                 dx_model_dict=dx_model_dict,
                 cd_model_dict=cd_model_dict,
                 cyclone_tracking=cyclone_tracker,
-                batch_size=cfg.batch_size,
-                ensemble_idx_base=ens_idx,
-                batch_ids_produce=batch_ids_produce,
+                batch_size=min(cfg.batch_size, cfg.nensemble),
                 base_seed_string=base_seed_string,
                 pkg=pkg,
+            )
+            # Form complete batches first: filtering members would change pairings.
+            items = work_items(
+                [ic],
+                cfg.nsteps * runner.step,
+                members=range(ens_idx, ens_idx + cfg.nensemble),
+                member_batch=runner.batch_size,
+            )
+            first_batch = ens_idx // cfg.nensemble * len(items)
+            selected = set(batch_ids_produce)
+            if not selected.issubset(range(first_batch, first_batch + len(items))):
+                raise ValueError("Batch IDs do not belong to this checkpoint")
+            Pipeline(
+                runner,
+                output=io_dict,
+                device=local_device(),
                 progress=(
                     ProgressStore(
-                        Path(cfg.file_output.path)
+                        Path(cfg.file_output.get("path", "outputs"))
                         / "progress"
                         / f"{cfg.project}_{Path(pkg).name}_{ic}",
                         tags={
@@ -99,7 +118,6 @@ def run_inference(
                     if resume
                     else None
                 ),
-            )
-            ensemble_runner()
+            ).run([item for i, item in enumerate(items, first_batch) if i in selected])
         if io_dict:
             write_to_disk(cfg, ic, model_dict, io_dict)
