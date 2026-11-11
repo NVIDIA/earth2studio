@@ -57,6 +57,7 @@ from earth2studio.data.utils_ncep import (
     NCEP_MICROWAVE_OUTPUT_SCHEMA,
     NCEP_MICROWAVE_SATELLITES,
     NCEP_SATWND_PUBLIC_SCHEMA,
+    RAW_CONV_VARIABLES,
     SAT_CHANNELS,
     Intervals,
     NCEPObsTask,
@@ -68,10 +69,12 @@ from earth2studio.data.utils_ncep import (
     cycle_windows,
     decode_gpsro,
     decode_prepbufr,
+    decode_raw_conventional,
     decode_satellite,
     decode_satwnd,
     map_aircraft_profile_types,
     plan_conv_tasks,
+    raw_conv_schema,
     resolve_output_schema,
 )
 from earth2studio.lexicon import (
@@ -85,6 +88,7 @@ from earth2studio.utils.type import TimeArray, TimeTolerance, VariableArray
 
 NNJA_BUCKET = "noaa-reanalyses-pds"
 NNJA_PREFIX = "observations/reanalysis"
+
 
 # Chunked download settings for NNJA cycle files
 _NNJA_READ_CHUNK_SIZE_BYTES = 8 * 1024 * 1024
@@ -235,20 +239,23 @@ class NNJAObsConv:
     occultation's reference point. No retrieval
     product is read.
 
+    The ``convbufr.*`` sources read raw dumps (wide only): float64 values with
+    report and level ids, but no PrepBUFR report types, quality marks or events.
+
     Parameters
     ----------
-    source : {"prepbufr", "prepbufr.acft_profiles"}, optional
+    source : {"prepbufr", "prepbufr.acft_profiles", "convbufr.adpupa", "convbufr.adpsfc"}, optional
         Which encoding family of the NNJA conventional archive to read,
         by default ``"prepbufr"``. These sources are different stages of the
         NCEP observation-processing pipeline, not independent replacement
         datasets:
 
-        - ``"convbufr"`` points at raw dump streams grouped by family, such as
-          ``aircft``/``aircar``/``adpupa``/``adpsfc``. These files preserve
-          source-native schemas and require family-specific decoding and QC
-          before they resemble GSI-ready observations. The generic PrepBUFR
-          decoder does not implement those raw family schemas, so this source
-          raises ``NotImplementedError``.
+        - ``"convbufr.adpupa"`` and ``"convbufr.adpsfc"`` point at the raw
+          radiosonde and land-station dumps that obsproc merges into PrepBUFR,
+          one row per report level. Variables are ``t``, ``td``, ``u``, ``v``
+          and ``pres``, plus ``msl``, ``visibility``, ``tp:sum:3h`` and
+          ``tp:sum:24h`` for ``adpsfc``. ``lon`` is wrapped to [0, 360) and
+          ``lon_native`` keeps the encoded value.
         - ``"prepbufr"`` points at the merged PrepBUFR cycle file. This is the
           preferred source for GSI-like conventional observations because
           upstream obsproc has already merged dump families, standardized many
@@ -285,6 +292,10 @@ class NNJAObsConv:
     original_event : bool, optional
         Return the report as first ingested (program code 1) instead of the latest
         quality-controlled event, by default False
+    gpsro_profile_metadata : bool, optional
+        Add the ``report``, ``profile_level``, ``confidence`` and
+        ``ionosphere_corrected`` columns to wide GPS-RO output, identifying
+        each occultation and level, by default False.
     layout : {"long", "wide"}, optional
         ``"long"`` returns one row per observation with the columns of
         ``SCHEMA``. ``"wide"`` returns one row per PrepBUFR report level or
@@ -320,7 +331,9 @@ class NNJAObsConv:
     LEXICON = NNJAObsConvLexicon
     MIN_DATE = datetime(1979, 1, 1)
 
-    VALID_SOURCES = frozenset(["prepbufr", "prepbufr.acft_profiles"])
+    VALID_SOURCES = frozenset(
+        ["prepbufr", "prepbufr.acft_profiles", "convbufr.adpupa", "convbufr.adpsfc"]
+    )
 
     def __init__(
         self,
@@ -335,20 +348,20 @@ class NNJAObsConv:
         exclude_message_types: Sequence[str] = (),
         original_event: bool = False,
         layout: Literal["long", "wide"] = _DEFAULT_LAYOUT,
+        gpsro_profile_metadata: bool = False,
     ) -> None:
         self._layout = _validate_layout(layout)
-        if source == "convbufr":
-            raise NotImplementedError(
-                "NNJAObsConv(source='convbufr') targets raw dump streams grouped "
-                "by family (aircft/aircar/adpupa/adpsfc) with source-native "
-                "schemas that require family-specific decoding and QC before they "
-                "resemble GSI-ready observations; the generic PrepBUFR decoder "
-                "does not implement those raw family schemas"
-            )
+        self._gpsro_profile_metadata = gpsro_profile_metadata
         if source not in self.VALID_SOURCES:
             raise ValueError(
                 f"Invalid source '{source}'. Valid sources: {sorted(self.VALID_SOURCES)}"
             )
+        # Raw dump family of a convbufr.* source, else None
+        self._family = (
+            source.removeprefix("convbufr.") if source.startswith("convbufr.") else None
+        )
+        if self._family is not None and self._layout != "wide":
+            raise ValueError(f'{source} requires layout="wide"')
         unknown = set(exclude_message_types) - set(PREPBUFR_OBS_TYPES.values())
         if unknown:
             raise ValueError(
@@ -517,8 +530,23 @@ class NNJAObsConv:
     def _create_tasks(
         self, time_list: list[datetime], variable: list[str]
     ) -> list[NCEPObsTask]:
+        windows = cycle_windows(time_list, self._tolerance_lower, self._tolerance_upper)
+        if self._family is not None:
+            return [
+                NCEPObsTask(
+                    self._build_uri("convbufr", cycle),
+                    "convbufr",
+                    cycle,
+                    intervals[0][0],
+                    intervals[-1][1],
+                    # Raw decoding reads only the variable names
+                    dict.fromkeys(variable, ("", lambda frame: frame)),
+                    intervals,
+                )
+                for cycle, intervals in windows.items()
+            ]
         return plan_conv_tasks(
-            cycle_windows(time_list, self._tolerance_lower, self._tolerance_upper),
+            windows,
             variable,
             self.LEXICON,
             self._build_uri,
@@ -530,6 +558,12 @@ class NNJAObsConv:
         month_key = cycle.strftime("%m")
         date_key = cycle.strftime("%Y%m%d")
         hour_key = f"{cycle.hour:02d}"
+        if route == "convbufr":
+            return (
+                f"s3://{NNJA_BUCKET}/{NNJA_PREFIX}/conv/convbufr/{self._family}/"
+                f"{cycle:%Y/%m}/gdas.{cycle:%Y%m%d}.t{cycle:%H}z."
+                f"{self._family}.bufr_d.nr"
+            )
         if route == "prepbufr":
             archive_dir = self._source
             if self._source == "prepbufr.acft_profiles":
@@ -551,6 +585,14 @@ class NNJAObsConv:
     # File decode (dispatch by task route)
     # ------------------------------------------------------------------
     def _decode_file(self, local_path: str, task: NCEPObsTask) -> pa.Table:
+        if task.route == "convbufr" and self._family is not None:
+            return decode_raw_conventional(
+                local_path,
+                self._family,
+                list(task.var_plan),
+                task.datetime_min,
+                task.datetime_max,
+            )
         if task.route == "gpsro":
             return decode_gpsro(
                 local_path,
@@ -609,7 +651,15 @@ class NNJAObsConv:
         return resolve_output_schema(cls.SCHEMA, fields, class_name=cls.__name__)
 
     def _wide_schema(self, variables: Sequence[str]) -> pa.Schema:
-        return _conv_stream_schema(variables, type(self).__name__)
+        if self._family is not None:
+            if not set(variables) <= set(RAW_CONV_VARIABLES[self._family]):
+                raise ValueError(
+                    f"Unsupported variables for raw {self._family}: {variables}"
+                )
+            return raw_conv_schema(variables)
+        return _conv_stream_schema(
+            variables, type(self).__name__, self._gpsro_profile_metadata
+        )
 
     def _output_fields(
         self, fields: str | list[str] | pa.Schema | None, variables: Sequence[str]
@@ -867,7 +917,13 @@ class NNJAObsSat:
         axis; the wavenumber follows from the channel number. Request several
         sensors concurrently, one call each, e.g.
         ``asyncio.gather(*(source.fetch(time, [s]) for s in sensors))``; the
-        calls share the source's decode slots. By default "long".
+        calls share the source's decode slots. The ``iasi_radiance`` variable
+        is wide-only and returns the decoded IASI radiance as float64
+        ``observation_iasi_radiance``. By default "long".
+    footprint_float64 : bool, optional
+        In wide output, keep the float footprint columns (``lat``, ``lon``,
+        ``elev`` and the angles) in their decoded float64 precision instead of
+        float32, by default False.
 
     Warning
     -------
@@ -922,8 +978,10 @@ class NNJAObsSat:
         retries: int = 3,
         sensor_indices: dict[str, Sequence[int]] | None = None,
         layout: Literal["long", "wide"] = _DEFAULT_LAYOUT,
+        footprint_float64: bool = False,
     ) -> None:
         self._layout = _validate_layout(layout)
+        self._footprint_float64 = footprint_float64
         if satellites is None:
             self._satellites: tuple[str, ...] | None = None
         else:
@@ -1197,6 +1255,7 @@ class NNJAObsSat:
             # Every archived channel unless narrowed via sensor_indices
             channels=self._sensor_indices.get(task.sensor),
             decode_workers=self._decode_workers,
+            footprint_float64=self._footprint_float64,
         )
 
     @classmethod
@@ -1261,6 +1320,8 @@ class NNJAObsSat:
     def _output_fields(
         self, fields: str | list[str] | pa.Schema | None, variables: Sequence[str]
     ) -> pa.Schema:
+        if self._layout == "long" and "iasi_radiance" in variables:
+            raise ValueError('iasi_radiance requires layout="wide"')
         if self._layout == "wide":
             sensors = sorted(
                 {self.LEXICON.get_item(v)[0].split("::")[0] for v in variables}
@@ -1271,6 +1332,13 @@ class NNJAObsSat:
                     f"of one sensor, got sensors {sensors}. Fetch several sensors "
                     "concurrently, e.g. asyncio.gather over fetch, one call each"
                 )
-            schema = _sat_wide_schema(sensors[0], self._sensor_indices.get(sensors[0]))
+            schema = _sat_wide_schema(
+                sensors[0],
+                self._sensor_indices.get(sensors[0]),
+                footprint_float64=self._footprint_float64,
+                iasi_radiance="iasi_radiance" in variables,
+            )
+            if "iasi_radiance" in variables and "iasi" not in variables:
+                schema = schema.remove(schema.get_field_index("observation_iasi"))
             return resolve_output_schema(schema, fields, class_name=type(self).__name__)
         return self.resolve_fields(fields)
