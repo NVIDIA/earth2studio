@@ -35,7 +35,7 @@ from earth2studio.run.runner import _signature_for_stream
 from earth2studio.utils.coords import coord_array, coord_array_like
 from earth2studio.utils.type import CoordinateSystem
 
-from .hens_utilities_reproduce import calculate_torch_seed
+from .hens_utilities import calculate_torch_seed
 
 
 def _regional_field(x: xr.DataArray, selection: Mapping[str, Any]) -> xr.DataArray:
