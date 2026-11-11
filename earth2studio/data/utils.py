@@ -59,9 +59,14 @@ from earth2studio.data.base import (
     ForecastSource,
 )
 from earth2studio.grids import (
+    E2S_CRS,
+    E2S_GRID_ID,
     GridDefinition,
+    LatLonGrid,
+    ProjectedGrid,
     Regridder,
     infer_grid,
+    resolve_grid,
     resolve_regridder,
     same_geometry,
     select_subset,
@@ -103,6 +108,40 @@ try:
     import cudf
 except ImportError:
     cudf = None
+
+
+def with_grid_metadata(array: xr.DataArray, grid: str | None = None) -> xr.DataArray:
+    """Describe a source's spatial axes using a grid definition.
+
+    Reuse a named grid only when its index coordinates match exactly. Subsets
+    and alternative resolutions retain their actual axes and omit the grid ID.
+    Without a named grid, only rectilinear latitude/longitude is annotated.
+    Data, dimension order, and existing non-grid attributes are preserved.
+    """
+    definition = resolve_grid(grid) if grid is not None else None
+    matched = definition is not None and all(
+        dim in array.coords and np.array_equal(array[dim], coordinate)
+        for dim, coordinate in definition.coords(only_index=True).items()
+    )
+    if not matched:
+        if isinstance(definition, ProjectedGrid):
+            definition = ProjectedGrid(array.y.values, array.x.values, definition.crs)
+        elif all(
+            dim in array.coords and array[dim].dims == (dim,) for dim in ("lat", "lon")
+        ):
+            definition = LatLonGrid(array.lat.values, array.lon.values)
+        else:
+            return array
+    if definition is None:
+        return array
+    result = array.assign_coords(definition.coords())
+    result.attrs.update(definition.attrs)
+    result.attrs.pop(E2S_GRID_ID, None)
+    if definition.crs is not None:
+        result.attrs[E2S_CRS] = definition.crs.to_string()
+    if matched:
+        result.attrs[E2S_GRID_ID] = grid
+    return result
 
 
 def _offset_times(time: TimeArray, lead: np.timedelta64) -> TimeArray:

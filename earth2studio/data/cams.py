@@ -31,6 +31,7 @@ from loguru import logger
 from earth2studio.data.utils import (
     datasource_cache_root,
     prep_forecast_inputs,
+    with_grid_metadata,
 )
 from earth2studio.lexicon import CAMSGlobalLexicon
 from earth2studio.utils.imports import (
@@ -414,7 +415,7 @@ class CAMS_FX:
             surface_ds.close()
         if pressure_ds is not None:
             pressure_ds.close()
-        return da
+        return with_grid_metadata(da)
 
     def _download_cached(
         self,

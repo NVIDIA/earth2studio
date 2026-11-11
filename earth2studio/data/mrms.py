@@ -38,6 +38,7 @@ from earth2studio.data.utils import (
     obstore_read_range,
     obstore_store_from_url,
     prep_data_inputs,
+    with_grid_metadata,
 )
 from earth2studio.lexicon import MRMSLexicon
 from earth2studio.utils.imports import (
@@ -312,7 +313,7 @@ class MRMS:
                 {f"actual_time_{v}": ("time", actual_time_by_var[v])}
             )
 
-        return out
+        return with_grid_metadata(out, "mrms-conus-0.01deg")
 
     async def _fetch_task(
         self,

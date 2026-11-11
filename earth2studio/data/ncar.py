@@ -44,6 +44,7 @@ from earth2studio.data.utils import (
     obstore_store_from_url,
     prep_data_inputs,
     resolve_async_workers,
+    with_grid_metadata,
 )
 from earth2studio.lexicon import NCAR_ERA5Lexicon
 from earth2studio.utils.type import TimeArray, VariableArray
@@ -238,13 +239,15 @@ class NCAR_ERA5:
             res.name = None  # remove name, which is kept from one of the arrays
 
             if "time" in res.dims:
-                return res.sel(time=time, variable=variable)
+                return with_grid_metadata(
+                    res.sel(time=time, variable=variable), "latlon-0.25deg"
+                )
             else:
                 # For files without time dimension, just select variables
                 logger.warning(
                     "No time dimension found in dataset, selecting variables only"
                 )
-                return res.sel(variable=variable)
+                return with_grid_metadata(res.sel(variable=variable), "latlon-0.25deg")
         finally:
             # Own temporary-cache cleanup for both sync and async callers.
             if not self._cache:

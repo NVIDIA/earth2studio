@@ -24,7 +24,11 @@ import xarray as xr
 from huggingface_hub import hf_hub_download
 from loguru import logger
 
-from earth2studio.data.utils import datasource_cache_dir, prep_data_inputs
+from earth2studio.data.utils import (
+    datasource_cache_dir,
+    prep_data_inputs,
+    with_grid_metadata,
+)
 from earth2studio.lexicon.camulator import CAMulatorLexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 
@@ -146,7 +150,7 @@ class CAMulatorForcing:
             if not self._cache:
                 self._close()
                 shutil.rmtree(self.cache, ignore_errors=True)
-        return result
+        return with_grid_metadata(result)
 
     async def fetch(
         self,

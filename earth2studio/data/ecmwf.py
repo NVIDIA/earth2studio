@@ -38,6 +38,7 @@ from earth2studio.data.utils import (
     prep_data_inputs,
     prep_forecast_inputs,
     prep_member_inputs,
+    with_grid_metadata,
 )
 from earth2studio.lexicon import AIFSLexicon, IFSLexicon
 from earth2studio.lexicon.ecmwf import (
@@ -338,7 +339,7 @@ class _ECMWFOpenDataSource(ABC):
         if not self._cache:
             shutil.rmtree(self.cache)
 
-        return xr_array
+        return with_grid_metadata(xr_array, "latlon-0.25deg")
 
     def _call_analysis(
         self,

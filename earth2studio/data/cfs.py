@@ -42,6 +42,7 @@ from earth2studio.data.utils import (
     obstore_store_from_url,
     prep_forecast_inputs,
     resolve_async_workers,
+    with_grid_metadata,
 )
 from earth2studio.lexicon import CFSFluxLexicon, CFSLexicon
 from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
@@ -333,7 +334,7 @@ class CFS_FX:
             verbose=self._verbose,
         )
 
-        return xr_array
+        return with_grid_metadata(xr_array, "latlon-1deg")
 
     async def _create_tasks(
         self,

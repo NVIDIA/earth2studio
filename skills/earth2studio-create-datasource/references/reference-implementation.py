@@ -66,6 +66,7 @@ from earth2studio.data.utils import (
     # FILL: Use prep_forecast_inputs instead if ForecastSource
     # prep_forecast_inputs,
     resolve_async_workers,
+    with_grid_metadata,
 )
 
 # FILL: Import your lexicon class
@@ -301,7 +302,9 @@ class SourceName:
             verbose=self._verbose,
         )
 
-        return xr_array
+        # FILL: Reuse a registered grid when the axes match; otherwise omit the
+        # name to describe the actual rectilinear lat/lon axes.
+        return with_grid_metadata(xr_array, "latlon-1deg")
 
     # ------------------------------------------------------------------
     # Task creation

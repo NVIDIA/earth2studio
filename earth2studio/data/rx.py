@@ -27,6 +27,7 @@ from earth2studio.data.utils import (
     datasource_cache_root,
     obstore_zarr_store,
     prep_data_inputs,
+    with_grid_metadata,
 )
 from earth2studio.utils import handshake_dim
 from earth2studio.utils.type import CoordSystem, TimeArray, VariableArray
@@ -114,7 +115,7 @@ class ARCO_ERA5RxBase:
                     "lon": self.ARCO_LON,
                 },
             )
-            return lsmda
+            return with_grid_metadata(lsmda, "latlon-0.25deg")
 
         lsmda = xr.DataArray(
             data=np.empty((len(time), 1, len(self.ARCO_LAT), len(self.ARCO_LON))),
@@ -141,7 +142,7 @@ class ARCO_ERA5RxBase:
         if not self._cache:
             shutil.rmtree(self.cache, ignore_errors=True)
 
-        return lsmda
+        return with_grid_metadata(lsmda, "latlon-0.25deg")
 
     @property
     def cache(self) -> str:
@@ -320,4 +321,4 @@ class CosineSolarZenith:  # pragma: no cover
             data = np.repeat(data[:, :, np.newaxis], values.shape[0], axis=2)
 
         da = xr.DataArray(data=data, dims=list(coords), coords=coords)
-        return da
+        return with_grid_metadata(da)

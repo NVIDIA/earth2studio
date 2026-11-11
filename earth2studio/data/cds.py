@@ -30,7 +30,11 @@ import xarray as xr
 from loguru import logger
 from tqdm import tqdm
 
-from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
+from earth2studio.data.utils import (
+    datasource_cache_root,
+    prep_data_inputs,
+    with_grid_metadata,
+)
 from earth2studio.lexicon import CDS_ERA5Lexicon
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -248,7 +252,7 @@ class CDS_ERA5:
                 else:
                     da[0, index] = modifier(grib.sel(isobaricInhPa=float(level)).values)
 
-        return da
+        return with_grid_metadata(da, "latlon-0.25deg")
 
     def _validate_time(self, times: list[datetime]) -> None:
         """Verify if date time is valid for CDS_ERA5.

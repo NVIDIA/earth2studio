@@ -42,6 +42,7 @@ from earth2studio.data.utils import (
     prep_forecast_inputs,
     prep_member_inputs,
     resolve_async_workers,
+    with_grid_metadata,
 )
 from earth2studio.lexicon import GEFSLexicon, GEFSLexiconSel
 from earth2studio.utils.type import (
@@ -310,7 +311,7 @@ class GEFS_FX:
             verbose=self._verbose,
         )
 
-        return xr_array
+        return with_grid_metadata(xr_array, "latlon-0.25deg")
 
     async def _create_tasks(
         self,
