@@ -83,6 +83,7 @@ from earth2studio.data import DataSource, fetch_data
 from earth2studio.io import IOBackend
 from earth2studio.io.utils import output_template
 from earth2studio.models.px import PrognosticModel
+from earth2studio.models.px.utils import initial_condition
 from earth2studio.statistics import Statistic
 from earth2studio.utils.time import to_time_array
 
@@ -130,7 +131,7 @@ def run_stats(
     prognostic = prognostic.to(device)
     # Fetch data from data source and load onto device
     time = to_time_array(time)
-    from earth2studio.run import _map_field
+    from earth2studio.run import map_field
 
     x = fetch_data(
         source=data,
@@ -166,14 +167,17 @@ def run_stats(
     io.add_array(template)
 
     # Map lat and lon if needed
-    x = _map_field(x, prognostic.input_coords())
+    x = map_field(x, prognostic.input_coords())
 
     # Create prognostic iterator
     model = prognostic.create_iterator(x)
 
+    # The iterator yields forecasts only, so the initial condition is written first
+    io.write(statistic(initial_condition(x)).rename(str(statistic)))
+
     logger.info("Inference starting!")
-    with tqdm(total=nsteps + 1, desc="Running inference") as pbar:
-        for step, x in enumerate(model):
+    with tqdm(total=nsteps + 1, initial=1, desc="Running inference") as pbar:
+        for step, x in enumerate(model, start=1):
             # Statistics take and return xarray DataArrays, name the result for IO
             io.write(statistic(x).rename(str(statistic)))
             pbar.update(1)

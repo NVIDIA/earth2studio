@@ -151,6 +151,18 @@ def _is_forecast_source(source: DataSource | ForecastSource) -> bool:
     return "lead_time" in signature(source.__call__).parameters
 
 
+def _select_times(array: xr.DataArray, time: TimeArray) -> xr.DataArray:
+    """Select requested times; repeated timestamps (e.g. samples) are kept in order."""
+    index = array.indexes["time"]
+    if index.has_duplicates:
+        # xarray cannot ``sel`` labels from a duplicated index; the source returned
+        # one entry per request, so select positionally instead.
+        if len(index) != len(time) or not np.array_equal(index.values, time):
+            raise ValueError("Source returned times that do not match the request")
+        return array
+    return array.sel(time=time)
+
+
 def _is_ensemble_source(source: DataSource | ForecastSource) -> bool:
     """Return whether a source selects ensemble members through a ``member`` keyword.
 
@@ -189,16 +201,17 @@ def _fetch_instantaneous(
 ) -> xr.DataArray:
     variables = cast(VariableArray, np.asarray(variable))
     if _is_forecast_source(source):
-        return cast(ForecastSource, source)(
+        array = cast(ForecastSource, source)(
             time, lead_time, variables, **_members(member)
-        ).sel(time=time, lead_time=lead_time, variable=variables)
+        )
+        array = _select_times(array, time)
+        return array.sel(lead_time=lead_time, variable=variables)
 
     arrays = []
     for lead in lead_time:
         valid_time = _offset_times(time, lead)
-        array = cast(DataSource, source)(valid_time, variables, **_members(member)).sel(
-            time=valid_time, variable=variables
-        )
+        array = cast(DataSource, source)(valid_time, variables, **_members(member))
+        array = _select_times(array, valid_time).sel(variable=variables)
         array = array.expand_dims(
             lead_time=np.array([lead], dtype="timedelta64[ns]"), axis=1
         )
@@ -374,7 +387,8 @@ def fetch_data(
         Field values with dimensions [time, lead_time, variable, ...], auxiliary
         coordinates, actual grid metadata and normalized temporal statistics. The
         field is on the source grid unless regridded. With ``member``, a leading
-        ``ensemble`` dimension holds the requested members in order.
+        ``ensemble`` dimension holds the requested members in order. Floating point
+        fields are always returned as float32, regardless of the source's dtype.
 
     Note
     ----
@@ -420,6 +434,9 @@ def fetch_data(
     da = _fetch_dataarray(source, time, variable, lead_time, members)
     for key in (E2S_KIND, E2S_SCHEMA_VERSION, E2S_DYNAMIC_DIMS):
         da.attrs.pop(key, None)
+    # Models consume float32 fields; sources may build float64 (e.g. bare np.empty)
+    if da.dtype.kind == "f" and da.dtype != np.float32:
+        da = da.astype(np.float32)
     if device.type == "cuda":
         if cp is None:
             raise ImportError("cupy is required for CUDA DataArrays")
@@ -486,8 +503,19 @@ def fetch_dataframe(
             raise ImportError(
                 "cudf is required for CUDA device. Install with: pip install cudf"
             )
+        # cuDF's Arrow interchange uses variable-size list offsets. Preserve
+        # the fixed channel order while adapting the Arrow representation.
+        lists = {
+            name: df[name].astype(
+                pd.ArrowDtype(pa.list_(dtype.pyarrow_dtype.value_type))
+            )
+            for name, dtype in df.dtypes.items()
+            if isinstance(dtype, pd.ArrowDtype)
+            and pa.types.is_fixed_size_list(dtype.pyarrow_dtype)
+        }
         with cp.cuda.Device(device.index):
-            result = cudf.from_pandas(df)
+            result = cudf.from_pandas(df.assign(**lists) if lists else df)
+            result.attrs = df.attrs
         return result
     else:
         return df
@@ -709,12 +737,9 @@ def prep_data_array(
             data = torch.Tensor(da.values).to(device)
             out = interp(data)
 
-            # HARD CODE FOR STORMCAST
-            # TODO: FIX THIS BY CORRECTING STORMCAST COORDINATES
-            if "hrrr_y" in out_coords:
-                del out_coords["hrrr_y"]
-            if "hrrr_x" in out_coords:
-                del out_coords["hrrr_x"]
+            # The native curvilinear dims are replaced by the target grid
+            for dim in da["_lat"].dims:
+                out_coords.pop(dim, None)
         else:
             if len(interp_to["_lat"].shape) > 1 or len(interp_to["_lon"].shape) > 1:
                 # Target grid uses curvilinear coordinates: define internal dims y, x

@@ -48,32 +48,32 @@ def test_geographic_cf_attributes(name):
 def test_projected_cf_attributes_with_renamed_explicit_coordinates():
     parent = resolve_grid("hrrr")
     grid = ProjectedGrid(parent.y[:2], parent.x[:3], parent.crs)
-    explicit_y = xr.Variable("hrrr_y", grid.y, attrs={"source": "caller"})
+    explicit_y = xr.Variable("north", grid.y, attrs={"source": "caller"})
     array = coord_array(
-        ("hrrr_y", "hrrr_x"),
-        coords={"hrrr_y": explicit_y},
+        ("north", "east"),
+        coords={"north": explicit_y},
         grid=grid,
-        grid_dims={"y": "hrrr_y", "x": "hrrr_x"},
+        grid_dims={"y": "north", "x": "east"},
     )
-    assert set(array.coords) == {"hrrr_y", "hrrr_x", "lat", "lon"}
+    assert set(array.coords) == {"north", "east", "lat", "lon"}
     assert array.attrs["grid_mapping_name"] == "lambert_conformal_conic"
     assert array.attrs["standard_parallel"] == (38.5, 38.5)
     assert array.attrs["earth2studio_crs"] == grid.crs.to_string()
     assert "grid_mapping" not in array.attrs
-    for dim, axis in (("hrrr_y", "Y"), ("hrrr_x", "X")):
+    for dim, axis in (("north", "Y"), ("east", "X")):
         assert (
             array[dim].attrs["standard_name"] == f"projection_{axis.lower()}_coordinate"
         )
         assert array[dim].attrs["axis"] == axis
         assert array[dim].attrs["units"] == "metre"
-    assert array.hrrr_y.attrs["source"] == "caller"
+    assert array.north.attrs["source"] == "caller"
     assert explicit_y.attrs == {"source": "caller"}
     for dim in ("lat", "lon"):
         assert "axis" not in array[dim].attrs
     indexes = grid.coords(only_index=True)
     assert set(indexes) == {"y", "x"}
-    assert indexes["x"].attrs == array.hrrr_x.attrs
-    np.testing.assert_array_equal(array.hrrr_y, grid.y)
+    assert indexes["x"].attrs == array.east.attrs
+    np.testing.assert_array_equal(array.north, grid.y)
 
 
 @pytest.mark.parametrize(

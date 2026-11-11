@@ -143,7 +143,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 forecast = datetime(2024, 1, 1)
-variable = "tp:sum:6h"
+variable = "tp06"
 step = 8  # lead time = 48 hrs
 
 plt.close("all")

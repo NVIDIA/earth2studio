@@ -129,8 +129,11 @@ def test_icechunk_local_filesystem_and_branch() -> None:
 def test_icechunk_reopen_with_scalar_array() -> None:
     storage = icechunk.in_memory_storage()
     io = IceChunkBackend(storage=storage)
-    coords = OrderedDict({"lat": np.linspace(-90, 90, 8)})
-    io.add_array(coords, "fields")
+    coords = coord_array(
+        ("variable", "lat"),
+        {"variable": ["fields"], "lat": np.linspace(-90, 90, 8)},
+    )
+    io.add_array(coords)
     # Scalar array, e.g. a CF grid_mapping variable; zarr stores () as None
     io.root.create_array(
         "crs", shape=(), dtype="int32", fill_value=0, dimension_names=()
@@ -145,13 +148,13 @@ def test_icechunk_reopen_with_scalar_array() -> None:
     assert "diagnostics" not in io.coords
 
     # Write and commit through the reopened backend, then reopen and read back
-    x = torch.randn(8)
-    io.write(x, coords, "fields")
+    x = from_torch(torch.randn(1, 8), coords)
+    io.write(x)
     io.commit("write after reopen")
 
     io = IceChunkBackend(storage=storage)
-    xx, _ = io.read(coords, "fields")
-    assert torch.allclose(x, xx)
+    xx = io.read(coords)
+    xr.testing.assert_allclose(x, xx.transpose(*x.dims))
     assert "crs" in io
 
 

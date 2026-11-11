@@ -144,6 +144,43 @@ def test_default_field_array():
     np.testing.assert_allclose(array[0, 0, 0], [[2, 4, 6], [1, 3, 5], [0, 2, 4]])
 
 
+@pytest.mark.parametrize("forecast", [False, True])
+@pytest.mark.parametrize("dtype", [np.float64, np.float16, np.float32])
+def test_floating_fields_cast_to_float32(forecast, dtype):
+    class Analysis(AnalysisSource):
+        def __call__(self, time, variable):
+            da = super().__call__(time, variable)
+            return da.copy(data=np.asarray(da.values, dtype=dtype))
+
+    class Forecast(ForecastSource):
+        def __call__(self, time, lead_time, variable):
+            da = super().__call__(time, lead_time, variable)
+            return da.copy(data=np.asarray(da.values, dtype=dtype))
+
+    source = Forecast() if forecast else Analysis()
+    array = fetch_data(source, TIME, np.array(["a"]))
+    assert array.dtype == np.float32
+    np.testing.assert_allclose(array[0, 0, 0], [[2, 4, 6], [1, 3, 5], [0, 2, 4]])
+
+
+@pytest.mark.parametrize("forecast", [False, True])
+def test_repeated_timestamps(forecast):
+    times = np.repeat(TIME, 3)
+    source = ForecastSource() if forecast else AnalysisSource()
+    array = fetch_data(source, times, np.array(["a"]))
+    assert array.shape[0] == 3
+    np.testing.assert_allclose(array[2, 0, 0], [[2, 4, 6], [1, 3, 5], [0, 2, 4]])
+
+
+def test_integer_fields_keep_dtype():
+    class Source(AnalysisSource):
+        def __call__(self, time, variable):
+            da = super().__call__(time, variable)
+            return da.copy(data=da.values.astype(np.int32))
+
+    assert fetch_data(Source(), TIME, np.array(["a"])).dtype == np.int32
+
+
 @pytest.mark.parametrize("source_cls", [AnalysisSource, ForecastSource])
 def test_unsupported_statistics_rejected_before_fetch(source_cls):
     source = source_cls()

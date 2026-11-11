@@ -22,7 +22,7 @@ import math
 import zlib
 from collections.abc import Callable, Hashable, Iterator, Mapping, Sequence
 from itertools import chain
-from typing import Any
+from typing import Any, TypeAlias
 
 import numpy as np
 import torch
@@ -41,14 +41,18 @@ from earth2studio.coupling._schedule import (
 )
 from earth2studio.coupling.connector import Connector, _split_label
 from earth2studio.coupling.errors import CouplingError, _suggest
-from earth2studio.data import fetch_dataframe
+from earth2studio.data import (
+    DataSource,
+    ForecastSource,
+    fetch_dataframe,
+)
+from earth2studio.data.base import DataFrameSource, ForecastFrameSource
 from earth2studio.grids import infer_grid, same_geometry
 from earth2studio.models.utils import recommended_sources
 from earth2studio.perturbation import Perturbation
-from earth2studio.run._fields import _map_field, _with_lead_time
+from earth2studio.run._fields import _with_lead_time, map_field
 from earth2studio.run.runner import (
     DataRequest,
-    SlotSource,
     _check_perturbation,
     _fetch,
     _module_device,
@@ -61,6 +65,11 @@ from earth2studio.run.work import WorkItem
 from earth2studio.utils.coords import E2S_STATISTICS, coord_array_like
 from earth2studio.utils.time_statistics import apply_time_statistic
 from earth2studio.utils.type import CoordinateSystem
+
+# A source for any model slot: gridded fields, or DataFrames for observation slots.
+SlotSource: TypeAlias = (
+    DataSource | ForecastSource | DataFrameSource | ForecastFrameSource
+)
 
 _PROBE_TIME = np.datetime64("2000-01-01T00", "ns")
 
@@ -764,7 +773,7 @@ class _Execution:
             if len(parts) == 1
             else xr.concat(parts, dim="lead_time", combine_attrs="override")
         )
-        x = _map_field(x, plan.slot.signature)
+        x = map_field(x, plan.slot.signature)
         # Reductions carry the slot's temporal-statistics metadata, as fetch_data's do.
         x.attrs = {k: v for k, v in x.attrs.items() if k != E2S_STATISTICS}
         statistics = plan.slot.field.attrs.get(E2S_STATISTICS)
@@ -824,7 +833,7 @@ class _Execution:
         labels = [str(v) for v in piece.coords["variable"].values]
         signature = coord_array_like(plan.slot.signature, {"variable": labels})
         try:
-            piece = _map_field(piece, signature)
+            piece = map_field(piece, signature)
         except ValueError as error:
             raise CouplingError(
                 f"Connector {connector}: delivered state does not match "

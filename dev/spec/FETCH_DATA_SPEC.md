@@ -81,8 +81,13 @@ public in `earth2studio.grids`.
 
 1. Fetch requested fields, including source-computed temporal statistics.
 2. Assemble requested labels and their statistics metadata on the source grid.
+   Cast floating fields to float32; other dtypes pass through.
 3. Move the result to `device` if it is not already there.
 4. Map onto the target grid on `device`.
+
+Models consume float32, and sources may build float64 arrays (for example with
+a bare `np.empty`), so `fetch_data` owns the cast. A DataArray from a source called
+directly keeps the source's dtype.
 
 Regridding requested through `fetch_data` follows reduction. A `RegriddedSource`
 regrids whatever its wrapped source returns, after any temporal reduction.

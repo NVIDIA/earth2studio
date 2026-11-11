@@ -134,10 +134,10 @@ x = fetch_data(
 )
 
 # Run a single coupled step (lat/lon in, lat/lon out)
-from earth2studio.run import _dimension_coords, _map_field
+from earth2studio.run import _dimension_coords, map_field
 from earth2studio.utils.cupy import from_torch
 
-x = _map_field(x, in_coords)
+x = map_field(x, in_coords)
 y = model(x)
 
 y_atmos = model.retrieve_valid_atmos_outputs(y)
@@ -170,7 +170,7 @@ hours_per_step = int(model.atmos_output_times[-1] / np.timedelta64(1, "h"))  # 9
 n_steps = int(np.ceil(forecast_days * 24 / hours_per_step))
 
 model_iter = model.create_iterator(x)
-next(model_iter)  # initial condition
+# The iterator yields forecasts only (no initial condition)
 for _ in range(n_steps):
     y = next(model_iter)
 

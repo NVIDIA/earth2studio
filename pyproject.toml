@@ -24,6 +24,7 @@ dependencies = [
     "obspec>=0.1",
     "obstore>=0.8",
     "pygrib",
+    "pyproj>=3.7.1",
     "python-dotenv",
     "pandas",
     "pyarrow>=24.0.0",
@@ -76,7 +77,6 @@ data = [
     "aiohttp-retry>=2.8.3",
     "rasterio>=1.3.9",
     "rioxarray>=0.15.5",
-    "pyproj>=3.7.1", # TODO: pygrib imports this, so technically in core, to check
     "scipy>=1.15.2",
     "eumdac>=3.1.0",
 ]
