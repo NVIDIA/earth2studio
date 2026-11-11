@@ -28,7 +28,9 @@ import earth2studio.run as run
 from earth2studio.data import Constant, Random, Random_FX, fetch_data
 from earth2studio.grids import ProjectedGrid
 from earth2studio.io import ZarrBackend
+from earth2studio.models.dx import Identity
 from earth2studio.models.px import Persistence
+from earth2studio.perturbation import Zero
 from earth2studio.utils.checkpoint import Checkpoint
 from earth2studio.utils.coords import coord_array
 
@@ -287,3 +289,35 @@ def test_run_rejects_forced_models(workflow):
     }[workflow]
     with pytest.raises(ValueError, match="does not supply forcing"):
         getattr(run, workflow)(*args, device="cpu")
+
+
+class FlushRecordingZarr(ZarrBackend):
+    """Record writes and flushes, to check workflows flush after their last write."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.calls: list[str] = []
+
+    def write(self, x: xr.DataArray) -> None:
+        self.calls.append("write")
+        super().write(x)
+
+    def flush(self) -> None:
+        self.calls.append("flush")
+        super().flush()
+
+
+@pytest.mark.parametrize("workflow", ["deterministic", "diagnostic", "ensemble"])
+def test_run_flushes_io_before_returning(workflow):
+    coords = OrderedDict([("lat", np.arange(4)), ("lon", np.arange(8))])
+    model = Persistence(["t2m"], coords)
+    data = Random(domain_coords=coords)
+    io = FlushRecordingZarr()
+    args = {
+        "deterministic": (["2024-01-01"], 2, model, data, io),
+        "diagnostic": (["2024-01-01"], 2, model, Identity(), data, io),
+        "ensemble": (["2024-01-01"], 2, 2, model, data, io, Zero()),
+    }[workflow]
+    assert getattr(run, workflow)(*args, device="cpu") is io
+    assert "write" in io.calls
+    assert io.calls[-1] == "flush"
