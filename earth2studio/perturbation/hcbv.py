@@ -94,7 +94,7 @@ class HemisphericCentredBredVector:
         self, time: TimeArray, generator_size: int = 1, device: torch.device = "cpu"
     ) -> Generator[torch.Tensor]:
         """Creates and initializes the perturbation generator"""
-        from earth2studio.run import _map_field
+        from earth2studio.run import map_field
 
         # Initialize your IC or other necessary components
         batch_size = generator_size // 2
@@ -115,7 +115,7 @@ class HemisphericCentredBredVector:
             lead_time=input_coords.coords["lead_time"].values,
             device=device,
         )
-        input_data = _map_field(input_data, input_coords)
+        input_data = map_field(input_data, input_coords)
 
         if input_coords.sizes["lead_time"] > 1:
             logger.warning(

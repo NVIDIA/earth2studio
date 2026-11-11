@@ -101,7 +101,7 @@ start_time = datetime(2009, 8, 5)  # Start date for inference
 # %%
 
 from earth2studio.data import fetch_data
-from earth2studio.run import _map_field
+from earth2studio.run import map_field
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 tracker = tracker.to(device)
@@ -115,7 +115,7 @@ for step, time in enumerate(times):
         tracker.input_coords().coords["variable"].values,
         device=device,
     ).squeeze("lead_time", drop=True)
-    output = tracker(_map_field(x, tracker.input_coords()))
+    output = tracker(map_field(x, tracker.input_coords()))
     print(f"Step {step}: ARCO ERA5 tracks output shape {output.shape}")
 
 era5_tracks = output.e2s.to_torch()[0].cpu()
@@ -150,11 +150,11 @@ x = fetch_data(
 )
 
 # Create prognostic iterator
-model = prognostic.create_iterator(_map_field(x, prognostic.input_coords()))
+model = prognostic.create_iterator(map_field(x, prognostic.input_coords()))
 with tqdm(total=nsteps + 1, desc="Running inference") as pbar:
     for step, x in enumerate(model):
         # Run tracker
-        output = tracker(_map_field(x, tracker.input_coords()))
+        output = tracker(map_field(x, tracker.input_coords()))
         # lets remove the lead time dim
         output = output[:, 0]
         print(f"Step {step}: SFNO tracks output shape {output.shape}")
