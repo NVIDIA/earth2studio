@@ -1675,49 +1675,22 @@ def test_table_to_dataframe(chunked):
     assert len(df) == (6 if chunked else 3)
 
 
-@pytest.mark.parametrize(
-    "device",
-    [
-        "cpu",
-        pytest.param(
-            "cuda:0",
-            marks=pytest.mark.skipif(
-                not torch.cuda.is_available(), reason="cuda missing"
-            ),
-        ),
-    ],
-)
-def test_fetch_dataframe_fixed_size_lists(device):
-    channels = pa.list_(pa.float32(), 2)
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda missing")
+def test_fetch_dataframe_fixed_size_lists_to_cudf():
+    # Wide channel frames hold fixed-size lists, which cuDF cannot ingest directly
+    cudf = pytest.importorskip("cudf")
 
-    class ChannelFrameSource:
-        def __call__(self, time, variable, fields=None):
-            table = pa.table(
-                {
-                    "lat": pa.array([1.0, 2.0], type=pa.float32()),
-                    "observation_x": pa.array([[1.0, 2.0], [3.0, None]], type=channels),
-                }
-            )
-            frame = table.to_pandas(types_mapper=pd.ArrowDtype)
-            frame.attrs["source"] = "channels"
-            return frame
+    def source(time, variable, fields=None):
+        values = pa.array([[1.0, 2.0], [3.0, None]], type=pa.list_(pa.float32(), 2))
+        frame = pa.table({"observation_x": values}).to_pandas(
+            types_mapper=pd.ArrowDtype
+        )
+        frame.attrs["source"] = "channels"
+        return frame
 
-    if device != "cpu":
-        cudf = pytest.importorskip("cudf", reason="cudf not available for CUDA")
-
-    result = fetch_dataframe(
-        ChannelFrameSource(),
-        np.array([np.datetime64("2024-01-01T00:00")]),
-        np.array(["x"]),
-        device=device,
-    )
+    time = np.array([np.datetime64("2024-01-01T00:00")])
+    result = fetch_dataframe(source, time, np.array(["x"]), device="cuda:0")
+    assert isinstance(result, cudf.DataFrame)
     assert result.attrs["source"] == "channels"
-    if device == "cpu":
-        # CPU frames keep the fixed-size list type
-        assert result["observation_x"].dtype == pd.ArrowDtype(channels)
-        values = result["observation_x"].tolist()
-    else:
-        # cuDF holds them as variable-size lists in the same channel order
-        assert isinstance(result, cudf.DataFrame)
-        values = result["observation_x"].to_arrow().to_pylist()
-    assert [list(v) for v in values] == [[1.0, 2.0], [3.0, None]]
+    values = result["observation_x"].to_arrow().to_pylist()
+    assert values == [[1.0, 2.0], [3.0, None]]

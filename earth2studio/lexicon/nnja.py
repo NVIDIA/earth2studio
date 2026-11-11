@@ -203,6 +203,7 @@ class NNJAObsSatLexicon(metaclass=LexiconType):
         "amsub": "amsub::TMBR",
         "airs": "airs::TMBR",
         "iasi": "iasi::SCRA",
+        # Same scaled radiance as "iasi", returned without the Planck inversion
         "iasi_radiance": "iasi::SCRA",
         "cris": "cris::SRAD",
     }

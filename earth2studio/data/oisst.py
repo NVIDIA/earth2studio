@@ -127,7 +127,21 @@ class OISST:
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
     ) -> xr.DataArray:
-        """Fetch daily SST; arguments and result match fetch."""
+        """Fetch daily SST for the requested UTC dates.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Requested dates; subdaily times select the same daily analysis.
+        variable : str | list[str] | VariableArray
+            Variables to return; only ``sst`` is supported.
+
+        Returns
+        -------
+        xr.DataArray
+            SST in kelvin with time, variable, lat and lon dimensions and an
+            ``sst_date`` coordinate on time.
+        """
         return _sync_async(self.fetch, time, variable, timeout=self.async_timeout)
 
     async def fetch(
@@ -244,7 +258,19 @@ class OISST:
 
     @classmethod
     def available(cls, time: datetime | np.datetime64) -> bool:
-        """Return whether the date lies within the dataset's time range."""
+        """Check if the given date is within the OISST archive range.
+
+        Parameters
+        ----------
+        time : datetime | np.datetime64
+            Date to check (UTC).
+
+        Returns
+        -------
+        bool
+            True if the date is between 1981-09-01 and today. A recent date may
+            still have no published analysis yet.
+        """
         times, _ = prep_data_inputs(time, ["sst"])
         return (
             times[0] >= datetime(1981, 9, 1)

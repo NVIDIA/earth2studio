@@ -1049,11 +1049,15 @@ def _sat_wide_schema(
     sensor: str,
     channels: Collection[int] | None = None,
     *,
-    raw_iasi: bool = False,
+    footprint_float64: bool = False,
+    iasi_radiance: bool = False,
 ) -> pa.Schema:
     """Wide schema of one sensor: the shared footprint columns, the sensor's own
     footprint columns, and ``quality`` and ``observation_<variable>`` over the channel
-    axis ``channels`` (ascending), else ``SAT_CHANNELS[sensor]``."""
+    axis ``channels`` (ascending), else ``SAT_CHANNELS[sensor]``.
+
+    ``footprint_float64`` keeps float footprint columns in float64 instead of
+    float32; ``iasi_radiance`` adds the float64 ``observation_iasi_radiance``."""
     axis = sorted(SAT_CHANNELS[sensor] if channels is None else channels)
     others = {
         name
@@ -1065,9 +1069,7 @@ def _sat_wide_schema(
         NCEP_MICROWAVE_OUTPUT_SCHEMA,
         ("sensor_index", "quality", "wavenumber", "observation", "variable", *others),
     )
-    if raw_iasi:
-        # Raw IASI radiance keeps the decoded float64 footprint geometry rather
-        # than casting it to float32.
+    if footprint_float64:
         footprint = [
             field.with_type(pa.float64()) if field.type == pa.float32() else field
             for field in footprint
@@ -1075,18 +1077,12 @@ def _sat_wide_schema(
     return pa.schema(
         [
             *footprint,
-            *(
-                [
-                    _channel_field(
-                        "quality",
-                        pa.uint32(),
-                        sensor,
-                        axis,
-                        f"{sensor} per-channel quality, one slot per channel",
-                    )
-                ]
-                if not raw_iasi
-                else []
+            _channel_field(
+                "quality",
+                pa.uint32(),
+                sensor,
+                axis,
+                f"{sensor} per-channel quality, one slot per channel",
             ),
             *[
                 _channel_field(
@@ -1098,7 +1094,7 @@ def _sat_wide_schema(
                 )
                 for variable, variable_sensor in SAT_VARIABLE_SENSOR.items()
                 if variable_sensor == sensor
-                and (raw_iasi or variable != "iasi_radiance")
+                and (iasi_radiance or variable != "iasi_radiance")
             ],
         ]
     )
@@ -2024,6 +2020,9 @@ def _list_entries(lists: pa.ListArray) -> tuple[pa.StructArray, np.ndarray]:
 
 
 def _report_ids(batch: pa.RecordBatch) -> np.ndarray:
+    """Report id per row, unique within a file: earth2bufr's
+    ``_source_message_index`` (BUFR message in the file) in the upper 32 bits and
+    ``_source_subset_index`` (subset in that message) in the lower 32 bits."""
     return (
         batch.column("_source_message_index").to_numpy().astype(np.uint64) << 32
     ) | batch.column("_source_subset_index").to_numpy().astype(np.uint64)
@@ -2066,8 +2065,17 @@ def raw_conv_schema(variables: Sequence[str]) -> pa.Schema:
                 "lon",
                 pa.float64(),
                 nullable=True,
+                metadata={"description": "Report longitude (degrees east, 0-360)"},
+            ),
+            pa.field(
+                "lon_native",
+                pa.float64(),
+                nullable=True,
                 metadata={
-                    "description": "Report longitude as encoded (degrees east, -180 to 180)"
+                    "description": (
+                        "Report longitude as encoded in the dump (degrees east, "
+                        "-180 to 180)"
+                    )
                 },
             ),
             pa.field(
@@ -2130,7 +2138,8 @@ def _raw_conv_batch(
     header = {
         "time": timestamps_ns(stamp),
         "lat": pa.array(column("CLAT"), from_pandas=True),
-        "lon": pa.array(column("CLON"), from_pandas=True),
+        "lon": pa.array(np.mod(column("CLON"), 360.0), from_pandas=True),
+        "lon_native": pa.array(column("CLON"), from_pandas=True),
         "station": batch.column(batch.schema.get_all_field_indices("RPID")[0]),
         "station_elev": pa.array(column("SELV"), from_pandas=True),
         "class": pa.array(
@@ -3122,6 +3131,7 @@ def _sat_batch(
     satellites: frozenset[str] | None,
     axis: np.ndarray,
     iasi_groups: dict[bytes, np.ndarray],
+    footprint_float64: bool = False,
 ) -> pa.Table | None:
     """Wide rows (one per kept footprint) of one batch over the channel ``axis``.
 
@@ -3170,8 +3180,6 @@ def _sat_batch(
         elev = _column(batch, "HOLS")
 
     observations: dict[str, np.ndarray] = {}
-    quality: np.ndarray | None
-    raw_iasi = "iasi_radiance" in plan
     if sensor == "airs":
         quality = rows.take("ACQF")
         for variable, field in plan.items():
@@ -3190,8 +3198,8 @@ def _sat_batch(
         else:
             exponent = _iasi_scale_exponent(batch, rows, coded, iasi_groups)
             radiance = iasi_radiance_mw(coded, exponent) if "iasi" in plan else None
-            quality = None if raw_iasi else np.full(slots, np.nan)
-            if raw_iasi:
+            quality = np.full(slots, np.nan)
+            if "iasi_radiance" in plan:
                 observations["iasi_radiance"] = coded * np.power(10.0, -exponent)
         if radiance is not None:
             bt = radiance_to_bt(
@@ -3211,7 +3219,7 @@ def _sat_batch(
             observations[variable] = rows.take(field, np.float32)
 
     kept = rows.kept
-    precision = pa.float64() if raw_iasi else pa.float32()
+    precision = pa.float64() if footprint_float64 else pa.float32()
 
     def footprint_float(values_: np.ndarray | None) -> pa.Array:
         if values_ is None:
@@ -3248,8 +3256,7 @@ def _sat_batch(
         ),
         "satellite": _satellite_column(said[kept]),
     }
-    if quality is not None:
-        columns["quality"] = rows.lists(uint_with_nulls(quality, pa.uint32()))
+    columns["quality"] = rows.lists(uint_with_nulls(quality, pa.uint32()))
     for variable, values_ in observations.items():
         dtype = pa.float64() if variable == "iasi_radiance" else pa.float32()
         columns[f"observation_{variable}"] = rows.lists(
@@ -3267,6 +3274,7 @@ def decode_satellite(
     satellites: Collection[str] | None = None,
     channels: Collection[int] | None = None,
     decode_workers: int = 8,
+    footprint_float64: bool = False,
 ) -> pa.Table:
     """Decode an NCEP aggregate satellite file into a wide table, one row per footprint.
 
@@ -3292,6 +3300,8 @@ def decode_satellite(
         Channel numbers decoded for an IR sounder, by default ``SAT_CHANNELS[sensor]``
     decode_workers : int, optional
         Threads transforming decoded batches, by default 8
+    footprint_float64 : bool, optional
+        Keep float footprint columns in float64 instead of float32, by default False
 
     Returns
     -------
@@ -3301,7 +3311,12 @@ def decode_satellite(
     window_ns = (datetime_ns(dt_min), datetime_ns(dt_max))
     satellite_filter = None if satellites is None else frozenset(satellites)
     axis = sorted(SAT_CHANNELS[sensor] if channels is None else set(channels))
-    schema = _sat_wide_schema(sensor, axis, raw_iasi="iasi_radiance" in plan)
+    schema = _sat_wide_schema(
+        sensor,
+        axis,
+        footprint_float64=footprint_float64,
+        iasi_radiance="iasi_radiance" in plan,
+    )
     axis_values = np.array(axis, dtype=np.float64)
     iasi_groups: dict[bytes, np.ndarray] = {}
     with open_bufr(path) as source:
@@ -3325,6 +3340,7 @@ def decode_satellite(
                     satellite_filter,
                     axis_values,
                     iasi_groups,
+                    footprint_float64,
                 ),
                 batches,
                 decode_workers,

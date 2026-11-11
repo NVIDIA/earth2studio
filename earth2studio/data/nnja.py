@@ -90,10 +90,6 @@ NNJA_BUCKET = "noaa-reanalyses-pds"
 NNJA_PREFIX = "observations/reanalysis"
 
 
-def _identity_frame(frame: pd.DataFrame) -> pd.DataFrame:
-    return frame
-
-
 # Chunked download settings for NNJA cycle files
 _NNJA_READ_CHUNK_SIZE_BYTES = 8 * 1024 * 1024
 _NNJA_READ_CHUNK_CONCURRENCY = 64
@@ -243,26 +239,23 @@ class NNJAObsConv:
     occultation's reference point. No retrieval
     product is read.
 
-    ``source="convbufr"`` reads the raw radiosonde (``adpupa``) or land surface
-    station (``adpsfc``) dumps that feed PrepBUFR, selected with ``family``. These
-    rows keep the dump's float64 precision and identify each report and profile
-    level, but carry no PrepBUFR report types, quality marks or event history.
-    Supported variables are ``t``, ``td``, ``u``, ``v`` and ``pres`` for both
-    families, plus ``msl``, ``visibility``, ``tp:sum:3h`` and ``tp:sum:24h`` for
-    ``adpsfc``. Raw dumps are only available with ``layout="wide"``.
+    The ``convbufr.*`` sources read raw dumps (wide only): float64 values with
+    report and level ids, but no PrepBUFR report types, quality marks or events.
 
     Parameters
     ----------
-    source : {"prepbufr", "prepbufr.acft_profiles", "convbufr"}, optional
+    source : {"prepbufr", "prepbufr.acft_profiles", "convbufr.adpupa", "convbufr.adpsfc"}, optional
         Which encoding family of the NNJA conventional archive to read,
         by default ``"prepbufr"``. These sources are different stages of the
         NCEP observation-processing pipeline, not independent replacement
         datasets:
 
-        - ``"convbufr"`` points at the raw dump streams that obsproc merges
-          into PrepBUFR, grouped by family. The ``adpupa`` and ``adpsfc``
-          families are supported (see ``family``); they are decoded without
-          the PrepBUFR QC, so they do not resemble GSI-ready observations.
+        - ``"convbufr.adpupa"`` and ``"convbufr.adpsfc"`` point at the raw
+          radiosonde and land-station dumps that obsproc merges into PrepBUFR,
+          one row per report level. Variables are ``t``, ``td``, ``u``, ``v``
+          and ``pres``, plus ``msl``, ``visibility``, ``tp:sum:3h`` and
+          ``tp:sum:24h`` for ``adpsfc``. ``lon`` is wrapped to [0, 360) and
+          ``lon_native`` keeps the encoded value.
         - ``"prepbufr"`` points at the merged PrepBUFR cycle file. This is the
           preferred source for GSI-like conventional observations because
           upstream obsproc has already merged dump families, standardized many
@@ -299,14 +292,6 @@ class NNJAObsConv:
     original_event : bool, optional
         Return the report as first ingested (program code 1) instead of the latest
         quality-controlled event, by default False
-    family : {"adpupa", "adpsfc"} | None, optional
-        Raw dump family, required with ``source="convbufr"`` and not allowed
-        otherwise: ``"adpupa"`` reads radiosonde profiles, one row per level,
-        and ``"adpsfc"`` reads land surface station reports. Wide rows hold
-        ``time``, ``cycle_time``, ``lat``, ``lon``, ``station``,
-        ``station_elev``, ``class``, ``report``, ``profile_level``, ``subset``
-        and one float64 ``observation_<variable>`` column per requested
-        variable. By default None.
     gpsro_profile_metadata : bool, optional
         Add the ``report``, ``profile_level``, ``confidence`` and
         ``ionosphere_corrected`` columns to wide GPS-RO output, identifying
@@ -346,7 +331,9 @@ class NNJAObsConv:
     LEXICON = NNJAObsConvLexicon
     MIN_DATE = datetime(1979, 1, 1)
 
-    VALID_SOURCES = frozenset(["prepbufr", "prepbufr.acft_profiles", "convbufr"])
+    VALID_SOURCES = frozenset(
+        ["prepbufr", "prepbufr.acft_profiles", "convbufr.adpupa", "convbufr.adpsfc"]
+    )
 
     def __init__(
         self,
@@ -361,23 +348,20 @@ class NNJAObsConv:
         exclude_message_types: Sequence[str] = (),
         original_event: bool = False,
         layout: Literal["long", "wide"] = _DEFAULT_LAYOUT,
-        family: Literal["adpupa", "adpsfc"] | None = None,
         gpsro_profile_metadata: bool = False,
     ) -> None:
         self._layout = _validate_layout(layout)
-        if source == "convbufr":
-            if family not in RAW_CONV_VARIABLES or self._layout != "wide":
-                raise ValueError(
-                    "convbufr requires family='adpupa' or 'adpsfc' and layout='wide'"
-                )
-        elif family is not None:
-            raise ValueError("family is only supported for source='convbufr'")
-        self._family = family
         self._gpsro_profile_metadata = gpsro_profile_metadata
         if source not in self.VALID_SOURCES:
             raise ValueError(
                 f"Invalid source '{source}'. Valid sources: {sorted(self.VALID_SOURCES)}"
             )
+        # Raw dump family of a convbufr.* source, else None
+        self._family = (
+            source.removeprefix("convbufr.") if source.startswith("convbufr.") else None
+        )
+        if self._family is not None and self._layout != "wide":
+            raise ValueError(f'{source} requires layout="wide"')
         unknown = set(exclude_message_types) - set(PREPBUFR_OBS_TYPES.values())
         if unknown:
             raise ValueError(
@@ -555,7 +539,8 @@ class NNJAObsConv:
                     cycle,
                     intervals[0][0],
                     intervals[-1][1],
-                    dict.fromkeys(variable, ("", _identity_frame)),
+                    # Raw decoding reads only the variable names
+                    dict.fromkeys(variable, ("", lambda frame: frame)),
                     intervals,
                 )
                 for cycle, intervals in windows.items()
@@ -932,12 +917,13 @@ class NNJAObsSat:
         axis; the wavenumber follows from the channel number. Request several
         sensors concurrently, one call each, e.g.
         ``asyncio.gather(*(source.fetch(time, [s]) for s in sensors))``; the
-        calls share the source's decode slots. The ``iasi_radiance`` variable is
-        wide-only: it returns the decoded IASI radiance as float64
-        ``observation_iasi_radiance``, and a request containing it switches the
-        float footprint columns (``lat``, ``lon``, angles) to float64 and omits
-        ``quality``, so the wide IASI schema depends on the requested
-        variables. By default "long".
+        calls share the source's decode slots. The ``iasi_radiance`` variable
+        is wide-only and returns the decoded IASI radiance as float64
+        ``observation_iasi_radiance``. By default "long".
+    footprint_float64 : bool, optional
+        In wide output, keep the float footprint columns (``lat``, ``lon``,
+        ``elev`` and the angles) in their decoded float64 precision instead of
+        float32, by default False.
 
     Warning
     -------
@@ -992,8 +978,10 @@ class NNJAObsSat:
         retries: int = 3,
         sensor_indices: dict[str, Sequence[int]] | None = None,
         layout: Literal["long", "wide"] = _DEFAULT_LAYOUT,
+        footprint_float64: bool = False,
     ) -> None:
         self._layout = _validate_layout(layout)
+        self._footprint_float64 = footprint_float64
         if satellites is None:
             self._satellites: tuple[str, ...] | None = None
         else:
@@ -1267,6 +1255,7 @@ class NNJAObsSat:
             # Every archived channel unless narrowed via sensor_indices
             channels=self._sensor_indices.get(task.sensor),
             decode_workers=self._decode_workers,
+            footprint_float64=self._footprint_float64,
         )
 
     @classmethod
@@ -1346,7 +1335,8 @@ class NNJAObsSat:
             schema = _sat_wide_schema(
                 sensors[0],
                 self._sensor_indices.get(sensors[0]),
-                raw_iasi="iasi_radiance" in variables,
+                footprint_float64=self._footprint_float64,
+                iasi_radiance="iasi_radiance" in variables,
             )
             if "iasi_radiance" in variables and "iasi" not in variables:
                 schema = schema.remove(schema.get_field_index("observation_iasi"))
