@@ -25,7 +25,6 @@ data_source:
 file_output:
     path: '${output_path}/${project}_${run_id}'  # directory to which outfiles are written
     output_vars: ['t2m', 'z500']  # Variables to be saved
-    thread_io: True
     overwrite_store: True # Whether or not to overwrite an existing output file
     resolution: "latlon121x240" # What resolution to use when saving global output data (does not apply to cropboxes)
                          # Options: "latlon721x1440", "latlon121x240"

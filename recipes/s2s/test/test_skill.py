@@ -16,28 +16,25 @@
 
 import argparse
 import os
-from collections import OrderedDict
 from pathlib import Path
 
 import numpy as np
-import torch
 import xarray as xr
 
-from earth2studio.data import ARCO_ERA5
-from earth2studio.data.utils import fetch_data
+from earth2studio.data import ARCO_ERA5, fetch_data
+from earth2studio.grids import LatLonGrid
 from earth2studio.statistics import crps
-from earth2studio.utils.coords import CoordSystem
 
 expected_scores = {
     "dlesym": {
-        "t2m": torch.tensor([2.1747, 2.0343, 2.3918, 1.6183, 3.0419, 1.9484, 1.7904]),
-        "z500": torch.tensor(
+        "t2m": np.array([2.1747, 2.0343, 2.3918, 1.6183, 3.0419, 1.9484, 1.7904]),
+        "z500": np.array(
             [288.6965, 474.8904, 291.3008, 469.3990, 468.8430, 210.8404, 270.3322]
         ),
     },
     "sfno": {
-        "t2m": torch.tensor([4.3031, 4.0860, 3.7687, 4.2791, 5.4535, 3.8613, 4.2332]),
-        "z500": torch.tensor(
+        "t2m": np.array([4.3031, 4.0860, 3.7687, 4.2791, 5.4535, 3.8613, 4.2332]),
+        "z500": np.array(
             [143.6826, 205.8306, 263.3020, 398.4369, 504.6732, 375.4496, 235.7776]
         ),
     },
@@ -68,49 +65,27 @@ def main() -> None:
     for var in vars:
         with xr.open_zarr(path) as ds:
             # Load forecast data
-            fcst = ds[var].isel(time=[0]).sel(lead_time=verif_lead_times)
-            fcst_coords = CoordSystem(
-                ensemble=fcst.ensemble.values,
-                time=fcst.time.values,
-                lead_time=fcst.lead_time.values,
-                lat=fcst.lat.values,
-                lon=fcst.lon.values,
-            )
+            fcst = ds[var].isel(time=[0]).sel(lead_time=verif_lead_times).load()
 
-            # Load verification data
-            interp_coords = OrderedDict(
-                {
-                    "_lat": fcst.lat.values,
-                    "_lon": fcst.lon.values,
-                }
-            )
-            verif, verif_coords = fetch_data(
-                source=data_source,
-                variable=var,
-                time=ds.time.values,
-                lead_time=verif_lead_times,
-                target_grid=interp_coords,
-            )
-            verif = verif[:, :, 0, :, :]
-            verif_coords.pop("variable")
-            verif_coords["lat"], verif_coords["lon"] = (
-                verif_coords["_lat"],
-                verif_coords["_lon"],
-            )
-            del verif_coords["_lat"], verif_coords["_lon"]
+        # Load verification data on the forecast grid
+        verif = fetch_data(
+            source=data_source,
+            variable=np.array([var]),
+            time=fcst.time.values,
+            lead_time=verif_lead_times,
+            target_grid=LatLonGrid(fcst.lat.values, fcst.lon.values),
+        ).isel(variable=0, drop=True)
 
-            # Check within 5% of expected scores
-            scores, score_coords = metric(
-                torch.from_numpy(fcst.values), fcst_coords, verif, verif_coords
-            )
-            if torch.allclose(scores.squeeze(), expected_scores[model][var], rtol=5e-2):
-                passed[var] = True
-            else:
-                print(f"Expected skill not verified for {model}:")
-                for lt in range(len(expected_scores[model][var])):
-                    print(f"Lead time {verif_lead_times[lt]}")
-                    print(f"Expected: {expected_scores[model][var][lt]}")
-                    print(f"Actual: {scores.squeeze()[lt]}")
+        # Check within 5% of expected scores
+        scores = metric(fcst, verif).e2s.as_numpy().values.squeeze()
+        if np.allclose(scores, expected_scores[model][var], rtol=5e-2):
+            passed[var] = True
+        else:
+            print(f"Expected skill not verified for {model}:")
+            for lt in range(len(expected_scores[model][var])):
+                print(f"Lead time {verif_lead_times[lt]}")
+                print(f"Expected: {expected_scores[model][var][lt]}")
+                print(f"Actual: {scores[lt]}")
 
     if all(passed.values()):
         print(f"Expected skill verified for {model}")
