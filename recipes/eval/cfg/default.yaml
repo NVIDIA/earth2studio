@@ -9,7 +9,7 @@ defaults:
     - model: ucast
     - data_source: arco_era5
     - _self_
-    - optional campaign: null   # e.g. campaign=fcn3_2024_full
+    - optional campaign: null   # e.g. campaign=fcn3_2024_monthly
 
 # ---------------------------------------------------------------------------
 # Project metadata
@@ -47,8 +47,8 @@ runner: forecast
 
 # Forcing sources, one per forcing slot of the prognostic model (StormCast
 # conditioning, climatology baselines).  null uses the model's recommended
-# sources; entries resolve like data_source (BYO, then predownloaded
-# forcing_<k>.zarr, then live).
+# sources; an entry resolves to the predownloaded forcing<k>.zarr when
+# present, else to the live source it names.
 forcing_sources: null
 
 # Members rolled out together in one work item for offline runs (online
@@ -191,9 +191,9 @@ output:
 # must set predownload.overwrite=true.
 #
 # `verification.enabled` gates the verification store; score.py and online
-# scoring read verification.zarr when present, else the BYO
-# verification_source, else the live source.  Set `enabled=true` in your
-# campaign config so predownload.py and score.py agree.
+# scoring use the BYO verification_source when set, else verification.zarr
+# when present, else the live source.  Set `enabled=true` in your campaign
+# config so predownload.py and score.py agree.
 predownload:
     overwrite: false             # if true, recreate stores from scratch
     verification:
@@ -202,8 +202,9 @@ predownload:
                                  # set a node to use another source
     # DA runners only: cache observation DataFrames to
     # <output.path>/<slot>.parquet (one file per analysis time).  Inference
-    # prefers these stores over the live observation sources when present;
-    # set enabled=false to always fetch live.
+    # reads an existing store instead of the live observation sources;
+    # set enabled=false to skip the caching, and remove the store to fetch
+    # live again.
     observations:
         enabled: true
 
@@ -230,6 +231,15 @@ scoring:
             reduction_dimensions: [lat, lon]
     lat_weights: true                  # apply cosine latitude weighting
     lead_time_chunk_size: 8            # lead times per chunk (memory control)
+    # What a non-finite gridpoint does to a score, in both scoring modes:
+    #   propagate — every statistic of that variable at that lead comes out
+    #               NaN (the default; sea-only fields such as sst score NaN)
+    #   zero_fill — forecast and verification read 0 there and the point
+    #               counts in the normalizer, which biases a score low
+    #   mask      — online only: the point drops out of the sums and of the
+    #               weight normalizer, so sea-only fields score over the sea.
+    #               Offline metrics reduce whole fields and reject it.
+    nan_policy: propagate
 
     # ----------------------------------------------------------------------
     # Online scoring (used when mode is 'online')

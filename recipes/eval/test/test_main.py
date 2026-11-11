@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -27,7 +28,7 @@ from main import check_predownload, run
 from omegaconf import open_dict
 from src.campaign import build_items
 from src.data import PredownloadedSource
-from src.output import store_path, stream_variables
+from src.output import progress_path, store_path, stream_variables
 from src.runners import build_runner
 
 from earth2studio.run import DiagnosticRunner, PrognosticRunner
@@ -83,6 +84,27 @@ def test_resume_refuses_to_switch_scoring_mode(base_cfg) -> None:
         base_cfg.resume = True
     with pytest.raises(ValueError, match="does not match"):
         run(base_cfg)
+
+
+def test_unknown_scoring_mode_is_rejected(base_cfg) -> None:
+    # A typo must not downgrade the campaign to the offline path.
+    with open_dict(base_cfg):
+        base_cfg.scoring.mode = "onlin"
+    with pytest.raises(ValueError, match="scoring.mode"):
+        run(base_cfg)
+
+
+def test_resume_refuses_a_missing_store_with_recorded_progress(base_cfg) -> None:
+    run(base_cfg)
+    shutil.rmtree(store_path(base_cfg))
+    with open_dict(base_cfg):
+        base_cfg.resume = True
+    with pytest.raises(FileNotFoundError, match="progress store records"):
+        run(base_cfg)
+    # Clearing the progress store lets the run start over.
+    shutil.rmtree(progress_path(base_cfg))
+    run(base_cfg)
+    assert not np.isnan(_open(base_cfg)["t2m"].values).any()
 
 
 def test_ensemble_run_and_resume(base_cfg) -> None:

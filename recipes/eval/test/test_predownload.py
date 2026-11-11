@@ -329,6 +329,50 @@ def test_changed_campaign_requires_overwrite(cfg) -> None:
         run(cfg)
 
 
+def test_manifests_from_before_the_source_keys_still_resume(cfg, monkeypatch) -> None:
+    import json
+
+    import predownload as module
+    from src.output import progress_path
+
+    from earth2studio.run.work import MANIFEST_NAME
+
+    run(cfg)
+    manifest = progress_path(cfg, "progress_predownload_data") / MANIFEST_NAME
+    stored = json.loads(manifest.read_text())
+    assert {"source", "grid"} <= set(stored)
+    for key in ("source", "grid"):
+        stored.pop(key)
+    manifest.write_text(json.dumps(stored))
+    calls: list[np.datetime64] = []
+    monkeypatch.setattr(module, "_fetch_field", lambda store, time: calls.append(time))
+    run(cfg)
+    assert calls == [], "an old manifest with matching keys resumes without fetching"
+    assert {"source", "grid"} <= set(json.loads(manifest.read_text()))
+
+
+def test_changed_source_requires_overwrite(cfg) -> None:
+    # The manifest records which source filled a store, so re-pointing the
+    # campaign at another one does not pass for the finished download.
+    run(cfg)
+    with open_dict(cfg):
+        cfg.data_source._target_ = "earth2studio.data.Random"
+    with pytest.raises(ValueError, match="predownload.overwrite=true"):
+        run(cfg)
+
+
+def test_a_failed_fetch_writes_no_sentinel(cfg, monkeypatch) -> None:
+    import predownload as module
+
+    def failing(store, time):
+        raise RuntimeError("archive gap")
+
+    monkeypatch.setattr(module, "_fetch_field", failing)
+    with pytest.raises(RuntimeError, match="archive gap"):
+        run(cfg)
+    assert not sentinel_path(cfg).exists()
+
+
 class _FrameRunner:
     """Runner stub exposing observation-frame requests only."""
 

@@ -25,6 +25,7 @@ two-rank gloo test at the end launches ``torchrun`` on this file; setting
 
 from __future__ import annotations
 
+import json
 import os
 import socket
 import subprocess
@@ -71,7 +72,11 @@ from src.runners import build_runner  # noqa: E402
 
 from earth2studio.grids import LatLonGrid  # noqa: E402
 from earth2studio.run import Pipeline, ProgressStore, WorkItem  # noqa: E402
-from earth2studio.run.work import distribute_work, work_items  # noqa: E402
+from earth2studio.run.work import (  # noqa: E402
+    MANIFEST_NAME,
+    distribute_work,
+    work_items,
+)
 from test.conftest import SMALL_LAT, SMALL_LON, VARIABLES, compose_cfg  # noqa: E402
 
 T0 = np.datetime64("2024-01-01T00:00:00", "s")
@@ -200,6 +205,7 @@ def _make_scorer(
     name: str = "stats.zarr",
     lat_weights: bool = True,
     streams: dict[str, list[str]] | None = None,
+    nan_policy: str = "propagate",
 ) -> tuple[OnlineScorer, str]:
     comm = _single_comm(ensemble_size)
     stats = build_statistics(ensemble_size, False, settings, VARIABLES)
@@ -212,7 +218,9 @@ def _make_scorer(
     scorer = OnlineScorer(
         settings=settings,
         comm=comm,
-        verification=FieldCache(source, VARIABLES, GRID, SPATIAL, torch.device("cpu")),
+        verification=FieldCache(
+            source, VARIABLES, GRID, SPATIAL, torch.device("cpu"), nan_policy=nan_policy
+        ),
         climatology=None,
         variables=VARIABLES,
         lead_times=LEADS,
@@ -220,6 +228,7 @@ def _make_scorer(
         weights=build_spatial_weights(SPATIAL, lat_weights, regions=settings.regions),
         store=store,
         device=torch.device("cpu"),
+        nan_policy=nan_policy,
         streams=streams,
     )
     return scorer, path
@@ -405,14 +414,28 @@ class TestOrdering:
         assert all(i.member_ids == (0, 1) for i in slices[0])
         assert all(i.member_ids == (2, 3) for i in slices[1])
 
-    def test_resume_rejects_a_partly_done_time(self, tmp_path) -> None:
+    def test_resume_reruns_a_partly_done_time_whole(self, tmp_path) -> None:
+        # Time 0 fully recorded, time 1 recorded by one member group only (a
+        # job stopped between the ranks' records): time 1 runs again whole.
         cfg = compose_cfg(tmp_path, ["scoring.mode=online", "resume=true"])
-        items = self._items(2, 4, 2)
+        items = self._items(3, 4, 2)
         progress = ProgressStore(progress_path(cfg))
-        progress.mark_done(items[0])
+        manifest = {"version": 2, "seed": 0, "streams": {"forecast": {}}}
+        progress.setup(manifest)
+        for item in items[:3]:
+            progress.mark_done(item)
         progress.close()
-        with pytest.raises(ValueError, match="some member groups"):
-            order_items(cfg, items, world_size=2, group_size=2)
+        ordered = order_items(cfg, items, world_size=2, group_size=2)
+        # The manifest survives the rebuild unchanged.
+        assert json.loads((progress_path(cfg) / MANIFEST_NAME).read_text()) == manifest
+        assert sorted(ordered, key=lambda i: (i.time, i.member_ids)) == sorted(
+            items, key=lambda i: (i.time, i.member_ids)
+        )
+        assert [i.time for i in ordered[-2:]] == [items[0].time, items[1].time]
+        assert {i.time for i in ordered[:-2]} == {items[2].time, items[4].time}
+        reopened = ProgressStore(progress_path(cfg))
+        assert reopened.is_done(items[0]) and reopened.is_done(items[1])
+        assert not reopened.is_done(items[2])
 
     def test_world_size_must_fit_groups(self, tmp_path) -> None:
         cfg = compose_cfg(tmp_path, ["scoring.mode=online"])
@@ -615,7 +638,7 @@ class TestAccumulation:
         )
         source = FixedSource()
         scorer, path = _make_scorer(
-            tmp_path, cfg, settings, 2, source, lat_weights=False
+            tmp_path, cfg, settings, 2, source, lat_weights=False, nan_policy="mask"
         )
         # NaN in every member at one latitude row of the first variable only.
         _score_offsets(scorer, source, self.OFFSETS, nan_at=(0, 1, slice(None)))
@@ -631,6 +654,72 @@ class TestAccumulation:
         np.testing.assert_allclose(
             scores["crps__t2m"].sel(time=T0).values, (a + b) / 2 - abs(a - b) / 2
         )
+
+    def test_propagate_turns_a_partly_nan_variable_nan(self, tmp_path) -> None:
+        # The default policy means the same as offline: one non-finite point
+        # makes every statistic of that variable at that lead NaN, and the
+        # other variable keeps its scores.
+        cfg, settings = _settings(
+            tmp_path, members_per_rank=2, pairwise_comm_dtype="float64"
+        )
+        source = FixedSource()
+        scorer, path = _make_scorer(
+            tmp_path, cfg, settings, 2, source, lat_weights=False
+        )
+        _score_offsets(scorer, source, self.OFFSETS, nan_at=(0, 1, slice(None)))
+        scorer._store.close()
+        ds = xr.open_zarr(path, consolidated=False).sel(time=T0)
+        np.testing.assert_allclose(ds["w_sum__t2m"].values, 0.0)
+        np.testing.assert_allclose(ds["w_sum__z500"].values, N_POINTS)
+        scores = _finalize(cfg).sel(time=T0)
+        for name in ("mse", "crps", "bias", "rank_reliability"):
+            assert np.isnan(scores[f"{name}__t2m"].values).all(), name
+        a, b = self.OFFSETS
+        np.testing.assert_allclose(scores["mse__z500"].sel(ensemble=1).values, b**2)
+        np.testing.assert_allclose(
+            scores["crps__z500"].values, (a + b) / 2 - abs(a - b) / 2
+        )
+
+    def test_zero_fill_counts_every_gridpoint(self, tmp_path) -> None:
+        # As offline: a NaN forecast point reads 0 and stays in the
+        # normalizer, so its error is the verification value itself.
+        cfg, settings = _settings(
+            tmp_path, members_per_rank=2, pairwise_comm_dtype="float64"
+        )
+        source = FixedSource()
+        scorer, path = _make_scorer(
+            tmp_path,
+            cfg,
+            settings,
+            2,
+            source,
+            lat_weights=False,
+            nan_policy="zero_fill",
+        )
+        _score_offsets(scorer, source, self.OFFSETS, nan_at=(0, 1, slice(None)))
+        scorer._store.close()
+        ds = xr.open_zarr(path, consolidated=False).sel(time=T0)
+        np.testing.assert_allclose(ds["w_sum__t2m"].values, N_POINTS)
+        scores = _finalize(cfg).sel(time=T0, ensemble=1)
+        _, b = self.OFFSETS
+        for i, lead in enumerate(LEADS):
+            truth = source(np.datetime64(T0, "ns") + lead, ["t2m"]).values[0, 0]
+            expected = (
+                (N_POINTS - SMALL_LON.size) * b**2 + (truth[1, :] ** 2).sum()
+            ) / N_POINTS
+            np.testing.assert_allclose(
+                scores["mse__t2m"].isel(lead_time=i).values, expected, rtol=1e-6
+            )
+
+    def test_member_less_field_for_a_batched_item_is_rejected(self, tmp_path) -> None:
+        cfg, settings = _settings(tmp_path, members_per_rank=2)
+        source = FixedSource()
+        scorer, _ = _make_scorer(tmp_path, cfg, settings, 2, source)
+        item = WorkItem(T0, np.timedelta64(12, "h"), (0, 1))
+        truth = source(T0, VARIABLES).values[0]
+        scorer.begin_item(item)
+        with pytest.raises(ValueError, match="no 'ensemble' axis"):
+            scorer.update(item, "forecast", _field(truth, LEADS[0], VARIABLES, None))
 
     def test_foreign_members_and_bad_layouts_are_rejected(self, tmp_path) -> None:
         cfg, settings = _settings(tmp_path, members_per_rank=2)
@@ -820,10 +909,34 @@ class TestStoreSchema:
         store.close()
         again = open_stats_store(path, groups, ["global"], resume=True, overwrite=False)
         assert "w_sum__t2m" in again
+        again.close()
         with pytest.raises(ValueError, match="regions"):
             open_stats_store(path, groups, ["europe"], resume=True, overwrite=False)
         with pytest.raises(FileExistsError):
             open_stats_store(path, groups, ["global"], resume=False, overwrite=False)
+        # A resume into a store laid out for other initial times fails at
+        # setup, not at the first write after a rollout.
+        longer = stats_array_groups(
+            build_statistics(1, False, settings, VARIABLES),
+            VARIABLES,
+            np.array([T0, T1]),
+            LEADS,
+            1,
+            ["global"],
+        )
+        with pytest.raises(ValueError, match="differs from the store"):
+            open_stats_store(path, longer, ["global"], resume=True, overwrite=False)
+        # open_stats_store refuses a resume whose store has gone missing
+        # while the progress store still records finished items.
+        with pytest.raises(FileNotFoundError, match="progress store records"):
+            open_stats_store(
+                str(tmp_path / "gone.zarr"),
+                groups,
+                ["global"],
+                resume=True,
+                overwrite=False,
+                recorded=3,
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -1103,12 +1216,75 @@ def test_two_rank_group_matches_single_process(tmp_path) -> None:
         )
 
 
+@pytest.mark.skipif(
+    os.environ.get("E2S_EVAL_SKIP_MULTIRANK") == "1", reason="multi-rank test disabled"
+)
+def test_two_rank_mask_agrees_across_the_group() -> None:
+    """A member-local non-finite point on the non-root rank masks on both ranks."""
+    env = {**os.environ, "OMP_NUM_THREADS": "1", "CUDA_VISIBLE_DEVICES": ""}
+    env["PYTHONPATH"] = os.pathsep.join(
+        p
+        for p in (
+            str(RECIPE_DIR),
+            str(RECIPE_DIR.parents[1]),
+            env.get("PYTHONPATH", ""),
+        )
+        if p
+    )
+    result = subprocess.run(  # noqa: S603 - fixed interpreter and script
+        [
+            sys.executable,
+            "-m",
+            "torch.distributed.run",
+            "--nnodes=1",
+            "--nproc_per_node=2",
+            "--master_addr=127.0.0.1",
+            f"--master_port={_free_port()}",
+            __file__,
+            "--mask-check",
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+    assert result.returncode == 0, result.stdout[-4000:] + result.stderr[-4000:]
+
+
+def _torchrun_mask_check() -> int:
+    """Both ranks of a two-rank group derive one mask from rank 1's NaN."""
+    import torch.distributed as dist
+    from src.online import _valid_mask
+
+    dist.init_process_group("gloo")
+    try:
+        rank = dist.get_rank()
+        group = EnsembleGroup(
+            block=0, group_rank=rank, group_size=2, members_per_rank=1, ranks=(0, 1)
+        )
+        comm = GroupComm(group, dist.group.WORLD)
+        finite = torch.ones((2, 4, 8), dtype=torch.bool)
+        if rank == 1:
+            finite[0, 1, 3] = False
+        masked = _valid_mask(finite, "mask", comm)
+        assert not bool(masked[0, 1, 3]) and int(masked.sum()) == 2 * 4 * 8 - 1, rank
+        whole = _valid_mask(finite, "propagate", comm)
+        assert not bool(whole[0].any()) and bool(whole[1].all()), rank
+        assert bool(_valid_mask(finite, "zero_fill", comm).all()), rank
+    finally:
+        dist.barrier()
+        dist.destroy_process_group()
+    return 0
+
+
 def _torchrun_main() -> int:
     """One rank of the two-rank run: ``torchrun ... test_online.py OUT``."""
     import torch.distributed as dist
 
     from earth2studio.grids import list_grids, register_grid
 
+    if sys.argv[1] == "--mask-check":
+        return _torchrun_mask_check()
     if "latlon-small" not in list_grids():
         register_grid("latlon-small", GRID)
     out = Path(sys.argv[1])

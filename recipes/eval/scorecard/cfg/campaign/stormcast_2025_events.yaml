@@ -25,8 +25,8 @@
 # event adds one initial condition every 3 h from 12 h before its window
 # to its end, and every lead time out to 12 h has valid times inside the
 # window.  The model domain itself is the event region (`region: global`);
-# boxes on the HRRR grid would use its projection coordinates, `hrrr_y`
-# and `hrrr_x` in metres, not latitude and longitude.
+# boxes on the HRRR grid would use its projection coordinates, `y` and
+# `x` in metres, not latitude and longitude.
 #
 # Everything streams during inference: HRRR analyses (AWS) for initial
 # conditions and truth (ic_source / verification_source), ERA5 (ARCO) for

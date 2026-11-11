@@ -24,6 +24,7 @@ closed-form fields, so every score has an analytic expectation.
 from __future__ import annotations
 
 import os
+import shutil
 from collections import OrderedDict
 
 import numpy as np
@@ -51,6 +52,7 @@ from src.scoring import (
     load_verification_chunk,
     open_score_store,
     open_verification_source,
+    score_store_path,
     score_variable_names,
     scoring_progress_path,
     spatial_coords_from_dataset,
@@ -339,6 +341,18 @@ class TestStoreIntrospection:
         assert list(coords) == ["lat", "lon"]
         np.testing.assert_array_equal(coords["lat"], SMALL_LAT)
 
+    def test_spatial_coords_follow_the_fields_not_the_dataset(self):
+        # ``Dataset.dims`` lists dimensions in array reading order, which a
+        # zarr 3 store does not fix; the scoring tensors follow the fields'
+        # own order.
+        ds = xr.Dataset(coords={"lon": SMALL_LON, "lat": SMALL_LAT, "time": TIMES})
+        ds["t2m"] = (
+            ("time", "lat", "lon"),
+            np.zeros((len(TIMES), len(SMALL_LAT), len(SMALL_LON))),
+        )
+        assert list(ds.dims)[:2] == ["lon", "lat"]
+        assert list(spatial_coords_from_dataset(ds)) == ["lat", "lon"]
+
     def test_input_template_deterministic(self, det_cfg):
         ds = xr.open_zarr(store_path(det_cfg), consolidated=False)
         template = build_input_coords_template(ds, LEAD_TIMES, VARIABLES)
@@ -394,6 +408,24 @@ class TestLoadChunks:
             load_verification_chunk(
                 source, TIMES[0], LEAD_TIMES, VARIABLES, coords, "cpu"
             )
+
+    def test_verification_dimension_order_is_normalized(self, det_cfg):
+        # A source serving (lon, lat) fields lands in the prediction order.
+        inner = PredownloadedSource(store_path(det_cfg, "verification.zarr"))
+
+        class Transposed:
+            def __call__(self, time, variable):
+                return inner(time, variable).transpose(..., "lon", "lat")
+
+        coords = OrderedDict(lat=SMALL_LAT, lon=SMALL_LON)
+        y = load_verification_chunk(
+            Transposed(), TIMES[0], LEAD_TIMES, VARIABLES, coords, "cpu"
+        )
+        expected = load_verification_chunk(
+            inner, TIMES[0], LEAD_TIMES, VARIABLES, coords, "cpu"
+        )
+        assert tuple(y.dims) == ("lead_time", "variable", "lat", "lon")
+        np.testing.assert_array_equal(y.values, expected.values)
 
     def test_verification_is_selected_onto_a_coarser_prediction_grid(self, det_cfg):
         # A forecast on every other point of the verification grid, as a 1.5
@@ -643,6 +675,21 @@ class TestOpenVerificationSource:
 
         assert isinstance(open_verification_source(cfg), Random)
 
+    def test_window_means_accept_only_a_marked_saved_store(self, det_cfg):
+        import zarr
+        from src.data import WINDOW_MEANS_ATTR
+
+        with open_dict(det_cfg):
+            det_cfg.runner = {"name": "window_mean", "window": "12h"}
+        # The saved store holds instantaneous fields: refused for window means.
+        with pytest.raises(ValueError, match="window means"):
+            open_verification_source(det_cfg)
+        path = store_path(det_cfg, "verification.zarr")
+        zarr.open_group(path, mode="r+").attrs.update({WINDOW_MEANS_ATTR: "12h"})
+        source = open_verification_source(det_cfg)
+        assert isinstance(source, PredownloadedSource)
+        assert source.store_path == path
+
     def test_nothing_configured_raises(self, tmp_path):
         cfg = scoring_cfg(tmp_path)
         with open_dict(cfg):
@@ -667,6 +714,23 @@ class TestScoreStore:
         assert "rmse__t2m" in io and "rmse__z500" in io
         assert io["rmse__t2m"].shape == (len(TIMES), len(LEAD_TIMES))
 
+    def test_add_score_arrays_checks_an_existing_layout(self, tmp_path):
+        io = ZarrBackend(str(tmp_path / "scores.zarr"))
+        add_score_arrays(
+            io,
+            group_score_arrays_by_dims(
+                OrderedDict(rmse=rmse(["lat", "lon"])), _template(), TIMES
+            ),
+        )
+        more = np.append(TIMES, TIMES[-1] + np.timedelta64(1, "D"))
+        with pytest.raises(ValueError, match="differs from the store|shape"):
+            add_score_arrays(
+                io,
+                group_score_arrays_by_dims(
+                    OrderedDict(rmse=rmse(["lat", "lon"])), _template(), more
+                ),
+            )
+
     def test_open_score_store_stamps_events_and_chunks(self, det_cfg):
         groups = group_score_arrays_by_dims(
             OrderedDict(rmse=rmse(["lat", "lon"])), _template(), TIMES
@@ -684,6 +748,25 @@ class TestScoreStore:
 
 
 class TestEndToEnd:
+    def test_rerun_refuses_an_existing_score_store(self, det_cfg):
+        run_score(det_cfg, "cpu")
+        with open_dict(det_cfg):
+            det_cfg.scoring.output.overwrite = False
+        with pytest.raises(FileExistsError, match="already exists"):
+            run_score(det_cfg, "cpu")
+        with open_dict(det_cfg):
+            det_cfg.scoring.resume = True
+        run_score(det_cfg, "cpu")
+        assert not open_scores(det_cfg)["rmse__t2m"].isnull().any()
+
+    def test_resume_refuses_a_missing_score_store_with_records(self, det_cfg):
+        run_score(det_cfg, "cpu")
+        shutil.rmtree(score_store_path(det_cfg))
+        with open_dict(det_cfg):
+            det_cfg.scoring.resume = True
+        with pytest.raises(FileNotFoundError, match="progress store records"):
+            run_score(det_cfg, "cpu")
+
     def test_deterministic(self, det_cfg):
         run_score(det_cfg, "cpu")
         ds = open_scores(det_cfg)
@@ -833,6 +916,12 @@ class TestNanPolicy:
         truth["z500"][:, 0, :] = np.nan  # the polar row is invalid
         write_forecast_store(cfg, analytic_forecast())
         write_verification_store(cfg, truth)
+
+    def test_mask_is_online_only(self, tmp_path):
+        cfg = scoring_cfg(tmp_path, nan_policy="mask")
+        self._stores(cfg)
+        with pytest.raises(ValueError, match="online"):
+            run_score(cfg, "cpu")
 
     def test_propagate_default_yields_nan(self, tmp_path):
         cfg = scoring_cfg(tmp_path)

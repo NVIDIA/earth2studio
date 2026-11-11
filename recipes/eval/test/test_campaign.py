@@ -107,6 +107,15 @@ def test_members_and_final_lead_time() -> None:
         final_lead_time(OmegaConf.create({"nsteps": 2}), _NoStepRunner())
 
 
+def test_online_scoring_rejects_an_unknown_mode() -> None:
+    from src.campaign import online_scoring
+
+    assert online_scoring(OmegaConf.create({"scoring": {"mode": "online"}}))
+    assert not online_scoring(OmegaConf.create({}))
+    with pytest.raises(ValueError, match="scoring.mode"):
+        online_scoring(OmegaConf.create({"scoring": {"mode": "onlin"}}))
+
+
 def test_members_per_item_follows_scoring_mode() -> None:
     offline = OmegaConf.create({"member_batch": 2, "scoring": {"mode": "offline"}})
     online = OmegaConf.create(

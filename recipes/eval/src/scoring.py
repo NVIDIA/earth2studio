@@ -59,11 +59,11 @@ from earth2studio.utils.coords import CoordSystem, coord_array
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.type import CoordinateSystem
 
-from .data import resolve_source
+from .campaign import online_scoring
+from .data import WINDOW_MEANS_ATTR, resolve_source, store_attrs, store_name
 from .output import (
     OutputRegridder,
     progress_path,
-    remove_store,
     store_path,
     verification_regridder,
 )
@@ -74,7 +74,7 @@ from .regions import (
     scoring_regions,
     spatial_axes,
 )
-from .runners import require_window_mean_verification
+from .runners import is_window_mean, require_window_mean_verification
 
 # ---------------------------------------------------------------------------
 # Config helpers
@@ -84,17 +84,15 @@ from .runners import require_window_mean_verification
 def online_mode(cfg: DictConfig) -> bool:
     """Whether ``scoring.mode`` selects the online pathway.
 
+    The one check every entry point shares,
+    :func:`src.campaign.online_scoring`.
+
     Raises
     ------
     ValueError
         On an unknown mode, rather than silently falling back to offline.
     """
-    mode = str(cfg.get("scoring", {}).get("mode", "offline")).lower()
-    if mode not in ("offline", "online"):
-        raise ValueError(
-            f"Invalid scoring.mode '{mode}'; expected 'offline' or 'online'."
-        )
-    return mode == "online"
+    return online_scoring(cfg)
 
 
 def score_store_path(cfg: DictConfig) -> str:
@@ -344,7 +342,11 @@ def open_verification_source(cfg: DictConfig) -> Any:
 
     A bring-your-own ``verification_source`` wins; otherwise the
     predownloaded ``<output.path>/verification.zarr``; otherwise the live
-    ``predownload.verification.source`` or ``data_source``.
+    ``predownload.verification.source`` or ``data_source``.  A ``window_mean``
+    run accepts only sources of window means: the two configured ones, or a
+    saved store that ``predownload.py`` marked as holding them
+    (:data:`src.data.WINDOW_MEANS_ATTR`); it never falls back to
+    ``data_source``.
 
     Parameters
     ----------
@@ -359,15 +361,18 @@ def open_verification_source(cfg: DictConfig) -> Any:
     ------
     ValueError
         If no config entry names a verification source, or a ``window_mean``
-        run would verify against ``data_source``
+        run has no source of window means
         (:func:`src.runners.require_window_mean_verification`).
     """
-    configured = cfg.predownload.verification.get("source", None)
-    require_window_mean_verification(cfg, configured)
-    live = configured or cfg.get("data_source")
-    source = resolve_source(
-        cfg, "verification", byo=cfg.get("verification_source"), live=live
-    )
+    byo = cfg.get("verification_source")
+    predownload = cfg.get("predownload", None) or {}
+    configured = (predownload.get("verification", None) or {}).get("source", None)
+    if byo is None and configured is None and is_window_mean(cfg):
+        saved = store_path(cfg, store_name("verification"))
+        if not store_attrs(saved).get(WINDOW_MEANS_ATTR):
+            require_window_mean_verification(cfg, None)
+    live = configured if configured is not None else cfg.get("data_source")
+    source = resolve_source(cfg, "verification", byo=byo, live=live)
     if source is None:
         raise ValueError(
             "No verification source: set verification_source, run predownload.py "
@@ -391,8 +396,13 @@ def spatial_coords_from_dataset(ds: xr.Dataset) -> CoordSystem:
         ``{x: [...], y: [...]}`` for non-lat/lon grids).  A dimension
         without a coordinate gets ``arange(size)``.
     """
+    # The dimension order comes from a stored field, not from ``ds.dims``:
+    # that mapping follows the listing order of the arrays, which a zarr 3
+    # store returns in the order its concurrent reads completed.
+    reference = next(iter(ds.data_vars.values()), None)
+    dims = tuple(ds.dims) if reference is None else tuple(reference.dims)
     coords: CoordSystem = OrderedDict()
-    for dim in ds.dims:
+    for dim in dims:
         if dim in NON_SPATIAL:
             continue
         if dim in ds.coords:
@@ -549,13 +559,14 @@ def load_verification_chunk(
         da = regrid(da)
     da = da.isel(time=0, drop=True)
     spatial = [d for d in da.dims if d not in ("lead_time", "variable")]
-    da = _dimension_coords_only(da.transpose("lead_time", "variable", *spatial))
-    if list(spatial) != list(grid) or any(da.sizes[d] != len(grid[d]) for d in grid):
+    if set(spatial) != set(grid) or any(da.sizes[d] != len(grid[d]) for d in grid):
         raise ValueError(
             "Verification grid "
             f"{ {d: da.sizes[d] for d in spatial} } does not match the prediction "
             f"grid { {d: len(v) for d, v in grid.items()} }."
         )
+    # Transposed by name: the source's own dimension order is not the store's.
+    da = _dimension_coords_only(da.transpose("lead_time", "variable", *grid))
     da = da.assign_coords(
         lead_time=np.asarray(lead_times), **{d: grid[d] for d in grid}
     )
@@ -742,13 +753,16 @@ def add_score_arrays(
     io: ZarrBackend,
     array_groups: list[tuple[CoordSystem, list[str]]],
 ) -> None:
-    """Add score arrays to the zarr store, skipping any that already exist.
+    """Create the score arrays of the zarr store and check the ones present.
 
-    Safe to call on every rank inside :func:`earth2studio.run.work.rank0_first`:
+    Safe to call on every rank inside :func:`src.logs.rank0_first_checked`:
     rank 0 creates the arrays, the other ranks find them present and no-op.
+    The backend leaves an existing array alone when its layout matches and
+    raises when it does not, so a resumed scoring into a store laid out for
+    other times or lead times fails here, before any work.
 
     Each group becomes one IO template whose ``variable`` labels name the
-    score arrays to create and whose other dimensions size them.
+    score arrays and whose other dimensions size them.
 
     Parameters
     ----------
@@ -756,13 +770,15 @@ def add_score_arrays(
         The score store backend.
     array_groups : list[tuple[CoordSystem, list[str]]]
         Groups from :func:`group_score_arrays_by_dims`.
+
+    Raises
+    ------
+    ValueError
+        If an existing array or coordinate differs from the template.
     """
     for group_coords, group_vars in array_groups:
-        new_vars = [v for v in group_vars if v not in io]
-        if not new_vars:
-            continue
         coords = {dim: np.asarray(vals) for dim, vals in group_coords.items()}
-        coords["variable"] = np.array(new_vars)
+        coords["variable"] = np.array(list(group_vars))
         io.add_array(coord_array((*group_coords, "variable"), coords))
 
 
@@ -774,12 +790,12 @@ def open_score_store(
 ) -> ZarrBackend:
     """Create or open the score store and add the score arrays.
 
-    Call on every rank inside :func:`earth2studio.run.work.rank0_first`.
-    With ``scoring.output.overwrite`` and no resume, rank 0 clears an
-    existing store first.  The chunk sizes come from
-    ``scoring.output.chunks`` (default ``{time: 1}``) and the parsed events
-    go onto the store attributes so the scorecard exporter can
-    window the per-IC scores.
+    Call on every rank inside :func:`src.logs.rank0_first_checked`, after
+    :func:`src.output.prepare_store` applied the rerun policy
+    (``scoring.resume``, ``scoring.output.overwrite``) to an existing store.
+    The chunk sizes come from ``scoring.output.chunks`` (default
+    ``{time: 1}``) and the parsed events go onto the store attributes so the
+    scorecard exporter can window the per-IC scores.
 
     Parameters
     ----------
@@ -797,10 +813,6 @@ def open_score_store(
     ZarrBackend
     """
     path = score_store_path(cfg)
-    resume = bool(cfg.scoring.get("resume", False))
-    overwrite = bool(cfg.scoring.output.get("overwrite", False)) and not resume
-    if rank == 0 and overwrite:
-        remove_store(path)
     chunks = {
         str(k): int(v)
         for k, v in dict(cfg.scoring.output.get("chunks", None) or {"time": 1}).items()
@@ -821,10 +833,16 @@ def open_score_store(
 
 def _parse_nan_policy(cfg: DictConfig) -> str:
     policy = str(cfg.scoring.get("nan_policy", "propagate")).lower()
+    if policy == "mask":
+        raise ValueError(
+            "scoring.nan_policy=mask drops non-finite gridpoints from each "
+            "statistic, which only online scoring supports; offline metrics "
+            "reduce whole fields. Use propagate or zero_fill with scoring.mode=offline."
+        )
     if policy not in ("propagate", "zero_fill"):
         raise ValueError(
             f"Invalid scoring.nan_policy '{policy}'; "
-            "expected 'propagate' or 'zero_fill'."
+            "expected 'propagate', 'zero_fill' or 'mask' (online only)."
         )
     if policy == "zero_fill":
         logger.info(

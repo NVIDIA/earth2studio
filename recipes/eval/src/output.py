@@ -25,6 +25,7 @@ side.
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 from collections import OrderedDict
@@ -49,10 +50,12 @@ from earth2studio.grids import (
     select_subset,
 )
 from earth2studio.io import AsyncZarrBackend, IOBackend, ZarrBackend
-from earth2studio.run import WorkItem
-from earth2studio.run.work import broadcast
+from earth2studio.run import ProgressStore, WorkItem
+from earth2studio.run.work import MANIFEST_NAME, broadcast
 from earth2studio.utils.coords import CoordSystem
 from earth2studio.utils.type import CoordinateSystem
+
+from .regions import spatial_axes
 
 _ITERATION_DIMS = ("ensemble", "time", "lead_time")
 
@@ -116,12 +119,82 @@ def remove_store(path: str) -> None:
         logger.info(f"Removed stray file at store path {path}")
 
 
-def prepare_store(path: str, resume: bool, overwrite: bool, rank: int = 0) -> None:
+def progress_tags(cfg: DictConfig, online: bool) -> dict[str, Any]:
+    """Tags every run records in its progress manifest.
+
+    Online and offline runs share the progress store; the ``scoring`` tag
+    makes a resume that switches mode fail instead of skipping finished
+    items, which would leave the new statistics store without them.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Campaign config.
+    online : bool
+        Whether the run scores online.
+
+    Returns
+    -------
+    dict[str, Any]
+        ``project``, ``run_id`` and ``scoring`` (``online`` or ``offline``).
+    """
+    return {
+        "project": str(cfg.project),
+        "run_id": str(cfg.run_id),
+        "scoring": "online" if online else "offline",
+    }
+
+
+def recorded_items(
+    progress_dir: str | os.PathLike,
+    items: Sequence[WorkItem],
+    tags: Mapping[str, Any] | None = None,
+) -> int:
+    """Number of ``items`` a progress store records as done for this run.
+
+    Parameters
+    ----------
+    progress_dir : str | os.PathLike
+        Directory of the :class:`~earth2studio.run.ProgressStore`; a missing
+        directory records nothing.
+    items : Sequence[WorkItem]
+        The run's items.
+    tags : Mapping[str, Any] | None, optional
+        The run's manifest tags, by default None.  Records under a manifest
+        with other tags count as 0: they belong to another run, and the
+        pipeline's own manifest check refuses that resume.
+
+    Returns
+    -------
+    int
+        Items whose every unit the store records.
+    """
+    if not os.path.isdir(progress_dir):
+        return 0
+    manifest_path = Path(progress_dir) / MANIFEST_NAME
+    if tags is not None and manifest_path.is_file():
+        try:
+            stored = json.loads(manifest_path.read_text()).get("tags") or {}
+        except json.JSONDecodeError:
+            stored = {}
+        normalized = json.loads(json.dumps(dict(tags), sort_keys=True, default=str))
+        if stored != normalized:
+            return 0
+    store = ProgressStore(progress_dir)
+    try:
+        return len(items) - len(store.remaining(items))
+    finally:
+        store.close()
+
+
+def prepare_store(
+    path: str, resume: bool, overwrite: bool, rank: int = 0, recorded: int = 0
+) -> None:
     """Apply the rerun policy to an existing store before any rank opens it.
 
     Rank 0 inspects the path and every rank learns the outcome, so a refusal
-    raises on all ranks together instead of leaving the others waiting at the
-    rank-ordered barrier of :func:`earth2studio.run.work.rank0_first`.
+    raises on all ranks together, each with the same message, before
+    :func:`src.logs.rank0_first_checked` opens the store.
 
     Parameters
     ----------
@@ -133,14 +206,28 @@ def prepare_store(path: str, resume: bool, overwrite: bool, rank: int = 0) -> No
         Whether rank 0 removes the existing store.  ``resume`` wins.
     rank : int, optional
         This process's rank, by default 0.
+    recorded : int, optional
+        Items the progress store already records as done
+        (:func:`recorded_items`), by default 0.  A resume whose store has
+        gone missing while records remain would skip those items and leave
+        them out of the new store, so this function refuses it.
 
     Raises
     ------
     FileExistsError
         If the store exists without ``resume`` or ``overwrite``.
+    FileNotFoundError
+        With ``resume``, a missing store and a nonzero ``recorded``.
     """
     exists = broadcast(os.path.lexists(path) if rank == 0 else None)
     if not exists:
+        if resume and recorded:
+            raise FileNotFoundError(
+                f"{path} is missing, but the progress store records {recorded} "
+                "finished item(s) that it held. A resume would skip them and "
+                "leave them out of the new store. Clear the progress store or "
+                "run with resume=false to rerun them, or restore the store."
+            )
         return
     if resume:
         logger.info(f"Resuming into existing store: {path}")
@@ -165,7 +252,7 @@ def build_backend(
 ) -> IOBackend:
     """Build the configured IO backend for one store.
 
-    Call on every rank inside :func:`earth2studio.run.work.rank0_first`, so
+    Call on every rank inside :func:`src.logs.rank0_first_checked`, so
     rank 0 creates or clears the store before the others open it.  Apply
     :func:`prepare_store` first: it refuses an existing store that the run
     neither resumes nor overwrites.
@@ -246,6 +333,97 @@ def build_backend(
         shard_coords=shards,
         max_inflight_shards=int(output.get("max_inflight_shards", 4)),
     )
+
+
+def _same_axes(a: Mapping[str, np.ndarray], b: Mapping[str, np.ndarray]) -> bool:
+    """Whether two spatial axis mappings agree in names, order and values."""
+    if list(a) != list(b):
+        return False
+    for name in a:
+        left, right = np.asarray(a[name]), np.asarray(b[name])
+        if left.shape != right.shape:
+            return False
+        try:
+            if not np.allclose(left.astype(float), right.astype(float), atol=1e-6):
+                return False
+        except (TypeError, ValueError):
+            if not np.array_equal(left, right):
+                return False
+    return True
+
+
+def check_shared_layout(
+    schemas: Mapping[str, CoordinateSystem],
+    regridders: Mapping[str, Regridder],
+    streams: Sequence[str],
+) -> None:
+    """Require every written stream to share one lead-time axis and one grid.
+
+    The streams of a run write into one store whose ``lead_time`` axis and
+    spatial coordinates come from the first stream, so a stream on another
+    cadence or grid has no place next to it.  Grids compare by geometry
+    where the library infers one, else by their spatial axes; a single
+    stream needs no check.
+
+    Parameters
+    ----------
+    schemas : Mapping[str, CoordinateSystem]
+        Stream schemas from ``runner.output_coords``.
+    regridders : Mapping[str, Regridder]
+        Per-stream output regridders; a regridded stream lands on its
+        regridder's ``target_grid``.
+    streams : Sequence[str]
+        Streams the run writes, first stream first.
+
+    Raises
+    ------
+    ValueError
+        If a stream's lead times or grid differ from the first stream's.
+    """
+    if len(streams) < 2:
+        return
+    first = streams[0]
+    leads = np.asarray(schemas[first].coords["lead_time"].values)
+
+    def geometry(stream: str) -> GridDefinition | None:
+        regridder = regridders.get(stream)
+        if regridder is not None:
+            return regridder.target_grid
+        try:
+            return infer_grid(schemas[stream])
+        except ValueError:
+            return None  # an index grid, or a grid without identity
+
+    grid = geometry(first)
+    for stream in streams[1:]:
+        other = np.asarray(schemas[stream].coords["lead_time"].values)
+        if other.shape != leads.shape or not np.array_equal(other, leads):
+            raise ValueError(
+                f"Streams {first!r} and {stream!r} publish different lead times "
+                f"({len(leads)} and {len(other)} steps), but every stream of a run "
+                "writes into one store on one lead_time axis. Drop one of them from "
+                "output.variables or give it its own run."
+            )
+        other_grid = geometry(stream)
+        if grid is not None and other_grid is not None:
+            same = same_geometry(grid, other_grid)
+        elif first in regridders or stream in regridders:
+            logger.info(
+                f"Streams {first!r} and {stream!r}: one grid has no identity to "
+                "compare; the store checks their coordinates when it adds the arrays."
+            )
+            continue
+        else:
+            same = _same_axes(
+                spatial_axes(schemas[first]), spatial_axes(schemas[stream])
+            )
+        if not same:
+            raise ValueError(
+                f"Streams {first!r} and {stream!r} sit on different grids, but "
+                "every stream of a run writes into one store on one grid. Set "
+                "output.regrid so both land on the same grid, or drop one of them "
+                "from output.variables."
+            )
 
 
 def stream_variables(

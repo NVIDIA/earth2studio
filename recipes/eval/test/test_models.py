@@ -14,7 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Model loading: every load, including the package download, runs rank 0 first."""
+"""Model loading: every load, including the package download, runs rank 0 first,
+through the collective-safe ``rank0_first_checked``."""
 
 from __future__ import annotations
 
@@ -40,17 +41,17 @@ class _FakeAuto:
 
 
 def _spy(seen: list) -> object:
-    def rank0_first(fn):
+    def rank0_first_checked(fn):
         result = fn()
         seen.append((type(result).__name__, list(_FakeAuto.calls)))
         return result
 
-    return rank0_first
+    return rank0_first_checked
 
 
 def test_target_nodes_instantiate_inside_rank0_first(base_cfg, monkeypatch) -> None:
     seen: list = []
-    monkeypatch.setattr(models, "rank0_first", _spy(seen))
+    monkeypatch.setattr(models, "rank0_first_checked", _spy(seen))
     model = models.load_from_node(base_cfg.model, "prognostic model")
     assert isinstance(model, Persistence)
     assert [name for name, _ in seen] == ["Persistence"]
@@ -59,9 +60,9 @@ def test_target_nodes_instantiate_inside_rank0_first(base_cfg, monkeypatch) -> N
 def test_architecture_nodes_download_and_load_inside_rank0_first(monkeypatch) -> None:
     seen: list = []
     _FakeAuto.calls.clear()
-    monkeypatch.setattr(models, "rank0_first", _spy(seen))
+    monkeypatch.setattr(models, "rank0_first_checked", _spy(seen))
     node = {"architecture": "test.test_models._FakeAuto", "load_args": {"amp": True}}
     model = models.load_from_node(node)
     assert isinstance(model, _FakeAuto)
-    # Both the package lookup and load_model had run when rank0_first returned.
+    # Both the package lookup and load_model had run when the helper returned.
     assert seen == [("_FakeAuto", ["package", "load:pkg:['amp']"])]

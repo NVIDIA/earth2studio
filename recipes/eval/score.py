@@ -62,7 +62,14 @@ import torch
 from loguru import logger
 from omegaconf import DictConfig
 from src.campaign import initial_times
-from src.logs import configure_logging, finalize_distributed, init_distributed
+from src.logs import (
+    all_agree,
+    configure_logging,
+    finalize_distributed,
+    init_distributed,
+    rank0_first_checked,
+)
+from src.output import prepare_store, recorded_items
 from src.regions import events_to_attrs, parse_events
 from src.scoring import (
     build_input_coords_template,
@@ -74,6 +81,7 @@ from src.scoring import (
     open_score_store,
     open_verification_source,
     run_scoring,
+    score_store_path,
     scoring_progress_path,
     spatial_coords_from_dataset,
     validate_lead_time_chunking,
@@ -81,10 +89,9 @@ from src.scoring import (
 
 from earth2studio.run import ProgressStore, work_items
 from earth2studio.run.work import (
-    barrier,
     broadcast,
     distribute_work,
-    rank0_first,
+    raise_if_any_failed,
     rank_info,
 )
 
@@ -126,9 +133,7 @@ def run(cfg: DictConfig, device: torch.device | str = "cpu") -> None:
     if online_mode(cfg):
         from src.online import finalize_online_stats
 
-        if rank == 0:
-            finalize_online_stats(cfg)
-        barrier()
+        all_agree(lambda: finalize_online_stats(cfg), rank == 0)
         logger.success("Scoring finished (online mode: finalized stats.zarr).")
         return
 
@@ -165,21 +170,27 @@ def run(cfg: DictConfig, device: torch.device | str = "cpu") -> None:
     # --- Score store and progress -------------------------------------------
     array_groups = group_score_arrays_by_dims(metrics, template, np.array(times))
     events = events_to_attrs(parse_events(cfg.scoring.get("events", None)))
-    io = rank0_first(lambda: open_score_store(cfg, array_groups, rank, events))
-
     resume = bool(cfg.scoring.get("resume", False))
+    overwrite = bool(cfg.scoring.output.get("overwrite", False))
     items = work_items(times, np.timedelta64(lead_times[-1], "s"))
+    tags = {"project": str(cfg.project), "run_id": str(cfg.run_id)}
+    # The rerun policy of the forecast and statistics stores applies here
+    # too: replace, resume into, or refuse an existing score store, never
+    # merge into it silently; and prepare_store refuses a resume whose score
+    # store has gone missing while the progress store records scored times.
+    recorded = recorded_items(scoring_progress_path(cfg), items, tags) if resume else 0
+    prepare_store(score_store_path(cfg), resume, overwrite, rank, recorded)
+    io = rank0_first_checked(lambda: open_score_store(cfg, array_groups, rank, events))
+
     progress = ProgressStore(
-        scoring_progress_path(cfg),
-        tags={"project": str(cfg.project), "run_id": str(cfg.run_id)},
-        overwrite=not resume,
+        scoring_progress_path(cfg), tags=tags, overwrite=not resume
     )
     manifest = {
         "store": str(cfg.scoring.output.get("store_name", "scores.zarr")),
         "metrics": list(metrics),
         "variables": variables,
     }
-    attempt = broadcast(progress.setup(manifest) if rank == 0 else None)
+    attempt = broadcast(all_agree(lambda: progress.setup(manifest), rank == 0))
     progress.open(manifest, rank, attempt)
     remaining = progress.remaining(items) if resume else list(items)
     if not remaining:
@@ -191,6 +202,10 @@ def run(cfg: DictConfig, device: torch.device | str = "cpu") -> None:
     )
 
     # --- Run scoring -------------------------------------------------------
+    # A failure on one rank reaches every rank in the collective below, so
+    # the others neither report success nor wait at a later collective for
+    # a rank that has left.
+    error: Exception | None = None
     try:
         run_scoring(
             my_items,
@@ -207,10 +222,16 @@ def run(cfg: DictConfig, device: torch.device | str = "cpu") -> None:
             progress=progress,
             rank=rank,
         )
+    except Exception as err:  # noqa: BLE001 - raised again on every rank below
+        logger.error(f"Rank {rank}: scoring failed: {err}")
+        error = err
     finally:
-        progress.close()
-        io.close()
-    barrier()
+        try:
+            progress.close()
+            io.close()
+        except Exception as err:  # noqa: BLE001 - counts as this rank's failure
+            error = error or err
+    raise_if_any_failed(error)
     logger.success("Scoring finished.")
 
 

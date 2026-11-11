@@ -21,7 +21,9 @@
 # earth2studio.coupling.CoupledRunner: the GOES model feeds the radar model's
 # GOES conditioning slot, from its observed history at initialization and from
 # its forecast at every later step.  Members batch on a leading ensemble axis;
-# each model is seeded per member from its own offset of random_seed.
+# the runner seeds each model once per work item from the item's first member,
+# under the model's own offset of random_seed (rule X5), so member_batch: 1
+# reproduces each member exactly.
 
 goes:
     architecture: earth2studio.models.px.StormScopeGOES

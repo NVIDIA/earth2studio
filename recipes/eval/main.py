@@ -33,6 +33,7 @@ Multi-GPU::
 
 from __future__ import annotations
 
+import os
 from collections.abc import Sequence
 
 import hydra
@@ -40,13 +41,21 @@ import torch
 from loguru import logger
 from omegaconf import DictConfig
 from src.campaign import build_items, members_per_item, online_scoring
-from src.logs import configure_logging, finalize_distributed, init_distributed
+from src.logs import (
+    configure_logging,
+    finalize_distributed,
+    init_distributed,
+    rank0_first_checked,
+)
 from src.output import (
     build_backend,
     build_regridders,
+    check_shared_layout,
     parallel_coords,
     prepare_store,
     progress_path,
+    progress_tags,
+    recorded_items,
     retain_raw_output,
     sentinel_path,
     store_path,
@@ -55,7 +64,7 @@ from src.output import (
 from src.runners import build_runner
 
 from earth2studio.run import Pipeline, ProgressStore, WorkItem
-from earth2studio.run.work import rank0_first, rank_info
+from earth2studio.run.work import rank_info
 
 
 def fetches_nothing(runner: object, items: Sequence[WorkItem]) -> bool:
@@ -127,6 +136,7 @@ def run(cfg: DictConfig, device: torch.device | str = "cpu") -> None:
     schemas = runner.output_coords(final_lead_time)
     regridders = build_regridders(cfg, schemas)
     variables = stream_variables(schemas, list(cfg.output.variables))
+    check_shared_layout(schemas, regridders, list(variables))
 
     # Online scoring reduces each forecast to summary statistics in the
     # inference loop; it may also reorder the items so the ranks of an
@@ -143,13 +153,33 @@ def run(cfg: DictConfig, device: torch.device | str = "cpu") -> None:
         items = online_run.items
         scorer, sync = online_run.scorer, online_run.sync
 
+    # Online and offline runs share the progress store; the tags make a
+    # resume that switches mode, or changes what online scoring accumulates,
+    # fail instead of skipping finished items, which would leave the new
+    # statistics NaN for them.
+    tags = progress_tags(cfg, online)
+    if online_run is not None:
+        tags.update(online_run.manifest_tags)
+
     output = None
     if retain_raw_output(cfg):
         lead_time = schemas[next(iter(variables))].coords["lead_time"].values
         parallel = parallel_coords(items, lead_time)
         overwrite = bool(cfg.output.get("overwrite", False))
-        prepare_store(store_path(cfg), resume, overwrite, rank)
-        backend = rank0_first(
+        # A resume whose raw store has gone missing while the progress store
+        # still records finished items would skip them and leave the new
+        # store without them; offline runs score from that store, so they
+        # refuse.  An online run holds its results in the statistics store.
+        recorded = recorded_items(progress_path(cfg), items, tags) if resume else 0
+        if online and recorded and not os.path.lexists(store_path(cfg)):
+            logger.warning(
+                f"{store_path(cfg)} is missing while the progress store records "
+                f"{recorded} finished item(s); the new raw store will hold only "
+                "the remaining items. The statistics store carries the scores."
+            )
+            recorded = 0
+        prepare_store(store_path(cfg), resume, overwrite, rank, recorded)
+        backend = rank0_first_checked(
             lambda: build_backend(
                 cfg, store_path(cfg), parallel, overwrite and not resume, rank
             )
@@ -158,18 +188,7 @@ def run(cfg: DictConfig, device: torch.device | str = "cpu") -> None:
     elif not online:
         raise ValueError("output.retain=none is only legal with scoring.mode=online")
 
-    progress = ProgressStore(
-        progress_path(cfg),
-        # Online and offline runs share the progress store; the tag makes a
-        # resume that switches mode fail instead of skipping finished items,
-        # which would leave the new statistics store empty.
-        tags={
-            "project": str(cfg.project),
-            "run_id": str(cfg.run_id),
-            "scoring": "online" if online else "offline",
-        },
-        overwrite=not resume,
-    )
+    progress = ProgressStore(progress_path(cfg), tags=tags, overwrite=not resume)
     logger.info(
         f"Running {len(items)} work items on {world_size} rank(s); streams "
         f"{sorted(variables)} -> {store_path(cfg) if output else 'no raw store'}"

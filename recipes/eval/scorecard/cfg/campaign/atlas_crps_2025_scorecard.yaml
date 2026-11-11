@@ -98,8 +98,8 @@ nsteps: 56           # 56 x 6h = 14 days
 ensemble_size: 16
 random_seed: 42
 # Resume is on so an expired allocation can be picked up mid-campaign.
-# Online progress markers live in <output.path>/.online_progress/ — clear
-# them (or bump run_id) if the data source ever changes.
+# Progress lives in <output.path>/.progress/ (shared with offline runs);
+# clear it, or bump run_id, if the data source ever changes.
 resume: true
 
 # AtlasCRPS is intrinsically stochastic: the runner seeds it once per work
@@ -215,6 +215,9 @@ scoring:
     mode: online
     variables: ${output.variables}
     lat_weights: true
+    # sst is NaN over land in ERA5: score the sea gridpoints alone instead
+    # of turning the whole field NaN.
+    nan_policy: mask
     # The online path derives its metric set from the accumulated
     # sufficient statistics (mse/rmse, ensemble_mean_mse, ensemble
     # variance, fair CRPS, rank reliability, bias, corr) plus the opt-ins

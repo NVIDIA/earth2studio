@@ -32,7 +32,8 @@ from omegaconf import DictConfig
 
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
-from earth2studio.run.work import rank0_first
+
+from .logs import rank0_first_checked
 
 
 def load_from_node(node: DictConfig | dict, kind: str = "model") -> Any:
@@ -53,7 +54,7 @@ def load_from_node(node: DictConfig | dict, kind: str = "model") -> Any:
         The loaded model, not yet placed on a device.
     """
     if "_target_" in node:
-        model = rank0_first(lambda: hydra.utils.instantiate(node))
+        model = rank0_first_checked(lambda: hydra.utils.instantiate(node))
         logger.success(f"Instantiated {kind}: {type(model).__name__}")
         return model
     if "architecture" not in node:
@@ -75,7 +76,7 @@ def load_from_node(node: DictConfig | dict, kind: str = "model") -> Any:
             package = cls.load_default_package()
         return cls.load_model(package=package, **load_args)
 
-    model = rank0_first(load)
+    model = rank0_first_checked(load)
     logger.success(f"Loaded {kind}: {cls.__name__}")
     return model
 

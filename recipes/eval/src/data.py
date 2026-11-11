@@ -265,6 +265,29 @@ class _PredownloadedStore:
         return da.load()
 
 
+WINDOW_MEANS_ATTR = "window_means"
+"""Root attribute ``predownload.py`` writes on a verification store of window means."""
+
+
+def store_attrs(store_path: str) -> dict[str, Any]:
+    """Root attributes of a predownloaded zarr store, or an empty dict without one.
+
+    Parameters
+    ----------
+    store_path : str
+        Path to the zarr store.
+
+    Returns
+    -------
+    dict[str, Any]
+        The store's root attributes.
+    """
+    if not os.path.isdir(store_path):
+        return {}
+    with xr.open_zarr(store_path, consolidated=False) as ds:
+        return dict(ds.attrs)
+
+
 class PredownloadedSource(_PredownloadedStore):
     """Data source backed by a predownloaded store on ``(time, <spatial...>)``.
 

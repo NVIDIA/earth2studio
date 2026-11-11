@@ -115,9 +115,10 @@ def require_window_mean_verification(cfg: DictConfig, live: Any) -> None:
 
     A ``window_mean`` forecast is a mean over each window, which the
     campaign's ``data_source`` cannot verify.  Verification must come from
-    a bring-your-own ``verification_source`` or a configured
+    a bring-your-own ``verification_source``, a configured
     ``predownload.verification.source`` serving window means at the window
-    ends on the output grid.
+    ends on the output grid, or the verification store ``predownload.py``
+    wrote from such a source (marked with ``src.data.WINDOW_MEANS_ATTR``).
 
     Parameters
     ----------
@@ -139,8 +140,8 @@ def require_window_mean_verification(cfg: DictConfig, live: Any) -> None:
             "window_mean forecasts are means over each window, which the "
             "instantaneous fields of data_source cannot verify. Set "
             "verification_source or predownload.verification.source to a source "
-            "serving window means at the window ends on the output grid, or "
-            "disable verification."
+            "serving window means at the window ends on the output grid (then "
+            "predownload.py can cache it), or disable verification."
         )
 
 

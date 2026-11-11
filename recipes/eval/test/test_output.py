@@ -18,11 +18,18 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 import xarray as xr
 from omegaconf import OmegaConf
-from src.output import OutputRegridder, build_regridders, regrid_spec
+from src.output import (
+    OutputRegridder,
+    build_regridders,
+    check_shared_layout,
+    regrid_spec,
+)
 
 from earth2studio.grids import LatLonGrid, resolve_regridder
 from earth2studio.utils.coords import coord_array
@@ -119,3 +126,54 @@ def test_build_regridders_accepts_the_options_block(small_grid) -> None:
     regridders = build_regridders(cfg, {"forecast": schema})
     assert list(regridders) == ["forecast"]
     assert build_regridders(_cfg(None), {"forecast": schema}) == {}
+
+
+def _schema(leads: np.ndarray, lat: np.ndarray = SMALL_LAT) -> xr.DataArray:
+    return coord_array(
+        ("lead_time", "variable", "lat", "lon"),
+        {
+            "lead_time": leads.astype("timedelta64[ns]"),
+            "variable": np.array(["t2m"]),
+            "lat": lat,
+            "lon": SMALL_LON,
+        },
+    )
+
+
+def test_check_shared_layout_rejects_mixed_cadences_and_grids() -> None:
+    hourly = np.arange(1, 4) * np.timedelta64(1, "h")
+    schemas = {
+        "a": _schema(hourly),
+        "b": _schema(hourly),
+        "slow": _schema(hourly[1::2]),
+        "coarse": _schema(hourly, SMALL_LAT[::2]),
+    }
+    check_shared_layout(schemas, {}, ["a", "b"])
+    with pytest.raises(ValueError, match="different lead times"):
+        check_shared_layout(schemas, {}, ["a", "slow"])
+    with pytest.raises(ValueError, match="different grids"):
+        check_shared_layout(schemas, {}, ["a", "coarse"])
+    # A regridder landing the coarse stream on the first grid reconciles them.
+    onto_first = SimpleNamespace(target_grid=LatLonGrid(SMALL_LAT, SMALL_LON))
+    check_shared_layout(schemas, {"coarse": onto_first}, ["a", "coarse"])
+
+
+def test_check_shared_layout_tolerates_grids_without_identity() -> None:
+    hourly = np.arange(1, 4) * np.timedelta64(1, "h")
+
+    def index_schema(ny: int) -> xr.DataArray:
+        return coord_array(
+            ("lead_time", "variable", "y", "x"),
+            {
+                "lead_time": hourly.astype("timedelta64[ns]"),
+                "variable": np.array(["refc"]),
+                "y": np.arange(ny),
+                "x": np.arange(6),
+            },
+        )
+
+    schemas = {"a": index_schema(4), "b": index_schema(4), "c": index_schema(5)}
+    check_shared_layout(schemas, {}, ["a"])
+    check_shared_layout(schemas, {}, ["a", "b"])
+    with pytest.raises(ValueError, match="different grids"):
+        check_shared_layout(schemas, {}, ["a", "c"])

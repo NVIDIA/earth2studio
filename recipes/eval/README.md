@@ -33,7 +33,7 @@ Key features:
 - [Multi-GPU Execution](#multi-gpu-execution)
 - [Resuming and Multi-Job Runs](#resuming-and-multi-job-runs)
   - [Resuming after a failure](#resuming-after-a-failure)
-  - [Splitting work across multiple SLURM jobs](#splitting-work-across-multiple-slurm-jobs)
+  - [Resuming across jobs](#resuming-across-jobs)
 - [Configuration](#configuration)
   - [Campaign configs](#campaign-configs)
   - [Model selection](#model-selection)
@@ -105,9 +105,9 @@ python predownload.py predownload.verification.enabled=true
 ```
 
 > **Note.** Verification always lives in its own `verification.zarr`,
-> never in the IC store. `score.py` and online scoring read it when it
-> exists; otherwise they fall back to the bring-your-own
-> `verification_source`, then to a live fetch from
+> never in the IC store. A bring-your-own `verification_source` wins;
+> otherwise `score.py` and online scoring read `verification.zarr` when
+> it exists, and fall back to a live fetch from
 > `predownload.verification.source` or `data_source`. Set
 > `predownload.verification.enabled=true` in your campaign config, not
 > just as a one-shot command-line override to `predownload.py`, so every
@@ -170,8 +170,9 @@ python predownload.py campaign=fcn3_2024_monthly
 ```
 
 To recreate stores from scratch, set `predownload.overwrite=true`. The zarr
-stores have a fixed layout, so changing the campaign's times or variables also
-requires it; a mismatching progress manifest fails with that hint.
+stores have a fixed layout, so changing the campaign's times, variables,
+sources or output grid also requires it; the progress manifest records all
+four, and a mismatch fails with that hint.
 
 ## Using Your Own Data
 
@@ -261,9 +262,11 @@ Both models run on the shared HRRR projected grid and land in `forecast.zarr`
 as the streams `goes` and `mrms`. One `Connector("goes", "mrms")` feeds the
 GOES model's frames into the radar model's conditioning slot: the observed
 history it holds at initialization, then its forecast at every step. Members
-batch on a leading `ensemble` axis, each model takes a per-member seed from
-its own offset of `random_seed`, and `model.<name>.perturbation` perturbs
-that model's initial condition in ensemble runs. The builder binds one source per
+batch on a leading `ensemble` axis. The runner seeds each model once per
+work item, from the item's first member, under the model's own offset of
+`random_seed` (execution contract rule X5). With `member_batch: 1` every
+member reproduces exactly. In ensemble runs, `model.<name>.perturbation`
+perturbs that model's initial condition per member. The builder binds one source per
 role rather than using the top-level `data_source` / `ic_source`:
 
 <!-- markdownlint-disable MD013 -->
@@ -408,9 +411,10 @@ falling back to a live fetch.
 
 In forecast mode, observations are cached at every analysis time IC
 assembly touches (`IC time + each prognostic input lead offset`).  To
-skip obs caching and always fetch live (e.g. when the source's own
-`~/.cache/earth2studio` cache is already warm), set
-`predownload.observations.enabled=false`.
+skip obs caching, for example when the source's own `~/.cache/earth2studio`
+cache is already warm, set `predownload.observations.enabled=false`.
+Inference reads an existing `<slot>.parquet` whenever one is present, so
+remove it to fetch live again.
 
 ### Missing observations and archive coverage
 
@@ -520,19 +524,23 @@ interrupted item reruns in full:
 torchrun --nproc_per_node=$NGPU --standalone main.py resume=true
 ```
 
-### Splitting work across multiple SLURM jobs
+### Resuming across jobs
 
-Submit N identical jobs with `resume=true`.  The first job to start creates
-the zarr store; subsequent jobs validate the schema and append.  Each job
-skips items that have already been completed by earlier jobs:
+Jobs that share an `output.path` run one after another. Resubmit the same
+command with `resume=true` after a failure or an expired allocation, and
+the next job skips the items the progress store records as done:
 
 ```bash
-# Submit the same command multiple times (or as a SLURM array)
+# After the previous job ended, the same command again
 torchrun --nproc_per_node=$NGPU --standalone main.py resume=true
 ```
 
-Because zarr chunks are non-overlapping per `(time, lead_time)` slice,
-concurrent writes from different jobs to different ICs are safe.
+Two jobs running at once do not split the work. Each lists the remaining
+items when it starts, so both run them all. The second job's progress
+setup also compacts the logs the first job still writes to, which loses
+the first job's later records. To run a campaign on more than one node at
+once, launch one `torchrun` job spanning them (`--nnodes`), or give each
+job its own `start_times` and `run_id`.
 
 When `resume=true`, the `output.overwrite` setting is ignored — existing
 data is never deleted.  When all items are complete, subsequent runs exit
@@ -593,7 +601,7 @@ size, and output variables.  Apply with `campaign=`:
 # DLWP monthly deterministic
 python main.py campaign=dlwp_2024_monthly
 
-# FCN3 full 56-member ensemble
+# FCN3 4-member ensemble, monthly ICs
 python main.py campaign=fcn3_2024_monthly
 ```
 
@@ -875,8 +883,10 @@ seeds them once per work item, from its first member (execution contract
 rule X5). The members of an item share that random stream, so single
 trajectories differ from a `K = 1` run while the ensemble stays
 statistically valid. `K = 1` reproduces every member exactly. The bundled
-FCN3, Aurora 1.5 and Atlas CRPS scorecard campaigns run two members per
-rank to keep their groups node-local.
+FCN3 and Atlas CRPS scorecard campaigns run two members per rank to keep
+their groups node-local; the Aurora 1.5 ensemble campaign runs one member
+per rank, 16 ranks over two nodes, because a two-member batch of that
+model exceeds the GPU memory.
 
 **Metrics.**  The online path does *not* use `scoring.metrics` — it
 accumulates a fixed set of mergeable sums and derives the metric set from
@@ -957,14 +967,20 @@ torchrun --nproc_per_node=$NGPU --standalone score.py \
 The `store_name` override keeps the offline pass off `scores.zarr`, which
 the online finalize already wrote; setting
 `scoring.online.scores_store` moves the online store instead if you'd
-rather that change.
+rather that change. Both passes read `scoring.nan_policy`. `propagate` and
+`zero_fill` mean the same on both. `mask`, the per-gridpoint masking for
+sea-only fields, exists online only. The offline pass of such a campaign
+needs `scoring.nan_policy=propagate` (or `zero_fill`) on the command line,
+and only its unmasked variables are then comparable.
 
 **Resume.**  Online runs record finished items in the same
 `<output.path>/.progress` store as offline runs. An item counts as done only
 after its round's group reduction, so a crash loses at most one IC per
 group; re-submit with `resume=true`. A resumed online run needs whole
-initial conditions: the recipe rejects an IC with some member groups
-recorded and others not, pointing at the progress store.
+initial conditions: an IC with some member groups recorded and others not
+(a job that stopped between the ranks' records) reruns whole. The recipe
+drops its records from the progress store and the rerun rewrites the
+statistics of that initial condition.
 
 **Failure domain.**  A dead rank hangs its whole group rather than merely
 forfeiting its own items.  `scoring.online.nccl_timeout_s` (default 30 min)
@@ -972,8 +988,9 @@ turns that into a clean job failure that `resume=true` picks up from.
 
 **Caveats.**
 
-- `verification.zarr` must be predownloaded; coverage of every
-  `(IC + lead)` valid time is checked before model weights load.
+- `verification.zarr` must exist (run `predownload.py` first); the setup
+  checks that it covers every `(IC + lead)` valid time before the first
+  work item runs, once the model has loaded.
 - Online scoring prioritizes support for a fixed set of important metrics
   amenable to the partial summation approach that produces `stats.zarr`.
   Users with custom metrics will have to fall back to offline scoring,

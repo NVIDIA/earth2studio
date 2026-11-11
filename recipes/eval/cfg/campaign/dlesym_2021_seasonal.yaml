@@ -13,7 +13,10 @@ start_times:
     - "2021-12-15 00:00:00"
 
 # 8 iterator steps × 96h = 32 days of forecast per IC.
-# Output zarr lead_time dim has length 8*16 + 1 = 129.
+# The output zarr lead_time axis has 8*16 = 128 entries, 6h to 768h.  The
+# store holds no initial condition: the model takes u10m, v10m, z300 and
+# z700 as inputs but does not output them, so the runner starts at the
+# first forecast step.
 nsteps: 8
 
 # score.py reads this block too, so set it in the campaign rather than only

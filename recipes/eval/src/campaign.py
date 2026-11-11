@@ -263,9 +263,22 @@ def order_for_groups(
 
 
 def online_scoring(cfg: DictConfig) -> bool:
-    """Whether the campaign scores online (``scoring.mode: online``)."""
-    scoring = cfg.get("scoring", None)
-    return bool(scoring) and str(scoring.get("mode", "offline")).lower() == "online"
+    """Whether the campaign scores online (``scoring.mode: online``).
+
+    Raises
+    ------
+    ValueError
+        On a mode other than ``offline`` or ``online``.  A typo must not
+        downgrade a campaign to the offline path, whose raw store can be the
+        size of a filesystem.
+    """
+    scoring = cfg.get("scoring", None) or {}
+    mode = str(scoring.get("mode", "offline")).lower()
+    if mode not in ("offline", "online"):
+        raise ValueError(
+            f"Invalid scoring.mode '{mode}'; expected 'offline' or 'online'."
+        )
+    return mode == "online"
 
 
 def members_per_item(cfg: DictConfig) -> int:

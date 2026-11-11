@@ -208,6 +208,9 @@ scoring:
     mode: online
     variables: ${output.variables}
     lat_weights: true
+    # stl1, swvl1, sic and sd are NaN over sea or over land in ERA5: score
+    # the defined gridpoints alone instead of turning the whole field NaN.
+    nan_policy: mask
     # The online path derives its metric set from the accumulated
     # sufficient statistics (mse/rmse, ensemble_mean_mse, ensemble
     # variance, fair CRPS, rank reliability, bias, corr) plus the opt-ins

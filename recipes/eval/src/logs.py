@@ -24,11 +24,17 @@ import os
 import shutil
 import sys
 import tempfile
+from collections.abc import Callable
 from datetime import timedelta
+from typing import TypeVar, cast
 
 import torch
 import torch.distributed as dist
 from loguru import logger
+
+from earth2studio.run.work import raise_if_any_failed, rank_info
+
+T = TypeVar("T")
 
 _NOISY_LOGGERS = frozenset({"makani.models.model_package", "numba.core.transforms"})
 
@@ -154,3 +160,63 @@ def finalize_distributed() -> None:
     if dist.is_available() and dist.is_initialized():
         dist.barrier()
         dist.destroy_process_group()
+
+
+def all_agree(fn: Callable[[], T], run: bool = True) -> T | None:
+    """Run ``fn`` on the ranks with ``run`` true, then raise on every rank if any failed.
+
+    Collective.  A failure on one rank reaches the others here, so no rank
+    waits at a later collective for a rank that has already left.
+
+    Parameters
+    ----------
+    fn : Callable[[], T]
+        Zero-argument callable.
+    run : bool, optional
+        Whether this rank runs ``fn``, by default True.
+
+    Returns
+    -------
+    T | None
+        The result of ``fn``, or ``None`` where it did not run.
+
+    Raises
+    ------
+    Exception
+        This rank's own failure.
+    RuntimeError
+        On the other ranks, when a rank failed.
+    """
+    result: T | None = None
+    error: Exception | None = None
+    if run:
+        try:
+            result = fn()
+        except Exception as err:  # noqa: BLE001 - raised again after the collective
+            error = err
+    raise_if_any_failed(error)
+    return result
+
+
+def rank0_first_checked(fn: Callable[[], T]) -> T:
+    """Run ``fn`` on rank 0, then on the other ranks, failing together.
+
+    :func:`earth2studio.run.work.rank0_first` lets rank 0 create a store
+    before the other ranks open it, but a failure on rank 0 before its
+    barrier leaves the other ranks waiting there.  This variant checks in
+    after each half, so every rank raises when ``fn`` fails anywhere.
+
+    Parameters
+    ----------
+    fn : Callable[[], T]
+        Zero-argument callable run on every rank, rank 0 first.
+
+    Returns
+    -------
+    T
+        This rank's result of ``fn``.
+    """
+    rank, _ = rank_info()
+    first = all_agree(fn, rank == 0)
+    second = all_agree(fn, rank != 0)
+    return cast(T, first if rank == 0 else second)

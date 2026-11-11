@@ -20,7 +20,8 @@ from __future__ import annotations
 
 import os
 
-from src.logs import isolate_data_cache
+import pytest
+from src.logs import all_agree, isolate_data_cache, rank0_first_checked
 
 
 def test_isolate_data_cache_gives_the_process_its_own_root(monkeypatch) -> None:
@@ -37,3 +38,40 @@ def test_isolate_data_cache_keeps_a_user_root(monkeypatch, tmp_path) -> None:
     monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
     isolate_data_cache()
     assert os.environ["EARTH2STUDIO_DATA_CACHE"] == str(tmp_path)
+
+
+def test_all_agree_runs_once_and_keeps_the_exception() -> None:
+    calls: list[int] = []
+
+    def work() -> int:
+        calls.append(1)
+        return 7
+
+    assert all_agree(work) == 7
+    assert all_agree(work, run=False) is None
+    assert calls == [1]
+    error = RuntimeError("boom")
+
+    def failing() -> None:
+        raise error
+
+    with pytest.raises(RuntimeError) as info:
+        all_agree(failing)
+    assert info.value is error
+
+
+def test_rank0_first_checked_returns_the_result_of_one_call() -> None:
+    calls: list[int] = []
+
+    def work() -> str:
+        calls.append(1)
+        return "store"
+
+    assert rank0_first_checked(work) == "store"
+    assert calls == [1]
+
+    def failing() -> None:
+        raise ValueError("nope")
+
+    with pytest.raises(ValueError, match="nope"):
+        rank0_first_checked(failing)

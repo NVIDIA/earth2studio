@@ -29,7 +29,9 @@ import torch
 import xarray as xr
 from main import run
 from omegaconf import open_dict
+from predownload import run as predownload_run
 from src.campaign import build_items, final_lead_time
+from src.data import WINDOW_MEANS_ATTR, PredownloadedSource, store_attrs
 from src.output import store_path
 from src.runners import build_runner
 from src.runners.seasonal import WindowMeanRunner, window_mean
@@ -281,11 +283,17 @@ def test_window_means_need_bring_your_own_verification(base_cfg) -> None:
         plan_verification_store(cfg, runner, items)
     with pytest.raises(ValueError, match="window means"):
         open_verification_source(cfg)
-    # Either configured source of window means passes.
+    # Either configured source of window means passes, and predownload marks
+    # the store it writes from one so later scoring accepts it unconfigured.
     with open_dict(cfg):
         cfg.predownload.verification.source = dict(cfg.data_source)
     assert plan_verification_store(cfg, runner, items) is not None
     assert open_verification_source(cfg) is not None
+    predownload_run(cfg)
+    assert store_attrs(store_path(cfg, "verification.zarr"))[WINDOW_MEANS_ATTR] == "12h"
+    with open_dict(cfg):
+        cfg.predownload.verification.source = None
+    assert isinstance(open_verification_source(cfg), PredownloadedSource)
     with open_dict(cfg):
         cfg.predownload.verification.source = None
         cfg.verification_source = dict(cfg.data_source)

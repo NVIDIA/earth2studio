@@ -19,10 +19,14 @@
 # windows.  The window_mean runner does not support calendar-month means
 # labelled by integer lead month: a stream's lead_time axis is a
 # timedelta64 axis shared by every initial condition, and a calendar month
-# has no fixed length.  Starting at 00 UTC on the 1st, window 1 covers days
-# 1-30 of the start month and window 2 days 31-60, so the July start holds
-# July 1-30 and July 31-August 29, and the September start September 1-30
-# and October 1-30.  Scoring happens elsewhere.
+# has no fixed length.  A FuXi-S2S daily mean carries the 00 UTC stamp of
+# the day it covers, so the first lead from a 00 UTC start is the next
+# day's mean, and a window holds the 30 daily means after its start (the
+# lead-0 initial condition enters no window): window 1 covers days 2-31
+# and window 2 days 32-61.  The July start holds July 2-31 and August
+# 1-30, the September start September 2-October 1 and October 2-31; each
+# window's lead label (30D, 60D) is the day of its last daily mean.
+# Scoring happens elsewhere.
 defaults:
     - override /model: fuxi_s2s
 

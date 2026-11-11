@@ -61,13 +61,15 @@ while keeping the summands at forecast-error size.
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
 from collections import OrderedDict
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import timedelta
+from pathlib import Path
 from typing import Any, Protocol
 
 import numpy as np
@@ -82,21 +84,29 @@ from earth2studio.grids import Regridder, infer_grid, same_geometry
 from earth2studio.grids.base import GridDefinition
 from earth2studio.io import ZarrBackend
 from earth2studio.run import ProgressStore, WorkItem
-from earth2studio.run.work import broadcast, rank0_first, rank_info
+from earth2studio.run.work import MANIFEST_NAME, broadcast, rank_info
 from earth2studio.utils.coords import CoordSystem, coord_array
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.type import CoordinateSystem
 
-from .campaign import order_for_groups
-from .data import instantiate_source, resolve_source
-from .output import OutputRegridder, output_regridder, prepare_store, progress_path
+from .campaign import online_scoring, order_for_groups
+from .data import instantiate_source
+from .logs import all_agree, rank0_first_checked
+from .output import (
+    OutputRegridder,
+    output_regridder,
+    prepare_store,
+    progress_path,
+    progress_tags,
+    recorded_items,
+)
 from .regions import (
     build_spatial_weights,
     events_to_attrs,
     parse_events,
     scoring_regions,
 )
-from .runners import require_window_mean_verification
+from .scoring import open_verification_source
 
 # Group products materialized once per lead step, in this fixed order, for
 # the union of every configured statistic's `requires()`.  Ordering matters:
@@ -213,13 +223,7 @@ def online_enabled(cfg: DictConfig) -> bool:
     typo that silently downgraded a campaign to the offline path would
     surface only as a surprise ``forecast.zarr`` the size of a filesystem.
     """
-    scoring = cfg.get("scoring", None) or {}
-    mode = str(scoring.get("mode", "offline")).lower()
-    if mode not in ("offline", "online"):
-        raise ValueError(
-            f"Invalid scoring.mode '{mode}'; expected 'offline' or 'online'."
-        )
-    return mode == "online"
+    return online_scoring(cfg)
 
 
 def parse_online_settings(cfg: DictConfig) -> OnlineSettings:
@@ -554,6 +558,14 @@ class GroupComm:
         work = dist.all_gather(buffers, tensor, group=self._pg, async_op=async_op)
         return buffers, (work if async_op else None)
 
+    def all_and(self, mask: torch.Tensor) -> torch.Tensor:
+        """Logical AND of a boolean ``mask`` over the group, on every rank."""
+        if self._pg is None:
+            return mask
+        flags = mask.to(torch.int32)
+        dist.all_reduce(flags, op=dist.ReduceOp.MIN, group=self._pg)
+        return flags.bool()
+
     def all_agree(self, value: int, device: torch.device) -> bool:
         """Whether every rank in the group passed the same ``value``."""
         if self._pg is None:
@@ -683,7 +695,9 @@ class FieldCache:
     max_size : int, optional
         Number of valid times to keep, by default 4
     nan_policy : str, optional
-        ``"propagate"`` or ``"zero_fill"``, by default ``"propagate"``
+        ``"propagate"``, ``"zero_fill"`` or ``"mask"`` (see
+        :class:`OnlineScorer`); the cache zero-fills NaN under ``zero_fill``
+        and leaves it in place otherwise, by default ``"propagate"``
     valid_ranges : Mapping | None, optional
         Per-variable ``{min, max}`` clamps, by default None
     label : str, optional
@@ -846,6 +860,48 @@ def check_verification_coverage(
 # ---------------------------------------------------------------------------
 
 
+NAN_POLICIES = ("propagate", "zero_fill", "mask")
+"""``scoring.nan_policy`` values the online path accepts; see :class:`OnlineScorer`."""
+
+
+def _valid_mask(
+    finite: torch.Tensor, nan_policy: str, comm: GroupComm | None = None
+) -> torch.Tensor:
+    """Gridpoints entering a step's sums under ``nan_policy``, agreed over the group.
+
+    Each rank sees only its own members, so the ranks of an ensemble group
+    combine their masks: a point one member leaves non-finite drops out on
+    every rank, and the root's weight normalizer matches the reduced sums.
+
+    Parameters
+    ----------
+    finite : torch.Tensor
+        Boolean ``[variable, <spatial...>]``, ``True`` where this rank's
+        members' forecasts and the verification are finite.
+    nan_policy : str
+        One of :data:`NAN_POLICIES`.
+    comm : GroupComm, optional
+        Group collectives; ``None`` for a single-rank group, by default None.
+
+    Returns
+    -------
+    torch.Tensor
+        Boolean mask of the same shape.  ``mask`` keeps the points finite
+        on every rank; ``propagate`` drops a variable's whole field once any
+        point of any member is not finite, so its statistics come out NaN
+        as the offline metrics' do; ``zero_fill`` keeps every point.
+    """
+    if nan_policy == "zero_fill":
+        return torch.ones_like(finite)
+    if nan_policy == "mask":
+        return finite if comm is None else comm.all_and(finite)
+    whole = finite.reshape(finite.shape[0], -1).all(dim=1)
+    if comm is not None:
+        whole = comm.all_and(whole)
+    shape = (finite.shape[0],) + (1,) * (finite.ndim - 1)
+    return whole.reshape(shape).expand_as(finite).clone()
+
+
 @dataclass
 class StepContext:
     """Everything one lead step exposes to the configured statistics.
@@ -882,8 +938,9 @@ class StepContext:
         Spatial weights, broadcastable over the spatial dims, or
         ``[region, <spatial...>]`` with regions configured.
     valid : torch.Tensor
-        Boolean ``[variable, <spatial...>]`` mask, ``True`` where every
-        member's original forecast and the verification were finite.
+        Boolean ``[variable, <spatial...>]`` mask of the gridpoints entering
+        this step's sums under ``scoring.nan_policy``, agreed over the group
+        (see :func:`_valid_mask`).
     n_spatial : int
         Number of trailing spatial dimensions.
     ensemble_size : int
@@ -1957,7 +2014,11 @@ def add_stats_arrays(
     Raises
     ------
     ValueError
-        If the store already holds a different region set.
+        If the store already holds a different region set, or an existing
+        array or coordinate differs from the current layout (other initial
+        times or lead times): the backend checks every array of the
+        template and leaves a matching one alone, so a resume into a store
+        laid out for another campaign fails here instead of at its first write.
     """
     if region_names is not None:
         existing = backend.root.attrs.get("regions")
@@ -1969,12 +2030,9 @@ def add_stats_arrays(
             )
         backend.root.attrs["regions"] = list(region_names)
     for coords, names in array_groups:
-        new = [name for name in names if name not in backend]
-        if not new:
-            continue
         template = coord_array(
             (*coords, "variable"),
-            {**dict(coords), "variable": np.array(new)},
+            {**dict(coords), "variable": np.array(list(names))},
             dtype=np.float64,
         )
         backend.add_array(template)
@@ -1986,14 +2044,15 @@ def open_stats_store(
     region_names: Sequence[str] | None,
     resume: bool,
     overwrite: bool,
+    recorded: int = 0,
 ) -> ZarrBackend:
     """Create or reopen a statistics store on every rank.  Collective.
 
     :func:`src.output.prepare_store` applies the rerun policy on every rank
     first, then rank 0 creates the store before the other ranks open it,
-    through :func:`earth2studio.run.work.rank0_first`.  Each chunk holds one
-    initial condition, on the synchronous
-    :class:`~earth2studio.io.ZarrBackend`.
+    through :func:`src.logs.rank0_first_checked`, so a failure on rank 0
+    reaches every rank.  Each chunk holds one initial condition, on the
+    synchronous :class:`~earth2studio.io.ZarrBackend`.
 
     Parameters
     ----------
@@ -2007,6 +2066,10 @@ def open_stats_store(
         Whether to continue an existing store.
     overwrite : bool
         Whether to replace an existing store when not resuming.
+    recorded : int, optional
+        Items the progress store records as done, by default 0;
+        :func:`src.output.prepare_store` refuses a resume into a missing
+        store with records.
 
     Returns
     -------
@@ -2017,16 +2080,21 @@ def open_stats_store(
     ------
     FileExistsError
         If the store exists without ``resume`` or ``overwrite``.
+    FileNotFoundError
+        With ``resume``, a missing store and a nonzero ``recorded``.
+    ValueError
+        If the store holds other regions or another layout
+        (:func:`add_stats_arrays`).
     """
     rank, _ = rank_info()
-    prepare_store(path, resume, overwrite, rank)
+    prepare_store(path, resume, overwrite, rank, recorded)
 
     def _open() -> ZarrBackend:
         backend = ZarrBackend(path, chunks={"time": 1})
         add_stats_arrays(backend, array_groups, region_names)
         return backend
 
-    return rank0_first(_open)
+    return rank0_first_checked(_open)
 
 
 # ---------------------------------------------------------------------------
@@ -2065,9 +2133,17 @@ class OnlineScorer:
     device : torch.device
         Device for accumulation.
     nan_policy : str, optional
-        ``"propagate"`` or ``"zero_fill"``, by default ``"propagate"``
+        What a non-finite gridpoint does to the step's sums, matching the
+        offline path where both offer the policy: ``"propagate"`` turns
+        every statistic of that variable at that lead NaN, ``"zero_fill"``
+        counts it as zero in forecast and verification, and ``"mask"``
+        (online only) drops it from the sums and from the weight normalizer,
+        so sea-only fields score over the sea; by default ``"propagate"``
     valid_ranges : Mapping | None, optional
         Per-variable ``{min, max}`` clamps applied to forecasts, by default None
+    streams : Mapping[str, Sequence[str]] | None, optional
+        Output variables per stream; a variable scores from the stream that
+        owns it, by default every stream scores every variable it carries
     """
 
     def __init__(
@@ -2086,9 +2162,10 @@ class OnlineScorer:
         valid_ranges: Mapping[str, Any] | None = None,
         streams: Mapping[str, Sequence[str]] | None = None,
     ) -> None:
-        if nan_policy not in ("propagate", "zero_fill"):
+        if nan_policy not in NAN_POLICIES:
             raise ValueError(
-                f"Invalid scoring.nan_policy '{nan_policy}'; expected 'propagate' or 'zero_fill'."
+                f"Invalid scoring.nan_policy '{nan_policy}'; expected one of "
+                f"{', '.join(NAN_POLICIES)}."
             )
         self._settings = settings
         # Output variables per stream (src.output.stream_variables): a variable
@@ -2202,6 +2279,14 @@ class OnlineScorer:
         has_members = "ensemble" in dims
         if has_members:
             members = tuple(int(m) for m in np.asarray(x.coords["ensemble"].values))
+        elif len(item.member_ids) > 1:
+            # Scored as every member, one field would pass for a collapsed
+            # ensemble; the pipeline's own check runs only for written streams.
+            raise ValueError(
+                f"Stream {stream!r} carries no 'ensemble' axis for an item with "
+                f"members {tuple(item.member_ids)}; a runner batching members must "
+                "label them on a leading ensemble dimension."
+            )
         else:
             members = tuple(int(m) for m in item.member_ids) or (0,)
         expected = self._comm.group.member_ids
@@ -2320,9 +2405,11 @@ class OnlineScorer:
                 f"{tuple(y.shape)} disagree at {valid_time}; verification must be on "
                 "the same grid as the (regridded) output."
             )
-        # Captured before nan_policy can replace a masked NaN.  Verification
-        # NaNs mask out too (sea-only fields are NaN over land).
-        valid = torch.isfinite(f_local).all(dim=0) & torch.isfinite(y)
+        # Non-finite in any member's forecast or in the verification (the
+        # cache zero-filled the latter under zero_fill); captured before the
+        # policy replaces anything.
+        finite = torch.isfinite(f_local).all(dim=0) & torch.isfinite(y)
+        valid = _valid_mask(finite, self._nan_policy, self._comm)
         if self._nan_policy == "zero_fill":
             f_local = torch.nan_to_num(f_local, nan=0.0)
         if self._valid_ranges:
@@ -2668,27 +2755,8 @@ def named_store_filename(base: str, ref_name: str | None) -> str:
 
 
 def default_verification_source(cfg: DictConfig) -> Any:
-    """The run's verification source under the recipe's resolution order.
-
-    A bring-your-own ``verification_source`` node wins, then the
-    predownloaded ``<output.path>/verification.zarr``, then the live
-    ``predownload.verification.source`` or ``data_source`` node.
-    """
-    predownload = cfg.get("predownload", None) or {}
-    verification = predownload.get("verification", None) or {}
-    live = verification.get("source", None)
-    require_window_mean_verification(cfg, live)
-    if live is None:
-        live = cfg.get("data_source", None)
-    source = resolve_source(
-        cfg, "verification", byo=cfg.get("verification_source"), live=live
-    )
-    if source is None:
-        raise ValueError(
-            "Online scoring needs a verification source: set verification_source, "
-            "predownload verification.zarr, or configure data_source."
-        )
-    return source
+    """The run's verification source: :func:`src.scoring.open_verification_source`."""
+    return open_verification_source(cfg)
 
 
 def resolve_verification_sources(cfg: DictConfig) -> dict[str | None, Any]:
@@ -2819,33 +2887,91 @@ def order_items(
     list[WorkItem]
         The same items, re-ordered.
 
+    An initial time with some member groups recorded as done and others
+    not, left by a job that stopped between the ranks' records, reruns whole:
+    :func:`forget_times` drops its records from the progress store and every
+    member group runs again, which rewrites that time's statistics.
+
     Raises
     ------
     ValueError
-        If a resumed run has an initial time with some member groups
-        recorded and others not, which no block layout can run in lockstep.
+        If ``group_size`` does not divide ``world_size``.
+    RuntimeError
+        If the progress store still records a forgotten time afterwards.
     """
     rank, _ = rank_info()
     if not bool(cfg.get("resume", False)):
         return order_for_groups(items, world_size, group_size)
 
     def plan() -> list[WorkItem]:
-        progress = ProgressStore(progress_path(cfg))
-        done = [item for item in items if progress.is_done(item)]
-        pending = [item for item in items if not progress.is_done(item)]
+        store = ProgressStore(progress_path(cfg))
+        done_set = {item for item in items if store.is_done(item)}
+        partial = {i.time for i in items if i not in done_set} & {
+            i.time for i in done_set
+        }
+        if partial:
+            logger.warning(
+                f"Initial times {sorted(str(t) for t in partial)} are only partly "
+                "recorded as done; rerunning every member group of those times, "
+                "which rewrites their statistics."
+            )
+            done_set = set(forget_times(progress_path(cfg), partial, items))
+        done = [item for item in items if item in done_set]
+        pending = [item for item in items if item not in done_set]
         if not pending or not done:
             return order_for_groups(items, world_size, group_size)
-        partial = sorted({str(i.time) for i in pending} & {str(i.time) for i in done})
-        if partial:
-            raise ValueError(
-                f"Initial times {partial} have some member groups recorded as done "
-                "and others not; online resume needs whole initial conditions.  "
-                "Remove their records from the progress store "
-                f"'{progress_path(cfg)}' (or clear it) and rerun."
-            )
         return order_for_groups(pending, world_size, group_size) + done
 
-    return broadcast(plan() if rank == 0 else None)
+    return broadcast(all_agree(plan, rank == 0))
+
+
+def forget_times(
+    path: Path, times: Collection[np.datetime64], items: Sequence[WorkItem]
+) -> list[WorkItem]:
+    """Rebuild the progress store at ``path`` without the records of ``times``.
+
+    Uses the store's own API only: reads the manifest, clears the store,
+    writes the manifest back and records the finished items of every other
+    initial time again with ``mark_done``, so the log layout and durability
+    stay the library's.  Call this on one rank before any rank opens the store.
+
+    Parameters
+    ----------
+    path : Path
+        The progress store directory.
+    times : Collection[np.datetime64]
+        Initial times to forget, as the items spell them.
+    items : Sequence[WorkItem]
+        Every work item of the campaign.
+
+    Returns
+    -------
+    list[WorkItem]
+        The items still recorded as done, in input order.
+
+    Raises
+    ------
+    RuntimeError
+        If an item of the forgotten times is still recorded afterwards.
+    """
+    store = ProgressStore(path)
+    keep = [item for item in items if store.is_done(item) and item.time not in times]
+    manifest_path = path / MANIFEST_NAME
+    manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else None
+    store.clear()
+    if manifest is not None:
+        store.setup(manifest)
+    for item in keep:
+        store.mark_done(item)
+    store.close()
+    check = ProgressStore(path)
+    stale = [item for item in items if item.time in times and check.is_done(item)]
+    if stale:
+        raise RuntimeError(
+            f"Progress store '{path}' still records {len(stale)} item(s) of the "
+            "initial times to rerun; clear it and resume again."
+        )
+    return keep
 
 
 def _no_sync(item: WorkItem | None) -> None:
@@ -2881,6 +3007,11 @@ class OnlineRun:
         This rank's ensemble group collectives.
     stores : dict[str | None, ZarrBackend]
         Open statistics stores by reference name.
+    manifest_tags : dict[str, Any]
+        What the run accumulates (scored variables, statistic fields,
+        regions, climatology, reference names and store name), for the
+        progress manifest: a resume that changes any of them must not skip
+        finished items, whose new statistics would stay NaN.
     """
 
     cfg: DictConfig
@@ -2890,6 +3021,7 @@ class OnlineRun:
     sync: Callable[[WorkItem | None], None]
     comm: GroupComm
     stores: dict[str | None, ZarrBackend]
+    manifest_tags: dict[str, Any]
 
     @classmethod
     def build(
@@ -3002,6 +3134,22 @@ class OnlineRun:
                 regrid=output_regridder(cfg),
             )
 
+        manifest_tags: dict[str, Any] = {
+            "scored_variables": list(scored),
+            "statistics": sorted(f for stat in statistics for f in stat.fields()),
+            "regions": region_names,
+            "climatology": climatology is not None,
+            "verification_sources": [*sources],
+            "stats_store": settings.stats_store,
+            "nan_policy": nan_policy,
+        }
+        # Items this run's progress store records as done, after order_items
+        # dropped the partly recorded initial times: prepare_store refuses a
+        # resume whose statistics store has gone missing while records remain.
+        # Records under other tags belong to another run; the pipeline's
+        # manifest check refuses that resume with the reason.
+        tags = {**progress_tags(cfg, online=True), **manifest_tags}
+        recorded = recorded_items(progress_path(cfg), ordered, tags) if resume else 0
         stores: dict[str | None, ZarrBackend] = {}
         scorers: dict[str | None, OnlineScorer] = {}
         store_names: list[str] = []
@@ -3010,7 +3158,7 @@ class OnlineRun:
             store_names.append(named_store_filename(settings.stats_store, name))
             path = os.path.join(cfg.output.path, store_names[-1])
             stores[name] = open_stats_store(
-                path, groups, region_names, resume, overwrite
+                path, groups, region_names, resume, overwrite, recorded
             )
             scorers[name] = OnlineScorer(
                 settings=settings,
@@ -3053,6 +3201,7 @@ class OnlineRun:
             sync=_no_sync,
             comm=comm,
             stores=stores,
+            manifest_tags=manifest_tags,
         )
 
     def finalize(self) -> None:

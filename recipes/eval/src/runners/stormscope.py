@@ -25,8 +25,10 @@ wrapper documents.  The radar model initializes from the GOES history the GOES
 model holds, and each radar step takes the GOES forecast at the lead time of its
 previous forecast, published one step earlier.  The runner yields the two
 forecasts as the streams ``goes`` and ``mrms``, both on the shared HRRR projected
-grid.  It batches ensemble members, seeds each model per member and draws an
-optional per-model initial-condition perturbation for each member.
+grid.  It batches ensemble members, seeds each model once per work item from the
+item's first member under the model's own seed offset (execution contract rule
+X5), so ``member_batch: 1`` reproduces each member exactly, and draws an optional
+per-model initial-condition perturbation for each member alone.
 
 Regridding onto the model grid and the radar and lightning composition are the
 models' own ``default_sources()``.  This module resolves one source per role,
@@ -37,7 +39,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping
-from typing import Any, cast
+from typing import Any, TypeAlias, cast
 
 import hydra
 import numpy as np
@@ -45,11 +47,10 @@ from loguru import logger
 from omegaconf import DictConfig, OmegaConf
 
 from earth2studio.coupling import Connector, CoupledRunner
-from earth2studio.data import CompositeSource
+from earth2studio.data import CompositeSource, DataSource, ForecastSource
 from earth2studio.grids import Region
 from earth2studio.models.utils import recommended_sources, step_interval
 from earth2studio.perturbation import Perturbation
-from earth2studio.run.runner import Source
 from earth2studio.utils.type import CoordinateSystem
 
 from ..data import resolve_source
@@ -57,6 +58,9 @@ from ..models import load_from_node
 
 COMPONENTS = ("goes", "mrms")
 """Component names of the coupled runner, which also name its streams."""
+
+Source: TypeAlias = DataSource | ForecastSource
+"""A gridded source for a model slot."""
 
 
 def _default_source(model: Any, slot: int, label: str) -> Source:
@@ -136,7 +140,8 @@ def couple(
     goes_forcing_source : DataSource | ForecastSource, optional
         Forcing of a conditioned GOES variant, by default its recommendation
     seed : int, optional
-        Base seed for per-member seeding, offset per model, by default 0
+        Base seed; the runner offsets it per model and seeds each model once
+        per item from the item's first member (rule X5), by default 0
     perturbation : Mapping[str, Perturbation], optional
         Initial-condition perturbation per model (``goes``, ``mrms``), drawn
         for each member alone, by default none

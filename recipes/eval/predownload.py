@@ -45,8 +45,9 @@ Resume
 A :class:`earth2studio.run.ProgressStore` records progress per time
 under ``<output.path>/.progress_predownload_<role>``.  Re-running with the
 same config skips finished times.  Set ``predownload.overwrite=true`` to
-recreate the stores from scratch; changing the campaign's times or variables
-also requires it, since the zarr stores have a fixed layout.
+recreate the stores from scratch; changing the campaign's times, variables,
+sources or output grid also requires it, since the zarr stores have a fixed
+layout.  The progress manifest records all four and refuses a mismatch.
 
 Typical usage
 -------------
@@ -65,10 +66,12 @@ Also pre-fetch verification data::
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -76,10 +79,12 @@ import hydra
 import numpy as np
 import torch
 import xarray as xr
+import zarr
 from loguru import logger
 from omegaconf import DictConfig
 from src.campaign import build_items
 from src.data import (
+    WINDOW_MEANS_ATTR,
     FrameRequest,
     frame_filename,
     frame_store_path,
@@ -87,7 +92,13 @@ from src.data import (
     is_forecast_source,
     store_name,
 )
-from src.logs import configure_logging, finalize_distributed, init_distributed
+from src.logs import (
+    all_agree,
+    configure_logging,
+    finalize_distributed,
+    init_distributed,
+    rank0_first_checked,
+)
 from src.output import (
     OutputRegridder,
     progress_path,
@@ -95,7 +106,12 @@ from src.output import (
     store_path,
     verification_regridder,
 )
-from src.runners import build_runner, require_window_mean_verification
+from src.runners import (
+    build_runner,
+    is_window_mean,
+    require_window_mean_verification,
+    runner_spec,
+)
 
 from earth2studio.data import fetch_data, fetch_dataframe
 from earth2studio.grids import GridDefinition
@@ -103,10 +119,10 @@ from earth2studio.io import ZarrBackend
 from earth2studio.run import ProgressStore, WorkItem, work_items
 from earth2studio.run.runner import DataRequest
 from earth2studio.run.work import (
+    MANIFEST_NAME,
     barrier,
     broadcast,
     distribute_work,
-    rank0_first,
     rank_info,
 )
 from earth2studio.utils.coords import coord_array_like
@@ -144,6 +160,8 @@ class GriddedStore:
     variables: list[str]
     lead_times: np.ndarray | None = None
     regrid: OutputRegridder | None = None
+    attrs: dict[str, Any] = field(default_factory=dict)
+    """Root attributes written on the store, describing what it holds."""
 
     @property
     def target_grid(self) -> GridDefinition | None:
@@ -184,6 +202,30 @@ class FrameStore:
 def _as_times(values: Iterable[Any]) -> np.ndarray:
     """Sorted unique ``datetime64[ns]`` array."""
     return np.unique(np.asarray(list(values), dtype="datetime64[ns]"))
+
+
+def source_signature(source: Any) -> dict[str, str]:
+    """Identify a source for a progress manifest.
+
+    The class path, plus the store path of a store-backed source, so a
+    campaign re-pointed at another source (or another saved store) no longer
+    passes for the one that filled its stores.
+
+    Parameters
+    ----------
+    source : Any
+        A data, forecast or frame source object.
+
+    Returns
+    -------
+    dict[str, str]
+        ``class`` and, when the source has one, ``store_path``.
+    """
+    signature = {"class": f"{type(source).__module__}.{type(source).__qualname__}"}
+    path = getattr(source, "store_path", None)
+    if path is not None:
+        signature["store_path"] = str(path)
+    return signature
 
 
 def _valid_times(request: DataRequest) -> np.ndarray:
@@ -337,6 +379,11 @@ def plan_verification_store(
         return None
     node = pd_cfg.get("source", None)
     require_window_mean_verification(cfg, node)
+    attrs: dict[str, Any] = {}
+    if is_window_mean(cfg):
+        # The configured source serves window means; mark the store so scoring
+        # accepts it for this runner later without the source configured.
+        attrs[WINDOW_MEANS_ATTR] = str(runner_spec(cfg).get("window", "30D"))
     if node is None:
         node = cfg.get("data_source", None)
     source = instantiate_source(node)
@@ -368,6 +415,7 @@ def plan_verification_store(
         times,
         variables,
         regrid=verification_regridder(cfg, schema),
+        attrs=attrs,
     )
 
 
@@ -427,15 +475,52 @@ def plan_frame_stores(
 # ---------------------------------------------------------------------------
 
 
+def _upgrade_manifest(path: Path, manifest: Mapping[str, Any]) -> None:
+    """Retire a manifest written before the current keys when the rest matches.
+
+    A store filled before the recipe recorded its source and grid keeps
+    resuming: the progress store writes the full manifest again on setup.
+    A manifest whose shared keys differ stays, and the resume fails on it.
+
+    Parameters
+    ----------
+    path : Path
+        The stored manifest file.
+    manifest : Mapping[str, Any]
+        The manifest the current run writes.
+    """
+    if not path.is_file():
+        return
+    try:
+        stored = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        return  # the progress store reports the broken file itself
+    current = json.loads(json.dumps(dict(manifest), sort_keys=True, default=str))
+    added = set(current) - set(stored)
+    if not added or set(stored) - set(current):
+        return
+    if any(stored[key] != current[key] for key in stored):
+        return
+    logger.info(
+        f"Progress manifest {path} predates the keys {sorted(added)}; recording them."
+    )
+    path.unlink()
+
+
 def _progress(
     cfg: DictConfig, name: str, manifest: Mapping[str, Any], overwrite: bool
 ) -> ProgressStore:
     """Open the per-time progress store of one predownload store, on every rank."""
     rank, _ = rank_info()
-    progress = ProgressStore(
-        progress_path(cfg, f"progress_predownload_{name}"), overwrite=overwrite
-    )
-    attempt = broadcast(progress.setup(manifest) if rank == 0 else None)
+    path = progress_path(cfg, f"progress_predownload_{name}")
+    progress = ProgressStore(path, overwrite=overwrite)
+
+    def setup() -> int:
+        if not overwrite:
+            _upgrade_manifest(path / MANIFEST_NAME, manifest)
+        return progress.setup(manifest)
+
+    attempt = broadcast(all_agree(setup, rank == 0))
     try:
         progress.open(manifest, rank, attempt)
     except ValueError as error:
@@ -514,6 +599,8 @@ def download_gridded_store(
             if store.lead_times is None
             else [str(t) for t in store.lead_times.astype("timedelta64[s]")]
         ),
+        "source": source_signature(store.source),
+        "grid": None if store.target_grid is None else store.target_grid.fingerprint(),
     }
     if overwrite and rank == 0:
         _remove_dir(path)
@@ -541,9 +628,11 @@ def download_gridded_store(
             first = _fetch_field(store, probe_time)
             fetched[probe_time] = first
             backend.add_array(coord_array_like(first, {"time": store.times}))
+            if store.attrs:
+                zarr.open_group(path, mode="r+").attrs.update(store.attrs)
         return backend
 
-    backend = rank0_first(open_backend)
+    backend = rank0_first_checked(open_backend)
     try:
         for item in my_items:
             logger.info(f"{store.role}: fetching {item.time}")
@@ -584,6 +673,7 @@ def download_frame_store(cfg: DictConfig, store: FrameStore, overwrite: bool) ->
         "fields": (
             None if store.fields is None else [str(f) for f in np.asarray(store.fields)]
         ),
+        "source": source_signature(store.source),
     }
     if rank == 0:
         if overwrite:
@@ -679,12 +769,14 @@ def run(cfg: DictConfig, device: torch.device | str = "cpu") -> None:
             f"Pre-downloading {len(declared)} store(s) on {world_size} rank(s): "
             f"{', '.join(declared)}"
         )
+    # Every rank checks in after each store, so a slice that failed stops the
+    # run on every rank before the next store's collectives, and rank 0 never
+    # writes the sentinel over a store with missing times.
     for store in gridded:
-        download_gridded_store(cfg, store, overwrite)
+        all_agree(partial(download_gridded_store, cfg, store, overwrite))
     for frame_store in frames:
-        download_frame_store(cfg, frame_store, overwrite)
+        all_agree(partial(download_frame_store, cfg, frame_store, overwrite))
 
-    barrier()
     if rank == 0:
         sp = sentinel_path(cfg)
         sp.parent.mkdir(parents=True, exist_ok=True)

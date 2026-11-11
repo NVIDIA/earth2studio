@@ -25,13 +25,16 @@ configs from the scorecard's config directory without loading a model.
 
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
 
 import numpy as np
 import pytest
 import xarray as xr
 from hydra import compose, initialize_config_dir
-from omegaconf import open_dict
+from hydra.utils import get_object
+from omegaconf import OmegaConf, open_dict
+from scorecard.run_scorecard import score_store_names
 from scorecard.utils.baselines import ClimatologyForecast, PersistenceBaseline
 from scorecard.utils.sources import (
     STORMCAST_LAT_LIM,
@@ -226,6 +229,34 @@ class TestStormCastSources:
         assert wrapped.regridder.target_grid.shape == (512, 640)
 
 
+def _targets(node, path: str = ""):
+    """Yield ``(path, mapping)`` for every mapping holding a ``_target_``."""
+    if isinstance(node, dict):
+        if "_target_" in node:
+            yield path, node
+        for key, value in node.items():
+            yield from _targets(value, f"{path}.{key}" if path else str(key))
+    elif isinstance(node, list):
+        for i, value in enumerate(node):
+            yield from _targets(value, f"{path}[{i}]")
+
+
+def test_score_store_names_follow_the_scoring_config() -> None:
+    cfg = {"scoring": {"output": {"store_name": "scores.zarr"}, "online": {}}}
+    assert score_store_names(cfg, {}, online=True) == ["scores.zarr"]
+    assert score_store_names(
+        cfg, {"scoring.output.store_name": "scores_offline.zarr"}, online=False
+    ) == ["scores_offline.zarr"]
+    cfg["scoring"]["online"] = {
+        "scores_store": "online.zarr",
+        "verification_sources": {"era5": None, "ifs": {}},
+    }
+    assert score_store_names(cfg, {}, online=True) == [
+        "online__era5.zarr",
+        "online__ifs.zarr",
+    ]
+
+
 class TestCampaignConfigs:
     @pytest.fixture(params=CAMPAIGNS)
     def campaign(self, request) -> tuple[str, object]:
@@ -245,6 +276,19 @@ class TestCampaignConfigs:
             assert "scorecard.utils.pipelines" not in text, name
             assert "src.pipelines" not in text, name
             assert "\npipeline:" not in text, name
+
+    def test_targets_resolve_and_accept_their_arguments(self, campaign) -> None:
+        # Every ``_target_`` imports, and takes the keys given next to it.
+        name, cfg = campaign
+        for path, node in _targets(OmegaConf.to_container(cfg, resolve=False)):
+            target = get_object(node["_target_"])
+            params = inspect.signature(target).parameters
+            var_kw = any(
+                p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()
+            )
+            keys = [k for k in node if not str(k).startswith("_")]
+            unknown = [k for k in keys if k not in params]
+            assert var_kw or not unknown, f"{name}:{path} -> {unknown}"
 
     def test_composes_on_forecast_runner(self, campaign) -> None:
         name, cfg = campaign

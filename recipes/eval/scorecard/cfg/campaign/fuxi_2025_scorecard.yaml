@@ -101,7 +101,7 @@ require_predownload: false   # IC is BYO and verification is the shared store
 # public NCAR ERA5 mirror (AWS Open Data) for r.  Verification stays on the
 # shared ARCO-derived store (the r levels are not scored).
 ic_source:
-    _target_: src.data.CompositeSource
+    _target_: earth2studio.data.CompositeSource
     sources:
         arco:
             _target_: earth2studio.data.ARCO_ERA5
@@ -111,77 +111,80 @@ ic_source:
             _target_: earth2studio.data.NCAR_ERA5
             cache: true      # cache=false trips a double temp-dir removal in the source
             verbose: false
-    variable_index:
-        z50: arco
-        z100: arco
-        z150: arco
-        z200: arco
-        z250: arco
-        z300: arco
-        z400: arco
-        z500: arco
-        z600: arco
-        z700: arco
-        z850: arco
-        z925: arco
-        z1000: arco
-        t50: arco
-        t100: arco
-        t150: arco
-        t200: arco
-        t250: arco
-        t300: arco
-        t400: arco
-        t500: arco
-        t600: arco
-        t700: arco
-        t850: arco
-        t925: arco
-        t1000: arco
-        u50: arco
-        u100: arco
-        u150: arco
-        u200: arco
-        u250: arco
-        u300: arco
-        u400: arco
-        u500: arco
-        u600: arco
-        u700: arco
-        u850: arco
-        u925: arco
-        u1000: arco
-        v50: arco
-        v100: arco
-        v150: arco
-        v200: arco
-        v250: arco
-        v300: arco
-        v400: arco
-        v500: arco
-        v600: arco
-        v700: arco
-        v850: arco
-        v925: arco
-        v1000: arco
-        t2m: arco
-        u10m: arco
-        v10m: arco
-        msl: arco
-        tp06: arco
-        r50: ncar
-        r100: ncar
-        r150: ncar
-        r200: ncar
-        r250: ncar
-        r300: ncar
-        r400: ncar
-        r500: ncar
-        r600: ncar
-        r700: ncar
-        r850: ncar
-        r925: ncar
-        r1000: ncar
+    # Source name -> variables it serves (earth2studio.data.CompositeSource).
+    variables:
+        arco:
+            - z50
+            - z100
+            - z150
+            - z200
+            - z250
+            - z300
+            - z400
+            - z500
+            - z600
+            - z700
+            - z850
+            - z925
+            - z1000
+            - t50
+            - t100
+            - t150
+            - t200
+            - t250
+            - t300
+            - t400
+            - t500
+            - t600
+            - t700
+            - t850
+            - t925
+            - t1000
+            - u50
+            - u100
+            - u150
+            - u200
+            - u250
+            - u300
+            - u400
+            - u500
+            - u600
+            - u700
+            - u850
+            - u925
+            - u1000
+            - v50
+            - v100
+            - v150
+            - v200
+            - v250
+            - v300
+            - v400
+            - v500
+            - v600
+            - v700
+            - v850
+            - v925
+            - v1000
+            - t2m
+            - u10m
+            - v10m
+            - msl
+            - tp06
+        ncar:
+            - r50
+            - r100
+            - r150
+            - r200
+            - r250
+            - r300
+            - r400
+            - r500
+            - r600
+            - r700
+            - r850
+            - r925
+            - r1000
 data_source:
     _target_: earth2studio.data.ARCO_ERA5
     cache: false

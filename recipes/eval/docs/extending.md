@@ -153,12 +153,14 @@ class MyRunner:
 | `run_item(item)` | Iterator of `{stream: DataArray}` mappings, one per step |
 
 A *stream* is a named sequence of outputs sharing variables, grid and
-lead-time pattern. Give outputs with different grids or cadences
-separate streams, keep stream names stable across runs (they key the
+lead-time pattern. Keep stream names stable across runs (they key the
 output store and resume), and declare every stream in `output_coords`.
 The recipe writes every stream into the one `forecast.zarr` group and
 splits `output.variables` over the streams carrying each name; a variable
-no stream produces is an error.
+no stream produces is an error. The streams a run writes share one
+lead-time axis and, after `output.regrid`, one grid. `main.py` refuses a
+selection that mixes cadences or grids, so a stream on another cadence or
+grid gets a run of its own.
 
 Member batching: with `supports_member_batching = True` an item may carry
 more than one member, and your outputs must carry a leading `ensemble`

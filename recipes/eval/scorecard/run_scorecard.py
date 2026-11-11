@@ -86,6 +86,37 @@ def launch(entry: str, campaign: str, overrides: list[str], ngpu: int) -> None:
     subprocess.run(cmd, check=True, cwd=RECIPE)  # noqa: S603
 
 
+def named_store(base: str, name: str | None) -> str:
+    """``base`` with ``name`` before the extension, as src.online.named_store_filename."""
+    if name is None:
+        return base
+    root, ext = os.path.splitext(base)
+    return f"{root}__{name}{ext or '.zarr'}"
+
+
+def score_store_names(cfg: dict, ov: dict, online: bool) -> list[str]:
+    """Filenames the scoring pass writes under the output directory.
+
+    Mirrors src.scoring.score_store_path (offline: scoring.output.store_name)
+    and src.online.finalize_online_stats (online: scoring.online.scores_store
+    wins over scoring.output.store_name, one store per named reference of
+    scoring.online.verification_sources), with command-line overrides on top.
+    """
+    scoring = cfg.get("scoring") or {}
+    base = ov.get(
+        "scoring.output.store_name",
+        (scoring.get("output") or {}).get("store_name") or "scores.zarr",
+    )
+    names: list[str | None] = [None]
+    if online:
+        block = scoring.get("online") or {}
+        base = ov.get("scoring.online.scores_store", block.get("scores_store")) or base
+        references = block.get("verification_sources")
+        if references:
+            names = list(references)
+    return [named_store(str(base), name) for name in names]
+
+
 def scores_complete(store: Path) -> bool:
     """True when the store exists and carries the provenance stamp that
     stamp_provenance() writes only after scoring finished cleanly."""
@@ -103,6 +134,8 @@ def stamp_provenance(store: Path) -> None:
     import torch
     import zarr
 
+    if not (store / "zarr.json").is_file():
+        raise SystemExit(f"!! {store} is missing after scoring; nothing to stamp")
     prov = {
         "date_scored": dt.date.today().isoformat(),
         "python": sys.version.split()[0],
@@ -120,7 +153,8 @@ def stamp_provenance(store: Path) -> None:
             f"{torch.cuda.device_count()} x {torch.cuda.get_device_name(0)}"
             " (single node)"
         )
-    zarr.open_group(str(store), mode="a").attrs["provenance"] = prov
+    # r+ opens the store scoring wrote and never creates an empty one.
+    zarr.open_group(str(store), mode="r+").attrs["provenance"] = prov
     print(f"    stamped provenance onto {store}")
 
 
@@ -188,6 +222,9 @@ def main() -> int:
 
     mode = ov.get("scoring.mode", cfg.get("scoring", {}).get("mode", "offline"))
     online = str(mode).lower() == "online"
+    # The score store(s) this configuration writes; the stamp and the prune
+    # gate follow them rather than a fixed scores.zarr.
+    stores = [out / name for name in score_store_names(cfg, ov, online)]
 
     for stage in stages:
         print(f"\n############### {stage} ###############")
@@ -196,35 +233,37 @@ def main() -> int:
         elif stage == "infer":
             launch("main.py", args.campaign, overrides, args.ngpu)
             if online:
-                # The online path derives scores.zarr at the end of
+                # The online path derives the scores store at the end of
                 # main.py; stamp it now (the derivation rebuilds the store,
                 # so a stamp must always follow the pass that produced it).
-                stamp_provenance(out / "scores.zarr")
+                for store in stores:
+                    stamp_provenance(store)
         elif stage == "score":
             if online:
                 # Cheap single-process re-derivation from stats.zarr.
                 launch("score.py", args.campaign, overrides, 1)
             else:
-                # score.py lays out scores.zarr itself (one time per chunk,
-                # ranks scoring disjoint initial conditions).
+                # score.py lays out the score store itself (one time per
+                # chunk, ranks scoring disjoint initial conditions).
                 launch("score.py", args.campaign, overrides, args.ngpu)
-            stamp_provenance(out / "scores.zarr")
+            for store in stores:
+                stamp_provenance(store)
         elif stage == "prune":
             if online and not (out / "forecast.zarr").exists():
                 print("    online campaign, no raw store -- nothing to prune")
                 continue
             # Gate on the provenance stamp, not on the store existing: a
-            # scoring run killed mid-way leaves a partial scores.zarr on
+            # scoring run killed mid-way leaves a partial score store on
             # disk, and deleting the forecast then makes the run
             # unrecoverable. The stamp is written only after score.py
             # exits cleanly, so it doubles as the completion marker.
-            if scores_complete(out / "scores.zarr"):
+            if all(scores_complete(store) for store in stores):
                 print(f"    scores complete -- deleting {out / 'forecast.zarr'}")
                 shutil.rmtree(out / "forecast.zarr", ignore_errors=True)
             else:
                 raise SystemExit(
-                    "!! scores.zarr missing or unstamped (scoring "
-                    "incomplete?) -- keeping forecast"
+                    f"!! {', '.join(s.name for s in stores)} missing or unstamped "
+                    "(scoring incomplete?) -- keeping forecast"
                 )
 
     print(f"\n=== done — {out}")
