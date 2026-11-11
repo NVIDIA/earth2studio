@@ -13,6 +13,7 @@
 
 [![python version][e2studio_python_img]][e2studio_python_url]
 [![license][e2studio_license_img]][e2studio_license_url]
+![Maturity: L3 Strategic][e2studio_maturity_img]
 [![coverage][e2studio_cov_img]][e2studio_cov_url]
 [![uv][e2studio_uv_img]][e2studio_uv_url]
 
@@ -102,6 +103,7 @@ Apache License 2.0, see the [LICENSE file][e2studio_license_url].
 
 [e2studio_python_img]: https://img.shields.io/badge/Python-3.11%20|%203.12%20|%203.13%20|%203.14-blue?style=flat-square&logo=python
 [e2studio_license_img]: https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square
+[e2studio_maturity_img]: https://img.shields.io/badge/Maturity-L3%20Strategic-CB4B16?style=flat-square
 [e2studio_cov_img]: https://img.shields.io/codecov/c/github/nvidia/earth2studio?style=flat-square&logo=codecov
 [e2studio_uv_img]: https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fastral-sh%2Fuv%2Fmain%2Fassets%2Fbadge%2Fv0.json&style=flat-square
 
