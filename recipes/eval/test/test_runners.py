@@ -57,6 +57,30 @@ def _steps(runner, item):
     return [step["forecast"] for step in runner.run_item(item)]
 
 
+def test_runner_spec_resolves_names_targets_and_rejects_the_rest(base_cfg) -> None:
+    from omegaconf import OmegaConf
+    from src.runners import is_window_mean, runner_spec
+
+    assert runner_spec(OmegaConf.create({}))["_target_"] == "src.runners.forecast"
+    assert runner_spec(OmegaConf.create({"runner": "stormscope"})) == {
+        "_target_": "src.runners.stormscope.stormscope"
+    }
+    spec = runner_spec(
+        OmegaConf.create({"runner": {"name": "window_mean", "window": "30D"}})
+    )
+    assert spec == {"_target_": "src.runners.seasonal.window_mean", "window": "30D"}
+    assert is_window_mean(OmegaConf.create({"runner": {"name": "window_mean"}}))
+    assert not is_window_mean(base_cfg)
+    custom = {"_target_": "my_pkg.my_runner", "option": 1}
+    assert runner_spec(OmegaConf.create({"runner": custom})) == custom
+    with pytest.raises(ValueError, match="Unknown built-in runner"):
+        runner_spec(OmegaConf.create({"runner": {"name": "windowmean"}}))
+    with pytest.raises(ValueError, match="name or a mapping"):
+        runner_spec(OmegaConf.create({"runner": ["forecast"]}))
+    with pytest.raises(ValueError, match="needs 'name' or '_target_'"):
+        runner_spec(OmegaConf.create({"runner": {"window": "30D"}}))
+
+
 def test_builder_wires_the_library_runner(base_cfg) -> None:
     runner = forecast(base_cfg)
     assert isinstance(runner, PrognosticRunner)

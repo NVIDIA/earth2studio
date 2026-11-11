@@ -62,6 +62,88 @@ BUILTIN_RUNNERS: dict[str, str] = {
 """Built-in runner names and the builder callables they resolve to."""
 
 
+def runner_spec(cfg: DictConfig) -> dict[str, Any]:
+    """Resolve ``cfg.runner`` to a Hydra ``_target_`` mapping with its options.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Full campaign config.
+
+    Returns
+    -------
+    dict[str, Any]
+        ``{"_target_": <builder import path>, **options}``.
+
+    Raises
+    ------
+    ValueError
+        If the entry is neither a name nor a mapping, names an unknown
+        built-in, or lacks both ``name`` and ``_target_``.
+    """
+    spec: Any = cfg.get("runner", "forecast") or "forecast"
+    if isinstance(spec, str):
+        return {"_target_": BUILTIN_RUNNERS.get(spec, spec)}
+    spec = (
+        OmegaConf.to_container(spec, resolve=True)
+        if isinstance(spec, DictConfig)
+        else spec
+    )
+    if not isinstance(spec, dict):
+        raise ValueError(f"cfg.runner must be a name or a mapping, got {spec!r}")
+    spec = dict(spec)
+    if "name" in spec:
+        name = spec.pop("name")
+        if name not in BUILTIN_RUNNERS:
+            raise ValueError(
+                f"Unknown built-in runner {name!r}; choose from "
+                f"{sorted(BUILTIN_RUNNERS)} or give a _target_"
+            )
+        spec = {"_target_": BUILTIN_RUNNERS[name], **spec}
+    if "_target_" not in spec:
+        raise ValueError("cfg.runner mapping needs 'name' or '_target_'")
+    return spec
+
+
+def is_window_mean(cfg: DictConfig) -> bool:
+    """Whether ``cfg.runner`` selects the ``window_mean`` builder."""
+    return runner_spec(cfg)["_target_"] == BUILTIN_RUNNERS["window_mean"]
+
+
+def require_window_mean_verification(cfg: DictConfig, live: Any) -> None:
+    """Refuse to verify window means against instantaneous fields.
+
+    A ``window_mean`` forecast is a mean over each window, which the
+    campaign's ``data_source`` cannot verify.  Verification must come from
+    a bring-your-own ``verification_source`` or a configured
+    ``predownload.verification.source`` serving window means at the window
+    ends on the output grid.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Full campaign config.
+    live : Any
+        The configured ``predownload.verification.source`` node, or None
+        when verification would fall back to ``data_source``.
+
+    Raises
+    ------
+    ValueError
+        If the run is a ``window_mean`` run with neither source configured.
+    """
+    if live is not None or cfg.get("verification_source") is not None:
+        return
+    if is_window_mean(cfg):
+        raise ValueError(
+            "window_mean forecasts are means over each window, which the "
+            "instantaneous fields of data_source cannot verify. Set "
+            "verification_source or predownload.verification.source to a source "
+            "serving window means at the window ends on the output grid, or "
+            "disable verification."
+        )
+
+
 def build_runner(cfg: DictConfig, prefer_predownloaded: bool = True) -> Runner:
     """Build the campaign's runner from ``cfg.runner``.
 
@@ -78,24 +160,9 @@ def build_runner(cfg: DictConfig, prefer_predownloaded: bool = True) -> Runner:
     Runner
         A runner on CPU; :class:`earth2studio.run.Pipeline` moves it.
     """
-    spec: Any = cfg.get("runner", "forecast") or "forecast"
-    if isinstance(spec, str):
-        spec = {"_target_": BUILTIN_RUNNERS.get(spec, spec)}
-    else:
-        spec = OmegaConf.to_container(spec, resolve=True)
-        if not isinstance(spec, dict):
-            raise ValueError(f"cfg.runner must be a name or a mapping, got {spec!r}")
-        if "name" in spec:
-            name = spec.pop("name")
-            if name not in BUILTIN_RUNNERS:
-                raise ValueError(
-                    f"Unknown built-in runner {name!r}; choose from "
-                    f"{sorted(BUILTIN_RUNNERS)} or give a _target_"
-                )
-            spec = {"_target_": BUILTIN_RUNNERS[name], **spec}
-        if "_target_" not in spec:
-            raise ValueError("cfg.runner mapping needs 'name' or '_target_'")
-    builder: Callable[..., Runner] = hydra.utils.instantiate(spec, _partial_=True)
+    builder: Callable[..., Runner] = hydra.utils.instantiate(
+        runner_spec(cfg), _partial_=True
+    )
     runner = builder(cfg, prefer_predownloaded=prefer_predownloaded)
     if not hasattr(runner, "source_roles"):
         runner.source_roles = {}  # type: ignore[attr-defined]

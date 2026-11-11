@@ -45,6 +45,7 @@ from src.output import (
     build_backend,
     build_regridders,
     parallel_coords,
+    prepare_store,
     progress_path,
     retain_raw_output,
     sentinel_path,
@@ -146,9 +147,12 @@ def run(cfg: DictConfig, device: torch.device | str = "cpu") -> None:
     if retain_raw_output(cfg):
         lead_time = schemas[next(iter(variables))].coords["lead_time"].values
         parallel = parallel_coords(items, lead_time)
-        overwrite = bool(cfg.output.get("overwrite", False)) and not resume
+        overwrite = bool(cfg.output.get("overwrite", False))
+        prepare_store(store_path(cfg), resume, overwrite, rank)
         backend = rank0_first(
-            lambda: build_backend(cfg, store_path(cfg), parallel, overwrite, rank)
+            lambda: build_backend(
+                cfg, store_path(cfg), parallel, overwrite and not resume, rank
+            )
         )
         output = {stream: backend for stream in variables}
     elif not online:

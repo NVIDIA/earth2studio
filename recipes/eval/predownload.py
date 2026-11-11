@@ -95,7 +95,7 @@ from src.output import (
     store_path,
     verification_regridder,
 )
-from src.runners import build_runner
+from src.runners import build_runner, require_window_mean_verification
 
 from earth2studio.data import fetch_data, fetch_dataframe
 from earth2studio.grids import GridDefinition
@@ -311,7 +311,9 @@ def plan_verification_store(
     are every initial
     time plus every lead of the runner's forecast stream.  The fields land on
     the ``output.regrid`` grid when the campaign names one, else on the
-    forecast grid (see :func:`src.output.verification_regridder`).
+    forecast grid (see :func:`src.output.verification_regridder`).  The
+    planner refuses a ``window_mean`` run falling back to ``data_source``
+    (:func:`src.runners.require_window_mean_verification`).
 
     Parameters
     ----------
@@ -334,6 +336,7 @@ def plan_verification_store(
         logger.info("verification_source is bring-your-own; not cached.")
         return None
     node = pd_cfg.get("source", None)
+    require_window_mean_verification(cfg, node)
     if node is None:
         node = cfg.get("data_source", None)
     source = instantiate_source(node)

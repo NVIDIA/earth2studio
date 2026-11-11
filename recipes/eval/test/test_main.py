@@ -62,6 +62,20 @@ def test_deterministic_run_writes_forecast_store(base_cfg) -> None:
     assert not np.isnan(ds["t2m"].values).any()
 
 
+def test_rerun_refuses_to_replace_an_existing_store(base_cfg) -> None:
+    # The shipped default is output.overwrite=true; campaigns that keep their
+    # forecasts set it to false.
+    with open_dict(base_cfg):
+        base_cfg.output.overwrite = False
+    run(base_cfg)
+    with pytest.raises(FileExistsError, match="already exists"):
+        run(base_cfg)
+    with open_dict(base_cfg):
+        base_cfg.output.overwrite = True
+    run(base_cfg)
+    assert not np.isnan(_open(base_cfg)["t2m"].values).any()
+
+
 def test_resume_refuses_to_switch_scoring_mode(base_cfg) -> None:
     run(base_cfg)
     with open_dict(base_cfg):

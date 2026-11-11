@@ -50,6 +50,7 @@ from earth2studio.grids import (
 )
 from earth2studio.io import AsyncZarrBackend, IOBackend, ZarrBackend
 from earth2studio.run import WorkItem
+from earth2studio.run.work import broadcast
 from earth2studio.utils.coords import CoordSystem
 from earth2studio.utils.type import CoordinateSystem
 
@@ -106,10 +107,52 @@ def parallel_coords(items: Sequence[WorkItem], lead_time: np.ndarray) -> CoordSy
 
 
 def remove_store(path: str) -> None:
-    """Delete a store directory if it exists."""
+    """Delete a store, a directory or a stray file, if it exists."""
     if os.path.isdir(path):
         shutil.rmtree(path)
         logger.info(f"Removed existing store {path}")
+    elif os.path.lexists(path):
+        os.remove(path)
+        logger.info(f"Removed stray file at store path {path}")
+
+
+def prepare_store(path: str, resume: bool, overwrite: bool, rank: int = 0) -> None:
+    """Apply the rerun policy to an existing store before any rank opens it.
+
+    Rank 0 inspects the path and every rank learns the outcome, so a refusal
+    raises on all ranks together instead of leaving the others waiting at the
+    rank-ordered barrier of :func:`earth2studio.run.work.rank0_first`.
+
+    Parameters
+    ----------
+    path : str
+        Store path.
+    resume : bool
+        Whether the run appends to the existing store.
+    overwrite : bool
+        Whether rank 0 removes the existing store.  ``resume`` wins.
+    rank : int, optional
+        This process's rank, by default 0.
+
+    Raises
+    ------
+    FileExistsError
+        If the store exists without ``resume`` or ``overwrite``.
+    """
+    exists = broadcast(os.path.lexists(path) if rank == 0 else None)
+    if not exists:
+        return
+    if resume:
+        logger.info(f"Resuming into existing store: {path}")
+        return
+    if not overwrite:
+        raise FileExistsError(
+            f"{path} already exists. Set output.overwrite=true to replace it, "
+            "resume=true to append, or choose another run_id."
+        )
+    if rank == 0:
+        logger.warning(f"Overwriting existing store: {path}")
+        remove_store(path)
 
 
 def build_backend(
@@ -123,7 +166,9 @@ def build_backend(
     """Build the configured IO backend for one store.
 
     Call on every rank inside :func:`earth2studio.run.work.rank0_first`, so
-    rank 0 creates or clears the store before the others open it.
+    rank 0 creates or clears the store before the others open it.  Apply
+    :func:`prepare_store` first: it refuses an existing store that the run
+    neither resumes nor overwrites.
 
     Parameters
     ----------

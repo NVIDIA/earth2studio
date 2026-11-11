@@ -89,13 +89,14 @@ from earth2studio.utils.type import CoordinateSystem
 
 from .campaign import order_for_groups
 from .data import instantiate_source, resolve_source
-from .output import OutputRegridder, output_regridder, progress_path
+from .output import OutputRegridder, output_regridder, prepare_store, progress_path
 from .regions import (
     build_spatial_weights,
     events_to_attrs,
     parse_events,
     scoring_regions,
 )
+from .runners import require_window_mean_verification
 
 # Group products materialized once per lead step, in this fixed order, for
 # the union of every configured statistic's `requires()`.  Ordering matters:
@@ -1988,9 +1989,9 @@ def open_stats_store(
 ) -> ZarrBackend:
     """Create or reopen a statistics store on every rank.  Collective.
 
-    Rank 0 creates (or, with ``overwrite`` and no ``resume``, replaces) the
-    store before the other ranks open it, through
-    :func:`earth2studio.run.work.rank0_first`.  Each chunk holds one
+    :func:`src.output.prepare_store` applies the rerun policy on every rank
+    first, then rank 0 creates the store before the other ranks open it,
+    through :func:`earth2studio.run.work.rank0_first`.  Each chunk holds one
     initial condition, on the synchronous
     :class:`~earth2studio.io.ZarrBackend`.
 
@@ -2018,16 +2019,9 @@ def open_stats_store(
         If the store exists without ``resume`` or ``overwrite``.
     """
     rank, _ = rank_info()
+    prepare_store(path, resume, overwrite, rank)
 
     def _open() -> ZarrBackend:
-        if rank == 0 and os.path.isdir(path) and not resume:
-            if not overwrite:
-                raise FileExistsError(
-                    f"Statistics store '{path}' exists; set output.overwrite=true "
-                    "to replace it or resume=true to continue it."
-                )
-            shutil.rmtree(path)
-            logger.info(f"Removed existing statistics store {path}")
         backend = ZarrBackend(path, chunks={"time": 1})
         add_stats_arrays(backend, array_groups, region_names)
         return backend
@@ -2683,6 +2677,7 @@ def default_verification_source(cfg: DictConfig) -> Any:
     predownload = cfg.get("predownload", None) or {}
     verification = predownload.get("verification", None) or {}
     live = verification.get("source", None)
+    require_window_mean_verification(cfg, live)
     if live is None:
         live = cfg.get("data_source", None)
     source = resolve_source(

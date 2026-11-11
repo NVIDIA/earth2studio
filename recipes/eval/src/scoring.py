@@ -74,6 +74,7 @@ from .regions import (
     scoring_regions,
     spatial_axes,
 )
+from .runners import require_window_mean_verification
 
 # ---------------------------------------------------------------------------
 # Config helpers
@@ -357,9 +358,13 @@ def open_verification_source(cfg: DictConfig) -> Any:
     Raises
     ------
     ValueError
-        If no config entry names a verification source.
+        If no config entry names a verification source, or a ``window_mean``
+        run would verify against ``data_source``
+        (:func:`src.runners.require_window_mean_verification`).
     """
-    live = cfg.predownload.verification.get("source", None) or cfg.get("data_source")
+    configured = cfg.predownload.verification.get("source", None)
+    require_window_mean_verification(cfg, configured)
+    live = configured or cfg.get("data_source")
     source = resolve_source(
         cfg, "verification", byo=cfg.get("verification_source"), live=live
     )

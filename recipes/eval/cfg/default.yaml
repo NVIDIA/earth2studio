@@ -137,6 +137,8 @@ output:
     variables:
         - t2m
         - z500
+    # Replace an existing forecast store.  With false, a rerun into the same
+    # output.path is refused unless resume is true.
     overwrite: true
     # Regrid every stream onto a target grid before writing and scoring.
     # null keeps the models' native grids.  Example (ERA5 0.25 degree):

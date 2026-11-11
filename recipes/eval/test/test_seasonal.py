@@ -266,6 +266,33 @@ def test_builder_wraps_the_forecast_runner(base_cfg) -> None:
     assert direct.window == np.timedelta64(1, "D").astype("timedelta64[ns]")
 
 
+def test_window_means_need_bring_your_own_verification(base_cfg) -> None:
+    from predownload import plan_verification_store
+    from src.scoring import open_verification_source
+
+    cfg = base_cfg
+    with open_dict(cfg):
+        cfg.runner = {"name": "window_mean", "window": "12h"}
+        cfg.nsteps = 4
+        cfg.predownload.verification.enabled = True
+    runner = build_runner(cfg)
+    items = build_items(cfg, runner)
+    with pytest.raises(ValueError, match="window means"):
+        plan_verification_store(cfg, runner, items)
+    with pytest.raises(ValueError, match="window means"):
+        open_verification_source(cfg)
+    # Either configured source of window means passes.
+    with open_dict(cfg):
+        cfg.predownload.verification.source = dict(cfg.data_source)
+    assert plan_verification_store(cfg, runner, items) is not None
+    assert open_verification_source(cfg) is not None
+    with open_dict(cfg):
+        cfg.predownload.verification.source = None
+        cfg.verification_source = dict(cfg.data_source)
+    assert plan_verification_store(cfg, runner, items) is None
+    assert open_verification_source(cfg) is not None
+
+
 def test_builder_rejects_partial_windows_before_running(base_cfg) -> None:
     cfg = _window_cfg(base_cfg, nsteps=3)
     runner = build_runner(cfg)
