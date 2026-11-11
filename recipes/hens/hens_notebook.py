@@ -114,8 +114,6 @@ from src.hens_utilities import initialise
     data_source,
     output_coords_dict,
     base_random_seed,
-    writer_executor,
-    writer_threads,
 ) = initialise(cfg)
 
 # %% [markdown]
@@ -191,8 +189,6 @@ run_inference(
     data_source,
     output_coords_dict,
     base_random_seed,
-    writer_executor,
-    writer_threads,
 )
 
 # %% [markdown]

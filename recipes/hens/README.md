@@ -400,6 +400,18 @@ file_output:
 
 ### Execution
 
+For overlapping forecast computation with disk writes, use a NetCDF or Zarr
+backend and set `file_output.thread_io: true`. The recipe-local
+`BufferedIOBackend` buffers independent CPU xarray DataArrays; it holds at most
+two outstanding fields per region by default (override with
+`+file_output.buffer_size=4`). CPU transfer/copy is synchronous; disk writing
+runs on a background worker. A full buffer applies backpressure. Pipeline waits
+for writes at each batch boundary before recording progress, and writer errors
+propagate to the run. NetCDF operations are serialized across region workers.
+This replaces the previous whole-run export thread pool. Explicit Xarray/KV
+backends still retain the full forecast in memory and export synchronously at
+the end; use a disk backend for bounded, asynchronous output.
+
 To resume interrupted runs, set `file_output.resume: true` and use this output
 format with an explicit `random_seed`:
 
@@ -416,7 +428,8 @@ Rerun the same configuration and output paths. Progress is stored under
 Completed batches are skipped; incomplete batches are rerun, including their
 tracking and CorrDiff files. Keep the progress directory and all output files
 together. Changed configurations are rejected; use a fresh output directory for
-a new run. Resume is not supported for NetCDF or in-memory/async-export backends.
+a new run. Buffered Zarr output also supports resume; NetCDF and in-memory
+backends do not.
 
 To execute the inference pipeline, tailor the config file to your needs and run:
 

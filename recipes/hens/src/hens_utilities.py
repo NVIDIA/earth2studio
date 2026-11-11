@@ -16,7 +16,7 @@
 
 import os
 from collections import OrderedDict
-from concurrent.futures import Future, ThreadPoolExecutor
+from contextlib import ExitStack
 from functools import partial
 from typing import Any
 
@@ -34,6 +34,7 @@ from earth2studio.models.dx import CorrDiff
 from earth2studio.utils.time import to_time_array
 
 from .hens_distributed import worker_rank
+from .hens_io import BufferedIOBackend
 from .hens_utilities_reproduce import (
     ensure_all_torch_seeds_are_unique,
     get_reproducibility_settings,
@@ -204,18 +205,32 @@ def initialise_output(
         out_path = os.path.join(out_path_base, file_name)
         os.makedirs(out_path_base, exist_ok=True)
 
-        io = hydra.utils.instantiate(cfg.file_output.format)
-        if isinstance(io, partial):  # add out file names
-            if cfg.file_output.format._target_.split(".")[-1].startswith("NetCDF"):
-                output_file = out_path + ".nc"
-            elif cfg.file_output.format._target_.split(".")[-1].startswith("Zarr"):
-                output_file = out_path + ".zarr"
-            else:
-                raise ValueError(
-                    f"no file name extension implemented for {io}. It's a one-liner tho, do it quickly ;)"
+        def create_backend(path: str = out_path) -> IOBackend:
+            io = hydra.utils.instantiate(cfg.file_output.format)
+            if isinstance(io, partial):
+                name = cfg.file_output.format._target_.split(".")[-1]
+                if name.startswith("NetCDF"):
+                    path += ".nc"
+                elif name.startswith("Zarr"):
+                    path += ".zarr"
+                else:
+                    raise ValueError(f"No file extension implemented for {name}")
+                io = io(file_name=path)
+            return io
+
+        try:
+            io_dict[k] = (
+                BufferedIOBackend(
+                    create_backend, buffer_size=cfg.file_output.get("buffer_size", 2)
                 )
-            io = io(file_name=output_file)
-        io_dict[k] = io
+                if cfg.file_output.get("thread_io", False)
+                else create_backend()
+            )
+        except BaseException:
+            with ExitStack() as outputs:
+                for backend in io_dict.values():
+                    outputs.callback(backend.close)
+            raise
 
     return io_dict
 
@@ -316,8 +331,6 @@ def initialise(
     DataSource,
     dict[str, OrderedDict[Any, Any]],
     str | int,
-    ThreadPoolExecutor | None,
-    list[Future[Any]],
 ]:
     """Set initial conditions, load models, and set up file output based on the provided
     configuration.
@@ -411,9 +424,6 @@ def initialise(
     # initialize corrdiff models
     cd_model_dict = initialize_corrdiff_models(cfg)
 
-    # initialize output structures
-    _, writer_executor, writer_threads = initialize_output_structures(cfg)
-
     # make sure that all the seeds are unique
     ensure_all_torch_seeds_are_unique(ensemble_configs, str(base_random_seed))
 
@@ -426,8 +436,6 @@ def initialise(
         data_source,
         output_coords_dict,
         base_random_seed,
-        writer_executor,
-        writer_threads,
     )
 
 
@@ -775,9 +783,7 @@ def write_to_disk(
     ic: str,
     model_dict: dict,
     io_dict: dict[str, IOBackend],
-    writer_executor: ThreadPoolExecutor | None = None,
-    writer_threads: list[Future] | None = None,
-) -> tuple[ThreadPoolExecutor | None, list[Future]]:
+) -> None:
     """Method which writes in-memory backends to file.
 
     Parameters
@@ -790,18 +796,8 @@ def write_to_disk(
         dictionary containing loaded model, its class and its package
     io : dict[IOBackend]
         dictionary of io objects for data output
-    writer_executor : ThreadPoolExecutor, optional
-        executor for parallel file output, by default None
-    writer_threads : list[Future], optional
-        threads for parallel file output, by default []
-
-    Returns
-    -------
-    tuple[ThreadPoolExecutor | None, list[Future]]:
-        List of writer threads and executor pool if exists
     """
 
-    writer_threads = [] if writer_threads is None else writer_threads
     pkg = model_dict["package"]
     if pkg != "vanilla":
         pkg = "_pkg_" + pkg.split("_")[-1]
@@ -809,6 +805,8 @@ def write_to_disk(
     file_name = cfg.project + "_" + str(ic)[:13] + pkg
 
     for k, io in io_dict.items():
+        if isinstance(io, BufferedIOBackend):
+            io = io.backend
         out_path = os.path.join(cfg.file_output.path, k, file_name)
 
         kw_args = {"path": out_path + ".nc", "format": "NETCDF4"}
@@ -820,12 +818,7 @@ def write_to_disk(
         else:
             continue  # Pipeline already flushed and closed disk-backed stores.
         tmp = extend_xarray_for_reproducibility(tmp, io, cfg, model_dict)
-        if writer_executor is not None:
-            writer_threads.append(writer_executor.submit(tmp.to_netcdf, **kw_args))
-        else:
-            tmp.to_netcdf(**kw_args)
-
-    return writer_executor, writer_threads
+        tmp.to_netcdf(**kw_args)
 
 
 def extend_xarray_for_reproducibility(
@@ -863,63 +856,6 @@ def extend_xarray_for_reproducibility(
     x = x.assign_attrs(nensemble=cfg.nensemble)
     x = x.assign_attrs(random_seed=cfg.random_seed)
     return x
-
-
-def initialize_output_structures(
-    cfg: DictConfig,
-) -> tuple[dict[str, list[Any]], ThreadPoolExecutor | None, list[Future]]:
-    """Initialize data structures for cyclone tracking and file output.
-
-    This function sets up the necessary data structures based on the provided
-    configuration. It initializes a dictionary to store cyclone track data
-    and, if configured, a thread pool executor for parallel file I/O operations.
-
-    Parameters
-    ----------
-    cfg : DictConfig
-        Hydra configuration object containing the settings for cyclone tracking
-        and file output.
-
-    Returns
-    -------
-    all_tracks_dict : Dict[str, List[Any]]
-        A dictionary to store cyclone track data. The keys correspond to different
-        cropbox areas (if specified), and the values are lists that will store
-        the cyclone track data for each area.
-
-    writer_executor : ThreadPoolExecutor | None
-        An instance of `ThreadPoolExecutor` for parallel file I/O operations,
-        or `None` if parallel I/O is not configured.
-
-    writer_threads : List[Future]
-        A list to hold future objects for the parallel file I/O tasks.
-        Initially empty.
-
-    Notes
-    -----
-    - If the configuration includes cyclone tracking and specifies cropboxes,
-        `all_tracks_dict` will have keys corresponding to each cropbox area.
-        Otherwise, it will have a single key, 'Global'.
-    - If file output parallelism is enabled in the configuration, `writer_executor`
-        will be an instance of `ThreadPoolExecutor`. Otherwise, it will be `None`.
-    """
-
-    if "file_output" in cfg and "cropboxes" in cfg["file_output"]:
-        all_tracks_dict: dict[str, list[Any]] = {}
-        for k in cfg["file_output"]["cropboxes"].keys():
-            all_tracks_dict[k] = []
-    else:
-        all_tracks_dict = {"global": []}
-
-    # Initialize threadpool for writers
-    writer_executor = (
-        ThreadPoolExecutor(max_workers=8)
-        if ("file_output" in cfg and cfg.file_output.thread_io)
-        else None
-    )
-    writer_threads: list[Future] = []
-
-    return all_tracks_dict, writer_executor, writer_threads
 
 
 def get_batchid_from_ensid(

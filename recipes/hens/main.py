@@ -33,8 +33,6 @@ def main(cfg: DictConfig) -> None:
         data_source,
         output_coords_dict,
         base_random_seed,
-        writer_executor,
-        writer_threads,
     ) = initialise(cfg)
 
     run_inference(
@@ -47,8 +45,6 @@ def main(cfg: DictConfig) -> None:
         data_source,
         output_coords_dict,
         base_random_seed,
-        writer_executor,
-        writer_threads,
     )
 
 
