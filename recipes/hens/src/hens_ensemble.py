@@ -134,8 +134,8 @@ class HENSRunner:
         self.prognostic.to(self.device)
         for model in self.diagnostics.values():
             model.to(self.device)
-        for wrapper in self.downscaling.values():
-            wrapper.corrdiff.to(self.device)
+        for downscaler in self.downscaling.values():
+            downscaler.corrdiff.to(self.device)
         if self.tracking is not None:
             self.tracking.tracker.to(self.device)
         return self
@@ -270,9 +270,9 @@ class HENSRunner:
                             result, {dim: field[dim].values for dim in ("lat", "lon")}
                         )
                         field = xr.concat([field, result], dim="variable", join="exact")
-                    for name, wrapper in self.downscaling.items():
-                        result = wrapper.corrdiff(
-                            _map_field(field, wrapper.corrdiff.input_coords())
+                    for name, downscaler in self.downscaling.items():
+                        result = downscaler.corrdiff(
+                            _map_field(field, downscaler.corrdiff.input_coords())
                         )
                         result = _with_lead_time(result, field.lead_time.values)
                         downscaled[name].append(
