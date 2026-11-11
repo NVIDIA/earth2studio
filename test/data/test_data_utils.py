@@ -24,6 +24,7 @@ from pathlib import Path
 import numpy as np
 import obstore as obs
 import pandas as pd
+import pyarrow as pa
 import pytest
 import torch
 import xarray as xr
@@ -1672,3 +1673,24 @@ def test_table_to_dataframe(chunked):
     assert str(df["station"].dtype) == "string[pyarrow]"
     assert list(df["satellite"][:3]) == ["npp", "npp", "n20"]
     assert len(df) == (6 if chunked else 3)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda missing")
+def test_fetch_dataframe_fixed_size_lists_to_cudf():
+    # Wide channel frames hold fixed-size lists, which cuDF cannot ingest directly
+    cudf = pytest.importorskip("cudf")
+
+    def source(time, variable, fields=None):
+        values = pa.array([[1.0, 2.0], [3.0, None]], type=pa.list_(pa.float32(), 2))
+        frame = pa.table({"observation_x": values}).to_pandas(
+            types_mapper=pd.ArrowDtype
+        )
+        frame.attrs["source"] = "channels"
+        return frame
+
+    time = np.array([np.datetime64("2024-01-01T00:00")])
+    result = fetch_dataframe(source, time, np.array(["x"]), device="cuda:0")
+    assert isinstance(result, cudf.DataFrame)
+    assert result.attrs["source"] == "channels"
+    values = result["observation_x"].to_arrow().to_pylist()
+    assert values == [[1.0, 2.0], [3.0, None]]
