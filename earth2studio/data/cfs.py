@@ -330,7 +330,7 @@ class CFS_FX:
             max_workers=resolve_async_workers(self._async_workers, len(coros)),
             task_timeout=120.0,
             desc="Fetching CFS data",
-            verbose=(not self._verbose),
+            verbose=self._verbose,
         )
 
         return xr_array
@@ -373,7 +373,7 @@ class CFS_FX:
             max_workers=resolve_async_workers(self._async_workers, len(idx_coros)),
             task_timeout=60.0,
             desc="Fetching CFS index files",
-            verbose=True,
+            verbose=self._verbose,
         )
         idx_by_uri = dict(zip(idx_uris, idx_results))
 

@@ -365,7 +365,7 @@ class MeteosatLI:
             coros,
             max_workers=self._async_workers,
             desc="Fetching MTG LI L2 granules",
-            verbose=(not self._verbose),
+            verbose=self._verbose,
         )
 
         return self._compile_dataframe(
@@ -395,7 +395,7 @@ class MeteosatLI:
             [self._search_window(product, lo, hi) for (product, lo, hi) in jobs],
             max_workers=self._async_workers,
             desc="Searching MTG LI L2 catalogue",
-            verbose=(not self._verbose),
+            verbose=self._verbose,
         )
 
         granules: dict[tuple[str, str], _MeteosatLIGranule] = {}

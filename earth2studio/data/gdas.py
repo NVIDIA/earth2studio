@@ -264,7 +264,7 @@ class NomadsGDASObsConv:
                 coros,
                 max_workers=self._async_workers,
                 desc="Fetching GDAS conventional observations",
-                verbose=(not self._verbose),
+                verbose=self._verbose,
             ),
             self.async_timeout,
         )

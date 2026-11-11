@@ -338,7 +338,7 @@ class CFS_Reforecast_FX:
             max_workers=self._async_workers,
             task_timeout=180.0,
             desc="Fetching CFS reforecast data",
-            verbose=(not self._verbose),
+            verbose=self._verbose,
         )
         return xr_array
 

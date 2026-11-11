@@ -468,7 +468,7 @@ class NNJAObsConv:
             coros,
             max_workers=self._async_workers,
             desc="Fetching NNJA files",
-            verbose=(not self._verbose),
+            verbose=self._verbose,
         )
 
     async def _fetch_remote_file(self, path: str) -> None:
@@ -1068,7 +1068,7 @@ class NNJAObsSat:
             coros,
             max_workers=self._async_workers,
             desc="Fetching NNJA satellite files",
-            verbose=(not self._verbose),
+            verbose=self._verbose,
         )
 
     async def _fetch_remote_file(self, path: str) -> None:

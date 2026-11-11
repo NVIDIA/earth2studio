@@ -214,7 +214,7 @@ class NCAR_ERA5:
                     self._async_workers, len(async_tasks)
                 ),
                 desc="Fetching NCAR ERA5 data",
-                verbose=(not self._verbose),
+                verbose=self._verbose,
             )
             # Group based on variable
             for result in results:

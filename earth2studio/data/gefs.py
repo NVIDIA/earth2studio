@@ -307,7 +307,7 @@ class GEFS_FX:
             max_workers=resolve_async_workers(self._async_workers, len(coros)),
             task_timeout=120.0,
             desc="Fetching GEFS data",
-            verbose=(not self._verbose),
+            verbose=self._verbose,
         )
 
         return xr_array
@@ -353,7 +353,7 @@ class GEFS_FX:
             max_workers=resolve_async_workers(self._async_workers, len(args)),
             task_timeout=60.0,
             desc="Fetching GEFS index files",
-            verbose=True,
+            verbose=self._verbose,
         )
         for i, t in enumerate(time):
             for j, lt in enumerate(lead_time):
