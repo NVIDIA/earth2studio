@@ -16,6 +16,7 @@
 
 import pathlib
 import shutil
+from contextlib import contextmanager
 from datetime import datetime
 
 import numpy as np
@@ -24,6 +25,19 @@ import xarray as xr
 
 from earth2studio.data import CMIP6
 from earth2studio.data.cmip6 import CMIP6MultiRealm
+
+
+@contextmanager
+def remote_io_xfail():
+    """Treat unavailable remote NetCDF streams as expected live-test failures."""
+    try:
+        yield
+    except OSError as error:
+        if error.errno == -68 and str(error.filename).startswith(
+            ("http://", "https://")
+        ):
+            pytest.xfail(f"Remote NetCDF I/O failure: {error}")
+        raise
 
 
 @pytest.mark.live(timeout=20)
@@ -203,13 +217,14 @@ def test_cmip6_pressure_level_tolerance():
 def test_cmip6_available(time, source_id, expected):
     """Test the CMIP6.available class-method."""
 
-    result = CMIP6.available(
-        time,
-        experiment_id="ssp585",
-        source_id=source_id,
-        table_id="Amon",
-        variant_label="r1i1p2f1",
-    )
+    with remote_io_xfail():
+        result = CMIP6.available(
+            time,
+            experiment_id="ssp585",
+            source_id=source_id,
+            table_id="Amon",
+            variant_label="r1i1p2f1",
+        )
 
     assert result is expected
 
@@ -297,7 +312,8 @@ def test_cmip6_multi_realm_available(time, expected):
     )
 
     sources = [atmos, sea_ice]
-    result = CMIP6MultiRealm.available(time, sources)
+    with remote_io_xfail():
+        result = CMIP6MultiRealm.available(time, sources)
 
     assert result is expected
 
