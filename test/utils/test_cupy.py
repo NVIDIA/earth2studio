@@ -39,7 +39,7 @@ def assert_values_and_gradients(actual, expected, leaf):
     )
 
 
-def test_accessor_releases_array_without_cyclic_collection():
+def test_accessor_memory_release():
     collecting = gc.isenabled()
     gc.disable()
     try:
