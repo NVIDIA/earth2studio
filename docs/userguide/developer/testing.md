@@ -105,16 +105,13 @@ logs and uploads `test-results-<tox-env>` artifacts even on failure, retained fo
 
 ### Bounded data-source tests
 
-`test-data` runs supervisor checks and lexicon tests, then isolated data-test processes
+`test-data` runs supervisor checks, lexicon and Icechunk tests, then isolated data-test processes
 with **8 workers**, **300s per file**, and **1,200s total**, plus termination grace.
 Override these with `DATA_TEST_WORKERS`, `DATA_TEST_FILE_TIMEOUT`, and `DATA_TEST_TIMEOUT`.
 File budgets include startup, shutdown, and restarts; exceeding a budget fails the run.
 Logs and partial results: `.cache/test-results/test-data/data/`.
-Each file gets a temporary data cache, retained across restarts and removed on completion.
-These directories live under `.cache/data-test-downloads/`; model downloads use a
-separate shared cache, honoring `EARTH2STUDIO_MODEL_CACHE`. Once pytest finalization
-finishes, lingering processes are terminated after the shutdown grace period and
-the recorded test outcome is preserved. Forced cleanup is logged explicitly.
+Once pytest finalization finishes, lingering processes are terminated after the shutdown
+grace period and the recorded test outcome is preserved. Forced cleanup is logged explicitly.
 
 Mark network tests with `@pytest.mark.live(timeout=60)` (default: 60s):
 
@@ -125,8 +122,9 @@ Mark network tests with `@pytest.mark.live(timeout=60)` (default: 60s):
   Locally, `DATA_TEST_BASE` defaults to `HEAD`, including uncommitted changes.
 - `--live=all`: run all live tests (local default).
 
-Only live-call timeouts become XFAIL; the process is killed and remaining tests resume
-in a fresh process. Other errors fail normally. Selected live files bypass testmon.
+Under supervision, live-call timeouts become XFAIL; the process is killed and remaining
+tests resume in a fresh process. Other errors fail normally. File summaries show
+`PASSED (XFAIL)` when expected failures occurred. Selected live files bypass testmon.
 Use `--live-timeout` to override marker deadlines.
 
 ```bash
@@ -140,15 +138,16 @@ DATA_TEST_FILE_TIMEOUT=3600 DATA_TEST_TIMEOUT=7200 \
 ```
 
 Arguments after `--` apply only to data-source tests and replace their Tox defaults;
-include `--testmon` and `--cov` as needed. Lexicon tests run with fixed defaults.
+include `--testmon` and `--cov` as needed. Lexicon and Icechunk tests run with fixed defaults.
 
 ### Running Tests Directly with pytest
 
-For rapid iteration during development, you can run pytest directly:
+For local development, run pytest directly. Live tests are included by default;
+no `--live` option or supervisor is required:
 
 ```bash
-# Offline test suite (also skips slow tests)
-uv run pytest test/ --live=none
+# Run the test suite (skips tests marked slow)
+uv run pytest test/
 
 # Standard test suite (includes slow tests)
 uv run pytest --slow test/
@@ -156,8 +155,8 @@ uv run pytest --slow test/
 # Run a specific test module, including live requests
 uv run pytest test/data/test_gfs.py
 
-# Run only offline tests in that module
-uv run pytest test/data/test_gfs.py --live=none
+# Filter tests within a module
+uv run pytest test/data/test_gfs.py -k cache
 ```
 
 Direct pytest uses `pytest-timeout` for live deadlines (including `--live-timeout`
@@ -182,8 +181,8 @@ debugging and allows parallel execution. Each job only runs when relevant files 
 - **`test-da-models`** - Runs when data assimilation model code or tests change
 
 To force all tests to run regardless of changes, set the `CI_PYTEST_ALL` environment variable
-to `1`, `true`, `yes`, or `on`. Live data tests still require `--live=all` (or
-`DATA_TEST_LIVE=all`) and remain subject to finite process budgets.
+to `1`, `true`, `yes`, or `on`. In CI, also set `DATA_TEST_LIVE=all` to bypass
+change-based live selection. Supervised runs retain finite process budgets.
 
 ## Coverage
 
