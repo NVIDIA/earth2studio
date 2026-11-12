@@ -365,7 +365,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
             Generated fields matching ``output_coords(x)`` on the configured grid.
         """
         output_coords = self.output_coords(x)
-        x = x.e2s.to_torch()[0].to(self.device_buffer.device).clone()
+        x = x.e2s.to_torch()[0].to(self.device_buffer.device)
 
         time = output_coords["time"].values[:, None]
         lead = output_coords["lead_time"].values[None, :]
@@ -468,7 +468,7 @@ class CBottleInfill(torch.nn.Module, AutoModelMixin):
         # If SST is part of our inputs, use this for the condition
         if "sst" in self.input_coords()["variable"]:
             sst_idx = np.where(self.input_coords()["variable"] == "sst")[0]
-            sst_data = x[..., sst_idx, :, :].clone()
+            sst_data = x[..., sst_idx, :, :]
             sst_data = self.input_regridder(sst_data.double()).squeeze()
         # If not we will use the AMIP SST the model was trained with to condition
         else:

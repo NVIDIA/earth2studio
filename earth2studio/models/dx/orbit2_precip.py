@@ -781,9 +781,9 @@ class OrbitGlobalPrecip(torch.nn.Module, AutoModelMixin):
 
         with torch.no_grad():
             out = self._forward(
-                x.e2s.to_torch()[0]
-                .to(device=self.norm_mean.device, dtype=self.norm_mean.dtype)
-                .clone()
+                x.e2s.to_torch()[0].to(
+                    device=self.norm_mean.device, dtype=self.norm_mean.dtype
+                )
             )
 
         return from_torch(out, output_coords)
