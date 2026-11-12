@@ -324,8 +324,15 @@ class WB2ERA5(_WB2Base):
 
     Note
     ----
-    This data source supports the following temporal statistics: ``mean``,
-    ``sum``, ``min``, and ``max``. The temporal sampling cadence is six hours.
+    Temporal statistics: this data source supports ``mean``, ``sum``, ``min`` and
+    ``max``, which return NaN when any sample in the window is missing, and the
+    NaN-skipping ``nanmean``, ``nansum``, ``nanmin`` and ``nanmax``. The sampling
+    cadence is six hours and a two-part label such as ``t2m:mean:24h`` selects the
+    stamps in ``[T - 24h, T)``.
+
+    Precipitation is stored only as trailing accumulations (``tp06``, ``tp12``,
+    ``tp24``) that end at their timestamp; request those labels directly rather
+    than summing a window of them, which would overlap.
 
     Parameters
     ----------
@@ -379,8 +386,15 @@ class WB2ERA5_121x240(_WB2Base):
 
     Note
     ----
-    This data source supports the following temporal statistics: ``mean``,
-    ``sum``, ``min``, and ``max``. The temporal sampling cadence is six hours.
+    Temporal statistics: this data source supports ``mean``, ``sum``, ``min`` and
+    ``max``, which return NaN when any sample in the window is missing, and the
+    NaN-skipping ``nanmean``, ``nansum``, ``nanmin`` and ``nanmax``. The sampling
+    cadence is six hours and a two-part label such as ``t2m:mean:24h`` selects the
+    stamps in ``[T - 24h, T)``.
+
+    Precipitation is stored only as trailing accumulations (``tp06``, ``tp12``,
+    ``tp24``) that end at their timestamp; request those labels directly rather
+    than summing a window of them, which would overlap.
 
     Parameters
     ----------
@@ -434,8 +448,15 @@ class WB2ERA5_32x64(_WB2Base):
 
     Note
     ----
-    This data source supports the following temporal statistics: ``mean``,
-    ``sum``, ``min``, and ``max``. The temporal sampling cadence is six hours.
+    Temporal statistics: this data source supports ``mean``, ``sum``, ``min`` and
+    ``max``, which return NaN when any sample in the window is missing, and the
+    NaN-skipping ``nanmean``, ``nansum``, ``nanmin`` and ``nanmax``. The sampling
+    cadence is six hours and a two-part label such as ``t2m:mean:24h`` selects the
+    stamps in ``[T - 24h, T)``.
+
+    Precipitation is stored only as trailing accumulations (``tp06``, ``tp12``,
+    ``tp24``) that end at their timestamp; request those labels directly rather
+    than summing a window of them, which would overlap.
 
     Parameters
     ----------

@@ -54,32 +54,48 @@ except ImportError:
 def _tree_neighbors(
     source: tuple[NDArray[Any], NDArray[Any]],
     target: tuple[NDArray[Any], NDArray[Any]],
-    spacing: bool = False,
-) -> tuple[NDArray[np.int64], NDArray[Any], NDArray[np.bool_], float | None]:
-    """Nearest source point and its distance for each target point, on the sphere.
+    max_dist_km: float | Literal["auto"] | None = None,
+) -> tuple[NDArray[np.int64], NDArray[Any], NDArray[np.bool_]]:
+    """Nearest source point within ``max_dist_km`` of each target, on the sphere.
 
-    With ``spacing``, also estimate the source resolution: twice the largest
-    distance between a sample of source points and their nearest neighbors, which
-    bounds the distance from any point inside the grid to its nearest point.
+    ``"auto"`` first estimates the source resolution: twice the largest distance
+    between a sample of source points and their nearest neighbors, which bounds the
+    distance from any point inside the grid to its nearest point. The search is
+    bounded by the limit, so targets far beyond the source (for example a global
+    target over a regional source) are rejected quickly instead of searching the
+    whole tree.
     """
     source_valid = np.isfinite(source[0]) & np.isfinite(source[1])
     if not source_valid.any():
         raise ValueError("Source grid has no finite geographic coordinates")
     target_valid = np.isfinite(target[0]) & np.isfinite(target[1])
     tree = KDTree(_unit_vectors(source[0][source_valid], source[1][source_valid]))
+    limit = max_dist_km
+    if limit == "auto":
+        points = tree.data[:: max(1, tree.n // _SPACING_SAMPLES)]
+        neighbor, _ = tree.query(points, k=2)
+        limit = 2 * float(_chord_km(neighbor[:, 1]).max()) if tree.n > 1 else 0.0
+    bound = np.inf
+    if limit is not None:
+        # Chord length of the great-circle limit, slightly widened so targets
+        # exactly at the limit are still found and then compared in kilometres.
+        angle = min(float(limit) / _EARTH_RADIUS_KM, np.pi)
+        bound = 2 * np.sin(angle / 2) * (1 + 1e-9) + 1e-12
     chord = np.full(target[0].size, np.inf)
     nearest = np.zeros(target[0].size, dtype=np.int64)
     chord[target_valid], found = tree.query(
-        _unit_vectors(target[0][target_valid], target[1][target_valid]), k=1
+        _unit_vectors(target[0][target_valid], target[1][target_valid]),
+        k=1,
+        distance_upper_bound=bound,
     )
-    nearest[target_valid] = np.flatnonzero(source_valid)[found]
+    hit = np.zeros(target[0].size, dtype=bool)
+    hit[target_valid] = found < tree.n
+    nearest[hit] = np.flatnonzero(source_valid)[found[found < tree.n]]
     distance = _chord_km(chord)
-    resolution = None
-    if spacing:
-        points = tree.data[:: max(1, tree.n // _SPACING_SAMPLES)]
-        neighbor, _ = tree.query(points, k=2)
-        resolution = 2 * float(_chord_km(neighbor[:, 1]).max()) if tree.n > 1 else 0.0
-    return nearest, distance, target_valid, resolution
+    valid = target_valid & hit
+    if limit is not None:
+        valid &= distance <= float(limit)
+    return nearest, distance, valid
 
 
 def _chord_km(chord: NDArray[Any]) -> NDArray[Any]:
@@ -179,14 +195,9 @@ class NearestRegridder(_IndexRegridder):
         return {source_grid.topology, target_grid.topology} <= _TOPOLOGIES
 
     def _build(self) -> _Tables:
-        limit = self.max_dist_km
-        index, distance, valid, spacing = _tree_neighbors(
+        index, _, valid = _tree_neighbors(
             self._valid_source(),
             _geographic(self._target_grid),
-            spacing=limit == "auto",
+            self.max_dist_km,
         )
-        if limit == "auto":
-            limit = spacing
-        if limit is not None:
-            valid = valid & (distance <= float(limit))
         return np.where(valid, index, 0)[None], None, valid

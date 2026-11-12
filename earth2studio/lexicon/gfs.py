@@ -37,7 +37,16 @@ class GFSLexicon(metaclass=LexiconType):
     https://www.nco.ncep.noaa.gov/pmb/products/gfs/gfs.t00z.pgrb2.0p25.f003.shtml
     """
 
-    TIME_STATISTICS: tuple[str, ...] = ("mean", "sum", "min", "max")
+    TIME_STATISTICS: tuple[str, ...] = (
+        "mean",
+        "sum",
+        "min",
+        "max",
+        "nanmean",
+        "nansum",
+        "nanmin",
+        "nanmax",
+    )
 
     VOCAB = {
         "u10m": "UGRD::10 m above ground",

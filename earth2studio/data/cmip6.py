@@ -113,7 +113,9 @@ class CMIP6:
     ----
     By default, this data source will retrieve the closest time available using nearest
     neighbor matching. Depending on the experiment and temporal resolution, this may be
-    significantly different than what was requested. Set `exact_time_match=True` to
+    significantly different than what was requested. The returned data is labelled
+    with the requested times and carries the snapshot times actually sampled in the
+    auxiliary ``time_selected`` coordinate. Set `exact_time_match=True` to
     enforce exact time matching if precise timestamps are critical.
 
     Badges
@@ -303,9 +305,10 @@ class CMIP6:
             data=np.empty((len(time), len(variable), *grid_shape), dtype=np.float32),
             dims=["time", "variable", *da_dims_xy],
             coords={
-                "time": selected_times_dt,
-                # Keep the originally requested timestamps alongside the actual sampled times
-                "time_requested": ("time", requested_times),
+                # Label data with the requested times, as every data source does;
+                # the snapshots actually sampled are kept alongside for reference.
+                "time": requested_times,
+                "time_selected": ("time", selected_times_dt),
                 "variable": variable,
                 **coord_dict,
             },

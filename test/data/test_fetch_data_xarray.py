@@ -172,6 +172,39 @@ def test_repeated_timestamps(forecast):
     np.testing.assert_allclose(array[2, 0, 0], [[2, 4, 6], [1, 3, 5], [0, 2, 4]])
 
 
+@pytest.mark.parametrize("forecast", [False, True])
+def test_mislabelled_times_name_the_source(forecast):
+    """A source returning other time labels raises a clear error, not a KeyError."""
+
+    def snap(da):
+        return da.assign_coords(time=da.time - np.timedelta64(3, "h"))
+
+    class Snapping(AnalysisSource):
+        def __call__(self, time, variable):
+            return snap(super().__call__(time, variable))
+
+    class SnappingForecast(ForecastSource):
+        def __call__(self, time, lead_time, variable):
+            return snap(super().__call__(time, lead_time, variable))
+
+    source = SnappingForecast() if forecast else Snapping()
+    with pytest.raises(ValueError, match="Snapping\\w* returned time labels"):
+        fetch_data(
+            source,
+            TIME,
+            np.array(["a"]),
+            lead_time=np.array([6], dtype="timedelta64[h]"),
+        )
+
+    class ShiftedLeads(ForecastSource):
+        def __call__(self, time, lead_time, variable):
+            da = super().__call__(time, lead_time, variable)
+            return da.assign_coords(lead_time=da.lead_time + np.timedelta64(1, "h"))
+
+    with pytest.raises(ValueError, match="ShiftedLeads returned lead_time labels"):
+        fetch_data(ShiftedLeads(), TIME, np.array(["a"]))
+
+
 def test_integer_fields_keep_dtype():
     class Source(AnalysisSource):
         def __call__(self, time, variable):

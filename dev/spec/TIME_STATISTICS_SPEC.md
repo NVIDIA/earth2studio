@@ -33,7 +33,9 @@ For valid time `T`, intervals are half-open:
 | `mean:24h` | `[T - 24h, T)` |
 | `mean:-12h:+12h` | `[T - 12h, T + 12h)` |
 
-Built-in methods are `mean`, `sum`, `min`, and `max`. Source cadence must divide
+Built-in methods are `mean`, `sum`, `min`, and `max`, which propagate missing
+samples (see Planning and Reduction), and their NaN-skipping counterparts `nanmean`,
+`nansum`, `nanmin`, and `nanmax`. Source cadence must divide
 the window exactly. Durations are integers with units `ns`, `us`, `ms`,
 `s/sec/second`, `m/min/minute`, `h/hr/hour`, `d/day`, or `w/wk/week`;
 plural names are accepted. Weeks are seven days. Month and year durations are
@@ -41,6 +43,28 @@ unsupported: specify an explicit number of days or hours instead (for example,
 `30days`). `M` and `Y` are rejected rather than interpreted as minutes or fixed
 calendar approximations; use lowercase `m` for minutes. NumPy month/year timedeltas
 are also rejected as source cadences.
+
+### End-Stamped Accumulations
+
+The window is defined over stored timestamps, not over the physical interval each
+stored value represents. Hourly accumulations such as ARCO-ERA5 `tp`, `ttr`, `ro`
+and `sf`, and HRRR forecast `tp`, are stamped at the **end** of their hour: the
+value at `t` holds `(t - 1h, t]`. A two-part label therefore covers a period that
+ends one hour before `T`:
+
+| Label at `T` | Stamps read | Physical period |
+| --- | --- | --- |
+| `tp:sum:6h` | `T-6h` … `T-1h` | `(T - 7h, T - 1h]` |
+| `tp:sum:-5h:1h` | `T-5h` … `T` | `(T - 6h, T]` |
+| `tp06` (ARCO alias) | `T-5h` … `T` | `(T - 6h, T]` |
+
+For "the accumulation over the `w` hours up to `T`" on an hourly end-stamped source,
+use the source's native trailing alias (`tp06`) or the explicit offsets
+`tp:sum:-(w-1)h:1h`, as ORBIT-2 (`tp:sum:-23h:1h`) and FuXi-S2S (below) do. The
+offset is cadence dependent: at a 6-hourly cadence `-5h:1h` is off the sample grid.
+Running buckets that reset periodically (GFS `tp`) cannot be summed at all: the
+buckets overlap, so `tp:sum:Nh` double counts; use `tp06`. Each affected source
+states this in its `Temporal statistics:` note.
 
 ### Calendar-Day Means: FuXi-S2S
 
@@ -167,15 +191,21 @@ reduction per target. The jobs run through a fixed worker pool and a task group:
 a failure, timeout or caller cancellation cancels and awaits outstanding fetches, and
 no partial window is ever written.
 
-NaNs are skipped: an all-NaN window yields NaN for mean/min/max and zero for sum
-(xarray's default). This is distinct from an absent coordinate or failed download.
-The reduction does not use a cadence, window or expected count; the source plans the
-coordinates. Means are sample-weighted, not duration-weighted. Sources propagate
-fetching failures rather than reduce a partial window.
+Missing samples propagate: if any sample in a window is NaN, `mean`, `sum`, `min`
+and `max` return NaN for that cell, so a field built from a missing value is never
+silently partial. This covers cells masked by the source (such as SST over land) and
+records a source could not resolve (for example a GRIB record absent from its index,
+which sources return as an all-NaN field with a warning). Skipping is an explicit
+opt-in: `nanmean`, `nansum`, `nanmin` and `nanmax` reduce the non-missing samples and
+return NaN only when every sample is missing (`nansum` of an all-NaN window is NaN,
+not zero). The reduction does not use a cadence, window or expected count; the
+source plans the coordinates. Means are sample-weighted, not duration-weighted.
+Sources propagate fetching failures rather than reduce a partial window.
 
 ### Implemented source capabilities
 
-All sources below declare `("mean", "sum", "min", "max")` on their lexicon.
+All sources below declare `("mean", "sum", "min", "max")` and the `nan` variants
+on their lexicon.
 
 | Source | Sampling | Window axis |
 | --- | --- | --- |

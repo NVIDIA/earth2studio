@@ -77,10 +77,12 @@ In this example you will learn:
 #     you will need to in-fill the NaNs using the appropriate land-sea mask.
 #
 # !!! note
-#     Atlas-CRPS expects total precipitation as a 6-hour accumulation (``tp:sum:6h``), not the
-#     1-hour accumulation returned by a bare ``tp`` request. The model's ``VARIABLES`` list
-#     requests ``tp:sum:6h``, which fetch_data computes from hourly samples (including
-#     ARCO ERA5) will accumulate the correct window automatically.
+#     Atlas-CRPS expects total precipitation as the 6-hour accumulation ending at the
+#     valid time (``tp06``), not the 1-hour accumulation returned by a bare ``tp``
+#     request. The model's ``VARIABLES`` list requests ``tp06``, which ARCO ERA5
+#     provides by summing the hourly accumulations stamped ``t-5h`` through ``t``.
+#     Note that ``tp:sum:6h`` is *not* equivalent on hourly sources: it reads the
+#     stamps ``t-6h`` through ``t-1h`` and so ends one hour early.
 #
 
 # %%

@@ -149,10 +149,8 @@ def test_time_statistics_planning_and_reduction():
         np.testing.assert_allclose(out[:, 3, 0], [3, 5])
         np.testing.assert_allclose(out[:, 4, 0], [1, 2])
         np.testing.assert_allclose(out[:, 5, 0], [2, 3])
-        # Missing cells ignore NaN; sum of nothing is zero
-        np.testing.assert_allclose(
-            out[:, 2:, 1], [[np.nan, 0, np.nan, np.nan]] * 2, equal_nan=True
-        )
+        # Missing samples propagate: a window holding NaN reduces to NaN
+        np.testing.assert_allclose(out[:, 2:, 1], np.nan, equal_nan=True)
     finally:
         _TIME_STATISTICS.pop("range")
 
@@ -1694,3 +1692,63 @@ def test_fetch_dataframe_fixed_size_lists_to_cudf():
     assert result.attrs["source"] == "channels"
     values = result["observation_x"].to_arrow().to_pylist()
     assert values == [[1.0, 2.0], [3.0, None]]
+
+
+def test_shared_downloads():
+    """One download per cache key and loop; other loops and cancellation are safe."""
+    from earth2studio.data.utils import SharedDownloads
+
+    shared = SharedDownloads()
+    calls = []
+
+    async def download(name, event):
+        calls.append(name)
+        await event.wait()
+        return name
+
+    async def concurrent():
+        event = asyncio.Event()
+        tasks = [
+            asyncio.ensure_future(shared.fetch("a", lambda: download("a", event)))
+            for _ in range(4)
+        ]
+        await asyncio.sleep(0)
+        assert len(shared) == 1
+        # A cancelled caller does not abort the shared download for the others
+        tasks[0].cancel()
+        await asyncio.sleep(0)
+        event.set()
+        results = await asyncio.gather(*tasks[1:])
+        assert tasks[0].cancelled()
+        return results
+
+    assert asyncio.run(concurrent()) == ["a"] * 3
+    assert calls == ["a"] and len(shared) == 0
+
+    # A download left pending on one loop does not break a caller on another loop
+    calls.clear()
+    blocked = asyncio.new_event_loop()
+    try:
+
+        async def start_blocked():
+            event = asyncio.Event()
+            return asyncio.ensure_future(
+                shared.fetch("b", lambda: download("b", event))
+            )
+
+        pending = blocked.run_until_complete(start_blocked())
+        blocked.run_until_complete(asyncio.sleep(0.01))
+        assert not pending.done()
+
+        async def other_loop():
+            event = asyncio.Event()
+            event.set()
+            return await shared.fetch("b", lambda: download("b", event))
+
+        assert asyncio.run(other_loop()) == "b"
+        assert calls == ["b", "b"]
+        pending.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            blocked.run_until_complete(pending)
+    finally:
+        blocked.close()

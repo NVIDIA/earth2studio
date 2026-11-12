@@ -359,10 +359,14 @@ def test_gfs_call_mock(mock_statistic_grib):
     assert list(data.coords["variable"].values) == ["t2m", "z500", "tp06"]
     mock_statistic_grib(ds, missing=(12,))
     data = ds(datetime(2024, 1, 2), variables)
-    np.testing.assert_allclose(data.values[0, :, 0, 0], [24, 18, 18, 18, 18])
+    # A record missing from the index is NaN, and so is every window holding it
     np.testing.assert_allclose(
-        data.values[0, :, 1, 0], [np.nan, np.nan, 0, np.nan, np.nan], equal_nan=True
+        data.values[0, :, 0, 0], [24] + [np.nan] * 4, equal_nan=True
     )
+    np.testing.assert_allclose(data.values[0, :, 1, 0], np.nan, equal_nan=True)
+    skipping = [f"t2m:nan{m}:12h" for m in ("mean", "sum", "max", "min")]
+    data = ds(datetime(2024, 1, 2), skipping)
+    np.testing.assert_allclose(data.values[0, :, 0, 0], [18, 18, 18, 18])
 
 
 @pytest.mark.timeout(30)
@@ -387,8 +391,7 @@ def test_gfs_fx_call_mock(mock_statistic_grib, monkeypatch, tmp_path):
     assert set(data.attrs["earth2studio_statistics"]) == set(variables[1:])
     # Only leads 3..9 are indexed
     assert len(set(index_calls)) == 7
-    np.testing.assert_allclose(data.values[0, :, 1, 0, 1], [4, 5])
-    np.testing.assert_allclose(data.values[0, :, 2, 0, 1], [14, 8])
+    np.testing.assert_allclose(data.values[0, :, 1:3, 0, 1], np.nan, equal_nan=True)
 
     # Equal valid times from different initializations remain distinct requests.
     index_calls.clear()
