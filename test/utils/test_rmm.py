@@ -33,32 +33,18 @@ def allocators(monkeypatch):
         pass
 
     resources = [DefaultResource(), object()]
-    cp = SimpleNamespace(
-        cuda=SimpleNamespace(
-            Device=Mock(side_effect=lambda device: nullcontext()),
-            get_allocator=Mock(return_value=object()),
-            set_allocator=Mock(),
-        )
-    )
-    mr = SimpleNamespace(
-        CudaMemoryResource=DefaultResource,
-        get_current_device_resource=Mock(side_effect=resources),
-        PoolMemoryResource=Mock(return_value=object()),
-        set_per_device_resource=Mock(),
-    )
+    cp = Mock()
+    cp.cuda.Device.side_effect = lambda device: nullcontext()
+    mr = Mock(CudaMemoryResource=DefaultResource)
+    mr.get_current_device_resource.side_effect = resources
     torch_allocator, cupy_allocator = object(), object()
-    monkeypatch.setitem(sys.modules, "cupy", cp)
-    monkeypatch.setitem(sys.modules, "rmm", SimpleNamespace(mr=mr))
-    monkeypatch.setitem(
-        sys.modules,
-        "rmm.allocators.cupy",
-        SimpleNamespace(rmm_cupy_allocator=cupy_allocator),
-    )
-    monkeypatch.setitem(
-        sys.modules,
-        "rmm.allocators.torch",
-        SimpleNamespace(rmm_torch_allocator=torch_allocator),
-    )
+    for name, module in {
+        "cupy": cp,
+        "rmm": SimpleNamespace(mr=mr),
+        "rmm.allocators.cupy": SimpleNamespace(rmm_cupy_allocator=cupy_allocator),
+        "rmm.allocators.torch": SimpleNamespace(rmm_torch_allocator=torch_allocator),
+    }.items():
+        monkeypatch.setitem(sys.modules, name, module)
     monkeypatch.setattr(memory._configure_rmm, "configured", False)
     monkeypatch.setattr(memory._configure_rmm, "disabled", False)
     monkeypatch.setattr(sys, "platform", "linux")
@@ -76,9 +62,11 @@ def allocators(monkeypatch):
     )
 
 
-def test_configuration_preserves_custom_resources_and_is_idempotent(allocators):
-    memory._configure_rmm()
-    memory._configure_rmm()
+@pytest.mark.parametrize("policy", ["auto", "cupy"])
+def test_configuration_preserves_resources_and_is_idempotent(allocators, policy):
+    with backend(policy):
+        memory._configure_rmm()
+    assert memory._configure_rmm.configured
     allocators.switch.assert_called_once_with(allocators.torch_allocator)
     allocators.mr.PoolMemoryResource.assert_called_once_with(
         allocators.resources[0], initial_pool_size=0
@@ -89,12 +77,26 @@ def test_configuration_preserves_custom_resources_and_is_idempotent(allocators):
     allocators.cp.cuda.set_allocator.assert_called_with(allocators.cupy_allocator)
 
 
-@pytest.mark.parametrize("disabled,cuda_available", [(True, True), (False, False)])
-def test_configuration_skips_disabled_or_cpu(
-    monkeypatch, allocators, disabled, cuda_available
+@pytest.mark.parametrize(
+    "disabled,cuda_available,platform,missing",
+    [
+        (True, True, "linux", None),
+        (False, False, "linux", None),
+        (False, True, "win32", None),
+        (False, True, "darwin", None),
+        (False, True, "linux", "rmm"),
+        (False, True, "linux", "cupy"),
+        (False, True, "linux", "rmm.allocators.torch"),
+    ],
+)
+def test_configuration_skips_without_changing_allocators(
+    monkeypatch, allocators, disabled, cuda_available, platform, missing
 ):
     monkeypatch.setattr(memory._configure_rmm, "disabled", disabled)
     monkeypatch.setattr(torch.cuda, "is_available", lambda: cuda_available)
+    monkeypatch.setattr(sys, "platform", platform)
+    if missing:
+        monkeypatch.setitem(sys.modules, missing, None)
     memory._configure_rmm()
     allocators.switch.assert_not_called()
     allocators.cp.cuda.set_allocator.assert_not_called()
@@ -121,32 +123,6 @@ def test_allocator_context_failure_allows_retry(allocators):
     allocators.cp.cuda.set_allocator.side_effect = None
     memory._configure_rmm()
     assert memory._configure_rmm.configured
-
-
-@pytest.mark.parametrize("missing", ["rmm", "cupy", "rmm.allocators.torch"])
-def test_missing_dependency_preserves_allocators(monkeypatch, allocators, missing):
-    monkeypatch.setitem(sys.modules, missing, None)
-    memory._configure_rmm()
-    allocators.switch.assert_not_called()
-    allocators.cp.cuda.set_allocator.assert_not_called()
-    allocators.mr.get_current_device_resource.assert_not_called()
-
-
-@pytest.mark.parametrize("platform", ["win32", "darwin"])
-def test_non_linux_preserves_allocators(monkeypatch, allocators, platform):
-    monkeypatch.setattr(sys, "platform", platform)
-    memory._configure_rmm()
-    allocators.switch.assert_not_called()
-    allocators.cp.cuda.set_allocator.assert_not_called()
-    allocators.mr.get_current_device_resource.assert_not_called()
-
-
-@pytest.mark.parametrize("policy", ["auto", "cupy"])
-def test_backend_scope_configures_rmm(allocators, policy):
-    with backend(policy):
-        assert memory._configure_rmm.configured
-    assert memory._configure_rmm.configured
-    allocators.switch.assert_called_once()
 
 
 @pytest.fixture
@@ -179,28 +155,23 @@ def test_torch_and_cupy_share_allocations(shared_cuda):
                 assert rmm.mr.get_current_device_resource() is resource
 
 
-def test_explicit_cupy_conversions(shared_cuda):
+@pytest.mark.parametrize("disabled", [False, True])
+def test_cupy_conversions_preserve_allocators(monkeypatch, shared_cuda, disabled):
     cp = shared_cuda
-    x = torch.ones(1)
-    array = from_torch(x, {"x": [0]}, backend="cupy")
-    for result in (
-        array,
-        xr.DataArray([1.0]).e2s.as_cupy(),
-        xr.DataArray([1.0]).e2s.to_backend("cupy"),
-        array.e2s.to_backend("auto"),
-    ):
-        cp.testing.assert_array_equal(result.data, 1)
-
-
-def test_disabled_setup_preserves_cupy_conversions(monkeypatch, shared_cuda):
-    cp = shared_cuda
-    monkeypatch.setattr(memory._configure_rmm, "disabled", True)
+    monkeypatch.setattr(memory._configure_rmm, "disabled", disabled)
     switch = Mock()
     monkeypatch.setattr(torch.cuda.memory, "change_current_allocator", switch)
     allocator = cp.cuda.get_allocator()
     with backend("cupy"):
         array = from_torch(torch.ones(1), {"x": [0]})
-        cp.testing.assert_array_equal(array.e2s.as_numpy().e2s.as_cupy().data, 1)
+    for result in (
+        array,
+        xr.DataArray([1.0]).e2s.as_cupy(),
+        xr.DataArray([1.0]).e2s.to_backend("cupy"),
+        array.e2s.to_backend("auto"),
+        array.e2s.as_numpy().e2s.as_cupy(),
+    ):
+        cp.testing.assert_array_equal(result.data, 1)
     switch.assert_not_called()
     assert cp.cuda.get_allocator() is allocator
 
