@@ -45,8 +45,9 @@ class BredVector:
         Number of integration steps to use in forward call, by default 20
     ensemble_perturb : bool, optional
         Perturb the ensemble in an interacting fashion, by default False
-    seeding_perturbation_method : Perturbation, optional
-        Method to seed the Bred Vector perturbation, by default Brown Noise
+    seeding_perturbation_method : Perturbation | None, optional
+        Method to seed the Bred Vector perturbation. None creates a fresh Brown
+        noise instance so its mutable RNG state is not shared between bred vectors.
 
     Note
     ----
