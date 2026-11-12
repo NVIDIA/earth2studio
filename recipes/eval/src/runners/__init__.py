@@ -43,6 +43,8 @@ from collections.abc import Callable
 from typing import Any
 
 import hydra
+import numpy as np
+import pandas as pd
 from loguru import logger
 from omegaconf import DictConfig, OmegaConf
 
@@ -60,6 +62,9 @@ BUILTIN_RUNNERS: dict[str, str] = {
     "window_mean": "src.runners.seasonal.window_mean",
 }
 """Built-in runner names and the builder callables they resolve to."""
+
+DEFAULT_WINDOW = "30D"
+"""Window of a ``window_mean`` run that sets none."""
 
 
 def runner_spec(cfg: DictConfig) -> dict[str, Any]:
@@ -108,6 +113,40 @@ def runner_spec(cfg: DictConfig) -> dict[str, Any]:
 def is_window_mean(cfg: DictConfig) -> bool:
     """Whether ``cfg.runner`` selects the ``window_mean`` builder."""
     return runner_spec(cfg)["_target_"] == BUILTIN_RUNNERS["window_mean"]
+
+
+def as_window(value: Any) -> np.timedelta64:
+    """Read a window length the way :class:`~src.runners.seasonal.WindowMeanRunner` does.
+
+    Parameters
+    ----------
+    value : Any
+        Anything :class:`pandas.Timedelta` reads, such as ``"30D"`` or ``"720h"``.
+
+    Returns
+    -------
+    np.timedelta64
+        The length in nanoseconds, so ``"1D"`` and ``"24h"`` compare equal.
+    """
+    return np.timedelta64(pd.Timedelta(value).to_timedelta64(), "ns")
+
+
+def window_length(cfg: DictConfig) -> np.timedelta64 | None:
+    """Averaging window of a ``window_mean`` run, ``None`` for any other runner.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Full campaign config.
+
+    Returns
+    -------
+    np.timedelta64 | None
+        The window in nanoseconds (:func:`as_window`), or ``None``.
+    """
+    if not is_window_mean(cfg):
+        return None
+    return as_window(runner_spec(cfg).get("window", DEFAULT_WINDOW))
 
 
 def require_window_mean_verification(cfg: DictConfig, live: Any) -> None:

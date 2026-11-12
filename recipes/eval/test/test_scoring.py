@@ -675,20 +675,48 @@ class TestOpenVerificationSource:
 
         assert isinstance(open_verification_source(cfg), Random)
 
-    def test_window_means_accept_only_a_marked_saved_store(self, det_cfg):
+    def test_saved_verification_must_hold_the_run_window(self, det_cfg):
         import zarr
         from src.data import WINDOW_MEANS_ATTR
 
-        with open_dict(det_cfg):
-            det_cfg.runner = {"name": "window_mean", "window": "12h"}
-        # The saved store holds instantaneous fields: refused for window means.
-        with pytest.raises(ValueError, match="window means"):
-            open_verification_source(det_cfg)
         path = store_path(det_cfg, "verification.zarr")
-        zarr.open_group(path, mode="r+").attrs.update({WINDOW_MEANS_ATTR: "12h"})
+
+        def mark(window: str) -> None:
+            zarr.open_group(path, mode="r+").attrs.update({WINDOW_MEANS_ATTR: window})
+
+        with open_dict(det_cfg):
+            det_cfg.runner = {"name": "window_mean", "window": "24h"}
+        # The saved store holds instantaneous fields: refused for window
+        # means, also with a configured source, which the store shadows.
+        with pytest.raises(ValueError, match="instantaneous fields"):
+            open_verification_source(det_cfg)
+        with open_dict(det_cfg):
+            det_cfg.predownload.verification.source = {
+                "_target_": "earth2studio.data.Random"
+            }
+        with pytest.raises(ValueError, match="instantaneous fields"):
+            open_verification_source(det_cfg)
+        # Means over 12 h windows share the 24 h window ends: refused.
+        mark("12h")
+        with pytest.raises(ValueError, match="averages over 24h windows"):
+            open_verification_source(det_cfg)
+        # The store may spell the run's own window another way.
+        mark("1D")
         source = open_verification_source(det_cfg)
         assert isinstance(source, PredownloadedSource)
         assert source.store_path == path
+        # A run without windows refuses a store of window means.
+        with open_dict(det_cfg):
+            det_cfg.runner = "forecast"
+        with pytest.raises(ValueError, match="instantaneous forecasts"):
+            open_verification_source(det_cfg)
+        # A bring-your-own source is the user's choice; nothing to check.
+        with open_dict(det_cfg):
+            det_cfg.verification_source = {
+                "_target_": "src.data.PredownloadedSource",
+                "store_path": path,
+            }
+        assert open_verification_source(det_cfg).store_path == path
 
     def test_nothing_configured_raises(self, tmp_path):
         cfg = scoring_cfg(tmp_path)

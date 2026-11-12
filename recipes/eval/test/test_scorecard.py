@@ -26,15 +26,20 @@ configs from the scorecard's config directory without loading a model.
 from __future__ import annotations
 
 import inspect
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
 import xarray as xr
+import yaml
 from hydra import compose, initialize_config_dir
 from hydra.utils import get_object
 from omegaconf import OmegaConf, open_dict
-from scorecard.run_scorecard import score_store_names
+from scorecard import run_scorecard
+from scorecard.run_scorecard import compose_campaign, run_path, score_stores
 from scorecard.utils.baselines import ClimatologyForecast, PersistenceBaseline
 from scorecard.utils.sources import (
     STORMCAST_LAT_LIM,
@@ -241,20 +246,113 @@ def _targets(node, path: str = ""):
             yield from _targets(value, f"{path}[{i}]")
 
 
-def test_score_store_names_follow_the_scoring_config() -> None:
-    cfg = {"scoring": {"output": {"store_name": "scores.zarr"}, "online": {}}}
-    assert score_store_names(cfg, {}, online=True) == ["scores.zarr"]
-    assert score_store_names(
-        cfg, {"scoring.output.store_name": "scores_offline.zarr"}, online=False
-    ) == ["scores_offline.zarr"]
-    cfg["scoring"]["online"] = {
-        "scores_store": "online.zarr",
-        "verification_sources": {"era5": None, "ifs": {}},
-    }
-    assert score_store_names(cfg, {}, online=True) == [
-        "online__era5.zarr",
-        "online__ifs.zarr",
+def test_score_stores_follow_the_composed_configuration(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("SCORECARD_OUT", str(tmp_path))
+    run = tmp_path / "fcn3_2025_scorecard"
+
+    def stores(*overrides: str) -> list[Path]:
+        return score_stores(compose_campaign("fcn3_2025_scorecard", list(overrides)))
+
+    assert stores() == [run / "scores.zarr"]
+    # Hydra reads null as None, so the online scores land in store_name.
+    assert stores("scoring.online.scores_store=null") == [run / "scores.zarr"]
+    assert stores("scoring.online.scores_store=online.zarr") == [run / "online.zarr"]
+    assert stores("scoring.online.verification_sources={era5:null,ifs:null}") == [
+        run / "scores__era5.zarr",
+        run / "scores__ifs.zarr",
     ]
+    assert stores(
+        "scoring.mode=offline", "scoring.output.store_name=scores_offline.zarr"
+    ) == [run / "scores_offline.zarr"]
+    # A relative output.path is relative to the recipe root, where the
+    # scripts run.
+    assert stores("output.path=outputs/elsewhere") == [
+        run_path("outputs/elsewhere/scores.zarr")
+    ]
+
+
+def test_scorecard_configs_shadow_no_recipe_config() -> None:
+    # The scripts search the scorecard's cfg first and the launcher the
+    # recipe's; with no file in both, the two compose the same config.
+    recipe = {
+        p.relative_to(RECIPE_DIR / "cfg") for p in (RECIPE_DIR / "cfg").rglob("*.yaml")
+    }
+    scorecard = {p.relative_to(SCORECARD_CFG) for p in SCORECARD_CFG.rglob("*.yaml")}
+    assert not recipe & scorecard
+
+
+def test_launcher_composes_what_the_scripts_compose(tmp_path, monkeypatch) -> None:
+    """The launcher's config equals the one score.py itself prints."""
+    overrides = [
+        "scoring.online.scores_store=null",
+        "scoring.online.verification_sources={era5:null}",
+    ]
+    monkeypatch.setenv("SCORECARD_OUT", str(tmp_path))
+    env = {**os.environ, "CUDA_VISIBLE_DEVICES": ""}
+    env["PYTHONPATH"] = os.pathsep.join(
+        p for p in (str(RECIPE_DIR), env.get("PYTHONPATH", "")) if p
+    )
+    printed = subprocess.run(  # noqa: S603 - fixed interpreter and script
+        [
+            sys.executable,
+            "score.py",
+            "--config-dir",
+            str(SCORECARD_CFG),
+            "campaign=fcn3_2025_scorecard",
+            *overrides,
+            "--cfg",
+            "job",
+            "--resolve",
+        ],
+        cwd=RECIPE_DIR,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+    assert printed.returncode == 0, printed.stderr[-4000:]
+    composed = OmegaConf.to_container(
+        compose_campaign("fcn3_2025_scorecard", overrides), resolve=True
+    )
+    assert composed == yaml.safe_load(printed.stdout)
+
+
+def test_launcher_stamps_the_store_scoring_wrote(tmp_path, monkeypatch) -> None:
+    import zarr
+
+    monkeypatch.setenv("SCORECARD_OUT", str(tmp_path))
+    # main() extends these for the scripts it launches; restore them after.
+    monkeypatch.setenv("PYTHONPATH", os.environ.get("PYTHONPATH", ""))
+    monkeypatch.setenv(
+        "PYTORCH_CUDA_ALLOC_CONF",
+        os.environ.get("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True"),
+    )
+    run = tmp_path / "fcn3_2025_scorecard"
+    launched: list[tuple[str, list[str]]] = []
+
+    def fake_launch(entry, campaign, overrides, ngpu) -> None:
+        launched.append((entry, list(overrides)))
+        # The online scores land in scoring.output.store_name.
+        zarr.open_group(str(run / "scores.zarr"), mode="w")
+
+    monkeypatch.setattr(run_scorecard, "launch", fake_launch)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_scorecard.py",
+            "fcn3_2025_scorecard",
+            "score",
+            "--ngpu",
+            "1",
+            "--",
+            "scoring.online.scores_store=null",
+        ],
+    )
+    assert run_scorecard.main() == 0
+    assert launched == [("score.py", ["scoring.online.scores_store=null"])]
+    assert run_scorecard.scores_complete(run / "scores.zarr")
+    assert not (run / "null").exists()
 
 
 class TestCampaignConfigs:

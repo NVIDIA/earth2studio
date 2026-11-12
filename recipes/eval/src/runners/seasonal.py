@@ -41,7 +41,7 @@ from earth2studio.utils.coords import coord_array_like
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.type import CoordinateSystem
 
-from . import forecast
+from . import DEFAULT_WINDOW, as_window, forecast
 
 _ZERO = np.timedelta64(0, "ns")
 
@@ -80,7 +80,7 @@ class WindowMeanRunner:
         ``"7D"``, ``"720h"``).
     """
 
-    def __init__(self, inner: PrognosticRunner, window: Any = "30D") -> None:
+    def __init__(self, inner: PrognosticRunner, window: Any = DEFAULT_WINDOW) -> None:
         if isinstance(window, str) and window.strip().lower() == "month":
             raise NotImplementedError(
                 "window='month' (calendar-month means labelled by lead month) is "
@@ -89,7 +89,7 @@ class WindowMeanRunner:
                 "length. Use a fixed window such as '30D'."
             )
         self.inner = inner
-        self.window = _to_ns(pd.Timedelta(window).to_timedelta64())
+        self.window = as_window(window)
         if self.window <= _ZERO:
             raise ValueError(f"window must be positive, got {window!r}.")
         self.step = inner.step
@@ -326,7 +326,7 @@ def _leads(x: xr.DataArray | None) -> np.ndarray | None:
 
 
 def window_mean(
-    cfg: DictConfig, prefer_predownloaded: bool = True, window: Any = "30D"
+    cfg: DictConfig, prefer_predownloaded: bool = True, window: Any = DEFAULT_WINDOW
 ) -> WindowMeanRunner:
     """Build the window-mean runner over the recipe's forecast runner.
 

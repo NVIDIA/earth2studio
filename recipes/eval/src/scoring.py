@@ -74,7 +74,13 @@ from .regions import (
     scoring_regions,
     spatial_axes,
 )
-from .runners import is_window_mean, require_window_mean_verification
+from .runners import (
+    DEFAULT_WINDOW,
+    as_window,
+    require_window_mean_verification,
+    runner_spec,
+    window_length,
+)
 
 # ---------------------------------------------------------------------------
 # Config helpers
@@ -337,15 +343,71 @@ def open_prediction_store(cfg: DictConfig) -> xr.Dataset:
     return xr.open_zarr(path, consolidated=False)
 
 
+def check_saved_verification(cfg: DictConfig, path: str) -> None:
+    """Refuse a saved verification store that holds other fields than the run forecasts.
+
+    ``predownload.py`` marks a store of window means with the window it
+    averages over (:data:`src.data.WINDOW_MEANS_ATTR`) and leaves a store of
+    instantaneous fields unmarked.  A ``window_mean`` run needs means over
+    its own window: a 12 h and a 24 h run share the 24 h window ends, so a
+    store of the other window would pass every coverage check and score one
+    average against another.  Any other run needs an unmarked store.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Full campaign config.
+    path : str
+        Path of the saved verification store.
+
+    Raises
+    ------
+    ValueError
+        If the store holds instantaneous fields for a ``window_mean`` run,
+        means over another window, or window means for any other run.
+    """
+    marker = store_attrs(path).get(WINDOW_MEANS_ATTR)
+    window = window_length(cfg)
+    if marker is None and window is None:
+        return
+    remedy = (
+        "Re-run predownload.py with predownload.overwrite=true to rewrite it for "
+        "this run, or set verification_source."
+    )
+    if window is None:
+        raise ValueError(
+            f"{path} holds {marker} window means, which cannot verify the "
+            f"instantaneous forecasts of this run. {remedy}"
+        )
+    run_window = runner_spec(cfg).get("window", DEFAULT_WINDOW)
+    if marker is None:
+        raise ValueError(
+            f"{path} holds instantaneous fields, which cannot verify the "
+            f"{run_window} window means of this run. Re-run predownload.py with "
+            "predownload.overwrite=true and predownload.verification.source set "
+            "to a source of window means, or set verification_source."
+        )
+    try:
+        held: np.timedelta64 | None = as_window(marker)
+    except (TypeError, ValueError):
+        held = None
+    if held is None or held != window:
+        raise ValueError(
+            f"{path} holds {marker} window means, but this run averages over "
+            f"{run_window} windows. {remedy}"
+        )
+
+
 def open_verification_source(cfg: DictConfig) -> Any:
     """Resolve the verification data source.
 
     A bring-your-own ``verification_source`` wins; otherwise the
     predownloaded ``<output.path>/verification.zarr``; otherwise the live
-    ``predownload.verification.source`` or ``data_source``.  A ``window_mean``
-    run accepts only sources of window means: the two configured ones, or a
-    saved store that ``predownload.py`` marked as holding them
-    (:data:`src.data.WINDOW_MEANS_ATTR`); it never falls back to
+    ``predownload.verification.source`` or ``data_source``.  The saved store
+    must hold what the run forecasts (:func:`check_saved_verification`):
+    means over the run's own window for a ``window_mean`` run, instantaneous
+    fields otherwise.  Without the saved store a ``window_mean`` run needs
+    one of the two configured sources; it never falls back to
     ``data_source``.
 
     Parameters
@@ -360,17 +422,20 @@ def open_verification_source(cfg: DictConfig) -> Any:
     Raises
     ------
     ValueError
-        If no config entry names a verification source, or a ``window_mean``
-        run has no source of window means
+        If no config entry names a verification source, the saved store
+        holds other fields than the run forecasts, or a ``window_mean`` run
+        has no source of window means
         (:func:`src.runners.require_window_mean_verification`).
     """
     byo = cfg.get("verification_source")
     predownload = cfg.get("predownload", None) or {}
     configured = (predownload.get("verification", None) or {}).get("source", None)
-    if byo is None and configured is None and is_window_mean(cfg):
-        saved = store_path(cfg, store_name("verification"))
-        if not store_attrs(saved).get(WINDOW_MEANS_ATTR):
-            require_window_mean_verification(cfg, None)
+    saved = store_path(cfg, store_name("verification"))
+    if byo is None and os.path.isdir(saved):
+        # resolve_source reads the saved store ahead of any configured source.
+        check_saved_verification(cfg, saved)
+    elif byo is None and configured is None:
+        require_window_mean_verification(cfg, None)
     live = configured if configured is not None else cfg.get("data_source")
     source = resolve_source(cfg, "verification", byo=byo, live=live)
     if source is None:

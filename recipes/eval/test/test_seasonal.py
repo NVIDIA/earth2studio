@@ -28,12 +28,12 @@ import pytest
 import torch
 import xarray as xr
 from main import run
-from omegaconf import open_dict
+from omegaconf import OmegaConf, open_dict
 from predownload import run as predownload_run
 from src.campaign import build_items, final_lead_time
 from src.data import WINDOW_MEANS_ATTR, PredownloadedSource, store_attrs
 from src.output import store_path
-from src.runners import build_runner
+from src.runners import as_window, build_runner, window_length
 from src.runners.seasonal import WindowMeanRunner, window_mean
 
 from earth2studio.io import KVBackend
@@ -266,6 +266,10 @@ def test_builder_wraps_the_forecast_runner(base_cfg) -> None:
     assert items[0].final_lead_time == 4 * H6
     direct = window_mean(cfg, window="1D")
     assert direct.window == np.timedelta64(1, "D").astype("timedelta64[ns]")
+    # Scoring reads the window the same way, whatever its spelling.
+    assert window_length(cfg) == as_window("12h") == runner.window
+    assert as_window("1D") == as_window("24h")
+    assert window_length(OmegaConf.create({"runner": "forecast"})) is None
 
 
 def test_window_means_need_bring_your_own_verification(base_cfg) -> None:

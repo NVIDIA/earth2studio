@@ -2786,14 +2786,24 @@ def resolve_verification_sources(cfg: DictConfig) -> dict[str | None, Any]:
     return sources
 
 
+def scores_store_names(cfg: DictConfig) -> list[str]:
+    """Filenames :func:`finalize_online_stats` writes under ``output.path``.
+
+    One per reference, in :func:`verification_source_names` order.
+    """
+    base = finalize_scores_store_name(cfg)
+    return [named_store_filename(base, name) for name in verification_source_names(cfg)]
+
+
 def finalize_online_stats(cfg: DictConfig) -> None:
     """Derive every reference's scores store from its statistics store."""
     settings = parse_online_settings(cfg)
-    for name in verification_source_names(cfg):
+    names = verification_source_names(cfg)
+    for name, scores_store in zip(names, scores_store_names(cfg)):
         finalize_stats(
             cfg,
             stats_store=named_store_filename(settings.stats_store, name),
-            scores_store=named_store_filename(finalize_scores_store_name(cfg), name),
+            scores_store=scores_store,
         )
 
 

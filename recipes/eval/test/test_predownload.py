@@ -340,15 +340,16 @@ def test_manifests_from_before_the_source_keys_still_resume(cfg, monkeypatch) ->
     run(cfg)
     manifest = progress_path(cfg, "progress_predownload_data") / MANIFEST_NAME
     stored = json.loads(manifest.read_text())
-    assert {"source", "grid"} <= set(stored)
-    for key in ("source", "grid"):
+    added = {"source", "grid", "attrs"}
+    assert added <= set(stored)
+    for key in added:
         stored.pop(key)
     manifest.write_text(json.dumps(stored))
     calls: list[np.datetime64] = []
     monkeypatch.setattr(module, "_fetch_field", lambda store, time: calls.append(time))
     run(cfg)
     assert calls == [], "an old manifest with matching keys resumes without fetching"
-    assert {"source", "grid"} <= set(json.loads(manifest.read_text()))
+    assert added <= set(json.loads(manifest.read_text()))
 
 
 def test_changed_source_requires_overwrite(cfg) -> None:

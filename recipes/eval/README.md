@@ -171,8 +171,8 @@ python predownload.py campaign=fcn3_2024_monthly
 
 To recreate stores from scratch, set `predownload.overwrite=true`. The zarr
 stores have a fixed layout, so changing the campaign's times, variables,
-sources or output grid also requires it; the progress manifest records all
-four, and a mismatch fails with that hint.
+sources, output grid or averaging window also requires it; the progress
+manifest records all five, and a mismatch fails with that hint.
 
 ## Using Your Own Data
 
@@ -1238,7 +1238,7 @@ runner: {_target_: my_pkg.my_runner, option: value}   # any importable builder
 | `assimilation` | `AssimilationRunner` | One DA analysis per item as the `analysis` stream; requires `nsteps: 0` |
 | `assimilation_forecast` | `PrognosticRunner` reading from `AnalysisSource` | DA analyses initialize the prognostic rollout of `model.forecast` |
 | `stormscope` | `earth2studio.coupling.CoupledRunner` over `model.goes` and `model.mrms` | The GOES model feeds the radar model through one connector; streams `goes` and `mrms`, members batched |
-| `window_mean` | `WindowMeanRunner` over the forecast runner | Rollout stored as means over fixed windows (`window: 30D`); the `lead_time` axis holds the window ends. Verification needs a `verification_source` or `predownload.verification.source` of window means at those ends. See `campaign=fuxi_s2s_2024` |
+| `window_mean` | `WindowMeanRunner` over the forecast runner | Rollout stored as means over fixed windows (`window: 30D`); the `lead_time` axis holds the window ends. Verification needs a `verification_source` or `predownload.verification.source` of window means at those ends, and a saved `verification.zarr` must hold means over the run's own window. See `campaign=fuxi_s2s_2024` |
 <!-- markdownlint-enable MD013 -->
 
 ### Custom runners

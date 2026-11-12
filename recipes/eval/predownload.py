@@ -46,8 +46,9 @@ A :class:`earth2studio.run.ProgressStore` records progress per time
 under ``<output.path>/.progress_predownload_<role>``.  Re-running with the
 same config skips finished times.  Set ``predownload.overwrite=true`` to
 recreate the stores from scratch; changing the campaign's times, variables,
-sources or output grid also requires it, since the zarr stores have a fixed
-layout.  The progress manifest records all four and refuses a mismatch.
+sources, output grid or averaging window also requires it, since the zarr
+stores have a fixed layout.  The progress manifest records all five and
+refuses a mismatch.
 
 Typical usage
 -------------
@@ -107,6 +108,7 @@ from src.output import (
     verification_regridder,
 )
 from src.runners import (
+    DEFAULT_WINDOW,
     build_runner,
     is_window_mean,
     require_window_mean_verification,
@@ -383,7 +385,7 @@ def plan_verification_store(
     if is_window_mean(cfg):
         # The configured source serves window means; mark the store so scoring
         # accepts it for this runner later without the source configured.
-        attrs[WINDOW_MEANS_ATTR] = str(runner_spec(cfg).get("window", "30D"))
+        attrs[WINDOW_MEANS_ATTR] = str(runner_spec(cfg).get("window", DEFAULT_WINDOW))
     if node is None:
         node = cfg.get("data_source", None)
     source = instantiate_source(node)
@@ -478,8 +480,9 @@ def plan_frame_stores(
 def _upgrade_manifest(path: Path, manifest: Mapping[str, Any]) -> None:
     """Retire a manifest written before the current keys when the rest matches.
 
-    A store filled before the recipe recorded its source and grid keeps
-    resuming: the progress store writes the full manifest again on setup.
+    A store filled before the recipe recorded its source, grid and
+    attributes keeps resuming: the progress store writes the full manifest
+    again on setup.
     A manifest whose shared keys differ stays, and the resume fails on it.
 
     Parameters
@@ -601,6 +604,9 @@ def download_gridded_store(
         ),
         "source": source_signature(store.source),
         "grid": None if store.target_grid is None else store.target_grid.fingerprint(),
+        # What the fields are, such as the window of window means: a resume
+        # must not relabel a store filled for another window.
+        "attrs": dict(store.attrs),
     }
     if overwrite and rank == 0:
         _remove_dir(path)
