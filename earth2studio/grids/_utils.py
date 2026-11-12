@@ -103,7 +103,17 @@ def geographic_subset_indexers(
     bounds: tuple[float, float, float, float] | None = None,
     bounds_crs: Any | None = None,
 ) -> dict[str, Any]:
-    """Translate geographic bounds into positional indexers."""
+    """Translate geographic bounds into positional indexers.
+
+    Bounds are inclusive cell-center limits ``(min_x, min_y, max_x, max_y)``. In a
+    geographic ``bounds_crs`` (the default), longitude bounds may use either
+    convention or lie outside both: a cell is selected when its longitude lies
+    at most ``max_x - min_x`` degrees east of ``min_x``, modulo 360. So
+    ``(0, 180)`` includes the 180° meridian, ``(-190, -170)``, ``(170, 190)``
+    and ``(170, -170)`` all select the 20° box across the dateline, and a span of
+    360° or more selects every longitude. ``min_x > max_x`` wraps eastward
+    through the dateline. Projected bounds are compared without wrapping.
+    """
     if bounds is None and bounds_crs is not None:
         raise ValueError("Grid subset bounds_crs requires bounds")
     if bounds is None:
@@ -132,15 +142,13 @@ def geographic_subset_indexers(
         bounds_crs if bounds_crs is not None else "OGC:CRS84"
     )
     if target_crs.is_geographic:
-        x_values = (
-            np.mod(longitude_values, 360)
-            if min_x >= 0 and max_x >= 0 and (min_x > 180 or max_x > 180)
-            else np.mod(longitude_values + 180, 360) - 180
-        )
+        # Measure each longitude eastward from min_x so the rule is the same for
+        # 0..360 and -180..180 grids and for bounds outside either range.
+        span = max_x - min_x if min_x <= max_x else np.mod(max_x - min_x, 360)
         x_mask = (
-            (x_values >= min_x) & (x_values <= max_x)
-            if min_x <= max_x
-            else (x_values >= min_x) | (x_values <= max_x)
+            np.ones(longitude_values.shape, dtype=bool)
+            if span >= 360
+            else np.mod(longitude_values - min_x, 360) <= span
         )
         y_values = latitude_values
     else:
