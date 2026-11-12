@@ -46,7 +46,7 @@ def test_accessor_releases_array_without_cyclic_collection():
         array = xr.DataArray(np.ones(4))
         array_ref, data_ref = weakref.ref(array), weakref.ref(array.data)
         accessor = array.e2s
-        assert xr.DataArray.e2s is cupy_utils.Earth2StudioAccessor
+        assert array.e2s is not accessor
         del array
         np.testing.assert_array_equal(accessor.as_numpy().data, 1)
         del accessor
