@@ -289,7 +289,9 @@ def test_stochastic_explicit_state():
 
 
 def test_stochastic_diagnostic():
-    assert check_diagnostic_contract(StochasticDiagnostic()) == []
+    assert check_diagnostic_contract(StochasticDiagnostic()) == [
+        "D12: stochastic draws may depend on the batch size"
+    ]
 
 
 def test_reset_false_preserves_seed():
@@ -543,6 +545,21 @@ def test_diagnostic_multislot():
     assert skipped == ["D10: model does not declare itself stochastic"]
 
 
+def test_diagnostic_batch_dependence():
+    class Bad(Identity):
+        def __call__(self, x: xr.DataArray) -> xr.DataArray:
+            # Normalizing across the batch couples the samples.
+            y = super().__call__(x)
+            with xr.set_options(keep_attrs=True):
+                return y - y.mean(dim="batch")
+
+    report = _evaluate_diagnostic(Identity())
+    assert not report.violations
+    assert "D12" in report.evaluated
+    assert not any(skip.startswith("D12") for skip in report.skipped)
+    assert violations(Bad(), diagnostic=True) == {"D12"}
+
+
 def test_diagnostic_variadic():
     class Bad(Identity):
         def __call__(self, *x: xr.DataArray) -> xr.DataArray:
@@ -569,7 +586,7 @@ def test_legacy_declarations_reported():
 
 
 def test_rule_inventory_and_reachability():
-    rules = {f"P{i}" for i in range(1, 25)} | {f"D{i}" for i in range(1, 12)}
+    rules = {f"P{i}" for i in range(1, 25)} | {f"D{i}" for i in range(1, 13)}
     assert set(dict(iter_contract_rules())) == rules
     evaluated = _evaluate_prognostic(StochasticToy()).evaluated
     evaluated |= _evaluate_prognostic(ForcedToy()).evaluated
