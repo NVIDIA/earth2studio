@@ -26,7 +26,8 @@ scorecard/
   cfg/regions/standard.yaml     the regional splits every campaign shares
   run_scorecard.py        predownload -> infer (scores online) -> score/prune
   export_scores.py        scores.zarr -> exports/eval_scores_<model>*.json
-  utils/pipelines.py      history / off-grid pipeline variants (see below)
+  utils/baselines.py      persistence and climatology baselines (prognostic models)
+  utils/sources.py        source adapters for the StormCast grid (see below)
   models/<model>/outputs/ run data: stats.zarr + scores.zarr (not tracked)
   data/                   shared ERA5 stores (not tracked)
 ```
@@ -122,16 +123,21 @@ python run_scorecard.py stormcast_2025_events
 python export_scores.py stormcast --docs
 ```
 
-StormCast runs through the recipe's `src.pipelines.regional.RegionalForecastPipeline`,
-which serves any limited-area model on a window of a larger source grid.
-The pipeline crops the source to the model window and, when the model
-conditions on a coarse global state, either fetches those fields into
-`conditioning.zarr` before inference or streams them live. The StormCast
-campaign streams everything: initial conditions and truth from HRRR,
-conditioning from ERA5, with no stores fetched ahead of time, so its
-only artifacts are `stats.zarr` and `scores.zarr`. Run it with the `infer`
-and `score` stages only. Truth is the HRRR analysis and the scores carry
-uniform weights.
+StormCast runs through the recipe's default forecast runner,
+`runner: forecast`. The model declares its global conditioning as a
+*forcing slot*, so the campaign lists one entry under `forcing_sources`.
+That entry is ERA5 from ARCO wrapped by
+`scorecard.utils.sources.stormcast_conditioning`, which interpolates the
+fields onto the model's HRRR window. The model cuts that window from the
+registered `hrrr` grid, and the window has no registered name of its own,
+so the helper rebuilds it. The runner selects the window out of the full
+HRRR grid for the initial conditions, and
+`scorecard.utils.sources.stormcast_window` crops the HRRR truth the same
+way. The campaign streams everything:
+initial conditions and truth from HRRR, conditioning from ERA5, with no
+stores fetched ahead of time, so its only artifacts are `stats.zarr` and
+`scores.zarr`. Run it with the `infer` and `score` stages only. Truth is
+the HRRR analysis and the scores carry uniform weights.
 
 `export_scores.py` looks for `models/<model>/outputs/<model>_2025_events`
 next to the main run, or takes `--events-run PATH`. A model without a
@@ -149,7 +155,32 @@ Keep an event campaign's ensemble size and horizon comparable to the
 model's main campaign when it has one, since the docs plot draws each
 event against that campaign's curve.
 
-## Model-specific pipelines (`utils/pipelines.py`)
+## Off-grid models and baselines
 
-* `RegriddedForecastPipeline` — models off ERA5's 721x1440 grid are gathered
-  onto it so the shared verification store is reused. A no-op on-grid.
+Every campaign runs the recipe's `runner: forecast`. Models off the
+721 × 1440 ERA5 grid, such as Aurora and FCN with 720 rows, set
+
+```yaml
+output:
+    regrid:
+        grid: latlon-0.25deg
+        method: nearest
+```
+
+so the recipe gathers their output onto the shared grid before scoring
+and reuses the shared verification store. The block is a no-op for models
+already on that grid. The ERA5 verification store itself comes from one
+of two places. The `predownload` stage writes the run's own
+`<output.path>/verification.zarr`, always a separate store. Or a
+bring-your-own `verification_source` points a
+`src.data.PredownloadedSource` at an existing store, as the Aurora and
+baseline campaigns do with the fcn3 run's store.
+
+The baselines in `utils/baselines.py` are prognostic models on the 1.0
+protocol, selected through `model.architecture`:
+
+* `PersistenceBaseline`: `earth2studio.models.px.Persistence` on the
+  registered `latlon-0.25deg` grid.
+* `ClimatologyForecast`: the climatology at each valid time is the
+  model's forcing slot. The campaign names the climatology source under
+  `forcing_sources` and `predownload` caches it into `forcing0.zarr`.

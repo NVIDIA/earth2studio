@@ -18,7 +18,11 @@
 
 Every stage launches one of the recipe's scripts (predownload.py, main.py,
 score.py) under torchrun - no inference, scoring or metric code is
-reimplemented here, and nothing is assumed beyond the campaign config.
+reimplemented here, and the campaign config is the only input.  The
+campaigns select the recipe's runners (``runner: forecast``) and place
+off-grid models onto the shared ERA5 grid with ``output.regrid``.  The
+launcher composes the configuration those scripts compose, so the stores it
+stamps and prunes are the ones they write.
 
     python run_scorecard.py fcn3_2025_scorecard
     python run_scorecard.py aurora_2025_scorecard score prune
@@ -48,9 +52,12 @@ import os
 import shutil
 import subprocess
 import sys
+from collections.abc import Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import yaml
+if TYPE_CHECKING:
+    from omegaconf import DictConfig
 
 HERE = Path(__file__).resolve().parent  # scorecard root
 RECIPE = HERE.parent
@@ -84,6 +91,64 @@ def launch(entry: str, campaign: str, overrides: list[str], ngpu: int) -> None:
     subprocess.run(cmd, check=True, cwd=RECIPE)  # noqa: S603
 
 
+def compose_campaign(campaign: str, overrides: Sequence[str]) -> DictConfig:
+    """The configuration the recipe's scripts compose for this launch.
+
+    :func:`launch` starts each script with ``--config-dir`` pointing at the
+    scorecard's ``cfg``, next to the recipe's own ``cfg``.  This composes the
+    same ``default`` config from the same two directories with the same
+    overrides, so a value such as ``scoring.online.scores_store=null`` reads
+    as Hydra reads it.  The two directories share no file, so the order
+    Hydra searches them in does not change the result.
+
+    Parameters
+    ----------
+    campaign : str
+        Campaign config name under ``cfg/campaign``.
+    overrides : Sequence[str]
+        Hydra overrides passed to every script.
+
+    Returns
+    -------
+    DictConfig
+        The composed config, interpolations left to resolve on access.
+    """
+    from hydra import compose, initialize_config_dir
+
+    with initialize_config_dir(config_dir=str(RECIPE / "cfg"), version_base=None):
+        return compose(
+            config_name="default",
+            overrides=[
+                f'hydra.searchpath=["file://{HERE / "cfg"}"]',
+                f"campaign={campaign}",
+                *overrides,
+            ],
+        )
+
+
+def run_path(path: str) -> Path:
+    """A path from the config as the scripts see it: relative to the recipe root."""
+    return RECIPE / path
+
+
+def score_stores(cfg: DictConfig) -> list[Path]:
+    """Score stores the scoring pass of ``cfg`` writes, named by the recipe itself.
+
+    Offline: :func:`src.scoring.score_store_path`.  Online: one store per
+    reference, :func:`src.online.scores_store_names`.
+    """
+    from src.campaign import online_scoring
+    from src.output import store_path
+
+    if online_scoring(cfg):
+        from src.online import scores_store_names
+
+        return [run_path(store_path(cfg, name)) for name in scores_store_names(cfg)]
+    from src.scoring import score_store_path
+
+    return [run_path(score_store_path(cfg))]
+
+
 def scores_complete(store: Path) -> bool:
     """True when the store exists and carries the provenance stamp that
     stamp_provenance() writes only after scoring finished cleanly."""
@@ -101,6 +166,8 @@ def stamp_provenance(store: Path) -> None:
     import torch
     import zarr
 
+    if not (store / "zarr.json").is_file():
+        raise SystemExit(f"!! {store} is missing after scoring; nothing to stamp")
     prov = {
         "date_scored": dt.date.today().isoformat(),
         "python": sys.version.split()[0],
@@ -118,7 +185,8 @@ def stamp_provenance(store: Path) -> None:
             f"{torch.cuda.device_count()} x {torch.cuda.get_device_name(0)}"
             " (single node)"
         )
-    zarr.open_group(str(store), mode="a").attrs["provenance"] = prov
+    # r+ opens the store scoring wrote and never creates an empty one.
+    zarr.open_group(str(store), mode="r+").attrs["provenance"] = prov
     print(f"    stamped provenance onto {store}")
 
 
@@ -155,25 +223,25 @@ def main() -> int:
 
         args.ngpu = max(1, torch.cuda.device_count())
 
-    # Everything below is read off the campaign config, with command-line
-    # overrides taking precedence; the output dir is <project>_<run_id>.
-    cfg = yaml.safe_load(cfg_path.read_text())
-    # Hydra spellings like +key=value / ~key=value normalize to plain keys.
-    ov = {
-        k.lstrip("+~"): v for k, v in (o.split("=", 1) for o in overrides if "=" in o)
-    }
-    project = ov.get("project", cfg["project"])
-    run_id = ov.get("run_id", cfg["run_id"])
-    out = (
-        Path(
-            os.environ.setdefault(
-                "SCORECARD_OUT", str(HERE / "models" / project / "outputs")
-            )
-        )
-        / f"{project}_{run_id}"
+    # Everything below comes from the configuration the scripts compose
+    # (recipe defaults, the campaign and the overrides), through the recipe's
+    # own helpers, so the stamp and the prune gate follow the files the
+    # scripts write.
+    if str(RECIPE) not in sys.path:
+        sys.path.insert(0, str(RECIPE))
+    from src.campaign import online_scoring
+    from src.output import store_path
+
+    cfg = compose_campaign(args.campaign, overrides)
+    # The campaigns write under $SCORECARD_OUT, by default the model's
+    # models/<project>/outputs; set it before output.path reads it.
+    os.environ.setdefault(
+        "SCORECARD_OUT", str(HERE / "models" / str(cfg.project) / "outputs")
     )
+    out = run_path(str(cfg.output.path))
     os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
-    # scorecard.pipelines.* in the campaign configs resolves from the recipe root.
+    # scorecard.utils.* targets in the campaign configs (baselines, source
+    # adapters) resolve from the recipe root, next to the recipe's src package.
     os.environ["PYTHONPATH"] = (
         f"{RECIPE}{os.pathsep}{os.environ['PYTHONPATH']}"
         if os.environ.get("PYTHONPATH")
@@ -183,8 +251,11 @@ def main() -> int:
     print(f"=== campaign={args.campaign}  ngpu={args.ngpu}  stages={' '.join(stages)}")
     print(f"=== out={out}")
 
-    mode = ov.get("scoring.mode", cfg.get("scoring", {}).get("mode", "offline"))
-    online = str(mode).lower() == "online"
+    online = online_scoring(cfg)
+    # The score store(s) this configuration writes; the stamp and the prune
+    # gate follow them rather than a fixed scores.zarr.
+    stores = score_stores(cfg)
+    forecast = run_path(store_path(cfg))
 
     for stage in stages:
         print(f"\n############### {stage} ###############")
@@ -193,43 +264,37 @@ def main() -> int:
         elif stage == "infer":
             launch("main.py", args.campaign, overrides, args.ngpu)
             if online:
-                # The online path derives scores.zarr at the end of
+                # The online path derives the scores store at the end of
                 # main.py; stamp it now (the derivation rebuilds the store,
                 # so a stamp must always follow the pass that produced it).
-                stamp_provenance(out / "scores.zarr")
+                for store in stores:
+                    stamp_provenance(store)
         elif stage == "score":
             if online:
                 # Cheap single-process re-derivation from stats.zarr.
                 launch("score.py", args.campaign, overrides, 1)
             else:
-                # time=1 chunks: ranks score disjoint ICs, so no
-                # shared-chunk writes (races); whole-array elsewhere keeps
-                # file counts small.
-                chunks = [
-                    "output.io_backend=zarr",
-                    "output.chunks.time=1",
-                    f"output.chunks.lead_time={int(cfg['nsteps']) + 1}",
-                ]
-                if int(cfg.get("ensemble_size", 1)) > 1:
-                    chunks.append(f"+output.chunks.ensemble={cfg['ensemble_size']}")
-                launch("score.py", args.campaign, chunks + overrides, args.ngpu)
-            stamp_provenance(out / "scores.zarr")
+                # score.py lays out the score store itself (one time per
+                # chunk, ranks scoring disjoint initial conditions).
+                launch("score.py", args.campaign, overrides, args.ngpu)
+            for store in stores:
+                stamp_provenance(store)
         elif stage == "prune":
-            if online and not (out / "forecast.zarr").exists():
+            if online and not forecast.exists():
                 print("    online campaign, no raw store -- nothing to prune")
                 continue
             # Gate on the provenance stamp, not on the store existing: a
-            # scoring run killed mid-way leaves a partial scores.zarr on
+            # scoring run killed mid-way leaves a partial score store on
             # disk, and deleting the forecast then makes the run
             # unrecoverable. The stamp is written only after score.py
             # exits cleanly, so it doubles as the completion marker.
-            if scores_complete(out / "scores.zarr"):
-                print(f"    scores complete -- deleting {out / 'forecast.zarr'}")
-                shutil.rmtree(out / "forecast.zarr", ignore_errors=True)
+            if all(scores_complete(store) for store in stores):
+                print(f"    scores complete -- deleting {forecast}")
+                shutil.rmtree(forecast, ignore_errors=True)
             else:
                 raise SystemExit(
-                    "!! scores.zarr missing or unstamped (scoring "
-                    "incomplete?) -- keeping forecast"
+                    f"!! {', '.join(s.name for s in stores)} missing or unstamped "
+                    "(scoring incomplete?) -- keeping forecast"
                 )
 
     print(f"\n=== done — {out}")

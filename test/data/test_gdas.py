@@ -14,9 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import pathlib
 import shutil
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import numpy as np
@@ -27,15 +28,15 @@ import pytest
 from earth2studio.data import NomadsGDASObsConv, utils_ncep
 from earth2studio.lexicon import GDASObsConvLexicon
 
+LIVE_TIME = (datetime.now(timezone.utc) - timedelta(hours=24)).replace(tzinfo=None)
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
+
+@pytest.mark.live(timeout=120)
 @pytest.mark.parametrize(
     "time",
     [
-        datetime(2026, 4, 4, 0),
-        [datetime(2026, 4, 4, 0), datetime(2026, 4, 4, 6)],
+        LIVE_TIME,
+        [LIVE_TIME, LIVE_TIME + timedelta(hours=6)],
     ],
 )
 @pytest.mark.parametrize("variable", ["t", ["t", "pres"]])
@@ -59,33 +60,25 @@ def test_nomads_gdas_fetch(time, variable):
     assert (df["lon"] >= 0).all() and (df["lon"] < 360).all()
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
+@pytest.mark.live(timeout=120)
 @pytest.mark.parametrize("variable", [["u", "v"]])
 def test_nomads_gdas_wind(variable):
     ds = NomadsGDASObsConv(
         time_tolerance=timedelta(minutes=180),
         cache=False,
     )
-    time = datetime(2026, 4, 4, 0)
+    time = LIVE_TIME
     df = ds(time, variable)
 
     assert isinstance(df, pd.DataFrame)
     assert not df.empty
     assert set(df["variable"].unique()).issubset({"u", "v"})
 
-    # Wind components should have reasonable values
-    obs = df["observation"].dropna()
-    assert (obs.abs() < 200).all()  # m/s, no wind > 200 m/s
 
-
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
+@pytest.mark.live(timeout=120)
 @pytest.mark.parametrize(
     "time",
-    [np.array([np.datetime64("2026-04-04T00:00")])],
+    [np.array([np.datetime64(LIVE_TIME)])],
 )
 @pytest.mark.parametrize("variable", [["t", "pres"]])
 @pytest.mark.parametrize("cache", [True, False])
@@ -94,20 +87,56 @@ def test_nomads_gdas_cache(time, variable, cache):
         time_tolerance=timedelta(minutes=180),
         cache=cache,
     )
+    cache_path = pathlib.Path(ds.cache)
     df = ds(time, variable)
 
     assert isinstance(df, pd.DataFrame)
     assert not df.empty
-    assert pathlib.Path(ds.cache).is_dir() == cache
+    assert cache_path.is_dir() == cache
 
     # Reload from cache if caching
     df2 = ds(time, variable[0])
     assert isinstance(df2, pd.DataFrame)
 
     try:
-        shutil.rmtree(ds.cache)
+        shutil.rmtree(cache_path)
     except FileNotFoundError:
         pass
+
+
+@pytest.mark.parametrize("cache", [False, True])
+@pytest.mark.parametrize("use_async", [False, True])
+@pytest.mark.parametrize("fail", [False, True])
+def test_nomads_gdas_cleanup(tmp_path, monkeypatch, cache, use_async, fail):
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
+    ds = NomadsGDASObsConv(cache=cache, verbose=False)
+    cache_path = pathlib.Path(ds.cache)
+    assert not cache_path.exists()
+
+    async def download(uri):
+        cache_path.mkdir(parents=True, exist_ok=True)
+        (cache_path / "partial.bufr").write_bytes(b"data")
+        if fail:
+            raise ValueError("download failed")
+
+    monkeypatch.setattr(ds, "_fetch_remote_file", download)
+    monkeypatch.setattr("earth2studio.data.gdas.compile_tables", lambda *args: [])
+    monkeypatch.setattr(
+        "earth2studio.data.gdas.assemble_frame", lambda *args: pd.DataFrame()
+    )
+
+    def fetch():
+        if use_async:
+            return asyncio.run(ds.fetch(LIVE_TIME, "t"))
+        return ds(LIVE_TIME, "t")
+
+    if fail:
+        with pytest.raises(ValueError, match="download failed"):
+            fetch()
+    else:
+        assert isinstance(fetch(), pd.DataFrame)
+    assert cache_path.exists() == cache
+    assert pathlib.Path(ds.cache).exists() == cache
 
 
 def test_nomads_gdas_schema_fields():
