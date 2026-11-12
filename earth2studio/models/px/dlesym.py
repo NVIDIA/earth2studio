@@ -16,6 +16,7 @@
 
 from collections import OrderedDict
 from collections.abc import Iterator
+from copy import deepcopy
 from pathlib import Path
 from typing import Literal
 
@@ -1228,7 +1229,9 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
         out = out.reshape(*(x.sizes[d] for d in leading), *out.shape[1:])
         result = from_torch(out, signature, name=x.name)
-        result.encoding = x.encoding.copy()
+        # Field data is fresh; isolate metadata so nested values are not shared.
+        result.attrs = deepcopy(result.attrs)
+        result.encoding = deepcopy(x.encoding)
         return result
 
     def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
