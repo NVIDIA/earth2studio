@@ -362,6 +362,16 @@ def main() -> int:
                     else:
                         code = process.returncode
                     if reason == "LIVE TIMEOUT" and any(
+                        event["event"] == "finished"
+                        and event["nodeid"] == live["nodeid"]
+                        for event in events(directory)
+                    ):
+                        # Preserve the completed result and retry any later test
+                        # interrupted by shutdown in a fresh process.
+                        del active[file]
+                        pending.appendleft(file)
+                        continue
+                    if reason == "LIVE TIMEOUT" and any(
                         event["event"] == "report"
                         and event["nodeid"] == live["nodeid"]
                         and (event["phase"] == "call" or event["outcome"] == "FAILED")

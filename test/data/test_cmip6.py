@@ -30,8 +30,12 @@ from earth2studio.data.cmip6 import CMIP6MultiRealm
 @contextmanager
 def remote_io_xfail():
     """Treat unavailable remote NetCDF streams as expected live-test failures."""
+    from intake_esgf.exceptions import DatasetInitError
+
     try:
         yield
+    except DatasetInitError as error:
+        pytest.xfail(f"Remote ESGF dataset initialization failed: {error}")
     except OSError as error:
         if error.errno == -68 and str(error.filename).startswith(
             ("http://", "https://")

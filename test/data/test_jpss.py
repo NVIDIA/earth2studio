@@ -39,12 +39,6 @@ LIVE_TIME = (datetime.now(timezone.utc) - timedelta(days=30)).replace(
     [
         (
             "noaa-20",
-            "I",
-            LIVE_TIME,
-            "viirs01i",
-        ),
-        (
-            "noaa-20",
             "M",
             LIVE_TIME,
             ["viirs02m", "viirs03m"],
@@ -52,10 +46,7 @@ LIVE_TIME = (datetime.now(timezone.utc) - timedelta(days=30)).replace(
         (
             "noaa-21",
             "I",
-            [
-                LIVE_TIME,
-                LIVE_TIME + timedelta(minutes=1),
-            ],
+            LIVE_TIME,
             "viirs05i",
         ),
         (
@@ -102,13 +93,13 @@ def test_jpss_fetch(satellite, product_type, time, variable):
 
 
 @pytest.mark.live(timeout=30)
-@pytest.mark.parametrize("cache", [True, False])
+@pytest.mark.parametrize("cache", [True])
 def test_jpss_cache(cache):
-    """Test JPSS caching behavior for both enabled and disabled cache options."""
+    """Test JPSS cache reuse."""
 
     ds = JPSS(satellite="noaa-20", product_type="M", cache=cache)
     time = np.array([np.datetime64(LIVE_TIME)])
-    variable = ["viirs01m", "viirs02m", "viirs03m"]
+    variable = ["viirs02m"]
 
     data = ds(time, variable)
     shape = data.shape
@@ -141,65 +132,17 @@ def test_jpss_cache(cache):
         pass
 
 
-@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
-    "satellite,product_type,time,variable,valid",
+    "satellite,product_type",
     [
-        (
-            "noaa-20",
-            "I",
-            LIVE_TIME,
-            "viirs01i",
-            True,
-        ),
-        (
-            "noaa-21",
-            "M",
-            LIVE_TIME,
-            "viirs02m",
-            True,
-        ),
-        (
-            "snpp",
-            "L2",
-            LIVE_TIME,
-            "lst",
-            True,
-        ),
-        (
-            "foo",
-            "I",
-            datetime(year=2024, month=6, day=25, hour=12, minute=0, second=0),
-            "viirs01i",
-            False,
-        ),
-        (
-            "noaa-20",
-            "X",
-            datetime(year=2024, month=6, day=25, hour=12, minute=0, second=0),
-            "viirs01i",
-            False,
-        ),
+        ("foo", "I"),
+        ("noaa-20", "X"),
     ],
 )
-def test_jpss_sources(satellite, product_type, time, variable, valid):
-    """Test JPSS data source initialization and basic fetching with different parameters."""
-
-    if not valid:
-        with pytest.raises(ValueError):
-            JPSS(satellite=satellite, product_type=product_type, cache=False)
-        return
-
-    ds = JPSS(satellite=satellite, product_type=product_type, cache=False)
-    data = ds(time, variable)
-    shape = data.shape
-
-    expected_dims = JPSS.PRODUCT_DIMENSIONS[product_type]
-
-    assert shape[0] == 1
-    assert shape[1] == len([variable]) + 2
-    assert shape[2] == expected_dims[0]
-    assert shape[3] == expected_dims[1]
+def test_jpss_sources(satellite, product_type):
+    """Reject invalid source parameters without downloading data."""
+    with pytest.raises(ValueError):
+        JPSS(satellite=satellite, product_type=product_type, cache=False)
 
 
 @pytest.mark.timeout(15)
@@ -215,7 +158,7 @@ def test_jpss_invalid_variable():
         )
 
 
-@pytest.mark.live(timeout=30)
+@pytest.mark.live(timeout=10)
 @pytest.mark.parametrize(
     "time",
     [

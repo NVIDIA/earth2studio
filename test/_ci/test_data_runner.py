@@ -99,6 +99,30 @@ def test_cache():
     assert {entry["status"] for entry in summary} == {"PASSED", "TIMEOUT"}
 
 
+def test_completion_during_timeout_shutdown_resumes_remaining_tests(tmp_path: Path):
+    result, summary = run_files(
+        tmp_path,
+        {"test_race.py": """
+import faulthandler, signal, time, pytest
+@pytest.mark.live(timeout=0.15)
+def test_race():
+    faulthandler.unregister(signal.SIGUSR1)
+    done = False
+    def finish(signum, frame):
+        nonlocal done
+        done = True
+    signal.signal(signal.SIGUSR1, finish)
+    while not done:
+        time.sleep(0.005)
+def test_later():
+    time.sleep(0.3)
+"""},
+        pytest_args=("--live=all",),
+    )
+    assert result.returncode == 0, result.stdout
+    assert all(case["status"] == "PASSED" for case in summary[0]["tests"].values())
+
+
 def test_failure_during_timeout_shutdown_is_preserved(tmp_path: Path):
     result, summary = run_files(
         tmp_path,
