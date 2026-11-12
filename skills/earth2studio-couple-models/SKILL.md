@@ -99,8 +99,10 @@ The messages suggest close names for misspelled components and variables.
 - **Using `hold` where `exact` was meant.** This silently lags by a step.
   Check the `describe` row.
 - **Reductions use the window `[T - w, T)`.** The frame at `T` is excluded.
-- **Expecting an initial condition in every stream.** Streams whose outputs
-  differ from the inputs start at the first forecast.
+- **Expecting an initial condition in every stream.** A stream publishes one
+  only when its outputs declare every input variable on the input's grid;
+  otherwise it starts at the first forecast. Output-only variables in a stream
+  that does publish one (diagnostic outputs such as `tp06`) are NaN at lead 0.
 - **Regridding the wrong way round.** The source grid is the producer's output
   grid and the target is the consumer's slot grid.
 - **Converting inside a connector.** Connectors only select, reduce and
