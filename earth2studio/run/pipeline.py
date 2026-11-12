@@ -113,7 +113,10 @@ class Pipeline:
         ``scorer`` is required; both may be given.
     output_variables : Mapping[str, Sequence[str]] | None, optional
         Variables kept per stream, in this order. Streams left out keep every
-        variable, by default None
+        variable. A model's initial condition, published at lead time 0, holds
+        only its input variables, so output-only variables are NaN there; a
+        selection holding no input variable of such a stream is rejected, by
+        default None
     regridder : Mapping[str, Regridder] | None, optional
         Regridder per stream, applied after variable filtering. Its
         ``source_grid`` must match the stream's grid; the stream is stored on
@@ -134,7 +137,9 @@ class Pipeline:
     ------
     ValueError
         If neither ``output`` nor ``scorer`` is given, or ``output_variables``
-        names no variables for a stream.
+        names no variables for a stream. :meth:`run` also raises before
+        creating stores if ``output_variables`` selects only variables a
+        stream's initial condition lacks.
 
     Examples
     --------
@@ -337,7 +342,7 @@ class Pipeline:
             return
         variables = self.output_variables.get(stream)
         if variables is not None:
-            x = _select_variables(x, variables)
+            x = _select_present_variables(stream, x, variables)
         regridder = self.regridder.get(stream)
         if regridder is not None:
             x = regridder(x)
@@ -431,11 +436,28 @@ class Pipeline:
                         f"variables {missing}; it has {sorted(known)}"
                     )
                 signature = _select_variables(signature, variables)
+                self._check_initial_condition(stream, variables)
             regridder = self.regridder.get(stream)
             if regridder is not None:
                 signature = _regridded_signature(stream, signature, regridder)
             schemas[stream] = signature
         return schemas
+
+    def _check_initial_condition(self, stream: str, variables: Sequence[str]) -> None:
+        """Reject a selection the stream's lead-time-zero output lacks entirely."""
+        listing = getattr(self.runner, "initial_condition_variables", None)
+        if not callable(listing):
+            return
+        available = listing().get(stream)
+        if available is None or set(variables) & set(available):
+            return
+        raise ValueError(
+            f"output_variables for stream {stream!r} selects only {list(variables)}, "
+            f"which the initial condition published at lead time 0 does not hold; "
+            f"it holds only the model inputs {list(available)}. Add an input "
+            "variable to output_variables, keeping NaN for the others at lead time "
+            "0, or compute these variables in a diagnostic stream."
+        )
 
     # -- progress ------------------------------------------------------------
 
@@ -532,6 +554,30 @@ def _log_finished(rank: int, index: int, mine: list[WorkItem]) -> None:
 def _select_variables(x: xr.DataArray, variables: Sequence[str]) -> xr.DataArray:
     """Keep ``variables`` in order; works on fields and signatures alike."""
     return map_field(x, OrderedDict(variable=np.asarray(variables)))
+
+
+def _select_present_variables(
+    stream: str, x: xr.DataArray, variables: Sequence[str]
+) -> xr.DataArray:
+    """Keep the selected ``variables`` an output holds, in order.
+
+    An output may hold a subset of its stream's variables, such as an initial
+    condition holding only a model's inputs; the store keeps NaN for the rest.
+    """
+    held = set(np.asarray(x.coords["variable"].values).astype(str))
+    present = [name for name in variables if name in held]
+    if not present:
+        lead = (
+            f" at lead time {x.coords['lead_time'].values.tolist()}"
+            if "lead_time" in x.coords
+            else ""
+        )
+        raise ValueError(
+            f"Stream {stream!r} output{lead} holds none of output_variables "
+            f"{list(variables)}; it holds {sorted(held)}. An initial condition "
+            "holds only the model inputs, so select at least one input variable."
+        )
+    return _select_variables(x, present)
 
 
 def _regridded_signature(
