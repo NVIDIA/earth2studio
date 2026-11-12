@@ -158,6 +158,14 @@ renaming guidance above describes the current implementation until that support
 lands. Fetch-side regridding onto a target grid is specified in
 [FETCH_DATA_SPEC.md](FETCH_DATA_SPEC.md).
 
+Until that validation lands, a registered `earth2studio_grid_id` is trusted:
+`infer_grid()` and `handshake_dataarray()` compare only dimension names and sizes
+for labelled data. Data whose latitude was reversed, whose longitude was rolled or
+converted to -180..180, or which was otherwise reordered after it was labelled is
+still accepted as the registered grid and read in the wrong order. Drop the label
+(`array.attrs.pop("earth2studio_grid_id")`) after reordering spatial axes so the
+actual coordinates are used.
+
 ## HEALPix Representations
 
 HEALPix ordering and storage layout are explicit. `nested` and `ring` use a flat
@@ -217,3 +225,12 @@ indexers = definition.subset_indexers(
 )
 subset = array.isel(indexers)
 ```
+
+Bounds `(min_x, min_y, max_x, max_y)` are inclusive limits on cell centres. In a
+geographic `bounds_crs` (the default), longitude bounds are independent of the
+grid's longitude convention: a cell is selected when its longitude lies at most
+`max_x - min_x` degrees east of `min_x`, modulo 360. So `(0, 180)` includes the
+180° meridian on both 0..360 and -180..180 grids; `(-190, -170)`, `(170, 190)` and
+`(170, -170)` select the same 20° box across the dateline; `min_x > max_x` wraps
+eastward through the dateline; and a span of 360° or more selects every longitude,
+matching `Region.box`. Projected bounds are compared without wrapping.

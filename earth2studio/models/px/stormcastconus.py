@@ -178,9 +178,10 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     batch_size : int, optional
         Maximum batch size processed in one forward pass, by default 1.
     time_tolerance : np.timedelta64, tuple[np.timedelta64, np.timedelta64], or None, optional
-        Time window for filtering observations around each target time.
-        A single ``np.timedelta64`` creates a symmetric window; a 2-tuple
-        ``(lower, upper)`` is passed directly to ``ObsGridMapping.obs_to_grid``.
+        Time window for filtering observations around each output valid time
+        (one hour after the input). A single ``np.timedelta64`` creates a
+        symmetric window; a 2-tuple ``(lower, upper)`` is passed directly to
+        ``ObsGridMapping.obs_to_grid``.
         ``None`` disables time filtering, by default None.
     sda_std_obs : float or dict[str, float], optional
         Observation noise standard deviation (in physical units) used by the
@@ -831,8 +832,13 @@ class StormCastCONUS(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                     if isinstance(obs, tuple):
                         y_obs, mask = obs
                     else:
+                        # Observations describe the output valid time, one hour
+                        # after the input, as conditioning does.
                         y_obs, mask = self.get_obs_mapping(x.device).obs_to_grid(
-                            obs, self.variables, t, self.time_tolerance
+                            obs,
+                            self.variables,
+                            t + np.timedelta64(1, "h"),
+                            self.time_tolerance,
                         )
                 else:
                     y_obs, mask = (None, None)
