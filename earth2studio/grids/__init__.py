@@ -50,6 +50,7 @@ from earth2studio.grids.region import Region
 _GRID_REGISTRY: dict[str, GridDefinition | None] = {}
 _GRID_ALIASES: dict[str, str] = {}
 _GRID_FACTORIES: dict[str, Callable[[], GridDefinition]] = {}
+_INDEX_COORDS: dict[str, dict[str, np.ndarray]] = {}
 
 
 def _register_builtin(
@@ -147,17 +148,86 @@ def resolve_grid(grid: str) -> GridDefinition:
     raise ValueError(f"Unknown Earth2Studio grid '{grid}'")
 
 
+def _canonical_grid_name(grid: str) -> str:
+    """Return the canonical name of a registered grid or alias, else ``grid``."""
+    if grid in _GRID_REGISTRY:
+        return grid
+    return _GRID_ALIASES.get(grid, grid)
+
+
+def _registered_index_coords(grid: str) -> dict[str, np.ndarray]:
+    """Return a registered grid's 1D index coordinates, cached per grid."""
+    canonical = _canonical_grid_name(grid)
+    cached = _INDEX_COORDS.get(canonical)
+    if cached is None:
+        coordinates = resolve_grid(canonical).coords(only_index=True)
+        cached = {
+            str(name): np.asarray(coordinate.values)
+            for name, coordinate in coordinates.items()
+        }
+        _INDEX_COORDS[canonical] = cached
+    return cached
+
+
+def _index_values_match(actual: Any, expected: Any) -> bool:
+    """Compare index labels exactly, or within float round-off for floats.
+
+    The tolerance absorbs float32 storage of float64 grid labels; it is far below
+    the spacing of any registered grid.
+    """
+    actual = np.asarray(actual)
+    expected = np.asarray(expected)
+    if actual.shape != expected.shape:
+        return False
+    if np.issubdtype(actual.dtype, np.number) and np.issubdtype(
+        expected.dtype, np.number
+    ):
+        return bool(np.allclose(actual, expected, rtol=1e-6, atol=1e-6, equal_nan=True))
+    return bool(np.array_equal(actual, expected))
+
+
+def _labelled_coords_match(
+    array: xr.DataArray | xr.Dataset, grid: str, dims: Sequence[str]
+) -> bool:
+    """Check that ``array``'s index labels on ``dims`` match registered ``grid``.
+
+    Dimensions without a coordinate in ``array`` cannot be checked and are
+    accepted; their sizes are validated by the caller. Auxiliary coordinates, such
+    as 2D curvilinear latitude and longitude, are not compared.
+    """
+    expected = _registered_index_coords(grid)
+    for dimension in dims:
+        if dimension not in array.coords or dimension not in expected:
+            continue
+        if not _index_values_match(array.coords[dimension].values, expected[dimension]):
+            return False
+    return True
+
+
 def infer_grid(array: xr.DataArray | xr.Dataset) -> GridDefinition:
-    """Infer a grid from explicit metadata or standard Xarray coordinates."""
+    """Infer a grid from explicit metadata or standard Xarray coordinates.
+
+    A registered ``earth2studio_grid_id`` label is used only when the array's
+    spatial dimensions, sizes and index coordinate values match that grid. A
+    label whose coordinates differ (for example a reversed, rolled or re-wrapped
+    axis), or a label that is not registered, is ignored and the grid is inferred
+    from the actual coordinates.
+    """
     grid_id = array.attrs.get(E2S_GRID_ID)
-    if grid_id is not None:
+    if grid_id is not None and _canonical_grid_name(grid_id) in _GRID_REGISTRY:
         definition = resolve_grid(grid_id)
         spatial_dims = tuple(
             dimension for dimension in array.dims if dimension in definition.dims
         )
-        if spatial_dims == definition.dims and all(
-            array.sizes[dimension] == size
-            for dimension, size in zip(definition.dims, definition.shape, strict=True)
+        if (
+            spatial_dims == definition.dims
+            and all(
+                array.sizes[dimension] == size
+                for dimension, size in zip(
+                    definition.dims, definition.shape, strict=True
+                )
+            )
+            and _labelled_coords_match(array, grid_id, definition.dims)
         ):
             return definition
 

@@ -129,7 +129,11 @@ entire registered HRRR geometry, not a crop; attaching that ID to cropped data
 would incorrectly claim that its geometry matches the full registered grid.
 
 Coordinate handshakes compare fixed axes and auxiliary coordinates and require
-matching declared grid ID and CRS metadata. `coord_array_like()` creates output
+matching declared grid ID and CRS metadata. A registered alias matches its grid's
+name. When both IDs match, the 1D index coordinates of the spatial dimensions are
+still compared (floats within round-off), so a reversed, rolled or re-wrapped axis
+is rejected; only multidimensional spatial auxiliaries, whose order the index
+coordinates fix, are skipped. `coord_array_like()` creates output
 signatures from validated inputs without recreating or reprojecting their grid.
 
 ### Model coordinates to target grid
@@ -151,9 +155,16 @@ A registered grid ID must not cause changed coordinates to be replaced by the
 parent geometry merely because their shapes match. Renamed model axes must be
 recoverable from coordinate metadata without caller-side renaming.
 
-Standard-layout reconstruction exists today. Metadata-driven reconstruction of
-renamed axes, validation of registered geometry against coordinate values, and an
-explicit grid-owned extent interface are required follow-up work. The manual
+`infer_grid()` uses a registered `earth2studio_grid_id` only when the array's
+spatial dimensions, sizes and 1D index coordinate values match the registered
+grid (floats within round-off). Otherwise, including for an unregistered ID, it
+infers the grid from the actual coordinates. Dimensions without a coordinate
+cannot be checked and are matched by size; multidimensional auxiliaries are not
+compared.
+
+Standard-layout reconstruction and validation of registered geometry against
+index coordinate values exist today. Metadata-driven reconstruction of renamed
+axes and an explicit grid-owned extent interface are required follow-up work. The manual
 renaming guidance above describes the current implementation until that support
 lands. Fetch-side regridding onto a target grid is specified in
 [FETCH_DATA_SPEC.md](FETCH_DATA_SPEC.md).
@@ -217,3 +228,12 @@ indexers = definition.subset_indexers(
 )
 subset = array.isel(indexers)
 ```
+
+Bounds `(min_x, min_y, max_x, max_y)` are inclusive limits on cell centres. In a
+geographic `bounds_crs` (the default), longitude bounds are independent of the
+grid's longitude convention: a cell is selected when its longitude lies at most
+`max_x - min_x` degrees east of `min_x`, modulo 360. So `(0, 180)` includes the
+180° meridian on both 0..360 and -180..180 grids; `(-190, -170)`, `(170, 190)` and
+`(170, -170)` select the same 20° box across the dateline; `min_x > max_x` wraps
+eastward through the dateline; and a span of 360° or more selects every longitude,
+matching `Region.box`. Projected bounds are compared without wrapping.
