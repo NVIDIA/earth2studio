@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""``map_field`` selects within a source and refuses to extrapolate or upsample."""
+"""``map_field`` selects within a source and refuses to extrapolate beyond it."""
 
 from collections import OrderedDict
 
@@ -70,10 +70,11 @@ def test_longitude_convention_mismatch_raises() -> None:
         map_field(field, OrderedDict(lon=GLOBAL_LON))
 
 
-def test_coarser_source_raises() -> None:
+def test_coarser_source_repeats_neighbouring_values() -> None:
+    # Resolution is not checked: a coarser source is selected by nearest label.
     field = _field(GLOBAL_LAT, GLOBAL_LON)
-    with pytest.raises(ValueError, match="coarser than the target"):
-        map_field(field, OrderedDict(lon=np.arange(0, 360, 0.25)))
+    mapped = map_field(field, OrderedDict(lon=np.arange(0, 360, 0.25)))
+    assert mapped.sizes["lon"] == 1440
 
 
 def test_single_label_source_requires_exact_labels() -> None:

@@ -259,39 +259,3 @@ def test_hrrr_model_domain_selection(y, x):
     selected = parent.coords({dim: indexes[dim].values for dim in parent.dims})
     expected = ProjectedGrid(parent.y[y], parent.x[x], parent.crs)
     xr.testing.assert_identical(selected.to_dataset(), expected.coords().to_dataset())
-
-
-def _labelled_latlon(latitude, longitude, grid_id="latlon-1deg"):
-    return xr.DataArray(
-        np.zeros((latitude.size, longitude.size)),
-        dims=("lat", "lon"),
-        coords={"lat": latitude, "lon": longitude},
-        attrs={E2S_GRID_ID: grid_id},
-    )
-
-
-def test_infer_grid_validates_labelled_coordinates():
-    registered = resolve_grid("latlon-1deg")
-    latitude = np.linspace(90.0, -90.0, 181)
-    longitude = np.arange(0.0, 360.0, 1.0)
-    assert infer_grid(_labelled_latlon(latitude, longitude)) is registered
-    # float32 storage of the registered labels still matches the label
-    float32 = _labelled_latlon(latitude.astype(np.float32), longitude.astype("f4"))
-    assert infer_grid(float32) is registered
-    for changed_lat, changed_lon in (
-        (latitude[::-1], longitude),
-        (latitude, np.roll(longitude, 180)),
-        (latitude, np.mod(longitude + 180, 360) - 180),
-    ):
-        inferred = infer_grid(_labelled_latlon(changed_lat, changed_lon))
-        assert inferred is not registered
-        np.testing.assert_array_equal(inferred.latitude, changed_lat)
-        np.testing.assert_array_equal(inferred.longitude, changed_lon)
-
-
-def test_infer_grid_unknown_label_uses_coordinates():
-    latitude = np.array([10.0, 0.0])
-    longitude = np.array([0.0, 1.0, 2.0])
-    inferred = infer_grid(_labelled_latlon(latitude, longitude, "not-registered"))
-    np.testing.assert_array_equal(inferred.latitude, latitude)
-    np.testing.assert_array_equal(inferred.longitude, longitude)

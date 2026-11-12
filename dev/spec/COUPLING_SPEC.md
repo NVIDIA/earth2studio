@@ -157,13 +157,17 @@ slot, or one declaring an earlier lead time, lags. A loop of `exact` edges
 cannot run and is reported as a cycle.
 
 Construction dry-runs the schedule over two periods of the cadences' least
-common multiple beyond the latest first chunk, plus the widest reduction
-window any connector reads, so every window is read at full width rather than
-backfilled. The same scheduler drives `describe`, `output_coords`,
-`data_requests` and `run_item`, so a plan cannot drift from a run. Each
-producer keeps frames back to the oldest one any consumer read in that dry run,
-and at least its widest reduction window, plus the longest cadence; older
-frames are dropped as the run advances.
+common multiple beyond the latest first chunk. The same scheduler drives
+`describe`, `output_coords`, `data_requests` and `run_item`, so a plan cannot
+drift from a run. Frames older than the oldest one any consumer read in that
+dry run, plus the longest cadence, are dropped as the run advances.
+
+Known limitation: early reduction windows are partly backfilled from sources,
+so the dry run can see a long window below its full width. A window much
+longer than its consumer's step (about 30 h or more for a 6 h consumer, 96 h
+or more for a 24 h consumer) can then need older frames than are kept, and the
+run fails partway with a `CouplingError` that names the history kept for the
+producer. No shipped model or example reads such a window.
 
 A work item's final lead time must be a lead time at which some stateful
 component's output is due; any other value raises in `describe`,
@@ -171,10 +175,11 @@ component's output is due; any other value raises in `describe`,
 for a final lead time that is not a multiple of its step. A slower component
 still stops at its last whole chunk.
 
-Stateful components' iterator hooks run as `create_iterator` runs them:
-`rear_hook` on every output chunk before it is published and fed back,
-`front_hook` on the fed-back outputs before each `step`, after state
-connectors overwrite them. Neither runs on the initial condition.
+Components' iterator hooks (`front_hook`, `rear_hook`) are not run: the runner
+calls `initialize` and `step`, which apply no hooks (MODEL_CONTRACT P10). The
+runner logs a warning at construction when a stateful component sets one. Use
+`perturbation=` for the initial condition, or a diagnostic component or
+connector for per-step changes.
 
 ## Streams
 
@@ -241,7 +246,7 @@ when to run, so the runner rejects its DataFrame slots. It fits elsewhere:
   observation-only analyses.
 - DataFrame payloads through connectors, and DataFrame-valued streams.
 - Output slots that advance at different lead times; split them, as for DLESyM.
-- Mid-item checkpoints.
+- Mid-item checkpoints and iterator hooks on coupled models.
 - Fields with a `level` dimension. Levels are encoded in variable names; a
   diagnostic component can map other layouts onto them.
 - Training rollouts: nothing differentiates through the exchange, which stages

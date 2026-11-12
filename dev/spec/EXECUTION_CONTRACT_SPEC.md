@@ -403,9 +403,10 @@ runner.
 
 Every runner fits fetched data to a model with `map_field`, which selects and
 never regrids. It raises `ValueError` when a source does not cover the target's
-range on a numeric axis (a label more than one source spacing beyond it) or is
-coarser than the target (distinct target labels selecting one source label);
-fetch such sources with `fetch_data(target_grid=...)` or `RegriddedSource`.
+range on a numeric axis (a label more than one source spacing beyond it). It
+does not check resolution: a source coarser than the target is selected by
+nearest label and repeats neighbouring values. Fetch such sources with
+`fetch_data(target_grid=...)` or `RegriddedSource`.
 
 The **coupled runner**, `earth2studio.coupling.CoupledRunner`, lives with the
 coupler ([COUPLING_SPEC.md](COUPLING_SPEC.md)). Per item it fetches each

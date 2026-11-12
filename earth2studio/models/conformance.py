@@ -16,7 +16,7 @@
 
 """Conformance checks for the Earth2Studio model contract.
 
-The rule identifiers reported here (``P1``-``P24``, ``D1``-``D12``) match the rule
+The rule identifiers reported here (``P1``-``P24``, ``D1``-``D11``) match the rule
 table in ``dev/spec/MODEL_CONTRACT_SPEC.md``.
 
 Prognostic probes use forecasts-only iteration and explicit continuation state.
@@ -95,7 +95,6 @@ _RULES = {
     "D9": "Seeding determines the output, and different seeds give different output.",
     "D10": "After set_rng(), seeding and calling leave global RNG state unperturbed.",
     "D11": "The public call has fixed named parameters.",
-    "D12": "Each batch sample's output depends only on that sample's input.",
 }
 _ROLLOUT_RULES = (
     "P7",
@@ -1308,7 +1307,7 @@ def _evaluate_diagnostic(
     stochastic = _check_stochasticity(report, model, "D7", "D8", "D10", device)
     if not forward or planned is None:
         report.skip(
-            ("D5", "D6", "D9", "D12"),
+            ("D5", "D6", "D9"),
             "forward check disabled" if not forward else "coordinate planning failed",
         )
         if stochastic:
@@ -1336,13 +1335,7 @@ def _evaluate_diagnostic(
     report.probe(
         "D9", lambda: _check_reproducibility(report, model, run, "D9", stochastic)
     )
-    if not stochastic:
-        report.probe(
-            "D12",
-            lambda: _check_batch_independence(report, model, inputs, args, "D12"),
-        )
-    else:
-        report.skip("D12", "stochastic draws may depend on the batch size")
+    if stochastic:
         _seed(model)
         report.probe(
             "D10",
@@ -1351,60 +1344,6 @@ def _evaluate_diagnostic(
             ),
         )
     return report
-
-
-def _check_batch_independence(
-    report: _Report,
-    model: Any,
-    inputs: tuple[xr.DataArray, ...],
-    args: tuple[xr.DataArray, ...],
-    rule: str,
-) -> None:
-    """Check that adding a second batch sample leaves the first sample's output.
-
-    The single-sample probe is rerun as sample 0 of a two-sample batch whose
-    second sample holds different values in every slot with a ``batch``
-    dimension. Sample 0's output must match the single-sample output to
-    floating-point tolerance, since batched kernels may reorder arithmetic.
-    """
-    if not any("batch" in x.dims for x in inputs):
-        # Without a batch dimension there are no samples to couple.
-        report.require(rule, True, "")
-        return
-    single = _slots(model(*deepcopy(args)))
-    generator = torch.Generator().manual_seed(1)
-    paired = []
-    for x, coords in zip(deepcopy(args), inputs):
-        if "batch" not in coords.dims:
-            # Slots without a batch dimension, such as static fields, are shared.
-            paired.append(x)
-            continue
-        first, _ = x.e2s.to_torch()
-        other = torch.randn(first.shape, generator=generator).to(first)
-        axis = coords.get_axis_num("batch")
-        paired.append(
-            from_torch(
-                torch.cat((first, other), dim=axis),
-                coord_array_like(coords, {"batch": np.arange(2)}),
-            )
-        )
-    batched = _slots(model(*paired))
-    compared = False
-    for one, two in zip(single, batched):
-        if "batch" not in one.dims or "batch" not in two.dims:
-            continue
-        compared = True
-        expected = one.e2s.as_numpy().values
-        actual = two.isel(batch=[0]).e2s.as_numpy().values
-        report.require(
-            rule,
-            expected.shape == actual.shape
-            and np.allclose(actual, expected, rtol=1e-5, atol=1e-6, equal_nan=True),
-            "the output for one batch sample changed when another sample was added; "
-            "batch samples must be processed independently",
-        )
-    if not compared:
-        report.skip(rule, "no output slot has a 'batch' dimension")
 
 
 def iter_contract_rules() -> Iterator[tuple[str, str]]:

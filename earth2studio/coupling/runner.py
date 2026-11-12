@@ -27,6 +27,7 @@ from typing import Any, TypeAlias
 import numpy as np
 import torch
 import xarray as xr
+from loguru import logger
 
 from earth2studio.coupling._buffer import _Buffer
 from earth2studio.coupling._nodes import _Node, _node, _ns, _Slot
@@ -48,6 +49,7 @@ from earth2studio.data import (
 )
 from earth2studio.data.base import DataFrameSource, ForecastFrameSource
 from earth2studio.grids import infer_grid, same_geometry
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.models.utils import recommended_sources
 from earth2studio.perturbation import Perturbation
 from earth2studio.run._fields import _with_lead_time, map_field
@@ -93,13 +95,13 @@ class CoupledRunner:
     output chunk;
     a diagnostic publishes every call.
 
-    A stateful component's ``front_hook`` and ``rear_hook`` run as they do in
-    its ``create_iterator``: the rear hook on every output chunk before it is
-    published and fed back, the front hook on the fed-back outputs before each
-    ``step`` (after state connectors overwrite them). A work item's final lead
-    time must be a lead time at which some stateful component's output is due.
-    Each producer keeps enough frames for the longest reduction window read
-    from it.
+    A work item's final lead time must be a lead time at which some stateful
+    component's output is due. Components' ``front_hook`` and ``rear_hook`` are
+    not run (a warning is logged when one is set); use ``perturbation=`` or a
+    connector instead. Each producer keeps the history a short dry run of the
+    schedule reads, plus its longest step, so a reduction window much longer
+    than its consumer's step (about 30 h for a 6 h consumer) can fail partway
+    through a run.
 
     Items with several members run as one batch on a leading ``ensemble``
     dimension, observation frames shared by every member, seeded once from the
@@ -218,6 +220,13 @@ class CoupledRunner:
             self.nodes, self.connectors, self.spacing, self.states
         )
         self._retention = self._plan_retention()
+        for name, node in self.nodes.items():
+            hooks = [h for h in ("front_hook", "rear_hook") if _has_hook(node.model, h)]
+            if node.stateful and hooks:
+                logger.warning(
+                    f"CoupledRunner does not run {' or '.join(hooks)} on component "
+                    f"{name!r}; use perturbation= or a connector instead"
+                )
         self.regridders = {
             c: c.regridder for c in self._all_connectors() if c.regridder is not None
         }
@@ -387,55 +396,17 @@ class CoupledRunner:
                         f"{error}"
                     ) from error
 
-    def _reach(self) -> dict[str, int]:
-        """How far before a read's lead time each producer's reductions reach.
-
-        Early windows are partly backfilled from sources, so a short dry run
-        never sees a long window at full width; its width bounds the history.
-        """
-        reach: dict[str, int] = {}
-        for connector in self._all_connectors():
-            if connector.state or connector.src not in self.spacing:
-                continue
-            slot = next(
-                s
-                for s in self.nodes[connector.dst].imports
-                if s.index == connector.slot
-            )
-            for label in slot.labels:
-                modifier = _split_label(label)[1]
-                if modifier is None or not connector.feeds(label):
-                    continue
-                window = _window(modifier, 0, self.spacing[connector.src])
-                if window:
-                    reach[connector.src] = max(
-                        reach.get(connector.src, 0), -min(window)
-                    )
-        return reach
-
     def _plan_retention(self) -> dict[str, int]:
-        """Dry-run a few coupling periods, raising on cycles and missing sources.
-
-        The run lasts long enough for every reduction window to be read at full
-        width, so the history kept covers the longest window.
-        """
+        """Dry-run a few coupling periods, raising on cycles and missing sources."""
         stateful = [n for n in self.nodes.values() if n.stateful]
         period = math.lcm(*(n.cadence for n in stateful))
-        reach = self._reach()
-        horizon = (
-            max(n.due(0) for n in stateful)
-            + 2 * period
-            + max(reach.values(), default=0)
-        )
+        horizon = max(n.due(0) for n in stateful) + 2 * period
         ages: dict[str, int] = {}
         requests = _Requests(self)
         for _ in self._scheduler.run(requests, horizon, slack=period, ages=ages):
             pass
         longest = max(n.cadence for n in stateful)
-        return {
-            name: max(ages.get(name, 0), reach.get(name, 0)) + longest
-            for name in self.nodes
-        }
+        return {name: ages.get(name, 0) + longest for name in self.nodes}
 
     # -- Runner protocol -------------------------------------------------------
 
@@ -653,9 +624,6 @@ class _Execution:
         self.inputs: dict[str, tuple[Any, ...]] = {}
         self.y: dict[str, Any] = {}
         self.state: dict[str, Any] = {}
-        # Whether each component returns its outputs as a tuple, so hooks see
-        # the payload in the form create_iterator gives them.
-        self.packed: dict[str, bool] = {}
 
     def _fetch(
         self, node: _Node, slot: _Slot, labels: Sequence[str], leads: Any
@@ -712,19 +680,13 @@ class _Execution:
         node = event.node
         args = tuple(self._value(node, plan, buffers) for plan in event.plans)
         if node.stateful:
-            # Hooks run as in create_iterator: the rear hook on every output
-            # chunk, before it is published and fed back; the front hook on the
-            # fed-back outputs, after state connectors overwrite them, before step.
-            model = node.model
             if event.index == 0:
                 x = self._overwrite(event, self.inputs.pop(node.name), buffers)
-                y, state = model.initialize(*x, *args)
+                y, state = node.model.initialize(*x, *args)
             else:
                 y = self._overwrite(event, self.y[node.name], buffers)
-                y = _hook(getattr(model, "front_hook", None), y, self.packed[node.name])
-                y, state = model.step(*y, *args, state=self.state[node.name])
-            self.packed[node.name] = isinstance(y, tuple)
-            ys = _hook(getattr(model, "rear_hook", None), y, self.packed[node.name])
+                y, state = node.model.step(*y, *args, state=self.state[node.name])
+            ys = y if isinstance(y, tuple) else (y,)
             self.y[node.name], self.state[node.name] = ys, state
             return ys
         outputs = node.model(*args)
@@ -941,22 +903,11 @@ class _Execution:
 # -- helpers -------------------------------------------------------------------
 
 
-def _hook(hook: Callable[[Any], Any] | None, y: Any, packed: bool) -> tuple[Any, ...]:
-    """Apply a model's iterator hook to its outputs, returned as a tuple.
-
-    The hook receives the outputs as the model returns them: a tuple when the
-    model returns one, else its single DataArray.
-    """
-    ys = y if isinstance(y, tuple) else (y,)
-    if hook is None:
-        return ys
-    out = hook(ys if packed else ys[0])
-    out = out if isinstance(out, tuple) else (out,)
-    if len(out) != len(ys):
-        raise CouplingError(
-            f"Iterator hook {hook!r} returned {len(out)} outputs, expected {len(ys)}"
-        )
-    return out
+def _has_hook(model: Any, name: str) -> bool:
+    """Whether ``model`` sets an iterator hook other than the pass-through."""
+    hook = getattr(model, name, None)
+    default = getattr(PrognosticMixin, name)
+    return hook is not None and getattr(hook, "__func__", hook) is not default
 
 
 def _component_seed(base: int, name: str) -> int:

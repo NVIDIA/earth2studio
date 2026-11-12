@@ -612,7 +612,6 @@ These rules apply to native DataArray execution and explicit continuation state.
 | `D9` | Seeding determines the output, and different seeds give different output |
 | `D10` | After `set_rng()`, seeding and calling leave global RNG state unperturbed |
 | `D11` | Wrappers declare fixed, named `__call__` parameters (see Argument slots) |
-| `D12` | A deterministic model's output for one `batch` sample does not depend on other samples |
 
 ### Domain
 
@@ -805,10 +804,7 @@ unevaluated rules with reasons. `rollout=False` retains declarations/planning
 (`P1`–`P6`), stochastic declarations and seeding (`P11`, `P12`, the seeding half of
 `P14`), slot/signature checks (`P17`, `P18`, `P24`) and sources (`P23`).
 `check_diagnostic_contract(model, forward=False)` retains `D1`–`D4`, `D7`, `D8`,
-`D11` and the seeding half of `D10`. `D12` reruns the forward probe as the first
-sample of a two-sample batch and compares that sample to tolerance; it is skipped
-for stochastic models and passes trivially without a `batch` dimension. Behavioral
-`reset=False` checks need execution.
+`D11` and the seeding half of `D10`. Behavioral `reset=False` checks need execution.
 
 Probes concretize dynamic dimensions for every declared slot and use each
 signature's `.shape`, auxiliary coordinates and grid/statistics metadata.

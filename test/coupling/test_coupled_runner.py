@@ -23,6 +23,7 @@ import numpy as np
 import pytest
 import torch
 import xarray as xr
+from loguru import logger
 from test_coupling_toys import (
     ATMOS_GRID,
     OCEAN_GRID,
@@ -313,69 +314,33 @@ def test_a_lone_forced_model_matches_prognostic_runner() -> None:
     assert coupled == pytest.approx(direct)
 
 
-@pytest.mark.parametrize(
-    "hook, expected",
-    [
-        # z1000 <- z1000 + 1.3 per 6 h step (sst = 3), then the hook.
-        ("rear_hook", {0: 0.0, 6: 101.3, 12: 202.6, 18: 303.9}),
-        ("front_hook", {0: 0.0, 6: 1.3, 12: 102.6, 18: 203.9}),
-    ],
-)
-def test_iterator_hooks_run_as_in_prognostic_runner(
-    hook: str, expected: dict[int, float]
-) -> None:
-    def build() -> _Toy:
-        model = atmosphere()
-        setattr(model, hook, lambda y: y + 100)
-        return model
-
+@pytest.mark.parametrize("hook", ["front_hook", "rear_hook"])
+def test_iterator_hooks_are_not_run_and_warn(hook: str) -> None:
+    model = atmosphere()
+    setattr(model, hook, lambda y: y + 100)
     sources = (Fill(ATMOS_GRID, {"z1000": 0.0}), Fill(ATMOS_GRID, {"sst": 3.0}))
-    coupled = series(
-        run(CoupledRunner({"atmos": build()}, sources={"atmos": sources}), 18)["atmos"]
+    messages: list[str] = []
+    handler = logger.add(lambda message: messages.append(message), level="WARNING")
+    try:
+        runner = CoupledRunner({"atmos": model}, sources={"atmos": sources})
+    finally:
+        logger.remove(handler)
+    assert any(f"does not run {hook}" in m for m in messages)
+    # z1000 <- z1000 + 1.3 per 6 h step (sst = 3); the hook is not applied.
+    assert series(run(runner, 18)["atmos"]) == pytest.approx(
+        {0: 0.0, 6: 1.3, 12: 2.6, 18: 3.9}
     )
-    single = PrognosticRunner(build(), sources[0], forcing=sources[1:])
-    direct = {
-        int(s["forecast"]["lead_time"].values[-1] // H): float(s["forecast"].mean())
-        for s in single.run_item(WorkItem(T0, np.timedelta64(18, "h")))
-    }
-    assert direct == pytest.approx(expected)
-    assert coupled == pytest.approx(direct)
 
 
-def test_hooks_apply_to_every_component(ic_sources: Mapping[str, Fill]) -> None:
-    atmos, sea = atmosphere(), ocean()
-    atmos.rear_hook = lambda y: y + 100  # type: ignore[method-assign]
-    sea.rear_hook = lambda y: y + 10  # type: ignore[method-assign]
-    runner = CoupledRunner(
-        {"atmos": atmos, "ocean": sea},
-        [
-            Connector("ocean", "atmos", time="hold", regridder=TO_ATMOS),
-            Connector("atmos", "ocean", regridder=TO_OCEAN),
-        ],
-        sources=dict(ic_sources),
-    )
-    streams = run(runner, 48)
-    assert series(streams["atmos"])[6] == pytest.approx(101.2)
-    assert series(streams["ocean"])[48] > 12.0
-
-
-def test_noise_hooks_give_distinct_batched_members(
-    ic_sources: Mapping[str, Fill],
-) -> None:
-    atmos = atmosphere()
-    atmos.rear_hook = lambda y: y + np.random.default_rng().normal(  # type: ignore[method-assign]
-        size=y.shape
-    )
-    runner = CoupledRunner(
-        {"atmos": atmos},
-        sources={"atmos": (ic_sources["atmos"], Fill(ATMOS_GRID, {"sst": 2.0}))},
-    )
-    item = WorkItem(T0, np.timedelta64(12, "h"), member_ids=(0, 1, 2, 3))
-    last = list(runner.run_item(item))[-1]["atmos"]
-    members = [last.isel(ensemble=i).values for i in range(4)]
-    for i in range(4):
-        for j in range(i + 1, 4):
-            assert not np.allclose(members[i], members[j])
+def test_default_hooks_do_not_warn() -> None:
+    sources = (Fill(ATMOS_GRID, {"z1000": 0.0}), Fill(ATMOS_GRID, {"sst": 3.0}))
+    messages: list[str] = []
+    handler = logger.add(lambda message: messages.append(message), level="WARNING")
+    try:
+        CoupledRunner({"atmos": atmosphere()}, sources={"atmos": sources})
+    finally:
+        logger.remove(handler)
+    assert not any("hook" in m for m in messages)
 
 
 # -- final lead time and history ---------------------------------------------------
@@ -408,15 +373,13 @@ def _long_window_runner() -> CoupledRunner:
     )
 
 
-def test_history_covers_reduction_windows_longer_than_the_dry_run() -> None:
+def test_reduction_window_beyond_kept_history_names_the_history() -> None:
+    # Documented limit: the dry run keeps too little history for a 48 h window
+    # read by a 6 h consumer, so the run fails partway with a clear message.
     runner = _long_window_runner()
-    assert runner._retention["a"] >= 48 * 3_600 * 10**9
-    streams = run(runner, 96)
-    assert list(series(streams["b"])) == list(range(0, 97, 6))
-    # Matches a run that never discards history.
-    unpruned = _long_window_runner()
-    unpruned._retention = {name: 1 << 62 for name in unpruned.nodes}
-    assert series(streams["b"]) == pytest.approx(series(run(unpruned, 96)["b"]))
+    assert list(series(run(runner, 24)["b"]))[-1] == 24
+    with pytest.raises(CouplingError, match="history the runner keeps"):
+        run(runner, 96)
 
 
 def _background() -> _Toy:

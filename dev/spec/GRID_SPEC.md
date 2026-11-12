@@ -129,11 +129,7 @@ entire registered HRRR geometry, not a crop; attaching that ID to cropped data
 would incorrectly claim that its geometry matches the full registered grid.
 
 Coordinate handshakes compare fixed axes and auxiliary coordinates and require
-matching declared grid ID and CRS metadata. A registered alias matches its grid's
-name. When both IDs match, the 1D index coordinates of the spatial dimensions are
-still compared (floats within round-off), so a reversed, rolled or re-wrapped axis
-is rejected; only multidimensional spatial auxiliaries, whose order the index
-coordinates fix, are skipped. `coord_array_like()` creates output
+matching declared grid ID and CRS metadata. `coord_array_like()` creates output
 signatures from validated inputs without recreating or reprojecting their grid.
 
 ### Model coordinates to target grid
@@ -155,19 +151,20 @@ A registered grid ID must not cause changed coordinates to be replaced by the
 parent geometry merely because their shapes match. Renamed model axes must be
 recoverable from coordinate metadata without caller-side renaming.
 
-`infer_grid()` uses a registered `earth2studio_grid_id` only when the array's
-spatial dimensions, sizes and 1D index coordinate values match the registered
-grid (floats within round-off). Otherwise, including for an unregistered ID, it
-infers the grid from the actual coordinates. Dimensions without a coordinate
-cannot be checked and are matched by size; multidimensional auxiliaries are not
-compared.
-
-Standard-layout reconstruction and validation of registered geometry against
-index coordinate values exist today. Metadata-driven reconstruction of renamed
-axes and an explicit grid-owned extent interface are required follow-up work. The manual
+Standard-layout reconstruction exists today. Metadata-driven reconstruction of
+renamed axes, validation of registered geometry against coordinate values, and an
+explicit grid-owned extent interface are required follow-up work. The manual
 renaming guidance above describes the current implementation until that support
 lands. Fetch-side regridding onto a target grid is specified in
 [FETCH_DATA_SPEC.md](FETCH_DATA_SPEC.md).
+
+Until that validation lands, a registered `earth2studio_grid_id` is trusted:
+`infer_grid()` and `handshake_dataarray()` compare only dimension names and sizes
+for labelled data. Data whose latitude was reversed, whose longitude was rolled or
+converted to -180..180, or which was otherwise reordered after it was labelled is
+still accepted as the registered grid and read in the wrong order. Drop the label
+(`array.attrs.pop("earth2studio_grid_id")`) after reordering spatial axes so the
+actual coordinates are used.
 
 ## HEALPix Representations
 

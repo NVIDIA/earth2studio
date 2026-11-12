@@ -154,11 +154,10 @@ Targets: [source protocols](earth2studio/data/base.py), [fetch_data](earth2studi
   window is missing. The opt-in `nansum` / `nanmean` / `nanmin` / `nanmax` skip missing
   samples (an all-NaN window stays NaN); the ARCO, GFS, HRRR and WB2 lexicons declare
   them, e.g. `sst:nanmean:24h`.
-- `infer_grid` and model handshakes check spatial index coordinates against the
-  `earth2studio_grid_id` label. Handshakes reject labelled data with reversed latitude,
-  rolled longitude or −180..180 longitude; drop the label or restore the registered
-  order. `infer_grid` infers the grid from the coordinates instead, and an unregistered
-  label no longer raises. Registered aliases such as `latlon025` now match.
+- Library output carries an `earth2studio_grid_id` label, which `infer_grid` and model
+  handshakes trust without comparing coordinate values. After reversing latitude,
+  rolling longitude or converting it to −180..180, drop the label
+  (`attrs.pop("earth2studio_grid_id")`) so the actual coordinates are used.
 - `subset_indexers(bounds=...)` measures longitude eastward from `min_lon`, modulo 360:
   `(0, 180)` now includes 180°, and out-of-range bounds such as `(-190, -170)` select
   the full box.
@@ -218,13 +217,17 @@ IO using the sections above. For new orchestration, see [Pipeline](dev/examples/
   diagnostic streams that read them start at the first forecast.
 - Runners raise `ValueError` when a source does not cover the model grid on a numeric
   axis (for example a regional source on a global model, or −180..180 longitudes on a
-  0..360 model) or is coarser than it; `main` copied edge or neighbouring values. Wrap
-  such sources in `RegriddedSource` or fetch with `fetch_data(target_grid=...)`.
+  0..360 model); `main` copied edge values. Resolution is not checked, so a coarser
+  source still repeats neighbouring values. Wrap such sources in `RegriddedSource` or
+  fetch with `fetch_data(target_grid=...)`.
 - Record the model and checkpoint in `ProgressStore(tags=...)` so a resumed run cannot
   mix outputs from different models; a resume that skips items without tags now warns.
 - `CoupledRunner` raises `ValueError` for a final lead time at which no stateful
-  component's output is due; it used to end the run early without an error. Component
-  `front_hook` / `rear_hook` run in coupled runs as they do in `create_iterator`.
+  component's output is due; it used to end the run early without an error.
+- `CoupledRunner` does not run component `front_hook` / `rear_hook` (it warns when one
+  is set); use its `perturbation=` argument or a connector instead. Reduction windows
+  much longer than a consumer's step (about 30 h for a 6 h consumer) can exceed the
+  history the runner keeps and fail partway through the run.
 
 ## Serving
 

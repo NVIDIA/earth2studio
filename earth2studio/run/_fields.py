@@ -45,13 +45,13 @@ def map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataArr
     checks their geometry at the inference boundary.
 
     ``map_field`` selects and never regrids. Nearest selection is accepted only
-    when ``x`` covers ``target`` at the same or a finer spacing. A target label
-    more than one source spacing beyond the source's range (a regional source on
-    a global grid, or a -180..180 longitude source on a 0..360 grid) raises, as
-    do distinct target labels that would select the same source label (a
-    1 degree source on a 0.25 degree grid), instead of copying edge or
-    neighbouring values. Fetch such data with ``fetch_data(target_grid=...)`` or
-    wrap the source in :class:`~earth2studio.data.RegriddedSource`.
+    when ``x`` covers ``target``: a target label more than one source spacing
+    beyond the source's range (a regional source on a global grid, or a
+    -180..180 longitude source on a 0..360 grid) raises instead of copying edge
+    values. Resolution is not checked, so a source coarser than the target (a
+    1 degree source on a 0.25 degree grid) repeats neighbouring values. Fetch
+    such data with ``fetch_data(target_grid=...)`` or wrap the source in
+    :class:`~earth2studio.data.RegriddedSource`.
 
     Parameters
     ----------
@@ -71,7 +71,7 @@ def map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataArr
     ------
     ValueError
         If a label is missing from a non-numeric coordinate, a numeric coordinate
-        of ``x`` does not cover ``target``'s range or is coarser than it, or the
+        of ``x`` does not cover ``target``'s range, or the
         geometry or CRS does not match a DataArray ``target``.
     """
     coordinates = (
@@ -154,9 +154,8 @@ def _nearest_covering(dim: str, source: np.ndarray, target: np.ndarray) -> np.nd
     """Return the nearest source index per target label, if ``source`` covers it.
 
     Raises when a target label lies more than one source spacing, measured at
-    the nearer edge, beyond the source's range, or when distinct target labels
-    would select the same source label, meaning the source is coarser than the
-    target. Either would otherwise copy source values silently.
+    the nearer edge, beyond the source's range, which would otherwise copy edge
+    values silently.
     """
     if len(source) == 0:
         raise ValueError(f"Source coordinate {dim} is empty; {_REGRID_HINT}")
@@ -179,15 +178,6 @@ def _nearest_covering(dim: str, source: np.ndarray, target: np.ndarray) -> np.nd
             f"longitude 0..360 versus -180..180; {_REGRID_HINT}"
         )
     index = np.abs(source[:, None] - target[None, :]).argmin(axis=0)
-    selected, counts = np.unique(index, return_counts=True)
-    for shared in selected[counts > 1]:
-        if len(np.unique(target[index == shared])) > 1:
-            raise ValueError(
-                f"Source coordinate {dim} is coarser than the target: distinct "
-                f"target labels {np.unique(target[index == shared]).tolist()} all "
-                f"select the source label {source[shared]}, so nearest selection "
-                f"would repeat source values; {_REGRID_HINT}"
-            )
     return index
 
 

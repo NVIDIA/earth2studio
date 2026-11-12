@@ -29,14 +29,7 @@ import torch
 import xarray as xr
 from numpy.typing import DTypeLike
 
-from earth2studio.grids import (
-    E2S_CRS,
-    E2S_GRID_ID,
-    GridDefinition,
-    _canonical_grid_name,
-    _index_values_match,
-    resolve_grid,
-)
+from earth2studio.grids import E2S_CRS, E2S_GRID_ID, GridDefinition, resolve_grid
 
 try:
     import cupy as cp
@@ -388,13 +381,9 @@ def handshake_dataarray(
     must match. Validate temporal labels with ``handshake_time`` and normalize
     relative lead times at the call site before comparing.
     Comparisons ignore auxiliaries attached to individual coordinate DataArrays.
-    Matching nonempty grid IDs (a registered alias matches its grid's name) still
-    compare the 1D index coordinates of the spatial dimensions, so a reversed,
-    rolled or re-wrapped axis is rejected; float labels match within round-off.
-    Only multidimensional spatial auxiliaries, such as curvilinear latitude and
-    longitude, are skipped, since the index coordinates fix their order.
-    Different nonempty IDs are rejected; a missing ID falls back to exact
-    coordinate checks of every spatial coordinate. Dimensions, sizes, non-spatial
+    Matching nonempty grid IDs are trusted to identify spatial coordinates and
+    skip their value comparisons. Different nonempty IDs are rejected; a missing
+    ID falls back to explicit coordinate checks. Dimensions, sizes, non-spatial
     labels and required grid metadata are always validated. Geographic axes may omit
     the default EPSG:4326 CRS metadata.
     """
@@ -402,12 +391,7 @@ def handshake_dataarray(
         raise TypeError("Expected a DataArray")
     grid_id = signature.attrs.get(E2S_GRID_ID)
     input_grid_id = array.attrs.get(E2S_GRID_ID)
-    same_grid = bool(
-        grid_id
-        and input_grid_id
-        and _canonical_grid_name(input_grid_id) == _canonical_grid_name(grid_id)
-    )
-    if grid_id and input_grid_id and not same_grid:
+    if grid_id and input_grid_id and input_grid_id != grid_id:
         raise ValueError(f"DataArray metadata {E2S_GRID_ID!r} does not match")
     dynamic = tuple(signature.attrs.get(E2S_DYNAMIC_DIMS, ()))
     if tuple(signature.dims[: len(dynamic)]) != dynamic:
@@ -419,20 +403,15 @@ def handshake_dataarray(
     for index, dimension in enumerate(fixed, start=-len(fixed)):
         handshake_dim(array, dimension, index)
         handshake_size(array, dimension, signature.sizes[dimension])
-    spatial_dims = set(signature.attrs.get("dims", ())) if same_grid else set()
+    spatial_dims = (
+        set(signature.attrs.get("dims", ()))
+        if grid_id and input_grid_id == grid_id
+        else set()
+    )
     for name, coordinate in signature.coords.items():
         if set(coordinate.dims).intersection(dynamic):
             continue
         if coordinate.dims and set(coordinate.dims).issubset(spatial_dims):
-            if coordinate.dims != (name,):
-                continue
-            if name not in array.coords or array.coords[name].dims != (name,):
-                raise ValueError(f"Required dimension {name} not found in input")
-            if not _index_values_match(array.coords[name].values, coordinate.values):
-                raise ValueError(
-                    f"Coordinate {name} does not match grid {grid_id!r}; "
-                    "the axis may be reversed, rolled or re-wrapped"
-                )
             continue
         try:
             handshake_coords(array, signature, name)

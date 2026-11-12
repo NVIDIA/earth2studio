@@ -111,9 +111,12 @@ The messages suggest close names for misspelled components and variables.
 - **Asking for a final lead time no component reaches.** It must be a lead
   time at which some stateful component's output is due (with 6 h and 48 h
   components, a multiple of 6 h); anything else raises `ValueError`.
-- **Expecting hooks to touch the initial condition.** `front_hook` and
-  `rear_hook` run on stateful components as in `create_iterator`, on forecast
-  chunks only; use `perturbation=` to perturb the initial condition.
+- **Setting `front_hook` / `rear_hook` on a component.** `CoupledRunner`
+  does not run them (it logs a warning); use `perturbation=` for the initial
+  condition, or a diagnostic component for per-step changes.
+- **Reducing over a window much longer than the consumer's step.** The runner
+  keeps limited history; a `z1000:mean:48h` read by a 6 h consumer fails
+  partway through the run. Keep windows within about 24 h of a 6 h consumer.
 
 ## Reference Map
 

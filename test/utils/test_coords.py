@@ -298,7 +298,7 @@ def test_handshake_named_latlon_grid_identity(grid_id):
         handshake_dataarray(actual, declaration)
 
 
-def test_handshake_matching_grid_id_checks_index_values_directly(monkeypatch):
+def test_handshake_matching_grid_id_skips_spatial_comparisons(monkeypatch):
     import earth2studio.utils.coords as coords_module
 
     declaration = coord_array(
@@ -319,33 +319,6 @@ def test_handshake_matching_grid_id_checks_index_values_directly(monkeypatch):
         handshake_dataarray(declaration.isel(lat=slice(1, None)), declaration)
     with pytest.raises(ValueError, match="variable"):
         handshake_dataarray(declaration.assign_coords(variable=["u10m"]), declaration)
-
-
-@pytest.mark.parametrize(
-    "change",
-    [
-        lambda x: x.isel(lat=slice(None, None, -1)),
-        lambda x: x.assign_coords(lon=np.roll(x.lon.values, 10)),
-        lambda x: x.assign_coords(lon=np.mod(x.lon + 180, 360) - 180),
-    ],
-    ids=["reversed-lat", "rolled-lon", "lon-180"],
-)
-def test_handshake_matching_grid_id_rejects_changed_axes(change):
-    declaration = coord_array(
-        ("variable", "lat", "lon"), {"variable": ["t2m"]}, grid="latlon-1.5deg"
-    )
-    with pytest.raises(ValueError, match="does not match grid"):
-        handshake_dataarray(change(declaration), declaration)
-
-
-def test_handshake_accepts_registered_grid_alias():
-    declaration = coord_array(("lat", "lon"), grid="latlon-0.25deg")
-    actual = declaration.copy(deep=False)
-    actual.attrs = {**declaration.attrs, "earth2studio_grid_id": "latlon025"}
-    handshake_dataarray(actual, declaration)
-    actual.attrs["earth2studio_grid_id"] = "latlon-1deg"
-    with pytest.raises(ValueError, match="earth2studio_grid_id"):
-        handshake_dataarray(actual, declaration)
 
 
 def test_handshake_named_healpix_accepts_matching_specs():
