@@ -1,5 +1,5 @@
 # @package _global_
-# DLWP monthly 2024 — deterministic 10-day forecasts, all 7 output variables.
+# DLWP monthly 2024 - deterministic 10-day forecasts, all 7 output variables.
 defaults:
     - override /model: dlwp
 
@@ -19,12 +19,11 @@ start_times:
     - "2024-11-01 00:00:00"
     - "2024-12-01 00:00:00"
 
-nsteps: 4
+# 20 steps x 12 h = 10 days; DLWP yields its 6 h and 12 h leads at every step.
+nsteps: 20
 
-# Cache the full forecast-window valid times into data.zarr so score.py can
-# use it as the verification store.  Must be set here (not just on the
-# predownload.py CLI) because score.py re-reads this block to decide whether
-# data.zarr holds verification data.
+# score.py reads this block too, so set it in the campaign rather than only
+# on the predownload.py command line.
 predownload:
     verification:
         enabled: true

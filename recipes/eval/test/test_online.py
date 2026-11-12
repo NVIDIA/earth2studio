@@ -14,173 +14,137 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for online scoring (src/online.py) and its work partitioning.
+"""Tests for online scoring on the library Pipeline hooks.
 
-The load-bearing property is that the sufficient statistics reproduce the
-offline metrics exactly, so most of these tests pin the accumulators
-against ``src.metrics`` / ``earth2studio.statistics`` rather than against
-hand-computed constants.  Multi-rank grouping invariance lives in
-``test_multigpu.py``.
+Everything runs on CPU in a single process with analytic fields: a
+deterministic source whose value is an affine function of time, latitude,
+longitude and variable, so the expected statistics follow by hand.  The
+two-rank gloo test at the end launches ``torchrun`` on this file; setting
+``E2S_EVAL_SKIP_MULTIRANK`` skips it.
 """
 
 from __future__ import annotations
 
+import json
 import os
+import socket
+import subprocess
+import sys
 from collections import OrderedDict
-from unittest.mock import patch
+from pathlib import Path
 
 import numpy as np
 import pytest
 import torch
 import xarray as xr
-from omegaconf import OmegaConf
-from src.metrics import ensemble_variance, mse
-from src.online import (
+from omegaconf import DictConfig, open_dict
+
+RECIPE_DIR = Path(__file__).resolve().parents[1]
+if str(RECIPE_DIR) not in sys.path:  # torchrun runs this file as a script
+    sys.path.insert(0, str(RECIPE_DIR))
+
+from src.campaign import build_items, order_for_groups  # noqa: E402
+from src.online import (  # noqa: E402
+    EnsembleGroup,
     FieldCache,
     GroupComm,
     MultiRefScorer,
+    OnlineRun,
     OnlineScorer,
-    StepContext,
-    available_times,
-    build_online_scorers,
-    build_spatial_weights,
+    build_group_comm,
     build_statistics,
     check_verification_coverage,
     finalize_online_stats,
     finalize_stats,
+    group_for_rank,
     named_store_filename,
     online_enabled,
     open_stats_store,
+    order_items,
     parse_online_settings,
-    resolve_verification_sources,
-    retain_raw_output,
+    plan_groups,
     stats_array_groups,
+    verification_source_names,
 )
-from src.work import (
-    EnsembleGroup,
-    WorkItem,
-    build_group_work_items,
-    build_work_items,
-    clear_online_progress,
-    ensemble_group_for_rank,
-    filter_online_completed,
-    online_progress_dir,
-    plan_ensemble_groups,
-    write_online_marker,
+from src.output import build_regridders, progress_path, stream_variables  # noqa: E402
+from src.regions import build_spatial_weights  # noqa: E402
+from src.runners import build_runner  # noqa: E402
+
+from earth2studio.grids import LatLonGrid  # noqa: E402
+from earth2studio.run import Pipeline, ProgressStore, WorkItem  # noqa: E402
+from earth2studio.run.work import (  # noqa: E402
+    MANIFEST_NAME,
+    distribute_work,
+    work_items,
 )
+from test.conftest import SMALL_LAT, SMALL_LON, VARIABLES, compose_cfg  # noqa: E402
 
-from earth2studio.statistics.weights import lat_weight
-
-SMALL_LAT = np.linspace(90, -90, 4)
-SMALL_LON = np.linspace(0, 360, 8, endpoint=False)
-VARIABLES = ["t2m", "z500"]
-LEAD_TIMES = np.array([0, 6, 12], dtype="timedelta64[h]").astype("timedelta64[ns]")
-IC_TIMES = np.array(["2024-01-01", "2024-01-02"], dtype="datetime64[ns]")
+T0 = np.datetime64("2024-01-01T00:00:00", "s")
+T1 = np.datetime64("2024-01-02T00:00:00", "s")
+LEADS = np.array([0, 6, 12], dtype="timedelta64[h]").astype("timedelta64[ns]")
+GRID = LatLonGrid(SMALL_LAT, SMALL_LON)
+SPATIAL: OrderedDict = OrderedDict([("lat", SMALL_LAT), ("lon", SMALL_LON)])
+N_POINTS = SMALL_LAT.size * SMALL_LON.size
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Analytic data
 # ---------------------------------------------------------------------------
 
 
-def _single_rank_comm(ensemble_size: int) -> GroupComm:
-    """A one-rank group carrying the whole ensemble, with no collectives.
-
-    Lets the accumulators be exercised without a distributed backend: the
-    reductions degrade to no-ops and the single rank is its own root.
-    """
-    group = EnsembleGroup(
-        group_id=0,
-        n_groups=1,
-        group_rank=0,
-        group_size=1,
-        members_per_rank=ensemble_size,
-        ranks=(0,),
-        member_ids=tuple(range(ensemble_size)),
+def analytic_field(
+    time: np.datetime64,
+    variables: list[str],
+    offset: float = 0.0,
+    rate_per_hour: float = 0.0,
+) -> np.ndarray:
+    """``offset + rate * hours since T0 + 10 * variable index + lat/100 + lon/1000``."""
+    hours = float(
+        (np.datetime64(time, "ns") - np.datetime64(T0, "ns")) / np.timedelta64(1, "h")
     )
-    return GroupComm(group, None)
+    lat = SMALL_LAT[:, None] / 100.0
+    lon = SMALL_LON[None, :] / 1000.0
+    return np.stack(
+        [
+            offset
+            + rate_per_hour * hours
+            + 10.0 * (VARIABLES.index(v) if v in VARIABLES else 0)
+            + lat
+            + lon
+            for v in variables
+        ]
+    ).astype(np.float32)
 
 
-def _base_cfg(tmp_path, ensemble_size: int = 1, mode: str = "online"):
-    return OmegaConf.create(
-        {
-            "project": "test_online",
-            "run_id": "unit",
-            "start_times": [str(t) for t in IC_TIMES],
-            "nsteps": 2,
-            "ensemble_size": ensemble_size,
-            "random_seed": 42,
-            "resume": False,
-            "output": {
-                "path": str(tmp_path / "outputs"),
-                "variables": list(VARIABLES),
-                "overwrite": True,
-                "retain": "none",
-                "thread_writers": 0,
-                "chunks": {"time": 1, "lead_time": 1},
-            },
-            "scoring": {
-                "mode": mode,
-                "variables": list(VARIABLES),
-                "lat_weights": True,
-                "online": {
-                    "ensemble_group_size": None,
-                    "members_per_rank": 1,
-                    "stats_store": "stats.zarr",
-                    "moment_comm_dtype": "float64",
-                    "verification_cache_size": 4,
-                    "validate_coords": True,
-                    "nccl_timeout_s": 60,
-                    "climatology": None,
-                },
-                "output": {"store_name": "scores.zarr"},
-            },
-        }
-    )
+class FixedSource:
+    """Deterministic data source on the small grid, importable by Hydra.
 
-
-def _settings(tmp_path, **overrides):
-    """Parse online settings from the base cfg with ``scoring.online`` tweaks.
-
-    ``regions`` is the exception: it lives at ``scoring.regions`` (shared
-    with the offline pathway), not under ``scoring.online``.
-    """
-    cfg = _base_cfg(tmp_path)
-    for key, value in overrides.items():
-        if key == "regions":
-            cfg.scoring[key] = value
-        else:
-            cfg.scoring.online[key] = value
-    return parse_online_settings(cfg)
-
-
-class _FixedSource:
-    """Deterministic gridded source — same values for a given (time, variable).
-
-    ``Random`` re-draws on every call, which would make an unbatched and a
-    batched rollout start from different initial conditions and defeat the
-    parity checks below.
+    Parameters
+    ----------
+    offset : float, optional
+        Constant added to every value, by default 0
+    rate_per_hour : float, optional
+        Linear trend per hour since ``T0``, by default 0
     """
 
-    def __init__(self, variables=VARIABLES):
-        self._variables = list(variables)
+    def __init__(self, offset: float = 0.0, rate_per_hour: float = 0.0) -> None:
+        self.offset = float(offset)
+        self.rate_per_hour = float(rate_per_hour)
+        self.calls: list[np.ndarray] = []
 
     def __call__(self, time, variable) -> xr.DataArray:
         times = np.atleast_1d(np.asarray(time, dtype="datetime64[ns]"))
-        variables = [str(v) for v in np.atleast_1d(variable)]
-        data = np.empty(
-            (len(times), len(variables), len(SMALL_LAT), len(SMALL_LON)),
-            dtype="float32",
+        variables = [str(v) for v in np.atleast_1d(np.asarray(variable))]
+        self.calls.append(times)
+        data = np.stack(
+            [
+                analytic_field(t, variables, self.offset, self.rate_per_hour)
+                for t in times
+            ]
         )
-        for i, t in enumerate(times):
-            for j, v in enumerate(variables):
-                seed = (int(t.astype("int64")) // 10**9) + hash(v) % 9973
-                data[i, j] = np.random.default_rng(seed).standard_normal(
-                    (len(SMALL_LAT), len(SMALL_LON))
-                )
         return xr.DataArray(
             data,
-            dims=["time", "variable", "lat", "lon"],
+            dims=("time", "variable", "lat", "lon"),
             coords={
                 "time": times,
                 "variable": variables,
@@ -189,1968 +153,1149 @@ class _FixedSource:
             },
         )
 
-
-def _fake_dist():
-    class _FakeDist:
-        rank = 0
-        world_size = 1
-        distributed = False
-
-    return _FakeDist()
+    async def fetch(self, time, variable) -> xr.DataArray:
+        return self(time, variable)
 
 
-def _weights_2d() -> torch.Tensor:
-    """The (lat, lon) weight tensor the offline metrics are given."""
-    w = lat_weight(torch.tensor(SMALL_LAT, dtype=torch.float32))
-    return torch.ones(len(SMALL_LAT), len(SMALL_LON)) * w.reshape(-1, 1)
-
-
-def _verification_zarr(path, times, seed: int = 7) -> str:
-    rng = np.random.default_rng(seed)
-    ds = xr.Dataset()
-    for var in VARIABLES:
-        ds[var] = xr.DataArray(
-            rng.standard_normal((len(times), len(SMALL_LAT), len(SMALL_LON))).astype(
-                "float32"
-            ),
-            dims=["time", "lat", "lon"],
-            coords={"time": times, "lat": SMALL_LAT, "lon": SMALL_LON},
-        )
-    ds.to_zarr(str(path))
-    return str(path)
-
-
-# ---------------------------------------------------------------------------
-# Ensemble group planning
-# ---------------------------------------------------------------------------
-
-
-class TestEnsembleGroups:
-    def test_default_one_member_per_rank(self):
-        groups = plan_ensemble_groups(world_size=8, ensemble_size=4)
-        assert groups == [(0, 1, 2, 3), (4, 5, 6, 7)]
-
-    def test_leftover_ranks_idle(self):
-        groups = plan_ensemble_groups(world_size=7, ensemble_size=4)
-        assert groups == [(0, 1, 2, 3)]
-        assert ensemble_group_for_rank(6, groups) is None
-
-    def test_deterministic_case_degenerates(self):
-        """M = 1 gives one single-rank group per rank — today's per-IC path."""
-        groups = plan_ensemble_groups(world_size=4, ensemble_size=1)
-        assert groups == [(0,), (1,), (2,), (3,)]
-        group = ensemble_group_for_rank(2, groups)
-        assert group.group_id == 2
-        assert group.n_groups == 4
-        assert group.is_root
-        assert group.member_ids == (0,)
-
-    def test_member_assignment(self):
-        groups = plan_ensemble_groups(world_size=4, ensemble_size=8, members_per_rank=2)
-        assert groups == [(0, 1, 2, 3)]
-        group = ensemble_group_for_rank(2, groups, members_per_rank=2)
-        assert group.member_ids == (4, 5)
-        assert group.ensemble_size == 8
-        assert group.root_rank == 0
-        assert not group.is_root
-
-    def test_explicit_group_size_must_factor_ensemble(self):
-        with pytest.raises(ValueError, match="exact factorization"):
-            plan_ensemble_groups(world_size=8, ensemble_size=8, group_size=3)
-
-    def test_world_too_small(self):
-        with pytest.raises(ValueError, match="smaller than the ensemble group size"):
-            plan_ensemble_groups(world_size=2, ensemble_size=8)
-
-    def test_group_work_items_match_offline_seeds(self):
-        """Online work items reproduce the offline per-member seeds exactly."""
-        cfg = OmegaConf.create(
-            {
-                "start_times": [str(t) for t in IC_TIMES],
-                "ensemble_size": 4,
-                "random_seed": 42,
-            }
-        )
-        offline = {(i.time, i.ensemble_id): i.seed for i in build_work_items(cfg)}
-
-        groups = plan_ensemble_groups(world_size=4, ensemble_size=4)
-        for rank in range(4):
-            group = ensemble_group_for_rank(rank, groups)
-            items = build_group_work_items(list(IC_TIMES), group, cfg)
-            assert len(items) == len(IC_TIMES)
-            for item in items:
-                assert item.seed == offline[(item.time, item.ensemble_id)]
-
-
-class TestOnlineMarkers:
-    def test_marker_roundtrip(self, tmp_path):
-        cfg = _base_cfg(tmp_path)
-        times = list(IC_TIMES)
-        assert filter_online_completed(times, cfg) == times
-
-        write_online_marker(times[0], cfg)
-        assert filter_online_completed(times, cfg) == [times[1]]
-
-        clear_online_progress(cfg)
-        assert not online_progress_dir(cfg).exists()
-        assert filter_online_completed(times, cfg) == times
-
-    def test_namespace_is_distinct_from_offline(self, tmp_path):
-        cfg = _base_cfg(tmp_path)
-        assert online_progress_dir(cfg).name == ".online_progress"
-
-    def test_clear_is_safe_from_concurrent_ranks(self, tmp_path):
-        """Every rank clears on a fresh run, so they race on the same tree.
-
-        Whichever loses sees entries vanish mid-walk; the loser used to
-        surface that as FileNotFoundError and abort the whole job.
-        """
-        from concurrent.futures import ThreadPoolExecutor
-
-        cfg = _base_cfg(tmp_path)
-        times = [
-            np.datetime64("2024-01-01", "ns") + np.timedelta64(i, "h")
-            for i in range(200)
-        ]
-        for t in times:
-            write_online_marker(t, cfg)
-        assert len(list(online_progress_dir(cfg).iterdir())) == len(times)
-
-        with ThreadPoolExecutor(max_workers=4) as pool:
-            futures = [pool.submit(clear_online_progress, cfg) for _ in range(4)]
-            for future in futures:
-                future.result()
-
-        assert not online_progress_dir(cfg).exists()
-
-    def test_clear_on_missing_directory_is_a_noop(self, tmp_path):
-        clear_online_progress(_base_cfg(tmp_path))
-
-
-# ---------------------------------------------------------------------------
-# Config surface
-# ---------------------------------------------------------------------------
-
-
-class TestConfig:
-    @pytest.mark.parametrize(
-        "mode,expected",
-        [("offline", False), ("online", True)],
+def _single_comm(ensemble_size: int) -> GroupComm:
+    """A one-rank group carrying the whole ensemble; collectives are no-ops."""
+    group = EnsembleGroup(
+        block=0, group_rank=0, group_size=1, members_per_rank=ensemble_size, ranks=(0,)
     )
-    def test_online_enabled(self, tmp_path, mode, expected):
-        assert online_enabled(_base_cfg(tmp_path, mode=mode)) is expected
-
-    def test_retain_none_requires_online(self, tmp_path):
-        cfg = _base_cfg(tmp_path, mode="offline")
-        with pytest.raises(ValueError, match="scoring.mode=online"):
-            retain_raw_output(cfg)
-
-    def test_retain_sample_not_implemented(self, tmp_path):
-        cfg = _base_cfg(tmp_path)
-        cfg.output.retain = "sample"
-        with pytest.raises(NotImplementedError, match="not implemented"):
-            retain_raw_output(cfg)
-
-    def test_retain_all(self, tmp_path):
-        cfg = _base_cfg(tmp_path)
-        cfg.output.retain = "all"
-        assert retain_raw_output(cfg) is True
-
-    def test_settings_defaults(self, tmp_path):
-        settings = parse_online_settings(_base_cfg(tmp_path))
-        assert settings.ensemble_group_size is None
-        assert settings.members_per_rank == 1
-        assert settings.moment_comm_dtype is torch.float64
-        assert settings.stats_store == "stats.zarr"
-        assert settings.crps is True
-        assert settings.pairwise_comm_dtype is torch.bfloat16
-        assert settings.defer_pairwise_one_step is True
-
-    def test_removed_settings_are_rejected_not_ignored(self, tmp_path):
-        """A stale config should fail loudly rather than change meaning.
-
-        ``pairwise_exchange=ring`` silently ignored would leave a run that
-        asked for the low-memory path taking the all-gather instead, and
-        ``mode=both`` silently ignored would fall through to offline and
-        write the raw store the campaign was sized to avoid.
-        """
-        with pytest.raises(ValueError, match="pairwise_exchange"):
-            _settings(tmp_path, pairwise_exchange="ring")
-
-        cfg = _base_cfg(tmp_path)
-        cfg.scoring.mode = "both"
-        with pytest.raises(ValueError, match="both"):
-            online_enabled(cfg)
-
-    def test_invalid_mode(self, tmp_path):
-        cfg = _base_cfg(tmp_path)
-        cfg.scoring.mode = "onlien"
-        with pytest.raises(ValueError, match="scoring.mode"):
-            online_enabled(cfg)
-
-    def test_invalid_dtypes(self, tmp_path):
-        with pytest.raises(ValueError, match="pairwise_comm_dtype"):
-            _settings(tmp_path, pairwise_comm_dtype="int8")
-        with pytest.raises(ValueError, match="moment_comm_dtype"):
-            _settings(tmp_path, moment_comm_dtype="bfloat16")
-
-    def test_members_per_rank_must_be_positive(self, tmp_path):
-        with pytest.raises(ValueError, match="members_per_rank"):
-            _settings(tmp_path, members_per_rank=0)
-
-
-# ---------------------------------------------------------------------------
-# Weights
-# ---------------------------------------------------------------------------
-
-
-class TestSpatialWeights:
-    def test_lat_weights_broadcast_shape(self):
-        coords = OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
-        w = build_spatial_weights(coords, lat_weights=True)
-        assert w.shape == (len(SMALL_LAT), 1)
-        assert w.dtype is torch.float64
-
-    def test_uniform_without_lat(self):
-        coords = OrderedDict({"y": np.arange(3), "x": np.arange(5)})
-        w = build_spatial_weights(coords, lat_weights=True)
-        assert w.shape == (1, 1)
-        assert torch.equal(w, torch.ones(1, 1, dtype=torch.float64))
-
-    def test_uniform_when_disabled(self):
-        coords = OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
-        w = build_spatial_weights(coords, lat_weights=False)
-        assert torch.equal(w, torch.ones(1, 1, dtype=torch.float64))
-
-    def test_matches_offline_weight_sum(self):
-        coords = OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
-        w = build_spatial_weights(coords, lat_weights=True)
-        total = float(w.expand(len(SMALL_LAT), len(SMALL_LON)).sum())
-        assert total == pytest.approx(float(_weights_2d().sum()), rel=1e-6)
-
-
-# ---------------------------------------------------------------------------
-# Accumulator math
-# ---------------------------------------------------------------------------
-
-
-def _run_statistics(
-    f: torch.Tensor,
-    y: torch.Tensor,
-    ensemble_size: int,
-    valid: torch.Tensor | None = None,
-):
-    """Drive one lead step through the statistics and return their state.
-
-    *valid* defaults to an all-True mask (nothing excluded) — pass a
-    ``[variable, lat, lon]`` boolean tensor to exercise the mask-aware
-    accumulation path (see ``TestMaskAwareAccumulation``).
-    """
-    comm = _single_rank_comm(ensemble_size)
-    weights = build_spatial_weights(
-        OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON}), lat_weights=True
-    )
-    w_sum = float(weights.expand(len(SMALL_LAT), len(SMALL_LON)).sum())
-    n_variables = y.shape[0]
-    if valid is None:
-        valid = torch.ones_like(y, dtype=torch.bool)
-
-    statistics = build_statistics(ensemble_size, has_climatology=False)
-    for stat in statistics:
-        stat.reset(1, n_variables, ensemble_size, torch.device("cpu"))
-
-    ctx = StepContext(
-        lead_index=0,
-        valid_time=np.datetime64("2024-01-01T06", "ns"),
-        y=y,
-        clim=None,
-        f_local=f,
-        d_local=f - y,
-        weights=weights,
-        valid=valid,
-        n_spatial=2,
-        ensemble_size=ensemble_size,
-        member_ids=tuple(range(ensemble_size)),
-        comm=comm,
-    )
-    # Mirror OnlineScorer._materialize for the products these stats need.
-    d = ctx.d_local.double()
-    ctx.s1 = d.sum(dim=0)
-    ctx.s2 = (d**2).sum(dim=0)
-    ctx.below = (ctx.f_local < ctx.y).sum(dim=0, dtype=torch.int32)
-
-    for stat in statistics:
-        stat.update(ctx)
-
-    state: dict = {}
-    for stat in statistics:
-        state.update(stat.state())
-    return state, w_sum
-
-
-class TestAccumulatorMath:
-    """Pin the sufficient statistics against the offline metric classes."""
-
-    def test_member_and_ensemble_mse_match_offline(self):
-        torch.manual_seed(0)
-        m = 5
-        f = torch.randn(m, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-        y = torch.randn(len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-
-        state, w_sum = _run_statistics(f, y, ensemble_size=m)
-
-        x_coords = OrderedDict(
-            {
-                "ensemble": np.arange(m),
-                "variable": np.array(VARIABLES),
-                "lat": SMALL_LAT,
-                "lon": SMALL_LON,
-            }
-        )
-        y_coords = OrderedDict(
-            {
-                "variable": np.array(VARIABLES),
-                "lat": SMALL_LAT,
-                "lon": SMALL_LON,
-            }
-        )
-
-        ref_member, _ = mse(reduction_dimensions=["lat", "lon"], weights=_weights_2d())(
-            f, x_coords, y, y_coords
-        )
-        got_member = (state["sse_member"][:, 0, :] / w_sum).float()
-        assert torch.allclose(got_member, ref_member, atol=1e-5)
-
-        ref_ens, _ = mse(
-            reduction_dimensions=["lat", "lon"],
-            weights=_weights_2d(),
-            ensemble_dimension="ensemble",
-        )(f, x_coords, y, y_coords)
-        got_ens = (state["sse_ensmean"][0] / w_sum).float()
-        assert torch.allclose(got_ens, ref_ens, atol=1e-5)
-
-    def test_ensemble_variance_matches_offline(self):
-        torch.manual_seed(1)
-        m = 6
-        f = torch.randn(m, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-        y = torch.randn(len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-
-        state, w_sum = _run_statistics(f, y, ensemble_size=m)
-
-        x_coords = OrderedDict(
-            {
-                "ensemble": np.arange(m),
-                "variable": np.array(VARIABLES),
-                "lat": SMALL_LAT,
-                "lon": SMALL_LON,
-            }
-        )
-        ref, _ = ensemble_variance(
-            ensemble_dimension="ensemble",
-            reduction_dimensions=["lat", "lon"],
-            weights=_weights_2d(),
-        )(f, x_coords)
-        got = (state["var_ens"][0] / w_sum).float()
-        assert torch.allclose(got, ref, atol=1e-4)
-
-    def test_deterministic_case_has_no_ensemble_statistics(self):
-        torch.manual_seed(2)
-        f = torch.randn(1, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-        y = torch.randn(len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-
-        state, w_sum = _run_statistics(f, y, ensemble_size=1)
-        assert "sse_member" not in state
-        assert "var_ens" not in state
-        assert "rank_counts" not in state
-
-        # The ensemble-mean sum *is* the deterministic squared error.
-        expected = (
-            (f[0] - y).double() ** 2
-            * build_spatial_weights(
-                OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON}), True
-            )
-        ).sum(dim=(1, 2))
-        assert torch.allclose(state["sse_ensmean"][0], expected, atol=1e-8)
-
-    def test_rank_histogram_bins_and_total_weight(self):
-        torch.manual_seed(3)
-        m = 4
-        f = torch.randn(m, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-        y = torch.randn(len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-
-        state, w_sum = _run_statistics(f, y, ensemble_size=m)
-        counts = state["rank_counts"][:, 0, :]
-        assert counts.shape == (m + 1, len(VARIABLES))
-        # Every gridpoint lands in exactly one bin, weighted by its area.
-        assert torch.allclose(
-            counts.sum(dim=0), torch.full((len(VARIABLES),), w_sum, dtype=torch.float64)
-        )
-
-    def test_rank_histogram_is_flat_for_exchangeable_samples(self):
-        """y drawn from the same distribution as the members ranks uniformly."""
-        torch.manual_seed(4)
-        m = 3
-        n_bins = m + 1
-        totals = torch.zeros(n_bins, dtype=torch.float64)
-        for _ in range(200):
-            sample = torch.randn(m + 1, 1, len(SMALL_LAT), len(SMALL_LON))
-            state, w_sum = _run_statistics(sample[:m], sample[m], ensemble_size=m)
-            totals += state["rank_counts"][:, 0, 0]
-        p = totals / totals.sum()
-        assert torch.allclose(
-            p, torch.full((n_bins,), 1.0 / n_bins, dtype=torch.float64), atol=0.02
-        )
-
-    def test_moments_recover_bias_and_correlation(self):
-        torch.manual_seed(5)
-        m = 3
-        f = torch.randn(m, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-        y = torch.randn(len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-
-        state, w_sum = _run_statistics(f, y, ensemble_size=m)
-        w = build_spatial_weights(
-            OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON}), True
-        )
-        fbar = f.double().mean(dim=0)
-
-        bias = (state["sum_wf"][0] - state["sum_wy"][0]) / w_sum
-        expected_bias = ((fbar - y.double()) * w).sum(dim=(1, 2)) / w_sum
-        assert torch.allclose(bias, expected_bias, atol=1e-9)
-
-        # Centered Pearson correlation of the ensemble mean against truth.
-        cov = state["sum_wfy"][0] - state["sum_wf"][0] * state["sum_wy"][0] / w_sum
-        var_f = state["sum_wf2"][0] - state["sum_wf"][0] ** 2 / w_sum
-        var_y = state["sum_wy2"][0] - state["sum_wy"][0] ** 2 / w_sum
-        corr = cov / torch.sqrt(var_f * var_y)
-        assert torch.all(corr <= 1.0 + 1e-9)
-        assert torch.all(corr >= -1.0 - 1e-9)
-
-
-# ---------------------------------------------------------------------------
-# Mask-aware accumulation: StepContext.valid must exclude gridpoints a
-# pipeline like DLESyMPipeline NaN-masks (ocean variables outside their
-# validity cadence) from every weighted sum, rather than either
-# propagating NaN through the whole field or, under nan_policy=zero_fill,
-# scoring a spurious zero-valued forecast.
-# ---------------------------------------------------------------------------
-
-
-class TestMaskAwareAccumulation:
-    """Pin StepContext.valid to actually excluding masked gridpoints,
-    not just leaving them to propagate as NaN or landing in rank_counts
-    bin 0 (below == False for a NaN comparison, regardless of policy).
-
-    Variable 0 is masked over the right half of the longitude axis in
-    every test; variable 1 is left untouched as a control that must come
-    out identical to the unmasked case.
-    """
-
-    HALF = len(SMALL_LON) // 2
-
-    def _mask_variable_zero(
-        self, f_clean: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        """Return (f_masked, valid) with variable 0 NaN'd over the right
-        half of lon.  The NaN — rather than some other placeholder — is
-        deliberate: it's what a pipeline sees under nan_policy=propagate,
-        and the accumulators must not let it leak into a sum regardless."""
-        valid = torch.ones(
-            f_clean.shape[-3], len(SMALL_LAT), len(SMALL_LON), dtype=torch.bool
-        )
-        valid[0, :, self.HALF :] = False
-        f_masked = f_clean.clone()
-        f_masked[..., 0, :, self.HALF :] = float("nan")
-        return f_masked, valid
-
-    def test_wsum_excludes_masked_gridpoints(self):
-        torch.manual_seed(20)
-        m = 3
-        f_clean = torch.randn(m, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-        y = torch.randn(len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-        f_masked, valid = self._mask_variable_zero(f_clean)
-
-        state, w_sum = _run_statistics(f_masked, y, ensemble_size=m, valid=valid)
-
-        w = build_spatial_weights(
-            OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON}), True
-        ).expand(len(SMALL_LAT), len(SMALL_LON))
-        mask = valid[0].double()
-        fbar = f_clean.double().mean(dim=0)
-
-        expected_wsum = (w * mask).sum()
-        expected_sse = ((fbar[0] - y[0].double()) ** 2 * w * mask).sum()
-
-        assert state["w_sum"][0, 0].item() == pytest.approx(
-            expected_wsum.item(), rel=1e-9
-        )
-        assert state["sse_ensmean"][0, 0].item() == pytest.approx(
-            expected_sse.item(), rel=1e-7
-        )
-        assert not torch.isnan(state["w_sum"]).any()
-        assert not torch.isnan(state["sse_ensmean"]).any()
-
-        # The untouched variable keeps the full-grid weight and matches
-        # the plain (unmasked) computation exactly.
-        assert state["w_sum"][0, 1].item() == pytest.approx(w_sum, rel=1e-9)
-
-    def test_fully_masked_variable_zeros_the_raw_sums(self):
-        """A wholly invalid (lead, variable) leaves w_sum and every
-        numerator at exactly 0 — finalize_stats' 0/0 division is what
-        turns that into the store's NaN, not a raw NaN leaking out of
-        accumulation itself."""
-        torch.manual_seed(21)
-        m = 3
-        f = torch.randn(m, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-        f[:, 0] = float("nan")
-        y = torch.randn(len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-        valid = torch.ones(
-            len(VARIABLES), len(SMALL_LAT), len(SMALL_LON), dtype=torch.bool
-        )
-        valid[0] = False
-
-        state, _ = _run_statistics(f, y, ensemble_size=m, valid=valid)
-
-        assert state["w_sum"][0, 0].item() == 0.0
-        assert state["sse_ensmean"][0, 0].item() == 0.0
-        assert not torch.isnan(state["w_sum"]).any()
-        assert not torch.isnan(state["sse_ensmean"]).any()
-        assert state["w_sum"][0, 1].item() > 0.0
-
-    def test_rank_histogram_excludes_masked_gridpoints(self):
-        """Regression test for the exact bug described in the design doc:
-        NaN < y is always False, so a masked member used to land in
-        rank_counts bin 0 as if it were a genuine low-value forecast."""
-        torch.manual_seed(22)
-        m = 4
-        f_clean = torch.randn(m, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-        y = torch.randn(len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-        f_masked, valid = self._mask_variable_zero(f_clean)
-
-        state, w_sum = _run_statistics(f_masked, y, ensemble_size=m, valid=valid)
-        counts = state["rank_counts"][:, 0, :]
-
-        w = build_spatial_weights(
-            OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON}), True
-        ).expand(len(SMALL_LAT), len(SMALL_LON))
-        expected_masked_w = float((w * valid[0].double()).sum())
-
-        # Masked variable's total counted weight is the *valid* subgrid's
-        # weight only — not the full grid, and critically not inflated by
-        # masked points defaulting into bin 0.
-        assert counts[:, 0].sum().item() == pytest.approx(expected_masked_w, rel=1e-9)
-        assert (
-            counts[0, 0].item() < expected_masked_w
-        ), "bin 0 alone should not hold every masked gridpoint's weight"
-        # The untouched variable is bin-for-bin identical to the unmasked
-        # baseline.
-        assert counts[:, 1].sum().item() == pytest.approx(w_sum, rel=1e-9)
-
-    def test_crps_terms_match_a_grid_trimmed_to_the_valid_columns(self, tmp_path):
-        """The strongest check: masking the right half of lon for every
-        lead must reproduce, term for term, running the same statistic on
-        a grid that never had those columns.  Weighting here is lat-only,
-        so trimming lon columns changes nothing about the per-gridpoint
-        weight on what remains — an equivalence that doesn't require
-        re-deriving CRPS's fair-estimator formula by hand.  Exercises both
-        crps_t1 (via wsum) and crps_t2 (via PairwiseExchange._submit's
-        masking) together.
-        """
-        torch.manual_seed(23)
-        m, n_leads = 4, 2
-        half = len(SMALL_LON) // 2
-        var = VARIABLES[:1]
-
-        full_members = [
-            torch.randn(m, 1, len(SMALL_LAT), len(SMALL_LON)) for _ in range(n_leads)
-        ]
-        full_truths = [
-            torch.randn(1, len(SMALL_LAT), len(SMALL_LON)) for _ in range(n_leads)
-        ]
-
-        masked_members, masked_truths, valids = [], [], []
-        trim_members, trim_truths = [], []
-        for f, y in zip(full_members, full_truths):
-            valid = torch.zeros(1, len(SMALL_LAT), len(SMALL_LON), dtype=torch.bool)
-            valid[:, :, :half] = True
-            valids.append(valid)
-
-            f_masked = f.clone()
-            f_masked[:, :, :, half:] = float("nan")
-            masked_members.append(f_masked)
-            masked_truths.append(y)
-
-            trim_members.append(f[:, :, :, :half].clone())
-            trim_truths.append(y[:, :, :half].clone())
-
-        settings = _settings(tmp_path, crps=True, pairwise_comm_dtype="float64")
-        got_masked = _run_crps(
-            settings, masked_members, masked_truths, variables=var, valid=valids
-        )
-        got_trimmed = _run_crps(settings, trim_members, trim_truths, variables=var)
-
-        assert not torch.isnan(got_masked).any()
-        assert torch.allclose(got_masked, got_trimmed, atol=1e-9)
-
-
-# ---------------------------------------------------------------------------
-# Fair CRPS (phase 3)
-# ---------------------------------------------------------------------------
-
-
-def _reference_fair_crps(f: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-    """Fair CRPS from earth2studio, spatially averaged with lat weights."""
-    from earth2studio.statistics import crps as e2s_crps
-
-    x_coords = OrderedDict(
-        {
-            "ensemble": np.arange(f.shape[0]),
-            "variable": np.array(VARIABLES[: f.shape[1]]),
-            "lat": SMALL_LAT,
-            "lon": SMALL_LON,
-        }
-    )
-    y_coords = OrderedDict(
-        {
-            "variable": np.array(VARIABLES[: y.shape[0]]),
-            "lat": SMALL_LAT,
-            "lon": SMALL_LON,
-        }
-    )
-    metric = e2s_crps(
-        ensemble_dimension="ensemble",
-        reduction_dimensions=["lat", "lon"],
-        weights=_weights_2d(),
-        fair=True,
-    )
-    value, _ = metric(f, x_coords, y, y_coords)
-    return value
-
-
-def _run_crps(
+    return GroupComm(group, None)
+
+
+def _settings(tmp_path: Path, **online) -> tuple[DictConfig, object]:
+    overrides = ["scoring.mode=online", "output.retain=none"] + [
+        f"scoring.online.{k}={v}" for k, v in online.items()
+    ]
+    cfg = compose_cfg(tmp_path, overrides)
+    return cfg, parse_online_settings(cfg)
+
+
+def _field(
+    values: np.ndarray,
+    lead: np.timedelta64,
+    variables: list[str],
+    members: tuple[int, ...] | None,
+    time: np.datetime64 = T0,
+) -> xr.DataArray:
+    """A pipeline-shaped field: ``(ensemble?, time, lead_time, variable, lat, lon)``."""
+    data = values[None, None] if members is None else values[:, None, None]
+    dims = ("time", "lead_time", "variable", "lat", "lon")
+    coords = {
+        "time": np.array([time], dtype="datetime64[ns]"),
+        "lead_time": np.array([lead], dtype="timedelta64[ns]"),
+        "variable": np.array(variables),
+        "lat": SMALL_LAT,
+        "lon": SMALL_LON,
+    }
+    if members is not None:
+        dims = ("ensemble", *dims)
+        coords["ensemble"] = np.array(members, dtype=np.int64)
+    return xr.DataArray(data, dims=dims, coords=coords)
+
+
+def _make_scorer(
+    tmp_path: Path,
+    cfg: DictConfig,
     settings,
-    members: list[torch.Tensor],
-    truths: list[torch.Tensor],
-    variables: list[str] | None = None,
-    valid: list[torch.Tensor] | None = None,
-):
-    """Drive FairCRPS over a sequence of lead steps on a single-rank group.
-
-    Returns the finalized ``[lead, variable]`` CRPS, so the caller checks
-    what ``finalize_stats`` would write rather than the raw terms — which
-    is where a deferral-bookkeeping bug would show up.
-
-    *variables* narrows the variable list ``FairCRPS`` sees (default: the
-    full ``VARIABLES``).  *valid* is a per-lead list of ``[variable, lat,
-    lon]`` boolean masks (default: all-True — nothing excluded); the
-    weighted-mean normalizer is derived mask-aware from the first lead's
-    context, matching ``WeightSum``'s per-variable ``w_sum`` rather than a
-    single scalar, so a caller that passes a mask gets the same
-    normalization the real store would.
-    """
-    from src.online import FairCRPS
-
-    m = members[0].shape[0]
-    comm = _single_rank_comm(m)
-    weights = build_spatial_weights(
-        OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON}), lat_weights=True
+    ensemble_size: int,
+    source: FixedSource,
+    name: str = "stats.zarr",
+    lat_weights: bool = True,
+    streams: dict[str, list[str]] | None = None,
+    nan_policy: str = "propagate",
+) -> tuple[OnlineScorer, str]:
+    comm = _single_comm(ensemble_size)
+    stats = build_statistics(ensemble_size, False, settings, VARIABLES)
+    region_names = None if settings.regions is None else list(settings.regions)
+    groups = stats_array_groups(
+        stats, VARIABLES, np.array([T0, T1]), LEADS, ensemble_size, region_names
     )
-    n_leads = len(members)
-    all_variables = list(variables) if variables is not None else list(VARIABLES)
-    n_variables = truths[0].shape[0]
-
-    stat = FairCRPS(settings, all_variables)
-    stat.reset(n_leads, n_variables, m, torch.device("cpu"))
-
-    contexts = []
-    for lead, (f, y) in enumerate(zip(members, truths)):
-        v = valid[lead] if valid is not None else torch.ones_like(y, dtype=torch.bool)
-        ctx = StepContext(
-            lead_index=lead,
-            valid_time=np.datetime64("2024-01-01T00", "ns"),
-            y=y,
-            clim=None,
-            f_local=f,
-            d_local=f - y,
-            weights=weights,
-            valid=v,
-            n_spatial=2,
-            ensemble_size=m,
-            member_ids=tuple(range(m)),
-            comm=comm,
-        )
-        contexts.append(ctx)
-        stat.update(ctx)
-    stat.flush(contexts[-1])
-
-    # Assumes a constant mask across leads (true for every caller here) —
-    # the first context's mask-aware normalizer applies to all of them.
-    # wsum_valid() is sized to all_variables; narrow it to whatever subset
-    # FairCRPS actually scored (pairwise_variables may trim it further),
-    # matching finalize_stats's per-variable w_sum lookup.
-    var_index = [all_variables.index(v) for v in stat.variables()]
-    w_sum = contexts[0].wsum_valid()[var_index]
-    state = stat.state()
-    return state["crps_t1"] / (m * w_sum) - state["crps_t2"] / (m * (m - 1) * w_sum)
+    path = str(tmp_path / "outputs" / name)
+    store = open_stats_store(path, groups, region_names, resume=False, overwrite=True)
+    scorer = OnlineScorer(
+        settings=settings,
+        comm=comm,
+        verification=FieldCache(
+            source, VARIABLES, GRID, SPATIAL, torch.device("cpu"), nan_policy=nan_policy
+        ),
+        climatology=None,
+        variables=VARIABLES,
+        lead_times=LEADS,
+        spatial_dims=("lat", "lon"),
+        weights=build_spatial_weights(SPATIAL, lat_weights, regions=settings.regions),
+        store=store,
+        device=torch.device("cpu"),
+        nan_policy=nan_policy,
+        streams=streams,
+    )
+    return scorer, path
 
 
-class TestFairCRPS:
-    """Pin the two accumulated terms against earth2studio's fair CRPS."""
+def _score_offsets(
+    scorer: OnlineScorer,
+    source: FixedSource,
+    offsets: list[float],
+    time: np.datetime64 = T0,
+    streams: dict[str, list[str]] | None = None,
+    nan_at: tuple | None = None,
+) -> None:
+    """Run one item whose members equal verification plus constant offsets."""
+    members = tuple(range(len(offsets))) if len(offsets) > 1 else None
+    item = WorkItem(
+        time=time,
+        final_lead_time=np.timedelta64(LEADS[-1], "s"),
+        member_ids=members or (),
+    )
+    streams = streams or {"forecast": VARIABLES}
+    scorer.begin_item(item)
+    for lead in LEADS:
+        valid = np.datetime64(time, "ns") + lead
+        truth = source(valid, VARIABLES).values[0]
+        for stream, variables in streams.items():
+            index = [VARIABLES.index(v) for v in variables]
+            truth_sub = truth[index]
+            values = np.stack([truth_sub + o for o in offsets])
+            if nan_at is not None:
+                values[(slice(None), *nan_at)] = np.nan
+            if members is None:
+                values = values[0]
+            scorer.update(item, stream, _field(values, lead, variables, members, time))
+    scorer.finish_item(item)
 
-    @pytest.mark.parametrize("defer", [False, True])
-    def test_matches_earth2studio(self, tmp_path, defer):
-        torch.manual_seed(7)
-        m, n_leads = 5, 3
-        members = [
-            torch.randn(m, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-            for _ in range(n_leads)
-        ]
-        truths = [
-            torch.randn(len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-            for _ in range(n_leads)
-        ]
-        settings = _settings(
+
+def _finalize(cfg: DictConfig) -> xr.Dataset:
+    return xr.open_zarr(finalize_stats(cfg), consolidated=True)
+
+
+# ---------------------------------------------------------------------------
+# Settings
+# ---------------------------------------------------------------------------
+
+
+class TestSettings:
+    def test_defaults(self, tmp_path) -> None:
+        cfg, settings = _settings(tmp_path)
+        assert online_enabled(cfg)
+        assert settings.members_per_rank == 1
+        assert settings.ensemble_group_size is None
+        assert settings.stats_store == "stats.zarr"
+        assert settings.scores_store is None
+        assert settings.pairwise_comm_dtype is torch.bfloat16
+        assert settings.moment_comm_dtype is torch.float64
+        assert settings.crps and not settings.mae and not settings.lsd
+        assert settings.defer_pairwise_one_step
+        assert settings.variable_chunk == 4
+        assert settings.nccl_timeout_s == 1800
+        assert settings.regions is None
+
+    def test_offline_mode_and_invalid_mode(self, tmp_path) -> None:
+        assert not online_enabled(compose_cfg(tmp_path))
+        with pytest.raises(ValueError, match="scoring.mode"):
+            online_enabled(compose_cfg(tmp_path, ["scoring.mode=sideways"]))
+
+    @pytest.mark.parametrize(
+        "override,match",
+        [
+            ("scoring.online.members_per_rank=0", "members_per_rank"),
+            ("scoring.online.pairwise_comm_dtype=int8", "pairwise_comm_dtype"),
+            ("scoring.online.moment_comm_dtype=bfloat16", "moment_comm_dtype"),
+            ("scoring.online.variable_chunk=-1", "variable_chunk"),
+            ("scoring.online.pairwise_member_tile=0", "pairwise_member_tile"),
+            ("+scoring.online.pairwise_exchange=ring", "removed"),
+        ],
+    )
+    def test_invalid_settings_are_rejected(self, tmp_path, override, match) -> None:
+        cfg = compose_cfg(tmp_path, ["scoring.mode=online", override])
+        with pytest.raises(ValueError, match=match):
+            parse_online_settings(cfg)
+
+    def test_regions_come_from_scoring_regions(self, tmp_path) -> None:
+        cfg = compose_cfg(
             tmp_path,
-            defer_pairwise_one_step=defer,
-            pairwise_comm_dtype="float64",
+            [
+                "scoring.mode=online",
+                "scoring.regions={global: null, north: {lat: [0, 90]}}",
+            ],
         )
-
-        got = _run_crps(settings, members, truths)
-        assert not torch.isnan(got).any(), "a lead step was left unfilled"
-        for lead, (f, y) in enumerate(zip(members, truths)):
-            expected = _reference_fair_crps(f, y)
-            assert torch.allclose(
-                got[lead].float(), expected, atol=1e-5
-            ), f"lead {lead}: {got[lead].tolist()} != {expected.tolist()}"
-
-    def test_deferral_places_terms_at_the_right_lead(self, tmp_path):
-        """Distinct per-lead ensembles catch an off-by-one in the deferral."""
-        torch.manual_seed(8)
-        m = 4
-        # Scale each lead differently so a shifted term is unmissable.
-        members = [
-            torch.randn(m, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON)) * s
-            for s in (1.0, 10.0, 100.0)
-        ]
-        truths = [
-            torch.zeros(len(VARIABLES), len(SMALL_LAT), len(SMALL_LON)) for _ in members
-        ]
-        deferred = _run_crps(
-            _settings(
-                tmp_path,
-                defer_pairwise_one_step=True,
-                pairwise_comm_dtype="float64",
-            ),
-            members,
-            truths,
-        )
-        immediate = _run_crps(
-            _settings(
-                tmp_path,
-                defer_pairwise_one_step=False,
-                pairwise_comm_dtype="float64",
-            ),
-            members,
-            truths,
-        )
-        assert torch.allclose(deferred, immediate, atol=1e-9)
-
-    def test_bfloat16_exchange_stays_close(self, tmp_path):
-        """The wire dtype must not move CRPS beyond sampling noise."""
-        torch.manual_seed(9)
-        m = 6
-        members = [torch.randn(m, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))]
-        truths = [torch.randn(len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))]
-
-        exact = _run_crps(
-            _settings(tmp_path, pairwise_comm_dtype="float64"), members, truths
-        )
-        narrow = _run_crps(
-            _settings(tmp_path, pairwise_comm_dtype="bfloat16"), members, truths
-        )
-        assert torch.allclose(narrow, exact, rtol=2e-2)
-
-    def test_variable_chunking_is_transparent(self, tmp_path):
-        torch.manual_seed(10)
-        m = 4
-        members = [torch.randn(m, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))]
-        truths = [torch.randn(len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))]
-
-        whole = _run_crps(
-            _settings(tmp_path, variable_chunk=0, pairwise_comm_dtype="float64"),
-            members,
-            truths,
-        )
-        chunked = _run_crps(
-            _settings(tmp_path, variable_chunk=1, pairwise_comm_dtype="float64"),
-            members,
-            truths,
-        )
-        assert torch.allclose(whole, chunked, atol=1e-12)
-
-    def test_pairwise_variables_narrows_coverage(self, tmp_path):
-        from src.online import FairCRPS
-
-        settings = _settings(tmp_path, pairwise_variables=["z500"])
-        stat = FairCRPS(settings, list(VARIABLES))
-        assert stat.variables() == ["z500"]
-
-        stats = build_statistics(4, False, settings, VARIABLES)
-        _, groups = stats_array_groups(
-            stats, VARIABLES, IC_TIMES, LEAD_TIMES, ensemble_size=4
-        )
-        scalar = next(n for c, n in groups if tuple(c) == ("time", "lead_time"))
-        assert "crps_t1__z500" in scalar
-        assert "crps_t1__t2m" not in scalar
-        # The cheap moment statistics still cover every variable.
-        assert "sse_ensmean__t2m" in scalar
-
-    def test_pairwise_variables_narrows_update_shape(self, tmp_path):
-        """Regression test: FairCRPS.update must handle pairwise_variables
-        narrowing the scored set to a strict subset.  ctx.valid is sized to
-        the *full* scored-variable set, not the (possibly smaller)
-        pairwise_variables subset — term 1 has to mask against ctx.valid
-        before narrowing to self._var_index, not after, or the shapes
-        disagree (and, at a subset size of exactly 1, silently broadcast
-        wrong instead of raising)."""
-        torch.manual_seed(11)
-        m, n_leads = 4, 2
-        members = [
-            torch.randn(m, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-            for _ in range(n_leads)
-        ]
-        truths = [
-            torch.randn(len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-            for _ in range(n_leads)
-        ]
-        settings = _settings(
-            tmp_path, pairwise_variables=["z500"], pairwise_comm_dtype="float64"
-        )
-
-        got = _run_crps(settings, members, truths)
-        assert got.shape == (n_leads, 1)
-        assert not torch.isnan(got).any()
-
-        z_index = VARIABLES.index("z500")
-        for lead, (f, y) in enumerate(zip(members, truths)):
-            expected = _reference_fair_crps(
-                f[:, z_index : z_index + 1], y[z_index : z_index + 1]
-            )
-            assert torch.allclose(got[lead].float(), expected, atol=1e-5)
-
-    def test_unknown_pairwise_variable_rejected(self, tmp_path):
-        from src.online import FairCRPS
-
-        settings = _settings(tmp_path, pairwise_variables=["nope"])
-        with pytest.raises(ValueError, match="pairwise_variables"):
-            FairCRPS(settings, list(VARIABLES))
-
-    def test_crps_disabled_and_deterministic_runs_skip_it(self, tmp_path):
-        settings = _settings(tmp_path, crps=False)
-        fields = {
-            f
-            for s in build_statistics(4, False, settings, VARIABLES)
-            for f in s.fields()
-        }
-        assert "crps_t1" not in fields
-
-        enabled = _settings(tmp_path)
-        fields = {
-            f
-            for s in build_statistics(1, False, enabled, VARIABLES)
-            for f in s.fields()
-        }
-        assert "crps_t1" not in fields, "CRPS is undefined for a single member"
-
-
-# ---------------------------------------------------------------------------
-# Store schema
-# ---------------------------------------------------------------------------
-
-
-class TestMultiReference:
-    """The multi-reference knob: names -> own sources, own stores, one rollout."""
-
-    def test_unset_sources_keep_the_original_filenames(self, tmp_path):
-        cfg = _base_cfg(tmp_path)
-        sources = resolve_verification_sources(cfg, _StubPipeline("default"))
-        assert list(sources) == [None]
-        # A campaign written before this feature must be byte-identical.
-        assert named_store_filename("stats.zarr", None) == "stats.zarr"
-        assert named_store_filename("scores.zarr", None) == "scores.zarr"
-
-    def test_named_sources_get_their_own_stores(self, tmp_path):
-        cfg = _base_cfg(tmp_path)
-        cfg.scoring.online.verification_sources = {"era5": None, "ifs": None}
-        sources = resolve_verification_sources(cfg, _StubPipeline("default"))
-        assert list(sources) == ["era5", "ifs"]
-        assert named_store_filename("stats.zarr", "era5") == "stats__era5.zarr"
-        assert named_store_filename("scores.zarr", "ifs") == "scores__ifs.zarr"
-
-    def test_empty_sources_is_rejected_not_ignored(self, tmp_path):
-        cfg = _base_cfg(tmp_path)
-        cfg.scoring.online.verification_sources = {}
-        # Empty is a config mistake; silently scoring one reference would hide it.
-        with pytest.raises(ValueError, match="set but empty"):
-            resolve_verification_sources(cfg, _StubPipeline("default"))
-
-    @pytest.mark.parametrize("bad", ["../../escape", "has/slash", "with.dot", "_lead"])
-    def test_names_that_would_escape_the_store_path_are_rejected(self, tmp_path, bad):
-        cfg = _base_cfg(tmp_path)
-        cfg.scoring.online.verification_sources = {bad: None}
-        # Names are interpolated into a filename that is joined onto output.path.
-        with pytest.raises(ValueError, match="Invalid verification source name"):
-            resolve_verification_sources(cfg, _StubPipeline("default"))
-
-    def test_fan_out_hands_every_chunk_to_every_reference(self):
-        a, b = _RecordingScorer(), _RecordingScorer()
-        scorer = MultiRefScorer({"era5": a, "ifs": b})
-        item = object()
-        chunk = torch.zeros(2, 3)
-        coords = OrderedDict({"lead_time": LEAD_TIMES})
-
-        scorer.begin_item(item)
-        scorer.update(chunk, coords)
-        scorer.update(chunk, coords)
-        scorer.finish_item(item)
-
-        for child in (a, b):
-            assert child.begun == [item]
-            assert len(child.updates) == 2
-            assert child.finished == [item]
-        # The chunk is shared, not copied per reference.
-        assert a.updates[0] is b.updates[0] is chunk
-
-    def test_ic_is_marked_once_after_every_reference_wrote(self):
-        log = []
-        a, b = _RecordingScorer(log), _RecordingScorer(log)
-        MultiRefScorer({"era5": a, "ifs": b}).finish_item(object())
-        assert log == [("finish", a, False), ("finish", b, False), ("mark", a)]
-
-    def test_crash_before_the_last_reference_leaves_the_ic_unmarked(self):
-        log = []
-        a, b = _RecordingScorer(log), _RecordingScorer(log, fail_finish=True)
-        with pytest.raises(RuntimeError):
-            MultiRefScorer({"era5": a, "ifs": b}).finish_item(object())
-        # Resume rescoring this IC is what fills the reference that never wrote.
-        assert ("mark", a) not in log
-
-    def test_fan_out_requires_a_child(self):
-        with pytest.raises(ValueError, match="at least one"):
-            MultiRefScorer({})
-
-    def test_distinct_truths_score_into_their_own_stores(self, tmp_path):
-        from src.data import PredownloadedSource
-
-        cfg = _base_cfg(tmp_path, ensemble_size=1)
-        cfg.scoring.online.verification_sources = {"a": None, "b": None}
-        os.makedirs(cfg.output.path, exist_ok=True)
-        valid_times = np.unique(
-            np.array(
-                [t + lt for t in IC_TIMES for lt in LEAD_TIMES],
-                dtype="datetime64[ns]",
-            )
-        )
-        sources = {
-            "a": PredownloadedSource(
-                _verification_zarr(tmp_path / "a.zarr", valid_times, seed=7)
-            ),
-            "b": PredownloadedSource(
-                _verification_zarr(tmp_path / "b.zarr", valid_times, seed=8)
-            ),
-        }
         settings = parse_online_settings(cfg)
-        comm = _single_rank_comm(1)
-        spatial = OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
-        with (
-            patch("src.output.DistributedManager", return_value=_fake_dist()),
-            patch("src.distributed.DistributedManager", return_value=_fake_dist()),
-        ):
-            stats_mgrs = {
-                name: open_stats_store(
-                    cfg,
-                    build_statistics(1, has_climatology=False),
-                    VARIABLES,
-                    IC_TIMES,
-                    LEAD_TIMES,
-                    1,
-                    store_name=named_store_filename(settings.stats_store, name),
-                )
-                for name in sources
-            }
-            with stats_mgrs["a"], stats_mgrs["b"]:
-                scorer = build_online_scorers(
-                    cfg,
-                    settings,
-                    comm,
-                    sources,
-                    list(VARIABLES),
-                    LEAD_TIMES,
-                    spatial,
-                    stats_mgrs,
-                    torch.device("cpu"),
-                )
-                for item in build_group_work_items(list(IC_TIMES), comm.group, cfg):
-                    scorer.begin_item(item)
-                    for lt in LEAD_TIMES:
-                        truth_a = sources["a"]([item.time + lt], VARIABLES)
-                        x = torch.from_numpy(
-                            truth_a.transpose("time", "variable", "lat", "lon")
-                            .values[0]
-                            .copy()
-                        )
-                        coords = OrderedDict(
-                            {
-                                "time": np.array([item.time]),
-                                "lead_time": np.array([lt]),
-                                "variable": np.array(VARIABLES),
-                                "lat": SMALL_LAT,
-                                "lon": SMALL_LON,
-                            }
-                        )
-                        scorer.update(x[None, None], coords)
-                    scorer.finish_item(item)
-            finalize_online_stats(cfg)
+        assert list(settings.regions) == ["global", "north"]
 
-        scores_a = xr.open_zarr(os.path.join(cfg.output.path, "scores__a.zarr"))
-        scores_b = xr.open_zarr(os.path.join(cfg.output.path, "scores__b.zarr"))
-        assert not os.path.exists(os.path.join(cfg.output.path, "scores.zarr"))
-        metric = mse(reduction_dimensions=["lat", "lon"], weights=_weights_2d())
-        y_coords = OrderedDict(
-            {"variable": np.array(VARIABLES), "lat": SMALL_LAT, "lon": SMALL_LON}
+    def test_lsd_needs_a_whole_grid_region(self, tmp_path) -> None:
+        cfg = compose_cfg(
+            tmp_path,
+            [
+                "scoring.mode=online",
+                "scoring.online.lsd=true",
+                "scoring.regions={north: {lat: [0, 90]}}",
+            ],
         )
-        for t in IC_TIMES:
-            for lt in LEAD_TIMES:
-                fields = {
-                    name: torch.from_numpy(
-                        source([t + lt], VARIABLES)
-                        .transpose("time", "variable", "lat", "lon")
-                        .values[0]
-                        .copy()
-                    )
-                    for name, source in sources.items()
-                }
-                expected_b, _ = metric(fields["a"], y_coords, fields["b"], y_coords)
-                for j, var in enumerate(VARIABLES):
-                    point = {"time": t, "lead_time": lt}
-                    got_a = float(scores_a[f"mse__{var}"].sel(point).values)
-                    got_b = float(scores_b[f"mse__{var}"].sel(point).values)
-                    assert got_a == pytest.approx(0.0, abs=1e-10)
-                    assert got_b == pytest.approx(float(expected_b[j]), rel=1e-5)
-                    assert got_b > 0.1
-
-
-class _StubPipeline:
-    """Stands in for a Pipeline; only verification_source() is consulted."""
-
-    def __init__(self, tag):
-        self._tag = tag
-
-    def verification_source(self, cfg):
-        return self._tag
-
-
-class _RecordingScorer:
-    """Records the fan-out calls a MultiRefScorer makes to each child."""
-
-    def __init__(self, log=None, fail_finish=False):
-        self.begun = []
-        self.updates = []
-        self.finished = []
-        self.log = [] if log is None else log
-        self.fail_finish = fail_finish
-
-    def begin_item(self, item):
-        self.begun.append(item)
-
-    def update(self, x, coords):
-        self.updates.append(x)
-
-    def finish_item(self, item, mark_done=True):
-        if self.fail_finish:
-            raise RuntimeError("crash while writing this reference")
-        self.finished.append(item)
-        self.log.append(("finish", self, mark_done))
-
-    def mark_done(self, item):
-        self.log.append(("mark", self))
-
-
-class TestStatsSchema:
-    def test_deterministic_schema_has_no_ensemble_axis(self):
-        stats = build_statistics(1, has_climatology=False)
-        superset, groups = stats_array_groups(
-            stats, VARIABLES, IC_TIMES, LEAD_TIMES, ensemble_size=1
-        )
-        assert list(superset) == ["time", "lead_time"]
-        assert len(groups) == 1
-        coords, names = groups[0]
-        assert list(coords) == ["time", "lead_time"]
-        assert "w_sum__t2m" in names
-        assert "sse_ensmean__z500" in names
-
-    def test_ensemble_schema_groups_by_layout(self):
-        stats = build_statistics(4, has_climatology=False)
-        superset, groups = stats_array_groups(
-            stats, VARIABLES, IC_TIMES, LEAD_TIMES, ensemble_size=4
-        )
-        assert list(superset) == ["time", "ensemble", "rank_bin", "lead_time"]
-        by_dims = {tuple(c): n for c, n in groups}
-        assert "sse_member__t2m" in by_dims[("time", "ensemble", "lead_time")]
-        assert "rank_counts__t2m" in by_dims[("time", "rank_bin", "lead_time")]
-        assert "var_ens__t2m" in by_dims[("time", "lead_time")]
-        assert len(by_dims[("time", "rank_bin", "lead_time")]) == len(VARIABLES)
-
-    def test_climatology_switches_moment_field_names(self):
-        anom = build_statistics(1, has_climatology=True)
-        raw = build_statistics(1, has_climatology=False)
-        anom_fields = {f for s in anom for f in s.fields()}
-        raw_fields = {f for s in raw for f in s.fields()}
-        assert "sum_wab" in anom_fields
-        assert "sum_wfy" in raw_fields
+        with pytest.raises(ValueError, match="whole-grid"):
+            parse_online_settings(cfg)
 
 
 # ---------------------------------------------------------------------------
-# Verification access
+# Groups and ordering
+# ---------------------------------------------------------------------------
+
+
+class TestGroups:
+    def test_plan_groups(self, tmp_path) -> None:
+        _, settings = _settings(tmp_path, members_per_rank=2)
+        assert plan_groups(settings, 8) == (4, 2)
+        assert plan_groups(settings, 2) == (1, 2)
+        with pytest.raises(ValueError, match="divide"):
+            plan_groups(settings, 3)
+        _, explicit = _settings(tmp_path, members_per_rank=2, ensemble_group_size=3)
+        with pytest.raises(ValueError, match="ensemble_group_size"):
+            plan_groups(explicit, 8)
+
+    def test_block_layout(self) -> None:
+        group = group_for_rank(5, 8, group_size=2, members_per_rank=3)
+        assert (group.block, group.group_rank, group.ranks) == (2, 1, (4, 5))
+        assert group.member_ids == (3, 4, 5)
+        assert group.ensemble_size == 6
+        assert not group.is_root and group.root_rank == 4
+        assert group_for_rank(4, 8, 2, 3).is_root
+        with pytest.raises(ValueError, match="multiple"):
+            group_for_rank(0, 6, 4, 1)
+
+    def test_single_process_comm_is_a_no_op(self, tmp_path) -> None:
+        _, settings = _settings(tmp_path, members_per_rank=2)
+        comm = build_group_comm(settings, 0, 1, 2)
+        assert not comm.active and comm.is_root
+        t = torch.ones(3, dtype=torch.float64)
+        assert comm.reduce(t) is t
+        buffers, work = comm.all_gather(t)
+        assert buffers == [t] and work is None
+        assert comm.all_agree(7, torch.device("cpu"))
+
+    def test_deterministic_campaign_is_one_group(self, tmp_path) -> None:
+        _, settings = _settings(tmp_path)
+        assert plan_groups(settings, 1) == (1, 1)
+        assert build_group_comm(settings, 0, 1, 1).group.member_ids == (0,)
+
+
+class TestOrdering:
+    @staticmethod
+    def _items(n_times: int, members: int, batch: int) -> list[WorkItem]:
+        times = [T0 + np.timedelta64(d, "D") for d in range(n_times)]
+        return work_items(
+            times, np.timedelta64(12, "h"), members=members, member_batch=batch
+        )
+
+    def test_fresh_run_matches_order_for_groups(self, tmp_path) -> None:
+        cfg = compose_cfg(tmp_path, ["scoring.mode=online"])
+        items = self._items(5, 4, 2)
+        assert order_items(cfg, items, world_size=4, group_size=2) == order_for_groups(
+            items, 4, 2
+        )
+
+    def test_resume_orders_pending_items_first(self, tmp_path) -> None:
+        cfg = compose_cfg(tmp_path, ["scoring.mode=online", "resume=true"])
+        items = self._items(4, 4, 2)
+        progress = ProgressStore(progress_path(cfg))
+        done_time = items[2].time
+        for item in items:
+            if item.time == done_time:
+                progress.mark_done(item)
+        progress.close()
+        ordered = order_items(cfg, items, world_size=2, group_size=2)
+        assert sorted(ordered, key=lambda i: (i.time, i.member_ids)) == sorted(
+            items, key=lambda i: (i.time, i.member_ids)
+        )
+        pending = [i for i in ordered if i.time != done_time]
+        assert ordered[: len(pending)] == pending
+        # What the pipeline runs keeps rank 0 and rank 1 on the same times.
+        slices = [distribute_work(pending, rank, 2) for rank in (0, 1)]
+        assert [i.time for i in slices[0]] == [i.time for i in slices[1]]
+        assert all(i.member_ids == (0, 1) for i in slices[0])
+        assert all(i.member_ids == (2, 3) for i in slices[1])
+
+    def test_resume_reruns_a_partly_done_time_whole(self, tmp_path) -> None:
+        # Time 0 fully recorded, time 1 recorded by one member group only (a
+        # job stopped between the ranks' records): time 1 runs again whole.
+        cfg = compose_cfg(tmp_path, ["scoring.mode=online", "resume=true"])
+        items = self._items(3, 4, 2)
+        progress = ProgressStore(progress_path(cfg))
+        manifest = {"version": 2, "seed": 0, "streams": {"forecast": {}}}
+        progress.setup(manifest)
+        for item in items[:3]:
+            progress.mark_done(item)
+        progress.close()
+        ordered = order_items(cfg, items, world_size=2, group_size=2)
+        # The manifest survives the rebuild unchanged.
+        assert json.loads((progress_path(cfg) / MANIFEST_NAME).read_text()) == manifest
+        assert sorted(ordered, key=lambda i: (i.time, i.member_ids)) == sorted(
+            items, key=lambda i: (i.time, i.member_ids)
+        )
+        assert [i.time for i in ordered[-2:]] == [items[0].time, items[1].time]
+        assert {i.time for i in ordered[:-2]} == {items[2].time, items[4].time}
+        reopened = ProgressStore(progress_path(cfg))
+        assert reopened.is_done(items[0]) and reopened.is_done(items[1])
+        assert not reopened.is_done(items[2])
+
+    def test_world_size_must_fit_groups(self, tmp_path) -> None:
+        cfg = compose_cfg(tmp_path, ["scoring.mode=online"])
+        with pytest.raises(ValueError, match="multiple"):
+            order_items(cfg, self._items(2, 4, 2), world_size=3, group_size=2)
+
+
+# ---------------------------------------------------------------------------
+# Accumulation against an analytic verification field
+# ---------------------------------------------------------------------------
+
+
+class TestAccumulation:
+    """Members ``f_i = y + a_i`` with constant offsets have closed-form scores."""
+
+    OFFSETS = [1.0, 3.0]
+
+    def test_ensemble_scores_match_closed_forms(self, tmp_path) -> None:
+        cfg, settings = _settings(
+            tmp_path, pairwise_comm_dtype="float64", members_per_rank=2
+        )
+        source = FixedSource(rate_per_hour=0.5)
+        scorer, _ = _make_scorer(tmp_path, cfg, settings, 2, source)
+        _score_offsets(scorer, source, self.OFFSETS, T0)
+        _score_offsets(scorer, source, self.OFFSETS, T1)
+        scorer._store.close()
+
+        stats = xr.open_zarr(tmp_path / "outputs" / "stats.zarr", consolidated=False)
+        # Cosine weights have mean one, so their sum is the point count.
+        np.testing.assert_allclose(stats["w_sum__t2m"].values, N_POINTS)
+        scores = _finalize(cfg)
+        a, b = self.OFFSETS
+        m = (a + b) / 2
+        for var in VARIABLES:
+            mse = scores[f"mse__{var}"]
+            assert dict(mse.sizes) == {"ensemble": 2, "time": 2, "lead_time": 3}
+            np.testing.assert_allclose(mse.sel(ensemble=0).values, a**2, rtol=1e-6)
+            np.testing.assert_allclose(mse.sel(ensemble=1).values, b**2, rtol=1e-6)
+            np.testing.assert_allclose(
+                scores[f"ensemble_mean_mse__{var}"].values, m**2, rtol=1e-6
+            )
+            np.testing.assert_allclose(
+                scores[f"ensemble_variance__{var}"].values,
+                (a - m) ** 2 + (b - m) ** 2,
+                rtol=1e-6,
+            )
+            # Fair CRPS: mean |d_i| - |a - b| / (M (M - 1)) * (number of pairs)
+            np.testing.assert_allclose(
+                scores[f"crps__{var}"].values, (a + b) / 2 - abs(a - b) / 2, rtol=1e-6
+            )
+            # Every member exceeds the truth: all weight in rank bin 0.
+            np.testing.assert_allclose(
+                scores[f"rank_reliability__{var}"].values,
+                (1 - 1 / 3) + 2 / 3,
+                rtol=1e-6,
+            )
+            np.testing.assert_allclose(scores[f"bias__{var}"].values, m, rtol=1e-6)
+            np.testing.assert_allclose(scores[f"corr__{var}"].values, 1.0, rtol=1e-6)
+            assert f"acc__{var}" not in scores
+
+    def test_deterministic_run_has_no_ensemble_statistics(self, tmp_path) -> None:
+        cfg, settings = _settings(tmp_path)
+        source = FixedSource()
+        scorer, _ = _make_scorer(tmp_path, cfg, settings, 1, source)
+        _score_offsets(scorer, source, [2.0], T0)
+        scorer._store.close()
+        scores = _finalize(cfg)
+        assert "ensemble" not in scores.dims
+        for var in VARIABLES:
+            np.testing.assert_allclose(
+                scores[f"mse__{var}"].sel(time=T0).values, 4.0, rtol=1e-6
+            )
+            assert np.isnan(scores[f"mse__{var}"].sel(time=T1).values).all()
+            for metric in (
+                "crps",
+                "ensemble_variance",
+                "rank_reliability",
+                "ensemble_mean_mse",
+            ):
+                assert f"{metric}__{var}" not in scores
+
+    def test_variables_split_over_streams_accumulate_alike(self, tmp_path) -> None:
+        cfg, settings = _settings(
+            tmp_path, pairwise_comm_dtype="float64", members_per_rank=2
+        )
+        source = FixedSource(rate_per_hour=0.25)
+        one, path_one = _make_scorer(
+            tmp_path, cfg, settings, 2, source, name="one.zarr"
+        )
+        _score_offsets(one, source, self.OFFSETS)
+        one._store.close()
+        two, path_two = _make_scorer(
+            tmp_path, cfg, settings, 2, source, name="two.zarr"
+        )
+        _score_offsets(
+            two, source, self.OFFSETS, streams={"forecast": ["z500"], "diag": ["t2m"]}
+        )
+        two._store.close()
+        ds_one = xr.open_zarr(path_one, consolidated=False).sel(time=T0)
+        ds_two = xr.open_zarr(path_two, consolidated=False).sel(time=T0)
+        for name in ds_one.data_vars:
+            np.testing.assert_allclose(
+                ds_one[name].values, ds_two[name].values, rtol=1e-9
+            )
+
+    @pytest.mark.parametrize("defer", [True, False])
+    def test_pairwise_deferral_and_chunking_are_transparent(
+        self, tmp_path, defer
+    ) -> None:
+        cfg, settings = _settings(
+            tmp_path,
+            pairwise_comm_dtype="float64",
+            members_per_rank=3,
+            defer_pairwise_one_step=str(defer).lower(),
+            variable_chunk=1,
+        )
+        source = FixedSource()
+        scorer, path = _make_scorer(tmp_path, cfg, settings, 3, source)
+        offsets = [0.0, 1.0, 4.0]
+        _score_offsets(scorer, source, offsets)
+        scorer._store.close()
+        ds = xr.open_zarr(path, consolidated=False).sel(time=T0)
+        pairs = sum(abs(a - b) for i, a in enumerate(offsets) for b in offsets[i + 1 :])
+        # Statistics accumulate in float32 inside the store.
+        np.testing.assert_allclose(
+            ds["crps_t2__t2m"].values, pairs * N_POINTS, rtol=1e-6
+        )
+        np.testing.assert_allclose(
+            ds["crps_t1__z500"].values, sum(offsets) * N_POINTS, rtol=1e-6
+        )
+
+    def test_bfloat16_exchange_stays_close(self, tmp_path) -> None:
+        cfg, settings = _settings(tmp_path, members_per_rank=2)
+        source = FixedSource()
+        scorer, path = _make_scorer(tmp_path, cfg, settings, 2, source)
+        _score_offsets(scorer, source, [0.1, 0.35])
+        scorer._store.close()
+        ds = xr.open_zarr(path, consolidated=False).sel(time=T0)
+        np.testing.assert_allclose(
+            ds["crps_t2__t2m"].values, 0.25 * N_POINTS, rtol=2e-2
+        )
+
+    def test_pairwise_variables_narrow_crps(self, tmp_path) -> None:
+        cfg, settings = _settings(
+            tmp_path,
+            members_per_rank=2,
+            pairwise_comm_dtype="float64",
+            pairwise_variables="[z500]",
+        )
+        source = FixedSource()
+        scorer, path = _make_scorer(tmp_path, cfg, settings, 2, source)
+        _score_offsets(scorer, source, self.OFFSETS)
+        scorer._store.close()
+        ds = xr.open_zarr(path, consolidated=False)
+        assert "crps_t2__z500" in ds and "crps_t2__t2m" not in ds
+        scores = _finalize(cfg)
+        assert "crps__z500" in scores and "crps__t2m" not in scores
+        assert "mse__t2m" in scores
+
+    def test_unknown_pairwise_variable_is_rejected(self, tmp_path) -> None:
+        _, settings = _settings(tmp_path, pairwise_variables="[msl]")
+        with pytest.raises(ValueError, match="pairwise_variables"):
+            build_statistics(2, False, settings, VARIABLES)
+
+    def test_regions_add_a_labelled_axis(self, tmp_path) -> None:
+        cfg = compose_cfg(
+            tmp_path,
+            [
+                "scoring.mode=online",
+                "scoring.lat_weights=false",
+                "scoring.online.members_per_rank=2",
+                "scoring.online.pairwise_comm_dtype=float64",
+                "scoring.regions={global: null, north: {lat: [0, 90]}}",
+            ],
+        )
+        settings = parse_online_settings(cfg)
+        source = FixedSource()
+        scorer, path = _make_scorer(
+            tmp_path, cfg, settings, 2, source, lat_weights=False
+        )
+        _score_offsets(scorer, source, self.OFFSETS)
+        scorer._store.close()
+        ds = xr.open_zarr(path, consolidated=False).sel(time=T0)
+        assert ds.attrs["regions"] == ["global", "north"]
+        np.testing.assert_allclose(ds["w_sum__t2m"].values[0], N_POINTS)
+        np.testing.assert_allclose(ds["w_sum__t2m"].values[1], N_POINTS / 2)
+        scores = _finalize(cfg)
+        assert list(scores["region"].values) == ["global", "north"]
+        a, b = self.OFFSETS
+        np.testing.assert_allclose(
+            scores["mse__t2m"].sel(time=T0, region="north", ensemble=1).values, b**2
+        )
+        np.testing.assert_allclose(
+            scores["crps__z500"].sel(time=T0).values, (a + b) / 2 - abs(a - b) / 2
+        )
+
+    def test_masked_gridpoints_leave_constant_errors_intact(self, tmp_path) -> None:
+        cfg, settings = _settings(
+            tmp_path, members_per_rank=2, pairwise_comm_dtype="float64"
+        )
+        source = FixedSource()
+        scorer, path = _make_scorer(
+            tmp_path, cfg, settings, 2, source, lat_weights=False, nan_policy="mask"
+        )
+        # NaN in every member at one latitude row of the first variable only.
+        _score_offsets(scorer, source, self.OFFSETS, nan_at=(0, 1, slice(None)))
+        scorer._store.close()
+        ds = xr.open_zarr(path, consolidated=False).sel(time=T0)
+        np.testing.assert_allclose(ds["w_sum__t2m"].values, N_POINTS - SMALL_LON.size)
+        np.testing.assert_allclose(ds["w_sum__z500"].values, N_POINTS)
+        scores = _finalize(cfg)
+        a, b = self.OFFSETS
+        np.testing.assert_allclose(
+            scores["mse__t2m"].sel(time=T0, ensemble=1).values, b**2
+        )
+        np.testing.assert_allclose(
+            scores["crps__t2m"].sel(time=T0).values, (a + b) / 2 - abs(a - b) / 2
+        )
+
+    def test_propagate_turns_a_partly_nan_variable_nan(self, tmp_path) -> None:
+        # The default policy means the same as offline: one non-finite point
+        # makes every statistic of that variable at that lead NaN, and the
+        # other variable keeps its scores.
+        cfg, settings = _settings(
+            tmp_path, members_per_rank=2, pairwise_comm_dtype="float64"
+        )
+        source = FixedSource()
+        scorer, path = _make_scorer(
+            tmp_path, cfg, settings, 2, source, lat_weights=False
+        )
+        _score_offsets(scorer, source, self.OFFSETS, nan_at=(0, 1, slice(None)))
+        scorer._store.close()
+        ds = xr.open_zarr(path, consolidated=False).sel(time=T0)
+        np.testing.assert_allclose(ds["w_sum__t2m"].values, 0.0)
+        np.testing.assert_allclose(ds["w_sum__z500"].values, N_POINTS)
+        scores = _finalize(cfg).sel(time=T0)
+        for name in ("mse", "crps", "bias", "rank_reliability"):
+            assert np.isnan(scores[f"{name}__t2m"].values).all(), name
+        a, b = self.OFFSETS
+        np.testing.assert_allclose(scores["mse__z500"].sel(ensemble=1).values, b**2)
+        np.testing.assert_allclose(
+            scores["crps__z500"].values, (a + b) / 2 - abs(a - b) / 2
+        )
+
+    def test_zero_fill_counts_every_gridpoint(self, tmp_path) -> None:
+        # As offline: a NaN forecast point reads 0 and stays in the
+        # normalizer, so its error is the verification value itself.
+        cfg, settings = _settings(
+            tmp_path, members_per_rank=2, pairwise_comm_dtype="float64"
+        )
+        source = FixedSource()
+        scorer, path = _make_scorer(
+            tmp_path,
+            cfg,
+            settings,
+            2,
+            source,
+            lat_weights=False,
+            nan_policy="zero_fill",
+        )
+        _score_offsets(scorer, source, self.OFFSETS, nan_at=(0, 1, slice(None)))
+        scorer._store.close()
+        ds = xr.open_zarr(path, consolidated=False).sel(time=T0)
+        np.testing.assert_allclose(ds["w_sum__t2m"].values, N_POINTS)
+        scores = _finalize(cfg).sel(time=T0, ensemble=1)
+        _, b = self.OFFSETS
+        for i, lead in enumerate(LEADS):
+            truth = source(np.datetime64(T0, "ns") + lead, ["t2m"]).values[0, 0]
+            expected = (
+                (N_POINTS - SMALL_LON.size) * b**2 + (truth[1, :] ** 2).sum()
+            ) / N_POINTS
+            np.testing.assert_allclose(
+                scores["mse__t2m"].isel(lead_time=i).values, expected, rtol=1e-6
+            )
+
+    def test_member_less_field_for_a_batched_item_is_rejected(self, tmp_path) -> None:
+        cfg, settings = _settings(tmp_path, members_per_rank=2)
+        source = FixedSource()
+        scorer, _ = _make_scorer(tmp_path, cfg, settings, 2, source)
+        item = WorkItem(T0, np.timedelta64(12, "h"), (0, 1))
+        truth = source(T0, VARIABLES).values[0]
+        scorer.begin_item(item)
+        with pytest.raises(ValueError, match="no 'ensemble' axis"):
+            scorer.update(item, "forecast", _field(truth, LEADS[0], VARIABLES, None))
+
+    def test_foreign_members_and_bad_layouts_are_rejected(self, tmp_path) -> None:
+        cfg, settings = _settings(tmp_path, members_per_rank=2)
+        source = FixedSource()
+        scorer, _ = _make_scorer(tmp_path, cfg, settings, 2, source)
+        item = WorkItem(T0, np.timedelta64(12, "h"), (0, 1))
+        truth = source(T0, VARIABLES).values[0]
+        scorer.begin_item(item)
+        with pytest.raises(ValueError, match="carries members"):
+            scorer.update(
+                item,
+                "forecast",
+                _field(np.stack([truth, truth]), LEADS[0], VARIABLES, (2, 3)),
+            )
+        with pytest.raises(ValueError, match="lead_time"):
+            scorer.update(
+                item,
+                "forecast",
+                _field(np.stack([truth, truth]), LEADS[0], VARIABLES, (0, 1)).isel(
+                    lead_time=0, drop=True
+                ),
+            )
+        fresh, _ = _make_scorer(tmp_path, cfg, settings, 2, source, name="fresh.zarr")
+        with pytest.raises(RuntimeError, match="begin_item"):
+            fresh.update(
+                item,
+                "forecast",
+                _field(np.stack([truth, truth]), LEADS[0], VARIABLES, (0, 1)),
+            )
+
+    def test_streams_outside_the_output_selection_are_ignored(self, tmp_path) -> None:
+        # A diagnostic re-emitting t2m with other values must not overwrite
+        # the forecast's statistics; the stream owning the variable scores it.
+        cfg, settings = _settings(tmp_path)
+        source = FixedSource()
+        reference, path_reference = _make_scorer(
+            tmp_path, cfg, settings, 1, source, name="reference.zarr"
+        )
+        _score_offsets(reference, source, [0.5])
+        reference._store.close()
+        scorer, path = _make_scorer(
+            tmp_path, cfg, settings, 1, source, streams={"forecast": VARIABLES}
+        )
+        item = WorkItem(T0, np.timedelta64(LEADS[-1], "s"))
+        scorer.begin_item(item)
+        for lead in LEADS:
+            valid = np.datetime64(T0, "ns") + lead
+            truth = source(valid, VARIABLES).values[0]
+            scorer.update(item, "diag", _field(truth + 100.0, lead, VARIABLES, None))
+            scorer.update(item, "forecast", _field(truth + 0.5, lead, VARIABLES, None))
+            scorer.update(item, "diag", _field(truth + 100.0, lead, VARIABLES, None))
+        scorer.finish_item(item)
+        scorer._store.close()
+        ds = xr.open_zarr(path, consolidated=False).sel(time=T0)
+        ds_reference = xr.open_zarr(path_reference, consolidated=False).sel(time=T0)
+        for name in ds_reference.data_vars:
+            np.testing.assert_allclose(ds[name].values, ds_reference[name].values)
+
+    def test_unscored_variables_are_ignored(self, tmp_path) -> None:
+        cfg, settings = _settings(tmp_path)
+        source = FixedSource()
+        scorer, path = _make_scorer(tmp_path, cfg, settings, 1, source)
+        item = WorkItem(T0, np.timedelta64(12, "h"))
+        scorer.begin_item(item)
+        extra = np.zeros((1, SMALL_LAT.size, SMALL_LON.size), dtype=np.float32)
+        scorer.update(item, "diag", _field(extra, LEADS[0], ["unscored"], None))
+        scorer.finish_item(item)
+        scorer._store.close()
+        ds = xr.open_zarr(path, consolidated=False)
+        assert np.isnan(ds["w_sum__t2m"].values).all()
+
+
+# ---------------------------------------------------------------------------
+# Verification access and store schema
 # ---------------------------------------------------------------------------
 
 
 class TestVerification:
-    def test_field_cache_normalizes_and_caches(self, tmp_path):
-        from src.data import PredownloadedSource
-
-        times = np.array(["2024-01-01T00", "2024-01-01T06"], dtype="datetime64[ns]")
-        path = _verification_zarr(tmp_path / "verif.zarr", times)
-        source = PredownloadedSource(path)
-
+    def test_field_cache_caches_and_orders(self) -> None:
+        source = FixedSource()
         cache = FieldCache(
-            source, VARIABLES, ("lat", "lon"), torch.device("cpu"), max_size=1
+            source, ["z500", "t2m"], GRID, SPATIAL, torch.device("cpu"), max_size=1
         )
-        field = cache.get(times[0])
-        assert field.shape == (len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-        assert field.dtype is torch.float32
-        # Same object back on a hit; a miss evicts under max_size=1.
-        assert cache.get(times[0]) is field
-        cache.get(times[1])
-        assert cache.get(times[0]) is not field
+        first = cache.get(T0)
+        assert first.shape == (2, SMALL_LAT.size, SMALL_LON.size)
+        np.testing.assert_allclose(first[0].numpy(), analytic_field(T0, VARIABLES)[1])
+        assert cache.get(T0) is first and len(source.calls) == 1
+        cache.get(T1)
+        assert len(source.calls) == 2 and cache.get(T0) is not first
 
-    def test_coverage_check_passes_and_fails(self, tmp_path):
-        from src.data import PredownloadedSource
-
-        times = np.array(
-            ["2024-01-01T00", "2024-01-01T06", "2024-01-01T12"],
-            dtype="datetime64[ns]",
+    def test_field_cache_crops_onto_the_scored_grid(self) -> None:
+        other = OrderedDict([("lat", SMALL_LAT[:2]), ("lon", SMALL_LON)])
+        cache = FieldCache(
+            FixedSource(),
+            VARIABLES,
+            LatLonGrid(SMALL_LAT[:2], SMALL_LON),
+            other,
+            torch.device("cpu"),
         )
-        source = PredownloadedSource(_verification_zarr(tmp_path / "verif.zarr", times))
-        ics = [np.datetime64("2024-01-01T00", "ns")]
+        # The library crops the source onto the smaller target grid.
+        assert cache.get(T0).shape == (2, 2, SMALL_LON.size)
 
-        check_verification_coverage(source, ics, LEAD_TIMES, VARIABLES)
-
-        too_far = np.array([0, 6, 12, 18], dtype="timedelta64[h]").astype(
-            "timedelta64[ns]"
+    def test_valid_ranges_and_zero_fill(self) -> None:
+        source = FixedSource(offset=100.0)
+        cache = FieldCache(
+            source,
+            VARIABLES,
+            GRID,
+            SPATIAL,
+            torch.device("cpu"),
+            valid_ranges={"t2m": {"max": 50.0}},
+            nan_policy="zero_fill",
         )
-        with pytest.raises(ValueError, match="missing 1/4 valid times"):
-            check_verification_coverage(source, ics, too_far, VARIABLES)
+        field = cache.get(T0)
+        assert float(field[0].max()) == 50.0 and float(field[1].max()) > 50.0
 
-    def test_coverage_check_tolerates_unknown_sources(self):
-        class Opaque:
-            def __call__(self, time, variable):  # pragma: no cover - not called
-                raise AssertionError
-
-        assert available_times(Opaque()) is None
-        # Unknown coverage is a warning, not a failure.
-        check_verification_coverage(Opaque(), [IC_TIMES[0]], LEAD_TIMES, VARIABLES)
-
-
-# ---------------------------------------------------------------------------
-# Member batching (phase 4)
-# ---------------------------------------------------------------------------
-
-
-class _ConstantField:
-    """Stand-in FieldCache returning a constant verification field."""
-
-    def __init__(self, value: float) -> None:
-        self._value = value
-
-    def get(self, valid_time) -> torch.Tensor:
-        return torch.full(
-            (len(VARIABLES), len(SMALL_LAT), len(SMALL_LON)),
-            self._value,
-            dtype=torch.float32,
-        )
-
-
-def _persistence_pipeline(device: torch.device, nsteps: int = 2):
-    """A ForecastPipeline wired to Persistence without touching Hydra."""
-    from src.pipelines import ForecastPipeline
-
-    from earth2studio.models.px import Persistence
-
-    prognostic = Persistence(
-        variable=VARIABLES,
-        domain_coords=OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON}),
-    )
-    pipeline = ForecastPipeline()
-    pipeline.prognostic = prognostic.to(device)
-    pipeline.diagnostics = []
-    pipeline.perturbation = None
-    pipeline.nsteps = nsteps
-    pipeline._prognostic_ic = prognostic.input_coords()
-    pipeline._spatial_ref = prognostic.output_coords(pipeline._prognostic_ic)
-    pipeline._dx_input_coords = {}
-    return pipeline
-
-
-class TestMemberBatching:
-    def test_forecast_pipeline_supports_batching(self):
-        from src.pipelines import Pipeline
-
-        assert _persistence_pipeline(torch.device("cpu")).supports_member_batching()
-
-        class Bare(Pipeline):
-            def setup(self, cfg, device):  # pragma: no cover - never called
-                ...
-
-            def build_total_coords(self, times, ensemble_size):  # pragma: no cover
-                ...
-
-            def run_item(self, item, data_source, device):  # pragma: no cover
-                ...
-
-        assert not Bare().supports_member_batching()
-        with pytest.raises(NotImplementedError, match="run_item_batched"):
-            list(Bare().run_item_batched([], None, torch.device("cpu")))
-
-    def test_batched_matches_unbatched_members(self):
-        """Each batched member must reproduce its own K=1 rollout."""
-        device = torch.device("cpu")
-        pipeline = _persistence_pipeline(device)
-        source = _FixedSource()
-        items = [
-            WorkItem(time=IC_TIMES[0], ensemble_id=m, seed=100 + m) for m in range(3)
-        ]
-
-        batched = list(pipeline.run_item_batched(items, source, device))
-        per_member = [list(pipeline.run_item(item, source, device)) for item in items]
-
-        assert len(batched) == len(per_member[0])
-        for step, (x_batch, coords_batch) in enumerate(batched):
-            assert list(coords_batch)[0] == "ensemble"
-            assert list(coords_batch["ensemble"]) == [0, 1, 2]
-            for m in range(len(items)):
-                x_solo, _ = per_member[m][step]
-                assert torch.allclose(x_batch[m], x_solo, atol=1e-6)
-
-    def test_batch_must_share_one_initial_condition(self):
-        device = torch.device("cpu")
-        pipeline = _persistence_pipeline(device)
-        items = [
-            WorkItem(time=IC_TIMES[0], ensemble_id=0, seed=1),
-            WorkItem(time=IC_TIMES[1], ensemble_id=1, seed=2),
-        ]
-        with pytest.raises(ValueError, match="one initial condition per batch"):
-            list(pipeline.run_item_batched(items, _FixedSource(), device))
-
-    def test_run_rejects_indivisible_member_batch(self):
-        device = torch.device("cpu")
-        pipeline = _persistence_pipeline(device)
-        items = [WorkItem(time=IC_TIMES[0], ensemble_id=m, seed=m) for m in range(3)]
-
-        class _Sink:
-            def begin_item(self, item): ...
-
-            def update(self, x, coords): ...
-
-            def finish_item(self, item): ...
-
-        with pytest.raises(ValueError, match="does not divide"):
-            pipeline.run(
-                items,
-                _FixedSource(),
-                None,
-                list(VARIABLES),
-                device,
-                scorer=_Sink(),
-                member_batch=2,
+    def test_coverage_check(self, tmp_path) -> None:
+        class _Store:
+            _da = xr.DataArray(
+                np.zeros(3),
+                dims=("time",),
+                coords={
+                    "time": np.array(
+                        [T0, T0 + np.timedelta64(6, "h"), T0 + np.timedelta64(12, "h")],
+                        dtype="datetime64[ns]",
+                    )
+                },
             )
 
-    def test_scorer_accepts_a_member_block(self, tmp_path):
-        """A K>1 chunk must land on the right absolute member indices."""
-        m = 4
-        comm = _single_rank_comm(m)
-        spatial = OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
-        cfg = _base_cfg(tmp_path, ensemble_size=m)
+        check_verification_coverage(_Store(), [T0], LEADS, VARIABLES)
+        with pytest.raises(ValueError, match="missing"):
+            check_verification_coverage(_Store(), [T0, T1], LEADS, VARIABLES)
+        check_verification_coverage(
+            FixedSource(), [T0, T1], LEADS, VARIABLES
+        )  # unknown coverage
 
-        scorer = OnlineScorer(
-            cfg=cfg,
-            settings=_settings(tmp_path, crps=False),
-            comm=comm,
-            verification=_ConstantField(0.0),
-            climatology=None,
-            variables=list(VARIABLES),
-            lead_times=LEAD_TIMES,
-            spatial_coords=spatial,
-            weights=build_spatial_weights(spatial, True),
-            stats_mgr=None,
-            device=torch.device("cpu"),
+
+class TestStoreSchema:
+    def test_deterministic_schema_has_no_member_axes(self, tmp_path) -> None:
+        _, settings = _settings(tmp_path)
+        groups = stats_array_groups(
+            build_statistics(1, False, settings, VARIABLES),
+            VARIABLES,
+            np.array([T0]),
+            LEADS,
+            1,
+        )
+        assert len(groups) == 1
+        coords, names = groups[0]
+        assert list(coords) == ["time", "lead_time"]
+        assert "w_sum__t2m" in names and "sse_ensmean__z500" in names
+        assert not any(n.startswith("sse_member") for n in names)
+
+    def test_ensemble_schema_groups_by_layout(self, tmp_path) -> None:
+        _, settings = _settings(tmp_path, pairwise_variables="[t2m]")
+        groups = stats_array_groups(
+            build_statistics(2, True, settings, VARIABLES),
+            VARIABLES,
+            np.array([T0]),
+            LEADS,
+            2,
+            ["global"],
+        )
+        layouts = {tuple(coords): names for coords, names in groups}
+        assert ("time", "region", "lead_time") in layouts
+        assert ("time", "region", "ensemble", "lead_time") in layouts
+        assert ("time", "region", "rank_bin", "lead_time") in layouts
+        scalar = layouts[("time", "region", "lead_time")]
+        assert (
+            "sum_wa__t2m" in scalar
+            and "crps_t1__t2m" in scalar
+            and "crps_t1__z500" not in scalar
         )
 
-        torch.manual_seed(11)
-        block = torch.randn(m, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-        coords = OrderedDict(
-            {
-                "ensemble": np.arange(m),
-                "time": np.array([IC_TIMES[0]]),
-                "lead_time": np.array([LEAD_TIMES[1]]),
-                "variable": np.array(VARIABLES),
-                "lat": SMALL_LAT,
-                "lon": SMALL_LON,
-            }
+    def test_reopen_skips_existing_arrays_and_checks_regions(self, tmp_path) -> None:
+        _, settings = _settings(tmp_path)
+        groups = stats_array_groups(
+            build_statistics(1, False, settings, VARIABLES),
+            VARIABLES,
+            np.array([T0]),
+            LEADS,
+            1,
+            ["global"],
         )
-        scorer.begin_item(WorkItem(time=IC_TIMES[0], ensemble_id=0, seed=0))
-        # (member, time, lead_time, variable, lat, lon)
-        scorer.update(block[:, None, None], coords)
-
-        # sse_member for member i must equal that member's own weighted SSE.
-        state: dict = {}
-        for stat in scorer._statistics:
-            state.update(stat.state())
-        w = build_spatial_weights(spatial, True)
-        expected = (block.double() ** 2 * w).sum(dim=(2, 3))
-        assert torch.allclose(state["sse_member"][:, 1, :], expected, atol=1e-9)
-
-    def test_scorer_rejects_foreign_members(self, tmp_path):
-        m = 4
-        spatial = OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
-        scorer = OnlineScorer(
-            cfg=_base_cfg(tmp_path, ensemble_size=m),
-            settings=_settings(tmp_path, crps=False),
-            comm=_single_rank_comm(m),
-            verification=_ConstantField(0.0),
-            climatology=None,
-            variables=list(VARIABLES),
-            lead_times=LEAD_TIMES,
-            spatial_coords=spatial,
-            weights=build_spatial_weights(spatial, True),
-            stats_mgr=None,
-            device=torch.device("cpu"),
+        path = str(tmp_path / "stats.zarr")
+        store = open_stats_store(path, groups, ["global"], resume=False, overwrite=True)
+        store.close()
+        again = open_stats_store(path, groups, ["global"], resume=True, overwrite=False)
+        assert "w_sum__t2m" in again
+        again.close()
+        with pytest.raises(ValueError, match="regions"):
+            open_stats_store(path, groups, ["europe"], resume=True, overwrite=False)
+        with pytest.raises(FileExistsError):
+            open_stats_store(path, groups, ["global"], resume=False, overwrite=False)
+        # A resume into a store laid out for other initial times fails at
+        # setup, not at the first write after a rollout.
+        longer = stats_array_groups(
+            build_statistics(1, False, settings, VARIABLES),
+            VARIABLES,
+            np.array([T0, T1]),
+            LEADS,
+            1,
+            ["global"],
         )
-        block = torch.zeros(m, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-        coords = OrderedDict(
-            {
-                "ensemble": np.array([9, 8, 7, 6]),
-                "lead_time": np.array([LEAD_TIMES[0]]),
-                "variable": np.array(VARIABLES),
-                "lat": SMALL_LAT,
-                "lon": SMALL_LON,
-            }
-        )
-        scorer.begin_item(WorkItem(time=IC_TIMES[0], ensemble_id=0, seed=0))
-        with pytest.raises(ValueError, match="this rank owns"):
-            scorer.update(block.unsqueeze(1), coords)
+        with pytest.raises(ValueError, match="differs from the store"):
+            open_stats_store(path, longer, ["global"], resume=True, overwrite=False)
+        # open_stats_store refuses a resume whose store has gone missing
+        # while the progress store still records finished items.
+        with pytest.raises(FileNotFoundError, match="progress store records"):
+            open_stats_store(
+                str(tmp_path / "gone.zarr"),
+                groups,
+                ["global"],
+                resume=True,
+                overwrite=False,
+                recorded=3,
+            )
 
 
 # ---------------------------------------------------------------------------
-# End to end: accumulate -> stats.zarr -> scores.zarr
+# Multi-reference naming
 # ---------------------------------------------------------------------------
+
+
+class TestMultiReference:
+    def test_unset_sources_keep_plain_filenames(self, tmp_path) -> None:
+        cfg = compose_cfg(tmp_path, ["scoring.mode=online"])
+        assert verification_source_names(cfg) == [None]
+        assert named_store_filename("stats.zarr", None) == "stats.zarr"
+        assert named_store_filename("stats.zarr", "era5") == "stats__era5.zarr"
+        assert named_store_filename("scores", "ifs") == "scores__ifs.zarr"
+
+    @staticmethod
+    def _with_sources(tmp_path, sources) -> DictConfig:
+        cfg = compose_cfg(tmp_path, ["scoring.mode=online"])
+        with open_dict(cfg):
+            cfg.scoring.online.verification_sources = sources
+        return cfg
+
+    def test_named_sources_are_validated(self, tmp_path) -> None:
+        cfg = self._with_sources(tmp_path, {"era5": None, "ifs-hres": None})
+        assert verification_source_names(cfg) == ["era5", "ifs-hres"]
+        with pytest.raises(ValueError, match="empty"):
+            verification_source_names(self._with_sources(tmp_path, {}))
+        with pytest.raises(ValueError, match="Invalid verification source name"):
+            verification_source_names(self._with_sources(tmp_path, {"../x": None}))
+
+    def test_fan_out_hands_every_field_to_every_reference(self, tmp_path) -> None:
+        cfg, settings = _settings(
+            tmp_path, members_per_rank=2, pairwise_comm_dtype="float64"
+        )
+        truth = FixedSource()
+        shifted = FixedSource(offset=1.0)
+        a, path_a = _make_scorer(
+            tmp_path, cfg, settings, 2, truth, name="stats__a.zarr"
+        )
+        b, path_b = _make_scorer(
+            tmp_path, cfg, settings, 2, shifted, name="stats__b.zarr"
+        )
+        _score_offsets(MultiRefScorer({"a": a, "b": b}), truth, [1.0, 3.0])
+        a._store.close()
+        b._store.close()
+        ds_a = xr.open_zarr(path_a, consolidated=False).sel(time=T0)
+        ds_b = xr.open_zarr(path_b, consolidated=False).sel(time=T0)
+        np.testing.assert_allclose(ds_a["sse_member__t2m"].values[0], 1.0 * N_POINTS)
+        np.testing.assert_allclose(ds_b["sse_member__t2m"].values[0], 0.0, atol=1e-9)
+        np.testing.assert_allclose(ds_b["sse_member__t2m"].values[1], 4.0 * N_POINTS)
+        with pytest.raises(ValueError, match="at least one"):
+            MultiRefScorer({})
+
+
+# ---------------------------------------------------------------------------
+# End to end through the library Pipeline
+# ---------------------------------------------------------------------------
+
+
+def _online_cfg(
+    tmp_path: Path, members_per_rank: int, extra: list[str] | None = None
+) -> DictConfig:
+    cfg = compose_cfg(
+        tmp_path,
+        [
+            "scoring.mode=online",
+            "output.retain=none",
+            "nsteps=2",
+            "ensemble_size=2",
+            f"scoring.online.members_per_rank={members_per_rank}",
+            "scoring.online.pairwise_comm_dtype=float64",
+            f"start_times=['{T0}', '{T1}']",
+            *(extra or []),
+        ],
+    )
+    with open_dict(cfg):
+        cfg.model = {
+            "_target_": "earth2studio.models.px.Persistence",
+            "variable": list(VARIABLES),
+            "domain_coords": "latlon-small",
+        }
+        cfg.ic_source = {
+            "_target_": "test.test_online.FixedSource",
+            "offset": 0.0,
+            "rate_per_hour": 0.5,
+        }
+        cfg.verification_source = {
+            "_target_": "test.test_online.FixedSource",
+            "offset": 0.0,
+            "rate_per_hour": 0.5,
+        }
+        cfg.output.variables = list(VARIABLES)
+    return cfg
+
+
+def run_online(cfg: DictConfig) -> OnlineRun:
+    """The online branch of ``main.run``, without the raw forecast store."""
+    settings = parse_online_settings(cfg)
+    runner = build_runner(cfg)
+    items = build_items(cfg, runner, member_batch=settings.members_per_rank)
+    schemas = runner.output_coords(max(item.final_lead_time for item in items))
+    regridders = build_regridders(cfg, schemas)
+    variables = stream_variables(schemas, list(cfg.output.variables))
+    run = OnlineRun.build(
+        cfg, settings, runner, items, schemas, regridders, variables, "cpu"
+    )
+    resume = bool(cfg.get("resume", False))
+    progress = ProgressStore(progress_path(cfg), overwrite=not resume)
+    Pipeline(
+        runner,
+        output=None,
+        scorer=run.scorer,
+        output_variables=variables,
+        regridder=regridders,
+        progress=progress,
+        device="cpu",
+        sync=run.sync,
+    ).run(run.items)
+    run.finalize()
+    return run
 
 
 class TestEndToEnd:
-    """A deterministic online run must match the offline scorer exactly."""
-
-    def _run(self, tmp_path):
-        from src.data import PredownloadedSource
-
-        cfg = _base_cfg(tmp_path, ensemble_size=1)
-        os.makedirs(cfg.output.path, exist_ok=True)
-
-        valid_times = np.unique(
-            np.array(
-                [t + lt for t in IC_TIMES for lt in LEAD_TIMES],
-                dtype="datetime64[ns]",
-            )
-        )
-        verif_path = _verification_zarr(tmp_path / "verif.zarr", valid_times)
-        source = PredownloadedSource(verif_path)
-
-        settings = parse_online_settings(cfg)
-        comm = _single_rank_comm(1)
-        statistics = build_statistics(1, has_climatology=False)
-
-        rng = np.random.default_rng(11)
-        forecasts = {
-            (str(t), int(lt.astype("int64"))): rng.standard_normal(
-                (len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-            ).astype("float32")
-            for t in IC_TIMES
-            for lt in LEAD_TIMES
+    def test_persistence_ensemble_scores_its_trend(self, tmp_path) -> None:
+        cfg = _online_cfg(tmp_path, members_per_rank=2)
+        run = run_online(cfg)
+        assert all(len(item.member_ids) == 2 for item in run.items)
+        out = Path(cfg.output.path)
+        assert (out / "stats.zarr").is_dir() and (out / "scores.zarr").is_dir()
+        assert not (out / "forecast.zarr").exists()
+        scores = xr.open_zarr(out / "scores.zarr", consolidated=True)
+        assert dict(scores["mse__t2m"].sizes) == {
+            "ensemble": 2,
+            "time": 2,
+            "lead_time": 3,
         }
-
-        spatial = OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
-        with (
-            patch("src.output.DistributedManager", return_value=_fake_dist()),
-            patch("src.distributed.DistributedManager", return_value=_fake_dist()),
-        ):
-            stats_mgr = open_stats_store(
-                cfg, statistics, VARIABLES, IC_TIMES, LEAD_TIMES, 1
+        # Persistence holds the IC while the truth drifts 0.5 per hour.
+        hours = LEADS.astype("timedelta64[h]").astype(float)
+        for var in VARIABLES:
+            mse = (
+                scores[f"mse__{var}"].transpose("time", "ensemble", "lead_time").values
             )
-            with stats_mgr:
-                scorer = OnlineScorer(
-                    cfg=cfg,
-                    settings=settings,
-                    comm=comm,
-                    verification=FieldCache(
-                        source, VARIABLES, ("lat", "lon"), torch.device("cpu")
-                    ),
-                    climatology=None,
-                    variables=list(VARIABLES),
-                    lead_times=LEAD_TIMES,
-                    spatial_coords=spatial,
-                    weights=build_spatial_weights(spatial, True),
-                    stats_mgr=stats_mgr,
-                    device=torch.device("cpu"),
-                )
-                for item in build_group_work_items(list(IC_TIMES), comm.group, cfg):
-                    scorer.begin_item(item)
-                    for lt in LEAD_TIMES:
-                        x = torch.from_numpy(
-                            forecasts[(str(item.time), int(lt.astype("int64")))]
-                        )
-                        coords = OrderedDict(
-                            {
-                                "time": np.array([item.time]),
-                                "lead_time": np.array([lt]),
-                                "variable": np.array(VARIABLES),
-                                "lat": SMALL_LAT,
-                                "lon": SMALL_LON,
-                            }
-                        )
-                        scorer.update(x[None, None], coords)
-                    scorer.finish_item(item)
-
-            finalize_stats(cfg)
-
-        return cfg, forecasts, source
-
-    def test_stats_store_written(self, tmp_path):
-        cfg, _, _ = self._run(tmp_path)
-        ds = xr.open_zarr(os.path.join(cfg.output.path, "stats.zarr"))
-        assert "sse_ensmean__t2m" in ds
-        assert "w_sum__z500" in ds
-        assert ds["sse_ensmean__t2m"].dims == ("time", "lead_time")
-        assert ds["sse_ensmean__t2m"].dtype == np.float64
-        assert not np.isnan(ds["sse_ensmean__t2m"].values).any()
-
-    def test_markers_written_per_ic(self, tmp_path):
-        cfg, _, _ = self._run(tmp_path)
-        markers = sorted(p.name for p in online_progress_dir(cfg).iterdir())
-        assert len(markers) == len(IC_TIMES)
-        assert filter_online_completed(list(IC_TIMES), cfg) == []
-
-    def test_scores_match_offline_metric(self, tmp_path):
-        cfg, forecasts, source = self._run(tmp_path)
-        scores = xr.open_zarr(os.path.join(cfg.output.path, "scores.zarr"))
-
-        assert "mse__t2m" in scores
-        assert "ensemble_mean_mse__t2m" not in scores  # deterministic run
-        assert "ensemble_variance__t2m" not in scores
-        assert "bias__z500" in scores
-        assert "acc__t2m" not in scores  # no climatology configured
-
-        metric = mse(reduction_dimensions=["lat", "lon"], weights=_weights_2d())
-        y_coords = OrderedDict(
-            {
-                "variable": np.array(VARIABLES),
-                "lat": SMALL_LAT,
-                "lon": SMALL_LON,
-            }
+            np.testing.assert_allclose(
+                mse, np.broadcast_to((0.5 * hours) ** 2, mse.shape), atol=1e-6
+            )
+            np.testing.assert_allclose(
+                scores[f"ensemble_variance__{var}"].values, 0.0, atol=1e-9
+            )
+            np.testing.assert_allclose(
+                scores[f"bias__{var}"].transpose("time", "lead_time").values,
+                np.broadcast_to(-0.5 * hours, (2, 3)),
+                atol=1e-6,
+            )
+        # Deriving the scores twice gives the same store.
+        finalize_online_stats(cfg)
+        again = xr.open_zarr(out / "scores.zarr", consolidated=True)
+        np.testing.assert_array_equal(
+            again["mse__z500"].values, scores["mse__z500"].values
         )
-        for t in IC_TIMES:
-            for lt in LEAD_TIMES:
-                x = torch.from_numpy(forecasts[(str(t), int(lt.astype("int64")))])
-                y = torch.from_numpy(
-                    source([t + lt], VARIABLES)
-                    .transpose("time", "variable", "lat", "lon")
-                    .values[0]
-                    .copy()
-                )
-                ref, _ = metric(x, y_coords, y, y_coords)
-                for j, var in enumerate(VARIABLES):
-                    got = float(scores[f"mse__{var}"].sel(time=t, lead_time=lt).values)
-                    assert got == pytest.approx(float(ref[j]), rel=1e-5)
 
-    def test_finalize_is_idempotent(self, tmp_path):
-        cfg, _, _ = self._run(tmp_path)
-        first = xr.open_zarr(os.path.join(cfg.output.path, "scores.zarr")).load()
-        finalize_stats(cfg)
-        second = xr.open_zarr(os.path.join(cfg.output.path, "scores.zarr")).load()
-        xr.testing.assert_allclose(first, second)
+    def test_resume_skips_finished_items_and_keeps_stats(self, tmp_path) -> None:
+        cfg = _online_cfg(tmp_path, members_per_rank=2)
+        run_online(cfg)
+        stats_path = Path(cfg.output.path) / "stats.zarr"
+        before = xr.open_zarr(stats_path, consolidated=False).load()
+        with open_dict(cfg):
+            cfg.resume = True
+        run_online(cfg)
+        after = xr.open_zarr(stats_path, consolidated=False).load()
+        for name in before.data_vars:
+            np.testing.assert_array_equal(before[name].values, after[name].values)
+
+    def test_deterministic_campaign(self, tmp_path) -> None:
+        cfg = _online_cfg(tmp_path, members_per_rank=1, extra=["ensemble_size=1"])
+        run = run_online(cfg)
+        assert all(item.member_ids == () for item in run.items)
+        scores = xr.open_zarr(Path(cfg.output.path) / "scores.zarr", consolidated=True)
+        assert "ensemble" not in scores.dims and "crps__t2m" not in scores
+        np.testing.assert_allclose(
+            scores["mse__t2m"].sel(lead_time=LEADS[1]).values, 9.0, atol=1e-6
+        )
+
+    def test_named_references_write_their_own_stores(self, tmp_path) -> None:
+        cfg = _online_cfg(tmp_path, members_per_rank=2)
+        with open_dict(cfg):
+            cfg.scoring.online.verification_sources = {
+                "truth": None,
+                "shifted": {
+                    "_target_": "test.test_online.FixedSource",
+                    "offset": 1.0,
+                    "rate_per_hour": 0.5,
+                },
+            }
+        run_online(cfg)
+        out = Path(cfg.output.path)
+        for name in ("truth", "shifted"):
+            assert (out / f"stats__{name}.zarr").is_dir()
+            assert (out / f"scores__{name}.zarr").is_dir()
+        assert not (out / "stats.zarr").exists()
+        truth = xr.open_zarr(out / "scores__truth.zarr", consolidated=True)
+        shifted = xr.open_zarr(out / "scores__shifted.zarr", consolidated=True)
+        np.testing.assert_allclose(
+            truth["mse__t2m"].sel(lead_time=LEADS[0]).values, 0.0, atol=1e-9
+        )
+        np.testing.assert_allclose(
+            shifted["mse__t2m"].sel(lead_time=LEADS[0]).values, 1.0, atol=1e-6
+        )
+
+    def test_world_size_must_be_a_multiple_of_the_group_size(self, tmp_path) -> None:
+        cfg = _online_cfg(tmp_path, members_per_rank=1)  # G = 2 on one rank
+        with pytest.raises(ValueError, match="multiple"):
+            run_online(cfg)
+
+    def test_scored_variable_outside_output_is_rejected(self, tmp_path) -> None:
+        cfg = _online_cfg(
+            tmp_path, members_per_rank=2, extra=["scoring.variables=[t2m, msl]"]
+        )
+        with pytest.raises(ValueError, match="scoring.variables"):
+            run_online(cfg)
 
 
 # ---------------------------------------------------------------------------
-# Regional splits and optional statistics (mae / lsd)
+# Two ranks on gloo
 # ---------------------------------------------------------------------------
 
-# SMALL_LAT is [90, 30, -30, -90]; SMALL_LON is 0..315 step 45.
-REGIONS = {
-    "global": None,
-    "midlat": {"lat": [-40.0, 40.0], "lon": [0.0, 360.0]},
-    "wrap": {"lat": [-90.0, 90.0], "lon": [315.0, 45.0]},
-}
+
+def _free_port() -> int:
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
 
 
-def _region_masks() -> torch.Tensor:
-    """The {0,1} masks REGIONS describes on the small test grid."""
-    lat = torch.tensor(SMALL_LAT, dtype=torch.float64)
-    lon = torch.tensor(SMALL_LON, dtype=torch.float64)
-    masks = torch.ones(3, len(SMALL_LAT), len(SMALL_LON), dtype=torch.float64)
-    masks[1] *= ((lat >= -40) & (lat <= 40)).double().reshape(-1, 1)
-    masks[2] *= ((lon >= 315) | (lon <= 45)).double().reshape(1, -1)
-    return masks
+@pytest.mark.skipif(
+    os.environ.get("E2S_EVAL_SKIP_MULTIRANK") == "1", reason="multi-rank test disabled"
+)
+def test_two_rank_group_matches_single_process(tmp_path) -> None:
+    """One member per rank over two ranks equals two members on one rank."""
+    single = _online_cfg(tmp_path / "single", members_per_rank=2)
+    run_online(single)
+    reference = xr.open_zarr(
+        Path(single.output.path) / "stats.zarr", consolidated=False
+    ).load()
 
-
-class TestRegionalWeights:
-    def test_shapes_and_global_slice(self):
-        coords = OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
-        w = build_spatial_weights(coords, lat_weights=True, regions=REGIONS)
-        assert w.shape == (3, len(SMALL_LAT), len(SMALL_LON))
-        base = build_spatial_weights(coords, lat_weights=True)
-        assert torch.allclose(w[0], base.expand(len(SMALL_LAT), len(SMALL_LON)))
-
-    def test_masks_match_expected_boxes(self):
-        coords = OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
-        w = build_spatial_weights(coords, lat_weights=False, regions=REGIONS)
-        assert torch.equal(w, _region_masks())
-
-    def test_empty_box_raises(self):
-        coords = OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
-        with pytest.raises(ValueError, match="selects no gridpoints"):
-            build_spatial_weights(
-                coords,
-                lat_weights=False,
-                regions={"nowhere": {"lat": [-5.0, 5.0], "lon": [0.0, 360.0]}},
-            )
-
-    def test_parse_roundtrip_and_validation(self, tmp_path):
-        settings = _settings(tmp_path, regions=REGIONS)
-        assert list(settings.regions) == ["global", "midlat", "wrap"]
-        assert settings.regions["global"] is None
-        # A box may name any subset of spatial dims; the rest span fully.
-        partial = _settings(tmp_path, regions={"band": {"lat": [0, 10]}})
-        assert partial.regions["band"] == [{"lat": [0.0, 10.0]}]
-        with pytest.raises(ValueError, match="lat bounds"):
-            _settings(tmp_path, regions={"bad": {"lat": [50, 10], "lon": [0, 10]}})
-        with pytest.raises(ValueError, match="min < max"):
-            _settings(tmp_path, regions={"bad": {"level": [500, 200]}})
-
-    def test_lsd_requires_a_whole_grid_region(self, tmp_path):
-        with pytest.raises(ValueError, match="whole-grid region"):
-            _settings(
-                tmp_path,
-                lsd=True,
-                regions={"midlat": {"lat": [-40.0, 40.0], "lon": [0.0, 360.0]}},
-            )
-        settings = _settings(tmp_path, lsd=True, regions=REGIONS)
-        assert settings.lsd
-
-
-def _run_statistics_regional(
-    f: torch.Tensor,
-    y: torch.Tensor,
-    ensemble_size: int,
-    tmp_path,
-):
-    """Drive one lead step with REGIONS configured; returns the states."""
-    comm = _single_rank_comm(ensemble_size)
-    spatial = OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
-    weights = build_spatial_weights(spatial, lat_weights=True, regions=REGIONS)
-    w_flat = weights.reshape(3, -1).T.contiguous()
-    n_variables = y.shape[0]
-
-    settings = _settings(tmp_path, regions=REGIONS, mae=True, crps=False)
-    statistics = build_statistics(ensemble_size, settings=settings)
-    for stat in statistics:
-        stat.reset(1, n_variables, ensemble_size, torch.device("cpu"), n_regions=3)
-
-    ctx = StepContext(
-        lead_index=0,
-        valid_time=np.datetime64("2024-01-01T06", "ns"),
-        y=y,
-        clim=None,
-        f_local=f,
-        d_local=f - y,
-        weights=weights,
-        valid=torch.ones_like(y, dtype=torch.bool),
-        n_spatial=2,
-        ensemble_size=ensemble_size,
-        member_ids=tuple(range(ensemble_size)),
-        comm=comm,
-        w_flat=w_flat,
+    out = tmp_path / "pair"
+    env = {**os.environ, "OMP_NUM_THREADS": "1", "CUDA_VISIBLE_DEVICES": ""}
+    env["PYTHONPATH"] = os.pathsep.join(
+        p
+        for p in (
+            str(RECIPE_DIR),
+            str(RECIPE_DIR.parents[1]),
+            env.get("PYTHONPATH", ""),
+        )
+        if p
     )
-    d = ctx.d_local.double()
-    ctx.s1 = d.sum(dim=0)
-    ctx.s2 = (d**2).sum(dim=0)
-    ctx.below = (ctx.f_local < ctx.y).sum(dim=0, dtype=torch.int32)
-
-    for stat in statistics:
-        stat.update(ctx)
-    state: dict = {}
-    for stat in statistics:
-        state.update(stat.state())
-    return state
-
-
-class TestRegionalAccumulation:
-    """Region 0 (whole grid) must reproduce the region-free run exactly, and
-    a boxed region must equal the region-free math on pre-masked weights."""
-
-    def test_global_region_matches_region_free_run(self, tmp_path):
-        torch.manual_seed(20)
-        m = 4
-        f = torch.randn(m, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-        y = torch.randn(len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-
-        regional = _run_statistics_regional(f, y, m, tmp_path)
-        reference, _ = _run_statistics(f, y, ensemble_size=m)
-
-        for name, ref in reference.items():
-            got = regional[name][0]  # region axis leads the buffers
-            assert torch.allclose(got, ref, rtol=1e-12, atol=1e-12), name
-
-    def test_boxed_region_matches_masked_weights(self, tmp_path):
-        torch.manual_seed(21)
-        m = 3
-        f = torch.randn(m, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-        y = torch.randn(len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-
-        regional = _run_statistics_regional(f, y, m, tmp_path)
-
-        base = build_spatial_weights(
-            OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON}), lat_weights=True
-        ).expand(len(SMALL_LAT), len(SMALL_LON))
-        for r in (1, 2):
-            masked = (base * _region_masks()[r]).double()
-            # Square/abs in float32 first — the accumulators upcast to
-            # float64 only for the weighted reduction, like the offline
-            # scorer does.
-            d = f - y
-            expected_sse = float(((d[0, 0] ** 2).double() * masked).sum())
-            assert regional["sse_member"][r, 0, 0, 0] == pytest.approx(
-                expected_sse, rel=1e-10
-            )
-            expected_w = float(masked.sum())
-            assert regional["w_sum"][r, 0, 0] == pytest.approx(expected_w, rel=1e-10)
-            expected_sae = float((d[0, 0].abs().double() * masked).sum())
-            assert regional["sae_member"][r, 0, 0, 0] == pytest.approx(
-                expected_sae, rel=1e-10
-            )
-            # Rank histogram: per-region counts total the masked weight sum.
-            counts = regional["rank_counts"][r, :, 0, :]
-            assert torch.allclose(
-                counts.sum(dim=0),
-                torch.full((len(VARIABLES),), expected_w, dtype=torch.float64),
-            )
-
-    def test_pairwise_matmul_matches_elementwise(self):
-        torch.manual_seed(22)
-        from src.online import _abs_diff_weighted_sum
-
-        local = torch.randn(2, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-        other = torch.randn(5, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-        base = build_spatial_weights(
-            OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON}), lat_weights=True
+    result = subprocess.run(  # noqa: S603 - fixed interpreter and script
+        [
+            sys.executable,
+            "-m",
+            "torch.distributed.run",
+            "--nnodes=1",
+            "--nproc_per_node=2",
+            "--master_addr=127.0.0.1",
+            f"--master_port={_free_port()}",
+            __file__,
+            str(out),
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+    assert result.returncode == 0, result.stdout[-4000:] + result.stderr[-4000:]
+    pair = xr.open_zarr(out / "outputs" / "stats.zarr", consolidated=False).load()
+    for name in reference.data_vars:
+        np.testing.assert_allclose(
+            pair[name].values, reference[name].values, rtol=1e-9, atol=1e-9
         )
-        regional_w = build_spatial_weights(
-            OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON}),
-            lat_weights=True,
-            regions=REGIONS,
+
+
+@pytest.mark.skipif(
+    os.environ.get("E2S_EVAL_SKIP_MULTIRANK") == "1", reason="multi-rank test disabled"
+)
+def test_two_rank_mask_agrees_across_the_group() -> None:
+    """A member-local non-finite point on the non-root rank masks on both ranks."""
+    env = {**os.environ, "OMP_NUM_THREADS": "1", "CUDA_VISIBLE_DEVICES": ""}
+    env["PYTHONPATH"] = os.pathsep.join(
+        p
+        for p in (
+            str(RECIPE_DIR),
+            str(RECIPE_DIR.parents[1]),
+            env.get("PYTHONPATH", ""),
         )
-        w_flat = regional_w.reshape(3, -1).T.contiguous()
-        got = _abs_diff_weighted_sum(local, other, base, 2, w_flat=w_flat)
-        assert got.shape == (len(VARIABLES), 3)
-        for r in range(3):
-            ref = _abs_diff_weighted_sum(local, other, regional_w[r], 2)
-            assert torch.allclose(got[:, r], ref, rtol=1e-12)
+        if p
+    )
+    result = subprocess.run(  # noqa: S603 - fixed interpreter and script
+        [
+            sys.executable,
+            "-m",
+            "torch.distributed.run",
+            "--nnodes=1",
+            "--nproc_per_node=2",
+            "--master_addr=127.0.0.1",
+            f"--master_port={_free_port()}",
+            __file__,
+            "--mask-check",
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+    assert result.returncode == 0, result.stdout[-4000:] + result.stderr[-4000:]
 
 
-class TestExtraStatistics:
-    def test_mae_matches_manual_weighted_mean(self, tmp_path):
-        torch.manual_seed(23)
-        m = 3
-        f = torch.randn(m, len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-        y = torch.randn(len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
+def _torchrun_mask_check() -> int:
+    """Both ranks of a two-rank group derive one mask from rank 1's NaN."""
+    import torch.distributed as dist
+    from src.online import _valid_mask
 
-        settings = _settings(tmp_path, mae=True, crps=False)
-        statistics = build_statistics(m, settings=settings)
-        names = [type(s).__name__ for s in statistics]
-        assert "MemberAbsError" in names
-
-        comm = _single_rank_comm(m)
-        weights = build_spatial_weights(
-            OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON}), lat_weights=True
+    dist.init_process_group("gloo")
+    try:
+        rank = dist.get_rank()
+        group = EnsembleGroup(
+            block=0, group_rank=rank, group_size=2, members_per_rank=1, ranks=(0, 1)
         )
-        w_sum = float(weights.expand(len(SMALL_LAT), len(SMALL_LON)).sum())
-        for stat in statistics:
-            stat.reset(1, len(VARIABLES), m, torch.device("cpu"))
-        ctx = StepContext(
-            lead_index=0,
-            valid_time=np.datetime64("2024-01-01T06", "ns"),
-            y=y,
-            clim=None,
-            f_local=f,
-            d_local=f - y,
-            weights=weights,
-            valid=torch.ones_like(y, dtype=torch.bool),
-            n_spatial=2,
-            ensemble_size=m,
-            member_ids=tuple(range(m)),
-            comm=comm,
-        )
-        d = ctx.d_local.double()
-        ctx.s1 = d.sum(dim=0)
-        ctx.s2 = (d**2).sum(dim=0)
-        ctx.below = (ctx.f_local < ctx.y).sum(dim=0, dtype=torch.int32)
-        for stat in statistics:
-            stat.update(ctx)
-        state: dict = {}
-        for stat in statistics:
-            state.update(stat.state())
-
-        expected = ((f - y).abs().double() * weights).sum(dim=(2, 3)) / w_sum
-        assert torch.allclose(state["sae_member"][:, 0, :] / w_sum, expected, atol=1e-9)
-
-    def test_lsd_matches_earth2studio(self, tmp_path):
-        pytest.importorskip("physicsnemo.metrics.general.power_spectrum")
-        from earth2studio.statistics import log_spectral_distance
-
-        torch.manual_seed(24)
-        m = 2
-        # A larger grid so the radial binning is non-trivial.
-        lat = np.linspace(90, -90, 16)
-        lon = np.linspace(0, 360, 32, endpoint=False)
-        f = torch.randn(m, len(VARIABLES), len(lat), len(lon))
-        y = torch.randn(len(VARIABLES), len(lat), len(lon))
-
-        settings = _settings(tmp_path, lsd=True, crps=False)
-        statistics = build_statistics(m, settings=settings)
-        lsd_stat = next(
-            s for s in statistics if type(s).__name__ == "LogSpectralDistance"
-        )
-        lsd_stat.reset(1, len(VARIABLES), m, torch.device("cpu"))
-        ctx = StepContext(
-            lead_index=0,
-            valid_time=np.datetime64("2024-01-01T06", "ns"),
-            y=y,
-            clim=None,
-            f_local=f,
-            d_local=f - y,
-            weights=torch.ones(1, 1, dtype=torch.float64),
-            valid=torch.ones_like(y, dtype=torch.bool),
-            n_spatial=2,
-            ensemble_size=m,
-            member_ids=tuple(range(m)),
-            comm=_single_rank_comm(m),
-        )
-        lsd_stat.update(ctx)
-        got = lsd_stat.state()["lsd"][:, 0, :]  # [ensemble, variable]
-
-        metric = log_spectral_distance(
-            reduction_dimensions=[], ensemble_dimension="ensemble"
-        )
-        x_coords = OrderedDict(
-            {
-                "ensemble": np.arange(m),
-                "variable": np.array(VARIABLES),
-                "lat": lat,
-                "lon": lon,
-            }
-        )
-        y_coords = OrderedDict(
-            {"variable": np.array(VARIABLES), "lat": lat, "lon": lon}
-        )
-        ref, _ = metric(f, x_coords, y, y_coords)
-        assert torch.allclose(got.float(), ref, rtol=1e-4)
+        comm = GroupComm(group, dist.group.WORLD)
+        finite = torch.ones((2, 4, 8), dtype=torch.bool)
+        if rank == 1:
+            finite[0, 1, 3] = False
+        masked = _valid_mask(finite, "mask", comm)
+        assert not bool(masked[0, 1, 3]) and int(masked.sum()) == 2 * 4 * 8 - 1, rank
+        whole = _valid_mask(finite, "propagate", comm)
+        assert not bool(whole[0].any()) and bool(whole[1].all()), rank
+        assert bool(_valid_mask(finite, "zero_fill", comm).all()), rank
+    finally:
+        dist.barrier()
+        dist.destroy_process_group()
+    return 0
 
 
-class TestEndToEndRegional:
-    """Regional + mae/lsd plumbing: store schema, labels, final scores."""
+def _torchrun_main() -> int:
+    """One rank of the two-rank run: ``torchrun ... test_online.py OUT``."""
+    import torch.distributed as dist
 
-    def _run(self, tmp_path):
-        from src.data import PredownloadedSource
+    from earth2studio.grids import list_grids, register_grid
 
-        cfg = _base_cfg(tmp_path, ensemble_size=1)
-        cfg.scoring.regions = OmegaConf.create({**REGIONS})
-        cfg.scoring.online.mae = True
-        os.makedirs(cfg.output.path, exist_ok=True)
-
-        valid_times = np.unique(
-            np.array(
-                [t + lt for t in IC_TIMES for lt in LEAD_TIMES],
-                dtype="datetime64[ns]",
-            )
-        )
-        verif_path = _verification_zarr(tmp_path / "verif.zarr", valid_times)
-        source = PredownloadedSource(verif_path)
-
-        settings = parse_online_settings(cfg)
-        comm = _single_rank_comm(1)
-        statistics = build_statistics(1, settings=settings)
-        spatial = OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
-
-        rng = np.random.default_rng(31)
-        forecasts = {
-            (str(t), int(lt.astype("int64"))): rng.standard_normal(
-                (len(VARIABLES), len(SMALL_LAT), len(SMALL_LON))
-            ).astype("float32")
-            for t in IC_TIMES
-            for lt in LEAD_TIMES
-        }
-
-        with (
-            patch("src.output.DistributedManager", return_value=_fake_dist()),
-            patch("src.distributed.DistributedManager", return_value=_fake_dist()),
-        ):
-            stats_mgr = open_stats_store(
-                cfg, statistics, VARIABLES, IC_TIMES, LEAD_TIMES, 1
-            )
-            with stats_mgr:
-                scorer = OnlineScorer(
-                    cfg=cfg,
-                    settings=settings,
-                    comm=comm,
-                    verification=FieldCache(
-                        source, VARIABLES, ("lat", "lon"), torch.device("cpu")
-                    ),
-                    climatology=None,
-                    variables=list(VARIABLES),
-                    lead_times=LEAD_TIMES,
-                    spatial_coords=spatial,
-                    weights=build_spatial_weights(
-                        spatial, True, regions=settings.regions
-                    ),
-                    stats_mgr=stats_mgr,
-                    device=torch.device("cpu"),
-                )
-                for item in build_group_work_items(list(IC_TIMES), comm.group, cfg):
-                    scorer.begin_item(item)
-                    for lt in LEAD_TIMES:
-                        x = torch.from_numpy(
-                            forecasts[(str(item.time), int(lt.astype("int64")))]
-                        )
-                        coords = OrderedDict(
-                            {
-                                "time": np.array([item.time]),
-                                "lead_time": np.array([lt]),
-                                "variable": np.array(VARIABLES),
-                                "lat": SMALL_LAT,
-                                "lon": SMALL_LON,
-                            }
-                        )
-                        scorer.update(x[None, None], coords)
-                    scorer.finish_item(item)
-
-            finalize_stats(cfg)
-        return cfg, forecasts, source
-
-    def test_store_schema_and_labels(self, tmp_path):
-        cfg, _, _ = self._run(tmp_path)
-        stats = xr.open_zarr(os.path.join(cfg.output.path, "stats.zarr"))
-        assert stats["sse_ensmean__t2m"].dims == ("time", "region", "lead_time")
-        assert stats.attrs["regions"] == ["global", "midlat", "wrap"]
-
-        scores = xr.open_zarr(os.path.join(cfg.output.path, "scores.zarr"))
-        assert list(scores.region.values) == ["global", "midlat", "wrap"]
-        assert "mae__t2m" in scores
-        assert not np.isnan(scores["mse__t2m"].values).any()
-
-    def test_global_region_matches_region_free_scores(self, tmp_path):
-        cfg, forecasts, source = self._run(tmp_path)
-        scores = xr.open_zarr(os.path.join(cfg.output.path, "scores.zarr"))
-
-        metric = mse(reduction_dimensions=["lat", "lon"], weights=_weights_2d())
-        y_coords = OrderedDict(
-            {"variable": np.array(VARIABLES), "lat": SMALL_LAT, "lon": SMALL_LON}
-        )
-        for t in IC_TIMES:
-            for lt in LEAD_TIMES:
-                x = torch.from_numpy(forecasts[(str(t), int(lt.astype("int64")))])
-                y = torch.from_numpy(
-                    source([t + lt], VARIABLES)
-                    .transpose("time", "variable", "lat", "lon")
-                    .values[0]
-                    .copy()
-                )
-                ref, _ = metric(x, y_coords, y, y_coords)
-                for j, var in enumerate(VARIABLES):
-                    got = float(
-                        scores[f"mse__{var}"]
-                        .sel(time=t, lead_time=lt, region="global")
-                        .values
-                    )
-                    assert got == pytest.approx(float(ref[j]), rel=1e-5)
+    if sys.argv[1] == "--mask-check":
+        return _torchrun_mask_check()
+    if "latlon-small" not in list_grids():
+        register_grid("latlon-small", GRID)
+    out = Path(sys.argv[1])
+    dist.init_process_group("gloo")
+    try:
+        run_online(_online_cfg(out, members_per_rank=1))
+    finally:
+        dist.barrier()
+        dist.destroy_process_group()
+    return 0
 
 
-class TestUnionRegions:
-    """A region may be a list of boxes; the mask is their union."""
-
-    def test_parse_normalizes_to_box_lists(self, tmp_path):
-        settings = _settings(
-            tmp_path,
-            regions={
-                "global": None,
-                "extra_tropics": [
-                    {"lat": [20, 90], "lon": [0, 360]},
-                    {"lat": [-90, -20], "lon": [0, 360]},
-                ],
-                "tropics": {"lat": [-20, 20], "lon": [0, 360]},
-            },
-        )
-        assert settings.regions["global"] is None
-        assert len(settings.regions["extra_tropics"]) == 2
-        assert len(settings.regions["tropics"]) == 1
-
-    def test_union_mask_is_complement_of_tropics(self, tmp_path):
-        lat = np.linspace(90, -90, 19)
-        lon = np.linspace(0, 360, 12, endpoint=False)
-        coords = OrderedDict({"lat": lat, "lon": lon})
-        w = build_spatial_weights(
-            coords,
-            lat_weights=True,
-            regions={
-                "global": None,
-                "tropics": [{"lat": [-20, 20], "lon": [0, 360]}],
-                "extra_tropics": [
-                    {"lat": [20, 90], "lon": [0, 360]},
-                    {"lat": [-90, -20], "lon": [0, 360]},
-                ],
-            },
-        )
-        assert w.shape == (3, len(lat), len(lon))
-        # Band-edge points (|lat| = 20) sit in BOTH splits, WB2-style
-        # inclusive slices; away from the edges the two are complementary
-        # and together tile the globe.
-        interior = np.abs(lat) != 20
-        both = (w[1] > 0) & (w[2] > 0)
-        assert not both[interior].any()
-        assert torch.allclose(torch.maximum(w[1], w[2])[interior], w[0][interior])
-
-    def test_overlapping_boxes_do_not_double_count(self, tmp_path):
-        lat = np.linspace(90, -90, 19)
-        lon = np.linspace(0, 360, 12, endpoint=False)
-        coords = OrderedDict({"lat": lat, "lon": lon})
-        w = build_spatial_weights(
-            coords,
-            lat_weights=True,
-            regions={
-                "a": [
-                    {"lat": [0, 90], "lon": [0, 360]},
-                    {"lat": [-30, 45], "lon": [0, 360]},  # overlaps the first
-                ]
-            },
-        )
-        ref = build_spatial_weights(
-            coords,
-            lat_weights=True,
-            regions={"b": {"lat": [-30, 90], "lon": [0, 360]}},
-        )
-        assert torch.allclose(w[0], ref[0])
+if __name__ == "__main__":
+    sys.exit(_torchrun_main())
