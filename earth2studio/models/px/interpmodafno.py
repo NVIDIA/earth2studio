@@ -665,7 +665,7 @@ class InterpModAFNO(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             )
             outputs.extend(self._interpolate(left, right))
             endpoint = from_torch(
-                right.e2s.to_torch()[0].to(self.center.device).clone(),
+                right.e2s.to_torch()[0].to(self.center.device),
                 self._prediction_coords(right, right.lead_time.values),
                 name=right.name,
             )

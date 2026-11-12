@@ -1201,14 +1201,14 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         )
 
     def _initial_state(self, x: xr.DataArray) -> xr.DataArray:
-        return x.copy(deep=True)
+        return x
 
     def _forward_array(self, x: xr.DataArray) -> xr.DataArray:
         handshake_time(x)
         tensor, _ = x.e2s.to_torch()
         # Preserve arbitrary leading axes, including axes without labels.
         leading = x.dims[:-6]
-        tensor = tensor.to(self.center.device).reshape(-1, *tensor.shape[-6:]).clone()
+        tensor = tensor.to(self.center.device).reshape(-1, *tensor.shape[-6:])
         coords = OrderedDict(
             batch=np.arange(tensor.shape[0]),
             **{d: x.coords[d].values for d in x.dims[-6:]},
@@ -1726,7 +1726,7 @@ class DLESyMLatLon(DLESyM):
     def _initial_state(self, x: xr.DataArray) -> xr.DataArray:
         tensor, coords = x.e2s.to_torch()
         tensor, coords = self._prepare_derived_variables(
-            tensor.to(self.center.device).clone(), coords
+            tensor.to(self.center.device), coords
         )
         signature = self.coords_to_hpx(
             coord_array_like(x, {"variable": np.array(list(coords["variable"]))})
@@ -1780,10 +1780,8 @@ class DLESyMLatLon(DLESyM):
         tensor, _ = out.e2s.to_torch()
         result = from_torch(self.to_ll(tensor), signature, name=out.name)
         result.encoding = out.encoding.copy()
-        native = (
-            out.isel(lead_time=slice(-len(self.full_input_times), None))
-            .sel(variable=self.atmos_variables + self.ocean_variables)
-            .copy(deep=True)
+        native = out.isel(lead_time=slice(-len(self.full_input_times), None)).sel(
+            variable=self.atmos_variables + self.ocean_variables
         )
         rng = (
             self._cln_generator.get_state().clone()

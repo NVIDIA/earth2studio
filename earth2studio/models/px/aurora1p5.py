@@ -581,7 +581,7 @@ class _Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self._rng_seed, self.device_buffer.device, states=self._rng_states
         ):
             predictions = self._forward_sub_steps(
-                tensor.to(self.device_buffer.device).clone(), coords, hours
+                tensor.to(self.device_buffer.device), coords, hours
             )
         results = []
         for h, prediction in zip(hours, predictions):
