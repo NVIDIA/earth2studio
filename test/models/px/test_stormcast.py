@@ -27,7 +27,7 @@ from earth2studio.data import GFS_FX, HRRR, Random, RegriddedSource, fetch_data
 from earth2studio.grids import resolve_grid
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import StormCast
-from earth2studio.run import _map_field
+from earth2studio.run import map_field
 from earth2studio.utils.coords import coord_array_like
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import OptionalDependencyFailure
@@ -515,5 +515,5 @@ def test_stormcast_default_conditioning_is_regridded():
         signature["variable"].values,
         signature["lead_time"].values,
     )
-    _map_field(x, signature)
+    map_field(x, signature)
     assert not np.isnan(x.values).any()

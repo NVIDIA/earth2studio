@@ -142,9 +142,9 @@ x = fetch_data(
 )
 
 # Can call the `DLESyMLatLon` model directly with the input lat/lon data
-from earth2studio.run import _dimension_coords, _map_field
+from earth2studio.run import _dimension_coords, map_field
 
-x = _map_field(x, in_coords_ll)
+x = map_field(x, in_coords_ll)
 y = model_ll(x)
 
 # Or, we can use the pre-processing and regridding utilities to regrid the data onto

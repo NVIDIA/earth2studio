@@ -121,6 +121,8 @@ Targets: [source protocols](earth2studio/data/base.py), [fetch_data](earth2studi
   Follow the `device` convention: NumPy/pandas on CPU, CuPy/cuDF on CUDA.
 - `tensor, coords = fetch_data(...)` → `x = fetch_data(...)`; remove `legacy=...`.
   Gridded fetch output order is `time, lead_time, variable, ...`.
+- `fetch_data` returns float32 for floating fields, as the tensor path did. Drop
+  casts after it; cast yourself when calling a source directly.
 - `interp_to` / `interp_method` → `target_grid` / explicit `regridder`.
   Use `infer_grid(model.input_coords())` for a single gridded slot. A target alone handles
   matching/cropping/nearby selection; provide a `Regridder` for the intended interpolation.

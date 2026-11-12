@@ -37,14 +37,15 @@ import torch
 import xarray as xr
 from loguru import logger
 
+from earth2studio.data import DataSource, ForecastSource
 from earth2studio.grids import infer_grid, same_geometry
 from earth2studio.grids.base import E2S_GRID_ID, Regridder
 from earth2studio.io.base import IOBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
-from earth2studio.run._fields import _map_field
+from earth2studio.run._fields import map_field
 from earth2studio.run.output import OutputManager
-from earth2studio.run.runner import PrognosticRunner, Runner, Source
+from earth2studio.run.runner import PrognosticRunner, Runner
 from earth2studio.run.work import (
     ProgressStore,
     WorkItem,
@@ -176,8 +177,8 @@ class Pipeline:
     def from_model(
         cls,
         prognostic: PrognosticModel,
-        source: Source | None = None,
-        forcing: tuple[Source, ...] | None = None,
+        source: DataSource | ForecastSource | None = None,
+        forcing: tuple[DataSource | ForecastSource, ...] | None = None,
         diagnostics: Mapping[str, DiagnosticModel] | None = None,
         seed: int = 0,
         **kwargs: Any,
@@ -530,7 +531,7 @@ def _log_finished(rank: int, index: int, mine: list[WorkItem]) -> None:
 
 def _select_variables(x: xr.DataArray, variables: Sequence[str]) -> xr.DataArray:
     """Keep ``variables`` in order; works on fields and signatures alike."""
-    return _map_field(x, OrderedDict(variable=np.asarray(variables)))
+    return map_field(x, OrderedDict(variable=np.asarray(variables)))
 
 
 def _regridded_signature(
