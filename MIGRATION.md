@@ -214,6 +214,14 @@ IO using the sections above. For new orchestration, see [Pipeline](dev/examples/
 - Runners publish the initial condition at lead 0 when a model's outputs include all of
   its inputs. Output-only variables (diagnostics such as `tp06`) are NaN at lead 0, where
   `main` let the model supply them. Exclude lead 0 from reductions over those variables.
+  `Pipeline` rejects an `output_variables` selection that holds only such variables, and
+  diagnostic streams that read them start at the first forecast.
+- Runners raise `ValueError` when a source does not cover the model grid on a numeric
+  axis (for example a regional source on a global model, or −180..180 longitudes on a
+  0..360 model) or is coarser than it; `main` copied edge or neighbouring values. Wrap
+  such sources in `RegriddedSource` or fetch with `fetch_data(target_grid=...)`.
+- Record the model and checkpoint in `ProgressStore(tags=...)` so a resumed run cannot
+  mix outputs from different models; a resume that skips items without tags now warns.
 - `CoupledRunner` raises `ValueError` for a final lead time at which no stateful
   component's output is due; it used to end the run early without an error. Component
   `front_hook` / `rear_hook` run in coupled runs as they do in `create_iterator`.
