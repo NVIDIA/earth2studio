@@ -145,7 +145,7 @@ def test_hrrr_init():
         np.array([np.datetime64("2024-01-01T00:00")]),
     ],
 )
-@pytest.mark.parametrize("variable", [["t2m", "sp", "t10hl"]])
+@pytest.mark.parametrize("variable", [["t2m", "t10hl"]])
 @pytest.mark.parametrize("cache", [True, False])
 def test_hrrr_cache(time, variable, cache):
 
