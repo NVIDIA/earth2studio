@@ -906,11 +906,5 @@ class Earth2StudioAccessor:
         return result
 
 
-if hasattr(xr.DataArray, "e2s"):
-    warnings.warn(
-        "Registering 'e2s' overrides an existing DataArray attribute.",
-        UserWarning,
-        stacklevel=2,
-    )
 # Avoid caching the accessor on its parent, which would create a reference cycle.
 setattr(xr.DataArray, "e2s", property(Earth2StudioAccessor))
