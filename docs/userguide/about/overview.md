@@ -83,6 +83,50 @@ Statistics and perturbations take and return DataArrays directly. Tensor-based
 components such as IO use explicit boundary conversion with `.e2s.to_torch()`;
 `from_torch(tensor, signature)` restores labelled fields.
 
+### Shared CUDA Memory
+
+On CUDA systems, the `auto` (default) and `cupy` array backends automatically
+configure Torch and CuPy to allocate through RAPIDS Memory Manager (RMM).
+They share the current RMM resource on each GPU with cuDF, so freed memory can be
+reused across libraries rather than remaining in separate Torch and CuPy caches.
+Earth2Studio creates an initially empty, growing pool for each GPU that still uses
+RMM's default resource. Existing custom resources are preserved.
+Same-device DLPack conversions continue to share storage without copying.
+
+Import Earth2Studio **before initializing Torch's CUDA allocator**, for example
+before creating CUDA tensors:
+
+```python
+import earth2studio
+import torch
+
+x = torch.ones(1024, device="cuda")
+```
+
+Setting `EARTH2STUDIO_ARRAY_BACKEND=numpy` or `torch` before import leaves the
+allocators unchanged. If you subsequently select `backend("cupy")` or
+`backend("auto")`, do so before using Torch CUDA. Explicit CuPy conversions also
+configure shared allocation unless disabled. Late setup raises an error asking you to restart the
+process; it cannot migrate allocations already owned by Torch's allocator.
+CPU-only imports do not load RMM.
+
+To disable Earth2Studio's RMM setup, set `EARTH2STUDIO_DISABLE_RMM=1` **before
+importing Earth2Studio**. Values `true`, `yes`, and `on` (case-insensitive) also
+disable setup. CuPy backends and DLPack conversions remain available, using the
+existing allocators. This setting does not undo allocator changes made by other
+libraries or by an earlier Earth2Studio import.
+
+Allocator configuration is process-wide and persists after a backend context exits.
+Avoid replacing or reinitializing RMM resources while allocations remain live.
+Torch's native caching-allocator statistics and cache controls do not describe or
+manage the shared RMM pool; use RMM resource instrumentation instead.
+
+RMM's Torch adapter currently does not implement `Tensor.record_stream()` lifetime
+tracking. For tensors used on another CUDA stream, keep their storage alive until
+that stream's work completes (for example, synchronize the consuming stream before
+releasing the tensor). Relying on `record_stream()` alone can let the pool reuse
+memory while it is still being read, producing incorrect results.
+
 ## Coordinate Systems { #coordinates_userguide }
 
 Models declare coordinates with allocation-free `CoordinateSystem` DataArrays.
