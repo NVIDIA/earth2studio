@@ -206,21 +206,24 @@ def test_custom_time_statistic_and_dimension_inference():
         return data.max(dim=dimension) - data.min(dim=dimension)
 
     e2s.register_time_statistic("range", value_range)
-    assert "range" in e2s.list_time_statistics()
-    array = xr.DataArray(
-        np.arange(6).reshape(2, 3),
-        dims=("time", "lead_time"),
-        coords={"lead_time": np.arange(3).astype("timedelta64[h]")},
-    )
-    np.testing.assert_array_equal(
-        e2s.apply_time_statistic(
-            array,
-            "range:3h",
-            np.timedelta64(3, "h"),
-            np.timedelta64(1, "h"),
-        ),
-        [2, 2],
-    )
+    try:
+        assert "range" in e2s.list_time_statistics()
+        array = xr.DataArray(
+            np.arange(6).reshape(2, 3),
+            dims=("time", "lead_time"),
+            coords={"lead_time": np.arange(3).astype("timedelta64[h]")},
+        )
+        np.testing.assert_array_equal(
+            e2s.apply_time_statistic(
+                array,
+                "range:3h",
+                np.timedelta64(3, "h"),
+                np.timedelta64(1, "h"),
+            ),
+            [2, 2],
+        )
+    finally:
+        e2s._TIME_STATISTICS.pop("range", None)
     with pytest.raises(ValueError, match="no 'time'"):
         e2s.apply_time_statistic(
             xr.DataArray([1, 2], dims="sample"),
