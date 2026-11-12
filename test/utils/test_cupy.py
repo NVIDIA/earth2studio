@@ -14,7 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import gc
 import warnings
+import weakref
 from collections import OrderedDict
 from contextvars import copy_context
 
@@ -35,6 +37,25 @@ def assert_values_and_gradients(actual, expected, leaf):
         torch.autograd.grad(expected.sum(), leaf)[0],
         equal_nan=True,
     )
+
+
+def test_accessor_releases_array_without_cyclic_collection():
+    collecting = gc.isenabled()
+    gc.disable()
+    try:
+        array = xr.DataArray(np.ones(4))
+        array_ref, data_ref = weakref.ref(array), weakref.ref(array.data)
+        accessor = array.e2s
+        assert xr.DataArray.e2s is cupy_utils.Earth2StudioAccessor
+        del array
+        np.testing.assert_array_equal(accessor.as_numpy().data, 1)
+        del accessor
+        assert array_ref() is None
+        assert data_ref() is None
+        np.testing.assert_array_equal(xr.DataArray(np.ones(4)).e2s.as_numpy(), 1)
+    finally:
+        if collecting:
+            gc.enable()
 
 
 def test_numpy_torch_and_batch_round_trip():

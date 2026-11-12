@@ -620,7 +620,6 @@ def from_torch(
     )
 
 
-@xr.register_dataarray_accessor("e2s")  # type: ignore[no-untyped-call]
 class Earth2StudioAccessor:
     """Earth2Studio conversions and batching for xarray DataArrays."""
 
@@ -905,3 +904,27 @@ class Earth2StudioAccessor:
         result = result.transpose(*target_dims)
         result.encoding = self._array.encoding.copy()
         return result
+
+
+class _UncachedAccessor:
+    """Keep the parent alive without a DataArray-to-accessor reference cycle."""
+
+    def __get__(
+        self, obj: xr.DataArray | None, owner: type | None = None
+    ) -> Earth2StudioAccessor | type[Earth2StudioAccessor]:
+        if obj is None:
+            return Earth2StudioAccessor
+        try:
+            return Earth2StudioAccessor(obj)
+        except AttributeError as error:
+            # DataArray.__getattr__ would otherwise hide initialization errors.
+            raise RuntimeError("error initializing 'e2s' accessor.") from error
+
+
+if hasattr(xr.DataArray, "e2s"):
+    warnings.warn(
+        "Registering 'e2s' overrides an existing DataArray attribute.",
+        UserWarning,
+        stacklevel=2,
+    )
+setattr(xr.DataArray, "e2s", _UncachedAccessor())
