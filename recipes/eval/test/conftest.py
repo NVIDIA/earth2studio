@@ -14,172 +14,100 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Shared fixtures for the eval recipe tests.
+
+Models and sources follow the Earth2Studio 1.0 DataArray protocols: a
+4 x 8 latitude-longitude grid, ``Persistence`` as the prognostic model and
+``SeededRandom`` as the data source, so every test runs on CPU without downloads.
+"""
+
 from __future__ import annotations
 
 from collections import OrderedDict
+from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
 import torch
-from omegaconf import OmegaConf
+import xarray as xr
+from hydra import compose, initialize_config_dir
+from omegaconf import DictConfig, open_dict
 
 from earth2studio.data import Random
-from earth2studio.models.batch import batch_func
+from earth2studio.grids import LatLonGrid
 from earth2studio.models.px import Persistence
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.coords import coord_array, coord_array_like
+from earth2studio.utils.type import CoordinateSystem
 
 SMALL_LAT = np.linspace(90, -90, 4)
 SMALL_LON = np.linspace(0, 360, 8, endpoint=False)
 VARIABLES = ["t2m", "z500"]
+RECIPE_DIR = Path(__file__).resolve().parents[1]
+CFG_DIR = RECIPE_DIR / "cfg"
 
 
 class FakeDiagnostic(torch.nn.Module):
-    """Minimal diagnostic model for testing.
+    """Diagnostic copying matching input channels into its output variables.
 
-    Accepts a set of input variables on a lat/lon grid and produces a set
-    of output variables on the same grid.  The output is simply a copy of
-    the matching input channels (or zeros for variables not in the input).
+    Output variables absent from the input are zero.  Declares a dynamic
+    ``batch`` prefix like the library's diagnostics, so leading ``time`` and
+    ``lead_time`` axes pass through.  An optional ``source`` becomes its
+    recommended data source.
     """
 
     def __init__(
         self,
         input_variables: list[str],
         output_variables: list[str],
-        domain_coords: OrderedDict | None = None,
+        grid: LatLonGrid | None = None,
+        source: Any = None,
     ) -> None:
         super().__init__()
-        self._input_variables = input_variables
-        self._output_variables = output_variables
-        self._domain = domain_coords or OrderedDict(
-            {"lat": SMALL_LAT, "lon": SMALL_LON}
+        self._input_variables = list(input_variables)
+        self._output_variables = list(output_variables)
+        self._grid = grid or LatLonGrid(SMALL_LAT, SMALL_LON)
+        self._source = source
+        self.calls = 0
+
+    def default_sources(self) -> Any:
+        return self._source
+
+    def input_coords(self) -> CoordinateSystem:
+        return coord_array(
+            ("batch", "variable", "lat", "lon"),
+            {"variable": np.array(self._input_variables)},
+            dynamic=("batch",),
+            grid=self._grid,
         )
 
-    def input_coords(self) -> CoordSystem:
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "variable": np.array(self._input_variables),
-                "lat": self._domain["lat"],
-                "lon": self._domain["lon"],
-            }
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        return coord_array_like(
+            input_coords, {"variable": np.array(self._output_variables)}
         )
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        output = input_coords.copy()
-        output["variable"] = np.array(self._output_variables)
-        return output
+    def to(self, device: torch.device) -> FakeDiagnostic:  # type: ignore[override]
+        return self
 
-    @torch.inference_mode()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        # Produce output with the correct number of channels.
-        n_out = len(self._output_variables)
-        out_shape = list(x.shape)
-        # Variable dimension is typically index 2 in (batch, time, var, lat, lon)
-        # but for diagnostics it depends on the coord layout.  Find it:
-        var_idx = list(coords.keys()).index("variable")
-        out_shape[var_idx] = n_out
-        y = torch.zeros(out_shape, device=x.device, dtype=x.dtype)
-        out_coords = self.output_coords(coords)
-        return y, out_coords
-
-
-class FakeGenerativeDiagnostic(torch.nn.Module):
-    """Minimal CorrDiff-shaped diagnostic for testing.
-
-    Emits its own leading ``sample`` axis (size ``number_of_samples``)
-    rather than expressing ensemble draws through the pipeline's own
-    machinery — the same contract as ``earth2studio.models.dx.CorrDiff``.
-    Decorated with the real ``@batch_func()`` so its
-    compress/decompress behavior — where a pass-through leading dim like
-    ``lead_time`` lands relative to the model's own declared ``sample``
-    axis — matches a real generative diagnostic exactly, not a
-    hand-rolled approximation of it.
-    """
-
-    def __init__(
-        self,
-        input_variables: list[str],
-        output_variables: list[str],
-        domain_coords: OrderedDict | None = None,
-        number_of_samples: int = 1,
-        seed: int | None = 0,
-    ) -> None:
-        super().__init__()
-        self._input_variables = input_variables
-        self._output_variables = output_variables
-        self._domain = domain_coords or OrderedDict(
-            {"lat": SMALL_LAT, "lon": SMALL_LON}
-        )
-        self.number_of_samples = number_of_samples
-        self.seed = seed
-
-    def input_coords(self) -> CoordSystem:
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "variable": np.array(self._input_variables),
-                "lat": self._domain["lat"],
-                "lon": self._domain["lon"],
-            }
-        )
-
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "sample": np.arange(self.number_of_samples),
-                "variable": np.array(self._output_variables),
-                "lat": self._domain["lat"],
-                "lon": self._domain["lon"],
-            }
-        )
-
-    @batch_func()
-    @torch.inference_mode()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        # `coords` here is already batch-compressed by @batch_func — any
-        # pass-through dims (e.g. time, lead_time) the pipeline carried
-        # have been flattened into `coords["batch"]`.
-        batch = x.shape[0]
-        n_out = len(self._output_variables)
-        y = torch.randn(
-            batch,
-            self.number_of_samples,
-            n_out,
-            len(self._domain["lat"]),
-            len(self._domain["lon"]),
-            device=x.device,
-            dtype=x.dtype,
-        )
-        out_coords = OrderedDict(
-            {
-                "batch": coords["batch"],
-                "sample": np.arange(self.number_of_samples),
-                "variable": np.array(self._output_variables),
-                "lat": self._domain["lat"],
-                "lon": self._domain["lon"],
-            }
-        )
-        return y, out_coords
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        self.calls += 1
+        parts = []
+        for name in self._output_variables:
+            if name in x["variable"].values:
+                parts.append(x.sel(variable=[name]).assign_coords(variable=[name]))
+            else:
+                zeros = xr.zeros_like(x.isel(variable=[0])).assign_coords(
+                    variable=[name]
+                )
+                parts.append(zeros)
+        out = xr.concat(parts, dim="variable").transpose(*x.dims)
+        out.attrs = dict(x.attrs)
+        return out
 
 
 @pytest.fixture()
-def fake_generative_diagnostic(small_domain) -> FakeGenerativeDiagnostic:
-    """A CorrDiff-shaped diagnostic: t2m+z500 in, one 'sample_out' channel
-    with its own leading 'sample' axis out."""
-    return FakeGenerativeDiagnostic(
-        input_variables=["t2m", "z500"],
-        output_variables=["sample_out"],
-        domain_coords=small_domain,
-    )
+def small_grid() -> LatLonGrid:
+    return LatLonGrid(SMALL_LAT, SMALL_LON)
 
 
 @pytest.fixture()
@@ -188,44 +116,82 @@ def small_domain() -> OrderedDict:
 
 
 @pytest.fixture()
-def prognostic(small_domain) -> Persistence:
-    return Persistence(variable=VARIABLES, domain_coords=small_domain)
+def prognostic(small_grid) -> Persistence:
+    return Persistence(variable=VARIABLES, domain_coords=small_grid)
+
+
+class SeededRandom(Random):
+    """``Random`` whose fields depend only on the requested times.
+
+    The library ``Random`` source draws from the global NumPy state, so two
+    fetches of the same time differ; the runner parity tests need the same
+    initial condition on every fetch.
+    """
+
+    def __call__(self, time, variable) -> xr.DataArray:
+        da = super().__call__(time, variable)
+        seed = int(
+            np.asarray(da["time"].values).astype("datetime64[s]").astype(np.int64).sum()
+        ) % (2**32)
+        da.values[...] = np.random.default_rng(seed).standard_normal(da.shape)
+        return da
 
 
 @pytest.fixture()
 def data_source(small_domain) -> Random:
-    return Random(domain_coords=small_domain)
+    return SeededRandom(domain_coords=small_domain)
 
 
 @pytest.fixture()
-def fake_diagnostic(small_domain) -> FakeDiagnostic:
-    """A diagnostic that takes t2m+z500 input and produces 'diag_a' output."""
-    return FakeDiagnostic(
-        input_variables=["t2m", "z500"],
-        output_variables=["diag_a"],
-        domain_coords=small_domain,
-    )
+def fake_diagnostic(small_grid) -> FakeDiagnostic:
+    """Diagnostic taking t2m and z500 and producing 'diag_a' (zeros) and 't2m'."""
+    return FakeDiagnostic(["t2m", "z500"], ["diag_a", "t2m"], grid=small_grid)
+
+
+def compose_cfg(tmp_path: Path, overrides: list[str] | None = None) -> DictConfig:
+    """Compose the recipe's real default config with test overrides."""
+    base = [
+        "project=test_eval",
+        "run_id=unit",
+        f"output.path={tmp_path / 'outputs'}",
+        "output.thread_writers=0",
+        "output.io_backend=zarr",
+        "require_predownload=false",
+        "model.architecture=earth2studio.models.px.Persistence",
+        "data_source._target_=test.conftest.SeededRandom",
+    ]
+    with initialize_config_dir(config_dir=str(CFG_DIR), version_base=None):
+        cfg = compose(config_name="default", overrides=base + list(overrides or []))
+    return cfg
 
 
 @pytest.fixture()
-def base_cfg(tmp_path) -> OmegaConf:
-    return OmegaConf.create(
-        {
-            "project": "test_eval",
-            "run_id": "unit",
-            "start_times": ["2024-01-01 00:00:00"],
-            "nsteps": 2,
-            "ensemble_size": 1,
-            "random_seed": 42,
-            "pipeline": "src.pipelines.forecast.ForecastPipeline",
-            "model": {"architecture": "earth2studio.models.px.Persistence"},
-            "data_source": {"_target_": "earth2studio.data.Random"},
-            "output": {
-                "path": str(tmp_path / "outputs"),
-                "variables": list(VARIABLES),
-                "overwrite": True,
-                "thread_writers": 0,
-                "chunks": {"time": 1, "lead_time": 1},
-            },
+def base_cfg(tmp_path) -> DictConfig:
+    """Config running Persistence on the 4 by 8 grid for two 6-hour steps.
+
+    ``Persistence`` needs its variables and grid at construction, which the
+    ``architecture`` form cannot express, so the model node is a ``_target_``
+    block.
+    """
+    cfg = compose_cfg(tmp_path, ["nsteps=2", "ensemble_size=1", "random_seed=42"])
+    with open_dict(cfg):
+        cfg.model = {
+            "_target_": "earth2studio.models.px.Persistence",
+            "variable": list(VARIABLES),
+            "domain_coords": "latlon-small",
         }
-    )
+        cfg.data_source = {
+            "_target_": "test.conftest.SeededRandom",
+            "domain_coords": {"lat": SMALL_LAT.tolist(), "lon": SMALL_LON.tolist()},
+        }
+        cfg.output.variables = list(VARIABLES)
+    return cfg
+
+
+@pytest.fixture(autouse=True)
+def register_small_grid() -> None:
+    """Register the test grid under a name Hydra configs can reference."""
+    from earth2studio.grids import list_grids, register_grid
+
+    if "latlon-small" not in list_grids():
+        register_grid("latlon-small", LatLonGrid(SMALL_LAT, SMALL_LON))
