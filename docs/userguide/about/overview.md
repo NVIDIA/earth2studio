@@ -85,13 +85,13 @@ components such as IO use explicit boundary conversion with `.e2s.to_torch()`;
 
 ### Shared CUDA Memory
 
-On CUDA, the `auto` and `cupy` backends use RMM to share memory pools between Torch,
+On Linux CUDA systems with RMM installed, `auto` and `cupy` share pools between Torch,
 CuPy, and cuDF. Existing custom RMM resources are preserved. Setup is process-wide:
 import Earth2Studio or select the CuPy backend before initializing Torch CUDA.
 
 Set `EARTH2STUDIO_DISABLE_RMM=1` before import to keep existing allocators;
-CuPy conversions still work. CPU-only imports and initial `numpy`/`torch` backends
-do not enable RMM.
+CuPy conversions still work. Non-Linux systems, missing RMM, CPU-only imports,
+and initial `numpy`/`torch` backends skip setup.
 
 RMM's Torch adapter does not honor `Tensor.record_stream()`. Keep tensors alive
 until all streams using them finish, or disable RMM. Use RMM instrumentation for

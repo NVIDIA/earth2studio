@@ -67,8 +67,8 @@ def backend(value: ArrayBackend) -> Iterator[None]:
     Explicit conversion arguments override this context-local scope, which overrides
     ``EARTH2STUDIO_ARRAY_BACKEND`` (read at import, default ``auto``). Existing arrays
     retain their backend. Nested scopes restore the previous policy on exit.
-    On CUDA systems, auto/cupy also configure shared RMM allocation for Torch
-    and CuPy. This process-wide configuration persists after the scope exits
+    On Linux CUDA systems with RMM installed, auto/cupy configure shared allocation
+    for Torch and CuPy. This process-wide configuration persists after the scope exits
     and must happen before Torch initializes its CUDA allocator.
     Set ``EARTH2STUDIO_DISABLE_RMM=1`` before import to keep existing allocators.
 
@@ -583,7 +583,7 @@ def from_torch(
     TypeError
         If the tensor is not on a CPU or CUDA device.
     ImportError
-        If the selected output requires CuPy or RMM and it is not installed.
+        If the selected output requires CuPy and it is not installed.
     RuntimeError
         If shared RMM allocation was not configured before Torch CUDA use.
 
@@ -762,7 +762,7 @@ class Earth2StudioAccessor:
         TypeError
             If the input backend or device type is unsupported.
         ImportError
-            If CuPy or RMM is needed but unavailable.
+            If CuPy is needed but unavailable.
         RuntimeError
             If shared RMM allocation was not configured before Torch CUDA use.
         """

@@ -14,42 +14,46 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Process-wide shared CUDA allocation for the CuPy array backend."""
-
 import os
+import sys
 from threading import Lock
 
 import torch
 
-_LOCK = Lock()
-_CONFIGURED = False
-_DISABLED = os.environ.get("EARTH2STUDIO_DISABLE_RMM", "0").strip().lower() in (
-    "1",
-    "true",
-    "yes",
-    "on",
-)
 
+class _RMMConfiguration:
+    def __init__(self) -> None:
+        self._lock = Lock()
+        self.configured = False
+        self.disabled = os.environ.get(
+            "EARTH2STUDIO_DISABLE_RMM", "0"
+        ).strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        )
 
-def _configure_rmm() -> None:
-    """Install RMM allocators before Torch initializes its CUDA allocator."""
-    global _CONFIGURED
+    def __call__(self) -> None:
+        """Install RMM allocators before Torch initializes its CUDA allocator."""
+        with self._lock:
+            if (
+                self.disabled
+                or self.configured
+                or sys.platform != "linux"
+                or not torch.cuda.is_available()
+            ):
+                return
+            self._configure()
 
-    with _LOCK:
-        if _DISABLED or _CONFIGURED or not torch.cuda.is_available():
-            return
-
+    def _configure(self) -> None:
         try:
             import cupy as cp
             import rmm
             from rmm.allocators.cupy import rmm_cupy_allocator
             from rmm.allocators.torch import rmm_torch_allocator
-        except ImportError as error:
-            raise ImportError(
-                "The CuPy backend requires CuPy and RMM for shared CUDA memory. "
-                "Install matching CUDA packages (for CUDA 13: "
-                "`uv pip install cupy-cuda13x 'rmm-cu13>=26.2.0'`)."
-            ) from error
+        except ImportError:
+            return
 
         if rmm_torch_allocator is None:
             raise RuntimeError("RMM's Torch CUDA allocator is unavailable.")
@@ -70,6 +74,7 @@ def _configure_rmm() -> None:
         for device in range(torch.cuda.device_count()):
             with cp.cuda.Device(device):
                 resource = rmm.mr.get_current_device_resource()
+                # Only wrap RMM's default; preserve existing pools/custom resources.
                 if type(resource) is rmm.mr.CudaMemoryResource:
                     pools[device] = rmm.mr.PoolMemoryResource(
                         resource, initial_pool_size=0
@@ -90,4 +95,7 @@ def _configure_rmm() -> None:
         for device, pool in pools.items():
             rmm.mr.set_per_device_resource(device, pool)
         cp.cuda.set_allocator(rmm_cupy_allocator)
-        _CONFIGURED = True
+        self.configured = True
+
+
+_configure_rmm = _RMMConfiguration()

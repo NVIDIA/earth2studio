@@ -59,8 +59,9 @@ def allocators(monkeypatch):
         "rmm.allocators.torch",
         SimpleNamespace(rmm_torch_allocator=torch_allocator),
     )
-    monkeypatch.setattr(memory, "_CONFIGURED", False)
-    monkeypatch.setattr(memory, "_DISABLED", False)
+    monkeypatch.setattr(memory._configure_rmm, "configured", False)
+    monkeypatch.setattr(memory._configure_rmm, "disabled", False)
+    monkeypatch.setattr(sys, "platform", "linux")
     monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
     monkeypatch.setattr(torch.cuda, "device_count", lambda: 2)
     switch = Mock()
@@ -92,7 +93,7 @@ def test_configuration_preserves_custom_resources_and_is_idempotent(allocators):
 def test_configuration_skips_disabled_or_cpu(
     monkeypatch, allocators, disabled, cuda_available
 ):
-    monkeypatch.setattr(memory, "_DISABLED", disabled)
+    monkeypatch.setattr(memory._configure_rmm, "disabled", disabled)
     monkeypatch.setattr(torch.cuda, "is_available", lambda: cuda_available)
     memory._configure_rmm()
     allocators.switch.assert_not_called()
@@ -108,7 +109,7 @@ def test_late_configuration_preserves_allocators(allocators):
     allocators.cp.cuda.set_allocator.assert_called_once_with(
         allocators.cp.cuda.get_allocator.return_value
     )
-    assert not memory._CONFIGURED
+    assert not memory._configure_rmm.configured
 
 
 def test_allocator_context_failure_allows_retry(allocators):
@@ -119,28 +120,38 @@ def test_allocator_context_failure_allows_retry(allocators):
     allocators.mr.set_per_device_resource.assert_not_called()
     allocators.cp.cuda.set_allocator.side_effect = None
     memory._configure_rmm()
-    assert memory._CONFIGURED
+    assert memory._configure_rmm.configured
 
 
-def test_missing_rmm_has_actionable_error(monkeypatch, allocators):
-    monkeypatch.setitem(sys.modules, "rmm", None)
-    with pytest.raises(ImportError, match="rmm-cu13"):
-        memory._configure_rmm()
+@pytest.mark.parametrize("missing", ["rmm", "cupy", "rmm.allocators.torch"])
+def test_missing_dependency_preserves_allocators(monkeypatch, allocators, missing):
+    monkeypatch.setitem(sys.modules, missing, None)
+    memory._configure_rmm()
     allocators.switch.assert_not_called()
     allocators.cp.cuda.set_allocator.assert_not_called()
+    allocators.mr.get_current_device_resource.assert_not_called()
+
+
+@pytest.mark.parametrize("platform", ["win32", "darwin"])
+def test_non_linux_preserves_allocators(monkeypatch, allocators, platform):
+    monkeypatch.setattr(sys, "platform", platform)
+    memory._configure_rmm()
+    allocators.switch.assert_not_called()
+    allocators.cp.cuda.set_allocator.assert_not_called()
+    allocators.mr.get_current_device_resource.assert_not_called()
 
 
 @pytest.mark.parametrize("policy", ["auto", "cupy"])
 def test_backend_scope_configures_rmm(allocators, policy):
     with backend(policy):
-        assert memory._CONFIGURED
-    assert memory._CONFIGURED
+        assert memory._configure_rmm.configured
+    assert memory._configure_rmm.configured
     allocators.switch.assert_called_once()
 
 
 @pytest.fixture
 def shared_cuda():
-    if not torch.cuda.is_available() or not memory._CONFIGURED:
+    if not torch.cuda.is_available() or not memory._configure_rmm.configured:
         pytest.skip("Shared RMM CUDA allocator not enabled")
     return pytest.importorskip("cupy")
 
@@ -183,7 +194,7 @@ def test_explicit_cupy_conversions(shared_cuda):
 
 def test_disabled_setup_preserves_cupy_conversions(monkeypatch, shared_cuda):
     cp = shared_cuda
-    monkeypatch.setattr(memory, "_DISABLED", True)
+    monkeypatch.setattr(memory._configure_rmm, "disabled", True)
     switch = Mock()
     monkeypatch.setattr(torch.cuda.memory, "change_current_allocator", switch)
     allocator = cp.cuda.get_allocator()
