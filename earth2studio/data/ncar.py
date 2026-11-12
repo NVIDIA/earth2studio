@@ -36,6 +36,7 @@ from obstore.store import ObjectStore
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
+    _CleanupAfterLastCall,
     _sync_async,
     async_retry,
     cancellable_to_thread,
@@ -126,6 +127,7 @@ class NCAR_ERA5:
         self._retries = retries
         self.async_timeout = async_timeout
         self._tmp_cache_hash: str | None = None
+        self._calls = _CleanupAfterLastCall(self)
 
         self.store: ObjectStore | None = None
 
@@ -189,7 +191,7 @@ class NCAR_ERA5:
         xr.DataArray
             ERA5 weather data array from NCAR_ERA5
         """
-        try:
+        with self._calls:
             # Lazily initialize the object store on first use
             if self.store is None:
                 await self._async_init()
@@ -248,11 +250,12 @@ class NCAR_ERA5:
                     "No time dimension found in dataset, selecting variables only"
                 )
                 return with_grid_metadata(res.sel(variable=variable), "latlon-0.25deg")
-        finally:
-            # Own temporary-cache cleanup for both sync and async callers.
-            if not self._cache:
-                with suppress(FileNotFoundError):
-                    shutil.rmtree(self.cache)
+
+    def cleanup(self) -> None:
+        """Remove temporary files after the last active fetch completes."""
+        if not self._cache:
+            with suppress(FileNotFoundError):
+                shutil.rmtree(self.cache)
 
     def _create_tasks(
         self, time: list[datetime], variable: list[str]
