@@ -226,6 +226,7 @@ def test_non_live_session_does_not_require_git(tmp_path: Path):
     "mode,baseline,previous,expected",
     [
         ("changed", "true", "previous-tip", "previous-tip"),
+        ("changed", "true", "missing-tip", "merge-base"),
         ("changed", "false", "", "merge-base"),
         ("all", "true", "", "unset"),
     ],
@@ -233,7 +234,10 @@ def test_non_live_session_does_not_require_git(tmp_path: Path):
 def test_ci_baseline_selection(tmp_path: Path, mode, baseline, previous, expected):
     for name, body in {
         "uv": "exit 0",
-        "git": 'case "$1" in rev-parse) echo false;; merge-base) echo merge-base;; esac',
+        "git": (
+            'case "$1" in rev-parse) echo false;; merge-base) echo merge-base;; '
+            'cat-file) test "$3" != "missing-tip^{commit}";; esac'
+        ),
         "make": 'echo "BASE=${DATA_TEST_BASE:-unset} LIVE=$DATA_TEST_LIVE"',
     }.items():
         script = tmp_path / name

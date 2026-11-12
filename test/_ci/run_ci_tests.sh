@@ -16,7 +16,8 @@ if [[ "$TOX_ENV" == "test-data" && "${DATA_TEST_LIVE:-none}" == "changed" ]]; th
     if [[ "$(git rev-parse --is-shallow-repository)" == "true" ]]; then
         git fetch --unshallow --no-tags origin
     fi
-    if [[ "$DATA_TEST_BASELINE_RUN" == "true" && -n "$DATA_TEST_PREVIOUS_SHA" && "$DATA_TEST_PREVIOUS_SHA" != "0000000000000000000000000000000000000000" ]]; then
+    if [[ "$DATA_TEST_BASELINE_RUN" == "true" && -n "$DATA_TEST_PREVIOUS_SHA" && "$DATA_TEST_PREVIOUS_SHA" != "0000000000000000000000000000000000000000" ]] &&
+        git cat-file -e "${DATA_TEST_PREVIOUS_SHA}^{commit}" 2>/dev/null; then
         DATA_TEST_BASE="$DATA_TEST_PREVIOUS_SHA"
     else
         git fetch --no-tags origin "$DATA_TEST_BASE_BRANCH"
