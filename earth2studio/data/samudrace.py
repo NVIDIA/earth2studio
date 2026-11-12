@@ -24,6 +24,7 @@ from huggingface_hub import hf_hub_download
 from loguru import logger
 
 from earth2studio.data.utils import datasource_cache_dir
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon.samudrace import SamudrACELexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 
@@ -315,7 +316,7 @@ class SamudrACEData(_SamudrACEBase):
             variable=np.array(var_list, dtype=object),
         )
         result = result.transpose("time", "variable", "lat", "lon")
-        return _orient_north_to_south(result)
+        return with_grid_metadata(_orient_north_to_south(result))
 
     async def fetch(
         self,
@@ -536,7 +537,7 @@ class SamudrACEForcingData(_SamudrACEBase):
             variable=np.array(var_list, dtype=object),
         )
         result = result.transpose("time", "variable", "lat", "lon")
-        return _orient_north_to_south(result)
+        return with_grid_metadata(_orient_north_to_south(result))
 
     async def fetch(
         self,

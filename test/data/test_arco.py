@@ -26,9 +26,7 @@ import pytest
 from earth2studio.data import ARCO, ARCO_ERA5
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -64,9 +62,7 @@ def test_arco_fetch(time, variable, disable_msc, monkeypatch):
     assert not np.isnan(data.values).any()
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [np.array([np.datetime64("1993-04-05T00:00")])],
@@ -103,8 +99,7 @@ def test_arco_cache(time, variable, cache):
         pass
 
 
-@pytest.mark.xfail
-@pytest.mark.timeout(15)
+@pytest.mark.live(timeout=15)
 @pytest.mark.parametrize(
     "time",
     [

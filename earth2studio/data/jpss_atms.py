@@ -551,7 +551,7 @@ class JPSS_ATMS:
             [_fetch_and_decode(key, task) for key, task in decode_tasks.items()],
             max_workers=self._max_workers,
             desc="Fetching ATMS BUFR files",
-            verbose=(not self._verbose),
+            verbose=self._verbose,
         )
 
         # Compile the decoded frames in task order

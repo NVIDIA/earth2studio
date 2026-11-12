@@ -63,9 +63,7 @@ from earth2studio.data.utils_ncep import (
 pytest.importorskip("earth2bufr", reason="earth2bufr not installed")
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
+@pytest.mark.live(timeout=120)
 @pytest.mark.parametrize(
     "time",
     [datetime(year=2024, month=1, day=1, hour=0)],
