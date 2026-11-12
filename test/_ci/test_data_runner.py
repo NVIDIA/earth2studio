@@ -171,6 +171,30 @@ def test_cache():
     assert result.returncode == 0, result.stdout
 
 
+def test_direct_pytest_runs_live_by_default(tmp_path: Path):
+    (tmp_path / "test_live.py").write_text(
+        "import pytest\n"
+        "@pytest.mark.live(timeout=12)\n"
+        "def test_live(request):\n"
+        "    assert request.node.get_closest_marker('timeout').args == (12.0,)\n"
+        "    print('LIVE EXECUTED')\n"
+    )
+    result = subprocess.run(  # noqa: S603
+        [sys.executable, "-m", "pytest", "-p", "data_test_plugin", "-s", "-q"],
+        cwd=tmp_path,
+        env=dict(
+            os.environ,
+            PYTHONPATH=str(RUNNER.parent),
+            PYTEST_DISABLE_PLUGIN_AUTOLOAD="1",
+        ),
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "LIVE EXECUTED" in result.stdout
+
+
 def test_non_live_session_does_not_require_git(tmp_path: Path):
     (tmp_path / "test_plain.py").write_text("def test_plain(): pass\n")
     result = subprocess.run(  # noqa: S603

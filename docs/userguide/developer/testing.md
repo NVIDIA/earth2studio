@@ -118,12 +118,12 @@ the recorded test outcome is preserved. Forced cleanup is logged explicitly.
 
 Mark network tests with `@pytest.mark.live(timeout=60)` (default: 60s):
 
-- `--live=none`: skip live tests (local default).
+- `--live=none`: skip live tests for offline checks.
 - `--live=changed`: run affected sources (CI default); shared changes enable all sources.
   CI compares against the PR merge base or the pushed branch's previous tip.
   Manual dispatch defaults to `all`, with an explicit live-mode selector.
   Locally, `DATA_TEST_BASE` defaults to `HEAD`, including uncommitted changes.
-- `--live=all`: run all live tests.
+- `--live=all`: run all live tests (local default).
 
 Only live-call timeouts become XFAIL; the process is killed and remaining tests resume
 in a fresh process. Other errors fail normally. Selected live files bypass testmon.
@@ -147,15 +147,22 @@ include `--testmon` and `--cov` as needed. Lexicon tests run with fixed defaults
 For rapid iteration during development, you can run pytest directly:
 
 ```bash
-# Quick test suite (skips slow tests)
-uv run pytest test/
+# Offline test suite (also skips slow tests)
+uv run pytest test/ --live=none
 
 # Standard test suite (includes slow tests)
 uv run pytest --slow test/
 
-# Run specific test module
+# Run a specific test module, including live requests
 uv run pytest test/data/test_gfs.py
+
+# Run only offline tests in that module
+uv run pytest test/data/test_gfs.py --live=none
 ```
+
+Direct pytest uses `pytest-timeout` for live deadlines (including `--live-timeout`
+overrides). These timeouts are failures, without process cleanup or restart;
+the supervised Tox workflow records live-call timeouts as XFAIL and restarts.
 
 !!! note
     When running pytest directly, ensure you have the appropriate dependencies installed

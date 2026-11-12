@@ -46,7 +46,7 @@ def pytest_addoption(parser) -> None:
     parser.addoption(
         "--live",
         choices=("changed", "all", "none"),
-        default=os.getenv("DATA_TEST_LIVE", "none"),
+        default=os.getenv("DATA_TEST_LIVE", "all"),
     )
     parser.addoption("--live-timeout", type=positive_timeout, default=None)
 
@@ -155,12 +155,9 @@ def pytest_collection_modifyitems(config, items) -> None:
             and not source_changed(str(item.path), config._live_changes)
         ):
             item.add_marker(pytest.mark.skip(reason="live source not selected"))
-        elif "DATA_TEST_EVENTS" not in os.environ:
-            raise pytest.UsageError(
-                "Run live tests through tox -e test-data (process supervision required)"
-            )
-        # The supervisor owns this timeout; pytest-timeout must not interrupt first.
-        item.add_marker(pytest.mark.timeout(0), append=False)
+        # Supervised runs own the deadline; direct pytest uses pytest-timeout.
+        timeout = 0 if "DATA_TEST_EVENTS" in os.environ else item._live_timeout
+        item.add_marker(pytest.mark.timeout(timeout), append=False)
 
 
 def pytest_collection_finish(session: pytest.Session) -> None:
