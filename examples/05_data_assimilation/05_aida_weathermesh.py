@@ -29,6 +29,13 @@ In this example you will learn:
 - How to map four forecast members to two IFS backgrounds and fork each pair.
 - How to write Zarr output and visualize the difference between two branches.
 
+This is a reduced demonstration: two IFS backgrounds, two branches per
+background, and temperature forecasts through +96h. For the operational-style
+ensemble and output schedule (24 backgrounds, eight branches each at +72h,
+and surface products through +360h), use the standalone
+[`wm5c-run`](https://github.com/windborne/weathermesh-5c#end-to-end-forecast).
+Both paths use public input sources, not identical production inputs.
+
 Use a CUDA GPU with 40 GB of memory recommended. Model assets total 3.54 GB;
 allow several additional GB for the public inputs and about 1 GB for Zarr
 output. Budget roughly 10 minutes with warm caches on a datacenter GPU; a
@@ -78,10 +85,16 @@ os.makedirs("outputs", exist_ok=True)
 # AIDA updates are centered on 03, 06, and 09 UTC. OISST supplies sea surface
 # temperatures; only public observations are used. The first forecast is at
 # +3h relative to the analysis.
+# For two updates from the same 00 UTC background, set `assimilation_steps=2`
+# and change the analysis time below to `2026-09-21T06`; updates then occur at
+# 03 and 06 UTC. The update count is explicit, not based on the current clock.
 
 # %%
 model = AIDAWeatherMesh5C.load_model(
-    AIDAWeatherMesh5C.load_default_package(), variables=("t2m",), fork_hour=72
+    AIDAWeatherMesh5C.load_default_package(),
+    assimilation_steps=3,
+    variables=("t2m",),
+    fork_hour=72,
 )
 
 # %%
