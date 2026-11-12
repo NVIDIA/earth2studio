@@ -388,10 +388,17 @@ def test_hrrr_call_mock(source, mock_statistic_grib):
     assert set(data.attrs["earth2studio_statistics"]) == set(variables[1:])
     # Instantaneous plus the three extra analysis times, each indexed once
     assert len({u for u in index_calls if "wrfsfc" in u}) == 4
-    np.testing.assert_allclose(data.values[0, :, 0, 1], [24, 22, 22, 22, 22])
+    # Windows holding a missing sample propagate NaN; nan* statistics skip it
     np.testing.assert_allclose(
-        data.values[0, :, 1, 0], [np.nan, np.nan, 0, np.nan, np.nan], equal_nan=True
+        data.values[0, :, 0, 1], [24] + [np.nan] * 4, equal_nan=True
     )
+    np.testing.assert_allclose(data.values[0, :, 1, 0], np.nan, equal_nan=True)
+    skipping = [f"t2m:nan{m}:3h" for m in ("mean", "sum", "max", "min")]
+    data = ds(datetime(2024, 1, 2), skipping)
+    np.testing.assert_allclose(data.values[0, :, 0, 0], [22, 66, 23, 21])
+    np.testing.assert_allclose(data.values[0, :, 0, 1], [22, 22, 22, 22])
+    # An all-missing window stays NaN, including the skipping sum
+    np.testing.assert_allclose(data.values[0, :, 1, 0], np.nan, equal_nan=True)
     data = ds(datetime(2024, 1, 2), ["t2m", "z500"])
     np.testing.assert_allclose(data.values[0, :, 0, 0], [24, 24 * 9.81])
 
@@ -418,7 +425,41 @@ def test_hrrr_fx_call_mock(mock_statistic_grib):
     assert set(data.attrs["earth2studio_statistics"]) == set(variables[1:])
     # Only leads 3..9 are indexed
     assert len({u for u in index_calls if "wrfsfc" in u}) == 7
-    np.testing.assert_allclose(data.values[0, :, 1, 0, 1], [4, 5])
+    np.testing.assert_allclose(data.values[0, :, 1, 0, 1], np.nan, equal_nan=True)
     data = fx(datetime(2024, 1, 1), [timedelta(0), timedelta(hours=6)], ["t2m", "msl"])
     np.testing.assert_allclose(data.sel(variable="t2m").values[0, :, 0, 0], [0, 6])
     assert np.isnan(data.sel(variable="msl").values).all()
+
+
+def test_hrrr_shared_index_download(monkeypatch, tmp_path):
+    """Concurrent index fetches share one atomic download per cache file."""
+    import earth2studio.data.hrrr as hrrr_module
+
+    calls = []
+
+    async def fake_fetch(
+        store,
+        key,
+        cache_dir,
+        byte_offset=0,
+        byte_length=None,
+        cache_key=None,
+        chunked=False,
+        atomic=False,
+    ):
+        calls.append((key, byte_offset, atomic))
+        await asyncio.sleep(0.01)
+        return str(tmp_path / cache_key)
+
+    monkeypatch.setattr(hrrr_module, "obstore_fetch_to_cache", fake_fetch)
+    ds = HRRR_FX(source="aws", cache=False, verbose=False)
+    ds.store = object()
+    uri = ds.uri_prefix + "/hrrr.20240101/conus/hrrr.t00z.wrfsfcf01.grib2.idx"
+
+    async def run():
+        return await asyncio.gather(*[ds._fetch_remote_file(uri) for _ in range(8)])
+
+    paths = asyncio.run(run())
+    assert len(set(paths)) == 1
+    assert len(calls) == 1 and calls[0][2] is True
+    assert not ds._inflight_downloads

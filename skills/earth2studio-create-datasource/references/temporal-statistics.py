@@ -168,10 +168,16 @@ class SourceName:
 #   accumulated fields may overlap or reset; document their periods and warn like
 #   GFS does for ``tp``. Totals are only rainfall totals for disjoint intervals.
 # - Composite sources must not reduce: forward labels unchanged to components.
-# - NaNs are skipped. All-NaN windows yield NaN for mean/min/max and zero for
-#   sum. Download errors still propagate; a source may explicitly return NaN
-#   fields for missing records. The planned samples are all fetched or the
-#   request fails; no partial window is written.
+# - Missing samples propagate: mean/sum/min/max return NaN for a cell when any
+#   sample in its window is NaN (including NaN fields a source returns for
+#   missing records). nanmean/nansum/nanmin/nanmax are the explicit opt-in that
+#   skips NaN; an all-NaN window is NaN for all of them. Download errors still
+#   propagate. The planned samples are all fetched or the request fails; no
+#   partial window is written.
+# - Accumulations stamped at the end of their interval (ERA5 ``tp``): a
+#   two-part label ``tp:sum:6h`` reads stamps [T-6h, T), i.e. the period
+#   (T-7h, T-1h] on an hourly source. Say so in the ``Temporal statistics:``
+#   note and point users to a trailing alias (``tp06``) or ``tp:sum:-5h:1h``.
 
 
 # ===========================================================================

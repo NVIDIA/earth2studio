@@ -151,16 +151,39 @@ def _is_forecast_source(source: DataSource | ForecastSource) -> bool:
     return "lead_time" in signature(source.__call__).parameters
 
 
-def _select_times(array: xr.DataArray, time: TimeArray) -> xr.DataArray:
-    """Select requested times; repeated timestamps (e.g. samples) are kept in order."""
-    index = array.indexes["time"]
+def _select_labels(
+    array: xr.DataArray,
+    dim: str,
+    requested: np.ndarray,
+    source: DataSource | ForecastSource,
+) -> xr.DataArray:
+    """Select requested labels; repeated labels (e.g. samples) are kept in order.
+
+    Sources must return the requested ``time`` and ``lead_time`` labels. A source
+    that returns other labels (for example times truncated to a day, or the
+    nearest stored time) raises here rather than having data relabelled silently.
+    """
+    index = array.indexes[dim]
+    requested = np.asarray(requested)
     if index.has_duplicates:
         # xarray cannot ``sel`` labels from a duplicated index; the source returned
         # one entry per request, so select positionally instead.
-        if len(index) != len(time) or not np.array_equal(index.values, time):
-            raise ValueError("Source returned times that do not match the request")
-        return array
-    return array.sel(time=time)
+        if len(index) == len(requested) and np.array_equal(index.values, requested):
+            return array
+        missing = requested
+    else:
+        missing = requested[index.get_indexer(requested) < 0]
+        if missing.size == 0:
+            return array.sel({dim: requested})
+    shown = ", ".join(str(value) for value in missing[:5])
+    more = f" and {missing.size - 5} more" if missing.size > 5 else ""
+    raise ValueError(
+        f"{type(source).__name__} returned {dim} labels that do not match the "
+        f"request: {shown}{more} not returned (returned: "
+        f"{', '.join(str(v) for v in index.values[:5])}"
+        f"{', ...' if len(index) > 5 else ''}). Data sources must label their "
+        f"output with the requested {dim} values."
+    )
 
 
 def _is_ensemble_source(source: DataSource | ForecastSource) -> bool:
@@ -204,14 +227,16 @@ def _fetch_instantaneous(
         array = cast(ForecastSource, source)(
             time, lead_time, variables, **_members(member)
         )
-        array = _select_times(array, time)
-        return array.sel(lead_time=lead_time, variable=variables)
+        array = _select_labels(array, "time", time, source)
+        array = _select_labels(array, "lead_time", lead_time, source)
+        return array.sel(variable=variables)
 
     arrays = []
     for lead in lead_time:
         valid_time = _offset_times(time, lead)
         array = cast(DataSource, source)(valid_time, variables, **_members(member))
-        array = _select_times(array, valid_time).sel(variable=variables)
+        array = _select_labels(array, "time", valid_time, source)
+        array = array.sel(variable=variables)
         array = array.expand_dims(
             lead_time=np.array([lead], dtype="timedelta64[ns]"), axis=1
         )
@@ -1779,6 +1804,65 @@ async def obstore_fetch_to_cache(
     return cache_path
 
 
+class SharedDownloads:
+    """Share concurrent downloads of one cache file within each event loop.
+
+    Concurrent requests for the same cache file await a single download instead of
+    racing to write it. Tasks are tracked per event loop, because an asyncio task
+    can only be awaited on the loop that created it: a caller on another loop starts
+    (or joins) its own download rather than failing. Entries are dropped when their
+    task finishes, and a task left behind by a closed loop is replaced.
+    """
+
+    def __init__(self) -> None:
+        self._tasks: weakref.WeakKeyDictionary[
+            asyncio.AbstractEventLoop, dict[str, asyncio.Future[str]]
+        ] = weakref.WeakKeyDictionary()
+
+    def __len__(self) -> int:
+        return sum(len(tasks) for tasks in self._tasks.values())
+
+    async def fetch(
+        self, cache_key: str, download: Callable[[], Awaitable[str]]
+    ) -> str:
+        """Await the download of ``cache_key``, starting it if none is in flight.
+
+        Parameters
+        ----------
+        cache_key : str
+            Cache file name identifying the download
+        download : Callable[[], Awaitable[str]]
+            Starts the download and returns the cache file path
+
+        Returns
+        -------
+        str
+            Path to the local cache file
+        """
+        loop = asyncio.get_running_loop()
+        tasks = self._tasks.setdefault(loop, {})
+        task = tasks.get(cache_key)
+        if task is None or task.done():
+            task = asyncio.ensure_future(download())
+            tasks[cache_key] = task
+
+            def _forget(done: asyncio.Future[str]) -> None:
+                if tasks.get(cache_key) is done:
+                    del tasks[cache_key]
+
+            task.add_done_callback(_forget)
+        # Shield so one cancelled or timed-out caller does not abort the shared
+        # download for the others.
+        return await asyncio.shield(task)
+
+    def __getstate__(self) -> dict[str, Any]:
+        # In-flight tasks belong to the pickling process; start fresh elsewhere.
+        return {}
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        self.__init__()  # type: ignore[misc]
+
+
 class LocalCachingStore(zarr.storage.WrapperStore):
     """Wraps a read-only zarr store with a local on-disk cache backed by a zarr
     LocalStore, intended for append-only immutable archive stores.
@@ -2091,6 +2175,10 @@ _DESCRIPTIONS = {
     "sum": "accumulated (summed)",
     "min": "reduced to the minimum",
     "max": "reduced to the maximum",
+    "nanmean": "averaged over non-missing samples",
+    "nansum": "accumulated (summed) over non-missing samples",
+    "nanmin": "reduced to the minimum of non-missing samples",
+    "nanmax": "reduced to the maximum of non-missing samples",
 }
 
 

@@ -270,6 +270,19 @@ def test_nearest_max_distance():
     assert not np.isnan(y).any()
 
 
+@pytest.mark.timeout(60)
+def test_nearest_auto_rejects_distant_targets_quickly():
+    """The search is bounded by the coverage limit, so far targets fail fast."""
+    regional = LatLonGrid(np.linspace(50.0, 25.0, 501), np.linspace(235.0, 295.0, 1201))
+    target = LatLonGrid(np.linspace(90.0, -90.0, 361), np.arange(0.0, 360.0, 0.5))
+    with pytest.raises(ValueError, match="target points lie beyond the source grid"):
+        NearestRegridder(regional, target, max_dist_km="auto", fill_value=None)
+    # Targets inside the source still resolve to their nearest point.
+    inside = LatLonGrid(np.array([40.0, 30.0]), np.array([260.0, 270.0]))
+    regridder = NearestRegridder(regional, inside, max_dist_km="auto", fill_value=None)
+    assert regridder.coverage.all()
+
+
 def test_nearest_tree_skips_invalid_source_points():
     pytest.importorskip("scipy")
     lat, lon = np.meshgrid(REGION.latitude, REGION.longitude, indexing="ij")

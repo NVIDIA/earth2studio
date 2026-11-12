@@ -133,9 +133,19 @@ Output `earth2studio_statistics` describes the reductions actually performed.
 
 `ARCO_ERA5`, `GFS_FX`, `HRRR`, and `HRRR_FX` handle statistics natively with
 hourly sampling; `GFS` and the `WB2ERA5` variants use six-hourly sampling.
-All support `mean`, `sum`, `min`, and `max`.
+All support `mean`, `sum`, `min`, and `max`, which return NaN for a cell when any
+sample in its window is missing, and the NaN-skipping `nanmean`, `nansum`, `nanmin`
+and `nanmax`, which reduce only the available samples.
 Sampling cadence is internal to each source. Reductions of accumulated variables
-operate on stored values; overlapping accumulation periods can double-count totals.
+operate on stored values; overlapping accumulation periods (such as the GFS `tp`
+bucket) can double-count totals.
+
+Windows select stored **timestamps**, not the physical interval each value covers.
+Accumulations such as ARCO ERA5 `tp` and HRRR forecast `tp` are stamped at the end of
+their hour, so on these hourly sources `tp:sum:6h` reads the stamps `T-6h` … `T-1h`
+and covers `(T - 7h, T - 1h]`, ending one hour before `T`. For the six hours ending
+at `T`, request the native trailing alias (`tp06` on ARCO ERA5 and GFS) or the
+explicit offsets `tp:sum:-5h:1h`.
 Supported methods are documented under **Temporal statistics:** in each source's
 class docstring; capability metadata lives in `source.lexicon.TIME_STATISTICS`.
 Sources do not need `time_step` or `time_statistics` attributes.

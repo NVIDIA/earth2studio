@@ -98,7 +98,16 @@ class ARCO_ERA5Lexicon(metaclass=LexiconType):
     Variable named based on ERA5 names, see CDS docs for resources.
     """
 
-    TIME_STATISTICS: tuple[str, ...] = ("mean", "sum", "min", "max")
+    TIME_STATISTICS: tuple[str, ...] = (
+        "mean",
+        "sum",
+        "min",
+        "max",
+        "nanmean",
+        "nansum",
+        "nanmin",
+        "nanmax",
+    )
 
     VOCAB = {
         "u10m": "10m_u_component_of_wind::",
