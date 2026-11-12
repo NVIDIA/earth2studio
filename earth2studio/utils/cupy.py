@@ -620,7 +620,6 @@ def from_torch(
     )
 
 
-@xr.register_dataarray_accessor("e2s")  # type: ignore[no-untyped-call]
 class Earth2StudioAccessor:
     """Earth2Studio conversions and batching for xarray DataArrays."""
 
@@ -905,3 +904,7 @@ class Earth2StudioAccessor:
         result = result.transpose(*target_dims)
         result.encoding = self._array.encoding.copy()
         return result
+
+
+# Avoid caching the accessor on its parent, which would create a reference cycle.
+setattr(xr.DataArray, "e2s", property(Earth2StudioAccessor))
