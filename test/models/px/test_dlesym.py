@@ -23,9 +23,13 @@ import torch
 import xarray as xr
 
 import earth2studio.models.px.dlesym as dlesym_src
+from earth2studio.coupling import Connector, CoupledRunner
+from earth2studio.grids import HEALPixGrid
+from earth2studio.io import KVBackend
 from earth2studio.models.conformance import check_prognostic_contract
-from earth2studio.models.px import DLESyM, DLESyMLatLon
-from earth2studio.utils.coords import coord_array_like, handshake_metadata
+from earth2studio.models.px import DLESyM, DLESyMAtmos, DLESyMLatLon, DLESyMOcean
+from earth2studio.run import Pipeline, PrognosticRunner, WorkItem, work_items
+from earth2studio.utils.coords import coord_array, coord_array_like, handshake_metadata
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import OptionalDependencyFailure
 
@@ -107,7 +111,37 @@ class PhooOceanModel(torch.nn.Module):
         return torch.ones(b, t, self.output_time_dim, *x.shape[3:], device=x.device)
 
 
-def build_dlesym_model(device, nside=64, type="hpx"):
+class CoupledAtmosModel(PhooAtmosModel):
+    """Mock atmosphere core whose output depends on its state and SST coupling."""
+
+    def forward(self, in_list):
+        state, _, _, coupling = in_list
+        # state: (batch, face, lead, variable, h, w); coupling: (step, batch, variable, face, h, w)
+        last = state[:, :, -1:]
+        sst = coupling.mean(dim=(0, 2))[:, :, None, None]
+        leads = torch.arange(self.output_time_dim, device=state.device)
+        return last + 0.1 * sst + 0.01 * leads.view(1, 1, -1, 1, 1, 1)
+
+
+class CoupledOceanModel(PhooOceanModel):
+    """Mock ocean core whose output depends on its state and window-mean coupling."""
+
+    def forward(self, in_list):
+        state, _, _, coupling = in_list
+        # coupling: (1, batch, window-major variables, face, h, w)
+        weights = torch.arange(1, coupling.shape[2] + 1, device=state.device)
+        forced = (coupling[0] * weights.view(1, -1, 1, 1, 1)).sum(dim=1)
+        leads = torch.arange(self.output_time_dim, device=state.device)
+        return (
+            state[:, :, -1:]
+            + 0.5 * forced[:, :, None, None]
+            + 0.01 * leads.view(1, 1, -1, 1, 1, 1)
+        )
+
+
+def build_dlesym_model(
+    device, nside=64, type="hpx", atmos_model=None, ocean_model=None, scaled=False
+):
     """Build a DLESyM prognostic model with mock atmos/ocean models.
 
     Parameters
@@ -118,6 +152,10 @@ def build_dlesym_model(device, nside=64, type="hpx"):
         The nside of the HEALPix grid.
     type : str
         The type of model to build. Set to "hpx" for HEALPix grid or "ll" for lat/lon grid.
+    atmos_model, ocean_model : torch.nn.Module, optional
+        Component cores, by default the constant mocks.
+    scaled : bool
+        Draw nontrivial normalization constants instead of zero center, unit scale.
 
     Returns
     -------
@@ -133,6 +171,9 @@ def build_dlesym_model(device, nside=64, type="hpx"):
     hpx_lon = rng.standard_normal((12, nside, nside))
     center = np.zeros((1, 1, 1, 9, 1, 1, 1))  # 9 variables total
     scale = np.ones((1, 1, 1, 9, 1, 1, 1))
+    if scaled:
+        center = rng.uniform(-1.0, 1.0, center.shape)
+        scale = rng.uniform(0.5, 2.0, scale.shape)
     atmos_constants = rng.standard_normal((12, 2, nside, nside))
     ocean_constants = rng.standard_normal((12, 2, nside, nside))
 
@@ -149,8 +190,8 @@ def build_dlesym_model(device, nside=64, type="hpx"):
     model_constructor = DLESyM if type == "hpx" else DLESyMLatLon
 
     model = model_constructor(
-        atmos_model=PhooAtmosModel(),
-        ocean_model=PhooOceanModel(),
+        atmos_model=atmos_model if atmos_model is not None else PhooAtmosModel(),
+        ocean_model=ocean_model if ocean_model is not None else PhooOceanModel(),
         hpx_lat=hpx_lat,
         hpx_lon=hpx_lon,
         nside=nside,
@@ -432,6 +473,214 @@ def test_dlesym_conformance():
 def test_dlesym_latlon_conformance():
     model = build_dlesym_model("cpu", nside=8, type="ll")
     check_prognostic_contract(model)
+
+
+class HEALPixFill:
+    """Data source of deterministic fields on DLESyM's native grid.
+
+    Each variable is offset by its index in the fused input, drifts with time and
+    carries a fixed spatial pattern, so wrong frames or variables are detectable.
+    """
+
+    def __init__(self, model):
+        signature = DLESyM.input_coords(model)
+        self.variables = list(signature["variable"].values)
+        self.grid = HEALPixGrid(
+            int(np.log2(model.nside)),
+            ordering="xy",
+            layout="face",
+            xy_origin="north",
+            xy_clockwise=True,
+        )
+        self.spatial = {
+            dim: signature.coords[dim].values for dim in ("face", "height", "width")
+        }
+        pattern = np.linspace(0.0, 0.1, int(np.prod(self.grid.shape)), dtype=np.float32)
+        self.pattern = pattern.reshape(self.grid.shape)
+
+    def __call__(self, time, variable):
+        time = np.atleast_1d(np.asarray(time, dtype="datetime64[ns]"))
+        variable = np.atleast_1d(np.asarray(variable))
+        hours = (time - np.datetime64("2020-01-01")) / np.timedelta64(1, "h")
+        index = np.array([self.variables.index(v) for v in variable], dtype=np.float32)
+        values = (
+            1.0
+            + index[None, :, None, None, None]
+            + 1e-3 * hours.astype(np.float32)[:, None, None, None, None]
+            + self.pattern[None, None]
+        )
+        coords = coord_array(
+            ("time", "variable", "face", "height", "width"),
+            {"time": time, "variable": variable, **self.spatial},
+            grid=self.grid,
+        )
+        return from_torch(torch.from_numpy(values.astype(np.float32)), coords)
+
+    async def fetch(self, time, variable):
+        return self(time, variable)
+
+
+def hours(coords):
+    """Lead times of a signature or dataset in whole hours."""
+    return list(coords["lead_time"].values.astype("timedelta64[h]").astype(int))
+
+
+def _split_model():
+    return build_dlesym_model(
+        "cpu",
+        nside=8,
+        atmos_model=CoupledAtmosModel(),
+        ocean_model=CoupledOceanModel(),
+        scaled=True,
+    )
+
+
+def test_dlesym_split_declarations():
+    model = _split_model()
+    atmos, ocean = model.split()
+    assert isinstance(atmos, DLESyMAtmos) and isinstance(ocean, DLESyMOcean)
+    assert atmos.model is model and ocean.model is model
+
+    assert hours(atmos.input_coords()) == [-18, -12, -6, 0]
+    assert list(atmos.input_coords()["variable"].values) == dlesym_src._ATMOS_VARIABLES
+    assert hours(atmos.forcing_coords()) == [0]
+    assert list(atmos.forcing_coords()["variable"].values) == ["sst"]
+    assert hours(atmos.output_coords(atmos.input_coords())) == list(range(6, 97, 6))
+
+    assert hours(ocean.input_coords()) == [-48, 0]
+    assert list(ocean.input_coords()["variable"].values) == ["sst"]
+    # Window means valid at each window's end, the frame after its last sample.
+    assert hours(ocean.forcing_coords()) == [54, 102]
+    assert list(ocean.forcing_coords()["variable"].values) == [
+        "z1000:mean:48h",
+        "ws10m:mean:48h",
+    ]
+    assert hours(ocean.output_coords(ocean.input_coords())) == [48, 96]
+    native = DLESyM.input_coords(model)
+    for component in (atmos, ocean):
+        for signature in (component.input_coords(), component.forcing_coords()):
+            assert signature.data.nbytes == 0
+            assert signature.dims == native.dims
+            assert signature.attrs["nside"] == native.attrs["nside"]
+
+
+def test_dlesym_split_conformance():
+    atmos, ocean = build_dlesym_model("cpu", nside=8).split()
+    check_prognostic_contract(atmos)
+    check_prognostic_contract(ocean)
+
+
+def _coupled(model, source):
+    atmos, ocean = model.split()
+    return CoupledRunner(
+        {"atmos": atmos, "ocean": ocean},
+        [
+            Connector("ocean", "atmos", time="hold"),
+            Connector("atmos", "ocean"),
+        ],
+        sources={"atmos": source, "ocean": source},
+    )
+
+
+def test_dlesym_split_schedule():
+    model = _split_model()
+    plan = _coupled(model, HEALPixFill(model)).describe(np.timedelta64(192, "h"))
+    assert "atmos  stateful    every 96h" in plan
+    assert "ocean  stateful    every 96h" in plan
+    assert "ocean -> atmos forcing[0] (hold): sst" in plan
+    assert "atmos -> ocean forcing[0] (exact): z1000:mean:48h, ws10m:mean:48h" in plan
+    # The atmosphere initializes from the ocean's initial SST and the ocean
+    # reduces the atmosphere's first cycle. The next atmosphere cycle is forced
+    # at the previous cycle's lead times, held from the ocean's earlier frames:
+    # the +96h frame it uses is the ocean's +96h output.
+    assert "atmos  initialize" in plan and "[forcing[0] <- ocean at +0h]" in plan
+    assert "ocean  initialize" in plan
+    assert "forcing[0] <- atmos at +54h, +102h from +6h..+96h" in plan
+    assert "atmos  step" in plan and "+96h from +0h..+96h]" in plan
+    assert "forcing[0] <- atmos at +150h, +198h from +102h..+192h" in plan
+
+
+def test_dlesym_split_reproduces_fused():
+    model = _split_model()
+    source = HEALPixFill(model)
+    item = WorkItem(np.datetime64("2020-06-01T00"), np.timedelta64(288, "h"))
+
+    fused = [
+        step["forecast"] for step in PrognosticRunner(model, source).run_item(item)
+    ]
+    streams: dict[str, list[xr.DataArray]] = {}
+    for step in _coupled(model, source).run_item(item):
+        for name, x in step.items():
+            streams.setdefault(name, []).append(x)
+
+    # The initial condition then three cycles, in every stream.
+    assert len(fused) == 4
+    assert len(streams["atmos"]) == 4 and len(streams["ocean"]) == 4
+    xr.testing.assert_allclose(
+        streams["atmos"][0].drop_vars("lead_time"),
+        fused[0].sel(variable=dlesym_src._ATMOS_VARIABLES).drop_vars("lead_time"),
+    )
+    xr.testing.assert_allclose(
+        streams["ocean"][0].drop_vars("lead_time"),
+        fused[0].sel(variable=["sst"]).drop_vars("lead_time"),
+    )
+    for k in range(1, 4):
+        atmos = model.retrieve_valid_atmos_outputs(fused[k])
+        ocean = model.retrieve_valid_ocean_outputs(fused[k])
+        xr.testing.assert_allclose(streams["atmos"][k], atmos, rtol=1e-5, atol=1e-5)
+        xr.testing.assert_allclose(streams["ocean"][k], ocean, rtol=1e-5, atol=1e-5)
+    # The coupling mattered: the ocean's SST changed the fused result.
+    assert not np.allclose(
+        fused[1].sel(variable="z500").values, fused[3].sel(variable="z500").values
+    )
+
+
+def test_dlesym_split_under_pipeline():
+    model = _split_model()
+    source = HEALPixFill(model)
+    atmos_io, ocean_io = KVBackend(), KVBackend()
+    Pipeline(
+        _coupled(model, source),
+        output={"atmos": atmos_io, "ocean": ocean_io},
+        device="cpu",
+    ).run(work_items([np.datetime64("2020-06-01T00")], np.timedelta64(192, "h")))
+    atmos_ds, ocean_ds = atmos_io.to_xarray(), ocean_io.to_xarray()
+    assert hours(atmos_ds) == list(range(0, 193, 6))
+    assert hours(ocean_ds) == [0, 48, 96, 144, 192]
+    assert set(atmos_ds.data_vars) == set(dlesym_src._ATMOS_VARIABLES)
+    assert set(ocean_ds.data_vars) == {"sst"}
+    assert atmos_ds["ws10m"].dims == ("time", "lead_time", "face", "height", "width")
+    assert not np.isnan(ocean_ds["sst"].values).any()
+
+
+def test_dlesym_latlon_to_native():
+    model = build_dlesym_model("cpu", nside=8, type="ll")
+    signature = model.input_coords()
+    variables = list(signature["variable"].values)
+    time = np.array([np.datetime64("2020-06-01T00"), np.datetime64("2020-06-01T06")])
+    coords = coord_array(
+        ("time", "variable", "lat", "lon"),
+        {"time": time, "variable": variables, "lat": model.lat, "lon": model.lon},
+    )
+    values = (
+        np.random.default_rng(0)
+        .standard_normal((len(time), len(variables), len(model.lat), len(model.lon)))
+        .astype(np.float32)
+    )
+    values[:, variables.index("sst"), :10] = np.nan  # land
+    x = from_torch(torch.from_numpy(values), coords)
+    native = model.to_native(x)
+    assert native.dims == ("time", "variable", "face", "height", "width")
+    assert list(native["variable"].values) == (
+        dlesym_src._ATMOS_VARIABLES + dlesym_src._OCEAN_VARIABLES
+    )
+    assert native.sizes["face"] == 12 and native.sizes["height"] == 8
+    assert not np.isnan(native.sel(variable="sst").values).any()
+    np.testing.assert_array_equal(native["time"].values, time)
+    # The native array fits the split components' and fused model's input grid.
+    handshake_metadata(
+        native, DLESyM.input_coords(model), ("nside", "ordering", "origin")
+    )
 
 
 @pytest.mark.package

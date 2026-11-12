@@ -15,7 +15,7 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Literal
 
@@ -1249,6 +1249,24 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         return self._default_create_iterator(x)
 
+    def split(self) -> tuple["DLESyMAtmos", "DLESyMOcean"]:
+        """Split into atmosphere and ocean components sharing this model's weights.
+
+        The fused model advances both components inside one ``step``. The split
+        components are ordinary prognostic models on the native HEALPix grid: the
+        atmosphere takes sea surface temperature as forcing and the ocean takes
+        48-hour means of the atmosphere's coupling variables, so the exchange runs
+        through :class:`~earth2studio.coupling.Connector` edges under
+        :class:`~earth2studio.coupling.CoupledRunner`. Nothing is copied: both
+        components hold this model as a submodule.
+
+        Returns
+        -------
+        tuple[DLESyMAtmos, DLESyMOcean]
+            Atmosphere and ocean components
+        """
+        return DLESyMAtmos(self), DLESyMOcean(self)
+
 
 class DLESyMLatLon(DLESyM):
     """DLESyM prognostic model supporting lat/lon input and output coordinates.
@@ -1735,6 +1753,30 @@ class DLESyMLatLon(DLESyM):
         result.encoding = x.encoding.copy()
         return result
 
+    def to_native(self, x: xr.DataArray) -> xr.DataArray:
+        """Prepare lat/lon fields as inputs on the native HEALPix grid.
+
+        Computes the derived variables ``ws10m`` and ``tau300-700`` from the
+        lat/lon input variable set, fills sea surface temperature over land and
+        regrids onto HEALPix: the preparation ``initialize`` applies to its
+        lat/lon history. Use it to serve the native :class:`DLESyM` model or
+        its split components from a lat/lon data source.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Fields with the variables of ``input_coords()`` on the lat/lon grid,
+            with ``variable`` the third dimension from the end followed by
+            ``lat`` and ``lon``, such as a data source's output.
+
+        Returns
+        -------
+        xr.DataArray
+            Fields with the native variables of :meth:`DLESyM.input_coords` on
+            the HEALPix grid, leading dimensions kept.
+        """
+        return self._initial_state(x)
+
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Advance one coupled cycle on the public lat-lon grid without hooks.
 
@@ -1858,3 +1900,644 @@ class DLESyMLatLon(DLESyM):
             edits are projected onto native HEALPix history.
         """
         return self._default_create_iterator(x)
+
+
+def _compact_duration(delta: np.timedelta64) -> str:
+    """Format a timedelta as the compact duration a statistic label uses."""
+    nanoseconds = int(np.timedelta64(delta, "ns").astype(np.int64))
+    for suffix, scale in (
+        ("h", 3_600_000_000_000),
+        ("m", 60_000_000_000),
+        ("s", 10**9),
+    ):
+        if nanoseconds % scale == 0:
+            return f"{nanoseconds // scale}{suffix}"
+    raise ValueError(f"Window {delta} is not a whole number of seconds")
+
+
+class _DLESyMComponent(torch.nn.Module, PrognosticMixin):
+    """One half of a split :class:`DLESyM`, sharing its weights and buffers.
+
+    The fused model advances its atmosphere and ocean inside one ``step``. Each
+    half is an ordinary prognostic model on the native HEALPix grid with its own
+    input, forcing and output slots, so the exchange between them runs through
+    :class:`~earth2studio.coupling.Connector` edges under
+    :class:`~earth2studio.coupling.CoupledRunner`. The fused model is kept as a
+    submodule: nothing is copied and moving either component moves both. Each
+    component samples its conditional layer norm noise from its own generator,
+    seeded through ``set_rng``.
+    """
+
+    def __init__(self, model: DLESyM) -> None:
+        super().__init__()
+        self.model = model
+        self._cln_generator: torch.Generator | None = None
+
+    @property
+    def stochastic(self) -> bool:  # type: ignore[override]
+        """Whether conditional layer norm noise is sampled during a rollout."""
+        return self.model.stochastic
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the generator used to sample conditional layer norm noise.
+
+        Parameters
+        ----------
+        seed : int
+            Seed value
+        reset : bool, optional
+            Reinitialize the generator from `seed`. If False and the
+            generator is already initialized, this is a no-op, by default
+            True
+        """
+        if reset or self._cln_generator is None:
+            self._cln_generator = torch.Generator().manual_seed(seed)
+
+    # -- declarations ----------------------------------------------------------
+
+    def _native(self) -> CoordinateSystem:
+        """The fused model's native input signature, carrying the HEALPix grid."""
+        return DLESyM.input_coords(self.model)
+
+    def _advance(
+        self,
+        input_coords: CoordinateSystem,
+        signature: CoordinateSystem,
+        lead_times: np.ndarray,
+        variables: list[str],
+    ) -> CoordinateSystem:
+        """Validate ``input_coords`` against ``signature`` and shift to the outputs."""
+        handshake_time(input_coords, allow_dynamic=True)
+        handshake_time(input_coords, "lead_time")
+        lead = input_coords.lead_time.values
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), signature
+        )
+        return coord_array_like(
+            input_coords,
+            {"lead_time": lead[-1] + lead_times, "variable": np.array(variables)},
+        )
+
+    # -- tensors ---------------------------------------------------------------
+
+    def _flatten(
+        self, x: xr.DataArray
+    ) -> tuple[torch.Tensor, np.ndarray, tuple[int, ...]]:
+        """Flatten the leading dimensions of a validated field.
+
+        Returns the tensor as ``(N, lead_time, variable, face, height, width)`` on
+        the model's device, the anchor time of each of the ``N`` rows for
+        insolation, and the leading shape to restore.
+        """
+        tensor, _ = x.e2s.to_torch()
+        leading_dims = x.dims[:-5]
+        leading = tuple(x.sizes[d] for d in leading_dims)
+        tensor = tensor.to(self.model.center.device).reshape(-1, *tensor.shape[-5:])
+        times = x.coords["time"].values
+        if "time" in leading_dims:
+            shape = tuple(x.sizes[d] if d == "time" else 1 for d in leading_dims)
+            anchors = np.broadcast_to(times.reshape(shape), leading)
+        else:
+            anchors = np.full(leading, times)
+        return tensor, np.asarray(anchors).reshape(-1), leading
+
+    @staticmethod
+    def _select(
+        forcing: xr.DataArray, variables: list[str], lead_times: np.ndarray
+    ) -> xr.DataArray:
+        """Select the forcing variables and frames a call needs, in order."""
+        leads = np.asarray(lead_times).astype("timedelta64[ns]")
+        try:
+            return forcing.sel(variable=list(variables), lead_time=leads)
+        except KeyError as error:
+            raise ValueError(
+                f"Forcing lacks variables {variables} at lead times {leads}: {error}"
+            ) from error
+
+    @staticmethod
+    def _align(forcing: xr.DataArray, like: xr.DataArray) -> xr.DataArray:
+        """Lay ``forcing`` out on ``like``'s leading dimensions."""
+        extra = [d for d in forcing.dims if d not in like.dims]
+        if extra:
+            raise ValueError(f"Forcing has dimensions {extra} that the state lacks")
+        missing = {d: like.sizes[d] for d in like.dims[:-5] if d not in forcing.dims}
+        if missing:
+            forcing = forcing.expand_dims(missing)
+        forcing = forcing.transpose(*[d for d in like.dims if d in forcing.dims])
+        leading = tuple(like.sizes[d] for d in like.dims[:-5])
+        if forcing.shape[: len(leading)] != leading:
+            raise ValueError(
+                f"Forcing leading shape {forcing.shape[: len(leading)]} does not "
+                f"match the state's {leading}"
+            )
+        return forcing
+
+    def _input_constants(self, index: list[int]) -> tuple[torch.Tensor, torch.Tensor]:
+        """Center and scale of prognostic variables ``index``, in input order."""
+        idx = torch.as_tensor(index, device=self.model.center.device, dtype=torch.long)
+        center = self.model.input_center.reshape(-1).index_select(0, idx)
+        scale = self.model.input_scale.reshape(-1).index_select(0, idx)
+        return center, scale
+
+    def _output_constants(
+        self, index: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Center and scale of output variables ``index``, in output order."""
+        center = self.model.center.reshape(-1).index_select(0, index)
+        scale = self.model.scale.reshape(-1).index_select(0, index)
+        return center, scale
+
+    @staticmethod
+    def _normalize(
+        tensor: torch.Tensor, constants: tuple[torch.Tensor, torch.Tensor]
+    ) -> torch.Tensor:
+        """Normalize the variable axis (third) of a ``(N, L, V, ...)`` tensor."""
+        center, scale = (c.view(1, 1, -1, 1, 1, 1).to(tensor) for c in constants)
+        return (tensor - center) / scale
+
+    @staticmethod
+    def _denormalize(
+        tensor: torch.Tensor, constants: tuple[torch.Tensor, torch.Tensor]
+    ) -> torch.Tensor:
+        """Invert :meth:`_normalize`."""
+        center, scale = (c.view(1, 1, -1, 1, 1, 1).to(tensor) for c in constants)
+        return tensor * scale + center
+
+    def _run(self, core: torch.nn.Module, inputs: list[torch.Tensor]) -> torch.Tensor:
+        """Call a component core, with conditional layer norm noise if configured."""
+        model = self.model
+        if not model.use_cln:
+            return core(inputs)
+        conditions = [
+            torch.randn(
+                inputs[0].shape[0], model.condition_shape, generator=self._cln_generator
+            ).to(device=inputs[0].device, dtype=inputs[0].dtype)
+            for _ in range(core.integration_steps)
+        ]
+        return core(inputs, conditions_cln=conditions)
+
+    def _wrap(
+        self,
+        out: torch.Tensor,
+        leading: tuple[int, ...],
+        signature: CoordinateSystem,
+        like: xr.DataArray,
+    ) -> xr.DataArray:
+        """Restore the leading dimensions and wrap a ``(N, L, V, ...)`` output."""
+        out = out.reshape(*leading, *out.shape[1:])
+        result = from_torch(out, signature, name=like.name)
+        result.encoding = like.encoding.copy()
+        return result
+
+    # -- random state ----------------------------------------------------------
+
+    def _ensure_rng(self) -> None:
+        if self.stochastic and self._cln_generator is None:
+            self.set_rng(int(torch.randint(2**31, ()).item()))
+
+    def _rng_state(self) -> torch.Tensor | None:
+        if self.stochastic and self._cln_generator is not None:
+            return self._cln_generator.get_state().clone()
+        return None
+
+    def _continue(
+        self, forward: Callable[[], xr.DataArray], state: torch.Tensor | None
+    ) -> tuple[xr.DataArray, torch.Tensor | None]:
+        """Run ``forward`` from the generator ``state`` returned by an earlier call."""
+        previous = self._cln_generator
+        if state is not None:
+            self._cln_generator = torch.Generator().set_state(state.clone())
+        try:
+            return forward(), self._rng_state()
+        finally:
+            self._cln_generator = previous
+
+
+class DLESyMAtmos(_DLESyMComponent):
+    """Atmosphere component of a split :class:`DLESyM`.
+
+    Takes the atmosphere's history on the native HEALPix grid and the sea surface
+    temperature at the history's final lead time as forcing, and returns the
+    atmosphere at every output lead time of one coupled cycle. The fused model
+    drives each cycle with the SST at the cycle's start, which is the ocean's
+    previous output; under :class:`~earth2studio.coupling.CoupledRunner`, connect
+    the ocean's SST into forcing slot 0 with ``time="hold"``.
+
+    Build it with :meth:`DLESyM.split`, which pairs it with :class:`DLESyMOcean`.
+
+    Parameters
+    ----------
+    model : DLESyM
+        Fused model whose atmosphere core, constants and normalization are shared
+
+    Badges
+    ------
+    region:global class:subseasonal-seasonal product:wind product:temp product:atmos year:2025
+    gpu:40gb
+    provider:nvidia backend:pytorch
+    """
+
+    def input_coords(self) -> CoordinateSystem:
+        """Input coordinate system of the atmosphere.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature.
+        """
+        model = self.model
+        return coord_array_like(
+            self._native(),
+            {
+                "lead_time": model.atmos_input_times,
+                "variable": np.array(model.atmos_variables),
+            },
+        )
+
+    def forcing_coords(self) -> CoordinateSystem:  # type: ignore[override]
+        """Sea surface temperature at the history's final lead time.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray forcing signature.
+        """
+        model = self.model
+        return coord_array_like(
+            self._native(),
+            {
+                "lead_time": model.atmos_coupling_times[:1],
+                "variable": np.array(model.atmos_coupling_variables),
+            },
+        )
+
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Output coordinate system of the atmosphere.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray output signature.
+        """
+        model = self.model
+        return self._advance(
+            input_coords,
+            self.input_coords(),
+            model.atmos_output_times,
+            model.atmos_variables + model.atmos_diagnostic_variables,
+        )
+
+    @torch.inference_mode()
+    def _forward_array(self, x: xr.DataArray, sst: xr.DataArray) -> xr.DataArray:
+        model = self.model
+        self._ensure_rng()
+        signature = self.output_coords(x)
+        lead = x.lead_time.values
+        frame = self._align(
+            self._select(sst, model.atmos_coupling_variables, lead[-1:]), x
+        )
+        tensor, anchors, leading = self._flatten(x)
+        coupling, _, _ = self._flatten(frame)
+        state = self._normalize(tensor, self._input_constants(model.atmos_var_idx))
+        coupling = self._normalize(
+            coupling, self._input_constants(model.atmos_coupling_var_idx)
+        )[:, 0]
+        coupling = coupling.unsqueeze(0).expand(
+            len(model.atmos_coupling_times), *coupling.shape
+        )
+        insolation = model._make_insolation_tensor(
+            anchor_times=anchors, timedeltas=model.atmos_sol_times + lead[-1]
+        )
+        inputs = [
+            t.to(tensor.device, tensor.dtype)
+            for t in (
+                state.permute(0, 3, 1, 2, 4, 5),
+                insolation,
+                model.atmos_constants,
+                coupling,
+            )
+        ]
+        out = self._run(model.atmos_model, inputs).permute(0, 2, 3, 1, 4, 5)
+        out = self._denormalize(out, self._output_constants(model.atmos_output_var_idx))
+        return self._wrap(out, leading, signature, x)
+
+    def __call__(self, x: xr.DataArray, sst: xr.DataArray) -> xr.DataArray:
+        """Advance one coupled cycle without hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Atmosphere history matching ``input_coords()``.
+        sst : xr.DataArray
+            Sea surface temperature matching ``forcing_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            Atmosphere at the cycle's output lead times.
+        """
+        return self.initialize(x, sst)[0]
+
+    def initialize(
+        self, x: xr.DataArray, sst: xr.DataArray
+    ) -> tuple[xr.DataArray, torch.Tensor | None]:
+        """Compute the first cycle and the continuation random stream.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Atmosphere history matching ``input_coords()``.
+        sst : xr.DataArray
+            Sea surface temperature matching ``forcing_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, torch.Tensor | None]
+            First cycle and conditional layer norm RNG state, or ``None`` for
+            deterministic execution.
+        """
+        handshake_nonempty(x)
+        return self._forward_array(x, sst), self._rng_state()
+
+    def step(
+        self,
+        y: xr.DataArray,
+        sst: xr.DataArray,
+        state: torch.Tensor | None = None,
+    ) -> tuple[xr.DataArray, torch.Tensor | None]:
+        """Advance one cycle from the previous output.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous cycle, including caller-applied edits.
+        sst : xr.DataArray
+            Sea surface temperature holding the frame at ``y``'s final lead time.
+        state : torch.Tensor | None
+            RNG state returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, torch.Tensor | None]
+            Next cycle and updated RNG state.
+        """
+        model = self.model
+        x = y.isel(lead_time=slice(-len(model.atmos_input_times), None)).sel(
+            variable=model.atmos_variables
+        )
+        return self._continue(lambda: self._forward_array(x, sst), state)
+
+    def create_iterator(  # type: ignore[override]
+        self, x: xr.DataArray, sst: xr.DataArray
+    ) -> Iterator[xr.DataArray]:
+        """Yield cycles with hooks, taking each step's SST through ``send``.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Atmosphere history matching ``input_coords()``.
+        sst : xr.DataArray
+            Sea surface temperature matching ``forcing_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Cycles, starting with initialization's prediction.
+        """
+        return self._default_create_iterator(x, sst)  # type: ignore[return-value]
+
+
+class DLESyMOcean(_DLESyMComponent):
+    """Ocean component of a split :class:`DLESyM`.
+
+    Takes the ocean's history on the native HEALPix grid and, as forcing, the
+    means of the atmosphere's coupling variables over each ocean output window,
+    declared as qualified labels such as ``z1000:mean:48h`` valid at the window's
+    end. The fused model averages the atmosphere's output frames of the same
+    cycle, so under :class:`~earth2studio.coupling.CoupledRunner` an ``exact``
+    connector from the atmosphere reduces its frames onto this slot.
+
+    Build it with :meth:`DLESyM.split`, which pairs it with :class:`DLESyMAtmos`.
+
+    Parameters
+    ----------
+    model : DLESyM
+        Fused model whose ocean core, constants and normalization are shared
+
+    Badges
+    ------
+    region:global class:subseasonal-seasonal product:ocean year:2025
+    gpu:40gb
+    provider:nvidia backend:pytorch
+    """
+
+    def __init__(self, model: DLESyM) -> None:
+        super().__init__(model)
+        n_atmos, n_ocean = len(model.atmos_output_times), len(model.ocean_output_times)
+        if n_atmos < 2 or n_atmos % n_ocean:
+            raise ValueError(
+                f"{n_atmos} atmosphere output times cannot be averaged into "
+                f"{n_ocean} equal ocean windows"
+            )
+        per_window = n_atmos // n_ocean
+        spacing = model.atmos_output_times[1] - model.atmos_output_times[0]
+        self.window = per_window * spacing
+        self.window_ends = np.array(
+            [
+                model.atmos_output_times[(i + 1) * per_window - 1] + spacing
+                for i in range(n_ocean)
+            ]
+        )
+        self.forcing_variables = [
+            f"{v}:mean:{_compact_duration(self.window)}"
+            for v in model.ocean_coupling_variables
+        ]
+
+    def input_coords(self) -> CoordinateSystem:
+        """Input coordinate system of the ocean.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature.
+        """
+        model = self.model
+        return coord_array_like(
+            self._native(),
+            {
+                "lead_time": model.ocean_input_times,
+                "variable": np.array(model.ocean_variables),
+            },
+        )
+
+    def forcing_coords(self) -> CoordinateSystem:  # type: ignore[override]
+        """Window means of the atmosphere's coupling variables.
+
+        One frame per ocean output time, valid at the end of the window it
+        averages, which follows the window's last atmosphere frame.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray forcing signature.
+        """
+        return coord_array_like(
+            self._native(),
+            {
+                "lead_time": self.window_ends,
+                "variable": np.array(self.forcing_variables),
+            },
+        )
+
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Output coordinate system of the ocean.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray output signature.
+        """
+        model = self.model
+        return self._advance(
+            input_coords,
+            self.input_coords(),
+            model.ocean_output_times,
+            model.ocean_variables + model.ocean_diagnostic_variables,
+        )
+
+    @torch.inference_mode()
+    def _forward_array(self, x: xr.DataArray, forcing: xr.DataArray) -> xr.DataArray:
+        model = self.model
+        self._ensure_rng()
+        signature = self.output_coords(x)
+        lead = x.lead_time.values
+        windows = self._align(
+            self._select(forcing, self.forcing_variables, lead[-1] + self.window_ends),
+            x,
+        )
+        tensor, anchors, leading = self._flatten(x)
+        coupling, _, _ = self._flatten(windows)
+        state = self._normalize(tensor, self._input_constants(model.ocean_var_idx))
+        atmos_center, atmos_scale = self._output_constants(model.atmos_output_var_idx)
+        coupling = self._normalize(
+            coupling,
+            (
+                atmos_center[model.ocean_coupling_var_idx],
+                atmos_scale[model.ocean_coupling_var_idx],
+            ),
+        )
+        # Window-major variables, as the fused model stacks its chunk means.
+        coupling = coupling.reshape(
+            coupling.shape[0], -1, *coupling.shape[3:]
+        ).unsqueeze(0)
+        insolation = model._make_insolation_tensor(
+            anchor_times=anchors, timedeltas=model.ocean_sol_times + lead[-1]
+        )
+        inputs = [
+            t.to(tensor.device, tensor.dtype)
+            for t in (
+                state.permute(0, 3, 1, 2, 4, 5),
+                insolation,
+                model.ocean_constants,
+                coupling,
+            )
+        ]
+        out = self._run(model.ocean_model, inputs).permute(0, 2, 3, 1, 4, 5)
+        out = self._denormalize(out, self._output_constants(model.ocean_output_var_idx))
+        return self._wrap(out, leading, signature, x)
+
+    def __call__(self, x: xr.DataArray, forcing: xr.DataArray) -> xr.DataArray:
+        """Advance one coupled cycle without hooks.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Ocean history matching ``input_coords()``.
+        forcing : xr.DataArray
+            Atmosphere window means matching ``forcing_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            Ocean at the cycle's output lead times.
+        """
+        return self.initialize(x, forcing)[0]
+
+    def initialize(
+        self, x: xr.DataArray, forcing: xr.DataArray
+    ) -> tuple[xr.DataArray, torch.Tensor | None]:
+        """Compute the first cycle and the continuation random stream.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Ocean history matching ``input_coords()``.
+        forcing : xr.DataArray
+            Atmosphere window means matching ``forcing_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, torch.Tensor | None]
+            First cycle and conditional layer norm RNG state, or ``None`` for
+            deterministic execution.
+        """
+        handshake_nonempty(x)
+        return self._forward_array(x, forcing), self._rng_state()
+
+    def step(
+        self,
+        y: xr.DataArray,
+        forcing: xr.DataArray,
+        state: torch.Tensor | None = None,
+    ) -> tuple[xr.DataArray, torch.Tensor | None]:
+        """Advance one cycle from the previous output.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous cycle, including caller-applied edits.
+        forcing : xr.DataArray
+            Atmosphere window means holding the frames at ``y``'s final lead time
+            plus each window end.
+        state : torch.Tensor | None
+            RNG state returned by ``initialize`` or ``step``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, torch.Tensor | None]
+            Next cycle and updated RNG state.
+        """
+        model = self.model
+        x = y.isel(lead_time=slice(-len(model.ocean_input_times), None)).sel(
+            variable=model.ocean_variables
+        )
+        return self._continue(lambda: self._forward_array(x, forcing), state)
+
+    def create_iterator(  # type: ignore[override]
+        self, x: xr.DataArray, forcing: xr.DataArray
+    ) -> Iterator[xr.DataArray]:
+        """Yield cycles with hooks, taking each step's forcing through ``send``.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Ocean history matching ``input_coords()``.
+        forcing : xr.DataArray
+            Atmosphere window means matching ``forcing_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Cycles, starting with initialization's prediction.
+        """
+        return self._default_create_iterator(x, forcing)  # type: ignore[return-value]

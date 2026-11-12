@@ -36,7 +36,9 @@ earth2studio.models.px.CBottleVideo
 earth2studio.models.px.DataReplay
 earth2studio.models.px.DiagnosticWrapper
 earth2studio.models.px.DLESyM
+earth2studio.models.px.DLESyMAtmos
 earth2studio.models.px.DLESyMLatLon
+earth2studio.models.px.DLESyMOcean
 earth2studio.models.px.DLESyMv0_ISCCP_ERA5
 earth2studio.models.px.DLESyMv0_ISCCP_ERA5LatLon
 earth2studio.models.px.DLWP
