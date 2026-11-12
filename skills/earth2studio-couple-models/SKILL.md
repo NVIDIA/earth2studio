@@ -106,6 +106,12 @@ The messages suggest close names for misspelled components and variables.
 - **Converting inside a connector.** Connectors only select, reduce and
   regrid; put conversions in a diagnostic component.
 - **Coupling a fused multi-cadence model.** Split it into components first.
+- **Asking for a final lead time no component reaches.** It must be a lead
+  time at which some stateful component's output is due (with 6 h and 48 h
+  components, a multiple of 6 h); anything else raises `ValueError`.
+- **Expecting hooks to touch the initial condition.** `front_hook` and
+  `rear_hook` run on stateful components as in `create_iterator`, on forecast
+  chunks only; use `perturbation=` to perturb the initial condition.
 
 ## Reference Map
 

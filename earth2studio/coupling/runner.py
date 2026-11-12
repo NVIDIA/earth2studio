@@ -93,6 +93,14 @@ class CoupledRunner:
     output chunk;
     a diagnostic publishes every call.
 
+    A stateful component's ``front_hook`` and ``rear_hook`` run as they do in
+    its ``create_iterator``: the rear hook on every output chunk before it is
+    published and fed back, the front hook on the fed-back outputs before each
+    ``step`` (after state connectors overwrite them). A work item's final lead
+    time must be a lead time at which some stateful component's output is due.
+    Each producer keeps enough frames for the longest reduction window read
+    from it.
+
     Items with several members run as one batch on a leading ``ensemble``
     dimension, observation frames shared by every member, seeded once from the
     first member, so stochastic members depend on their batch; ``member_batch=1``
@@ -379,17 +387,55 @@ class CoupledRunner:
                         f"{error}"
                     ) from error
 
+    def _reach(self) -> dict[str, int]:
+        """How far before a read's lead time each producer's reductions reach.
+
+        Early windows are partly backfilled from sources, so a short dry run
+        never sees a long window at full width; its width bounds the history.
+        """
+        reach: dict[str, int] = {}
+        for connector in self._all_connectors():
+            if connector.state or connector.src not in self.spacing:
+                continue
+            slot = next(
+                s
+                for s in self.nodes[connector.dst].imports
+                if s.index == connector.slot
+            )
+            for label in slot.labels:
+                modifier = _split_label(label)[1]
+                if modifier is None or not connector.feeds(label):
+                    continue
+                window = _window(modifier, 0, self.spacing[connector.src])
+                if window:
+                    reach[connector.src] = max(
+                        reach.get(connector.src, 0), -min(window)
+                    )
+        return reach
+
     def _plan_retention(self) -> dict[str, int]:
-        """Dry-run a few coupling periods, raising on cycles and missing sources."""
+        """Dry-run a few coupling periods, raising on cycles and missing sources.
+
+        The run lasts long enough for every reduction window to be read at full
+        width, so the history kept covers the longest window.
+        """
         stateful = [n for n in self.nodes.values() if n.stateful]
         period = math.lcm(*(n.cadence for n in stateful))
-        horizon = max(n.due(0) for n in stateful) + 2 * period
+        reach = self._reach()
+        horizon = (
+            max(n.due(0) for n in stateful)
+            + 2 * period
+            + max(reach.values(), default=0)
+        )
         ages: dict[str, int] = {}
         requests = _Requests(self)
         for _ in self._scheduler.run(requests, horizon, slack=period, ages=ages):
             pass
         longest = max(n.cadence for n in stateful)
-        return {name: ages.get(name, 0) + longest for name in self.nodes}
+        return {
+            name: max(ages.get(name, 0), reach.get(name, 0)) + longest
+            for name in self.nodes
+        }
 
     # -- Runner protocol -------------------------------------------------------
 
@@ -424,6 +470,27 @@ class CoupledRunner:
             return _module_device(model)
         return self.device
 
+    def _final(self, final_lead_time: np.timedelta64) -> int:
+        """``final_lead_time`` in nanoseconds, checked against the schedule.
+
+        A run ends where some stateful component's output is due, as a
+        :class:`~earth2studio.run.PrognosticRunner` ends on a step; any other
+        final lead time would end the run early without an error.
+        """
+        final = int(_ns(final_lead_time)[0])
+        if final < 0:
+            raise ValueError(f"Final lead time {final_lead_time} must be non-negative")
+        ticks = self._scheduler.ticks(final)
+        if final != 0 and (not ticks or ticks[-1] != final):
+            finest = min(n.cadence for n in self.nodes.values() if n.stateful)
+            last = _fmt(ticks[-1])[1:] if ticks else "0h"
+            raise ValueError(
+                f"Final lead time {final_lead_time} is not a lead time at which any "
+                f"component's output is due (the finest component step is "
+                f"{_fmt(finest)[1:]}); the run would end early, at {last}"
+            )
+        return final
+
     def _all_connectors(self) -> list[Connector]:
         states = [c for connectors in self.states.values() for c in connectors]
         feeding = [c for connectors in self.connectors.values() for c in connectors]
@@ -434,7 +501,7 @@ class CoupledRunner:
     ) -> Mapping[str, CoordinateSystem]:
         """Return each component's stream signature through ``final_lead_time``."""
         leads: dict[tuple[str, int], list[int]] = {}
-        for event in self._scheduler.run(_Planner(), _final(final_lead_time)):
+        for event in self._scheduler.run(_Planner(), self._final(final_lead_time)):
             for slot in event.slots:
                 key = (event.node.name, slot)
                 leads.setdefault(key, []).extend(int(v) for v in event.leads)
@@ -456,7 +523,7 @@ class CoupledRunner:
     def data_requests(self, item: WorkItem) -> tuple[DataRequest, ...]:
         """Describe every ``fetch_data`` call ``item`` makes, in run order."""
         requests = _Requests(self, item)
-        for _ in self._scheduler.run(requests, _final(item.final_lead_time)):
+        for _ in self._scheduler.run(requests, self._final(item.final_lead_time)):
             pass
         return tuple(requests.requests)
 
@@ -471,7 +538,7 @@ class CoupledRunner:
             )
         execution = _Execution(self, item)
         for event in self._scheduler.run(
-            execution, _final(item.final_lead_time), retention=self._retention
+            execution, self._final(item.final_lead_time), retention=self._retention
         ):
             if event.slots and event.frames is not None:
                 yield dict(zip(event.streams, event.frames))
@@ -507,8 +574,8 @@ class CoupledRunner:
             )
         if not self._all_connectors():
             lines.append("  none")
-        lines.append(f"Schedule through {_fmt(_final(final_lead_time))}:")
-        for event in self._scheduler.run(_Planner(), _final(final_lead_time)):
+        lines.append(f"Schedule through {_fmt(self._final(final_lead_time))}:")
+        for event in self._scheduler.run(_Planner(), self._final(final_lead_time)):
             published = ", ".join(_fmt(v) for v in event.leads)
             reads = "; ".join(
                 [_describe_plan(plan) for plan in event.plans]
@@ -586,6 +653,9 @@ class _Execution:
         self.inputs: dict[str, tuple[Any, ...]] = {}
         self.y: dict[str, Any] = {}
         self.state: dict[str, Any] = {}
+        # Whether each component returns its outputs as a tuple, so hooks see
+        # the payload in the form create_iterator gives them.
+        self.packed: dict[str, bool] = {}
 
     def _fetch(
         self, node: _Node, slot: _Slot, labels: Sequence[str], leads: Any
@@ -642,13 +712,19 @@ class _Execution:
         node = event.node
         args = tuple(self._value(node, plan, buffers) for plan in event.plans)
         if node.stateful:
+            # Hooks run as in create_iterator: the rear hook on every output
+            # chunk, before it is published and fed back; the front hook on the
+            # fed-back outputs, after state connectors overwrite them, before step.
+            model = node.model
             if event.index == 0:
                 x = self._overwrite(event, self.inputs.pop(node.name), buffers)
-                y, state = node.model.initialize(*x, *args)
+                y, state = model.initialize(*x, *args)
             else:
                 y = self._overwrite(event, self.y[node.name], buffers)
-                y, state = node.model.step(*y, *args, state=self.state[node.name])
-            ys = y if isinstance(y, tuple) else (y,)
+                y = _hook(getattr(model, "front_hook", None), y, self.packed[node.name])
+                y, state = model.step(*y, *args, state=self.state[node.name])
+            self.packed[node.name] = isinstance(y, tuple)
+            ys = _hook(getattr(model, "rear_hook", None), y, self.packed[node.name])
             self.y[node.name], self.state[node.name] = ys, state
             return ys
         outputs = node.model(*args)
@@ -865,11 +941,22 @@ class _Execution:
 # -- helpers -------------------------------------------------------------------
 
 
-def _final(final_lead_time: np.timedelta64) -> int:
-    final = int(_ns(final_lead_time)[0])
-    if final < 0:
-        raise ValueError(f"Final lead time {final_lead_time} must be non-negative")
-    return final
+def _hook(hook: Callable[[Any], Any] | None, y: Any, packed: bool) -> tuple[Any, ...]:
+    """Apply a model's iterator hook to its outputs, returned as a tuple.
+
+    The hook receives the outputs as the model returns them: a tuple when the
+    model returns one, else its single DataArray.
+    """
+    ys = y if isinstance(y, tuple) else (y,)
+    if hook is None:
+        return ys
+    out = hook(ys if packed else ys[0])
+    out = out if isinstance(out, tuple) else (out,)
+    if len(out) != len(ys):
+        raise CouplingError(
+            f"Iterator hook {hook!r} returned {len(out)} outputs, expected {len(ys)}"
+        )
+    return out
 
 
 def _component_seed(base: int, name: str) -> int:

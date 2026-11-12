@@ -313,6 +313,112 @@ def test_a_lone_forced_model_matches_prognostic_runner() -> None:
     assert coupled == pytest.approx(direct)
 
 
+@pytest.mark.parametrize(
+    "hook, expected",
+    [
+        # z1000 <- z1000 + 1.3 per 6 h step (sst = 3), then the hook.
+        ("rear_hook", {0: 0.0, 6: 101.3, 12: 202.6, 18: 303.9}),
+        ("front_hook", {0: 0.0, 6: 1.3, 12: 102.6, 18: 203.9}),
+    ],
+)
+def test_iterator_hooks_run_as_in_prognostic_runner(
+    hook: str, expected: dict[int, float]
+) -> None:
+    def build() -> _Toy:
+        model = atmosphere()
+        setattr(model, hook, lambda y: y + 100)
+        return model
+
+    sources = (Fill(ATMOS_GRID, {"z1000": 0.0}), Fill(ATMOS_GRID, {"sst": 3.0}))
+    coupled = series(
+        run(CoupledRunner({"atmos": build()}, sources={"atmos": sources}), 18)["atmos"]
+    )
+    single = PrognosticRunner(build(), sources[0], forcing=sources[1:])
+    direct = {
+        int(s["forecast"]["lead_time"].values[-1] // H): float(s["forecast"].mean())
+        for s in single.run_item(WorkItem(T0, np.timedelta64(18, "h")))
+    }
+    assert direct == pytest.approx(expected)
+    assert coupled == pytest.approx(direct)
+
+
+def test_hooks_apply_to_every_component(ic_sources: Mapping[str, Fill]) -> None:
+    atmos, sea = atmosphere(), ocean()
+    atmos.rear_hook = lambda y: y + 100  # type: ignore[method-assign]
+    sea.rear_hook = lambda y: y + 10  # type: ignore[method-assign]
+    runner = CoupledRunner(
+        {"atmos": atmos, "ocean": sea},
+        [
+            Connector("ocean", "atmos", time="hold", regridder=TO_ATMOS),
+            Connector("atmos", "ocean", regridder=TO_OCEAN),
+        ],
+        sources=dict(ic_sources),
+    )
+    streams = run(runner, 48)
+    assert series(streams["atmos"])[6] == pytest.approx(101.2)
+    assert series(streams["ocean"])[48] > 12.0
+
+
+def test_noise_hooks_give_distinct_batched_members(
+    ic_sources: Mapping[str, Fill],
+) -> None:
+    atmos = atmosphere()
+    atmos.rear_hook = lambda y: y + np.random.default_rng().normal(  # type: ignore[method-assign]
+        size=y.shape
+    )
+    runner = CoupledRunner(
+        {"atmos": atmos},
+        sources={"atmos": (ic_sources["atmos"], Fill(ATMOS_GRID, {"sst": 2.0}))},
+    )
+    item = WorkItem(T0, np.timedelta64(12, "h"), member_ids=(0, 1, 2, 3))
+    last = list(runner.run_item(item))[-1]["atmos"]
+    members = [last.isel(ensemble=i).values for i in range(4)]
+    for i in range(4):
+        for j in range(i + 1, 4):
+            assert not np.allclose(members[i], members[j])
+
+
+# -- final lead time and history ---------------------------------------------------
+
+
+def test_final_lead_time_must_fall_where_an_output_is_due(
+    ic_sources: Mapping[str, Fill],
+) -> None:
+    runner = toy_runner(ic_sources)
+    for hours in (100, 7):
+        final = np.timedelta64(hours, "h")
+        with pytest.raises(ValueError, match="finest component step is 6h"):
+            list(runner.run_item(WorkItem(T0, final)))
+        with pytest.raises(ValueError, match="not a lead time"):
+            runner.output_coords(final)
+        with pytest.raises(ValueError, match="not a lead time"):
+            runner.describe(final)
+    assert list(series(run(runner, 96)["atmos"]))[-1] == 96
+
+
+def _long_window_runner() -> CoupledRunner:
+    """Two 6 h models; ``b`` reads a 48 h mean of ``a``'s ``z1000``."""
+    source = Fill(ATMOS_GRID, {"z1000": 0.0, "sst": 2.0})
+    a = _Toy("z1000", "sst", ATMOS_GRID, 6, 1.0, 0.1)
+    b = _Toy("sst", "z1000:mean:48h", ATMOS_GRID, 6, 0.0, 0.01, forcing_lead=6)
+    return CoupledRunner(
+        {"a": a, "b": b},
+        [Connector("a", "b")],
+        sources={"a": (source, source), "b": (source, source)},
+    )
+
+
+def test_history_covers_reduction_windows_longer_than_the_dry_run() -> None:
+    runner = _long_window_runner()
+    assert runner._retention["a"] >= 48 * 3_600 * 10**9
+    streams = run(runner, 96)
+    assert list(series(streams["b"])) == list(range(0, 97, 6))
+    # Matches a run that never discards history.
+    unpruned = _long_window_runner()
+    unpruned._retention = {name: 1 << 62 for name in unpruned.nodes}
+    assert series(streams["b"]) == pytest.approx(series(run(unpruned, 96)["b"]))
+
+
 def _background() -> _Toy:
     """Atmosphere initialized from a background 9 h before the analysis time."""
     return _Toy("z1000", "sst", ATMOS_GRID, 3, 1.0, 0.1, background=9)
