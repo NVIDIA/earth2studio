@@ -14,35 +14,80 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for PredownloadedSource, CompositeSource, ValidTimeForecastAdapter, CadenceRoundedSource."""
+"""Tests for the recipe data layer (src/data.py): predownloaded stores and
+source resolution."""
 
 from __future__ import annotations
 
+import asyncio
+
 import numpy as np
+import pandas as pd
 import pytest
 import xarray as xr
+from omegaconf import OmegaConf
 from src.data import (
-    CadenceRoundedSource,
-    CompositeSource,
+    PredownloadedForecastSource,
+    PredownloadedFrameSource,
     PredownloadedSource,
-    ValidTimeForecastAdapter,
+    frame_filename,
+    frame_store_path,
+    instantiate_source,
+    is_forecast_source,
+    open_predownloaded,
+    resolve_source,
+    store_name,
 )
 
+from earth2studio.data import Random, fetch_data
+from earth2studio.io import ZarrBackend
+from earth2studio.utils.coords import E2S_STATISTICS, coord_array
 
-def _create_zarr_store(path, times, variables, lat, lon):
-    """Write a minimal zarr store with the predownload schema."""
-    ds = xr.Dataset()
-    for var in variables:
-        data = np.random.default_rng(42).standard_normal(
-            (len(times), len(lat), len(lon))
-        )
-        ds[var] = xr.DataArray(
-            data,
-            dims=["time", "lat", "lon"],
-            coords={"time": times, "lat": lat, "lon": lon},
-        )
-    ds.to_zarr(str(path))
-    return ds
+TIMES = np.array(["2024-01-01", "2024-01-02", "2024-01-03"], dtype="datetime64[ns]")
+LEADS = np.array([0, 6], dtype="timedelta64[h]").astype("timedelta64[ns]")
+VARIABLES = ["t2m", "z500"]
+LAT = np.array([90.0, 0.0, -90.0])
+LON = np.array([0.0, 90.0, 180.0, 270.0])
+
+
+def _write_store(path, times=TIMES, variables=VARIABLES, lat=LAT, lon=LON):
+    """Write a predownload-schema store (one array per variable on
+    ``(time, lat, lon)``) through the library backend, as predownload does."""
+    io = ZarrBackend(str(path))
+    coords = {"time": times, "variable": np.array(variables), "lat": lat, "lon": lon}
+    io.add_array(coord_array(("time", "variable", "lat", "lon"), coords))
+    data = np.random.default_rng(42).standard_normal(
+        (len(times), len(variables), len(lat), len(lon))
+    )
+    da = xr.DataArray(data.astype("float32"), dims=list(coords), coords=coords)
+    io.write(da)
+    io.close()
+    return da
+
+
+def _write_forecast_store(path, times=TIMES, leads=LEADS, variables=VARIABLES):
+    """Write a forecast-source store (``(time, lead_time, lat, lon)`` arrays)."""
+    io = ZarrBackend(str(path))
+    coords = {
+        "time": times,
+        "lead_time": leads,
+        "variable": np.array(variables),
+        "lat": LAT,
+        "lon": LON,
+    }
+    io.add_array(coord_array(("time", "lead_time", "variable", "lat", "lon"), coords))
+    data = np.random.default_rng(7).standard_normal(
+        (len(times), len(leads), len(variables), len(LAT), len(LON))
+    )
+    da = xr.DataArray(data.astype("float32"), dims=list(coords), coords=coords)
+    io.write(da)
+    io.close()
+    return da
+
+
+# ---------------------------------------------------------------------------
+# PredownloadedSource
+# ---------------------------------------------------------------------------
 
 
 class TestPredownloadedSource:
@@ -51,391 +96,276 @@ class TestPredownloadedSource:
         return tmp_path / "data.zarr"
 
     @pytest.fixture()
-    def times(self):
-        return np.array(
-            ["2024-01-01", "2024-01-02", "2024-01-03"], dtype="datetime64[ns]"
-        )
+    def written(self, store_path):
+        return _write_store(store_path)
 
     @pytest.fixture()
-    def variables(self):
-        return ["t2m", "z500"]
-
-    @pytest.fixture()
-    def lat(self):
-        return np.array([90.0, 0.0, -90.0])
-
-    @pytest.fixture()
-    def lon(self):
-        return np.array([0.0, 90.0, 180.0, 270.0])
-
-    @pytest.fixture()
-    def ds(self, store_path, times, variables, lat, lon):
-        return _create_zarr_store(store_path, times, variables, lat, lon)
-
-    @pytest.fixture()
-    def source(self, ds, store_path):
+    def source(self, written, store_path):
         return PredownloadedSource(str(store_path))
 
-    def test_call_returns_dataarray(self, source, times):
-        result = source(times[:1], ["t2m"])
+    def test_missing_store_raises(self, tmp_path):
+        with pytest.raises(FileNotFoundError):
+            PredownloadedSource(str(tmp_path / "nope.zarr"))
+
+    def test_properties(self, source):
+        assert sorted(source.variables) == sorted(VARIABLES)
+        np.testing.assert_array_equal(source.times, TIMES)
+        assert source.time_step == np.timedelta64(1, "D")
+
+    def test_call_returns_dataarray(self, source):
+        result = source(TIMES[:1], ["t2m"])
         assert isinstance(result, xr.DataArray)
+        assert result.dims[:2] == ("time", "variable")
+        assert result.sizes["time"] == 1 and result.sizes["variable"] == 1
 
-    def test_select_single_time_and_variable(self, source):
-        result = source(np.array(["2024-01-01"], dtype="datetime64[ns]"), ["t2m"])
-        assert result.dims[0] == "time"
-        assert result.dims[1] == "variable"
-        assert len(result.time) == 1
-        assert result.sizes["variable"] == 1
-
-    def test_select_multiple_times(self, source, times):
-        result = source(times, ["t2m", "z500"])
-        assert len(result.time) == 3
-        assert result.sizes["variable"] == 2
+    def test_select_multiple_times(self, source):
+        result = source(TIMES, VARIABLES)
+        assert result.sizes["time"] == 3 and result.sizes["variable"] == 2
 
     def test_scalar_inputs(self, source):
-        """Scalar time and variable are promoted to lists internally."""
         result = source(np.datetime64("2024-01-01", "ns"), "t2m")
-        assert len(result.time) == 1
-        assert result.sizes["variable"] == 1
+        assert result.sizes["time"] == 1 and result.sizes["variable"] == 1
 
-    def test_data_values_match_written(self, source, ds):
-        result = source(np.array(["2024-01-01"], dtype="datetime64[ns]"), ["t2m"])
-        expected = ds["t2m"].sel(time="2024-01-01").values
+    def test_values_match_written(self, source, written):
+        result = source(TIMES[1:2], ["z500"])
         np.testing.assert_array_equal(
-            result.sel(variable="t2m").values.squeeze(), expected
+            result.values.squeeze(), written.sel(time=TIMES[1], variable="z500").values
         )
 
-    def test_async_fetch(self, source, times):
-        import asyncio
-
-        result = asyncio.run(source.fetch(times[:1], ["t2m"]))
+    def test_async_fetch(self, source):
+        result = asyncio.run(source.fetch(TIMES[:1], ["t2m"]))
         assert isinstance(result, xr.DataArray)
 
     def test_missing_time_raises(self, source):
-        with pytest.raises(KeyError):
+        with pytest.raises(KeyError, match="lacks some of the times"):
             source(np.array(["2099-01-01"], dtype="datetime64[ns]"), ["t2m"])
 
-    def test_missing_variable_raises(self, source, times):
-        with pytest.raises(KeyError):
-            source(times[:1], ["nonexistent_var"])
+    def test_missing_variable_raises(self, source):
+        with pytest.raises(KeyError, match="lacks variables"):
+            source(TIMES[:1], ["nonexistent_var"])
 
+    def test_works_with_fetch_data(self, source):
+        from earth2studio.data import fetch_data
 
-# ---------------------------------------------------------------------------
-# CompositeSource
-# ---------------------------------------------------------------------------
-
-
-def _create_yx_zarr_store(path, times, variables):
-    """Write a zarr with (time, y, x) dims — matches StormScope predownload layout."""
-    ds = xr.Dataset()
-    y = np.arange(4)
-    x = np.arange(5)
-    for var in variables:
-        data = np.random.default_rng(7).standard_normal((len(times), len(y), len(x)))
-        ds[var] = xr.DataArray(
-            data,
-            dims=["time", "y", "x"],
-            coords={"time": times, "y": y, "x": x},
+        da = fetch_data(
+            source,
+            time=TIMES[:1],
+            variable=np.array(["t2m"]),
+            lead_time=np.array([0, 24], dtype="timedelta64[h]"),
         )
-    ds.to_zarr(str(path))
-    return ds
+        assert tuple(da.dims) == ("time", "lead_time", "variable", "lat", "lon")
+        assert da.sizes["lead_time"] == 2
 
 
-class TestCompositeSource:
-    """CompositeSource dispatches variable requests across multiple sources.
+class TestQualifiedLabels:
+    """The store serves its time statistics natively, as fetch_data expects."""
 
-    Fixtures create two small zarrs on a shared ``(time, y, x)`` grid but
-    with disjoint variables — mirrors StormScope's
-    ``data_goes.zarr`` / ``data_mrms.zarr`` layout.
-    """
+    LABELS = ["t2m:mean:0h:24h", "tp:mean:1h:25h"]
 
     @pytest.fixture()
-    def times(self):
-        return np.array(["2024-01-01", "2024-01-02"], dtype="datetime64[ns]")
+    def store(self, tmp_path):
+        written = _write_store(tmp_path / "data.zarr", variables=self.LABELS)
+        return PredownloadedSource(str(tmp_path / "data.zarr")), written
+
+    def test_lexicon_declares_the_stored_methods(self, store):
+        source, _ = store
+        assert source.lexicon.TIME_STATISTICS == ("mean",)
+        assert source.time_step == np.timedelta64(1, "D")
+        # Zarr lists arrays in store order, not request order.
+        assert sorted(source.variables) == sorted(self.LABELS)
+
+    def test_fetch_data_round_trips_the_reduced_fields(self, store):
+        source, written = store
+        da = fetch_data(
+            source,
+            time=TIMES[1:2],
+            variable=np.array(self.LABELS),
+            lead_time=np.array([-24, 0], dtype="timedelta64[h]"),
+        )
+        assert list(da["variable"].values) == self.LABELS
+        for k, t in enumerate(TIMES[:2]):
+            for label in self.LABELS:
+                np.testing.assert_allclose(
+                    da.sel(variable=label).isel(time=0, lead_time=k).values,
+                    written.sel(time=t, variable=label).values,
+                )
+        statistics = da.attrs[E2S_STATISTICS]
+        assert set(statistics) == set(self.LABELS)
+        assert statistics["tp:mean:1h:25h"]["start_offset"] == np.timedelta64(1, "h")
+
+    def test_unsupported_method_is_rejected(self, store):
+        source, _ = store
+        with pytest.raises(ValueError, match="does not support"):
+            fetch_data(source, time=TIMES[:1], variable=np.array(["t2m:max:0h:24h"]))
+
+    def test_plain_labels_carry_no_statistics(self, tmp_path):
+        _write_store(tmp_path / "plain.zarr")
+        source = PredownloadedSource(str(tmp_path / "plain.zarr"))
+        assert source.lexicon.TIME_STATISTICS == ()
+        assert E2S_STATISTICS not in source(TIMES[:1], ["t2m"]).attrs
+
+
+class TestPredownloadedForecastSource:
+    @pytest.fixture()
+    def store(self, tmp_path):
+        path = tmp_path / "fx.zarr"
+        return path, _write_forecast_store(path)
+
+    def test_open_predownloaded_picks_the_kind(self, store, tmp_path):
+        path, _ = store
+        assert isinstance(open_predownloaded(str(path)), PredownloadedForecastSource)
+        _write_store(tmp_path / "data.zarr")
+        assert isinstance(
+            open_predownloaded(str(tmp_path / "data.zarr")), PredownloadedSource
+        )
+        with pytest.raises(ValueError, match="forecast-source store"):
+            PredownloadedSource(str(path))
+        with pytest.raises(ValueError, match="data-source store"):
+            PredownloadedForecastSource(str(tmp_path / "data.zarr"))
+        with pytest.raises(FileNotFoundError):
+            open_predownloaded(str(tmp_path / "nope.zarr"))
+
+    def test_is_forecast_source(self, store, tmp_path):
+        path, _ = store
+        assert is_forecast_source(open_predownloaded(str(path)))
+        _write_store(tmp_path / "data.zarr")
+        assert not is_forecast_source(PredownloadedSource(str(tmp_path / "data.zarr")))
+        assert not is_forecast_source(Random(domain_coords={"lat": LAT}))
+
+    def test_fetch_data_uses_initial_time_and_lead(self, store):
+        path, written = store
+        source = PredownloadedForecastSource(str(path))
+        np.testing.assert_array_equal(source.lead_times, LEADS)
+        np.testing.assert_array_equal(source.times, TIMES)
+        assert source.time_step == np.timedelta64(6, "h")
+        da = fetch_data(
+            source, time=TIMES[:1], variable=np.array(["z500"]), lead_time=LEADS
+        )
+        assert tuple(da.dims) == ("time", "lead_time", "variable", "lat", "lon")
+        np.testing.assert_allclose(
+            da.isel(time=0, lead_time=1, variable=0).values,
+            written.sel(time=TIMES[0], lead_time=LEADS[1], variable="z500").values,
+        )
+
+    def test_missing_lead_raises(self, store):
+        path, _ = store
+        source = PredownloadedForecastSource(str(path))
+        with pytest.raises(KeyError, match="lacks some of the times or lead times"):
+            source(TIMES[:1], np.array([12], dtype="timedelta64[h]"), ["z500"])
+
+    def test_async_fetch(self, store):
+        path, _ = store
+        source = PredownloadedForecastSource(str(path))
+        result = asyncio.run(source.fetch(TIMES[:1], LEADS[:1], ["t2m"]))
+        assert result.sizes["lead_time"] == 1
+
+
+# ---------------------------------------------------------------------------
+# resolve_source
+# ---------------------------------------------------------------------------
+
+
+class TestResolveSource:
+    def _cfg(self, tmp_path):
+        return OmegaConf.create({"output": {"path": str(tmp_path)}})
+
+    def test_store_name(self):
+        assert store_name("data") == "data.zarr"
+        assert store_name("forcing0") == "forcing0.zarr"
+
+    def test_instantiate_source(self):
+        node = {"_target_": "earth2studio.data.Random", "domain_coords": {"lat": [0.0]}}
+        assert isinstance(instantiate_source(node), Random)
+        live = Random(domain_coords={"lat": np.array([0.0])})
+        assert instantiate_source(live) is live
+        assert instantiate_source(None) is None
+
+    def test_byo_wins_over_store(self, tmp_path):
+        _write_store(tmp_path / "data.zarr")
+        byo = Random(domain_coords={"lat": np.array([0.0])})
+        assert resolve_source(self._cfg(tmp_path), "data", byo=byo) is byo
+
+    def test_predownloaded_store(self, tmp_path):
+        _write_store(tmp_path / "verification.zarr")
+        source = resolve_source(
+            self._cfg(tmp_path), "verification", live={"_target_": "x"}
+        )
+        assert isinstance(source, PredownloadedSource)
+        assert source.store_path == str(tmp_path / "verification.zarr")
+
+    def test_predownloaded_forecast_store(self, tmp_path):
+        _write_forecast_store(tmp_path / "fx.zarr")
+        source = resolve_source(self._cfg(tmp_path), "fx", live={"_target_": "x"})
+        assert isinstance(source, PredownloadedForecastSource)
+
+    def test_live_when_store_not_preferred(self, tmp_path):
+        _write_store(tmp_path / "data.zarr")
+        live = Random(domain_coords={"lat": np.array([0.0])})
+        assert (
+            resolve_source(
+                self._cfg(tmp_path), "data", live=live, prefer_predownloaded=False
+            )
+            is live
+        )
+
+    def test_live_node_instantiated(self, tmp_path):
+        node = {"_target_": "earth2studio.data.Random", "domain_coords": {"lat": [0.0]}}
+        assert isinstance(
+            resolve_source(self._cfg(tmp_path), "data", live=node), Random
+        )
+
+    def test_nothing_gives_none(self, tmp_path):
+        assert resolve_source(self._cfg(tmp_path), "data") is None
+
+
+# ---------------------------------------------------------------------------
+# Predownloaded observation frames
+# ---------------------------------------------------------------------------
+
+
+class TestFrameStore:
+    def test_paths(self, tmp_path):
+        assert frame_store_path(str(tmp_path), "obs") == str(tmp_path / "obs.parquet")
+        assert (
+            frame_filename(np.datetime64("2024-01-01T06:00"))
+            == "20240101T060000.parquet"
+        )
 
     @pytest.fixture()
-    def stores(self, tmp_path, times):
-        goes_path = tmp_path / "data_goes.zarr"
-        mrms_path = tmp_path / "data_mrms.zarr"
-        _create_yx_zarr_store(goes_path, times, ["abi01c", "abi02c"])
-        _create_yx_zarr_store(mrms_path, times, ["refc"])
-        return {"goes": str(goes_path), "mrms": str(mrms_path)}
+    def frames(self, tmp_path):
+        root = tmp_path / "obs.parquet"
+        root.mkdir()
+        for i, t in enumerate(TIMES[:2]):
+            pd.DataFrame(
+                {
+                    "variable": ["t2m", "z500", "t2m"],
+                    "value": [1.0 + i, 2.0 + i, 3.0 + i],
+                    "lat": [0.0, 1.0, 2.0],
+                }
+            ).to_parquet(root / frame_filename(t))
+        return root
 
-    def test_from_predownloaded_stores_indexes_variables(self, stores):
-        src = CompositeSource.from_predownloaded_stores(stores)
-        # Variables from both stores are discoverable through the composite.
-        _ = src(np.array(["2024-01-01"], dtype="datetime64[ns]"), ["abi01c"])
-        _ = src(np.array(["2024-01-01"], dtype="datetime64[ns]"), ["refc"])
+    def test_missing_dir_raises(self, tmp_path):
+        with pytest.raises(FileNotFoundError):
+            PredownloadedFrameSource(str(tmp_path / "nope.parquet"))
 
-    def test_mixed_variable_request_dispatches_to_multiple_stores(self, stores, times):
-        src = CompositeSource.from_predownloaded_stores(stores)
-        result = src(times[:1], ["abi01c", "refc"])
-        assert result.sizes["variable"] == 2
-        # Caller-requested order is preserved.
-        assert list(result.coords["variable"].values) == ["abi01c", "refc"]
+    def test_concatenates_times_in_order(self, frames):
+        df = PredownloadedFrameSource(str(frames))(TIMES[:2], None)
+        assert len(df) == 6
+        assert df["value"].tolist() == [1.0, 2.0, 3.0, 2.0, 3.0, 4.0]
 
-    def test_variable_order_preserved_across_dispatch(self, stores, times):
-        """Requesting [refc, abi01c, abi02c] returns variables in that order."""
-        src = CompositeSource.from_predownloaded_stores(stores)
-        result = src(times[:1], ["refc", "abi01c", "abi02c"])
-        assert list(result.coords["variable"].values) == [
-            "refc",
-            "abi01c",
-            "abi02c",
-        ]
+    def test_variable_filter(self, frames):
+        df = PredownloadedFrameSource(str(frames))(TIMES[:1], ["t2m"])
+        assert df["variable"].tolist() == ["t2m", "t2m"]
 
-    def test_unknown_variable_raises(self, stores, times):
-        src = CompositeSource.from_predownloaded_stores(stores)
-        with pytest.raises(KeyError, match="not found in any"):
-            src(times[:1], ["nonexistent"])
+    def test_fields_selection(self, frames):
+        df = PredownloadedFrameSource(str(frames))(TIMES[:1], None, fields=["value"])
+        assert list(df.columns) == ["value"]
 
-    def test_unknown_source_in_variable_index_raises(self, tmp_path, times):
-        path = tmp_path / "data_goes.zarr"
-        _create_yx_zarr_store(path, times, ["abi01c"])
-        src = PredownloadedSource(str(path))
-        with pytest.raises(ValueError, match="unknown sources"):
-            CompositeSource({"goes": src}, variable_index={"abi01c": "typo"})
+    def test_missing_field_raises(self, frames):
+        with pytest.raises(KeyError, match="lacks fields"):
+            PredownloadedFrameSource(str(frames))(TIMES[:1], None, fields=["nope"])
 
-
-# ---------------------------------------------------------------------------
-# ValidTimeForecastAdapter
-# ---------------------------------------------------------------------------
-
-
-class _FakeForecastSource:
-    """Minimal ``ForecastSource``-shaped stub.
-
-    Returns a deterministic DataArray shaped ``(time, lead_time, variable,
-    lat, lon)`` so we can round-trip the adapter's coord-squeezing logic
-    without network I/O.  Records each call so tests can assert on how
-    the adapter forwarded the (init, lead) pair.
-    """
-
-    def __init__(self):
-        self.calls: list[tuple] = []
-
-    def __call__(self, time, lead_time, variable):
-        # Normalize so the recorded tuple is easy to compare.
-        times = list(time) if isinstance(time, (list, np.ndarray)) else [time]
-        leads = (
-            list(lead_time)
-            if isinstance(lead_time, (list, np.ndarray))
-            else [lead_time]
-        )
-        variables = (
-            list(variable) if isinstance(variable, (list, np.ndarray)) else [variable]
-        )
-        self.calls.append((times, leads, variables))
-
-        lat = np.array([0.0, 1.0])
-        lon = np.array([0.0, 1.0, 2.0])
-        shape = (len(times), len(leads), len(variables), lat.size, lon.size)
-        # Encode (init, lead, var) into the payload so tests can recover
-        # what was fetched.  init_int + lead_int*1e3 + var_idx.
-        data = np.zeros(shape, dtype="float32")
-        for ti, t in enumerate(times):
-            for li, lt in enumerate(leads):
-                for vi, _ in enumerate(variables):
-                    data[ti, li, vi] = (
-                        float(np.datetime64(t, "ns").astype("int64") % 1_000_000)
-                        + float(np.timedelta64(lt, "ns").astype("int64") % 1_000) * 1e-3
-                        + vi * 1e-6
-                    )
-        return xr.DataArray(
-            data,
-            dims=["time", "lead_time", "variable", "lat", "lon"],
-            coords={
-                "time": np.array(times, dtype="datetime64[ns]"),
-                "lead_time": np.array(leads, dtype="timedelta64[ns]"),
-                "variable": variables,
-                "lat": lat,
-                "lon": lon,
-            },
-        )
-
-
-class TestValidTimeForecastAdapter:
-    def _lookup(self):
-        ic = np.datetime64("2023-12-05T12:00:00", "ns")
-        return {
-            ic + np.timedelta64(0, "m"): (ic, np.timedelta64(0, "m")),
-            ic + np.timedelta64(60, "m"): (ic, np.timedelta64(60, "m")),
-            ic + np.timedelta64(120, "m"): (ic, np.timedelta64(120, "m")),
-        }
-
-    def test_dispatches_to_forecast_source_by_lookup(self):
-        src = _FakeForecastSource()
-        lookup = self._lookup()
-        adapter = ValidTimeForecastAdapter(src, lookup)
-
-        ic = np.datetime64("2023-12-05T12:00:00", "ns")
-        vt = ic + np.timedelta64(60, "m")
-        out = adapter([vt], ["refc"])
-
-        assert len(src.calls) == 1
-        called_times, called_leads, called_vars = src.calls[0]
-        # The adapter should have fetched at init=ic, lead=60min.
-        assert np.datetime64(called_times[0], "ns") == ic
-        assert np.timedelta64(called_leads[0], "m") == np.timedelta64(60, "m")
-        assert called_vars == ["refc"]
-        # And the returned DataArray is keyed by valid time (not init).
-        assert list(out.dims) == ["time", "variable", "lat", "lon"]
-        assert np.datetime64(out.time.values[0], "ns") == vt
-
-    def test_multi_valid_time_concatenates(self):
-        src = _FakeForecastSource()
-        lookup = self._lookup()
-        adapter = ValidTimeForecastAdapter(src, lookup)
-
-        ic = np.datetime64("2023-12-05T12:00:00", "ns")
-        times = [ic, ic + np.timedelta64(60, "m"), ic + np.timedelta64(120, "m")]
-        out = adapter(times, ["refc"])
-
-        assert len(src.calls) == 3
-        assert out.sizes["time"] == 3
-        assert [np.datetime64(t, "ns") for t in out.time.values] == times
-
-    def test_unknown_valid_time_raises(self):
-        src = _FakeForecastSource()
-        adapter = ValidTimeForecastAdapter(src, self._lookup())
-        with pytest.raises(KeyError, match="not in lookup"):
-            adapter([np.datetime64("2024-01-01")], ["refc"])
-
-    def test_lookup_keys_normalized_across_input_units(self):
-        """Mixed-unit keys in the lookup (e.g. ``datetime64[s]``) still
-        match ``datetime64[ns]`` queries via internal normalization."""
-        import pandas as pd
-
-        src = _FakeForecastSource()
-        # Mix a python datetime and a numpy [s] as lookup keys.
-        ic_dt = pd.Timestamp("2023-12-05T12:00:00").to_pydatetime()
-        vt_s = np.datetime64("2023-12-05T13:00:00", "s")
-        lookup = {vt_s: (ic_dt, np.timedelta64(60, "m"))}
-        adapter = ValidTimeForecastAdapter(src, lookup)
-
-        # Query with a datetime64[ns] → should hit the lookup.
-        out = adapter([np.datetime64("2023-12-05T13:00:00", "ns")], ["refc"])
-        assert out.sizes["time"] == 1
-        assert len(src.calls) == 1
-
-
-# ---------------------------------------------------------------------------
-# CadenceRoundedSource
-# ---------------------------------------------------------------------------
-
-
-class _RecordingSource:
-    """DataSource stub that records every ``(time, variable)`` call and
-    returns a DataArray whose values encode the requested valid times.
-
-    Used to verify which rounded times a wrapper actually forwards to
-    the underlying source (dedup behavior, unit correctness).
-    """
-
-    def __init__(self):
-        self.calls: list[tuple] = []
-
-    def __call__(self, time, variable):
-        times = np.asarray(time, dtype="datetime64[ns]")
-        variables = np.atleast_1d(variable)
-        self.calls.append((list(times), list(variables)))
-        # Encode the valid time as a payload so the test can read it back.
-        data = np.broadcast_to(
-            times.astype("int64")[:, None, None, None].astype("float32"),
-            (len(times), len(variables), 2, 3),
-        ).copy()
-        return xr.DataArray(
-            data,
-            dims=["time", "variable", "y", "x"],
-            coords={
-                "time": times,
-                "variable": variables,
-                "y": np.arange(2),
-                "x": np.arange(3),
-            },
-        )
-
-    async def fetch(self, time, variable):
-        return self(time, variable)
-
-
-class TestCadenceRoundedSource:
-    """``CadenceRoundedSource`` rounds valid-time queries to a coarser
-    native cadence and relabels the result so downstream consumers see
-    the requested (pre-round) valid times."""
-
-    def test_dedupes_requests_within_a_cadence_boundary(self):
-        src = _RecordingSource()
-        wrapped = CadenceRoundedSource(src, "1h")
-
-        # Six 5-min requests all inside the 12:00 hour (so they all round
-        # to 12:00 with nearest-hour rounding — ticks past 12:30 would
-        # round up to 13:00).
-        ic = np.datetime64("2023-12-05T12:00:00", "ns")
-        times = [ic + np.timedelta64(k * 5, "m") for k in range(6)]
-        out = wrapped(times, ["z500"])
-
-        # One underlying fetch: the shared 12:00 bucket.
-        assert len(src.calls) == 1
-        called_times, _ = src.calls[0]
-        assert len(called_times) == 1
-        assert np.datetime64(called_times[0], "ns") == ic
-        # Output preserves all six caller-requested timestamps.
-        assert out.sizes["time"] == 6
-        assert [np.datetime64(t, "ns") for t in out.time.values] == times
-
-    def test_spans_multiple_cadence_boundaries(self):
-        src = _RecordingSource()
-        wrapped = CadenceRoundedSource(src, "1h")
-
-        ic = np.datetime64("2023-12-05T12:00:00", "ns")
-        times = [ic + np.timedelta64(k * 20, "m") for k in range(7)]
-        # Rounded (nearest hour): 12:00, 12:00, 12:00, 13:00, 13:00, 13:00, 14:00.
-        out = wrapped(times, ["z500"])
-
-        assert len(src.calls) == 1
-        called_times, _ = src.calls[0]
-        # Three unique hours.
-        assert len(called_times) == 3
-        called_ints = sorted(
-            int(np.datetime64(t, "ns").astype("int64")) for t in called_times
-        )
-        expected = sorted(
-            int((ic + np.timedelta64(k, "h")).astype("int64")) for k in range(3)
-        )
-        assert called_ints == expected
-        # Output still matches the caller's 7 requested times.
-        assert out.sizes["time"] == 7
-        assert [np.datetime64(t, "ns") for t in out.time.values] == times
-
-    def test_nearest_rounding_goes_up_for_30min_tick(self):
-        """At exactly 30 past the hour, nearest rounds up (standard
-        tiebreaker for ``(x + c/2) // c``)."""
-        src = _RecordingSource()
-        wrapped = CadenceRoundedSource(src, "1h")
-        t = np.datetime64("2023-12-05T12:30:00", "ns")
-        _ = wrapped([t], ["z500"])
-        called_times, _ = src.calls[0]
-        assert np.datetime64(called_times[0], "ns") == np.datetime64(
-            "2023-12-05T13:00:00", "ns"
-        )
-
-    def test_non_hour_cadence(self):
-        src = _RecordingSource()
-        wrapped = CadenceRoundedSource(src, "30min")
-        ic = np.datetime64("2023-12-05T12:00:00", "ns")
-        times = [ic + np.timedelta64(m, "m") for m in (5, 20, 40, 55)]
-        # Rounded (nearest 30min): 12:00, 12:30, 12:30, 13:00.
-        _ = wrapped(times, ["z500"])
-        called_times, _ = src.calls[0]
-        called_sorted = sorted(np.datetime64(t, "ns") for t in called_times)
-        assert called_sorted == [
-            np.datetime64("2023-12-05T12:00:00", "ns"),
-            np.datetime64("2023-12-05T12:30:00", "ns"),
-            np.datetime64("2023-12-05T13:00:00", "ns"),
-        ]
-
-    def test_non_positive_cadence_raises(self):
-        src = _RecordingSource()
-        with pytest.raises(ValueError, match="cadence must be positive"):
-            CadenceRoundedSource(src, "0h")
+    def test_missing_time_raises(self, frames):
+        with pytest.raises(FileNotFoundError, match="re-run predownload"):
+            PredownloadedFrameSource(str(frames))(TIMES[2:], None)
