@@ -25,9 +25,7 @@ import pytest
 from earth2studio.data import CosineSolarZenith, LandSeaMask, SurfaceGeoPotential
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -57,9 +55,7 @@ def test_lsm_fetch(time):
     assert (np.logical_and(data.values <= 1, data.values >= 0)).all()
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [np.array([np.datetime64("1993-04-05T00:00")])],
@@ -95,9 +91,7 @@ def test_lsm_cache(time, cache):
         pass
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [

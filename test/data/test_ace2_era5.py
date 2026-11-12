@@ -27,9 +27,7 @@ import earth2studio.data.ace2 as ace2_module
 from earth2studio.data import ACE2ERA5Data
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "time",
     [
@@ -60,9 +58,7 @@ def test_ace2era5_forcing_fetch(time, variable):
     assert not np.isnan(da.values).any()
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "time",
     [
@@ -90,9 +86,7 @@ def test_ace2era5_ic_fetch(time, variable):
     assert not np.isnan(da.values).any()
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [np.array([np.datetime64("1979-04-01T00:00")])],
@@ -183,9 +177,7 @@ def test_ace2era5_forcing_static_fields_expand_multiple_times(monkeypatch, tmp_p
     assert np.all(da.sel(variable="global_mean_co2").values[1] == 401.0)
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 def test_ace2era5_co2_fn_override():
     # Define a CO2 function that returns predictable values per-time
     def co2_fn(times):

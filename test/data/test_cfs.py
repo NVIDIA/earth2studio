@@ -36,9 +36,7 @@ _TEST_CYCLE = datetime(year=2024, month=6, day=1, hour=0)
 # ----------------------------------------------------------------------
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "time,lead_time,variable",
     [
@@ -77,9 +75,7 @@ def test_cfs_pgbf_fetch(time, lead_time, variable):
     assert float(data.lat.max()) == 90.0
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 def test_cfs_flxf_fetch():
     ds = CFS_FX_Flux(member=1, source="aws", cache=False)
     data = ds(_TEST_CYCLE, timedelta(hours=6), ["t2m", "u10m", "v10m", "tpf", "tcc"])
@@ -95,9 +91,7 @@ def test_cfs_flxf_fetch():
     assert 180.0 < t2m.min() and t2m.max() < 340.0
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize("cache", [True, False])
 def test_cfs_cache(tmp_path, monkeypatch, cache):
     # Redirect the cache root so the test does not touch ~/.cache.
@@ -486,8 +480,6 @@ def test_cfs_available_offline_checks():
     assert not CFS_FX.available(datetime(year=2024, month=1, day=1), member=9)
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 def test_cfs_available_online():
     assert CFS_FX.available(_TEST_CYCLE)

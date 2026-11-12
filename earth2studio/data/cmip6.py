@@ -40,7 +40,11 @@ except ImportError:
     intake_esgf = None
     griddata = None
 
-from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
+from earth2studio.data.utils import (
+    datasource_cache_root,
+    prep_data_inputs,
+)
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon.cmip6 import CMIP6Lexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 
@@ -364,7 +368,7 @@ class CMIP6:
         if not self._cache:
             shutil.rmtree(self.cache)
 
-        return da
+        return with_grid_metadata(da)
 
     @classmethod
     def available(
@@ -770,7 +774,7 @@ class CMIP6MultiRealm:
 
         # Reorder variables to match the requested order
         result = result.sel(variable=variable)
-        return result
+        return with_grid_metadata(result)
 
     @classmethod
     def available(
@@ -958,4 +962,6 @@ class CMIP6MultiRealm:
         coords = target_da.coords.copy()
         coords["variable"] = da_curvilinear.coords["variable"]
 
-        return xr.DataArray(regridded_data, dims=target_da.dims, coords=coords)
+        return with_grid_metadata(
+            xr.DataArray(regridded_data, dims=target_da.dims, coords=coords)
+        )

@@ -32,6 +32,7 @@ from earth2studio.data.utils import (
     datasource_cache_root,
     prep_forecast_inputs,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon import CAMSGlobalLexicon
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -414,7 +415,7 @@ class CAMS_FX:
             surface_ds.close()
         if pressure_ds is not None:
             pressure_ds.close()
-        return da
+        return with_grid_metadata(da)
 
     def _download_cached(
         self,

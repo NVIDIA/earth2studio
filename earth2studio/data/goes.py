@@ -371,7 +371,7 @@ class GOES:
             coros,
             max_workers=self._max_workers,
             desc="Fetching GOES data",
-            verbose=(not self._verbose),
+            verbose=self._verbose,
         )
 
         # Add the grid coords to the data array

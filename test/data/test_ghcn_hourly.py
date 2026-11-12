@@ -554,9 +554,7 @@ class TestGHCNHourlyLexicon:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
+@pytest.mark.live(timeout=120)
 @pytest.mark.parametrize(
     "time,variable",
     [
@@ -580,9 +578,7 @@ def test_ghcnh_fetch(time, variable):
     assert not result.empty
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 def test_ghcnh_cache(tmp_path, monkeypatch):
     """Verify parquet cache avoids re-download."""
     monkeypatch.setattr(
@@ -604,9 +600,7 @@ def test_ghcnh_cache(tmp_path, monkeypatch):
     assert parquet_count_after_second == parquet_count_after_first
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 def test_ghcnh_station_bbox():
     """get_stations_bbox returns plausible results for a bay-area box."""
     stations = GHCNHourly.get_stations_bbox((37.0, -123.0, 38.0, -121.0))

@@ -26,9 +26,7 @@ import xarray as xr
 from earth2studio.data import HimawariAHI
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "satellite,time,variable",
     [
@@ -86,9 +84,7 @@ def test_himawari_fetch(satellite, time, variable):
     assert not np.isnan(data.values).all()
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "time",
     [
@@ -457,9 +453,7 @@ def test_himawari_lat_lon_bbox():
     assert c0 >= 0 and c1 <= 5500
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 def test_himawari_fetch_bbox():
     """Test fetching with a lat_lon_bbox (real network)."""
     # Small bbox overlapping a single tile (tile 50)
