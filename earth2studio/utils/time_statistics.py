@@ -147,7 +147,8 @@ class _Window:
             raise ValueError("delta_t must be positive")
         if window % step:
             raise ValueError("Statistic window must be divisible by delta_t")
-        return np.arange(self.start, self.end, delta)
+        # Right-closed: (start, end], so a window ending at T includes T.
+        return np.arange(self.start + delta, self.end + delta, delta)
 
 
 @lru_cache
@@ -314,7 +315,7 @@ def time_statistic_metadata(
         "window": window.end - window.start,
         "start_offset": window.start,
         "end_offset": window.end,
-        "closed": "left",
+        "closed": "right",
     }
 
 

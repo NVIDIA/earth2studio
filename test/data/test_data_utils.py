@@ -85,9 +85,11 @@ def test_time_statistics_planning_and_reduction():
         (1, "t2m", "mean:12h"),
         (2, "u10m", "max:6h"),
     ]
-    # Left-closed window ending at each target, shape (target, sample)
+    # Right-closed window ending at (and including) each target, shape
+    # (target, sample)
     assert stats[0].samples.shape == (2, 2)
-    assert stats[0].samples[1, -1] == np.datetime64("2024-01-02T00")
+    assert stats[0].samples[1, 0] == np.datetime64("2024-01-02T00")
+    assert stats[0].samples[1, -1] == np.datetime64("2024-01-02T06")
     assert set(attrs[E2S_STATISTICS]) == {"t2m:mean:12h", "u10m:max:6h"}
 
     # Lead time targets are planned relative to the initialization time and every
@@ -101,7 +103,7 @@ def test_time_statistics_planning_and_reduction():
         validate=validated.extend,
     )
     assert np.issubdtype(stats[0].samples.dtype, np.timedelta64)
-    assert validated == [datetime.timedelta(hours=h) for h in (0, 1, 2)]
+    assert validated == [datetime.timedelta(hours=h) for h in (1, 2, 3)]
 
     for variables, message in (
         ([":mean:6h"], "must not be empty"),
@@ -144,11 +146,11 @@ def test_time_statistics_planning_and_reduction():
         assert all(ref() is None for ref in refs)
         np.testing.assert_allclose(out[:, 0], np.nan, equal_nan=True)
         np.testing.assert_allclose(out[:, 1, 0], [239, 239])
-        # Window [t-2h, t) of hourly samples
-        np.testing.assert_allclose(out[:, 2, 0], [1.5, 2.5])
-        np.testing.assert_allclose(out[:, 3, 0], [3, 5])
-        np.testing.assert_allclose(out[:, 4, 0], [1, 2])
-        np.testing.assert_allclose(out[:, 5, 0], [2, 3])
+        # Window (t-2h, t] of hourly samples
+        np.testing.assert_allclose(out[:, 2, 0], [2.5, 3.5])
+        np.testing.assert_allclose(out[:, 3, 0], [5, 7])
+        np.testing.assert_allclose(out[:, 4, 0], [2, 3])
+        np.testing.assert_allclose(out[:, 5, 0], [3, 4])
         # Missing samples propagate: a window holding NaN reduces to NaN
         np.testing.assert_allclose(out[:, 2:, 1], np.nan, equal_nan=True)
     finally:

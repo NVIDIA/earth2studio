@@ -98,7 +98,8 @@ The messages suggest close names for misspelled components and variables.
   order only breaks ties between components ready at the same tick.
 - **Using `hold` where `exact` was meant.** This silently lags by a step.
   Check the `describe` row.
-- **Reductions use the window `[T - w, T)`.** The frame at `T` is excluded.
+- **Reductions use the window `(T - w, T]`.** The frame at `T` is included, so
+  a consumer reading a reduction at `T` waits for the producer's frame at `T`.
 - **Expecting an initial condition in every stream.** A stream publishes one
   only when its outputs declare every input variable on the input's grid;
   otherwise it starts at the first forecast. Output-only variables in a stream

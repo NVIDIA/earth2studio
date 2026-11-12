@@ -80,13 +80,11 @@ class ARCO_ERA5:
     ``max``, which return NaN when any sample in the window is missing, and the
     NaN-skipping ``nanmean``, ``nansum``, ``nanmin`` and ``nanmax``. The sampling
     cadence is one hour and a two-part label such as ``t2m:mean:6h`` selects the
-    stamps in ``[T - 6h, T)``.
+    stamps in ``(T - 6h, T]``, ``T - 5h`` through ``T``.
 
     Accumulations (``tp``, ``ttr``, ``ro``, ``sf`` and the mean flux ``mtdwswrf``)
     are stamped at the end of their hour, so ``tp:sum:6h`` covers the six hours
-    ``(T - 7h, T - 1h]``, one hour before ``T``. For the six hours ending at ``T``
-    request ``tp06`` (or ``tp:sum:-5h:1h``); the ``*06``/``ttr03`` aliases are
-    trailing sums that include ``T``.
+    ending at ``T``, the same period as the ``tp06`` alias.
 
     Badges
     ------

@@ -252,9 +252,9 @@ field = fetch_data(
 ```
 
 The output contains the instantaneous field and preceding-day mean on the source
-grid. A six-hourly analysis source averages valid times -24 through -6 hours.
-For `GFS_FX`, request a lead of at least 24 hours for this trailing window: at
-lead 24h, hourly samples are leads 0 through 23h of the same initialization.
+grid. A six-hourly analysis source averages valid times -18 through 0 hours.
+For `GFS_FX`, request a lead of at least 23 hours for this trailing window: at
+lead 24h, hourly samples are leads 1 through 24h of the same initialization.
 A trailing window at lead zero is rejected because its required leads are negative.
 
 ## Deferred Work and Verification

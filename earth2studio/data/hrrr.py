@@ -91,7 +91,7 @@ class HRRR:
     ``max``, which return NaN when any sample in the window is missing, and the
     NaN-skipping ``nanmean``, ``nansum``, ``nanmin`` and ``nanmax``. The sampling
     cadence is one hour and a two-part label such as ``t2m:mean:6h`` selects the
-    stamps in ``[T - 6h, T)``.
+    stamps in ``(T - 6h, T]``, ``T - 5h`` through ``T``.
 
     ``tp`` is read from the lead-0 record (``0-0 day acc fcst``), not an hourly
     accumulation, so window sums of it are not precipitation totals; use
@@ -694,11 +694,11 @@ class HRRR_FX(HRRR):
     ``max``, which return NaN when any sample in the window is missing, and the
     NaN-skipping ``nanmean``, ``nansum``, ``nanmin`` and ``nanmax``. The sampling
     cadence is one hour over forecast lead times, and a two-part label such as
-    ``t2m:mean:6h`` selects the lead times in ``[L - 6h, L)``.
+    ``t2m:mean:6h`` selects the lead times in ``(L - 6h, L]``.
 
     ``tp`` at lead ``h`` is the accumulation over hour ``(h - 1, h]``, so
-    ``tp:sum:6h`` at lead ``L`` covers ``(L - 7h, L - 1h]``, one hour before ``L``.
-    For the six hours ending at ``L`` request ``tp:sum:-5h:1h``.
+    ``tp:sum:6h`` at lead ``L`` is the accumulation over the six hours ending at
+    ``L``.
 
     Parameters
     ----------

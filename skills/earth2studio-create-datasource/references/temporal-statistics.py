@@ -20,8 +20,8 @@ This file is a TEMPLATE, not importable code. Load it at Step 7b for
 regular-cadence gridded sources unless the user opts out.
 
 Temporal statistics are variable labels such as ``"t2m:mean:24h"`` (window
-``[-24h, 0h)``) or ``"tp:sum:+0h:+6h"`` (explicit offsets). Methods: ``mean``,
-``sum``, ``min``, ``max``. Windows are left-closed/right-open. Regular coordinate
+``(-24h, 0h]``) or ``"tp:sum:+0h:+6h"`` (explicit offsets). Methods: ``mean``,
+``sum``, ``min``, ``max``. Windows are left-open/right-closed. Regular coordinate
 helpers require cadence-aligned windows; reducers impose no sampling cadence.
 
 Skip native support for unsuitable sources, such as climatology or irregular
@@ -90,9 +90,9 @@ class SourceName:
     ----
     Temporal statistics: ``mean``, ``sum``, ``min``, and ``max`` accept labels
     ``variable:method:window`` or ``variable:method:start:end``. Windows are
-    left-closed/right-open, sampled every six hours, and relative to the requested
-    analysis time. For example, ``t2m:mean:24h`` averages the preceding four
-    samples, excluding the requested time. FILL: accumulation caveats.
+    left-open/right-closed, sampled every six hours, and relative to the requested
+    analysis time. For example, ``t2m:mean:24h`` averages four samples ending
+    with the requested time. FILL: accumulation caveats.
     """
 
     # FILL: import the source lexicon and declare TIME_STATISTICS there
@@ -174,10 +174,11 @@ class SourceName:
 #   skips NaN; an all-NaN window is NaN for all of them. Download errors still
 #   propagate. The planned samples are all fetched or the request fails; no
 #   partial window is written.
-# - Accumulations stamped at the end of their interval (ERA5 ``tp``): a
-#   two-part label ``tp:sum:6h`` reads stamps [T-6h, T), i.e. the period
-#   (T-7h, T-1h] on an hourly source. Say so in the ``Temporal statistics:``
-#   note and point users to a trailing alias (``tp06``) or ``tp:sum:-5h:1h``.
+# - Accumulations stamped at the end of their interval (ERA5 ``tp``) match the
+#   right-closed window: ``tp:sum:6h`` reads stamps T-5h ... T, the six hours
+#   ending at T. Accumulations stamped at the start of their interval, or
+#   running buckets that reset (GFS ``tp``), do not; say so in the
+#   ``Temporal statistics:`` note and point users to a native alias (``tp06``).
 
 
 # ===========================================================================

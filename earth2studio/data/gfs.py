@@ -93,7 +93,7 @@ class GFS:
     ``max``, which return NaN when any sample in the window is missing, and the
     NaN-skipping ``nanmean``, ``nansum``, ``nanmin`` and ``nanmax``. The sampling
     cadence is six hours and a two-part label such as ``t2m:mean:24h`` selects the
-    stamps in ``[T - 24h, T)``.
+    stamps in ``(T - 24h, T]``.
 
     ``tp`` is a running accumulation bucket that resets every six hours; summing it
     over a window double counts. Request ``tp06`` for the six-hour accumulation
@@ -633,11 +633,12 @@ class GFS_FX(GFS):
     ``max``, which return NaN when any sample in the window is missing, and the
     NaN-skipping ``nanmean``, ``nansum``, ``nanmin`` and ``nanmax``. The sampling
     cadence is one hour over forecast lead times, and a two-part label such as
-    ``t2m:mean:6h`` selects the lead times in ``[L - 6h, L)``.
+    ``t2m:mean:6h`` selects the lead times in ``(L - 6h, L]``.
 
     ``tp`` is a running accumulation bucket that resets every six hours, so
     ``tp:sum:Nh`` double counts (at lead 12 h, ``tp:sum:6h`` sums the buckets at
-    f06 … f11). Request ``tp06`` for the six-hour accumulation ending at ``L``.
+    f07 … f12, counting hour 7 six times). Request ``tp06`` for the six-hour
+    accumulation ending at ``L``.
 
     Parameters
     ----------

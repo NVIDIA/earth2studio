@@ -38,10 +38,10 @@ class Connector:
 
     Each slot label it feeds names a variable ``src`` exports. A qualified label
     such as ``"tp:sum:24h"`` is reduced from the ``tp`` frames ``src`` stamps in
-    the half-open window ``[T - 24h, T)`` before the required valid time ``T``,
-    excluding the frame at ``T``. Accumulations are usually stamped at the end of
-    their interval, so with 6-hourly ``tp`` frames ``"tp:sum:24h"`` covers
-    ``(T - 30h, T - 6h]``; ``"tp:sum:-18h:6h"`` sums the 24 hours ending at ``T``.
+    the half-open window ``(T - 24h, T]`` ending at the required valid time ``T``,
+    including the frame at ``T``. Accumulations are stamped at the end of their
+    interval, so with 6-hourly ``tp`` frames ``"tp:sum:24h"`` sums the 24 hours
+    ending at ``T``.
     Several connectors may feed one slot, each naming its labels in
     ``variables``, so a slot can take ``sst`` from an ocean and ``tp`` from an
     atmosphere; labels no connector feeds come from the slot's source.

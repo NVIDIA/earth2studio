@@ -125,8 +125,8 @@ field = fetch_data(
 ```
 
 Here `source` is a six-hourly analysis source supporting `t2m:mean:24h`.
-The mean includes the four samples at -24, -18, -12 and -6 hours. Windows are
-left-closed and right-open. Statistics are delegated to sources that support them
+The mean includes the four samples at -18, -12, -6 and 0 hours. Windows are
+left-open and right-closed: a window ending at `T` includes the sample at `T`. Statistics are delegated to sources that support them
 natively; unsupported methods raise `ValueError` before fetching. Qualified variable labels
 such as `"t2m:mean:24h"` declare reductions; duplicate normalized quantities are rejected.
 Output `earth2studio_statistics` describes the reductions actually performed.
@@ -140,21 +140,18 @@ Sampling cadence is internal to each source. Reductions of accumulated variables
 operate on stored values; overlapping accumulation periods (such as the GFS `tp`
 bucket) can double-count totals.
 
-Windows select stored **timestamps**, not the physical interval each value covers.
-Accumulations such as ARCO ERA5 `tp` and HRRR forecast `tp` are stamped at the end of
-their hour, so on these hourly sources `tp:sum:6h` reads the stamps `T-6h` … `T-1h`
-and covers `(T - 7h, T - 1h]`, ending one hour before `T`. For the six hours ending
-at `T`, request the native trailing alias (`tp06` on ARCO ERA5 and GFS) or the
-explicit offsets `tp:sum:-5h:1h`.
+Accumulations such as ARCO ERA5 `tp` and HRRR forecast `tp` are stamped at the end
+of their hour, so `tp:sum:6h` reads the stamps `T-5h` … `T` and covers the six hours
+ending at `T`, the same period as ARCO ERA5's `tp06`.
 Supported methods are documented under **Temporal statistics:** in each source's
 class docstring; capability metadata lives in `source.lexicon.TIME_STATISTICS`.
 Sources do not need `time_step` or `time_statistics` attributes.
 
 Analysis sources fetch absolute valid timestamps, while forecast sources reduce
 lead times separately for each initialization. For a trailing 24-hour forecast
-mean, request a lead of at least 24 hours so the window stays within that
+mean, request a lead of at least 23 hours so the window stays within that
 initialization. Unavailable sample coordinates and failed downloads raise errors;
-NaN values are skipped by the reducers.
+NaN samples propagate unless a `nan*` method is requested.
 
 The former tuple return and `legacy` argument have been removed. Access values
 through `field.data` and coordinates through `field.coords`.

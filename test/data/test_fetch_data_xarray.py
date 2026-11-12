@@ -288,7 +288,7 @@ def test_signature_statistics_are_computed(source_cls):
         np.array(["a:sum:3h", "b"]),
     )
     np.testing.assert_allclose(
-        array.sel(variable="a:sum:3h")[0, 0], [[0, 6, 12], [-3, 3, 9], [-6, 0, 6]]
+        array.sel(variable="a:sum:3h")[0, 0], [[3, 9, 15], [0, 6, 12], [-3, 3, 9]]
     )
     np.testing.assert_allclose(
         array.sel(variable="b")[0, 0], [[2, 4, 6], [1, 3, 5], [0, 2, 4]]
@@ -303,10 +303,10 @@ def test_qualified_statistics_preserve_order_and_metadata(source_cls):
     array = fetch_data(source_cls(), TIME, labels)
     np.testing.assert_array_equal(array.coords["variable"], labels)
     np.testing.assert_allclose(
-        array.sel(variable=labels[0])[0, 0], [[0, 2, 4], [-1, 1, 3], [-2, 0, 2]]
+        array.sel(variable=labels[0])[0, 0], [[1, 3, 5], [0, 2, 4], [-1, 1, 3]]
     )
     np.testing.assert_allclose(
-        array.sel(variable=labels[2])[0, 0], [[3, 5, 7], [2, 4, 6], [1, 3, 5]]
+        array.sel(variable=labels[2])[0, 0], [[4, 6, 8], [3, 5, 7], [2, 4, 6]]
     )
     assert array.attrs[E2S_STATISTICS] == {
         labels[0]: time_statistic_metadata("mean:3h"),
@@ -318,7 +318,7 @@ def test_qualified_statistics_preserve_order_and_metadata(source_cls):
 def test_native_time_windows(source_cls):
     times = TIME + np.array([0, 72], dtype="timedelta64[h]")
     leads = np.array([-24, 0], dtype="timedelta64[h]")
-    labels = np.array(["a:mean:0h:24h", "b:mean:1h:25h", "c:mean:0h:24h"])
+    labels = np.array(["a:mean:-1h:23h", "b:mean:0h:24h", "c:mean:-1h:23h"])
     target_grid = LatLonGrid(np.array([0.0]), np.array([0.0]))
     source = source_cls(target_grid, attrs=request(grid=target_grid).attrs)
     signature = coord_array(
@@ -369,8 +369,8 @@ def test_duplicate_normalized_quantities_fail_before_fetch():
 @pytest.mark.parametrize(
     "regridder, expected",
     [
-        (BilinearRegridder, [[0.9, 3.3], [-0.3, 2.1]]),
-        (NearestRegridder, [[0.5, 4.5], [-1.5, 2.5]]),
+        (BilinearRegridder, [[1.9, 4.3], [0.7, 3.1]]),
+        (NearestRegridder, [[1.5, 5.5], [-0.5, 3.5]]),
     ],
 )
 def test_regridding_follows_temporal_reduction(regridder, expected):
@@ -383,7 +383,7 @@ def test_regridding_follows_temporal_reduction(regridder, expected):
     )
     np.testing.assert_array_equal(array.lat, target.latitude)
     np.testing.assert_array_equal(array.lon, target.longitude)
-    np.testing.assert_allclose(array[0, 0, 0], expected)
+    np.testing.assert_allclose(array[0, 0, 0], expected, rtol=1e-6)
     assert array.attrs[E2S_STATISTICS] == {
         "a:mean:2h": time_statistic_metadata("mean:2h")
     }

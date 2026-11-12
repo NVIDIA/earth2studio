@@ -26,12 +26,17 @@ owns modifier normalization, window planning, metadata, and block reductions.
 
 ## Windows
 
-For valid time `T`, intervals are half-open:
+For valid time `T`, intervals are half-open and **right-closed**: a window ending
+at `T` includes the sample stamped `T` and excludes the one stamped at its start.
 
 | Modifier | Selected interval |
 | --- | --- |
-| `mean:24h` | `[T - 24h, T)` |
-| `mean:-12h:+12h` | `[T - 12h, T + 12h)` |
+| `mean:24h` | `(T - 24h, T]` |
+| `mean:-12h:+12h` | `(T - 12h, T + 12h]` |
+
+At source cadence `Δ`, a window `(T + start, T + end]` reads the stamps
+`T + start + Δ, …, T + end`. The `earth2studio_statistics` metadata records this as
+`closed: "right"`.
 
 Built-in methods are `mean`, `sum`, `min`, and `max`, which propagate missing
 samples (see Planning and Reduction), and their NaN-skipping counterparts `nanmean`,
@@ -44,27 +49,27 @@ unsupported: specify an explicit number of days or hours instead (for example,
 calendar approximations; use lowercase `m` for minutes. NumPy month/year timedeltas
 are also rejected as source cadences.
 
-### End-Stamped Accumulations
+### Accumulations and Means of Instantaneous Fields
 
-The window is defined over stored timestamps, not over the physical interval each
-stored value represents. Hourly accumulations such as ARCO-ERA5 `tp`, `ttr`, `ro`
-and `sf`, and HRRR forecast `tp`, are stamped at the **end** of their hour: the
-value at `t` holds `(t - 1h, t]`. A two-part label therefore covers a period that
-ends one hour before `T`:
+Accumulations and mean rates are stamped at the **end** of their period: hourly
+ARCO-ERA5 `tp`, `ttr`, `ro` and `sf` and HRRR forecast `tp` hold `(t - 1h, t]` at
+stamp `t`, and so do 6-hourly model outputs such as `tp06`. Right-closed windows
+match this, so a two-part label covers the period ending at `T` at any cadence:
 
-| Label at `T` | Stamps read | Physical period |
+| Label at `T` | Hourly stamps read | Physical period |
 | --- | --- | --- |
-| `tp:sum:6h` | `T-6h` … `T-1h` | `(T - 7h, T - 1h]` |
-| `tp:sum:-5h:1h` | `T-5h` … `T` | `(T - 6h, T]` |
+| `tp:sum:6h` | `T-5h` … `T` | `(T - 6h, T]` |
 | `tp06` (ARCO alias) | `T-5h` … `T` | `(T - 6h, T]` |
 
-For "the accumulation over the `w` hours up to `T`" on an hourly end-stamped source,
-use the source's native trailing alias (`tp06`) or the explicit offsets
-`tp:sum:-(w-1)h:1h`, as ORBIT-2 (`tp:sum:-23h:1h`) and FuXi-S2S (below) do. The
-offset is cadence dependent: at a 6-hourly cadence `-5h:1h` is off the sample grid.
-Running buckets that reset periodically (GFS `tp`) cannot be summed at all: the
-buckets overlap, so `tp:sum:Nh` double counts; use `tp06`. Each affected source
-states this in its `Temporal statistics:` note.
+On 6-hourly `tp06` frames, `tp:sum:24h` reads `T-18h` … `T`, the 24 hours ending at
+`T`. For instantaneous fields a window holds the samples after its start up to and
+including its end, so `t2m:max:24h` at `T` reads `T-23h` … `T` hourly. Use explicit
+offsets when a different set of samples is wanted, as ORBIT-2 does for its daily
+extremes (`t2m:max:-25h:-1h` reads `T-24h` … `T-1h`).
+
+Running buckets that reset periodically (GFS `tp`) cannot be summed: the buckets
+overlap, so `tp:sum:Nh` double counts; use `tp06`. Each affected source states this
+in its `Temporal statistics:` note.
 
 ### Calendar-Day Means: FuXi-S2S
 
@@ -73,12 +78,13 @@ and predicts the next. All 76 channels declare means with these hourly windows:
 
 | Quantity | Qualified label | Samples relative to day start |
 | --- | --- | --- |
-| Ordinary fields | `t2m:mean:0h:24h` | 00–23 UTC |
-| Hourly precipitation accumulations | `tp:mean:1h:25h` | 01 UTC through next 00 UTC |
-| Hourly thermal radiation accumulations | `ttr:mean:1h:25h` | 01 UTC through next 00 UTC |
+| Ordinary fields | `t2m:mean:-1h:23h` | 00–23 UTC |
+| Hourly precipitation accumulations | `tp:mean:0h:24h` | 01 UTC through next 00 UTC |
+| Hourly thermal radiation accumulations | `ttr:mean:0h:24h` | 01 UTC through next 00 UTC |
 
-Only `tp` and `ttr` shift the window because their source timestamps mark interval
-ends. `[T + 1h, T + 25h)` includes 24 hourly samples, excluding next-day 01 UTC.
+`tp` and `ttr` cover the day itself, `(T, T + 24h]`, because their timestamps mark
+interval ends: 24 hourly samples from 01 UTC through next-day 00 UTC. Ordinary
+fields take the instantaneous samples 00–23 UTC, `(T - 1h, T + 23h]`.
 These means retain one-hour accumulation units; multiply predicted `tp` by 24 for
 a daily total. Channel order and model-unit conversions are unchanged.
 

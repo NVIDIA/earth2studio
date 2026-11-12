@@ -118,7 +118,7 @@ and slot label:
    the producer's output slots publishes.
 2. Plain label, `exact`: the producer's frame at `T`. Plain label, `hold`: the
    latest frame at or before `T` that the producer published on an earlier
-   tick. Qualified label: the producer's frames in `[T - w, T)` at its frame
+   tick. Qualified label: the producer's frames in `(T - w, T]` at its frame
    spacing, reduced with `apply_time_statistic`.
 3. If the producer cannot supply it and `T` is at or before the item time, a
    stateful consumer fetches it from the slot's source. A window ending after
@@ -229,7 +229,7 @@ when to run, so the runner rejects its DataFrame slots. It fits elsewhere:
 | `C5` | Without a regridder each producer slot read and the consumer slot have the same geometry; with one, its source grid matches each slot read and its target grid the consumer slot |
 | `C6` | Required valid times follow the model contract; DataFrame slots are requested at the chunk's end, static slots only initially |
 | `C7` | `exact` waits for frames at each required time; `hold` takes the latest earlier-published frame and applies to plain labels only |
-| `C8` | Qualified labels reduce producer frames over `[T - w, T)`; the window must divide by the producer's frame spacing |
+| `C8` | Qualified labels reduce producer frames over `(T - w, T]`; the window must divide by the producer's frame spacing |
 | `C9` | Frames at or before the item time that the producer does not hold come from the slot's source, for stateful consumers only, including the early frames of a window ending later; state connectors keep the model's own values instead |
 | `C10` | An empty DataFrame from a source is passed as `None` |
 | `C11` | A stateful chunk due by the final lead time that cannot run raises, naming the cycle or the missing frame; construction checks this first |

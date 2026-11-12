@@ -49,11 +49,11 @@ signature = coord_array_like(x)   # Describe an existing field without copying v
   wrapping tensors. Match model/data devices; use `.e2s.as_numpy()` for explicit CPU export.
 - Preserve variable labels, including temporal qualifiers such as `tp:sum:6h`.
   Use datetime arrays for `time`, timedelta arrays for `lead_time`.
-- A two-part qualifier `var:method:w` reduces the stamps in `[T − w, T)`. Hourly
+- Statistic windows are right-closed: `var:method:w` reduces the stamps in
+  `(T − w, T]` and `var:method:start:end` those in `(T + start, T + end]`. Hourly
   accumulations stamped at the end of their hour (`ARCO_ERA5` `tp`, `HRRR_FX` `tp`)
-  then cover `(T − w − 1h, T − 1h]`, one hour early: `tp:sum:6h` is `(T − 7h, T − 1h]`.
-  For the 6 hours ending at `T` use `tp06` or `tp:sum:-5h:1h`. Do not sum GFS `tp`
-  (a running bucket); use `tp06`.
+  therefore give `tp:sum:6h` = the 6 hours ending at `T`, the same as `tp06`. Do not
+  sum GFS `tp` (a running bucket); use `tp06`.
 
 ## Diagnostic models
 
@@ -121,9 +121,9 @@ Target: [PrognosticModel](earth2studio/models/px/base.py).
 ## Renamed model and source labels
 
 - `PrecipitationAFNO` (v1) outputs `tp06`, not `tp`.
-- `OrbitGlobalPrecip`: inputs `tp24`, `t2m_max`, `t2m_min` → `tp:sum:-23h:1h`,
-  `t2m:max:24h`, `t2m:min:24h`; new inputs `sst:max:24h` and `sst:min:24h`.
-  The output is `tp:sum:-23h:1h`.
+- `OrbitGlobalPrecip`: inputs `tp24`, `t2m_max`, `t2m_min` → `tp:sum:24h`,
+  `t2m:max:-25h:-1h`, `t2m:min:-25h:-1h`; new inputs `sst:max:-25h:-1h` and
+  `sst:min:-25h:-1h`. The output is `tp:sum:24h`.
 - HRRR projected axes `hrrr_y` / `hrrr_x` → `y` / `x`, with no aliases, on the `HRRR`
   sources and on `StormCast`, `StormCastCONUS`, `StormCastSDA` and `CorrDiffEra5Hrrr`
   (dimensions, coordinates and `self.y` / `self.x` attributes).

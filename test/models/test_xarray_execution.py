@@ -253,8 +253,8 @@ def test_fuxi_signature_statistics() -> None:
     assert signature.data.nbytes == output.data.nbytes == 0
     assert signature["variable"].values.tolist() == DAILY_VARIABLES
     assert (
-        output.attrs["earth2studio_statistics"]["tp:mean:1h:25h"]["modifier"]
-        == "mean:+1h:+25h"
+        output.attrs["earth2studio_statistics"]["tp:mean:0h:24h"]["modifier"]
+        == "mean:0h:+24h"
     )
     with pytest.raises(ValueError):
         model.output_coords(signature.assign_coords(lead_time=[0, 1]))

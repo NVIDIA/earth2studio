@@ -2274,7 +2274,7 @@ def plan_statistics(
         if verbose:
             logger.info(
                 f"{source}: {label} {_DESCRIPTIONS.get(str(info['method']), 'reduced')} "
-                f"over {modifier} (left-closed/right-open window)"
+                f"over {modifier} (left-open/right-closed window)"
             )
     if validate is not None and stats:
         convert = as_datetime if is_time else as_timedelta

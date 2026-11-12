@@ -136,10 +136,9 @@ class Weather(PrognosticMixin):
 # satellite retrievals as a DataFrame and is ``None`` on days without one, so
 # the bucket nudges toward observations only when they exist.
 #
-# The window ``[T - 24h, T)`` covers the frames stamped T-24h, -18h, -12h and
-# -6h, excluding the frame at T. If ``tp`` frames are accumulations stamped at the
-# end of their 6-hour interval, ``tp:sum:24h`` is therefore the 24 hours ending
-# at T-6h; the label ``tp:sum:-18h:6h`` selects the 24 hours ending at T.
+# The window ``(T - 24h, T]`` covers the frames stamped T-18h, -12h, -6h and T.
+# ``tp`` frames are accumulations stamped at the end of their 6-hour interval, so
+# ``tp:sum:24h`` is the 24 hours ending at T.
 
 
 class SoilBucket(PrognosticMixin):
