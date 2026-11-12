@@ -121,6 +121,122 @@ def test_later():
     assert "failure during shutdown" in result.stdout
 
 
+@pytest.mark.parametrize("fail", [False, True])
+def test_completed_session_cleanup_preserves_outcome(tmp_path: Path, fail):
+    result, summary = run_files(
+        tmp_path,
+        {"test_thread.py": f"""
+import threading, time
+def test_thread():
+    threading.Thread(target=time.sleep, args=(60,)).start()
+    assert not {fail}
+"""},
+    )
+    assert result.returncode == int(fail), result.stdout
+    assert summary[0]["status"] == ("FAILED" if fail else "PASSED")
+    assert summary[0]["duration"] < 2
+    assert "Forced process cleanup" in result.stdout
+
+
+def test_forwarded_test_path_is_rejected(tmp_path: Path):
+    result, summary = run_files(
+        tmp_path,
+        {"test_one.py": "def test_one(): pass\n"},
+        pytest_args=("test_one.py",),
+    )
+    assert result.returncode == 1
+    assert "use DATA_TEST_PATHS" in result.stdout
+
+
+@pytest.mark.parametrize("explicit", [False, True])
+def test_model_cache_is_shared_and_data_cache_is_workspace_local(
+    tmp_path: Path, monkeypatch, explicit
+):
+    root = tmp_path / "models"
+    monkeypatch.setenv("EARTH2STUDIO_CACHE", str(root))
+    monkeypatch.delenv("EARTH2STUDIO_MODEL_CACHE", raising=False)
+    if explicit:
+        root = tmp_path / "explicit-models"
+        monkeypatch.setenv("EARTH2STUDIO_MODEL_CACHE", str(root))
+    result, _ = run_files(
+        tmp_path,
+        {"test_cache.py": f"""
+import os
+from pathlib import Path
+def test_cache():
+    assert os.environ['EARTH2STUDIO_MODEL_CACHE'] == {str(root)!r}
+    assert Path(os.environ['EARTH2STUDIO_DATA_CACHE']).parent == Path.cwd() / '.cache/data-test-downloads'
+"""},
+    )
+    assert result.returncode == 0, result.stdout
+
+
+def test_non_live_session_does_not_require_git(tmp_path: Path):
+    (tmp_path / "test_plain.py").write_text("def test_plain(): pass\n")
+    result = subprocess.run(  # noqa: S603
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-p",
+            "data_test_plugin",
+            "--live=changed",
+            "-q",
+            str(tmp_path / "test_plain.py"),
+        ],
+        cwd=tmp_path,
+        env=dict(
+            os.environ,
+            PYTHONPATH=str(RUNNER.parent),
+            PYTEST_DISABLE_PLUGIN_AUTOLOAD="1",
+            DATA_TEST_BASE="nonexistent-ref",
+        ),
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize(
+    "mode,baseline,previous,expected",
+    [
+        ("changed", "true", "previous-tip", "previous-tip"),
+        ("changed", "false", "", "merge-base"),
+        ("all", "true", "", "unset"),
+    ],
+)
+def test_ci_baseline_selection(tmp_path: Path, mode, baseline, previous, expected):
+    for name, body in {
+        "uv": "exit 0",
+        "git": 'case "$1" in rev-parse) echo false;; merge-base) echo merge-base;; esac',
+        "make": 'echo "BASE=${DATA_TEST_BASE:-unset} LIVE=$DATA_TEST_LIVE"',
+    }.items():
+        script = tmp_path / name
+        script.write_text("#!/bin/sh\n" + body + "\n")
+        script.chmod(0o755)
+    env = dict(
+        os.environ,
+        PATH=str(tmp_path) + os.pathsep + os.environ["PATH"],
+        TOX_ENV="test-data",
+        DATA_TEST_LIVE=mode,
+        DATA_TEST_BASELINE_RUN=baseline,
+        DATA_TEST_PREVIOUS_SHA=previous,
+        DATA_TEST_BASE_BRANCH="main",
+    )
+    env.pop("DATA_TEST_BASE", None)
+    result = subprocess.run(  # noqa: S603
+        ["bash", str(RUNNER.with_name("run_ci_tests.sh"))],  # noqa: S607
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+    assert f"BASE={expected} LIVE={mode}" in result.stdout
+
+
 def test_live_timeout_restarts_and_only_timeout_is_xfailed(tmp_path: Path):
     result, summary = run_files(
         tmp_path,
@@ -281,7 +397,6 @@ def test_reports_failures_and_preserves_success_logs(tmp_path: Path):
     "body",
     [
         "import time\ndef test_hang():\n time.sleep(60)\ndef test_pending():\n pass\n",
-        "import threading, time\ndef test_shutdown():\n threading.Thread(target=time.sleep, args=(60,)).start()\n",
         "import os\ndef test_crash():\n os._exit(0)\n",
     ],
 )

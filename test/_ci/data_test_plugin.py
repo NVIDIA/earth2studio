@@ -104,8 +104,15 @@ def pytest_configure(config) -> None:
         "markers",
         "live(timeout=60): live data-source call; only its deadline is an expected failure",
     )
+    supervised = "DATA_TEST_EVENTS" in os.environ
+    expected_file = os.getenv("DATA_TEST_FILE")
+    if expected_file and config.args != [expected_file]:
+        raise pytest.UsageError(
+            "Do not forward test paths/node IDs after --; use DATA_TEST_PATHS "
+            "or supervisor path arguments instead."
+        )
     config._live_changes = (
-        changed_files() if config.getoption("live") == "changed" else []
+        changed_files() if supervised and config.getoption("live") == "changed" else []
     )
     # Disable selection before testmon can omit entire files. Keep collection/coverage.
     if config.getoption("live") == "all" or (
@@ -126,6 +133,12 @@ def pytest_configure(config) -> None:
 
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(config, items) -> None:
+    if (
+        "DATA_TEST_EVENTS" not in os.environ
+        and config.getoption("live") == "changed"
+        and any(item.get_closest_marker("live") for item in items)
+    ):
+        config._live_changes = changed_files()
     completed = set(json.loads(os.getenv("DATA_TEST_COMPLETED", "[]")))
     items[:] = [item for item in items if item.nodeid not in completed]
     for item in items:
@@ -193,6 +206,8 @@ def pytest_runtest_logfinish(nodeid: str) -> None:
     emit("finished", nodeid=nodeid)
 
 
-@pytest.hookimpl(trylast=True)
-def pytest_sessionfinish(exitstatus: int) -> None:
-    emit("sessionfinish", exitstatus=int(exitstatus))
+@pytest.hookimpl(hookwrapper=True, tryfirst=True)
+def pytest_sessionfinish(session):
+    outcome = yield
+    outcome.get_result()
+    emit("sessionfinish", exitstatus=int(session.exitstatus), finished=time.monotonic())

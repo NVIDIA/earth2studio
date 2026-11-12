@@ -68,7 +68,10 @@ def stop(process: subprocess.Popen, directory: Path, grace: float) -> None:
                 pass
             time.sleep(min(grace, 0.1))
         kill_group(process.pid, signal.SIGTERM)
-        time.sleep(grace)
+        try:
+            process.wait(timeout=grace)
+        except subprocess.TimeoutExpired:
+            pass
     # Also remove descendants left behind by a normally exiting pytest process.
     kill_group(process.pid, signal.SIGKILL)
     process.wait()
@@ -211,6 +214,12 @@ def main() -> int:
         parser.error("test paths must contain existing test files")
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
+    cache_root = Path(".cache/data-test-downloads").resolve()
+    cache_root.mkdir(parents=True, exist_ok=True)
+    model_cache = os.getenv(
+        "EARTH2STUDIO_MODEL_CACHE",
+        os.getenv("EARTH2STUDIO_CACHE", str(Path.home() / ".cache/earth2studio")),
+    )
     (output / "selection.json").write_text(
         json.dumps(
             dict(
@@ -250,7 +259,9 @@ def main() -> int:
                 directory.mkdir(parents=True, exist_ok=True)
                 first = file not in started_files
                 if first:
-                    caches[file] = tempfile.TemporaryDirectory(prefix="e2s-data-")
+                    caches[file] = tempfile.TemporaryDirectory(
+                        prefix="e2s-data-", dir=cache_root
+                    )
                     (directory / "events.jsonl").write_text("")
                     (directory / "stacks.log").write_text("")
                     started_files[file] = time.monotonic()
@@ -258,9 +269,11 @@ def main() -> int:
                     os.environ,
                     DATA_TEST_EVENTS=str(directory / "events.jsonl"),
                     DATA_TEST_STACKS=str(directory / "stacks.log"),
+                    DATA_TEST_FILE=file,
                     PYTHONUNBUFFERED="1",
                     EARTH2STUDIO_CACHE=caches[file].name,
                     EARTH2STUDIO_DATA_CACHE=caches[file].name,
+                    EARTH2STUDIO_MODEL_CACHE=model_cache,
                     DATA_TEST_COMPLETED=json.dumps(
                         [
                             event["nodeid"]
@@ -298,6 +311,8 @@ def main() -> int:
                 ]
                 print(f"RUNNING {file} (limit {args.file_timeout:g}s)", flush=True)
                 started = started_files[file]
+                with (directory / "events.jsonl").open("a") as stream:
+                    stream.write(json.dumps(dict(event="restart")) + "\n")
                 with (directory / "output.log").open("w" if first else "a") as log:
                     process = subprocess.Popen(  # noqa: S603
                         command,
@@ -313,8 +328,13 @@ def main() -> int:
                 code = process.poll()
                 reason = ""
                 live = None
+                finished = None
                 for event in events(directory):
-                    if event["event"] in {"ready", "report", "finished"}:
+                    if event["event"] in {"ready", "restart"}:
+                        finished = None
+                    elif event["event"] == "sessionfinish":
+                        finished = event
+                    if event["event"] in {"ready", "restart", "report", "finished"}:
                         live = None
                     elif event["event"] == "phase":
                         live = event if event.get("timeout") else None
@@ -323,10 +343,24 @@ def main() -> int:
                         reason = "INTERRUPTED"
                     elif time.monotonic() >= deadline or elapsed >= args.file_timeout:
                         reason = "TIMEOUT"
+                    elif (
+                        finished
+                        and time.monotonic() >= finished["finished"] + args.grace
+                    ):
+                        reason = "SHUTDOWN"
                     elif live and time.monotonic() >= live["started"] + live["timeout"]:
                         reason = "LIVE TIMEOUT"
                 if code is not None or reason:
                     stop(process, directory, args.grace)
+                    if reason == "SHUTDOWN":
+                        print(
+                            f"Forced process cleanup after pytest completed: {file}",
+                            flush=True,
+                        )
+                        code = finished["exitstatus"]
+                        reason = ""
+                    else:
+                        code = process.returncode
                     if reason == "LIVE TIMEOUT" and any(
                         event["event"] == "report"
                         and event["nodeid"] == live["nodeid"]
@@ -354,9 +388,7 @@ def main() -> int:
                         del active[file]
                         pending.appendleft(file)
                         continue
-                    results.append(
-                        report(file, directory, process.returncode, reason, elapsed)
-                    )
+                    results.append(report(file, directory, code, reason, elapsed))
                     del active[file]
                     caches.pop(file).cleanup()
                     write_summary(output, results)

@@ -11,7 +11,7 @@ TOX_UV_PATH="$(command -v uv)"
 export TOX_UV_PATH
 "$TOX_UV_PATH" --version
 
-if [[ "$TOX_ENV" == "test-data" ]]; then
+if [[ "$TOX_ENV" == "test-data" && "${DATA_TEST_LIVE:-none}" == "changed" ]]; then
     # Copied PR branches need their merge base, not just the latest commit.
     if [[ "$(git rev-parse --is-shallow-repository)" == "true" ]]; then
         git fetch --unshallow --no-tags origin

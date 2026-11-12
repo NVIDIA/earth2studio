@@ -111,12 +111,17 @@ Override these with `DATA_TEST_WORKERS`, `DATA_TEST_FILE_TIMEOUT`, and `DATA_TES
 File budgets include startup, shutdown, and restarts; exceeding a budget fails the run.
 Logs and partial results: `.cache/test-results/test-data/data/`.
 Each file gets a temporary data cache, retained across restarts and removed on completion.
+These directories live under `.cache/data-test-downloads/`; model downloads use a
+separate shared cache, honoring `EARTH2STUDIO_MODEL_CACHE`. Once pytest finalization
+finishes, lingering processes are terminated after the shutdown grace period and
+the recorded test outcome is preserved. Forced cleanup is logged explicitly.
 
 Mark network tests with `@pytest.mark.live(timeout=60)` (default: 60s):
 
 - `--live=none`: skip live tests (local default).
 - `--live=changed`: run affected sources (CI default); shared changes enable all sources.
   CI compares against the PR merge base or the pushed branch's previous tip.
+  Manual dispatch defaults to `all`, with an explicit live-mode selector.
   Locally, `DATA_TEST_BASE` defaults to `HEAD`, including uncommitted changes.
 - `--live=all`: run all live tests.
 

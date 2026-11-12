@@ -18,6 +18,9 @@ name: Run CI test job
 description: Restore shared testmon state and run one tox-backed test job.
 
 inputs:
+  live:
+    description: Live data-test selection mode.
+    default: changed
   tox-env:
     description: Tox environment to run.
     required: true
@@ -107,7 +110,7 @@ runs:
       shell: bash
       env:
         TOX_ENV: ${{ inputs.tox-env }}
-        DATA_TEST_LIVE: changed
+        DATA_TEST_LIVE: ${{ inputs.tox-env == 'test-data' && inputs.live || 'none' }}
         DATA_TEST_BASE_BRANCH: ${{ inputs.testmon-base-branch }}
         DATA_TEST_PREVIOUS_SHA: ${{ github.event.before }}
         DATA_TEST_BASELINE_RUN: ${{ inputs.save-testmon-cache }}

@@ -154,6 +154,21 @@ def with_grid_metadata(array: xr.DataArray, grid: str | None = None) -> xr.DataA
     and alternative resolutions retain their actual axes and omit the grid ID.
     Without a named grid, only rectilinear latitude/longitude is annotated.
     Data, dimension order, and existing non-grid attributes are preserved.
+
+    Parameters
+    ----------
+    array : xr.DataArray
+        Field whose spatial coordinates should receive grid metadata.
+    grid : str | None, optional
+        Registered grid name. Matching axes receive its grid ID; differing axes
+        use their actual geometry, retaining the named projection for projected
+        grids. Without a name, only one-dimensional lat/lon axes are supported.
+
+    Returns
+    -------
+    xr.DataArray
+        Field with grid coordinate attributes and CRS metadata. Unsupported
+        spatial layouts are returned unchanged; data are not regridded.
     """
     registered = resolve_grid(grid) if grid is not None else None
     matched = registered is not None and all(
