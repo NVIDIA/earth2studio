@@ -331,21 +331,21 @@ def test_gfs_call_mock(mock_statistic_grib):
     variables = ["t2m", "t2m:mean:12h", "t2m:sum:12h", "t2m:max:12h", "t2m:min:12h"]
     index_calls = mock_statistic_grib(ds)
     data = ds(datetime(2024, 1, 2), variables)
-    # Window [-12h, 0h) holds the 6-hourly analyses at 12z (12h) and 18z (18h)
+    # Window (-12h, 0h] holds the 6-hourly analyses at 18z (18h) and 00z (24h)
     assert data.shape == (1, 5, 2, 2)
     values = [float(data.sel(variable=v).values[0, 0, 0]) for v in variables]
-    assert values == [24.0, 15.0, 30.0, 18.0, 12.0]
+    assert values == [24.0, 21.0, 42.0, 24.0, 18.0]
     assert set(data.attrs["earth2studio_statistics"]) == set(variables[1:])
-    # Instantaneous plus the two extra analysis files, nothing else
-    assert len(set(index_calls)) == 3
+    # Instantaneous (shared with the window) plus one extra analysis file
+    assert len(set(index_calls)) == 2
     # Analysis windows move across cycles, always fetching lead zero.
     assert all("f000" in uri for uri in index_calls)
     index_calls.clear()
     data = ds([datetime(2024, 1, 2, 6), datetime(2024, 1, 2)], variables)
     np.testing.assert_allclose(
-        data.values[:, :, 0, 0], [[30, 21, 42, 24, 18], [24, 15, 30, 18, 12]]
+        data.values[:, :, 0, 0], [[30, 27, 54, 30, 24], [24, 21, 42, 24, 18]]
     )
-    assert len(set(index_calls)) == 4
+    assert len(set(index_calls)) == 3
     assert all("f000" in uri for uri in index_calls)
 
     data = fetch_data(
@@ -357,12 +357,16 @@ def test_gfs_call_mock(mock_statistic_grib):
     data = ds(datetime(2024, 1, 2), ["t2m", "z500", "tp06"])
     np.testing.assert_allclose(data.values[0, :, 0, 0], [24, 24 * 9.81, 0.021])
     assert list(data.coords["variable"].values) == ["t2m", "z500", "tp06"]
-    mock_statistic_grib(ds, missing=(12,))
+    mock_statistic_grib(ds, missing=(18,))
     data = ds(datetime(2024, 1, 2), variables)
-    np.testing.assert_allclose(data.values[0, :, 0, 0], [24, 18, 18, 18, 18])
+    # A record missing from the index is NaN, and so is every window holding it
     np.testing.assert_allclose(
-        data.values[0, :, 1, 0], [np.nan, np.nan, 0, np.nan, np.nan], equal_nan=True
+        data.values[0, :, 0, 0], [24] + [np.nan] * 4, equal_nan=True
     )
+    np.testing.assert_allclose(data.values[0, :, 1, 0], np.nan, equal_nan=True)
+    skipping = [f"t2m:nan{m}:12h" for m in ("mean", "sum", "max", "min")]
+    data = ds(datetime(2024, 1, 2), skipping)
+    np.testing.assert_allclose(data.values[0, :, 0, 0], [24, 24, 24, 24])
 
 
 @pytest.mark.timeout(30)
@@ -380,15 +384,14 @@ def test_gfs_fx_call_mock(mock_statistic_grib, monkeypatch, tmp_path):
     with pytest.raises(ValueError, match="lead time"):
         fx(datetime(2024, 1, 1), [timedelta(hours=0)], ["t2m:mean:3h"])
     assert data.shape == (1, 2, 5, 2, 2)
-    # lead 6: mean(3,4,5)=4, sum(6,7,8)=21, max(4,5)=5; lead 7 is shifted by 1h
+    # lead 6: mean(4,5,6)=5, sum(7,8,9)=24, max(5,6)=6; lead 7 is shifted by 1h
     np.testing.assert_allclose(
-        data.values[0, :, :, 0, 0], [[6, 4, 21, 5, 3], [7, 5, 24, 6, 4]]
+        data.values[0, :, :, 0, 0], [[6, 5, 24, 6, 4], [7, 6, 27, 7, 5]]
     )
     assert set(data.attrs["earth2studio_statistics"]) == set(variables[1:])
-    # Only leads 3..9 are indexed
+    # Only leads 4..10 are indexed
     assert len(set(index_calls)) == 7
-    np.testing.assert_allclose(data.values[0, :, 1, 0, 1], [4, 5])
-    np.testing.assert_allclose(data.values[0, :, 2, 0, 1], [14, 8])
+    np.testing.assert_allclose(data.values[0, :, 1:3, 0, 1], np.nan, equal_nan=True)
 
     # Equal valid times from different initializations remain distinct requests.
     index_calls.clear()
@@ -400,8 +403,8 @@ def test_gfs_fx_call_mock(mock_statistic_grib, monkeypatch, tmp_path):
     np.testing.assert_allclose(
         data.values[:, :, :, 0, 0],
         [
-            [[13, 11, 42, 12, 10], [12, 10, 39, 11, 9]],
-            [[7, 5, 24, 6, 4], [6, 4, 21, 5, 3]],
+            [[13, 12, 45, 13, 11], [12, 11, 42, 12, 10]],
+            [[7, 6, 27, 7, 5], [6, 5, 24, 6, 4]],
         ],
     )
     assert len(set(index_calls)) == 14
@@ -434,7 +437,7 @@ def test_gfs_fx_call_mock(mock_statistic_grib, monkeypatch, tmp_path):
     )
     np.testing.assert_allclose(
         data.sel(variable="tp06:sum:+0h:+2h").values[:, :, 0, 0],
-        [[0.048, 0.060, 0.108, 0.120, 0.132]] * 2,
+        [[0.060, 0.072, 0.120, 0.132, 0.144]] * 2,
     )
     with pytest.raises(ValueError, match="at least 6 hours"):
         fx(datetime(2024, 1, 1), timedelta(hours=5), "tp06")

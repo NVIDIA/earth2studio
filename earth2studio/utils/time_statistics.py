@@ -147,7 +147,8 @@ class _Window:
             raise ValueError("delta_t must be positive")
         if window % step:
             raise ValueError("Statistic window must be divisible by delta_t")
-        return np.arange(self.start, self.end, delta)
+        # Right-closed: (start, end], so a window ending at T includes T.
+        return np.arange(self.start + delta, self.end + delta, delta)
 
 
 @lru_cache
@@ -314,27 +315,50 @@ def time_statistic_metadata(
         "window": window.end - window.start,
         "start_offset": window.start,
         "end_offset": window.end,
-        "closed": "left",
+        "closed": "right",
     }
 
 
 def _mean(array: xr.DataArray, dimension: Hashable) -> xr.DataArray:
-    return array.mean(dim=dimension, keep_attrs=True)
+    return array.mean(dim=dimension, skipna=False, keep_attrs=True)
 
 
 def _sum(array: xr.DataArray, dimension: Hashable) -> xr.DataArray:
-    return array.sum(dim=dimension, keep_attrs=True)
+    return array.sum(dim=dimension, skipna=False, keep_attrs=True)
 
 
 def _minimum(array: xr.DataArray, dimension: Hashable) -> xr.DataArray:
-    return array.min(dim=dimension, keep_attrs=True)
+    return array.min(dim=dimension, skipna=False, keep_attrs=True)
 
 
 def _maximum(array: xr.DataArray, dimension: Hashable) -> xr.DataArray:
-    return array.max(dim=dimension, keep_attrs=True)
+    return array.max(dim=dimension, skipna=False, keep_attrs=True)
 
 
+def _nanmean(array: xr.DataArray, dimension: Hashable) -> xr.DataArray:
+    return array.mean(dim=dimension, skipna=True, keep_attrs=True)
+
+
+def _nansum(array: xr.DataArray, dimension: Hashable) -> xr.DataArray:
+    # min_count=1 keeps an all-NaN window NaN rather than zero
+    return array.sum(dim=dimension, skipna=True, min_count=1, keep_attrs=True)
+
+
+def _nanminimum(array: xr.DataArray, dimension: Hashable) -> xr.DataArray:
+    return array.min(dim=dimension, skipna=True, keep_attrs=True)
+
+
+def _nanmaximum(array: xr.DataArray, dimension: Hashable) -> xr.DataArray:
+    return array.max(dim=dimension, skipna=True, keep_attrs=True)
+
+
+# Built-in reductions propagate NaN: a window holding a missing sample is NaN.
 register_time_statistic("mean", _mean)
 register_time_statistic("sum", _sum)
 register_time_statistic("min", _minimum)
 register_time_statistic("max", _maximum)
+# Explicit opt-in reductions that skip NaN samples (all-NaN windows stay NaN).
+register_time_statistic("nanmean", _nanmean)
+register_time_statistic("nansum", _nansum)
+register_time_statistic("nanmin", _nanminimum)
+register_time_statistic("nanmax", _nanmaximum)

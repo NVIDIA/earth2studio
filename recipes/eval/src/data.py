@@ -19,7 +19,7 @@
 The library handles regridding, composition and temporal statistics
 (:class:`~earth2studio.data.RegriddedSource`,
 :class:`~earth2studio.data.CompositeSource`, qualified variable labels such as
-``t2m:mean:0h:24h``); this module holds what is specific to the recipe:
+``t2m:mean:-1h:23h``); this module holds what is specific to the recipe:
 the zarr and parquet stores ``predownload.py`` writes, and the rule deciding
 whether a runner slot reads a bring-your-own source, a predownloaded store or
 the live source.
@@ -186,7 +186,7 @@ class _PredownloadedStore:
     :class:`~earth2studio.io.ZarrBackend`.  A time, lead time or variable that
     was not predownloaded raises ``KeyError``.
 
-    The store holds qualified labels such as ``t2m:mean:0h:24h`` already
+    The store holds qualified labels such as ``t2m:mean:-1h:23h`` already
     reduced and serves them natively: its ``lexicon.TIME_STATISTICS`` declares the
     methods of the stored labels, :func:`earth2studio.data.fetch_data` passes
     those labels through unchanged, and the returned field carries their

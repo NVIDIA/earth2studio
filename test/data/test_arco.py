@@ -142,26 +142,28 @@ def test_arco_time_statistics_mock(mock_statistic_zarr, monkeypatch):
 
     assert data.shape == (1, 5, 2, 2)
     values = [float(data.sel(variable=v).values[0, 0, 0]) for v in variables]
-    # Window [-6h, 0h) covers hourly fields index-6 .. index-1
+    # Window (-6h, 0h] covers hourly fields index-5 .. index, so a 6h sum of the
+    # mock matches tp06 (the 6 hourly accumulations ending at the target)
     assert values == [
         index,
-        index - 3.5,
-        6 * index - 21,
-        index - 1,
-        index + 1,
+        index - 2.5,
+        6 * index - 15,
+        index,
+        index + 2,
     ]
     assert set(data.attrs["earth2studio_statistics"]) == set(variables[1:])
-    # Plain and statistic paths read hourly fields -6h..+3h and the instant
-    assert set(reads) == set(range(index - 6, index + 4))
+    # Plain and statistic paths read hourly fields -5h..0h (including the instant)
+    # and +2h..+4h
+    assert set(reads) == {*range(index - 5, index + 1), *range(index + 2, index + 5)}
 
     reads.clear()
-    data = ds(time, ["t2m", "t2m:mean:+0h:+2h"])
+    data = ds(time, ["t2m", "t2m:mean:-1h:+1h"])
     np.testing.assert_allclose(data.values[0, :, 0, 0], [index, index + 0.5])
     assert set(reads) == {index, index + 1}
 
     # Two pressure levels of one hour (and a window over a third) are one chunk
     reads.clear()
-    data = ds(time, ["t500", "t850", "t500:max:+0h:+2h"])
+    data = ds(time, ["t500", "t850", "t500:max:-1h:+1h"])
     # Level index 0 (500 hPa) is +0 and index 1 (850 hPa) is +1 in the fake chunk
     assert data.values[0, 0, 0, 0] == index
     assert data.values[0, 1, 0, 0] == index + 1
@@ -178,9 +180,9 @@ def test_arco_time_statistics_mock(mock_statistic_zarr, monkeypatch):
     reads.clear()
     data = ds(time, ["tp06:mean:2h", "tp06:sum:2h"])
     np.testing.assert_allclose(
-        data.values[0, :, 0, 0], [6 * index - 24, 12 * index - 48]
+        data.values[0, :, 0, 0], [6 * index - 18, 12 * index - 36]
     )
-    assert set(reads) == set(range(index - 7, index))
+    assert set(reads) == set(range(index - 6, index + 1))
 
     # Long windows must release each fetched chunk immediately, not cache all
     # hours of the window.
@@ -204,8 +206,8 @@ def test_arco_time_statistics_mock(mock_statistic_zarr, monkeypatch):
     monkeypatch.setattr(ds.zarr_group, "get", tracked_array)
     reads.clear()
     data = ds(time, ["t500:mean:240h", "t850:mean:240h"])
-    np.testing.assert_allclose(data.values[0, :, 0, 0], [index - 120.5, index - 119.5])
-    assert set(reads) == set(range(index - 240, index))
+    np.testing.assert_allclose(data.values[0, :, 0, 0], [index - 119.5, index - 118.5])
+    assert set(reads) == set(range(index - 239, index + 1))
     assert all(ref() is None for ref in refs)
 
     # Regular hourly sampling rejects windows not divisible by its cadence.

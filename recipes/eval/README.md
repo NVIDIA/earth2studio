@@ -640,8 +640,8 @@ python main.py model=fcn3
 The data source is a Hydra group as well.  `cfg/data_source/arco_era5.yaml`,
 the default, reads hourly ARCO ERA5. Models that need time statistics as
 input, such as FuXi-S2S's UTC calendar-day means, declare them with qualified
-variable labels in their input signature (`t2m:mean:0h:24h`,
-`tp:mean:1h:25h`, and so on). `earth2studio.data.fetch_data` then computes
+variable labels in their input signature (`t2m:mean:-1h:23h`,
+`tp:mean:0h:24h`, and so on). `earth2studio.data.fetch_data` then computes
 the statistic from the hourly source itself, so the recipe needs no daily
 mean source wrapper. `predownload.py` caches the reduced fields under their
 qualified labels, and the cached store answers `fetch_data` for them.

@@ -49,6 +49,11 @@ signature = coord_array_like(x)   # Describe an existing field without copying v
   wrapping tensors. Match model/data devices; use `.e2s.as_numpy()` for explicit CPU export.
 - Preserve variable labels, including temporal qualifiers such as `tp:sum:6h`.
   Use datetime arrays for `time`, timedelta arrays for `lead_time`.
+- Statistic windows are right-closed: `var:method:w` reduces the stamps in
+  `(T − w, T]` and `var:method:start:end` those in `(T + start, T + end]`. Hourly
+  accumulations stamped at the end of their hour (`ARCO_ERA5` `tp`, `HRRR_FX` `tp`)
+  therefore give `tp:sum:6h` = the 6 hours ending at `T`, the same as `tp06`. Do not
+  sum GFS `tp` (a running bucket); use `tp06`.
 
 ## Diagnostic models
 
@@ -113,6 +118,16 @@ Target: [PrognosticModel](earth2studio/models/px/base.py).
   `CBottleSR(super_resolution_window=(s, w, n, e))` → `region=Region.box(w, s, e, n)`.
   `InterpCRPSDiT.set_domain(..., halo)` → set `region_halo`, then `with_region(Region.box(...))`.
 
+## Renamed model and source labels
+
+- `PrecipitationAFNO` (v1) outputs `tp06`, not `tp`.
+- `OrbitGlobalPrecip`: inputs `tp24`, `t2m_max`, `t2m_min` → `tp:sum:24h`,
+  `t2m:max:-25h:-1h`, `t2m:min:-25h:-1h`; new inputs `sst:max:-25h:-1h` and
+  `sst:min:-25h:-1h`. The output is `tp:sum:24h`.
+- HRRR projected axes `hrrr_y` / `hrrr_x` → `y` / `x`, with no aliases, on the `HRRR`
+  sources and on `StormCast`, `StormCastCONUS`, `StormCastSDA` and `CorrDiffEra5Hrrr`
+  (dimensions, coordinates and `self.y` / `self.x` attributes).
+
 ## Data sources and fetching
 
 Targets: [source protocols](earth2studio/data/base.py), [fetch_data](earth2studio/data/utils.py).
@@ -128,8 +143,17 @@ Targets: [source protocols](earth2studio/data/base.py), [fetch_data](earth2studi
   matching/cropping/nearby selection; provide a `Regridder` for the intended interpolation.
 - Fetch all declared variables/history. Temporal qualifiers require native source
   support; sampling belongs to the source and `fetch_data` has no `delta_t` override.
-  Windows include the left endpoint and exclude the right.
+  Windows exclude the left endpoint and include the right.
 - Declare supported statistics in lexicon `TIME_STATISTICS`; handle them per source.
+- `fetch_data` selects the returned `time` and `lead_time` by label; `main` relabelled
+  them by position. A custom source must return the requested labels, otherwise
+  `fetch_data` raises a `ValueError` naming the source. `CMIP6` nearest-time output keeps
+  the requested times in `time` and the sampled times in `time_selected`, which replaces
+  `time_requested`.
+- Time statistics `sum`, `mean`, `min` and `max` return NaN when any sample in the
+  window is missing. The opt-in `nansum` / `nanmean` / `nanmin` / `nanmax` skip missing
+  samples (an all-NaN window stays NaN); the ARCO, GFS, HRRR and WB2 lexicons declare
+  them, e.g. `sst:nanmean:24h`.
 
 ## IO objects
 

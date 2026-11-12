@@ -13,7 +13,7 @@ no connector feeds, and unconnected slots, are fetched from sources.
 | Reduction of a faster producer over the consumer's step | qualified label `"tp:sum:24h"`, `"t2m:mean:24h"` | `Connector("a", "b")` (`exact` only) |
 | Earlier frames on purpose (history) | slot `lead_time` values before the step's lead | `Connector("a", "b")` |
 
-- Qualified labels reduce frames in `[T - window, T)`. The window must be a
+- Qualified labels reduce frames in `(T - window, T]`. The window must be a
   multiple of the producer's frame spacing. Frames at or before the item time
   that the producer never publishes (e.g. it has no initial condition) come
   from the consumer slot's source; later frames always come from the producer.

@@ -270,7 +270,8 @@ Load `references/temporal-statistics.py` and follow it. In short:
    `Temporal statistics:`. List methods, label syntax, sampling cadence, window
    closure, and accumulation caveats. Store capability metadata in the source's
    lexicon as `TIME_STATISTICS = ("mean", "sum", "min", "max")` (or a subset),
-   and expose that lexicon as `source.lexicon`. Omit this metadata for lexicons
+   adding the NaN-skipping `nanmean`, `nansum`, `nanmin` and `nanmax` when the
+   source's fields can hold missing values, and expose that lexicon as `source.lexicon`. Omit this metadata for lexicons
    without native support (e.g. climatology). Do not add source-level
    `time_statistics` or `time_step` attributes.
 2. **Plan**: `plain, stats, attrs = plan_statistics(variable, target_times, delta_t,
@@ -293,9 +294,9 @@ Load `references/temporal-statistics.py` and follow it. In short:
    averaged/accumulated/min'd/max'd and the window. Warn about
    fields that are already accumulations (e.g. resetting precipitation buckets).
 
-Label grammar: `var:method:window` (trailing, `[-w, 0)`) or
-`var:method:start:end` (e.g. `tp:sum:+0h:+6h`); windows are left-closed,
-right-open. Regular coordinate helpers require cadence-aligned windows; reduction
+Label grammar: `var:method:window` (trailing, `(-w, 0]`) or
+`var:method:start:end` (e.g. `tp:sum:+0h:+6h`); windows are left-open,
+right-closed. Regular coordinate helpers require cadence-aligned windows; reduction
 itself imposes no cadence and uses sample-weighted means. Parsing is in
 `earth2studio/utils/time_statistics.py`; reuse it, do not re-parse labels.
 

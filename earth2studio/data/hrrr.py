@@ -30,6 +30,7 @@ from obstore.store import ObjectStore
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
+    SharedDownloads,
     _sync_async,
     as_datetime,
     as_timedelta,
@@ -86,8 +87,15 @@ class HRRR:
     ```
     Note
     ----
-    This data source supports the following temporal statistics: ``mean``,
-    ``sum``, ``min``, and ``max``. The temporal sampling cadence is one hour.
+    Temporal statistics: this data source supports ``mean``, ``sum``, ``min`` and
+    ``max``, which return NaN when any sample in the window is missing, and the
+    NaN-skipping ``nanmean``, ``nansum``, ``nanmin`` and ``nanmax``. The sampling
+    cadence is one hour and a two-part label such as ``t2m:mean:6h`` selects the
+    stamps in ``(T - 6h, T]``, ``T - 5h`` through ``T``.
+
+    ``tp`` is read from the lead-0 record (``0-0 day acc fcst``), not an hourly
+    accumulation, so window sums of it are not precipitation totals; use
+    :py:class:`HRRR_FX` for accumulated precipitation.
 
     Parameters
     ----------
@@ -207,6 +215,7 @@ class HRRR:
 
         # Object store is lazily initialized on first call
         self.store: ObjectStore | None = None
+        self._inflight_downloads = SharedDownloads()
 
     async def _async_init(self) -> None:
         """Async initialization of the object store
@@ -532,14 +541,22 @@ class HRRR:
 
         # Strip the bucket / url prefix to get the store-relative key
         key = path.removeprefix(self.uri_prefix).lstrip("/")
+        store = self.store
+        # Index files are fetched once per variable, concurrently. Share one
+        # in-flight download per cache file and publish it atomically, so a
+        # concurrent reader never parses a half-written index.
         try:
-            return await obstore_fetch_to_cache(
-                self.store,
-                key,
-                self.cache,
-                byte_offset=byte_offset,
-                byte_length=byte_length,
-                cache_key=filename,
+            return await self._inflight_downloads.fetch(
+                filename,
+                lambda: obstore_fetch_to_cache(
+                    store,
+                    key,
+                    self.cache,
+                    byte_offset=byte_offset,
+                    byte_length=byte_length,
+                    cache_key=filename,
+                    atomic=True,
+                ),
             )
         except FileNotFoundError as e:
             logger.error(f"Failed to download file {path}, not found")
@@ -673,9 +690,15 @@ class HRRR_FX(HRRR):
 
     Note
     ----
-    This data source supports the following temporal statistics: ``mean``,
-    ``sum``, ``min``, and ``max``. The temporal sampling cadence is one hour
-    over forecast lead times.
+    Temporal statistics: this data source supports ``mean``, ``sum``, ``min`` and
+    ``max``, which return NaN when any sample in the window is missing, and the
+    NaN-skipping ``nanmean``, ``nansum``, ``nanmin`` and ``nanmax``. The sampling
+    cadence is one hour over forecast lead times, and a two-part label such as
+    ``t2m:mean:6h`` selects the lead times in ``(L - 6h, L]``.
+
+    ``tp`` at lead ``h`` is the accumulation over hour ``(h - 1, h]``, so
+    ``tp:sum:6h`` at lead ``L`` is the accumulation over the six hours ending at
+    ``L``.
 
     Parameters
     ----------

@@ -28,7 +28,7 @@ def test_time_statistic_declarations():
         "window": np.timedelta64(24, "h"),
         "start_offset": np.timedelta64(-24, "h"),
         "end_offset": np.timedelta64(0, "h"),
-        "closed": "left",
+        "closed": "right",
     }
     assert e2s.time_statistic_metadata("max:-12h:+12h")["modifier"] == ("max:-12h:+12h")
     assert e2s.time_statistic_metadata("sum:1week")["window"] == np.timedelta64(7, "D")
@@ -52,13 +52,16 @@ def test_time_statistic_source_coordinates():
     delta_t = np.timedelta64(6, "h")
     np.testing.assert_array_equal(
         e2s.source_times("mean:24h", valid_time, delta_t),
+        # Right-closed (T - 24h, T]: the window ending at T includes T
         np.arange(
-            np.datetime64("2026-08-27T06:00"), valid_time, np.timedelta64(6, "h")
+            np.datetime64("2026-08-27T12:00"),
+            valid_time + delta_t,
+            np.timedelta64(6, "h"),
         ),
     )
     np.testing.assert_array_equal(
         e2s.source_lead_times("mean:24h", np.timedelta64(6, "h"), delta_t),
-        np.array([-18, -12, -6, 0], dtype="timedelta64[h]"),
+        np.array([-12, -6, 0, 6], dtype="timedelta64[h]"),
     )
     assert e2s.source_times(
         "mean:24h",
@@ -112,7 +115,8 @@ def test_calendar_cadence_rejected(unit: str) -> None:
 def test_time_statistic_block_reductions(method, expected):
     target = np.datetime64("2026-08-28T03:00")
     delta_t = np.timedelta64(1, "h")
-    times = np.arange(target - np.timedelta64(4, "h"), target + delta_t, delta_t)
+    # Samples T-3h ... T+1h; the 3h window (T-3h, T] excludes both sentinels
+    times = np.arange(target - np.timedelta64(3, "h"), target + 2 * delta_t, delta_t)
     array = xr.DataArray(
         [[99.0, 99.0], [1.0, 4.0], [2.0, 5.0], [3.0, 6.0], [99.0, 99.0]],
         dims=("time", "variable"),
@@ -129,6 +133,40 @@ def test_time_statistic_block_reductions(method, expected):
         e2s.apply_time_statistic(array, f"{method}:3h", target, delta_t, "lead_time")
 
 
+@pytest.mark.parametrize(
+    ("method", "propagated", "skipped"),
+    (
+        ("mean", np.nan, 1.0),
+        ("sum", np.nan, 3.0),
+        ("min", np.nan, 1.0),
+        ("max", np.nan, 1.0),
+    ),
+)
+def test_time_statistic_missing_samples(method, propagated, skipped):
+    """Built-in reductions propagate NaN; the ``nan`` variants skip it explicitly."""
+    target = np.datetime64("2026-08-28T04:00")
+    delta_t = np.timedelta64(1, "h")
+    times = np.arange(target - np.timedelta64(3, "h"), target + delta_t, delta_t)
+    array = xr.DataArray(
+        [[1.0, np.nan], [1.0, np.nan], [1.0, np.nan], [np.nan, np.nan]],
+        dims=("time", "variable"),
+        coords={"time": times, "variable": ["partial", "missing"]},
+    )
+    result = e2s.apply_time_statistic(array, f"{method}:4h", target, delta_t)
+    np.testing.assert_array_equal(result, [propagated, np.nan])
+    result = e2s.apply_time_statistic(array, f"nan{method}:4h", target, delta_t)
+    # An all-NaN window stays NaN even when samples are skipped
+    np.testing.assert_array_equal(result, [skipped, np.nan])
+
+    samples = array.values
+    np.testing.assert_array_equal(
+        e2s.reduce_samples(f"{method}:4h", samples), [propagated, np.nan]
+    )
+    np.testing.assert_array_equal(
+        e2s.reduce_samples(f"nan{method}:4h", samples), [skipped, np.nan]
+    )
+
+
 def test_time_statistic_window_validation():
     target = np.datetime64("2026-08-28T03:00")
     delta_t = np.timedelta64(1, "h")
@@ -136,7 +174,9 @@ def test_time_statistic_window_validation():
         [1.0, 2.0, 3.0],
         dims="valid_time",
         coords={
-            "valid_time": np.arange(target - np.timedelta64(3, "h"), target, delta_t)
+            "valid_time": np.arange(
+                target - np.timedelta64(2, "h"), target + delta_t, delta_t
+            )
         },
     )
     assert e2s.apply_time_statistic(array, "sum:3h", target, delta_t, "valid_time") == 6
@@ -172,21 +212,24 @@ def test_custom_time_statistic_and_dimension_inference():
         return data.max(dim=dimension) - data.min(dim=dimension)
 
     e2s.register_time_statistic("range", value_range)
-    assert "range" in e2s.list_time_statistics()
-    array = xr.DataArray(
-        np.arange(6).reshape(2, 3),
-        dims=("time", "lead_time"),
-        coords={"lead_time": np.arange(3).astype("timedelta64[h]")},
-    )
-    np.testing.assert_array_equal(
-        e2s.apply_time_statistic(
-            array,
-            "range:3h",
-            np.timedelta64(3, "h"),
-            np.timedelta64(1, "h"),
-        ),
-        [2, 2],
-    )
+    try:
+        assert "range" in e2s.list_time_statistics()
+        array = xr.DataArray(
+            np.arange(6).reshape(2, 3),
+            dims=("time", "lead_time"),
+            coords={"lead_time": np.arange(3).astype("timedelta64[h]")},
+        )
+        np.testing.assert_array_equal(
+            e2s.apply_time_statistic(
+                array,
+                "range:3h",
+                np.timedelta64(2, "h"),
+                np.timedelta64(1, "h"),
+            ),
+            [2, 2],
+        )
+    finally:
+        e2s._TIME_STATISTICS.pop("range", None)
     with pytest.raises(ValueError, match="no 'time'"):
         e2s.apply_time_statistic(
             xr.DataArray([1, 2], dims="sample"),

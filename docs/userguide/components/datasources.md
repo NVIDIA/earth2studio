@@ -125,26 +125,33 @@ field = fetch_data(
 ```
 
 Here `source` is a six-hourly analysis source supporting `t2m:mean:24h`.
-The mean includes the four samples at -24, -18, -12 and -6 hours. Windows are
-left-closed and right-open. Statistics are delegated to sources that support them
+The mean includes the four samples at -18, -12, -6 and 0 hours. Windows are
+left-open and right-closed: a window ending at `T` includes the sample at `T`. Statistics are delegated to sources that support them
 natively; unsupported methods raise `ValueError` before fetching. Qualified variable labels
 such as `"t2m:mean:24h"` declare reductions; duplicate normalized quantities are rejected.
 Output `earth2studio_statistics` describes the reductions actually performed.
 
 `ARCO_ERA5`, `GFS_FX`, `HRRR`, and `HRRR_FX` handle statistics natively with
 hourly sampling; `GFS` and the `WB2ERA5` variants use six-hourly sampling.
-All support `mean`, `sum`, `min`, and `max`.
+All support `mean`, `sum`, `min`, and `max`, which return NaN for a cell when any
+sample in its window is missing, and the NaN-skipping `nanmean`, `nansum`, `nanmin`
+and `nanmax`, which reduce only the available samples.
 Sampling cadence is internal to each source. Reductions of accumulated variables
-operate on stored values; overlapping accumulation periods can double-count totals.
+operate on stored values; overlapping accumulation periods (such as the GFS `tp`
+bucket) can double-count totals.
+
+Accumulations such as ARCO ERA5 `tp` and HRRR forecast `tp` are stamped at the end
+of their hour, so `tp:sum:6h` reads the stamps `T-5h` … `T` and covers the six hours
+ending at `T`, the same period as ARCO ERA5's `tp06`.
 Supported methods are documented under **Temporal statistics:** in each source's
 class docstring; capability metadata lives in `source.lexicon.TIME_STATISTICS`.
 Sources do not need `time_step` or `time_statistics` attributes.
 
 Analysis sources fetch absolute valid timestamps, while forecast sources reduce
 lead times separately for each initialization. For a trailing 24-hour forecast
-mean, request a lead of at least 24 hours so the window stays within that
+mean, request a lead of at least 23 hours so the window stays within that
 initialization. Unavailable sample coordinates and failed downloads raise errors;
-NaN values are skipped by the reducers.
+NaN samples propagate unless a `nan*` method is requested.
 
 The former tuple return and `legacy` argument have been removed. Access values
 through `field.data` and coordinates through `field.coords`.

@@ -26,14 +26,21 @@ owns modifier normalization, window planning, metadata, and block reductions.
 
 ## Windows
 
-For valid time `T`, intervals are half-open:
+For valid time `T`, intervals are half-open and **right-closed**: a window ending
+at `T` includes the sample stamped `T` and excludes the one stamped at its start.
 
 | Modifier | Selected interval |
 | --- | --- |
-| `mean:24h` | `[T - 24h, T)` |
-| `mean:-12h:+12h` | `[T - 12h, T + 12h)` |
+| `mean:24h` | `(T - 24h, T]` |
+| `mean:-12h:+12h` | `(T - 12h, T + 12h]` |
 
-Built-in methods are `mean`, `sum`, `min`, and `max`. Source cadence must divide
+At source cadence `Δ`, a window `(T + start, T + end]` reads the stamps
+`T + start + Δ, …, T + end`. The `earth2studio_statistics` metadata records this as
+`closed: "right"`.
+
+Built-in methods are `mean`, `sum`, `min`, and `max`, which propagate missing
+samples (see Planning and Reduction), and their NaN-skipping counterparts `nanmean`,
+`nansum`, `nanmin`, and `nanmax`. Source cadence must divide
 the window exactly. Durations are integers with units `ns`, `us`, `ms`,
 `s/sec/second`, `m/min/minute`, `h/hr/hour`, `d/day`, or `w/wk/week`;
 plural names are accepted. Weeks are seven days. Month and year durations are
@@ -42,6 +49,28 @@ unsupported: specify an explicit number of days or hours instead (for example,
 calendar approximations; use lowercase `m` for minutes. NumPy month/year timedeltas
 are also rejected as source cadences.
 
+### Accumulations and Means of Instantaneous Fields
+
+Accumulations and mean rates are stamped at the **end** of their period: hourly
+ARCO-ERA5 `tp`, `ttr`, `ro` and `sf` and HRRR forecast `tp` hold `(t - 1h, t]` at
+stamp `t`, and so do 6-hourly model outputs such as `tp06`. Right-closed windows
+match this, so a two-part label covers the period ending at `T` at any cadence:
+
+| Label at `T` | Hourly stamps read | Physical period |
+| --- | --- | --- |
+| `tp:sum:6h` | `T-5h` … `T` | `(T - 6h, T]` |
+| `tp06` (ARCO alias) | `T-5h` … `T` | `(T - 6h, T]` |
+
+On 6-hourly `tp06` frames, `tp:sum:24h` reads `T-18h` … `T`, the 24 hours ending at
+`T`. For instantaneous fields a window holds the samples after its start up to and
+including its end, so `t2m:max:24h` at `T` reads `T-23h` … `T` hourly. Use explicit
+offsets when a different set of samples is wanted, as ORBIT-2 does for its daily
+extremes (`t2m:max:-25h:-1h` reads `T-24h` … `T-1h`).
+
+Running buckets that reset periodically (GFS `tp`) cannot be summed: the buckets
+overlap, so `tp:sum:Nh` double counts; use `tp06`. Each affected source states this
+in its `Temporal statistics:` note.
+
 ### Calendar-Day Means: FuXi-S2S
 
 FuXi-S2S labels days by **starting midnight**, consumes two consecutive daily means,
@@ -49,12 +78,13 @@ and predicts the next. All 76 channels declare means with these hourly windows:
 
 | Quantity | Qualified label | Samples relative to day start |
 | --- | --- | --- |
-| Ordinary fields | `t2m:mean:0h:24h` | 00–23 UTC |
-| Hourly precipitation accumulations | `tp:mean:1h:25h` | 01 UTC through next 00 UTC |
-| Hourly thermal radiation accumulations | `ttr:mean:1h:25h` | 01 UTC through next 00 UTC |
+| Ordinary fields | `t2m:mean:-1h:23h` | 00–23 UTC |
+| Hourly precipitation accumulations | `tp:mean:0h:24h` | 01 UTC through next 00 UTC |
+| Hourly thermal radiation accumulations | `ttr:mean:0h:24h` | 01 UTC through next 00 UTC |
 
-Only `tp` and `ttr` shift the window because their source timestamps mark interval
-ends. `[T + 1h, T + 25h)` includes 24 hourly samples, excluding next-day 01 UTC.
+`tp` and `ttr` cover the day itself, `(T, T + 24h]`, because their timestamps mark
+interval ends: 24 hourly samples from 01 UTC through next-day 00 UTC. Ordinary
+fields take the instantaneous samples 00–23 UTC, `(T - 1h, T + 23h]`.
 These means retain one-hour accumulation units; multiply predicted `tp` by 24 for
 a daily total. Channel order and model-unit conversions are unchanged.
 
@@ -167,15 +197,21 @@ reduction per target. The jobs run through a fixed worker pool and a task group:
 a failure, timeout or caller cancellation cancels and awaits outstanding fetches, and
 no partial window is ever written.
 
-NaNs are skipped: an all-NaN window yields NaN for mean/min/max and zero for sum
-(xarray's default). This is distinct from an absent coordinate or failed download.
-The reduction does not use a cadence, window or expected count; the source plans the
-coordinates. Means are sample-weighted, not duration-weighted. Sources propagate
-fetching failures rather than reduce a partial window.
+Missing samples propagate: if any sample in a window is NaN, `mean`, `sum`, `min`
+and `max` return NaN for that cell, so a field built from a missing value is never
+silently partial. This covers cells masked by the source (such as SST over land) and
+records a source could not resolve (for example a GRIB record absent from its index,
+which sources return as an all-NaN field with a warning). Skipping is an explicit
+opt-in: `nanmean`, `nansum`, `nanmin` and `nanmax` reduce the non-missing samples and
+return NaN only when every sample is missing (`nansum` of an all-NaN window is NaN,
+not zero). The reduction does not use a cadence, window or expected count; the
+source plans the coordinates. Means are sample-weighted, not duration-weighted.
+Sources propagate fetching failures rather than reduce a partial window.
 
 ### Implemented source capabilities
 
-All sources below declare `("mean", "sum", "min", "max")` on their lexicon.
+All sources below declare `("mean", "sum", "min", "max")` and the `nan` variants
+on their lexicon.
 
 | Source | Sampling | Window axis |
 | --- | --- | --- |

@@ -62,9 +62,12 @@ def test_reproduces_the_hand_computed_toy(ic_sources: Mapping[str, Fill]) -> Non
     assert list(z) == list(range(0, 97, 6))
     assert list(sst) == [0, 48, 96]
     np.testing.assert_allclose(z[48], 9.6, atol=1e-5)
-    np.testing.assert_allclose(z[96], 19.2336, atol=1e-4)
-    np.testing.assert_allclose(sst[48], 2.042, atol=1e-6)
-    np.testing.assert_allclose(sst[96], 2.180147, atol=1e-6)
+    # The ocean's 48 h mean covers (T - 48h, T]: at +48h, z over +6h..+48h
+    # averages 1.2 * 4.5, so sst = 2 + 0.01 * 5.4; z then rises 1 + 0.1 * 2.054
+    # per step until +96h.
+    np.testing.assert_allclose(z[96], 19.2432, atol=1e-4)
+    np.testing.assert_allclose(sst[48], 2.054, atol=1e-6)
+    np.testing.assert_allclose(sst[96], 2.204243, atol=1e-6)
 
 
 def test_streams_keep_each_component_grid_and_time(
@@ -99,7 +102,7 @@ def test_lagging_and_ordering_are_derived(ic_sources: Mapping[str, Fill]) -> Non
     text = toy_runner(ic_sources).describe(np.timedelta64(96, "h"))
     lines = text.splitlines()
     # The held edge reads the ocean's last published frame; the exact edge waits
-    # for the atmosphere's chunk at +48h and reduces +0h..+42h.
+    # for the atmosphere's chunk at +48h and reduces +6h..+48h.
     assert any(
         "atmos  step" in line and "ocean at +42h from +0h" in line for line in lines
     )
@@ -108,7 +111,7 @@ def test_lagging_and_ordering_are_derived(ic_sources: Mapping[str, Fill]) -> Non
         for line in lines
     )
     ocean_line = next(line for line in lines if "ocean  initialize" in line)
-    assert "atmos at +48h from +0h..+42h" in ocean_line
+    assert "atmos at +48h from +6h..+48h" in ocean_line
     order = [line.split()[1] for line in lines if line.strip().startswith("+48h")]
     assert order == ["atmos", "ocean"]
     assert "ocean -> atmos forcing[0] (hold, regridded): sst" in text
@@ -187,7 +190,8 @@ def test_diagnostic_output_feeds_a_consumer(ic_sources: Mapping[str, Fill]) -> N
         },
     )
     sst = series(run(runner, 48)["ocean"])
-    np.testing.assert_allclose(sst[48], 2.0 + 0.01 * 8.4, atol=1e-6)
+    # z2 = 2 * z over (0h, 48h], with z = 1.2 per 6 h step: mean 2 * 5.4
+    np.testing.assert_allclose(sst[48], 2.0 + 0.01 * 10.8, atol=1e-6)
 
 
 # -- stateful assimilation with sparse observations --------------------------------
@@ -226,7 +230,7 @@ def test_a_consumer_initializes_once_its_window_is_complete() -> None:
     lines = runner.describe(np.timedelta64(24, "h")).splitlines()
     soil = next(line for line in lines if "soil" in line and "initialize" in line)
     assert soil.split()[0] == "+24h"
-    assert "rain at +24h from +0h..+18h" in soil
+    assert "rain at +24h from +6h..+24h" in soil
 
 
 # -- history before the item time ------------------------------------------------
@@ -658,8 +662,13 @@ class _Decoded(_Toy):
 
 def _decoded_ocean() -> tuple[CoupledRunner, Fill]:
     forcing = Fill(OCEAN_GRID, {"z1000": 10.0})
+    # A 48 h mean over (T - 54h, T - 6h] reads +0h..+42h at +48h, so its +0h
+    # frame precedes the atmosphere's first output.
+    ocean_ = _Toy(
+        "sst", "z1000:mean:-54h:-6h", OCEAN_GRID, 48, 0.0, 0.01, forcing_lead=48
+    )
     runner = CoupledRunner(
-        {"atmos": _Decoded("z1000", "sst", ATMOS_GRID, 6, 1.0, 0.0), "ocean": ocean()},
+        {"atmos": _Decoded("z1000", "sst", ATMOS_GRID, 6, 1.0, 0.0), "ocean": ocean_},
         [Connector("atmos", "ocean", regridder=TO_OCEAN)],
         sources={
             "atmos": (
