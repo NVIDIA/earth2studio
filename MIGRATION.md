@@ -16,6 +16,13 @@ Update custom components to the RC protocols linked below. Shared changes:
 - **Grid object:** use `grid=` whenever possible. Pass a registered grid name or
   `GridDefinition` from `earth2studio.grids`; it supplies spatial axes, geometry, and CRS.
   Keep native projected/curvilinear axes and auxiliary lat/lon. A CRS alone is not a grid.
+- **Grid labels:** library output carries an `earth2studio_grid_id` label, which `infer_grid` and model
+  handshakes trust without comparing coordinate values. After reversing latitude,
+  rolling longitude or converting it to −180..180, drop the label
+  (`attrs.pop("earth2studio_grid_id")`) so the actual coordinates are used.
+- **Longitude bounds:** `subset_indexers(bounds=...)` measures longitude eastward from
+  `min_lon`, modulo 360: `(0, 180)` now includes 180°, and out-of-range bounds such as
+  `(-190, -170)` select the full box.
 - **Field object:** `(torch.Tensor, coords)` → one `xr.DataArray` containing values and
   metadata. Coordinate signatures and concrete fields are different uses of DataArray.
 - **Slots:** one input per positional argument; one output directly, multiple as a tuple.
@@ -168,6 +175,9 @@ Targets: [Statistic / Metric](earth2studio/statistics/base.py).
   `metric(x, truth)`. Each returns one DataArray, not a tensor/coordinate tuple.
 - Convert `output_coords(...)` to coordinate signatures; keep `reduction_dimensions`.
   Reduced dimensions disappear. Align prediction/observation coordinate values explicitly.
+- Metrics no longer broadcast `y` against `x`. `y` must have every dimension of `x`
+  except `ensemble_dimension` (present only in `x`), with matching coordinate values;
+  it is transposed to `x` order. Expand or select `y` before calling.
 
 ## Workflows after component migration
 

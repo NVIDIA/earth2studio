@@ -15,7 +15,7 @@
 # limitations under the License.
 
 import functools
-from collections.abc import Callable, Generator, Iterator
+from collections.abc import Callable, Iterator
 
 import numpy as np
 import torch
@@ -26,7 +26,6 @@ from earth2studio.lexicon.wb2 import WB2Lexicon
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.graphcast_operational import (
-    _add_tisr_batched,
     _jax_initialize,
     _jax_output_coords,
     _jax_signature,
@@ -50,7 +49,6 @@ try:
         checkpoint,
         data_utils,
         normalization,
-        rollout,
     )
     from weathernext.weathernext1_graph import graphcast
 except ImportError:
@@ -64,7 +62,6 @@ except ImportError:
     data_utils = None
     graphcast = None
     normalization = None
-    rollout = None
 
 
 VARIABLES = [
@@ -320,122 +317,11 @@ class GraphCastSmall(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             return functools.partial(fn, params=params, state=state)
 
         # Our models aren't stateful, so the state is always empty, so just return the
-        # predictions. This is requiredy by our rollout code, and generally simpler.
+        # predictions.
         def drop_state(fn: Callable) -> Callable:
             return lambda **kw: fn(**kw)[0]
 
         return drop_state(with_params(jax.jit(with_configs(run_forward.apply))))
-
-    def _chunked_prediction_generator(
-        self,
-        predictor_fn: "autoregressive.PredictorFn",
-        rng: "chex.PRNGKey",
-        inputs: xr.Dataset,
-        targets_template: xr.Dataset,
-        batch: xr.Dataset,
-        forcings: xr.Dataset,
-    ) -> Generator[xr.Dataset, tuple | None, None]:
-        """This is used to construct the iterator for the prognostic model.
-
-        This function is mostly copied from
-        https://github.com/google-deepmind/weathernext/tree/main
-
-        License info:
-
-        # Copyright 2023 DeepMind Technologies Limited.
-        #
-        # Licensed under the Apache License, Version 2.0 (the "License");
-        # you may not use this file except in compliance with the License.
-        # You may obtain a copy of the License at
-        #
-        #      http://www.apache.org/licenses/LICENSE-2.0
-        #
-        # Unless required by applicable law or agreed to in writing, software
-        # distributed under the License is distributed on an "AS-IS" BASIS,
-        # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-        # See the License for the specific language governing permissions and
-        # limitations under the License.
-        """
-
-        # Create copies to avoid mutating inputs.
-        inputs = inputs.copy(deep=False)
-        targets_template = targets_template.copy(deep=False)
-        forcings = forcings.copy(deep=False)
-
-        # Our template targets will always have a time axis corresponding for the
-        # timedeltas for the first chunk.
-        targets_chunk_time = targets_template.time.isel(time=slice(0, 1))
-
-        current_inputs = inputs
-
-        def split_rng_fn(rng: chex.PRNGKey) -> tuple[chex.PRNGKey, chex.PRNGKey]:
-            # Note, this is *not* equivalent to `return jax.random.split(rng)`, because
-            # by assigning to a tuple, the single numpy array returned by
-            # `jax.random.split` actually gets split into two arrays, so when calling
-            # the function with pmap the output is Tuple[Array, Array], where the
-            # leading axis of each array is `num devices`.
-            rng1, rng2 = jax.random.split(rng)
-            return rng1, rng2
-
-        index = 0
-        while True:
-
-            # Reset forcings time to targets_chunk_time
-            forcings = forcings.assign_coords(time=targets_chunk_time)
-            forcings = forcings.compute()
-
-            # Make predictions for the chunk.
-            rng, this_rng = split_rng_fn(rng)
-            predictions = predictor_fn(
-                rng=this_rng,
-                inputs=current_inputs,
-                targets_template=targets_template,
-                forcings=forcings,
-            )
-            next_frame = xr.merge([predictions, forcings])
-
-            next_inputs = rollout._get_next_inputs(current_inputs, next_frame)
-
-            # Shift timedelta coordinates, so we don't recompile at every iteration.
-            next_inputs = next_inputs.assign_coords(time=current_inputs.coords["time"])
-            current_inputs = next_inputs
-
-            # At this point we can assign the actual targets time coordinates.
-            predictions = predictions.assign_coords(
-                time=targets_template.coords["time"] + index * np.timedelta64(6, "h")
-            )
-            replacement = yield predictions
-            if replacement is not None:
-                batch, current_inputs, forcings = replacement
-                index += 1
-                continue
-            del predictions
-
-            # Update batch time 6 hours and rename time to datetime
-            batch = batch.assign_coords(
-                datetime=batch.coords["datetime"] + np.timedelta64(6, "h")
-            )
-
-            # Pop forcings from batch if needed
-            batch = batch.drop_vars(
-                list(FORCING_VARIABLES) + ["year_progress", "day_progress"],
-                errors="ignore",
-            )
-
-            # Compute forcings
-            data_utils.add_derived_vars(batch)
-            _add_tisr_batched(batch, data_utils)
-
-            # Compute batch
-            batch = batch.compute()
-
-            # Get new forcings
-            forcings = batch.isel(time=slice(-1, None))[list(FORCING_VARIABLES)]
-            forcings = forcings.reset_coords("datetime", drop=True)
-            forcings = forcings.compute()
-
-            # Increment index
-            index += 1
 
     def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
         """Yield six-hour forecasts, starting with initialization's prediction.

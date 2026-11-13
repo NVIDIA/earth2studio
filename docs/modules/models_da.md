@@ -24,9 +24,20 @@ with required gridded conditioning and optional observations at each step. Input
 and outputs may be DataArrays or DataFrames as declared by each model. See the
 [DA user guide](../userguide/components/data_assimilation.md) for calling patterns.
 
-StormCastConusSDA wraps the CONUS checkpoint and supports cropped domains. Its
-conditioning and observations both target the output valid time (+1 hour); use the
-`stormcast-conus` installation extra and the StormCast-CONUS SDA gallery example.
+StormCastConusSDA wraps the CONUS checkpoint. Its conditioning and observations both
+target the output valid time (+1 hour); use the `stormcast-conus` installation extra
+and the StormCast-CONUS SDA gallery example.
+
+DA models do not offer `with_region`. The three wrappers that run on a cropped domain
+each configure it differently:
+
+- `CorrDiffCosmoEra5SDA.load_model(region=...)` crops the downscaler with
+  `CorrDiffCosmoEra5.with_region` before wrapping it.
+- `StormCastSDA` takes HRRR grid index limits, `hrrr_lat_lim` and `hrrr_lon_lim`, in
+  its constructor; `load_model` uses the default StormCast v1 window.
+- `StormCastConusSDA.load_model` forwards the same `hrrr_lat_lim`/`hrrr_lon_lim`
+  keywords to `StormCastCONUS.load_model`; alternatively, wrap a `StormCastCONUS`
+  already cropped with `with_region`.
 
 !!! warning
     Data Assimilation models are a new addition to Earth2Studio and APIs might be subject
