@@ -13,116 +13,100 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# mypy: disable-error-code="union-attr"
 
-import copy
 import os
 import shutil
+import time
 from collections import OrderedDict
 
 import numpy as np
-import torch
+import xarray as xr
+import zarr
+from loguru import logger
 from omegaconf import DictConfig
 
-from earth2studio.io import NetCDF4Backend, ZarrBackend
+from earth2studio.io import AsyncZarrBackend, NetCDF4Backend
+from earth2studio.io.utils import output_template
 from earth2studio.models.px import PrognosticModel
-from earth2studio.utils.coords import coord_array, map_coords
-from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.coords import coord_array
 
 
-def initialise_output_coords(
-    cfg: DictConfig,
-    model: PrognosticModel,
-    ics: np.ndarray,
-    out_vars: list[str],
-) -> OrderedDict:
-    """construct output corrds for storing fields.
+def build_output_template(
+    cfg: DictConfig, model: PrognosticModel, ics: np.ndarray, mems: np.ndarray
+) -> xr.DataArray:
+    """Signature of all fields written by the run.
 
     Parameters
     ----------
     cfg : DictConfig
-        Hydra config object.
+        Hydra config object, providing ``ensemble_size``, ``n_steps`` and
+        ``out_vars``.
     model : PrognosticModel
-        Prognostic model whose coordinate metadata is used.
+        Prognostic model whose output grid is stored.
     ics : np.ndarray
-        Array of initial condition times (dtype ``datetime64``).
-    out_vars : list[str]
-        Variable names to include in the output.
+        Initial condition times (dtype ``datetime64``).
+    mems : np.ndarray
+        Ensemble member indices.
 
     Returns
     -------
-    OrderedDict
-        Output coordinate mapping with keys *time*, *lead_time*,
-        *variable*, and the spatial dimensions from the model.
+    xr.DataArray
+        Allocation-free template with dimensions ``(ensemble, time, lead_time,
+        variable, lat, lon)``, where ``lead_time`` covers the initial condition
+        and all ``n_steps`` forecast steps.
+
+    Raises
+    ------
+    ValueError
+        If an output variable is not both an input and an output of the model,
+        which is required since the initial condition is stored as well.
     """
-    out_coords = OrderedDict(
-        {
-            k: v
-            for k, v in model.output_coords(model.input_coords()).items()
-            if (k != "batch") and (v.shape != 0)
-        }
+    out_vars = list(dict.fromkeys(cfg.out_vars))
+    inputs = model.input_coords()
+    if isinstance(inputs, tuple):
+        raise TypeError("models with several inputs are not supported")
+    outputs = model.output_coords(inputs)
+    if isinstance(outputs, tuple):
+        raise TypeError("models with several outputs are not supported")
+
+    missing = set(out_vars) - (
+        set(inputs.coords["variable"].values) & set(outputs.coords["variable"].values)
+    )
+    if missing:
+        raise ValueError(f"out_vars {sorted(missing)} are not provided by the model")
+
+    step = (
+        outputs.coords["lead_time"].values[-1] - inputs.coords["lead_time"].values[-1]
+    )
+    return output_template(
+        outputs,
+        leading={"ensemble": np.asarray(mems), "time": np.asarray(ics)},
+        coords={
+            "lead_time": step * np.arange(cfg.n_steps + 1),
+            "variable": np.array(out_vars),
+        },
     )
 
-    out_coords["time"] = ics
-    out_coords["lead_time"] = np.asarray(
-        [out_coords["lead_time"] * i for i in range(cfg.n_steps + 1)]
-    ).flatten()
-    out_coords["variable"] = np.array(out_vars)
 
-    out_coords.move_to_end("lead_time", last=False)
-    out_coords.move_to_end("time", last=False)
-
-    return out_coords
+def combined_zarr_path(cfg: DictConfig) -> str:
+    """Path of the Zarr store all batches are merged into."""
+    return os.path.join(cfg.store_dir, cfg.project.removesuffix(".zarr") + ".zarr")
 
 
-def add_arrays_to_store(
-    store: ZarrBackend | NetCDF4Backend,
-    out_coords: OrderedDict,
-    mems: np.ndarray,
-    add_arrays: bool,
-    ic: np.datetime64 | None = None,
-) -> None:
-    """Allocate arrays on a storage backend.
-
-    Parameters
-    ----------
-    store : ZarrBackend | NetCDF4Backend
-        Storage backend.
-    out_coords : OrderedDict
-        Base output coordinate mapping (not modified).
-    mems : np.ndarray
-        Ensemble member indices.
-    add_arrays : bool
-        If ``True``, call ``store.add_array``; otherwise do nothing.
-    ic : np.datetime64 | None, optional
-        If provided, restrict the *time* coordinate to this single IC.
-    """
-    oco = copy.deepcopy(out_coords)
-    oco["ensemble"] = mems
-    oco.move_to_end("ensemble", last=False)
-
-    if ic is not None:
-        oco["time"] = np.array([ic])
-
-    if add_arrays:
-        # The template's variable labels name the arrays to create, its other
-        # dimensions size them
-        store.add_array(coord_array(tuple(oco), oco))
-
-    return
+def batch_zarr_dir(cfg: DictConfig) -> str:
+    """Directory of the per-batch Zarr stores."""
+    return os.path.join(cfg.store_dir, cfg.project.removesuffix(".zarr") + "_batches")
 
 
 def setup_output(
     cfg: DictConfig,
     model: PrognosticModel,
     ics: np.ndarray,
-    add_arrays: bool,
-) -> tuple[ZarrBackend | None, OrderedDict]:
-    """Set up the storage backend.
+    remove_old: bool,
+) -> xr.DataArray | None:
+    """Check the output configuration and prepare the output directory.
 
-    Supports Zarr and NetCDF store types.  For NetCDF the store is created
-    later per initial condition (see :func:`initialise_netcdf_output`), so
-    this function returns ``None`` as the store.
+    The stores themselves are created per batch, see :func:`open_batch_store`.
 
     Parameters
     ----------
@@ -132,163 +116,229 @@ def setup_output(
         Prognostic model whose coordinate metadata is used.
     ics : np.ndarray
         Array of initial condition times (dtype ``datetime64``).
-    add_arrays : bool
-        If ``True``, allocate output arrays on the backend immediately.
+    remove_old : bool
+        If ``True``, remove the Zarr outputs of an earlier run of the project.
 
     Returns
     -------
-    tuple[ZarrBackend | None, OrderedDict]
-        The storage backend (or ``None`` for NetCDF / no-store) and the
-        output coordinate mapping.
+    xr.DataArray | None
+        Output template of the whole run, ``None`` if no fields are stored.
 
     Raises
     ------
     ValueError
         If ``cfg.store_type`` is not one of ``"zarr"``, ``"netcdf"``, or
-        ``"none"``.
+        ``"none"``, or if ``out_vars`` is missing.
     """
-    if "out_vars" in cfg:
-        out_vars = list(dict.fromkeys(cfg.out_vars))
-    else:
-        out_vars = []
-        if not cfg.store_type == "none":
-            raise ValueError("out_vars must be specified if store_type is not none.")
-    out_coords = initialise_output_coords(cfg, model, ics, out_vars)
-    chunks = {
-        "ensemble": 1,
-        "time": 1,
-        "lead_time": 1,
-        "variable": 1,
-    }
-    # TODO: let proc zero create dir and add barrier
-    os.makedirs(cfg.store_dir, exist_ok=True)
-    file_name = os.path.join(cfg.store_dir, cfg.project)
-
-    if cfg.store_type == "netcdf" or cfg.store_type == "none":
-        store = None
-
-    elif cfg.store_type == "zarr":
-        # TODO: wrap in ordered_execution function
-        if not file_name.endswith(".zarr"):
-            file_name += ".zarr"
-
-        if os.path.exists(file_name) and add_arrays:
-            shutil.rmtree(file_name)
-
-        store = ZarrBackend(
-            file_name=file_name,
-            chunks=chunks,
-            backend_kwargs={"overwrite": False},
-        )
-
-        add_arrays_to_store(
-            store=store,
-            out_coords=out_coords,
-            mems=np.asarray(list(range(cfg.ensemble_size))).flatten(),
-            add_arrays=add_arrays,
-        )
-
-    else:
+    if cfg.store_type not in ("zarr", "netcdf", "none"):
         raise ValueError(f"Invalid store type: {cfg.store_type}")
+    if cfg.store_type == "none":
+        return None
+    if "out_vars" not in cfg:
+        raise ValueError("out_vars must be specified if store_type is not none.")
 
-    return store, out_coords
+    template = build_output_template(cfg, model, ics, np.arange(cfg.ensemble_size))
+    os.makedirs(cfg.store_dir, exist_ok=True)
+
+    if cfg.store_type == "zarr" and remove_old:
+        for path in (combined_zarr_path(cfg), batch_zarr_dir(cfg)):
+            if os.path.exists(path):
+                shutil.rmtree(path)
+
+    return template
+
+
+def batch_name(ic: np.datetime64, mems: np.ndarray) -> str:
+    """Name of a batch's output: IC and member range, e.g.
+    ``2024-09-24T00.00.00_mems0000-0001``."""
+    ic_str = np.datetime_as_string(ic, unit="s").replace(":", ".")
+    return f"{ic_str}_mems{mems[0]:04d}-{mems[-1]:04d}"
+
+
+def write_seed(store: NetCDF4Backend, mems: np.ndarray, seed: int) -> None:
+    """Write the random seed of a batch, ``-1`` marks members without valid data.
+
+    Parameters
+    ----------
+    store : NetCDF4Backend
+        Store of the batch, with a ``random_seed`` array
+    mems : np.ndarray
+        Members of the batch
+    seed : int
+        Seed used for the batch, or ``-1`` if the batch failed
+    """
+    store.write(
+        xr.DataArray(
+            np.full(len(mems), seed, dtype=np.int64),
+            dims=("ensemble",),
+            coords={"ensemble": mems},
+            name="random_seed",
+        )
+    )
 
 
 def initialise_netcdf_output(
     cfg: DictConfig,
-    out_coords: OrderedDict,
+    model: PrognosticModel,
     ic: np.datetime64,
-    ic_mems: list[tuple[np.datetime64, np.ndarray, int]],
+    mems: np.ndarray,
+    seed: int,
 ) -> NetCDF4Backend:
-    """Create a NetCDF4 store for a single initial condition.
+    """Create the NetCDF4 store of one batch, overwriting an existing one.
 
-    The file name encodes the IC timestamp and ensemble member range.
-    Random seeds are written into the store alongside the forecast arrays.
+    The file name encodes the IC and the batch's member range. The batch's
+    random seed is written into the store alongside the forecast arrays.
 
     Parameters
     ----------
     cfg : DictConfig
         Hydra config object.
-    out_coords : OrderedDict
-        Output coordinate mapping (not modified).
+    model : PrognosticModel
+        Prognostic model whose output grid is stored.
     ic : np.datetime64
-        Initial condition time for this file.
-    ic_mems : list[tuple[np.datetime64, np.ndarray, int]]
-        Full list of ``(ic_time, member_indices, seed)`` tuples; only
-        entries matching *ic* are used.
+        Initial condition of the batch.
+    mems : np.ndarray
+        Members of the batch.
+    seed : int
+        Random seed of the batch.
 
     Returns
     -------
     NetCDF4Backend
         Initialised storage backend ready for writing.
     """
-    mems = np.concatenate([mem for iic, mem, _ in ic_mems if iic == ic]).flatten()
-    seeds = np.concatenate(
-        [
-            np.array([seed] * len(mem), dtype=int)
-            for iic, mem, seed in ic_mems
-            if iic == ic
-        ]
-    ).flatten()
+    file_name = os.path.join(cfg.store_dir, cfg.project).removesuffix(".nc")
+    file_name = f"{file_name}_{batch_name(ic, mems)}.nc"
 
-    # setup filename
-    file_name = os.path.join(cfg.store_dir, cfg.project)
-    if file_name.endswith(".nc"):
-        file_name = file_name.replace(".nc", "")
-    file_name = (
-        file_name
-        + f"_{np.datetime_as_string(ic, unit='s')}_mems{mems[0]:04d}-{mems[-1]:04d}.nc"
-    )
-    file_name = file_name.replace(":", ".")
-
-    # create store
-    chunks = {
-        "ensemble": 1,
-        "time": 1,
-        "lead_time": 1,
-        "variable": 1,
-    }
     store = NetCDF4Backend(
-        file_name=file_name,
-        backend_kwargs={"mode": "w", "diskless": False, "chunks": chunks},
+        file_name=file_name, backend_kwargs={"mode": "w", "diskless": False}
     )
 
-    # add random seed to store, an array named after itself rather than by a
+    # random seed of each member, an array named after itself rather than by a
     # variable label
-    seed_coords = OrderedDict({"ensemble": mems})
     store.add_array(
-        coord_array(("ensemble",), seed_coords, dtype=seeds.dtype, name="random_seed")
+        coord_array(
+            ("ensemble",), {"ensemble": mems}, dtype=np.int64, name="random_seed"
+        )
     )
-    store.write(from_torch(torch.from_numpy(seeds), seed_coords, name="random_seed"))
+    write_seed(store, mems, seed)
 
-    # add arrays to the store
-    add_arrays_to_store(
-        store=store, out_coords=out_coords, mems=mems, ic=ic, add_arrays=True
-    )
+    store.add_array(build_output_template(cfg, model, np.array([ic]), mems))
 
     return store
 
 
-def write_to_store(
-    store: ZarrBackend | NetCDF4Backend | None,
-    xx: torch.Tensor,
-    coords: OrderedDict,
-    out_coords: OrderedDict,
-) -> None:
-    """Map coordinates and write a single time-step to the store.
-    If store is ``None`` the call is a no-op.
+def batch_zarr_path(cfg: DictConfig, ic: np.datetime64, mems: np.ndarray) -> str:
+    """Path of the Zarr store of one batch.
+
+    Under ``<project>_batches/`` for an ensemble, merged at the end; for
+    reproduced members ``<project>_<batch>.zarr``, kept as it is, like the
+    NetCDF files.
+    """
+    name = batch_name(ic, mems) + ".zarr"
+    if cfg.mode == "reproduce_members":
+        project = cfg.project.removesuffix(".zarr")
+        return os.path.join(cfg.store_dir, f"{project}_{name}")
+    return os.path.join(batch_zarr_dir(cfg), name)
+
+
+def open_batch_zarr(
+    cfg: DictConfig, model: PrognosticModel, ic: np.datetime64, mems: np.ndarray
+) -> AsyncZarrBackend:
+    """Create the Zarr store of one batch, replacing an existing one.
+
+    Writes run in background threads. Chunks hold one member, IC, lead time
+    and variable. With ``zarr_shard_per_member`` (default ``True``), all lead
+    times of a member, IC and variable form one shard, which is kept in host
+    memory until the member is complete and then written at once. Without,
+    every chunk is written as its own file as soon as it is computed.
 
     Parameters
     ----------
-    store : ZarrBackend | NetCDF4Backend | None
-        Storage backend, or ``None`` to skip writing.
-    xx : torch.Tensor
-        Data tensor for the current time-step.
-    coords : OrderedDict
-        Coordinate mapping for *xx*.
-    out_coords : OrderedDict
-        Target output coordinate mapping used for remapping.
+    cfg : DictConfig
+        Hydra config object.
+    model : PrognosticModel
+        Prognostic model whose output grid is stored.
+    ic : np.datetime64
+        Initial condition of the batch.
+    mems : np.ndarray
+        Members of the batch.
+
+    Returns
+    -------
+    AsyncZarrBackend
+        Store ready for writing; close it with :func:`close_batch_zarr`.
     """
-    if store is not None:
-        xx_sub, coords_sub = map_coords(xx, coords, out_coords)
-        store.write(from_torch(xx_sub, coords_sub))
+    path = batch_zarr_path(cfg, ic, mems)
+    if os.path.exists(path):
+        shutil.rmtree(path)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    template = build_output_template(cfg, model, np.array([ic]), mems)
+    lead_times = template.coords["lead_time"].values
+    shard = cfg.get("zarr_shard_per_member", True)
+    store = AsyncZarrBackend(
+        file_name=path,
+        parallel_coords=OrderedDict(
+            ensemble=np.asarray(mems), time=np.array([ic]), lead_time=lead_times
+        ),
+        blocking=False,
+        shard_coords={"lead_time": len(lead_times)} if shard else {},
+    )
+    store.add_array(template)
+    return store
+
+
+def close_batch_zarr(
+    store: AsyncZarrBackend,
+    path: str,
+    ic: np.datetime64,
+    mems: np.ndarray,
+    seed: int,
+    n_seeds_tried: int,
+) -> None:
+    """Wait for the writes of a batch store, then record its seed.
+
+    Parameters
+    ----------
+    store : AsyncZarrBackend
+        Store of the batch
+    path : str
+        Path of the store
+    ic : np.datetime64
+        Initial condition of the batch
+    mems : np.ndarray
+        Members of the batch
+    seed : int
+        Seed used for the batch, ``-1`` if the batch failed
+    n_seeds_tried : int
+        Number of seeds the batch has been run with
+    """
+    then = time.time()
+    store.close()
+    logger.info(f"waited {time.time() - then:.1f}s for the writes of {path}")
+    mark_batch_zarr(path, ic, mems, seed, n_seeds_tried)
+
+
+def mark_batch_zarr(
+    path: str, ic: np.datetime64, mems: np.ndarray, seed: int, n_seeds_tried: int
+) -> None:
+    """Record the seed of a finished batch store, which marks it as complete.
+
+    A batch that failed with all its seeds gets ``random_seed = -1`` and keeps
+    no fields, only these attributes.
+    """
+    if seed == -1:
+        if os.path.exists(path):
+            shutil.rmtree(path)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+    group = zarr.open_group(path, mode="a")
+    group.attrs.update(
+        {
+            "ic": np.datetime_as_string(ic, unit="s"),
+            "members": [int(mem) for mem in mems],
+            "random_seed": int(seed),
+            "n_seeds_tried": n_seeds_tried,
+            "complete": True,
+        }
+    )

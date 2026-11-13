@@ -3,16 +3,16 @@
 ## Test 1: Generate Ensemble Forecast with Cyclone Tracking
 
 > [!Note]
-> The test can be done manually following the steps below. Alternatively,
-> `test_tc_hunt.sh` provides an automated way for running the full test.
-> If, at the end you see a message containing `all good, yay (:`, the test
-> finished successfully.
+> `test_tc_hunt.sh` runs Tests 1 and 2 automatically, with FCN3 by default or
+> AIFS-ENS via `./test_tc_hunt.sh aifs` (`aifs-v2` for version 2). If, at the
+> end you see a message containing `all good, yay (:`, the test finished
+> successfully. The steps below describe the FCN3 test.
 
-This case will test whether the pipeline can generate an ensemble forecast
-using FCN3 and track tropical cyclones using TempestExtremes.
-Furthermore, it is tested if those exact tracks can be reproduced.
-Note that reproducing with AIFS-ENS won't work as the model does not provide
-access to its internal random state.
+This case tests whether the pipeline can generate an ensemble forecast and
+track tropical cyclones using TempestExtremes. Furthermore, it is tested if
+those exact tracks can be reproduced. For AIFS-ENS, this requires
+`deterministic=True` and, given its memory needs, `batch_size=1`, which the
+script sets.
 
 First, let us produce a five member ensemble of a 90h prediction of Hurricane Helene
 
@@ -26,21 +26,23 @@ python ../main.py --config-path=$(pwd)/cfg --config-name=baseline_helene.yaml
 You can find the track files in `outputs_baseline_helene/cyclone_tracks_te`.
 The directory should contain five csv files with naming pattern according to
 `tracks_2024-09-24T00:00:00_mem_000X_seed_YYYYYYYYY_bs_2.csv`
-This pattern provides information about initial condition, ensemble member ID
-and batch size.
+This pattern provides information about initial condition, ensemble member ID,
+random seed and batch size. The seed is the one the member was run with: if
+its batch became unstable and was retried (see the stability check in the main
+README), it is the seed of the retry. With field output (`store_type`
+`netcdf` or `zarr`), the same seed is stored in the variable `random_seed`;
+NetCDF output is one file per batch.
 
 ## Test 2: Reproducibility of Helene Ensemble Members
 
-Next, check if the random seeds for members three and four provided in
-`cfg/reproduce_helene.yaml` are identical to the seeds in the csv file names.
-If not, replace the seeds for both members in the yaml file with the seeds
-from the csv file names.
-
-Having made sure that the configurations for reproducing the ensemble members
-is correct, let us now reproduce members three and four of the previous run:
+Next, reproduce members three and four of the previous run. Their seeds are
+in the names of their track files, `cfg/reproduce_helene.yaml` expects them
+in place of the `'???'` placeholders. Instead of editing the file, they can
+also be passed on the command line:
 
 ```bash
-python ../main.py --config-path=$(pwd)/cfg --config-name=reproduce_helene.yaml
+python ../main.py --config-path=$(pwd)/cfg --config-name=reproduce_helene.yaml \
+    reproduce_members.0.2=<seed of member 3> reproduce_members.1.2=<seed of member 4>
 ```
 
 Note that the baseline run was produced with batch size two. For reproducibility,
