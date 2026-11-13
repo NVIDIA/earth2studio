@@ -265,7 +265,7 @@ def standard_atmosphere(signature, time="2026-01-01T00", device="cpu"):
     )
     values = np.zeros(layout.shape, dtype=np.float32)
     surface = {"t2m": 288.0, "d2m": 283.0, "skt": 288.0, "sst": 290.0, "msl": 101325.0}
-    for i, name in enumerate(map(str, layout.variable.values)):
+    for i, name in enumerate(map(str, layout.coords["variable"].values)):
         if name[0] in "ztq" and name[1:].isdigit():
             level = int(name[1:])
             height = 44330.8 * (1 - (level / 1013.25) ** 0.190263)
