@@ -304,9 +304,18 @@ class GEFSLexiconSel(metaclass=LexiconType):
     def get_item(cls, val: str) -> tuple[str, Callable]:
         """Get item from GFS vocabulary."""
         gfs_key = cls.VOCAB[val]
+        if gfs_key.split("::")[1] == "APCP":
 
-        def mod(x: np.array) -> np.array:
-            """Modify data value (if necessary)."""
-            return x
+            # TP in GEFS is (kg m-2) param id 228228, convert to (m) param id 228
+            def mod(x: np.ndarray) -> np.ndarray:
+                # Assume density of water is 1000 kg m-3
+                # x (kg m-2) / 1000 (kg m-3) = (m)
+                return x / 1000.0
+
+        else:
+
+            def mod(x: np.array) -> np.array:
+                """Modify data value (if necessary)."""
+                return x
 
         return gfs_key, mod

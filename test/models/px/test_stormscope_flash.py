@@ -41,6 +41,7 @@ from physicsnemo.nn.module.rope import build_axial_rope_cos_sin_2d
 from earth2studio.grids import Region
 from earth2studio.models.auto import Package
 from earth2studio.models.base import DomainAdaptable
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.nn import stormscope_flash
 from earth2studio.models.nn.stormscope_flash import (
     FLASH_CALLS,
@@ -798,6 +799,24 @@ def test_stormscope_flash_with_region_forecast(cls, monkeypatch):
         second.region_info.input_shape,
         first.region_info.input_shape,
         (400, 600),
+    ]
+
+
+@pytest.mark.parametrize("region", [None, Region.box(-110, 36, -108, 38)])
+def test_stormscope_flash_conformance(region, monkeypatch):
+    # The Flash sampler is deterministic; noise enters through the model's own
+    # generator when drawing the initial latents. MRMS conformance is covered
+    # with its GOES conditioning in test_stormscope.py.
+    monkeypatch.setattr(
+        stormscope_flash,
+        "sample_flash",
+        lambda model, latents, condition: 0.5 * latents + 1,
+    )
+    model = _domain_wrapper(StormScopeGOES)
+    if region is not None:
+        model = model.with_region(region)
+    assert check_prognostic_contract(model, time=np.datetime64("2025-04-17T23:30")) == [
+        "P21: checkpoint serialization requires component-specific tests",
     ]
 
 

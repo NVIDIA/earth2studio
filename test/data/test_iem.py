@@ -17,6 +17,7 @@
 import asyncio
 import json
 from datetime import datetime, timedelta
+from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import numpy as np
@@ -77,9 +78,7 @@ _STATION_GEOJSON = {
 }
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 def test_iem_asos_fetch():
     source = IEM_ASOS(
         stations="DSM",
@@ -95,9 +94,7 @@ def test_iem_asos_fetch():
     assert frame["observation"].notna().all()
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize("cache", [True, False])
 def test_iem_asos_cache(cache):
     source = IEM_ASOS(
@@ -106,12 +103,38 @@ def test_iem_asos_cache(cache):
         cache=cache,
         verbose=False,
     )
+    cache_path = source.cache
     first = source(_TEST_TIME, "t2m")
     second = source(_TEST_TIME, "t2m")
 
     assert not first.empty
     assert first.equals(second)
-    assert pd.io.common.file_exists(source.cache) is cache
+    assert pd.io.common.file_exists(cache_path) is cache
+
+
+@pytest.mark.parametrize("cache", [True, False])
+@pytest.mark.parametrize("fails", [True, False])
+def test_iem_asos_cleanup(tmp_path, monkeypatch, cache, fails):
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
+    source = IEM_ASOS(cache=cache)
+    cache_path = Path(source.cache)
+    cached_file = cache_path / "response.csv"
+    cached_file.write_bytes(_PARSED_CSV)
+
+    async def fake_fetch(*args, **kwargs):
+        if fails:
+            raise ValueError("fetch failed")
+        return pd.DataFrame()
+
+    monkeypatch.setattr(source, "fetch", fake_fetch)
+    if fails:
+        with pytest.raises(ValueError, match="fetch failed"):
+            source(_TEST_TIME, "t2m")
+    else:
+        source(_TEST_TIME, "t2m")
+
+    assert cache_path.exists() is cache
+    assert cached_file.exists() is cache
 
 
 @pytest.mark.timeout(15)

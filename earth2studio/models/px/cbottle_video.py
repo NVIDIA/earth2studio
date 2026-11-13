@@ -529,7 +529,7 @@ class CBottleVideo(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     def _predict(self, x: xr.DataArray) -> xr.DataArray:
         self.output_coords(x)
         times = np.tile(x.time.values + x.lead_time.values[-1], x.sizes["batch"])
-        tensor = x.e2s.to_torch()[0].to(self.device_buffer.device).clone()
+        tensor = x.e2s.to_torch()[0].to(self.device_buffer.device)
         domain = tensor.shape[3:]
         out = self._forward(tensor.reshape(-1, 1, *domain), times)
         out = out.reshape(x.sizes["batch"], x.sizes["time"], self._time_length, *domain)

@@ -15,6 +15,7 @@
 # limitations under the License.
 
 from datetime import timedelta
+from pathlib import Path
 
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
@@ -160,6 +161,17 @@ def create_track_animation_florida(
     fps : int, optional
         Frames per second for the animation, by default 10
     """
+    if not track_files:
+        raise ValueError("No track files supplied")
+    all_tracks = [xr.load_dataarray(track_file) for track_file in track_files]
+    times = np.unique(np.concatenate([track.time.values for track in all_tracks]))
+    if len(times) != 1:
+        raise ValueError("Plot one initialization time at a time")
+    tracks = xr.concat(all_tracks, dim="ensemble", join="outer")
+    if len(np.unique(tracks.ensemble)) != tracks.sizes["ensemble"]:
+        raise ValueError("Duplicate ensemble members in track files")
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+
     # Set up the figure and projection
     plt.close("all")
     fig = plt.figure(figsize=(10, 8))
@@ -169,15 +181,6 @@ def create_track_animation_florida(
     ax = plt.axes(projection=projection)
     # Reduce white borders
     plt.subplots_adjust(left=0.05, right=0.95, bottom=0.02, top=0.98)
-
-    # Load all tracks
-    all_tracks = [xr.load_dataarray(track_file) for track_file in track_files]
-
-    # Combine all tracks
-    if len(all_tracks) > 1:
-        tracks = xr.concat(all_tracks, dim="ensemble")
-    else:
-        tracks = all_tracks[0]
 
     # Get the maximum number of time steps
     max_steps = tracks.sizes["step"]
@@ -196,15 +199,19 @@ def create_track_animation_florida(
         # Plot tracks up to current step
         for ensemble in tracks.coords["ensemble"].values:
             for path in tracks.coords["path_id"].values:
-                tracks_path = tracks.sel(ensemble=ensemble).isel(time=0)
+                tracks_path = tracks.sel(ensemble=ensemble, path_id=path).isel(time=0)
 
                 # Get lat/lon coordinates up to current step
-                lats = tracks_path.isel(
-                    path_id=path, variable=0, step=slice(0, step + 1)
-                ).values
-                lons = tracks_path.isel(
-                    path_id=path, variable=1, step=slice(0, step + 1)
-                ).values
+                lats = (
+                    tracks_path.sel(variable="tclat")
+                    .isel(step=slice(0, step + 1))
+                    .values
+                )
+                lons = (
+                    tracks_path.sel(variable="tclon")
+                    .isel(step=slice(0, step + 1))
+                    .values
+                )
 
                 mask = ~np.isnan(lats) & ~np.isnan(lons)
                 if mask.any() and len(lons[mask]) > 2:
@@ -259,7 +266,11 @@ def create_track_animation_florida(
             ],
             loc="upper left",
         )
-        ax.set_title(f"Time: {current_time.strftime('%Y-%m-%d %H:%M')}")
+        ax.set_title(
+            f"Helene · {tracks.sizes['ensemble']} HENS members\n"
+            f"Initialized {pd.Timestamp(times[0]):%Y-%m-%d %H:%M} UTC · "
+            f"Valid {current_time:%Y-%m-%d %H:%M} UTC"
+        )
 
         return fig
 
@@ -278,7 +289,29 @@ def create_track_animation_florida(
         f"{out_dir}/cyclone_tracks.gif",
         writer="pillow",
         fps=fps,
-        dpi=200,
+        dpi=60,
         metadata=dict(artist="Earth2Studio"),
     )
-    plt.close()
+    _make_frame(max_steps - 1)
+    fig.savefig(f"{out_dir}/cyclone_tracks.png", dpi=100)
+    plt.close(fig)
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Plot Helene HENS tracks against IBTrACS"
+    )
+    parser.add_argument("track_dir", type=Path)
+    parser.add_argument("out_dir", type=Path)
+    args = parser.parse_args()
+    groups: dict[str, list[str]] = {}
+    for path in sorted(args.track_dir.glob("tracks*.nc")):
+        with xr.open_dataarray(path) as track:
+            stamp = pd.Timestamp(track.time.values[0]).strftime("%Y%m%dT%H%M")
+        groups.setdefault(stamp, []).append(str(path))
+    if not groups:
+        parser.error(f"No tracks*.nc files in {args.track_dir}")
+    for stamp, paths in groups.items():
+        create_track_animation_florida(paths, str(args.out_dir / stamp), fps=4)

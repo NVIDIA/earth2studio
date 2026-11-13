@@ -1222,7 +1222,7 @@ async def gather_with_concurrency(
     desc : str, optional
         Progress bar description
     verbose : bool, optional
-        Disable the progress bar
+        Show the progress bar, by default False.
 
     Returns
     -------
@@ -1245,7 +1245,7 @@ async def gather_with_concurrency(
             return await coro
 
     bounded = [_bounded(c) for c in coros]
-    return await tqdm.gather(*bounded, desc=desc, disable=verbose)
+    return await tqdm.gather(*bounded, desc=desc, disable=not verbose)
 
 
 async def cancellable_to_thread(
@@ -1254,7 +1254,7 @@ async def cancellable_to_thread(
     timeout: float = 30.0,
     **kwargs: Any,
 ) -> T:
-    """Run a blocking function in a thread with timeout support.
+    """Run a blocking function in a thread, limiting how long the caller waits.
 
     WARNING: This should be a LAST RESORT. Pure async operations are ALWAYS
     preferred because:
