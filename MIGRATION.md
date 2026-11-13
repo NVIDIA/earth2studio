@@ -20,9 +20,9 @@ Update custom components to the RC protocols linked below. Shared changes:
   handshakes trust without comparing coordinate values. After reversing latitude,
   rolling longitude or converting it to −180..180, drop the label
   (`attrs.pop("earth2studio_grid_id")`) so the actual coordinates are used.
-- **Longitude bounds:** `subset_indexers(bounds=...)` measures longitude eastward from `min_lon`, modulo 360:
-  `(0, 180)` now includes 180°, and out-of-range bounds such as `(-190, -170)` select
-  the full box.
+- **Longitude bounds:** `subset_indexers(bounds=...)` measures longitude eastward from
+  `min_lon`, modulo 360: `(0, 180)` now includes 180°, and out-of-range bounds such as
+  `(-190, -170)` select the full box.
 - **Field object:** `(torch.Tensor, coords)` → one `xr.DataArray` containing values and
   metadata. Coordinate signatures and concrete fields are different uses of DataArray.
 - **Slots:** one input per positional argument; one output directly, multiple as a tuple.
