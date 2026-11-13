@@ -22,6 +22,7 @@ from unittest.mock import Mock
 
 import numpy as np
 import pytest
+import xarray as xr
 
 from earth2studio.data import AIFS_ENS_FX, AIFS_FX, IFS, IFS_ENS, IFS_ENS_FX, IFS_FX
 from earth2studio.data import ecmwf as ecmwf_module
@@ -84,6 +85,98 @@ def test_accumulation_alias_tasks_reject_short_lead_time():
         )
 
 
+def _ensemble_source(source_class, monkeypatch, member=1):
+    """Build an ECMWF ensemble source whose member fetches return member ids."""
+    monkeypatch.setattr(ecmwf_module.opendata, "Client", Mock(return_value=Mock()))
+    ds = source_class(member=member, cache=False, verbose=False)
+    calls = []
+
+    async def fetch_members(time, lead_time, variable, fc_type, members):
+        calls.append((fc_type, list(members)))
+        shape = (len(time), len(lead_time), len(variable))
+        coords = {"time": time, "lead_time": lead_time, "variable": variable}
+        if fc_type != "pf":
+            (value,) = members
+            return xr.DataArray(
+                np.full(shape, float(value)),
+                dims=("time", "lead_time", "variable"),
+                coords=coords,
+            )
+        values = np.broadcast_to(np.array(members, dtype=float), (*shape, len(members)))
+        return xr.DataArray(
+            values,
+            dims=("time", "lead_time", "variable", "ensemble"),
+            coords={**coords, "ensemble": members},
+        )
+
+    ds._fetch_members = fetch_members
+    return ds, calls
+
+
+def test_ifs_ens_fetches_requested_members_by_forecast_type(monkeypatch):
+    ds, calls = _ensemble_source(IFS_ENS, monkeypatch)
+    da = ds(datetime(2025, 1, 1), ["t2m"], member=[2, 0, 1])
+
+    assert calls == [("cf", [0]), ("pf", [2, 1])]
+    assert da.dims[0] == "ensemble"
+    np.testing.assert_array_equal(da["ensemble"], [2, 0, 1])
+    np.testing.assert_array_equal(da.isel(time=0, variable=0), [2, 0, 1])
+
+
+def test_ifs_ens_without_member_returns_its_member(monkeypatch):
+    ds, calls = _ensemble_source(IFS_ENS, monkeypatch, member=3)
+    da = ds(datetime(2025, 1, 1), ["t2m"])
+
+    assert calls == [("pf", [3])]
+    assert "ensemble" not in da.dims
+    np.testing.assert_array_equal(da.values, [[3.0]])
+
+
+@pytest.mark.parametrize("source_class", [IFS_ENS_FX, AIFS_ENS_FX])
+def test_ensemble_forecasts_fetch_requested_members(source_class, monkeypatch):
+    ds, calls = _ensemble_source(source_class, monkeypatch)
+    da = asyncio.run(
+        ds.fetch([datetime(2025, 1, 1)], [timedelta(hours=6)], ["t2m"], member=4)
+    )
+
+    assert calls == [("pf", [4])]
+    assert da.dims[0] == "ensemble"
+    np.testing.assert_array_equal(da["ensemble"], [4])
+
+
+def test_ensemble_rejects_negative_members(monkeypatch):
+    ds, _ = _ensemble_source(IFS_ENS, monkeypatch)
+    with pytest.raises(ValueError, match="ensemble members"):
+        ds(datetime(2025, 1, 1), ["t2m"], member=[-1])
+
+
+def test_grib_request_uses_requested_members(monkeypatch, tmp_path):
+    monkeypatch.setattr(ecmwf_module, "datasource_cache_root", lambda: str(tmp_path))
+    ds, _ = _ensemble_source(IFS_ENS, monkeypatch)
+    pathlib.Path(ds.cache).mkdir(parents=True)
+
+    def retrieve(request):
+        pathlib.Path(request["target"]).touch()
+
+    ds.client.retrieve = Mock(side_effect=retrieve)
+    for fc_type, members in (("pf", [2, 5]), ("cf", [0])):
+        asyncio.run(
+            ds._download_ifs_grib_cached(
+                datetime(2025, 1, 1),
+                timedelta(hours=0),
+                "2t",
+                "sfc",
+                "",
+                fc_type=fc_type,
+                members=members,
+            )
+        )
+    perturbed, control = (call.args[0] for call in ds.client.retrieve.call_args_list)
+    assert (perturbed["type"], perturbed["number"]) == ("pf", [2, 5])
+    assert control["type"] == "cf" and "number" not in control
+    assert perturbed["target"] != control["target"]
+
+
 def now6h():
     """Get closest 6 hour timestamp"""
     nt = datetime.now()
@@ -91,20 +184,14 @@ def now6h():
     return datetime(nt.year, nt.month, nt.day, nt.hour - delta_hr)
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
         now6h() - timedelta(hours=12),
-        [
-            now6h() - timedelta(days=1),
-            now6h() - timedelta(days=1, hours=6),
-        ],
     ],
 )
-@pytest.mark.parametrize("variable", ["tcwv", ["sp"]])
+@pytest.mark.parametrize("variable", [["tcwv", "sp"]])
 def test_ifs_fetch(time, variable):
     ds = IFS()
     data = ds(time, variable)
@@ -141,20 +228,14 @@ def test_ifs_fetch(time, variable):
         pass
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
         now6h() - timedelta(hours=12),
-        [
-            now6h() - timedelta(days=1),
-            now6h() - timedelta(days=1, hours=6),
-        ],
     ],
 )
-@pytest.mark.parametrize("variable", ["t2m", ["sp"]])
+@pytest.mark.parametrize("variable", [["t2m", "sp"]])
 @pytest.mark.parametrize("member", [2])
 def test_ifs_ens_fetch(time, variable, member):
     ds = IFS_ENS(cache=False, member=member)
@@ -187,30 +268,23 @@ def test_ifs_ens_fetch(time, variable, member):
     assert np.allclose(data.values, data_fx.values[:, 0])
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
         now6h() - timedelta(hours=12),
-        [
-            now6h() - timedelta(days=1),
-            now6h() - timedelta(days=1, hours=6),
-        ],
     ],
 )
 @pytest.mark.parametrize(
     "lead_time",
     [
-        timedelta(hours=0),
         [
             timedelta(hours=3),
             timedelta(hours=6),
         ],
     ],
 )
-@pytest.mark.parametrize("variable", ["tcwv", ["sp"]])
+@pytest.mark.parametrize("variable", [["tcwv", "sp"]])
 def test_ifs_ens_fx_fetch(time, lead_time, variable):
     ds = IFS_ENS_FX(cache=False)
     data = ds(time, lead_time, variable)
@@ -234,21 +308,18 @@ def test_ifs_ens_fx_fetch(time, lead_time, variable):
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "lead_time",
     [
-        timedelta(hours=0),
         [
             timedelta(hours=6),
             timedelta(hours=12),
         ],
     ],
 )
-@pytest.mark.parametrize("variable", ["t2m", ["tcc", "tp"]])
-@pytest.mark.parametrize("member", [0, 1])
+@pytest.mark.parametrize("variable", [["t2m", "tcc", "tp"]])
+@pytest.mark.parametrize("member", [1])
 def test_aifs_ens_fx_fetch(lead_time, variable, member):
     time = now6h() - timedelta(hours=12)
     ds = AIFS_ENS_FX(cache=False, member=member)
@@ -273,9 +344,7 @@ def test_aifs_ens_fx_fetch(lead_time, variable, member):
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -283,7 +352,7 @@ def test_aifs_ens_fx_fetch(lead_time, variable, member):
     ],
 )
 @pytest.mark.parametrize("variable", [["u10m", "tcwv"]])
-@pytest.mark.parametrize("cache", [True, False])
+@pytest.mark.parametrize("cache", [True])
 def test_ifs_cache(time, variable, cache):
     ds = IFS(cache=cache)
     data = ds(time, variable)

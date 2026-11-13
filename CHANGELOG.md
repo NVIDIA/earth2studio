@@ -11,15 +11,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added regional inference to `CorrDiffEra5Hrrr`: `with_region` (`DomainAdaptable`)
-  returns a view on the block of the HRRR crop covering a box, with the CorrDiff
-  regional helpers shared in `earth2studio.models.nn.corrdiff`.
+- Added standalone `DLESyMAtmos` and `DLESyMOcean` components (plus
+  `DLESyMv0_ISCCP_ERA5Atmos`/`Ocean`) that run under `CoupledRunner`; the DLESyM
+  example now runs under `Pipeline`.
+- Added `DLESyMInputSource`, which serves DLESyM's native HEALPix inputs from a
+  lat/lon data source.
 
 ### Changed
+
+- `DLESyM` v1.1 returns precipitation as `tp06` in meters (was `tp6`).
 
 ### Deprecated
 
 ### Removed
+
+- Removed `DLESyMLatLon` and `DLESyMv0_ISCCP_ERA5LatLon`; use `DLESyMInputSource`
+  with a `Regridder` instead (see `MIGRATION.md`).
 
 ### Fixed
 

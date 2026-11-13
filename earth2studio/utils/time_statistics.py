@@ -98,7 +98,22 @@ def _nanoseconds(value: np.timedelta64) -> int:
         raise ValueError("Calendar-relative durations are not supported") from error
 
 
-def _compact_duration(value: np.timedelta64, *, signed: bool = False) -> str:
+def format_duration(value: np.timedelta64, *, signed: bool = False) -> str:
+    """Format a duration as the compact string statistic labels use.
+
+    Parameters
+    ----------
+    value : np.timedelta64
+        Duration to format.
+    signed : bool, optional
+        Prefix positive values with ``+``, as window offsets are written, by
+        default False.
+
+    Returns
+    -------
+    str
+        Compact duration such as ``"48h"``, ``"-42h"`` or ``"+6h"``.
+    """
     nanoseconds = _nanoseconds(value)
     sign = "-" if nanoseconds < 0 else "+" if signed and nanoseconds > 0 else ""
     magnitude = abs(nanoseconds)
@@ -131,10 +146,10 @@ class _Window:
     def modifier(self) -> str:
         window = self.end - self.start
         if self.start == -window and _nanoseconds(self.end) == 0:
-            return f"{self.method}:{_compact_duration(window)}"
+            return f"{self.method}:{format_duration(window)}"
         return (
-            f"{self.method}:{_compact_duration(self.start, signed=True)}:"
-            f"{_compact_duration(self.end, signed=True)}"
+            f"{self.method}:{format_duration(self.start, signed=True)}:"
+            f"{format_duration(self.end, signed=True)}"
         )
 
     def offsets(self, delta_t: np.timedelta64) -> NDArray[Any]:
@@ -147,7 +162,8 @@ class _Window:
             raise ValueError("delta_t must be positive")
         if window % step:
             raise ValueError("Statistic window must be divisible by delta_t")
-        return np.arange(self.start, self.end, delta)
+        # Right-closed: (start, end], so a window ending at T includes T.
+        return np.arange(self.start + delta, self.end + delta, delta)
 
 
 @lru_cache
@@ -279,6 +295,30 @@ def apply_time_statistic(
     return _TIME_STATISTICS[window.method](selected, dimension)
 
 
+def reduce_samples(modifier: str, samples: np.ndarray) -> np.ndarray:
+    """Reduce the leading axis of stacked samples with a registered statistic.
+
+    The stack is wrapped in a transient ``xr.DataArray`` with a ``sample`` dimension
+    and reduced through the registry, so statistics added with
+    :func:`register_time_statistic` are available to every source.
+
+    Parameters
+    ----------
+    modifier : str
+        Statistic method and window, such as ``"mean:24h"``.
+    samples : np.ndarray
+        Stacked samples, shape ``(sample, ...)``.
+
+    Returns
+    -------
+    np.ndarray
+        Reduction over the sample axis, shape ``samples.shape[1:]``.
+    """
+    dims = ["sample", *(f"axis{n}" for n in range(samples.ndim - 1))]
+    reduction = _TIME_STATISTICS[_parse(modifier).method]
+    return reduction(xr.DataArray(samples, dims=dims), "sample").values
+
+
 def time_statistic_metadata(
     modifier: str,
 ) -> dict[str, str | np.timedelta64]:
@@ -290,26 +330,27 @@ def time_statistic_metadata(
         "window": window.end - window.start,
         "start_offset": window.start,
         "end_offset": window.end,
-        "closed": "left",
+        "closed": "right",
     }
 
 
 def _mean(array: xr.DataArray, dimension: Hashable) -> xr.DataArray:
-    return array.mean(dim=dimension, keep_attrs=True)
+    return array.mean(dim=dimension, skipna=False, keep_attrs=True)
 
 
 def _sum(array: xr.DataArray, dimension: Hashable) -> xr.DataArray:
-    return array.sum(dim=dimension, keep_attrs=True)
+    return array.sum(dim=dimension, skipna=False, keep_attrs=True)
 
 
 def _minimum(array: xr.DataArray, dimension: Hashable) -> xr.DataArray:
-    return array.min(dim=dimension, keep_attrs=True)
+    return array.min(dim=dimension, skipna=False, keep_attrs=True)
 
 
 def _maximum(array: xr.DataArray, dimension: Hashable) -> xr.DataArray:
-    return array.max(dim=dimension, keep_attrs=True)
+    return array.max(dim=dimension, skipna=False, keep_attrs=True)
 
 
+# Built-in reductions propagate NaN: a window holding a missing sample is NaN.
 register_time_statistic("mean", _mean)
 register_time_statistic("sum", _sum)
 register_time_statistic("min", _minimum)

@@ -25,7 +25,7 @@ import pytest
 import torch
 import xarray as xr
 
-from earth2studio.data import Random, fetch_data
+from earth2studio.data import fetch_data
 from earth2studio.models.auto import Package
 from earth2studio.models.conformance import ContractException, check_prognostic_contract
 from earth2studio.models.px import FuXiS2S
@@ -33,6 +33,7 @@ from earth2studio.models.px.fuxi_s2s import VARIABLES
 from earth2studio.utils import coord_array, coord_array_like, handshake_dim
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.time_statistics import source_times
+from test.models.test_random_statistics import RandomStatistics as Random
 
 
 @pytest.fixture(autouse=True)
@@ -55,7 +56,7 @@ def test_fuxi_s2s_daily_mean_windows() -> None:
     day = np.datetime64("2026-01-02T00", "ns")
     for base, label in zip(VARIABLES, labels):
         offset = 1 if base in ("tp", "ttr") else 0
-        assert label == f"{base}:mean:{offset}h:{24 + offset}h"
+        assert label == f"{base}:mean:{offset - 1}h:{23 + offset}h"
         times = source_times(label.split(":", 1)[1], day, np.timedelta64(1, "h"))
         np.testing.assert_array_equal(
             times, day + np.arange(offset, 24 + offset) * np.timedelta64(1, "h")
@@ -295,7 +296,7 @@ class TestFuXiS2SMock:
         lead_time = model.input_coords()["lead_time"].values
         variable = model.input_coords()["variable"].values
         x, coords = fetch_data(
-            r, time, variable, lead_time, device=device, delta_t=np.timedelta64(1, "h")
+            r, time, variable, lead_time, device=device
         ).e2s.to_torch()
 
         out, out_coords = model(
@@ -342,7 +343,7 @@ class TestFuXiS2SMock:
         lead_time = model.input_coords()["lead_time"].values
         variable = model.input_coords()["variable"].values
         x, coords = fetch_data(
-            r, time, variable, lead_time, device=device, delta_t=np.timedelta64(1, "h")
+            r, time, variable, lead_time, device=device
         ).e2s.to_torch()
 
         with pytest.raises((KeyError, ValueError)):
@@ -360,7 +361,7 @@ class TestFuXiS2SMock:
         lead_time = model.input_coords()["lead_time"].values
         variable = model.input_coords()["variable"].values
         x, coords = fetch_data(
-            r, time, variable, lead_time, device=device, delta_t=np.timedelta64(1, "h")
+            r, time, variable, lead_time, device=device
         ).e2s.to_torch()
 
         x = x.unsqueeze(0).repeat(ensemble, 1, 1, 1, 1, 1)

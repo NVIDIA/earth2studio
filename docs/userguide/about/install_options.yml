@@ -139,9 +139,11 @@ categories:
         summary: DLESyM model dependencies.
         api_refs:
           - earth2studio.models.px.DLESyM
-          - earth2studio.models.px.DLESyMLatLon
+          - earth2studio.models.px.DLESyMAtmos
+          - earth2studio.models.px.DLESyMOcean
           - earth2studio.models.px.DLESyMv0_ISCCP_ERA5
-          - earth2studio.models.px.DLESyMv0_ISCCP_ERA5LatLon
+          - earth2studio.models.px.DLESyMv0_ISCCP_ERA5Atmos
+          - earth2studio.models.px.DLESyMv0_ISCCP_ERA5Ocean
           - earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip
         # TODO: Remove with psn release 2.3.0
         preinstall:
@@ -342,6 +344,20 @@ categories:
         summary: UCast model dependencies.
         api_refs:
           - earth2studio.models.px.UCast
+      - id: weathermesh5c
+        label: WeatherMesh-5c
+        extra: weathermesh5c
+        summary: WindBorne WeatherMesh-5c global forecast model.
+        api_refs:
+          - earth2studio.models.px.WeatherMesh5C
+        preinstall: &weathermesh5c_preinstall
+          pip:
+            - 'pip install "weathermesh-5c[windborne] @ git+https://github.com/windborne/weathermesh-5c.git@b27c315175982f5bb057c644d4bc0e1a16e0f790"'
+          uv:
+            default:
+              - 'uv add "weathermesh-5c[windborne] @ git+https://github.com/windborne/weathermesh-5c.git@b27c315175982f5bb057c644d4bc0e1a16e0f790"'
+        notes:
+          - The runtime is installed from the pinned public Git repository, not PyPI.
 
   - id: diagnostic
     label: Diagnostic Models
@@ -460,6 +476,14 @@ categories:
       - Data assimilation APIs are currently in beta and may change in future releases.
       - Data assimilation extras install CUDA-dependent CuPy and cuDF packages.
     items:
+      - id: da-aida
+        label: AIDA
+        extra: da-aida
+        summary: AIDA observation-based analysis, alone or with WeatherMesh-5c forecasts.
+        api_refs:
+          - earth2studio.models.da.AIDA
+          - earth2studio.models.da.AIDAWeatherMesh5C
+        preinstall: *weathermesh5c_preinstall
       - id: da-cosmo
         label: CorrDiff COSMO SDA
         extra: da-cosmo

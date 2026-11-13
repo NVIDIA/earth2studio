@@ -254,8 +254,48 @@ def test_ensemble_dimension_is_added_per_member() -> None:
     np.testing.assert_array_equal(store["u10m"][1, 0, :, 0, 0], np.arange(3))
 
 
+def test_member_batches_write_the_same_values_as_single_members() -> None:
+    stores = {}
+    for batch in (1, 2):
+        backend = KVBackend()
+        Pipeline(_runner(), output={"forecast": backend}, device="cpu").run(
+            work_items([T0], H12, members=[3, 5, 8], member_batch=batch)
+        )
+        stores[batch] = backend
+    np.testing.assert_array_equal(stores[2]["ensemble"], [3, 5, 8])
+    np.testing.assert_array_equal(stores[2]["u10m"], stores[1]["u10m"])
+
+
+def _run_groups(path: Path, groups: list[tuple[int, ...]]) -> None:
+    Pipeline(
+        _runner(),
+        output={"forecast": KVBackend()},
+        progress=ProgressStore(path),
+        device="cpu",
+    ).run([WorkItem(T0, H12, group) for group in groups])
+
+
+@pytest.mark.parametrize(
+    "regrouped",
+    [
+        [(0,), (1,), (2,), (3,)],
+        [(0, 2), (1, 3)],
+        [(1, 0), (2, 3)],
+    ],
+    ids=["batch-size", "partners", "order"],
+)
+def test_resume_rejects_regrouped_members(
+    tmp_path: Path, regrouped: list[tuple[int, ...]]
+) -> None:
+    _run_groups(tmp_path, [(0, 1), (2, 3)])
+    with pytest.raises(ValueError, match="member_groups"):
+        _run_groups(tmp_path, regrouped)
+    _run_groups(tmp_path, [(2, 3), (0, 1)])
+
+
 def test_member_batches_need_a_batching_runner() -> None:
     runner = _Recording(_runner())
+    runner.supports_member_batching = False
     pipeline = Pipeline(runner, output={"forecast": KVBackend()}, device="cpu")
     with pytest.raises(ValueError, match="does not batch"):
         pipeline.run(work_items([T0], H12, members=2, member_batch=2))
@@ -437,8 +477,9 @@ def test_manifest_records_streams_seed_and_tags(tmp_path: Path) -> None:
         device="cpu",
     ).run(work_items([T0], H12))
     manifest = json.loads((tmp_path / "manifest.json").read_text())
-    assert manifest["version"] == 1
+    assert manifest["version"] == 2
     assert manifest["seed"] == 3
+    assert manifest["member_groups"] == [[]]
     assert manifest["tags"] == {"model": "tiny"}
     forecast = manifest["streams"]["forecast"]
     assert forecast["labels"]["variable"] == ["u10m"]

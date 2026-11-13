@@ -66,13 +66,14 @@ def test_phoo_cache(cache):
     variable = ["t2m"]
 
     ds = PhooAnalysis(cache=cache)
+    cache_path = pathlib.Path(ds.cache)
     data = ds(time, variable)
 
     assert data.shape == (1, 1, 181, 360)
-    assert pathlib.Path(ds.cache).is_dir() == cache
+    assert cache_path.is_dir() == cache
 
     try:
-        shutil.rmtree(ds.cache)
+        shutil.rmtree(cache_path)
     except FileNotFoundError:
         pass
 

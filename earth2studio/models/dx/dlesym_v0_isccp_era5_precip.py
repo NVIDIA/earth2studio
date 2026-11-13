@@ -151,8 +151,7 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
     A ``HEALPixUNet`` diagnostic from the AtmosSci-DLESM/DLESyM repository
     that predicts 6-hourly accumulated precipitation (``tp06``) from the full
     coupled atmosphere/ocean state. It is designed to be chained off
-    [`DLESyMv0_ISCCP_ERA5`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5] (or its lat/lon
-    variant).
+    [`DLESyMv0_ISCCP_ERA5`][earth2studio.models.px.DLESyMv0_ISCCP_ERA5].
 
     The model takes 2 consecutive history timesteps of 10 variables (the 9
     atmospheric variables plus ``sst``) on a HEALPix ``nside=64`` grid and
@@ -526,7 +525,7 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
         output_coords = self.output_coords(x)
         encoding = x.encoding.copy()
         x, coords = x.e2s.to_torch()
-        x = x.to(self.center.device).clone()
+        x = x.to(self.center.device)
 
         if self.use_ttr:
             variables = list(coords["variable"])

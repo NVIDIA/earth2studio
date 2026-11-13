@@ -14,6 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Model loading from Hydra config nodes.
+
+A model node names an ``architecture`` (an ``AutoModelMixin`` class) and may
+add ``package_path`` and ``load_args``; Hydra instantiates ``_target_`` nodes
+directly.  Every load runs on rank 0 first, which fills a shared package
+cache once before the other ranks read it.
+"""
+
 from __future__ import annotations
 
 from typing import Any
@@ -25,91 +33,85 @@ from omegaconf import DictConfig
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 
-from .distributed import run_on_rank0_first
+from .logs import rank0_first_checked
 
 
-def load_prognostic(
-    cfg: DictConfig,
-    node: DictConfig | None = None,
-) -> PrognosticModel:
-    """Load a prognostic model from the Hydra config.
-
-    The model config node must contain an ``architecture`` key whose
-    value is the fully-qualified class name of a prognostic model (e.g.
-    ``earth2studio.models.px.DLWP``).  The class is expected to expose the
-    standard ``load_default_package`` / ``load_model`` classmethods from the
-    ``AutoModelMixin`` protocol.
-
-    Any extra keyword arguments under ``load_args`` are forwarded to
-    ``load_model``.
+def load_from_node(node: DictConfig | dict, kind: str = "model") -> Any:
+    """Load a model described by a config node.
 
     Parameters
     ----------
-    cfg : DictConfig
-        Hydra config with a ``model`` section.
-    node : DictConfig | None
-        Model config node to load from.  Defaults to ``cfg.model``;
-        pipelines whose model config nests the prognostic (e.g.
-        ``cfg.model.forecast`` for DA-initialized forecasts) pass the
-        nested node explicitly.
+    node : DictConfig | dict
+        Either a Hydra ``_target_`` block, or a node with ``architecture``
+        (fully qualified class name), optional ``package_path`` and optional
+        ``load_args`` forwarded to ``load_model``.
+    kind : str, optional
+        Label for log messages, by default "model"
 
     Returns
     -------
-    PrognosticModel
-        Loaded (but not yet device-placed) prognostic model.
+    Any
+        The loaded model, not yet placed on a device.
     """
-    model_cfg = node if node is not None else cfg.model
-    cls = hydra.utils.get_class(model_cfg.architecture)
+    if "_target_" in node:
+        model = rank0_first_checked(lambda: hydra.utils.instantiate(node))
+        logger.success(f"Instantiated {kind}: {type(model).__name__}")
+        return model
+    if "architecture" not in node:
+        raise ValueError(
+            f"A {kind} node needs '_target_' or 'architecture'; got keys "
+            f"{list(node.keys())}"
+        )
+    cls = hydra.utils.get_class(node["architecture"])
+    load_args: dict[str, Any] = dict(node.get("load_args", {}) or {})
 
-    if model_cfg.get("package_path"):
-        from earth2studio.models.auto import Package
+    def load() -> Any:
+        # Packages are lazy: the download happens inside load_model, so the
+        # whole load runs rank 0 first.
+        if node.get("package_path"):
+            from earth2studio.models.auto import Package
 
-        pkg = Package(model_cfg.package_path)
-    else:
-        pkg = run_on_rank0_first(cls.load_default_package)
+            package = Package(node["package_path"])
+        else:
+            package = cls.load_default_package()
+        return cls.load_model(package=package, **load_args)
 
-    load_kwargs: dict[str, Any] = dict(model_cfg.get("load_args", {}))
-    model: PrognosticModel = cls.load_model(package=pkg, **load_kwargs)
-
-    logger.success(f"Loaded prognostic model: {cls.__name__}")
+    model = rank0_first_checked(load)
+    logger.success(f"Loaded {kind}: {cls.__name__}")
     return model
 
 
-def load_diagnostics(cfg: DictConfig) -> list[DiagnosticModel]:
-    """Load diagnostic models listed in the config.
+def load_prognostic(cfg: DictConfig, node: DictConfig | None = None) -> PrognosticModel:
+    """Load the prognostic model from ``cfg.model`` or an explicit node."""
+    model: PrognosticModel = load_from_node(
+        node if node is not None else cfg.model, "prognostic model"
+    )
+    return model
 
-    Each entry under ``diagnostics`` should be a Hydra-instantiable object
-    (``_target_`` style) or have an ``architecture`` key following the same
-    pattern as the prognostic model.
+
+def load_diagnostics(cfg: DictConfig) -> dict[str, DiagnosticModel]:
+    """Load the ``diagnostics`` block as stream name to model.
 
     Parameters
     ----------
     cfg : DictConfig
-        Hydra config with an optional ``diagnostics`` section.
+        Config with an optional ``diagnostics`` mapping of name to model node.
 
     Returns
     -------
-    list[DiagnosticModel]
-        Loaded diagnostic models (may be empty).
+    dict[str, DiagnosticModel]
+        Diagnostics keyed by the stream name the runner yields them under.
     """
-    if "diagnostics" not in cfg:
-        return []
+    if not cfg.get("diagnostics"):
+        return {}
+    diagnostics: dict[str, DiagnosticModel] = {}
+    for name, node in cfg.diagnostics.items():
+        if str(name) == "forecast":
+            raise ValueError("Diagnostic stream name 'forecast' is reserved")
+        diagnostics[str(name)] = load_from_node(node, f"diagnostic '{name}'")
+    return diagnostics
 
-    models: list[DiagnosticModel] = []
-    for name, dx_cfg in cfg.diagnostics.items():
-        if "_target_" in dx_cfg:
-            dx = hydra.utils.instantiate(dx_cfg)
-        elif "architecture" in dx_cfg:
-            cls = hydra.utils.get_class(dx_cfg.architecture)
-            pkg = run_on_rank0_first(cls.load_default_package)
-            load_kwargs: dict[str, Any] = dict(dx_cfg.get("load_args", {}))
-            dx = cls.load_model(package=pkg, **load_kwargs)
-        else:
-            raise ValueError(
-                f"Diagnostic '{name}' must have '_target_' or 'architecture'. "
-                f"Got keys: {list(dx_cfg.keys())}"
-            )
-        models.append(dx)
-        logger.success(f"Loaded diagnostic model: {name}")
 
-    return models
+def load_assimilation(node: DictConfig) -> Any:
+    """Load a data assimilation model from its config node (``cfg.model.da``)."""
+    return load_from_node(node, "assimilation model")

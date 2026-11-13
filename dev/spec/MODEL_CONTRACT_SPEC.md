@@ -143,22 +143,24 @@ the saved pair, so they yield the step after the saved state rather than repeati
 it.
 
 A daily-mean model can declare two consecutive inputs with start-of-day timestamps:
-`mean:0h:24h` for ordinary channels and `mean:1h:25h` for hourly interval-ending `tp`
-and `ttr`, with matching statistics metadata. Its initial condition is the latest
+`mean:-1h:23h` for ordinary channels (00–23 UTC) and `mean:0h:24h` for hourly
+interval-ending `tp` and `ttr` (01 UTC through next 00 UTC), with matching statistics
+metadata. Its initial condition is the latest
 input day, and its iterator yields daily predictions. Hooks see one prediction;
 front- and rear-hook edits feed the next rolling state (see
 Open Questions). Fields move to the model device at the Torch/ONNX boundary. Input
 preparation and units follow `TIME_STATISTICS_SPEC.md` (calendar-day means).
 
-The legacy `CoordSystem` (`OrderedDict[str, np.ndarray]`) remains for statistics,
-perturbations, private numerical helpers and, until backends migrate
-([IO_SPEC.md](IO_SPEC.md)), tensor-based IO; convert explicitly with
-`.e2s.to_torch()` and `from_torch()`. `fetch_data()` returns one field DataArray,
+The legacy `CoordSystem` (`OrderedDict[str, np.ndarray]`) remains only in private
+numerical helpers, IO coordinate bookkeeping and legacy utilities such as
+`prep_data_array`; statistics, perturbations and IO backends take DataArrays
+([IO_SPEC.md](IO_SPEC.md)). Convert explicitly with `.e2s.to_torch()` and
+`from_torch()`. `fetch_data()` returns one field DataArray,
 not a tensor/coordinate pair. Random/Random_FX keep their data-source API, and
 assimilation protocols are outside this migration. Regional prognostic wrappers also
 use native DataArrays. StormCastCONUS's stored `ProjectedGrid` is its geometry
 source of truth: geographic auxiliaries derive from the cropped grid declaration,
-native axes from `input_coords()["y"]`/`["x"]`, and read-only `hrrr_y`/`hrrr_x` from
+native axes from `input_coords()["y"]`/`["x"]`, and read-only `y`/`x` attributes from
 those coordinates.
 
 Runtime protocol membership checks method presence, not signatures, so it does not
@@ -491,7 +493,7 @@ not implement it. Design notes and wrapper guidance are in
 ```python
 @runtime_checkable
 class DomainAdaptable(Protocol):
-    def with_region(self, region: Region, /) -> Self: ...
+    def with_region(self, region: Region) -> Self: ...
 ```
 
 A loaded model starts on its default domain, usually its full native footprint, and
@@ -573,7 +575,7 @@ These rules apply to native DataArray execution and explicit continuation state.
 | --- | --- |
 | `P1` | Structurally satisfies `PrognosticModel` |
 | `P2` | Allocation-free DataArray declarations with explicit dynamic leading dimensions |
-| `P3` | `input_coords()["lead_time"]` is relative, strictly increasing, and ends at zero |
+| `P3` | Input `lead_time` is relative, strictly increasing, and ends at or before zero |
 | `P4` | `output_coords()` treats its argument as read-only |
 | `P5` | `output_coords()` raises `ValueError` for an invalid coordinate system |
 | `P6` | Shifting input `lead_time` by an offset shifts output `lead_time` by the same offset |
@@ -631,10 +633,20 @@ reproduces A, and the root `state_dict` is unchanged.
 
 ## Lead Time
 
-Declared input `lead_time` is relative to analysis time and ends at zero (e.g.
-`[-6h, 0h]`). Output offsets are added to the *final input* lead time, never a
-constant, allowing nonzero starts and resumed rollouts; shifting every input lead
-time shifts output equally (`P6`). `forcing_coords()` follows the same convention.
+Declared input `lead_time` is relative to analysis time and ends at or before
+zero (e.g. `[-6h, 0h]`). Output offsets are added to the *final input* lead time,
+never a constant, allowing nonzero starts and resumed rollouts; shifting every input
+lead time shifts output equally (`P6`). `forcing_coords()` follows the same convention.
+
+The **step interval** is the declared output's last lead time minus the later of the
+first input slot's last lead time and zero. An input ending at zero, the usual case,
+steps by the output's last lead time. An input ending before zero is a background
+that `initialize` first brings up to the analysis time, for example by assimilating
+observations; `step` then advances by the forecast interval alone. A background at
+`-9h` with an initialization output at `+3h` steps by 3 h, so drivers plan lead
+times `+3h, +6h, ...` and publish no initial condition, since no input frame is
+valid at the analysis time. The rule is a convention: a model whose `step` advances
+by the full gap from its background must declare inputs ending at zero.
 
 ## Iteration
 
@@ -850,10 +862,14 @@ The checker implements this contract. Wrappers and consumers migrate separately:
 - **Domain selection.** Add `DomainAdaptable`, `Region` and checks for `G1`–`G4`.
   `StormScopeGOES` and `StormScopeMRMS` implement it for box regions: Flash variants
   crop the HRRR footprint with context, and baseline variants return full-footprint
-  views, which cover any supported region. `CorrDiffCosmoEra5`,
-  `StormCastCONUS`/`StormCast` and `cBottleSR` adopt the protocol additively,
-  keeping their constructor limits, `set_domain` and
-  `set_super_resolution_window` as adapters; see
+  views, which cover any supported region. `CorrDiffEra5Hrrr`, `CorrDiffCosmoEra5`,
+  `StormCastCONUS`, `cBottleSR` and `InterpCRPSDiT` implement it too. `with_region`
+  replaces `CorrDiffCosmoEra5.set_domain`, `InterpCRPSDiT.set_domain` and
+  `CBottleSR.set_super_resolution_window`, which are removed. StormCastCONUS keeps
+  its construction-time `hrrr_lat_lim` / `hrrr_lon_lim`; cBottleSR's constructor
+  and `load_model` take a `region`.
+  `StormCast` stays fixed-domain: its additive positional embedding and invariants
+  cover only its 512×640 window. See
   [flexible_domain.md](../scratch/flexible_domain.md).
 - **Examples and drivers.** `earth2studio.run`, `examples/` and `dev/examples/` call
   `create_iterator` and count `nsteps + 1` yields; they move to `nsteps` yields,

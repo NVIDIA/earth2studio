@@ -341,43 +341,34 @@ def provenance(run: Path) -> dict:
 
 
 def data_sources(run: Path) -> dict:
-    """Initial-condition and verification source class names, read from the
-    campaign config that matches the run directory name (best effort)."""
+    """Initial-condition and verification source labels, and the weighting.
+
+    Preferred source is the ``sources`` attribute run_scorecard.py stamps onto
+    scores.zarr from the configuration the run composed, overrides included.
+    Stores that predate it fall back to the campaign config matching the run
+    directory name, composed with the recipe defaults (best effort).  Both go
+    through ``run_scorecard.source_labels``, so a composite initial-condition
+    source reads ``ARCO_ERA5+NCAR_ERA5`` and a predownloaded store reads as
+    the source that filled it.  ``lat_weights`` says whether the scores carry
+    cosine-latitude weights (global grids) or uniform ones (limited areas).
+    """
     import contextlib
 
-    out: dict = {}
     with contextlib.suppress(Exception):
-        import yaml
+        import zarr
 
-        cfg = yaml.safe_load(
-            (HERE / "cfg" / "campaign" / f"{run.name}.yaml").read_text()
+        stamped = zarr.open_group(str(run / "scores.zarr"), mode="r").attrs.get(
+            "sources"
         )
-        # A DA campaign (`model.da`) assembles its initial conditions from
-        # the DA model's analyses; `ic_source` is the BYO initial-condition
-        # override (see src/data.py:resolve_ic_source).  When a campaign sets
-        # either, that is what produced the initial conditions and
-        # `data_source` went unused.
-        ic = (
-            ((cfg.get("model") or {}).get("da") or {}).get("architecture", "")
-            or (cfg.get("ic_source") or {}).get("_target_", "")
-            or (cfg.get("data_source") or {}).get("_target_", "")
-        )
-        verif = (
-            (cfg.get("verification_source") or {}).get("_target_", "")
-            or ((cfg.get("predownload") or {}).get("verification") or {})
-            .get("source", {})
-            .get("_target_", "")
-            or (cfg.get("data_source") or {}).get("_target_", "")
-            or ic
-        )
-        if ic:
-            out["ic_source"] = ic.rsplit(".", 1)[-1]
-        if verif:
-            out["verification_source"] = verif.rsplit(".", 1)[-1]
-        # Whether the scores carry cosine-latitude weights (global grids) or
-        # uniform weights (limited-area grids); the docs page says which.
-        out["lat_weights"] = bool((cfg.get("scoring") or {}).get("lat_weights", True))
-    return out
+        if stamped:
+            return dict(stamped)
+    with contextlib.suppress(Exception):
+        from omegaconf import OmegaConf
+        from scorecard.run_scorecard import compose_campaign, source_labels
+
+        cfg = compose_campaign(run.name, [])
+        return source_labels(OmegaConf.to_container(cfg, resolve=False))
+    return {}
 
 
 def build_metrics(

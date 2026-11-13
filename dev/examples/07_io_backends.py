@@ -50,7 +50,7 @@ from earth2studio.models.px import Persistence
 
 # %%
 grid = LatLonGrid(np.linspace(10.0, -10.0, 5), np.linspace(0.0, 20.0, 9))
-model = Persistence(["t2m", "tp:sum:6h"], grid, dt=np.timedelta64(6, "h"))
+model = Persistence(["t2m", "t2m:max:6h"], grid, dt=np.timedelta64(6, "h"))
 signature = model.output_coords(model.input_coords())
 print("Signature:", signature.dims)
 
@@ -64,7 +64,7 @@ print("Template:", dict(template.sizes))
 # Create Arrays
 # -------------
 # ``add_array`` creates one array per variable label. Labels are used verbatim,
-# including statistic qualifiers such as ``tp:sum:6h``. Re-adding the same template
+# including statistic qualifiers such as ``t2m:max:6h``. Re-adding the same template
 # is a no-op, so resumed runs can call it unconditionally.
 
 # %%
@@ -117,10 +117,10 @@ except ValueError as error:
 # ------------
 # Stored arrays keep their coordinates, auxiliary coordinates and grid metadata,
 # so the grid is recoverable from the output. Signature markers and the
-# statistics attribute are not stored; the ``tp:sum:6h`` label carries it.
+# statistics attribute are not stored; the ``t2m:max:6h`` label carries it.
 
 # %%
-stored = io.root["tp:sum:6h"]
+stored = io.root["t2m:max:6h"]
 print("Stored dims:", stored.dims)
 print("Grid recovered:", infer_grid(stored).fingerprint() == grid.fingerprint())
 print("Statistics attribute stored:", "earth2studio_statistics" in stored.attrs)

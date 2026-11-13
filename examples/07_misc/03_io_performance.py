@@ -73,6 +73,7 @@ import torch
 from earth2studio.data import GFS, DataSource, fetch_data
 from earth2studio.io import AsyncZarrBackend, IOBackend, NetCDF4Backend, ZarrBackend
 from earth2studio.models.px import DLWP, PrognosticModel
+from earth2studio.models.px.utils import initial_condition
 from earth2studio.perturbation import Gaussian, Perturbation
 
 # Get the device
@@ -146,7 +147,7 @@ def christmas_five_day_ensemble(
     # ==========================================
     # Fetch Initialization Data
     prognostic_ic = prognostic.input_coords()
-    from earth2studio.run import _map_field
+    from earth2studio.run import map_field
 
     times = to_time_array(times)
 
@@ -178,21 +179,24 @@ def christmas_five_day_ensemble(
     x = x.expand_dims(ensemble=np.arange(nensemble)).copy(deep=True)
 
     # Map lat and lon if needed
-    x = _map_field(x, prognostic_ic)
+    x = map_field(x, prognostic_ic)
 
     # Perturb ensemble
     x = perturbation(x)
 
-    # Create prognostic iterator
+    # Create prognostic iterator, it yields forecasts only so the initial condition
+    # is written to the store up front
     model = prognostic.create_iterator(x)
+    io.write(initial_condition(x).sel(variable=variables_to_save))
 
     with tqdm(
         total=nsteps + 1,
+        initial=1,
         desc="Running batch inference",
         position=1,
         leave=False,
     ) as pbar:
-        for step, x in enumerate(model):
+        for step, x in enumerate(model, start=1):
             # Dump result to IO; the backend maps the field's coordinate labels onto
             # the store and writes each variable label to its own array
             io.write(x.sel(variable=variables_to_save))

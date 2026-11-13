@@ -24,9 +24,20 @@ with required gridded conditioning and optional observations at each step. Input
 and outputs may be DataArrays or DataFrames as declared by each model. See the
 [DA user guide](../userguide/components/data_assimilation.md) for calling patterns.
 
-StormCastConusSDA wraps the CONUS checkpoint and supports cropped domains. Its
-conditioning and observations both target the output valid time (+1 hour); use the
-`stormcast-conus` installation extra and the StormCast-CONUS SDA gallery example.
+StormCastConusSDA wraps the CONUS checkpoint. Its conditioning and observations both
+target the output valid time (+1 hour); use the `stormcast-conus` installation extra
+and the StormCast-CONUS SDA gallery example.
+
+DA models do not offer `with_region`. The three wrappers that run on a cropped domain
+each configure it differently:
+
+- `CorrDiffCosmoEra5SDA.load_model(region=...)` crops the downscaler with
+  `CorrDiffCosmoEra5.with_region` before wrapping it.
+- `StormCastSDA` takes HRRR grid index limits, `hrrr_lat_lim` and `hrrr_lon_lim`, in
+  its constructor; `load_model` uses the default StormCast v1 window.
+- `StormCastConusSDA.load_model` forwards the same `hrrr_lat_lim`/`hrrr_lon_lim`
+  keywords to `StormCastCONUS.load_model`; alternatively, wrap a `StormCastCONUS`
+  already cropped with `with_region`.
 
 !!! warning
     Data Assimilation models are a new addition to Earth2Studio and APIs might be subject
@@ -37,8 +48,10 @@ currentmodule: earth2studio.models.da
 template: dataassim
 output: generated/models/da
 -->
-<!-- mkdocs-badges:filter region:global region:na region:eu region:as region:au region:af region:sa class:nowcasting class:downscaling class:medium-range class:subseasonal-seasonal class:data-assimilation class:climate provider:nvidia provider:ecmwf provider:ai2 provider:google provider:microsoft backend:pytorch backend:jax backend:onnx product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu year:2021 year:2022 year:2023 year:2024 year:2025 year:2026 gpu:96gb gpu:80gb gpu:48gb gpu:40gb mode=or order=fixed toggle=true labels=label hidden="class provider backend product year" -->
+<!-- mkdocs-badges:filter region:global region:na region:eu region:as region:au region:af region:sa class:nowcasting class:downscaling class:medium-range class:subseasonal-seasonal class:data-assimilation class:climate provider:nvidia provider:windborne provider:ecmwf provider:ai2 provider:google provider:microsoft backend:pytorch backend:jax backend:onnx product:wind product:precip product:temp product:atmos product:ocean product:land product:veg product:solar product:radar product:sat product:insitu year:2021 year:2022 year:2023 year:2024 year:2025 year:2026 gpu:96gb gpu:80gb gpu:48gb gpu:40gb mode=or order=fixed toggle=true labels=label hidden="class provider backend product year" -->
 {% autosummary %}
+earth2studio.models.da.AIDA
+earth2studio.models.da.AIDAWeatherMesh5C
 earth2studio.models.da.CorrDiffCosmoEra5SDA
 earth2studio.models.da.HealDA
 earth2studio.models.da.HealDAv2

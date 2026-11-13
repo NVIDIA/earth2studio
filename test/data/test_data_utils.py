@@ -17,12 +17,14 @@
 import asyncio
 import datetime
 import os
+import weakref
 from collections import OrderedDict
 from pathlib import Path
 
 import numpy as np
 import obstore as obs
 import pandas as pd
+import pyarrow as pa
 import pytest
 import torch
 import xarray as xr
@@ -47,14 +49,17 @@ from earth2studio.data.utils import (
     ensure_utc,
     gather_with_concurrency,
     managed_session,
+    map_with_concurrency,
     obstore_fetch_to_cache,
     obstore_list_prefix,
     obstore_read_chunked,
     obstore_read_range,
     obstore_store_from_url,
     obstore_zarr_store,
+    plan_statistics,
     prep_data_inputs,
     prep_forecast_inputs,
+    reduce_statistics,
 )
 from earth2studio.grids import (
     BilinearRegridder,
@@ -62,7 +67,175 @@ from earth2studio.grids import (
     LatLonGrid,
     NearestRegridder,
 )
-from earth2studio.utils.coords import coord_array
+from earth2studio.utils.coords import E2S_STATISTICS, coord_array
+from earth2studio.utils.time_statistics import _TIME_STATISTICS, register_time_statistic
+
+
+def test_time_statistics_planning_and_reduction():
+    # Planning splits plain/statistic variables; reduction streams bounded windows
+    times = np.array(["2024-01-02T00", "2024-01-02T06"], dtype="datetime64[ns]")
+    plain, stats, attrs = plan_statistics(
+        ["t2m", "t2m:mean:12h", "u10m:max:6h", "a::b:c"],
+        times,
+        np.timedelta64(6, "h"),
+        ("mean", "max"),
+    )
+    assert plain == [(0, "t2m"), (3, "a::b:c")]
+    assert [(s.slot, s.base, s.modifier) for s in stats] == [
+        (1, "t2m", "mean:12h"),
+        (2, "u10m", "max:6h"),
+    ]
+    # Right-closed window ending at (and including) each target, shape
+    # (target, sample)
+    assert stats[0].samples.shape == (2, 2)
+    assert stats[0].samples[1, 0] == np.datetime64("2024-01-02T00")
+    assert stats[0].samples[1, -1] == np.datetime64("2024-01-02T06")
+    assert set(attrs[E2S_STATISTICS]) == {"t2m:mean:12h", "u10m:max:6h"}
+
+    # Lead time targets are planned relative to the initialization time and every
+    # planned sample is validated once, before anything is fetched
+    validated = []
+    _, stats, _ = plan_statistics(
+        ["t2m:sum:2h"],
+        np.array([2, 3], dtype="timedelta64[h]"),
+        np.timedelta64(1, "h"),
+        ("sum",),
+        validate=validated.extend,
+    )
+    assert np.issubdtype(stats[0].samples.dtype, np.timedelta64)
+    assert validated == [datetime.timedelta(hours=h) for h in (1, 2, 3)]
+
+    for variables, message in (
+        ([":mean:6h"], "must not be empty"),
+        (["t2m:mean:6h", "t2m:mean:6h"], "duplicate"),
+        (["t2m:sum:6h"], "not supported"),
+    ):
+        with pytest.raises(ValueError, match=message):
+            plan_statistics(variables, times, np.timedelta64(1, "h"), ("mean",))
+
+    # Statistics reduce transient sample stacks through the registry, so newly
+    # registered statistics work, and only one window is alive at a time.
+    register_time_statistic("range", lambda a, d: a.max(d) - a.min(d))
+    try:
+        times = np.array([3, 4], dtype="timedelta64[h]")
+        variables = [
+            "t2m",
+            "t2m:range:240h",
+            *(f"t2m:{method}:2h" for method in ("mean", "sum", "min", "max")),
+        ]
+        plain, stats, _ = plan_statistics(
+            variables,
+            times,
+            np.timedelta64(1, "h"),
+            ("mean", "sum", "min", "max", "range"),
+        )
+        assert plain == [(0, "t2m")]
+        out = np.full((2, 6, 2), np.nan)
+        refs = []
+
+        async def fetch(coord, base):
+            assert base == "t2m"
+            field = np.array([coord / np.timedelta64(1, "h"), np.nan])
+            refs.append(weakref.ref(field))
+            await asyncio.sleep(0)
+            return field
+
+        asyncio.run(
+            reduce_statistics(out, stats, fetch, async_workers=3, verbose=False)
+        )
+        assert all(ref() is None for ref in refs)
+        np.testing.assert_allclose(out[:, 0], np.nan, equal_nan=True)
+        np.testing.assert_allclose(out[:, 1, 0], [239, 239])
+        # Window (t-2h, t] of hourly samples
+        np.testing.assert_allclose(out[:, 2, 0], [2.5, 3.5])
+        np.testing.assert_allclose(out[:, 3, 0], [5, 7])
+        np.testing.assert_allclose(out[:, 4, 0], [2, 3])
+        np.testing.assert_allclose(out[:, 5, 0], [3, 4])
+        # Missing samples propagate: a window holding NaN reduces to NaN
+        np.testing.assert_allclose(out[:, 2:, 1], np.nan, equal_nan=True)
+    finally:
+        _TIME_STATISTICS.pop("range")
+
+    # A failing fetch propagates and leaves no running tasks
+    _, stats, _ = plan_statistics(
+        ["t2m:mean:24h"],
+        np.array([24], dtype="timedelta64[h]"),
+        np.timedelta64(1, "h"),
+        ("mean",),
+    )
+    out = np.full((1, 1, 2), np.nan)
+
+    async def run():
+        initial = len(asyncio.all_tasks())
+
+        async def fetch(coord, base):
+            if coord == np.timedelta64(5, "h"):
+                raise OSError("mock fetch failed")
+            await asyncio.sleep(0.01)
+            return np.zeros(2)
+
+        with pytest.raises(OSError, match="mock fetch failed"):
+            await reduce_statistics(out, stats, fetch, async_workers=3, verbose=False)
+        assert len(asyncio.all_tasks()) == initial
+
+    asyncio.run(run())
+    assert np.isnan(out).all()
+
+    # Bounded worker pool: failure, cancellation and timeout leave nothing running
+    asyncio.run(_check_map_with_concurrency())
+
+
+async def _check_map_with_concurrency():
+    requests = list(range(240))
+    active = 0
+    ready = asyncio.Event()
+    initial_tasks = len(asyncio.all_tasks())
+
+    async def failing_fetch(request):
+        nonlocal active
+        active += 1
+        try:
+            if active == 3:
+                ready.set()
+            await ready.wait()
+            if request is requests[0]:
+                raise OSError("mock fetch failed")
+            await asyncio.Event().wait()
+        finally:
+            active -= 1
+
+    with pytest.raises(OSError, match="mock fetch failed"):
+        await map_with_concurrency(
+            requests, failing_fetch, async_workers=3, verbose=False
+        )
+    assert active == 0
+    assert len(asyncio.all_tasks()) == initial_tasks
+
+    ready.clear()
+
+    async def waiting_fetch(request):
+        nonlocal active
+        active += 1
+        ready.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            active -= 1
+
+    operation = asyncio.create_task(
+        map_with_concurrency(requests, waiting_fetch, async_workers=3, verbose=False)
+    )
+    await ready.wait()
+    operation.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await operation
+    assert active == 0
+
+    with pytest.raises(asyncio.TimeoutError):
+        await map_with_concurrency(
+            requests, waiting_fetch, async_workers=3, verbose=False, task_timeout=0.01
+        )
+    assert active == 0
 
 
 class _AnalysisSequence:
@@ -93,10 +266,6 @@ class _ForecastSequence:
                 "x": [0, 1],
             },
         )
-
-
-class _CadencedAnalysisSequence(_AnalysisSequence):
-    time_step = np.timedelta64(6, "h")
 
 
 @pytest.fixture
@@ -139,14 +308,14 @@ def curvilinear_data_array():
 
     return xr.DataArray(
         data=data,
-        dims=["time", "variable", "hrrr_y", "hrrr_x"],
+        dims=["time", "variable", "y", "x"],
         coords={
             "time": [np.datetime64("2024-01-01"), np.datetime64("2024-01-02")],
             "variable": ["temp"],
-            "_lat": (["hrrr_y", "hrrr_x"], lat),
-            "_lon": (["hrrr_y", "hrrr_x"], lon),
-            "hrrr_y": np.arange(10),
-            "hrrr_x": np.arange(12),
+            "_lat": (["y", "x"], lat),
+            "_lon": (["y", "x"], lon),
+            "y": np.arange(10),
+            "x": np.arange(12),
         },
     )
 
@@ -195,9 +364,9 @@ def test_prep_data_array_curvilinear(equilinear_data_array, curvilinear_data_arr
     assert np.array_equal(coords["_lat"], target_lat)
     assert np.array_equal(coords["_lon"], target_lon)
 
-    # Check HRRR-specific coordinates are removed
-    assert "hrrr_y" not in coords
-    assert "hrrr_x" not in coords
+    # Check native curvilinear dims are removed
+    assert "y" not in coords
+    assert "x" not in coords
 
     out, coords = prep_data_array(
         equilinear_data_array, interp_to=target_coords, interp_method="linear"
@@ -210,9 +379,9 @@ def test_prep_data_array_curvilinear(equilinear_data_array, curvilinear_data_arr
     assert np.array_equal(coords["_lat"], target_lat)
     assert np.array_equal(coords["_lon"], target_lon)
 
-    # Check HRRR-specific coordinates are removed
-    assert "hrrr_y" not in coords
-    assert "hrrr_x" not in coords
+    # Check native curvilinear dims are removed
+    assert "y" not in coords
+    assert "x" not in coords
 
 
 @pytest.mark.parametrize(
@@ -272,8 +441,6 @@ class _CoarseningRegridder:
 
 
 class _NativeSource:
-    time_step = np.timedelta64(6, "h")
-
     def _field(self, time, variable, lead_time=None):
         time, variable = np.atleast_1d(time), np.atleast_1d(variable)
         dims, coords = ["time", "variable"], {"time": time, "variable": variable}
@@ -307,7 +474,6 @@ def test_regridded_source():
 
     analysis = RegriddedSource(_NativeSource(), _CoarseningRegridder())
     assert isinstance(analysis, DataSource)
-    assert analysis.time_step == np.timedelta64(6, "h")
     for array in (
         analysis(time, variable),
         asyncio.run(analysis.fetch(time, variable=variable)),
@@ -325,10 +491,8 @@ def test_regridded_source():
         np.testing.assert_array_equal(array["lead_time"], lead_time)
         np.testing.assert_array_equal(array["lon"], _COARSE_GRID.longitude)
 
-    # fetch_data reads the wrapped source's cadence for temporal statistics.
-    array = fetch_data(analysis, time, np.array(["a:mean:12h", "b"]))
-    assert array.sizes["lon"] == _COARSE_GRID.shape[1]
-    np.testing.assert_allclose(array, 1)
+    with pytest.raises(ValueError, match="does not support temporal statistic"):
+        fetch_data(analysis, time, np.array(["a:mean:12h", "b"]))
 
 
 def test_regridded_source_errors():
@@ -363,19 +527,24 @@ class _LoggingCoarsener(_CoarseningRegridder):
 
 def test_regridded_source_and_regridder_argument_order():
     time = np.array([np.datetime64("2024-01-01T12")])
-    variable = np.array(["a:mean:12h"])
+    variable = np.array(["a"])
 
     # A regridded source is an ordinary source: each fetched frame is regridded.
     log = []
     composed = fetch_data(
-        RegriddedSource(_NativeSource(), _LoggingCoarsener(log)), time, variable
+        RegriddedSource(_NativeSource(), _LoggingCoarsener(log)),
+        time,
+        variable,
     )
-    assert [sizes["time"] for sizes in log] == [2]
+    assert [sizes["time"] for sizes in log] == [1]
 
-    # The regridder argument regrids the reduced field once.
+    # The regridder argument also regrids the returned field once.
     log.clear()
     argument = fetch_data(
-        _NativeSource(), time, variable, regridder=_LoggingCoarsener(log)
+        _NativeSource(),
+        time,
+        variable,
+        regridder=_LoggingCoarsener(log),
     )
     assert [sizes["time"] for sizes in log] == [1]
     xr.testing.assert_allclose(composed, argument)
@@ -414,7 +583,7 @@ def test_fetch_data_device_aware_source():
             return array.copy(data=cp.asarray(array.data))
 
     time = np.array([np.datetime64("2024-01-01T12")])
-    variable = np.array(["a:mean:12h"])
+    variable = np.array(["a"])
     for composed in (True, False):
         regridder = BilinearRegridder(_NATIVE_GRID, _COARSE_GRID)
         source = _DeviceSource()
@@ -440,9 +609,7 @@ def test_fetch_data_device_aware_source():
     assert isinstance(array.data, np.ndarray)
 
 
-@pytest.mark.parametrize(
-    "source", [_AnalysisSequence(), _CadencedAnalysisSequence(), _ForecastSequence()]
-)
+@pytest.mark.parametrize("source", [_AnalysisSequence(), _ForecastSequence()])
 def test_fetch_data_time_statistics(source):
     metadata = coord_array(
         ("time", "lead_time", "variable", "x"),
@@ -453,16 +620,12 @@ def test_fetch_data_time_statistics(source):
         },
         dynamic=("time",),
     )
-    delta_t = None if hasattr(source, "time_step") else np.timedelta64(6, "h")
-    array = fetch_data(
-        source,
-        np.array([np.datetime64("2024-01-02")]),
-        metadata.coords["variable"].values,
-        delta_t=delta_t,
-    )
-    np.testing.assert_allclose(array.sel(variable="a:mean:24h"), -15)
-    np.testing.assert_allclose(array.sel(variable="a:max:12h"), -6)
-    np.testing.assert_allclose(array.sel(variable="b"), 0)
+    with pytest.raises(ValueError, match="does not support temporal statistic"):
+        fetch_data(
+            source,
+            np.array([np.datetime64("2024-01-02")]),
+            metadata.coords["variable"].values,
+        )
 
 
 def test_fetch_data_out_of_ns_range():
@@ -1522,3 +1685,113 @@ def test_table_to_dataframe(chunked):
     assert str(df["station"].dtype) == "string[pyarrow]"
     assert list(df["satellite"][:3]) == ["npp", "npp", "n20"]
     assert len(df) == (6 if chunked else 3)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda missing")
+def test_fetch_dataframe_arrow_types_to_cudf():
+    # Wide observation frames use Arrow types that cuDF cannot ingest from pandas.
+    cudf = pytest.importorskip("cudf")
+
+    def source(time, variable, fields=None):
+        values = pa.array([[1.0, 2.0], [3.0, None]], type=pa.list_(pa.float32(), 2))
+        classes = pa.DictionaryArray.from_arrays(
+            pa.array([0, 1], type=pa.int8()), pa.array(["rad", "ADPSFC"])
+        )
+        frame = pa.table({"observation_x": values, "class": classes}).to_pandas(
+            types_mapper=pd.ArrowDtype
+        )
+        frame.attrs["source"] = "channels"
+        return frame
+
+    time = np.array([np.datetime64("2024-01-01T00:00")])
+    result = fetch_dataframe(source, time, np.array(["x"]), device="cuda:0")
+    assert isinstance(result, cudf.DataFrame)
+    assert result.attrs["source"] == "channels"
+    values = result["observation_x"].to_arrow().to_pylist()
+    assert values == [[1.0, 2.0], [3.0, None]]
+    assert result["class"].to_arrow().to_pylist() == ["rad", "ADPSFC"]
+
+
+def test_fetch_once():
+    """Concurrent requests share one download; failures reach every caller."""
+    from earth2studio.data.utils import fetch_once
+
+    inflight: dict = {}
+    calls = []
+
+    async def download(name, event, fail=False):
+        calls.append(name)
+        await event.wait()
+        if fail:
+            raise OSError("download failed")
+        return name
+
+    async def concurrent():
+        event = asyncio.Event()
+        tasks = [
+            asyncio.ensure_future(
+                fetch_once(inflight, "a", lambda: download("a", event))
+            )
+            for _ in range(4)
+        ]
+        await asyncio.sleep(0)
+        assert len(inflight) == 1
+        # A cancelled caller does not abort the shared download for the others
+        tasks[0].cancel()
+        await asyncio.sleep(0)
+        event.set()
+        results = await asyncio.gather(*tasks[1:])
+        assert tasks[0].cancelled()
+        return results
+
+    assert asyncio.run(concurrent()) == ["a"] * 3
+    assert calls == ["a"] and not inflight
+
+    # A failed download raises for every caller, and the next request retries
+    async def failing():
+        event = asyncio.Event()
+        tasks = [
+            asyncio.ensure_future(
+                fetch_once(inflight, "b", lambda: download("b", event, fail=True))
+            )
+            for _ in range(3)
+        ]
+        await asyncio.sleep(0)
+        event.set()
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        assert all(isinstance(r, OSError) for r in results)
+        assert not inflight
+        event = asyncio.Event()
+        event.set()
+        return await fetch_once(inflight, "b", lambda: download("b", event))
+
+    calls.clear()
+    assert asyncio.run(failing()) == "b"
+    assert calls == ["b", "b"]
+
+    # A task left pending on another loop is not reused
+    calls.clear()
+    blocked = asyncio.new_event_loop()
+    try:
+
+        async def start_blocked():
+            event = asyncio.Event()
+            return asyncio.ensure_future(
+                fetch_once(inflight, "c", lambda: download("c", event))
+            )
+
+        pending = blocked.run_until_complete(start_blocked())
+        blocked.run_until_complete(asyncio.sleep(0.01))
+
+        async def other_loop():
+            event = asyncio.Event()
+            event.set()
+            return await fetch_once(inflight, "c", lambda: download("c", event))
+
+        assert asyncio.run(other_loop()) == "c"
+        assert calls == ["c", "c"]
+        pending.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            blocked.run_until_complete(pending)
+    finally:
+        blocked.close()

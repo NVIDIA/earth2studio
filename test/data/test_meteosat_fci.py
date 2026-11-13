@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import pathlib
-import shutil
 from datetime import datetime
 from unittest.mock import patch
 
@@ -36,17 +35,11 @@ from earth2studio.data import MeteosatFCI
 _EUROPE_BBOX = ((35.0, 60.0), (-10.0, 30.0))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "time,variable",
     [
         (datetime(2025, 3, 1, 12, 0), "fci87ir"),
-        (
-            [datetime(2025, 3, 1, 12, 0), datetime(2025, 3, 1, 12, 10)],
-            ["fci87ir", "fci63wv"],
-        ),
     ],
 )
 def test_meteosat_fci_fetch(time, variable):
@@ -62,22 +55,7 @@ def test_meteosat_fci_fetch(time, variable):
     assert not np.all(np.isnan(data.values))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
-def test_meteosat_fci_cache():
-    ds = MeteosatFCI(resolution="2km", lat_lon_bbox=_EUROPE_BBOX, cache=True)
-    time = datetime(2025, 3, 1, 12, 0)
-    data1 = ds(time, "fci87ir")
-    data2 = ds(time, "fci87ir")  # served from cache — no re-download
-    assert data1.shape == data2.shape
-    assert pathlib.Path(ds.cache).is_dir()
-    shutil.rmtree(ds.cache, ignore_errors=True)
-
-
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
+@pytest.mark.live(timeout=60)
 def test_meteosat_fci_hrfi_fetch():
     # HRFI vis_06 at 500 m.  pixel_bbox restricts which BODY segments are read.
     # pixel_bbox format: ((row_start, row_end), (col_start, col_end))

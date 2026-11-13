@@ -174,3 +174,25 @@ def test_correlated_spherical_gaussian_odd_even_lats(latents: list[int], nlat, d
     assert output.shape == x.shape
     assert output.device == x.device
     # Need a good statistical test for this
+
+
+@pytest.mark.parametrize(
+    "perturbation",
+    [lambda: Gaussian(), lambda: CorrelatedSphericalGaussian(noise_amplitude=1.0)],
+    ids=["gaussian", "correlated"],
+)
+def test_set_rng_seeds_an_isolated_stream(perturbation):
+    method = perturbation()
+    x = _da(torch.zeros(2, 3, 16, 32), ("time", "variable", "lat", "lon"))
+    before = torch.random.get_rng_state()
+    method.set_rng(5)
+    first, second = method(x), method(x)
+    assert torch.equal(torch.random.get_rng_state(), before)
+    assert not np.allclose(first.values, second.values)
+    method.set_rng(5)
+    np.testing.assert_array_equal(method(x).values, first.values)
+    # Without a reset, an already seeded stream continues.
+    method.set_rng(6, reset=False)
+    np.testing.assert_array_equal(method(x).values, second.values)
+    method.set_rng(6)
+    assert not np.allclose(method(x).values, first.values)

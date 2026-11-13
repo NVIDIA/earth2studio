@@ -40,16 +40,16 @@ lat_weights = lat_weight(torch.as_tensor(np.linspace(-90.0, 90.0, 361)))
 def test_rmse_geographic_coordinates(coordinate) -> None:
     x = xr.DataArray(
         np.ones((2, 3)),
-        dims=("hrrr_y", "hrrr_x"),
+        dims=("y", "x"),
         coords={
-            "hrrr_y": np.arange(2),
-            "hrrr_x": np.arange(3),
-            "lat": (("hrrr_y", "hrrr_x"), np.arange(6).reshape(2, 3)),
-            "lon": (("hrrr_y", "hrrr_x"), np.arange(6).reshape(2, 3) + 10),
+            "y": np.arange(2),
+            "x": np.arange(3),
+            "lat": (("y", "x"), np.arange(6).reshape(2, 3)),
+            "lon": (("y", "x"), np.arange(6).reshape(2, 3) + 10),
         },
     )
-    y = x.transpose("hrrr_x", "hrrr_y")
-    metric = rmse(["hrrr_y", "hrrr_x"])
+    y = x.transpose("x", "y")
+    metric = rmse(["y", "x"])
     if coordinate is None:
         assert metric(x, y).e2s.to_torch()[0].item() == 0
     else:

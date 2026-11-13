@@ -42,8 +42,6 @@ TIME = np.array([np.datetime64("2024-01-01T12")])
 class _Source:
     """Fills each variable with its offset; records requested variables."""
 
-    time_step = np.timedelta64(6, "h")
-
     def __init__(self, offsets, grid=GRID, wrap=np.asarray):
         self.offsets, self.grid, self.wrap = offsets, grid, wrap
         self.requests, self.times = [], []
@@ -115,7 +113,6 @@ def test_routes_variables_in_request_order():
         "satellite": ("abi01c",),
     }
     assert set(source.sources) == {"radar", "satellite"}
-    assert source.time_step == np.timedelta64(6, "h")
 
 
 def test_construction_errors():
@@ -149,6 +146,24 @@ def test_qualified_labels_route_by_base_name():
     assert satellite.requests == [["abi01c:mean:24h"]]
     with pytest.raises(KeyError, match="not provided"):
         source(TIME, ["t2m:mean:24h"])
+
+    # Only statistics supported natively by every component are advertised, so
+    # fetch_data forwards those labels and rejects unsupported methods.
+    from earth2studio.data.utils import _source_statistics
+
+    assert not hasattr(source, "time_statistics")
+    assert _source_statistics(source) == ()
+    radar.lexicon = type(
+        "RadarLexicon", (), {"TIME_STATISTICS": ("mean", "max", "sum")}
+    )
+    assert _source_statistics(source) == ()
+    satellite.lexicon = type(
+        "SatelliteLexicon", (), {"TIME_STATISTICS": ("mean", "sum")}
+    )
+    assert _source_statistics(source) == ("mean", "sum")
+    array = fetch_data(source, TIME, np.array(["abi01c:mean:24h", "refc"]))
+    np.testing.assert_allclose(array[0, 0, :, 0, 0], [10.0, 1.0])
+    assert satellite.requests[-1] == ["abi01c:mean:24h"]
 
 
 def test_unknown_variable_raises():
@@ -245,15 +260,6 @@ def test_fetch_runs_sync_components_in_threads():
     assert threading.get_ident() not in threads
 
 
-def test_time_step_requires_agreement():
-    slow = _Source({"y": 1.0})
-    slow.time_step = np.timedelta64(1, "D")
-    source = CompositeSource(
-        {"a": _Source({"x": 1.0}), "b": slow}, {"a": ["x"], "b": ["y"]}
-    )
-    assert source.time_step is None
-
-
 def test_components_share_one_device():
     source, _, _ = _composite()
     assert source.device == torch.device("cpu")
@@ -293,8 +299,6 @@ def test_statistics_metadata_merged_from_every_component():
     satellite.__call__ = _aggregated(satellite, "tp")
 
     class _Wrapped:
-        time_step = np.timedelta64(6, "h")
-
         def __init__(self, inner):
             self.inner = inner
 
@@ -308,23 +312,34 @@ def test_statistics_metadata_merged_from_every_component():
     array = source(TIME, ["refc", "tp"])
     assert set(array.attrs[E2S_STATISTICS]) == {"refc", "tp"}
     assert set(source(TIME, ["tp"]).attrs[E2S_STATISTICS]) == {"tp"}
-    # Already aggregated variables from any component cannot be reduced again.
+    # Components without native statistics cannot receive qualified labels.
     with pytest.raises(ValueError, match="statistic"):
-        fetch_data(source, TIME, np.array(["refc:sum:12h", "tp:sum:12h"]))
+        fetch_data(
+            source,
+            TIME,
+            np.array(["refc:sum:12h", "tp:sum:12h"]),
+        )
 
 
 def test_temporal_statistics_through_regridded_components():
     fine = _Source({"abi01c": 10.0}, grid=FINE)
+    radar = _Source({"refc:mean:12h": 1.0})
+    fine.lexicon = radar.lexicon = type("Lexicon", (), {"TIME_STATISTICS": ("mean",)})
     source = CompositeSource(
         {
-            "radar": _Source({"refc": 1.0}),
+            "radar": radar,
             "satellite": RegriddedSource(fine, BilinearRegridder(FINE, GRID)),
         },
         {"radar": ["refc"], "satellite": ["abi01c"]},
     )
-    array = fetch_data(source, TIME, np.array(["refc:mean:12h", "abi01c"]))
+    array = fetch_data(
+        source,
+        TIME,
+        np.array(["refc:mean:12h", "abi01c"]),
+    )
     np.testing.assert_allclose(array[0, 0, :, 0, 0], [1.0, 10.0])
     assert array.sizes["lon"] == GRID.shape[1]
+    assert radar.requests == [["refc:mean:12h"]]
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda missing")
@@ -337,3 +352,92 @@ def test_device_components_join_on_device():
     array = source(TIME, ["y", "x"])
     assert isinstance(array.data, cp.ndarray)
     np.testing.assert_allclose(cp.asnumpy(array.data[0, :, 0, 0]), [2.0, 1.0])
+
+
+class _MemberSource(_Source):
+    """Ensemble-aware component: member ``m`` adds ``100 * m``; records members."""
+
+    def __init__(self, offsets, **kwargs):
+        super().__init__(offsets, **kwargs)
+        self.ensembles = []
+
+    def _members(self, field, member):
+        self.ensembles.append(None if member is None else list(member))
+        if member is None:
+            return field
+        # Members come back after variable and reversed, as a source may order them.
+        members = np.asarray(member)[::-1]
+        offset = xr.DataArray(100.0 * members, dims="ensemble")
+        return (field + offset).assign_coords(ensemble=members)
+
+    def __call__(self, time, variable, member=None):
+        return self._members(self._field(time, variable), member)
+
+
+class _MemberForecastSource(_MemberSource):
+    def __call__(self, time, lead_time, variable, member=None):
+        return self._members(self._field(time, variable, lead_time), member)
+
+
+def test_members_go_to_ensemble_components_and_repeat_the_rest():
+    members, static = _MemberSource({"t2m": 1.0}), _Source({"lsm": 5.0})
+    source = CompositeSource(
+        {"ens": members, "static": static}, {"ens": ["t2m"], "static": ["lsm"]}
+    )
+    assert source.is_ensemble
+    for field in (
+        source(TIME, ["lsm", "t2m"], member=[2, 1]),
+        asyncio.run(source.fetch(TIME, ["lsm", "t2m"], member=[2, 1])),
+    ):
+        assert field.dims[0] == "ensemble"
+        np.testing.assert_array_equal(field["ensemble"], [2, 1])
+        np.testing.assert_array_equal(field["variable"], ["lsm", "t2m"])
+        np.testing.assert_allclose(
+            field.sel(variable="t2m").max(["lat", "lon"]), [[201], [101]]
+        )
+        np.testing.assert_allclose(field.sel(variable="lsm"), 5.0)
+    assert members.ensembles == [[2, 1], [2, 1]]
+    # Without member, every component is read as before.
+    assert "ensemble" not in source(TIME, ["lsm", "t2m"]).dims
+    assert members.ensembles[-1] is None
+
+
+def test_forecast_composite_selects_members_for_every_component_kind():
+    analysis = _MemberSource({"sst": 3.0})
+    forecast = _MemberForecastSource({"t2m": 1.0})
+    shared = _ForecastSource({"u10m": 7.0})
+    source = CompositeForecastSource(
+        {"analysis": analysis, "forecast": forecast, "shared": shared},
+        {"analysis": ["sst"], "forecast": ["t2m"], "shared": ["u10m"]},
+    )
+    leads = np.array([0, 6], dtype="timedelta64[h]")
+    for field in (
+        source(TIME, leads, ["sst", "t2m", "u10m"], member=[4]),
+        asyncio.run(source.fetch(TIME, leads, ["sst", "t2m", "u10m"], member=[4])),
+    ):
+        np.testing.assert_array_equal(field["ensemble"], [4])
+        np.testing.assert_allclose(field.sel(variable="sst"), 403.0)
+        np.testing.assert_allclose(field.sel(variable="t2m"), 401.0)
+        np.testing.assert_allclose(field.sel(variable="u10m"), 7.0)
+    # Analysis components are read at each valid time, each with the members.
+    assert analysis.ensembles == [[4]] * 4
+
+
+def test_composites_without_ensemble_components_reject_members():
+    source, _, _ = _composite()
+    assert not source.is_ensemble
+    with pytest.raises(ValueError, match="No component selects ensemble members"):
+        source(TIME, ["refc"], member=[1])
+    with pytest.raises(ValueError, match="does not select ensemble members"):
+        fetch_data(source, TIME, np.array(["refc"]), member=[1])
+
+
+def test_fetch_data_selects_members_through_a_composite():
+    source = CompositeSource(
+        {"ens": _MemberSource({"t2m": 1.0}), "static": _Source({"lsm": 5.0})},
+        {"ens": ["t2m"], "static": ["lsm"]},
+    )
+    field = fetch_data(source, TIME, np.array(["t2m", "lsm"]), member=[3])
+    assert field.dims[:4] == ("ensemble", "time", "lead_time", "variable")
+    np.testing.assert_allclose(field.sel(variable="t2m"), 301.0)
+    np.testing.assert_allclose(field.sel(variable="lsm"), 5.0)

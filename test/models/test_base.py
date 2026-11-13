@@ -38,7 +38,7 @@ class CropModel:
     def __init__(self, grid: LatLonGrid = PARENT) -> None:
         self.grid = grid
 
-    def with_region(self, region: Region, /) -> "CropModel":
+    def with_region(self, region: Region) -> "CropModel":
         if region.kind != "box":
             raise ValueError(f"{region.kind} regions are unsupported")
         west, south, east, north = region.params

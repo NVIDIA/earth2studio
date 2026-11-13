@@ -281,7 +281,7 @@ class ProgressStore:
 
     Progress is recorded as ``(time, final_lead_time, member_id)`` units, with no
     member for deterministic items, so resume is free to change item order,
-    rank count and member grouping; a partly done member group reruns in full.
+    rank count and the times; a partly done member group reruns in full.
     Each rank appends to its own log under ``path``, named by run attempt and
     rank, so no file ever has two writers. ``path`` must be shared by all ranks.
 
@@ -403,6 +403,13 @@ class ProgressStore:
         skipped = len(items) - len(left)
         if skipped:
             logger.info(f"Resume: skipping {skipped}/{len(items)} completed work items")
+            if not self.tags:
+                logger.warning(
+                    f"Resume: progress store '{self.path}' has no tags, so a run "
+                    "with a different model or checkpoint and the same output "
+                    "layout also skips these items; pass tags such as the model "
+                    "name and checkpoint to ProgressStore"
+                )
         return left
 
     def is_done(self, item: WorkItem) -> bool:
@@ -501,8 +508,8 @@ class ProgressStore:
             raise ValueError(
                 f"Progress manifest '{manifest_path}' does not match this run; "
                 f"differing keys: {', '.join(differing)}. Resume needs the same "
-                "streams, seed and tags; otherwise use a new progress path or "
-                "overwrite=True."
+                "streams, seed, member batching and tags; otherwise use a new "
+                "progress path or overwrite=True."
             )
 
     # -- logs --------------------------------------------------------------

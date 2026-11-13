@@ -65,7 +65,8 @@ Follow every step in order.
 >
 > **Deliverables first:** Write the source file and test file (Steps 6–7)
 > before extended exploration, documentation, registration, CHANGELOG, or PR
-> work. Skip Steps 8–14 when the user asks for implementation only.
+> work. Skip Steps 8–14 when the user asks for implementation only. Step 7b
+> (temporal statistics) is included by default for regular-cadence gridded sources.
 >
 > **Before you finish:** Run verification commands in the repo root so results
 > appear in the session log:
@@ -93,6 +94,7 @@ Load these on demand during the relevant steps:
 | `references/reference-implementation.py` | Obstore-backed source skeleton with FILL comments | Steps 6–10 |
 | `references/reference-lexicon.py` | Lexicon skeleton with FILL comments | Step 4 |
 | `references/testing-guide.py` | Test skeleton with FILL comments | Step 11 |
+| `references/temporal-statistics.py` | Statistics skeleton, supported methods, mock test sample | Step 7b |
 | `references/validation-guide.md` | Plot templates, PR body template, Greptile handling | Steps 12–14 (optional, for templates) |
 
 ---
@@ -102,7 +104,8 @@ Load these on demand during the relevant steps:
 ```text
 Step 0: Obtain reference → Step 1: Determine type → Step 2: Dependencies
 → Step 3: Add deps → Step 4: Create lexicon → Step 5: Update vocab/schema
-→ Step 6: Create skeleton → Step 7: Implement source → Step 8: Register
+→ Step 6: Create skeleton → Step 7: Implement source
+→ Step 7b: temporal statistics → Step 8: Register
 → Step 9: Documentation → Step 10: CHANGELOG → Step 11: Tests
 → Step 12: Validate & plots (user confirms) → Step 13: PR + sanity comment
 → Step 14: Greptile review
@@ -247,9 +250,71 @@ Present: class name, file path, skeleton code, task dataclass.
 
 **Async sources:** See `references/reference-implementation.py` for required patterns:
 `_sync_async`, `gather_with_concurrency`, `async_retry`, `obstore_fetch_to_cache`,
-`obstore_zarr_store` for Zarr, `try/finally` cleanup. Constructor params:
+`obstore_zarr_store` for Zarr, `try/finally` cleanup in async `fetch` so both
+direct async and synchronous calls remove temporary files on success or error.
+Keep `__call__` as the sync bridge; do not clean up twice. For overlapping calls
+sharing a temporary directory, use `_CleanupAfterLastCall` inside `fetch` (see
+OISST) so one call cannot delete another's files. Persistent caches are retained.
+In tests, save `cache_path = Path(ds.cache)` before fetching and inspect that path
+afterward: the cache getter may recreate the directory. Assert that temporary
+paths do not exist, rather than calling `iterdir()` on a removed directory.
+Exercise sync/async cleanup on success and error with mocked downloads.
+Constructor params:
 `cache=True`, `verbose=True`, `async_timeout=600`, `async_workers=None`,
 `retries=3`. DataFrame sources add `time_tolerance`.
+
+---
+
+### Step 7b — Temporal Statistics
+
+**Include native temporal statistics by default for regular-cadence gridded
+sources.** Tell the user which methods and cadence the source will support.
+Skip if the user opts out or the source is unsuitable (e.g. climatology or
+irregular DataFrame/station/satellite observations). `fetch_data` rejects
+statistic labels for sources without native support.
+
+Load `references/temporal-statistics.py` and follow it. In short:
+
+1. **Document support** in the source's class docstring using a `Note` headed
+   `Temporal statistics:`. List methods, label syntax, sampling cadence, window
+   closure, and accumulation caveats. Store capability metadata in the source's
+   lexicon as `TIME_STATISTICS = ("mean", "sum", "min", "max")` (or a subset),
+   and expose that lexicon as `source.lexicon`. Omit this metadata for lexicons
+   without native support (e.g. climatology). Do not add source-level
+   `time_statistics` or `time_step` attributes.
+2. **Plan**: `plain, stats, attrs = plan_statistics(variable, target_times, delta_t,
+   supported=self.lexicon.TIME_STATISTICS, validate=self._validate_time, ...)`. `plain` is `[(slot, name)]`
+   fetched with the source's ordinary path; `stats` is
+   a list of `StatisticPlan` dataclasses with `slot`, `base`, `modifier`, and
+   `samples` fields. `samples` has shape `(target, sample)`. `target_times` are
+   valid times, or the lead times of one initialization for forecasts.
+3. **Validate**: `plan_statistics` passes every unique sample coordinate to `validate`
+   before anything is downloaded.
+   Irregular sources build their own sample lists from `time_statistic_metadata`.
+4. **Reduce**: `await reduce_statistics(out, stats, fetch)` where `out` is the
+   `(target, variable, ...)` output view (one per initialization for forecasts) and
+   `fetch(coord, base)` is a source coroutine returning one lexicon-converted field.
+   Each target's samples are stacked in a transient array, reduced through the
+   registered statistic (`reduce_samples`), written to `out`, and released.
+   New registered statistics work without source changes (add to `TIME_STATISTICS`).
+5. **Finish**: propagate fetch errors and set `xr_array.attrs.update(attrs)`.
+6. **Tell the user**: the helper's `verbose=True` reports what is
+   averaged/accumulated/min'd/max'd and the window. Warn about
+   fields that are already accumulations (e.g. resetting precipitation buckets).
+
+Label grammar: `var:method:window` (trailing, `(-w, 0]`) or
+`var:method:start:end` (e.g. `tp:sum:+0h:+6h`); windows are left-open,
+right-closed. Regular coordinate helpers require cadence-aligned windows; reduction
+itself imposes no cadence and uses sample-weighted means. Parsing is in
+`earth2studio/utils/time_statistics.py`; reuse it, do not re-parse labels.
+
+**Testing:** use exactly one mock test (extend `test_<source>_call_mock` if present,
+otherwise add `test_<source>_time_statistics_mock`),
+covering mean/sum/min/max, the attrs, the planned samples read, and an invalid
+window (forecast sources also lead-time overlap, separate initializations, and
+lead < 0). Mock I/O, not the planner or reducer. The sample is in
+`references/temporal-statistics.py`; fixtures `mock_statistic_zarr` and
+`mock_statistic_grib` are in `test/data/conftest.py`.
 
 ---
 
@@ -295,7 +360,8 @@ One line per source. Do NOT add separate lexicon entries.
 
 Run `make format && make lint && make license`. Load `references/testing-guide.py`
 for test skeletons. Required tests: `test_<source>_fetch` (slow), `_cache` (slow),
-`_call_mock`, `_exceptions`, `_available`. Target 90%+ coverage with `--slow`.
+`_call_mock`, `_exceptions`, `_available`; plus a single
+`_time_statistics_mock` only if Step 7b was done. Target 90%+ coverage with `--slow`.
 
 #### [CONFIRM — Tests]
 
@@ -387,6 +453,9 @@ Agent: [loads skill, proceeds through Steps 0–14]
 **DO:** `uv run python`, `loguru.logger`, alphabetical order in `__init__.py`/RST/CHANGELOG,
 canonical method ordering, obstore helpers, `gather_with_concurrency`, `async_retry`,
 reference URLs in docstrings, `try/finally` cleanup.
+
+**Temporal statistics:** include for regular-cadence gridded sources; reuse `plan_statistics` / `reduce_statistics` from
+`earth2studio/data/utils.py`; one transient window stack per target, never the whole request.
 
 **AVOID:** hand-rolled fsspec stores, `asyncio.to_thread`, bare `tqdm.gather`,
 xarray for loading, full file downloads.

@@ -78,6 +78,7 @@ from earth2studio.io import IOBackend
 from earth2studio.io.utils import output_template
 from earth2studio.models.dx import CorrDiff
 from earth2studio.models.px import PrognosticModel
+from earth2studio.models.px.utils import initial_condition
 from earth2studio.perturbation import Perturbation
 from earth2studio.utils.time import to_time_array
 
@@ -126,7 +127,7 @@ def corrdiff_on_hens_ensemble(
 
     # Fetch initial data for the ensemble
     prognostic_ic = prognostic.input_coords()
-    from earth2studio.run import _map_field
+    from earth2studio.run import map_field
 
     time = to_time_array(time)
     x0 = fetch_data(
@@ -176,22 +177,27 @@ def corrdiff_on_hens_ensemble(
     ):
         mini_batch_size = min(batch_size, nensemble - batch_id)
         x = (
-            _map_field(x0, prognostic_ic)
+            map_field(x0, prognostic_ic)
             .expand_dims(ensemble=np.arange(batch_id, batch_id + mini_batch_size))
             .copy(deep=True)
         )
         x = perturbation(x)
         model = prognostic.create_iterator(x)
+        # The iterator yields forecasts only, so the initial condition is downscaled
+        # and written first
+        x_ic = map_field(initial_condition(x), corrdiff.input_coords())
+        io.write(corrdiff(x_ic))
 
         with tqdm(
             total=nsteps + 1,
+            initial=1,
             desc=f"Batch {batch_id} inference",
             position=1,
             leave=False,
         ) as pbar:
-            for step, x in enumerate(model):
+            for step, x in enumerate(model, start=1):
                 # Map prognostic outputs to CorrDiff inputs if needed
-                x = _map_field(x, corrdiff.input_coords())
+                x = map_field(x, corrdiff.input_coords())
                 # CorrDiff workflow: generate and write CorrDiff outputs
                 x = corrdiff(x)
                 io.write(x)

@@ -31,7 +31,7 @@ In this example you will learn:
 
 - How to instantiate StormCast-CONUS from a model package
 - Creating an HRRR initial-condition data source and a GFS forecast conditioning source
-- Running a deterministic forecast with [`earth2studio.run.deterministic`][earth2studio.run.deterministic]
+- Running a forecast with [`earth2studio.run.Pipeline`][earth2studio.run.Pipeline], which also fetches the model's conditioning
 - Post-processing and plotting composite reflectivity and 2-m temperature
 """
 
@@ -52,10 +52,14 @@ In this example you will learn:
 # %%
 # Set Up
 # ------
-# StormCast-CONUS requires a low-resolution global conditioning source. We use
-# [`earth2studio.data.GFS_FX`][earth2studio.data.GFS_FX] (the default), which provides GFS forecast
-# fields interpolated to the HRRR grid. An analysis source such as
-# [`earth2studio.data.ARCO_ERA5`][earth2studio.data.ARCO_ERA5] can also be used.
+# StormCast-CONUS requires a low-resolution global conditioning source. The model's
+# ``default_sources`` recommend [`earth2studio.data.GFS_FX`][earth2studio.data.GFS_FX]
+# forecasts bilinearly regridded onto the HRRR grid, and the runner fetches them for
+# every forecast step. A global analysis or forecast source such as
+# [`earth2studio.data.ARCO_ERA5`][earth2studio.data.ARCO_ERA5] can be used instead by
+# regridding it to the model grid with a
+# [`earth2studio.data.RegriddedSource`][earth2studio.data.RegriddedSource] and passing it
+# as the ``forcing`` argument.
 #
 # %%
 import os
@@ -79,8 +83,8 @@ from earth2studio.models.px import StormCastCONUS
 # Load the model from the default package
 package = StormCastCONUS.load_default_package()
 
-# By default, the model uses GFS_FX as the conditioning data source
-# Thus we do not need to explicitly specify the conditioning data source
+# Conditioning is not part of the model: the runner fetches it from the model's
+# default sources (regridded GFS_FX), so nothing needs to be specified here
 model = StormCastCONUS.load_model(package)
 
 # Create the HRRR initial-condition data source
@@ -92,26 +96,33 @@ io = ZarrBackend()
 # %%
 # Execute the Workflow
 # --------------------
-# With all components initialized, running the workflow is a single line of Python code.
+# With all components initialized, a ``Pipeline`` runs the workflow. It fetches the
+# initial condition from ``data`` and the conditioning from the model's default
+# sources, rolls the model forward and writes each step into the IO backend.
 # We save only ``t2m`` and ``refc`` to keep memory usage manageable; the full model
 # state has 99 channels on the 1024 × 1792 CONUS grid.
 #
 # For the forecast we will predict 4 hours ahead.
 
 # %%
-import earth2studio.run as run
+import torch
+
+from earth2studio.run import Pipeline, work_items
 
 nsteps = 4
 date = "2022-11-04T18:00:00"
 
-io = run.deterministic(
-    [date],
-    nsteps,
+items = work_items(
+    [np.datetime64(date)],
+    final_lead_time=np.timedelta64(nsteps, "h"),
+)
+Pipeline.from_model(
     model,
     data,
-    io,
-    output_coords={"variable": np.array(["t2m", "refc"])},
-)
+    output={"forecast": io},
+    output_variables={"forecast": ["t2m", "refc"]},
+    device="cuda" if torch.cuda.is_available() else "cpu",
+).run(items)
 
 print(io.root.tree())
 

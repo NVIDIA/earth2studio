@@ -65,7 +65,6 @@ jobs:
       px_models: ${{ steps.filter.outputs.px_models }}
       dx_models: ${{ steps.filter.outputs.dx_models }}
       da_models: ${{ steps.filter.outputs.da_models }}
-      serve: ${{ steps.filter.outputs.serve }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -300,6 +299,7 @@ jobs:
 
   test-data:
     name: Test data sources
+    timeout-minutes: 45
     if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.data == 'true'
     needs:
       - format
@@ -433,33 +433,6 @@ jobs:
           testmon-base-branch: ${{ needs.changes.outputs.base_branch }}
           save-testmon-cache: "false"
 
-  test-serve:
-    name: Test serve
-    if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.serve == 'true'
-    needs:
-      - format
-      - lint
-      - changes
-    runs-on: linux-amd64-gpu-h100-latest-1
-    container:
-      image: *e2s_ci_image
-      options: --shm-size=20g
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with:
-          persist-credentials: false
-
-      - name: Run test job
-        uses: $/.github/actions/run-ci-test
-        with:
-          tox-env: test-serve
-          testmon-base-branch: ${{ needs.changes.outputs.base_branch }}
-          save-testmon-cache: "false"
-
   coverage:
     name: Coverage
     if: github.repository == 'NVIDIA/earth2studio' && always()
@@ -472,7 +445,6 @@ jobs:
       - test-stats
       - test-da-models
       - test-px-models-conflicts
-      - test-serve
     runs-on: linux-amd64-cpu8
     container:
       image: *e2s_ci_lite_image

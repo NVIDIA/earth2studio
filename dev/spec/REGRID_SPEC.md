@@ -68,6 +68,10 @@ inherit. Wrappers around external engines conform without subclassing.
   `ValueError` if any target point lacks coverage.
 - Floating dtypes are preserved. Other dtypes may be promoted so the fill is
   representable.
+- `NearestRegridder` takes an optional `source_mask` shaped like the source
+  grid; masked points are never selected, so a land-masked ocean field fills
+  every target from its nearest valid point. The mask is fixed at construction
+  (`R1`), unlike NaNs in the data, which propagate (`R7`).
 
 ## Registry
 
@@ -103,7 +107,7 @@ def default_sources(self):
     return (MRMS(), RegriddedSource(GOES(), NearestRegridder(goes_grid, self.grid)))
 ```
 
-The pair forwards the source's `time_step` and `device`, and declares
+The pair preserves lexicon-based statistics discovery and forwards `device`, and declares
 `is_forecast`. It passes qualified variable labels to the source, which aggregates
 on its native grid, and regrids the reduced field. A regridder is bound to its
 source's grid, so a caller replacing the source must replace the whole pair (`R2`

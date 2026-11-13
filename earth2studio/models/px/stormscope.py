@@ -39,7 +39,6 @@ from earth2studio.grids import (
 )
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.batch import batch_func
-from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import (
     coord_array,
@@ -638,7 +637,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         longitudes = (
             torch.from_numpy(np.load(package.resolve("lon.npy"))) + 360.0
         ) % 360.0
-        hrrr_y, hrrr_x = HRRR.HRRR_Y, HRRR.HRRR_X
+        grid_y, grid_x = HRRR.HRRR_Y, HRRR.HRRR_X
         full_y, full_x = latitudes.shape[0], longitudes.shape[1]
         anchor_y = int((full_y - image_size[0]) / 2)
         anchor_x = int((full_x - image_size[1]) / 2)
@@ -648,8 +647,8 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         longitudes = StormScopeBase._crop_invariant(
             longitudes, image_size, spatial_downsample
         )
-        y = hrrr_y[anchor_y : anchor_y + image_size[0]][::spatial_downsample]
-        x = hrrr_x[anchor_x : anchor_x + image_size[1]][::spatial_downsample]
+        y = grid_y[anchor_y : anchor_y + image_size[0]][::spatial_downsample]
+        x = grid_x[anchor_x : anchor_x + image_size[1]][::spatial_downsample]
 
         # Input/output timesteps configuration
         if pkg["sliding_window"]:
@@ -706,7 +705,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         package: Package,
         *args: Any,
         **kwargs: Any,
-    ) -> PrognosticModel:
+    ) -> Self:
         """Load model from package. Must be implemented by subclasses."""
         raise NotImplementedError(
             "StormScopeBase.load_model must be implemented by a subclass."
@@ -1304,7 +1303,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         "mrms_coverage_mask",
     )
 
-    def with_region(self, region: Region, /) -> Self:
+    def with_region(self, region: Region) -> Self:
         """Return a view of this model covering a geographic box.
 
         The view shares the loaded experts and crops the grid, invariants and
@@ -1675,9 +1674,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if conditioning is None:
             packed, restore = batch_func()._compress_array(self, x)
             tensor, coords = packed.e2s.to_torch()
-            tensor, coords = self.prep_input(
-                tensor.to(self.means.device).clone(), coords
-            )
+            tensor, coords = self.prep_input(tensor.to(self.means.device), coords)
             out = from_torch(
                 self._forward_tensor(tensor, coords),
                 self.output_coords(packed),
@@ -1721,7 +1718,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         output_coords = self.output_coords(packed)
         x, tensor_coords = packed.e2s.to_torch()
         conditioning, conditioning_coords = condition.e2s.to_torch()
-        x = x.to(self.means.device).clone()
+        x = x.to(self.means.device)
         conditioning = conditioning.to(self.means.device)
         x, x_coords = self.prep_input(x, tensor_coords)
         conditioning, conditioning_coords = self.prep_input(
@@ -1993,7 +1990,7 @@ class StormScopeGOES(StormScopeBase):
         model_name: Literal["3km_10min", "6km_1hr", "3km_10min_flash"] = "3km_10min",
         amp: bool = True,
         compile: bool = False,
-    ) -> PrognosticModel:
+    ) -> Self:
         """Load model from package.
 
         Parameters
@@ -2020,7 +2017,7 @@ class StormScopeGOES(StormScopeBase):
 
         Returns
         -------
-        PrognosticModel
+        Self
             Instantiated model: :py:class:`StormScopeGOESConditioned` for variants
             with conditioning variables, otherwise StormScopeGOES.
         """
@@ -2251,7 +2248,7 @@ class StormScopeGOESConditioned(StormScopeGOES):
         model_name: Literal["6km_1hr"] = "6km_1hr",
         amp: bool = True,
         compile: bool = False,
-    ) -> PrognosticModel:
+    ) -> Self:
         """Load a conditioned GOES variant from a package.
 
         Parameters
@@ -2269,7 +2266,7 @@ class StormScopeGOESConditioned(StormScopeGOES):
 
         Returns
         -------
-        PrognosticModel
+        Self
             Instantiated StormScopeGOESConditioned model.
         """
         return super().load_model(
@@ -2632,7 +2629,7 @@ class StormScopeMRMS(StormScopeBase):
         model_name: Literal["3km_10min", "6km_1hr", "3km_10min_flash"] = "3km_10min",
         amp: bool = True,
         compile: bool = False,
-    ) -> PrognosticModel:
+    ) -> Self:
         """Load model from package.
 
         Parameters
@@ -2658,7 +2655,7 @@ class StormScopeMRMS(StormScopeBase):
 
         Returns
         -------
-        PrognosticModel
+        Self
             Instantiated StormScopeMRMS model
         """
         try:

@@ -26,6 +26,7 @@ import pandas as pd
 import torch
 import xarray as xr
 
+from earth2studio.grids import Region
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.da.base import AssimilationModel
 from earth2studio.models.da.utils import (
@@ -102,7 +103,7 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
     ----------
     model : CorrDiffCosmoEra5
         A diffusion-mode downscaler (``mode="diffusion"``), already cropped to the
-        target region with :meth:`CorrDiffCosmoEra5.set_domain` if desired.
+        target region with :meth:`CorrDiffCosmoEra5.with_region` if desired.
     assimilate_variables : tuple[str, ...]
         Output variables to assimilate (required); must be identity-transform,
         unit-scale channels, e.g. ``("u10m", "v10m")`` (surface wind, available in
@@ -240,7 +241,7 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
 
         # Place observations on the model's current denoise grid -- the grid the
         # denoiser runs on, including any halo/patch-padding cells (a cropped sub-domain
-        # if set_domain was used, else the full footprint). DPS is applied here; the
+        # if with_region was used, else the full footprint). DPS is applied here; the
         # returned output is halo-trimmed (when applicable) to model.output_coords. Use
         # 3D points on the unit sphere for nearest-cell lookup so longitude wrap-around
         # is handled.
@@ -712,7 +713,7 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         package: Package,
         assimilate_variables: tuple[str, ...],
         resolution: str = "rea2",
-        domain: dict | None = None,
+        region: Region | None = None,
         time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         number_of_samples: int | None = None,
         sampler_steps: int | None = None,
@@ -724,11 +725,11 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
 
         Loads a diffusion-mode :class:`CorrDiffCosmoEra5` internally and wraps it.
 
-        ``domain`` (optional) crops the downscaler to a sub-region BEFORE wrapping,
-        so the observation grid stays in sync; it is forwarded verbatim to
-        :meth:`CorrDiffCosmoEra5.set_domain` (e.g.
-        ``domain=dict(lat_min=52.5, lat_max=55.5, lon_min=5.5, lon_max=9.5)``).
-        Cropping the wrapped ``.model`` afterwards would leave a stale obs grid.
+        ``region`` (optional) crops the downscaler to a sub-region BEFORE wrapping,
+        so the observation grid stays in sync; it is passed to
+        :meth:`CorrDiffCosmoEra5.with_region` (e.g.
+        ``region=Region.box(5.5, 52.5, 9.5, 55.5)``). Cropping the wrapped
+        ``.model`` afterwards would leave a stale obs grid.
 
         Parameters
         ----------
@@ -743,10 +744,9 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
             assimilated.
         resolution : str, optional
             COSMO-REA resolution, ``"rea2"`` or ``"rea6"``, by default ``"rea2"``.
-        domain : dict | None, optional
-            Sub-region crop forwarded to :meth:`CorrDiffCosmoEra5.set_domain`
-            (keys ``lat_min``/``lat_max``/``lon_min``/``lon_max``), by default
-            ``None`` (full native footprint).
+        region : Region | None, optional
+            Box passed to :meth:`CorrDiffCosmoEra5.with_region`, by default ``None``
+            (full native footprint).
         time_tolerance : TimeTolerance, optional
             Window for matching observation times to the analysis time, by default
             10 minutes.
@@ -780,8 +780,8 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         model = CorrDiffCosmoEra5.load_model(
             package, mode="diffusion", resolution=resolution
         )
-        if domain is not None:
-            model = model.set_domain(**domain)
+        if region is not None:
+            model = model.with_region(region)
         return cls(
             model,
             time_tolerance=time_tolerance,

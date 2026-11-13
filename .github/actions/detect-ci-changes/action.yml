@@ -50,9 +50,6 @@ outputs:
   da_models:
     description: Whether data assimilation model tests should run.
     value: ${{ steps.filter.outputs.da_models }}
-  serve:
-    description: Whether serve tests should run.
-    value: ${{ steps.filter.outputs.serve }}
 
 runs:
   using: composite
@@ -70,7 +67,6 @@ runs:
           echo "px_models=true" >> "$GITHUB_OUTPUT"
           echo "dx_models=true" >> "$GITHUB_OUTPUT"
           echo "da_models=true" >> "$GITHUB_OUTPUT"
-          echo "serve=true" >> "$GITHUB_OUTPUT"
           exit 0
         fi
 
@@ -127,12 +123,6 @@ runs:
           echo "da_models=true" >> "$GITHUB_OUTPUT"
         else
           echo "da_models=false" >> "$GITHUB_OUTPUT"
-        fi
-
-        if grep -qE "^(earth2studio/serve/|test/serve/|serve/)" changed-files.txt; then
-          echo "serve=true" >> "$GITHUB_OUTPUT"
-        else
-          echo "serve=false" >> "$GITHUB_OUTPUT"
         fi
       env:
         INPUTS_RUN_ALL: ${{ inputs.run-all }}

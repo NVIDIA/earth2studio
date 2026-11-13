@@ -29,6 +29,10 @@ class Perturbation(Protocol):
     A perturbation is a callable that takes a single DataArray holding the state to
     perturb and returns a DataArray of the same shape, dimensions and coordinates. The
     input is not modified in place: methods return a new array or the unmodified input.
+
+    Random perturbations may also implement ``set_rng(seed, reset=True)``, as
+    stochastic models do, drawing from an isolated stream once seeded. Runners call
+    it with each member's seed.
     """
 
     def __call__(self, x: xr.DataArray) -> xr.DataArray:

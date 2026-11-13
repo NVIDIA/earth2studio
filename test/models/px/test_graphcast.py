@@ -92,33 +92,6 @@ def _offline_backend(monkeypatch, module):
     )
     monkeypatch.setattr(module, "data_utils", data_utils)
 
-    def next_inputs(inputs, next_frame):
-        next_frame = next_frame.assign_coords(time=inputs.time.values[-1:])
-        return xr.concat(
-            (inputs.isel(time=slice(-1, None)), next_frame),
-            dim="time",
-            data_vars="minimal",
-            coords="minimal",
-            compat="override",
-        )
-
-    def prediction(predictor, rng, inputs, targets_template, forcings):
-        _, step_rng = random.split(rng)
-        return predictor(
-            rng=step_rng,
-            inputs=inputs,
-            targets_template=targets_template,
-            forcings=forcings,
-        )
-
-    monkeypatch.setattr(
-        module,
-        "rollout",
-        SimpleNamespace(
-            chunked_prediction=prediction,
-            _get_next_inputs=next_inputs,
-        ),
-    )
     if hasattr(module, "FORCING_VARIABLES"):
         monkeypatch.setattr(
             module,

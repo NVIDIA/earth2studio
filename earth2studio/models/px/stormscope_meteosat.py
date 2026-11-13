@@ -531,7 +531,7 @@ class StormScopeMeteosatEU(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             input_coords, {"lead_time": self.output_times + lead[-1]}
         )
 
-    def with_region(self, region: Region, /) -> Self:
+    def with_region(self, region: Region) -> Self:
         """Return a view of this model covering a geographic box.
 
         The view runs on the full model domain, because the experts' positional

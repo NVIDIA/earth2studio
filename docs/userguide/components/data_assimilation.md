@@ -137,8 +137,11 @@ There is no priming yield or initial-state yield: every yield is a computed outp
 Initial forcing belongs in `create_iterator`; later sends supply forcing for the
 next step in `forcing_coords()` order. StormCastSDA always requires conditioning,
 even when optional observations are `None`. Thus subsequent `next(iterator)` or
-`send(None)` cannot replace `send((conditioning, None))`. Conditioning is aligned
-to the input valid time, and observations to the output valid time one hour later.
+`send(None)` cannot replace `send((conditioning, None))`. For StormCastSDA,
+conditioning is aligned to the input valid time and observations to the output
+valid time one hour later. StormCastConusSDA aligns both conditioning and
+observations to the output valid time, and filters observations with the wrapped
+model's `time_tolerance` around that time.
 
 Return one output directly, or multiple objects in declared order (`return y1, y2`).
 Independent models declare observations in `input_coords()`; only stateful models

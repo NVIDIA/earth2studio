@@ -16,6 +16,13 @@ Update custom components to the RC protocols linked below. Shared changes:
 - **Grid object:** use `grid=` whenever possible. Pass a registered grid name or
   `GridDefinition` from `earth2studio.grids`; it supplies spatial axes, geometry, and CRS.
   Keep native projected/curvilinear axes and auxiliary lat/lon. A CRS alone is not a grid.
+- **Grid labels:** library output carries an `earth2studio_grid_id` label, which `infer_grid` and model
+  handshakes trust without comparing coordinate values. After reversing latitude,
+  rolling longitude or converting it to −180..180, drop the label
+  (`attrs.pop("earth2studio_grid_id")`) so the actual coordinates are used.
+- **Longitude bounds:** `subset_indexers(bounds=...)` measures longitude eastward from
+  `min_lon`, modulo 360: `(0, 180)` now includes 180°, and out-of-range bounds such as
+  `(-190, -170)` select the full box.
 - **Field object:** `(torch.Tensor, coords)` → one `xr.DataArray` containing values and
   metadata. Coordinate signatures and concrete fields are different uses of DataArray.
 - **Slots:** one input per positional argument; one output directly, multiple as a tuple.
@@ -49,6 +56,11 @@ signature = coord_array_like(x)   # Describe an existing field without copying v
   wrapping tensors. Match model/data devices; use `.e2s.as_numpy()` for explicit CPU export.
 - Preserve variable labels, including temporal qualifiers such as `tp:sum:6h`.
   Use datetime arrays for `time`, timedelta arrays for `lead_time`.
+- Statistic windows are right-closed: `var:method:w` reduces the stamps in
+  `(T − w, T]` and `var:method:start:end` those in `(T + start, T + end]`. Hourly
+  accumulations stamped at the end of their hour (`ARCO_ERA5` `tp`, `HRRR_FX` `tp`)
+  therefore give `tp:sum:6h` = the 6 hours ending at `T`, the same as `tp06`. Do not
+  sum GFS `tp` (a running bucket); use `tp06`.
 
 ## Diagnostic models
 
@@ -86,7 +98,9 @@ Targets: [AssimilationModel / StatefulAssimilationModel](earth2studio/models/da/
 Target: [PrognosticModel](earth2studio/models/px/base.py).
 
 - Tensor/dictionary calls → DataArray calls and coordinate signatures, as for diagnostics.
-  Input history leads are increasing, relative to initialization, and end at zero.
+  Input history leads are increasing, relative to initialization, and end at or
+  before zero (an input ending before zero is a background `initialize` brings up
+  to the analysis time).
 - Hidden rollout state → `y, state = model.initialize(x)`, then
   `y, state = model.step(y, state=state)`. Multiple outputs: `step(*y, state=state)`.
   `model(...)` returns initialization's forecast and starts fresh each call.
@@ -103,6 +117,35 @@ Target: [PrognosticModel](earth2studio/models/px/base.py).
   `PrognosticMixin` supplies private helpers; implement fixed-signature public methods.
 - Declare `stochastic`; stochastic models use model-local `set_rng(seed, reset=True)`.
   For `DomainAdaptable` models, assign `model = model.with_region(region)` and re-query signatures.
+  `CorrDiffCosmoEra5.set_domain(lat_min, lat_max, lon_min, lon_max, margin_deg, halo)` →
+  set `region_margin_deg` / `region_halo`, then `with_region(Region.box(lon_min, lat_min, lon_max, lat_max))`
+  (the view adds one bracketing row/column per side).
+  `CorrDiffCosmoEra5SDA.load_model(domain=...)` → `region=Region.box(...)`.
+  `CBottleSR.set_super_resolution_window(...)` → `with_region(Region.box(...))`;
+  `CBottleSR(super_resolution_window=(s, w, n, e))` → `region=Region.box(w, s, e, n)`.
+  `InterpCRPSDiT.set_domain(..., halo)` → set `region_halo`, then `with_region(Region.box(...))`.
+
+- `DLESyMLatLon` and `DLESyMv0_ISCCP_ERA5LatLon` are removed: use the native
+  `DLESyM` / `DLESyMv0_ISCCP_ERA5`, which run on HEALPix.
+  Lat/lon inputs → the models' `default_sources()`, a
+  `earth2studio.models.px.dlesym.DLESyMInputSource` over ARCO ERA5 that computes
+  `ws10m` and `tau300-700`, fills `sst` over land and regrids onto HEALPix; wrap
+  another lat/lon source with `DLESyMInputSource(source, nside=model.nside)`.
+  Lat/lon outputs, `to_ll` and `coords_to_ll` → regrid after the model, for example
+  `NearestRegridder(model.input_coords().attrs["earth2studio_grid_id"], LatLonGrid(lat, lon))(y)`.
+  `to_hpx`, `coords_to_hpx`, `ttr_3h_query_times` and `compute_ttr_3h` have no
+  replacement: the source requests `ttr03` from the source it wraps.
+
+## Renamed model and source labels
+
+- `PrecipitationAFNO` (v1) outputs `tp06`, not `tp`.
+- `DLESyM` v1.1 outputs `tp06` in meters, not the log-transformed `tp6`.
+- `OrbitGlobalPrecip`: inputs `tp24`, `t2m_max`, `t2m_min` → `tp:sum:24h`,
+  `t2m:max:-25h:-1h`, `t2m:min:-25h:-1h`; new inputs `sst:max:-25h:-1h` and
+  `sst:min:-25h:-1h`. The output is `tp:sum:24h`.
+- HRRR projected axes `hrrr_y` / `hrrr_x` → `y` / `x`, with no aliases, on the `HRRR`
+  sources and on `StormCast`, `StormCastCONUS`, `StormCastSDA` and `CorrDiffEra5Hrrr`
+  (dimensions, coordinates and `self.y` / `self.x` attributes).
 
 ## Data sources and fetching
 
@@ -112,13 +155,22 @@ Targets: [source protocols](earth2studio/data/base.py), [fetch_data](earth2studi
   Follow the `device` convention: NumPy/pandas on CPU, CuPy/cuDF on CUDA.
 - `tensor, coords = fetch_data(...)` → `x = fetch_data(...)`; remove `legacy=...`.
   Gridded fetch output order is `time, lead_time, variable, ...`.
+- `fetch_data` returns float32 for floating fields, as the tensor path did. Drop
+  casts after it; cast yourself when calling a source directly.
 - `interp_to` / `interp_method` → `target_grid` / explicit `regridder`.
   Use `infer_grid(model.input_coords())` for a single gridded slot. A target alone handles
   matching/cropping/nearby selection; provide a `Regridder` for the intended interpolation.
-- Fetch all declared variables/history. Temporal qualifiers need `delta_t` or source
-  `time_step`; windows include the left endpoint, exclude the right. Do not aggregate
-  already aggregated source fields again.
+- Fetch all declared variables/history. Temporal qualifiers require native source
+  support; sampling belongs to the source and `fetch_data` has no `delta_t` override.
+  Windows exclude the left endpoint and include the right.
 - Declare supported statistics in lexicon `TIME_STATISTICS`; handle them per source.
+- `fetch_data` selects the returned `time` and `lead_time` by label; `main` relabelled
+  them by position. A custom source must return the requested labels, otherwise
+  `fetch_data` raises a `ValueError` naming the source. `CMIP6` nearest-time output keeps
+  the requested times in `time` and the sampled times in `time_selected`, which replaces
+  `time_requested`.
+- Time statistics `sum`, `mean`, `min` and `max` return NaN when any sample in the
+  window is missing; `main` skipped them (an all-NaN `sum` gave 0).
 
 ## IO objects
 
@@ -157,6 +209,9 @@ Targets: [Statistic / Metric](earth2studio/statistics/base.py).
   `metric(x, truth)`. Each returns one DataArray, not a tensor/coordinate tuple.
 - Convert `output_coords(...)` to coordinate signatures; keep `reduction_dimensions`.
   Reduced dimensions disappear. Align prediction/observation coordinate values explicitly.
+- Metrics no longer broadcast `y` against `x`. `y` must have every dimension of `x`
+  except `ensemble_dimension` (present only in `x`), with matching coordinate values;
+  it is transposed to `x` order. Expand or select `y` before calling.
 
 ## Workflows after component migration
 
@@ -164,6 +219,31 @@ Keep `run.deterministic` / `diagnostic` / `ensemble` for single-input/output mod
 external forcing. They retain `nsteps`, dictionary `output_coords`, and initial output;
 custom iterator loops must publish initial fields separately. Update custom callbacks and
 IO using the sections above. For new orchestration, see [Pipeline](dev/examples/09_pipeline.py).
+
+- Runners publish the initial condition at lead 0 when a model's outputs include all of
+  its inputs. Output-only variables (diagnostics such as `tp06`) are NaN at lead 0, where
+  `main` let the model supply them. Exclude lead 0 from reductions over those variables.
+  `Pipeline` writes and scores the selected `output_variables` each step holds and skips
+  a step holding none, and diagnostic streams that read them start at the first forecast.
+- Runners raise `ValueError` when a source does not cover the model grid on a numeric
+  axis (for example a regional source on a global model, or −180..180 longitudes on a
+  0..360 model); `main` copied edge values. Resolution is not checked, so a coarser
+  source still repeats neighbouring values. Wrap such sources in `RegriddedSource` or
+  fetch with `fetch_data(target_grid=...)`.
+- Record the model and checkpoint in `ProgressStore(tags=...)` so a resumed run cannot
+  mix outputs from different models; a resume that skips items without tags now warns.
+- `CoupledRunner` raises `ValueError` for a final lead time at which no stateful
+  component's output is due; it used to end the run early without an error.
+- `CoupledRunner` does not run component `front_hook` / `rear_hook` (it warns when one
+  is set); use its `perturbation=` argument or a connector instead. Reduction windows
+  much longer than a consumer's step (about 30 h for a 6 h consumer) can exceed the
+  history the runner keeps and fail partway through the run.
+
+## Serving
+
+The beta `earth2studio.serve` package, the `serve` install extra (`earth2studio[serve]`),
+the top-level `serve/` directory, and the `make container-service` target are removed.
+Use [PhysicsNeMo Serve](https://github.com/NVIDIA/physicsnemo-serve) for deployment.
 
 ## Verify
 

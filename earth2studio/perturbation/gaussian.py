@@ -24,6 +24,7 @@ import torch
 import xarray as xr
 from typing_extensions import Self
 
+from earth2studio.models.utils import fork_rng
 from earth2studio.utils import handshake_dim
 from earth2studio.utils.checkpoint import bind_checkpoint_state
 from earth2studio.utils.cupy import from_torch
@@ -66,7 +67,25 @@ class Gaussian:
         )
         self.generator: torch.Generator | None = None
         self.seed = seed
+        self._reseeded = False
         self.checkpoint = bind_checkpoint_state(_GaussianCheckpointState())
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Initialize or reset the perturbation's isolated random stream.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for the noise draws
+        reset : bool, optional
+            Reset an existing stream, by default True. If False, an already
+            seeded stream is kept.
+        """
+        if reset or (self.seed is None and self.generator is None):
+            self.seed = seed
+            self.generator = None
+            # A reseed restarts the stream, even over a loaded checkpoint state.
+            self._reseeded = True
 
     @torch.inference_mode()
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
@@ -97,7 +116,8 @@ class Gaussian:
         if self.generator is None or self.generator.device != device:
             self.generator = torch.Generator(device=device)
             if (
-                self.checkpoint.checkpoint_state_loaded
+                not self._reseeded
+                and self.checkpoint.checkpoint_state_loaded
                 and self.checkpoint.generator_state is not None
             ):
                 self.generator.set_state(self.checkpoint.generator_state.cpu())
@@ -148,6 +168,11 @@ class CorrelatedSphericalGaussian:
     time_scale : float, optional
         Temporal correlation scale in hours for the AR(1) process, by default 48.0
 
+    Note
+    ----
+    Draws from the global Torch RNG until :meth:`set_rng` seeds it, after which
+    draws come from an isolated stream that leaves global RNG state untouched.
+
     Raises
     ------
     ValueError
@@ -171,6 +196,23 @@ class CorrelatedSphericalGaussian:
             if isinstance(noise_amplitude, torch.Tensor)
             else torch.Tensor([noise_amplitude])
         )
+        self._seed: int | None = None
+        self._rng_states: dict[str, torch.Tensor] = {}
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Initialize or reset the perturbation's isolated random stream.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for the noise draws
+        reset : bool, optional
+            Reset an existing stream, by default True. If False, an already
+            seeded stream is kept.
+        """
+        if reset or self._seed is None:
+            self._seed = seed
+            self._rng_states = {}
 
     @torch.inference_mode()
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
@@ -200,16 +242,17 @@ class CorrelatedSphericalGaussian:
             raise ValueError("Lat/lon aspect ration must be N:2N or N+1:2N")
 
         nlat = 2 * (shape[-2] // 2)  # Noise only support even lat count
-        sampler = CorrelatedSphericalField(
-            nlat=nlat,
-            length_scale=self.length_scale,
-            time_scale=self.time_scale,
-            sigma=self.sigma,
-            N=np.prod(shape[1:-2], dtype=int),
-        )
-        sampler = sampler.to(tensor.device)
-
-        sample_noise = sampler(tensor, None)
+        # The sampler draws its initial coefficients on construction
+        with fork_rng(self._seed, tensor.device, self._rng_states):
+            sampler = CorrelatedSphericalField(
+                nlat=nlat,
+                length_scale=self.length_scale,
+                time_scale=self.time_scale,
+                sigma=self.sigma,
+                N=np.prod(shape[1:-2], dtype=int),
+            )
+            sampler = sampler.to(tensor.device)
+            sample_noise = sampler(tensor, None)
         sample_noise = sample_noise.reshape(*shape[:-2], nlat, 2 * nlat)
 
         # Hack for odd lat coords

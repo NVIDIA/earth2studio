@@ -29,6 +29,15 @@ Conventions:
 - File lives at earth2studio/data/<source_name>.py
 - Class name: PascalCase (e.g. GFS, ARCO_ERA5, CFS_FX, HimawariAHI)
 - File name: lowercase with underscores (e.g. gfs.py, cfs.py)
+
+Native temporal statistics (default for regular-cadence gridded sources): follow
+``temporal-statistics.py``. Expose the
+lexicon via ``lexicon = SourceNameLexicon`` and declare supported methods on that
+lexicon. Use ``plan_statistics`` to split plain variables from statistics and plan the
+sample coordinates, validate them, then ``reduce_statistics`` with a source
+``fetch(coord, base)`` coroutine (lexicon converted). Plain variables keep the
+source's ordinary request path. For forecasts reduce each initialization's view
+separately and vary leads within that cycle. Attach ``attrs`` to the output.
 """
 
 from __future__ import annotations
@@ -57,6 +66,9 @@ from earth2studio.data.utils import (
     # FILL: Use prep_forecast_inputs instead if ForecastSource
     # prep_forecast_inputs,
     resolve_async_workers,
+)
+from earth2studio.grids import (
+    with_grid_metadata,
 )
 
 # FILL: Import your lexicon class
@@ -221,14 +233,7 @@ class SourceName:
             Fetched data array with dims (time, variable, lat, lon).
         """
         # FILL: For ForecastSource return shape is (time, lead_time, variable, lat, lon)
-        try:
-            xr_array = _sync_async(
-                self.fetch, time, variable, timeout=self.async_timeout
-            )
-        finally:
-            if not self._cache:
-                shutil.rmtree(self.cache, ignore_errors=True)
-        return xr_array
+        return _sync_async(self.fetch, time, variable, timeout=self.async_timeout)
 
     # ------------------------------------------------------------------
     # Async fetch
@@ -252,6 +257,17 @@ class SourceName:
         xr.DataArray
             Data array with dims (time, variable, lat, lon).
         """
+        try:
+            return await self._fetch(time, variable)
+        finally:
+            if not self._cache:
+                shutil.rmtree(self.cache, ignore_errors=True)
+
+    async def _fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
         if self.store is None:
             await self._async_init()
 
@@ -289,10 +305,12 @@ class SourceName:
             max_workers=resolve_async_workers(self._async_workers, len(coros)),
             task_timeout=60.0,
             desc="Fetching SourceName data",  # FILL: source name
-            verbose=(not self._verbose),
+            verbose=self._verbose,
         )
 
-        return xr_array
+        # FILL: Reuse a registered grid when the axes match; otherwise omit the
+        # name to describe the actual rectilinear lat/lon axes.
+        return with_grid_metadata(xr_array, "latlon-1deg")
 
     # ------------------------------------------------------------------
     # Task creation
@@ -386,8 +404,7 @@ class SourceName:
         for t in times:
             if (t - datetime(1900, 1, 1)).total_seconds() % INTERVAL_SECONDS != 0:
                 raise ValueError(
-                    f"Requested {t} must align to "
-                    f"{INTERVAL_SECONDS // 3600}h intervals"
+                    f"Requested {t} must align to {INTERVAL_SECONDS // 3600}h intervals"
                 )
             if t < MIN_DATE:
                 raise ValueError(f"Requested {t} is before minimum date {MIN_DATE}")

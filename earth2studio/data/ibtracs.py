@@ -296,7 +296,7 @@ class IBTrACS:
             coros,
             max_workers=self._async_workers,
             desc="Fetching IBTrACS data",
-            verbose=(not self._verbose),
+            verbose=self._verbose,
         )
 
         # Compile DataFrame from cached files

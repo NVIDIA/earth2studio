@@ -122,7 +122,7 @@ def _hrrr_index_limits(values: np.ndarray, axis_name: str) -> tuple[int, int]:
     Parameters
     ----------
     values : np.ndarray
-        1-D ``hrrr_y`` or ``hrrr_x`` coordinates (m) of a crop.
+        1-D ``y`` or ``x`` coordinates (m) of a crop.
     axis_name : {"y", "x"}
         Axis of the HRRR grid the values belong to.
 
@@ -381,7 +381,7 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         or the ``[-180, 180)`` convention (compared modulo 360).
     lat_output_grid, lon_output_grid : torch.Tensor
         2-D HRRR latitude / longitude ``[H, W]`` of the output crop (degrees).
-    hrrr_y, hrrr_x : torch.Tensor
+    y, x : torch.Tensor
         1-D native HRRR projection coordinates (m) of the output crop.
     era5_center, era5_scale : torch.Tensor
         ERA5 input normalization (mean / std), size ``[n_era5]``.
@@ -448,8 +448,8 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         lon_input_grid: torch.Tensor,
         lat_output_grid: torch.Tensor,
         lon_output_grid: torch.Tensor,
-        hrrr_y: torch.Tensor,
-        hrrr_x: torch.Tensor,
+        y: torch.Tensor,
+        x: torch.Tensor,
         era5_center: torch.Tensor,
         era5_scale: torch.Tensor,
         out_center: torch.Tensor,
@@ -511,10 +511,10 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         if invariants.ndim != 3 or invariants.shape[1:] != lat_output_grid.shape:
             raise ValueError("invariants must be [n_inv, H, W] on the output grid")
         if (
-            hrrr_y.numel() != lat_output_grid.shape[0]
-            or hrrr_x.numel() != lat_output_grid.shape[1]
+            y.numel() != lat_output_grid.shape[0]
+            or x.numel() != lat_output_grid.shape[1]
         ):
-            raise ValueError("hrrr_y / hrrr_x must match the output grid shape")
+            raise ValueError("y / x must match the output grid shape")
 
         self.network = network
         self.network_kind = network_kind
@@ -559,12 +559,8 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         self.register_buffer("invariants", invariants.to(torch.float32))
         # keep the native HRRR projection coordinates and the ERA5 grid on the CPU
         # as numpy for coordinate systems
-        self.hrrr_y = np.asarray(
-            torch.as_tensor(hrrr_y).cpu().numpy(), dtype=np.float64
-        )
-        self.hrrr_x = np.asarray(
-            torch.as_tensor(hrrr_x).cpu().numpy(), dtype=np.float64
-        )
+        self.y = np.asarray(torch.as_tensor(y).cpu().numpy(), dtype=np.float64)
+        self.x = np.asarray(torch.as_tensor(x).cpu().numpy(), dtype=np.float64)
         self.lat_input_numpy = lat_in.cpu().numpy().copy()
         self.lon_input_numpy = lon_in.cpu().numpy().copy()
         self._lat_out_cpu = self.lat_output_grid.cpu().numpy().astype(np.float64)
@@ -588,14 +584,14 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         """HRRR grid latitude (row) index limits of the output crop, in the convention
         of :class:`~earth2studio.models.px.StormCastCONUS`; ``(17, 1041)`` for the
         hosted model's full crop."""
-        return _hrrr_index_limits(self.hrrr_y, "y")
+        return _hrrr_index_limits(self.y, "y")
 
     @property
     def hrrr_lon_lim(self) -> tuple[int, int]:
         """HRRR grid longitude (column) index limits of the output crop, in the
         convention of :class:`~earth2studio.models.px.StormCastCONUS`; ``(3, 1795)``
         for the hosted model's full crop."""
-        return _hrrr_index_limits(self.hrrr_x, "x")
+        return _hrrr_index_limits(self.x, "x")
 
     def default_sources(self) -> "DataSource":
         """Recommend the ARCO ERA5 data source.
@@ -638,7 +634,7 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         Returns
         -------
         CoordinateSystem
-            ``[batch, sample, time, variable, hrrr_y, hrrr_x]``; the 2-D latitude
+            ``[batch, sample, time, variable, y, x]``; the 2-D latitude
             and longitude of the crop are available as ``lat_output_grid`` /
             ``lon_output_grid``.
         """
@@ -675,14 +671,14 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             {
                 "sample": np.arange(self.number_of_samples),
                 "variable": self.output_variables.copy(),
-                "hrrr_y": self.hrrr_y.copy(),
-                "hrrr_x": self.hrrr_x.copy(),
-                "lat": (("hrrr_y", "hrrr_x"), self._lat_out_cpu),
-                "lon": (("hrrr_y", "hrrr_x"), self._lon_out_cpu),
+                "y": self.y.copy(),
+                "x": self.x.copy(),
+                "lat": (("y", "x"), self._lat_out_cpu),
+                "lon": (("y", "x"), self._lon_out_cpu),
             }
         )
         return coord_array(
-            (*leading, "sample", "time", "variable", "hrrr_y", "hrrr_x"),
+            (*leading, "sample", "time", "variable", "y", "x"),
             coords,
             sizes={dim: input_coords.sizes[dim] for dim in (*leading, "time")},
             dynamic=tuple(dim for dim in leading if input_coords.sizes[dim] == 0),
@@ -876,7 +872,7 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         Returns
         -------
         xr.DataArray
-            ``[batch, sample, time, variable, hrrr_y, hrrr_x]`` forecast field.
+            ``[batch, sample, time, variable, y, x]`` forecast field.
         """
         signature = self.output_coords(x)
         handshake_time(x)
@@ -914,12 +910,12 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
                 "lat_grid": self.lat_output_grid,
                 "lon_grid": self.lon_output_grid,
                 "invariants": self.invariants,
-                "hrrr_y": self.hrrr_y,
-                "hrrr_x": self.hrrr_x,
+                "y": self.y,
+                "x": self.x,
             }
         return self._footprint
 
-    def with_region(self, region: Region, /) -> Self:
+    def with_region(self, region: Region) -> Self:
         """Return a view of this model covering a geographic box.
 
         The view shares the loaded network and runs on the smallest block of the
@@ -1043,8 +1039,8 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         view.register_buffer(
             "invariants", footprint["invariants"][:, i0:i1, j0:j1].clone()
         )
-        view.hrrr_y = footprint["hrrr_y"][i0:i1].copy()
-        view.hrrr_x = footprint["hrrr_x"][j0:j1].copy()
+        view.y = footprint["y"][i0:i1].copy()
+        view.x = footprint["x"][j0:j1].copy()
         view._lat_out_cpu = footprint["lat"][i0:i1, j0:j1].copy()
         view._lon_out_cpu = footprint["lon"][i0:i1, j0:j1].copy()
         view._footprint = footprint
@@ -1190,8 +1186,8 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
         )
         rows = metadata["hrrr_window"]["rows"]
         cols = metadata["hrrr_window"]["cols"]
-        hrrr_y = torch.from_numpy(HRRR.HRRR_Y[rows[0] : rows[1]].copy())
-        hrrr_x = torch.from_numpy(HRRR.HRRR_X[cols[0] : cols[1]].copy())
+        y = torch.from_numpy(HRRR.HRRR_Y[rows[0] : rows[1]].copy())
+        x = torch.from_numpy(HRRR.HRRR_X[cols[0] : cols[1]].copy())
 
         model = cls(
             network=network,
@@ -1206,8 +1202,8 @@ class CorrDiffEra5Hrrr(torch.nn.Module, AutoModelMixin):
             ),
             lat_output_grid=hrrr_lat,
             lon_output_grid=hrrr_lon,
-            hrrr_y=hrrr_y,
-            hrrr_x=hrrr_x,
+            y=y,
+            x=x,
             era5_center=_vec("era5", era5_variables, "mean"),
             era5_scale=_vec("era5", era5_variables, "std"),
             out_center=_vec("hrrr", output_variables, "mean"),

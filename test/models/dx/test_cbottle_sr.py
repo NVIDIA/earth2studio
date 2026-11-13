@@ -29,6 +29,8 @@ from types import SimpleNamespace
 
 from test_cbottle_infill import _field
 
+from earth2studio.grids import Region
+from earth2studio.models.base import DomainAdaptable
 from earth2studio.models.conformance import (
     check_diagnostic_contract,
 )
@@ -37,17 +39,49 @@ from earth2studio.models.dx.cbottle_sr import CHANNEL_TO_VARIABLE
 from earth2studio.utils import handshake_dim
 
 
+class _PointRegridder(torch.nn.Module):
+    """Offline stand-in for the HEALPix to lat/lon regridder."""
+
+    def __init__(self, grid):
+        super().__init__()
+        self.shape = (len(np.ravel(grid.lat)), len(np.ravel(grid.lon)))
+
+    def forward(self, x):
+        return x.mean(-1)[..., None, None].expand(*x.shape[:-1], *self.shape)
+
+
 @pytest.fixture(autouse=True)
 def offline_sr(monkeypatch):
     if cbottle is not None:
         return
+    import earth2studio.models.dx.cbottle_sr as sr_module
+
+    def equiangular(nlat, nlon, includes_south_pole=True):
+        return SimpleNamespace(
+            lat=np.linspace(90, -90, nlat)[:, None],
+            lon=np.linspace(0, 360, nlon, endpoint=False),
+        )
+
+    monkeypatch.setattr(
+        sr_module,
+        "earth2grid",
+        SimpleNamespace(
+            latlon=SimpleNamespace(
+                LatLonGrid=lambda lat, lon: SimpleNamespace(
+                    lat=np.asarray(lat)[:, None], lon=np.asarray(lon)
+                ),
+                equiangular_lat_lon_grid=equiangular,
+            ),
+            get_regridder=lambda src, dest: _PointRegridder(dest),
+        ),
+    )
 
     def initialize(
         self,
         core,
         lat_lon=True,
         output_resolution=(2161, 4320),
-        super_resolution_window=None,
+        region=None,
         **kwargs,
     ):
         torch.nn.Module.__init__(self)
@@ -57,30 +91,19 @@ def offline_sr(monkeypatch):
         self.input_grid = SimpleNamespace(
             lat=np.linspace(90, -90, 721), lon=np.arange(1440) / 4
         )
-        if super_resolution_window is None:
-            lat = np.linspace(90, -90, output_resolution[0])
-            lon = np.linspace(0, 360, output_resolution[1], endpoint=False)
-        else:
-            s, w, n, e = super_resolution_window
-            lat, lon = np.linspace(s, n, output_resolution[0]), np.linspace(
-                w, e, output_resolution[1]
-            )
-        self.output_grid = SimpleNamespace(lat=lat, lon=lon)
+        self.hpx_high_res_grid = "healpix-l10-nested"
         self.sigma_max = 800
-        self.super_resolution_extents = None
         self._coords = None
         self.regrid_input_to_hpx_low_res = lambda x: x
-        self.regrid_hpx_high_res_to_output = lambda x: x
         self._reorder_to_sr_channels = lambda x: x
         self._reorder_from_sr_channels = lambda x: x
-        output_shape = (
-            (12, len(self.output_grid.lat), len(self.output_grid.lon))
-            if self.output_type == "latlon"
-            else (12, 12582912)
-        )
+        output_shape = (12, 48) if self.output_type == "latlon" else (12, 12582912)
 
         class Core:
+            extents = []
+
             def __call__(self, x, **kwargs):
+                self.extents.append(kwargs.get("extents"))
                 steps = torch.arange(
                     self.num_steps, device=x.device, dtype=torch.float64
                 )
@@ -96,10 +119,12 @@ def offline_sr(monkeypatch):
                 return out[None, :, None], None
 
         self.sr_model = Core()
+        window, full_longitude = (
+            self._region_window(region) if region is not None else (None, False)
+        )
+        self._configure_window(window, output_resolution, full_longitude)
 
     monkeypatch.setattr(CBottleSR, "__init__", initialize)
-    import earth2studio.models.dx.cbottle_sr as sr_module
-
     monkeypatch.setattr(sr_module, "replace", lambda x: x)
 
 
@@ -151,22 +176,22 @@ class TestCBottleSRMock:
     )
     @pytest.mark.parametrize("output_resolution", [(721, 1440)])
     @pytest.mark.parametrize(
-        "device,window",
+        "device,region",
         [
-            ("cuda:0", (0, -120, 50, -40)),
+            ("cuda:0", Region.box(-120, 0, -40, 50)),
             ("cuda:0", None),
-            ("cuda:0", (0, -120, 50, -40)),
+            ("cuda:0", Region.band(-30, 30)),
         ],  # Skipping CPU tests, should work be too slow
     )
     def test_cbottle_sr_latlon(
-        self, x, device, output_resolution, window, mock_cbottle_core_model
+        self, x, device, output_resolution, region, mock_cbottle_core_model
     ):
         # Create CBottleSR model with mock core model
         dx = CBottleSR(
             mock_cbottle_core_model,
             lat_lon=True,
             output_resolution=output_resolution,
-            super_resolution_window=window,
+            region=region,
             sampler_steps=2,  # Smallest valid EDM schedule
             sigma_max=800,  # Reduced for testing
         ).to(device)
@@ -336,6 +361,138 @@ class TestCBottleSRMock:
 
         monkeypatch.setattr(dx, "_forward", finite_forward)
         assert check_diagnostic_contract(dx, device=device) == []
+
+
+def _same_signature(a, b):
+    return (
+        a.dims == b.dims
+        and a.shape == b.shape
+        and a.attrs == b.attrs
+        and all(np.array_equal(a[k].values, b[k].values) for k in a.coords)
+        and set(a.coords) == set(b.coords)
+    )
+
+
+class TestCBottleSRRegion:
+    def test_cbottle_sr_with_region(self, mock_cbottle_core_model):
+        dx = CBottleSR(mock_cbottle_core_model, output_resolution=(16, 32))
+        assert isinstance(dx, DomainAdaptable)
+        signature = dx.output_coords(dx.input_coords())
+        lat, lon = dx.output_lat.copy(), dx.output_lon.copy()
+        regridder = dx.regrid_hpx_high_res_to_output
+
+        view = dx.with_region(Region.box(-120, 0, -40, 50))
+        coords = view.output_coords(view.input_coords())
+        assert coords.sizes["lat"] == 16 and coords.sizes["lon"] == 32
+        np.testing.assert_allclose(coords.lat[[0, -1]], [0, 50])
+        np.testing.assert_allclose(coords.lon[[0, -1]], [-120, -40])
+        assert view.super_resolution_extents == (-120, -40, 0, 50)
+        assert view.sr_model is dx.sr_model
+        assert view.regrid_hpx_high_res_to_output is not regridder
+
+        # The parent is unchanged
+        assert dx.super_resolution_extents is None
+        np.testing.assert_array_equal(dx.output_lat, lat)
+        np.testing.assert_array_equal(dx.output_lon, lon)
+        assert dx.regrid_hpx_high_res_to_output is regridder
+        assert _same_signature(dx.output_coords(dx.input_coords()), signature)
+
+        # The constructor region selects the same grid as with_region
+        built = CBottleSR(
+            mock_cbottle_core_model,
+            output_resolution=(16, 32),
+            region=Region.box(-120, 0, -40, 50),
+        )
+        assert _same_signature(built.output_coords(built.input_coords()), coords)
+        assert built.super_resolution_extents == view.super_resolution_extents
+
+        # A view reaches the whole globe, as the parent does
+        for region in (Region.box(10, -20, 30, 20), Region.band(-90, 90)):
+            a = view.with_region(region).output_coords(dx.input_coords())
+            b = dx.with_region(region).output_coords(dx.input_coords())
+            assert _same_signature(a, b)
+        globe = dx.with_region(Region.band(-90, 90))
+        assert _same_signature(globe.output_coords(dx.input_coords()), signature)
+
+    def test_cbottle_sr_with_region_antimeridian(self, mock_cbottle_core_model):
+        dx = CBottleSR(mock_cbottle_core_model, output_resolution=(8, 21))
+        view = dx.with_region(Region.box(170, -10, -170, 10))
+        lon = np.asarray(view.output_coords(view.input_coords()).lon)
+        np.testing.assert_allclose(lon[[0, -1]], [170, 190])
+        assert np.all(np.diff(lon) > 0)
+        west, east = view.super_resolution_extents[:2]
+        assert (west % 360, east % 360) == (170, 190)
+
+    def test_cbottle_sr_with_region_band(self, mock_cbottle_core_model):
+        dx = CBottleSR(mock_cbottle_core_model, output_resolution=(8, 16))
+        view = dx.with_region(Region.band(-30, 30))
+        coords = view.output_coords(view.input_coords())
+        np.testing.assert_allclose(coords.lat[[0, -1]], [-30, 30])
+        np.testing.assert_allclose(coords.lon, np.arange(16) * 22.5)
+        west, east, south, north = view.super_resolution_extents
+        # cBottle reduces longitudes modulo 360, so the extents must not collapse
+        assert (south, north) == (-30, 30)
+        assert west % 360 < east % 360 and east - west > 359.99
+
+    @pytest.mark.parametrize(
+        "region,match",
+        [
+            (Region.rectangle(40, -100, 1e5), "box and band"),
+            (Region.circle(40, -100, 1e5), "box and band"),
+            (Region.box(-100, 30, -100, 40), "positive extent"),
+            (Region.box(-110, 30, -100, 30), "positive extent"),
+            (Region.band(30, 30), "positive extent"),
+        ],
+    )
+    def test_cbottle_sr_with_region_rejects(
+        self, mock_cbottle_core_model, region, match
+    ):
+        dx = CBottleSR(mock_cbottle_core_model, output_resolution=(8, 16))
+        with pytest.raises(ValueError, match=match):
+            dx.with_region(region)
+
+    def test_cbottle_sr_with_region_healpix(self, mock_cbottle_core_model):
+        dx = CBottleSR(mock_cbottle_core_model, lat_lon=False)
+        view = dx.with_region(Region.box(-120, 0, -40, 50))
+        assert view.super_resolution_extents == (-120, -40, 0, 50)
+        assert _same_signature(
+            view.output_coords(view.input_coords()),
+            dx.output_coords(dx.input_coords()),
+        )
+
+    @pytest.mark.skipif(cbottle is not None, reason="inspects the offline backend")
+    def test_cbottle_sr_with_region_forward(self, mock_cbottle_core_model):
+        dx = CBottleSR(mock_cbottle_core_model, output_resolution=(8, 16))
+        dx.set_rng(3)
+        view = dx.with_region(Region.box(-120, 0, -40, 50))
+        x = torch.randn(1, 12, 721, 1440)
+        coords = OrderedDict(
+            {
+                "batch": np.ones(1),
+                "variable": dx.input_coords()["variable"],
+                "lat": dx.input_coords()["lat"],
+                "lon": dx.input_coords()["lon"],
+            }
+        )
+        dx.sr_model.extents.clear()
+        out_view = view(_field(view, x, coords))
+        out_dx = dx(_field(dx, x, coords))
+        assert dx.sr_model.extents == [(-120, -40, 0, 50), None]
+        assert out_view.shape == out_dx.shape == (1, 12, 8, 16)
+        # The view's stream is a copy: it reproduces the parent's first draw
+        torch.testing.assert_close(out_view.e2s.to_torch()[0], out_dx.e2s.to_torch()[0])
+
+    @pytest.mark.skipif(cbottle is not None, reason="inspects the offline backend")
+    def test_cbottle_sr_views_follow_shared_network(self, mock_cbottle_core_model):
+        dx = CBottleSR(mock_cbottle_core_model, output_resolution=(8, 16))
+        # A shared module network, so its device is observable
+        dx.sr_model = torch.nn.Linear(1, 1)
+        view = dx.with_region(Region.box(-120, 0, -40, 50))
+        view.to("meta")
+        assert dx.sr_model.weight.device.type == "meta"
+        assert dx.device.type == "cpu"
+        dx._follow_network()
+        assert dx.device.type == "meta"
 
 
 @pytest.mark.package

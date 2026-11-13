@@ -27,10 +27,10 @@
 #     output-only diagnostics, e.g. 1 h accumulations, have no ERA5 truth)
 #   * 16 members — the model's noise-conditioned backbone drives the
 #     ensemble spread (perturbation would double-count).
-#   * 336 steps of 1 h: the model rolls out hourly (each hour is a full
-#     forward pass), so the scorecard verifies every hour against ERA5
-#     fetched on the fly from ARCO rather than the shared 6-hourly store
-#   * output pole-padded onto ERA5's 721 grid
+#   * 56 steps of 6 h, each yielding six hourly leads (336 in all), so the
+#     scorecard verifies every hour against ERA5 fetched on the fly from
+#     ARCO rather than the shared 6-hourly store
+#   * output gathered onto ERA5's 721 grid (output.regrid, nearest)
 #   * needs t-6h history, so it keeps its own IC store.
 # ---------------------------------------------------------------------------
 defaults:
@@ -92,8 +92,9 @@ start_times:
     - "2025-12-08 06:00:00"
     - "2025-12-15 12:00:00"
     - "2025-12-22 18:00:00"
-# Hourly rollout: 336 x 1 h = 14 days (the model yields every hour).
-nsteps: 336
+# 56 steps x 6 h = 14 days.  nsteps counts model steps, not leads: each step
+# of the hourly variant yields six leads, so lead_time spans 336 hours.
+nsteps: 56
 ensemble_size: 16
 random_seed: 42
 resume: true
@@ -105,6 +106,13 @@ data_source:
     verbose: false
 output:
     path: ${oc.env:SCORECARD_OUT,/code/earth2studio_eval/recipes/eval/scorecard/models/aurora1p5ens/outputs}/${project}_${run_id}
+    # Gather the model's native 720 x 1440 output onto ERA5's 721 x 1440
+    # grid before scoring: its 720 latitudes are the target's first 720,
+    # and the appended -90 row carries zero latitude weight, so the shared
+    # verification store applies as is.
+    regrid:
+        grid: latlon-0.25deg
+        method: nearest
     # Online scoring: never write the raw forecast store; stats.zarr is
     # the artifact.
     retain: none
@@ -200,14 +208,20 @@ scoring:
     mode: online
     variables: ${output.variables}
     lat_weights: true
+    # stl1, swvl1, sic and sd are NaN over sea or over land in ERA5: score
+    # the defined gridpoints alone instead of turning the whole field NaN.
+    nan_policy: mask
     # The online path derives its metric set from the accumulated
     # sufficient statistics (mse/rmse, ensemble_mean_mse, ensemble
     # variance, fair CRPS, rank reliability, bias, corr) plus the opt-ins
     # below — `scoring.metrics` does not apply here.
     online:
-        # 16 members on one 8-GPU node: 2 members per rank -> one ensemble
-        # group per node, so the CRPS member exchange stays on NVLink.
-        members_per_rank: 2
+        # One member per rank: a two-member batch of the hourly Aurora 1.5
+        # ensemble needs more than 80 GB (about 74 GiB in use when its
+        # decoder asks for 6 GiB more), so the 16 members take 16 ranks,
+        # two 8-GPU nodes (set TORCHRUN_ARGS for the rendezvous).  Each
+        # member is seeded alone, so the run reproduces member by member.
+        members_per_rank: 1
         # Per-member MAE and radially averaged log spectral distance (dB)
         # vs ERA5.  The regional splits come from the defaults entry
         # /regions/standard above; LSD is spectral, hence global-only.
@@ -222,15 +236,5 @@ verification_source:
     verbose: false
 predownload:
     verification:
-        enabled: false
-pipeline:
-    _target_: scorecard.utils.pipelines.RegriddedForecastPipeline
-    target_lat:
-        start: 90.0
-        stop: -90.0
-        num: 721
-    target_lon:
-        start: 0.0
-        stop: 359.75
-        num: 1440
-    share_verification: false
+        enabled: false   # bring-your-own above
+runner: forecast

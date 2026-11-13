@@ -1,31 +1,34 @@
 # StormScope coupled GOES + MRMS + GLM nowcasting (3km / 10-min default).
-# The pipeline runs both models together:
+# The stormscope runner (src/runners/stormscope.py) drives both models:
 #   * StormScopeGOES forecasts the eight ABI channels.  The 3km_10min variant
 #     is "pure obs" — no external conditioning source.
 #   * StormScopeMRMS forecasts radar reflectivity ([refc, refc_base]) plus a
 #     gridded GLM lightning channel (glm_density), conditioned on GOES
 #     (observations at IC, then the GOES model's own predictions).
-# Both operate on the HRRR Lambert-conformal grid (y, x).
+# Both operate on the HRRR Lambert-conformal grid (y, x) and are written as
+# the streams `goes` and `mrms` of forecast.zarr.
 #
-# GLM (glm_density) is a state channel: it is both an input (observation
-# history) and a predicted output that evolves autoregressively.  It is
-# sourced from earth2studio.data.GOESGLMGrid on a 0.1-degree lat/lon grid and
-# regridded *bilinearly* onto the model grid (unlike the nearest-neighbor
-# radar/satellite path).  Predownload writes it to data_glm.zarr; see the
-# recipe README "Multi-source pipelines (StormScope)" section.
-#
-# `cache: false` on every data source disables the per-source on-disk cache
-# (~/.cache/earth2studio).  Predownload writes its own dedicated, already
-# HRRR-regridded zarrs under <output.path>/ (data_goes.zarr / data_mrms.zarr /
-# data_glm.zarr), so leaving the cache on would store the much larger raw
-# GOES/MRMS/GLM footprint a second time on disk.
+# Data sources are the models' own default_sources(): GOES-East CONUS imagery
+# and MRMS radar, regridded nearest-neighbour onto the model grid within the
+# checkpoint's max_dist_km, plus GOESGLMGrid lightning regridded bilinearly and
+# composed into the MRMS state.  Predownload writes one store per source role:
+#   goes.zarr              GOES observation history (also MRMS conditioning)
+#   mrms.zarr              radar + GLM history
+# Bring-your-own sources replace a role with `ic_source:` / `conditioning_source:`
+# nodes below; they must already deliver fields on the model grid (for example a
+# predownloaded store, or earth2studio.data.RegriddedSource around a raw source).
+# The stormscope runner couples the two models with
+# earth2studio.coupling.CoupledRunner: the GOES model feeds the radar model's
+# GOES conditioning slot, from its observed history at initialization and from
+# its forecast at every later step.  Members batch on a leading ensemble axis;
+# the runner seeds each model once per work item from the item's first member,
+# under the model's own offset of random_seed (rule X5), so member_batch: 1
+# reproduces each member exactly.
 
 goes:
     architecture: earth2studio.models.px.StormScopeGOES
     load_args:
         model_name: 3km_10min
-        # 3km_10min GOES is pure-obs: no external conditioning source.
-        conditioning_data_source: null
         # Mixed precision + torch.compile of the diffusion experts.  compile
         # is REQUIRED at this domain size: it makes NATTEN's flex attention
         # build a sparse block mask, whereas the eager path materializes a
@@ -33,56 +36,29 @@ goes:
         # 3km grid.  Matches the notebook example's load_model settings.
         amp: true
         compile: true
-    ic_source:
-        _target_: earth2studio.data.GOES
-        satellite: goes16
-        scan_mode: C
-        cache: false
-    ic_grid:
-        _target_: src.grids.goes_grid
-        satellite: goes16
-        scan_mode: C
-    # No conditioning_grid — the pure-obs GOES variant has no conditioning
-    # source, so no conditioning interpolator (or cond_goes.zarr) is built.
+    # ic_source: null          # GOES history on the model grid (model default)
+    # forcing_source: null     # only for conditioned variants (6km_1hr): GFS_FX
+    # perturbation: null       # ensemble runs only: an earth2studio.perturbation
+    #                          # node applied to this model's initial condition
 
 mrms:
     architecture: earth2studio.models.px.StormScopeMRMS
     load_args:
         model_name: 3km_10min
-        # In the coupled rollout MRMS conditioning is supplied externally
-        # (the GOES state via call_with_conditioning); this source is used
-        # only to satisfy the model API and as a live fallback.
-        conditioning_data_source:
-            _target_: earth2studio.data.GOES
-            satellite: goes16
-            scan_mode: C
-            cache: false
-        # Gridded GLM lightning source for the glm_density state channel.
-        glm_data_source:
-            _target_: earth2studio.data.GOESGLMGrid
-            satellite: east
-            cache: false
         # See the GOES block: compile is required to avoid the dense NATTEN
         # flex-attention mask OOM at this domain size.
         amp: true
         compile: true
-    ic_source:
-        _target_: earth2studio.data.MRMS
-        cache: false
-    ic_grid:
-        _target_: src.grids.mrms_grid
-    # Source grid of the gridded GLM product (0.1-degree CONUS box).  Paired
-    # with a bilinear regridder at predownload time to resample GLM onto the
-    # model's HRRR sub-region exactly as the model would internally.
-    glm_grid:
-        _target_: src.grids.glm_grid
-        satellite: east
-    conditioning_grid:
-        _target_: src.grids.goes_grid
-        satellite: goes16
-        scan_mode: C
+    # ic_source: null            # radar + GLM history on the model grid (model default)
+    # conditioning_source: null  # GOES history frames the GOES model does not hold
+    #                            # (a radar history longer than the GOES one); the
+    #                            # GOES model itself conditions the radar model.
+    #                            # Default: the GOES source above (one store).
+    # perturbation: null         # ensemble runs only, as for the GOES model
 
-# Nearest-neighbor tolerance for the input / conditioning interpolators.
-# Pixels farther than this from any source point become NaN.  (GLM uses
-# bilinear interpolation, which is not distance-thresholded.)
-max_dist_km: 30.0
+# Optional regional view, applied to both models with the same padding so
+# their grids keep matching (earth2studio.grids.Region.box order):
+# region:
+#     kind: box
+#     params: [-100.0, 30.0, -90.0, 40.0]   # west, south, east, north
+region: null

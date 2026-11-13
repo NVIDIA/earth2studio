@@ -87,16 +87,16 @@ def test_fcn_step_iterator_and_hooks() -> None:
     xr.testing.assert_identical(model(x), out)
     assert not calls
     gen = model.create_iterator(x)
-    xr.testing.assert_identical(next(gen), x)
+    xr.testing.assert_identical(next(gen), out.copy(data=out.data + 1))
     second = next(gen)
-    np.testing.assert_array_equal(second.data, x.data + 2)
+    np.testing.assert_array_equal(second.data, x.data + 3)
     third = next(gen)
     np.testing.assert_array_equal(
-        third.lead_time, np.array([24], dtype="timedelta64[h]")
+        third.lead_time, np.array([30], dtype="timedelta64[h]")
     )
     model.clear_hooks()
     gen.close()
-    assert len(calls) == 4
+    assert len(calls) == 5
 
 
 @pytest.mark.parametrize(
@@ -155,15 +155,13 @@ def test_precipitation_array_execution(device: str) -> None:
     out = model(x)
     assert out.e2s.is_cupy == x.e2s.is_cupy
     assert out.dims == x.dims
-    assert out["variable"].values.tolist() == ["tp:sum:6h"]
+    assert out["variable"].values.tolist() == ["tp06"]
     np.testing.assert_allclose(out.e2s.as_numpy().data, 1e-5 * np.expm1(1), rtol=1e-6)
     xr.testing.assert_identical(out.height, x.height)
     assert out.attrs["experiment"] == "test"
     assert "earth2studio_kind" not in out.attrs
-    assert (
-        model.output_coords(x).attrs["earth2studio_statistics"]
-        == out.attrs["earth2studio_statistics"]
-    )
+    assert "earth2studio_statistics" not in model.output_coords(x).attrs
+    assert "earth2studio_statistics" not in out.attrs
 
 
 def test_fcn_cuda_execution() -> None:
@@ -232,8 +230,8 @@ def test_fuxi_array_rollout(device: str) -> None:
 
     model.rear_hook = rear
     iterator = model.create_iterator(x)
-    xr.testing.assert_identical(next(iterator), x.isel(lead_time=slice(-1, None)))
     first = next(iterator)
+    xr.testing.assert_identical(first, output.copy(data=output.data + 2))
     second = next(iterator)
     torch.testing.assert_close(
         first.e2s.to_torch()[0], torch.full(first.shape, 4.0, device=device)
@@ -255,8 +253,8 @@ def test_fuxi_signature_statistics() -> None:
     assert signature.data.nbytes == output.data.nbytes == 0
     assert signature["variable"].values.tolist() == DAILY_VARIABLES
     assert (
-        output.attrs["earth2studio_statistics"]["tp:mean:1h:25h"]["modifier"]
-        == "mean:+1h:+25h"
+        output.attrs["earth2studio_statistics"]["tp:mean:0h:24h"]["modifier"]
+        == "mean:0h:+24h"
     )
     with pytest.raises(ValueError):
         model.output_coords(signature.assign_coords(lead_time=[0, 1]))

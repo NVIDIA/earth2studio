@@ -30,7 +30,7 @@
 #   * 69 scored variables
 #   * 1 member — deterministic
 #   * 56 steps of 6 h
-#   * output pole-padded onto ERA5's 721 grid
+#   * output gathered onto ERA5's 721 grid (output.regrid, nearest)
 #   * needs t-6h history, so it keeps its own IC store.
 # ---------------------------------------------------------------------------
 defaults:
@@ -103,6 +103,13 @@ data_source:
     verbose: false
 output:
     path: ${oc.env:SCORECARD_OUT,/code/earth2studio_eval/recipes/eval/scorecard/models/aurora/outputs}/${project}_${run_id}
+    # Gather the model's native 720 x 1440 output onto ERA5's 721 x 1440
+    # grid before scoring: its 720 latitudes are the target's first 720,
+    # and the appended -90 row carries zero latitude weight, so the shared
+    # verification store applies as is.
+    regrid:
+        grid: latlon-0.25deg
+        method: nearest
     # Online scoring: never write the raw forecast store; stats.zarr is
     # the artifact.
     retain: none
@@ -195,21 +202,14 @@ scoring:
         mae: true
         lsd: true
     resume: true
+# Verification is the shared ERA5 store rather than a refetch: every one of
+# the 69 scored variables is in the fcn3 campaign's verification.zarr (same
+# times, same grid).  Override SCORECARD_MODELS when that run lives outside
+# this checkout's models/ directory.
+verification_source:
+    _target_: src.data.PredownloadedSource
+    store_path: ${oc.env:SCORECARD_MODELS,/code/earth2studio_eval/recipes/eval/scorecard/models}/fcn3/outputs/fcn3_2025_scorecard/verification.zarr
 predownload:
     verification:
-        enabled: true
-        source:
-            _target_: earth2studio.data.ARCO_ERA5
-            cache: false
-            verbose: false
-pipeline:
-    _target_: scorecard.utils.pipelines.RegriddedForecastPipeline
-    target_lat:
-        start: 90.0
-        stop: -90.0
-        num: 721
-    target_lon:
-        start: 0.0
-        stop: 359.75
-        num: 1440
-    share_verification: true
+        enabled: false   # bring-your-own above
+runner: forecast

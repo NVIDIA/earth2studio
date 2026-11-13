@@ -90,9 +90,7 @@ def transient_file(tmp_path_factory):
     return _write_forcing_file(path, _noleap_times(1980) + _noleap_times(1981))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(900)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -116,9 +114,7 @@ def test_camulator_forcing_fetch(time, variable):
     np.testing.assert_array_equal(data.coords["lat"].values, CAMULATOR_GRID_LAT)
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(900)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize("cache", [True, False])
 def test_camulator_forcing_cache(cache):
     ds = CAMulatorForcing(cache=cache)

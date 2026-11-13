@@ -24,6 +24,7 @@ import xarray as xr
 
 from earth2studio.grids import LatLonGrid
 from earth2studio.models.auto import Package
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import FengWu
 from earth2studio.utils import coord_array, coord_array_like
 from earth2studio.utils.cupy import from_torch
@@ -159,6 +160,14 @@ def test_fengwu_onnx_integration(device, fengwu_test_package):
             out.e2s.to_torch()[0], initial.e2s.to_torch()[0] + 6 * step
         )
         assert out.lead_time.values[0] == np.timedelta64(step * 6, "h")
+
+
+def test_fengwu_conformance(fengwu_test_package):
+    model = FengWu.load_model(fengwu_test_package)
+    assert check_prognostic_contract(model) == [
+        "P14: model does not declare itself stochastic",
+        "P21: checkpoint serialization requires component-specific tests",
+    ]
 
 
 @pytest.mark.package

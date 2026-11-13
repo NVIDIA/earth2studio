@@ -130,7 +130,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/models/px/test_aifs.py": ["aifs"],
     "test/models/dx/test_corrdiff.py": ["corrdiff"],
     "test/data/test_ecmwf.py": ["data"],
-    "test/serve/test_serve_client.py": ["serve"],
+    "test/models/px/test_sfno.py": ["sfno"],
     # ... etc
 }
 ```
@@ -248,7 +248,6 @@ make pytest TOX_ENV=test-data
 # - test-stats: Statistical method tests
 # - test-px-models: Prognostic model tests
 # - test-dx-models: Diagnostic model tests
-# - test-serve: Serve/API tests
 ```
 
 But for initial debugging and contribution, once can use pytest directly:

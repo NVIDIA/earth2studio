@@ -17,7 +17,14 @@
 from . import _gdal  # noqa: F401  (must come before the ECMWF-backed sources)
 from .ace2 import ACE2ERA5Data
 from .arco import ARCO, ARCO_ERA5
-from .base import DataFrameSource, DataSource, ForecastFrameSource, ForecastSource
+from .base import (
+    DataFrameSource,
+    DataSource,
+    EnsembleDataSource,
+    EnsembleForecastSource,
+    ForecastFrameSource,
+    ForecastSource,
+)
 from .cams import CAMS_FX
 from .camulator import CAMulatorForcing
 from .cbottle import CBottle3D
@@ -73,6 +80,7 @@ from .mrms import MRMS
 from .ncar import NCAR_ERA5
 from .nclimgrid import NClimGridDaily
 from .nnja import NNJAObsConv, NNJAObsSat, NNJAObsSatwnd
+from .oisst import OISST
 from .opera import OPERA
 from .planetary_computer import (
     PlanetaryComputerECMWFOpenDataIFS,

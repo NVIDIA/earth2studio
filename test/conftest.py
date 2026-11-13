@@ -22,6 +22,9 @@ import pytest
 
 from earth2studio.utils.imports import _check_package, _get_group_packages
 
+sys.path.insert(0, str(Path(__file__).parent / "_ci"))
+pytest_plugins = ["data_test_plugin"]
+
 
 def _group_available(group: str) -> bool:
     """Check if all packages in a dependency group are installed."""
@@ -83,6 +86,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/models/dx/test_stormscope_dx_nsrdb.py": ["stormscope"],
     "test/models/dx/test_wind_gust.py": ["windgust-afno"],
     # Model px tests
+    "test/models/px/test_weathermesh5c.py": ["weathermesh5c"],
     "test/models/px/test_ace2.py": ["ace2"],
     "test/models/px/test_aifs.py": ["aifs"],
     "test/models/px/test_aifsens.py": ["aifsens"],
@@ -118,25 +122,12 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
         "solarradiation-afno",
     ],
     # Model da tests
+    "test/models/da/test_da_aida.py": ["da-aida"],
     "test/models/da/test_da_healda.py": ["da-healda"],
     "test/models/da/test_da_healda_v2.py": ["da-healda-v2"],
     "test/models/da/test_da_interp.py": ["da-interp"],
     "test/models/da/test_da_sda_stormcast.py": ["da-stormcast"],
     "test/models/da/test_da_sda_corrdiff_cosmo_era5.py": ["da-cosmo"],
-    # Serve tests
-    "test/serve/client/test_serve_client.py": ["serve"],
-    "test/serve/client/test_serve_e2client.py": ["serve"],
-    "test/serve/client/test_serve_fsspec_utils.py": ["serve"],
-    "test/serve/server/test_compare_crps.py": ["statistics"],
-    "test/serve/server/test_server_cleanup.py": ["serve"],
-    "test/serve/server/test_server_config.py": ["serve"],
-    "test/serve/server/test_server_cpu_worker.py": ["serve"],
-    "test/serve/server/test_server_health.py": ["serve"],
-    "test/serve/server/test_server_main.py": ["serve"],
-    "test/serve/server/test_server_object_storage.py": ["serve"],
-    "test/serve/server/test_server_utils.py": ["serve"],
-    "test/serve/server/test_server_worker.py": ["serve"],
-    "test/serve/server/test_server_workflow.py": ["serve"],
     # Statistics tests
     "test/statistics/test_crps.py": ["statistics"],
     "test/statistics/test_lsd.py": ["statistics"],

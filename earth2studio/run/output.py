@@ -56,6 +56,7 @@ class OutputManager:
 
     def __init__(self, backends: Mapping[str, IOBackend]) -> None:
         self.backends: dict[str, IOBackend] = dict(backends)
+        self._unscheduled: set[str] = set()
         self._closed = False
 
     def prepare(
@@ -66,7 +67,9 @@ class OutputManager:
         Each store's template comes from its stream's planning signature, the
         sorted unique item times and, for ensembles, the sorted union of
         ``member_ids`` over every item. The stores therefore span the whole
-        campaign, so a resume at any world size reuses them (``X8``). Adding
+        campaign, so a resume at any world size reuses them (``X8``). A stream
+        with no scheduled lead times, such as a diagnostic that starts at the
+        first forecast when every item ends at lead time 0, gets no store. Adding
         arrays that already exist only validates them (``I4``), so ranks after
         the first one to prepare change nothing (``X13``).
 
@@ -105,8 +108,13 @@ class OutputManager:
         leading["time"] = times
 
         for stream, backend in self.backends.items():
+            schema = schemas[stream]
+            if "lead_time" in schema.dims and schema.sizes["lead_time"] == 0:
+                logger.info(f"Stream '{stream}' has no scheduled outputs; no store")
+                self._unscheduled.add(stream)
+                continue
             logger.debug(f"Adding arrays for stream '{stream}'")
-            backend.add_array(output_template(schemas[stream], leading))
+            backend.add_array(output_template(schema, leading))
 
     def check_distributed(self) -> None:
         """Reject stores that ranks would share, after :meth:`prepare` (``X14``).
@@ -123,6 +131,8 @@ class OutputManager:
         """
         unchecked: set[str] = set()
         for stream, backend in self.backends.items():
+            if stream in self._unscheduled:
+                continue
             blocks = getattr(backend, "write_blocks", None)
             if blocks is None:
                 unchecked.add(type(backend).__name__)

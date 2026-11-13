@@ -45,8 +45,11 @@ from earth2studio.run._fields import (  # noqa: F401 - re-exported helpers
     _io_template,
     _lead_times,
     _map_field,
+    _require_analysis_time_input,
+    _require_unforced,
     _rollout,
     _with_lead_time,
+    map_field,
 )
 from earth2studio.run.pipeline import Pipeline, Scorer
 from earth2studio.run.runner import (
@@ -77,6 +80,7 @@ __all__ = [
     "Scorer",
     "WorkItem",
     "work_items",
+    "map_field",
     "deterministic",
     "diagnostic",
     "ensemble",
@@ -126,6 +130,7 @@ def deterministic(
         Output IO object
     """
     logger.info("Running simple workflow!")
+    _require_unforced(prognostic, "deterministic")
     # Load model onto the device
     device = (
         device
@@ -135,6 +140,7 @@ def deterministic(
     logger.info(f"Inference device: {device}")
     prognostic = prognostic.to(device)
     prognostic_ic = cast(xr.DataArray, prognostic.input_coords())
+    _require_analysis_time_input(prognostic_ic)
     time = to_time_array(time)
 
     # Set up IO backend
@@ -176,7 +182,7 @@ def deterministic(
         # --8<-- [end:fetch-data]
 
         # Map lat and lon if needed
-        x = _map_field(x, prognostic_ic)
+        x = map_field(x, prognostic_ic)
         # Create prognostic iterator
         model = _rollout(prognostic, x, restart_step is None)
 
@@ -199,7 +205,7 @@ def deterministic(
                 x = cast(xr.DataArray, x)
                 current_lead_time = x.coords["lead_time"].values[-1]
                 # Subselect domain/variables as indicated in output_coords
-                x = _map_field(x, output_coords)
+                x = map_field(x, output_coords)
                 io.write(x)
                 ckpt.write(lead_time=current_lead_time)
                 pbar.update(1)
@@ -208,6 +214,7 @@ def deterministic(
 
         ckpt.flush()
 
+    io.flush()
     logger.success("\nInference complete")
     return io
 
@@ -258,6 +265,7 @@ def diagnostic(
         Output IO object
     """
     logger.info("Running diagnostic workflow!")
+    _require_unforced(prognostic, "diagnostic")
     device = (
         device
         if device is not None
@@ -268,11 +276,12 @@ def diagnostic(
     diagnostic = diagnostic.to(device)
 
     prognostic_ic = cast(xr.DataArray, prognostic.input_coords())
+    _require_analysis_time_input(prognostic_ic)
     diagnostic_ic = cast(xr.DataArray, diagnostic.input_coords())
     time = to_time_array(time)
 
     prognostic_oc = prognostic.output_coords(prognostic_ic)
-    diagnostic_oc = diagnostic.output_coords(_map_field(prognostic_oc, diagnostic_ic))
+    diagnostic_oc = diagnostic.output_coords(map_field(prognostic_oc, diagnostic_ic))
     template = _io_template(
         diagnostic_oc,
         nsteps,
@@ -307,7 +316,7 @@ def diagnostic(
         )
         logger.success(f"Fetched data from {data.__class__.__name__}")
 
-        x = _map_field(x, prognostic_ic)
+        x = map_field(x, prognostic_ic)
         model = _rollout(prognostic, x, restart_step is None)
 
         logger.info("Inference starting!")
@@ -328,9 +337,9 @@ def diagnostic(
 
                 x = cast(xr.DataArray, x)
                 current_lead_time = x.coords["lead_time"].values[-1]
-                x = diagnostic(_map_field(x, diagnostic_ic))
+                x = diagnostic(map_field(x, diagnostic_ic))
                 x = _with_lead_time(x, current_lead_time)
-                x = _map_field(x, output_coords)
+                x = map_field(x, output_coords)
                 io.write(x)
                 ckpt.write(lead_time=current_lead_time)
                 pbar.update(1)
@@ -339,6 +348,7 @@ def diagnostic(
 
         ckpt.flush()
 
+    io.flush()
     logger.success("\nInference complete")
     return io
 
@@ -394,6 +404,7 @@ def ensemble(
         Output IO object
     """
     logger.info("Running ensemble inference!")
+    _require_unforced(prognostic, "ensemble")
 
     device = (
         device
@@ -404,6 +415,7 @@ def ensemble(
     prognostic = prognostic.to(device)
 
     prognostic_ic = cast(xr.DataArray, prognostic.input_coords())
+    _require_analysis_time_input(prognostic_ic)
     time = to_time_array(time)
     x0 = fetch_data(
         source=data,
@@ -414,7 +426,7 @@ def ensemble(
     )
     logger.success(f"Fetched data from {data.__class__.__name__}")
 
-    x0 = _map_field(x0, prognostic_ic)
+    x0 = map_field(x0, prognostic_ic)
     template = _io_template(
         prognostic.output_coords(prognostic_ic),
         nsteps,
@@ -505,7 +517,7 @@ def ensemble(
 
                     x = cast(xr.DataArray, x)
                     current_lead_time = x.coords["lead_time"].values[-1]
-                    x = _map_field(x, field_coords)
+                    x = map_field(x, field_coords)
                     if len(written_members) < mini_batch_size:
                         x = x.sel(ensemble=written_members)
                     if len(written_members):
@@ -523,5 +535,6 @@ def ensemble(
 
             ckpt.flush()
 
+    io.flush()
     logger.success("\nInference complete")
     return io

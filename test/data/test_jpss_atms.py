@@ -30,9 +30,7 @@ from earth2studio.data import JPSS_ATMS
 # ---------------------------------------------------------------------------
 # Network / slow tests
 # ---------------------------------------------------------------------------
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
+@pytest.mark.live(timeout=120)
 @pytest.mark.parametrize(
     "time",
     [
@@ -64,9 +62,7 @@ def test_jpss_atms_fetch(time, variable):
         assert (df["observation"] < 400).all()  # BT in K
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
+@pytest.mark.live(timeout=120)
 def test_jpss_atms_schema_fields():
     ds = JPSS_ATMS(
         satellites=["n20"],
@@ -84,9 +80,7 @@ def test_jpss_atms_schema_fields():
     assert list(df_subset.columns) == subset_fields
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
+@pytest.mark.live(timeout=120)
 @pytest.mark.parametrize("cache", [True, False])
 def test_jpss_atms_cache(cache):
     ds = JPSS_ATMS(

@@ -23,9 +23,10 @@ from typing import Any
 import numpy as np
 import xarray as xr
 
+from earth2studio.grids import E2S_CRS, E2S_GRID_ID, infer_grid, same_geometry
 from earth2studio.io.utils import output_template
 from earth2studio.models.px.utils import initial_condition
-from earth2studio.utils.coords import CoordSystem, coord_array_like
+from earth2studio.utils.coords import E2S_STATISTICS, CoordSystem, coord_array_like
 
 
 def _dimension_coords(x: xr.DataArray) -> CoordSystem:
@@ -33,12 +34,45 @@ def _dimension_coords(x: xr.DataArray) -> CoordSystem:
     return OrderedDict((dim, x.coords[dim].values) for dim in x.dims)
 
 
-def _map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataArray:
-    """Select model variables/domain, retaining runtime times and auxiliary geometry.
+def map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataArray:
+    """Select the variables and domain of ``target`` from ``x``.
 
-    Exact contiguous selections are views; nearest numeric selections preserve the
-    legacy runner's mapping behavior. Curvilinear auxiliaries are never indexed as
-    dimensions. Model validation checks their geometry at the inference boundary.
+    Use it to fit fetched data or a model's output to another model's inputs, or to
+    an output subset. ``batch``, ``time`` and ``lead_time`` are kept from ``x``,
+    as are coordinates that ``target`` leaves empty. Exact contiguous selections
+    are views; labels missing from a numeric coordinate select the nearest one.
+    Curvilinear auxiliaries are never indexed as dimensions; model validation
+    checks their geometry at the inference boundary.
+
+    ``map_field`` selects and never regrids. Nearest selection is accepted only
+    when ``x`` covers ``target``: a target label more than one source spacing
+    beyond the source's range (a regional source on a global grid, or a
+    -180..180 longitude source on a 0..360 grid) raises instead of copying edge
+    values. Resolution is not checked, so a source coarser than the target (a
+    1 degree source on a 0.25 degree grid) repeats neighbouring values. Fetch
+    such data with ``fetch_data(target_grid=...)`` or wrap the source in
+    :class:`~earth2studio.data.RegriddedSource`.
+
+    Parameters
+    ----------
+    x : xr.DataArray
+        Field to select from
+    target : xr.DataArray | CoordSystem
+        Signature to select, such as ``model.input_coords()``, or a mapping of
+        coordinate names to labels
+
+    Returns
+    -------
+    xr.DataArray
+        ``x`` on ``target``'s coordinates, carrying ``target``'s grid metadata when
+        ``target`` is a DataArray
+
+    Raises
+    ------
+    ValueError
+        If a label is missing from a non-numeric coordinate, a numeric coordinate
+        of ``x`` does not cover ``target``'s range, or the
+        geometry or CRS does not match a DataArray ``target``.
     """
     coordinates = (
         _dimension_coords(target) if isinstance(target, xr.DataArray) else target
@@ -54,8 +88,12 @@ def _map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataAr
         index = x.get_index(dim).get_indexer(values)
         if (index < 0).any():
             if not np.issubdtype(source.dtype, np.number):
-                raise ValueError(f"Missing labels for coordinate {dim}: {values}")
-            index = np.abs(source[:, None] - values[None, :]).argmin(axis=0)
+                missing = np.asarray(values)[index < 0]
+                raise ValueError(
+                    f"Missing labels for coordinate {dim}: {missing.tolist()}; "
+                    f"it has {source.tolist()}"
+                )
+            index = _nearest_covering(dim, source, np.asarray(values))
         selection = (
             slice(int(index[0]), int(index[-1]) + 1)
             if np.all(np.diff(index) == 1)
@@ -63,11 +101,11 @@ def _map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataAr
         )
         x = x.isel({dim: selection}).assign_coords({dim: values})
         if dim == "variable":
-            statistics = coord_array_like(x).attrs.get("earth2studio_statistics")
+            statistics = coord_array_like(x).attrs.get(E2S_STATISTICS)
             x.attrs = dict(x.attrs)
-            x.attrs.pop("earth2studio_statistics", None)
+            x.attrs.pop(E2S_STATISTICS, None)
             if statistics:
-                x.attrs["earth2studio_statistics"] = statistics
+                x.attrs[E2S_STATISTICS] = statistics
     if isinstance(target, xr.DataArray) and "dims" in target.attrs:
         spatial_dims = set(target.attrs["dims"])
         for name, coordinate in target.coords.items():
@@ -81,10 +119,8 @@ def _map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataAr
                 raise ValueError(
                     f"Source geometry does not match target coordinate {name}"
                 )
-        actual_crs = x.attrs.get("earth2studio_crs")
-        if actual_crs is not None and actual_crs != target.attrs.get(
-            "earth2studio_crs"
-        ):
+        actual_crs = x.attrs.get(E2S_CRS)
+        if actual_crs is not None and actual_crs != target.attrs.get(E2S_CRS):
             raise ValueError("Source CRS does not match target CRS")
         x = x.copy(deep=False)
         for key in (
@@ -93,8 +129,8 @@ def _map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataAr
             "shape",
             "topology",
             "crs",
-            "earth2studio_crs",
-            "earth2studio_grid_id",
+            E2S_CRS,
+            E2S_GRID_ID,
             "level",
             "nside",
             "ordering",
@@ -108,13 +144,92 @@ def _map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataAr
     return x
 
 
-def _lead_times(signature: xr.DataArray, nsteps: int) -> np.ndarray:
-    """Return a rollout's full lead-time extent from one step's declaration."""
+_REGRID_HINT = (
+    "map_field selects and never regrids; fetch with fetch_data(target_grid=...) "
+    "or wrap the source in RegriddedSource"
+)
+
+
+def _nearest_covering(dim: str, source: np.ndarray, target: np.ndarray) -> np.ndarray:
+    """Return the nearest source index per target label, if ``source`` covers it.
+
+    Raises when a target label lies more than one source spacing, measured at
+    the nearer edge, beyond the source's range, which would otherwise copy edge
+    values silently.
+    """
+    if len(source) == 0:
+        raise ValueError(f"Source coordinate {dim} is empty; {_REGRID_HINT}")
+    # Signed arithmetic: bounds and distances wrap on unsigned integer labels
+    source = source.astype(np.float64)
+    target = target.astype(np.float64)
+    order = np.sort(source)
+    if len(order) == 1:
+        if not np.all(target == order[0]):
+            raise ValueError(
+                f"Source coordinate {dim} has the single label {order[0]}, which "
+                f"does not match target labels {target.tolist()}; {_REGRID_HINT}"
+            )
+        return np.zeros(len(target), dtype=np.intp)
+    below = target < order[0] - (order[1] - order[0])
+    above = target > order[-1] + (order[-1] - order[-2])
+    if below.any() or above.any():
+        raise ValueError(
+            f"{int(below.sum() + above.sum())} of {len(target)} target {dim} labels "
+            f"lie beyond the source's range [{order[0]}, {order[-1]}] (target "
+            f"range [{target.min()}, {target.max()}]); the source does not cover "
+            "the target domain, so check its extent and conventions such as "
+            f"longitude 0..360 versus -180..180; {_REGRID_HINT}"
+        )
+    index = np.abs(source[:, None] - target[None, :]).argmin(axis=0)
+    return index
+
+
+# Private alias kept for recipes written before ``map_field`` was public.
+_map_field = map_field
+
+
+def _require_unforced(prognostic: Any, workflow: str) -> None:
+    """Reject forced models, whose iterators need forcing sources ``run.*`` lacks."""
+    forcing_coords = getattr(prognostic, "forcing_coords", None)
+    if callable(forcing_coords) and forcing_coords() is not None:
+        raise ValueError(
+            f"run.{workflow} does not supply forcing, but "
+            f"{type(prognostic).__name__} declares forcing_coords(). Use "
+            "PrognosticRunner with Pipeline, which fetches each forcing slot "
+            "from the model's recommended sources or the forcing= argument."
+        )
+
+
+def _require_analysis_time_input(inputs: xr.DataArray) -> None:
+    """Reject models whose input ends before the analysis time.
+
+    The workflows write the initial condition and size stores from lead time
+    zero, so a model initialized from an earlier background cannot run under
+    them; ``PrognosticRunner`` handles such models.
+    """
+    leads = inputs.coords["lead_time"].values if "lead_time" in inputs.dims else None
+    if leads is not None and leads[-1] < np.timedelta64(0, "s"):
+        raise ValueError(
+            f"Input lead_time {leads} ends before the analysis time, which "
+            "run.deterministic, run.diagnostic and run.ensemble do not support; "
+            "use PrognosticRunner with Pipeline"
+        )
+
+
+def _lead_times(
+    signature: xr.DataArray, nsteps: int, step: np.timedelta64 | None = None
+) -> np.ndarray:
+    """Return a rollout's full lead-time extent from one step's declaration.
+
+    ``step`` is the interval each model step advances, by default the
+    declaration's last lead time (an input ending at zero).
+    """
     leads = signature.coords["lead_time"].values
+    step = leads[-1] if step is None else step
     return np.concatenate(
         [
             np.zeros(1, dtype=leads.dtype),
-            *(leads + leads[-1] * i for i in range(nsteps)),
+            *(leads + step * i for i in range(nsteps)),
         ]
     )
 
@@ -136,7 +251,7 @@ def _io_template(
     """
     # Selections along leading dims (time, ensemble) apply to `leading` below; the
     # signature only has its dynamic batch prefix there
-    signature = _map_field(
+    signature = map_field(
         signature,
         OrderedDict((k, v) for k, v in output_coords.items() if k in signature.dims),
     )
@@ -150,7 +265,7 @@ def _io_template(
         dim: np.asarray(output_coords.get(dim, values))
         for dim, values in leading.items()
     }
-    # output_template rejects spatial replacements; _map_field already applied them.
+    # output_template rejects spatial replacements; map_field already applied them.
     # Only lead_time is a fixed-dim replacement here; time/ensemble are leading dims.
     if "lead_time" not in signature.dims:
         # A diagnostic may drop lead time; the store keeps the rollout's axis, so the
@@ -160,11 +275,50 @@ def _io_template(
     return output_template(signature, leading=leading, coords={"lead_time": leads})
 
 
+def _publishes_initial_condition(inputs: xr.DataArray, outputs: xr.DataArray) -> bool:
+    """Whether an input slot's final frame can open the output slot's stream.
+
+    It can when the input ends at the analysis time and the output holds the
+    input's fields (see :func:`_holds_input_fields`). Models whose inputs are not
+    among their outputs, or end before the analysis time, start at the first
+    forecast.
+    """
+    if "lead_time" not in inputs.dims:
+        return False
+    # An input ending before zero is a background, not the analysis-time state.
+    if inputs.coords["lead_time"].values[-1] < np.timedelta64(0, "s"):
+        return False
+    return _holds_input_fields(inputs, outputs)
+
+
+def _holds_input_fields(inputs: xr.DataArray, outputs: xr.DataArray) -> bool:
+    """Whether the output declares every input variable, on the input's grid.
+
+    Outputs the input lacks, such as diagnostics, are allowed. This makes the
+    input slot a state slot, whatever lead times it covers.
+    """
+    if "lead_time" not in inputs.dims or "variable" not in inputs.dims:
+        return False
+    variables = {str(v) for v in inputs.coords["variable"].values}
+    if not variables <= {str(v) for v in outputs.coords["variable"].values}:
+        return False
+    try:
+        return same_geometry(infer_grid(inputs), infer_grid(outputs))
+    except Exception:  # noqa: BLE001 - not every signature carries a grid
+        fixed = ("batch", "time", "lead_time", "variable")
+        dims = [d for d in inputs.dims if d not in fixed]
+        return dims == [d for d in outputs.dims if d not in fixed] and all(
+            np.array_equal(inputs.coords[d].values, outputs.coords[d].values)
+            for d in dims
+            if d in inputs.coords and d in outputs.coords
+        )
+
+
 def _with_lead_time(x: xr.DataArray, lead_time: np.ndarray) -> xr.DataArray:
     """Restore the lead-time axis a diagnostic dropped, after the leading ``time`` axis."""
     if "lead_time" in x.dims:
         return x
-    position = 1 if "time" in x.dims else 0
+    position = x.get_axis_num("time") + 1 if "time" in x.dims else 0
     return x.expand_dims(lead_time=np.atleast_1d(lead_time), axis=position)
 
 
