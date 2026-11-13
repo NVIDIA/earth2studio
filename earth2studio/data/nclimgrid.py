@@ -167,16 +167,15 @@ class NClimGridDaily:
         time_list, variable_list = prep_data_inputs(time, variable)
 
         # NClimGrid is daily data — truncate to day resolution so sub-day
-        # timestamps (e.g. 07:30) map to the correct daily value.
-        # Deduplicate since multiple sub-day times map to the same day.
-        time_list = list(
-            dict.fromkeys(datetime(t.year, t.month, t.day) for t in time_list)
-        )
+        # timestamps (e.g. 07:30) map to the correct daily value. Days are
+        # fetched once; the result is relabelled with the requested times.
+        requested_days = [datetime(t.year, t.month, t.day) for t in time_list]
+        days = list(dict.fromkeys(requested_days))
 
         Path(self.cache).mkdir(parents=True, exist_ok=True)
-        self._validate_time(time_list)
+        self._validate_time(days)
 
-        tasks = self._create_tasks(time_list, variable_list)
+        tasks = self._create_tasks(days, variable_list)
 
         # Download each needed monthly NetCDF once up front; every (day,
         # variable) task for that month then reads the same local file. Only
@@ -218,7 +217,9 @@ class NClimGridDaily:
         res = xr.concat(array_list, dim="variable", coords="minimal")
         res.name = None
 
-        return with_grid_metadata(res.sel(time=time_list, variable=variable_list))
+        res = res.sel(time=requested_days, variable=variable_list)
+        res = res.assign_coords(time=np.array(time_list, dtype="datetime64[ns]"))
+        return with_grid_metadata(res)
 
     def _create_tasks(
         self, time: list[datetime], variable: list[str]

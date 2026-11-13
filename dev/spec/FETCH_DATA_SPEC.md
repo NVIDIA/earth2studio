@@ -121,6 +121,15 @@ then restore the requested initialization timestamps and add a `lead_time`
 dimension. For instantaneous forecasts, request initialization times and leads
 directly. Select returned coordinates in request order.
 
+Sources must label their output with the requested `time` (and, for forecast
+sources, `lead_time`) values, in request order; repeated requests may repeat a
+label. A source that maps a request onto other stored timestamps (a daily product
+truncating sub-day times, nearest-time matching) still returns the requested labels,
+and may record the timestamps it actually read in an auxiliary coordinate (CMIP6
+uses `time_selected`). `fetch_data` selects by label and never relabels positionally:
+a source returning other labels raises a `ValueError` naming the source and the
+labels it did not return, rather than silently attaching data to the wrong time.
+
 ## Ensemble Members
 
 Ensemble forecasts and stored ensemble runs supply one field per member, and an
@@ -243,9 +252,9 @@ field = fetch_data(
 ```
 
 The output contains the instantaneous field and preceding-day mean on the source
-grid. A six-hourly analysis source averages valid times -24 through -6 hours.
-For `GFS_FX`, request a lead of at least 24 hours for this trailing window: at
-lead 24h, hourly samples are leads 0 through 23h of the same initialization.
+grid. A six-hourly analysis source averages valid times -18 through 0 hours.
+For `GFS_FX`, request a lead of at least 23 hours for this trailing window: at
+lead 24h, hourly samples are leads 1 through 24h of the same initialization.
 A trailing window at lead zero is rejected because its required leads are negative.
 
 ## Deferred Work and Verification

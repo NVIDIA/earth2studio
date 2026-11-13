@@ -85,9 +85,11 @@ def test_time_statistics_planning_and_reduction():
         (1, "t2m", "mean:12h"),
         (2, "u10m", "max:6h"),
     ]
-    # Left-closed window ending at each target, shape (target, sample)
+    # Right-closed window ending at (and including) each target, shape
+    # (target, sample)
     assert stats[0].samples.shape == (2, 2)
-    assert stats[0].samples[1, -1] == np.datetime64("2024-01-02T00")
+    assert stats[0].samples[1, 0] == np.datetime64("2024-01-02T00")
+    assert stats[0].samples[1, -1] == np.datetime64("2024-01-02T06")
     assert set(attrs[E2S_STATISTICS]) == {"t2m:mean:12h", "u10m:max:6h"}
 
     # Lead time targets are planned relative to the initialization time and every
@@ -101,7 +103,7 @@ def test_time_statistics_planning_and_reduction():
         validate=validated.extend,
     )
     assert np.issubdtype(stats[0].samples.dtype, np.timedelta64)
-    assert validated == [datetime.timedelta(hours=h) for h in (0, 1, 2)]
+    assert validated == [datetime.timedelta(hours=h) for h in (1, 2, 3)]
 
     for variables, message in (
         ([":mean:6h"], "must not be empty"),
@@ -144,15 +146,13 @@ def test_time_statistics_planning_and_reduction():
         assert all(ref() is None for ref in refs)
         np.testing.assert_allclose(out[:, 0], np.nan, equal_nan=True)
         np.testing.assert_allclose(out[:, 1, 0], [239, 239])
-        # Window [t-2h, t) of hourly samples
-        np.testing.assert_allclose(out[:, 2, 0], [1.5, 2.5])
-        np.testing.assert_allclose(out[:, 3, 0], [3, 5])
-        np.testing.assert_allclose(out[:, 4, 0], [1, 2])
-        np.testing.assert_allclose(out[:, 5, 0], [2, 3])
-        # Missing cells ignore NaN; sum of nothing is zero
-        np.testing.assert_allclose(
-            out[:, 2:, 1], [[np.nan, 0, np.nan, np.nan]] * 2, equal_nan=True
-        )
+        # Window (t-2h, t] of hourly samples
+        np.testing.assert_allclose(out[:, 2, 0], [2.5, 3.5])
+        np.testing.assert_allclose(out[:, 3, 0], [5, 7])
+        np.testing.assert_allclose(out[:, 4, 0], [2, 3])
+        np.testing.assert_allclose(out[:, 5, 0], [3, 4])
+        # Missing samples propagate: a window holding NaN reduces to NaN
+        np.testing.assert_allclose(out[:, 2:, 1], np.nan, equal_nan=True)
     finally:
         _TIME_STATISTICS.pop("range")
 
@@ -1694,3 +1694,88 @@ def test_fetch_dataframe_fixed_size_lists_to_cudf():
     assert result.attrs["source"] == "channels"
     values = result["observation_x"].to_arrow().to_pylist()
     assert values == [[1.0, 2.0], [3.0, None]]
+
+
+def test_fetch_once():
+    """Concurrent requests share one download; failures reach every caller."""
+    from earth2studio.data.utils import fetch_once
+
+    inflight: dict = {}
+    calls = []
+
+    async def download(name, event, fail=False):
+        calls.append(name)
+        await event.wait()
+        if fail:
+            raise OSError("download failed")
+        return name
+
+    async def concurrent():
+        event = asyncio.Event()
+        tasks = [
+            asyncio.ensure_future(
+                fetch_once(inflight, "a", lambda: download("a", event))
+            )
+            for _ in range(4)
+        ]
+        await asyncio.sleep(0)
+        assert len(inflight) == 1
+        # A cancelled caller does not abort the shared download for the others
+        tasks[0].cancel()
+        await asyncio.sleep(0)
+        event.set()
+        results = await asyncio.gather(*tasks[1:])
+        assert tasks[0].cancelled()
+        return results
+
+    assert asyncio.run(concurrent()) == ["a"] * 3
+    assert calls == ["a"] and not inflight
+
+    # A failed download raises for every caller, and the next request retries
+    async def failing():
+        event = asyncio.Event()
+        tasks = [
+            asyncio.ensure_future(
+                fetch_once(inflight, "b", lambda: download("b", event, fail=True))
+            )
+            for _ in range(3)
+        ]
+        await asyncio.sleep(0)
+        event.set()
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        assert all(isinstance(r, OSError) for r in results)
+        assert not inflight
+        event = asyncio.Event()
+        event.set()
+        return await fetch_once(inflight, "b", lambda: download("b", event))
+
+    calls.clear()
+    assert asyncio.run(failing()) == "b"
+    assert calls == ["b", "b"]
+
+    # A task left pending on another loop is not reused
+    calls.clear()
+    blocked = asyncio.new_event_loop()
+    try:
+
+        async def start_blocked():
+            event = asyncio.Event()
+            return asyncio.ensure_future(
+                fetch_once(inflight, "c", lambda: download("c", event))
+            )
+
+        pending = blocked.run_until_complete(start_blocked())
+        blocked.run_until_complete(asyncio.sleep(0.01))
+
+        async def other_loop():
+            event = asyncio.Event()
+            event.set()
+            return await fetch_once(inflight, "c", lambda: download("c", event))
+
+        assert asyncio.run(other_loop()) == "c"
+        assert calls == ["c", "c"]
+        pending.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            blocked.run_until_complete(pending)
+    finally:
+        blocked.close()

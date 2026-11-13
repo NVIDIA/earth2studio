@@ -143,8 +143,9 @@ the saved pair, so they yield the step after the saved state rather than repeati
 it.
 
 A daily-mean model can declare two consecutive inputs with start-of-day timestamps:
-`mean:0h:24h` for ordinary channels and `mean:1h:25h` for hourly interval-ending `tp`
-and `ttr`, with matching statistics metadata. Its initial condition is the latest
+`mean:-1h:23h` for ordinary channels (00–23 UTC) and `mean:0h:24h` for hourly
+interval-ending `tp` and `ttr` (01 UTC through next 00 UTC), with matching statistics
+metadata. Its initial condition is the latest
 input day, and its iterator yields daily predictions. Hooks see one prediction;
 front- and rear-hook edits feed the next rolling state (see
 Open Questions). Fields move to the model device at the Torch/ONNX boundary. Input
