@@ -78,6 +78,14 @@ class JPSS:
     - Cloud properties (mask, phase, height, optical thickness)
     - Aerosol detection and Volcanic ash products
 
+    Since September 14, 2026, NOAA's AWS archive applies a rolling 90-day
+    retention policy to a subset of JPSS products, including VIIRS M-band SDR
+    and land surface temperature (JPSSRR_LST). Older requests for these products
+    may be unavailable. VIIRS I1-I5 SDR and imagery geolocation
+    (VIIRS-IMG-GEO-TC) are exempt from this policy. Product retention policies
+    may change; see https://registry.opendata.aws/noaa-jpss/ for the current list
+    and alternative archives for historical data.
+
     Badges
     ------
     region:global dataclass:observation product:sat provider:noaa

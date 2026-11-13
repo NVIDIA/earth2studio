@@ -47,6 +47,7 @@ from earth2studio.data.utils import (
     prep_forecast_inputs,
     reduce_statistics,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon import GFSLexicon
 from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 
@@ -300,7 +301,7 @@ class GFS:
         )
         xr_array.attrs.update(attrs)
 
-        return xr_array.isel(lead_time=0)
+        return with_grid_metadata(xr_array.isel(lead_time=0), "latlon-0.25deg")
 
     def _lookup_record(
         self,
@@ -790,7 +791,7 @@ class GFS_FX(GFS):
             )
         xr_array.attrs.update(attrs)
 
-        return xr_array
+        return with_grid_metadata(xr_array, "latlon-0.25deg")
 
     @classmethod
     def _validate_leadtime(cls, lead_times: list[timedelta]) -> None:

@@ -138,17 +138,18 @@ def test_source_fetch(time, variable):
 def test_source_cache(cache):
     # FILL: Instantiate and fetch
     # ds = SourceName(cache=cache)
+    # cache_path = pathlib.Path(ds.cache)  # Save before fetching: getter may mkdir
     # data = ds(_TEST_TIME, ["t2m"])
     #
     # assert not np.isnan(data.values).any()
-    # assert pathlib.Path(ds.cache).is_dir() == cache
+    # assert cache_path.is_dir() == cache
     #
     # # Second fetch exercises cache path
     # data2 = ds(_TEST_TIME, ["t2m"])
     # assert data2.shape == data.shape
     #
     # try:
-    #     shutil.rmtree(ds.cache)
+    #     shutil.rmtree(cache_path)
     # except FileNotFoundError:
     #     pass
     pass

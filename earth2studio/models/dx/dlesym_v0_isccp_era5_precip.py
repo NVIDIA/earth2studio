@@ -526,7 +526,7 @@ class DLESyMv0_ISCCP_ERA5Precip(torch.nn.Module, AutoModelMixin):
         output_coords = self.output_coords(x)
         encoding = x.encoding.copy()
         x, coords = x.e2s.to_torch()
-        x = x.to(self.center.device).clone()
+        x = x.to(self.center.device)
 
         if self.use_ttr:
             variables = list(coords["variable"])

@@ -28,9 +28,7 @@ import pytest
 from earth2studio.data import GHCNDaily
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "time",
     [
@@ -80,9 +78,7 @@ def test_ghcn_fetch(stations, time, variable, tol):
     assert time_union["time"].all()
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "time",
     [
@@ -118,9 +114,7 @@ def test_ghcn_cache(time, variable, cache):
         pass
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 def test_ghcn_schema_fields():
     station = "USW00013722"
     time = np.array(["2023-01-01"], dtype=np.datetime64)
@@ -137,9 +131,7 @@ def test_ghcn_schema_fields():
     assert list(df_subset.columns) == subset_fields
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 def test_ghcn_exceptions():
     # Throw key error for invalid variable
     ds = GHCNDaily(
@@ -190,9 +182,7 @@ def test_ghcn_exceptions():
         ds(np.datetime64("2023-01-01"), ["t2m_max"], fields=wrong_type_schema)
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "bbox",
     [
@@ -260,9 +250,7 @@ def test_ghcn_available_invalid_time():
     assert not GHCNDaily.available(np.datetime64("1700-01-01"))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 def test_ghcn_available():
     # Valid time — partition should exist on S3
     assert GHCNDaily.available(datetime(2020, 1, 1))

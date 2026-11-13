@@ -33,6 +33,32 @@ from earth2studio.utils.coords import coord_array, coord_array_like
 from earth2studio.utils.cupy import from_torch
 
 
+def test_breeding_casts_source_to_model_dtype():
+    class FloatModel(Persistence):
+        def __call__(self, x):
+            assert x.dtype == np.float32
+            return super().__call__(x)
+
+    model = FloatModel(
+        np.array(["z500"]),
+        OrderedDict(lat=np.linspace(90, -90, 16), lon=np.arange(16)),
+    )
+    # Constant, like GFS, supplies double-precision fields.
+    source = Constant(OrderedDict(lat=np.linspace(90, -90, 16), lon=np.arange(16)))
+    perturbation = HemisphericCentredBredVector(
+        model=model,
+        data=source,
+        integration_steps=1,
+        seeding_perturbation_method=Gaussian(),
+    )
+    result = next(
+        perturbation.create_generator(
+            np.array([np.datetime64("2024-09-24T12")]), 2, torch.device("cpu")
+        )
+    )
+    assert result.dtype == torch.float32
+
+
 # Fake PX model
 @pytest.fixture
 def model():

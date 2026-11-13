@@ -33,9 +33,7 @@ _TEST_REGION = "ACTIVE"
 _TEST_TIME = datetime(year=2024, month=9, day=1, hour=0)
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
+@pytest.mark.live(timeout=120)
 @pytest.mark.parametrize(
     "time",
     [
@@ -70,9 +68,7 @@ def test_ibtracs_fetch(time, variable):
     assert time_union.all()
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
+@pytest.mark.live(timeout=120)
 @pytest.mark.parametrize("cache", [True, False])
 def test_ibtracs_cache(cache):
     ds = IBTrACS(

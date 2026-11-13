@@ -37,6 +37,7 @@ from earth2studio.data.utils import (
     obstore_store_from_url,
     prep_data_inputs,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon.nclimgrid import NClimGridLexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 
@@ -217,7 +218,8 @@ class NClimGridDaily:
         res.name = None
 
         res = res.sel(time=requested_days, variable=variable_list)
-        return res.assign_coords(time=np.array(time_list, dtype="datetime64[ns]"))
+        res = res.assign_coords(time=np.array(time_list, dtype="datetime64[ns]"))
+        return with_grid_metadata(res)
 
     def _create_tasks(
         self, time: list[datetime], variable: list[str]

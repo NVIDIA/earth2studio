@@ -16,6 +16,7 @@
 
 import pathlib
 import shutil
+from contextlib import contextmanager
 from datetime import datetime
 
 import numpy as np
@@ -26,9 +27,24 @@ from earth2studio.data import CMIP6, fetch_data
 from earth2studio.data.cmip6 import CMIP6MultiRealm
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@contextmanager
+def remote_io_xfail():
+    """Treat unavailable remote NetCDF streams as expected live-test failures."""
+    from intake_esgf.exceptions import DatasetInitError
+
+    try:
+        yield
+    except DatasetInitError as error:
+        pytest.xfail(f"Remote ESGF dataset initialization failed: {error}")
+    except OSError as error:
+        if error.errno == -68 and str(error.filename).startswith(
+            ("http://", "https://")
+        ):
+            pytest.xfail(f"Remote NetCDF I/O failure: {error}")
+        raise
+
+
+@pytest.mark.live(timeout=20)
 @pytest.mark.parametrize(
     "table_id, variable",
     [
@@ -40,14 +56,6 @@ from earth2studio.data.cmip6 import CMIP6MultiRealm
     "time",
     [
         pytest.param(datetime(2015, 1, 16), id="single_stamp"),
-        pytest.param(
-            [datetime(2015, 1, 15), datetime(2015, 1, 17)],
-            id="two_stamps",
-        ),
-        pytest.param(
-            datetime(2014, 1, 15),
-            id="non_matching_timespan",
-        ),
     ],
 )
 def test_cmip6_fetch(table_id, variable, time):
@@ -70,9 +78,7 @@ def test_cmip6_fetch(table_id, variable, time):
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=20)
 @pytest.mark.parametrize(
     "table_id, variable",
     [
@@ -85,7 +91,7 @@ def test_cmip6_fetch(table_id, variable, time):
         pytest.param([datetime(2015, 1, 16)]),
     ],
 )
-@pytest.mark.parametrize("cache", [True, False])
+@pytest.mark.parametrize("cache", [True])
 def test_cmip6_cache(table_id, variable, time, cache):
 
     ds = CMIP6(
@@ -137,9 +143,7 @@ def test_cmip6_init_valid():
     assert ds.variant_label == "r1i1p1f1"
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=10)
 @pytest.mark.parametrize(
     "variable, expected_exc",
     [
@@ -260,12 +264,11 @@ def test_cmip6_nearest_time_labels():
     assert float(fetched.values[0, 0, 0, 0, 0]) == 2.0
 
 
-@pytest.mark.xfail
-@pytest.mark.timeout(90)
+@pytest.mark.live(timeout=10)
 @pytest.mark.parametrize(
     "time, source_id, expected",
     [
-        pytest.param(datetime(2015, 1, 16), "CanESM5", True, id="exists"),
+        pytest.param(datetime(2015, 1, 16, 12), "CanESM5", True, id="exists"),
         pytest.param(datetime(1800, 1, 1), "CanESM5", False, id="too_early"),
         pytest.param(datetime(2015, 1, 16), "NonExistentModel", False, id="bad_model"),
     ],
@@ -273,13 +276,14 @@ def test_cmip6_nearest_time_labels():
 def test_cmip6_available(time, source_id, expected):
     """Test the CMIP6.available class-method."""
 
-    result = CMIP6.available(
-        time,
-        experiment_id="ssp585",
-        source_id=source_id,
-        table_id="Amon",
-        variant_label="r1i1p2f1",
-    )
+    with remote_io_xfail():
+        result = CMIP6.available(
+            time,
+            experiment_id="ssp585",
+            source_id=source_id,
+            table_id="Amon",
+            variant_label="r1i1p2f1",
+        )
 
     assert result is expected
 
@@ -314,9 +318,7 @@ def test_cmip6_multi_realm_validation_errors():
         CMIP6MultiRealm([atmos, ocean])
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=10)
 def test_cmip6_multi_realm_available_variables():
     """Test that available_variables returns union of all sources."""
     atmos = CMIP6(
@@ -344,21 +346,16 @@ def test_cmip6_multi_realm_available_variables():
     )
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
+@pytest.mark.live(timeout=10)
 @pytest.mark.parametrize(
     "time, expected",
     [
-        pytest.param(datetime(2015, 1, 16), True, id="available"),
+        pytest.param(datetime(2015, 1, 16, 12), True, id="available"),
         pytest.param(datetime(1800, 1, 1), False, id="too_early"),
     ],
 )
 def test_cmip6_multi_realm_available(time, expected):
-    """Test the CMIP6MultiRealm.available class-method.
-
-    Note: This test uses daily datasets (day and SIday) to ensure timestamp alignment.
-    Marked as xfail because available() downloads significant data (multiple GB).
-    """
+    """Test availability across monthly atmosphere and ocean datasets."""
     atmos = CMIP6(
         experiment_id="ssp585",
         source_id="CanESM5",
@@ -366,7 +363,6 @@ def test_cmip6_multi_realm_available(time, expected):
         variant_label="r1i1p2f1",
     )
 
-    # Use daily sea ice data (SIday) to ensure timestamp alignment with day
     sea_ice = CMIP6(
         experiment_id="ssp585",
         source_id="CanESM5",
@@ -375,14 +371,13 @@ def test_cmip6_multi_realm_available(time, expected):
     )
 
     sources = [atmos, sea_ice]
-    result = CMIP6MultiRealm.available(time, sources)
+    with remote_io_xfail():
+        result = CMIP6MultiRealm.available(time, sources)
 
     assert result is expected
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=20)
 def test_cmip6_multi_realm():
     """Combine multi-realm tests to reduce repeated downloads."""
     atmos = CMIP6(

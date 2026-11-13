@@ -22,6 +22,9 @@ import pytest
 
 from earth2studio.utils.imports import _check_package, _get_group_packages
 
+sys.path.insert(0, str(Path(__file__).parent / "_ci"))
+pytest_plugins = ["data_test_plugin"]
+
 
 def _group_available(group: str) -> bool:
     """Check if all packages in a dependency group are installed."""

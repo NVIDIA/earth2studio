@@ -228,7 +228,7 @@ class IEM_ASOS:
                 max_workers=self._async_workers,
                 task_timeout=120.0,
                 desc="Fetching IEM ASOS data",
-                verbose=(not self._verbose),
+                verbose=self._verbose,
             )
         finally:
             await self._session.close()

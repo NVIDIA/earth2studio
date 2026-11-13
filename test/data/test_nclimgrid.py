@@ -26,9 +26,7 @@ import xarray as xr
 from earth2studio.data import NClimGridDaily, fetch_data
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -60,9 +58,7 @@ def test_nclimgrid_fetch(time, variable):
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [np.array([np.datetime64("2010-07-01T00:00")])],

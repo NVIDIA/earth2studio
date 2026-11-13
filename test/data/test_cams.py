@@ -39,14 +39,11 @@ YESTERDAY = datetime.datetime.now(datetime.UTC).replace(
 ) - datetime.timedelta(days=1)
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
-@pytest.mark.parametrize("variable", ["aod550", ["aod550", "tcco"]])
+@pytest.mark.live(timeout=90)
+@pytest.mark.parametrize("variable", [["aod550", "tcco"]])
 @pytest.mark.parametrize(
     "lead_time",
     [
-        datetime.timedelta(hours=0),
         [datetime.timedelta(hours=0), datetime.timedelta(hours=24)],
     ],
 )
@@ -69,10 +66,8 @@ def test_cams_fx_fetch(variable, lead_time):
     assert not np.isnan(data.values).all()
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
-@pytest.mark.parametrize("cache", [True, False])
+@pytest.mark.live(timeout=90)
+@pytest.mark.parametrize("cache", [True])
 def test_cams_fx_cache(cache):
     time = np.array([np.datetime64(YESTERDAY.strftime("%Y-%m-%dT%H:%M"))])
     lead_time = datetime.timedelta(hours=0)

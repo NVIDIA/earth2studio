@@ -38,6 +38,7 @@ from earth2studio.data.utils import (
     prep_data_inputs,
     reduce_statistics,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon import WB2ClimatetologyLexicon, WB2Lexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 
@@ -191,7 +192,7 @@ class _WB2Base:
             verbose=self._verbose,
         )
         xr_array.attrs.update(attrs)
-        return xr_array
+        return with_grid_metadata(xr_array, "latlon-0.25deg")
 
     async def fetch_wrapper(
         self,
@@ -637,7 +638,7 @@ class WB2Climatology(_WB2Base):
         await tqdm.gather(
             *func_map, desc="Fetching WB2 climatology data", disable=(not self._verbose)
         )
-        return xr_array
+        return with_grid_metadata(xr_array, "latlon-0.25deg")
 
     async def fetch_array(self, time: datetime, variable: str) -> np.ndarray:
         """Fetches requested array from remote store
