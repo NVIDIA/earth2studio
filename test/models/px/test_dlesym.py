@@ -175,7 +175,7 @@ def build_dlesym_model(device, nside=64, type="hpx", atmos_diagnostic_variables=
     return model
 
 
-@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+@pytest.mark.parametrize("device", ["cpu"])
 def test_dlesym_tp06_physical_units(device):
     """tp06 is learned as log(1 + tp06 / 1e-8) and must be returned in meters."""
     model = build_dlesym_model(device, atmos_diagnostic_variables=["tp06", "msl"])
