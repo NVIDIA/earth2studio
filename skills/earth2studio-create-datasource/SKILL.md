@@ -250,7 +250,16 @@ Present: class name, file path, skeleton code, task dataclass.
 
 **Async sources:** See `references/reference-implementation.py` for required patterns:
 `_sync_async`, `gather_with_concurrency`, `async_retry`, `obstore_fetch_to_cache`,
-`obstore_zarr_store` for Zarr, `try/finally` cleanup. Constructor params:
+`obstore_zarr_store` for Zarr, `try/finally` cleanup in async `fetch` so both
+direct async and synchronous calls remove temporary files on success or error.
+Keep `__call__` as the sync bridge; do not clean up twice. For overlapping calls
+sharing a temporary directory, use `_CleanupAfterLastCall` inside `fetch` (see
+OISST) so one call cannot delete another's files. Persistent caches are retained.
+In tests, save `cache_path = Path(ds.cache)` before fetching and inspect that path
+afterward: the cache getter may recreate the directory. Assert that temporary
+paths do not exist, rather than calling `iterdir()` on a removed directory.
+Exercise sync/async cleanup on success and error with mocked downloads.
+Constructor params:
 `cache=True`, `verbose=True`, `async_timeout=600`, `async_workers=None`,
 `retries=3`. DataFrame sources add `time_tolerance`.
 

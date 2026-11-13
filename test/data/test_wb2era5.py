@@ -31,12 +31,10 @@ from earth2studio.data import (
 from earth2studio.data.utils import fetch_data
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
+@pytest.mark.live(timeout=15)
 @pytest.mark.skipif(
     int(version("zarr").split(".")[0]) < 3, reason="Test requires zarr version > 3.0"
 )
-@pytest.mark.timeout(15)
 @pytest.mark.parametrize(
     "time",
     [
@@ -70,12 +68,10 @@ def test_wb2era5_fetch(time, variable, Datasource):
     assert not np.isnan(data.values).any()
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
+@pytest.mark.live(timeout=15)
 @pytest.mark.skipif(
     int(version("zarr").split(".")[0]) < 3, reason="Test requires zarr version > 3.0"
 )
-@pytest.mark.timeout(15)
 @pytest.mark.parametrize(
     "time",
     [np.array([np.datetime64("1993-04-05T00:00")])],
@@ -113,8 +109,7 @@ def test_wb2era5_cache(time, variable, cache, Datasource):
         pass
 
 
-@pytest.mark.xfail
-@pytest.mark.timeout(15)
+@pytest.mark.live(timeout=15)
 @pytest.mark.skipif(
     int(version("zarr").split(".")[0]) < 3, reason="Test requires zarr version > 3.0"
 )

@@ -38,6 +38,7 @@ from earth2studio.data.utils import (
     prep_data_inputs,
     resolve_async_workers,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.utils.type import TimeArray, VariableArray
 
 
@@ -194,7 +195,7 @@ class OISST:
                 "sst_date": ("time", np.asarray(dates, dtype="datetime64[ns]")),
             },
         )
-        return result.e2s.to_backend("auto", device=self.device)
+        return with_grid_metadata(result).e2s.to_backend("auto", device=self.device)
 
     async def _fetch_date(self, requested: datetime) -> tuple[np.ndarray, datetime]:
         for offset in range(self.lag_days, self.lag_days + self.lookback_days):

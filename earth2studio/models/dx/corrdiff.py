@@ -1224,7 +1224,7 @@ class CorrDiff(torch.nn.Module, AutoModelMixin):
             )
         x, restore = batch_func()._compress_array(self, x)
         output_coords = self.output_coords(x)
-        x = x.e2s.to_torch()[0].to(self.in_center.device).clone()
+        x = x.e2s.to_torch()[0].to(self.in_center.device)
 
         out = torch.zeros(
             output_coords.shape,
@@ -1680,7 +1680,7 @@ class CorrDiffTaiwan(torch.nn.Module, AutoModelMixin):
         signature = self.output_coords(x)
         x, restore = batch_func()._compress_array(self, x)
         output_coords = self.output_coords(x)
-        x = x.e2s.to_torch()[0].to(self.in_center.device).clone()
+        x = x.e2s.to_torch()[0].to(self.in_center.device)
 
         out = torch.zeros(
             output_coords.shape,

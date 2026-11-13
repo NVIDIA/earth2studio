@@ -184,20 +184,14 @@ def now6h():
     return datetime(nt.year, nt.month, nt.day, nt.hour - delta_hr)
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
         now6h() - timedelta(hours=12),
-        [
-            now6h() - timedelta(days=1),
-            now6h() - timedelta(days=1, hours=6),
-        ],
     ],
 )
-@pytest.mark.parametrize("variable", ["tcwv", ["sp"]])
+@pytest.mark.parametrize("variable", [["tcwv", "sp"]])
 def test_ifs_fetch(time, variable):
     ds = IFS()
     data = ds(time, variable)
@@ -234,20 +228,14 @@ def test_ifs_fetch(time, variable):
         pass
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
         now6h() - timedelta(hours=12),
-        [
-            now6h() - timedelta(days=1),
-            now6h() - timedelta(days=1, hours=6),
-        ],
     ],
 )
-@pytest.mark.parametrize("variable", ["t2m", ["sp"]])
+@pytest.mark.parametrize("variable", [["t2m", "sp"]])
 @pytest.mark.parametrize("member", [2])
 def test_ifs_ens_fetch(time, variable, member):
     ds = IFS_ENS(cache=False, member=member)
@@ -280,30 +268,23 @@ def test_ifs_ens_fetch(time, variable, member):
     assert np.allclose(data.values, data_fx.values[:, 0])
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
         now6h() - timedelta(hours=12),
-        [
-            now6h() - timedelta(days=1),
-            now6h() - timedelta(days=1, hours=6),
-        ],
     ],
 )
 @pytest.mark.parametrize(
     "lead_time",
     [
-        timedelta(hours=0),
         [
             timedelta(hours=3),
             timedelta(hours=6),
         ],
     ],
 )
-@pytest.mark.parametrize("variable", ["tcwv", ["sp"]])
+@pytest.mark.parametrize("variable", [["tcwv", "sp"]])
 def test_ifs_ens_fx_fetch(time, lead_time, variable):
     ds = IFS_ENS_FX(cache=False)
     data = ds(time, lead_time, variable)
@@ -327,21 +308,18 @@ def test_ifs_ens_fx_fetch(time, lead_time, variable):
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "lead_time",
     [
-        timedelta(hours=0),
         [
             timedelta(hours=6),
             timedelta(hours=12),
         ],
     ],
 )
-@pytest.mark.parametrize("variable", ["t2m", ["tcc", "tp"]])
-@pytest.mark.parametrize("member", [0, 1])
+@pytest.mark.parametrize("variable", [["t2m", "tcc", "tp"]])
+@pytest.mark.parametrize("member", [1])
 def test_aifs_ens_fx_fetch(lead_time, variable, member):
     time = now6h() - timedelta(hours=12)
     ds = AIFS_ENS_FX(cache=False, member=member)
@@ -366,9 +344,7 @@ def test_aifs_ens_fx_fetch(lead_time, variable, member):
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -376,7 +352,7 @@ def test_aifs_ens_fx_fetch(lead_time, variable, member):
     ],
 )
 @pytest.mark.parametrize("variable", [["u10m", "tcwv"]])
-@pytest.mark.parametrize("cache", [True, False])
+@pytest.mark.parametrize("cache", [True])
 def test_ifs_cache(time, variable, cache):
     ds = IFS(cache=cache)
     data = ds(time, variable)

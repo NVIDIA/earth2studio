@@ -45,7 +45,7 @@ from earth2studio.data.utils import (
     prep_forecast_inputs,
     reduce_statistics,
 )
-from earth2studio.grids import ProjectedGrid, resolve_grid
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon import HRRRFXLexicon, HRRRLexicon
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -292,7 +292,7 @@ class HRRR:
         self._validate_time(time)
 
         # Native HRRR grid coordinates (y, x, lat, lon) from the registered grid spec
-        grid_coords = self._grid_coords()
+        grid_coords = {"y": self.HRRR_Y, "x": self.HRRR_X}
         # Note, this could be more memory efficient and avoid pre-allocation of the array
         # but this is much much cleaner to deal with
         xr_array = xr.DataArray(
@@ -313,6 +313,7 @@ class HRRR:
                 "variable": variable,
             },
         ).assign_coords(grid_coords)
+        xr_array = with_grid_metadata(xr_array, "hrrr-conus-3km")
 
         times = np.asarray(time, dtype="datetime64[ns]")
         plain, stats, attrs = plan_statistics(
@@ -576,14 +577,6 @@ class HRRR:
             cache_location = os.path.join(cache_location, "tmp_hrrr")
         return cache_location
 
-    def _grid_coords(self) -> xr.Coordinates:
-        """Native ``y``/``x`` and 2D ``lat``/``lon`` coordinates from the registered
-        ``hrrr`` grid definition, restricted to this source's axes."""
-        grid = resolve_grid("hrrr")
-        if not isinstance(grid, ProjectedGrid):
-            raise TypeError("The registered HRRR grid must be a ProjectedGrid")
-        return ProjectedGrid(self.HRRR_Y, self.HRRR_X, grid.crs).coords()
-
     @classmethod
     def grid(cls) -> tuple[np.array, np.array]:
         """Generates the HRRR lambert conformal projection grid coordinates. Creates the
@@ -810,7 +803,7 @@ class HRRR_FX(HRRR):
         self._validate_leadtime(time, lead_time)
 
         # Native HRRR grid coordinates (y, x, lat, lon) from the registered grid spec
-        grid_coords = self._grid_coords()
+        grid_coords = {"y": self.HRRR_Y, "x": self.HRRR_X}
         # Note, this could be more memory efficient and avoid pre-allocation of the array
         # but this is much much cleaner to deal with, compared to something seen in the
         # NCAR data source.
@@ -832,6 +825,7 @@ class HRRR_FX(HRRR):
                 "variable": variable,
             },
         ).assign_coords(grid_coords)
+        xr_array = with_grid_metadata(xr_array, "hrrr-conus-3km")
 
         leads = np.asarray(lead_time, dtype="timedelta64[ns]")
         plain, stats, attrs = plan_statistics(

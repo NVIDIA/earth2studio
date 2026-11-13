@@ -23,6 +23,7 @@ import xarray as xr
 
 from earth2studio.grids import LatLonGrid
 from earth2studio.models.auto import Package
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import FuXi
 from earth2studio.utils import coord_array, coord_array_like
 from earth2studio.utils.cupy import from_torch
@@ -152,6 +153,14 @@ def test_fuxi_onnx_integration(device, fuxi_test_package):
     assert torch.allclose(
         out.e2s.to_torch()[0][..., :-1, :, :], initial[..., :-1, :, :] + 1
     )
+
+
+def test_fuxi_conformance(fuxi_test_package):
+    model = FuXi.load_model(fuxi_test_package)
+    assert check_prognostic_contract(model) == [
+        "P14: model does not declare itself stochastic",
+        "P21: checkpoint serialization requires component-specific tests",
+    ]
 
 
 @pytest.mark.package
