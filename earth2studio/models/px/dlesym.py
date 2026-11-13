@@ -1317,9 +1317,7 @@ class DLESyMLatLon(DLESyM):
     atmos_diagnostic_variables : list[str], optional
         Atmospheric diagnostic output variables. These are produced by the
         atmos model but, unlike `atmos_variables`, are not fed back in as
-        input to the next autoregressive step. A `tp06` output is taken to
-        be learned as log(1 + tp06 / 1e-8) and is returned in meters, by
-        default []
+        input to the next autoregressive step, by default []
     ocean_diagnostic_variables : list[str], optional
         Ocean diagnostic output variables, analogous to
         `atmos_diagnostic_variables`, by default []
