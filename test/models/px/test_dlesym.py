@@ -719,7 +719,7 @@ def test_dlesym_split_step_replays_from_state():
     source = HEALPixFill(model)
     t0 = np.datetime64("2020-06-01T00")
     runner = _coupled(model, source)
-    chunks = [step for step in runner.run_item(WorkItem(t0, np.timedelta64(96, "h")))]
+    chunks = [*runner.run_item(WorkItem(t0, np.timedelta64(96, "h")))]
     y_atmos = [s["atmos"] for s in chunks if "atmos" in s][-1]
     y_ocean = [s["ocean"] for s in chunks if "ocean" in s][-1]
     sst = y_ocean.isel(lead_time=[-1]).assign_coords(
