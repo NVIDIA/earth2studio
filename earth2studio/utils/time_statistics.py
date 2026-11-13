@@ -98,7 +98,22 @@ def _nanoseconds(value: np.timedelta64) -> int:
         raise ValueError("Calendar-relative durations are not supported") from error
 
 
-def _compact_duration(value: np.timedelta64, *, signed: bool = False) -> str:
+def format_duration(value: np.timedelta64, *, signed: bool = False) -> str:
+    """Format a duration as the compact string statistic labels use.
+
+    Parameters
+    ----------
+    value : np.timedelta64
+        Duration to format.
+    signed : bool, optional
+        Prefix positive values with ``+``, as window offsets are written, by
+        default False.
+
+    Returns
+    -------
+    str
+        Compact duration such as ``"48h"``, ``"-42h"`` or ``"+6h"``.
+    """
     nanoseconds = _nanoseconds(value)
     sign = "-" if nanoseconds < 0 else "+" if signed and nanoseconds > 0 else ""
     magnitude = abs(nanoseconds)
@@ -131,10 +146,10 @@ class _Window:
     def modifier(self) -> str:
         window = self.end - self.start
         if self.start == -window and _nanoseconds(self.end) == 0:
-            return f"{self.method}:{_compact_duration(window)}"
+            return f"{self.method}:{format_duration(window)}"
         return (
-            f"{self.method}:{_compact_duration(self.start, signed=True)}:"
-            f"{_compact_duration(self.end, signed=True)}"
+            f"{self.method}:{format_duration(self.start, signed=True)}:"
+            f"{format_duration(self.end, signed=True)}"
         )
 
     def offsets(self, delta_t: np.timedelta64) -> NDArray[Any]:

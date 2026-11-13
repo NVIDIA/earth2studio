@@ -34,10 +34,15 @@ from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.camulator import CAMulator
 from earth2studio.models.px.cbottle_video import CBottleVideo
 from earth2studio.models.px.datareplay import DataReplay
-from earth2studio.models.px.dlesym import DLESyM, DLESyMLatLon
+from earth2studio.models.px.dlesym import (
+    DLESyM,
+    DLESyMAtmos,
+    DLESyMOcean,
+)
 from earth2studio.models.px.dlesym_v0_isccp_era5 import (
     DLESyMv0_ISCCP_ERA5,
-    DLESyMv0_ISCCP_ERA5LatLon,
+    DLESyMv0_ISCCP_ERA5Atmos,
+    DLESyMv0_ISCCP_ERA5Ocean,
 )
 from earth2studio.models.px.dlwp import DLWP
 from earth2studio.models.px.dxwrapper import DiagnosticWrapper

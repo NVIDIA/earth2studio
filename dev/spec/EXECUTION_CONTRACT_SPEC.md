@@ -498,7 +498,9 @@ optional runner capability built on `(y, state)` (open decision 3).
    too — `test/coupling/test_coupled_pipeline.py`.
 4. A forced model (StormCast-shaped mock) and fused DLESyM run through
    `PrognosticRunner` unchanged.
-5. Split DLESyM through the coupled runner reproduces the fused model.
+5. The DLESyM components through the coupled runner reproduce the fused model —
+   `test_dlesym_coupled_reproduces_fused` in `test/models/px/test_dlesym.py`;
+   `examples/06_seasonal/02_dlesym_example.py` runs both under `Pipeline`.
 6. Resume survives a world-size change — `torchrun`, two CPU ranks, gloo,
    `test/run/test_pipeline.py`.
 7. The StormScope coupled runner matches the eval `stormscope` pipeline.
