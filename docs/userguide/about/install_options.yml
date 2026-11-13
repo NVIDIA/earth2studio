@@ -62,20 +62,6 @@ categories:
     label: Prognostic Models
     description: Forecast models that advance atmospheric state.
     items:
-      - id: weathermesh5c
-        label: WeatherMesh-5c
-        extra: weathermesh5c
-        summary: WindBorne WeatherMesh-5c global forecast model.
-        api_refs:
-          - earth2studio.models.px.WeatherMesh5C
-        preinstall: &weathermesh5c_preinstall
-          pip:
-            - 'pip install "weathermesh-5c[windborne] @ git+https://github.com/windborne/weathermesh-5c.git@b27c315175982f5bb057c644d4bc0e1a16e0f790"'
-          uv:
-            default:
-              - 'uv add "weathermesh-5c[windborne] @ git+https://github.com/windborne/weathermesh-5c.git@b27c315175982f5bb057c644d4bc0e1a16e0f790"'
-        notes:
-          - The runtime is installed from the pinned public Git repository, not PyPI.
       - id: ace2
         label: ACE-2
         extra: ace2
@@ -356,6 +342,20 @@ categories:
         summary: UCast model dependencies.
         api_refs:
           - earth2studio.models.px.UCast
+      - id: weathermesh5c
+        label: WeatherMesh-5c
+        extra: weathermesh5c
+        summary: WindBorne WeatherMesh-5c global forecast model.
+        api_refs:
+          - earth2studio.models.px.WeatherMesh5C
+        preinstall: &weathermesh5c_preinstall
+          pip:
+            - 'pip install "weathermesh-5c[windborne] @ git+https://github.com/windborne/weathermesh-5c.git@b27c315175982f5bb057c644d4bc0e1a16e0f790"'
+          uv:
+            default:
+              - 'uv add "weathermesh-5c[windborne] @ git+https://github.com/windborne/weathermesh-5c.git@b27c315175982f5bb057c644d4bc0e1a16e0f790"'
+        notes:
+          - The runtime is installed from the pinned public Git repository, not PyPI.
 
   - id: diagnostic
     label: Diagnostic Models

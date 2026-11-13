@@ -256,3 +256,51 @@ def test_weathermesh_conformance(model, fields):
 
     report = _evaluate_prognostic(model)
     assert {v.partition(":")[0] for v in report.violations} == {"P10"}
+
+
+def standard_atmosphere(signature, time="2026-01-01T00", device="cpu"):
+    """Horizontally uniform standard-atmosphere fields for a declared input slot."""
+    layout = coord_array_like(
+        signature, {"batch": [0], "time": np.array([time], dtype="datetime64[ns]")}
+    )
+    values = np.zeros(layout.shape, dtype=np.float32)
+    surface = {"t2m": 288.0, "d2m": 283.0, "skt": 288.0, "sst": 290.0, "msl": 101325.0}
+    for i, name in enumerate(map(str, layout.variable.values)):
+        if name[0] in "ztq" and name[1:].isdigit():
+            level = int(name[1:])
+            height = 44330.8 * (1 - (level / 1013.25) ** 0.190263)
+            value = {
+                "z": 9.80665 * height,
+                "t": max(216.65, 288.15 - 0.0065 * height),
+                "q": 0.01 * (level / 1000) ** 3,
+            }[name[0]]
+        else:
+            value = surface.get(name, 0.0)
+        values[..., i, :, :] = value
+    return from_torch(torch.from_numpy(values).to(device), layout)
+
+
+@pytest.fixture(scope="module")
+def package_model():
+    if not torch.cuda.is_available():
+        pytest.skip("WeatherMesh-5c package test requires CUDA")
+    package = WeatherMesh5C.load_default_package()
+    return WeatherMesh5C.load_model(package, variables=("t2m", "z500"))
+
+
+@pytest.mark.package
+@pytest.mark.timeout(900)
+def test_weathermesh_package(package_model):
+    model = package_model.to("cuda:0")
+    x, sst = (standard_atmosphere(s, device="cuda:0") for s in model.input_coords())
+    y, state = model.initialize(x, sst)
+    assert y.dims == ("batch", "time", "lead_time", "variable", "lat", "lon")
+    assert y.shape == (1, 1, 1, 2, 720, 1440)
+    assert y.lead_time.values[0] == np.timedelta64(3, "h")
+    y, _ = model.step(y, state)
+    assert y.lead_time.values[0] == np.timedelta64(6, "h")
+    values = y.e2s.as_numpy()
+    assert np.isfinite(values.values).all()
+    # Physically plausible ranges catch variable-order or unit mismatches.
+    assert 200 < float(values.sel(variable="t2m").mean()) < 330
+    assert 45000 < float(values.sel(variable="z500").mean()) < 60000

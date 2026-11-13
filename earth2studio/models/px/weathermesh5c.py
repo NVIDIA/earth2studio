@@ -231,8 +231,7 @@ def _step(
     expected = _layout(runtime, y, variables, y.lead_time.values)
     handshake_dataarray(y, expected)
     if tuple(state.coordinates) != y.dims[:-3] or any(
-        not np.array_equal(y[dim], expected)
-        for dim, expected in state.coordinates.items()
+        not np.array_equal(y[dim], saved) for dim, saved in state.coordinates.items()
     ):
         raise ValueError(
             "Edited forecast coordinates do not match the native latent state"
@@ -301,7 +300,7 @@ class WeatherMesh5C(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     Note
     ----
     For an ensemble, set `source_member` on
-    [`CoupledRunner`](https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/earth2studio/coupling/runner.py) to choose the IFS member
+    [`CoupledRunner`][earth2studio.coupling.CoupledRunner] to choose the IFS member
     for each output member. See the [WeatherMesh-5c release notes](
     https://windbornesystems.com/blog/weathermesh-5c-release-notes), the
     [model card](https://huggingface.co/windborne/weathermesh-5c), and the
@@ -359,9 +358,10 @@ class WeatherMesh5C(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         Returns
         -------
         tuple[DataSource, DataSource]
-            The IFS ensemble background and OISST sea surface temperature.
+            The IFS ensemble background (Google Cloud mirror) and OISST sea
+            surface temperature.
         """
-        return IFS_ENS(member=1), OISST(lag_days=1, lookback_days=7)
+        return IFS_ENS(source="google", member=1), OISST(lag_days=1, lookback_days=7)
 
     def __call__(self, x: xr.DataArray, sst: xr.DataArray) -> xr.DataArray:
         """Compute the first complete forecast without iterator hooks.

@@ -38,6 +38,7 @@ from earth2studio.models.da.aida import (
     _reports,
     _schema,
 )
+from earth2studio.models.px.weathermesh5c import _iterator
 from earth2studio.run import Pipeline, work_items
 from earth2studio.utils.imports import (
     OptionalDependencyError,
@@ -323,3 +324,79 @@ def test_coupled_runner_batches_two_branches_per_background(
     assert forecast[0, 0] != forecast[2, 0]
     at_fork = values.sel(lead_time=np.timedelta64(12, "h"))
     assert np.all(abs(at_fork.sel(ensemble=0) - at_fork.sel(ensemble=1)) > 0)
+
+
+class _GriddedAIDAWeatherMesh5C(AIDAWeatherMesh5C):
+    """Expose only the IFS and SST slots; every observation slot stays empty.
+
+    The prognostic contract harness accepts DataArray slots only.
+    """
+
+    def input_coords(self):
+        return super().input_coords()[:2]
+
+    def default_sources(self):
+        return super().default_sources()[:2]
+
+    def output_coords(self, background, sst):
+        return super().output_coords(background, sst)
+
+    def __call__(self, background, sst):
+        return self.initialize(background, sst)[0]
+
+    def initialize(self, background, sst):
+        return super().initialize(background, sst)
+
+    def create_iterator(self, background, sst):
+        yield from _iterator(self, background, sst)
+
+
+@pytest.mark.parametrize("fork_hour", [None, 12])
+def test_aida_weathermesh_conformance(core_model, fork_hour):
+    from earth2studio.models.conformance import _evaluate_prognostic
+
+    model = _GriddedAIDAWeatherMesh5C(
+        core_model, fork_hour=fork_hour, variables=("t2m",)
+    )
+    assert model.stochastic is (fork_hour is not None)
+    report = _evaluate_prognostic(model, nsteps=4)
+    # P10: hook edits cannot update the native latent and raise (as WeatherMesh5C).
+    # P6: AIDA requires backgrounds at exactly -3 * assimilation_steps hours and
+    # rejects rebased lead times. The harness plans later steps by rebasing the
+    # inputs, so the rollout, seeding and replay checks (P9, P13, P19, and P14
+    # when stochastic) fail at planning rather than in the model.
+    expected = {"P6", "P9", "P10", "P13", "P19"}
+    if model.stochastic:
+        expected.add("P14")
+    assert {v.partition(":")[0] for v in report.violations} == expected
+
+
+@pytest.mark.package
+@pytest.mark.timeout(900)
+def test_aida_weathermesh_package():
+    if not torch.cuda.is_available():
+        pytest.skip("AIDA package test requires CUDA")
+    from test.models.px.test_weathermesh5c import standard_atmosphere
+
+    model = AIDAWeatherMesh5C.load_model(
+        AIDAWeatherMesh5C.load_default_package(),
+        variables=("t2m", "z500"),
+        fork_hour=12,
+    ).to("cuda:0")
+    x, sst = (
+        standard_atmosphere(s, "2026-10-28T09", device="cuda:0")
+        for s in model.input_coords()[:2]
+    )
+    model.set_rng(0)
+    y, state = model.initialize(x, sst, surface=observations())
+    assert y.shape == (1, 1, 1, 2, 720, 1440)
+    assert y.lead_time.values[0] == np.timedelta64(3, "h")
+    for _ in range(3):
+        y, state = model.step(y, state)
+    # The learned fork is applied at +12h.
+    assert y.lead_time.values[0] == np.timedelta64(12, "h")
+    assert state.position == 1
+    values = y.e2s.as_numpy()
+    assert np.isfinite(values.values).all()
+    assert 200 < float(values.sel(variable="t2m").mean()) < 330
+    assert 45000 < float(values.sel(variable="z500").mean()) < 60000

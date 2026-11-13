@@ -86,7 +86,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     "test/models/dx/test_stormscope_dx_nsrdb.py": ["stormscope"],
     "test/models/dx/test_wind_gust.py": ["windgust-afno"],
     # Model px tests
-    "test/models/px/test_weathermesh5c.py": ["weathermesh-5c"],
+    "test/models/px/test_weathermesh5c.py": ["weathermesh5c"],
     "test/models/px/test_ace2.py": ["ace2"],
     "test/models/px/test_aifs.py": ["aifs"],
     "test/models/px/test_aifsens.py": ["aifsens"],
@@ -122,7 +122,7 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
         "solarradiation-afno",
     ],
     # Model da tests
-    "test/models/da/test_da_aida.py": ["weathermesh-5c"],
+    "test/models/da/test_da_aida.py": ["da-aida"],
     "test/models/da/test_da_healda.py": ["da-healda"],
     "test/models/da/test_da_healda_v2.py": ["da-healda-v2"],
     "test/models/da/test_da_interp.py": ["da-interp"],

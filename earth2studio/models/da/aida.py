@@ -301,7 +301,7 @@ class AIDA(torch.nn.Module, AutoModelMixin):
     ----
     For forecasts and learned ensemble branching, use
     [`AIDAWeatherMesh5C`][earth2studio.models.da.AIDAWeatherMesh5C] with
-    [`CoupledRunner`](https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/earth2studio/coupling/runner.py) and set `source_member`
+    [`CoupledRunner`][earth2studio.coupling.CoupledRunner] and set `source_member`
     to choose the IFS background for each member. See the [WindBorne AI DA article](
     https://windbornesystems.com/blog/windborne-ai-da), the
     [model card](https://huggingface.co/windborne/weathermesh-5c), and the
@@ -396,9 +396,13 @@ class AIDA(torch.nn.Module, AutoModelMixin):
         Returns
         -------
         tuple
-            IFS, prior-day OISST, standard satellite and conventional sources.
+            IFS (Google Cloud mirror), prior-day OISST, standard satellite and
+            conventional sources.
             The WindBorne slot is empty unless the caller supplies a source.
         """
+        # Each update uses reports within ±1.5h of its valid time (the runtime's
+        # ``da_window_size``), so the union spans the first update - 1.5h to the
+        # analysis time + 1.5h.
         tolerance = (
             -np.timedelta64(3 * (self.assimilation_steps - 1) * 60 + 90, "m"),
             np.timedelta64(90, "m"),
@@ -414,7 +418,7 @@ class AIDA(torch.nn.Module, AutoModelMixin):
             time_tolerance=tolerance, layout="wide", gpsro_profile_metadata=True
         )
         return (
-            IFS_ENS(member=1),
+            IFS_ENS(source="google", member=1),
             OISST(lag_days=1, lookback_days=7),
             satellite,
             satellite,
@@ -594,7 +598,7 @@ class AIDAWeatherMesh5C(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     Note
     ----
-    Use [`CoupledRunner`](https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/earth2studio/coupling/runner.py) with `source_member`
+    Use [`CoupledRunner`][earth2studio.coupling.CoupledRunner] with `source_member`
     to assign several output members to the same IFS background. Batch those
     members together: use `member_batch` at least as large as the number of fork
     branches per IFS member to reuse observation preparation. With
@@ -611,8 +615,6 @@ class AIDAWeatherMesh5C(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     gpu:40gb
     """
 
-    stochastic = True
-
     def __init__(
         self,
         core_model: torch.nn.Module,
@@ -627,6 +629,7 @@ class AIDAWeatherMesh5C(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             raise ValueError("fork_hour must be a positive multiple of twelve hours")
         self.fork_hour = fork_hour
         self.variables = _variables(self._runtime.variables, variables)
+        self.stochastic = fork_hour is not None or max_observations is not None
 
     @property
     def _runtime(self) -> Inference:
