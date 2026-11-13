@@ -80,6 +80,11 @@ def test_cfs_flux_lexicon():
     key, _ = CFSFluxLexicon["hcc"]
     assert key == "flxf::TCDC::high cloud layer"
 
+    # TCDC is stored in percent, cloud cover is a 0-1 fraction.
+    for cc in ("tcc", "hcc", "mcc", "lcc"):
+        _, mod = CFSFluxLexicon[cc]
+        assert mod(np.array([50.0])) == pytest.approx(np.array([0.5]))
+
 
 def test_cfs_flux_lexicon_invalid_key():
     with pytest.raises(KeyError):
