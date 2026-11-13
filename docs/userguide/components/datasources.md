@@ -124,11 +124,12 @@ field = fetch_data(
 )
 ```
 
-Here `source` is a six-hourly analysis source supporting `t2m:mean:24h`.
-The mean includes the four samples at -18, -12, -6 and 0 hours. Windows are
-left-open and right-closed: a window ending at `T` includes the sample at `T`. Statistics are delegated to sources that support them
-natively; unsupported methods raise `ValueError` before fetching. Qualified variable labels
-such as `"t2m:mean:24h"` declare reductions; duplicate normalized quantities are rejected.
+Here `source` is a six-hourly analysis source supporting `t2m:mean:24h`. The mean
+includes the four samples at -18, -12, -6 and 0 hours. Windows are left-open and
+right-closed: a window ending at `T` includes the sample at `T`. Statistics are
+delegated to sources that support them natively; unsupported methods raise `ValueError`
+before fetching. Qualified variable labels such as `"t2m:mean:24h"` declare reductions;
+duplicate normalized quantities are rejected.
 Output `earth2studio_statistics` describes the reductions actually performed.
 
 `ARCO_ERA5`, `GFS_FX`, `HRRR`, and `HRRR_FX` handle statistics natively with
