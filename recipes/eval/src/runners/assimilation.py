@@ -181,8 +181,12 @@ def _fields_for(source: Any, schema: FrameSchema) -> np.ndarray | None:
     """Columns to request from ``source`` for a slot described by ``schema``.
 
     Schema keys other than ``variable`` are columns; ``variable`` is the list
-    of requested variables and is only a column when the source's ``SCHEMA``
-    says so (long-layout sources such as the UFS GSI readers).  Sources
+    of requested variables.  Only long frames, which hold every value in one
+    ``observation`` column, carry it as a column, and only when the source's
+    ``SCHEMA`` lists it (long-layout sources such as the UFS GSI readers).
+    Wide frames, such as the NNJA inputs of HealDA v2, give each variable its
+    own ``observation_<variable>`` column, and a wide-layout source rejects a
+    ``variable`` field even though its long ``SCHEMA`` lists one.  Sources
     without a ``SCHEMA``, such as predownloaded frame stores, return every
     stored column.
     """
@@ -190,7 +194,8 @@ def _fields_for(source: Any, schema: FrameSchema) -> np.ndarray | None:
     if declared is None:
         return None
     names = set(getattr(declared, "names", ()))
-    fields = [k for k in schema if k != "variable" or k in names]
+    long_frame = "observation" in schema
+    fields = [k for k in schema if k != "variable" or (long_frame and k in names)]
     return np.array(fields, dtype=str)
 
 

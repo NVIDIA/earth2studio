@@ -1145,9 +1145,11 @@ def _with_references(extras: str, refs: list[str]) -> str:
     if m is None:
         return (extras.rstrip() + "\n\n" if extras else "") + "## Reference\n\n" + block
     # The section runs to the next heading or the end of the extras.
-    nxt = re.search(r"^## ", extras[m.end():], re.M)
+    nxt = re.search(r"^## ", extras[m.end() :], re.M)
     cut = m.end() + nxt.start() if nxt else len(extras)
-    return extras[:cut].rstrip() + "\n\n" + block + ("\n\n" + extras[cut:] if nxt else "")
+    return (
+        extras[:cut].rstrip() + "\n\n" + block + ("\n\n" + extras[cut:] if nxt else "")
+    )
 
 
 def build_page(model: str, doc: dict, conf: dict) -> str:
@@ -1258,7 +1260,11 @@ def build_page(model: str, doc: dict, conf: dict) -> str:
     )
     extras = _with_references(
         conf["extras"],
-        [INIT_PROSE[k]["reference"].strip() for k in inits if INIT_PROSE[k].get("reference")],
+        [
+            INIT_PROSE[k]["reference"].strip()
+            for k in inits
+            if INIT_PROSE[k].get("reference")
+        ],
     )
     hours = sorted({t[11:13] for t in doc["initial_conditions"]})
     ic_note = (

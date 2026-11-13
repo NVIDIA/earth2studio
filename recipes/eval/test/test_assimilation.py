@@ -295,6 +295,20 @@ def test_requests_cover_enabled_slots_only() -> None:
     assert list(requests[0].variable) == ["u", "v", "t"]
 
 
+def test_variable_is_a_requested_column_only_of_long_frames() -> None:
+    # A wide frame names each variable in its columns; a wide-layout source
+    # rejects a "variable" field even though its long SCHEMA lists one.
+    wide = OrderedDict(
+        (k, v) for k, v in _schema(["u", "v"]).items() if k != "observation"
+    )
+    wide["observation_u"] = np.empty(0, dtype=np.float32)
+    obs = ObsSources([FakeObsSource(), FakeObsSource()], [_schema(["t"]), wide])
+    long_request, wide_request = obs.requests(np.array([T0]))
+    assert "variable" in list(long_request.fields)
+    assert "variable" not in list(wide_request.fields)
+    assert "observation_u" in list(wide_request.fields)
+
+
 def test_window_guard_marks_only_a_successful_fetch(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
     with shared_window_guard(T0):
@@ -546,9 +560,7 @@ def test_fill_variables_come_from_the_data_source(tmp_path) -> None:
     assert list(request.variable) == ["z500"]
     field = runner.source(np.array([T0]), ["t2m", "z500"])
     assert float(field.isel(time=0, variable=0, lat=0, lon=0)) == analysis_value(T0, 0)
-    assert float(field.isel(time=0, variable=1, lat=0, lon=0)) != analysis_value(
-        T0, 1
-    )
+    assert float(field.isel(time=0, variable=1, lat=0, lon=0)) != analysis_value(T0, 1)
 
 
 def test_fill_variables_must_be_prognostic_inputs(tmp_path) -> None:

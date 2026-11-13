@@ -435,6 +435,44 @@ class TestCampaignConfigs:
             cfg = compose(config_name="default", overrides=overrides)
         return request.param, cfg
 
+    @pytest.mark.parametrize("model", ["aurora1p5ens", "atlas_crps"])
+    def test_healda_campaign_differs_from_era5_only_in_its_ics(self, model) -> None:
+        # The two campaigns compare initializations like for like, so everything
+        # but the initial conditions has to stay in step.
+        def compose_campaign(name: str) -> object:
+            with initialize_config_dir(
+                config_dir=str(RECIPE_DIR / "cfg"), version_base=None
+            ):
+                return compose(
+                    config_name="default",
+                    overrides=[
+                        f"campaign={name}",
+                        f'hydra.searchpath=["file://{SCORECARD_CFG}"]',
+                    ],
+                )
+
+        era5 = compose_campaign(f"{model}_2025_scorecard")
+        healda = compose_campaign(f"{model}_healda_2025_scorecard")
+        assert healda.model.da.architecture == "earth2studio.models.da.HealDAv2"
+        assert healda.model.forecast.architecture == era5.model.architecture
+        for key in (
+            "start_times",
+            "nsteps",
+            "ensemble_size",
+            "random_seed",
+            "perturbation",
+            "output.variables",
+            "output.regrid",
+            "scoring.variables",
+            "scoring.lat_weights",
+            "scoring.nan_policy",
+            "scoring.online.members_per_rank",
+            "scoring.online.mae",
+            "scoring.online.lsd",
+            "verification_source",
+        ):
+            assert OmegaConf.select(healda, key) == OmegaConf.select(era5, key), key
+
     def test_no_deleted_references(self) -> None:
         for name in CAMPAIGNS:
             text = (SCORECARD_CFG / "campaign" / f"{name}.yaml").read_text()
@@ -458,7 +496,10 @@ class TestCampaignConfigs:
     def test_composes_on_forecast_runner(self, campaign) -> None:
         name, cfg = campaign
         assert "pipeline" not in cfg
-        assert cfg.runner == "forecast"
+        # Campaigns initialized from data-assimilation analyses run the DA model
+        # ahead of the same forecast runner.
+        expected = "assimilation_forecast" if "da" in cfg.model else "forecast"
+        assert cfg.runner == expected
         assert name.startswith(f"{cfg.project}_")
         assert cfg.scoring.mode == "online"
         assert cfg.output.retain == "none"

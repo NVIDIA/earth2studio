@@ -71,9 +71,11 @@ class HealDAAnalysis:
         self.lat_trim = int(lat_trim)
         self._group = zarr.open(path, mode="r")
 
-        self._time = np.asarray(self._group["time"][:], dtype="int64").astype(
-            "datetime64[s]"
-        ).astype("datetime64[ns]")
+        self._time = (
+            np.asarray(self._group["time"][:], dtype="int64")
+            .astype("datetime64[s]")
+            .astype("datetime64[ns]")
+        )
         self._time_index = {t: i for i, t in enumerate(self._time)}
 
         # e2s name -> HealDA channel name, for the physical channels only.
@@ -127,9 +129,7 @@ class HealDAAnalysis:
             )
         missing_v = [v for v in variables if v not in self._channels]
         if missing_v:
-            raise KeyError(
-                f"HealDAAnalysis: channels not in {self.path}: {missing_v}"
-            )
+            raise KeyError(f"HealDAAnalysis: channels not in {self.path}: {missing_v}")
 
         out = np.empty(
             (len(times), len(variables), len(self.lat), len(self.lon)),
