@@ -447,10 +447,7 @@ class CAMulator(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def _prepare_forcing(self, forcing: xr.DataArray) -> torch.Tensor:
         forcing = (
-            forcing.e2s.to_torch()[0]
-            .to(self.device_buffer.device)
-            .float()
-            .clone()[:, :, 0]
+            forcing.e2s.to_torch()[0].to(self.device_buffer.device).float()[:, :, 0]
         )
         forcing = torch.flip(forcing, dims=(-2,))
         forcing[:, :, 3] *= 1.0e-6  # ppm -> mol mol-1

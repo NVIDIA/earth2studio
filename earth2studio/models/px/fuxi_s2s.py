@@ -388,8 +388,8 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return model_input
 
     def _prepare_output(self, x: torch.Tensor) -> torch.Tensor:
-        """Convert FuXi-S2S output to Earth2Studio units."""
-        output = x.clone()
+        """Convert FuXi-S2S output to Earth2Studio units in place."""
+        output = x
 
         ttr = output.select(-3, _TTR_INDEX)
         ttr.mul_(3600.0)
