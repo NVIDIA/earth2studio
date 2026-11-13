@@ -102,7 +102,7 @@ def source_changed(file: str, changes: list[str]) -> bool:
 def pytest_configure(config) -> None:
     config.addinivalue_line(
         "markers",
-        "live(timeout=60): live data-source call; only its deadline is an expected failure",
+        "live(timeout=60): slow live data-source call; requires --slow",
     )
     supervised = "DATA_TEST_EVENTS" in os.environ
     expected_file = os.getenv("DATA_TEST_FILE")
@@ -129,6 +129,12 @@ def pytest_configure(config) -> None:
     )
     faulthandler.register(signal.SIGUSR1, file=stack_fd, all_threads=True)
     emit("ready")
+
+
+def pytest_itemcollected(item) -> None:
+    # Add before collection modifiers so pytest-skip-slow and -m see the marker.
+    if item.get_closest_marker("live"):
+        item.add_marker(pytest.mark.slow)
 
 
 @pytest.hookimpl(trylast=True)

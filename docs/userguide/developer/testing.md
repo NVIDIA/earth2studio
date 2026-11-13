@@ -113,14 +113,15 @@ Logs and partial results: `.cache/test-results/test-data/data/`.
 Once pytest finalization finishes, lingering processes are terminated after the shutdown
 grace period and the recorded test outcome is preserved. Forced cleanup is logged explicitly.
 
-Mark network tests with `@pytest.mark.live(timeout=60)` (default: 60s):
+Mark network tests with `@pytest.mark.live(timeout=60)` (default: 60s). This also
+marks them `slow`, so they require `--slow`. Live selection provides an additional filter:
 
 - `--live=none`: skip live tests for offline checks.
 - `--live=changed`: run affected sources (CI default); shared changes enable all sources.
   CI compares against the PR merge base or the pushed branch's previous tip.
   Manual dispatch defaults to `all`, with an explicit live-mode selector.
   Locally, `DATA_TEST_BASE` defaults to `HEAD`, including uncommitted changes.
-- `--live=all`: run all live tests (local default).
+- `--live=all`: select all live tests (default; still requires `--slow`).
 
 Under supervision, live-call timeouts become XFAIL; the process is killed and remaining
 tests resume in a fresh process. Other errors fail normally. File summaries show
@@ -129,12 +130,12 @@ Use `--live-timeout` to override marker deadlines.
 
 ```bash
 # Run changed sources.
-DATA_TEST_BASE=upstream/1.0.0-rc uvx tox -e test-data -- --live=changed --testmon
+DATA_TEST_BASE=upstream/1.0.0-rc uvx tox -e test-data -- --slow --live=changed --testmon
 
 # Run one source with longer budgets.
 DATA_TEST_PATHS=test/data/test_gfs.py \
 DATA_TEST_FILE_TIMEOUT=3600 DATA_TEST_TIMEOUT=7200 \
-    uvx tox -e test-data -- --live=all --live-timeout=600 --package
+    uvx tox -e test-data -- --slow --live=all --live-timeout=600 --package
 ```
 
 Arguments after `--` apply only to data-source tests and replace their Tox defaults;
@@ -142,8 +143,8 @@ include `--testmon` and `--cov` as needed. Lexicon and Icechunk tests run with f
 
 ### Running Tests Directly with pytest
 
-For local development, run pytest directly. Live tests are included by default;
-no `--live` option or supervisor is required:
+For local development, plain pytest skips slow and live tests. Add `--slow` to
+enable both, or combine it with `--live=none` to run only non-live slow tests:
 
 ```bash
 # Run the test suite (skips tests marked slow)
@@ -152,11 +153,14 @@ uv run pytest test/
 # Standard test suite (includes slow tests)
 uv run pytest --slow test/
 
+# Include slow tests but skip live requests
+uv run pytest --slow --live=none test/
+
 # Run a specific test module, including live requests
-uv run pytest test/data/test_gfs.py
+uv run pytest --slow test/data/test_gfs.py
 
 # Filter tests within a module
-uv run pytest test/data/test_gfs.py -k cache
+uv run pytest --slow test/data/test_gfs.py -k cache
 ```
 
 Direct pytest uses `pytest-timeout` for live deadlines (including `--live-timeout`
