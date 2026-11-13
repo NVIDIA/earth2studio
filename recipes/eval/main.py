@@ -130,6 +130,11 @@ def run(cfg: DictConfig, device: torch.device | str = "cpu") -> None:
     resume = bool(cfg.get("resume", False))
 
     runner = build_runner(cfg)
+    # Loading a model can move the process's current CUDA device: initialising
+    # JAX (GraphCast) selects the first visible GPU.  CuPy launches kernels on
+    # the current device, so restore this rank's before any data moves.
+    if torch.device(device).type == "cuda":
+        torch.cuda.set_device(device)
     items = build_items(cfg, runner, member_batch=members_per_item(cfg))
     check_predownload(cfg, runner, items)
     final_lead_time = max(item.final_lead_time for item in items)
