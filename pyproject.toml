@@ -235,6 +235,10 @@ stormscope = [
     "earth2studio[utils]",
 ]
 ucast = []
+weathermesh5c = [
+    "earth2studio[data]",
+    "weathermesh-5c[windborne]",
+]
 # DX Models
 cbottle = [
     "earth2grid",
@@ -281,6 +285,10 @@ windgust-afno = [
     "nvidia-physicsnemo>=1.0.1",
 ]
 # DA Models
+da-aida = [
+    "earth2studio[weathermesh5c]",
+    "cudf-cu13>=26.2.0",
+]
 da-cosmo = [
     "earth2studio[cosmo]",
     "nvidia-physicsnemo>=2.2.0",
@@ -314,9 +322,9 @@ da-stormcast = [
 # [tool.uv.sources] and the conflicts declared in [tool.uv]).
 all = [
     "earth2studio[data,perturbation,statistics,utils]",
-    "earth2studio[atlas,aurora,camulator,dlwp,dlesym,fcn,fcn3,fengwu,fuxi,gencast,interp-crps-dit,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast,ucast,weathernext]",
+    "earth2studio[atlas,aurora,camulator,dlwp,dlesym,fcn,fcn3,fengwu,fuxi,gencast,interp-crps-dit,interp-modafno,pangu,stormcast,sfno,stormscope,graphcast,ucast,weathermesh5c,weathernext]",
     "earth2studio[cbottle,climatenet,corrdiff,cosmo,corrdiff-era5-hrrr,orbit,precip-afno,cyclone,precip-afno-v2,solarradiation-afno,windgust-afno]",
-    "earth2studio[da-interp,da-stormcast,da-healda,da-healda-v2,da-cosmo]",
+    "earth2studio[da-aida,da-interp,da-stormcast,da-healda,da-healda-v2,da-cosmo]",
 ]
 
 # ==== UV configuration ====
@@ -401,6 +409,7 @@ nvidia-physicsnemo = [
 ]
 
 climate-learn = { git = "https://github.com/NickGeneva/ORBIT-2", rev = "5b2d80a8ba4dc95029211ef2b8530d3663f65d39" }
+weathermesh-5c = { git = "https://github.com/windborne/weathermesh-5c.git", rev = "b27c315175982f5bb057c644d4bc0e1a16e0f790" }
 earth2studio-gallery = { git = "https://github.com/NickGeneva/earth2studio-gallery.git", rev = "23608550091f6ffb6256c3830514c6489f11fd90" }
 
 

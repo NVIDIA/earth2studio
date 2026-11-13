@@ -150,6 +150,10 @@ _PROGNOSTIC_CONFORMANT: set[str] = {
 }
 
 _PROGNOSTIC_EXEMPT: dict[str, str] = {
+    "WeatherMesh5C": (
+        "P10: physical-field hook edits cannot update the native latent and raise; "
+        "test/models/px/test_weathermesh5c.py::test_weathermesh_conformance."
+    ),
     "FuXiS2S": (
         "P13: ONNX graph samples internal perturbations without a seed API; "
         "test/models/px/test_fuxi_s2s.py::test_fuxi_s2s_conformance."

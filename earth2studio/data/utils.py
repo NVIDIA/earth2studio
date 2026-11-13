@@ -528,18 +528,24 @@ def fetch_dataframe(
             raise ImportError(
                 "cudf is required for CUDA device. Install with: pip install cudf"
             )
-        # cuDF's Arrow interchange uses variable-size list offsets. Preserve
-        # the fixed channel order while adapting the Arrow representation.
-        lists = {
-            name: df[name].astype(
-                pd.ArrowDtype(pa.list_(dtype.pyarrow_dtype.value_type))
-            )
-            for name, dtype in df.dtypes.items()
-            if isinstance(dtype, pd.ArrowDtype)
-            and pa.types.is_fixed_size_list(dtype.pyarrow_dtype)
-        }
+        # Adapt Arrow extension types that cuDF cannot ingest from pandas.
+        compatible = {}
+        for name, dtype in df.dtypes.items():
+            if not isinstance(dtype, pd.ArrowDtype):
+                continue
+            arrow_dtype = dtype.pyarrow_dtype
+            if pa.types.is_fixed_size_list(arrow_dtype):
+                # Preserve channel order with variable-size list offsets.
+                compatible[name] = df[name].astype(
+                    pd.ArrowDtype(pa.list_(arrow_dtype.value_type))
+                )
+            elif pa.types.is_dictionary(arrow_dtype):
+                # Decode low-cardinality strings before pandas-to-cuDF conversion.
+                compatible[name] = df[name].astype(
+                    pd.ArrowDtype(arrow_dtype.value_type)
+                )
         with cp.cuda.Device(device.index):
-            result = cudf.from_pandas(df.assign(**lists) if lists else df)
+            result = cudf.from_pandas(df.assign(**compatible) if compatible else df)
             result.attrs = df.attrs
         return result
     else:
