@@ -11,28 +11,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added the `DLESyMAtmos` and `DLESyMOcean` prognostic models, the atmosphere and
-  ocean of `DLESyM` as standalone components that load their own network from the
-  DLESyM package and run under `CoupledRunner`, and `DLESyMv0_ISCCP_ERA5Atmos` and
-  `DLESyMv0_ISCCP_ERA5Ocean` for the DLESyM-v0-ISCCP-ERA5 package. The DLESyM example
-  now runs the fused model and the coupled components under `Pipeline`.
-- Added `earth2studio.models.px.dlesym.DLESyMInputSource`, which serves DLESyM's
-  native HEALPix inputs (derived variables, filled sea surface temperature) from a
-  lat/lon data source. The DLESyM models recommend it over ARCO ERA5 from
-  `default_sources()`.
+- Added standalone `DLESyMAtmos` and `DLESyMOcean` components (plus
+  `DLESyMv0_ISCCP_ERA5Atmos`/`Ocean`) that run under `CoupledRunner`; the DLESyM
+  example now runs under `Pipeline`.
+- Added `DLESyMInputSource`, which serves DLESyM's native HEALPix inputs from a
+  lat/lon data source.
 
 ### Changed
 
-- `DLESyM` v1.1 returns its precipitation diagnostic as `tp06` in meters; it was
-  `tp6`, the log-transformed value the model learns.
+- `DLESyM` v1.1 returns precipitation as `tp06` in meters (was `tp6`).
 
 ### Deprecated
 
 ### Removed
 
-- Removed `DLESyMLatLon` and `DLESyMv0_ISCCP_ERA5LatLon`. Run the native `DLESyM` and
-  `DLESyMv0_ISCCP_ERA5` models from a lat/lon source through `DLESyMInputSource` and
-  regrid their HEALPix outputs with a `Regridder`; see `MIGRATION.md`.
+- Removed `DLESyMLatLon` and `DLESyMv0_ISCCP_ERA5LatLon`; use `DLESyMInputSource`
+  with a `Regridder` instead (see `MIGRATION.md`).
 
 ### Fixed
 
