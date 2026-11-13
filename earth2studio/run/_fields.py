@@ -44,6 +44,15 @@ def map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataArr
     Curvilinear auxiliaries are never indexed as dimensions; model validation
     checks their geometry at the inference boundary.
 
+    ``map_field`` selects and never regrids. Nearest selection is accepted only
+    when ``x`` covers ``target``: a target label more than one source spacing
+    beyond the source's range (a regional source on a global grid, or a
+    -180..180 longitude source on a 0..360 grid) raises instead of copying edge
+    values. Resolution is not checked, so a source coarser than the target (a
+    1 degree source on a 0.25 degree grid) repeats neighbouring values. Fetch
+    such data with ``fetch_data(target_grid=...)`` or wrap the source in
+    :class:`~earth2studio.data.RegriddedSource`.
+
     Parameters
     ----------
     x : xr.DataArray
@@ -57,6 +66,13 @@ def map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataArr
     xr.DataArray
         ``x`` on ``target``'s coordinates, carrying ``target``'s grid metadata when
         ``target`` is a DataArray
+
+    Raises
+    ------
+    ValueError
+        If a label is missing from a non-numeric coordinate, a numeric coordinate
+        of ``x`` does not cover ``target``'s range, or the
+        geometry or CRS does not match a DataArray ``target``.
     """
     coordinates = (
         _dimension_coords(target) if isinstance(target, xr.DataArray) else target
@@ -72,8 +88,12 @@ def map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataArr
         index = x.get_index(dim).get_indexer(values)
         if (index < 0).any():
             if not np.issubdtype(source.dtype, np.number):
-                raise ValueError(f"Missing labels for coordinate {dim}: {values}")
-            index = np.abs(source[:, None] - values[None, :]).argmin(axis=0)
+                missing = np.asarray(values)[index < 0]
+                raise ValueError(
+                    f"Missing labels for coordinate {dim}: {missing.tolist()}; "
+                    f"it has {source.tolist()}"
+                )
+            index = _nearest_covering(dim, source, np.asarray(values))
         selection = (
             slice(int(index[0]), int(index[-1]) + 1)
             if np.all(np.diff(index) == 1)
@@ -122,6 +142,46 @@ def map_field(x: xr.DataArray, target: xr.DataArray | CoordSystem) -> xr.DataArr
             if key in target.attrs:
                 x.attrs[key] = target.attrs[key]
     return x
+
+
+_REGRID_HINT = (
+    "map_field selects and never regrids; fetch with fetch_data(target_grid=...) "
+    "or wrap the source in RegriddedSource"
+)
+
+
+def _nearest_covering(dim: str, source: np.ndarray, target: np.ndarray) -> np.ndarray:
+    """Return the nearest source index per target label, if ``source`` covers it.
+
+    Raises when a target label lies more than one source spacing, measured at
+    the nearer edge, beyond the source's range, which would otherwise copy edge
+    values silently.
+    """
+    if len(source) == 0:
+        raise ValueError(f"Source coordinate {dim} is empty; {_REGRID_HINT}")
+    # Signed arithmetic: bounds and distances wrap on unsigned integer labels
+    source = source.astype(np.float64)
+    target = target.astype(np.float64)
+    order = np.sort(source)
+    if len(order) == 1:
+        if not np.all(target == order[0]):
+            raise ValueError(
+                f"Source coordinate {dim} has the single label {order[0]}, which "
+                f"does not match target labels {target.tolist()}; {_REGRID_HINT}"
+            )
+        return np.zeros(len(target), dtype=np.intp)
+    below = target < order[0] - (order[1] - order[0])
+    above = target > order[-1] + (order[-1] - order[-2])
+    if below.any() or above.any():
+        raise ValueError(
+            f"{int(below.sum() + above.sum())} of {len(target)} target {dim} labels "
+            f"lie beyond the source's range [{order[0]}, {order[-1]}] (target "
+            f"range [{target.min()}, {target.max()}]); the source does not cover "
+            "the target domain, so check its extent and conventions such as "
+            f"longitude 0..360 versus -180..180; {_REGRID_HINT}"
+        )
+    index = np.abs(source[:, None] - target[None, :]).argmin(axis=0)
+    return index
 
 
 # Private alias kept for recipes written before ``map_field`` was public.

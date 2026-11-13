@@ -90,6 +90,9 @@ class Runner(Protocol):
     - Declare every stream in :meth:`output_coords`. Each output must match its
       stream's declaration.
     - A stream may skip steps, as a slower component does; a step then omits it.
+    - An output may hold a subset of its stream's variables, as an initial
+      condition holding only a model's inputs does; stores keep NaN for the
+      rest.
     """
 
     supports_member_batching: bool
@@ -270,6 +273,17 @@ def _diagnostic_coords(
     return _signature_for_stream(output, leads)
 
 
+def _variables(signature: Any) -> set[str]:
+    """Variable labels a signature declares, empty when it declares none."""
+    if isinstance(signature, tuple):
+        return set().union(*(_variables(slot) for slot in signature))
+    if isinstance(signature, xr.DataArray):
+        if "variable" not in signature.coords:
+            return set()
+        return {str(v) for v in np.atleast_1d(signature.coords["variable"].values)}
+    return {str(v) for v in np.atleast_1d(signature.get("variable", []))}
+
+
 def _seed_model(
     base: int, time: np.datetime64, member_id: int, model: object
 ) -> int | None:
@@ -351,6 +365,10 @@ class PrognosticRunner:
     before the analysis time steps at its forecast interval. The initial condition
     is published only when the input ends at zero and the output declares every
     input variable on the input's grid; otherwise the streams start at the first
+    forecast. The published initial condition holds only the input variables, so
+    output-only variables, such as a model's diagnostic outputs, are NaN in the
+    stores at lead time zero, and a
+    diagnostic stream whose inputs need such variables starts at the first
     forecast. Forcing declared by the model is fetched and sent at every step.
     Items with several members run as one batch on a leading ``ensemble``
     dimension, seeded once from the first member, so stochastic members depend on
@@ -434,6 +452,16 @@ class PrognosticRunner:
         self.publishes_initial_condition = _publishes_initial_condition(
             self.input_signature, oc
         )
+        # Diagnostics that need output-only variables cannot run on the initial
+        # condition, which holds only the input variables; they start at the
+        # first forecast.
+        input_variables = _variables(self.input_signature)
+        self._initial_diagnostics = {
+            name
+            for name, diagnostic in self.diagnostics.items()
+            if self.publishes_initial_condition
+            and _variables(diagnostic.input_coords()) <= input_variables
+        }
 
     def to(self, device: torch.device) -> PrognosticRunner:
         """Move every model to ``device`` and fetch onto it."""
@@ -462,7 +490,13 @@ class PrognosticRunner:
         forecast = _signature_for_stream(oc, leads)
         coords: dict[str, CoordinateSystem] = {"forecast": forecast}
         for name, diagnostic in self.diagnostics.items():
-            coords[name] = _diagnostic_coords(diagnostic, oc, forecast["lead_time"])
+            stream_leads = forecast["lead_time"].values
+            if (
+                self.publishes_initial_condition
+                and name not in self._initial_diagnostics
+            ):
+                stream_leads = stream_leads[1:]
+            coords[name] = _diagnostic_coords(diagnostic, oc, stream_leads)
         return coords
 
     def _forcing_requests(
@@ -529,9 +563,13 @@ class PrognosticRunner:
             fields.append(x)
         return tuple(fields)
 
-    def _publish(self, x: xr.DataArray) -> Mapping[str, xr.DataArray]:
+    def _publish(
+        self, x: xr.DataArray, initial: bool = False
+    ) -> Mapping[str, xr.DataArray]:
         outputs = {"forecast": x}
         for name, diagnostic in self.diagnostics.items():
+            if initial and name not in self._initial_diagnostics:
+                continue
             outputs[name] = diagnostic(map_field(x, diagnostic.input_coords()))
         return outputs
 
@@ -553,7 +591,7 @@ class PrognosticRunner:
         )
         x = _perturb(self.perturbation, x, self.seed, item, self.device)
         if self.publishes_initial_condition:
-            yield self._publish(initial_condition(x))
+            yield self._publish(initial_condition(x), initial=True)
         if nsteps == 0:
             return
         forcing = self._fetch_forcing(item, self._forcing_requests(item))
