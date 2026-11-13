@@ -83,7 +83,8 @@ _ATMOS_OUTPUT_TIMES = np.array(
 _OCEAN_OUTPUT_TIMES = np.array([48, 96], dtype="timedelta64[h]")
 
 # Normalize variable names in the model package to match e2studio's lexicon
-_ATMOS_VARIABLE_RENAMES = {"ttr-3h": "ttr03"}
+_ATMOS_VARIABLE_RENAMES = {"ttr-3h": "ttr03", "tp6": "tp06"}
+_TP06_EPS = 1e-8
 
 
 @check_optional_dependencies()
@@ -428,6 +429,13 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             "input_scale", self.scale.index_select(3, self._prognostic_out_idx)
         )
 
+        # Output channel of the log-transformed precipitation diagnostic
+        # (see `_denormalize_output`), None if the model has no `tp06` output
+        out_variables = list(out_coords["variable"])
+        self._tp06_out_idx = (
+            out_variables.index("tp06") if "tp06" in out_variables else None
+        )
+
     def default_sources(self) -> DataSource:
         """Recommend ARCO ERA5 initial conditions.
 
@@ -674,7 +682,9 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 for v in cfg.io.atmos_coupling_variables
             ],
             ocean_coupling_variables=list(cfg.io.ocean_coupling_variables),
-            atmos_diagnostic_variables=atmos_diagnostic_variables,
+            atmos_diagnostic_variables=[
+                _ATMOS_VARIABLE_RENAMES.get(v, v) for v in atmos_diagnostic_variables
+            ],
             ocean_diagnostic_variables=ocean_diagnostic_variables,
             use_cln=use_cln,
             condition_shape=condition_shape,
@@ -915,9 +925,14 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         return (x - self.input_center) / self.input_scale
 
     def _denormalize_output(self, x: torch.Tensor) -> torch.Tensor:
-        """Denormalize output data"""
+        """Denormalize output data and convert `tp06` to meters"""
 
-        return x * self.scale + self.center
+        x = x * self.scale + self.center
+        if self._tp06_out_idx is not None:
+            # Invert tp06_log = log(1 + tp06 / eps); negative values mean no rain
+            i = self._tp06_out_idx
+            x[:, :, :, i] = torch.expm1(x[:, :, :, i].clamp(min=0)) * _TP06_EPS
+        return x
 
     def retrieve_valid_ocean_outputs(self, x: xr.DataArray) -> xr.DataArray:
         """Retrieve the valid ocean model outputs from an output data tensor.

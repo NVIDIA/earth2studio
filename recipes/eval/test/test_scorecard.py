@@ -39,7 +39,13 @@ from hydra import compose, initialize_config_dir
 from hydra.utils import get_object
 from omegaconf import OmegaConf, open_dict
 from scorecard import run_scorecard
-from scorecard.run_scorecard import compose_campaign, run_path, score_stores
+from scorecard.run_scorecard import (
+    compose_campaign,
+    labelled_score_stores,
+    run_path,
+    score_stores,
+    source_labels,
+)
 from scorecard.utils.baselines import ClimatologyForecast, PersistenceBaseline
 from scorecard.utils.sources import (
     STORMCAST_LAT_LIM,
@@ -271,6 +277,32 @@ def test_score_stores_follow_the_composed_configuration(tmp_path, monkeypatch) -
     ]
 
 
+def test_each_reference_store_names_its_own_truth(tmp_path, monkeypatch) -> None:
+    """Online references label their stores with their own archives."""
+    monkeypatch.setenv("SCORECARD_OUT", str(tmp_path))
+    references = (
+        "scoring.online.verification_sources={era5:null,"
+        "ifs:{_target_:earth2studio.data.IFS},"
+        "staged:{_target_:src.data.PredownloadedSource,store_path:'/data/ifs.zarr'}}"
+    )
+    cfg = compose_campaign("fcn3_2025_scorecard", [references])
+    truth = {
+        store.name: labels.get("verification_source")
+        for store, labels in labelled_score_stores(cfg)
+    }
+    assert truth == {
+        "scores__era5.zarr": "ARCO_ERA5",  # null keeps the default truth
+        "scores__ifs.zarr": "IFS",
+        "scores__staged.zarr": None,  # a staged store does not name its archive
+    }
+    run = tmp_path / "fcn3_2025_scorecard"
+    assert [store for store, _ in labelled_score_stores(cfg)] == [
+        run / "scores__era5.zarr",
+        run / "scores__ifs.zarr",
+        run / "scores__staged.zarr",
+    ]
+
+
 def test_scorecard_configs_shadow_no_recipe_config() -> None:
     # The scripts search the scorecard's cfg first and the launcher the
     # recipe's; with no file in both, the two compose the same config.
@@ -353,6 +385,41 @@ def test_launcher_stamps_the_store_scoring_wrote(tmp_path, monkeypatch) -> None:
     assert launched == [("score.py", ["scoring.online.scores_store=null"])]
     assert run_scorecard.scores_complete(run / "scores.zarr")
     assert not (run / "null").exists()
+    # The run's source labels travel with the provenance, and the exporter
+    # reads them back from the store.
+    from scorecard.export_scores import data_sources
+
+    expected = {
+        "ic_source": "ARCO_ERA5",
+        "verification_source": "ARCO_ERA5",
+        "lat_weights": True,
+    }
+    assert dict(zarr.open_group(str(run / "scores.zarr")).attrs["sources"]) == expected
+    assert data_sources(run) == expected
+
+
+@pytest.mark.parametrize(
+    "campaign, ic, truth, lat_weights",
+    [
+        # A composite of two archives names both.
+        ("fuxi_2025_scorecard", "ARCO_ERA5+NCAR_ERA5", "ARCO_ERA5", True),
+        # A cropping adapter names the source it wraps; uniform weights.
+        ("stormcast_2025_events", "HRRR", "HRRR", False),
+        # Stores of the fcn3 run read as the source that filled them.
+        ("climatology_2025_scorecard", "ARCO_ERA5", "ARCO_ERA5", True),
+        ("aurora_2025_scorecard", "ARCO_ERA5", "ARCO_ERA5", True),
+        ("aurora1p5ens_2025_scorecard", "ARCO_ERA5", "ARCO_ERA5", True),
+    ],
+)
+def test_source_labels_follow_the_recipes_resolution(
+    campaign, ic, truth, lat_weights
+) -> None:
+    cfg = OmegaConf.to_container(compose_campaign(campaign, []), resolve=False)
+    assert source_labels(cfg) == {
+        "ic_source": ic,
+        "verification_source": truth,
+        "lat_weights": lat_weights,
+    }
 
 
 class TestCampaignConfigs:
