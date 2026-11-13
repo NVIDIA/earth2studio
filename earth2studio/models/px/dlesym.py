@@ -45,7 +45,7 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.time_statistics import _compact_duration
+from earth2studio.utils.time_statistics import format_duration
 from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 try:
@@ -1970,19 +1970,20 @@ class _DLESyMComponent(torch.nn.Module, PrognosticMixin):
     # -- tensors ---------------------------------------------------------------
 
     def _flatten(
-        self, x: xr.DataArray, anchors: bool = True
+        self, x: xr.DataArray, with_anchors: bool = True
     ) -> tuple[torch.Tensor, np.ndarray, tuple[int, ...]]:
         """Flatten the leading dimensions of a validated field.
 
         Returns the tensor as ``(N, lead_time, variable, face, height, width)`` on
         the model's device, the anchor time of each of the ``N`` rows for
-        insolation (empty unless ``anchors``), and the leading shape to restore.
+        insolation (empty unless ``with_anchors``), and the leading shape to
+        restore.
         """
         tensor, _ = x.e2s.to_torch()
         leading_dims = x.dims[:-5]
         leading = tuple(x.sizes[d] for d in leading_dims)
         tensor = tensor.to(self.model.center.device).reshape(-1, *tensor.shape[-5:])
-        if not anchors:
+        if not with_anchors:
             return tensor, np.empty(0, dtype="datetime64[ns]"), leading
         times = x.coords["time"].values
         if "time" in leading_dims:
@@ -2007,6 +2008,11 @@ class _DLESyMComponent(torch.nn.Module, PrognosticMixin):
         inside the network core.
         """
         leads = np.asarray(lead_times).astype("timedelta64[ns]")
+        absent = [d for d in ("lead_time", "variable") if d not in forcing.dims]
+        if absent:
+            raise ValueError(
+                f"Forcing must have dimensions {absent}; got {tuple(forcing.dims)}"
+            )
         try:
             frame = forcing.sel(variable=list(variables), lead_time=leads)
         except KeyError as error:
@@ -2026,9 +2032,18 @@ class _DLESyMComponent(torch.nn.Module, PrognosticMixin):
         extra = [d for d in forcing.dims if d not in like.dims]
         if extra:
             raise ValueError(f"Forcing has dimensions {extra} that the state lacks")
+        if "time" in forcing.coords and "time" in like.coords:
+            theirs = np.atleast_1d(forcing.coords["time"].values)
+            ours = np.atleast_1d(like.coords["time"].values)
+            if theirs.shape != ours.shape or not np.array_equal(theirs, ours):
+                raise ValueError(
+                    f"Forcing is valid for times {theirs}, the state for {ours}"
+                )
         missing = {d: like.sizes[d] for d in like.dims[:-5] if d not in forcing.dims}
         if missing:
-            forcing = forcing.expand_dims(missing)
+            # expand_dims broadcasts to a read-only view; the core needs writable
+            # memory to wrap.
+            forcing = forcing.expand_dims(missing).copy()
         forcing = forcing.transpose(*[d for d in like.dims if d in forcing.dims])
         leading = tuple(like.sizes[d] for d in like.dims[:-5])
         if forcing.shape[: len(leading)] != leading:
@@ -2210,7 +2225,7 @@ class DLESyMAtmos(_DLESyMComponent):
             self._select(sst, model.atmos_coupling_variables, lead[-1:], lead[-1]), x
         )
         tensor, anchors, leading = self._flatten(x)
-        coupling, _, _ = self._flatten(frame, anchors=False)
+        coupling, _, _ = self._flatten(frame, with_anchors=False)
         state = self._normalize(tensor, self._input_constants(model.atmos_var_idx))
         coupling = self._normalize(
             coupling, self._input_constants(model.atmos_coupling_var_idx)
@@ -2276,7 +2291,7 @@ class DLESyMAtmos(_DLESyMComponent):
         self,
         y: xr.DataArray,
         sst: xr.DataArray,
-        state: torch.Tensor | None = None,
+        state: torch.Tensor | None,
     ) -> tuple[xr.DataArray, torch.Tensor | None]:
         """Advance one cycle from the previous output.
 
@@ -2324,11 +2339,12 @@ class DLESyMOcean(_DLESyMComponent):
     """Ocean component of a split :class:`DLESyM`.
 
     Takes the ocean's history on the native HEALPix grid and, as forcing, the
-    means of the atmosphere's coupling variables over each ocean output window,
-    declared as qualified labels such as ``z1000:mean:48h`` valid at the window's
-    end. The fused model averages the atmosphere's output frames of the same
-    cycle, so under :class:`~earth2studio.coupling.CoupledRunner` an ``exact``
-    connector from the atmosphere reduces its frames onto this slot.
+    means of the atmosphere's coupling variables over the atmosphere frames of
+    each ocean window, declared as qualified labels such as
+    ``z1000:mean:-42h:+6h`` valid at the ocean's own output lead times. The fused
+    model averages the atmosphere's output frames of the same cycle, so under
+    :class:`~earth2studio.coupling.CoupledRunner` an ``exact`` connector from the
+    atmosphere reduces its frames onto this slot.
 
     Build it with :meth:`DLESyM.split`, which pairs it with :class:`DLESyMAtmos`.
 
@@ -2346,29 +2362,38 @@ class DLESyMOcean(_DLESyMComponent):
 
     def __init__(self, model: DLESyM) -> None:
         super().__init__(model)
-        n_atmos, n_ocean = len(model.atmos_output_times), len(model.ocean_output_times)
+        atmos_times, ocean_times = model.atmos_output_times, model.ocean_output_times
+        n_atmos, n_ocean = len(atmos_times), len(ocean_times)
         if n_atmos < 2 or n_atmos % n_ocean:
             raise ValueError(
                 f"{n_atmos} atmosphere output times cannot be averaged into "
                 f"{n_ocean} equal ocean windows"
             )
         per_window = n_atmos // n_ocean
-        spacing = model.atmos_output_times[1] - model.atmos_output_times[0]
-        if not np.all(np.diff(model.atmos_output_times) == spacing):
+        spacing = atmos_times[1] - atmos_times[0]
+        if not np.all(np.diff(atmos_times) == spacing):
             raise ValueError(
                 "Atmosphere output times must be evenly spaced to declare the "
-                f"ocean windows as means, got {model.atmos_output_times}"
+                f"ocean windows as means, got {atmos_times}"
+            )
+        # Window i averages the atmosphere frames of chunk i, as the fused model
+        # does; declare it relative to ocean output time i as a half-open window.
+        starts = atmos_times[::per_window] - ocean_times
+        ends = atmos_times[per_window - 1 :: per_window] + spacing - ocean_times
+        if not (np.all(starts == starts[0]) and np.all(ends == ends[0])):
+            raise ValueError(
+                "Ocean output times must sit at one offset from their atmosphere "
+                f"windows to declare them as means, got {ocean_times} against "
+                f"{atmos_times}"
             )
         self.window = per_window * spacing
-        self.window_ends = np.array(
-            [
-                model.atmos_output_times[(i + 1) * per_window - 1] + spacing
-                for i in range(n_ocean)
-            ]
+        self.window_offsets = (starts[0], ends[0])
+        modifier = (
+            f"mean:{format_duration(starts[0], signed=True)}:"
+            f"{format_duration(ends[0], signed=True)}"
         )
         self.forcing_variables = [
-            f"{v}:mean:{_compact_duration(self.window)}"
-            for v in model.ocean_coupling_variables
+            f"{v}:{modifier}" for v in model.ocean_coupling_variables
         ]
 
     def input_coords(self) -> CoordinateSystem:
@@ -2391,8 +2416,8 @@ class DLESyMOcean(_DLESyMComponent):
     def forcing_coords(self) -> CoordinateSystem:  # type: ignore[override]
         """Window means of the atmosphere's coupling variables.
 
-        One frame per ocean output time, valid at the end of the window it
-        averages, which follows the window's last atmosphere frame.
+        One frame per ocean output time, valid at that time, averaging the
+        atmosphere frames of the same cycle that lead up to it.
 
         Returns
         -------
@@ -2402,7 +2427,7 @@ class DLESyMOcean(_DLESyMComponent):
         return coord_array_like(
             self._native(),
             {
-                "lead_time": self.window_ends,
+                "lead_time": self.model.ocean_output_times,
                 "variable": np.array(self.forcing_variables),
             },
         )
@@ -2438,13 +2463,13 @@ class DLESyMOcean(_DLESyMComponent):
             self._select(
                 forcing,
                 self.forcing_variables,
-                lead[-1] + self.window_ends,
+                lead[-1] + model.ocean_output_times,
                 lead[-1],
             ),
             x,
         )
         tensor, anchors, leading = self._flatten(x)
-        coupling, _, _ = self._flatten(windows, anchors=False)
+        coupling, _, _ = self._flatten(windows, with_anchors=False)
         state = self._normalize(tensor, self._input_constants(model.ocean_var_idx))
         atmos_center, atmos_scale = self._output_constants(model.atmos_output_var_idx)
         coupling = self._normalize(
@@ -2516,7 +2541,7 @@ class DLESyMOcean(_DLESyMComponent):
         self,
         y: xr.DataArray,
         forcing: xr.DataArray,
-        state: torch.Tensor | None = None,
+        state: torch.Tensor | None,
     ) -> tuple[xr.DataArray, torch.Tensor | None]:
         """Advance one cycle from the previous output.
 
@@ -2526,7 +2551,7 @@ class DLESyMOcean(_DLESyMComponent):
             Previous cycle, including caller-applied edits.
         forcing : xr.DataArray
             Atmosphere window means holding the frames at ``y``'s final lead time
-            plus each window end.
+            plus each ocean output lead time.
         state : torch.Tensor | None
             RNG state returned by ``initialize`` or ``step``.
 

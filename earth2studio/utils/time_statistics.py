@@ -98,6 +98,25 @@ def _nanoseconds(value: np.timedelta64) -> int:
         raise ValueError("Calendar-relative durations are not supported") from error
 
 
+def format_duration(value: np.timedelta64, *, signed: bool = False) -> str:
+    """Format a duration as the compact string statistic labels use.
+
+    Parameters
+    ----------
+    value : np.timedelta64
+        Duration to format.
+    signed : bool, optional
+        Prefix positive values with ``+``, as window offsets are written, by
+        default False.
+
+    Returns
+    -------
+    str
+        Compact duration such as ``"48h"``, ``"-42h"`` or ``"+6h"``.
+    """
+    return _compact_duration(value, signed=signed)
+
+
 def _compact_duration(value: np.timedelta64, *, signed: bool = False) -> str:
     nanoseconds = _nanoseconds(value)
     sign = "-" if nanoseconds < 0 else "+" if signed and nanoseconds > 0 else ""

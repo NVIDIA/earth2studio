@@ -15,6 +15,7 @@
 # limitations under the License.
 
 
+import warnings
 from types import SimpleNamespace
 
 import numpy as np
@@ -584,11 +585,12 @@ def test_dlesym_split_declarations():
 
     assert hours(ocean.input_coords()) == [-48, 0]
     assert list(ocean.input_coords()["variable"].values) == ["sst"]
-    # Window means valid at each window's end, the frame after its last sample.
-    assert hours(ocean.forcing_coords()) == [54, 102]
+    # Window means valid at the ocean's output times, over the atmosphere frames
+    # of the same cycle: [T - 42h, T + 6h) is 6h..48h for T = 48h.
+    assert hours(ocean.forcing_coords()) == [48, 96]
     assert list(ocean.forcing_coords()["variable"].values) == [
-        "z1000:mean:48h",
-        "ws10m:mean:48h",
+        "z1000:mean:-42h:+6h",
+        "ws10m:mean:-42h:+6h",
     ]
     assert hours(ocean.output_coords(ocean.input_coords())) == [48, 96]
     native = DLESyM.input_coords(model)
@@ -623,16 +625,19 @@ def test_dlesym_split_schedule():
     assert "atmos  stateful    every 96h" in plan
     assert "ocean  stateful    every 96h" in plan
     assert "ocean -> atmos forcing[0] (hold): sst" in plan
-    assert "atmos -> ocean forcing[0] (exact): z1000:mean:48h, ws10m:mean:48h" in plan
+    assert (
+        "atmos -> ocean forcing[0] (exact): z1000:mean:-42h:+6h, ws10m:mean:-42h:+6h"
+        in plan
+    )
     # The atmosphere initializes from the ocean's initial SST and the ocean
     # reduces the atmosphere's first cycle. The next atmosphere cycle is forced
     # at the previous cycle's lead times, held from the ocean's earlier frames:
     # the +96h frame it uses is the ocean's +96h output.
     assert "atmos  initialize" in plan and "[forcing[0] <- ocean at +0h]" in plan
     assert "ocean  initialize" in plan
-    assert "forcing[0] <- atmos at +54h, +102h from +6h..+96h" in plan
+    assert "forcing[0] <- atmos at +48h, +96h from +6h..+96h" in plan
     assert "atmos  step" in plan and "+96h from +0h..+96h]" in plan
-    assert "forcing[0] <- atmos at +150h, +198h from +102h..+192h" in plan
+    assert "forcing[0] <- atmos at +144h, +192h from +102h..+192h" in plan
 
 
 def test_dlesym_split_reproduces_fused():
@@ -694,16 +699,19 @@ def test_dlesym_split_components_draw_independent_seeded_noise():
     item = WorkItem(np.datetime64("2020-06-01T00"), np.timedelta64(192, "h"))
 
     def run(seed):
+        runner = _coupled(model, source)
+        runner.seed = seed
         streams = {}
-        for step in _coupled(model, source).run_item(item):
+        for step in runner.run_item(item):
             for name, x in step.items():
                 streams.setdefault(name, []).append(x)
         return streams
 
-    first, second = run(0), run(0)
+    first, second, other = run(0), run(0), run(1)
     for name in ("atmos", "ocean"):
         for a, b in zip(first[name], second[name]):
             xr.testing.assert_identical(a, b)
+        assert not np.allclose(first[name][1].values, other[name][1].values)
     # The components are seeded apart from the fused model and from each other,
     # so a coupled run is another realization rather than the fused run.
     fused = [s["forecast"] for s in PrognosticRunner(model, source).run_item(item)]
@@ -771,14 +779,27 @@ def test_dlesym_split_rejects_mismatched_forcing():
         )
     with pytest.raises(ValueError):
         atmos(x, good.assign_coords(variable=["z500"]))
+    with pytest.raises(ValueError, match="valid for times"):
+        atmos(x, good.assign_coords(time=good["time"] + np.timedelta64(1, "D")))
+    with pytest.raises(ValueError, match="must have dimensions"):
+        atmos(x, good.isel(lead_time=0, drop=True))
     # No time coordinate on the forcing is fine; it is read from the state.
-    atmos(x, good.isel(time=0, drop=True))
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        atmos(x, good.isel(time=0, drop=True))
 
 
 def test_dlesym_ocean_requires_even_atmosphere_spacing():
     model = build_dlesym_model("cpu", nside=8)
     model.atmos_output_times = np.array([6, 12, 24, 48, 72, 96], dtype="timedelta64[h]")
     with pytest.raises(ValueError, match="evenly spaced"):
+        DLESyMOcean(model)
+
+
+def test_dlesym_ocean_requires_aligned_output_times():
+    model = build_dlesym_model("cpu", nside=8)
+    model.ocean_output_times = np.array([24, 96], dtype="timedelta64[h]")
+    with pytest.raises(ValueError, match="one offset"):
         DLESyMOcean(model)
 
 

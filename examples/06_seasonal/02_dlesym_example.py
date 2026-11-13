@@ -81,12 +81,11 @@ from dotenv import load_dotenv
 load_dotenv()  # TODO: make common example prep function
 import numpy as np
 import torch
-import xarray as xr
 
 from earth2studio.data import ARCO_ERA5
 from earth2studio.io import KVBackend
 from earth2studio.models.px import DLESyMLatLon
-from earth2studio.run import Pipeline, work_items
+from earth2studio.run import Pipeline, map_field, work_items
 
 device = "cuda"
 if not torch.cuda.is_available():
@@ -150,9 +149,10 @@ print(
 #   temperature at the history's final lead time. In the fused model this is the
 #   SST at the start of each cycle, the ocean's previous output.
 # - The ocean takes its history at -48 h and 0 h and, as forcing, the means of
-#   ``z1000`` and ``ws10m`` over each 48-hour ocean window, declared as qualified
-#   labels valid at each window's end. In the fused model these are averages of the
-#   atmosphere's frames from the same cycle.
+#   ``z1000`` and ``ws10m`` over the atmosphere frames leading up to each of its
+#   output times, declared as qualified labels such as ``z1000:mean:-42h:+6h``.
+#   In the fused model these are averages of the atmosphere's frames from the
+#   same cycle.
 #
 # The coupler reads these declarations; nothing in it knows about DLESyM.
 
@@ -186,38 +186,25 @@ print_slots("ocean", ocean)
 # no data source provides. Models never fetch data, so the preparation belongs in a
 # source: a small `DataSource` adapter fetches the lat/lon base variables from ERA5
 # and applies `DLESyMLatLon.to_native`, the same preparation the fused wrapper gives
-# its own inputs. The runner then fetches each component's history through it.
+# its own inputs. The runner then fetches each component's history through it, one
+# call per lead time.
 
 
 class NativeERA5:
-    """Serve DLESyM's native HEALPix input variables from a lat/lon source.
-
-    The preparation needs every base variable, so each time is fetched and
-    prepared once and kept, as both components ask for the analysis time.
-    """
+    """Serve DLESyM's native HEALPix input variables from a lat/lon source."""
 
     def __init__(self, source, model):
         self.source = source
         self.model = model
-        self.base_variables = list(model.input_coords()["variable"].values)
-        self.prepared = {}
+        self.signature = model.input_coords()
 
     def __call__(self, time, variable):
         """Fetch the base variables, then return the native ones requested."""
-        time = np.atleast_1d(np.asarray(time, dtype="datetime64[ns]"))
-        missing = [t for t in time if t not in self.prepared]
-        if missing:
-            native = self.model.to_native(
-                self.source(np.array(missing), self.base_variables)
-            )
-            for t in missing:
-                self.prepared[t] = native.sel(time=[t])
-        x = xr.concat([self.prepared[t] for t in time], dim="time")
-        return x.sel(variable=np.atleast_1d(variable))
-
-    async def fetch(self, time, variable):
-        """Async variant of ``__call__``."""
-        return self(time, variable)
+        x = self.source(time, self.signature["variable"].values)
+        # Lay the fields out on the model's declared lat/lon grid before preparing
+        # them; map_field also checks the grid metadata matches.
+        x = map_field(x, self.signature)
+        return self.model.to_native(x).sel(variable=np.atleast_1d(variable))
 
 
 native = NativeERA5(data, model)
