@@ -181,17 +181,26 @@ def test_dlesym_tp06_physical_units(device):
     model = build_dlesym_model(device, atmos_diagnostic_variables=["tp06", "msl"])
     variables = list(model.output_coords(model.input_coords())["variable"])
     i = variables.index("tp06")
+    # tp06 normalization of the v1.1 package, so the mean and scale are restored
+    # before the log transform is inverted
+    center, scale = 7.1346015, 4.5873095
+    model.center[:, :, :, i] = center
+    model.scale[:, :, :, i] = scale
 
-    tp = torch.tensor([0.0, 1e-6, 1e-4, 5e-3], dtype=torch.float64)
-    x = torch.ones(1, 1, len(tp) + 1, len(variables), 1, 1, 1, device=device)
-    x[0, 0, : len(tp), i, 0, 0, 0] = torch.log1p(tp / 1e-8).float().to(device)
-    x[0, 0, -1, i, 0, 0, 0] = -0.5  # below the no-rain value
+    # 1e-6 m is rain with a negative normalized value; log value -0.5 means no rain
+    tp = torch.tensor([0.0, 1e-6, 1e-4, 5e-3, 0.0], dtype=torch.float64)
+    log_tp = torch.log1p(tp / 1e-8)
+    log_tp[-1] = -0.5
+    normalized = (log_tp - center) / scale
+    assert normalized[1] < 0
+
+    x = torch.ones(1, 1, len(tp), len(variables), 1, 1, 1, device=device)
+    x[0, 0, :, i, 0, 0, 0] = normalized.float().to(device)
 
     out = model._denormalize_output(x)
 
-    expected = torch.cat([tp, torch.zeros(1, dtype=torch.float64)])
     torch.testing.assert_close(
-        out[0, 0, :, i, 0, 0, 0].cpu().double(), expected, rtol=1e-5, atol=1e-12
+        out[0, 0, :, i, 0, 0, 0].cpu().double(), tp, rtol=1e-5, atol=1e-12
     )
     # Other variables are only denormalized
     others = [j for j in range(len(variables)) if j != i]
