@@ -20,7 +20,7 @@
 # scoring elsewhere.  The model steps one day at a time on a 1.5 degree
 # grid; output.regrid interpolates each mean onto a 1 degree grid, the
 # resolution subseasonal archives use.  The model's qualified input labels
-# (t2m:mean:0h:24h ...) tell fetch_data to compute UTC calendar-day means
+# (t2m:mean:-1h:23h ...) tell fetch_data to compute UTC calendar-day means
 # from the hourly arco_era5 source for the two initial frames.  This 60-day run produces
 # two means and extends beyond the published 42-day horizon.
 defaults:
@@ -47,11 +47,11 @@ output:
     # Variables kept in forecast.zarr, one field per window.  FuXi-S2S
     # outputs carry the model's qualified daily-mean labels.
     variables:
-        - t2m:mean:0h:24h
-        - t850:mean:0h:24h
-        - z500:mean:0h:24h
-        - msl:mean:0h:24h
-        - tp:mean:1h:25h
+        - t2m:mean:-1h:23h
+        - t850:mean:-1h:23h
+        - z500:mean:-1h:23h
+        - msl:mean:-1h:23h
+        - tp:mean:0h:24h
     # 1 degree output grid; remove to keep the model's 1.5 degree grid.
     regrid:
         grid:
