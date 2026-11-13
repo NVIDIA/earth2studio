@@ -35,16 +35,7 @@ class WB2Lexicon(metaclass=LexiconType):
     - Dew point temperature at 2m seems to be all NaNs
     """
 
-    TIME_STATISTICS: tuple[str, ...] = (
-        "mean",
-        "sum",
-        "min",
-        "max",
-        "nanmean",
-        "nansum",
-        "nanmin",
-        "nanmax",
-    )
+    TIME_STATISTICS: tuple[str, ...] = ("mean", "sum", "min", "max")
 
     VOCAB = {
         "u10m": "10m_u_component_of_wind::",

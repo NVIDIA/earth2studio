@@ -419,7 +419,7 @@ def fetch_data(
     ----
     Temporal statistics require native source support. The source chooses its
     sampling and computes the reduction; unsupported methods raise ``ValueError``.
-    Windows include their left endpoint and exclude their right endpoint.
+    Windows exclude their left endpoint and include their right endpoint.
     Sources may return NumPy- or CuPy-backed fields. Temporal reductions run on
     that backing; the result then moves to ``device`` only if it is not already
     there, and regridding runs last, on ``device``. Regridding automatically
@@ -1804,63 +1804,44 @@ async def obstore_fetch_to_cache(
     return cache_path
 
 
-class SharedDownloads:
-    """Share concurrent downloads of one cache file within each event loop.
+async def fetch_once(
+    inflight: dict[str, asyncio.Future[str]],
+    key: str,
+    download: Callable[[], Awaitable[str]],
+) -> str:
+    """Await one shared download for concurrent requests of the same file.
 
-    Concurrent requests for the same cache file await a single download instead of
-    racing to write it. Tasks are tracked per event loop, because an asyncio task
-    can only be awaited on the loop that created it: a caller on another loop starts
-    (or joins) its own download rather than failing. Entries are dropped when their
-    task finishes, and a task left behind by a closed loop is replaced.
+    Callers on the running event loop that request ``key`` while a download is in
+    flight await that download instead of starting another. The entry is removed
+    when the download finishes, so a failure reaches every waiting caller and the
+    next request retries. A task from another event loop is not reused.
+
+    Parameters
+    ----------
+    inflight : dict[str, asyncio.Future[str]]
+        In-flight downloads by key, owned by the caller (one per data source)
+    key : str
+        Cache file name identifying the download
+    download : Callable[[], Awaitable[str]]
+        Starts the download and returns the cache file path
+
+    Returns
+    -------
+    str
+        Path to the local cache file
     """
+    task = inflight.get(key)
+    if task is None or task.get_loop() is not asyncio.get_running_loop():
+        task = asyncio.ensure_future(download())
+        inflight[key] = task
 
-    def __init__(self) -> None:
-        self._tasks: weakref.WeakKeyDictionary[
-            asyncio.AbstractEventLoop, dict[str, asyncio.Future[str]]
-        ] = weakref.WeakKeyDictionary()
+        def _forget(done: asyncio.Future[str]) -> None:
+            if inflight.get(key) is done:
+                del inflight[key]
 
-    def __len__(self) -> int:
-        return sum(len(tasks) for tasks in self._tasks.values())
-
-    async def fetch(
-        self, cache_key: str, download: Callable[[], Awaitable[str]]
-    ) -> str:
-        """Await the download of ``cache_key``, starting it if none is in flight.
-
-        Parameters
-        ----------
-        cache_key : str
-            Cache file name identifying the download
-        download : Callable[[], Awaitable[str]]
-            Starts the download and returns the cache file path
-
-        Returns
-        -------
-        str
-            Path to the local cache file
-        """
-        loop = asyncio.get_running_loop()
-        tasks = self._tasks.setdefault(loop, {})
-        task = tasks.get(cache_key)
-        if task is None or task.done():
-            task = asyncio.ensure_future(download())
-            tasks[cache_key] = task
-
-            def _forget(done: asyncio.Future[str]) -> None:
-                if tasks.get(cache_key) is done:
-                    del tasks[cache_key]
-
-            task.add_done_callback(_forget)
-        # Shield so one cancelled or timed-out caller does not abort the shared
-        # download for the others.
-        return await asyncio.shield(task)
-
-    def __getstate__(self) -> dict[str, Any]:
-        # In-flight tasks belong to the pickling process; start fresh elsewhere.
-        return {}
-
-    def __setstate__(self, state: dict[str, Any]) -> None:
-        self.__init__()  # type: ignore[misc]
+        task.add_done_callback(_forget)
+    # Shield so one cancelled caller does not abort the download for the others
+    return await asyncio.shield(task)
 
 
 class LocalCachingStore(zarr.storage.WrapperStore):
@@ -2175,10 +2156,6 @@ _DESCRIPTIONS = {
     "sum": "accumulated (summed)",
     "min": "reduced to the minimum",
     "max": "reduced to the maximum",
-    "nanmean": "averaged over non-missing samples",
-    "nansum": "accumulated (summed) over non-missing samples",
-    "nanmin": "reduced to the minimum of non-missing samples",
-    "nanmax": "reduced to the maximum of non-missing samples",
 }
 
 

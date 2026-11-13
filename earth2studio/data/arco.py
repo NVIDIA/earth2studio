@@ -76,15 +76,9 @@ class ARCO_ERA5:
 
     Note
     ----
-    Temporal statistics: this data source supports ``mean``, ``sum``, ``min`` and
-    ``max``, which return NaN when any sample in the window is missing, and the
-    NaN-skipping ``nanmean``, ``nansum``, ``nanmin`` and ``nanmax``. The sampling
-    cadence is one hour and a two-part label such as ``t2m:mean:6h`` selects the
-    stamps in ``(T - 6h, T]``, ``T - 5h`` through ``T``.
-
-    Accumulations (``tp``, ``ttr``, ``ro``, ``sf`` and the mean flux ``mtdwswrf``)
-    are stamped at the end of their hour, so ``tp:sum:6h`` covers the six hours
-    ending at ``T``, the same period as the ``tp06`` alias.
+    Temporal statistics: ``mean``, ``sum``, ``min`` and ``max`` at hourly cadence
+    (see the time statistics spec). Accumulations such as ``tp`` are stamped at the
+    end of their hour, so ``tp:sum:6h`` equals ``tp06``.
 
     Badges
     ------

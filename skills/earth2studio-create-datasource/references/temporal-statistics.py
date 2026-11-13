@@ -170,9 +170,7 @@ class SourceName:
 # - Composite sources must not reduce: forward labels unchanged to components.
 # - Missing samples propagate: mean/sum/min/max return NaN for a cell when any
 #   sample in its window is NaN (including NaN fields a source returns for
-#   missing records). nanmean/nansum/nanmin/nanmax are the explicit opt-in that
-#   skips NaN; an all-NaN window is NaN for all of them. Download errors still
-#   propagate. The planned samples are all fetched or the request fails; no
+#   missing records). Download errors still propagate. The planned samples are all fetched or the request fails; no
 #   partial window is written.
 # - Accumulations stamped at the end of their interval (ERA5 ``tp``) match the
 #   right-closed window: ``tp:sum:6h`` reads stamps T-5h ... T, the six hours

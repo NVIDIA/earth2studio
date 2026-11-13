@@ -1696,26 +1696,30 @@ def test_fetch_dataframe_fixed_size_lists_to_cudf():
     assert values == [[1.0, 2.0], [3.0, None]]
 
 
-def test_shared_downloads():
-    """One download per cache key and loop; other loops and cancellation are safe."""
-    from earth2studio.data.utils import SharedDownloads
+def test_fetch_once():
+    """Concurrent requests share one download; failures reach every caller."""
+    from earth2studio.data.utils import fetch_once
 
-    shared = SharedDownloads()
+    inflight: dict = {}
     calls = []
 
-    async def download(name, event):
+    async def download(name, event, fail=False):
         calls.append(name)
         await event.wait()
+        if fail:
+            raise OSError("download failed")
         return name
 
     async def concurrent():
         event = asyncio.Event()
         tasks = [
-            asyncio.ensure_future(shared.fetch("a", lambda: download("a", event)))
+            asyncio.ensure_future(
+                fetch_once(inflight, "a", lambda: download("a", event))
+            )
             for _ in range(4)
         ]
         await asyncio.sleep(0)
-        assert len(shared) == 1
+        assert len(inflight) == 1
         # A cancelled caller does not abort the shared download for the others
         tasks[0].cancel()
         await asyncio.sleep(0)
@@ -1725,9 +1729,31 @@ def test_shared_downloads():
         return results
 
     assert asyncio.run(concurrent()) == ["a"] * 3
-    assert calls == ["a"] and len(shared) == 0
+    assert calls == ["a"] and not inflight
 
-    # A download left pending on one loop does not break a caller on another loop
+    # A failed download raises for every caller, and the next request retries
+    async def failing():
+        event = asyncio.Event()
+        tasks = [
+            asyncio.ensure_future(
+                fetch_once(inflight, "b", lambda: download("b", event, fail=True))
+            )
+            for _ in range(3)
+        ]
+        await asyncio.sleep(0)
+        event.set()
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        assert all(isinstance(r, OSError) for r in results)
+        assert not inflight
+        event = asyncio.Event()
+        event.set()
+        return await fetch_once(inflight, "b", lambda: download("b", event))
+
+    calls.clear()
+    assert asyncio.run(failing()) == "b"
+    assert calls == ["b", "b"]
+
+    # A task left pending on another loop is not reused
     calls.clear()
     blocked = asyncio.new_event_loop()
     try:
@@ -1735,20 +1761,19 @@ def test_shared_downloads():
         async def start_blocked():
             event = asyncio.Event()
             return asyncio.ensure_future(
-                shared.fetch("b", lambda: download("b", event))
+                fetch_once(inflight, "c", lambda: download("c", event))
             )
 
         pending = blocked.run_until_complete(start_blocked())
         blocked.run_until_complete(asyncio.sleep(0.01))
-        assert not pending.done()
 
         async def other_loop():
             event = asyncio.Event()
             event.set()
-            return await shared.fetch("b", lambda: download("b", event))
+            return await fetch_once(inflight, "c", lambda: download("c", event))
 
-        assert asyncio.run(other_loop()) == "b"
-        assert calls == ["b", "b"]
+        assert asyncio.run(other_loop()) == "c"
+        assert calls == ["c", "c"]
         pending.cancel()
         with pytest.raises(asyncio.CancelledError):
             blocked.run_until_complete(pending)

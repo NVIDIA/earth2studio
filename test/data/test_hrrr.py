@@ -388,17 +388,10 @@ def test_hrrr_call_mock(source, mock_statistic_grib):
     assert set(data.attrs["earth2studio_statistics"]) == set(variables[1:])
     # Instantaneous (shared with the window) plus two extra analysis times
     assert len({u for u in index_calls if "wrfsfc" in u}) == 3
-    # Windows holding a missing sample propagate NaN; nan* statistics skip it
+    # Windows holding a missing sample propagate NaN
     np.testing.assert_allclose(
         data.values[0, :, 0, 1], [24] + [np.nan] * 4, equal_nan=True
     )
-    np.testing.assert_allclose(data.values[0, :, 1, 0], np.nan, equal_nan=True)
-    skipping = [f"t2m:nan{m}:3h" for m in ("mean", "sum", "max", "min")]
-    data = ds(datetime(2024, 1, 2), skipping)
-    np.testing.assert_allclose(data.values[0, :, 0, 0], [23, 69, 24, 22])
-    # Odd hours are missing in this cell, leaving 22 and 24
-    np.testing.assert_allclose(data.values[0, :, 0, 1], [23, 46, 24, 22])
-    # An all-missing window stays NaN, including the skipping sum
     np.testing.assert_allclose(data.values[0, :, 1, 0], np.nan, equal_nan=True)
     data = ds(datetime(2024, 1, 2), ["t2m", "z500"])
     np.testing.assert_allclose(data.values[0, :, 0, 0], [24, 24 * 9.81])

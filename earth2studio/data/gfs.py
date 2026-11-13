@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import hashlib
 import os
 import pathlib
@@ -30,7 +31,6 @@ from obstore.store import ObjectStore
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
-    SharedDownloads,
     _sync_async,
     as_datetime,
     as_timedelta,
@@ -38,6 +38,7 @@ from earth2studio.data.utils import (
     cancellable_to_thread,
     datasource_cache_root,
     decode_grib_message,
+    fetch_once,
     map_with_concurrency,
     obstore_fetch_to_cache,
     obstore_store_from_url,
@@ -89,15 +90,9 @@ class GFS:
 
     Note
     ----
-    Temporal statistics: this data source supports ``mean``, ``sum``, ``min`` and
-    ``max``, which return NaN when any sample in the window is missing, and the
-    NaN-skipping ``nanmean``, ``nansum``, ``nanmin`` and ``nanmax``. The sampling
-    cadence is six hours and a two-part label such as ``t2m:mean:24h`` selects the
-    stamps in ``(T - 24h, T]``.
-
-    ``tp`` is a running accumulation bucket that resets every six hours; summing it
-    over a window double counts. Request ``tp06`` for the six-hour accumulation
-    ending at ``T``.
+    Temporal statistics: ``mean``, ``sum``, ``min`` and ``max`` at six-hourly
+    cadence (see the time statistics spec). ``tp`` is a running bucket that resets
+    every six hours, so do not sum it; use ``tp06``.
 
     Note
     ----
@@ -132,7 +127,7 @@ class GFS:
         self._async_workers = async_workers
         self._retries = retries
         self._tmp_cache_hash: str | None = None
-        self._inflight_downloads = SharedDownloads()
+        self._inflight_downloads: dict[str, asyncio.Future[str]] = {}
 
         self.store: ObjectStore | None = None
         if source == "aws":
@@ -528,7 +523,8 @@ class GFS:
         # byte range. Share one in-flight download per cache file; the cache file
         # itself is published atomically so readers never see a partial file.
         store = self.store
-        return await self._inflight_downloads.fetch(
+        return await fetch_once(
+            self._inflight_downloads,
             filename,
             lambda: obstore_fetch_to_cache(
                 store,
@@ -629,16 +625,9 @@ class GFS_FX(GFS):
 
     Note
     ----
-    Temporal statistics: this data source supports ``mean``, ``sum``, ``min`` and
-    ``max``, which return NaN when any sample in the window is missing, and the
-    NaN-skipping ``nanmean``, ``nansum``, ``nanmin`` and ``nanmax``. The sampling
-    cadence is one hour over forecast lead times, and a two-part label such as
-    ``t2m:mean:6h`` selects the lead times in ``(L - 6h, L]``.
-
-    ``tp`` is a running accumulation bucket that resets every six hours, so
-    ``tp:sum:Nh`` double counts (at lead 12 h, ``tp:sum:6h`` sums the buckets at
-    f07 … f12, counting hour 7 six times). Request ``tp06`` for the six-hour
-    accumulation ending at ``L``.
+    Temporal statistics: ``mean``, ``sum``, ``min`` and ``max`` at hourly lead-time
+    cadence (see the time statistics spec). ``tp`` is a running bucket that resets
+    every six hours, so do not sum it; use ``tp06``.
 
     Parameters
     ----------

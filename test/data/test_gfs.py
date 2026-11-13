@@ -364,9 +364,6 @@ def test_gfs_call_mock(mock_statistic_grib):
         data.values[0, :, 0, 0], [24] + [np.nan] * 4, equal_nan=True
     )
     np.testing.assert_allclose(data.values[0, :, 1, 0], np.nan, equal_nan=True)
-    skipping = [f"t2m:nan{m}:12h" for m in ("mean", "sum", "max", "min")]
-    data = ds(datetime(2024, 1, 2), skipping)
-    np.testing.assert_allclose(data.values[0, :, 0, 0], [24, 24, 24, 24])
 
 
 @pytest.mark.timeout(30)

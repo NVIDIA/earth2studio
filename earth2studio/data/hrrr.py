@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import functools
 import hashlib
 import os
@@ -30,7 +31,6 @@ from obstore.store import ObjectStore
 from tqdm.asyncio import tqdm
 
 from earth2studio.data.utils import (
-    SharedDownloads,
     _sync_async,
     as_datetime,
     as_timedelta,
@@ -38,6 +38,7 @@ from earth2studio.data.utils import (
     cancellable_to_thread,
     datasource_cache_root,
     decode_grib_message,
+    fetch_once,
     map_with_concurrency,
     obstore_fetch_to_cache,
     obstore_store_from_url,
@@ -87,15 +88,9 @@ class HRRR:
     ```
     Note
     ----
-    Temporal statistics: this data source supports ``mean``, ``sum``, ``min`` and
-    ``max``, which return NaN when any sample in the window is missing, and the
-    NaN-skipping ``nanmean``, ``nansum``, ``nanmin`` and ``nanmax``. The sampling
-    cadence is one hour and a two-part label such as ``t2m:mean:6h`` selects the
-    stamps in ``(T - 6h, T]``, ``T - 5h`` through ``T``.
-
-    ``tp`` is read from the lead-0 record (``0-0 day acc fcst``), not an hourly
-    accumulation, so window sums of it are not precipitation totals; use
-    :py:class:`HRRR_FX` for accumulated precipitation.
+    Temporal statistics: ``mean``, ``sum``, ``min`` and ``max`` at hourly cadence
+    (see the time statistics spec). ``tp`` is the lead-0 record, not an hourly
+    accumulation; use :py:class:`HRRR_FX` for precipitation totals.
 
     Parameters
     ----------
@@ -215,7 +210,7 @@ class HRRR:
 
         # Object store is lazily initialized on first call
         self.store: ObjectStore | None = None
-        self._inflight_downloads = SharedDownloads()
+        self._inflight_downloads: dict[str, asyncio.Future[str]] = {}
 
     async def _async_init(self) -> None:
         """Async initialization of the object store
@@ -546,7 +541,8 @@ class HRRR:
         # in-flight download per cache file and publish it atomically, so a
         # concurrent reader never parses a half-written index.
         try:
-            return await self._inflight_downloads.fetch(
+            return await fetch_once(
+                self._inflight_downloads,
                 filename,
                 lambda: obstore_fetch_to_cache(
                     store,
@@ -690,15 +686,9 @@ class HRRR_FX(HRRR):
 
     Note
     ----
-    Temporal statistics: this data source supports ``mean``, ``sum``, ``min`` and
-    ``max``, which return NaN when any sample in the window is missing, and the
-    NaN-skipping ``nanmean``, ``nansum``, ``nanmin`` and ``nanmax``. The sampling
-    cadence is one hour over forecast lead times, and a two-part label such as
-    ``t2m:mean:6h`` selects the lead times in ``(L - 6h, L]``.
-
-    ``tp`` at lead ``h`` is the accumulation over hour ``(h - 1, h]``, so
-    ``tp:sum:6h`` at lead ``L`` is the accumulation over the six hours ending at
-    ``L``.
+    Temporal statistics: ``mean``, ``sum``, ``min`` and ``max`` at hourly lead-time
+    cadence (see the time statistics spec). ``tp:sum:6h`` at lead ``L`` is the
+    accumulation over the six hours ending at ``L``.
 
     Parameters
     ----------

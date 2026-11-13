@@ -39,8 +39,7 @@ At source cadence `Δ`, a window `(T + start, T + end]` reads the stamps
 `closed: "right"`.
 
 Built-in methods are `mean`, `sum`, `min`, and `max`, which propagate missing
-samples (see Planning and Reduction), and their NaN-skipping counterparts `nanmean`,
-`nansum`, `nanmin`, and `nanmax`. Source cadence must divide
+samples (see Planning and Reduction). Source cadence must divide
 the window exactly. Durations are integers with units `ns`, `us`, `ms`,
 `s/sec/second`, `m/min/minute`, `h/hr/hour`, `d/day`, or `w/wk/week`;
 plural names are accepted. Weeks are seven days. Month and year durations are
@@ -201,10 +200,9 @@ Missing samples propagate: if any sample in a window is NaN, `mean`, `sum`, `min
 and `max` return NaN for that cell, so a field built from a missing value is never
 silently partial. This covers cells masked by the source (such as SST over land) and
 records a source could not resolve (for example a GRIB record absent from its index,
-which sources return as an all-NaN field with a warning). Skipping is an explicit
-opt-in: `nanmean`, `nansum`, `nanmin` and `nanmax` reduce the non-missing samples and
-return NaN only when every sample is missing (`nansum` of an all-NaN window is NaN,
-not zero). The reduction does not use a cadence, window or expected count; the
+which sources return as an all-NaN field with a warning). Skipping missing samples
+is a data-handling choice, not part of a quantity's label, so it is not expressed as
+a statistic method. The reduction does not use a cadence, window or expected count; the
 source plans the coordinates. Means are sample-weighted, not duration-weighted.
 Sources propagate fetching failures rather than reduce a partial window.
 

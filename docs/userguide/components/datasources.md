@@ -134,8 +134,7 @@ Output `earth2studio_statistics` describes the reductions actually performed.
 `ARCO_ERA5`, `GFS_FX`, `HRRR`, and `HRRR_FX` handle statistics natively with
 hourly sampling; `GFS` and the `WB2ERA5` variants use six-hourly sampling.
 All support `mean`, `sum`, `min`, and `max`, which return NaN for a cell when any
-sample in its window is missing, and the NaN-skipping `nanmean`, `nansum`, `nanmin`
-and `nanmax`, which reduce only the available samples.
+sample in its window is missing.
 Sampling cadence is internal to each source. Reductions of accumulated variables
 operate on stored values; overlapping accumulation periods (such as the GFS `tp`
 bucket) can double-count totals.
@@ -151,7 +150,7 @@ Analysis sources fetch absolute valid timestamps, while forecast sources reduce
 lead times separately for each initialization. For a trailing 24-hour forecast
 mean, request a lead of at least 23 hours so the window stays within that
 initialization. Unavailable sample coordinates and failed downloads raise errors;
-NaN samples propagate unless a `nan*` method is requested.
+NaN samples propagate.
 
 The former tuple return and `legacy` argument have been removed. Access values
 through `field.data` and coordinates through `field.coords`.

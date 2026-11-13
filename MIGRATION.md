@@ -151,9 +151,7 @@ Targets: [source protocols](earth2studio/data/base.py), [fetch_data](earth2studi
   the requested times in `time` and the sampled times in `time_selected`, which replaces
   `time_requested`.
 - Time statistics `sum`, `mean`, `min` and `max` return NaN when any sample in the
-  window is missing. The opt-in `nansum` / `nanmean` / `nanmin` / `nanmax` skip missing
-  samples (an all-NaN window stays NaN); the ARCO, GFS, HRRR and WB2 lexicons declare
-  them, e.g. `sst:nanmean:24h`.
+  window is missing; `main` skipped them (an all-NaN `sum` gave 0).
 
 ## IO objects
 

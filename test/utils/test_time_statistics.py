@@ -133,17 +133,9 @@ def test_time_statistic_block_reductions(method, expected):
         e2s.apply_time_statistic(array, f"{method}:3h", target, delta_t, "lead_time")
 
 
-@pytest.mark.parametrize(
-    ("method", "propagated", "skipped"),
-    (
-        ("mean", np.nan, 1.0),
-        ("sum", np.nan, 3.0),
-        ("min", np.nan, 1.0),
-        ("max", np.nan, 1.0),
-    ),
-)
-def test_time_statistic_missing_samples(method, propagated, skipped):
-    """Built-in reductions propagate NaN; the ``nan`` variants skip it explicitly."""
+@pytest.mark.parametrize("method", ("mean", "sum", "min", "max"))
+def test_time_statistic_missing_samples(method):
+    """Reductions propagate NaN: a window holding a missing sample is NaN."""
     target = np.datetime64("2026-08-28T04:00")
     delta_t = np.timedelta64(1, "h")
     times = np.arange(target - np.timedelta64(3, "h"), target + delta_t, delta_t)
@@ -153,18 +145,12 @@ def test_time_statistic_missing_samples(method, propagated, skipped):
         coords={"time": times, "variable": ["partial", "missing"]},
     )
     result = e2s.apply_time_statistic(array, f"{method}:4h", target, delta_t)
-    np.testing.assert_array_equal(result, [propagated, np.nan])
-    result = e2s.apply_time_statistic(array, f"nan{method}:4h", target, delta_t)
-    # An all-NaN window stays NaN even when samples are skipped
-    np.testing.assert_array_equal(result, [skipped, np.nan])
-
-    samples = array.values
+    np.testing.assert_array_equal(result, [np.nan, np.nan])
     np.testing.assert_array_equal(
-        e2s.reduce_samples(f"{method}:4h", samples), [propagated, np.nan]
+        e2s.reduce_samples(f"{method}:4h", array.values), [np.nan, np.nan]
     )
-    np.testing.assert_array_equal(
-        e2s.reduce_samples(f"nan{method}:4h", samples), [skipped, np.nan]
-    )
+    with pytest.raises(ValueError, match="Unknown"):
+        e2s.time_statistic_metadata(f"nan{method}:4h")
 
 
 def test_time_statistic_window_validation():

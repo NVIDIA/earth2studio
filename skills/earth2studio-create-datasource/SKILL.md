@@ -270,8 +270,7 @@ Load `references/temporal-statistics.py` and follow it. In short:
    `Temporal statistics:`. List methods, label syntax, sampling cadence, window
    closure, and accumulation caveats. Store capability metadata in the source's
    lexicon as `TIME_STATISTICS = ("mean", "sum", "min", "max")` (or a subset),
-   adding the NaN-skipping `nanmean`, `nansum`, `nanmin` and `nanmax` when the
-   source's fields can hold missing values, and expose that lexicon as `source.lexicon`. Omit this metadata for lexicons
+   and expose that lexicon as `source.lexicon`. Omit this metadata for lexicons
    without native support (e.g. climatology). Do not add source-level
    `time_statistics` or `time_step` attributes.
 2. **Plan**: `plain, stats, attrs = plan_statistics(variable, target_times, delta_t,
