@@ -17,8 +17,9 @@
 from collections import OrderedDict
 from collections.abc import Callable, Iterator
 from copy import deepcopy
+from datetime import datetime
 from pathlib import Path
-from typing import Literal, cast
+from typing import Literal, TypeVar, cast
 
 import numpy as np
 import torch
@@ -46,7 +47,12 @@ from earth2studio.utils.imports import (
     check_optional_dependencies,
 )
 from earth2studio.utils.time_statistics import format_duration
-from earth2studio.utils.type import CoordinateSystem, CoordSystem
+from earth2studio.utils.type import (
+    CoordinateSystem,
+    CoordSystem,
+    TimeArray,
+    VariableArray,
+)
 
 try:
     import earth2grid
@@ -86,9 +92,85 @@ _OCEAN_OUTPUT_TIMES = np.array([48, 96], dtype="timedelta64[h]")
 # Normalize variable names in the model package to match e2studio's lexicon
 _ATMOS_VARIABLE_RENAMES = {"ttr-3h": "ttr03"}
 
+T = TypeVar("T")
+
+
+def _wrap_output(
+    out: torch.Tensor,
+    leading: tuple[int, ...],
+    signature: CoordinateSystem,
+    like: xr.DataArray,
+) -> xr.DataArray:
+    """Restore the ``leading`` dimensions of a flattened core output and wrap it.
+
+    Field data is fresh; metadata is deep-copied so nested values are not shared
+    with ``like``.
+    """
+    out = out.reshape(*leading, *out.shape[1:])
+    result = from_torch(out, signature, name=like.name)
+    result.attrs = deepcopy(result.attrs)
+    result.encoding = deepcopy(like.encoding)
+    return result
+
+
+class _CLNNoise:
+    """Conditional layer norm noise generator of DLESyM and its split components.
+
+    The generator is the only random state of a rollout: ``set_rng`` seeds it,
+    ``initialize`` and ``step`` return its position as explicit state, and
+    ``_with_rng`` replays a step from that position without disturbing the
+    generator the caller seeded.
+    """
+
+    stochastic: bool
+    _cln_generator: torch.Generator | None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the generator used to sample conditional layer norm noise.
+
+        Matches the `set_rng(seed, reset)` convention used by other
+        stochastic prognostic models in earth2studio (e.g. FCN3), so
+        callers (ensemble drivers, eval recipes) can reseed this model the
+        same way as any other stochastic model via
+        `hasattr(model, "set_rng")`. Has no effect if the model is not
+        stochastic.
+
+        Parameters
+        ----------
+        seed : int
+            Seed value
+        reset : bool, optional
+            Reinitialize the generator from `seed`. If False and the
+            generator is already initialized, this is a no-op, by default
+            True
+        """
+        if reset or self._cln_generator is None:
+            self._cln_generator = torch.Generator().manual_seed(seed)
+
+    def _ensure_rng(self) -> None:
+        """Seed from the global RNG when a stochastic model has no generator yet."""
+        if self.stochastic and self._cln_generator is None:
+            self.set_rng(int(torch.randint(2**31, ()).item()))
+
+    def _rng_state(self) -> torch.Tensor | None:
+        """The generator's position, or ``None`` for deterministic execution."""
+        if self.stochastic and self._cln_generator is not None:
+            return self._cln_generator.get_state().clone()
+        return None
+
+    def _with_rng(self, forward: Callable[[], T], state: torch.Tensor | None) -> T:
+        """Run ``forward`` from the generator ``state`` an earlier call returned."""
+        previous = self._cln_generator
+        if state is not None:
+            self._cln_generator = torch.Generator().set_state(state.clone())
+        try:
+            return forward()
+        finally:
+            self._cln_generator = previous
+
 
 @check_optional_dependencies()
-class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
+class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin, _CLNNoise):
     """DLESyM-V1-ERA5 prognostic model. This is an ensemble forecast model for
     global earth system modeling. This model includes an atmosphere and ocean
     component, using atmospheric variables as well as the sea-surface temperature
@@ -1012,27 +1094,6 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """Whether conditional layer norm noise is sampled during a rollout."""
         return bool(self.use_cln)
 
-    def set_rng(self, seed: int, reset: bool = True) -> None:
-        """Seed the generator used to sample conditional layer norm noise.
-
-        Matches the `set_rng(seed, reset)` convention used by other
-        stochastic prognostic models in earth2studio (e.g. FCN3), so
-        callers (ensemble drivers, eval recipes) can reseed this model the
-        same way as any other stochastic model via
-        `hasattr(model, "set_rng")`. Has no effect if `use_cln` is False.
-
-        Parameters
-        ----------
-        seed : int
-            Seed value
-        reset : bool, optional
-            Reinitialize the generator from `seed`. If False and the
-            generator is already initialized, this is a no-op, by default
-            True
-        """
-        if reset or self._cln_generator is None:
-            self._cln_generator = torch.Generator().manual_seed(seed)
-
     def _sample_conditions_cln(
         self,
         batch_size: int,
@@ -1179,13 +1240,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         x = y.isel(lead_time=slice(-len(self.full_input_times), None)).sel(
             variable=self.atmos_variables + self.ocean_variables
         )
-        previous = self._cln_generator
-        if state is not None:
-            self._cln_generator = torch.Generator().set_state(state.clone())
-        try:
-            return self._forward(x)
-        finally:
-            self._cln_generator = previous
+        return self._with_rng(lambda: self._forward(x), state)
 
     def _forward(self, x: xr.DataArray) -> tuple[xr.DataArray, torch.Tensor | None]:
         handshake_nonempty(x)
@@ -1193,14 +1248,8 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             x.assign_coords(lead_time=x.lead_time.values - x.lead_time.values[-1]),
             DLESyM.input_coords(self),
         )
-        if self.stochastic and self._cln_generator is None:
-            self.set_rng(int(torch.randint(2**31, ()).item()))
-        out = self._forward_array(x)
-        return out, (
-            self._cln_generator.get_state().clone()
-            if self.stochastic and self._cln_generator is not None
-            else None
-        )
+        self._ensure_rng()
+        return self._forward_array(x), self._rng_state()
 
     def _initial_state(self, x: xr.DataArray) -> xr.DataArray:
         return x
@@ -1228,12 +1277,7 @@ class DLESyM(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 ),
             },
         )
-        out = out.reshape(*(x.sizes[d] for d in leading), *out.shape[1:])
-        result = from_torch(out, signature, name=x.name)
-        # Field data is fresh; isolate metadata so nested values are not shared.
-        result.attrs = deepcopy(result.attrs)
-        result.encoding = deepcopy(x.encoding)
-        return result
+        return _wrap_output(out, tuple(x.sizes[d] for d in leading), signature, x)
 
     def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
         """Create a forecasts-only iterator over complete coupled cycles.
@@ -1781,6 +1825,30 @@ class DLESyMLatLon(DLESyM):
         """
         return self._initial_state(x)
 
+    def native_source(self, source: DataSource | None = None) -> DataSource:
+        """A data source serving the native HEALPix inputs from a lat/lon source.
+
+        The split components and the native :class:`DLESyM` declare HEALPix
+        inputs with derived variables that no data source provides. The returned
+        source fetches this wrapper's lat/lon input variables from ``source``,
+        prepares them with :meth:`to_native` once per time and serves the native
+        variables requested, so a runner can fetch each component's history
+        through it. The split components built from this wrapper recommend it
+        from ``default_sources()``.
+
+        Parameters
+        ----------
+        source : DataSource, optional
+            Lat/lon source of the variables of ``input_coords()``, by default
+            this model's recommendation, ARCO ERA5
+
+        Returns
+        -------
+        DataSource
+            Source of the variables of :meth:`DLESyM.input_coords` on HEALPix
+        """
+        return _NativeSource(self.default_sources() if source is None else source, self)
+
     def __call__(self, x: xr.DataArray) -> xr.DataArray:
         """Advance one coupled cycle on the public lat-lon grid without hooks.
 
@@ -1814,8 +1882,7 @@ class DLESyMLatLon(DLESyM):
         """
         handshake_nonempty(x)
         signature = self.output_coords(x)
-        if self.stochastic and self._cln_generator is None:
-            self.set_rng(int(torch.randint(2**31, ()).item()))
+        self._ensure_rng()
         packed, restore = batch_func()._compress_array(self, x)
         out = restore(self._forward_array(self._initial_state(packed)))
         return self._publish(out, signature)
@@ -1829,12 +1896,7 @@ class DLESyMLatLon(DLESyM):
         native = out.isel(lead_time=slice(-len(self.full_input_times), None)).sel(
             variable=self.atmos_variables + self.ocean_variables
         )
-        rng = (
-            self._cln_generator.get_state().clone()
-            if self.stochastic and self._cln_generator is not None
-            else None
-        )
-        return result, (native, result.copy(deep=True), rng)
+        return result, (native, result.copy(deep=True), self._rng_state())
 
     def step(
         self,
@@ -1876,15 +1938,15 @@ class DLESyMLatLon(DLESyM):
             name=y.name,
         )
         x.encoding = y.encoding.copy()
-        previous = self._cln_generator
-        if rng is not None:
-            self._cln_generator = torch.Generator().set_state(rng.clone())
-        try:
+
+        def forward() -> (
+            tuple[xr.DataArray, tuple[xr.DataArray, xr.DataArray, torch.Tensor | None]]
+        ):
             out = self._forward_array(x)
             signature = coord_array_like(y, {"lead_time": out.lead_time.values})
             return self._publish(out, signature)
-        finally:
-            self._cln_generator = previous
+
+        return self._with_rng(forward, rng)
 
     def create_iterator(self, x: xr.DataArray) -> Iterator[xr.DataArray]:
         """Yield coupled forecast chunks with hooks on the public lat/lon grid.
@@ -1904,7 +1966,82 @@ class DLESyMLatLon(DLESyM):
         return self._default_create_iterator(x)
 
 
-class _DLESyMComponent(torch.nn.Module, PrognosticMixin):
+class _NativeSource:
+    """Serve DLESyM's native HEALPix input variables from a lat/lon source.
+
+    The preparation needs every base variable, so each time is fetched and
+    prepared once and the most recent ``keep`` are retained: both split
+    components ask for the analysis time, and a runner asks for one lead time
+    per call.
+    """
+
+    def __init__(self, source: DataSource, model: DLESyMLatLon, keep: int = 16):
+        self.source = source
+        self.model = model
+        self.signature = model.input_coords()
+        self.keep = keep
+        self._prepared: OrderedDict[np.datetime64, xr.DataArray] = OrderedDict()
+
+    def _prepare(self, time: np.datetime64) -> xr.DataArray:
+        """Fetch the base variables at one time and prepare them, once."""
+        if time not in self._prepared:
+            # Imported here: earth2studio.run imports the model packages.
+            from earth2studio.run import map_field
+
+            x = self.source(np.array([time]), self.signature["variable"].values)
+            # Lay the fields out on the model's declared lat/lon grid before
+            # preparing them; map_field also checks the grid metadata matches.
+            self._prepared[time] = self.model.to_native(map_field(x, self.signature))
+            while len(self._prepared) > self.keep:
+                self._prepared.popitem(last=False)
+        return self._prepared[time]
+
+    def __call__(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Return the native variables requested at each time.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Times to return data for
+        variable : str | list[str] | VariableArray
+            Native variables, among those of :meth:`DLESyM.input_coords`
+
+        Returns
+        -------
+        xr.DataArray
+            Fields with dimensions ``(time, variable, face, height, width)``
+        """
+        times = np.atleast_1d(np.asarray(time, dtype="datetime64[ns]"))
+        x = xr.concat([self._prepare(t) for t in times], dim="time")
+        return x.sel(variable=np.atleast_1d(np.asarray(variable)))
+
+    async def fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
+        """Async form of :meth:`__call__`; the lat/lon source is called synchronously.
+
+        Parameters
+        ----------
+        time : datetime | list[datetime] | TimeArray
+            Times to return data for
+        variable : str | list[str] | VariableArray
+            Native variables, among those of :meth:`DLESyM.input_coords`
+
+        Returns
+        -------
+        xr.DataArray
+            Fields with dimensions ``(time, variable, face, height, width)``
+        """
+        return self(time, variable)
+
+
+class _DLESyMComponent(torch.nn.Module, PrognosticMixin, _CLNNoise):
     """One half of a split :class:`DLESyM`, sharing its weights and buffers.
 
     The fused model advances its atmosphere and ocean inside one ``step``. Each
@@ -1927,20 +2064,21 @@ class _DLESyMComponent(torch.nn.Module, PrognosticMixin):
         """Whether conditional layer norm noise is sampled during a rollout."""
         return self.model.stochastic
 
-    def set_rng(self, seed: int, reset: bool = True) -> None:
-        """Seed the generator used to sample conditional layer norm noise.
+    def default_sources(self) -> tuple[DataSource | None, ...] | None:
+        """Recommend the lat/lon wrapper's native source for the history slot.
 
-        Parameters
-        ----------
-        seed : int
-            Seed value
-        reset : bool, optional
-            Reinitialize the generator from `seed`. If False and the
-            generator is already initialized, this is a no-op, by default
-            True
+        Returns
+        -------
+        tuple[DataSource | None, ...] | None
+            :meth:`DLESyMLatLon.native_source` for the input slot and no
+            recommendation for the forcing slot, which a connector feeds, when
+            the fused model is a :class:`DLESyMLatLon`; ``None`` for the native
+            :class:`DLESyM`, whose inputs no raw source provides.
         """
-        if reset or self._cln_generator is None:
-            self._cln_generator = torch.Generator().manual_seed(seed)
+        model = self.model
+        if isinstance(model, DLESyMLatLon):
+            return (model.native_source(), None)
+        return None
 
     # -- declarations ----------------------------------------------------------
 
@@ -2097,43 +2235,18 @@ class _DLESyMComponent(torch.nn.Module, PrognosticMixin):
         ]
         return core(inputs, conditions_cln=conditions)
 
-    def _wrap(
-        self,
-        out: torch.Tensor,
-        leading: tuple[int, ...],
-        signature: CoordinateSystem,
-        like: xr.DataArray,
-    ) -> xr.DataArray:
-        """Restore the leading dimensions and wrap a ``(N, L, V, ...)`` output."""
-        out = out.reshape(*leading, *out.shape[1:])
-        result = from_torch(out, signature, name=like.name)
-        # Field data is fresh; isolate metadata so nested values are not shared.
-        result.attrs = deepcopy(result.attrs)
-        result.encoding = deepcopy(like.encoding)
-        return result
+    # -- execution -------------------------------------------------------------
 
-    # -- random state ----------------------------------------------------------
+    def _forward_array(self, x: xr.DataArray, forcing: xr.DataArray) -> xr.DataArray:
+        """Advance one validated cycle; each component supplies its core call."""
+        raise NotImplementedError
 
-    def _ensure_rng(self) -> None:
-        if self.stochastic and self._cln_generator is None:
-            self.set_rng(int(torch.randint(2**31, ()).item()))
-
-    def _rng_state(self) -> torch.Tensor | None:
-        if self.stochastic and self._cln_generator is not None:
-            return self._cln_generator.get_state().clone()
-        return None
-
-    def _continue(
-        self, forward: Callable[[], xr.DataArray], state: torch.Tensor | None
+    def _forward(
+        self, x: xr.DataArray, forcing: xr.DataArray
     ) -> tuple[xr.DataArray, torch.Tensor | None]:
-        """Run ``forward`` from the generator ``state`` returned by an earlier call."""
-        previous = self._cln_generator
-        if state is not None:
-            self._cln_generator = torch.Generator().set_state(state.clone())
-        try:
-            return forward(), self._rng_state()
-        finally:
-            self._cln_generator = previous
+        """Advance one cycle and return it with the generator's position."""
+        handshake_nonempty(x)
+        return self._forward_array(x, forcing), self._rng_state()
 
 
 class DLESyMAtmos(_DLESyMComponent):
@@ -2247,7 +2360,7 @@ class DLESyMAtmos(_DLESyMComponent):
         self._ensure_rng()
         out = self._run(model.atmos_model, inputs).permute(0, 2, 3, 1, 4, 5)
         out = self._denormalize(out, self._output_constants(model.atmos_output_var_idx))
-        return self._wrap(out, leading, signature, x)
+        return _wrap_output(out, leading, signature, x)
 
     def __call__(self, x: xr.DataArray, sst: xr.DataArray) -> xr.DataArray:
         """Advance one coupled cycle without hooks.
@@ -2284,8 +2397,7 @@ class DLESyMAtmos(_DLESyMComponent):
             First cycle and conditional layer norm RNG state, or ``None`` for
             deterministic execution.
         """
-        handshake_nonempty(x)
-        return self._forward_array(x, sst), self._rng_state()
+        return self._forward(x, sst)
 
     def step(
         self,
@@ -2313,7 +2425,7 @@ class DLESyMAtmos(_DLESyMComponent):
         x = y.isel(lead_time=slice(-len(model.atmos_input_times), None)).sel(
             variable=model.atmos_variables
         )
-        return self._continue(lambda: self._forward_array(x, sst), state)
+        return self._with_rng(lambda: self._forward(x, sst), state)
 
     def create_iterator(  # type: ignore[override]
         self, x: xr.DataArray, sst: xr.DataArray
@@ -2497,7 +2609,7 @@ class DLESyMOcean(_DLESyMComponent):
         self._ensure_rng()
         out = self._run(model.ocean_model, inputs).permute(0, 2, 3, 1, 4, 5)
         out = self._denormalize(out, self._output_constants(model.ocean_output_var_idx))
-        return self._wrap(out, leading, signature, x)
+        return _wrap_output(out, leading, signature, x)
 
     def __call__(self, x: xr.DataArray, forcing: xr.DataArray) -> xr.DataArray:
         """Advance one coupled cycle without hooks.
@@ -2534,8 +2646,7 @@ class DLESyMOcean(_DLESyMComponent):
             First cycle and conditional layer norm RNG state, or ``None`` for
             deterministic execution.
         """
-        handshake_nonempty(x)
-        return self._forward_array(x, forcing), self._rng_state()
+        return self._forward(x, forcing)
 
     def step(
         self,
@@ -2564,7 +2675,7 @@ class DLESyMOcean(_DLESyMComponent):
         x = y.isel(lead_time=slice(-len(model.ocean_input_times), None)).sel(
             variable=model.ocean_variables
         )
-        return self._continue(lambda: self._forward_array(x, forcing), state)
+        return self._with_rng(lambda: self._forward(x, forcing), state)
 
     def create_iterator(  # type: ignore[override]
         self, x: xr.DataArray, forcing: xr.DataArray

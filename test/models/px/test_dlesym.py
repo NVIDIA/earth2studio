@@ -29,13 +29,7 @@ from earth2studio.grids import HEALPixGrid
 from earth2studio.io import KVBackend
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import DLESyM, DLESyMAtmos, DLESyMLatLon, DLESyMOcean
-from earth2studio.run import (
-    Pipeline,
-    PrognosticRunner,
-    WorkItem,
-    map_field,
-    work_items,
-)
+from earth2studio.run import Pipeline, PrognosticRunner, WorkItem, work_items
 from earth2studio.utils.coords import coord_array, coord_array_like, handshake_metadata
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import OptionalDependencyFailure
@@ -837,8 +831,10 @@ class LatLonFill:
     def __init__(self, model):
         self.variables = list(model.input_coords()["variable"].values)
         self.lat, self.lon = model.lat, model.lon
+        self.calls = 0
 
     def __call__(self, time, variable):
+        self.calls += 1
         time = np.atleast_1d(np.asarray(time, dtype="datetime64[ns]"))
         variable = np.atleast_1d(np.asarray(variable))
         hours = (time - np.datetime64("2020-01-01")) / np.timedelta64(1, "h")
@@ -863,19 +859,6 @@ class LatLonFill:
         )
 
 
-class NativeAdapter:
-    """The example's adapter: lat/lon base variables prepared by ``to_native``."""
-
-    def __init__(self, source, model):
-        self.source, self.model = source, model
-        self.signature = model.input_coords()
-
-    def __call__(self, time, variable):
-        x = self.source(time, self.signature["variable"].values)
-        x = map_field(x, self.signature)
-        return self.model.to_native(x).sel(variable=np.atleast_1d(variable))
-
-
 def test_dlesym_latlon_split_runs_from_a_latlon_source():
     model = build_dlesym_model("cpu", nside=8, type="ll")
     atmos, ocean = model.split()
@@ -883,7 +866,15 @@ def test_dlesym_latlon_split_runs_from_a_latlon_source():
     assert (
         "face" in atmos.input_coords().dims and "lat" not in ocean.input_coords().dims
     )
-    native = NativeAdapter(LatLonFill(model), model)
+    fill = LatLonFill(model)
+    native = model.native_source(fill)
+    # Components built from the wrapper recommend its native source for their
+    # history; the forcing slot is left to a connector.
+    for component in (atmos, ocean):
+        recommended = component.default_sources()
+        assert isinstance(recommended, tuple) and len(recommended) == 2
+        assert isinstance(recommended[0], type(native)) and recommended[1] is None
+    assert build_dlesym_model("cpu", nside=8).split()[0].default_sources() is None
     runner = CoupledRunner(
         {"atmos": atmos, "ocean": ocean},
         [Connector("ocean", "atmos", time="hold"), Connector("atmos", "ocean")],
@@ -898,6 +889,9 @@ def test_dlesym_latlon_split_runs_from_a_latlon_source():
     assert len(streams["atmos"]) == 2 and len(streams["ocean"]) == 2
     assert streams["atmos"][1].sizes["lead_time"] == 16
     assert not np.isnan(streams["ocean"][0].values).any()
+    # The histories span -48h, -18h, -12h, -6h and 0h, the last asked for by both
+    # components: each time is fetched from the lat/lon source and prepared once.
+    assert fill.calls == 5
 
 
 def test_dlesym_latlon_to_native():

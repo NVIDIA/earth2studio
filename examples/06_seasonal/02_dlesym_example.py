@@ -43,7 +43,7 @@ In this example you will learn:
 
 - How to instantiate DLESyM and run it from a lat/lon data source with `Pipeline`
 - How to split DLESyM into atmosphere and ocean components that share its weights
-- How to serve the components' native HEALPix inputs from ERA5 with a data source adapter
+- How to serve the components' native HEALPix inputs from ERA5 with `DLESyMLatLon.native_source`
 - How to declare the coupling with connectors, read the derived schedule and run it
   under `Pipeline` with one store per component
 - How to regrid the native outputs for plotting
@@ -81,12 +81,11 @@ from dotenv import load_dotenv
 load_dotenv()  # TODO: make common example prep function
 import numpy as np
 import torch
-import xarray as xr
 
 from earth2studio.data import ARCO_ERA5
 from earth2studio.io import KVBackend
 from earth2studio.models.px import DLESyMLatLon
-from earth2studio.run import Pipeline, map_field, work_items
+from earth2studio.run import Pipeline, work_items
 
 device = "cuda"
 if not torch.cuda.is_available():
@@ -185,46 +184,15 @@ print_slots("ocean", ocean)
 # -----------------------------------
 # The components' input slots are on HEALPix with the model's derived variables, which
 # no data source provides. Models never fetch data, so the preparation belongs in a
-# source: a small `DataSource` adapter fetches the lat/lon base variables from ERA5
-# and applies `DLESyMLatLon.to_native`, the same preparation the fused wrapper gives
-# its own inputs. The runner then fetches each component's history through it, one
-# call per lead time.
+# source: `DLESyMLatLon.native_source` wraps a lat/lon source into one that fetches
+# the base variables from ERA5 and applies `DLESyMLatLon.to_native`, the same
+# preparation the fused wrapper gives its own inputs, once per time. The runner
+# fetches each component's history through it, one call per lead time; components
+# built from the lat/lon wrapper recommend this source themselves, so `sources=`
+# below only picks the ERA5 source explicitly.
 
-
-class NativeERA5:
-    """Serve DLESyM's native HEALPix input variables from a lat/lon source.
-
-    The preparation needs every base variable, so each time is prepared once and
-    the last few are kept: both components ask for the analysis time, and the
-    runner asks for one lead time per call.
-    """
-
-    def __init__(self, source, model, keep=16):
-        self.source = source
-        self.model = model
-        self.signature = model.input_coords()
-        self.keep = keep
-        self.prepared = {}
-
-    def _prepare(self, time):
-        """Fetch the base variables at one time and prepare them, once."""
-        if time not in self.prepared:
-            x = self.source(np.array([time]), self.signature["variable"].values)
-            # Lay the fields out on the model's declared lat/lon grid before
-            # preparing them; map_field also checks the grid metadata matches.
-            self.prepared[time] = self.model.to_native(map_field(x, self.signature))
-            while len(self.prepared) > self.keep:
-                del self.prepared[next(iter(self.prepared))]
-        return self.prepared[time]
-
-    def __call__(self, time, variable):
-        """Return the native variables requested at each time."""
-        time = np.atleast_1d(np.asarray(time, dtype="datetime64[ns]"))
-        x = xr.concat([self._prepare(t) for t in time], dim="time")
-        return x.sel(variable=np.atleast_1d(variable))
-
-
-native = NativeERA5(data, model)
+# %%
+native = model.native_source(data)
 
 # %%
 # Declaring the Coupling

@@ -13,8 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added `DLESyM.split()` with the `DLESyMAtmos` and `DLESyMOcean` components, which
   share the fused model's weights and run under `CoupledRunner`, and
-  `DLESyMLatLon.to_native` to serve their HEALPix inputs from lat/lon sources. The
-  DLESyM example now runs the fused model and the coupled components under `Pipeline`.
+  `DLESyMLatLon.to_native` and `DLESyMLatLon.native_source` to serve their HEALPix
+  inputs from lat/lon sources. The DLESyM example now runs the fused model and the
+  coupled components under `Pipeline`.
 
 ### Changed
 
