@@ -794,7 +794,7 @@ class JPSS_CRIS:
             fetch_jobs,
             max_workers=self._max_workers,
             desc="Fetching CrIS HDF5 files",
-            verbose=(not self._verbose),
+            verbose=self._verbose,
         )
 
         # Decode and compile

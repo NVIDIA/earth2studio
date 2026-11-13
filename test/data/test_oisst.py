@@ -25,6 +25,7 @@ import obstore as obs
 import pytest
 
 from earth2studio.data import OISST
+from earth2studio.grids import E2S_CRS, E2S_GRID_ID, LatLonGrid, infer_grid
 
 
 def _write_product(path: Path, offset: float) -> None:
@@ -38,13 +39,10 @@ def _write_product(path: Path, offset: float) -> None:
         sst[:] = np.arange(720, dtype=np.float32)[None, None, :, None] / 10 + offset
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "time",
     [
-        datetime(year=2024, month=1, day=1),
         [
             datetime(year=2024, month=1, day=1),
             datetime(year=2024, month=1, day=2, hour=12),
@@ -63,9 +61,7 @@ def test_oisst_fetch(time):
     np.testing.assert_array_equal(data.sst_date.values, expected)
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize("cache", [True, False])
 def test_oisst_cache(cache):
     ds = OISST(cache=cache)
@@ -80,7 +76,8 @@ def test_oisst_cache(cache):
         pass
 
 
-def test_oisst_call_mock(tmp_path, monkeypatch):
+@pytest.mark.parametrize("verbose", [False, True])
+def test_oisst_call_mock(tmp_path, monkeypatch, capsys, verbose):
     monkeypatch.setenv("EARTH2STUDIO_CACHE", str(tmp_path))
     final, preliminary = tmp_path / "final.nc", tmp_path / "preliminary.nc"
     _write_product(final, 0.0)
@@ -95,11 +92,19 @@ def test_oisst_call_mock(tmp_path, monkeypatch):
         return str(preliminary if "preliminary" in key else final)
 
     monkeypatch.setattr("earth2studio.data.oisst.obstore_fetch_to_cache", fetch)
-    ds = OISST(lag_days=1, lookback_days=2, verbose=False)
+    ds = OISST(lag_days=1, lookback_days=2, verbose=verbose)
 
     # Falls back a day and prefers the final product over the preliminary one
     result = ds(datetime(2024, 1, 3, 6), "sst")
+    assert ("Fetching OISST" in capsys.readouterr().err) == verbose
     assert result.shape == (1, 1, 720, 1440)
+    assert result.attrs[E2S_CRS] == "EPSG:4326"
+    assert E2S_GRID_ID not in result.attrs
+    assert result.lat.attrs["standard_name"] == "latitude"
+    assert result.lon.attrs["standard_name"] == "longitude"
+    assert isinstance(infer_grid(result), LatLonGrid)
+    np.testing.assert_array_equal(result.lat.values, OISST.LAT)
+    np.testing.assert_array_equal(result.lon.values, OISST.LON)
     assert list(result.coords["variable"].values) == ["sst"]
     np.testing.assert_array_equal(
         result.values[0, 0, :, 0],

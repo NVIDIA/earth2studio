@@ -26,9 +26,7 @@ import pytest
 from earth2studio.data import ISD
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -79,9 +77,7 @@ def test_isd_fetch(stations, time, variable, tol):
     assert time_union["time"].all()
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -118,9 +114,7 @@ def test_isd_cache(time, variable, cache):
         pass
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 def test_isd_schema_fields():
     station = "72033063853"
     time = np.array(["2025-01-01T12:00:00"], dtype=np.datetime64)
@@ -189,8 +183,7 @@ def test_isd_exceptions():
         ds(np.datetime64("2025-01-01T12:00:00"), ["t2m"], fields=wrong_type_schema)
 
 
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "bbox",
     [

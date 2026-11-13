@@ -640,7 +640,7 @@ class CBottleSR(torch.nn.Module, AutoModelMixin):
         """
         self._follow_network()
         output_coords = self.output_coords(x)
-        x = x.e2s.to_torch()[0].to(self.device).clone()
+        x = x.e2s.to_torch()[0].to(self.device)
 
         out = torch.zeros(
             output_coords.shape,

@@ -69,10 +69,8 @@ out_dir = "./outputs"
 
 from dotenv import load_dotenv
 from omegaconf import OmegaConf
-from physicsnemo.distributed import DistributedManager
 
 load_dotenv()
-DistributedManager.initialize()
 
 # Create the configuration dictionary
 from pathlib import Path
@@ -116,8 +114,6 @@ from src.hens_utilities import initialise
     data_source,
     output_coords_dict,
     base_random_seed,
-    writer_executor,
-    writer_threads,
 ) = initialise(cfg)
 
 # %% [markdown]
@@ -193,8 +189,6 @@ run_inference(
     data_source,
     output_coords_dict,
     base_random_seed,
-    writer_executor,
-    writer_threads,
 )
 
 # %% [markdown]

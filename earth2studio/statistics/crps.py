@@ -119,8 +119,10 @@ class crps:
 
     def __call__(self, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
         """
-        Apply metric to data `x` and `y`, checking that their coordinates
-        are broadcastable. While reducing over `reduction_dims`.
+        Apply metric to data `x` and `y`, reducing over `reduction_dims`.
+        `y` must have every dimension of `x` except the ensemble dimension, if the
+        metric has one, with matching coordinate values; it is transposed to
+        `x`'s order, not broadcast.
 
         Parameters
         ----------
@@ -142,7 +144,7 @@ class crps:
             raise ValueError(f"{self.ensemble_dimension} should not be in y but is.")
         if x.ndim != y.ndim + 1:
             raise ValueError(
-                "x and y must have broadcastable shapes but got"
+                "x must have one more dimension than y (the ensemble dimension) but got "
                 + f"{x.shape} and {y.shape}"
             )
         y = _align_xy(x, y, self.ensemble_dimension)

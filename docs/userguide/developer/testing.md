@@ -98,20 +98,70 @@ uvx tox -c tox.ini run -e test-data
 uvx tox -c tox.ini run -e test-data -- -v
 ```
 
-### Running Tests Directly with pytest
+### Test results
 
-For rapid iteration during development, you can run pytest directly:
+Tox writes JUnit reports to `.cache/test-results/<tox-env>/`. CI includes full console
+logs and uploads `test-results-<tox-env>` artifacts even on failure, retained for **3 days**.
+
+### Bounded data-source tests
+
+`test-data` runs supervisor checks, lexicon and Icechunk tests, then isolated data-test processes
+with **8 workers**, **300s per file**, and **1,200s total**, plus termination grace.
+Override these with `DATA_TEST_WORKERS`, `DATA_TEST_FILE_TIMEOUT`, and `DATA_TEST_TIMEOUT`.
+File budgets include startup, shutdown, and restarts; exceeding a budget fails the run.
+Logs and partial results: `.cache/test-results/test-data/data/`.
+Once pytest finalization finishes, lingering processes are terminated after the shutdown
+grace period and the recorded test outcome is preserved. Forced cleanup is logged explicitly.
+
+Mark network tests with `@pytest.mark.live(timeout=60)` (default: 60s):
+
+- `--live=none`: skip live tests for offline checks.
+- `--live=changed`: run affected sources (CI default); shared changes enable all sources.
+  CI compares against the PR merge base or the pushed branch's previous tip.
+  Manual dispatch defaults to `all`, with an explicit live-mode selector.
+  Locally, `DATA_TEST_BASE` defaults to `HEAD`, including uncommitted changes.
+- `--live=all`: run all live tests (local default).
+
+Under supervision, live-call timeouts become XFAIL; the process is killed and remaining
+tests resume in a fresh process. Other errors fail normally. File summaries show
+`PASSED (XFAIL)` when expected failures occurred. Selected live files bypass testmon.
+Use `--live-timeout` to override marker deadlines.
 
 ```bash
-# Quick test suite (skips slow tests)
+# Run changed sources.
+DATA_TEST_BASE=upstream/1.0.0-rc uvx tox -e test-data -- --live=changed --testmon
+
+# Run one source with longer budgets.
+DATA_TEST_PATHS=test/data/test_gfs.py \
+DATA_TEST_FILE_TIMEOUT=3600 DATA_TEST_TIMEOUT=7200 \
+    uvx tox -e test-data -- --live=all --live-timeout=600 --package
+```
+
+Arguments after `--` apply only to data-source tests and replace their Tox defaults;
+include `--testmon` and `--cov` as needed. Lexicon and Icechunk tests run with fixed defaults.
+
+### Running Tests Directly with pytest
+
+For local development, run pytest directly. Live tests are included by default;
+no `--live` option or supervisor is required:
+
+```bash
+# Run the test suite (skips tests marked slow)
 uv run pytest test/
 
 # Standard test suite (includes slow tests)
 uv run pytest --slow test/
 
-# Run specific test module
+# Run a specific test module, including live requests
 uv run pytest test/data/test_gfs.py
+
+# Filter tests within a module
+uv run pytest test/data/test_gfs.py -k cache
 ```
+
+Direct pytest uses `pytest-timeout` for live deadlines (including `--live-timeout`
+overrides). These timeouts are failures, without process cleanup or restart;
+the supervised Tox workflow records live-call timeouts as XFAIL and restarts.
 
 !!! note
     When running pytest directly, ensure you have the appropriate dependencies installed
@@ -131,7 +181,8 @@ debugging and allows parallel execution. Each job only runs when relevant files 
 - **`test-da-models`** - Runs when data assimilation model code or tests change
 
 To force all tests to run regardless of changes, set the `CI_PYTEST_ALL` environment variable
-to `1`, `true`, `yes`, or `on`.
+to `1`, `true`, `yes`, or `on`. In CI, also set `DATA_TEST_LIVE=all` to bypass
+change-based live selection. Supervised runs retain finite process budgets.
 
 ## Coverage
 

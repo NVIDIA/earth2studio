@@ -164,6 +164,25 @@ common multiple beyond the latest first chunk. The same scheduler drives
 drift from a run. Frames older than the oldest one any consumer read in that
 dry run, plus the longest cadence, are dropped as the run advances.
 
+Known limitation: early reduction windows are partly backfilled from sources,
+so the dry run can see a long window below its full width. A window much
+longer than its consumer's step (about 30 h or more for a 6 h consumer, 96 h
+or more for a 24 h consumer) can then need older frames than are kept, and the
+run fails partway with a `CouplingError` that names the history kept for the
+producer. No shipped model or example reads such a window.
+
+A work item's final lead time must be a lead time at which some stateful
+component's output is due; any other value raises in `describe`,
+`output_coords`, `data_requests` and `run_item`, as `PrognosticRunner` raises
+for a final lead time that is not a multiple of its step. A slower component
+still stops at its last whole chunk.
+
+Components' iterator hooks (`front_hook`, `rear_hook`) are not run: the runner
+calls `initialize` and `step`, which apply no hooks (MODEL_CONTRACT P10). The
+runner logs a warning at construction when a stateful component sets one. Use
+`perturbation=` for the initial condition, or a diagnostic component or
+connector for per-step changes.
+
 ## Streams
 
 Each output slot yields one stream: named after the component when it has one
@@ -229,7 +248,7 @@ when to run, so the runner rejects its DataFrame slots. It fits elsewhere:
   observation-only analyses.
 - DataFrame payloads through connectors, and DataFrame-valued streams.
 - Output slots that advance at different lead times; split them, as for DLESyM.
-- Member batching, mid-item checkpoints and iterator hooks on coupled models.
+- Mid-item checkpoints and iterator hooks on coupled models.
 - Fields with a `level` dimension. Levels are encoded in variable names; a
   diagnostic component can map other layouts onto them.
 - Training rollouts: nothing differentiates through the exchange, which stages

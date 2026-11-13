@@ -15,19 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   share the fused model's weights and run under `CoupledRunner`, and
   `DLESyMLatLon.to_native` to serve their HEALPix inputs from lat/lon sources. The
   DLESyM example now runs the fused model and the coupled components under `Pipeline`.
-- Added regional inference to `CorrDiffEra5Hrrr`: `with_region` (`DomainAdaptable`)
-  returns a view on the block of the HRRR crop covering a box, with the CorrDiff
-  regional helpers shared in `earth2studio.models.nn.corrdiff`.
-
 ### Changed
 
 ### Deprecated
 
 ### Removed
-
-- Removed the beta `earth2studio.serve` package, the `serve` install extra, and the
-  top-level `serve/` directory (server, client, Dockerfile, and example workflows).
-  Deployment now lives in [PhysicsNeMo Serve](https://github.com/NVIDIA/physicsnemo-serve).
 
 ### Fixed
 

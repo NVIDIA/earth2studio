@@ -33,6 +33,7 @@ from earth2studio.data.utils import (
     prep_data_inputs,
     prep_forecast_inputs,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon.base import LexiconType
 from earth2studio.lexicon.earthmover import (
     EarthMoverERA5Lexicon,
@@ -712,7 +713,7 @@ class EarthMoverERA5(_EarthMoverBase):
         out = out.assign_coords(variable=variable_list).transpose(
             "time", "variable", "lat", "lon"
         )
-        return await asyncio.to_thread(out.load)
+        return with_grid_metadata(await asyncio.to_thread(out.load), "latlon-0.25deg")
 
 
 @check_optional_dependencies()
@@ -861,7 +862,7 @@ class EarthMoverBrightBandIFS(_EarthMoverBase):
         out = out.assign_coords(variable=variable_list).transpose(
             "time", "variable", "lat", "lon"
         )
-        return await asyncio.to_thread(out.load)
+        return with_grid_metadata(await asyncio.to_thread(out.load), "latlon-0.25deg")
 
 
 @check_optional_dependencies()
@@ -1037,4 +1038,4 @@ class EarthMoverBrightBandIFS_FX(_EarthMoverBase):
         out = out.assign_coords(variable=variable_list).transpose(
             "time", "lead_time", "variable", "lat", "lon"
         )
-        return await asyncio.to_thread(out.load)
+        return with_grid_metadata(await asyncio.to_thread(out.load), "latlon-0.25deg")

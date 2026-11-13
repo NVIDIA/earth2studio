@@ -1674,9 +1674,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if conditioning is None:
             packed, restore = batch_func()._compress_array(self, x)
             tensor, coords = packed.e2s.to_torch()
-            tensor, coords = self.prep_input(
-                tensor.to(self.means.device).clone(), coords
-            )
+            tensor, coords = self.prep_input(tensor.to(self.means.device), coords)
             out = from_torch(
                 self._forward_tensor(tensor, coords),
                 self.output_coords(packed),
@@ -1720,7 +1718,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         output_coords = self.output_coords(packed)
         x, tensor_coords = packed.e2s.to_torch()
         conditioning, conditioning_coords = condition.e2s.to_torch()
-        x = x.to(self.means.device).clone()
+        x = x.to(self.means.device)
         conditioning = conditioning.to(self.means.device)
         x, x_coords = self.prep_input(x, tensor_coords)
         conditioning, conditioning_coords = self.prep_input(
