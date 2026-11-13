@@ -450,7 +450,7 @@ class AIDA(torch.nn.Module, AutoModelMixin):
             self._seeded = True
 
     @contextmanager
-    def _sampling(self, seed: int) -> Generator[None, None, None]:
+    def _sampling(self, seed: int) -> Generator[None]:
         with torch.random.fork_rng(devices=[]):
             torch.random.default_generator.manual_seed(seed)
             yield
@@ -797,7 +797,7 @@ class AIDAWeatherMesh5C(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         windborne: ObservationInput = None,
         satwnd: ObservationInput = None,
         surface: ObservationInput = None,
-    ) -> Generator[xr.DataArray, None, None]:
+    ) -> Generator[xr.DataArray]:
         """Yield three-hour forecasts, beginning after initialization.
 
         See Also

@@ -268,7 +268,7 @@ def _hook(hook: Callable, y: xr.DataArray) -> xr.DataArray:
     return result
 
 
-def _iterator(model: Any, *inputs: Any) -> Generator[xr.DataArray, None, None]:
+def _iterator(model: Any, *inputs: Any) -> Generator[xr.DataArray]:
     y, state = model.initialize(*inputs)
     while True:
         y = _hook(model.rear_hook, y)
@@ -422,7 +422,7 @@ class WeatherMesh5C(torch.nn.Module, AutoModelMixin, PrognosticMixin):
 
     def create_iterator(
         self, x: xr.DataArray, sst: xr.DataArray
-    ) -> Generator[xr.DataArray, None, None]:
+    ) -> Generator[xr.DataArray]:
         """Yield complete three-hour forecasts with iterator-only hooks.
 
         Parameters
