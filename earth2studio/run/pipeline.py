@@ -113,10 +113,10 @@ class Pipeline:
         ``scorer`` is required; both may be given.
     output_variables : Mapping[str, Sequence[str]] | None, optional
         Variables kept per stream, in this order. Streams left out keep every
-        variable. A model's initial condition, published at lead time 0, holds
-        only its input variables, so output-only variables are NaN there; a
-        selection holding no input variable of such a stream is rejected, by
-        default None
+        variable. Each output keeps the selected variables it holds; an output
+        holding none of them, such as a lead-0 initial condition when only
+        output-only variables like ``tp06`` are selected, is skipped and the
+        store keeps NaN there, by default None
     regridder : Mapping[str, Regridder] | None, optional
         Regridder per stream, applied after variable filtering. Its
         ``source_grid`` must match the stream's grid; the stream is stored on
@@ -137,9 +137,7 @@ class Pipeline:
     ------
     ValueError
         If neither ``output`` nor ``scorer`` is given, or ``output_variables``
-        names no variables for a stream. :meth:`run` also raises before
-        creating stores if ``output_variables`` selects only variables a
-        stream's initial condition lacks.
+        names no variables for a stream.
 
     Examples
     --------
