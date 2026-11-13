@@ -286,6 +286,12 @@ class TestISDExtractors:
             (None, [np.nan]),  # missing column
             (["01"], [np.nan]),  # insufficient parts
             (["01,0010,9,5"], [0.001]),  # 10 / 10000 m
+            (["24,0500,9,5"], [np.nan]),  # 24 hour total is not hourly
+            (["06,0100,9,5"], [np.nan]),  # 6 hour total is not hourly
+            (
+                ["01,0010,9,5", "06,0100,9,5", "24,0500,9,5"],
+                [0.001, np.nan, np.nan],
+            ),  # mixed periods are masked row by row
         ],
     )
     def test_extract_tp(self, aa1, expected):

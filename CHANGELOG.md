@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `ISD` returning multi-hour (3, 6, 12, 24 hour) precipitation totals as
+  hourly `tp`.
+
 ### Security
 
 ### Dependencies
