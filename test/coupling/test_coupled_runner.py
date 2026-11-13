@@ -198,8 +198,10 @@ def test_diagnostic_output_feeds_a_consumer(ic_sources: Mapping[str, Fill]) -> N
 # -- stateful assimilation with sparse observations --------------------------------
 
 
-def test_observations_nudge_only_when_present() -> None:
-    bucket, observations = Bucket(), Observations()
+@pytest.mark.parametrize("with_observations", [True, False])
+def test_observations_nudge_only_when_present(with_observations: bool) -> None:
+    bucket = Bucket()
+    observations = Observations() if with_observations else None
     runner = CoupledRunner(
         {"rain": Rain(), "soil": bucket},
         [Connector("rain", "soil")],
@@ -209,10 +211,12 @@ def test_observations_nudge_only_when_present() -> None:
         },
     )
     soil = series(run(runner, 96)["soil"])
-    assert bucket.observed == [False, False, True, False]
-    expected = {0: 0.1, 24: 0.108, 48: 0.116, 72: 0.262, 96: 0.27}
+    assert bucket.observed == [False, False, with_observations, False]
+    expected = {0: 0.1, 24: 0.108, 48: 0.116, 72: 0.124, 96: 0.132}
+    if observations is not None:
+        expected.update({72: 0.262, 96: 0.27})
+        assert [int((t - T0) // H) for t in observations.requests] == [24, 48, 72, 96]
     assert soil == pytest.approx(expected, abs=1e-6)
-    assert [int((t - T0) // H) for t in observations.requests] == [24, 48, 72, 96]
     # data_requests describes fetch_data calls only; DataFrame fetches are not.
     requests = runner.data_requests(WorkItem(T0, np.timedelta64(96, "h")))
     assert all(r.source is not observations for r in requests)

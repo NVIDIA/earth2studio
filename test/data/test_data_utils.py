@@ -1676,13 +1676,16 @@ def test_table_to_dataframe(chunked):
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="cuda missing")
-def test_fetch_dataframe_fixed_size_lists_to_cudf():
-    # Wide channel frames hold fixed-size lists, which cuDF cannot ingest directly
+def test_fetch_dataframe_arrow_types_to_cudf():
+    # Wide observation frames use Arrow types that cuDF cannot ingest from pandas.
     cudf = pytest.importorskip("cudf")
 
     def source(time, variable, fields=None):
         values = pa.array([[1.0, 2.0], [3.0, None]], type=pa.list_(pa.float32(), 2))
-        frame = pa.table({"observation_x": values}).to_pandas(
+        classes = pa.DictionaryArray.from_arrays(
+            pa.array([0, 1], type=pa.int8()), pa.array(["rad", "ADPSFC"])
+        )
+        frame = pa.table({"observation_x": values, "class": classes}).to_pandas(
             types_mapper=pd.ArrowDtype
         )
         frame.attrs["source"] = "channels"
@@ -1694,6 +1697,7 @@ def test_fetch_dataframe_fixed_size_lists_to_cudf():
     assert result.attrs["source"] == "channels"
     values = result["observation_x"].to_arrow().to_pylist()
     assert values == [[1.0, 2.0], [3.0, None]]
+    assert result["class"].to_arrow().to_pylist() == ["rad", "ADPSFC"]
 
 
 def test_fetch_once():

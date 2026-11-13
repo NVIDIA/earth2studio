@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .aida import AIDA, AIDAWeatherMesh5C
 from .base import AssimilationModel, StatefulAssimilationModel
 from .healda import HealDA
 from .healda_v2 import HealDAv2
