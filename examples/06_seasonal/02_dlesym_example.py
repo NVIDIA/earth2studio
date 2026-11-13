@@ -81,6 +81,7 @@ from dotenv import load_dotenv
 load_dotenv()  # TODO: make common example prep function
 import numpy as np
 import torch
+import xarray as xr
 
 from earth2studio.data import ARCO_ERA5
 from earth2studio.io import KVBackend
@@ -189,17 +190,30 @@ print_slots("ocean", ocean)
 
 
 class NativeERA5:
-    """Serve DLESyM's native HEALPix input variables from a lat/lon source."""
+    """Serve DLESyM's native HEALPix input variables from a lat/lon source.
+
+    The preparation needs every base variable, so each time is fetched and
+    prepared once and kept, as both components ask for the analysis time.
+    """
 
     def __init__(self, source, model):
         self.source = source
         self.model = model
         self.base_variables = list(model.input_coords()["variable"].values)
+        self.prepared = {}
 
     def __call__(self, time, variable):
         """Fetch the base variables, then return the native ones requested."""
-        x = self.source(time, self.base_variables)
-        return self.model.to_native(x).sel(variable=np.atleast_1d(variable))
+        time = np.atleast_1d(np.asarray(time, dtype="datetime64[ns]"))
+        missing = [t for t in time if t not in self.prepared]
+        if missing:
+            native = self.model.to_native(
+                self.source(np.array(missing), self.base_variables)
+            )
+            for t in missing:
+                self.prepared[t] = native.sel(time=[t])
+        x = xr.concat([self.prepared[t] for t in time], dim="time")
+        return x.sel(variable=np.atleast_1d(variable))
 
     async def fetch(self, time, variable):
         """Async variant of ``__call__``."""
@@ -245,11 +259,11 @@ print(runner.describe(np.timedelta64(192, "h")))
 # lead times: the atmosphere every 6 hours and the ocean every 48 hours, with no
 # NaN padding. Both start with the initial condition at lead time zero.
 #
-# .. note::
-#   The default checkpoints sample conditional layer norm noise. Each component
-#   draws its own stream, seeded from the component's name, so the coupled run is
-#   another realization of the same model rather than a bitwise copy of the fused
-#   run. With deterministic cores the two agree exactly.
+# !!! note
+#     The default checkpoints sample conditional layer norm noise. Each component
+#     draws its own stream, seeded from the component's name, so the coupled run is
+#     another realization of the same model rather than a bitwise copy of the fused
+#     run. With deterministic cores the two agree exactly.
 
 # %%
 atmos_io, ocean_io = KVBackend(), KVBackend()

@@ -123,6 +123,19 @@ class CoupledAtmosModel(PhooAtmosModel):
         return last + 0.1 * sst + 0.01 * leads.view(1, 1, -1, 1, 1, 1)
 
 
+class NoisyAtmosModel(CoupledAtmosModel):
+    """Coupled atmosphere core that also depends on conditional layer norm noise."""
+
+    integration_steps = 2
+
+    def forward(self, in_list, conditions_cln=None):
+        out = super().forward(in_list)
+        assert conditions_cln is not None and len(conditions_cln) == 2
+        assert all(c.shape == (in_list[0].shape[0], 3) for c in conditions_cln)
+        noise = torch.stack(conditions_cln).mean(dim=(0, 2))
+        return out + 0.05 * noise.view(-1, 1, 1, 1, 1, 1)
+
+
 class CoupledOceanModel(PhooOceanModel):
     """Mock ocean core whose output depends on its state and window-mean coupling."""
 
@@ -139,8 +152,26 @@ class CoupledOceanModel(PhooOceanModel):
         )
 
 
+class NoisyOceanModel(CoupledOceanModel):
+    """Coupled ocean core that also depends on conditional layer norm noise."""
+
+    integration_steps = 1
+
+    def forward(self, in_list, conditions_cln=None):
+        out = super().forward(in_list)
+        assert conditions_cln is not None and len(conditions_cln) == 1
+        noise = conditions_cln[0].mean(dim=1)
+        return out + 0.05 * noise.view(-1, 1, 1, 1, 1, 1)
+
+
 def build_dlesym_model(
-    device, nside=64, type="hpx", atmos_model=None, ocean_model=None, scaled=False
+    device,
+    nside=64,
+    type="hpx",
+    atmos_model=None,
+    ocean_model=None,
+    scaled=False,
+    use_cln=False,
 ):
     """Build a DLESyM prognostic model with mock atmos/ocean models.
 
@@ -156,6 +187,8 @@ def build_dlesym_model(
         Component cores, by default the constant mocks.
     scaled : bool
         Draw nontrivial normalization constants instead of zero center, unit scale.
+    use_cln : bool
+        Sample conditional layer norm noise (three conditions) for each core call.
 
     Returns
     -------
@@ -207,6 +240,8 @@ def build_dlesym_model(
         ocean_variables=ocean_variables,
         atmos_coupling_variables=atmos_coupling_variables,
         ocean_coupling_variables=ocean_coupling_variables,
+        use_cln=use_cln,
+        condition_shape=3 if use_cln else None,
     ).to(device)
 
     return model
@@ -633,6 +668,118 @@ def test_dlesym_split_reproduces_fused():
     assert not np.allclose(
         fused[1].sel(variable="z500").values, fused[3].sel(variable="z500").values
     )
+
+
+def _noisy_model():
+    return build_dlesym_model(
+        "cpu",
+        nside=8,
+        atmos_model=NoisyAtmosModel(),
+        ocean_model=NoisyOceanModel(),
+        scaled=True,
+        use_cln=True,
+    )
+
+
+def test_dlesym_split_stochastic_conformance():
+    atmos, ocean = _noisy_model().split()
+    assert atmos.stochastic and ocean.stochastic
+    check_prognostic_contract(atmos)
+    check_prognostic_contract(ocean)
+
+
+def test_dlesym_split_components_draw_independent_seeded_noise():
+    model = _noisy_model()
+    source = HEALPixFill(model)
+    item = WorkItem(np.datetime64("2020-06-01T00"), np.timedelta64(192, "h"))
+
+    def run(seed):
+        streams = {}
+        for step in _coupled(model, source).run_item(item):
+            for name, x in step.items():
+                streams.setdefault(name, []).append(x)
+        return streams
+
+    first, second = run(0), run(0)
+    for name in ("atmos", "ocean"):
+        for a, b in zip(first[name], second[name]):
+            xr.testing.assert_identical(a, b)
+    # The components are seeded apart from the fused model and from each other,
+    # so a coupled run is another realization rather than the fused run.
+    fused = [s["forecast"] for s in PrognosticRunner(model, source).run_item(item)]
+    assert not np.allclose(
+        first["atmos"][1].values,
+        model.retrieve_valid_atmos_outputs(fused[1]).values,
+    )
+
+
+def test_dlesym_split_step_replays_from_state():
+    model = _noisy_model()
+    atmos, ocean = model.split()
+    source = HEALPixFill(model)
+    t0 = np.datetime64("2020-06-01T00")
+    runner = _coupled(model, source)
+    chunks = [step for step in runner.run_item(WorkItem(t0, np.timedelta64(96, "h")))]
+    y_atmos = [s["atmos"] for s in chunks if "atmos" in s][-1]
+    y_ocean = [s["ocean"] for s in chunks if "ocean" in s][-1]
+    sst = y_ocean.isel(lead_time=[-1]).assign_coords(
+        lead_time=y_atmos["lead_time"].values[-1:]
+    )
+    atmos.set_rng(7)
+    first, state = atmos.initialize(
+        y_atmos.isel(lead_time=slice(-4, None)), sst.copy(deep=True)
+    )
+
+    def held(y):  # the same SST, relabeled at the chunk's final lead time
+        return sst.assign_coords(lead_time=y["lead_time"].values[-1:])
+
+    one, next_state = atmos.step(first, held(first), state)
+    again, _ = atmos.step(first, held(first), state)
+    xr.testing.assert_identical(one, again)
+    assert not torch.equal(state, next_state)
+    # Continuing advances the stream: the next step differs from a replay.
+    two, _ = atmos.step(one, held(one), next_state)
+    assert not np.allclose(two.values, one.values)
+
+
+def test_dlesym_split_rejects_mismatched_forcing():
+    atmos, _ = _split_model().split()
+    t0 = np.datetime64("2020-06-01T00")
+    x = from_torch(
+        torch.zeros(1, 1, 4, 8, 12, 8, 8),
+        coord_array_like(
+            atmos.input_coords(), {"batch": np.arange(1), "time": np.array([t0])}
+        ),
+    )
+    good = from_torch(
+        torch.zeros(1, 1, 1, 1, 12, 8, 8),
+        coord_array_like(
+            atmos.forcing_coords(), {"batch": np.arange(1), "time": np.array([t0])}
+        ),
+    )
+    atmos(x, good)
+    with pytest.raises(ValueError):
+        atmos(
+            x,
+            good.transpose(
+                "batch", "time", "lead_time", "variable", "width", "height", "face"
+            ),
+        )
+    with pytest.raises(ValueError, match="lacks"):
+        atmos(
+            x, good.assign_coords(lead_time=good["lead_time"] + np.timedelta64(6, "h"))
+        )
+    with pytest.raises(ValueError):
+        atmos(x, good.assign_coords(variable=["z500"]))
+    # No time coordinate on the forcing is fine; it is read from the state.
+    atmos(x, good.isel(time=0, drop=True))
+
+
+def test_dlesym_ocean_requires_even_atmosphere_spacing():
+    model = build_dlesym_model("cpu", nside=8)
+    model.atmos_output_times = np.array([6, 12, 24, 48, 72, 96], dtype="timedelta64[h]")
+    with pytest.raises(ValueError, match="evenly spaced"):
+        DLESyMOcean(model)
 
 
 def test_dlesym_split_under_pipeline():

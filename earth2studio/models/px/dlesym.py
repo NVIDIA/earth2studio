@@ -17,7 +17,7 @@
 from collections import OrderedDict
 from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 import numpy as np
 import torch
@@ -44,6 +44,7 @@ from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
+from earth2studio.utils.time_statistics import _compact_duration
 from earth2studio.utils.type import CoordinateSystem, CoordSystem
 
 try:
@@ -1902,19 +1903,6 @@ class DLESyMLatLon(DLESyM):
         return self._default_create_iterator(x)
 
 
-def _compact_duration(delta: np.timedelta64) -> str:
-    """Format a timedelta as the compact duration a statistic label uses."""
-    nanoseconds = int(np.timedelta64(delta, "ns").astype(np.int64))
-    for suffix, scale in (
-        ("h", 3_600_000_000_000),
-        ("m", 60_000_000_000),
-        ("s", 10**9),
-    ):
-        if nanoseconds % scale == 0:
-            return f"{nanoseconds // scale}{suffix}"
-    raise ValueError(f"Window {delta} is not a whole number of seconds")
-
-
 class _DLESyMComponent(torch.nn.Module, PrognosticMixin):
     """One half of a split :class:`DLESyM`, sharing its weights and buffers.
 
@@ -1981,18 +1969,20 @@ class _DLESyMComponent(torch.nn.Module, PrognosticMixin):
     # -- tensors ---------------------------------------------------------------
 
     def _flatten(
-        self, x: xr.DataArray
+        self, x: xr.DataArray, anchors: bool = True
     ) -> tuple[torch.Tensor, np.ndarray, tuple[int, ...]]:
         """Flatten the leading dimensions of a validated field.
 
         Returns the tensor as ``(N, lead_time, variable, face, height, width)`` on
         the model's device, the anchor time of each of the ``N`` rows for
-        insolation, and the leading shape to restore.
+        insolation (empty unless ``anchors``), and the leading shape to restore.
         """
         tensor, _ = x.e2s.to_torch()
         leading_dims = x.dims[:-5]
         leading = tuple(x.sizes[d] for d in leading_dims)
         tensor = tensor.to(self.model.center.device).reshape(-1, *tensor.shape[-5:])
+        if not anchors:
+            return tensor, np.empty(0, dtype="datetime64[ns]"), leading
         times = x.coords["time"].values
         if "time" in leading_dims:
             shape = tuple(x.sizes[d] if d == "time" else 1 for d in leading_dims)
@@ -2001,18 +1991,33 @@ class _DLESyMComponent(torch.nn.Module, PrognosticMixin):
             anchors = np.full(leading, times)
         return tensor, np.asarray(anchors).reshape(-1), leading
 
-    @staticmethod
     def _select(
-        forcing: xr.DataArray, variables: list[str], lead_times: np.ndarray
+        self,
+        forcing: xr.DataArray,
+        variables: list[str],
+        lead_times: np.ndarray,
+        anchor: np.timedelta64,
     ) -> xr.DataArray:
-        """Select the forcing variables and frames a call needs, in order."""
+        """Select the forcing variables and frames a call needs, validated.
+
+        The frames are checked against ``forcing_coords()`` with their lead times
+        taken relative to ``anchor``, the state's final lead time, so grid,
+        dimension order and metadata mismatches are reported here rather than
+        inside the network core.
+        """
         leads = np.asarray(lead_times).astype("timedelta64[ns]")
         try:
-            return forcing.sel(variable=list(variables), lead_time=leads)
+            frame = forcing.sel(variable=list(variables), lead_time=leads)
         except KeyError as error:
             raise ValueError(
                 f"Forcing lacks variables {variables} at lead times {leads}: {error}"
             ) from error
+        signature = self.forcing_coords()
+        handshake_dataarray(
+            frame.assign_coords(lead_time=frame.lead_time.values - anchor),
+            cast(CoordinateSystem, signature),
+        )
+        return frame
 
     @staticmethod
     def _align(forcing: xr.DataArray, like: xr.DataArray) -> xr.DataArray:
@@ -2199,10 +2204,10 @@ class DLESyMAtmos(_DLESyMComponent):
         signature = self.output_coords(x)
         lead = x.lead_time.values
         frame = self._align(
-            self._select(sst, model.atmos_coupling_variables, lead[-1:]), x
+            self._select(sst, model.atmos_coupling_variables, lead[-1:], lead[-1]), x
         )
         tensor, anchors, leading = self._flatten(x)
-        coupling, _, _ = self._flatten(frame)
+        coupling, _, _ = self._flatten(frame, anchors=False)
         state = self._normalize(tensor, self._input_constants(model.atmos_var_idx))
         coupling = self._normalize(
             coupling, self._input_constants(model.atmos_coupling_var_idx)
@@ -2346,6 +2351,11 @@ class DLESyMOcean(_DLESyMComponent):
             )
         per_window = n_atmos // n_ocean
         spacing = model.atmos_output_times[1] - model.atmos_output_times[0]
+        if not np.all(np.diff(model.atmos_output_times) == spacing):
+            raise ValueError(
+                "Atmosphere output times must be evenly spaced to declare the "
+                f"ocean windows as means, got {model.atmos_output_times}"
+            )
         self.window = per_window * spacing
         self.window_ends = np.array(
             [
@@ -2422,11 +2432,16 @@ class DLESyMOcean(_DLESyMComponent):
         signature = self.output_coords(x)
         lead = x.lead_time.values
         windows = self._align(
-            self._select(forcing, self.forcing_variables, lead[-1] + self.window_ends),
+            self._select(
+                forcing,
+                self.forcing_variables,
+                lead[-1] + self.window_ends,
+                lead[-1],
+            ),
             x,
         )
         tensor, anchors, leading = self._flatten(x)
-        coupling, _, _ = self._flatten(windows)
+        coupling, _, _ = self._flatten(windows, anchors=False)
         state = self._normalize(tensor, self._input_constants(model.ocean_var_idx))
         atmos_center, atmos_scale = self._output_constants(model.atmos_output_var_idx)
         coupling = self._normalize(
