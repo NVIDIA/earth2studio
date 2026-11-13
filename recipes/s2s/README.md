@@ -258,14 +258,19 @@ times start at the initial condition (`0`) and follow each model step.
 The recipe now runs on the Earth2Studio 1.0 DataArray interfaces and `Pipeline`.
 Compared to earlier versions:
 
-- `file_output.thread_io` is removed; writes happen in the `Pipeline` as each
-  step is produced.
+- `file_output.thread_io` now buffers at most `file_output.buffer_size`
+  (default 2) fields per region and writes them on a background thread,
+  instead of using an unbounded thread pool.
+- Runs can resume after an interruption (`file_output.resume`, see
+  [Parallelism](#parallelism)).
 - For models with several input frames (DLESyM), the stores no longer include
   the input history at negative lead times.
 - With `batch_ids_reproduce`, the stores hold only the reproduced members.
 - With bred-vector perturbations, `nperturbed` and `batch_size` must be even.
 
-Batch seeds are unchanged, so ensembles reproduce those of earlier versions.
+Batch seeds are unchanged and seed each perturbation's own random stream
+(`set_rng`) instead of the global Torch RNG, giving the same draws, so ensembles
+reproduce those of earlier versions.
 
 #### Scoring forecast outputs
 
@@ -364,9 +369,21 @@ no longer needs to be divisible by the number of ranks.
 
 Every batch is seeded from the random seed, the checkpoint name, the initial
 condition and the batch's global ID, so a batch gives the same result on any
-rank. To reproduce selected batches, set `batch_ids_reproduce` to their global
-IDs (with the same `batch_size`); the output store then holds only those
-members.
+rank. The seed goes to the perturbation's `set_rng` (and to stochastic models'),
+never the global Torch RNG, so custom perturbations must implement `set_rng`. To
+reproduce selected batches, set `batch_ids_reproduce` to their global IDs (with
+the same `batch_size`); the output store then holds only those members.
+
+To resume an interrupted run, set `file_output.resume: True` with an explicit
+`random_seed` and a Zarr output with `backend_kwargs.overwrite: False` (as in
+the provided configs), and rerun the same configuration. Finished batches are
+recorded under `${file_output.path}/progress` and skipped, existing stores are
+kept, and interrupted batches rerun from the start. A changed configuration is
+rejected; use a new output path for a new run.
+
+With `file_output.thread_io: True`, each region's writes run on a background
+thread while the next steps are computed. Each item's writes finish before it is
+recorded as done.
 
 Some download and caching operations are not safe to run concurrently on several
 ranks, for example `load_default_package` of a model or creating the output

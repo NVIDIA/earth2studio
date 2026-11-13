@@ -29,10 +29,7 @@ from earth2studio.models.px import PrognosticModel
 from earth2studio.models.px.utils import initial_condition
 from earth2studio.models.utils import step_interval
 from earth2studio.perturbation import Perturbation
-from earth2studio.run import WorkItem
-
-# TODO: switch to public equivalents once core exposes them
-from earth2studio.run._fields import _map_field, _with_lead_time
+from earth2studio.run import WorkItem, map_field
 from earth2studio.utils.coords import coord_array, coord_array_like
 from earth2studio.utils.type import CoordinateSystem
 
@@ -56,8 +53,9 @@ class S2SRunner:
     so each rank swaps at most a few times.
 
     Each batch is seeded with the recipe's sha256 seed of
-    ``{random_seed}_{package}_{ic}_{batch_id}``, so a batch reproduces
-    regardless of rank, world size or which other batches run. Diagnostics are
+    ``{random_seed}_{package}_{ic}_{batch_id}``, through ``set_rng`` on the
+    perturbation and on any stochastic model, so a batch reproduces regardless of
+    rank, world size or which other batches run. Global Torch RNG is not used. Diagnostics are
     concatenated to the forecast in insertion order, and every step yields the
     configured output variables cropped to each output region.
 
@@ -143,7 +141,7 @@ class S2SRunner:
                     f"Diagnostic {type(diagnostic).__name__} needs variables "
                     f"{sorted(dx_in.difference(forecast_vars))} the forecast lacks"
                 )
-            dx_signature = _map_field(signature, diagnostic.input_coords())
+            dx_signature = map_field(signature, diagnostic.input_coords())
             dx_out = list(diagnostic.output_coords(dx_signature)["variable"].values)
             ic_ok = ic_ok and dx_in.issubset(ic_vars)
             forecast_vars += dx_out
@@ -166,8 +164,8 @@ class S2SRunner:
 
         self.model = model
         self._loaded = 0  # package of self.model
-        self._package: int | None = None  # package of self.perturbation
-        self.perturbation: Perturbation | None = None
+        self._package = 0  # package of self.perturbation
+        self.perturbation: Perturbation = perturbation_factory(model, data)
         self._initial: tuple[np.datetime64, xr.DataArray] | None = None
 
     # -- Runner protocol ----------------------------------------------------
@@ -227,19 +225,16 @@ class S2SRunner:
             raise ValueError(f"Members {item.member_ids} span several checkpoints")
         self._activate(package)
 
+        if isinstance(self.perturbation, HENSPerturbation) and len(item.member_ids) % 2:
+            raise ValueError(
+                "Bred-vector perturbations perturb members in +/- pairs; "
+                "use an even batch_size and nperturbed"
+            )
+
         with torch.inference_mode():
             x = self._fetch(item)
-            # Seed after fetching, so only the perturbation draws from the stream
-            torch.manual_seed(self.batch_seed(item))
-            if isinstance(self.perturbation, HENSPerturbation):
-                if len(item.member_ids) % 2:
-                    raise ValueError(
-                        "Bred-vector perturbations perturb members in +/- pairs; "
-                        "use an even batch_size and nperturbed"
-                    )
-                self.perturbation.perturbation._residual = []
-            if self.perturbation is not None:
-                x = self.perturbation(x)
+            self._seed(self.batch_seed(item))
+            x = self.perturbation(x)
 
             if self.publish_initial_condition:
                 yield self._publish(initial_condition(x))
@@ -263,6 +258,22 @@ class S2SRunner:
             self.packages[member // self.nperturbed], item.time, self.base_random_seed
         )
         return calculate_torch_seed(f"{seed_string}_{batch_id}")
+
+    def _seed(self, seed: int) -> None:
+        """Reset the perturbation's and stochastic models' own random streams.
+
+        Bred-vector perturbations also drop any carried +/- pair on reset.
+        """
+        set_rng = getattr(self.perturbation, "set_rng", None)
+        if not callable(set_rng):
+            raise TypeError(
+                f"{type(self.perturbation).__name__} must implement set_rng for "
+                "reproducible S2S batches"
+            )
+        set_rng(seed, reset=True)
+        for model in (self.model, *self.diagnostics.values()):
+            if getattr(model, "stochastic", False):
+                model.set_rng(seed, reset=True)
 
     def _activate(self, package: int) -> None:
         """Load the weights of ``package`` and rebuild the perturbation for them."""
@@ -298,9 +309,15 @@ class S2SRunner:
     def _publish(self, field: xr.DataArray) -> Mapping[str, xr.DataArray]:
         """Add diagnostics, keep the output variables and crop to each region."""
         for diagnostic in self.diagnostics.values():
-            result = diagnostic(_map_field(field, diagnostic.input_coords()))
-            result = _with_lead_time(result, field.lead_time.values)
-            result = _map_field(
+            result = diagnostic(map_field(field, diagnostic.input_coords()))
+            if "lead_time" not in result.dims:  # restore a dropped lead time
+                position = (
+                    result.get_axis_num("time") + 1 if "time" in result.dims else 0
+                )
+                result = result.expand_dims(
+                    lead_time=np.atleast_1d(field.lead_time.values), axis=position
+                )
+            result = map_field(
                 result, {dim: field[dim].values for dim in ("lat", "lon")}
             )
             field = xr.concat([field, result], dim="variable", join="exact")

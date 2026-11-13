@@ -30,8 +30,8 @@ def main(cfg: DictConfig) -> None:
     # Configure logging
     configure_logging()
 
-    runner, items, io_dict = initialize(cfg)
-    run_inference(runner, items, io_dict)
+    runner, items, io_dict, progress = initialize(cfg)
+    run_inference(runner, items, io_dict, progress)
 
 
 if __name__ == "__main__":

@@ -14,18 +14,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from functools import partial
 
 import hydra
 import numpy as np
 import zarr
 from loguru import logger
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 from physicsnemo.distributed import DistributedManager
 
 from earth2studio.io import IOBackend
-from earth2studio.run import Pipeline, WorkItem
+from earth2studio.run import Pipeline, ProgressStore, WorkItem
 from src.s2s_ensemble import S2SRunner, build_work_items
+from src.s2s_io import BufferedIOBackend
 from src.s2s_perturbation import initialize_perturbation
 from src.s2s_utilities import (
     build_io_dict,
@@ -42,7 +44,7 @@ from src.s2s_utilities import (
 
 def initialize(
     cfg: DictConfig,
-) -> tuple[S2SRunner, list[WorkItem], dict[str, IOBackend]]:
+) -> tuple[S2SRunner, list[WorkItem], dict[str, IOBackend], ProgressStore | None]:
     """Load models and data, and plan the work items and outputs of a run.
 
     Parameters
@@ -52,9 +54,9 @@ def initialize(
 
     Returns
     -------
-    tuple[S2SRunner, list[WorkItem], dict[str, IOBackend]]
-        The runner, every work item of the run, and the output backend per
-        output region.
+    tuple[S2SRunner, list[WorkItem], dict[str, IOBackend], ProgressStore | None]
+        The runner, every work item of the run, the output backend per output
+        region, and the progress store when ``file_output.resume`` is set.
     """
     if "project" not in cfg:
         raise ValueError("specify a project name in the config: project: project_name")
@@ -70,6 +72,20 @@ def initialize(
             "Bred-vector perturbations perturb members in +/- pairs; "
             "nperturbed and batch_size must be even"
         )
+
+    resume = cfg.file_output.get("resume", False)
+    if resume:
+        output_format = cfg.file_output.format
+        if (
+            output_format._target_ != "earth2studio.io.ZarrBackend"
+            or not output_format.get("_partial_", False)
+            or output_format.get("backend_kwargs", {}).get("overwrite", False)
+        ):
+            raise ValueError(
+                "Resume requires a partial ZarrBackend with overwrite=False"
+            )
+        if cfg.get("random_seed", None) is None:
+            raise ValueError("Resume requires an explicit random_seed")
 
     ics = set_initial_times(cfg)
     packages = build_package_list(cfg)
@@ -118,13 +134,32 @@ def initialize(
     # Rank 0 creates (or replaces) the stores before the other ranks open them
     dist = DistributedManager()
     io_dict = run_with_rank_ordered_execution(
-        build_io_dict, cfg, list(regions), create_store=(dist.rank == 0)
+        build_io_dict,
+        cfg,
+        list(regions),
+        create_store=(dist.rank == 0),
+        keep_existing=resume,
     )
-    return runner, items, io_dict
+    if cfg.file_output.get("thread_io", False):
+        buffer_size = cfg.file_output.get("buffer_size", 2)
+        io_dict = {k: BufferedIOBackend(io, buffer_size) for k, io in io_dict.items()}
+
+    # Finished items are recorded under the output path and skipped on rerun;
+    # the tags reject resuming with a different configuration
+    progress = None
+    if resume:
+        progress = ProgressStore(
+            os.path.join(cfg.file_output.path, "progress"),
+            tags={"config": OmegaConf.to_container(cfg, resolve=True)},
+        )
+    return runner, items, io_dict, progress
 
 
 def run_inference(
-    runner: S2SRunner, items: list[WorkItem], io_dict: dict[str, IOBackend]
+    runner: S2SRunner,
+    items: list[WorkItem],
+    io_dict: dict[str, IOBackend],
+    progress: ProgressStore | None = None,
 ) -> None:
     """Run every work item over all ranks and write one store per output region.
 
@@ -136,8 +171,10 @@ def run_inference(
         Every work item of the run, identical on every rank.
     io_dict : dict[str, IOBackend]
         Output backend per output region.
+    progress : ProgressStore, optional
+        Records finished items so a rerun resumes, by default None
     """
-    Pipeline(runner, output=io_dict).run(items)
+    Pipeline(runner, output=io_dict, progress=progress).run(items)
 
     if DistributedManager().rank == 0:
         logger.info("Consolidating metadata in zarr files")

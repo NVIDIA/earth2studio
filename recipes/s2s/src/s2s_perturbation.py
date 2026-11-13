@@ -125,7 +125,17 @@ class HENSPerturbation:
             seeding_perturbation_method=seed_perturbation,
         )
 
-        return
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the breeding noise, clearing carried +/- pairs on reset.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for the noise draws
+        reset : bool, optional
+            Reset an existing stream, by default True
+        """
+        self.perturbation.set_rng(seed, reset=reset)
 
     def get_noise_vector(
         self,

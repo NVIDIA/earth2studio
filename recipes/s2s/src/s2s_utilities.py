@@ -440,6 +440,7 @@ def build_io_dict(
     regions: Sequence[str],
     create_store: bool = False,
     file_name: str = "forecast",
+    keep_existing: bool = False,
 ) -> dict[str, ZarrBackend]:
     """Build a dictionary of ZarrBackends, one per output region.
 
@@ -454,6 +455,9 @@ def build_io_dict(
         ``cfg.file_output.overwrite_store`` is set.
     file_name : str
         Name of the file to store the data in.
+    keep_existing : bool
+        Reuse existing stores (to resume a run) instead of removing or
+        rejecting them.
 
     Returns
     -------
@@ -473,7 +477,7 @@ def build_io_dict(
 
         io = hydra.utils.instantiate(cfg.file_output.format)
         if isinstance(io, partial):  # add out file names
-            if os.path.exists(out_file) and create_store:
+            if os.path.exists(out_file) and create_store and not keep_existing:
                 if not cfg.file_output.overwrite_store:
                     raise ValueError(
                         f"File {out_file} already exists. Set overwrite_store to True to overwrite."
