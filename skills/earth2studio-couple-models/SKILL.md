@@ -99,13 +99,24 @@ The messages suggest close names for misspelled components and variables.
 - **Using `hold` where `exact` was meant.** This silently lags by a step.
   Check the `describe` row.
 - **Reductions use the window `[T - w, T)`.** The frame at `T` is excluded.
-- **Expecting an initial condition in every stream.** Streams whose outputs
-  differ from the inputs start at the first forecast.
+- **Expecting an initial condition in every stream.** A stream publishes one
+  only when its outputs declare every input variable on the input's grid;
+  otherwise it starts at the first forecast. Output-only variables in a stream
+  that does publish one (diagnostic outputs such as `tp06`) are NaN at lead 0.
 - **Regridding the wrong way round.** The source grid is the producer's output
   grid and the target is the consumer's slot grid.
 - **Converting inside a connector.** Connectors only select, reduce and
   regrid; put conversions in a diagnostic component.
 - **Coupling a fused multi-cadence model.** Split it into components first.
+- **Asking for a final lead time no component reaches.** It must be a lead
+  time at which some stateful component's output is due (with 6 h and 48 h
+  components, a multiple of 6 h); anything else raises `ValueError`.
+- **Setting `front_hook` / `rear_hook` on a component.** `CoupledRunner`
+  does not run them (it logs a warning); use `perturbation=` for the initial
+  condition, or a diagnostic component for per-step changes.
+- **Reducing over a window much longer than the consumer's step.** The runner
+  keeps limited history; a `z1000:mean:48h` read by a 6 h consumer fails
+  partway through the run. Keep windows within about 24 h of a 6 h consumer.
 
 ## Reference Map
 

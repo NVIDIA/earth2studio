@@ -186,6 +186,25 @@ external forcing. They retain `nsteps`, dictionary `output_coords`, and initial 
 custom iterator loops must publish initial fields separately. Update custom callbacks and
 IO using the sections above. For new orchestration, see [Pipeline](dev/examples/09_pipeline.py).
 
+- Runners publish the initial condition at lead 0 when a model's outputs include all of
+  its inputs. Output-only variables (diagnostics such as `tp06`) are NaN at lead 0, where
+  `main` let the model supply them. Exclude lead 0 from reductions over those variables.
+  `Pipeline` writes and scores the selected `output_variables` each step holds and skips
+  a step holding none, and diagnostic streams that read them start at the first forecast.
+- Runners raise `ValueError` when a source does not cover the model grid on a numeric
+  axis (for example a regional source on a global model, or −180..180 longitudes on a
+  0..360 model); `main` copied edge values. Resolution is not checked, so a coarser
+  source still repeats neighbouring values. Wrap such sources in `RegriddedSource` or
+  fetch with `fetch_data(target_grid=...)`.
+- Record the model and checkpoint in `ProgressStore(tags=...)` so a resumed run cannot
+  mix outputs from different models; a resume that skips items without tags now warns.
+- `CoupledRunner` raises `ValueError` for a final lead time at which no stateful
+  component's output is due; it used to end the run early without an error.
+- `CoupledRunner` does not run component `front_hook` / `rear_hook` (it warns when one
+  is set); use its `perturbation=` argument or a connector instead. Reduction windows
+  much longer than a consumer's step (about 30 h for a 6 h consumer) can exceed the
+  history the runner keeps and fail partway through the run.
+
 ## Serving
 
 The beta `earth2studio.serve` package, the `serve` install extra (`earth2studio[serve]`),
