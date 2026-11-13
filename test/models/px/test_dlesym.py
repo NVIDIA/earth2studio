@@ -107,7 +107,7 @@ class PhooOceanModel(torch.nn.Module):
         return torch.ones(b, t, self.output_time_dim, *x.shape[3:], device=x.device)
 
 
-def build_dlesym_model(device, nside=64, type="hpx"):
+def build_dlesym_model(device, nside=64, type="hpx", atmos_diagnostic_variables=None):
     """Build a DLESyM prognostic model with mock atmos/ocean models.
 
     Parameters
@@ -118,6 +118,8 @@ def build_dlesym_model(device, nside=64, type="hpx"):
         The nside of the HEALPix grid.
     type : str
         The type of model to build. Set to "hpx" for HEALPix grid or "ll" for lat/lon grid.
+    atmos_diagnostic_variables : list[str], optional
+        Atmospheric diagnostic output variables.
 
     Returns
     -------
@@ -131,8 +133,9 @@ def build_dlesym_model(device, nside=64, type="hpx"):
     rng = np.random.default_rng(0)
     hpx_lat = rng.standard_normal((12, nside, nside))
     hpx_lon = rng.standard_normal((12, nside, nside))
-    center = np.zeros((1, 1, 1, 9, 1, 1, 1))  # 9 variables total
-    scale = np.ones((1, 1, 1, 9, 1, 1, 1))
+    n_vars = 9 + len(atmos_diagnostic_variables or [])
+    center = np.zeros((1, 1, 1, n_vars, 1, 1, 1))
+    scale = np.ones((1, 1, 1, n_vars, 1, 1, 1))
     atmos_constants = rng.standard_normal((12, 2, nside, nside))
     ocean_constants = rng.standard_normal((12, 2, nside, nside))
 
@@ -166,9 +169,33 @@ def build_dlesym_model(device, nside=64, type="hpx"):
         ocean_variables=ocean_variables,
         atmos_coupling_variables=atmos_coupling_variables,
         ocean_coupling_variables=ocean_coupling_variables,
+        atmos_diagnostic_variables=atmos_diagnostic_variables,
     ).to(device)
 
     return model
+
+
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_dlesym_tp06_physical_units(device):
+    """tp06 is learned as log(1 + tp06 / 1e-8) and must be returned in meters."""
+    model = build_dlesym_model(device, atmos_diagnostic_variables=["tp06", "msl"])
+    variables = list(model.output_coords(model.input_coords())["variable"])
+    i = variables.index("tp06")
+
+    tp = torch.tensor([0.0, 1e-6, 1e-4, 5e-3], dtype=torch.float64)
+    x = torch.ones(1, 1, len(tp) + 1, len(variables), 1, 1, 1, device=device)
+    x[0, 0, : len(tp), i, 0, 0, 0] = torch.log1p(tp / 1e-8).float().to(device)
+    x[0, 0, -1, i, 0, 0, 0] = -0.5  # below the no-rain value
+
+    out = model._denormalize_output(x)
+
+    expected = torch.cat([tp, torch.zeros(1, dtype=torch.float64)])
+    torch.testing.assert_close(
+        out[0, 0, :, i, 0, 0, 0].cpu().double(), expected, rtol=1e-5, atol=1e-12
+    )
+    # Other variables are only denormalized
+    others = [j for j in range(len(variables)) if j != i]
+    assert torch.all(out[:, :, :, others] == 1)
 
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
@@ -475,3 +502,10 @@ def test_dlesym_package(device):
     for key in output_coords:
         np.testing.assert_array_equal(output_coords[key], expected_coords[key])
     assert np.all(output_coords["lead_time"] == dlesym_src._ATMOS_OUTPUT_TIMES)
+
+    # The precipitation diagnostic uses the lexicon name and physical units (m)
+    assert "tp06" in output_coords["variable"]
+    tp06, _ = (
+        model.retrieve_valid_atmos_outputs(output).sel(variable="tp06").e2s.to_torch()
+    )
+    assert tp06.min() >= 0

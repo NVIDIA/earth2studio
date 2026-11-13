@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- DLESyM v1.1 now returns its precipitation diagnostic as `tp06` in meters;
+  it was the model's log-transformed `tp6` (log(1 + tp / 1e-8)) before
+
 ### Security
 
 ### Dependencies
