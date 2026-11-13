@@ -1,6 +1,7 @@
 project: 'baseline_helene'
 mode: 'generate_ensemble'
-model: 'fcn3' # 'fcn3' 'aifs'
+model: 'fcn3' # 'fcn3', 'aifs' or 'aifs-v2'
+deterministic: False  # True: bitwise reproducible, needed for AIFS-ENS
 random_seed: 7777
 
 ics: ["2024-09-24 00:00:00"]

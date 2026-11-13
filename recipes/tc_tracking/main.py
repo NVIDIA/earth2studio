@@ -22,26 +22,23 @@ import os
 os.environ.setdefault("MKL_NUM_THREADS", "1")
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 os.environ.setdefault("MKL_DYNAMIC", "FALSE")
+# Let PyTorch grow its memory segments instead of fragmenting the GPU memory,
+# must be set before CUDA is initialised
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 import hydra  # noqa: E402
 from loguru import logger  # noqa: E402
 from omegaconf import DictConfig  # noqa: E402
 from src.modes.baseline_extraction import extract_baseline  # noqa: E402
-from src.modes.generate_tc_hunt_ensembles import (  # noqa: E402
-    generate_ensemble,
-    reproduce_members,
-)
+from src.modes.generate_tc_hunt_ensembles import run_ensemble  # noqa: E402
 
 
 @hydra.main(version_base=None, config_path="cfg", config_name="none")
 def tc_hunt(cfg: DictConfig) -> None:
     """main function with initialisation."""
 
-    if cfg.mode == "generate_ensemble":
-        generate_ensemble(cfg)
-
-    elif cfg.mode == "reproduce_members":
-        reproduce_members(cfg)
+    if cfg.mode in ("generate_ensemble", "reproduce_members"):
+        run_ensemble(cfg)
 
     elif cfg.mode == "extract_baseline":
         extract_baseline(cfg)

@@ -14,13 +14,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
 from collections.abc import Callable
 from math import ceil
 from typing import Any
 
+import cupy
 import numpy as np
 import torch
+import xarray as xr
 from loguru import logger
 from omegaconf import DictConfig
 from physicsnemo.distributed import DistributedManager
@@ -63,40 +64,25 @@ def set_initial_times(cfg: DictConfig) -> np.ndarray:
     return ics
 
 
-def remove_duplicates(
-    data_list: list[list],
-) -> list[list]:
-    """Remove duplicate reproduction work items, preserving order.
+def share_gpu_memory_with_cupy() -> None:
+    """Let CuPy allocate GPU memory from PyTorch's caching allocator.
 
-    Each sub-list is expected to follow the reproduction schema
-    ``[np.datetime64, np.ndarray, int]`` (initial condition, batch member
-    indices, random seed).  Arrays with the same values but different dtypes
-    or shapes are considered different.
-
-    Parameters
-    ----------
-    data_list : list[list]
-        List of ``[np.datetime64, np.ndarray, int]`` sub-lists.
-
-    Returns
-    -------
-    list[list]
-        De-duplicated list preserving original order.
+    Earth2Studio models compute with PyTorch but exchange fields as CuPy-backed
+    DataArrays. With separate allocators, memory cached by PyTorch is not
+    available to CuPy, which runs out of memory for large models. Call after
+    all imports, as importing cuDF installs a different CuPy allocator.
     """
-    seen: set[tuple] = set()
-    result: list[list] = []
 
-    for sublist in data_list:
-        hashable_key = (
-            sublist[0],
-            (tuple(sublist[1].tolist()), str(sublist[1].dtype), sublist[1].shape),
-            sublist[2],
+    def malloc(size: int) -> cupy.cuda.MemoryPointer:
+        # the tensor owns the memory and returns it to PyTorch's cache once
+        # CuPy releases the pointer
+        buffer = torch.empty(
+            size, dtype=torch.uint8, device=f"cuda:{cupy.cuda.Device().id}"
         )
-        if hashable_key not in seen:
-            seen.add(hashable_key)
-            result.append(sublist)
+        memory = cupy.cuda.UnownedMemory(buffer.data_ptr(), size, buffer)
+        return cupy.cuda.MemoryPointer(memory, 0)
 
-    return result
+    cupy.cuda.set_allocator(malloc)
 
 
 def get_set_of_random_seeds(
@@ -198,6 +184,10 @@ def run_with_rank_ordered_execution(
     Any
         Return value of ``func(*args, **kwargs)``.
     """
+    # no distributed setup (e.g. worker processes of baseline extraction)
+    if not DistributedManager.is_initialized():
+        return func(*args, **kwargs)
+
     dist = DistributedManager()
     current_rank = dist.rank
 
@@ -225,7 +215,7 @@ class InstabilityDetection:
 
     Computes spatially averaged values per variable and ensemble member and
     checks whether they remain within the given thresholds relative to a
-    baseline established on the first call.
+    baseline established on the first call after :meth:`reset`.
 
     Parameters
     ----------
@@ -233,114 +223,58 @@ class InstabilityDetection:
         Variable names to monitor.
     thresholds : list[float]
         Absolute deviation threshold for each variable.
-    input_coords : OrderedDict | None, optional
-        Initial coordinate mapping.  Defaults to ``None``.
 
     Raises
     ------
     ValueError
         If the number of thresholds does not match the number of variables.
+        Raised by a call if the reference values (first call after
+        :meth:`reset`) contain NaN, which would fail every check.
     """
 
-    def __init__(
-        self,
-        vars: list[str],
-        thresholds: list[float],
-        input_coords: OrderedDict | None = None,
-    ) -> None:
-        self.vars = vars
-        self.thresh = torch.Tensor(thresholds)
-        self.reset(input_coords)
-
+    def __init__(self, vars: list[str], thresholds: list[float]) -> None:
         if not len(vars) == len(thresholds):
             raise ValueError("please provide exactly one threshold per variable")
+        self.vars = list(vars)
+        self.thresholds = np.asarray(thresholds)
+        self.reset()
 
-    def reset(self, coords: OrderedDict | None = None) -> None:
-        """Reset the baseline and coordinate state.
+    def reset(self) -> None:
+        """Forget the baseline, the next call establishes a new one."""
+        self.baseline: np.ndarray | None = None
 
-        Parameters
-        ----------
-        coords : OrderedDict | None, optional
-            New coordinate mapping.  If provided, ``update_coords`` is
-            called immediately.  Defaults to ``None``.
-        """
-        self.baseline: torch.Tensor | None = None
-        self._input_coords: OrderedDict | None = None
-        self._output_coords: OrderedDict | None = None
-
-        if coords:
-            self.update_coords(coords)
-
-    def update_coords(self, coords: OrderedDict) -> None:
-        """Derive input/output coordinate mappings from coords.
-
-        ``time``, ``lead_time`` and ``ensemble`` dimensions are stripped from
-        the input mapping.
-
-        Parameters
-        ----------
-        coords : OrderedDict
-            Coordinate mapping (modified in place).
-        """
-        coords.pop("time", None)
-        coords.pop("lead_time", None)
-        self._output_coords = OrderedDict({"ensemble": coords.pop("ensemble", None)})
-
-        self._input_coords = coords
-        self._input_coords["variable"] = self.vars
-
-    @property
-    def input_coords(self) -> OrderedDict | None:
-        """Expected input coordinate mapping, or ``None`` before first call."""
-        return self._input_coords
-
-    @property
-    def output_coords(self) -> OrderedDict | None:
-        """Output coordinate mapping (ensemble only), or ``None`` before first call."""
-        return self._output_coords
-
-    def __call__(
-        self, xx: torch.Tensor, coords: OrderedDict
-    ) -> tuple[torch.Tensor, OrderedDict | None]:
+    def __call__(self, x: xr.DataArray) -> np.ndarray:
         """Check whether field means remain within threshold of the baseline.
 
-        On the first invocation the baseline is established from xx.
-        Subsequent calls compare against it.
-
         Parameters
         ----------
-        xx : torch.Tensor
-            Data tensor matching the coordinate mapping.
-        coords : OrderedDict
-            Coordinate mapping for *xx*.
+        x : xr.DataArray
+            Fields with dimensions ``ensemble`` and ``variable`` plus any
+            others, which are averaged over.
 
         Returns
         -------
-        tuple[torch.Tensor, OrderedDict]
-            Boolean tensor (``True`` = stable) per ensemble member, and the
-            output coordinate mapping.
+        np.ndarray
+            Boolean array (``True`` = stable) per ensemble member.
         """
-        var_dim = list(coords).index("variable")
-        batch_dim = list(coords).index("ensemble") if "ensemble" in coords else None
+        x = x.sel(variable=self.vars)
+        # skipna=False: NaNs make the mean NaN, which fails the check below
+        means = x.mean(
+            dim=[d for d in x.dims if d not in ("ensemble", "variable")],
+            skipna=False,
+        )
+        means = means.transpose("ensemble", "variable").e2s.as_numpy().values
 
         if self.baseline is None:
-            self.baseline = xx.mean(
-                dim=tuple(
-                    [ii for ii in range(len(coords)) if ii not in (var_dim, batch_dim)]
+            nan_vars = np.array(self.vars)[np.isnan(means).any(axis=0)]
+            if nan_vars.size:
+                raise ValueError(
+                    f"stability check variables {nan_vars.tolist()} contain NaN in "
+                    "the initial condition, choose other variables"
                 )
-            )
-            comp = self.baseline
-            self.update_coords(coords)
-        else:
-            comp = xx.mean(
-                dim=tuple(
-                    [ii for ii in range(len(coords)) if ii not in (var_dim, batch_dim)]
-                )
-            )
+            self.baseline = means
 
-        return (torch.abs(comp - self.baseline) < self.thresh.to(xx.device)).all(
-            dim=-1
-        ), self._output_coords
+        return (np.abs(means - self.baseline) < self.thresholds).all(axis=-1)
 
 
 def great_circle_distance(
