@@ -20,8 +20,8 @@ This file is a TEMPLATE, not importable code. Load it at Step 7b for
 regular-cadence gridded sources unless the user opts out.
 
 Temporal statistics are variable labels such as ``"t2m:mean:24h"`` (window
-``[-24h, 0h)``) or ``"tp:sum:+0h:+6h"`` (explicit offsets). Methods: ``mean``,
-``sum``, ``min``, ``max``. Windows are left-closed/right-open. Regular coordinate
+``(-24h, 0h]``) or ``"tp:sum:+0h:+6h"`` (explicit offsets). Methods: ``mean``,
+``sum``, ``min``, ``max``. Windows are left-open/right-closed. Regular coordinate
 helpers require cadence-aligned windows; reducers impose no sampling cadence.
 
 Skip native support for unsuitable sources, such as climatology or irregular
@@ -90,9 +90,9 @@ class SourceName:
     ----
     Temporal statistics: ``mean``, ``sum``, ``min``, and ``max`` accept labels
     ``variable:method:window`` or ``variable:method:start:end``. Windows are
-    left-closed/right-open, sampled every six hours, and relative to the requested
-    analysis time. For example, ``t2m:mean:24h`` averages the preceding four
-    samples, excluding the requested time. FILL: accumulation caveats.
+    left-open/right-closed, sampled every six hours, and relative to the requested
+    analysis time. For example, ``t2m:mean:24h`` averages four samples ending
+    with the requested time. FILL: accumulation caveats.
     """
 
     # FILL: import the source lexicon and declare TIME_STATISTICS there
@@ -168,10 +168,15 @@ class SourceName:
 #   accumulated fields may overlap or reset; document their periods and warn like
 #   GFS does for ``tp``. Totals are only rainfall totals for disjoint intervals.
 # - Composite sources must not reduce: forward labels unchanged to components.
-# - NaNs are skipped. All-NaN windows yield NaN for mean/min/max and zero for
-#   sum. Download errors still propagate; a source may explicitly return NaN
-#   fields for missing records. The planned samples are all fetched or the
-#   request fails; no partial window is written.
+# - Missing samples propagate: mean/sum/min/max return NaN for a cell when any
+#   sample in its window is NaN (including NaN fields a source returns for
+#   missing records). Download errors still propagate. The planned samples are all fetched or the request fails; no
+#   partial window is written.
+# - Accumulations stamped at the end of their interval (ERA5 ``tp``) match the
+#   right-closed window: ``tp:sum:6h`` reads stamps T-5h ... T, the six hours
+#   ending at T. Accumulations stamped at the start of their interval, or
+#   running buckets that reset (GFS ``tp``), do not; say so in the
+#   ``Temporal statistics:`` note and point users to a native alias (``tp06``).
 
 
 # ===========================================================================

@@ -33,7 +33,7 @@ are worth highlighting:
   applies a per-day-of-year moment-matching transform to convert it to OLR
   internally (controlled by the ``use_ttr`` flag).
 - A separate [`earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip`][earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip]
-  diagnostic predicts 6-hourly accumulated precipitation (``tp:sum:6h``) from the
+  diagnostic predicts 6-hourly accumulated precipitation (``tp06``) from the
   full coupled state.
 
 In this example you will learn:
@@ -105,7 +105,7 @@ precip = DLESyMv0_ISCCP_ERA5Precip.load_model(package, use_ttr=False).to(device)
 # Note that ``ttr`` appears in the prognostic input variables (the wrapper
 # converts it to OLR internally), while the output variables report ``rlut``
 # (OLR) -- the model variable space. The precip diagnostic consumes the full
-# 10-variable coupled state and emits a single ``tp:sum:6h`` field.
+# 10-variable coupled state and emits a single ``tp06`` field.
 
 # %%
 in_coords = model.input_coords()
@@ -291,11 +291,11 @@ im = axs[2].pcolormesh(
     cmap="GnBu",
     norm=LogNorm(vmin=vmin, vmax=vmax),
 )
-axs[2].set_title(f"tp:sum:6h @ {precip_lead.astype('timedelta64[h]')}")
+axs[2].set_title(f"tp06 @ {precip_lead.astype('timedelta64[h]')}")
 axs[2].coastlines()
 axs[2].gridlines()
 cbar = fig.colorbar(im, ax=axs[2], orientation="horizontal", pad=0.05, extend="both")
-cbar.set_label("tp:sum:6h [m] (log scale)")
+cbar.set_label("tp06 [m] (log scale)")
 
 plt.suptitle(f"Upstream DLESyM forecast - Initialization: {ic_date}")
 plt.tight_layout()

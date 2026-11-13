@@ -160,7 +160,7 @@ class TestPredownloadedSource:
 class TestQualifiedLabels:
     """The store serves its time statistics natively, as fetch_data expects."""
 
-    LABELS = ["t2m:mean:0h:24h", "tp:mean:1h:25h"]
+    LABELS = ["t2m:mean:-1h:23h", "tp:mean:0h:24h"]
 
     @pytest.fixture()
     def store(self, tmp_path):
@@ -191,7 +191,7 @@ class TestQualifiedLabels:
                 )
         statistics = da.attrs[E2S_STATISTICS]
         assert set(statistics) == set(self.LABELS)
-        assert statistics["tp:mean:1h:25h"]["start_offset"] == np.timedelta64(1, "h")
+        assert statistics["tp:mean:0h:24h"]["start_offset"] == np.timedelta64(0, "h")
 
     def test_unsupported_method_is_rejected(self, store):
         source, _ = store
