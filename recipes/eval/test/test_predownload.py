@@ -122,6 +122,36 @@ def test_verification_falls_back_to_the_runner_source(cfg) -> None:
     assert store is not None and store.source is runner.source
 
 
+class _AttributedRandom(SeededRandom):
+    """Seeded fields carrying NumPy attributes, as NCAR_ERA5 fields do."""
+
+    def __call__(self, time, variable) -> xr.DataArray:
+        da = super().__call__(time, variable)
+        da.attrs.update(
+            {
+                "ecmwf_parameter": np.int32(151),
+                "minimum_value": np.float32(1.5),
+                "levels": np.array([1, 2]),
+            }
+        )
+        return da
+
+
+def test_numpy_attributes_reach_the_store_as_json(cfg) -> None:
+    # Zarr writes array attributes as JSON, which rejects NumPy scalars.
+    import zarr
+
+    with open_dict(cfg):
+        cfg.data_source._target_ = "test.test_predownload._AttributedRandom"
+    run(cfg)
+    attrs = zarr.open_group(store_path(cfg, "data.zarr"), mode="r")["t2m"].attrs
+    assert attrs["ecmwf_parameter"] == 151
+    assert isinstance(attrs["ecmwf_parameter"], int)
+    assert attrs["minimum_value"] == 1.5
+    assert list(attrs["levels"]) == [1, 2]
+    assert not np.isnan(_open(cfg, "data.zarr")["t2m"].values).any()
+
+
 def test_run_writes_data_store_and_sentinel(cfg) -> None:
     run(cfg)
     ds = _open(cfg, "data.zarr")
