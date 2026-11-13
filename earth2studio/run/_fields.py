@@ -159,6 +159,9 @@ def _nearest_covering(dim: str, source: np.ndarray, target: np.ndarray) -> np.nd
     """
     if len(source) == 0:
         raise ValueError(f"Source coordinate {dim} is empty; {_REGRID_HINT}")
+    # Signed arithmetic: bounds and distances wrap on unsigned integer labels
+    source = source.astype(np.float64)
+    target = target.astype(np.float64)
     order = np.sort(source)
     if len(order) == 1:
         if not np.all(target == order[0]):

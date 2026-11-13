@@ -90,3 +90,12 @@ def test_missing_variable_names_the_missing_labels() -> None:
         ValueError, match=r"Missing labels for coordinate variable: \['ws10m'\]"
     ):
         map_field(field, OrderedDict(variable=np.array(["t2m", "ws10m"])))
+
+
+def test_unsigned_source_labels_are_covered() -> None:
+    # Unsigned labels must not wrap in the coverage bounds or distances.
+    field = _field(np.array([0, 10], dtype=np.uint32), GLOBAL_LON)
+    mapped = map_field(field, OrderedDict(lat=np.array([5.0, 10.0])))
+    np.testing.assert_array_equal(mapped["lat"], [5.0, 10.0])
+    with pytest.raises(ValueError, match="beyond the source's range"):
+        map_field(field, OrderedDict(lat=np.array([25.0])))

@@ -381,10 +381,10 @@ matching `run.deterministic`, when the input ends at zero and the output declare
 every input variable on the input's grid; otherwise the streams start at the
 first forecast. The published initial condition holds only the input
 variables. When the output declares more (diagnostic outputs such as `tp06`), the
-`forecast` store holds NaN for those variables at lead time 0, and
-`initial_condition_variables()` lists the variables lead time 0 does hold.
-`Pipeline` rejects an `output_variables` selection that holds none of them
-before creating any store; a selection holding some keeps NaN for the rest. A
+`forecast` store holds NaN for those variables at lead time 0. `Pipeline`
+keeps the selected `output_variables` each output holds and skips an output
+holding none of them, so neither the scorer nor the store sees it and the store
+keeps its fill value. A
 diagnostic stream whose inputs include output-only variables starts at the first
 forecast. Each step advances by the model's step interval (see
 [MODEL_CONTRACT_SPEC.md](MODEL_CONTRACT_SPEC.md#lead-time)). Sources

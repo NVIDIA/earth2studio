@@ -179,8 +179,8 @@ IO using the sections above. For new orchestration, see [Pipeline](dev/examples/
 - Runners publish the initial condition at lead 0 when a model's outputs include all of
   its inputs. Output-only variables (diagnostics such as `tp06`) are NaN at lead 0, where
   `main` let the model supply them. Exclude lead 0 from reductions over those variables.
-  `Pipeline` rejects an `output_variables` selection that holds only such variables, and
-  diagnostic streams that read them start at the first forecast.
+  `Pipeline` writes and scores the selected `output_variables` each step holds and skips
+  a step holding none, and diagnostic streams that read them start at the first forecast.
 - Runners raise `ValueError` when a source does not cover the model grid on a numeric
   axis (for example a regional source on a global model, or −180..180 longitudes on a
   0..360 model); `main` copied edge values. Resolution is not checked, so a coarser

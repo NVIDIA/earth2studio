@@ -27,7 +27,7 @@ from loguru import logger
 from test_runner import _model, _Zeros
 from test_runner_models import T0, _FusedDLESyMShaped, _GridSource
 
-from earth2studio.io import KVBackend, ZarrBackend
+from earth2studio.io import KVBackend
 from earth2studio.run import Pipeline, PrognosticRunner, ProgressStore, work_items
 from earth2studio.utils import coord_array, coord_array_like
 from earth2studio.utils.type import CoordinateSystem
@@ -72,41 +72,45 @@ def _fused_runner(**kwargs: object) -> PrognosticRunner:
     return PrognosticRunner(model, source, **kwargs)  # type: ignore[arg-type]
 
 
-def test_initial_condition_variables_lists_partial_streams() -> None:
-    assert _fused_runner().initial_condition_variables() == {
-        "forecast": ("z500", "sst")
-    }
-    # Outputs equal inputs: the initial condition is complete.
-    assert PrognosticRunner(_model(), _Zeros()).initial_condition_variables() == {}  # type: ignore[arg-type]
+class _SeenVariables:
+    """Scorer recording the variables of every field it receives."""
+
+    def __init__(self) -> None:
+        self.seen: list[list[str]] = []
+
+    def begin_item(self, item: object) -> None:
+        pass
+
+    def update(self, item: object, stream: str, x: xr.DataArray) -> None:
+        self.seen.append([str(v) for v in x["variable"].values])
+
+    def finish_item(self, item: object) -> None:
+        pass
 
 
-def test_selecting_only_output_only_variables_fails_before_stores(
-    tmp_path: Path,
-) -> None:
-    path = tmp_path / "forecast.zarr"
-    pipeline = Pipeline(
-        _fused_runner(),
-        output={"forecast": ZarrBackend(str(path))},
-        output_variables={"forecast": ["tp06"]},
-        device="cpu",
-    )
-    with pytest.raises(ValueError, match="lead time 0"):
-        pipeline.run(work_items([T0], H12))
-    store = ZarrBackend(str(path))
-    assert "tp06" not in store
+@pytest.mark.parametrize("names", [["tp06", "z500"], ["tp06"]])
+def test_selection_keeps_the_variables_each_step_holds(names: list[str]) -> None:
+    """``output_variables`` may name variables the initial condition lacks.
 
-
-def test_partial_selection_keeps_nan_at_lead_zero() -> None:
-    store = KVBackend()
+    Each step writes and scores the selected variables it holds; a step holding
+    none is skipped, and the store keeps its fill value at lead time 0.
+    """
+    store, scorer = KVBackend(), _SeenVariables()
     Pipeline(
         _fused_runner(),
         output={"forecast": store},
-        output_variables={"forecast": ["tp06", "z500"]},
+        scorer=scorer,
+        output_variables={"forecast": names},
         device="cpu",
     ).run(work_items([T0], H12))
+    assert "sst" not in store
     assert np.isnan(store["tp06"][0, 0]).all()
     assert not np.isnan(store["tp06"][0, 1:]).any()
-    assert not np.isnan(store["z500"][:]).any()
+    if "z500" in names:
+        assert not np.isnan(store["z500"][:]).any()
+        assert scorer.seen == [["z500"], names]
+    else:
+        assert scorer.seen == [["tp06"]]
 
 
 def test_diagnostic_on_output_only_variables_starts_at_first_forecast() -> None:
@@ -117,6 +121,18 @@ def test_diagnostic_on_output_only_variables_starts_at_first_forecast() -> None:
     store = KVBackend()
     Pipeline(runner, output={"tp": store}, device="cpu").run(work_items([T0], H12))
     assert not np.isnan(store["tp06x2"][:]).any()
+
+
+def test_lead_zero_only_run_skips_unscheduled_diagnostic_store() -> None:
+    """A diagnostic that starts at the first forecast has no store at lead 0 only."""
+    runner = _fused_runner(diagnostics={"tp": _DoubleTp(_FusedDLESyMShaped().grid)})
+    assert runner.output_coords(np.timedelta64(0, "h"))["tp"].sizes["lead_time"] == 0
+    forecast, tp = KVBackend(), KVBackend()
+    Pipeline(runner, output={"forecast": forecast, "tp": tp}, device="cpu").run(
+        work_items([T0], np.timedelta64(0, "h"))
+    )
+    assert "z500" in forecast
+    assert "tp06x2" not in tp
 
 
 @pytest.fixture

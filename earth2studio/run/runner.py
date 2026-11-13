@@ -92,11 +92,7 @@ class Runner(Protocol):
     - A stream may skip steps, as a slower component does; a step then omits it.
     - An output may hold a subset of its stream's variables, as an initial
       condition holding only a model's inputs does; stores keep NaN for the
-      rest. Optionally list such streams in ``initial_condition_variables()``
-      (see :meth:`PrognosticRunner.initial_condition_variables`) so
-      :class:`~earth2studio.run.pipeline.Pipeline` can reject an
-      ``output_variables`` selection that the initial condition lacks entirely
-      before creating any store.
+      rest.
     """
 
     supports_member_batching: bool
@@ -371,7 +367,7 @@ class PrognosticRunner:
     input variable on the input's grid; otherwise the streams start at the first
     forecast. The published initial condition holds only the input variables, so
     output-only variables, such as a model's diagnostic outputs, are NaN in the
-    stores at lead time zero (see :meth:`initial_condition_variables`), and a
+    stores at lead time zero, and a
     diagnostic stream whose inputs need such variables starts at the first
     forecast. Forcing declared by the model is fetched and sent at every step.
     Items with several members run as one batch on a leading ``ensemble``
@@ -466,28 +462,6 @@ class PrognosticRunner:
             if self.publishes_initial_condition
             and _variables(diagnostic.input_coords()) <= input_variables
         }
-
-    def initial_condition_variables(self) -> Mapping[str, tuple[str, ...]]:
-        """Return the variables each stream's lead-time-zero output holds.
-
-        Only streams whose initial-condition output lacks some of the stream's
-        declared variables are listed: the ``forecast`` stream, when the model
-        declares outputs its input lacks, such as diagnostics. Those variables are
-        missing from the initial condition, so stores hold NaN for them at lead
-        time zero. Diagnostic streams publish a complete initial condition or none.
-
-        Returns
-        -------
-        Mapping[str, tuple[str, ...]]
-            Variables at lead time zero, keyed by stream.
-        """
-        if not self.publishes_initial_condition:
-            return {}
-        inputs = tuple(str(v) for v in self.input_signature["variable"].values)
-        outputs = _variables(self.prognostic.output_coords(self.input_signature))
-        if outputs <= set(inputs):
-            return {}
-        return {"forecast": inputs}
 
     def to(self, device: torch.device) -> PrognosticRunner:
         """Move every model to ``device`` and fetch onto it."""

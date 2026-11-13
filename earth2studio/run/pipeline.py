@@ -342,7 +342,15 @@ class Pipeline:
             return
         variables = self.output_variables.get(stream)
         if variables is not None:
-            x = _select_present_variables(stream, x, variables)
+            # An output may hold a subset of its stream's variables: the
+            # published initial condition lacks output-only variables. Keep the
+            # selected variables it holds; skip it if it holds none, leaving the
+            # store's fill value.
+            held = set(np.asarray(x["variable"].values).astype(str))
+            present = [name for name in variables if name in held]
+            if not present:
+                return
+            x = _select_variables(x, present)
         regridder = self.regridder.get(stream)
         if regridder is not None:
             x = regridder(x)
@@ -436,28 +444,11 @@ class Pipeline:
                         f"variables {missing}; it has {sorted(known)}"
                     )
                 signature = _select_variables(signature, variables)
-                self._check_initial_condition(stream, variables)
             regridder = self.regridder.get(stream)
             if regridder is not None:
                 signature = _regridded_signature(stream, signature, regridder)
             schemas[stream] = signature
         return schemas
-
-    def _check_initial_condition(self, stream: str, variables: Sequence[str]) -> None:
-        """Reject a selection the stream's lead-time-zero output lacks entirely."""
-        listing = getattr(self.runner, "initial_condition_variables", None)
-        if not callable(listing):
-            return
-        available = listing().get(stream)
-        if available is None or set(variables) & set(available):
-            return
-        raise ValueError(
-            f"output_variables for stream {stream!r} selects only {list(variables)}, "
-            f"which the initial condition published at lead time 0 does not hold; "
-            f"it holds only the model inputs {list(available)}. Add an input "
-            "variable to output_variables, keeping NaN for the others at lead time "
-            "0, or compute these variables in a diagnostic stream."
-        )
 
     # -- progress ------------------------------------------------------------
 
@@ -554,30 +545,6 @@ def _log_finished(rank: int, index: int, mine: list[WorkItem]) -> None:
 def _select_variables(x: xr.DataArray, variables: Sequence[str]) -> xr.DataArray:
     """Keep ``variables`` in order; works on fields and signatures alike."""
     return map_field(x, OrderedDict(variable=np.asarray(variables)))
-
-
-def _select_present_variables(
-    stream: str, x: xr.DataArray, variables: Sequence[str]
-) -> xr.DataArray:
-    """Keep the selected ``variables`` an output holds, in order.
-
-    An output may hold a subset of its stream's variables, such as an initial
-    condition holding only a model's inputs; the store keeps NaN for the rest.
-    """
-    held = set(np.asarray(x.coords["variable"].values).astype(str))
-    present = [name for name in variables if name in held]
-    if not present:
-        lead = (
-            f" at lead time {x.coords['lead_time'].values.tolist()}"
-            if "lead_time" in x.coords
-            else ""
-        )
-        raise ValueError(
-            f"Stream {stream!r} output{lead} holds none of output_variables "
-            f"{list(variables)}; it holds {sorted(held)}. An initial condition "
-            "holds only the model inputs, so select at least one input variable."
-        )
-    return _select_variables(x, present)
 
 
 def _regridded_signature(
