@@ -37,10 +37,10 @@ earth2studio.models.px.DataReplay
 earth2studio.models.px.DiagnosticWrapper
 earth2studio.models.px.DLESyM
 earth2studio.models.px.DLESyMAtmos
-earth2studio.models.px.DLESyMLatLon
 earth2studio.models.px.DLESyMOcean
 earth2studio.models.px.DLESyMv0_ISCCP_ERA5
-earth2studio.models.px.DLESyMv0_ISCCP_ERA5LatLon
+earth2studio.models.px.DLESyMv0_ISCCP_ERA5Atmos
+earth2studio.models.px.DLESyMv0_ISCCP_ERA5Ocean
 earth2studio.models.px.DLWP
 earth2studio.models.px.FCN
 earth2studio.models.px.FCN3

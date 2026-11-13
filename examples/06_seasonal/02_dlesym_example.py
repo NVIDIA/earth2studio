@@ -31,7 +31,7 @@ valid only at its own. This example runs the model in two ways:
 - fused, as any other prognostic model under
   [`earth2studio.run.Pipeline`][earth2studio.run.Pipeline], which rolls it out with a
   `PrognosticRunner` and writes one store;
-- split into [`earth2studio.models.px.DLESyMAtmos`][earth2studio.models.px.DLESyMAtmos]
+- as the standalone [`earth2studio.models.px.DLESyMAtmos`][earth2studio.models.px.DLESyMAtmos]
   and [`earth2studio.models.px.DLESyMOcean`][earth2studio.models.px.DLESyMOcean]
   components under [`earth2studio.coupling.CoupledRunner`][earth2studio.coupling.CoupledRunner],
   where the sea surface temperature and the 48-hour atmospheric means the two halves
@@ -42,8 +42,8 @@ valid only at its own. This example runs the model in two ways:
 In this example you will learn:
 
 - How to instantiate DLESyM and run it from a lat/lon data source with `Pipeline`
-- How to split DLESyM into atmosphere and ocean components that share its weights
-- How to serve the components' native HEALPix inputs from ERA5 with `DLESyMLatLon.native_source`
+- How the model's recommended source serves its native HEALPix inputs from ERA5
+- How to load the atmosphere and ocean as standalone components
 - How to declare the coupling with connectors, read the derived schedule and run it
   under `Pipeline` with one store per component
 - How to regrid the native outputs for plotting
@@ -60,16 +60,17 @@ In this example you will learn:
 # %%
 # Set Up
 # ------
-# The ERA5 data sources in Earth2Studio provide data on the lat/lon grid, so we load
-# the [`earth2studio.models.px.DLESyMLatLon`][earth2studio.models.px.DLESyMLatLon]
-# wrapper. It accepts lat/lon inputs, computes the derived variables the model needs
-# (``ws10m`` from the wind components and ``tau300-700`` from geopotential), fills the
-# sea surface temperature over land, regrids onto HEALPix internally and returns
-# lat/lon outputs. It also carries everything the split components need, so one
-# package load serves both runs.
+# DLESyM runs on the HEALPix grid and takes derived variables (``ws10m`` from the
+# wind components and ``tau300-700`` from geopotential) that no data source provides.
+# Models never fetch data, so the preparation belongs in a source: the model
+# recommends `DLESyMInputSource`, which fetches the base variables from a lat/lon
+# source, ARCO ERA5 by default, computes the derived variables, fills the sea surface
+# temperature over land and regrids onto HEALPix. To initialize from another lat/lon
+# source, wrap it: ``DLESyMInputSource(WB2ERA5(), nside=model.nside)``.
 #
-# - Prognostic Model: [`earth2studio.models.px.DLESyMLatLon`][earth2studio.models.px.DLESyMLatLon]
-# - Datasource: [`earth2studio.data.ARCO_ERA5`][earth2studio.data.ARCO_ERA5]
+# - Prognostic Model: [`earth2studio.models.px.DLESyM`][earth2studio.models.px.DLESyM]
+# - Datasource: [`earth2studio.data.ARCO_ERA5`][earth2studio.data.ARCO_ERA5], through
+#   the model's recommended `DLESyMInputSource`
 # - IO Backend: [`earth2studio.io.KVBackend`][earth2studio.io.KVBackend], in memory
 
 # %%
@@ -82,38 +83,38 @@ load_dotenv()  # TODO: make common example prep function
 import numpy as np
 import torch
 
-from earth2studio.data import ARCO_ERA5
 from earth2studio.io import KVBackend
-from earth2studio.models.px import DLESyMLatLon
+from earth2studio.models.px import DLESyM, DLESyMAtmos, DLESyMOcean
 from earth2studio.run import Pipeline, work_items
 
 device = "cuda"
 if not torch.cuda.is_available():
     raise RuntimeError("GPU/CUDA required for DLESyM")
 
-data = ARCO_ERA5()
-
-package = DLESyMLatLon.load_default_package()
-model = DLESyMLatLon.load_model(package).to(device)
+package = DLESyM.load_default_package()
+model = DLESyM.load_model(package).to(device)
 
 in_coords = model.input_coords()
-print("Lat/lon input variables:", list(in_coords["variable"].values))
+print("Input variables:", list(in_coords["variable"].values))
 print("Input lead times [h]:", in_coords["lead_time"].values.astype("timedelta64[h]"))
 out_coords = model.output_coords(in_coords)
 print("Output variables:", list(out_coords["variable"].values))
 print("Output lead times [h]:", out_coords["lead_time"].values.astype("timedelta64[h]"))
+print("Recommended source:", type(model.default_sources()).__name__)
 
 # %%
 # The Fused Model Under Pipeline
 # ------------------------------
 # A `Pipeline` drives a runner over work items. `Pipeline.from_model` wraps the
 # prognostic model in a `PrognosticRunner` that fetches the initial history from the
-# data source, rolls the model forward and writes every step into the store. One
-# DLESyM step is a 96-hour cycle, so the final lead time is a multiple of 96 hours.
+# model's recommended source, rolls the model forward and writes every step into the
+# store. One DLESyM step is a 96-hour cycle, so the final lead time is a multiple of
+# 96 hours.
 #
-# Only the fields named in ``output_variables`` are written. The ocean's ``sst`` is
-# valid at 48-hour lead times only: the fused model fills the other lead times with
-# NaNs, because its one output slot carries the atmosphere's lead times.
+# Only the fields named in ``output_variables`` are written, on the native HEALPix
+# grid. The ocean's ``sst`` is valid at 48-hour lead times only: the fused model fills
+# the other lead times with NaNs, because its one output slot carries the atmosphere's
+# lead times.
 
 # %%
 ic_date = np.datetime64("2021-06-15")
@@ -123,7 +124,6 @@ items = work_items([ic_date], final_lead_time=np.timedelta64(96 * n_cycles, "h")
 fused = KVBackend()
 Pipeline.from_model(
     model,
-    data,
     output={"forecast": fused},
     output_variables={"forecast": ["ws10m", "sst"]},
     device=device,
@@ -131,26 +131,26 @@ Pipeline.from_model(
 
 fused_ds = fused.to_xarray()
 print(fused_ds)
-valid_sst = fused_ds["sst"].notnull().any(["lat", "lon"]).squeeze("time")
+valid_sst = fused_ds["sst"].notnull().any(["face", "height", "width"]).squeeze("time")
 print(
     "Lead times with valid sst [h]:",
     fused_ds["lead_time"].values[valid_sst.values].astype("timedelta64[h]"),
 )
 
 # %%
-# Splitting DLESyM Into Components
-# --------------------------------
+# The Atmosphere and Ocean as Components
+# --------------------------------------
 # A fused model whose outputs advance at different cadences cannot be coupled as it
-# is. `DLESyM.split` returns the atmosphere and ocean as two ordinary prognostic
-# models on the native HEALPix grid that share the fused model's weights, so nothing
-# is copied. Each declares its own slots:
+# is. `DLESyMAtmos` and `DLESyMOcean` are the atmosphere and ocean as two ordinary
+# prognostic models on the native HEALPix grid. Each loads only its own network from
+# the same package, like any other model, and declares its own slots:
 #
 # - The atmosphere takes its 6-hourly history and, as forcing, the sea surface
 #   temperature at the history's final lead time. In the fused model this is the
 #   SST at the start of each cycle, the ocean's previous output.
 # - The ocean takes its history at -48 h and 0 h and, as forcing, the means of
-#   ``z1000`` and ``ws10m`` over the atmosphere frames leading up to each of its
-#   output times, declared as qualified labels such as ``z1000:mean:-42h:+6h``.
+#   ``z1000`` and ``ws10m`` over the 48 hours of atmosphere frames leading up to each
+#   of its output times, declared as qualified labels such as ``z1000:mean:48h``.
 #   In the fused model these are averages of the atmosphere's frames from the
 #   same cycle.
 #
@@ -159,7 +159,12 @@ print(
 # %%
 from earth2studio.coupling import Connector, CoupledRunner
 
-atmos, ocean = model.split()
+# The fused model is no longer needed: free its copy of the two networks.
+del model
+torch.cuda.empty_cache()
+
+atmos = DLESyMAtmos.load_model(package).to(device)
+ocean = DLESyMOcean.load_model(package).to(device)
 
 
 def hours(coords):
@@ -180,21 +185,6 @@ print_slots("atmos", atmos)
 print_slots("ocean", ocean)
 
 # %%
-# Native Inputs From a Lat/Lon Source
-# -----------------------------------
-# The components' input slots are on HEALPix with the model's derived variables, which
-# no data source provides. Models never fetch data, so the preparation belongs in a
-# source: `DLESyMLatLon.native_source` wraps a lat/lon source into one that fetches
-# the base variables from ERA5 and applies `DLESyMLatLon.to_native`, the same
-# preparation the fused wrapper gives its own inputs, once per time. The runner
-# fetches each component's history through it, one call per lead time; components
-# built from the lat/lon wrapper recommend this source themselves, so `sources=`
-# below only picks the ERA5 source explicitly.
-
-# %%
-native = model.native_source(data)
-
-# %%
 # Declaring the Coupling
 # ----------------------
 # Components are named models and connectors are edges between them. Both components
@@ -208,9 +198,12 @@ native = model.native_source(data)
 #   the coupler reduces the atmosphere's 6-hourly frames over each 48-hour window.
 #
 # Every slot not fed by a connector, here the two histories, is fetched from its
-# source. Construction validates the declarations and dry-runs the schedule, and
-# `describe` prints it: each row is a call, when it is due, what it publishes and
-# where each connected slot reads from.
+# source. The components recommend the same `DLESyMInputSource` over ARCO ERA5 as the
+# fused model, so no ``sources=`` is needed; pass
+# ``sources={"atmos": source, "ocean": source}`` to initialize from another one.
+# Construction validates the declarations and dry-runs the schedule, and `describe`
+# prints it: each row is a call, when it is due, what it publishes and where each
+# connected slot reads from.
 
 # %%
 runner = CoupledRunner(
@@ -219,7 +212,6 @@ runner = CoupledRunner(
         Connector("ocean", "atmos", time="hold"),
         Connector("atmos", "ocean"),
     ],
-    sources={"atmos": native, "ocean": native},
 )
 print(runner.describe(np.timedelta64(192, "h")))
 
@@ -254,28 +246,30 @@ print("Ocean lead times [h]:", ocean_ds["lead_time"].values.astype("timedelta64[
 # %%
 # Post Processing
 # ---------------
-# The coupled streams are on the native HEALPix grid. For plotting, `DLESyMLatLon`
-# exposes its regridder as `to_ll`, which maps the trailing ``(face, height, width)``
-# dimensions onto the 0.25 degree lat/lon grid. We plot the 10 m wind speed from the
-# atmosphere stream and the sea surface temperature from the ocean stream at the
-# final lead time, next to the fused model's wind speed at the same lead time.
+# Every stream is on the native HEALPix grid. For plotting we regrid onto a 1 degree
+# lat/lon grid with a standalone
+# [`earth2studio.grids.NearestRegridder`][earth2studio.grids.NearestRegridder], built
+# once from the model's grid and reused for every field. We plot the 10 m wind speed
+# from the atmosphere stream and the sea surface temperature from the ocean stream at
+# the final lead time, next to the fused model's wind speed at the same lead time.
 
 # %%
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import matplotlib.pyplot as plt
 
+from earth2studio.grids import LatLonGrid, NearestRegridder
 
-def to_latlon(field):
-    """Regrid a HEALPix field with trailing (face, height, width) onto lat/lon."""
-    tensor = torch.as_tensor(np.asarray(field), device=device)
-    return model.to_ll(tensor).cpu().numpy()
-
+lat = np.linspace(90, -90, 181)
+lon = np.linspace(0, 360, 360, endpoint=False)
+to_latlon = NearestRegridder(
+    atmos.input_coords().attrs["earth2studio_grid_id"], LatLonGrid(lat, lon)
+)
 
 lead_time = atmos_ds["lead_time"].values[-1]
-ws10m = to_latlon(atmos_ds["ws10m"].sel(time=ic_date, lead_time=lead_time).values)
-sst = to_latlon(ocean_ds["sst"].sel(time=ic_date, lead_time=lead_time).values)
-ws10m_fused = fused_ds["ws10m"].sel(time=ic_date, lead_time=lead_time).values
+ws10m = to_latlon(atmos_ds["ws10m"].sel(time=ic_date, lead_time=lead_time)).values
+sst = to_latlon(ocean_ds["sst"].sel(time=ic_date, lead_time=lead_time)).values
+ws10m_fused = to_latlon(fused_ds["ws10m"].sel(time=ic_date, lead_time=lead_time)).values
 label = f"Initialization: {ic_date} - Lead time: {lead_time.astype('timedelta64[h]')}"
 
 plt.close("all")
@@ -287,9 +281,7 @@ for ax, field, title, cmap, units in (
     (axs[1], ws10m, "Coupled ws10m", "cividis", "m/s"),
     (axs[2], sst, "Coupled sst", "Spectral_r", "K"),
 ):
-    im = ax.pcolormesh(
-        model.lon, model.lat, field, transform=ccrs.PlateCarree(), cmap=cmap
-    )
+    im = ax.pcolormesh(lon, lat, field, transform=ccrs.PlateCarree(), cmap=cmap)
     ax.set_title(f"{title}\n{label}")
     if title.endswith("sst"):
         ax.add_feature(cfeature.LAND, color="grey", zorder=100)

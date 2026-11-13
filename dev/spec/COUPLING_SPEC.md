@@ -12,8 +12,9 @@ checker.
 Status: `earth2studio.coupling` exports `Connector`, `CoupledRunner` and
 `CouplingError`. Tests are in `test/coupling/`; the tutorials are
 `dev/examples/10_coupling.py` and `dev/examples/11_stormscope_coupling.py`.
-`DLESyM.split()` returns the atmosphere and ocean components of the fused
-model; `examples/06_seasonal/02_dlesym_example.py` couples them.
+`DLESyMAtmos` and `DLESyMOcean` are the atmosphere and ocean of the fused
+`DLESyM` as standalone models; `examples/06_seasonal/02_dlesym_example.py`
+couples them.
 
 Lineage: this replaces the `nvcoupler` prototype of PR #1229, which grew out of
 PR #1114 (the hand-computable toy models, lagged versus sequential coupling and

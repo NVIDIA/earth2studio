@@ -140,10 +140,10 @@ categories:
         api_refs:
           - earth2studio.models.px.DLESyM
           - earth2studio.models.px.DLESyMAtmos
-          - earth2studio.models.px.DLESyMLatLon
           - earth2studio.models.px.DLESyMOcean
           - earth2studio.models.px.DLESyMv0_ISCCP_ERA5
-          - earth2studio.models.px.DLESyMv0_ISCCP_ERA5LatLon
+          - earth2studio.models.px.DLESyMv0_ISCCP_ERA5Atmos
+          - earth2studio.models.px.DLESyMv0_ISCCP_ERA5Ocean
           - earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip
         # TODO: Remove with psn release 2.3.0
         preinstall:

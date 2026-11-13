@@ -125,9 +125,21 @@ Target: [PrognosticModel](earth2studio/models/px/base.py).
   `CBottleSR(super_resolution_window=(s, w, n, e))` → `region=Region.box(w, s, e, n)`.
   `InterpCRPSDiT.set_domain(..., halo)` → set `region_halo`, then `with_region(Region.box(...))`.
 
+- `DLESyMLatLon` and `DLESyMv0_ISCCP_ERA5LatLon` are removed: use the native
+  `DLESyM` / `DLESyMv0_ISCCP_ERA5`, which run on HEALPix.
+  Lat/lon inputs → the models' `default_sources()`, a
+  `earth2studio.models.px.dlesym.DLESyMInputSource` over ARCO ERA5 that computes
+  `ws10m` and `tau300-700`, fills `sst` over land and regrids onto HEALPix; wrap
+  another lat/lon source with `DLESyMInputSource(source, nside=model.nside)`.
+  Lat/lon outputs, `to_ll` and `coords_to_ll` → regrid after the model, for example
+  `NearestRegridder(model.input_coords().attrs["earth2studio_grid_id"], LatLonGrid(lat, lon))(y)`.
+  `to_hpx`, `coords_to_hpx`, `ttr_3h_query_times` and `compute_ttr_3h` have no
+  replacement: the source requests `ttr03` from the source it wraps.
+
 ## Renamed model and source labels
 
 - `PrecipitationAFNO` (v1) outputs `tp06`, not `tp`.
+- `DLESyM` v1.1 outputs `tp06` in meters, not the log-transformed `tp6`.
 - `OrbitGlobalPrecip`: inputs `tp24`, `t2m_max`, `t2m_min` → `tp:sum:24h`,
   `t2m:max:-25h:-1h`, `t2m:min:-25h:-1h`; new inputs `sst:max:-25h:-1h` and
   `sst:min:-25h:-1h`. The output is `tp:sum:24h`.
