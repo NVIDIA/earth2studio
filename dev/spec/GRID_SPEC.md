@@ -231,6 +231,7 @@ geographic `bounds_crs` (the default), longitude bounds are independent of the
 grid's longitude convention: a cell is selected when its longitude lies at most
 `max_x - min_x` degrees east of `min_x`, modulo 360. So `(0, 180)` includes the
 180° meridian on both 0..360 and -180..180 grids; `(-190, -170)`, `(170, 190)` and
-`(170, -170)` select the same 20° box across the dateline; `min_x > max_x` wraps
-eastward through the dateline; and a span of 360° or more selects every longitude,
-matching `Region.box`. Projected bounds are compared without wrapping.
+`(170, -170)` select the same 20° box across the dateline; and `min_x > max_x`
+wraps eastward through the dateline, as `Region.box` does. Unlike `Region.box`,
+which rejects a 360° span in favour of `Region.band`, a span of 360° or more selects
+every longitude. Projected bounds are compared without wrapping.

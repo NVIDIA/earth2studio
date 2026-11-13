@@ -96,6 +96,10 @@ def cf_coordinates(
     return coordinates
 
 
+# Degrees of rounding error allowed at longitude bounds
+_LON_TOL = 1e-9
+
+
 def geographic_subset_indexers(
     definition: GridDefinition,
     coordinates: xr.Coordinates,
@@ -143,12 +147,15 @@ def geographic_subset_indexers(
     )
     if target_crs.is_geographic:
         # Measure each longitude eastward from min_x so the rule is the same for
-        # 0..360 and -180..180 grids and for bounds outside either range.
+        # 0..360 and -180..180 grids and for bounds outside either range. The
+        # tolerance keeps boundary cells that wrapping arithmetic shifts by
+        # rounding error.
         span = max_x - min_x if min_x <= max_x else np.mod(max_x - min_x, 360)
+        east = np.mod(longitude_values - min_x, 360)
         x_mask = (
             np.ones(longitude_values.shape, dtype=bool)
             if span >= 360
-            else np.mod(longitude_values - min_x, 360) <= span
+            else (east <= span + _LON_TOL) | (east >= 360 - _LON_TOL)
         )
         y_values = latitude_values
     else:
