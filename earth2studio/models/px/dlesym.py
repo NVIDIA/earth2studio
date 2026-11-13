@@ -84,9 +84,6 @@ _OCEAN_OUTPUT_TIMES = np.array([48, 96], dtype="timedelta64[h]")
 
 # Normalize variable names in the model package to match e2studio's lexicon
 _ATMOS_VARIABLE_RENAMES = {"ttr-3h": "ttr03", "tp6": "tp06"}
-
-# The model learns 6-hour precipitation as log(1 + tp06 / _TP06_EPS), with tp06 in
-# meters; `_denormalize_output` inverts this so `tp06` is returned in meters.
 _TP06_EPS = 1e-8
 
 
