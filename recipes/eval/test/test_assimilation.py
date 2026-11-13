@@ -24,6 +24,8 @@ runs on CPU without downloads.
 from __future__ import annotations
 
 import os
+import threading
+import time
 from collections import OrderedDict
 
 import numpy as np
@@ -43,6 +45,7 @@ from src.runners.assimilation import (
     analysis_coords,
     assimilation,
     assimilation_forecast,
+    shared_window_guard,
 )
 
 from earth2studio.data import CompositeSource
@@ -292,6 +295,53 @@ def test_requests_cover_enabled_slots_only() -> None:
     assert list(requests[0].variable) == ["u", "v", "t"]
 
 
+def test_window_guard_marks_only_a_successful_fetch(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
+    with shared_window_guard(T0):
+        pass
+    assert (tmp_path / "obs_windows" / "2024-01-01T000000.done").exists()
+    # A failed fetch leaves no marker, so the next process fetches itself.
+    with pytest.raises(RuntimeError, match="fetch failed"):
+        with shared_window_guard(T1):
+            raise RuntimeError("fetch failed")
+    assert not (tmp_path / "obs_windows" / "2024-01-02T000000.done").exists()
+
+
+def test_window_guard_lets_one_process_fetch_first(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
+    events: list[str] = []
+    first_in, release = threading.Event(), threading.Event()
+
+    def first() -> None:
+        with shared_window_guard(T0):
+            events.append("first")
+            first_in.set()
+            release.wait(10)
+
+    def second() -> None:
+        first_in.wait(10)
+        with shared_window_guard(T0):
+            events.append("second")
+
+    threads = [threading.Thread(target=first), threading.Thread(target=second)]
+    for thread in threads:
+        thread.start()
+    first_in.wait(10)
+    time.sleep(0.3)  # long enough for the second fetch to reach the lock
+    assert events == ["first"]
+    release.set()
+    for thread in threads:
+        thread.join(10)
+    assert events == ["first", "second"]
+
+
+def test_single_process_fetch_skips_the_window_guard(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
+    model = FakeDA()
+    _obs(model, conv=FakeObsSource()).fetch(T0)
+    assert not (tmp_path / "obs_windows").exists()
+
+
 # -- AssimilationRunner -------------------------------------------------------
 
 
@@ -479,6 +529,33 @@ def test_forecast_fills_missing_variables_from_data_source(tmp_path) -> None:
 def test_forecast_fill_disabled_raises(tmp_path) -> None:
     cfg = _da_forecast_cfg(tmp_path, ["t2m", "sst"], fill=False)
     with pytest.raises(ValueError, match="fill_missing_variables"):
+        assimilation_forecast(cfg)
+
+
+def test_fill_variables_come_from_the_data_source(tmp_path) -> None:
+    # The analysis provides z500, but the campaign takes it from the data
+    # source, even with filling of missing variables turned off.
+    cfg = _da_forecast_cfg(tmp_path, ["t2m", "z500"], fill=False)
+    with open_dict(cfg):
+        cfg.model.fill_variables = ["z500"]
+    runner = assimilation_forecast(cfg)
+    assert isinstance(runner.source, CompositeSource)
+    assert runner.source.variables == {"analysis": ("t2m",), "fill": ("z500",)}
+    item = work_items([T0], H6)[0]
+    (request,) = runner.data_requests(item)  # predownload caches it too
+    assert list(request.variable) == ["z500"]
+    field = runner.source(np.array([T0]), ["t2m", "z500"])
+    assert float(field.isel(time=0, variable=0, lat=0, lon=0)) == analysis_value(T0, 0)
+    assert float(field.isel(time=0, variable=1, lat=0, lon=0)) != analysis_value(
+        T0, 1
+    )
+
+
+def test_fill_variables_must_be_prognostic_inputs(tmp_path) -> None:
+    cfg = _da_forecast_cfg(tmp_path, ["t2m"])
+    with open_dict(cfg):
+        cfg.model.fill_variables = ["sst"]
+    with pytest.raises(ValueError, match="fill_variables"):
         assimilation_forecast(cfg)
 
 
