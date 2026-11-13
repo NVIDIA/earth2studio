@@ -56,7 +56,7 @@ def test_fuxi_s2s_daily_mean_windows() -> None:
     day = np.datetime64("2026-01-02T00", "ns")
     for base, label in zip(VARIABLES, labels):
         offset = 1 if base in ("tp", "ttr") else 0
-        assert label == f"{base}:mean:{offset}h:{24 + offset}h"
+        assert label == f"{base}:mean:{offset - 1}h:{23 + offset}h"
         times = source_times(label.split(":", 1)[1], day, np.timedelta64(1, "h"))
         np.testing.assert_array_equal(
             times, day + np.arange(offset, 24 + offset) * np.timedelta64(1, "h")

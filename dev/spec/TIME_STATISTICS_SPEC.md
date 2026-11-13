@@ -208,8 +208,7 @@ Sources propagate fetching failures rather than reduce a partial window.
 
 ### Implemented source capabilities
 
-All sources below declare `("mean", "sum", "min", "max")` and the `nan` variants
-on their lexicon.
+All sources below declare `("mean", "sum", "min", "max")` on their lexicon.
 
 | Source | Sampling | Window axis |
 | --- | --- | --- |
