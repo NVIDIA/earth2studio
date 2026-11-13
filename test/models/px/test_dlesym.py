@@ -29,7 +29,13 @@ from earth2studio.grids import HEALPixGrid
 from earth2studio.io import KVBackend
 from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import DLESyM, DLESyMAtmos, DLESyMLatLon, DLESyMOcean
-from earth2studio.run import Pipeline, PrognosticRunner, WorkItem, work_items
+from earth2studio.run import (
+    Pipeline,
+    PrognosticRunner,
+    WorkItem,
+    map_field,
+    work_items,
+)
 from earth2studio.utils.coords import coord_array, coord_array_like, handshake_metadata
 from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import OptionalDependencyFailure
@@ -819,6 +825,79 @@ def test_dlesym_split_under_pipeline():
     assert set(ocean_ds.data_vars) == {"sst"}
     assert atmos_ds["ws10m"].dims == ("time", "lead_time", "face", "height", "width")
     assert not np.isnan(ocean_ds["sst"].values).any()
+
+
+class LatLonFill:
+    """Lat/lon data source with the fused lat/lon input variables.
+
+    Fields are offset by variable index and drift with time; ``sst`` has a band
+    of NaNs standing in for land.
+    """
+
+    def __init__(self, model):
+        self.variables = list(model.input_coords()["variable"].values)
+        self.lat, self.lon = model.lat, model.lon
+
+    def __call__(self, time, variable):
+        time = np.atleast_1d(np.asarray(time, dtype="datetime64[ns]"))
+        variable = np.atleast_1d(np.asarray(variable))
+        hours = (time - np.datetime64("2020-01-01")) / np.timedelta64(1, "h")
+        index = np.array([self.variables.index(v) for v in variable], dtype=np.float32)
+        values = (
+            1.0
+            + index[None, :, None, None]
+            + 1e-3 * hours.astype(np.float32)[:, None, None, None]
+            + np.zeros((len(self.lat), len(self.lon)), dtype=np.float32)
+        )
+        if "sst" in variable:
+            values[:, list(variable).index("sst"), :10] = np.nan
+        return xr.DataArray(
+            values.astype(np.float32),
+            dims=("time", "variable", "lat", "lon"),
+            coords={
+                "time": time,
+                "variable": variable,
+                "lat": self.lat,
+                "lon": self.lon,
+            },
+        )
+
+
+class NativeAdapter:
+    """The example's adapter: lat/lon base variables prepared by ``to_native``."""
+
+    def __init__(self, source, model):
+        self.source, self.model = source, model
+        self.signature = model.input_coords()
+
+    def __call__(self, time, variable):
+        x = self.source(time, self.signature["variable"].values)
+        x = map_field(x, self.signature)
+        return self.model.to_native(x).sel(variable=np.atleast_1d(variable))
+
+
+def test_dlesym_latlon_split_runs_from_a_latlon_source():
+    model = build_dlesym_model("cpu", nside=8, type="ll")
+    atmos, ocean = model.split()
+    # Components built from the lat/lon wrapper still declare the native grid.
+    assert (
+        "face" in atmos.input_coords().dims and "lat" not in ocean.input_coords().dims
+    )
+    native = NativeAdapter(LatLonFill(model), model)
+    runner = CoupledRunner(
+        {"atmos": atmos, "ocean": ocean},
+        [Connector("ocean", "atmos", time="hold"), Connector("atmos", "ocean")],
+        sources={"atmos": native, "ocean": native},
+    )
+    streams: dict[str, list[xr.DataArray]] = {}
+    for step in runner.run_item(
+        WorkItem(np.datetime64("2020-06-01T00"), np.timedelta64(96, "h"))
+    ):
+        for name, frame in step.items():
+            streams.setdefault(name, []).append(frame)
+    assert len(streams["atmos"]) == 2 and len(streams["ocean"]) == 2
+    assert streams["atmos"][1].sizes["lead_time"] == 16
+    assert not np.isnan(streams["ocean"][0].values).any()
 
 
 def test_dlesym_latlon_to_native():

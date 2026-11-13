@@ -2218,7 +2218,6 @@ class DLESyMAtmos(_DLESyMComponent):
     @torch.inference_mode()
     def _forward_array(self, x: xr.DataArray, sst: xr.DataArray) -> xr.DataArray:
         model = self.model
-        self._ensure_rng()
         signature = self.output_coords(x)
         lead = x.lead_time.values
         frame = self._align(
@@ -2245,6 +2244,7 @@ class DLESyMAtmos(_DLESyMComponent):
                 coupling,
             )
         ]
+        self._ensure_rng()
         out = self._run(model.atmos_model, inputs).permute(0, 2, 3, 1, 4, 5)
         out = self._denormalize(out, self._output_constants(model.atmos_output_var_idx))
         return self._wrap(out, leading, signature, x)
@@ -2456,7 +2456,6 @@ class DLESyMOcean(_DLESyMComponent):
     @torch.inference_mode()
     def _forward_array(self, x: xr.DataArray, forcing: xr.DataArray) -> xr.DataArray:
         model = self.model
-        self._ensure_rng()
         signature = self.output_coords(x)
         lead = x.lead_time.values
         windows = self._align(
@@ -2495,6 +2494,7 @@ class DLESyMOcean(_DLESyMComponent):
                 coupling,
             )
         ]
+        self._ensure_rng()
         out = self._run(model.ocean_model, inputs).permute(0, 2, 3, 1, 4, 5)
         out = self._denormalize(out, self._output_constants(model.ocean_output_var_idx))
         return self._wrap(out, leading, signature, x)
