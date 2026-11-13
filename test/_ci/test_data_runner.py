@@ -55,6 +55,9 @@ def run_files(tmp_path: Path, files: dict[str, str], *options: str, pytest_args=
             *files,
             "--",
             "-q",
+            "-p",
+            "pytest_skip_slow",
+            "--slow",
             *pytest_args,
         ],
         cwd=tmp_path,
@@ -195,16 +198,39 @@ def test_cache():
     assert result.returncode == 0, result.stdout
 
 
-def test_direct_pytest_runs_live_by_default(tmp_path: Path):
+@pytest.mark.parametrize(
+    "options,live,slow",
+    [
+        ([], False, False),
+        (["--live=all"], False, False),
+        (["--slow"], True, True),
+        (["--slow", "--live=none"], False, True),
+    ],
+)
+def test_direct_pytest_live_requires_slow(tmp_path: Path, options, live, slow):
     (tmp_path / "test_live.py").write_text(
         "import pytest\n"
         "@pytest.mark.live(timeout=12)\n"
         "def test_live(request):\n"
         "    assert request.node.get_closest_marker('timeout').args == (12.0,)\n"
         "    print('LIVE EXECUTED')\n"
+        "@pytest.mark.slow\n"
+        "def test_slow(): print('SLOW EXECUTED')\n"
+        "def test_fast(): print('FAST EXECUTED')\n"
     )
     result = subprocess.run(  # noqa: S603
-        [sys.executable, "-m", "pytest", "-p", "data_test_plugin", "-s", "-q"],
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-p",
+            "data_test_plugin",
+            "-p",
+            "pytest_skip_slow",
+            "-s",
+            "-q",
+            *options,
+        ],
         cwd=tmp_path,
         env=dict(
             os.environ,
@@ -216,7 +242,9 @@ def test_direct_pytest_runs_live_by_default(tmp_path: Path):
         timeout=20,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "LIVE EXECUTED" in result.stdout
+    assert ("LIVE EXECUTED" in result.stdout) == live
+    assert ("SLOW EXECUTED" in result.stdout) == slow
+    assert "FAST EXECUTED" in result.stdout
 
 
 def test_non_live_session_does_not_require_git(tmp_path: Path):

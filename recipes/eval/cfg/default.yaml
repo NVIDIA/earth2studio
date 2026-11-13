@@ -104,7 +104,7 @@ resume: false
 # Config group under cfg/data_source/ (see the defaults list above):
 #   arco_era5       — ARCO ERA5, hourly, 0.25 degree (default)
 #   (daily-mean models such as FuXi-S2S declare qualified labels like
-#   t2m:mean:0h:24h; fetch_data computes the means from the hourly source)
+#   t2m:mean:-1h:23h; fetch_data computes the means from the hourly source)
 # Campaigns swap it with `override /data_source: ...`; an inline
 # `data_source:` block merges over the selected one instead.
 
@@ -196,6 +196,9 @@ output:
 # config so predownload.py and score.py agree.
 predownload:
     overwrite: false             # if true, recreate stores from scratch
+    # Seconds a rank may wait for the others after each store: ranks fetch
+    # different times, and a slow archive (NCAR) can leave one far behind.
+    timeout_s: 21600
     verification:
         enabled: false
         source: null             # null = fetch verification from data_source;

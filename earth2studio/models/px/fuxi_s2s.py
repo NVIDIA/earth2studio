@@ -93,9 +93,9 @@ _TP_INDEX = VARIABLES.index("tp")
 # Keep ONNX channel names/indices separate from public temporal quantity labels.
 DAILY_VARIABLES = [
     (
-        f"{variable}:mean:1h:25h"
+        f"{variable}:mean:0h:24h"
         if variable in ("tp", "ttr")
-        else f"{variable}:mean:0h:24h"
+        else f"{variable}:mean:-1h:23h"
     )
     for variable in VARIABLES
 ]
@@ -192,9 +192,10 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     Their daily means retain the units of each one-hour accumulation; for
     example, multiply predicted ``tp`` by 24 to obtain a daily total.
     Public variable labels declare these windows explicitly:
-    ``t2m:mean:0h:24h``, ``tp:mean:1h:25h``, and ``ttr:mean:1h:25h``.
-    The compact ``mean:24h`` modifier instead describes the preceding day
-    and must not be substituted at the same start-of-day timestamp.
+    ``t2m:mean:-1h:23h``, ``tp:mean:0h:24h``, and ``ttr:mean:0h:24h``
+    (windows are right-closed, ``(start, end]``). The compact ``mean:24h``
+    modifier instead describes the preceding day and must not be substituted
+    at the same start-of-day timestamp.
     Sea-surface temperature must retain ``NaN`` values over land. The wrapper
     does not aggregate hourly fields or regrid initial conditions; callers must
     provide these prepared daily inputs through an Earth2Studio data source.
@@ -222,7 +223,7 @@ class FuXiS2S(torch.nn.Module, AutoModelMixin, PrognosticMixin):
     package = FuXiS2S.load_default_package()
     model = FuXiS2S.load_model(package).to("cuda:0")
     requested_variables = model.input_coords()["variable"]
-    # Includes "t2m:mean:0h:24h" and "tp:mean:1h:25h".
+    # Includes "t2m:mean:-1h:23h" and "tp:mean:0h:24h".
     ```
 
     Badges

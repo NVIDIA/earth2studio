@@ -302,9 +302,9 @@ Load `references/temporal-statistics.py` and follow it. In short:
    averaged/accumulated/min'd/max'd and the window. Warn about
    fields that are already accumulations (e.g. resetting precipitation buckets).
 
-Label grammar: `var:method:window` (trailing, `[-w, 0)`) or
-`var:method:start:end` (e.g. `tp:sum:+0h:+6h`); windows are left-closed,
-right-open. Regular coordinate helpers require cadence-aligned windows; reduction
+Label grammar: `var:method:window` (trailing, `(-w, 0]`) or
+`var:method:start:end` (e.g. `tp:sum:+0h:+6h`); windows are left-open,
+right-closed. Regular coordinate helpers require cadence-aligned windows; reduction
 itself imposes no cadence and uses sample-weighted means. Parsing is in
 `earth2studio/utils/time_statistics.py`; reuse it, do not re-parse labels.
 
