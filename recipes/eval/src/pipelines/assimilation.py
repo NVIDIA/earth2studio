@@ -91,7 +91,10 @@ def _setup_da_components(
         )
     model = load_assimilation(da_cfg).to(device)
     obs_set = ObsSourceSet.from_config(
-        da_cfg.obs_sources, model.input_coords(), output_path=output_path
+        da_cfg.obs_sources,
+        model.input_coords(),
+        output_path=output_path,
+        model=model,
     )
     runner = build_runner(da_cfg, model, obs_set)
     return model, obs_set, runner
@@ -119,7 +122,9 @@ def _declare_obs_frame_stores(
         logger.info("Observation predownload disabled — obs fetched live.")
         return []
     model = load_assimilation(cfg.model.da)
-    obs_set = ObsSourceSet.from_config(cfg.model.da.obs_sources, model.input_coords())
+    obs_set = ObsSourceSet.from_config(
+        cfg.model.da.obs_sources, model.input_coords(), model=model
+    )
     return obs_set.predownload_frame_stores(times)
 
 
@@ -271,7 +276,10 @@ class AssimilationForecastPipeline(ForecastPipeline):
     from the standard IC path (``cfg.ic_source`` BYO → predownloaded
     ``data.zarr`` → ``cfg.data_source``), unless
     ``cfg.model.fill_missing_variables`` is set to ``false`` — in which
-    case any gap is an error.
+    case any gap is an error.  ``cfg.model.fill_variables`` lists inputs
+    to take from that path even when the DA model produces them: boundary
+    fields the forecast model expects in its training convention (Atlas
+    reads ERA5's ``sst``, NaN over land; HealDA writes a land-filled one).
 
     Model config layout (see ``cfg/model/healda_ucast.yaml``)::
 
@@ -301,7 +309,14 @@ class AssimilationForecastPipeline(ForecastPipeline):
 
         da_vars = set(analysis_variables(self.da_model))
         prognostic_vars = [str(v) for v in self._prognostic_ic["variable"]]
-        self._missing_vars = [v for v in prognostic_vars if v not in da_vars]
+        forced = [str(v) for v in (cfg.model.get("fill_variables") or [])]
+        self._missing_vars = [
+            v for v in prognostic_vars if v not in da_vars or v in forced
+        ]
+        if forced:
+            logger.info(
+                f"Taking {forced} from the IC data source instead of the DA analysis."
+            )
 
         self._fill_source = None
         if self._missing_vars:
@@ -356,6 +371,19 @@ class AssimilationForecastPipeline(ForecastPipeline):
         for dim, values in analysis_coords.items():
             if dim != "time":
                 coords[dim] = values
+
+        # Variables the fill source supplies leave the analysis here, so the
+        # concatenation below never carries two copies of one name.
+        if self._missing_vars:
+            keep = [
+                i
+                for i, v in enumerate(coords["variable"])
+                if str(v) not in self._missing_vars
+            ]
+            if len(keep) < len(coords["variable"]):
+                axis = list(coords).index("variable")
+                x = x.index_select(axis, torch.as_tensor(keep, device=x.device))
+                coords["variable"] = np.asarray(coords["variable"])[keep]
 
         x, coords = _align_to_grid(x, coords, self._prognostic_ic)
 

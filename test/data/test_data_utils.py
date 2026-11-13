@@ -1196,6 +1196,18 @@ async def test_obstore_read_chunked_small():
 
 
 @pytest.mark.asyncio
+async def test_obstore_read_chunked_empty_object():
+    """A zero-byte object comes back as empty bytes without a range GET,
+    which obstore would reject (start == end)."""
+    store = _FakeByteRangeStore(b"")
+
+    data = await obstore_read_chunked(store, "some/key.bufr_d")
+
+    assert data == b""
+    assert store.requested_ranges == []
+
+
+@pytest.mark.asyncio
 async def test_obstore_read_chunked_default_chunk_size():
     mib = 1024 * 1024
     rng = np.random.default_rng(2)

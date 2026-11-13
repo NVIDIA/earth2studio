@@ -1622,6 +1622,11 @@ async def obstore_read_chunked(
     try:
         meta = await store.head_async(key)
         size = int(meta["size"])
+        # An empty object has no byte range to request (obstore rejects
+        # start == end).  NNJA publishes one for a cycle its sensor did not
+        # observe: a legitimate empty file, not a failure.
+        if size == 0:
+            return b""
         inflight = _inflight_semaphore()
 
         if size <= chunk_size:

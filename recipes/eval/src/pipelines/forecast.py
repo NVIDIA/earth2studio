@@ -45,6 +45,18 @@ from ..work import WorkItem
 from .base import Pipeline, PredownloadStore, is_explicit_rng_component
 
 
+def _exact_index(
+    source: np.ndarray, target: np.ndarray, atol: float = 1e-6
+) -> np.ndarray | None:
+    """Index of each *target* coordinate in *source*, or None unless all match."""
+    source = np.asarray(source, dtype=np.float64)
+    target = np.asarray(target, dtype=np.float64)
+    idx = np.abs(target[:, None] - source[None, :]).argmin(axis=1)
+    if np.all(np.abs(source[idx] - target) <= atol):
+        return idx
+    return None
+
+
 def _align_to_grid(
     x: torch.Tensor,
     coords: CoordSystem,
@@ -55,10 +67,13 @@ def _align_to_grid(
 
     No-op when the source's spatial coords already equal the model's
     native grid — the common case when the data source is configured
-    to match the model.  Otherwise runs an xarray interpolation (linear
-    by default) so that models whose native resolution differs from the
-    underlying source (e.g. 1° GraphCast/GenCast on top of a 0.25° ARCO_ERA5
-    store) can still be driven by the standard pipeline.
+    to match the model.  When the target grid is a subset of the source
+    grid (a 721-row analysis feeding Aurora's 720 rows), it gathers the
+    matching rows and columns on the device: bit-exact, no host round trip.
+    Otherwise it runs an xarray interpolation (linear by default) so that
+    the standard pipeline still drives models whose native resolution
+    differs from the underlying source (e.g. 1° GraphCast/GenCast on top of
+    a 0.25° ARCO_ERA5 store); the result keeps the input dtype.
     """
     src_lat = coords.get("lat")
     src_lon = coords.get("lon")
@@ -75,16 +90,25 @@ def _align_to_grid(
         return x, coords
 
     dims = list(coords.keys())
+    new_coords = OrderedDict(coords)
+    new_coords["lat"] = np.asarray(tgt_lat)
+    new_coords["lon"] = np.asarray(tgt_lon)
+
+    lat_idx = _exact_index(src_lat, tgt_lat)
+    lon_idx = _exact_index(src_lon, tgt_lon)
+    if lat_idx is not None and lon_idx is not None:
+        x = x.index_select(dims.index("lat"), torch.as_tensor(lat_idx, device=x.device))
+        x = x.index_select(dims.index("lon"), torch.as_tensor(lon_idx, device=x.device))
+        return x, new_coords
+
     da = xr.DataArray(
         x.detach().cpu().numpy(),
         dims=dims,
         coords={d: np.asarray(coords[d]) for d in dims},
     )
     da = da.interp(lat=tgt_lat, lon=tgt_lon, method=method)
-    new_coords = OrderedDict(coords)
-    new_coords["lat"] = np.asarray(tgt_lat)
-    new_coords["lon"] = np.asarray(tgt_lon)
-    return torch.from_numpy(np.asarray(da.values)).to(x.device), new_coords
+    x_out = torch.from_numpy(np.asarray(da.values)).to(device=x.device, dtype=x.dtype)
+    return x_out, new_coords
 
 
 class ForecastPipeline(Pipeline):

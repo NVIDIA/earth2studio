@@ -38,8 +38,17 @@ stay thin:
 
 from __future__ import annotations
 
+import asyncio
+import fcntl
+import hashlib
+import os
+import tempfile
+import time as time_module
 from abc import ABC, abstractmethod
 from collections import OrderedDict
+from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from typing import Any
 
 import hydra
@@ -96,6 +105,40 @@ def load_assimilation(da_cfg: DictConfig) -> AssimilationModel:
 
     logger.success(f"Loaded assimilation model: {cls.__name__}")
     return model
+
+
+@contextmanager
+def _shared_window_guard(time: np.datetime64) -> Iterator[None]:
+    """Let one process per machine fetch an observation window first.
+
+    Ranks on one node share the observation cache, so without this every
+    rank downloads the same files at once: eight times the traffic, and
+    enough concurrent requests for the public bucket to time out.  The
+    first process to take the per-time lock fetches alone; once it has
+    finished, a marker lets the others fetch concurrently from the cache.
+    Lock and marker live in the temp directory, which is per node.
+    """
+    key = hashlib.sha1(str(np.datetime64(time, "ns")).encode()).hexdigest()[:16]
+    base = os.path.join(tempfile.gettempdir(), f"e2s_obs_window_{key}")
+    done = base + ".done"
+    if os.path.exists(done):
+        yield
+        return
+    with open(base + ".lock", "w") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX)
+        if os.path.exists(done):  # another process finished while we waited
+            fcntl.flock(fh, fcntl.LOCK_UN)
+            yield
+            return
+        try:
+            yield
+        except BaseException:
+            raise  # no marker: the next waiter fetches itself
+        else:
+            with open(done, "w"):
+                pass
+        finally:
+            fcntl.flock(fh, fcntl.LOCK_UN)
 
 
 class ObsSourceSet:
@@ -158,6 +201,7 @@ class ObsSourceSet:
         obs_cfg: DictConfig,
         schemas: Any,
         output_path: str | None = None,
+        model: AssimilationModel | None = None,
     ) -> ObsSourceSet:
         """Build the source set from a config mapping.
 
@@ -172,6 +216,10 @@ class ObsSourceSet:
         * ``time_tolerance_hours`` — ``[lo, hi]`` pair converted to a
           ``time_tolerance`` tuple of ``np.timedelta64`` hours, since raw
           timedeltas are awkward to express in YAML.
+        * ``from_model`` — ``{kwarg: attribute}`` pairs read off the loaded
+          DA model and passed to the constructor, for arguments only the
+          checkpoint knows (HealDA v2's IR sounder channels:
+          ``from_model: {sensor_indices: sensor_indices}``).
 
         When *output_path* is provided and a predownloaded frame store
         exists at ``<output_path>/obs_<name>.parquet`` (written by
@@ -189,6 +237,8 @@ class ObsSourceSet:
             Run output directory to check for predownloaded frame
             stores.  ``None`` (e.g. during predownload itself) always
             constructs the live sources.
+        model : AssimilationModel, optional
+            The loaded DA model; required by entries that use ``from_model``.
 
         Returns
         -------
@@ -233,6 +283,16 @@ class ObsSourceSet:
                     np.timedelta64(int(lo), "h"),
                     np.timedelta64(int(hi), "h"),
                 )
+            from_model = spec.pop("from_model", None)
+            if from_model:
+                if model is None:
+                    raise ValueError(
+                        f"Observation source '{name}' sets from_model "
+                        f"{sorted(dict(from_model).values())}, but from_config() "
+                        "was not given the DA model."
+                    )
+                for kwarg, attr in dict(from_model).items():
+                    spec[str(kwarg)] = getattr(model, str(attr))
             source_cls = hydra.utils.get_class(target)
             sources.append(source_cls(**spec))
             logger.success(f"Loaded observation source: {name}")
@@ -296,21 +356,37 @@ class ObsSourceSet:
             in ``input_coords()`` order.
         """
         times = np.array([time], dtype="datetime64[ns]")
-        frames: list[Any] = []
-        for source, schema in zip(self._sources, self._schemas):
-            if source is None:
-                frames.append(None)
-                continue
-            frames.append(
-                fetch_dataframe(
-                    source,
-                    time=times,
-                    variable=np.array(schema["variable"]),
-                    fields=np.array(list(schema.keys())),
-                    device=device,
-                )
+
+        def fetch_one(source: Any, schema: Any) -> Any:
+            # Long frames carry the variable name as a column, which makes
+            # it a requested field; wide frames (one column per variable)
+            # have no such column, and the NNJA sources reject fields they
+            # cannot serve.
+            fields = [str(k) for k in schema.keys()]
+            if "observation" not in schema:
+                fields = [f for f in fields if f != "variable"]
+            return fetch_dataframe(
+                source,
+                time=times,
+                variable=np.array(schema["variable"]),
+                fields=np.array(fields),
+                device=device,
             )
-        return tuple(frames)
+
+        live = [
+            (source, schema)
+            for source, schema in zip(self._sources, self._schemas)
+            if source is not None
+        ]
+        # The streams download and decode independently, so the pool fetches
+        # them concurrently, as ``earth2studio.data.fetch_dataframes`` does;
+        # the guard lets one process per node fill the shared cache first.
+        with _shared_window_guard(time), ThreadPoolExecutor(max(1, len(live))) as pool:
+            frames = list(pool.map(lambda req: fetch_one(*req), live))
+        fetched = iter(frames)
+        return tuple(
+            None if source is None else next(fetched) for source in self._sources
+        )
 
 
 class AssimilationRunner(ABC):
@@ -361,6 +437,12 @@ class StatelessAssimilationRunner(AssimilationRunner):
         Device for observation DataFrames (``"cpu"`` → pandas, CUDA →
         cudf).  Defaults to ``"cpu"`` since cudf is an optional
         dependency; DA models move observation data themselves.
+    fetch_attempts : int
+        How many times to try fetching one analysis time's observations
+        before giving up; the wait doubles from 30 s between attempts, so
+        six attempts span about 15 minutes.  Remote archives throttle, time
+        out or cancel a request now and then, and in a multi-rank job one
+        failed fetch takes every rank down with it.  Defaults to 3.
     """
 
     def __init__(
@@ -368,6 +450,7 @@ class StatelessAssimilationRunner(AssimilationRunner):
         model: AssimilationModel,
         obs_set: ObsSourceSet,
         obs_device: torch.device | str = "cpu",
+        fetch_attempts: int = 3,
     ) -> None:
         inputs = model.input_coords()
         slots = (
@@ -382,10 +465,35 @@ class StatelessAssimilationRunner(AssimilationRunner):
         self._model = model
         self._obs_set = obs_set
         self._obs_device = obs_device
+        self._fetch_attempts = max(1, int(fetch_attempts))
+
+    def _fetch(self, time: np.datetime64) -> tuple[Any, ...]:
+        for attempt in range(1, self._fetch_attempts + 1):
+            try:
+                return self._obs_set.fetch(time, device=self._obs_device)
+            # A cancelled download surfaces as CancelledError, which is not
+            # an Exception since Python 3.8, yet as transient as a timeout.
+            except (Exception, asyncio.CancelledError):
+                if attempt == self._fetch_attempts:
+                    # Logged here because the error-flag reduction that
+                    # follows a rank failure can stall before the traceback
+                    # would otherwise print.
+                    logger.exception(
+                        f"Observation fetch for {time} failed {attempt} time(s)"
+                    )
+                    raise
+                wait = 30 * 2 ** (attempt - 1)
+                logger.warning(
+                    f"Observation fetch for {time} failed (attempt {attempt}/"
+                    f"{self._fetch_attempts}), retrying in {wait} s",
+                    exc_info=True,
+                )
+                time_module.sleep(wait)
+        raise AssertionError("unreachable")
 
     def analysis(self, time: np.datetime64) -> tuple[pd.DataFrame | xr.DataArray, ...]:
         """Fetch observations and return the analysis for the requested valid time."""
-        obs = self._obs_set.fetch(time, device=self._obs_device)
+        obs = self._fetch(time)
         if all(o is None for o in obs):
             raise ValueError(
                 "All observation sources are disabled — at least one must "
@@ -406,9 +514,9 @@ def build_runner(
 
     When ``da_cfg.runner`` is present it is Hydra-instantiated with
     ``model`` and ``obs_set`` passed as keyword arguments — the hook for
-    wiring in cycling runners for stateful models.  Otherwise the
-    stateless runner is used, with the optional ``da_cfg.obs_device``
-    forwarded.
+    wiring in cycling runners for stateful models.  Otherwise it builds
+    the stateless runner, forwarding the optional ``da_cfg.obs_device``
+    and ``da_cfg.fetch_attempts``.
     """
     runner_cfg = da_cfg.get("runner")
     if runner_cfg is not None:
@@ -420,7 +528,10 @@ def build_runner(
             )
         return runner
     return StatelessAssimilationRunner(
-        model, obs_set, obs_device=da_cfg.get("obs_device", "cpu")
+        model,
+        obs_set,
+        obs_device=da_cfg.get("obs_device", "cpu"),
+        fetch_attempts=da_cfg.get("fetch_attempts", 3),
     )
 
 
@@ -454,7 +565,9 @@ def analysis_to_tensor(
     return DataFrames as secondary outputs are handled by ignoring those
     slots here — future runners can process them separately).  Handles
     numpy-backed (CPU) and cupy-backed (CUDA) arrays; data is cast to
-    float32 and moved to *device*.
+    float32 and moved to *device*.  The result is always an owned copy: a
+    model may hand out a view of a buffer it overwrites on its next call,
+    and a history model assembles more than one analysis before it uses any.
     """
     da = next(
         (v for v in output if isinstance(v, xr.DataArray)),
@@ -470,7 +583,7 @@ def analysis_to_tensor(
         x = torch.as_tensor(data)
     else:
         x = torch.from_numpy(np.ascontiguousarray(data))
-    x = x.to(device=device, dtype=torch.float32)
+    x = x.to(device=device, dtype=torch.float32, copy=True)
 
     coords: CoordSystem = OrderedDict(
         (str(dim), np.asarray(da.coords[dim].values)) for dim in da.dims

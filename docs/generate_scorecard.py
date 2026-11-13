@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 from urllib.parse import quote
 
@@ -75,6 +76,19 @@ LOWER_IS_BETTER = DEFAULTS.get("metrics", {}).get("lower_is_better", [])
 # Baseline runs (config/default.md): exported like models, drawn by the
 # plot as reference overlays, and excluded from page/card generation.
 BASELINES = DEFAULTS.get("baselines", {}) or {}
+# Alternative initial-condition sources (config/default.md): a model scored
+# from, say, HealDA analyses exports to eval_scores_<model>_<key>*.json
+# beside its ERA5-initialised run, and the plot offers the two through an
+# Initialization selector on the model's one page instead of a page of its own.
+# Each entry is either the label alone or a mapping with ``label``,
+# ``description`` (the page's Initialization section, ahead of the plot)
+# and ``reference`` (joins the page's Reference section).
+_INIT_RAW = DEFAULTS.get("initializations", {}) or {}
+INITIALIZATIONS = {
+    k: (v if isinstance(v, str) else str(v.get("label", k)))
+    for k, v in _INIT_RAW.items()
+}
+INIT_PROSE = {k: (v if isinstance(v, dict) else {}) for k, v in _INIT_RAW.items()}
 DATA_SOURCES = DEFAULTS.get("data_sources", {})
 STATIC = DOCS / "_static" / "scorecard"  # data + shared plot live here
 
@@ -89,6 +103,9 @@ STATIC = DOCS / "_static" / "scorecard"  # data + shared plot live here
 # ``SCORECARD_DATA_REVISION`` selects a branch or PR ref of the dataset
 # (for example ``refs/pr/2`` to build against a pending data update).
 UPSTREAM_DATA_REPO = "nvidia/earth2studio-assets"
+# Where the pages send readers for the numbers: the published dataset, not
+# the site's static copy of it.
+DATA_URL = f"https://huggingface.co/datasets/{UPSTREAM_DATA_REPO}/tree/main/scorecard"
 DATA_REPO = os.environ.get("SCORECARD_DATA_REPO") or UPSTREAM_DATA_REPO
 DATA_REVISION = os.environ.get("SCORECARD_DATA_REVISION") or "main"
 
@@ -169,12 +186,12 @@ limitations under the License.
   body{
     --surface-1:#fcfcfb; --plane:#f9f9f7; --ink:#0b0b0b; --ink-2:#52514e;
     --muted:#898781; --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10);
-    --s1:#2a78d6;
+    --s1:#2a78d6; --s2:#eb6834;
     margin:0;background:var(--plane);color:var(--ink);
     font:13px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
   @media (prefers-color-scheme:dark){body{
     --surface-1:#1a1a19; --plane:#0d0d0d; --ink:#fff; --ink-2:#c3c2b7;
-    --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10); --s1:#3987e5}}
+    --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10); --s1:#3987e5; --s2:#d95926}}
   .wrap{position:relative;max-width:980px;margin:0 auto;padding:12px 14px 16px}
   .badge{position:absolute;top:14px;right:14px;z-index:2;
     background:var(--s1);color:#fff;font-weight:600;font-size:12px;
@@ -196,8 +213,6 @@ limitations under the License.
   .legend{display:flex;gap:14px;margin:0 0 6px;font-size:11.5px;color:var(--ink-2)}
   .legend .chip{display:inline-block;width:14px;height:0;border-top:2.5px solid var(--s1);
     vertical-align:middle;margin-right:5px;border-radius:2px}
-  .legend .chip.ref{border-top-style:dashed;border-top-color:var(--muted)}
-  .legend .chip.dot{border-top-style:dotted;border-top-color:var(--muted)}
   svg{display:block;width:100%;height:auto;overflow:visible}
   .gl{stroke:var(--grid);stroke-width:.8} .ax{stroke:var(--axis);stroke-width:1}
   .tk{fill:var(--ink-2);font-size:10.5px} .al{fill:var(--muted);font-size:10.5px}
@@ -209,6 +224,7 @@ limitations under the License.
 <body><div class="wrap">
 <div class="badge"></div>
 <div class="bar">
+  <div class="ctl" id="ictl" hidden><label>Initialization</label><select id="i"></select></div>
   <div class="ctl" id="vwctl" hidden><label>View</label><select id="vw">
     <option value="curve">Skill curve</option>
     <option value="heat">IC heat map</option></select></div>
@@ -242,8 +258,20 @@ const LABEL=Q.get("label")||MODEL;
 const DOMAIN=Q.get("domain")||"Global";
 document.title=LABEL+" skill";
 $(".badge") && ($(".badge").textContent=LABEL);
-let D=null,days=[],MONTHLY=null;
-const RCACHE={};      // region name -> fetched split doc (null while loading)
+// Initializations: "era5" is the model's own export; every other key names
+// a sibling export set eval_scores_<model>_<key>*.json (listed by ?inits=,
+// labelled by INITS).  Every fetched document lives in the state of the
+// initialization it belongs to (D, the region cache, the monthly / hourly /
+// event / heat map splits), so switching tabs back and forth never
+// refetches, and a fetch that resolves after a tab switch still lands in
+// the state it started from.
+const INITS=__INITS__;
+const INIT_KEYS=["era5",...(Q.get("inits")||"").split(",").filter(k=>k in INITS)];
+const newState=init=>({init,D:null,days:[],MONTHLY:null,RCACHE:{},HEAT:null,HOURLY:null,EVENTS:null});
+const STATES={era5:newState("era5")};
+let S=STATES.era5;    // the initialization on display
+let D=null,days=[];   // S.D and its lead axis in days, aliased for the drawing code
+const DATA=()=>S.init==="era5"?MODEL:`${MODEL}_${S.init}`;
 const LOWER=__LOWER__;
 const css=n=>getComputedStyle(document.body).getPropertyValue(n).trim();
 const isFin=q=>q!=null&&isFinite(q);
@@ -256,14 +284,11 @@ const fmt=v=>{if(!isFin(v))return "–";const a=Math.abs(v);
   if(a!==0&&(a<1e-3||a>=1e5))return v.toExponential(2);
   return v.toFixed(a>=100?1:a>=10?2:3);};
 const mSel=$("#m"),vSel=$("#v"),lSel=$("#l"),rSel=$("#r"),moSel=$("#mo"),
-      hSel=$("#h"),eSel=$("#e"),bSel=$("#b"),vwSel=$("#vw");
-let HEAT=null;   // lazily fetched eval_scores_<model>_heatmap.json
-let HOURLY=null; // lazily fetched eval_scores_<model>_hourly.json
-let EVENTS=null; // lazily fetched eval_scores_<model>_events.json
+      hSel=$("#h"),eSel=$("#e"),bSel=$("#b"),vwSel=$("#vw"),iSel=$("#i");
 const BASELINES=__BASELINES__;
 const BCACHE={}; // baseline name -> its main eval_scores_<name>.json
 // The heatmap view swaps in its own (narrower) metric/variable sets.
-function metricSet(){return vwSel.value==="heat"&&HEAT?HEAT.metrics:D.metrics;}
+function metricSet(){return vwSel.value==="heat"&&S.HEAT?S.HEAT.metrics:D.metrics;}
 function fillMetrics(){
   const ms=metricSet(),prev=mSel.value; mSel.innerHTML="";
   Object.keys(ms).forEach(k=>mSel.appendChild(new Option(ms[k].label,k)));
@@ -320,24 +345,24 @@ function fillLevels(){
 function varName(){
   return VBASES[vSel.value]?vSel.value+lSel.value:vSel.value;
 }
-// The active split curve (region, month, init hour or event) for the
-// current metric/variable, or null when the whole-grid / all-IC curve is
-// the only one to show.  undefined y means the split has no data for this
+// The active split curve (region, month, init hour or event) of a state
+// for the current metric/variable, or null when the whole-grid / all-IC
+// curve is the only one to show.  undefined y means the split has no data for this
 // metric (e.g. LSD is spectral, hence global-only).  An event split also
 // carries a note for the subtitle: its window, region and IC count.
-function activeSplit(){
+function activeSplit(st=S){
   const k=mSel.value,v=varName();
   if(moSel.value&&moSel.value!=="all"){
-    const mm=MONTHLY&&MONTHLY.metrics_by_month[moSel.value];
+    const mm=st.MONTHLY&&st.MONTHLY.metrics_by_month[moSel.value];
     return {y:mm&&mm[k]?mm[k].values[v]:undefined,label:moSel.value,ref:"All months"};
   }
   if(hSel.value&&hSel.value!=="all"){
-    const hh=HOURLY&&HOURLY.metrics_by_hour[hSel.value];
+    const hh=st.HOURLY&&st.HOURLY.metrics_by_hour[hSel.value];
     return {y:hh&&hh[k]?hh[k].values[v]:undefined,label:hSel.value+" ICs",ref:"All hours"};
   }
   if(eSel.value&&eSel.value!=="none"){
-    const ev=EVENTS&&EVENTS.metrics_by_event[eSel.value];
-    const meta=(D.events||{})[eSel.value]||{};
+    const ev=st.EVENTS&&st.EVENTS.metrics_by_event[eSel.value];
+    const meta=(st.D.events||{})[eSel.value]||{};
     const label=(ev&&ev.label)||meta.label||pretty(eSel.value);
     const note=ev?` Event: ${ev.start} to ${ev.end} UTC (${ev.window==="init"?"initial":"valid"} time), `
       +`region ${ev.region==="global"?DOMAIN:pretty(ev.region)}, ${ev.initial_conditions} initial conditions.`:"";
@@ -346,19 +371,61 @@ function activeSplit(){
     return {y,label,ref:"All ICs, "+DOMAIN,note};
   }
   if(rSel.value&&rSel.value!=="global"){
-    const rd=RCACHE[rSel.value];
+    const rd=st.RCACHE[rSel.value];
     return {y:rd&&rd.metrics[k]?rd.metrics[k].values[v]:undefined,
             label:pretty(rSel.value),ref:DOMAIN};
   }
   return null;
 }
+// Subtitle note naming the initial-condition source of the drawn curve.
+function inote(withRef){
+  if(S.init==="era5")return "";
+  return ` Forecasts initialized from ${INITS[S.init]} analyses`
+    +(D.initial_conditions?` (${D.initial_conditions.length} initial conditions)`:"")
+    +(withRef?"; the dashed curve is the same model initialized from ERA5.":".");
+}
+// With another initialization on display, the ERA5-initialised run is
+// drawn dashed beside it under the same metric, variable and split.  Its
+// documents are fetched into the ERA5 state the first time they are
+// needed; a file that is missing (false) just leaves the reference out.
+function refState(){return S.init==="era5"?null:STATES.era5;}
+function refY(){
+  const st=refState();if(!st||!st.D)return null;
+  const k=mSel.value,v=varName(),sp=activeSplit(st);
+  const y=sp?sp.y:(st.D.metrics[k]&&st.D.metrics[k].values[v]);
+  return y?alignLeads(st.D.lead_hours,y):null;
+}
+function fetchRef(){
+  const st=refState();if(!st)return;
+  const f=suffix=>`eval_scores_${MODEL}${suffix}.json`;
+  if(st.D==null){fetchInto(st,"D",f(""));return;}
+  if(!st.D)return;
+  const reg=rSel.value;
+  if(moSel.value&&moSel.value!=="all"){if(st.MONTHLY==null)fetchInto(st,"MONTHLY",f("_monthly"));}
+  else if(hSel.value&&hSel.value!=="all"){if(st.HOURLY==null)fetchInto(st,"HOURLY",f("_hourly"));}
+  else if(eSel.value&&eSel.value!=="none"){if(st.EVENTS==null)fetchInto(st,"EVENTS",f("_events"));}
+  else if(reg&&reg!=="global"){if(!(reg in st.RCACHE))fetchInto(st,"RCACHE",f("_region_"+reg),reg);}
+}
+function fetchInto(st,key,file,region){
+  st.loading=st.loading||{};
+  if(st.loading[file])return;
+  st.loading[file]=true;
+  fetchJSON(file)
+    .then(d=>{if(region)st.RCACHE[region]=d;
+              else{st[key]=d;if(key==="D")st.days=d.lead_hours.map(h=>h/24);}},
+          ()=>{if(region)st.RCACHE[region]=false;else st[key]=false;})
+    .then(()=>{if(refState()===st){fetchRef();draw();}});
+}
 function legend(items){
   const lg=$("#lg");
   if(!items){lg.hidden=true;lg.innerHTML="";return;}
   lg.hidden=false;
+  // Chip colour and dash come from the series itself (css() values, never
+  // page input), so the legend always matches the drawn line.
   lg.innerHTML=items.map(i=>{
-    const cls=i.dash==="2 5"?" dot":(i.ref?" ref":"");
-    return `<span><span class="chip${cls}"></span>${esc(i.label)}</span>`;}).join("");
+    const style=`border-top-color:${css(i.color)};border-top-style:${
+      i.dash==="2 5"?"dotted":i.dash?"dashed":"solid"}`;
+    return `<span><span class="chip" style="${style}"></span>${esc(i.label)}</span>`;}).join("");
 }
 // Put a reference curve sampled at its own lead hours onto this model's
 // lead axis
@@ -402,14 +469,15 @@ function drawLine(svg,y,px,py,color,dash){
   mk(svg,"path",a);
 }
 function draw(){
+  if(!D)return;  // a tab's document still loading: nothing to draw yet
   if(vwSel.value==="heat")drawHeat(); else drawCurve();
 }
 function drawHeat(){
   const k=mSel.value,v=varName(),svg=$("#c");svg.innerHTML="";
   legend(null);
-  const rows=(HEAT.metrics[k]&&HEAT.metrics[k].values[v])||[];
+  const rows=(S.HEAT.metrics[k]&&S.HEAT.metrics[k].values[v])||[];
   const unit=D.units[v]||"";
-  $("#t").textContent=`${HEAT.metrics[k].label} by initial condition — ${v}${unit?" ("+unit+")":""}`;
+  $("#t").textContent=`${S.HEAT.metrics[k].label} by initial condition — ${v}${unit?" ("+unit+")":""}`;
   const flat=rows.flat().filter(isFin);
   if(!flat.length){$("#s").textContent="";
     mk(svg,"text",{x:450,y:155,class:"al","text-anchor":"middle"}).textContent="no data";return;}
@@ -423,7 +491,7 @@ function drawHeat(){
   const c0=rgb(css("--surface-1")),c1=rgb(css("--s1"));
   const col=q=>{const t=(q-lo)/((hi-lo)||1);
     return `rgb(${c0.map((x,i)=>Math.round(x+(c1[i]-x)*t)).join(",")})`;};
-  const ics=HEAT.initial_conditions,nr=rows.length,nc=days.length;
+  const ics=S.HEAT.initial_conditions,nr=rows.length,nc=days.length;
   const cw=(W-L-R)/nc,ch=(H-T-B)/nr;
   rows.forEach((row,ri)=>row.forEach((q,ci)=>{if(!isFin(q))return;
     mk(svg,"rect",{x:L+ci*cw,y:T+ri*ch,width:cw+0.4,height:ch+0.4,fill:col(q)});}));
@@ -466,6 +534,8 @@ function drawHeat(){
 function drawCurve(){
   const k=mSel.value,v=varName(),base=D.metrics[k].values[v]||[];
   const split=activeSplit();
+  const eraY=refY();
+  if(eraY===null)fetchRef();
   const svg=$("#c");svg.innerHTML="";
   const unit=D.metrics[k].unit||D.units[v]||"";
   const where=split?` — ${split.label}`:"";
@@ -475,7 +545,7 @@ function drawCurve(){
   $("#s").textContent=(
     k==="spread_skill"?"Ensemble spread over ensemble-mean RMSE. 1.0 is calibrated; below 1 is over-confident."
     :LOWER.includes(k)?"Lower is better. "+(D.lat_weights===false?"Uniformly weighted on the model grid":"Latitude-weighted")+", averaged over initial conditions."
-    :"Higher is better.")+bnote+((split&&split.note)||"");
+    :"Higher is better.")+inote(!!eraY)+bnote+((split&&split.note)||"");
   if(split&&split.y===undefined){
     legend(null);
     mk(svg,"text",{x:450,y:155,class:"al","text-anchor":"middle"})
@@ -490,13 +560,23 @@ function drawCurve(){
     const mB=BCACHE[b].metrics[k]||
       (k==="ensemble_mean_mse"?BCACHE[b].metrics.rmse:null);
     const y=mB&&mB.values[v]?alignLeads(BCACHE[b].lead_hours,mB.values[v]):null;
-    return {y,label:BASELINES[b],ref:true,
+    return {y,label:BASELINES[b],color:"--muted",
             dash:dashes[Object.keys(BASELINES).indexOf(b)%dashes.length]};
   }).filter(s=>s.y);
+  // Colour follows the initialization: the ERA5-initialised run is the
+  // model's blue (--s1) on every view, another initialization's run takes
+  // the second series colour (--s2).  On such a view the ERA5 run joins it
+  // dashed in blue; the grey dashed references stay the whole-grid and
+  // baseline runs.
+  const tag=S.init==="era5"?"":`, ${INITS[S.init]} IC`;
+  const own=S.init==="era5"?LABEL:`${INITS[S.init]} IC`;
+  const color=S.init==="era5"?"--s1":"--s2";
+  const era=eraY?[{y:eraY,label:split?`${split.label}, ERA5 IC`:"ERA5 IC",color:"--s1",dash:"5 5",top:true}]:[];
   const series=split
-    ?[{y:base,label:split.ref,ref:true},{y:split.y||[],label:split.label},...extras]
-    :[{y:base,label:extras.length?LABEL:""},...extras];
-  legend((split||extras.length)?series:null);
+    ?[{y:base,label:split.ref+tag,color:"--muted",dash:"5 5"},
+      {y:split.y||[],label:split.label+tag,color},...era,...extras]
+    :[{y:base,label:(extras.length||era.length)?own:"",color},...era,...extras];
+  legend((split||extras.length||era.length)?series:null);
   const all=series.flatMap(s=>s.y.filter(isFin));
   if(!all.length){mk(svg,"text",{x:450,y:155,class:"al","text-anchor":"middle"}).textContent="no data";return;}
   const W=900,H=330,L=64,R=24,T=14,B=44;
@@ -522,11 +602,14 @@ function drawCurve(){
   if(div){const Y=py(1);mk(svg,"line",{x1:L,x2:W-R,y1:Y,y2:Y,stroke:css("--muted"),
     "stroke-width":1,"stroke-dasharray":"4 4"});
     mk(svg,"text",{x:W-R,y:Y-6,class:"al","text-anchor":"end"}).textContent="calibrated (1.0)";}
-  series.forEach(s=>drawLine(svg,s.y,px,py,s.ref?css("--muted"):css("--s1"),
-    s.dash||(s.ref?"5 5":null)));
+  // Draw order: the dashed ERA5 reference goes last so its dashes stay
+  // visible where it runs over another initialization's solid curve; the
+  // legend and tooltip keep the series order.
+  [...series.filter(s=>!s.top),...series.filter(s=>s.top)]
+    .forEach(s=>drawLine(svg,s.y,px,py,css(s.color),s.dash||null));
   const hl=mk(svg,"line",{x1:L,x2:L,y1:T,y2:H-B,stroke:css("--muted"),"stroke-width":1,opacity:0});
   const dots=series.map(s=>mk(svg,"circle",{r:4.5,
-    fill:s.ref?css("--muted"):css("--s1"),
+    fill:css(s.color),
     stroke:css("--surface-1"),"stroke-width":2,opacity:0}));
   const hit=mk(svg,"rect",{x:L,y:T,width:W-L-R,height:H-T-B,fill:"transparent"});
   hit.style.cursor="crosshair";
@@ -587,7 +670,7 @@ function onBaseline(){
         // variables they do not carry (a limited-area model, for instance)
         // has nothing to compare against. Hide the control, just as the
         // region selector stays hidden without regional splits.
-        if(!D.variables.some(v=>d.variables.includes(v))){
+        if(D&&!D.variables.some(v=>d.variables.includes(v))){
           $("#bctl").hidden=true;bSel.value="none";delete BCACHE[b];
           syncControls();draw();return;}
         BCACHE[b]=d;syncControls();draw();})
@@ -595,29 +678,35 @@ function onBaseline(){
   });
   syncControls();draw();
 }
+// The lazy fetches below capture the state they start from (st): a tab
+// switch while one is pending must not file the document under the other
+// initialization, and only the state on display gets redrawn.
 function onHour(){
-  if(hSel.value!=="all"&&!HOURLY){
-    fetchJSON(`eval_scores_${MODEL}_hourly.json`)
-      .then(d=>{HOURLY=d;syncControls();draw();})
-      .catch(()=>{hSel.value="all";syncControls();draw();});
+  if(hSel.value!=="all"&&!S.HOURLY){
+    const st=S;
+    fetchJSON(`eval_scores_${DATA()}_hourly.json`)
+      .then(d=>{st.HOURLY=d;if(st===S){syncControls();draw();}})
+      .catch(()=>{if(st===S){hSel.value="all";syncControls();draw();}});
     return;
   }
   syncControls();draw();
 }
 function onEvent(){
-  if(eSel.value!=="none"&&!EVENTS){
-    fetchJSON(`eval_scores_${MODEL}_events.json`)
-      .then(d=>{EVENTS=d;syncControls();draw();})
-      .catch(()=>{eSel.value="none";syncControls();draw();});
+  if(eSel.value!=="none"&&!S.EVENTS){
+    const st=S;
+    fetchJSON(`eval_scores_${DATA()}_events.json`)
+      .then(d=>{st.EVENTS=d;if(st===S){syncControls();draw();}})
+      .catch(()=>{if(st===S){eSel.value="none";syncControls();draw();}});
     return;
   }
   syncControls();draw();
 }
 function onView(){
-  if(vwSel.value==="heat"&&!HEAT){
-    fetchJSON(`eval_scores_${MODEL}_heatmap.json`)
-      .then(d=>{HEAT=d;fillMetrics();fillVars();syncControls();draw();})
-      .catch(()=>{vwSel.value="curve";syncControls();draw();});
+  if(vwSel.value==="heat"&&!S.HEAT){
+    const st=S;
+    fetchJSON(`eval_scores_${DATA()}_heatmap.json`)
+      .then(d=>{st.HEAT=d;if(st===S){fillMetrics();fillVars();syncControls();draw();}})
+      .catch(()=>{if(st===S){vwSel.value="curve";syncControls();draw();}});
     return;
   }
   fillMetrics();fillVars();syncControls();draw();
@@ -628,19 +717,21 @@ function fetchJSON(name){
 }
 function onRegion(){
   const reg=rSel.value;
-  if(reg!=="global"&&!(reg in RCACHE)){
-    RCACHE[reg]=null;
-    fetchJSON(`eval_scores_${MODEL}_region_${reg}.json`)
-      .then(d=>{RCACHE[reg]=d;if(rSel.value===reg){syncControls();draw();}})
-      .catch(()=>{delete RCACHE[reg];rSel.value="global";syncControls();draw();});
+  if(reg!=="global"&&!(reg in S.RCACHE)){
+    const st=S;
+    st.RCACHE[reg]=null;
+    fetchJSON(`eval_scores_${DATA()}_region_${reg}.json`)
+      .then(d=>{st.RCACHE[reg]=d;if(st===S&&rSel.value===reg){syncControls();draw();}})
+      .catch(()=>{delete st.RCACHE[reg];if(st===S){rSel.value="global";syncControls();draw();}});
   }
   syncControls();draw();
 }
 function onMonth(){
-  if(moSel.value!=="all"&&!MONTHLY){
-    fetchJSON(`eval_scores_${MODEL}_monthly.json`)
-      .then(d=>{MONTHLY=d;syncControls();draw();})
-      .catch(()=>{moSel.value="all";syncControls();draw();});
+  if(moSel.value!=="all"&&!S.MONTHLY){
+    const st=S;
+    fetchJSON(`eval_scores_${DATA()}_monthly.json`)
+      .then(d=>{st.MONTHLY=d;if(st===S){syncControls();draw();}})
+      .catch(()=>{if(st===S){moSel.value="all";syncControls();draw();}});
   }
   syncControls();draw();
 }
@@ -653,42 +744,82 @@ hSel.addEventListener("change",onHour);
 eSel.addEventListener("change",onEvent);
 bSel.addEventListener("change",onBaseline);
 vwSel.addEventListener("change",onView);
+// Split controls follow the loaded document: an initialization may carry
+// a different set of regions or no monthly export, so each load rebuilds
+// the option lists, keeping the current selection when it still exists.
+function setupControls(){
+  const keep=(sel,val)=>{if([...sel.options].some(o=>o.value===val))sel.value=val;};
+  const r0=rSel.value,mo0=moSel.value,h0=hSel.value,e0=eSel.value;
+  rSel.innerHTML="";moSel.innerHTML="";hSel.innerHTML="";eSel.innerHTML="";
+  $("#rctl").hidden=!(D.regions&&D.regions.length>1);
+  if(!$("#rctl").hidden){
+    D.regions.forEach(r=>rSel.appendChild(new Option(r==="global"?DOMAIN:pretty(r),r)));
+    rSel.value="global";keep(rSel,r0);
+  }
+  $("#moctl").hidden=!D.has_monthly;
+  if(D.has_monthly){
+    moSel.appendChild(new Option("All months","all"));
+    // Season blocks first, then the individual months.
+    ["DJF","MAM","JJA","SON"]
+      .forEach(s=>moSel.appendChild(new Option(s+" (season)",s)));
+    ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+      .forEach(m=>moSel.appendChild(new Option(m,m)));
+    moSel.value="all";keep(moSel,mo0);
+  }
+  $("#hctl").hidden=!D.has_hourly;
+  if(D.has_hourly){
+    hSel.appendChild(new Option("All hours","all"));
+    [...new Set(D.initial_conditions.map(t=>t.slice(11,13)+"Z"))].sort()
+      .forEach(hh=>hSel.appendChild(new Option(hh,hh)));
+    hSel.value="all";keep(hSel,h0);
+  }
+  $("#ectl").hidden=!(D.has_events&&D.events);
+  if(!$("#ectl").hidden){
+    eSel.appendChild(new Option("None","none"));
+    Object.keys(D.events).forEach(n=>
+      eSel.appendChild(new Option(D.events[n].label||pretty(n),n)));
+    eSel.value="none";keep(eSel,e0);
+  }
+  $("#vwctl").hidden=!D.has_heatmap;
+  if(!D.has_heatmap)vwSel.value="curve";
+}
+// After a document is in place: rebuild the controls, then (re)fetch the
+// split or heat map the current selection needs for this initialization.
+function afterLoad(){
+  setupControls();fillMetrics();fillVars();
+  if(vwSel.value==="heat"&&!S.HEAT){onView();return;}
+  if(rSel.value&&rSel.value!=="global"){onRegion();return;}
+  if(moSel.value&&moSel.value!=="all"){onMonth();return;}
+  if(hSel.value&&hSel.value!=="all"){onHour();return;}
+  if(eSel.value&&eSel.value!=="none"){onEvent();return;}
+  syncControls();draw();
+}
+function loadModel(){
+  const st=S;
+  return fetchJSON(`eval_scores_${DATA()}.json`).then(d=>{
+    st.D=d;st.days=d.lead_hours.map(h=>h/24);
+    if(st===S){D=st.D;days=st.days;afterLoad();}});
+}
+function onInit(init){
+  if(init===S.init)return;
+  S=STATES[init]||(STATES[init]=newState(init));
+  D=S.D;days=S.days;iSel.value=init;
+  if(D){afterLoad();return;}
+  $("#c").innerHTML="";legend(null);
+  $("#t").textContent=`loading ${init==="era5"?"ERA5":INITS[init]} scores…`;$("#s").textContent="";
+  loadModel().catch(e=>{
+    $("#t").textContent=`failed to load eval_scores_${DATA()}.json`;
+    $("#s").textContent=String(e);});
+}
+if(INIT_KEYS.length>1){
+  $("#ictl").hidden=false;
+  INIT_KEYS.forEach(k=>iSel.appendChild(new Option(k==="era5"?"ERA5":INITS[k],k)));
+  iSel.value=S.init;
+  iSel.addEventListener("change",()=>onInit(iSel.value));
+}
 // The export is plain minified JSON.
-fetchJSON(`eval_scores_${MODEL}.json`)
-  .then(d=>{
-    D=d;
-    days=D.lead_hours.map(h=>h/24);
-    fillMetrics();
-    if(D.regions&&D.regions.length>1){
-      $("#rctl").hidden=false;
-      D.regions.forEach(r=>rSel.appendChild(new Option(r==="global"?DOMAIN:pretty(r),r)));
-      rSel.value="global";
-    }
-    if(D.has_monthly){
-      $("#moctl").hidden=false;
-      moSel.appendChild(new Option("All months","all"));
-      // Season blocks first, then the individual months.
-      ["DJF","MAM","JJA","SON"]
-        .forEach(s=>moSel.appendChild(new Option(s+" (season)",s)));
-      ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
-        .forEach(m=>moSel.appendChild(new Option(m,m)));
-      moSel.value="all";
-    }
-    if(D.has_hourly){
-      $("#hctl").hidden=false;
-      hSel.appendChild(new Option("All hours","all"));
-      [...new Set(D.initial_conditions.map(t=>t.slice(11,13)+"Z"))].sort()
-        .forEach(hh=>hSel.appendChild(new Option(hh,hh)));
-      hSel.value="all";
-    }
-    if(D.has_events&&D.events){
-      $("#ectl").hidden=false;
-      eSel.appendChild(new Option("None","none"));
-      Object.keys(D.events).forEach(n=>
-        eSel.appendChild(new Option(D.events[n].label||pretty(n),n)));
-      eSel.value="none";
-    }
-    if(D.has_heatmap){$("#vwctl").hidden=false;vwSel.value="curve";}
+loadModel()
+  .then(()=>{
     // The baselines are whole-grid ERA5 reference runs, so they only apply
     // to global models; a limited-area model has no comparable reference.
     const bnames=DOMAIN==="Global"?Object.keys(BASELINES).filter(b=>b!==MODEL):[];
@@ -701,9 +832,8 @@ fetchJSON(`eval_scores_${MODEL}.json`)
       // beat.  Persistence stays one click away.
       bSel.value=bnames.includes("climatology")?"climatology":bnames[0];
       onBaseline();
-    }
-    fillVars();draw();})
-  .catch(e=>{$("#t").textContent=`failed to load eval_scores_${MODEL}.json`;
+    }})
+  .catch(e=>{$("#t").textContent=`failed to load eval_scores_${DATA()}.json`;
     $("#s").textContent=String(e);});
 </script></body></html>
 """
@@ -712,7 +842,7 @@ PAGE_MD = """\
 <!-- Generated by docs/generate_scorecard.py from _static/scorecard/eval_scores_{model}.json -- do not hand-edit. -->
 
 # {label}
-{badges}{description}
+{badges}{description}{init_section}
 ## Skill
 
 Pick a metric and variable; hover for exact values at each lead time.{splits_hint}
@@ -726,7 +856,7 @@ Pick a metric and variable; hover for exact values at each lead time.{splits_hin
         loading="lazy"></iframe>
 <script>
 document.getElementById("skill-plot").src = new URL(
-  "../../../_static/scorecard/plot.html?model={model_q}&label={label_q}&domain={domain_q}&v={plot_v}",
+  "../../../_static/scorecard/plot.html?model={model_q}&label={label_q}&domain={domain_q}&inits={inits_q}&v={plot_v}",
   window.location.href);
 </script>
 
@@ -741,7 +871,7 @@ conditions. Evaluation is done against {verification_source}.{ic_note}
 |---|---|
 | Type | {kind} |
 | Initial conditions | {n_ic} ({years}) |
-| Initial condition source | {ic_source} |
+| Initial condition source | {ic_source} |{init_row}
 | Verification (ground truth) | {verification_source} |
 | Lead times | {lead_first} h to {horizon} |
 | Variables scored | {n_var} |
@@ -757,7 +887,9 @@ All of the model's output variables that have ERA5 verification are scored.
 
 ## Data
 
-The numbers behind the plot are in [`eval_scores_{model}.json`](../../_static/scorecard/eval_scores_{model}.json), exported by
+The numbers behind the plot are published in the Earth2Studio assets dataset
+on Hugging Face: [`scorecard/{model}/`]({data_url}/{model}) holds
+`eval_scores_{model}.json` and its split files{init_data}. They are exported by
 the [eval recipe scorecard](https://github.com/NVIDIA/earth2studio/tree/main/recipes/eval)
 (`scorecard/export_scores.py --docs`) -- one value per metric, variable
 and lead time, in the variable's own units.
@@ -786,8 +918,9 @@ Forecast skill of Earth2Studio models, one scorecard per model. These show
 each model's own skill, not a comparison between models. The global models share
 one campaign: {n_ic} initial conditions ({years}), 14-day horizon, ERA5
 verification via ARCO_ERA5. Regional models are scored on event campaigns, described
-on their own pages. Pages are generated from per-model score (JSON) exports
-produced by the
+on their own pages. Pages are generated from per-model score (JSON) exports,
+published in the
+[Earth2Studio assets dataset]({data_url}) on Hugging Face and produced by the
 [scorecard recipe](https://github.com/NVIDIA/earth2studio/tree/main/recipes/eval/scorecard),
 which documents how to generate a scorecard for any model; the
 [eval recipe](https://github.com/NVIDIA/earth2studio/tree/main/recipes/eval)
@@ -1002,6 +1135,21 @@ def _plot_version() -> str:
     return hashlib.sha256((STATIC / "plot.html").read_bytes()).hexdigest()[:8]
 
 
+def _with_references(extras: str, refs: list[str]) -> str:
+    """Append *refs* to the ``## Reference`` section of the config extras,
+    creating that section when the config has none."""
+    if not refs:
+        return extras
+    block = "\n\n".join(refs)
+    m = re.search(r"^## Reference[^\n]*$", extras, re.M)
+    if m is None:
+        return (extras.rstrip() + "\n\n" if extras else "") + "## Reference\n\n" + block
+    # The section runs to the next heading or the end of the extras.
+    nxt = re.search(r"^## ", extras[m.end():], re.M)
+    cut = m.end() + nxt.start() if nxt else len(extras)
+    return extras[:cut].rstrip() + "\n\n" + block + ("\n\n" + extras[cut:] if nxt else "")
+
+
 def build_page(model: str, doc: dict, conf: dict) -> str:
     """Return the model's generated page."""
     label = conf["label"]
@@ -1040,11 +1188,6 @@ def build_page(model: str, doc: dict, conf: dict) -> str:
             + " and ".join(v.lower() for v in BASELINES.values())
             + " reference forecasts"
         )
-    if len(hints) > 2:
-        joined = ", ".join(hints[:-1]) + ", and " + hints[-1]
-    else:
-        joined = " and ".join(hints)
-    splits_hint = f" Use {joined}." if hints else ""
     region_row = (
         "\n| Regions | global, "
         + ", ".join(r.replace("_", " ") for r in regions)
@@ -1062,6 +1205,60 @@ def build_page(model: str, doc: dict, conf: dict) -> str:
         + " |"
         if events
         else ""
+    )
+    # Alternative initial-condition sources exported beside the ERA5 run.
+    inits = {
+        k: v
+        for k, v in INITIALIZATIONS.items()
+        if (STATIC / f"eval_scores_{model}_{k}.json").exists()
+    }
+    if inits:
+        hints.insert(
+            0,
+            "the Initialization selector for forecasts started from "
+            + " and ".join(inits.values())
+            + " analyses, with the ERA5-initialized run dashed for reference",
+        )
+    init_docs = {
+        k: json.loads((STATIC / f"eval_scores_{model}_{k}.json").read_text())
+        for k in inits
+    }
+    init_row = (
+        "\n| Initializations | "
+        + "; ".join(
+            f"{DATA_SOURCES.get(d.get('ic_source'), d.get('ic_source', '—'))}, "
+            f"{len(d['initial_conditions'])} initial conditions"
+            for d in [doc, *init_docs.values()]
+        )
+        + " |"
+        if inits
+        else ""
+    )
+    if len(hints) > 2:
+        joined = ", ".join(hints[:-1]) + ", and " + hints[-1]
+    else:
+        joined = " and ".join(hints)
+    splits_hint = f" Use {joined}." if hints else ""
+    # The Initialization section ahead of the plot carries the configured
+    # text of each alternative analysis source; their references join the
+    # page's Reference section at the bottom.
+    paragraphs = [
+        INIT_PROSE[k]["description"].strip()
+        for k in inits
+        if INIT_PROSE[k].get("description")
+    ]
+    init_section = (
+        "\n## Initialization\n\n" + "\n\n".join(paragraphs) + "\n" if paragraphs else ""
+    )
+    # The alternative initializations' export folders in the dataset.
+    init_data = "".join(
+        f", and [`scorecard/{model}_{k}/`]({DATA_URL}/{model}_{k}) "
+        f"the {v}-initialized run"
+        for k, v in inits.items()
+    )
+    extras = _with_references(
+        conf["extras"],
+        [INIT_PROSE[k]["reference"].strip() for k in inits if INIT_PROSE[k].get("reference")],
     )
     hours = sorted({t[11:13] for t in doc["initial_conditions"]})
     ic_note = (
@@ -1097,10 +1294,15 @@ def build_page(model: str, doc: dict, conf: dict) -> str:
         plot_v=_plot_version(),
         badges=("\n{% badges " + conf["badges"] + " %}\n" if conf["badges"] else ""),
         description=("\n" + conf["description"] + "\n") if conf["description"] else "",
-        reference=("\n" + conf["extras"] + "\n") if conf["extras"] else "",
+        reference=("\n" + extras + "\n") if extras else "",
         splits_hint=splits_hint,
         region_row=region_row,
         event_row=event_row,
+        init_row=init_row,
+        init_section=init_section,
+        data_url=DATA_URL,
+        init_data=init_data,
+        inits_q=quote(",".join(inits)),
         ic_note=ic_note,
     )
     return md
@@ -1144,6 +1346,7 @@ def main() -> int:
         )
         and "_region_" not in name
         and name not in BASELINES
+        and not name.endswith(tuple(f"_{k}" for k in INITIALIZATIONS))
     )
     # Skip exports (for example data published ahead of its docs) instead of
     # rendering placeholder pages.
@@ -1164,9 +1367,9 @@ def main() -> int:
 
     # One shared plot for every model; it holds no data.
     (STATIC / "plot.html").write_text(
-        PLOT_HTML.replace("__LOWER__", json.dumps(LOWER_IS_BETTER)).replace(
-            "__BASELINES__", json.dumps(BASELINES)
-        )
+        PLOT_HTML.replace("__LOWER__", json.dumps(LOWER_IS_BETTER))
+        .replace("__BASELINES__", json.dumps(BASELINES))
+        .replace("__INITS__", json.dumps(INITIALIZATIONS))
     )
     print("wrote _static/scorecard/plot.html (shared, data-free)")
 
@@ -1186,6 +1389,7 @@ def main() -> int:
     years = sorted({t[:4] for t in any_doc["initial_conditions"]})
     (GENERATED / "index.md").write_text(
         INDEX_MD.format(
+            data_url=DATA_URL,
             n_ic=len(any_doc["initial_conditions"]),
             years="/".join(years),
             entries="\n".join(_card(m, docs[m], confs[m]) for m in models),

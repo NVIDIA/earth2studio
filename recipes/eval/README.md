@@ -371,11 +371,16 @@ da:
 ```
 
 Entries are matched **positionally, in declaration order** against the
-model's `input_coords()` slots. Two convenience keys are handled by the
-recipe rather than passed to the source constructor: `enabled: false`
-disables a slot (the model receives `None` — e.g. a conv-only ablation),
-and `time_tolerance_hours: [lo, hi]` sets the observation window as
-hours around each analysis time.
+model's `input_coords()` slots. The recipe handles three convenience keys
+itself instead of passing them to the source constructor. `enabled: false`
+disables a slot: the model receives `None`, as in a conv-only ablation.
+`time_tolerance_hours: [lo, hi]` sets the observation window as hours
+around each analysis time. `from_model: {kwarg: attribute}` passes an
+attribute of the loaded DA model as a constructor argument, for sources
+whose arguments only the checkpoint knows, such as the IR sounder channels
+HealDA v2 reads. The HealDA v2 campaign puts
+`from_model: {sensor_indices: sensor_indices}` on each `NNJAObsSat` entry,
+see `scorecard/cfg/campaign/aurora1p5ens_healda_2025_scorecard.yaml`.
 
 ### Observation predownload
 

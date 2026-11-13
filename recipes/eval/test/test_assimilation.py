@@ -117,6 +117,24 @@ class FakeObsSource:
         return pd.DataFrame(data)
 
 
+class FakeSensorSource(FakeObsSource):
+    """FakeObsSource that also takes the model-derived ``sensor_indices``."""
+
+    def __init__(self, sensor_indices=None, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.sensor_indices = sensor_indices
+
+
+class RecordingSource(FakeObsSource):
+    """FakeObsSource that records the ``fields`` of its last call."""
+
+    last_fields: list[str] | None = None
+
+    def __call__(self, time, variable, fields=None) -> pd.DataFrame:
+        self.last_fields = None if fields is None else [str(f) for f in fields]
+        return super().__call__(time, variable, fields)
+
+
 class FakeDA:
     """Stateless AssimilationModel-protocol fake on a small lat/lon grid."""
 
@@ -276,6 +294,48 @@ class TestObsSourceSet:
         # variables/fields derived from the model's conv schema
         assert set(conv["variable"]) == {"u", "v", "t"}
 
+    def test_from_config_from_model_reads_model_attributes(self):
+        model = FakeDA()
+        model.sensor_indices = {"airs": [1, 2, 3]}
+        obs_cfg = OmegaConf.create(
+            {
+                "conv": {"_target_": "test.test_assimilation.FakeObsSource"},
+                "sat": {
+                    "_target_": "test.test_assimilation.FakeSensorSource",
+                    "from_model": {"sensor_indices": "sensor_indices"},
+                },
+            }
+        )
+        obs_set = ObsSourceSet.from_config(
+            obs_cfg, model.input_coords(), model=model
+        )
+        _, sat = obs_set._sources
+        assert isinstance(sat, FakeSensorSource)
+        assert sat.sensor_indices == {"airs": [1, 2, 3]}
+        # from_config consumes the key instead of forwarding it, and it needs
+        # the model.
+        with pytest.raises(ValueError, match="from_model"):
+            ObsSourceSet.from_config(obs_cfg, model.input_coords())
+
+    def test_fetch_requests_variable_column_only_for_long_frames(self):
+        model = FakeDA()
+        conv, sat = RecordingSource(), RecordingSource()
+        conv_schema, _ = model.input_coords()
+        # A wide frame has one column per variable and no `observation`
+        # or `variable` column (HealDA v2's NNJA streams).
+        wide_schema = OrderedDict(
+            {
+                "time": np.empty(0, dtype="datetime64[ns]"),
+                "observation_u": np.empty(0, dtype=np.float32),
+                "variable": np.array(["u"], dtype=str),
+            }
+        )
+        obs_set = ObsSourceSet([conv, sat], (conv_schema, wide_schema))
+        frames = obs_set.fetch(np.datetime64("2024-01-01T00:00:00"))
+        assert len(frames) == 2
+        assert conv.last_fields == list(conv_schema)
+        assert sat.last_fields == ["time", "observation_u"]
+
 
 # ======================================================================
 # Runners
@@ -283,6 +343,36 @@ class TestObsSourceSet:
 
 
 class TestStatelessRunner:
+    def test_fetch_retries_then_raises(self, monkeypatch):
+        import src.assimilation as mod
+
+        monkeypatch.setattr(mod.time_module, "sleep", lambda _s: None)
+        model = FakeDA()
+
+        class Flaky(FakeObsSource):
+            failures = 2
+
+            def __call__(self, time, variable, fields=None):
+                if self.failures:
+                    self.failures -= 1
+                    raise OSError("throttled")
+                return super().__call__(time, variable, fields)
+
+        time = np.datetime64("2024-01-01T00:00:00")
+        src_ok = Flaky()
+        runner = StatelessAssimilationRunner(model, _make_obs_set(model, src_ok))
+        runner.analysis(time)
+        assert src_ok.call_count == 1 and src_ok.failures == 0
+
+        src_bad = Flaky()
+        src_bad.failures = 5
+        runner = StatelessAssimilationRunner(
+            model, _make_obs_set(model, src_bad), fetch_attempts=2
+        )
+        with pytest.raises(OSError, match="throttled"):
+            runner.analysis(time)
+        assert src_bad.failures == 3
+
     def test_analysis_time_coord(self):
         model = FakeDA()
         runner = StatelessAssimilationRunner(

@@ -42,13 +42,19 @@ are part of the recipe itself: :mod:`src.pipelines.regional`.
 from __future__ import annotations
 
 import os
+import time
 from collections import OrderedDict
 
 import numpy as np
 import torch
+from loguru import logger
 from omegaconf import DictConfig
+from src.pipelines.assimilation import AssimilationForecastPipeline
 from src.pipelines.forecast import ForecastPipeline
 from src.regrid import Regridder
+from src.work import WorkItem
+
+from earth2studio.data import DataSource
 
 from earth2studio.utils.type import CoordSystem
 
@@ -338,3 +344,81 @@ class ClimatologyPipeline(ForecastPipeline):
         self.prognostic.set_source(
             PredownloadedSource(os.path.join(cfg.output.path, "climatology.zarr"))
         )
+
+
+class RegriddedAssimilationForecastPipeline(
+    RegriddedForecastPipeline, AssimilationForecastPipeline
+):
+    """DA-initialised forecast written on the shared verification grid.
+
+    Combines :class:`RegriddedForecastPipeline` (output regridder, shared
+    verification store) with
+    :class:`src.pipelines.assimilation.AssimilationForecastPipeline` (initial
+    conditions assembled from DA analyses instead of a gridded source).
+    ``setup`` loads the prognostic, then the DA model and its observation
+    sources, then installs the regridder; ``predownload_stores`` declares the
+    DA pipeline's stores minus the shared verification one. The model config
+    nests the two components, ``model.da`` and ``model.forecast``, as in the
+    recipe's HealDA campaigns.
+
+    Each rank of an ensemble group assembles the same analyses: the group
+    works one initial condition in lockstep, so this costs no wall-clock
+    beyond the analysis itself and keeps the ranks independent.
+
+    Parameters
+    ----------
+    target_lat : DictConfig | dict
+        Target latitudes as a ``{start, stop, num}`` block.
+    target_lon : DictConfig | dict
+        Target longitudes as a ``{start, stop, num}`` block.
+    share_verification : bool, optional
+        If True, do not declare a verification store during predownload and
+        use the shared on-disk store instead, by default False.
+    """
+
+    def _fetch_initial_state(
+        self,
+        item: WorkItem,
+        data_source: DataSource,
+        device: torch.device,
+    ) -> tuple[torch.Tensor, CoordSystem]:
+        """Assemble the initial state from DA analyses and log its cost.
+
+        The DA model hands its analysis over as a CuPy array; once the
+        state is a torch tensor the CuPy pool returns its idle blocks so the
+        forecast rollout, not the pool, owns that memory.
+
+        Parameters
+        ----------
+        item : WorkItem
+            Work item whose initial condition to assemble.
+        data_source : DataSource
+            Unused by the DA path; kept for the shared pipeline signature.
+        device : torch.device
+            Accelerator that receives the initial state.
+
+        Returns
+        -------
+        tuple[torch.Tensor, CoordSystem]
+            Initial state on the prognostic's input coords.
+        """
+        t0 = time.perf_counter()
+        x, coords = super()._fetch_initial_state(item, data_source, device)
+        try:
+            import cupy
+
+            cupy.get_default_memory_pool().free_all_blocks()
+        except ImportError:
+            pass
+        note = ""
+        if torch.device(device).type == "cuda":
+            torch.cuda.empty_cache()
+            free, total = torch.cuda.mem_get_info(device)
+            note = f", GPU free {free / 2**30:.0f} of {total / 2**30:.0f} GiB"
+        lead_axis = list(coords).index("lead_time")
+        nans = torch.isnan(x).flatten(lead_axis + 1).sum(-1).flatten().tolist()
+        logger.info(
+            f"DA initial state for {item.time}: {time.perf_counter() - t0:.0f} s, "
+            f"{tuple(x.shape)} {x.dtype}, NaN per input frame {nans}{note}"
+        )
+        return x, coords

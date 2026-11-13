@@ -352,12 +352,22 @@ def data_sources(run: Path) -> dict:
         cfg = yaml.safe_load(
             (HERE / "cfg" / "campaign" / f"{run.name}.yaml").read_text()
         )
-        ic = cfg.get("data_source", {}).get("_target_", "")
+        # A DA campaign (`model.da`) assembles its initial conditions from
+        # the DA model's analyses; `ic_source` is the BYO initial-condition
+        # override (see src/data.py:resolve_ic_source).  When a campaign sets
+        # either, that is what produced the initial conditions and
+        # `data_source` went unused.
+        ic = (
+            ((cfg.get("model") or {}).get("da") or {}).get("architecture", "")
+            or (cfg.get("ic_source") or {}).get("_target_", "")
+            or (cfg.get("data_source") or {}).get("_target_", "")
+        )
         verif = (
-            cfg.get("predownload", {})
-            .get("verification", {})
+            (cfg.get("verification_source") or {}).get("_target_", "")
+            or ((cfg.get("predownload") or {}).get("verification") or {})
             .get("source", {})
             .get("_target_", "")
+            or (cfg.get("data_source") or {}).get("_target_", "")
             or ic
         )
         if ic:

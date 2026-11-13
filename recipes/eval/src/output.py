@@ -541,6 +541,15 @@ class OutputManager:
                 write_error = e
                 logger.error(f"Async write failed: {e}")
 
+        if exc_type is not None:
+            # Written here, on the rank that raised, because the error-flag
+            # reduction below waits for every other rank to finish its work
+            # list, which can exceed the NCCL timeout; the process is then
+            # aborted before Python prints the traceback.
+            logger.opt(exception=(exc_type, exc_val, exc_tb)).error(
+                f"Rank {self._dist.rank}: leaving the output context with "
+                f"{exc_type.__name__}: {exc_val}"
+            )
         has_error = exc_type is not None or write_error is not None
         if self._dist.distributed:
             err_flag = torch.tensor(

@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from contextlib import ExitStack
 
 import hydra
@@ -51,6 +52,28 @@ from src.work import (
 )
 
 
+def _raise_process_group_timeout(dist: DistributedManager) -> None:
+    """Apply ``EVAL_PG_TIMEOUT_MINUTES`` to the default process group.
+
+    Ensemble groups finish their work lists at different times, and the
+    early ones wait in the error-flag reduction of ``OutputManager.__exit__``;
+    the NCCL default of 10 minutes aborts the whole job when that wait is
+    longer than one forecast.  Unset, the default stays.
+    """
+    minutes = os.environ.get("EVAL_PG_TIMEOUT_MINUTES")
+    if not minutes or not dist.distributed:
+        return
+    try:
+        from datetime import timedelta
+
+        from torch.distributed.distributed_c10d import _set_pg_timeout
+
+        _set_pg_timeout(timedelta(minutes=float(minutes)), torch.distributed.group.WORLD)
+        logger.info(f"Process-group timeout raised to {minutes} min")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"Could not raise the process-group timeout: {exc}")
+
+
 @hydra.main(version_base=None, config_path="cfg", config_name="default")
 def main(cfg: DictConfig) -> None:
     """Eval recipe entry point — distributed model inference."""
@@ -59,6 +82,7 @@ def main(cfg: DictConfig) -> None:
     configure_logging()
     dist = DistributedManager()
     device = dist.device
+    _raise_process_group_timeout(dist)
 
     # Instantiate the pipeline early (no weights loaded yet) so we can
     # consult its class-level flags before the pre-download sentinel check

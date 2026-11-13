@@ -1339,6 +1339,11 @@ def compile_tables(
                 pass
         if not pathlib.Path(path).is_file():
             return None, 0.0
+        if pathlib.Path(path).stat().st_size == 0:
+            # A legitimate empty archive file (a cycle its sensor did not
+            # observe): nothing to decode, so it counts as zero rows rather
+            # than as a decode failure, which callers treat as fatal.
+            return pa.table({}), 0.0
         try:
             with slots:
                 t0 = time.perf_counter()
