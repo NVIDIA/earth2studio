@@ -573,6 +573,34 @@ def _fetch_field(store: GriddedStore, time: np.datetime64) -> xr.DataArray:
     return x
 
 
+def _json_value(value: Any) -> Any:
+    """``value`` with NumPy scalars and arrays turned into plain JSON types."""
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, Mapping):
+        return {str(k): _json_value(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_value(v) for v in value]
+    return value
+
+
+def _store_template(field: xr.DataArray, times: np.ndarray) -> xr.DataArray:
+    """The template of a store: ``field`` over every time, with JSON attributes.
+
+    Zarr writes array attributes as JSON, while some sources attach NumPy
+    scalars read from their files (NCAR_ERA5 carries ``ecmwf_parameter`` and
+    ``quantization_nsd`` as ``int32``), which the JSON encoder rejects.
+    """
+    template = coord_array_like(field, {"time": times})
+    template.attrs = _json_value(dict(template.attrs))
+    for name in template.coords:
+        variable = template.coords[name].variable
+        variable.attrs = _json_value(dict(variable.attrs))
+    return template
+
+
 def download_gridded_store(
     cfg: DictConfig, store: GriddedStore, overwrite: bool
 ) -> None:
@@ -633,7 +661,7 @@ def download_gridded_store(
         if rank == 0:
             first = _fetch_field(store, probe_time)
             fetched[probe_time] = first
-            backend.add_array(coord_array_like(first, {"time": store.times}))
+            backend.add_array(_store_template(first, store.times))
             if store.attrs:
                 zarr.open_group(path, mode="r+").attrs.update(store.attrs)
         return backend
@@ -797,7 +825,11 @@ def main(cfg: DictConfig) -> None:
     # Fetching is CPU work; hide accelerators so torchrun uses gloo and the
     # models the runner loads stay on the host.
     os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
-    device = init_distributed()
+    # Ranks fetch different times and meet after every store, so a rank
+    # whose archive is slow keeps the others waiting; a backend default
+    # timeout (10 min for NCCL) would abort a healthy run.  torchrun still
+    # stops every rank when one of them dies.
+    device = init_distributed(float(cfg.predownload.get("timeout_s", 21600)))
     try:
         run(cfg, device)
     finally:
