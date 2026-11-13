@@ -196,6 +196,9 @@ output:
 # config so predownload.py and score.py agree.
 predownload:
     overwrite: false             # if true, recreate stores from scratch
+    # Seconds a rank may wait for the others after each store: ranks fetch
+    # different times, and a slow archive (NCAR) can leave one far behind.
+    timeout_s: 21600
     verification:
         enabled: false
         source: null             # null = fetch verification from data_source;

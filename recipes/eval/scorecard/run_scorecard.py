@@ -52,9 +52,9 @@ import os
 import shutil
 import subprocess
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from omegaconf import DictConfig
@@ -149,6 +149,101 @@ def score_stores(cfg: DictConfig) -> list[Path]:
     return [run_path(score_store_path(cfg))]
 
 
+def source_label(node: Any) -> str | None:
+    """Display label of a source config node: the class behind it.
+
+    A composite names every source it reads (``ARCO_ERA5+NCAR_ERA5``), and a
+    wrapper taking a ``source`` (a regridding adapter) names the source it
+    wraps.  A predownloaded store names nothing: it holds the fields of the
+    source that filled it, which the caller falls back to.
+    """
+    if not isinstance(node, Mapping) or not node.get("_target_"):
+        return None
+    name = str(node["_target_"]).rsplit(".", 1)[-1]
+    if name in ("PredownloadedSource", "PredownloadedForecastSource"):
+        return None
+    if name == "CompositeSource":
+        labels = [source_label(s) for s in (node.get("sources") or {}).values()]
+        return "+".join(dict.fromkeys(label for label in labels if label)) or name
+    if isinstance(node.get("source"), Mapping):
+        return source_label(node["source"]) or name
+    return name
+
+
+def source_labels(
+    cfg: Mapping[str, Any], reference: str | None = None
+) -> dict[str, Any]:
+    """Initial-condition and verification source labels, and the weighting.
+
+    The labels follow the recipe's resolution: a bring-your-own
+    ``ic_source`` (or the analyses of a data assimilation model) over
+    ``data_source`` for the initial conditions; a bring-your-own
+    ``verification_source``, then ``predownload.verification.source``, then
+    ``data_source`` for the truth.  A named online reference
+    (``scoring.online.verification_sources``) labels the truth with its own
+    source, and a ``null`` entry keeps the default.
+
+    Parameters
+    ----------
+    cfg : Mapping[str, Any]
+        A composed campaign config as plain containers.
+    reference : str | None, optional
+        Online reference the scores compare with, by default the unnamed one.
+
+    Returns
+    -------
+    dict[str, Any]
+        ``ic_source`` and ``verification_source`` when known, and
+        ``lat_weights``.
+    """
+    data = source_label(cfg.get("data_source"))
+    da = ((cfg.get("model") or {}).get("da") or {}).get("architecture")
+    ic = (str(da).rsplit(".", 1)[-1] if da else None) or source_label(
+        cfg.get("ic_source")
+    )
+    ic = ic or data
+    predownload = (cfg.get("predownload") or {}).get("verification") or {}
+    verification = (
+        source_label(cfg.get("verification_source"))
+        or source_label(predownload.get("source"))
+        or data
+        or ic
+    )
+    if reference is not None:
+        online = (cfg.get("scoring") or {}).get("online") or {}
+        node = (online.get("verification_sources") or {}).get(reference)
+        if node is not None:
+            # The reference's own archive, unknown for a predownloaded store.
+            verification = source_label(node)
+    labels: dict[str, Any] = {}
+    if ic:
+        labels["ic_source"] = ic
+    if verification:
+        labels["verification_source"] = verification
+    labels["lat_weights"] = bool((cfg.get("scoring") or {}).get("lat_weights", True))
+    return labels
+
+
+def labelled_score_stores(cfg: DictConfig) -> list[tuple[Path, dict[str, Any]]]:
+    """Each score store of :func:`score_stores` with its reference's labels.
+
+    Online scoring writes one store per reference, in
+    :func:`src.online.verification_source_names` order; offline scoring
+    writes one store against the default truth.
+    """
+    from omegaconf import OmegaConf
+    from src.campaign import online_scoring
+
+    references: list[str | None] = [None]
+    if online_scoring(cfg):
+        from src.online import verification_source_names
+
+        references = verification_source_names(cfg)
+    plain = cast(Mapping[str, Any], OmegaConf.to_container(cfg, resolve=False))
+    labels = [source_labels(plain, reference) for reference in references]
+    return list(zip(score_stores(cfg), labels, strict=True))
+
+
 def scores_complete(store: Path) -> bool:
     """True when the store exists and carries the provenance stamp that
     stamp_provenance() writes only after scoring finished cleanly."""
@@ -160,9 +255,10 @@ def scores_complete(store: Path) -> bool:
         return False
 
 
-def stamp_provenance(store: Path) -> None:
+def stamp_provenance(store: Path, sources: Mapping[str, Any] | None = None) -> None:
     """Record on the artifact itself what produced it, so later exports are
-    correct no matter when or where they run."""
+    correct no matter when or where they run.  ``sources`` (see
+    :func:`source_labels`) goes into its own ``sources`` attribute."""
     import torch
     import zarr
 
@@ -186,7 +282,10 @@ def stamp_provenance(store: Path) -> None:
             " (single node)"
         )
     # r+ opens the store scoring wrote and never creates an empty one.
-    zarr.open_group(str(store), mode="r+").attrs["provenance"] = prov
+    group = zarr.open_group(str(store), mode="r+")
+    group.attrs["provenance"] = prov
+    if sources:
+        group.attrs["sources"] = dict(sources)
     print(f"    stamped provenance onto {store}")
 
 
@@ -252,9 +351,11 @@ def main() -> int:
     print(f"=== out={out}")
 
     online = online_scoring(cfg)
-    # The score store(s) this configuration writes; the stamp and the prune
-    # gate follow them rather than a fixed scores.zarr.
-    stores = score_stores(cfg)
+    # The score store(s) this configuration writes, each stamped with what
+    # produced the initial conditions and the truth it scores against; the
+    # stamp and the prune gate follow them rather than a fixed scores.zarr.
+    labelled = labelled_score_stores(cfg)
+    stores = [store for store, _ in labelled]
     forecast = run_path(store_path(cfg))
 
     for stage in stages:
@@ -267,8 +368,8 @@ def main() -> int:
                 # The online path derives the scores store at the end of
                 # main.py; stamp it now (the derivation rebuilds the store,
                 # so a stamp must always follow the pass that produced it).
-                for store in stores:
-                    stamp_provenance(store)
+                for store, sources in labelled:
+                    stamp_provenance(store, sources)
         elif stage == "score":
             if online:
                 # Cheap single-process re-derivation from stats.zarr.
@@ -277,8 +378,8 @@ def main() -> int:
                 # score.py lays out the score store itself (one time per
                 # chunk, ranks scoring disjoint initial conditions).
                 launch("score.py", args.campaign, overrides, args.ngpu)
-            for store in stores:
-                stamp_provenance(store)
+            for store, sources in labelled:
+                stamp_provenance(store, sources)
         elif stage == "prune":
             if online and not forecast.exists():
                 print("    online campaign, no raw store -- nothing to prune")
