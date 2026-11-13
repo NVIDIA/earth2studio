@@ -198,7 +198,13 @@ def with_grid_metadata(array: xr.DataArray, grid: str | None = None) -> xr.DataA
 
 
 def infer_grid(array: xr.DataArray | xr.Dataset) -> GridDefinition:
-    """Infer a grid from explicit metadata or standard Xarray coordinates."""
+    """Infer a grid from explicit metadata or standard Xarray coordinates.
+
+    A registered ``earth2studio_grid_id`` is trusted when the spatial dimension
+    names and sizes match; coordinate values are not compared. After reversing,
+    rolling or re-wrapping a labelled array's spatial axes, drop the label so the
+    grid is inferred from the actual coordinates.
+    """
     grid_id = array.attrs.get(E2S_GRID_ID)
     if grid_id is not None:
         definition = resolve_grid(grid_id)

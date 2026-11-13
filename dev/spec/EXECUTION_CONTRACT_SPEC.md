@@ -350,7 +350,8 @@ dims, non-spatial labels, grid ID and dtype, and whether it is written), `seed`
 (`runner.seed` or `null`), `member_groups` (the distinct ordered member groups
 of the items, `[[]]` without members), and `tags`. The store merges its `tags` in, so a tag
 change is a mismatch. Model identity is not detectable, so callers record it in
-`tags`.
+`tags`, such as the model name and checkpoint; a resume that skips items from a
+store without tags logs a warning.
 
 Progress and stores are cleared independently: overwriting a store but not its
 progress skips items whose data is gone.
@@ -378,7 +379,14 @@ source_member=None, perturbation=None)`
 drives `create_iterator` and publishes the initial condition as the first step,
 matching `run.deterministic`, when the input ends at zero and the output declares
 every input variable on the input's grid; otherwise the streams start at the
-first forecast. Each step advances by the model's step interval (see
+first forecast. The published initial condition holds only the input
+variables. When the output declares more (diagnostic outputs such as `tp06`), the
+`forecast` store holds NaN for those variables at lead time 0. `Pipeline`
+keeps the selected `output_variables` each output holds and skips an output
+holding none of them, so neither the scorer nor the store sees it and the store
+keeps its fill value. A
+diagnostic stream whose inputs include output-only variables starts at the first
+forecast. Each step advances by the model's step interval (see
 [MODEL_CONTRACT_SPEC.md](MODEL_CONTRACT_SPEC.md#lead-time)). Sources
 default to `default_sources()`. Declared forcing is fetched initially and its
 time-varying slots are sent every step. The prognostic stream is `forecast`;
@@ -387,6 +395,18 @@ each diagnostic adds a stream under the caller's name.
 `DiagnosticRunner(diagnostics, source=None, step=None, seed=0, source_member=None)` applies
 diagnostics directly to source data. Step `k` fetches inputs at the item's time
 plus `k * step`; without `step`, an item is one step at lead time zero.
+
+`PrognosticRunner` and `DiagnosticRunner` support single-slot models only: a
+prognostic or diagnostic whose `input_coords()` returns a tuple of slots raises
+`ValueError` at construction. Run multi-slot models as components of the coupled
+runner.
+
+Every runner fits fetched data to a model with `map_field`, which selects and
+never regrids. It raises `ValueError` when a source does not cover the target's
+range on a numeric axis (a label more than one source spacing beyond it). It
+does not check resolution: a source coarser than the target is selected by
+nearest label and repeats neighbouring values. Fetch such sources with
+`fetch_data(target_grid=...)` or `RegriddedSource`.
 
 The **coupled runner**, `earth2studio.coupling.CoupledRunner`, lives with the
 coupler ([COUPLING_SPEC.md](COUPLING_SPEC.md)). Per item it fetches each

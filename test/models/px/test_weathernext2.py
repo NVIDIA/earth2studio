@@ -41,26 +41,16 @@ from test_graphcast import (
 import earth2studio.models.px.weathernext2_cyclones as module
 from earth2studio.data import Random, fetch_data
 from earth2studio.models.conformance import check_prognostic_contract
+from earth2studio.models.px.graphcast_operational import _add_tisr_batched
 from earth2studio.models.px.weathernext2_cyclones import (
     OUTPUT_VARIABLES,
     WeatherNext2Cyclones,
     WeatherNext2CyclonesMini,
     _add_e2s_cyclone_columns,
-    _add_tisr_batched,
 )
 from earth2studio.utils.coords import coord_array_like
 
 TEST_TIME = np.array([np.datetime64("2025-01-01T00:00")])
-
-
-def mocked_chunked_prediction(*args, targets_template, **kwargs):
-    return targets_template
-
-
-def mocked_chunked_prediction_generator(self, *args, targets_template, batch, **kwargs):
-    value = float(batch["2m_temperature"].isel(time=-1).mean())
-    while True:
-        yield targets_template.isel(time=[0]).fillna(value)
 
 
 @pytest.fixture(params=[WeatherNext2CyclonesMini, WeatherNext2Cyclones])
@@ -368,7 +358,7 @@ def test_weathernext2_tisr_batched(n_batch):
     expected = reference[tisr].isel(batch=0).values
 
     data = make(n_batch)
-    _add_tisr_batched(data)
+    _add_tisr_batched(data, data_utils)
 
     assert data.sizes["batch"] == n_batch
     for member in range(n_batch):

@@ -23,6 +23,7 @@ import numpy as np
 import pytest
 import torch
 import xarray as xr
+from loguru import logger
 from test_coupling_toys import (
     ATMOS_GRID,
     OCEAN_GRID,
@@ -315,6 +316,74 @@ def test_a_lone_forced_model_matches_prognostic_runner() -> None:
         for s in single.run_item(WorkItem(T0, np.timedelta64(18, "h")))
     }
     assert coupled == pytest.approx(direct)
+
+
+@pytest.mark.parametrize("hook", ["front_hook", "rear_hook"])
+def test_iterator_hooks_are_not_run_and_warn(hook: str) -> None:
+    model = atmosphere()
+    setattr(model, hook, lambda y: y + 100)
+    sources = (Fill(ATMOS_GRID, {"z1000": 0.0}), Fill(ATMOS_GRID, {"sst": 3.0}))
+    messages: list[str] = []
+    handler = logger.add(lambda message: messages.append(message), level="WARNING")
+    try:
+        runner = CoupledRunner({"atmos": model}, sources={"atmos": sources})
+    finally:
+        logger.remove(handler)
+    assert any(f"does not run {hook}" in m for m in messages)
+    # z1000 <- z1000 + 1.3 per 6 h step (sst = 3); the hook is not applied.
+    assert series(run(runner, 18)["atmos"]) == pytest.approx(
+        {0: 0.0, 6: 1.3, 12: 2.6, 18: 3.9}
+    )
+
+
+def test_default_hooks_do_not_warn() -> None:
+    sources = (Fill(ATMOS_GRID, {"z1000": 0.0}), Fill(ATMOS_GRID, {"sst": 3.0}))
+    messages: list[str] = []
+    handler = logger.add(lambda message: messages.append(message), level="WARNING")
+    try:
+        CoupledRunner({"atmos": atmosphere()}, sources={"atmos": sources})
+    finally:
+        logger.remove(handler)
+    assert not any("hook" in m for m in messages)
+
+
+# -- final lead time and history ---------------------------------------------------
+
+
+def test_final_lead_time_must_fall_where_an_output_is_due(
+    ic_sources: Mapping[str, Fill],
+) -> None:
+    runner = toy_runner(ic_sources)
+    for hours in (100, 7):
+        final = np.timedelta64(hours, "h")
+        with pytest.raises(ValueError, match="finest component step is 6h"):
+            list(runner.run_item(WorkItem(T0, final)))
+        with pytest.raises(ValueError, match="not a lead time"):
+            runner.output_coords(final)
+        with pytest.raises(ValueError, match="not a lead time"):
+            runner.describe(final)
+    assert list(series(run(runner, 96)["atmos"]))[-1] == 96
+
+
+def _long_window_runner() -> CoupledRunner:
+    """Two 6 h models; ``b`` reads a 48 h mean of ``a``'s ``z1000``."""
+    source = Fill(ATMOS_GRID, {"z1000": 0.0, "sst": 2.0})
+    a = _Toy("z1000", "sst", ATMOS_GRID, 6, 1.0, 0.1)
+    b = _Toy("sst", "z1000:mean:48h", ATMOS_GRID, 6, 0.0, 0.01, forcing_lead=6)
+    return CoupledRunner(
+        {"a": a, "b": b},
+        [Connector("a", "b")],
+        sources={"a": (source, source), "b": (source, source)},
+    )
+
+
+def test_reduction_window_beyond_kept_history_names_the_history() -> None:
+    # Documented limit: the dry run keeps too little history for a 48 h window
+    # read by a 6 h consumer, so the run fails partway with a clear message.
+    runner = _long_window_runner()
+    assert list(series(run(runner, 24)["b"]))[-1] == 24
+    with pytest.raises(CouplingError, match="history the runner keeps"):
+        run(runner, 96)
 
 
 def _background() -> _Toy:

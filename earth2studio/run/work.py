@@ -403,6 +403,13 @@ class ProgressStore:
         skipped = len(items) - len(left)
         if skipped:
             logger.info(f"Resume: skipping {skipped}/{len(items)} completed work items")
+            if not self.tags:
+                logger.warning(
+                    f"Resume: progress store '{self.path}' has no tags, so a run "
+                    "with a different model or checkpoint and the same output "
+                    "layout also skips these items; pass tags such as the model "
+                    "name and checkpoint to ProgressStore"
+                )
         return left
 
     def is_done(self, item: WorkItem) -> bool:

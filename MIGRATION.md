@@ -16,6 +16,13 @@ Update custom components to the RC protocols linked below. Shared changes:
 - **Grid object:** use `grid=` whenever possible. Pass a registered grid name or
   `GridDefinition` from `earth2studio.grids`; it supplies spatial axes, geometry, and CRS.
   Keep native projected/curvilinear axes and auxiliary lat/lon. A CRS alone is not a grid.
+- **Grid labels:** library output carries an `earth2studio_grid_id` label, which `infer_grid` and model
+  handshakes trust without comparing coordinate values. After reversing latitude,
+  rolling longitude or converting it to −180..180, drop the label
+  (`attrs.pop("earth2studio_grid_id")`) so the actual coordinates are used.
+- **Longitude bounds:** `subset_indexers(bounds=...)` measures longitude eastward from
+  `min_lon`, modulo 360: `(0, 180)` now includes 180°, and out-of-range bounds such as
+  `(-190, -170)` select the full box.
 - **Field object:** `(torch.Tensor, coords)` → one `xr.DataArray` containing values and
   metadata. Coordinate signatures and concrete fields are different uses of DataArray.
 - **Slots:** one input per positional argument; one output directly, multiple as a tuple.
@@ -190,6 +197,9 @@ Targets: [Statistic / Metric](earth2studio/statistics/base.py).
   `metric(x, truth)`. Each returns one DataArray, not a tensor/coordinate tuple.
 - Convert `output_coords(...)` to coordinate signatures; keep `reduction_dimensions`.
   Reduced dimensions disappear. Align prediction/observation coordinate values explicitly.
+- Metrics no longer broadcast `y` against `x`. `y` must have every dimension of `x`
+  except `ensemble_dimension` (present only in `x`), with matching coordinate values;
+  it is transposed to `x` order. Expand or select `y` before calling.
 
 ## Workflows after component migration
 
@@ -197,6 +207,25 @@ Keep `run.deterministic` / `diagnostic` / `ensemble` for single-input/output mod
 external forcing. They retain `nsteps`, dictionary `output_coords`, and initial output;
 custom iterator loops must publish initial fields separately. Update custom callbacks and
 IO using the sections above. For new orchestration, see [Pipeline](dev/examples/09_pipeline.py).
+
+- Runners publish the initial condition at lead 0 when a model's outputs include all of
+  its inputs. Output-only variables (diagnostics such as `tp06`) are NaN at lead 0, where
+  `main` let the model supply them. Exclude lead 0 from reductions over those variables.
+  `Pipeline` writes and scores the selected `output_variables` each step holds and skips
+  a step holding none, and diagnostic streams that read them start at the first forecast.
+- Runners raise `ValueError` when a source does not cover the model grid on a numeric
+  axis (for example a regional source on a global model, or −180..180 longitudes on a
+  0..360 model); `main` copied edge values. Resolution is not checked, so a coarser
+  source still repeats neighbouring values. Wrap such sources in `RegriddedSource` or
+  fetch with `fetch_data(target_grid=...)`.
+- Record the model and checkpoint in `ProgressStore(tags=...)` so a resumed run cannot
+  mix outputs from different models; a resume that skips items without tags now warns.
+- `CoupledRunner` raises `ValueError` for a final lead time at which no stateful
+  component's output is due; it used to end the run early without an error.
+- `CoupledRunner` does not run component `front_hook` / `rear_hook` (it warns when one
+  is set); use its `perturbation=` argument or a connector instead. Reduction windows
+  much longer than a consumer's step (about 30 h for a 6 h consumer) can exceed the
+  history the runner keeps and fail partway through the run.
 
 ## Serving
 

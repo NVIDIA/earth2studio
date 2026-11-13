@@ -125,7 +125,10 @@ print(dict(regridded.root["v10m"].sizes))
 # ------
 # A ``ProgressStore`` records each item once its outputs flush. Rerunning the
 # same items skips the finished ones. The store also keeps a manifest of the
-# stream schemas, seed and tags, and refuses to resume a run that differs.
+# stream schemas, seed and tags, and refuses to resume a run that differs. The
+# manifest cannot tell models apart, so record the model and checkpoint in
+# ``tags``: otherwise a different model with the same output layout would skip
+# the finished items and mix its output into the store.
 
 
 class FailOnce(PrognosticRunner):
@@ -141,6 +144,7 @@ class FailOnce(PrognosticRunner):
         yield from super().run_item(item)
 
 
+tags = {"model": type(model).__name__, "checkpoint": "example"}
 with tempfile.TemporaryDirectory() as tmp:
     path, progress = str(Path(tmp) / "forecast.zarr"), Path(tmp) / "progress"
     runner = FailOnce(model, source)  # type: ignore[arg-type]
@@ -148,7 +152,7 @@ with tempfile.TemporaryDirectory() as tmp:
         Pipeline(
             runner,
             output={"forecast": ZarrBackend(path)},
-            progress=ProgressStore(progress),
+            progress=ProgressStore(progress, tags=tags),
             device="cpu",
         ).run(items)
     except RuntimeError as error:
@@ -159,7 +163,7 @@ with tempfile.TemporaryDirectory() as tmp:
     Pipeline(
         runner,
         output={"forecast": store},
-        progress=ProgressStore(progress),
+        progress=ProgressStore(progress, tags=tags),
         device="cpu",
     ).run(items)
     np.testing.assert_array_equal(store["u10m"][:, :, 0, 0], [np.arange(4)] * 2)
