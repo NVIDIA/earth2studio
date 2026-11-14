@@ -14,99 +14,200 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any
+import os
+from functools import partial
 
+import hydra
 import numpy as np
 import zarr
 from loguru import logger
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 from physicsnemo.distributed import DistributedManager
 
-from earth2studio.data.base import DataSource
-from src.s2s_ensemble import S2SEnsembleRunner
+from earth2studio.io import IOBackend
+from earth2studio.run import Pipeline, ProgressStore, WorkItem
+from src.s2s_ensemble import S2SRunner, build_work_items
 from src.s2s_perturbation import initialize_perturbation
 from src.s2s_utilities import (
-    create_base_seed_string,
-    initialize_output,
-    initialize_output_structures,
+    build_io_dict,
+    build_output_regions,
+    build_package_list,
+    get_batch_seeds,
+    initialize_diagnostic_models,
+    model_loader,
+    output_variables,
     run_with_rank_ordered_execution,
-    update_model_dict,
+    set_initial_times,
 )
 
 
-def run_inference(
+def initialize(
     cfg: DictConfig,
-    ensemble_configs: list[Any],
-    model_dict: dict,
-    dx_model_dict: dict,
-    data_source: DataSource,
-    output_coords_dict: dict,
-    base_random_seed: str | int,
-) -> None:
-    """S2S run inference function for subseasonal forecasting
+) -> tuple[S2SRunner, list[WorkItem], dict[str, IOBackend], ProgressStore | None]:
+    """Load models and data, and plan the work items and outputs of a run.
 
-    This function coordinates the ensemble forecast process for seasonal-to-subseasonal
-    forecasting.
+    Parameters
+    ----------
+    cfg : DictConfig
+        Hydra config object
+
+    Returns
+    -------
+    tuple[S2SRunner, list[WorkItem], dict[str, IOBackend], ProgressStore | None]
+        The runner, every work item of the run, the output backend per output
+        region, and the progress store when ``file_output.resume`` is set.
     """
-    # We iterate through each ensemble configuration to generate ensemble members
-    # The process applies appropriate perturbations to initial conditions and runs
-    # the forecast model to evaluate ensemble mean predictions against ERA5 data
+    if "project" not in cfg:
+        raise ValueError("specify a project name in the config: project: project_name")
+    if "file_output" not in cfg:
+        raise ValueError(
+            "specify a file_output too store the results in the config: file_output"
+        )
 
-    # Before running the ensemble, initialize the full output zarr file across all ranks
-    # Done in a rank-ordered manner to avoid race conditions: rank 0 creates the zarr first
-    dist = DistributedManager()
-    times = np.array(sorted(list({ic for (_, ic, _, _) in ensemble_configs})))
+    if cfg.perturbation.type == "HENSPerturbation" and (
+        cfg.nperturbed % 2 or min(cfg.batch_size, cfg.nperturbed) % 2
+    ):
+        raise ValueError(
+            "Bred-vector perturbations perturb members in +/- pairs; "
+            "nperturbed and batch_size must be even"
+        )
 
-    io_dict = run_with_rank_ordered_execution(
-        initialize_output,
-        cfg,
-        times,
-        model_dict,
-        output_coords_dict,
-        add_arrays=(dist.rank == 0),
+    resume = cfg.file_output.get("resume", False)
+    if resume:
+        output_format = cfg.file_output.format
+        if (
+            output_format._target_ != "earth2studio.io.ZarrBackend"
+            or not output_format.get("_partial_", False)
+            or output_format.get("backend_kwargs", {}).get("overwrite", False)
+        ):
+            raise ValueError(
+                "Resume requires a partial ZarrBackend with overwrite=False"
+            )
+        if cfg.get("random_seed", None) is None:
+            raise ValueError("Resume requires an explicit random_seed")
+
+    ics = set_initial_times(cfg)
+    packages = build_package_list(cfg)
+    if len(packages) < cfg.ncheckpoints:
+        logger.warning(
+            f"Found {len(packages)} checkpoints, fewer than ncheckpoints={cfg.ncheckpoints}"
+        )
+    packages = packages[: cfg.ncheckpoints]
+    load_model = model_loader(cfg, packages)
+    model = load_model(packages[0])
+    signature = model.output_coords(model.input_coords())
+    if {"lat", "lon"}.issubset(signature.dims):
+        lat, lon = signature["lat"].values, signature["lon"].values
+    else:
+        # Models on other grids (DLESyM's HEALPix) are regridded onto regions
+        # of the 0.25 degree lat/lon grid
+        lat = np.linspace(90, -90, 721)
+        lon = np.linspace(0, 360, 1440, endpoint=False)
+    regions = build_output_regions(cfg, lat, lon)
+
+    base_random_seed, batch_ids = get_batch_seeds(cfg)
+    data_source = hydra.utils.instantiate(cfg.data_source)
+    if "input_source" in cfg.forecast_model:
+        # e.g. DLESyM's HEALPix inputs, prepared from the lat/lon data source
+        data_source = hydra.utils.instantiate(cfg.forecast_model.input_source)(
+            source=data_source
+        )
+    runner = S2SRunner(
+        model=model,
+        load_model=load_model,
+        packages=packages,
+        data=data_source,
+        perturbation_factory=partial(initialize_perturbation, cfg),
+        regions=regions,
+        output_variables=output_variables(cfg),
+        nperturbed=cfg.nperturbed,
+        batch_size=cfg.batch_size,
+        base_random_seed=base_random_seed,
+        diagnostics=initialize_diagnostic_models(cfg),
     )
 
-    for pkg, ic, ens_idx, batch_ids_produce in ensemble_configs:
-        # Create seed base string for reproducibility
-        base_seed_string = create_base_seed_string(pkg, ic, base_random_seed)
+    items = build_work_items(
+        ics,
+        cfg.nsteps * runner.step,
+        len(packages),
+        cfg.nperturbed,
+        cfg.batch_size,
+        batch_ids,
+    )
+    if not items:
+        raise ValueError("No work items: check batch_ids_reproduce")
+    seeds = [runner.batch_seed(item) for item in items]
+    if len(set(seeds)) != len(seeds):
+        raise ValueError("Calculated torch seeds for every batch must be unique")
 
-        # Load new weights if necessary
-        model_dict = update_model_dict(model_dict, pkg)
+    # Rank 0 creates (or replaces) the stores before the other ranks open them
+    dist = DistributedManager()
+    io_dict = run_with_rank_ordered_execution(
+        build_io_dict,
+        cfg,
+        list(regions),
+        create_store=(dist.rank == 0),
+        keep_existing=resume,
+        parallel_coords=parallel_coords(runner, items),
+    )
 
-        # Create new IO write threads, if multiprocessing IO is enabled
-        writer_executor, writer_threads = initialize_output_structures(cfg)
-
-        # Initialize the S2S perturbation method
-        perturbation = initialize_perturbation(
-            cfg=cfg, model=model_dict["model"], data_source=data_source
+    # Finished items are recorded under the output path and skipped on rerun;
+    # the tags reject resuming with a different configuration
+    progress = None
+    if resume:
+        progress = ProgressStore(
+            os.path.join(cfg.file_output.path, "progress"),
+            tags={"config": OmegaConf.to_container(cfg, resolve=True)},
         )
+    return runner, items, io_dict, progress
 
-        # Initialize ensemble runner for S2S forecasting
-        ensemble_runner = S2SEnsembleRunner(
-            time=[ic],
-            nsteps=cfg.nsteps,
-            nperturbed=cfg.nperturbed,
-            ncheckpoints=cfg.ncheckpoints,
-            prognostic=model_dict["model"],
-            data=data_source,
-            io_dict=io_dict,
-            perturbation=perturbation,
-            output_coords_dict=output_coords_dict,
-            dx_model_dict=dx_model_dict,
-            batch_size=cfg.batch_size,
-            ensemble_idx_base=ens_idx,
-            batch_ids_produce=batch_ids_produce,
-            base_seed_string=base_seed_string,
-            pkg=pkg,
-            writer_executor=writer_executor,
-            writer_threads=writer_threads,
-        )
 
-        # Run the ensemble forecast
-        ensemble_runner()
+def parallel_coords(runner: S2SRunner, items: list[WorkItem]) -> dict[str, np.ndarray]:
+    """Full labels of the dimensions written one slice at a time.
 
-    # Consolidate metadata in zarr files
-    if dist.rank == 0:
+    :class:`~earth2studio.io.AsyncZarrBackend` needs them at construction; they
+    match the stores ``Pipeline`` plans from the same items.
+    """
+    final_lead_time = max(item.final_lead_time for item in items)
+    return {
+        "ensemble": np.array(
+            sorted({m for item in items for m in item.member_ids}), dtype=np.int64
+        ),
+        "time": np.unique(
+            np.array([item.time for item in items], dtype="datetime64[ns]")
+        ),
+        "lead_time": runner.lead_times(final_lead_time),
+    }
+
+
+def run_inference(
+    runner: S2SRunner,
+    items: list[WorkItem],
+    io_dict: dict[str, IOBackend],
+    progress: ProgressStore | None = None,
+) -> None:
+    """Run every work item over all ranks and write one store per output region.
+
+    Parameters
+    ----------
+    runner : S2SRunner
+        Runner of one perturbation batch.
+    items : list[WorkItem]
+        Every work item of the run, identical on every rank.
+    io_dict : dict[str, IOBackend]
+        Output backend per output region.
+    progress : ProgressStore, optional
+        Records finished items so a rerun resumes, by default None
+    """
+    Pipeline(runner, output=io_dict, progress=progress).run(items)
+
+    if DistributedManager().rank == 0:
         logger.info("Consolidating metadata in zarr files")
-        for k in io_dict.keys():
-            zarr.consolidate_metadata(io_dict[k].store)
+        for io in io_dict.values():
+            store = getattr(io, "store", None)
+            if store is not None:
+                zarr.consolidate_metadata(store)
+    logger.success(
+        f"Inference complete: {len(items)} batches, "
+        f"{len(np.unique([m for item in items for m in item.member_ids]))} members"
+    )

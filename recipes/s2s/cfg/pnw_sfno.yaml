@@ -24,17 +24,13 @@ data_source:
 file_output:
     path: '${output_path}/${project}_${run_id}'  # directory to which outfiles are written
     output_vars: ['t2m', 'z500']  # Variables to be saved
-    thread_io: True
+    resume: False         # skip batches finished by an earlier run (needs random_seed)
     overwrite_store: True # Whether or not to overwrite an existing output file
     format:               # io backend class
-        _target_: earth2studio.io.ZarrBackend
+        _target_: earth2studio.io.AsyncZarrBackend
         _partial_: True
-        chunks:
-            ensemble: 1
-            time: 1
-            lead_time: 1
-        backend_kwargs:
-            overwrite: False # Needs to be False for multi-GPU runs (so other ranks don't overwrite what rank 0 creates)
+        blocking: False   # write on background threads, overlapping inference
+        pool_size: 8      # writer threads
 
     # North America region cropbox
     cropboxes:

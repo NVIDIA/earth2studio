@@ -1,21 +1,20 @@
 defaults:
     - forecast_model: dlesym
-    - perturbation: gaussian
+    - perturbation: none
 
 project: 'globalscore'
 random_seed: 42
-run_id: 'dlesym_4a4o4p_gaussian_aiwq' # unique identifier for the ensemble run
+run_id: 'dlesym_v11_64m_aiwq' # unique identifier for the ensemble run
 
 # Sweep over initial conditions
 start_times: ["2025-04-03 00:00:00"]
 
 nsteps: 12         # number of steps to run the forecast
-nperturbed: 4      # Number of perturbations applied to the initial condition for each model checkpoint
+nperturbed: 64     # Ensemble members per model checkpoint (DLESyM v1.1 samples them)
                     # Total ensemble size is nperturbed * ncheckpoints
-ncheckpoints: 16 # number of model checkpoints to use
-                # For DLESyM, ncheckpoints represents the total number of atmos/ocean model checkpoint pairs
+ncheckpoints: 1  # DLESyM v1.1 ships a single stochastic checkpoint
 
-batch_size: 4      # inference batch size
+batch_size: 8      # inference batch size
 output_path: "outputs"
 
 data_source:
@@ -25,19 +24,15 @@ data_source:
 file_output:
     path: '${output_path}/${project}_${run_id}'  # directory to which outfiles are written
     output_vars: ['t2m', 'z500']  # Variables to be saved
-    thread_io: True
+    resume: False         # skip batches finished by an earlier run (needs random_seed)
     overwrite_store: True # Whether or not to overwrite an existing output file
     resolution: "latlon121x240" # What resolution to use when saving global output data (does not apply to cropboxes)
                          # Options: "latlon721x1440", "latlon121x240"
     format:               # io backend class
-        _target_: earth2studio.io.ZarrBackend
+        _target_: earth2studio.io.AsyncZarrBackend
         _partial_: True
-        chunks:
-            ensemble: 1
-            time: 1
-            lead_time: 1
-        backend_kwargs:
-            overwrite: False # Needs to be False for multi-GPU runs (so other ranks don't overwrite what rank 0 creates)
+        blocking: False   # write on background threads, overlapping inference
+        pool_size: 8      # writer threads
 
 scoring:
     aiwq:

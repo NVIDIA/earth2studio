@@ -13,399 +13,392 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# mypy: disable-error-code="call-overload,arg-type"
 
-from collections.abc import Callable, Iterator
-from concurrent.futures import Future, ThreadPoolExecutor
-from datetime import datetime
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from math import ceil
-from typing import cast
 
 import numpy as np
 import torch
+import xarray as xr
 from loguru import logger
-from tqdm import tqdm
 
-from earth2studio.data import DataSource, fetch_data, prep_data_array
-from earth2studio.io import ZarrBackend
+from earth2studio.data import DataSource, fetch_data
+from earth2studio.grids import LatLonGrid, NearestRegridder, infer_grid
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
+from earth2studio.models.px.utils import initial_condition
+from earth2studio.models.utils import step_interval
 from earth2studio.perturbation import Perturbation
-from earth2studio.utils.coords import (
-    CoordSystem,
-    cat_coords,
-    coord_array,
-    map_coords,
-)
-from earth2studio.utils.cupy import from_torch
-from earth2studio.utils.time import to_time_array
+from earth2studio.run import WorkItem, map_field
+from earth2studio.utils.coords import coord_array, coord_array_like
+from earth2studio.utils.type import CoordinateSystem
 
+from .s2s_perturbation import HENSPerturbation
 from .s2s_utilities import (
+    OutputRegion,
     calculate_torch_seed,
+    create_base_seed_string,
     get_batchid_from_ensid,
-    run_with_rank_ordered_execution,
 )
 
-logger.remove()
-logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
 
+class S2SRunner:
+    """Run one S2S perturbation batch, for one checkpoint, as a ``Pipeline`` item.
 
-class S2SEnsembleRunner:
-    """Ensemble S2S inference pipeline with options to add a diagnostic
-    model in the loop.
+    Global member IDs are laid out checkpoint-major: member ``m`` belongs to
+    package ``m // nperturbed``, so a single ``Pipeline`` writes every
+    checkpoint into one store per region. The runner swaps checkpoint weights
+    (and rebuilds the perturbation around them) whenever an item belongs to a
+    different package than the last one; work items are ordered package-major,
+    so each rank swaps at most a few times.
+
+    Each batch is seeded with the recipe's sha256 seed of
+    ``{random_seed}_{package}_{ic}_{batch_id}``, through ``set_rng`` on the
+    perturbation and on any stochastic model, so a batch reproduces regardless of
+    rank, world size or which other batches run. Global Torch RNG is not used. Diagnostics are
+    concatenated to the forecast in insertion order, and every step yields the
+    configured output variables cropped to each output region.
 
     Parameters
     ----------
-    time : list[str] | list[datetime] | list[np.datetime64]
-        IC times.
-    nsteps : int
-        number of forecast steps.
-    nensemble : int
-        ensemble size.
-    prognostic : PrognosticModel
-        forecast model.
+    model : PrognosticModel
+        Prognostic model loaded from ``packages[0]``.
+    load_model : Callable[[str], PrognosticModel]
+        Loads the prognostic model for a package name.
+    packages : Sequence[str]
+        Package names, one per checkpoint. Also part of each batch's seed.
     data : DataSource
-        Data source from which to obtain ICs.
-    io_dict : dict[str, IOBackend]
-        Data object for storing generated data.
-    perturbation : Perturbation
-        Method for perturbing initial conditions.
-    output_coords_dict : dict[str, CoordSystem]
-        Dictionary of coordinate systems of data that shall be stored.
-    dx_model_dict : dict[str, DiagnosticModel], optional
-        Dictionary of diagnostic models.
-    batch_size : int, optional
-        batch size.
-    device : torch.device, optional
-        device on which to run inference.
-    ensemble_idx_base : int, optional
-        Initial value for counting ensemble members.
-    batch_ids_produce : list[int]
-        List of batch IDs that will be processed.
-    base_seed_string : str
-        Random seed that will be used as a basis.
-    pkg : str
-        Model package name
-    writer_executor : ThreadPoolExecutor | None, optional
-        executor for async file output, by default None
-    writer_threads : list[Future], optional
-        list of futures for async file output, by default []
+        Source of initial conditions.
+    perturbation_factory : Callable[[PrognosticModel, DataSource], Perturbation | None]
+        Builds the initial-condition perturbation for the active checkpoint, or
+        None for members that differ only through a stochastic model's sampling.
+    regions : Mapping[str, OutputRegion]
+        Output regions, one stream (and store) each. On a lat/lon model grid they
+        are selected from it; on any other grid (DLESyM's HEALPix) fields are
+        regridded onto them with nearest-neighbour interpolation.
+    output_variables : Sequence[str]
+        Variables saved, from the prognostic and diagnostic outputs.
+    nperturbed : int
+        Perturbed members per checkpoint.
+    batch_size : int
+        Members per work item.
+    base_random_seed : str | int
+        Base of every batch seed.
+    diagnostics : Mapping[str, DiagnosticModel], optional
+        Diagnostics applied to every step, by default none.
     """
+
+    supports_member_batching = True
 
     def __init__(
         self,
-        time: list[str] | list[datetime] | list[np.datetime64],
-        nsteps: int,
+        model: PrognosticModel,
+        load_model: Callable[[str], PrognosticModel],
+        packages: Sequence[str],
+        data: DataSource,
+        perturbation_factory: Callable[
+            [PrognosticModel, DataSource], Perturbation | None
+        ],
+        regions: Mapping[str, OutputRegion],
+        output_variables: Sequence[str],
         nperturbed: int,
-        ncheckpoints: int,
-        prognostic: PrognosticModel,
-        data: DataSource,
-        io_dict: dict[str, ZarrBackend],
-        perturbation: Perturbation,
-        output_coords_dict: dict[str, CoordSystem],
-        dx_model_dict: dict[str, DiagnosticModel] = {},
-        batch_size: int | None = None,
-        device: torch.device | None = None,
-        ensemble_idx_base: int = 0,
-        batch_ids_produce: list[int] = [],
-        base_seed_string: str = "0",
-        pkg: str = "",
-        writer_executor: ThreadPoolExecutor | None = None,
-        writer_threads: list[Future] = [],
+        batch_size: int,
+        base_random_seed: str | int,
+        diagnostics: Mapping[str, DiagnosticModel] | None = None,
     ) -> None:
-
-        logger.info("Setting up S2S ensemble.")
-
-        self.io_dict = io_dict
+        self.load_model = load_model
+        self.packages = list(packages)
+        self.data = data
+        self.perturbation_factory = perturbation_factory
+        self.regions = dict(regions)
+        self.output_variables = list(output_variables)
         self.nperturbed = nperturbed
-        self.ncheckpoints = ncheckpoints
-        self.ensemble_idx = ensemble_idx_base
-        self.batch_ids_produce = batch_ids_produce
-        self.nsteps = nsteps
-        self.output_coords_dict = output_coords_dict
-        self.perturbation = perturbation
-        self.base_seed_string = base_seed_string
-        self.writer_executor = writer_executor
-        self.writer_threads = writer_threads
+        self.batch_size = min(batch_size, nperturbed)
+        self.base_random_seed = str(base_random_seed)
+        self.diagnostics = dict(diagnostics or {})
+        self.device = torch.device("cpu")
 
-        if len(time) > 1:
-            raise ValueError("Only a single IC can be passed here")
-        self.ic = time[0]
+        inputs = model.input_coords()
+        outputs = model.output_coords(inputs)
+        if isinstance(inputs, tuple) or isinstance(outputs, tuple):
+            raise ValueError("S2S requires a single prognostic input and output field")
+        if model.forcing_coords() is not None:
+            raise ValueError("S2S does not support models with forcing inputs")
+        in_leads = inputs["lead_time"].values
+        if in_leads[-1] != np.timedelta64(0, "s"):
+            raise ValueError("S2S requires a model input ending at the analysis time")
+        self.inputs: CoordinateSystem = inputs
+        self.output_leads = outputs["lead_time"].values
+        self.step = step_interval(in_leads, self.output_leads)
+        self._region_attrs = {k: r.grid_attrs() for k, r in self.regions.items()}
+        model_grid = infer_grid(outputs)
+        self._regridders: dict[str, NearestRegridder] = {}
+        if not isinstance(model_grid, LatLonGrid):
+            self._regridders = {
+                k: NearestRegridder(model_grid, LatLonGrid(r.lat, r.lon))
+                for k, r in self.regions.items()
+            }
 
-        # Load model onto the device
-        self.move_models_to_device(prognostic, dx_model_dict, device)
-
-        # Fetch data from data source and load onto device
-        run_with_rank_ordered_execution(self.fetch_ics, data, time)
-
-        # Compute batch sizes
-        self.set_batch_size(batch_size)
-
-        return
-
-    def move_models_to_device(
-        self,
-        prognostic: PrognosticModel,
-        dx_model_dict: dict[str, DiagnosticModel] = {},
-        device: torch.device | None = None,
-    ) -> None:
-        """Moves model dictionary to device
-
-        Parameters
-        ----------
-        prognostic : PrognosticModel
-            Forecast model.
-        dx_model_dict : dict[str, DiagnosticModel], optional
-            Diagnostic model dictionary, by default {}
-        device : torch.device, optional
-            PyTorch device. If None, will select cuda if available, by default None
-        """
-        self.device = (
-            device
-            if device is not None
-            else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # Variables available after the diagnostics run on forecasts, and whether
+        # the diagnostics can also run on the initial condition to publish it.
+        forecast_vars = list(outputs["variable"].values)
+        ic_vars = list(inputs["variable"].values)
+        ic_ok = True
+        # Diagnostics chain: each sees the forecast plus earlier diagnostics' outputs
+        signature = outputs
+        for diagnostic in self.diagnostics.values():
+            dx_in = set(diagnostic.input_coords()["variable"].values)
+            if not dx_in.issubset(forecast_vars):
+                raise ValueError(
+                    f"Diagnostic {type(diagnostic).__name__} needs variables "
+                    f"{sorted(dx_in.difference(forecast_vars))} the forecast lacks"
+                )
+            dx_signature = map_field(signature, diagnostic.input_coords())
+            dx_out = list(diagnostic.output_coords(dx_signature)["variable"].values)
+            ic_ok = ic_ok and dx_in.issubset(ic_vars)
+            forecast_vars += dx_out
+            ic_vars += dx_out
+            signature = coord_array_like(signature, {"variable": forecast_vars})
+        missing = set(self.output_variables).difference(forecast_vars)
+        if missing:
+            raise ValueError(
+                f"Output variables {sorted(missing)} are not produced; "
+                f"available: {forecast_vars}"
+            )
+        self.publish_initial_condition = ic_ok and set(self.output_variables).issubset(
+            ic_vars
         )
-        logger.info(f"Inference device: {self.device}")
-        self.prognostic = prognostic.to(self.device)
-        self.prognostic_ic = prognostic.input_coords()
+        if not self.publish_initial_condition:
+            logger.warning(
+                "Output variables cannot all be derived from the initial condition; "
+                "outputs start at the first forecast step"
+            )
 
-        self.dx_model_dict = dx_model_dict
-        dx_ic_dict = {}
-        for k, dx_model in dx_model_dict.items():
-            dx_model.to(self.device)
-            dx_ic_dict[k] = dx_model.input_coords()
-        self.dx_ic_dict = dx_ic_dict
+        self.model = model
+        self._loaded = 0  # package of self.model
+        self._package = 0  # package of self.perturbation
+        self.perturbation = perturbation_factory(model, data)
+        self._initial: tuple[np.datetime64, xr.DataArray] | None = None
 
-    def fetch_ics(
-        self,
-        data: DataSource,
-        time: list[str] | list[datetime] | list[np.datetime64],
-    ) -> None:
-        """Fetch initial conditions
+    # -- Runner protocol ----------------------------------------------------
 
-        Parameters
-        ----------
-        data : DataSource
-            Data source from which to obtain ICs
-        time : list[str] | list[datetime] | list[np.datetime64]
-            IC times
+    def to(self, device: torch.device) -> "S2SRunner":
+        """Move all models to the worker's device."""
+        self.device = torch.device(device)
+        self.model.to(self.device)
+        for diagnostic in self.diagnostics.values():
+            diagnostic.to(self.device)
+        self._regridders = {k: r.to(self.device) for k, r in self._regridders.items()}
+        return self
+
+    def nsteps(self, final_lead_time: np.timedelta64) -> int:
+        """Number of model steps reaching ``final_lead_time``."""
+        if final_lead_time < np.timedelta64(0, "s") or final_lead_time % self.step:
+            raise ValueError(
+                f"Final lead time {final_lead_time} is not a nonnegative multiple "
+                f"of the model step {self.step}"
+            )
+        return int(final_lead_time // self.step)
+
+    def lead_times(self, final_lead_time: np.timedelta64) -> np.ndarray:
+        """Lead times every stream covers through ``final_lead_time``."""
+        leads = []
+        if self.publish_initial_condition:
+            leads.append(np.array([np.timedelta64(0, "h")]))
+        leads += [
+            self.output_leads + k * self.step
+            for k in range(self.nsteps(final_lead_time))
+        ]
+        return np.concatenate(leads).astype("timedelta64[ns]")
+
+    def output_coords(
+        self, final_lead_time: np.timedelta64
+    ) -> Mapping[str, CoordinateSystem]:
+        """One stream per output region; ``ensemble`` and ``time`` are dynamic."""
+        leads = self.lead_times(final_lead_time)
+        return {
+            name: coord_array(
+                ("time", "lead_time", "variable", "lat", "lon"),
+                {"lead_time": leads, "variable": np.array(self.output_variables)},
+                dynamic=("time",),
+                grid=LatLonGrid(region.lat, region.lon),
+            )
+            for name, region in self.regions.items()
+        }
+
+    def data_requests(self, item: WorkItem) -> None:
+        """Perturbations may fetch additional data internally."""
+        return None
+
+    def run_item(self, item: WorkItem) -> Iterator[Mapping[str, xr.DataArray]]:
+        """Publish the perturbed initial condition, if possible, then each step."""
+        member = item.member_ids[0]
+        package = member // self.nperturbed
+        if any(m // self.nperturbed != package for m in item.member_ids):
+            raise ValueError(f"Members {item.member_ids} span several checkpoints")
+        self._activate(package)
+
+        if isinstance(self.perturbation, HENSPerturbation) and len(item.member_ids) % 2:
+            raise ValueError(
+                "Bred-vector perturbations perturb members in +/- pairs; "
+                "use an even batch_size and nperturbed"
+            )
+
+        with torch.inference_mode():
+            x = self._fetch(item)
+            self._seed(self.batch_seed(item))
+            if self.perturbation is not None:
+                x = self.perturbation(x)
+
+            if self.publish_initial_condition:
+                yield self._publish(initial_condition(x))
+            nsteps = self.nsteps(item.final_lead_time)
+            if nsteps == 0:
+                return
+            iterator = self.model.create_iterator(x)
+            try:
+                for _ in range(nsteps):
+                    yield self._publish(next(iterator))
+            finally:
+                iterator.close()
+
+    # -- helpers ------------------------------------------------------------
+
+    def batch_seed(self, item: WorkItem) -> int:
+        """Torch seed of an item: sha256 of package, IC, base seed and batch ID."""
+        member = item.member_ids[0]
+        batch_id = get_batchid_from_ensid(self.nperturbed, self.batch_size, member)
+        seed_string = create_base_seed_string(
+            self.packages[member // self.nperturbed], item.time, self.base_random_seed
+        )
+        return calculate_torch_seed(f"{seed_string}_{batch_id}")
+
+    def _seed(self, seed: int) -> None:
+        """Reset the perturbation's and stochastic models' own random streams.
+
+        Bred-vector perturbations also drop any carried +/- pair on reset.
         """
-        self.time = to_time_array(time)
-        self.x0, self.coords0 = prep_data_array(
-            fetch_data(
-                source=data,
-                time=self.time,
-                variable=self.prognostic_ic["variable"],
-                lead_time=self.prognostic_ic["lead_time"],
+        if self.perturbation is not None:
+            set_rng = getattr(self.perturbation, "set_rng", None)
+            if not callable(set_rng):
+                raise TypeError(
+                    f"{type(self.perturbation).__name__} must implement set_rng "
+                    "for reproducible S2S batches"
+                )
+            set_rng(seed, reset=True)
+        for model in (self.model, *self.diagnostics.values()):
+            if getattr(model, "stochastic", False):
+                model.set_rng(seed, reset=True)
+
+    def _activate(self, package: int) -> None:
+        """Load the weights of ``package`` and rebuild the perturbation for them."""
+        if package == self._package:
+            return
+        if package != self._loaded:
+            logger.info(f"Loading checkpoint {self.packages[package]}")
+            self.model.to("cpu")
+            self.model = self.load_model(self.packages[package])
+            self.model.to(self.device)
+            self._loaded = package
+        self.perturbation = self.perturbation_factory(self.model, self.data)
+        self._package = package
+
+    def _fetch(self, item: WorkItem) -> xr.DataArray:
+        """Initial condition for ``item``, expanded over its members."""
+        # Cache only the latest IC: items are ordered by time within a package
+        if self._initial is None or self._initial[0] != item.time:
+            x = fetch_data(
+                source=self.data,
+                time=np.array([item.time]),
+                variable=self.inputs["variable"].values,
+                lead_time=self.inputs["lead_time"].values,
+                target_grid=infer_grid(self.inputs),
                 device="cpu",
-            ),
-        )
-        logger.success(f"Fetched data from {data.__class__.__name__}")
+            )
+            self._initial = (item.time, x)
+        # Copy so perturbations cannot change the cached IC
+        x = self._initial[1].expand_dims(ensemble=list(item.member_ids)).copy(deep=True)
+        backend = "cupy" if self.device.type == "cuda" else "numpy"
+        return x.e2s.to_backend(backend, device=self.device)
 
-        return
+    def _publish(self, field: xr.DataArray) -> Mapping[str, xr.DataArray]:
+        """Add diagnostics, keep the output variables and map onto each region."""
+        for diagnostic in self.diagnostics.values():
+            result = diagnostic(map_field(field, diagnostic.input_coords()))
+            if "lead_time" not in result.dims:  # restore a dropped lead time
+                position = (
+                    result.get_axis_num("time") + 1 if "time" in result.dims else 0
+                )
+                result = result.expand_dims(
+                    lead_time=np.atleast_1d(field.lead_time.values), axis=position
+                )
+            result = map_field(
+                result, {dim: field[dim].values for dim in ("lat", "lon")}
+            )
+            field = xr.concat([field, result], dim="variable", join="exact")
+        field = field.sel(variable=self.output_variables)
+        regions = {}
+        for name, region in self.regions.items():
+            regridder = self._regridders.get(name)
+            if regridder is None:
+                regions[name] = region.crop(field, self._region_attrs[name])
+            else:
+                regions[name] = regridder(field)
+                regions[name].attrs = dict(self._region_attrs[name])
+        return regions
 
-    def setup_data_output(self) -> None:
-        """Assemble output coords and initialise IO backend with coords."""
 
-        # assemble output coords from fetched IC coords and ensemble IDs
-        ensemble_members = np.arange(self.nperturbed) + self.ensemble_idx
-        batch_ids = [
-            get_batchid_from_ensid(self.nperturbed, self.batch_size, ensid)
-            for ensid in ensemble_members
-        ]
-        # determine which ensemble members we keep (based on batch_ids_produce)
-        ensemble_members_to_produce = ensemble_members[
-            np.isin(batch_ids, self.batch_ids_produce)
-        ]
-        total_coords = {"ensemble": ensemble_members_to_produce} | self.coords0.copy()
-        total_coords["ensemble"] = np.array(
-            np.arange(self.nperturbed * self.ncheckpoints)
-        )
+def build_work_items(
+    times: Sequence[np.datetime64],
+    final_lead_time: np.timedelta64,
+    npackages: int,
+    nperturbed: int,
+    batch_size: int,
+    batch_ids: Sequence[int] | None = None,
+) -> list[WorkItem]:
+    """Work items for every checkpoint, initial condition and member batch.
 
-        # add lead time dimension
-        total_coords["lead_time"] = np.asarray(
-            [
-                self.prognostic.output_coords(self.prognostic.input_coords())[
-                    "lead_time"
-                ]
-                * ii
-                for ii in range(self.nsteps + 1)
-            ]
-        ).flatten()
+    Items are ordered package-major, so the contiguous slices ``Pipeline`` hands
+    to each rank need few checkpoint swaps. Global batch ``b`` of package ``p``
+    is ``p * ceil(nperturbed / batch_size) + b``; ``batch_ids`` keeps only those
+    batches (the ``batch_ids_reproduce`` config option).
 
-        for k, oc in self.output_coords_dict.items():
+    Parameters
+    ----------
+    times : Sequence[np.datetime64]
+        Initial condition times.
+    final_lead_time : np.timedelta64
+        Final lead time of every item.
+    npackages : int
+        Number of checkpoints.
+    nperturbed : int
+        Perturbed members per checkpoint.
+    batch_size : int
+        Members per item.
+    batch_ids : Sequence[int], optional
+        Global batch IDs to run, by default all.
 
-            # augment and overwrite total coords with dimensions of output coords
-            for key, value in total_coords.items():
-                total_coords[key] = oc.get(key, value)
-
-            if self.io_dict[k] is not None:
-                # The template's variable labels name the arrays to create, its
-                # other dimensions size them
-                self.io_dict[k].add_array(
-                    coord_array(
-                        tuple(total_coords),
-                        {
-                            dim: np.asarray(values)
-                            for dim, values in total_coords.items()
-                        },
+    Returns
+    -------
+    list[WorkItem]
+        The work items.
+    """
+    batch_size = min(batch_size, nperturbed)
+    nbatches = ceil(nperturbed / batch_size)
+    keep = None if batch_ids is None else set(batch_ids)
+    items = []
+    for package in range(npackages):
+        for time in times:
+            for batch in range(nbatches):
+                if keep is not None and package * nbatches + batch not in keep:
+                    continue
+                start = package * nperturbed + batch * batch_size
+                stop = min(start + batch_size, (package + 1) * nperturbed)
+                items.append(
+                    WorkItem(
+                        np.datetime64(time, "ns"),
+                        final_lead_time,
+                        tuple(range(start, stop)),
                     )
                 )
-
-        return
-
-    def set_batch_size(self, batch_size: int | None = None) -> None:
-        """Calculate batch size and number of mini batches to inference.
-
-        Parameters
-        ----------
-        batch_size : int
-            targeted batch size
-        """
-        if batch_size is None:
-            batch_size = self.nperturbed
-        self.batch_size = min(self.nperturbed, batch_size)
-        self.number_of_batches = ceil(self.nperturbed / self.batch_size)
-
-    def prep_loop(self, batch_id: int) -> tuple[Iterator[tuple], int, str, int]:
-        """Preparing mini batch for inference by setting ensemble IDs, perturbing
-        ICs and creating the inference iterator of the prognostic model.
-
-        Parameters
-        ----------
-        batch_id : int
-            mini batch index
-
-        Returns
-        -------
-        tuple[Iterator[tuple], int, str, int]
-            Tuple containing iterator of prognostic model, mini batch size, seed string
-            and PyTorch seed.
-        """
-
-        # Get fresh batch data
-        xx = self.x0.to(self.device)
-
-        # calculate mini batch size and define coords for ensemble
-        num_batches_per_ic = int(np.ceil(self.nperturbed / self.batch_size))
-        mini_batch_sizes = [
-            min((self.nperturbed - ii * self.batch_size), self.batch_size)
-            for ii in range(num_batches_per_ic)
-        ]
-        batch_id_ic = batch_id % num_batches_per_ic
-        mini_batch_size = mini_batch_sizes[batch_id_ic]
-
-        coords = {
-            "ensemble": np.array(
-                [
-                    sum(mini_batch_sizes[0 : batch_id % num_batches_per_ic]) + t
-                    for t in range(0, mini_batch_size)
-                ]
-            )
-            + self.ensemble_idx
-        } | self.coords0.copy()
-
-        # Unsqueeze xx for batching ensemble
-        xx = xx.unsqueeze(0).repeat(mini_batch_size, *([1] * xx.ndim))
-
-        # Map lat and lon if needed
-        xx, coords = map_coords(xx, coords, self.prognostic_ic)
-
-        # set torch random seed for reproducibility
-        # every batch gets different random seed by concatenating base string with batch id and using hash algortihm
-        full_seed_string = self.base_seed_string + "_" + str(batch_id)
-        torch_seed = calculate_torch_seed(full_seed_string)
-        torch.manual_seed(torch_seed)
-
-        # Perturb ensemble
-        # Use rank ordered execution to prevent race condition when using HENS perturbation
-        xx, coords = run_with_rank_ordered_execution(
-            self.perturbation, from_torch(xx, coords)
-        ).e2s.to_torch()
-
-        # Create prognostic iterator
-        # This pipeline still uses the legacy tensor/coordinate model API.
-        model = cast(Callable, self.prognostic.create_iterator)(xx, coords)
-
-        return model, mini_batch_size, full_seed_string, torch_seed
-
-    def write(self, xx_sub: torch.Tensor, coords_sub: CoordSystem) -> None:
-        """Write data to IO backend. Supports async writing.
-
-        Parameters
-        ----------
-        xx_sub : torch.Tensor
-            data to write
-        coords_sub : CoordSystem
-            coordinates of data
-
-        Returns
-        -------
-        None
-        """
-
-        field = from_torch(xx_sub, coords_sub)
-        for k in self.io_dict.keys():
-            if self.writer_executor is not None:
-                future = self.writer_executor.submit(self.io_dict[k].write, field)
-                self.writer_threads.append(future)
-            else:
-                self.io_dict[k].write(field)
-
-    @torch.inference_mode()
-    def __call__(self) -> dict[str, ZarrBackend]:
-        """Run ensemble inference pipeline with diagnostic model on top
-        saving specified variables.
-
-        Returns
-        -------
-        dict[str, ZarrBackend]
-            Dictionary of io objects containing data of ensemble inference
-        """
-        logger.info(
-            f"Starting {self.nperturbed} member ensemble inference with"
-            + f" {len(self.batch_ids_produce)} batches."
-        )
-
-        for batch_id in tqdm(
-            self.batch_ids_produce,
-            total=len(self.batch_ids_produce),
-            desc="Total Ensemble Batches",
-        ):
-
-            model, nsamples, full_seed_string, torch_seed = self.prep_loop(batch_id)
-
-            with tqdm(
-                total=self.nsteps + 1,
-                desc=f"Inferencing batch {batch_id} ({nsamples} samples)",
-                leave=False,
-            ) as pbar:
-                for step, (xx, coords) in enumerate(model):
-
-                    for dx_name, dx_model in self.dx_model_dict.items():
-                        # select input vars, remove lead time dim and apply diagnostic model
-                        yy, codia = map_coords(xx, coords, self.dx_ic_dict[dx_name])
-                        yy, codib = cast(Callable, dx_model)(yy, codia)
-
-                        # concatenate diagnostic variable to forecast vars
-                        xx, coords = cat_coords((xx, yy), (coords, codib), "variable")
-
-                    # pass output variables to io backend
-                    for k in self.io_dict.keys():
-                        output_coords = self.output_coords_dict[k]
-                        xx_sub, coords_sub = map_coords(xx, coords, output_coords)
-                        self.write(xx_sub, coords_sub)
-
-                    pbar.update(1)
-                    if step == self.nsteps:
-                        break
-
-        # Wait for all write operations to complete
-        if self.writer_executor is not None:
-            for thread in list(self.writer_threads):
-                thread.result()
-                self.writer_threads.remove(thread)
-            self.writer_executor.shutdown()
-
-        logger.success("Inference complete")
-        return self.io_dict
+    return items

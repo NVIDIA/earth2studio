@@ -20,69 +20,27 @@ import os
 import secrets
 import shutil
 import sys
-from collections import OrderedDict
-from collections.abc import Callable
-from concurrent.futures import Future, ThreadPoolExecutor
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from functools import partial
 from typing import Any
 
 import hydra
 import numpy as np
 import torch
+import xarray as xr
 from loguru import logger
 from omegaconf import DictConfig, open_dict
 from physicsnemo.distributed import DistributedManager
 
-from earth2studio.data import DataSource
-from earth2studio.io import ZarrBackend
+from earth2studio.grids import LatLonGrid
+from earth2studio.io import AsyncZarrBackend
 from earth2studio.models.auto import Package
 from earth2studio.models.px import PrognosticModel
-from earth2studio.perturbation import Perturbation
-from earth2studio.utils.coords import handshake_coords
+from earth2studio.utils.coords import coord_array
 from earth2studio.utils.time import to_time_array
 
-
-def initialize_perturbation(
-    model: PrognosticModel,
-    data_source: DataSource,
-    start_time: np.ndarray[np.datetime64],
-    cfg: DictConfig,
-) -> Perturbation:
-    """Initialize perturbation method. Some methods need to be initialized with model,
-    data, start_time, etc. which can not always be defined in the config requireing
-    partial instantiation.
-
-    Parameters
-    ----------
-    model : PrognosticModel
-        forecast model.
-    data : DataSource
-        Data source from which to obtain ICs
-    start_time : np.ndarray[np.datetime64]
-        IC times
-    cfg : DictConfig
-        Hydra config object
-
-    Returns
-    -------
-    Perturbation
-        Perturbation method.
-    """
-    perturbation = hydra.utils.instantiate(cfg.perturbation)
-
-    if isinstance(perturbation, partial):  # inform about model, IC etc
-        if perturbation.func.__name__ == "HENSPerturbation":
-            perturbation = perturbation(
-                model=model, start_time=start_time, data_source=data_source
-            )
-        elif perturbation.func.__name__ == "BredVector":
-            perturbation = perturbation(model=model)
-        else:
-            raise ValueError(
-                f"perturbation method {perturbation.func.__name__} not implemented for partial instantiation"
-            )
-
-    return perturbation
+# -- models -------------------------------------------------------------------
 
 
 def build_package_list(cfg: DictConfig) -> list[str]:
@@ -124,425 +82,44 @@ def build_package_list(cfg: DictConfig) -> list[str]:
                 )
             return (sorted(packages))[:max_num_ckpts]
 
-    elif "DLESyM" in cfg.forecast_model.architecture:
-        # DLESyM models are not stored in a registry, and the default package contains all atmos/ocean checkpoints
-        # Loading specific checkpoint pairs is controlled by passing the model indices to `DLESyMLatLon.load_model`
-        natmos, nocean = cfg.forecast_model.natmos, cfg.forecast_model.nocean
-        pkg_list = [
-            f"dlesym_atmos{i:02d}_ocean{j:02d}"
-            for i in range(natmos)
-            for j in range(nocean)
-        ]
-
-        if "max_num_checkpoint_pairs" in cfg.forecast_model:
-            max_num_ckpts = cfg.forecast_model.max_num_checkpoint_pairs
-        else:
-            max_num_ckpts = len(pkg_list)
-
-        return pkg_list[:max_num_ckpts]
     else:
         return ["default"]
 
 
-def build_model_dict(cfg: DictConfig) -> dict:
-    """Build a dictionary of loaded model, model class and package name.
+def model_loader(cfg: DictConfig, packages: Sequence[str]) -> Callable[[str], Any]:
+    """Build a function loading the forecast model of one package.
+
+    The default package, if any package uses it, is downloaded here, rank 0
+    first, so later loads during the run need no collective.
 
     Parameters
     ----------
     cfg : DictConfig
         Hydra config object
+    packages : Sequence[str]
+        Package names from :func:`build_package_list`.
 
     Returns
     -------
-    dict
-        Dictionary containing model, model class and model package.
+    Callable[[str], PrognosticModel]
+        Loads the model of a package name.
     """
-    return {
-        "model": None,
-        "class": hydra.utils.get_class(cfg.forecast_model.architecture),
-        "package": None,
-    }
-
-
-def get_model(cfg: DictConfig) -> tuple[dict, list[str]]:
-    """Get a model dictionary and a list of available model packages.
-
-    Parameters
-    ----------
-    cfg : DictConfig
-        Hydra config object
-
-    Returns
-    -------
-    tuple[dict, list[str]]
-        Dictionary containing model, model class and model package.
-    """
-    return build_model_dict(cfg), build_package_list(cfg)
-
-
-def set_initial_times(cfg: DictConfig) -> list[np.datetime64]:
-    """Build list of IC times.
-
-    Parameters
-    ----------
-    cfg : DictConfig
-        Hydra config object
-
-    Returns
-    -------
-    list[np.datetime64]
-        Dictionary containing model, model class and model package.
-    """
-    # list of ICs
-    if "start_times" in cfg:
-        if "ic_block_start" in cfg:
-            raise ValueError(
-                "either provide a list of start times or define a block, not both"
-            )
-        ics = to_time_array(sorted(cfg.start_times))
-
-    # block of ICs
-    else:
-        ics = to_time_array([cfg.ic_block_start, cfg.ic_block_end])
-        ics = np.arange(
-            ics[0],
-            ics[1] + np.timedelta64(cfg.ic_block_step, "h"),
-            np.timedelta64(cfg.ic_block_step, "h"),
-        )
-
-    return ics
-
-
-def initialize_output(
-    cfg: DictConfig,
-    times: list[np.datetime64],
-    model_dict: dict,
-    output_coords_dict: dict,
-    add_arrays: bool = False,
-) -> dict[str, ZarrBackend]:
-    """Initialize data output.
-
-    This function sets up the data output based on the provided configuration. It creates an IO handler for storing the
-    forecast data either in memory or on disk. If file output is enabled in the configuration, it constructs the file path
-    and name, creates the necessary directories, and initializes the IO backend according to the specified format.
-
-    Parameters
-    ----------
-    cfg : DictConfig
-        Hydra config object containing settings for the file output.
-    times : list[np.datetime64]
-        Initial Condition (IC) times for which the output is being generated.
-    model_dict : dict
-        Dictionary containing the prognostic model, its class, and the name of its package.
-    output_coords_dict : dict
-        Dictionary containing the output coordinates for different cropbox areas.
-    add_arrays : bool
-        Whether to add arrays to the IO backend. If False, the function will check if the variables are already in the IO backend.
-        Used when initializing the same output file IO in a distributed setting.
-
-    Returns
-    -------
-    dict[str, ZarrBackend]
-        A dictionary where the keys are the names of different cropbox areas (e.g., 'Global', 'North', 'South'),
-        and the values are the corresponding ZarrBackend objects for storing the data.
-
-    Notes
-    -----
-    - If the configuration does not include file output settings (`file_output`), the function returns an empty dictionary.
-    - The function constructs a file name based on the project name and run id.
-    - This currently only supports ZarrBackend and .zarr file format.
-    - The function ensures that the output directory exists before attempting to write data.
-    """
-    if "file_output" not in cfg:
-        return {}
-
-    io_dict = build_io_dict(
-        cfg, list(output_coords_dict.keys()), create_store=add_arrays
+    model_class = hydra.utils.get_class(cfg.forecast_model.architecture)
+    default = None
+    if "default" in packages:
+        default = run_with_rank_ordered_execution(model_class.load_default_package)
+    # Optional load_model arguments, e.g. the DLESyM checkpoint version
+    kwargs = (
+        {"version": cfg.forecast_model.version}
+        if "version" in cfg.forecast_model
+        else {}
     )
 
-    # Populate with expected coords, dims
-    ens_members = np.array(np.arange(cfg.nperturbed * cfg.ncheckpoints))
-    total_coords = (
-        OrderedDict({"ensemble": ens_members}) | model_dict["model"].input_coords()
-    )
-    total_coords.pop("batch")  # batch dimension not needed for output zarr
-    total_coords["time"] = times
+    def load(pkg: str) -> PrognosticModel:
+        package = default if pkg == "default" else Package(pkg)
+        return model_class.load_model(package=package, **kwargs)
 
-    input_coords = model_dict["model"].input_coords()
-    output_coords = model_dict["model"].output_coords(total_coords)
-    inp_lead_time = input_coords["lead_time"]
-    out_lead_times = [
-        output_coords["lead_time"] + output_coords["lead_time"][-1] * i
-        for i in range(cfg.nsteps)
-    ]
-    total_coords["lead_time"] = np.concatenate([inp_lead_time, *out_lead_times]).astype(
-        "timedelta64[ns]"
-    )
-
-    for i, (k, oc) in enumerate(output_coords_dict.items()):
-
-        # augment and overwrite total coords with dimensions of output coords
-        for key, value in total_coords.items():
-            total_coords[key] = oc.get(key, value)
-
-        if i == 0:
-            # initialize place for variables in io backend
-            variables_to_save = total_coords.pop("variable")
-
-        if io_dict[k] is not None:
-            if add_arrays:
-                # Add the array to the IO backend, overwriting any existing arrays
-                # TODO: migrate s2s IO to the DataArray IOBackend protocol
-                io_dict[k].add_array(total_coords, variables_to_save)  # type: ignore[call-arg]
-            else:
-                # Output file exists, check for required variables
-                for v in variables_to_save:
-                    if v not in io_dict[k]:
-                        raise ValueError(
-                            f"Variable {v} not found in initialized {k} IO backend"
-                        )
-
-                # Verify expected coords
-                for c in total_coords.keys():
-                    handshake_coords(io_dict[k].coords, total_coords, required_dim=c)
-
-    return io_dict
-
-
-def build_io_dict(
-    cfg: DictConfig,
-    coords: list[str],
-    create_store: bool = False,
-    file_name: str = "forecast",
-) -> dict[str, ZarrBackend]:
-    """Build a dictionary of ZarrBackends for each cropbox area.
-
-    Parameters
-    ----------
-    cfg : DictConfig
-        Hydra config object
-    coords : list[str]
-        List of cropbox areas to build IO backends for.
-    create_store : bool
-        Whether to create a new store for the IO backend (overwriting existing store depending on cfg.file_output.overwrite_store).
-    file_name : str
-        Name of the file to store the data in.
-
-    Returns
-    -------
-    dict[str, ZarrBackend]
-        A dictionary where the keys are the names of different cropbox areas (e.g., 'Global', 'North', 'South'),
-        and the values are the corresponding ZarrBackend objects for storing the data.
-    """
-
-    if "path" not in cfg.file_output:
-        with open_dict(cfg):
-            cfg["file_output"]["path"] = "outputs/"
-
-    io_dict = {}
-    for k in coords:
-        out_path_base = os.path.join(cfg.file_output.path, k)
-        out_path = os.path.join(out_path_base, file_name)
-        os.makedirs(out_path_base, exist_ok=True)
-
-        io = hydra.utils.instantiate(cfg.file_output.format)
-        if isinstance(io, partial):  # add out file names
-            file_name = out_path + ".zarr"
-            if (
-                os.path.exists(file_name)
-                and not cfg.file_output.overwrite_store
-                and create_store
-            ):
-                raise ValueError(
-                    f"File {file_name} already exists. Set overwrite_store to True to overwrite."
-                )
-            elif (
-                os.path.exists(file_name)
-                and cfg.file_output.overwrite_store
-                and create_store
-            ):
-                logging.warning(
-                    f"Overwriting existing file {file_name} with new arrays."
-                )
-                shutil.rmtree(file_name)
-
-            io = io(file_name=file_name)
-        io_dict[k] = io
-
-    return io_dict
-
-
-def pair_packages_ics(
-    ics: list,
-    model_packages: list,
-    ensemble_size: int,
-    batch_ids_produce: list[int],
-    batch_size: int,
-) -> list:
-    """Pair initial conditions with model packages. In parallel setting, distribute
-    among ranks.
-
-    Parameters
-    ----------
-    ics : list
-        Hydra config object
-    model_packages : list
-        List of available model packages.
-    ensemble_size : int
-        number of members in ensemble.
-    batch_ids_produce: list[int]
-        List of batch_ids that will be processed
-    batch_size : int
-        Size of each batch.
-
-    Returns
-    -------
-    list
-        List of configurations containing IC - model package pairs along with ensemble size offsets and batch IDs.
-    """
-    configs = []
-    num_batch_per_ic = int(np.ceil(ensemble_size / batch_size))
-    batch_ids_complete = list(range(0, num_batch_per_ic * len(model_packages)))
-
-    for ii, pkg in enumerate(model_packages):
-        for ic in ics:
-            # Determine the batch IDs for the current package and initial condition
-            batch_ids_model = batch_ids_complete[
-                ii * num_batch_per_ic : (ii + 1) * num_batch_per_ic
-            ]
-            # Find the intersection with batch_ids_produce to filter relevant batches
-            batch_ids_produce_model = list(
-                set(batch_ids_model).intersection(set(batch_ids_produce))
-            )
-
-            # If there are batch IDs to process, add the configuration to the list
-            if batch_ids_produce_model:
-                configs.append((pkg, ic, ii * ensemble_size, batch_ids_produce_model))
-
-    dist = DistributedManager()
-    if dist.world_size > 1:
-
-        # Currently needed to prevent deadlock in distributed setting with uneven batch amounts per GPU
-        if len(configs) % dist.world_size != 0:
-            raise ValueError(
-                f"Number of runs to make {len(configs)} is not divisible by number of ranks {dist.world_size}. Exiting."
-            )
-
-        nconfigs_proc = len(configs) // dist.world_size
-
-        idx = dist.rank * nconfigs_proc
-        configs = configs[idx : min(idx + nconfigs_proc, len(configs))]
-
-        if not len(configs) > 0:
-            logger.warning(f"nothing to do for rank {dist.rank}. exiting.")
-            exit()
-
-    # logger.info(
-    #     f"rank {dist.rank}: predicting from following models/initial times: {configs}"
-    # )
-
-    return configs
-
-
-def initialize(
-    cfg: DictConfig,
-) -> tuple[
-    list[Any],
-    dict[Any, Any],
-    dict[Any, Any],
-    DataSource,
-    dict[str, OrderedDict[Any, Any]],
-    str | int,
-]:
-    """Set initial conditions, load models, and set up file output based on the provided
-    configuration.
-
-    Parameters
-    ----------
-    cfg : DictConfig
-        Hydra configuration object containing the settings for initial conditions,
-        models, file output, and other relevant parameters.
-
-    Returns
-    -------
-    tuple[list, dict, DataSource, dict, dict, dict, int]
-        A tuple containing the following elements:
-        - ensemble_configs: list of tuples containing model package configurations.
-        - model_dict: dictionary containing the model, model class, and package name.
-        - dx_model_dict: dictionary containing diagnostic models.
-        - data: DataSource object for obtaining initial conditions.
-        - output_coords_dict: dictionary of output coordinates for different cropbox areas.
-        - base_random_seed: base random seed for reproducibility.
-
-    Raises
-    ------
-    ValueError
-        If a project name is not specified in the config.
-        If file_output is not specified in the config.
-
-    Notes
-    -----
-    - The function initializes initial conditions based on either a list of start times or a block of ICs.
-    - It loads available model packages and sets up a default model for coordinate initialization.
-    - It handles cropbox configurations for output coordinates if specified.
-    - It retrieves reproducibility settings from the configuration.
-    - It pairs initial conditions with model packages for distributed processing.
-    - It initializes diagnostic models if specified in the configuration.
-    """
-    if "project" not in cfg:
-        raise ValueError("specify a project name in the config: project: project_name")
-
-    if "file_output" not in cfg:
-        raise ValueError(
-            "specify a file_output too store the results in the config: file_output"
-        )
-
-    ics = set_initial_times(cfg)
-
-    model_dict, model_packages = get_model(cfg)
-    default_model = update_model_dict(model_dict, model_packages[0])["model"]
-    lon_coords = default_model.output_coords(default_model.input_coords())["lon"]
-    lat_coords = default_model.output_coords(default_model.input_coords())["lat"]
-
-    coords_dict = initialize_cropbox(
-        cfg=cfg, lon_coords=lon_coords, lat_coords=lat_coords
-    )
-
-    # initialize output coordinates
-    output_coords_dict = {}
-    for name, value in coords_dict.items():
-        lat_coords, lon_coords = value
-        output_coords = initialize_output_coords(cfg, lon_coords, lat_coords)
-        output_coords_dict[name] = OrderedDict(output_coords)
-
-    # get random seeds
-    (
-        base_random_seed,
-        batch_ids_produce,
-    ) = get_batch_seeds(cfg)
-
-    # get ensemble configs
-    ensemble_configs = pair_packages_ics(
-        ics, model_packages, cfg.nperturbed, batch_ids_produce, cfg.batch_size
-    )
-
-    # get data source
-    data_source = hydra.utils.instantiate(cfg.data_source)
-
-    # initialize diagnostic models
-    dx_model_dict = initialize_diagnostic_models(cfg)
-
-    # make sure that all the seeds are unique
-    ensure_all_torch_seeds_are_unique(ensemble_configs, str(base_random_seed))
-
-    return (
-        ensemble_configs,
-        model_dict,
-        dx_model_dict,
-        data_source,
-        output_coords_dict,
-        base_random_seed,
-    )
+    return load
 
 
 def initialize_diagnostic_models(cfg: DictConfig) -> dict:
@@ -576,86 +153,142 @@ def initialize_diagnostic_models(cfg: DictConfig) -> dict:
     return dx_model_dict
 
 
-def initialize_output_coords(
-    cfg: DictConfig,
-    lon_coords: np.ndarray[np.float32],
-    lat_coords: np.ndarray[np.float32],
-) -> dict:
-    """Initialize output coordinates
+# -- initial conditions and outputs ------------------------------------------------
+
+
+def set_initial_times(cfg: DictConfig) -> np.ndarray:
+    """Build list of IC times.
 
     Parameters
     ----------
     cfg : DictConfig
         Hydra config object
-    lon_coords: np.ndarray[np.float32]
-        a 1d array containing the longitude values of the grid. ordered ascending
-    lat_coords: np.ndarray[np.float32]
-        a 1d array containing the latitude values of the grid. ordered descending
 
     Returns
     -------
-    output_coords: dict
-        output coordinates
+    np.ndarray
+        Initial condition times.
     """
-    output_vars = np.array(
-        list(dict.fromkeys(cfg.file_output.output_vars))
-    )  # this loads the variables from the config and discards duplicates
-    output_coords = (
-        {"variable": np.array(output_vars)}
-        if "file_output" in cfg and "output_vars" in cfg.file_output
-        else {}
-    )
-    output_coords["lon"] = lon_coords
-    output_coords["lat"] = lat_coords
-    return output_coords
+    # list of ICs
+    if "start_times" in cfg:
+        if "ic_block_start" in cfg:
+            raise ValueError(
+                "either provide a list of start times or define a block, not both"
+            )
+        ics = to_time_array(sorted(cfg.start_times))
+
+    # block of ICs
+    else:
+        ics = to_time_array([cfg.ic_block_start, cfg.ic_block_end])
+        ics = np.arange(
+            ics[0],
+            ics[1] + np.timedelta64(cfg.ic_block_step, "h"),
+            np.timedelta64(cfg.ic_block_step, "h"),
+        )
+
+    return ics
 
 
-def initialize_cropbox(
-    cfg: DictConfig,
-    lon_coords: np.ndarray[np.float32],
-    lat_coords: np.ndarray[np.float32],
-) -> dict[str, tuple[np.ndarray[np.float32], np.ndarray[np.float32]]]:
-    """If cropbox is defined in config this function will assert that ranges are plausible.
-    Then it returns reduced versions of the longitude and latitude coordinate arrays that align with the area of interest
-    Otherwise lon_coords and lat_coords will not be changed
+def output_variables(cfg: DictConfig) -> list[str]:
+    """Variables to save, in config order without duplicates."""
+    return list(dict.fromkeys(cfg.file_output.output_vars))
+
+
+@dataclass(frozen=True)
+class OutputRegion:
+    """Lat/lon subset of the model grid saved to one output store.
+
+    ``lat_index``/``lon_index`` select the region from the model grid, and
+    ``lat``/``lon`` are the labels it is stored under (longitudes may be shifted
+    to the cropbox's convention).
+    """
+
+    lat_index: slice | np.ndarray
+    lon_index: slice | np.ndarray
+    lat: np.ndarray
+    lon: np.ndarray
+
+    def grid_attrs(self) -> dict[Any, Any]:
+        """Grid metadata attributes for fields on this region."""
+        grid = LatLonGrid(self.lat, self.lon)
+        return dict(coord_array(("lat", "lon"), grid=grid).attrs)
+
+    def crop(self, x: xr.DataArray, attrs: Mapping[Any, Any]) -> xr.DataArray:
+        """Select this region from a field on the model grid."""
+        y = x.isel(lat=self.lat_index, lon=self.lon_index).assign_coords(
+            lat=self.lat, lon=self.lon
+        )
+        y.attrs = dict(attrs)
+        return y
+
+
+def _as_index(index: np.ndarray) -> slice | np.ndarray:
+    """Use a (strided) slice for evenly spaced indices, so selections are views."""
+    index = np.asarray(index, dtype=np.int64)
+    if index.size == 0:
+        raise ValueError("Output region selects no grid points")
+    if index.size == 1:
+        return slice(int(index[0]), int(index[0]) + 1)
+    steps = np.diff(index)
+    if steps[0] > 0 and (steps == steps[0]).all():
+        return slice(int(index[0]), int(index[-1]) + 1, int(steps[0]))
+    return index
+
+
+def _nearest_index(source: np.ndarray, target: np.ndarray, name: str) -> np.ndarray:
+    """Positions of ``target`` labels on ``source``, which must contain them."""
+    index = np.abs(source[:, None] - target[None, :]).argmin(axis=0)
+    if not np.allclose(source[index], target, atol=1e-6):
+        raise ValueError(f"Output {name} grid is not a subset of the model grid")
+    return index
+
+
+def build_output_regions(
+    cfg: DictConfig, lat_coords: np.ndarray, lon_coords: np.ndarray
+) -> dict[str, OutputRegion]:
+    """Build the output regions of the config on the model's lat/lon grid.
+
+    With ``file_output.cropboxes`` each cropbox is a region; otherwise a single
+    ``global`` region at ``file_output.resolution``.
 
     Parameters
     ----------
     cfg : DictConfig
         Hydra config object
-    lon_coords: np.ndarray[np.float32]
-        a 1d array containing the longitude values of the grid. ordered ascending
-    lat_coords: np.ndarray[np.float32]
-        a 1d array containing the latitude values of the grid. ordered descending
+    lat_coords : np.ndarray
+        Model latitudes, descending.
+    lon_coords : np.ndarray
+        Model longitudes, ascending.
 
     Returns
     -------
-    dict[str, tuple[np.ndarray[np.float32], np.ndarray[np.float32]]]:
-        Dictionary crop region lon and lat coords values of the requested sub grid, lon
-        ordered ascending, lat ordered descending
+    dict[str, OutputRegion]
+        Output region per name.
     """
-    coords_dict = {}
-    if "file_output" in cfg and "cropboxes" in cfg["file_output"]:
-        cbs = cfg["file_output"]["cropboxes"]
-        for k, cb in cbs.items():
+    regions = {}
+    if "cropboxes" in cfg.file_output:
+        for name, cb in cfg.file_output.cropboxes.items():
+            check_extent(cb)
             lon_range_model, lon_range_out = determine_lon_ranges(cb, lon_coords)
-            lat_coords_sub, lon_coords_sub = crop_area(
+            regions[name] = crop_area(
                 cb, lon_coords, lat_coords, lon_range_model, lon_range_out
             )
-            coords_dict[k] = (lat_coords_sub, lon_coords_sub)
+    elif cfg.file_output.resolution == "latlon721x1440":
+        regions["global"] = OutputRegion(
+            slice(None), slice(None), np.asarray(lat_coords), np.asarray(lon_coords)
+        )
+    elif cfg.file_output.resolution == "latlon121x240":
+        lats = np.linspace(90, -90, 121, endpoint=True)
+        lons = np.linspace(0, 360, 240, endpoint=False)
+        regions["global"] = OutputRegion(
+            _as_index(_nearest_index(lat_coords, lats, "lat")),
+            _as_index(_nearest_index(lon_coords, lons, "lon")),
+            lats,
+            lons,
+        )
     else:
-        if cfg["file_output"]["resolution"] == "latlon121x240":
-            coarse_lats = np.linspace(90, -90, 121, endpoint=True)
-            coarse_lons = np.linspace(0, 360, 240, endpoint=False)
-            coords_dict["global"] = (coarse_lats, coarse_lons)
-        elif cfg["file_output"]["resolution"] == "latlon721x1440":
-            coords_dict["global"] = (lat_coords, lon_coords)
-        else:
-            raise ValueError(
-                f"Resolution {cfg['file_output']['resolution']} not supported"
-            )
-
-    return coords_dict
+        raise ValueError(f"Resolution {cfg.file_output.resolution} not supported")
+    return regions
 
 
 def check_extent(cfg_cropbox: DictConfig) -> None:
@@ -671,13 +304,6 @@ def check_extent(cfg_cropbox: DictConfig) -> None:
     ------
     ValueError
         If any of the cropbox settings are out of the valid range.
-
-    Notes
-    -----
-    - The function checks that `lat_min` is greater than or equal to -90 and `lat_max` is less than or equal to 90.
-    - It also ensures that `lat_min` is less than `lat_max`.
-    - For `lon_min` and `lon_max`, the function checks that `lon_min` is less than `lon_max`.
-    - Additionally, it verifies that `lon_min` and `lon_max` are within the valid range of -180 to 180 or 0 to 360, depending on whether `lon_min` is negative or positive.
     """
     if not (cfg_cropbox.lat_min >= -90):
         raise ValueError("lat_min needs to be >=-90")
@@ -704,7 +330,7 @@ def check_extent(cfg_cropbox: DictConfig) -> None:
 
 
 def determine_lon_ranges(
-    cfg_cropbox: DictConfig, lon_coords: np.ndarray[np.float32]
+    cfg_cropbox: DictConfig, lon_coords: np.ndarray
 ) -> tuple[int, int]:
     """Determine the longitude ranges of the model and output based on the provided
     cropbox configuration and longitude coordinates.
@@ -713,7 +339,7 @@ def determine_lon_ranges(
     ----------
     cfg_cropbox : DictConfig
         Configuration object containing the cropbox settings, including `lon_min` and `lon_max`.
-    lon_coords : np.ndarray[np.float32]
+    lon_coords : np.ndarray
         A 1D array containing the longitude values of the grid, ordered ascending.
 
     Returns
@@ -722,15 +348,7 @@ def determine_lon_ranges(
         The range of the input longitude coordinates (either 180 or 360).
     lon_range_out : int
         The range of the desired output longitude coordinates (either 180 or 360).
-
-    Notes
-    -----
-    - The function determines whether the longitude coordinates of the model and the desired output range span from 0 to 180
-      or from -180 to 180 and converts accordingly.
-    - This is important for ensuring consistency in longitude ranges particularly when transitioning between different coordinate
-      systems or models.
     """
-    # determine longitude ranges of input and output
     lon_range_model = (
         360 if ((lon_coords.max() > 180) and (lon_coords.min() >= 0)) else 180
     )
@@ -742,188 +360,142 @@ def determine_lon_ranges(
 
 def crop_area(
     cfg_cropbox: DictConfig,
-    lon_coords: np.ndarray[np.float32],
-    lat_coords: np.ndarray[np.float32],
+    lon_coords: np.ndarray,
+    lat_coords: np.ndarray,
     lon_range_model: int,
     lon_range_out: int,
-) -> tuple[np.ndarray[np.float32], np.ndarray[np.float32]]:
-    """Crop the area based on the specified configuration and coordinate ranges.
+) -> OutputRegion:
+    """Select a cropbox from the model grid.
 
-    This function adjusts the longitude coordinates if necessary to align with the
-    desired output range and then filters the latitude and longitude coordinates
-    to match the cropbox defined in the configuration.
+    Longitudes are relabeled to the cropbox's convention (0-360 or -180-180)
+    and stored ascending, latitudes keep the model's order.
 
     Parameters
     ----------
     cfg_cropbox : DictConfig
         Configuration object containing the cropbox settings, including `lat_min`,
         `lat_max`, `lon_min`, and `lon_max`.
-
-    lon_coords : np.ndarray[np.float32]
+    lon_coords : np.ndarray
         A 1D array containing the longitude values of the grid, ordered ascending.
-
-    lat_coords : np.ndarray[np.float32]
+    lat_coords : np.ndarray
         A 1D array containing the latitude values of the grid, ordered descending.
-
     lon_range_model : int
         The range of the input longitude coordinates (either 180 or 360).
-
     lon_range_out : int
         The range of the desired output longitude coordinates (either 180 or 360).
 
     Returns
     -------
-    lat_coords_sub : np.ndarray[np.float32]
-        A 1D array containing the latitude values of the subgrid, ordered descending.
-
-    lon_coords_sub : np.ndarray[np.float32]
-        A 1D array containing the longitude values of the subgrid, ordered ascending.
-
-    Raises
-    ------
-    ValueError
-        If the longitude range conversion is not supported.
-
-    Notes
-    -----
-    - The function handles the conversion between 180-degree and 360-degree longitude ranges.
-    - The function filters the latitude and longitude coordinates to fit within the specified cropbox.
+    OutputRegion
+        The cropbox region.
     """
-    if lon_range_model != lon_range_out:
-        # determine where to split for conversion
-        if lon_range_model == 180 and lon_range_out == 360:
-            split_longitude = 0
-        elif lon_range_model == 360 and lon_range_out == 180:
-            split_longitude = 180
-
-        ind_below = (lon_coords < split_longitude).nonzero()[0]
-        ind_above = (lon_coords >= split_longitude).nonzero()[0]
-        if lon_range_model == 180 and lon_range_out == 360:
-            lon_coords = np.concatenate(
-                [lon_coords[ind_above], lon_coords[ind_below] + 360]
-            )
-        elif lon_range_model == 360 and lon_range_out == 180:
-            lon_coords = np.concatenate(
-                [lon_coords[ind_above] - 360, lon_coords[ind_below]]
-            )
-
-    # filter/crop area
-    idx_lon = np.where(
-        (lon_coords >= cfg_cropbox.lon_min) & (lon_coords <= cfg_cropbox.lon_max)
+    lon_coords = np.asarray(lon_coords)
+    lat_coords = np.asarray(lat_coords)
+    labels = lon_coords
+    if lon_range_model == 180 and lon_range_out == 360:
+        labels = np.where(lon_coords < 0, lon_coords + 360, lon_coords)
+    elif lon_range_model == 360 and lon_range_out == 180:
+        labels = np.where(lon_coords >= 180, lon_coords - 360, lon_coords)
+    order = np.argsort(labels, kind="stable")
+    keep = (labels[order] >= cfg_cropbox.lon_min) & (
+        labels[order] <= cfg_cropbox.lon_max
     )
-    idx_lat = np.where(
+    lon_index = order[keep]
+    lat_index = np.nonzero(
         (lat_coords >= cfg_cropbox.lat_min) & (lat_coords <= cfg_cropbox.lat_max)
+    )[0]
+    return OutputRegion(
+        _as_index(lat_index),
+        _as_index(lon_index),
+        lat_coords[lat_index],
+        labels[lon_index],
     )
-    lat_coords_sub = lat_coords[min(idx_lat[0]) : max(idx_lat[0]) + 1]
-    lon_coords_sub = lon_coords[min(idx_lon[0]) : max(idx_lon[0]) + 1]
-    return lat_coords_sub, lon_coords_sub
 
 
-def update_model_dict(model_dict: dict, root: str) -> dict:
-    """Check if model on GPU is same as needed for next inference.
-    If not, load new model package and update model dict.
-
-    Parameters
-    ----------
-    model_dict : dict
-        dictionary specifying model, model class, and model package
-    package : str
-        model package location to be used in next inference
-
-    Returns
-    -------
-    dict
-        model dict.
-    """
-
-    if "dlesym" in root or root == "default":
-        # Download model package safely across ranks so cache is not corrupted
-        # Make sure the package download routine is called on all ranks to prevent deadlock
-        pkg = run_with_rank_ordered_execution(model_dict["class"].load_default_package)
-
-    if root != model_dict["package"]:
-        model_dict["package"] = root
-
-        # move to cpu to free GPU memory
-        # TODO find other references and delete properly
-        if model_dict["model"] is not None:
-            model_dict["model"].to("cpu")
-
-        if "dlesym" in root or root == "default":
-            package = pkg
-        else:
-            package = Package(root)
-
-        if "dlesym" in root:
-            # Select appropriate model checkpoint pair for DLESyM
-            atmos_model_idx = int(root.split("_")[-2].replace("atmos", ""))
-            ocean_model_idx = int(root.split("_")[-1].replace("ocean", ""))
-            model_dict["model"] = model_dict["class"].load_model(
-                package=package,
-                atmos_model_idx=atmos_model_idx,
-                ocean_model_idx=ocean_model_idx,
-            )
-        else:
-            model_dict["model"] = model_dict["class"].load_model(package=package)
-
-    return model_dict
-
-
-def initialize_output_structures(
+def build_io_dict(
     cfg: DictConfig,
-) -> tuple[ThreadPoolExecutor | None, list[Future]]:
-    """Initialize writer thread pool and threads
-
-    This function initializes a thread pool executor for parallel file I/O
-    operations, if configured.
+    regions: Sequence[str],
+    create_store: bool = False,
+    file_name: str = "forecast",
+    keep_existing: bool = False,
+    parallel_coords: Mapping[str, np.ndarray] | None = None,
+    output_format: DictConfig | None = None,
+) -> dict[str, Any]:
+    """Build a dictionary of Zarr IO backends, one per output region.
 
     Parameters
     ----------
     cfg : DictConfig
-        Hydra configuration object containing the settings for file output.
+        Hydra config object
+    regions : Sequence[str]
+        Output regions to build IO backends for.
+    create_store : bool
+        Whether this process creates the stores, removing existing ones if
+        ``cfg.file_output.overwrite_store`` is set.
+    file_name : str
+        Name of the file to store the data in.
+    keep_existing : bool
+        Reuse existing stores (to resume a run) instead of removing or
+        rejecting them.
+    parallel_coords : Mapping[str, np.ndarray], optional
+        Full labels of the dimensions written one slice at a time (``ensemble``,
+        ``time``, ``lead_time``), required by
+        :class:`~earth2studio.io.AsyncZarrBackend`.
+    output_format : DictConfig, optional
+        Backend config overriding ``cfg.file_output.format``.
 
     Returns
     -------
-    writer_executor : ThreadPoolExecutor | None
-        An instance of `ThreadPoolExecutor` for parallel file I/O operations,
-        or `None` if parallel I/O is not configured.
-
-    writer_threads : List[Future]
-        A list to hold future objects for the parallel file I/O tasks.
-        Initially empty.
-
-    Notes
-    -----
-    - If file output parallelism is enabled in the configuration, `writer_executor`
-        will be an instance of `ThreadPoolExecutor`. Otherwise, it will be `None`.
+    dict[str, IOBackend]
+        Backend per region, stored at ``{file_output.path}/{region}/{file_name}.zarr``.
     """
 
-    # Initialize threadpool for writers
-    writer_executor = (
-        ThreadPoolExecutor(max_workers=8)
-        if ("file_output" in cfg and cfg.file_output.thread_io)
-        else None
-    )
-    writer_threads: list[Future] = []
+    if "path" not in cfg.file_output:
+        with open_dict(cfg):
+            cfg["file_output"]["path"] = "outputs/"
 
-    return writer_executor, writer_threads
+    io_dict = {}
+    for k in regions:
+        out_path_base = os.path.join(cfg.file_output.path, k)
+        os.makedirs(out_path_base, exist_ok=True)
+        out_file = os.path.join(out_path_base, file_name) + ".zarr"
+
+        io = hydra.utils.instantiate(output_format or cfg.file_output.format)
+        if isinstance(io, partial):  # add out file names
+            if os.path.exists(out_file) and create_store and not keep_existing:
+                if not cfg.file_output.overwrite_store:
+                    raise ValueError(
+                        f"File {out_file} already exists. Set overwrite_store to True to overwrite."
+                    )
+                logger.warning(f"Overwriting existing file {out_file}")
+                shutil.rmtree(out_file)
+            if io.func is AsyncZarrBackend:
+                if parallel_coords is None:
+                    raise ValueError("AsyncZarrBackend output needs parallel_coords")
+                io = io(file_name=out_file, parallel_coords=dict(parallel_coords))
+            else:
+                io = io(file_name=out_file)
+        io_dict[k] = io
+
+    return io_dict
+
+
+# -- seeds ------------------------------------------------------------------------
 
 
 def get_batchid_from_ensid(
     nperturbed_per_package: int, batch_size: int, ensid: int
 ) -> int:
-    """Calculate the gloabl batch ID from a global ensemble member ID (ensid).
+    """Calculate the global batch ID from a global ensemble member ID (ensid).
 
     Parameters
     ----------
     nperturbed_per_package : int
-        Number of ensemble members per model package (0-based index).
+        Number of ensemble members per model package.
     batch_size : int
         Number of ensemble members per batch.
     ensid : int
         Global ensemble member ID (0-based index).
-    num_packages : int
-        Number of model packages.
 
     Returns
     -------
@@ -957,9 +529,8 @@ def calculate_torch_seed(s: str) -> int:
 
     Returns
     -------
-    torch: np.int64
+    int
         integer value that can be used as random seed in torch
-
     """
     torch_seed = int(hashlib.sha256(s.encode("utf-8")).hexdigest(), 16) % (2**64) - 1
     return torch_seed
@@ -982,18 +553,17 @@ def create_base_seed_string(pkg: str, ic: np.datetime64, base_random_seed: str) 
     -------
     base_seed_string: str
         string that can be used as random seed
-
     """
     s0 = str(base_random_seed)
     s1 = "".join(
         e for e in pkg if e.isalnum()
     )  # remove all special characters from package name
-    s2 = str(ic.astype("datetime64[s]"))
+    s2 = str(np.datetime64(ic).astype("datetime64[s]"))
     base_seed_string = "_".join([s0, s1, s2])
     return base_seed_string
 
 
-def get_batch_seeds(cfg: DictConfig) -> tuple[str | int, list[int]]:
+def get_batch_seeds(cfg: DictConfig) -> tuple[str | int, list[int] | None]:
     """Retrieve random seed cfg elements or their default values
 
     Parameters
@@ -1005,118 +575,20 @@ def get_batch_seeds(cfg: DictConfig) -> tuple[str | int, list[int]]:
     -------
     base_random_seed: str|int
         a base random seed specfied in the config. If it is an integer it will be converted to a string later
-    batch_ids_produce: list[int]
-        a list of the batch ids that shall be produced in this run
+    batch_ids_produce: list[int] | None
+        the batch ids that shall be produced in this run, or None for all
     """
-    try:
-        batch_ids_produce = cfg["batch_ids_reproduce"]
-    except KeyError:
-        batch_ids_produce = list(
-            range(
-                0,
-                int(np.ceil(cfg.nperturbed / cfg.batch_size) * cfg.ncheckpoints),
-            )
-        )
-    try:
-        base_random_seed = cfg["random_seed"]
-    except KeyError:
+    batch_ids_produce = cfg.get("batch_ids_reproduce", None)
+    if batch_ids_produce is not None:
+        batch_ids_produce = list(batch_ids_produce)
+    base_random_seed = cfg.get("random_seed", None)
+    if base_random_seed is None:
         base_random_seed = secrets.randbelow(1_000_000)
 
     return base_random_seed, batch_ids_produce
 
 
-def calculate_all_torch_seeds(
-    base_seed_string: str, batch_ids: list[int]
-) -> tuple[np.array, np.array]:
-    """
-    calculates all torch random seeds that will be used based on the base_seed_string
-    and the batch_ids
-
-    Parameters
-    ----------
-    base_seed_string : str
-        base seed
-    batch_ids : list[int]
-        list of batch_ids that will be calculated
-
-    Returns
-    -------
-    full_seed_strings: np.array
-        contains all seed strings that will be used to calculate torch seeds
-    torch_seeds: np.array
-        contains all torch random seeds that will be used
-
-    """
-    sall = np.char.add(
-        np.array(base_seed_string + "_"), np.array([str(x) for x in batch_ids])
-    )
-    torch_seeds = np.zeros((len(sall), 1), dtype=np.uint64)
-    full_seed_strings = np.empty(np.shape(torch_seeds), dtype=object)
-    for i, s in enumerate(sall):
-        full_seed_strings[i] = s
-        torch_seeds[i] = calculate_torch_seed(s)
-    return full_seed_strings, torch_seeds
-
-
-def check_uniquness_of_torch_seeds(torch_seeds: np.array) -> bool:
-    """Checks if all torch seeds are unique
-
-    Parameters
-    ----------
-    torch_seeds : np.array
-        Array of torch seeds
-
-    Returns
-    -------
-    bool:
-        True if no duplicates of torch seeds were found
-
-    """
-    num_runs = len(torch_seeds)
-    num_unique_seeds = len(np.unique(torch_seeds))
-    if num_unique_seeds == num_runs:
-        all_unique = True
-    else:
-        all_unique = False
-        raise ValueError(
-            "Calculated torch seeds for every run must be unique! num_unique_seeds = %s, num_runs = %s"
-            % (num_unique_seeds, num_runs)
-        )
-    return all_unique
-
-
-def ensure_all_torch_seeds_are_unique(
-    ensemble_configs: list[tuple], base_random_seed: str
-) -> None:
-    """Checks if all torch seeds based on ensemble_configs and base_random_seed are
-    unique
-
-    Parameters
-    ----------
-    ensemble_configs : list[tuple]
-        List of ensemble config objects
-    base_random_seed : str
-        Base seed string
-
-    Raises
-    ------
-    ValueError
-        If the random seeds of all ensembles are not fully unique (duplicates)
-    """
-    torch_seeds_list = []
-    full_seed_string_list = []
-    for pkg, ic, _, batch_ids_produce in ensemble_configs:
-        base_seed_string = create_base_seed_string(pkg, ic, base_random_seed)
-        full_seed_strings, torch_seeds = calculate_all_torch_seeds(
-            base_seed_string, batch_ids_produce
-        )
-        if check_uniquness_of_torch_seeds(torch_seeds):
-            torch_seeds_list.append(torch_seeds)
-            full_seed_string_list.append(full_seed_strings)
-    if torch_seeds_list:
-        check_uniquness_of_torch_seeds(np.concatenate(torch_seeds_list, axis=0))
-    else:
-        raise ValueError("Torch seeds could not be calculated.")
+# -- distributed and logging --------------------------------------------------
 
 
 def configure_logging() -> None:
@@ -1154,6 +626,9 @@ def run_with_rank_ordered_execution(
     - First on the specified `rank`
     - Then, after synchronization, on the other ranks
 
+    Every rank must call this the same number of times, so never call it from
+    inside a work item.
+
     Args:
         func (Callable): Function to execute
         args (tuple, optional): Positional arguments for the function. Defaults to ().
@@ -1163,9 +638,6 @@ def run_with_rank_ordered_execution(
     Returns:
         The return value of func(*args, **kwargs)
     """
-    if kwargs is None:
-        kwargs = {}
-
     dist = DistributedManager()
     current_rank = dist.rank
 

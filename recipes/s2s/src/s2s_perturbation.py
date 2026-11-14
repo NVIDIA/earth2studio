@@ -13,7 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# mypy: disable-error-code="call-overload"
 
 from typing import Any
 
@@ -48,8 +47,11 @@ def initialize_perturbation(
     Returns
     -------
     perturbation : Any
-        The perturbation method
+        The perturbation method, or None for ``type: none`` (members then
+        differ only through a stochastic model's sampling)
     """
+    if cfg.perturbation.type == "none":
+        return None
     if cfg.perturbation.type == "HENSPerturbation":
         return HENSPerturbation(
             model=model,
@@ -126,7 +128,17 @@ class HENSPerturbation:
             seeding_perturbation_method=seed_perturbation,
         )
 
-        return
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the breeding noise, clearing carried +/- pairs on reset.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for the noise draws
+        reset : bool, optional
+            Reset an existing stream, by default True
+        """
+        self.perturbation.set_rng(seed, reset=reset)
 
     def get_noise_vector(
         self,
@@ -170,26 +182,26 @@ class HENSPerturbation:
                 f"provide path to data set containing {lead_time}h deterministic [r]mse"
             )
 
-        model_vars = model.input_coords()["variable"]
+        model_vars = model.input_coords()["variable"].values
         if perturbed_var is None:
             perturbed_var = model_vars
         elif isinstance(perturbed_var, str):
             perturbed_var = [perturbed_var]
 
         # set noise for variables which shall not be perturbed to 0.
-        skill = open_dataset(skill_path)
-        scale_vec = Tensor(
-            asarray(
-                [
-                    (
-                        skill.sel(channel=var, lead_time=lead_time)["value"].item()
-                        if var in perturbed_var
-                        else 0.0
-                    )
-                    for var in model_vars
-                ]
+        with open_dataset(skill_path) as skill:
+            scale_vec = Tensor(
+                asarray(
+                    [
+                        (
+                            skill.sel(channel=var, lead_time=lead_time)["value"].item()
+                            if var in perturbed_var
+                            else 0.0
+                        )
+                        for var in model_vars
+                    ]
+                )
             )
-        )
 
         return scale_vec.reshape(1, 1, 1, -1, 1, 1) * noise_amplification
 
