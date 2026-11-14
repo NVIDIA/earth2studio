@@ -27,7 +27,8 @@ Two evaluation modes for independent DA models such as HealDA:
   ``DataSource`` protocol, so the DA-initialized forecast is the ordinary
   forecast runner reading its initial condition from that source.  A
   :class:`~earth2studio.data.CompositeSource` fills prognostic input variables
-  the analysis lacks from the configured data source.
+  the analysis lacks, and those ``model.fill_variables`` names, from the
+  configured data source.
 
 :class:`ObsSources` resolves the observation inputs, one ``DataFrameSource``
 per model input slot, and declares them for predownload through
@@ -41,8 +42,10 @@ Cycling ``StatefulAssimilationModel`` runs are out of scope, and a
 
 from __future__ import annotations
 
+import fcntl
 import os
 from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager, nullcontext
 from typing import Any
 
 import hydra
@@ -53,6 +56,7 @@ from loguru import logger
 from omegaconf import DictConfig, OmegaConf
 
 from earth2studio.data import CompositeSource, RegriddedSource, fetch_dataframe
+from earth2studio.data.utils import datasource_cache_root
 from earth2studio.grids import (
     GridDefinition,
     infer_grid,
@@ -67,6 +71,7 @@ from earth2studio.run.runner import (
     _seed_model,
     _signature_for_stream,
 )
+from earth2studio.run.work import rank_info
 from earth2studio.utils.coords import E2S_DYNAMIC_DIMS, coord_array
 from earth2studio.utils.type import CoordinateSystem, FrameSchema
 
@@ -176,8 +181,12 @@ def _fields_for(source: Any, schema: FrameSchema) -> np.ndarray | None:
     """Columns to request from ``source`` for a slot described by ``schema``.
 
     Schema keys other than ``variable`` are columns; ``variable`` is the list
-    of requested variables and is only a column when the source's ``SCHEMA``
-    says so (long-layout sources such as the UFS GSI readers).  Sources
+    of requested variables.  Only long frames, which hold every value in one
+    ``observation`` column, carry it as a column, and only when the source's
+    ``SCHEMA`` lists it (long-layout sources such as the UFS GSI readers).
+    Wide frames, such as the NNJA inputs of HealDA v2, give each variable its
+    own ``observation_<variable>`` column, and a wide-layout source rejects a
+    ``variable`` field even though its long ``SCHEMA`` lists one.  Sources
     without a ``SCHEMA``, such as predownloaded frame stores, return every
     stored column.
     """
@@ -185,8 +194,52 @@ def _fields_for(source: Any, schema: FrameSchema) -> np.ndarray | None:
     if declared is None:
         return None
     names = set(getattr(declared, "names", ()))
-    fields = [k for k in schema if k != "variable" or k in names]
+    long_frame = "observation" in schema
+    fields = [k for k in schema if k != "variable" or (long_frame and k in names)]
     return np.array(fields, dtype=str)
+
+
+@contextmanager
+def shared_window_guard(time: np.datetime64) -> Iterator[None]:
+    """Let one process download an observation window before the others.
+
+    Ranks whose sources share one data cache root, a user-set
+    ``EARTH2STUDIO_DATA_CACHE``, would otherwise all download the same window
+    at once: one copy of the traffic per rank, and enough concurrent requests
+    for a public bucket to time out.  The first process to take the per-time
+    lock fetches alone.  Once its fetch succeeds, a marker lets the others read
+    the cache concurrently; a failed fetch leaves no marker, so the next
+    process fetches itself.  Lock and marker sit under the cache root and share
+    its owner and lifetime.  With the per-process caches of
+    :func:`src.logs.isolate_data_cache`, each process is the first and the
+    guard costs nothing.  It only helps sources that cache their downloads.
+
+    Parameters
+    ----------
+    time : np.datetime64
+        Analysis time whose observation window the caller fetches inside
+        the guard.
+    """
+    root = os.path.join(datasource_cache_root(), "obs_windows")
+    os.makedirs(root, exist_ok=True)
+    stamp = str(np.datetime64(time, "s")).replace(":", "")
+    done = os.path.join(root, f"{stamp}.done")
+    if os.path.exists(done):
+        yield
+        return
+    with open(os.path.join(root, f"{stamp}.lock"), "a") as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        try:
+            if os.path.exists(done):
+                # Another process finished while this one waited.
+                fcntl.flock(handle, fcntl.LOCK_UN)
+                yield
+                return
+            yield  # this process fetches first, holding the lock
+            with open(done, "w"):
+                pass  # reached only when the fetch succeeded
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
 
 
 class ObsSources:
@@ -356,22 +409,34 @@ class ObsSources:
         -------
         tuple
             One DataFrame or ``None`` per slot, in slot order.
+
+        Notes
+        -----
+        In a distributed run a live fetch goes through
+        :func:`shared_window_guard`, so ranks sharing a data cache download
+        each window once.
         """
         times = np.array([time], dtype="datetime64[ns]")
         frames: list[Any] = []
-        for source, schema in zip(self.sources, self.schemas):
-            if source is None:
-                frames.append(None)
-                continue
-            frames.append(
-                fetch_dataframe(
-                    source,
-                    time=times,
-                    variable=np.asarray(schema["variable"]),
-                    fields=_fields_for(source, schema),
-                    device=torch.device(device),
+        live = any(
+            source is not None and not isinstance(source, PredownloadedFrameSource)
+            for source in self.sources
+        )
+        guard = shared_window_guard(time) if live and rank_info()[1] > 1 else None
+        with guard if guard is not None else nullcontext():
+            for source, schema in zip(self.sources, self.schemas):
+                if source is None:
+                    frames.append(None)
+                    continue
+                frames.append(
+                    fetch_dataframe(
+                        source,
+                        time=times,
+                        variable=np.asarray(schema["variable"]),
+                        fields=_fields_for(source, schema),
+                        device=torch.device(device),
+                    )
                 )
-            )
         return tuple(frames)
 
     def requests(self, times: np.ndarray) -> tuple[FrameRequest, ...]:
@@ -719,7 +784,8 @@ def initial_condition_source(
     ----------
     cfg : DictConfig
         Campaign config; reads ``model.fill_missing_variables`` (default
-        true), ``ic_source``, ``data_source`` and ``output.path``.
+        true), ``model.fill_variables`` (default none), ``ic_source``,
+        ``data_source`` and ``output.path``.
     analysis : AnalysisSource
         Source of DA analyses.
     variables : Sequence[str]
@@ -734,21 +800,35 @@ def initial_condition_source(
     Returns
     -------
     tuple[Any, Any, list[str]]
-        ``(source, fill, missing)``: the initial-condition source, the
-        resolved fill source (``None`` when the analysis covers every
-        variable) and the filled variables.
+        ``(source, fill, filled)``: the initial-condition source, the
+        resolved fill source (``None`` when the analysis serves every
+        variable) and the filled variables, which are those the analysis
+        lacks plus those ``model.fill_variables`` names.
 
     Raises
     ------
     ValueError
-        If the analysis lacks variables and the config disables filling or
-        names no fill source.
+        If ``model.fill_variables`` names a variable the prognostic does not
+        take, or variables need filling and the config disables it or names
+        no fill source.
     """
-    missing = [str(v) for v in variables if str(v) not in analysis.variables]
-    if not missing:
+    names = [str(v) for v in variables]
+    # Variables the prognostic must take from the data source even though the
+    # analysis provides them, for example a field whose training data had
+    # another land mask.
+    forced = [str(v) for v in cfg.model.get("fill_variables", None) or []]
+    unknown = sorted(set(forced) - set(names))
+    if unknown:
+        raise ValueError(
+            f"model.fill_variables names {unknown}, which are not input variables "
+            f"of the prognostic ({names})."
+        )
+    missing = [v for v in names if v not in analysis.variables]
+    filled = [v for v in names if v in missing or v in forced]
+    if not filled:
         logger.info("The DA analysis provides every prognostic input variable.")
         return analysis, None, []
-    if not cfg.model.get("fill_missing_variables", True):
+    if missing and not cfg.model.get("fill_missing_variables", True):
         raise ValueError(
             f"The DA analysis does not provide the prognostic input variables "
             f"{missing}. Allow filling them from the data source "
@@ -766,19 +846,28 @@ def initial_condition_source(
         fill = fallback
     if fill is None:
         raise ValueError(
-            f"Filling {missing} needs 'ic_source' or 'data_source'; neither is "
+            f"Filling {filled} needs 'ic_source' or 'data_source'; neither is "
             "set and the prognostic recommends no source."
         )
-    logger.warning(
-        f"DA analysis lacks {len(missing)} of {len(variables)} prognostic input "
-        f"variables; FILLING {missing} from {type(fill).__name__}."
-    )
+    if missing:
+        logger.warning(
+            f"DA analysis lacks {len(missing)} of {len(names)} prognostic input "
+            f"variables; FILLING {missing} from {type(fill).__name__}."
+        )
+    if forced:
+        logger.warning(
+            f"model.fill_variables: taking {forced} from {type(fill).__name__} "
+            "instead of the DA analysis."
+        )
     aligned = GridAlignedSource(fill, analysis.grid)
     source = CompositeSource(
         {"analysis": analysis, "fill": aligned},
-        {"analysis": analysis.variables, "fill": missing},
+        {
+            "analysis": [v for v in analysis.variables if v not in forced],
+            "fill": filled,
+        },
     )
-    return source, fill, missing
+    return source, fill, filled
 
 
 # -- builders ----------------------------------------------------------------
@@ -843,7 +932,8 @@ def assimilation_forecast(
     ``cfg.model.forecast`` with an :class:`AnalysisSource` as its
     initial-condition source.  When ``cfg.model.fill_missing_variables``
     (default true) allows it, the configured data source fills prognostic
-    input variables the analysis lacks.  The
+    input variables the analysis lacks; it always supplies those
+    ``cfg.model.fill_variables`` names.  The
     returned runner gains ``frame_requests`` (observations behind every
     analysis an item needs) and ``frame_roles``; ``source_roles`` carries the
     ``data`` role only when a fill source is in use, so predownload caches

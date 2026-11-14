@@ -416,6 +416,14 @@ cache is already warm, set `predownload.observations.enabled=false`.
 Inference reads an existing `<slot>.parquet` whenever one is present, so
 remove it to fetch live again.
 
+Every rank of an ensemble group assembles the same initial condition.
+When a distributed run fetches observations live, one process downloads
+each analysis time's observation window first. The others wait, then
+read the files from the cache. That saves traffic only when
+the ranks share a data cache: set `EARTH2STUDIO_DATA_CACHE` to a node-local
+directory. With the default per-process caches every rank downloads its
+own copy.
+
 ### Missing observations and archive coverage
 
 GSI observation archives have gaps — an individual platform or obs type
@@ -484,6 +492,14 @@ The runner's `data` role then carries only the fill variables, so
 store when the DA model covers all inputs. The builder logs the fill set
 prominently. Set `model.fill_missing_variables=false` to error on any gap
 instead (pure-DA initial conditions only).
+
+`model.fill_variables` lists variables to take from that same fill path
+even though the analysis provides them, for a field whose training data
+had another land mask. The Atlas CRPS HealDA scorecard takes `sst` from
+ERA5 this way, because ERA5 has no `sst` over land while HealDA's `sst`
+carries land values. Listed variables join the fill set, so `predownload.py`
+caches them in `data.zarr` as well, and they apply even with
+`model.fill_missing_variables=false`.
 
 ### Stateless assimilation models only
 

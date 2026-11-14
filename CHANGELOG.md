@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   example now runs under `Pipeline`.
 - Added `DLESyMInputSource`, which serves DLESyM's native HEALPix inputs from a
   lat/lon data source.
+- Added HealDA v2-initialized scoring to the Aurora 1.5 Ensemble and Atlas CRPS scorecards.
 
 ### Changed
 
