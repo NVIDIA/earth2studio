@@ -77,6 +77,9 @@ import torch
 from loguru import logger
 from physicsnemo.distributed import DistributedManager
 
+# Configure RMM before distributed initialization initializes Torch's CUDA allocator.
+import earth2studio  # noqa: F401
+
 DistributedManager.initialize()  # Only call this once in the entire script!
 dist = DistributedManager()
 assert (  # noqa: S101
