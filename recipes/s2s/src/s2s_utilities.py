@@ -34,7 +34,7 @@ from omegaconf import DictConfig, open_dict
 from physicsnemo.distributed import DistributedManager
 
 from earth2studio.grids import LatLonGrid
-from earth2studio.io import ZarrBackend
+from earth2studio.io import AsyncZarrBackend
 from earth2studio.models.auto import Package
 from earth2studio.models.px import PrognosticModel
 from earth2studio.utils.coords import coord_array
@@ -418,8 +418,10 @@ def build_io_dict(
     create_store: bool = False,
     file_name: str = "forecast",
     keep_existing: bool = False,
-) -> dict[str, ZarrBackend]:
-    """Build a dictionary of ZarrBackends, one per output region.
+    parallel_coords: Mapping[str, np.ndarray] | None = None,
+    output_format: DictConfig | None = None,
+) -> dict[str, Any]:
+    """Build a dictionary of Zarr IO backends, one per output region.
 
     Parameters
     ----------
@@ -435,10 +437,16 @@ def build_io_dict(
     keep_existing : bool
         Reuse existing stores (to resume a run) instead of removing or
         rejecting them.
+    parallel_coords : Mapping[str, np.ndarray], optional
+        Full labels of the dimensions written one slice at a time (``ensemble``,
+        ``time``, ``lead_time``), required by
+        :class:`~earth2studio.io.AsyncZarrBackend`.
+    output_format : DictConfig, optional
+        Backend config overriding ``cfg.file_output.format``.
 
     Returns
     -------
-    dict[str, ZarrBackend]
+    dict[str, IOBackend]
         Backend per region, stored at ``{file_output.path}/{region}/{file_name}.zarr``.
     """
 
@@ -452,7 +460,7 @@ def build_io_dict(
         os.makedirs(out_path_base, exist_ok=True)
         out_file = os.path.join(out_path_base, file_name) + ".zarr"
 
-        io = hydra.utils.instantiate(cfg.file_output.format)
+        io = hydra.utils.instantiate(output_format or cfg.file_output.format)
         if isinstance(io, partial):  # add out file names
             if os.path.exists(out_file) and create_store and not keep_existing:
                 if not cfg.file_output.overwrite_store:
@@ -461,7 +469,12 @@ def build_io_dict(
                     )
                 logger.warning(f"Overwriting existing file {out_file}")
                 shutil.rmtree(out_file)
-            io = io(file_name=out_file)
+            if io.func is AsyncZarrBackend:
+                if parallel_coords is None:
+                    raise ValueError("AsyncZarrBackend output needs parallel_coords")
+                io = io(file_name=out_file, parallel_coords=dict(parallel_coords))
+            else:
+                io = io(file_name=out_file)
         io_dict[k] = io
 
     return io_dict

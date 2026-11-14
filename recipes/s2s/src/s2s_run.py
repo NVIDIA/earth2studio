@@ -27,7 +27,6 @@ from physicsnemo.distributed import DistributedManager
 from earth2studio.io import IOBackend
 from earth2studio.run import Pipeline, ProgressStore, WorkItem
 from src.s2s_ensemble import S2SRunner, build_work_items
-from src.s2s_io import BufferedIOBackend
 from src.s2s_perturbation import initialize_perturbation
 from src.s2s_utilities import (
     build_io_dict,
@@ -149,10 +148,8 @@ def initialize(
         list(regions),
         create_store=(dist.rank == 0),
         keep_existing=resume,
+        parallel_coords=parallel_coords(runner, items),
     )
-    if cfg.file_output.get("thread_io", False):
-        buffer_size = cfg.file_output.get("buffer_size", 2)
-        io_dict = {k: BufferedIOBackend(io, buffer_size) for k, io in io_dict.items()}
 
     # Finished items are recorded under the output path and skipped on rerun;
     # the tags reject resuming with a different configuration
@@ -163,6 +160,24 @@ def initialize(
             tags={"config": OmegaConf.to_container(cfg, resolve=True)},
         )
     return runner, items, io_dict, progress
+
+
+def parallel_coords(runner: S2SRunner, items: list[WorkItem]) -> dict[str, np.ndarray]:
+    """Full labels of the dimensions written one slice at a time.
+
+    :class:`~earth2studio.io.AsyncZarrBackend` needs them at construction; they
+    match the stores ``Pipeline`` plans from the same items.
+    """
+    final_lead_time = max(item.final_lead_time for item in items)
+    return {
+        "ensemble": np.array(
+            sorted({m for item in items for m in item.member_ids}), dtype=np.int64
+        ),
+        "time": np.unique(
+            np.array([item.time for item in items], dtype="datetime64[ns]")
+        ),
+        "lead_time": runner.lead_times(final_lead_time),
+    }
 
 
 def run_inference(

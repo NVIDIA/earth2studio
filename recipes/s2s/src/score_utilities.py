@@ -23,7 +23,7 @@ import xarray as xr
 from AI_WQ_package.forecast_evaluation import conditional_obs_probs, work_out_RPSS
 from AI_WQ_package.retrieve_evaluation_data import retrieve_land_sea_mask
 from loguru import logger
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 from physicsnemo.distributed import DistributedManager
 
 from earth2studio.data import DataSource, fetch_data
@@ -122,8 +122,16 @@ def prepare_score_io_dict(
     score_io_dict : dict[str, ZarrBackend]
         The IO backend for writing scores
     """
+    # Scores are small and written once per initial condition: a plain
+    # ZarrBackend, whatever backend the forecast used
     score_io_dict = build_io_dict(
-        cfg, list(forecasts), create_store=create_store, file_name="score"
+        cfg,
+        list(forecasts),
+        create_store=create_store,
+        file_name="score",
+        output_format=OmegaConf.create(
+            {"_target_": "earth2studio.io.ZarrBackend", "_partial_": True}
+        ),
     )
     if not create_store:
         return score_io_dict

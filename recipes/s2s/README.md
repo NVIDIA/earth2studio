@@ -13,7 +13,7 @@ can be extended to support other models as well.
 Key features include:
 
 - Multi-GPU inference
-- Parallel I/O into shared zarr stores, driven by the Earth2Studio `Pipeline`
+- Parallel, non-blocking I/O into shared zarr stores with `AsyncZarrBackend`
 - Usage of one or more diagnostic models in the forecast pipeline
 - Storage space reduction using regional output or coarsening
 - Multi-GPU scoring of forecast outputs
@@ -263,9 +263,8 @@ times start at the initial condition (`0`) and follow each model step.
 The recipe now runs on the Earth2Studio 1.0 DataArray interfaces and `Pipeline`.
 Compared to earlier versions:
 
-- `file_output.thread_io` now buffers at most `file_output.buffer_size`
-  (default 2) fields per region and writes them on a background thread,
-  instead of using an unbounded thread pool.
+- `file_output.thread_io` is replaced by the non-blocking
+  `AsyncZarrBackend` output format (see [Output backend](#output-backend)).
 - Runs can resume after an interruption (`file_output.resume`, see
   [Parallelism](#parallelism)).
 - DLESyM uses the v1.1 checkpoint (stochastic, one checkpoint, no initial
@@ -383,15 +382,36 @@ reproduce selected batches, set `batch_ids_reproduce` to their global IDs (with
 the same `batch_size`); the output store then holds only those members.
 
 To resume an interrupted run, set `file_output.resume: True` with an explicit
-`random_seed` and a Zarr output with `backend_kwargs.overwrite: False` (as in
-the provided configs), and rerun the same configuration. Finished batches are
+`random_seed` and a Zarr output (`AsyncZarrBackend` as in the provided configs,
+or `ZarrBackend` with `backend_kwargs.overwrite: False`), and rerun the same
+configuration. Finished batches are
 recorded under `${file_output.path}/progress` and skipped, existing stores are
 kept, and interrupted batches rerun from the start. A changed configuration is
 rejected; use a new output path for a new run.
 
-With `file_output.thread_io: True`, each region's writes run on a background
-thread while the next steps are computed. Each item's writes finish before it is
-recorded as done.
+### Output backend
+
+The configs write with `earth2studio.io.AsyncZarrBackend`, the recommended
+backend for non-blocking writes from a `Pipeline`:
+
+```yaml
+format:
+    _target_: earth2studio.io.AsyncZarrBackend
+    _partial_: True
+    blocking: False   # write on background threads, overlapping inference
+    pool_size: 8      # writer threads
+```
+
+With `blocking: False`, each step's write is handed to a pool of writer threads
+and the next step is computed right away. The `Pipeline` waits for an item's
+writes to finish before recording it as done. The backend needs the full labels
+of the dimensions it writes one slice at a time (`ensemble`, `time`,
+`lead_time`) when it is created; the recipe derives them from the work items, so
+the config does not list them. These dimensions are chunked with size 1, and
+every write covers a whole output region. For larger campaigns, `shard_coords`
+(for example `shard_coords: {lead_time: 32}`) groups chunks into fewer files;
+shard only along `lead_time`, since each rank writes whole forecasts. A plain
+`earth2studio.io.ZarrBackend` also works, with synchronous writes.
 
 Some download and caching operations are not safe to run concurrently on several
 ranks, for example `load_default_package` of a model or creating the output
@@ -402,10 +422,7 @@ call it from inside a work item: ranks run different numbers of items.
 
 Ranks write different `ensemble` and `time` positions of the shared output
 stores, so the zarr chunk size must be 1 along those dimensions (the
-`Pipeline` checks this); I/O performance then depends on the chunking of the
-remaining dimensions. A good rule of thumb for zarr chunking is to aim for a
-chunk size of around 10MB, but other sizes may work well too depending on the
-output grid (resolution or cropbox size) data is being saved on.
+`Pipeline` checks this; `AsyncZarrBackend` always chunks them so).
 
 ## References
 
