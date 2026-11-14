@@ -1,0 +1,3 @@
+# No initial-condition perturbation: ensemble members differ only through the
+# forecast model's own sampling (e.g. DLESyM v1.1), seeded per batch
+type: none

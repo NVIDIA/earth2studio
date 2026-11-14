@@ -23,7 +23,7 @@ import xarray as xr
 from loguru import logger
 
 from earth2studio.data import DataSource, fetch_data
-from earth2studio.grids import LatLonGrid, infer_grid
+from earth2studio.grids import LatLonGrid, NearestRegridder, infer_grid
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
 from earth2studio.models.px.utils import initial_condition
@@ -69,10 +69,13 @@ class S2SRunner:
         Package names, one per checkpoint. Also part of each batch's seed.
     data : DataSource
         Source of initial conditions.
-    perturbation_factory : Callable[[PrognosticModel, DataSource], Perturbation]
-        Builds the initial-condition perturbation for the active checkpoint.
+    perturbation_factory : Callable[[PrognosticModel, DataSource], Perturbation | None]
+        Builds the initial-condition perturbation for the active checkpoint, or
+        None for members that differ only through a stochastic model's sampling.
     regions : Mapping[str, OutputRegion]
-        Output regions, one stream (and store) each.
+        Output regions, one stream (and store) each. On a lat/lon model grid they
+        are selected from it; on any other grid (DLESyM's HEALPix) fields are
+        regridded onto them with nearest-neighbour interpolation.
     output_variables : Sequence[str]
         Variables saved, from the prognostic and diagnostic outputs.
     nperturbed : int
@@ -93,7 +96,9 @@ class S2SRunner:
         load_model: Callable[[str], PrognosticModel],
         packages: Sequence[str],
         data: DataSource,
-        perturbation_factory: Callable[[PrognosticModel, DataSource], Perturbation],
+        perturbation_factory: Callable[
+            [PrognosticModel, DataSource], Perturbation | None
+        ],
         regions: Mapping[str, OutputRegion],
         output_variables: Sequence[str],
         nperturbed: int,
@@ -126,6 +131,13 @@ class S2SRunner:
         self.output_leads = outputs["lead_time"].values
         self.step = step_interval(in_leads, self.output_leads)
         self._region_attrs = {k: r.grid_attrs() for k, r in self.regions.items()}
+        model_grid = infer_grid(outputs)
+        self._regridders: dict[str, NearestRegridder] = {}
+        if not isinstance(model_grid, LatLonGrid):
+            self._regridders = {
+                k: NearestRegridder(model_grid, LatLonGrid(r.lat, r.lon))
+                for k, r in self.regions.items()
+            }
 
         # Variables available after the diagnostics run on forecasts, and whether
         # the diagnostics can also run on the initial condition to publish it.
@@ -165,7 +177,7 @@ class S2SRunner:
         self.model = model
         self._loaded = 0  # package of self.model
         self._package = 0  # package of self.perturbation
-        self.perturbation: Perturbation = perturbation_factory(model, data)
+        self.perturbation = perturbation_factory(model, data)
         self._initial: tuple[np.datetime64, xr.DataArray] | None = None
 
     # -- Runner protocol ----------------------------------------------------
@@ -176,6 +188,7 @@ class S2SRunner:
         self.model.to(self.device)
         for diagnostic in self.diagnostics.values():
             diagnostic.to(self.device)
+        self._regridders = {k: r.to(self.device) for k, r in self._regridders.items()}
         return self
 
     def nsteps(self, final_lead_time: np.timedelta64) -> int:
@@ -234,7 +247,8 @@ class S2SRunner:
         with torch.inference_mode():
             x = self._fetch(item)
             self._seed(self.batch_seed(item))
-            x = self.perturbation(x)
+            if self.perturbation is not None:
+                x = self.perturbation(x)
 
             if self.publish_initial_condition:
                 yield self._publish(initial_condition(x))
@@ -264,13 +278,14 @@ class S2SRunner:
 
         Bred-vector perturbations also drop any carried +/- pair on reset.
         """
-        set_rng = getattr(self.perturbation, "set_rng", None)
-        if not callable(set_rng):
-            raise TypeError(
-                f"{type(self.perturbation).__name__} must implement set_rng for "
-                "reproducible S2S batches"
-            )
-        set_rng(seed, reset=True)
+        if self.perturbation is not None:
+            set_rng = getattr(self.perturbation, "set_rng", None)
+            if not callable(set_rng):
+                raise TypeError(
+                    f"{type(self.perturbation).__name__} must implement set_rng "
+                    "for reproducible S2S batches"
+                )
+            set_rng(seed, reset=True)
         for model in (self.model, *self.diagnostics.values()):
             if getattr(model, "stochastic", False):
                 model.set_rng(seed, reset=True)
@@ -307,7 +322,7 @@ class S2SRunner:
         return x.e2s.to_backend(backend, device=self.device)
 
     def _publish(self, field: xr.DataArray) -> Mapping[str, xr.DataArray]:
-        """Add diagnostics, keep the output variables and crop to each region."""
+        """Add diagnostics, keep the output variables and map onto each region."""
         for diagnostic in self.diagnostics.values():
             result = diagnostic(map_field(field, diagnostic.input_coords()))
             if "lead_time" not in result.dims:  # restore a dropped lead time
@@ -322,10 +337,15 @@ class S2SRunner:
             )
             field = xr.concat([field, result], dim="variable", join="exact")
         field = field.sel(variable=self.output_variables)
-        return {
-            name: region.crop(field, self._region_attrs[name])
-            for name, region in self.regions.items()
-        }
+        regions = {}
+        for name, region in self.regions.items():
+            regridder = self._regridders.get(name)
+            if regridder is None:
+                regions[name] = region.crop(field, self._region_attrs[name])
+            else:
+                regions[name] = regridder(field)
+                regions[name].attrs = dict(self._region_attrs[name])
+        return regions
 
 
 def build_work_items(

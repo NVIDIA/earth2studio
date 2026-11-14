@@ -97,12 +97,22 @@ def initialize(
     load_model = model_loader(cfg, packages)
     model = load_model(packages[0])
     signature = model.output_coords(model.input_coords())
-    regions = build_output_regions(
-        cfg, signature["lat"].values, signature["lon"].values
-    )
+    if {"lat", "lon"}.issubset(signature.dims):
+        lat, lon = signature["lat"].values, signature["lon"].values
+    else:
+        # Models on other grids (DLESyM's HEALPix) are regridded onto regions
+        # of the 0.25 degree lat/lon grid
+        lat = np.linspace(90, -90, 721)
+        lon = np.linspace(0, 360, 1440, endpoint=False)
+    regions = build_output_regions(cfg, lat, lon)
 
     base_random_seed, batch_ids = get_batch_seeds(cfg)
     data_source = hydra.utils.instantiate(cfg.data_source)
+    if "input_source" in cfg.forecast_model:
+        # e.g. DLESyM's HEALPix inputs, prepared from the lat/lon data source
+        data_source = hydra.utils.instantiate(cfg.forecast_model.input_source)(
+            source=data_source
+        )
     runner = S2SRunner(
         model=model,
         load_model=load_model,

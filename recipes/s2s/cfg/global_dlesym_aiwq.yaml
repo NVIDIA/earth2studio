@@ -1,21 +1,20 @@
 defaults:
     - forecast_model: dlesym
-    - perturbation: gaussian
+    - perturbation: none
 
 project: 'globalscore'
 random_seed: 42
-run_id: 'dlesym_4a4o4p_gaussian_aiwq' # unique identifier for the ensemble run
+run_id: 'dlesym_v11_64m_aiwq' # unique identifier for the ensemble run
 
 # Sweep over initial conditions
 start_times: ["2025-04-03 00:00:00"]
 
 nsteps: 12         # number of steps to run the forecast
-nperturbed: 4      # Number of perturbations applied to the initial condition for each model checkpoint
+nperturbed: 64     # Ensemble members per model checkpoint (DLESyM v1.1 samples them)
                     # Total ensemble size is nperturbed * ncheckpoints
-ncheckpoints: 16 # number of model checkpoints to use
-                # For DLESyM, ncheckpoints represents the total number of atmos/ocean model checkpoint pairs
+ncheckpoints: 1  # DLESyM v1.1 ships a single stochastic checkpoint
 
-batch_size: 4      # inference batch size
+batch_size: 8      # inference batch size
 output_path: "outputs"
 
 data_source:

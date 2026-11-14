@@ -82,28 +82,8 @@ def build_package_list(cfg: DictConfig) -> list[str]:
                 )
             return (sorted(packages))[:max_num_ckpts]
 
-    elif "DLESyM" in cfg.forecast_model.architecture:
-        # DLESyM models are not stored in a registry, and the default package contains all atmos/ocean checkpoints
-        # Loading specific checkpoint pairs is controlled by passing the model indices to `DLESyMLatLon.load_model`
-        natmos, nocean = cfg.forecast_model.natmos, cfg.forecast_model.nocean
-        pkg_list = [
-            f"dlesym_atmos{i:02d}_ocean{j:02d}"
-            for i in range(natmos)
-            for j in range(nocean)
-        ]
-
-        if "max_num_checkpoint_pairs" in cfg.forecast_model:
-            max_num_ckpts = cfg.forecast_model.max_num_checkpoint_pairs
-        else:
-            max_num_ckpts = len(pkg_list)
-
-        return pkg_list[:max_num_ckpts]
     else:
         return ["default"]
-
-
-def _uses_default_package(pkg: str) -> bool:
-    return pkg == "default" or pkg.startswith("dlesym_atmos")
 
 
 def model_loader(cfg: DictConfig, packages: Sequence[str]) -> Callable[[str], Any]:
@@ -126,21 +106,18 @@ def model_loader(cfg: DictConfig, packages: Sequence[str]) -> Callable[[str], An
     """
     model_class = hydra.utils.get_class(cfg.forecast_model.architecture)
     default = None
-    if any(_uses_default_package(pkg) for pkg in packages):
+    if "default" in packages:
         default = run_with_rank_ordered_execution(model_class.load_default_package)
+    # Optional load_model arguments, e.g. the DLESyM checkpoint version
+    kwargs = (
+        {"version": cfg.forecast_model.version}
+        if "version" in cfg.forecast_model
+        else {}
+    )
 
     def load(pkg: str) -> PrognosticModel:
-        if pkg.startswith("dlesym_atmos"):
-            # Select the atmos/ocean checkpoint pair, e.g. dlesym_atmos01_ocean02
-            atmos, ocean = pkg.split("_")[-2:]
-            return model_class.load_model(
-                package=default,
-                atmos_model_idx=int(atmos.replace("atmos", "")),
-                ocean_model_idx=int(ocean.replace("ocean", "")),
-            )
-        if pkg == "default":
-            return model_class.load_model(package=default)
-        return model_class.load_model(package=Package(pkg))
+        package = default if pkg == "default" else Package(pkg)
+        return model_class.load_model(package=package, **kwargs)
 
     return load
 

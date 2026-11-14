@@ -26,12 +26,10 @@ from earth2studio.grids import LatLonGrid
 from earth2studio.statistics import crps
 
 expected_scores = {
-    "dlesym": {
-        "t2m": np.array([2.1747, 2.0343, 2.3918, 1.6183, 3.0419, 1.9484, 1.7904]),
-        "z500": np.array(
-            [288.6965, 474.8904, 291.3008, 469.3990, 468.8430, 210.8404, 270.3322]
-        ),
-    },
+    # TODO: record DLESyM v1.1 reference scores from a GPU run of
+    # `main.py --config-name pnw_dlesym nperturbed=16`; until then the test prints
+    # the computed scores instead of checking them
+    "dlesym": None,
     "sfno": {
         "t2m": np.array([4.3031, 4.0860, 3.7687, 4.2791, 5.4535, 3.8613, 4.2332]),
         "z500": np.array(
@@ -78,6 +76,9 @@ def main() -> None:
 
         # Check within 5% of expected scores
         scores = metric(fcst, verif).e2s.as_numpy().values.squeeze()
+        if expected_scores[model] is None:
+            print(f"No reference scores for {model}; {var} CRPS: {scores.tolist()}")
+            continue
         if np.allclose(scores, expected_scores[model][var], rtol=5e-2):
             passed[var] = True
         else:
@@ -87,6 +88,8 @@ def main() -> None:
                 print(f"Expected: {expected_scores[model][var][lt]}")
                 print(f"Actual: {scores[lt]}")
 
+    if expected_scores[model] is None:
+        return
     if all(passed.values()):
         print(f"Expected skill verified for {model}")
 

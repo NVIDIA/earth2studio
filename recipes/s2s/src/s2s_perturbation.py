@@ -47,8 +47,11 @@ def initialize_perturbation(
     Returns
     -------
     perturbation : Any
-        The perturbation method
+        The perturbation method, or None for ``type: none`` (members then
+        differ only through a stochastic model's sampling)
     """
+    if cfg.perturbation.type == "none":
+        return None
     if cfg.perturbation.type == "HENSPerturbation":
         return HENSPerturbation(
             model=model,

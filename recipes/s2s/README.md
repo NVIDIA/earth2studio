@@ -86,13 +86,13 @@ To run an example ensemble forecast with DLESyM, run
 
 ```bash
 # With uv
-uv run python main.py --config-name=pnw_dlesym ncheckpoints=2
+uv run python main.py --config-name=pnw_dlesym nperturbed=16
 # With pip
-python main.py --config-name=pnw_dlesym ncheckpoints=2
+python main.py --config-name=pnw_dlesym nperturbed=16
 ```
 
-Here, we use a command-line config override to limit the number of model checkpoints in the
-forecast to just two, for speed. More instructions on configuring the ensemble can be found
+Here, we use a command-line config override to limit the ensemble to 16 members, for
+speed. More instructions on configuring the ensemble can be found
 below in the [Configuration](#configuration) section.
 
 ## Documentation
@@ -192,21 +192,24 @@ will be saved (`${output_path}/${project}_${run_id}`). Then, the core settings f
 ensemble size and forecast duration are specified as:
 
 ```yaml
-nsteps: 12         # number of steps to run the forecast
+nsteps: 176        # number of steps to run the forecast
 nperturbed: 4      # Number of perturbations applied to the initial condition for each model checkpoint
                     # Total ensemble size is nperturbed * ncheckpoints
-ncheckpoints: 16 # number of model checkpoints to use
-                # For DLESyM, ncheckpoints represents the total number of atmos/ocean model checkpoint pairs
+ncheckpoints: 16   # number of model checkpoints to use
 batch_size: 4      # inference batch size
 ```
 
-As mentioned in the in-line comments, this recipe creates ensembles by combining initial
-condition perturbations with multiple model checkpoints to produce variability in the
-ensemble. Each model checkpoint (set of trained weights) is paired with `nperturbed`
-initial condition perturbations to produce a total of `ncheckpoints*nperturbed` ensemble
-members. With DLESyM, there are 4 atmosphere and 4 ocean models available, leading to a
-total of 16 possible checkpoints; HENS-SFNO has up to 29 model checkpoints available for
-use in an ensemble.
+As mentioned in the in-line comments, this recipe creates ensembles from
+`nperturbed` members per model checkpoint (set of trained weights), for a total of
+`ncheckpoints*nperturbed` ensemble members. How members of one checkpoint differ
+depends on the model:
+
+- HENS-SFNO is deterministic, so its members combine initial condition perturbations
+  with multiple checkpoints; up to 29 checkpoints are available.
+- DLESyM (v1.1, the checkpoint used in the ECMWF AI Weather Quest) is stochastic: it
+  samples noise in each forward pass, so a single checkpoint produces the whole
+  ensemble without initial condition perturbations (`perturbation: none`,
+  `ncheckpoints: 1`). The DLESyM configs run 64 members.
 
 To provide maximum flexibility and extensibility, we use a hydra defaults list to select
 model and perturbation configs from the `cfg/forecast_model` and `cfg/perturbation`
@@ -216,15 +219,17 @@ for a reference):
 
 ```yaml
 defaults:
-    - forecast_model: dlesym
-    - perturbation: gaussian
+    - forecast_model: sfno
+    - perturbation: hens
 ```
 
 <!-- markdownlint-disable MD028 -->
 > [!TIP]
-> Not all perturbation methods in Earth2studio are compatible with
-> the DLESyM model, currently. In particular, multi-timestep perturbation
-> methods like (normal/hemispheric-centered) bred vectors will not work.
+> DLESyM runs on a HEALPix grid. Its config wraps `data_source` in
+> `DLESyMInputSource`, which prepares the model inputs from lat/lon data, and the
+> outputs are regridded (nearest neighbour) onto the 0.25 degree lat/lon grid of
+> each output region. Bred-vector perturbations do not support DLESyM's
+> multi-timestep inputs.
 
 > [!NOTE]
 > The hemispheric-centred bred vector (`perturbation: hens`) perturbs members
@@ -263,14 +268,17 @@ Compared to earlier versions:
   instead of using an unbounded thread pool.
 - Runs can resume after an interruption (`file_output.resume`, see
   [Parallelism](#parallelism)).
-- For models with several input frames (DLESyM), the stores no longer include
-  the input history at negative lead times.
+- DLESyM uses the v1.1 checkpoint (stochastic, one checkpoint, no initial
+  condition perturbation) on its native HEALPix grid, instead of
+  `DLESyMLatLon` with 4 atmosphere x 4 ocean checkpoint pairs. Its outputs are
+  regridded by nearest neighbour rather than bilinearly, and the stores no
+  longer include the input history at negative lead times.
 - With `batch_ids_reproduce`, the stores hold only the reproduced members.
 - With bred-vector perturbations, `nperturbed` and `batch_size` must be even.
 
 Batch seeds are unchanged and seed each perturbation's own random stream
-(`set_rng`) instead of the global Torch RNG, giving the same draws, so ensembles
-reproduce those of earlier versions.
+(`set_rng`) instead of the global Torch RNG, giving the same draws, so HENS-SFNO
+ensembles reproduce those of earlier versions.
 
 #### Scoring forecast outputs
 
