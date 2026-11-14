@@ -12,3 +12,4 @@ utils/*
 !utils/baselines.py
 !utils/sources.py
 !utils/healda_source.py
+!utils/rank_entry.sh

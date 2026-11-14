@@ -349,6 +349,64 @@ def test_launcher_composes_what_the_scripts_compose(tmp_path, monkeypatch) -> No
     assert composed == yaml.safe_load(printed.stdout)
 
 
+@pytest.mark.parametrize("pin", [False, True])
+def test_launcher_pins_ranks_through_the_wrapper(monkeypatch, pin) -> None:
+    calls = []
+    monkeypatch.setattr(
+        run_scorecard.subprocess, "run", lambda cmd, **kw: calls.append((cmd, kw))
+    )
+    if pin:
+        monkeypatch.setenv("SCORECARD_PIN_GPU", "1")
+    else:
+        monkeypatch.delenv("SCORECARD_PIN_GPU", raising=False)
+    run_scorecard.launch("main.py", "fcn3_2025_scorecard", [], 8)
+    [(cmd, kw)] = calls
+    wrapper = str(SCORECARD_CFG.parent / "utils" / "rank_entry.sh")
+    if pin:
+        at = cmd.index("--no-python")
+        assert cmd[at + 1 : at + 3] == [wrapper, "main.py"]
+        assert kw["env"]["SCORECARD_PYTHON"] == sys.executable
+    else:
+        assert "--no-python" not in cmd and kw["env"] is None
+
+
+@pytest.mark.parametrize(
+    ("local_rank", "visible", "expected"),
+    [("1", "4,5", "5"), ("0", "GPU-a,GPU-b", "GPU-a"), ("2", None, "2")],
+)
+def test_rank_entry_picks_the_rank_gpu(local_rank, visible, expected) -> None:
+    env = {k: v for k, v in os.environ.items() if k != "CUDA_VISIBLE_DEVICES"}
+    env.update(LOCAL_RANK=local_rank, SCORECARD_PYTHON=sys.executable)
+    if visible is not None:
+        env["CUDA_VISIBLE_DEVICES"] = visible
+    shown = subprocess.run(  # noqa: S603 - fixed script and interpreter
+        [
+            str(SCORECARD_CFG.parent / "utils" / "rank_entry.sh"),
+            "-c",
+            "import os; e = os.environ; "
+            "print(e['CUDA_VISIBLE_DEVICES'], e['LOCAL_RANK'])",
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert shown.returncode == 0, shown.stderr
+    assert shown.stdout.split() == [expected, "0"]
+
+
+def test_rank_entry_rejects_a_rank_beyond_the_visible_gpus() -> None:
+    env = {**os.environ, "LOCAL_RANK": "2", "CUDA_VISIBLE_DEVICES": "4,5"}
+    shown = subprocess.run(  # noqa: S603 - fixed script
+        [str(SCORECARD_CFG.parent / "utils" / "rank_entry.sh"), "-c", "pass"],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert shown.returncode == 1 and "lists 2 device(s)" in shown.stderr
+
+
 def test_launcher_stamps_the_store_scoring_wrote(tmp_path, monkeypatch) -> None:
     import zarr
 
