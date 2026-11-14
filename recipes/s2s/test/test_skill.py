@@ -26,10 +26,13 @@ from earth2studio.grids import LatLonGrid
 from earth2studio.statistics import crps
 
 expected_scores = {
-    # TODO: record DLESyM v1.1 reference scores from a GPU run of
-    # `main.py --config-name pnw_dlesym nperturbed=16`; until then the test prints
-    # the computed scores instead of checking them
-    "dlesym": None,
+    # DLESyM v1.1 reference scores from `main.py --config-name pnw_dlesym nperturbed=16`
+    "dlesym": {
+        "t2m": np.array([1.8294, 1.6020, 1.7694, 1.9108, 3.2195, 1.7170, 1.8355]),
+        "z500": np.array(
+            [241.7038, 306.6756, 274.7664, 425.2651, 452.0847, 278.1708, 263.9148]
+        ),
+    },
     "sfno": {
         "t2m": np.array([4.3031, 4.0860, 3.7687, 4.2791, 5.4535, 3.8613, 4.2332]),
         "z500": np.array(
