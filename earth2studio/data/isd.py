@@ -570,6 +570,9 @@ class ISD:
             (direction(deg), direction quality code, type_code, speed(0.1 m/s), speed quality code)
         Components follow the meteorological convention (direction wind blows from):
         u = -speed * sin(dir), v = -speed * cos(dir)
+
+        A direction of 999 means missing (variable when type code is ``V``), in which
+        case the components are NaN. Calm winds (type code ``C``, or a zero speed) are 0.
         """
         if "WND" not in df:
             df["u10m"] = np.nan
@@ -588,9 +591,12 @@ class ISD:
         speed = pd.to_numeric(parts[3], errors="coerce")
         # Missing speed handling and scale
         speed = speed.where(speed != 9999, np.nan) / 10.0
-        # Calm condition: reported 'C' or reported 9 with non-nan speed
-        calm_mask = (type_code == "C") | ((direction == 9) & type_code.notna())
+        # 999 is the missing direction code
+        direction = direction.where(direction != 999, np.nan)
+        # Calm condition: type code 'C', or zero speed (type 9 with 0000 is calm)
+        calm_mask = (type_code == "C") | (speed == 0)
         speed = speed.mask(calm_mask, 0.0)
+        direction = direction.mask(calm_mask, 0.0)
 
         rad = np.radians(direction)
         u = -np.sin(rad) * speed
