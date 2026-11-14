@@ -252,7 +252,8 @@ def test_weighted_var(device: str) -> None:
 
 @pytest.mark.parametrize("device", ["cpu", "cuda:0"])
 @pytest.mark.parametrize("ensemble_axis", [0, 1])
-def test_batch_var_std(device, ensemble_axis) -> None:
+@pytest.mark.parametrize("weighted", [False, True])
+def test_batch_var_std(device, ensemble_axis, weighted) -> None:
 
     big_x = torch.randn((100, 10, 10), device=device)
     big_coords = OrderedDict(
@@ -270,8 +271,10 @@ def test_batch_var_std(device, ensemble_axis) -> None:
         )
     reduced_coords = OrderedDict({"lat": big_coords["lat"], "lon": big_coords["lon"]})
 
-    std = moments.std(["ensemble"], batch_update=True)
-    var = moments.variance(["ensemble"], batch_update=True)
+    # Unequal weights for the ten members of each batch, not summing to ten
+    weights = torch.linspace(0.05, 0.5, 10, device=device) if weighted else None
+    std = moments.std(["ensemble"], weights=weights, batch_update=True)
+    var = moments.variance(["ensemble"], weights=weights, batch_update=True)
 
     assert str(std) == "ensemble_std"
     assert str(var) == "ensemble_variance"
@@ -282,12 +285,24 @@ def test_batch_var_std(device, ensemble_axis) -> None:
         coords = big_coords.copy()
         coords["ensemble"] = coords["ensemble"][inds : inds + 10]
 
+        if weighted:
+            # Weighted sample variance of every member seen so far
+            aweights = weights.repeat(inds // 10 + 1).cpu().numpy()
+            expected = np.apply_along_axis(
+                lambda m: np.cov(m, aweights=aweights),
+                ensemble_axis,
+                accumulated.cpu().numpy(),
+            )
+            expected = torch.as_tensor(expected, dtype=big_x.dtype, device=device)
+        else:
+            expected = torch.var(accumulated, dim=ensemble_axis)
+
         y, c = std(x, coords)
-        assert torch.allclose(y, torch.std(accumulated, dim=ensemble_axis))
+        assert torch.allclose(y, expected.sqrt())
         assert c == reduced_coords
 
         y, c = var(x, coords)
-        assert torch.allclose(y, torch.var(accumulated, dim=ensemble_axis))
+        assert torch.allclose(y, expected)
         assert c == reduced_coords
 
         out_test_coords = var.output_coords(coords)

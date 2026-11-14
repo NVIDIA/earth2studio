@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed weighted running variance and standard deviation (`batch_update=True`) to use
+  the same weighted denominator as the non-batched statistic.
+
 ### Security
 
 ### Dependencies

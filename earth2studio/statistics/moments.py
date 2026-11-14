@@ -186,6 +186,7 @@ class variance:
         self.batch_update = batch_update
         if self.batch_update:
             self.n = 0
+            self.n2 = 0
 
     def __str__(self) -> str:
         return "_".join(self._reduction_dimensions + ["variance"])
@@ -258,6 +259,7 @@ class variance:
         # If batch updating then calculate updated mean
         else:
             temp_n = weights_sum
+            temp_n2 = torch.sum(weights**2)
             temp_sum_keepdim = torch.sum(weights * x, dim=dims, keepdim=True)
             temp_sum2 = torch.sum(
                 weights * (x - temp_sum_keepdim / temp_n) ** 2, dim=dims
@@ -267,6 +269,7 @@ class variance:
             # First batch then no correction
             if self.n == 0:
                 self.n = temp_n
+                self.n2 = temp_n2
                 self.sum = temp_sum
                 self.sum2 = temp_sum2
             # Second-order correction with each batch
@@ -275,9 +278,13 @@ class variance:
                 self.sum += temp_sum
                 self.sum2 += temp_sum2 + self.n / temp_n / (self.n + temp_n) * delta**2
                 self.n += temp_n
+                self.n2 += temp_n2
 
+            # Same weighted denominator as the non-batched path, n - 1 without
+            # weights. A single sample keeps returning zero instead of NaN.
+            div = self.n - self.n2 / self.n
             return (
-                self.sum2 / torch.maximum(self.n - 1.0, torch.tensor(1.0)),
+                self.sum2 / torch.where(div > 0, div, torch.ones_like(div)),
                 output_coords,
             )
 
