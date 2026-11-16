@@ -169,6 +169,29 @@ def handshake_size(
         )
 
 
+def coord_indices(coord: np.ndarray, values: np.ndarray) -> np.ndarray:
+    """Find the positions of `values` in a 1D coordinate array, in the order of
+    `values`. Values that are not present in `coord` are skipped.
+
+    Parameters
+    ----------
+    coord : np.ndarray
+        1D coordinate array with unique values to search in
+    values : np.ndarray
+        Coordinate values to locate
+
+    Returns
+    -------
+    np.ndarray
+        Integer indices into `coord`, such that `coord[indices]` lists the values
+        of `values` present in `coord`, in the same order as `values`
+    """
+    values = np.asarray(values)
+    values = values[np.isin(values, coord)]
+    sorter = np.argsort(coord, kind="stable")
+    return sorter[np.searchsorted(coord, values, sorter=sorter)]
+
+
 def map_coords(
     x: torch.Tensor,
     input_coords: CoordSystem,

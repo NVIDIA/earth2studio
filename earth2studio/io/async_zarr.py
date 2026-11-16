@@ -37,6 +37,7 @@ from loguru import logger
 from zarr import AsyncGroup
 from zarr.core.array import CompressorsLike
 
+from earth2studio.utils.coords import coord_indices
 from earth2studio.utils.type import CoordSystem
 
 if TYPE_CHECKING:
@@ -1586,7 +1587,7 @@ class AsyncZarrBackend:
             out_slices = []
             if key in self.parallel_coords:
                 for in_idx, out_idx in enumerate(
-                    np.where(np.isin(self.parallel_coords[key], coords[key]))[0]
+                    coord_indices(self.parallel_coords[key], coords[key])
                 ):
                     in_slices.append(slice(in_idx, in_idx + 1))
                     out_slices.append(slice(out_idx, out_idx + 1))

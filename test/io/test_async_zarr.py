@@ -1791,3 +1791,28 @@ def test_async_zarr_coords_of_coord_only_store(tmp_path: str) -> None:
 
     assert set(z.coords) == {"lead_time", "lat"}
     np.testing.assert_array_equal(np.asarray(z.coords["lat"]), total_coords["lat"])
+
+
+def test_async_zarr_write_unordered_parallel_coords(tmp_path: str) -> None:
+    time = np.array(
+        [
+            np.datetime64("2024-01-01T00"),
+            np.datetime64("2024-01-01T06"),
+            np.datetime64("2024-01-01T12"),
+        ]
+    )
+    z = AsyncZarrBackend(
+        f"{tmp_path}/unordered.zarr",
+        parallel_coords={"time": time},
+        fs_factory=LocalFileSystem,
+        blocking=True,
+    )
+    # Parallel coordinates in a different order than the store must land in
+    # matching slots
+    total_coords = OrderedDict({"time": time[[2, 0]], "lat": np.arange(2.0)})
+    z.write(torch.tensor([[2.0, 2.0], [0.0, 0.0]]), total_coords, "fields")
+    z.close()
+
+    zsync = zarr.open(f"{tmp_path}/unordered.zarr")
+    assert np.array_equal(zsync["fields"][0], [0.0, 0.0])
+    assert np.array_equal(zsync["fields"][2], [2.0, 2.0])

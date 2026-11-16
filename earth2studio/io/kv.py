@@ -23,7 +23,7 @@ import torch
 import xarray
 from loguru import logger
 
-from earth2studio.utils.coords import convert_multidim_to_singledim
+from earth2studio.utils.coords import convert_multidim_to_singledim, coord_indices
 from earth2studio.utils.type import CoordSystem
 
 
@@ -194,7 +194,7 @@ class KVBackend:
             self.root[name][
                 np.ix_(
                     *[
-                        np.where(np.isin(self.coords[dim], value))[0]
+                        coord_indices(self.coords[dim], value)
                         for dim, value in adjusted_coords.items()
                     ]
                 )
@@ -265,7 +265,7 @@ class KVBackend:
         x = self.root[array_name][
             np.ix_(
                 *[
-                    np.where(np.isin(self.coords[dim], value))[0]
+                    coord_indices(self.coords[dim], value)
                     for dim, value in adjusted_coords.items()
                 ]
             )
