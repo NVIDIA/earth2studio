@@ -17,11 +17,16 @@ and execution; [Data fetching](E2S-05_FETCH_DATA_SPEC.md) defines source request
 
 ### Coordinate object
 
-`CoordinateSystem` is an `xarray.DataArray` used as a coordinate signature.
-Its field backing describes shape and dtype only; coordinate labels themselves
-are real arrays. An execution DataArray carries field values with the same
-metadata structure. The legacy `CoordSystem` ordered mapping of axis names to
-NumPy arrays cannot express the full signature and is not an equivalent object.
+`CoordinateSystem` is a metadata-only coordinate signature with no field data.
+It is constructed by `coord_array()` as an `xarray.DataArray` whose backing array
+is a shape-and-dtype-only placeholder. The placeholder stores no field values,
+reports zero field-data bytes, and rejects conversion to a NumPy array. Indexing
+and transposing it update the declared shape without allocating field values.
+
+Coordinate labels themselves are real arrays and do occupy memory. An execution
+DataArray carries actual field values with the same metadata structure. The legacy
+`CoordSystem` ordered mapping of axis names to NumPy arrays cannot express the full
+signature and is not an equivalent object.
 
 | ID | Requirement |
 | --- | --- |
@@ -70,14 +75,12 @@ coordinate labels or establish axis order.
 | `earth2studio_schema_version` | Signature | Integer `1`; version of the signature metadata format |
 | `earth2studio_dynamic_dims` | Signature | Ordered tuple of dimension names; empty when all dimensions are fixed |
 | `units` | Coordinate or homogeneous field | String describing the units of its values |
-| `long_name` | Coordinate or field | Human-readable descriptive string |
-| `standard_name` | Coordinate or field | CF standard-name string, when an applicable standard name exists |
 | `source` | Field or DataFrame | Producer/provenance identifier string; distinct from a DataFrame's per-row `source` column |
 
 | ID | Requirement |
 | --- | --- |
 | M1 | Signature construction MUST set kind, schema version, and dynamic dimensions consistently with the object. Concrete field outputs MUST omit these three signature-only attributes. |
-| M2 | Descriptive attributes are optional. When present, they MUST describe the associated values accurately. A single field-level `units` or `standard_name` MUST NOT claim one meaning for a mixed-variable field; variable-dependent descriptions belong on coordinates indexed by `variable`. |
+| M2 | Descriptive attributes are optional. When present, they MUST describe the associated values accurately. A single field-level `units` MUST NOT claim one meaning for a mixed-variable field; variable-dependent descriptions belong on coordinates indexed by `variable`. |
 | M3 | Metadata-preserving transformations MUST retain unrelated user attributes and coordinate attributes. Attributes invalidated by a transformation MUST be updated or removed. |
 | M4 | Grid identity/CRS attributes and `earth2studio_statistics` MUST obey their owning specs. They MUST NOT be independently inferred from field shape or copied onto incompatible coordinates. |
 
