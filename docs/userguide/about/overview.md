@@ -56,15 +56,10 @@ flowchart LR
     D --> E[Decision model]
 ```
 
-The data assimilation model combines observations with a background state to produce
-an analysis. The forecast model advances that state, and a diagnostic model turns
-the forecast into application-relevant quantities. Your decision model can then use
-those products to evaluate actions, such as scheduling energy generation or planning
-for hazardous weather.
-
-Bring your own model at any stage, mixing community and proprietary components.
-You can also enter midway, supplying an existing forecast directly to a diagnostic
-or decision model.
+Build bespoke pipelines by combining open models with your own proprietary models
+and processes. Assemble components around your application to create a workflow
+with its own unique value. Bring your own model at any stage, or enter midway by
+supplying an existing forecast directly to a diagnostic or decision model.
 
 ## Constructing Pipelines
 
