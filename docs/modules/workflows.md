@@ -20,4 +20,5 @@ output: generated/workflows
 earth2studio.run.deterministic
 earth2studio.run.diagnostic
 earth2studio.run.ensemble
+earth2studio.run.map_field
 {% endautosummary %}

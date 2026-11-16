@@ -488,7 +488,7 @@ class HimawariAHI:
             coros,
             max_workers=self._async_workers,
             desc="Fetching Himawari data",
-            verbose=(not self._verbose),
+            verbose=self._verbose,
         )
 
         # Add curvilinear lat/lon coordinates

@@ -389,9 +389,7 @@ def test_meteosat_li_call_mock_empty(monkeypatch):
 # ---------------------------------------------------------------------------
 # Remote fetch (requires EUMETSAT Data Store credentials)
 # ---------------------------------------------------------------------------
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(300)
+@pytest.mark.live(timeout=300)
 def test_meteosat_li_fetch():
     ds = MeteosatLI(
         lat_lon_bbox=(35.0, -12.0, 60.0, 30.0),
@@ -410,9 +408,7 @@ def test_meteosat_li_fetch():
     assert (df[df["variable"] == "lightning_flash_radiance"]["observation"] > 0).all()
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(300)
+@pytest.mark.live(timeout=300)
 def test_meteosat_li_cache():
     ds = MeteosatLI(
         lat_lon_bbox=(35.0, -12.0, 60.0, 30.0),

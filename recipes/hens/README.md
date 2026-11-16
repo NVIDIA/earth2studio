@@ -51,11 +51,8 @@ The following command can be used to download the entire model registry from [NE
 > [!WARNING]
 > The entire model registry is 241 Gb.
 
-> [!TIP]
-> To download the individual checkpoints on an "as need" basis, just run the recipe with
-> out executing this command.
-> The checkpoints will get downloaded to the registry folder defined in the config from
-> the HuggingFace mirror. (coming soon)
+> For the smaller Helene validation, download only the two checkpoints listed below.
+> The recipe expects a populated local registry; it does not download missing checkpoints.
 <!-- markdownlint-enable MD028 -->
 
 ```bash
@@ -87,13 +84,12 @@ For the best experience the following hardware specifications are recommended:
 
 ## Quick Start
 
-Start by installing the required packages with pip:
+From `recipes/hens` in an Earth2Studio 1.0 checkout, install the recipe dependencies:
 
 ```bash
-# If using uv package manager
-uv sync
-# Pip
-pip install -r recipe-requirements.txt
+uv venv
+uv pip install --python .venv/bin/python torch setuptools ninja wheel
+uv sync --no-build-isolation-package torch-harmonics
 ```
 
 The provided JupyText python script `hens_notebook.py` is already set up to run
@@ -118,6 +114,7 @@ uv run jupytext --to notebook hens_notebook.py
 ```
 
 Output results will be stored in the `outputs` folder.
+
 For further configuration options, see the following section.
 
 ## Documentation
@@ -402,6 +399,37 @@ file_output:
 ```
 
 ### Execution
+
+For overlapping forecast computation with disk writes, use a NetCDF or Zarr
+backend and set `file_output.thread_io: true`. The recipe-local
+`BufferedIOBackend` buffers independent CPU xarray DataArrays; it holds at most
+two outstanding fields per region by default (override with
+`+file_output.buffer_size=4`). CPU transfer/copy is synchronous; disk writing
+runs on a background worker. A full buffer applies backpressure. Pipeline waits
+for writes at each batch boundary before recording progress, and writer errors
+propagate to the run. NetCDF operations are serialized across region workers.
+This replaces the previous whole-run export thread pool. Explicit Xarray/KV
+backends still retain the full forecast in memory and export synchronously at
+the end; use a disk backend for bounded, asynchronous output.
+
+To resume interrupted runs, set `file_output.resume: true` and use this output
+format with an explicit `random_seed`:
+
+```yaml
+format:
+    _target_: earth2studio.io.ZarrBackend
+    _partial_: True
+    backend_kwargs:
+        overwrite: False
+```
+
+Rerun the same configuration and output paths. Progress is stored under
+`file_output.path/progress`, separately for each checkpoint and initialization.
+Completed batches are skipped; incomplete batches are rerun, including their
+tracking and CorrDiff files. Keep the progress directory and all output files
+together. Changed configurations are rejected; use a fresh output directory for
+a new run. Buffered Zarr output also supports resume; NetCDF and in-memory
+backends do not.
 
 To execute the inference pipeline, tailor the config file to your needs and run:
 

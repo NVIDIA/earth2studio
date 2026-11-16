@@ -16,44 +16,63 @@
 
 """Reference baselines for the scorecard, run as ordinary campaigns.
 
-Two classic skill baselines, both expressed as prognostic "models" so the
-eval recipe's pipelines, online scoring, and exports apply unchanged:
+Two classic skill baselines, both expressed as prognostic models on the
+Earth2Studio 1.0 protocol so the eval recipe's forecast runner, online
+scoring and exports apply unchanged:
 
-* :class:`PersistenceBaseline` — the forecast is the initial condition at
-  every lead time.  A thin AutoModel-style loader around
-  ``earth2studio.models.px.Persistence`` on the ERA5 0.25° grid (its
-  ``domain_coords`` argument is a coordinate mapping, which a campaign
-  yaml cannot express directly).
-* :class:`ClimatologyForecast` — the forecast at each lead is the
-  climatology at the valid time (day of year x hour of day), read from a
-  predownloaded store (see
-  :class:`scorecard.utils.pipelines.ClimatologyPipeline`) so no remote
-  fetch ever happens inside the inference loop.
+* :class:`PersistenceBaseline` -- the forecast is the initial condition at
+  every lead time.  A thin loader around
+  :class:`earth2studio.models.px.Persistence` on the registered ERA5 grid,
+  so a campaign can select it with ``model.architecture`` and pass the
+  scored variable list through ``model.load_args``.
+* :class:`ClimatologyForecast` -- the forecast at each lead is the
+  climatology at the valid time (day of year x hour of day).  The
+  climatology is a *forcing slot* of the model: the forecast runner fetches
+  it at every step from ``forcing_sources[0]`` (for example
+  :class:`earth2studio.data.WB2Climatology`) and ``predownload.py`` caches
+  it into ``forcing0.zarr`` through the runner's ``data_requests``, so no
+  remote fetch happens inside the inference loop.
 """
 
 from __future__ import annotations
 
-from collections import OrderedDict
-from collections.abc import Iterator
+from collections.abc import Generator
 from typing import Any
 
 import numpy as np
 import torch
+import xarray as xr
 
-from earth2studio.utils.coords import CoordSystem
+from earth2studio.data.base import DataSource, ForecastSource
+from earth2studio.grids import GridDefinition
+from earth2studio.models.px.utils import PrognosticMixin
+from earth2studio.utils.coords import (
+    coord_array,
+    coord_array_like,
+    handshake_dataarray,
+    handshake_nonempty,
+    handshake_time,
+)
+from earth2studio.utils.type import CoordinateSystem
 
-# The shared verification grid: ERA5 0.25°, latitude 90 -> -90.
-ERA5_LAT = np.linspace(90.0, -90.0, 721)
-ERA5_LON = np.arange(0.0, 360.0, 0.25)
+#: The shared verification grid: ERA5 0.25 degree, 721 x 1440, latitude 90 -> -90.
+ERA5_GRID = "latlon-0.25deg"
+
+
+def _variables(variables: list[str] | None, name: str) -> list[str]:
+    if not variables:
+        raise ValueError(
+            f"{name} needs model.load_args.variables "
+            "(e.g. variables: ${output.variables})."
+        )
+    return [str(v) for v in variables]
 
 
 class PersistenceBaseline:
-    """Loader for ``earth2studio.models.px.Persistence`` on the ERA5 grid.
+    """Loader for :class:`earth2studio.models.px.Persistence` on the ERA5 grid.
 
     Provides the ``load_default_package`` / ``load_model`` classmethods the
-    recipe's ``load_prognostic`` expects, so a campaign can select the
-    baseline with ``model.architecture`` and pass the scored variable list
-    through ``model.load_args``.
+    recipe's ``load_prognostic`` expects.
     """
 
     @classmethod
@@ -63,138 +82,287 @@ class PersistenceBaseline:
 
     @classmethod
     def load_model(
-        cls, package: object = None, variables: list[str] | None = None
+        cls,
+        package: object = None,
+        variables: list[str] | None = None,
+        grid: str | GridDefinition = ERA5_GRID,
     ) -> Any:
-        """Build the persistence model for *variables* on the ERA5 grid."""
+        """Build the persistence model for ``variables`` on ``grid``.
+
+        Parameters
+        ----------
+        package : object, optional
+            Ignored; persistence has no weights.
+        variables : list[str], optional
+            Variables the baseline carries (``model.load_args.variables``).
+        grid : str | GridDefinition, optional
+            Registered grid name or definition, by default the ERA5 grid.
+
+        Returns
+        -------
+        Persistence
+            The identity prognostic model.
+        """
         from earth2studio.models.px import Persistence
 
-        if not variables:
-            raise ValueError(
-                "PersistenceBaseline needs model.load_args.variables "
-                "(e.g. variables: ${output.variables})."
-            )
         return Persistence(
-            variable=[str(v) for v in variables],
-            domain_coords=OrderedDict({"lat": ERA5_LAT, "lon": ERA5_LON}),
+            variable=_variables(variables, "PersistenceBaseline"), domain_coords=grid
         )
 
 
-class ClimatologyForecast(torch.nn.Module):
+class ClimatologyForecast(torch.nn.Module, PrognosticMixin):
     """Prognostic-protocol baseline that forecasts the climatology.
 
-    At every lead time the "forecast" is the climatological field for the
-    valid time, read from a local :class:`src.data.PredownloadedSource`
-    that :class:`~scorecard.utils.pipelines.ClimatologyPipeline` populates
-    at predownload time.  The lead-0 yield is the analysis itself, like
-    every other model (scoring drops lead 0 anyway).
+    The input slot is the analysis at lead zero on the grid; the forcing slot
+    (:meth:`forcing_coords`) is the climatology of the same variables at
+    lead ``dt`` on the same grid.  The forecast runner fetches the forcing at
+    every step's valid time, and :meth:`initialize` / :meth:`step` return it
+    as the forecast, so the model itself holds no state and never touches a
+    data source.
 
     Parameters
     ----------
     variable : list[str]
-        Variables the baseline emits, in store order.
+        Variables the baseline emits.
     dt : np.timedelta64, optional
         Forecast step, by default 6 hours.
+    grid : str | GridDefinition, optional
+        Registered grid name or definition, by default the ERA5 grid.
     """
 
     def __init__(
         self,
         variable: list[str],
         dt: np.timedelta64 = np.timedelta64(6, "h"),
+        grid: str | GridDefinition = ERA5_GRID,
     ) -> None:
         super().__init__()
+        if np.isnat(dt) or dt <= np.timedelta64(0, "s"):
+            raise ValueError("ClimatologyForecast requires a positive time step")
         self._variable = [str(v) for v in variable]
-        self._dt = dt
-        # Injected by ClimatologyPipeline.setup.
-        self._source: Any = None
+        self._dt = np.timedelta64(dt)
+        self._grid = grid
+        self._input_coords = coord_array(
+            ("batch", "lead_time", "variable", "lat", "lon"),
+            {
+                "lead_time": np.array([np.timedelta64(0, "h")]),
+                "variable": np.array(self._variable),
+            },
+            dynamic=("batch",),
+            grid=grid,
+        )
+
+    def __str__(self) -> str:
+        return "climatology"
 
     @classmethod
     def load_default_package(cls) -> None:
-        """No package: the climatology comes from a predownloaded store."""
+        """No package: the climatology comes from the forcing source."""
         return None
 
     @classmethod
     def load_model(
-        cls, package: object = None, variables: list[str] | None = None
+        cls,
+        package: object = None,
+        variables: list[str] | None = None,
+        step_hours: int = 6,
+        grid: str | GridDefinition = ERA5_GRID,
     ) -> ClimatologyForecast:
-        """Build the baseline for *variables* (pipeline injects the source)."""
-        if not variables:
-            raise ValueError(
-                "ClimatologyForecast needs model.load_args.variables "
-                "(e.g. variables: ${output.variables})."
+        """Build the baseline for ``variables``.
+
+        Parameters
+        ----------
+        package : object, optional
+            Ignored; the baseline has no weights.
+        variables : list[str], optional
+            Variables the baseline emits (``model.load_args.variables``).
+        step_hours : int, optional
+            Forecast step in hours, by default 6.
+        grid : str | GridDefinition, optional
+            Registered grid name or definition, by default the ERA5 grid.
+
+        Returns
+        -------
+        ClimatologyForecast
+            The baseline model.
+        """
+        return cls(
+            variable=_variables(variables, "ClimatologyForecast"),
+            dt=np.timedelta64(int(step_hours), "h"),
+            grid=grid,
+        )
+
+    @property
+    def dt(self) -> np.timedelta64:
+        """Forecast step."""
+        return self._dt
+
+    def input_coords(self) -> CoordinateSystem:
+        """Input signature: the analysis at lead zero on the grid.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray signature.
+        """
+        return self._input_coords.copy()
+
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Output signature: the final input lead time advanced by ``dt``.
+
+        Parameters
+        ----------
+        input_coords : CoordinateSystem
+            Input signature or DataArray to check and transform.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray output signature.
+        """
+        handshake_time(input_coords, "lead_time")
+        lead = np.asarray(input_coords.lead_time)
+        handshake_dataarray(
+            input_coords.assign_coords(lead_time=lead - lead[-1]), self.input_coords()
+        )
+        final = input_coords.isel(lead_time=slice(-1, None))
+        return coord_array_like(
+            final.assign_coords(
+                lead_time=final.lead_time.variable.copy(data=lead[-1:] + self._dt)
             )
-        return cls(variable=list(variables))
-
-    def set_source(self, source: object) -> None:
-        """Attach the (local) climatology ``DataSource`` to read from."""
-        self._source = source
-
-    def input_coords(self) -> CoordSystem:
-        """Initial-condition coordinate system (single analysis frame)."""
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "lead_time": np.array([np.timedelta64(0, "h")]),
-                "variable": np.array(self._variable),
-                "lat": ERA5_LAT.copy(),
-                "lon": ERA5_LON.copy(),
-            }
         )
 
-    def output_coords(self, input_coords: CoordSystem | None = None) -> CoordSystem:
-        """Output coordinate system: one step of ``dt`` past the input."""
-        out: CoordSystem = OrderedDict(
-            {
-                "batch": np.empty(0),
-                "lead_time": np.array([self._dt]),
-                "variable": np.array(self._variable),
-                "lat": ERA5_LAT.copy(),
-                "lon": ERA5_LON.copy(),
-            }
+    def forcing_coords(self) -> CoordinateSystem:
+        """Declare the climatology at the next valid time as a forcing slot.
+
+        Returns
+        -------
+        CoordinateSystem
+            The input signature at lead time ``dt``.  The runner fetches the
+            slot at ``dt`` past the latest forecast, that is at every step's
+            valid time.
+        """
+        return coord_array_like(self._input_coords, {"lead_time": np.array([self._dt])})
+
+    def default_sources(self) -> tuple[DataSource | ForecastSource | None, ...]:
+        """Recommend no initial-condition source and WB2 climatology forcing.
+
+        Returns
+        -------
+        tuple[None, WB2Climatology]
+            Nothing for the analysis slot (the campaign supplies it) and the
+            WeatherBench2 ERA5 hourly climatology for the forcing slot.
+        """
+        from earth2studio.data import WB2Climatology
+
+        return None, WB2Climatology(cache=False, verbose=False)
+
+    def _forecast(
+        self, template: xr.DataArray, climatology: xr.DataArray
+    ) -> xr.DataArray:
+        """Place the climatology field into ``template``'s layout and coordinates."""
+        handshake_nonempty(climatology)
+        field = climatology.isel(lead_time=slice(-1, None)).assign_coords(
+            lead_time=template.lead_time.values
         )
-        if input_coords is not None and "lead_time" in input_coords:
-            out["lead_time"] = out["lead_time"] + input_coords["lead_time"][-1]
-            if "batch" in input_coords:
-                out["batch"] = input_coords["batch"]
-        return out
+        field, _ = xr.broadcast(field, template)
+        if dict(field.sizes) != dict(template.sizes):
+            raise ValueError(
+                "Climatology forcing does not match the forecast layout: got "
+                f"{dict(climatology.sizes)}, expected {dict(template.sizes)}"
+            )
+        return template.copy(data=field.transpose(*template.dims).data.copy())
+
+    def __call__(self, x: xr.DataArray, climatology: xr.DataArray) -> xr.DataArray:
+        """Forecast one step: the climatology at the next valid time.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Analysis matching ``input_coords()``.
+        climatology : xr.DataArray
+            Climatology matching ``forcing_coords()``.
+
+        Returns
+        -------
+        xr.DataArray
+            The climatology at lead ``dt`` in the analysis's layout.
+        """
+        return self._default_call(x, climatology)  # type: ignore[return-value]
+
+    @torch.inference_mode()
+    def initialize(
+        self, x: xr.DataArray, climatology: xr.DataArray
+    ) -> tuple[xr.DataArray, None]:
+        """Return the first forecast and no continuation state.
+
+        Parameters
+        ----------
+        x : xr.DataArray
+            Analysis matching ``input_coords()``.
+        climatology : xr.DataArray
+            Climatology at lead ``dt`` matching ``forcing_coords()``.
+
+        Returns
+        -------
+        tuple[xr.DataArray, None]
+            First forecast and empty state.
+        """
+        handshake_nonempty(x)
+        signature = self.output_coords(x)
+        template = x.isel(lead_time=slice(-1, None)).assign_coords(signature.coords)
+        template.attrs = dict(signature.attrs)
+        for key in (
+            "earth2studio_kind",
+            "earth2studio_schema_version",
+            "earth2studio_dynamic_dims",
+        ):
+            template.attrs.pop(key, None)
+        return self._forecast(template, climatology), None
+
+    @torch.inference_mode()
+    def step(
+        self, y: xr.DataArray, climatology: xr.DataArray, state: None
+    ) -> tuple[xr.DataArray, None]:
+        """Advance one step: the climatology at the next valid time.
+
+        Parameters
+        ----------
+        y : xr.DataArray
+            Previous forecast.
+        climatology : xr.DataArray
+            Climatology at ``dt`` past ``y``'s lead time.
+        state : None
+            Empty continuation state returned by initialization.
+
+        Returns
+        -------
+        tuple[xr.DataArray, None]
+            Next forecast and empty state.
+        """
+        if state is not None:
+            raise ValueError("ClimatologyForecast state must be None")
+        handshake_nonempty(y)
+        handshake_time(y, "lead_time")
+        template = y.assign_coords(lead_time=y.lead_time + self._dt)
+        return self._forecast(template, climatology), None
 
     def create_iterator(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> Iterator[tuple[torch.Tensor, CoordSystem]]:
-        """Yield the analysis at lead 0, then climatology at each lead.
+        self, x: xr.DataArray, climatology: xr.DataArray
+    ) -> Generator[xr.DataArray, xr.DataArray | None, None]:
+        """Yield the climatology at every forecast valid time.
 
-        The climatology field is re-indexed onto the model's own lat/lon
-        axes before use, so a source with a different latitude orientation
-        cannot silently flip the fields (the scorer only checks shapes).
+        Parameters
+        ----------
+        x : xr.DataArray
+            Analysis matching ``input_coords()``.
+        climatology : xr.DataArray
+            Climatology at lead ``dt`` matching ``forcing_coords()``.
+
+        Yields
+        ------
+        xr.DataArray
+            Forecast at each step; the caller sends the next step's
+            climatology through ``send``.
         """
-        if self._source is None:
-            raise RuntimeError(
-                "ClimatologyForecast has no source attached — run it through "
-                "scorecard.utils.pipelines.ClimatologyPipeline, which "
-                "predownloads the climatology store and injects it."
-            )
-        base: CoordSystem = OrderedDict(
-            (k, v.copy() if isinstance(v, np.ndarray) else v) for k, v in coords.items()
-        )
-        time0 = np.datetime64(np.asarray(coords["time"]).ravel()[0], "ns")
-        yield x, base
-
-        step = 0
-        while True:
-            step += 1
-            lead = self._dt * step
-            da = self._source([time0 + lead], self._variable)
-            da = da.reindex(lat=ERA5_LAT, lon=ERA5_LON)
-            field = torch.from_numpy(
-                np.ascontiguousarray(
-                    da.transpose("time", "variable", "lat", "lon").values[0],
-                    dtype=np.float32,
-                )
-            ).to(x.device)
-            # Broadcast the [variable, lat, lon] field into x's layout
-            # (leading singleton axes, e.g. time and lead_time).
-            out = torch.broadcast_to(
-                field.reshape((1,) * (x.ndim - 3) + field.shape), x.shape
-            )
-            out_coords = base.copy()
-            out_coords["lead_time"] = np.array([lead])
-            yield out, out_coords
+        return self._default_create_iterator(x, climatology)  # type: ignore[return-value]

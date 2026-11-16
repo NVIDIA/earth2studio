@@ -16,16 +16,17 @@
 
 from __future__ import annotations
 
-from collections import OrderedDict
-from collections.abc import Callable, Generator, Mapping
+from collections.abc import Callable, Mapping
 from contextlib import nullcontext
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 import torch
 import xarray as xr
 
+from earth2studio.grids import Region
 from earth2studio.models.auto import AutoModelMixin, Package
 from earth2studio.models.da.base import AssimilationModel
 from earth2studio.models.da.utils import (
@@ -34,13 +35,16 @@ from earth2studio.models.da.utils import (
     validate_observation_fields,
 )
 from earth2studio.models.dx.corrdiff_cosmo_era5 import CorrDiffCosmoEra5
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils import coord_array, handshake_dim
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
 from earth2studio.utils.time import normalize_time_tolerance
-from earth2studio.utils.type import CoordSystem, FrameSchema, TimeTolerance
+from earth2studio.utils.type import CoordinateSystem, FrameSchema, TimeTolerance
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataFrameSource, DataSource
 
 try:
     import cupy as cp
@@ -82,7 +86,7 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
     CorrDiff-COSMO directly models ``p(y | ERA5)``, so observations are mapped into
     its normalized output space without residual mean subtraction or addition. It is
     a single-shot diagnostic downscaler with no propagated state:
-    :meth:`__call__` and :meth:`create_generator` produce an independent analysis
+    :meth:`__call__` produces an independent analysis
     for each requested time, conditioned on the corresponding ERA5 state.
 
     Each observation is mapped to its nearest output-grid cell and normalized as
@@ -99,7 +103,7 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
     ----------
     model : CorrDiffCosmoEra5
         A diffusion-mode downscaler (``mode="diffusion"``), already cropped to the
-        target region with :meth:`CorrDiffCosmoEra5.set_domain` if desired.
+        target region with :meth:`CorrDiffCosmoEra5.with_region` if desired.
     assimilate_variables : tuple[str, ...]
         Output variables to assimilate (required); must be identity-transform,
         unit-scale channels, e.g. ``("u10m", "v10m")`` (surface wind, available in
@@ -146,6 +150,23 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
     product:precip product:atmos product:insitu year:2026 gpu:80gb
     provider:nvidia backend:pytorch
     """
+
+    stochastic = True
+    _rng: torch.Generator | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the independent posterior sample stream.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for a local CPU generator; global RNG state is unchanged.
+        reset : bool, optional
+            Restart the stream when True; otherwise initialize only if absent.
+            Defaults to True.
+        """
+        if reset or self._rng is None:
+            self._rng = torch.Generator().manual_seed(seed)
 
     def __init__(
         self,
@@ -217,11 +238,10 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         self.sda_dps_norm = 2
         self.sda_gamma = sda_gamma
         self.amp = amp
-        self.seed = 0
 
         # Place observations on the model's current denoise grid -- the grid the
         # denoiser runs on, including any halo/patch-padding cells (a cropped sub-domain
-        # if set_domain was used, else the full footprint). DPS is applied here; the
+        # if with_region was used, else the full footprint). DPS is applied here; the
         # returned output is halo-trimmed (when applicable) to model.output_coords. Use
         # 3D points on the unit sphere for nearest-cell lookup so longitude wrap-around
         # is handled.
@@ -245,7 +265,7 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         # classification (``_identity_output_indices``, deny-by-default so a future
         # transform type is excluded automatically); keys are the Earth2Studio
         # lexicon names taken from the public output_coords vocabulary.
-        names = list(model.output_coords(model.input_coords())["variable"])
+        names = model.output_coords(model.input_coords())["variable"].values.tolist()
         self._out_idx = {names[i]: i for i in model._identity_output_indices}
         for v in assimilate_variables:
             if v not in self._out_idx:
@@ -293,75 +313,99 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
 
     # ── coordinate systems ───────────────────────────────────────────────────
 
-    def init_coords(self) -> tuple[CoordSystem]:
-        """Initialization coordinate system: the ERA5 driving state (the same grid
-        the downscaler conditions on).
+    def input_coords(self) -> tuple[CoordinateSystem, FrameSchema]:
+        """Declare ERA5 background fields and optional surface observations.
 
         Returns
         -------
-        tuple[CoordSystem]
-            Single-element tuple with the ERA5 initialization coordinate system.
+        tuple[CoordinateSystem, FrameSchema]
+            ERA5 signature followed by the observation schema. Observations are
+            filtered around each background time with the configured tolerance.
+            Pass None for the observation argument to run unguided downscaling.
         """
-        return (self.model.input_coords(),)
+        signature = self.model.input_coords()
+        background = coord_array(
+            ("time", "variable", "lat", "lon"),
+            {
+                "time": np.empty(0, dtype="datetime64[ns]"),
+                "variable": signature["variable"].values,
+                "lat": signature.lat.values,
+                "lon": signature.lon.values,
+            },
+            dynamic=("time",),
+        )
+        observations = FrameSchema(
+            {
+                "time": np.empty(0, dtype="datetime64[ns]"),
+                "lat": np.empty(0, dtype=np.float32),
+                "lon": np.empty(0, dtype=np.float32),
+                "observation": np.empty(0, dtype=np.float32),
+                "variable": np.array(self.assimilate_variables, dtype=str),
+            }
+        )
+        return background, observations
 
-    def input_coords(self) -> tuple[FrameSchema]:
-        """Observation DataFrame schema.
+    def default_sources(self) -> tuple[DataSource, DataFrameSource]:
+        """Recommend ARCO ERA5 initialization and GHCNh observation data sources.
 
         Returns
         -------
-        tuple[FrameSchema]
-            Single-element tuple with the required observation-DataFrame fields
-            (``time``, ``lat``, ``lon``, ``observation``, ``variable``).
+        tuple[DataSource, DataFrameSource]
+            ``ARCO_ERA5`` for the ERA5 driving state followed by ``GHCNHourly`` for
+            the surface station observation slot, restricted to the stations inside
+            the model's output domain and using the model's observation time
+            tolerance.
         """
-        return (
-            FrameSchema(
-                {
-                    "time": np.empty(0, dtype="datetime64[ns]"),
-                    "lat": np.empty(0, dtype=np.float32),
-                    "lon": np.empty(0, dtype=np.float32),
-                    "observation": np.empty(0, dtype=np.float32),
-                    "variable": np.array(self.assimilate_variables, dtype=str),
-                }
-            ),
+        from earth2studio.data import ARCO_ERA5, GHCNHourly
+
+        lat = self.model.lat_output_numpy
+        lon = self.model.lon_output_numpy
+        bbox = (float(lat.min()), float(lon.min()), float(lat.max()), float(lon.max()))
+        stations = GHCNHourly.get_stations_bbox(bbox)
+        return ARCO_ERA5(), GHCNHourly(
+            stations=stations, time_tolerance=self._tolerance, verbose=False
         )
 
-    def output_coords(self, input_coords: tuple[CoordSystem]) -> tuple[CoordSystem]:
-        """Output coordinate system, matching what :meth:`__call__` returns: dims
-        ``(time, sample, variable, y, x)`` with 2D ``lat``/``lon`` on the COSMO-REA
-        analysis grid, given the ERA5 init coords.
+    def output_coords(
+        self, input_coords: CoordinateSystem, obs: FrameSchema | None = None
+    ) -> CoordinateSystem:
+        """Output coordinate system of the assimilation model.
+
+        Matches the dimensions returned by :meth:`__call__` on the COSMO-REA
+        analysis grid, given the ERA5 initialization coordinates.
 
         Parameters
         ----------
-        input_coords : tuple[CoordSystem]
-            The ERA5 driving-state coordinate system (from :meth:`init_coords`),
+        input_coords : CoordinateSystem
+            The ERA5 driving-state signature (from :meth:`input_coords`),
             validated against the wrapped model's native input grid.
+        obs : FrameSchema | None, optional
+            Observation schema; output geometry follows the background signature.
 
         Returns
         -------
-        tuple[CoordSystem]
-            Single-element tuple whose coordinate system has dims
+        CoordinateSystem
+            Allocation-free signature with dims
             ``(time, sample, variable, y, x)`` with 2D ``lat``/``lon`` on the
             analysis grid.
         """
-        target = self.model.input_coords()
-        handshake_dim(input_coords[0], "lat", -2)
-        handshake_dim(input_coords[0], "lon", -1)
-        handshake_coords(input_coords[0], target, "variable")
-        oc = self.model.output_coords(input_coords[0])
+        handshake_dim(input_coords, "lat", -2)
+        handshake_dim(input_coords, "lon", -1)
+        oc = self.model.output_coords(input_coords)
         lat2d, lon2d = np.asarray(oc["lat"]), np.asarray(oc["lon"])
         h, w = lat2d.shape
-        return (
-            OrderedDict(
-                {
-                    "time": input_coords[0]["time"],
-                    "sample": np.arange(self.number_of_samples),
-                    "variable": np.asarray(oc["variable"]),
-                    "y": np.arange(h),
-                    "x": np.arange(w),
-                    "lat": lat2d,
-                    "lon": lon2d,
-                }
-            ),
+        return coord_array(
+            ("time", "sample", "variable", "y", "x"),
+            {
+                "time": input_coords["time"].values,
+                "sample": np.arange(self.number_of_samples),
+                "variable": np.asarray(oc["variable"]),
+                "y": np.arange(h),
+                "x": np.arange(w),
+                "lat": (("y", "x"), lat2d),
+                "lon": (("y", "x"), lon2d),
+            },
+            dynamic=input_coords.attrs.get("earth2studio_dynamic_dims", ()),
         )
 
     # ── observations ─────────────────────────────────────────────────────────
@@ -388,9 +432,7 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         if obs is None or len(obs) == 0:
             return y, mask, std_y
 
-        validate_observation_fields(
-            obs, required_fields=list(self.input_coords()[0].keys())
-        )
+        validate_observation_fields(obs, required_fields=list(self.input_coords()[1]))
 
         tf = filter_time_range(obs, request_time, self._tolerance, time_column="time")
         if len(tf) == 0:
@@ -531,8 +573,8 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
             era5, valid_time, m.lat_output_grid, m.lon_output_grid
         )
         members = []
-        for i in range(self.number_of_samples):
-            seed = None if self.seed is None else self.seed + i
+        for _ in range(self.number_of_samples):
+            seed = int(torch.randint(2**63 - 1, (), generator=self._rng).item())
             normalized = self._run_diffusion(background, y, mask, std_y, seed)
             out = m.postprocess_output(
                 normalized, valid_time, self._lat_np, self._lon_np
@@ -562,7 +604,7 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
             )
 
     def _to_output_dataarray(
-        self, out: torch.Tensor, times: np.ndarray, oc: CoordSystem
+        self, out: torch.Tensor, times: np.ndarray, oc: CoordinateSystem
     ) -> xr.DataArray:
         """[n_time, n_sample, C_out, H', W'] -> DataArray with 2D lat/lon coords."""
         # Same-device analysis per the AssimilationModel contract: CuPy on CUDA,
@@ -637,10 +679,10 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         self._require_cupy_for_cuda()  # fail before sampling, not after
         device = self.device
         x = self._era5_frames(x)
-        x_coords = OrderedDict({dim: x.coords[dim].values for dim in x.dims})
-        (oc,) = self.output_coords((x_coords,))
+        oc = self.output_coords(x)
 
-        x_tensor = torch.as_tensor(x.data, device=device).to(torch.float32)
+        x_tensor, _ = x.e2s.to_torch()
+        x_tensor = x_tensor.to(device=device, dtype=torch.float32)
         times = np.atleast_1d(x.coords["time"].values)
         outs = []
         for j, t in enumerate(times):
@@ -650,64 +692,6 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
             )
         out = torch.stack(outs, dim=0)  # [n_time, n_sample, C_out, H', W']
         return self._to_output_dataarray(out, times, oc)
-
-    def create_generator(
-        self, x: xr.DataArray
-    ) -> Generator[xr.DataArray | None, pd.DataFrame | None, None]:
-        """Generator of independent COSMO-REA analyses (a diagnostic re-analysis, not
-        a propagated forecast). Primed with a no-compute yield; each ``send(obs)``
-        produces the obs-constrained analysis for the next time in ``x``.
-
-        Parameters
-        ----------
-        x : xr.DataArray
-            ERA5 driving state (dims include ``time``, ``variable``, ``lat``,
-            ``lon``; a size-1 ``lead_time`` is squeezed). One analysis is produced
-            per ``time``.
-
-        Yields
-        ------
-        xr.DataArray | None
-            ``None`` on the priming yield (before the first ``send``); thereafter
-            the obs-constrained analysis for the current time, dims
-            ``(time, sample, variable, y, x)`` with a single ``time``.
-
-        Receives
-        --------
-        pd.DataFrame | None
-            Sparse observations for the current time (columns ``time``/``lat``/
-            ``lon``/``variable``/``observation``), or ``None`` for a free analysis.
-
-        Raises
-        ------
-        RuntimeError
-            On priming, if the model is on CUDA but CuPy is not installed (the
-            analysis cannot be returned on-device; install the ``da-cosmo`` extra or
-            run on CPU).
-
-        Example
-        -------
-        >>> gen = model.create_generator(x)
-        >>> next(gen)                  # prime
-        >>> state = gen.send(obs_df)   # analysis for x's first time
-        """
-        self._require_cupy_for_cuda()  # fail before sampling, not after
-        device = self.device
-        x = self._era5_frames(x)
-        x_coords = OrderedDict({dim: x.coords[dim].values for dim in x.dims})
-        (oc,) = self.output_coords((x_coords,))
-        x_tensor = torch.as_tensor(x.data, device=device).to(torch.float32)
-        times = np.atleast_1d(x.coords["time"].values)
-
-        # prime with no compute; unlike StormCast, yields no initial state
-        obs = yield None
-        try:
-            for i, t in enumerate(times):
-                y, mask, std_y = self._build_obs_tensors(obs, t, device)
-                out = self._forward(x_tensor[i], self._as_datetime(t), y, mask, std_y)
-                obs = yield self._to_output_dataarray(out[None], np.array([t]), oc)
-        except GeneratorExit:
-            return
 
     # ── loading ──────────────────────────────────────────────────────────────
 
@@ -729,7 +713,7 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         package: Package,
         assimilate_variables: tuple[str, ...],
         resolution: str = "rea2",
-        domain: dict | None = None,
+        region: Region | None = None,
         time_tolerance: TimeTolerance = np.timedelta64(10, "m"),
         number_of_samples: int | None = None,
         sampler_steps: int | None = None,
@@ -741,11 +725,11 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
 
         Loads a diffusion-mode :class:`CorrDiffCosmoEra5` internally and wraps it.
 
-        ``domain`` (optional) crops the downscaler to a sub-region BEFORE wrapping,
-        so the observation grid stays in sync; it is forwarded verbatim to
-        :meth:`CorrDiffCosmoEra5.set_domain` (e.g.
-        ``domain=dict(lat_min=52.5, lat_max=55.5, lon_min=5.5, lon_max=9.5)``).
-        Cropping the wrapped ``.model`` afterwards would leave a stale obs grid.
+        ``region`` (optional) crops the downscaler to a sub-region BEFORE wrapping,
+        so the observation grid stays in sync; it is passed to
+        :meth:`CorrDiffCosmoEra5.with_region` (e.g.
+        ``region=Region.box(5.5, 52.5, 9.5, 55.5)``). Cropping the wrapped
+        ``.model`` afterwards would leave a stale obs grid.
 
         Parameters
         ----------
@@ -760,10 +744,9 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
             assimilated.
         resolution : str, optional
             COSMO-REA resolution, ``"rea2"`` or ``"rea6"``, by default ``"rea2"``.
-        domain : dict | None, optional
-            Sub-region crop forwarded to :meth:`CorrDiffCosmoEra5.set_domain`
-            (keys ``lat_min``/``lat_max``/``lon_min``/``lon_max``), by default
-            ``None`` (full native footprint).
+        region : Region | None, optional
+            Box passed to :meth:`CorrDiffCosmoEra5.with_region`, by default ``None``
+            (full native footprint).
         time_tolerance : TimeTolerance, optional
             Window for matching observation times to the analysis time, by default
             10 minutes.
@@ -797,8 +780,8 @@ class CorrDiffCosmoEra5SDA(torch.nn.Module, AutoModelMixin):
         model = CorrDiffCosmoEra5.load_model(
             package, mode="diffusion", resolution=resolution
         )
-        if domain is not None:
-            model = model.set_domain(**domain)
+        if region is not None:
+            model = model.with_region(region)
         return cls(
             model,
             time_tolerance=time_tolerance,

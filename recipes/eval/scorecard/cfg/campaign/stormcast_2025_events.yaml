@@ -25,18 +25,21 @@
 # event adds one initial condition every 3 h from 12 h before its window
 # to its end, and every lead time out to 12 h has valid times inside the
 # window.  The model domain itself is the event region (`region: global`);
-# boxes on the HRRR grid would use its projection coordinates, `hrrr_y`
-# and `hrrr_x` in metres, not latitude and longitude.
+# boxes on the HRRR grid would use its projection coordinates, `y` and
+# `x` in metres, not latitude and longitude.
 #
 # Everything streams during inference: HRRR analyses (AWS) for initial
 # conditions and truth (ic_source / verification_source), ERA5 (ARCO) for
-# the 26 global conditioning fields (conditioning_mode: live), all with
-# cache: false.  There are no predownload stores; the artifacts are
-# stats.zarr (sufficient statistics, tens of MB) and the derived
-# scores.zarr.  Each rank fetches through its own temporary data cache, so
-# ranks pulling the same fields at once never trip over HRRR's temporary
-# files.  The verification source is cropped to the model window by the
-# pipeline; the initial-condition fetch selects the window itself.
+# the 26 global conditioning fields (the model's forcing slot, see
+# forcing_sources), all with cache: false.  There are no predownload
+# stores; the artifacts are stats.zarr (sufficient statistics, tens of MB)
+# and the derived scores.zarr.  Each rank fetches through its own temporary
+# data cache, so ranks pulling the same fields at once never trip over
+# HRRR's temporary files.  The forecast runner selects the model window out
+# of the full HRRR grid for the initial conditions; truth is cropped to it
+# by scorecard.utils.sources.stormcast_window, and the conditioning is
+# regridded onto it by scorecard.utils.sources.stormcast_conditioning
+# (bilinear from the 0.25 degree grid, as the model's own default source).
 #
 # This run serves as the model's main scorecard: export_scores.py falls
 # back to <model>_2025_events when there is no <model>_2025_scorecard run,
@@ -57,21 +60,25 @@ defaults:
 project: stormcast
 run_id: 2025_events
 
-pipeline:
-    _target_: src.pipelines.regional.RegionalForecastPipeline
-    # Global conditioning, streamed from ARCO during inference.
-    conditioning_source:
-        _target_: earth2studio.data.ARCO_ERA5
-        cache: false
-        verbose: false
-    conditioning_mode: live
+runner: forecast
+
+# StormCast declares one forcing slot: the global conditioning fields on
+# the model grid at every step's valid time.  ERA5 is read live from ARCO
+# and regridded onto the model's HRRR window (the model grid has no
+# registered name, so a small helper rebuilds it from the model's default
+# window limits).
+forcing_sources:
+    - _target_: scorecard.utils.sources.stormcast_conditioning
+      source:
+          _target_: earth2studio.data.ARCO_ERA5
+          cache: false
+          verbose: false
 
 model:
     architecture: earth2studio.models.px.StormCast
     # Default package: hf://nvidia/stormcast-v1-era5-hrrr.  Set HF_TOKEN if
     # anonymous pulls from a shared egress IP hit the Hugging Face rate limit.
     load_args:
-        conditioning_data_source: null   # attached by the pipeline
         sampler_steps: 18
 
 # Initial conditions come from scoring.events below.
@@ -85,8 +92,9 @@ resume: true
 # noise, seeded per member by the recipe.  No IC perturbation.
 perturbation: null
 
-# HRRR analyses, read live: initial conditions (ic_source) and truth
-# (verification_source).  With both set the recipe skips predownload.
+# HRRR analyses, read live: initial conditions (ic_source, the model's own
+# default source) and truth (verification_source, cropped to the model
+# window).  With both set the recipe skips predownload.
 data_source:
     _target_: earth2studio.data.HRRR
     cache: false
@@ -96,9 +104,11 @@ ic_source:
     cache: false
     verbose: false
 verification_source:
-    _target_: earth2studio.data.HRRR
-    cache: false
-    verbose: false
+    _target_: scorecard.utils.sources.stormcast_window
+    source:
+        _target_: earth2studio.data.HRRR
+        cache: false
+        verbose: false
 
 require_predownload: false
 predownload:

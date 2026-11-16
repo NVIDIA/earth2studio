@@ -22,7 +22,8 @@ import xarray as xr
 from numpy import ndarray
 from pandas import to_datetime
 
-from earth2studio.utils.type import TimeArray, VariableArray
+from earth2studio.data.utils import prep_member_inputs
+from earth2studio.utils.type import MemberArray, TimeArray, VariableArray
 
 
 class DataArrayFile:
@@ -93,7 +94,8 @@ class InferenceOutputSource:
         (e.g., NetCDF/Zarr).
     filter_dict : dict, optional
         Dictionary of selections applied before transformation (e.g.
-        ``{"ensemble": 0}``). Coordinates not in the required
+        ``{"ensemble": 0}``; members can instead be selected per request with the
+        ``member`` keyword). Coordinates not in the required
         dimensions are dropped after selection, by default {}
     **xr_args : Any
         Additional keyword arguments forwarded to ``xarray.open_dataset``.
@@ -160,10 +162,16 @@ class InferenceOutputSource:
             self.da = self.da.rename({"lead_time": "time"})
             self.da = self.da.assign_coords(time=time_array)
 
+    @property
+    def is_ensemble(self) -> bool:
+        """Whether the stored output keeps an ``ensemble`` dimension to select."""
+        return "ensemble" in self.da.dims
+
     def __call__(
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
+        member: int | str | list[Any] | MemberArray | None = None,
     ) -> xr.DataArray:
         """Retrieve data for specified valid times and variables.
 
@@ -174,6 +182,10 @@ class InferenceOutputSource:
             transformation).
         variable : str | list[str] | VariableArray
             One or more variable names to return.
+        member : int | str | list | MemberArray, optional
+            Stored ``ensemble`` labels to return on a leading ``ensemble``
+            dimension, in this order, by default None, which returns the stored
+            members ``filter_dict`` leaves.
 
         Returns
         -------
@@ -185,12 +197,21 @@ class InferenceOutputSource:
         if not (isinstance(variable, list) or isinstance(variable, ndarray)):
             variable = [variable]
 
-        return self.da.sel(time=time, variable=variable)
+        members = prep_member_inputs(member)
+        if members is None:
+            return self.da.sel(time=time, variable=variable)
+        if "ensemble" not in self.da.dims:
+            raise ValueError(
+                "Inference output has no ensemble dimension to select members from"
+            )
+        da = self.da.sel(time=time, variable=variable, ensemble=members)
+        return da.transpose("ensemble", ...)
 
     async def fetch(  # type: ignore[override]
         self,
         time: datetime | list[datetime] | TimeArray,
         variable: str | list[str] | VariableArray,
+        member: int | str | list[Any] | MemberArray | None = None,
     ) -> xr.DataArray:
         """Async function to get data
 
@@ -201,13 +222,17 @@ class InferenceOutputSource:
         variable : str | list[str] | VariableArray
             String, list of strings or array of strings that refer to variables to
             return. Must be in the GFS lexicon.
+        member : int | str | list | MemberArray, optional
+            Stored ``ensemble`` labels to return on a leading ``ensemble``
+            dimension, in this order, by default None, which returns the stored
+            members ``filter_dict`` leaves.
 
         Returns
         -------
         xr.DataArray
             Inference output data array
         """
-        return self.__call__(time, variable)
+        return self.__call__(time, variable, member)
 
 
 class DataSetFile:

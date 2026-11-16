@@ -30,7 +30,7 @@ data_source:
 file_output:
     path: '/output/'       # directory to which outfiles are written
     output_vars: ['t2m','u10m']
-    thread_io: False      # write out in seperate thread (needs further testing)
+    thread_io: False      # buffer CPU DataArrays and write on a background worker
     format:               # io backend class
         _target_: earth2studio.io.ZarrBackend
         _partial_: True

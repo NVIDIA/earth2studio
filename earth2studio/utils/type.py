@@ -19,14 +19,17 @@ from collections import OrderedDict
 from datetime import timedelta
 
 import numpy as np
+import xarray as xr
 
 FrameSchema = OrderedDict[str, np.ndarray]
 CoordSystem = OrderedDict[str, np.ndarray]
+CoordinateSystem = xr.DataArray
 
 # Specific dimension custom types
 VariableArray = np.ndarray[str]
 LeadTimeArray = np.ndarray[np.timedelta64]
 TimeArray = np.ndarray[np.datetime64]
+MemberArray = np.ndarray
 FieldArray = np.ndarray[str]
 
 TimeTolerance = (

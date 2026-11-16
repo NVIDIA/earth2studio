@@ -26,7 +26,7 @@ import numpy as np
 import torch
 
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
+from earth2studio.models.batch import batch_func
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.utils import handshake_coords, handshake_dim
@@ -93,7 +93,6 @@ class AdditiveModel(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             }
         )
 
-    @batch_coords()
     def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
         """Output coordinate system of the prognostic model.
 
@@ -109,10 +108,10 @@ class AdditiveModel(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         """
         target_input_coords = self.input_coords()
 
-        handshake_dim(input_coords, "lead_time", 1)
-        handshake_dim(input_coords, "variable", 2)
-        handshake_dim(input_coords, "lat", 3)
-        handshake_dim(input_coords, "lon", 4)
+        handshake_dim(input_coords, "lead_time", -4)
+        handshake_dim(input_coords, "variable", -3)
+        handshake_dim(input_coords, "lat", -2)
+        handshake_dim(input_coords, "lon", -1)
 
         handshake_coords(input_coords, target_input_coords, "variable")
         handshake_coords(input_coords, target_input_coords, "lat")

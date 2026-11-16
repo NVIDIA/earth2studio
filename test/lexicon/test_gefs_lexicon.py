@@ -38,6 +38,11 @@ def test_gefs_lexicon_sel():
     assert key == "pgrb2s::UGRD::10 m above ground"
     assert mod(np.array([1.0])) == np.array([1.0])
 
+    # APCP is stored in kg m-2, tp is in m
+    key, mod = GEFSLexiconSel.get_item("tp")
+    assert key == "pgrb2s::APCP::surface"
+    assert mod(np.array([2.0])) == pytest.approx(np.array([0.002]))
+
     # Test invalid key
     with pytest.raises(KeyError):
         GEFSLexiconSel.get_item("invalid_key")

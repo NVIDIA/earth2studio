@@ -292,7 +292,8 @@ def initialize_output(
         if io_dict[k] is not None:
             if add_arrays:
                 # Add the array to the IO backend, overwriting any existing arrays
-                io_dict[k].add_array(total_coords, variables_to_save)
+                # TODO: migrate s2s IO to the DataArray IOBackend protocol
+                io_dict[k].add_array(total_coords, variables_to_save)  # type: ignore[call-arg]
             else:
                 # Output file exists, check for required variables
                 for v in variables_to_save:

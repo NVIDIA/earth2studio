@@ -32,8 +32,11 @@ def __init__(
     cache: bool = True,
     async_timeout: int = 600,
     verbose: bool = True,
+    device: torch.device | str = "cpu",
 ) -> None:
     self._verbose = verbose
+    # On a CUDA device, return cuDF frames on it instead of pandas frames
+    self.device = torch.device(device)
     self._cache = cache
     self._max_workers = max_workers
     self.async_timeout = async_timeout

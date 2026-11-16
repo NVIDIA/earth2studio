@@ -20,19 +20,32 @@ The full requirements for a perturbation method are defined explicitly in the
 ```
 
 !!! note
-    Perturbation methods modify the input tensor directly. They are not functions that just
+    Perturbation methods modify the input data directly. They are not functions that just
     generate noise.
 
 ## Perturbation Usage
 
 All perturbation methods provide a `__call__` function, which takes in
-a data tensor with coordinate system and returns the perturbed output.
+an [xarray](https://docs.xarray.dev/) `DataArray` (with the coordinates describing
+the data) and returns the perturbed `DataArray`. The output has the same dimensions,
+coordinates and attributes as the input. Both NumPy and CuPy backed arrays are
+supported.
 
 ```python
 # Assume perturb is an instance of a Perturbation
-x = torch.Tensor(...)  # Input tensor
-coords = CoordSystem(...)  # Coordinate system
-x, coords = perturb(x, coords)  # Apply perturbation
+x = xr.DataArray(...)  # Input data array with coordinates
+x = perturb(x)  # Apply perturbation
+```
+
+A custom perturbation only needs to accept and return a `DataArray`:
+
+```python
+class Scale:
+    def __init__(self, factor: float):
+        self.factor = factor
+
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        return x * self.factor
 ```
 
 ## Normalization in Perturbations

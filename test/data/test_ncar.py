@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import io
 import pathlib
 import shutil
@@ -30,9 +31,7 @@ from earth2studio.data import NCAR_ERA5
 from earth2studio.data.ncar import _read_object_store_dataset
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -66,9 +65,7 @@ def test_ncar_fetch(time, variable):
     assert np.array_equal(data.coords["lon"].values, NCAR_ERA5.NCAR_EAR5_LON)
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -91,7 +88,7 @@ def test_ncar_cache(time, variable, cache):
     if cache:
         assert pathlib.Path(ds.cache).is_dir()
     else:
-        assert not any(pathlib.Path(ds.cache).iterdir())
+        assert not pathlib.Path(ds.cache).exists()
 
     # Load from cache or refetch
     data = ds(time, variable[0])
@@ -223,6 +220,100 @@ def test_ncar_create_tasks_accumulated_mult():
 # ----------------------------------------------------------------------
 # Mock end-to-end (no network, exercises __call__ path)
 # ----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("cache", [False, True])
+def test_ncar_cache_cleanup(tmp_path, monkeypatch, asynchronous, cache):
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
+    ds = NCAR_ERA5(cache=cache, verbose=False)
+    time = datetime(2024, 1, 1)
+    expected = xr.DataArray(
+        [1.0],
+        dims="time",
+        coords={"time": [np.datetime64(time)], "variable": "sd"},
+    )
+    with (
+        patch.object(ds, "_async_init", AsyncMock()),
+        patch.object(ds, "fetch_wrapper", AsyncMock(return_value=expected)),
+    ):
+        result = asyncio.run(ds.fetch(time, "sd")) if asynchronous else ds(time, "sd")
+    assert result.item() == 1.0
+    assert pathlib.Path(ds.cache).exists() == cache
+
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("stage", ["init", "fetch"])
+def test_ncar_cache_cleanup_on_error(tmp_path, monkeypatch, asynchronous, stage):
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
+    ds = NCAR_ERA5(cache=False, verbose=False)
+    error = ValueError("original fetch error")
+
+    async def fail_fetch(task):
+        assert pathlib.Path(ds.cache).is_dir()
+        (pathlib.Path(ds.cache) / "partial").touch()
+        raise error
+
+    with (
+        patch.object(
+            ds, "_async_init", AsyncMock(side_effect=error if stage == "init" else None)
+        ),
+        patch.object(ds, "fetch_wrapper", side_effect=fail_fetch),
+        pytest.raises(ValueError, match="original fetch error") as caught,
+    ):
+        if asynchronous:
+            asyncio.run(ds.fetch(datetime(2024, 1, 1), "sd"))
+        else:
+            ds(datetime(2024, 1, 1), "sd")
+    assert caught.value is error
+    assert not pathlib.Path(ds.cache).exists()
+
+
+@pytest.mark.parametrize("fail_first", [False, True])
+def test_ncar_overlapping_fetch_cleanup(tmp_path, monkeypatch, fail_first):
+    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
+    ds = NCAR_ERA5(cache=False, verbose=False)
+    time = datetime(2024, 1, 1)
+    expected = xr.DataArray(
+        [1.0], dims="time", coords={"time": [np.datetime64(time)], "variable": "sd"}
+    )
+
+    async def exercise():
+        started = asyncio.Event()
+        release = asyncio.Event()
+        calls = 0
+        cached = pathlib.Path(ds.cache) / "shared"
+
+        async def fetch(task):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                cached.touch()
+                started.set()
+                await release.wait()
+                assert cached.exists()
+            elif fail_first:
+                raise ValueError("overlapping request failed")
+            return expected
+
+        with (
+            patch.object(ds, "_async_init", AsyncMock()),
+            patch.object(ds, "fetch_wrapper", side_effect=fetch),
+        ):
+            pending = asyncio.create_task(ds.fetch(time, "sd"))
+            await started.wait()
+            try:
+                if fail_first:
+                    with pytest.raises(ValueError, match="overlapping request failed"):
+                        await ds.fetch(time, "sd")
+                else:
+                    await ds.fetch(time, "sd")
+            finally:
+                release.set()
+                await pending
+        assert not cached.parent.exists()
+
+    asyncio.run(exercise())
 
 
 def _fake_read_dataset(captured: list):

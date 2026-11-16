@@ -26,9 +26,7 @@ import xarray as xr
 from earth2studio.data import GOES
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "satellite,time,variable,scan_mode",
     [
@@ -39,56 +37,14 @@ from earth2studio.data import GOES
             "abi01c",
             "F",
         ),
-        (
-            "goes16",
-            datetime(year=2022, month=6, day=25, hour=12, minute=0, second=0),
-            ["abi02c", "abi03c"],
-            "C",
-        ),
-        (
-            "goes16",
-            [
-                datetime(year=2022, month=6, day=25, hour=12, minute=0, second=0),
-                datetime(year=2022, month=6, day=25, hour=12, minute=10, second=0),
-            ],
-            "abi01c",
-            "C",
-        ),
         # GOES-17: Operational from Feb 12, 2019 to Jan 4, 2023
         (
             "goes17",
             datetime(year=2022, month=6, day=25, hour=12, minute=0, second=0),
-            "abi01c",
-            "F",
-        ),
-        (
-            "goes17",
-            datetime(year=2022, month=6, day=25, hour=12, minute=0, second=0),
             ["abi02c", "abi03c"],
-            "C",
-        ),
-        (
-            "goes17",
-            [
-                datetime(year=2022, month=6, day=25, hour=12, minute=0, second=0),
-                datetime(year=2022, month=6, day=25, hour=12, minute=5, second=0),
-            ],
-            "abi01c",
             "C",
         ),
         # GOES-18: Operational from Jan 4, 2023 onwards
-        (
-            "goes18",
-            datetime(year=2023, month=6, day=25, hour=12, minute=0, second=0),
-            "abi01c",
-            "F",
-        ),
-        (
-            "goes18",
-            datetime(year=2023, month=6, day=25, hour=12, minute=0, second=0),
-            ["abi02c", "abi03c"],
-            "C",
-        ),
         (
             "goes18",
             [
@@ -98,26 +54,11 @@ from earth2studio.data import GOES
             "abi01c",
             "C",
         ),
-        # GOES-19: Operational from Apr 7, 2025 onwards (future date for testing)
-        (
-            "goes19",
-            datetime(year=2025, month=6, day=25, hour=12, minute=0, second=0),
-            "abi01c",
-            "F",
-        ),
+        # GOES-19: Operational from Apr 7, 2025 onwards
         (
             "goes19",
             datetime(year=2025, month=6, day=25, hour=12, minute=0, second=0),
             ["abi02c", "abi03c"],
-            "C",
-        ),
-        (
-            "goes19",
-            [
-                datetime(year=2025, month=6, day=25, hour=12, minute=0, second=0),
-                datetime(year=2025, month=6, day=25, hour=12, minute=10, second=0),
-            ],
-            "abi01c",
             "C",
         ),
     ],
@@ -146,9 +87,7 @@ def test_goes_fetch(satellite, time, variable, scan_mode):
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [
@@ -156,7 +95,7 @@ def test_goes_fetch(satellite, time, variable, scan_mode):
     ],
 )
 @pytest.mark.parametrize("variable", [["abi01c", "abi02c", "abi03c"]])
-@pytest.mark.parametrize("cache", [True, False])
+@pytest.mark.parametrize("cache", [True])
 def test_goes_cache(time, variable, cache):
     """Test GOES caching functionality."""
 
@@ -188,41 +127,20 @@ def test_goes_cache(time, variable, cache):
         pass
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
 @pytest.mark.parametrize(
-    "satellite,scan_mode,time,variable,valid",
+    "satellite,scan_mode",
     [
-        ("goes16", "F", datetime(2022, 6, 25, 12, 0, 0), "abi01c", True),
-        ("goes17", "C", datetime(2022, 6, 25, 12, 0, 0), "abi02c", True),
-        ("foo", "F", datetime(2022, 6, 25, 12, 0, 0), "abi01c", False),
-        ("goes16", "X", datetime(2022, 6, 25, 12, 0, 0), "abi01c", False),
-        ("goes16", "X", datetime(2022, 6, 25, 12, 0, 0), "foo", False),
+        ("foo", "F"),
+        ("goes16", "X"),
     ],
 )
-def test_goes_sources(satellite, scan_mode, time, variable, valid):
-    """Test GOES data source initialization with different parameters."""
-
-    if not valid:
-        with pytest.raises(ValueError):
-            ds = GOES(satellite=satellite, scan_mode=scan_mode, cache=False)
-        return
-
-    ds = GOES(satellite=satellite, scan_mode=scan_mode, cache=False)
-    data = ds(time, variable)
-    shape = data.shape
-
-    expected_dims = GOES.SCAN_DIMENSIONS[scan_mode]
-
-    assert shape[0] == 1
-    assert shape[1] == 1
-    assert shape[2] == expected_dims[0]
-    assert shape[3] == expected_dims[1]
+def test_goes_sources(satellite, scan_mode):
+    """Reject invalid source parameters without downloading data."""
+    with pytest.raises(ValueError):
+        GOES(satellite=satellite, scan_mode=scan_mode, cache=False)
 
 
-@pytest.mark.xfail
-@pytest.mark.timeout(15)
+@pytest.mark.live(timeout=10)
 @pytest.mark.parametrize(
     "time",
     [

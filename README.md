@@ -176,6 +176,11 @@ statistical operations and more to accelerate your pipelines.
 Access state of the art Nvidia open models for climate and weather: [Earth-2 Open Models](https://huggingface.co/collections/nvidia/earth-2).
 For training recipes for these models, see the [PhysicsNeMo repository][physicsnemo_repo_url].
 
+### Deployment and Serving
+
+For deploying Earth2Studio workflows as an inference service (server, client, and
+containers), see [PhysicsNeMo Serve](https://github.com/NVIDIA/physicsnemo-serve).
+
 ## Contributors
 
 Check out the [contributing](CONTRIBUTING.md) document for details about the technical

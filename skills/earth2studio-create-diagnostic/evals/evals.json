@@ -5,7 +5,7 @@
     "expected_skill": "earth2studio-create-diagnostic",
     "expected_script": "evals/targets/eval_1_target.py",
     "expected_test": "evals/targets/test/eval_1_test_target.py",
-    "ground_truth": "Creates a simple diagnostic model inheriting only from torch.nn.Module (no AutoModelMixin needed). Takes u10m and v10m as input, computes sqrt(u^2 + v^2) as output. Uses @batch_func and @batch_coords decorators. Test file includes mock tests for call and exceptions.",
+    "ground_truth": "Creates a simple diagnostic model inheriting only from torch.nn.Module (no AutoModelMixin needed). Takes u10m and v10m as input, computes sqrt(u^2 + v^2) as output. Uses @batch_func with output_coords preserving leading dimensions directly. Test file includes mock tests for call and exceptions.",
     "expected_behavior": [
       "Reads /workspace/skills/earth2studio-create-diagnostic/SKILL.md before implementing",
       "Classifies as Simple diagnostic (no checkpoints)",

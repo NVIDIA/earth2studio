@@ -14,54 +14,48 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
-import torch
-
-from earth2studio.utils.type import CoordSystem
+import xarray as xr
 
 
 # --8<-- [start:io-backend-interface]
 @runtime_checkable
 class IOBackend(Protocol):
-    """Interface for a generic IO backend."""
+    """Interface for a DataArray IO backend.
 
-    def add_array(
-        self, coords: CoordSystem, array_name: str | list[str], **kwargs: dict[str, Any]
-    ) -> None:
-        """
-        Add an array with `array_name` to the existing IO backend object.
+    See ``dev/spec/IO_SPEC.md`` for the full contract.
+    """
+
+    def add_array(self, template: xr.DataArray) -> None:
+        """Create storage for the arrays a template describes.
 
         Parameters
         ----------
-        coords : OrderedDict
-            Ordered dictionary of representing the dimensions and coordinate data
-            of x.
-        array_name : str
-            Name of the arrays that will be initialized with coordinates as dimensions.
-        kwargs : dict[str, Any], optional
-            Optional keyword arguments that will be passed to the IO backend constructor.
+        template : xr.DataArray
+            Concrete coordinate signature; field values are never read. Each
+            ``variable`` label names one array over the remaining dimensions;
+            without a ``variable`` dimension, the template's name does.
         """
         pass
 
-    def write(
-        self,
-        x: torch.Tensor | list[torch.Tensor],
-        coords: CoordSystem,
-        array_name: str | list[str],
-    ) -> None:
-        """
-        Write data to the current backend using the passed array_name.
+    def write(self, x: xr.DataArray) -> None:
+        """Write a field at the positions its coordinate labels identify.
 
         Parameters
         ----------
-        x : torch.Tensor | list[torch.Tensor]
-            Tensor(s) to be written to zarr store.
-        coords : OrderedDict
-            Coordinates of the passed data.
-        array_name : str | list[str]
-            Name(s) of the array(s) that will be written to.
+        x : xr.DataArray
+            NumPy-, CuPy- or Torch-backed field holding a subset of the store's
+            labels along each dimension. It is never modified.
         """
+        pass
+
+    def flush(self) -> None:
+        """Block until every earlier write is visible to readers of the store."""
+        pass
+
+    def close(self) -> None:
+        """Flush, finalize the store and release resources; later writes raise."""
         pass
 
 

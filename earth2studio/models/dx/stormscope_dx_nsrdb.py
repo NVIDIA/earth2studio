@@ -15,27 +15,34 @@
 # limitations under the License.
 
 import json
-from collections import OrderedDict
+from copy import deepcopy
 from datetime import datetime, timezone
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
 import torch.nn as nn
-from loguru import logger
-from numpy.typing import ArrayLike
+import xarray as xr
 
 from earth2studio.data import HRRR
+from earth2studio.grids import CurvilinearGrid, NearestRegridder
 from earth2studio.models.auto import AutoModelMixin, Package
-from earth2studio.models.batch import batch_coords, batch_func
 from earth2studio.models.dx.base import DiagnosticModel
-from earth2studio.utils import handshake_coords, handshake_dim
+from earth2studio.utils import (
+    coord_array,
+    handshake_dataarray,
+    handshake_nonempty,
+    handshake_time,
+)
+from earth2studio.utils.cupy import from_torch
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
     check_optional_dependencies,
 )
-from earth2studio.utils.interp import NearestNeighborInterpolator
-from earth2studio.utils.type import CoordSystem
+from earth2studio.utils.type import CoordinateSystem
+
+if TYPE_CHECKING:
+    from earth2studio.data.base import DataSource
 
 try:
     from physicsnemo import Module  # type: ignore[import-untyped]
@@ -106,12 +113,11 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         Native-grid y coordinates, by default None.
     x_coords : np.ndarray | None, optional
         Native-grid x coordinates, by default None.
-    input_interp_max_dist_km : float, optional
-        Maximum input interpolation distance, by default 12.0.
+    max_dist_km : float, optional
+        Maximum distance (km) from a model gridpoint to the nearest GOES pixel
+        regridded onto it by :meth:`default_sources`, by default 12.0.
     number_of_samples : int, optional
         Number of GHI samples per input, by default 1.
-    seed : int | None, optional
-        Base random seed, by default None.
     num_steps : int, optional
         Number of diffusion steps, by default 12.
     amp : bool, optional
@@ -119,28 +125,19 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
 
     Example
     -------
-    Using the diagnostic with forecasted GOES imagery from
-    :py:class:`earth2studio.models.px.StormScopeGOES`. A
-    :py:class:`earth2studio.data.GOES` data source can also be used directly
-    in place of the prognostic model output:
+    Estimating GHI from GOES observations, fetched onto the model grid through
+    :meth:`default_sources`. Forecasts of the three-kilometer
+    :py:class:`earth2studio.models.px.StormScopeGOES` variants share this grid and
+    can be passed in place of the observations:
 
-    >>> # Load StormScopeGOES prognostic and NSRDB diagnostic models
-    >>> package = StormScopeBase.load_default_package()
-    >>> goes_model = StormScopeGOES.load_model(package, conditioning_data_source=None)
-    >>> goes_model = goes_model.to("cuda").eval()
-    >>> nsrdb_model = StormScopeDxNSRDB.load_model(StormScopeDxNSRDB.load_default_package())
-    >>> nsrdb_model = nsrdb_model.to("cuda")
-    >>>
-    >>> # Build interpolators from GOES grid to model grid
-    >>> goes_lat, goes_lon = GOES.grid(satellite="goes16", scan_mode="C")
-    >>> goes_model.build_input_interpolator(goes_lat, goes_lon)
-    >>> nsrdb_model.build_input_interpolator(goes_lat, goes_lon)
-    >>>
-    >>> # Run one GOES forecast step then estimate GHI
-    >>> y_goes, y_coords = goes_model(x, coords)
-    >>> ghi_coords = y_coords.copy()
-    >>> del ghi_coords["lead_time"]
-    >>> ghi, ghi_coords = nsrdb_model(y_goes.squeeze(2), ghi_coords)
+    >>> model = StormScopeDxNSRDB.load_model(StormScopeDxNSRDB.load_default_package())
+    >>> model = model.to("cuda")
+    >>> x = fetch_data(
+    ...     model.default_sources(),
+    ...     time=np.array([np.datetime64("2024-07-15T18:00")]),
+    ...     variable=model.input_coords()["variable"].values,
+    ... ).isel(lead_time=0).expand_dims(batch=[0])
+    >>> ghi = model(x)
 
     Badges
     ------
@@ -152,6 +149,9 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
     _MODEL_DTYPE = torch.float32
     _CLEARNESS_INDEX_EPS = 10.0
     _SOLAR_CONSTANT = 1361.0
+    _INPUT_GRID = "goes-east-conus"
+
+    stochastic = True
 
     def __init__(
         self,
@@ -169,9 +169,8 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         valid_mask: torch.Tensor | None = None,
         y_coords: np.ndarray | None = None,
         x_coords: np.ndarray | None = None,
-        input_interp_max_dist_km: float = 12.0,
+        max_dist_km: float = 12.0,
         number_of_samples: int = 1,
-        seed: int | None = None,
         num_steps: int = 12,
         amp: bool = True,
     ) -> None:
@@ -222,62 +221,99 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         )
         self._lat_cpu_copy = self.latitudes.detach().cpu().numpy()
         self._lon_cpu_copy = self.longitudes.detach().cpu().numpy()
-        self._input_interp_max_dist_km = input_interp_max_dist_km
-        self.input_interp: nn.Module | None = None
+        self.max_dist_km = max_dist_km
         self.number_of_samples = number_of_samples
-        self.seed = seed
         self.num_steps = num_steps
         self.amp = amp
 
-    def input_coords(self) -> CoordSystem:
-        """Input coordinate system.
+    def _native_grid(self) -> CurvilinearGrid:
+        return CurvilinearGrid(
+            self._lat_cpu_copy, self._lon_cpu_copy, y=self.y, x=self.x
+        )
+
+    def _input_regridder(self) -> NearestRegridder:
+        """Nearest-neighbor regridder of GOES-East CONUS onto the model grid."""
+        from earth2studio.models.px.stormscope import _default_regridder
+
+        return _default_regridder(
+            NearestRegridder,
+            self._INPUT_GRID,
+            self._native_grid(),
+            max_dist_km=self.max_dist_km,
+        )
+
+    def _set_default_coverage(self) -> None:
+        """Set the input mask to the model gridpoints the default source covers."""
+        coverage = torch.from_numpy(np.array(self._input_regridder().coverage))
+        self.register_buffer("input_valid_mask", coverage.to(self.latitudes.device))
+
+    def default_sources(self) -> "DataSource":
+        """Recommend GOES-East CONUS imagery on the model grid.
 
         Returns
         -------
-        CoordSystem
-            GOES input coordinates.
+        DataSource
+            GOES input source, regridded to the model grid by nearest neighbor
+            within ``max_dist_km``; uncovered gridpoints are NaN.
         """
-        return OrderedDict(
-            {
-                "batch": np.empty(0),
-                "time": np.empty(0),
-                "variable": self.conditioning_variables.copy(),
-                "y": self.y.copy(),
-                "x": self.x.copy(),
-            }
+        from earth2studio.data import GOES, RegriddedSource
+
+        return RegriddedSource(GOES(scan_mode="C"), self._input_regridder())
+
+    def input_coords(self) -> CoordinateSystem:
+        """Input coordinate system of the diagnostic model.
+
+        Returns
+        -------
+        CoordinateSystem
+            Allocation-free DataArray input signature for GOES observations.
+        """
+        return coord_array(
+            ("batch", "time", "variable", "y", "x"),
+            {"variable": self.conditioning_variables.copy()},
+            dynamic=("batch", "time"),
+            grid=self._native_grid(),
         )
 
-    @batch_coords()
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Output coordinate system.
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Output coordinate system of the diagnostic model.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Native-grid GOES input coordinates.
+        input_coords : CoordinateSystem
+            Input coordinate signature or DataArray to validate and transform,
+            on the model grid.
 
         Returns
         -------
-        CoordSystem
-            Sampled GHI output coordinates.
+        CoordinateSystem
+            Allocation-free DataArray output signature for sampled GHI.
         """
-        target = self.input_coords()
-        handshake_dim(input_coords, "variable", 2)
-        handshake_dim(input_coords, "y", 3)
-        handshake_dim(input_coords, "x", 4)
-        handshake_coords(input_coords, target, "variable")
-        handshake_coords(input_coords, target, "y")
-        handshake_coords(input_coords, target, "x")
-        return OrderedDict(
-            {
-                "batch": input_coords["batch"],
-                "sample": np.arange(self.number_of_samples),
-                "time": input_coords["time"],
-                "variable": self.output_variables.copy(),
-                "y": self.y.copy(),
-                "x": self.x.copy(),
-            }
+        handshake_dataarray(input_coords, self.input_coords())
+        leading = input_coords.dims[:-3]
+        native = self._native_grid()
+        coords = {
+            k: v.variable.copy(deep=True)
+            for k, v in input_coords.coords.items()
+            if "variable" not in v.dims
+        }
+        coords.update(
+            variable=self.output_variables.copy(),
+            sample=np.arange(self.number_of_samples),
         )
+        # Samples follow the leading prefix so dynamic time remains a wildcard.
+        result = coord_array(
+            (*leading, "sample", "variable", *native.dims),
+            coords,
+            sizes={d: input_coords.sizes[d] for d in leading},
+            dynamic=input_coords.attrs.get("earth2studio_dynamic_dims", ()),
+            grid=native,
+            dtype=input_coords.dtype,
+            name=input_coords.name,
+            attrs=deepcopy(input_coords.attrs),
+        )
+        result.encoding = deepcopy(input_coords.encoding)
+        return result
 
     def __str__(self) -> str:
         return "StormScopeDxNSRDB"
@@ -304,7 +340,6 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         cls,
         package: Package,
         number_of_samples: int = 1,
-        seed: int | None = None,
     ) -> DiagnosticModel:
         """Load the StormScope NSRDB diagnostic.
 
@@ -314,8 +349,6 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
             Package containing model assets.
         number_of_samples : int, optional
             Number of GHI samples, by default 1.
-        seed : int | None, optional
-            Base random seed, by default None.
 
         Returns
         -------
@@ -362,7 +395,7 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         ).astype(np.float32)
         valid_mask = cls._load_invariant(package, "nsrdb_mask.npy", package_spec) > 0
 
-        return cls(
+        model = cls(
             diffusion_model=diffusion_model,
             regression_model=regression_model,
             sigma_min=float(checkpoint["sigma_min"]),
@@ -377,51 +410,11 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
             valid_mask=valid_mask,
             y_coords=y,
             x_coords=x,
-            input_interp_max_dist_km=6.0 * spatial_downsample,
+            max_dist_km=6.0 * spatial_downsample,
             number_of_samples=number_of_samples,
-            seed=seed,
         )
-
-    def build_input_interpolator(
-        self,
-        input_lats: torch.Tensor | ArrayLike,
-        input_lons: torch.Tensor | ArrayLike,
-        max_dist_km: float | None = None,
-    ) -> nn.Module:
-        """Build an interpolator from an input grid to the model grid.
-
-        Parameters
-        ----------
-        input_lats : torch.Tensor | ArrayLike
-            Input latitudes.
-        input_lons : torch.Tensor | ArrayLike
-            Input longitudes.
-        max_dist_km : float | None, optional
-            Maximum nearest-neighbor distance, by default None.
-
-        Returns
-        -------
-        nn.Module
-            Input interpolation module.
-        """
-        if max_dist_km is None:
-            max_dist_km = self._input_interp_max_dist_km
-        self.input_interp = NearestNeighborInterpolator(
-            source_lats=input_lats,
-            source_lons=input_lons,
-            target_lats=self.latitudes,
-            target_lons=self.longitudes,
-            max_dist_km=max_dist_km,
-        ).to(self.latitudes.device)
-        interpolator = cast(NearestNeighborInterpolator, self.input_interp)
-        if torch.any(~interpolator.valid_mask):
-            logger.warning(
-                "Some input grid points are invalid after StormScope interpolation"
-            )
-        self.input_valid_mask = interpolator.valid_mask.reshape(
-            len(self.y), len(self.x)
-        ).to(self.latitudes.device)
-        return self.input_interp
+        model._set_default_coverage()
+        return model
 
     @staticmethod
     def _load_registry(package: Package) -> dict[str, Any]:
@@ -509,33 +502,7 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
     def _sanitize(x: torch.Tensor) -> torch.Tensor:
         return torch.nan_to_num(x, nan=0.0, posinf=0.0, neginf=0.0)
 
-    def _prepare_input(
-        self, x: torch.Tensor, coords: CoordSystem
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        native_grid = (
-            "y" in coords
-            and "x" in coords
-            and np.array_equal(coords["y"], self.y)
-            and np.array_equal(coords["x"], self.x)
-        )
-        if native_grid:
-            output_coords = coords.copy()
-        else:
-            if self.input_interp is None:
-                raise ValueError(
-                    "Using GOES data on a non-native grid requires "
-                    "build_input_interpolator"
-                )
-            x = self.input_interp(x)
-            output_coords = coords.copy()
-            output_coords.popitem()
-            output_coords.popitem()
-            output_coords["y"] = self.y
-            output_coords["x"] = self.x
-        return torch.where(self.input_valid_mask, x, 0.0), output_coords
-
-    def _target_datetimes(self, coords: CoordSystem) -> np.ndarray:
-        times = np.asarray(coords["time"]).astype(np.datetime64)
+    def _target_datetimes(self, times: np.ndarray) -> np.ndarray:
         return np.array(
             [
                 datetime.fromtimestamp(
@@ -546,11 +513,11 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         )
 
     def _insolation(
-        self, coords: CoordSystem, batch_size: int, scale: float
+        self, times: np.ndarray, batch_size: int, scale: float
     ) -> torch.Tensor:
         import pandas as pd  # type: ignore[import-untyped]
 
-        target = self._target_datetimes(coords)
+        target = self._target_datetimes(times)
         dates = np.array([pd.Timestamp(time) for time in np.tile(target, batch_size)])
         insolation = pnm_insolation(
             dates,
@@ -565,7 +532,7 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
     def _normalize_input(self, x: torch.Tensor) -> torch.Tensor:
         return (x - self.conditioning_means) / self.conditioning_stds
 
-    def _build_condition(self, x: torch.Tensor, coords: CoordSystem) -> torch.Tensor:
+    def _build_condition(self, x: torch.Tensor, coords: np.ndarray) -> torch.Tensor:
         batch_size, time_size = x.shape[:2]
         parts = [
             self._sanitize(x).reshape(batch_size * time_size, *x.shape[2:]),
@@ -630,7 +597,22 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
                 )
         return next_state
 
-    def _forward_sample(self, x: torch.Tensor, coords: CoordSystem) -> torch.Tensor:
+    _rng_generator: torch.Generator | None = None
+
+    def set_rng(self, seed: int, reset: bool = True) -> None:
+        """Seed the Gaussian initial noise used by the NSRDB sampler.
+
+        Parameters
+        ----------
+        seed : int
+            Seed for the initial-noise stream.
+        reset : bool, optional
+            Reset an existing stream, by default True.
+        """
+        if reset or self._rng_generator is None:
+            self._rng_generator = torch.Generator().manual_seed(seed)
+
+    def _forward_sample(self, x: torch.Tensor, coords: np.ndarray) -> torch.Tensor:
         if x.dim() != 5:
             raise ValueError("StormScopeDxNSRDB requires [batch, time, variable, y, x]")
         batch_size, time_size = x.shape[:2]
@@ -650,9 +632,10 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         )
         noise = torch.randn(
             (batch_size * time_size, len(self.output_variables), height, width),
-            device=device,
+            device=device if self._rng_generator is None else "cpu",
             dtype=self._SAMPLER_DTYPE,
-        )
+            generator=self._rng_generator,
+        ).to(device)
         initial_state = regression / self.sigma_max + noise
         with torch.autocast(device_type=device.type, enabled=self.amp):
             output = self._edm_sampler(initial_state, condition).to(dtype)
@@ -664,31 +647,46 @@ class StormScopeDxNSRDB(torch.nn.Module, AutoModelMixin):
         return torch.where(self.valid_mask, output, torch.nan)
 
     @torch.inference_mode()
-    @batch_func()
-    def __call__(
-        self,
-        x: torch.Tensor,
-        coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Generate GHI samples from GOES imagery.
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Generate GHI samples at each input validity time on the model device.
 
         Parameters
         ----------
-        x : torch.Tensor
-            GOES tensor with shape ``[batch, time, variable, y, x]``.
-        coords : CoordSystem
-            GOES coordinates.
+        x : xr.DataArray
+            GOES observations matching ``input_coords()`` on the model grid.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            GHI samples and output coordinates.
+        xr.DataArray
+            Global horizontal irradiance samples matching ``output_coords(x)``,
+            with labelled sample and spatial dimensions.
         """
-        x, coords = self._prepare_input(x, coords)
-        output_coords = self.output_coords(coords)
-        samples = []
-        for sample_index in range(self.number_of_samples):
-            if self.seed is not None:
-                torch.manual_seed(self.seed + sample_index)
-            samples.append(self._forward_sample(x, coords))
-        return torch.stack(samples, dim=1), output_coords
+        handshake_nonempty(x)
+        output_coords = self.output_coords(x)
+        handshake_time(x, dimension=False)
+        valid = x.coords["time"]
+        if "lead_time" in x.coords:
+            handshake_time(x, "lead_time", dimension="lead_time" in x.dims)
+            valid = valid + x.coords["lead_time"]
+        leading = x.dims[:-3]
+        template = xr.DataArray(
+            np.empty(tuple(x.sizes[d] for d in leading)), dims=leading
+        )
+        times = valid.broadcast_like(template).transpose(*leading).values.reshape(-1)
+        tensor = x.e2s.to_torch()[0].to(self.latitudes.device)
+        tensor = torch.where(self.input_valid_mask, tensor, 0.0)
+        # The numerical kernel retains its [batch, time, channel, y, x] layout.
+        tensor = tensor.reshape(1, -1, *tensor.shape[-3:])
+        samples = [
+            self._forward_sample(tensor, times).reshape(
+                *[x.sizes[d] for d in leading],
+                len(self.output_variables),
+                len(self.y),
+                len(self.x),
+            )
+            for _ in range(self.number_of_samples)
+        ]
+        position = output_coords.dims.index("sample")
+        result = from_torch(torch.stack(samples, dim=position), output_coords)
+        result.encoding = deepcopy(x.encoding)
+        return result
