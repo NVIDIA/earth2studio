@@ -6,7 +6,7 @@ an output backend.
 
 | Component | Role |
 | --- | --- |
-| [Coordinates and metadata](coordinates.md) | Describe fields, grids, times, and tabular schemas. |
+| [Data and metadata](coordinates.md) | Describe fields, grids, times, and tabular schemas. |
 | [Prognostic models](prognostic.md) | Advance a forecast through time. |
 | [Diagnostic models](diagnostic.md) | Derive or transform fields in a single call. |
 | [Data assimilation models](data_assimilation.md) | Combine observations and background states. |
@@ -15,7 +15,7 @@ an output backend.
 | [IO backends](io.md) | Store labelled outputs in memory or on disk. |
 | [Statistics](statistics.md) | Reduce fields and compare predictions with observations. |
 
-Start with [Coordinates and Metadata](coordinates.md) for the data exchanged between
+Start with [Data and Metadata](coordinates.md) for the data exchanged between
 components. See the [Overview](../about/overview.md) for composing them into pipelines.
 
 Each component page introduces its interface, shows usage, and explains how to

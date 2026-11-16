@@ -16,7 +16,7 @@ They do not continue an autoregressive trajectory. Browse the
 | `to(device)` | Place model computation on the requested device. |
 
 Fields are `xarray.DataArray` objects; signatures follow the
-[Coordinates and Metadata](coordinates.md).
+[Data and Metadata](coordinates.md).
 Return one output directly or multiple outputs as a tuple. The protocol is
 `earth2studio.models.dx.base.DiagnosticModel`; inheritance is optional.
 The `stochastic` flag and, for stochastic models, `set_rng(seed, reset=True)` describe

@@ -513,7 +513,7 @@ nav:
   - Catalog: userguide/about/catalog.md
   - Core Components:
     - userguide/components/index.md
-    - Coordinates and Metadata: userguide/components/coordinates.md
+    - Data and Metadata: userguide/components/coordinates.md
     - Prognostic Models: userguide/components/prognostic.md
     - Diagnostic Models: userguide/components/diagnostic.md
     - Data Assimilation Models: userguide/components/data_assimilation.md

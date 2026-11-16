@@ -8,7 +8,7 @@ Browse the built-in models in the [prognostic API](../../modules/models_px.md).
 
 Models exchange labelled `xarray.DataArray` fields in physical units. Coordinate
 methods describe those fields without allocating their values; see the
-[Coordinates and Metadata](coordinates.md).
+[Data and Metadata](coordinates.md).
 
 For a model with one input and no forcing, the interface is:
 

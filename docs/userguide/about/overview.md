@@ -14,7 +14,7 @@ Each component has a focused role. Choose the pieces your application needs:
 
 | Component | Role in a workflow |
 | --- | --- |
-| [Coordinates and metadata](../components/coordinates.md) | Describe what data means. |
+| [Data and metadata](../components/coordinates.md) | Describe what data means. |
 | [Data sources](../components/datasources.md) | Fetch fields, forecasts, or observations. |
 | [Data assimilation](../components/data_assimilation.md) | Turn observations into an analysis. |
 | [Prognostic models](../components/prognostic.md) | Advance a forecast through time. |
@@ -32,7 +32,7 @@ block with a local implementation without replacing the rest of the pipeline.
 ```mermaid
 flowchart LR
     A[Data source] --> B[Forecast loop]
-    B --> C[IO: stream outputs]
+    B --> C[Output stream]
 ```
 
 1. **Fetch initial conditions.** A data source supplies the fields needed by the
@@ -79,7 +79,7 @@ cases establish that a custom model still produces the intended predictions.
 ## Where To Go Next
 
 - [Install Earth2Studio](install.md) and the model dependencies you need.
-- Start with [Coordinates and Metadata](../components/coordinates.md), then explore
+- Start with [Data and Metadata](../components/coordinates.md), then explore
   the [core components](../components/index.md).
 - Run the [examples](../../examples/index.md) for complete workflows.
 - [Wrap your own model](../components/prognostic.md#wrap-your-own-prognostic-model)

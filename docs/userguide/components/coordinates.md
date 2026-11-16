@@ -1,9 +1,14 @@
-# Coordinates and Metadata { #coordinates_userguide }
+# Data and Metadata { #coordinates_userguide }
 
-Coordinates and metadata describe what a field means: its variables, physical units,
-locations, times, and provenance. They give models, data sources, and output tools a
-shared description to inspect before exchanging values. Agents can use the same
-descriptions to plan requests and check connections between components.
+Creating meaningful data products is a foundation of Earth2Studio. Components
+produce data, and rich metadata gives those outputs the context that humans and
+agents need to interpret and use them: what quantities they represent, where and
+when they apply, and how they were produced.
+
+Earth2Studio uses coordinate systems and metadata structures both to describe
+existing data and to declare what each component needs and produces. These shared
+descriptions let people and agents inspect data products, prepare inputs, and
+connect components into pipelines.
 
 ## Interface
 

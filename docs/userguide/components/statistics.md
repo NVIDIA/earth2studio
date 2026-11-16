@@ -14,7 +14,7 @@ ranked probability score (CRPS). Browse the
 | `__call__(...)` | `statistic(x)` | `metric(x, y)` |
 
 Inputs and outputs are DataArrays. Coordinate planning uses allocation-free
-signatures; see [Coordinates and Metadata](coordinates.md).
+signatures; see [Data and Metadata](coordinates.md).
 The `Statistic` and `Metric` protocols live in `earth2studio.statistics.base`;
 inheritance is optional. Weights, streaming updates, and ensemble handling are
 options of particular implementations rather than universal requirements.

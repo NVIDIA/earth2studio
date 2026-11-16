@@ -129,7 +129,7 @@ class CustomDiagnostic(torch.nn.Module):
 # Defining the input/output coordinate systems is essential for any model in
 # Earth2Studio since this is how both the package and users can learn what type of data
 # the model expects. This requires the definition of  `input_coords` and
-# `output_coords`. Have a look at [Coordinates and Metadata](../../userguide/components/coordinates.md) for details on
+# `output_coords`. Have a look at [Data and Metadata](../../userguide/components/coordinates.md) for details on
 # coordinate system.
 #
 # For this diagnostic model, we simply define the input coordinates
