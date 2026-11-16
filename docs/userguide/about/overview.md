@@ -42,10 +42,29 @@ flowchart LR
 3. **Stream the results.** An IO backend writes each output as it becomes available.
    Downstream components can also transform or score those fields.
 
-Extend this pattern for your application: assimilate raw observations before the
-forecast, perturb the initial state for an ensemble, or add downscaling and impact
-models after it. The resulting data products can feed your decision tools. You can
-also enter midway, supplying an existing forecast directly to a diagnostic model.
+## From Observations to Decisions
+
+This basic pipeline can grow increasingly complex as you connect more components.
+The goal is to enable AI-driven forecasting pipelines that support real-world
+decision-making. A more complete pipeline might look like this:
+
+```mermaid
+flowchart LR
+    A[Observations] --> B[Data assimilation model]
+    B --> C[Forecast model]
+    C --> D[Diagnostic model]
+    D --> E[Decision model]
+```
+
+The data assimilation model combines observations with a background state to produce
+an analysis. The forecast model advances that state, and a diagnostic model turns
+the forecast into application-relevant quantities. Your decision model can then use
+those products to evaluate actions, such as scheduling energy generation or planning
+for hazardous weather.
+
+Bring your own model at any stage, mixing community and proprietary components.
+You can also enter midway, supplying an existing forecast directly to a diagnostic
+or decision model.
 
 ## Constructing Pipelines
 
