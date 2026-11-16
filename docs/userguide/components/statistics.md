@@ -15,7 +15,7 @@ ranked probability score (CRPS). Browse the
 
 Inputs and outputs are DataArrays. Coordinate planning uses allocation-free
 signatures; see [Data and Metadata](coordinates.md).
-The `Statistic` and `Metric` protocols live in `earth2studio.statistics.base`;
+The `Statistic` and `Metric` protocols live in [`earth2studio.statistics.base`][interface];
 inheritance is optional. Weights, streaming updates, and ensemble handling are
 options of particular implementations rather than universal requirements.
 
@@ -23,6 +23,7 @@ See [E2S-09: Statistics][statistics-spec] for dimension handling, input alignmen
 weights, streaming state, and backend requirements.
 
 [statistics-spec]: ../../specs/E2S-09_STATISTICS_SPEC.md
+[interface]: https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/earth2studio/statistics/base.py
 
 ## Usage
 

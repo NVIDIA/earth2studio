@@ -18,7 +18,7 @@ They do not continue an autoregressive trajectory. Browse the
 Fields are `xarray.DataArray` objects; signatures follow the
 [Data and Metadata](coordinates.md).
 Return one output directly or multiple outputs as a tuple. The protocol is
-`earth2studio.models.dx.base.DiagnosticModel`; inheritance is optional.
+[`earth2studio.models.dx.base.DiagnosticModel`][interface]; inheritance is optional.
 The `stochastic` flag and, for stochastic models, `set_rng(seed, reset=True)` describe
 randomness. Diagnostic models require no forcing, state, iterator, or hook interface.
 
@@ -26,6 +26,7 @@ See [E2S-06: Model Contract][model-spec] for diagnostic-model requirements, incl
 coordinate planning, output ownership, randomness, and optional domain selection.
 
 [model-spec]: ../../specs/E2S-06_MODEL_CONTRACT_SPEC.md
+[interface]: https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/earth2studio/models/dx/base.py
 
 ## Usage
 

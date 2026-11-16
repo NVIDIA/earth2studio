@@ -27,7 +27,7 @@ For a model with one input and no forcing, the interface is:
 Multi-input models take separate, named arguments in declared order. Forcing follows
 the initial inputs in `initialize` and the previous outputs in `step`, with `state`
 last. One output is returned directly; multiple outputs form an ordered tuple.
-The protocol is defined in `earth2studio.models.px.base.PrognosticModel`; inheritance
+The protocol is defined in [`earth2studio.models.px.base.PrognosticModel`][interface]; inheritance
 from it is not required. `stochastic` identifies stochastic models, which expose
 `set_rng(seed, reset=True)` for reproducible rollouts.
 
@@ -35,6 +35,7 @@ See [E2S-06: Model Contract][model-spec] for the full coordinate, execution, sta
 randomness, and domain-selection requirements.
 
 [model-spec]: ../../specs/E2S-06_MODEL_CONTRACT_SPEC.md
+[interface]: https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/earth2studio/models/px/base.py
 
 ## Usage
 

@@ -22,7 +22,7 @@ Forecast DataArrays have dimensions `time, lead_time, variable, ...`.
 Forecast `time` is the initialization time; `lead_time` selects offsets from that
 initialization. Analysis `time` selects valid times directly. Tabular sources expose
 `SCHEMA`; `fields` selects observation columns. The protocols are in
-`earth2studio.data.base`. Some sources also offer an async `fetch` with equivalent
+[`earth2studio.data.base`][interface]. Some sources also offer an async `fetch` with equivalent
 arguments and results.
 
 ### Ensemble Members
@@ -39,6 +39,7 @@ See [E2S-05: Data Fetching][fetch-spec] for request handling, output assembly,
 ensemble selection, and device-placement requirements.
 
 [fetch-spec]: ../../specs/E2S-05_FETCH_DATA_SPEC.md
+[interface]: https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/earth2studio/data/base.py
 
 ## Usage
 

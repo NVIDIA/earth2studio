@@ -11,7 +11,7 @@ perturbed = perturbation(x)  # DataArray -> DataArray
 ```
 
 A perturbation accepts a field and returns the **perturbed field**, not just noise.
-The `earth2studio.perturbation.base.Perturbation` protocol requires only this call;
+The [`earth2studio.perturbation.base.Perturbation`][interface] protocol requires only this call;
 inheritance is optional. Built-in methods accept NumPy-, CuPy-, or Torch-backed
 DataArrays and use PyTorch for computation.
 
@@ -19,6 +19,7 @@ See [E2S-08: Perturbations][perturbation-spec] for field preservation,
 method-specific dimensions, and backend behavior.
 
 [perturbation-spec]: ../../specs/E2S-08_PERTURBATION_SPEC.md
+[interface]: https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/earth2studio/perturbation/base.py
 
 ## Usage
 

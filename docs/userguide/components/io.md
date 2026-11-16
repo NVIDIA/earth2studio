@@ -5,6 +5,9 @@ as a general default, `NetCDF4Backend` for netCDF files, `XarrayBackend` for in-
 results, `AsyncZarrBackend` for asynchronous and sharded writes, or `IceChunkBackend`
 for versioned output. See the [IO API](../../modules/io.md) for backend options.
 
+For Icechunk transactions, asynchronous writes, sharding, and cloud storage, see
+[Advanced Output Handling](../advanced/io.md).
+
 ## Interface
 
 | Method | Purpose |
@@ -14,7 +17,7 @@ for versioned output. See the [IO API](../../modules/io.md) for backend options.
 | `flush()` | Wait for pending writes to become visible to readers. |
 | `close()` | Flush, finalize the store, and release resources. |
 
-The `earth2studio.io.base.IOBackend` protocol requires these four methods;
+The [`earth2studio.io.base.IOBackend`][interface] protocol requires these four methods;
 inheritance is optional. Reading and dictionary-like access are backend-specific
 capabilities rather than requirements of the write interface.
 
@@ -22,6 +25,7 @@ See [E2S-10: IO][io-spec] for template, label-based writing, metadata, and lifec
 requirements.
 
 [io-spec]: ../../specs/E2S-10_IO_SPEC.md
+[interface]: https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/earth2studio/io/base.py
 
 ## Usage
 

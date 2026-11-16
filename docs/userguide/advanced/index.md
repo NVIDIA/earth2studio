@@ -1,6 +1,7 @@
 # Advanced Usage
 
 - [Checkpointing](checkpointing.md)
+- [Advanced Output Handling](io.md)
 - [Batch Dimension](batch.md)
 - [AutoModels](auto.md)
 - [Lexicon](lexicon.md)

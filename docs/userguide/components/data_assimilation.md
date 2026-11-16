@@ -19,7 +19,7 @@ both independent analysis models and models that continue a stateful trajectory.
 adds `forcing_coords()`, `initialize(...)`, `step(..., state=state)`, and
 `create_iterator(...)`, following the [prognostic](prognostic.md) explicit-state
 convention. For these models, observations supplied during a rollout are forcing.
-The protocols are in `earth2studio.models.da.base`; inheritance is optional.
+The protocols are in [`earth2studio.models.da.base`][interface]; inheritance is optional.
 
 Each input or output slot is either a gridded DataArray described by a
 `CoordinateSystem`, or a DataFrame described by a `FrameSchema`. A schema maps column
@@ -32,6 +32,7 @@ See [E2S-07: Data Assimilation Contract][da-spec] for slot ordering, observation
 schemas and timing, and independent and stateful execution requirements.
 
 [da-spec]: ../../specs/E2S-07_DA_MODEL_CONTRACT_SPEC.md
+[interface]: https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/earth2studio/models/da/base.py
 
 ## Usage
 
