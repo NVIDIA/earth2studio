@@ -43,17 +43,17 @@ Known names have the meanings below wherever they occur. These are coordinate
 types, independent of the field dtype. `coord_array()` defaults the field dtype
 to `float32`; this does not require every field or coordinate to be `float32`.
 
-| Name | Role | Coordinate dtype and interpretation |
+| Name | Coordinate dtype | Meaning |
 | --- | --- | --- |
-| `time` | Absolute time; initialization/reference time when paired with forecast leads, otherwise valid time | NumPy `datetime64`, UTC semantics without a timezone-bearing object dtype |
-| `lead_time` | Offset from reference time; may include input history | NumPy `timedelta64`; negative offsets are permitted where the consuming contract allows history |
-| `valid_time` | Auxiliary absolute validity time | NumPy `datetime64`; when derived from a forecast, equals `time + lead_time` with the corresponding coordinate dimensions |
-| `variable` | Physical quantity identifier | String labels from the Earth2Studio vocabulary or a documented extension; temporal qualifiers follow the time-statistics contract |
-| `ensemble` | Member identity | Labels with a consistent declared dtype, commonly integers or strings; labels identify members rather than their array positions |
-| `batch` | Generic collection of independent samples | May be unlabelled; when labelled, retain the declared label dtype and order |
-| `lat`, `lon` | Geographic coordinates, as axes or auxiliaries | Floating-point degrees; dimensionality, ordering, and longitude convention follow the grid contract |
-| `y`, `x` | Native spatial axes | Numeric coordinates in the grid's native units, or integer indexes for indexed layouts |
-| `hpx`, `face`, `height`, `width` | HEALPix pixel or layout indexes | Integer indexes; representation and ordering follow the grid contract |
+| `time` | NumPy `datetime64` | Absolute time; initialization/reference time when paired with forecast leads, otherwise valid time. UTC semantics without a timezone-bearing object dtype |
+| `lead_time` | NumPy `timedelta64` | Offset from reference time; may include input history. Negative offsets are permitted where the consuming contract allows history |
+| `valid_time` | NumPy `datetime64` | Auxiliary absolute validity time; when derived from a forecast, equals `time + lead_time` with the corresponding coordinate dimensions |
+| `variable` | String labels | Physical quantity identifier from the Earth2Studio vocabulary or a documented extension; temporal qualifiers follow the time-statistics contract |
+| `ensemble` | Consistent declared dtype, commonly integers or strings | Member identity; labels identify members rather than their array positions |
+| `batch` | Declared label dtype, when labelled | Generic collection of independent samples. May be unlabelled; when labelled, retain the declared label dtype and order |
+| `lat`, `lon` | Floating-point | Geographic coordinates in degrees, as axes or auxiliaries; dimensionality, ordering, and longitude convention follow the grid contract |
+| `y`, `x` | Numeric coordinates or integer indexes | Native spatial axes in the grid's native units, or integer indexes for indexed layouts |
+| `hpx`, `face`, `height`, `width` | Integer indexes | HEALPix pixel or layout indexes; representation and ordering follow the grid contract |
 
 | ID | Requirement |
 | --- | --- |
@@ -117,7 +117,7 @@ every column. The source schema and consuming `FrameSchema` determine presence.
 The shared Arrow schema permits nulls in all listed fields; a source or consumer
 may impose stricter constraints. Physical units of `observation` follow `variable`.
 
-| Field | Suggested Arrow type | Meaning |
+| Name | Suggested Arrow type | Meaning |
 | --- | --- | --- |
 | `time` | `timestamp[ns]` | Observation time, or forecast reference time; UTC |
 | `lat` | `float32` | Latitude in degrees, within [-90, 90] |
@@ -141,7 +141,7 @@ may impose stricter constraints. Physical units of `observation` follow `variabl
 
 Forecast extensions to this shared vocabulary are:
 
-| Field | Suggested Arrow type | Meaning |
+| Name | Suggested Arrow type | Meaning |
 | --- | --- | --- |
 | `lead_time` | `duration[ns]` | Forecast offset from `time` |
 | `valid_time` | `timestamp[ns]` | Optional absolute forecast validity time |
