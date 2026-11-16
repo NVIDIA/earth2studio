@@ -1,12 +1,14 @@
-# Earth2Studio Grid Protocol
+# E2S-02: Earth2Studio Grid Protocol
 
-## Goal
+## Purpose
 
 Provide one lightweight contract for describing spatial grids without coupling grid
 geometry to field data or regridding engines. This protocol describes grids only; it
 does not select interpolation methods, construct weights, or transform field data.
 
-## Interface
+## Contract
+
+### Interface
 
 `GridDefinition` is a runtime-checkable structural protocol. Implementations satisfy
 the interface directly; inheritance is not required.
@@ -51,7 +53,7 @@ class GridDefinition(Protocol):
 - `attrs` returns a JSON-serializable description for Xarray and agents
 - `fingerprint()` returns stable geometry identity for validation and caching
 
-## Package
+### Package
 
 Grid definitions live in `earth2studio.grids`, with one implementation per file. The
 package initializer exports definitions and owns the process-local registry.
@@ -66,7 +68,7 @@ package initializer exports definitions and owns the process-local registry.
 
 Users may implement the protocol directly for other grid families.
 
-## Populating Xarray Coordinates
+### Populating Xarray Coordinates
 
 A definition provides complete coordinates in one call:
 
@@ -88,7 +90,7 @@ Selected index values avoid generating geographic coordinates for the full grid:
 coordinates = definition.coords({"y": selected_y, "x": selected_x})
 ```
 
-### Allocation-free model signatures
+#### Allocation-free model signatures
 
 `earth2studio.utils.coord_array` consumes the same definitions without allocating
 field values. It supplies grid sizes, index coordinates, serializable grid attrs,
@@ -132,7 +134,7 @@ Coordinate handshakes compare fixed axes and auxiliary coordinates and require
 matching declared grid ID and CRS metadata. `coord_array_like()` creates output
 signatures from validated inputs without recreating or reprojecting their grid.
 
-### Model coordinates to target grid
+#### Model coordinates to target grid
 
 The grid contract must support the round trip
 `GridDefinition -> coord_array -> infer_grid -> GridDefinition`. Coordinate arrays
@@ -156,7 +158,7 @@ renamed axes, validation of registered geometry against coordinate values, and a
 explicit grid-owned extent interface are required follow-up work. The manual
 renaming guidance above describes the current implementation until that support
 lands. Fetch-side regridding onto a target grid is specified in
-[FETCH_DATA_SPEC.md](FETCH_DATA_SPEC.md).
+[E2S-05_FETCH_DATA_SPEC.md](E2S-05_FETCH_DATA_SPEC.md).
 
 Until that validation lands, a registered `earth2studio_grid_id` is trusted:
 `infer_grid()` and `handshake_dataarray()` compare only dimension names and sizes
@@ -166,7 +168,7 @@ still accepted as the registered grid and read in the wrong order. Drop the labe
 (`array.attrs.pop("earth2studio_grid_id")`) after reordering spatial axes so the
 actual coordinates are used.
 
-## HEALPix Representations
+### HEALPix Representations
 
 HEALPix ordering and storage layout are explicit. `nested` and `ring` use a flat
 `hpx` dimension. `xy` supports flat `hpx` storage or an expanded
@@ -183,7 +185,7 @@ dlesym = grids.HEALPixGrid(
 )
 ```
 
-## Registry
+### Registry
 
 The process-local registry maps stable names and aliases to complete definitions:
 
@@ -198,7 +200,7 @@ serializable metadata, and a nonempty fingerprint. Re-registering an identical
 definition is a no-op; conflicting names and aliases raise an error. Names recognized
 as CRS input by PyProj are reserved.
 
-## Inferring Grid Type
+### Inferring Grid Type
 
 `infer_grid()` follows an explicit-to-general chain:
 
@@ -211,7 +213,7 @@ as CRS input by PyProj are reserved.
 `lon(x)`. Generic `lat(hpx)` and `lon(hpx)` are not enough to distinguish HEALPix
 ordering, layout, or level, so HEALPix requires a registered grid identifier.
 
-## Selection
+### Selection
 
 Selection returns positional Xarray indexers and never receives field data. Every
 definition supports geographic `bounds` and optional `bounds_crs`. HEALPix also

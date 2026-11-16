@@ -9,7 +9,7 @@ description: >
 
 # Create an Assimilation Model
 
-Read the [DA contract](../../dev/spec/DA_MODEL_CONTRACT_SPEC.md),
+Read the [DA contract](../../docs/specs/E2S-07_DA_MODEL_CONTRACT_SPEC.md),
 [protocols](../../earth2studio/models/da/base.py), and
 [implementation rules](../../.agents/rules/e2s-013-assimilation-models.mdc).
 

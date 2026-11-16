@@ -1,6 +1,6 @@
-# Earth2Studio Fetch Data Utility
+# E2S-05: Earth2Studio Fetch Data Utility
 
-## Goal
+## Purpose
 
 `earth2studio.data.fetch_data` adapts analysis and forecast sources to a field
 `xr.DataArray` with consistent time, lead-time, and variable dimensions. It owns
@@ -9,11 +9,13 @@ regridding is applied. Native data sources own temporal aggregation; `fetch_data
 forwards supported labels and preserves their metadata.
 
 This contract reflects the API in [PR #1170](https://github.com/NVIDIA/earth2studio/pull/1170).
-Temporal windows follow [TIME_STATISTICS_SPEC.md](TIME_STATISTICS_SPEC.md); spatial
-geometry follows [GRID_SPEC.md](GRID_SPEC.md) and regridding follows
-[REGRID_SPEC.md](REGRID_SPEC.md).
+Temporal windows follow [E2S-03_TIME_STATISTICS_SPEC.md](E2S-03_TIME_STATISTICS_SPEC.md); spatial
+geometry follows [E2S-02_GRID_SPEC.md](E2S-02_GRID_SPEC.md) and regridding follows
+[E2S-04_REGRID_SPEC.md](E2S-04_REGRID_SPEC.md).
 
-## Interface
+## Contract
+
+### Interface
 
 ```python
 def fetch_data(
@@ -38,7 +40,7 @@ def fetch_data(
 - `target_grid` is the grid to return fields on, typically
   `infer_grid(model.input_coords())`; use `resolve_grid` for a registered name.
   Without it, fields stay on the source grid.
-- `regridder` is a `Regridder` to apply (see [REGRID_SPEC.md](REGRID_SPEC.md)).
+- `regridder` is a `Regridder` to apply (see [E2S-04_REGRID_SPEC.md](E2S-04_REGRID_SPEC.md)).
   Choosing a method, or a registered one with `resolve_regridder`, is the
   caller's job.
 - `member` names one member or distinct members to fetch from an ensemble
@@ -49,7 +51,7 @@ There is no separate `metadata` or `statistics` input. Temporal quantities are
 declared in variable labels. `target_grid` replaces the former `interp_to`, and
 `regridder` replaces `interp_method`. Sampling cadence belongs to the source.
 
-### Regridding
+#### Regridding
 
 `fetch_data` maps the field the source returns; it never inspects how the source
 produced it, so a `RegriddedSource` is fetched like any other source.
@@ -77,7 +79,7 @@ pair of grids, or wanting another method, should build a `Regridder` once and pa
 it. The helpers behind steps 1 and 2, `same_geometry` and `select_subset`, are
 public in `earth2studio.grids`.
 
-### Order of Operations
+#### Order of Operations
 
 1. Fetch requested fields, including source-computed temporal statistics.
 2. Assemble requested labels and their statistics metadata on the source grid.
@@ -92,7 +94,7 @@ directly keeps the source's dtype.
 Regridding requested through `fetch_data` follows reduction. A `RegriddedSource`
 regrids whatever its wrapped source returns, after any temporal reduction.
 
-### Source Backing and Device
+#### Source Backing and Device
 
 Data sources accept a `device` keyword, default `"cpu"`, and expose it as a `device`
 attribute holding a `torch.device`. On a CUDA device, field sources return
@@ -104,7 +106,7 @@ either backing and moves data only in step 3. Reduction backing is implementatio
 specific: the native helpers currently reduce NumPy fields before source
 device conversion.
 
-## Source Dispatch
+### Source Dispatch
 
 A source whose `__call__` signature contains `lead_time` is a forecast source.
 Wrappers that forward requests through `*args`, such as `RegriddedSource`, declare
@@ -130,7 +132,7 @@ uses `time_selected`). `fetch_data` selects by label and never relabels position
 a source returning other labels raises a `ValueError` naming the source and the
 labels it did not return, rather than silently attaching data to the wrong time.
 
-## Ensemble Members
+### Ensemble Members
 
 Ensemble forecasts and stored ensemble runs supply one field per member, and an
 ensemble run may start each member from a different one: for example four seeded
@@ -178,12 +180,12 @@ fetch_data(IFS_ENS(), time, variable, member=[3, 4])
   returns no `ensemble` dimension, and selects members in request order. Labels
   must be distinct; callers repeat members after fetching.
 
-## Temporal Statistics
+### Temporal Statistics
 
 `fetch_data` discovers methods through
 `source.lexicon.TIME_STATISTICS` and passes supported qualified labels unchanged.
 The source aggregates as described in
-[TIME_STATISTICS_SPEC.md](TIME_STATISTICS_SPEC.md#source-responsibilities):
+[E2S-03_TIME_STATISTICS_SPEC.md](E2S-03_TIME_STATISTICS_SPEC.md#source-responsibilities):
 
 ```python
 variables = np.array(["t2m", "t2m:mean:24h", "tp:sum:0h:6h"])
@@ -216,7 +218,7 @@ before the first `:`, so a component providing `t2m` also receives
 intersection of component methods for composites. A method must therefore be
 supported by every component to be requested through `fetch_data`.
 
-## Output Contract
+### Output Contract
 
 - Return one `xr.DataArray`, ordered as `[time, lead_time, variable, ...]`, with
   remaining source dimensions retained. Lead coordinates use nanosecond precision.
@@ -238,7 +240,7 @@ The former `(tensor, coords)` return and `legacy` switch are removed. Consumers
 access `field.data` and `field.coords`; tensor-based consumers can explicitly use
 `prep_data_array`.
 
-## Example
+### Example
 
 Given an analysis source supporting `t2m:mean:24h`:
 
@@ -257,7 +259,7 @@ For `GFS_FX`, request a lead of at least 23 hours for this trailing window: at
 lead 24h, hourly samples are leads 1 through 24h of the same initialization.
 A trailing window at lead zero is rejected because its required leads are negative.
 
-## Deferred Work and Verification
+### Deferred Work and Verification
 
 Bounds selection, a single coordinate-system request object, and fetch-plan caching
 are outside this contract. Native reduction is described in the time-statistics spec.

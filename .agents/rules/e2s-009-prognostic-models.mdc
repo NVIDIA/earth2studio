@@ -6,7 +6,7 @@ description: Earth2Studio native DataArray prognostic model implementation guide
 # Earth2Studio Prognostic Models
 
 The authoritative execution, metadata, hook and ownership requirements are
-in `dev/spec/MODEL_CONTRACT_SPEC.md`. Activate `earth2studio-create-prognostic`
+in `docs/specs/E2S-06_MODEL_CONTRACT_SPEC.md`. Activate `earth2studio-create-prognostic`
 before implementing a new wrapper; its reference skeleton is native DataArray code.
 
 ## Public interface

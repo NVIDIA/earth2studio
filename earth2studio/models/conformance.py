@@ -17,7 +17,7 @@
 """Conformance checks for the Earth2Studio model contract.
 
 The rule identifiers reported here (``P1``-``P24``, ``D1``-``D11``) match the rule
-table in ``dev/spec/MODEL_CONTRACT_SPEC.md``.
+table in ``docs/specs/E2S-06_MODEL_CONTRACT_SPEC.md``.
 
 Prognostic probes use forecasts-only iteration and explicit continuation state.
 Execution and coordinate planning take separate positional input slots.

@@ -1,9 +1,13 @@
-# Earth2Studio Perturbations
+# E2S-08: Earth2Studio Perturbations
+
+## Purpose
 
 Perturbations generate ensemble initial conditions from a state. They operate on
 Xarray `DataArray`s, matching the diagnostic model (DX) interface.
 
-## Protocol
+## Contract
+
+### Protocol
 
 ```python
 class Perturbation(Protocol):
@@ -19,7 +23,7 @@ class Perturbation(Protocol):
 - There is no `coords` argument and no tuple return. Tensor/`CoordSystem` calls are
   unsupported.
 
-## Dimensions
+### Dimensions
 
 Perturbations locate dimensions by name using `handshake_dim` / `handshake_size`
 and raise `KeyError` (missing dimension) or `ValueError` (wrong position or size).
@@ -36,7 +40,7 @@ and raise `KeyError` (missing dimension) or `ValueError` (wrong position or size
 Spherical methods require a lat/lon grid with aspect ratio N:2N or N+1:2N
 (`ValueError` otherwise).
 
-## Backends and Execution
+### Backends and Execution
 
 - Array backends (NumPy, CuPy, Torch) are accepted. Perturbations convert with
   `x.e2s.to_torch()`, compute with Torch on the data's device, and return
@@ -51,12 +55,12 @@ Spherical methods require a lat/lon grid with aspect ratio N:2N or N+1:2N
 - `LaggedEnsemble` and `HemisphericCentredBredVector` fetch data with `fetch_data`
   on the device of the input.
 
-## Runner Integration
+### Runner Integration
 
 `run.ensemble` expands the initial state with an `ensemble` dimension and applies
 `x = perturbation(x)` once before the first model step.
 
-## Custom Perturbations
+### Custom Perturbations
 
 Any callable with the signature above satisfies the protocol. Wrappers that perturb
 a subset of variables select by coordinate, for example
