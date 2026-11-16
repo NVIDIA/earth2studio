@@ -376,7 +376,8 @@ conflicts = [
 default-groups = ["dev", "build"]
 # Needed for some packages that build with PEP 518
 no-build-isolation-package = ["earth2grid", "flash-attn", "natten", "torch-harmonics"]
-override-dependencies = []
+# MoviePy 2.2.1 requires Pillow <12; override to use the security-updated release.
+override-dependencies = ["pillow>=13.0.0"]
 
 [tool.uv.extra-build-dependencies]
 earth2grid = ["setuptools", "torch"]
