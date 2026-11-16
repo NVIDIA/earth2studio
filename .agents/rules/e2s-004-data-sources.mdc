@@ -21,7 +21,7 @@ Both methods have the same API:
 
 ## Native Temporal Statistics
 
-Follow [TIME_STATISTICS_SPEC.md](mdc:dev/spec/TIME_STATISTICS_SPEC.md) when adding
+Follow [E2S-03_TIME_STATISTICS_SPEC.md](mdc:docs/specs/E2S-03_TIME_STATISTICS_SPEC.md) when adding
 native statistics to sources. Declare supported methods
 on `source.lexicon.TIME_STATISTICS`, not source-level `time_step` or
 `time_statistics` attributes. Document cadence, half-open windows, and accumulation

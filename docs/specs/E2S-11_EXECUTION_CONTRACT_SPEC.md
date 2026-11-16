@@ -1,9 +1,13 @@
-# Execution Contracts (draft)
+# E2S-11: Execution Contracts (draft)
 
-Goal: one user-facing execution API, `Pipeline`, for single-model and coupled
+## Purpose
+
+One user-facing execution API, `Pipeline`, for single-model and coupled
 runs, without pulling coupling mechanics into it.
 
-## Shape
+## Contract
+
+### Shape
 
 - `Pipeline` supervises **work**: distribution across ranks, resume, output
   filtering and regridding, scoring, and IO. One concrete class, never
@@ -37,7 +41,7 @@ Pipeline(CoupledRunner(components, connectors), output=output).run(items)
 
 `run/work.py` is a leaf: it imports nothing else from `run`.
 
-## Work items
+### Work items
 
 ```python
 @dataclass(frozen=True)
@@ -64,7 +68,7 @@ final lead time must be a multiple of the runner's step.
   `(time, member)` whatever the final lead times, and either every item has members or
   none does. `work_items` and `OutputManager.prepare` raise `ValueError` otherwise.
 
-## Runner
+### Runner
 
 ```python
 class Runner(Protocol):
@@ -94,7 +98,7 @@ class Runner(Protocol):
   seeded branches from each IFS ENS member. A built-in runner given
   `source_member`, a function from a work item's member ID to a source member
   label, fetches every slot whose source is an ensemble source (see
-  [FETCH_DATA_SPEC.md](FETCH_DATA_SPEC.md#ensemble-members)) for the item's
+  [E2S-05_FETCH_DATA_SPEC.md](E2S-05_FETCH_DATA_SPEC.md#ensemble-members)) for the item's
   members: initial conditions and forcing alike, the distinct labels in one
   request, recorded in `DataRequest.member`. Other slots, and every slot
   without `source_member`, are shared by all members. An item without member
@@ -102,24 +106,24 @@ class Runner(Protocol):
   reaches the model without an `ensemble` dimension; in a batch, members sharing
   a source member share its one fetched field.
 
-### Stream schemas and outputs
+#### Stream schemas and outputs
 
 `output_coords(final_lead_time)` returns one allocation-free `coord_array` signature per
-stream (see [MODEL_CONTRACT_SPEC.md](MODEL_CONTRACT_SPEC.md)). Its fixed
+stream (see [E2S-06_MODEL_CONTRACT_SPEC.md](E2S-06_MODEL_CONTRACT_SPEC.md)). Its fixed
 dimensions are `lead_time`, covering every lead the final lead time allows, then
 `variable` and the grid's. `time` and `ensemble` may appear only in the dynamic
 prefix. The schema carries the yielded fields' grid metadata, auxiliary
 coordinates, dtype and attributes, and is an upper bound: runs may stop early.
 `Pipeline` makes each store's template with
 `output_template(signature, leading={"ensemble": members, "time": times})` (see
-[IO_SPEC.md](IO_SPEC.md)).
+[E2S-10_IO_SPEC.md](E2S-10_IO_SPEC.md)).
 
 Each yielded output has dimensions `time`, labeled `item.time` alone, then the
 schema's fixed dimensions, plus a leading `ensemble` labeled `item.member_ids`
 when the runner batches members. Its `lead_time` labels lie within the schema's;
 other fixed labels equal the schema's.
 
-### Seeding
+#### Seeding
 
 Before each item's rollout or first call, a runner seeds every stochastic model
 with `model.set_rng(member_seed(self.seed, item.time, member_id), reset=True)`,
@@ -150,7 +154,7 @@ or perturb members together (bred vectors, `LaggedEnsemble`) raise
 results reproduce: FNV-1a 64 over `struct.pack(">qqq", base, seconds, member_id)`,
 modulo `2**63`.
 
-## Pipeline
+### Pipeline
 
 Upstreamed from `recipes/eval/src/pipelines/base.py`, with typed arguments in
 place of a Hydra config and `run_item` moved onto the runner.
@@ -185,9 +189,9 @@ CUDA is available, otherwise CPU.
 stream left out is not written (logged once), keeps all its variables, or keeps
 its grid. Variables are filtered before regridding; a regridder's `source_grid`
 must equal its stream's grid, and the stored grid becomes `target_grid` (`R4`,
-see [REGRID_SPEC.md](REGRID_SPEC.md)).
+see [E2S-04_REGRID_SPEC.md](E2S-04_REGRID_SPEC.md)).
 
-### Run loop
+#### Run loop
 
 ```python
 def run(self, items):
@@ -238,7 +242,7 @@ it and `x` lacks it, then writes.
   setup and store creation on rank 0, reduce a failure flag the same way, so no
   rank waits on one that failed.
 
-### Scorer
+#### Scorer
 
 ```python
 class Scorer(Protocol):
@@ -253,7 +257,7 @@ in the scorer; it persists durable state in `finish_item`. Hooks run only on the
 rank that owns the item, so they never run collectives over the pipeline's
 ranks; cross-rank reductions happen in `sync` or after `run` returns.
 
-### Sync
+#### Sync
 
 `sync` is a per-round hook every rank joins, for coordination during a run such
 as reducing a scorer's accumulators. When it is set, ranks run their items in
@@ -263,7 +267,7 @@ collectives. Both phases of a round reduce a failure flag, so a failure stops
 every rank in the same round. Items are marked done only after their round's
 `sync` returns. Without `sync`, ranks run their items independently.
 
-## Output
+### Output
 
 `OutputManager` is internal; `Pipeline` wraps its `output` mapping in one.
 
@@ -299,16 +303,16 @@ output = rank0_first(
 `AsyncZarrBackend` needs its parallel labels at construction, so its caller
 supplies the item times.
 
-### Distributed writes
+#### Distributed writes
 
 Ranks write different `time` and `ensemble` positions, so with `world_size > 1`
 every store must use blocks of 1 along both. After `prepare`,
 `check_distributed` reads each backend's optional `write_blocks` (see
-[IO_SPEC.md](IO_SPEC.md)) and raises `ValueError` for a wider block. Backends
+[E2S-10_IO_SPEC.md](E2S-10_IO_SPEC.md)) and raises `ValueError` for a wider block. Backends
 without `write_blocks`, process-local or unknown, warn once per type. Both Zarr
 backends report it; default `ZarrBackend` chunking passes, `chunks={}` does not.
 
-## Progress
+### Progress
 
 `ProgressStore` records finished items, so runs can resume.
 
@@ -356,7 +360,7 @@ store without tags logs a warning.
 Progress and stores are cleared independently: overwriting a store but not its
 progress skips items whose data is gone.
 
-## Distribution
+### Distribution
 
 ```python
 def distribute_work(items: Sequence[T], rank: int, world_size: int) -> list[T]: ...
@@ -372,7 +376,7 @@ Each rank gets one contiguous, balanced slice; idle ranks get `[]`. Helpers call
 initializes one: launch with `torchrun` and call `init_process_group`, or use
 physicsnemo's `DistributedManager`, which is optional.
 
-## Built-in runners
+### Built-in runners
 
 `PrognosticRunner(prognostic, source=None, forcing=None, diagnostics=None, seed=0,
 source_member=None, perturbation=None)`
@@ -387,7 +391,7 @@ holding none of them, so neither the scorer nor the store sees it and the store
 keeps its fill value. A
 diagnostic stream whose inputs include output-only variables starts at the first
 forecast. Each step advances by the model's step interval (see
-[MODEL_CONTRACT_SPEC.md](MODEL_CONTRACT_SPEC.md#lead-time)). Sources
+[E2S-06_MODEL_CONTRACT_SPEC.md](E2S-06_MODEL_CONTRACT_SPEC.md#lead-time)). Sources
 default to `default_sources()`. Declared forcing is fetched initially and its
 time-varying slots are sent every step. The prognostic stream is `forecast`;
 each diagnostic adds a stream under the caller's name.
@@ -409,14 +413,14 @@ nearest label and repeats neighbouring values. Fetch such sources with
 `fetch_data(target_grid=...)` or `RegriddedSource`.
 
 The **coupled runner**, `earth2studio.coupling.CoupledRunner`, lives with the
-coupler ([COUPLING_SPEC.md](COUPLING_SPEC.md)). Per item it fetches each
+coupler ([E2S-12_COUPLING_SPEC.md](E2S-12_COUPLING_SPEC.md)). Per item it fetches each
 component's initial condition from bound sources, runs components at their own
 cadences, and yields component-named streams.
 
 All three batch members (`supports_member_batching = True`) and take
 `source_member` (see **Source members** above).
 
-## Rules
+### Rules
 
 | Rule | Requirement |
 | --- | --- |
@@ -446,27 +450,27 @@ All three batch members (`supports_member_batching = True`) and take
 Tests live in `test/run/`. `X7`, `X9`'s collectives, `X13`, `X18`, `X20` and `X21` run
 under `torchrun` with two CPU ranks on gloo; the rest run single-process.
 
-## Out of scope
+### Out of scope
 
 Explicit model state, `initialize`/`step`, components, ports and schedules belong
 to the model contract and the coupler. Mid-item checkpointing could become an
 optional runner capability built on `(y, state)` (open decision 3).
 
-## Phasing
+### Phasing
 
 1. **Done.** `Runner`, `WorkItem`, `DataRequest` and the built-in runners.
 2. **Pipeline.** Done: `run/work.py`, the runner follow-up, `run/output.py` and
    `run/pipeline.py`. Next: replace the eval `forecast`, `diagnostic` and
    `dlesym` pipelines with built-in runners.
 3. **Coupled runner.** `CoupledRunner` is done
-   ([COUPLING_SPEC.md](COUPLING_SPEC.md)), and `dev/examples/11_stormscope_coupling.py`
+   ([E2S-12_COUPLING_SPEC.md](E2S-12_COUPLING_SPEC.md)), and `dev/examples/11_stormscope_coupling.py`
    runs the Flash StormScope GOES and MRMS models as coupled components (GPU
    check pending). Next: compare against the eval `stormscope` pipeline and
    replace it.
 4. **Workflows.** `run.deterministic`, `run.diagnostic` and `run.ensemble` become
    thin wrappers over `Pipeline.from_model`.
 
-## Resolved decisions
+### Resolved decisions
 
 - `torch.distributed` directly; physicsnemo optional.
 - Core has only the `Scorer` and `sync` hooks; metrics and rank communication stay
@@ -479,7 +483,7 @@ optional runner capability built on `(y, state)` (open decision 3).
 - Distributed stores need blocks of 1 along `time` and `ensemble`, which backends
   report through an optional `write_blocks`.
 
-## Open decisions
+### Open decisions
 
 1. **Dependent work items**, such as warm-start cycling: v1 or out of scope?
 2. **Ensembles:** per-element seeding of stochastic batches; bred vectors (model
@@ -488,7 +492,7 @@ optional runner capability built on `(y, state)` (open decision 3).
    runners need an optional checkpoint built on `(y, state)`. Blocks phase 4 only.
 4. **Async fetching:** if needed, change runner and `Pipeline` loop together.
 
-## Integration checks
+### Integration checks
 
 1. `PrognosticRunner` matches `run.deterministic` — `test/run/test_runner.py`.
 2. A hand-written runner stops early and returns `None` data requests —
