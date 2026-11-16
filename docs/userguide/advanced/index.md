@@ -4,7 +4,6 @@
 - [Batch Dimension](batch.md)
 - [AutoModels](auto.md)
 - [Lexicon](lexicon.md)
-- [Temporal Statistics](temporal_statistics.md)
 - [Deployment and Serving](serving.md)
 
 ## Knowledge Base

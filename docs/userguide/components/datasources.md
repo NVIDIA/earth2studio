@@ -114,8 +114,8 @@ propagate. Forecast windows must stay within the requested initialization's
 available leads. Summing stored accumulations with overlapping windows can
 double-count totals; check the source's temporal-statistics documentation.
 The output's `earth2studio_statistics` metadata describes the reduction performed.
-See [Temporal Statistics](../advanced/temporal_statistics.md) for label syntax,
-supported sources, calendar-day windows, and local-array reductions.
+See [E2S-03: Time Statistics](../../specs/E2S-03_TIME_STATISTICS_SPEC.md) for label
+syntax, supported sources, and calendar-day windows.
 
 ### Tabular Observations
 

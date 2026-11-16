@@ -56,8 +56,8 @@ See [Batch Dimension](../advanced/batch.md) for batching patterns.
 Time labels locate a field, while a temporal qualifier describes the quantity over
 a window. For example, `tp:sum:6h` identifies a six-hour accumulation ending at the
 target time. Coordinate constructors derive `earth2studio_statistics` metadata from
-qualified labels. See [Temporal Statistics](../advanced/temporal_statistics.md) for
-window syntax, source support, and calendar-day examples.
+qualified labels. See [E2S-03: Time Statistics][time-spec] for window syntax,
+source support, and calendar-day semantics.
 
 ### Spatial Grids
 
