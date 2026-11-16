@@ -95,23 +95,22 @@ def extract_from_historic_data(
     pd.DataFrame
         Extracted TC tracks from the reanalysis data.
     """
-    variables = list(cfg.cyclone_tracking.vars)
-    times = np.arange(n_steps) * time_step
-    data_source = data_source_mngr.select_data_source(ic + times)
-
-    # all time steps of the storm as a single-member "forecast" from ic
-    x = fetch_data(
-        data_source,
-        time=[ic],
-        lead_time=times,
-        variable=variables,
-        device="cpu",
-    ).expand_dims(ensemble=[0])
-
     cyclone_tracking = TempestExtremes.from_config(
         cfg.cyclone_tracking, cfg.store_dir, asynchronous=False
     )
+    times = np.arange(n_steps) * time_step
+    data_source = data_source_mngr.select_data_source(ic + times)
+
     try:
+        # all time steps of the storm as a single-member "forecast" from ic,
+        # with the variables the tracker needs
+        x = fetch_data(
+            data_source,
+            time=[ic],
+            lead_time=times,
+            variable=cyclone_tracking.input_coords().coords["variable"].values,
+            device="cpu",
+        ).expand_dims(ensemble=[0])
         cyclone_tracking.record_state(x)
         (track_file,) = cyclone_tracking(out_file_names=[f"tracks_{case}.csv"])
     finally:
