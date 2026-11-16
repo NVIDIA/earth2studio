@@ -40,11 +40,11 @@ in their Contract section rather than renumbering existing specs.
 
 | ID | Spec | Contract |
 | --- | --- | --- |
-| E2S-01 | [Grids](E2S-01_GRID_SPEC.md) | Geometry, identity, coordinates, selection |
-| E2S-02 | [Time statistics](E2S-02_TIME_STATISTICS_SPEC.md) | Temporal quantities, windows, source aggregation |
-| E2S-03 | [Regridding](E2S-03_REGRID_SPEC.md) | Mapping fields between grids and composing sources |
-| E2S-04 | [Data fetching](E2S-04_FETCH_DATA_SPEC.md) | Source requests, assembly, members, device placement |
-| E2S-05 | [STAC](E2S-05_STAC_SPEC.md) | Catalog discovery and raster access |
+| E2S-01 | [Core metadata and coordinate systems](E2S-01_CORE_METADATA_SPEC.md) | Coordinate objects, axis names and types, attributes, DataFrame schemas |
+| E2S-02 | [Grids](E2S-02_GRID_SPEC.md) | Geometry, identity, coordinates, selection |
+| E2S-03 | [Time statistics](E2S-03_TIME_STATISTICS_SPEC.md) | Temporal quantities, windows, source aggregation |
+| E2S-04 | [Regridding](E2S-04_REGRID_SPEC.md) | Mapping fields between grids and composing sources |
+| E2S-05 | [Data fetching](E2S-05_FETCH_DATA_SPEC.md) | Source requests, assembly, members, device placement |
 | E2S-06 | [Models](E2S-06_MODEL_CONTRACT_SPEC.md) | Coordinates, execution, state, hooks, randomness, domains |
 | E2S-07 | [Data assimilation](E2S-07_DA_MODEL_CONTRACT_SPEC.md) | Independent analyses and stateful assimilation |
 | E2S-08 | [Perturbations](E2S-08_PERTURBATION_SPEC.md) | Transforming ensemble initial conditions |
@@ -52,3 +52,4 @@ in their Contract section rather than renumbering existing specs.
 | E2S-10 | [IO](E2S-10_IO_SPEC.md) | Storage templates, writes, metadata, lifecycle |
 | E2S-11 | [Execution](E2S-11_EXECUTION_CONTRACT_SPEC.md) | Work items, streams, ensembles, distribution, resume |
 | E2S-12 | [Coupling](E2S-12_COUPLING_SPEC.md) | Field exchange and scheduling between components |
+| E2S-13 | [STAC](E2S-13_STAC_SPEC.md) | Catalog discovery and raster access |

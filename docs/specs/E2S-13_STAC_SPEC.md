@@ -1,4 +1,4 @@
-# E2S-05: Earth2Studio STAC Access Layer
+# E2S-13: Earth2Studio STAC Access Layer
 
 ## Purpose
 
@@ -79,7 +79,7 @@ keyword passthrough to the client is not supported.
   need it.
 - `S2`: `da.rio.crs` and `da.rio.transform()` hold the geometry, carried by
   `spatial_ref` and the `y`, `x` dimension coordinates. This is what
-  `ProjectedGrid(y, x, crs)` describes ([E2S-01_GRID_SPEC.md](E2S-01_GRID_SPEC.md));
+  `ProjectedGrid(y, x, crs)` describes ([E2S-02_GRID_SPEC.md](E2S-02_GRID_SPEC.md));
   `earth2studio_crs` is not written by this layer.
 - `S3`: a band without an entry falls back to the file's nodata and scale/offset
   tags; once applied, the scale tags are removed from attrs so CF decoders do not
@@ -114,14 +114,14 @@ the layer deliberately does not:
   the per-scene windows from `search` onto it, one field per requested time. Where
   several scene footprints cover the request, the source decides how to combine
   them; this layer returns one window per scene.
-- Request: translate a `Region` ([E2S-01_GRID_SPEC.md](E2S-01_GRID_SPEC.md)) into `bbox`, and the
+- Request: translate a `Region` ([E2S-02_GRID_SPEC.md](E2S-02_GRID_SPEC.md)) into `bbox`, and the
   `DataSource` `time` array into a `time_range` plus item selection (nearest scene,
   cloud-cover sort, time tolerance).
 - Vocabulary: map `E2STUDIO_VOCAB` ids to asset keys (and bands of multi-band assets)
   through a lexicon.
-- Contract: meet `DataSource` ([E2S-04_FETCH_DATA_SPEC.md](E2S-04_FETCH_DATA_SPEC.md)), including
+- Contract: meet `DataSource` ([E2S-05_FETCH_DATA_SPEC.md](E2S-05_FETCH_DATA_SPEC.md)), including
   the `device` convention: compute the dask array and return NumPy on CPU or CuPy on
-  CUDA. `RegriddedSource` ([E2S-03_REGRID_SPEC.md](E2S-03_REGRID_SPEC.md)) then maps the source
+  CUDA. `RegriddedSource` ([E2S-04_REGRID_SPEC.md](E2S-04_REGRID_SPEC.md)) then maps the source
   onto a model grid without further code here.
 - Coupling: a collection source is bound to a model slot through
   `Coupler(sources=...)` ([E2S-12_COUPLING_SPEC.md](E2S-12_COUPLING_SPEC.md)); the coupler stages

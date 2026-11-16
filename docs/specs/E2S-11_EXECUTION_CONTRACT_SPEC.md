@@ -98,7 +98,7 @@ class Runner(Protocol):
   seeded branches from each IFS ENS member. A built-in runner given
   `source_member`, a function from a work item's member ID to a source member
   label, fetches every slot whose source is an ensemble source (see
-  [E2S-04_FETCH_DATA_SPEC.md](E2S-04_FETCH_DATA_SPEC.md#ensemble-members)) for the item's
+  [E2S-05_FETCH_DATA_SPEC.md](E2S-05_FETCH_DATA_SPEC.md#ensemble-members)) for the item's
   members: initial conditions and forcing alike, the distinct labels in one
   request, recorded in `DataRequest.member`. Other slots, and every slot
   without `source_member`, are shared by all members. An item without member
@@ -189,7 +189,7 @@ CUDA is available, otherwise CPU.
 stream left out is not written (logged once), keeps all its variables, or keeps
 its grid. Variables are filtered before regridding; a regridder's `source_grid`
 must equal its stream's grid, and the stored grid becomes `target_grid` (`R4`,
-see [E2S-03_REGRID_SPEC.md](E2S-03_REGRID_SPEC.md)).
+see [E2S-04_REGRID_SPEC.md](E2S-04_REGRID_SPEC.md)).
 
 #### Run loop
 

@@ -1,4 +1,4 @@
-# E2S-02: Earth2Studio Time Statistics
+# E2S-03: Earth2Studio Time Statistics
 
 ## Purpose
 

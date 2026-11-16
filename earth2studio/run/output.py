@@ -17,9 +17,8 @@
 """Output-store lifecycle for :class:`earth2studio.run.pipeline.Pipeline`.
 
 :class:`OutputManager` is internal: it owns one IO backend per stream and
-drives their lifecycle (``prepare``, ``write``, ``flush``, ``close``) as
-``docs/specs/E2S-11_EXECUTION_CONTRACT_SPEC.md`` specifies. It is rank-local and runs no
-collectives; ``Pipeline`` orders the ranks around it.
+drives their lifecycle (``prepare``, ``write``, ``flush``, ``close``). It is
+rank-local and runs no collectives; ``Pipeline`` orders the ranks around it.
 """
 
 from __future__ import annotations

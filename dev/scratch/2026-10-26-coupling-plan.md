@@ -54,8 +54,8 @@ DSL or application layer.
 ## Sources consulted
 
 - `docs/specs/E2S-06_MODEL_CONTRACT_SPEC.md`, `E2S-07_DA_MODEL_CONTRACT_SPEC.md`,
-  `E2S-11_EXECUTION_CONTRACT_SPEC.md`, `E2S-03_REGRID_SPEC.md`, `E2S-02_TIME_STATISTICS_SPEC.md`,
-  `E2S-04_FETCH_DATA_SPEC.md`.
+  `E2S-11_EXECUTION_CONTRACT_SPEC.md`, `E2S-04_REGRID_SPEC.md`, `E2S-03_TIME_STATISTICS_SPEC.md`,
+  `E2S-05_FETCH_DATA_SPEC.md`.
 - `earth2studio/run/{runner,pipeline,_fields,work}.py` and
   `dev/examples/{06_runner,09_pipeline}.py`.
 - PR #1229 (`nvcoupler-rebased-1.0.0-rc`): `driver.py`, `sequence.py`,
@@ -311,7 +311,7 @@ No CHANGELOG edit. Open the PR with the `developer-open-refactor-pr` skill.
   derivation and cadence rule, `Connector` and resolution rules, scheduling
   rules, runner interface and stream rules, rule table `C1`–`Cn`, out of
   scope, and a short lineage paragraph linking #1229 and the impact-modeling
-  docs. Match the register of `E2S-03_REGRID_SPEC.md`.
+  docs. Match the register of `E2S-04_REGRID_SPEC.md`.
 - [ ] In `E2S-11_EXECUTION_CONTRACT_SPEC.md`, update the coupled-runner paragraph and
   the illustrative `Pipeline(driver.to_runner(...))` line to
   `Pipeline(CoupledRunner(components, connectors), output=...)`, and point

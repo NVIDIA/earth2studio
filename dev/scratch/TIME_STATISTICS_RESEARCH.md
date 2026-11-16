@@ -7,7 +7,7 @@
 
 This note records the references, tradeoffs, and performance considerations behind
 Earth2Studio's temporal-statistic utilities. The contract is defined in
-`docs/specs/E2S-02_TIME_STATISTICS_SPEC.md`.
+`docs/specs/E2S-03_TIME_STATISTICS_SPEC.md`.
 
 Earth2Studio must request enough source samples to compute temporal products for
 analysis and forecast sources, then reduce NumPy-, CuPy-, or Dask-backed Xarray data.

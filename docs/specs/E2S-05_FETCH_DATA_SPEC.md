@@ -1,4 +1,4 @@
-# E2S-04: Earth2Studio Fetch Data Utility
+# E2S-05: Earth2Studio Fetch Data Utility
 
 ## Purpose
 
@@ -9,9 +9,9 @@ regridding is applied. Native data sources own temporal aggregation; `fetch_data
 forwards supported labels and preserves their metadata.
 
 This contract reflects the API in [PR #1170](https://github.com/NVIDIA/earth2studio/pull/1170).
-Temporal windows follow [E2S-02_TIME_STATISTICS_SPEC.md](E2S-02_TIME_STATISTICS_SPEC.md); spatial
-geometry follows [E2S-01_GRID_SPEC.md](E2S-01_GRID_SPEC.md) and regridding follows
-[E2S-03_REGRID_SPEC.md](E2S-03_REGRID_SPEC.md).
+Temporal windows follow [E2S-03_TIME_STATISTICS_SPEC.md](E2S-03_TIME_STATISTICS_SPEC.md); spatial
+geometry follows [E2S-02_GRID_SPEC.md](E2S-02_GRID_SPEC.md) and regridding follows
+[E2S-04_REGRID_SPEC.md](E2S-04_REGRID_SPEC.md).
 
 ## Contract
 
@@ -40,7 +40,7 @@ def fetch_data(
 - `target_grid` is the grid to return fields on, typically
   `infer_grid(model.input_coords())`; use `resolve_grid` for a registered name.
   Without it, fields stay on the source grid.
-- `regridder` is a `Regridder` to apply (see [E2S-03_REGRID_SPEC.md](E2S-03_REGRID_SPEC.md)).
+- `regridder` is a `Regridder` to apply (see [E2S-04_REGRID_SPEC.md](E2S-04_REGRID_SPEC.md)).
   Choosing a method, or a registered one with `resolve_regridder`, is the
   caller's job.
 - `member` names one member or distinct members to fetch from an ensemble
@@ -185,7 +185,7 @@ fetch_data(IFS_ENS(), time, variable, member=[3, 4])
 `fetch_data` discovers methods through
 `source.lexicon.TIME_STATISTICS` and passes supported qualified labels unchanged.
 The source aggregates as described in
-[E2S-02_TIME_STATISTICS_SPEC.md](E2S-02_TIME_STATISTICS_SPEC.md#source-responsibilities):
+[E2S-03_TIME_STATISTICS_SPEC.md](E2S-03_TIME_STATISTICS_SPEC.md#source-responsibilities):
 
 ```python
 variables = np.array(["t2m", "t2m:mean:24h", "tp:sum:0h:6h"])

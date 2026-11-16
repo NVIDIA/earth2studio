@@ -151,7 +151,7 @@ metadata. Its initial condition is the latest
 input day, and its iterator yields daily predictions. Hooks see one prediction;
 front- and rear-hook edits feed the next rolling state (see
 Open Questions). Fields move to the model device at the Torch/ONNX boundary. Input
-preparation and units follow `E2S-02_TIME_STATISTICS_SPEC.md` (calendar-day means).
+preparation and units follow `E2S-03_TIME_STATISTICS_SPEC.md` (calendar-day means).
 
 The legacy `CoordSystem` (`OrderedDict[str, np.ndarray]`) remains only in private
 numerical helpers, IO coordinate bookkeeping and legacy utilities such as
@@ -565,7 +565,7 @@ a region. Further kinds (polygons, tracks) are additive.
 Coverage checks are model-specific: on projected and curvilinear grids, selecting
 cell centers inside a geographic box does not guarantee coverage. `subset_indexers()`
 keeps its center-selection meaning. A crop does not retain the parent's registered
-grid ID unless its geometry is identical (see [E2S-01_GRID_SPEC.md](E2S-01_GRID_SPEC.md)).
+grid ID unless its geometry is identical (see [E2S-02_GRID_SPEC.md](E2S-02_GRID_SPEC.md)).
 
 ### Rules
 

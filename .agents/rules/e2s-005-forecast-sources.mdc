@@ -23,7 +23,7 @@ Both methods have the same API:
 ## Native Temporal Statistics (Optional)
 
 Use the data-source statistics contract in
-[E2S-02_TIME_STATISTICS_SPEC.md](mdc:docs/specs/E2S-02_TIME_STATISTICS_SPEC.md). Bind
+[E2S-03_TIME_STATISTICS_SPEC.md](mdc:docs/specs/E2S-03_TIME_STATISTICS_SPEC.md). Bind
 `statistic_modifiers` to each initialization's `(lead_time, variable, ...)` output
 view and select samples with source-owned lead availability. A window shifts leads within a fixed
 initialization; it must never substitute a different forecast cycle.

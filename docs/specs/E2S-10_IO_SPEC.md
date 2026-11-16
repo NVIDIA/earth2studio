@@ -127,7 +127,7 @@ place.
 ### Array Names
 
 Stored array names are the `variable` labels, verbatim. Statistic qualifiers carry
-quantity identity (see [E2S-02_TIME_STATISTICS_SPEC.md](E2S-02_TIME_STATISTICS_SPEC.md)), so the
+quantity identity (see [E2S-03_TIME_STATISTICS_SPEC.md](E2S-03_TIME_STATISTICS_SPEC.md)), so the
 name is enough to rebuild `earth2studio_statistics` with `coord_array` or
 `coord_array_like` on read. No statistics attribute is stored.
 
@@ -233,7 +233,7 @@ values with a `write` instead of `data=`.
 - `write(tensor, coords, array_name)` becomes `write(x)`.
 - Writes no longer create arrays implicitly.
 - Curvilinear stores no longer add synthetic `ilat`/`ilon` dimensions. Arrays use
-the grid's own dimensions (`y`, `x`; see [E2S-01_GRID_SPEC.md](E2S-01_GRID_SPEC.md)) with
+the grid's own dimensions (`y`, `x`; see [E2S-02_GRID_SPEC.md](E2S-02_GRID_SPEC.md)) with
 latitude/longitude as auxiliary coordinates, so readers of existing stores change.
 
 ### Open Questions

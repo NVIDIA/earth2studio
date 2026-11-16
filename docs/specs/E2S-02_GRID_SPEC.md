@@ -1,4 +1,4 @@
-# E2S-01: Earth2Studio Grid Protocol
+# E2S-02: Earth2Studio Grid Protocol
 
 ## Purpose
 
@@ -158,7 +158,7 @@ renamed axes, validation of registered geometry against coordinate values, and a
 explicit grid-owned extent interface are required follow-up work. The manual
 renaming guidance above describes the current implementation until that support
 lands. Fetch-side regridding onto a target grid is specified in
-[E2S-04_FETCH_DATA_SPEC.md](E2S-04_FETCH_DATA_SPEC.md).
+[E2S-05_FETCH_DATA_SPEC.md](E2S-05_FETCH_DATA_SPEC.md).
 
 Until that validation lands, a registered `earth2studio_grid_id` is trusted:
 `infer_grid()` and `handshake_dataarray()` compare only dimension names and sizes

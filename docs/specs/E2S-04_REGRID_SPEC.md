@@ -1,4 +1,4 @@
-# E2S-03: Earth2Studio Regridder Protocol
+# E2S-04: Earth2Studio Regridder Protocol
 
 ## Purpose
 
@@ -7,7 +7,7 @@ recommend a source on another grid for an input slot and drivers can fetch it
 without knowing the method. Any regridder, built in or wrapping an external engine,
 works under the same interface.
 
-Grid geometry follows [E2S-01_GRID_SPEC.md](E2S-01_GRID_SPEC.md); this contract covers only moving
+Grid geometry follows [E2S-02_GRID_SPEC.md](E2S-02_GRID_SPEC.md); this contract covers only moving
 field data between two such geometries.
 
 Status: the protocol is in `earth2studio/grids/base.py`, with `NearestRegridder`

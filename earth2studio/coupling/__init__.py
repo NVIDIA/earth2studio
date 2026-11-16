@@ -14,10 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Couple models at their own cadences and grids, and run them like any runner.
-
-See ``docs/specs/E2S-12_COUPLING_SPEC.md``.
-"""
+"""Couple models at their own cadences and grids, and run them like any runner."""
 
 from earth2studio.coupling.connector import Connector
 from earth2studio.coupling.errors import CouplingError
