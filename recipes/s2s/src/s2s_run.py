@@ -74,14 +74,19 @@ def initialize(
 
     resume = cfg.file_output.get("resume", False)
     if resume:
+        # Resume reopens the existing stores, so they must not be overwritten
         output_format = cfg.file_output.format
-        if (
-            output_format._target_ != "earth2studio.io.ZarrBackend"
-            or not output_format.get("_partial_", False)
-            or output_format.get("backend_kwargs", {}).get("overwrite", False)
-        ):
+        target = output_format._target_
+        if target == "earth2studio.io.AsyncZarrBackend":
+            overwrites = output_format.get("zarr_kwargs", {}).get("mode", "a") == "w"
+        elif target == "earth2studio.io.ZarrBackend":
+            overwrites = output_format.get("backend_kwargs", {}).get("overwrite", False)
+        else:
+            overwrites = True
+        if not output_format.get("_partial_", False) or overwrites:
             raise ValueError(
-                "Resume requires a partial ZarrBackend with overwrite=False"
+                "Resume requires a partial AsyncZarrBackend (zarr_kwargs.mode not 'w') "
+                "or ZarrBackend (backend_kwargs.overwrite=False)"
             )
         if cfg.get("random_seed", None) is None:
             raise ValueError("Resume requires an explicit random_seed")

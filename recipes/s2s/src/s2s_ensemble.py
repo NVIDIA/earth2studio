@@ -16,6 +16,7 @@
 
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from math import ceil
+from typing import TypeVar
 
 import numpy as np
 import torch
@@ -40,6 +41,18 @@ from .s2s_utilities import (
     create_base_seed_string,
     get_batchid_from_ensid,
 )
+
+T = TypeVar("T")
+
+
+def _single(value: T | tuple[T, ...], diagnostic: DiagnosticModel) -> T:
+    """Reject diagnostics with several input or output fields."""
+    if isinstance(value, tuple):
+        raise ValueError(
+            f"Diagnostic {type(diagnostic).__name__} has several input or output "
+            "fields; the S2S recipe supports single-field diagnostics only"
+        )
+    return value
 
 
 class S2SRunner:
@@ -147,14 +160,16 @@ class S2SRunner:
         # Diagnostics chain: each sees the forecast plus earlier diagnostics' outputs
         signature = outputs
         for diagnostic in self.diagnostics.values():
-            dx_in = set(diagnostic.input_coords()["variable"].values)
+            dx_coords = _single(diagnostic.input_coords(), diagnostic)
+            dx_in = set(dx_coords["variable"].values)
             if not dx_in.issubset(forecast_vars):
                 raise ValueError(
                     f"Diagnostic {type(diagnostic).__name__} needs variables "
                     f"{sorted(dx_in.difference(forecast_vars))} the forecast lacks"
                 )
-            dx_signature = map_field(signature, diagnostic.input_coords())
-            dx_out = list(diagnostic.output_coords(dx_signature)["variable"].values)
+            dx_signature = map_field(signature, dx_coords)
+            dx_out_coords = _single(diagnostic.output_coords(dx_signature), diagnostic)
+            dx_out = list(dx_out_coords["variable"].values)
             ic_ok = ic_ok and dx_in.issubset(ic_vars)
             forecast_vars += dx_out
             ic_vars += dx_out
@@ -188,7 +203,8 @@ class S2SRunner:
         self.model.to(self.device)
         for diagnostic in self.diagnostics.values():
             diagnostic.to(self.device)
-        self._regridders = {k: r.to(self.device) for k, r in self._regridders.items()}
+        for regridder in self._regridders.values():
+            regridder.to(self.device)
         return self
 
     def nsteps(self, final_lead_time: np.timedelta64) -> int:
@@ -288,7 +304,12 @@ class S2SRunner:
             set_rng(seed, reset=True)
         for model in (self.model, *self.diagnostics.values()):
             if getattr(model, "stochastic", False):
-                model.set_rng(seed, reset=True)
+                set_rng = getattr(model, "set_rng", None)
+                if not callable(set_rng):
+                    raise TypeError(
+                        f"Stochastic {type(model).__name__} must implement set_rng"
+                    )
+                set_rng(seed, reset=True)
 
     def _activate(self, package: int) -> None:
         """Load the weights of ``package`` and rebuild the perturbation for them."""
@@ -324,7 +345,8 @@ class S2SRunner:
     def _publish(self, field: xr.DataArray) -> Mapping[str, xr.DataArray]:
         """Add diagnostics, keep the output variables and map onto each region."""
         for diagnostic in self.diagnostics.values():
-            result = diagnostic(map_field(field, diagnostic.input_coords()))
+            dx_coords = _single(diagnostic.input_coords(), diagnostic)
+            result = _single(diagnostic(map_field(field, dx_coords)), diagnostic)
             if "lead_time" not in result.dims:  # restore a dropped lead time
                 position = (
                     result.get_axis_num("time") + 1 if "time" in result.dims else 0
