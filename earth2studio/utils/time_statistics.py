@@ -98,7 +98,9 @@ def _nanoseconds(value: np.timedelta64) -> int:
         raise ValueError("Calendar-relative durations are not supported") from error
 
 
-def format_duration(value: np.timedelta64, *, signed: bool = False) -> str:
+def format_duration(
+    value: np.timedelta64, *, signed: bool = False, days: bool = False
+) -> str:
     """Format a duration as the compact string statistic labels use.
 
     Parameters
@@ -108,6 +110,9 @@ def format_duration(value: np.timedelta64, *, signed: bool = False) -> str:
     signed : bool, optional
         Prefix positive values with ``+``, as window offsets are written, by
         default False.
+    days : bool, optional
+        Write whole days as days (``"7d"`` rather than ``"168h"``), by default
+        False.
 
     Returns
     -------
@@ -117,7 +122,9 @@ def format_duration(value: np.timedelta64, *, signed: bool = False) -> str:
     nanoseconds = _nanoseconds(value)
     sign = "-" if nanoseconds < 0 else "+" if signed and nanoseconds > 0 else ""
     magnitude = abs(nanoseconds)
+    units = (("d", 86_400_000_000_000),) if days else ()
     for suffix, scale in (
+        *units,
         ("h", 3_600_000_000_000),
         ("m", 60_000_000_000),
         ("s", 1_000_000_000),
@@ -144,12 +151,15 @@ class _Window:
 
     @property
     def modifier(self) -> str:
+        return self.format()
+
+    def format(self, days: bool = False) -> str:
         window = self.end - self.start
         if self.start == -window and _nanoseconds(self.end) == 0:
-            return f"{self.method}:{format_duration(window)}"
+            return f"{self.method}:{format_duration(window, days=days)}"
         return (
-            f"{self.method}:{format_duration(self.start, signed=True)}:"
-            f"{format_duration(self.end, signed=True)}"
+            f"{self.method}:{format_duration(self.start, signed=True, days=days)}:"
+            f"{format_duration(self.end, signed=True, days=days)}"
         )
 
     def offsets(self, delta_t: np.timedelta64) -> NDArray[Any]:
@@ -317,6 +327,83 @@ def reduce_samples(modifier: str, samples: np.ndarray) -> np.ndarray:
     dims = ["sample", *(f"axis{n}" for n in range(samples.ndim - 1))]
     reduction = _TIME_STATISTICS[_parse(modifier).method]
     return reduction(xr.DataArray(samples, dims=dims), "sample").values
+
+
+def compose_time_statistic(
+    label: str, method: str, window: Duration, delta_t: np.timedelta64
+) -> str:
+    """Label a statistic taken over frames that already carry one variable label.
+
+    A stream publishing ``label`` every ``delta_t`` is reduced with ``method``
+    over the window ``(T - window, T]`` of output lead times ending at ``T``.
+    The result is the qualified label of that reduction relative to ``T``:
+
+    - A plain label is an instantaneous field, so ``t2m`` gives
+      ``t2m:mean:7d`` for a seven-day mean.
+    - A label already reduced with the same method over one ``delta_t`` covers
+      the cadence back to back with equal weight, so the windows merge:
+      seven daily ``t2m:mean:-1h:23h`` frames give ``t2m:mean:-145h:+23h``.
+
+    Durations of whole days are written in days, others in the largest unit
+    that divides them; :func:`time_statistic_metadata` normalizes either
+    spelling to the same modifier.
+
+    Any other combination, such as a mean of six-hourly sums or of frames whose
+    windows overlap or leave gaps, is not one statistic of the underlying
+    samples and raises.
+
+    Parameters
+    ----------
+    label : str
+        Variable label of the reduced frames.
+    method : str
+        Registered statistic applied over the window, such as ``"mean"``.
+    window : str | np.timedelta64
+        Length of the window, a whole number of ``delta_t``.
+    delta_t : np.timedelta64
+        Cadence of the frames.
+
+    Returns
+    -------
+    str
+        Qualified label of the reduced quantity.
+
+    Raises
+    ------
+    ValueError
+        If the method is unknown, the window is not a positive multiple of
+        ``delta_t``, the label is a raw backend identifier, or the label's own
+        statistic does not compose with ``method``.
+    """
+    method = method.strip().lower()
+    if method not in _TIME_STATISTICS:
+        raise ValueError(f"Unknown time statistic '{method}'")
+    length = _nanoseconds(_duration(window, name="window"))
+    step = _nanoseconds(_duration(delta_t, name="delta_t"))
+    if step <= 0 or length <= 0 or length % step:
+        raise ValueError(
+            f"Window {format_duration(np.timedelta64(length, 'ns'))} must be a "
+            f"positive multiple of the cadence "
+            f"{format_duration(np.timedelta64(step, 'ns'))}"
+        )
+    if "::" in label:
+        raise ValueError(
+            f"Raw backend identifier '{label}' cannot carry a statistic label"
+        )
+    base, separator, modifier = label.partition(":")
+    span = np.timedelta64(length, "ns")
+    if not separator:
+        return f"{base}:{_Window(method, -span, np.timedelta64(0, 'h')).format(True)}"
+    inner = _parse(modifier)
+    if inner.method != method or _nanoseconds(inner.end - inner.start) != step:
+        raise ValueError(
+            f"'{label}' frames every {format_duration(np.timedelta64(step, 'ns'))} "
+            f"do not compose into one {method} over "
+            f"{format_duration(span)}: only frames holding a {method} over "
+            "exactly their cadence do"
+        )
+    start = inner.start - (span - np.timedelta64(step, "ns"))
+    return f"{base}:{_Window(method, start, inner.end).format(True)}"
 
 
 def time_statistic_metadata(

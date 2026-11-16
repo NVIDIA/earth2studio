@@ -95,6 +95,30 @@ Preserve start-of-day timestamps and one-day lead increments. Substituting
 `mean:24h` would select the preceding day. The source must sample hourly; a source
 storing these daily means returns them under the same labels without reducing again.
 
+### Statistics of Model Outputs
+
+`Pipeline` can reduce a stream over lead time with `LeadWindow` (see
+[E2S-11](E2S-11_EXECUTION_CONTRACT_SPEC.md#lead-time-reductions)).
+The window ending at lead `e` is the right-closed `(e - window, e]`, so its
+output at valid time `T` is the qualified label's statistic ending at `T`.
+`compose_time_statistic(label, method, window, delta_t)` gives that label for
+frames published every `delta_t`:
+
+| Frame label | Reduction | Result |
+| --- | --- | --- |
+| `t2m` (instantaneous) | `mean` over `7d` | `t2m:mean:7d` |
+| `t2m:mean:-1h:23h` (daily mean) | `mean` over `30days` | `t2m:mean:-697h:+23h` |
+| `tp06:sum:6h` | `sum` over `24h` | `tp06:sum:1d` |
+
+A qualified frame composes only when its method matches and its own window
+equals the cadence: the frames then tile the window back to back with equal
+weight. Other combinations (a mean of sums, overlapping or gapped windows,
+raw `::` identifiers) raise; reduce them with `relabel=False` to keep the
+frames' labels. Composed durations of whole days are written in days (`7d`),
+others in the largest unit dividing them (`-697h`); `time_statistic_metadata`
+normalizes either spelling to the same modifier, so compare labels through it
+rather than as strings.
+
 ### Source Responsibilities
 
 A source that supports a temporal quantity accepts its qualified label in

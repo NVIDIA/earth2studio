@@ -167,6 +167,7 @@ class Pipeline:
         output: Mapping[str, IOBackend] | None = None,
         scorer: Scorer | None = None,
         output_variables: Mapping[str, Sequence[str]] | None = None,
+        reduction: Mapping[str, LeadReduction] | None = None,
         regridder: Mapping[str, Regridder] | None = None,
         progress: ProgressStore | None = None,
         device: torch.device | str = "auto",
@@ -185,11 +186,52 @@ At least one of `output` and `scorer` is required; `output=None` writes nothing,
 for scorer-only runs. `device="auto"`, the default, picks `cuda:{LOCAL_RANK}` when
 CUDA is available, otherwise CPU.
 
-`output`, `output_variables` and `regridder` map stream names to settings. A
-stream left out is not written (logged once), keeps all its variables, or keeps
-its grid. Variables are filtered before regridding; a regridder's `source_grid`
-must equal its stream's grid, and the stored grid becomes `target_grid` (`R4`,
-see [E2S-04_REGRID_SPEC.md](E2S-04_REGRID_SPEC.md)).
+`output`, `output_variables`, `reduction` and `regridder` map stream names to
+settings. A stream left out is not written (logged once), keeps all its
+variables, keeps every lead time, or keeps its grid. Each output is filtered,
+then reduced, then regridded, then scored and written. A regridder's
+`source_grid` must equal its stream's grid, and the stored grid becomes
+`target_grid` (`R4`, see [E2S-04_REGRID_SPEC.md](E2S-04_REGRID_SPEC.md)).
+
+#### Lead-time reductions
+
+A reduction turns a stream's outputs into fewer outputs on another lead axis,
+such as weekly means of a daily rollout, without wrapping the runner. It has
+two parts, because the setting and what it has seen so far live for different
+lengths of time:
+
+```python
+class LeadReduction(Protocol):       # the setting passed to Pipeline; no item state
+    def output_coords(self, signature: CoordinateSystem) -> CoordinateSystem: ...
+    def begin(self, signature, final_lead_time) -> LeadAccumulator: ...
+
+class LeadAccumulator(Protocol):     # one stream's partial results for one item
+    def update(self, x: xr.DataArray) -> list[xr.DataArray]: ...  # completed outputs
+    def finish(self) -> None: ...                                 # raise if incomplete
+```
+
+`output_coords` plans the reduced store from the filtered signature, so the
+manifest, store and scorer all see the reduced lead axis and labels. `Pipeline`
+calls `begin` at the start of every item, feeds the accumulator each of the
+stream's outputs, and calls `finish` when the item ends. During setup it also
+calls `begin` once per distinct final lead time, so an item that cannot be
+reduced fails before any item runs. One reduction may serve several streams.
+Resume is per item, so accumulators are never checkpointed.
+
+`LeadWindow(window, method="mean", ends=None, relabel=True)` is the built-in
+reduction. The window ending at lead `e` covers `(e - window, e]` and is
+labelled `e`; a lead-0 initial condition never enters a window starting at 0.
+By default windows end at `window, 2 * window, ...` and every item's final lead
+time must be a whole number of windows; explicit `ends` may overlap, and leads
+outside every window are dropped. The window must be a whole number of the
+stream's cadence (the smallest gap between its planned positive leads), and the
+stream must plan every lead a window needs. Each stream closes its own windows,
+so streams of different cadence reduce independently. Built-in statistics
+accumulate in place in at least float32; a variable an output lacks makes its
+window NaN. With `relabel`, variables take the composed label of
+[E2S-03](E2S-03_TIME_STATISTICS_SPEC.md#statistics-of-model-outputs)
+(`t2m` becomes `t2m:mean:7d`), so verification can be fetched under the same
+labels.
 
 #### Run loop
 
@@ -446,6 +488,7 @@ All three batch members (`supports_member_batching = True`) and take
 | `X20` | A run or close failure on any rank raises on every rank at the end of `run` |
 | `X21` | With `sync`, every rank calls it once per round, idle ranks with `None` |
 | `X22` | With `source_member`, slots read from ensemble sources fetch the item's mapped members |
+| `X23` | A reduction must fit its stream and every item's final lead time, or `run` raises first |
 
 Tests live in `test/run/`. `X7`, `X9`'s collectives, `X13`, `X18`, `X20` and `X21` run
 under `torchrun` with two CPU ranks on gloo; the rest run single-process.
