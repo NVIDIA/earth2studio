@@ -27,15 +27,17 @@ Given a `t2m` field `x` in kelvin, construct four members with independent noise
 
 ```python
 import numpy as np
-import torch
 
 from earth2studio.perturbation import Gaussian
 
-torch.manual_seed(42)
 ensemble = x.expand_dims(ensemble=np.arange(4))
-perturbation = Gaussian(noise_amplitude=0.1)  # 0.1 K for this single-variable field
+perturbation = Gaussian(noise_amplitude=0.1, seed=42)  # 0.1 K for this field
 perturbed = perturbation(ensemble)
 ```
+
+`Gaussian` uses a private random generator: pass `seed` for reproducible runs, or
+call `perturbation.set_rng(42)` to restart its stream. `torch.manual_seed` does not
+control every perturbation; check the selected method's seeding interface.
 
 Choose amplitudes in the field's physical units. For multiple variables, a
 broadcastable tensor can assign a different scale to each variable. Check the
