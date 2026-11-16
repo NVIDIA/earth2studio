@@ -523,6 +523,7 @@ nav:
   - Advanced Usage:
     - userguide/advanced/index.md
     - Checkpointing: userguide/advanced/checkpointing.md
+    - Versioned and Sharded Output: userguide/advanced/io.md
     - Batch Dimension: userguide/advanced/batch.md
     - AutoModels: userguide/advanced/auto.md
     - Lexicon: userguide/advanced/lexicon.md

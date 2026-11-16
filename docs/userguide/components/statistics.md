@@ -1,66 +1,88 @@
 # Statistics and Metrics { #statistics_model_userguide }
 
-Use statistics to reduce data over dimensions (for example, computing means or variances).
-Use metrics to compare two inputs (for example, correlation or bias between forecast and
-observation).
+Statistics summarize a field, such as its mean or variance. Metrics compare a
+prediction with observations, such as root-mean-square error (RMSE) or continuous
+ranked probability score (CRPS). Browse the
+[statistics API](../../modules/statistics.md) for available operations.
 
-## Statistics
+## Interface
 
-Statistics are distinct from prognostic and diagnostic models in principle because
-we assume that statistics reduce existing dimensions so that the output DataArray
-has a coordinate system that is a subset of the input coordinate system. This
-makes statistics less flexible than diagnostic models while having fewer API requirements.
+| Member | Statistic | Metric |
+| --- | --- | --- |
+| `reduction_dimensions` | Names of dimensions to reduce | Names of dimensions to reduce |
+| `output_coords(x)` | Plan from the input signature | Plan from the forecast signature |
+| `__call__(...)` | `statistic(x)` | `metric(x, y)` |
 
-In this section, "statistic" refers to a single reduction operation; "statistics" refers
-to the class of such operations.
+Inputs and outputs are DataArrays. Coordinate planning uses allocation-free
+signatures, following the [shared conventions](index.md#shared-conventions).
+The `Statistic` and `Metric` protocols live in `earth2studio.statistics.base`;
+inheritance is optional. Weights, streaming updates, and ensemble handling are
+options of particular implementations rather than universal requirements.
 
-### Statistics Interface
+## Core Rules
 
-Statistics operate on [xarray](https://docs.xarray.dev) DataArrays, matching the
-diagnostic model API. A statistic takes a single `xr.DataArray` and returns a
-`xr.DataArray` with the reduced dimensions removed. Dimensions are identified by name,
-so the order of dimensions in the input does not matter. Computation uses PyTorch,
-with `.e2s.to_torch()` for inputs and `from_torch` for outputs. Outputs follow the
-configured e2s backend policy: `auto` returns NumPy on CPU and CuPy on CUDA, while
-`torch` preserves tensors and autograd history. The `output_coords` method accepts
-an allocation-free `CoordinateSystem` signature and returns the signature of the output.
+- **Reduce by name.** Reduced dimensions must exist. Surviving dimensions retain
+  their input order. Some methods also add dimensions, such as `threshold`,
+  `window_size`, or `wavenumber`; inspect `output_coords` rather than assuming the
+  result is always a subset of input dimensions.
+- **Align comparisons exactly.** Metrics require the same dimension names and
+  coordinate values, apart from a declared ensemble dimension present only on the
+  forecast. Observation axes may be transposed to match, but there is no implicit
+  coordinate alignment or interpolation.
+- **Match weight shape.** Where supported, weights are NumPy arrays or Torch tensors
+  with one axis per reduced dimension, matching their sizes and input-dimension
+  order. They are not arbitrary broadcastable arrays. `None` gives uniform weights.
+- **Keep streams separate.** `mean`, `var`, and `std` with `batch_update=True` retain
+  running accumulators. Each call returns the statistic over all batches seen;
+  create a new instance for an independent stream.
+- **Plan for the output backend.** Computation uses PyTorch. The `auto` backend
+  policy returns NumPy on CPU and CuPy on CUDA; `torch` retains tensors and autograd
+  history. Inputs are not modified.
 
-```python
---8<-- "earth2studio/statistics/base.py:statistic-interface"
-```
+## Usage
 
-The base API hints at, and inspection of the `earth2studio.statistics.moments`
-examples reveals, the use of a few properties to make statistic handling easier:
-
-* `reduction_dimensions`, which are a list of dimensions that will be reduced over
-* `weights`, which must be broadcastable with `reduction_dimensions`
-* `batch_update`, which is useful for applying statistics when data comes in streams and batches
-
-Where applicable, specified `reduction_dimensions` set a requirement for the
-coordinates passed in the call method.
-
-### Custom Statistics
-
-To integrate your own statistic, satisfy the interface above. We recommend
-that you review the custom statistic example in [extension examples](../../examples/index.md#extend).
-
-## Metrics
-
-Like statistics, metrics are reductions across existing dimensions. Unlike statistics,
-which are usually defined over a single input, we define metrics to take a pair of
-inputs `x` and `y`, both `xr.DataArray`s that must share dimension names and coordinates
-(apart from an optional ensemble dimension that only the forecast `x` carries).
-Otherwise, the API and requirements are similar to the statistics requirements.
-
-### Metrics Interface
+For aligned forecast and observation fields with `lat` and `lon` dimensions:
 
 ```python
---8<-- "earth2studio/statistics/base.py:metric-interface"
+from earth2studio.statistics import mean, rmse
+
+spatial_mean = mean(["lat", "lon"])
+average = spatial_mean(forecast)
+
+error = rmse(["lat", "lon"])
+planned = error.output_coords(forecast)
+score = error(forecast, observations)
 ```
 
-## Contributing Statistics and Metrics
+For a regular latitude-longitude grid ordered `..., lat, lon`, cosine-latitude
+weights give an area-weighted mean:
 
-Want to add your own statistics or metrics to the package? We are happy to
-work with you. At the minimum we expect the statistic or metric to abide by the interfaces defined
-above. We can also work with you to ensure that there are `reduction_dimensions`
-applicable and, if possible, weight and batching support.
+```python
+import numpy as np
+
+lat = forecast.coords["lat"].values
+weights = np.cos(np.deg2rad(lat))[:, None] * np.ones((1, forecast.sizes["lon"]))
+area_mean = mean(["lat", "lon"], weights=weights)
+average = area_mean(forecast)
+```
+
+Use actual cell areas for other geometries. For ensemble forecasts, metrics such as
+`rmse` accept `ensemble_dimension="ensemble"` to compare the ensemble mean with
+observations; CRPS instead evaluates the predictive distribution.
+
+To accumulate across time batches with consistent surviving coordinates:
+
+```python
+running_mean = mean(["time"], batch_update=True)
+for batch in batches:
+    average_so_far = running_mean(batch)
+```
+
+## Create Your Own Statistic or Metric
+
+Implement the interface in a local module. Declare reductions and any added axes in
+`output_coords` without reading values; ensure execution returns exactly those
+coordinates. Validate metric input compatibility before arithmetic so Xarray's
+automatic alignment cannot silently change the comparison. If you support weights
+or streaming updates, document their shapes and lifetime. See the
+[extension examples](../../examples/index.md#extend) for custom components.

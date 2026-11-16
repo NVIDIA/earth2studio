@@ -1,6 +1,7 @@
 # Advanced Usage
 
 - [Checkpointing](checkpointing.md)
+- [Versioned and Sharded Output](io.md)
 - [Batch Dimension](batch.md)
 - [AutoModels](auto.md)
 - [Lexicon](lexicon.md)
