@@ -24,7 +24,7 @@ from cftime import date2num, num2date
 from loguru import logger
 from netCDF4 import Dataset, Variable
 
-from earth2studio.utils.coords import convert_multidim_to_singledim
+from earth2studio.utils.coords import convert_multidim_to_singledim, coord_indices
 from earth2studio.utils.time import timearray_to_datetime
 from earth2studio.utils.type import CoordSystem
 
@@ -280,7 +280,7 @@ class NetCDF4Backend:
             self.root[name][
                 tuple(
                     [
-                        np.where(np.isin(self.coords[dim], value))[0]
+                        coord_indices(self.coords[dim], value)
                         for dim, value in adjusted_coords.items()
                     ]
                 )
@@ -329,7 +329,7 @@ class NetCDF4Backend:
         x = self.root[array_name][
             tuple(
                 [
-                    np.where(np.isin(self.coords[dim], value))[0]
+                    coord_indices(self.coords[dim], value)
                     for dim, value in adjusted_coords.items()
                 ]
             )

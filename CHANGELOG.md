@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `KVBackend`, `XarrayBackend`, `ZarrBackend`, `NetCDF4Backend` and
+  `AsyncZarrBackend` write and read coordinate values given in a different order
+  than the store's (e.g. descending latitude or a reordered variable list) at the
+  matching positions, instead of silently assigning them in store order.
+
 ### Security
 
 ### Dependencies

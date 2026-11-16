@@ -340,3 +340,21 @@ def test_kv_write_uninitialized_array(tmp_path: str) -> None:
     assert "newvar" in io.root.keys()
     assert np.allclose(io["init"][slice(0, 2)], 0.0)
     assert np.allclose(io["newvar"][slice(0, 5)], 1.0)
+
+
+def test_kv_write_unordered_coords() -> None:
+    coords = OrderedDict({"variable": np.array(["a", "b"]), "lat": np.arange(4.0)})
+    io = KVBackend()
+    io.add_array(coords, "fields")
+
+    # Coordinates in a different order than the store must land in matching slots
+    write_coords = OrderedDict(
+        {"variable": np.array(["b", "a"]), "lat": np.array([3.0, 0.0, 2.0])}
+    )
+    x = torch.tensor([[13.0, 10.0, 12.0], [3.0, 0.0, 2.0]])
+    io.write(x, write_coords, "fields")
+
+    expected = torch.tensor([[0.0, 0.0, 2.0, 3.0], [10.0, 0.0, 12.0, 13.0]])
+    assert torch.equal(io["fields"], expected)
+    xx, _ = io.read(write_coords, "fields")
+    assert torch.equal(xx, x)

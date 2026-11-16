@@ -25,7 +25,7 @@ from loguru import logger
 from zarr.core.array import Array as ZarrArray
 from zarr.core.array import CompressorsLike
 
-from earth2studio.utils.coords import convert_multidim_to_singledim
+from earth2studio.utils.coords import convert_multidim_to_singledim, coord_indices
 from earth2studio.utils.type import CoordSystem
 
 
@@ -297,7 +297,7 @@ class ZarrBackend:
         subsets fall back to `np.ix_`.
         """
         indices = [
-            np.where(np.isin(self.coords[dim], value))[0]
+            coord_indices(self.coords[dim], value)
             for dim, value in adjusted_coords.items()
         ]
         if all(ind.size > 0 and np.all(np.diff(ind) == 1) for ind in indices):

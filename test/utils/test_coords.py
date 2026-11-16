@@ -28,6 +28,7 @@ from earth2studio.utils import (
 )
 from earth2studio.utils.coords import (
     cat_coords,
+    coord_indices,
     map_coords,
     split_coords,
     tile_coords,
@@ -858,3 +859,14 @@ def test_cat_coords_errors():
     )
     with pytest.raises(ValueError):
         cat_coords((xx, yy_bad), (cox, coy_bad), dim="variable")
+
+
+def test_coord_indices():
+    coord = np.array([10.0, 20.0, 30.0, 40.0])
+    # Indices follow the order of the requested values
+    assert np.array_equal(coord_indices(coord, np.array([40.0, 10.0, 30.0])), [3, 0, 2])
+    # Values not in the coordinate are skipped
+    assert np.array_equal(coord_indices(coord, np.array([20.0, 25.0])), [1])
+    # Unsorted coordinates and non-numeric values
+    coord = np.array(["t2m", "u10m", "msl"])
+    assert np.array_equal(coord_indices(coord, np.array(["msl", "t2m"])), [2, 0])

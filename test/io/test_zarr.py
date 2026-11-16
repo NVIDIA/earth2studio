@@ -608,3 +608,21 @@ def test_zarr_write_uninitialized_array(tmp_path: str) -> None:
     assert "newvar" in ds.data_vars
     assert np.allclose(ds["init"].isel(lon=slice(0, 2)).values, 0.0)
     assert np.allclose(ds["newvar"].isel(lon=slice(0, 5)).values, 1.0)
+
+
+def test_zarr_write_unordered_coords() -> None:
+    coords = OrderedDict({"variable": np.array(["a", "b"]), "lat": np.arange(4.0)})
+    z = ZarrBackend()
+    z.add_array(coords, "fields")
+
+    # Coordinates in a different order than the store must land in matching slots
+    write_coords = OrderedDict(
+        {"variable": np.array(["b", "a"]), "lat": np.array([3.0, 0.0, 2.0])}
+    )
+    x = torch.tensor([[13.0, 10.0, 12.0], [3.0, 0.0, 2.0]])
+    z.write(x, write_coords, "fields")
+
+    expected = np.array([[0.0, 0.0, 2.0, 3.0], [10.0, 0.0, 12.0, 13.0]])
+    assert np.array_equal(z["fields"][:], expected)
+    xx, _ = z.read(write_coords, "fields")
+    assert torch.equal(xx, x)
