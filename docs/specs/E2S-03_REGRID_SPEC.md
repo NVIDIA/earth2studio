@@ -1,13 +1,13 @@
-# Earth2Studio Regridder Protocol
+# E2S-03: Earth2Studio Regridder Protocol
 
-## Goal
+## Purpose
 
 Provide one contract for mapping a field from one grid onto another, so models can
 recommend a source on another grid for an input slot and drivers can fetch it
 without knowing the method. Any regridder, built in or wrapping an external engine,
 works under the same interface.
 
-Grid geometry follows [GRID_SPEC.md](GRID_SPEC.md); this contract covers only moving
+Grid geometry follows [E2S-01_GRID_SPEC.md](E2S-01_GRID_SPEC.md); this contract covers only moving
 field data between two such geometries.
 
 Status: the protocol is in `earth2studio/grids/base.py`, with `NearestRegridder`
@@ -15,7 +15,9 @@ and `BilinearRegridder` as built-in implementations and a method registry in
 `earth2studio.grids`. `RegriddedSource`, `CompositeSource` and
 `CompositeForecastSource` live in `earth2studio.data`.
 
-## Interface
+## Contract
+
+### Interface
 
 `Regridder` is a runtime-checkable structural protocol over `xr.DataArray`.
 
@@ -39,7 +41,7 @@ class Regridder(Protocol):
 It is a protocol rather than an ABC because there is no shared implementation to
 inherit. Wrappers around external engines conform without subclassing.
 
-## Rules
+### Rules
 
 | Rule | Requirement |
 | --- | --- |
@@ -73,7 +75,7 @@ inherit. Wrappers around external engines conform without subclassing.
   every target from its nearest valid point. The mask is fixed at construction
   (`R1`), unlike NaNs in the data, which propagate (`R7`).
 
-## Registry
+### Registry
 
 Regridders register under a method name with
 `register_regridder(method, cls)`. A registered class declares the grid pairs it
@@ -94,7 +96,7 @@ as `cls(source_grid, target_grid, **options)`.
 General regridders support grid families rather than enumerated grids, because
 model grids are usually crops that are never registered.
 
-## Composition
+### Composition
 
 `RegriddedSource(source, regridder)` pairs a data or forecast source with a
 regridder bound to its grid. It is an ordinary source: calling it fetches from the
@@ -128,7 +130,7 @@ provides it, matching qualified labels by base name, and join the parts along
 - They must share every coordinate other than `variable`. A component on another
   grid is wrapped in a `RegriddedSource` onto the shared target.
 
-## Migration
+### Migration
 
 The eval recipe's tensor-native `Regridder` ABC (`recipes/eval/src/regrid.py`) and its
 `NearestNeighborRegridder` and `BilinearRegridder` map onto the built-ins. Its

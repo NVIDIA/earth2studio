@@ -1,6 +1,6 @@
-# Earth2Studio Model Contract
+# E2S-06: Earth2Studio Model Contract
 
-## Goal
+## Purpose
 
 Define prognostic and diagnostic coordinate, interface, iterator, hook, ownership,
 RNG and domain-selection semantics for model-independent execution.
@@ -16,10 +16,12 @@ gap.
 identifiers. Model tests cover execution, batching, metadata, hooks, ownership and
 checkpoint continuation. DA's companion interfaces are defined in
 `earth2studio/models/da/base.py` and the
-[DA user guide](../../docs/userguide/components/data_assimilation.md); see Open Questions
+[DA user guide](../userguide/components/data_assimilation.md); see Open Questions
 for remaining generic DA planning concerns.
 
-## Coordinate Systems
+## Contract
+
+### Coordinate Systems
 
 `CoordinateSystem` is an `xarray.DataArray` created by `coord_array()` that stores
 only shape and dtype, never field values, even when every dimension is concrete.
@@ -64,7 +66,7 @@ attribute from them, recomputing it when variables are replaced. Spatial
 replacements need `coord_array(grid=...)` with a new grid definition;
 `coord_array_like()` rejects them to prevent stale grid metadata.
 
-### Grid-backed signatures
+#### Grid-backed signatures
 
 Pass a registered name or `GridDefinition` to `coord_array(grid=...)` instead of
 repeating grid axes in each model. The helper attaches grid metadata,
@@ -113,7 +115,7 @@ models validate temporal labels with `handshake_time`, using `allow_dynamic=True
 dynamic planning axes. Model methods keep their history/output transformations and call the
 standard handshakes for validation.
 
-### Execution boundary
+#### Execution boundary
 
 The public `PrognosticModel` and `DiagnosticModel` protocols (see Model Interface)
 take and return DataArrays: one positional argument per input slot, with multiple
@@ -149,12 +151,12 @@ metadata. Its initial condition is the latest
 input day, and its iterator yields daily predictions. Hooks see one prediction;
 front- and rear-hook edits feed the next rolling state (see
 Open Questions). Fields move to the model device at the Torch/ONNX boundary. Input
-preparation and units follow `TIME_STATISTICS_SPEC.md` (calendar-day means).
+preparation and units follow `E2S-02_TIME_STATISTICS_SPEC.md` (calendar-day means).
 
 The legacy `CoordSystem` (`OrderedDict[str, np.ndarray]`) remains only in private
 numerical helpers, IO coordinate bookkeeping and legacy utilities such as
 `prep_data_array`; statistics, perturbations and IO backends take DataArrays
-([IO_SPEC.md](IO_SPEC.md)). Convert explicitly with `.e2s.to_torch()` and
+([E2S-10_IO_SPEC.md](E2S-10_IO_SPEC.md)). Convert explicitly with `.e2s.to_torch()` and
 `from_torch()`. `fetch_data()` returns one field DataArray,
 not a tensor/coordinate pair. Random/Random_FX keep their data-source API, and
 assimilation protocols are outside this migration. Regional prognostic wrappers also
@@ -170,7 +172,7 @@ execution API; dictionary signatures and initial-condition-first iterators fail.
 `dev/examples/03_coordinate_signatures.py` for signature planning and
 `dev/examples/04_xarray_model_execution.py` for DataArray execution.
 
-## Model Interface
+### Model Interface
 
 `earth2studio/models/px/base.py` and `earth2studio/models/dx/base.py` declare the
 protocols. `PrognosticMixin` supplies `forcing_coords()` (no forcing),
@@ -218,7 +220,7 @@ class PrognosticModel(Protocol):
     ]: ...
 ```
 
-### Argument slots
+#### Argument slots
 
 Each signature is a slot supplied as a separate positional DataArray (`P17`).
 Initial arguments `*x` concatenate input slots and forcing slots, if any exist.
@@ -273,7 +275,7 @@ Slots are positional, not keyed:
 - **Automation matches by content.** Pipelines and couplers match providers to slots
   by variable, grid and valid time. Position only aligns tuples within one model.
 
-### Splitting rules
+#### Splitting rules
 
 - **Slots within a group split when their coordinates differ.** DLESyM declares its
   atmosphere and ocean as separate input and output slots, because one step yields
@@ -283,7 +285,7 @@ Slots are positional, not keyed:
 - **Output slots holding state variables come first, in input-slot order.**
   Output-only slots (a diagnostic on another grid, say) follow them.
 
-### Lead times
+#### Lead times
 
 `input_coords()` and `forcing_coords()` declare windows with lead times relative to
 initialization. To start at `t0`, fetch `x` and the forcing window at `t0` plus their
@@ -297,7 +299,7 @@ on. StormScopeMRMS declares a multi-frame GOES window and takes one new frame pe
 step. ACE needs SST and insolation at the target time, so it declares `[0h, 6h]` and
 takes the `t + 6h` frame per step.
 
-### Explicit state
+#### Explicit state
 
 `initialize(*x)` runs the first core computation from the input window and
 forcing window. It returns `y`, the first forecast, and a model-defined state holding
@@ -364,7 +366,7 @@ def _advance(self, latest, state):
     return out, AtlasState(latest, latent, state.rng_step + 1)
 ```
 
-### Derived iteration with `send`
+#### Derived iteration with `send`
 
 `create_iterator` yields forecasts only: its first yield is the output of
 `initialize`, and `nsteps` forecasts take `nsteps` yields. The initial forcing window
@@ -442,7 +444,7 @@ not run before `initialize`: perturb `x` to edit the initial window. The rear ho
 edits forecasts before publication, starting with the first forecast; its returned
 output also feeds the next front hook and `step`.
 
-### Default sources
+#### Default sources
 
 `default_sources()` returns a `DataSource | ForecastSource` directly for a single
 slot, a tuple of sources or `None` for multiple slots, or `None` for no recommendations.
@@ -468,7 +470,7 @@ A regridder is bound to its source's grid, so the two are recommended as one
 provider. Callers may keep the default or supply any provider matching the slot,
 such as a pre-regridded archive.
 
-### Diagnostic models
+#### Diagnostic models
 
 `DiagnosticModel.__call__(*x)` takes one positional DataArray per input slot in
 `input_coords()` order, and returns a single DataArray or a tuple in output-slot
@@ -482,13 +484,13 @@ coordinates differ. A diagnostic defines `default_sources()`, returning a source
 for a single input slot, a tuple in input-slot order, or `None` for no recommendations.
 Forcing, `initialize`, `step` and hooks do not apply.
 
-### Domain selection
+#### Domain selection
 
 A model whose spatial domain can be chosen implements the optional `DomainAdaptable`
 protocol (`earth2studio.models.base`) in addition to `PrognosticModel` or
 `DiagnosticModel`. Generic callers detect it with `isinstance`; fixed-domain models do
 not implement it. Design notes and wrapper guidance are in
-[flexible_domain.md](../scratch/flexible_domain.md).
+[flexible_domain.md](../../dev/scratch/flexible_domain.md).
 
 ```python
 @runtime_checkable
@@ -518,7 +520,7 @@ CorrDiff computes a halo and trims it. A run binds one view and keeps it fixed (
 Coordinate Systems). Views run safely in sequence, and concurrently only where the
 wrapper documents it.
 
-#### Regions
+##### Regions
 
 `earth2studio.grids.Region` describes geography independently of any model grid. It
 is a frozen value type built through classmethods that validate and normalize it:
@@ -563,11 +565,11 @@ a region. Further kinds (polygons, tracks) are additive.
 Coverage checks are model-specific: on projected and curvilinear grids, selecting
 cell centers inside a geographic box does not guarantee coverage. `subset_indexers()`
 keeps its center-selection meaning. A crop does not retain the parent's registered
-grid ID unless its geometry is identical (see [GRID_SPEC.md](GRID_SPEC.md)).
+grid ID unless its geometry is identical (see [E2S-01_GRID_SPEC.md](E2S-01_GRID_SPEC.md)).
 
-## Rules
+### Rules
 
-### Prognostic
+#### Prognostic
 
 These rules apply to native DataArray execution and explicit continuation state.
 
@@ -598,7 +600,7 @@ These rules apply to native DataArray execution and explicit continuation state.
 | `P23` | `default_sources()` follows the single/tuple/None contract in Default sources |
 | `P24` | Wrappers declare fixed, named execution parameters (see Argument slots) |
 
-### Diagnostic
+#### Diagnostic
 
 | Rule | Requirement |
 | --- | --- |
@@ -614,7 +616,7 @@ These rules apply to native DataArray execution and explicit continuation state.
 | `D10` | After `set_rng()`, seeding and calling leave global RNG state unperturbed |
 | `D11` | Wrappers declare fixed, named `__call__` parameters (see Argument slots) |
 
-### Domain
+#### Domain
 
 These rules apply only to models implementing `DomainAdaptable`.
 
@@ -631,7 +633,7 @@ skill or the absence of edge artifacts. `G2` holds for sequential use with equiv
 seeding; for example, seeding before each rollout of A in an A, B, A sequence
 reproduces A, and the root `state_dict` is unchanged.
 
-## Lead Time
+### Lead Time
 
 Declared input `lead_time` is relative to analysis time and ends at or before
 zero (e.g. `[-6h, 0h]`). Output offsets are added to the *final input* lead time,
@@ -648,7 +650,7 @@ times `+3h, +6h, ...` and publish no initial condition, since no input frame is
 valid at the analysis time. The rule is a convention: a model whose `step` advances
 by the full gap from its background must declare inputs ending at zero.
 
-## Iteration
+### Iteration
 
 `create_iterator()` yields complete forecasts only, starting with the output of
 `initialize`; `nsteps` forecasts take `nsteps` yields, and no yield is a partial
@@ -656,7 +658,7 @@ step. A value sent at a yield is the forcing for the next `step`. Drivers that p
 the initial condition take it from `initial_condition(x)`, which reduces each input
 slot to its final lead time.
 
-## Hooks
+### Hooks
 
 **Hooks belong to the iterator (`P10`).** `__call__`, `initialize` and `step` apply
 none, and neither hook sees the initial condition. `create_iterator` applies the rear
@@ -686,7 +688,7 @@ explicit `initialize`/`step` loop.
 GraphCast, GenCast and WeatherNext apply both hooks to public DataArrays while
 preserving native recurrence when numerical inputs are unchanged.
 
-## Ownership of Tensors
+### Ownership of Tensors
 
 A model borrows its input and owns its output. None of `__call__`, `initialize`,
 `step` and `create_iterator()` may modify caller input tensors or coordinates (`P15`,
@@ -709,7 +711,7 @@ the front hook.
 Legacy `batch_func` rebuilds coordinates but does not protect tensor inputs:
 `_compress_batch` uses `unsqueeze`/`flatten` views, so internal writes reach callers.
 
-## Stochasticity
+### Stochasticity
 
 `P11`–`P14` and `D7`–`D10` require a readable boolean `stochastic` declaration and,
 when true, `set_rng(seed: int, reset: bool = True) -> None`. Undeclared models
@@ -728,7 +730,7 @@ The same seed must reproduce every rollout step (`P13`) or diagnostic output (`D
 exactly, and different seeds must differ. A model declaring `stochastic=False` whose
 results vary for the same input also fails these rules.
 
-### RNG isolation
+#### RNG isolation
 
 After `set_rng()`, neither seeding nor stepping/calling may leave global RNG state
 perturbed (`P14`, `D10`). Use a local `torch.Generator` for every draw, a functional
@@ -762,7 +764,7 @@ process-global state, so concurrent threads can interleave fork windows. Drivers
 not run a global-RNG component concurrently with another stochastic component in the
 same process.
 
-### RNG with explicit state
+#### RNG with explicit state
 
 The seed stays on the model; each rollout's stream position lives in its state.
 `initialize` draws the rollout's starting point from the model's stream, so new
@@ -779,13 +781,13 @@ rollouts still advance it and only `set_rng(..., reset=True)` restarts it. Each
 Calling `set_rng` mid-rollout affects only later `initialize` calls, never a live
 trajectory.
 
-### Seeding is the only entry point
+#### Seeding is the only entry point
 
 Constructors and `load_model()` take no `seed`: load the model, then call
 `model.set_rng(seed)`. Calls and new iterators advance that stream; only an explicit
 reset restarts it.
 
-### Current wrappers
+#### Current wrappers
 
 Each wrapper owns its RNG implementation. FCN3 delegates to its backend's RNG API;
 CorrDiff passes sample seeds to its diffusion backend; StormScope and NSRDB use
@@ -797,7 +799,7 @@ streams once per reset and sampling advances them; forks cover only the relevant
 numerical calls and never span iterator yields. Aurora also resets its cached noise,
 and DiagnosticWrapper dispatches seeding to its stochastic components.
 
-## Conformance
+### Conformance
 
 `earth2studio.models.conformance.check_prognostic_contract(model)` evaluates every
 applicable probe before failing, reporting collected violations and returning
@@ -821,7 +823,7 @@ histories and multi-output steps without trusting yielded coordinates. Calls and
 yields must preserve declared grid, CRS and statistics metadata and omit signature
 kind/schema/dynamic attributes; user attributes may change through hooks.
 
-### Enforcement
+#### Enforcement
 
 Model creation skills produce `test_<model>_conformance` from existing mock-weight
 fixtures, without real weights or network access. `test/models/test_conformance.py`
@@ -830,7 +832,7 @@ tests the checker; `test/models/test_model_conformance.py` introspects
 exempt with a pinned reason. Backend-dependent execution needs its optional
 dependencies; a dependency skip is not evidence of conformance.
 
-## Migration
+### Migration
 
 The checker implements this contract. Wrappers and consumers migrate separately:
 
@@ -870,12 +872,12 @@ The checker implements this contract. Wrappers and consumers migrate separately:
   and `load_model` take a `region`.
   `StormCast` stays fixed-domain: its additive positional embedding and invariants
   cover only its 512×640 window. See
-  [flexible_domain.md](../scratch/flexible_domain.md).
+  [flexible_domain.md](../../dev/scratch/flexible_domain.md).
 - **Examples and drivers.** `earth2studio.run`, `examples/` and `dev/examples/` call
   `create_iterator` and count `nsteps + 1` yields; they move to `nsteps` yields,
   writing `initial_condition(x)` where they publish the initial condition.
 
-## Open Questions
+### Open Questions
 
 - Should `P13`'s exact comparison allow a configurable tolerance for nondeterministic GPU
   kernels that make deterministic models appear stochastic?
@@ -894,10 +896,10 @@ The checker implements this contract. Wrappers and consumers migrate separately:
   Remaining generic DA planning questions are analysis-time resolution for
   observation-only models, machine-readable observation windows and optionality
   (including HealDA's at-least-one constraint). RNG follows the shared convention
-  in [the DA contract](DA_MODEL_CONTRACT_SPEC.md). Model-specific metadata/window
+  in [the DA contract](E2S-07_DA_MODEL_CONTRACT_SPEC.md). Model-specific metadata/window
   contracts remain authoritative until those are standardized.
 - Do drivers accept yields with several `lead_time` entries? IO backends do
-  ([IO_SPEC.md](IO_SPEC.md)); chunked steps for DLWP, Aurora1p5, SamudrACE and
+  ([E2S-10_IO_SPEC.md](E2S-10_IO_SPEC.md)); chunked steps for DLWP, Aurora1p5, SamudrACE and
   InterpModAFNO depend on drivers as well.
 - A hook editing `y` can leave derived private state (Atlas's latent) stale.
   Should `step` re-derive from `y`, or document what it ignores?

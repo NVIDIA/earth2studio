@@ -248,7 +248,7 @@ BYO `verification_source`, then `verification.zarr`, then the live
 * writing zarr chunks or flushing.
 
 See `earth2studio/run/pipeline.py`:`Pipeline.run` for the shared outer
-loop and `dev/spec/EXECUTION_CONTRACT_SPEC.md` for the contract it
+loop and `docs/specs/E2S-11_EXECUTION_CONTRACT_SPEC.md` for the contract it
 enforces. The spec settles where runner logic belongs.
 
 ### Testing

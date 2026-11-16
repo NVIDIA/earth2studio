@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Shared IO backend contract tests (rules I1-I11 in dev/spec/IO_SPEC.md).
+"""Shared IO backend contract tests (rules I1-I11 in docs/specs/E2S-10_IO_SPEC.md).
 
 Add each migrated backend to ``BACKENDS`` as a factory and a reader returning the
 store as an :class:`xarray.Dataset` after ``flush``. Backends offering ``read`` are

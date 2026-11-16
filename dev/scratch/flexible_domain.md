@@ -2,7 +2,7 @@
 
 Supporting notes for the optional `DomainAdaptable` protocol and `Region` type. The
 contract itself, including rules `G1`–`G4`, lives in Domain selection in
-[MODEL_CONTRACT_SPEC.md](../spec/MODEL_CONTRACT_SPEC.md). Fixed-domain wrappers need
+[E2S-06_MODEL_CONTRACT_SPEC.md](../../docs/specs/E2S-06_MODEL_CONTRACT_SPEC.md). Fixed-domain wrappers need
 no changes.
 
 ## Motivation

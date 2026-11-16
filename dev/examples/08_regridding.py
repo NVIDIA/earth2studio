@@ -23,7 +23,7 @@ Map source fields onto a model's grid with regridders, regridded sources and
 composite sources.
 
 This CPU-only tutorial uses synthetic sources and needs no downloads. See
-``dev/spec/REGRID_SPEC.md`` and ``dev/spec/FETCH_DATA_SPEC.md`` for the contracts.
+``docs/specs/E2S-03_REGRID_SPEC.md`` and ``docs/specs/E2S-04_FETCH_DATA_SPEC.md`` for the contracts.
 """
 
 # /// script

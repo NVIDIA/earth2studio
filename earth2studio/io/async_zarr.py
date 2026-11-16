@@ -218,7 +218,7 @@ class AsyncZarrBackend:
     through `store`, and Zarr v3 sharding via `shard_coords` keeps the file count of
     large campaigns low.
 
-    See `dev/spec/IO_SPEC.md` for the IO contract this backend implements.
+    See `docs/specs/E2S-10_IO_SPEC.md` for the IO contract this backend implements.
 
     Warning
     -------

@@ -247,9 +247,9 @@ Use [PhysicsNeMo Serve](https://github.com/NVIDIA/physicsnemo-serve) for deploym
 
 ## Verify
 
-- Build a checklist from each migrated component's rules in [dev/spec](dev/spec/README.md);
-  verify every applicable rule. For models, include the [model contract](dev/spec/MODEL_CONTRACT_SPEC.md)
-  and, for DA, the [DA contract](dev/spec/DA_MODEL_CONTRACT_SPEC.md), alongside conformance tests below.
+- Build a checklist from each migrated component's rules in [docs/specs](docs/specs/README.md);
+  verify every applicable rule. For models, include the [model contract](docs/specs/E2S-06_MODEL_CONTRACT_SPEC.md)
+  and, for DA, the [DA contract](docs/specs/E2S-07_DA_MODEL_CONTRACT_SPEC.md), alongside conformance tests below.
 - Compare two advances: values, variables, dimensions, grids, units, lead times.
   Check forcing, hooks, IO readback, restart, and exactly one initial output where expected.
 - Run model tests; PX/DX: `check_prognostic_contract` / `check_diagnostic_contract`

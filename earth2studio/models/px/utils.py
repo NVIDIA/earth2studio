@@ -89,7 +89,7 @@ class PrognosticMixin:
     """
 
     #: Whether the model draws randomness during a rollout. Stochastic models must
-    #: implement ``set_rng(seed, reset=True)``; see ``dev/spec/MODEL_CONTRACT_SPEC.md``.
+    #: implement ``set_rng(seed, reset=True)``; see ``docs/specs/E2S-06_MODEL_CONTRACT_SPEC.md``.
     stochastic: bool = False
 
     @staticmethod

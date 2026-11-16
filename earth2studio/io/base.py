@@ -24,7 +24,7 @@ import xarray as xr
 class IOBackend(Protocol):
     """Interface for a DataArray IO backend.
 
-    See ``dev/spec/IO_SPEC.md`` for the full contract.
+    See ``docs/specs/E2S-10_IO_SPEC.md`` for the full contract.
     """
 
     def add_array(self, template: xr.DataArray) -> None:

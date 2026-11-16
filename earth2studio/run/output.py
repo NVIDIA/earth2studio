@@ -18,7 +18,7 @@
 
 :class:`OutputManager` is internal: it owns one IO backend per stream and
 drives their lifecycle (``prepare``, ``write``, ``flush``, ``close``) as
-``dev/spec/EXECUTION_CONTRACT_SPEC.md`` specifies. It is rank-local and runs no
+``docs/specs/E2S-11_EXECUTION_CONTRACT_SPEC.md`` specifies. It is rank-local and runs no
 collectives; ``Pipeline`` orders the ranks around it.
 """
 

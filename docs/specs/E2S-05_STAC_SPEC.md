@@ -1,6 +1,6 @@
-# Earth2Studio STAC Access Layer
+# E2S-05: Earth2Studio STAC Access Layer
 
-## Goal
+## Purpose
 
 Provide one shared layer for reading rasters indexed by SpatioTemporal Asset
 Catalogs (STAC): catalog search, asset href signing and lazy, windowed reads of
@@ -15,7 +15,9 @@ belong to the sources built on top (see [Collection sources](#collection-sources
 Status: implemented in `earth2studio/data/stac.py` with providers for Microsoft
 Planetary Computer and Element 84 Earth Search. No collection source exists yet.
 
-## Interface
+## Contract
+
+### Interface
 
 ```python
 @dataclass(frozen=True)
@@ -54,7 +56,7 @@ keys, `time_range` an ISO 8601 interval string, `provider` a `StacProvider`. The
 STAC filter extension is exposed as `cql2_filter` (CQL2-JSON) and `ids`; arbitrary
 keyword passthrough to the client is not supported.
 
-## Rules
+### Rules
 
 | Rule | Requirement |
 | --- | --- |
@@ -77,7 +79,7 @@ keyword passthrough to the client is not supported.
   need it.
 - `S2`: `da.rio.crs` and `da.rio.transform()` hold the geometry, carried by
   `spatial_ref` and the `y`, `x` dimension coordinates. This is what
-  `ProjectedGrid(y, x, crs)` describes ([GRID_SPEC.md](GRID_SPEC.md));
+  `ProjectedGrid(y, x, crs)` describes ([E2S-01_GRID_SPEC.md](E2S-01_GRID_SPEC.md));
   `earth2studio_crs` is not written by this layer.
 - `S3`: a band without an entry falls back to the file's nodata and scale/offset
   tags; once applied, the scale tags are removed from attrs so CF decoders do not
@@ -103,7 +105,7 @@ keyword passthrough to the client is not supported.
   box covers fewer than two pixels of an asset.
 - `S13`: loading `eccodes` first makes every GDAL `/vsicurl` read segfault on Linux.
 
-## Collection sources
+### Collection sources
 
 A source for a particular collection is a thin class over this layer that owns what
 the layer deliberately does not:
@@ -112,21 +114,21 @@ the layer deliberately does not:
   the per-scene windows from `search` onto it, one field per requested time. Where
   several scene footprints cover the request, the source decides how to combine
   them; this layer returns one window per scene.
-- Request: translate a `Region` ([GRID_SPEC.md](GRID_SPEC.md)) into `bbox`, and the
+- Request: translate a `Region` ([E2S-01_GRID_SPEC.md](E2S-01_GRID_SPEC.md)) into `bbox`, and the
   `DataSource` `time` array into a `time_range` plus item selection (nearest scene,
   cloud-cover sort, time tolerance).
 - Vocabulary: map `E2STUDIO_VOCAB` ids to asset keys (and bands of multi-band assets)
   through a lexicon.
-- Contract: meet `DataSource` ([FETCH_DATA_SPEC.md](FETCH_DATA_SPEC.md)), including
+- Contract: meet `DataSource` ([E2S-04_FETCH_DATA_SPEC.md](E2S-04_FETCH_DATA_SPEC.md)), including
   the `device` convention: compute the dask array and return NumPy on CPU or CuPy on
-  CUDA. `RegriddedSource` ([REGRID_SPEC.md](REGRID_SPEC.md)) then maps the source
+  CUDA. `RegriddedSource` ([E2S-03_REGRID_SPEC.md](E2S-03_REGRID_SPEC.md)) then maps the source
   onto a model grid without further code here.
 - Coupling: a collection source is bound to a model slot through
-  `Coupler(sources=...)` ([COUPLING_SPEC.md](COUPLING_SPEC.md)); the coupler stages
+  `Coupler(sources=...)` ([E2S-12_COUPLING_SPEC.md](E2S-12_COUPLING_SPEC.md)); the coupler stages
   it onto the model device and regrids it like any source, so the layer needs
   nothing coupler-specific.
 
-## Deferred Work and Verification
+### Deferred Work and Verification
 
 - First collection source (candidate: Landsat Collection 2 Level-2) and its mosaic
   rule; nothing in this layer prejudges whether the fixed grid is projected or

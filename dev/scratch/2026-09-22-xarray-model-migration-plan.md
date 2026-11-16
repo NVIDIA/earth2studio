@@ -21,7 +21,7 @@ Work in `earth2studio-projected-grid-followup` on
 `ngeneva/projected-grid-followup`. The base is release commit `33df61a1`.
 Read the model, testing, and API documentation rules in `.agents/rules/` before
 implementation. Read the repository model-creation skills for their validation
-guidance; the newer `dev/spec/MODEL_CONTRACT_SPEC.md` governs the public API.
+guidance; the newer `docs/specs/E2S-06_MODEL_CONTRACT_SPEC.md` governs the public API.
 
 Run Python through `uv run` or an existing project virtualenv. The existing
 `../earth2studio-pr-1154/.venv/bin/python` environment can run lightweight tests

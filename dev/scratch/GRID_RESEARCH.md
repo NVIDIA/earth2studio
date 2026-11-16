@@ -6,7 +6,7 @@
 ## Purpose
 
 This note records design lessons from Xarray and geospatial packages that informed
-Earth2Studio's grid protocol. The concise contract remains in `dev/spec/GRID_SPEC.md`.
+Earth2Studio's grid protocol. The concise contract remains in `docs/specs/E2S-01_GRID_SPEC.md`.
 
 Earth2Studio needs to describe a model's spatial requirements without allocating
 field data. A grid definition must communicate dimension order, shape, geometry,

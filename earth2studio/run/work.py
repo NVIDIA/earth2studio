@@ -16,7 +16,7 @@
 
 """Work construction, distribution, seeding, progress, and rank helpers.
 
-Implements the work layer of ``dev/spec/EXECUTION_CONTRACT_SPEC.md``: defining
+Implements the work layer of ``docs/specs/E2S-11_EXECUTION_CONTRACT_SPEC.md``: defining
 the unit of work, building :class:`WorkItem` lists, splitting them across ranks,
 deriving per-member seeds, recording finished items for resume, and the thin
 ``torch.distributed`` helpers everything above uses. The helpers are no-ops

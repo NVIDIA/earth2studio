@@ -19,7 +19,7 @@
 A :class:`Runner` holds models and bound data sources, and executes one
 :class:`WorkItem` at a time. Supervision -- work distribution, member grouping,
 resume, output filtering, and IO -- sits above it and never sees models,
-components, or coupling. See ``dev/spec/EXECUTION_CONTRACT_SPEC.md``.
+components, or coupling. See ``docs/specs/E2S-11_EXECUTION_CONTRACT_SPEC.md``.
 """
 
 from __future__ import annotations
