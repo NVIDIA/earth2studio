@@ -66,7 +66,10 @@ labels:
 # data_sources: display names for earth2studio data source classes shown in
 #         the Evaluation table (falls back to the raw class name).
 data_sources:
+  ARCO: ERA5 (ARCO)
   ARCO_ERA5: ERA5 (ARCO)
+  ARCO_ERA5+NCAR_ERA5: ERA5 (ARCO and NCAR)
+  NCAR_ERA5: ERA5 (NCAR)
   GFS: GFS
   HRRR: HRRR
   HealDAv2: HealDA v2 analyses

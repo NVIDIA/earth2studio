@@ -456,6 +456,25 @@ def test_analysis_source_runs_one_analysis_per_time() -> None:
     assert request.name == "conv"
 
 
+def test_analysis_source_hands_its_analyses_to_share() -> None:
+    model = FakeDA()
+    source = AnalysisSource(model, _obs(model, conv=FakeObsSource()))
+    shared = []
+
+    def share(compute):
+        shared.append(compute)
+        return compute()
+
+    source.share = share
+    field = source(np.array([T0, T1]), ["z500"])
+    assert len(shared) == 1 and len(model.calls) == 2
+    # The other ranks of a group receive the field without running the model.
+    model.calls.clear()
+    source.share = lambda compute: field
+    assert source(np.array([T0, T1]), ["z500"]) is field
+    assert model.calls == []
+
+
 def _da_forecast_cfg(tmp_path, variables, fill=True, source_grid=None):
     cfg = compose_cfg(tmp_path, ["nsteps=1", "runner=assimilation_forecast"])
     lat = (SMALL_LAT if source_grid is None else source_grid[0]).tolist()

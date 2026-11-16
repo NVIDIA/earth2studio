@@ -1251,6 +1251,176 @@ def test_two_rank_mask_agrees_across_the_group() -> None:
     assert result.returncode == 0, result.stdout[-4000:] + result.stderr[-4000:]
 
 
+def _run_two_ranks(*args: str, env_extra: dict | None = None) -> None:
+    """Run this file on two gloo ranks with ``args`` and assert it succeeds."""
+    env = {**os.environ, "OMP_NUM_THREADS": "1", "CUDA_VISIBLE_DEVICES": ""}
+    env.update(env_extra or {})
+    env["PYTHONPATH"] = os.pathsep.join(
+        p
+        for p in (
+            str(RECIPE_DIR),
+            str(RECIPE_DIR.parents[1]),
+            env.get("PYTHONPATH", ""),
+        )
+        if p
+    )
+    result = subprocess.run(  # noqa: S603 - fixed interpreter and script
+        [
+            sys.executable,
+            "-m",
+            "torch.distributed.run",
+            "--nnodes=1",
+            "--nproc_per_node=2",
+            "--master_addr=127.0.0.1",
+            f"--master_port={_free_port()}",
+            __file__,
+            *args,
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+    assert result.returncode == 0, result.stdout[-4000:] + result.stderr[-4000:]
+
+
+@pytest.mark.skipif(
+    os.environ.get("E2S_EVAL_SKIP_MULTIRANK") == "1", reason="multi-rank test disabled"
+)
+def test_two_rank_share_computes_on_the_root_only() -> None:
+    """The root computes once, both ranks get its field, and a failure raises."""
+    _run_two_ranks("--share-check")
+
+
+def _da_online_cfg(tmp_path: Path, members_per_rank: int) -> DictConfig:
+    """``_online_cfg`` initialized from the fake DA model's analyses."""
+    cfg = _online_cfg(tmp_path, members_per_rank)
+    with open_dict(cfg):
+        cfg.runner = "assimilation_forecast"
+        cfg.model = {
+            "da": {
+                "architecture": "test.test_assimilation.FakeDA",
+                "load_args": {"variables": list(VARIABLES)},
+                "obs_sources": {
+                    "conv": {"_target_": "test.test_assimilation.FakeObsSource"},
+                    "sat": {
+                        "_target_": "test.test_assimilation.FakeObsSource",
+                        "enabled": False,
+                    },
+                },
+            },
+            "forecast": {
+                "_target_": "earth2studio.models.px.Persistence",
+                "variable": list(VARIABLES),
+                "domain_coords": "latlon-small",
+            },
+            "fill_missing_variables": False,
+        }
+    return cfg
+
+
+@pytest.mark.skipif(
+    os.environ.get("E2S_EVAL_SKIP_MULTIRANK") == "1", reason="multi-rank test disabled"
+)
+def test_two_rank_group_runs_each_analysis_once(tmp_path) -> None:
+    """Only the group root runs the DA model, and the scores match one rank."""
+    single = _da_online_cfg(tmp_path / "single", members_per_rank=2)
+    run_online(single)
+    reference = xr.open_zarr(
+        Path(single.output.path) / "stats.zarr", consolidated=False
+    ).load()
+    out = tmp_path / "pair"
+    _run_two_ranks(
+        "--da-share",
+        str(out),
+        env_extra={"EARTH2STUDIO_DATA_CACHE": str(tmp_path / "cache")},
+    )
+    pair = xr.open_zarr(out / "outputs" / "stats.zarr", consolidated=False).load()
+    for name in reference.data_vars:
+        np.testing.assert_allclose(
+            pair[name].values, reference[name].values, rtol=1e-9, atol=1e-9
+        )
+    # One analysis per initial condition, each on the root.
+    counts = [int((out / f"analyses_rank{r}.txt").read_text()) for r in (0, 1)]
+    assert counts == [2, 0]
+
+
+def _torchrun_share_check() -> int:
+    """Rank 0, the root of a two-rank group, computes; both ranks get the field."""
+    import torch.distributed as dist
+
+    dist.init_process_group("gloo")
+    try:
+        rank = dist.get_rank()
+        group = EnsembleGroup(
+            block=0, group_rank=rank, group_size=2, members_per_rank=1, ranks=(0, 1)
+        )
+        comm = GroupComm(group, dist.group.WORLD, device="cpu")
+        values = np.arange(2 * N_POINTS, dtype=np.float32).reshape(
+            1, 2, SMALL_LAT.size, SMALL_LON.size
+        )
+        calls = []
+
+        def compute() -> xr.DataArray:
+            calls.append(rank)
+            return xr.DataArray(
+                values,
+                dims=("time", "variable", "lat", "lon"),
+                coords={
+                    "time": np.array([T0], dtype="datetime64[ns]"),
+                    "variable": np.array(VARIABLES),
+                    "lat": SMALL_LAT,
+                    "lon": SMALL_LON,
+                },
+                attrs={"source": "root"},
+            )
+
+        field = comm.share(compute)
+        assert calls == ([0] if rank == 0 else []), (rank, calls)
+        np.testing.assert_array_equal(field.values, values)
+        assert field.dims == ("time", "variable", "lat", "lon"), field.dims
+        assert field.attrs == {"source": "root"}, field.attrs
+        assert list(field.coords["variable"].values) == VARIABLES
+
+        def fail() -> xr.DataArray:
+            raise ValueError("no observations")
+
+        try:
+            comm.share(fail)
+        except (ValueError, RuntimeError) as error:
+            assert "no observations" in str(error), error
+        else:
+            raise AssertionError(f"rank {rank}: share did not raise")
+    finally:
+        dist.barrier()
+        dist.destroy_process_group()
+    return 0
+
+
+def _torchrun_da_share(out: Path) -> int:
+    """One rank of a two-rank online run initialized from fake DA analyses."""
+    import torch.distributed as dist
+
+    import test.test_assimilation as fake
+
+    analyses = []
+    call = fake.FakeDA.__call__
+
+    def counted(self, *args, **kwargs):
+        analyses.append(1)
+        return call(self, *args, **kwargs)
+
+    fake.FakeDA.__call__ = counted
+    dist.init_process_group("gloo")
+    try:
+        run_online(_da_online_cfg(out, members_per_rank=1))
+        (out / f"analyses_rank{dist.get_rank()}.txt").write_text(str(len(analyses)))
+    finally:
+        dist.barrier()
+        dist.destroy_process_group()
+    return 0
+
+
 def _torchrun_mask_check() -> int:
     """Both ranks of a two-rank group derive one mask from rank 1's NaN."""
     import torch.distributed as dist
@@ -1285,8 +1455,12 @@ def _torchrun_main() -> int:
 
     if sys.argv[1] == "--mask-check":
         return _torchrun_mask_check()
+    if sys.argv[1] == "--share-check":
+        return _torchrun_share_check()
     if "latlon-small" not in list_grids():
         register_grid("latlon-small", GRID)
+    if sys.argv[1] == "--da-share":
+        return _torchrun_da_share(Path(sys.argv[2]))
     out = Path(sys.argv[1])
     dist.init_process_group("gloo")
     try:

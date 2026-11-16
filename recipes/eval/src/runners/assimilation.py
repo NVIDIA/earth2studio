@@ -44,7 +44,7 @@ from __future__ import annotations
 
 import fcntl
 import os
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager, nullcontext
 from typing import Any
 
@@ -630,6 +630,11 @@ class AnalysisSource:
     per time with :func:`~earth2studio.run.work.member_seed` (member 0), so
     the same analysis initializes every member of an ensemble.
 
+    Online scoring sets :attr:`share` to the ensemble group's
+    :meth:`src.online.GroupComm.share`, so only the group root fetches the
+    observations and runs the model, and the other ranks receive its
+    analyses.
+
     Parameters
     ----------
     model : AssimilationModel
@@ -662,6 +667,7 @@ class AnalysisSource:
         self.signature = analysis_coords(model)
         self.variables = [str(v) for v in self.signature.coords["variable"].values]
         self.device = torch.device("cpu")
+        self.share: Callable[[Callable[[], xr.DataArray]], xr.DataArray] | None = None
 
     @property
     def grid(self) -> GridDefinition:
@@ -700,12 +706,18 @@ class AnalysisSource:
                 f"{type(self.model).__name__} analyses do not provide {missing}; "
                 f"available: {self.variables}"
             )
-        parts: list[xr.DataArray] = []
-        for t in times:
-            _seed_model(self.seed, t, 0, self.model)
-            parts.append(_to_host(analyze(self.model, self.obs, t, self.obs_device)))
-        field = parts[0] if len(parts) == 1 else xr.concat(parts, dim="time")
-        return field.sel(variable=variables)
+
+        def compute() -> xr.DataArray:
+            parts: list[xr.DataArray] = []
+            for t in times:
+                _seed_model(self.seed, t, 0, self.model)
+                parts.append(
+                    _to_host(analyze(self.model, self.obs, t, self.obs_device))
+                )
+            field = parts[0] if len(parts) == 1 else xr.concat(parts, dim="time")
+            return field.sel(variable=variables)
+
+        return compute() if self.share is None else self.share(compute)
 
     async def fetch(self, time: Any, variable: Any) -> xr.DataArray:
         """Async version of :meth:`__call__`."""
@@ -935,7 +947,9 @@ def assimilation_forecast(
     input variables the analysis lacks; it always supplies those
     ``cfg.model.fill_variables`` names.  The
     returned runner gains ``frame_requests`` (observations behind every
-    analysis an item needs) and ``frame_roles``; ``source_roles`` carries the
+    analysis an item needs), ``frame_roles`` and ``analysis_source``, the
+    :class:`AnalysisSource` that online scoring shares across an ensemble
+    group; ``source_roles`` carries the
     ``data`` role only when a fill source is in use, so predownload caches
     exactly the fill variables.
 
@@ -977,6 +991,8 @@ def assimilation_forecast(
         roles["data"] = fill
     runner.source_roles = roles  # type: ignore[attr-defined]
     runner.frame_roles = obs.roles  # type: ignore[attr-defined]
+    # Online scoring hands the analysis source its ensemble group's share.
+    runner.analysis_source = analysis  # type: ignore[attr-defined]
     ic_leads = runner.input_signature["lead_time"].values
     original_requests = runner.data_requests
 

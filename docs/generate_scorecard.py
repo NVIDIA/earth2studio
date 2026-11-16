@@ -192,15 +192,14 @@ limitations under the License.
   @media (prefers-color-scheme:dark){body{
     --surface-1:#1a1a19; --plane:#0d0d0d; --ink:#fff; --ink-2:#c3c2b7;
     --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10); --s1:#3987e5; --s2:#d95926}}
-  .wrap{position:relative;max-width:980px;margin:0 auto;padding:12px 14px 16px}
-  .badge{position:absolute;top:14px;right:14px;z-index:2;
-    background:var(--s1);color:#fff;font-weight:600;font-size:12px;
-    border-radius:20px;padding:4px 13px;letter-spacing:.02em;
-    box-shadow:0 3px 10px rgba(0,0,0,.18)}
+  .wrap{max-width:980px;margin:0 auto;padding:12px 14px 16px}
+  .title{margin:2px 2px 10px;font-size:15px;font-weight:600;letter-spacing:.01em;
+    color:var(--ink)}
   .bar{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;
     background:var(--surface-1);border:1px solid var(--border);
     border-radius:10px;padding:10px 12px;margin-bottom:12px}
   .ctl{display:flex;flex-direction:column;gap:4px}
+  [hidden]{display:none!important}
   .ctl label{font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
   select{font:inherit;color:var(--ink);
     border:1px solid var(--axis);border-radius:7px;
@@ -222,7 +221,7 @@ limitations under the License.
   .tip b{font-weight:600} .tip .k{color:var(--muted)}
 </style></head>
 <body><div class="wrap">
-<div class="badge"></div>
+<h1 class="title" id="title"></h1>
 <div class="bar">
   <div class="ctl" id="ictl" hidden><label>Initialization</label><select id="i"></select></div>
   <div class="ctl" id="vwctl" hidden><label>View</label><select id="vw">
@@ -257,7 +256,7 @@ const LABEL=Q.get("label")||MODEL;
 // model domain for limited-area ones (config/<model>.md, `domain:`).
 const DOMAIN=Q.get("domain")||"Global";
 document.title=LABEL+" skill";
-$(".badge") && ($(".badge").textContent=LABEL);
+$("#title").textContent=LABEL;
 // Initializations: "era5" is the model's own export; every other key names
 // a sibling export set eval_scores_<model>_<key>*.json (listed by ?inits=,
 // labelled by INITS).  Every fetched document lives in the state of the
@@ -811,15 +810,22 @@ function onInit(init){
     $("#t").textContent=`failed to load eval_scores_${DATA()}.json`;
     $("#s").textContent=String(e);});
 }
-if(INIT_KEYS.length>1){
-  $("#ictl").hidden=false;
-  INIT_KEYS.forEach(k=>iSel.appendChild(new Option(k==="era5"?"ERA5":INITS[k],k)));
-  iSel.value=S.init;
-  iSel.addEventListener("change",()=>onInit(iSel.value));
+// The base run's initial-condition source as the selector names it: any
+// ERA5 variant reads "ERA5", any other source (HRRR for StormCast) its name.
+function baseInitLabel(src){
+  const s=String(src||"");
+  return !s||/ERA5|^ARCO$/.test(s)?"ERA5":s.replace(/_/g," ");
 }
+// Every scorecard names its initialization; only models with alternative
+// initializations offer a choice.
+$("#ictl").hidden=false;
+INIT_KEYS.forEach(k=>iSel.appendChild(new Option(k==="era5"?"ERA5":INITS[k],k)));
+iSel.value=S.init;
+if(INIT_KEYS.length>1)iSel.addEventListener("change",()=>onInit(iSel.value));
 // The export is plain minified JSON.
 loadModel()
   .then(()=>{
+    iSel.options[0].text=baseInitLabel(D.ic_source);
     // The baselines are whole-grid ERA5 reference runs, so they only apply
     // to global models; a limited-area model has no comparable reference.
     const bnames=DOMAIN==="Global"?Object.keys(BASELINES).filter(b=>b!==MODEL):[];
@@ -852,7 +858,7 @@ Pick a metric and variable; hover for exact values at each lead time.{splits_hin
      depth — fork preview, versioned deploy, or local serve — and there is
      no static URL for the site build to rewrite. -->
 <iframe id="skill-plot" title="{label} skill"
-        style="width:100%;height:560px;border:1px solid rgba(128,128,128,.35);border-radius:10px;"
+        style="width:100%;height:600px;border:1px solid rgba(128,128,128,.35);border-radius:10px;"
         loading="lazy"></iframe>
 <script>
 document.getElementById("skill-plot").src = new URL(
