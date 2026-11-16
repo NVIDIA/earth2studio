@@ -30,20 +30,8 @@ def main(cfg: DictConfig) -> None:
 
     DistributedManager.initialize()
 
-    (
-        io_dict,
-        metric_dict,
-        score_io_dict,
-        data_source,
-    ) = initialize(cfg)
-
-    run_scoring(
-        cfg,
-        io_dict,
-        metric_dict,
-        score_io_dict,
-        data_source,
-    )
+    forecasts, metric_dict, score_io_dict, data_source = initialize(cfg)
+    run_scoring(cfg, forecasts, metric_dict, score_io_dict, data_source)
 
 
 if __name__ == "__main__":
