@@ -8,7 +8,7 @@ Browse the built-in models in the [prognostic API](../../modules/models_px.md).
 
 Models exchange labelled `xarray.DataArray` fields in physical units. Coordinate
 methods describe those fields without allocating their values; see the
-[shared conventions](index.md#shared-conventions).
+[overview's coordinate systems](../about/overview.md#coordinates_userguide).
 
 For a model with one input and no forcing, the interface is:
 
@@ -31,26 +31,43 @@ The protocol is defined in `earth2studio.models.px.base.PrognosticModel`; inheri
 from it is not required. `stochastic` identifies stochastic models, which expose
 `set_rng(seed, reset=True)` for reproducible rollouts.
 
-## Core Rules
+## Specification
 
-- **Match the configured signature.** Select the domain and variables before planning
-  a run. Match dimension order, labels, grid, units, and statistics. Relative input
-  lead times are strictly increasing and end at or before zero; for example,
-  `[-6h, 0h]` requests two history frames. Output leads advance from the last input lead.
-- **Separate planning from execution.** `output_coords` validates coordinates without
-  running inference or reading field values. Invalid coordinates raise `ValueError`.
-- **Supply data explicitly.** Models never fetch their `default_sources()` themselves.
-  Fetch, regrid, and place each input and forcing field before calling the model.
-- **Keep the full continuation.** `(y, state)` contains everything needed by `step`,
-  including any history, latent state, or random-generator position. Reusing the same
-  pair reproduces the same continuation; neither argument is mutated. Repeated
-  `model(x)` calls start independent predictions rather than continuing hidden state.
-- **Expect forecasts first.** `initialize` and the first iterator yield produce the
-  first forecast, not the initial condition. Each yield is the complete output chunk,
-  which may contain several lead times. Publish initial conditions separately.
-- **Treat inputs and outputs as owned by the caller.** Model execution does not alter
-  input fields or overwrite earlier outputs. Iterator hooks can intentionally change
-  fields, so copy snapshots when retaining data that a hook may modify.
+The [model contract][model-spec] defines these compliance codes for prognostic models.
+
+| Code | Requirement |
+| --- | --- |
+| `P1` | Structurally satisfy `PrognosticModel`. |
+| `P2` | Use allocation-free DataArray declarations with explicit dynamic leading dimensions. |
+| `P3` | Input `lead_time` is relative, strictly increasing, and ends at or before zero. |
+| `P4` | Treat arguments to `output_coords()` as read-only. |
+| `P5` | Raise `ValueError` for invalid coordinate systems in `output_coords()`. |
+| `P6` | Shifting input lead times shifts output lead times by the same offset. |
+| `P7` | Yield forecasts only, starting with the output of `initialize`. |
+| `P8` | The first yield matches the coordinates declared by `output_coords()`. |
+| `P9` | Every forecast matches its planned coordinates and structural metadata. |
+| `P10` | Apply both hooks in the iterator; none in `__call__`, `initialize`, or `step`. |
+| `P11` | Declare a boolean `stochastic` attribute. |
+| `P12` | Stochastic models implement `set_rng(seed, reset=True)`. |
+| `P13` | Seeding determines a rollout; different seeds give different rollouts. |
+| `P14` | After `set_rng()`, seeding and stepping leave global RNG state unchanged. |
+| `P15` | Model steps do not modify input values or coordinates. |
+| `P16` | Advances do not overwrite earlier yields; explicit in-place hook edits are allowed. |
+| `P17` | Accept one positional DataArray per slot, fields before forcing, in declared order. |
+| `P18` | No two output slots share identical non-variable coordinates. |
+| `P19` | `step` modifies neither `y` nor `state`; replaying `(y, state)` reproduces the step. |
+| `P20` | Call, initialization forecast, and first iterator yield agree without hooks. |
+| `P21` | State is serializable; a saved `(y, state)` round-trips. |
+| `P22` | Models never fetch data; missing forcing raises `ValueError`. |
+| `P23` | `default_sources()` follows the contract's single/tuple/`None` convention. |
+| `P24` | Wrappers declare fixed, named execution parameters. |
+
+For `P23`, return one provider for one slot, an ordered tuple for multiple slots
+(inputs before forcing, retaining `None` placeholders), or `None` for no defaults.
+See the [shared domain specification](index.md#domain-specification) for `G1`–`G4`,
+which apply when a model implements `DomainAdaptable`.
+
+[model-spec]: https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/dev/spec/MODEL_CONTRACT_SPEC.md#prognostic
 
 ## Usage
 

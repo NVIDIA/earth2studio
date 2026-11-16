@@ -18,26 +18,31 @@ The `earth2studio.io.base.IOBackend` protocol requires these four methods;
 inheritance is optional. Reading and dictionary-like access are backend-specific
 capabilities rather than requirements of the write interface.
 
-## Core Rules
+## Specification
 
-- **Declare the store first.** Templates have concrete, nonempty dimensions with
-  unique labels. Their field values are never read, so allocation-free templates
-  work. Writes do not create arrays or extend the declared coordinate extent.
-- **Keep variable names verbatim.** Each `variable` label creates one array over the
-  remaining dimensions, including labels such as `tp:sum:6h`. A template without a
-  `variable` dimension must have a name, which names its single stored array.
-- **Write by label.** Fields may contain subsets of stored labels in any order, but
-  their dimensions must match in order. Unknown arrays or labels fail before writing.
-  `AsyncZarrBackend` additionally requires full coverage of non-parallel dimensions.
-- **Keep store geometry consistent.** Shared coordinates must agree; adding an
-  identical template is a no-op. Auxiliary coordinates and grid metadata are retained.
-  Use separate stores for outputs on incompatible grids.
-- **Preserve input fields.** Backends accept NumPy, CuPy, and Torch storage, handle
-  transfers themselves, and do not mutate the supplied field. Asynchronous writers
-  copy the needed values before returning.
-- **Finalize explicitly.** `flush` makes writes visible within an open transaction;
-  `close` finalizes it, including an Icechunk commit. Closing again is harmless,
-  but later writes fail. `earth2studio.run` workflows do not close your backend.
+The [IO specification][io-spec] defines these compliance codes.
+
+| Code | Requirement |
+| --- | --- |
+| `I1` | `add_array` never reads field values from the template. |
+| `I2` | `add_array` rejects dynamic or zero-sized dimensions with `ValueError`. |
+| `I3` | Each `variable` label names one array verbatim; otherwise use the template's name. |
+| `I4` | Arrays share coordinates; re-adding an identical array is a no-op from any instance. |
+| `I5` | Write by label; unknown labels, arrays, or dimensions raise `ValueError` first. |
+| `I6` | Accept label subsets, including multiple `lead_time` entries in one write. |
+| `I7` | Never modify `x`; non-blocking backends copy needed values before returning. |
+| `I8` | Accept NumPy-, CuPy-, and Torch-adapter-backed arrays. |
+| `I9` | After `flush`, values, coordinates, and persisted attributes round-trip. |
+| `I10` | Do not persist signature markers or `earth2studio_statistics`. |
+| `I11` | `close` flushes and finalizes; later writes raise and repeated closes are no-ops. |
+
+For `I6`, backends may document restrictions: `AsyncZarrBackend` requires full
+coverage of non-parallel dimensions. Write dimensions must match the stored order.
+For `I10`, qualified variable labels reconstruct temporal-statistics metadata on read.
+`flush` exposes transactional writes within the open transaction; `close` commits
+Icechunk output. `earth2studio.run` workflows leave closing the backend to the caller.
+
+[io-spec]: https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/dev/spec/IO_SPEC.md#rules
 
 ## Usage
 
@@ -98,9 +103,6 @@ import xarray as xr
 
 dataset = xr.open_zarr("forecast.zarr")
 ```
-
-For versioned transactions, shard sizing, concurrent writers, and cloud stores,
-see [Versioned and Sharded Output](../advanced/io.md).
 
 ## Create Your Own Backend
 

@@ -35,14 +35,18 @@ source-native member labels and returns a leading `ensemble` dimension, includin
 for a single requested member. Omitting it returns the source's configured member
 without adding that dimension.
 
-## Core Rules
+## Specification
+
+The [fetch-data specification][fetch-spec] defines the following requirements without
+numbered source compliance codes.
 
 - **Use physical quantities.** Request Earth2Studio variable names and units through
   the source's [lexicon](../advanced/lexicon.md#lexicon_userguide). Check the source's
   definitions: the same variable can have different sampling or accumulation periods.
 - **Preserve request labels.** Gridded results follow the requested times and variable
   order. Sources that select nearby stored times retain requested labels and expose
-  actual sample times as auxiliary coordinates.
+  actual sample times optionally as auxiliary coordinates. Missing requested labels
+  raise `ValueError`; `fetch_data` never relabels values positionally.
 - **Choose placement explicitly.** The source constructor's `device` defaults to
   CPU. CUDA sources return CuPy fields or cuDF frames; CPU sources return NumPy
   fields or pandas frames. `device` is not a per-call source argument. `fetch_data`
@@ -52,6 +56,12 @@ without adding that dimension.
   `TIME_STATISTICS`; unsupported requests fail rather than silently substituting data.
 - **Align before inference.** Fetch the model's variables and history, and explicitly
   request its grid. Sources and models can use different native grids.
+- **Preserve the output contract.** `fetch_data` returns one DataArray ordered
+  `time, lead_time, variable, ...`, preceded by `ensemble` when requested. Preserve
+  source geometry and metadata unless regridding; remove coordinate-signature markers.
+  Floating fields are cast to float32 before device placement and regridding.
+
+[fetch-spec]: https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/dev/spec/FETCH_DATA_SPEC.md
 
 ## Usage
 
@@ -122,6 +132,8 @@ propagate. Forecast windows must stay within the requested initialization's
 available leads. Summing stored accumulations with overlapping windows can
 double-count totals; check the source's temporal-statistics documentation.
 The output's `earth2studio_statistics` metadata describes the reduction performed.
+See [Temporal Statistics](../advanced/temporal_statistics.md) for label syntax,
+supported sources, calendar-day windows, and local-array reductions.
 
 ### Tabular Observations
 
