@@ -16,7 +16,7 @@ aiosignal==1.4.0
     # via aiohttp
 annotated-doc==0.0.4
     # via typer
-anyio==4.14.1
+anyio==4.16.0
     # via httpx
 attrs==26.1.0
     # via aiohttp
@@ -402,7 +402,7 @@ trove-classifiers==2026.6.1.19
     # via hatchling
 typer==0.25.1
     # via huggingface-hub
-typing-extensions==4.15.0
+typing-extensions==4.16.0
     # via
     #   aiohttp
     #   aiosignal
@@ -416,7 +416,7 @@ typing-extensions==4.15.0
     #   zarr
 tzdata==2025.3
     # via pandas
-urllib3==2.7.0
+urllib3==2.8.0
     # via
     #   botocore
     #   requests
