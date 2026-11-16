@@ -35,33 +35,10 @@ source-native member labels and returns a leading `ensemble` dimension, includin
 for a single requested member. Omitting it returns the source's configured member
 without adding that dimension.
 
-## Specification
+See [E2S-05: Data Fetching][fetch-spec] for request handling, output assembly,
+ensemble selection, and device-placement requirements.
 
-The [fetch-data specification][fetch-spec] defines the following requirements without
-numbered source compliance codes.
-
-- **Use physical quantities.** Request Earth2Studio variable names and units through
-  the source's [lexicon](../advanced/lexicon.md#lexicon_userguide). Check the source's
-  definitions: the same variable can have different sampling or accumulation periods.
-- **Preserve request labels.** Gridded results follow the requested times and variable
-  order. Sources that select nearby stored times retain requested labels and expose
-  actual sample times optionally as auxiliary coordinates. Missing requested labels
-  raise `ValueError`; `fetch_data` never relabels values positionally.
-- **Choose placement explicitly.** The source constructor's `device` defaults to
-  CPU. CUDA sources return CuPy fields or cuDF frames; CPU sources return NumPy
-  fields or pandas frames. `device` is not a per-call source argument. `fetch_data`
-  can move gridded results to the requested execution device.
-- **Request supported statistics.** Qualified labels such as `t2m:mean:24h` request
-  trailing reductions supplied by the source. Support is declared by its lexicon's
-  `TIME_STATISTICS`; unsupported requests fail rather than silently substituting data.
-- **Align before inference.** Fetch the model's variables and history, and explicitly
-  request its grid. Sources and models can use different native grids.
-- **Preserve the output contract.** `fetch_data` returns one DataArray ordered
-  `time, lead_time, variable, ...`, preceded by `ensemble` when requested. Preserve
-  source geometry and metadata unless regridding; remove coordinate-signature markers.
-  Floating fields are cast to float32 before device placement and regridding.
-
-[fetch-spec]: https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/dev/spec/FETCH_DATA_SPEC.md
+[fetch-spec]: ../../specs/E2S-05_FETCH_DATA_SPEC.md
 
 ## Usage
 
@@ -71,6 +48,11 @@ numbered source compliance codes.
 optionally preceded by `ensemble`. It accepts both analysis and forecast sources:
 analysis sources are queried at `time + lead_time`, while forecast sources retain
 their initialization cycle. Floating values are converted to float32.
+
+Choose variable names and physical units using the source's
+[lexicon](../advanced/lexicon.md#lexicon_userguide). Set `device` on the source
+constructor to choose where it returns data; `fetch_data` can then move gridded
+fields to the model's execution device.
 
 ```python
 import numpy as np

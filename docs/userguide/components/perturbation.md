@@ -15,34 +15,10 @@ The `earth2studio.perturbation.base.Perturbation` protocol requires only this ca
 inheritance is optional. Built-in methods accept NumPy-, CuPy-, or Torch-backed
 DataArrays and use PyTorch for computation.
 
-## Specification
+See [E2S-08: Perturbations][perturbation-spec] for field preservation,
+method-specific dimensions, and backend behavior.
 
-The [perturbation specification][perturbation-spec] defines the following requirements
-without numbered compliance codes.
-
-- **Preserve structure.** Output dimensions, shape, coordinates, and attributes match
-  the input. Input values and metadata are not modified in place.
-- **Use physical amplitudes.** Noise is applied to unnormalized fields. A scalar
-  `noise_amplitude` applies one scale everywhere; a broadcastable tensor can assign
-  different scales to variables. Any internal normalization must be reversed.
-- **Meet method-specific geometry.** Gaussian and Zero impose no spatial layout.
-  Brown and spherical methods require trailing `lat, lon` dimensions; spherical
-  methods require an `N × 2N` or `(N+1) × 2N` grid. `LaggedEnsemble` requires leading
-  `ensemble, time, lead_time` dimensions, with one ensemble member per lag.
-  `HemisphericCentredBredVector` requires trailing `time, lead_time, variable, lat, lon`,
-  one time, and at most one leading batch axis. Missing dimensions raise `KeyError`;
-  wrong positions or sizes raise `ValueError`. `BredVector` warns for multiple lead times.
-- **Control randomness.** Use `torch.manual_seed` for reproducible stochastic
-  perturbations. Gaussian also supports its own generator state; consult its API
-  when checkpointing or managing independent random streams.
-- **Account for backend policy.** The default `auto` policy returns NumPy on CPU and
-  CuPy on CUDA; `torch` preserves tensors. Dtype is preserved except for
-  `HemisphericCentredBredVector`, which uses its fetched source field's dtype.
-- **Match the call contract.** Accept and return one DataArray, with no separate
-  coordinate argument or tuple return. Model-based perturbations accept a callable
-  `DataArray -> DataArray`. Lagged and hemispheric methods fetch on the input device.
-
-[perturbation-spec]: https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/dev/spec/PERTURBATION_SPEC.md
+[perturbation-spec]: ../../specs/E2S-08_PERTURBATION_SPEC.md
 
 ## Usage
 
@@ -59,6 +35,11 @@ ensemble = x.expand_dims(ensemble=np.arange(4))
 perturbation = Gaussian(noise_amplitude=0.1)  # 0.1 K for this single-variable field
 perturbed = perturbation(ensemble)
 ```
+
+Choose amplitudes in the field's physical units. For multiple variables, a
+broadcastable tensor can assign a different scale to each variable. Check the
+selected method's grid and dimension requirements before applying it; Gaussian
+does not impose a spatial layout.
 
 The built-in `earth2studio.run.ensemble` workflow expands the ensemble dimension
 and applies the perturbation once to the initial input. For bred vectors, provide

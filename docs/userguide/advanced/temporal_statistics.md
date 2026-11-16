@@ -26,29 +26,10 @@ Durations use integer units from nanoseconds through weeks, including `6h`, `1da
 and `2weeks`. A week is seven days. Months and years are unsupported; use explicit
 days or hours. Uppercase `M` and `Y` are rejected; lowercase `m` means minutes.
 
-## Specification
+See [E2S-03: Time Statistics][time-spec] for window planning, source aggregation,
+missing-sample handling, and metadata requirements.
 
-The [time-statistics specification][time-spec] defines these requirements without
-numbered compliance codes:
-
-- **Sources own aggregation.** A source returns supported quantities under the
-  requested labels and records their metadata in `earth2studio_statistics`. It
-  reduces on its native grid before regridding.
-- **Windows must be sampleable.** The source cadence must divide the window exactly,
-  and all required timestamps must be available. Unsupported methods, unavailable
-  windows, and duplicate normalized requests such as `t2m:mean:24h` alongside
-  `t2m:mean:1day` are rejected before fetching.
-- **Forecast windows stay within one initialization.** Windows are anchored to each
-  requested lead. An unavailable or negative required lead cannot be filled from
-  an earlier forecast cycle.
-- **Missing samples propagate.** Built-in reductions return NaN at a cell if any
-  sample in its window is NaN. Fetch failures propagate rather than producing a
-  partial reduction. Means weight samples equally.
-- **Stored quantities retain their meaning.** Summing values does not automatically
-  deaccumulate overlapping buckets or integrate a rate. Unqualified labels retain
-  their source-defined meaning.
-
-[time-spec]: https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/dev/spec/TIME_STATISTICS_SPEC.md
+[time-spec]: ../../specs/E2S-03_TIME_STATISTICS_SPEC.md
 
 ## Request Reduced Fields
 

@@ -14,47 +14,20 @@ ranked probability score (CRPS). Browse the
 | `__call__(...)` | `statistic(x)` | `metric(x, y)` |
 
 Inputs and outputs are DataArrays. Coordinate planning uses allocation-free
-signatures; see [Coordinate Systems](../about/overview.md#coordinates_userguide).
+signatures; see [Coordinates and Metadata](coordinates.md).
 The `Statistic` and `Metric` protocols live in `earth2studio.statistics.base`;
 inheritance is optional. Weights, streaming updates, and ensemble handling are
 options of particular implementations rather than universal requirements.
 
-## Specification
+See [E2S-09: Statistics][statistics-spec] for dimension handling, input alignment,
+weights, streaming state, and backend requirements.
 
-The [statistics specification][statistics-spec] defines the following requirements
-without numbered compliance codes.
-
-- **Reduce by name.** Reduced dimensions must exist. Surviving dimensions retain
-  their input order. Some methods also add dimensions, such as `threshold`,
-  `window_size`, or `wavenumber`; inspect `output_coords` rather than assuming the
-  result is always a subset of input dimensions.
-  Missing dimensions raise `ValueError` during execution and `KeyError` in planning.
-  Added `threshold`, `window_size`, and `wavenumber` axes trail; `metric`,
-  `histogram_data`, and `bin` lead. Method-reserved dimension names cannot appear in inputs.
-- **Align comparisons exactly.** Metrics require the same dimension names and
-  coordinate values, apart from a declared ensemble dimension present only on the
-  forecast. Observation axes may be transposed to match, but there is no implicit
-  coordinate alignment or interpolation.
-- **Match weight shape.** Where supported, weights are NumPy arrays or Torch tensors
-  with one axis per reduced dimension, matching their sizes and input-dimension
-  order. They are not arbitrary broadcastable arrays. `None` gives uniform weights.
-  Incorrect weight rank raises `ValueError`; incorrect shape raises `AssertionError`.
-- **Keep streams separate.** `mean`, `var`, and `std` with `batch_update=True` retain
-  running accumulators. Each call returns the statistic over all batches seen;
-  create a new instance for an independent stream.
-- **Plan for the output backend.** Computation uses PyTorch. The `auto` backend
-  policy returns NumPy on CPU and CuPy on CUDA; `torch` retains tensors and autograd
-  history. Inputs are not modified.
-- **Match planning to execution.** `output_coords(x)` describes the result's dimensions,
-  shape, and coordinates. Calls accept DataArrays with no separate coordinate argument
-  and return one DataArray. Weights are placed on the input device; uniform weights
-  use float32, and float16/bfloat16 weights are promoted to float32 for reductions.
-
-[statistics-spec]: https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/dev/spec/STATISTICS_SPEC.md
+[statistics-spec]: ../../specs/E2S-09_STATISTICS_SPEC.md
 
 ## Usage
 
-For aligned forecast and observation fields with `lat` and `lon` dimensions:
+First align forecast and observation labels and grids; metrics do not interpolate
+or implicitly align coordinates. For fields with `lat` and `lon` dimensions:
 
 ```python
 from earth2studio.statistics import mean, rmse
@@ -79,7 +52,8 @@ area_mean = mean(["lat", "lon"], weights=weights)
 average = area_mean(forecast)
 ```
 
-Use actual cell areas for other geometries. For ensemble forecasts, metrics such as
+Match weight axes to the reduced dimensions in input-dimension order; use actual
+cell areas for other geometries. For ensemble forecasts, metrics such as
 `rmse` accept `ensemble_dimension="ensemble"` to compare the ensemble mean with
 observations; CRPS instead evaluates the predictive distribution.
 
@@ -90,6 +64,9 @@ running_mean = mean(["time"], batch_update=True)
 for batch in batches:
     average_so_far = running_mean(batch)
 ```
+
+Each result covers all batches seen by that instance. Create a new instance to
+start an independent stream.
 
 ## Create Your Own Statistic or Metric
 

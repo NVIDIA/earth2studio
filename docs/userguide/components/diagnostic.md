@@ -16,35 +16,16 @@ They do not continue an autoregressive trajectory. Browse the
 | `to(device)` | Place model computation on the requested device. |
 
 Fields are `xarray.DataArray` objects; signatures follow the
-[overview's coordinate systems](../about/overview.md#coordinates_userguide).
-Return one output directly or
-multiple outputs as a tuple. The protocol is
+[Coordinates and Metadata](coordinates.md).
+Return one output directly or multiple outputs as a tuple. The protocol is
 `earth2studio.models.dx.base.DiagnosticModel`; inheritance is optional.
 The `stochastic` flag and, for stochastic models, `set_rng(seed, reset=True)` describe
 randomness. Diagnostic models require no forcing, state, iterator, or hook interface.
 
-## Specification
+See [E2S-06: Model Contract][model-spec] for diagnostic-model requirements, including
+coordinate planning, output ownership, randomness, and optional domain selection.
 
-The [model contract][model-spec] defines these compliance codes for diagnostic models.
-
-| Code | Requirement |
-| --- | --- |
-| `D1` | Structurally satisfy `DiagnosticModel`. |
-| `D2` | Use allocation-free DataArray declarations with explicit dynamic leading dimensions. |
-| `D3` | Treat arguments to `output_coords()` as read-only. |
-| `D4` | Raise `ValueError` for invalid coordinate systems in `output_coords()`. |
-| `D5` | `__call__` matches declared coordinates and structural metadata. |
-| `D6` | `__call__` does not modify input values or coordinates. |
-| `D7` | Declare a boolean `stochastic` attribute. |
-| `D8` | Stochastic models implement `set_rng(seed, reset=True)`. |
-| `D9` | Seeding determines the output; different seeds give different outputs. |
-| `D10` | After `set_rng()`, seeding and calling leave global RNG state unchanged. |
-| `D11` | Wrappers declare fixed, named `__call__` parameters. |
-
-See the [shared domain specification](index.md#domain-specification) for `G1`–`G4`,
-which apply when a model implements `DomainAdaptable`.
-
-[model-spec]: https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/dev/spec/MODEL_CONTRACT_SPEC.md#diagnostic
+[model-spec]: ../../specs/E2S-06_MODEL_CONTRACT_SPEC.md
 
 ## Usage
 

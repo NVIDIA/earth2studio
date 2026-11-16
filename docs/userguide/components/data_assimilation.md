@@ -28,38 +28,10 @@ nonempty arrays specify allowed values. Multiple slots form an ordered tuple, wh
 can mix gridded and tabular declarations. Models expose `stochastic` and `set_rng`;
 seeding is a no-op for deterministic models.
 
-## Specification
+See [E2S-07: Data Assimilation Contract][da-spec] for slot ordering, observation
+schemas and timing, and independent and stateful execution requirements.
 
-The [assimilation contract][da-spec] defines the following requirements without
-numbered compliance codes.
-
-- **Honor slot order and schemas.** Supply each input separately, matching its grid
-  or observation columns, units, and metadata. Keep optional observations in their
-  declared position as `None` when the model permits them to be absent.
-- **Align observation times.** Observation windows and conditioning times are
-  model-specific. A background field alone does not imply stateful execution.
-- **Fetch outside the model.** `default_sources()` only recommends providers.
-  Callers fetch gridded and tabular data, align them, and supply required metadata
-  such as the observation request time.
-- **Keep planning separate.** `output_coords` validates declarations without reading
-  field values or running assimilation. Actual outputs must match that plan.
-- **Preserve the continuation.** Stateful initialization returns the first computed
-  analysis and state. Every iterator yield is a computed output. `step` consumes
-  `(analysis, state)` plus new forcing without mutating inputs or state, allowing
-  the saved pair to be replayed or branched.
-- **Use fixed signatures.** Declare named slots with backgrounds before forcing and
-  `state` last, positional-or-keyword. Independent models declare all arguments in
-  `input_coords`; stateful models additionally declare `forcing_coords`.
-- **Keep rollout state explicit.** Outputs and serializable state fully determine
-  continuation. Required forcing is never implicitly reused; hooks run only in the iterator.
-- **Isolate randomness.** Calls and new trajectories advance a local stream.
-  `set_rng` resets it; `reset=False` initializes only an absent stream. Seeded execution
-  preserves global RNG state, and reseeding leaves live trajectories unaffected.
-- **Declare analysis timing.** Stateful gridded outputs carry `lead_time`. Step cadence
-  is the last output lead minus the later of the first input slot's last lead and zero.
-  Drivers request tabular forcing at the analysis valid time and pass `None` for no rows.
-
-[da-spec]: https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/dev/spec/DA_MODEL_CONTRACT_SPEC.md
+[da-spec]: ../../specs/E2S-07_DA_MODEL_CONTRACT_SPEC.md
 
 ## Usage
 
