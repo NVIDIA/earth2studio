@@ -1,3 +1,5 @@
+<!-- markdownlint-configure-file { "MD013": { "tables": false } } -->
+
 # E2S-01: Earth2Studio Core Metadata and Coordinate Systems
 
 ## Purpose

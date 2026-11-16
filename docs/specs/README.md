@@ -26,8 +26,7 @@ that an implementation conforms. Code and tests must satisfy the applicable spec
 
 For new requirements, use short, direct sentences. Avoid named-model examples,
 internal classes, source paths, implementation recipes, rollout history, and
-speculative features. Keep
-research and unresolved proposals in `dev/scratch`; they are not requirements.
+speculative features.
 
 Existing specs retain their examples and notes; relocation and formatting do not
 change their contracts.
