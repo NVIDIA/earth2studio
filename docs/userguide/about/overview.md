@@ -2,138 +2,89 @@
 
 # Overview { #overview_userguide }
 
-Welcome to the Earth2Studio user guide.
-This guide explains how Earth2Studio is organized, how its main components fit
-together, and where to go when you want to install dependencies, run examples, or
-extend the package.
-
-Earth2Studio is a Python package for working with AI weather and climate models.
-It provides model interfaces, data connectors, IO backends, workflow utilities, and
-supporting tools that can be assembled into research or production inference
-pipelines.
+Earth2Studio is a Python package of building blocks for AI weather and climate
+inference. In 1.0, shared interfaces and labeled data connect data sources, models,
+and analysis tools so you can construct pipelines for your own application.
 
 ## Package Philosophy
 
-Earth2Studio is intentionally built from small, explicit pieces.
-Rather than hiding a full workflow inside a single object, the package keeps data
-access, model execution, output writing, perturbations, statistics, and checkpointing
-as separate components with shared interfaces.
-This makes it easier to inspect intermediate state, replace one part of a workflow,
-or bring your own model or dataset.
+Each component has a focused role: data sources fetch fields or observations;
+models forecast, diagnose, downscale, or assimilate; regridders align spatial
+grids; perturbations and statistics support ensembles; IO backends store results.
+Use them directly, combine them with the execution tools, or supply your own
+implementations of the same interfaces.
 
-!!! tip "Design principles"
-    - **Modular components**: choose the data source, model, IO backend, and workflow
-      utilities that fit the task.
-    - **Simple data movement**: tensors and coordinates stay visible at component
-      boundaries.
-    - **Consistent APIs**: similar components expose similar call patterns.
-    - **Composable workflows**: built-in workflows are starting points, not closed
-      systems.
-    - **Extension first**: custom models, data sources, and IO backends can plug into
-      the same interfaces.
-
-## Pipeline Model
-
-Most Earth2Studio workflows follow the same high-level shape:
-
-<div class="grid cards" markdown>
-
-- **1. Fetch state or observations**
-
-    Data sources fetch initial states, forecasts, reanalysis data, observations, or
-    local arrays.
-
-- **2. Prepare tensor data**
-
-    Workflow utilities convert Xarray or tabular data into tensors and coordinate
-    dictionaries for model execution.
-
-- **3. Run models**
-
-    Prognostic, diagnostic, data-assimilation, and downscaling models transform the
-    state.
-
-- **4. Store or analyze results**
-
-    IO backends, statistics, and checkpoints write outputs, summarize ensembles, or
-    make workflows restartable.
-
-</div>
-
-This separation is the main mental model for the package.
-If a workflow does not quite fit your use case, you can usually keep most components
-unchanged and replace the one piece that needs custom behavior.
+These interfaces form **contracts**: methods define what a component does, while
+coordinate signatures and schemas declare the data it accepts and produces.
+This makes pipelines easier for both humans and coding agents to build and inspect.
+A person can trace labeled fields through a workflow; an agent can inspect the same
+declarations to select inputs, connect compatible components, and diagnose mismatches
+without having to infer every model's requirements from its implementation.
 
 ## Data Movement { #data_userguide }
 
-Earth2Studio keeps the data exchanged between components explicit and inspectable.
-Inside model workflows, fields are `xarray.DataArray` objects carrying values,
-dimension labels, auxiliary coordinates and metadata together. Values are backed by
-NumPy on CPU and CuPy on CUDA. For example, a forecast might be indexed by batch, lead time, variable,
-latitude, and longitude.
+Two core data structures carry data between components:
+
+- **DataArrays** (`xarray.DataArray`) hold multidimensional fields, with values,
+  named dimensions, coordinates, and metadata together. NumPy backs CPU values;
+  CuPy backs CUDA values. Models, perturbations, statistics, and IO backends work
+  with these labeled fields directly.
+- **DataFrames** (pandas or cuDF, where supported) hold tabular data such as sparse
+  observations. A `FrameSchema` describes the expected columns and constraints.
+  Assimilation models can accept DataArrays, DataFrames, or a combination.
+
+`fetch_data` prepares fields for model inputs, including device placement,
+regridding, and requested temporal statistics. `fetch_dataframe` prepares tabular
+inputs. Torch-based models convert at their computation boundary with
+`.e2s.to_torch()` and `from_torch()`, keeping the public exchange labeled.
 
 !!! note
     Data is moved between Earth2Studio components in physical units. Normalization,
     scaling, and model-specific preprocessing should be handled inside the relevant
     model or component.
 
-Data sources return Xarray objects. `earth2studio.data.fetch_data` prepares a field
-DataArray for model execution, including requested grids and temporal statistics.
-Statistics and perturbations take and return DataArrays directly. Tensor-based
-components such as IO use explicit boundary conversion with `.e2s.to_torch()`;
-`from_torch(tensor, signature)` restores labelled fields.
-
-### Shared CUDA Memory
-
-On Linux CUDA systems with RMM installed, `auto` and `cupy` share pools between Torch,
-CuPy, and cuDF. Existing custom RMM resources are preserved. Setup is process-wide:
-import Earth2Studio or select the CuPy backend before initializing Torch CUDA.
-
-Set `EARTH2STUDIO_DISABLE_RMM=1` before import to keep existing allocators;
-CuPy conversions still work. Non-Linux systems, missing RMM, CPU-only imports,
-and initial `numpy`/`torch` backends skip setup.
-
-RMM's Torch adapter does not honor `Tensor.record_stream()`. Keep tensors alive
-until all streams using them finish, or disable RMM. Use RMM instrumentation for
-pool statistics; Torch's native cache controls do not manage these pools.
-
 ## Coordinate Systems { #coordinates_userguide }
 
-Models declare coordinates with allocation-free `CoordinateSystem` DataArrays.
-Read dimension order through `.dims`, lengths through `.sizes`, and labels through
-`.coords`. The signature contains no field values. Dynamic leading dimensions are
-marked explicitly; spatial domains and variables are configured before planning.
-Earth2Studio uses a small set of common coordinate names across built-in components:
+Coordinates describe what a model needs and what it produces, beyond array shape:
+which variables, which grid, and which times. Gridded declarations use allocation-free
+`CoordinateSystem` DataArray signatures: inspect `.dims`, `.sizes`, and `.coords`
+without allocating field values. Tabular declarations use `FrameSchema` instead.
 
-| Key | Description |
+| Declaration | Contract |
 | --- | --- |
-| `batch` | Free dimension for batching or ensemble-like axes. |
-| `time` | Initialization or valid times as NumPy datetime values. |
-| `lead_time` | Forecast step offsets as NumPy timedelta values. |
-| `variable` | Earth2Studio variable identifiers. |
-| `lat` | Latitude coordinate values. |
-| `lon` | Longitude coordinate values, commonly `[0, 360)`. |
+| `input_coords()` | Inputs required for a call or rollout initialization. |
+| `forcing_coords()` | Stateful conditioning, such as boundary fields or observations. |
+| `output_coords(*input_coords)` | Outputs produced for the supplied input signatures. |
 
-A simple latitude-longitude field might look like:
+A model with several inputs or outputs declares an ordered tuple of signatures,
+one per argument or result. Common coordinates include `variable`, `time`,
+`lead_time`, `lat`, and `lon`; dynamic leading dimensions allow batching.
+For example, an input signature can specify two historical atmospheric states on
+one grid, while the output signature declares a forecast six hours later.
+These declarations let execution tools check compatibility and plan data requests
+and output storage before inference.
 
-```python
-import numpy as np
-import xarray as xr
+## Constructing Pipelines
 
-x = xr.DataArray(
-    np.random.default_rng(0).standard_normal((181, 360)),
-    dims=("lat", "lon"),
-    coords={
-        "lat": np.linspace(-90, 90, 181),
-        "lon": np.linspace(0, 360, 360, endpoint=False),
-    },
-)
-```
+A typical pipeline fetches initial conditions and observations, aligns them to model
+contracts, executes models, and stores or scores their outputs. Two layers assemble
+these building blocks:
 
-Models advertise the coordinates they expect and produce through `input_coords()` and
-`output_coords()`.
-This lets workflows validate compatibility before or during execution and makes model
-rollouts easier to reason about.
+- **`Pipeline`** (`earth2studio.run`) drives a runner over work items specifying
+  initialization times, forecast horizons, and optional ensemble members. It handles
+  output filtering and regridding, storage, optional scoring, distribution across
+  ranks, and resuming completed work. `Pipeline.from_model(...)` builds a prognostic
+  runner from a model and data sources, with optional diagnostics.
+- **`CoupledRunner`** (`earth2studio.coupling`) connects multiple models through
+  `Connector` declarations. Each connector feeds a producer's fields into a consumer's
+  slot, with explicit variable mapping, time selection, and optional regridding.
+  The coupler uses model signatures to schedule components at their own cadences
+  and fetch inputs not supplied by another component.
+
+Pass a `CoupledRunner` to `Pipeline` to run a coupled system with the same output,
+scoring, and work-management tools as a single-model forecast. The contracts remain
+visible at each boundary, so humans and agents can replace a component or extend a
+pipeline while checking that its inputs and outputs still fit.
 
 ## Where To Go Next
 
