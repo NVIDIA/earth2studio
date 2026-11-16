@@ -42,8 +42,11 @@ initializations:
       runs are verified against ERA5. HealDA is an AI data assimilation model:
       a neural network on a HEALPix mesh that turns a window of raw
       conventional and satellite observations from the NNJA archive directly
-      into a global analysis. So a forecast initialized from it runs end to
-      end from observations to prediction.
+      into a global analysis. A forecast initialized from it runs from
+      observations to prediction. 
+      Note : Some inputs like `tp06` are not provided by HealDA, so either
+      they can be replaced by ERA5 or a precipitation diagnostic such as
+      PrecipitationAFNOv2. 
     reference: >-
       Gupta, A., Subramaniam, A., Pritchard, M. S., Kashinath, K., Frolov, S.,
       Lieberman, K., ... & Brenowitz, N. D. (2026). HealDA: Highlighting the
