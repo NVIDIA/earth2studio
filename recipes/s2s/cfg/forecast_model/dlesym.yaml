@@ -1,4 +1,7 @@
-architecture: earth2studio.models.px.DLESyMLatLon   # forecast model class
-max_num_checkpoint_pairs: ${ncheckpoints}  # max number of checkpoint pairs which will be used
-natmos: 4 # Number of atmospheric model checkpoint pairs in the model package
-nocean: 4 # Number of ocean model checkpoint pairs in the model package
+architecture: earth2studio.models.px.DLESyM   # forecast model class
+version: v1.1   # stochastic checkpoint: members are sampled, no perturbation needed
+# DLESyM runs on HEALPix with derived inputs; this wraps data_source to serve them
+input_source:
+    _target_: earth2studio.models.px.dlesym.DLESyMInputSource
+    _partial_: True
+    nside: 64
