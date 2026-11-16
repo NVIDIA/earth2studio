@@ -22,7 +22,7 @@ DataArray IO Backends
 Plan an output store from a model signature and write DataArrays directly.
 
 This CPU-only tutorial uses the Persistence model, a random data source and the
-in-memory XarrayBackend. See ``dev/spec/IO_SPEC.md`` for the contract.
+in-memory XarrayBackend.
 """
 
 # /// script

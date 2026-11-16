@@ -1,11 +1,11 @@
-# Earth2Studio IO Backend Protocol
+# E2S-10: Earth2Studio IO Backend Protocol
 
-## Goal
+## Purpose
 
 Write model and data-source DataArrays to storage without converting them to
 tensors and coordinate dictionaries, preserving the coordinates and metadata that
 make stored fields self-describing. Models, sources and regridders already exchange
-`xr.DataArray` (see [MODEL_CONTRACT_SPEC.md](MODEL_CONTRACT_SPEC.md)); this contract
+`xr.DataArray` (see [E2S-06_MODEL_CONTRACT_SPEC.md](E2S-06_MODEL_CONTRACT_SPEC.md)); this contract
 moves IO onto the same payload so drivers write what models yield:
 
 ```python
@@ -18,7 +18,9 @@ io.close()
 This revision also adds lifecycle methods, so the protocol changes once for
 DataArray writes and finalization together.
 
-## Interface
+## Contract
+
+### Interface
 
 ```python
 @runtime_checkable
@@ -47,10 +49,10 @@ A backend whose storage several processes can share may also expose
 `write_blocks: dict[str, int]`: the largest chunk or shard extent per dimension
 over its stored data arrays, the smallest unit two writers can update
 independently. Distributed execution reads it to reject stores that ranks would
-share (see [EXECUTION_CONTRACT_SPEC.md](EXECUTION_CONTRACT_SPEC.md)). `ZarrBackend`,
+share (see [E2S-11_EXECUTION_CONTRACT_SPEC.md](E2S-11_EXECUTION_CONTRACT_SPEC.md)). `ZarrBackend`,
 `IceChunkBackend` and `AsyncZarrBackend` provide it.
 
-## Templates
+### Templates
 
 A template is a DataArray whose field values are never read: normally an
 allocation-free `coord_array` signature, though any DataArray works. `add_array`
@@ -91,7 +93,7 @@ Outputs whose coordinates differ go to separate backends. A multi-slot model's `
 DataArrays with differing coordinates, so drivers write each slot to its own backend; one backend
 may hold several slots only when their shared dimensions agree.
 
-## Writes
+### Writes
 
 `write(x)` locates `x` in the store by coordinate label, never by position.
 
@@ -111,7 +113,7 @@ written again. `add_array` wrote them once.
 `ValueError` for unsupported writes. `AsyncZarrBackend`, for example, requires
 dimensions outside its parallel dimensions to be written in full.
 
-### Payloads and ownership
+#### Payloads and ownership
 
 `x` may be NumPy-, CuPy- or Torch-adapter-backed on any device. Moving data to the
 storage device is the backend's job; callers never convert first.
@@ -122,10 +124,10 @@ callers may reuse or release `x` immediately. This mirrors the model ownership r
 and protects rollouts from backends that would otherwise convert units or dtypes in
 place.
 
-## Array Names
+### Array Names
 
 Stored array names are the `variable` labels, verbatim. Statistic qualifiers carry
-quantity identity (see [TIME_STATISTICS_SPEC.md](TIME_STATISTICS_SPEC.md)), so the
+quantity identity (see [E2S-03_TIME_STATISTICS_SPEC.md](E2S-03_TIME_STATISTICS_SPEC.md)), so the
 name is enough to rebuild `earth2studio_statistics` with `coord_array` or
 `coord_array_like` on read. No statistics attribute is stored.
 
@@ -135,7 +137,7 @@ may offer an opt-in name mapping for these cases. A mapped store records the ori
 label in each array's `earth2studio_variable` attribute so readers can restore it.
 Mapping is never the default.
 
-## Metadata
+### Metadata
 
 `add_array` persists:
 
@@ -152,7 +154,7 @@ and `earth2studio_dynamic_dims`, and `earth2studio_statistics`, which the labels
 determine. A format that cannot store an attribute value natively, such as a
 dictionary or list in netCDF, stores it as a JSON string.
 
-## Round Trip
+### Round Trip
 
 After `flush`, opening the store with Xarray (`xr.open_zarr`, `xr.open_dataset`, or
 the in-memory dataset) yields, for each array:
@@ -163,7 +165,7 @@ the in-memory dataset) yields, for each array:
 - the template's auxiliary coordinates and coordinate attributes;
 - the persisted attributes above, so `infer_grid` recovers the template's grid.
 
-## Rules
+### Rules
 
 | Rule  | Requirement                                                                            |
 | ----- | -------------------------------------------------------------------------------------- |
@@ -182,7 +184,7 @@ the in-memory dataset) yields, for each array:
 A shared test suite in `test/io/` checks these rules for every migrated backend.
 There is no runtime conformance checker: backends are few and rarely added.
 
-## Shared Helpers
+### Shared Helpers
 
 `earth2studio/io/utils.py` holds the logic previously duplicated in each backend:
 `plan_arrays` validates a template against the store and lists what to create, and
@@ -207,7 +209,7 @@ extent. Spatial replacements raise, as in `coord_array_like`.
 - Grid metadata, auxiliary coordinates, dtype, name and user attributes carry over;
 the result is allocation-free and has no dynamic dimensions.
 
-## Migration
+### Migration
 
 The legacy tensor protocol is replaced, not deprecated alongside. Development will
 proceed in two steps:
@@ -231,10 +233,10 @@ values with a `write` instead of `data=`.
 - `write(tensor, coords, array_name)` becomes `write(x)`.
 - Writes no longer create arrays implicitly.
 - Curvilinear stores no longer add synthetic `ilat`/`ilon` dimensions. Arrays use
-the grid's own dimensions (`y`, `x`; see [GRID_SPEC.md](GRID_SPEC.md)) with
+the grid's own dimensions (`y`, `x`; see [E2S-02_GRID_SPEC.md](E2S-02_GRID_SPEC.md)) with
 latitude/longitude as auxiliary coordinates, so readers of existing stores change.
 
-## Open Questions
+### Open Questions
 
 - Should stores grow along a dimension (`time` for operational cycling, or runs
 whose extent is discovered rather than declared)? Zarr supports resizing, but

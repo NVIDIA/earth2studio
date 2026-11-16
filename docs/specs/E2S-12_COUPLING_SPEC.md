@@ -1,7 +1,7 @@
 <!-- markdownlint-disable MD013 -->
-# Earth2Studio Coupling
+# E2S-12: Earth2Studio Coupling
 
-## Goal
+## Purpose
 
 Run several models together, each at its own cadence and on its own grid, with
 fields passed between them, and run the result under `Pipeline` like any other
@@ -23,7 +23,9 @@ components, a derived schedule, eager validation and a readable plan) while buil
 execution contracts. The impact-modeling requirements it serves are in the
 `earth2-impact-modeling` docs (CR1–CR7).
 
-## Interface
+## Contract
+
+### Interface
 
 ```python
 from earth2studio.coupling import Connector, CoupledRunner
@@ -72,7 +74,7 @@ when a fetch needs it. `CouplingError` is a
 models; the rest move with `to`. Each component's fetches and connected fields
 are staged onto its device, and a connector's regridder runs there.
 
-## Components
+### Components
 
 | Protocol | Runs | Calls |
 | --- | --- | --- |
@@ -108,7 +110,7 @@ different variables. Required times resolve as for imports, except that values
 the producer cannot supply at or before the item time are kept rather than
 fetched. The overwrite is not published; streams carry each model's own output.
 
-## Connectors and resolution
+### Connectors and resolution
 
 For each call, every import needs a set of valid times, following the model
 contract: `initialize` takes the whole forcing window; `step` takes the window's
@@ -141,7 +143,7 @@ between the models, such as `DerivedWS` for wind speed or
 pressure levels. The component publishes its own stream, so conversions are
 visible in `describe` and in the outputs.
 
-## Scheduling
+### Scheduling
 
 Ticks are the lead times at which some stateful component's chunk is due.
 Before the first tick, every stateful component fetches its inputs, holds them
@@ -184,7 +186,7 @@ runner logs a warning at construction when a stateful component sets one. Use
 `perturbation=` for the initial condition, or a diagnostic component or
 connector for per-step changes.
 
-## Streams
+### Streams
 
 Each output slot yields one stream: named after the component when it has one
 output slot, else `name.0`, `name.1` and so on. Stream names must be unique. A
@@ -203,7 +205,7 @@ leading `ensemble` dimension through connectors, buffers, time statistics,
 regridders and state connectors; one observation frame serves every member, so a
 DA component must accept a batched background with unbatched observations.
 
-## Independent assimilation models
+### Independent assimilation models
 
 An `AssimilationModel` without `initialize` and `step`, such as HealDA, computes
 one analysis per call from observation DataFrames, with no lead times. It is not
@@ -221,7 +223,7 @@ when to run, so the runner rejects its DataFrame slots. It fits elsewhere:
   mid-run, with a forecast as background, is a `StatefulAssimilationModel`, or
   warm-start work items (execution contract open decision 1).
 
-## Rules
+### Rules
 
 | Rule | Requirement |
 | --- | --- |
@@ -238,7 +240,7 @@ when to run, so the runner rejects its DataFrame slots. It fits elsewhere:
 | `C11` | A stateful chunk due by the final lead time that cannot run raises, naming the cycle or the missing frame; construction checks this first |
 | `C12` | One uniquely named stream per output slot; `describe`, `output_coords` and `data_requests` come from the scheduler that runs the item; `data_requests` lists `fetch_data` calls only, not DataFrame fetches |
 
-## Out of scope or future work
+### Out of scope or future work
 
 - Time interpolation and conservative regridding. Unit conversion and
   vertical interpolation are diagnostic components, such as
@@ -255,7 +257,7 @@ when to run, so the runner rejects its DataFrame slots. It fits elsewhere:
 - Training rollouts: nothing differentiates through the exchange, which stages
   and regrids frames outside autograd.
 
-## Open decisions
+### Open decisions
 
 1. **Units.** Connected slots exchange lexicon units. A lexicon units table
    would let connectors reject renames across units and sums over rates.
