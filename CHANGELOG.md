@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `Persistence` builds its input lead times in the unit of `dt`, so a sub-hour time
+  step with `history > 1` (e.g. 30 minutes) no longer collapses the history lead
+  times to whole hours and rejects correctly spaced inputs.
+
 ### Security
 
 ### Dependencies

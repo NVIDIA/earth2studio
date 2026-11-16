@@ -145,6 +145,26 @@ def test_persistence_iter(ensemble, variable, history, device):
             break
 
 
+@pytest.mark.parametrize("dt", [np.timedelta64(30, "m"), np.timedelta64(1, "D")])
+def test_persistence_iter_dt(dt):
+    dc = OrderedDict({"lat": np.arange(4.0), "lon": np.arange(8.0)})
+    p = Persistence("t2m", dc, history=3, dt=dt)
+
+    lead_time = p.input_coords()["lead_time"]
+    assert np.array_equal(lead_time, np.array([-2 * dt, -dt, 0 * dt]))
+
+    time = np.array([np.datetime64("1993-04-05T00:00")])
+    x, coords = fetch_data(Random(dc), time, np.array(["t2m"]), lead_time)
+
+    p_iter = p.create_iterator(x, coords)
+    next(p_iter)  # Skip first which should return the input
+    for i, (out, out_coords) in enumerate(p_iter):
+        assert torch.allclose(x[:, -1:], out)
+        assert out_coords["lead_time"][0] == dt * (i + 1)
+        if i > 2:
+            break
+
+
 def test_persistence_checkpoint_state_round_trip(tmp_path):
     variable = ["t2m", "tcwv"]
     time = np.array([np.datetime64("1993-04-05T00:00")])

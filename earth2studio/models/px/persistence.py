@@ -72,9 +72,7 @@ class Persistence(torch.nn.Module, PrognosticMixin):
         self._input_coords = OrderedDict(
             {
                 "batch": np.empty(0),
-                "lead_time": np.array(
-                    [np.timedelta64(-dt * i, "h") for i in reversed(range(history))]
-                ),
+                "lead_time": np.array([-dt * i for i in reversed(range(history))]),
                 "variable": np.array(variable),
             }
         )
