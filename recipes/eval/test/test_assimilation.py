@@ -24,8 +24,6 @@ runs on CPU without downloads.
 from __future__ import annotations
 
 import os
-import threading
-import time
 from collections import OrderedDict
 
 import numpy as np
@@ -45,7 +43,6 @@ from src.runners.assimilation import (
     analysis_coords,
     assimilation,
     assimilation_forecast,
-    shared_window_guard,
 )
 
 from earth2studio.data import CompositeSource
@@ -307,53 +304,6 @@ def test_variable_is_a_requested_column_only_of_long_frames() -> None:
     assert "variable" in list(long_request.fields)
     assert "variable" not in list(wide_request.fields)
     assert "observation_u" in list(wide_request.fields)
-
-
-def test_window_guard_marks_only_a_successful_fetch(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
-    with shared_window_guard(T0):
-        pass
-    assert (tmp_path / "obs_windows" / "2024-01-01T000000.done").exists()
-    # A failed fetch leaves no marker, so the next process fetches itself.
-    with pytest.raises(RuntimeError, match="fetch failed"):
-        with shared_window_guard(T1):
-            raise RuntimeError("fetch failed")
-    assert not (tmp_path / "obs_windows" / "2024-01-02T000000.done").exists()
-
-
-def test_window_guard_lets_one_process_fetch_first(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
-    events: list[str] = []
-    first_in, release = threading.Event(), threading.Event()
-
-    def first() -> None:
-        with shared_window_guard(T0):
-            events.append("first")
-            first_in.set()
-            release.wait(10)
-
-    def second() -> None:
-        first_in.wait(10)
-        with shared_window_guard(T0):
-            events.append("second")
-
-    threads = [threading.Thread(target=first), threading.Thread(target=second)]
-    for thread in threads:
-        thread.start()
-    first_in.wait(10)
-    time.sleep(0.3)  # long enough for the second fetch to reach the lock
-    assert events == ["first"]
-    release.set()
-    for thread in threads:
-        thread.join(10)
-    assert events == ["first", "second"]
-
-
-def test_single_process_fetch_skips_the_window_guard(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("EARTH2STUDIO_DATA_CACHE", str(tmp_path))
-    model = FakeDA()
-    _obs(model, conv=FakeObsSource()).fetch(T0)
-    assert not (tmp_path / "obs_windows").exists()
 
 
 # -- AssimilationRunner -------------------------------------------------------

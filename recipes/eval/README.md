@@ -419,12 +419,11 @@ remove it to fetch live again.
 Every rank of an ensemble group starts from the same initial condition.
 In online scoring, only the group's root rank fetches the observations and
 runs the DA model, then broadcasts the analysis to the rest of the group.
-Runs without ensemble groups compute the analysis on every rank.
-When such a run fetches observations live, one process per node downloads
-each analysis time's observation window first. The others wait, then read
-the files from the cache. That saves traffic only when the ranks share a
-data cache: set `EARTH2STUDIO_DATA_CACHE` to a node-local directory. With
-the default per-process caches every rank downloads its own copy.
+Runs without ensemble groups compute the analysis on every rank, and each
+rank fetches its own observations. When two or more ranks need the same
+analysis time, as in an offline ensemble whose members share an initial
+condition, keep `predownload.observations.enabled` on. The ranks then read
+one stored copy instead of each downloading the window.
 
 ### Missing observations and archive coverage
 

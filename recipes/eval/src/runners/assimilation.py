@@ -42,10 +42,8 @@ Cycling ``StatefulAssimilationModel`` runs are out of scope, and a
 
 from __future__ import annotations
 
-import fcntl
 import os
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from contextlib import contextmanager, nullcontext
 from typing import Any
 
 import hydra
@@ -56,7 +54,6 @@ from loguru import logger
 from omegaconf import DictConfig, OmegaConf
 
 from earth2studio.data import CompositeSource, RegriddedSource, fetch_dataframe
-from earth2studio.data.utils import datasource_cache_root
 from earth2studio.grids import (
     GridDefinition,
     infer_grid,
@@ -71,7 +68,6 @@ from earth2studio.run.runner import (
     _seed_model,
     _signature_for_stream,
 )
-from earth2studio.run.work import rank_info
 from earth2studio.utils.coords import E2S_DYNAMIC_DIMS, coord_array
 from earth2studio.utils.type import CoordinateSystem, FrameSchema
 
@@ -197,49 +193,6 @@ def _fields_for(source: Any, schema: FrameSchema) -> np.ndarray | None:
     long_frame = "observation" in schema
     fields = [k for k in schema if k != "variable" or (long_frame and k in names)]
     return np.array(fields, dtype=str)
-
-
-@contextmanager
-def shared_window_guard(time: np.datetime64) -> Iterator[None]:
-    """Let one process download an observation window before the others.
-
-    Ranks whose sources share one data cache root, a user-set
-    ``EARTH2STUDIO_DATA_CACHE``, would otherwise all download the same window
-    at once: one copy of the traffic per rank, and enough concurrent requests
-    for a public bucket to time out.  The first process to take the per-time
-    lock fetches alone.  Once its fetch succeeds, a marker lets the others read
-    the cache concurrently; a failed fetch leaves no marker, so the next
-    process fetches itself.  Lock and marker sit under the cache root and share
-    its owner and lifetime.  With the per-process caches of
-    :func:`src.logs.isolate_data_cache`, each process is the first and the
-    guard costs nothing.  It only helps sources that cache their downloads.
-
-    Parameters
-    ----------
-    time : np.datetime64
-        Analysis time whose observation window the caller fetches inside
-        the guard.
-    """
-    root = os.path.join(datasource_cache_root(), "obs_windows")
-    os.makedirs(root, exist_ok=True)
-    stamp = str(np.datetime64(time, "s")).replace(":", "")
-    done = os.path.join(root, f"{stamp}.done")
-    if os.path.exists(done):
-        yield
-        return
-    with open(os.path.join(root, f"{stamp}.lock"), "a") as handle:
-        fcntl.flock(handle, fcntl.LOCK_EX)
-        try:
-            if os.path.exists(done):
-                # Another process finished while this one waited.
-                fcntl.flock(handle, fcntl.LOCK_UN)
-                yield
-                return
-            yield  # this process fetches first, holding the lock
-            with open(done, "w"):
-                pass  # reached only when the fetch succeeded
-        finally:
-            fcntl.flock(handle, fcntl.LOCK_UN)
 
 
 class ObsSources:
@@ -409,34 +362,22 @@ class ObsSources:
         -------
         tuple
             One DataFrame or ``None`` per slot, in slot order.
-
-        Notes
-        -----
-        In a distributed run a live fetch goes through
-        :func:`shared_window_guard`, so ranks sharing a data cache download
-        each window once.
         """
         times = np.array([time], dtype="datetime64[ns]")
         frames: list[Any] = []
-        live = any(
-            source is not None and not isinstance(source, PredownloadedFrameSource)
-            for source in self.sources
-        )
-        guard = shared_window_guard(time) if live and rank_info()[1] > 1 else None
-        with guard if guard is not None else nullcontext():
-            for source, schema in zip(self.sources, self.schemas):
-                if source is None:
-                    frames.append(None)
-                    continue
-                frames.append(
-                    fetch_dataframe(
-                        source,
-                        time=times,
-                        variable=np.asarray(schema["variable"]),
-                        fields=_fields_for(source, schema),
-                        device=torch.device(device),
-                    )
+        for source, schema in zip(self.sources, self.schemas):
+            if source is None:
+                frames.append(None)
+                continue
+            frames.append(
+                fetch_dataframe(
+                    source,
+                    time=times,
+                    variable=np.asarray(schema["variable"]),
+                    fields=_fields_for(source, schema),
+                    device=torch.device(device),
                 )
+            )
         return tuple(frames)
 
     def requests(self, times: np.ndarray) -> tuple[FrameRequest, ...]:
