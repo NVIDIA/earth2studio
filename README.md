@@ -33,22 +33,31 @@ composable inference APIs, and GPU-accelerated workflows in one Python package.
 Paste this into your coding agent (Claude, Codex, OpenCode, Cursor, etc.):
 
 ```text
-Help me get started with NVIDIA Earth2Studio. Read
-https://github.com/NVIDIA/earth2studio/blob/main/AGENTS.md and follow its guidance
-for my task. If I have a local checkout, use its AGENTS.md instead.
+Help me get started with Earth2Studio.
+https://github.com/NVIDIA/earth2studio
 ```
 
 [`AGENTS.md`](./AGENTS.md) routes usage and development tasks to the relevant
 documentation and skills. Then ask for what you want:
 
-```text
+```bash
+# Learn about the latest release
 Summarize new models and features in the latest Earth2Studio release.
 Include the version, release date, and links to the release notes.
 
+# Create a forecasting pipeline
 Create me a 10-day AI forecasting pipeline starting from the latest GFS analysis.
+
+# Set up a model environment
 Set up my environment for FourCastNet3 inference.
+
+# Find a model for your forecast and hardware
 Recommend the best model for a 2-week global forecast on one GPU.
+
+# Explore models that predict precipitation
 What models do you have that support predicting precipitation?
+
+# Download weather data
 Fetch ERA5 surface winds for March 2024 and save them to Zarr.
 ```
 
