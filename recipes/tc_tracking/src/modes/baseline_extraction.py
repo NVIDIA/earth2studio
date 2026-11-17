@@ -25,8 +25,8 @@ import tropycal.tracks as tropytracks
 from loguru import logger
 from omegaconf import DictConfig
 
-from earth2studio.data import fetch_data
-from src.data.tc_hunt_data_utils import DataSourceManager
+from earth2studio.data import DataSource, fetch_data
+from src.data.tc_hunt_data_utils import data_source_from_config
 from src.tc_hunt_utils import great_circle_distance
 from src.tempest_extremes import TempestExtremes
 
@@ -71,7 +71,7 @@ def extract_from_historic_data(
     ic: np.datetime64,
     n_steps: int,
     time_step: np.timedelta64,
-    data_source_mngr: DataSourceManager,
+    data_source: DataSource,
 ) -> pd.DataFrame:
     """Fetch reanalysis data and extract TC tracks with TempestExtremes.
 
@@ -87,8 +87,8 @@ def extract_from_historic_data(
         Number of time steps to extract.
     time_step : np.timedelta64
         Spacing between time steps.
-    data_source_mngr : DataSourceManager
-        Manager providing the correct data source for the time range.
+    data_source : DataSource
+        Source of the reanalysis data.
 
     Returns
     -------
@@ -99,7 +99,6 @@ def extract_from_historic_data(
         cfg.cyclone_tracking, cfg.store_dir, asynchronous=False
     )
     times = np.arange(n_steps) * time_step
-    data_source = data_source_mngr.select_data_source(ic + times)
 
     try:
         # all time steps of the storm as a single-member "forecast" from ic,
@@ -340,7 +339,7 @@ def process_case(
     case: str,
     cfg: DictConfig,
     ibtracs: tropytracks.TrackDataset,
-    data_source_mngr: DataSourceManager,
+    data_source: DataSource,
     time_step: np.timedelta64,
     max_dist: float,
 ) -> pd.DataFrame | None:
@@ -354,8 +353,8 @@ def process_case(
         Hydra configuration object.
     ibtracs : tropytracks.TrackDataset
         Pre-loaded IBTrACS dataset.
-    data_source_mngr : DataSourceManager
-        Manager providing the correct data source for the time range.
+    data_source : DataSource
+        Source of the reanalysis data.
     time_step : np.timedelta64
         Time step for the reanalysis extraction.
     max_dist : float
@@ -376,7 +375,7 @@ def process_case(
         ic=ic,
         n_steps=n_steps,
         time_step=time_step,
-        data_source_mngr=data_source_mngr,
+        data_source=data_source,
     )
 
     matched_track = match_tracks(ib_storm, hist_tracks, case, max_dist)
@@ -390,7 +389,7 @@ _WORKER: dict = {}
 
 
 def _init_worker(cfg: DictConfig, ibtracs_path: str) -> None:
-    """Per-worker initialiser: load IBTrACS + the data source manager once.
+    """Per-worker initialiser: load IBTrACS and build the data source once.
 
     Used as the ``initializer`` of :class:`ProcessPoolExecutor` so each worker
     process pays the IBTrACS load cost a single time, regardless of how many
@@ -403,7 +402,7 @@ def _init_worker(cfg: DictConfig, ibtracs_path: str) -> None:
         ibtracs_mode="jtwc_neumann",
         ibtracs_url=ibtracs_path,
     )
-    _WORKER["dsm"] = DataSourceManager(cfg)
+    _WORKER["data_source"] = data_source_from_config(cfg.data_source)
 
 
 def _run_case(case: str, time_step: np.timedelta64) -> None:
@@ -414,7 +413,7 @@ def _run_case(case: str, time_step: np.timedelta64) -> None:
     cfg = _WORKER["cfg"]
     max_dist = cfg.get("max_dist", 300_000)
     matched = process_case(
-        case, cfg, _WORKER["ibtracs"], _WORKER["dsm"], time_step, max_dist
+        case, cfg, _WORKER["ibtracs"], _WORKER["data_source"], time_step, max_dist
     )
     if matched is None:
         logger.warning(
