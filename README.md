@@ -2,7 +2,7 @@
 
 > [!IMPORTANT]
 > **1.0.0**: This is a major release with breaking changes from pre-1.0 releases.
-> See the [migration guide](https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/MIGRATION.md)
+> See the [migration guide](https://github.com/NVIDIA/earth2studio/blob/main/MIGRATION.md)
 > if you need help transitioning, or point your agent to it.
 > To install the legacy version, please refer to the
 > [0.20.0 installation instructions](https://nvidia.github.io/earth2studio/0.20.0/userguide/about/install/).
@@ -19,7 +19,7 @@
 [![coverage][e2studio_cov_img]][e2studio_cov_url]
 [![uv][e2studio_uv_img]][e2studio_uv_url]
 
-[Install][e2studio_install_url] | [User-Guide][e2studio_userguide_url] |
+[Install][e2studio_install_url] | [User Guide][e2studio_userguide_url] |
 [Examples][e2studio_examples_url] | [API][e2studio_api_url] |
 [Skills](./skills)
 
@@ -48,7 +48,7 @@ Summarize new models and features in the latest Earth2Studio release.
 Include the version, release date, and links to the release notes.
 
 # Create a forecasting pipeline
-Create me a 10-day AI forecasting pipeline starting from the latest GFS analysis.
+Create a 10-day AI forecasting pipeline starting from the latest GFS analysis.
 
 # Set up a Python environment for a specific model
 Set up my environment for FourCastNet3 inference.
@@ -74,7 +74,7 @@ npx skills add NVIDIA/earth2studio --skill earth2studio-discover
 
 Each model has different dependencies; the install guide provides the exact commands for your setup.
 
-| Start here | |
+| Resource | What's there |
 | --- | --- |
 | [**Install**][e2studio_install_url] | Environments, model-specific extras, hardware |
 | [**Examples**][e2studio_examples_url] | Deterministic, ensemble, diagnostic and coupled workflows |

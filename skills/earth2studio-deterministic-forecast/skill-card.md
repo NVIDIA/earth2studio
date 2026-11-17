@@ -26,7 +26,7 @@ Mitigation: Review and scan skill before deployment. <br>
 - [IO Backends](https://nvidia.github.io/earth2studio/main/modules/io/) <br>
 - [run.deterministic source](https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/run/__init__.py) <br>
 - [Pipeline source](https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/run/pipeline.py) <br>
-- [Pipeline example](https://github.com/NVIDIA/earth2studio/blob/main/dev/examples/09_pipeline.py) <br>
+- [Execution specification](https://github.com/NVIDIA/earth2studio/blob/main/docs/specs/E2S-11_EXECUTION_CONTRACT_SPEC.md#pipeline) <br>
 - [Troubleshooting Guide](references/troubleshooting.md) <br>
 
 

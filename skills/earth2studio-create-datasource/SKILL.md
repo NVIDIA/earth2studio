@@ -1,7 +1,7 @@
 ---
 name: earth2studio-create-datasource
 metadata:
-  version: 0.17.1
+  version: 1.0.0
   author: NVIDIA Earth-2 Team <agent-skills@nvidia.com>
   tags:
     - earth2studio

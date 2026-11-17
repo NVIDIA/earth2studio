@@ -1,6 +1,6 @@
 ---
 name: earth2studio-deterministic-forecast
-version: 0.16.0
+version: 1.0.0
 license: Apache-2.0
 metadata:
   author: NVIDIA Earth-2 Team
@@ -52,7 +52,7 @@ Consult these directly for behavior requirements; examples below do not define a
 | The built-in workflow | `deterministic` in `earth2studio/run/__init__.py` |
 | Forecast + diagnostics, multi-time, resumable runs | `Pipeline.from_model`, `PrognosticRunner`, `work_items`, `ProgressStore` in `earth2studio/run/` |
 | Worked example | `examples/01_getting_started/01_deterministic_workflow.py` |
-| Pipeline streams, filtering, regridding, resume | `dev/examples/09_pipeline.py`, `test/run/test_pipeline.py`, `test/run/test_runner.py` |
+| Pipeline streams, filtering, regridding, resume | [Execution specification](../../docs/specs/E2S-11_EXECUTION_CONTRACT_SPEC.md#pipeline) |
 | What changed from 0.x | `MIGRATION.md` |
 
 Live pages (note the `/main/` segment; URLs without it return 404):
@@ -238,7 +238,8 @@ Pipeline.from_model(
 For resume, pass `progress=ProgressStore(path)` to `Pipeline.from_model` and reuse
 the full item list and stores; completed items are skipped, interrupted items
 rerun in full. For multi-GPU runs, initialize a process group before `run` and
-follow `dev/examples/09_pipeline.py` for rank-safe backend creation.
+follow the [execution specification](../../docs/specs/E2S-11_EXECUTION_CONTRACT_SPEC.md)
+for rank-safe backend creation, distributed writes, and progress tracking.
 
 ### 9. Manual loop alternative
 

@@ -1,6 +1,6 @@
 ---
 name: earth2studio-install
-version: 0.18.0
+version: 1.0.0
 license: Apache-2.0
 metadata:
   author: NVIDIA Earth-2 Team
