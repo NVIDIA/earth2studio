@@ -29,21 +29,21 @@ MPL = os.path.join(os.path.dirname(matplotlib.__file__), "mpl-data", "fonts", "t
 
 
 def wind_cmap():
-    """Return the sapphire-to-ice wind palette shared by globe and legend."""
-    # Echo satellite blues and cyan labels, avoiding the vapour panel's teal/green.
+    """Return the sapphire, cyan, and lemon palette shared by globe and legend."""
+    # Echo satellite blues/cyan, reserving their yellow accent for the fastest winds.
     # Increasing luminance preserves the ordering of wind speed on the dark canvas.
     return LinearSegmentedColormap.from_list(
-        "sapphire_ice",
+        "sapphire_cyan_lemon",
         [
             "#030913",
             "#081e42",
             "#10396e",
             "#1756a0",
-            "#237bc7",
-            "#399fe1",
-            "#70bfed",
-            "#b0dff5",
-            "#eaf7ff",
+            "#1687c5",
+            "#38b6da",
+            "#9bd9df",
+            "#e9e7b0",
+            "#fff3b0",
         ],
     )
 
