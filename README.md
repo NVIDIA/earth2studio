@@ -68,8 +68,6 @@ npx skills add NVIDIA/earth2studio --skill earth2studio-install
 npx skills add NVIDIA/earth2studio --skill earth2studio-discover
 ```
 
-Workflow and component-creation skills are listed in [`AGENTS.md`](./AGENTS.md).
-
 ## For humans
 
 | Start here | |
