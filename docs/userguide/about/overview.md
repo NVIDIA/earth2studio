@@ -16,7 +16,7 @@ Each component has a focused role. Choose the pieces your application needs:
 | --- | --- |
 | [Data and metadata](../components/coordinates.md) | Describe what data means. |
 | [Data sources](../components/datasources.md) | Fetch fields, forecasts, or observations. |
-| [Data assimilation](../components/data_assimilation.md) | Ingest or predict sparse observations. |
+| [Data assimilation](../components/data_assimilation.md) | Ingest, predict and assimilate sparse observations. |
 | [Prognostic models](../components/prognostic.md) | Advance a forecast through time. |
 | [Diagnostic models](../components/diagnostic.md) | Derive variables, downscale, or transform fields. |
 | [Perturbations](../components/perturbation.md) | Create alternative initial conditions. |

@@ -38,16 +38,19 @@ allocation-free objects. An execution field contains real values accessible thro
 
 ### Dimensions and Time
 
-| Coordinate | Meaning |
-| --- | --- |
-| `time` | Absolute valid time, or initialization time when paired with forecast leads. |
-| `lead_time` | Timedelta offset from reference time, including history where applicable. |
-| `valid_time` | Auxiliary absolute time: `time + lead_time` for a forecast. |
-| `variable` | Quantity labels, including any temporal qualifiers. |
-| `ensemble` | Member labels, rather than positional indexes alone. |
-| `batch` | Independent samples; often a dynamic prefix in model signatures. |
-| `lat`, `lon` | Geographic locations in degrees, as axes or auxiliary coordinates. |
-| `y`, `x` | Native spatial coordinates or indexes, depending on the grid. |
+Coordinate dtypes describe labels independently of the field-value dtype.
+
+| Name | Coordinate dtype | Meaning |
+| --- | --- | --- |
+| `time` | NumPy `datetime64` | Absolute time; forecast reference time when paired with leads. |
+| `lead_time` | NumPy `timedelta64` | Offset from reference time, including input history. |
+| `valid_time` | NumPy `datetime64` | Auxiliary valid time; `time + lead_time` for forecasts. |
+| `variable` | String labels | Physical quantity identifiers, including temporal qualifiers. |
+| `ensemble` | Declared dtype, often integer or string | Member identity, not array position. |
+| `batch` | Declared label dtype, if labelled | Independent samples; may be unlabelled. |
+| `lat`, `lon` | Floating-point | Geographic coordinates in degrees, as axes or auxiliaries. |
+| `y`, `x` | Numeric or integer indexes | Native spatial coordinates or grid indexes. |
+| `hpx`, `face`, `height`, `width` | Integer indexes | HEALPix pixel or layout indexes. |
 
 Use NumPy `datetime64` for absolute times and `timedelta64` for offsets. For example,
 an initialization at 00 UTC with a six-hour lead is valid at 06 UTC. A history window
@@ -99,6 +102,40 @@ leaves values unconstrained, while a nonempty array lists allowed values. These 
 column declarations, not example rows. A source's PyArrow `SCHEMA` instead describes
 available column types, nullability, and field metadata. See
 [Tabular Observations](datasources.md#tabular-observations) for fetching them.
+
+#### Standard DataFrame Fields
+
+These fields form a shared vocabulary, not a requirement to include every column.
+The source's `SCHEMA` and the consuming model's `FrameSchema` determine which fields
+are available and required. Types below are the suggested PyArrow types from
+`E2STUDIO_SCHEMA`; check the source schema for its exact types and nullability.
+The units of `observation` depend on `variable`.
+
+| Name | Suggested Arrow type | Meaning |
+| --- | --- | --- |
+| `time` | `timestamp[ns]` | Observation time or forecast reference time, in UTC. |
+| `lat` | `float32` | Latitude in degrees, within [-90, 90]. |
+| `lon` | `float32` | Longitude in degrees, within [0, 360]. |
+| `elev` | `float32` | Observation elevation above the surface, metres. |
+| `observation` | `float32` | Measurement or predicted value of the identified variable. |
+| `variable` | `string` | Earth2Studio quantity identifier. |
+| `pres` | `float32` | Observation pressure level, Pa. |
+| `type`, `class` | `string` | Observation type identifier and class. |
+| `source`, `station` | `string` | Per-row source and station identifiers. |
+| `station_elev` | `float32` | Station elevation, metres. |
+| `quality` | `uint16` | Quality-control marker; 0 is best, 15 is missing. |
+| `satellite` | `string` | Satellite platform identifier. |
+| `scan_angle` | `float32` | Satellite scan angle, degrees. |
+| `sensor_index` | `uint16` | Sensor channel index. |
+| `solza`, `solaza` | `float32` | Solar zenith and azimuth angles, degrees. |
+| `satellite_za`, `satellite_aza` | `float32` | Satellite zenith and azimuth angles, degrees. |
+| `wavenumber` | `float64` | Channel wavenumber, cm^-1. |
+| `track_id`, `storm_name`, `basin` | `string` | Track identifier, storm name, and basin code. |
+| `season` | `int32` | Tropical cyclone season year. |
+
+Forecast frames can also declare `lead_time` as an Arrow duration and `valid_time`
+as a timestamp equal to `time + lead_time`. A DataFrame's row index does not replace
+its time, location, or variable columns.
 
 Full contracts are defined in [E2S-01: Core Metadata][metadata-spec],
 [E2S-02: Grids][grid-spec], and [E2S-03: Time Statistics][time-spec].
