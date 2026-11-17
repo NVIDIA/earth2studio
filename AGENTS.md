@@ -1,5 +1,19 @@
 # Earth2Studio Agent Guide
 
+First ask, unless already specified: **"Which Earth2Studio version would you like:
+the latest release, main, or a specific version?"**
+
+- **Latest:** resolve the latest stable tag from GitHub releases, then read
+  `https://github.com/NVIDIA/earth2studio/blob/<version>-rc/AGENTS.md`.
+- **Main:** read `https://github.com/NVIDIA/earth2studio/blob/main/AGENTS.md`.
+- **Specific version:** read the corresponding `<version>-rc/AGENTS.md` at that repository.
+  Preserve an explicitly supplied `-rc` suffix rather than appending it twice.
+
+Verify the branch and file exist; if unavailable, explain and ask before substituting.
+Carry the choice forward without asking again. Use that branch's skills and documentation;
+prefer local files only when they match. Released package installs use the matching release tag.
+For a first forecast, start with [Earth2Studio - Get Started][get-started].
+
 Earth2Studio is an AI weather and climate Python package with a large catalog of data sources
 and prognostic, diagnostic, and data assimilation models. It builds on PyTorch, xarray, and CuPy.
 Its goal is to make these components easy to discover, extend, and combine into reproducible,
@@ -7,8 +21,8 @@ GPU-accelerated workflows for forecasting, downscaling, assimilation, and evalua
 
 Task guides live in [`skills/`](./skills/). Use the routes below to find relevant documentation.
 
-Prefer files in the local checkout; otherwise use the matching release on GitHub
-or the [documentation site](https://nvidia.github.io/earth2studio/main/).
+Use the selected version's sources or matching documentation on the
+[documentation site](https://nvidia.github.io/earth2studio/main/).
 Read and cite only the sources relevant to the task.
 
 ## Documentation routes
@@ -37,7 +51,7 @@ Activate the matching skill with your agent's skill tool, or read its `SKILL.md`
 
 ### Install skills if needed
 
-Install skills directly from the Earth2Studio GitHub repository for current guidance.
+For main, install skills directly from the Earth2Studio GitHub repository.
 Run from your project (requires Node.js/npm) and select your agent when prompted:
 
 ```bash
@@ -46,8 +60,8 @@ npx skills add https://github.com/NVIDIA/earth2studio --skill earth2studio-disco
 ```
 
 Set the `--skill` value to any listed skill name. These commands use the default branch.
-Reading local skills needs no installation. To register the version in your GitHub
-checkout, run from its root:
+For another version, read skills from its selected RC branch or register them from
+a matching checkout. Reading local skills needs no installation. From the checkout root:
 
 ```bash
 npx skills add . --skill earth2studio-install
@@ -58,6 +72,7 @@ select extras from `install_options.yml`, and give the user install and verifica
 
 ### Available skills
 
+- [earth2studio-get-started][get-started]: set up, run, and plot your first UCAST forecast.
 - [earth2studio-discover](./skills/earth2studio-discover/SKILL.md): choose models, sources, and examples.
 - [earth2studio-install](./skills/earth2studio-install/SKILL.md): install and configure the package.
 - [earth2studio-deterministic-forecast](./skills/earth2studio-deterministic-forecast/SKILL.md)
@@ -98,6 +113,7 @@ Repository make targets are defined in [Makefile](./Makefile). See the
 - [Issues and support](https://github.com/NVIDIA/earth2studio/issues)
 
 [install]: ./docs/userguide/about/install.md
+[get-started]: ./skills/earth2studio-get-started/SKILL.md
 [install-options]: ./docs/userguide/about/install_options.yml
 [install-script]: ./docs/assets/javascripts/e2s-install-selector.js
 [install-generator]: ./docs/generate_install_options.py
