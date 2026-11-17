@@ -110,9 +110,11 @@ frames published every `delta_t`:
 | `t2m:mean:-1h:23h` (daily mean) | `mean` over `30days` | `t2m:mean:-697h:+23h` |
 | `tp06:sum:6h` | `sum` over `24h` | `tp06:sum:1d` |
 
-A qualified frame composes only when its method matches and its own window
-equals the cadence: the frames then tile the window back to back with equal
-weight. Other combinations (a mean of sums, overlapping or gapped windows,
+A qualified frame composes only when its method is `mean`, `sum`, `min` or
+`max`, matches the reduction's, and its window equals the cadence: the frames
+then tile the window back to back with equal weight. Registered statistics
+label plain frames only, since they need not compose (a range of daily ranges
+is not a two-day range). Other combinations (a mean of sums, overlapping or gapped windows,
 raw `::` identifiers) raise; reduce them with `relabel=False` to keep the
 frames' labels. Composed durations of whole days are written in days (`7d`),
 others in the largest unit dividing them (`-697h`); `time_statistic_metadata`

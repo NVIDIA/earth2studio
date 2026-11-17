@@ -22,7 +22,8 @@ holds the value ``k`` everywhere.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -41,9 +42,12 @@ from earth2studio.run import (
     WorkItem,
     work_items,
 )
+from earth2studio.run.pipeline import _describe_reduction
+from earth2studio.run.work import ProgressStore
 from earth2studio.utils.coords import E2S_STATISTICS, coord_array
 from earth2studio.utils.time_statistics import (
     _TIME_STATISTICS,
+    compose_time_statistic,
     register_time_statistic,
 )
 
@@ -152,6 +156,81 @@ def test_member_batches_reduce_per_member() -> None:
     ).run(work_items([T0], np.timedelta64(24, "h"), members=[3, 5], member_batch=2))
     assert store["u10m:mean:12h"].shape == (2, 1, 2, 2, 3)
     np.testing.assert_allclose(store["u10m:mean:12h"][1, 0, :, 0, 0], [1.5, 3.5])
+
+
+class _DropsAt(_Recording):
+    """Yield only ``v10m`` in the forecast at one lead time."""
+
+    def __init__(self, inner: PrognosticRunner, lead: np.timedelta64) -> None:
+        super().__init__(inner)
+        self.lead = lead
+
+    def run_item(self, item: WorkItem) -> Iterator[Mapping[str, xr.DataArray]]:
+        for step in super().run_item(item):
+            x = step["forecast"]
+            if self.lead in x["lead_time"].values:
+                step = {**step, "forecast": x.sel(variable=["v10m"])}
+            yield step
+
+
+def test_output_lacking_every_selected_variable_counts_as_missing() -> None:
+    store = KVBackend()
+    Pipeline(
+        _DropsAt(_runner(), np.timedelta64(18, "h")),
+        output={"forecast": store},
+        output_variables={"forecast": ["u10m"]},
+        reduction={"forecast": LeadWindow("12h")},
+        device="cpu",
+    ).run(work_items([T0], np.timedelta64(24, "h")))
+    values = store["u10m:mean:12h"][0, :, 0, 0]
+    np.testing.assert_allclose(values[0], 1.5)
+    assert np.isnan(values[1])
+
+
+def test_reduced_streams_without_backend_or_scorer_are_skipped() -> None:
+    store = KVBackend()
+    window = LeadWindow("12h")
+    Pipeline(
+        _runner(diagnostics={"copy": Identity()}),
+        output={"forecast": store},
+        reduction={"forecast": window, "copy": window},
+        device="cpu",
+    ).run(work_items([T0], np.timedelta64(24, "h")))
+    np.testing.assert_allclose(store["u10m:mean:12h"][0, :, 0, 0], [1.5, 3.5])
+
+
+def test_resume_rejects_changed_reduction_settings(tmp_path: Path) -> None:
+    def run(method: str) -> None:
+        Pipeline(
+            _runner(),
+            output={"forecast": KVBackend()},
+            reduction={"forecast": LeadWindow("12h", method=method, relabel=False)},
+            progress=ProgressStore(tmp_path),
+            device="cpu",
+        ).run(work_items([T0], np.timedelta64(24, "h")))
+
+    run("mean")
+    run("mean")
+    with pytest.raises(ValueError, match="does not match"):
+        run("sum")
+
+
+def test_reductions_are_described_by_their_settings() -> None:
+    class _Plain:
+        pass
+
+    assert _describe_reduction(LeadWindow("7d", ends=["25d", "32d"])) == (
+        "LeadWindow('7d', method='mean', ends=['25d', '32d'], relabel=True)"
+    )
+    assert _describe_reduction(_Plain()).endswith("_Plain")  # type: ignore[arg-type]
+
+
+@pytest.mark.usefixtures("span")
+def test_custom_statistics_label_only_plain_frames() -> None:
+    day = np.timedelta64(24, "h")
+    assert compose_time_statistic("t2m", "span", "2d", day) == "t2m:span:2d"
+    with pytest.raises(ValueError, match="do not compose"):
+        compose_time_statistic("t2m:span:1d", "span", "2d", day)
 
 
 def test_shorter_items_write_only_the_windows_they_reach() -> None:

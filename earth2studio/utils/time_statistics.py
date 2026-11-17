@@ -58,6 +58,9 @@ _DURATION_UNITS: dict[
     "week": (7, "D"),
 }
 _TIME_STATISTICS: dict[str, TimeReduction] = {}
+# Statistics whose value over back-to-back blocks of equal length, reduced the
+# same way, equals their value over the samples: a mean of means, and so on.
+_COMPOSABLE = frozenset({"mean", "sum", "min", "max"})
 
 
 def _duration(value: Duration, *, name: str) -> np.timedelta64:
@@ -348,9 +351,11 @@ def compose_time_statistic(
     that divides them; :func:`time_statistic_metadata` normalizes either
     spelling to the same modifier.
 
-    Any other combination, such as a mean of six-hourly sums or of frames whose
-    windows overlap or leave gaps, is not one statistic of the underlying
-    samples and raises.
+    Only ``mean``, ``sum``, ``min`` and ``max`` merge this way; a registered
+    statistic need not (the range of daily ranges is not a two-day range), so
+    it labels plain frames only. Any other combination, such as a mean of
+    six-hourly sums or of frames whose windows overlap or leave gaps, is not
+    one statistic of the underlying samples and raises.
 
     Parameters
     ----------
@@ -395,6 +400,12 @@ def compose_time_statistic(
     if not separator:
         return f"{base}:{_Window(method, -span, np.timedelta64(0, 'h')).format(True)}"
     inner = _parse(modifier)
+    if method not in _COMPOSABLE:
+        raise ValueError(
+            f"'{label}' frames do not compose into a {method}: only "
+            f"{sorted(_COMPOSABLE)} of frames holding the same statistic are "
+            "statistics of the underlying samples"
+        )
     if inner.method != method or _nanoseconds(inner.end - inner.start) != step:
         raise ValueError(
             f"'{label}' frames every {format_duration(np.timedelta64(step, 'ns'))} "

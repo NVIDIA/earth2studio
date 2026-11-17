@@ -252,8 +252,15 @@ class LeadWindow(LeadReduction):
         self.relabel = relabel
 
     def __repr__(self) -> str:
-        ends = "" if self.ends is None else f", ends={list(self.ends)}"
-        return f"LeadWindow({format_duration(self.window)!r}, {self.method!r}{ends})"
+        ends = (
+            None
+            if self.ends is None
+            else [format_duration(_ns(end), days=True) for end in self.ends]
+        )
+        return (
+            f"LeadWindow({format_duration(self.window, days=True)!r}, "
+            f"method={self.method!r}, ends={ends!r}, relabel={self.relabel!r})"
+        )
 
     # -- planning ------------------------------------------------------------
 

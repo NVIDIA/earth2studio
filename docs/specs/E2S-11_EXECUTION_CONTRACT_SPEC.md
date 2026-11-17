@@ -215,8 +215,14 @@ manifest, store and scorer all see the reduced lead axis and labels. `Pipeline`
 calls `begin` at the start of every item, feeds the accumulator each of the
 stream's outputs, and calls `finish` when the item ends. During setup it also
 calls `begin` once per distinct final lead time, so an item that cannot be
-reduced fails before any item runs. One reduction may serve several streams.
-Resume is per item, so accumulators are never checkpointed.
+reduced fails before any item runs. One reduction may serve several streams;
+streams neither written nor scored are not reduced. An output holding none of
+a reduced stream's selected variables still reaches its accumulator, as
+missing samples. Resume is per item, so accumulators are never checkpointed.
+The progress manifest records each reduction by its `repr` (by its class when
+it defines none), so a resume with other settings is rejected even when the
+stored schema is unchanged; custom reductions should give a `repr` naming
+every setting.
 
 `LeadWindow(window, method="mean", ends=None, relabel=True)` is the built-in
 reduction. The window ending at lead `e` covers `(e - window, e]` and is
