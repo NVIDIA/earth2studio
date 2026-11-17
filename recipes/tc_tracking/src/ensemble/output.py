@@ -18,7 +18,8 @@
 
 Fields go to one Zarr store shared by all ranks, or to one NetCDF file per
 batch with :class:`BatchNetCDFBackend`. :class:`SeedRecorder` adds the seed
-each member was run with as array ``random_seed``.
+each member was run with as array ``random_seed``, and :class:`AttemptFlush`
+keeps the writes of a retry from racing those of the attempt it replaces.
 """
 
 from collections import OrderedDict
@@ -266,3 +267,55 @@ class SeedRecorder:
                 name="random_seed",
             )
         )
+
+
+class AttemptFlush:
+    """Wait for the writes of an attempt before the next one replaces them.
+
+    A retry, and the NaN steps of a failed batch, write to the same store
+    positions as the attempt before. Stores that write in background threads,
+    like the Zarr store, do not order writes to the same chunk, so an earlier
+    write could land after its replacement. As a
+    :class:`~src.ensemble.runner.BatchObserver`, this flushes the store before
+    any attempt but the first of a batch, and before the NaN steps.
+
+    Parameters
+    ----------
+    store : IOBackend
+        Store of the fields
+    """
+
+    def __init__(self, store: IOBackend) -> None:
+        self.store = store
+        self._batch: WorkItem | None = None
+
+    def attempt_started(self, item: WorkItem, attempt: int, seed: int) -> None:
+        """Flush before an attempt that replaces an earlier one of the batch.
+
+        Parameters
+        ----------
+        item : WorkItem
+            The batch
+        attempt : int
+            Number of the attempt
+        seed : int
+            Seed of the attempt
+        """
+        if self._batch == item:
+            self.store.flush()
+        self._batch = item
+
+    def batch_finished(self, item: WorkItem, seed: int | None, attempts: int) -> None:
+        """Flush before the NaN steps of a failed batch.
+
+        Parameters
+        ----------
+        item : WorkItem
+            The batch
+        seed : int | None
+            Seed of the stable attempt, None if the batch failed
+        attempts : int
+            Number of attempts made
+        """
+        if seed is None:
+            self.store.flush()

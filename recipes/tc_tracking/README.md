@@ -227,9 +227,11 @@ condition (IC) and `batch_size` members. Earth2Studio's
 nearly equal size, so the batches of an IC stay on few ranks.
 A batch that becomes unstable (see the stability check below)
 is retried on the same rank. If a rank fails with an error,
-the other ranks finish their current batch, then all ranks
-stop with the error. Rerun with `resume: True` to finish the
-remaining batches. See
+it stops, while the other ranks finish all their batches;
+then all ranks stop with the error. Stop the job yourself if
+you don't want to wait for them. Rerun with `resume: True` to
+finish the remaining batches; it skips those the other ranks
+finished. See
 [Section 2.4](#24-how-the-ensemble-pipeline-is-built) for
 the components of the run.
 
