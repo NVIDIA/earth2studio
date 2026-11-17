@@ -54,7 +54,7 @@ Set up my environment for FourCastNet3 inference.
 # Find a model for your forecast and hardware
 Recommend the best model for a 2-week global forecast on one GPU.
 
-# Explore models that predict precipitation
+# Explore models that predict a specific product
 What models do you have that support predicting precipitation?
 
 # Download weather data
