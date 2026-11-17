@@ -18,6 +18,8 @@
 
 This file is a TEMPLATE, not importable code. Load it at Step 7b for
 regular-cadence gridded sources unless the user opts out.
+Implement in the selected project. Local wrappers use small mocked checks and
+their own fixtures; repository test paths and fixtures below are contributor examples.
 
 Temporal statistics are variable labels such as ``"t2m:mean:24h"`` (window
 ``[-24h, 0h)``) or ``"tp:sum:+0h:+6h"`` (explicit offsets). Methods: ``mean``,
@@ -181,9 +183,9 @@ class SourceName:
 
 
 # ===========================================================================
-# MOCK TEST SAMPLE (copy into test/data/test_<source>.py)
+# MOCK TEST SAMPLE (local test layout, or test/data/test_<source>.py for contributions)
 # ===========================================================================
-# Exactly ONE statistics test per source: extend test_<source>_call_mock when
+# Contributions use ONE statistics test per source: extend test_<source>_call_mock when
 # present, otherwise add test_<source>_time_statistics_mock.
 # It must run without network and cover mean, sum, min, max, the attrs, the
 # set of fetched samples, and an invalid window.

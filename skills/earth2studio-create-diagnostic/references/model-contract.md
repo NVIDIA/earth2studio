@@ -128,7 +128,7 @@ minimal protocol example.
 | D10 | Seeded execution and seeding preserve global RNG state |
 | D11 | Fixed named public `__call__` parameters |
 
-Use `check_diagnostic_contract` with existing mock fixtures for single/multiple
+Use `check_diagnostic_contract` with project-local mock fixtures for single/multiple
 slots, fixed signatures (D11), planning, ownership and stochastic behavior.
 For deterministic models,
 the expected skip is `D10: model does not declare itself stochastic`, not an empty
@@ -137,12 +137,15 @@ Verify numerical results, regional views (`with_region`) when implemented,
 invalid/empty inputs, arbitrary leading axes, metadata,
 input nonmutation, source ordering and RNG isolation. Package tests load real
 weights only when explicitly enabled; dependency skips are not conformance.
+Local smoke/contract checks use the project's test layout; contributors add
+component tests and run relevant regressions and repository checks.
 
 ## Method Docstrings
 
-Use NumPy-style docstrings on every public method. Follow the bundled skeleton and
+For contributions, use NumPy-style docstrings on every public method. Local
+wrappers follow their project's documentation style. Follow the bundled skeleton and
 multi-grid method examples, matching names and types to the concrete signature.
-Private numerical helpers use comments instead of docstrings in generated code.
+Private numerical helpers follow the destination project's documentation conventions.
 
 | Method | Required description |
 | --- | --- |
@@ -162,7 +165,7 @@ such as "Compute wind speed" over "Forward pass."
 
 ## Optional Checkpoint Integration
 
-Ask whether the user wants integration with Earth2Studio's checkpoint system.
+Unless already specified, ask whether the user wants integration with Earth2Studio's checkpoint system.
 Recommend **no for the initial implementation** because persistence adds state
 schemas, restore handling and tests. Without an opt-in, omit checkpoint bindings,
 disk save/restore logic and checkpoint-specific tests. Deterministic stateless
@@ -193,8 +196,10 @@ Use immutable HuggingFace revisions (`hf://org/repo@commit`) or versioned regist
 assets, `Package.default_cache` and `package.resolve`. Load on CPU, set `eval()`
 and disable gradients. Use `weights_only=False` only for required pickled objects.
 
-Use `OptionalDependencyFailure("model-extra")` and
+For contributions, use `OptionalDependencyFailure("model-extra")` and
 `check_optional_dependencies` from `earth2studio.utils.imports` for optional
 backends. Add an approved named extra (even empty), `all`, install documentation
-and API references. Register normalization/device buffers; override `to` only
+and API references. Local wrappers use their project's dependency guards and
+packaging without registering Earth2Studio extras. Use `earth2studio-install` for
+setup. Register normalization/device buffers; override `to` only
 when state such as ONNX sessions or JAX arrays also needs movement.

@@ -14,7 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Native prognostic test patterns to adapt inside test/models/px/test_<model>.py.
+"""Prognostic test patterns for the destination project's test layout.
+
+Local wrappers use relevant numerical smoke and contract checks. Only contributors
+use test/models/px/test_<model>.py, relevant regressions and repository checks.
 
 Supply the existing model fixture with mock weights. Retain call, iterator,
 exceptions, conformance and package cases; avoid parallel migration suites or

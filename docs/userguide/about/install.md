@@ -21,6 +21,32 @@
 
 <section class="e2s-install-selector" data-e2s-install-selector></section>
 
+## GPU Dependency Wheels { #gpu-dependency-wheels }
+
+FlashAttention and NATTEN are common installation trouble spots. Before building
+from source, check for prebuilt wheels compatible with the model's requirements,
+Python ABI, OS/architecture, PyTorch build, CUDA build, and GPU capability.
+Use `torch.__version__` and `torch.version.cuda` to identify the Torch build;
+the CUDA version shown by `nvidia-smi` alone is not sufficient.
+
+- **FlashAttention:** check the [Astral GPU indexes](https://wheels.astral.sh/)
+  and [uv's extension guide](https://docs.astral.sh/uv/guides/integration/pytorch/#installing-gpu-enabled-pytorch-extensions).
+  Select a matching wheel, use a named `[[tool.uv.index]]` with `explicit = true`,
+  and map `flash-attn` to that index in `[tool.uv.sources]`.
+- **NATTEN:** check the [installation guide](https://natten.org/install/), including
+  older builds, and [prebuilt wheels](https://whl.natten.org). Pin the compatible
+  build including its `+torch...cu...` suffix when applicable and use
+  `--find-links https://whl.natten.org` with `uv add` or `pip install`. Persist
+  `find-links` in `[tool.uv]` for uv projects. Models requiring `libnatten` need
+  that backend, not just an importable NATTEN package; check `natten.HAS_LIBNATTEN`
+  when supported by the installed version.
+
+Configure these sources in your own project; Earth2Studio's uv settings are not
+inherited when installed as a dependency. Preserve existing Torch pins unless
+you choose a compatible environment change. If no matching wheel exists, follow
+the dependency's source-build requirements. Custom/NGC Torch builds may require
+compilation rather than an official-release wheel.
+
 ## Verify Installation
 
 ```bash

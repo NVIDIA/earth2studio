@@ -2,25 +2,16 @@
 
 Earth2Studio is an AI weather and climate Python package with a large catalog of data sources
 and prognostic, diagnostic, and data assimilation models. It builds on PyTorch, xarray, and CuPy.
+Its goal is to make these components easy to discover, extend, and combine into reproducible,
+GPU-accelerated workflows for forecasting, downscaling, assimilation, and evaluation.
 
 Task guides live in [`skills/`](./skills/). Use the routes below to find relevant documentation.
-
-## Route the task
-
-- **User:** uses or extends Earth2Studio in their own Python project, even if they
-  are a software developer by profession.
-- **Developer:** actively develops the Earth2Studio package itself, including its
-  code, tests, documentation, and agent skills.
-
-If unclear, ask:
-**"Are you using or extending Earth2Studio in your own Python project, or developing
-the Earth2Studio package itself?"**
 
 Prefer files in the local checkout; otherwise use the matching release on GitHub
 or the [documentation site](https://nvidia.github.io/earth2studio/main/).
 Read and cite only the sources relevant to the task.
 
-## For users
+## Documentation routes
 
 | Task | Start here |
 | --- | --- |
@@ -40,7 +31,7 @@ Choose models by region, variables, forecast horizon, and GPU memory. Compare sc
 by metric and lead time. See [evaluation configuration][scorecard-config],
 [score data][scorecard-data], and the [page generator][scorecard-generator].
 
-## User skills
+## Skills
 
 Activate the matching skill with your agent's skill tool, or read its `SKILL.md` directly.
 
@@ -65,7 +56,7 @@ npx skills add . --skill earth2studio-install
 For the Python package, follow the install skill: use the install guide's uv setup,
 select extras from `install_options.yml`, and give the user install and verification commands.
 
-### Available user skills
+### Available skills
 
 - [earth2studio-discover](./skills/earth2studio-discover/SKILL.md): choose models, sources, and examples.
 - [earth2studio-install](./skills/earth2studio-install/SKILL.md): install and configure the package.
@@ -73,53 +64,32 @@ select extras from `install_options.yml`, and give the user install and verifica
   for single-member forecast scripts.
 - [earth2studio-couple-models](./skills/earth2studio-couple-models/SKILL.md): run connected models.
 - [earth2studio-data-fetch](./skills/earth2studio-data-fetch/SKILL.md): download weather/climate data.
+- [earth2studio-create-datasource](./skills/earth2studio-create-datasource/SKILL.md): wrap a data source.
+- [earth2studio-create-prognostic](./skills/earth2studio-create-prognostic/SKILL.md):
+  wrap a forecast model.
+- [earth2studio-create-diagnostic](./skills/earth2studio-create-diagnostic/SKILL.md): wrap a diagnostic.
+- [earth2studio-create-assimilation](./skills/earth2studio-create-assimilation/SKILL.md): wrap assimilation.
 
-## For developers
+## Common tools
 
-Start with [CONTRIBUTING.md](./CONTRIBUTING.md) and the
-[developer guide](./docs/userguide/developer/overview.md).
+Use [uv](https://docs.astral.sh/uv/) or the project's virtualenv for Python commands.
+Follow the install skill for version selection, extras, and compatible GPU dependency wheels.
 
-### Implementation skills (developers only)
-
-These skills are for adding or migrating components in Earth2Studio itself.
-Activate the matching skill; use `npx skills add` above if installation is needed.
-
-- [earth2studio-create-datasource](./skills/earth2studio-create-datasource/SKILL.md)
-- [earth2studio-create-prognostic](./skills/earth2studio-create-prognostic/SKILL.md)
-- [earth2studio-create-diagnostic](./skills/earth2studio-create-diagnostic/SKILL.md)
-- [earth2studio-create-assimilation](./skills/earth2studio-create-assimilation/SKILL.md)
-
-Creating or editing repository skills is developer-only work. See the
-[skill development guide](./docs/userguide/developer/skills.md).
-
-### Key conventions
-
-- **Python:** use `uv run` or `.venv/bin/python`, never system Python.
-- **License:** start package `.py` files with the SPDX Apache-2.0 header.
-- **Types:** fully type public functions; check with mypy.
-- **Logging:** use `loguru.logger` in `earth2studio/`.
-- **Checks:** run `make format`, `make lint`, and relevant tests before opening a PR.
-
-### Developer rules
-
-Read relevant files in [`.agents/rules/`](./.agents/rules/) before changing package code:
-
-| Rule file | Topic |
+| Task | Command or guide |
 | --- | --- |
-| `e2s-000-python-style-guide.mdc` | Style, formatting, type hints, license header |
-| `e2s-001-dependency-management.mdc` | Adding / updating dependencies |
-| `e2s-002-api-documentation.mdc` | Docstrings and public API docs |
-| `e2s-003-unit-testing.mdc` | Writing and structuring tests |
-| `e2s-004-data-sources.mdc` | Implementing `DataSource` classes |
-| `e2s-005-forecast-sources.mdc` | Implementing `ForecastSource` classes |
-| `e2s-006-dataframe-sources.mdc` | Implementing `DataFrameSource` classes |
-| `e2s-007-forecast-frame-sources.mdc` | Implementing `ForecastFrameSource` classes |
-| `e2s-008-lexicon-usage.mdc` | Variable lexicons and coordinate conventions |
-| `e2s-009-prognostic-models.mdc` | Implementing prognostic models |
-| `e2s-010-diagnostic-models.mdc` | Implementing diagnostic models |
-| `e2s-011-examples.mdc` | Writing gallery examples |
-| `e2s-012-time-tolerance.mdc` | Time tolerance patterns |
-| `e2s-013-assimilation-models.mdc` | Implementing data assimilation models |
+| Initialize a new project | `uv init --python=3.13` in a new project directory |
+| Add dependencies | `uv add <package>`; see the [install guide][install] |
+| Run Python | `uv run python <script.py>` or `.venv/bin/python <script.py>` |
+| Format this repository | `make format` |
+| Lint this repository | `make lint` |
+| Run selected tests | `uv run pytest <test-path>` |
+| Check changed files | `uv run pre-commit run --files <paths>` |
+
+Keep an existing project's Python version and tooling unless a change is needed.
+Repository make targets are defined in [Makefile](./Makefile). See the
+[style guide](./docs/userguide/developer/style.md),
+[environment setup](./docs/userguide/developer/overview.md), and
+[skill development guide](./docs/userguide/developer/skills.md) for details.
 
 ## Resources
 

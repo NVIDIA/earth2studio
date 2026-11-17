@@ -14,7 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Native diagnostic cases to adapt in test/models/dx/test_<model>.py.
+"""Diagnostic test patterns for the destination project's test layout.
+
+Local wrappers use relevant numerical smoke and contract checks. Only contributors
+use test/models/dx/test_<model>.py, relevant regressions and repository checks.
 
 Use the existing fixture's mock weights; retain numerical, coordinate, invalid
 input and conformance assertions. Preserve marked package tests for explicit

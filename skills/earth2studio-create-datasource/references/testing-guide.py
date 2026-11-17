@@ -16,10 +16,12 @@
 
 """Test reference skeleton for new Earth2Studio data sources.
 
-This file is a TEMPLATE. Copy it to test/data/test_<source_name>.py,
-rename all ``source`` prefixes, and fill in every ``# FILL:`` comment.
+This file is a TEMPLATE. Adapt relevant smoke/contract cases to the local project's
+test layout and imports. Only contributions use test/data/test_<source_name>.py
+and the component suite/coverage conventions below. Rename all ``source`` prefixes
+and fill in every ``# FILL:`` comment used.
 
-Canonical test order (must match this sequence):
+Contributor test order (local projects follow their own conventions):
 1. test_source_fetch         — slow, xfail, real network
 2. test_source_cache         — slow, xfail, cache toggle
 3. test_source_call_mock     — REQUIRED, no network, no xfail
@@ -27,7 +29,7 @@ Canonical test order (must match this sequence):
 5. test_source_available     — available() classmethod
 6. test_source_validate_time — (optional) _validate_time internals
 
-Output contract checked in the call mock (see e2s-004..e2s-007 rules):
+Output contract checked in the call mock (see earth2studio/data/base.py):
 - The result is NumPy-backed; if the source implements the optional ``device``
   keyword, also assert ``ds.device == torch.device("cpu")`` by default.
 - Dims start ``[time, variable, ...]`` (``[time, lead_time, variable, ...]`` for
@@ -40,7 +42,7 @@ Output contract checked in the call mock (see e2s-004..e2s-007 rules):
   carries ``E2S_STATISTICS`` in ``attrs``; unsupported methods raise ``ValueError``.
 - CUDA coverage is optional: guard with ``torch.cuda.is_available()`` and skip.
 
-Rules:
+Contributor test conventions:
 - No docstrings on test functions (project convention)
 - Use strategic parameterization — minimize combos, maximize coverage
 - Target 90%+ line coverage with --slow
@@ -54,7 +56,7 @@ plain labels, metadata, overlapping-window fetch sharing, NaNs, and invalid
 windows rejected before reads. Forecast cases must distinguish initializations
 even when valid times match, and reject unavailable/negative expanded leads.
 
-Automatic Test Skipping:
+Automatic Test Skipping (contributor only):
 ------------------------
 If your data source requires optional dependencies (e.g., special decoders,
 API clients), register your test file in test/conftest.py's _TEST_DEPENDENCIES
@@ -93,10 +95,11 @@ import torch
 
 from earth2studio.data import fetch_data
 
-# FILL: Import your source class
+# FILL: Import your source class from the destination project
 # from earth2studio.data import SourceName
 
-# FILL: If source has optional deps, guard with importorskip:
+# FILL: Local projects may guard optional deps with importorskip;
+# contributors use _TEST_DEPENDENCIES as described above:
 # pytest.importorskip("special_decoder", reason="special_decoder not installed")
 
 # FILL: Pick a known-valid time for network tests (inside source's valid range)

@@ -2,13 +2,13 @@
 
 The public interfaces are `AssimilationModel` and `StatefulAssimilationModel` in
 [base.py](../../../earth2studio/models/da/base.py); read their docstrings with this
-file. Implementation rules live in
-[e2s-013](../../../.agents/rules/e2s-013-assimilation-models.mdc), user-facing
-usage in the [DA user guide](../../../docs/userguide/components/data_assimilation.md),
+file. User-facing usage is in the
+[DA user guide](../../../docs/userguide/components/data_assimilation.md),
 and 0.x porting notes in the data assimilation section of
 [MIGRATION.md](../../../MIGRATION.md). Runtime protocol membership checks method
 presence only, and there is no DA conformance checker: verify behavior in the
-model's native tests.
+model's tests in the selected project. Repository integration applies only to
+confirmed contributions; local wrappers follow their project's conventions.
 
 ## Two protocols
 
@@ -149,9 +149,11 @@ StormCast-CONUS SDA (stateful, stochastic).
 
 Subclass `torch.nn.Module` (and `AutoModelMixin` for checkpoint-backed models);
 register a `device_buffer` and expose `device`; register other device-following
-tensors as buffers. Use the `OptionalDependencyFailure("<extra>")` import guard
-with the extra declared in `pyproject.toml`, and `@check_optional_dependencies()`
-on the class and `load_model`. `load_default_package` returns a `Package` with
+tensors as buffers. For contributions, use the `OptionalDependencyFailure("<extra>")`
+import guard with the extra declared in the repository's `pyproject.toml`, and
+`@check_optional_dependencies()` on the class and `load_model`. Local wrappers use
+their project's dependency guards without registering Earth2Studio extras. Use
+`earth2studio-install` for setup. `load_default_package` returns a `Package` with
 a pinned checkpoint; resolve files with `package.resolve`, call `.eval()` on
 networks and keep `load_model` options minimal. Spatial-domain selection, where
 offered, is a `DomainAdaptable.with_region(region)` view, not an in-place setter.

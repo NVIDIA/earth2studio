@@ -28,12 +28,17 @@ See real examples:
 - HTTP-based: earth2studio/data/gdas.py
 
 Contracts (source of truth, read before deviating from this template):
-- .agents/rules/e2s-004..e2s-008, e2s-012 and earth2studio/data/base.py
+- earth2studio/data/base.py, earth2studio/lexicon/base.py and earth2studio/utils/time.py
 - earth2studio/data/utils.py (fetch_data, plan_statistics, reduce_statistics),
   earth2studio/grids/__init__.py (infer_grid, resolve_grid) and MIGRATION.md
 
 Conventions:
-- File lives at earth2studio/data/<source_name>.py
+- Local wrappers live in the user's project; only contributions use
+  earth2studio/data/<source_name>.py and the registration checklist below.
+- Adapt lexicon imports and optional dependency guards to the destination project.
+  Use earth2studio-install for setup; Earth2Studio extras registration is contributor only.
+- Preserve this template's SPDX/license when copying code. It does not impose
+  NVIDIA copyright on newly authored local code.
 - Class name: PascalCase (e.g. GFS, ARCO_ERA5, CFS_FX, HimawariAHI)
 - File name: lowercase with underscores (e.g. gfs.py, cfs.py)
 
@@ -96,10 +101,11 @@ from earth2studio.data.utils import (
     resolve_async_workers,
 )
 
-# FILL: Import your lexicon class
+# FILL: Import your lexicon class from the destination project
 # from earth2studio.lexicon import SourceNameLexicon
 # ---------------------------------------------------------------------------
-# Optional dependency imports (only if you need packages in the `data` extra)
+# Contributor optional dependency imports (registered `data` extra only).
+# Local wrappers use their project's dependency guards instead.
 # ---------------------------------------------------------------------------
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -480,7 +486,7 @@ class SourceName:
 
 
 # ===========================================================================
-# REGISTRATION CHECKLIST
+# REGISTRATION CHECKLIST (CONTRIBUTOR ONLY)
 # ===========================================================================
 #
 # 1. earth2studio/data/__init__.py

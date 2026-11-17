@@ -1,7 +1,24 @@
 [
   {
+    "id": "create-prognostic-eval-003-own-project",
+    "question": "Use earth2studio-create-prognostic to implement a protocol-compatible Persistence model in my separate Python project at /workspace/output/weather_lab. This is only for my project; I do not plan to contribute it to NVIDIA Earth2Studio. Write weather_lab/models/persistence.py and relevant tests under tests/. The model preserves t2m values on a small 3x4 lat/lon grid and advances lead_time by 6 hours, with one input frame, no forcing, no weights and no checkpoint storage integration. Use my project's conventions: standard-library logging, pytest, and no copyright header on newly authored code. Preserve licenses if copying template code. Validate numerics, explicit-state stepping and contract behavior on CPU. Report commands actually run and any unavailable dependencies.",
+    "expected_skill": "earth2studio-create-prognostic",
+    "ground_truth": "Creates a local Persistence wrapper with fixed named slots, allocation-free signatures, default_sources returning None, initialize/step and forecasts-only iteration. Values are preserved and leads advance by 6h. Adds small numerical and check_prognostic_contract checks using project-local imports. No Earth2Studio repository integration, extras registration or mandatory repository checks. Preserves licenses in copied code without assigning NVIDIA copyright to independently authored local code.",
+    "expected_behavior": [
+      "Reads earth2studio-create-prognostic and its model contract",
+      "Recognizes explicit local-only intent without asking the contribution question again",
+      "Writes weather_lab/models/persistence.py and relevant tests inside /workspace/output/weather_lab",
+      "Uses fixed named execution parameters and returns the first forecast from initialize and create_iterator",
+      "Runs relevant CPU numerical and contract checks, or accurately reports dependency blockers",
+      "Follows local style and preserves licenses in copied code",
+      "Does not edit Earth2Studio source, extras, exports, catalog or changelog; does not run repository-wide tests or make checks",
+      "Routes any dependency setup to earth2studio-install without registering an Earth2Studio extra",
+      "Does not commit, push, open a PR or read evals/targets/"
+    ]
+  },
+  {
     "id": "create-prognostic-eval-001-simple-identity",
-    "question": "Using the skill at /workspace/skills/earth2studio-create-prognostic/SKILL.md, implement a new Earth2Studio prognostic model called `IdentityModel` that simply returns its input unchanged (identity function). It should have a 6-hour time step, work on a 1-degree global grid (181x360), and support 4 variables: t2m, u10m, v10m, msl.",
+    "question": "I plan to contribute this wrapper to NVIDIA Earth2Studio. Using the skill at /workspace/skills/earth2studio-create-prognostic/SKILL.md, implement a new Earth2Studio prognostic model called `IdentityModel` that simply returns its input unchanged (identity function). It should have a 6-hour time step, work on a 1-degree global grid (181x360), and support 4 variables: t2m, u10m, v10m, msl.",
     "expected_skill": "earth2studio-create-prognostic",
     "expected_script": "evals/targets/eval_1_target.py",
     "expected_test": "evals/targets/test/eval_1_test_target.py",
@@ -16,7 +33,7 @@
   },
   {
     "id": "create-prognostic-eval-002-additive-model",
-    "question": "Using the skill at /workspace/skills/earth2studio-create-prognostic/SKILL.md, implement a new Earth2Studio prognostic model called `AdditiveModel` that adds a small constant (0.01) to each variable at each time step. It should have a 6-hour time step and work on a 0.5-degree global grid (361x720). Include normalization buffers (center and scale) loaded from the package.",
+    "question": "I plan to contribute this wrapper to NVIDIA Earth2Studio. Using the skill at /workspace/skills/earth2studio-create-prognostic/SKILL.md, implement a new Earth2Studio prognostic model called `AdditiveModel` that adds a small constant (0.01) to each variable at each time step. It should have a 6-hour time step and work on a 0.5-degree global grid (361x720). Include normalization buffers (center and scale) loaded from the package.",
     "expected_skill": "earth2studio-create-prognostic",
     "expected_script": "evals/targets/eval_2_target.py",
     "expected_test": "evals/targets/test/eval_2_test_target.py",

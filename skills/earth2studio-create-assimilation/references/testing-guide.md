@@ -1,6 +1,10 @@
 # DA test structure
 
-Use the same native-test organization as the DX/PX
+Local wrappers use their project's test layout and relevant smoke/contract checks
+from the behavior groups below. The full native-test organization and repository
+paths apply only to contributions. No full repository suite is required locally.
+
+For contributions, use the same native-test organization as the DX/PX
 [diagnostic](../../earth2studio-create-diagnostic/references/testing-guide.py) and
 [prognostic](../../earth2studio-create-prognostic/references/testing-guide.py) guides.
 Adapt existing fixtures, rather than copying entire suites or creating a test framework.
@@ -25,7 +29,7 @@ Adapt existing fixtures, rather than copying entire suites or creating a test fr
   checker; do not use the DX/PX checkers or add classification-only suites.
 - Reuse builders/fixtures for expensive setup. Inline single-use helpers; avoid
   generic dispatchers, signature-only tests and exhaustive parameter products.
-- Prefer `test/models/da/test_da_<model>.py`. A thin wrapper may share the existing
-  core's test module when this avoids duplicating substantial mock scaffolding.
+- For contributions, prefer `test/models/da/test_da_<model>.py`. A thin wrapper may
+  share the core's test module when this avoids duplicating substantial mock scaffolding.
 - Do not erase domain-specific numerical regressions merely to hit a test-count
   target. Consolidate repeated setup and overlapping assertions instead.

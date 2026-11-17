@@ -54,11 +54,12 @@ Direct implementations without the mixin must obey the same behavior.
 
 ## Method Docstrings
 
-Use NumPy-style docstrings on every public method, including thin helper delegates.
+For contributions, use NumPy-style docstrings on every public method, including
+thin helper delegates. Local wrappers follow their project's documentation style.
 Use the bundled skeleton and history-method examples as the documentation pattern.
 Keep parameter names and documented types aligned with the concrete signature;
 describe DataArrays rather than legacy tensor/coordinate pairs. Private numerical
-helpers use comments instead of docstrings in the generated wrapper.
+helpers follow the destination project's documentation conventions.
 
 | Method | Required description |
 | --- | --- |
@@ -86,7 +87,7 @@ the same forecast cadence and complete output chunk.
 
 ## Optional Checkpoint Integration
 
-Ask whether the user wants integration with Earth2Studio's checkpoint system.
+Unless already specified, ask whether the user wants integration with Earth2Studio's checkpoint system.
 Recommend **no for the initial implementation**: persistence adds payload/schema
 design, device restoration and restart testing. Without an opt-in, omit checkpoint
 bindings, disk save/restore logic and checkpoint-specific tests. Still implement
@@ -321,11 +322,15 @@ returns unevaluated rules with reasons; pin those explicitly.
 `rollout=False` intentionally disables execution
 checks and is not a substitute for full conformance. Keep model-specific tests for
 numerical correctness, regional views (`with_region`) when implemented, source
-ordering and absence of internal fetching, which generic probes cannot prove. Update drivers that count `nsteps + 1` yields when
-integrating migrated models; runtime protocol checks alone cannot catch this.
+ordering and absence of internal fetching, which generic probes cannot prove.
+Update caller-owned drivers that count `nsteps + 1` yields when migrating models;
+repository driver edits are contributor only. Runtime protocol checks alone cannot catch this.
 
-Tests use mock weights, numerical expectations, invalid/empty inputs, shifted
-leads, leading axes, metadata and ownership checks. Stochastic mocks must exercise
+Local smoke/contract checks cover relevant behavior in the project's test layout;
+contributors add component tests and run relevant regressions and repository checks.
+Tests use mock weights, numerical
+expectations, invalid/empty inputs, shifted leads, leading axes, metadata and ownership checks.
+Stochastic mocks must exercise
 real sampling paths. Real-weight tests are marked `package`; dependency skips
 are not evidence of conformance.
 
@@ -334,7 +339,9 @@ are not evidence of conformance.
 For packaged weights use `AutoModelMixin`, immutable package revisions,
 `Package.default_cache` and `package.resolve`. Load on CPU, set `eval()` and
 disable gradients; use `weights_only=False` only for required pickled objects.
-Guard optional backends with `OptionalDependencyFailure` and
-`check_optional_dependencies` from `earth2studio.utils.imports`. Register Torch
+For contributions, guard registered optional backends with `OptionalDependencyFailure`
+and `check_optional_dependencies` from `earth2studio.utils.imports`. Local wrappers
+use their project's dependency guards without registering Earth2Studio extras.
+Use `earth2studio-install` for setup. Register Torch
 buffers for normalization/device state; override `to` for ONNX/JAX runtime state.
 Keep loading and core computation checkpoint-specific.

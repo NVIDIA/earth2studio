@@ -39,7 +39,7 @@
       "Uses uv add with combined extras and git+https://github.com/NVIDIA/earth2studio.git@main",
       "Warns that main may be unstable or include breaking changes",
       "Does not reinitialize the existing project or change its Python pin",
-      "Warns about flash-attention build time for AIFS",
+      "Checks Astral GPU indexes for compatible FlashAttention wheels before recommending a source build",
       "Fetches or references the live installation docs page",
       "Distinguishes between prognostic and diagnostic extras"
     ]
@@ -86,6 +86,23 @@
       "Checks Python compatibility rather than imposing Python 3.13 on an older release",
       "Does not reinitialize the project, silently switch versions, or repeat the version menu",
       "Provides a uv run verification command",
+      "Does not execute package-manager commands"
+    ]
+  },
+  {
+    "id": "install-eval-007-gpu-wheels",
+    "question": "My existing uv project uses Earth2Studio main with AIFS and StormScope. FlashAttention takes forever to build and NATTEN imports but says libnatten is missing. Can I use prebuilt wheels? Keep my Torch pin unless we discuss changing it.",
+    "expected_skill": "earth2studio-install",
+    "expected_script": null,
+    "ground_truth": "Checks current Astral GPU indexes and NATTEN install guide/wheel listing, establishes exact environment compatibility, and recommends compatible wheels with persistent consuming-project configuration. Does not guess a wheel or silently change Torch.",
+    "expected_behavior": [
+      "Checks wheels.astral.sh and the uv PyTorch extension guide for FlashAttention",
+      "Checks natten.org/install and whl.natten.org, including older builds",
+      "Obtains Python ABI, OS/architecture, Torch and CUDA build and GPU capability before selecting wheels",
+      "Uses a named explicit Astral index and package-specific tool.uv.sources mapping",
+      "Pins the verified NATTEN build and persists find-links in the consuming project",
+      "Checks required libnatten availability rather than relying only on import success",
+      "Preserves Torch pins and explains source-build fallback if no matching wheel exists",
       "Does not execute package-manager commands"
     ]
   }

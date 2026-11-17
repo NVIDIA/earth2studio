@@ -9,23 +9,37 @@ description: >
 
 # Create an Assimilation Model
 
+## Scope
+
+Default to a protocol-compatible wrapper in the user's separate Python project.
+Unless intent is already explicit, ask:
+**"Are you planning to contribute this to NVIDIA Earth2Studio?"**
+Only an affirmative answer or explicit contribution intent enables contributor steps.
+For local wrappers, use the project's layout, dependencies, style and test conventions;
+no Earth2Studio repository changes or full repository test suite are required.
+Use `earth2studio-install` for dependency setup, including NATTEN and FlashAttention.
+Repository paths below are source references or contributor destinations, not local output paths.
+If unavailable locally, consult matching-version sources on GitHub or the documentation site.
+Preserve existing licenses in copied code, including reference skeleton SPDX headers.
+These samples do not impose NVIDIA copyright on newly authored local code.
+
 Read the [local DA contract](references/da-contract.md) before coding; it holds
 the slot, cadence, state, iterator, RNG and ownership requirements. Then read the
 [protocols](../../earth2studio/models/da/base.py) (their docstrings are
-normative), the
-[implementation rules](../../.agents/rules/e2s-013-assimilation-models.mdc), a
+normative), a
 current wrapper of the same kind in `earth2studio/models/da/` (independent:
 `interp.py`, `healda.py`, `sda_corrdiff_cosmo_era5.py`; stateful: `sda_stormcast.py`,
 `sda_stormcastconus.py`) and, when migrating a 0.x wrapper, the data assimilation
 section of [MIGRATION.md](../../MIGRATION.md). Prognostic-style state semantics
-are in `.agents/rules/e2s-009-prognostic-models.mdc`.
+are in the [prognostic contract](../earth2studio-create-prognostic/references/model-contract.md).
 
 ## Workflow
 
 1. Classify execution: independent analyses use `AssimilationModel`; evolving
    trajectories use `StatefulAssimilationModel`. A background input or a caller's
    loop over times does not imply statefulness, and independent models get no
-   artificial iterator.
+   artificial iterator. Implement in the user's project; only contributions use
+   `earth2studio/models/da/<name>.py` as the destination.
 2. Record grids, variables, observation columns and time windows, which slots are
    optional, sources, normalization, sampling and checkpoints. Configure the
    domain and variable set on the instance before querying signatures.
@@ -59,18 +73,38 @@ are in `.agents/rules/e2s-009-prognostic-models.mdc`.
    required conditioning is never reused (reject `send(None)`), observations
    may be `None`. Hooks, if offered, are iterator-only.
 5. Reuse existing numerical cores and package loaders where appropriate. Guard
-   optional dependencies; propose dependency changes before editing extras.
-6. Follow the [test structure](references/testing-guide.md). Extend native model
-   tests, consolidate overlapping cases, and retain numerical observation checks.
+   optional dependencies and use `earth2studio-install` for setup. Follow the
+   local project's packaging; only contributors propose repository extras changes.
+6. For local wrappers, run a small numerical analysis and relevant slot, ownership,
+   invalid-input and RNG checks; stateful wrappers also check step/iterator agreement
+   and replay. Use the project's test layout. There is no DA conformance checker.
+   For contributions, follow the full [test structure](references/testing-guide.md).
+   Extend native model tests, consolidate overlapping cases, and retain numerical observation checks.
    Do not create a separate base-protocol test file or a bespoke conformance framework.
-7. Export the wrapper, add it to `docs/modules/models_da.md` alphabetically and, for
-   optional extras, `docs/userguide/about/install_options.yml`. Verify with
+7. Contributor only: export the wrapper in `earth2studio/models/da/__init__.py`,
+   add it to `docs/modules/models_da.md` alphabetically and update `CHANGELOG.md`.
+   For optional extras, update `docs/userguide/about/install_options.yml`. Verify with
    `uv run` or the project virtualenv; report dependency skips and untested real weights.
+
+Contributor verification commands (add the new component's test suite and run
+relevant regression tests as well):
 
 ```bash
 uv run pytest test/models/da/test_da_<model>.py -m "not package" -v
 make format && make lint && make license
 ```
+
+## Contributor Checklist
+
+Only for confirmed contributions, follow [CONTRIBUTING.md](../../CONTRIBUTING.md)
+and the [developer guide](../../docs/userguide/developer/overview.md):
+
+- Register approved extras, exports, API/catalog entries and changelog updates.
+- Apply repository style and SPDX requirements; preserve copied licenses.
+- Add and run component tests and relevant regressions, plus `make format`, `make lint`,
+  `make license`; report unavailable dependencies and skipped coverage.
+- Follow contribution/PR guidance only when requested; commit, push and open a PR
+  only when explicitly requested.
 
 ## Using the wrapper elsewhere
 
@@ -82,6 +116,7 @@ make format && make lint && make license
   times, and its observation slots accept `None`. The coupler calls
   `initialize`/`step`, not the iterator.
 
-Use SPDX headers, typed public methods, NumPy-style docstrings, and `loguru` in
-library code. Follow the repository testing rules; keep this skill and its
-contract and test guides aligned with `base.py` when the protocol changes.
+For contributions, use SPDX headers in newly authored repository code, typed public
+methods, NumPy-style docstrings, and `loguru` in library code. Follow the repository
+testing conventions; keep this skill and its contract and test guides aligned with
+`base.py` when the protocol changes.

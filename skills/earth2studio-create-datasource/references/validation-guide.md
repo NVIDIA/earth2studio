@@ -1,7 +1,11 @@
 # Validation Guide
 
-> Reference for post-implementation validation, PR submission, and automated review.
-> Load this after implementation and tests are complete.
+> Contributor-only reference for post-implementation validation, PR submission,
+> and automated review. Local wrappers need only relevant smoke/contract checks
+> in their own project. Optional local comparisons may reuse the plotting examples
+> with local imports, without repository coverage, catalog, or PR requirements.
+> Load this after implementation and tests are complete. Commit, push and open a PR
+> only when explicitly requested; contribution intent alone is not a submission request.
 
 ## Table of Contents
 
