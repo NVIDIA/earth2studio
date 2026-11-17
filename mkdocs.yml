@@ -525,6 +525,7 @@ nav:
     - userguide/advanced/index.md
     - Checkpointing: userguide/advanced/checkpointing.md
     - Advanced Output Handling: userguide/advanced/io.md
+    - Adaptive Model Domains: userguide/advanced/domains.md
     - Batch Dimension: userguide/advanced/batch.md
     - AutoModels: userguide/advanced/auto.md
     - Lexicon: userguide/advanced/lexicon.md

@@ -1,9 +1,10 @@
 # Output Handling { #output_handling_userguide }
 
-IO backends store the labelled DataArrays produced by workflows. Use `ZarrBackend`
-as a general default, `NetCDF4Backend` for netCDF files, `XarrayBackend` for in-memory
-results, `AsyncZarrBackend` for asynchronous and sharded writes, or `IceChunkBackend`
-for versioned output. See the [IO API](../../modules/io.md) for backend options.
+IO backends store the labelled DataArrays produced by workflows. `AsyncZarrBackend`
+is a good general-purpose default, supporting asynchronous and sharded writes.
+Use `ZarrBackend` for synchronous Zarr output, `NetCDF4Backend` for netCDF files,
+`XarrayBackend` for in-memory results, or `IceChunkBackend` for versioned output.
+See the [IO API](../../modules/io.md) for backend options.
 
 For Icechunk transactions, asynchronous writes, sharding, and cloud storage, see
 [Advanced Output Handling](../advanced/io.md).
@@ -38,10 +39,13 @@ in `x`, and `lead_times` contains all forecast leads you will write:
 ```python
 from itertools import islice
 
-from earth2studio.io import ZarrBackend
+from earth2studio.io import AsyncZarrBackend
 from earth2studio.io.utils import output_template
 
-io = ZarrBackend("forecast.zarr")
+io = AsyncZarrBackend(
+    "forecast.zarr",
+    parallel_coords={"time": times, "lead_time": lead_times},
+)
 signature = model.output_coords(model.input_coords())
 template = output_template(
     signature,
@@ -62,6 +66,11 @@ finally:
 The iterator writes forecasts only. If you also store the initial condition, include
 its lead time in the template and write the appropriately selected field separately.
 For chunk-producing models, each write may contain multiple forecast leads.
+
+`parallel_coords` declares the labels along axes that can be written independently.
+Here, writes can select initialization times and forecast leads; each write covers
+the full extent of other dimensions. Add any other independently written axes,
+such as `ensemble`, to `parallel_coords`.
 
 Close the backend when the workflow finishes; `earth2studio.run` does not close it
 for you. With Icechunk, `flush` exposes pending writes within the open transaction,

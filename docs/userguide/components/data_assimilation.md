@@ -1,9 +1,15 @@
 # Data Assimilation Models { #data_assimilation_model_userguide }
 
-Data assimilation models turn observations, optionally combined with a background
-field, into an analysis. Use them to prepare initial conditions or update a forecast
-with new measurements. The [assimilation API](../../modules/models_da.md) includes
-both independent analysis models and models that continue a stateful trajectory.
+Earth2Studio's data assimilation interface supports models that ingest, predict,
+and assimilate sparse observations. Traditional assimilation combines observations
+with an optional background field to produce an updated state. The same interface
+also supports predicting observations directly from other observations, without
+requiring a gridded analysis as an intermediate output.
+
+Use these models to prepare initial conditions, update forecasts with new
+measurements, or produce observation-space predictions. The
+[assimilation API](../../modules/models_da.md) supports both independent calls and
+models that continue a stateful trajectory.
 
 ## Interface
 
@@ -12,7 +18,7 @@ both independent analysis models and models that continue a stateful trajectory.
 | `input_coords()` | Declare initial inputs, including observations for independent models. |
 | `output_coords(...)` | Validate input declarations and plan the output. |
 | `default_sources()` | Recommend providers in input-then-forcing order. |
-| `model(...)` | Produce an independent analysis from separate, named inputs. |
+| `model(...)` | Produce an analysis or prediction from separate, named inputs. |
 | `to(device)` | Place model computation on the requested device. |
 
 `AssimilationModel` defines this independent interface. `StatefulAssimilationModel`
@@ -27,6 +33,10 @@ names to representative NumPy arrays: empty arrays leave values unconstrained;
 nonempty arrays specify allowed values. Multiple slots form an ordered tuple, which
 can mix gridded and tabular declarations. Models expose `stochastic` and `set_rng`;
 seeding is a no-op for deterministic models.
+
+For an observation-to-observation model, input and output `FrameSchema` declarations
+describe the observations consumed and predicted. Neither side requires a gridded
+field; choose the slot types that match the model's actual inputs and outputs.
 
 See [E2S-07: Data Assimilation Contract][da-spec] for slot ordering, observation
 schemas and timing, and independent and stateful execution requirements.
@@ -91,7 +101,7 @@ Keep a wrapper in your own project. Declare gridded signatures and observation
 schemas, use fixed named execution arguments, and implement the stateful extension
 only when outputs and explicit state continue a trajectory. Validate observation
 timing and optional-input behavior as well as numerical agreement with your
-reference analysis.
+reference analysis or observation predictions.
 
 The [earth2studio-create-assimilation skill][assimilation-skill] provides contract
 and validation guidance. Ask your agent to adapt it to a local wrapper, supplying
