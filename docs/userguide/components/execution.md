@@ -1,14 +1,15 @@
 # Pipelines and Runners { #execution_userguide }
 
-Execution tools in `earth2studio.run` run components over many forecasts. A
-`Runner` executes one forecast, called a work item, and yields its outputs. A
-`Pipeline` drives a runner over a list of work items and handles the rest:
-distribution across ranks, output filtering, regridding, storage, scoring, and
-resuming.
+Execution tools in `earth2studio.run` make it easy to run workflows composing
+multiple components (models, data sources, etc.) over many dates and ensemble
+members. A `Runner` executes one forecast, called a work item, and yields its
+outputs. A `Pipeline` drives a runner over a list of work items and handles the
+rest: distribution across ranks, output filtering, regridding, storage, scoring,
+and resuming.
 
 The models themselves can be called directly; see
 [Prognostic Models](prognostic.md). Use `Pipeline` when you want this bookkeeping
-handled for you.
+handled for you, or to run at scale.
 
 ## Interface
 
@@ -35,6 +36,11 @@ model's step.
 
 ### Runners
 
+A `Runner` defines the core execution loop for a `WorkItem` and declares its inputs
+(data fetches) and outputs (prediction fields). Runners group outputs into
+distinct **streams**: each stream is a named sequence of outputs with one set of
+variables, one grid, and one lead-time pattern.
+
 | Member | Purpose |
 | --- | --- |
 | `supports_member_batching` | Whether one item may carry several members. |
@@ -43,25 +49,27 @@ model's step.
 | `data_requests(item)` | Describe every fetch an item will make, or `None` if not known upfront. |
 | `run_item(item)` | Yield one mapping per step, from stream name to output field. |
 
-A **stream** is a named sequence of outputs with one set of variables, one grid,
-and one lead-time pattern. `Pipeline` writes each stream to its own store. A runner
-is built once with its models and sources, then reused for every item; data is
-fetched inside `run_item`.
+A runner is built once with its models and sources, then reused for every item;
+data is fetched, from live or predownloaded sources, inside `run_item`.
 
 The built-in runners are:
 
-- **`PrognosticRunner`** rolls out one prognostic model, yielding the `forecast`
+- `PrognosticRunner` rolls out one prognostic model, yielding the `forecast`
   stream. Each diagnostic in `diagnostics` adds a stream under its key. It accepts
   an optional `perturbation` for initial-condition ensembles.
-- **`DiagnosticRunner`** applies diagnostics directly to source data. Step `k`
+- `DiagnosticRunner` applies diagnostics directly to source data. Step `k`
   reads the source at the item's time plus `k * step`.
-- **`CoupledRunner`** (`earth2studio.coupling`) runs several models together;
+- `CoupledRunner` (`earth2studio.coupling`) runs several models together;
   see [Coupled Models](#coupled-models).
 
 Sources default to each model's `default_sources()`. The protocol is defined in
-[`earth2studio.run.runner.Runner`][runner-interface]; inheritance is not required.
+`earth2studio.run.runner.Runner`; inheritance is not required.
 
 ### Pipeline
+
+A `Pipeline` provides the outer orchestration layer around a `Runner`, managing
+distributed execution of work items, tracking progress, and writing each output
+stream to its store.
 
 | Argument | Purpose |
 | --- | --- |
@@ -73,14 +81,14 @@ Sources default to each model's `default_sources()`. The protocol is defined in
 | `progress` | `ProgressStore` recording finished items so a rerun resumes. |
 | `device` | Runner device; `"auto"` selects `cuda:{LOCAL_RANK}` or CPU. |
 
-At least one of `output` and `scorer` is required. `Pipeline.from_model(model,
-source, ...)` builds a `PrognosticRunner` and accepts the same arguments.
+At least one of `output` and `scorer` is required.
 
-See [E2S-11: Execution Contracts][execution-spec] for the full work item, runner,
-pipeline, seeding, and progress requirements.
+Construct a `Pipeline` explicitly from a runner and per-stream settings, or use
+`Pipeline.from_model(model, source, ...)` to build one for a single prognostic
+model, as shown below.
 
-[execution-spec]: ../../specs/E2S-11_EXECUTION_CONTRACT_SPEC.md
-[runner-interface]: https://github.com/NVIDIA/earth2studio/blob/1.0.0-rc/earth2studio/run/runner.py
+See [E2S-11: Execution Contracts](../../specs/E2S-11_EXECUTION_CONTRACT_SPEC.md)
+for the full work item, runner, pipeline, seeding, and progress requirements.
 
 ## Usage
 
@@ -195,10 +203,9 @@ print(runner.describe(np.timedelta64(192, "h")))  # Inspect the derived schedule
 Pipeline(runner, output={"atmos": atmos_io, "ocean": ocean_io}).run(items)
 ```
 
-See [E2S-12: Coupling][coupling-spec] for connector and scheduling requirements,
-and the DLESyM seasonal example for a complete coupled run.
-
-[coupling-spec]: ../../specs/E2S-12_COUPLING_SPEC.md
+See [E2S-12: Coupling](../../specs/E2S-12_COUPLING_SPEC.md) for connector and
+scheduling requirements, and the DLESyM seasonal example for a complete coupled
+run.
 
 ## Write Your Own Runner
 
