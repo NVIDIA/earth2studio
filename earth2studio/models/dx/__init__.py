@@ -38,6 +38,7 @@ from earth2studio.models.dx.derived import (
 from earth2studio.models.dx.dlesym_v0_isccp_era5_precip import (
     DLESyMv0_ISCCP_ERA5Precip,  # noqa
 )
+from earth2studio.models.dx.hirov2 import HiROv2
 from earth2studio.models.dx.identity import Identity  # noqa
 from earth2studio.models.dx.orbit2_precip import OrbitGlobalPrecip  # noqa
 from earth2studio.models.dx.precipitation_afno import PrecipitationAFNO  # noqa
@@ -61,6 +62,7 @@ __all__ = [
     "CorrDiffEra5Hrrr",
     "CorrDiffTaiwan",
     "DLESyMv0_ISCCP_ERA5Precip",
+    "HiROv2",
     "PrecipitationAFNO",
     "PrecipitationAFNOv2",
     "SolarRadiationAFNO1H",

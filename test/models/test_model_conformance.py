@@ -63,6 +63,7 @@ def test_model_seeding_only_through_set_rng(model: type) -> None:
 @pytest.mark.parametrize(
     "name",
     [
+        "ACE2SXSHiELD",
         "AIFSENS",
         "AIFS2ENS",
         "Atlas",
@@ -86,6 +87,7 @@ def test_model_seeding_only_through_set_rng(model: type) -> None:
         "CBottleTCGuidance",
         "CorrDiff",
         "CorrDiffTaiwan",
+        "HiROv2",
         "CorrDiffCMIP6",
         "CorrDiffCosmoEra5",
         "CorrDiffEra5Hrrr",
@@ -101,6 +103,7 @@ def test_stochastic_models_expose_set_rng(name: str) -> None:
 
 _PROGNOSTIC_CONFORMANT: set[str] = {
     "ACE2ERA5",
+    "ACE2SXSHiELD",
     "AIFS",
     "AIFS2",
     "AIFS2ENS",
@@ -178,6 +181,7 @@ _DIAGNOSTIC_CONFORMANT: set[str] = {
     "DerivedTCWV",
     "DerivedVPD",
     "DerivedWS",
+    "HiROv2",
     "Identity",
     "OrbitGlobalPrecip",
     "PrecipitationAFNO",

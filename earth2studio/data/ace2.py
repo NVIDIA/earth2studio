@@ -74,6 +74,8 @@ class ACE2ERA5Data:
 
     _IC_ALLOWED_YEARS = [1940, 1950, 1979, 2001, 2020]
     _HF_REPO_ID = "allenai/ACE2-ERA5"
+    _LABEL = "ACE2ERA5"
+    _CACHE_NAME = "ace2era5_data"
 
     def __init__(
         self,
@@ -121,7 +123,7 @@ class ACE2ERA5Data:
         try:
             var_list_fme = [ACELexicon[v][0] for v in var_list_e2s]
         except KeyError as e:
-            raise KeyError(f"Unknown ACE2ERA5 variable id: {e}") from e
+            raise KeyError(f"Unknown {self._LABEL} variable id: {e}") from e
 
         # Determine years to fetch
         years = sorted({t.year for t in time_list})
@@ -132,7 +134,7 @@ class ACE2ERA5Data:
 
         for y in tqdm.tqdm(
             years,
-            desc=f"Fetching ACE2ERA5 {self._mode} data",
+            desc=f"Fetching {self._LABEL} {self._mode} data",
             disable=(not self._verbose),
         ):
             if self._mode == "forcing":
@@ -164,6 +166,7 @@ class ACE2ERA5Data:
             )
 
         # Subset time and variables; select exact requested timestamps and order
+        ds = self._with_datetime_time(ds)
         ds = ds.sel(time=time_list)
         ds = ds[var_list_fme]
 
@@ -225,6 +228,13 @@ class ACE2ERA5Data:
         """
         return self(time, variable)
 
+    def _with_datetime_time(self, ds: xr.Dataset) -> xr.Dataset:
+        """Return ``ds`` with its time coordinate as the requested dtype.
+
+        Subclasses whose files use a non-standard calendar override this.
+        """
+        return ds
+
     def _validate_ic_times(self, time_list: list[datetime]) -> None:
         for t in time_list:
             if t.year not in self._IC_ALLOWED_YEARS:
@@ -245,7 +255,60 @@ class ACE2ERA5Data:
     @property
     def cache(self) -> str:
         """Get the appropriate cache location."""
-        cache_location = os.path.join(datasource_cache_root(), "ace2era5_data")
+        cache_location = os.path.join(datasource_cache_root(), self._CACHE_NAME)
         if not self._cache:
-            cache_location = os.path.join(cache_location, "tmp_ace2era5_data")
+            cache_location = os.path.join(cache_location, f"tmp_{self._CACHE_NAME}")
         return cache_location
+
+
+@check_optional_dependencies("ace2")
+class ACE2SXSHiELDData(ACE2ERA5Data):
+    """ACE2S-X-SHiELD initial conditions and forcing from ``allenai/HiRO-ACEv2``.
+
+    The files use the same layout as :class:`ACE2ERA5Data`: yearly
+    ``initial_conditions/ic_{year}.nc`` and ``forcing_data/forcing_{year}.nc``.
+    Initial conditions are published for 2014 and 2023. Forcing covers 2014
+    through 2023. A later ACE2S-ERA5 wrapper can keep using
+    :class:`ACE2ERA5Data` instead of this class.
+
+    Parameters
+    ----------
+    mode : str
+        Either ``"forcing"`` or ``"initial_conditions"``, by default
+        ``"initial_conditions"``.
+    co2_fn : Callable[[Sequence[datetime]], np.ndarray] | None, optional
+        Optional replacement for the published global-mean CO2 series.
+    cache : bool, optional
+        Cache downloaded files locally, by default True.
+    verbose : bool, optional
+        Print download progress, by default True.
+
+    References
+    ----------
+    - HiRO-ACEv2: https://arxiv.org/abs/2610.17693
+    - Hugging Face: https://huggingface.co/allenai/HiRO-ACEv2
+    """
+
+    _IC_ALLOWED_YEARS = [2014, 2023]
+    _HF_REPO_ID = "allenai/HiRO-ACEv2"
+    _LABEL = "ACE2S-X-SHiELD"
+    _CACHE_NAME = "ace2s_xshield_data"
+
+    def _with_datetime_time(self, ds: xr.Dataset) -> xr.Dataset:
+        """Index the published Julian-calendar time labels as ``datetime64``.
+
+        The files label each step with the same year, month, day and hour as
+        the requested UTC time, but in the Julian calendar. Matching on those
+        fields avoids a calendar mismatch in ``sel``.
+        """
+        index = ds.indexes["time"]
+        if isinstance(index, xr.CFTimeIndex):
+            labels = [
+                np.datetime64(
+                    f"{t.year:04d}-{t.month:02d}-{t.day:02d}"
+                    f"T{t.hour:02d}:{t.minute:02d}"
+                )
+                for t in index
+            ]
+            ds = ds.assign_coords(time=np.asarray(labels, dtype="datetime64[ns]"))
+        return ds

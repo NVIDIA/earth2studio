@@ -37,6 +37,7 @@ earth2studio.models.dx.DerivedTCWV
 earth2studio.models.dx.DerivedVPD
 earth2studio.models.dx.DerivedWS
 earth2studio.models.dx.DLESyMv0_ISCCP_ERA5Precip
+earth2studio.models.dx.HiROv2
 earth2studio.models.dx.OrbitGlobalPrecip
 earth2studio.models.dx.PrecipitationAFNO
 earth2studio.models.dx.PrecipitationAFNOv2

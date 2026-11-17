@@ -15,7 +15,7 @@
 # limitations under the License.
 
 from . import _gdal  # noqa: F401  (must come before the ECMWF-backed sources)
-from .ace2 import ACE2ERA5Data
+from .ace2 import ACE2ERA5Data, ACE2SXSHiELDData
 from .arco import ARCO, ARCO_ERA5
 from .base import (
     DataFrameSource,
