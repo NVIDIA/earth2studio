@@ -75,7 +75,7 @@ def _indexed_seed(rollout_seed: int, index: int) -> int:
 
 
 @contextlib.contextmanager
-def _fork_global_rng(seed: int) -> Generator[None, None, None]:
+def _fork_global_rng(seed: int) -> Generator[None]:
     """Seed the global generators fme reads, then restore them.
 
     fme's ``randn`` helpers call ``torch.randn`` with no generator argument.
