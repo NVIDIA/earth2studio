@@ -28,6 +28,25 @@ from PIL import Image
 MPL = os.path.join(os.path.dirname(matplotlib.__file__), "mpl-data", "fonts", "ttf")
 
 
+def wind_cmap():
+    """Return the dark ocean-to-gold wind palette shared by globe and legend."""
+    # Rising lightness encodes speed; cool teal turns to warm gold at high winds.
+    return LinearSegmentedColormap.from_list(
+        "ocean_gold",
+        [
+            "#02070d",
+            "#082631",
+            "#11505b",
+            "#247c80",
+            "#5ca69b",
+            "#a7c7a5",
+            "#dfd49b",
+            "#f5dc98",
+            "#ffe9bd",
+        ],
+    )
+
+
 def font(bold=False, mono=False, size=20):
     """Load a bundled DejaVu font with the requested style and size."""
     from PIL import ImageFont

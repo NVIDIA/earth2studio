@@ -14,16 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import matplotlib
 from common import *
 from PIL import Image, ImageDraw
 
 W = 5400
-M, G, BAND = 30, 24, 78
+M, G, BAND = 30, 24, 270
 GL = 1500  # globe edge
 LEG = 120  # legend / colourbar strip under globes
 R1 = BAND + GL + LEG  # row-1 height
-R2 = 1116  # row-2 height
+R2 = BAND + 1038  # retain the original data-source image size
 H = M + R1 + G + R2 + M
 canvas = Image.new("RGB", (W, H), (0, 0, 0))
 d = ImageDraw.Draw(canvas)
@@ -55,9 +54,10 @@ def spaced(draw, xy, text, f, fill, track=0):
 
 def header(x, y, num, title, sub):
     """Draw a numbered panel heading and subtitle on the hero canvas."""
-    spaced(d, (x, y + 4), num, font(mono=True, size=22), CY, 2)
-    spaced(d, (x + 44, y + 2), title, font(bold=True, size=30), WHITE, 3)
-    d.text((x + 44, y + 40), sub, font=font(mono=True, size=21), fill=GREY)
+    spaced(d, (x, y + 24), num, font(mono=True, size=22), CY, 2)
+    for i, line in enumerate(title.splitlines()):
+        spaced(d, (x + 44, y + 2 + i * 100), line, font(bold=True, size=90), WHITE, 3)
+    d.text((x + 44, y + 224), sub, font=font(mono=True, size=21), fill=GREY)
 
 
 def place(path, box, crop=False, cover=False):
@@ -99,17 +99,11 @@ header(
     x01,
     y1,
     "01",
-    "MEDIUM RANGE, S2S AND CLIMATE FORECASTING",
+    "MEDIUM RANGE, S2S AND\nCLIMATE FORECASTING",
     "SFNO · 0.25° · +144 h · 10 m wind, streamlines, MSLP · init 2026-01-15 00Z",
 )
 place(P("panels/globe_raw.png"), (x01, y1 + BAND, GL, GL), crop=True)
-tw_ = matplotlib.cm.twilight
-stops = (
-    ["#000000", "#07041a"]
-    + [matplotlib.colors.to_hex(tw_(x)) for x in (0.47, 0.40, 0.32, 0.24, 0.16, 0.08)]
-    + ["#ffd9f2", "#ff7ad0", "#ff9a3c", "#fff3b0"]
-)
-cm = LinearSegmentedColormap.from_list("twilight_wind", stops)
+cm = wind_cmap()
 bw, bh = 520, 10
 bx, by = x01 + 44, y1 + BAND + GL + 46
 bar = (cm(np.linspace(0, 1, bw))[:, :3] * 255).astype(np.uint8)[None].repeat(bh, 0)
@@ -208,8 +202,8 @@ for p, lab in srcs:
 # wordmark
 tx = xs + 40
 tw = W - M - tx
-d.text((tx, y2 + 6), "NVIDIA", font=font(bold=True, size=30), fill=(118, 185, 0))
-spaced(d, (tx, y2 + 52), "EARTH2STUDIO", font(bold=True, size=92), WHITE, 6)
+d.text((tx, y2 + 6), "NVIDIA", font=font(bold=True, size=60), fill=(118, 185, 0))
+spaced(d, (tx, y2 + 94), "EARTH2STUDIO", font(bold=True, size=92), WHITE, 6)
 d.text((tx, y2 + 190), "Next-generation AI weather", font=font(size=34), fill=GREY)
 d.text((tx, y2 + 234), "and climate modeling.", font=font(size=34), fill=GREY)
 import os

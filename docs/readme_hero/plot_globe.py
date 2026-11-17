@@ -16,7 +16,6 @@
 
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
-import matplotlib
 from common import *
 
 f = np.load(P("fcst.npz"), allow_pickle=True)
@@ -26,13 +25,7 @@ ws = np.hypot(u, v)
 lat = np.linspace(90, -90, 721)
 lon = np.linspace(0, 359.75, 1440)
 N = 1960
-tw = plt.cm.twilight
-stops = (
-    ["#000000", "#07041a"]
-    + [matplotlib.colors.to_hex(tw(x)) for x in (0.47, 0.40, 0.32, 0.24, 0.16, 0.08)]
-    + ["#ffd9f2", "#ff7ad0", "#ff9a3c", "#fff3b0"]
-)
-cmap = LinearSegmentedColormap.from_list("twilight_wind", stops)
+cmap = wind_cmap()
 fig = plt.figure(figsize=(N / 100, N / 100), dpi=100, facecolor="black")
 proj = ccrs.Orthographic(central_longitude=-35, central_latitude=22)
 ax = fig.add_axes([0.03, 0.03, 0.94, 0.94], projection=proj)
