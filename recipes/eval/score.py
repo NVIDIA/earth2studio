@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Scoring entry point — compare predictions against verification data.
+"""Scoring entry point: compare stored forecasts against verification data.
 
 Usage
 -----
@@ -33,169 +33,217 @@ Distributed (multi-GPU)::
 
 Prerequisites
 -------------
-1. ``predownload.py`` with ``predownload.verification.enabled=true``
+1. ``predownload.py`` with ``predownload.verification.enabled=true`` (or a
+   bring-your-own ``verification_source``)
 2. ``main.py`` (inference must have completed)
 
 Online runs
 -----------
-With ``scoring.mode=online`` there is no ``forecast.zarr`` to re-read —
+With ``scoring.mode=online`` there is no ``forecast.zarr`` to re-read:
 ``main.py`` accumulated sufficient statistics as it ran.  This script then
 only re-derives ``scores.zarr`` from ``stats.zarr``, which is single-process
 and cheap; use it to pick up new derived metrics without re-running
 inference.
 
-To score an online run the offline way as a cross-check — possible whenever
-the run kept its raw fields (``output.retain=all``) — override the mode and
-give the result its own store::
+To score an online run the offline way as a cross-check, possible whenever
+the run kept its raw fields (the default ``output`` setting), override the
+mode and give the result its own store::
 
     torchrun --nproc_per_node=$NGPU --standalone score.py \\
         campaign=fcn3_2024_monthly scoring.mode=offline \\
         scoring.output.store_name=scores_offline.zarr
 """
 
+from __future__ import annotations
+
 import hydra
 import numpy as np
 import torch
 from loguru import logger
 from omegaconf import DictConfig
-from physicsnemo.distributed import DistributedManager
-from src.distributed import configure_logging, run_on_rank0_first
-from src.online import finalize_online_stats, online_enabled
-from src.output import OutputManager
+from src.campaign import initial_times
+from src.logs import (
+    all_agree,
+    configure_logging,
+    finalize_distributed,
+    init_distributed,
+    rank0_first_checked,
+)
+from src.output import prepare_store, recorded_items
 from src.regions import events_to_attrs, parse_events
 from src.scoring import (
-    add_score_arrays,
     build_input_coords_template,
     build_lead_time_chunks,
-    build_superset_score_coords,
     group_score_arrays_by_dims,
     instantiate_metrics,
+    online_mode,
     open_prediction_store,
+    open_score_store,
     open_verification_source,
     run_scoring,
+    score_store_path,
+    scoring_progress_path,
     spatial_coords_from_dataset,
     validate_lead_time_chunking,
 )
-from src.work import (
-    build_work_items,
-    clear_scoring_progress,
+
+from earth2studio.run import ProgressStore, work_items
+from earth2studio.run.work import (
+    broadcast,
     distribute_work,
-    filter_scoring_completed,
+    raise_if_any_failed,
+    rank_info,
 )
 
 
-@hydra.main(version_base=None, config_path="cfg", config_name="default")
-def main(cfg: DictConfig) -> None:
-    """Eval recipe scoring entry point — distributed metric computation."""
+def scoring_device(device: torch.device | str) -> torch.device:
+    """Device for metric computations, falling back to CPU without CuPy.
 
-    DistributedManager.initialize()
-    configure_logging()
-    dist = DistributedManager()
-    device = dist.device
+    The library returns CUDA-backed fields through CuPy, so a GPU without
+    CuPy installed cannot hold the scored fields; the scores are small and
+    CPU scoring stays correct.
+    """
+    device = torch.device(device)
+    if device.type == "cuda":
+        try:
+            import cupy  # noqa: F401
+        except ImportError:
+            logger.warning("CuPy is not installed; scoring on CPU instead of CUDA.")
+            return torch.device("cpu")
+    return device
+
+
+def run(cfg: DictConfig, device: torch.device | str = "cpu") -> None:
+    """Score the campaign described by ``cfg`` on this rank.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        Full recipe config.
+    device : torch.device | str, optional
+        Device for metric computations, by default CPU.
+    """
+    rank, world_size = rank_info()
+    device = scoring_device(device)
 
     # --- Online mode: nothing to re-read -----------------------------------
     # An online run already reduced its forecasts to sufficient statistics
     # during inference, so "scoring" is just the (single-process, cheap)
-    # finalize of stats.zarr -> scores.zarr.  Re-running it is how you pick
-    # up newly-derived metrics without re-running inference.
-    if online_enabled(cfg):
-        if dist.rank == 0:
-            finalize_online_stats(cfg)
-        if dist.distributed:
-            torch.distributed.barrier()
+    # step deriving scores.zarr from stats.zarr.
+    if online_mode(cfg):
+        from src.online import finalize_online_stats
+
+        all_agree(lambda: finalize_online_stats(cfg), rank == 0)
         logger.success("Scoring finished (online mode: finalized stats.zarr).")
         return
-
-    # --- Build and distribute work -----------------------------------------
-    all_items = build_work_items(cfg)
-    all_times = sorted({item.time for item in all_items})
-
-    resume = cfg.scoring.get("resume", False)
-    if resume:
-        remaining_times = filter_scoring_completed(all_times, cfg)
-        if not remaining_times:
-            logger.success("All times already scored — nothing to do.")
-            if dist.distributed:
-                torch.distributed.barrier()
-            return
-    else:
-        remaining_times = list(all_times)
-        if cfg.scoring.output.get("overwrite", False):
-            clear_scoring_progress(cfg)
-
-    my_times = distribute_work(remaining_times, dist.rank, dist.world_size)
 
     # --- Open data stores --------------------------------------------------
     prediction_ds = open_prediction_store(cfg)
     verif_source = open_verification_source(cfg)
 
-    # --- Extract spatial coords and build template -------------------------
-    spatial_coords = spatial_coords_from_dataset(prediction_ds)
-    variables = list(cfg.scoring.variables)
-    lead_times = prediction_ds.lead_time.values
-    if not np.issubdtype(lead_times.dtype, np.timedelta64):
-        # numpy would add integer leads to the initial times as nanoseconds.
+    times = [np.datetime64(t, "ns") for t in initial_times(cfg)]
+    stored = set(np.asarray(prediction_ds.time.values).astype("datetime64[ns]"))
+    missing = [str(t) for t in times if t not in stored]
+    if missing:
         raise ValueError(
-            "score.py pairs each lead_time with a verification time, but this "
-            f"store's lead_time is {lead_times.dtype}.  Calendar-month forecasts "
-            "from WindowMeanForecastPipeline(window='month') hold integer lead "
-            "months, which score.py cannot verify yet."
+            f"{len(missing)} initial condition(s) of the campaign are not in the "
+            f"prediction store (first: {missing[0]}); run main.py for them first."
         )
 
-    input_template = build_input_coords_template(prediction_ds, lead_times, variables)
+    lead_times = np.asarray(prediction_ds.lead_time.values)
+    if not np.issubdtype(lead_times.dtype, np.timedelta64):
+        raise ValueError(
+            "score.py pairs each lead_time with a verification time, but this "
+            f"store's lead_time is {lead_times.dtype}.  Calendar-window forecasts "
+            "hold integer lead windows, which score.py cannot verify yet."
+        )
+    spatial_coords = spatial_coords_from_dataset(prediction_ds)
+    variables = [str(v) for v in cfg.scoring.variables]
+    template = build_input_coords_template(prediction_ds, lead_times, variables)
 
-    # --- Instantiate and validate metrics ----------------------------------
+    # --- Metrics and chunking ----------------------------------------------
     metrics = instantiate_metrics(cfg, spatial_coords)
-
-    all_times_arr = np.array(all_times)
     chunk_size = cfg.scoring.get("lead_time_chunk_size", None)
     validate_lead_time_chunking(metrics, chunk_size, len(lead_times))
     lt_chunks = build_lead_time_chunks(lead_times, chunk_size)
 
-    # --- Build score store coordinates -------------------------------------
-    # Superset coords define the store's coordinate axes; individual metric
-    # arrays may use any subset of these dimensions.
-    superset_coords = build_superset_score_coords(
-        metrics, input_template, all_times_arr
+    # --- Score store and progress -------------------------------------------
+    array_groups = group_score_arrays_by_dims(metrics, template, np.array(times))
+    events = events_to_attrs(parse_events(cfg.scoring.get("events", None)))
+    resume = bool(cfg.scoring.get("resume", False))
+    overwrite = bool(cfg.scoring.output.get("overwrite", False))
+    items = work_items(times, np.timedelta64(lead_times[-1], "s"))
+    tags = {"project": str(cfg.project), "run_id": str(cfg.run_id)}
+    # The rerun policy of the forecast and statistics stores applies here
+    # too: replace, resume into, or refuse an existing score store, never
+    # merge into it silently; and prepare_store refuses a resume whose score
+    # store has gone missing while the progress store records scored times.
+    recorded = recorded_items(scoring_progress_path(cfg), items, tags) if resume else 0
+    prepare_store(score_store_path(cfg), resume, overwrite, rank, recorded)
+    io = rank0_first_checked(lambda: open_score_store(cfg, array_groups, rank, events))
+
+    progress = ProgressStore(
+        scoring_progress_path(cfg), tags=tags, overwrite=not resume
     )
-    array_groups = group_score_arrays_by_dims(metrics, input_template, all_times_arr)
+    manifest = {
+        "store": str(cfg.scoring.output.get("store_name", "scores.zarr")),
+        "metrics": list(metrics),
+        "variables": variables,
+    }
+    attempt = broadcast(all_agree(lambda: progress.setup(manifest), rank == 0))
+    progress.open(manifest, rank, attempt)
+    remaining = progress.remaining(items) if resume else list(items)
+    if not remaining:
+        logger.success("All times already scored; nothing to do.")
+    my_items = distribute_work(remaining, rank, world_size)
+    logger.info(
+        f"Scoring {len(remaining)} initial condition(s) on {world_size} rank(s); "
+        f"this rank: {len(my_items)}"
+    )
 
     # --- Run scoring -------------------------------------------------------
-    store_name = cfg.scoring.output.get("store_name", "scores.zarr")
-    overwrite = cfg.scoring.output.get("overwrite", False)
-
-    with OutputManager(
-        cfg, store_name=store_name, overwrite=overwrite, resume=resume
-    ) as output_mgr:
-        # Create store with superset coordinate axes (no data arrays yet).
-        output_mgr.validate_output_store(superset_coords, [])
-        # Add data arrays per dimension group — metrics that reduce
-        # different dims get arrays with different dimension sets.
-        run_on_rank0_first(add_score_arrays, output_mgr.io, array_groups)
-        # Stamp the event definitions onto the store, as the online path
-        # does when it derives scores.zarr, so the scorecard exporter can
-        # window the per-IC scores.
-        events = events_to_attrs(parse_events(cfg.scoring.get("events", None)))
-        if events is not None and dist.rank == 0:
-            output_mgr.io.root.attrs["events"] = events
-        if my_times:
-            run_scoring(
-                my_times,
-                prediction_ds,
-                verif_source,
-                metrics,
-                output_mgr,
-                variables,
-                lead_times,
-                lt_chunks,
-                spatial_coords,
-                device,
-                cfg,
-            )
-        else:
-            logger.info(f"Rank {dist.rank}: no times assigned, waiting at barrier.")
-
+    # A failure on one rank reaches every rank in the collective below, so
+    # the others neither report success nor wait at a later collective for
+    # a rank that has left.
+    error: Exception | None = None
+    try:
+        run_scoring(
+            my_items,
+            prediction_ds,
+            verif_source,
+            metrics,
+            io,
+            variables,
+            lead_times,
+            lt_chunks,
+            spatial_coords,
+            device,
+            cfg,
+            progress=progress,
+            rank=rank,
+        )
+    except Exception as err:  # noqa: BLE001 - raised again on every rank below
+        logger.error(f"Rank {rank}: scoring failed: {err}")
+        error = err
+    finally:
+        try:
+            progress.close()
+            io.close()
+        except Exception as err:  # noqa: BLE001 - counts as this rank's failure
+            error = error or err
+    raise_if_any_failed(error)
     logger.success("Scoring finished.")
+
+
+@hydra.main(version_base=None, config_path="cfg", config_name="default")
+def main(cfg: DictConfig) -> None:
+    """Eval recipe scoring entry point: distributed metric computation."""
+    configure_logging()
+    device = init_distributed()
+    try:
+        run(cfg, device)
+    finally:
+        finalize_distributed()
 
 
 if __name__ == "__main__":

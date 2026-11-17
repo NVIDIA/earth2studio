@@ -38,6 +38,7 @@ from earth2studio.data.utils import (
     prep_data_inputs,
     reduce_statistics,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon import WB2ClimatetologyLexicon, WB2Lexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 
@@ -191,7 +192,7 @@ class _WB2Base:
             verbose=self._verbose,
         )
         xr_array.attrs.update(attrs)
-        return xr_array
+        return with_grid_metadata(xr_array, "latlon-0.25deg")
 
     async def fetch_wrapper(
         self,
@@ -324,8 +325,10 @@ class WB2ERA5(_WB2Base):
 
     Note
     ----
-    This data source supports the following temporal statistics: ``mean``,
-    ``sum``, ``min``, and ``max``. The temporal sampling cadence is six hours.
+    Temporal statistics: ``mean``, ``sum``, ``min`` and ``max`` at six-hourly
+    cadence (see the time statistics spec). Precipitation is stored as trailing
+    accumulations (``tp06``, ``tp12``, ``tp24``); request them directly rather than
+    summing a window of them.
 
     Parameters
     ----------
@@ -379,8 +382,10 @@ class WB2ERA5_121x240(_WB2Base):
 
     Note
     ----
-    This data source supports the following temporal statistics: ``mean``,
-    ``sum``, ``min``, and ``max``. The temporal sampling cadence is six hours.
+    Temporal statistics: ``mean``, ``sum``, ``min`` and ``max`` at six-hourly
+    cadence (see the time statistics spec). Precipitation is stored as trailing
+    accumulations (``tp06``, ``tp12``, ``tp24``); request them directly rather than
+    summing a window of them.
 
     Parameters
     ----------
@@ -434,8 +439,10 @@ class WB2ERA5_32x64(_WB2Base):
 
     Note
     ----
-    This data source supports the following temporal statistics: ``mean``,
-    ``sum``, ``min``, and ``max``. The temporal sampling cadence is six hours.
+    Temporal statistics: ``mean``, ``sum``, ``min`` and ``max`` at six-hourly
+    cadence (see the time statistics spec). Precipitation is stored as trailing
+    accumulations (``tp06``, ``tp12``, ``tp24``); request them directly rather than
+    summing a window of them.
 
     Parameters
     ----------
@@ -631,7 +638,7 @@ class WB2Climatology(_WB2Base):
         await tqdm.gather(
             *func_map, desc="Fetching WB2 climatology data", disable=(not self._verbose)
         )
-        return xr_array
+        return with_grid_metadata(xr_array, "latlon-0.25deg")
 
     async def fetch_array(self, time: datetime, variable: str) -> np.ndarray:
         """Fetches requested array from remote store

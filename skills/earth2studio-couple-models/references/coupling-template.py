@@ -119,7 +119,9 @@ class Land(PrognosticMixin):
         """The previous day's rain total and mean temperature.
 
         Qualified labels (``base:statistic:window``) ask the coupler to reduce
-        the producer's frames over ``[T - 24h, T)``.
+        the producer's frames stamped in ``(T - 24h, T]``, including ``T``. For
+        accumulations stamped at the end of their interval, ``tp:sum:24h`` is the
+        24 hours ending at ``T``.
         """
         return signature(["tp:sum:24h", "t2m:mean:24h"], LAND_GRID, 24)
 

@@ -151,6 +151,41 @@ def _is_forecast_source(source: DataSource | ForecastSource) -> bool:
     return "lead_time" in signature(source.__call__).parameters
 
 
+def _select_labels(
+    array: xr.DataArray,
+    dim: str,
+    requested: np.ndarray,
+    source: DataSource | ForecastSource,
+) -> xr.DataArray:
+    """Select requested labels; repeated labels (e.g. samples) are kept in order.
+
+    Sources must return the requested ``time`` and ``lead_time`` labels. A source
+    that returns other labels (for example times truncated to a day, or the
+    nearest stored time) raises here rather than having data relabelled silently.
+    """
+    index = array.indexes[dim]
+    requested = np.asarray(requested)
+    if index.has_duplicates:
+        # xarray cannot ``sel`` labels from a duplicated index; the source returned
+        # one entry per request, so select positionally instead.
+        if len(index) == len(requested) and np.array_equal(index.values, requested):
+            return array
+        missing = requested
+    else:
+        missing = requested[index.get_indexer(requested) < 0]
+        if missing.size == 0:
+            return array.sel({dim: requested})
+    shown = ", ".join(str(value) for value in missing[:5])
+    more = f" and {missing.size - 5} more" if missing.size > 5 else ""
+    raise ValueError(
+        f"{type(source).__name__} returned {dim} labels that do not match the "
+        f"request: {shown}{more} not returned (returned: "
+        f"{', '.join(str(v) for v in index.values[:5])}"
+        f"{', ...' if len(index) > 5 else ''}). Data sources must label their "
+        f"output with the requested {dim} values."
+    )
+
+
 def _is_ensemble_source(source: DataSource | ForecastSource) -> bool:
     """Return whether a source selects ensemble members through a ``member`` keyword.
 
@@ -189,16 +224,19 @@ def _fetch_instantaneous(
 ) -> xr.DataArray:
     variables = cast(VariableArray, np.asarray(variable))
     if _is_forecast_source(source):
-        return cast(ForecastSource, source)(
+        array = cast(ForecastSource, source)(
             time, lead_time, variables, **_members(member)
-        ).sel(time=time, lead_time=lead_time, variable=variables)
+        )
+        array = _select_labels(array, "time", time, source)
+        array = _select_labels(array, "lead_time", lead_time, source)
+        return array.sel(variable=variables)
 
     arrays = []
     for lead in lead_time:
         valid_time = _offset_times(time, lead)
-        array = cast(DataSource, source)(valid_time, variables, **_members(member)).sel(
-            time=valid_time, variable=variables
-        )
+        array = cast(DataSource, source)(valid_time, variables, **_members(member))
+        array = _select_labels(array, "time", valid_time, source)
+        array = array.sel(variable=variables)
         array = array.expand_dims(
             lead_time=np.array([lead], dtype="timedelta64[ns]"), axis=1
         )
@@ -374,13 +412,14 @@ def fetch_data(
         Field values with dimensions [time, lead_time, variable, ...], auxiliary
         coordinates, actual grid metadata and normalized temporal statistics. The
         field is on the source grid unless regridded. With ``member``, a leading
-        ``ensemble`` dimension holds the requested members in order.
+        ``ensemble`` dimension holds the requested members in order. Floating point
+        fields are always returned as float32, regardless of the source's dtype.
 
     Note
     ----
     Temporal statistics require native source support. The source chooses its
     sampling and computes the reduction; unsupported methods raise ``ValueError``.
-    Windows include their left endpoint and exclude their right endpoint.
+    Windows exclude their left endpoint and include their right endpoint.
     Sources may return NumPy- or CuPy-backed fields. Temporal reductions run on
     that backing; the result then moves to ``device`` only if it is not already
     there, and regridding runs last, on ``device``. Regridding automatically
@@ -420,6 +459,9 @@ def fetch_data(
     da = _fetch_dataarray(source, time, variable, lead_time, members)
     for key in (E2S_KIND, E2S_SCHEMA_VERSION, E2S_DYNAMIC_DIMS):
         da.attrs.pop(key, None)
+    # Models consume float32 fields; sources may build float64 (e.g. bare np.empty)
+    if da.dtype.kind == "f" and da.dtype != np.float32:
+        da = da.astype(np.float32)
     if device.type == "cuda":
         if cp is None:
             raise ImportError("cupy is required for CUDA DataArrays")
@@ -486,8 +528,25 @@ def fetch_dataframe(
             raise ImportError(
                 "cudf is required for CUDA device. Install with: pip install cudf"
             )
+        # Adapt Arrow extension types that cuDF cannot ingest from pandas.
+        compatible = {}
+        for name, dtype in df.dtypes.items():
+            if not isinstance(dtype, pd.ArrowDtype):
+                continue
+            arrow_dtype = dtype.pyarrow_dtype
+            if pa.types.is_fixed_size_list(arrow_dtype):
+                # Preserve channel order with variable-size list offsets.
+                compatible[name] = df[name].astype(
+                    pd.ArrowDtype(pa.list_(arrow_dtype.value_type))
+                )
+            elif pa.types.is_dictionary(arrow_dtype):
+                # Decode low-cardinality strings before pandas-to-cuDF conversion.
+                compatible[name] = df[name].astype(
+                    pd.ArrowDtype(arrow_dtype.value_type)
+                )
         with cp.cuda.Device(device.index):
-            result = cudf.from_pandas(df)
+            result = cudf.from_pandas(df.assign(**compatible) if compatible else df)
+            result.attrs = df.attrs
         return result
     else:
         return df
@@ -709,12 +768,9 @@ def prep_data_array(
             data = torch.Tensor(da.values).to(device)
             out = interp(data)
 
-            # HARD CODE FOR STORMCAST
-            # TODO: FIX THIS BY CORRECTING STORMCAST COORDINATES
-            if "hrrr_y" in out_coords:
-                del out_coords["hrrr_y"]
-            if "hrrr_x" in out_coords:
-                del out_coords["hrrr_x"]
+            # The native curvilinear dims are replaced by the target grid
+            for dim in da["_lat"].dims:
+                out_coords.pop(dim, None)
         else:
             if len(interp_to["_lat"].shape) > 1 or len(interp_to["_lon"].shape) > 1:
                 # Target grid uses curvilinear coordinates: define internal dims y, x
@@ -1197,7 +1253,7 @@ async def gather_with_concurrency(
     desc : str, optional
         Progress bar description
     verbose : bool, optional
-        Disable the progress bar
+        Show the progress bar, by default False.
 
     Returns
     -------
@@ -1220,7 +1276,7 @@ async def gather_with_concurrency(
             return await coro
 
     bounded = [_bounded(c) for c in coros]
-    return await tqdm.gather(*bounded, desc=desc, disable=verbose)
+    return await tqdm.gather(*bounded, desc=desc, disable=not verbose)
 
 
 async def cancellable_to_thread(
@@ -1229,7 +1285,7 @@ async def cancellable_to_thread(
     timeout: float = 30.0,
     **kwargs: Any,
 ) -> T:
-    """Run a blocking function in a thread with timeout support.
+    """Run a blocking function in a thread, limiting how long the caller waits.
 
     WARNING: This should be a LAST RESORT. Pure async operations are ALWAYS
     preferred because:
@@ -1648,6 +1704,11 @@ async def obstore_read_chunked(
     try:
         meta = await store.head_async(key)
         size = int(meta["size"])
+        # An empty object has no byte range to request (obstore rejects
+        # start == end).  NNJA publishes one for a cycle its sensor did not
+        # observe: a legitimate empty file, not a failure.
+        if size == 0:
+            return b""
         inflight = _inflight_semaphore()
 
         if size <= chunk_size:
@@ -1752,6 +1813,46 @@ async def obstore_fetch_to_cache(
     else:
         await asyncio.to_thread(Path(cache_path).write_bytes, data)
     return cache_path
+
+
+async def fetch_once(
+    inflight: dict[str, asyncio.Future[str]],
+    key: str,
+    download: Callable[[], Awaitable[str]],
+) -> str:
+    """Await one shared download for concurrent requests of the same file.
+
+    Callers on the running event loop that request ``key`` while a download is in
+    flight await that download instead of starting another. The entry is removed
+    when the download finishes, so a failure reaches every waiting caller and the
+    next request retries. A task from another event loop is not reused.
+
+    Parameters
+    ----------
+    inflight : dict[str, asyncio.Future[str]]
+        In-flight downloads by key, owned by the caller (one per data source)
+    key : str
+        Cache file name identifying the download
+    download : Callable[[], Awaitable[str]]
+        Starts the download and returns the cache file path
+
+    Returns
+    -------
+    str
+        Path to the local cache file
+    """
+    task = inflight.get(key)
+    if task is None or task.get_loop() is not asyncio.get_running_loop():
+        task = asyncio.ensure_future(download())
+        inflight[key] = task
+
+        def _forget(done: asyncio.Future[str]) -> None:
+            if inflight.get(key) is done:
+                del inflight[key]
+
+        task.add_done_callback(_forget)
+    # Shield so one cancelled caller does not abort the download for the others
+    return await asyncio.shield(task)
 
 
 class LocalCachingStore(zarr.storage.WrapperStore):
@@ -2161,7 +2262,7 @@ def plan_statistics(
         if verbose:
             logger.info(
                 f"{source}: {label} {_DESCRIPTIONS.get(str(info['method']), 'reduced')} "
-                f"over {modifier} (left-closed/right-open window)"
+                f"over {modifier} (left-open/right-closed window)"
             )
     if validate is not None and stats:
         convert = as_datetime if is_time else as_timedelta

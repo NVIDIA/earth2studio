@@ -32,7 +32,7 @@ from earth2studio.data.utils import (
     _CleanupAfterLastCall,
     _sync_async,
     async_retry,
-    datasource_cache_dir,
+    datasource_cache_root,
     gather_with_concurrency,
     obstore_fetch_to_cache,
     obstore_store_from_url,
@@ -211,9 +211,8 @@ class NomadsGDASObsConv:
         ValueError
             If requested time is out of valid range.
         """
-        with self._calls:
-            # async_timeout bounds the download inside fetch; decode is not bounded.
-            return _sync_async(self.fetch, time, variable, fields)
+        # async_timeout bounds the download inside fetch; decode is not bounded.
+        return _sync_async(self.fetch, time, variable, fields)
 
     async def fetch(
         self,
@@ -237,6 +236,15 @@ class NomadsGDASObsConv:
         pd.DataFrame
             Observation data.
         """
+        with self._calls:
+            return await self._fetch(time, variable, fields)
+
+    async def _fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+        fields: str | list[str] | pa.Schema | None = None,
+    ) -> pd.DataFrame:
         time_list, variable_list = prep_data_inputs(time, variable)
         output_fields = self.resolve_fields(fields) if self._layout == "long" else None
         if self._layout == "wide":
@@ -264,7 +272,7 @@ class NomadsGDASObsConv:
                 coros,
                 max_workers=self._async_workers,
                 desc="Fetching GDAS conventional observations",
-                verbose=(not self._verbose),
+                verbose=self._verbose,
             ),
             self.async_timeout,
         )
@@ -322,6 +330,7 @@ class NomadsGDASObsConv:
     # ------------------------------------------------------------------
     async def _fetch_remote_file(self, uri: str) -> str:
         """Download a BUFR file from NOMADS via obstore."""
+        os.makedirs(self.cache, exist_ok=True)
         return await obstore_fetch_to_cache(
             self._store,
             uri,
@@ -377,7 +386,10 @@ class NomadsGDASObsConv:
     @property
     def cache(self) -> str:
         """Get the appropriate cache location."""
-        return datasource_cache_dir("gdas_prepbufr", self._cache, self._tmp_cache_hash)
+        root = os.path.join(datasource_cache_root(), "gdas_prepbufr")
+        if not self._cache:
+            return os.path.join(root, f"tmp_gdas_prepbufr_{self._tmp_cache_hash}")
+        return root
 
     def cleanup(self) -> None:
         """Remove temporary files when persistent caching is disabled."""

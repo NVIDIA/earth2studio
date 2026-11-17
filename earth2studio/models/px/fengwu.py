@@ -287,7 +287,7 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             binding.bind_input(
                 name=name,
                 device_type=self.device.type,
-                device_id=self.device.index,
+                device_id=self.device.index or 0,
                 element_type=np.float32,
                 shape=tuple(input.shape),
                 buffer_ptr=input.data_ptr(),
@@ -298,7 +298,7 @@ class FengWu(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             binding.bind_output(
                 name=name,
                 device_type=self.device.type,
-                device_id=self.device.index,
+                device_id=self.device.index or 0,
                 element_type=np.float32,
                 shape=tuple(out.shape),
                 buffer_ptr=out.data_ptr(),

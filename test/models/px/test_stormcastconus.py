@@ -266,7 +266,8 @@ def test_stormcastconus_sda_iter(device):
     c = conditioning_input(core, x)
     obs = pd.DataFrame(
         {
-            "time": [time[0]],
+            # Observations describe the output valid time, one hour after x.
+            "time": [time[0] + np.timedelta64(1, "h")],
             "variable": [core.variables[0]],
             "lat": [core.lat[8, 8]],
             "lon": [core.lon[8, 8]],
@@ -288,7 +289,8 @@ def test_stormcastconus_sda_iter(device):
     assert not np.allclose(y.e2s.as_numpy(), free.e2s.as_numpy())
     assert y.lead_time.values[0] == np.timedelta64(1, "h")
     model.set_rng(42)
-    outside_window = obs.assign(time=time[0] + np.timedelta64(1, "h"))
+    # An observation at the input time lies outside the 10 minute window.
+    outside_window = obs.assign(time=time[0])
     xr.testing.assert_allclose(model(x, c, outside_window), free)
     saved = deepcopy(state)
     c1 = conditioning_input(core, y)

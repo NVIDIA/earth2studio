@@ -23,6 +23,7 @@ import numpy as np
 import pytest
 import torch
 import xarray as xr
+from loguru import logger
 from test_coupling_toys import (
     ATMOS_GRID,
     OCEAN_GRID,
@@ -62,9 +63,12 @@ def test_reproduces_the_hand_computed_toy(ic_sources: Mapping[str, Fill]) -> Non
     assert list(z) == list(range(0, 97, 6))
     assert list(sst) == [0, 48, 96]
     np.testing.assert_allclose(z[48], 9.6, atol=1e-5)
-    np.testing.assert_allclose(z[96], 19.2336, atol=1e-4)
-    np.testing.assert_allclose(sst[48], 2.042, atol=1e-6)
-    np.testing.assert_allclose(sst[96], 2.180147, atol=1e-6)
+    # The ocean's 48 h mean covers (T - 48h, T]: at +48h, z over +6h..+48h
+    # averages 1.2 * 4.5, so sst = 2 + 0.01 * 5.4; z then rises 1 + 0.1 * 2.054
+    # per step until +96h.
+    np.testing.assert_allclose(z[96], 19.2432, atol=1e-4)
+    np.testing.assert_allclose(sst[48], 2.054, atol=1e-6)
+    np.testing.assert_allclose(sst[96], 2.204243, atol=1e-6)
 
 
 def test_streams_keep_each_component_grid_and_time(
@@ -99,7 +103,7 @@ def test_lagging_and_ordering_are_derived(ic_sources: Mapping[str, Fill]) -> Non
     text = toy_runner(ic_sources).describe(np.timedelta64(96, "h"))
     lines = text.splitlines()
     # The held edge reads the ocean's last published frame; the exact edge waits
-    # for the atmosphere's chunk at +48h and reduces +0h..+42h.
+    # for the atmosphere's chunk at +48h and reduces +6h..+48h.
     assert any(
         "atmos  step" in line and "ocean at +42h from +0h" in line for line in lines
     )
@@ -108,7 +112,7 @@ def test_lagging_and_ordering_are_derived(ic_sources: Mapping[str, Fill]) -> Non
         for line in lines
     )
     ocean_line = next(line for line in lines if "ocean  initialize" in line)
-    assert "atmos at +48h from +0h..+42h" in ocean_line
+    assert "atmos at +48h from +6h..+48h" in ocean_line
     order = [line.split()[1] for line in lines if line.strip().startswith("+48h")]
     assert order == ["atmos", "ocean"]
     assert "ocean -> atmos forcing[0] (hold, regridded): sst" in text
@@ -187,14 +191,17 @@ def test_diagnostic_output_feeds_a_consumer(ic_sources: Mapping[str, Fill]) -> N
         },
     )
     sst = series(run(runner, 48)["ocean"])
-    np.testing.assert_allclose(sst[48], 2.0 + 0.01 * 8.4, atol=1e-6)
+    # z2 = 2 * z over (0h, 48h], with z = 1.2 per 6 h step: mean 2 * 5.4
+    np.testing.assert_allclose(sst[48], 2.0 + 0.01 * 10.8, atol=1e-6)
 
 
 # -- stateful assimilation with sparse observations --------------------------------
 
 
-def test_observations_nudge_only_when_present() -> None:
-    bucket, observations = Bucket(), Observations()
+@pytest.mark.parametrize("with_observations", [True, False])
+def test_observations_nudge_only_when_present(with_observations: bool) -> None:
+    bucket = Bucket()
+    observations = Observations() if with_observations else None
     runner = CoupledRunner(
         {"rain": Rain(), "soil": bucket},
         [Connector("rain", "soil")],
@@ -204,10 +211,12 @@ def test_observations_nudge_only_when_present() -> None:
         },
     )
     soil = series(run(runner, 96)["soil"])
-    assert bucket.observed == [False, False, True, False]
-    expected = {0: 0.1, 24: 0.108, 48: 0.116, 72: 0.262, 96: 0.27}
+    assert bucket.observed == [False, False, with_observations, False]
+    expected = {0: 0.1, 24: 0.108, 48: 0.116, 72: 0.124, 96: 0.132}
+    if observations is not None:
+        expected.update({72: 0.262, 96: 0.27})
+        assert [int((t - T0) // H) for t in observations.requests] == [24, 48, 72, 96]
     assert soil == pytest.approx(expected, abs=1e-6)
-    assert [int((t - T0) // H) for t in observations.requests] == [24, 48, 72, 96]
     # data_requests describes fetch_data calls only; DataFrame fetches are not.
     requests = runner.data_requests(WorkItem(T0, np.timedelta64(96, "h")))
     assert all(r.source is not observations for r in requests)
@@ -226,7 +235,7 @@ def test_a_consumer_initializes_once_its_window_is_complete() -> None:
     lines = runner.describe(np.timedelta64(24, "h")).splitlines()
     soil = next(line for line in lines if "soil" in line and "initialize" in line)
     assert soil.split()[0] == "+24h"
-    assert "rain at +24h from +0h..+18h" in soil
+    assert "rain at +24h from +6h..+24h" in soil
 
 
 # -- history before the item time ------------------------------------------------
@@ -311,6 +320,74 @@ def test_a_lone_forced_model_matches_prognostic_runner() -> None:
         for s in single.run_item(WorkItem(T0, np.timedelta64(18, "h")))
     }
     assert coupled == pytest.approx(direct)
+
+
+@pytest.mark.parametrize("hook", ["front_hook", "rear_hook"])
+def test_iterator_hooks_are_not_run_and_warn(hook: str) -> None:
+    model = atmosphere()
+    setattr(model, hook, lambda y: y + 100)
+    sources = (Fill(ATMOS_GRID, {"z1000": 0.0}), Fill(ATMOS_GRID, {"sst": 3.0}))
+    messages: list[str] = []
+    handler = logger.add(lambda message: messages.append(message), level="WARNING")
+    try:
+        runner = CoupledRunner({"atmos": model}, sources={"atmos": sources})
+    finally:
+        logger.remove(handler)
+    assert any(f"does not run {hook}" in m for m in messages)
+    # z1000 <- z1000 + 1.3 per 6 h step (sst = 3); the hook is not applied.
+    assert series(run(runner, 18)["atmos"]) == pytest.approx(
+        {0: 0.0, 6: 1.3, 12: 2.6, 18: 3.9}
+    )
+
+
+def test_default_hooks_do_not_warn() -> None:
+    sources = (Fill(ATMOS_GRID, {"z1000": 0.0}), Fill(ATMOS_GRID, {"sst": 3.0}))
+    messages: list[str] = []
+    handler = logger.add(lambda message: messages.append(message), level="WARNING")
+    try:
+        CoupledRunner({"atmos": atmosphere()}, sources={"atmos": sources})
+    finally:
+        logger.remove(handler)
+    assert not any("hook" in m for m in messages)
+
+
+# -- final lead time and history ---------------------------------------------------
+
+
+def test_final_lead_time_must_fall_where_an_output_is_due(
+    ic_sources: Mapping[str, Fill],
+) -> None:
+    runner = toy_runner(ic_sources)
+    for hours in (100, 7):
+        final = np.timedelta64(hours, "h")
+        with pytest.raises(ValueError, match="finest component step is 6h"):
+            list(runner.run_item(WorkItem(T0, final)))
+        with pytest.raises(ValueError, match="not a lead time"):
+            runner.output_coords(final)
+        with pytest.raises(ValueError, match="not a lead time"):
+            runner.describe(final)
+    assert list(series(run(runner, 96)["atmos"]))[-1] == 96
+
+
+def _long_window_runner() -> CoupledRunner:
+    """Two 6 h models; ``b`` reads a 48 h mean of ``a``'s ``z1000``."""
+    source = Fill(ATMOS_GRID, {"z1000": 0.0, "sst": 2.0})
+    a = _Toy("z1000", "sst", ATMOS_GRID, 6, 1.0, 0.1)
+    b = _Toy("sst", "z1000:mean:48h", ATMOS_GRID, 6, 0.0, 0.01, forcing_lead=6)
+    return CoupledRunner(
+        {"a": a, "b": b},
+        [Connector("a", "b")],
+        sources={"a": (source, source), "b": (source, source)},
+    )
+
+
+def test_reduction_window_beyond_kept_history_names_the_history() -> None:
+    # Documented limit: the dry run keeps too little history for a 48 h window
+    # read by a 6 h consumer, so the run fails partway with a clear message.
+    runner = _long_window_runner()
+    assert list(series(run(runner, 24)["b"]))[-1] == 24
+    with pytest.raises(CouplingError, match="history the runner keeps"):
+        run(runner, 96)
 
 
 def _background() -> _Toy:
@@ -658,8 +735,13 @@ class _Decoded(_Toy):
 
 def _decoded_ocean() -> tuple[CoupledRunner, Fill]:
     forcing = Fill(OCEAN_GRID, {"z1000": 10.0})
+    # A 48 h mean over (T - 54h, T - 6h] reads +0h..+42h at +48h, so its +0h
+    # frame precedes the atmosphere's first output.
+    ocean_ = _Toy(
+        "sst", "z1000:mean:-54h:-6h", OCEAN_GRID, 48, 0.0, 0.01, forcing_lead=48
+    )
     runner = CoupledRunner(
-        {"atmos": _Decoded("z1000", "sst", ATMOS_GRID, 6, 1.0, 0.0), "ocean": ocean()},
+        {"atmos": _Decoded("z1000", "sst", ATMOS_GRID, 6, 1.0, 0.0), "ocean": ocean_},
         [Connector("atmos", "ocean", regridder=TO_OCEAN)],
         sources={
             "atmos": (

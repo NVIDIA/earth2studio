@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import functools
 import hashlib
 import os
@@ -37,6 +38,7 @@ from earth2studio.data.utils import (
     cancellable_to_thread,
     datasource_cache_root,
     decode_grib_message,
+    fetch_once,
     map_with_concurrency,
     obstore_fetch_to_cache,
     obstore_store_from_url,
@@ -45,6 +47,7 @@ from earth2studio.data.utils import (
     prep_forecast_inputs,
     reduce_statistics,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon import HRRRFXLexicon, HRRRLexicon
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -69,7 +72,7 @@ class HRRR:
     model). This data source is provided on a Lambert conformal 3km grid at 1-hour
     intervals. The spatial dimensionality of HRRR data is [1059, 1799].
 
-    The `hrrr_x` and `hrrr_y` coordinates of the resulting `DataArray` are the native
+    The `x` and `y` coordinates of the resulting `DataArray` are the native
     coordinates of the HRRR model. The corresponding CRS can be set up with cartopy:
 
     ```python
@@ -85,8 +88,9 @@ class HRRR:
     ```
     Note
     ----
-    This data source supports the following temporal statistics: ``mean``,
-    ``sum``, ``min``, and ``max``. The temporal sampling cadence is one hour.
+    Temporal statistics: ``mean``, ``sum``, ``min`` and ``max`` at hourly cadence
+    (see the time statistics spec). ``tp`` is the lead-0 record, not an hourly
+    accumulation; use :py:class:`HRRR_FX` for precipitation totals.
 
     Parameters
     ----------
@@ -206,6 +210,7 @@ class HRRR:
 
         # Object store is lazily initialized on first call
         self.store: ObjectStore | None = None
+        self._inflight_downloads: dict[str, asyncio.Future[str]] = {}
 
     async def _async_init(self) -> None:
         """Async initialization of the object store
@@ -290,8 +295,8 @@ class HRRR:
         # Make sure input time is valid
         self._validate_time(time)
 
-        # Generate HRRR lat-lon grid to append onto data array
-        lat, lon = self.grid()
+        # Native HRRR grid coordinates (y, x, lat, lon) from the registered grid spec
+        grid_coords = {"y": self.HRRR_Y, "x": self.HRRR_X}
         # Note, this could be more memory efficient and avoid pre-allocation of the array
         # but this is much much cleaner to deal with
         xr_array = xr.DataArray(
@@ -305,19 +310,14 @@ class HRRR:
                 ),
                 np.nan,
             ),
-            dims=["time", "lead_time", "variable", "hrrr_y", "hrrr_x"],
+            dims=["time", "lead_time", "variable", "y", "x"],
             coords={
                 "time": time,
                 "lead_time": [timedelta(hours=0)],
                 "variable": variable,
-                "hrrr_x": self.HRRR_X,
-                "hrrr_y": self.HRRR_Y,
-                "lat": (("hrrr_y", "hrrr_x"), lat),
-                "lon": (("hrrr_y", "hrrr_x"), lon),
             },
-        )
-        xr_array["hrrr_y"].attrs = {"standard_name": "latitude", "axis": "Y"}
-        xr_array["hrrr_x"].attrs = {"standard_name": "longitude", "axis": "X"}
+        ).assign_coords(grid_coords)
+        xr_array = with_grid_metadata(xr_array, "hrrr-conus-3km")
 
         times = np.asarray(time, dtype="datetime64[ns]")
         plain, stats, attrs = plan_statistics(
@@ -537,14 +537,23 @@ class HRRR:
 
         # Strip the bucket / url prefix to get the store-relative key
         key = path.removeprefix(self.uri_prefix).lstrip("/")
+        store = self.store
+        # Index files are fetched once per variable, concurrently. Share one
+        # in-flight download per cache file and publish it atomically, so a
+        # concurrent reader never parses a half-written index.
         try:
-            return await obstore_fetch_to_cache(
-                self.store,
-                key,
-                self.cache,
-                byte_offset=byte_offset,
-                byte_length=byte_length,
-                cache_key=filename,
+            return await fetch_once(
+                self._inflight_downloads,
+                filename,
+                lambda: obstore_fetch_to_cache(
+                    store,
+                    key,
+                    self.cache,
+                    byte_offset=byte_offset,
+                    byte_length=byte_length,
+                    cache_key=filename,
+                    atomic=True,
+                ),
             )
         except FileNotFoundError as e:
             logger.error(f"Failed to download file {path}, not found")
@@ -670,9 +679,9 @@ class HRRR_FX(HRRR):
 
     Note
     ----
-    This data source supports the following temporal statistics: ``mean``,
-    ``sum``, ``min``, and ``max``. The temporal sampling cadence is one hour
-    over forecast lead times.
+    Temporal statistics: ``mean``, ``sum``, ``min`` and ``max`` at hourly lead-time
+    cadence (see the time statistics spec). ``tp:sum:6h`` at lead ``L`` is the
+    accumulation over the six hours ending at ``L``.
 
     Parameters
     ----------
@@ -806,8 +815,8 @@ class HRRR_FX(HRRR):
         self._validate_time(time)
         self._validate_leadtime(time, lead_time)
 
-        # Generate HRRR lat-lon grid to append onto data array
-        lat, lon = self.grid()
+        # Native HRRR grid coordinates (y, x, lat, lon) from the registered grid spec
+        grid_coords = {"y": self.HRRR_Y, "x": self.HRRR_X}
         # Note, this could be more memory efficient and avoid pre-allocation of the array
         # but this is much much cleaner to deal with, compared to something seen in the
         # NCAR data source.
@@ -822,19 +831,14 @@ class HRRR_FX(HRRR):
                 ),
                 np.nan,
             ),
-            dims=["time", "lead_time", "variable", "hrrr_y", "hrrr_x"],
+            dims=["time", "lead_time", "variable", "y", "x"],
             coords={
                 "time": time,
                 "lead_time": lead_time,
                 "variable": variable,
-                "hrrr_x": self.HRRR_X,
-                "hrrr_y": self.HRRR_Y,
-                "lat": (("hrrr_y", "hrrr_x"), lat),
-                "lon": (("hrrr_y", "hrrr_x"), lon),
             },
-        )
-        xr_array["hrrr_y"].attrs = {"standard_name": "latitude", "axis": "Y"}
-        xr_array["hrrr_x"].attrs = {"standard_name": "longitude", "axis": "X"}
+        ).assign_coords(grid_coords)
+        xr_array = with_grid_metadata(xr_array, "hrrr-conus-3km")
 
         leads = np.asarray(lead_time, dtype="timedelta64[ns]")
         plain, stats, attrs = plan_statistics(

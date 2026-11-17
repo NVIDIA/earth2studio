@@ -43,6 +43,7 @@ from earth2studio.data.utils import (
     prep_member_inputs,
     resolve_async_workers,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon import GEFSLexicon, GEFSLexiconSel
 from earth2studio.utils.type import (
     LeadTimeArray,
@@ -307,10 +308,10 @@ class GEFS_FX:
             max_workers=resolve_async_workers(self._async_workers, len(coros)),
             task_timeout=120.0,
             desc="Fetching GEFS data",
-            verbose=(not self._verbose),
+            verbose=self._verbose,
         )
 
-        return xr_array
+        return with_grid_metadata(xr_array, "latlon-0.25deg")
 
     async def _create_tasks(
         self,
@@ -353,7 +354,7 @@ class GEFS_FX:
             max_workers=resolve_async_workers(self._async_workers, len(args)),
             task_timeout=60.0,
             desc="Fetching GEFS index files",
-            verbose=True,
+            verbose=self._verbose,
         )
         for i, t in enumerate(time):
             for j, lt in enumerate(lead_time):

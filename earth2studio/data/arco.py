@@ -41,6 +41,7 @@ from earth2studio.data.utils import (
     prep_data_inputs,
     reduce_statistics,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon import ARCO_ERA5Lexicon
 from earth2studio.lexicon.arco import ACCUMULATION_HOURS
 from earth2studio.utils.type import TimeArray, VariableArray
@@ -76,8 +77,9 @@ class ARCO_ERA5:
 
     Note
     ----
-    This data source supports the following temporal statistics: ``mean``,
-    ``sum``, ``min``, and ``max``. The temporal sampling cadence is one hour.
+    Temporal statistics: ``mean``, ``sum``, ``min`` and ``max`` at hourly cadence
+    (see the time statistics spec). Accumulations such as ``tp`` are stamped at the
+    end of their hour, so ``tp:sum:6h`` equals ``tp06``.
 
     Badges
     ------
@@ -276,7 +278,7 @@ class ARCO_ERA5:
             verbose=self._verbose,
         )
         xr_array.attrs.update(attrs)
-        return xr_array
+        return with_grid_metadata(xr_array, "latlon-0.25deg")
 
     async def fetch_chunk_group(
         self,

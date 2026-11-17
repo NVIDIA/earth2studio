@@ -109,7 +109,7 @@ def _aifs_forward(
     else:
         coords["time"] = coords["time"] + coords["lead_time"][-1]
         native = model._prepare_input(
-            tensor.to(device=model.latitudes.device, dtype=torch.float32).clone(),
+            tensor.to(device=model.latitudes.device, dtype=torch.float32),
             coords,
         )
     native, signature = model._forward(native, packed, step=index)
@@ -128,7 +128,7 @@ def _aifs_forward(
         ).data,
     )
     return result, {
-        "native": native.clone(),
+        "native": native,
         "history": history,
         "published": result.copy(deep=True),
         "index": index + 1,

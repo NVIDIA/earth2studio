@@ -18,7 +18,7 @@ import contextlib
 import dataclasses
 import functools
 import io
-from collections.abc import Callable, Generator, Iterator
+from collections.abc import Callable, Iterator
 
 import numpy as np
 import torch
@@ -51,7 +51,6 @@ try:
         data_utils,
         nan_cleaning,
         normalization,
-        rollout,
     )
     from weathernext.weathernext1_gen import gencast
     from weathernext.weathernext1_graph import graphcast
@@ -66,7 +65,6 @@ except ImportError:
     graphcast = None
     nan_cleaning = None
     normalization = None
-    rollout = None
 
 # Input variables: 5 surface + 6x13 atmospheric (no precipitation in inputs)
 INPUT_SURFACE_VARIABLES = [
@@ -474,142 +472,6 @@ class GenCastMini(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if jit_compile:
             fn = jax.jit(fn)
         return fn
-
-    def _chunked_prediction_generator(
-        self,
-        predictor_fn: Callable,
-        rng: "chex.PRNGKey",
-        inputs: xr.Dataset,
-        targets_template: xr.Dataset,
-        forcings: xr.Dataset,
-        init_datetime: np.ndarray,
-    ) -> Generator[xr.Dataset, tuple | None, None]:
-        """Autoregressive prediction generator for GenCast.
-
-        This function is based on the rollout logic from:
-        https://github.com/google-deepmind/weathernext
-
-        License info:
-
-        # Copyright 2023 DeepMind Technologies Limited.
-        #
-        # Licensed under the Apache License, Version 2.0 (the "License");
-        # you may not use this file except in compliance with the License.
-        # You may obtain a copy of the License at
-        #
-        #      http://www.apache.org/licenses/LICENSE-2.0
-        #
-        # Unless required by applicable law or agreed to in writing, software
-        # distributed under the License is distributed on an "AS-IS" BASIS,
-        # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-        # See the License for the specific language governing permissions and
-        # limitations under the License.
-
-        Parameters
-        ----------
-        predictor_fn : Callable
-            JIT-compiled GenCast forward function
-        rng : chex.PRNGKey
-            JAX PRNG key for stochastic sampling
-        inputs : xr.Dataset
-            Initial condition dataset (2 frames)
-        targets_template : xr.Dataset
-            Template for target predictions (NaN-filled)
-        forcings : xr.Dataset
-            Forcing variables dataset
-        init_datetime : np.ndarray
-            Absolute datetime(s) for the initial condition (t=0 reference).
-            Used to compute correct forcing variables (day/year progress) at each step.
-
-        Yields
-        ------
-        xr.Dataset
-            Prediction for each 12-hour time step
-        """
-        inputs = inputs.copy()
-        targets_template = targets_template.copy()
-        forcings = forcings.copy()
-
-        targets_chunk_time = targets_template.time.isel(time=slice(0, 1))
-        current_inputs = inputs
-
-        def split_rng_fn(
-            rng: "chex.PRNGKey",
-        ) -> tuple["chex.PRNGKey", "chex.PRNGKey"]:
-            rng1, rng2 = jax.random.split(rng)
-            return rng1, rng2
-
-        index = 0
-        while True:
-            # Update forcings time coordinate
-            forcings = forcings.assign_coords(time=targets_chunk_time)
-            forcings = forcings.compute()
-
-            # Make prediction for this step (suppress graphcast debug prints)
-            rng, this_rng = split_rng_fn(rng)
-            with contextlib.redirect_stdout(io.StringIO()):
-                predictions = predictor_fn(
-                    rng=this_rng,
-                    inputs=current_inputs,
-                    targets_template=targets_template,
-                    forcings=forcings,
-                )
-            next_frame = xr.merge([predictions, forcings])
-
-            # Update inputs for next step
-            next_inputs = rollout._get_next_inputs(current_inputs, next_frame)
-            next_inputs = next_inputs.assign_coords(time=current_inputs.coords["time"])
-            current_inputs = next_inputs
-
-            # Assign actual time coordinates to predictions
-            predictions = predictions.assign_coords(
-                time=targets_template.coords["time"] + index * np.timedelta64(12, "h")
-            )
-            replacement = yield predictions
-            if replacement is not None:
-                batch, current_inputs, forcings = replacement
-                init_datetime = batch.coords["datetime"].values[0, 1]
-                index = 0
-                continue
-            del predictions
-
-            # Compute forcings for the NEXT step directly from
-            # datetime, matching the notebook's precomputed approach.
-            # The next step (index+1) targets T0 + (index+2)*12h.
-            next_target_dt = init_datetime + np.timedelta64((index + 2) * 12, "h")
-            next_dt = np.atleast_1d(next_target_dt)
-            seconds = next_dt.astype("datetime64[s]").astype(np.int64)
-            lon = current_inputs.coords["lon"].data
-
-            has_batch = "batch" in current_inputs.dims
-            batch_dim = ("batch",) if has_batch else ()
-
-            year_progress = data_utils.get_year_progress(seconds)
-            day_progress = data_utils.get_day_progress(seconds, lon)
-
-            if has_batch:
-                batch_size = current_inputs.sizes["batch"]
-                year_progress = np.repeat(year_progress[np.newaxis], batch_size, axis=0)
-                day_progress = np.repeat(day_progress[np.newaxis], batch_size, axis=0)
-
-            year_feats = data_utils.featurize_progress(
-                "year_progress", batch_dim + ("time",), year_progress
-            )
-            day_feats = data_utils.featurize_progress(
-                "day_progress",
-                batch_dim + ("time",) + current_inputs.coords["lon"].dims,
-                day_progress,
-            )
-
-            forcings = xr.Dataset(
-                {
-                    k: v
-                    for k, v in {**year_feats, **day_feats}.items()
-                    if k in GENERATED_FORCING_VARS
-                }
-            )
-
-            index += 1
 
     def iterator_result_to_tensor(self, dataset: xr.Dataset) -> torch.Tensor:
         """Convert an iterator result xarray Dataset to a torch Tensor.

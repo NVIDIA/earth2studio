@@ -13,474 +13,297 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# type: ignore
-import os
-from collections import OrderedDict
-from collections.abc import Iterator
-from datetime import datetime
-from math import ceil
+
+from collections.abc import Iterator, Mapping
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 import torch
 import xarray as xr
-from loguru import logger
-from physicsnemo.distributed import DistributedManager
-from tqdm import tqdm
 
 from earth2studio.data import DataSource, fetch_data
-from earth2studio.io import IOBackend
+from earth2studio.grids import LatLonGrid, infer_grid
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
+from earth2studio.models.px.utils import initial_condition
+from earth2studio.models.utils import step_interval
 from earth2studio.perturbation import Perturbation
-from earth2studio.utils.coords import (
-    CoordSystem,
-    cat_coords,
-    coord_array,
-    map_coords,
-)
-from earth2studio.utils.cupy import from_torch
-from earth2studio.utils.time import to_time_array
+from earth2studio.run import WorkItem
+from earth2studio.run._fields import _map_field, _with_lead_time
+from earth2studio.run.runner import _signature_for_stream
+from earth2studio.utils.coords import coord_array, coord_array_like
+from earth2studio.utils.type import CoordinateSystem
 
-from .hens_utilities import (
-    TCTracking,
-    get_batchid_from_ensid,
-    save_corrdiff_output,
-)
-from .hens_utilities_reproduce import calculate_torch_seed
-
-logger.remove()
-logger.add(lambda msg: tqdm.write(msg, end=""), colorize=True)
+from .hens_utilities import calculate_torch_seed
 
 
-class EnsembleBase:
+def _regional_field(x: xr.DataArray, selection: Mapping[str, Any]) -> xr.DataArray:
+    """Apply the same crop/variable selection to planning signatures and fields."""
+    if "lon_min" in selection:
+        west, east = selection["lon_min"], selection["lon_max"]
+        south, north = selection["lat_min"], selection["lat_max"]
+        lower, upper = (-180, 180) if west < 0 else (0, 360)
+        if not (-90 <= south < north <= 90 and lower <= west < east <= upper):
+            raise ValueError("Invalid cropbox latitude/longitude bounds")
+        if west < 0 and (x.lon.values >= 0).all():
+            x = x.assign_coords(lon=(x.lon + 180) % 360 - 180).sortby("lon")
+        elif east > 180 and (x.lon.values < 0).any():
+            x = x.assign_coords(lon=x.lon % 360).sortby("lon")
+        lat = x.lat.values[(x.lat.values >= south) & (x.lat.values <= north)]
+        lon = x.lon.values[(x.lon.values >= west) & (x.lon.values <= east)]
+        if not lat.size or not lon.size:
+            raise ValueError("Cropbox does not intersect the model grid")
+        x = _map_field(x, {"lat": lat, "lon": lon})
+    if "variable" in selection:
+        x = _map_field(x, {"variable": selection["variable"]})
+    signature = coord_array(
+        x.dims,
+        dict(x.coords),
+        dynamic=x.attrs.get("earth2studio_dynamic_dims", ()),
+        sizes=x.sizes,
+        grid=LatLonGrid(x.lat.values, x.lon.values),
+        dtype=x.dtype,
+        attrs=x.attrs,
+    )
+    x.attrs = signature.attrs
+    return x
+
+
+class HENSRunner:
+    """Run one complete HENS perturbation batch as a Pipeline work item.
+
+    Batches, rather than individual members, are the reproducibility unit: bred
+    vectors center and pair members together. Diagnostics are chained in insertion
+    order. Regional streams are written by Pipeline; tracking and downscaling
+    retain their per-batch files.
     """
-    Ensemble inference pipeline with options to add a diagnostic
-    model or tropical cyclone tracking in the loop.
 
-    Parameters
-    ----------
-    time : list[str] | list[datetime] | list[np.datetime64]
-        IC times.
-    nsteps : int
-        number of forecast steps.
-    nensemble : int
-        ensemble size.
-    prognostic : PrognosticModel
-        forecast model.
-    data : DataSource
-        Data source from which to obtain ICs.
-    io_dict : dict[str, IOBackend]
-        Data object for storing generated data.
-    perturbation : Perturbation
-        Method for perturbing initial conditions.
-    output_coords_dict : dict[str, CoordSystem]
-        Dictionary of coordinate systems of data that shall be stored.
-    dx_model_dict : dict[str, DiagnosticModel], optional
-        Dictionary of diagnostic models.
-    cd_model_dict : dict[str, Downscaling], optional
-        Dictionary of CorrDiff Downscaling wrappers.
-    cyclone_tracking : DiagnosticModel, optional
-        Cyclone tracking diagnostic model.
-    batch_size : int, optional
-        batch size.
-    device : torch.device, optional
-        device on which to run inference.
-    ensemble_idx_base : int, optional
-        Initial value for counting ensemble members.
-    batch_ids_produce : list[int]
-        List of batch IDs that will be processed.
-    base_seed_string : str
-        Random seed that will be used as a basis.
-    pkg : str
-        Model package name, used for naming the output files for cyclone tracking.
-    """
+    supports_member_batching = True
 
     def __init__(
         self,
-        time: list[str] | list[datetime] | list[np.datetime64],
-        nsteps: int,
-        nensemble: int,
         prognostic: PrognosticModel,
         data: DataSource,
-        io_dict: dict[str, IOBackend],
         perturbation: Perturbation,
-        output_coords_dict: dict[str, CoordSystem],
-        dx_model_dict: dict[str, DiagnosticModel] = {},
-        cd_model_dict: dict[str, object] = {},
-        cyclone_tracking: TCTracking | None = None,
-        batch_size: int | None = None,
-        device: torch.device | None = None,
-        ensemble_idx_base: int = 0,
-        batch_ids_produce: list[int] = [],
-        base_seed_string: str = "0",
+        output_coords_dict: Mapping[str, Mapping[str, Any]],
+        nensemble: int,
+        batch_size: int,
+        base_seed_string: str,
+        dx_model_dict: Mapping[str, DiagnosticModel] | None = None,
+        cd_model_dict: Mapping[str, Any] | None = None,
+        cyclone_tracking: Any = None,
         pkg: str = "",
     ) -> None:
-        logger.info("Setting up HENS.")
-
-        self.io_dict = io_dict
-        self.nensemble = nensemble
-        self.ensemble_idx = ensemble_idx_base
-        self.batch_ids_produce = batch_ids_produce
-        self.nsteps = nsteps
-        self.output_coords_dict = output_coords_dict
-        self.perturbation = perturbation
-        self.base_seed_string = base_seed_string
-        self.pkg = pkg.split("/")[-1].split("seed")[-1]
-        self.cd_model_dict = cd_model_dict
         self.prognostic = prognostic
-        self.prognositc_ic = None
-        self.dx_model_dict = dx_model_dict
-        self.dx_ic_dict: dict[str, OrderedDict[str, Any]] = {}
-        self.cd_ic_dict: dict[str, OrderedDict[str, Any]] = {}
-        self.cyclone_tracking = cyclone_tracking
-        self.cyclone_tracking_ic = None
-
-        # Build the output path dict for CorrDiff models from the wrappers
-        if self.cd_model_dict:
-            self.corrdiff_out_path_dict = {
-                name: cd_model.out_path for name, cd_model in self.cd_model_dict.items()
-            }
-            self.cd_model_dict = {
-                name: cd_model.corrdiff for name, cd_model in self.cd_model_dict.items()
-            }
-
-        if cyclone_tracking:
-            self.cyclone_tracking = cyclone_tracking.tracker
-            self.cyclone_tracking_out_path = cyclone_tracking.out_path
-        else:
-            self.cyclone_tracking = None
-
-        if len(time) > 1:
-            raise ValueError("Only a single IC can be passed here")
-        self.ic = time[0]
-
-        # Load model onto the device
-        self.move_models_to_device(device=device)
-
-        # Fetch data from data source and load onto device
-        self.fetch_ics(data=data, time=time)
-
-        # Compute batch sizes
-        self.set_batch_size(batch_size)
-
-        # Set up IO backend with information from output_coords (if applicable).
-        self.setup_data_output()
-
-        return
-
-    def move_models_to_device(
-        self,
-        device: torch.device | None = None,
-    ) -> None:
-        """Moves model dictionary to device
-
-        Parameters
-        ----------
-        prognostic : PrognosticModel
-            Forecast model.
-        dx_model_dict : dict[str, DiagnosticModel], optional
-            Diagnostic model dictionary, by default {}
-        cyclone_tracking : DiagnosticModel | None, optional
-            Cyclone tracking diagnostic, by default None
-        device : torch.device, optional
-            PyTorch device. If None, will select cuda if available, by default None
-        """
-        self.device = (
-            device
-            if device is not None
-            else torch.device(
-                DistributedManager().device if torch.cuda.is_available() else "cpu"
-            )
+        self.data = data
+        self.perturbation = perturbation
+        self.regions = {
+            name: dict(coords) for name, coords in output_coords_dict.items()
+        }
+        self.nensemble = nensemble
+        self.batch_size = batch_size
+        self.base_seed_string = base_seed_string
+        self.seed = base_seed_string
+        self.diagnostics = dict(dx_model_dict or {})
+        self.downscaling = dict(cd_model_dict or {})
+        self.tracking = cyclone_tracking
+        self.pkg = pkg.split("/")[-1].split("seed")[-1]
+        self.device = torch.device("cpu")
+        inputs = prognostic.input_coords()
+        if isinstance(inputs, tuple):
+            raise ValueError("HENS requires a single prognostic input field")
+        self.inputs: CoordinateSystem = inputs
+        outputs = prognostic.output_coords(self.inputs)
+        if isinstance(outputs, tuple):
+            raise ValueError("HENS requires a single prognostic output field")
+        self.step = step_interval(
+            self.inputs.lead_time.values, outputs.lead_time.values
         )
+        if len(outputs.lead_time) != 1 or self.inputs.lead_time.values[
+            -1
+        ] != np.timedelta64(0, "h"):
+            raise ValueError(
+                "HENS requires a single forecast frame per step and an analysis-time input"
+            )
+        self._initial: dict[np.datetime64, xr.DataArray] = {}
 
-        logger.info(f"Inference device: {self.device}")
+    def to(self, device: torch.device) -> "HENSRunner":
+        """Move all models to the worker's device."""
+        self.device = torch.device(device)
         self.prognostic.to(self.device)
-        self.prognositc_ic: OrderedDict[str, Any] = self.prognostic.input_coords()
+        for model in self.diagnostics.values():
+            model.to(self.device)
+        for downscaler in self.downscaling.values():
+            downscaler.corrdiff.to(self.device)
+        if self.tracking is not None:
+            self.tracking.tracker.to(self.device)
+        return self
 
-        for k, dx_model in self.dx_model_dict.items():
-            dx_model.to(self.device)
-            self.dx_ic_dict[k] = dx_model.input_coords()
-
-        for k, cd_model in self.cd_model_dict.items():
-            cd_model.to(self.device)
-            self.cd_ic_dict[k] = cd_model.input_coords()
-
-        if self.cyclone_tracking:
-            self.cyclone_tracking.to(self.device)
-            self.cyclone_tracking_ic = self.cyclone_tracking.input_coords()
-
-    def fetch_ics(
-        self,
-        data: DataSource,
-        time: list[str] | list[datetime] | list[np.datetime64],
-    ) -> None:
-        """Fetch initial conditions
-
-        Parameters
-        ----------
-        data : DataSource
-            Data source from which to obtain ICs
-        time : list[str] | list[datetime] | list[np.datetime64]
-            IC times
-        """
-        self.time = to_time_array(time)
-        self.x0, self.coords0 = fetch_data(
-            source=data,
-            time=time,
-            variable=self.prognositc_ic["variable"],
-            lead_time=self.prognositc_ic["lead_time"],
-            device="cpu",
-        )
-        logger.success(f"Fetched data from {data.__class__.__name__}")
-
-        return
-
-    def setup_data_output(self) -> None:
-        """Assemble output coords and initialise IO backend with coords."""
-
-        # assemble output coords from fetched IC coords and ensemble IDs
-        ensemble_members = np.arange(self.nensemble) + self.ensemble_idx
-        batch_ids = [
-            get_batchid_from_ensid(self.nensemble, self.batch_size, ensid)
-            for ensid in ensemble_members
-        ]
-        # determine which ensemble members we keep (based on batch_ids_produce)
-        ensemble_members_to_produce = ensemble_members[
-            np.isin(batch_ids, self.batch_ids_produce)
-        ]
-        total_coords = {"ensemble": ensemble_members_to_produce} | self.coords0.copy()
-
-        # add lead time dimension
-        total_coords["lead_time"] = np.asarray(
-            [
-                self.prognostic.output_coords(self.prognostic.input_coords())[
-                    "lead_time"
-                ]
-                * ii
-                for ii in range(self.nsteps + 1)
-            ]
-        ).flatten()
-
-        for k, oc in self.output_coords_dict.items():
-
-            # augment and overwrite total coords with dimensions of output coords
-            for key, value in total_coords.items():
-                total_coords[key] = oc.get(key, value)
-
-            if (
-                self.io_dict[k] is not None
-            ):  # cyclone tracker still missing field output, to be fixed
-                # The template's variable labels name the arrays to create, its
-                # other dimensions size them
-                self.io_dict[k].add_array(
-                    coord_array(
-                        tuple(total_coords),
-                        {
-                            dim: np.asarray(values)
-                            for dim, values in total_coords.items()
-                        },
-                    )
-                )
-
-        return
-
-    def set_batch_size(self, batch_size: int | None = None) -> None:
-        """Calculate batch size and number of mini batches to inference.
-
-        Parameters
-        ----------
-        batch_size : int
-            targeted batch size
-        """
-        if batch_size is None:
-            batch_size = self.nensemble
-        self.batch_size = min(self.nensemble, batch_size)
-        self.number_of_batches = ceil(self.nensemble / self.batch_size)
-
-    def prep_loop(self, batch_id: int) -> tuple[Iterator[tuple], int, str, int]:
-        """Preparing mini batch for inference by setting ensemble IDs, perturbing
-        ICs and creating the inference iterator of the prognostic model.
-
-        Parameters
-        ----------
-        batch_id : int
-            mini batch index
-
-        Returns
-        -------
-        tuple[Iterator[tuple], int, str, int]
-            Tuple containing iterator of prognostic model, mini batch size, seed string
-            and PyTorch seed.
-        """
-
-        # Get fresh batch data
-        xx = self.x0.to(self.device)
-
-        # calculate mini batch size and define coords for ensemble
-        num_batches_per_ic = int(np.ceil(self.nensemble / self.batch_size))
-        mini_batch_sizes = [
-            min((self.nensemble - ii * self.batch_size), self.batch_size)
-            for ii in range(num_batches_per_ic)
-        ]
-        batch_id_ic = batch_id % num_batches_per_ic
-        mini_batch_size = mini_batch_sizes[batch_id_ic]
-
-        coords = {
-            "ensemble": np.array(
-                [
-                    sum(mini_batch_sizes[0 : batch_id % num_batches_per_ic]) + t
-                    for t in range(0, mini_batch_size)
-                ]
+    def _nsteps(self, final_lead_time: np.timedelta64) -> int:
+        if final_lead_time < np.timedelta64(
+            0, "s"
+        ) or final_lead_time % self.step != np.timedelta64(0, "s"):
+            raise ValueError(
+                "Final lead time must be a nonnegative multiple of the model step"
             )
-            + self.ensemble_idx
-        } | self.coords0.copy()
+        return int(final_lead_time // self.step)
 
-        # Unsqueeze xx for batching ensemble
-        xx = xx.unsqueeze(0).repeat(mini_batch_size, *([1] * xx.ndim))
+    def output_coords(
+        self, final_lead_time: np.timedelta64
+    ) -> Mapping[str, CoordinateSystem]:
+        """Plan independent regional stores, including the initial condition."""
+        signature = self.prognostic.output_coords(self.inputs)
+        if isinstance(signature, tuple):
+            raise ValueError("HENS requires a single prognostic output field")
+        variables = list(signature["variable"].values)
+        for diagnostic in self.diagnostics.values():
+            inputs = _map_field(signature, diagnostic.input_coords())
+            output = diagnostic.output_coords(inputs)
+            if isinstance(output, tuple):
+                raise ValueError("HENS requires single-field diagnostics")
+            variables.extend(output["variable"].values)
+            signature = coord_array_like(signature, {"variable": variables})
+        leads = np.arange(self._nsteps(final_lead_time) + 1) * self.step
+        signature = _signature_for_stream(signature, leads)
+        return {
+            name: _regional_field(signature, coords)
+            for name, coords in self.regions.items()
+        }
 
-        # Map lat and lon if needed
-        xx, coords = map_coords(xx, coords, self.prognositc_ic)
+    def data_requests(self, item: WorkItem) -> None:
+        """Bred-vector perturbations own additional data fetches internally."""
+        return None
 
-        # set torch random seed for reproducibility
-        # every batch gets different random seed by concatenating base string with batch id and using hash algortihm
-        full_seed_string = self.base_seed_string + "_" + str(batch_id)
-        torch_seed = calculate_torch_seed(full_seed_string)
-        torch.manual_seed(torch_seed)
-
-        # Perturb ensemble
-        xx, coords = self.perturbation(from_torch(xx, coords)).e2s.to_torch()
-
-        # Create prognostic iterator
-        model = self.prognostic.create_iterator(xx, coords)
-
-        return model, mini_batch_size, full_seed_string, torch_seed
-
-    @torch.inference_mode()
-    def __call__(self) -> dict[str, IOBackend]:
-        """Run ensemble inference pipeline with diagnostic model on top
-        saving specified variables.
-
-        Returns
-        -------
-        dict[str, IOBackend]
-            Dictionary of io objects containing data of ensemble inference
-        """
-        logger.info(
-            f"Starting {self.nensemble} member ensemble inference with"
-            + f" {len(self.batch_ids_produce)} batches."
+    def _fetch(self, item: WorkItem) -> xr.DataArray:
+        if item.time not in self._initial:
+            self._initial[item.time] = fetch_data(
+                source=self.data,
+                time=np.array([item.time]),
+                variable=self.inputs["variable"].values,
+                lead_time=self.inputs.lead_time.values,
+                target_grid=infer_grid(self.inputs),
+                device="cpu",
+            )
+        # Copy the expanded batch so perturbations cannot change cached ICs.
+        x = (
+            self._initial[item.time]
+            .astype(self.inputs.dtype)
+            .expand_dims(ensemble=list(item.member_ids))
+            .copy(deep=True)
+        )
+        return x.e2s.to_backend(
+            "cupy" if self.device.type == "cuda" else "numpy", device=self.device
         )
 
-        for batch_id in tqdm(
-            self.batch_ids_produce,
-            total=len(self.batch_ids_produce),
-            desc="Total Ensemble Batches",
-        ):
+    def _seed(self, batch_id: int) -> None:
+        seed = calculate_torch_seed(f"{self.base_seed_string}_{batch_id}")
+        set_rng = getattr(self.perturbation, "set_rng", None)
+        if not callable(set_rng):
+            raise TypeError("HENS perturbations must implement set_rng")
+        set_rng(seed, reset=True)
+        for model in [
+            self.prognostic,
+            *self.diagnostics.values(),
+            *(w.corrdiff for w in self.downscaling.values()),
+        ]:
+            if getattr(model, "stochastic", False):
+                model.set_rng(seed, reset=True)
 
-            model, nsamples, full_seed_string, torch_seed = self.prep_loop(batch_id)
-            # If cyclone tracking reset path buffer
-            if self.cyclone_tracking:
-                self.cyclone_tracking.reset_path_buffer()
-
-            if self.cd_model_dict:
-                cd_output_dict = {
-                    cd_name: {"coords": None, "output": []}
-                    for cd_name in self.cd_model_dict
-                }
-
-            with tqdm(
-                total=self.nsteps + 1,
-                desc=f"Inferencing batch {batch_id} ({nsamples} samples)",
-                leave=False,
-            ) as pbar:
-                for step, (xx, coords) in enumerate(model):
-
-                    for dx_name, dx_model in self.dx_model_dict.items():
-                        # select input vars, remove lead time dim and apply diagnostic model
-                        yy, codia = map_coords(xx, coords, self.dx_ic_dict[dx_name])
-                        yy, codib = dx_model(yy, codia)
-
-                        # map lat/lon of diagnostic model to forecast model (often there is difference in lat)
-                        _codib = OrderedDict(
-                            {_dim: coords[_dim] for _dim in ["lat", "lon"]}
+    def run_item(self, item: WorkItem) -> Iterator[Mapping[str, xr.DataArray]]:
+        """Publish the perturbed IC once, then exactly the requested advances."""
+        num_batches = -(-self.nensemble // self.batch_size)
+        member = item.member_ids[0]
+        batch_id = (member // self.nensemble) * num_batches + (
+            member % self.nensemble
+        ) // self.batch_size
+        with torch.inference_mode():
+            paired = None
+            local_batch = (member % self.nensemble) // self.batch_size
+            if self.batch_size % 2 and local_batch % 2:
+                # Materialize the predecessor's complete pairs before resetting
+                # its stream. The extra member is this batch's first member.
+                previous = WorkItem(
+                    item.time,
+                    item.final_lead_time,
+                    tuple(range(member - self.batch_size, member + 1)),
+                )
+                self._seed(batch_id - 1)
+                paired = self.perturbation(self._fetch(previous)).isel(
+                    ensemble=slice(-1, None)
+                )
+            self._seed(batch_id)
+            if paired is None:
+                x = self.perturbation(self._fetch(item))
+            elif len(item.member_ids) == 1:
+                x = paired
+            else:
+                remaining = WorkItem(
+                    item.time, item.final_lead_time, item.member_ids[1:]
+                )
+                x = xr.concat(
+                    [paired, self.perturbation(self._fetch(remaining))],
+                    dim="ensemble",
+                    join="exact",
+                )
+            tracker = self.tracking.tracker if self.tracking is not None else None
+            if tracker is not None:
+                tracker.reset_path_buffer()
+            downscaled: dict[str, list[xr.DataArray]] = {
+                name: [] for name in self.downscaling
+            }
+            tracks = None
+            iterator = self.prognostic.create_iterator(x)
+            try:
+                for step in range(self._nsteps(item.final_lead_time) + 1):
+                    field = initial_condition(x) if step == 0 else next(iterator)
+                    if isinstance(field, tuple):
+                        raise ValueError(
+                            "HENS requires a single prognostic output field"
                         )
-                        yy, codib = map_coords(yy, codib, _codib)
-
-                        # concatenate tensors along variable dimension
-                        xx, coords = cat_coords((xx, yy), (coords, codib), "variable")
-
-                    # --- CorrDiff models (run after each step, separately) ---
-                    # For each CorrDiff model, run the downscaling, collect outputs and coordinates,
-                    # and after the batch, save the results to NetCDF using the configured output path.
-                    for cd_name, cd_model in self.cd_model_dict.items():
-                        yy, codia = map_coords(xx, coords, self.cd_ic_dict[cd_name])
-                        yy, codib = cd_model(yy, codia)
-
-                        # Online concat for output (along lead_time axis=2)
-                        cd_output_dict[cd_name]["output"].append(yy)
-
-                        # Online concat for coords: only 'lead_time' is concatenated, others are kept from first step
-                        if cd_output_dict[cd_name]["coords"] is None:
-                            cd_output_dict[cd_name]["coords"] = {**codib}
-                        else:
-                            # Only concatenate 'lead_time'
-                            cd_output_dict[cd_name]["coords"]["lead_time"] = (
-                                np.concatenate(
-                                    [
-                                        cd_output_dict[cd_name]["coords"]["lead_time"],
-                                        codib["lead_time"],
-                                    ]
-                                )
+                    for diagnostic in self.diagnostics.values():
+                        result = diagnostic(
+                            _map_field(field, diagnostic.input_coords())
+                        )
+                        result = _with_lead_time(result, field.lead_time.values)
+                        result = _map_field(
+                            result, {dim: field[dim].values for dim in ("lat", "lon")}
+                        )
+                        field = xr.concat([field, result], dim="variable", join="exact")
+                    for name, downscaler in self.downscaling.items():
+                        result = downscaler.corrdiff(
+                            _map_field(field, downscaler.corrdiff.input_coords())
+                        )
+                        result = _with_lead_time(result, field.lead_time.values)
+                        downscaled[name].append(
+                            result.e2s.to_backend("numpy", device="cpu")
+                        )
+                    if tracker is not None:
+                        tracks = tracker(
+                            _map_field(
+                                field.isel(lead_time=0, drop=True),
+                                tracker.input_coords(),
                             )
-
-                    if self.cyclone_tracking:
-                        # Delete lead_time, no need for it in the tc tracks since
-                        # steps are present in the tracks
-                        xx_tc = xx[:, :, 0]
-                        coords_tc = coords.copy()
-                        del coords_tc["lead_time"]
-                        # get and collect track elements for each time step
-                        tracks_tensor, track_coords = self.cyclone_tracking(
-                            *map_coords(xx_tc, coords_tc, self.cyclone_tracking_ic)
                         )
+                    yield {
+                        name: _regional_field(field, coords)
+                        for name, coords in self.regions.items()
+                    }
+            finally:
+                iterator.close()
 
-                    # pass output variables to io backend
-                    for k in self.io_dict.keys():
-                        output_coords = self.output_coords_dict[k]
-                        xx_sub, coords_sub = map_coords(xx, coords, output_coords)
-                        self.io_dict[k].write(from_torch(xx_sub, coords_sub))
-
-                    pbar.update(1)
-                    if step == self.nsteps:
-                        break
-
-            # If cyclone tracks add to list of data arrays
-            if self.cyclone_tracking:
-                # Create DataArray for the tracks
-                tracks_da = xr.DataArray(
-                    data=tracks_tensor.cpu().numpy(),
-                    coords=track_coords,
-                    dims=list(track_coords.keys()),
+            stamp = np.datetime_as_string(item.time, unit="s")
+            if tracks is not None and self.tracking is not None:
+                path = Path(self.tracking.out_path)
+                path.mkdir(parents=True, exist_ok=True)
+                tracks.e2s.to_backend("numpy", device="cpu").to_netcdf(
+                    path / f"tracks_pkg_{self.pkg}_{stamp}_batch_{batch_id}.nc"
                 )
-                os.makedirs(self.cyclone_tracking_out_path, exist_ok=True)
-                file_name = np.datetime_as_string(self.ic, unit="s")
-                file_name = f"tracks_pkg_{self.pkg}_{file_name}_batch_{batch_id}.nc"
-                tracks_da.to_netcdf(
-                    os.path.join(self.cyclone_tracking_out_path, file_name)
+            for name, fields in downscaled.items():
+                path = Path(self.downscaling[name].out_path)
+                path.mkdir(parents=True, exist_ok=True)
+                xr.concat(fields, dim="lead_time", join="exact").to_dataset(
+                    dim="variable"
+                ).to_netcdf(
+                    path / f"corrdiff_{name}_pkg_{self.pkg}_{stamp}_batch_{batch_id}.nc"
                 )
-
-            # After batch loop, save CorrDiff outputs
-            if self.cd_model_dict:
-                ic_str = np.datetime_as_string(self.ic, unit="s")
-                for cd_name, cd_data in cd_output_dict.items():
-                    out_path = self.corrdiff_out_path_dict.get(
-                        cd_name, "./corrdiff_outputs"
-                    )
-                    os.makedirs(out_path, exist_ok=True)
-                    # Add project name to the filename
-                    file_name = f"corrdiff_{cd_name}_pkg_{self.pkg}_{ic_str}_batch_{batch_id}.nc"
-                    save_path = os.path.join(out_path, file_name)
-                    save_corrdiff_output(cd_data, save_path)
-
-        logger.success("Inference complete")
-        return self.io_dict

@@ -1098,7 +1098,7 @@ class UCast(torch.nn.Module, AutoModelMixin, PrognosticMixin):
             self.set_rng(int(torch.randint(2**31, ())))
         packed, restore = batch_func()._compress_array(self, x)
         tensor, coords = packed.e2s.to_torch()
-        tensor = tensor.to(self.center.device).clone()
+        tensor = tensor.to(self.center.device)
         batch_size, time_size, _, _, n_lat, n_lon = tensor.shape
 
         if self.preload_static_fields:

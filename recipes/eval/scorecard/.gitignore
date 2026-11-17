@@ -9,5 +9,6 @@
 !cfg/**
 !utils/
 utils/*
-!utils/pipelines.py
 !utils/baselines.py
+!utils/sources.py
+!utils/rank_entry.sh

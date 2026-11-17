@@ -54,8 +54,8 @@ Output conventions (1.0):
 - Regular lat/lon sources use 1D ``lat``/``lon`` dims. Projected sources use
   ``y``/``x`` axes in projected units plus 2D ``lat``/``lon`` coordinates and the
   ``earth2studio_crs`` attr (or ``earth2studio_grid_id`` for a registered grid) so
-  ``infer_grid`` can recognize them; hrrr.py's ``hrrr_y``/``hrrr_x`` dims predate
-  this and are not inferable. ``fetch_data`` does not fix grid metadata. If the
+  ``infer_grid`` can recognize them; see hrrr.py's ``y``/``x`` axes and
+  ``with_grid_metadata`` call. ``fetch_data`` does not fix grid metadata. If the
   grid is registered (``earth2studio.grids.resolve_grid``), build coordinates from
   ``resolve_grid(<id>).coords()`` so downstream regridders recognize it.
 - Time tolerance (DataFrame sources): ``time_tolerance: TimeTolerance`` parsed
@@ -99,6 +99,9 @@ from earth2studio.data.utils import (
     # FILL: Use prep_forecast_inputs instead if ForecastSource
     # prep_forecast_inputs,
     resolve_async_workers,
+)
+from earth2studio.grids import (
+    with_grid_metadata,
 )
 
 # FILL: Import your lexicon class from the destination project
@@ -272,14 +275,7 @@ class SourceName:
             Fetched data array with dims (time, variable, lat, lon).
         """
         # FILL: For ForecastSource return shape is (time, lead_time, variable, lat, lon)
-        try:
-            xr_array = _sync_async(
-                self.fetch, time, variable, timeout=self.async_timeout
-            )
-        finally:
-            if not self._cache:
-                shutil.rmtree(self.cache, ignore_errors=True)
-        return xr_array
+        return _sync_async(self.fetch, time, variable, timeout=self.async_timeout)
 
     # ------------------------------------------------------------------
     # Async fetch
@@ -303,6 +299,17 @@ class SourceName:
         xr.DataArray
             Data array with dims (time, variable, lat, lon).
         """
+        try:
+            return await self._fetch(time, variable)
+        finally:
+            if not self._cache:
+                shutil.rmtree(self.cache, ignore_errors=True)
+
+    async def _fetch(
+        self,
+        time: datetime | list[datetime] | TimeArray,
+        variable: str | list[str] | VariableArray,
+    ) -> xr.DataArray:
         if self.store is None:
             await self._async_init()
 
@@ -340,10 +347,13 @@ class SourceName:
             max_workers=resolve_async_workers(self._async_workers, len(coros)),
             task_timeout=60.0,
             desc="Fetching SourceName data",  # FILL: source name
-            verbose=(not self._verbose),
+            verbose=self._verbose,
         )
 
         # FILL: Temporal statistics (Step 7b): ``xr_array.attrs.update(attrs)``
+        # FILL: Reuse a registered grid when the axes match; otherwise omit the
+        # name to describe the actual rectilinear lat/lon axes.
+        xr_array = with_grid_metadata(xr_array, "latlon-1deg")
         if self.device.type == "cuda":
             xr_array = xr_array.e2s.as_cupy(self.device.index)
         return xr_array

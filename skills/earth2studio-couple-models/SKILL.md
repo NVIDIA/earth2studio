@@ -68,8 +68,8 @@ from data sources.
   `variables` to the producer's variable. Plain label with `exact`: the
   producer's frame at `T`. Plain label with `hold`: the latest frame at or
   before `T` published on an *earlier* tick. Qualified label: the producer's
-  frames in `[T - w, T)` at its frame spacing, reduced with `apply_time_statistic`
-  (the frame at `T` is excluded). If the producer cannot supply it and `T` is at
+  frames in `(T - w, T]` at its frame spacing, reduced with `apply_time_statistic`
+  (the frame at `T` is included). If the producer cannot supply it and `T` is at
   or before the item time, a stateful consumer takes it from the slot's source;
   for a window ending later whose missing frames are at or before the item time
   (the producer publishes no initial condition), those early frames of the base
@@ -190,7 +190,7 @@ C10 describe runtime behavior rather than errors.
 | `C5` | Without a regridder, each producer slot read and the consumer slot have the same geometry; with one, its source grid matches each slot read and its target grid the consumer slot | `BilinearRegridder(src_grid, dst_grid)` built from `infer_grid` |
 | `C6` | Required valid times follow the model contract; DataFrame slots are requested at the chunk's end, static slots only initially | (behavior) |
 | `C7` | `exact` waits for frames at each required time; `hold` takes the latest earlier-published frame and applies to plain labels only | `hold` on a qualified label: use `exact`, or declare the slot at an earlier lead |
-| `C8` | Qualified labels reduce producer frames over `[T - w, T)`; the window must divide by the producer's frame spacing | Fix the window or the producer's cadence |
+| `C8` | Qualified labels reduce producer frames over `(T - w, T]`; the window must divide by the producer's frame spacing | Fix the window or the producer's cadence |
 | `C9` | Frames at or before the item time that the producer does not hold come from the slot's source, for stateful consumers only, including early frames of a later window; state connectors keep the model's own values instead | (behavior) |
 | `C10` | An empty DataFrame from a source is passed as `None` | (behavior) |
 | `C11` | A stateful chunk due by the final lead time that cannot run raises, naming the cycle or the missing frame; construction checks this first | Cycle of `exact` edges, or a frame that never arrives: make one edge `hold`; check cadences and the final lead |
@@ -208,7 +208,8 @@ component.
   order only breaks ties between components ready at the same tick.
 - **Using `hold` where `exact` was meant.** This silently lags by a step.
   Check the `describe` row.
-- **Reductions use the window `[T - w, T)`.** The frame at `T` is excluded.
+- **Reductions use the window `(T - w, T]`.** The frame at `T` is included, so
+  a consumer reading a reduction at `T` waits for the producer's frame at `T`.
 - **Expecting an initial condition in every stream.** Streams whose outputs
   differ from the inputs, or whose input ends before zero, start at the first
   forecast.

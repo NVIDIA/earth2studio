@@ -112,8 +112,10 @@ class rmse:
 
     def __call__(self, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
         """
-        Apply metric to data `x` and `y`, checking that their coordinates
-        are broadcastable. While reducing over `reduction_dims`.
+        Apply metric to data `x` and `y`, reducing over `reduction_dims`.
+        `y` must have every dimension of `x` except the ensemble dimension, if the
+        metric has one, with matching coordinate values; it is transposed to
+        `x`'s order, not broadcast.
 
         If batch_update was passed True upon metric initialization then this method
         returns the running sample RMSE over all seen batches.
@@ -171,8 +173,10 @@ class mae(rmse):
 
     def __call__(self, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
         """
-        Apply metric to data `x` and `y`, checking that their coordinates
-        are broadcastable. While reducing over `reduction_dims`.
+        Apply metric to data `x` and `y`, reducing over `reduction_dims`.
+        `y` must have every dimension of `x` except the ensemble dimension, if the
+        metric has one, with matching coordinate values; it is transposed to
+        `x`'s order, not broadcast.
 
         If batch_update was passed True upon metric initialization then this method
         returns the running sample MAE over all seen batches.
@@ -300,8 +304,10 @@ class spread_skill_ratio:
 
     def __call__(self, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
         """
-        Apply metric to data `x` and `y`, checking that their coordinates
-        are broadcastable. While reducing over `reduction_dims`.
+        Apply metric to data `x` and `y`, reducing over `reduction_dims`.
+        `y` must have every dimension of `x` except the ensemble dimension, if the
+        metric has one, with matching coordinate values; it is transposed to
+        `x`'s order, not broadcast.
 
         If batch_update was passed True upon metric initialization then this method
         returns the running sample RMSE over all seen batches.
@@ -361,8 +367,10 @@ class skill_spread(spread_skill_ratio):
 
     def __call__(self, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
         """
-        Apply metric to data `x` and `y`, checking that their coordinates
-        are broadcastable. While reducing over `reduction_dims`.
+        Apply metric to data `x` and `y`, reducing over `reduction_dims`.
+        `y` must have every dimension of `x` except the ensemble dimension, if the
+        metric has one, with matching coordinate values; it is transposed to
+        `x`'s order, not broadcast.
 
         If batch_update was passed True upon metric initialization then this method
         returns the running sample MSE and variance over all seen batches.

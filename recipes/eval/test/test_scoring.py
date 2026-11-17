@@ -14,1368 +14,1022 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for the scoring module (src/scoring.py)."""
+"""Tests for offline scoring (src/scoring.py and score.py).
+
+The tests write the forecast and verification stores through the recipe's own
+IO layer (``src.output.build_backend`` and the library ``ZarrBackend``) with
+closed-form fields, so every score has an analytic expectation.
+"""
 
 from __future__ import annotations
 
 import os
+import shutil
 from collections import OrderedDict
-from unittest.mock import patch
 
 import numpy as np
 import pytest
 import torch
 import xarray as xr
-from omegaconf import OmegaConf
-from src.data import CompositeSource, PredownloadedSource
-from src.output import OutputManager, build_score_coords
+from omegaconf import OmegaConf, open_dict
+from score import run as run_score
+from src.data import PredownloadedSource
+from src.metrics import ensemble_variance, mse
+from src.output import build_backend, parallel_coords, store_path
 from src.scoring import (
+    RegionalMetric,
+    _apply_valid_ranges,
     _concat_chunks,
+    _is_statistic,
     add_score_arrays,
     all_score_variable_names,
+    apply_valid_ranges,
     build_input_coords_template,
     build_lead_time_chunks,
-    build_superset_score_coords,
     group_score_arrays_by_dims,
     instantiate_metrics,
     load_prediction_chunk,
     load_verification_chunk,
+    open_score_store,
     open_verification_source,
-    run_scoring,
+    score_store_path,
     score_variable_names,
+    scoring_progress_path,
     spatial_coords_from_dataset,
     validate_lead_time_chunking,
-)
-from src.work import (
-    clear_scoring_progress,
-    filter_scoring_completed,
-    scoring_progress_dir,
-    write_scoring_marker,
+    verification_regridder,
 )
 
-# ---------------------------------------------------------------------------
-# Shared test constants and helpers
-# ---------------------------------------------------------------------------
+from earth2studio.io import ZarrBackend
+from earth2studio.run import ProgressStore, work_items
+from earth2studio.statistics import rmse
+from earth2studio.utils.coords import coord_array
 
-SMALL_LAT = np.linspace(90, -90, 4)
-SMALL_LON = np.linspace(0, 360, 8, endpoint=False)
-VARIABLES = ["t2m", "z500"]
-TIMES = np.array(["2024-01-01", "2024-01-02"], dtype="datetime64[ns]")
+from .conftest import SMALL_LAT, SMALL_LON, VARIABLES, compose_cfg
+
+TIMES = np.array(["2024-01-01T00", "2024-01-01T12"], dtype="datetime64[ns]")
 LEAD_TIMES = np.array([0, 6, 12], dtype="timedelta64[h]").astype("timedelta64[ns]")
+# Every valid time the two forecasts reach, on the 6-hourly grid.
+VALID_TIMES = np.arange(
+    TIMES[0],
+    TIMES[-1] + LEAD_TIMES[-1] + np.timedelta64(6, "h"),
+    np.timedelta64(6, "h"),
+).astype("datetime64[ns]")
+
+# z500 forecast: a latitude profile (lat + 90) / 90 = [2, 4/3, 2/3, 0] on
+# the small grid, verified against zero.
+Z500_PROFILE = (SMALL_LAT + 90.0) / 90.0
+Z500_RMSE_GLOBAL = np.sqrt(np.mean(Z500_PROFILE**2))  # sqrt(14/9)
+Z500_RMSE_NORTH = np.sqrt(np.mean(Z500_PROFILE[:2] ** 2))  # sqrt(26/9)
+Z500_RMSE_LATW = np.sqrt(
+    np.sum(np.cos(np.deg2rad(SMALL_LAT)) * Z500_PROFILE**2)
+    / np.sum(np.cos(np.deg2rad(SMALL_LAT)))
+)  # sqrt(10/9)
+# t2m forecast: a constant; verification counts 6-hour steps since TIMES[0].
+T2M_FORECAST = 100.0
 
 
-def _create_prediction_zarr(
-    path, times, lead_times, variables, lat, lon, ensemble_size=1
-):
-    """Write a minimal prediction zarr store."""
-    rng = np.random.default_rng(42)
-    ds = xr.Dataset()
-    dims = []
-    coords = {}
-
-    if ensemble_size > 1:
-        dims.append("ensemble")
-        coords["ensemble"] = np.arange(ensemble_size)
-
-    dims.extend(["time", "lead_time"])
-    coords["time"] = times
-    coords["lead_time"] = lead_times
-
-    spatial_dims = ["lat", "lon"]
-    dims.extend(spatial_dims)
-    coords["lat"] = lat
-    coords["lon"] = lon
-
-    shape = [len(coords[d]) for d in dims]
-
-    for var in variables:
-        ds[var] = xr.DataArray(
-            rng.standard_normal(shape).astype("float32"),
-            dims=dims,
-            coords=coords,
-        )
-    ds.to_zarr(str(path))
-    return ds
-
-
-def _create_verification_zarr(path, times, variables, lat, lon):
-    """Write a minimal verification zarr store (flat time dimension)."""
-    rng = np.random.default_rng(123)
-    ds = xr.Dataset()
-    for var in variables:
-        ds[var] = xr.DataArray(
-            rng.standard_normal((len(times), len(lat), len(lon))).astype("float32"),
-            dims=["time", "lat", "lon"],
-            coords={"time": times, "lat": lat, "lon": lon},
-        )
-    ds.to_zarr(str(path))
-    return ds
-
-
-def _make_dist_mock(*, rank=0, world_size=1, distributed=False):
-    class _FakeDist:
-        def __init__(self):
-            self.rank = rank
-            self.world_size = world_size
-            self.distributed = distributed
-            self.device = torch.device("cpu")
-
-    return _FakeDist()
-
-
-# Paths to mock
-_DIST_PATH = "src.output.DistributedManager"
-_RANK0_PATH = "src.output.run_on_rank0_first"
-_SCORING_DIST_PATH = "src.scoring.get_rank"
+def _t2m_truth(valid: np.ndarray) -> np.ndarray:
+    return (np.asarray(valid).astype("datetime64[ns]") - TIMES[0]).astype(
+        "timedelta64[h]"
+    ).astype(float) / 6.0
 
 
 # ---------------------------------------------------------------------------
-# Fixtures
+# Store writers (the recipe's own IO paths)
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture()
-def prediction_path(tmp_path):
-    return tmp_path / "out" / "forecast.zarr"
+def write_forecast_store(cfg, fields: dict[str, np.ndarray], ensemble=None) -> str:
+    """Write ``forecast.zarr`` with ``fields[var]`` of shape
+    ``(ensemble?, time, lead_time, lat, lon)`` through ``src.output``."""
+    members = None if ensemble is None else list(ensemble)
+    items = work_items(list(TIMES), LEAD_TIMES[-1], members=members)
+    parallel = parallel_coords(items, LEAD_TIMES)
+    path = store_path(cfg)
+    io = build_backend(cfg, path, parallel, overwrite=True, rank=0)
+    dims = (["ensemble"] if ensemble is not None else []) + [
+        "time",
+        "lead_time",
+        "variable",
+        "lat",
+        "lon",
+    ]
+    coords = {
+        "time": TIMES,
+        "lead_time": LEAD_TIMES,
+        "variable": np.array(list(fields)),
+        "lat": SMALL_LAT,
+        "lon": SMALL_LON,
+    }
+    if ensemble is not None:
+        coords["ensemble"] = np.asarray(ensemble, dtype=np.int64)
+    io.add_array(coord_array(dims, coords))
+    data = np.stack([fields[v] for v in fields], axis=-3).astype("float32")
+    io.write(xr.DataArray(data, dims=dims, coords=coords))
+    io.close()
+    return path
 
 
-@pytest.fixture()
-def verification_path(tmp_path):
-    return tmp_path / "out" / "data.zarr"
+def write_verification_store(
+    cfg, fields: dict[str, np.ndarray], times=VALID_TIMES
+) -> str:
+    """Write ``verification.zarr`` (one array per variable on ``(time, lat,
+    lon)``) as predownload does, through the library ``ZarrBackend``."""
+    path = store_path(cfg, "verification.zarr")
+    os.makedirs(cfg.output.path, exist_ok=True)
+    io = ZarrBackend(path)
+    dims = ["time", "variable", "lat", "lon"]
+    coords = {
+        "time": np.asarray(times),
+        "variable": np.array(list(fields)),
+        "lat": SMALL_LAT,
+        "lon": SMALL_LON,
+    }
+    io.add_array(coord_array(dims, coords))
+    data = np.stack([fields[v] for v in fields], axis=1).astype("float32")
+    io.write(xr.DataArray(data, dims=dims, coords=coords))
+    io.close()
+    return path
 
 
-@pytest.fixture()
-def verification_times():
-    """All valid times needed for verification (IC times + lead offsets)."""
-    all_valid = set()
-    for t in TIMES:
-        for lt in LEAD_TIMES:
-            all_valid.add(t + lt)
-    return np.array(sorted(all_valid), dtype="datetime64[ns]")
+def analytic_forecast(ensemble=None) -> dict[str, np.ndarray]:
+    shape = (len(TIMES), len(LEAD_TIMES), len(SMALL_LAT), len(SMALL_LON))
+    t2m = np.full(shape, T2M_FORECAST)
+    z500 = np.broadcast_to(Z500_PROFILE[:, None], shape[-2:]) * np.ones(shape)
+    if ensemble is None:
+        return {"t2m": t2m, "z500": z500}
+    # Member m sits at truth + 3 (m - 1): ensemble mean equals the truth and
+    # the (N-1) ensemble variance is 9 everywhere.
+    truth_t2m = analytic_verification_on_forecast_grid()
+    offsets = 3.0 * (np.asarray(ensemble, dtype=float) - 1.0)
+    t2m_ens = truth_t2m[None] + offsets[:, None, None, None, None]
+    z500_ens = np.zeros_like(t2m_ens) + offsets[:, None, None, None, None]
+    return {"t2m": t2m_ens, "z500": z500_ens}
 
 
-@pytest.fixture()
-def prediction_ds(prediction_path):
-    _create_prediction_zarr(
-        prediction_path, TIMES, LEAD_TIMES, VARIABLES, SMALL_LAT, SMALL_LON
+def analytic_verification() -> dict[str, np.ndarray]:
+    shape = (len(VALID_TIMES), len(SMALL_LAT), len(SMALL_LON))
+    t2m = _t2m_truth(VALID_TIMES)[:, None, None] * np.ones(shape)
+    return {"t2m": t2m, "z500": np.zeros(shape)}
+
+
+def analytic_verification_on_forecast_grid() -> np.ndarray:
+    """t2m truth laid out as ``(time, lead_time, lat, lon)``."""
+    valid = TIMES[:, None] + LEAD_TIMES[None, :]
+    return _t2m_truth(valid)[:, :, None, None] * np.ones(
+        (len(TIMES), len(LEAD_TIMES), len(SMALL_LAT), len(SMALL_LON))
     )
-    return xr.open_zarr(str(prediction_path))
 
 
-@pytest.fixture()
-def prediction_ds_ensemble(prediction_path):
-    _create_prediction_zarr(
-        prediction_path,
-        TIMES,
-        LEAD_TIMES,
-        VARIABLES,
-        SMALL_LAT,
-        SMALL_LON,
-        ensemble_size=3,
-    )
-    return xr.open_zarr(str(prediction_path))
-
-
-@pytest.fixture()
-def verif_source(verification_path, verification_times):
-    _create_verification_zarr(
-        verification_path, verification_times, VARIABLES, SMALL_LAT, SMALL_LON
-    )
-    return PredownloadedSource(str(verification_path))
-
-
-@pytest.fixture()
-def spatial_coords():
-    return OrderedDict({"lat": SMALL_LAT, "lon": SMALL_LON})
-
-
-@pytest.fixture()
-def input_template():
-    """Input coords template for a deterministic prediction."""
-    return OrderedDict(
-        {
-            "lead_time": LEAD_TIMES,
-            "variable": np.array(VARIABLES),
-            "lat": SMALL_LAT,
-            "lon": SMALL_LON,
+def scoring_cfg(tmp_path, metrics: dict | None = None, **scoring_overrides):
+    cfg = compose_cfg(tmp_path, ["nsteps=2", "ensemble_size=1"])
+    with open_dict(cfg):
+        cfg.start_times = [
+            str(t).replace("T", " ") for t in TIMES.astype("datetime64[s]")
+        ]
+        cfg.output.variables = list(VARIABLES)
+        cfg.scoring.lat_weights = False
+        cfg.scoring.lead_time_chunk_size = None
+        cfg.scoring.metrics = metrics or {
+            "rmse": {
+                "_target_": "earth2studio.statistics.rmse",
+                "reduction_dimensions": ["lat", "lon"],
+            }
         }
-    )
+        for key, value in scoring_overrides.items():
+            OmegaConf.update(cfg, f"scoring.{key}", value, merge=False)
+    return cfg
 
 
 @pytest.fixture()
-def input_template_ensemble():
-    """Input coords template with ensemble dimension."""
-    return OrderedDict(
-        {
-            "ensemble": np.arange(3),
-            "lead_time": LEAD_TIMES,
-            "variable": np.array(VARIABLES),
-            "lat": SMALL_LAT,
-            "lon": SMALL_LON,
-        }
-    )
+def det_cfg(tmp_path):
+    """Deterministic forecast and verification stores plus a scoring config."""
+    cfg = scoring_cfg(tmp_path)
+    write_forecast_store(cfg, analytic_forecast())
+    write_verification_store(cfg, analytic_verification())
+    return cfg
+
+
+def open_scores(cfg) -> xr.Dataset:
+    path = os.path.join(cfg.output.path, cfg.scoring.output.store_name)
+    return xr.open_zarr(path, consolidated=False)
 
 
 # ---------------------------------------------------------------------------
-# build_lead_time_chunks
+# Pure helpers
 # ---------------------------------------------------------------------------
 
 
 class TestBuildLeadTimeChunks:
-    def test_no_chunking_none(self):
-        result = build_lead_time_chunks(LEAD_TIMES, None)
-        assert len(result) == 1
-        np.testing.assert_array_equal(result[0], LEAD_TIMES)
-
-    def test_no_chunking_zero(self):
-        result = build_lead_time_chunks(LEAD_TIMES, 0)
-        assert len(result) == 1
-
-    def test_no_chunking_large(self):
-        result = build_lead_time_chunks(LEAD_TIMES, 100)
-        assert len(result) == 1
-
-    def test_chunk_size_1(self):
-        result = build_lead_time_chunks(LEAD_TIMES, 1)
-        assert len(result) == 3
-        for chunk in result:
-            assert len(chunk) == 1
-
-    def test_chunk_size_2(self):
-        result = build_lead_time_chunks(LEAD_TIMES, 2)
-        assert len(result) == 2
-        assert len(result[0]) == 2
-        assert len(result[1]) == 1
+    @pytest.mark.parametrize("size", [None, 0, -1, 3, 10])
+    def test_no_chunking(self, size):
+        chunks = build_lead_time_chunks(LEAD_TIMES, size)
+        assert len(chunks) == 1
+        np.testing.assert_array_equal(chunks[0], LEAD_TIMES)
 
     def test_chunks_cover_all_lead_times(self):
-        result = build_lead_time_chunks(LEAD_TIMES, 2)
-        concatenated = np.concatenate(result)
-        np.testing.assert_array_equal(concatenated, LEAD_TIMES)
-
-
-# ---------------------------------------------------------------------------
-# score_variable_names
-# ---------------------------------------------------------------------------
-
-
-class TestScoreVariableNames:
-    def test_with_variable_dim(self):
-        coords = OrderedDict(
-            {
-                "lead_time": LEAD_TIMES,
-                "variable": np.array(["t2m", "z500"]),
-            }
-        )
-        names = score_variable_names("rmse", coords)
-        assert names == ["rmse__t2m", "rmse__z500"]
-
-    def test_without_variable_dim(self):
-        coords = OrderedDict({"lead_time": LEAD_TIMES})
-        names = score_variable_names("energy_score", coords)
-        assert names == ["energy_score"]
-
-
-class TestAllScoreVariableNames:
-    def test_multiple_metrics(self, input_template):
-        from earth2studio.statistics import mae, rmse
-
-        metrics = OrderedDict(
-            {
-                "rmse": rmse(reduction_dimensions=["lat", "lon"]),
-                "mae": mae(reduction_dimensions=["lat", "lon"]),
-            }
-        )
-        names = all_score_variable_names(metrics, input_template)
-        assert names == ["rmse__t2m", "rmse__z500", "mae__t2m", "mae__z500"]
-
-
-# ---------------------------------------------------------------------------
-# validate_metric_coords
-# ---------------------------------------------------------------------------
-
-
-class TestBuildSupersetScoreCoords:
-    def test_single_metric(self, input_template):
-        from earth2studio.statistics import rmse
-
-        metrics = OrderedDict(
-            {
-                "rmse": rmse(reduction_dimensions=["lat", "lon"]),
-            }
-        )
-        coords = build_superset_score_coords(metrics, input_template, TIMES)
-        assert "time" in coords
-        assert "lead_time" in coords
-        assert "lat" not in coords
-        assert "lon" not in coords
-
-    def test_mixed_metrics_superset(self, input_template_ensemble):
-        """Metrics with different output dims produce a union of dims."""
-        from earth2studio.statistics import crps, rmse
-
-        metrics = OrderedDict(
-            {
-                "rmse": rmse(reduction_dimensions=["lat", "lon"]),
-                "crps": crps(
-                    reduction_dimensions=["lat", "lon"],
-                    ensemble_dimension="ensemble",
-                ),
-            }
-        )
-        coords = build_superset_score_coords(metrics, input_template_ensemble, TIMES)
-        # RMSE preserves ensemble; CRPS does not. Superset has both.
-        assert "time" in coords
-        assert "ensemble" in coords
-        assert "lead_time" in coords
-
-
-class TestGroupScoreArraysByDims:
-    def test_same_dims_single_group(self, input_template):
-        from earth2studio.statistics import mae, rmse
-
-        metrics = OrderedDict(
-            {
-                "rmse": rmse(reduction_dimensions=["lat", "lon"]),
-                "mae": mae(reduction_dimensions=["lat", "lon"]),
-            }
-        )
-        groups = group_score_arrays_by_dims(metrics, input_template, TIMES)
-        assert len(groups) == 1
-        _, var_names = groups[0]
-        assert "rmse__t2m" in var_names
-        assert "mae__t2m" in var_names
-
-    def test_different_dims_multiple_groups(self, input_template_ensemble):
-        """RMSE (keeps ensemble) and CRPS (drops ensemble) form two groups."""
-        from earth2studio.statistics import crps, rmse
-
-        metrics = OrderedDict(
-            {
-                "rmse": rmse(reduction_dimensions=["lat", "lon"]),
-                "crps": crps(
-                    reduction_dimensions=["lat", "lon"],
-                    ensemble_dimension="ensemble",
-                ),
-            }
-        )
-        groups = group_score_arrays_by_dims(metrics, input_template_ensemble, TIMES)
-        assert len(groups) == 2
-        all_vars = [v for _, vs in groups for v in vs]
-        assert "rmse__t2m" in all_vars
-        assert "crps__t2m" in all_vars
-
-
-# ---------------------------------------------------------------------------
-# validate_lead_time_chunking
-# ---------------------------------------------------------------------------
+        chunks = build_lead_time_chunks(LEAD_TIMES, 2)
+        assert [len(c) for c in chunks] == [2, 1]
+        np.testing.assert_array_equal(np.concatenate(chunks), LEAD_TIMES)
 
 
 class TestValidateLeadTimeChunking:
     def test_no_chunking_always_passes(self):
-        from earth2studio.statistics import rmse
+        validate_lead_time_chunking({"m": mse(["lead_time", "lat", "lon"])}, None, 3)
+        validate_lead_time_chunking({"m": mse(["lead_time", "lat", "lon"])}, 5, 3)
 
-        metrics = OrderedDict(
-            {
-                "temporal": rmse(reduction_dimensions=["lead_time"]),
-            }
-        )
-        # No chunking — should not raise.
-        validate_lead_time_chunking(metrics, None, 10)
-        validate_lead_time_chunking(metrics, 0, 10)
-        validate_lead_time_chunking(metrics, 10, 10)
+    def test_lead_time_reduction_raises(self):
+        with pytest.raises(ValueError, match="lead_time"):
+            validate_lead_time_chunking({"m": mse(["lead_time", "lat", "lon"])}, 2, 3)
 
-    def test_chunking_with_lead_time_reduction_raises(self):
-        from earth2studio.statistics import rmse
-
-        metrics = OrderedDict(
-            {
-                "temporal": rmse(reduction_dimensions=["lead_time"]),
-            }
-        )
-        with pytest.raises(ValueError, match="reduces over 'lead_time'"):
-            validate_lead_time_chunking(metrics, 2, 10)
-
-    def test_chunking_without_lead_time_reduction_passes(self):
-        from earth2studio.statistics import rmse
-
-        metrics = OrderedDict(
-            {
-                "spatial": rmse(reduction_dimensions=["lat", "lon"]),
-            }
-        )
-        validate_lead_time_chunking(metrics, 2, 10)
+    def test_spatial_reduction_passes(self):
+        validate_lead_time_chunking({"m": mse(["lat", "lon"])}, 2, 3)
 
 
-# ---------------------------------------------------------------------------
-# spatial_coords_from_dataset / build_input_coords_template
-# ---------------------------------------------------------------------------
+def _template(ensemble: bool = False):
+    dims = (["ensemble"] if ensemble else []) + ["lead_time", "variable", "lat", "lon"]
+    coords = {
+        "lead_time": LEAD_TIMES,
+        "variable": np.array(VARIABLES),
+        "lat": SMALL_LAT,
+        "lon": SMALL_LON,
+    }
+    if ensemble:
+        coords["ensemble"] = np.arange(3)
+    return coord_array(dims, coords)
 
 
-class TestSpatialCoordsFromDataset:
-    def test_extracts_lat_lon(self, prediction_ds):
-        coords = spatial_coords_from_dataset(prediction_ds)
-        assert "lat" in coords
-        assert "lon" in coords
-        assert "time" not in coords
-        assert "lead_time" not in coords
+class TestScoreNames:
+    def test_with_variable_dim(self):
+        out = rmse(["lat", "lon"]).output_coords(_template())
+        assert score_variable_names("rmse", out) == ["rmse__t2m", "rmse__z500"]
 
-    def test_ensemble_excluded(self, prediction_ds_ensemble):
-        coords = spatial_coords_from_dataset(prediction_ds_ensemble)
-        assert "ensemble" not in coords
-        assert "lat" in coords
+    def test_without_variable_dim(self):
+        out = rmse(["variable", "lat", "lon"]).output_coords(_template())
+        assert score_variable_names("rmse", out) == ["rmse"]
 
-
-class TestBuildInputCoordsTemplate:
-    def test_deterministic(self, prediction_ds):
-        template = build_input_coords_template(prediction_ds, LEAD_TIMES, VARIABLES)
-        assert "ensemble" not in template
-        assert list(template.keys()) == ["lead_time", "variable", "lat", "lon"]
-        np.testing.assert_array_equal(template["variable"], VARIABLES)
-
-    def test_ensemble(self, prediction_ds_ensemble):
-        template = build_input_coords_template(
-            prediction_ds_ensemble, LEAD_TIMES, VARIABLES
-        )
-        assert "ensemble" in template
-        assert list(template.keys()) == [
-            "ensemble",
-            "lead_time",
-            "variable",
-            "lat",
-            "lon",
+    def test_all_names(self):
+        metrics = OrderedDict(rmse=rmse(["lat", "lon"]), mse=mse(["lat", "lon"]))
+        assert all_score_variable_names(metrics, _template()) == [
+            "rmse__t2m",
+            "rmse__z500",
+            "mse__t2m",
+            "mse__z500",
         ]
 
 
-# ---------------------------------------------------------------------------
-# load_prediction_chunk / load_verification_chunk
-# ---------------------------------------------------------------------------
+class TestGroupScoreArraysByDims:
+    def test_single_group(self):
+        metrics = OrderedDict(rmse=rmse(["lat", "lon"]), mse=mse(["lat", "lon"]))
+        groups = group_score_arrays_by_dims(metrics, _template(), TIMES)
+        assert len(groups) == 1
+        coords, names = groups[0]
+        assert list(coords) == ["time", "lead_time"]
+        np.testing.assert_array_equal(coords["time"], TIMES)
+        assert names == ["rmse__t2m", "rmse__z500", "mse__t2m", "mse__z500"]
 
-
-class TestLoadPredictionChunk:
-    def test_deterministic_shape(self, prediction_ds):
-        x, coords = load_prediction_chunk(
-            prediction_ds, TIMES[0], LEAD_TIMES, VARIABLES, torch.device("cpu")
+    def test_mixed_dims_make_separate_groups(self):
+        metrics = OrderedDict(
+            member_mse=mse(["lat", "lon"]),
+            ensemble_mean_mse=mse(["lat", "lon"], ensemble_dimension="ensemble"),
+            ensemble_variance=ensemble_variance("ensemble", ["lat", "lon"]),
         )
-        assert x.shape == (3, 2, 4, 8)  # lead_time, variable, lat, lon
-        assert list(coords.keys()) == ["lead_time", "variable", "lat", "lon"]
-
-    def test_ensemble_shape(self, prediction_ds_ensemble):
-        x, coords = load_prediction_chunk(
-            prediction_ds_ensemble,
-            TIMES[0],
-            LEAD_TIMES,
-            VARIABLES,
-            torch.device("cpu"),
-        )
-        assert x.shape == (3, 3, 2, 4, 8)  # ensemble, lt, var, lat, lon
-        assert list(coords.keys()) == [
-            "ensemble",
-            "lead_time",
-            "variable",
-            "lat",
-            "lon",
+        groups = group_score_arrays_by_dims(metrics, _template(ensemble=True), TIMES)
+        keys = [tuple(coords) for coords, _ in groups]
+        assert keys == [("time", "ensemble", "lead_time"), ("time", "lead_time")]
+        assert groups[1][1] == [
+            "ensemble_mean_mse__t2m",
+            "ensemble_mean_mse__z500",
+            "ensemble_variance__t2m",
+            "ensemble_variance__z500",
         ]
-
-    def test_single_lead_time(self, prediction_ds):
-        lt_chunk = LEAD_TIMES[:1]
-        x, coords = load_prediction_chunk(
-            prediction_ds, TIMES[0], lt_chunk, VARIABLES, torch.device("cpu")
-        )
-        assert x.shape[0] == 1  # single lead time
-        assert len(coords["lead_time"]) == 1
-
-
-class TestLoadVerificationChunk:
-    def test_shape_and_coords(self, verif_source, spatial_coords):
-        x, coords = load_verification_chunk(
-            verif_source,
-            TIMES[0],
-            LEAD_TIMES,
-            VARIABLES,
-            spatial_coords,
-            torch.device("cpu"),
-        )
-        assert x.shape == (3, 2, 4, 8)  # lead_time, variable, lat, lon
-        assert list(coords.keys()) == ["lead_time", "variable", "lat", "lon"]
-        # lead_time coords should be lead times, not valid times.
-        np.testing.assert_array_equal(coords["lead_time"], LEAD_TIMES)
-
-    def test_single_lead_time(self, verif_source, spatial_coords):
-        lt_chunk = LEAD_TIMES[:1]
-        x, coords = load_verification_chunk(
-            verif_source,
-            TIMES[0],
-            lt_chunk,
-            VARIABLES,
-            spatial_coords,
-            torch.device("cpu"),
-        )
-        assert x.shape[0] == 1
-
-
-# ---------------------------------------------------------------------------
-# _concat_chunks
-# ---------------------------------------------------------------------------
 
 
 class TestConcatChunks:
     def test_single_chunk_passthrough(self):
-        score = torch.randn(3, 2)  # lead_time, variable
-        coords = OrderedDict(
-            {
-                "lead_time": LEAD_TIMES,
-                "variable": np.array(VARIABLES),
-            }
+        da = xr.DataArray(
+            np.zeros(3), dims=["lead_time"], coords={"lead_time": LEAD_TIMES}
         )
-        result_score, result_coords = _concat_chunks([(score, coords)], LEAD_TIMES)
-        assert torch.equal(result_score, score)
+        assert _concat_chunks([da], LEAD_TIMES) is da
 
-    def test_two_chunks_concatenated(self):
-        score1 = torch.randn(2, 2)
-        coords1 = OrderedDict(
-            {
-                "lead_time": LEAD_TIMES[:2],
-                "variable": np.array(VARIABLES),
-            }
+    def test_two_chunks(self):
+        a = xr.DataArray(
+            np.array([[1.0, 2.0]]).T,
+            dims=["lead_time", "variable"],
+            coords={"lead_time": LEAD_TIMES[:2], "variable": ["t2m"]},
         )
-        score2 = torch.randn(1, 2)
-        coords2 = OrderedDict(
-            {
-                "lead_time": LEAD_TIMES[2:],
-                "variable": np.array(VARIABLES),
-            }
+        b = xr.DataArray(
+            np.array([[3.0]]),
+            dims=["lead_time", "variable"],
+            coords={"lead_time": LEAD_TIMES[2:], "variable": ["t2m"]},
         )
-        result_score, result_coords = _concat_chunks(
-            [(score1, coords1), (score2, coords2)], LEAD_TIMES
-        )
-        assert result_score.shape == (3, 2)
-        np.testing.assert_array_equal(result_coords["lead_time"], LEAD_TIMES)
+        out = _concat_chunks([a, b], LEAD_TIMES)
+        np.testing.assert_array_equal(out.values[:, 0], [1.0, 2.0, 3.0])
+        np.testing.assert_array_equal(out["lead_time"].values, LEAD_TIMES)
 
 
 # ---------------------------------------------------------------------------
-# build_score_coords (output.py)
+# Store introspection and data loading
 # ---------------------------------------------------------------------------
 
 
-class TestBuildScoreCoords:
-    def test_spatial_reduction(self, input_template):
-        from earth2studio.statistics import rmse
+class TestStoreIntrospection:
+    def test_spatial_coords(self, det_cfg):
+        ds = xr.open_zarr(store_path(det_cfg), consolidated=False)
+        coords = spatial_coords_from_dataset(ds)
+        assert list(coords) == ["lat", "lon"]
+        np.testing.assert_array_equal(coords["lat"], SMALL_LAT)
 
-        metric = rmse(reduction_dimensions=["lat", "lon"])
-        coords = build_score_coords(metric, TIMES, input_template)
-        assert list(coords.keys()) == ["time", "lead_time", "variable"]
-        np.testing.assert_array_equal(coords["time"], TIMES)
+    def test_spatial_coords_follow_the_fields_not_the_dataset(self):
+        # ``Dataset.dims`` lists dimensions in array reading order, which a
+        # zarr 3 store does not fix; the scoring tensors follow the fields'
+        # own order.
+        ds = xr.Dataset(coords={"lon": SMALL_LON, "lat": SMALL_LAT, "time": TIMES})
+        ds["t2m"] = (
+            ("time", "lat", "lon"),
+            np.zeros((len(TIMES), len(SMALL_LAT), len(SMALL_LON))),
+        )
+        assert list(ds.dims)[:2] == ["lon", "lat"]
+        assert list(spatial_coords_from_dataset(ds)) == ["lat", "lon"]
 
-    def test_no_double_time(self, input_template):
-        """time should appear once even if metric output somehow has it."""
-        from earth2studio.statistics import rmse
+    def test_input_template_deterministic(self, det_cfg):
+        ds = xr.open_zarr(store_path(det_cfg), consolidated=False)
+        template = build_input_coords_template(ds, LEAD_TIMES, VARIABLES)
+        assert tuple(template.dims) == ("lead_time", "variable", "lat", "lon")
+        assert template.shape == (3, 2, 4, 8)
 
-        metric = rmse(reduction_dimensions=["lat", "lon"])
-        coords = build_score_coords(metric, TIMES, input_template)
-        assert list(coords.keys()).count("time") == 1
+    def test_input_template_ensemble(self, tmp_path):
+        cfg = scoring_cfg(tmp_path)
+        write_forecast_store(
+            cfg, analytic_forecast(ensemble=range(3)), ensemble=range(3)
+        )
+        ds = xr.open_zarr(store_path(cfg), consolidated=False)
+        template = build_input_coords_template(ds, LEAD_TIMES, VARIABLES)
+        assert tuple(template.dims) == (
+            "ensemble",
+            "lead_time",
+            "variable",
+            "lat",
+            "lon",
+        )
+        np.testing.assert_array_equal(template["ensemble"].values, [0, 1, 2])
+
+
+class TestLoadChunks:
+    def test_prediction_chunk(self, det_cfg):
+        ds = xr.open_zarr(store_path(det_cfg), consolidated=False)
+        x = load_prediction_chunk(ds, TIMES[1], LEAD_TIMES[:2], VARIABLES, "cpu")
+        assert tuple(x.dims) == ("lead_time", "variable", "lat", "lon")
+        assert x.shape == (2, 2, 4, 8)
+        assert x.dtype == np.float32
+        np.testing.assert_allclose(x.sel(variable="t2m").values, T2M_FORECAST)
+        np.testing.assert_allclose(
+            x.sel(variable="z500").isel(lead_time=0, lon=0).values, Z500_PROFILE
+        )
+
+    def test_verification_chunk_is_at_valid_times(self, det_cfg):
+        source = PredownloadedSource(store_path(det_cfg, "verification.zarr"))
+        coords = OrderedDict(lat=SMALL_LAT, lon=SMALL_LON)
+        y = load_verification_chunk(
+            source, TIMES[1], LEAD_TIMES, VARIABLES, coords, "cpu"
+        )
+        assert tuple(y.dims) == ("lead_time", "variable", "lat", "lon")
+        np.testing.assert_array_equal(y["lead_time"].values, LEAD_TIMES)
+        # TIMES[1] = 12 h after TIMES[0]: valid times 12, 18, 24 h -> 2, 3, 4.
+        np.testing.assert_allclose(
+            y.sel(variable="t2m").mean(["lat", "lon"]).values, [2.0, 3.0, 4.0]
+        )
+
+    def test_verification_grid_mismatch_raises(self, det_cfg):
+        source = PredownloadedSource(store_path(det_cfg, "verification.zarr"))
+        coords = OrderedDict(lat=SMALL_LAT[:2], lon=SMALL_LON)
+        with pytest.raises(ValueError, match="grid"):
+            load_verification_chunk(
+                source, TIMES[0], LEAD_TIMES, VARIABLES, coords, "cpu"
+            )
+
+    def test_verification_dimension_order_is_normalized(self, det_cfg):
+        # A source serving (lon, lat) fields lands in the prediction order.
+        inner = PredownloadedSource(store_path(det_cfg, "verification.zarr"))
+
+        class Transposed:
+            def __call__(self, time, variable):
+                return inner(time, variable).transpose(..., "lon", "lat")
+
+        coords = OrderedDict(lat=SMALL_LAT, lon=SMALL_LON)
+        y = load_verification_chunk(
+            Transposed(), TIMES[0], LEAD_TIMES, VARIABLES, coords, "cpu"
+        )
+        expected = load_verification_chunk(
+            inner, TIMES[0], LEAD_TIMES, VARIABLES, coords, "cpu"
+        )
+        assert tuple(y.dims) == ("lead_time", "variable", "lat", "lon")
+        np.testing.assert_array_equal(y.values, expected.values)
+
+    def test_verification_is_selected_onto_a_coarser_prediction_grid(self, det_cfg):
+        # A forecast on every other point of the verification grid, as a 1.5
+        # degree model under 0.25 degree reanalysis: without output.regrid the
+        # verification lands on the prediction grid.
+        source = PredownloadedSource(store_path(det_cfg, "verification.zarr"))
+        coords = OrderedDict(lat=SMALL_LAT[::2], lon=SMALL_LON[::2])
+        regrid = verification_regridder(det_cfg, coords)
+        assert regrid is not None
+        y = load_verification_chunk(
+            source, TIMES[1], LEAD_TIMES, VARIABLES, coords, "cpu", regrid
+        )
+        assert y.shape[-2:] == (len(SMALL_LAT[::2]), len(SMALL_LON[::2]))
+        np.testing.assert_array_equal(y["lat"].values, SMALL_LAT[::2])
+        full = load_verification_chunk(
+            source,
+            TIMES[1],
+            LEAD_TIMES,
+            VARIABLES,
+            OrderedDict(lat=SMALL_LAT, lon=SMALL_LON),
+            "cpu",
+        )
+        np.testing.assert_allclose(y.values, full.values[..., ::2, ::2])
+        # A projected grid has no latitude/longitude axes to align with.
+        assert (
+            verification_regridder(det_cfg, OrderedDict(y=SMALL_LAT, x=SMALL_LON))
+            is None
+        )
+
+    def test_missing_variable_is_explained(self, det_cfg):
+        source = PredownloadedSource(store_path(det_cfg, "verification.zarr"))
+        coords = OrderedDict(lat=SMALL_LAT, lon=SMALL_LON)
+        with pytest.raises(KeyError, match="verification source"):
+            load_verification_chunk(
+                source, TIMES[0], LEAD_TIMES, ["nope"], coords, "cpu"
+            )
 
 
 # ---------------------------------------------------------------------------
-# instantiate_metrics
+# Metric instantiation
 # ---------------------------------------------------------------------------
 
 
 class TestInstantiateMetrics:
-    def test_basic_instantiation(self, spatial_coords):
-        cfg = OmegaConf.create(
+    def _cfg(self, metrics, lat_weights=False, regions=None, events=None):
+        return OmegaConf.create(
             {
                 "scoring": {
-                    "lat_weights": False,
-                    "metrics": {
-                        "rmse": {
-                            "_target_": "earth2studio.statistics.rmse",
-                            "reduction_dimensions": ["lat", "lon"],
-                        }
-                    },
+                    "metrics": metrics,
+                    "lat_weights": lat_weights,
+                    "regions": regions,
+                    "events": events,
                 }
             }
         )
-        metrics = instantiate_metrics(cfg, spatial_coords)
-        assert "rmse" in metrics
-        assert hasattr(metrics["rmse"], "reduction_dimensions")
 
-    def test_lat_weights_injected(self, spatial_coords):
-        cfg = OmegaConf.create(
+    def test_basic(self):
+        cfg = self._cfg(
             {
-                "scoring": {
-                    "lat_weights": True,
-                    "metrics": {
-                        "rmse": {
-                            "_target_": "earth2studio.statistics.rmse",
-                            "reduction_dimensions": ["lat", "lon"],
-                        }
-                    },
-                }
+                "rmse": {
+                    "_target_": "earth2studio.statistics.rmse",
+                    "reduction_dimensions": ["lat", "lon"],
+                },
+                "mse": {
+                    "_target_": "src.metrics.mse",
+                    "reduction_dimensions": ["lat", "lon"],
+                },
             }
         )
-        metrics = instantiate_metrics(cfg, spatial_coords)
-        # The metric should have been created with weights.
-        assert metrics["rmse"].weights is not None
-
-    def test_lat_weights_skipped_when_no_lat_in_reduction(self, spatial_coords):
-        cfg = OmegaConf.create(
-            {
-                "scoring": {
-                    "lat_weights": True,
-                    "metrics": {
-                        "rmse": {
-                            "_target_": "earth2studio.statistics.rmse",
-                            "reduction_dimensions": ["lead_time"],
-                        }
-                    },
-                }
-            }
-        )
-        metrics = instantiate_metrics(cfg, spatial_coords)
+        metrics = instantiate_metrics(cfg, OrderedDict(lat=SMALL_LAT, lon=SMALL_LON))
+        assert list(metrics) == ["rmse", "mse"]
+        assert isinstance(metrics["rmse"], rmse)
+        assert isinstance(metrics["mse"], mse)
         assert metrics["rmse"].weights is None
 
-
-class TestRegionalMetrics:
-    """scoring.regions in the store-then-score pathway."""
-
-    def _cfg(self, reduction, regions):
-        return OmegaConf.create(
+    def test_lat_weights_injected(self):
+        cfg = self._cfg(
             {
-                "scoring": {
-                    "lat_weights": False,
-                    "regions": regions,
-                    "metrics": {
-                        "rmse": {
-                            "_target_": "earth2studio.statistics.rmse",
-                            "reduction_dimensions": reduction,
-                        }
-                    },
+                "rmse": {
+                    "_target_": "earth2studio.statistics.rmse",
+                    "reduction_dimensions": ["lat", "lon"],
                 }
-            }
+            },
+            lat_weights=True,
+        )
+        metrics = instantiate_metrics(cfg, OrderedDict(lat=SMALL_LAT, lon=SMALL_LON))
+        weights = metrics["rmse"].weights
+        assert tuple(weights.shape) == (len(SMALL_LAT), len(SMALL_LON))
+        # Equator-ward rows weigh more than the poles.
+        assert weights[1, 0] > weights[0, 0]
+
+    def test_lat_weights_skipped_without_lat_reduction(self):
+        cfg = self._cfg(
+            {
+                "rmse": {
+                    "_target_": "earth2studio.statistics.rmse",
+                    "reduction_dimensions": ["lon"],
+                }
+            },
+            lat_weights=True,
+        )
+        metrics = instantiate_metrics(cfg, OrderedDict(lat=SMALL_LAT, lon=SMALL_LON))
+        assert metrics["rmse"].weights is None
+
+    def test_accepts_signature(self):
+        cfg = self._cfg(
+            {
+                "rmse": {
+                    "_target_": "earth2studio.statistics.rmse",
+                    "reduction_dimensions": ["lat", "lon"],
+                }
+            },
+            lat_weights=True,
+        )
+        metrics = instantiate_metrics(cfg, _template())
+        assert tuple(metrics["rmse"].weights.shape) == (len(SMALL_LAT), len(SMALL_LON))
+
+    def test_regions_wrap_metric(self):
+        cfg = self._cfg(
+            {
+                "rmse": {
+                    "_target_": "earth2studio.statistics.rmse",
+                    "reduction_dimensions": ["lat", "lon"],
+                }
+            },
+            regions={"global": None, "north": {"lat": [0, 90]}},
+        )
+        metrics = instantiate_metrics(cfg, OrderedDict(lat=SMALL_LAT, lon=SMALL_LON))
+        regional = metrics["rmse"]
+        assert isinstance(regional, RegionalMetric)
+        assert regional.regions == ["global", "north"]
+        assert not _is_statistic(regional)
+        out = regional.output_coords(_template())
+        assert tuple(out.dims) == ("region", "lead_time", "variable")
+        assert list(out["region"].values) == ["global", "north"]
+
+    def test_regional_values(self):
+        cfg = self._cfg(
+            {
+                "rmse": {
+                    "_target_": "earth2studio.statistics.rmse",
+                    "reduction_dimensions": ["lat", "lon"],
+                }
+            },
+            regions={"global": None, "north": {"lat": [0, 90]}},
+        )
+        metrics = instantiate_metrics(cfg, OrderedDict(lat=SMALL_LAT, lon=SMALL_LON))
+        x = xr.DataArray(
+            np.broadcast_to(Z500_PROFILE[:, None], (3, 1, 4, 8)).copy(),
+            dims=["lead_time", "variable", "lat", "lon"],
+            coords={
+                "lead_time": LEAD_TIMES,
+                "variable": ["z500"],
+                "lat": SMALL_LAT,
+                "lon": SMALL_LON,
+            },
+        )
+        out = metrics["rmse"](x, xr.zeros_like(x))
+        assert tuple(out.dims) == ("region", "lead_time", "variable")
+        np.testing.assert_allclose(
+            out.sel(region="global").values, Z500_RMSE_GLOBAL, rtol=1e-5
+        )
+        np.testing.assert_allclose(
+            out.sel(region="north").values, Z500_RMSE_NORTH, rtol=1e-5
         )
 
-    def test_region_axis_and_values(self, spatial_coords):
-        cfg = self._cfg(["lat", "lon"], {"global": None, "north": {"lat": [0, 90]}})
-        metrics = instantiate_metrics(cfg, spatial_coords)
-        metric = metrics["rmse"]
+    def test_event_box_becomes_region(self):
+        cfg = self._cfg(
+            {
+                "rmse": {
+                    "_target_": "earth2studio.statistics.rmse",
+                    "reduction_dimensions": ["lat", "lon"],
+                }
+            },
+            events={
+                "storm": {
+                    "start": "2024-01-01 00:00:00",
+                    "end": "2024-01-02 00:00:00",
+                    "region": {"lat": [0, 90]},
+                }
+            },
+        )
+        metrics = instantiate_metrics(cfg, OrderedDict(lat=SMALL_LAT, lon=SMALL_LON))
+        assert metrics["rmse"].regions == ["global", "storm"]
 
-        lat = np.asarray(spatial_coords["lat"])
-        lon = np.asarray(spatial_coords["lon"])
-        torch.manual_seed(7)
-        x = torch.randn(2, len(lat), len(lon))
-        y = torch.randn(2, len(lat), len(lon))
-        coords = OrderedDict({"variable": np.array(["a", "b"]), "lat": lat, "lon": lon})
+    def test_partial_spatial_reduction_stays_global(self):
+        cfg = self._cfg(
+            {
+                "rmse": {
+                    "_target_": "earth2studio.statistics.rmse",
+                    "reduction_dimensions": ["lon"],
+                }
+            },
+            regions={"north": {"lat": [0, 90]}},
+        )
+        metrics = instantiate_metrics(cfg, OrderedDict(lat=SMALL_LAT, lon=SMALL_LON))
+        assert isinstance(metrics["rmse"], rmse)
 
-        value, out = metric(x, coords, y, coords.copy())
-        assert list(out)[0] == "region"
-        assert list(out["region"]) == ["global", "north"]
-
-        # The global region is a plain unweighted RMSE; the boxed region
-        # equals the same RMSE restricted to its rows (uniform weights, so
-        # the masked weighted mean is the sub-grid mean).
-        expected_global = torch.sqrt(((x - y) ** 2).mean(dim=(-2, -1)))
-        assert torch.allclose(value[0], expected_global, rtol=1e-5, atol=1e-6)
-        rows = torch.from_numpy(lat >= 0)
-        expected_north = torch.sqrt(((x[:, rows] - y[:, rows]) ** 2).mean(dim=(-2, -1)))
-        assert torch.allclose(value[1], expected_north, rtol=1e-5, atol=1e-6)
-
-    def test_partial_spatial_reduction_stays_global(self, spatial_coords):
-        cfg = self._cfg(["lat"], {"global": None, "north": {"lat": [0, 90]}})
-        metrics = instantiate_metrics(cfg, spatial_coords)
-        # Not wrapped: reducing only lat cannot carry a lat/lon mask.
-        assert not hasattr(metrics["rmse"], "_per_region")
+    def test_regional_statistic(self):
+        cfg = self._cfg(
+            {
+                "ensemble_variance": {
+                    "_target_": "src.metrics.ensemble_variance",
+                    "ensemble_dimension": "ensemble",
+                    "reduction_dimensions": ["lat", "lon"],
+                }
+            },
+            regions={"global": None, "north": {"lat": [0, 90]}},
+        )
+        metrics = instantiate_metrics(cfg, OrderedDict(lat=SMALL_LAT, lon=SMALL_LON))
+        regional = metrics["ensemble_variance"]
+        assert _is_statistic(regional)
+        out = regional.output_coords(_template(ensemble=True))
+        assert tuple(out.dims) == ("region", "lead_time", "variable")
 
 
 # ---------------------------------------------------------------------------
-# Scoring progress tracking (work.py)
+# Verification source resolution
 # ---------------------------------------------------------------------------
 
 
-class TestScoringProgress:
-    @pytest.fixture()
-    def cfg(self, tmp_path):
-        return OmegaConf.create({"output": {"path": str(tmp_path / "outputs")}})
+class TestOpenVerificationSource:
+    def test_predownloaded_store(self, det_cfg):
+        source = open_verification_source(det_cfg)
+        assert isinstance(source, PredownloadedSource)
+        assert source.store_path == store_path(det_cfg, "verification.zarr")
 
-    def test_progress_dir_path(self, cfg, tmp_path):
-        d = scoring_progress_dir(cfg)
-        assert d == tmp_path / "outputs" / ".scoring_progress"
-
-    def test_write_and_filter_marker(self, cfg):
-        t1 = np.datetime64("2024-01-01T00:00:00")
-        t2 = np.datetime64("2024-01-02T00:00:00")
-        times = [t1, t2]
-
-        # No markers yet — all times remain.
-        remaining = filter_scoring_completed(times, cfg)
-        assert len(remaining) == 2
-
-        # Write marker for t1.
-        write_scoring_marker(t1, cfg)
-
-        # Now only t2 should remain.
-        remaining = filter_scoring_completed(times, cfg)
-        assert len(remaining) == 1
-        assert remaining[0] == t2
-
-    def test_clear_scoring_progress(self, cfg):
-        t1 = np.datetime64("2024-01-01T00:00:00")
-        write_scoring_marker(t1, cfg)
-
-        d = scoring_progress_dir(cfg)
-        assert d.exists()
-
-        clear_scoring_progress(cfg)
-        assert not d.exists()
-
-
-# ---------------------------------------------------------------------------
-# End-to-end: run_scoring
-# ---------------------------------------------------------------------------
-
-
-class TestRunScoring:
-    @pytest.fixture()
-    def cfg(self, tmp_path):
-        return OmegaConf.create(
-            {
-                "output": {
-                    "path": str(tmp_path / "out"),
-                    "overwrite": True,
-                    "thread_writers": 0,
-                    "chunks": {"time": 1},
-                },
-                "scoring": {
-                    "resume": False,
-                    "lat_weights": False,
-                    "lead_time_chunk_size": None,
-                    "variables": list(VARIABLES),
-                    "metrics": {
-                        "rmse": {
-                            "_target_": "earth2studio.statistics.rmse",
-                            "reduction_dimensions": ["lat", "lon"],
-                        },
-                    },
-                    "output": {
-                        "store_name": "scores.zarr",
-                        "overwrite": True,
-                        "chunks": {"time": 1},
-                    },
-                },
+    def test_byo_wins(self, det_cfg):
+        other = store_path(det_cfg, "other.zarr")
+        with open_dict(det_cfg):
+            det_cfg.verification_source = {
+                "_target_": "src.data.PredownloadedSource",
+                "store_path": store_path(det_cfg, "verification.zarr"),
             }
-        )
+        source = open_verification_source(det_cfg)
+        assert isinstance(source, PredownloadedSource)
+        assert source.store_path != other
 
-    def _setup_score_store(self, cfg, prediction_ds, metrics):
-        """Helper: build coords and array groups for test store setup."""
-        input_template = build_input_coords_template(
-            prediction_ds, LEAD_TIMES, VARIABLES
-        )
-        superset_coords = build_superset_score_coords(metrics, input_template, TIMES)
-        array_groups = group_score_arrays_by_dims(metrics, input_template, TIMES)
-        return input_template, superset_coords, array_groups
-
-    def test_end_to_end_deterministic(
-        self, cfg, prediction_ds, verif_source, spatial_coords, tmp_path
-    ):
-        """Run scoring on deterministic predictions and verify output."""
-        from earth2studio.statistics import rmse
-
-        metrics = OrderedDict(
-            {
-                "rmse": rmse(reduction_dimensions=["lat", "lon"]),
+    def test_live_fallback(self, tmp_path):
+        cfg = scoring_cfg(tmp_path)
+        with open_dict(cfg):
+            cfg.data_source = {
+                "_target_": "earth2studio.data.Random",
+                "domain_coords": {"lat": SMALL_LAT.tolist(), "lon": SMALL_LON.tolist()},
             }
-        )
-        input_template, superset_coords, array_groups = self._setup_score_store(
-            cfg, prediction_ds, metrics
-        )
+        from earth2studio.data import Random
 
-        lt_chunks = build_lead_time_chunks(LEAD_TIMES, None)
-        device = torch.device("cpu")
+        assert isinstance(open_verification_source(cfg), Random)
 
-        with patch(_DIST_PATH, return_value=_make_dist_mock()):
-            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
-                with patch(_SCORING_DIST_PATH, return_value=0):
-                    with OutputManager(
-                        cfg, store_name="scores.zarr", overwrite=True
-                    ) as mgr:
-                        mgr.validate_output_store(superset_coords, [])
-                        add_score_arrays(mgr.io, array_groups)
+    def test_saved_verification_must_hold_the_run_window(self, det_cfg):
+        import zarr
+        from src.data import WINDOW_MEANS_ATTR
 
-                        run_scoring(
-                            list(TIMES),
-                            prediction_ds,
-                            verif_source,
-                            metrics,
-                            mgr,
-                            VARIABLES,
-                            LEAD_TIMES,
-                            lt_chunks,
-                            spatial_coords,
-                            device,
-                            cfg,
-                        )
+        path = store_path(det_cfg, "verification.zarr")
 
-        # Verify the output store exists and has the right arrays.
-        score_path = os.path.join(cfg.output.path, "scores.zarr")
-        assert os.path.exists(score_path)
+        def mark(window: str) -> None:
+            zarr.open_group(path, mode="r+").attrs.update({WINDOW_MEANS_ATTR: window})
 
-        score_ds = xr.open_zarr(score_path)
-        assert "rmse__t2m" in score_ds
-        assert "rmse__z500" in score_ds
-
-        # Scores should be non-negative (RMSE >= 0).
-        rmse_t2m = score_ds["rmse__t2m"].values
-        assert np.all(np.isfinite(rmse_t2m))
-        assert np.all(rmse_t2m >= 0)
-
-        # Check dimensions: (time, lead_time).
-        assert score_ds["rmse__t2m"].dims == ("time", "lead_time")
-        assert len(score_ds.time) == 2
-        assert len(score_ds.lead_time) == 3
-
-    def test_end_to_end_with_chunking(
-        self, cfg, prediction_ds, verif_source, spatial_coords
-    ):
-        """Chunked and non-chunked scoring should produce identical results."""
-        from earth2studio.statistics import rmse
-
-        metrics = OrderedDict(
-            {
-                "rmse": rmse(reduction_dimensions=["lat", "lon"]),
+        with open_dict(det_cfg):
+            det_cfg.runner = {"name": "window_mean", "window": "24h"}
+        # The saved store holds instantaneous fields: refused for window
+        # means, also with a configured source, which the store shadows.
+        with pytest.raises(ValueError, match="instantaneous fields"):
+            open_verification_source(det_cfg)
+        with open_dict(det_cfg):
+            det_cfg.predownload.verification.source = {
+                "_target_": "earth2studio.data.Random"
             }
-        )
-        _, superset_coords, array_groups = self._setup_score_store(
-            cfg, prediction_ds, metrics
-        )
-
-        device = torch.device("cpu")
-        results = {}
-
-        for label, chunk_size in [("full", None), ("chunked", 1)]:
-            lt_chunks = build_lead_time_chunks(LEAD_TIMES, chunk_size)
-            store_name = f"scores_{label}.zarr"
-
-            with patch(_DIST_PATH, return_value=_make_dist_mock()):
-                with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
-                    with patch(_SCORING_DIST_PATH, return_value=0):
-                        with OutputManager(
-                            cfg, store_name=store_name, overwrite=True
-                        ) as mgr:
-                            mgr.validate_output_store(superset_coords, [])
-                            add_score_arrays(mgr.io, array_groups)
-                            run_scoring(
-                                list(TIMES),
-                                prediction_ds,
-                                verif_source,
-                                metrics,
-                                mgr,
-                                VARIABLES,
-                                LEAD_TIMES,
-                                lt_chunks,
-                                spatial_coords,
-                                device,
-                                cfg,
-                            )
-
-            ds = xr.open_zarr(os.path.join(cfg.output.path, store_name))
-            results[label] = ds["rmse__t2m"].values
-
-        np.testing.assert_allclose(results["full"], results["chunked"], rtol=1e-5)
-
-    def test_end_to_end_ensemble(
-        self, cfg, prediction_ds_ensemble, verif_source, spatial_coords
-    ):
-        """Scoring ensemble predictions with RMSE (ensemble mean first)."""
-        from earth2studio.statistics import rmse
-
-        metrics = OrderedDict(
-            {
-                "rmse": rmse(
-                    reduction_dimensions=["lat", "lon"],
-                    ensemble_dimension="ensemble",
-                ),
+        with pytest.raises(ValueError, match="instantaneous fields"):
+            open_verification_source(det_cfg)
+        # Means over 12 h windows share the 24 h window ends: refused.
+        mark("12h")
+        with pytest.raises(ValueError, match="averages over 24h windows"):
+            open_verification_source(det_cfg)
+        # The store may spell the run's own window another way.
+        mark("1D")
+        source = open_verification_source(det_cfg)
+        assert isinstance(source, PredownloadedSource)
+        assert source.store_path == path
+        # A run without windows refuses a store of window means.
+        with open_dict(det_cfg):
+            det_cfg.runner = "forecast"
+        with pytest.raises(ValueError, match="instantaneous forecasts"):
+            open_verification_source(det_cfg)
+        # A bring-your-own source is the user's choice; nothing to check.
+        with open_dict(det_cfg):
+            det_cfg.verification_source = {
+                "_target_": "src.data.PredownloadedSource",
+                "store_path": path,
             }
-        )
-        _, superset_coords, array_groups = self._setup_score_store(
-            cfg, prediction_ds_ensemble, metrics
-        )
+        assert open_verification_source(det_cfg).store_path == path
 
-        lt_chunks = build_lead_time_chunks(LEAD_TIMES, None)
-        device = torch.device("cpu")
-
-        with patch(_DIST_PATH, return_value=_make_dist_mock()):
-            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
-                with patch(_SCORING_DIST_PATH, return_value=0):
-                    with OutputManager(
-                        cfg, store_name="scores.zarr", overwrite=True
-                    ) as mgr:
-                        mgr.validate_output_store(superset_coords, [])
-                        add_score_arrays(mgr.io, array_groups)
-                        run_scoring(
-                            list(TIMES),
-                            prediction_ds_ensemble,
-                            verif_source,
-                            metrics,
-                            mgr,
-                            VARIABLES,
-                            LEAD_TIMES,
-                            lt_chunks,
-                            spatial_coords,
-                            device,
-                            cfg,
-                        )
-
-        score_ds = xr.open_zarr(os.path.join(cfg.output.path, "scores.zarr"))
-        assert "rmse__t2m" in score_ds
-        assert score_ds["rmse__t2m"].dims == ("time", "lead_time")
-        assert np.all(score_ds["rmse__t2m"].values >= 0)
-
-
-# ---------------------------------------------------------------------------
-# open_verification_source — pipeline hook resolution
-# ---------------------------------------------------------------------------
-
-
-class TestOpenVerificationSourceHook:
-    """``open_verification_source`` delegates to
-    :meth:`Pipeline.verification_source`.  The base implementation picks
-    up BYO overrides, ``verification.zarr``, ``data.zarr``, or
-    per-model ``data_*.zarr`` (→ CompositeSource) in that order, so the
-    pipeline class selects the correct verification layout."""
-
-    def _make_cfg(self, tmp_path, pipeline: str):
-        return OmegaConf.create(
-            {
-                "output": {"path": str(tmp_path)},
-                "pipeline": pipeline,
-            }
-        )
-
-    def test_stormscope_picks_up_per_model_stores(self, tmp_path):
-        # Write per-model IC zarrs so the default glob picks them up and
-        # wraps them in a CompositeSource.  Leave verification.zarr /
-        # data.zarr absent so the fallback path is exercised.
-        from test.test_data import _create_yx_zarr_store
-
-        t = np.array(["2024-01-01"], dtype="datetime64[ns]")
-        _create_yx_zarr_store(tmp_path / "data_goes.zarr", t, ["abi01c"])
-        _create_yx_zarr_store(tmp_path / "data_mrms.zarr", t, ["refc"])
-
-        cfg = self._make_cfg(
-            tmp_path,
-            pipeline="src.pipelines.stormscope.StormScopePipeline",
-        )
-        src = open_verification_source(cfg)
-        assert isinstance(src, CompositeSource)
-
-    def test_raises_when_no_verification_data_available(self, tmp_path):
-        # With no override and no predownloaded stores, the hook raises.
-        cfg = OmegaConf.create(
-            {
-                "output": {"path": str(tmp_path)},
-                "pipeline": "src.pipelines.forecast.ForecastPipeline",
-            }
-        )
-        with pytest.raises(FileNotFoundError, match="No verification data"):
+    def test_nothing_configured_raises(self, tmp_path):
+        cfg = scoring_cfg(tmp_path)
+        with open_dict(cfg):
+            cfg.data_source = None
+        with pytest.raises(ValueError, match="verification"):
             open_verification_source(cfg)
 
 
 # ---------------------------------------------------------------------------
-# nan_policy — scoring tolerant of NaN grid points
+# Score store
+# ---------------------------------------------------------------------------
+
+
+class TestScoreStore:
+    def test_add_score_arrays_is_idempotent(self, tmp_path):
+        io = ZarrBackend(str(tmp_path / "scores.zarr"))
+        groups = group_score_arrays_by_dims(
+            OrderedDict(rmse=rmse(["lat", "lon"])), _template(), TIMES
+        )
+        add_score_arrays(io, groups)
+        add_score_arrays(io, groups)
+        assert "rmse__t2m" in io and "rmse__z500" in io
+        assert io["rmse__t2m"].shape == (len(TIMES), len(LEAD_TIMES))
+
+    def test_add_score_arrays_checks_an_existing_layout(self, tmp_path):
+        io = ZarrBackend(str(tmp_path / "scores.zarr"))
+        add_score_arrays(
+            io,
+            group_score_arrays_by_dims(
+                OrderedDict(rmse=rmse(["lat", "lon"])), _template(), TIMES
+            ),
+        )
+        more = np.append(TIMES, TIMES[-1] + np.timedelta64(1, "D"))
+        with pytest.raises(ValueError, match="differs from the store|shape"):
+            add_score_arrays(
+                io,
+                group_score_arrays_by_dims(
+                    OrderedDict(rmse=rmse(["lat", "lon"])), _template(), more
+                ),
+            )
+
+    def test_open_score_store_stamps_events_and_chunks(self, det_cfg):
+        groups = group_score_arrays_by_dims(
+            OrderedDict(rmse=rmse(["lat", "lon"])), _template(), TIMES
+        )
+        io = open_score_store(
+            det_cfg, groups, rank=0, events={"storm": {"label": "Storm"}}
+        )
+        assert io.root.attrs["events"] == {"storm": {"label": "Storm"}}
+        assert io["rmse__t2m"].chunks[0] == 1  # scoring.output.chunks: {time: 1}
+
+
+# ---------------------------------------------------------------------------
+# End to end through score.run
+# ---------------------------------------------------------------------------
+
+
+class TestEndToEnd:
+    def test_rerun_refuses_an_existing_score_store(self, det_cfg):
+        run_score(det_cfg, "cpu")
+        with open_dict(det_cfg):
+            det_cfg.scoring.output.overwrite = False
+        with pytest.raises(FileExistsError, match="already exists"):
+            run_score(det_cfg, "cpu")
+        with open_dict(det_cfg):
+            det_cfg.scoring.resume = True
+        run_score(det_cfg, "cpu")
+        assert not open_scores(det_cfg)["rmse__t2m"].isnull().any()
+
+    def test_resume_refuses_a_missing_score_store_with_records(self, det_cfg):
+        run_score(det_cfg, "cpu")
+        shutil.rmtree(score_store_path(det_cfg))
+        with open_dict(det_cfg):
+            det_cfg.scoring.resume = True
+        with pytest.raises(FileNotFoundError, match="progress store records"):
+            run_score(det_cfg, "cpu")
+
+    def test_deterministic(self, det_cfg):
+        run_score(det_cfg, "cpu")
+        ds = open_scores(det_cfg)
+        assert set(ds.data_vars) == {"rmse__t2m", "rmse__z500"}
+        assert ds["rmse__t2m"].dims == ("time", "lead_time")
+        np.testing.assert_array_equal(ds.time.values, TIMES)
+        np.testing.assert_array_equal(ds.lead_time.values, LEAD_TIMES)
+        truth = _t2m_truth(TIMES[:, None] + LEAD_TIMES[None, :])
+        np.testing.assert_allclose(
+            ds["rmse__t2m"].values, np.abs(T2M_FORECAST - truth), rtol=1e-5
+        )
+        np.testing.assert_allclose(ds["rmse__z500"].values, Z500_RMSE_GLOBAL, rtol=1e-5)
+        assert not ds["rmse__t2m"].isnull().any()
+
+    def test_lat_weights(self, det_cfg):
+        det_cfg.scoring.lat_weights = True
+        run_score(det_cfg, "cpu")
+        ds = open_scores(det_cfg)
+        np.testing.assert_allclose(ds["rmse__z500"].values, Z500_RMSE_LATW, rtol=1e-4)
+
+    def test_chunking_matches_unchunked(self, det_cfg):
+        run_score(det_cfg, "cpu")
+        unchunked = open_scores(det_cfg).load()
+        det_cfg.scoring.lead_time_chunk_size = 2
+        det_cfg.scoring.output.store_name = "scores_chunked.zarr"
+        run_score(det_cfg, "cpu")
+        chunked = open_scores(det_cfg).load()
+        xr.testing.assert_allclose(unchunked, chunked)
+
+    def test_regions_and_events(self, tmp_path):
+        cfg = scoring_cfg(
+            tmp_path,
+            regions={"global": None, "north": {"lat": [0, 90]}},
+            events={
+                "storm": {
+                    "label": "Storm",
+                    "start": "2024-01-01 06:00:00",
+                    "end": "2024-01-01 12:00:00",
+                    "region": {"lat": [0, 90]},
+                }
+            },
+        )
+        write_forecast_store(cfg, analytic_forecast())
+        write_verification_store(cfg, analytic_verification())
+        run_score(cfg, "cpu")
+        ds = open_scores(cfg)
+        assert ds["rmse__z500"].dims == ("time", "region", "lead_time")
+        assert list(ds.region.values) == ["global", "north", "storm"]
+        np.testing.assert_allclose(
+            ds["rmse__z500"].sel(region="global").values, Z500_RMSE_GLOBAL, rtol=1e-5
+        )
+        np.testing.assert_allclose(
+            ds["rmse__z500"].sel(region="north").values, Z500_RMSE_NORTH, rtol=1e-5
+        )
+        np.testing.assert_allclose(
+            ds["rmse__z500"].sel(region="storm").values, Z500_RMSE_NORTH, rtol=1e-5
+        )
+        assert "storm" in ds.attrs["events"]
+        assert ds.attrs["events"]["storm"]["label"] == "Storm"
+
+    def test_ensemble(self, tmp_path):
+        members = range(3)
+        cfg = scoring_cfg(
+            tmp_path,
+            metrics={
+                "mse": {
+                    "_target_": "src.metrics.mse",
+                    "reduction_dimensions": ["lat", "lon"],
+                },
+                "ensemble_mean_mse": {
+                    "_target_": "src.metrics.mse",
+                    "ensemble_dimension": "ensemble",
+                    "reduction_dimensions": ["lat", "lon"],
+                },
+                "ensemble_variance": {
+                    "_target_": "src.metrics.ensemble_variance",
+                    "ensemble_dimension": "ensemble",
+                    "reduction_dimensions": ["lat", "lon"],
+                },
+            },
+        )
+        write_forecast_store(cfg, analytic_forecast(ensemble=members), ensemble=members)
+        write_verification_store(cfg, analytic_verification())
+        run_score(cfg, "cpu")
+        ds = open_scores(cfg)
+        assert ds["mse__t2m"].dims == ("time", "ensemble", "lead_time")
+        assert ds["ensemble_mean_mse__t2m"].dims == ("time", "lead_time")
+        assert ds["ensemble_variance__t2m"].dims == ("time", "lead_time")
+        np.testing.assert_allclose(ds["ensemble_mean_mse__t2m"].values, 0.0, atol=1e-6)
+        np.testing.assert_allclose(ds["ensemble_variance__t2m"].values, 9.0, rtol=1e-5)
+        np.testing.assert_allclose(ds["ensemble_variance__z500"].values, 9.0, rtol=1e-5)
+        per_member = ds["mse__t2m"].transpose("ensemble", "time", "lead_time").values
+        np.testing.assert_allclose(per_member[0], 9.0, rtol=1e-5)
+        np.testing.assert_allclose(per_member[1], 0.0, atol=1e-6)
+        np.testing.assert_allclose(per_member[2], 9.0, rtol=1e-5)
+
+    def test_resume_skips_scored_times(self, det_cfg):
+        run_score(det_cfg, "cpu")
+        progress = ProgressStore(
+            scoring_progress_path(det_cfg),
+            tags={"project": str(det_cfg.project), "run_id": str(det_cfg.run_id)},
+        )
+        progress.open(
+            {"store": "scores.zarr", "metrics": ["rmse"], "variables": list(VARIABLES)}
+        )
+        items = work_items(list(TIMES), np.timedelta64(LEAD_TIMES[-1], "s"))
+        assert progress.remaining(items) == []
+        progress.close()
+
+        # Change the truth; a resumed run must leave the recorded scores alone.
+        shifted = analytic_verification()
+        shifted["t2m"] = shifted["t2m"] + 50.0
+        write_verification_store(det_cfg, shifted)
+        before = open_scores(det_cfg)["rmse__t2m"].load()
+        det_cfg.scoring.resume = True
+        run_score(det_cfg, "cpu")
+        after = open_scores(det_cfg)["rmse__t2m"].load()
+        xr.testing.assert_allclose(before, after)
+
+        # Without resume the store is rebuilt from the new truth.
+        det_cfg.scoring.resume = False
+        run_score(det_cfg, "cpu")
+        rebuilt = open_scores(det_cfg)["rmse__t2m"].load()
+        assert not np.allclose(before.values, rebuilt.values)
+
+    def test_missing_initial_time_raises(self, det_cfg):
+        with open_dict(det_cfg):
+            det_cfg.start_times = det_cfg.start_times + ["2024-02-01 00:00:00"]
+        with pytest.raises(ValueError, match="not in the prediction store"):
+            run_score(det_cfg, "cpu")
+
+    def test_missing_forecast_store_raises(self, tmp_path):
+        cfg = scoring_cfg(tmp_path)
+        with pytest.raises(FileNotFoundError, match="main.py"):
+            run_score(cfg, "cpu")
+
+
+# ---------------------------------------------------------------------------
+# NaN policy and valid ranges
 # ---------------------------------------------------------------------------
 
 
 class TestNanPolicy:
-    """``scoring.nan_policy`` controls whether NaNs in prediction or
-    verification tensors propagate through metric reductions.
+    def _stores(self, cfg):
+        truth = analytic_verification()
+        truth["z500"] = truth["z500"].copy()
+        truth["z500"][:, 0, :] = np.nan  # the polar row is invalid
+        write_forecast_store(cfg, analytic_forecast())
+        write_verification_store(cfg, truth)
 
-    * ``propagate`` (default) preserves earth2studio's stock behavior
-      so DLESyM-style invalid-lead NaNs surface as NaN in the scores.
-    * ``zero_fill`` replaces NaNs with 0 before the metric runs, so
-      spatial-reduction metrics (e.g. rmse over ``[y, x]``) return a
-      real number rather than collapsing to NaN — matters for
-      StormScope's HRRR-sub-domain invalid-pixel mask.
-    """
+    def test_mask_is_online_only(self, tmp_path):
+        cfg = scoring_cfg(tmp_path, nan_policy="mask")
+        self._stores(cfg)
+        with pytest.raises(ValueError, match="online"):
+            run_score(cfg, "cpu")
 
-    def _build_inputs(self, tmp_path):
-        """Construct minimal objects for ``run_scoring``.
+    def test_propagate_default_yields_nan(self, tmp_path):
+        cfg = scoring_cfg(tmp_path)
+        self._stores(cfg)
+        run_score(cfg, "cpu")
+        ds = open_scores(cfg)
+        assert ds["rmse__z500"].isnull().all()
+        assert not ds["rmse__t2m"].isnull().any()
 
-        Uses the same store setup as :class:`TestRunScoring` — superset
-        coords + ``add_score_arrays`` — so the zarr write path matches
-        production.
-        """
-        # One IC, one lead time, single variable.  Prediction is 0 everywhere;
-        # verification is 0 everywhere except one NaN pixel that simulates an
-        # invalid HRRR-subdomain grid point.
-        times = np.array(["2024-01-01"], dtype="datetime64[ns]")
-        lead_times = np.array([60], dtype="timedelta64[m]").astype("timedelta64[ns]")
-        y = np.arange(4)
-        x = np.arange(5)
+    def test_zero_fill_is_finite(self, tmp_path):
+        cfg = scoring_cfg(tmp_path, nan_policy="zero_fill")
+        self._stores(cfg)
+        run_score(cfg, "cpu")
+        ds = open_scores(cfg)
+        # Forecast minus zero-filled truth is just the forecast profile.
+        np.testing.assert_allclose(ds["rmse__z500"].values, Z500_RMSE_GLOBAL, rtol=1e-5)
 
-        pred = np.zeros((1, 1, 4, 5), dtype="float32")
-        truth = np.zeros((1, 4, 5), dtype="float32")
-        truth[0, 0, 0] = np.nan
-
-        pred_path = tmp_path / "forecast.zarr"
-        xr.Dataset(
-            {
-                "v": xr.DataArray(
-                    pred,
-                    dims=["time", "lead_time", "y", "x"],
-                    coords={
-                        "time": times,
-                        "lead_time": lead_times,
-                        "y": y,
-                        "x": x,
-                    },
-                )
-            }
-        ).to_zarr(str(pred_path), mode="w")
-        prediction_ds = xr.open_zarr(str(pred_path))
-
-        valid_times = times + lead_times[0]
-        verif_path = tmp_path / "verification.zarr"
-        xr.Dataset(
-            {
-                "v": xr.DataArray(
-                    truth,
-                    dims=["time", "y", "x"],
-                    coords={"time": valid_times, "y": y, "x": x},
-                )
-            }
-        ).to_zarr(str(verif_path), mode="w")
-        verif_source = PredownloadedSource(str(verif_path))
-
-        import earth2studio.statistics
-
-        metrics = OrderedDict(
-            {"rmse": earth2studio.statistics.rmse(reduction_dimensions=["y", "x"])}
-        )
-        variables = ["v"]
-        input_template = build_input_coords_template(
-            prediction_ds, lead_times, variables
-        )
-        superset_coords = build_superset_score_coords(metrics, input_template, times)
-        array_groups = group_score_arrays_by_dims(metrics, input_template, times)
-        spatial = OrderedDict([("y", y), ("x", x)])
-
-        return {
-            "times": list(times),
-            "prediction_ds": prediction_ds,
-            "verif_source": verif_source,
-            "metrics": metrics,
-            "variables": variables,
-            "lead_times": lead_times,
-            "lt_chunks": [lead_times],
-            "spatial": spatial,
-            "superset_coords": superset_coords,
-            "array_groups": array_groups,
-        }
-
-    def _cfg(self, tmp_path, nan_policy: str | None):
-        scoring_block: dict = {
-            "output": {"store_name": "scores.zarr", "overwrite": True},
-        }
-        if nan_policy is not None:
-            scoring_block["nan_policy"] = nan_policy
-        return OmegaConf.create(
-            {
-                "output": {
-                    "path": str(tmp_path),
-                    "chunks": {"time": 1, "lead_time": 1},
-                },
-                "scoring": scoring_block,
-            }
-        )
-
-    def _run(self, cfg, inputs):
-        """Execute the standard score-store-setup + run_scoring flow."""
-        with patch(_DIST_PATH, return_value=_make_dist_mock()):
-            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
-                with patch(_SCORING_DIST_PATH, return_value=0):
-                    with OutputManager(
-                        cfg, store_name="scores.zarr", overwrite=True
-                    ) as mgr:
-                        mgr.validate_output_store(inputs["superset_coords"], [])
-                        add_score_arrays(mgr.io, inputs["array_groups"])
-                        run_scoring(
-                            inputs["times"],
-                            inputs["prediction_ds"],
-                            inputs["verif_source"],
-                            inputs["metrics"],
-                            mgr,
-                            inputs["variables"],
-                            inputs["lead_times"],
-                            inputs["lt_chunks"],
-                            inputs["spatial"],
-                            torch.device("cpu"),
-                            cfg,
-                        )
-
-    def test_propagate_default_yields_nan_score(self, tmp_path):
-        """Default policy lets NaNs propagate — a single invalid pixel
-        poisons the entire RMSE over ``[y, x]``."""
-        inputs = self._build_inputs(tmp_path)
-        cfg = self._cfg(tmp_path, nan_policy=None)
-        self._run(cfg, inputs)
-
-        score_ds = xr.open_zarr(str(tmp_path / "scores.zarr"))
-        assert np.isnan(score_ds["rmse__v"].values).all()
-
-    def test_zero_fill_produces_finite_score(self, tmp_path):
-        """With ``nan_policy=zero_fill`` the NaN pixel becomes 0 and the
-        RMSE is a real (non-NaN) number."""
-        inputs = self._build_inputs(tmp_path)
-        cfg = self._cfg(tmp_path, nan_policy="zero_fill")
-        self._run(cfg, inputs)
-
-        score_ds = xr.open_zarr(str(tmp_path / "scores.zarr"))
-        vals = score_ds["rmse__v"].values
-        assert not np.isnan(vals).any()
-        # pred=0 everywhere, truth=0 everywhere except one NaN → 0 after
-        # zero_fill.  So sum-of-squares = 0, RMSE = 0.
-        np.testing.assert_allclose(vals, 0.0)
-
-    def test_invalid_nan_policy_raises(self, tmp_path):
-        inputs = self._build_inputs(tmp_path)
-        cfg = self._cfg(tmp_path, nan_policy="bogus")
-        with pytest.raises(ValueError, match="Invalid scoring.nan_policy"):
-            self._run(cfg, inputs)
+    def test_invalid_policy_raises(self, tmp_path):
+        cfg = scoring_cfg(tmp_path, nan_policy="drop")
+        self._stores(cfg)
+        with pytest.raises(ValueError, match="nan_policy"):
+            run_score(cfg, "cpu")
 
 
-# ---------------------------------------------------------------------------
-# valid_ranges — per-variable clamp to suppress fill-value outliers
-# ---------------------------------------------------------------------------
+def _two_var_field():
+    return xr.DataArray(
+        np.array([[-5.0, 0.0, 5.0], [-5.0, 0.0, 5.0]]),
+        dims=["variable", "lon"],
+        coords={"variable": ["refc", "t2m"], "lon": [0.0, 1.0, 2.0]},
+    )
 
 
 class TestApplyValidRanges:
-    """Unit tests for the private ``_apply_valid_ranges`` helper.
-
-    The helper clamps per-variable tensor slices along the ``variable``
-    axis so that prediction/verification values outside a configured
-    physical range are truncated — the mechanism used to prevent
-    large-magnitude no-data fill values (MRMS ``refc``'s ``-9999``)
-    from dominating RMSE-style reductions.
-    """
-
     def test_clamps_named_variable_only(self):
-        from src.scoring import _apply_valid_ranges
+        out = apply_valid_ranges(_two_var_field(), {"refc": {"min": 0.0, "max": 3.0}})
+        np.testing.assert_array_equal(out.sel(variable="refc").values, [0.0, 0.0, 3.0])
+        np.testing.assert_array_equal(out.sel(variable="t2m").values, [-5.0, 0.0, 5.0])
 
-        coords = OrderedDict(
-            [
-                ("lead_time", np.array([0, 60], dtype="timedelta64[m]")),
-                ("variable", np.array(["refc", "abi01c"])),
-                ("y", np.arange(3)),
-                ("x", np.arange(4)),
-            ]
-        )
-        x = torch.tensor(
-            [
-                [  # lead_time=0
-                    [[-9999.0] * 4] * 3,  # refc: fill values
-                    [[0.5] * 4] * 3,  # abi01c: in-range
-                ],
-                [  # lead_time=60
-                    [[50.0] * 4] * 3,  # refc: in-range
-                    [[2.0] * 4] * 3,  # abi01c: over-range
-                ],
-            ],
-            dtype=torch.float32,
-        )
-        valid_ranges = {"refc": {"min": 0, "max": 75}}
+    def test_input_is_not_modified(self):
+        da = _two_var_field()
+        apply_valid_ranges(da, {"refc": {"min": 0.0}})
+        np.testing.assert_array_equal(da.sel(variable="refc").values, [-5.0, 0.0, 5.0])
 
-        out = _apply_valid_ranges(x.clone(), coords, valid_ranges)
-        # refc: -9999 → 0 (clamped to min), 50 unchanged
-        assert (out[0, 0] == 0.0).all()
-        assert (out[1, 0] == 50.0).all()
-        # abi01c: untouched (no entry in valid_ranges)
-        assert (out[0, 1] == 0.5).all()
-        assert (out[1, 1] == 2.0).all()
+    def test_one_sided_and_noop(self):
+        out = apply_valid_ranges(_two_var_field(), {"refc": {"max": None, "min": 0.0}})
+        np.testing.assert_array_equal(out.sel(variable="refc").values, [0.0, 0.0, 5.0])
+        out = apply_valid_ranges(_two_var_field(), {"refc": {"min": None, "max": None}})
+        np.testing.assert_array_equal(out.sel(variable="refc").values, [-5.0, 0.0, 5.0])
 
-    def test_null_bound_is_one_sided(self):
-        from src.scoring import _apply_valid_ranges
+    def test_unknown_variable_skipped(self):
+        out = apply_valid_ranges(_two_var_field(), {"other": {"min": 0.0}})
+        xr.testing.assert_equal(out, _two_var_field())
 
-        coords = OrderedDict(
-            [
-                ("variable", np.array(["v"])),
-                ("y", np.arange(2)),
-                ("x", np.arange(2)),
-            ]
-        )
-        x = torch.tensor(
-            [[[-100.0, 50.0], [100.0, -50.0]]],
-            dtype=torch.float32,
-        )
-        # Only a lower bound: negatives clip to 0, large positives pass.
-        out = _apply_valid_ranges(x.clone(), coords, {"v": {"min": 0, "max": None}})
-        assert out[0, 0, 0].item() == 0.0
-        assert out[0, 0, 1].item() == 50.0
-        assert out[0, 1, 0].item() == 100.0  # unclamped from above
-        assert out[0, 1, 1].item() == 0.0
-
-    def test_both_bounds_none_is_noop(self):
-        from src.scoring import _apply_valid_ranges
-
-        coords = OrderedDict(
-            [
-                ("variable", np.array(["v"])),
-                ("y", np.arange(1)),
-                ("x", np.arange(1)),
-            ]
-        )
-        x = torch.tensor([[[-1e6]]], dtype=torch.float32)
-        out = _apply_valid_ranges(x.clone(), coords, {"v": {"min": None, "max": None}})
-        assert out[0, 0, 0].item() == -1e6
-
-    def test_unknown_variable_is_skipped(self):
-        from src.scoring import _apply_valid_ranges
-
-        coords = OrderedDict(
-            [
-                ("variable", np.array(["refc"])),
-                ("y", np.arange(1)),
-                ("x", np.arange(1)),
-            ]
-        )
-        x = torch.tensor([[[-9999.0]]], dtype=torch.float32)
-        # No entry for "refc" — nothing should be clamped.
-        out = _apply_valid_ranges(x.clone(), coords, {"other_var": {"min": 0}})
-        assert out[0, 0, 0].item() == -9999.0
+    def test_tensor_helper(self):
+        x = torch.tensor([[-5.0, 0.0, 5.0], [-5.0, 0.0, 5.0]])
+        coords = OrderedDict(variable=np.array(["refc", "t2m"]), lon=np.arange(3))
+        out = _apply_valid_ranges(x, coords, {"refc": {"min": 0.0, "max": 3.0}})
+        assert out.tolist() == [[0.0, 0.0, 3.0], [-5.0, 0.0, 5.0]]
 
 
 class TestValidRangesEndToEnd:
-    """``scoring.valid_ranges`` integrated with the full scoring flow.
+    def _stores(self, cfg, fill):
+        truth = analytic_verification()
+        truth["z500"] = truth["z500"].copy()
+        truth["z500"][:, -1, :] = fill  # a no-data fill in the last row
+        write_forecast_store(cfg, analytic_forecast())
+        write_verification_store(cfg, truth)
 
-    Builds a tiny store whose verification tensor has a ``-9999`` fill
-    value at one pixel; asserts the resulting RMSE is ~0 when the
-    valid range is configured, and huge otherwise.
-    """
+    def test_fill_inflates_rmse_without_ranges(self, tmp_path):
+        cfg = scoring_cfg(tmp_path)
+        self._stores(cfg, -9999.0)
+        run_score(cfg, "cpu")
+        assert (open_scores(cfg)["rmse__z500"].values > 100).all()
 
-    def _build_inputs(self, tmp_path, truth_fill_value: float):
-        times = np.array(["2024-01-01"], dtype="datetime64[ns]")
-        lead_times = np.array([60], dtype="timedelta64[m]").astype("timedelta64[ns]")
-        y = np.arange(4)
-        x = np.arange(5)
-
-        # Prediction: 0 everywhere (matches the StormScope fill-invalid behavior).
-        pred = np.zeros((1, 1, 4, 5), dtype="float32")
-        # Truth: 0 everywhere except one "invalid" pixel with the fill value.
-        truth = np.zeros((1, 4, 5), dtype="float32")
-        truth[0, 0, 0] = truth_fill_value
-
-        pred_path = tmp_path / "forecast.zarr"
-        xr.Dataset(
-            {
-                "refc": xr.DataArray(
-                    pred,
-                    dims=["time", "lead_time", "y", "x"],
-                    coords={
-                        "time": times,
-                        "lead_time": lead_times,
-                        "y": y,
-                        "x": x,
-                    },
-                )
-            }
-        ).to_zarr(str(pred_path), mode="w")
-        prediction_ds = xr.open_zarr(str(pred_path))
-
-        valid_times = times + lead_times[0]
-        verif_path = tmp_path / "verification.zarr"
-        xr.Dataset(
-            {
-                "refc": xr.DataArray(
-                    truth,
-                    dims=["time", "y", "x"],
-                    coords={"time": valid_times, "y": y, "x": x},
-                )
-            }
-        ).to_zarr(str(verif_path), mode="w")
-        verif_source = PredownloadedSource(str(verif_path))
-
-        import earth2studio.statistics
-
-        metrics = OrderedDict(
-            {"rmse": earth2studio.statistics.rmse(reduction_dimensions=["y", "x"])}
+    def test_fill_is_clamped_with_ranges(self, tmp_path):
+        cfg = scoring_cfg(tmp_path, valid_ranges={"z500": {"min": 0.0, "max": 10.0}})
+        self._stores(cfg, -9999.0)
+        run_score(cfg, "cpu")
+        # The forecast profile is 0 in the last row, so the clamped fill
+        # (0) matches it and the score is the untouched global value.
+        np.testing.assert_allclose(
+            open_scores(cfg)["rmse__z500"].values, Z500_RMSE_GLOBAL, rtol=1e-5
         )
-        variables = ["refc"]
-        input_template = build_input_coords_template(
-            prediction_ds, lead_times, variables
-        )
-        superset_coords = build_superset_score_coords(metrics, input_template, times)
-        array_groups = group_score_arrays_by_dims(metrics, input_template, times)
-        spatial = OrderedDict([("y", y), ("x", x)])
-
-        return {
-            "times": list(times),
-            "prediction_ds": prediction_ds,
-            "verif_source": verif_source,
-            "metrics": metrics,
-            "variables": variables,
-            "lead_times": lead_times,
-            "lt_chunks": [lead_times],
-            "spatial": spatial,
-            "superset_coords": superset_coords,
-            "array_groups": array_groups,
-        }
-
-    def _run(self, cfg, inputs):
-        with patch(_DIST_PATH, return_value=_make_dist_mock()):
-            with patch(_RANK0_PATH, side_effect=lambda fn, *a, **kw: fn(*a, **kw)):
-                with patch(_SCORING_DIST_PATH, return_value=0):
-                    with OutputManager(
-                        cfg, store_name="scores.zarr", overwrite=True
-                    ) as mgr:
-                        mgr.validate_output_store(inputs["superset_coords"], [])
-                        add_score_arrays(mgr.io, inputs["array_groups"])
-                        run_scoring(
-                            inputs["times"],
-                            inputs["prediction_ds"],
-                            inputs["verif_source"],
-                            inputs["metrics"],
-                            mgr,
-                            inputs["variables"],
-                            inputs["lead_times"],
-                            inputs["lt_chunks"],
-                            inputs["spatial"],
-                            torch.device("cpu"),
-                            cfg,
-                        )
-
-    def _cfg(self, tmp_path, valid_ranges: dict | None):
-        scoring_block: dict = {
-            "output": {"store_name": "scores.zarr", "overwrite": True},
-            "nan_policy": "zero_fill",
-        }
-        if valid_ranges is not None:
-            scoring_block["valid_ranges"] = valid_ranges
-        return OmegaConf.create(
-            {
-                "output": {
-                    "path": str(tmp_path),
-                    "chunks": {"time": 1, "lead_time": 1},
-                },
-                "scoring": scoring_block,
-            }
-        )
-
-    def test_without_valid_ranges_fill_inflates_rmse(self, tmp_path):
-        """Baseline: without valid_ranges, the -9999 fill value drives the
-        RMSE to ~999 (sqrt of 9999^2 averaged over 20 pixels)."""
-        inputs = self._build_inputs(tmp_path, truth_fill_value=-9999.0)
-        cfg = self._cfg(tmp_path, valid_ranges=None)
-        self._run(cfg, inputs)
-
-        score_ds = xr.open_zarr(str(tmp_path / "scores.zarr"))
-        vals = score_ds["rmse__refc"].values
-        assert float(vals[0, 0]) > 1000.0  # heavily inflated
-
-    def test_with_valid_ranges_fill_is_clamped(self, tmp_path):
-        """With valid_ranges clamping refc to [0, 75], the -9999 pixel
-        becomes 0, pred=0, diff=0, RMSE=0."""
-        inputs = self._build_inputs(tmp_path, truth_fill_value=-9999.0)
-        cfg = self._cfg(tmp_path, valid_ranges={"refc": {"min": 0, "max": 75}})
-        self._run(cfg, inputs)
-
-        score_ds = xr.open_zarr(str(tmp_path / "scores.zarr"))
-        vals = score_ds["rmse__refc"].values
-        np.testing.assert_allclose(vals, 0.0)

@@ -94,7 +94,9 @@ def offline_infill(monkeypatch):
     monkeypatch.setattr(CBottleInfill, "__init__", initialize)
     monkeypatch.setattr(CBottleInfill, "get_cbottle_input", prepare)
     monkeypatch.setattr(
-        CBottleInfill, "_regrid_outputs", lambda self, x: x.expand(-1, -1, 721, 1440)
+        CBottleInfill,
+        "_regrid_outputs",
+        lambda self, x: x.expand(-1, -1, 721, 1440).contiguous(),
     )
 
 

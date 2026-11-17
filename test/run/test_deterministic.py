@@ -28,7 +28,9 @@ import earth2studio.run as run
 from earth2studio.data import Constant, Random, Random_FX, fetch_data
 from earth2studio.grids import ProjectedGrid
 from earth2studio.io import ZarrBackend
+from earth2studio.models.dx import Identity
 from earth2studio.models.px import Persistence
+from earth2studio.perturbation import Zero
 from earth2studio.utils.checkpoint import Checkpoint
 from earth2studio.utils.coords import coord_array
 
@@ -167,11 +169,11 @@ def test_native_mapping_preserves_storage_and_rejects_wrong_geometry():
     field = xr.DataArray(
         np.ones(signature.shape), dims=signature.dims, coords=signature.coords
     )
-    mapped = run._map_field(field, signature)
+    mapped = run.map_field(field, signature)
     assert np.shares_memory(mapped.data, field.data)
     assert "earth2studio_crs" not in field.attrs
     with pytest.raises(ValueError, match="geometry"):
-        run._map_field(field.assign_coords(lat=field.lat + 1), signature)
+        run.map_field(field.assign_coords(lat=field.lat + 1), signature)
 
     # Execute the actual example's fetch/crop statements without loading weights.
     root = Path(__file__).resolve().parents[2]
@@ -187,7 +189,7 @@ def test_native_mapping_preserves_storage_and_rejects_wrong_geometry():
             dims=("time", "variable", "y", "x"),
             coords={"time": time, "variable": variable, **parent.coords()},
             attrs={**parent.attrs, "earth2studio_crs": parent.crs.to_string()},
-        ).rename(y="hrrr_y", x="hrrr_x")
+        )
 
     tree = ast.parse(
         (root / "examples/05_data_assimilation/01_stormcast_sda.py").read_text()
@@ -202,7 +204,7 @@ def test_native_mapping_preserves_storage_and_rejects_wrong_geometry():
     namespace = dict(
         np=np,
         fetch_data=fetch_data,
-        _map_field=run._map_field,
+        map_field=run.map_field,
         model=SimpleNamespace(
             grid=crop, variables=np.array(["t2m"]), input_coords=model.input_coords
         ),
@@ -229,7 +231,7 @@ def test_native_mapping_preserves_storage_and_rejects_wrong_geometry():
     invalid = namespace["x"].copy(deep=True)
     invalid.attrs["earth2studio_crs"] = "EPSG:4326"
     with pytest.raises(ValueError, match="CRS"):
-        run._map_field(invalid, model.input_coords())
+        run.map_field(invalid, model.input_coords())
 
 
 def test_native_checkpoint_resume(tmp_path):
@@ -268,3 +270,54 @@ def test_native_checkpoint_resume(tmp_path):
             checkpoint=session,
         )
     np.testing.assert_array_equal(io["t2m"][:], 7)
+
+
+class ForcedPersistence(Persistence):
+    def forcing_coords(self):
+        return self.input_coords()
+
+
+@pytest.mark.parametrize("workflow", ["deterministic", "diagnostic", "ensemble"])
+def test_run_rejects_forced_models(workflow):
+    coords = OrderedDict([("lat", np.arange(4)), ("lon", np.arange(8))])
+    model = ForcedPersistence(["t2m"], coords)
+    data = Random(domain_coords=coords)
+    args = {
+        "deterministic": (["2024-01-01"], 1, model, data, ZarrBackend()),
+        "diagnostic": (["2024-01-01"], 1, model, None, data, ZarrBackend()),
+        "ensemble": (["2024-01-01"], 1, 2, model, data, ZarrBackend(), None),
+    }[workflow]
+    with pytest.raises(ValueError, match="does not supply forcing"):
+        getattr(run, workflow)(*args, device="cpu")
+
+
+class FlushRecordingZarr(ZarrBackend):
+    """Record writes and flushes, to check workflows flush after their last write."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.calls: list[str] = []
+
+    def write(self, x: xr.DataArray) -> None:
+        self.calls.append("write")
+        super().write(x)
+
+    def flush(self) -> None:
+        self.calls.append("flush")
+        super().flush()
+
+
+@pytest.mark.parametrize("workflow", ["deterministic", "diagnostic", "ensemble"])
+def test_run_flushes_io_before_returning(workflow):
+    coords = OrderedDict([("lat", np.arange(4)), ("lon", np.arange(8))])
+    model = Persistence(["t2m"], coords)
+    data = Random(domain_coords=coords)
+    io = FlushRecordingZarr()
+    args = {
+        "deterministic": (["2024-01-01"], 2, model, data, io),
+        "diagnostic": (["2024-01-01"], 2, model, Identity(), data, io),
+        "ensemble": (["2024-01-01"], 2, 2, model, data, io, Zero()),
+    }[workflow]
+    assert getattr(run, workflow)(*args, device="cpu") is io
+    assert "write" in io.calls
+    assert io.calls[-1] == "flush"

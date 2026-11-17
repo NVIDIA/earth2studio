@@ -41,23 +41,63 @@ the region set that both scoring pathways use.
 from __future__ import annotations
 
 from collections import OrderedDict
-from typing import Any
+from collections.abc import Mapping
+from typing import Any, TypeAlias
 
 import numpy as np
 import torch
+import xarray as xr
 from omegaconf import DictConfig, OmegaConf
 
 from earth2studio.statistics.weights import lat_weight
-from earth2studio.utils.type import CoordSystem
 
 # Dimensions that never count as spatial when scanning a grid's
 # coordinate system for its spatial axes.
 NON_SPATIAL = frozenset({"batch", "time", "lead_time", "variable", "ensemble"})
 
+# Spatial coordinates as this module accepts them: an ordered mapping of
+# dimension name to 1-D coordinate values, or a coordinate signature
+# (``xr.DataArray``), skipping its non-spatial dimensions.
+SpatialCoords: TypeAlias = Mapping[str, Any] | xr.DataArray
 
-def spatial_dims(spatial_coords: CoordSystem) -> list[str]:
-    """Return the spatial dimension names of a coordinate system."""
-    return [d for d in spatial_coords if d not in NON_SPATIAL]
+
+def spatial_axes(spatial_coords: SpatialCoords) -> OrderedDict[str, np.ndarray]:
+    """Normalize spatial coordinates to an ordered mapping of 1-D axes.
+
+    Parameters
+    ----------
+    spatial_coords : Mapping[str, Any] | xr.DataArray
+        Either an ordered mapping of dimension name to coordinate values or a
+        coordinate signature / field whose dimensions include the grid.  The
+        ``time``, ``lead_time``, ``variable``, ``ensemble`` and ``batch``
+        entries drop out.  A signature dimension without a coordinate
+        (an index grid) gets ``arange(size)``.
+
+    Returns
+    -------
+    OrderedDict[str, np.ndarray]
+        Spatial dimension name to 1-D coordinate values, in grid order.
+    """
+    axes: OrderedDict[str, np.ndarray] = OrderedDict()
+    if isinstance(spatial_coords, xr.DataArray):
+        for dim in spatial_coords.dims:
+            name = str(dim)
+            if name in NON_SPATIAL:
+                continue
+            if dim in spatial_coords.coords:
+                axes[name] = np.asarray(spatial_coords.coords[dim].values)
+            else:
+                axes[name] = np.arange(spatial_coords.sizes[dim])
+        return axes
+    for name, values in spatial_coords.items():
+        if str(name) not in NON_SPATIAL:
+            axes[str(name)] = np.asarray(values)
+    return axes
+
+
+def spatial_dims(spatial_coords: SpatialCoords) -> list[str]:
+    """Return the spatial dimension names of a coordinate system or signature."""
+    return list(spatial_axes(spatial_coords))
 
 
 def parse_regions(value: Any) -> dict[str, list[dict] | None] | None:
@@ -133,15 +173,16 @@ def parse_regions(value: Any) -> dict[str, list[dict] | None] | None:
 
 
 def region_masks(
-    spatial_coords: CoordSystem,
+    spatial_coords: SpatialCoords,
     regions: dict[str, list[dict] | None],
 ) -> OrderedDict[str, torch.Tensor]:
     """Compute each region's {0, 1} mask on the scored grid.
 
     Parameters
     ----------
-    spatial_coords : CoordSystem
-        Spatial coordinate arrays of the scored grid (1D per dimension).
+    spatial_coords : Mapping[str, Any] | xr.DataArray
+        Spatial coordinate arrays of the scored grid (1D per dimension), or
+        a coordinate signature carrying the grid (see :func:`spatial_axes`).
     regions : dict[str, list[dict] | None]
         Parsed ``scoring.regions`` (see :func:`parse_regions`).
 
@@ -157,12 +198,10 @@ def region_masks(
         If a box names a dimension the grid does not have, or a region
         selects no gridpoints.
     """
-    dims = spatial_dims(spatial_coords)
-    full_shape = [len(np.asarray(spatial_coords[d])) for d in dims]
-    axes = {
-        d: torch.tensor(np.asarray(spatial_coords[d]), dtype=torch.float64)
-        for d in dims
-    }
+    grid = spatial_axes(spatial_coords)
+    dims = list(grid)
+    full_shape = [len(grid[d]) for d in dims]
+    axes = {d: torch.tensor(grid[d], dtype=torch.float64) for d in dims}
 
     def _box_mask(name: str, spec: dict) -> torch.Tensor:
         unknown = sorted(set(spec) - set(dims))
@@ -217,7 +256,7 @@ def region_masks(
 
 
 def build_spatial_weights(
-    spatial_coords: CoordSystem,
+    spatial_coords: SpatialCoords,
     lat_weights: bool,
     regions: dict[str, list[dict] | None] | None = None,
 ) -> torch.Tensor:
@@ -234,8 +273,9 @@ def build_spatial_weights(
 
     Parameters
     ----------
-    spatial_coords : CoordSystem
-        Spatial coordinate arrays of the scored grid.
+    spatial_coords : Mapping[str, Any] | xr.DataArray
+        Spatial coordinate arrays of the scored grid, or a coordinate
+        signature carrying the grid (see :func:`spatial_axes`).
     lat_weights : bool
         Whether to apply cosine-latitude weighting.
     regions : dict[str, list[dict] | None] | None
@@ -246,11 +286,12 @@ def build_spatial_weights(
     torch.Tensor
         Float64 weights (broadcastable, or full-shaped per region).
     """
-    dims = spatial_dims(spatial_coords)
+    grid = spatial_axes(spatial_coords)
+    dims = list(grid)
     shape = [1] * len(dims)
 
     if lat_weights and "lat" in dims:
-        lat_vals = np.asarray(spatial_coords["lat"])
+        lat_vals = grid["lat"]
         w = lat_weight(torch.tensor(lat_vals, dtype=torch.float64))
         shape[dims.index("lat")] = len(lat_vals)
         base = w.reshape(shape)
@@ -260,8 +301,8 @@ def build_spatial_weights(
     if regions is None:
         return base
 
-    full_shape = [len(np.asarray(spatial_coords[d])) for d in dims]
-    masks = region_masks(spatial_coords, regions)
+    full_shape = [len(grid[d]) for d in dims]
+    masks = region_masks(grid, regions)
     return torch.stack(
         [base.expand(full_shape) * mask for mask in masks.values()], dim=0
     )
@@ -340,7 +381,7 @@ def parse_events(value: Any) -> dict[str, dict[str, Any]] | None:
     verify inside it, ``init`` keeps whole forecasts by their initial
     time.  The optional ``ics`` block adds initial conditions to
     the campaign, every ``step_hours`` from ``start - lookback_hours`` up
-    to ``end`` (see :func:`src.work.event_initial_times`).  A ``valid``
+    to ``end`` (see :func:`src.campaign.event_initial_times`).  A ``valid``
     window must state ``lookback_hours``: it decides the longest lead
     time that still has valid times inside the window.
 

@@ -17,7 +17,7 @@
 """Conformance checks for the Earth2Studio model contract.
 
 The rule identifiers reported here (``P1``-``P24``, ``D1``-``D11``) match the rule
-table in ``dev/spec/MODEL_CONTRACT_SPEC.md``.
+table in ``docs/specs/E2S-06_MODEL_CONTRACT_SPEC.md``.
 
 Prognostic probes use forecasts-only iteration and explicit continuation state.
 Execution and coordinate planning take separate positional input slots.
@@ -41,11 +41,17 @@ import torch
 import xarray as xr
 
 from earth2studio.data.base import DataSource, ForecastSource
+from earth2studio.grids import E2S_CRS, E2S_GRID_ID
 from earth2studio.models.dx.base import DiagnosticModel
 from earth2studio.models.px.base import PrognosticModel
 from earth2studio.models.utils import step_interval
 from earth2studio.utils import coord_array_like, handshake_metadata
-from earth2studio.utils.coords import E2S_DYNAMIC_DIMS, E2S_KIND, E2S_SCHEMA_VERSION
+from earth2studio.utils.coords import (
+    E2S_DYNAMIC_DIMS,
+    E2S_KIND,
+    E2S_SCHEMA_VERSION,
+    E2S_STATISTICS,
+)
 from earth2studio.utils.cupy import from_torch
 
 # Time stamped onto an open-ended 'time' dimension when a declaration leaves it
@@ -286,9 +292,9 @@ def _mismatched_coord_keys(
             actual,
             expected,
             (
-                "earth2studio_grid_id",
-                "earth2studio_crs",
-                "earth2studio_statistics",
+                E2S_GRID_ID,
+                E2S_CRS,
+                E2S_STATISTICS,
                 "type",
                 "dims",
                 "shape",

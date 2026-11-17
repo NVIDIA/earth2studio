@@ -1402,7 +1402,7 @@ class CorrDiffCosmoEra5(torch.nn.Module, AutoModelMixin):
         output_coords = output_coords.transpose(
             "batch", "sample", "time", "variable", "y", "x"
         )
-        x = x.e2s.to_torch()[0].to(self.era5_center.device).clone()
+        x = x.e2s.to_torch()[0].to(self.era5_center.device)
 
         lat2d_np = np.asarray(output_coords["lat"])
         lon2d_np = np.asarray(output_coords["lon"])

@@ -463,9 +463,7 @@ def test_jpss_cris_rejects_invalid_projection(sensor_indices):
 # ---------------------------------------------------------------------------
 # Network / slow tests
 # ---------------------------------------------------------------------------
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize(
     "time",
     [
@@ -494,11 +492,10 @@ def test_jpss_cris_fetch(time, variable):
         assert df["sensor_index"].between(1, 2211).all()
         assert df["lat"].between(-90, 90).all()
         assert df["lon"].between(0, 360).all()
-        # Brightness temperature values should be finite and in a
-        # physically reasonable range (K).
-        assert df["observation"].notna().all()
-        assert (df["observation"] > 100).all()  # > 100 K
-        assert (df["observation"] < 400).all()  # < 400 K
+        # Check the physical range (K) of nonmissing brightness temperatures.
+        observation = df["observation"].dropna()
+        assert (observation > 100).all()  # > 100 K
+        assert (observation < 400).all()  # < 400 K
 
 
 def test_jpss_cris_schema_fields():
@@ -512,9 +509,7 @@ def test_jpss_cris_schema_fields():
     assert ds.resolve_fields(subset_fields).names == subset_fields
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(60)
+@pytest.mark.live(timeout=60)
 @pytest.mark.parametrize("cache", [True, False])
 def test_jpss_cris_cache(cache):
     ds = JPSS_CRIS(

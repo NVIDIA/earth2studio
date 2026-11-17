@@ -1145,7 +1145,7 @@ class InterpCRPSDiT(torch.nn.Module, AutoModelMixin, PrognosticMixin):
                 coarse.isel(lead_time=slice(index, index + 1))
             )
             outputs.extend(self._interpolate(left, right))
-            tensor = right.e2s.to_torch()[0].to(self.center.device).clone()
+            tensor = right.e2s.to_torch()[0].to(self.center.device)
             endpoint = from_torch(
                 self._add_pole(self._trim(tensor)),
                 self._prediction_coords(right, right.lead_time.values),

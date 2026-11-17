@@ -41,6 +41,7 @@ from physicsnemo.nn.module.rope import build_axial_rope_cos_sin_2d
 from earth2studio.grids import Region
 from earth2studio.models.auto import Package
 from earth2studio.models.base import DomainAdaptable
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.nn import stormscope_flash
 from earth2studio.models.nn.stormscope_flash import (
     FLASH_CALLS,
@@ -560,8 +561,27 @@ def test_stormscope_flash_plan_invalidation(mutation):
     torch.testing.assert_close(actual, expected, rtol=0, atol=0)
 
 
+@pytest.fixture(params=["native", "pluggable"])
+def compile_settings(request, monkeypatch):
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(
+        torch.cuda.memory, "get_allocator_backend", lambda: request.param
+    )
+    mode_options = {"triton.cudagraphs": True, "shape_padding": True}
+    list_options = Mock(return_value=mode_options)
+    monkeypatch.setattr(torch._inductor, "list_mode_options", list_options)
+    yield (
+        {"options": {"triton.cudagraphs": False, "shape_padding": True}}
+        if request.param == "pluggable"
+        else {"mode": "reduce-overhead"}
+    )
+    assert mode_options == {"triton.cudagraphs": True, "shape_padding": True}
+    if list_options.called:
+        list_options.assert_called_once_with("reduce-overhead")
+
+
 @pytest.mark.parametrize("is_flash, dynamic", [(False, None), (True, False)])
-def test_stormscope_flash_compile(monkeypatch, is_flash, dynamic):
+def test_stormscope_flash_compile(monkeypatch, is_flash, dynamic, compile_settings):
     model = _bare_model(StormScopeGOES, is_flash=not is_flash)
     model._experts_compiled = False
     experts = [torch.nn.Identity() for _ in range(3)]
@@ -575,7 +595,7 @@ def test_stormscope_flash_compile(monkeypatch, is_flash, dynamic):
     assert model._is_flash is is_flash
     assert model.sampler_args == ({} if is_flash else {"num_steps": 100, "S_churn": 10})
     assert compile.call_args_list == [
-        call(expert, mode="reduce-overhead", dynamic=dynamic) for expert in experts
+        call(expert, **compile_settings, dynamic=dynamic) for expert in experts
     ]
     assert model._experts_compiled
     assert all(
@@ -801,6 +821,24 @@ def test_stormscope_flash_with_region_forecast(cls, monkeypatch):
     ]
 
 
+@pytest.mark.parametrize("region", [None, Region.box(-110, 36, -108, 38)])
+def test_stormscope_flash_conformance(region, monkeypatch):
+    # The Flash sampler is deterministic; noise enters through the model's own
+    # generator when drawing the initial latents. MRMS conformance is covered
+    # with its GOES conditioning in test_stormscope.py.
+    monkeypatch.setattr(
+        stormscope_flash,
+        "sample_flash",
+        lambda model, latents, condition: 0.5 * latents + 1,
+    )
+    model = _domain_wrapper(StormScopeGOES)
+    if region is not None:
+        model = model.with_region(region)
+    assert check_prognostic_contract(model, time=np.datetime64("2025-04-17T23:30")) == [
+        "P21: checkpoint serialization requires component-specific tests",
+    ]
+
+
 def test_stormscope_flash_coupled_views(monkeypatch):
     goes = _domain_wrapper(StormScopeGOES)
     mrms = _domain_wrapper(StormScopeMRMS)
@@ -951,7 +989,9 @@ def test_stormscope_flash_registry(tmp_path, cls):
 
 @pytest.mark.parametrize("cls", [StormScopeGOES, StormScopeMRMS])
 @pytest.mark.parametrize("compile_enabled", [False, True])
-def test_stormscope_flash_load_model(cls, compile_enabled, monkeypatch):
+def test_stormscope_flash_load_model(
+    cls, compile_enabled, monkeypatch, compile_settings
+):
     reference = _domain_wrapper(cls, is_flash=False)
     entry = {
         "variables": reference.variables.tolist(),
@@ -1001,7 +1041,7 @@ def test_stormscope_flash_load_model(cls, compile_enabled, monkeypatch):
     model._set_default_coverage.assert_called_once_with()
     if compile_enabled:
         compile.assert_called_once_with(
-            reference.stage_models[0], mode="reduce-overhead", dynamic=False
+            reference.stage_models[0], **compile_settings, dynamic=False
         )
     else:
         compile.assert_not_called()

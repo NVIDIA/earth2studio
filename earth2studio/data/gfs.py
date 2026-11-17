@@ -38,6 +38,7 @@ from earth2studio.data.utils import (
     cancellable_to_thread,
     datasource_cache_root,
     decode_grib_message,
+    fetch_once,
     map_with_concurrency,
     obstore_fetch_to_cache,
     obstore_store_from_url,
@@ -46,6 +47,7 @@ from earth2studio.data.utils import (
     prep_forecast_inputs,
     reduce_statistics,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon import GFSLexicon
 from earth2studio.utils.type import LeadTimeArray, TimeArray, VariableArray
 
@@ -89,8 +91,9 @@ class GFS:
 
     Note
     ----
-    This data source supports the following temporal statistics: ``mean``,
-    ``sum``, ``min``, and ``max``. The temporal sampling cadence is six hours.
+    Temporal statistics: ``mean``, ``sum``, ``min`` and ``max`` at six-hourly
+    cadence (see the time statistics spec). ``tp`` is a running bucket that resets
+    every six hours, so do not sum it; use ``tp06``.
 
     Note
     ----
@@ -125,7 +128,7 @@ class GFS:
         self._async_workers = async_workers
         self._retries = retries
         self._tmp_cache_hash: str | None = None
-        self._inflight_downloads: dict[str, asyncio.Future] = {}
+        self._inflight_downloads: dict[str, asyncio.Future[str]] = {}
 
         self.store: ObjectStore | None = None
         if source == "aws":
@@ -298,7 +301,7 @@ class GFS:
         )
         xr_array.attrs.update(attrs)
 
-        return xr_array.isel(lead_time=0)
+        return with_grid_metadata(xr_array.isel(lead_time=0), "latlon-0.25deg")
 
     def _lookup_record(
         self,
@@ -520,24 +523,20 @@ class GFS:
         # Concurrent samples (e.g. tp06 at neighbouring leads) can request the same
         # byte range. Share one in-flight download per cache file; the cache file
         # itself is published atomically so readers never see a partial file.
-        inflight = self._inflight_downloads
-        task = inflight.get(filename)
-        if task is None:
-            task = asyncio.ensure_future(
-                obstore_fetch_to_cache(
-                    self.store,
-                    key,
-                    self.cache,
-                    byte_offset=byte_offset,
-                    byte_length=byte_length,
-                    cache_key=filename,
-                    atomic=True,
-                )
-            )
-            inflight[filename] = task
-            task.add_done_callback(lambda _t: inflight.pop(filename, None))
-        # shield so one cancelled/timed-out sample does not abort the shared download
-        return await asyncio.shield(task)
+        store = self.store
+        return await fetch_once(
+            self._inflight_downloads,
+            filename,
+            lambda: obstore_fetch_to_cache(
+                store,
+                key,
+                self.cache,
+                byte_offset=byte_offset,
+                byte_length=byte_length,
+                cache_key=filename,
+                atomic=True,
+            ),
+        )
 
     def _grib_uri(self, time: datetime, lead_time: timedelta) -> str:
         """Generates the URI for GFS grib files"""
@@ -627,9 +626,9 @@ class GFS_FX(GFS):
 
     Note
     ----
-    This data source supports the following temporal statistics: ``mean``,
-    ``sum``, ``min``, and ``max``. The temporal sampling cadence is one hour
-    over forecast lead times.
+    Temporal statistics: ``mean``, ``sum``, ``min`` and ``max`` at hourly lead-time
+    cadence (see the time statistics spec). ``tp`` is a running bucket that resets
+    every six hours, so do not sum it; use ``tp06``.
 
     Parameters
     ----------
@@ -792,7 +791,7 @@ class GFS_FX(GFS):
             )
         xr_array.attrs.update(attrs)
 
-        return xr_array
+        return with_grid_metadata(xr_array, "latlon-0.25deg")
 
     @classmethod
     def _validate_leadtime(cls, lead_times: list[timedelta]) -> None:

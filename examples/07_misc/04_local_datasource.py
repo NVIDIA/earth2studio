@@ -108,7 +108,9 @@ for t in np.atleast_1d(times):
         device="cpu",
     )
     # The backend locates each field by its coordinate labels, so a single time
-    # stamp lands in the right slice of the pre-created arrays
+    # stamp lands in the right slice of the pre-created arrays. WeatherBench2 holds
+    # 721 latitudes while Aurora's grid has 720, so select the model's rows first.
+    x = x.sel(lat=template.coords["lat"].values)
     zb.write(x)
 
 # %%

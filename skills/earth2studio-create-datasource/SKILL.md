@@ -185,8 +185,8 @@ Output contract shared by all types (details in `earth2studio/data/base.py`):
   - Projected sources: dims `y`/`x` with 1D projected-coordinate axes, 2D
     `lat`/`lon` auxiliary coords, and the `earth2studio_crs` attr (or the
     `earth2studio_grid_id` attr for a registered grid). A CRS alone is not a
-    grid. `hrrr.py` still uses `hrrr_y`/`hrrr_x` dims, which `infer_grid`
-    cannot recognize; do not copy that for new sources.
+    grid. See `hrrr.py` for `y`/`x` axes and
+    `with_grid_metadata(..., "hrrr-conus-3km")`.
   - 2D `lat`/`lon` on `(y, x)`: curvilinear. `lat`/`lon` along `x`: point grid.
   - If the grid is registered (`list_grids()`), build coordinates with
     `resolve_grid("<id>").coords()` (returns axes plus 2D auxiliaries) and set
@@ -201,8 +201,8 @@ Output contract shared by all types (details in `earth2studio/data/base.py`):
   - Labels are `base:method:window`, e.g. `t2m:mean:1day`, `t2m:max:30days`,
     or an offset window `t2m:mean:-12h:+12h`. Split only at the first `:`;
     base names never contain `:` and raw backend IDs with `::` pass through.
-  - Methods: `mean`, `sum`, `min`, `max`. Windows are half-open: `mean:24h`
-    is `[T-24h, T)`, `mean:-12h:+12h` is `[T-12h, T+12h)`. The source cadence
+  - Methods: `mean`, `sum`, `min`, `max`. Windows are left-open/right-closed: `mean:24h`
+    is `(T-24h, T]`, `mean:-12h:+12h` is `(T-12h, T+12h]`. The source cadence
     must divide the window exactly. Units: ns, us, ms, s, m/min, h/hr, d/day,
     w/wk/week (plurals fine); no months or years.
   - Means are sample-weighted. Unqualified labels keep the source's own
@@ -343,7 +343,16 @@ Add the optional `device` keyword only per the device convention above.
 
 **Async sources:** See `references/reference-implementation.py` for required patterns:
 `_sync_async`, `gather_with_concurrency`, `async_retry`, `obstore_fetch_to_cache`,
-`obstore_zarr_store` for Zarr, `try/finally` cleanup. Constructor params:
+`obstore_zarr_store` for Zarr, `try/finally` cleanup in async `fetch` so both
+direct async and synchronous calls remove temporary files on success or error.
+Keep `__call__` as the sync bridge; do not clean up twice. For overlapping calls
+sharing a temporary directory, use `_CleanupAfterLastCall` inside `fetch` (see
+OISST) so one call cannot delete another's files. Persistent caches are retained.
+In tests, save `cache_path = Path(ds.cache)` before fetching and inspect that path
+afterward: the cache getter may recreate the directory. Assert that temporary
+paths do not exist, rather than calling `iterdir()` on a removed directory.
+Exercise sync/async cleanup on success and error with mocked downloads.
+Constructor params:
 `cache=True`, `verbose=True`, `async_timeout=600`, `async_workers=None`,
 `retries=3` (plus optional `device="cpu"`). DataFrame sources add `time_tolerance`.
 
@@ -387,9 +396,9 @@ Load `references/temporal-statistics.py` and follow it. In short:
    averaged/accumulated/min'd/max'd and the window. Warn about
    fields that are already accumulations (e.g. resetting precipitation buckets).
 
-Label grammar: `var:method:window` (trailing, `[-w, 0)`) or
-`var:method:start:end` (e.g. `tp:sum:+0h:+6h`); windows are left-closed,
-right-open. Regular coordinate helpers require cadence-aligned windows; reduction
+Label grammar: `var:method:window` (trailing, `(-w, 0]`) or
+`var:method:start:end` (e.g. `tp:sum:+0h:+6h`); windows are left-open,
+right-closed. Regular coordinate helpers require cadence-aligned windows; reduction
 itself imposes no cadence and uses sample-weighted means. Parsing is in
 `earth2studio/utils/time_statistics.py`; reuse it, do not re-parse labels.
 

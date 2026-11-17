@@ -32,6 +32,7 @@ import numpy as np
 import torch
 import xarray as xr
 
+from earth2studio.utils.rmm import _configure_rmm
 from earth2studio.utils.type import CoordSystem
 
 _BATCH_METADATA_KEY = "_earth2studio_batch"
@@ -55,6 +56,9 @@ _BACKEND_OVERRIDE: ContextVar[ArrayBackend | None] = ContextVar(
     "earth2studio_array_backend", default=None
 )
 
+if _DEFAULT_BACKEND in ("auto", "cupy"):
+    _configure_rmm()
+
 
 @contextmanager
 def backend(value: ArrayBackend) -> Iterator[None]:
@@ -63,6 +67,10 @@ def backend(value: ArrayBackend) -> Iterator[None]:
     Explicit conversion arguments override this context-local scope, which overrides
     ``EARTH2STUDIO_ARRAY_BACKEND`` (read at import, default ``auto``). Existing arrays
     retain their backend. Nested scopes restore the previous policy on exit.
+    On Linux CUDA systems with RMM installed, auto/cupy configure shared allocation
+    for Torch and CuPy. This process-wide configuration persists after the scope exits
+    and must happen before Torch initializes its CUDA allocator.
+    Set ``EARTH2STUDIO_DISABLE_RMM=1`` before import to keep existing allocators.
 
     Parameters
     ----------
@@ -79,8 +87,13 @@ def backend(value: ArrayBackend) -> Iterator[None]:
     ------
     ValueError
         If the backend name is invalid.
+    RuntimeError
+        If shared RMM allocation cannot be enabled before CUDA initialization.
     """
-    token = _BACKEND_OVERRIDE.set(_validate_backend(value))
+    value = _validate_backend(value)
+    if value in ("auto", "cupy"):
+        _configure_rmm()
+    token = _BACKEND_OVERRIDE.set(value)
     try:
         yield
     finally:
@@ -406,6 +419,7 @@ def _tensor_data(
         cp = _get_cupy()
         if target is not None and target.type != "cuda":
             raise ValueError("CuPy backend requires a CUDA device")
+        _configure_rmm()
         if target is None:
             target = (
                 tensor.device
@@ -570,6 +584,8 @@ def from_torch(
         If the tensor is not on a CPU or CUDA device.
     ImportError
         If the selected output requires CuPy and it is not installed.
+    RuntimeError
+        If shared RMM allocation was not configured before Torch CUDA use.
 
     Warns
     -----
@@ -620,7 +636,6 @@ def from_torch(
     )
 
 
-@xr.register_dataarray_accessor("e2s")  # type: ignore[no-untyped-call]
 class Earth2StudioAccessor:
     """Earth2Studio conversions and batching for xarray DataArrays."""
 
@@ -636,6 +651,7 @@ class Earth2StudioAccessor:
         """Return a CuPy-backed DataArray.
 
         Torch-backed inputs warn and detach if gradient tracking is enabled.
+        Unless disabled, shared RMM allocation must precede Torch CUDA use.
 
         Parameters
         ----------
@@ -650,6 +666,7 @@ class Earth2StudioAccessor:
         if isinstance(self._array.data, _TorchArray):
             return self.to_backend("cupy", device=device)
         cp = _get_cupy()
+        _configure_rmm()
         if device is None:
             data = cp.asarray(self._array.data)
         else:
@@ -745,8 +762,13 @@ class Earth2StudioAccessor:
             If the input backend or device type is unsupported.
         ImportError
             If CuPy is needed but unavailable.
+        RuntimeError
+            If shared RMM allocation was not configured before Torch CUDA use.
         """
         policy = _validate_backend(backend)
+        # Importing a CUDA DLPack view initializes Torch's allocator too.
+        if policy == "cupy" or (policy == "auto" and self.is_cupy):
+            _configure_rmm()
         tensor, _ = self.to_torch()
         return _replace_data(self._array, _tensor_data(tensor, policy, device))
 
@@ -905,3 +927,7 @@ class Earth2StudioAccessor:
         result = result.transpose(*target_dims)
         result.encoding = self._array.encoding.copy()
         return result
+
+
+# Avoid caching the accessor on its parent, which would create a reference cycle.
+setattr(xr.DataArray, "e2s", property(Earth2StudioAccessor))

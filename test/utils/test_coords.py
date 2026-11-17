@@ -1217,12 +1217,12 @@ def test_coordinate_projected_grid_metadata():
         with pytest.raises(ValueError, match="metadata"):
             handshake_dataarray(changed, signature)
     named = coord_array(
-        ("hrrr_y", "hrrr_x"),
+        ("north", "east"),
         grid=grid,
-        grid_dims={"y": "hrrr_y", "x": "hrrr_x"},
+        grid_dims={"y": "north", "x": "east"},
     )
-    assert named.attrs["dims"] == ["hrrr_y", "hrrr_x"]
-    xr.testing.assert_identical(named.rename(hrrr_y="y", hrrr_x="x").y, signature.y)
+    assert named.attrs["dims"] == ["north", "east"]
+    xr.testing.assert_identical(named.rename(north="y", east="x").y, signature.y)
 
 
 def test_coordinate_auxiliary_geometry_validation():

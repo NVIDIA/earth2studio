@@ -18,7 +18,8 @@
 # Persistence baseline — 14-day scorecard, ERA5 2025, scored online.
 #
 # The forecast at every lead time is the initial condition (identity
-# model, earth2studio.models.px.Persistence).  Same 48 ICs, window,
+# model, earth2studio.models.px.Persistence on the registered ERA5 grid
+# `latlon-0.25deg`).  Same 48 ICs, window,
 # verification and regional splits as every model campaign; shown in the
 # docs plots as a reference line rather than as its own scorecard page.
 # ---------------------------------------------------------------------------

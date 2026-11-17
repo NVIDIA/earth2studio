@@ -94,8 +94,10 @@ class acc:
 
     def __call__(self, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
         """
-        Apply metric to data `x` and `y`, checking that their coordinates
-        are broadcastable.
+        Apply metric to data `x` and `y`.
+        `y` must have every dimension of `x` except the ensemble dimension, if the
+        metric has one, with matching coordinate values; it is transposed to
+        `x`'s order, not broadcast.
 
         Parameters
         ----------

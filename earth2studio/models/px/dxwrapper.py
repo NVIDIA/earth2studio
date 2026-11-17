@@ -183,7 +183,7 @@ class PrepareInputTensorDefault:
                 self.interp = LatLonInterpolation(*grids)
                 self._grids = tuple(a.copy() for a in grids)
             tensor = self.interp.to(tensor.device)(tensor)
-        result = from_torch(tensor.clone(), signature)
+        result = from_torch(tensor, signature)
         result.encoding = deepcopy(x.encoding)
         return result
 

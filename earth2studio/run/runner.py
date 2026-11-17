@@ -19,7 +19,7 @@
 A :class:`Runner` holds models and bound data sources, and executes one
 :class:`WorkItem` at a time. Supervision -- work distribution, member grouping,
 resume, output filtering, and IO -- sits above it and never sees models,
-components, or coupling. See ``dev/spec/EXECUTION_CONTRACT_SPEC.md``.
+components, or coupling.
 """
 
 from __future__ import annotations
@@ -27,14 +27,13 @@ from __future__ import annotations
 from collections.abc import Callable, Hashable, Iterator, Mapping
 from dataclasses import dataclass, field
 from itertools import chain
-from typing import Any, Protocol, TypeAlias, cast
+from typing import Any, Protocol, cast
 
 import numpy as np
 import torch
 import xarray as xr
 
 from earth2studio.data import DataSource, ForecastSource, fetch_data
-from earth2studio.data.base import DataFrameSource, ForecastFrameSource
 from earth2studio.data.utils import _is_ensemble_source
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
@@ -48,16 +47,12 @@ from earth2studio.perturbation import (
 )
 from earth2studio.run._fields import (
     _lead_times,
-    _map_field,
     _publishes_initial_condition,
+    map_field,
 )
 from earth2studio.run.work import WorkItem, member_seed
 from earth2studio.utils.coords import E2S_DYNAMIC_DIMS, coord_array
 from earth2studio.utils.type import CoordinateSystem
-
-Source: TypeAlias = DataSource | ForecastSource
-# A source for any model slot: gridded fields, or DataFrames for observation slots.
-SlotSource: TypeAlias = Source | DataFrameSource | ForecastFrameSource
 
 
 @dataclass(frozen=True)
@@ -68,7 +63,7 @@ class DataRequest:
     member; ``None`` fetches the member the source was built with.
     """
 
-    source: Source
+    source: DataSource | ForecastSource
     time: np.ndarray
     variable: np.ndarray
     lead_time: np.ndarray = field(
@@ -95,6 +90,9 @@ class Runner(Protocol):
     - Declare every stream in :meth:`output_coords`. Each output must match its
       stream's declaration.
     - A stream may skip steps, as a slower component does; a step then omits it.
+    - An output may hold a subset of its stream's variables, as an initial
+      condition holding only a model's inputs does; stores keep NaN for the
+      rest.
     """
 
     supports_member_batching: bool
@@ -174,7 +172,7 @@ def _fetch(
     elif request.member is not None:
         # One member per item: the model sees that member's field alone.
         x = x.isel(ensemble=0, drop=True)
-    return _map_field(x, signature)
+    return map_field(x, signature)
 
 
 def _batch_members(
@@ -205,7 +203,9 @@ def _source_members(
     ``None`` when the runner reads no members per item or the source is not an
     ensemble source; such slots are shared by every member.
     """
-    if source_member is None or not _is_ensemble_source(cast(Source, source)):
+    if source_member is None or not _is_ensemble_source(
+        cast(DataSource | ForecastSource, source)
+    ):
         return None
     if not item.member_ids:
         raise ValueError(
@@ -269,8 +269,19 @@ def _diagnostic_coords(
 ) -> CoordinateSystem:
     """Stream signature for ``diagnostic`` applied to fields like ``signature``."""
     # Selects the diagnostic's variables and domain; never regrids.
-    output = diagnostic.output_coords(_map_field(signature, diagnostic.input_coords()))
+    output = diagnostic.output_coords(map_field(signature, diagnostic.input_coords()))
     return _signature_for_stream(output, leads)
+
+
+def _variables(signature: Any) -> set[str]:
+    """Variable labels a signature declares, empty when it declares none."""
+    if isinstance(signature, tuple):
+        return set().union(*(_variables(slot) for slot in signature))
+    if isinstance(signature, xr.DataArray):
+        if "variable" not in signature.coords:
+            return set()
+        return {str(v) for v in np.atleast_1d(signature.coords["variable"].values)}
+    return {str(v) for v in np.atleast_1d(signature.get("variable", []))}
 
 
 def _seed_model(
@@ -354,6 +365,10 @@ class PrognosticRunner:
     before the analysis time steps at its forecast interval. The initial condition
     is published only when the input ends at zero and the output declares every
     input variable on the input's grid; otherwise the streams start at the first
+    forecast. The published initial condition holds only the input variables, so
+    output-only variables, such as a model's diagnostic outputs, are NaN in the
+    stores at lead time zero, and a
+    diagnostic stream whose inputs need such variables starts at the first
     forecast. Forcing declared by the model is fetched and sent at every step.
     Items with several members run as one batch on a leading ``ensemble``
     dimension, seeded once from the first member, so stochastic members depend on
@@ -394,8 +409,8 @@ class PrognosticRunner:
     def __init__(
         self,
         prognostic: PrognosticModel,
-        source: Source | None = None,
-        forcing: tuple[Source, ...] | None = None,
+        source: DataSource | ForecastSource | None = None,
+        forcing: tuple[DataSource | ForecastSource, ...] | None = None,
         diagnostics: Mapping[str, DiagnosticModel] | None = None,
         seed: int = 0,
         source_member: Callable[[int], Hashable] | None = None,
@@ -415,8 +430,8 @@ class PrognosticRunner:
         forcing_sources = forcing if forcing is not None else tuple(recommended[1:])
         if initial_source is None or any(s is None for s in forcing_sources):
             raise ValueError("Every input and forcing slot needs a source")
-        self.source: Source = initial_source
-        self.forcing: tuple[Source, ...] = tuple(
+        self.source: DataSource | ForecastSource = initial_source
+        self.forcing: tuple[DataSource | ForecastSource, ...] = tuple(
             s for s in forcing_sources if s is not None
         )
         if len(self.forcing) != len(self.forcing_signatures):
@@ -437,6 +452,16 @@ class PrognosticRunner:
         self.publishes_initial_condition = _publishes_initial_condition(
             self.input_signature, oc
         )
+        # Diagnostics that need output-only variables cannot run on the initial
+        # condition, which holds only the input variables; they start at the
+        # first forecast.
+        input_variables = _variables(self.input_signature)
+        self._initial_diagnostics = {
+            name
+            for name, diagnostic in self.diagnostics.items()
+            if self.publishes_initial_condition
+            and _variables(diagnostic.input_coords()) <= input_variables
+        }
 
     def to(self, device: torch.device) -> PrognosticRunner:
         """Move every model to ``device`` and fetch onto it."""
@@ -465,7 +490,13 @@ class PrognosticRunner:
         forecast = _signature_for_stream(oc, leads)
         coords: dict[str, CoordinateSystem] = {"forecast": forecast}
         for name, diagnostic in self.diagnostics.items():
-            coords[name] = _diagnostic_coords(diagnostic, oc, forecast["lead_time"])
+            stream_leads = forecast["lead_time"].values
+            if (
+                self.publishes_initial_condition
+                and name not in self._initial_diagnostics
+            ):
+                stream_leads = stream_leads[1:]
+            coords[name] = _diagnostic_coords(diagnostic, oc, stream_leads)
         return coords
 
     def _forcing_requests(
@@ -532,10 +563,14 @@ class PrognosticRunner:
             fields.append(x)
         return tuple(fields)
 
-    def _publish(self, x: xr.DataArray) -> Mapping[str, xr.DataArray]:
+    def _publish(
+        self, x: xr.DataArray, initial: bool = False
+    ) -> Mapping[str, xr.DataArray]:
         outputs = {"forecast": x}
         for name, diagnostic in self.diagnostics.items():
-            outputs[name] = diagnostic(_map_field(x, diagnostic.input_coords()))
+            if initial and name not in self._initial_diagnostics:
+                continue
+            outputs[name] = diagnostic(map_field(x, diagnostic.input_coords()))
         return outputs
 
     def run_item(self, item: WorkItem) -> Iterator[Mapping[str, xr.DataArray]]:
@@ -556,7 +591,7 @@ class PrognosticRunner:
         )
         x = _perturb(self.perturbation, x, self.seed, item, self.device)
         if self.publishes_initial_condition:
-            yield self._publish(initial_condition(x))
+            yield self._publish(initial_condition(x), initial=True)
         if nsteps == 0:
             return
         forcing = self._fetch_forcing(item, self._forcing_requests(item))
@@ -609,7 +644,7 @@ class DiagnosticRunner:
     def __init__(
         self,
         diagnostics: Mapping[str, DiagnosticModel],
-        source: Source | None = None,
+        source: DataSource | ForecastSource | None = None,
         step: np.timedelta64 | None = None,
         seed: int = 0,
         source_member: Callable[[int], Hashable] | None = None,
@@ -618,7 +653,7 @@ class DiagnosticRunner:
             raise ValueError("DiagnosticRunner needs at least one diagnostic")
         self.diagnostics = dict(diagnostics)
         self.signatures: dict[str, CoordinateSystem] = {}
-        self.sources: dict[str, Source] = {}
+        self.sources: dict[str, DataSource | ForecastSource] = {}
         for name, diagnostic in self.diagnostics.items():
             signature = diagnostic.input_coords()
             if isinstance(signature, tuple):

@@ -299,6 +299,7 @@ jobs:
 
   test-data:
     name: Test data sources
+    timeout-minutes: 45
     if: github.repository == 'NVIDIA/earth2studio' && needs.changes.outputs.data == 'true'
     needs:
       - format

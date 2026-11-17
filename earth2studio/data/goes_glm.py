@@ -431,7 +431,7 @@ class GOESGLM:
             coros,
             max_workers=self._async_workers,
             desc="Fetching GLM L2 LCFA files",
-            verbose=(not self._verbose),
+            verbose=self._verbose,
         )
 
         return self._compile_dataframe(
@@ -479,7 +479,7 @@ class GOESGLM:
             [_list_one(sat, prefix, hr) for (sat, prefix), hr in prefix_jobs.items()],
             max_workers=self._async_workers,
             desc="Listing GLM L2 LCFA prefixes",
-            verbose=(not self._verbose),
+            verbose=self._verbose,
         )
 
         out: list[_GOESGLMFile] = []

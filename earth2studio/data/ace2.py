@@ -25,8 +25,11 @@ import tqdm
 import xarray as xr
 from huggingface_hub import HfFileSystem
 
-from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
-from earth2studio.grids import resolve_grid
+from earth2studio.data.utils import (
+    datasource_cache_root,
+    prep_data_inputs,
+)
+from earth2studio.grids import resolve_grid, with_grid_metadata
 from earth2studio.lexicon.ace import ACELexicon
 from earth2studio.utils.imports import check_optional_dependencies
 from earth2studio.utils.type import TimeArray, VariableArray
@@ -198,7 +201,7 @@ class ACE2ERA5Data:
         if not self._cache:
             shutil.rmtree(self.cache)
 
-        return stacked
+        return with_grid_metadata(stacked, "gaussian-f90")
 
     async def fetch(
         self,

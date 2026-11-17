@@ -7,20 +7,19 @@ replace `uv run script.py` commands with `python script.py`.
 
 ## Test 1: DLESyM ensemble verification
 
-Run the PNW heatwave DLESyM ensemble, limiting the total number of checkpoints to reduce
-runtime:
+Run the PNW heatwave DLESyM ensemble, limiting the ensemble size to reduce runtime:
 
 ```bash
-uv run main.py --config-name pnw_dlesym ncheckpoints=2
+uv run main.py --config-name pnw_dlesym nperturbed=16
 ```
 
-This will produce outputs in the relative path `outputs/pnw_heatwave_dlesym_4a4o4p_gaussian/north_america`.
+This will produce outputs in the relative path `outputs/pnw_heatwave_dlesym_v11_64m/north_america`.
 Verify the correctness of these outputs by running the testing script against the relative
 path:
 
 ```bash
 cd earth2studio/recipes/s2s/test
-uv run test_skill.py --model dlesym --path outputs/pnw_heatwave_dlesym_4a4o4p_gaussian/north_america/forecast.zarr
+uv run test_skill.py --model dlesym --path outputs/pnw_heatwave_dlesym_v11_64m/north_america/forecast.zarr
 ```
 
 ### Expected DLESyM Result

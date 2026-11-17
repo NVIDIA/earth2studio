@@ -400,7 +400,7 @@ class Aurora(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         signature = self.output_coords(x)
         handshake_time(x)
         tensor, coords = x.e2s.to_torch()
-        out = self._forward_tensor(tensor.to(self.z.device).clone(), coords)
+        out = self._forward_tensor(tensor.to(self.z.device), coords)
         result = from_torch(out, signature, name=x.name)
         result.encoding = x.encoding.copy()
         return result

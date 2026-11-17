@@ -1,8 +1,10 @@
 # HealDA — global data assimilation from sparse conventional + satellite
 # observations (HEALPix level-6 native grid, ERA5-compatible variables).
 #
-# Used with src.pipelines.assimilation.AssimilationPipeline: each work-item
-# time produces one analysis, scored directly against reanalysis.
+# Used with `runner: assimilation` (src.runners.assimilation): each work-item
+# time produces one analysis, scored directly against reanalysis.  Only
+# independent (stateless) DA models are supported; cycling models are out of
+# scope for these runners.
 #
 # `lat_lon: true` regrids the analysis from HEALPix to a regular lat/lon
 # grid inside the model; `output_resolution: [721, 1440]` matches the
@@ -16,8 +18,8 @@
 # window around each analysis time; [-21, 3] is HealDA's trained default.
 #
 # predownload.py caches each analysis time's observation window to
-# <output.path>/obs_conv.parquet / obs_sat.parquet, which main.py
-# automatically prefers over these live sources.  The per-source cache is
+# <output.path>/conv.parquet / sat.parquet (one store per slot name), which
+# main.py automatically prefers over these live sources.  The per-source cache is
 # therefore OFF (matching the recipe-wide cache policy) — the parquet
 # stores already persist everything a rerun needs.  Flip `cache: true` if
 # you disable obs predownload (predownload.observations.enabled=false)
@@ -39,5 +41,3 @@ da:
             time_tolerance_hours: [-21, 3]
             cache: false
     # obs_device: cpu       # cpu → pandas obs frames; cuda → cudf (optional dep)
-    # runner:               # optional AssimilationRunner override (stateful
-    #     _target_: ...     # cycling models); default is the stateless runner

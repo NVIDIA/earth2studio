@@ -35,6 +35,7 @@ from earth2studio.data.utils import (
     ensure_utc,
     prep_forecast_inputs,
 )
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon import DynamicalLexicon
 from earth2studio.utils.imports import (
     OptionalDependencyFailure,
@@ -626,7 +627,7 @@ class _DynamicalBase:
                 da = da.expand_dims("lead_time", axis=1)
             xr_array[:, :, j] = modifier(np.asarray(da.values, dtype=np.float32))
 
-        return xr_array
+        return with_grid_metadata(xr_array, "latlon-0.25deg")
 
 
 class _DynamicalAnalysis(_DynamicalBase):

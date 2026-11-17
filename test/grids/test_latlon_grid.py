@@ -47,6 +47,39 @@ def test_grid_selection():
     ) == {"lat": slice(0, 1), "lon": slice(1, 4)}
 
 
+@pytest.mark.parametrize("start", [0.0, -180.0])
+@pytest.mark.parametrize(
+    "bounds,expected",
+    [
+        ((0, -1, 180, 1), [*range(0, 181)]),
+        ((-190, -1, -170, 1), [*range(170, 191)]),
+        ((170, -1, 190, 1), [*range(170, 191)]),
+        ((170, -1, -170, 1), [*range(170, 191)]),
+        ((-180, -1, 180, 1), [*range(0, 360)]),
+        ((10, -1, 10, 1), [10]),
+    ],
+)
+def test_grid_selection_longitude_bounds(start, bounds, expected):
+    """Longitude bounds are inclusive and wrap the same on either convention."""
+    grid = LatLonGrid([0.0], np.arange(start, start + 360.0, 1.0))
+    indexers = grid.subset_indexers(grid.coords(only_index=True), bounds=bounds)
+    selected = np.mod(grid.longitude[indexers["lon"]], 360)
+    np.testing.assert_array_equal(np.sort(selected), np.sort(np.mod(expected, 360)))
+
+
+def test_grid_selection_fractional_longitude_bounds():
+    """Boundary cells survive rounding in the wrapped longitude distance."""
+    grid = LatLonGrid([0.0], [181.0, 184.4])
+    indexers = grid.subset_indexers(
+        grid.coords(only_index=True), bounds=(-179.3, -1, -175.6, 1)
+    )
+    np.testing.assert_array_equal(grid.longitude[indexers["lon"]], [181.0, 184.4])
+    indexers = grid.subset_indexers(
+        grid.coords(only_index=True), bounds=(184.4, -1, 190, 1)
+    )
+    np.testing.assert_array_equal(grid.longitude[indexers["lon"]], [184.4])
+
+
 def test_grid_validation():
     with pytest.raises(ValueError, match="read-only"):
         GRID.latitude[0] = 0

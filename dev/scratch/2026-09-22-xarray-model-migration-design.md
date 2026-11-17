@@ -3,7 +3,7 @@
 ## Goal and scope
 
 Migrate every remaining public prognostic and diagnostic model to the xarray
-execution contract in `dev/spec/MODEL_CONTRACT_SPEC.md`. Follow the native
+execution contract in `docs/specs/E2S-06_MODEL_CONTRACT_SPEC.md`. Follow the native
 implementations introduced by PR #1168 in FCN, FuXi-S2S, and PrecipitationAFNO.
 Include affected inference callers, composition wrappers, tests, and API examples
 needed to exercise these models through their new interface.

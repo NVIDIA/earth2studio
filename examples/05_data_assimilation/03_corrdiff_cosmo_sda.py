@@ -47,7 +47,7 @@ In this example you will learn:
 
 !!! note
     The default ~206 x 206-cell sub-domain completed in a few minutes and used about
-    5 GB of GPU memory in one test run (bf16). Set ``DOMAIN = None`` for the full domain;
+    5 GB of GPU memory in one test run (bf16). Set ``REGION = None`` for the full domain;
     its time and memory requirements were not validated.
 
 """
@@ -80,10 +80,12 @@ import xarray as xr
 from scipy.interpolate import RegularGridInterpolator
 from scipy.spatial import cKDTree
 
+from earth2studio.grids import Region
+
 INIT_TIME = datetime(2024, 1, 1, 0)
 ASSIMILATE = ("u10m", "v10m")
 # Set to None for the full COSMO-REA2 domain.
-DOMAIN = dict(lat_min=50.2, lat_max=53.8, lon_min=4.6, lon_max=10.4)
+REGION = Region.box(4.6, 50.2, 10.4, 53.8)  # lon_min, lat_min, lon_max, lat_max
 ENSEMBLE_SIZE = 1
 SAMPLER_STEPS = 12  # Reduced from 18 for this example.
 SDA_STD_OBS = 0.75
@@ -114,7 +116,7 @@ sda = CorrDiffCosmoEra5SDA.load_model(
     package,
     assimilate_variables=ASSIMILATE,
     resolution="rea2",
-    domain=DOMAIN,
+    region=REGION,
     time_tolerance=OBS_TIME_TOLERANCE,
     number_of_samples=ENSEMBLE_SIZE,
     sampler_steps=SAMPLER_STEPS,
@@ -197,7 +199,7 @@ station_ids = sorted(raw["station"].unique())
 print(f"Stations with {'+'.join(ASSIMILATE)} at {INIT_TIME}: {len(station_ids)}")
 if len(station_ids) < 2:
     raise RuntimeError(
-        f"Need at least 2 usable stations (got {len(station_ids)}); widen DOMAIN, "
+        f"Need at least 2 usable stations (got {len(station_ids)}); widen REGION, "
         "loosen OBS_TIME_TOLERANCE, or choose another time."
     )
 

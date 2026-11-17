@@ -16,37 +16,41 @@
 
 """Recipe-local metric and statistic classes.
 
-These follow the ``earth2studio.statistics`` Metric / Statistic protocols
+Both follow the xarray ``earth2studio.statistics`` Metric and Statistic
+protocols (``metric(x, y) -> xr.DataArray``, ``statistic(x) -> xr.DataArray``)
 and are candidates for upstreaming.
 
 Classes
 -------
 mse
     Mean squared error (Metric protocol).  Identical to
-    ``earth2studio.statistics.rmse`` but returns MSE *without* the
-    final square root so that time aggregation can use the correct
+    ``earth2studio.statistics.rmse`` but returns MSE *without* the final
+    square root, so time aggregation can use the correct
     ``RMSE = sqrt(mean_t(MSE_t))`` form.
 ensemble_variance
-    Spatially-averaged ensemble variance (Statistic protocol).  Computes
-    ``var_m(f)`` across the ensemble dimension then averages over
+    Spatially averaged ensemble variance (Statistic protocol).  Computes
+    ``var_m(f)`` across the ensemble dimension then averages over the
     spatial (reduction) dimensions.  Useful for spread-skill analysis:
     ``Spread = sqrt(mean_t(Var_t))``.
 """
 
 from __future__ import annotations
 
+import numpy as np
 import torch
+import xarray as xr
 
 from earth2studio.statistics.moments import mean, variance
-from earth2studio.utils.coords import CoordSystem, handshake_dim
+from earth2studio.statistics.rmse import rmse
 from earth2studio.utils.cupy import from_torch
+from earth2studio.utils.type import CoordinateSystem
 
 
-class mse:
-    """Mean squared error of two tensors over a set of given dimensions.
+class mse(rmse):
+    """Mean squared error of two arrays over a set of given dimensions.
 
-    Identical interface to ``earth2studio.statistics.rmse`` but returns
-    MSE (no square root).  This allows correct deferred time aggregation::
+    Same interface as ``earth2studio.statistics.rmse`` but returns MSE (no
+    square root), which allows the correct deferred time aggregation::
 
         RMSE = sqrt(mean_t(MSE_t))
 
@@ -54,105 +58,48 @@ class mse:
     ----------
     reduction_dimensions : list[str]
         Dimensions to average the squared error over (e.g. ``["lat", "lon"]``).
-    weights : torch.Tensor | None
+    weights : torch.Tensor | np.ndarray | None
         Weights for the reduction dimensions.  Must have
         ``ndim == len(reduction_dimensions)``.
     batch_update : bool
         Whether to apply running (batch) updates.
     ensemble_dimension : str | None
-        If provided, compute the ensemble mean of *x* before computing
-        MSE against *y*.  The ensemble dimension is removed from the
-        output coordinates.
+        If provided, compute the ensemble mean of *x* before computing MSE
+        against *y*.  The output has no ensemble dimension.
     """
-
-    def __init__(
-        self,
-        reduction_dimensions: list[str],
-        weights: torch.Tensor | None = None,
-        batch_update: bool = False,
-        ensemble_dimension: str | None = None,
-    ):
-        self.mean = mean(
-            reduction_dimensions, weights=weights, batch_update=batch_update
-        )
-        if ensemble_dimension is not None:
-            self.ensemble_dimension: str | None = ensemble_dimension
-            self.ensemble_mean = mean([ensemble_dimension])
-        else:
-            self.ensemble_dimension = None
-        self.weights = weights
-        self._reduction_dimensions = reduction_dimensions
-        self.batch_update = batch_update
 
     def __str__(self) -> str:
         return "_".join(self._reduction_dimensions + ["mse"])
 
-    @property
-    def reduction_dimensions(self) -> list[str]:
-        return self._reduction_dimensions
-
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Return the coordinate system after reduction.
-
-        Parameters
-        ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform.
-
-        Returns
-        -------
-        CoordSystem
-        """
-        output_coords = input_coords.copy()
-        for dimension in self.reduction_dimensions:
-            handshake_dim(input_coords, dimension)
-            output_coords.pop(dimension)
-        if self.ensemble_dimension is not None:
-            output_coords.pop(self.ensemble_dimension)
-        return output_coords
-
-    def __call__(
-        self,
-        x: torch.Tensor,
-        x_coords: CoordSystem,
-        y: torch.Tensor,
-        y_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
+    def __call__(self, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
         """Compute MSE between *x* (forecast) and *y* (observation).
 
         Parameters
         ----------
-        x : torch.Tensor
-            Forecast tensor.
-        x_coords : CoordSystem
-            Coordinates describing *x*.
-        y : torch.Tensor
-            Observation tensor.
-        y_coords : CoordSystem
-            Coordinates describing *y*.
+        x : xr.DataArray
+            Forecast array; ``reduction_dimensions`` (and the ensemble
+            dimension, if any) must be among its dimensions.
+        y : xr.DataArray
+            Observation array with the dimensions of *x* minus the ensemble
+            dimension.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            ``(mse_values, output_coords)``
+        xr.DataArray
+            Mean squared error with the reduced dimensions removed.
         """
-        xd = from_torch(x, x_coords)
-        yd = from_torch(y, y_coords)
-        if self.ensemble_dimension is not None:
-            xd = self.ensemble_mean(xd)
-        return self.mean((xd - yd) ** 2).e2s.to_torch()
+        diff = self._difference(x, y)
+        diff_t, _ = diff.e2s.to_torch()
+        return self.mean(from_torch(diff_t.square(), diff))
 
 
 class ensemble_variance:
-    """Spatially-averaged ensemble variance (Statistic protocol).
+    """Spatially averaged ensemble variance (Statistic protocol).
 
-    Computes the sample variance across the ensemble dimension, then
-    averages over spatial (reduction) dimensions.  Follows the
-    ``earth2studio.statistics.base.Statistic`` protocol (2-argument
-    ``__call__``).
-
-    The ensemble variance uses Bessel's correction (``N-1`` denominator)
-    via ``earth2studio.statistics.moments.variance``.
+    Computes the sample variance across the ensemble dimension (Bessel's
+    correction, ``N-1`` denominator, via
+    ``earth2studio.statistics.moments.variance``), then averages over the
+    spatial (reduction) dimensions.
 
     Useful for WB2-style spread-skill analysis::
 
@@ -163,9 +110,9 @@ class ensemble_variance:
     ensemble_dimension : str
         Name of the ensemble dimension (e.g. ``"ensemble"``).
     reduction_dimensions : list[str]
-        Spatial dimensions to average variance over (e.g.
+        Spatial dimensions to average the variance over (e.g.
         ``["lat", "lon"]``).
-    weights : torch.Tensor | None
+    weights : torch.Tensor | np.ndarray | None
         Weights for the spatial reduction dimensions.
     """
 
@@ -173,10 +120,10 @@ class ensemble_variance:
         self,
         ensemble_dimension: str,
         reduction_dimensions: list[str],
-        weights: torch.Tensor | None = None,
+        weights: torch.Tensor | np.ndarray | None = None,
     ):
         self.ens_var = variance([ensemble_dimension])
-        self.spatial_mean = mean(reduction_dimensions, weights=weights)
+        self.spatial_mean = mean(list(reduction_dimensions), weights=weights)
         self.ensemble_dimension = ensemble_dimension
         self._reduction_dimensions = [ensemble_dimension] + list(reduction_dimensions)
         self.weights = weights
@@ -188,42 +135,32 @@ class ensemble_variance:
     def reduction_dimensions(self) -> list[str]:
         return self._reduction_dimensions
 
-    def output_coords(self, input_coords: CoordSystem) -> CoordSystem:
-        """Return the coordinate system after reduction.
+    def output_coords(self, input_coords: CoordinateSystem) -> CoordinateSystem:
+        """Return the coordinate signature after both reductions.
 
         Parameters
         ----------
-        input_coords : CoordSystem
-            Input coordinate system to transform.
+        input_coords : CoordinateSystem
+            Input coordinate signature to transform.
 
         Returns
         -------
-        CoordSystem
+        CoordinateSystem
+            Signature with the ensemble and spatial dimensions removed.
         """
-        output_coords = input_coords.copy()
-        for dimension in self._reduction_dimensions:
-            handshake_dim(input_coords, dimension)
-            output_coords.pop(dimension)
-        return output_coords
+        return self.spatial_mean.output_coords(self.ens_var.output_coords(input_coords))
 
-    def __call__(
-        self,
-        x: torch.Tensor,
-        x_coords: CoordSystem,
-    ) -> tuple[torch.Tensor, CoordSystem]:
-        """Compute spatially-averaged ensemble variance.
+    def __call__(self, x: xr.DataArray) -> xr.DataArray:
+        """Compute the spatially averaged ensemble variance.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Forecast tensor with an ensemble dimension.
-        x_coords : CoordSystem
-            Coordinates describing *x*.
+        x : xr.DataArray
+            Forecast array with an ensemble dimension.
 
         Returns
         -------
-        tuple[torch.Tensor, CoordSystem]
-            ``(variance_values, output_coords)``
+        xr.DataArray
+            Variance with the ensemble and spatial dimensions removed.
         """
-        var = self.ens_var(from_torch(x, x_coords))
-        return self.spatial_mean(var).e2s.to_torch()
+        return self.spatial_mean(self.ens_var(x))

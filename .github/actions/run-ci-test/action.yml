@@ -18,6 +18,9 @@ name: Run CI test job
 description: Restore shared testmon state and run one tox-backed test job.
 
 inputs:
+  live:
+    description: Live data-test selection mode.
+    default: changed
   tox-env:
     description: Tox environment to run.
     required: true
@@ -107,13 +110,12 @@ runs:
       shell: bash
       env:
         TOX_ENV: ${{ inputs.tox-env }}
+        DATA_TEST_LIVE: ${{ inputs.tox-env == 'test-data' && inputs.live || 'none' }}
+        DATA_TEST_BASE_BRANCH: ${{ inputs.testmon-base-branch }}
+        DATA_TEST_PREVIOUS_SHA: ${{ github.event.before }}
+        DATA_TEST_BASELINE_RUN: ${{ inputs.save-testmon-cache }}
         EARTH2STUDIO_MODEL_CACHE: ${{ runner.temp }}/earth2studio-models
-      run: |
-        # Reuse the uv binary that populated the container's package/build cache.
-        # tox-uv otherwise selects its bundled uv, which can miss that cache.
-        export TOX_UV_PATH="$(command -v uv)"
-        "$TOX_UV_PATH" --version
-        make pytest-ci
+      run: bash test/_ci/run_ci_tests.sh
 
     - name: Upload coverage data
       if: always()
@@ -123,6 +125,16 @@ runs:
         path: .coverage.*
         include-hidden-files: true
         if-no-files-found: ignore
+
+    - name: Upload test logs and results
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: test-results-${{ inputs.tox-env }}
+        path: .cache/test-results
+        include-hidden-files: true
+        if-no-files-found: warn
+        retention-days: 3
 
     - name: Save testmon cache
       if: >

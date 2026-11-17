@@ -163,7 +163,7 @@ class energy_score:
             raise ValueError(f"{self.ensemble_dimension} should not be in y but is.")
         if x.ndim != y.ndim + 1:
             raise ValueError(
-                "x and y must have broadcastable shapes but got "
+                "x must have one more dimension than y (the ensemble dimension) but got "
                 + f"{x.shape} and {y.shape}"
             )
 

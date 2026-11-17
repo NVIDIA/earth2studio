@@ -200,8 +200,10 @@ class fss:
 
     def __call__(self, x: xr.DataArray, y: xr.DataArray) -> xr.DataArray:
         """
-        Apply metric to data `x` and `y`, checking that their coordinates
-        are broadcastable. While reducing over `reduction_dims`.
+        Apply metric to data `x` and `y`, reducing over `reduction_dims`.
+        `y` must have every dimension of `x` except the ensemble dimension, if the
+        metric has one, with matching coordinate values; it is transposed to
+        `x`'s order, not broadcast.
 
         Parameters
         ----------

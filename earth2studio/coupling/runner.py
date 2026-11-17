@@ -22,11 +22,12 @@ import math
 import zlib
 from collections.abc import Callable, Hashable, Iterator, Mapping, Sequence
 from itertools import chain
-from typing import Any
+from typing import Any, TypeAlias
 
 import numpy as np
 import torch
 import xarray as xr
+from loguru import logger
 
 from earth2studio.coupling._buffer import _Buffer
 from earth2studio.coupling._nodes import _Node, _node, _ns, _Slot
@@ -41,14 +42,19 @@ from earth2studio.coupling._schedule import (
 )
 from earth2studio.coupling.connector import Connector, _split_label
 from earth2studio.coupling.errors import CouplingError, _suggest
-from earth2studio.data import fetch_dataframe
+from earth2studio.data import (
+    DataSource,
+    ForecastSource,
+    fetch_dataframe,
+)
+from earth2studio.data.base import DataFrameSource, ForecastFrameSource
 from earth2studio.grids import infer_grid, same_geometry
+from earth2studio.models.px.utils import PrognosticMixin
 from earth2studio.models.utils import recommended_sources
 from earth2studio.perturbation import Perturbation
-from earth2studio.run._fields import _map_field, _with_lead_time
+from earth2studio.run._fields import _with_lead_time, map_field
 from earth2studio.run.runner import (
     DataRequest,
-    SlotSource,
     _check_perturbation,
     _fetch,
     _module_device,
@@ -61,6 +67,11 @@ from earth2studio.run.work import WorkItem
 from earth2studio.utils.coords import E2S_STATISTICS, coord_array_like
 from earth2studio.utils.time_statistics import apply_time_statistic
 from earth2studio.utils.type import CoordinateSystem
+
+# A source for any model slot: gridded fields, or DataFrames for observation slots.
+SlotSource: TypeAlias = (
+    DataSource | ForecastSource | DataFrameSource | ForecastFrameSource
+)
 
 _PROBE_TIME = np.datetime64("2000-01-01T00", "ns")
 
@@ -84,6 +95,14 @@ class CoupledRunner:
     output chunk;
     a diagnostic publishes every call.
 
+    A work item's final lead time must be a lead time at which some stateful
+    component's output is due. Components' ``front_hook`` and ``rear_hook`` are
+    not run (a warning is logged when one is set); use ``perturbation=`` or a
+    connector instead. Each producer keeps the history a short dry run of the
+    schedule reads, plus its longest step, so a reduction window much longer
+    than its consumer's step (about 30 h for a 6 h consumer) can fail partway
+    through a run.
+
     Items with several members run as one batch on a leading ``ensemble``
     dimension, observation frames shared by every member, seeded once from the
     first member, so stochastic members depend on their batch; ``member_batch=1``
@@ -101,9 +120,10 @@ class CoupledRunner:
     sources : Mapping[str, SlotSource | tuple[SlotSource | None, ...]], optional
         Sources per component in input-then-forcing slot order, like
         ``default_sources()``; a single source covers the first input slot. Slots
-        left out use the model's recommendation, by default None. Connected
-        slots use their source only for frames valid at or before the item time
-        that the producer does not hold.
+        left out use the model's recommendation, by default None. If neither
+        source is available, a DataFrame slot receives None; gridded inputs
+        still need a source. Connected slots use their source only for frames
+        valid at or before the item time that the producer does not hold.
     seed : int, optional
         Base seed for per-member seeding of stochastic components, by default 0.
         Each component offsets it by a hash of its name, so components draw
@@ -201,6 +221,13 @@ class CoupledRunner:
             self.nodes, self.connectors, self.spacing, self.states
         )
         self._retention = self._plan_retention()
+        for name, node in self.nodes.items():
+            hooks = [h for h in ("front_hook", "rear_hook") if _has_hook(node.model, h)]
+            if node.stateful and hooks:
+                logger.warning(
+                    f"CoupledRunner does not run {' or '.join(hooks)} on component "
+                    f"{name!r}; use perturbation= or a connector instead"
+                )
         self.regridders = {
             c: c.regridder for c in self._all_connectors() if c.regridder is not None
         }
@@ -415,6 +442,27 @@ class CoupledRunner:
             return _module_device(model)
         return self.device
 
+    def _final(self, final_lead_time: np.timedelta64) -> int:
+        """``final_lead_time`` in nanoseconds, checked against the schedule.
+
+        A run ends where some stateful component's output is due, as a
+        :class:`~earth2studio.run.PrognosticRunner` ends on a step; any other
+        final lead time would end the run early without an error.
+        """
+        final = int(_ns(final_lead_time)[0])
+        if final < 0:
+            raise ValueError(f"Final lead time {final_lead_time} must be non-negative")
+        ticks = self._scheduler.ticks(final)
+        if final != 0 and (not ticks or ticks[-1] != final):
+            finest = min(n.cadence for n in self.nodes.values() if n.stateful)
+            last = _fmt(ticks[-1])[1:] if ticks else "0h"
+            raise ValueError(
+                f"Final lead time {final_lead_time} is not a lead time at which any "
+                f"component's output is due (the finest component step is "
+                f"{_fmt(finest)[1:]}); the run would end early, at {last}"
+            )
+        return final
+
     def _all_connectors(self) -> list[Connector]:
         states = [c for connectors in self.states.values() for c in connectors]
         feeding = [c for connectors in self.connectors.values() for c in connectors]
@@ -425,7 +473,7 @@ class CoupledRunner:
     ) -> Mapping[str, CoordinateSystem]:
         """Return each component's stream signature through ``final_lead_time``."""
         leads: dict[tuple[str, int], list[int]] = {}
-        for event in self._scheduler.run(_Planner(), _final(final_lead_time)):
+        for event in self._scheduler.run(_Planner(), self._final(final_lead_time)):
             for slot in event.slots:
                 key = (event.node.name, slot)
                 leads.setdefault(key, []).extend(int(v) for v in event.leads)
@@ -447,7 +495,7 @@ class CoupledRunner:
     def data_requests(self, item: WorkItem) -> tuple[DataRequest, ...]:
         """Describe every ``fetch_data`` call ``item`` makes, in run order."""
         requests = _Requests(self, item)
-        for _ in self._scheduler.run(requests, _final(item.final_lead_time)):
+        for _ in self._scheduler.run(requests, self._final(item.final_lead_time)):
             pass
         return tuple(requests.requests)
 
@@ -462,7 +510,7 @@ class CoupledRunner:
             )
         execution = _Execution(self, item)
         for event in self._scheduler.run(
-            execution, _final(item.final_lead_time), retention=self._retention
+            execution, self._final(item.final_lead_time), retention=self._retention
         ):
             if event.slots and event.frames is not None:
                 yield dict(zip(event.streams, event.frames))
@@ -498,8 +546,8 @@ class CoupledRunner:
             )
         if not self._all_connectors():
             lines.append("  none")
-        lines.append(f"Schedule through {_fmt(_final(final_lead_time))}:")
-        for event in self._scheduler.run(_Planner(), _final(final_lead_time)):
+        lines.append(f"Schedule through {_fmt(self._final(final_lead_time))}:")
+        for event in self._scheduler.run(_Planner(), self._final(final_lead_time)):
             published = ", ".join(_fmt(v) for v in event.leads)
             reads = "; ".join(
                 [_describe_plan(plan) for plan in event.plans]
@@ -519,8 +567,7 @@ class CoupledRunner:
 class _Requests:
     """Planning executor recording every ``fetch_data`` call a run would make.
 
-    DataFrame slots are fetched with ``fetch_dataframe``, which ``DataRequest``
-    does not describe; they are checked for a source but not recorded.
+    DataFrame slots are not recorded: ``DataRequest`` describes gridded fetches.
     """
 
     def __init__(self, runner: CoupledRunner, item: WorkItem | None = None) -> None:
@@ -531,9 +578,9 @@ class _Requests:
         self.requests: list[DataRequest] = []
 
     def _add(self, node: _Node, slot: _Slot, labels: Sequence[str], leads: Any) -> None:
-        source = _source(self.runner, node, slot)
         if slot.frame:
             return
+        source = _source(self.runner, node, slot)
         self.requests.append(
             DataRequest(
                 source,
@@ -586,6 +633,8 @@ class _Execution:
         lead_time = np.asarray(leads, dtype=np.int64).astype("timedelta64[ns]")
         device = self.runner.device_of(node.name)
         if slot.frame:
+            if source is None:
+                return None
             frame = fetch_dataframe(
                 source,  # type: ignore[arg-type]
                 time,
@@ -764,7 +813,7 @@ class _Execution:
             if len(parts) == 1
             else xr.concat(parts, dim="lead_time", combine_attrs="override")
         )
-        x = _map_field(x, plan.slot.signature)
+        x = map_field(x, plan.slot.signature)
         # Reductions carry the slot's temporal-statistics metadata, as fetch_data's do.
         x.attrs = {k: v for k, v in x.attrs.items() if k != E2S_STATISTICS}
         statistics = plan.slot.field.attrs.get(E2S_STATISTICS)
@@ -824,7 +873,7 @@ class _Execution:
         labels = [str(v) for v in piece.coords["variable"].values]
         signature = coord_array_like(plan.slot.signature, {"variable": labels})
         try:
-            piece = _map_field(piece, signature)
+            piece = map_field(piece, signature)
         except ValueError as error:
             raise CouplingError(
                 f"Connector {connector}: delivered state does not match "
@@ -856,11 +905,11 @@ class _Execution:
 # -- helpers -------------------------------------------------------------------
 
 
-def _final(final_lead_time: np.timedelta64) -> int:
-    final = int(_ns(final_lead_time)[0])
-    if final < 0:
-        raise ValueError(f"Final lead time {final_lead_time} must be non-negative")
-    return final
+def _has_hook(model: Any, name: str) -> bool:
+    """Whether ``model`` sets an iterator hook other than the pass-through."""
+    hook = getattr(model, name, None)
+    default = getattr(PrognosticMixin, name)
+    return hook is not None and getattr(hook, "__func__", hook) is not default
 
 
 def _component_seed(base: int, name: str) -> int:
@@ -903,8 +952,8 @@ def _source(runner: CoupledRunner, node: _Node, slot: _Slot) -> Any:
             runner._recommended[node.name] = tuple(recommended)
         recommended = runner._recommended[node.name]
         source = recommended[position] if position < len(recommended) else None
-    if source is None:
-        hint = " or connect the slot" if slot.forcing and not slot.frame else ""
+    if source is None and not slot.frame:
+        hint = " or connect the slot" if slot.forcing else ""
         raise CouplingError(
             f"Component {node.name!r} {slot} needs a source: pass one in sources" + hint
         )

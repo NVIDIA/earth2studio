@@ -637,7 +637,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         longitudes = (
             torch.from_numpy(np.load(package.resolve("lon.npy"))) + 360.0
         ) % 360.0
-        hrrr_y, hrrr_x = HRRR.HRRR_Y, HRRR.HRRR_X
+        grid_y, grid_x = HRRR.HRRR_Y, HRRR.HRRR_X
         full_y, full_x = latitudes.shape[0], longitudes.shape[1]
         anchor_y = int((full_y - image_size[0]) / 2)
         anchor_x = int((full_x - image_size[1]) / 2)
@@ -647,8 +647,8 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         longitudes = StormScopeBase._crop_invariant(
             longitudes, image_size, spatial_downsample
         )
-        y = hrrr_y[anchor_y : anchor_y + image_size[0]][::spatial_downsample]
-        x = hrrr_x[anchor_x : anchor_x + image_size[1]][::spatial_downsample]
+        y = grid_y[anchor_y : anchor_y + image_size[0]][::spatial_downsample]
+        x = grid_x[anchor_x : anchor_x + image_size[1]][::spatial_downsample]
 
         # Input/output timesteps configuration
         if pkg["sliding_window"]:
@@ -1450,6 +1450,10 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         this is safe to call before or after moving the model to a device.
         Repeated calls are a no-op.
 
+        CUDA graphs are disabled with pluggable allocators (including RMM),
+        which lack the pool bookkeeping required by CUDA Graph Trees:
+        https://github.com/pytorch/pytorch/issues/163257
+
         Parameters
         ----------
         mode : str, optional
@@ -1461,10 +1465,18 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if self._is_flash:
             self._flash_plan = None
             self._flash_plan_sources = ()
+        compile_kwargs: dict[str, Any] = {"mode": mode}
+        if (
+            torch.cuda.is_available()
+            and torch.cuda.memory.get_allocator_backend() == "pluggable"
+        ):
+            options = dict(torch._inductor.list_mode_options(mode))
+            options["triton.cudagraphs"] = False
+            compile_kwargs = {"options": options}
         for i in range(len(self.stage_models)):
             self.stage_models[i] = torch.compile(
                 self.stage_models[i],
-                mode=mode,
+                **compile_kwargs,
                 dynamic=False if self._is_flash else None,
             )
         self._experts_compiled = True
@@ -1674,9 +1686,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         if conditioning is None:
             packed, restore = batch_func()._compress_array(self, x)
             tensor, coords = packed.e2s.to_torch()
-            tensor, coords = self.prep_input(
-                tensor.to(self.means.device).clone(), coords
-            )
+            tensor, coords = self.prep_input(tensor.to(self.means.device), coords)
             out = from_torch(
                 self._forward_tensor(tensor, coords),
                 self.output_coords(packed),
@@ -1720,7 +1730,7 @@ class StormScopeBase(torch.nn.Module, AutoModelMixin, PrognosticMixin):
         output_coords = self.output_coords(packed)
         x, tensor_coords = packed.e2s.to_torch()
         conditioning, conditioning_coords = condition.e2s.to_torch()
-        x = x.to(self.means.device).clone()
+        x = x.to(self.means.device)
         conditioning = conditioning.to(self.means.device)
         x, x_coords = self.prep_input(x, tensor_coords)
         conditioning, conditioning_coords = self.prep_input(

@@ -157,6 +157,14 @@ class HRRRLexicon(metaclass=LexiconType):
                 # x (kg m-2) / 1000 (kg m-3) = (m)
                 return x / 1000.0
 
+        elif hrrr_key.split("::")[1] == "WEASD":
+
+            # WEASD in HRRR is (kg m-2), convert to snow depth in (m) of water equivalent
+            def mod(x: np.ndarray) -> np.ndarray:
+                # Assume density of water is 1000 kg m-3
+                # x (kg m-2) / 1000 (kg m-3) = (m)
+                return x / 1000.0
+
         else:
 
             def mod(x: np.array) -> np.array:
@@ -297,6 +305,14 @@ class HRRRFXLexicon(metaclass=LexiconType):
         elif hrrr_key.split("::")[1] == "APCP":
 
             # TP in HRRR is (kg m-2) param id 228228, convert to (m) param id 228
+            def mod(x: np.ndarray) -> np.ndarray:
+                # Assume density of water is 1000 kg m-3
+                # x (kg m-2) / 1000 (kg m-3) = (m)
+                return x / 1000.0
+
+        elif hrrr_key.split("::")[1] == "WEASD":
+
+            # WEASD in HRRR is (kg m-2), convert to snow depth in (m) of water equivalent
             def mod(x: np.ndarray) -> np.ndarray:
                 # Assume density of water is 1000 kg m-3
                 # x (kg m-2) / 1000 (kg m-3) = (m)

@@ -45,21 +45,15 @@ see
 # Set Up
 # ------
 # All workflows inside Earth2Studio require constructed components to be
-# handed to them. In this example, let's take a look at the most basic ensemble workflow:
-# [`earth2studio.run.ensemble`][earth2studio.run.ensemble].
+# handed to them. In this example, we run an ensemble forecast with
+# [`earth2studio.run.Pipeline`][earth2studio.run.Pipeline], where each ensemble member
+# is a work item produced by [`earth2studio.run.work_items`][earth2studio.run.work_items].
 
 # %%
-# .. literalinclude:: ../../earth2studio/run/__init__.py
-#    :language: python
-#    :start-after: # sphinx - ensemble start
-#    :end-before: # sphinx - ensemble end
-
-# %%
-# Thus, we need the following:
+# We need the following:
 #
 # - Prognostic Model: Use the built in StormCast-CONUS Model [`earth2studio.models.px.StormCastCONUS`][earth2studio.models.px.StormCastCONUS].
-# - perturbation_method: Use the Zero Method [`earth2studio.perturbation.Zero`][earth2studio.perturbation.Zero]. We will not
-#    perturb the initial data because StormCast has stochastic generation of  ensemble members.
+#   We will not perturb the initial data because StormCast has stochastic generation of ensemble members.
 # - Datasource: Pull data from the HRRR data api [`earth2studio.data.HRRR`][earth2studio.data.HRRR].
 # - IO Backend: Let's save the outputs into a Zarr store [`earth2studio.io.ZarrBackend`][earth2studio.io.ZarrBackend].
 #
@@ -85,16 +79,12 @@ load_dotenv()  # TODO: make common example prep function
 from earth2studio.data import HRRR
 from earth2studio.io import ZarrBackend
 from earth2studio.models.px import StormCastCONUS
-from earth2studio.perturbation import Zero
 
 # Load the default model package which downloads the checkpoint from HuggingFace.
 # Global conditioning comes from the model's default sources: GFS forecasts
 # regridded onto the HRRR grid.
 package = StormCastCONUS.load_default_package()
 model = StormCastCONUS.load_model(package)
-
-# Instantiate the (Zero) perturbation method
-z = Zero()
 
 # Create the data source
 data = HRRR()
@@ -105,32 +95,34 @@ io = ZarrBackend()
 # %%
 # Execute the Workflow
 # --------------------
-# With all components initialized, running the workflow is a single line of Python code.
-# Workflow will return the provided IO object back to the user, which can be used to
-# then post process. Some have additional APIs that can be handy for post-processing or
+# With all components initialized, the pipeline fetches the initial condition and
+# conditioning, rolls out each ensemble member and writes it into the IO object, which
+# can then be used to post process. Some have additional APIs that can be handy for post-processing or
 # saving to file. Check the API docs for more information.
 #
 # For the forecast we will predict for 4 hours
 
 # %%
-import earth2studio.run as run
+import torch
+
+from earth2studio.run import Pipeline, work_items
 
 nsteps = 4
 nensemble = 2
-batch_size = 2
 
 date = "2022-11-04T18:00:00"
-io = run.ensemble(
-    [date],
-    nsteps,
-    nensemble,
+items = work_items(
+    [np.datetime64(date)],
+    final_lead_time=np.timedelta64(nsteps, "h"),
+    members=nensemble,
+)
+Pipeline.from_model(
     model,
     data,
-    io,
-    z,
-    batch_size=batch_size,
-    output_coords={"variable": np.array(["t2m", "refc"])},
-)
+    output={"forecast": io},
+    output_variables={"forecast": ["t2m", "refc"]},
+    device="cuda" if torch.cuda.is_available() else "cpu",
+).run(items)
 
 print(io.root.tree())
 

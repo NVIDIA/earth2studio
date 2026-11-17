@@ -190,7 +190,7 @@ class _Scheduler:
         bounds how far back each producer's frames are kept; ``ages`` collects the
         oldest frame each producer had to supply, to derive it.
         """
-        run = _Run(self, executor, final, ages)
+        run = _Run(self, executor, final, ages, retention)
         yield from run.initialize()
         yield from run.drain(0, 0)
         for ordinal, tick in enumerate(self.ticks(final), start=1):
@@ -210,11 +210,13 @@ class _Run:
         executor: _Executor,
         final: int,
         ages: dict[str, int] | None,
+        retention: Mapping[str, int] | None = None,
     ) -> None:
         self.s = scheduler
         self.executor = executor
         self.final = final
         self.ages = ages
+        self.retention = retention
         self.buffers = {name: _Buffer() for name in scheduler.nodes}
         self.next_chunk = {
             name: 0 for name, node in scheduler.nodes.items() if node.stateful
@@ -521,6 +523,12 @@ class _Run:
                     f": {producer!r} publishes no frames after the item time for "
                     f"{label!r} over its window ending at {_fmt(lead)}"
                 )
+                if self.retention is not None and producer in self.retention:
+                    kept = _fmt(self.retention[producer])[1:]
+                    detail += (
+                        f", or its frames are older than the {kept} of "
+                        f"{producer!r} history the runner keeps"
+                    )
                 hint = "Reductions cannot hold; check"
         raise CouplingError(
             f"Component {name!r} cannot produce its output due at {_fmt(due)}"

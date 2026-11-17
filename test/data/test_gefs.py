@@ -27,9 +27,7 @@ import xarray as xr
 from earth2studio.data import GEFS_FX, GEFS_FX_721x1440
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time,lead_time,variable",
     [
@@ -78,9 +76,7 @@ def test_gefs_0p50_fetch(time, lead_time, variable):
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time,lead_time,variable",
     [
@@ -116,9 +112,7 @@ def test_gefs_0p25_fetch(time, lead_time, variable):
     assert np.array_equal(data.coords["variable"].values, np.array(variable))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize("product", ["gec00", "gep01", "gep30"])
 def test_gefs_products(product):
     time = datetime(year=2022, month=12, day=25)
@@ -138,9 +132,7 @@ def test_gefs_products(product):
     assert np.array_equal(data.coords["variable"].values, np.array([variable]))
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(30)
+@pytest.mark.live(timeout=30)
 @pytest.mark.parametrize(
     "time",
     [

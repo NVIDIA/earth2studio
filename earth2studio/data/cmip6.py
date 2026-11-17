@@ -40,7 +40,11 @@ except ImportError:
     intake_esgf = None
     griddata = None
 
-from earth2studio.data.utils import datasource_cache_root, prep_data_inputs
+from earth2studio.data.utils import (
+    datasource_cache_root,
+    prep_data_inputs,
+)
+from earth2studio.grids import with_grid_metadata
 from earth2studio.lexicon.cmip6 import CMIP6Lexicon
 from earth2studio.utils.type import TimeArray, VariableArray
 
@@ -113,7 +117,9 @@ class CMIP6:
     ----
     By default, this data source will retrieve the closest time available using nearest
     neighbor matching. Depending on the experiment and temporal resolution, this may be
-    significantly different than what was requested. Set `exact_time_match=True` to
+    significantly different than what was requested. The returned data is labelled
+    with the requested times and carries the snapshot times actually sampled in the
+    auxiliary ``time_selected`` coordinate. Set `exact_time_match=True` to
     enforce exact time matching if precise timestamps are critical.
 
     Badges
@@ -303,9 +309,10 @@ class CMIP6:
             data=np.empty((len(time), len(variable), *grid_shape), dtype=np.float32),
             dims=["time", "variable", *da_dims_xy],
             coords={
-                "time": selected_times_dt,
-                # Keep the originally requested timestamps alongside the actual sampled times
-                "time_requested": ("time", requested_times),
+                # Label data with the requested times, as every data source does;
+                # the snapshots actually sampled are kept alongside for reference.
+                "time": requested_times,
+                "time_selected": ("time", selected_times_dt),
                 "variable": variable,
                 **coord_dict,
             },
@@ -364,7 +371,7 @@ class CMIP6:
         if not self._cache:
             shutil.rmtree(self.cache)
 
-        return da
+        return with_grid_metadata(da)
 
     @classmethod
     def available(
@@ -770,7 +777,7 @@ class CMIP6MultiRealm:
 
         # Reorder variables to match the requested order
         result = result.sel(variable=variable)
-        return result
+        return with_grid_metadata(result)
 
     @classmethod
     def available(
@@ -958,4 +965,6 @@ class CMIP6MultiRealm:
         coords = target_da.coords.copy()
         coords["variable"] = da_curvilinear.coords["variable"]
 
-        return xr.DataArray(regridded_data, dims=target_da.dims, coords=coords)
+        return with_grid_metadata(
+            xr.DataArray(regridded_data, dims=target_da.dims, coords=coords)
+        )

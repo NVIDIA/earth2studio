@@ -571,33 +571,37 @@ def test_collections(fake_client) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.slow
-@pytest.mark.xfail()
-@pytest.mark.timeout(120)
+@pytest.mark.live(timeout=120)
 def test_live_planetary_computer_landsat_window() -> None:
-    da = stac.search(
-        "landsat-c2-l2",
-        ["red", "nir08"],
-        bbox=[-122.55, 37.70, -122.35, 37.85],
-        time_range="2024-10-27/2024-12-31",
-        query={"eo:cloud_cover": {"lt": 5}},
-        max_items=2,
-    )
-    assert len(da.attrs["stac_items"]) >= 1 and da.chunks is not None
-    assert da.dims == ("time", "variable", "y", "x")
-    assert da.rio.crs.to_epsg() == 32610
-    red = da.sel(variable="red").isel(time=0).compute()
-    valid = red.values[np.isfinite(red.values)]
-    assert valid.size > 0 and valid.min() >= -0.2 and valid.max() <= 1.6
-    # Single-asset path on a real item, raw dtype preserved
-    item = stac.search_items("landsat-c2-l2", ids=da.attrs["stac_items"][:1])[0]
-    qa = stac.open_asset(item, "qa_pixel", rescale=False, mask_nodata=False)
-    assert qa.dtype == np.uint16 and qa.chunks is not None
+    import rasterio
+
+    # Retry transient asset throttling, including reads during lazy computation.
+    with rasterio.Env(
+        GDAL_HTTP_MAX_RETRY="3",
+        GDAL_HTTP_RETRY_DELAY="2",
+        GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR",
+    ):
+        da = stac.search(
+            "landsat-c2-l2",
+            ["red", "nir08"],
+            bbox=[-122.55, 37.70, -122.35, 37.85],
+            time_range="2024-10-27/2024-12-31",
+            query={"eo:cloud_cover": {"lt": 5}},
+            max_items=2,
+        )
+        assert len(da.attrs["stac_items"]) >= 1 and da.chunks is not None
+        assert da.dims == ("time", "variable", "y", "x")
+        assert da.rio.crs.to_epsg() == 32610
+        red = da.sel(variable="red").isel(time=0).compute()
+        valid = red.values[np.isfinite(red.values)]
+        assert valid.size > 0 and valid.min() >= -0.2 and valid.max() <= 1.6
+        # Single-asset path on a real item, raw dtype preserved
+        item = stac.search_items("landsat-c2-l2", ids=da.attrs["stac_items"][:1])[0]
+        qa = stac.open_asset(item, "qa_pixel", rescale=False, mask_nodata=False)
+        assert qa.dtype == np.uint16 and qa.chunks is not None
 
 
-@pytest.mark.slow
-@pytest.mark.xfail()
-@pytest.mark.timeout(120)
+@pytest.mark.live(timeout=120)
 def test_live_earth_search_sentinel2_window() -> None:
     da = stac.search(
         "sentinel-2-l2a",

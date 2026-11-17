@@ -333,9 +333,7 @@ def test_goes_glm_call_mock_bbox(tmp_path):
 # ---------------------------------------------------------------------------
 # Network integration tests (slow, xfail)
 # ---------------------------------------------------------------------------
-@pytest.mark.slow
-@pytest.mark.xfail
-@pytest.mark.timeout(120)
+@pytest.mark.live(timeout=120)
 def test_goes_glm_fetch():
     ds = GOESGLM(
         satellite="east",

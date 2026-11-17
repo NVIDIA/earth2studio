@@ -19,8 +19,7 @@
 :class:`Pipeline` drives any :class:`~earth2studio.run.runner.Runner`: it
 distributes work items over ranks, filters and regrids each yielded stream,
 hands it to an optional :class:`Scorer`, writes it to that stream's store, and
-records finished items so a run can resume. See
-``dev/spec/EXECUTION_CONTRACT_SPEC.md``.
+records finished items so a run can resume.
 """
 
 from __future__ import annotations
@@ -37,14 +36,15 @@ import torch
 import xarray as xr
 from loguru import logger
 
+from earth2studio.data import DataSource, ForecastSource
 from earth2studio.grids import infer_grid, same_geometry
 from earth2studio.grids.base import E2S_GRID_ID, Regridder
 from earth2studio.io.base import IOBackend
 from earth2studio.models.dx import DiagnosticModel
 from earth2studio.models.px import PrognosticModel
-from earth2studio.run._fields import _map_field
+from earth2studio.run._fields import map_field
 from earth2studio.run.output import OutputManager
-from earth2studio.run.runner import PrognosticRunner, Runner, Source
+from earth2studio.run.runner import PrognosticRunner, Runner
 from earth2studio.run.work import (
     ProgressStore,
     WorkItem,
@@ -112,7 +112,10 @@ class Pipeline:
         ``scorer`` is required; both may be given.
     output_variables : Mapping[str, Sequence[str]] | None, optional
         Variables kept per stream, in this order. Streams left out keep every
-        variable, by default None
+        variable. Each output keeps the selected variables it holds; an output
+        holding none of them, such as a lead-0 initial condition when only
+        output-only variables like ``tp06`` are selected, is skipped and the
+        store keeps NaN there, by default None
     regridder : Mapping[str, Regridder] | None, optional
         Regridder per stream, applied after variable filtering. Its
         ``source_grid`` must match the stream's grid; the stream is stored on
@@ -176,8 +179,8 @@ class Pipeline:
     def from_model(
         cls,
         prognostic: PrognosticModel,
-        source: Source | None = None,
-        forcing: tuple[Source, ...] | None = None,
+        source: DataSource | ForecastSource | None = None,
+        forcing: tuple[DataSource | ForecastSource, ...] | None = None,
         diagnostics: Mapping[str, DiagnosticModel] | None = None,
         seed: int = 0,
         **kwargs: Any,
@@ -336,7 +339,15 @@ class Pipeline:
             return
         variables = self.output_variables.get(stream)
         if variables is not None:
-            x = _select_variables(x, variables)
+            # An output may hold a subset of its stream's variables: the
+            # published initial condition lacks output-only variables. Keep the
+            # selected variables it holds; skip it if it holds none, leaving the
+            # store's fill value.
+            held = set(np.asarray(x["variable"].values).astype(str))
+            present = [name for name in variables if name in held]
+            if not present:
+                return
+            x = _select_variables(x, present)
         regridder = self.regridder.get(stream)
         if regridder is not None:
             x = regridder(x)
@@ -530,7 +541,7 @@ def _log_finished(rank: int, index: int, mine: list[WorkItem]) -> None:
 
 def _select_variables(x: xr.DataArray, variables: Sequence[str]) -> xr.DataArray:
     """Keep ``variables`` in order; works on fields and signatures alike."""
-    return _map_field(x, OrderedDict(variable=np.asarray(variables)))
+    return map_field(x, OrderedDict(variable=np.asarray(variables)))
 
 
 def _regridded_signature(

@@ -22,6 +22,7 @@ import pytest
 import torch
 
 from earth2studio.data import Random, fetch_data
+from earth2studio.models.conformance import check_prognostic_contract
 from earth2studio.models.px import FCN
 from earth2studio.utils.coords import coord_array
 from earth2studio.utils.cupy import from_torch
@@ -161,6 +162,14 @@ def test_fcn_iter(ensemble, device):
 
         if i > 5:
             break
+
+
+def test_fcn_conformance():
+    model = FCN(IncrementFCNModel(), torch.zeros(26, 1, 1), torch.ones(26, 1, 1))
+    assert check_prognostic_contract(model) == [
+        "P14: model does not declare itself stochastic",
+        "P21: checkpoint serialization requires component-specific tests",
+    ]
 
 
 def test_fcn_shifted_output_signature():

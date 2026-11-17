@@ -31,12 +31,10 @@ from earth2studio.data import (
 from earth2studio.data.utils import fetch_data
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
+@pytest.mark.live(timeout=15)
 @pytest.mark.skipif(
     int(version("zarr").split(".")[0]) < 3, reason="Test requires zarr version > 3.0"
 )
-@pytest.mark.timeout(15)
 @pytest.mark.parametrize(
     "time",
     [
@@ -70,12 +68,10 @@ def test_wb2era5_fetch(time, variable, Datasource):
     assert not np.isnan(data.values).any()
 
 
-@pytest.mark.slow
-@pytest.mark.xfail
+@pytest.mark.live(timeout=15)
 @pytest.mark.skipif(
     int(version("zarr").split(".")[0]) < 3, reason="Test requires zarr version > 3.0"
 )
-@pytest.mark.timeout(15)
 @pytest.mark.parametrize(
     "time",
     [np.array([np.datetime64("1993-04-05T00:00")])],
@@ -113,8 +109,7 @@ def test_wb2era5_cache(time, variable, cache, Datasource):
         pass
 
 
-@pytest.mark.xfail
-@pytest.mark.timeout(15)
+@pytest.mark.live(timeout=15)
 @pytest.mark.skipif(
     int(version("zarr").split(".")[0]) < 3, reason="Test requires zarr version > 3.0"
 )
@@ -146,17 +141,17 @@ def test_wb2era5_time_statistics_mock(mock_statistic_zarr, monkeypatch):
 
     assert data.shape == (1, 5, 2, 2)
     values = [float(data.sel(variable=v).values[0, 0, 0]) for v in variables]
-    # Window [-24h, 0h) is the four 6-hourly fields index-4 .. index-1
-    assert values == [index, index - 2.5, 4 * index - 10, index - 1, index - 2]
+    # Window (-24h, 0h] is the four 6-hourly fields index-3 .. index
+    assert values == [index, index - 1.5, 4 * index - 6, index, index - 1]
     assert set(data.attrs["earth2studio_statistics"]) == set(variables[1:])
     # Plain and statistic paths read 6-hourly fields up to the instantaneous one
-    assert set(reads) == set(range(index - 4, index + 1))
+    assert set(reads) == set(range(index - 3, index + 1))
     # A window that is not a multiple of the 6 hour cadence is rejected
     with pytest.raises(ValueError, match="divisible"):
         ds(time, ["t2m:mean:9h"])
 
     reads.clear()
-    data = ds(time, ["t2m", "t2m:mean:+0h:+12h"])
+    data = ds(time, ["t2m", "t2m:mean:-6h:+6h"])
     np.testing.assert_allclose(data.values[0, :, 0, 0], [index, index + 0.5])
     assert set(reads) == {index, index + 1}
 
@@ -166,8 +161,8 @@ def test_wb2era5_time_statistics_mock(mock_statistic_zarr, monkeypatch):
         np.array([time], dtype="datetime64[ns]"),
         np.array(["t2m:mean:24h"]),
     )
-    assert data.values[0, 0, 0, 0, 0] == index - 2.5
-    assert set(reads) == set(range(index - 4, index))
+    assert data.values[0, 0, 0, 0, 0] == index - 1.5
+    assert set(reads) == set(range(index - 3, index + 1))
 
     # Both native entry points reject equivalent requests before fetching samples.
     reads.clear()
