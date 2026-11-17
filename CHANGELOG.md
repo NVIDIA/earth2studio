@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added ACE2S-X-SHiELD (`ACE2SXSHiELD`) and the HiROv2 downscaler, plus
+  `ACE2SXSHiELDData` for the published X-SHiELD initial conditions and forcing.
+  Both models use the existing `ace2` extra.
 - Added standalone `DLESyMAtmos` and `DLESyMOcean` components (plus
   `DLESyMv0_ISCCP_ERA5Atmos`/`Ocean`) that run under `CoupledRunner`; the DLESyM
   example now runs under `Pipeline`.
@@ -33,6 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 ### Dependencies
+
+- Moved the `ace2` extra's fme git pin from `e211cad` to ace tag `v2026.8.1`
+  (`89cf37e`). This is the first fme release that loads ACE2S-X-SHiELD and
+  HiRO-ACEv2. It may change ACE2-ERA5 outputs, because 2026.8.1 changes
+  `conserve_dry_air`; re-validate ACE2-ERA5 results before relying on exact
+  numbers.
 
 ## [0.20.0] - 2026-10-29
 

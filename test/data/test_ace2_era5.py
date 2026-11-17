@@ -24,7 +24,7 @@ import pytest
 import xarray as xr
 
 import earth2studio.data.ace2 as ace2_module
-from earth2studio.data import ACE2ERA5Data
+from earth2studio.data import ACE2ERA5Data, ACE2SXSHiELDData
 
 
 @pytest.mark.live(timeout=60)
@@ -198,3 +198,39 @@ def test_ace2era5_co2_fn_override():
     # Check each time slice is constant and equals expected
     for i in range(len(times)):
         assert np.allclose(vals[i], expected[i])
+
+
+def test_ace2s_xshield_julian_time_labels(monkeypatch, tmp_path):
+    cftime = pytest.importorskip("cftime")
+    times = [cftime.DatetimeJulian(2014, month, 1, 0, 0) for month in (1, 2)]
+    lat = ACE2SXSHiELDData(mode="initial_conditions", verbose=False).lat
+    lon = ACE2SXSHiELDData(mode="initial_conditions", verbose=False).lon
+    values = np.stack(
+        [np.full((len(lat), len(lon)), month, dtype=np.float32) for month in (1, 2)]
+    )
+    dataset = xr.Dataset(
+        data_vars={"UGRD10m": (("time", "latitude", "longitude"), values)},
+        coords={
+            "time": xr.DataArray(times, dims="time"),
+            "latitude": lat,
+            "longitude": lon,
+        },
+    )
+
+    cache_file = tmp_path / "ace2s_xshield_data" / "initial_conditions" / "ic_2014.nc"
+    cache_file.parent.mkdir(parents=True)
+    cache_file.touch()
+    monkeypatch.setattr(ace2_module, "datasource_cache_root", lambda: str(tmp_path))
+    monkeypatch.setattr(ace2_module.xr, "open_dataset", lambda *_, **__: dataset)
+
+    ds = ACE2SXSHiELDData(mode="initial_conditions", cache=True, verbose=False)
+    requested = [datetime.datetime(2014, 1, 1), datetime.datetime(2014, 2, 1)]
+    da = ds(requested, ["u10m"])
+
+    assert da.dims == ("time", "variable", "lat", "lon")
+    assert np.array_equal(
+        da.coords["time"].values,
+        np.array(["2014-01-01", "2014-02-01"], dtype="datetime64[ns]"),
+    )
+    assert np.all(da.isel(time=0).values == 1.0)
+    assert np.all(da.isel(time=1).values == 2.0)

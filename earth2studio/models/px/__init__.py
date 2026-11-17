@@ -17,6 +17,7 @@
 import warnings
 
 from earth2studio.models.px.ace2 import ACE2ERA5
+from earth2studio.models.px.ace2s_xshield import ACE2SXSHiELD
 from earth2studio.models.px.aifs import AIFS
 from earth2studio.models.px.aifs2 import AIFS2
 from earth2studio.models.px.aifs2ens import AIFS2ENS

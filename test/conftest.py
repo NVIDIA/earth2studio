@@ -88,6 +88,8 @@ _TEST_DEPENDENCIES: dict[str, list[str]] = {
     # Model px tests
     "test/models/px/test_weathermesh5c.py": ["weathermesh5c"],
     "test/models/px/test_ace2.py": ["ace2"],
+    "test/models/px/test_ace2s_xshield.py": ["ace2"],
+    "test/models/dx/test_hirov2.py": ["ace2"],
     "test/models/px/test_aifs.py": ["aifs"],
     "test/models/px/test_aifsens.py": ["aifsens"],
     "test/models/px/test_aifs2.py": ["aifs2"],

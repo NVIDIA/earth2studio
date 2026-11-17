@@ -38,6 +38,7 @@ def _build_variable_mappings() -> tuple[dict[str, str], dict[str, str]]:
         "t2m": "TMP2m",
         "q2m": "Q2m",
         "sp": "PRESsfc",
+        "msl": "PRMSL",
         "skt": "surface_temperature",
         "z": "HGTsfc",
         "mtdwswrf": "DSWRFtoa",
@@ -59,6 +60,7 @@ def _build_variable_mappings() -> tuple[dict[str, str], dict[str, str]]:
         "msshf": "SHTFLsfc",
         "mslhf": "LHTFLsfc",
         "mttwp": "tendency_of_total_water_path_due_to_advection",
+        "frzp": "total_frozen_precipitation_rate",
     }
     # Model levels (k = 0..7)
     for k in range(8):

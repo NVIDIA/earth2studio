@@ -68,6 +68,9 @@ categories:
         summary: ACE-2 model dependencies.
         api_refs:
           - earth2studio.models.px.ACE2ERA5
+          - earth2studio.models.px.ACE2SXSHiELD
+          - earth2studio.models.dx.HiROv2
+          - earth2studio.data.ACE2SXSHiELDData
       - id: camulator
         label: CAMulator
         extra: camulator
