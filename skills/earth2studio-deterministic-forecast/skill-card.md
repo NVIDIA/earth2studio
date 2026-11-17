@@ -1,5 +1,5 @@
 ## Description: <br>
-Build deterministic forecast scripts with Earth2Studio (model, data source, IO, inference). <br>
+Build single-member forecast scripts with Earth2Studio, including diagnostic postprocessing with Pipeline. <br>
 
 This skill is ready for commercial/non-commercial use. <br>
 
@@ -9,7 +9,7 @@ NVIDIA <br>
 ### License/Terms of Use: <br>
 Apache-2.0 <br>
 ## Use Case: <br>
-Developers and engineers building deterministic single-member weather forecast inference scripts using Earth2Studio prognostic models. <br>
+Developers and engineers building single-member weather forecasts, optionally adding diagnostic models and separate output streams with Pipeline. Standalone diagnostics and ensembles are outside this skill's scope. <br>
 
 ### Deployment Geography for Use: <br>
 Global <br>
@@ -20,10 +20,13 @@ Mitigation: Review and scan skill before deployment. <br>
 
 ## Reference(s): <br>
 - [Prognostic Models](https://nvidia.github.io/earth2studio/main/modules/models_px/) <br>
+- [Diagnostic Models](https://nvidia.github.io/earth2studio/main/modules/models_dx/) <br>
 - [Data Sources (Analysis)](https://nvidia.github.io/earth2studio/main/modules/datasources_analysis/) <br>
 - [Data Sources (Forecast)](https://nvidia.github.io/earth2studio/main/modules/datasources_forecast/) <br>
 - [IO Backends](https://nvidia.github.io/earth2studio/main/modules/io/) <br>
 - [run.deterministic source](https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/run/__init__.py) <br>
+- [Pipeline source](https://github.com/NVIDIA/earth2studio/blob/main/earth2studio/run/pipeline.py) <br>
+- [Pipeline example](https://github.com/NVIDIA/earth2studio/blob/main/dev/examples/09_pipeline.py) <br>
 - [Troubleshooting Guide](references/troubleshooting.md) <br>
 
 

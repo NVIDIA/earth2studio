@@ -23,7 +23,7 @@
 
 ## GPU Dependency Wheels { #gpu-dependency-wheels }
 
-FlashAttention and NATTEN are common installation trouble spots. Before building
+FlashAttention and NATTEN can take a long time to build. Before building
 from source, check for prebuilt wheels compatible with the model's requirements,
 Python ABI, OS/architecture, PyTorch build, CUDA build, and GPU capability.
 Use `torch.__version__` and `torch.version.cuda` to identify the Torch build;

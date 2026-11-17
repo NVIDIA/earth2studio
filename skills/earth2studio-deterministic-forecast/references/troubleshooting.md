@@ -32,6 +32,26 @@ sources have limited history.
 | XarrayBackend | In-memory, small runs, interactive exploration |
 | KVBackend | Key-value dict, debugging |
 
+## Forecast + Diagnostic Compatibility
+
+- Check diagnostic input variables, units/statistics, temporal dimensions, grid,
+  and slot count against the full prognostic output. `Pipeline.from_model`
+  applies each single-input, single-output diagnostic independently to forecast
+  fields; it does not fetch missing diagnostic inputs or chain diagnostics.
+- Keep inputs until after diagnosis. Pipeline's `output_variables` and
+  `regridder` operate on published streams, so filtering the saved forecast does
+  not remove diagnostic inputs. Output regridding cannot repair a mismatch
+  between the forecast grid and the diagnostic input grid.
+- If a diagnostic needs variables present only in forecast outputs, inspect
+  `PrognosticRunner.output_coords` and `_publish` for the installed release.
+  This checkout applies every diagnostic to a published initial condition, so
+  missing lead-zero inputs fail. Upstream `1.0.0-rc` skips those diagnostics at
+  lead zero and starts their streams at the first forecast. Do not promise
+  identical lead axes for every model pair or fill missing inputs with zeros.
+- Use one backend per named stream. `forecast` is reserved; a diagnostic key
+  must match its `output` entry to be saved. Check `runner.output_coords(horizon)`
+  for planned stream variables and leads before fetching data.
+
 ## Limitations
 
 - Only deterministic (single-member) forecasts; use ensemble workflow for probabilistic runs

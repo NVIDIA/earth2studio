@@ -156,7 +156,7 @@ incomplete.
 
 ## FlashAttention and NATTEN wheels
 
-These dependencies are common installation trouble spots. Prefer a compatible
+These dependencies can take a long time to build. Prefer a compatible
 prebuilt wheel over a lengthy source build; check the live sources above each time.
 
 1. Establish the selected model's dependency constraints and the environment's

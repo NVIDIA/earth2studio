@@ -85,19 +85,20 @@ categories:
         summary: ECMWF AIFS model dependencies.
         api_refs:
           - earth2studio.models.px.AIFS
-        warnings:
+        notes:
           - &flash_attn_wheels
-            text: Depends on flash-attn. Check Astral GPU prebuilt wheels for your
-              Python, PyTorch and CUDA build before compiling from source.
-            href: https://nvidia.github.io/earth2studio/main/userguide/about/install/#gpu-dependency-wheels
-            label: FlashAttention wheel setup
+            text: >-
+              FlashAttention (flash-attn) can take a long time to build.
+              Compatible prebuilt wheels are available from the Astral GPU index.
+            href: https://wheels.astral.sh/
+            label: Astral GPU index
       - id: aifsens
         label: AIFS Ensemble
         extra: aifsens
         summary: ECMWF AIFS ensemble model dependencies.
         api_refs:
           - earth2studio.models.px.AIFSENS
-        warnings:
+        notes:
           - *flash_attn_wheels
       - id: aifs2
         label: AIFS 2.0
@@ -105,7 +106,7 @@ categories:
         summary: ECMWF AIFS 2.0 model dependencies.
         api_refs:
           - earth2studio.models.px.AIFS2
-        warnings:
+        notes:
           - *flash_attn_wheels
       - id: aifs2ens
         label: AIFS 2.0 Ensemble
@@ -113,7 +114,7 @@ categories:
         summary: ECMWF AIFS 2.0 ensemble model dependencies.
         api_refs:
           - earth2studio.models.px.AIFS2ENS
-        warnings:
+        notes:
           - *flash_attn_wheels
       - id: atlas
         label: Atlas
@@ -122,13 +123,13 @@ categories:
         api_refs:
           - earth2studio.models.px.Atlas
           - earth2studio.models.px.AtlasCRPS
-        warnings:
+        notes:
           - &natten_wheels
-            text: Depends on natten for Python versions before 3.14. Check
-              whl.natten.org for a matching prebuilt wheel and verify libnatten
-              is included when required by the model.
-            href: https://nvidia.github.io/earth2studio/main/userguide/about/install/#gpu-dependency-wheels
-            label: NATTEN wheel setup
+            text: >-
+              NATTEN (required for Python versions before 3.14) can take a long
+              time to build. Compatible prebuilt wheels are available from NATTEN.
+            href: https://whl.natten.org
+            label: NATTEN prebuilt wheels
       - id: aurora
         label: Aurora
         extra: aurora
@@ -328,7 +329,7 @@ categories:
           uv:
             pypi:
               - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
-        warnings:
+        notes:
           - *natten_wheels
       - id: stormscope
         label: StormScope
@@ -338,7 +339,7 @@ categories:
           - earth2studio.models.px.StormScopeGOES
           - earth2studio.models.px.StormScopeMRMS
           - earth2studio.models.dx.StormScopeDxNSRDB
-        warnings:
+        notes:
           - *natten_wheels
       - id: ucast
         label: UCast
@@ -385,7 +386,7 @@ categories:
           uv:
             pypi:
               - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@426f7552da4b4fa675e404e8a4f437e27681b668"'
-        warnings:
+        notes:
           - *natten_wheels
       - id: cosmo
         label: CorrDiff COSMO-ERA5
@@ -400,7 +401,7 @@ categories:
           uv:
             pypi:
               - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
-        warnings:
+        notes:
           - *natten_wheels
       - id: cyclone
         label: Cyclone Trackers
@@ -477,7 +478,7 @@ categories:
           uv:
             pypi:
               - 'uv add "nvidia-physicsnemo@git+https://github.com/NVIDIA/physicsnemo.git@ff4cad2390e412b136e1739476506064d42eefba"'
-        warnings:
+        notes:
           - *natten_wheels
       - id: da-healda
         label: HealDA

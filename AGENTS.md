@@ -61,7 +61,7 @@ select extras from `install_options.yml`, and give the user install and verifica
 - [earth2studio-discover](./skills/earth2studio-discover/SKILL.md): choose models, sources, and examples.
 - [earth2studio-install](./skills/earth2studio-install/SKILL.md): install and configure the package.
 - [earth2studio-deterministic-forecast](./skills/earth2studio-deterministic-forecast/SKILL.md)
-  for single-member forecast scripts.
+  for single-member forecasts with optional diagnostic postprocessing.
 - [earth2studio-couple-models](./skills/earth2studio-couple-models/SKILL.md): run connected models.
 - [earth2studio-data-fetch](./skills/earth2studio-data-fetch/SKILL.md): download weather/climate data.
 - [earth2studio-create-datasource](./skills/earth2studio-create-datasource/SKILL.md): wrap a data source.
